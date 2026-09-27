@@ -9,7 +9,8 @@
     "./tokens.css": "./src/tokens.generated.css",
     "./theme.css": "./src/theme.generated.css",
     "./fonts.css": "./src/fonts.generated.css",
-    "./tokens.json": "./tokens.json"
+    "./tokens.json": "./tokens.json",
+    "./vite": "./src/vite.ts"
   },
   "scripts": {
     "generate": "node scripts/generate.ts",
@@ -27,6 +28,7 @@
     "@types/node": "26.6.3",
     "eslint": "10.11.0",
     "typescript": "6.0.3",
+    "vite": "8.3.1",
     "vitest": "5.0.2"
   }
 }

@@ -4,6 +4,14 @@
     "tagline": "Majstori u blizini, na vašem jeziku",
     "miniApp": "mini-aplikacija"
   },
+  "nav": {
+    "home": "Početna",
+    "jobs": "Zahtevi",
+    "messages": "Poruke",
+    "profile": "Profil",
+    "create": "Novi zahtev",
+    "sections": "Odeljci"
+  },
   "glossary": {
     "job": "zahtev",
     "response": "ponuda",

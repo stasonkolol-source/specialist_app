@@ -42,7 +42,7 @@
   --radius-btn-sm: var(--r-btn-sm);
   --radius-chip: var(--r-chip);
   --radius-badge: var(--r-badge);
-  --radius-banner: var(--r-banner);
+  --radius-panel: var(--r-panel);
   --radius-sheet: var(--r-sheet);
   --radius-photo: var(--r-photo);
   --font-sans: var(--f-ui);
@@ -100,4 +100,19 @@
   --text-price-lg: 22px;
   --text-price-lg--line-height: 28px;
   --text-price-lg--font-weight: 700;
+  --text-avatar-xs: 11px;
+  --text-avatar-xs--line-height: 1;
+  --text-avatar-xs--font-weight: 600;
+  --text-avatar-sm: 14px;
+  --text-avatar-sm--line-height: 1;
+  --text-avatar-sm--font-weight: 600;
+  --text-avatar-md: 17px;
+  --text-avatar-md--line-height: 1;
+  --text-avatar-md--font-weight: 600;
+  --text-avatar-lg: 30px;
+  --text-avatar-lg--line-height: 1;
+  --text-avatar-lg--font-weight: 600;
+  --text-avatar-xl: 36px;
+  --text-avatar-xl--line-height: 1;
+  --text-avatar-xl--font-weight: 600;
 }

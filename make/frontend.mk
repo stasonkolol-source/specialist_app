@@ -21,3 +21,15 @@ i18n-check: i18n-check-frontend ## Translation catalogs: sr-Latn up to date, key
 
 i18n-check-frontend: fe-install
 	@$(PNPM) --silent -F i18n i18n:check
+
+# Playwright — только в Docker-образе той же версии, что @playwright/test. Репозиторий смонтирован по тому же
+# пути, что на хосте: симлинки pnpm и пути в отчётах совпадают. Сборка (e2e:build) — на хосте.
+PLAYWRIGHT_IMAGE ?= mcr.microsoft.com/playwright:v1.63.0-noble
+PKG ?= ui-web
+E2E_DIR = $(firstword $(wildcard $(ROOT)/packages/$(PKG) $(ROOT)/apps/$(PKG)))
+
+.PHONY: e2e
+e2e: fe-install ## Playwright in Docker: make e2e [PKG=ui-web] [GREP=…] [UPDATE=1]
+	@$(PNPM) -F $(PKG) e2e:build
+	@docker run --rm --init --ipc=host -e CI -v "$(ROOT):$(ROOT)" -w "$(E2E_DIR)" $(PLAYWRIGHT_IMAGE) \
+	  node node_modules/@playwright/test/cli.js test $(if $(GREP),--grep "$(GREP)") $(if $(UPDATE),--update-snapshots)

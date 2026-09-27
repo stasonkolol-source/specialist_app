@@ -1,5 +1,6 @@
 // Шрифты self-host из @fontsource: только нужные начертания и подмножества, font-display: swap.
-// Vite разрешает url('@fontsource/...') как импорт пакета и кладёт woff2 в сборку — Google Fonts не нужен.
+// url — относительный путь в node_modules этого пакета: Tailwind встраивает CSS в пакет-потребитель и
+// переносит относительные url, а голый '@fontsource/…' оттуда не находится (pnpm). Google Fonts не нужен.
 
 export interface FontFamily {
   family: string;
@@ -68,7 +69,7 @@ export function renderFontsCss(faces: FontFace[]): string {
       '  font-style: normal;',
       '  font-display: swap;',
       `  font-weight: ${f.weight};`,
-      `  src: url('${f.file}') format('woff2');`,
+      `  src: url('../node_modules/${f.file}') format('woff2');`,
       `  unicode-range: ${f.unicodeRange};`,
       '}',
     ].join('\n'),
