@@ -5,6 +5,8 @@ import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
+import { ME } from '../src/testing/fixtures.ts';
+import type { MockApiOptions } from './api.ts';
 import { mockApi } from './api.ts';
 
 const THEMES = ['light', 'dark'] as const;
@@ -19,7 +21,7 @@ interface Watch {
 }
 
 /** Открыть приложение на mock-платформе и собирать всё, что не должно случиться. */
-async function open(page: Page, query: string): Promise<Watch> {
+async function open(page: Page, query: string, api: MockApiOptions = {}): Promise<Watch> {
   const watch: Watch = { problems: [], unexpectedApi: [] };
   page.on('request', (request) => {
     if (!request.url().startsWith('http://127.0.0.1'))
@@ -29,7 +31,7 @@ async function open(page: Page, query: string): Promise<Watch> {
     if (message.type() === 'error') watch.problems.push(`console ${message.text()}`);
   });
   page.on('pageerror', (error) => watch.problems.push(`page ${error.message}`));
-  await mockApi(page, watch.unexpectedApi);
+  await mockApi(page, watch.unexpectedApi, api);
   await page.goto(`/?platform=mock&${query}`);
   await page.evaluate(() => document.fonts.ready);
   return watch;
@@ -74,6 +76,59 @@ for (const theme of THEMES) {
     await expectNoAxeViolations(page);
   });
 }
+
+/** Перейти на S31 по таббару. */
+async function openProfile(page: Page) {
+  await page
+    .getByRole('navigation', { name: 'Разделы' })
+    .getByRole('link', { name: 'Профиль' })
+    .click();
+}
+
+for (const theme of THEMES) {
+  test(`S31 профиль ${theme}: имя и id из /me после входа`, async ({ page }) => {
+    const watch = await open(page, `theme=${theme}&lang=ru`, { signedIn: true });
+    await openProfile(page);
+
+    await expect(page.getByRole('heading', { name: ME.display_name })).toBeVisible();
+    await expect(page.getByText(`ID: ${ME.id}`)).toBeVisible();
+    expect(real(watch.problems)).toEqual([]);
+    expect(watch.unexpectedApi).toEqual([]);
+    await expect(page).toHaveScreenshot(`S31-account-${theme}-ru.png`, { fullPage: true });
+    await expectNoAxeViolations(page);
+  });
+}
+
+test('S31: язык пишется в PATCH /me и сразу меняет интерфейс', async ({ page }) => {
+  const watch = await open(page, 'theme=light&lang=ru', { signedIn: true });
+  await openProfile(page);
+  await expect(page.getByRole('heading', { name: ME.display_name })).toBeVisible();
+  const patch = page.waitForRequest(
+    (r) => r.method() === 'PATCH' && r.url().endsWith('/api/v1/me'),
+  );
+
+  await page.getByRole('radio', { name: 'Srpski (latinica)' }).click();
+
+  expect((await patch).postDataJSON()).toEqual({ ui_locale: 'sr-Latn' });
+  await expect(page.getByRole('heading', { name: 'Profil', level: 1 })).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'sr-Latn');
+  await expect(page.getByRole('radio', { name: 'Srpski (latinica)' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  expect(real(watch.problems)).toEqual([]);
+  expect(watch.unexpectedApi).toEqual([]);
+});
+
+test('S31 без входа: «Откройте в Telegram» вместо ошибки', async ({ page }) => {
+  const watch = await open(page, 'theme=light&lang=ru');
+  await openProfile(page);
+
+  await expect(page.getByRole('heading', { name: 'Откройте в Telegram' })).toBeVisible();
+  expect(real(watch.problems)).toEqual([]);
+  expect(watch.unexpectedApi).toEqual([]);
+  await expectNoAxeViolations(page);
+});
 
 test('таббар переключает разделы', async ({ page }) => {
   await open(page, 'theme=light&lang=ru');

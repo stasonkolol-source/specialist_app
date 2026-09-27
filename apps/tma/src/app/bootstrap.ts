@@ -42,6 +42,10 @@ export function assemble(platform: Platform, options: AssembleOptions): Assemble
   });
   const i18n = createI18n({ locale, appName: APP_NAME });
   document.documentElement.lang = locale;
+  // смена языка на экране (S31, позже S43) — без перезагрузки: lang страницы следует за i18n
+  i18n.on('languageChanged', (next) => {
+    document.documentElement.lang = next;
+  });
   const auth = createAuth(platform);
   configureApiClient({
     client: `tma/${options.version}`,

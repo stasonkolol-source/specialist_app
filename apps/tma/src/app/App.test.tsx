@@ -1,15 +1,17 @@
 // Smoke каркаса на mock-платформе (DEVELOPMENT_PLAN 0.21a): провайдеры, маршруты, таббар,
-// правило «таббар скрыт при MainButton», редирект неизвестного пути, язык из Telegram.
+// правило «таббар скрыт при MainButton», редирект неизвестного пути, язык из Telegram;
+// ходячий скелет 0.22: вход по initData → GET /me → имя на S31, смена языка.
 import type { ClientConfigOut } from '@sosed/api-client';
+import { setSession } from '@sosed/api-client';
 import { getSystemGetClientConfigMockHandler } from '@sosed/api-client/mocks';
 import { createMockPlatform } from '@sosed/platform';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { CLIENT_CONFIG } from '../testing/fixtures.ts';
-import { API_ORIGIN, server } from '../testing/msw.ts';
+import { CLIENT_CONFIG, ME } from '../testing/fixtures.ts';
+import { API_ORIGIN, TOKENS, server } from '../testing/msw.ts';
 import { App } from './App.tsx';
 import { assemble } from './bootstrap.ts';
 import { useUpgradeStore } from './upgrade.ts';
@@ -140,5 +142,34 @@ describe('client-config at startup', () => {
     );
     start('/');
     expect(await screen.findByRole('heading', { name: 'Вышла новая версия' })).toBeTruthy();
+  });
+});
+
+describe('walking skeleton (0.22)', () => {
+  afterEach(() => setSession(null));
+
+  it('signs in by initData, shows the name from /me and switches <html lang>', async () => {
+    // /me только с токеном из POST /auth/telegram: запрос раньше входа получит 401 и дождётся его
+    server.use(
+      http.get('*/api/v1/me', ({ request }) =>
+        request.headers.get('Authorization') === `Bearer ${TOKENS.access_token}`
+          ? HttpResponse.json(ME)
+          : HttpResponse.json(
+              { type: 'x', title: 'Unauthorized', status: 401, code: 'not_authenticated' },
+              { status: 401 },
+            ),
+      ),
+    );
+    const { app } = start('/profile');
+    void app.signIn(); // как main.tsx
+
+    expect(await screen.findByRole('heading', { name: ME.display_name })).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('radio', { name: 'Srpski (latinica)' }));
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Profil', level: 1 })).toBeTruthy();
+    expect(document.documentElement.lang).toBe('sr-Latn');
   });
 });
