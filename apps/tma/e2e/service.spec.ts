@@ -21,11 +21,17 @@ const LOCALES = [
     privacyTab: 'Конфиденциальность',
     privacy: 'Политика конфиденциальности',
     offline: 'Нет соединения',
+    offlineText: 'Проверьте интернет и попробуйте ещё раз',
     saved: 'Сохранено в 18:07',
     retry: 'Повторить',
     otherLanguage: 'Srpski (latinica)',
     restricted: 'Аккаунт ограничен до 3 октября',
     banner: 'До 3 октября, 18:00 нельзя откликаться на заявки',
+    suspended: 'Аккаунт приостановлен до 3 октября',
+    suspendedBanner: 'До 3 октября, 18:00 нельзя пользоваться аккаунтом',
+    left: 'Остаётся доступно',
+    maintenance: 'Технические работы',
+    updateTelegram: 'Обновите Telegram',
   },
   {
     locale: 'sr-Latn',
@@ -38,11 +44,17 @@ const LOCALES = [
     privacyTab: 'Privatnost',
     privacy: 'Politika privatnosti',
     offline: 'Nema veze',
+    offlineText: 'Proverite internet i pokušajte ponovo',
     saved: 'Sačuvano u 18:07',
     retry: 'Pokušaj ponovo',
     otherLanguage: 'Русский',
     restricted: /^Nalog je ograničen do 3\. oktob\S+$/,
     banner: /^Do 3\. oktob\S+ u 18:00 ne možete da šaljete ponude na zahteve$/,
+    suspended: /^Nalog je suspendovan do 3\. oktob\S+$/,
+    suspendedBanner: /^Do 3\. oktob\S+ u 18:00 ne možete da koristite nalog$/,
+    left: 'I dalje je dostupno',
+    maintenance: 'Tehnički radovi',
+    updateTelegram: 'Ažurirajte Telegram',
   },
 ] as const;
 
@@ -145,7 +157,8 @@ for (const theme of THEMES) {
 
       await expect(page.getByRole('heading', { name: l.restricted, level: 1 })).toBeVisible();
       await expect(page.getByRole('alert')).toHaveText(l.banner);
-      // обжалование — шаг 2.5b: ни MainButton, ни таббара
+      // обжалование — шаг 2.5b: ни кнопки, ни таббара. MainButton mock-клиента нативная и в DOM
+      // её не видно — что Telegram её не показывает, проверяют unit-тесты (SystemScreen, App)
       await expect(page.getByRole('navigation', { name: /Разделы|Odeljci/ })).toBeHidden();
       await expect(page.getByRole('button', { name: /Обжаловать|Uloži žalbu/ })).toHaveCount(0);
       expect(real(watch.problems, ['403'])).toEqual([]);
@@ -161,65 +174,98 @@ for (const theme of THEMES) {
   }
 }
 
-test('S49b санкция на весь аккаунт: вход отклонён, приложение закрыто', async ({ page }) => {
-  await page.clock.setFixedTime(NOW);
-  const watch = await open(page, 'theme=light&lang=ru', {
-    handlers: {
-      'POST /api/v1/auth/telegram': (route) =>
-        route.fulfill(problem(403, 'restricted', { restriction: 'suspended', until: UNTIL })),
-    },
-  });
+// Экраны S49 при старте — без оболочки маршрутов, но в теме и на языке пользователя
+for (const theme of THEMES) {
+  for (const l of LOCALES) {
+    const query = `theme=${theme}&lang=${l.telegram}`;
 
-  await expect(
-    page.getByRole('heading', { name: 'Аккаунт приостановлен до 3 октября', level: 1 }),
-  ).toBeVisible();
-  await expect(page.getByRole('alert')).toHaveText(
-    'До 3 октября, 18:00 нельзя пользоваться аккаунтом',
-  );
-  // весь аккаунт закрыт: списка «Остаётся доступно» и таббара нет
-  await expect(page.getByText('Остаётся доступно')).toHaveCount(0);
-  await expect(page.getByRole('navigation', { name: 'Разделы' })).toHaveCount(0);
-  expect(real(watch.problems, ['403'])).toEqual([]);
-  await expect(page).toHaveScreenshot('S49b-suspended-light-ru.png', { fullPage: true });
-  await expectNoAxeViolations(page);
+    test(`S49b санкция на весь аккаунт ${theme} ${l.locale}: вход отклонён, приложение закрыто`, async ({
+      page,
+    }) => {
+      await page.clock.setFixedTime(NOW);
+      const watch = await open(page, query, {
+        handlers: {
+          'POST /api/v1/auth/telegram': (route) =>
+            route.fulfill(problem(403, 'restricted', { restriction: 'suspended', until: UNTIL })),
+        },
+      });
 
-  await page.getByRole('button', { name: 'Правила площадки' }).click();
-  await expect(page.getByRole('heading', { name: 'Правила площадки', level: 1 })).toBeVisible();
-});
+      await expect(page.getByRole('heading', { name: l.suspended, level: 1 })).toBeVisible();
+      await expect(page.getByRole('alert')).toHaveText(l.suspendedBanner);
+      // весь аккаунт закрыт: списка «Остаётся доступно» и таббара нет
+      await expect(page.getByText(l.left)).toHaveCount(0);
+      await expect(page.getByRole('navigation', { name: /Разделы|Odeljci/ })).toHaveCount(0);
+      expect(real(watch.problems, ['403'])).toEqual([]);
+      await expect(page).toHaveScreenshot(`S49b-suspended-${theme}-${l.locale}.png`, {
+        fullPage: true,
+      });
+      await expectNoAxeViolations(page);
 
-test('S49a нет сети при старте: «Повторить» открывает приложение', async ({ page }) => {
-  let online = false;
-  const watch = await open(page, 'theme=light&lang=ru', {
-    handlers: {
-      'GET /api/v1/client-config': (route) =>
-        online ? route.fulfill(json(CLIENT_CONFIG)) : route.abort('internetdisconnected'),
-    },
-  });
+      await page.getByRole('button', { name: l.rules }).click();
+      await expect(page.getByRole('heading', { name: l.rules, level: 1 })).toBeVisible();
+    });
 
-  await expect(page.getByRole('heading', { name: 'Нет соединения', level: 1 })).toBeVisible({
-    timeout: 10_000,
-  });
-  await expect(page.getByText('Проверьте интернет и попробуйте ещё раз')).toBeVisible();
-  expect(real(watch.problems, [OFFLINE_CONSOLE])).toEqual([]);
-  await expect(page).toHaveScreenshot('S49a-start-offline-light-ru.png', { fullPage: true });
-  await expectNoAxeViolations(page);
+    test(`S49a нет сети при старте ${theme} ${l.locale}: «Повторить» открывает приложение`, async ({
+      page,
+    }) => {
+      let online = false;
+      const watch = await open(page, query, {
+        handlers: {
+          'GET /api/v1/client-config': (route) =>
+            online ? route.fulfill(json(CLIENT_CONFIG)) : route.abort('internetdisconnected'),
+        },
+      });
 
-  online = true;
-  await page.getByRole('button', { name: 'Повторить' }).click();
-  await expect(page.getByRole('heading', { name: 'Главная', level: 1 })).toBeVisible();
-});
+      await expect(page.getByRole('heading', { name: l.offline, level: 1 })).toBeVisible({
+        timeout: 10_000,
+      });
+      await expect(page.getByText(l.offlineText)).toBeVisible();
+      expect(real(watch.problems, [OFFLINE_CONSOLE])).toEqual([]);
+      await expect(page).toHaveScreenshot(`S49a-start-offline-${theme}-${l.locale}.png`, {
+        fullPage: true,
+      });
+      await expectNoAxeViolations(page);
 
-test('S49 техработы: флаг client-config закрывает приложение', async ({ page }) => {
-  const watch = await open(page, 'theme=light&lang=ru', {
-    config: { ...CLIENT_CONFIG, flags: { ...CLIENT_CONFIG.flags, 'platform.maintenance': true } },
-  });
+      online = true;
+      await page.getByRole('button', { name: l.retry }).click();
+      await expect(page.getByRole('heading', { name: l.home, level: 1 })).toBeVisible();
+    });
 
-  await expect(page.getByRole('heading', { name: 'Технические работы', level: 1 })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Повторить' })).toBeVisible();
-  expect(real(watch.problems)).toEqual([]);
-  await expect(page).toHaveScreenshot('S49a-maintenance-light-ru.png', { fullPage: true });
-  await expectNoAxeViolations(page);
-});
+    test(`S49 техработы ${theme} ${l.locale}: флаг client-config закрывает приложение`, async ({
+      page,
+    }) => {
+      const watch = await open(page, query, {
+        config: {
+          ...CLIENT_CONFIG,
+          flags: { ...CLIENT_CONFIG.flags, 'platform.maintenance': true },
+        },
+      });
+
+      await expect(page.getByRole('heading', { name: l.maintenance, level: 1 })).toBeVisible();
+      await expect(page.getByRole('button', { name: l.retry })).toBeVisible();
+      expect(real(watch.problems)).toEqual([]);
+      await expect(page).toHaveScreenshot(`S49a-maintenance-${theme}-${l.locale}.png`, {
+        fullPage: true,
+      });
+      await expectNoAxeViolations(page);
+    });
+
+    test(`S49 «обновите Telegram» ${theme} ${l.locale}: Bot API клиента ниже минимума`, async ({
+      page,
+    }) => {
+      const watch = await open(page, `${query}&tg=6.0`);
+
+      await expect(page.getByRole('heading', { name: l.updateTelegram, level: 1 })).toBeVisible();
+      // повторять нечего: помогает только обновление клиента
+      await expect(page.getByRole('button')).toHaveCount(0);
+      expect(real(watch.problems)).toEqual([]);
+      await expect(page).toHaveScreenshot(`S49a-update-telegram-${theme}-${l.locale}.png`, {
+        fullPage: true,
+      });
+      await expectNoAxeViolations(page);
+    });
+  }
+}
 
 test('S49 техработы: 503 maintenance от API', async ({ page }) => {
   const watch = await open(page, 'theme=dark&lang=sr', {
@@ -230,17 +276,6 @@ test('S49 техработы: 503 maintenance от API', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'Tehnički radovi', level: 1 })).toBeVisible();
   expect(real(watch.problems, ['503'])).toEqual([]);
-  await expectNoAxeViolations(page);
-});
-
-test('S49 «обновите Telegram»: Bot API клиента ниже минимума', async ({ page }) => {
-  const watch = await open(page, 'theme=light&lang=ru&tg=6.0');
-
-  await expect(page.getByRole('heading', { name: 'Обновите Telegram', level: 1 })).toBeVisible();
-  // повторять нечего: помогает только обновление клиента
-  await expect(page.getByRole('button')).toHaveCount(0);
-  expect(real(watch.problems)).toEqual([]);
-  await expect(page).toHaveScreenshot('S49a-update-telegram-light-ru.png', { fullPage: true });
   await expectNoAxeViolations(page);
 });
 
@@ -258,4 +293,36 @@ test('S49 426 от API: новая версия Mini App — «Перезагр�
   await expect(page.getByRole('button', { name: 'Перезагрузить' })).toBeVisible();
   expect(real(watch.problems, ['426'])).toEqual([]);
   await expectNoAxeViolations(page);
+});
+
+test('S49a нет сети: чанк вкладки не скачался — «Нет соединения», а не перезагрузка', async ({
+  page,
+  context,
+}) => {
+  // чанк «Сообщений» недоступен с самого старта: фоновая загрузка вкладок его не получила
+  await page.route('**/assets/s29-chats-*.js', (route) => route.abort('internetdisconnected'));
+  const watch = await open(page, 'theme=light&lang=ru');
+  await expect(page.getByRole('heading', { name: 'Главная', level: 1 })).toBeVisible();
+  // метка в памяти страницы: перезагрузка её сотрёт (sessionStorage пережил бы)
+  await page.evaluate(() => Object.assign(window, { e2eSamePage: true }));
+
+  // сеть пропала (метро), вкладка открывается впервые
+  await context.setOffline(true);
+  await openTab(page, 'Сообщения');
+
+  await expect(page.getByRole('heading', { name: 'Нет соединения', level: 1 })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Повторить' })).toBeVisible();
+  // та же страница: без сети Mini App не перезагружался, запасного экрана роутера нет
+  expect(await page.evaluate(() => 'e2eSamePage' in window)).toBe(true);
+  await expect(page.getByText(/Something went wrong/)).toHaveCount(0);
+  expect(
+    real(watch.problems, [
+      OFFLINE_CONSOLE,
+      // так WebKit пишет об оборванной загрузке скрипта модуля
+      'WebKit encountered an internal error',
+      'screen chunk failed',
+      'dynamically imported module',
+      'Importing a module script failed',
+    ]),
+  ).toEqual([]);
 });

@@ -1,14 +1,14 @@
-// Оболочка экранов: тема клиента, safe area, таббар и нижняя кнопка (DEVELOPMENT_PLAN 0.21a).
+// Оболочка экранов: safe area, таббар и нижняя кнопка (DEVELOPMENT_PLAN 0.21a). Тему клиента
+// синхронизирует точка сборки (app/App.tsx): экраны S49 при старте рисуются без оболочки.
 // Таббар — только на корневых экранах вкладок (SPEC §2) и скрыт, пока показана MainButton: у
 // экрана с главным действием нет навигации вниз. Внутренние экраны (S48, S49b) — с «Назад».
 import { useTranslation } from '@sosed/i18n';
-import { useBottomButtonState, useInsets, useThemeSync } from '@sosed/platform';
+import { useBottomButtonState, useInsets } from '@sosed/platform';
 import type { TabItem } from '@sosed/ui-web';
 import { Button, TabBar } from '@sosed/ui-web';
 import { Outlet, useRouter, useRouterState } from '@tanstack/react-router';
 import type { MouseEvent } from 'react';
-
-import { CHROME } from './chrome.ts';
+import { useEffect } from 'react';
 
 /** Высота .tabbar из ui.css (h-21): контент не уходит под таббар. */
 const TABBAR_HEIGHT = 84;
@@ -31,7 +31,14 @@ export function AppShell() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const main = useBottomButtonState('main');
   const insets = useInsets();
-  useThemeSync(CHROME);
+
+  // Экраны вкладок — отдельные чанки: загрузить их сразу после старта, пока есть сеть. Иначе
+  // вкладка, открытая впервые без сети (метро), не откроется совсем
+  useEffect(() => {
+    for (const path of [...TABS.map((tab) => tab.path), CREATE_PATH]) {
+      void router.preloadRoute({ to: path });
+    }
+  }, [router]);
 
   const navigate = (href: string, event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();

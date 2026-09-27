@@ -1,35 +1,57 @@
 // Smoke каркаса на mock-платформе (DEVELOPMENT_PLAN 0.21a): провайдеры, маршруты, таббар,
 // правило «таббар скрыт при MainButton», редирект неизвестного пути, язык из Telegram;
-// ходячий скелет 0.22: вход по initData → язык с сервера, GET /me → имя на S31, смена языка.
+// ходячий скелет 0.22: вход по initData → язык с сервера, GET /me → имя на S31, смена языка;
+// 1.5a: S48, S49 поверх приложения, ошибка рендера экрана и тема до первого экрана.
 import type { ClientConfigOut } from '@sosed/api-client';
 import { setSession } from '@sosed/api-client';
 import {
   getIdentityAuthenticateTelegramMockHandler,
   getSystemGetClientConfigMockHandler,
 } from '@sosed/api-client/mocks';
+import type { ColorScheme } from '@sosed/platform';
 import { createMockPlatform } from '@sosed/platform';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { FunctionComponent } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CLIENT_CONFIG, ME } from '../testing/fixtures.ts';
 import { API_ORIGIN, TOKENS, server } from '../testing/msw.ts';
 import { App } from './App.tsx';
 import { assemble } from './bootstrap.ts';
+import { CHROME } from './chrome.ts';
 import { useSystemStore } from '../features/service/s49-system/index.ts';
+
+/** Экран «Сообщения» падает при рендере, пока `broken.render`: ошибка любого экрана. */
+const broken = vi.hoisted(() => ({ render: false }));
+vi.mock('../features/messages/s29-chats/index.ts', async (importOriginal) => {
+  const actual = await importOriginal<{ ChatsScreen: FunctionComponent }>();
+  return {
+    ...actual,
+    ChatsScreen: () => {
+      if (broken.render) throw new TypeError('screen render failed');
+      return <actual.ChatsScreen />;
+    },
+  };
+});
 
 interface StartOptions {
   languageCode?: string;
   config?: ClientConfigOut;
   version?: string;
   telegramVersion?: string;
+  colorScheme?: ColorScheme;
 }
 
 function start(path = '/', options: StartOptions = {}) {
-  const { languageCode = 'ru', version = '0.1.0', telegramVersion, config } = options;
+  const { languageCode = 'ru', version = '0.1.0', telegramVersion, colorScheme, config } = options;
   if (config) server.use(getSystemGetClientConfigMockHandler(config));
-  const { platform, telegram } = createMockPlatform({ languageCode, version: telegramVersion });
+  const { platform, telegram } = createMockPlatform({
+    languageCode,
+    version: telegramVersion,
+    colorScheme,
+  });
   const app = assemble(platform, {
     version,
     history: createMemoryHistory({ initialEntries: [path] }),
@@ -41,7 +63,12 @@ function start(path = '/', options: StartOptions = {}) {
 
 beforeEach(() => {
   useSystemStore.setState({ appWide: null, restriction: null });
+  broken.render = false;
 });
+
+/** MainButton в Telegram нативная (в DOM её нет): показывалась ли она хоть раз. */
+const mainButtonShown = (telegram: ReturnType<typeof start>['telegram']) =>
+  telegram.callsOf('web_app_setup_main_button').some((params) => params?.is_visible === true);
 
 describe('Mini App skeleton', () => {
   it('renders home with the tab bar and signals ready to Telegram', async () => {
@@ -298,7 +325,7 @@ describe('S49 system states (1.5a)', () => {
         problem(403, 'restricted', { restriction: 'suspended', until: UNTIL }),
       ),
     );
-    const { app } = start('/');
+    const { app, telegram } = start('/');
     await act(async () => {
       await app.signIn();
     });
@@ -307,7 +334,9 @@ describe('S49 system states (1.5a)', () => {
       await screen.findByRole('heading', { name: 'Аккаунт приостановлен до 3 октября' }),
     ).toBeTruthy();
     expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
+    // «Обжаловать» — MainButton Telegram с шага 2.5b: ни в DOM, ни у клиента
     expect(screen.queryByRole('button', { name: 'Обжаловать' })).toBeNull();
+    expect(mainButtonShown(telegram)).toBe(false);
   });
 
   it('opens S49b when an action is refused by a partial restriction', async () => {
@@ -339,5 +368,43 @@ describe('S49 system states (1.5a)', () => {
     });
     expect(await screen.findByRole('heading', { name: ME.display_name })).toBeTruthy();
     expect(app.router.state.location.pathname).toBe('/profile');
+  });
+});
+
+describe('render errors and theme (1.5a)', () => {
+  it('shows S49 «Что-то пошло не так» when a screen throws and recovers on «Повторить»', async () => {
+    broken.render = true;
+    start('/messages');
+
+    // экран ошибки приложения, а не запасной экран роутера («Something went wrong!»)
+    expect(
+      await screen.findByRole('heading', { name: 'Что-то пошло не так', level: 1 }),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Something went wrong/)).toBeNull();
+
+    broken.render = false;
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    });
+    expect(await screen.findByRole('heading', { name: 'Сообщения', level: 1 })).toBeTruthy();
+    expect(screen.getByRole('navigation', { name: 'Разделы' })).toBeTruthy();
+  });
+
+  it('applies the dark theme and Telegram colors before a startup S49 screen', async () => {
+    const { telegram } = start('/', {
+      colorScheme: 'dark',
+      config: { ...CLIENT_CONFIG, flags: { ...CLIENT_CONFIG.flags, 'platform.maintenance': true } },
+    });
+
+    // оболочки маршрутов нет — тему ставит точка сборки
+    expect(await screen.findByRole('heading', { name: 'Технические работы' })).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(telegram.callsOf('web_app_set_header_color').at(-1)).toEqual({
+      color: CHROME.dark.header,
+    });
+    expect(telegram.callsOf('web_app_set_background_color').at(-1)).toEqual({
+      color: CHROME.dark.background,
+    });
   });
 });

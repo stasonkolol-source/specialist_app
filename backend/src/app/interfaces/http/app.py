@@ -22,6 +22,7 @@ from app.interfaces.http.operation_ids import operation_id
 from app.platform.config.cache import ClientConfigCache
 from app.platform.config.port import MAINTENANCE_FLAG
 from app.platform.i18n.translator import Translator
+from app.platform.legal.port import LegalLibrary
 from app.platform.settings import Environment, Settings
 
 API_PREFIX = "/api/v1"
@@ -37,6 +38,9 @@ def create_app(
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        # тексты правовых документов проверяются при старте: ошибка в них не выпускает релиз,
+        # а не роняет GET /client-config у всех клиентов
+        await container.get(LegalLibrary)
         yield
         await container.close()
 

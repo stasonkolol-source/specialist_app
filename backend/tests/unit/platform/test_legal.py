@@ -129,6 +129,10 @@ def test_serbian_latin_is_transliterated_from_cyrillic(tmp_path: Path) -> None:
     ("files", "message"),
     [
         ({"terms/v2/ru.md": SAMPLE.replace("date: 2026-10-01\n", "")}, "дат"),
+        (
+            {"terms/v2/ru.md": SAMPLE.replace("date: 2026-10-01", "date: 2026-10-01 09:00:00")},
+            "дат",
+        ),
         ({"terms/v2/ru.md": SAMPLE.split("---\n", 2)[2]}, "front matter"),
         ({"terms/v2/ru.md": SAMPLE.replace("{{appName}}", "{{APP}}")}, "APP"),
         ({"terms/v2/ru.md": SAMPLE.replace("# Правила", "Правила")}, "заголовк"),

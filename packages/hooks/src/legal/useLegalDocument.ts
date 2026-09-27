@@ -32,7 +32,9 @@ export function legalText(document: LegalDocumentOut, locale: Locale): LegalText
 
 export function useLegalDocument(key: LegalDocumentKey, locale: Locale) {
   const config = useClientConfig();
-  const document = config.data?.legal_documents[key];
+  // `?.` у legal_documents: фронтенд и backend выкатываются порознь (ADR-0015) — конфиг старого
+  // backend без поля даёт «Документ недоступен», а не падение рендера
+  const document = config.data?.legal_documents?.[key];
   const text = document ? legalText(document, locale) : null;
   return {
     config,

@@ -32,6 +32,10 @@ function renderWith(node: ReactNode, locale: Locale = 'ru') {
   return { ...view, telegram };
 }
 
+/** «Обжаловать» на артборде — MainButton Telegram: в DOM её нет, смотрим вызовы клиента. */
+const mainButtonShown = (telegram: ReturnType<typeof renderWith>['telegram']) =>
+  telegram.callsOf('web_app_setup_main_button').some((params) => params?.is_visible === true);
+
 const restricted = (restriction: RestrictedState['restriction'], until: Date | null) =>
   ({
     kind: 'restricted',
@@ -42,7 +46,9 @@ const restricted = (restriction: RestrictedState['restriction'], until: Date | n
 
 describe('S49b account restricted', () => {
   it('shows a partial restriction with its term and what stays available', () => {
-    renderWith(<SystemScreen state={restricted('responding_blocked', UNTIL)} onRetry={vi.fn()} />);
+    const { telegram } = renderWith(
+      <SystemScreen state={restricted('responding_blocked', UNTIL)} onRetry={vi.fn()} />,
+    );
 
     expect(
       screen.getByRole('heading', { name: 'Аккаунт ограничен до 3 октября', level: 1 }),
@@ -65,6 +71,7 @@ describe('S49b account restricted', () => {
     ).toBeTruthy();
     // «Обжаловать» включает шаг 2.5b
     expect(screen.queryByRole('button', { name: 'Обжаловать' })).toBeNull();
+    expect(mainButtonShown(telegram)).toBe(false);
   });
 
   it('closes the whole account without the «still available» list', () => {
@@ -108,6 +115,8 @@ describe('S49b account restricted', () => {
     expect(telegram.callsOf('web_app_setup_back_button').at(-1)).toMatchObject({
       is_visible: false,
     });
+    expect(screen.queryByRole('button', { name: 'Обжаловать' })).toBeNull();
+    expect(mainButtonShown(telegram)).toBe(false);
   });
 });
 

@@ -1,7 +1,7 @@
 // Роутер: в Telegram — hash history (URL Mini App не меняется, перезагрузка внутри клиента
 // возвращает на тот же экран), в браузере — обычная, в тестах — memory.
 import type { PlatformKind } from '@sosed/platform';
-import type { RouterHistory } from '@tanstack/react-router';
+import type { AnyRouter, RouterHistory } from '@tanstack/react-router';
 import {
   createBrowserHistory,
   createHashHistory,
@@ -18,7 +18,25 @@ export function historyFor(kind: PlatformKind, initialPath = '/'): RouterHistory
 }
 
 export function createAppRouter(history: RouterHistory) {
-  return createRouter({ routeTree, history, defaultPreload: 'intent', scrollRestoration: true });
+  return createRouter({
+    routeTree,
+    history,
+    defaultPreload: 'intent',
+    scrollRestoration: true,
+    // Ошибка рендера экрана — к ErrorBoundary приложения (S49 с «Повторить»), а не в запасной
+    // экран TanStack по-английски
+    disableGlobalCatchBoundary: true,
+  });
+}
+
+/** «Повторить» после ошибки рендера: заново загрузить чанки экранов текущего адреса и перечитать
+ *  маршруты. lazyRouteComponent забывает неудачный импорт только при повторной загрузке — без неё
+ *  экран бросил бы ту же ошибку. Снова не загрузилось — экран бросит её, и S49 покажется опять. */
+export async function reloadRoutes(router: AnyRouter): Promise<void> {
+  await Promise.allSettled(
+    router.state.matches.map((match) => router.loadRouteChunk(router.routesById[match.routeId])),
+  );
+  void router.invalidate();
 }
 
 declare module '@tanstack/react-router' {

@@ -108,7 +108,8 @@ def _parse(path: Path, placeholders: Mapping[str, str]) -> tuple[date, LegalText
         raise LegalContentError(f"{path}: нет front matter с датой редакции (---\\ndate: …\\n---)")
     meta = yaml.safe_load(match["meta"])
     published_on = meta.get("date") if isinstance(meta, dict) else None
-    if not isinstance(published_on, date):
+    # datetime — подкласс date: «2026-10-01 09:00:00» не прошла бы как дата редакции
+    if type(published_on) is not date:
         raise LegalContentError(f"{path}: в front matter нет даты `date: ГГГГ-ММ-ДД`")
     text = _substitute(_COMMENT.sub("", raw[match.end() :]), placeholders, path).strip()
     heading, _, body = text.partition("\n")
