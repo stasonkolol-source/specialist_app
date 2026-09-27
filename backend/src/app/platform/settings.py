@@ -47,6 +47,8 @@ class AppSettings(_Group):
     log_level: str = "INFO"
     log_json: bool = True
     release: str = "dev"
+    heartbeat_url: str | None = None
+    """Ping Healthchecks.io раз в минуту из воркера (K33), без адреса — только лог."""
 
 
 class DbSettings(_Group):
