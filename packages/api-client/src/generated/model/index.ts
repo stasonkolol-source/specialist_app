@@ -6,6 +6,10 @@
  */
 
 export * from './authOut.ts';
+export * from './clientConfigOut.ts';
+export * from './clientConfigOutFlags.ts';
+export * from './clientConfigOutLegalVersions.ts';
+export * from './clientConfigOutMinVersions.ts';
 export * from './fieldErrorOut.ts';
 export * from './identityAuthenticateTelegramHeaders.ts';
 export * from './identityUpdateMeHeaders.ts';

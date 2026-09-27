@@ -16,10 +16,16 @@ from limits.aio.strategies import SlidingWindowCounterRateLimiter
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app.platform.audit.port import AuditLog
+from app.platform.audit.sql import SqlAuditLog
+from app.platform.config.cache import ClientConfigCache
+from app.platform.config.port import FeatureFlags
 from app.platform.db.engine import libpq_dsn, make_engine, make_session_maker
 from app.platform.db.port import UnitOfWork
 from app.platform.db.uow import SqlAlchemyUnitOfWork
 from app.platform.i18n.translator import Translator
+from app.platform.idempotency.port import IdempotencyStore
+from app.platform.idempotency.sql import SqlIdempotencyStore
 from app.platform.kernel.clock import Clock, SystemClock
 from app.platform.queue.dispatcher import EventDispatcher, EventRegistry
 from app.platform.queue.port import JobQueue
@@ -115,6 +121,14 @@ class PlatformProvider(Provider):
     clock = provide(SystemClock, scope=Scope.APP, provides=Clock)
 
     @provide(scope=Scope.APP)
+    def client_config(self, maker: async_sessionmaker[AsyncSession]) -> ClientConfigCache:
+        return ClientConfigCache(maker)
+
+    @provide(scope=Scope.APP)
+    def feature_flags(self, cache: ClientConfigCache) -> FeatureFlags:
+        return cache
+
+    @provide(scope=Scope.APP)
     def init_data_verifier(self, telegram: TelegramSettings, clock: Clock) -> InitDataVerifier:
         return InitDataVerifier(telegram.bot_token, clock)
 
@@ -161,3 +175,5 @@ class PlatformProvider(Provider):
         return EventDispatcher(registry, queue)
 
     uow = provide(SqlAlchemyUnitOfWork, scope=Scope.REQUEST, provides=UnitOfWork)
+    audit_log = provide(SqlAuditLog, scope=Scope.REQUEST, provides=AuditLog)
+    idempotency = provide(SqlIdempotencyStore, scope=Scope.REQUEST, provides=IdempotencyStore)

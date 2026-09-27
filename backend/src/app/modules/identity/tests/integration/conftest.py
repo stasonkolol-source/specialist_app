@@ -25,6 +25,7 @@ from app.modules.identity.infrastructure.repositories import (
     SqlSessionRepository,
     SqlUserRepository,
 )
+from app.platform.audit.sql import SqlAuditLog
 from app.platform.db.uow import SqlAlchemyUnitOfWork
 from app.platform.kernel.ids import UserId, new_id
 from app.platform.kernel.principal import Role
@@ -102,7 +103,17 @@ def identity(db_session: AsyncSession, procrastinate_app: procrastinate.App) -> 
         tokens=tokens,
         revocations=revocations,
         authenticate=AuthenticateTelegram(uow, users, sessions, query, tokens, CONFIG, clock),
-        refresh=RefreshSession(uow, users, sessions, query, tokens, revocations, CONFIG, clock),
+        refresh=RefreshSession(
+            uow,
+            users,
+            sessions,
+            query,
+            tokens,
+            revocations,
+            SqlAuditLog(db_session, uow),
+            CONFIG,
+            clock,
+        ),
         logout=Logout(uow, sessions, revocations, clock),
         facade=IdentityFacade(query, clock),
     )

@@ -47,6 +47,18 @@ msgstr "Некорректный параметр страницы."
 msgid "errors.invalid_if_match"
 msgstr "Некорректный заголовок If-Match."
 
+msgid "errors.idempotency_key_required"
+msgstr "Нужен заголовок Idempotency-Key."
+
+msgid "errors.invalid_idempotency_key"
+msgstr "Некорректный заголовок Idempotency-Key."
+
+msgid "errors.idempotency_key_reused"
+msgstr "Этот Idempotency-Key уже использован с другими данными."
+
+msgid "errors.idempotency_in_progress"
+msgstr "Запрос уже выполняется. Повторите чуть позже."
+
 msgid "errors.invalid_init_data"
 msgstr "Не удалось войти через Telegram. Откройте приложение заново."
 
