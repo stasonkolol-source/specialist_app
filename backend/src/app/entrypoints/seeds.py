@@ -7,7 +7,8 @@
 - `seeds/geo/<город>.geojson` — валидные MultiPolygon в границах Сербии, уникальные slug,
   родитель — municipality, центр внутри своего полигона, CHECK локалей.
 
-Загрузку в БД делают шаги 1.3a (гео) и 1.3b (каталог); модели здесь — их входной формат.
+Модели здесь — входной формат загрузки в БД (`cli seed`): `load_city_seeds` (1.3a) и
+`load_catalog_seed` (1.3b) превращают файлы в DTO импорта модулей geo и catalog.
 """
 
 import json
@@ -19,10 +20,23 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from shapely.geometry import MultiPolygon, Point, shape
 from shapely.ops import unary_union
 
+from app.modules.catalog.api import RiskLevel
+from app.modules.catalog.application.dto import CategorySeed, TagSeed
+from app.modules.catalog.domain.category import PriceHint as PriceHintValue
+from app.modules.catalog.domain.category import PriceUnit
+from app.modules.catalog.domain.terms import MAX_TERM_LENGTH, SearchTerm, TermLanguage
 from app.modules.geo.application.dto import CitySeed, DistrictSeed
 from app.modules.geo.domain.place import DistrictKind as GeoDistrictKind
 from app.platform.kernel.geo import GeoPoint
@@ -36,35 +50,31 @@ MIN_SIBLING_OVERLAP = 0.05
 """Доля площади меньшего района, при которой пересечение соседей — ошибка данных."""
 
 Slug = Annotated[str, Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=64)]
-
-
-class Unit(StrEnum):
-    HOUR = "hour"
-    JOB = "job"
-    VISIT = "visit"
-    PIECE = "piece"
-    SERVICE = "service"
-    LESSON = "lesson"
-    M2 = "m2"
-    MOVE = "move"
+Term = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_TERM_LENGTH)
+]
+"""Строка словаря поиска (search_terms.term): синоним или название на любой локали."""
 
 
 class Names(BaseModel):
-    """Названия: ru и sr-Cyrl обязательны (CHECK в БД), sr-Latn — транслит, если не задан."""
+    """Названия: ru и sr-Cyrl обязательны (CHECK в БД), sr-Latn — транслит, если не задан.
+
+    Названия категорий и тегов попадают в словарь поиска — отсюда предел длины Term.
+    """
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    ru: str = Field(min_length=1)
-    sr_cyrl: str = Field(alias="sr-Cyrl", min_length=1)
-    sr_latn: str | None = Field(default=None, alias="sr-Latn")
-    en: str | None = None
+    ru: Term
+    sr_cyrl: Term = Field(alias="sr-Cyrl")
+    sr_latn: Term | None = Field(default=None, alias="sr-Latn")
+    en: Term | None = None
 
 
 class PriceHint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     rsd: tuple[int, int]
-    unit: Unit
+    unit: PriceUnit
 
     @field_validator("rsd")
     @classmethod
@@ -78,9 +88,9 @@ class PriceHint(BaseModel):
 class Terms(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    ru: list[str] = Field(default_factory=list)
-    sr: list[str] = Field(default_factory=list)
-    en: list[str] = Field(default_factory=list)
+    ru: list[Term] = Field(default_factory=list)
+    sr: list[Term] = Field(default_factory=list)
+    en: list[Term] = Field(default_factory=list)
 
 
 class Tag(BaseModel):
@@ -95,7 +105,8 @@ class Category(BaseModel):
 
     slug: Slug
     name: Names
-    icon: str | None = None
+    icon: str | None = Field(default=None, max_length=32)
+    """Имя иконки дизайн-системы: categories.icon — varchar(32)."""
     risk_level: int = Field(default=0, ge=0, le=2)
     price_hint: dict[str, PriceHint] = Field(default_factory=dict)
     terms: Terms = Field(default_factory=Terms)
@@ -384,6 +395,39 @@ def load_city_seeds(seeds: Path = SEEDS_DIR) -> list[CitySeed]:
             )
         )
     return result
+
+
+def load_catalog_seed(seeds: Path = SEEDS_DIR) -> list[CategorySeed]:
+    """Таксономия для импорта (1.3b): порядок в YAML — порядок показа, цены — в пара."""
+    taxonomy = Taxonomy.model_validate(_load_yaml(seeds / "catalog" / "taxonomy.yaml"))
+    return [_category(category, index) for index, category in enumerate(taxonomy.categories)]
+
+
+def _category(category: Category, sort_order: int) -> CategorySeed:
+    terms = category.terms
+    synonyms = [
+        SearchTerm.synonym(text, language)
+        for language, texts in (
+            (TermLanguage.RU, terms.ru),
+            (TermLanguage.SR, terms.sr),
+            (TermLanguage.EN, terms.en),
+        )
+        for text in texts
+    ]
+    return CategorySeed(
+        slug=category.slug,
+        name=_localized(category.name),
+        icon=category.icon,
+        risk_level=RiskLevel(category.risk_level),
+        sort_order=sort_order,
+        price_hints={
+            city: PriceHintValue.from_rsd(*hint.rsd, hint.unit)
+            for city, hint in category.price_hint.items()
+        },
+        synonyms=tuple(synonyms),
+        tags=tuple(TagSeed(slug=tag.slug, name=_localized(tag.name)) for tag in category.tags),
+        children=tuple(_category(child, index) for index, child in enumerate(category.children)),
+    )
 
 
 def _localized(names: Names) -> LocalizedText:

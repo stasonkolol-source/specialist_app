@@ -147,19 +147,23 @@ def seeds_validate() -> None:
 
 @app.command()
 def seed() -> None:
-    """Загрузить сиды в БД идемпотентно: города и районы (1.3a); повтор ничего не меняет."""
-    from app.entrypoints.seeds import load_city_seeds, validate
+    """Загрузить сиды в БД идемпотентно: гео (1.3a) и каталог (1.3b); повтор ничего не меняет."""
+    from app.entrypoints.seeds import load_catalog_seed, load_city_seeds, validate
 
     report = validate()
     if not report.ok:
         for error in report.errors:
             typer.echo(f"error: {error}", err=True)
         raise typer.Exit(code=1)
-    asyncio.run(_seed_geo(load_city_seeds()))
+    asyncio.run(_seed(load_city_seeds(), load_catalog_seed()))
 
 
-async def _seed_geo(cities: list[Any]) -> None:
+async def _seed(cities: list[Any], categories: list[Any]) -> None:
     from app.entrypoints._wiring import make_worker_container
+    from app.modules.catalog.application.use_cases.import_catalog import (
+        ImportCatalog,
+        ImportCatalogCommand,
+    )
     from app.modules.geo.application.use_cases.import_city import (
         ImportCity,
         ImportCityCommand,
@@ -175,6 +179,13 @@ async def _seed_geo(cities: list[Any]) -> None:
                 f"geo {city.slug}: created {result.created}, updated {result.updated},"
                 f" unchanged {result.unchanged}"
             )
+        async with container() as request:
+            import_catalog = await request.get(ImportCatalog)
+            catalog = await import_catalog(ImportCatalogCommand(categories=tuple(categories)))
+        typer.echo(
+            f"catalog: created {catalog.created}, updated {catalog.updated},"
+            f" unchanged {catalog.unchanged}"
+        )
     finally:
         await container.close()
 

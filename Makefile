@@ -117,7 +117,7 @@ audit: ## Уязвимости зависимостей (pip-audit, pnpm audit) 
 image: ## Собрать образ backend: specialist/backend:dev (роль — аргумент: web | bot | worker | cli …)
 	@docker build -t specialist/backend:dev $(BACKEND)
 
-seed: ## Загрузить сиды в dev-БД идемпотентно: города и районы (1.3a), каталог — с 1.3b
+seed: ## Загрузить сиды в dev-БД идемпотентно: гео (1.3a) и каталог (1.3b)
 	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli seed
 
 seeds-validate: ## Сиды пилотной зоны: гео, таксономия, запросы (шаг 0.27)

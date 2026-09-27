@@ -11,16 +11,6 @@ from app.modules.geo.application.dto import CitySeed, DistrictSeed, ImportResult
 from app.modules.geo.domain.place import DistrictKind
 from app.modules.geo.infrastructure.models import CityRow, DistrictRow
 from app.platform.db.port import UnitOfWork
-from app.platform.kernel.localized import Locale, LocalizedText
-from app.platform.kernel.translit import sr_cyrl_to_latn
-
-
-def with_latin(name: LocalizedText) -> LocalizedText:
-    """sr-Latn генерируется из sr-Cyrl, если не задан явно (ARCHITECTURE §7.4)."""
-    values = dict(name.values)
-    if Locale.SR_LATN not in values and Locale.SR_CYRL in values:
-        values[Locale.SR_LATN] = sr_cyrl_to_latn(values[Locale.SR_CYRL])
-    return LocalizedText(values)
 
 
 def _hash(payload: object) -> str:
@@ -40,7 +30,7 @@ class SqlGeoWriter:
     async def upsert_city(self, seed: CitySeed) -> ImportResult:
         self._uow.require_active()
         counts = {"created": 0, "updated": 0, "unchanged": 0}
-        name = with_latin(seed.name)
+        name = seed.name.with_sr_latn()
         city_hash = _hash(
             [
                 seed.slug,
@@ -77,7 +67,7 @@ class SqlGeoWriter:
         return ImportResult(**counts)
 
     def _district_values(self, district: DistrictSeed, parent_id: int | None) -> dict[str, object]:
-        name = with_latin(district.name)
+        name = district.name.with_sr_latn()
         payload = [
             district.kind.value,
             parent_id,

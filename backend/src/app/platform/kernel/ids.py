@@ -16,6 +16,10 @@ CityId = NewType("CityId", int)
 DistrictId = NewType("DistrictId", int)
 """Справочники geo — int identity (ARCHITECTURE §7.3): их id видят фасады и API."""
 
+CategoryId = NewType("CategoryId", int)
+TagId = NewType("TagId", int)
+"""Справочник catalog — int identity: id категорий лежат в `category_path int[]` заявок и поиска."""
+
 
 def new_id() -> UUID:
     """Новый UUIDv7. Монотонен в пределах процесса (счётчик внутри миллисекунды)."""

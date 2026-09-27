@@ -6,12 +6,15 @@
  */
 
 export * from './authOut.ts';
+export * from './catalogListCategoriesParams.ts';
+export * from './categoryOut.ts';
 export * from './cityOut.ts';
 export * from './cityStatus.ts';
 export * from './clientConfigOut.ts';
 export * from './clientConfigOutFlags.ts';
 export * from './clientConfigOutLegalVersions.ts';
 export * from './clientConfigOutMinVersions.ts';
+export * from './currency.ts';
 export * from './districtKind.ts';
 export * from './districtOut.ts';
 export * from './districtRefOut.ts';
@@ -22,8 +25,12 @@ export * from './identityUpdateMeHeaders.ts';
 export * from './locale.ts';
 export * from './meOut.ts';
 export * from './meUpdateIn.ts';
+export * from './moneyOut.ts';
 export * from './pointOut.ts';
+export * from './priceHintOut.ts';
+export * from './priceUnit.ts';
 export * from './problemOut.ts';
 export * from './refreshIn.ts';
 export * from './resolveOut.ts';
+export * from './tagOut.ts';
 export * from './tokensOut.ts';
