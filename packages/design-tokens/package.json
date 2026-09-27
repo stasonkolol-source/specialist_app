@@ -1,0 +1,32 @@
+{
+  "name": "@sosed/design-tokens",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Дизайн-токены из утверждённого design/ui.css: CSS-переменные, блок @theme для Tailwind 4, TS-экспорт; шрифты self-host",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens.css": "./src/tokens.generated.css",
+    "./theme.css": "./src/theme.generated.css",
+    "./fonts.css": "./src/fonts.generated.css",
+    "./tokens.json": "./tokens.json"
+  },
+  "scripts": {
+    "generate": "node scripts/generate.ts",
+    "check:contrast": "node scripts/check-contrast.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fontsource/onest": "5.3.1",
+    "@fontsource/unbounded": "5.3.0"
+  },
+  "devDependencies": {
+    "@sosed/config": "workspace:*",
+    "@types/node": "26.6.3",
+    "eslint": "10.11.0",
+    "typescript": "6.0.3",
+    "vitest": "5.0.2"
+  }
+}

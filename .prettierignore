@@ -1,0 +1,14 @@
+# Prettier форматирует только фронтенд: apps/, packages/ и корневые конфиги монорепо
+backend/
+design/
+docs/
+infra/
+scripts/
+make/
+**/*.md
+/.pre-commit-config.yaml
+/.github/workflows/ci-backend.yml
+pnpm-lock.yaml
+**/*.generated.*
+**/dist/
+**/coverage/
