@@ -1,0 +1,70 @@
+{
+ "png_bytes": 102936,
+ "targets": [
+  {
+   "target": "garage v2.4.1",
+   "endpoint": "http://garage:3900",
+   "create_bucket": "BucketAlreadyOwnedByYou: An error occurred (BucketAlreadyOwnedByYou) when calling the CreateBucket operat",
+   "bucket_ok": true,
+   "put_get_bucket_cors": "OK (1 rule)",
+   "presigned_put": "200 in 5.6 ms",
+   "presigned_get": "200 in 1.1 ms, sha256 match=True",
+   "head_content_type": "image/png",
+   "tampered_signature_rejected": "True (HTTP 403)",
+   "expired_url_rejected": "True (HTTP 400, <?xml version=\"1.0\" encoding=\"UTF-8\"?><Error><Code>InvalidRequest</Code><Message>Bad request: Date is too old</Message><Resource>/lab/uploads/ec6c1128367f47528e)",
+   "presigned_post": "HTTP 204, stored=True",
+   "cors_preflight": "HTTP 200, Access-Control-Allow-Origin=http://localhost:3000",
+   "_key": "uploads/ec6c1128367f47528ed77155502e57cf.png"
+  },
+  {
+   "target": "seaweedfs 4.47",
+   "endpoint": "http://seaweedfs:8333",
+   "create_bucket": "BucketAlreadyOwnedByYou: An error occurred (BucketAlreadyOwnedByYou) when calling the CreateBucket operat",
+   "bucket_ok": true,
+   "put_get_bucket_cors": "OK (1 rule)",
+   "presigned_put": "200 in 2.2 ms",
+   "presigned_get": "200 in 1.0 ms, sha256 match=True",
+   "head_content_type": "image/png",
+   "tampered_signature_rejected": "True (HTTP 403)",
+   "expired_url_rejected": "True (HTTP 403)",
+   "presigned_post": "HTTP 204, stored=True",
+   "cors_preflight": "HTTP 200, Access-Control-Allow-Origin=http://localhost:3000",
+   "_key": "uploads/cf502172499b446699a36cd04970acd6.png"
+  },
+  {
+   "target": "rustfs 1.0.0",
+   "endpoint": "http://rustfs:9000",
+   "create_bucket": "created",
+   "bucket_ok": true,
+   "put_get_bucket_cors": "OK (1 rule)",
+   "presigned_put": "200 in 2.7 ms",
+   "presigned_get": "200 in 1.1 ms, sha256 match=True",
+   "head_content_type": "image/png",
+   "tampered_signature_rejected": "True (HTTP 403)",
+   "expired_url_rejected": "True (HTTP 403)",
+   "presigned_post": "HTTP 204, stored=True",
+   "cors_preflight": "HTTP 200, Access-Control-Allow-Origin=http://localhost:3000",
+   "_key": "uploads/fd9d21d324074cf6bc636824d9204c39.png"
+  }
+ ],
+ "imgproxy_from_garage": {
+  "png": {
+   "status": 200,
+   "ms": 6.3,
+   "content_type": "image/png",
+   "bytes": 1080,
+   "size": [
+    320,
+    240
+   ]
+  },
+  "webp": {
+   "status": 200,
+   "ms": 8.9,
+   "content_type": "image/webp",
+   "bytes": 1294,
+   "riff_webp": true
+  },
+  "unsigned_request_status": 403
+ }
+}

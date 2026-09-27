@@ -1,0 +1,27 @@
+                                                                                                       QUERY PLAN                                                                                                        
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=56276.91..56289.43 rows=1 width=70) (actual time=1.313..1.325 rows=20.00 loops=1)
+   Buffers: shared hit=5006
+   ->  Result  (cost=56276.91..56289.43 rows=1 width=70) (actual time=1.313..1.324 rows=20.00 loops=1)
+         Buffers: shared hit=5006
+         ->  Sort  (cost=56276.91..56276.92 rows=1 width=94) (actual time=1.312..1.313 rows=20.00 loops=1)
+               Sort Key: r.created_at DESC, r.id DESC
+               Sort Method: top-N heapsort  Memory: 28kB
+               Buffers: shared hit=5006
+               ->  Nested Loop  (cost=0.29..56276.90 rows=1 width=94) (actual time=0.012..1.290 rows=298.00 loops=1)
+                     Buffers: shared hit=5006
+                     ->  Seq Scan on category  (cost=0.00..14.75 rows=52 width=4) (actual time=0.002..0.016 rows=54.00 loops=1)
+                           Filter: (path <@ 'repair'::ltree)
+                           Rows Removed by Filter: 246
+                           Buffers: shared hit=11
+                     ->  Index Scan using req_open_cat_created_idx on request r  (cost=0.29..1081.95 rows=1 width=98) (actual time=0.004..0.023 rows=5.52 loops=54)
+                           Index Cond: (category_id = category.id)
+                           Filter: ((urgency <= 1) AND (COALESCE(budget_max_rsd, 0) >= 3000) AND st_dwithin(location, '0101000020E61000004BEA0434117634400000000000684640'::geography, '10000'::double precision, true))
+                           Rows Removed by Filter: 85
+                           Index Searches: 54
+                           Buffers: shared hit=4995
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.316 ms
+ Execution Time: 1.330 ms
+(24 rows)

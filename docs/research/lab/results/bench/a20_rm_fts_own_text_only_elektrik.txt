@@ -1,0 +1,27 @@
+                                                                               QUERY PLAN                                                                               
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=1434.01..1434.06 rows=20 width=34) (actual time=1.481..1.483 rows=20.00 loops=1)
+   Buffers: shared hit=622
+   ->  Sort  (cost=1434.01..1436.61 rows=1043 width=34) (actual time=1.481..1.482 rows=20.00 loops=1)
+         Sort Key: (ts_rank_cd(specialist_search.search_tsv_own, '''электрик'' | ''эlektrik'' | ''электрик'''::tsquery, 32)) DESC, specialist_search.specialist_id DESC
+         Sort Method: top-N heapsort  Memory: 27kB
+         Buffers: shared hit=622
+         ->  Bitmap Heap Scan on specialist_search  (cost=341.67..1406.25 rows=1043 width=34) (actual time=0.820..1.447 rows=501.00 loops=1)
+               Recheck Cond: ((search_tsv_own @@ '''электрик'' | ''эlektrik'' | ''электрик'''::tsquery) AND (city_id = 1))
+               Heap Blocks: exact=492
+               Buffers: shared hit=622
+               ->  BitmapAnd  (cost=341.67..341.67 rows=1043 width=0) (actual time=0.801..0.801 rows=0.00 loops=1)
+                     Buffers: shared hit=130
+                     ->  Bitmap Index Scan on ss_tsv_own_gin  (cost=0.00..21.57 rows=2098 width=0) (actual time=0.056..0.056 rows=1026.00 loops=1)
+                           Index Cond: (search_tsv_own @@ '''электрик'' | ''эlektrik'' | ''электрик'''::tsquery)
+                           Index Searches: 1
+                           Buffers: shared hit=7
+                     ->  Bitmap Index Scan on ss_city_score_idx  (cost=0.00..319.32 rows=24481 width=0) (actual time=0.715..0.715 rows=24510.00 loops=1)
+                           Index Cond: (city_id = 1)
+                           Index Searches: 1
+                           Buffers: shared hit=123
+ Planning:
+   Buffers: shared hit=1
+ Planning Time: 0.027 ms
+ Execution Time: 1.486 ms
+(24 rows)

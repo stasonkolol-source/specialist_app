@@ -1,0 +1,130 @@
+Pager usage is off.
+SET
+SET
+psql:/lab/sql/05_geo_basics.sql:8: NOTICE:  table "geo_demo_area" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+INSERT 0 3
+CREATE INDEX
+=== A. Point-in-polygon for landmarks (approximate coordinates)
+     landmark     |           area           
+------------------+--------------------------
+ Hram Svetog Save | Vračar (synthetic)
+ Ušće Tower       | Novi Beograd (synthetic)
+ Gardoš Tower     | Zemun (synthetic)
+ Trg Republike    | -- none of the 3 --
+ Beogradska Arena | Novi Beograd (synthetic)
+(5 rows)
+
+=== B. Distances on the spheroid (geography, meters)
+ from_city |  to_city   |  km   
+-----------+------------+-------
+ Belgrade  | Novi Sad   |  70.7
+ Belgrade  | Nis        | 201.7
+ Belgrade  | Kragujevac |  95.8
+(3 rows)
+
+=== C. Pitfall: ST_DWithin on geometry(4326) uses DEGREES, on geography uses METERS
+ geometry_4326_5000_degrees | geography_5000_meters | total 
+----------------------------+-----------------------+-------
+                      49271 |                  5606 | 49271
+(1 row)
+
+=== D. Radius count within 5 km: geography+GiST vs projected geometry (UTM 34N, EPSG:32634)+GiST vs no index
+CREATE INDEX
+ANALYZE
+-- D1 geography + GiST
+                                                               QUERY PLAN                                                                
+-----------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate (actual time=7.245..7.245 rows=1.00 loops=1)
+   Buffers: shared hit=8338
+   ->  Index Scan using ss_location_gist on specialist_search (actual time=0.191..7.114 rows=5606.00 loops=1)
+         Index Cond: (location && _st_expand('0101000020E61000004BEA0434117634400000000000684640'::geography, '5000'::double precision))
+         Filter: st_dwithin(location, '0101000020E61000004BEA0434117634400000000000684640'::geography, '5000'::double precision, true)
+         Rows Removed by Filter: 2650
+         Index Searches: 1
+         Buffers: shared hit=8338
+ Planning:
+   Buffers: shared hit=40
+ Planning Time: 0.230 ms
+ Execution Time: 7.265 ms
+(12 rows)
+
+-- D2 projected geometry (meters) + GiST expression index
+                                                                               QUERY PLAN                                                                               
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate (actual time=3.903..3.903 rows=1.00 loops=1)
+   Buffers: shared hit=6637 read=50
+   I/O Timings: shared read=0.155
+   ->  Index Scan using ss_location_utm_gist on specialist_search (actual time=0.036..3.758 rows=5612.00 loops=1)
+         Index Cond: (st_transform((location)::geometry, 32634) && st_expand('01010000207A7F00002E3E5D29D0EA1B41C5FA92C3F5ED5241'::geometry, '5000'::double precision))
+         Filter: st_dwithin(st_transform((location)::geometry, 32634), '01010000207A7F00002E3E5D29D0EA1B41C5FA92C3F5ED5241'::geometry, '5000'::double precision)
+         Rows Removed by Filter: 1026
+         Index Searches: 1
+         Buffers: shared hit=6637 read=50
+         I/O Timings: shared read=0.155
+ Planning:
+   Buffers: shared hit=17
+ Planning Time: 0.065 ms
+ Execution Time: 3.918 ms
+(14 rows)
+
+-- D3 geography without index (seq scan)
+SET
+SET
+                                                              QUERY PLAN                                                               
+---------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate (actual time=30.818..30.818 rows=1.00 loops=1)
+   Buffers: shared hit=8256
+   ->  Seq Scan on specialist_search (actual time=0.012..30.663 rows=5606.00 loops=1)
+         Filter: st_dwithin(location, '0101000020E61000004BEA0434117634400000000000684640'::geography, '5000'::double precision, true)
+         Rows Removed by Filter: 43665
+         Buffers: shared hit=8256
+ Planning Time: 0.112 ms
+ Execution Time: 30.825 ms
+(8 rows)
+
+RESET
+RESET
+=== E. KNN: 20 nearest specialists (GiST index-ordered scan with <->)
+                                                 QUERY PLAN                                                 
+------------------------------------------------------------------------------------------------------------
+ Limit (actual time=0.033..0.071 rows=20.00 loops=1)
+   Buffers: shared hit=25
+   ->  Index Scan using ss_location_gist on specialist_search (actual time=0.032..0.070 rows=20.00 loops=1)
+         Order By: (location <-> '0101000020E61000004BEA0434117634400000000000684640'::geography)
+         Index Searches: 1
+         Buffers: shared hit=25
+ Planning:
+   Buffers: shared hit=46
+ Planning Time: 0.074 ms
+ Execution Time: 0.100 ms
+(10 rows)
+
+=== F. District membership for all 49k specialists (spatial join, GiST on district.boundary)
+                                                        QUERY PLAN                                                        
+--------------------------------------------------------------------------------------------------------------------------
+ GroupAggregate (actual time=156.561..158.886 rows=152.00 loops=1)
+   Group Key: d.id
+   Buffers: shared hit=110370
+   ->  Sort (actual time=156.498..157.528 rows=46728.00 loops=1)
+         Sort Key: d.id
+         Sort Method: quicksort  Memory: 1537kB
+         Buffers: shared hit=110370
+         ->  Nested Loop (actual time=0.027..154.128 rows=46728.00 loops=1)
+               Buffers: shared hit=110370
+               ->  Seq Scan on specialist_search s (actual time=0.003..3.734 rows=49271.00 loops=1)
+                     Buffers: shared hit=8256
+               ->  Index Scan using district_boundary_gist on district d (actual time=0.003..0.003 rows=0.95 loops=49271)
+                     Index Cond: (boundary ~ (s.location)::geometry)
+                     Filter: st_covers(boundary, (s.location)::geometry)
+                     Rows Removed by Filter: 0
+                     Index Searches: 49271
+                     Buffers: shared hit=102114
+ Planning:
+   Buffers: shared hit=82
+ Planning Time: 0.152 ms
+ Execution Time: 158.933 ms
+(21 rows)
+
+DROP INDEX

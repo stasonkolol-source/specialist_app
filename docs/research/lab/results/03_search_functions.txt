@@ -1,0 +1,16 @@
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+               search_norm_demo               |                                q_demo                                |                           q_prefix_demo                            
+----------------------------------------------+----------------------------------------------------------------------+--------------------------------------------------------------------
+ elektricar ciscenje djurdjevdan scetka semka | 'ремонт' & 'стиральн' & 'машин' | 'remont' & 'stiralьnoй' & 'masinы' | 'popravka':* & 'veš':* & 'maš':* | 'popravk':* & 'ves':* & 'mas':*
+(1 row)
+
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE AGGREGATE

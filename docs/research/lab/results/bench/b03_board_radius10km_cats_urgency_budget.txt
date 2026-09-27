@@ -1,0 +1,37 @@
+                                                                                                          QUERY PLAN                                                                                                           
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=53463.02..53475.54 rows=1 width=70) (actual time=6.782..7.493 rows=20.00 loops=1)
+   Buffers: shared hit=3601
+   ->  Result  (cost=53463.02..53475.54 rows=1 width=70) (actual time=6.782..7.492 rows=20.00 loops=1)
+         Buffers: shared hit=3601
+         ->  Sort  (cost=53463.02..53463.03 rows=1 width=94) (actual time=6.779..7.476 rows=20.00 loops=1)
+               Sort Key: r.created_at DESC, r.id DESC
+               Sort Method: top-N heapsort  Memory: 30kB
+               Buffers: shared hit=3601
+               ->  Nested Loop  (cost=1151.15..53463.01 rows=1 width=94) (actual time=0.602..7.445 rows=298.00 loops=1)
+                     Buffers: shared hit=3601
+                     ->  Gather  (cost=1151.00..53460.56 rows=1 width=98) (actual time=0.600..6.889 rows=1133.00 loops=1)
+                           Workers Planned: 2
+                           Workers Launched: 2
+                           Buffers: shared hit=1335
+                           ->  Parallel Bitmap Heap Scan on request r  (cost=151.00..52460.46 rows=1 width=98) (actual time=0.210..0.727 rows=377.67 loops=3)
+                                 Recheck Cond: (status = 'open'::text)
+                                 Filter: ((urgency <= 1) AND (COALESCE(budget_max_rsd, 0) >= 3000) AND st_dwithin(location, '0101000020E61000004BEA0434117634400000000000684640'::geography, '10000'::double precision, true))
+                                 Rows Removed by Filter: 2644
+                                 Heap Blocks: exact=1207
+                                 Buffers: shared hit=1335
+                                 ->  Bitmap Index Scan on req_open_location_gist  (cost=0.00..151.00 rows=8640 width=0) (actual time=0.429..0.429 rows=9065.00 loops=1)
+                                       Index Cond: (location && _st_expand('0101000020E61000004BEA0434117634400000000000684640'::geography, '10000'::double precision))
+                                       Index Searches: 1
+                                       Buffers: shared hit=88
+                     ->  Index Scan using category_pkey on category  (cost=0.15..2.37 rows=1 width=4) (actual time=0.000..0.000 rows=0.26 loops=1133)
+                           Index Cond: (id = r.category_id)
+                           Filter: (path <@ 'repair'::ltree)
+                           Rows Removed by Filter: 1
+                           Index Searches: 1133
+                           Buffers: shared hit=2266
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.411 ms
+ Execution Time: 7.501 ms
+(34 rows)

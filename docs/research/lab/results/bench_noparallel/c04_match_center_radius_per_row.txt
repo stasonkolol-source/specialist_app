@@ -1,0 +1,23 @@
+                                                                                QUERY PLAN                                                                                
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Unique  (cost=44050.41..44050.41 rows=1 width=16) (actual time=1.250..1.274 rows=260.00 loops=1)
+   Buffers: shared hit=1419
+   ->  Sort  (cost=44050.41..44050.41 rows=1 width=16) (actual time=1.249..1.256 rows=307.00 loops=1)
+         Sort Key: specialist_id
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=1419
+         ->  Bitmap Heap Scan on subscription s  (cost=27.73..44050.40 rows=1 width=16) (actual time=0.237..1.227 rows=307.00 loops=1)
+               Recheck Cond: ((category_ids && '{3,22,65}'::integer[]) AND is_active)
+               Filter: ((center IS NOT NULL) AND st_dwithin(center, '0101000020E6100000B9FC87F4DB7734404BEA043411664640'::geography, (radius_m)::double precision, true))
+               Rows Removed by Filter: 3022
+               Heap Blocks: exact=1411
+               Buffers: shared hit=1419
+               ->  Bitmap Index Scan on sub_category_gin  (cost=0.00..27.73 rows=3333 width=0) (actual time=0.150..0.150 rows=3329.00 loops=1)
+                     Index Cond: (category_ids && '{3,22,65}'::integer[])
+                     Index Searches: 1
+                     Buffers: shared hit=8
+ Planning:
+   Buffers: shared hit=2
+ Planning Time: 0.036 ms
+ Execution Time: 1.287 ms
+(20 rows)

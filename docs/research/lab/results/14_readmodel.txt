@@ -1,0 +1,57 @@
+Timing is on.
+SET
+Time: 0.107 ms
+psql:/lab/sql/14_readmodel.sql:12: NOTICE:  table "category_doc" does not exist, skipping
+DROP TABLE
+Time: 0.268 ms
+SELECT 300
+Time: 6.430 ms
+ALTER TABLE
+Time: 0.549 ms
+CREATE VIEW
+Time: 1.142 ms
+psql:/lab/sql/14_readmodel.sql:60: NOTICE:  table "specialist_search" does not exist, skipping
+DROP TABLE
+Time: 0.053 ms
+SELECT 49271
+Time: 5100.681 ms (00:05.101)
+ALTER TABLE
+Time: 34.967 ms
+ALTER TABLE
+Time: 6.400 ms
+CREATE FUNCTION
+Time: 0.546 ms
+Timing is off.
+VACUUM
+ rows  | table_size | avg_category_ids | avg_lexemes | avg_lexemes_own | avg_tsv_bytes 
+-------+------------+------------------+-------------+-----------------+---------------
+ 49271 | 64 MB      |             3.89 |        32.9 |            23.3 |           601
+(1 row)
+
+            specialist_id             | display_name | category_ids  | leaf_ids | price_min_rsd | price_max_rsd |   score   |                                                                                                                                                   tsv_head                                                                                                                                                   
+--------------------------------------+--------------+---------------+----------+---------------+---------------+-----------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ 0198d253-00b2-7e9c-83f7-b736bcacdaa4 | Tijana O.    | {1,19,57,139} | {57,139} |          1500 |         14900 | 4.2188134 | '25':72,85 '35':23A,28A,32A,45C,52C,59C,65C 'beograd':77 'boiler':17B 'brz':78 'climat':29A 'dolazak':60C 'etazn':14B 'experi':88 'fast':89 'godin':73 'grad':76 'grejanj':4A,11B,15B,26A,37C,39C,43C,50C,57C,63C,66,67,68 'heat':5A,16B,30A,82,83,84 'hitn':38C 'i':25A,42C,49C,56C,62C,80 'iskustv':71 'kl
+ 0198d25d-8cb2-7fd2-9e82-23cb80b61e76 | Максим Н.    | {3,22,65,68}  | {65,68}  |          2900 |          8800 |  4.256706 | '9':75 'apart':33A,48B 'carpet':27B 'ciscenj':31A,42B,45B 'clean':11A,26B,28B,34A,49B 'cleaner':50B 'dubinsk':7A,18B,23B 'higenicark':47B 'maksim':1A 'n':2A 'namestaj':9A,20B 'pranj':8A,19B,21B,24B 'spremacic':44B 'stan':46B 'stanov':32A,43B 'tepih':22B 'upholsteri':10A,25B 'аккуратн':82 'белград':8
+(2 rows)
+
+== incremental refresh timings (1, 100, 1000 specialists)
+Timing is on.
+ refresh_specialist_search 
+---------------------------
+                         1
+(1 row)
+
+Time: 1.103 ms
+ refresh_specialist_search 
+---------------------------
+                        97
+(1 row)
+
+Time: 11.405 ms
+ refresh_specialist_search 
+---------------------------
+                       986
+(1 row)
+
+Time: 114.395 ms
+Timing is off.

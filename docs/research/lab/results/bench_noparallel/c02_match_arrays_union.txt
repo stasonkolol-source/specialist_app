@@ -1,0 +1,31 @@
+                                                                                                        QUERY PLAN                                                                                                         
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Unique  (cost=2417.19..2417.92 rows=145 width=16) (actual time=3.811..3.851 rows=317.00 loops=1)
+   Buffers: shared hit=7963
+   ->  Sort  (cost=2417.19..2417.56 rows=145 width=16) (actual time=3.810..3.823 rows=440.00 loops=1)
+         Sort Key: s.specialist_id
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=7963
+         ->  Append  (cost=27.77..2411.99 rows=145 width=16) (actual time=0.165..3.761 rows=440.00 loops=1)
+               Buffers: shared hit=7963
+               ->  Bitmap Heap Scan on subscription s  (cost=27.77..2396.26 rows=144 width=16) (actual time=0.165..0.710 rows=158.00 loops=1)
+                     Recheck Cond: ((category_ids && '{3,22,65}'::integer[]) AND is_active)
+                     Filter: ((district_ids && '{1}'::integer[]) AND ((min_budget_rsd IS NULL) OR (min_budget_rsd <= 5000)))
+                     Rows Removed by Filter: 3171
+                     Heap Blocks: exact=1411
+                     Buffers: shared hit=1419
+                     ->  Bitmap Index Scan on sub_category_gin  (cost=0.00..27.73 rows=3333 width=0) (actual time=0.122..0.122 rows=3329.00 loops=1)
+                           Index Cond: (category_ids && '{3,22,65}'::integer[])
+                           Index Searches: 1
+                           Buffers: shared hit=8
+               ->  Index Scan using sub_area_gist on subscription s_1  (cost=0.28..15.00 rows=1 width=16) (actual time=0.014..3.026 rows=282.00 loops=1)
+                     Index Cond: (area && '0101000020E6100000B9FC87F4DB7734404BEA043411664640'::geometry)
+                     Filter: ((category_ids && '{3,22,65}'::integer[]) AND ((min_budget_rsd IS NULL) OR (min_budget_rsd <= 5000)) AND st_intersects(area, '0101000020E6100000B9FC87F4DB7734404BEA043411664640'::geometry))
+                     Rows Removed by Filter: 7675
+                     Index Searches: 1
+                     Buffers: shared hit=6544
+ Planning:
+   Buffers: shared hit=4
+ Planning Time: 0.040 ms
+ Execution Time: 3.867 ms
+(28 rows)

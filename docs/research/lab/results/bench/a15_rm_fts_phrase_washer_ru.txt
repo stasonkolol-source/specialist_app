@@ -1,0 +1,23 @@
+                                                                                                                     QUERY PLAN                                                                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=41.01..41.02 rows=4 width=34) (actual time=4.391..4.392 rows=20.00 loops=1)
+   Buffers: shared hit=1134
+   ->  Sort  (cost=41.01..41.02 rows=4 width=34) (actual time=4.391..4.391 rows=20.00 loops=1)
+         Sort Key: (ts_rank_cd(specialist_search.search_tsv, '''ремонт'' & ''стиральн'' & ''машин'' | ''remont'' & ''stiralьnoй'' & ''masinы'' | ''ремонт'' & ''стиральной'' & ''машины'''::tsquery, 32)) DESC, specialist_search.specialist_id DESC
+         Sort Method: top-N heapsort  Memory: 27kB
+         Buffers: shared hit=1134
+         ->  Bitmap Heap Scan on specialist_search  (cost=32.07..40.97 rows=4 width=34) (actual time=0.244..4.346 rows=613.00 loops=1)
+               Recheck Cond: (search_tsv @@ '''ремонт'' & ''стиральн'' & ''машин'' | ''remont'' & ''stiralьnoй'' & ''masinы'' | ''ремонт'' & ''стиральной'' & ''машины'''::tsquery)
+               Filter: (city_id = 1)
+               Rows Removed by Filter: 563
+               Heap Blocks: exact=1102
+               Buffers: shared hit=1134
+               ->  Bitmap Index Scan on ss_tsv_gin  (cost=0.00..32.06 rows=8 width=0) (actual time=0.183..0.183 rows=1176.00 loops=1)
+                     Index Cond: (search_tsv @@ '''ремонт'' & ''стиральн'' & ''машин'' | ''remont'' & ''stiralьnoй'' & ''masinы'' | ''ремонт'' & ''стиральной'' & ''машины'''::tsquery)
+                     Index Searches: 1
+                     Buffers: shared hit=32
+ Planning:
+   Buffers: shared hit=1
+ Planning Time: 0.044 ms
+ Execution Time: 4.397 ms
+(20 rows)

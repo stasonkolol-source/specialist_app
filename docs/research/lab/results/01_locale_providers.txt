@@ -1,0 +1,217 @@
+Pager usage is off.
+CREATE DATABASE
+CREATE DATABASE
+CREATE DATABASE
+CREATE DATABASE
+CREATE DATABASE
+     datname      | prov | datcollate |  datctype  | datlocale 
+------------------+------+------------+------------+-----------
+ lab              | b    | en_US.utf8 | en_US.utf8 | C.UTF-8
+ t_builtin_cctype | b    | C          | C          | C.UTF-8
+ t_icu_und        | i    | C          | C          | und
+ t_libc_c         | c    | C          | C          | 
+ t_libc_cutf8     | c    | C.UTF-8    | C.UTF-8    | 
+ t_libc_en        | c    | en_US.utf8 | en_US.utf8 | 
+(6 rows)
+
+You are now connected to database "lab" as user "lab".
+################ lab
+ db  |            lower_             |        upper_        | cyr_is_word_char | lat_ext_is_alpha 
+-----+-------------------------------+----------------------+------------------+------------------
+ lab | электричар čišćenje ђурђевдан | ČIŠĆENJE ЂУРЂЕВДАН ß | t                | t
+(1 row)
+
+                                             trgm_sr_cyr                                              
+------------------------------------------------------------------------------------------------------
+ {0x905ec1,0x9f78e7,0xa0f92b,0xa58160,0xee2881,0x1b4ac1,0x1f44ab,0x31bbe7,0x4da5ff,0x528cff,0x7c1ac4}
+(1 row)
+
+ sim_ru_typo | sim_sr_typo | sim_case 
+-------------+-------------+----------
+   0.3846154 |  0.64705884 |        1
+(1 row)
+
+                         simple_tsv                          
+-------------------------------------------------------------
+ 'stana':3 'čišćenje':2 'стана':5 'чишћење':4 'электричар':1
+(1 row)
+
+   alias    |      token      
+------------+-----------------
+ hword      | Мастер-электрик
+ hword_part | Мастер
+ blank      | -
+ hword_part | электрик
+ blank      |  
+ word       | čišćenje
+(6 rows)
+
+You are now connected to database "t_libc_c" as user "lab".
+CREATE EXTENSION
+CREATE EXTENSION
+################ t_libc_c
+    db    |            lower_             |        upper_        | cyr_is_word_char | lat_ext_is_alpha 
+----------+-------------------------------+----------------------+------------------+------------------
+ t_libc_c | ЭЛЕКТРИЧАР ČiŠĆenje ЂУРЂЕВДАН | čIšćENJE ђурђевдан ß | f                | f
+(1 row)
+
+ trgm_sr_cyr 
+-------------
+ {}
+(1 row)
+
+ sim_ru_typo | sim_sr_typo | sim_case 
+-------------+-------------+----------
+           0 |  0.64705884 |        0
+(1 row)
+
+                         simple_tsv                          
+-------------------------------------------------------------
+ 'stana':3 'Čišćenje':2 'ЭЛЕКТРИЧАР':1 'стана':5 'чишћење':4
+(1 row)
+
+   alias    |      token      
+------------+-----------------
+ hword      | Мастер-электрик
+ hword_part | Мастер
+ blank      | -
+ hword_part | электрик
+ blank      |  
+ word       | čišćenje
+(6 rows)
+
+You are now connected to database "t_libc_en" as user "lab".
+CREATE EXTENSION
+CREATE EXTENSION
+################ t_libc_en
+    db     |            lower_             |        upper_        | cyr_is_word_char | lat_ext_is_alpha 
+-----------+-------------------------------+----------------------+------------------+------------------
+ t_libc_en | электричар čišćenje ђурђевдан | ČIŠĆENJE ЂУРЂЕВДАН ß | t                | t
+(1 row)
+
+                                             trgm_sr_cyr                                              
+------------------------------------------------------------------------------------------------------
+ {0x905ec1,0x9f78e7,0xa0f92b,0xa58160,0xee2881,0x1b4ac1,0x1f44ab,0x31bbe7,0x4da5ff,0x528cff,0x7c1ac4}
+(1 row)
+
+ sim_ru_typo | sim_sr_typo | sim_case 
+-------------+-------------+----------
+   0.3846154 |  0.64705884 |        1
+(1 row)
+
+                         simple_tsv                          
+-------------------------------------------------------------
+ 'stana':3 'čišćenje':2 'стана':5 'чишћење':4 'электричар':1
+(1 row)
+
+   alias    |      token      
+------------+-----------------
+ hword      | Мастер-электрик
+ hword_part | Мастер
+ blank      | -
+ hword_part | электрик
+ blank      |  
+ word       | čišćenje
+(6 rows)
+
+You are now connected to database "t_icu_und" as user "lab".
+CREATE EXTENSION
+CREATE EXTENSION
+################ t_icu_und
+    db     |            lower_             |        upper_         | cyr_is_word_char | lat_ext_is_alpha 
+-----------+-------------------------------+-----------------------+------------------+------------------
+ t_icu_und | электричар čišćenje ђурђевдан | ČIŠĆENJE ЂУРЂЕВДАН SS | t                | t
+(1 row)
+
+ trgm_sr_cyr 
+-------------
+ {}
+(1 row)
+
+ sim_ru_typo | sim_sr_typo | sim_case 
+-------------+-------------+----------
+           0 |  0.64705884 |        0
+(1 row)
+
+                         simple_tsv                          
+-------------------------------------------------------------
+ 'stana':3 'čišćenje':2 'стана':5 'чишћење':4 'электричар':1
+(1 row)
+
+   alias    |      token      
+------------+-----------------
+ hword      | Мастер-электрик
+ hword_part | Мастер
+ blank      | -
+ hword_part | электрик
+ blank      |  
+ word       | čišćenje
+(6 rows)
+
+You are now connected to database "t_builtin_cctype" as user "lab".
+CREATE EXTENSION
+CREATE EXTENSION
+################ t_builtin_cctype
+        db        |            lower_             |        upper_        | cyr_is_word_char | lat_ext_is_alpha 
+------------------+-------------------------------+----------------------+------------------+------------------
+ t_builtin_cctype | электричар čišćenje ђурђевдан | ČIŠĆENJE ЂУРЂЕВДАН ß | t                | t
+(1 row)
+
+ trgm_sr_cyr 
+-------------
+ {}
+(1 row)
+
+ sim_ru_typo | sim_sr_typo | sim_case 
+-------------+-------------+----------
+           0 |  0.64705884 |        0
+(1 row)
+
+                         simple_tsv                          
+-------------------------------------------------------------
+ 'stana':3 'čišćenje':2 'стана':5 'чишћење':4 'электричар':1
+(1 row)
+
+   alias    |      token      
+------------+-----------------
+ hword      | Мастер-электрик
+ hword_part | Мастер
+ blank      | -
+ hword_part | электрик
+ blank      |  
+ word       | čišćenje
+(6 rows)
+
+You are now connected to database "t_libc_cutf8" as user "lab".
+CREATE EXTENSION
+CREATE EXTENSION
+################ t_libc_cutf8
+      db      |            lower_             |        upper_        | cyr_is_word_char | lat_ext_is_alpha 
+--------------+-------------------------------+----------------------+------------------+------------------
+ t_libc_cutf8 | электричар čišćenje ђурђевдан | ČIŠĆENJE ЂУРЂЕВДАН ß | t                | t
+(1 row)
+
+                                             trgm_sr_cyr                                              
+------------------------------------------------------------------------------------------------------
+ {0x905ec1,0x9f78e7,0xa0f92b,0xa58160,0xee2881,0x1b4ac1,0x1f44ab,0x31bbe7,0x4da5ff,0x528cff,0x7c1ac4}
+(1 row)
+
+ sim_ru_typo | sim_sr_typo | sim_case 
+-------------+-------------+----------
+   0.3846154 |  0.64705884 |        1
+(1 row)
+
+                         simple_tsv                          
+-------------------------------------------------------------
+ 'stana':3 'čišćenje':2 'стана':5 'чишћење':4 'электричар':1
+(1 row)
+
+   alias    |      token      
+------------+-----------------
+ hword      | Мастер-электрик
+ hword_part | Мастер
+ blank      | -
+ hword_part | электрик
+ blank      |  
+ word       | čišćenje
+(6 rows)

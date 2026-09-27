@@ -1,0 +1,15 @@
+                                                                     QUERY PLAN                                                                     
+----------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.29..157.39 rows=20 width=66) (actual time=0.005..0.035 rows=20.00 loops=1)
+   Buffers: shared hit=164
+   ->  Index Scan using req_open_city_created_idx on request  (cost=0.29..8805.85 rows=1121 width=66) (actual time=0.005..0.034 rows=20.00 loops=1)
+         Index Cond: (city_id = 1)
+         Filter: (category_id = ANY ('{45,46,47,48,65}'::integer[]))
+         Rows Removed by Filter: 142
+         Index Searches: 1
+         Buffers: shared hit=164
+ Planning:
+   Buffers: shared hit=1
+ Planning Time: 0.021 ms
+ Execution Time: 0.037 ms
+(12 rows)

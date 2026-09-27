@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>B2 · Бот: отзыв</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <button class="tgh-btn" type="button"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Чаты</button>
+    <div class="tgh-t"><b>Сосед</b><span>бот</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Профиль бота"><span class="ava sm" aria-hidden="true" style="background: var(--accent); color: var(--accent-ink); font-family: var(--f-display)">С</span></button>
+  </header>
+
+  <main class="tgchat" style="flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; padding: 12px 12px 92px" aria-label="Сообщения бота">
+    <p class="sysmsg">Сегодня</p>
+
+    <div class="botmsg">
+      <span>Вы договорились с Алексеем Морозовым: «Повесить люстру», сегодня в 19:00, 3&nbsp;500 RSD.</span>
+      <span class="cap" style="align-self: flex-end">16:12</span>
+    </div>
+    <div class="kb">
+      <a class="k" href="S26-deal.dc.html">Открыть сделку</a>
+    </div>
+
+    <div class="botmsg">
+      <span class="b">Работа выполнена?</span>
+      <span>Алексей отметил работу «Повесить люстру» выполненной. Всё в порядке?</span>
+      <span class="cap" style="align-self: flex-end">20:41</span>
+    </div>
+    <div class="kb two">
+      <button class="k" type="button">Да, всё хорошо</button>
+      <a class="k" href="S52-dispute.dc.html">Есть проблема</a>
+    </div>
+
+    <div class="botmsg">
+      <span class="b">Оцените работу</span>
+      <span>Отзыв появится в профиле Алексея после проверки.</span>
+      <span class="cap" style="align-self: flex-end">20:43</span>
+    </div>
+    <div class="kb" role="group" aria-label="Оценка от 1 до 5" style="grid-template-columns: repeat(5, minmax(0, 1fr))">
+      <button class="k" type="button" aria-label="Оценка 1 из 5" style="display: flex; align-items: center; justify-content: center; gap: 3px">1<svg class="ic fill star i16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg></button>
+      <button class="k" type="button" aria-label="Оценка 2 из 5" style="display: flex; align-items: center; justify-content: center; gap: 3px">2<svg class="ic fill star i16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg></button>
+      <button class="k" type="button" aria-label="Оценка 3 из 5" style="display: flex; align-items: center; justify-content: center; gap: 3px">3<svg class="ic fill star i16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg></button>
+      <button class="k" type="button" aria-label="Оценка 4 из 5" style="display: flex; align-items: center; justify-content: center; gap: 3px">4<svg class="ic fill star i16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg></button>
+      <button class="k" type="button" aria-label="Оценка 5 из 5" style="display: flex; align-items: center; justify-content: center; gap: 3px">5<svg class="ic fill star i16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg></button>
+    </div>
+    <div class="kb">
+      <a class="k" href="S27-review.dc.html">Открыть форму отзыва</a>
+    </div>
+  </main>
+
+  <div class="composer">
+    <a class="btn sm pri" href="S03-home.dc.html" style="height: 44px">Открыть</a>
+    <input class="inp" type="text" placeholder="Сообщение" aria-label="Сообщение боту">
+    <button class="ibtn plain" type="button" aria-label="Записать голосовое сообщение"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

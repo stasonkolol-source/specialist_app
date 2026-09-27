@@ -1,0 +1,267 @@
+Pager usage is off.
+SET
+=== A. Built-in configs on realistic phrases
+DROP TABLE
+CREATE TABLE
+INSERT 0 18
+ id |          lang          |                phrase                 |                    russian                     |                      serbian                      |                        simple                        
+----+------------------------+---------------------------------------+------------------------------------------------+---------------------------------------------------+------------------------------------------------------
+  1 | ru                     | электрик                              | 'электрик':1                                   | 'эlektrik':1                                      | 'электрик':1
+  2 | ru                     | сантехник                             | 'сантехник':1                                  | 'santehnik':1                                     | 'сантехник':1
+  3 | ru                     | ремонт стиральной машины              | 'машин':3 'ремонт':1 'стиральн':2              | 'mašinы':3 'remont':1 'stiralьnoй':2              | 'машины':3 'ремонт':1 'стиральной':2
+  4 | ru                     | маникюр                               | 'маникюр':1                                    | 'manikюr':1                                       | 'маникюр':1
+  5 | sr-Latn                | električar                            | 'električar':1                                 | 'električar':1                                    | 'električar':1
+  6 | sr-Cyrl                | електричар                            | 'електричар':1                                 | 'električar':1                                    | 'електричар':1
+  7 | sr-Latn                | vodoinstalater                        | 'vodoinstalat':1                               | 'vodoinstalater':1                                | 'vodoinstalater':1
+  8 | sr-Cyrl                | водоинсталатер                        | 'водоинсталатер':1                             | 'vodoinstalater':1                                | 'водоинсталатер':1
+  9 | sr-Latn                | čišćenje stana                        | 'stana':2 'čišćenje':1                         | 'stan':2 'čišćenj':1                              | 'stana':2 'čišćenje':1
+ 10 | sr-Cyrl                | чишћење стана                         | 'стан':2 'чишћењ':1                            | 'stan':2 'čišćenj':1                              | 'стана':2 'чишћење':1
+ 11 | sr-Latn                | popravka veš mašine                   | 'mašine':3 'popravka':1 'veš':2                | 'mašin':3 'popravk':1 'veš':2                     | 'mašine':3 'popravka':1 'veš':2
+ 12 | sr-Latn                | majstor za klime                      | 'klime':3 'majstor':1 'za':2                   | 'klim':3 'majstor':1 'za':2                       | 'klime':3 'majstor':1 'za':2
+ 13 | sr-Latn                | selidbe                               | 'selidb':1                                     | 'selidb':1                                        | 'selidbe':1
+ 14 | sr-Latn                | prevodilac                            | 'prevodilac':1                                 | 'prevodilac':1                                    | 'prevodilac':1
+ 15 | sr-Latn(no diacritics) | ciscenje stana                        | 'ciscenj':1 'stana':2                          | 'ciscenj':1 'stan':2                              | 'ciscenje':1 'stana':2
+ 16 | sr-Latn(no diacritics) | popravka ves masine                   | 'masin':3 'popravka':1 'ves':2                 | 'masin':3 'popravk':1 'ves':2                     | 'masine':3 'popravka':1 'ves':2
+ 17 | sr-Latn                | električari, vodoinstalateri i moleri | 'električari':1 'moleri':4 'vodoinstalateri':2 | 'električar':1 'i':3 'moler':4 'vodoinstalater':2 | 'električari':1 'i':3 'moleri':4 'vodoinstalateri':2
+ 18 | ru                     | ремонт стиральных машин, электрики    | 'машин':3 'ремонт':1 'стиральн':2 'электрик':4 | 'mašin':3 'remont':1 'stiralьnыh':2 'эlektrik':4  | 'машин':3 'ремонт':1 'стиральных':2 'электрики':4
+(18 rows)
+
+=== B. Serbian stemmer transliterates Cyrillic -> Latin (with diacritics); no Serbian stopword list
+   dictname   |               dictinitoption                
+--------------+---------------------------------------------
+ russian_stem | language = 'russian', stopwords = 'russian'
+ serbian_stem | language = 'serbian'
+(2 rows)
+
+    cyr    |    lat    |  ascii_   | stopword_za | ru_stopword_i 
+-----------+-----------+-----------+-------------+---------------
+ {čišćenj} | {čišćenj} | {ciscenj} | {za}        | {}
+(1 row)
+
+-- B2: Serbian stemmer is a light stemmer: some inflected forms do not collapse
+      w      |     stem     
+-------------+--------------
+ stan        | {stan}
+ stana       | {stan}
+ stanu       | {stan}
+ stanom      | {stan}
+ stanovi     | {stanov}
+ stanova     | {stanov}
+ majstor     | {majstor}
+ majstora    | {majstor}
+ majstori    | {majstor}
+ majstorima  | {majstor}
+ mašina      | {mašin}
+ mašine      | {mašin}
+ mašinu      | {mašin}
+ mašinama    | {mašin}
+ čišćenje    | {čišćenj}
+ čišćenja    | {čišćenj}
+ čišćenju    | {čišćenj}
+ klima       | {klima}
+ klime       | {klim}
+ klimu       | {klim}
+ električar  | {električar}
+ električara | {električar}
+ električari | {električar}
+(23 rows)
+
+=== C. unaccent behaviour on Serbian diacritics and Cyrillic
+     sr_latin      |    sr_cyrillic    |   ru_cyrillic   
+-------------------+-------------------+-----------------
+ ccszd CCSZD dz Dz | ђ ћ ч ш ж џ љ њ ј | елка йогурт Е Й
+(1 row)
+
+=== D. IMMUTABLE problem: unaccent() is STABLE
+                  fn                  | volatility 
+--------------------------------------+------------
+ to_tsvector(text)                    | s
+ to_tsvector(json)                    | s
+ to_tsvector(jsonb)                   | s
+ to_tsvector(regconfig,text)          | i
+ to_tsvector(regconfig,json)          | i
+ to_tsvector(regconfig,jsonb)         | i
+ unaccent(text)                       | s
+ unaccent(regdictionary,text)         | s
+ websearch_to_tsquery(text)           | s
+ websearch_to_tsquery(regconfig,text) | i
+(10 rows)
+
+DROP TABLE
+CREATE TABLE
+-- D1 expected ERROR: index on unaccent()
+psql:/lab/sql/02_fts_ru_sr.sql:44: ERROR:  functions in index expression must be marked IMMUTABLE
+-- D2 expected ERROR: generated column with unaccent()
+-- D3 workaround: IMMUTABLE SQL-standard-body wrapper with schema-qualified dictionary (PG14+)
+psql:/lab/sql/02_fts_ru_sr.sql:46: ERROR:  generation expression is not immutable
+CREATE FUNCTION
+ALTER TABLE
+CREATE INDEX
+CREATE INDEX
+INSERT 0 1
+ id |           title            |         title_norm         
+----+----------------------------+----------------------------
+  1 | Čišćenje stanova Đurđevdan | ciscenje stanova durdevdan
+(1 row)
+
+-- D4 workaround 2: text search configuration that contains the unaccent dictionary.
+--    to_tsvector(regconfig, text) is IMMUTABLE, so it is accepted in generated columns/indexes.
+=== E. Custom configurations
+DROP TEXT SEARCH CONFIGURATION
+CREATE TEXT SEARCH CONFIGURATION
+ALTER TEXT SEARCH CONFIGURATION
+DROP TEXT SEARCH CONFIGURATION
+CREATE TEXT SEARCH CONFIGURATION
+ALTER TEXT SEARCH CONFIGURATION
+CREATE FUNCTION
+-- E1: unaccent BEFORE the Serbian stemmer is not enough for Cyrillic input:
+--     unaccent sees Cyrillic (no-op), then the stemmer transliterates and re-introduces diacritics
+            sr_unaccent_raw             |     sr_unaccent_translit     
+----------------------------------------+------------------------------
+ 'ciscenj':2 'električar':1 'čišćenj':3 | 'ciscenj':2,3 'elektricar':1
+(1 row)
+
+-- E3: websearch AND-semantics + light stemming -> zero hits for "čišćenje stana" vs content "čišćenje stanova"
+       q_and        | and_match | prefix_and_match 
+--------------------+-----------+------------------
+ 'ciscenj' & 'stan' | f         | t
+(1 row)
+
+-- E2: match matrix document x query (true = @@ matches)
+DROP TABLE
+DROP TABLE
+CREATE TABLE
+CREATE TABLE
+INSERT 0 6
+INSERT 0 8
+        q         |          d          | serbian | sr_unacc | sr_unacc_translit 
+------------------+---------------------+---------+----------+-------------------
+ ciscenje         | ciscenje stana      | t       | t        | t
+ ciscenje         | Čišćenje stana      | f       | t        | t
+ ciscenje         | Чишћење стана       | f       | f        | t
+ elektricar       | Električar          | f       | t        | t
+ elektricar       | Електричар          | f       | f        | t
+ ves masina       | Popravka veš mašine | f       | t        | t
+ ČIŠĆENJE STANOVA | ciscenje stana      | f       | f        | f
+ ČIŠĆENJE STANOVA | Čišćenje stana      | f       | f        | f
+ ČIŠĆENJE STANOVA | Чишћење стана       | f       | f        | f
+ čišćenje         | ciscenje stana      | f       | t        | t
+ čišćenje         | Čišćenje stana      | t       | t        | t
+ čišćenje         | Чишћење стана       | t       | f        | t
+ веш машина       | Popravka veš mašine | t       | f        | t
+ електричар       | Električar          | t       | f        | t
+ електричар       | Електричар          | t       | t        | t
+ чишћење          | ciscenje stana      | f       | f        | t
+ чишћење          | Čišćenje stana      | t       | f        | t
+ чишћење          | Чишћење стана       | t       | t        | t
+(18 rows)
+
+=== F. Russian + Serbian in one document
+DROP TABLE
+CREATE TABLE
+CREATE INDEX
+INSERT 0 9
+CREATE FUNCTION
+            q             |                               tsquery                                | matched_ids_by_rank_cd 
+--------------------------+----------------------------------------------------------------------+------------------------
+ электрик                 | 'электрик' | 'эlektrik'                                              | 1,7
+ электрика                | 'электрик' | 'эlektrik'                                              | 1,7
+ električar               | 'električar' | 'elektricar'                                          | 1
+ elektricar               | 'elektricar' | 'elektricar'                                          | 1
+ електричар               | 'електричар' | 'elektricar'                                          | 1
+ сантехник                | 'сантехник' | 'santehnik'                                            | 2
+ vodoinstalater           | 'vodoinstalat' | 'vodoinstalater'                                    | 3
+ водоинсталатер           | 'водоинсталатер' | 'vodoinstalater'                                  | 3
+ ремонт стиральной машины | 'ремонт' & 'стиральн' & 'машин' | 'remont' & 'stiralьnoй' & 'masinы' | 4
+ popravka veš mašine      | 'popravka' & 'veš' & 'mašine' | 'popravk' & 'ves' & 'masin'          | 4
+ popravka ves masine      | 'popravka' & 'ves' & 'masin' | 'popravk' & 'ves' & 'masin'           | 4
+ маникюр                  | 'маникюр' | 'manikюr'                                                | 6
+ manikir                  | 'manikir' | 'manikir'                                                | 6
+ čišćenje stana           | 'čišćenje' & 'stana' | 'ciscenj' & 'stan'                            | 
+ чишћење стана            | 'чишћењ' & 'стан' | 'ciscenj' & 'stan'                               | 
+ ciscenje stanova         | 'ciscenj' & 'stanova' | 'ciscenj' & 'stanov'                         | 5
+ majstor za klime         | 'majstor' & 'za' & 'klime' | 'majstor' & 'za' & 'klim'               | 7
+ selidbe                  | 'selidb' | 'selidb'                                                  | 8
+ prevodilac               | 'prevodilac' | 'prevodilac'                                          | 9
+ перевод документов       | 'перевод' & 'документ' | 'perevod' & 'dokumentov'                    | 9
+ "ремонт стиральных"      | 'ремонт' <-> 'стиральн' | 'remont' <-> 'stiralьnыh'                  | 4
+ электрик -люстр          | 'электрик' & !'люстр' | 'эlektrik' & !'lюstr'                        | 7
+ manikir or pedikir       | 'manikir' | 'pedikir' | 'manikir' | 'pedikir'                        | 6
+(23 rows)
+
+=== G. Choosing the configuration by content language (regconfig column)
+DROP TABLE
+CREATE TABLE
+INSERT 0 4
+ id |  lang   |     cfg     |                tsv                
+----+---------+-------------+-----------------------------------
+  1 | ru      | russian     | 'машин':3 'ремонт':1 'стиральн':2
+  2 | sr-Cyrl | sr_unaccent | 'masin':3 'popravk':1 'ves':2
+  3 | sr-Latn | sr_unaccent | 'masin':3 'popravk':1 'ves':2
+  4 | en      | english     | 'machin':2 'repair':3 'wash':1
+(4 rows)
+
+=== H. websearch_to_tsquery syntax
+             q              |                     ru                     |                     sr                      
+----------------------------+--------------------------------------------+---------------------------------------------
+ электрик -люстра           | 'электрик' & !'люстр'                      | 'эlektrik' & !'lюstra'
+ "ремонт стиральной машины" | 'ремонт' <-> 'стиральн' <-> 'машин'        | 'remont' <-> 'stiralьnoй' <-> 'masinы'
+ vodoinstalater or moler    | 'vodoinstalat' | 'moler'                   | 'vodoinstalater' | 'moler'
+ čišćenje -prozora          | 'čišćenje' & !'prozora'                    | 'ciscenj' & !'prozor'
+ маникюр гель-лак           | 'маникюр' & 'гель-лак' <-> 'гел' <-> 'лак' | 'manikюr' & 'gelь-lak' <-> 'gelь' <-> 'lak'
+(5 rows)
+
+=== I. Prefix search for autocomplete (to_tsquery with :*)
+     q      |  ru_prefix   |   sr_prefix    | matched 
+------------+--------------+----------------+---------
+ элек       | 'элек':*     | 'эlek':*       | 1,7
+ электри    | 'электр':*   | 'эlektr':*     | 1,7
+ сантех     | 'сантех':*   | 'santeh':*     | 2
+ стиральн   | 'стиральн':* | 'stiralьn':*   | 4
+ стиральной | 'стиральн':* | 'stiralьnoй':* | 4
+ vodoinst   | 'vodoinst':* | 'vodoinst':*   | 3
+ водоинст   | 'водоинст':* | 'vodoinst':*   | 3
+ čišć       | 'čišć':*     | 'cisc':*       | 5
+ cisc       | 'cisc':*     | 'cisc':*       | 5
+ mani       | 'mani':*     | 'mani':*       | 6
+ selid      | 'selid':*    | 'selid':*      | 8
+ prevod     | 'prevod':*   | 'prevod':*     | 9
+(12 rows)
+
+-- pitfall: stemming the prefix of a full word can over-cut; stem-then-prefix vs simple prefix
+ stemmed_prefix | simple_prefix  
+----------------+----------------
+ 'стиральн':*   | 'стиральной':*
+(1 row)
+
+=== J. Ranking: ts_rank vs ts_rank_cd, weights (A=title, C=body) and normalization
+-- J1 single-term query: title hit (A) must outrank body-only hit (C)
+ id |        title_ru         |  rank  | rank_n32 | rank_cd | rank_cd_n32 | rank_cd_custom_w 
+----+-------------------------+--------+----------+---------+-------------+------------------
+  4 | Ремонт стиральных машин | 0.3192 |   0.2419 |  1.2000 |      0.5455 |           0.5238
+  7 | Мастер на час           | 0.0608 |   0.0573 |  0.2000 |      0.1667 |           0.0909
+(2 rows)
+
+-- J2 OR-query over several words: coverage + weights
+ id |        title_ru         |      title_sr       |  rank  | rank_cd | rank_cd_n1_loglen 
+----+-------------------------+---------------------+--------+---------+-------------------
+  4 | Ремонт стиральных машин | Popravka veš mašina | 0.1246 |  2.2000 |            0.7344
+  1 | Электрик                | Električar          | 0.0608 |  1.0000 |            0.3693
+  7 | Мастер на час           | Majstor za sve      | 0.0486 |  0.8000 |            0.2768
+  3 |                         | Водоинсталатер      | 0.0122 |  0.2000 |            0.0962
+(4 rows)
+
+-- J3 ts_rank_cd is 0 for a document that does not satisfy the (AND) query; ts_rank gives partial credit
+ id |  rank  | rank_cd | matches 
+----+--------+---------+---------
+  1 | 0.0000 |  0.0000 | f
+  4 | 0.9943 |  0.0000 | f
+  7 | 0.1947 |  0.0000 | f
+(3 rows)
+
+=== K. Headline / snippet
+ id |                       headline                        
+----+-------------------------------------------------------
+  4 | <b>Ремонт</b> стиральных и посудомоечных <b>машин</b>
+  7 | Мелкий <b>ремонт</b>, сборка мебели
+(2 rows)

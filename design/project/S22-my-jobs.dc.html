@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S22 · Мои заявки</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <button class="tgh-btn" type="button">Закрыть</button>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 12px 16px 108px; gap: 12px">
+    <nav class="seg" aria-label="Раздел заявок">
+      <a href="S13-feed.dc.html">Лента</a>
+      <a href="S17-my-responses.dc.html">Мои отклики</a>
+      <a class="on" href="S22-my-jobs.dc.html" aria-current="page">Мои заявки</a>
+    </nav>
+
+    <div class="between">
+      <h1 class="h1">Мои заявки</h1>
+      <a class="ibtn" href="S20a-create-what.dc.html" aria-label="Новая заявка"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></a>
+    </div>
+
+    <div class="chips" role="group" aria-label="Статус заявок">
+      <button class="chip on" type="button" aria-pressed="true">Все</button>
+      <button class="chip" type="button" aria-pressed="false">Активные</button>
+      <button class="chip" type="button" aria-pressed="false">В работе</button>
+      <button class="chip" type="button" aria-pressed="false">Завершённые</button>
+    </div>
+
+    <h2 class="sec-t" style="padding: 0 4px">Активные</h2>
+
+    <a class="card tight" href="S23-manage-job.dc.html">
+      <div class="between" style="align-items: flex-start">
+        <h3 class="job-t">Повесить люстру</h3>
+        <span class="price">5&nbsp;000 RSD</span>
+      </div>
+      <div class="between">
+        <span class="hstack" style="gap: 6px">
+          <span class="bdg info"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Сегодня 18–21</span>
+          <span class="bdg mute">Люстры</span>
+        </span>
+        <span class="cap">15 мин назад</span>
+      </div>
+      <div class="between">
+        <span class="meta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.1 7-11.5a7 7 0 1 0-14 0C5 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Лиман</span>
+        <span class="hstack" style="gap: 6px"><span class="slots" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span><span class="cap">откликов 3 из 5</span></span>
+      </div>
+      <div class="bnr ok" style="align-items: center; padding: 10px 12px">
+        <span class="grow b">3 отклика — выберите исполнителя</span>
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+      </div>
+    </a>
+
+    <a class="card tight" href="S23-manage-job.dc.html">
+      <div class="between" style="align-items: flex-start">
+        <h3 class="job-t">Генеральная уборка, 2-комн. квартира</h3>
+        <span class="price">7&nbsp;000 RSD</span>
+      </div>
+      <div class="between">
+        <span class="hstack" style="gap: 6px">
+          <span class="bdg info">Суббота</span>
+          <span class="bdg mute">Уборка</span>
+        </span>
+        <span class="cap">2 ч назад</span>
+      </div>
+      <div class="between">
+        <span class="meta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.1 7-11.5a7 7 0 1 0-14 0C5 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Грбавица</span>
+        <span class="hstack" style="gap: 6px"><span class="slots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="cap">Ждём откликов</span></span>
+      </div>
+    </a>
+
+    <h2 class="sec-t" style="padding: 0 4px">Завершённые</h2>
+
+    <a class="card tight" href="S28-history.dc.html">
+      <div class="between" style="align-items: flex-start">
+        <h3 class="job-t">Уборка после ремонта</h3>
+        <span class="price t2">6&nbsp;000 RSD</span>
+      </div>
+      <div class="between">
+        <span class="hstack" style="gap: 8px"><span class="ava xs av5" aria-hidden="true">ОВ</span><span class="sm">Ольга Власова</span></span>
+        <span class="bdg ok"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>Отзыв оставлен</span>
+      </div>
+      <p class="cap">Завершена 14 сентября</p>
+    </a>
+  </main>
+
+  <nav class="tabbar" aria-label="Разделы">
+    <a class="tab" href="S03-home.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Главная</a>
+    <a class="tab on" href="S13-feed.dc.html" aria-current="page"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9zM9 11h6M9 15h4"/></svg>Заявки</a>
+    <a class="tab" href="S20a-create-what.dc.html" aria-label="Создать заявку"><span class="tab-plus"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span></a>
+    <a class="tab" href="S29-chats.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>Сообщения<span class="cnt">2</span></a>
+    <a class="tab" href="S31-account.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Профиль</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

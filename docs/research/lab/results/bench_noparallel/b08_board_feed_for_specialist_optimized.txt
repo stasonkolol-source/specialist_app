@@ -1,0 +1,50 @@
+                                                                             QUERY PLAN                                                                             
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=30403.38..30403.41 rows=12 width=62) (actual time=0.271..0.273 rows=20.00 loops=1)
+   Buffers: shared hit=285
+   CTE subs
+     ->  Index Scan using subscription_specialist_idx on subscription s  (cost=0.29..71.91 rows=3 width=642) (actual time=0.008..0.022 rows=4.00 loops=1)
+           Index Cond: (specialist_id = '0198d272-a4b3-7026-a4b8-a85590e4307e'::uuid)
+           Filter: is_active
+           Index Searches: 1
+           Buffers: shared hit=40
+           SubPlan 1
+             ->  Nested Loop  (cost=0.29..22.40 rows=30 width=4) (actual time=0.003..0.005 rows=2.00 loops=4)
+                   Buffers: shared hit=36
+                   ->  Index Scan using category_pkey on category c1  (cost=0.15..2.58 rows=10 width=36) (actual time=0.001..0.001 rows=2.00 loops=4)
+                         Index Cond: (id = ANY (s.category_ids))
+                         Index Searches: 4
+                         Buffers: shared hit=12
+                   ->  Index Scan using category_path_gist on category c2  (cost=0.14..1.95 rows=3 width=40) (actual time=0.002..0.002 rows=1.00 loops=8)
+                         Index Cond: (path <@ c1.path)
+                         Index Searches: 8
+                         Buffers: shared hit=24
+   InitPlan 3
+     ->  HashAggregate  (cost=0.31..0.68 rows=30 width=4) (actual time=0.024..0.024 rows=2.00 loops=1)
+           Group Key: unnest(subs_1.leaf_ids)
+           Batches: 1  Memory Usage: 32kB
+           Buffers: shared hit=40
+           ->  ProjectSet  (cost=0.00..0.23 rows=30 width=4) (actual time=0.008..0.023 rows=8.00 loops=1)
+                 Buffers: shared hit=40
+                 ->  CTE Scan on subs subs_1  (cost=0.00..0.06 rows=3 width=32) (actual time=0.008..0.022 rows=4.00 loops=1)
+                       Storage: Memory  Maximum Storage: 17kB
+                       Buffers: shared hit=40
+   ->  Sort  (cost=30330.79..30330.82 rows=12 width=62) (actual time=0.271..0.271 rows=20.00 loops=1)
+         Sort Key: r.created_at DESC, r.id DESC
+         Sort Method: top-N heapsort  Memory: 27kB
+         Buffers: shared hit=285
+         ->  Nested Loop Semi Join  (cost=0.29..30330.57 rows=12 width=62) (actual time=0.027..0.265 rows=63.00 loops=1)
+               Join Filter: ((r.category_id = ANY (subs.leaf_ids)) AND ((r.district_id = ANY (subs.district_ids)) OR st_covers(subs.area, (r.location)::geometry)))
+               Rows Removed by Join Filter: 802
+               Buffers: shared hit=285
+               ->  Index Scan using req_open_cat_created_idx on request r  (cost=0.29..871.15 rows=783 width=102) (actual time=0.026..0.077 rows=238.00 loops=1)
+                     Index Cond: (category_id = ANY ((InitPlan 3).col1))
+                     Index Searches: 2
+                     Buffers: shared hit=285
+               ->  CTE Scan on subs  (cost=0.00..0.06 rows=3 width=96) (actual time=0.000..0.000 rows=3.63 loops=238)
+                     Storage: Memory  Maximum Storage: 17kB
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.056 ms
+ Execution Time: 0.281 ms
+(47 rows)

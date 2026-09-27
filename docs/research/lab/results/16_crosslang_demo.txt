@@ -1,0 +1,27 @@
+Pager usage is off.
+SET
+SET
+          query           | relevant | own_found | own_hits | enriched_found | enriched_hits | taxo_exact_found | taxo_fuzzy_top1 
+--------------------------+----------+-----------+----------+----------------+---------------+------------------+-----------------
+ электрик                 |     1435 |      1026 |      746 |           1994 |          1435 |             1435 | electrician
+ električar               |     1435 |      1071 |      814 |           1902 |          1435 |             1435 | electrician
+ електричар               |     1435 |      1071 |      814 |           1902 |          1435 |             1435 | electrician
+ elektricar               |     1435 |      1071 |      814 |           1902 |          1435 |             1435 | electrician
+ сантехник                |     1499 |      1021 |      768 |           2035 |          1499 |             1499 | plumber
+ vodoinstalater           |     1499 |       848 |      848 |           1499 |          1499 |             1499 | plumber
+ водоинсталатер           |     1499 |       848 |      848 |           1499 |          1499 |             1499 | plumber
+ маляр                    |      999 |       483 |      483 |            999 |           999 |              999 | painter
+ moler                    |      999 |       541 |      541 |            999 |           999 |              999 | painter
+ стиралка                 |     1176 |       557 |      557 |           1176 |          1176 |             1176 | washer_repair
+ veš mašina               |     1176 |       694 |      694 |           1176 |          1176 |             1176 | washer_repair
+ ремонт стиральной машины |     1176 |       569 |      569 |           1176 |          1176 |                0 | washer_repair
+ маникюр                  |     1573 |       764 |      764 |           1573 |          1573 |             1573 | manicure
+ manikir                  |     1573 |       928 |      928 |           1573 |          1573 |             1573 | manicure
+ переезд                  |     1210 |       975 |      599 |           2044 |          1210 |             1210 | moving_home
+ selidbe                  |     1210 |      1318 |      725 |           2299 |          1210 |             1210 | moving_home
+ электирк                 |     1435 |         0 |        0 |              0 |             0 |                0 | electrician
+ vodoinstaler             |     1499 |         0 |        0 |              0 |             0 |                0 | plumber
+ manikur                  |     1573 |         0 |        0 |              0 |             0 |                0 | manicure
+(19 rows)
+
+-- recall = hits / relevant; precision = hits / found (computed in the report from the table above)

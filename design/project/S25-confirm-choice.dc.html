@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S25 · Подтверждение выбора</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <a class="tgh-btn" href="S24-response.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Назад</a>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 12px 16px 24px; gap: 12px" aria-hidden="true">
+    <div class="card">
+      <div class="sp">
+        <span class="ava av1">АМ</span>
+        <div class="grow stack g4">
+          <span class="h2">Алексей Морозов</span>
+          <span class="sm t2">Электрик · мелкий ремонт · люстры</span>
+          <span class="sp-meta">
+            <span class="rate"><svg class="ic fill star i16" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>4,9</span>
+            <span>37 отзывов</span><span>·</span><span>≈&nbsp;1,5&nbsp;км</span>
+          </span>
+        </div>
+      </div>
+      <div class="hstack" style="gap: 6px">
+        <span class="bdg info">Телефон подтверждён</span>
+        <span class="bdg ok">Откликнулся первым</span>
+      </div>
+    </div>
+    <div class="card">
+      <span class="h3">Предложение</span>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+        <div class="stack" style="gap: 2px; background: var(--bg2); border-radius: 12px; padding: 10px 12px"><span class="cap">Цена за работу</span><span class="price lg">3&nbsp;500 RSD</span></div>
+        <div class="stack" style="gap: 2px; background: var(--bg2); border-radius: 12px; padding: 10px 12px"><span class="cap">Когда сможет</span><span class="b" style="font-size: 17px; line-height: 28px">Сегодня, 19:00</span></div>
+      </div>
+      <span>«Могу сегодня в 19:00, свой инструмент и стремянка. Люстру соберу и подключу.»</span>
+    </div>
+  </main>
+
+  <a class="scrim" href="S24-response.dc.html" style="top: 56px" aria-label="Закрыть"></a>
+
+  <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="cf-title">
+    <div class="grab" aria-hidden="true"></div>
+
+    <div class="sp" style="align-items: center">
+      <span class="ava av1" aria-hidden="true">АМ</span>
+      <div class="grow stack" style="gap: 2px">
+        <h1 class="h2" id="cf-title">Выбрать Алексея?</h1>
+        <p class="sm t2">3&nbsp;500 RSD · сегодня в 19:00</p>
+      </div>
+    </div>
+
+    <div class="stack" style="gap: 10px">
+      <h2 class="lbl">Что изменится сразу</h2>
+      <p class="hstack sm" style="align-items: flex-start; gap: 10px">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--accent)"><path d="M12 21s7-6.1 7-11.5a7 7 0 1 0-14 0C5 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+        <span>Алексею откроется точный адрес — в карточке сделки</span>
+      </p>
+      <p class="hstack sm" style="align-items: flex-start; gap: 10px">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--accent)"><path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2"/></svg>
+        <span>У вас обоих в чате появится кнопка «Поделиться контактом»</span>
+      </p>
+      <p class="hstack sm" style="align-items: flex-start; gap: 10px">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--accent)"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>
+        <span>Иван и Никола получат уведомление, что выбран другой исполнитель</span>
+      </p>
+    </div>
+
+    <p class="cap">Если сделка сорвётся, заявку можно снова открыть и выбрать из прежних откликов.</p>
+
+    <div class="stack g8">
+      <a class="mbtn" href="S26-deal.dc.html">Выбрать Алексея</a>
+      <a class="btn out full" href="S24-response.dc.html">Отмена</a>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

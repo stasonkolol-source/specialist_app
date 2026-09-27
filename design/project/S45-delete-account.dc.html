@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S45 · Удаление аккаунта</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <a class="tgh-btn" href="S43-settings.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Назад</a>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 12px 16px 124px; gap: 12px">
+    <div class="stack g8">
+      <h1 class="h2">Удаление аккаунта</h1>
+      <p class="sm t2">Аккаунт удалится через 7 дней. До этого запрос можно отменить — просто откройте приложение.</p>
+    </div>
+
+    <a class="btn out full" href="S33-cabinet.dc.html">Нужна пауза? Скрыть профиль из поиска</a>
+
+    <section class="card tight" aria-labelledby="del-gone">
+      <h2 class="h3" id="del-gone">Удалится</h2>
+      <ul class="stack g8 sm">
+        <li class="hstack" style="gap: 10px; align-items: flex-start"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--danger); margin-top: 2px"><path d="M6 6l12 12M18 6 6 18"/></svg>Профиль, фото, прайс и портфолио</li>
+        <li class="hstack" style="gap: 10px; align-items: flex-start"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--danger); margin-top: 2px"><path d="M6 6l12 12M18 6 6 18"/></svg>Сообщения, подписки и избранное</li>
+        <li class="hstack" style="gap: 10px; align-items: flex-start"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--danger); margin-top: 2px"><path d="M6 6l12 12M18 6 6 18"/></svg>Телефон и способы входа</li>
+        <li class="hstack" style="gap: 10px; align-items: flex-start"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--danger); margin-top: 2px"><path d="M6 6l12 12M18 6 6 18"/></svg>Ваши отзывы о других и отзывы о вас</li>
+      </ul>
+    </section>
+
+    <section class="card tight" aria-labelledby="del-keep">
+      <h2 class="h3" id="del-keep">Останется без вашего имени</h2>
+      <ul class="stack g8 sm">
+        <li class="hstack" style="gap: 10px; align-items: flex-start"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--text2); margin-top: 2px"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Сделки — для статистики, как «Удалённый пользователь»</li>
+        <li class="hstack" style="gap: 10px; align-items: flex-start"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--text2); margin-top: 2px"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Принятие правил и решения модерации — до 5 лет, по закону</li>
+        <li class="hstack" style="gap: 10px; align-items: flex-start"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--text2); margin-top: 2px"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Хэш телефона и Telegram ID — 12 месяцев, против накрутки рейтинга</li>
+      </ul>
+      <p class="cap">Открытые споры и жалобы удалим после их решения. Из резервных копий данные исчезнут за 30 дней.</p>
+    </section>
+
+    <label class="hstack" style="gap: 10px; align-items: flex-start">
+      <button class="chk on" type="button" role="checkbox" aria-checked="true"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="stroke-width: 2.6"><path d="m5 12 5 5 9-10"/></svg></button>
+      <span class="sm">Понимаю: через 7 дней аккаунт удалится навсегда, восстановить его будет нельзя</span>
+    </label>
+  </main>
+
+  <div class="mbar">
+    <button class="mbtn dng" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>Удалить аккаунт</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

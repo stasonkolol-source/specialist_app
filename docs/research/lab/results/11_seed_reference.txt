@@ -1,0 +1,18 @@
+SET
+CREATE FUNCTION
+INSERT 0 10
+INSERT 0 152
+CREATE TABLE
+INSERT 0 104
+INSERT 0 14
+INSERT 0 30
+INSERT 0 60
+INSERT 0 196
+INSERT 0 1200
+INSERT 0 416
+INSERT 0 625
+INSERT 0 20
+ cities | districts | categories | leaves | real_leaves | terms | tags 
+--------+-----------+------------+--------+-------------+-------+------
+     10 |       152 |        300 |    256 |          60 |  1041 |   20
+(1 row)

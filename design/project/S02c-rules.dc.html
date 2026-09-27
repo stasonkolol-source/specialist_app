@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S02c · Правила и уведомления</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <a class="tgh-btn" href="S02b-intent.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Назад</a>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 16px 16px 124px; gap: 16px">
+    <div class="stack g12">
+      <div class="steps" role="img" aria-label="Шаг 3 из 3"><i class="on"></i><i class="on"></i><i class="on"></i></div>
+      <h1 class="h1">Правила площадки</h1>
+    </div>
+
+    <ol class="card" style="gap: 14px">
+      <li class="hstack" style="gap: 12px; align-items: flex-start">
+        <span class="num-ic" aria-hidden="true">1</span>
+        <span class="sm"><b>Вежливо и честно.</b> Без оскорблений, спама и фейковых профилей.</span>
+      </li>
+      <li class="hstack" style="gap: 12px; align-items: flex-start">
+        <span class="num-ic" aria-hidden="true">2</span>
+        <span class="sm"><b>Контакты — после договорённости.</b> До этого общаемся в чате «Соседа».</span>
+      </li>
+      <li class="hstack" style="gap: 12px; align-items: flex-start">
+        <span class="num-ic" aria-hidden="true">3</span>
+        <span class="sm"><b>Оплата — напрямую исполнителю, после работы.</b> Предоплату незнакомым не вносите.</span>
+      </li>
+      <li class="hstack" style="gap: 12px; align-items: flex-start">
+        <span class="num-ic" aria-hidden="true">4</span>
+        <span class="sm"><b>Отзывы — только по реальным сделкам.</b> О нарушении можно пожаловаться в один тап.</span>
+      </li>
+      <li><a class="link sm" href="S48-rules.dc.html" style="min-height: 44px; display: flex; align-items: center">Читать правила полностью</a></li>
+    </ol>
+
+    <label class="card" style="flex-direction: row; align-items: flex-start; gap: 12px">
+      <button class="chk on" type="button" role="checkbox" aria-checked="true"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="stroke-width: 2.6"><path d="m5 12 5 5 9-10"/></svg></button>
+      <span>Мне есть 18 лет, я принимаю правила площадки</span>
+    </label>
+
+    <section class="card" style="flex-direction: row; align-items: flex-start; gap: 12px" aria-labelledby="ob-notif">
+      <span class="row-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16v-5a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/></svg></span>
+      <span class="grow stack g4">
+        <span class="b" id="ob-notif">Уведомления от бота</span>
+        <span class="sm t2">Бот пришлёт отклики, сообщения и новые заявки по подпискам. Telegram один раз спросит разрешение.</span>
+      </span>
+      <button class="sw on" type="button" role="switch" aria-checked="true" aria-labelledby="ob-notif"></button>
+    </section>
+  </main>
+
+  <div class="mbar">
+    <a class="mbtn" href="S03-home.dc.html">Начать</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

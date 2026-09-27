@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S06 · Фильтры выдачи</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <a class="tgh-btn" href="S05-results.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Назад</a>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 12px 16px 24px; gap: 12px" aria-hidden="true">
+    <div class="search">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+      <span style="color: var(--text)">электрик</span>
+    </div>
+    <div class="chips">
+      <span class="chip"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>Фильтры<span class="n">1</span></span>
+      <span class="chip on">Мастер на час</span>
+      <span class="chip">Свободен сегодня</span>
+    </div>
+    <div class="card tight">
+      <div class="sp">
+        <span class="ava av1">АМ</span>
+        <span class="grow stack" style="gap: 2px">
+          <span class="sp-name">Алексей Морозов</span>
+          <span class="sm t2">Электрик · мелкий ремонт · люстры</span>
+        </span>
+      </div>
+    </div>
+  </main>
+
+  <div class="scrim" style="top: 56px"></div>
+
+  <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="flt-title">
+    <div class="grab"></div>
+    <div class="between">
+      <h2 class="h2" id="flt-title">Фильтры</h2>
+      <a class="ibtn" href="S05-results.dc.html" aria-label="Закрыть фильтры"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></a>
+    </div>
+
+    <div class="stack g8" role="group" aria-labelledby="flt-sort">
+      <span class="lbl" id="flt-sort">Сортировка</span>
+      <div class="seg">
+        <button class="on" type="button" aria-pressed="true">Рекомендуем</button>
+        <button type="button" aria-pressed="false">Ближе</button>
+        <button type="button" aria-pressed="false">Рейтинг</button>
+      </div>
+    </div>
+
+    <div class="stack g8" role="group" aria-labelledby="flt-area">
+      <span class="lbl" id="flt-area">Районы</span>
+      <div class="chips wrap">
+        <button class="chip on" type="button" aria-pressed="true">Весь город</button>
+        <button class="chip" type="button" aria-pressed="false">Лиман</button>
+        <button class="chip" type="button" aria-pressed="false">Грбавица</button>
+        <button class="chip" type="button" aria-pressed="false">Центр</button>
+        <button class="chip" type="button" aria-pressed="false">Детелинара</button>
+        <button class="chip" type="button">Ещё 4</button>
+      </div>
+    </div>
+
+    <div class="fld">
+      <label class="lbl" for="flt-price">Цена до</label>
+      <div class="inp focus"><input id="flt-price" type="text" inputmode="numeric" value="5 000"><span class="sfx">RSD</span></div>
+    </div>
+
+    <div class="stack g8" role="group" aria-labelledby="flt-lang">
+      <span class="lbl" id="flt-lang">Язык общения</span>
+      <div class="chips wrap">
+        <button class="chip on" type="button" aria-pressed="true">Любой</button>
+        <button class="chip" type="button" aria-pressed="false">Русский</button>
+        <button class="chip" type="button" aria-pressed="false">Srpski</button>
+        <button class="chip" type="button" aria-pressed="false">English</button>
+      </div>
+    </div>
+
+    <div class="group" style="border: 1px solid var(--line)">
+      <button class="row" type="button">
+        <span class="grow">Категория</span>
+        <span class="t2">Мастер на час</span>
+        <svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+      </button>
+      <div class="row">
+        <span class="grow" id="flt-today">Свободен сегодня</span>
+        <button class="sw" type="button" role="switch" aria-checked="false" aria-labelledby="flt-today"></button>
+      </div>
+      <div class="row">
+        <span class="grow" id="flt-phone">Только с подтверждённым телефоном</span>
+        <button class="sw" type="button" role="switch" aria-checked="false" aria-labelledby="flt-phone"></button>
+      </div>
+    </div>
+
+    <div class="hstack">
+      <button class="btn out" type="button">Сбросить</button>
+      <a class="btn pri grow" href="S05-results.dc.html">Показать 4 специалиста</a>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

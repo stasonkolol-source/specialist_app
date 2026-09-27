@@ -1,0 +1,35 @@
+                                                                                  QUERY PLAN                                                                                  
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.29..1933.48 rows=20 width=62) (actual time=0.222..19.422 rows=20.00 loops=1)
+   Buffers: shared hit=46243
+   ->  Index Scan using req_open_created_idx on request r  (cost=0.29..985446.34 rows=10195 width=62) (actual time=0.222..19.420 rows=20.00 loops=1)
+         Filter: EXISTS(SubPlan 1)
+         Rows Removed by Filter: 4966
+         Index Searches: 1
+         Buffers: shared hit=46243
+         SubPlan 1
+           ->  Nested Loop  (cost=0.58..47.61 rows=1 width=0) (actual time=0.003..0.003 rows=0.00 loops=4986)
+                 Buffers: shared hit=41234
+                 ->  Nested Loop  (cost=0.44..44.91 rows=10 width=36) (actual time=0.001..0.002 rows=0.95 loops=4986)
+                       Buffers: shared hit=27044
+                       ->  Index Scan using subscription_specialist_idx on subscription s  (cost=0.29..42.23 rows=1 width=27) (actual time=0.001..0.001 rows=0.48 loops=4986)
+                             Index Cond: (specialist_id = '0198d272-a4b3-7026-a4b8-a85590e4307e'::uuid)
+                             Filter: (is_active AND ((r.district_id = ANY (district_ids)) OR st_covers(area, (r.location)::geometry)))
+                             Rows Removed by Filter: 4
+                             Index Searches: 4986
+                             Buffers: shared hit=19940
+                       ->  Index Scan using category_pkey on category sc  (cost=0.15..2.58 rows=10 width=40) (actual time=0.001..0.001 rows=1.99 loops=2374)
+                             Index Cond: (id = ANY (s.category_ids))
+                             Index Searches: 2374
+                             Buffers: shared hit=7104
+                 ->  Index Scan using category_path_gist on category rc  (cost=0.14..0.26 rows=1 width=36) (actual time=0.002..0.002 rows=0.00 loops=4730)
+                       Index Cond: (path <@ sc.path)
+                       Filter: (id = r.category_id)
+                       Rows Removed by Filter: 1
+                       Index Searches: 4730
+                       Buffers: shared hit=14190
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.115 ms
+ Execution Time: 19.452 ms
+(32 rows)

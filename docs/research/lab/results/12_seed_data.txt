@@ -1,0 +1,104 @@
+Timing is on.
+SET
+Time: 0.121 ms
+SET
+Time: 0.095 ms
+SET
+Time: 0.072 ms
+ setseed 
+---------
+ 
+(1 row)
+
+Time: 0.366 ms
+CREATE INDEX
+Time: 8.500 ms
+psql:/lab/sql/12_seed_data.sql:15: NOTICE:  table "gen_const" does not exist, skipping
+DROP TABLE
+Time: 0.072 ms
+SELECT 1
+Time: 2.659 ms
+DROP TABLE
+Time: 0.069 ms
+psql:/lab/sql/12_seed_data.sql:39: NOTICE:  table "gen_terms" does not exist, skipping
+SELECT 1024
+Time: 2.043 ms
+CREATE INDEX
+Time: 0.578 ms
+ANALYZE
+Time: 1.901 ms
+DROP TABLE
+Time: 0.059 ms
+psql:/lab/sql/12_seed_data.sql:50: NOTICE:  table "gen_siblings" does not exist, skipping
+SELECT 30
+Time: 0.699 ms
+psql:/lab/sql/12_seed_data.sql:55: NOTICE:  table "gen_spec" does not exist, skipping
+DROP TABLE
+Time: 0.050 ms
+SELECT 50000
+Time: 341.625 ms
+INSERT 0 50000
+Time: 463.121 ms
+INSERT 0 94378
+Time: 546.754 ms
+INSERT 0 273535
+Time: 1785.215 ms (00:01.785)
+psql:/lab/sql/12_seed_data.sql:152: NOTICE:  table "gen_review_pick" does not exist, skipping
+DROP TABLE
+Time: 0.103 ms
+SELECT 150000
+Time: 15.525 ms
+INSERT 0 150000
+Time: 585.773 ms
+UPDATE 43500
+Time: 225.399 ms
+psql:/lab/sql/12_seed_data.sql:169: NOTICE:  table "gen_req" does not exist, skipping
+DROP TABLE
+Time: 0.124 ms
+SELECT 300000
+Time: 1759.619 ms (00:01.760)
+INSERT 0 300000
+Time: 3219.763 ms (00:03.220)
+UPDATE 46757
+Time: 383.064 ms
+UPDATE 280930
+Time: 2427.807 ms (00:02.428)
+DROP TABLE
+Time: 0.114 ms
+psql:/lab/sql/12_seed_data.sql:215: NOTICE:  table "gen_resp" does not exist, skipping
+SELECT 300000
+Time: 52.729 ms
+psql:/lab/sql/12_seed_data.sql:217: NOTICE:  table "gen_resp_pick" does not exist, skipping
+DROP TABLE
+Time: 0.115 ms
+SELECT 450088
+Time: 127.280 ms
+INSERT 0 450088
+Time: 3360.436 ms (00:03.360)
+psql:/lab/sql/12_seed_data.sql:233: NOTICE:  table "gen_sub" does not exist, skipping
+DROP TABLE
+Time: 0.125 ms
+SELECT 74087
+Time: 29.495 ms
+INSERT 0 74087
+Time: 1325.708 ms (00:01.326)
+INSERT 0 123469
+Time: 564.884 ms
+INSERT 0 239939
+Time: 914.080 ms
+Timing is off.
+              t              | count  
+-----------------------------+--------
+ specialist                  |  50000
+ specialist_category         |  94378
+ service                     | 273535
+ review                      | 150000
+ request                     | 300000
+ request_open                |  20000
+ response                    | 450088
+ subscription                |  74087
+ subscription_category       | 123469
+ subscription_district       | 239939
+ specialist_without_district |   3243
+ request_without_district    |  19070
+(12 rows)

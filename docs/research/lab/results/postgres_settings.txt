@@ -1,0 +1,31 @@
+              name               |            setting            | unit |    source    
+---------------------------------+-------------------------------+------+--------------
+ autovacuum                      | on                            |      | default
+ checkpoint_timeout              | 900                           | s    | command line
+ default_statistics_target       | 100                           |      | default
+ default_toast_compression       | lz4                           |      | command line
+ effective_cache_size            | 262144                        | 8kB  | command line
+ effective_io_concurrency        | 200                           |      | command line
+ io_method                       | worker                        |      | default
+ io_workers                      | 3                             |      | default
+ jit                             | off                           |      | command line
+ maintenance_work_mem            | 524288                        | kB   | command line
+ max_connections                 | 100                           |      | command line
+ max_parallel_workers            | 4                             |      | command line
+ max_parallel_workers_per_gather | 2                             |      | command line
+ max_wal_size                    | 4096                          | MB   | command line
+ max_worker_processes            | 8                             |      | command line
+ plan_cache_mode                 | auto                          |      | default
+ random_page_cost                | 1.1                           |      | command line
+ server_version                  | 18.6 (Debian 18.6-1.pgdg13+2) |      | default
+ shared_buffers                  | 131072                        | 8kB  | command line
+ shared_preload_libraries        | pg_stat_statements,pg_cron    |      | command line
+ track_io_timing                 | on                            |      | command line
+ wal_compression                 | zstd                          |      | command line
+ work_mem                        | 16384                         | kB   | command line
+(23 rows)
+
+ datname | datlocprovider | datlocale | datcollate |  datctype  | pg_size_pretty 
+---------+----------------+-----------+------------+------------+----------------
+ lab     | b              | C.UTF-8   | en_US.utf8 | en_US.utf8 | 669 MB
+(1 row)

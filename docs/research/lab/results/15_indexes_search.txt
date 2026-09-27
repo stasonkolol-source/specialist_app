@@ -1,0 +1,145 @@
+Timing is on.
+SET
+Time: 0.090 ms
+SET
+Time: 0.059 ms
+CREATE INDEX
+Time: 23.227 ms
+CREATE INDEX
+Time: 117.544 ms
+CREATE INDEX
+Time: 81.722 ms
+CREATE INDEX
+Time: 104.123 ms
+CREATE INDEX
+Time: 27.192 ms
+CREATE INDEX
+Time: 15.438 ms
+CREATE INDEX
+Time: 23.156 ms
+CREATE INDEX
+Time: 72.091 ms
+CREATE INDEX
+Time: 41.936 ms
+CREATE INDEX
+Time: 95.936 ms
+ALTER TABLE
+Time: 3955.183 ms (00:03.955)
+CREATE INDEX
+Time: 33.805 ms
+CREATE INDEX
+Time: 26.027 ms
+CREATE INDEX
+Time: 26.124 ms
+CREATE INDEX
+Time: 25.893 ms
+CREATE INDEX
+Time: 58.755 ms
+CREATE INDEX
+Time: 32.317 ms
+CREATE INDEX
+Time: 351.911 ms
+CREATE INDEX
+Time: 23.890 ms
+CREATE INDEX
+Time: 24.035 ms
+CREATE INDEX
+Time: 31.061 ms
+CREATE INDEX
+Time: 58.439 ms
+CREATE INDEX
+Time: 0.839 ms
+CREATE INDEX
+Time: 2.453 ms
+CREATE INDEX
+Time: 2.171 ms
+Timing is off.
+VACUUM
+== sizes
+                relation                 | kind |    size    |   bytes   |        table_         
+-----------------------------------------+------+------------+-----------+-----------------------
+ request                                 | r    | 142 MB     | 148897792 | 
+ response                                | r    | 66 MB      |  69582848 | 
+ specialist_search                       | r    | 65 MB      |  67633152 | 
+ specialist                              | r    | 56 MB      |  58441728 | 
+ service                                 | r    | 37 MB      |  38920192 | 
+ subscription                            | r    | 28 MB      |  28950528 | 
+ review                                  | r    | 19 MB      |  20119552 | 
+ subscription_district                   | r    | 12 MB      |  12525568 | 
+ subscription_category                   | r    | 6296 kB    |   6447104 | 
+ specialist_category                     | r    | 4816 kB    |   4931584 | 
+ category_term                           | r    | 96 kB      |     98304 | 
+ category_translation                    | r    | 88 kB      |     90112 | 
+ category                                | r    | 88 kB      |     90112 | 
+ category_doc                            | r    | 64 kB      |     65536 | 
+ district                                | r    | 64 kB      |     65536 | 
+ tag                                     | r    | 8192 bytes |      8192 | 
+ city                                    | r    | 8192 bytes |      8192 | 
+ response_specialist_idx                 | i    | 17 MB      |  18300928 | response
+ req_status_cat_created_idx              | i    | 17 MB      |  17686528 | request
+ subscription_district_pkey              | i    | 16 MB      |  16916480 | subscription_district
+ response_pkey                           | i    | 14 MB      |  14221312 | response
+ request_client_idx                      | i    | 12 MB      |  12189696 | request
+ response_request_idx                    | i    | 10 MB      |  10485760 | response
+ request_pkey                            | i    | 9264 kB    |   9486336 | request
+ service_pkey                            | i    | 8440 kB    |   8642560 | service
+ subscription_category_pkey              | i    | 7720 kB    |   7905280 | subscription_category
+ review_specialist_idx                   | i    | 5968 kB    |   6111232 | review
+ ss_tsv_gin                              | i    | 5192 kB    |   5316608 | specialist_search
+ specialist_category_pkey                | i    | 4864 kB    |   4980736 | specialist_category
+ review_pkey                             | i    | 4640 kB    |   4751360 | review
+ specialist_category_cat_idx             | i    | 3760 kB    |   3850240 | specialist_category
+ service_specialist_idx                  | i    | 3544 kB    |   3629056 | service
+ specialist_location_gist                | i    | 3512 kB    |   3596288 | specialist
+ ss_tsv_own_gin                          | i    | 3496 kB    |   3579904 | specialist_search
+ ss_location_gist                        | i    | 3480 kB    |   3563520 | specialist_search
+ specialist_pkey                         | i    | 3096 kB    |   3170304 | specialist
+ subscription_district_sub_idx           | i    | 3064 kB    |   3137536 | subscription_district
+ subscription_category_sub_idx           | i    | 3008 kB    |   3080192 | subscription_category
+ subscription_pkey                       | i    | 2288 kB    |   2342912 | subscription
+ specialist_city_rating_idx              | i    | 2208 kB    |   2260992 | specialist
+ sub_center_gist                         | i    | 2072 kB    |   2121728 | subscription
+ service_cat_price_idx                   | i    | 2040 kB    |   2088960 | service
+ ss_city_score_idx                       | i    | 1976 kB    |   2023424 | specialist_search
+ ss_name_trgm                            | i    | 1960 kB    |   2007040 | specialist_search
+ specialist_search_pkey                  | i    | 1568 kB    |   1605632 | specialist_search
+ req_open_location_gist                  | i    | 1472 kB    |   1507328 | request
+ subscription_specialist_idx             | i    | 1448 kB    |   1482752 | subscription
+ req_open_dist_created_idx               | i    | 984 kB     |   1007616 | request
+ req_open_city_created_idx               | i    | 984 kB     |   1007616 | request
+ req_open_cat_created_idx                | i    | 984 kB     |   1007616 | request
+ sub_area_gist                           | i    | 936 kB     |    958464 | subscription
+ ss_cat_city_gin                         | i    | 920 kB     |    942080 | specialist_search
+ req_open_created_idx                    | i    | 808 kB     |    827392 | request
+ sub_district_gin                        | i    | 776 kB     |    794624 | subscription
+ ss_category_gin                         | i    | 768 kB     |    786432 | specialist_search
+ req_open_tsv_gin                        | i    | 752 kB     |    770048 | request
+ sub_category_gin                        | i    | 392 kB     |    401408 | subscription
+ ss_district_idx                         | i    | 360 kB     |    368640 | specialist_search
+ term_norm_trgm_gin                      | i    | 144 kB     |    147456 | category_term
+ term_norm_trgm_gist                     | i    | 104 kB     |    106496 | category_term
+ category_term_category_id_lang_term_key | i    | 88 kB      |     90112 | category_term
+ term_norm_btree                         | i    | 48 kB      |     49152 | category_term
+ category_translation_pkey               | i    | 48 kB      |     49152 | category_translation
+ category_path_key                       | i    | 40 kB      |     40960 | category
+ category_term_pkey                      | i    | 40 kB      |     40960 | category_term
+ category_path_gist                      | i    | 40 kB      |     40960 | category
+ category_term_cat_idx                   | i    | 32 kB      |     32768 | category_term
+ category_slug_key                       | i    | 32 kB      |     32768 | category
+ district_slug_key                       | i    | 16 kB      |     16384 | district
+ category_parent_idx                     | i    | 16 kB      |     16384 | category
+ district_city_idx                       | i    | 16 kB      |     16384 | district
+ tag_pkey                                | i    | 16 kB      |     16384 | tag
+ tag_slug_key                            | i    | 16 kB      |     16384 | tag
+ district_pkey                           | i    | 16 kB      |     16384 | district
+ category_pkey                           | i    | 16 kB      |     16384 | category
+ category_doc_pkey                       | i    | 16 kB      |     16384 | category_doc
+ city_pkey                               | i    | 16 kB      |     16384 | city
+ city_slug_key                           | i    | 16 kB      |     16384 | city
+ district_boundary_gist                  | i    | 8192 bytes |      8192 | district
+(79 rows)
+
+ database_size 
+---------------
+ 638 MB
+(1 row)

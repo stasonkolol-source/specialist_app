@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>D03 · Главная — тёмная тема</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0B1118}</style>
+</helmet>
+<div class="scr theme-dark" style="width: 390px; height: 1300px">
+  <header class="tgh">
+    <button class="tgh-btn" type="button">Закрыть</button>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 12px 16px 108px; gap: 20px">
+    <nav class="seg" aria-label="Раздел главной">
+      <a class="on" href="D03-home-dark.dc.html" aria-current="page">Услуги</a>
+      <a href="S58-goods-soon.dc.html"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>Вещи<span class="bdg info" style="height: 20px; padding: 0 6px; font-size: 11px">скоро</span></a>
+    </nav>
+
+    <section class="stack g12">
+      <button class="chip" type="button" style="align-self: flex-start" aria-label="Город и район: Нови-Сад, Лиман. Изменить">
+        <svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--accent)"><path d="M12 21s7-6.1 7-11.5a7 7 0 1 0-14 0C5 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+        Нови-Сад · Лиман
+        <svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--text2)"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="stack g4">
+        <h1 class="h1">Найдём мастера рядом</h1>
+        <p class="t2">Говорят по-русски и по-сербски</p>
+      </div>
+      <label class="search">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <input type="search" placeholder="Электрик, маникюр, уборка…" aria-label="Поиск услуг и специалистов">
+      </label>
+    </section>
+
+    <section class="stack g12" aria-labelledby="home-cats">
+      <h2 class="h3" id="home-cats">Что нужно сделать?</h2>
+      <div class="tiles">
+        <a class="tile" href="S05-results.dc.html">
+          <span class="row-ic av1"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg></span>
+          Мастер на&nbsp;час
+        </a>
+        <a class="tile" href="S04-categories.dc.html">
+          <span class="row-ic av4"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg></span>
+          Бьюти
+        </a>
+        <a class="tile" href="S04-categories.dc.html">
+          <span class="row-ic av2"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3 11 10"/><path d="M7 10h9l2 10H5z"/><path d="M9 15v5M13 15v5"/></svg></span>
+          Уборка
+        </a>
+        <a class="tile" href="S04-categories.dc.html">
+          <span class="row-ic av3"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h11v10H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></span>
+          Переезды
+        </a>
+        <a class="tile" href="S04-categories.dc.html">
+          <span class="row-ic av5"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg></span>
+          Репетиторы
+        </a>
+        <a class="tile" href="S04-categories.dc.html">
+          <span class="row-ic" style="background: var(--bg2); color: var(--text2)"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></span>
+          Все услуги
+        </a>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hstack" style="gap: 12px; align-items: flex-start">
+        <span class="row-ic" style="width: 44px; height: 44px; border-radius: 12px"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9zM9 11h6M9 15h4"/></svg></span>
+        <div class="grow stack g4">
+          <h2 class="h3">Не хотите искать сами?</h2>
+          <p class="sm t2">Опишите задачу — откликнутся до 5 исполнителей, а вы выберете, с кем договориться.</p>
+        </div>
+      </div>
+      <a class="btn pri full" href="S20a-create-what.dc.html">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        Создать заявку
+      </a>
+    </section>
+
+    <section class="stack g12" aria-labelledby="home-today">
+      <div class="between">
+        <h2 class="h3" id="home-today">Свободны сегодня рядом</h2>
+        <a class="link sm" href="S05-results.dc.html" style="min-height: 44px; display: flex; align-items: center">Все</a>
+      </div>
+      <a class="card" href="S08-profile.dc.html">
+        <div class="sp">
+          <span class="ava av1" aria-hidden="true">АМ</span>
+          <div class="grow stack g4">
+            <span class="sp-name">Алексей Морозов</span>
+            <span class="sm t2">Электрик · мелкий ремонт · люстры</span>
+            <span class="sp-meta">
+              <span class="rate"><svg class="ic fill star i16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>4,9</span>
+              <span>37 отзывов</span><span aria-hidden="true">·</span><span>Лиман, ≈&nbsp;1,5&nbsp;км</span>
+            </span>
+          </div>
+        </div>
+        <div class="between">
+          <span class="bdg ok"><span class="dot"></span>Сегодня до 20:00</span>
+          <span class="price">от 2&nbsp;000 RSD</span>
+        </div>
+      </a>
+      <a class="card" href="S08-profile.dc.html">
+        <div class="sp">
+          <span class="ava av4" aria-hidden="true">МК</span>
+          <div class="grow stack g4">
+            <span class="sp-name">Мария Ковалёва</span>
+            <span class="sm t2">Маникюр и педикюр · гель-лак</span>
+            <span class="sp-meta">
+              <span class="rate"><svg class="ic fill star i16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>5,0</span>
+              <span>52 отзыва</span><span aria-hidden="true">·</span><span>Грбавица, ≈&nbsp;2&nbsp;км</span>
+            </span>
+          </div>
+        </div>
+        <div class="between">
+          <span class="bdg ok"><span class="dot"></span>Сегодня после 15:00</span>
+          <span class="price">от 2&nbsp;500 RSD</span>
+        </div>
+      </a>
+    </section>
+
+    <a class="card" href="S13-feed.dc.html" style="flex-direction: row; align-items: center">
+      <span class="row-ic av3" style="width: 44px; height: 44px; border-radius: 12px"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5h6v2M3 12h18"/></svg></span>
+      <span class="grow stack g4">
+        <span class="b">Ищете подработку?</span>
+        <span class="cap">6 новых задач рядом — сборка, уборка, переезды</span>
+      </span>
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--text2)"><path d="m9 6 6 6-6 6"/></svg>
+    </a>
+  </main>
+
+  <nav class="tabbar" aria-label="Разделы">
+    <a class="tab on" href="S03-home.dc.html" aria-current="page"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Главная</a>
+    <a class="tab" href="S13-feed.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9zM9 11h6M9 15h4"/></svg>Заявки</a>
+    <a class="tab" href="S20a-create-what.dc.html" aria-label="Создать заявку"><span class="tab-plus"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span></a>
+    <a class="tab" href="S29-chats.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>Сообщения<span class="cnt">2</span></a>
+    <a class="tab" href="S31-account.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Профиль</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1300}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

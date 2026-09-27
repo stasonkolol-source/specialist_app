@@ -1,0 +1,740 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "B1-bot-job-alert.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "B1 · Бот: новая заявка",
+      "w": 390,
+      "x": 0,
+      "y": 13032
+    },
+    "B2-bot-review.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "B2 · Бот: отзыв",
+      "w": 390,
+      "x": 470,
+      "y": 13032
+    },
+    "D03-home-dark.dc.html": {
+      "h": 1300,
+      "is_interactive": true,
+      "title": "D03 · Главная — тёмная тема",
+      "w": 390,
+      "x": 940,
+      "y": 13032
+    },
+    "D13-feed-dark.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "D13 · Лента — тёмная тема",
+      "w": 390,
+      "x": 1410,
+      "y": 13032
+    },
+    "D30-chat-dark.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "D30 · Чат — тёмная тема",
+      "w": 390,
+      "x": 1880,
+      "y": 13032
+    },
+    "Main.dc.html": {
+      "h": 1280,
+      "is_interactive": true,
+      "title": "Дизайн-система",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "S01-launch.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S01 · Запуск",
+      "w": 390,
+      "x": 0,
+      "y": 1700
+    },
+    "S02a-language.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S02a · Язык и город",
+      "w": 390,
+      "x": 470,
+      "y": 1700
+    },
+    "S02b-intent.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S02b · Цель",
+      "w": 390,
+      "x": 940,
+      "y": 1700
+    },
+    "S02c-rules.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S02c · Правила и уведомления",
+      "w": 390,
+      "x": 1410,
+      "y": 1700
+    },
+    "S03-home.dc.html": {
+      "h": 1300,
+      "is_interactive": true,
+      "title": "S03 · Главная",
+      "w": 390,
+      "x": 0,
+      "y": 2944
+    },
+    "S04-categories.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S04 · Категории",
+      "w": 390,
+      "x": 470,
+      "y": 2944
+    },
+    "S05-results.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S05 · Выдача: электрик",
+      "w": 390,
+      "x": 940,
+      "y": 2944
+    },
+    "S06-filters.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S06 · Фильтры выдачи",
+      "w": 390,
+      "x": 1410,
+      "y": 2944
+    },
+    "S07-map.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S07 · Карта (v1)",
+      "w": 390,
+      "x": 1880,
+      "y": 2944
+    },
+    "S08-profile.dc.html": {
+      "h": 1400,
+      "is_interactive": true,
+      "title": "S08 · Профиль специалиста",
+      "w": 390,
+      "x": 2350,
+      "y": 2944
+    },
+    "S09-prices.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S09 · Прайс",
+      "w": 390,
+      "x": 2820,
+      "y": 2944
+    },
+    "S10-portfolio.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S10 · Работа из портфолио",
+      "w": 390,
+      "x": 3290,
+      "y": 2944
+    },
+    "S11-reviews.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S11 · Отзывы",
+      "w": 390,
+      "x": 3760,
+      "y": 2944
+    },
+    "S12-favorites.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S12 · Избранное",
+      "w": 390,
+      "x": 4230,
+      "y": 2944
+    },
+    "S13-feed.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S13 · Лента заявок",
+      "w": 390,
+      "x": 0,
+      "y": 4744
+    },
+    "S14-feed-filters.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S14 · Фильтры ленты",
+      "w": 390,
+      "x": 470,
+      "y": 4744
+    },
+    "S15-job.dc.html": {
+      "h": 1100,
+      "is_interactive": true,
+      "title": "S15 · Заявка",
+      "w": 390,
+      "x": 940,
+      "y": 4744
+    },
+    "S16-respond.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S16 · Отклик",
+      "w": 390,
+      "x": 1410,
+      "y": 4744
+    },
+    "S17-my-responses.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S17 · Мои отклики",
+      "w": 390,
+      "x": 1880,
+      "y": 4744
+    },
+    "S18-alerts.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S18 · Подписки на заявки",
+      "w": 390,
+      "x": 2350,
+      "y": 4744
+    },
+    "S19-alert-form.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S19 · Новая подписка",
+      "w": 390,
+      "x": 2820,
+      "y": 4744
+    },
+    "S20a-create-what.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S20a · Заявка: что сделать",
+      "w": 390,
+      "x": 0,
+      "y": 6244
+    },
+    "S20b-create-when-where.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S20b · Заявка: когда и где",
+      "w": 390,
+      "x": 470,
+      "y": 6244
+    },
+    "S20c-create-budget.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S20c · Заявка: бюджет",
+      "w": 390,
+      "x": 940,
+      "y": 6244
+    },
+    "S20d-create-preview.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S20d · Заявка: проверка",
+      "w": 390,
+      "x": 1410,
+      "y": 6244
+    },
+    "S21-published.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S21 · Заявка опубликована",
+      "w": 390,
+      "x": 1880,
+      "y": 6244
+    },
+    "S22-my-jobs.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S22 · Мои заявки",
+      "w": 390,
+      "x": 2350,
+      "y": 6244
+    },
+    "S23-manage-job.dc.html": {
+      "h": 1100,
+      "is_interactive": true,
+      "title": "S23 · Управление заявкой",
+      "w": 390,
+      "x": 2820,
+      "y": 6244
+    },
+    "S24-response.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S24 · Отклик исполнителя",
+      "w": 390,
+      "x": 3290,
+      "y": 6244
+    },
+    "S25-confirm-choice.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S25 · Подтверждение выбора",
+      "w": 390,
+      "x": 3760,
+      "y": 6244
+    },
+    "S26-deal.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S26 · Сделка",
+      "w": 390,
+      "x": 470,
+      "y": 7744
+    },
+    "S27-review.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S27 · Отзыв",
+      "w": 390,
+      "x": 940,
+      "y": 7744
+    },
+    "S28-history.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S28 · История",
+      "w": 390,
+      "x": 1880,
+      "y": 7744
+    },
+    "S29-chats.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S29 · Сообщения",
+      "w": 390,
+      "x": 0,
+      "y": 8988
+    },
+    "S30-chat.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S30 · Чат со специалистом",
+      "w": 390,
+      "x": 470,
+      "y": 8988
+    },
+    "S31-account.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S31 · Профиль",
+      "w": 390,
+      "x": 0,
+      "y": 10232
+    },
+    "S32a-become-type.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S32a · Стать специалистом: тип",
+      "w": 390,
+      "x": 470,
+      "y": 10232
+    },
+    "S32b-become-about.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S32b · Стать специалистом: о себе",
+      "w": 390,
+      "x": 940,
+      "y": 10232
+    },
+    "S32c-become-area-prices.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S32c · Стать специалистом: район и цены",
+      "w": 390,
+      "x": 1410,
+      "y": 10232
+    },
+    "S33-cabinet.dc.html": {
+      "h": 1000,
+      "is_interactive": true,
+      "title": "S33 · Кабинет специалиста",
+      "w": 390,
+      "x": 1880,
+      "y": 10232
+    },
+    "S34-edit-profile.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S34 · Редактирование профиля",
+      "w": 390,
+      "x": 2350,
+      "y": 10232
+    },
+    "S35-price-list.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S35 · Прайс-лист",
+      "w": 390,
+      "x": 2820,
+      "y": 10232
+    },
+    "S36-price-item.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S36 · Позиция прайса",
+      "w": 390,
+      "x": 3290,
+      "y": 10232
+    },
+    "S37-portfolio-edit.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S37 · Портфолио",
+      "w": 390,
+      "x": 3760,
+      "y": 10232
+    },
+    "S38-availability.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S38 · Доступность",
+      "w": 390,
+      "x": 4230,
+      "y": 10232
+    },
+    "S39-verification.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S39 · Верификация",
+      "w": 390,
+      "x": 4700,
+      "y": 10232
+    },
+    "S40-pro.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S40 · Pro (v1)",
+      "w": 390,
+      "x": 5170,
+      "y": 10232
+    },
+    "S41-referral.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S41 · Приглашения (v1)",
+      "w": 390,
+      "x": 5640,
+      "y": 10232
+    },
+    "S42-notifications.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S42 · Уведомления",
+      "w": 390,
+      "x": 0,
+      "y": 11632
+    },
+    "S43-settings.dc.html": {
+      "h": 1000,
+      "is_interactive": true,
+      "title": "S43 · Настройки",
+      "w": 390,
+      "x": 470,
+      "y": 11632
+    },
+    "S44-blocked.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S44 · Заблокированные",
+      "w": 390,
+      "x": 940,
+      "y": 11632
+    },
+    "S45-delete-account.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S45 · Удаление аккаунта",
+      "w": 390,
+      "x": 1410,
+      "y": 11632
+    },
+    "S46-report.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S46 · Жалоба",
+      "w": 390,
+      "x": 1880,
+      "y": 11632
+    },
+    "S47-help.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S47 · Помощь",
+      "w": 390,
+      "x": 2350,
+      "y": 11632
+    },
+    "S48-rules.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S48 · Правила площадки",
+      "w": 390,
+      "x": 2820,
+      "y": 11632
+    },
+    "S49a-offline.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S49a · Нет сети",
+      "w": 390,
+      "x": 3290,
+      "y": 11632
+    },
+    "S49b-restricted.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S49b · Аккаунт ограничен",
+      "w": 390,
+      "x": 3760,
+      "y": 11632
+    },
+    "S50-sorting.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S50 · Как мы сортируем (v1)",
+      "w": 390,
+      "x": 4230,
+      "y": 11632
+    },
+    "S51-reviews-policy.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S51 · Как мы проверяем отзывы (v1)",
+      "w": 390,
+      "x": 4700,
+      "y": 11632
+    },
+    "S52-dispute.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S52 · Проблема со сделкой",
+      "w": 390,
+      "x": 1410,
+      "y": 7744
+    },
+    "S53-confirm-agreement.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S53 · Подтверждение договорённости",
+      "w": 390,
+      "x": 0,
+      "y": 7744
+    },
+    "S54-share-contact.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S54 · Поделиться контактом",
+      "w": 390,
+      "x": 940,
+      "y": 8988
+    },
+    "S55-review-invites.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S55 · Отзывы до платформы",
+      "w": 390,
+      "x": 2350,
+      "y": 7744
+    },
+    "S56-invite-review.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S56 · Отзыв по приглашению",
+      "w": 390,
+      "x": 2820,
+      "y": 7744
+    },
+    "S57-templates.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S57 · Шаблоны откликов",
+      "w": 390,
+      "x": 3290,
+      "y": 4744
+    },
+    "S58-goods-soon.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "S58 · Вещи — скоро (заглушка MVP)",
+      "w": 390,
+      "x": 4700,
+      "y": 2944
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-09-26T19:05:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "t1": {
+      "kind": "title1",
+      "maxW": 1800,
+      "text": "1 · Вход и онбординг",
+      "w": 240,
+      "x": 0,
+      "y": 1440
+    },
+    "t2": {
+      "kind": "title1",
+      "maxW": 5090,
+      "text": "2 · Главная и поиск специалиста",
+      "w": 240,
+      "x": 0,
+      "y": 2684
+    },
+    "t3": {
+      "kind": "title1",
+      "maxW": 3680,
+      "text": "3 · Доска заявок — исполнитель и подработка",
+      "w": 240,
+      "x": 0,
+      "y": 4484
+    },
+    "t4": {
+      "kind": "title1",
+      "maxW": 4150,
+      "text": "4 · Заявка клиента и выбор исполнителя",
+      "w": 240,
+      "x": 0,
+      "y": 5984
+    },
+    "t5": {
+      "kind": "title1",
+      "maxW": 3210,
+      "text": "5 · Сделка и отзывы",
+      "w": 240,
+      "x": 0,
+      "y": 7484
+    },
+    "t6": {
+      "kind": "title1",
+      "maxW": 1330,
+      "text": "6 · Сообщения",
+      "w": 240,
+      "x": 0,
+      "y": 8728
+    },
+    "t7": {
+      "kind": "title1",
+      "maxW": 6030,
+      "text": "7 · Профиль и кабинет специалиста",
+      "w": 240,
+      "x": 0,
+      "y": 9972
+    },
+    "t8": {
+      "kind": "title1",
+      "maxW": 5170,
+      "text": "8 · Сервисные экраны",
+      "w": 240,
+      "x": 0,
+      "y": 11372
+    },
+    "t9": {
+      "kind": "title1",
+      "maxW": 2270,
+      "text": "9 · Бот и тёмная тема",
+      "w": 240,
+      "x": 0,
+      "y": 12772
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "S01-launch.dc.html",
+    "S02a-language.dc.html",
+    "S02b-intent.dc.html",
+    "S02c-rules.dc.html",
+    "S03-home.dc.html",
+    "S04-categories.dc.html",
+    "S05-results.dc.html",
+    "S06-filters.dc.html",
+    "S07-map.dc.html",
+    "S08-profile.dc.html",
+    "S09-prices.dc.html",
+    "S10-portfolio.dc.html",
+    "S11-reviews.dc.html",
+    "S12-favorites.dc.html",
+    "S58-goods-soon.dc.html",
+    "S13-feed.dc.html",
+    "S14-feed-filters.dc.html",
+    "S15-job.dc.html",
+    "S16-respond.dc.html",
+    "S17-my-responses.dc.html",
+    "S18-alerts.dc.html",
+    "S19-alert-form.dc.html",
+    "S57-templates.dc.html",
+    "S20a-create-what.dc.html",
+    "S20b-create-when-where.dc.html",
+    "S20c-create-budget.dc.html",
+    "S20d-create-preview.dc.html",
+    "S21-published.dc.html",
+    "S22-my-jobs.dc.html",
+    "S23-manage-job.dc.html",
+    "S24-response.dc.html",
+    "S25-confirm-choice.dc.html",
+    "S53-confirm-agreement.dc.html",
+    "S26-deal.dc.html",
+    "S27-review.dc.html",
+    "S52-dispute.dc.html",
+    "S28-history.dc.html",
+    "S55-review-invites.dc.html",
+    "S56-invite-review.dc.html",
+    "S29-chats.dc.html",
+    "S30-chat.dc.html",
+    "S54-share-contact.dc.html",
+    "S31-account.dc.html",
+    "S32a-become-type.dc.html",
+    "S32b-become-about.dc.html",
+    "S32c-become-area-prices.dc.html",
+    "S33-cabinet.dc.html",
+    "S34-edit-profile.dc.html",
+    "S35-price-list.dc.html",
+    "S36-price-item.dc.html",
+    "S37-portfolio-edit.dc.html",
+    "S38-availability.dc.html",
+    "S39-verification.dc.html",
+    "S40-pro.dc.html",
+    "S41-referral.dc.html",
+    "S42-notifications.dc.html",
+    "S43-settings.dc.html",
+    "S44-blocked.dc.html",
+    "S45-delete-account.dc.html",
+    "S46-report.dc.html",
+    "S47-help.dc.html",
+    "S48-rules.dc.html",
+    "S49a-offline.dc.html",
+    "S49b-restricted.dc.html",
+    "S50-sorting.dc.html",
+    "S51-reviews-policy.dc.html",
+    "B1-bot-job-alert.dc.html",
+    "B2-bot-review.dc.html",
+    "D03-home-dark.dc.html",
+    "D13-feed-dark.dc.html",
+    "D30-chat-dark.dc.html"
+  ],
+  "pages": [],
+  "title": "Сосед — дизайн экранов Mini App"
+}

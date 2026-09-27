@@ -1,0 +1,119 @@
+pgbench (18.6 (Debian 18.6-1.pgdg13+2))
+progress: 10.0 s, 1815.8 tps, lat 4.373 ms stddev 11.621, 0 failed
+progress: 20.0 s, 1796.4 tps, lat 4.470 ms stddev 11.811, 0 failed
+progress: 30.0 s, 1703.0 tps, lat 4.700 ms stddev 12.092, 0 failed
+transaction type: multiple scripts
+scaling factor: 1
+query mode: prepared
+number of clients: 8
+number of threads: 2
+maximum number of tries: 1
+duration: 30 s
+number of transactions actually processed: 53159
+number of failed transactions: 0 (0.000%)
+latency average = 4.512 ms
+latency stddev = 11.840 ms
+initial connection time = 12.612 ms
+tps = 1771.751576 (without initial connection time)
+SQL script 1: sql/pgbench/a_search_cat_city.sql
+ - weight: 25 (targets 25.0% of total)
+ - 13294 transactions (25.0% of total)
+ - number of transactions actually processed: 13294 (tps = 443.079543)
+ - number of failed transactions: 0 (0.000%)
+ - latency average = 2.311 ms
+ - latency stddev = 7.819 ms
+ - statement latencies in milliseconds and failures:
+         0.000           0 \set cat random(45, 104)
+         0.000           0 \set ci random(1, 100)
+         2.311           0 SELECT specialist_id, display_name, score FROM mp.specialist_search
+SQL script 2: sql/pgbench/b_search_radius.sql
+ - weight: 15 (targets 15.0% of total)
+ - 8068 transactions (15.2% of total)
+ - number of transactions actually processed: 8068 (tps = 268.900689)
+ - number of failed transactions: 0 (0.000%)
+ - latency average = 3.246 ms
+ - latency stddev = 9.193 ms
+ - statement latencies in milliseconds and failures:
+         0.000           0 \set sub random(15, 44)
+         0.000           0 \set dx random(-400, 400)
+         0.000           0 \set dy random(-300, 300)
+         3.246           0 SELECT specialist_id, display_name FROM mp.specialist_search
+SQL script 3: sql/pgbench/c_search_fts.sql
+ - weight: 20 (targets 20.0% of total)
+ - 10678 transactions (20.1% of total)
+ - number of transactions actually processed: 10678 (tps = 355.890128)
+ - number of failed transactions: 0 (0.000%)
+ - latency average = 7.200 ms
+ - latency stddev = 12.793 ms
+ - statement latencies in milliseconds and failures:
+         0.000           0 \set t random(1, 10)
+         7.200           0 SELECT specialist_id, display_name, ts_rank_cd(search_tsv, q, 32) AS rank
+SQL script 4: sql/pgbench/d_board_city_cats.sql
+ - weight: 15 (targets 15.0% of total)
+ - 8044 transactions (15.1% of total)
+ - number of transactions actually processed: 8044 (tps = 268.100786)
+ - number of failed transactions: 0 (0.000%)
+ - latency average = 0.987 ms
+ - latency stddev = 5.077 ms
+ - statement latencies in milliseconds and failures:
+         0.000           0 \set cat random(45, 102)
+         0.000           0 \set ci random(1, 100)
+         0.987           0 SELECT id, title, created_at FROM mp.request
+SQL script 5: sql/pgbench/e_board_radius.sql
+ - weight: 5 (targets 5.0% of total)
+ - 2664 transactions (5.0% of total)
+ - number of transactions actually processed: 2664 (tps = 88.789221)
+ - number of failed transactions: 0 (0.000%)
+ - latency average = 30.557 ms
+ - latency stddev = 22.803 ms
+ - statement latencies in milliseconds and failures:
+         0.001           0 \set root random(1, 14)
+         0.000           0 \set dx random(-400, 400)
+         0.000           0 \set dy random(-300, 300)
+        30.556           0 SELECT r.id, r.title, r.created_at FROM mp.request r
+SQL script 6: sql/pgbench/f_match_new_request.sql
+ - weight: 5 (targets 5.0% of total)
+ - 2588 transactions (4.9% of total)
+ - number of transactions actually processed: 2588 (tps = 86.256195)
+ - number of failed transactions: 0 (0.000%)
+ - latency average = 2.345 ms
+ - latency stddev = 7.722 ms
+ - statement latencies in milliseconds and failures:
+         0.000           0 \set cat random(45, 104)
+         0.000           0 \set d random(1, 52)
+         2.344           0 SELECT DISTINCT s.specialist_id
+SQL script 7: sql/pgbench/g_autocomplete.sql
+ - weight: 10 (targets 10.0% of total)
+ - 5218 transactions (9.8% of total)
+ - number of transactions actually processed: 5218 (tps = 173.912220)
+ - number of failed transactions: 0 (0.000%)
+ - latency average = 0.726 ms
+ - latency stddev = 4.892 ms
+ - statement latencies in milliseconds and failures:
+         0.000           0 \set t random(1, 12)
+         0.725           0 WITH q AS (SELECT public.search_norm((ARRAY['элек','сант','vodo','čišć','мани','manik','selid','prev','мал','
+SQL script 8: sql/pgbench/w_update_specialist.sql
+ - weight: 4 (targets 4.0% of total)
+ - 2086 transactions (3.9% of total)
+ - number of transactions actually processed: 2086 (tps = 69.524893)
+ - number of failed transactions: 0 (0.000%)
+ - latency average = 3.038 ms
+ - latency stddev = 9.010 ms
+ - statement latencies in milliseconds and failures:
+         0.001           0 \set n random(1, 49271)
+         0.641           0 BEGIN;
+         0.138           0 UPDATE mp.specialist s SET available_on = current_date, updated_at = now()
+         1.204           0 SELECT mp.refresh_specialist_search(ARRAY(SELECT specialist_id FROM mp.bench_spec_ids WHERE n = :n));
+         1.054           0 END;
+SQL script 9: sql/pgbench/w_insert_request.sql
+ - weight: 1 (targets 1.0% of total)
+ - 519 transactions (1.0% of total)
+ - number of transactions actually processed: 519 (tps = 17.297900)
+ - number of failed transactions: 0 (0.000%)
+ - latency average = 0.957 ms
+ - latency stddev = 4.287 ms
+ - statement latencies in milliseconds and failures:
+         0.000           0 \set cat random(45, 104)
+         0.000           0 \set dx random(-400, 400)
+         0.000           0 \set dy random(-300, 300)
+         0.955           0 INSERT INTO mp.request(client_id, category_id, title, description, lang, urgency, city_id, location, status, created_at, expire

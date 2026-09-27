@@ -1,0 +1,46 @@
+                                                                             QUERY PLAN                                                                             
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=16.78..16.83 rows=10 width=40) (actual time=0.144..0.147 rows=8.00 loops=1)
+   Buffers: shared hit=38
+   CTE q
+     ->  Result  (cost=0.00..0.01 rows=1 width=32) (actual time=0.000..0.000 rows=1.00 loops=1)
+   ->  Unique  (cost=16.77..16.85 rows=15 width=40) (actual time=0.144..0.147 rows=8.00 loops=1)
+         Buffers: shared hit=38
+         ->  Sort  (cost=16.77..16.81 rows=15 width=40) (actual time=0.144..0.145 rows=54.00 loops=1)
+               Sort Key: "*SELECT* 1".category_id, ((2.0)::real) DESC
+               Sort Method: quicksort  Memory: 28kB
+               Buffers: shared hit=38
+               ->  Append  (cost=1.28..16.48 rows=15 width=40) (actual time=0.027..0.139 rows=54.00 loops=1)
+                     Buffers: shared hit=38
+                     ->  Subquery Scan on "*SELECT* 1"  (cost=1.28..6.67 rows=5 width=29) (actual time=0.027..0.033 rows=24.00 loops=1)
+                           Buffers: shared hit=18
+                           ->  Nested Loop  (cost=1.28..6.61 rows=5 width=57) (actual time=0.026..0.031 rows=24.00 loops=1)
+                                 Buffers: shared hit=18
+                                 ->  CTE Scan on q  (cost=0.00..0.02 rows=1 width=32) (actual time=0.000..0.000 rows=1.00 loops=1)
+                                       Storage: Memory  Maximum Storage: 17kB
+                                 ->  Bitmap Heap Scan on category_term t  (cost=1.28..6.54 rows=5 width=39) (actual time=0.026..0.029 rows=24.00 loops=1)
+                                       Recheck Cond: (term_norm ~~ (q.n || '%'::text))
+                                       Rows Removed by Index Recheck: 4
+                                       Heap Blocks: exact=6
+                                       Buffers: shared hit=18
+                                       ->  Bitmap Index Scan on term_norm_trgm_gist  (cost=0.00..1.28 rows=5 width=0) (actual time=0.024..0.024 rows=28.00 loops=1)
+                                             Index Cond: (term_norm ~~ (q.n || '%'::text))
+                                             Index Searches: 1
+                                             Buffers: shared hit=12
+                     ->  Nested Loop  (cost=1.32..9.74 rows=10 width=29) (actual time=0.054..0.104 rows=30.00 loops=1)
+                           Buffers: shared hit=20
+                           ->  CTE Scan on q q_1  (cost=0.00..0.02 rows=1 width=32) (actual time=0.000..0.000 rows=1.00 loops=1)
+                                 Storage: Memory  Maximum Storage: 17kB
+                           ->  Bitmap Heap Scan on category_term t_1  (cost=1.32..9.59 rows=10 width=39) (actual time=0.053..0.078 rows=30.00 loops=1)
+                                 Filter: (q_1.n <% term_norm)
+                                 Heap Blocks: exact=7
+                                 Buffers: shared hit=20
+                                 ->  Bitmap Index Scan on term_norm_trgm_gist  (cost=0.00..1.32 rows=10 width=0) (actual time=0.051..0.051 rows=30.00 loops=1)
+                                       Index Cond: (term_norm %> q_1.n)
+                                       Index Searches: 1
+                                       Buffers: shared hit=13
+ Planning:
+   Buffers: shared hit=2
+ Planning Time: 0.034 ms
+ Execution Time: 0.153 ms
+(43 rows)

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S29 · Сообщения</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <button class="tgh-btn" type="button">Закрыть</button>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 16px 16px 108px; gap: 16px">
+    <h1 class="h1">Сообщения</h1>
+
+    <div class="seg" role="group" aria-label="Показать диалоги">
+      <button class="on" type="button" aria-pressed="true">Все</button>
+      <button type="button" aria-pressed="false">Я клиент</button>
+      <button type="button" aria-pressed="false">Я исполнитель</button>
+    </div>
+
+    <div class="group">
+      <a class="row" href="S30-chat.dc.html" style="align-items: flex-start">
+        <span class="ava av1" aria-hidden="true">АМ</span>
+        <span class="grow stack" style="gap: 2px; min-width: 0">
+          <span class="between"><span class="b">Алексей Морозов</span><span class="cap">16:05</span></span>
+          <span class="cap">Из профиля · электрик</span>
+          <span class="between">
+            <span class="sm t2" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Позвоните мне: <span class="mask">+381 6•• ••• ••</span></span>
+            <span class="bdg" role="img" aria-label="2 непрочитанных" style="min-width: 24px; justify-content: center; border-radius: 12px; background: var(--accent); color: var(--accent-ink)">2</span>
+          </span>
+        </span>
+      </a>
+
+      <a class="row" href="S30-chat.dc.html" style="align-items: flex-start">
+        <span class="ava av3" aria-hidden="true">НП</span>
+        <span class="grow stack" style="gap: 2px; min-width: 0">
+          <span class="between"><span class="b">Никола Петрович</span><span class="cap">15:48</span></span>
+          <span class="hstack" style="gap: 6px"><span class="cap">Заявка: Повесить люстру</span><span class="bdg info">Отклик</span></span>
+          <span class="sm t2" lang="sr-Latn">Mogu danas posle 18h</span>
+        </span>
+      </a>
+
+      <a class="row" href="S30-chat.dc.html" style="align-items: flex-start">
+        <span class="ava av2" aria-hidden="true">ДС</span>
+        <span class="grow stack" style="gap: 2px; min-width: 0">
+          <span class="between"><span class="b">Дмитрий Соколов</span><span class="cap">вчера</span></span>
+          <span class="hstack" style="gap: 6px"><span class="cap">Заявка: Собрать шкаф PAX</span><span class="bdg ok">Договорились</span></span>
+          <span class="sm t2">Вы: Спасибо, тогда до четверга!</span>
+        </span>
+      </a>
+
+      <a class="row" href="S47-help.dc.html" style="align-items: flex-start">
+        <span class="ava" aria-hidden="true" style="background: var(--accent); color: var(--accent-ink); font-family: var(--f-display)">С</span>
+        <span class="grow stack" style="gap: 2px; min-width: 0">
+          <span class="between"><span class="b">Поддержка «Соседа»</span><span class="cap">12 сен</span></span>
+          <span class="cap">Служба поддержки</span>
+          <span class="sm t2">Вопрос решён. Хорошего дня!</span>
+        </span>
+      </a>
+    </div>
+
+    <p class="cap hstack" style="justify-content: center; gap: 6px">
+      <svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+      Телефоны и ссылки видны только после договорённости
+    </p>
+  </main>
+
+  <nav class="tabbar" aria-label="Разделы">
+    <a class="tab" href="S03-home.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Главная</a>
+    <a class="tab" href="S13-feed.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9zM9 11h6M9 15h4"/></svg>Заявки</a>
+    <a class="tab" href="S20a-create-what.dc.html" aria-label="Создать заявку"><span class="tab-plus"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span></a>
+    <a class="tab on" href="S29-chats.dc.html" aria-current="page"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>Сообщения<span class="cnt">2</span></a>
+    <a class="tab" href="S31-account.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Профиль</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

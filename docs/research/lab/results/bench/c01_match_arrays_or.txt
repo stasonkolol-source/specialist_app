@@ -1,0 +1,28 @@
+                                                                                                      QUERY PLAN                                                                                                      
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Unique  (cost=27882.33..27899.11 rows=144 width=16) (actual time=7.258..8.155 rows=317.00 loops=1)
+   Buffers: shared hit=1448
+   ->  Gather Merge  (cost=27882.33..27898.75 rows=144 width=16) (actual time=7.258..8.129 rows=440.00 loops=1)
+         Workers Planned: 1
+         Workers Launched: 1
+         Buffers: shared hit=1448
+         ->  Sort  (cost=26882.32..26882.54 rows=85 width=16) (actual time=0.683..0.689 rows=220.00 loops=2)
+               Sort Key: specialist_id
+               Sort Method: quicksort  Memory: 25kB
+               Buffers: shared hit=1448
+               Worker 0:  Sort Method: quicksort  Memory: 25kB
+               ->  Parallel Bitmap Heap Scan on subscription s  (cost=27.77..26879.60 rows=85 width=16) (actual time=0.192..0.658 rows=220.00 loops=2)
+                     Recheck Cond: ((category_ids && '{3,22,65}'::integer[]) AND is_active)
+                     Filter: (((min_budget_rsd IS NULL) OR (min_budget_rsd <= 5000)) AND ((district_ids && '{1}'::integer[]) OR st_intersects(area, '0101000020E6100000B9FC87F4DB7734404BEA043411664640'::geometry)))
+                     Rows Removed by Filter: 1444
+                     Heap Blocks: exact=1411
+                     Buffers: shared hit=1439
+                     ->  Bitmap Index Scan on sub_category_gin  (cost=0.00..27.73 rows=3333 width=0) (actual time=0.244..0.244 rows=3329.00 loops=1)
+                           Index Cond: (category_ids && '{3,22,65}'::integer[])
+                           Index Searches: 1
+                           Buffers: shared hit=8
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.076 ms
+ Execution Time: 8.175 ms
+(25 rows)

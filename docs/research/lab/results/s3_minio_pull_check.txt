@@ -1,0 +1,9 @@
+# 2026-09-26T14:44:32Z docker pull attempts (linux/arm64 host)
+$ docker pull minio/minio:latest
+Error response from daemon: pull access denied for minio/minio, repository does not exist or may require 'docker login'
+
+$ docker pull minio/minio:RELEASE.2025-09-07T16-13-09Z
+Error response from daemon: pull access denied for minio/minio, repository does not exist or may require 'docker login'
+
+$ docker pull quay.io/minio/minio:latest
+Error response from daemon: unknown: failed to resolve reference "quay.io/minio/minio:latest": unexpected status from HEAD request to https://quay.io/v2/minio/minio/manifests/latest: 401 UNAUTHORIZED

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S46 · Жалоба</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <a class="tgh-btn" href="S08-profile.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Назад</a>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню профиля"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 12px 16px 124px; gap: 14px" aria-hidden="true">
+    <section class="card">
+      <div class="sp" style="gap: 16px; align-items: center">
+        <span class="ava lg av1">АМ</span>
+        <div class="grow stack g4">
+          <p class="h2">Алексей Морозов</p>
+          <p class="sm t2">Электрик · мелкий ремонт · люстры</p>
+          <p class="sp-meta">
+            <span class="rate"><svg class="ic fill star i16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>4,9</span>
+            <span>37 отзывов</span>
+          </p>
+          <p class="sp-meta">Лиман, ≈&nbsp;1,5&nbsp;км от вас</p>
+        </div>
+      </div>
+      <div class="hstack wrap" style="gap: 6px">
+        <span class="bdg info"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v6c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6z"/><path d="m9 12 2 2 4-4"/></svg>Телефон подтверждён</span>
+        <span class="bdg ok"><span class="dot"></span>Сегодня до 20:00</span>
+      </div>
+    </section>
+    <div class="bnr warn">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.01"/></svg>
+      <span>Не вносите предоплату незнакомым исполнителям. Платите после того, как работа сделана.</span>
+    </div>
+  </main>
+
+  <div class="scrim"></div>
+
+  <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="rep-title" style="gap: 12px; padding-bottom: 107px">
+    <div class="grab"></div>
+    <div class="between" style="align-items: flex-start">
+      <h2 class="h2" id="rep-title">Пожаловаться на Алексея Морозова</h2>
+      <a class="tgh-btn r" href="S08-profile.dc.html" style="min-width: 0; padding: 0 0 0 8px">Отмена</a>
+    </div>
+
+    <p class="lbl" id="rep-why">Что случилось?</p>
+    <div class="group" role="radiogroup" aria-labelledby="rep-why" style="border: 1px solid var(--line)">
+      <button class="row" type="button" role="radio" aria-checked="true"><span class="radio on"></span><span class="grow">Мошенничество или просит предоплату</span></button>
+      <button class="row" type="button" role="radio" aria-checked="false"><span class="radio"></span><span class="grow">Фейковые отзывы или чужие фото</span></button>
+      <button class="row" type="button" role="radio" aria-checked="false"><span class="radio"></span><span class="grow">Оскорбления или угрозы</span></button>
+      <button class="row" type="button" role="radio" aria-checked="false"><span class="radio"></span><span class="grow">Запрещённые услуги</span></button>
+      <button class="row" type="button" role="radio" aria-checked="false"><span class="radio"></span><span class="grow">Другое</span></button>
+    </div>
+
+    <div class="fld">
+      <label class="lbl" for="rep-text">Подробности</label>
+      <textarea class="inp" id="rep-text" style="min-height: 72px">Попросил перевести 2&nbsp;000 RSD на карту до приезда</textarea>
+    </div>
+
+    <label class="hstack" style="gap: 10px; min-height: 44px">
+      <button class="chk on" type="button" role="checkbox" aria-checked="true"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="stroke-width: 2.6"><path d="m5 12 5 5 9-10"/></svg></button>
+      <span>Также заблокировать Алексея</span>
+    </label>
+
+    <p class="cap">Жалобы на мошенничество модератор рассматривает в течение 2 часов, с 08:00 до 23:00.</p>
+  </section>
+
+  <div class="mbar">
+    <a class="mbtn" href="S08-profile.dc.html">Отправить жалобу</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+-- GiST on a sparse geography column (subscription.center: 29,782 of 74,087 rows non-NULL)
+-- CREATE INDEX sub_center_gist ON subscription USING gist (center) WHERE is_active;                       -> 20 MB
+-- CREATE INDEX tmp_sub_center_nn ON subscription USING gist (center) WHERE is_active AND center IS NOT NULL; -> 2168 kB
+ total | with_center | with_area | with_districts
+-------+-------------+-----------+----------------
+ 74087 |       29782 |     29782 |          44305
+   nn    | all_rows
+---------+----------
+ 2168 kB | 20 MB

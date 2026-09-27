@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S58 · Вещи — скоро</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <button class="tgh-btn" type="button">Закрыть</button>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 12px 16px 108px; gap: 14px">
+    <nav class="seg" aria-label="Раздел главной">
+      <a href="S03-home.dc.html">Услуги</a>
+      <a class="on" href="S58-goods-soon.dc.html" aria-current="page"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>Вещи<span class="bdg info" style="height: 20px; padding: 0 6px; font-size: 11px">скоро</span></a>
+    </nav>
+
+    <section class="stack g8" style="align-items: center; text-align: center; padding: 8px 8px 0">
+      <span class="empty-ic" style="width: 72px; height: 72px"><svg class="ic i32" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg></span>
+      <h1 class="h1">Вещи — скоро</h1>
+      <p class="t2">Раздел, где можно продать и купить вещи у своих — без поиска по чатам барахолок.</p>
+    </section>
+
+    <section class="card" aria-labelledby="goods-what">
+      <h2 class="h3" id="goods-what">Что здесь будет</h2>
+      <ul class="stack g12">
+        <li class="hstack" style="gap: 12px">
+          <span class="row-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
+          <span class="grow sm">Объявление за минуту: фото, цена и район</span>
+        </li>
+        <li class="hstack" style="gap: 12px">
+          <span class="row-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></span>
+          <span class="grow sm">Поиск по-русски и фильтры — объявления не тонут в ленте чата</span>
+        </li>
+        <li class="hstack" style="gap: 12px">
+          <span class="row-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v9h14v-9M12 8v13M12 8c-2-3-6-3-6-1s4 1 6 1M12 8c2-3 6-3 6-1s-4 1-6 1"/></svg></span>
+          <span class="grow sm">Отдам даром и распродажа при переезде</span>
+        </li>
+        <li class="hstack" style="gap: 12px">
+          <span class="row-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7"/></svg></span>
+          <span class="grow sm">Карточку вещи можно переслать в свой чат одной кнопкой</span>
+        </li>
+      </ul>
+    </section>
+
+    <sc-if value="{{ notSubscribed }}" hint-placeholder-val="{{ true }}">
+      <div class="stack g8">
+        <button class="btn pri full" type="button" onClick="{{ subscribe }}" style="height: 50px">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16v-5a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/></svg>
+          Сообщить о запуске
+        </button>
+        <p class="cap center">Бот напишет один раз — когда раздел откроется</p>
+      </div>
+    </sc-if>
+    <sc-if value="{{ subscribed }}" hint-placeholder-val="{{ false }}">
+      <div class="bnr ok" role="status">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
+        <span>Готово! Бот напишет, когда раздел «Вещи» откроется.</span>
+      </div>
+    </sc-if>
+
+    <a class="card" href="S20a-create-what.dc.html" style="flex-direction: row; align-items: center">
+      <span class="row-ic av3" style="width: 44px; height: 44px; border-radius: 12px"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h11v10H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></span>
+      <span class="grow stack g4">
+        <span class="b">Переезжаете?</span>
+        <span class="cap">Закажите переезд, уборку или сборку мебели уже сейчас</span>
+      </span>
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--text2)"><path d="m9 6 6 6-6 6"/></svg>
+    </a>
+  </main>
+
+  <nav class="tabbar" aria-label="Разделы">
+    <a class="tab on" href="S03-home.dc.html" aria-current="page"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Главная</a>
+    <a class="tab" href="S13-feed.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9zM9 11h6M9 15h4"/></svg>Заявки</a>
+    <a class="tab" href="S20a-create-what.dc.html" aria-label="Создать заявку"><span class="tab-plus"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span></a>
+    <a class="tab" href="S29-chats.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>Сообщения<span class="cnt">2</span></a>
+    <a class="tab" href="S31-account.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Профиль</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const subscribed = !!(this.state && this.state.subscribed);
+    return {
+      subscribed: subscribed,
+      notSubscribed: !subscribed,
+      subscribe: () => this.setState({ subscribed: true })
+    };
+  }
+}
+</script>
+</body>
+</html>

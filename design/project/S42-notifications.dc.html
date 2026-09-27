@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S42 · Уведомления</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <a class="tgh-btn" href="S31-account.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Назад</a>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 12px 16px 24px; gap: 12px">
+    <div class="between">
+      <h1 class="h2">Уведомления</h1>
+      <span class="hstack" style="gap: 4px">
+        <button class="link sm" type="button" style="min-height: 44px; padding: 0 8px; border: 0; background: none">Прочитать все</button>
+        <a class="ibtn" href="S43-settings.dc.html" aria-label="Настройки уведомлений"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></a>
+      </span>
+    </div>
+
+    <div class="bnr info" role="note">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16v-5a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/></svg>
+      <div class="grow stack g8">
+        <span>Бот не может писать вам — отклики и сообщения видны только здесь.</span>
+        <button class="btn sm pri" type="button" style="align-self: flex-start">Разрешить боту писать</button>
+      </div>
+    </div>
+
+    <section class="stack g8" aria-labelledby="nt-today">
+      <h2 class="sec-t" id="nt-today">Сегодня</h2>
+      <div class="group">
+        <a class="row" href="S26-deal.dc.html" style="align-items: flex-start">
+          <span class="row-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg></span>
+          <span class="grow stack" style="gap: 2px">
+            <span class="between"><span class="b">Сделка подтверждена</span><span class="hstack cap" style="gap: 6px"><span class="dot" role="img" aria-label="Не прочитано"></span>2 мин</span></span>
+            <span class="sm t2">Алексей Морозов · «Повесить люстру» · сегодня в 19:00, 3&nbsp;500 RSD</span>
+          </span>
+        </a>
+        <a class="row" href="S30-chat.dc.html" style="align-items: flex-start">
+          <span class="row-ic av2"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span>
+          <span class="grow stack" style="gap: 2px">
+            <span class="between"><span class="b">Новое сообщение</span><span class="hstack cap" style="gap: 6px"><span class="dot" role="img" aria-label="Не прочитано"></span>5 мин</span></span>
+            <span class="sm t2">Алексей Морозов: «Буду в 19:00, стремянка с собой»</span>
+          </span>
+        </a>
+        <a class="row" href="S23-manage-job.dc.html" style="align-items: flex-start">
+          <span class="row-ic av3"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9zM9 11h6M9 15h4"/></svg></span>
+          <span class="grow stack" style="gap: 2px">
+            <span class="between"><span class="b">Новый отклик</span><span class="cap">12 мин</span></span>
+            <span class="sm t2">Никола Петрович · 4&nbsp;500 RSD · «Повесить люстру», откликов 3 из 5</span>
+          </span>
+        </a>
+        <a class="row" href="S23-manage-job.dc.html" style="align-items: flex-start">
+          <span class="row-ic av1"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v6c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>
+          <span class="grow stack" style="gap: 2px">
+            <span class="between"><span class="b">Заявка прошла проверку</span><span class="cap">15 мин</span></span>
+            <span class="sm t2">«Повесить люстру» опубликована, исполнители рядом получили уведомление</span>
+          </span>
+        </a>
+      </div>
+    </section>
+
+    <section class="stack g8" aria-labelledby="nt-yesterday">
+      <h2 class="sec-t" id="nt-yesterday">Вчера</h2>
+      <div class="group">
+        <a class="row" href="S27-review.dc.html" style="align-items: flex-start">
+          <span class="row-ic av5"><svg class="ic fill" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg></span>
+          <span class="grow stack" style="gap: 2px">
+            <span class="between"><span class="b">Как прошла уборка?</span><span class="cap">18:40</span></span>
+            <span class="sm t2">Оцените работу Ольги Власовой — отзыв поможет другим клиентам</span>
+          </span>
+        </a>
+        <div class="row" style="align-items: flex-start">
+          <span class="row-ic" style="background: var(--bg2); color: var(--text2)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4h11l-2 4 2 4H5"/></svg></span>
+          <span class="grow stack" style="gap: 2px">
+            <span class="between"><span class="b">Жалоба рассмотрена</span><span class="cap">12:05</span></span>
+            <span class="sm t2">Спасибо! Модераторы проверили профиль и ограничили его</span>
+          </span>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

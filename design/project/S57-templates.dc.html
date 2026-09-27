@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S57 · Шаблоны откликов</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <a class="tgh-btn" href="S16-respond.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Назад</a>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 12px 16px 124px; gap: 12px">
+    <div class="stack g4">
+      <h1 class="h2">Шаблоны откликов</h1>
+      <p class="cap">Сообщение, цена и «когда смогу». Первые два шаблона — кнопками в уведомлениях бота: отклик в один тап</p>
+    </div>
+
+    <article class="card tight" aria-labelledby="tp-1">
+      <div class="between">
+        <span class="hstack">
+          <span class="b" id="tp-1">Могу сегодня</span>
+          <span class="bdg ok">Основной</span>
+        </span>
+        <button class="btn out sm" type="button" aria-describedby="tp-1">Изменить</button>
+      </div>
+      <p class="sm">Здравствуйте! Могу сегодня вечером, приеду со своим инструментом.</p>
+      <p class="meta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M16 15h2"/></svg>от 2&nbsp;000 RSD · сегодня</p>
+    </article>
+
+    <article class="card tight" aria-labelledby="tp-2">
+      <div class="between">
+        <span class="hstack">
+          <span class="b" id="tp-2">Свой инструмент</span>
+          <span class="bdg info"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>В боте</span>
+        </span>
+        <button class="btn out sm" type="button" aria-describedby="tp-2">Изменить</button>
+      </div>
+      <p class="sm">Приеду со своим инструментом и стремянкой. Работаю аккуратно, убираю за собой.</p>
+      <div class="between">
+        <p class="meta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M16 15h2"/></svg>от 2&nbsp;500 RSD · завтра</p>
+        <button class="btn sm" type="button" style="background: transparent; color: var(--accent); padding: 0 4px">Сделать основным</button>
+      </div>
+    </article>
+
+    <article class="card tight" aria-labelledby="tp-3">
+      <div class="between">
+        <span class="b" id="tp-3">Сначала по фото</span>
+        <button class="btn out sm" type="button" aria-describedby="tp-3">Изменить</button>
+      </div>
+      <p class="sm">Пришлите, пожалуйста, фото места работы — назову точную цену.</p>
+      <p class="meta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M16 15h2"/></svg>Договорная · по договорённости</p>
+    </article>
+
+    <p class="cap center">Шаблонов: 3 из 10</p>
+  </main>
+
+  <div class="mbar">
+    <button class="mbtn" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Новый шаблон</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

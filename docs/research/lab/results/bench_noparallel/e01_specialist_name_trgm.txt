@@ -1,0 +1,22 @@
+                                                                                                                                                                                                                                                                       QUERY PLAN                                                                                                                                                                                                                                                                       
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=2067.16..2067.19 rows=10 width=34) (actual time=7.539..7.539 rows=10.00 loops=1)
+   Buffers: shared hit=1397
+   ->  Sort  (cost=2067.16..2070.36 rows=1280 width=34) (actual time=7.538..7.539 rows=10.00 loops=1)
+         Sort Key: (similarity(btrim(regexp_replace(f_unaccent(replace(replace(replace(replace(replace(replace(replace(replace(replace(translate(lower(display_name), 'абвгдђежзијклмнопрстћуфхцчшёйыэъь'::text, 'abvgdđežzijklmnoprstćufhcčšejye'::text), 'љ'::text, 'lj'::text), 'њ'::text, 'nj'::text), 'џ'::text, 'dž'::text), 'щ'::text, 'šč'::text), 'ю'::text, 'ju'::text), 'я'::text, 'ja'::text), 'đ'::text, 'dj'::text), 'ß'::text, 'ss'::text), '&'::text, ' '::text)), '[^a-z0-9]+'::text, ' '::text, 'g'::text)), 'djordje j'::text)) DESC
+         Sort Method: top-N heapsort  Memory: 25kB
+         Buffers: shared hit=1397
+         ->  Bitmap Heap Scan on specialist_search  (cost=35.37..2039.50 rows=1280 width=34) (actual time=0.452..7.452 rows=1209.00 loops=1)
+               Recheck Cond: (btrim(regexp_replace(f_unaccent(replace(replace(replace(replace(replace(replace(replace(replace(replace(translate(lower(display_name), 'абвгдђежзијклмнопрстћуфхцчшёйыэъь'::text, 'abvgdđežzijklmnoprstćufhcčšejye'::text), 'љ'::text, 'lj'::text), 'њ'::text, 'nj'::text), 'џ'::text, 'dž'::text), 'щ'::text, 'šč'::text), 'ю'::text, 'ju'::text), 'я'::text, 'ja'::text), 'đ'::text, 'dj'::text), 'ß'::text, 'ss'::text), '&'::text, ' '::text)), '[^a-z0-9]+'::text, ' '::text, 'g'::text)) % 'djordje j'::text)
+               Rows Removed by Index Recheck: 260
+               Heap Blocks: exact=1360
+               Buffers: shared hit=1397
+               ->  Bitmap Index Scan on ss_name_trgm  (cost=0.00..35.05 rows=1280 width=0) (actual time=0.378..0.378 rows=1469.00 loops=1)
+                     Index Cond: (btrim(regexp_replace(f_unaccent(replace(replace(replace(replace(replace(replace(replace(replace(replace(translate(lower(display_name), 'абвгдђежзијклмнопрстћуфхцчшёйыэъь'::text, 'abvgdđežzijklmnoprstćufhcčšejye'::text), 'љ'::text, 'lj'::text), 'њ'::text, 'nj'::text), 'џ'::text, 'dž'::text), 'щ'::text, 'šč'::text), 'ю'::text, 'ju'::text), 'я'::text, 'ja'::text), 'đ'::text, 'dj'::text), 'ß'::text, 'ss'::text), '&'::text, ' '::text)), '[^a-z0-9]+'::text, ' '::text, 'g'::text)) % 'djordje j'::text)
+                     Index Searches: 1
+                     Buffers: shared hit=37
+ Planning:
+   Buffers: shared hit=1
+ Planning Time: 0.165 ms
+ Execution Time: 7.544 ms
+(19 rows)

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S07 · Карта</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <a class="tgh-btn" href="S03-home.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Назад</a>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 12px 16px 0; gap: 12px">
+    <label class="search">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+      <input type="search" value="электрик" aria-label="Поиск услуг и специалистов">
+      <button class="ibtn plain" type="button" aria-label="Очистить поиск" style="margin-right: -12px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </label>
+    <div class="between">
+      <a class="chip" href="S06-filters.dc.html"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>Фильтры<span class="n">1</span></a>
+      <nav class="seg" aria-label="Вид выдачи" style="width: 200px">
+        <a href="S05-results.dc.html"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Список</a>
+        <a class="on" href="S07-map.dc.html" aria-current="page"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/></svg>Карта</a>
+      </nav>
+    </div>
+  </main>
+
+  <section class="map" aria-label="Карта: 4 специалиста рядом" style="position: absolute; left: 0; right: 0; top: 186px; bottom: 0; border-radius: 0">
+    <div class="zone" style="left: 70px; top: 150px; width: 300px; height: 300px"></div>
+
+    <span class="cap" style="position: absolute; left: 44px; top: 150px">Детелинара</span>
+    <span class="cap" style="position: absolute; left: 292px; top: 118px">Центр</span>
+    <span class="cap" style="position: absolute; left: 104px; top: 262px">Грбавица</span>
+    <span class="cap" style="position: absolute; left: 16px; top: 304px">Адице</span>
+    <span class="cap" style="position: absolute; left: 244px; top: 382px">Лиман</span>
+
+    <span aria-hidden="true" style="position: absolute; left: 211px; top: 291px; width: 18px; height: 18px; border-radius: 50%; background: var(--info-ink); border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(27,79,156,.18)"></span>
+
+    <button class="pin" type="button" aria-label="Дмитрий Соколов, от 1 800 RSD" style="left: 68px; top: 178px">1&nbsp;800 RSD</button>
+    <button class="pin on" type="button" aria-label="Алексей Морозов, от 2 000 RSD, выбран" aria-pressed="true" style="left: 227px; top: 231px">2&nbsp;000 RSD</button>
+    <button class="pin" type="button" aria-label="Иван Гаврилов, новый исполнитель" style="left: 200px; top: 326px">Новый</button>
+    <button class="pin" type="button" aria-label="Никола Петрович, от 3 000 RSD" style="left: 8px; top: 332px">3&nbsp;000 RSD</button>
+
+    <button class="chip" type="button" style="position: absolute; left: 12px; top: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.12)">
+      Радиус 3&nbsp;км
+      <svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <button class="ibtn" type="button" aria-label="Показать моё местоположение" style="position: absolute; right: 12px; top: 12px; background: var(--surface); box-shadow: 0 2px 6px rgba(0,0,0,.12)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 18-8-8 18-2-8z"/></svg></button>
+  </section>
+
+  <a class="card" href="S08-profile.dc.html" style="position: absolute; left: 12px; right: 12px; bottom: 30px; box-shadow: 0 6px 20px rgba(0,0,0,.16)">
+    <div class="sp">
+      <span class="ava av1" aria-hidden="true">АМ</span>
+      <div class="grow stack g4">
+        <span class="sp-name">Алексей Морозов</span>
+        <span class="sm t2">Электрик · мелкий ремонт · люстры</span>
+        <span class="sp-meta">
+          <span class="rate"><svg class="ic fill star i16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>4,9</span>
+          <span>37 отзывов</span><span aria-hidden="true">·</span><span>Лиман, ≈&nbsp;1,5&nbsp;км</span>
+        </span>
+      </div>
+    </div>
+    <div class="between">
+      <span class="bdg ok"><span class="dot"></span>Сегодня до 20:00</span>
+      <span class="price">от 2&nbsp;000 RSD</span>
+    </div>
+  </a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

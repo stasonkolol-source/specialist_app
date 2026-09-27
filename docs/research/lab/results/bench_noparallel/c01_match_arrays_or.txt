@@ -1,0 +1,23 @@
+                                                                                                   QUERY PLAN                                                                                                   
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Unique  (cost=44063.93..44064.65 rows=144 width=16) (actual time=0.822..0.855 rows=317.00 loops=1)
+   Buffers: shared hit=1419
+   ->  Sort  (cost=44063.93..44064.29 rows=144 width=16) (actual time=0.822..0.832 rows=440.00 loops=1)
+         Sort Key: specialist_id
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=1419
+         ->  Bitmap Heap Scan on subscription s  (cost=27.77..44058.76 rows=144 width=16) (actual time=0.211..0.796 rows=440.00 loops=1)
+               Recheck Cond: ((category_ids && '{3,22,65}'::integer[]) AND is_active)
+               Filter: (((min_budget_rsd IS NULL) OR (min_budget_rsd <= 5000)) AND ((district_ids && '{1}'::integer[]) OR st_intersects(area, '0101000020E6100000B9FC87F4DB7734404BEA043411664640'::geometry)))
+               Rows Removed by Filter: 2889
+               Heap Blocks: exact=1411
+               Buffers: shared hit=1419
+               ->  Bitmap Index Scan on sub_category_gin  (cost=0.00..27.73 rows=3333 width=0) (actual time=0.146..0.146 rows=3329.00 loops=1)
+                     Index Cond: (category_ids && '{3,22,65}'::integer[])
+                     Index Searches: 1
+                     Buffers: shared hit=8
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.038 ms
+ Execution Time: 0.866 ms
+(20 rows)

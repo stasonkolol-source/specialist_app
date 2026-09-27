@@ -1,0 +1,13 @@
+-- included by sql/01_locale_providers.sql for each database
+\echo '################' :DBNAME
+SELECT current_database() AS db,
+       lower('ЭЛЕКТРИЧАР ČIŠĆENJE ЂУРЂЕВДАН') AS lower_,
+       upper('čišćenje ђурђевдан ß') AS upper_,
+       'Ж' ~ '^\w$' AS cyr_is_word_char,
+       'č' ~ '^[[:alpha:]]$' AS lat_ext_is_alpha;
+SELECT show_trgm('Електричар') AS trgm_sr_cyr;
+SELECT similarity('электирк', 'электрик') AS sim_ru_typo,
+       similarity('vodoinstaler', 'vodoinstalater') AS sim_sr_typo,
+       similarity('ЭЛЕКТРИК', 'электрик') AS sim_case;
+SELECT to_tsvector('simple', 'ЭЛЕКТРИЧАР Čišćenje stana, чишћење стана') AS simple_tsv;
+SELECT alias, token FROM ts_debug('simple', 'Мастер-электрик čišćenje') ;

@@ -1,0 +1,20 @@
+                                                                        QUERY PLAN                                                                        
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=12.05..12.11 rows=10 width=34) (actual time=0.006..0.007 rows=3.00 loops=1)
+   Buffers: shared hit=11
+   ->  Unique  (cost=12.05..12.16 rows=19 width=34) (actual time=0.006..0.007 rows=3.00 loops=1)
+         Buffers: shared hit=11
+         ->  Sort  (cost=12.05..12.10 rows=21 width=34) (actual time=0.006..0.006 rows=19.00 loops=1)
+               Sort Key: category_id, weight DESC
+               Sort Method: quicksort  Memory: 26kB
+               Buffers: shared hit=11
+               ->  Index Scan using term_norm_btree on category_term t  (cost=0.28..11.59 rows=21 width=34) (actual time=0.002..0.004 rows=19.00 loops=1)
+                     Index Cond: ((term_norm >= 'elek'::text) AND (term_norm < 'elel'::text))
+                     Filter: (term_norm ~~ 'elek%'::text)
+                     Index Searches: 1
+                     Buffers: shared hit=11
+ Planning:
+   Buffers: shared hit=1
+ Planning Time: 0.024 ms
+ Execution Time: 0.009 ms
+(17 rows)

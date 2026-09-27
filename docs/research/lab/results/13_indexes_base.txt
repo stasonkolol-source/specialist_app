@@ -1,0 +1,35 @@
+Timing is on.
+SET
+Time: 0.112 ms
+SET
+Time: 0.127 ms
+CREATE INDEX
+Time: 38.710 ms
+CREATE INDEX
+Time: 41.658 ms
+CREATE INDEX
+Time: 64.338 ms
+CREATE INDEX
+Time: 53.755 ms
+CREATE INDEX
+Time: 104.776 ms
+CREATE INDEX
+Time: 105.015 ms
+CREATE INDEX
+Time: 91.771 ms
+CREATE INDEX
+Time: 18.041 ms
+CREATE INDEX
+Time: 35.976 ms
+CREATE INDEX
+Time: 26.277 ms
+CREATE INDEX
+Time: 0.605 ms
+CREATE INDEX
+Time: 0.912 ms
+CREATE INDEX
+Time: 0.445 ms
+CREATE INDEX
+Time: 0.296 ms
+Timing is off.
+VACUUM

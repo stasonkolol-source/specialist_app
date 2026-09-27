@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "lab",
+      "credentials": [{ "accessKey": "labaccesskey000000001", "secretKey": "labsecretkey00000000000000000000000000001" }],
+      "actions": ["Admin", "Read", "List", "Tagging", "Write"]
+    }
+  ]
+}

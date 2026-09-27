@@ -1,0 +1,20 @@
+                                                                       QUERY PLAN                                                                       
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=6.06..6.11 rows=10 width=34) (actual time=0.004..0.005 rows=2.00 loops=1)
+   Buffers: shared hit=5
+   ->  Unique  (cost=6.06..6.11 rows=10 width=34) (actual time=0.004..0.005 rows=2.00 loops=1)
+         Buffers: shared hit=5
+         ->  Sort  (cost=6.06..6.08 rows=11 width=34) (actual time=0.004..0.004 rows=6.00 loops=1)
+               Sort Key: category_id, weight DESC
+               Sort Method: quicksort  Memory: 25kB
+               Buffers: shared hit=5
+               ->  Index Scan using term_norm_btree on category_term t  (cost=0.28..5.87 rows=11 width=34) (actual time=0.002..0.003 rows=6.00 loops=1)
+                     Index Cond: ((term_norm >= 'vodoin'::text) AND (term_norm < 'vodoio'::text))
+                     Filter: (term_norm ~~ 'vodoin%'::text)
+                     Index Searches: 1
+                     Buffers: shared hit=5
+ Planning:
+   Buffers: shared hit=1
+ Planning Time: 0.029 ms
+ Execution Time: 0.008 ms
+(17 rows)

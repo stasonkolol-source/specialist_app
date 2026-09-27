@@ -1,0 +1,38 @@
+                                                                                                        QUERY PLAN                                                                                                         
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=49766.40..49779.16 rows=1 width=46) (actual time=5.632..5.644 rows=20.00 loops=1)
+   Buffers: shared hit=15530
+   ->  Result  (cost=49766.40..49779.16 rows=1 width=46) (actual time=5.632..5.643 rows=20.00 loops=1)
+         Buffers: shared hit=15530
+         ->  Sort  (cost=49766.40..49766.40 rows=1 width=70) (actual time=5.631..5.632 rows=20.00 loops=1)
+               Sort Key: ((s.location <-> '0101000020E61000004BEA0434117634400000000000684640'::geography))
+               Sort Method: top-N heapsort  Memory: 29kB
+               Buffers: shared hit=15530
+               ->  Nested Loop  (cost=173.28..49766.39 rows=1 width=70) (actual time=1.132..5.611 rows=239.00 loops=1)
+                     Buffers: shared hit=15530
+                     ->  HashAggregate  (cost=172.87..210.62 rows=3775 width=16) (actual time=1.088..1.286 rows=3861.00 loops=1)
+                           Group Key: sc.specialist_id
+                           Batches: 1  Memory Usage: 281kB
+                           Buffers: shared hit=86
+                           ->  Nested Loop  (cost=0.56..163.43 rows=3775 width=16) (actual time=0.007..0.593 rows=7531.00 loops=1)
+                                 Buffers: shared hit=86
+                                 ->  Index Scan using category_path_gist on category c  (cost=0.14..10.25 rows=12 width=4) (actual time=0.003..0.006 rows=12.00 loops=1)
+                                       Index Cond: (path <@ 'cleaning.home_clean'::ltree)
+                                       Index Searches: 1
+                                       Buffers: shared hit=11
+                                 ->  Index Only Scan using specialist_category_cat_idx on specialist_category sc  (cost=0.42..9.08 rows=369 width=20) (actual time=0.002..0.024 rows=627.58 loops=12)
+                                       Index Cond: (category_id = c.id)
+                                       Heap Fetches: 0
+                                       Index Searches: 12
+                                       Buffers: shared hit=75
+                     ->  Index Scan using specialist_pkey on specialist s  (cost=0.41..13.13 rows=1 width=62) (actual time=0.001..0.001 rows=0.06 loops=3861)
+                           Index Cond: (id = sc.specialist_id)
+                           Filter: ((languages && '{ru}'::text[]) AND (status = 'active'::text) AND st_dwithin(location, '0101000020E61000004BEA0434117634400000000000684640'::geography, '5000'::double precision, true))
+                           Rows Removed by Filter: 1
+                           Index Searches: 3861
+                           Buffers: shared hit=15444
+ Planning:
+   Buffers: shared hit=26
+ Planning Time: 0.377 ms
+ Execution Time: 5.655 ms
+(35 rows)

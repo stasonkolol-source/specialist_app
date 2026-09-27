@@ -1,0 +1,108 @@
+Pager usage is off.
+== server
+                                                         version                                                          
+--------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+(1 row)
+
+  shared_preload_libraries  
+----------------------------
+ pg_stat_statements,pg_cron
+(1 row)
+
+CREATE EXTENSION
+CREATE EXTENSION
+CREATE EXTENSION
+CREATE EXTENSION
+CREATE EXTENSION
+CREATE EXTENSION
+CREATE EXTENSION
+CREATE EXTENSION
+CREATE EXTENSION
+CREATE EXTENSION
+CREATE EXTENSION
+CREATE EXTENSION
+== installed extensions
+      extname       | extversion 
+--------------------+------------
+ btree_gin          | 1.3
+ btree_gist         | 1.8
+ citext             | 1.8
+ fuzzystrmatch      | 1.2
+ ltree              | 1.3
+ pg_cron            | 1.6
+ pg_stat_statements | 1.12
+ pg_trgm            | 1.6
+ pgcrypto           | 1.4
+ plpgsql            | 1.0
+ postgis            | 3.6.4
+ unaccent           | 1.1
+ vector             | 0.8.6
+(13 rows)
+
+== PostGIS build details
+                                                                                                                                                                                   postgis_full_version                                                                                                                                                                                    
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ POSTGIS="3.6.4 94d984b" [EXTENSION] PGSQL="180" GEOS="3.14.1-CAPI-1.20.5" (compiled against GEOS 3.13.1) PROJ="9.8.1 NETWORK_ENABLED=OFF URL_ENDPOINT=https://cdn.proj.org USER_WRITABLE_DIRECTORY=/var/lib/postgresql/.local/share/proj DATABASE_PATH=/usr/share/proj/proj.db" (compiled against PROJ 9.6.0) LIBXML="2.9.14" LIBJSON="0.18" LIBPROTOBUF="1.5.1" WAGYU="0.5.0 (Internal)"
+(1 row)
+
+== UUID generators
+                 v7_a                 |                 v7_b                 |                  v4                  
+--------------------------------------+--------------------------------------+--------------------------------------
+ 01a0de38-30f2-7158-974f-adb9e0627573 | 01a0de38-30f2-71c9-95d4-e6a4556ba7f0 | 55798644-afe2-4f27-80f3-33507e8158bd
+(1 row)
+
+ ver |             ts             
+-----+----------------------------
+   7 | 2026-09-26 14:56:59.634+00
+(1 row)
+
+            v7_30_days_ago            
+--------------------------------------
+ 01a043b9-68f2-732d-b7c4-1dd9e2679358
+(1 row)
+
+== monotonicity check: 100k uuidv7 generated in one statement are strictly increasing
+ non_increasing 
+----------------
+              0
+(1 row)
+
+== quick functional checks
+  trgm_ru  | lev | unaccent_sr | citext_eq | ltree_desc | pgvector_l2 
+-----------+-----+-------------+-----------+------------+-------------
+ 0.3846154 |   2 | ccszd CCSZD | t         | t          |           1
+(1 row)
+
+ cron_job_id 
+-------------
+           1
+(1 row)
+
+ jobid |   schedule   | command  
+-------+--------------+----------
+     1 | */10 * * * * | SELECT 1
+(1 row)
+
+ unschedule 
+------------
+ t
+(1 row)
+
+== available but not installed (selection)
+          name          | default_version 
+------------------------+-----------------
+ address_standardizer   | 3.6.4
+ amcheck                | 1.5
+ dict_int               | 1.0
+ dict_xsyn              | 1.0
+ hstore                 | 1.8
+ intarray               | 1.5
+ pg_buffercache         | 1.6
+ pg_prewarm             | 1.2
+ pgstattuple            | 1.5
+ postgis_raster         | 3.6.4
+ postgis_tiger_geocoder | 3.6.4
+ postgis_topology       | 3.6.4
+ tsm_system_rows        | 1.0
+(13 rows)

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S02a · Язык и город</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <button class="tgh-btn" type="button">Закрыть</button>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 16px 16px 124px; gap: 20px">
+    <div class="stack g12">
+      <div class="steps" role="img" aria-label="Шаг 1 из 3"><i class="on"></i><i></i><i></i></div>
+      <h1 class="h1">Язык и город</h1>
+      <p class="t2">Язык мы взяли из настроек Telegram. Поменять его можно в любой момент.</p>
+    </div>
+
+    <section class="stack g8" role="radiogroup" aria-labelledby="ob-lang">
+      <h2 class="sec-t" id="ob-lang">Язык интерфейса</h2>
+      <button class="opt on" type="button" role="radio" aria-checked="true">
+        <span class="radio on"></span>
+        <span class="grow b">Русский</span>
+      </button>
+      <button class="opt" type="button" role="radio" aria-checked="false">
+        <span class="radio"></span>
+        <span class="grow"><span class="b">Srpski</span> <span class="cap">· latinica</span></span>
+      </button>
+      <button class="opt" type="button" role="radio" aria-checked="false">
+        <span class="radio"></span>
+        <span class="grow"><span class="b">Српски</span> <span class="cap">· ћирилица</span></span>
+      </button>
+      <button class="opt" type="button" role="radio" aria-checked="false" disabled style="opacity: .55">
+        <span class="radio"></span>
+        <span class="grow b">English</span>
+        <span class="bdg mute">скоро</span>
+      </button>
+    </section>
+
+    <section class="stack g8" role="radiogroup" aria-labelledby="ob-city">
+      <h2 class="sec-t" id="ob-city">Город</h2>
+      <button class="opt on" type="button" role="radio" aria-checked="true">
+        <span class="radio on"></span>
+        <span class="grow stack" style="gap: 0"><span class="b">Нови-Сад</span><span class="cap">Пилотный город</span></span>
+      </button>
+      <button class="opt" type="button" role="radio" aria-checked="false" disabled style="opacity: .55">
+        <span class="radio"></span>
+        <span class="grow b">Белград</span>
+        <span class="bdg mute">скоро</span>
+      </button>
+    </section>
+  </main>
+
+  <div class="mbar">
+    <a class="mbtn" href="S02b-intent.dc.html">Далее</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

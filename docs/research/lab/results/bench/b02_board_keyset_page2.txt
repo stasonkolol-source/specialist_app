@@ -1,0 +1,15 @@
+                                                                                  QUERY PLAN                                                                                  
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.29..157.85 rows=20 width=66) (actual time=0.004..0.041 rows=20.00 loops=1)
+   Buffers: shared hit=234
+   ->  Index Scan using req_open_city_created_idx on request  (cost=0.29..8823.57 rows=1120 width=66) (actual time=0.004..0.040 rows=20.00 loops=1)
+         Index Cond: ((city_id = 1) AND (ROW(created_at, id) < ROW('2026-09-26 06:25:11.735933+00'::timestamp with time zone, '01a0dc63-a056-7d5a-84a3-8d7bfb0d79b9'::uuid)))
+         Filter: (category_id = ANY ('{45,46,47,48,65}'::integer[]))
+         Rows Removed by Filter: 210
+         Index Searches: 1
+         Buffers: shared hit=234
+ Planning:
+   Buffers: shared hit=1
+ Planning Time: 0.030 ms
+ Execution Time: 0.044 ms
+(12 rows)

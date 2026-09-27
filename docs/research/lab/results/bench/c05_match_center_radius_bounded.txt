@@ -1,0 +1,27 @@
+                                                                                                                                               QUERY PLAN                                                                                                                                                
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Unique  (cost=52382.13..52382.13 rows=1 width=16) (actual time=6.218..6.825 rows=260.00 loops=1)
+   Buffers: shared hit=1439
+   ->  Sort  (cost=52382.13..52382.13 rows=1 width=16) (actual time=6.217..6.806 rows=307.00 loops=1)
+         Sort Key: specialist_id
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=1439
+         ->  Gather  (cost=1027.73..52382.12 rows=1 width=16) (actual time=0.399..6.778 rows=307.00 loops=1)
+               Workers Planned: 1
+               Workers Launched: 1
+               Buffers: shared hit=1439
+               ->  Parallel Bitmap Heap Scan on subscription s  (cost=27.73..51382.02 rows=1 width=16) (actual time=0.192..0.798 rows=153.50 loops=2)
+                     Recheck Cond: ((category_ids && '{3,22,65}'::integer[]) AND is_active)
+                     Filter: ((center IS NOT NULL) AND st_dwithin(center, '0101000020E6100000B9FC87F4DB7734404BEA043411664640'::geography, '25000'::double precision, true) AND st_dwithin(center, '0101000020E6100000B9FC87F4DB7734404BEA043411664640'::geography, (radius_m)::double precision, true))
+                     Rows Removed by Filter: 1511
+                     Heap Blocks: exact=1411
+                     Buffers: shared hit=1439
+                     ->  Bitmap Index Scan on sub_category_gin  (cost=0.00..27.73 rows=3333 width=0) (actual time=0.251..0.251 rows=3329.00 loops=1)
+                           Index Cond: (category_ids && '{3,22,65}'::integer[])
+                           Index Searches: 1
+                           Buffers: shared hit=8
+ Planning:
+   Buffers: shared hit=2
+ Planning Time: 0.369 ms
+ Execution Time: 6.836 ms
+(24 rows)

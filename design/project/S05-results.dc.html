@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S05 · Выдача: электрик</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <a class="tgh-btn" href="S03-home.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Назад</a>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 12px 16px 24px; gap: 12px">
+    <label class="search">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+      <input type="search" value="электрик" aria-label="Поиск услуг и специалистов">
+      <button class="ibtn plain" type="button" aria-label="Очистить поиск" style="margin-right: -12px"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </label>
+
+    <div class="chips" role="group" aria-label="Фильтры выдачи">
+      <a class="chip" href="S06-filters.dc.html"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>Фильтры<span class="n">1</span></a>
+      <button class="chip on" type="button" aria-pressed="true">Мастер на час<svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <button class="chip" type="button" aria-pressed="false">Свободен сегодня</button>
+      <button class="chip" type="button" aria-pressed="false">До 3 км</button>
+    </div>
+
+    <div class="between">
+      <p class="cap">4 специалиста рядом</p>
+      <nav class="seg" aria-label="Вид выдачи" style="width: 200px">
+        <a class="on" href="S05-results.dc.html" aria-current="page"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Список</a>
+        <a href="S07-map.dc.html"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/></svg>Карта</a>
+      </nav>
+    </div>
+
+    <div class="stack" style="gap: 10px">
+      <article class="card tight" style="position: relative">
+        <a class="sp" href="S08-profile.dc.html">
+          <span class="ava av1" aria-hidden="true">АМ</span>
+          <span class="grow stack" style="gap: 2px">
+            <span class="sp-name" style="padding-right: 32px">Алексей Морозов</span>
+            <span class="sm t2">Электрик · мелкий ремонт · люстры</span>
+            <span class="sp-meta">
+              <span class="rate"><svg class="ic fill star i16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>4,9</span>
+              <span>(37)</span><span aria-hidden="true">·</span><span>Лиман, ≈&nbsp;1,5&nbsp;км</span><span aria-hidden="true">·</span><span>ru, sr</span>
+            </span>
+          </span>
+        </a>
+        <button class="ibtn plain" type="button" aria-label="Добавить Алексея Морозова в избранное" style="position: absolute; top: 4px; right: 4px"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></button>
+        <div class="between" style="align-items: flex-end">
+          <span class="hstack wrap" style="gap: 6px">
+            <span class="bdg ok"><span class="dot"></span>Сегодня до 20:00</span>
+            <span class="bdg info"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v6c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6z"/><path d="m9 12 2 2 4-4"/></svg>Телефон подтверждён</span>
+          </span>
+          <span class="price">от 2&nbsp;000 RSD</span>
+        </div>
+      </article>
+
+      <article class="card tight" style="position: relative">
+        <a class="sp" href="S08-profile.dc.html">
+          <span class="ava av3" aria-hidden="true">НП</span>
+          <span class="grow stack" style="gap: 2px">
+            <span class="sp-name" style="padding-right: 32px">Никола Петрович</span>
+            <span class="sm t2">Vodoinstalater — сантехник</span>
+            <span class="sp-meta">
+              <span class="rate"><svg class="ic fill star i16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>4,7</span>
+              <span>(18)</span><span aria-hidden="true">·</span><span>Адице, ≈&nbsp;4&nbsp;км</span><span aria-hidden="true">·</span><span>sr, en</span>
+            </span>
+          </span>
+        </a>
+        <button class="ibtn plain" type="button" aria-label="Добавить Николу Петровича в избранное" style="position: absolute; top: 4px; right: 4px"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></button>
+        <div class="between" style="justify-content: flex-end">
+          <span class="price">от 3&nbsp;000 RSD</span>
+        </div>
+      </article>
+
+      <article class="card tight" style="position: relative">
+        <a class="sp" href="S08-profile.dc.html">
+          <span class="ava av2" aria-hidden="true">ДС</span>
+          <span class="grow stack" style="gap: 2px">
+            <span class="sp-name" style="padding-right: 32px">Дмитрий Соколов</span>
+            <span class="sm t2">Сборка мебели · полки · карнизы</span>
+            <span class="sp-meta">
+              <span class="rate"><svg class="ic fill star i16" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>4,8</span>
+              <span>(21)</span><span aria-hidden="true">·</span><span>Детелинара, ≈&nbsp;3&nbsp;км</span><span aria-hidden="true">·</span><span>ru, en</span>
+            </span>
+          </span>
+        </a>
+        <button class="ibtn plain" type="button" aria-label="Добавить Дмитрия Соколова в избранное" style="position: absolute; top: 4px; right: 4px"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></button>
+        <div class="between" style="justify-content: flex-end">
+          <span class="price">от 1&nbsp;800 RSD</span>
+        </div>
+      </article>
+
+      <article class="card tight" style="position: relative">
+        <a class="sp" href="S08-profile.dc.html">
+          <span class="ava av3" aria-hidden="true">ИГ</span>
+          <span class="grow stack" style="gap: 2px">
+            <span class="sp-name" style="padding-right: 32px">Иван Гаврилов</span>
+            <span class="sm t2">Переезды и сборка</span>
+            <span class="sp-meta"><span>Пока без отзывов</span><span aria-hidden="true">·</span><span>Лиман</span></span>
+          </span>
+        </a>
+        <button class="ibtn plain" type="button" aria-label="Добавить Ивана Гаврилова в избранное" style="position: absolute; top: 4px; right: 4px"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></button>
+        <div class="between">
+          <span class="hstack" style="gap: 6px">
+            <span class="bdg mute">Подработка</span>
+            <span class="bdg mute">Новый</span>
+          </span>
+          <span class="cap">Цена договорная</span>
+        </div>
+      </article>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

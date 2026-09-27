@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S01 · Запуск</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr plain" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <button class="tgh-btn" type="button">Закрыть</button>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="flex: 1; padding: 72px 24px 32px; gap: 40px">
+    <a class="stack g12" href="S02a-language.dc.html" style="align-items: center; text-align: center; color: var(--text)">
+      <span aria-hidden="true" style="width: 72px; height: 72px; border-radius: 20px; background: var(--accent); color: var(--accent-ink); display: flex; align-items: center; justify-content: center; font: 600 36px/1 var(--f-display)">С</span>
+      <span style="font: 600 28px/34px var(--f-display); letter-spacing: -.01em">Сосед</span>
+      <span class="t2">Мастера рядом, на вашем языке</span>
+    </a>
+
+    <div class="stack g12" aria-hidden="true">
+      <div class="skel" style="height: 48px; border-radius: 14px"></div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+        <div class="skel" style="height: 88px; border-radius: 16px"></div>
+        <div class="skel" style="height: 88px; border-radius: 16px"></div>
+        <div class="skel" style="height: 88px; border-radius: 16px"></div>
+        <div class="skel" style="height: 88px; border-radius: 16px"></div>
+        <div class="skel" style="height: 88px; border-radius: 16px"></div>
+        <div class="skel" style="height: 88px; border-radius: 16px"></div>
+      </div>
+      <div class="skel" style="height: 112px; border-radius: 16px"></div>
+    </div>
+
+    <div class="stack g8" role="status" style="align-items: center; margin-top: auto">
+      <div class="bar" style="width: 160px"><i style="width: 40%"></i></div>
+      <p class="cap">Входим через Telegram…</p>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,270 @@
+Pager usage is off.
+SET
+SET
+=== A. ICU availability
+ icu_collations |                                    predefined                                     | icu_unicode | pg_unicode 
+----------------+-----------------------------------------------------------------------------------+-------------+------------
+            871 | hr-HR-x-icu, ru-RU-x-icu, sr-Cyrl-RS-x-icu, sr-Latn-RS-x-icu, sr-x-icu, und-x-icu | 16.0        | 16.0
+(1 row)
+
+CREATE COLLATION
+CREATE COLLATION
+CREATE COLLATION
+psql:/lab/sql/06_i18n_collations.sql:16: NOTICE:  using standard form "und-u-kn" for ICU locale "und-u-kn-true"
+CREATE COLLATION
+CREATE COLLATION
+CREATE COLLATION
+=== B. Sorting: C (code point) vs ICU
+ alphabet |                                      c_order                                      |                                     icu_order                                     
+----------+-----------------------------------------------------------------------------------+-----------------------------------------------------------------------------------
+ sr-Latn  | Beograd cvet dan džem ljubav lopta njiva nož sat zima ćup Čačak čaj đak šuma žaba | Beograd cvet Čačak čaj ćup dan džem đak lopta ljubav nož njiva sat šuma zima žaba
+ sr-Cyrl  | Београд Чачак дан жаба зима лопта нож сат цвет чај шума ђак љубав њива ћуп џем    | Београд дан ђак жаба зима лопта љубав нож њива сат ћуп цвет чај Чачак џем шума
+ ru       | Ёлка Ъ Электрик Яблоко еда елка ель жук электрик яблоко ёж                        | еда ёж елка Ёлка ель жук Ъ электрик Электрик яблоко Яблоко
+ natural  | zona 1 | zona 10 | zona 2 | zona 21                                               | zona 1 | zona 2 | zona 10 | zona 21
+(4 rows)
+
+=== C. Nondeterministic collations: equality and (PG18) LIKE, case/accent-insensitive
+ eq_ci_ai | eq_ci | eq_ci_accent | eq_cyr_case | eq_cross_script | like_ci_ai_pg18 
+----------+-------+--------------+-------------+-----------------+-----------------
+ t        | t     | f            | t           | f               | t
+(1 row)
+
+-- btree index on a nondeterministic collation supports equality lookups (not LIKE prefix)
+DROP TABLE
+psql:/lab/sql/06_i18n_collations.sql:38: NOTICE:  table "coll_demo" does not exist, skipping
+CREATE TABLE
+INSERT 0 10
+CREATE INDEX
+ANALYZE
+SET
+                      QUERY PLAN                       
+-------------------------------------------------------
+ Index Only Scan using coll_demo_city_idx on coll_demo
+   Index Cond: (city = 'cacak'::text)
+(2 rows)
+
+ city  
+-------
+ Čačak
+ Niš
+(2 rows)
+
+RESET
+=== D. Reference data (300 categories): JSONB vs translation table, UI locale sr-Cyrl with fallback sr-Cyrl > sr-Latn > en > ru
+                                                                                      QUERY PLAN                                                                                      
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort (actual time=0.225..0.232 rows=300.00 loops=1)
+   Sort Key: (COALESCE((category.name ->> 'sr-Cyrl'::text), (category.name ->> 'sr-Latn'::text), (category.name ->> 'en'::text), (category.name ->> 'ru'::text))) COLLATE sr_cyrl_icu
+   Sort Method: quicksort  Memory: 54kB
+   Buffers: shared hit=11
+   ->  Seq Scan on category (actual time=0.013..0.085 rows=300.00 loops=1)
+         Buffers: shared hit=11
+ Planning:
+   Buffers: shared hit=134
+ Planning Time: 0.361 ms
+ Execution Time: 0.248 ms
+(10 rows)
+
+                                                                  QUERY PLAN                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------
+ Sort (actual time=0.954..0.961 rows=300.00 loops=1)
+   Sort Key: tr.name COLLATE sr_cyrl_icu
+   Sort Method: quicksort  Memory: 54kB
+   Buffers: shared hit=911
+   ->  Nested Loop (actual time=0.030..0.806 rows=300.00 loops=1)
+         Buffers: shared hit=911
+         ->  Index Only Scan using category_pkey on category c (actual time=0.008..0.023 rows=300.00 loops=1)
+               Heap Fetches: 0
+               Index Searches: 1
+               Buffers: shared hit=2
+         ->  Limit (actual time=0.002..0.002 rows=1.00 loops=300)
+               Buffers: shared hit=909
+               ->  Sort (actual time=0.002..0.002 rows=1.00 loops=300)
+                     Sort Key: (array_position('{sr-Cyrl,sr-Latn,en,ru}'::text[], tr.locale))
+                     Sort Method: top-N heapsort  Memory: 25kB
+                     Buffers: shared hit=909
+                     ->  Index Scan using category_translation_pkey on category_translation tr (actual time=0.001..0.002 rows=4.00 loops=300)
+                           Index Cond: ((category_id = c.id) AND (locale = ANY ('{sr-Cyrl,sr-Latn,en,ru}'::text[])))
+                           Index Searches: 300
+                           Buffers: shared hit=909
+ Planning:
+   Buffers: shared hit=36
+ Planning Time: 0.083 ms
+ Execution Time: 0.979 ms
+(24 rows)
+
+=== E. Scale test: 200k items, 4 locales, ~10% missing sr-Cyrl (fallback needed)
+psql:/lab/sql/06_i18n_collations.sql:58: NOTICE:  table "i18n_item_json" does not exist, skipping
+psql:/lab/sql/06_i18n_collations.sql:58: NOTICE:  table "i18n_item_tr" does not exist, skipping
+DROP TABLE
+ setseed 
+---------
+ 
+(1 row)
+
+SELECT 200000
+ALTER TABLE
+SELECT 779905
+ALTER TABLE
+VACUUM
+VACUUM
+ json_total | tr_total | tr_rows 
+------------+----------+---------
+ 51 MB      | 81 MB    |  779905
+(1 row)
+
+-- E1 JSONB: first page sorted by localized label with fallback, no index (full sort)
+                                                               QUERY PLAN                                                               
+----------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=31.013..31.017 rows=50.00 loops=1)
+   Buffers: shared hit=6016
+   ->  Sort (actual time=31.012..31.013 rows=50.00 loops=1)
+         Sort Key: (COALESCE((i18n_item_json.name ->> 'sr-Cyrl'::text), (i18n_item_json.name ->> 'sr-Latn'::text))) COLLATE sr_cyrl_icu
+         Sort Method: top-N heapsort  Memory: 36kB
+         Buffers: shared hit=6016
+         ->  Seq Scan on i18n_item_json (actual time=0.008..14.966 rows=200000.00 loops=1)
+               Buffers: shared hit=6016
+ Planning:
+   Buffers: shared hit=14
+ Planning Time: 0.071 ms
+ Execution Time: 31.030 ms
+(12 rows)
+
+-- E2 JSONB + expression index on the fallback expression with ICU collation
+CREATE INDEX
+                                                   QUERY PLAN                                                   
+----------------------------------------------------------------------------------------------------------------
+ Limit (actual time=0.133..0.196 rows=50.00 loops=1)
+   Buffers: shared hit=50 read=3
+   I/O Timings: shared read=0.010
+   ->  Index Scan using i18n_json_label_sr_cyrl on i18n_item_json (actual time=0.132..0.190 rows=50.00 loops=1)
+         Index Searches: 1
+         Buffers: shared hit=50 read=3
+         I/O Timings: shared read=0.010
+ Planning:
+   Buffers: shared hit=17 read=1
+   I/O Timings: shared read=0.041
+ Planning Time: 0.209 ms
+ Execution Time: 0.212 ms
+(12 rows)
+
+-- E3 translation table: fallback via DISTINCT ON, then sort (full scan)
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=132.336..132.340 rows=50.00 loops=1)
+   Buffers: shared hit=10237
+   ->  Sort (actual time=132.335..132.337 rows=50.00 loops=1)
+         Sort Key: x.name COLLATE sr_cyrl_icu
+         Sort Method: top-N heapsort  Memory: 36kB
+         Buffers: shared hit=10237
+         ->  Subquery Scan on x (actual time=0.051..115.693 rows=200000.00 loops=1)
+               Buffers: shared hit=10237
+               ->  Unique (actual time=0.051..106.080 rows=200000.00 loops=1)
+                     Buffers: shared hit=10237
+                     ->  Incremental Sort (actual time=0.051..90.111 rows=379905.00 loops=1)
+                           Sort Key: i18n_item_tr.item_id, (array_position('{sr-Cyrl,sr-Latn}'::text[], i18n_item_tr.locale))
+                           Presorted Key: i18n_item_tr.item_id
+                           Full-sort Groups: 11702  Sort Method: quicksort  Average Memory: 26kB  Peak Memory: 26kB
+                           Buffers: shared hit=10237
+                           ->  Index Scan using i18n_item_tr_pkey on i18n_item_tr (actual time=0.041..60.160 rows=379905.00 loops=1)
+                                 Index Cond: (locale = ANY ('{sr-Cyrl,sr-Latn}'::text[]))
+                                 Index Searches: 1
+                                 Buffers: shared hit=10237
+ Planning:
+   Buffers: shared hit=8
+ Planning Time: 0.076 ms
+ Execution Time: 132.355 ms
+(23 rows)
+
+-- E4 translation table, single locale (no fallback) + index (locale, name COLLATE sr_cyrl_icu)
+CREATE INDEX
+                                                QUERY PLAN                                                
+----------------------------------------------------------------------------------------------------------
+ Limit (actual time=0.054..0.294 rows=50.00 loops=1)
+   Buffers: shared hit=50 read=3
+   I/O Timings: shared read=0.012
+   ->  Index Scan using i18n_tr_locale_name on i18n_item_tr (actual time=0.053..0.290 rows=50.00 loops=1)
+         Index Cond: (locale = 'sr-Cyrl'::text)
+         Index Searches: 1
+         Buffers: shared hit=50 read=3
+         I/O Timings: shared read=0.012
+ Planning:
+   Buffers: shared hit=18 read=1
+   I/O Timings: shared read=0.026
+ Planning Time: 0.151 ms
+ Execution Time: 0.305 ms
+(13 rows)
+
+-- E5 cost of ICU vs C collation in a full sort of 200k labels
+                                        QUERY PLAN                                         
+-------------------------------------------------------------------------------------------
+ Limit (actual time=205.989..205.990 rows=10.00 loops=1)
+   Buffers: shared hit=6016, temp read=2468 written=2469
+   I/O Timings: temp read=2.085 write=3.793
+   ->  Sort (actual time=187.538..200.954 rows=200000.00 loops=1)
+         Sort Key: ((i18n_item_json.name ->> 'ru'::text)) COLLATE ru_icu
+         Sort Method: external merge  Disk: 19744kB
+         Buffers: shared hit=6016, temp read=2468 written=2469
+         I/O Timings: temp read=2.085 write=3.793
+         ->  Seq Scan on i18n_item_json (actual time=0.006..15.765 rows=200000.00 loops=1)
+               Buffers: shared hit=6016
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.027 ms
+ Execution Time: 206.710 ms
+(14 rows)
+
+                                        QUERY PLAN                                         
+-------------------------------------------------------------------------------------------
+ Limit (actual time=84.918..84.919 rows=10.00 loops=1)
+   Buffers: shared hit=6016, temp read=2468 written=2469
+   I/O Timings: temp read=2.263 write=3.982
+   ->  Sort (actual time=71.996..79.915 rows=200000.00 loops=1)
+         Sort Key: ((i18n_item_json.name ->> 'ru'::text)) COLLATE "C"
+         Sort Method: external merge  Disk: 19744kB
+         Buffers: shared hit=6016, temp read=2468 written=2469
+         I/O Timings: temp read=2.263 write=3.982
+         ->  Seq Scan on i18n_item_json (actual time=0.008..14.668 rows=200000.00 loops=1)
+               Buffers: shared hit=6016
+ Planning Time: 0.040 ms
+ Execution Time: 85.761 ms
+(12 rows)
+
+-- E6 point lookup: item by exact localized name
+CREATE INDEX
+                                         QUERY PLAN                                         
+--------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on i18n_item_json (actual time=0.011..0.012 rows=0.00 loops=1)
+   Recheck Cond: (name @> '{"sr-Latn": "Električar br. 45"}'::jsonb)
+   Buffers: shared hit=4
+   ->  Bitmap Index Scan on i18n_json_name_gin (actual time=0.007..0.007 rows=0.00 loops=1)
+         Index Cond: (name @> '{"sr-Latn": "Električar br. 45"}'::jsonb)
+         Index Searches: 1
+         Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=22
+ Planning Time: 0.119 ms
+ Execution Time: 0.021 ms
+(11 rows)
+
+                                             QUERY PLAN                                              
+-----------------------------------------------------------------------------------------------------
+ Index Scan using i18n_tr_locale_name on i18n_item_tr (actual time=72.091..72.091 rows=0.00 loops=1)
+   Index Cond: (locale = 'sr-Latn'::text)
+   Filter: (name = 'Električar br. 45'::text)
+   Rows Removed by Filter: 200000
+   Index Searches: 1
+   Buffers: shared hit=200001 read=1565
+   I/O Timings: shared read=4.860
+ Planning Time: 0.018 ms
+ Execution Time: 72.101 ms
+(9 rows)
+
+-- E7 required locales enforced by CHECK on JSONB
+ALTER TABLE
+ json_expr_idx | tr_idx | json_gin 
+---------------+--------+----------
+ 14 MB         | 51 MB  | 42 MB
+(1 row)
+
+DROP TABLE

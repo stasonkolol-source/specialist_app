@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S49a · Нет сети</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <button class="tgh-btn" type="button">Закрыть</button>
+    <div class="tgh-t"><b>Сосед</b><span>нет соединения</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 16px 16px 108px; gap: 16px">
+    <h1 class="h1">Сообщения</h1>
+
+    <section class="empty" style="padding: 8px 24px 0" role="status">
+      <span class="empty-ic" style="background: var(--surface); color: var(--text2)"><svg class="ic i32" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M8.5 16.4a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 4.3-2.6M19 12.9a10 10 0 0 0-2.5-1.8M2 8.8A15 15 0 0 1 7 6M22 8.8A15 15 0 0 0 12 5M12 20h.01"/></svg></span>
+      <h2 class="h2">Нет соединения</h2>
+      <p class="t2">Показываем сохранённое — обновим, когда сеть появится</p>
+      <button class="btn sec" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>Повторить</button>
+    </section>
+
+    <section class="stack g8" style="opacity: .55" aria-labelledby="off-saved">
+      <h2 class="sec-t" id="off-saved">Сохранено в 18:07</h2>
+      <div class="group">
+        <a class="row" href="S30-chat.dc.html">
+          <span class="ava av1" aria-hidden="true">АМ</span>
+          <span class="grow stack" style="gap: 0">
+            <span class="between"><span class="b">Алексей Морозов</span><span class="cap">18:07</span></span>
+            <span class="cap">«Повесить люстру»</span>
+            <span class="hstack sm t2" style="gap: 4px"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Вы: Хорошо, жду вас в 19:00</span>
+          </span>
+        </a>
+        <a class="row" href="S30-chat.dc.html">
+          <span class="ava av3" aria-hidden="true">ИГ</span>
+          <span class="grow stack" style="gap: 0">
+            <span class="between"><span class="b">Иван Гаврилов</span><span class="cap">17:58</span></span>
+            <span class="cap">«Повесить люстру»</span>
+            <span class="sm t2">Буду в 20:00</span>
+          </span>
+        </a>
+        <a class="row" href="S30-chat.dc.html">
+          <span class="ava av3" aria-hidden="true">НП</span>
+          <span class="grow stack" style="gap: 0">
+            <span class="between"><span class="b">Никола Петрович</span><span class="cap">17:52</span></span>
+            <span class="cap">«Повесить люстру»</span>
+            <span class="sm t2">Mogu danas posle 18h</span>
+          </span>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" role="status">
+    <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+    <span>Сообщение отправится, когда появится сеть</span>
+  </div>
+
+  <nav class="tabbar" aria-label="Разделы">
+    <a class="tab" href="S03-home.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Главная</a>
+    <a class="tab" href="S13-feed.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9zM9 11h6M9 15h4"/></svg>Заявки</a>
+    <a class="tab" href="S20a-create-what.dc.html" aria-label="Создать заявку"><span class="tab-plus"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span></a>
+    <a class="tab on" href="S29-chats.dc.html" aria-current="page"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>Сообщения</a>
+    <a class="tab" href="S31-account.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Профиль</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

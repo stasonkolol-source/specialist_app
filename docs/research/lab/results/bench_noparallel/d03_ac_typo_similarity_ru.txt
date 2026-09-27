@@ -1,0 +1,21 @@
+                                                                 QUERY PLAN                                                                 
+--------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=7.68..7.69 rows=7 width=29) (actual time=0.085..0.086 rows=10.00 loops=1)
+   Buffers: shared hit=16
+   ->  Sort  (cost=7.68..7.69 rows=7 width=29) (actual time=0.085..0.086 rows=10.00 loops=1)
+         Sort Key: (similarity(term_norm, 'elektirk'::text)) DESC
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=16
+         ->  Bitmap Heap Scan on category_term t  (cost=1.30..7.58 rows=7 width=29) (actual time=0.078..0.084 rows=10.00 loops=1)
+               Recheck Cond: (term_norm % 'elektirk'::text)
+               Heap Blocks: exact=3
+               Buffers: shared hit=16
+               ->  Bitmap Index Scan on term_norm_trgm_gist  (cost=0.00..1.30 rows=7 width=0) (actual time=0.076..0.076 rows=10.00 loops=1)
+                     Index Cond: (term_norm % 'elektirk'::text)
+                     Index Searches: 1
+                     Buffers: shared hit=13
+ Planning:
+   Buffers: shared hit=1
+ Planning Time: 0.151 ms
+ Execution Time: 0.089 ms
+(18 rows)

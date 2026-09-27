@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S27 · Отзыв</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <a class="tgh-btn" href="S26-deal.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Назад</a>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 16px 16px 124px; gap: 20px">
+    <div class="stack g12">
+      <h1 class="h2">Как всё прошло?</h1>
+      <div class="hstack" style="gap: 10px">
+        <span class="ava sm av1" aria-hidden="true">АМ</span>
+        <span class="stack" style="gap: 0"><span class="b">Алексей Морозов</span><span class="cap">Повесить люстру · сегодня</span></span>
+      </div>
+    </div>
+
+    <div class="stack g4" style="align-items: center">
+      <div class="stars" role="radiogroup" aria-label="Оценка работы">
+        <button class="on" type="button" role="radio" aria-checked="false" aria-label="1 звезда"><svg class="ic fill" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg></button>
+        <button class="on" type="button" role="radio" aria-checked="false" aria-label="2 звезды"><svg class="ic fill" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg></button>
+        <button class="on" type="button" role="radio" aria-checked="false" aria-label="3 звезды"><svg class="ic fill" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg></button>
+        <button class="on" type="button" role="radio" aria-checked="true" aria-label="4 звезды"><svg class="ic fill" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg></button>
+        <button type="button" role="radio" aria-checked="false" aria-label="5 звёзд"><svg class="ic fill" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg></button>
+      </div>
+      <p class="b">Хорошо</p>
+    </div>
+
+    <div class="stack g8" role="group" aria-labelledby="rv-liked">
+      <h2 class="lbl" id="rv-liked">Что понравилось?</h2>
+      <div class="chips wrap">
+        <button class="chip on" type="button" aria-pressed="true">Качество</button>
+        <button class="chip on" type="button" aria-pressed="true">Пунктуальность</button>
+        <button class="chip" type="button" aria-pressed="false">Общение</button>
+        <button class="chip" type="button" aria-pressed="false">Соответствие цене</button>
+        <button class="chip" type="button" aria-pressed="false">Чистота</button>
+      </div>
+    </div>
+
+    <div class="fld">
+      <label class="lbl" for="rv-text">Отзыв</label>
+      <textarea class="inp" id="rv-text" rows="4">Приехал вовремя, аккуратно повесил и подключил люстру, убрал за собой. Рекомендую.</textarea>
+      <span class="hint">Пишите о работе. Телефоны и ссылки в отзыве не публикуются.</span>
+    </div>
+
+    <div class="hstack" style="gap: 12px">
+      <button class="add" type="button" disabled style="width: 72px; height: 72px; opacity: .6"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Фото</button>
+      <p class="cap grow">Фото к отзыву — скоро</p>
+    </div>
+
+    <p class="cap">Отзыв появится в профиле Алексея после автоматической проверки. После публикации изменить его нельзя.</p>
+  </main>
+
+  <div class="mbar">
+    <a class="mbtn" href="S28-history.dc.html">Опубликовать отзыв</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

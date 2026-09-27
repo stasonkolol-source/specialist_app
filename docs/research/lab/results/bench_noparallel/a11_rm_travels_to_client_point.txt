@@ -1,0 +1,29 @@
+                                                                                                                                           QUERY PLAN                                                                                                                                            
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=30633.95..30633.95 rows=1 width=34) (actual time=1.949..1.951 rows=20.00 loops=1)
+   Buffers: shared hit=1331
+   ->  Sort  (cost=30633.95..30633.95 rows=1 width=34) (actual time=1.949..1.950 rows=20.00 loops=1)
+         Sort Key: score DESC, specialist_id DESC
+         Sort Method: top-N heapsort  Memory: 27kB
+         Buffers: shared hit=1331
+         ->  Bitmap Heap Scan on specialist_search  (cost=463.42..30633.94 rows=1 width=34) (actual time=1.346..1.898 rows=625.00 loops=1)
+               Recheck Cond: (category_ids @> '{15}'::integer[])
+               Filter: (travels AND st_dwithin(location, '0101000020E61000004BEA0434117634400000000000684640'::geography, '30000'::double precision, true) AND st_dwithin(location, '0101000020E61000004BEA0434117634400000000000684640'::geography, (travel_radius_m)::double precision, true))
+               Rows Removed by Filter: 548
+               Heap Blocks: exact=1098
+               Buffers: shared hit=1331
+               ->  BitmapAnd  (cost=463.42..463.42 rows=1160 width=0) (actual time=1.280..1.280 rows=0.00 loops=1)
+                     Buffers: shared hit=233
+                     ->  Bitmap Index Scan on ss_cat_city_gin  (cost=0.00..15.11 rows=2202 width=0) (actual time=0.115..0.115 rows=2208.00 loops=1)
+                           Index Cond: (category_ids @> '{15}'::integer[])
+                           Index Searches: 1
+                           Buffers: shared hit=4
+                     ->  Bitmap Index Scan on ss_location_gist  (cost=0.00..448.06 rows=25954 width=0) (actual time=1.116..1.116 rows=25983.00 loops=1)
+                           Index Cond: (location && _st_expand('0101000020E61000004BEA0434117634400000000000684640'::geography, '30000'::double precision))
+                           Index Searches: 1
+                           Buffers: shared hit=229
+ Planning:
+   Buffers: shared hit=2
+ Planning Time: 0.257 ms
+ Execution Time: 1.958 ms
+(26 rows)

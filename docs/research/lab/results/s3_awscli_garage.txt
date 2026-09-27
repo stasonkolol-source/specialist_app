@@ -1,0 +1,13 @@
+ Image amazon/aws-cli:latest Pulled 
+ Container specialist-lab-awscli-run-8109873ccf88 Creating 
+ Container specialist-lab-awscli-run-8109873ccf88 Created 
+aws-cli/2.37.4 Python/3.14.6 Linux/6.12.72-linuxkit docker/aarch64.amzn.2023
+Completed 40 Bytes/40 Bytes (8.3 KiB/s) with 1 file(s) remainingupload: ../tmp/hello.txt to s3://lab/cli/hello.txt              
+2026-09-26 14:49:43     102936 uploads/4934b22f498f43bfb05e9e7f1a926ba2-post.png
+2026-09-26 14:49:17     102936 uploads/cd6700948d274b4997e60e516118d1a7-post.png
+2026-09-26 14:49:40     102936 uploads/ec6c1128367f47528ed77155502e57cf.png
+2026-09-26 14:49:15     102936 uploads/f600328b02c84281808c17dd49582d76.png
+presigned: http://garage:3900/lab/cli/hello.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=GK0123456789abcdef01234...
+download HTTP 200
+sh: line 10: cmp: command not found
+aarch64

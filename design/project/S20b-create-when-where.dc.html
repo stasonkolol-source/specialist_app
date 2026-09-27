@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S20b · Заявка: когда и где</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <a class="tgh-btn" href="S20a-create-what.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Назад</a>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 12px 16px 124px; gap: 16px">
+    <div class="stack g8">
+      <div class="steps" aria-hidden="true"><i class="on"></i><i class="on"></i><i></i><i></i></div>
+      <p class="cap">Шаг 2 из 4 · черновик сохраняется сам</p>
+    </div>
+
+    <h1 class="h2">Когда и где?</h1>
+
+    <div class="stack g8" role="radiogroup" aria-labelledby="cb-when">
+      <p class="lbl" id="cb-when">Когда</p>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+        <button class="opt" type="button" role="radio" aria-checked="false" style="flex-direction: column; align-items: flex-start; justify-content: center; gap: 0">
+          <span class="b">Срочно</span><span class="cap">в течение 2 часов</span>
+        </button>
+        <button class="opt on" type="button" role="radio" aria-checked="true" style="flex-direction: column; align-items: flex-start; justify-content: center; gap: 0">
+          <span class="b">Сегодня</span><span class="cap">в удобное время</span>
+        </button>
+        <button class="opt" type="button" role="radio" aria-checked="false" style="flex-direction: column; align-items: flex-start; justify-content: center; gap: 0">
+          <span class="b">В ближайшие дни</span><span class="cap">на этой неделе</span>
+        </button>
+        <button class="opt" type="button" role="radio" aria-checked="false" style="flex-direction: column; align-items: flex-start; justify-content: center; gap: 0">
+          <span class="b">Дата и время</span><span class="cap">выбрать в календаре</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="stack g8">
+      <p class="lbl" id="cb-time">Удобное время сегодня</p>
+      <div class="chips" role="radiogroup" aria-labelledby="cb-time">
+        <button class="chip" type="button" role="radio" aria-checked="false">9–12</button>
+        <button class="chip" type="button" role="radio" aria-checked="false">12–15</button>
+        <button class="chip" type="button" role="radio" aria-checked="false">15–18</button>
+        <button class="chip on" type="button" role="radio" aria-checked="true">18–21</button>
+      </div>
+    </div>
+
+    <div class="fld">
+      <span class="lbl" id="cb-where">Где</span>
+      <button class="inp" type="button" aria-labelledby="cb-where cb-district">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--accent)"><path d="M12 21s7-6.1 7-11.5a7 7 0 1 0-14 0C5 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+        <span class="grow" id="cb-district" style="text-align: left">Нови-Сад, Лиман</span>
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--text2)"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </div>
+
+    <div class="map" style="height: 104px" role="img" aria-label="Карта: примерная точка в районе Лиман">
+      <span class="zone" style="left: 230px; top: 4px; width: 96px; height: 96px"></span>
+      <span class="pin on" style="left: 248px; top: 36px">Лиман</span>
+      <span class="bdg" style="position: absolute; left: 8px; bottom: 8px; background: var(--surface); color: var(--text2)">Исполнители видят только эту область</span>
+    </div>
+
+    <div class="fld">
+      <label class="lbl" for="cb-address">Точный адрес</label>
+      <div class="inp">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--text2)"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+        <input id="cb-address" type="text" value="Народног фронта 25, кв. 14">
+      </div>
+      <p class="hint">Виден только выбранному исполнителю — в карточке сделки</p>
+    </div>
+  </main>
+
+  <div class="mbar">
+    <a class="mbtn" href="S20c-create-budget.dc.html">Далее</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

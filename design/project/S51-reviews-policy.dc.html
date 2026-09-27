@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S51 · Как мы проверяем отзывы</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <a class="tgh-btn" href="S11-reviews.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Назад</a>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 12px 16px 24px; gap: 14px">
+    <div class="stack g4">
+      <h1 class="h2">Как мы проверяем отзывы</h1>
+      <p class="sm t2">Правила, по которым отзывы появляются в «Соседе» и влияют на рейтинг.</p>
+    </div>
+
+    <ol class="card" style="gap: 14px">
+      <li class="hstack" style="gap: 12px; align-items: flex-start">
+        <span class="num-ic">1</span>
+        <span class="grow stack" style="gap: 2px"><span class="b">Только после сделки</span><span class="sm t2">Оценку ставят участники завершённой сделки в «Соседе». На отзыв — 14 дней.</span></span>
+      </li>
+      <li class="hstack" style="gap: 12px; align-items: flex-start">
+        <span class="num-ic">2</span>
+        <span class="grow stack" style="gap: 2px"><span class="b">Быстрая публикация</span><span class="sm t2">Отзыв появляется после автопроверки, спорные сначала читает модератор.</span></span>
+      </li>
+      <li class="hstack" style="gap: 12px; align-items: flex-start">
+        <span class="num-ic">3</span>
+        <span class="grow stack" style="gap: 2px"><span class="b">Без правок задним числом</span><span class="sm t2">Опубликованный отзыв не меняется. Исполнитель может один раз ответить.</span></span>
+      </li>
+      <li class="hstack" style="gap: 12px; align-items: flex-start">
+        <span class="num-ic">4</span>
+        <span class="grow stack" style="gap: 2px"><span class="b">Негатив не скрываем</span><span class="sm t2">Убираем только оскорбления, личные данные, рекламу и обвинения без доказательств.</span></span>
+      </li>
+      <li class="hstack" style="gap: 12px; align-items: flex-start">
+        <span class="num-ic">5</span>
+        <span class="grow stack" style="gap: 2px"><span class="b">Защита от накруток</span><span class="sm t2">Ищем связанные аккаунты и похожие тексты. До проверки такие отзывы не влияют на рейтинг.</span></span>
+      </li>
+      <li class="hstack" style="gap: 12px; align-items: flex-start">
+        <span class="num-ic">6</span>
+        <span class="grow stack" style="gap: 2px"><span class="b">«До платформы» — отдельно</span><span class="sm t2">Отзывы по приглашению помечены и в рейтинг не входят. Не больше 5 на профиль.</span></span>
+      </li>
+    </ol>
+
+    <section class="bnr info" aria-labelledby="bl-title">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>
+      <span class="stack g4">
+        <span class="b" id="bl-title">Взаимные отзывы вслепую</span>
+        <span>Исполнители тоже оценивают клиентов. Оба отзыва открываются одновременно — когда написали оба или через 14 дней.</span>
+      </span>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S14 · Фильтры ленты</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <button class="tgh-btn" type="button">Закрыть</button>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <div class="stack" style="padding: 12px 16px 0; gap: 12px" aria-hidden="true">
+    <div class="seg">
+      <span class="on">Лента</span>
+      <span>Мои отклики</span>
+      <span>Мои заявки</span>
+    </div>
+    <div class="between">
+      <span class="h1">Заявки рядом</span>
+      <span class="ibtn"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16v-5a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/></svg></span>
+    </div>
+    <div class="chips">
+      <span class="chip"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>Фильтры<span class="n">2</span></span>
+      <span class="chip on">До 3 км</span>
+      <span class="chip on">Мастер на час</span>
+      <span class="chip">Сегодня</span>
+    </div>
+  </div>
+
+  <div class="scrim" style="top: 56px"></div>
+
+  <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="ff-title" style="padding-bottom: 165px">
+    <div class="grab"></div>
+    <div class="between">
+      <h2 class="h2" id="ff-title">Фильтры</h2>
+      <button class="btn sm" type="button" style="background: transparent; color: var(--accent)">Сбросить</button>
+    </div>
+
+    <div class="stack g8">
+      <span class="lbl" id="ff-radius">Радиус от Лимана</span>
+      <div class="chips" role="group" aria-labelledby="ff-radius">
+        <button class="chip" type="button" aria-pressed="false">1 км</button>
+        <button class="chip on" type="button" aria-pressed="true">3 км</button>
+        <button class="chip" type="button" aria-pressed="false">5 км</button>
+        <button class="chip" type="button" aria-pressed="false">10 км</button>
+      </div>
+    </div>
+
+    <div class="stack g8">
+      <span class="lbl" id="ff-cats">Категории</span>
+      <div class="chips" role="group" aria-labelledby="ff-cats">
+        <button class="chip on" type="button" aria-pressed="true">Мастер на час</button>
+        <button class="chip" type="button" aria-pressed="false">Уборка</button>
+        <button class="chip" type="button" aria-pressed="false">Переезды</button>
+        <button class="chip" type="button" aria-pressed="false">Бьюти</button>
+        <button class="chip" type="button" aria-pressed="false">Репетиторы</button>
+      </div>
+    </div>
+
+    <div class="stack g8">
+      <span class="lbl" id="ff-when">Когда нужно</span>
+      <div class="seg" role="group" aria-labelledby="ff-when">
+        <button class="on" type="button" aria-pressed="true">Любое время</button>
+        <button type="button" aria-pressed="false">Сегодня</button>
+        <button type="button" aria-pressed="false">На неделе</button>
+      </div>
+    </div>
+
+    <div class="stack g8">
+      <span class="lbl" id="ff-extra">Дополнительно</span>
+      <div class="chips" role="group" aria-labelledby="ff-extra">
+        <button class="chip" type="button" aria-pressed="false"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--urgent)"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>Только срочные</button>
+        <button class="chip" type="button" aria-pressed="false"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Только с фото</button>
+      </div>
+    </div>
+
+    <div class="group" style="background: var(--bg2)">
+      <button class="row" type="button">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M16 15h2"/></svg>
+        <span class="grow">Бюджет от</span>
+        <span class="t2">Любой</span>
+        <svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+      </button>
+      <button class="row" type="button">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h9M8.5 3v2M6 5c1 4 4 7 7 8M11 5c-1 4-4 7-7 8M13 21l4-10 4 10M14.5 17h5"/></svg>
+        <span class="grow">Язык общения</span>
+        <span class="t2">Любой</span>
+        <svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+      </button>
+    </div>
+  </section>
+
+  <div class="mbar">
+    <a class="mbtn" href="S13-feed.dc.html">Показать 3 заявки</a>
+    <a class="mbtn sec" href="S19-alert-form.dc.html"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16v-5a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/></svg>Сохранить как подписку</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

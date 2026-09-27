@@ -1,0 +1,11 @@
+                                                                     QUERY PLAN                                                                     
+----------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.14..0.61 rows=10 width=29) (actual time=0.081..0.087 rows=10.00 loops=1)
+   Buffers: shared hit=20
+   ->  Index Scan using term_norm_trgm_gist on category_term t  (cost=0.14..48.46 rows=1041 width=29) (actual time=0.081..0.086 rows=10.00 loops=1)
+         Order By: (term_norm <-> 'manikur'::text)
+         Index Searches: 1
+         Buffers: shared hit=20
+ Planning Time: 0.014 ms
+ Execution Time: 0.089 ms
+(8 rows)

@@ -1,0 +1,128 @@
+Pager usage is off.
+SET
+=== A. Normalization: one "search key" for Cyrillic/Latin/no-diacritics input
+       q        |   search_key   
+----------------+----------------
+ Електричар     | elektricar
+ električar     | elektricar
+ elektricar     | elektricar
+ ЕЛЕКТРИЧАР     | elektricar
+ Электрик       | elektrik
+ elektrik       | elektrik
+ чишћење стана  | ciscenje stana
+ čišćenje stana | ciscenje stana
+ ciscenje stana | ciscenje stana
+ Ђорђе          | djordje
+ Đorđe          | djordje
+ Djordje        | djordje
+ сантехник      | santehnik
+ маникюр        | manikjur
+ manikir        | manikir
+ Щётка          | scetka
+ съёмка         | semka
+ veš mašina     | ves masina
+ веш машина     | ves masina
+(19 rows)
+
+=== B. Typos: similarity / word_similarity / strict_word_similarity / levenshtein (on normalized keys)
+     typo      |      correct      |  sim  | word_sim | strict_wsim | lev 
+---------------+-------------------+-------+----------+-------------+-----
+ электирк      | электрик          | 0.385 |    0.556 |       0.385 |   2
+ елэктрик      | электрик          | 1.000 |    1.000 |       1.000 |   0
+ vodoinstaler  | vodoinstalater    | 0.647 |    0.769 |       0.647 |   2
+ vodoinstalatr | vodoinstalater    | 0.706 |    0.857 |       0.706 |   1
+ manikur       | manikir           | 0.455 |    0.625 |       0.455 |   1
+ manikur       | маникюр           | 0.545 |    0.625 |       0.545 |   1
+ маникур       | маникюр           | 0.545 |    0.625 |       0.545 |   1
+ santehnik     | сантехник         | 1.000 |    1.000 |       1.000 |   0
+ сантехникк    | сантехник         | 0.750 |    0.818 |       0.750 |   1
+ selidba       | selidbe           | 0.600 |    0.750 |       0.600 |   1
+ prevodilac    | prevodioc         | 0.500 |    0.636 |       0.500 |   2
+ elektrik      | električar        | 0.538 |    0.778 |       0.538 |   3
+ электрик      | električar        | 0.538 |    0.778 |       0.538 |   3
+ moler         | маляр             | 0.083 |    0.167 |       0.083 |   3
+ stiralka      | стиральная машина | 0.286 |    0.667 |       0.429 |  10
+(15 rows)
+
+ pg_trgm.similarity_threshold 
+------------------------------
+ 0.3
+(1 row)
+
+ pg_trgm.word_similarity_threshold 
+-----------------------------------
+ 0.6
+(1 row)
+
+=== C. Fuzzy lookup of typos in the taxonomy (top-3 terms per typo, GiST KNN on the normalized key)
+      typo       |       term        |  lang   |      category      |  sim  
+-----------------+-------------------+---------+--------------------+-------
+ manikur         | маникюр           | ru      | manicure           | 0.545
+ manikur         | Маникюр           | ru      | manicure           | 0.545
+ manikur         | Manikir           | sr-Latn | manicure           | 0.455
+ moller          | молер             | sr-Cyrl | painter            | 0.625
+ moller          | moler             | sr-Latn | painter            | 0.625
+ moller          | Moler             | sr-Latn | painter            | 0.625
+ prevodioc       | преводи           | sr-Cyrl | translator         | 0.636
+ prevodioc       | Преводи           | sr-Cyrl | translation        | 0.636
+ prevodioc       | Prevodi           | sr-Latn | translation        | 0.636
+ selidbi         | селидбе           | sr-Cyrl | moving_home        | 0.600
+ selidbi         | selidbe           | sr-Latn | moving_home        | 0.600
+ selidbi         | Селидбе           | sr-Cyrl | moving_home        | 0.600
+ stiralka        | стиралка          | ru      | washer_repair      | 1.000
+ stiralka        | ремонт стиралки   | ru      | washer_repair      | 0.389
+ stiralka        | стиральная машина | ru      | washer_repair      | 0.286
+ vodoinstaler    | водоинсталатер    | sr-Cyrl | plumber            | 0.647
+ vodoinstaler    | Vodoinstalater    | sr-Latn | plumber            | 0.647
+ vodoinstaler    | vodoinstalater    | sr-Latn | plumber            | 0.647
+ čišćenje stanva | Čišćenje stanova  | sr-Latn | apartment_cleaning | 0.737
+ čišćenje stanva | Чишћење станова   | sr-Cyrl | apartment_cleaning | 0.737
+ čišćenje stanva | čišćenje stanova  | sr-Latn | apartment_cleaning | 0.737
+ сантехнк        | сантехник         | ru      | plumber            | 0.583
+ сантехнк        | Сантехник         | ru      | plumber            | 0.583
+ сантехнк        | Сантехника        | ru      | plumbing           | 0.538
+ электирк        | электрик          | ru      | electrician        | 0.385
+ электирк        | Электрик          | ru      | electrician        | 0.385
+ электирк        | Электрика         | ru      | electric           | 0.357
+(27 rows)
+
+=== D. Cross-script: Latin query vs Cyrillic content and vice versa
+     query      |             content              | fts_serbian_plain | fts_sr_translit_unaccent | key_substring | key_word_sim 
+----------------+----------------------------------+-------------------+--------------------------+---------------+--------------
+ elektricar     | Електричар за хитне интервенције | f                 | t                        | t             |         1.00
+ električar     | Електричар за хитне интервенције | t                 | t                        | t             |         1.00
+ електричар     | Električar Beograd               | t                 | t                        | t             |         1.00
+ ciscenje       | Генерално чишћење станова        | f                 | t                        | t             |         1.00
+ чишћење        | Ciscenje stanova povoljno        | f                 | t                        | t             |         1.00
+ vodoinstalater | Водоинсталатер 0-24              | t                 | t                        | t             |         1.00
+(6 rows)
+
+=== E. Cross-LANGUAGE (ru query vs sr content): FTS alone cannot match, taxonomy can
+    query_ru     |   content_sr   | fts_any_config | trgm_on_translit 
+-----------------+----------------+----------------+------------------
+ электрик        | Električar     | f              |             0.54
+ сантехник       | Vodoinstalater | f              |             0.00
+ маляр           | Moler          | f              |             0.08
+ маникюр         | Manikir        | f              |             0.42
+ переезд         | Selidbe        | f              |             0.00
+ переводчик      | Prevodilac     | f              |             0.22
+ уборка квартиры | Čišćenje stana | f              |             0.00
+(7 rows)
+
+-- taxonomy lookup: term (any language/script) -> category -> names in all languages
+     query      |      slug      |           ru            |       sr_latn       |       sr_cyrl       |           en           
+----------------+----------------+-------------------------+---------------------+---------------------+------------------------
+ elektricar     | electrician    | Электрик                | Električar          | Електричар          | Electrician
+ električar     | electrician    | Электрик                | Električar          | Електричар          | Electrician
+ majstor za sve | handyman       | Мастер на час           | Majstor za sve      | Мајстор за све      | Handyman
+ moler          | painter        | Маляр                   | Moler               | Молер               | Painter
+ veš mašina     | washer_repair  | Ремонт стиральных машин | Popravka veš mašina | Поправка веш машина | Washing machine repair
+ vodoinstalater | plumber        | Сантехник               | Vodoinstalater      | Водоинсталатер      | Plumber
+ боравак        | residence_help | Помощь с ВНЖ            | Pomoć oko boravka   | Помоћ око боравка   | Residence permit help
+ електричар     | electrician    | Электрик                | Električar          | Електричар          | Electrician
+ маляр          | painter        | Маляр                   | Moler               | Молер               | Painter
+ муж на час     | handyman       | Мастер на час           | Majstor za sve      | Мајстор за све      | Handyman
+ сантехник      | plumber        | Сантехник               | Vodoinstalater      | Водоинсталатер      | Plumber
+ стиралка       | washer_repair  | Ремонт стиральных машин | Popravka veš mašina | Поправка веш машина | Washing machine repair
+ электрик       | electrician    | Электрик                | Električar          | Електричар          | Electrician
+(13 rows)

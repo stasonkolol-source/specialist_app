@@ -1,0 +1,186 @@
+# Specialist marketplace — PostgreSQL/PostGIS + S3 lab.
+# Always run with an explicit project name so nothing collides with other stacks:
+#   docker compose -p specialist-lab up -d postgres
+#   docker compose -p specialist-lab --profile s3 up -d        # S3 + imgproxy experiments
+#   docker compose -p specialist-lab down -v                    # stop & remove containers + volumes
+# All ports are bound to 127.0.0.1 and are non-standard (55432, 59xxx, 58080).
+name: specialist-lab
+
+x-pg-settings: &pg-settings
+  # Settings approximate a small production VM (4 vCPU / 8 GB RAM, of which ~2.5 GB for Postgres).
+  - postgres
+  - -c
+  - shared_buffers=1GB
+  - -c
+  - effective_cache_size=2GB
+  - -c
+  - work_mem=16MB
+  - -c
+  - maintenance_work_mem=512MB
+  - -c
+  - random_page_cost=1.1
+  - -c
+  - effective_io_concurrency=200
+  - -c
+  - max_worker_processes=8
+  - -c
+  - max_parallel_workers=4
+  - -c
+  - max_parallel_workers_per_gather=2
+  - -c
+  - jit=off
+  - -c
+  - shared_preload_libraries=pg_stat_statements,pg_cron
+  - -c
+  - cron.database_name=lab
+  - -c
+  - pg_stat_statements.track=all
+  - -c
+  - track_io_timing=on
+  - -c
+  - max_wal_size=4GB
+  - -c
+  - checkpoint_timeout=15min
+  - -c
+  - wal_compression=zstd
+  - -c
+  - default_toast_compression=lz4
+  - -c
+  - max_connections=100
+
+services:
+  postgres:
+    build:
+      context: ./postgres
+      args:
+        PG_IMAGE: postgres:18.6-trixie
+        EXTRA_EXTENSIONS: "pgvector cron"
+    image: specialist-lab/postgres-postgis:18.6-3.6.4
+    command: *pg-settings
+    environment:
+      POSTGRES_USER: lab
+      POSTGRES_PASSWORD: lab
+      POSTGRES_DB: lab
+      # Cluster default: builtin provider, C.UTF-8 (PG17+): code-point sort, Unicode-aware
+      # upper/lower/ctype, immune to glibc collation changes. Human-facing sorting uses
+      # explicit ICU collations (see sql/06_i18n_collations.sql).
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale-provider=builtin --builtin-locale=C.UTF-8"
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./sql:/lab/sql:ro
+      - ./scripts:/lab/scripts:ro
+      - ./results:/lab/results
+    shm_size: 1g
+    mem_limit: 2560m
+    cpuset: "0-3"          # 4 dedicated vCPUs; NOT "cpus: 4" (CFS quota -> throttling tails, see results/pgbench/cfs_throttling_note.txt)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lab -d lab"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # pgbench / psql client in a separate container (does not share the server's CPU quota)
+  bench:
+    image: specialist-lab/postgres-postgis:18.6-3.6.4
+    profiles: ["bench"]
+    entrypoint: ["bash"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: lab
+      PGPASSWORD: lab
+      PGDATABASE: lab
+    volumes:
+      - ./sql:/lab/sql:ro
+      - ./scripts:/lab/scripts:ro
+      - ./results:/lab/results
+    cpuset: "4-5"
+    mem_limit: 512m
+
+  # ---------------- S3-compatible storage candidates (profile "s3") ----------------
+  garage:                                   # AGPLv3, Rust, single-node mode since v2.3
+    image: dxflrs/garage:v2.4.1
+    profiles: ["s3"]
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
+    environment:
+      GARAGE_DEFAULT_ACCESS_KEY: GK0123456789abcdef0123456789abcd
+      GARAGE_DEFAULT_SECRET_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      GARAGE_DEFAULT_BUCKET: lab
+    volumes:
+      - ./s3/garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    ports: ["127.0.0.1:59000:3900"]
+    mem_limit: 256m
+    cpuset: "6-13"
+
+  seaweedfs:                                # Apache-2.0, Go
+    image: chrislusf/seaweedfs:4.47
+    profiles: ["s3"]
+    command: ["server", "-dir=/data", "-s3", "-s3.port=8333", "-s3.config=/etc/seaweedfs/s3.json", "-volume.max=5", "-master.volumeSizeLimitMB=256"]
+    volumes:
+      - ./s3/seaweedfs_s3.json:/etc/seaweedfs/s3.json:ro
+      - seaweedfs-data:/data
+    ports: ["127.0.0.1:59010:8333"]
+    mem_limit: 512m
+    cpuset: "6-13"
+
+  rustfs:                                   # Apache-2.0, Rust, MinIO-like (API + console)
+    image: rustfs/rustfs:1.0.0
+    profiles: ["s3"]
+    environment:
+      RUSTFS_ACCESS_KEY: labrustfsaccess
+      RUSTFS_SECRET_KEY: labrustfssecret123456
+    volumes:
+      - rustfs-data:/data
+    ports: ["127.0.0.1:59020:9000", "127.0.0.1:59021:9001"]
+    mem_limit: 512m
+    cpuset: "6-13"
+
+  imgproxy:                                 # reads originals directly from S3 (Garage)
+    image: darthsim/imgproxy:v4.0.15
+    profiles: ["s3"]
+    environment:
+      IMGPROXY_USE_S3: "true"
+      IMGPROXY_S3_ENDPOINT: http://garage:3900
+      IMGPROXY_S3_REGION: garage
+      IMGPROXY_S3_ENDPOINT_USE_PATH_STYLE: "true"
+      AWS_ACCESS_KEY_ID: GK0123456789abcdef0123456789abcd
+      AWS_SECRET_ACCESS_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      IMGPROXY_KEY: 943b421c9eb07c830af81030552c86009268de4e532ba2ee2eab8247c6da0881
+      IMGPROXY_SALT: 520f986b998545b4785e0defbc4f3c1203f22de2374a3d53cb7a7fe9fea309c5
+      IMGPROXY_ALLOWED_SOURCES: s3://
+    ports: ["127.0.0.1:58080:8080"]
+    mem_limit: 512m
+    cpuset: "6-13"
+
+  # one-shot test clients (profile "tools")
+  s3test:
+    image: python:3.13-slim
+    profiles: ["tools"]
+    working_dir: /lab/s3
+    entrypoint: ["sh", "-c", "pip install --quiet --disable-pip-version-check --root-user-action=ignore boto3==1.* && python s3_presign_test.py"]
+    volumes:
+      - ./s3:/lab/s3:ro
+      - ./results:/lab/results
+    mem_limit: 256m
+    cpuset: "6-13"
+
+  awscli:
+    image: amazon/aws-cli:latest
+    profiles: ["tools"]
+    environment:
+      AWS_EC2_METADATA_DISABLED: "true"
+    mem_limit: 256m
+    cpuset: "6-13"
+
+volumes:
+  pgdata:
+  garage-meta:
+  garage-data:
+  seaweedfs-data:
+  rustfs-data:

@@ -1,0 +1,14 @@
+                                                                     QUERY PLAN                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.29..309.78 rows=20 width=62) (actual time=0.012..0.185 rows=20.00 loops=1)
+   Buffers: shared hit=544
+   ->  Index Scan using req_open_created_idx on request  (cost=0.29..14639.39 rows=946 width=62) (actual time=0.011..0.184 rows=20.00 loops=1)
+         Filter: (search_tsv @@ '''сантехник'' | ''vodoinstalat'' | ''santehnik'' | ''vodoinstalater'' | ''сантехник'' | ''vodoinstalat'''::tsquery)
+         Rows Removed by Filter: 520
+         Index Searches: 1
+         Buffers: shared hit=544
+ Planning:
+   Buffers: shared hit=1
+ Planning Time: 0.040 ms
+ Execution Time: 0.187 ms
+(11 rows)

@@ -1,0 +1,15 @@
+# Postgres container limited with 'cpus: 4' (CFS quota) during the pgbench runs in this folder
+# /sys/fs/cgroup/cpu.max and cpu.stat right after the runs (2026-09-26):
+cpu.max: 400000 100000
+usage_usec 1254871208
+user_usec 1193071838
+system_usec 61799370
+nice_usec 0
+nr_periods 8100
+nr_throttled 2705
+throttled_usec 2095045178
+nr_bursts 0
+burst_usec 0
+nproc visible: 14
+# => processes run on all 14 vCPUs, burn the 400 ms quota early in each 100 ms period and are throttled for the rest:
+#    bimodal latency (p50 ~1 ms, p95 ~70-90 ms at 16-32 clients). Fixed by 'cpuset: "0-3"' (no quota).

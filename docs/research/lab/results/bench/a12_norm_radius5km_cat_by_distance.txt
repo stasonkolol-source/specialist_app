@@ -1,0 +1,46 @@
+                                                                                            QUERY PLAN                                                                                             
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=45414.12..45426.89 rows=1 width=46) (actual time=12.042..13.646 rows=20.00 loops=1)
+   Buffers: shared hit=26536
+   ->  Result  (cost=45414.12..45426.89 rows=1 width=46) (actual time=12.042..13.644 rows=20.00 loops=1)
+         Buffers: shared hit=26536
+         ->  Sort  (cost=45414.12..45414.13 rows=1 width=70) (actual time=12.039..13.631 rows=20.00 loops=1)
+               Sort Key: ((s.location <-> '0101000020E61000004BEA0434117634400000000000684640'::geography))
+               Sort Method: top-N heapsort  Memory: 29kB
+               Buffers: shared hit=26536
+               ->  Gather  (cost=1151.04..45414.11 rows=1 width=70) (actual time=0.906..13.601 rows=239.00 loops=1)
+                     Workers Planned: 2
+                     Workers Launched: 2
+                     Buffers: shared hit=26536
+                     ->  Nested Loop Semi Join  (cost=151.04..44414.01 rows=1 width=70) (actual time=2.946..6.258 rows=79.67 loops=3)
+                           Buffers: shared hit=26536
+                           ->  Parallel Bitmap Heap Scan on specialist s  (cost=150.47..44411.86 rows=1 width=62) (actual time=2.897..4.330 rows=1105.33 loops=3)
+                                 Recheck Cond: (status = 'active'::text)
+                                 Filter: ((languages && '{ru}'::text[]) AND st_dwithin(location, '0101000020E61000004BEA0434117634400000000000684640'::geography, '5000'::double precision, true))
+                                 Rows Removed by Filter: 1647
+                                 Heap Blocks: exact=2966
+                                 Buffers: shared hit=4583
+                                 Worker 0:  Heap Blocks: exact=2
+                                 Worker 1:  Heap Blocks: exact=2
+                                 ->  Bitmap Index Scan on specialist_location_gist  (cost=0.00..150.47 rows=7527 width=0) (actual time=0.566..0.566 rows=8256.00 loops=1)
+                                       Index Cond: (location && _st_expand('0101000020E61000004BEA0434117634400000000000684640'::geography, '5000'::double precision))
+                                       Index Searches: 1
+                                       Buffers: shared hit=97
+                           ->  Nested Loop  (cost=0.56..1.89 rows=1 width=16) (actual time=0.002..0.002 rows=0.07 loops=3316)
+                                 Buffers: shared hit=21953
+                                 ->  Index Only Scan using specialist_category_pkey on specialist_category sc  (cost=0.42..1.55 rows=2 width=20) (actual time=0.001..0.001 rows=1.81 loops=3316)
+                                       Index Cond: (specialist_id = s.id)
+                                       Heap Fetches: 0
+                                       Index Searches: 3316
+                                       Buffers: shared hit=9953
+                                 ->  Index Scan using category_pkey on category c  (cost=0.15..0.17 rows=1 width=4) (actual time=0.000..0.000 rows=0.04 loops=5999)
+                                       Index Cond: (id = sc.category_id)
+                                       Filter: (path <@ 'cleaning.home_clean'::ltree)
+                                       Rows Removed by Filter: 1
+                                       Index Searches: 5999
+                                       Buffers: shared hit=12000
+ Planning:
+   Buffers: shared hit=26
+ Planning Time: 0.505 ms
+ Execution Time: 13.660 ms
+(43 rows)

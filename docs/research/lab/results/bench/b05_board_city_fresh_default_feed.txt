@@ -1,0 +1,13 @@
+                                                                     QUERY PLAN                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.29..17.42 rows=20 width=66) (actual time=0.003..0.009 rows=20.00 loops=1)
+   Buffers: shared hit=22
+   ->  Index Scan using req_open_city_created_idx on request  (cost=0.29..8742.09 rows=10203 width=66) (actual time=0.003..0.008 rows=20.00 loops=1)
+         Index Cond: (city_id = 1)
+         Index Searches: 1
+         Buffers: shared hit=22
+ Planning:
+   Buffers: shared hit=1
+ Planning Time: 0.020 ms
+ Execution Time: 0.011 ms
+(10 rows)

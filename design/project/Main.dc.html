@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Сосед · дизайн-система</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 1440px; height: 1280px; padding: 56px 64px; gap: 32px">
+  <header class="between" style="align-items: flex-end; gap: 48px">
+    <div class="stack g12">
+      <div class="hstack" style="gap: 12px">
+        <span style="width: 44px; height: 44px; border-radius: 13px; background: var(--accent); color: var(--accent-ink); display: flex; align-items: center; justify-content: center; font: 600 22px/1 var(--f-display)">С</span>
+        <span style="font: 600 20px/24px var(--f-display)">Сосед</span>
+        <span class="bdg info">Версия 0.1 · на согласовании</span>
+      </div>
+      <h1 class="h1" style="font-size: 44px; line-height: 52px">Дизайн-система Mini App</h1>
+      <p class="t2" style="font-size: 17px; line-height: 26px">Маркетплейс услуг и подработки для русскоязычных в Сербии · Telegram Mini App · плоский доступный стиль</p>
+    </div>
+    <ul class="stack g8" style="flex: none; font-size: 14px; line-height: 20px">
+      <li class="hstack"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--accent)"><path d="m5 12 5 5 9-10"/></svg>Изумрудный — доверие и главные действия</li>
+      <li class="hstack"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--accent)"><path d="m5 12 5 5 9-10"/></svg>Оранжевый — только срочность</li>
+      <li class="hstack"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--accent)"><path d="m5 12 5 5 9-10"/></svg>Зоны нажатия от 44 px, контраст текста от 4,5:1</li>
+      <li class="hstack"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--accent)"><path d="m5 12 5 5 9-10"/></svg>Линейные иконки, без эмодзи; темы — через токены</li>
+    </ul>
+  </header>
+
+  <nav class="chips wrap" aria-label="Потоки экранов">
+    <a class="chip" href="S01-launch.dc.html">1 · Вход</a>
+    <a class="chip" href="S03-home.dc.html">2 · Поиск</a>
+    <a class="chip" href="S13-feed.dc.html">3 · Доска заявок</a>
+    <a class="chip" href="S20a-create-what.dc.html">4 · Заявка клиента</a>
+    <a class="chip" href="S53-confirm-agreement.dc.html">5 · Сделка</a>
+    <a class="chip" href="S29-chats.dc.html">6 · Сообщения</a>
+    <a class="chip" href="S31-account.dc.html">7 · Профиль</a>
+    <a class="chip" href="S42-notifications.dc.html">8 · Сервис</a>
+    <a class="chip" href="B1-bot-job-alert.dc.html">9 · Бот и тёмная тема</a>
+  </nav>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start">
+
+    <div class="stack" style="gap: 24px">
+      <section class="card" style="padding: 24px; gap: 16px">
+        <h2 class="h3">Цвет</h2>
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+          <div class="sw-tile" style="width: auto"><i style="background: #0B7A5F; height: 44px"></i><b>Акцент</b><span class="t2">#0B7A5F</span></div>
+          <div class="sw-tile" style="width: auto"><i style="background: #E3F4EE; height: 44px"></i><b>Акцент фон</b><span class="t2">#E3F4EE</span></div>
+          <div class="sw-tile" style="width: auto"><i style="background: #C2410C; height: 44px"></i><b>Срочно</b><span class="t2">#C2410C</span></div>
+          <div class="sw-tile" style="width: auto"><i style="background: #FDEBDD; height: 44px"></i><b>Срочно фон</b><span class="t2">#FDEBDD</span></div>
+          <div class="sw-tile" style="width: auto"><i style="background: #111418; height: 44px"></i><b>Текст</b><span class="t2">#111418</span></div>
+          <div class="sw-tile" style="width: auto"><i style="background: #5B6270; height: 44px"></i><b>Текст 2</b><span class="t2">#5B6270</span></div>
+          <div class="sw-tile" style="width: auto"><i style="background: #F2F3F5; height: 44px"></i><b>Фон</b><span class="t2">#F2F3F5</span></div>
+          <div class="sw-tile" style="width: auto"><i style="background: #FFFFFF; height: 44px"></i><b>Поверхность</b><span class="t2">#FFFFFF</span></div>
+          <div class="sw-tile" style="width: auto"><i style="background: #E3E5E8; height: 44px"></i><b>Линия</b><span class="t2">#E3E5E8</span></div>
+          <div class="sw-tile" style="width: auto"><i style="background: #1B4F9C; height: 44px"></i><b>Инфо</b><span class="t2">#1B4F9C</span></div>
+          <div class="sw-tile" style="width: auto"><i style="background: #C62828; height: 44px"></i><b>Ошибка</b><span class="t2">#C62828</span></div>
+          <div class="sw-tile" style="width: auto"><i style="background: #F59E0B; height: 44px"></i><b>Рейтинг</b><span class="t2">#F59E0B</span></div>
+        </div>
+        <div class="theme-dark" style="background: var(--bg2); color: var(--text); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px">
+          <span class="cap">Тёмная тема — те же токены</span>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+            <div class="sw-tile" style="width: auto"><i style="background: #0E1621; height: 44px; border-color: rgba(255,255,255,.12)"></i><b>Фон</b><span class="t2">#0E1621</span></div>
+            <div class="sw-tile" style="width: auto"><i style="background: #1E2A36; height: 44px; border-color: rgba(255,255,255,.12)"></i><b>Поверхность</b><span class="t2">#1E2A36</span></div>
+            <div class="sw-tile" style="width: auto"><i style="background: #F2F5F8; height: 44px"></i><b>Текст</b><span class="t2">#F2F5F8</span></div>
+            <div class="sw-tile" style="width: auto"><i style="background: #3DD6A3; height: 44px"></i><b>Акцент</b><span class="t2">#3DD6A3</span></div>
+            <div class="sw-tile" style="width: auto"><i style="background: #FF8A4C; height: 44px"></i><b>Срочно</b><span class="t2">#FF8A4C</span></div>
+            <div class="sw-tile" style="width: auto"><i style="background: #9CC3FF; height: 44px"></i><b>Инфо</b><span class="t2">#9CC3FF</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" style="padding: 24px; gap: 16px">
+        <div class="between"><h2 class="h3">Иконки</h2><span class="cap">24 px, штрих 1,8</span></div>
+        <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px">
+          <span class="ibtn" style="width: auto"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></span>
+          <span class="ibtn" style="width: auto"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9zM9 11h6M9 15h4"/></svg></span>
+          <span class="ibtn" style="width: auto"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span>
+          <span class="ibtn" style="width: auto"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span>
+          <span class="ibtn" style="width: auto"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></span>
+          <span class="ibtn" style="width: auto"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.1 7-11.5a7 7 0 1 0-14 0C5 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>
+          <span class="ibtn" style="width: auto"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+          <span class="ibtn" style="width: auto; color: var(--urgent)"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span>
+          <span class="ibtn" style="width: auto; color: var(--accent)"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v6c0 4.4 3 7.6 7 9 4-1.4 7-4.6 7-9V6z"/><path d="m9 12 2 2 4-4"/></svg></span>
+          <span class="ibtn" style="width: auto"><svg class="ic fill star i24" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg></span>
+          <span class="ibtn" style="width: auto"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></span>
+          <span class="ibtn" style="width: auto"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16v-5a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/></svg></span>
+          <span class="ibtn" style="width: auto"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
+          <span class="ibtn" style="width: auto"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M16 15h2"/></svg></span>
+        </div>
+      </section>
+    </div>
+
+    <div class="stack" style="gap: 24px">
+      <section class="card" style="padding: 24px; gap: 14px">
+        <div class="between"><h2 class="h3">Типографика</h2><span class="cap">Unbounded + Onest</span></div>
+        <div class="stack g4"><span class="cap">Unbounded 600 · 24/30 · заголовок раздела</span><span class="h1">Найдём мастера рядом</span></div>
+        <div class="stack g4"><span class="cap">Onest 700 · 20/26 · заголовок экрана</span><span class="h2">Повесить люстру</span></div>
+        <div class="stack g4"><span class="cap">Onest 600 · 17/22 · подзаголовок, имя</span><span class="h3">Алексей Морозов</span></div>
+        <div class="stack g4"><span class="cap">Onest 400 · 15/22 · основной текст</span><span>Потолок бетонный, крюк есть. Нужна помощь с подключением.</span></div>
+        <div class="stack g4"><span class="cap">Onest 400 · 13/18 · подписи и мета</span><span class="meta">Лиман, ≈&nbsp;1,5&nbsp;км · 15 мин назад</span></div>
+        <div class="stack g4"><span class="cap">Onest 700 · 22/28 · цена, табличные цифры</span><span class="price lg">5&nbsp;000 RSD</span></div>
+        <div class="stack g4"><span class="cap">Сербский: латиница и кириллица</span><span>Vodoinstalater, čišćenje stana · Водоинсталатер, чишћење стана</span></div>
+      </section>
+
+      <section class="card" style="padding: 24px; gap: 12px">
+        <h2 class="h3">Кнопки</h2>
+        <a class="mbtn" href="S16-respond.dc.html">Откликнуться · осталось 2 места</a>
+        <span class="cap">MainButton Telegram — одно главное действие на экране</span>
+        <div class="hstack wrap">
+          <button class="btn pri" type="button">Создать заявку</button>
+          <button class="btn sec" type="button">Написать</button>
+          <button class="btn out" type="button">Подробнее</button>
+          <button class="btn dng" type="button">Пожаловаться</button>
+        </div>
+        <div class="hstack">
+          <button class="ibtn" type="button" aria-label="В избранное"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></button>
+          <button class="ibtn on" type="button" aria-label="Убрать из избранного"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></button>
+          <button class="ibtn" type="button" aria-label="Поделиться"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7"/></svg></button>
+          <span class="cap">Кнопки-иконки 44 × 44</span>
+        </div>
+      </section>
+    </div>
+
+    <div class="stack" style="gap: 24px">
+      <section class="card" style="padding: 24px; gap: 12px">
+        <h2 class="h3">Поля и выбор</h2>
+        <div class="fld">
+          <label class="lbl" for="ds-title">Что нужно сделать</label>
+          <input class="inp focus" id="ds-title" type="text" value="Повесить люстру">
+          <span class="hint">Коротко, как в объявлении</span>
+        </div>
+        <div class="fld">
+          <label class="lbl" for="ds-budget">Бюджет</label>
+          <div class="inp error"><input id="ds-budget" type="text" inputmode="numeric" value="50"><span class="sfx">RSD</span></div>
+          <span class="err">Минимум 500 RSD</span>
+        </div>
+        <div class="seg" role="group" aria-label="Тип цены">
+          <button class="on" type="button" aria-pressed="true">Фикс</button>
+          <button type="button" aria-pressed="false">Диапазон</button>
+          <button type="button" aria-pressed="false">Договорная</button>
+        </div>
+        <button class="opt on" type="button" role="radio" aria-checked="true">
+          <span class="radio on"></span>
+          <span class="grow stack" style="gap: 0"><span class="b">Сегодня</span><span class="cap">18:00–21:00</span></span>
+        </button>
+        <div class="between">
+          <span id="ds-verified">Только проверенные исполнители</span>
+          <button class="sw on" type="button" role="switch" aria-checked="true" aria-labelledby="ds-verified"></button>
+        </div>
+        <label class="hstack" style="gap: 10px">
+          <button class="chk on" type="button" role="checkbox" aria-checked="true"><svg class="ic i16" viewBox="0 0 24 24" aria-hidden="true" style="stroke-width: 2.6"><path d="m5 12 5 5 9-10"/></svg></button>
+          <span>Мне есть 18 лет, принимаю правила</span>
+        </label>
+      </section>
+
+      <section class="card" style="padding: 24px; gap: 12px">
+        <h2 class="h3">Чипы, бейджи, баннеры</h2>
+        <div class="chips wrap">
+          <button class="chip on" type="button" aria-pressed="true">Рядом</button>
+          <button class="chip" type="button" aria-pressed="false">Сегодня</button>
+          <button class="chip acc" type="button">Мастер на час</button>
+        </div>
+        <div class="hstack wrap" style="gap: 6px">
+          <span class="bdg ok">Свободен сегодня</span>
+          <span class="bdg urg">Срочно</span>
+          <span class="bdg info">Телефон подтверждён</span>
+          <span class="bdg mute">Подработка</span>
+          <span class="bdg pro">Pro · v1</span>
+        </div>
+        <div class="bnr warn">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.01"/></svg>
+          <span>Не вносите предоплату незнакомым исполнителям. Платите по факту работы.</span>
+        </div>
+      </section>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1280}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

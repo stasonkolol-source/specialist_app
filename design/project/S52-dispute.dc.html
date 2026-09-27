@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S52 · Проблема со сделкой</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <a class="tgh-btn" href="S26-deal.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Назад</a>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 16px 16px 124px; gap: 14px">
+    <div class="stack g4">
+      <h1 class="h2">Проблема со сделкой</h1>
+      <p class="cap">Повесить люстру · Алексей Морозов · сегодня, 19:00</p>
+    </div>
+
+    <div class="stack g8">
+      <h2 class="lbl" id="dp-what">Что случилось?</h2>
+      <div class="group" role="radiogroup" aria-labelledby="dp-what">
+        <button class="row" type="button" role="radio" aria-checked="true"><span class="radio on"></span><span class="grow">Не пришёл</span></button>
+        <button class="row" type="button" role="radio" aria-checked="false"><span class="radio"></span><span class="grow">Сделал плохо или не то</span></button>
+        <button class="row" type="button" role="radio" aria-checked="false"><span class="radio"></span><span class="grow">Взял предоплату или просит больше</span></button>
+        <button class="row" type="button" role="radio" aria-checked="false"><span class="radio"></span><span class="grow">Ущерб, грубость или угрозы</span></button>
+        <button class="row" type="button" role="radio" aria-checked="false"><span class="radio"></span><span class="grow">Другое</span></button>
+      </div>
+    </div>
+
+    <div class="fld">
+      <label class="lbl" for="dp-text">Опишите, что произошло</label>
+      <textarea class="inp" id="dp-text" style="min-height: 88px">Договорились на 19:00. В 19:40 мастера всё ещё нет, на сообщения не отвечает.</textarea>
+    </div>
+
+    <div class="hstack" style="gap: 12px">
+      <button class="add" type="button" style="width: 64px; height: 64px"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Фото</button>
+      <p class="cap grow">Приложите фото или скриншоты. Переписка из чата приложится автоматически.</p>
+    </div>
+
+    <div class="bnr info" role="note">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span>Алексей получит уведомление и 48 часов на ответ. Поддержка подключится, если не договоритесь.</span>
+    </div>
+  </main>
+
+  <div class="mbar">
+    <a class="mbtn" href="S26-deal.dc.html">Отправить</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

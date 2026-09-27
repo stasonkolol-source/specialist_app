@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>S38 · Доступность</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <a class="tgh-btn" href="S33-cabinet.dc.html"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Назад</a>
+    <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+    <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  </header>
+
+  <main class="stack" style="padding: 12px 16px 124px; gap: 10px">
+    <h1 class="h2">Доступность</h1>
+
+    <section class="card">
+      <div class="between">
+        <span class="stack" style="gap: 0">
+          <span class="b" id="av-today">Доступен сегодня</span>
+          <span class="cap">Клиенты видят «Сегодня до 20:00»</span>
+        </span>
+        <button class="sw on" type="button" role="switch" aria-checked="true" aria-labelledby="av-today"></button>
+      </div>
+      <div class="chips" role="group" aria-label="До какого времени">
+        <button class="chip" type="button" aria-pressed="false">до 18:00</button>
+        <button class="chip on" type="button" aria-pressed="true">до 20:00</button>
+        <button class="chip" type="button" aria-pressed="false">до 22:00</button>
+      </div>
+    </section>
+
+    <section class="stack g8" aria-labelledby="av-week">
+      <div class="between" style="padding: 0 4px">
+        <h2 class="sec-t" id="av-week" style="padding: 0">Расписание на неделю</h2>
+        <span class="bdg mute">v1</span>
+      </div>
+      <div class="group">
+        <div class="row" style="padding: 10px 16px">
+          <span class="b" style="width: 32px">Пн</span>
+          <span class="grow t2">09:00–19:00</span>
+          <button class="sw on" type="button" role="switch" aria-checked="true" aria-label="Понедельник, рабочий день"></button>
+        </div>
+        <div class="row" style="padding: 10px 16px">
+          <span class="b" style="width: 32px">Вт</span>
+          <span class="grow t2">09:00–19:00</span>
+          <button class="sw on" type="button" role="switch" aria-checked="true" aria-label="Вторник, рабочий день"></button>
+        </div>
+        <div class="row" style="padding: 10px 16px">
+          <span class="b" style="width: 32px">Ср</span>
+          <span class="grow t2">09:00–19:00</span>
+          <button class="sw on" type="button" role="switch" aria-checked="true" aria-label="Среда, рабочий день"></button>
+        </div>
+        <div class="row" style="padding: 10px 16px">
+          <span class="b" style="width: 32px">Чт</span>
+          <span class="grow t2">09:00–19:00</span>
+          <button class="sw on" type="button" role="switch" aria-checked="true" aria-label="Четверг, рабочий день"></button>
+        </div>
+        <div class="row" style="padding: 10px 16px">
+          <span class="b" style="width: 32px">Пт</span>
+          <span class="grow t2">09:00–19:00</span>
+          <button class="sw on" type="button" role="switch" aria-checked="true" aria-label="Пятница, рабочий день"></button>
+        </div>
+        <div class="row" style="padding: 10px 16px">
+          <span class="b" style="width: 32px">Сб</span>
+          <span class="grow t2">10:00–16:00</span>
+          <button class="sw on" type="button" role="switch" aria-checked="true" aria-label="Суббота, рабочий день"></button>
+        </div>
+        <div class="row" style="padding: 10px 16px">
+          <span class="b" style="width: 32px">Вс</span>
+          <span class="grow t2">Выходной</span>
+          <button class="sw" type="button" role="switch" aria-checked="false" aria-label="Воскресенье, рабочий день"></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="between">
+        <span class="stack" style="gap: 0">
+          <span class="b" id="av-pause">Пауза или отпуск</span>
+          <span class="cap">Профиль скрыт, заявки не приходят</span>
+        </span>
+        <button class="sw" type="button" role="switch" aria-checked="false" aria-labelledby="av-pause"></button>
+      </div>
+    </section>
+  </main>
+
+  <div class="mbar">
+    <a class="mbtn" href="S33-cabinet.dc.html">Сохранить</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

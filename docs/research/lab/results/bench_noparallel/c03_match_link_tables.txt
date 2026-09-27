@@ -1,0 +1,37 @@
+                                                                                                       QUERY PLAN                                                                                                        
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Unique  (cost=54331.50..54338.39 rows=1377 width=16) (actual time=4.291..4.327 rows=317.00 loops=1)
+   Buffers: shared hit=19063
+   ->  Sort  (cost=54331.50..54334.95 rows=1377 width=16) (actual time=4.291..4.301 rows=440.00 loops=1)
+         Sort Key: s.specialist_id
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=19063
+         ->  Nested Loop  (cost=0.72..54259.71 rows=1377 width=16) (actual time=0.027..4.263 rows=440.00 loops=1)
+               Buffers: shared hit=19063
+               ->  Index Only Scan using subscription_category_pkey on subscription_category sc  (cost=0.42..97.57 rows=3618 width=16) (actual time=0.005..0.163 rows=3329.00 loops=1)
+                     Index Cond: (category_id = ANY ('{3,22,65}'::integer[]))
+                     Heap Fetches: 0
+                     Index Searches: 3
+                     Buffers: shared hit=39
+               ->  Memoize  (cost=0.30..15.18 rows=1 width=32) (actual time=0.001..0.001 rows=0.13 loops=3329)
+                     Cache Key: sc.subscription_id
+                     Cache Mode: logical
+                     Hits: 0  Misses: 3329  Evictions: 0  Overflows: 0  Memory Usage: 288kB
+                     Buffers: shared hit=19024
+                     ->  Index Scan using subscription_pkey on subscription s  (cost=0.29..15.17 rows=1 width=32) (actual time=0.001..0.001 rows=0.13 loops=3329)
+                           Index Cond: (id = sc.subscription_id)
+                           Filter: (is_active AND ((min_budget_rsd IS NULL) OR (min_budget_rsd <= 5000)) AND (EXISTS(SubPlan 1) OR st_intersects(area, '0101000020E6100000B9FC87F4DB7734404BEA043411664640'::geometry)))
+                           Rows Removed by Filter: 1
+                           Index Searches: 3329
+                           Buffers: shared hit=19024
+                           SubPlan 1
+                             ->  Index Only Scan using subscription_district_pkey on subscription_district sd  (cost=0.42..1.54 rows=1 width=0) (actual time=0.000..0.000 rows=0.05 loops=3012)
+                                   Index Cond: ((district_id = 1) AND (subscription_id = s.id))
+                                   Heap Fetches: 0
+                                   Index Searches: 3012
+                                   Buffers: shared hit=9037
+ Planning:
+   Buffers: shared hit=16
+ Planning Time: 0.109 ms
+ Execution Time: 4.341 ms
+(34 rows)

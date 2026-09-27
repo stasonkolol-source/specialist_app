@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>B1 · Бот: новая заявка</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/7759b923ae90366bc47b73b4d5476dfa">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Unbounded:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EBEE}</style>
+</helmet>
+<div class="scr" style="width: 390px; height: 844px">
+  <header class="tgh">
+    <button class="tgh-btn" type="button"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Чаты</button>
+    <div class="tgh-t"><b>Сосед</b><span>бот</span></div>
+    <span class="tgh-btn r" aria-hidden="true"><span class="ava sm" style="background: var(--accent); color: var(--accent-ink); font-family: var(--f-display)">С</span></span>
+  </header>
+
+  <main class="tgchat" aria-label="Чат с ботом «Сосед»" style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; padding: 12px 12px 96px">
+    <span class="sysmsg">Сегодня</span>
+
+    <div class="botmsg" style="width: 300px">
+      <span>Доброе утро! Вчера по подписке «Сборка мебели» — 2 новые заявки.</span>
+      <span class="cap" style="align-self: flex-end">09:00</span>
+    </div>
+    <div class="kb" style="width: 300px; margin-top: -4px">
+      <a class="k" href="S13-feed.dc.html">Открыть ленту</a>
+    </div>
+
+    <article class="botmsg" style="width: 300px" aria-label="Новая заявка: Повесить люстру">
+      <span class="ph" style="height: 132px; margin: -10px -12px 0; border-radius: 16px 16px 4px 4px">Фото заявки · 1 из 2</span>
+      <span class="b">Новая заявка рядом</span>
+      <span><b>Повесить люстру</b> · 5&nbsp;000 RSD</span>
+      <span class="sm">Лиман, ≈&nbsp;1,2&nbsp;км · сегодня 18:00–21:00</span>
+      <span class="cap">Откликов 3 из 5 · подписка «Мастер на час»</span>
+      <span class="cap" style="align-self: flex-end">17:32</span>
+    </article>
+    <div class="kb" style="width: 300px; max-width: none; margin-top: -4px">
+      <a class="k" href="S15-job.dc.html">Открыть заявку</a>
+      <button class="k" type="button">Откликнуться шаблоном «Могу сегодня»</button>
+      <div class="kb two" style="max-width: none">
+        <button class="k" type="button">Не интересно</button>
+        <a class="k" href="S18-alerts.dc.html">Настроить подписку</a>
+      </div>
+    </div>
+  </main>
+
+  <div class="composer">
+    <a class="btn pri sm" href="S03-home.dc.html" style="height: 44px; border-radius: 22px">Открыть</a>
+    <div class="inp grow"><input type="text" placeholder="Сообщение" aria-label="Сообщение боту"></div>
+    <button class="ibtn plain" type="button" aria-label="Записать голосовое сообщение"><svg class="ic i24" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
