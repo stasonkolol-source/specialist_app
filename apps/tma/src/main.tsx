@@ -13,7 +13,7 @@ const params = new URLSearchParams(window.location.search);
 const app = assemble(platform, {
   version: __APP_VERSION__,
   languages: navigator.languages,
-  // выбор языка из настроек придёт с /me (S43); в mock-режиме — параметром для e2e
+  // в Telegram сохранённый язык (ui_locale) приходит со входом; в mock-режиме — параметром для e2e
   savedLocale: platform.kind === 'mock' ? params.get('locale') : null,
 });
 void app.signIn();

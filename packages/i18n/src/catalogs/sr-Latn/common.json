@@ -191,5 +191,13 @@
   "goods": {
     "soonTitle": "Stvari — uskoro",
     "soonText": "Odeljak gde možete da prodate i kupite stvari od svojih — bez pretrage po grupama za prodaju."
+  },
+  "profile": {
+    "id": "ID: {id}",
+    "loading": "Učitavamo profil",
+    "language": "Jezik interfejsa",
+    "languageError": "Jezik nije promenjen. Pokušajte ponovo",
+    "signedOutTitle": "Otvorite u Telegram-u",
+    "signedOutText": "Profil je dostupan u mini-aplikaciji „{appName}” u Telegram-u. Ako je već otvorena — zatvorite je i otvorite ponovo"
   }
 }

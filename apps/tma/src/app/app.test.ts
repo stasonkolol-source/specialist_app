@@ -49,17 +49,20 @@ describe('sign in by initData', () => {
     refresh_token: 'r1',
     refresh_expires_at: '2026-10-04T10:12:00Z',
     is_new: true,
-    user: {},
+    user: { id: 'u1', ui_locale: 'sr-Cyrl' },
   };
 
   it('exchanges initData once for parallel callers and keeps tokens in memory', async () => {
     const fetch = vi.fn(async () => new Response(JSON.stringify(tokens), { status: 200 }));
     configureApiClient({ fetch });
-    const auth = createAuth(platformWith('user=1&hash=abc'));
+    const onSignedIn = vi.fn();
+    const auth = createAuth(platformWith('user=1&hash=abc'), onSignedIn);
 
     await expect(Promise.all([auth.signIn(), auth.signIn()])).resolves.toEqual([true, true]);
 
     expect(fetch).toHaveBeenCalledOnce();
+    // пользователь из ответа — для языка, сохранённого на сервере
+    expect(onSignedIn).toHaveBeenCalledExactlyOnceWith(tokens.user);
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('/api/v1/auth/telegram');
     expect(new Headers(init.headers).get('Authorization')).toBe('tma user=1&hash=abc');
@@ -72,10 +75,12 @@ describe('sign in by initData', () => {
         new Response(JSON.stringify({ status: 401, code: 'init_data_expired' }), { status: 401 }),
     );
     configureApiClient({ fetch });
+    const onSignedIn = vi.fn();
 
-    await expect(createAuth(platformWith(null)).signIn()).resolves.toBe(false);
+    await expect(createAuth(platformWith(null), onSignedIn).signIn()).resolves.toBe(false);
     expect(fetch).not.toHaveBeenCalled();
-    await expect(createAuth(platformWith('stale')).signIn()).resolves.toBe(false);
+    await expect(createAuth(platformWith('stale'), onSignedIn).signIn()).resolves.toBe(false);
     expect(getSession()).toBeNull();
+    expect(onSignedIn).not.toHaveBeenCalled();
   });
 });

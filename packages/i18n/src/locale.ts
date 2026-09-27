@@ -37,7 +37,7 @@ function fromTag(tag: string | null | undefined): Locale | null {
   return null;
 }
 
-/** Сохранённый выбор (`/me.language`): явная sr-Cyrl остаётся кириллицей. */
+/** Сохранённый выбор (`ui_locale` из /me): явная sr-Cyrl остаётся кириллицей. */
 function fromSaved(value: string | null | undefined): Locale | null {
   if (!value) return null;
   const exact = LOCALES.find((l) => l.toLowerCase() === value.trim().toLowerCase());
@@ -45,7 +45,7 @@ function fromSaved(value: string | null | undefined): Locale | null {
 }
 
 export interface LocaleSources {
-  /** `/me.language` — выбор пользователя в настройках. */
+  /** `ui_locale` из /me — выбор пользователя в настройках. */
   saved?: string | null;
   /** `language_code` из initData Telegram. */
   telegram?: string | null;
@@ -53,7 +53,7 @@ export interface LocaleSources {
   browser?: readonly string[];
 }
 
-/** `/me.language` → `language_code` Telegram → navigator → ru. */
+/** `ui_locale` из /me → `language_code` Telegram → navigator → ru. */
 export function resolveLocale({ saved, telegram, browser = [] }: LocaleSources): Locale {
   return (
     fromSaved(saved) ??
