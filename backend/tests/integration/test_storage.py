@@ -7,6 +7,7 @@ from uuid import UUID
 
 import httpx
 import pytest
+from botocore.exceptions import ClientError
 
 from app.platform.kernel.clock import SystemClock
 from app.platform.kernel.ids import new_id
@@ -120,6 +121,39 @@ async def test_multipart_upload_assembles_parts(storage: S3Storage) -> None:
     stored = await storage.head(Bucket.INCOMING, name)
     assert stored is not None
     assert (stored.size, stored.content_type) == (sum(map(len, chunks)), "video/mp4")
+
+
+async def test_repeated_complete_after_lost_response_is_accepted(storage: S3Storage) -> None:
+    name = f"tests/{new_id()}.mp4"
+    upload_id = await storage.start_multipart(Bucket.INCOMING, name, content_type="video/mp4")
+    signed = await storage.presign_part(
+        Bucket.INCOMING, name, upload_id=upload_id, part_number=1, size=len(JPEG)
+    )
+    async with httpx.AsyncClient() as client:
+        put = await client.put(signed.url, content=JPEG)
+    parts = [UploadedPart(part_number=1, etag=put.headers["etag"])]
+    await storage.complete_multipart(Bucket.INCOMING, name, upload_id=upload_id, parts=parts)
+
+    # ответ на первый complete потерян — клиент повторяет тот же запрос
+    await storage.complete_multipart(Bucket.INCOMING, name, upload_id=upload_id, parts=parts)
+
+    stored = await storage.head(Bucket.INCOMING, name)
+    assert stored is not None
+    assert stored.size == len(JPEG)
+
+
+async def test_complete_of_unknown_upload_still_fails(storage: S3Storage) -> None:
+    name = f"tests/{new_id()}.mp4"
+    upload_id = await storage.start_multipart(Bucket.INCOMING, name, content_type="video/mp4")
+    await storage.abort_multipart(Bucket.INCOMING, name, upload_id=upload_id)
+
+    with pytest.raises(ClientError):
+        await storage.complete_multipart(
+            Bucket.INCOMING,
+            name,
+            upload_id=upload_id,
+            parts=[UploadedPart(part_number=1, etag="x")],
+        )
 
 
 async def test_aborted_multipart_leaves_nothing(storage: S3Storage) -> None:

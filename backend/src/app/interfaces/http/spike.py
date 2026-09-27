@@ -11,6 +11,7 @@ import mimetypes
 from datetime import datetime
 from typing import Annotated
 
+import structlog
 from botocore.exceptions import ClientError
 from dishka.integrations.fastapi import FromDishka, inject
 from fastapi import APIRouter, Query, status
@@ -28,6 +29,7 @@ from app.platform.storage.port import (
     StoragePort,
     UploadedPart,
 )
+from app.platform.storage.s3 import error_code, is_client_error
 
 MAX_SIZE = 1024 * 1024 * 1024
 """1 GiB: видео до ~2 минут 4K; настоящие лимиты по назначению — в 2.1."""
@@ -44,6 +46,7 @@ CONTENT_TYPES = frozenset(
     }
 )
 
+log = structlog.get_logger(__name__)
 router = APIRouter(
     prefix="/__spike/uploads", tags=["spike"], include_in_schema=False, dependencies=AUTHENTICATED
 )
@@ -174,7 +177,7 @@ async def complete(
         )
     except ClientError as exc:
         # InvalidPart, NoSuchUpload: клиент прислал не те ETag или загрузку уже отменили
-        raise DomainValidationError(field="parts", reason=_code(exc)) from exc
+        raise _rejected(exc, "complete", field="parts") from exc
 
 
 @router.post("/abort", status_code=status.HTTP_204_NO_CONTENT)
@@ -186,7 +189,7 @@ async def abort(
     try:
         await storage.abort_multipart(Bucket.INCOMING, body.key, upload_id=body.upload_id)
     except ClientError as exc:
-        raise DomainValidationError(field="upload_id", reason=_code(exc)) from exc
+        raise _rejected(exc, "abort", field="upload_id") from exc
 
 
 @router.get("")
@@ -245,5 +248,9 @@ def _out(signed: PresignedRequest, part_number: int | None) -> SignedUrlOut:
     )
 
 
-def _code(exc: ClientError) -> str:
-    return str(exc.response.get("Error", {}).get("Code", "unknown"))
+def _rejected(exc: ClientError, op: str, *, field: str) -> Exception:
+    """4xx хранилища — 422 клиенту, код S3 — в лог; 5xx — как есть (500 и Sentry)."""
+    log.warning("spike_storage_rejected", op=op, code=error_code(exc))
+    if not is_client_error(exc):
+        return exc
+    return DomainValidationError(field=field, reason=error_code(exc))

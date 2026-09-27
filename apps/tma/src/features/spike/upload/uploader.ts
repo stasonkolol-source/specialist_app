@@ -131,7 +131,15 @@ export class UploadTask {
     const plan = this.plan;
     const pending = plan.parts.filter((part) => !this.etags.has(part.part_number ?? 1));
     log(`${this.file.name}: ${plan.upload_id ? 'multipart' : 'PUT'}, частей ${pending.length}`);
-    await runLimited(pending, PARALLEL, (part) => this.uploadPart(plan, part, signal));
+    // свой контроллер на запуск: первая упавшая часть останавливает остальные
+    const stop = new AbortController();
+    const forward = () => stop.abort(signal.reason);
+    signal.addEventListener('abort', forward, { once: true });
+    try {
+      await runLimited(pending, PARALLEL, stop, (part) => this.uploadPart(plan, part, stop.signal));
+    } finally {
+      signal.removeEventListener('abort', forward);
+    }
     if (plan.upload_id) {
       const parts = [...this.etags].map(([part_number, etag]) => ({ part_number, etag }));
       await api.complete({ key: plan.key, upload_id: plan.upload_id, parts });
@@ -143,10 +151,16 @@ export class UploadTask {
     return { stored, ms: now() - startedAt };
   }
 
-  /** Отменить multipart на сервере: незавершённые части иначе ждут lifecycle. */
+  /** Отменить multipart на сервере (незавершённые части иначе ждут lifecycle) и забыть план:
+   *  «Повторить» после отмены начинает загрузку заново. */
   async abort(): Promise<void> {
-    if (this.plan?.upload_id) {
-      await this.deps.api.abort({ key: this.plan.key, upload_id: this.plan.upload_id });
+    const plan = this.plan;
+    this.plan = null;
+    this.etags.clear();
+    this.loaded.clear();
+    this.report();
+    if (plan?.upload_id) {
+      await this.deps.api.abort({ key: plan.key, upload_id: plan.upload_id });
     }
   }
 
@@ -165,11 +179,13 @@ export class UploadTask {
         body,
         link.headers,
         (loaded) => {
+          if (this.plan !== plan) return; // план сброшен отменой
           this.loaded.set(number, loaded);
           this.report();
         },
         signal,
       );
+      signal.throwIfAborted();
       if (result.status >= 200 && result.status < 300) {
         if (plan.upload_id && !result.etag) {
           throw new UploadFailedError('нет ETag в ответе: CORS бакета не отдаёт ETag');
@@ -192,7 +208,7 @@ export class UploadTask {
           part_number: signed.part_number,
         });
       } else {
-        await sleep(Math.min(1000 * 2 ** (attempt - 1), 15_000));
+        await abortable(sleep(Math.min(1000 * 2 ** (attempt - 1), 15_000)), signal);
       }
     }
     throw new UploadFailedError(`часть ${number} не загрузилась`);
@@ -205,12 +221,47 @@ export class UploadTask {
   }
 }
 
-async function runLimited<T>(items: T[], limit: number, run: (item: T) => Promise<void>) {
+/** Не больше `limit` задач разом. Первая ошибка останавливает остальные через `stop`, а
+ *  промис завершается, только когда все начатые задачи закончились: после отказа ни одна
+ *  часть не продолжает грузиться параллельно с «Повторить». */
+async function runLimited<T>(
+  items: T[],
+  limit: number,
+  stop: AbortController,
+  run: (item: T) => Promise<void>,
+) {
   const queue = [...items];
+  let failed = false;
+  let failure: unknown;
   const worker = async () => {
-    for (let item = queue.shift(); item !== undefined; item = queue.shift()) await run(item);
+    while (!failed && queue.length > 0) {
+      const item = queue.shift() as T;
+      try {
+        await run(item);
+      } catch (error) {
+        if (!failed) {
+          failed = true;
+          failure = error;
+          stop.abort(error);
+        }
+      }
+    }
   };
   await Promise.all(Array.from({ length: Math.min(limit, queue.length) }, worker));
+  if (failed) throw failure;
+}
+
+/** Пауза, которую прерывает отмена: иначе остановка ждёт окончания бэкоффа (до 15 с). */
+function abortable(promise: Promise<void>, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+  });
 }
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -218,6 +269,10 @@ const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, 
 /** PUT через XMLHttpRequest: у fetch нет прогресса отправки. */
 export const xhrPut: Put = (url, body, headers, onProgress, signal) =>
   new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', url);
     for (const [name, value] of Object.entries(headers)) xhr.setRequestHeader(name, value);

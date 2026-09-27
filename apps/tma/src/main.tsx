@@ -17,6 +17,15 @@ const app = assemble(platform, {
   savedLocale: platform.kind === 'mock' ? params.get('locale') : null,
 });
 void app.signIn();
+// Спайк 0.24: в Telegram маршрут живёт в hash, а кнопку меню dev-бота ставят на путь
+// /__spike/upload (docs/spikes/0.24-webview-upload.md). В сборке ветка выпадает целиком.
+if (
+  import.meta.env.DEV &&
+  platform.kind === 'tma' &&
+  window.location.pathname === '/__spike/upload'
+) {
+  void app.router.navigate({ to: '/__spike/upload', replace: true });
+}
 void initSentry(import.meta.env.VITE_SENTRY_DSN, __APP_VERSION__);
 
 const root = document.getElementById('root');

@@ -96,4 +96,53 @@ describe('spike uploader', () => {
 
     await expect(run).rejects.toThrow('ETag');
   });
+
+  it('stops sibling parts after one part fails for good', async () => {
+    const file = new File(['aaaabbbbccccdddd'], 'v.mp4', { type: 'video/mp4' });
+    const plan = {
+      key: 'k',
+      upload_id: 'u',
+      part_size: 4,
+      parts: [1, 2, 3, 4].map((n) => signed(n)),
+    };
+    const aborted: string[] = [];
+    const put = vi.fn<Put>((url, _body, _headers, _progress, signal) =>
+      url.endsWith('/1')
+        ? Promise.resolve({ status: 200, etag: null }) // нет ETag — ошибка без повторов
+        : new Promise<PutResult>((_resolve, reject) => {
+            signal.addEventListener('abort', () => {
+              aborted.push(url);
+              reject(signal.reason);
+            });
+          }),
+    );
+
+    const run = new UploadTask(file, deps(fakeApi(plan, 16), put)).run(
+      new AbortController().signal,
+    );
+
+    await expect(run).rejects.toThrow('ETag');
+    expect(put.mock.calls.map((call) => call[0])).not.toContain('https://s3.test/4');
+    expect(aborted.sort()).toEqual(['https://s3.test/2', 'https://s3.test/3']);
+  });
+
+  it('forgets the plan after cancel so retry starts a new upload', async () => {
+    const file = new File(['aaaabbbb'], 'v.mp4', { type: 'video/mp4' });
+    const plan = { key: 'k', upload_id: 'u', part_size: 4, parts: [1, 2].map((n) => signed(n)) };
+    const api = fakeApi(plan, 8);
+    const controller = new AbortController();
+    const put = vi.fn<Put>(async (url) => {
+      if (url.endsWith('/2')) controller.abort();
+      return ok(`"${url}"`);
+    });
+    const task = new UploadTask(file, deps(api, put));
+
+    await expect(task.run(controller.signal)).rejects.toThrow();
+    await task.abort();
+    await task.run(new AbortController().signal);
+
+    expect(api.abort).toHaveBeenCalledWith({ key: 'k', upload_id: 'u' });
+    expect(api.start).toHaveBeenCalledTimes(2);
+    expect(api.complete.mock.calls.at(-1)?.[0].parts).toHaveLength(2);
+  });
 });

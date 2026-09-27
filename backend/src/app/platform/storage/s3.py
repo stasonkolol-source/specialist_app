@@ -138,15 +138,21 @@ class S3Storage:
         self, bucket: Bucket, key: str, *, upload_id: str, parts: Sequence[UploadedPart]
     ) -> None:
         ordered = sorted(parts, key=lambda part: part.part_number)
-        await asyncio.to_thread(
-            self._client.complete_multipart_upload,
-            Bucket=self._names[bucket],
-            Key=key,
-            UploadId=upload_id,
-            MultipartUpload={
-                "Parts": [{"PartNumber": p.part_number, "ETag": p.etag} for p in ordered]
-            },
-        )
+        try:
+            await asyncio.to_thread(
+                self._client.complete_multipart_upload,
+                Bucket=self._names[bucket],
+                Key=key,
+                UploadId=upload_id,
+                MultipartUpload={
+                    "Parts": [{"PartNumber": p.part_number, "ETag": p.etag} for p in ordered]
+                },
+            )
+        except ClientError as exc:
+            # Повтор после потерянного ответа (клиент или ретрай botocore): загрузка уже
+            # собрана, и хранилище её не знает. Ключ у каждой загрузки свой — объект наш.
+            if error_code(exc) != "NoSuchUpload" or await self.head(bucket, key) is None:
+                raise
 
     async def abort_multipart(self, bucket: Bucket, key: str, *, upload_id: str) -> None:
         await asyncio.to_thread(
@@ -162,7 +168,7 @@ class S3Storage:
                 self._client.head_object, Bucket=self._names[bucket], Key=key
             )
         except ClientError as exc:
-            if exc.response.get("Error", {}).get("Code") in {"404", "NoSuchKey", "NotFound"}:
+            if error_code(exc) in {"404", "NoSuchKey", "NotFound"}:
                 return None
             raise
         return StoredObject(
@@ -181,3 +187,14 @@ class S3Storage:
 
     def _expires(self, ttl: timedelta) -> datetime:
         return self._clock.now() + ttl
+
+
+def error_code(exc: ClientError) -> str:
+    """Код ошибки S3 (`NoSuchUpload`, `InvalidPart`, …) или HTTP-статус для HEAD."""
+    return str(exc.response.get("Error", {}).get("Code", "unknown"))
+
+
+def is_client_error(exc: ClientError) -> bool:
+    """4xx — ошибка запроса (части, ETag, отменённая загрузка); 5xx — сбой хранилища."""
+    status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode", 500)
+    return 400 <= int(status) < 500

@@ -24,6 +24,7 @@ ENV PATH=/opt/venv/bin:$PATH \
     PYTHONPATH=/app/src \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
+    APP_ENV=production \
     APP_LOG_JSON=true \
     APP_WEB_HOST=0.0.0.0
 WORKDIR /app
