@@ -138,8 +138,12 @@ def install_error_handlers(app: FastAPI, problems: Problems) -> None:
                 extensions["until"] = (
                     until.astimezone(UTC).isoformat().replace("+00:00", "Z") if until else None
                 )
-            case RateLimitedError(retry_after=retry_after):
+            case RateLimitedError(retry_after=retry_after, limit=limit):
                 headers["Retry-After"] = str(retry_after)
+                headers["RateLimit-Remaining"] = "0"
+                headers["RateLimit-Reset"] = str(retry_after)
+                if limit is not None:
+                    headers["RateLimit-Limit"] = str(limit)
             case ExternalServiceError():
                 log.warning("external_service_unavailable", code=exc.code)
             case _:
