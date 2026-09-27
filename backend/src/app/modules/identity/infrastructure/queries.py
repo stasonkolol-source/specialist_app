@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlalchemy import or_, select
 
 from app.modules.identity.api import UserSummary
+from app.modules.identity.application.dto import MeView
 from app.modules.identity.domain.restriction import Restriction
 from app.modules.identity.domain.user import UserStatus
 from app.modules.identity.infrastructure.models import RestrictionRow, UserRoleRow, UserRow
@@ -37,6 +38,31 @@ class SqlIdentityQuery(SqlQuery):
             phone_verified=row["phone_verified_at"] is not None,
             is_deleted=row["status"] == UserStatus.DELETED,
             created_at=row["created_at"],
+        )
+
+    async def me(self, user_id: UserId) -> MeView | None:
+        u = UserRow.__table__.c
+        row = await self._fetch_one(
+            select(
+                u.id,
+                u.display_name,
+                u.ui_locale,
+                u.trust_level,
+                u.phone_verified_at,
+                u.created_at,
+                u.version,
+            ).where(u.id == user_id, u.status == UserStatus.ACTIVE)
+        )
+        if row is None:
+            return None
+        return MeView(
+            id=UserId(row["id"]),
+            display_name=row["display_name"],
+            ui_locale=row["ui_locale"],
+            trust_level=row["trust_level"],
+            phone_verified=row["phone_verified_at"] is not None,
+            created_at=row["created_at"],
+            version=row["version"],
         )
 
     async def roles(self, user_id: UserId) -> frozenset[Role]:

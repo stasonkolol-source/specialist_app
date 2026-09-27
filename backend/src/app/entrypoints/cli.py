@@ -3,15 +3,20 @@
 Команды добавляют шаги плана (dev-initdata, jwt-keys, seed, staff-grant …).
 """
 
+import json
+import secrets
 from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlencode
 
 import typer
 
 from app.entrypoints._envfile import read_env, write_env
+from app.platform.kernel.clock import SystemClock
+from app.platform.security.initdata import sign
 from app.platform.security.jwt import JwtKeys, SigningKey
-from app.platform.settings import ENV_FILE
+from app.platform.settings import ENV_FILE, AppSettings, Environment, TelegramSettings
 
 app = typer.Typer(help="«Сосед» — служебные команды backend.", no_args_is_help=True)
 
@@ -51,6 +56,34 @@ def jwt_keys(
     write_env(env_file, {"JWT_KEYS": ",".join(keys)})
     action = "rotated" if current else "added"
     typer.echo(f"{env_file.name}: JWT_KEYS {action} ({len(keys)} key(s), first signs)")
+
+
+@app.command("dev-initdata")
+def dev_initdata(
+    *,
+    user_id: Annotated[int, typer.Option(help="Telegram id пользователя")] = 100000001,
+    first_name: Annotated[str, typer.Option()] = "Dev",
+    username: Annotated[str | None, typer.Option()] = "sosed_dev_user",
+    language: Annotated[str, typer.Option(help="language_code клиента")] = "ru",
+    start_param: Annotated[str | None, typer.Option(help="startapp из deep link")] = None,
+) -> None:
+    """initData, подписанный токеном dev-бота, — для curl и тестов без Telegram (только dev)."""
+    settings = AppSettings()
+    if settings.env is not Environment.DEV:
+        typer.echo("dev-initdata works only with APP_ENV=dev", err=True)
+        raise typer.Exit(code=1)
+    user: dict[str, object] = {"id": user_id, "first_name": first_name, "language_code": language}
+    if username:
+        user["username"] = username
+    fields = {
+        "auth_date": str(int(SystemClock().now().timestamp())),
+        "query_id": f"dev{secrets.token_hex(8)}",
+        "user": json.dumps(user, separators=(",", ":"), ensure_ascii=False),
+    }
+    if start_param:
+        fields["start_param"] = start_param
+    token = TelegramSettings().bot_token.get_secret_value()  # type: ignore[call-arg]  # из .env
+    typer.echo(urlencode(fields | {"hash": sign(fields, token)}))
 
 
 if __name__ == "__main__":

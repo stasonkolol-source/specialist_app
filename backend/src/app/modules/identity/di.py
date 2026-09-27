@@ -17,6 +17,7 @@ from app.modules.identity.application.ports import (
 from app.modules.identity.application.use_cases.authenticate_telegram import AuthenticateTelegram
 from app.modules.identity.application.use_cases.logout import Logout
 from app.modules.identity.application.use_cases.refresh_session import RefreshSession
+from app.modules.identity.application.use_cases.update_profile import UpdateProfile
 from app.modules.identity.infrastructure.queries import SqlIdentityQuery
 from app.modules.identity.infrastructure.repositories import (
     SqlSessionRepository,
@@ -61,3 +62,4 @@ class IdentityProvider(Provider):
     authenticate_telegram = provide(AuthenticateTelegram)
     refresh_session = provide(RefreshSession)
     logout = provide(Logout)
+    update_profile = provide(UpdateProfile)

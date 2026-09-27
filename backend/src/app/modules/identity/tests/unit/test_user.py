@@ -13,8 +13,12 @@ from app.modules.identity.domain.user import (
     clean_display_name,
     locale_from_language,
 )
-from app.modules.identity.errors import AccountDeletedError, UserAlreadyDeletedError
-from app.platform.contracts.events.identity import UserRegistered
+from app.modules.identity.errors import (
+    AccountDeletedError,
+    InvalidDisplayNameError,
+    UserAlreadyDeletedError,
+)
+from app.platform.contracts.events.identity import UserRegistered, UserUpdated
 from app.platform.kernel.errors import ProgrammingError
 from app.platform.kernel.localized import Locale
 
@@ -119,3 +123,23 @@ def test_locale_from_telegram_language(language: str | None, locale: Locale) -> 
 )
 def test_display_name_is_cleaned(parts: tuple[str | None, ...], expected: str) -> None:
     assert clean_display_name(*parts) == expected
+
+
+def test_update_profile_changes_name_and_locale_with_event() -> None:
+    user = register()
+    user.pull_events()
+    user.update_profile(display_name="  Ana   P. ", ui_locale=Locale.SR_CYRL, now=NOW)
+    assert (user.display_name, user.ui_locale) == ("Ana P.", Locale.SR_CYRL)
+    [event] = user.pull_events()
+    assert isinstance(event, UserUpdated)
+    user.update_profile(display_name="Ana P.", ui_locale=None, now=NOW)
+    assert user.pull_events() == []
+
+
+def test_update_profile_rejects_invisible_name_and_deleted_user() -> None:
+    user = register()
+    with pytest.raises(InvalidDisplayNameError):
+        user.update_profile(display_name="\u200b ", ui_locale=None, now=NOW)
+    user.delete(by=None, now=NOW)
+    with pytest.raises(AccountDeletedError):
+        user.update_profile(display_name="Ana", ui_locale=None, now=NOW)

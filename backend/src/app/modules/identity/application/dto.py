@@ -5,6 +5,7 @@ from datetime import datetime
 
 from app.modules.identity.domain.session import SessionId
 from app.platform.kernel.ids import UserId
+from app.platform.kernel.localized import Locale
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -50,3 +51,16 @@ class SessionTokens:
 class AuthResult:
     tokens: SessionTokens
     is_new: bool
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class MeView:
+    """Свой профиль для GET /me; version — ETag для PATCH /me."""
+
+    id: UserId
+    display_name: str
+    ui_locale: Locale
+    trust_level: int
+    phone_verified: bool
+    created_at: datetime
+    version: int
