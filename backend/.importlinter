@@ -1,0 +1,272 @@
+[importlinter]
+root_package = app
+include_external_packages = True
+
+[importlinter:contract:module-layers]
+name = Слои внутри модуля (ADR-0020 §1)
+type = layers
+containers =
+    app.modules.*
+layers =
+    di
+    (http) | (bot) | (admin) | (tasks) | infrastructure
+    application
+    domain | api
+    errors
+ignore_imports =
+    # SQLAdmin, только справочники (ADR-0020 §1)
+    app.modules.*.admin.views -> app.modules.*.infrastructure.models
+unmatched_ignore_imports_alerting = none
+
+[importlinter:contract:pure-core]
+name = domain, application и контракты без фреймворков (ADR-0020 §1)
+type = forbidden
+source_modules =
+    app.modules.*.domain
+    app.modules.*.application
+    app.modules.*.api
+    app.modules.*.errors
+    app.platform.kernel
+    app.platform.contracts
+    app.platform.*.port
+forbidden_modules =
+    sqlalchemy
+    geoalchemy2
+    psycopg
+    fastapi
+    starlette
+    sqladmin
+    aiogram
+    aiohttp
+    procrastinate
+    redis
+    valkey
+    boto3
+    botocore
+    aiobotocore
+    httpx
+    openai
+    anthropic
+    jwt
+    sentry_sdk
+    pydantic
+    pydantic_settings
+    dishka
+
+[importlinter:contract:module-dag]
+name = Граф зависимостей модулей (ARCHITECTURE §5.4, ADR-0002)
+type = layers
+layers =
+    app.entrypoints
+    app.interfaces
+    app.modules.moderation | app.modules.notifications | app.modules.search | app.modules.growth
+    app.modules.messaging | app.modules.reviews
+    app.modules.jobs
+    app.modules.deals | app.modules.pricing
+    app.modules.specialists
+    app.modules.media | app.modules.billing
+    app.modules.identity | app.modules.geo | app.modules.catalog
+    app.platform
+
+[importlinter:contract:interfaces-independent]
+name = Интерфейсы процессов не импортируют друг друга (ADR-0020 §7)
+type = independence
+modules =
+    app.interfaces.http
+    app.interfaces.bot
+    app.interfaces.worker
+
+[importlinter:contract:only-api-identity]
+name = Снаружи модуля identity виден только api (ADR-0002)
+type = protected
+protected_modules =
+    app.modules.identity.domain
+    app.modules.identity.application
+    app.modules.identity.infrastructure
+    app.modules.identity.errors
+    app.modules.identity.di
+allowed_importers =
+    app.modules.identity
+    app.entrypoints
+
+[importlinter:contract:only-api-geo]
+name = Снаружи модуля geo виден только api (ADR-0002)
+type = protected
+protected_modules =
+    app.modules.geo.domain
+    app.modules.geo.application
+    app.modules.geo.infrastructure
+    app.modules.geo.errors
+    app.modules.geo.di
+allowed_importers =
+    app.modules.geo
+    app.entrypoints
+
+[importlinter:contract:only-api-catalog]
+name = Снаружи модуля catalog виден только api (ADR-0002)
+type = protected
+protected_modules =
+    app.modules.catalog.domain
+    app.modules.catalog.application
+    app.modules.catalog.infrastructure
+    app.modules.catalog.errors
+    app.modules.catalog.di
+allowed_importers =
+    app.modules.catalog
+    app.entrypoints
+
+[importlinter:contract:only-api-media]
+name = Снаружи модуля media виден только api (ADR-0002)
+type = protected
+protected_modules =
+    app.modules.media.domain
+    app.modules.media.application
+    app.modules.media.infrastructure
+    app.modules.media.errors
+    app.modules.media.di
+allowed_importers =
+    app.modules.media
+    app.entrypoints
+
+[importlinter:contract:only-api-billing]
+name = Снаружи модуля billing виден только api (ADR-0002)
+type = protected
+protected_modules =
+    app.modules.billing.domain
+    app.modules.billing.application
+    app.modules.billing.infrastructure
+    app.modules.billing.errors
+    app.modules.billing.di
+allowed_importers =
+    app.modules.billing
+    app.entrypoints
+
+[importlinter:contract:only-api-specialists]
+name = Снаружи модуля specialists виден только api (ADR-0002)
+type = protected
+protected_modules =
+    app.modules.specialists.domain
+    app.modules.specialists.application
+    app.modules.specialists.infrastructure
+    app.modules.specialists.errors
+    app.modules.specialists.di
+allowed_importers =
+    app.modules.specialists
+    app.entrypoints
+
+[importlinter:contract:only-api-pricing]
+name = Снаружи модуля pricing виден только api (ADR-0002)
+type = protected
+protected_modules =
+    app.modules.pricing.domain
+    app.modules.pricing.application
+    app.modules.pricing.infrastructure
+    app.modules.pricing.errors
+    app.modules.pricing.di
+allowed_importers =
+    app.modules.pricing
+    app.entrypoints
+
+[importlinter:contract:only-api-deals]
+name = Снаружи модуля deals виден только api (ADR-0002)
+type = protected
+protected_modules =
+    app.modules.deals.domain
+    app.modules.deals.application
+    app.modules.deals.infrastructure
+    app.modules.deals.errors
+    app.modules.deals.di
+allowed_importers =
+    app.modules.deals
+    app.entrypoints
+
+[importlinter:contract:only-api-jobs]
+name = Снаружи модуля jobs виден только api (ADR-0002)
+type = protected
+protected_modules =
+    app.modules.jobs.domain
+    app.modules.jobs.application
+    app.modules.jobs.infrastructure
+    app.modules.jobs.errors
+    app.modules.jobs.di
+allowed_importers =
+    app.modules.jobs
+    app.entrypoints
+
+[importlinter:contract:only-api-messaging]
+name = Снаружи модуля messaging виден только api (ADR-0002)
+type = protected
+protected_modules =
+    app.modules.messaging.domain
+    app.modules.messaging.application
+    app.modules.messaging.infrastructure
+    app.modules.messaging.errors
+    app.modules.messaging.di
+allowed_importers =
+    app.modules.messaging
+    app.entrypoints
+
+[importlinter:contract:only-api-reviews]
+name = Снаружи модуля reviews виден только api (ADR-0002)
+type = protected
+protected_modules =
+    app.modules.reviews.domain
+    app.modules.reviews.application
+    app.modules.reviews.infrastructure
+    app.modules.reviews.errors
+    app.modules.reviews.di
+allowed_importers =
+    app.modules.reviews
+    app.entrypoints
+
+[importlinter:contract:only-api-search]
+name = Снаружи модуля search виден только api (ADR-0002)
+type = protected
+protected_modules =
+    app.modules.search.domain
+    app.modules.search.application
+    app.modules.search.infrastructure
+    app.modules.search.errors
+    app.modules.search.di
+allowed_importers =
+    app.modules.search
+    app.entrypoints
+
+[importlinter:contract:only-api-growth]
+name = Снаружи модуля growth виден только api (ADR-0002)
+type = protected
+protected_modules =
+    app.modules.growth.domain
+    app.modules.growth.application
+    app.modules.growth.infrastructure
+    app.modules.growth.errors
+    app.modules.growth.di
+allowed_importers =
+    app.modules.growth
+    app.entrypoints
+
+[importlinter:contract:only-api-notifications]
+name = Снаружи модуля notifications виден только api (ADR-0002)
+type = protected
+protected_modules =
+    app.modules.notifications.domain
+    app.modules.notifications.application
+    app.modules.notifications.infrastructure
+    app.modules.notifications.errors
+    app.modules.notifications.di
+allowed_importers =
+    app.modules.notifications
+    app.entrypoints
+
+[importlinter:contract:only-api-moderation]
+name = Снаружи модуля moderation виден только api (ADR-0002)
+type = protected
+protected_modules =
+    app.modules.moderation.domain
+    app.modules.moderation.application
+    app.modules.moderation.infrastructure
+    app.modules.moderation.errors
+    app.modules.moderation.di
+allowed_importers =
+    app.modules.moderation
+    app.entrypoints
