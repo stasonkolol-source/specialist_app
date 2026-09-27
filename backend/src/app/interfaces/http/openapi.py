@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, ConfigDict
 
-API_TITLE = "Сосед API"
+API_TITLE = "Соседи API"
 API_VERSION = "1.0.0"
 PROBLEM = "ProblemOut"
 

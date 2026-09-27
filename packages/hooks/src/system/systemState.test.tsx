@@ -105,18 +105,21 @@ describe('startupState', () => {
 const TERMS: LegalDocumentOut = {
   version: 'draft-1',
   published_on: '2026-09-27',
-  texts: { ru: { title: 'Правила площадки Сосед', body: 'Текст.\n' } },
+  texts: { ru: { title: 'Правила площадки «Соседи»', body: 'Текст.\n' } },
 };
 
 describe('legalText', () => {
   it('takes the interface language and falls back to the Russian source', () => {
     const translated: LegalDocumentOut = {
       ...TERMS,
-      texts: { ...TERMS.texts, 'sr-Latn': { title: 'Pravila platforme Sosed', body: 'Tekst.\n' } },
+      texts: {
+        ...TERMS.texts,
+        'sr-Latn': { title: 'Pravila platforme „Sosedi“', body: 'Tekst.\n' },
+      },
     };
     expect(legalText(translated, 'sr-Latn')).toEqual({
       locale: 'sr-Latn',
-      title: 'Pravila platforme Sosed',
+      title: 'Pravila platforme „Sosedi“',
       body: 'Tekst.\n',
     });
     expect(legalText(translated, 'sr-Cyrl')?.locale).toBe('ru');
@@ -153,7 +156,7 @@ describe('useLegalDocument', () => {
     });
 
     await waitFor(() => expect(result.current.document).toEqual(TERMS));
-    expect(result.current.text).toMatchObject({ locale: 'ru', title: 'Правила площадки Сосед' });
+    expect(result.current.text).toMatchObject({ locale: 'ru', title: 'Правила площадки «Соседи»' });
     expect(result.current.translated).toBe(false);
     // тексты — в том же client-config: отдельного запроса нет
     expect(fetch).toHaveBeenCalledOnce();

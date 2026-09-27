@@ -1,5 +1,5 @@
 # СГЕНЕРИРОВАН из sr_Cyrl командой `cli i18n generate` — не править вручную.
-# Каталог backend «Сосед»: српски, ћирилица — исходник сербского.
+# Каталог backend «Соседей»: српски, ћирилица — исходник сербского.
 # Ключи — стабильные msgid (ADR-0013), параметры — {name}. Каталоги ru и sr_Cyrl
 # полные (архитектурный тест), sr_Latn генерирует `cli i18n generate`.
 msgid ""
@@ -10,13 +10,13 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 msgid "bot.start.welcome"
-msgstr "Zdravo, {name}! Ovo je „Sosed“ — ovde se nalaze majstori i pomoć u blizini: popravke, lepota, čišćenje, selidbe, časovi. Pritisni „Otvori“ da počneš."
+msgstr "Zdravo, {name}! Ovo su „Sosedi“ — ovde se nalaze majstori i pomoć u blizini: popravke, lepota, čišćenje, selidbe, časovi. Pritisni „Otvori“ da počneš."
 
 msgid "bot.start.welcome_back"
-msgstr "Dobro došao ponovo, {name}! Otvori „Sosed“ dugmetom ispod."
+msgstr "Dobro došao ponovo, {name}! Otvori aplikaciju „Sosedi“ dugmetom ispod."
 
 msgid "bot.start.open"
-msgstr "Otvori „Sosed“"
+msgstr "Otvori aplikaciju „Sosedi“"
 
 msgid "bot.menu.open"
 msgstr "Otvori"

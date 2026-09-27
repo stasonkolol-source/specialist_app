@@ -1,4 +1,4 @@
-# Сосед Mini App — спецификация отрисовки экранов (для всех артбордов)
+# Соседи Mini App — спецификация отрисовки экранов (для всех артбордов)
 
 Холст: https://claude.ai/artifact/AWVeVGWKQZQ8cAAyCjgnEH (тип Design).
 
@@ -55,7 +55,7 @@ class Component extends DCLogic {
 <header class="tgh">
   <button class="tgh-btn" type="button">Закрыть</button>          <!-- корневые экраны вкладок -->
   <!-- или BackButton: <a class="tgh-btn" href="S13-feed.dc.html"><svg class="ic i24" …chev-left…/>Назад</a> -->
-  <div class="tgh-t"><b>Сосед</b><span>мини-приложение</span></div>
+  <div class="tgh-t"><b>Соседи</b><span>мини-приложение</span></div>
   <button class="tgh-btn r" type="button" aria-label="Меню"><svg class="ic fill i24" …more…/></button>
 </header>
 ```
@@ -271,7 +271,7 @@ class Component extends DCLogic {
 Высота 844, если не указано иное; ширина всегда 390.
 
 **Вход**
-- `S01-launch` — загрузка и авторизация по initData: логотип-вордмарк «Сосед» (Unbounded), подпись «Мастера рядом, на вашем языке», скелетон.
+- `S01-launch` — загрузка и авторизация по initData: логотип-вордмарк «Соседи» (Unbounded), подпись «Мастера рядом, на вашем языке», скелетон.
 - `S02a-language` — шаг 1/3: язык (4 варианта `opt`, English «скоро») и город (Нови-Сад выбран, Белград «скоро»).
 - `S02b-intent` — шаг 2/3: «Что вы хотите?» — «Найти мастера», «Я специалист», «Ищу подработку — задачи рядом».
 - `S02c-rules` — шаг 3/3: «Правила площадки» (кратко 4 пункта + ссылка), чекбокс «Мне есть 18 лет, я принимаю правила», «Разрешить уведомления от бота» (объяснение, что это requestWriteAccess), MainButton «Начать».

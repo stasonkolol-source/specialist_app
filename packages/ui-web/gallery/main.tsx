@@ -14,7 +14,7 @@ const locale = isLocale(lang) ? lang : 'ru';
 document.documentElement.dataset.theme = theme;
 document.documentElement.lang = locale;
 
-const i18n = createI18n({ locale, appName: 'Сосед' });
+const i18n = createI18n({ locale, appName: 'Соседи' });
 const root = document.getElementById('root');
 if (root) {
   createRoot(root).render(

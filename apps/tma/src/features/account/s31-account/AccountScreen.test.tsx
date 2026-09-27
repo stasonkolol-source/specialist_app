@@ -61,7 +61,7 @@ async function renderScreen(options: RenderOptions = {}) {
     onReauth = async () => false,
     locale = 'ru',
   } = options;
-  const i18n = createI18n({ locale, appName: 'Сосед' });
+  const i18n = createI18n({ locale, appName: 'Соседи' });
   configureApiClient({ baseUrl: API_ORIGIN, locale: () => currentLocale(i18n), onReauth });
   setSession(
     signedIn ? { accessToken: TOKENS.access_token, refreshToken: TOKENS.refresh_token } : null,

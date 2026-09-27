@@ -52,8 +52,8 @@ async def test_client_config_carries_texts_of_current_versions(settings: Setting
             # перевода ещё нет (K41): язык запроса ответ не меняет, ru — всегда
             assert set(document["texts"]) == {"ru"}
         terms = documents["terms"]["texts"]["ru"]
-        assert terms["title"] == "Правила площадки Сосед"
-        assert terms["body"].startswith("Сосед помогает")
+        assert terms["title"] == "Правила площадки «Соседи»"
+        assert terms["body"].startswith("Площадка «Соседи» помогает")
         assert "## 1. Кто может пользоваться" in terms["body"]
         # одинаковый для всех ответ: без Vary, тот же ETag для другого языка
         assert "vary" not in response.headers

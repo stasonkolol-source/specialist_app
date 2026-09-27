@@ -17,7 +17,7 @@ TERMS = LegalEdition(
     document=LegalDocument.TERMS,
     version="draft-1",
     published_on=date(2026, 9, 27),
-    texts={Locale.RU: LegalText(title="Правила площадки Сосед", body="Текст.\n")},
+    texts={Locale.RU: LegalText(title="Правила площадки «Соседи»", body="Текст.\n")},
 )
 
 
@@ -35,7 +35,7 @@ def test_documents_carry_texts_of_current_versions() -> None:
         "terms": {
             "version": "draft-1",
             "published_on": "2026-09-27",
-            "texts": {"ru": {"title": "Правила площадки Сосед", "body": "Текст.\n"}},
+            "texts": {"ru": {"title": "Правила площадки «Соседи»", "body": "Текст.\n"}},
         }
     }
 

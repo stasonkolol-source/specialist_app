@@ -18,7 +18,7 @@ import { LegalView } from './LegalView.tsx';
 import { outline } from './sections.ts';
 
 function renderView(document: LegalDocumentKey = 'terms', locale: Locale = 'ru') {
-  const i18n = createI18n({ locale, appName: 'Сосед' });
+  const i18n = createI18n({ locale, appName: 'Соседи' });
   configureApiClient({ baseUrl: API_ORIGIN, locale: () => currentLocale(i18n) });
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const onDocumentChange = vi.fn();
@@ -65,7 +65,7 @@ describe('S48 legal documents', () => {
     // заметки владельца и подстановки до пользователя не доходят
     expect(container.textContent).not.toContain('Решение владельца');
     expect(container.textContent).not.toContain('{{');
-    expect(container.textContent).toContain('Сосед помогает');
+    expect(container.textContent).toContain('Площадка «Соседи» помогает');
     expect(screen.queryByRole('status')).toBeNull();
   });
 
@@ -112,7 +112,7 @@ describe('S48 legal documents', () => {
     ).toBeTruthy();
     const russian = container.querySelectorAll('[lang="ru"]');
     expect(russian.length).toBeGreaterThan(0);
-    expect(russian[0]?.textContent).toContain('Сосед помогает');
+    expect(russian[0]?.textContent).toContain('Площадка «Соседи» помогает');
   });
 
   it('shows the translation when it exists', async () => {
