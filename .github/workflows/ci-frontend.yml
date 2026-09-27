@@ -1,0 +1,81 @@
+# CI frontend (DEVELOPMENT_PLAN 0.16b): те же проверки, что make check-frontend локально.
+# Дальше сюда добавляются: diff api-client (0.20), Playwright (0.19a, 0.21b), бюджет бандла (0.21b), pnpm audit (0.23).
+name: ci-frontend
+
+on:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'design/ui.css'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'turbo.json'
+      - '.prettierignore'
+      - 'make/frontend.mk'
+      - '.github/workflows/ci-frontend.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'design/ui.css'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'turbo.json'
+      - '.prettierignore'
+      - 'make/frontend.mk'
+      - '.github/workflows/ci-frontend.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: frontend checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+
+      # pnpm той же версии, что локально: packageManager в package.json через corepack
+      - name: pnpm (corepack)
+        run: |
+          corepack enable
+          pnpm --version
+          echo "PNPM_STORE=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@v6.1.0
+        with:
+          path: ${{ env.PNPM_STORE }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - uses: actions/cache@v6.1.0
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
+
+      - name: install
+        run: pnpm install --frozen-lockfile
+
+      - name: prettier
+        run: pnpm format:check
+
+      - name: typecheck, lint, test
+        run: pnpm turbo run typecheck lint test
+
+      - name: token contrast
+        run: pnpm -F design-tokens check:contrast
