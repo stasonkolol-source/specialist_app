@@ -4,6 +4,7 @@ Bot API подменён сессией, которая записывает в�
 (testcontainers): /start создаёт пользователя тем же кодом, что и вход Mini App.
 """
 
+import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -79,7 +80,27 @@ class BotHarness:
         self, telegram_id: int, text_value: str, *, language: str = "ru", name: str = "Ana"
     ) -> SendMessage:
         before = len(self.session.calls)
-        update = Update(
+        await self.dispatcher.feed_update(
+            self.bot, self.update(telegram_id, text_value, language=language, name=name)
+        )
+        replies = [c for c in self.session.calls[before:] if isinstance(c, SendMessage)]
+        assert len(replies) == 1, replies
+        return replies[0]
+
+    async def send_parallel(self, telegram_id: int, text_value: str, times: int) -> list[str]:
+        """`times` одинаковых апдейтов разом, как polling отдаёт накопившиеся; тексты ответов."""
+        before = len(self.session.calls)
+        updates = [self.update(telegram_id, text_value) for _ in range(times)]
+        await asyncio.gather(*(self.dispatcher.feed_update(self.bot, u) for u in updates))
+        replies = [c.text for c in self.session.calls[before:] if isinstance(c, SendMessage)]
+        assert len(replies) == times, replies
+        return replies
+
+    @staticmethod
+    def update(
+        telegram_id: int, text_value: str, *, language: str = "ru", name: str = "Ana"
+    ) -> Update:
+        return Update(
             update_id=new_id().int % 2**31,
             message=Message(
                 message_id=1,
@@ -91,10 +112,6 @@ class BotHarness:
                 text=text_value,
             ),
         )
-        await self.dispatcher.feed_update(self.bot, update)
-        replies = [c for c in self.session.calls[before:] if isinstance(c, SendMessage)]
-        assert len(replies) == 1, replies
-        return replies[0]
 
 
 @pytest.fixture
@@ -133,6 +150,21 @@ async def test_start_registers_user_and_offers_mini_app(harness: BotHarness) -> 
     again = await harness.send(telegram_id, "/start", language="sr")
     assert again.text.startswith("Dobro došao ponovo, Ana!")
     assert str(telegram_id) not in repr(logs)  # в логах только внутренний user_id
+
+
+async def test_parallel_starts_of_one_user_all_get_welcome(harness: BotHarness) -> None:
+    """Апдейты, накопившиеся, пока бот лежал, polling отдаёт разом, и aiogram обрабатывает их
+    параллельно; двойное нажатие /start — тоже. Конфликт записи пользователя не должен
+    доходить до человека сообщением об ошибке."""
+    telegram_id = 700_000_000 + new_id().int % 10_000_000
+
+    first = await harness.send_parallel(telegram_id, "/start", 5)  # новый пользователь
+    again = await harness.send_parallel(telegram_id, "/start", 5)  # уже есть: запись входа
+
+    texts = [*first, *again]
+    assert all(text.startswith(("Привет, Ana!", "С возвращением, Ana!")) for text in texts), texts
+    async with harness.container() as request:
+        assert await (await request.get(IdentityApi)).by_telegram(telegram_id) is not None
 
 
 async def test_start_in_russian_by_default(harness: BotHarness) -> None:
