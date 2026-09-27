@@ -2,12 +2,14 @@
 // ссылка на полный текст S48. Одна галочка «18+ и правила» — POST /me/consents с версиями из
 // client-config: без неё «Начать» не пускает. «Уведомления от бота» — requestWriteAccess клиента
 // Telegram и, если разрешили, POST /me/telegram/write-access; отказ онбординг не останавливает.
-// Тот же экран показывается вернувшемуся пользователю после новой редакции правил и перед
-// создающим действием без согласия — тогда «Назад» ведёт туда, откуда пришли, или его нет.
+// «Назад» — туда, откуда пришли; открыли шаг сразу при запуске — новому пользователю на S02b
+// (недоделанный онбординг), вернувшемуся после новой редакции правил «Назад» не нужен. Тот же экран
+// показывается перед создающим действием без согласия.
 import {
   ApiError,
   notificationsGrantTelegramWriteAccess,
   useIdentityAcceptConsents,
+  useIdentityGetMe,
 } from '@sosed/api-client';
 import { useClientConfig } from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
@@ -34,6 +36,7 @@ export function RulesScreen() {
   const router = useRouter();
   const flow = useOnboardingFlow();
   const config = useClientConfig();
+  const me = useIdentityGetMe();
   const { accepted, notify, acceptMissing, set } = useOnboardingStore();
   const checkbox = useRef<HTMLButtonElement>(null);
   const [problem, setProblem] = useState<'outdated' | 'unavailable' | null>(null);
@@ -83,8 +86,10 @@ export function RulesScreen() {
     });
   };
   useStepButton({ text: t('rules.start'), onClick: start, loading: consents.isPending });
-  // первым шагом (новая редакция правил при запуске) «Назад» не нужен: в шапке — «Закрыть»
-  useBackButton(router.history.canGoBack() ? () => flow.back(null) : null);
+  // Открыли шаг сразу при запуске: новому пользователю (согласий ещё не было) «Назад» — на S02b,
+  // как S02b ведёт на S02a; после новой редакции правил «Назад» не нужен — в шапке «Закрыть»
+  const firstTime = me.data !== undefined && Object.keys(me.data.consents).length === 0;
+  useBackButton(router.history.canGoBack() || firstTime ? () => flow.back('intent') : null);
 
   const openRules = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();

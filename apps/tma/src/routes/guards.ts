@@ -1,6 +1,7 @@
 // Охрана маршрутов (DEVELOPMENT_PLAN 1.5b). Решение — packages/hooks (одно для Mini App и
 // мобильного приложения), здесь — только переход. /me берётся из кэша: его кладёт вход при запуске
-// (S01), а шаги онбординга и S02c обновляют ответом сервера.
+// (S01), а шаги онбординга и S02c обновляют ответом сервера. Сборка мусора его не трогает
+// (app/bootstrap.ts): без подписчиков запись живёт всю сессию.
 import type { MeOut } from '@sosed/api-client';
 import { getIdentityGetMeQueryKey } from '@sosed/api-client';
 import { consentGate } from '@sosed/hooks';

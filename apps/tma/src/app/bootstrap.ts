@@ -76,6 +76,11 @@ export function assemble(platform: Platform, options: AssembleOptions): Assemble
     if (reportSystemError(error)) void router.navigate({ to: RESTRICTED_PATH });
   };
   const queryClient = createQueryClient(onSystemError);
+  // /me живёт всю сессию: по нему охрана маршрутов (routes/guards.ts) решает онбординг и согласие,
+  // а экраны, которые на него подписаны, открыты не всегда. Со сборкой мусора по умолчанию
+  // (5 минут без подписчиков) S02c после долгого чтения S48 уводил бы на главную, а «+» пускал
+  // без согласия
+  queryClient.setQueryDefaults(getIdentityGetMeQueryKey(), { gcTime: Infinity });
   const router = createAppRouter(options.history ?? historyFor(platform.kind), queryClient);
   // ui_locale — выбор пользователя, на нём же пишет бот: важнее language_code Telegram.
   // en в MVP не выбирается — тогда остаётся язык из launch params

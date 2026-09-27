@@ -3,7 +3,10 @@
 // чанк загружается заранее, чтобы после S01 не мелькал пустой экран. Ответ входа — тот же MeOut,
 // что GET /me: он ложится в кэш /me. Нет сети или сбой сервера — S49 с «Повторить». Санкцию на
 // аккаунт, техработы и 426 показывает StartupGate (стор S49); после его «Повторить» этот экран
-// монтируется заново и входит ещё раз (неудачный вход не запоминается).
+// монтируется заново и входит ещё раз (неудачный вход не запоминается). Удачный вход разводит по
+// экранам один раз за сессию: S49 посреди работы (техработы, ошибка рендера) тоже монтирует этот
+// экран заново, но итог входа при запуске к тому времени устарел — пользователь уже прошёл
+// онбординг или ушёл с экрана deep link.
 import { getIdentityGetMeQueryKey } from '@sosed/api-client';
 import type { SystemState } from '@sosed/hooks';
 import { systemStateOf } from '@sosed/hooks';
@@ -21,6 +24,8 @@ import type { Auth } from './session.ts';
 export const SIGN_IN_PROGRESS = 0.8;
 /** Дольше не ждём чанк первого экрана: без него роутер покажет экран, когда тот догрузится. */
 const PRELOAD_TIMEOUT_MS = 3000;
+/** Роутеры, которые вход при запуске уже развёл по экранам: повторный монтаж их не трогает. */
+const routed = new WeakSet<AnyRouter>();
 
 interface Outcome {
   attempt: number;
@@ -39,9 +44,12 @@ export interface LaunchGateProps {
 export function LaunchGate({ launch, deepLink, router, children }: LaunchGateProps) {
   const queryClient = useQueryClient();
   const [attempt, setAttempt] = useState(0);
-  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [outcome, setOutcome] = useState<Outcome | null>(() =>
+    routed.has(router) ? { attempt: 0, result: 'ready' } : null,
+  );
 
   useEffect(() => {
+    if (routed.has(router)) return;
     let active = true;
     void (async () => {
       const result = await launch();
@@ -64,6 +72,7 @@ export function LaunchGate({ launch, deepLink, router, children }: LaunchGatePro
         if (!active) return;
         router.history.replace(href);
       }
+      routed.add(router);
       setOutcome({ attempt, result: 'ready' });
     })();
     return () => {

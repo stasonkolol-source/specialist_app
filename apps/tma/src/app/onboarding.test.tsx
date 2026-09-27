@@ -1,12 +1,14 @@
 // Запуск и онбординг (DEVELOPMENT_PLAN 1.5b): S01 → S02a → S02b → S02c → главная для нового
 // пользователя, сразу главная для вернувшегося, только S02c после новой редакции правил, deep link,
 // охрана создающих действий, загрузка, ошибки и офлайн.
-import { getIdentityGetMeQueryKey, setSession } from '@sosed/api-client';
+import type { MeOut, MeUpdateIn } from '@sosed/api-client';
+import { getIdentityGetMeQueryKey, identityUpdateMe, setSession } from '@sosed/api-client';
 import { getIdentityAuthenticateTelegramMockHandler } from '@sosed/api-client/mocks';
 import { tokens } from '@sosed/design-tokens';
+import { MutationObserver } from '@tanstack/react-query';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, delay, http } from 'msw';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useOnboardingStore } from '../features/onboarding/shared/store.ts';
 import { useSystemStore } from '../features/service/s49-system/index.ts';
@@ -37,7 +39,20 @@ beforeEach(() => {
   useSystemStore.setState({ appWide: null, restriction: null });
   useOnboardingStore.getState().reset();
 });
-afterEach(() => setSession(null));
+afterEach(() => {
+  setSession(null);
+  vi.useRealTimers();
+});
+
+/** Дольше gcTime React Query по умолчанию: запись кэша без подписчиков уже была бы удалена. */
+const PAST_DEFAULT_GC_MS = 5 * 60_000 + 1;
+
+/** Таймеры React Query (сборка мусора) — поддельные; остальное время идёт как обычно. */
+const fakeGcTimers = () =>
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true });
+
+const meInCache = (app: ReturnType<typeof startApp>['app']) =>
+  app.queryClient.getQueryData<MeOut>(getIdentityGetMeQueryKey());
 
 describe('S01 launch', () => {
   it('shows the wordmark, skeleton and «Входим через Telegram…» until signed in', async () => {
@@ -292,6 +307,64 @@ describe('new user: S02a → S02b → S02c → home', () => {
     await pressBackButton(telegram);
     expect(await screen.findByRole('heading', { name: 'Язык и город' })).toBeTruthy();
   });
+
+  it('resumes at S02c with «Back» to S02b to change the intent', async () => {
+    userBackend({ ...NEW_USER, home_city_id: 1, intent: 'pro' });
+    const { app, telegram } = startApp('/');
+
+    expect(await screen.findByRole('heading', { name: 'Правила площадки' })).toBeTruthy();
+    // открыли сразу S02c: истории нет, но это онбординг, а не новая редакция правил
+    await waitFor(() => expect(backButtonVisible(telegram)).toBe(true));
+    await pressBackButton(telegram);
+
+    expect(await screen.findByRole('heading', { name: 'Что вы хотите?' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Я специалист' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
+    expect(app.router.state.location.pathname).toBe('/onboarding/intent');
+  });
+
+  it('keeps an onboarded user home after S49 «Повторить» mid-session', async () => {
+    const backend = userBackend(NEW_USER);
+    const { app, telegram } = startApp('/');
+    await screen.findByRole('radio', { name: 'Нови-Сад' });
+    await pressMainButton(telegram);
+    await screen.findByRole('heading', { name: 'Что вы хотите?' });
+    await pressMainButton(telegram);
+    const checkbox = await screen.findByRole('checkbox');
+    await act(async () => {
+      fireEvent.click(checkbox);
+    });
+    await pressMainButton(telegram);
+    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+
+    // техработы посреди сессии: S49 закрывает приложение вместе с экраном запуска
+    let maintenance = true;
+    server.use(
+      http.get('*/api/v1/me', () =>
+        maintenance ? problem(503, 'maintenance') : HttpResponse.json(backend.user),
+      ),
+    );
+    await act(async () => {
+      await app.queryClient.refetchQueries({ queryKey: getIdentityGetMeQueryKey() });
+    });
+    expect(await screen.findByRole('heading', { name: 'Технические работы' })).toBeTruthy();
+
+    maintenance = false;
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    });
+
+    // итог входа при запуске (новый пользователь) не применяется второй раз
+    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(app.router.state.location.pathname).toBe('/');
+    expect(meInCache(app)).toMatchObject({
+      home_city_id: 1,
+      intent: 'client',
+      consent_required: false,
+    });
+    expect(backend.requests.consents).toHaveLength(1);
+  });
 });
 
 describe('returning users', () => {
@@ -425,6 +498,82 @@ describe('creating actions require S02c', () => {
 
     expect(await screen.findByRole('heading', { name: 'Правила площадки' })).toBeTruthy();
     expect(app.router.state.location.search).toEqual({ next: '/profile' });
+  });
+});
+
+describe('/me stays cached for the whole session', () => {
+  it('returns to S02c after the full rules were read for more than 5 minutes', async () => {
+    fakeGcTimers();
+    userBackend({ ...NEW_USER, home_city_id: 1, intent: 'client' });
+    const { app, telegram } = startApp('/');
+    await screen.findByRole('checkbox');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('link', { name: 'Читать правила полностью' }));
+    });
+    expect(
+      await screen.findByText('Редакция draft-1 от 27 сентября 2026', {}, { timeout: 3000 }),
+    ).toBeTruthy();
+
+    act(() => {
+      vi.advanceTimersByTime(PAST_DEFAULT_GC_MS);
+    });
+    await pressBackButton(telegram);
+
+    expect(await screen.findByRole('checkbox', { name: /Мне есть 18 лет/ })).toBeTruthy();
+    expect(app.router.state.location.pathname).toBe('/onboarding/rules');
+    expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
+  });
+
+  it('still sends «+» to S02c after more than 5 minutes on home', async () => {
+    fakeGcTimers();
+    const backend = userBackend(ME);
+    const { app } = startApp('/');
+    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    backend.user = OUTDATED_CONSENTS_USER;
+    act(() => {
+      app.queryClient.setQueryData(getIdentityGetMeQueryKey(), OUTDATED_CONSENTS_USER);
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(PAST_DEFAULT_GC_MS);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('link', { name: 'Создать заявку' }));
+    });
+
+    expect(await screen.findByRole('checkbox', { name: /Мне есть 18 лет/ })).toBeTruthy();
+    expect(app.router.state.location.search).toEqual({ next: '/jobs/new' });
+  });
+
+  it('still opens S02c on 403 consent_required after more than 5 minutes on home', async () => {
+    fakeGcTimers();
+    const backend = userBackend(ME);
+    server.use(
+      http.patch('*/api/v1/me', () =>
+        problem(403, 'consent_required', { documents: ['terms', 'privacy', 'age_18'] }),
+      ),
+    );
+    const { app, telegram } = startApp('/');
+    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+
+    act(() => {
+      vi.advanceTimersByTime(PAST_DEFAULT_GC_MS);
+    });
+    // пока приложение открыто, вышла новая редакция правил: создающий запрос сервер отклоняет
+    backend.user = OUTDATED_CONSENTS_USER;
+    await act(async () => {
+      const action = new MutationObserver<MeOut, Error, MeUpdateIn>(app.queryClient, {
+        mutationFn: (data) => identityUpdateMe(data),
+      });
+      await action.mutate({ intent: 'pro' }).catch(() => undefined);
+    });
+
+    expect(await screen.findByRole('checkbox', { name: /Мне есть 18 лет/ })).toBeTruthy();
+    expect(app.router.state.location.pathname).toBe('/onboarding/rules');
+    expect(app.router.state.location.search).toEqual({ next: '/' });
+    // /me перечитан на S02c: «Назад» — туда, откуда пришли
+    await waitFor(() => expect(meInCache(app)?.consent_required).toBe(true));
+    expect(backButtonVisible(telegram)).toBe(true);
   });
 });
 
