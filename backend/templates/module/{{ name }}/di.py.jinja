@@ -1,0 +1,9 @@
+"""Сборка модуля {{ name }} для dishka (ADR-0020 §7)."""
+
+from dishka import Provider, Scope
+
+
+class {{ class_prefix }}Provider(Provider):
+    """Провайдер модуля {{ name }}: связывает порты с реализациями."""
+
+    scope = Scope.REQUEST

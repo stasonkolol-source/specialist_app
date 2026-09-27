@@ -1,0 +1,22 @@
+"""{{ class_name }}: что делает use case (одна строка)."""
+
+from dataclasses import dataclass
+
+from app.platform.db.port import UnitOfWork
+from app.platform.kernel.clock import Clock
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class {{ class_name }}Command:
+    """Поля команды: кто действует и над чем (UserId, id агрегата, expected_version)."""
+
+
+class {{ class_name }}:
+    def __init__(self, uow: UnitOfWork, clock: Clock) -> None:
+        self._uow, self._clock = uow, clock
+
+    async def __call__(self, cmd: {{ class_name }}Command) -> None:
+        # Внешнее чтение — до транзакции; внешняя запись — задачей через JobQueue.
+        async with self._uow:
+            # загрузить агрегат репозиторием, вызвать метод domain, save
+            raise NotImplementedError(f"{type(self).__name__}({cmd})")

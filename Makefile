@@ -11,7 +11,7 @@ EXTRA_CHECKS :=
 
 COMPOSE := docker compose -p specialist-dev -f infra/compose/docker-compose.dev.yml --env-file infra/compose/.env
 
-.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker \
+.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker new-module new-use-case \
 	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check test-int migrate migrate-roundtrip pg-bootstrap
 
 help: ## Show available targets
@@ -102,6 +102,14 @@ migrate: ## alembic upgrade head на dev-БД (роль migrator)
 
 migrate-roundtrip: pg-image ## Раунд-трип миграций в testcontainers: upgrade → downgrade base → upgrade → check → heads
 	@cd $(BACKEND) && $(UV) run pytest -m integration -q -k "roundtrip"
+
+new-module: ## Новый модуль по шаблону copier: make new-module NAME=<имя>
+	@test -n "$(NAME)" || (echo "usage: make new-module NAME=<имя>"; exit 2)
+	@cd $(BACKEND) && $(UV) run python ../scripts/new_module.py module "$(NAME)"
+
+new-use-case: ## Новый use case: make new-use-case MODULE=<модуль> NAME=<глагол_объект>
+	@test -n "$(MODULE)" && test -n "$(NAME)" || (echo "usage: make new-use-case MODULE=… NAME=…"; exit 2)
+	@cd $(BACKEND) && $(UV) run python ../scripts/new_module.py use-case "$(MODULE)" "$(NAME)"
 
 dev-web: ## API на 127.0.0.1:8000 с автоперезагрузкой (/up, /api/v1/docs)
 	@cd $(BACKEND) && $(UV) run uvicorn app.entrypoints.web:create --factory --reload \

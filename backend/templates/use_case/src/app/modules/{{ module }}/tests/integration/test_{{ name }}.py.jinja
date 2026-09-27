@@ -1,0 +1,20 @@
+"""{{ class_name }} на PostgreSQL в откатываемой транзакции (ADR-0020 §11)."""
+
+import procrastinate
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.modules.{{ module }}.application.use_cases.{{ name }} import (
+    {{ class_name }},
+    {{ class_name }}Command,
+)
+from app.platform.testing.clock import FakeClock
+from tests.plugins.database import make_uow
+
+pytestmark = pytest.mark.integration
+
+
+@pytest.mark.xfail(raises=NotImplementedError, strict=True, reason="шаблон: опишите сценарий")
+async def test_{{ name }}(db_session: AsyncSession, procrastinate_app: procrastinate.App) -> None:
+    use_case = {{ class_name }}(make_uow(db_session, procrastinate_app), FakeClock())
+    await use_case({{ class_name }}Command())
