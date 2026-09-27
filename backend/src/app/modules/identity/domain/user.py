@@ -14,8 +14,12 @@ from enum import StrEnum
 from typing import Final
 from uuid import UUID
 
-from app.modules.identity.errors import AccountDeletedError, UserAlreadyDeletedError
-from app.platform.contracts.events.identity import UserRegistered
+from app.modules.identity.errors import (
+    AccountDeletedError,
+    InvalidDisplayNameError,
+    UserAlreadyDeletedError,
+)
+from app.platform.contracts.events.identity import UserRegistered, UserUpdated
 from app.platform.kernel.aggregate import StatusChange, VersionedAggregate
 from app.platform.kernel.errors import ConflictError, ProgrammingError
 from app.platform.kernel.ids import UserId, new_id
@@ -67,12 +71,16 @@ def locale_from_language(language_code: str | None) -> Locale:
     return _LOCALE_BY_LANGUAGE.get(language_code.lower().split("-")[0], Locale.RU)
 
 
-def clean_display_name(*parts: str | None) -> str:
+def normalize_display_name(*parts: str | None) -> str:
     """Имя для показа: без управляющих символов и bidi-override, пробелы схлопнуты."""
     raw = " ".join(part for part in parts if part)
     text = _CONTROL.sub("", unicodedata.normalize("NFC", raw))
-    text = " ".join(text.split())[:MAX_DISPLAY_NAME].strip()
-    return text or FALLBACK_DISPLAY_NAME
+    return " ".join(text.split())[:MAX_DISPLAY_NAME].strip()
+
+
+def clean_display_name(*parts: str | None) -> str:
+    """Имя из профиля провайдера; пустое заменяется нейтральным «Сосед»."""
+    return normalize_display_name(*parts) or FALLBACK_DISPLAY_NAME
 
 
 @dataclass(kw_only=True)
@@ -147,6 +155,24 @@ class User(VersionedAggregate):
         identity.profile = dict(profile)
         identity.last_login_at = now
         self.last_seen_at = now
+
+    def update_profile(
+        self, *, display_name: str | None, ui_locale: Locale | None, now: datetime
+    ) -> None:
+        """Имя и язык интерфейса; None — поле не меняется."""
+        self.ensure_active()
+        changed = False
+        if display_name is not None:
+            name = normalize_display_name(display_name)
+            if not name:
+                raise InvalidDisplayNameError(field="display_name")
+            changed |= name != self.display_name
+            self.display_name = name
+        if ui_locale is not None:
+            changed |= ui_locale is not self.ui_locale
+            self.ui_locale = ui_locale
+        if changed:
+            self._record(UserUpdated(user_id=self.id, occurred_at=now))
 
     def identity(self, provider: AuthProvider, subject: str) -> AuthIdentity:
         for identity in self.identities:

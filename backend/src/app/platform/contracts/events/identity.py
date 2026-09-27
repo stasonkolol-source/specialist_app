@@ -13,3 +13,11 @@ class UserRegistered(DomainEvent):
     event_type = "identity.UserRegistered"
     user_id: UserId
     provider: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class UserUpdated(DomainEvent):
+    """Изменились публичные данные пользователя (имя, язык): проекции обновляют копии."""
+
+    event_type = "identity.UserUpdated"
+    user_id: UserId

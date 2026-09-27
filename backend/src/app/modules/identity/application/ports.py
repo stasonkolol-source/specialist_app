@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Protocol
 
 from app.modules.identity.api import UserSummary
+from app.modules.identity.application.dto import MeView
 from app.modules.identity.domain.restriction import Restriction
 from app.modules.identity.domain.session import Session, SessionId
 from app.modules.identity.domain.user import AuthProvider, User
@@ -33,6 +34,10 @@ class SessionRepository(Protocol):
 
 class IdentityQuery(Protocol):
     async def user_summary(self, user_id: UserId) -> UserSummary | None: ...
+
+    async def me(self, user_id: UserId) -> MeView | None:
+        """Свой профиль; удалённого пользователя нет."""
+        ...
 
     async def roles(self, user_id: UserId) -> frozenset[Role]: ...
 

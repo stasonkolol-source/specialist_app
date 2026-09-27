@@ -3,6 +3,7 @@
 from app.platform.kernel.errors import (
     ConcurrentModificationError,
     ConflictError,
+    DomainValidationError,
     ForbiddenError,
     NotFoundError,
 )
@@ -30,3 +31,9 @@ class ConcurrentLoginError(ConcurrentModificationError):
     """Два первых входа одного Telegram-аккаунта одновременно: второй повторяет запрос."""
 
     code = "concurrent_login"
+
+
+class InvalidDisplayNameError(DomainValidationError):
+    """Имя пустое после очистки от пробелов и невидимых символов."""
+
+    code = "invalid_display_name"
