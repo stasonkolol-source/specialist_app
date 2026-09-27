@@ -910,14 +910,17 @@ CREATE TABLE identity.sessions (
   user_id            uuid NOT NULL REFERENCES identity.users(id),
   platform           text NOT NULL CHECK (platform IN ('tma','ios','android','web','admin')),
   bot_id             bigint,                  -- для TMA: какой бот (prod/stage/dev) выдал initData
-  refresh_token_hash bytea NOT NULL UNIQUE,   -- SHA-256 от случайного 256-битного токена
+  amr                text[] NOT NULL,         -- способ входа ('tg_webapp', …) для клейма amr при refresh
+  refresh_token_hash bytea NOT NULL UNIQUE,   -- SHA-256 секрета текущего refresh (токен — <sid>.<secret>, 256 бит)
+  previous_refresh_hash bytea,                -- хэш предыдущего секрета: окно гонки 10 с после ротации
+  rotated_at         timestamptz,             -- повтор старого токена вне окна = компрометация, отзыв сессии
   device             jsonb NOT NULL DEFAULT '{}',
   ip                 inet,
   created_at         timestamptz NOT NULL DEFAULT now(),
   last_used_at       timestamptz NOT NULL DEFAULT now(),
   expires_at         timestamptz NOT NULL,
   revoked_at         timestamptz,
-  replaced_by        uuid                     -- ротация: повторное использование старого токена = компрометация
+  revoke_reason      text CHECK (revoke_reason IN ('logout','refresh_reused','restricted','account_deleted'))
 );
 CREATE INDEX ON identity.sessions (user_id) WHERE revoked_at IS NULL;
 

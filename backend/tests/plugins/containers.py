@@ -69,7 +69,7 @@ def _start_postgres() -> tuple[DockerContainer, PostgresInfo]:
         for role in ("postgres", "app", "migrator", "readonly", "backup")
     }
     container = (
-        DockerContainer(PG_IMAGE, **{"labels": LABELS})
+        DockerContainer(PG_IMAGE, labels=LABELS)
         .with_envs(
             POSTGRES_USER="postgres",
             POSTGRES_PASSWORD=passwords["postgres"],
@@ -131,7 +131,7 @@ def fresh_postgres() -> Iterator[PostgresInfo]:
 @pytest.fixture(scope="session")
 def valkey_url() -> Iterator[str]:
     container = (
-        DockerContainer(VALKEY_IMAGE, **{"labels": LABELS})
+        DockerContainer(VALKEY_IMAGE, labels=LABELS)
         .with_command("valkey-server --save '' --appendonly no")
         .with_exposed_ports(6379)
         .waiting_for(ExecWaitStrategy(["valkey-cli", "ping"]).with_startup_timeout(60))
@@ -148,7 +148,7 @@ def valkey_url() -> Iterator[str]:
 def garage() -> Iterator[GarageInfo]:
     buckets = ("incoming", "media", "private")
     container = (
-        DockerContainer(GARAGE_IMAGE, **{"labels": LABELS})
+        DockerContainer(GARAGE_IMAGE, labels=LABELS)
         .with_command("/garage server --single-node")
         .with_envs(
             GARAGE_RPC_SECRET=secrets.token_hex(32),
