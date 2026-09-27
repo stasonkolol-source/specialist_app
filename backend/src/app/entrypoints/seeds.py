@@ -1,0 +1,302 @@
+"""Проверка сидов пилотной зоны (DEVELOPMENT_PLAN 0.27): `cli seeds-validate`.
+
+- `seeds/catalog/taxonomy.yaml` — схема, уникальные slug, глубина ≤ 3, CHECK локалей
+  (ru и sr-Cyrl), ориентиры цен по известным городам;
+- `seeds/catalog/queries.yaml` — каждая строка ведёт в существующую категорию, у каждой
+  категории второго уровня есть запросы;
+- `seeds/geo/<город>.geojson` — валидные MultiPolygon в границах Сербии, уникальные slug,
+  родитель — municipality, центр внутри своего полигона, CHECK локалей.
+
+Загрузку в БД делают шаги 1.3a (гео) и 1.3b (каталог); модели здесь — их входной формат.
+"""
+
+import json
+from collections import Counter
+from collections.abc import Iterator
+from dataclasses import dataclass, field
+from enum import StrEnum
+from pathlib import Path
+from typing import Annotated, Any
+
+import yaml
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from shapely.geometry import MultiPolygon, Point, shape
+
+SEEDS_DIR = Path(__file__).resolve().parents[3] / "seeds"
+SERBIA_BOUNDS = (18.8, 42.2, 23.1, 46.2)
+"""lon_min, lat_min, lon_max, lat_max: грубая рамка Сербии против перепутанных координат."""
+MAX_DEPTH = 3
+MIN_SIBLING_OVERLAP = 0.05
+"""Доля площади меньшего района, при которой пересечение соседей — ошибка данных."""
+
+Slug = Annotated[str, Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=64)]
+
+
+class Unit(StrEnum):
+    HOUR = "hour"
+    JOB = "job"
+    VISIT = "visit"
+    PIECE = "piece"
+    SERVICE = "service"
+    LESSON = "lesson"
+    M2 = "m2"
+    MOVE = "move"
+
+
+class Names(BaseModel):
+    """Названия: ru и sr-Cyrl обязательны (CHECK в БД), sr-Latn — транслит, если не задан."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    ru: str = Field(min_length=1)
+    sr_cyrl: str = Field(alias="sr-Cyrl", min_length=1)
+    sr_latn: str | None = Field(default=None, alias="sr-Latn")
+    en: str | None = None
+
+
+class PriceHint(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rsd: tuple[int, int]
+    unit: Unit
+
+    @field_validator("rsd")
+    @classmethod
+    def _range(cls, value: tuple[int, int]) -> tuple[int, int]:
+        low, high = value
+        if not 0 < low <= high:
+            raise ValueError("rsd must be [from, to] with 0 < from <= to")
+        return value
+
+
+class Terms(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ru: list[str] = Field(default_factory=list)
+    sr: list[str] = Field(default_factory=list)
+    en: list[str] = Field(default_factory=list)
+
+
+class Tag(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: Slug
+    name: Names
+
+
+class Category(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: Slug
+    name: Names
+    icon: str | None = None
+    risk_level: int = Field(default=0, ge=0, le=2)
+    price_hint: dict[str, PriceHint] = Field(default_factory=dict)
+    terms: Terms = Field(default_factory=Terms)
+    tags: list[Tag] = Field(default_factory=list)
+    children: list[Category] = Field(default_factory=list)
+
+
+class Taxonomy(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: str
+    categories: list[Category] = Field(min_length=1)
+
+
+class Query(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    q: str = Field(min_length=2)
+    category: Slug
+
+
+class Queries(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    queries: list[Query] = Field(min_length=1)
+
+
+class DistrictKind(StrEnum):
+    MUNICIPALITY = "municipality"
+    NEIGHBORHOOD = "neighborhood"
+
+
+class District(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: Slug
+    kind: DistrictKind
+    parent: Slug | None = None
+    name: Names
+    aliases: list[str] = Field(default_factory=list)
+    center: tuple[float, float]
+    source: str = Field(min_length=1)
+
+
+class CityInfo(BaseModel):
+    slug: Slug
+    name: Names
+
+
+class GeoCollection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: str
+    city: CityInfo
+    attribution: str = Field(min_length=10)
+    features: list[dict[str, Any]] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _collection(self) -> GeoCollection:
+        if self.type != "FeatureCollection":
+            raise ValueError("type must be FeatureCollection")
+        return self
+
+
+@dataclass
+class Report:
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    summary: list[str] = field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return not self.errors
+
+
+def _walk(categories: list[Category], depth: int = 1) -> Iterator[tuple[Category, int]]:
+    for category in categories:
+        yield category, depth
+        yield from _walk(category.children, depth + 1)
+
+
+def _load_yaml(path: Path) -> Any:
+    with path.open(encoding="utf-8") as file:
+        return yaml.safe_load(file)
+
+
+def _pydantic_errors(path: Path, exc: ValidationError) -> list[str]:
+    return [f"{path.name}: {'.'.join(map(str, e['loc']))}: {e['msg']}" for e in exc.errors()]
+
+
+def check_geo(path: Path, report: Report) -> str | None:
+    """Проверить GeoJSON города; вернуть slug города или None при ошибке формата."""
+    try:
+        collection = GeoCollection.model_validate(json.loads(path.read_text(encoding="utf-8")))
+    except (ValidationError, json.JSONDecodeError) as exc:
+        if isinstance(exc, ValidationError):
+            report.errors.extend(_pydantic_errors(path, exc))
+        else:
+            report.errors.append(f"{path.name}: {exc}")
+        return None
+    districts: dict[str, tuple[District, MultiPolygon]] = {}
+    lon_min, lat_min, lon_max, lat_max = SERBIA_BOUNDS
+    for index, feature in enumerate(collection.features):
+        try:
+            district = District.model_validate(feature.get("properties"))
+        except ValidationError as exc:
+            report.errors.extend(f"feature {index}: {msg}" for msg in _pydantic_errors(path, exc))
+            continue
+        geometry = shape(feature.get("geometry") or {})
+        name = f"{path.name}: {district.slug}"
+        if district.slug in districts:
+            report.errors.append(f"{name}: duplicate slug")
+        if not isinstance(geometry, MultiPolygon) or geometry.is_empty:
+            report.errors.append(f"{name}: geometry must be a non-empty MultiPolygon")
+            continue
+        if not geometry.is_valid:
+            report.errors.append(f"{name}: invalid polygon")
+        x1, y1, x2, y2 = geometry.bounds
+        if x1 < lon_min or x2 > lon_max or y1 < lat_min or y2 > lat_max:
+            report.errors.append(f"{name}: outside Serbia (lon/lat swapped?)")
+        if not geometry.covers(Point(district.center)):
+            report.errors.append(f"{name}: center is outside the polygon")
+        districts[district.slug] = (district, geometry)
+    for slug, (district, _) in districts.items():
+        if district.parent is None:
+            continue
+        parent = districts.get(district.parent)
+        if parent is None or parent[0].kind is not DistrictKind.MUNICIPALITY:
+            report.errors.append(f"{path.name}: {slug}: parent must be a municipality in the file")
+        elif not parent[1].covers(Point(district.center)):
+            report.warnings.append(
+                f"{path.name}: {slug}: center is outside parent {district.parent}"
+            )
+    siblings = [(s, g) for s, (d, g) in districts.items() if d.kind is DistrictKind.NEIGHBORHOOD]
+    for i, (slug_a, geom_a) in enumerate(siblings):
+        for slug_b, geom_b in siblings[i + 1 :]:
+            overlap = geom_a.intersection(geom_b).area
+            if overlap > MIN_SIBLING_OVERLAP * min(geom_a.area, geom_b.area):
+                report.errors.append(f"{path.name}: {slug_a} and {slug_b} overlap")
+    kinds = Counter(d.kind.value for d, _ in districts.values())
+    report.summary.append(
+        f"{path.name}: {len(districts)} districts ({dict(sorted(kinds.items()))})"
+    )
+    return collection.city.slug
+
+
+def check_taxonomy(path: Path, cities: set[str], report: Report) -> set[str]:
+    """Проверить таксономию; вернуть slug категорий второго уровня."""
+    try:
+        taxonomy = Taxonomy.model_validate(_load_yaml(path))
+    except ValidationError as exc:
+        report.errors.extend(_pydantic_errors(path, exc))
+        return set()
+    slugs: Counter[str] = Counter()
+    leaves: set[str] = set()
+    terms = 0
+    for category, depth in _walk(taxonomy.categories):
+        slugs[category.slug] += 1
+        slugs.update(tag.slug for tag in category.tags)
+        terms += len(category.terms.ru) + len(category.terms.sr) + len(category.terms.en)
+        if depth > MAX_DEPTH:
+            report.errors.append(f"{path.name}: {category.slug}: deeper than {MAX_DEPTH}")
+        if depth == 2:
+            leaves.add(category.slug)
+            if not category.price_hint:
+                report.warnings.append(f"{path.name}: {category.slug}: no price_hint")
+        unknown = set(category.price_hint) - cities
+        if unknown:
+            report.errors.append(f"{path.name}: {category.slug}: unknown cities {sorted(unknown)}")
+    duplicates = sorted(slug for slug, count in slugs.items() if count > 1)
+    if duplicates:
+        report.errors.append(f"{path.name}: duplicate slugs {duplicates}")
+    report.summary.append(
+        f"{path.name}: {len(taxonomy.categories)} categories, {len(leaves)} subcategories, "
+        f"{terms} search terms"
+    )
+    return leaves
+
+
+def check_queries(path: Path, leaves: set[str], report: Report) -> None:
+    try:
+        queries = Queries.model_validate(_load_yaml(path))
+    except ValidationError as exc:
+        report.errors.extend(_pydantic_errors(path, exc))
+        return
+    texts = Counter(q.q.casefold() for q in queries.queries)
+    repeated = sorted(text for text, count in texts.items() if count > 1)
+    if repeated:
+        report.errors.append(f"{path.name}: duplicate queries {repeated}")
+    unknown = sorted({q.category for q in queries.queries} - leaves)
+    if unknown:
+        report.errors.append(f"{path.name}: unknown categories {unknown}")
+    uncovered = sorted(leaves - {q.category for q in queries.queries})
+    if uncovered:
+        report.errors.append(f"{path.name}: no queries for {uncovered}")
+    report.summary.append(f"{path.name}: {len(queries.queries)} queries")
+
+
+def validate(seeds: Path = SEEDS_DIR) -> Report:
+    report = Report()
+    cities = {
+        city
+        for path in sorted((seeds / "geo").glob("*.geojson"))
+        if (city := check_geo(path, report))
+    }
+    if not cities:
+        report.errors.append("geo: no city files")
+    leaves = check_taxonomy(seeds / "catalog" / "taxonomy.yaml", cities, report)
+    check_queries(seeds / "catalog" / "queries.yaml", leaves, report)
+    return report

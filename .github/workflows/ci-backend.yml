@@ -70,6 +70,9 @@ jobs:
       - name: i18n catalogs (sr_Latn generated, ru = sr_Cyrl keys)
         run: uv run python -m app.entrypoints.cli i18n check
 
+      - name: seeds (geo, taxonomy, queries)
+        run: uv run python -m app.entrypoints.cli seeds-validate
+
       - uses: docker/setup-buildx-action@v4.4.1
 
       - name: PostgreSQL + PostGIS image (layer cache in GitHub Actions)

@@ -6,6 +6,7 @@ from typing import Any, override
 
 from geoalchemy2 import Geography
 from geoalchemy2.shape import to_shape
+from shapely.geometry import Point
 from sqlalchemy import BigInteger, CheckConstraint, Enum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Dialect
@@ -84,4 +85,6 @@ class GeoPointType(TypeDecorator[GeoPoint]):
         if value is None:
             return None
         point = to_shape(value)
+        if not isinstance(point, Point):
+            raise TypeError(f"expected POINT, got {point.geom_type}")
         return GeoPoint(lat=float(point.y), lon=float(point.x))
