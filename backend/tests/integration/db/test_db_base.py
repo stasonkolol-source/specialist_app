@@ -1,28 +1,24 @@
 """Основа БД и репозиториев на настоящем PostgreSQL (DEVELOPMENT_PLAN 0.7b, ADR-0020 §5)."""
 
-from collections.abc import AsyncIterator
-from datetime import UTC, datetime
+from collections.abc import Callable
 
 import pytest
-import pytest_asyncio
 from sqlalchemy import insert, select, text
 from sqlalchemy.exc import IntegrityError, InvalidRequestError
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm.exc import StaleDataError
 
-from app.platform.kernel.geo import GeoPoint
+from app.platform.kernel.errors import ConcurrentModificationError
 from app.platform.kernel.ids import UserId, new_id
-from app.platform.kernel.localized import Locale, LocalizedText
+from app.platform.kernel.localized import Locale
 from app.platform.kernel.money import Money
 from app.platform.kernel.pagination import PageRequest
 from app.platform.testing.assertions import assert_same_state
+from tests.integration.db.conftest import LIMAN, NOW, Scope, make_widget
 from tests.integration.db.sample import (
     SCHEMA,
-    Base,
     DuplicateWidgetTitleError,
     SqlWidgetQuery,
-    SqlWidgetRepository,
-    Widget,
     WidgetNotFoundError,
     WidgetRow,
     WidgetStatus,
@@ -30,42 +26,11 @@ from tests.integration.db.sample import (
 
 pytestmark = pytest.mark.integration
 
-NOW = datetime(2026, 10, 5, 9, 0, tzinfo=UTC)
-LIMAN = GeoPoint(lat=45.2445, lon=19.8395)
+Maker = async_sessionmaker[AsyncSession]
+Build = Callable[[AsyncSession], Scope]
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def sample_schema(migrator_engine: AsyncEngine) -> AsyncIterator[None]:
-    async with migrator_engine.begin() as conn:
-        await conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}"))
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-    async with migrator_engine.begin() as conn:
-        await conn.execute(text(f"DROP SCHEMA {SCHEMA} CASCADE"))
-
-
-@pytest_asyncio.fixture(loop_scope="session")
-async def maker(
-    sample_schema: None, db_engine: AsyncEngine
-) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
-    yield async_sessionmaker(db_engine, expire_on_commit=False, autoflush=False)
-    async with db_engine.begin() as conn:
-        await conn.execute(text(f"DELETE FROM {SCHEMA}.status_history"))
-        await conn.execute(text(f"DELETE FROM {SCHEMA}.widget_parts"))
-        await conn.execute(text(f"DELETE FROM {SCHEMA}.widgets"))
-
-
-def _widget(owner: UserId, title: str = "Люстра") -> Widget:
-    return Widget.create(
-        owner_id=owner,
-        title=title,
-        name=LocalizedText({Locale.RU: "Люстра", Locale.SR_LATN: "Luster"}),
-        price=Money.rsd(5000),
-        location=LIMAN,
-    )
-
-
-async def test_server_default_uuid7_is_monotonic(maker: async_sessionmaker[AsyncSession]) -> None:
+async def test_server_default_uuid7_is_monotonic(maker: Maker) -> None:
     owner = new_id()
     async with maker() as s:
         for i in range(50):
@@ -92,34 +57,38 @@ async def test_server_default_uuid7_is_monotonic(maker: async_sessionmaker[Async
     assert list(ids) == sorted(ids)  # порядок вставки = порядок uuidv7()
 
 
-async def test_roundtrip_add_then_get_keeps_state(maker: async_sessionmaker[AsyncSession]) -> None:
-    widget = _widget(UserId(new_id()))
+async def test_roundtrip_add_then_get_keeps_state(maker: Maker, scope_factory: Build) -> None:
+    widget = make_widget(UserId(new_id()))
     widget.add_part("крюк")
     widget.add_part("клеммы")
     async with maker() as s:
-        await SqlWidgetRepository(s).add(widget)
-        await s.commit()
+        sc = scope_factory(s)
+        async with sc.uow:
+            await sc.repo.add(widget)
     async with maker() as s:
-        loaded = await SqlWidgetRepository(s).get(widget.id)
+        sc = scope_factory(s)
+        async with sc.uow:
+            loaded = await sc.repo.get(widget.id)
     assert_same_state(widget, loaded)
     assert loaded.location == LIMAN
     assert loaded.name.get(Locale.SR_CYRL) == "Luster"
 
 
 async def test_save_bumps_version_writes_history_and_children(
-    maker: async_sessionmaker[AsyncSession],
+    maker: Maker, scope_factory: Build
 ) -> None:
-    widget = _widget(UserId(new_id()))
+    widget = make_widget(UserId(new_id()))
     async with maker() as s:
-        await SqlWidgetRepository(s).add(widget)
-        await s.commit()
+        sc = scope_factory(s)
+        async with sc.uow:
+            await sc.repo.add(widget)
     async with maker() as s:
-        repo = SqlWidgetRepository(s)
-        loaded = await repo.get(widget.id)
-        loaded.publish(by=loaded.owner_id, now=NOW)
-        loaded.add_part("стремянка")  # меняется только подагрегат — версия корня всё равно растёт
-        await repo.save(loaded)
-        await s.commit()
+        sc = scope_factory(s)
+        async with sc.uow:
+            loaded = await sc.repo.get(widget.id)
+            loaded.publish(by=loaded.owner_id, now=NOW)
+            loaded.add_part("стремянка")  # меняется подагрегат — версия корня всё равно растёт
+            await sc.repo.save(loaded)
         assert loaded.version == 2
         history = (
             await s.execute(
@@ -132,66 +101,78 @@ async def test_save_bumps_version_writes_history_and_children(
         ).all()
     assert [tuple(h) for h in history] == [("draft", "published")]
     async with maker() as s:
-        again = await SqlWidgetRepository(s).get(widget.id)
+        sc = scope_factory(s)
+        async with sc.uow:
+            again = await sc.repo.get(widget.id)
     assert again.status is WidgetStatus.PUBLISHED
     assert again.parts == ["стремянка"]
     assert again.version == 2
 
 
-async def test_concurrent_edit_raises_stale_data_on_flush(
-    maker: async_sessionmaker[AsyncSession],
+async def test_concurrent_edit_is_409_caused_by_stale_data_on_flush(
+    maker: Maker, scope_factory: Build
 ) -> None:
-    widget = _widget(UserId(new_id()))
+    widget = make_widget(UserId(new_id()))
     async with maker() as s:
-        await SqlWidgetRepository(s).add(widget)
-        await s.commit()
+        sc = scope_factory(s)
+        async with sc.uow:
+            await sc.repo.add(widget)
     async with maker() as first, maker() as second:
-        a = await SqlWidgetRepository(first).get(widget.id)
-        b = await SqlWidgetRepository(second).get(widget.id)
-        a.add_part("a")
-        await SqlWidgetRepository(first).save(a)
-        await first.commit()
-        b.add_part("b")
-        with pytest.raises(StaleDataError):
-            await SqlWidgetRepository(second).save(b)
-        await second.rollback()
+        a_sc, b_sc = scope_factory(first), scope_factory(second)
+        with pytest.raises(ConcurrentModificationError) as info:
+            async with b_sc.uow:
+                b = await b_sc.repo.get(widget.id)  # b прочитал версию 1
+                async with a_sc.uow:  # тем временем a правит и фиксирует версию 2
+                    a = await a_sc.repo.get(widget.id)
+                    a.add_part("a")
+                    await a_sc.repo.save(a)
+                b.add_part("b")
+                await b_sc.repo.save(b)
+        assert isinstance(info.value.__cause__, StaleDataError)
+    async with maker() as s:
+        sc = scope_factory(s)
+        async with sc.uow:
+            assert (await sc.repo.get(widget.id)).parts == ["a"]  # правка b не прошла
 
 
 async def test_unique_violation_is_translated_by_constraint_name(
-    maker: async_sessionmaker[AsyncSession],
+    maker: Maker, scope_factory: Build
 ) -> None:
     owner = UserId(new_id())
     async with maker() as s:
-        repo = SqlWidgetRepository(s)
-        await repo.add(_widget(owner, "Люстра"))
+        sc = scope_factory(s)
         with pytest.raises(DuplicateWidgetTitleError):
-            await repo.add(_widget(owner, "Люстра"))
-        await s.rollback()
+            async with sc.uow:
+                await sc.repo.add(make_widget(owner, "Люстра"))
+                await sc.repo.add(make_widget(owner, "Люстра"))
 
 
 async def test_soft_delete_hides_row_and_frees_partial_unique(
-    maker: async_sessionmaker[AsyncSession],
+    maker: Maker, scope_factory: Build
 ) -> None:
     owner = UserId(new_id())
-    first = _widget(owner, "Шкаф")
+    first = make_widget(owner, "Шкаф")
     async with maker() as s:
-        repo = SqlWidgetRepository(s)
-        await repo.add(first)
-        loaded = await repo.get(first.id)
-        loaded.delete(now=NOW)
-        await repo.save(loaded)
-        await repo.add(_widget(owner, "Шкаф"))  # частичный unique: удалённый не мешает
-        await s.commit()
+        sc = scope_factory(s)
+        async with sc.uow:
+            await sc.repo.add(first)
+            loaded = await sc.repo.get(first.id)
+            loaded.delete(now=NOW)
+            await sc.repo.save(loaded)
+            await sc.repo.add(make_widget(owner, "Шкаф"))  # частичный unique: удалённый не мешает
     async with maker() as s:
+        sc = scope_factory(s)
         with pytest.raises(WidgetNotFoundError):
-            await SqlWidgetRepository(s).get(first.id)
+            async with sc.uow:
+                await sc.repo.get(first.id)
 
 
-async def test_lazy_relationship_access_raises(maker: async_sessionmaker[AsyncSession]) -> None:
-    widget = _widget(UserId(new_id()))
+async def test_lazy_relationship_access_raises(maker: Maker, scope_factory: Build) -> None:
+    widget = make_widget(UserId(new_id()))
     async with maker() as s:
-        await SqlWidgetRepository(s).add(widget)
-        await s.commit()
+        sc = scope_factory(s)
+        async with sc.uow:
+            await sc.repo.add(widget)
     async with maker() as s:
         row = (
             await s.execute(
@@ -204,7 +185,7 @@ async def test_lazy_relationship_access_raises(maker: async_sessionmaker[AsyncSe
             _ = row.parts
 
 
-async def test_database_checks_guard_invariants(maker: async_sessionmaker[AsyncSession]) -> None:
+async def test_database_checks_guard_invariants(maker: Maker) -> None:
     owner = new_id()
     base = {
         "owner_id": owner,
@@ -226,14 +207,14 @@ async def test_database_checks_guard_invariants(maker: async_sessionmaker[AsyncS
 
 
 async def test_query_service_keyset_pagination_and_release(
-    maker: async_sessionmaker[AsyncSession],
+    maker: Maker, scope_factory: Build
 ) -> None:
     owner = UserId(new_id())
     async with maker() as s:
-        repo = SqlWidgetRepository(s)
-        for i in range(5):
-            await repo.add(_widget(owner, f"w{i}"))
-        await s.commit()
+        sc = scope_factory(s)
+        async with sc.uow:
+            for i in range(5):
+                await sc.repo.add(make_widget(owner, f"w{i}"))
     async with maker() as s:
         query = SqlWidgetQuery(s)
         first = await query.list_for_owner(owner, PageRequest(limit=2))
