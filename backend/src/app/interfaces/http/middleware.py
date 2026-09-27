@@ -8,6 +8,7 @@
 import re
 import secrets
 import time
+from collections.abc import Awaitable, Callable
 
 import sentry_sdk
 import structlog
@@ -49,7 +50,12 @@ def trace_id_from(header: str | None) -> str:
 
 class RequestContextMiddleware:
     def __init__(
-        self, app: ASGIApp, *, problems: Problems, clients: ClientPolicy, api_prefix: str
+        self,
+        app: ASGIApp,
+        *,
+        problems: Problems,
+        clients: Callable[[], Awaitable[ClientPolicy]],
+        api_prefix: str,
     ) -> None:
         self.app = app
         self.problems = problems
@@ -85,7 +91,7 @@ class RequestContextMiddleware:
 
         begin = time.perf_counter()
         try:
-            rejection = self._check_client(scope, headers, trace_id, state["locale"])
+            rejection = await self._check_client(scope, headers, trace_id, state["locale"])
             if rejection is not None:
                 await rejection(scope, receive, send_with_id)
                 return
@@ -110,7 +116,7 @@ class RequestContextMiddleware:
                 )
             clear_context()
 
-    def _check_client(
+    async def _check_client(
         self, scope: Scope, headers: Headers, trace_id: str, locale: Locale
     ) -> ASGIApp | None:
         """X-Client на /api: битый заголовок — 400, устаревший клиент — 426."""
@@ -125,7 +131,7 @@ class RequestContextMiddleware:
                 400, INVALID_CLIENT_HEADER, trace_id=trace_id, locale=locale
             )
         scope["state"]["client"] = client
-        minimum = self.clients.required_upgrade(client)
+        minimum = (await self.clients()).required_upgrade(client)
         if minimum is None:
             return None
         return self.problems.response(

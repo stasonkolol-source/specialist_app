@@ -26,6 +26,7 @@ from app.modules.identity.infrastructure.repositories import (
     SqlUserRepository,
 )
 from app.platform.contracts.events.identity import UserRegistered
+from app.platform.db.platform_tables import audit_log
 from app.platform.kernel.errors import RestrictedError
 from app.platform.kernel.ids import UserId, new_id
 from app.platform.kernel.localized import Locale
@@ -194,6 +195,16 @@ async def test_reused_refresh_revokes_chain_in_db(identity: Identity) -> None:
     assert row.revoked_at == identity.clock.now()
     assert row.revoke_reason is RevokeReason.REFRESH_REUSED
     assert identity.revocations.revoked == [stolen.session_id.hex]
+    audit = (
+        await identity.session.execute(
+            select(audit_log.c.action, audit_log.c.actor_id, audit_log.c.entity_id).where(
+                audit_log.c.entity_id == stolen.session_id
+            )
+        )
+    ).all()
+    assert [tuple(row) for row in audit] == [
+        ("auth.refresh.reused", stolen.user_id, stolen.session_id)
+    ]
     with pytest.raises(SessionRevokedError):
         await identity.refresh(RefreshSessionCommand(refresh_token=current.refresh_token))
 

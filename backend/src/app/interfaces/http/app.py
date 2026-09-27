@@ -12,12 +12,13 @@ from dishka import AsyncContainer
 from dishka.integrations.fastapi import setup_dishka
 from fastapi import APIRouter, FastAPI
 
-from app.interfaces.http import system, views
+from app.interfaces.http import client_config, system, views
 from app.interfaces.http.client import ClientPolicy
 from app.interfaces.http.errors import Problems, install_error_handlers
 from app.interfaces.http.middleware import RequestContextMiddleware
 from app.interfaces.http.openapi import API_TITLE, API_VERSION, PROBLEM_RESPONSES, install_openapi
 from app.interfaces.http.operation_ids import operation_id
+from app.platform.config.cache import ClientConfigCache
 from app.platform.i18n.translator import Translator
 from app.platform.settings import Environment, Settings
 
@@ -42,10 +43,16 @@ def create_app(
         base_url=settings.app.api_public_url, translator=translator or Translator.load()
     )
     install_error_handlers(app, problems)
+
+    async def client_policy() -> ClientPolicy:
+        """Минимальные версии: из client-config (правит админка), запасные — из настроек."""
+        snapshot = await (await container.get(ClientConfigCache)).get()
+        return ClientPolicy({**settings.app.min_client_versions, **snapshot.min_versions})
+
     app.add_middleware(
         RequestContextMiddleware,
         problems=problems,
-        clients=ClientPolicy(settings.app.min_client_versions),
+        clients=client_policy,
         api_prefix=API_PREFIX,
     )
 
@@ -77,7 +84,7 @@ def _fastapi(*, public_docs: bool, lifespan: Lifespan | None = None) -> FastAPI:
 
 def _mount(app: FastAPI, routers: Sequence[APIRouter]) -> None:
     api = APIRouter(prefix=API_PREFIX, responses=PROBLEM_RESPONSES)
-    for router in (*routers, views.router):
+    for router in (*routers, views.router, client_config.router):
         api.include_router(router)
     app.include_router(api)
     app.include_router(system.router)

@@ -17,6 +17,7 @@ from app.modules.identity.domain.restriction import ACCOUNT_BLOCKING, blocking
 from app.modules.identity.domain.session import RefreshOutcome, RevokeReason, SessionId
 from app.modules.identity.domain.user import UserStatus
 from app.modules.identity.errors import AccountDeletedError, SessionNotFoundError
+from app.platform.audit.port import ActorKind, AuditEntry, AuditLog
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.errors import RestrictedError
@@ -38,16 +39,13 @@ class RefreshSession:
         query: IdentityQuery,
         issuer: AccessTokenIssuer,
         revocations: SessionRevocations,
+        audit: AuditLog,
         config: IdentityConfig,
         clock: Clock,
     ) -> None:
         self._uow, self._users, self._sessions, self._query = uow, users, sessions, query
-        self._issuer, self._revocations, self._config, self._clock = (
-            issuer,
-            revocations,
-            config,
-            clock,
-        )
+        self._issuer, self._revocations, self._audit = issuer, revocations, audit
+        self._config, self._clock = config, clock
 
     async def __call__(self, cmd: RefreshSessionCommand) -> SessionTokens:
         presented = RefreshToken.parse(cmd.refresh_token)
@@ -74,6 +72,15 @@ class RefreshSession:
             )
             if outcome is RefreshOutcome.REUSED:
                 refused = SessionRevokedError()
+                await self._audit.record(
+                    AuditEntry(
+                        action="auth.refresh.reused",
+                        actor_kind=ActorKind.SYSTEM,
+                        actor_id=user.id,
+                        entity_type="identity.session",
+                        entity_id=session.id,
+                    )
+                )
             elif user.status is UserStatus.DELETED:
                 session.revoke(reason=RevokeReason.ACCOUNT_DELETED, now=now)
                 refused = AccountDeletedError(user_id=user.id)

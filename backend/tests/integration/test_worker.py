@@ -179,4 +179,5 @@ async def test_platform_periodic_tasks_are_scheduled(container: AsyncContainer) 
         "procrastinate.retry_stalled_jobs": "*/5 * * * *",
         "procrastinate.remove_old_jobs": "17 3 * * *",
         "ops.heartbeat": "* * * * *",
+        "platform.idempotency_cleanup": "23 * * * *",
     }

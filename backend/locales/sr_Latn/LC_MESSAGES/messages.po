@@ -48,6 +48,18 @@ msgstr "Neispravan parametar stranice."
 msgid "errors.invalid_if_match"
 msgstr "Neispravno zaglavlje If-Match."
 
+msgid "errors.idempotency_key_required"
+msgstr "Potrebno je zaglavlje Idempotency-Key."
+
+msgid "errors.invalid_idempotency_key"
+msgstr "Neispravno zaglavlje Idempotency-Key."
+
+msgid "errors.idempotency_key_reused"
+msgstr "Ovaj Idempotency-Key je već korišćen sa drugim podacima."
+
+msgid "errors.idempotency_in_progress"
+msgstr "Zahtev je već u toku. Pokušajte malo kasnije."
+
 msgid "errors.invalid_init_data"
 msgstr "Prijava preko Telegram-a nije uspela. Otvorite aplikaciju ponovo."
 
