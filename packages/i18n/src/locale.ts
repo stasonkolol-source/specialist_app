@@ -22,6 +22,16 @@ export const LOCALE_NAMES: Record<Locale, string> = {
   'sr-Cyrl': 'Српски (ћирилица)',
 };
 
+/** Язык в выборе онбординга S02a: самоназвание и письмо (SPEC §5) — не переводятся. */
+export const LOCALE_LABELS: Record<Locale, { name: string; script: string | null }> = {
+  ru: { name: 'Русский', script: null },
+  'sr-Latn': { name: 'Srpski', script: 'latinica' },
+  'sr-Cyrl': { name: 'Српски', script: 'ћирилица' },
+};
+
+/** Языки следующих релизов: в выборе видны с пометкой «скоро», выбрать нельзя (en — v1). */
+export const UPCOMING_LOCALES = [{ code: 'en', name: 'English' }] as const;
+
 export function isLocale(value: unknown): value is Locale {
   return typeof value === 'string' && (LOCALES as readonly string[]).includes(value);
 }

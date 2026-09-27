@@ -10,7 +10,7 @@ import tomllib
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
 from pathlib import Path
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 from urllib.parse import urlencode
 
 import typer
@@ -28,6 +28,9 @@ from app.platform.kernel.localized import Locale
 from app.platform.security.initdata import sign
 from app.platform.security.jwt import JwtKeys, SigningKey
 from app.platform.settings import ENV_FILE, AppSettings, Environment, Settings, TelegramSettings
+
+if TYPE_CHECKING:  # модули грузятся лениво: CLI без БД не должен их импортировать
+    from app.modules.identity.application.dto import OnboardingReset
 
 app = typer.Typer(help="«Соседи» — служебные команды backend.", no_args_is_help=True)
 
@@ -266,6 +269,43 @@ def dev_initdata(
         fields["start_param"] = start_param
     token = TelegramSettings().bot_token.get_secret_value()  # type: ignore[call-arg]  # из .env
     typer.echo(urlencode(fields | {"hash": sign(fields, token)}))
+
+
+@app.command("dev-reset-user")
+def dev_reset_user(
+    telegram_id: Annotated[int, typer.Argument(help="Telegram id пользователя dev-бота")],
+) -> None:
+    """Пройти онбординг S02a–c в Telegram заново: без города и намерения, согласия отозваны.
+
+    Только dev (DEVELOPMENT_PLAN 1.5b): аккаунт, сессии и остальные данные остаются.
+    """
+    if AppSettings().env is not Environment.DEV:
+        typer.echo("dev-reset-user works only with APP_ENV=dev", err=True)
+        raise typer.Exit(code=1)
+    result = asyncio.run(_dev_reset_user(telegram_id))
+    if result is None:
+        typer.echo("dev-reset-user: no such Telegram user (open the Mini App once)", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(
+        f"user {result.user_id}: onboarding reset, {result.withdrawn_consents} consent(s)"
+        " withdrawn; close and reopen the Mini App"
+    )
+
+
+async def _dev_reset_user(telegram_id: int) -> OnboardingReset | None:
+    from app.entrypoints._wiring import make_worker_container
+    from app.modules.identity.application.use_cases.reset_onboarding import (
+        ResetOnboarding,
+        ResetOnboardingCommand,
+    )
+
+    container = make_worker_container(Settings())
+    try:
+        async with container() as request:
+            reset = await request.get(ResetOnboarding)
+            return await reset(ResetOnboardingCommand(telegram_id=telegram_id))
+    finally:
+        await container.close()
 
 
 if __name__ == "__main__":

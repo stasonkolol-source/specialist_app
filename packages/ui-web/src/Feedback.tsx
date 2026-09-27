@@ -223,16 +223,28 @@ export function Toast({
   );
 }
 
-/** Скелетон .skel: размер задаёт раскладка (h-*, w-*). */
-export function Skeleton({ className, round = false }: { className?: string; round?: boolean }) {
+const SKELETON_RADIUS = {
+  badge: 'rounded-badge',
+  panel: 'rounded-panel',
+  card: 'rounded-card',
+  round: 'rounded-full',
+} as const;
+
+/** Скелетон .skel: размер задаёт раскладка (h-*, w-*), скругление — `radius` (по умолчанию 8, как
+ *  .skel; поле поиска — panel 14, плитки и карточки — card 16, аватар — round). */
+export function Skeleton({
+  className,
+  round = false,
+  radius = round ? 'round' : 'badge',
+}: {
+  className?: string;
+  round?: boolean;
+  radius?: keyof typeof SKELETON_RADIUS;
+}) {
   return (
     <span
       aria-hidden="true"
-      className={cx(
-        'block bg-bg2 motion-safe:animate-pulse',
-        round ? 'rounded-full' : 'rounded-badge',
-        className,
-      )}
+      className={cx('block bg-bg2 motion-safe:animate-pulse', SKELETON_RADIUS[radius], className)}
     />
   );
 }

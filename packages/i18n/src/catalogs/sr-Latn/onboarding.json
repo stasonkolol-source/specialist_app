@@ -1,0 +1,67 @@
+{
+  "launch": {
+    "signingIn": "Prijavljujemo vas preko Telegram-a…"
+  },
+  "language": {
+    "title": "Jezik i grad",
+    "intro": "Jezik smo preuzeli iz podešavanja Telegram-a. Možete ga promeniti u bilo kom trenutku.",
+    "section": "Jezik interfejsa",
+    "soon": "uskoro"
+  },
+  "city": {
+    "section": "Grad",
+    "pilot": "Pilot-grad",
+    "soon": "uskoro",
+    "loading": "Učitavamo gradove",
+    "loadError": "Gradovi nisu učitani"
+  },
+  "intent": {
+    "title": "Šta želite?",
+    "intro": "Izaberite glavno. Drugo možete uključiti kasnije u profilu.",
+    "label": "Cilj",
+    "client": {
+      "title": "Naći majstora",
+      "text": "Električar, manikir, čišćenje, selidbe — u blizini i na vašem jeziku"
+    },
+    "pro": {
+      "title": "Ja sam stručnjak",
+      "text": "Profil sa cenama i utiscima, zahtevi klijenata u blizini"
+    },
+    "casual": {
+      "title": "Tražim honorarni posao",
+      "text": "Zadaci u blizini, plaćanje direktno od klijenta"
+    },
+    "free": "Registracija i ponude su besplatni. Klijent plaća izvođaču direktno za posao."
+  },
+  "rules": {
+    "title": "Pravila platforme",
+    "polite": {
+      "lead": "Pristojno i pošteno.",
+      "text": "Bez uvreda, spama i lažnih profila."
+    },
+    "contacts": {
+      "lead": "Kontakti — nakon dogovora.",
+      "text": "Do tada se dopisujemo u četu aplikacije „Sosedi“."
+    },
+    "payment": {
+      "lead": "Plaćanje — direktno izvođaču, posle posla.",
+      "text": "Ne plaćajte unapred nepoznatim ljudima."
+    },
+    "reviews": {
+      "lead": "Utisci — samo o stvarnim dogovorima.",
+      "text": "Prekršaj možete prijaviti jednim dodirom."
+    },
+    "readAll": "Pročitajte sva pravila",
+    "accept": "Imam 18 godina i prihvatam pravila platforme",
+    "acceptRequired": "Označite polje: bez toga ne možete da počnete",
+    "outdated": "Pravila su ažurirana. Pročitajte novu verziju i potvrdite ponovo",
+    "unavailable": "Pravila nisu učitana. Pokušajte ponovo",
+    "notifications": {
+      "title": "Obaveštenja od bota",
+      "text": "Bot će slati ponude, poruke i nove zahteve po pretplatama. Telegram će jednom tražiti dozvolu."
+    },
+    "start": "Počni"
+  },
+  "saveError": "Čuvanje nije uspelo. Pokušajte ponovo",
+  "offlineError": "Nema veze. Proverite internet i pokušajte ponovo"
+}

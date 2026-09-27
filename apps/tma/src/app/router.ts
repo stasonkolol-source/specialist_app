@@ -1,6 +1,7 @@
 // Роутер: в Telegram — hash history (URL Mini App не меняется, перезагрузка внутри клиента
 // возвращает на тот же экран), в браузере — обычная, в тестах — memory.
 import type { PlatformKind } from '@sosed/platform';
+import type { QueryClient } from '@tanstack/react-query';
 import type { AnyRouter, RouterHistory } from '@tanstack/react-router';
 import {
   createBrowserHistory,
@@ -17,10 +18,12 @@ export function historyFor(kind: PlatformKind, initialPath = '/'): RouterHistory
   return createMemoryHistory({ initialEntries: [initialPath] });
 }
 
-export function createAppRouter(history: RouterHistory) {
+/** Контекст маршрутов: охрана (routes/guards.ts) читает /me из кэша QueryClient. */
+export function createAppRouter(history: RouterHistory, queryClient: QueryClient) {
   return createRouter({
     routeTree,
     history,
+    context: { queryClient },
     defaultPreload: 'intent',
     scrollRestoration: true,
     // Ошибка рендера экрана — к ErrorBoundary приложения (S49 с «Повторить»), а не в запасной

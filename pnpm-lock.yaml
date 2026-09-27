@@ -205,6 +205,9 @@ importers:
       '@sosed/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@sosed/links':
+        specifier: workspace:*
+        version: link:../../packages/links
       '@sosed/platform':
         specifier: workspace:*
         version: link:../../packages/platform

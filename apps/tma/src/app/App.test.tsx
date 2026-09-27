@@ -123,6 +123,8 @@ describe('Mini App skeleton', () => {
   });
 
   it('takes the language from Telegram launch params', async () => {
+    // гость (initData не принят): языка с сервера нет — остаётся язык клиента Telegram
+    server.use(http.post('*/api/v1/auth/telegram', () => problem(401, 'invalid_init_data')));
     const { app } = start('/', { languageCode: 'sr' });
     expect(app.i18n.language).toBe('sr-Latn');
     expect(document.documentElement.lang).toBe('sr-Latn');
@@ -207,12 +209,10 @@ describe('walking skeleton (0.22)', () => {
     const user = { ...ME, ui_locale: 'sr-Cyrl' as const };
     server.use(getIdentityAuthenticateTelegramMockHandler({ ...TOKENS, is_new: false, user }));
     const { app } = start('/', { languageCode: 'ru' });
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
 
-    await act(async () => {
-      await app.signIn();
-    });
-
+    // вход при запуске (S01) — до первого экрана: главная сразу на сохранённом языке, без мигания ru
+    expect(await screen.findByRole('heading', { name: 'Почетна' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Главная' })).toBeNull();
     expect(app.i18n.language).toBe('sr-Cyrl');
     expect(document.documentElement.lang).toBe('sr-Cyrl');
     expect(await screen.findByRole('heading', { name: 'Почетна' })).toBeTruthy();
@@ -294,9 +294,22 @@ describe('S49 system states (1.5a)', () => {
   });
 
   it('switches to maintenance on 503 maintenance from any request', async () => {
-    server.use(http.get('*/api/v1/me', () => problem(503, 'maintenance')));
+    server.use(http.patch('*/api/v1/me', () => problem(503, 'maintenance')));
     start('/profile');
+    expect(await screen.findByRole('heading', { name: ME.display_name })).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('radio', { name: 'Srpski (latinica)' }));
+    });
+
     expect(await screen.findByRole('heading', { name: 'Технические работы' })).toBeTruthy();
+  });
+
+  it('switches to maintenance when sign-in at launch meets 503', async () => {
+    server.use(http.post('*/api/v1/auth/telegram', () => problem(503, 'maintenance')));
+    start('/');
+    expect(await screen.findByRole('heading', { name: 'Технические работы' })).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
   });
 
   it('shows S49a when client-config cannot be reached at startup', async () => {

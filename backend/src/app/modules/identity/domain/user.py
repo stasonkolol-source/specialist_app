@@ -214,6 +214,28 @@ class User(VersionedAggregate):
         if changed:
             self._record(UserUpdated(user_id=self.id, fields=tuple(changed), occurred_at=now))
 
+    def reset_onboarding(self, *, now: datetime) -> None:
+        """Онбординг заново (dev, `cli dev-reset-user`): без города и намерения, язык — снова
+        из клиента Telegram, как при регистрации. Согласия отзывает use case."""
+        self.ensure_active()
+        telegram = next((i for i in self.identities if i.provider is AuthProvider.TELEGRAM), None)
+        language = telegram.profile.get("language_code") if telegram else None
+        locale = locale_from_language(language if isinstance(language, str) else None)
+        changed = [
+            name
+            for name, differs in (
+                ("home_city_id", self.home_city_id is not None),
+                ("intent", self.intent is not None),
+                ("ui_locale", self.ui_locale is not locale),
+            )
+            if differs
+        ]
+        self.home_city_id = None
+        self.intent = None
+        self.ui_locale = locale
+        if changed:
+            self._record(UserUpdated(user_id=self.id, fields=tuple(changed), occurred_at=now))
+
     def apply_trust_level(self, level: TrustLevel, *, now: datetime) -> None:
         """Записать пересчитанный уровень доверия (политика `trust_level`, §13.2)."""
         self.ensure_active()

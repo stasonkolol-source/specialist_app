@@ -31,6 +31,7 @@
 | `make check` | Все проверки Definition of Done, доступные на текущем шаге |
 | `make lint`, `make typecheck`, `make imports`, `make test` | ruff, mypy strict, контракты import-linter, unit-тесты |
 | `make cli ARGS='--help'` | Служебные команды backend |
+| `make cli ARGS='dev-reset-user <telegram_id>'` | Только dev: пройти онбординг Mini App заново — город, намерение и согласия сброшены |
 
 ## Секреты
 

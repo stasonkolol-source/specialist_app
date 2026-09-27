@@ -158,6 +158,27 @@ def test_update_profile_sets_city_and_intent_from_onboarding() -> None:
     assert user.home_city_id == 7
 
 
+def test_reset_onboarding_clears_city_intent_and_language_choice() -> None:
+    user = register(profile={"first_name": "Ana", "language_code": "sr"}, ui_locale=Locale.RU)
+    user.update_profile(
+        ui_locale=Locale.SR_CYRL, home_city_id=CityId(7), intent=UserIntent.PRO, now=NOW
+    )
+    user.pull_events()
+
+    user.reset_onboarding(now=NOW)
+
+    # язык — снова из клиента Telegram: sr → латиница, как при регистрации
+    assert (user.home_city_id, user.intent, user.ui_locale) == (None, None, Locale.SR_LATN)
+    [event] = user.pull_events()
+    assert isinstance(event, UserUpdated)
+    assert event.fields == ("home_city_id", "intent", "ui_locale")
+    user.reset_onboarding(now=NOW)
+    assert user.pull_events() == []
+    user.delete(by=None, now=NOW)
+    with pytest.raises(AccountDeletedError):
+        user.reset_onboarding(now=NOW)
+
+
 def test_trust_level_change_is_recorded_once() -> None:
     user = register()
     user.pull_events()

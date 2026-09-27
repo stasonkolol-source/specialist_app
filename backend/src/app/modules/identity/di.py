@@ -24,6 +24,7 @@ from app.modules.identity.application.use_cases.refresh_session import RefreshSe
 from app.modules.identity.application.use_cases.register_telegram_user import (
     RegisterTelegramUser,
 )
+from app.modules.identity.application.use_cases.reset_onboarding import ResetOnboarding
 from app.modules.identity.application.use_cases.update_profile import UpdateProfile
 from app.modules.identity.infrastructure.queries import SqlIdentityQuery
 from app.modules.identity.infrastructure.repositories import (
@@ -77,3 +78,4 @@ class IdentityProvider(Provider):
     update_profile = provide(UpdateProfile)
     accept_consents = provide(AcceptConsents)
     register_telegram_user = provide(RegisterTelegramUser)
+    reset_onboarding = provide(ResetOnboarding)

@@ -16,7 +16,8 @@ const app = assemble(platform, {
   // в Telegram сохранённый язык (ui_locale) приходит со входом; в mock-режиме — параметром для e2e
   savedLocale: platform.kind === 'mock' ? params.get('locale') : null,
 });
-void app.signIn();
+// вход — сразу, параллельно с client-config: экран запуска S01 (LaunchGate) дождётся того же итога
+void app.launch();
 // Спайк 0.24: в Telegram маршрут живёт в hash, а кнопку меню dev-бота ставят на путь
 // /__spike/upload (docs/spikes/0.24-webview-upload.md). В сборке ветка выпадает целиком.
 if (

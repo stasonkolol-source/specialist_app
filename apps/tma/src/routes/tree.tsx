@@ -2,12 +2,20 @@
 // Экраны грузятся отдельными чанками (code splitting по маршрутам), оболочка — в первом.
 import { NetworkError } from '@sosed/api-client';
 import type { RouteComponent } from '@tanstack/react-router';
-import { Navigate, createRootRoute, createRoute, lazyRouteComponent } from '@tanstack/react-router';
+import {
+  Navigate,
+  createRootRouteWithContext,
+  createRoute,
+  lazyRouteComponent,
+} from '@tanstack/react-router';
 import type { FunctionComponent } from 'react';
 
+import { ONBOARDING_PATHS, onboardingSearch } from '../features/onboarding/index.ts';
 import { LEGAL_PATH, LegalScreen } from '../features/service/s48-legal/index.ts';
 import { RESTRICTED_PATH, RestrictedRoute } from '../features/service/s49-system/index.ts';
 import { AppShell } from '../features/shell/index.ts';
+import type { RouterContext } from './guards.ts';
+import { requireConsent, requireUser } from './guards.ts';
 
 /**
  * Экран отдельным чанком. Чанк не скачался без сети — NetworkError: экран ошибки покажет S49a
@@ -28,7 +36,7 @@ function screen<K extends string>(
   );
 }
 
-export const rootRoute = createRootRoute({
+export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: AppShell,
   // Неизвестный путь (устаревшая ссылка, опечатка) — на главную, а не пустой экран
   notFoundComponent: () => <Navigate to="/" replace />,
@@ -46,9 +54,11 @@ const jobs = createRoute({
   component: screen(() => import('../features/jobs/s22-my-jobs/index.ts'), 'MyJobsScreen'),
 });
 
+// Создающее действие: без согласия с правилами — S02c (routes/guards.ts)
 const createJob = createRoute({
   getParentRoute: () => rootRoute,
   path: '/jobs/new',
+  beforeLoad: requireConsent,
   component: screen(() => import('../features/jobs/s20a-create-what/index.ts'), 'CreateJobScreen'),
 });
 
@@ -62,6 +72,35 @@ const profile = createRoute({
   getParentRoute: () => rootRoute,
   path: '/profile',
   component: screen(() => import('../features/account/s31-account/index.ts'), 'AccountScreen'),
+});
+
+// Онбординг S02a–c (1.5b): первый экран выбирает S01 (app/LaunchGate), S02c открывают ещё и
+// создающие действия без согласия. `next` — куда вести после онбординга
+const onboardingLanguage = createRoute({
+  getParentRoute: () => rootRoute,
+  path: ONBOARDING_PATHS.language,
+  validateSearch: onboardingSearch,
+  beforeLoad: requireUser,
+  component: screen(
+    () => import('../features/onboarding/s02a-language/index.ts'),
+    'LanguageScreen',
+  ),
+});
+
+const onboardingIntent = createRoute({
+  getParentRoute: () => rootRoute,
+  path: ONBOARDING_PATHS.intent,
+  validateSearch: onboardingSearch,
+  beforeLoad: requireUser,
+  component: screen(() => import('../features/onboarding/s02b-intent/index.ts'), 'IntentScreen'),
+});
+
+const onboardingRules = createRoute({
+  getParentRoute: () => rootRoute,
+  path: ONBOARDING_PATHS.rules,
+  validateSearch: onboardingSearch,
+  beforeLoad: requireUser,
+  component: screen(() => import('../features/onboarding/s02c-rules/index.ts'), 'RulesScreen'),
 });
 
 // S48 и S49b — в первом чанке, без lazy: экраны S49 рисуются и без сети (точка сборки
@@ -100,6 +139,9 @@ export const routeTree = rootRoute.addChildren([
   createJob,
   messages,
   profile,
+  onboardingLanguage,
+  onboardingIntent,
+  onboardingRules,
   legal,
   restricted,
   ...devRoutes,

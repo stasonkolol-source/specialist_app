@@ -1,6 +1,6 @@
 """Порты модуля identity (ADR-0020 §3, §5)."""
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from datetime import datetime
 from typing import Protocol
 
@@ -52,6 +52,15 @@ class ConsentRepository(Protocol):
         """Записать согласия; уже действующая версия документа пропускается.
 
         Возвращает число новых записей: 0 — повтор. Нужен активный UoW.
+        """
+        ...
+
+    async def withdraw(
+        self, user_id: UserId, documents: Iterable[ConsentDocument], *, now: datetime
+    ) -> int:
+        """Отозвать действующие согласия на документы: `withdrawn_at`, журнал не удаляется.
+
+        Возвращает число отозванных записей. Нужен активный UoW.
         """
         ...
 

@@ -59,6 +59,20 @@ export async function expectNoAxeViolations(page: Page, scope: AxeScope = {}) {
   expect(result.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.length})`)).toEqual([]);
 }
 
+/** Кнопка клиента Telegram (MainButton, BackButton) — нативная, в DOM её нет: нажатие — событием
+ *  клиента, как его присылает Telegram (`Telegram.WebView.receiveEvent`). */
+export async function pressTelegram(
+  page: Page,
+  event: 'main_button_pressed' | 'back_button_pressed',
+) {
+  await page.evaluate((name) => {
+    const telegram = (
+      window as unknown as { Telegram: { WebView: { receiveEvent(e: string, d: unknown): void } } }
+    ).Telegram;
+    telegram.WebView.receiveEvent(name, {});
+  }, event);
+}
+
 /** Перейти на вкладку таббара по её подписи. */
 export async function openTab(page: Page, name: string) {
   await page

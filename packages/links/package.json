@@ -5,7 +5,8 @@
   "description": "Кодек deep links startapp: base62 ⇄ UUID, коды экранов",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./golden.json": "./golden.json"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

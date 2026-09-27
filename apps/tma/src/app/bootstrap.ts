@@ -1,15 +1,19 @@
 // Сборка приложения до первого рендера: платформа и ready() как можно раньше, язык из launch
-// params, клиент API, вход по initData в фоне (после входа — язык, сохранённый на сервере).
-// Тот же код собирает приложение в тестах.
-import { configureApiClient } from '@sosed/api-client';
+// params, клиент API, вход по initData в фоне (после входа — язык, сохранённый на сервере),
+// цель deep link запуска (S01). Тот же код собирает приложение в тестах.
+import { ApiError, configureApiClient, getIdentityGetMeQueryKey } from '@sosed/api-client';
 import { createI18n, currentLocale, isLocale, resolveLocale } from '@sosed/i18n';
 import type { Platform } from '@sosed/platform';
 import type { QueryClient } from '@tanstack/react-query';
 import type { RouterHistory } from '@tanstack/react-router';
 
+import { ONBOARDING_PATHS } from '../features/onboarding/index.ts';
 import { RESTRICTED_PATH, reportSystemError } from '../features/service/s49-system/index.ts';
+import { startTarget } from '../routes/startapp.ts';
+import { openedByTelegram } from './launch.ts';
 import { createQueryClient } from './query.ts';
 import { createAppRouter, historyFor } from './router.ts';
+import type { Auth } from './session.ts';
 import { createAuth } from './session.ts';
 
 export const APP_NAME = 'Соседи';
@@ -21,6 +25,10 @@ export interface Assembled {
   router: ReturnType<typeof createAppRouter>;
   version: string;
   signIn: () => Promise<boolean>;
+  /** Вход при запуске (S01): main.tsx начинает его сразу, LaunchGate ждёт итог. */
+  launch: Auth['launch'];
+  /** Экран deep link этого запуска; `null` — открыли без него или перезагрузили экран. */
+  deepLink: string | null;
 }
 
 export interface AssembleOptions {
@@ -50,12 +58,25 @@ export function assemble(platform: Platform, options: AssembleOptions): Assemble
   i18n.on('languageChanged', (next) => {
     document.documentElement.lang = next;
   });
-  const router = createAppRouter(options.history ?? historyFor(platform.kind));
+  // hash читаем до роутера: при запуске из Telegram в нём launch params, а не путь
+  const deepLink = openedByTelegram(platform.kind, window.location.hash)
+    ? startTarget(platform.launch.startParam)
+    : null;
   // S49 из ответов API: 426, техработы и санкция на аккаунт закрывают приложение (StartupGate),
-  // частичная санкция действия открывает S49b поверх экрана
+  // частичная санкция действия открывает S49b поверх экрана. 403 `consent_required` — создающее
+  // действие без согласия с действующими правилами (сменилась редакция, пока приложение открыто):
+  // S02c и обратно на этот экран
   const onSystemError = (error: unknown) => {
+    if (error instanceof ApiError && error.code === 'consent_required') {
+      void queryClient.invalidateQueries({ queryKey: getIdentityGetMeQueryKey() });
+      const next = router.state.location.href;
+      void router.navigate({ to: ONBOARDING_PATHS.rules, search: { next } });
+      return;
+    }
     if (reportSystemError(error)) void router.navigate({ to: RESTRICTED_PATH });
   };
+  const queryClient = createQueryClient(onSystemError);
+  const router = createAppRouter(options.history ?? historyFor(platform.kind), queryClient);
   // ui_locale — выбор пользователя, на нём же пишет бот: важнее language_code Telegram.
   // en в MVP не выбирается — тогда остаётся язык из launch params
   const auth = createAuth(
@@ -74,9 +95,11 @@ export function assemble(platform: Platform, options: AssembleOptions): Assemble
   return {
     platform,
     i18n,
-    queryClient: createQueryClient(onSystemError),
+    queryClient,
     router,
     version: options.version,
     signIn: auth.signIn,
+    launch: auth.launch,
+    deepLink,
   };
 }

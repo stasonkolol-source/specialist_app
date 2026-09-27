@@ -23,6 +23,7 @@
     "@sosed/domain": "workspace:*",
     "@sosed/hooks": "workspace:*",
     "@sosed/i18n": "workspace:*",
+    "@sosed/links": "workspace:*",
     "@sosed/platform": "workspace:*",
     "@sosed/ui-web": "workspace:*",
     "@tanstack/react-query": "5.104.0",
