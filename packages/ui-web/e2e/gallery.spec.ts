@@ -1,7 +1,23 @@
 // Скриншот каждого раздела галереи × тема × локаль. Обновить эталоны: make e2e PKG=ui-web UPDATE=1.
 import { expect, test } from '@playwright/test';
 
-export const SECTIONS = ['typography', 'buttons', 'badges', 'avatars', 'cards', 'icons', 'tabbar'];
+export const SECTIONS = [
+  'typography',
+  'buttons',
+  'badges',
+  'avatars',
+  'cards',
+  'group',
+  'tiles',
+  'chips',
+  'photo',
+  'form',
+  'choice',
+  'progress',
+  'feedback',
+  'icons',
+  'tabbar',
+];
 const THEMES = ['light', 'dark'];
 const LOCALES = ['ru', 'sr-Latn', 'sr-Cyrl'];
 

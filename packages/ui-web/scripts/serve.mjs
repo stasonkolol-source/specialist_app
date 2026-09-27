@@ -14,7 +14,10 @@ const TYPES = {
 };
 
 createServer((req, res) => {
-  const path = normalize(decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname)).replace(/^(\.\.[/\\])+/, '');
+  const path = normalize(decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname)).replace(
+    /^(\.\.[/\\])+/,
+    '',
+  );
   let file = join(dir, path);
   try {
     if (statSync(file).isDirectory()) file = join(file, 'index.html');

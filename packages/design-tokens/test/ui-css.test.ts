@@ -46,10 +46,13 @@ describe('переменные тем', () => {
   it('сверх ui.css — только задокументированные добавления', () => {
     const extraLight = Object.keys(genLight).filter((k) => !(k in uiLight));
     const extraDark = Object.keys(genDark).filter((k) => !(k in uiDark));
-    const radii = ['btn-sm', 'chip', 'badge', 'panel', 'sheet', 'photo'].map((r) => `r-${r}`);
+    const radii = ['btn-sm', 'chip', 'badge', 'panel', 'sheet', 'photo', 'seg-item', 'check'].map(
+      (r) => `r-${r}`,
+    );
+    const shadows = ['seg', 'knob', 'toast', 'pin'].map((s) => `sh-${s}`);
     const avatars = [1, 2, 3, 4, 5].flatMap((n) => [`av${n}`, `av${n}-ink`]);
     expect(extraLight.sort()).toEqual(
-      ['danger-ink', 'toast', 'toast-ink', ...avatars, ...radii].sort(),
+      ['danger-ink', 'toast', 'toast-ink', 'knob', ...avatars, ...radii, ...shadows].sort(),
     );
     expect(extraDark).toEqual(['danger-ink']);
   });
@@ -80,6 +83,23 @@ describe('цвета компонентов', () => {
       normalizeValue(decls.color ?? ''),
     );
   });
+
+  it('бегунок переключателя', () => {
+    expect(normalizeValue(source.color.static.knob)).toBe(
+      normalizeValue(rule('.sw::after').background ?? ''),
+    );
+  });
+});
+
+describe('тени', () => {
+  it.each([
+    ['seg', '.seg>.on'],
+    ['knob', '.sw::after'],
+    ['toast', '.toast'],
+    ['pin', '.pin'],
+  ])('%s = %s { box-shadow }', (name, selector) => {
+    expect(source.shadow[name as keyof typeof source.shadow]).toBe(rule(selector)['box-shadow']);
+  });
 });
 
 describe('радиусы', () => {
@@ -93,6 +113,8 @@ describe('радиусы', () => {
     ['panel', '.bnr', 'border-radius'],
     ['sheet', '.sheet', 'border-radius'],
     ['photo', '.ph', 'border-radius'],
+    ['seg-item', '.seg>*', 'border-radius'],
+    ['check', '.chk', 'border-radius'],
   ])('%s = %s { %s }', (name, selector, prop) => {
     expect(source.radius[name as keyof typeof source.radius]).toBe(px(rule(selector)[prop]));
   });
@@ -147,6 +169,8 @@ describe('типошкала', () => {
     ['tab', typeOf('.tab')],
     ['price', price],
     ['price-lg', typeOf('.price.lg', price)],
+    ['tile', typeOf('.tile')],
+    ['xs', typeOf('.ph')],
   ];
 
   it('в tokens.json нет стилей без сверки', () => {

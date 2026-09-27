@@ -94,7 +94,9 @@
     "over": "{min} hilj.+"
   },
   "rating": {
-    "new": "Novi stručnjak"
+    "new": "Novi stručnjak",
+    "label": "Ocena",
+    "star": "{count, plural, one {# zvezdica} few {# zvezdice} other {# zvezdica}}"
   },
   "urgency": {
     "asap": "Hitno",
@@ -130,5 +132,40 @@
       "cancelled": "Otkazano",
       "disputed": "Spor"
     }
+  },
+  "search": {
+    "placeholder": "Električar, manikir, čišćenje…"
+  },
+  "category": {
+    "handyman": "Majstor na sat",
+    "beauty": "Lepota",
+    "cleaning": "Čišćenje",
+    "moving": "Selidbe",
+    "tutors": "Nastavnici",
+    "all": "Sve kategorije"
+  },
+  "safety": {
+    "prepayment": "Ne plaćajte unapred nepoznatim izvođačima"
+  },
+  "empty": {
+    "jobsTitle": "Još nema zahteva",
+    "jobsText": "Objavite zahtev — stručnjaci u blizini će se javiti"
+  },
+  "toast": {
+    "saved": "Sačuvano"
+  },
+  "form": {
+    "description": "Šta treba uraditi",
+    "budget": "Budžet",
+    "budgetHint": "Možete promeniti kasnije",
+    "required": "Popunite polje",
+    "step": "Korak {current} od {total}"
+  },
+  "settings": {
+    "notifications": "Obaveštenja",
+    "language": "Jezik"
+  },
+  "photo": {
+    "work": "Fotografija rada"
   }
 }

@@ -25,6 +25,7 @@
   --color-scrim: var(--scrim);
   --color-toast: var(--toast);
   --color-toast-ink: var(--toast-ink);
+  --color-knob: var(--knob);
   --color-av1: var(--av1);
   --color-av1-ink: var(--av1-ink);
   --color-av2: var(--av2);
@@ -45,6 +46,13 @@
   --radius-panel: var(--r-panel);
   --radius-sheet: var(--r-sheet);
   --radius-photo: var(--r-photo);
+  --radius-seg-item: var(--r-seg-item);
+  --radius-check: var(--r-check);
+  --shadow-*: initial;
+  --shadow-seg: var(--sh-seg);
+  --shadow-knob: var(--sh-knob);
+  --shadow-toast: var(--sh-toast);
+  --shadow-pin: var(--sh-pin);
   --font-sans: var(--f-ui);
   --font-ui: var(--f-ui);
   --font-display: var(--f-display);
@@ -100,6 +108,12 @@
   --text-price-lg: 22px;
   --text-price-lg--line-height: 28px;
   --text-price-lg--font-weight: 700;
+  --text-tile: 14px;
+  --text-tile--line-height: 18px;
+  --text-tile--font-weight: 600;
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-xs--font-weight: 400;
   --text-avatar-xs: 11px;
   --text-avatar-xs--line-height: 1;
   --text-avatar-xs--font-weight: 600;

@@ -1,0 +1,218 @@
+// Рендер, поведение и доступность компонентов 0.19b. Тексты — данные фикстур.
+import { fireEvent, render, screen } from '@testing-library/react';
+import { useState } from 'react';
+import { describe, expect, it, vi } from 'vitest';
+
+import { AvatarStack, Chip, Chips, Price } from './Chips.tsx';
+import { Banner, EmptyState, ProgressBar, Skeleton, Stars, Steps, Toast } from './Feedback.tsx';
+import { Option, Segmented, Switch } from './form/Choice.tsx';
+import { Field, Input, SearchField, Textarea } from './form/Field.tsx';
+import { Group, Row, Tile, Tiles } from './Group.tsx';
+import { Photo } from './Photo.tsx';
+import { a11yViolations } from './testing/a11y.ts';
+
+describe('Group и Row', () => {
+  it('строки-ссылки, кнопки и статичные; последняя без разделителя', async () => {
+    const onClick = vi.fn();
+    const { container } = render(
+      <Group>
+        <Row icon="bell" title="Уведомления" onClick={onClick} />
+        <Row title="Язык" subtitle="Русский" chevron href="#lang" />
+        <Row title="Версия" trailing={<span>1.0</span>} />
+      </Group>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Уведомления' }));
+    expect(onClick).toHaveBeenCalledOnce();
+    expect(screen.getByRole('link', { name: /Язык/ }).getAttribute('href')).toBe('#lang');
+    expect(container.querySelectorAll('.last\\:border-b-0')).toHaveLength(3);
+    expect(await a11yViolations(container)).toEqual([]);
+  });
+});
+
+describe('Tiles и Tile', () => {
+  it('сетка три колонки, плитка — ссылка с иконкой палитры', async () => {
+    const { container } = render(
+      <Tiles>
+        <Tile icon="wrench" palette={1} label="Мастер на час" href="#c1" />
+        <Tile icon="grid" label="Все категории" onClick={() => {}} />
+      </Tiles>,
+    );
+    expect(container.firstElementChild?.className).toContain('grid-cols-3');
+    expect(container.querySelector('.bg-av1')).toBeTruthy();
+    expect(await a11yViolations(container)).toEqual([]);
+  });
+});
+
+describe('Chips, AvatarStack, Price', () => {
+  it('фильтр-переключатель и счётчик', async () => {
+    const onClick = vi.fn();
+    const { container } = render(
+      <>
+        <Chips label="Фильтры" wrap>
+          <Chip selected>Сегодня</Chip>
+          <Chip accent count={3} onClick={onClick}>
+            Подработка
+          </Chip>
+        </Chips>
+        <AvatarStack
+          label="3 отклика"
+          people={[{ name: 'А Б' }, { name: 'В Г' }, { name: 'Д Е' }]}
+        />
+        <Price large>5 000 RSD</Price>
+      </>,
+    );
+    expect(screen.getByRole('button', { name: 'Сегодня' }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Подработка/ }));
+    expect(onClick).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole('group', { name: '3 отклика' }).querySelectorAll('.-ml-2'),
+    ).toHaveLength(2);
+    expect(screen.getByText('5 000 RSD').className).toContain('text-price-lg');
+    expect(await a11yViolations(container)).toEqual([]);
+  });
+});
+
+describe('Photo', () => {
+  it('плейсхолдер, видео и фото с alt', async () => {
+    const { container } = render(
+      <>
+        <Photo alt="Фото работы" className="size-28" />
+        <Photo alt="Видео" video className="size-28" />
+        <Photo alt="Кухня" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" className="size-28" />
+      </>,
+    );
+    expect(screen.getByRole('img', { name: 'Фото работы' }).className).toContain('ph-stripes');
+    expect(screen.getByRole('img', { name: 'Кухня' }).tagName).toBe('IMG');
+    expect(await a11yViolations(container)).toEqual([]);
+  });
+});
+
+describe('Field, Input, Textarea, SearchField', () => {
+  it('подпись связана с полем, ошибка и подсказка — через aria-describedby', async () => {
+    const { container } = render(
+      <>
+        <Field label="Бюджет" hint="Можно изменить позже">
+          <Input suffix="RSD" defaultValue="5 000" />
+        </Field>
+        <Field label="Что нужно сделать" error="Заполните поле">
+          <Textarea />
+        </Field>
+        <SearchField label="Поиск" placeholder="Электрик…" />
+      </>,
+    );
+    const budget = screen.getByLabelText('Бюджет');
+    expect(budget.getAttribute('aria-describedby')).toBeTruthy();
+    expect(screen.getByText('RSD')).toBeTruthy();
+    const description = screen.getByLabelText('Что нужно сделать');
+    expect(description.getAttribute('aria-invalid')).toBe('true');
+    expect(description.className).toContain('border-danger');
+    expect(screen.getByRole('searchbox', { name: 'Поиск' })).toBeTruthy();
+    expect(await a11yViolations(container)).toEqual([]);
+  });
+});
+
+describe('Segmented, Option, Switch', () => {
+  function Demo() {
+    const [value, setValue] = useState<'a' | 'b' | 'c'>('a');
+    const [on, setOn] = useState(false);
+    const [checked, setChecked] = useState(false);
+    return (
+      <>
+        <Segmented
+          label="Срочность"
+          value={value}
+          onChange={setValue}
+          options={[
+            { value: 'a', label: 'Срочно' },
+            { value: 'b', label: 'Сегодня' },
+            { value: 'c', label: 'На неделе' },
+          ]}
+        />
+        <Switch checked={on} onChange={setOn} label="Уведомления" />
+        <Option
+          kind="checkbox"
+          title="Только проверенные"
+          checked={checked}
+          onChange={setChecked}
+        />
+      </>
+    );
+  }
+
+  it('сегменты — radiogroup со стрелками; switch и checkbox переключаются', async () => {
+    const { container } = render(<Demo />);
+    const first = screen.getByRole('radio', { name: 'Срочно' });
+    expect(first.getAttribute('aria-checked')).toBe('true');
+    fireEvent.keyDown(first, { key: 'ArrowRight' });
+    expect(screen.getByRole('radio', { name: 'Сегодня' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
+    fireEvent.keyDown(screen.getByRole('radio', { name: 'Сегодня' }), { key: 'ArrowLeft' });
+    fireEvent.keyDown(screen.getByRole('radio', { name: 'Срочно' }), { key: 'ArrowLeft' });
+    expect(screen.getByRole('radio', { name: 'На неделе' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
+    const sw = screen.getByRole('switch', { name: 'Уведомления' });
+    fireEvent.click(sw);
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    const option = screen.getByRole('checkbox', { name: 'Только проверенные' });
+    fireEvent.click(option);
+    expect(option.getAttribute('aria-checked')).toBe('true');
+    expect(await a11yViolations(container)).toEqual([]);
+  });
+});
+
+describe('Steps, ProgressBar, Stars', () => {
+  it('прогресс и оценка', async () => {
+    const onChange = vi.fn();
+    const { container } = render(
+      <>
+        <Steps total={5} current={2} label="Шаг 2 из 5" />
+        <ProgressBar value={150} label="Готово" />
+        <Stars value={3} onChange={onChange} label="Оценка" starLabel={(n) => `${n} из 5`} />
+        <Stars value={4} label="4 из 5" starLabel={(n) => `${n}`} />
+      </>,
+    );
+    const steps = screen.getByRole('progressbar', { name: 'Шаг 2 из 5' });
+    expect(steps.querySelectorAll('.bg-accent')).toHaveLength(2);
+    const bar = screen.getByRole('progressbar', { name: 'Готово' })
+      .firstElementChild as HTMLElement;
+    expect(bar.style.width).toBe('100%');
+    fireEvent.click(screen.getByRole('radio', { name: '5 из 5' }));
+    expect(onChange).toHaveBeenCalledWith(5);
+    expect(screen.getByRole('img', { name: '4 из 5' }).querySelectorAll('.text-star')).toHaveLength(
+      4,
+    );
+    expect(await a11yViolations(container)).toEqual([]);
+  });
+});
+
+describe('Banner, EmptyState, Toast, Skeleton', () => {
+  it('тона баннера, пустое состояние, тост со статусом, скелетон скрыт', async () => {
+    const { container } = render(
+      <>
+        <Banner tone="warn">
+          Не вносите предоплату. <a href="#more">Подробнее</a>
+        </Banner>
+        <Banner tone="danger" role="alert">
+          Ошибка
+        </Banner>
+        <EmptyState icon="jobs" title="Пока нет заявок">
+          Опубликуйте заявку
+        </EmptyState>
+        <Toast position="static">Сохранено</Toast>
+        <Skeleton round className="size-12" />
+      </>,
+    );
+    expect(screen.getByText(/Не вносите/).closest('div')?.parentElement?.className).toContain(
+      'bg-urgent-soft',
+    );
+    expect(screen.getByRole('alert').textContent).toBe('Ошибка');
+    expect(screen.getByRole('heading', { name: 'Пока нет заявок' })).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toContain('Сохранено');
+    expect(container.querySelector('[aria-hidden="true"].rounded-full')).toBeTruthy();
+    expect(await a11yViolations(container)).toEqual([]);
+  });
+});

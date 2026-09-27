@@ -1,0 +1,137 @@
+// .group + .row (.row-ic, .grow, .cap, .chev) и .tiles + .tile из ui.css.
+import type { ReactNode } from 'react';
+
+import type { AvatarPalette } from './Avatar.tsx';
+import { FOCUS, cx } from './cx.ts';
+import type { IconName } from './icon/Icon.tsx';
+import { Icon } from './icon/Icon.tsx';
+
+const PALETTE: Record<AvatarPalette, string> = {
+  1: 'bg-av1 text-av1-ink',
+  2: 'bg-av2 text-av2-ink',
+  3: 'bg-av3 text-av3-ink',
+  4: 'bg-av4 text-av4-ink',
+  5: 'bg-av5 text-av5-ink',
+};
+
+/** Иконка строки .row-ic: 36×36, мягкий акцент или палитра категорий. */
+export function RowIcon({
+  icon,
+  palette,
+  large = false,
+}: {
+  icon: IconName;
+  palette?: AvatarPalette;
+  large?: boolean;
+}) {
+  return (
+    <span
+      className={cx(
+        'flex shrink-0 items-center justify-center',
+        large ? 'size-10 rounded-btn' : 'size-9 rounded-btn-sm',
+        palette ? PALETTE[palette] : 'bg-accent-soft text-accent-soft-ink',
+      )}
+    >
+      <Icon name={icon} />
+    </span>
+  );
+}
+
+export function Group({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cx('overflow-hidden rounded-card bg-surface', className)}>{children}</div>;
+}
+
+export interface RowProps {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  icon?: IconName;
+  /** Аватар или другой элемент слева вместо иконки. */
+  leading?: ReactNode;
+  /** Бейдж, переключатель, значение справа. */
+  trailing?: ReactNode;
+  /** Стрелка «перейти» справа. */
+  chevron?: boolean;
+  href?: string;
+  onClick?: () => void;
+}
+
+export function Row({
+  title,
+  subtitle,
+  icon,
+  leading,
+  trailing,
+  chevron = false,
+  href,
+  onClick,
+}: RowProps) {
+  const classes = cx(
+    'flex min-h-13 w-full items-center gap-3 border-0 border-b border-line bg-transparent px-4 py-3 text-left text-text last:border-b-0',
+    (href || onClick) && FOCUS,
+  );
+  const content = (
+    <>
+      {icon ? <RowIcon icon={icon} /> : leading}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="text-body">{title}</span>
+        {subtitle && <span className="text-cap text-text2">{subtitle}</span>}
+      </span>
+      {trailing}
+      {chevron && <Icon name="chev-right" className="text-text2" />}
+    </>
+  );
+  if (href) {
+    return (
+      <a href={href} className={classes}>
+        {content}
+      </a>
+    );
+  }
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={classes}>
+        {content}
+      </button>
+    );
+  }
+  return <div className={classes}>{content}</div>;
+}
+
+/** Сетка категорий в три колонки. */
+export function Tiles({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cx('grid grid-cols-3 gap-2', className)}>{children}</div>;
+}
+
+export function Tile({
+  label,
+  icon,
+  palette,
+  href,
+  onClick,
+}: {
+  label: string;
+  icon: IconName;
+  palette?: AvatarPalette;
+  href?: string;
+  onClick?: () => void;
+}) {
+  const classes = cx(
+    'flex min-h-24 w-full flex-col justify-between gap-2 rounded-card border-0 bg-surface p-3 text-left text-tile text-text',
+    FOCUS,
+  );
+  const content = (
+    <>
+      <RowIcon icon={icon} palette={palette} large />
+      {label}
+    </>
+  );
+  return href ? (
+    <a href={href} className={classes}>
+      {content}
+    </a>
+  ) : (
+    <button type="button" onClick={onClick} className={classes}>
+      {content}
+    </button>
+  );
+}

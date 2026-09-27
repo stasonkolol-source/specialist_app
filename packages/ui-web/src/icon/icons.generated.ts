@@ -1084,6 +1084,34 @@ export const ICONS = {
         }
       ]
     ]
+  },
+  "play": {
+    "fill": true,
+    "shapes": [
+      [
+        "path",
+        {
+          "d": "M8 5v14l11-7z"
+        }
+      ]
+    ]
+  },
+  "bag": {
+    "fill": false,
+    "shapes": [
+      [
+        "path",
+        {
+          "d": "M5 8h14l-1 12H6z"
+        }
+      ],
+      [
+        "path",
+        {
+          "d": "M9 8V6a3 3 0 0 1 6 0v2"
+        }
+      ]
+    ]
   }
 } as const;
 
