@@ -28,11 +28,11 @@ export function HomeScreen() {
         />
       )}
       {showGoods ? (
-        <EmptyState icon="bag" title={t('goods.soonTitle')}>
+        <EmptyState as="h2" icon="bag" title={t('goods.soonTitle')}>
           {t('goods.soonText')}
         </EmptyState>
       ) : (
-        <EmptyState icon="home" title={t('stub.title')}>
+        <EmptyState as="h2" icon="home" title={t('stub.title')}>
           {t('stub.text')}
         </EmptyState>
       )}

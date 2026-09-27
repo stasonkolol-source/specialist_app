@@ -26,14 +26,17 @@ export interface AssembleOptions {
   version: string;
   history?: RouterHistory;
   languages?: readonly string[];
-  /** Тесты подставляют ответы API; в приложении — fetch браузера. */
-  fetch?: typeof fetch;
+  /** Язык, выбранный пользователем (`/me.language`); в mock-режиме — `?locale=`. */
+  savedLocale?: string | null;
+  /** Origin API; в приложении — тот же, что у страницы (пусто), в тестах — абсолютный. */
+  baseUrl?: string;
 }
 
 export function assemble(platform: Platform, options: AssembleOptions): Assembled {
   platform.ready();
   platform.expand();
   const locale = resolveLocale({
+    saved: options.savedLocale,
     telegram: platform.launch.languageCode,
     browser: options.languages ?? [],
   });
@@ -44,7 +47,7 @@ export function assemble(platform: Platform, options: AssembleOptions): Assemble
     client: `tma/${options.version}`,
     locale: () => currentLocale(i18n),
     onReauth: auth.signIn,
-    ...(options.fetch ? { fetch: options.fetch } : {}),
+    baseUrl: options.baseUrl ?? '',
   });
   return {
     platform,

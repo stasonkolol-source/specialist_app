@@ -2,6 +2,7 @@
 import { fontPreload } from '@sosed/design-tokens/vite';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import type { Plugin } from 'vite';
 import { defineConfig, loadEnv } from 'vite';
 
 import pkg from './package.json' with { type: 'json' };
@@ -16,14 +17,38 @@ const list = (value: string | undefined): string[] =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+/** `_headers` в формате Cloudflare (Workers Static Assets, 0.25d): CSP собранного приложения.
+ *  Тот же файл применяет статический сервер e2e — тесты ловят нарушения CSP. */
+function cspHeaders(mediaOrigins: readonly string[]): Plugin {
+  return {
+    name: 'sosed-csp-headers',
+    apply: 'build',
+    generateBundle() {
+      const csp = contentSecurityPolicy({ dev: false, mediaOrigins });
+      this.emitFile({
+        type: 'asset',
+        fileName: '_headers',
+        source: `/*\n  Content-Security-Policy: ${csp}\n`,
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   // .env рядом с конфигом: адрес туннеля для allowedHosts (0.22), CDN медиа, DSN Sentry
   const env = loadEnv(mode, import.meta.dirname, '');
   const mediaOrigins = list(env.VITE_MEDIA_ORIGINS);
   return {
-    plugins: [react(), tailwindcss(), fontPreload()],
+    plugins: [react(), tailwindcss(), fontPreload(), cspHeaders(mediaOrigins)],
     define: { __APP_VERSION__: JSON.stringify(pkg.version) },
-    build: { target: BUILD_TARGET, sourcemap: true },
+    // manifest — для бюджета первого экрана (scripts/size.ts)
+    build: {
+      target: BUILD_TARGET,
+      sourcemap: true,
+      manifest: true,
+      // Шрифты — только файлами: data: URI запрещает CSP font-src 'self'
+      assetsInlineLimit: (file: string) => (file.endsWith('.woff2') ? false : undefined),
+    },
     server: {
       host: '127.0.0.1',
       port: 5173,

@@ -7,7 +7,7 @@ export function AccountScreen() {
   return (
     <section className="flex flex-col gap-2 px-4 pt-4">
       <Heading variant="h1">{t('nav.profile')}</Heading>
-      <EmptyState icon="user" title={t('stub.title')}>
+      <EmptyState as="h2" icon="user" title={t('stub.title')}>
         {t('stub.text')}
       </EmptyState>
     </section>

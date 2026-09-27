@@ -1,5 +1,5 @@
 # CI frontend (DEVELOPMENT_PLAN 0.16b): те же проверки, что make check-frontend локально.
-# Дальше сюда добавляются: Playwright экранов и бюджет бандла (0.21b), pnpm audit (0.23).
+# Дальше сюда добавляются: pnpm audit (0.23).
 name: ci-frontend
 
 on:
@@ -85,6 +85,11 @@ jobs:
       - name: i18n catalogs
         run: pnpm -F i18n i18n:check
 
+      - name: Mini App build and first-screen budget (≤ 200 KB gzip)
+        run: |
+          pnpm -F tma build
+          pnpm -F tma size
+
       # Клиент — вывод orval из backend/openapi.json: перегенерация не должна давать diff (make openapi)
       - name: api-client matches OpenAPI
         run: |
@@ -125,4 +130,39 @@ jobs:
           path: |
             packages/ui-web/playwright-report
             packages/ui-web/test-results
+          retention-days: 7
+
+  # Экраны Mini App: webkit 390×844, chromium 360×800 и 375×667, desktop 1280×800 — в том же образе,
+  # что make e2e PKG=tma; скриншоты × тема × язык, axe-core, CSP собранного приложения.
+  tma-e2e:
+    name: Mini App e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: pnpm (corepack)
+        run: |
+          corepack enable
+          pnpm --version
+
+      - name: install
+        run: pnpm install --frozen-lockfile
+
+      - name: build
+        run: pnpm -F tma e2e:build
+
+      - name: playwright
+        run: pnpm -F tma e2e
+
+      - uses: actions/upload-artifact@v7.0.1
+        if: failure()
+        with:
+          name: tma-playwright-report
+          path: |
+            apps/tma/playwright-report
+            apps/tma/test-results
           retention-days: 7
