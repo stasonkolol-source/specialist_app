@@ -24,11 +24,11 @@ def test_price_hint_allows_a_single_price() -> None:
 @pytest.mark.parametrize(("low", "high"), [(0, 100), (500, 400), (-1, 10)])
 def test_price_hint_range_must_be_positive_and_ordered(low: int, high: int) -> None:
     with pytest.raises(DomainValidationError) as error:
-        PriceHint.from_rsd(low, high, PriceUnit.JOB)
+        PriceHint.from_rsd(low, high, PriceUnit.WORK)
     assert error.value.params == {"field": "price_hint", "reason": "range"}
 
 
 def test_price_hint_is_rsd_only() -> None:
     with pytest.raises(DomainValidationError) as error:
-        PriceHint(min=Money(100, Currency.XTR), max=Money(200, Currency.XTR), unit=PriceUnit.JOB)
+        PriceHint(min=Money(100, Currency.XTR), max=Money(200, Currency.XTR), unit=PriceUnit.WORK)
     assert error.value.params["reason"] == "rsd_only"

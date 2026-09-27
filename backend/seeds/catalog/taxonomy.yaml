@@ -5,8 +5,8 @@
 # - name: ru и sr-Cyrl обязательны (CHECK в БД), sr-Latn генерируется из sr-Cyrl при загрузке,
 #   если не задан явно; en — для поиска и v1.
 # - price_hint: ориентиры в целых динарах (RSD) по городам из research/01 §4.2; загрузчик
-#   переводит их в минимальные единицы (пара). unit: hour | job | visit | piece | service |
-#   lesson | m2 | move.
+#   переводит их в минимальные единицы (пара). unit — как jobs.budget_unit (ARCHITECTURE §7.3):
+#   work (за работу целиком) | hour | m2 | visit | item (за штуку) | lesson.
 # - terms: синонимы и разговорные формулировки для поиска и автодополнения (catalog.search_terms);
 #   sr — латиницей или кириллицей, нормализация (латиница, без диакритики) — при загрузке.
 # - risk_level: 0 — обычная, 1 — премодерация, 2 — запрещено.
@@ -44,7 +44,7 @@ categories:
         icon: sofa
         name: {ru: Сборка мебели, sr-Cyrl: Монтажа намештаја, en: Furniture assembly}
         price_hint:
-          novi-sad: {rsd: [1800, 5000], unit: piece}
+          novi-sad: {rsd: [1800, 5000], unit: item}
         terms:
           ru: [собрать шкаф, сборка мебели икеа, собрать кровать, собрать кухню, разобрать мебель]
           sr: [montaža nameštaja, sklapanje nameštaja, montaža ikea, sklopiti ormar, монтажа намештаја]
@@ -60,7 +60,7 @@ categories:
         icon: droplet
         name: {ru: Сантехник, sr-Cyrl: Водоинсталатер, en: Plumber}
         price_hint:
-          novi-sad: {rsd: [2000, 5000], unit: job}
+          novi-sad: {rsd: [2000, 5000], unit: work}
         terms:
           ru: [сантехник, заменить смеситель, течет кран, засор, прочистить унитаз, установить бойлер]
           sr: [vodoinstalater, zamena slavine, curi slavina, odgušenje, bojler, водоинсталатер]
@@ -76,7 +76,7 @@ categories:
         icon: bolt
         name: {ru: Электрик, sr-Cyrl: Електричар, en: Electrician}
         price_hint:
-          novi-sad: {rsd: [1000, 4000], unit: piece}
+          novi-sad: {rsd: [1000, 4000], unit: item}
         terms:
           ru: [электрик, повесить люстру, установить люстру, розетка, выключатель, выбивает пробки, проводка]
           sr: [električar, luster, montaža lustera, utičnica, prekidač, osigurač, instalacije, струја]
@@ -102,7 +102,7 @@ categories:
         icon: hand
         name: {ru: Маникюр и педикюр, sr-Cyrl: Маникир и педикир, en: Manicure and pedicure}
         price_hint:
-          novi-sad: {rsd: [2200, 3100], unit: service}
+          novi-sad: {rsd: [2200, 3100], unit: work}
         terms:
           ru: [маникюр, гель лак, покрытие гель лаком, педикюр, наращивание ногтей]
           sr: [manikir, gel lak, pedikir, nadogradnja noktiju, izlivanje noktiju, маникир]
@@ -116,7 +116,7 @@ categories:
         icon: eye
         name: {ru: Брови и ресницы, sr-Cyrl: Обрве и трепавице, en: Brows and lashes}
         price_hint:
-          novi-sad: {rsd: [500, 4200], unit: service}
+          novi-sad: {rsd: [500, 4200], unit: work}
         terms:
           ru: [наращивание ресниц, ламинирование бровей, коррекция бровей, ламинирование ресниц]
           sr: [trepavice, ekstenzije trepavica, laminacija obrva, oblikovanje obrva, трепавице]
@@ -130,7 +130,7 @@ categories:
         icon: scissors
         name: {ru: Волосы, sr-Cyrl: Коса, en: Hair}
         price_hint:
-          novi-sad: {rsd: [1100, 5500], unit: service}
+          novi-sad: {rsd: [1100, 5500], unit: work}
         terms:
           ru: [стрижка, женская стрижка, мужская стрижка, окрашивание, парикмахер на дом]
           sr: [šišanje, frizer, farbanje kose, pramenovi, фризер]
@@ -187,7 +187,7 @@ categories:
         icon: truck
         name: {ru: Переезд квартиры, sr-Cyrl: Селидба стана, en: Apartment move}
         price_hint:
-          novi-sad: {rsd: [9400, 23500], unit: move}
+          novi-sad: {rsd: [9400, 23500], unit: work}
         terms:
           ru: [переезд квартиры, переезд под ключ, перевезти мебель]
           sr: [selidba stana, preseljenje, prevoz nameštaja]

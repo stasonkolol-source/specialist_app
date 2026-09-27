@@ -7,7 +7,7 @@
 
 from pydantic import BaseModel
 
-from app.modules.catalog.application.dto import CategoryNode
+from app.modules.catalog.application.dto import CategoryView
 from app.modules.catalog.domain.category import PriceUnit
 from app.platform.http.money import MoneyOut
 from app.platform.kernel.localized import Locale
@@ -38,7 +38,7 @@ class CategoryOut(BaseModel):
     children: list[CategoryOut]
 
     @classmethod
-    def of(cls, node: CategoryNode, locale: Locale, city: str | None) -> CategoryOut:
+    def of(cls, node: CategoryView, locale: Locale, city: str | None) -> CategoryOut:
         hint = node.price_hints.get(city) if city is not None else None
         price_hint = (
             PriceHintOut(min=MoneyOut.of(hint.min), max=MoneyOut.of(hint.max), unit=hint.unit)

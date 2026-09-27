@@ -20,7 +20,15 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from shapely.geometry import MultiPolygon, Point, shape
 from shapely.ops import unary_union
 
@@ -28,7 +36,7 @@ from app.modules.catalog.api import RiskLevel
 from app.modules.catalog.application.dto import CategorySeed, TagSeed
 from app.modules.catalog.domain.category import PriceHint as PriceHintValue
 from app.modules.catalog.domain.category import PriceUnit
-from app.modules.catalog.domain.terms import SearchTerm, TermLanguage
+from app.modules.catalog.domain.terms import MAX_TERM_LENGTH, SearchTerm, TermLanguage
 from app.modules.geo.application.dto import CitySeed, DistrictSeed
 from app.modules.geo.domain.place import DistrictKind as GeoDistrictKind
 from app.platform.kernel.geo import GeoPoint
@@ -42,17 +50,24 @@ MIN_SIBLING_OVERLAP = 0.05
 """Доля площади меньшего района, при которой пересечение соседей — ошибка данных."""
 
 Slug = Annotated[str, Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=64)]
+Term = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_TERM_LENGTH)
+]
+"""Строка словаря поиска (search_terms.term): синоним или название на любой локали."""
 
 
 class Names(BaseModel):
-    """Названия: ru и sr-Cyrl обязательны (CHECK в БД), sr-Latn — транслит, если не задан."""
+    """Названия: ru и sr-Cyrl обязательны (CHECK в БД), sr-Latn — транслит, если не задан.
+
+    Названия категорий и тегов попадают в словарь поиска — отсюда предел длины Term.
+    """
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    ru: str = Field(min_length=1)
-    sr_cyrl: str = Field(alias="sr-Cyrl", min_length=1)
-    sr_latn: str | None = Field(default=None, alias="sr-Latn")
-    en: str | None = None
+    ru: Term
+    sr_cyrl: Term = Field(alias="sr-Cyrl")
+    sr_latn: Term | None = Field(default=None, alias="sr-Latn")
+    en: Term | None = None
 
 
 class PriceHint(BaseModel):
@@ -73,9 +88,9 @@ class PriceHint(BaseModel):
 class Terms(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    ru: list[str] = Field(default_factory=list)
-    sr: list[str] = Field(default_factory=list)
-    en: list[str] = Field(default_factory=list)
+    ru: list[Term] = Field(default_factory=list)
+    sr: list[Term] = Field(default_factory=list)
+    en: list[Term] = Field(default_factory=list)
 
 
 class Tag(BaseModel):
@@ -90,7 +105,8 @@ class Category(BaseModel):
 
     slug: Slug
     name: Names
-    icon: str | None = None
+    icon: str | None = Field(default=None, max_length=32)
+    """Имя иконки дизайн-системы: categories.icon — varchar(32)."""
     risk_level: int = Field(default=0, ge=0, le=2)
     price_hint: dict[str, PriceHint] = Field(default_factory=dict)
     terms: Terms = Field(default_factory=Terms)

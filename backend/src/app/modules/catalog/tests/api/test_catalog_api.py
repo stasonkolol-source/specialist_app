@@ -100,7 +100,7 @@ async def test_price_hints_for_city_in_para(api: httpx.AsyncClient) -> None:
     assert nodes["electrical"]["price_hint"] == {
         "min": {"amount": 100_000, "currency": "RSD"},
         "max": {"amount": 400_000, "currency": "RSD"},
-        "unit": "piece",
+        "unit": "item",
     }
     assert nodes["handyman"]["price_hint"] is None
     no_city = _by_slug((await api.get("/api/v1/categories")).json())

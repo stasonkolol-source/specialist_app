@@ -886,17 +886,15 @@
       "PriceUnit": {
         "type": "string",
         "enum": [
+          "work",
           "hour",
-          "job",
-          "visit",
-          "piece",
-          "service",
-          "lesson",
           "m2",
-          "move"
+          "visit",
+          "item",
+          "lesson"
         ],
         "title": "PriceUnit",
-        "description": "За что цена в ориентире: за час, за работу, за выезд, за предмет, за м² …"
+        "description": "За что цена в ориентире; те же значения, что у бюджета заявки (`jobs.budget_unit`, §7.3).\n\n`work` — за работу целиком (вызов сантехника, маникюр, переезд), `item` — за штуку."
       },
       "ProblemOut": {
         "properties": {

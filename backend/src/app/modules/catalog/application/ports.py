@@ -4,12 +4,12 @@ from collections.abc import Collection, Sequence
 from typing import Protocol
 
 from app.modules.catalog.api import CategorySummary
-from app.modules.catalog.application.dto import CategoryNode, CategorySeed, ImportResult
+from app.modules.catalog.application.dto import CategorySeed, CategoryView, ImportResult
 from app.platform.kernel.ids import CategoryId
 
 
 class CatalogQuery(Protocol):
-    async def tree(self) -> list[CategoryNode]:
+    async def tree(self) -> list[CategoryView]:
         """Публичное дерево: активные и не запрещённые категории, по sort_order."""
         ...
 

@@ -89,6 +89,27 @@ def _first_leaf(data: Any) -> dict[str, Any]:
             ),
             "deeper than 3",
         ),
+        # Пределы БД и словаря поиска: без них ошибку дал бы только `cli seed`.
+        (
+            lambda d: _first_leaf(d)["terms"]["ru"].insert(0, "x" * 121),
+            "terms.ru.0: String should have at most 120 characters",
+        ),
+        (
+            lambda d: _first_leaf(d)["terms"]["sr"].insert(0, "   "),
+            "terms.sr.0: String should have at least 1 character",
+        ),
+        (
+            lambda d: _first_leaf(d)["name"].update(ru="x" * 121),
+            "name.ru: String should have at most 120 characters",
+        ),
+        (
+            lambda d: _first_leaf(d)["tags"][0]["name"].update(en="x" * 121),
+            "name.en: String should have at most 120 characters",
+        ),
+        (
+            lambda d: _first_leaf(d).update(icon="i" * 40),
+            "icon: String should have at most 32 characters",
+        ),
     ],
     ids=[
         "no-sr-cyrl",
@@ -98,6 +119,11 @@ def _first_leaf(data: Any) -> dict[str, Any]:
         "bad-unit",
         "bad-slug",
         "too-deep",
+        "long-synonym",
+        "blank-synonym",
+        "long-name",
+        "long-tag-name",
+        "long-icon",
     ],
 )
 def test_broken_taxonomy_is_reported(
@@ -168,7 +194,7 @@ def test_catalog_seed_for_import_keeps_order_para_and_scripts() -> None:
     electrical = handyman.children[3]
     assert (electrical.slug, electrical.sort_order) == ("electrical", 3)
     hint = electrical.price_hints["novi-sad"]
-    assert (hint.min, hint.max, hint.unit) == (Money(100_000), Money(400_000), PriceUnit.PIECE)
+    assert (hint.min, hint.max, hint.unit) == (Money(100_000), Money(400_000), PriceUnit.ITEM)
     assert Locale.SR_LATN not in electrical.name.values  # латиницу генерирует импорт
     locales = {term.text: term.locale for term in electrical.synonyms}
     assert locales["электрик"] is Locale.RU

@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.engine import RowMapping
 
 from app.modules.catalog.api import CategorySummary, RiskLevel
-from app.modules.catalog.application.dto import CategoryNode, TagView
+from app.modules.catalog.application.dto import CategoryView, TagView
 from app.modules.catalog.infrastructure.models import CategoryRow, TagRow
 from app.platform.db.query import SqlQuery
 from app.platform.kernel.ids import CategoryId, TagId
@@ -27,7 +27,7 @@ _SUMMARY = (
 
 
 class SqlCatalogQuery(SqlQuery):
-    async def tree(self) -> list[CategoryNode]:
+    async def tree(self) -> list[CategoryView]:
         c, t = _CATEGORIES, TagRow.__table__.c
         categories = await self._fetch(
             select(c.id, c.parent_id, c.slug, c.name, c.icon, c.price_hint)
@@ -52,7 +52,7 @@ class SqlCatalogQuery(SqlQuery):
         return [_summary(row) for row in rows]
 
 
-def _tree(categories: Sequence[RowMapping], tags: Sequence[RowMapping]) -> list[CategoryNode]:
+def _tree(categories: Sequence[RowMapping], tags: Sequence[RowMapping]) -> list[CategoryView]:
     """Дерево из плоских строк: потомки выключенной категории в него не попадают."""
     tags_of: defaultdict[int, list[TagView]] = defaultdict(list)
     for tag in tags:
@@ -63,8 +63,8 @@ def _tree(categories: Sequence[RowMapping], tags: Sequence[RowMapping]) -> list[
     for row in categories:
         children_of[row["parent_id"]].append(row)
 
-    def node(row: RowMapping) -> CategoryNode:
-        return CategoryNode(
+    def node(row: RowMapping) -> CategoryView:
+        return CategoryView(
             id=CategoryId(row["id"]),
             slug=row["slug"],
             name=row["name"],

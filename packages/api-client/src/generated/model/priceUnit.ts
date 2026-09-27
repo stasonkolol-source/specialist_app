@@ -6,17 +6,17 @@
  */
 
 /**
- * За что цена в ориентире: за час, за работу, за выезд, за предмет, за м² …
+ * За что цена в ориентире; те же значения, что у бюджета заявки (`jobs.budget_unit`, §7.3).
+ *
+ * `work` — за работу целиком (вызов сантехника, маникюр, переезд), `item` — за штуку.
  */
 export type PriceUnit = (typeof PriceUnit)[keyof typeof PriceUnit];
 
 export const PriceUnit = {
+  work: 'work',
   hour: 'hour',
-  job: 'job',
-  visit: 'visit',
-  piece: 'piece',
-  service: 'service',
-  lesson: 'lesson',
   m2: 'm2',
-  move: 'move',
+  visit: 'visit',
+  item: 'item',
+  lesson: 'lesson',
 } as const;

@@ -12,16 +12,17 @@ MAX_DEPTH: Final = 3
 
 
 class PriceUnit(StrEnum):
-    """За что цена в ориентире: за час, за работу, за выезд, за предмет, за м² …"""
+    """За что цена в ориентире; те же значения, что у бюджета заявки (`jobs.budget_unit`, §7.3).
 
+    `work` — за работу целиком (вызов сантехника, маникюр, переезд), `item` — за штуку.
+    """
+
+    WORK = "work"
     HOUR = "hour"
-    JOB = "job"
-    VISIT = "visit"
-    PIECE = "piece"
-    SERVICE = "service"
-    LESSON = "lesson"
     M2 = "m2"
-    MOVE = "move"
+    VISIT = "visit"
+    ITEM = "item"
+    LESSON = "lesson"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

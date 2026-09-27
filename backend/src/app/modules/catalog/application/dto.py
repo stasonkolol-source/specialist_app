@@ -18,7 +18,7 @@ class TagView:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class CategoryNode:
+class CategoryView:
     """Узел публичного дерева: активная и не запрещённая категория с активными тегами."""
 
     id: CategoryId
@@ -28,7 +28,7 @@ class CategoryNode:
     price_hints: Mapping[str, PriceHint]
     """Ориентиры цены по slug города."""
     tags: tuple[TagView, ...]
-    children: tuple[CategoryNode, ...]
+    children: tuple[CategoryView, ...]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

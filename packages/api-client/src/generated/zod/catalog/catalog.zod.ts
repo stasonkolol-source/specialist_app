@@ -46,8 +46,10 @@ export const CatalogListCategoriesResponseItem = zod.object({
           currency: zod.enum(['RSD', 'XTR']),
         }),
         unit: zod
-          .enum(['hour', 'job', 'visit', 'piece', 'service', 'lesson', 'm2', 'move'])
-          .describe('За что цена в ориентире: за час, за работу, за выезд, за предмет, за м² …'),
+          .enum(['work', 'hour', 'm2', 'visit', 'item', 'lesson'])
+          .describe(
+            'За что цена в ориентире; те же значения, что у бюджета заявки (`jobs.budget_unit`, §7.3).\n\n`work` — за работу целиком (вызов сантехника, маникюр, переезд), `item` — за штуку.',
+          ),
       })
       .describe('«Обычно за это платят 1 000–2 400 RSD за час» (§7.7).'),
     zod.null(),

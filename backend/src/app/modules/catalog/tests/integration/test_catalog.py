@@ -10,11 +10,12 @@ from dataclasses import replace
 import procrastinate
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.plugins.database import make_uow
 
 from app.modules.catalog.api import CategorySummary, RiskLevel
-from app.modules.catalog.application.dto import CategoryNode, CategorySeed, ImportResult, TagSeed
+from app.modules.catalog.application.dto import CategorySeed, CategoryView, ImportResult, TagSeed
 from app.modules.catalog.application.facade import CatalogFacade
 from app.modules.catalog.application.use_cases.import_catalog import (
     ImportCatalog,
@@ -83,7 +84,7 @@ ELECTRICAL = a_category(
         TagSeed(slug="t-chandeliers", name=names("Люстры", "Лустери")),
         TagSeed(slug="t-sockets", name=names("Розетки", "Утичнице")),
     ],
-    price_hints={"novi-sad": PriceHint.from_rsd(1000, 4000, PriceUnit.PIECE)},
+    price_hints={"novi-sad": PriceHint.from_rsd(1000, 4000, PriceUnit.ITEM)},
 )
 PLUMBING = a_category(
     "t-plumbing",
@@ -132,7 +133,7 @@ async def _summary(db_session: AsyncSession, slug: str) -> CategorySummary:
     return summary
 
 
-def _find_or_none(nodes: Sequence[CategoryNode], slug: str) -> CategoryNode | None:
+def _find_or_none(nodes: Sequence[CategoryView], slug: str) -> CategoryView | None:
     for node in nodes:
         if node.slug == slug:
             return node
@@ -141,10 +142,39 @@ def _find_or_none(nodes: Sequence[CategoryNode], slug: str) -> CategoryNode | No
     return None
 
 
-def _find(nodes: Sequence[CategoryNode], slug: str) -> CategoryNode:
+def _find(nodes: Sequence[CategoryView], slug: str) -> CategoryView:
     node = _find_or_none(nodes, slug)
     assert node is not None, f"{slug} is not in the tree"
     return node
+
+
+async def _path(db_session: AsyncSession, slug: str) -> list[str]:
+    """path категории — slug предков и её самой; заодно depth сверяется с длиной path."""
+    row = (
+        await db_session.execute(
+            text(
+                "SELECT array(SELECT a.slug FROM unnest(c.path) WITH ORDINALITY AS p(id, n)"
+                " JOIN catalog.categories a ON a.id = p.id ORDER BY p.n) AS path, c.depth"
+                " FROM catalog.categories c WHERE c.slug = :s"
+            ),
+            {"s": slug},
+        )
+    ).one()
+    assert row.depth == len(row.path)
+    return list(row.path)
+
+
+def chain(*slugs: str) -> CategorySeed:
+    """Цепочка «корень → потомок → …» из синтетических категорий."""
+    node: CategorySeed | None = None
+    for slug in reversed(slugs):
+        node = a_category(slug, names(slug, slug), children=[node] if node else [])
+    assert node is not None
+    return node
+
+
+def with_children(parent: CategorySeed, *children: CategorySeed) -> CategorySeed:
+    return replace(parent, children=children)
 
 
 async def test_import_is_idempotent_and_counts_changes(
@@ -216,6 +246,126 @@ async def test_moving_a_subtree_rewrites_paths_of_descendants(
         plumbing.id,
         (await _summary(db_session, "t-electrical")).id,
     }
+
+
+@pytest.mark.parametrize("moved_first", [True, False], ids=["moved-first", "moved-last"])
+async def test_restructure_does_not_depend_on_yaml_order(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App, moved_first: bool
+) -> None:
+    await _import(db_session, procrastinate_app, [chain("t-r1", "t-m", "t-l")])
+    # t-m уходит под новый раздел, а его бывший потомок t-l остаётся в t-r1: по пути
+    # сверху вниз t-l не должен на миг оказаться на четвёртом уровне.
+    moved = chain("t-r2", "t-x", "t-m")
+    stayed = chain("t-r1", "t-l")
+
+    result = await _import(
+        db_session, procrastinate_app, [moved, stayed] if moved_first else [stayed, moved]
+    )
+
+    assert (result.created, result.updated, result.unchanged) == (2, 2, 1)
+    assert await _path(db_session, "t-m") == ["t-r2", "t-x", "t-m"]
+    assert await _path(db_session, "t-l") == ["t-r1", "t-l"]
+
+
+@pytest.mark.parametrize("roots", [("t-d", "t-c"), ("t-c", "t-d")], ids=str)
+async def test_leaf_split_off_a_moved_branch_imports_in_any_order(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App, roots: tuple[str, str]
+) -> None:
+    await _import(db_session, procrastinate_app, [chain("t-a", "t-b", "t-c"), chain("t-d")])
+    new = {"t-d": chain("t-d", "t-a", "t-b"), "t-c": chain("t-c")}
+
+    await _import(db_session, procrastinate_app, [new[slug] for slug in roots])
+
+    assert await _path(db_session, "t-b") == ["t-d", "t-a", "t-b"]
+    assert await _path(db_session, "t-c") == ["t-c"]
+
+
+async def test_category_left_out_of_the_seed_blocks_a_move_by_name(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App
+) -> None:
+    await _import(db_session, procrastinate_app, [chain("t-a", "t-b", "t-c")])
+
+    # t-c из сида убрали, но импорт его не трогает: под перенесённым t-b он был бы 4-м.
+    with pytest.raises(CategoryTooDeepError) as error:
+        await _import(db_session, procrastinate_app, [chain("t-x", "t-a", "t-b")])
+
+    assert error.value.params == {"max_depth": 3, "slug": "t-c"}
+    assert await _path(db_session, "t-c") == ["t-a", "t-b", "t-c"]
+    count = await db_session.execute(
+        text("SELECT count(*) FROM catalog.categories WHERE slug = 't-x'")
+    )
+    assert count.scalar_one() == 0
+
+
+async def test_seed_change_keeps_admin_deactivation_and_raised_risk(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App
+) -> None:
+    await _import(db_session, procrastinate_app, taxonomy())
+    await db_session.execute(
+        text(
+            "UPDATE catalog.categories SET is_active = false, risk_level = 2"
+            " WHERE slug = 't-lessons'"
+        )
+    )
+    await db_session.commit()  # правка админки — своя транзакция (здесь — savepoint теста)
+    # Новый раздел в начале сдвигает sort_order соседей — t-lessons «изменён» сидом, а
+    # электрик ещё и уходит в премодерацию по решению сида.
+    electrical = replace(ELECTRICAL, risk_level=RiskLevel.PREMODERATION)
+    shifted = [
+        replace(root, sort_order=root.sort_order + 1) for root in taxonomy(electrical=electrical)
+    ]
+    result = await _import(
+        db_session, procrastinate_app, [a_category("t-new", names("Новое", "Ново")), *shifted]
+    )
+
+    lessons = await _summary(db_session, "t-lessons")
+    assert lessons.id in result.changed
+    assert (lessons.is_active, lessons.risk_level) == (False, RiskLevel.FORBIDDEN)
+    electrical_row = await _summary(db_session, "t-electrical")
+    assert (electrical_row.is_active, electrical_row.risk_level) == (
+        True,
+        RiskLevel.PREMODERATION,
+    )
+    tree = await SqlCatalogQuery(db_session).tree()
+    assert _find_or_none(tree, "t-lessons") is None
+
+
+async def test_direct_parent_change_cascades_to_descendants(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App
+) -> None:
+    """Так раздел перенесёт админка (2.7b): одним UPDATE, без импорта."""
+    await _import(db_session, procrastinate_app, taxonomy())
+
+    await db_session.execute(
+        text(
+            "UPDATE catalog.categories SET parent_id ="
+            " (SELECT id FROM catalog.categories WHERE slug = 't-lessons')"
+            " WHERE slug = 't-home'"
+        )
+    )
+
+    assert await _path(db_session, "t-home") == ["t-lessons", "t-home"]
+    assert await _path(db_session, "t-electrical") == ["t-lessons", "t-home", "t-electrical"]
+    assert await _path(db_session, "t-plumbing") == ["t-lessons", "t-home", "t-plumbing"]
+    assert await _path(db_session, "t-repairs") == ["t-repairs"]
+
+
+async def test_cycle_in_the_tree_is_rejected_by_depth_check(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App
+) -> None:
+    await _import(db_session, procrastinate_app, taxonomy())
+
+    with pytest.raises(IntegrityError, match="ck_categories_depth"):
+        async with db_session.begin_nested():
+            await db_session.execute(
+                text(
+                    "UPDATE catalog.categories SET parent_id ="
+                    " (SELECT id FROM catalog.categories WHERE slug = 't-home')"
+                    " WHERE slug = 't-repairs'"
+                )
+            )
+
+    assert await _path(db_session, "t-electrical") == ["t-repairs", "t-home", "t-electrical"]
 
 
 async def test_tree_deeper_than_three_levels_is_rejected(
