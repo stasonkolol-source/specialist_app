@@ -2,11 +2,12 @@
 
 Синглтон — только объект со Scope.APP: он создаётся один раз на процесс и закрывается
 при остановке. REQUEST — всё, что живёт одну команду: сессия, UoW, очередь.
-Провайдеры внешних клиентов добавляют их шаги: ключи JWT (0.14), Bot (0.22), S3 (0.24),
+Провайдеры внешних клиентов добавляют их шаги: Bot (0.22), S3 (0.24),
 переводы (1.2), AI (2.4), аналитика (1.7).
 """
 
 from collections.abc import AsyncIterator
+from datetime import timedelta
 
 import procrastinate
 from dishka import Provider, Scope, from_context, provide
@@ -23,6 +24,9 @@ from app.platform.queue.dispatcher import EventDispatcher, EventRegistry
 from app.platform.queue.port import JobQueue
 from app.platform.queue.procrastinate_queue import ProcrastinateJobQueue
 from app.platform.ratelimit import RateLimiter
+from app.platform.security.denylist import SessionDenylist
+from app.platform.security.initdata import InitDataVerifier
+from app.platform.security.jwt import AccessTokens, JwtKeys, JwtKeysError
 from app.platform.settings import (
     AiSettings,
     AnalyticsSettings,
@@ -107,6 +111,25 @@ class PlatformProvider(Provider):
             yield app
 
     clock = provide(SystemClock, scope=Scope.APP, provides=Clock)
+
+    @provide(scope=Scope.APP)
+    def init_data_verifier(self, telegram: TelegramSettings, clock: Clock) -> InitDataVerifier:
+        return InitDataVerifier(telegram.bot_token, clock)
+
+    @provide(scope=Scope.APP)
+    def access_tokens(self, settings: JwtSettings, clock: Clock) -> AccessTokens:
+        if settings.keys is None:
+            raise JwtKeysError("JWT_KEYS is not set: run `make cli ARGS=jwt-keys`")
+        return AccessTokens(
+            JwtKeys.parse(settings.keys.get_secret_value()),
+            clock,
+            issuer=settings.issuer,
+            ttl=timedelta(seconds=settings.access_ttl_seconds),
+        )
+
+    @provide(scope=Scope.APP)
+    def session_denylist(self, valkey: Redis, settings: JwtSettings) -> SessionDenylist:
+        return SessionDenylist(valkey, ttl=timedelta(seconds=settings.access_ttl_seconds))
 
     @provide(scope=Scope.APP)
     def rate_limiter(self, valkey: Redis, settings: ValkeySettings, clock: Clock) -> RateLimiter:
