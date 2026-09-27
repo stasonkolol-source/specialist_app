@@ -3,6 +3,7 @@ export * from './generated/endpoints/index.ts';
 export * from './generated/model/index.ts';
 export {
   ApiError,
+  MaintenanceError,
   NetworkError,
   RateLimitedError,
   RestrictedError,

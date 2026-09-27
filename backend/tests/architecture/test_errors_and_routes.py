@@ -22,7 +22,11 @@ from app.interfaces.http.errors import (
     VALIDATION_ERROR,
     status_for,
 )
-from app.interfaces.http.middleware import CLIENT_UPGRADE_REQUIRED, INVALID_CLIENT_HEADER
+from app.interfaces.http.middleware import (
+    CLIENT_UPGRADE_REQUIRED,
+    INVALID_CLIENT_HEADER,
+    MAINTENANCE,
+)
 from app.platform.i18n.catalogs import COMPLETE, catalog_path, read_catalog
 from app.platform.kernel.errors import DomainError
 from app.platform.settings import Settings
@@ -35,6 +39,7 @@ HTTP_ONLY_CODES = {
     VALIDATION_ERROR,
     CLIENT_UPGRADE_REQUIRED,
     INVALID_CLIENT_HEADER,
+    MAINTENANCE,
 }
 _CODE = re.compile(r"[a-z][a-z0-9_]*")
 _OPERATION_ID = re.compile(r"[a-z][a-z_]*_[a-z][a-z0-9_]*")

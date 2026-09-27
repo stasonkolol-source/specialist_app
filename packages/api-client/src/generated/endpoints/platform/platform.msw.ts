@@ -23,6 +23,18 @@ export const getSystemGetClientConfigResponseMock = (
   legal_versions: {
     [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
   },
+  legal_documents: {
+    [faker.string.alphanumeric(5)]: {
+      version: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      published_on: faker.date.past().toISOString().slice(0, 10),
+      texts: {
+        [faker.string.alphanumeric(5)]: {
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          body: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        },
+      },
+    },
+  },
   ...overrideResponse,
 });
 

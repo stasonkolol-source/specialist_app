@@ -1,0 +1,261 @@
+// S48 правовые документы и S49 системные состояния (DEVELOPMENT_PLAN 1.5a): скриншоты × тема × язык,
+// axe-core и то, как приложение попадает в каждое состояние. Имена скриншотов начинаются с кода
+// артборда: make design-compare кладёт их рядом с эталоном. Состояния S49 без своего артборда
+// (техработы, «обновите Telegram», нет сети при старте) — в группе S49a: тот же вид «пустого
+// состояния» на весь экран.
+import type { Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+
+import { CLIENT_CONFIG, ME } from '../src/testing/fixtures.ts';
+import { json, problem } from './api.ts';
+import { THEMES, expectNoAxeViolations, open, openProfile, openTab, real } from './support.ts';
+
+const LOCALES = [
+  {
+    locale: 'ru',
+    telegram: 'ru',
+    profile: 'Профиль',
+    home: 'Главная',
+    rules: 'Правила площадки',
+    edition: 'Редакция draft-1 от 27 сентября 2026',
+    privacyTab: 'Конфиденциальность',
+    privacy: 'Политика конфиденциальности',
+    offline: 'Нет соединения',
+    saved: 'Сохранено в 18:07',
+    retry: 'Повторить',
+    otherLanguage: 'Srpski (latinica)',
+    restricted: 'Аккаунт ограничен до 3 октября',
+    banner: 'До 3 октября, 18:00 нельзя откликаться на заявки',
+  },
+  {
+    locale: 'sr-Latn',
+    telegram: 'sr',
+    profile: 'Profil',
+    home: 'Početna',
+    rules: 'Pravila platforme',
+    // месяц — как у Intl браузера (в образе Playwright): падеж здесь не проверяем
+    edition: /^Verzija draft-1 od 27\. septemb\S+ 2026\.?$/,
+    privacyTab: 'Privatnost',
+    privacy: 'Politika privatnosti',
+    offline: 'Nema veze',
+    saved: 'Sačuvano u 18:07',
+    retry: 'Pokušaj ponovo',
+    otherLanguage: 'Русский',
+    restricted: /^Nalog je ograničen do 3\. oktob\S+$/,
+    banner: /^Do 3\. oktob\S+ u 18:00 ne možete da šaljete ponude na zahteve$/,
+  },
+] as const;
+
+/** Время демо-данных: «сейчас» для дат и «Сохранено в 18:07» (Нови-Сад, CEST). */
+const NOW = new Date('2026-10-02T18:07:00+02:00');
+const LATER = new Date('2026-10-02T18:08:00+02:00');
+/** До 3 октября, 18:00 по Белграду — как на артборде S49b. */
+const UNTIL = '2026-10-03T16:00:00Z';
+
+/** Обрыв сети: браузер пишет в консоль ошибку загрузки — её вызывает сам сценарий. */
+const OFFLINE_CONSOLE = 'ERR_INTERNET_DISCONNECTED';
+
+/** Пропала сеть для GET /me: вернуть — `page.unroute`. */
+const dropMe = (page: Page) =>
+  page.route('**/api/v1/me', (route) => route.abort('internetdisconnected'));
+
+for (const theme of THEMES) {
+  for (const l of LOCALES) {
+    test(`S48 правила ${theme} ${l.locale}: из профиля, версия из client-config`, async ({
+      page,
+    }) => {
+      const watch = await open(page, `theme=${theme}&lang=${l.telegram}`);
+      await openProfile(page, l.profile);
+
+      await page.getByRole('link', { name: l.rules }).click();
+
+      await expect(page.getByRole('heading', { name: l.rules, level: 1 })).toBeVisible();
+      await expect(page.getByText(l.edition)).toBeVisible();
+      // таббар — только на корневых экранах вкладок, у S48 «Назад» Telegram
+      await expect(page.getByRole('navigation', { name: /Разделы|Odeljci/ })).toBeHidden();
+      await expect(page.getByRole('heading', { name: 'Кто может пользоваться' })).toBeVisible();
+      expect(real(watch.problems)).toEqual([]);
+      expect(watch.unexpectedApi).toEqual([]);
+      // первый экран документа — как артборд 390×844; весь текст проверяют unit-тесты
+      await expect(page).toHaveScreenshot(`S48-rules-${theme}-${l.locale}.png`);
+      await expectNoAxeViolations(page);
+
+      await page.getByRole('radio', { name: l.privacyTab }).click();
+      await expect(page.getByRole('heading', { name: l.privacy, level: 1 })).toBeVisible();
+      await expect(page.getByRole('radio', { name: l.privacyTab })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
+    });
+
+    test(`S49a нет сети ${theme} ${l.locale}: сохранённый профиль приглушён, «Повторить»`, async ({
+      page,
+    }) => {
+      await page.clock.setFixedTime(NOW);
+      const watch = await open(page, `theme=${theme}&lang=${l.telegram}`, {
+        signedIn: true,
+        me: { ...ME, ui_locale: l.locale },
+      });
+      await openProfile(page, l.profile);
+      await expect(page.getByRole('heading', { name: ME.display_name })).toBeVisible();
+
+      // сеть пропала, профиль устарел: повторный заход на вкладку перечитывает /me и не может
+      await dropMe(page);
+      await page.clock.setFixedTime(LATER);
+      await openTab(page, l.home);
+      await openTab(page, l.profile);
+
+      await expect(page.getByRole('heading', { name: l.offline })).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByText(l.saved)).toBeVisible();
+      await expect(page.getByRole('heading', { name: ME.display_name })).toBeVisible();
+      expect(real(watch.problems, [OFFLINE_CONSOLE])).toEqual([]);
+      expect(watch.unexpectedApi).toEqual([]);
+      await expect(page).toHaveScreenshot(`S49a-offline-${theme}-${l.locale}.png`, {
+        fullPage: true,
+      });
+      // сохранённое приглушено по макету (opacity .55): там не проверяем только контраст
+      await expectNoAxeViolations(page, { exclude: ['[data-stale]'] });
+      await expectNoAxeViolations(page, { include: '[data-stale]', disable: ['color-contrast'] });
+
+      await page.unroute('**/api/v1/me');
+      await page.getByRole('button', { name: l.retry }).click();
+      await expect(page.getByRole('heading', { name: l.offline })).toBeHidden();
+      await expect(page.getByText(l.saved)).toBeHidden();
+    });
+
+    test(`S49b ограничен ${theme} ${l.locale}: действие отклонено частичной санкцией`, async ({
+      page,
+    }) => {
+      await page.clock.setFixedTime(NOW);
+      // 403 restricted на мутацию; сейчас единственная — смена языка, с шагов 5.x — отклик
+      const watch = await open(page, `theme=${theme}&lang=${l.telegram}`, {
+        signedIn: true,
+        me: { ...ME, ui_locale: l.locale },
+        handlers: {
+          'PATCH /api/v1/me': (route) =>
+            route.fulfill(
+              problem(403, 'restricted', { restriction: 'responding_blocked', until: UNTIL }),
+            ),
+        },
+      });
+      await openProfile(page, l.profile);
+      await expect(page.getByRole('heading', { name: ME.display_name })).toBeVisible();
+
+      await page.getByRole('radio', { name: l.otherLanguage }).click();
+
+      await expect(page.getByRole('heading', { name: l.restricted, level: 1 })).toBeVisible();
+      await expect(page.getByRole('alert')).toHaveText(l.banner);
+      // обжалование — шаг 2.5b: ни MainButton, ни таббара
+      await expect(page.getByRole('navigation', { name: /Разделы|Odeljci/ })).toBeHidden();
+      await expect(page.getByRole('button', { name: /Обжаловать|Uloži žalbu/ })).toHaveCount(0);
+      expect(real(watch.problems, ['403'])).toEqual([]);
+      expect(watch.unexpectedApi).toEqual([]);
+      await expect(page).toHaveScreenshot(`S49b-restricted-${theme}-${l.locale}.png`, {
+        fullPage: true,
+      });
+      await expectNoAxeViolations(page);
+
+      await page.getByRole('button', { name: l.rules }).click();
+      await expect(page.getByRole('heading', { name: l.rules, level: 1 })).toBeVisible();
+    });
+  }
+}
+
+test('S49b санкция на весь аккаунт: вход отклонён, приложение закрыто', async ({ page }) => {
+  await page.clock.setFixedTime(NOW);
+  const watch = await open(page, 'theme=light&lang=ru', {
+    handlers: {
+      'POST /api/v1/auth/telegram': (route) =>
+        route.fulfill(problem(403, 'restricted', { restriction: 'suspended', until: UNTIL })),
+    },
+  });
+
+  await expect(
+    page.getByRole('heading', { name: 'Аккаунт приостановлен до 3 октября', level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveText(
+    'До 3 октября, 18:00 нельзя пользоваться аккаунтом',
+  );
+  // весь аккаунт закрыт: списка «Остаётся доступно» и таббара нет
+  await expect(page.getByText('Остаётся доступно')).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Разделы' })).toHaveCount(0);
+  expect(real(watch.problems, ['403'])).toEqual([]);
+  await expect(page).toHaveScreenshot('S49b-suspended-light-ru.png', { fullPage: true });
+  await expectNoAxeViolations(page);
+
+  await page.getByRole('button', { name: 'Правила площадки' }).click();
+  await expect(page.getByRole('heading', { name: 'Правила площадки', level: 1 })).toBeVisible();
+});
+
+test('S49a нет сети при старте: «Повторить» открывает приложение', async ({ page }) => {
+  let online = false;
+  const watch = await open(page, 'theme=light&lang=ru', {
+    handlers: {
+      'GET /api/v1/client-config': (route) =>
+        online ? route.fulfill(json(CLIENT_CONFIG)) : route.abort('internetdisconnected'),
+    },
+  });
+
+  await expect(page.getByRole('heading', { name: 'Нет соединения', level: 1 })).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(page.getByText('Проверьте интернет и попробуйте ещё раз')).toBeVisible();
+  expect(real(watch.problems, [OFFLINE_CONSOLE])).toEqual([]);
+  await expect(page).toHaveScreenshot('S49a-start-offline-light-ru.png', { fullPage: true });
+  await expectNoAxeViolations(page);
+
+  online = true;
+  await page.getByRole('button', { name: 'Повторить' }).click();
+  await expect(page.getByRole('heading', { name: 'Главная', level: 1 })).toBeVisible();
+});
+
+test('S49 техработы: флаг client-config закрывает приложение', async ({ page }) => {
+  const watch = await open(page, 'theme=light&lang=ru', {
+    config: { ...CLIENT_CONFIG, flags: { ...CLIENT_CONFIG.flags, 'platform.maintenance': true } },
+  });
+
+  await expect(page.getByRole('heading', { name: 'Технические работы', level: 1 })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Повторить' })).toBeVisible();
+  expect(real(watch.problems)).toEqual([]);
+  await expect(page).toHaveScreenshot('S49a-maintenance-light-ru.png', { fullPage: true });
+  await expectNoAxeViolations(page);
+});
+
+test('S49 техработы: 503 maintenance от API', async ({ page }) => {
+  const watch = await open(page, 'theme=dark&lang=sr', {
+    handlers: {
+      'POST /api/v1/auth/telegram': (route) => route.fulfill(problem(503, 'maintenance')),
+    },
+  });
+
+  await expect(page.getByRole('heading', { name: 'Tehnički radovi', level: 1 })).toBeVisible();
+  expect(real(watch.problems, ['503'])).toEqual([]);
+  await expectNoAxeViolations(page);
+});
+
+test('S49 «обновите Telegram»: Bot API клиента ниже минимума', async ({ page }) => {
+  const watch = await open(page, 'theme=light&lang=ru&tg=6.0');
+
+  await expect(page.getByRole('heading', { name: 'Обновите Telegram', level: 1 })).toBeVisible();
+  // повторять нечего: помогает только обновление клиента
+  await expect(page.getByRole('button')).toHaveCount(0);
+  expect(real(watch.problems)).toEqual([]);
+  await expect(page).toHaveScreenshot('S49a-update-telegram-light-ru.png', { fullPage: true });
+  await expectNoAxeViolations(page);
+});
+
+test('S49 426 от API: новая версия Mini App — «Перезагрузить»', async ({ page }) => {
+  const watch = await open(page, 'theme=light&lang=ru', {
+    handlers: {
+      'POST /api/v1/auth/telegram': (route) =>
+        route.fulfill(
+          problem(426, 'client_upgrade_required', { platform: 'tma', min_version: '9.0.0' }),
+        ),
+    },
+  });
+
+  await expect(page.getByRole('heading', { name: 'Вышла новая версия', level: 1 })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Перезагрузить' })).toBeVisible();
+  expect(real(watch.problems, ['426'])).toEqual([]);
+  await expectNoAxeViolations(page);
+});

@@ -1,5 +1,5 @@
-// .group + .row (.row-ic, .grow, .cap, .chev) и .tiles + .tile из ui.css.
-import type { ReactNode } from 'react';
+// .group + .row (.row-ic, .grow, .cap, .chev), .num-ic и .tiles + .tile из ui.css.
+import type { MouseEvent, ReactNode } from 'react';
 
 import type { AvatarPalette } from './Avatar.tsx';
 import { FOCUS, cx } from './cx.ts';
@@ -37,6 +37,15 @@ export function RowIcon({
   );
 }
 
+/** Номер пункта .num-ic: круг 28 px, мягкий акцент (правила S02c, S48). */
+export function NumIcon({ children }: { children: ReactNode }) {
+  return (
+    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-sm leading-7 font-bold text-accent-soft-ink">
+      {children}
+    </span>
+  );
+}
+
 export function Group({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cx('overflow-hidden rounded-card bg-surface', className)}>{children}</div>;
 }
@@ -52,7 +61,8 @@ export interface RowProps {
   /** Стрелка «перейти» справа. */
   chevron?: boolean;
   href?: string;
-  onClick?: () => void;
+  /** С `href` — переход внутри приложения (роутер отменяет переход браузера), без — кнопка. */
+  onClick?: (event: MouseEvent<HTMLElement>) => void;
 }
 
 export function Row({
@@ -82,7 +92,7 @@ export function Row({
   );
   if (href) {
     return (
-      <a href={href} className={classes}>
+      <a href={href} onClick={onClick} className={classes}>
         {content}
       </a>
     );

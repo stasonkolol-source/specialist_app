@@ -10,3 +10,18 @@ export {
   useClientConfig,
   useFlag,
 } from './config/clientConfig.ts';
+export type { LegalDocumentKey, LegalTextView } from './legal/useLegalDocument.ts';
+export {
+  LEGAL_DOCUMENTS,
+  isLegalDocument,
+  legalText,
+  useLegalDocument,
+} from './legal/useLegalDocument.ts';
+export type { Restriction, SystemState } from './system/systemState.ts';
+export {
+  ACCOUNT_BLOCKING,
+  isAppWide,
+  isRestriction,
+  startupState,
+  systemStateOf,
+} from './system/systemState.ts';

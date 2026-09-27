@@ -9,6 +9,8 @@ export const CLIENT_CONFIG_STALE_MS = 60_000;
 export const FLAGS = {
   /** Переключатель «Услуги / Вещи» на главной (ADR-0019: раздел «Вещи» после MVP, в MVP — S58). */
   goodsSegment: 'goods.segment',
+  /** Техработы: экран S49 вместо приложения, API отвечает 503 `maintenance` (1.5a). */
+  maintenance: 'platform.maintenance',
 } as const;
 
 export type FlagKey = (typeof FLAGS)[keyof typeof FLAGS];

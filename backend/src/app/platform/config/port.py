@@ -7,7 +7,10 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Final, Protocol
+
+MAINTENANCE_FLAG: Final = "platform.maintenance"
+"""Техработы: публичный флаг. Включён — API отвечает 503 `maintenance`, Mini App показывает S49."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

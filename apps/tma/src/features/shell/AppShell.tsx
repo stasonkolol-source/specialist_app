@@ -1,14 +1,14 @@
 // Оболочка экранов: тема клиента, safe area, таббар и нижняя кнопка (DEVELOPMENT_PLAN 0.21a).
-// Таббар скрыт, пока показана MainButton: у экрана с главным действием нет навигации вниз.
+// Таббар — только на корневых экранах вкладок (SPEC §2) и скрыт, пока показана MainButton: у
+// экрана с главным действием нет навигации вниз. Внутренние экраны (S48, S49b) — с «Назад».
 import { useTranslation } from '@sosed/i18n';
-import { useBottomButtonState, useThemeSync } from '@sosed/platform';
+import { useBottomButtonState, useInsets, useThemeSync } from '@sosed/platform';
 import type { TabItem } from '@sosed/ui-web';
 import { Button, TabBar } from '@sosed/ui-web';
 import { Outlet, useRouter, useRouterState } from '@tanstack/react-router';
 import type { MouseEvent } from 'react';
 
 import { CHROME } from './chrome.ts';
-import { useInsets } from './useInsets.ts';
 
 /** Высота .tabbar из ui.css (h-21): контент не уходит под таббар. */
 const TABBAR_HEIGHT = 84;
@@ -22,6 +22,8 @@ export const TABS = [
 ] as const;
 
 export const CREATE_PATH = '/jobs/new';
+
+const TAB_ROOTS: ReadonlySet<string> = new Set(TABS.map((tab) => tab.path));
 
 export function AppShell() {
   const { t } = useTranslation();
@@ -42,7 +44,7 @@ export function AppShell() {
     icon: tab.icon,
     href: router.history.createHref(tab.path),
   }));
-  const tabsVisible = !main.visible;
+  const tabsVisible = !main.visible && TAB_ROOTS.has(pathname);
   const contentButton = main.visible && !main.native;
   const bottom = tabsVisible ? TABBAR_HEIGHT : contentButton ? BUTTON_AREA + insets.bottom : 0;
 

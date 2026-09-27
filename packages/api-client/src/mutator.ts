@@ -6,7 +6,8 @@
 // - 401 token_expired → одно обновление на все параллельные запросы (single-flight) и повтор;
 //   не вышло или сессия отозвана → колбэк onReauth от apps/tma (новый обмен initData через
 //   packages/platform: сам api-client от platform не зависит).
-// - 403 restricted, 426, 429 → типизированные ошибки; 429 с коротким Retry-After — ждём и повторяем.
+// - 403 restricted, 426, 429, 503 maintenance → типизированные ошибки; 429 с коротким Retry-After —
+//   ждём и повторяем.
 import type { ApiError } from './errors.ts';
 import { NetworkError, RateLimitedError, errorFromProblem, syntheticProblem } from './errors.ts';
 import type { ProblemOut, TokensOut } from './generated/model/index.ts';

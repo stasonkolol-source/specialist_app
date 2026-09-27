@@ -13,4 +13,18 @@ export const SystemGetClientConfigResponse = zod.object({
   min_versions: zod.record(zod.string(), zod.string()),
   flags: zod.record(zod.string(), zod.boolean()),
   legal_versions: zod.record(zod.string(), zod.string()),
+  legal_documents: zod.record(
+    zod.string(),
+    zod.object({
+      version: zod.string(),
+      published_on: zod.iso.date(),
+      texts: zod.record(
+        zod.string(),
+        zod.object({
+          title: zod.string(),
+          body: zod.string(),
+        }),
+      ),
+    }),
+  ),
 });

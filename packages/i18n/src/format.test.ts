@@ -91,6 +91,12 @@ describe('даты в Europe/Belgrade', () => {
     expect(ru.calendar(new Date('2026-09-27T23:30:00Z'), now)).toBe(nb('завтра в_01:30'));
   });
 
+  it('дата с годом — как в редакции документа на S48', () => {
+    expect(ru.fullDate(new Date('2026-09-27T10:00:00Z'))).toBe('27 сентября 2026');
+    expect(lat.fullDate(new Date('2026-09-27T10:00:00Z'))).toBe('27. septembar 2026.');
+    expect(cyr.fullDate(new Date('2026-09-27T10:00:00Z'))).toBe('27. септембар 2026.');
+  });
+
   it('«сегодня в 19:00»', () => {
     expect(ru.calendar(new Date('2026-09-27T17:00:00Z'), now)).toBe(nb('сегодня в_19:00'));
     expect(lat.calendar(new Date('2026-09-27T17:00:00Z'), now)).toBe(nb('danas u_19:00'));

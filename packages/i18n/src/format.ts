@@ -73,6 +73,8 @@ export interface Format {
   distance(meters: number): string;
   time(date: Date): string;
   date(date: Date, now?: Date): string;
+  /** Дата с годом всегда: «27 сентября 2026» (редакция документа, S48). */
+  fullDate(date: Date): string;
   /** «сегодня в 19:00», «завтра в 10:00», «12 октября в 19:00». */
   calendar(date: Date, now?: Date): string;
   /** «только что», «15 мин назад», «2 ч назад», «вчера», «5 дней назад», дальше — дата. */
@@ -145,6 +147,17 @@ export function createFormat(locale: Locale): Format {
     }).format(date);
   };
 
+  // ru Intl дописывает «г.» после года — на макетах его нет («от 26 сентября 2026»)
+  const fullDate = (date: Date) =>
+    new Intl.DateTimeFormat(intl, {
+      timeZone: TIME_ZONE,
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+      .format(date)
+      .replace(/\s*г\.$/, '');
+
   const calendar = (date: Date, now = new Date()) => {
     const diff = dayNumber(date) - dayNumber(now);
     const day =
@@ -172,6 +185,7 @@ export function createFormat(locale: Locale): Format {
     distance,
     time,
     date: dateOnly,
+    fullDate,
     calendar,
     relative,
   };

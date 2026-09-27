@@ -1,0 +1,30 @@
+{
+  "legal": {
+    "segment": "Dokument",
+    "tab": {
+      "terms": "Pravila",
+      "privacy": "Privatnost"
+    },
+    "title": {
+      "terms": "Pravila platforme",
+      "privacy": "Politika privatnosti"
+    },
+    "edition": "Verzija {version} od {date}",
+    "untranslated": "Prevod na srpski još nije gotov — prikazujemo tekst na ruskom",
+    "loading": "Učitavamo dokument",
+    "unavailableTitle": "Dokument nije dostupan",
+    "unavailableText": "Pokušajte da ga otvorite kasnije"
+  },
+  "restricted": {
+    "title": "{kind, select, banned {Nalog je blokiran} suspended {Nalog je suspendovan} other {Nalog je ograničen}}",
+    "titleUntil": "{kind, select, suspended {Nalog je suspendovan do {date}} other {Nalog je ograničen do {date}}}",
+    "bannerUntil": "Do {date} u {time} ne možete da {action}",
+    "banner": "Ne možete da {action}",
+    "action": "{kind, select, posting_blocked {objavljujete zahteve i novi sadržaj} responding_blocked {šaljete ponude na zahteve} messaging_blocked {započinjete nove razgovore} other {koristite nalog}}",
+    "left": "I dalje je dostupno",
+    "leftDeals": "Prepiska o tekućim dogovorima",
+    "leftBrowse": "Pregled zahteva i stručnjaka",
+    "leftSettings": "Podešavanja i brisanje naloga",
+    "appeal": "Žalbu na odluku možete da uložite u roku od 6 meseci. Odgovorićemo u roku od 72 sata."
+  }
+}

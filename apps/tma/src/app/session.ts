@@ -9,10 +9,12 @@ export interface Auth {
   signIn(): Promise<boolean>;
 }
 
-/** `onSignedIn` — после каждого удачного входа с пользователем из ответа (тот же MeOut, что /me). */
+/** `onSignedIn` — после каждого удачного входа с пользователем из ответа (тот же MeOut, что /me).
+ *  `onRefused` — вход отклонён: санкция на аккаунт (403 `restricted`), 426, техработы, сеть. */
 export function createAuth(
   platform: Platform,
   onSignedIn: (user: MeOut) => void = () => undefined,
+  onRefused: (error: unknown) => void = () => undefined,
 ): Auth {
   let pending: Promise<boolean> | null = null;
 
@@ -22,8 +24,9 @@ export function createAuth(
     let auth: AuthOut;
     try {
       auth = await identityAuthenticateTelegram({ authorization: `tma ${initData}` });
-    } catch {
+    } catch (error) {
       setSession(null);
+      onRefused(error);
       return false;
     }
     setSession({ accessToken: auth.access_token, refreshToken: auth.refresh_token });

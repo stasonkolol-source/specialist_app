@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   ApiError,
+  MaintenanceError,
   NetworkError,
   RateLimitedError,
   RestrictedError,
@@ -140,10 +141,18 @@ describe('RFC 9457 errors', () => {
     });
   });
 
-  it('maps restricted, upgrade required and non-JSON bodies', async () => {
+  it('maps restricted, upgrade required, maintenance and non-JSON bodies', async () => {
     const responses = [
       problem(403, 'restricted', { restriction: 'posting_blocked', until: '2026-10-05T09:00:00Z' }),
       problem(426, 'client_upgrade_required', { platform: 'tma', min_version: '1.2.0' }),
+      json(
+        503,
+        { type: 'x', title: 't', status: 503, code: 'maintenance', trace_id: null },
+        {
+          'Retry-After': '120',
+        },
+      ),
+      problem(503, 'external_service_unavailable'),
       new Response('<html>bad gateway</html>', { status: 502 }),
     ];
     const { fetch } = stubFetch(() => responses.shift() as Response);
@@ -157,6 +166,13 @@ describe('RFC 9457 errors', () => {
     const upgrade = await apiFetch('/api/v1/me').catch((e: unknown) => e);
     expect(upgrade).toBeInstanceOf(UpgradeRequiredError);
     expect((upgrade as UpgradeRequiredError).minVersion).toBe('1.2.0');
+
+    const maintenance = await apiFetch('/api/v1/me').catch((e: unknown) => e);
+    expect(maintenance).toBeInstanceOf(MaintenanceError);
+    expect((maintenance as MaintenanceError).retryAfter).toBe(120);
+    const unavailable = await apiFetch('/api/v1/me').catch((e: unknown) => e);
+    expect(unavailable).not.toBeInstanceOf(MaintenanceError);
+    expect(unavailable).toBeInstanceOf(ApiError);
 
     const gateway = await apiFetch('/api/v1/me').catch((e: unknown) => e);
     expect(gateway).toMatchObject({ status: 502, code: 'http_502' });

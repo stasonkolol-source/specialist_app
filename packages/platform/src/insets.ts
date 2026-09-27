@@ -1,6 +1,8 @@
-import type { Insets } from '@sosed/platform';
-import { usePlatform } from '@sosed/platform';
+// Отступы экрана от краёв: оболочка (AppShell) и полноэкранные состояния S49 вне неё.
 import { useSyncExternalStore } from 'react';
+
+import { usePlatform } from './react.tsx';
+import type { Insets } from './types.ts';
 
 const ZERO: Insets = { top: 0, right: 0, bottom: 0, left: 0 };
 

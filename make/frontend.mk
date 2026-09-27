@@ -39,7 +39,7 @@ design-render: fe-install ## Design references: PNG of every artboard into desig
 	  node node_modules/@playwright/test/cli.js test -c playwright.design.config.ts $(if $(GREP),--grep "$(GREP)")
 
 design-compare: ## Report «reference next to actual»: make design-compare [GREP=S03]
-	@node packages/ui-web/scripts/design-compare.mjs $(GREP)
+	@node packages/ui-web/scripts/design-compare.mjs $(if $(GREP),"$(GREP)")
 
 e2e: fe-install ## Playwright in Docker: make e2e [PKG=ui-web] [GREP=…] [UPDATE=1]
 	@$(PNPM) -F $(PKG) e2e:build

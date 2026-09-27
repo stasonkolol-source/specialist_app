@@ -719,13 +719,21 @@
             },
             "type": "object",
             "title": "Legal Versions"
+          },
+          "legal_documents": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LegalDocumentOut"
+            },
+            "type": "object",
+            "title": "Legal Documents"
           }
         },
         "type": "object",
         "required": [
           "min_versions",
           "flags",
-          "legal_versions"
+          "legal_versions",
+          "legal_documents"
         ],
         "title": "ClientConfigOut"
       },
@@ -865,6 +873,54 @@
         ],
         "title": "GrantedVia",
         "description": "Как пользователь разрешил доставку по каналу."
+      },
+      "LegalDocumentOut": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "published_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Published On"
+          },
+          "texts": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LegalTextOut"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Locale"
+            },
+            "type": "object",
+            "title": "Texts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "published_on",
+          "texts"
+        ],
+        "title": "LegalDocumentOut"
+      },
+      "LegalTextOut": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "body"
+        ],
+        "title": "LegalTextOut"
       },
       "Locale": {
         "type": "string",

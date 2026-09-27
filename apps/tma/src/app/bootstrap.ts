@@ -7,10 +7,10 @@ import type { Platform } from '@sosed/platform';
 import type { QueryClient } from '@tanstack/react-query';
 import type { RouterHistory } from '@tanstack/react-router';
 
+import { RESTRICTED_PATH, reportSystemError } from '../features/service/s49-system/index.ts';
 import { createQueryClient } from './query.ts';
 import { createAppRouter, historyFor } from './router.ts';
 import { createAuth } from './session.ts';
-import { useUpgradeStore } from './upgrade.ts';
 
 export const APP_NAME = 'Сосед';
 
@@ -50,11 +50,21 @@ export function assemble(platform: Platform, options: AssembleOptions): Assemble
   i18n.on('languageChanged', (next) => {
     document.documentElement.lang = next;
   });
+  const router = createAppRouter(options.history ?? historyFor(platform.kind));
+  // S49 из ответов API: 426, техработы и санкция на аккаунт закрывают приложение (StartupGate),
+  // частичная санкция действия открывает S49b поверх экрана
+  const onSystemError = (error: unknown) => {
+    if (reportSystemError(error)) void router.navigate({ to: RESTRICTED_PATH });
+  };
   // ui_locale — выбор пользователя, на нём же пишет бот: важнее language_code Telegram.
   // en в MVP не выбирается — тогда остаётся язык из launch params
-  const auth = createAuth(platform, ({ ui_locale }) => {
-    if (isLocale(ui_locale) && ui_locale !== i18n.language) void i18n.changeLanguage(ui_locale);
-  });
+  const auth = createAuth(
+    platform,
+    ({ ui_locale }) => {
+      if (isLocale(ui_locale) && ui_locale !== i18n.language) void i18n.changeLanguage(ui_locale);
+    },
+    onSystemError,
+  );
   configureApiClient({
     client: `tma/${options.version}`,
     locale: () => currentLocale(i18n),
@@ -64,8 +74,8 @@ export function assemble(platform: Platform, options: AssembleOptions): Assemble
   return {
     platform,
     i18n,
-    queryClient: createQueryClient(() => useUpgradeStore.getState().force('app')),
-    router: createAppRouter(options.history ?? historyFor(platform.kind)),
+    queryClient: createQueryClient(onSystemError),
+    router,
     version: options.version,
     signIn: auth.signIn,
   };

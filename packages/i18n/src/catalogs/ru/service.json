@@ -1,0 +1,30 @@
+{
+  "legal": {
+    "segment": "Документ",
+    "tab": {
+      "terms": "Правила",
+      "privacy": "Конфиденциальность"
+    },
+    "title": {
+      "terms": "Правила площадки",
+      "privacy": "Политика конфиденциальности"
+    },
+    "edition": "Редакция {version} от {date}",
+    "untranslated": "Перевода на этот язык пока нет — показываем текст на русском",
+    "loading": "Загружаем документ",
+    "unavailableTitle": "Документ недоступен",
+    "unavailableText": "Попробуйте открыть его позже"
+  },
+  "restricted": {
+    "title": "{kind, select, banned {Аккаунт заблокирован} suspended {Аккаунт приостановлен} other {Аккаунт ограничен}}",
+    "titleUntil": "{kind, select, suspended {Аккаунт приостановлен до {date}} other {Аккаунт ограничен до {date}}}",
+    "bannerUntil": "До {date}, {time} нельзя {action}",
+    "banner": "Нельзя {action}",
+    "action": "{kind, select, posting_blocked {создавать заявки и публиковать новое} responding_blocked {откликаться на заявки} messaging_blocked {начинать новые диалоги} other {пользоваться аккаунтом}}",
+    "left": "Остаётся доступно",
+    "leftDeals": "Переписка по текущим сделкам",
+    "leftBrowse": "Просмотр заявок и специалистов",
+    "leftSettings": "Настройки и удаление аккаунта",
+    "appeal": "Обжаловать решение можно в течение 6 месяцев. Ответим в течение 72 часов."
+  }
+}

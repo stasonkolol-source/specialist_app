@@ -17,7 +17,7 @@ import { CLIENT_CONFIG, ME } from '../testing/fixtures.ts';
 import { API_ORIGIN, TOKENS, server } from '../testing/msw.ts';
 import { App } from './App.tsx';
 import { assemble } from './bootstrap.ts';
-import { useUpgradeStore } from './upgrade.ts';
+import { useSystemStore } from '../features/service/s49-system/index.ts';
 
 interface StartOptions {
   languageCode?: string;
@@ -40,7 +40,7 @@ function start(path = '/', options: StartOptions = {}) {
 }
 
 beforeEach(() => {
-  useUpgradeStore.setState({ forced: null });
+  useSystemStore.setState({ appWide: null, restriction: null });
 });
 
 describe('Mini App skeleton', () => {
@@ -189,5 +189,155 @@ describe('walking skeleton (0.22)', () => {
     expect(app.i18n.language).toBe('sr-Cyrl');
     expect(document.documentElement.lang).toBe('sr-Cyrl');
     expect(await screen.findByRole('heading', { name: 'Почетна' })).toBeTruthy();
+  });
+});
+
+const problem = (status: number, code: string, extra: Record<string, unknown> = {}) =>
+  HttpResponse.json(
+    { type: 'x', title: code, status, code, trace_id: 'test', ...extra },
+    { status, headers: { 'Content-Type': 'application/problem+json' } },
+  );
+
+/** /me только с токеном из POST /auth/telegram — как backend. */
+const meWithToken = http.get('*/api/v1/me', ({ request }) =>
+  request.headers.get('Authorization') === `Bearer ${TOKENS.access_token}`
+    ? HttpResponse.json(ME)
+    : problem(401, 'not_authenticated'),
+);
+
+// 3 октября 18:00 по Белграду
+const UNTIL = '2026-10-03T16:00:00Z';
+
+describe('S48 legal documents (1.5a)', () => {
+  it('opens a document by path, without the tab bar and with «Back»', async () => {
+    const { app, telegram } = start('/legal/terms');
+
+    expect(await screen.findByRole('heading', { name: 'Правила площадки', level: 1 })).toBeTruthy();
+    expect(await screen.findByText('Редакция draft-1 от 27 сентября 2026')).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
+    expect(telegram.callsOf('web_app_setup_back_button').at(-1)).toMatchObject({
+      is_visible: true,
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('radio', { name: 'Конфиденциальность' }));
+    });
+    expect(
+      await screen.findByRole('heading', { name: 'Политика конфиденциальности', level: 1 }),
+    ).toBeTruthy();
+    expect(app.router.state.location.pathname).toBe('/legal/privacy');
+
+    // открыли по ссылке, истории нет — «Назад» ведёт в профиль, откуда S48 открывают
+    await act(async () => {
+      telegram.emit('back_button_pressed');
+    });
+    expect(await screen.findByRole('heading', { name: 'Профиль', level: 1 })).toBeTruthy();
+  });
+
+  it('redirects an unknown document to the rules', async () => {
+    const { app } = start('/legal/nope');
+    expect(await screen.findByRole('heading', { name: 'Правила площадки', level: 1 })).toBeTruthy();
+    expect(app.router.state.location.pathname).toBe('/legal/terms');
+  });
+});
+
+describe('S49 system states (1.5a)', () => {
+  afterEach(() => setSession(null));
+
+  it('shows maintenance by the client-config flag and retries', async () => {
+    let maintenance = true;
+    server.use(
+      http.get('*/api/v1/client-config', () =>
+        HttpResponse.json({
+          ...CLIENT_CONFIG,
+          flags: { ...CLIENT_CONFIG.flags, 'platform.maintenance': maintenance },
+        }),
+      ),
+    );
+    start('/');
+
+    expect(await screen.findByRole('heading', { name: 'Технические работы' })).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
+
+    maintenance = false;
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    });
+    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+  });
+
+  it('switches to maintenance on 503 maintenance from any request', async () => {
+    server.use(http.get('*/api/v1/me', () => problem(503, 'maintenance')));
+    start('/profile');
+    expect(await screen.findByRole('heading', { name: 'Технические работы' })).toBeTruthy();
+  });
+
+  it('shows S49a when client-config cannot be reached at startup', async () => {
+    let online = false;
+    server.use(
+      http.get('*/api/v1/client-config', () =>
+        online ? HttpResponse.json(CLIENT_CONFIG) : HttpResponse.error(),
+      ),
+    );
+    start('/');
+
+    // после двух повторов запроса
+    expect(
+      await screen.findByRole('heading', { name: 'Нет соединения' }, { timeout: 5000 }),
+    ).toBeTruthy();
+    online = true;
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    });
+    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+  }, 10_000);
+
+  it('closes the app with S49b when sign-in is refused by an account suspension', async () => {
+    server.use(
+      http.post('*/api/v1/auth/telegram', () =>
+        problem(403, 'restricted', { restriction: 'suspended', until: UNTIL }),
+      ),
+    );
+    const { app } = start('/');
+    await act(async () => {
+      await app.signIn();
+    });
+
+    expect(
+      await screen.findByRole('heading', { name: 'Аккаунт приостановлен до 3 октября' }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Обжаловать' })).toBeNull();
+  });
+
+  it('opens S49b when an action is refused by a partial restriction', async () => {
+    server.use(
+      meWithToken,
+      http.patch('*/api/v1/me', () =>
+        problem(403, 'restricted', { restriction: 'responding_blocked', until: UNTIL }),
+      ),
+    );
+    const { app, telegram } = start('/profile');
+    void app.signIn();
+    expect(await screen.findByRole('heading', { name: ME.display_name })).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('radio', { name: 'Srpski (latinica)' }));
+    });
+
+    expect(
+      await screen.findByRole('heading', { name: 'Аккаунт ограничен до 3 октября', level: 1 }),
+    ).toBeTruthy();
+    expect(app.router.state.location.pathname).toBe('/restricted');
+    expect(screen.getByRole('alert').textContent).toBe(
+      'До 3 октября, 18:00 нельзя откликаться на заявки',
+    );
+    expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
+
+    await act(async () => {
+      telegram.emit('back_button_pressed');
+    });
+    expect(await screen.findByRole('heading', { name: ME.display_name })).toBeTruthy();
+    expect(app.router.state.location.pathname).toBe('/profile');
   });
 });

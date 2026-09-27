@@ -125,6 +125,9 @@ msgstr "Правила су ажурирана. Отворите их понов
 msgid "errors.legal_versions_unavailable"
 msgstr "Учитавање правила платформе није успело. Покушајте касније."
 
+msgid "errors.maintenance"
+msgstr "У току су технички радови. Покушајте поново за неколико минута."
+
 msgid "errors.unknown_city"
 msgstr "Тог града нема на списку."
 

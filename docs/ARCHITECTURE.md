@@ -2266,6 +2266,7 @@ sequenceDiagram
   | 422 | Валидация |
   | 426 | Нужен апдейт клиента |
   | 429 | Лимит |
+  | 503 | Техработы: `code: "maintenance"`, `Retry-After`; флаг `platform.maintenance` в client-config, сам `/client-config` отвечает и в техработы |
   | 5xx | Сбой; без деталей, с `trace_id` |
 
 ### 8.4. Пагинация, фильтры, сортировка
@@ -2294,7 +2295,7 @@ sequenceDiagram
 | `GET /me/blocks`, `PUT /me/blocks/{user_id}`, `DELETE /me/blocks/{user_id}` | Блокировки пользователей |
 | `POST /me/deletion`, `DELETE /me/deletion` | Запрос и отмена удаления аккаунта |
 | `POST /me/data-export` | Выгрузка данных (ZZPL): v1; в MVP — вручную по запросу в поддержку ([ADR-0018](adr/0018-mvp-scope-anonymous-no-payments.md)) |
-| `GET /client-config` 🔓 | Минимальные версии клиентов, feature flags, версии юрдокументов, лимиты загрузки |
+| `GET /client-config` 🔓 | Минимальные версии клиентов, feature flags, версии юрдокументов и их тексты по языкам (S48, `legal_documents`), лимиты загрузки |
 
 **catalog / geo / search**
 

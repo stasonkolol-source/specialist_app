@@ -55,6 +55,18 @@ export class RateLimitedError extends ApiError {
   }
 }
 
+/** 503 `maintenance`: идут техработы (флаг `platform.maintenance`), экран S49 «техработы».
+ *  `retryAfter` — секунды из Retry-After, если сервер их прислал. */
+export class MaintenanceError extends ApiError {
+  override readonly name = 'MaintenanceError';
+  readonly retryAfter: number | null;
+
+  constructor(problem: ProblemOut, retryAfter: number | null) {
+    super(problem);
+    this.retryAfter = retryAfter;
+  }
+}
+
 /** Нет сети или ответ — не JSON (прокси, обрыв). Экран S49a «нет сети». */
 export class NetworkError extends Error {
   override readonly name = 'NetworkError';
@@ -64,6 +76,9 @@ export const errorFromProblem = (problem: ProblemOut, retryAfter: number | null)
   if (problem.status === 403 && problem.code === 'restricted') return new RestrictedError(problem);
   if (problem.status === 426) return new UpgradeRequiredError(problem);
   if (problem.status === 429) return new RateLimitedError(problem, retryAfter ?? 0);
+  if (problem.status === 503 && problem.code === 'maintenance') {
+    return new MaintenanceError(problem, retryAfter);
+  }
   return new ApiError(problem);
 };
 

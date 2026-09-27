@@ -6,6 +6,7 @@ import { createTmaPlatform } from './tma.ts';
 import type { Platform } from './types.ts';
 
 export { createBrowserPlatform } from './browser.ts';
+export { useInsets } from './insets.ts';
 export type { MockOptions, MockTelegram } from './mock.ts';
 export { MOCK_THEMES, MOCK_USER, createMockPlatform } from './mock.ts';
 export type { BottomButtonProps, ChromeColors } from './react.tsx';

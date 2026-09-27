@@ -2,6 +2,8 @@
 // Экраны грузятся отдельными чанками (code splitting по маршрутам), оболочка — в первом.
 import { Navigate, createRootRoute, createRoute, lazyRouteComponent } from '@tanstack/react-router';
 
+import { LEGAL_PATH, LegalScreen } from '../features/service/s48-legal/index.ts';
+import { RESTRICTED_PATH, RestrictedRoute } from '../features/service/s49-system/index.ts';
 import { AppShell } from '../features/shell/index.ts';
 
 export const rootRoute = createRootRoute({
@@ -52,6 +54,22 @@ const profile = createRoute({
   ),
 });
 
+// S48 и S49b — в первом чанке, без lazy: экраны S49 рисуются и без сети (точка сборки
+// импортирует их напрямую), а S49b открывает правила площадки у себя.
+// Документ S48 — в пути, чтобы S02c, S31 и deep link открывали нужный.
+const legal = createRoute({
+  getParentRoute: () => rootRoute,
+  path: LEGAL_PATH,
+  component: LegalScreen,
+});
+
+// S49b после действия, отклонённого частичной санкцией
+const restricted = createRoute({
+  getParentRoute: () => rootRoute,
+  path: RESTRICTED_PATH,
+  component: RestrictedRoute,
+});
+
 // Спайк 0.24 — только dev-сервер: в сборке ветка `false ? … : []` и её чанк выпадают
 const devRoutes = import.meta.env.DEV
   ? [
@@ -72,5 +90,7 @@ export const routeTree = rootRoute.addChildren([
   createJob,
   messages,
   profile,
+  legal,
+  restricted,
   ...devRoutes,
 ]);
