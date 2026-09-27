@@ -6,6 +6,8 @@
 import asyncio
 import json
 import secrets
+import tomllib
+from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import Annotated, Any
@@ -38,7 +40,11 @@ def main() -> None:
 @app.command()
 def version() -> None:
     """Показать версию backend."""
-    typer.echo(package_version("sosed-backend"))
+    try:
+        typer.echo(package_version("sosed-backend"))
+    except PackageNotFoundError:  # образ: код в /app/src без установки пакета
+        pyproject = Path(__file__).resolve().parents[3] / "pyproject.toml"
+        typer.echo(tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["version"])
 
 
 KEEP_JWT_KEYS = 2

@@ -1,0 +1,44 @@
+# Уязвимости зависимостей и секреты (DEVELOPMENT_PLAN 0.23): раз в неделю и при правке lock-файлов.
+name: audit
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  pull_request:
+    paths:
+      - 'backend/uv.lock'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: pip-audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.2.0
+      - name: pip-audit (backend lock)
+        working-directory: backend
+        run: |
+          uv export --locked --no-hashes --format requirements-txt --no-emit-project \
+            | uv tool run pip-audit==2.10.1 -r /dev/stdin --no-deps --disable-pip --progress-spinner off
+
+  node:
+    name: pnpm audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: pnpm audit (corepack — версия из package.json)
+        run: |
+          corepack enable
+          pnpm audit --audit-level low

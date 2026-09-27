@@ -1,0 +1,17 @@
+# Контекст образа backend: только то, что нужно в рантайме (Dockerfile копирует явно).
+**/__pycache__
+**/*.pyc
+.venv
+.env
+.env.*
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+tests
+templates
+seeds/tools
+openapi.json
+conftest.py
+src/app/**/tests
