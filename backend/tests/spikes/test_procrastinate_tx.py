@@ -32,23 +32,13 @@ DONE: list[int] = []
 
 @pytest_asyncio.fixture(scope="module", loop_scope="session")
 async def procrastinate_schema(migrator_engine: AsyncEngine) -> AsyncIterator[None]:
-    """migrator применяет SQL Procrastinate в схему procrastinate (как сделает миграция 0.9)."""
-    schema_sql = procrastinate.schema.SchemaManager.get_schema()
-    async with migrator_engine.connect() as conn:
-        raw = (await conn.get_raw_connection()).driver_connection
-        assert raw is not None
-        # SET LOCAL: соединение вернётся в общий пул — session-level SET там бы остался
-        async with raw.transaction(), raw.cursor() as cur:
-            await cur.execute("CREATE SCHEMA IF NOT EXISTS procrastinate")
-            await cur.execute("SET LOCAL search_path TO procrastinate")
-            await cur.execute(schema_sql)
-            await cur.execute("CREATE SCHEMA IF NOT EXISTS spike_tx")
-            await cur.execute("CREATE TABLE IF NOT EXISTS spike_tx.orders (id int PRIMARY KEY)")
-        await conn.commit()
+    """Схему procrastinate создаёт миграция platform_0001 (шаг 0.9); спайку — своя таблица."""
+    async with migrator_engine.begin() as conn:
+        await conn.execute(text("CREATE SCHEMA IF NOT EXISTS spike_tx"))
+        await conn.execute(text("CREATE TABLE IF NOT EXISTS spike_tx.orders (id int PRIMARY KEY)"))
     yield
     async with migrator_engine.begin() as conn:
         await conn.execute(text("DROP SCHEMA spike_tx CASCADE"))
-        await conn.execute(text("DROP SCHEMA procrastinate CASCADE"))
 
 
 @pytest_asyncio.fixture(loop_scope="session")
