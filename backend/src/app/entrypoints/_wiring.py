@@ -31,6 +31,7 @@ from app.modules.reviews.di import ReviewsProvider
 from app.modules.search.di import SearchProvider
 from app.modules.specialists.di import SpecialistsProvider
 from app.platform.di import PlatformProvider
+from app.platform.i18n.translator import Translator
 from app.platform.queue.dispatcher import EventRegistry
 from app.platform.queue.tasks import TASKS
 from app.platform.settings import Settings
@@ -91,18 +92,23 @@ def make_container(
     settings: Settings,
     *interface_providers: Provider,
     registry: EventRegistry | None = None,
+    translator: Translator | None = None,
 ) -> AsyncContainer:
     """Контейнер процесса: платформа, модули и провайдеры интерфейса процесса."""
     return make_async_container(
         PlatformProvider(),
         *module_providers(),
         *interface_providers,
-        context={Settings: settings, EventRegistry: registry or build_event_registry()},
+        context={
+            Settings: settings,
+            EventRegistry: registry or build_event_registry(),
+            Translator: translator or Translator.load(),
+        },
     )
 
 
-def make_web_container(settings: Settings) -> AsyncContainer:
-    return make_container(settings, FastapiProvider(), HttpProvider())
+def make_web_container(settings: Settings, translator: Translator | None = None) -> AsyncContainer:
+    return make_container(settings, FastapiProvider(), HttpProvider(), translator=translator)
 
 
 def make_bot_container(settings: Settings) -> AsyncContainer:

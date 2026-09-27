@@ -18,6 +18,7 @@ from app.interfaces.http.errors import Problems, install_error_handlers
 from app.interfaces.http.middleware import RequestContextMiddleware
 from app.interfaces.http.openapi import API_TITLE, API_VERSION, PROBLEM_RESPONSES, install_openapi
 from app.interfaces.http.operation_ids import operation_id
+from app.platform.i18n.translator import Translator
 from app.platform.settings import Environment, Settings
 
 API_PREFIX = "/api/v1"
@@ -25,7 +26,11 @@ Lifespan = Callable[[FastAPI], AbstractAsyncContextManager[None]]
 
 
 def create_app(
-    container: AsyncContainer, settings: Settings, routers: Sequence[APIRouter] = ()
+    container: AsyncContainer,
+    settings: Settings,
+    routers: Sequence[APIRouter] = (),
+    *,
+    translator: Translator | None = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -33,7 +38,9 @@ def create_app(
         await container.close()
 
     app = _fastapi(public_docs=settings.app.env is not Environment.PRODUCTION, lifespan=lifespan)
-    problems = Problems(base_url=settings.app.api_public_url)
+    problems = Problems(
+        base_url=settings.app.api_public_url, translator=translator or Translator.load()
+    )
     install_error_handlers(app, problems)
     app.add_middleware(
         RequestContextMiddleware,

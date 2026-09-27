@@ -10,6 +10,7 @@ from fastapi import FastAPI
 
 from app.entrypoints._wiring import make_web_container, module_routers
 from app.interfaces.http.app import create_app
+from app.platform.i18n.translator import Translator
 from app.platform.observability.logging import configure_logging
 from app.platform.observability.sentry import init_sentry
 from app.platform.settings import Settings, describe
@@ -25,7 +26,9 @@ def create() -> FastAPI:
     settings = Settings()
     configure_logging(settings.app)
     init_sentry(settings)
-    app = create_app(make_web_container(settings), settings, module_routers())
+    translator = Translator.load()
+    container = make_web_container(settings, translator)
+    app = create_app(container, settings, module_routers(), translator=translator)
     log.info("web_started", **describe(settings))
     return app
 

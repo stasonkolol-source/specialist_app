@@ -13,7 +13,15 @@ from urllib.parse import urlencode
 import typer
 
 from app.entrypoints._envfile import read_env, write_env
+from app.platform.i18n.catalogs import (
+    COMPLETE,
+    catalog_path,
+    generate_sr_latn,
+    read_catalog,
+    stale_sr_latn,
+)
 from app.platform.kernel.clock import SystemClock
+from app.platform.kernel.localized import Locale
 from app.platform.security.initdata import sign
 from app.platform.security.jwt import JwtKeys, SigningKey
 from app.platform.settings import ENV_FILE, AppSettings, Environment, TelegramSettings
@@ -81,6 +89,36 @@ def openapi(
         return
     output.write_text(text, encoding="utf-8")
     typer.echo(f"{output.name}: {'unchanged' if current == text else 'written'}")
+
+
+i18n = typer.Typer(help="Каталоги gettext backend (ADR-0013).", no_args_is_help=True)
+app.add_typer(i18n, name="i18n")
+
+
+@i18n.command("generate")
+def i18n_generate() -> None:
+    """sr_Latn из sr_Cyrl транслитерацией."""
+    source = catalog_path(Locale.SR_CYRL).read_text(encoding="utf-8")
+    target = catalog_path(Locale.SR_LATN)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(generate_sr_latn(source), encoding="utf-8")
+    typer.echo(f"{target.relative_to(ENV_FILE.parent)}: generated")
+
+
+@i18n.command("check")
+def i18n_check() -> None:
+    """sr_Latn актуален, ru и sr_Cyrl содержат одни и те же ключи."""
+    problems = []
+    if stale_sr_latn():
+        problems.append("sr_Latn is stale: run `make cli ARGS='i18n generate'`")
+    ru, sr = (set(read_catalog(catalog_path(locale))) for locale in COMPLETE)
+    if ru != sr:
+        problems.append(f"keys differ: only ru {sorted(ru - sr)}, only sr_Cyrl {sorted(sr - ru)}")
+    for problem in problems:
+        typer.echo(problem, err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo(f"backend i18n: {len(ru)} keys, sr_Latn up to date")
 
 
 @app.command("dev-initdata")

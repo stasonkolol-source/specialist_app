@@ -9,6 +9,7 @@ from enum import StrEnum
 from types import MappingProxyType
 
 from app.platform.kernel.errors import DomainValidationError
+from app.platform.kernel.translit import sr_cyrl_to_latn
 
 
 class Locale(StrEnum):
@@ -19,11 +20,23 @@ class Locale(StrEnum):
 
 
 _FALLBACK: dict[Locale, tuple[Locale, ...]] = {
-    Locale.RU: (Locale.RU, Locale.SR_LATN, Locale.EN, Locale.SR_CYRL),
+    Locale.RU: (Locale.RU, Locale.EN, Locale.SR_LATN, Locale.SR_CYRL),
     Locale.SR_LATN: (Locale.SR_LATN, Locale.SR_CYRL, Locale.EN, Locale.RU),
     Locale.SR_CYRL: (Locale.SR_CYRL, Locale.SR_LATN, Locale.EN, Locale.RU),
     Locale.EN: (Locale.EN, Locale.RU, Locale.SR_LATN, Locale.SR_CYRL),
 }
+"""Цепочки ARCHITECTURE §7.4. Для sr-Latn кириллица отдаётся транслитом, а не как есть."""
+
+
+def fallback_chain(locale: Locale) -> tuple[Locale, ...]:
+    return _FALLBACK[locale]
+
+
+def as_requested(text: str, found: Locale, requested: Locale) -> str:
+    """Текст локали `found` для запроса `requested`: sr-Cyrl для sr-Latn — транслитом."""
+    if requested is Locale.SR_LATN and found is Locale.SR_CYRL:
+        return sr_cyrl_to_latn(text)
+    return text
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,10 +58,10 @@ class LocalizedText:
             raise DomainValidationError(field="localized_text", reason="unknown_locale") from exc
 
     def get(self, locale: Locale) -> str:
-        """Текст на нужной локали или по цепочке запасных: сербские варианты — друг к другу."""
+        """Текст на нужной локали или по цепочке запасных (§7.4)."""
         for candidate in _FALLBACK[locale]:
             if candidate in self.values:
-                return self.values[candidate]
+                return as_requested(self.values[candidate], candidate, locale)
         return next(iter(self.values.values()))
 
     def to_mapping(self) -> dict[str, str]:

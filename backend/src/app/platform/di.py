@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from app.platform.db.engine import libpq_dsn, make_engine, make_session_maker
 from app.platform.db.port import UnitOfWork
 from app.platform.db.uow import SqlAlchemyUnitOfWork
+from app.platform.i18n.translator import Translator
 from app.platform.kernel.clock import Clock, SystemClock
 from app.platform.queue.dispatcher import EventDispatcher, EventRegistry
 from app.platform.queue.port import JobQueue
@@ -44,6 +45,7 @@ from app.platform.settings import (
 class PlatformProvider(Provider):
     settings = from_context(provides=Settings, scope=Scope.APP)
     registry = from_context(provides=EventRegistry, scope=Scope.APP)
+    translator = from_context(provides=Translator, scope=Scope.APP)
 
     # --- группы настроек (APP) ------------------------------------------------------------
 

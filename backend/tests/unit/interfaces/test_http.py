@@ -131,7 +131,7 @@ async def test_up_answers_without_database(client: httpx.AsyncClient) -> None:
 
 async def test_unknown_route_is_problem_json(client: httpx.AsyncClient) -> None:
     body = _problem(await client.get("/api/v1/nope"), 404, "not_found")
-    assert set(body) == {"type", "title", "status", "code", "trace_id"}
+    assert set(body) == {"type", "title", "status", "code", "detail", "trace_id"}
     assert body["title"] == "Not Found"
 
 

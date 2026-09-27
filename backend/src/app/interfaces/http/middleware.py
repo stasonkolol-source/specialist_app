@@ -17,6 +17,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from app.interfaces.http.client import ClientInfo, ClientPolicy, format_version, negotiate_locale
 from app.interfaces.http.errors import INTERNAL_ERROR, Problems
 from app.platform.kernel.ids import new_id
+from app.platform.kernel.localized import Locale
 from app.platform.observability.logging import bind_context, clear_context
 
 log = structlog.get_logger(__name__)
@@ -84,7 +85,7 @@ class RequestContextMiddleware:
 
         begin = time.perf_counter()
         try:
-            rejection = self._check_client(scope, headers, trace_id)
+            rejection = self._check_client(scope, headers, trace_id, state["locale"])
             if rejection is not None:
                 await rejection(scope, receive, send_with_id)
                 return
@@ -94,7 +95,9 @@ class RequestContextMiddleware:
             log.exception("http_unhandled_error", method=scope["method"], path=scope["path"])
             if started:
                 raise
-            response = self.problems.response(500, INTERNAL_ERROR, trace_id=trace_id)
+            response = self.problems.response(
+                500, INTERNAL_ERROR, trace_id=trace_id, locale=state["locale"]
+            )
             await response(scope, receive, send_with_id)
         finally:
             if scope["path"] not in QUIET_PATHS:
@@ -107,7 +110,9 @@ class RequestContextMiddleware:
                 )
             clear_context()
 
-    def _check_client(self, scope: Scope, headers: Headers, trace_id: str) -> ASGIApp | None:
+    def _check_client(
+        self, scope: Scope, headers: Headers, trace_id: str, locale: Locale
+    ) -> ASGIApp | None:
         """X-Client на /api: битый заголовок — 400, устаревший клиент — 426."""
         if not scope["path"].startswith(self.api_prefix):
             return None
@@ -116,7 +121,9 @@ class RequestContextMiddleware:
             return None
         client = ClientInfo.parse(raw)
         if client is None:
-            return self.problems.response(400, INVALID_CLIENT_HEADER, trace_id=trace_id)
+            return self.problems.response(
+                400, INVALID_CLIENT_HEADER, trace_id=trace_id, locale=locale
+            )
         scope["state"]["client"] = client
         minimum = self.clients.required_upgrade(client)
         if minimum is None:
@@ -125,6 +132,7 @@ class RequestContextMiddleware:
             426,
             CLIENT_UPGRADE_REQUIRED,
             trace_id=trace_id,
+            locale=locale,
             platform=client.platform,
             min_version=format_version(minimum),
         )

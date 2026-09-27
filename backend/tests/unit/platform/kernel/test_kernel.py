@@ -111,14 +111,24 @@ def test_fake_clock_advances() -> None:
 def test_localized_text_exact_and_fallbacks() -> None:
     text = LocalizedText({Locale.RU: "Электрик", Locale.SR_LATN: "Električar"})
     assert text.get(Locale.RU) == "Электрик"
-    assert text.get(Locale.SR_CYRL) == "Električar"  # сербская кириллица → латиница
-    assert text.get(Locale.EN) == "Электрик"
+    assert text.get(Locale.SR_CYRL) == "Električar"  # sr-Cyrl → sr-Latn
+    assert text.get(Locale.EN) == "Электрик"  # en → ru
 
 
-def test_localized_text_serbian_variants_fall_back_to_each_other() -> None:
-    cyr = LocalizedText({Locale.SR_CYRL: "Електричар"})
-    assert cyr.get(Locale.SR_LATN) == "Електричар"
-    assert cyr.get(Locale.RU) == "Електричар"
+def test_localized_text_chains_follow_architecture() -> None:
+    """ARCHITECTURE §7.4: ru → en → sr-Latn; sr-Latn → транслит(sr-Cyrl) → en → ru."""
+    both = LocalizedText(
+        {Locale.EN: "Electrician", Locale.SR_CYRL: "Електричар", Locale.RU: "Электрик"}
+    )
+    assert both.get(Locale.SR_LATN) == "Električar"
+    assert (
+        LocalizedText({Locale.EN: "Electrician", Locale.SR_LATN: "Električar"}).get(Locale.RU)
+        == "Electrician"
+    )
+    cyr = LocalizedText({Locale.SR_CYRL: "Љубав и њега"})
+    assert cyr.get(Locale.SR_LATN) == "Ljubav i njega"
+    assert cyr.get(Locale.SR_CYRL) == "Љубав и њега"
+    assert cyr.get(Locale.RU) == "Љубав и њега"
 
 
 def test_localized_text_validation() -> None:

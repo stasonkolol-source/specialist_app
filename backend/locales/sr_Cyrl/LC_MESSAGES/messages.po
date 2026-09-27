@@ -1,0 +1,153 @@
+# Каталог backend «Сосед»: српски, ћирилица — исходник сербского.
+# Ключи — стабильные msgid (ADR-0013), параметры — {name}. Каталоги ru и sr_Cyrl
+# полные (архитектурный тест), sr_Latn генерирует `cli i18n generate`.
+msgid ""
+msgstr ""
+"Language: sr_Cyrl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "errors.not_found"
+msgstr "Није пронађено."
+
+msgid "errors.not_authenticated"
+msgstr "Потребно је да се пријавите."
+
+msgid "errors.forbidden"
+msgstr "Немате право на ову радњу."
+
+msgid "errors.restricted"
+msgstr "Ова радња вам је тренутно ограничена."
+
+msgid "errors.conflict"
+msgstr "Радња није могућа у тренутном стању."
+
+msgid "errors.concurrent_modification"
+msgstr "Подаци су се управо променили. Покушајте поново."
+
+msgid "errors.stale_version"
+msgstr "Подаци су застарели. Освежите страницу и покушајте поново."
+
+msgid "errors.validation_failed"
+msgstr "Проверите унете податке."
+
+msgid "errors.rate_limited"
+msgstr "Превише захтева. Покушајте поново за {retry_after} с."
+
+msgid "errors.external_service_unavailable"
+msgstr "Сервис је привремено недоступан. Покушајте поново касније."
+
+msgid "errors.currency_mismatch"
+msgstr "Валуте се не поклапају."
+
+msgid "errors.invalid_cursor"
+msgstr "Неисправан параметар странице."
+
+msgid "errors.invalid_if_match"
+msgstr "Неисправно заглавље If-Match."
+
+msgid "errors.invalid_init_data"
+msgstr "Пријава преко Telegram-а није успела. Отворите апликацију поново."
+
+msgid "errors.init_data_expired"
+msgstr "Сесија у Telegram-у је истекла. Отворите апликацију поново."
+
+msgid "errors.invalid_token"
+msgstr "Сесија није важећа. Пријавите се поново."
+
+msgid "errors.token_expired"
+msgstr "Сесија је истекла."
+
+msgid "errors.session_revoked"
+msgstr "Сесија је завршена. Пријавите се поново."
+
+msgid "errors.invalid_refresh_token"
+msgstr "Сесија није важећа. Пријавите се поново."
+
+msgid "errors.user_not_found"
+msgstr "Корисник није пронађен."
+
+msgid "errors.session_not_found"
+msgstr "Сесија није пронађена."
+
+msgid "errors.account_deleted"
+msgstr "Налог је обрисан."
+
+msgid "errors.user_already_deleted"
+msgstr "Налог је већ обрисан."
+
+msgid "errors.concurrent_login"
+msgstr "Пријава је већ у току. Покушајте поново."
+
+msgid "errors.invalid_display_name"
+msgstr "Име не може бити празно."
+
+msgid "errors.bad_request"
+msgstr "Неисправан захтев."
+
+msgid "errors.method_not_allowed"
+msgstr "Метод није дозвољен."
+
+msgid "errors.not_acceptable"
+msgstr "Формат одговора није подржан."
+
+msgid "errors.payload_too_large"
+msgstr "Захтев је превелик."
+
+msgid "errors.unsupported_media_type"
+msgstr "Тип садржаја није подржан."
+
+msgid "errors.validation_error"
+msgstr "Проверите унете податке."
+
+msgid "errors.malformed_request"
+msgstr "Тело захтева није исправан JSON."
+
+msgid "errors.internal_error"
+msgstr "Нешто није у реду. Већ радимо на томе."
+
+msgid "errors.invalid_client_header"
+msgstr "Неисправно заглавље X-Client."
+
+msgid "errors.client_upgrade_required"
+msgstr "Ажурирајте Telegram да бисте наставили."
+
+msgid "validation.missing"
+msgstr "Обавезно поље."
+
+msgid "validation.string_too_short"
+msgstr "Најмањи број знакова: {min_length}."
+
+msgid "validation.string_too_long"
+msgstr "Највећи број знакова: {max_length}."
+
+msgid "validation.string_type"
+msgstr "Потребан је текст."
+
+msgid "validation.int_parsing"
+msgstr "Потребан је цео број."
+
+msgid "validation.int_type"
+msgstr "Потребан је цео број."
+
+msgid "validation.bool_parsing"
+msgstr "Потребно је true или false."
+
+msgid "validation.uuid_parsing"
+msgstr "Неисправан идентификатор."
+
+msgid "validation.enum"
+msgstr "Недозвољена вредност."
+
+msgid "validation.literal_error"
+msgstr "Недозвољена вредност."
+
+msgid "validation.greater_than_equal"
+msgstr "Вредност мора бити најмање {ge}."
+
+msgid "validation.less_than_equal"
+msgstr "Вредност мора бити највише {le}."
+
+msgid "validation.extra_forbidden"
+msgstr "Непознато поље."
