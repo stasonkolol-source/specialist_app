@@ -2,11 +2,10 @@
 
 Синглтон — только объект со Scope.APP: он создаётся один раз на процесс и закрывается
 при остановке. REQUEST — всё, что живёт одну команду: сессия, UoW, очередь.
-Провайдеры внешних клиентов добавляют их шаги: S3 (0.24),
-переводы (1.2), AI (2.4), аналитика (1.7).
+Провайдеры внешних клиентов добавляют их шаги: AI (2.4), аналитика (1.7).
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from datetime import timedelta
 
 import procrastinate
@@ -47,6 +46,8 @@ from app.platform.settings import (
     TelegramSettings,
     ValkeySettings,
 )
+from app.platform.storage.port import StoragePort
+from app.platform.storage.s3 import S3Storage
 
 
 class PlatformProvider(Provider):
@@ -127,6 +128,13 @@ class PlatformProvider(Provider):
         bot = Bot(settings.bot_token.get_secret_value())
         yield bot
         await bot.session.close()
+
+    @provide(scope=Scope.APP)
+    def storage(self, settings: S3Settings, clock: Clock) -> Iterator[StoragePort]:
+        """S3/R2: клиенты boto3 создаются при первом запросе порта (без ключей — ошибка)."""
+        storage = S3Storage(settings, clock)
+        yield storage
+        storage.close()
 
     @provide(scope=Scope.APP)
     def client_config(self, maker: async_sessionmaker[AsyncSession]) -> ClientConfigCache:

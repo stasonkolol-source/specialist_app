@@ -2,8 +2,6 @@
 
 import hashlib
 from collections.abc import AsyncIterator
-from datetime import timedelta
-from uuid import UUID
 
 import procrastinate
 import procrastinate.testing
@@ -18,15 +16,13 @@ from app.platform.db.platform_tables import audit_log, idempotency_keys
 from app.platform.db.port import UnitOfWork
 from app.platform.http.idempotency import idempotent_router
 from app.platform.http.security import AUTHENTICATED
-from app.platform.kernel.clock import SystemClock
 from app.platform.kernel.errors import ConflictError
-from app.platform.kernel.ids import UserId, new_id
+from app.platform.kernel.ids import new_id
 from app.platform.kernel.principal import Principal
 from app.platform.queue.periodic import idempotency_cleanup
 from app.platform.queue.tasks import PeriodicRun
-from app.platform.security.jwt import AccessTokens, JwtKeys
 from app.platform.settings import Settings
-from tests.plugins.http import HttpApp, http_app, sample_router
+from tests.plugins.http import HttpApp, bearer, http_app, sample_router
 
 pytestmark = pytest.mark.integration
 
@@ -73,19 +69,6 @@ async def create_note(
 
 
 router.include_router(creating)
-
-
-def bearer(settings: Settings, user_id: UUID | None = None) -> dict[str, str]:
-    assert settings.jwt.keys is not None
-    tokens = AccessTokens(
-        JwtKeys.parse(settings.jwt.keys.get_secret_value()),
-        SystemClock(),
-        issuer=settings.jwt.issuer,
-        ttl=timedelta(minutes=15),
-    )
-    principal = Principal(user_id=UserId(user_id or new_id()), session_id=new_id().hex)
-    token, _ = tokens.issue(principal, amr=("test",))
-    return {"authorization": f"Bearer {token}"}
 
 
 @pytest.fixture

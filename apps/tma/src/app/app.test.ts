@@ -22,6 +22,17 @@ describe('CSP', () => {
     expect(csp).toContain("script-src 'self' 'unsafe-inline'");
     expect(csp).toContain("connect-src 'self' ws: wss:");
   });
+
+  it('lets the app upload to and preview from the storage S3 API', () => {
+    const csp = contentSecurityPolicy({
+      dev: false,
+      mediaOrigins: [],
+      storageOrigins: ['https://s3.example'],
+    });
+    expect(csp).toContain("connect-src 'self' https://s3.example;");
+    expect(csp).toContain("img-src 'self' data: blob: https://s3.example;");
+    expect(csp).toContain("media-src 'self' blob: https://s3.example;");
+  });
 });
 
 describe('query retries', () => {

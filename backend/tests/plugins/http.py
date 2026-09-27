@@ -3,6 +3,8 @@
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import timedelta
+from uuid import UUID
 
 import httpx
 from dishka import AsyncContainer
@@ -10,6 +12,10 @@ from fastapi import APIRouter
 
 from app.entrypoints._wiring import make_web_container
 from app.interfaces.http.app import create_app
+from app.platform.kernel.clock import SystemClock
+from app.platform.kernel.ids import UserId, new_id
+from app.platform.kernel.principal import Principal
+from app.platform.security.jwt import AccessTokens, JwtKeys
 from app.platform.settings import Settings
 
 
@@ -50,4 +56,18 @@ def sample_router(prefix: str = "/test") -> APIRouter:
     return APIRouter(prefix=prefix, generate_unique_id_function=lambda route: f"test_{route.name}")
 
 
-__all__: Sequence[str] = ("HttpApp", "http_app", "http_client", "sample_router")
+def bearer(settings: Settings, user_id: UUID | None = None) -> dict[str, str]:
+    """Заголовок Authorization с access JWT из ключей настроек теста."""
+    assert settings.jwt.keys is not None
+    tokens = AccessTokens(
+        JwtKeys.parse(settings.jwt.keys.get_secret_value()),
+        SystemClock(),
+        issuer=settings.jwt.issuer,
+        ttl=timedelta(minutes=15),
+    )
+    principal = Principal(user_id=UserId(user_id or new_id()), session_id=new_id().hex)
+    token, _ = tokens.issue(principal, amr=("test",))
+    return {"authorization": f"Bearer {token}"}
+
+
+__all__: Sequence[str] = ("HttpApp", "bearer", "http_app", "http_client", "sample_router")
