@@ -1,4 +1,6 @@
 # Обновления зависимостей (DEVELOPMENT_PLAN 0.23). Раз в неделю, группами — меньше PR и минут CI.
+# Мажорные версии Dependabot не предлагает: это осознанная работа отдельным шагом (миграция API,
+# проверка совместимости). Закреплённые границы из плана (§4, ADR-0004) — тоже в ignore.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -14,6 +16,15 @@ updates:
     groups:
       backend-patch:
         update-types: [patch, minor]
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
+      # aiogram 3.31 требует pydantic < 2.14
+      - dependency-name: pydantic
+        versions: ['>=2.14']
+      # redis-py 8 — отдельный шаг (API клиента Valkey)
+      - dependency-name: redis
+        versions: ['>=8']
 
   - package-ecosystem: npm
     directory: /
@@ -22,7 +33,14 @@ updates:
     groups:
       frontend-patch:
         update-types: [patch, minor]
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: docker
     directories: [/backend, /infra/postgres]
     schedule: { interval: weekly, day: monday }
+    ignore:
+      # Python 3.15 и PostgreSQL 19 — отдельными шагами, не автообновлением
+      - dependency-name: '*'
+        update-types: [version-update:semver-major, version-update:semver-minor]
