@@ -1,0 +1,44 @@
+# Secrets — never in git (DEVELOPMENT_PLAN §2 «Секреты»)
+.env
+.env.*
+!*.env.example
+!.env.example
+*.pem
+*.key
+*.tfstate
+*.tfstate.*
+.terraform/
+*.auto.tfvars
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage/
+htmlcov/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Local artefacts
+test-results/
+playwright-report/
+
+# Unrelated local files in the project root (Q2 — leave untouched, keep out of git): PyCharm template, blog draft
+/blog2.html
+/main.py
+/pyproject.toml
+/uv.lock

@@ -1,0 +1,9 @@
+# gitleaks: стандартные правила плюс исключения.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Фиктивные ключи локальной лаборатории research/07 (только 127.0.0.1, не секреты)"
+paths = [
+  '''^docs/research/lab/''',
+]
