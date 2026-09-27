@@ -1,0 +1,126 @@
+{
+  "app": {
+    "name": "{appName}",
+    "tagline": "Мајстори у близини, на вашем језику",
+    "miniApp": "мини-апликација"
+  },
+  "glossary": {
+    "job": "захтев",
+    "response": "понуда",
+    "deal": "договор",
+    "specialist": "стручњак",
+    "client": "клијент",
+    "review": "утисак",
+    "gig": "хонорарни посао"
+  },
+  "action": {
+    "next": "Даље",
+    "back": "Назад",
+    "close": "Затвори",
+    "cancel": "Откажи",
+    "save": "Сачувај",
+    "send": "Пошаљи",
+    "share": "Подели",
+    "report": "Пријави",
+    "retry": "Покушај поново",
+    "search": "Претрага",
+    "publish": "Објави",
+    "respond": "Пошаљи понуду",
+    "write": "Напиши поруку",
+    "choose": "Изабери за извођача",
+    "decline": "Одбиј",
+    "confirm": "Потврди",
+    "workDone": "Посао је завршен",
+    "leaveReview": "Остави утисак"
+  },
+  "count": {
+    "reviews": "{count, plural, one {# утисак} few {# утиска} other {# утисака}}",
+    "responses": "{count, plural, one {# понуда} few {# понуде} other {# понуда}}",
+    "responsesOf": "понуда: {count} од {total}",
+    "slotsLeft": "{count, plural, one {још # слободно место} few {још # слободна места} other {још # слободних места}}",
+    "respondWithSlots": "Пошаљи понуду · {count, plural, one {још # слободно место} few {још # слободна места} other {још # слободних места}}",
+    "responded": "Послали сте понуду",
+    "full": "Нема слободних места",
+    "firstResponder": "Први се јавио"
+  },
+  "time": {
+    "justNow": "управо сада",
+    "minutesAgo": "пре {count}\u00A0мин",
+    "hoursAgo": "пре {count}\u00A0ч",
+    "yesterday": "јуче",
+    "daysAgo": "пре {count, plural, one {# дан} few {# дана} other {# дана}}",
+    "today": "данас",
+    "tomorrow": "сутра",
+    "dayAt": "{day} у\u00A0{time}"
+  },
+  "distance": {
+    "km": "≈\u00A0{value}\u00A0км",
+    "m": "≈\u00A0{value}\u00A0м"
+  },
+  "price": {
+    "from": "од\u00A0{amount}",
+    "upTo": "до\u00A0{amount}",
+    "negotiable": "по договору",
+    "perUnit": {
+      "work": "{price}",
+      "hour": "{price}/сат",
+      "m2": "{price}/м²",
+      "visit": "{price} по доласку",
+      "item": "{price} по комаду",
+      "lesson": "{price}/час",
+      "km": "{price}/км"
+    }
+  },
+  "unit": {
+    "work": "за цео посао",
+    "hour": "по сату",
+    "m2": "по м²",
+    "visit": "по доласку",
+    "item": "по комаду",
+    "lesson": "по часу",
+    "km": "по км"
+  },
+  "budget": {
+    "upTo": "до\u00A0{max}",
+    "range": "{min}–{max}\u00A0хиљ.",
+    "over": "{min}\u00A0хиљ.+"
+  },
+  "rating": {
+    "new": "Нови стручњак"
+  },
+  "urgency": {
+    "asap": "Хитно",
+    "today": "Данас",
+    "this_week": "Ове недеље",
+    "flexible": "Флексибилно"
+  },
+  "status": {
+    "job": {
+      "draft": "Нацрт",
+      "pending_moderation": "На провери",
+      "published": "Објављен",
+      "rejected": "Одбијен",
+      "assigned": "У току",
+      "completed": "Завршен",
+      "closed": "Затворен",
+      "expired": "Истекао",
+      "removed": "Уклоњен"
+    },
+    "response": {
+      "submitted": "Послата",
+      "viewed": "Прегледана",
+      "shortlisted": "У ужем избору",
+      "accepted": "Изабрана",
+      "declined": "Одбијена",
+      "withdrawn": "Повучена",
+      "not_selected": "Није изабрана"
+    },
+    "deal": {
+      "proposed": "Чека потврду",
+      "agreed": "Договорено",
+      "completed": "Завршено",
+      "cancelled": "Отказано",
+      "disputed": "Спор"
+    }
+  }
+}

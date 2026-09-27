@@ -1,0 +1,126 @@
+{
+  "app": {
+    "name": "{appName}",
+    "tagline": "Majstori u blizini, na vašem jeziku",
+    "miniApp": "mini-aplikacija"
+  },
+  "glossary": {
+    "job": "zahtev",
+    "response": "ponuda",
+    "deal": "dogovor",
+    "specialist": "stručnjak",
+    "client": "klijent",
+    "review": "utisak",
+    "gig": "honorarni posao"
+  },
+  "action": {
+    "next": "Dalje",
+    "back": "Nazad",
+    "close": "Zatvori",
+    "cancel": "Otkaži",
+    "save": "Sačuvaj",
+    "send": "Pošalji",
+    "share": "Podeli",
+    "report": "Prijavi",
+    "retry": "Pokušaj ponovo",
+    "search": "Pretraga",
+    "publish": "Objavi",
+    "respond": "Pošalji ponudu",
+    "write": "Napiši poruku",
+    "choose": "Izaberi za izvođača",
+    "decline": "Odbij",
+    "confirm": "Potvrdi",
+    "workDone": "Posao je završen",
+    "leaveReview": "Ostavi utisak"
+  },
+  "count": {
+    "reviews": "{count, plural, one {# utisak} few {# utiska} other {# utisaka}}",
+    "responses": "{count, plural, one {# ponuda} few {# ponude} other {# ponuda}}",
+    "responsesOf": "ponuda: {count} od {total}",
+    "slotsLeft": "{count, plural, one {još # slobodno mesto} few {još # slobodna mesta} other {još # slobodnih mesta}}",
+    "respondWithSlots": "Pošalji ponudu · {count, plural, one {još # slobodno mesto} few {još # slobodna mesta} other {još # slobodnih mesta}}",
+    "responded": "Poslali ste ponudu",
+    "full": "Nema slobodnih mesta",
+    "firstResponder": "Prvi se javio"
+  },
+  "time": {
+    "justNow": "upravo sada",
+    "minutesAgo": "pre {count} min",
+    "hoursAgo": "pre {count} č",
+    "yesterday": "juče",
+    "daysAgo": "pre {count, plural, one {# dan} few {# dana} other {# dana}}",
+    "today": "danas",
+    "tomorrow": "sutra",
+    "dayAt": "{day} u {time}"
+  },
+  "distance": {
+    "km": "≈ {value} km",
+    "m": "≈ {value} m"
+  },
+  "price": {
+    "from": "od {amount}",
+    "upTo": "do {amount}",
+    "negotiable": "po dogovoru",
+    "perUnit": {
+      "work": "{price}",
+      "hour": "{price}/sat",
+      "m2": "{price}/m²",
+      "visit": "{price} po dolasku",
+      "item": "{price} po komadu",
+      "lesson": "{price}/čas",
+      "km": "{price}/km"
+    }
+  },
+  "unit": {
+    "work": "za ceo posao",
+    "hour": "po satu",
+    "m2": "po m²",
+    "visit": "po dolasku",
+    "item": "po komadu",
+    "lesson": "po času",
+    "km": "po km"
+  },
+  "budget": {
+    "upTo": "do {max}",
+    "range": "{min}–{max} hilj.",
+    "over": "{min} hilj.+"
+  },
+  "rating": {
+    "new": "Novi stručnjak"
+  },
+  "urgency": {
+    "asap": "Hitno",
+    "today": "Danas",
+    "this_week": "Ove nedelje",
+    "flexible": "Fleksibilno"
+  },
+  "status": {
+    "job": {
+      "draft": "Nacrt",
+      "pending_moderation": "Na proveri",
+      "published": "Objavljen",
+      "rejected": "Odbijen",
+      "assigned": "U toku",
+      "completed": "Završen",
+      "closed": "Zatvoren",
+      "expired": "Istekao",
+      "removed": "Uklonjen"
+    },
+    "response": {
+      "submitted": "Poslata",
+      "viewed": "Pregledana",
+      "shortlisted": "U užem izboru",
+      "accepted": "Izabrana",
+      "declined": "Odbijena",
+      "withdrawn": "Povučena",
+      "not_selected": "Nije izabrana"
+    },
+    "deal": {
+      "proposed": "Čeka potvrdu",
+      "agreed": "Dogovoreno",
+      "completed": "Završeno",
+      "cancelled": "Otkazano",
+      "disputed": "Spor"
+    }
+  }
+}

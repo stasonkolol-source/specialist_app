@@ -1,0 +1,201 @@
+{
+  "$comment": "Golden-векторы кодека deep links (ARCHITECTURE §11.4). Общие для packages/links и backend (модуль growth): менять только вместе.",
+  "alphabet": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+  "uuid": [
+    {
+      "uuid": "00000000-0000-0000-0000-000000000000",
+      "base62": "0000000000000000000000"
+    },
+    {
+      "uuid": "00000000-0000-0000-0000-000000000001",
+      "base62": "0000000000000000000001"
+    },
+    {
+      "uuid": "00000000-0000-0000-0000-00000000003d",
+      "base62": "000000000000000000000z"
+    },
+    {
+      "uuid": "00000000-0000-0000-0000-00000000003e",
+      "base62": "0000000000000000000010"
+    },
+    {
+      "uuid": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+      "base62": "7n42DGM5Tflk9n8mt7Fhc7"
+    },
+    {
+      "uuid": "0192f5a8-7c3e-7b21-9d4f-3a6b8c1e2f47",
+      "base62": "02y9UKmeRG6vSNbdsEYkkR"
+    },
+    {
+      "uuid": "01930a12-4b5c-7def-8a9b-0c1d2e3f4a5b",
+      "base62": "02yBkPi1NksSnHWzckDH0V"
+    },
+    {
+      "uuid": "019b4e6f-2a3b-7c4d-bf5e-6a7b8c9d0e1f",
+      "base62": "031xzEWS7WFYMsmk7f0c1P"
+    },
+    {
+      "uuid": "6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
+      "base62": "3Nf1YTX8urRqobGWgo1mmN"
+    },
+    {
+      "uuid": "32b6972e-3c5b-209e-d99f-a8d2b0a9c036",
+      "base62": "1Xh3kQ9vB7mZ2pR4sT8dLq"
+    },
+    {
+      "uuid": "973bbe4e-ae2f-03e7-feb2-b0a7efc1e9ff",
+      "base62": "4bN8wE2rT6yU1iO3pA5sDf"
+    },
+    {
+      "uuid": "ddb2e57d-150e-a901-dddc-0c833acbca4f",
+      "base62": "6kL3jH8gF1dS4aZ7xC2vBn"
+    }
+  ],
+  "valid": [
+    {
+      "param": "j_02y9UKmeRG6vSNbdsEYkkR",
+      "link": {
+        "type": "job",
+        "id": "0192f5a8-7c3e-7b21-9d4f-3a6b8c1e2f47"
+      }
+    },
+    {
+      "param": "s_02yBkPi1NksSnHWzckDH0V",
+      "link": {
+        "type": "specialist",
+        "id": "01930a12-4b5c-7def-8a9b-0c1d2e3f4a5b"
+      }
+    },
+    {
+      "param": "c_031xzEWS7WFYMsmk7f0c1P",
+      "link": {
+        "type": "chat",
+        "id": "019b4e6f-2a3b-7c4d-bf5e-6a7b8c9d0e1f"
+      }
+    },
+    {
+      "param": "d_3Nf1YTX8urRqobGWgo1mmN",
+      "link": {
+        "type": "deal",
+        "id": "6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f"
+      }
+    },
+    {
+      "param": "h",
+      "link": {
+        "type": "home"
+      }
+    },
+    {
+      "param": "s_02yBkPi1NksSnHWzckDH0V_rAB12CD",
+      "link": {
+        "type": "specialist",
+        "id": "01930a12-4b5c-7def-8a9b-0c1d2e3f4a5b",
+        "ref": "AB12CD"
+      }
+    },
+    {
+      "param": "h_rAB12CD",
+      "link": {
+        "type": "home",
+        "ref": "AB12CD"
+      }
+    },
+    {
+      "param": "j_7n42DGM5Tflk9n8mt7Fhc7_rZz9",
+      "link": {
+        "type": "job",
+        "id": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+        "ref": "Zz9"
+      }
+    },
+    {
+      "param": "g_02y9UKmeRG6vSNbdsEYkkR",
+      "link": {
+        "type": "reserved",
+        "code": "g",
+        "value": "02y9UKmeRG6vSNbdsEYkkR"
+      }
+    },
+    {
+      "param": "gu_02yBkPi1NksSnHWzckDH0V",
+      "link": {
+        "type": "reserved",
+        "code": "gu",
+        "value": "02yBkPi1NksSnHWzckDH0V"
+      }
+    },
+    {
+      "param": "gh",
+      "link": {
+        "type": "reserved",
+        "code": "gh"
+      }
+    },
+    {
+      "param": "gs_12345",
+      "link": {
+        "type": "reserved",
+        "code": "gs",
+        "value": "12345"
+      }
+    },
+    {
+      "param": "gc_novisad-chat",
+      "link": {
+        "type": "reserved",
+        "code": "gc",
+        "value": "novisad-chat"
+      }
+    },
+    {
+      "param": "gs_r42",
+      "link": {
+        "type": "reserved",
+        "code": "gs",
+        "value": "r42"
+      }
+    },
+    {
+      "param": "gh_rCHAN1",
+      "link": {
+        "type": "reserved",
+        "code": "gh",
+        "ref": "CHAN1"
+      }
+    },
+    {
+      "param": "s_02yBkPi1NksSnHWzckDH0V_rAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "link": {
+        "type": "specialist",
+        "id": "01930a12-4b5c-7def-8a9b-0c1d2e3f4a5b",
+        "ref": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      }
+    }
+  ],
+  "invalid": [
+    "",
+    "x",
+    "H",
+    "hh",
+    "h_",
+    "h_r",
+    "j_",
+    "j_1Xh3kQ9vB7mZ2pR4sT8dL",
+    "j_1Xh3kQ9vB7mZ2pR4sT8dLqq",
+    "j_zzzzzzzzzzzzzzzzzzzzzz",
+    "c_9cV2bN4mQ7wE1rT5yU8iOp",
+    "j_8000000000000000000000",
+    "j_7n42DGM5Tflk9n8mt7Fhc8",
+    "j_1Xh3kQ9vB7mZ2pR4sT8dL!",
+    "x_1Xh3kQ9vB7mZ2pR4sT8dLq",
+    "s_02yBkPi1NksSnHWzckDH0V_rAB_CD",
+    "s_02yBkPi1NksSnHWzckDH0V_r",
+    "_tgr_abc",
+    "g",
+    "gh_1",
+    "gs_",
+    "gc_a_b",
+    "s_02yBkPi1NksSnHWzckDH0V_rAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  ]
+}
