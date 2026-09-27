@@ -1,6 +1,6 @@
 // Клиент API «Соседа» (DEVELOPMENT_PLAN 0.20): хуки и функции из OpenAPI, ошибки, сессия.
-export * from './generated/endpoints';
-export * from './generated/model';
+export * from './generated/endpoints/index.ts';
+export * from './generated/model/index.ts';
 export {
   ApiError,
   NetworkError,

@@ -9,7 +9,7 @@
 // - 403 restricted, 426, 429 → типизированные ошибки; 429 с коротким Retry-After — ждём и повторяем.
 import type { ApiError } from './errors.ts';
 import { NetworkError, RateLimitedError, errorFromProblem, syntheticProblem } from './errors.ts';
-import type { ProblemOut, TokensOut } from './generated/model';
+import type { ProblemOut, TokensOut } from './generated/model/index.ts';
 
 /** Тип ошибки хуков orval: ApiError с телом ProblemOut из схемы операции. */
 export type ErrorType<Problem> = ApiError & { readonly problem: Problem };

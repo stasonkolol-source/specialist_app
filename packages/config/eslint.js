@@ -16,6 +16,12 @@ const tmaOnly = {
   group: ['@tma.js/*'],
   message: 'Telegram — только через packages/platform',
 };
+// Импорт каталога без index.ts eslint-plugin-boundaries не разрешает и молча пропускает —
+// через него обходились бы границы routes → features. Поэтому путь — всегда до файла.
+const explicitFile = {
+  regex: '^\\.{1,2}/(?:(?!\\.(?:ts|tsx|js|mjs|css|json)$).)*$',
+  message: 'Относительный импорт — до файла с расширением (./x.ts, ./dir/index.ts)',
+};
 
 /**
  * @param {object} [options]
@@ -55,7 +61,10 @@ export function sosed({
         ...(root ? { parserOptions: { tsconfigRootDir: root } } : {}),
       },
       rules: {
-        'no-restricted-imports': ['error', { patterns: allowTma ? [apiOnly] : [tmaOnly, apiOnly] }],
+        'no-restricted-imports': [
+          'error',
+          { patterns: allowTma ? [apiOnly, explicitFile] : [tmaOnly, apiOnly, explicitFile] },
+        ],
         'no-restricted-globals': [
           'error',
           { name: 'fetch', message: 'API — только хуки packages/api-client' },
@@ -94,15 +103,33 @@ export function sosed({
         ],
       },
       rules: {
-        'boundaries/element-types': [
+        'boundaries/dependencies': [
           'error',
           {
             default: 'disallow',
-            rules: [
-              { from: 'app', allow: ['app', 'routes', 'feature'] },
-              { from: 'routes', allow: ['routes', 'feature'] },
+            policies: [
+              {
+                from: { element: { type: 'app' } },
+                allow: [{ to: { element: { type: ['app', 'routes', 'feature'] } } }],
+              },
+              {
+                from: { element: { type: 'routes' } },
+                allow: [{ to: { element: { type: ['routes', 'feature'] } } }],
+              },
               // фичи не импортируют друг друга: общее — в packages/hooks или ui-web
-              { from: 'feature', allow: [['feature', { feature: '${from.feature}' }]] },
+              {
+                from: { element: { type: 'feature' } },
+                allow: [
+                  {
+                    to: {
+                      element: {
+                        type: 'feature',
+                        captured: { feature: '{{ from.element.captured.feature }}' },
+                      },
+                    },
+                  },
+                ],
+              },
             ],
           },
         ],

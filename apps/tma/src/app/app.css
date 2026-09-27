@@ -1,0 +1,4 @@
+/* Стили Mini App: компоненты ui-web на токенах и классы экранов приложения. */
+@import '@sosed/ui-web/styles.css';
+
+@source '../';

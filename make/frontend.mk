@@ -16,6 +16,10 @@ check-frontend: fe-install ## Frontend: prettier, typecheck, lint, tests, token 
 	@$(PNPM) --silent -F design-tokens check:contrast >/dev/null && echo "contrast: ok"
 	@$(PNPM) --silent -F i18n i18n:check
 
+.PHONY: dev-tma
+dev-tma: fe-install ## Mini App dev server: http://127.0.0.1:5173 (?platform=mock — клиент Telegram в браузере)
+	@$(PNPM) -F tma dev
+
 # Без рецепта: каталоги backend (шаг 1.2) добавят сюда свою цель-зависимость
 i18n-check: i18n-check-frontend ## Translation catalogs: sr-Latn up to date, keys and ICU consistent
 

@@ -7,7 +7,11 @@ import {
   RestrictedError,
   UpgradeRequiredError,
 } from './errors.ts';
-import { identityGetMe, identityRefreshSession, identityUpdateMe } from './generated/endpoints';
+import {
+  identityGetMe,
+  identityRefreshSession,
+  identityUpdateMe,
+} from './generated/endpoints/index.ts';
 import { apiFetch, configureApiClient, getSession, resetApiClient, setSession } from './mutator.ts';
 
 type Handler = (url: string, init: RequestInit) => Response | Promise<Response>;
