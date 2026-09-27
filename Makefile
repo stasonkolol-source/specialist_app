@@ -8,7 +8,7 @@ PORTS := 55442 56379 59100 59103 8000 5173
 COMPOSE := docker compose -p specialist-dev -f infra/compose/docker-compose.dev.yml --env-file infra/compose/.env
 
 .PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks \
-	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check test-int
+	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check test-int migrate migrate-roundtrip pg-bootstrap
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-20s %s\n", $$1, $$2}'
@@ -86,10 +86,22 @@ secret: ## Скрытый ввод секрета: make secret NAME=TELEGRAM_BOT
 secrets-check: ## Какие переменные заданы или пусты — без значений
 	@python3 scripts/secrets_check.py
 
+pg-bootstrap: ## Повторно применить infra/postgres/bootstrap.sql к dev-БД (идемпотентно)
+	@set -a; . infra/compose/.env; set +a; \
+	$(COMPOSE) exec -T postgres psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+	  -v dbname=specialist -v app_password="$$APP_DB_PASSWORD" -v migrator_password="$$MIGRATOR_DB_PASSWORD" \
+	  -v readonly_password="$$READONLY_DB_PASSWORD" -v backup_password="$$BACKUP_DB_PASSWORD" \
+	  -q -f /opt/specialist/bootstrap.sql && echo "pg-bootstrap: OK"
+
+migrate: ## alembic upgrade head на dev-БД (роль migrator)
+	@cd $(BACKEND) && $(UV) run alembic upgrade head
+
+migrate-roundtrip: pg-image ## Раунд-трип миграций в testcontainers: upgrade → downgrade base → upgrade → check → heads
+	@cd $(BACKEND) && $(UV) run pytest -m integration -q -k "roundtrip"
+
 garage-init: ## Ключ, бакеты и CORS в Garage; ключи — в backend/.env
 	@cd scripts && $(UV) run --no-project --quiet --with boto3 python garage_init.py
 
 check: plan-check gitleaks lint typecheck imports test test-int ## Definition of Done checks available so far
-	@echo "SKIP migrate-roundtrip (step 0.9)"
 	@echo "SKIP frontend checks (step 0.16a)"
 	@echo "check: OK"

@@ -28,6 +28,12 @@ ALTER ROLE app SET idle_in_transaction_session_timeout = '30s';
 ALTER ROLE migrator SET lock_timeout = '3s';
 ALTER ROLE migrator SET statement_timeout = 0;
 
+-- search_path: функции Procrastinate вызываются без схемы (docs/spikes/0.8), таблицы
+-- модулей — всегда со схемой. Схему procrastinate создаёт миграция platform_0001.
+ALTER ROLE app SET search_path = public, procrastinate;
+ALTER ROLE migrator SET search_path = public, procrastinate;
+ALTER ROLE readonly SET search_path = public, procrastinate;
+
 -- readonly: аналитика и отладка, только чтение.
 ALTER ROLE readonly SET default_transaction_read_only = on;
 ALTER ROLE readonly SET statement_timeout = '30s';
