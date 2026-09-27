@@ -1,7 +1,8 @@
 // Сборка приложения до первого рендера: платформа и ready() как можно раньше, язык из launch
-// params, клиент API, вход по initData в фоне. Тот же код собирает приложение в тестах.
+// params, клиент API, вход по initData в фоне (после входа — язык, сохранённый на сервере).
+// Тот же код собирает приложение в тестах.
 import { configureApiClient } from '@sosed/api-client';
-import { createI18n, currentLocale, resolveLocale } from '@sosed/i18n';
+import { createI18n, currentLocale, isLocale, resolveLocale } from '@sosed/i18n';
 import type { Platform } from '@sosed/platform';
 import type { QueryClient } from '@tanstack/react-query';
 import type { RouterHistory } from '@tanstack/react-router';
@@ -26,7 +27,10 @@ export interface AssembleOptions {
   version: string;
   history?: RouterHistory;
   languages?: readonly string[];
-  /** Язык, выбранный пользователем (`/me.language`); в mock-режиме — `?locale=`. */
+  /**
+   * Сохранённый выбор языка до входа: в mock-режиме — `?locale=`. В Telegram его нет —
+   * `ui_locale` пользователя приходит с входом и применяется после него.
+   */
   savedLocale?: string | null;
   /** Origin API; в приложении — тот же, что у страницы (пусто), в тестах — абсолютный. */
   baseUrl?: string;
@@ -46,7 +50,11 @@ export function assemble(platform: Platform, options: AssembleOptions): Assemble
   i18n.on('languageChanged', (next) => {
     document.documentElement.lang = next;
   });
-  const auth = createAuth(platform);
+  // ui_locale — выбор пользователя, на нём же пишет бот: важнее language_code Telegram.
+  // en в MVP не выбирается — тогда остаётся язык из launch params
+  const auth = createAuth(platform, ({ ui_locale }) => {
+    if (isLocale(ui_locale) && ui_locale !== i18n.language) void i18n.changeLanguage(ui_locale);
+  });
   configureApiClient({
     client: `tma/${options.version}`,
     locale: () => currentLocale(i18n),

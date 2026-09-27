@@ -1,9 +1,12 @@
 // Smoke каркаса на mock-платформе (DEVELOPMENT_PLAN 0.21a): провайдеры, маршруты, таббар,
 // правило «таббар скрыт при MainButton», редирект неизвестного пути, язык из Telegram;
-// ходячий скелет 0.22: вход по initData → GET /me → имя на S31, смена языка.
+// ходячий скелет 0.22: вход по initData → язык с сервера, GET /me → имя на S31, смена языка.
 import type { ClientConfigOut } from '@sosed/api-client';
 import { setSession } from '@sosed/api-client';
-import { getSystemGetClientConfigMockHandler } from '@sosed/api-client/mocks';
+import {
+  getIdentityAuthenticateTelegramMockHandler,
+  getSystemGetClientConfigMockHandler,
+} from '@sosed/api-client/mocks';
 import { createMockPlatform } from '@sosed/platform';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
@@ -171,5 +174,20 @@ describe('walking skeleton (0.22)', () => {
 
     expect(await screen.findByRole('heading', { name: 'Profil', level: 1 })).toBeTruthy();
     expect(document.documentElement.lang).toBe('sr-Latn');
+  });
+
+  it('switches to the language saved on the server once signed in', async () => {
+    const user = { ...ME, ui_locale: 'sr-Cyrl' as const };
+    server.use(getIdentityAuthenticateTelegramMockHandler({ ...TOKENS, is_new: false, user }));
+    const { app } = start('/', { languageCode: 'ru' });
+    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+
+    await act(async () => {
+      await app.signIn();
+    });
+
+    expect(app.i18n.language).toBe('sr-Cyrl');
+    expect(document.documentElement.lang).toBe('sr-Cyrl');
+    expect(await screen.findByRole('heading', { name: 'Почетна' })).toBeTruthy();
   });
 });

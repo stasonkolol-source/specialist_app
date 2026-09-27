@@ -1,5 +1,6 @@
 // S31 Профиль — заглушка ходячего скелета (DEVELOPMENT_PLAN 0.22): имя и внутренний id из GET /me,
-// язык интерфейса пишется через PATCH /me. Экран по макету design/project — в шаге 2.9.
+// язык интерфейса — ui_locale оттуда же, пишется через PATCH /me. Экран по макету design/project —
+// в шаге 2.9.
 import type { MeOut } from '@sosed/api-client';
 import {
   ApiError,
@@ -22,6 +23,7 @@ import {
   Text,
 } from '@sosed/ui-web';
 import { useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 export function AccountScreen() {
   const { t } = useTranslation();
@@ -50,19 +52,33 @@ function Account({ me }: { me: MeOut }) {
   const { t, i18n } = useTranslation();
   const locale = useLocale();
   const queryClient = useQueryClient();
+  // Выбор хранится на сервере (ui_locale), интерфейс следует за ним. en в MVP не выбирается —
+  // тогда отмечен текущий язык, и его выбор тоже сохраняется
+  const saved = isLocale(me.ui_locale) ? me.ui_locale : null;
+  useEffect(() => {
+    if (saved && saved !== locale) void i18n.changeLanguage(saved);
+  }, [i18n, locale, saved]);
+
   // If-Match не отправляем: mutator отдаёт только тело ответа, ETag из GET /me до экрана не доходит
   const update = useIdentityUpdateMe({
     mutation: {
-      onSuccess: async (_, { data }) => {
-        if (isLocale(data.ui_locale)) await i18n.changeLanguage(data.ui_locale);
+      // ответ PATCH — тот же MeOut: кладём в кэш раньше смены языка, иначе эффект выше вернёт
+      // старый язык из /me
+      onSuccess: async (next) => {
+        queryClient.setQueryData(getIdentityGetMeQueryKey(), next);
+        if (isLocale(next.ui_locale)) await i18n.changeLanguage(next.ui_locale);
       },
-      onSettled: () => queryClient.invalidateQueries({ queryKey: getIdentityGetMeQueryKey() }),
+      // запрос мог дойти до сервера без ответа — перечитываем /me, но не ждём: иначе мутация
+      // остаётся pending до конца перечитывания, без ошибки и с отброшенными нажатиями
+      onError: () => {
+        void queryClient.invalidateQueries({ queryKey: getIdentityGetMeQueryKey() });
+      },
     },
   });
-  const selected = update.isPending ? update.variables.data.ui_locale : locale;
+  const selected = update.isPending ? update.variables.data.ui_locale : (saved ?? locale);
 
   const choose = (next: Locale) => {
-    if (update.isPending || next === locale) return;
+    if (update.isPending || next === saved) return;
     update.mutate({ data: { ui_locale: next } });
   };
 
@@ -84,7 +100,12 @@ function Account({ me }: { me: MeOut }) {
       </div>
       <div className="flex flex-col gap-2">
         <SectionTitle>{t('profile.language')}</SectionTitle>
-        <div role="radiogroup" aria-label={t('profile.language')} className="flex flex-col gap-2">
+        <div
+          role="radiogroup"
+          aria-label={t('profile.language')}
+          aria-busy={update.isPending}
+          className="flex flex-col gap-2"
+        >
           {LOCALES.map((option) => (
             <Option
               key={option}
@@ -106,8 +127,10 @@ function Account({ me }: { me: MeOut }) {
 
 function Loading() {
   const { t } = useTranslation();
+  // live region читает содержимое, а не aria-label: текст — внутри, скелетоны скрыты (aria-hidden)
   return (
-    <div role="status" aria-label={t('profile.loading')} className="flex items-center gap-4">
+    <div role="status" className="flex items-center gap-4">
+      <span className="sr-only">{t('profile.loading')}</span>
       <Skeleton round className="size-22" />
       <div className="flex flex-1 flex-col gap-2">
         <Skeleton className="h-6 w-2/3" />

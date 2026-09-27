@@ -1,5 +1,6 @@
-// S31-заглушка (DEVELOPMENT_PLAN 0.22): имя из GET /me, смена языка через PATCH /me, ошибки API
-// и состояние «вне Telegram». API — MSW из orval с фикстурами SPEC §4.
+// S31-заглушка (DEVELOPMENT_PLAN 0.22): имя из GET /me, язык из ui_locale и его смена через
+// PATCH /me, ошибки API и состояние «вне Telegram». API — MSW из orval с фикстурами SPEC §4.
+import type { MeUpdateIn } from '@sosed/api-client';
 import { configureApiClient, setSession } from '@sosed/api-client';
 import type { Locale } from '@sosed/i18n';
 import { I18nextProvider, createI18n, currentLocale } from '@sosed/i18n';
@@ -8,7 +9,7 @@ import { PlatformProvider, createBrowserPlatform, createMockPlatform } from '@so
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { ME } from '../../../testing/fixtures.ts';
 import { API_ORIGIN, TOKENS, server } from '../../../testing/msw.ts';
@@ -77,13 +78,15 @@ describe('S31 profile stub', () => {
     expect(checked('Русский')).toBe('true');
   });
 
-  it('shows a loading state until /me answers', async () => {
+  it('announces loading until /me answers', async () => {
     renderScreen();
-    expect(screen.getByRole('status', { name: 'Загружаем профиль' })).toBeTruthy();
+    // live region читает содержимое: текст внутри, а не в aria-label
+    expect(screen.getByRole('status').textContent).toBe('Загружаем профиль');
     expect(await screen.findByRole('heading', { name: 'Елена К.' })).toBeTruthy();
+    expect(screen.queryByRole('status')).toBeNull();
   });
 
-  it('saves the language with PATCH /me, switches the app and reloads /me', async () => {
+  it('saves the language with PATCH /me and keeps its answer as /me', async () => {
     let body: unknown = null;
     let ifMatch: string | null = null;
     const languages: (string | null)[] = [];
@@ -111,11 +114,63 @@ describe('S31 profile stub', () => {
     expect(ifMatch).toBeNull();
     expect(i18n.language).toBe('sr-Latn');
     expect(checked('Srpski (latinica)')).toBe('true');
-    // /me перечитан уже на новом языке
-    await waitFor(() => expect(languages).toEqual(['ru', 'sr-Latn']));
+    // ответ PATCH — тот же MeOut: /me не перечитывается
+    await act(async () => undefined);
+    expect(languages).toEqual(['ru']);
   });
 
-  it('does not call the API when the current language is chosen again', async () => {
+  it('follows the language saved on the server and does not save it again', async () => {
+    const patches: MeUpdateIn[] = [];
+    server.use(
+      http.get(ME_PATH, () => HttpResponse.json({ ...ME, ui_locale: 'sr-Cyrl' })),
+      http.patch(ME_PATH, async ({ request }) => {
+        const body = (await request.json()) as MeUpdateIn;
+        patches.push(body);
+        return HttpResponse.json({ ...ME, ...body });
+      }),
+    );
+    // язык Telegram — ru, на сервере выбран sr-Cyrl
+    const { i18n } = renderScreen({ locale: 'ru' });
+
+    expect(await screen.findByRole('heading', { name: 'Профил', level: 1 })).toBeTruthy();
+    expect(i18n.language).toBe('sr-Cyrl');
+    expect(checked('Српски (ћирилица)')).toBe('true');
+    expect(checked('Русский')).toBe('false');
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('radio', { name: 'Српски (ћирилица)' }));
+    });
+    expect(patches).toEqual([]);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('radio', { name: 'Русский' }));
+    });
+    expect(await screen.findByRole('heading', { name: 'Профиль', level: 1 })).toBeTruthy();
+    expect(patches).toEqual([{ ui_locale: 'ru' }]);
+    expect(i18n.language).toBe('ru');
+    expect(checked('Русский')).toBe('true');
+  });
+
+  it('keeps the current language when the server has en, which MVP does not offer', async () => {
+    const patch = vi.fn(() => HttpResponse.json(ME));
+    server.use(
+      http.get(ME_PATH, () => HttpResponse.json({ ...ME, ui_locale: 'en' })),
+      http.patch(ME_PATH, patch),
+    );
+    const { i18n } = renderScreen({ locale: 'sr-Latn' });
+    await screen.findByRole('heading', { name: 'Елена К.' });
+
+    expect(i18n.language).toBe('sr-Latn');
+    expect(checked('Srpski (latinica)')).toBe('true');
+
+    // на сервере en: выбор отмеченного языка сохраняется
+    await act(async () => {
+      fireEvent.click(screen.getByRole('radio', { name: 'Srpski (latinica)' }));
+    });
+    await waitFor(() => expect(patch).toHaveBeenCalledOnce());
+  });
+
+  it('does not call the API when the saved language is chosen again', async () => {
     const patch = vi.fn(() => HttpResponse.json(ME));
     server.use(http.patch(ME_PATH, patch));
     renderScreen();
@@ -128,25 +183,53 @@ describe('S31 profile stub', () => {
     expect(patch).not.toHaveBeenCalled();
   });
 
+  // 412 сюда не попадает: If-Match клиент не шлёт, а без него сервер версию не сверяет
   it.each([
-    [412, 'stale_version'],
-    [500, 'internal_error'],
-  ])('keeps the language and shows an error when PATCH /me fails with %i', async (status, code) => {
-    server.use(http.patch(ME_PATH, () => problem(status, code)));
-    const { i18n } = renderScreen();
-    await screen.findByRole('heading', { name: 'Елена К.' });
+    ['500', () => problem(500, 'internal_error')],
+    ['a network error', () => HttpResponse.error()],
+  ])(
+    'keeps the language and shows an error at once when PATCH /me fails with %s',
+    async (_, fail) => {
+      // /me после ошибки перечитывается, но ответа нет: экран не должен его ждать
+      let release = () => undefined as void;
+      const hold = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      onTestFinished(() => release());
+      let gets = 0;
+      const patch = vi.fn(fail);
+      server.use(
+        http.get(ME_PATH, async () => {
+          gets += 1;
+          if (gets > 1) await hold;
+          return HttpResponse.json(ME);
+        }),
+        http.patch(ME_PATH, patch),
+      );
+      const { i18n } = renderScreen();
+      await screen.findByRole('heading', { name: 'Елена К.' });
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('radio', { name: 'Српски (ћирилица)' }));
-    });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('radio', { name: 'Српски (ћирилица)' }));
+      });
 
-    expect((await screen.findByRole('alert')).textContent).toBe(
-      'Не получилось сменить язык. Попробуйте ещё раз',
-    );
-    expect(i18n.language).toBe('ru');
-    expect(checked('Русский')).toBe('true');
-    expect(checked('Српски (ћирилица)')).toBe('false');
-  });
+      await waitFor(() =>
+        expect(screen.getByRole('alert').textContent).toBe(
+          'Не получилось сменить язык. Попробуйте ещё раз',
+        ),
+      );
+      expect(gets).toBe(2);
+      expect(i18n.language).toBe('ru');
+      expect(checked('Русский')).toBe('true');
+      expect(checked('Српски (ћирилица)')).toBe('false');
+
+      // следующий выбор не отбрасывается, пока /me перечитывается
+      await act(async () => {
+        fireEvent.click(screen.getByRole('radio', { name: 'Srpski (latinica)' }));
+      });
+      await waitFor(() => expect(patch).toHaveBeenCalledTimes(2));
+    },
+  );
 
   it('shows an error with retry when GET /me fails', async () => {
     server.use(http.get(ME_PATH, () => problem(500, 'internal_error'), { once: true }));

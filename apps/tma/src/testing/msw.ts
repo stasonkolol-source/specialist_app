@@ -8,7 +8,7 @@ import {
   getIdentityUpdateMeMockHandler,
   getSystemGetClientConfigMockHandler,
 } from '@sosed/api-client/mocks';
-import type { TokensOut } from '@sosed/api-client';
+import type { MeUpdateIn, TokensOut } from '@sosed/api-client';
 import { setupServer } from 'msw/node';
 
 import { CLIENT_CONFIG, ME } from './fixtures.ts';
@@ -30,7 +30,15 @@ export const handlers = [
   getIdentityRefreshSessionMockHandler(TOKENS),
   getIdentityLogoutMockHandler(),
   getIdentityGetMeMockHandler(ME),
-  getIdentityUpdateMeMockHandler(ME),
+  // PATCH /me применяет присланные поля, как backend (и page.route в e2e/api.ts)
+  getIdentityUpdateMeMockHandler(async ({ request }) => {
+    const { display_name, ui_locale } = (await request.json()) as MeUpdateIn;
+    return {
+      ...ME,
+      display_name: display_name ?? ME.display_name,
+      ui_locale: ui_locale ?? ME.ui_locale,
+    };
+  }),
 ];
 
 export const server = setupServer(...handlers);
