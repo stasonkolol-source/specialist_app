@@ -11,7 +11,7 @@ EXTRA_CHECKS :=
 
 COMPOSE := docker compose -p specialist-dev -f infra/compose/docker-compose.dev.yml --env-file infra/compose/.env
 
-.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-worker \
+.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker \
 	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check test-int migrate migrate-roundtrip pg-bootstrap
 
 help: ## Show available targets
@@ -102,6 +102,10 @@ migrate: ## alembic upgrade head на dev-БД (роль migrator)
 
 migrate-roundtrip: pg-image ## Раунд-трип миграций в testcontainers: upgrade → downgrade base → upgrade → check → heads
 	@cd $(BACKEND) && $(UV) run pytest -m integration -q -k "roundtrip"
+
+dev-web: ## API на 127.0.0.1:8000 с автоперезагрузкой (/up, /api/v1/docs)
+	@cd $(BACKEND) && $(UV) run uvicorn app.entrypoints.web:create --factory --reload \
+	  --host 127.0.0.1 --port 8000 --no-access-log
 
 dev-worker: ## Воркер задач на dev-стенде (очереди default и notifications; ROLE=worker-media — media)
 	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.worker --role $(or $(ROLE),worker)

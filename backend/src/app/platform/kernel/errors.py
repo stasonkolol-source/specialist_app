@@ -5,6 +5,7 @@
 задачи определяется базовым классом в одном месте на интерфейс.
 """
 
+from datetime import datetime
 from typing import ClassVar
 
 
@@ -38,9 +39,17 @@ class ForbiddenError(DomainError):
 
 
 class RestrictedError(ForbiddenError):
-    """403 `restricted`: действие запрещено санкцией (identity.restrictions)."""
+    """403 `restricted`: действие запрещено санкцией (identity.restrictions).
+
+    `restriction` — вид санкции (`posting_blocked`, …), `until` — до когда; None — бессрочно.
+    """
 
     code = "restricted"
+
+    def __init__(self, *, restriction: str, until: datetime | None = None) -> None:
+        super().__init__(restriction=restriction, until=until)
+        self.restriction = restriction
+        self.until = until
 
 
 class ConflictError(DomainError):

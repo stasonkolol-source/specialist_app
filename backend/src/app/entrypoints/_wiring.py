@@ -11,6 +11,7 @@ import importlib.util
 from dishka import AsyncContainer, Provider, make_async_container
 from dishka.integrations.aiogram import AiogramProvider
 from dishka.integrations.fastapi import FastapiProvider
+from fastapi import APIRouter
 
 from app.interfaces.bot.di import BotProvider
 from app.interfaces.http.di import HttpProvider
@@ -58,12 +59,26 @@ def module_providers() -> list[Provider]:
     return [provider() for provider in MODULE_PROVIDERS]
 
 
+def _module_packages() -> list[str]:
+    return [provider.__module__.rsplit(".", 1)[0] for provider in MODULE_PROVIDERS]
+
+
 def load_module_tasks() -> None:
     """Импортировать tasks.py модулей: декораторы @task и @subscriber заполняют TASKS."""
-    for provider in MODULE_PROVIDERS:
-        module = provider.__module__.rsplit(".", 1)[0] + ".tasks"
-        if importlib.util.find_spec(module) is not None:
-            importlib.import_module(module)
+    for package in _module_packages():
+        if importlib.util.find_spec(f"{package}.tasks") is not None:
+            importlib.import_module(f"{package}.tasks")
+
+
+def module_routers() -> list[APIRouter]:
+    """Роутеры модулей: `router` из modules/<m>/http/router.py, у кого он есть."""
+    routers: list[APIRouter] = []
+    for package in _module_packages():
+        if importlib.util.find_spec(f"{package}.http") is None:
+            continue
+        module = importlib.import_module(f"{package}.http.router")
+        routers.append(module.router)
+    return routers
 
 
 def build_event_registry() -> EventRegistry:

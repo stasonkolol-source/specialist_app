@@ -6,7 +6,9 @@ Principal кладёт в request.state middleware аутентификации 
 from dishka import Provider, Scope, provide
 from fastapi import Request
 
+from app.interfaces.http.client import DEFAULT_LOCALE
 from app.platform.kernel.errors import NotAuthenticatedError
+from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Principal
 
 
@@ -17,3 +19,9 @@ class HttpProvider(Provider):
         if not isinstance(principal, Principal):
             raise NotAuthenticatedError
         return principal
+
+    @provide(scope=Scope.REQUEST)
+    def locale(self, request: Request) -> Locale:
+        """Локаль ответа из Accept-Language (RequestContextMiddleware)."""
+        locale = getattr(request.state, "locale", None)
+        return locale if isinstance(locale, Locale) else DEFAULT_LOCALE
