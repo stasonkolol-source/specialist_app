@@ -53,3 +53,9 @@ class LocalizedText:
 
     def to_mapping(self) -> dict[str, str]:
         return {k.value: v for k, v in self.values.items()}
+
+    def __copy__(self) -> LocalizedText:
+        return self
+
+    def __deepcopy__(self, memo: dict[int, object]) -> LocalizedText:
+        return self  # неизменяемый value object: копия не нужна
