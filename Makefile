@@ -5,6 +5,10 @@ BACKEND := $(ROOT)/backend
 UV ?= env -u VIRTUAL_ENV uv
 PNPM ?= corepack pnpm
 PORTS := 55442 56379 59100 59103 8000 5173
+# Дополнительные цели по направлениям (например, make/frontend.mk) и их проверки для make check.
+EXTRA_CHECKS :=
+-include make/*.mk
+
 COMPOSE := docker compose -p specialist-dev -f infra/compose/docker-compose.dev.yml --env-file infra/compose/.env
 
 .PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks \
@@ -102,6 +106,5 @@ migrate-roundtrip: pg-image ## Раунд-трип миграций в testconta
 garage-init: ## Ключ, бакеты и CORS в Garage; ключи — в backend/.env
 	@cd scripts && $(UV) run --no-project --quiet --with boto3 python garage_init.py
 
-check: plan-check gitleaks lint typecheck imports test test-int ## Definition of Done checks available so far
-	@echo "SKIP frontend checks (step 0.16a)"
+check: plan-check gitleaks lint typecheck imports test test-int $(EXTRA_CHECKS) ## Definition of Done checks available so far
 	@echo "check: OK"
