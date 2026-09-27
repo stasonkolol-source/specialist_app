@@ -183,6 +183,16 @@
     "appText": "Ponovo učitajte aplikaciju da biste nastavili",
     "reload": "Ponovo učitaj"
   },
+  "offline": {
+    "title": "Nema veze",
+    "text": "Prikazujemo sačuvano — osvežićemo kada se veza vrati",
+    "textEmpty": "Proverite internet i pokušajte ponovo",
+    "saved": "Sačuvano u {time}"
+  },
+  "maintenance": {
+    "title": "Tehnički radovi",
+    "text": "Uskoro se vraćamo. Pokušajte ponovo za nekoliko minuta"
+  },
   "home": {
     "segment": "Odeljak",
     "services": "Usluge",
@@ -198,6 +208,8 @@
     "language": "Jezik interfejsa",
     "languageError": "Jezik nije promenjen. Pokušajte ponovo",
     "signedOutTitle": "Otvorite u Telegram-u",
-    "signedOutText": "Profil je dostupan u mini-aplikaciji „{appName}” u Telegram-u. Ako je već otvorena — zatvorite je i otvorite ponovo"
+    "signedOutText": "Profil je dostupan u mini-aplikaciji „{appName}” u Telegram-u. Ako je već otvorena — zatvorite je i otvorite ponovo",
+    "support": "Podrška",
+    "rules": "Pravila platforme"
   }
 }

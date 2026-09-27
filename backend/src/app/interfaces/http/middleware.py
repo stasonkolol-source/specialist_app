@@ -1,4 +1,5 @@
-"""Контекст запроса (ARCHITECTURE §8.1): X-Request-ID, traceparent, Accept-Language, X-Client.
+"""Контекст запроса (ARCHITECTURE §8.1): X-Request-ID, traceparent, Accept-Language, X-Client,
+техработы (флаг `platform.maintenance`).
 
 Чистый ASGI, без BaseHTTPMiddleware: контекст structlog живёт в contextvars задачи
 запроса и не теряется. Middleware внешнее для обработчиков ошибок FastAPI, поэтому
@@ -30,6 +31,11 @@ QUIET_PATHS = frozenset({"/up"})
 
 INVALID_CLIENT_HEADER = "invalid_client_header"
 CLIENT_UPGRADE_REQUIRED = "client_upgrade_required"
+MAINTENANCE = "maintenance"
+MAINTENANCE_RETRY_AFTER = 120
+"""Секунды до повтора при техработах: клиент показывает экран S49 и не долбит сервер."""
+MAINTENANCE_EXEMPT = ("/client-config", "/openapi.json", "/docs")
+"""Пути под /api/v1, которые работают и в техработы: по client-config клиент узнаёт о них сам."""
 
 
 def request_id_from(header: str | None) -> str:
@@ -56,11 +62,13 @@ class RequestContextMiddleware:
         problems: Problems,
         clients: Callable[[], Awaitable[ClientPolicy]],
         api_prefix: str,
+        maintenance: Callable[[], Awaitable[bool]] | None = None,
     ) -> None:
         self.app = app
         self.problems = problems
         self.clients = clients
         self.api_prefix = api_prefix
+        self.maintenance = maintenance
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -91,7 +99,9 @@ class RequestContextMiddleware:
 
         begin = time.perf_counter()
         try:
-            rejection = await self._check_client(scope, headers, trace_id, state["locale"])
+            rejection = await self._check_client(
+                scope, headers, trace_id, state["locale"]
+            ) or await self._check_maintenance(scope, trace_id, state["locale"])
             if rejection is not None:
                 await rejection(scope, receive, send_with_id)
                 return
@@ -141,4 +151,24 @@ class RequestContextMiddleware:
             locale=locale,
             platform=client.platform,
             min_version=format_version(minimum),
+        )
+
+    async def _check_maintenance(
+        self, scope: Scope, trace_id: str, locale: Locale
+    ) -> ASGIApp | None:
+        """Флаг `platform.maintenance` включён — 503 `maintenance` на /api, кроме client-config:
+        по нему Mini App показывает экран техработ (S49) и правовые тексты (S48)."""
+        path: str = scope["path"]
+        if self.maintenance is None or not path.startswith(self.api_prefix):
+            return None
+        if path.removeprefix(self.api_prefix).startswith(MAINTENANCE_EXEMPT):
+            return None
+        if not await self.maintenance():
+            return None
+        return self.problems.response(
+            503,
+            MAINTENANCE,
+            trace_id=trace_id,
+            locale=locale,
+            headers={"Retry-After": str(MAINTENANCE_RETRY_AFTER)},
         )

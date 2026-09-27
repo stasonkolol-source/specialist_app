@@ -20,7 +20,9 @@ from app.interfaces.http.middleware import RequestContextMiddleware
 from app.interfaces.http.openapi import API_TITLE, API_VERSION, PROBLEM_RESPONSES, install_openapi
 from app.interfaces.http.operation_ids import operation_id
 from app.platform.config.cache import ClientConfigCache
+from app.platform.config.port import MAINTENANCE_FLAG
 from app.platform.i18n.translator import Translator
+from app.platform.legal.port import LegalLibrary
 from app.platform.settings import Environment, Settings
 
 API_PREFIX = "/api/v1"
@@ -36,6 +38,9 @@ def create_app(
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        # тексты правовых документов проверяются при старте: ошибка в них не выпускает релиз,
+        # а не роняет GET /client-config у всех клиентов
+        await container.get(LegalLibrary)
         yield
         await container.close()
 
@@ -50,11 +55,16 @@ def create_app(
         snapshot = await (await container.get(ClientConfigCache)).get()
         return ClientPolicy({**settings.app.min_client_versions, **snapshot.min_versions})
 
+    async def maintenance() -> bool:
+        """Техработы: публичный флаг `platform.maintenance` правит админка, без деплоя."""
+        return await (await container.get(ClientConfigCache)).is_enabled(MAINTENANCE_FLAG)
+
     app.add_middleware(
         RequestContextMiddleware,
         problems=problems,
         clients=client_policy,
         api_prefix=API_PREFIX,
+        maintenance=maintenance,
     )
 
     _mount(app, routers, spike=settings.app.env is Environment.DEV)

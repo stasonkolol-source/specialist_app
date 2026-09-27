@@ -53,10 +53,11 @@ jobs:
           cache-from: type=gha,scope=backend-image
           cache-to: type=gha,scope=backend-image,mode=max
 
-      - name: smoke (cli and unknown role)
+      - name: smoke (cli, legal texts and unknown role)
         run: |
           image="${REGISTRY}/sosed-backend:${GITHUB_SHA}"
           docker run --rm "$image" cli version
+          docker run --rm "$image" cli legal-validate
           docker run --rm -e DB_DSN=x -e VALKEY_URL=redis://x -e TELEGRAM_BOT_TOKEN=1:x \
             -e TELEGRAM_BOT_USERNAME=x "$image" cli seeds-validate
           if docker run --rm "$image" nope; then echo "unknown role must fail" && exit 1; fi

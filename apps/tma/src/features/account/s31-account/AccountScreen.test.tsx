@@ -7,7 +7,14 @@ import { I18nextProvider, createI18n, currentLocale } from '@sosed/i18n';
 import type { Platform } from '@sosed/platform';
 import { PlatformProvider, createBrowserPlatform, createMockPlatform } from '@sosed/platform';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from '@tanstack/react-router';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
@@ -32,7 +39,22 @@ interface RenderOptions {
   locale?: Locale;
 }
 
-function renderScreen(options: RenderOptions = {}) {
+/** Профиль и S48 в памяти: строка «Правила площадки» ведёт по маршруту приложения. */
+function createTestRouter() {
+  const root = createRootRoute();
+  const profile = createRoute({ getParentRoute: () => root, path: '/', component: AccountScreen });
+  const legal = createRoute({
+    getParentRoute: () => root,
+    path: '/legal/$document',
+    component: () => <h1>S48</h1>,
+  });
+  return createRouter({
+    routeTree: root.addChildren([profile, legal]),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  });
+}
+
+async function renderScreen(options: RenderOptions = {}) {
   const {
     platform = createMockPlatform().platform,
     signedIn = true,
@@ -45,16 +67,18 @@ function renderScreen(options: RenderOptions = {}) {
     signedIn ? { accessToken: TOKENS.access_token, refreshToken: TOKENS.refresh_token } : null,
   );
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const router = createTestRouter();
+  await router.load();
   render(
     <PlatformProvider platform={platform}>
       <I18nextProvider i18n={i18n}>
         <QueryClientProvider client={queryClient}>
-          <AccountScreen />
+          <RouterProvider router={router} />
         </QueryClientProvider>
       </I18nextProvider>
     </PlatformProvider>,
   );
-  return { i18n };
+  return { i18n, router, queryClient };
 }
 
 const checked = (name: string) => screen.getByRole('radio', { name }).getAttribute('aria-checked');
@@ -70,7 +94,7 @@ describe('S31 profile stub', () => {
         return HttpResponse.json(ME);
       }),
     );
-    renderScreen();
+    await renderScreen();
 
     expect(await screen.findByRole('heading', { name: 'Елена К.', level: 2 })).toBeTruthy();
     expect(screen.getByText(`ID: ${ME.id}`)).toBeTruthy();
@@ -79,7 +103,7 @@ describe('S31 profile stub', () => {
   });
 
   it('announces loading until /me answers', async () => {
-    renderScreen();
+    await renderScreen();
     // live region читает содержимое: текст внутри, а не в aria-label
     expect(screen.getByRole('status').textContent).toBe('Загружаем профиль');
     expect(await screen.findByRole('heading', { name: 'Елена К.' })).toBeTruthy();
@@ -101,7 +125,7 @@ describe('S31 profile stub', () => {
         return HttpResponse.json({ ...ME, ui_locale: 'sr-Latn' });
       }),
     );
-    const { i18n } = renderScreen();
+    const { i18n } = await renderScreen();
     await screen.findByRole('heading', { name: 'Елена К.' });
 
     await act(async () => {
@@ -130,7 +154,7 @@ describe('S31 profile stub', () => {
       }),
     );
     // язык Telegram — ru, на сервере выбран sr-Cyrl
-    const { i18n } = renderScreen({ locale: 'ru' });
+    const { i18n } = await renderScreen({ locale: 'ru' });
 
     expect(await screen.findByRole('heading', { name: 'Профил', level: 1 })).toBeTruthy();
     expect(i18n.language).toBe('sr-Cyrl');
@@ -157,7 +181,7 @@ describe('S31 profile stub', () => {
       http.get(ME_PATH, () => HttpResponse.json({ ...ME, ui_locale: 'en' })),
       http.patch(ME_PATH, patch),
     );
-    const { i18n } = renderScreen({ locale: 'sr-Latn' });
+    const { i18n } = await renderScreen({ locale: 'sr-Latn' });
     await screen.findByRole('heading', { name: 'Елена К.' });
 
     expect(i18n.language).toBe('sr-Latn');
@@ -173,7 +197,7 @@ describe('S31 profile stub', () => {
   it('does not call the API when the saved language is chosen again', async () => {
     const patch = vi.fn(() => HttpResponse.json(ME));
     server.use(http.patch(ME_PATH, patch));
-    renderScreen();
+    await renderScreen();
     await screen.findByRole('heading', { name: 'Елена К.' });
 
     await act(async () => {
@@ -206,7 +230,7 @@ describe('S31 profile stub', () => {
         }),
         http.patch(ME_PATH, patch),
       );
-      const { i18n } = renderScreen();
+      const { i18n } = await renderScreen();
       await screen.findByRole('heading', { name: 'Елена К.' });
 
       await act(async () => {
@@ -233,7 +257,7 @@ describe('S31 profile stub', () => {
 
   it('shows an error with retry when GET /me fails', async () => {
     server.use(http.get(ME_PATH, () => problem(500, 'internal_error'), { once: true }));
-    renderScreen();
+    await renderScreen();
 
     expect(await screen.findByRole('heading', { name: 'Что-то пошло не так' })).toBeTruthy();
     await act(async () => {
@@ -252,7 +276,7 @@ describe('S31 profile stub', () => {
       ),
     );
     const onReauth = vi.fn(async () => false);
-    renderScreen({ signedIn: false, onReauth });
+    await renderScreen({ signedIn: false, onReauth });
 
     expect(await screen.findByRole('heading', { name: 'Откройте в Telegram' })).toBeTruthy();
     expect(onReauth).toHaveBeenCalledOnce();
@@ -272,15 +296,59 @@ describe('S31 profile stub', () => {
       setSession({ accessToken: TOKENS.access_token, refreshToken: TOKENS.refresh_token });
       return true;
     };
-    renderScreen({ signedIn: false, onReauth });
+    await renderScreen({ signedIn: false, onReauth });
 
     expect(await screen.findByRole('heading', { name: 'Елена К.' })).toBeTruthy();
+  });
+
+  it('opens the platform rules (S48) from the support group', async () => {
+    const { router } = await renderScreen();
+    const support = await screen.findByRole('navigation', { name: 'Поддержка' });
+    const rules = within(support).getByRole('link', { name: 'Правила площадки' });
+    expect(rules.getAttribute('href')).toBe('/legal/terms');
+
+    await act(async () => {
+      fireEvent.click(rules);
+    });
+
+    expect(router.state.location.pathname).toBe('/legal/terms');
+    expect(await screen.findByRole('heading', { name: 'S48' })).toBeTruthy();
+  });
+
+  it('shows S49a «Нет соединения» with retry when /me cannot be reached', async () => {
+    server.use(http.get(ME_PATH, () => HttpResponse.error(), { once: true }));
+    await renderScreen();
+
+    expect(await screen.findByRole('heading', { name: 'Нет соединения', level: 2 })).toBeTruthy();
+    expect(screen.getByText('Проверьте интернет и попробуйте ещё раз')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Что-то пошло не так' })).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Елена К.' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Нет соединения' })).toBeNull();
+  });
+
+  it('keeps the saved profile under S49a when the network drops on refresh', async () => {
+    const { queryClient } = await renderScreen();
+    await screen.findByRole('heading', { name: 'Елена К.' });
+    server.use(http.get(ME_PATH, () => HttpResponse.error()));
+
+    await act(async () => {
+      await queryClient.refetchQueries();
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Нет соединения', level: 2 })).toBeTruthy();
+    expect(screen.getByText('Показываем сохранённое — обновим, когда сеть появится')).toBeTruthy();
+    const saved = screen.getByRole('region', { name: /^Сохранено в \d{2}:\d{2}$/ });
+    expect(within(saved).getByRole('heading', { name: 'Елена К.' })).toBeTruthy();
   });
 
   it('outside Telegram shows the same state without calling the API', async () => {
     const getMe = vi.fn(() => HttpResponse.json(ME));
     server.use(http.get(ME_PATH, getMe));
-    renderScreen({ platform: createBrowserPlatform(), signedIn: false });
+    await renderScreen({ platform: createBrowserPlatform(), signedIn: false });
 
     expect(screen.getByRole('heading', { name: 'Откройте в Telegram' })).toBeTruthy();
     await act(async () => undefined);

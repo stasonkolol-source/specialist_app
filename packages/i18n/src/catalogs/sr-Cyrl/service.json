@@ -1,0 +1,30 @@
+{
+  "legal": {
+    "segment": "Документ",
+    "tab": {
+      "terms": "Правила",
+      "privacy": "Приватност"
+    },
+    "title": {
+      "terms": "Правила платформе",
+      "privacy": "Политика приватности"
+    },
+    "edition": "Верзија {version} од {date}",
+    "untranslated": "Превод на српски још није готов — приказујемо текст на руском",
+    "loading": "Учитавамо документ",
+    "unavailableTitle": "Документ није доступан",
+    "unavailableText": "Покушајте да га отворите касније"
+  },
+  "restricted": {
+    "title": "{kind, select, banned {Налог је блокиран} suspended {Налог је суспендован} other {Налог је ограничен}}",
+    "titleUntil": "{kind, select, suspended {Налог је суспендован до {date}} other {Налог је ограничен до {date}}}",
+    "bannerUntil": "До {date} у {time} не можете да {action}",
+    "banner": "Не можете да {action}",
+    "action": "{kind, select, posting_blocked {објављујете захтеве и нови садржај} responding_blocked {шаљете понуде на захтеве} messaging_blocked {започињете нове разговоре} other {користите налог}}",
+    "left": "И даље је доступно",
+    "leftDeals": "Преписка о текућим договорима",
+    "leftBrowse": "Преглед захтева и стручњака",
+    "leftSettings": "Подешавања и брисање налога",
+    "appeal": "Жалбу на одлуку можете да уложите у року од 6 месеци. Одговорићемо у року од 72 сата."
+  }
+}

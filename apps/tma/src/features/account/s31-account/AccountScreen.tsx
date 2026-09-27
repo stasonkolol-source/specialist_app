@@ -1,6 +1,6 @@
 // S31 Профиль — заглушка ходячего скелета (DEVELOPMENT_PLAN 0.22): имя и внутренний id из GET /me,
 // язык интерфейса — ui_locale оттуда же, пишется через PATCH /me. Экран по макету design/project —
-// в шаге 2.9.
+// в шаге 2.9. С 1.5a — строка «Правила площадки» (S48) и S49a «Нет соединения» вместо ошибки.
 import type { MeOut } from '@sosed/api-client';
 import {
   ApiError,
@@ -8,22 +8,31 @@ import {
   useIdentityGetMe,
   useIdentityUpdateMe,
 } from '@sosed/api-client';
+import { systemStateOf } from '@sosed/hooks';
 import type { Locale } from '@sosed/i18n';
-import { LOCALES, LOCALE_NAMES, isLocale, useLocale, useTranslation } from '@sosed/i18n';
+import { LOCALES, LOCALE_NAMES, isLocale, useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { usePlatform } from '@sosed/platform';
 import {
   Avatar,
   Banner,
   Button,
   EmptyState,
+  Group,
   Heading,
   Option,
+  Row,
   SectionTitle,
   Skeleton,
   Text,
 } from '@sosed/ui-web';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useRouter } from '@tanstack/react-router';
+import type { MouseEvent, ReactNode } from 'react';
+import { useEffect, useId } from 'react';
+
+/** S48, правила площадки (маршрут features/service/s48-legal). */
+const LEGAL_PATH = '/legal/$document';
+const RULES_HREF = '/legal/terms';
 
 export function AccountScreen() {
   const { t } = useTranslation();
@@ -34,16 +43,108 @@ export function AccountScreen() {
   // 401 приходит, когда mutator уже попробовал войти заново по initData и не смог
   const signedOut = !inTelegram || (me.error instanceof ApiError && me.error.status === 401);
 
+  const retry = () => void me.refetch();
+  const offline = me.isError && systemStateOf(me.error).kind === 'offline';
+
   let content;
   if (signedOut) content = <SignedOut />;
-  else if (me.data) content = <Account me={me.data} />;
-  else if (me.isError) content = <LoadError onRetry={() => void me.refetch()} />;
+  else if (me.data && offline) {
+    // S49a: сеть пропала при обновлении — сохранённый профиль виден, но приглушён
+    content = (
+      <>
+        <Offline saved onRetry={retry} retrying={me.isFetching} />
+        <Saved at={me.dataUpdatedAt}>
+          <Account me={me.data} />
+        </Saved>
+      </>
+    );
+  } else if (me.data) content = <Account me={me.data} />;
+  else if (offline) content = <Offline saved={false} onRetry={retry} retrying={me.isFetching} />;
+  else if (me.isError) content = <LoadError onRetry={retry} />;
   else content = <Loading />;
 
   return (
-    <section className="flex flex-col gap-4 px-4 pt-4">
+    <section className="flex flex-col gap-4 px-4 pt-4 pb-6">
       <Heading variant="h1">{t('nav.profile')}</Heading>
       {content}
+      <Support />
+    </section>
+  );
+}
+
+function Support() {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const open = (event: MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    void router.navigate({ to: LEGAL_PATH, params: { document: 'terms' } });
+  };
+  return (
+    <nav aria-label={t('profile.support')}>
+      <Group>
+        <Row
+          icon="file"
+          title={t('profile.rules')}
+          chevron
+          href={router.history.createHref(RULES_HREF)}
+          onClick={open}
+        />
+      </Group>
+    </nav>
+  );
+}
+
+/** S49a: нет сети. С сохранёнными данными — текст макета, без них — просьба проверить сеть. */
+function Offline({
+  saved,
+  onRetry,
+  retrying,
+}: {
+  saved: boolean;
+  onRetry: () => void;
+  retrying: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div role="status">
+      <EmptyState
+        as="h2"
+        size="h2"
+        tone="neutral"
+        icon="wifi-off"
+        title={t('offline.title')}
+        className="px-6 pt-2"
+        action={
+          <Button
+            variant="secondary"
+            icon="refresh"
+            onClick={onRetry}
+            disabled={retrying}
+            aria-busy={retrying}
+          >
+            {t('action.retry')}
+          </Button>
+        }
+      >
+        {saved ? t('offline.text') : t('offline.textEmpty')}
+      </EmptyState>
+    </div>
+  );
+}
+
+/** Сохранённое до обрыва сети: приглушено, с временем последнего обновления. */
+function Saved({ at, children }: { at: number; children: ReactNode }) {
+  const { t } = useTranslation();
+  const format = useFormat();
+  const titleId = useId();
+  return (
+    // приглушено, как на артборде S49a (opacity .55): контраст ниже AA — это устаревшие данные, а
+    // не текст для чтения; e2e исключает [data-stale] из проверки контраста axe
+    <section aria-labelledby={titleId} data-stale className="flex flex-col gap-2 opacity-55">
+      <SectionTitle>
+        <span id={titleId}>{t('offline.saved', { time: format.time(new Date(at)) })}</span>
+      </SectionTitle>
+      {children}
     </section>
   );
 }

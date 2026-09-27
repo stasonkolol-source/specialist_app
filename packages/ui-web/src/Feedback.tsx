@@ -149,27 +149,46 @@ export function Banner({
   );
 }
 
+export type EmptyTone = 'accent' | 'neutral' | 'danger';
+
+const EMPTY_TONE: Record<EmptyTone, string> = {
+  accent: 'bg-accent-soft text-accent-soft-ink',
+  // S49a «нет сети»: подложка поверхности и вторичный цвет — «отключено»
+  neutral: 'bg-surface text-text2',
+  danger: 'bg-danger-soft text-danger',
+};
+
 /** Пустое состояние .empty + .empty-ic. `as` — уровень заголовка по месту на экране
- *  (после h1 экрана — h2): вид тот же, а порядок заголовков для скринридера не ломается. */
+ *  (после h1 экрана — h2): вид тот же, а порядок заголовков для скринридера не ломается.
+ *  `size` — вид заголовка: .h3 (по умолчанию) или .h2, как у системных состояний S49. */
 export function EmptyState({
   icon,
   title,
   children,
   action,
   as: Tag = 'h3',
+  tone = 'accent',
+  size = 'h3',
+  className,
 }: {
   icon: IconName;
   title: ReactNode;
   children?: ReactNode;
   action?: ReactNode;
-  as?: 'h2' | 'h3';
+  as?: 'h1' | 'h2' | 'h3';
+  tone?: EmptyTone;
+  size?: 'h2' | 'h3';
+  /** Отступы по месту: по умолчанию 32/24, как .empty. */
+  className?: string;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 px-6 py-8 text-center">
-      <span className="flex size-20 items-center justify-center rounded-full bg-accent-soft text-accent-soft-ink">
+    <div className={cx('flex flex-col items-center gap-3 text-center', className ?? 'px-6 py-8')}>
+      <span
+        className={cx('flex size-20 items-center justify-center rounded-full', EMPTY_TONE[tone])}
+      >
         <Icon name={icon} size={32} />
       </span>
-      <Tag className="m-0 text-h3">{title}</Tag>
+      <Tag className={cx('m-0', size === 'h2' ? 'text-h2' : 'text-h3')}>{title}</Tag>
       {children && <p className="m-0 text-body text-text2">{children}</p>}
       {action}
     </div>

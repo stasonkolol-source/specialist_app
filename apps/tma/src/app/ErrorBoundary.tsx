@@ -1,51 +1,49 @@
-// Последний рубеж: необработанная ошибка рендера — экран «что-то пошло не так» с повтором,
-// а не белый экран. Ошибки API экраны обрабатывают сами (ApiError, S49).
-import { useTranslation } from '@sosed/i18n';
-import { Button, EmptyState } from '@sosed/ui-web';
+// Последний рубеж: необработанная ошибка рендера — экран S49 с повтором, а не белый экран. Сюда же
+// приходят ошибки экранов (у роутера нет своего запасного экрана): чанк вкладки не скачался без
+// сети — S49a «Нет соединения», прочее — «Что-то пошло не так». Ошибки API экраны обрабатывают
+// сами (ApiError, S49).
+import type { SystemState } from '@sosed/hooks';
+import { systemStateOf } from '@sosed/hooks';
 import type { ErrorInfo, ReactNode } from 'react';
 import { Component } from 'react';
 
+import { SystemScreen } from '../features/service/s49-system/index.ts';
+
 interface Props {
   children: ReactNode;
+  /** «Повторить»: загрузить заново то, что упало (чанки экранов, маршруты), прежде чем рисовать. */
+  onReset?: () => Promise<void>;
   onError?: (error: unknown, info: ErrorInfo) => void;
 }
 
 interface State {
-  failed: boolean;
+  failed: SystemState | null;
+  retrying: boolean;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  override state: State = { failed: false };
+  override state: State = { failed: null, retrying: false };
 
-  static getDerivedStateFromError(): State {
-    return { failed: true };
+  static getDerivedStateFromError(error: unknown): Partial<State> {
+    return { failed: systemStateOf(error) };
   }
 
   override componentDidCatch(error: unknown, info: ErrorInfo): void {
     this.props.onError?.(error, info);
   }
 
-  override render(): ReactNode {
-    if (!this.state.failed) return this.props.children;
-    return <Fallback onRetry={() => this.setState({ failed: false })} />;
-  }
-}
+  private readonly retry = async () => {
+    this.setState({ retrying: true });
+    try {
+      await this.props.onReset?.();
+    } finally {
+      this.setState({ failed: null, retrying: false });
+    }
+  };
 
-function Fallback({ onRetry }: { onRetry: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <div className="flex min-h-dvh items-center justify-center bg-bg2">
-      <EmptyState
-        icon="alert"
-        title={t('error.title')}
-        action={
-          <Button variant="secondary" onClick={onRetry}>
-            {t('action.retry')}
-          </Button>
-        }
-      >
-        {t('error.text')}
-      </EmptyState>
-    </div>
-  );
+  override render(): ReactNode {
+    const { failed, retrying } = this.state;
+    if (!failed) return this.props.children;
+    return <SystemScreen state={failed} onRetry={() => void this.retry()} retrying={retrying} />;
+  }
 }

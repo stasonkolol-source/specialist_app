@@ -14,9 +14,9 @@ from typing import Final
 
 class ConsentDocument(StrEnum):
     TERMS = "terms"
-    """Правила площадки (content/legal/<язык>/rules.md)."""
+    """Правила площадки (backend/content/legal/terms/<версия>/<язык>.md)."""
     PRIVACY = "privacy"
-    """Политика конфиденциальности (content/legal/<язык>/privacy.md)."""
+    """Политика конфиденциальности (backend/content/legal/privacy/<версия>/<язык>.md)."""
     AGE_18 = "age_18"
     """Подтверждение 18+: часть правил, поэтому версия — версия правил."""
     PERFORMER_DECLARATION = "performer_declaration"

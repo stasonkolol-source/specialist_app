@@ -128,6 +128,23 @@ def i18n_check() -> None:
     typer.echo(f"backend i18n: {len(ru)} keys, sr_Latn up to date")
 
 
+@app.command("legal-validate")
+def legal_validate() -> None:
+    """Проверить тексты правовых документов backend/content/legal (DEVELOPMENT_PLAN 1.5a)."""
+    from app.platform.legal.files import FileLegalLibrary, placeholders
+    from app.platform.legal.port import LegalDocument
+    from app.platform.settings import LegalSettings
+
+    library = FileLegalLibrary(placeholders(AppSettings(), LegalSettings()))
+    for document in LegalDocument:
+        versions = sorted(library.versions(document))
+        if not versions:
+            typer.echo(f"error: {document.value}: no published versions", err=True)
+            raise typer.Exit(code=1)
+        typer.echo(f"{document.value}: {', '.join(versions)}")
+    typer.echo("legal: OK")
+
+
 @app.command("seeds-validate")
 def seeds_validate() -> None:
     """Проверить сиды пилотной зоны: гео, таксономию, запросы (DEVELOPMENT_PLAN 0.27)."""

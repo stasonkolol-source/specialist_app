@@ -3,6 +3,7 @@
 Синглтон — только объект со Scope.APP: он создаётся один раз на процесс и закрывается
 при остановке. REQUEST — всё, что живёт одну команду: сессия, UoW, очередь.
 Провайдеры внешних клиентов добавляют их шаги: AI (2.4), аналитика (1.7).
+Правовые тексты (1.5a) читаются из файлов репозитория один раз на процесс.
 """
 
 from collections.abc import AsyncIterator, Iterator
@@ -27,6 +28,8 @@ from app.platform.i18n.translator import Translator
 from app.platform.idempotency.port import IdempotencyStore
 from app.platform.idempotency.sql import SqlIdempotencyStore
 from app.platform.kernel.clock import Clock, SystemClock
+from app.platform.legal.files import FileLegalLibrary, placeholders
+from app.platform.legal.port import LegalLibrary
 from app.platform.queue.dispatcher import EventDispatcher, EventRegistry
 from app.platform.queue.port import JobQueue
 from app.platform.queue.procrastinate_queue import ProcrastinateJobQueue
@@ -40,6 +43,7 @@ from app.platform.settings import (
     AppSettings,
     DbSettings,
     JwtSettings,
+    LegalSettings,
     S3Settings,
     SentrySettings,
     Settings,
@@ -92,6 +96,10 @@ class PlatformProvider(Provider):
     @provide(scope=Scope.APP)
     def analytics_settings(self, s: Settings) -> AnalyticsSettings:
         return s.analytics
+
+    @provide(scope=Scope.APP)
+    def legal_settings(self, s: Settings) -> LegalSettings:
+        return s.legal
 
     # --- синглтоны процесса (APP) ---------------------------------------------------------
 
@@ -147,6 +155,11 @@ class PlatformProvider(Provider):
     @provide(scope=Scope.APP)
     def legal_versions(self, cache: ClientConfigCache) -> LegalVersions:
         return cache
+
+    @provide(scope=Scope.APP)
+    def legal_library(self, app: AppSettings, legal: LegalSettings) -> LegalLibrary:
+        """Тексты правовых документов: читаются и проверяются один раз на процесс."""
+        return FileLegalLibrary(placeholders(app, legal))
 
     @provide(scope=Scope.APP)
     def init_data_verifier(self, telegram: TelegramSettings, clock: Clock) -> InitDataVerifier:

@@ -90,3 +90,20 @@ def test_env_values_have_no_quotes(name: str) -> None:
         pytest.skip(f"{name} отсутствует (CI)")
     bad = [key for key, value in _read_env(path).items() if any(c in value for c in "\"'")]
     assert bad == [], f"кавычки в значениях {bad}: Docker --env-file их не снимает"
+
+
+def test_production_refuses_legal_placeholders(clean_env: pytest.MonkeyPatch) -> None:
+    """Оператор и почта попадают в политику конфиденциальности (1.5a): заглушка — не на проде."""
+    for name, value in REQUIRED.items():
+        clean_env.setenv(name, value)
+    clean_env.setenv("APP_ENV", "stage")
+    assert Settings(env_file=None).legal.todo_fields() == [
+        "LEGAL_OPERATOR_NAME",
+        "LEGAL_CONTACT_EMAIL",
+    ]
+    clean_env.setenv("APP_ENV", "production")
+    clean_env.setenv("LEGAL_OPERATOR_NAME", "Оператор")
+    with pytest.raises(SettingsError, match="LEGAL_CONTACT_EMAIL"):
+        Settings(env_file=None)
+    clean_env.setenv("LEGAL_CONTACT_EMAIL", "help@example.test")
+    assert Settings(env_file=None).legal.todo_fields() == []

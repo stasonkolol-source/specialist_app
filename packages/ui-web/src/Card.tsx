@@ -8,7 +8,8 @@ export interface CardProps {
   tight?: boolean;
   href?: string;
   onClick?: () => void;
-  as?: 'div' | 'section' | 'article' | 'li';
+  /** ul / ol — карточка-список (.card у пунктов правил S48, «Остаётся доступно» S49b). */
+  as?: 'div' | 'section' | 'article' | 'li' | 'ul' | 'ol';
   className?: string;
 }
 
@@ -21,7 +22,7 @@ export function Card({
   className,
 }: CardProps) {
   const classes = cx(
-    'flex flex-col rounded-card bg-surface p-4 text-text',
+    'm-0 flex list-none flex-col rounded-card bg-surface p-4 text-text',
     tight ? 'gap-2' : 'gap-3',
     (href || onClick) && cx('cursor-pointer', FOCUS),
     className,

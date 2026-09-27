@@ -11,6 +11,7 @@ const CONFIG: ClientConfigOut = {
   min_versions: { tma: '1.2.0' },
   flags: { 'goods.segment': true },
   legal_versions: {},
+  legal_documents: {},
 };
 
 function wrapper() {

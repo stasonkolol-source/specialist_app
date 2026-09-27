@@ -3,6 +3,8 @@
 // (специалисты, заявки, отклики), — формой из SPEC: шаги этапа 1 заменят их моделями OpenAPI.
 import type { ClientConfigOut, MeOut } from '@sosed/api-client';
 
+import { draftDocument } from './legal.ts';
+
 export const CITY = 'Нови-Сад';
 
 export const DISTRICTS = [
@@ -96,8 +98,10 @@ export const ME: MeOut = {
   can_message: true,
 };
 
+/** Как client-config dev-стенда: черновики draft-1 правил и политики (0.27), флаг техработ выключен. */
 export const CLIENT_CONFIG: ClientConfigOut = {
   min_versions: { tma: '0.1.0' },
-  flags: { 'goods.segment': true },
-  legal_versions: {},
+  flags: { 'goods.segment': true, 'platform.maintenance': false },
+  legal_versions: { terms: 'draft-1', privacy: 'draft-1' },
+  legal_documents: { terms: draftDocument('terms'), privacy: draftDocument('privacy') },
 };

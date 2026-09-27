@@ -1,5 +1,6 @@
 // Адаптер платформы — синглтон точки сборки (ADR-0020 §13). `?platform=mock` — клиент Telegram
-// из mockTelegramEnv для разработки и e2e в браузере (тема и язык — `?theme=`, `?lang=`).
+// из mockTelegramEnv для разработки и e2e в браузере (тема и язык — `?theme=`, `?lang=`, версия
+// Bot API клиента — `?tg=`: старый Telegram для экрана «обновите Telegram»).
 import type { ColorScheme, Platform } from '@sosed/platform';
 import { createMockPlatform, createPlatform } from '@sosed/platform';
 
@@ -11,5 +12,6 @@ export function selectPlatform(search: string = window.location.search): Platfor
     colorScheme: scheme,
     languageCode: params.get('lang') ?? 'ru',
     startParam: params.get('start') ?? undefined,
+    version: params.get('tg') ?? undefined,
   }).platform;
 }

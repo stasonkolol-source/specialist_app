@@ -1,6 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["design/ui.css"],
+  "globalDependencies": ["design/ui.css", "backend/content/legal/**"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

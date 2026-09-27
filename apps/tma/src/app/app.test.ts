@@ -1,9 +1,15 @@
-import { ApiError, configureApiClient, getSession, setSession } from '@sosed/api-client';
+import {
+  ApiError,
+  MaintenanceError,
+  configureApiClient,
+  getSession,
+  setSession,
+} from '@sosed/api-client';
 import type { Platform } from '@sosed/platform';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { contentSecurityPolicy } from './csp.ts';
-import { shouldRetry } from './query.ts';
+import { createQueryClient, shouldRetry } from './query.ts';
 import { createAuth } from './session.ts';
 
 describe('CSP', () => {
@@ -44,6 +50,20 @@ describe('query retries', () => {
     expect(shouldRetry(0, problem(503))).toBe(true);
     expect(shouldRetry(1, new TypeError('offline'))).toBe(true);
     expect(shouldRetry(2, problem(503))).toBe(false);
+  });
+
+  it('does not retry maintenance: the answer will not change in a second', () => {
+    const maintenance = new MaintenanceError(
+      { type: 'x', title: 't', status: 503, code: 'maintenance', trace_id: null },
+      120,
+    );
+    expect(shouldRetry(0, maintenance)).toBe(false);
+  });
+
+  it('fails offline requests instead of pausing them: the screen shows S49a', () => {
+    const defaults = createQueryClient().getDefaultOptions();
+    expect(defaults.queries?.networkMode).toBe('always');
+    expect(defaults.mutations?.networkMode).toBe('always');
   });
 });
 

@@ -5,6 +5,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { ClientConfigOutFlags } from './clientConfigOutFlags.ts';
+import type { ClientConfigOutLegalDocuments } from './clientConfigOutLegalDocuments.ts';
 import type { ClientConfigOutLegalVersions } from './clientConfigOutLegalVersions.ts';
 import type { ClientConfigOutMinVersions } from './clientConfigOutMinVersions.ts';
 
@@ -12,4 +13,5 @@ export interface ClientConfigOut {
   min_versions: ClientConfigOutMinVersions;
   flags: ClientConfigOutFlags;
   legal_versions: ClientConfigOutLegalVersions;
+  legal_documents: ClientConfigOutLegalDocuments;
 }

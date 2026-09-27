@@ -8,6 +8,8 @@ on:
       - 'apps/**'
       - 'packages/**'
       - 'backend/openapi.json'
+      # тексты S48: их читают unit-тесты, фикстуры e2e и эталоны скриншотов (testing/legal.ts)
+      - 'backend/content/legal/**'
       - 'design/ui.css'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -22,6 +24,8 @@ on:
       - 'apps/**'
       - 'packages/**'
       - 'backend/openapi.json'
+      # тексты S48: их читают unit-тесты, фикстуры e2e и эталоны скриншотов (testing/legal.ts)
+      - 'backend/content/legal/**'
       - 'design/ui.css'
       - 'package.json'
       - 'pnpm-lock.yaml'

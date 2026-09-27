@@ -1,35 +1,57 @@
 // Smoke каркаса на mock-платформе (DEVELOPMENT_PLAN 0.21a): провайдеры, маршруты, таббар,
 // правило «таббар скрыт при MainButton», редирект неизвестного пути, язык из Telegram;
-// ходячий скелет 0.22: вход по initData → язык с сервера, GET /me → имя на S31, смена языка.
+// ходячий скелет 0.22: вход по initData → язык с сервера, GET /me → имя на S31, смена языка;
+// 1.5a: S48, S49 поверх приложения, ошибка рендера экрана и тема до первого экрана.
 import type { ClientConfigOut } from '@sosed/api-client';
 import { setSession } from '@sosed/api-client';
 import {
   getIdentityAuthenticateTelegramMockHandler,
   getSystemGetClientConfigMockHandler,
 } from '@sosed/api-client/mocks';
+import type { ColorScheme } from '@sosed/platform';
 import { createMockPlatform } from '@sosed/platform';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { FunctionComponent } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CLIENT_CONFIG, ME } from '../testing/fixtures.ts';
 import { API_ORIGIN, TOKENS, server } from '../testing/msw.ts';
 import { App } from './App.tsx';
 import { assemble } from './bootstrap.ts';
-import { useUpgradeStore } from './upgrade.ts';
+import { CHROME } from './chrome.ts';
+import { useSystemStore } from '../features/service/s49-system/index.ts';
+
+/** Экран «Сообщения» падает при рендере, пока `broken.render`: ошибка любого экрана. */
+const broken = vi.hoisted(() => ({ render: false }));
+vi.mock('../features/messages/s29-chats/index.ts', async (importOriginal) => {
+  const actual = await importOriginal<{ ChatsScreen: FunctionComponent }>();
+  return {
+    ...actual,
+    ChatsScreen: () => {
+      if (broken.render) throw new TypeError('screen render failed');
+      return <actual.ChatsScreen />;
+    },
+  };
+});
 
 interface StartOptions {
   languageCode?: string;
   config?: ClientConfigOut;
   version?: string;
   telegramVersion?: string;
+  colorScheme?: ColorScheme;
 }
 
 function start(path = '/', options: StartOptions = {}) {
-  const { languageCode = 'ru', version = '0.1.0', telegramVersion, config } = options;
+  const { languageCode = 'ru', version = '0.1.0', telegramVersion, colorScheme, config } = options;
   if (config) server.use(getSystemGetClientConfigMockHandler(config));
-  const { platform, telegram } = createMockPlatform({ languageCode, version: telegramVersion });
+  const { platform, telegram } = createMockPlatform({
+    languageCode,
+    version: telegramVersion,
+    colorScheme,
+  });
   const app = assemble(platform, {
     version,
     history: createMemoryHistory({ initialEntries: [path] }),
@@ -40,8 +62,13 @@ function start(path = '/', options: StartOptions = {}) {
 }
 
 beforeEach(() => {
-  useUpgradeStore.setState({ forced: null });
+  useSystemStore.setState({ appWide: null, restriction: null });
+  broken.render = false;
 });
+
+/** MainButton в Telegram нативная (в DOM её нет): показывалась ли она хоть раз. */
+const mainButtonShown = (telegram: ReturnType<typeof start>['telegram']) =>
+  telegram.callsOf('web_app_setup_main_button').some((params) => params?.is_visible === true);
 
 describe('Mini App skeleton', () => {
   it('renders home with the tab bar and signals ready to Telegram', async () => {
@@ -189,5 +216,195 @@ describe('walking skeleton (0.22)', () => {
     expect(app.i18n.language).toBe('sr-Cyrl');
     expect(document.documentElement.lang).toBe('sr-Cyrl');
     expect(await screen.findByRole('heading', { name: 'Почетна' })).toBeTruthy();
+  });
+});
+
+const problem = (status: number, code: string, extra: Record<string, unknown> = {}) =>
+  HttpResponse.json(
+    { type: 'x', title: code, status, code, trace_id: 'test', ...extra },
+    { status, headers: { 'Content-Type': 'application/problem+json' } },
+  );
+
+/** /me только с токеном из POST /auth/telegram — как backend. */
+const meWithToken = http.get('*/api/v1/me', ({ request }) =>
+  request.headers.get('Authorization') === `Bearer ${TOKENS.access_token}`
+    ? HttpResponse.json(ME)
+    : problem(401, 'not_authenticated'),
+);
+
+// 3 октября 18:00 по Белграду
+const UNTIL = '2026-10-03T16:00:00Z';
+
+describe('S48 legal documents (1.5a)', () => {
+  it('opens a document by path, without the tab bar and with «Back»', async () => {
+    const { app, telegram } = start('/legal/terms');
+
+    expect(await screen.findByRole('heading', { name: 'Правила площадки', level: 1 })).toBeTruthy();
+    expect(await screen.findByText('Редакция draft-1 от 27 сентября 2026')).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
+    expect(telegram.callsOf('web_app_setup_back_button').at(-1)).toMatchObject({
+      is_visible: true,
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('radio', { name: 'Конфиденциальность' }));
+    });
+    expect(
+      await screen.findByRole('heading', { name: 'Политика конфиденциальности', level: 1 }),
+    ).toBeTruthy();
+    expect(app.router.state.location.pathname).toBe('/legal/privacy');
+
+    // открыли по ссылке, истории нет — «Назад» ведёт в профиль, откуда S48 открывают
+    await act(async () => {
+      telegram.emit('back_button_pressed');
+    });
+    expect(await screen.findByRole('heading', { name: 'Профиль', level: 1 })).toBeTruthy();
+  });
+
+  it('redirects an unknown document to the rules', async () => {
+    const { app } = start('/legal/nope');
+    expect(await screen.findByRole('heading', { name: 'Правила площадки', level: 1 })).toBeTruthy();
+    expect(app.router.state.location.pathname).toBe('/legal/terms');
+  });
+});
+
+describe('S49 system states (1.5a)', () => {
+  afterEach(() => setSession(null));
+
+  it('shows maintenance by the client-config flag and retries', async () => {
+    let maintenance = true;
+    server.use(
+      http.get('*/api/v1/client-config', () =>
+        HttpResponse.json({
+          ...CLIENT_CONFIG,
+          flags: { ...CLIENT_CONFIG.flags, 'platform.maintenance': maintenance },
+        }),
+      ),
+    );
+    start('/');
+
+    expect(await screen.findByRole('heading', { name: 'Технические работы' })).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
+
+    maintenance = false;
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    });
+    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+  });
+
+  it('switches to maintenance on 503 maintenance from any request', async () => {
+    server.use(http.get('*/api/v1/me', () => problem(503, 'maintenance')));
+    start('/profile');
+    expect(await screen.findByRole('heading', { name: 'Технические работы' })).toBeTruthy();
+  });
+
+  it('shows S49a when client-config cannot be reached at startup', async () => {
+    let online = false;
+    server.use(
+      http.get('*/api/v1/client-config', () =>
+        online ? HttpResponse.json(CLIENT_CONFIG) : HttpResponse.error(),
+      ),
+    );
+    start('/');
+
+    // после двух повторов запроса
+    expect(
+      await screen.findByRole('heading', { name: 'Нет соединения' }, { timeout: 5000 }),
+    ).toBeTruthy();
+    online = true;
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    });
+    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+  }, 10_000);
+
+  it('closes the app with S49b when sign-in is refused by an account suspension', async () => {
+    server.use(
+      http.post('*/api/v1/auth/telegram', () =>
+        problem(403, 'restricted', { restriction: 'suspended', until: UNTIL }),
+      ),
+    );
+    const { app, telegram } = start('/');
+    await act(async () => {
+      await app.signIn();
+    });
+
+    expect(
+      await screen.findByRole('heading', { name: 'Аккаунт приостановлен до 3 октября' }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
+    // «Обжаловать» — MainButton Telegram с шага 2.5b: ни в DOM, ни у клиента
+    expect(screen.queryByRole('button', { name: 'Обжаловать' })).toBeNull();
+    expect(mainButtonShown(telegram)).toBe(false);
+  });
+
+  it('opens S49b when an action is refused by a partial restriction', async () => {
+    server.use(
+      meWithToken,
+      http.patch('*/api/v1/me', () =>
+        problem(403, 'restricted', { restriction: 'responding_blocked', until: UNTIL }),
+      ),
+    );
+    const { app, telegram } = start('/profile');
+    void app.signIn();
+    expect(await screen.findByRole('heading', { name: ME.display_name })).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('radio', { name: 'Srpski (latinica)' }));
+    });
+
+    expect(
+      await screen.findByRole('heading', { name: 'Аккаунт ограничен до 3 октября', level: 1 }),
+    ).toBeTruthy();
+    expect(app.router.state.location.pathname).toBe('/restricted');
+    expect(screen.getByRole('alert').textContent).toBe(
+      'До 3 октября, 18:00 нельзя откликаться на заявки',
+    );
+    expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
+
+    await act(async () => {
+      telegram.emit('back_button_pressed');
+    });
+    expect(await screen.findByRole('heading', { name: ME.display_name })).toBeTruthy();
+    expect(app.router.state.location.pathname).toBe('/profile');
+  });
+});
+
+describe('render errors and theme (1.5a)', () => {
+  it('shows S49 «Что-то пошло не так» when a screen throws and recovers on «Повторить»', async () => {
+    broken.render = true;
+    start('/messages');
+
+    // экран ошибки приложения, а не запасной экран роутера («Something went wrong!»)
+    expect(
+      await screen.findByRole('heading', { name: 'Что-то пошло не так', level: 1 }),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Something went wrong/)).toBeNull();
+
+    broken.render = false;
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    });
+    expect(await screen.findByRole('heading', { name: 'Сообщения', level: 1 })).toBeTruthy();
+    expect(screen.getByRole('navigation', { name: 'Разделы' })).toBeTruthy();
+  });
+
+  it('applies the dark theme and Telegram colors before a startup S49 screen', async () => {
+    const { telegram } = start('/', {
+      colorScheme: 'dark',
+      config: { ...CLIENT_CONFIG, flags: { ...CLIENT_CONFIG.flags, 'platform.maintenance': true } },
+    });
+
+    // оболочки маршрутов нет — тему ставит точка сборки
+    expect(await screen.findByRole('heading', { name: 'Технические работы' })).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(telegram.callsOf('web_app_set_header_color').at(-1)).toEqual({
+      color: CHROME.dark.header,
+    });
+    expect(telegram.callsOf('web_app_set_background_color').at(-1)).toEqual({
+      color: CHROME.dark.background,
+    });
   });
 });

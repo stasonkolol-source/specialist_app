@@ -126,6 +126,9 @@ msgstr "Pravila su ažurirana. Otvorite ih ponovo i prihvatite novu verziju."
 msgid "errors.legal_versions_unavailable"
 msgstr "Učitavanje pravila platforme nije uspelo. Pokušajte kasnije."
 
+msgid "errors.maintenance"
+msgstr "U toku su tehnički radovi. Pokušajte ponovo za nekoliko minuta."
+
 msgid "errors.unknown_city"
 msgstr "Tog grada nema na spisku."
 

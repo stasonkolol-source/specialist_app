@@ -1,50 +1,15 @@
 // Каркас Mini App в браузерах проектов (DEVELOPMENT_PLAN 0.21b): скриншоты экранов × тема × язык,
 // axe-core, CSP собранного приложения, без внешней сети и неописанных запросов к API.
 // Имена скриншотов начинаются с кода артборда — make design-compare кладёт их рядом с эталоном.
-import AxeBuilder from '@axe-core/playwright';
-import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
 import { ME } from '../src/testing/fixtures.ts';
-import type { MockApiOptions } from './api.ts';
-import { mockApi } from './api.ts';
+import { THEMES, expectNoAxeViolations, open, openProfile, real } from './support.ts';
 
-const THEMES = ['light', 'dark'] as const;
 const LOCALES = [
   { locale: 'ru', telegram: 'ru', home: 'Главная', create: 'Создать заявку', goods: 'Вещи' },
   { locale: 'sr-Latn', telegram: 'sr', home: 'Početna', create: 'Novi zahtev', goods: 'Stvari' },
 ] as const;
-
-interface Watch {
-  problems: string[];
-  unexpectedApi: string[];
-}
-
-/** Открыть приложение на mock-платформе и собирать всё, что не должно случиться. */
-async function open(page: Page, query: string, api: MockApiOptions = {}): Promise<Watch> {
-  const watch: Watch = { problems: [], unexpectedApi: [] };
-  page.on('request', (request) => {
-    if (!request.url().startsWith('http://127.0.0.1'))
-      watch.problems.push(`network ${request.url()}`);
-  });
-  page.on('console', (message) => {
-    if (message.type() === 'error') watch.problems.push(`console ${message.text()}`);
-  });
-  page.on('pageerror', (error) => watch.problems.push(`page ${error.message}`));
-  await mockApi(page, watch.unexpectedApi, api);
-  await page.goto(`/?platform=mock&${query}`);
-  await page.evaluate(() => document.fonts.ready);
-  return watch;
-}
-
-/** Ответ 401 на синтетический initData — ожидаемая ошибка консоли браузера, не приложения. */
-const real = (problems: string[]) =>
-  problems.filter((p) => !p.includes('401') && !p.includes('Unauthorized'));
-
-async function expectNoAxeViolations(page: Page) {
-  const result = await new AxeBuilder({ page }).analyze();
-  expect(result.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.length})`)).toEqual([]);
-}
 
 for (const theme of THEMES) {
   for (const { locale, telegram, home, goods } of LOCALES) {
@@ -75,14 +40,6 @@ for (const theme of THEMES) {
     await expect(page).toHaveScreenshot(`S20a-create-${theme}-ru.png`, { fullPage: true });
     await expectNoAxeViolations(page);
   });
-}
-
-/** Перейти на S31 по таббару. */
-async function openProfile(page: Page) {
-  await page
-    .getByRole('navigation', { name: 'Разделы' })
-    .getByRole('link', { name: 'Профиль' })
-    .click();
 }
 
 for (const theme of THEMES) {

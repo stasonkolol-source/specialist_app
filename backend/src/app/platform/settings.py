@@ -45,6 +45,9 @@ class AppSettings(_Group):
     model_config = SettingsConfigDict(env_prefix="APP_")
 
     env: Environment = Environment.DEV
+    name: str = "Сосед"
+    """Имя продукта в текстах сервера (`{{appName}}` правовых документов); для sr-Latn —
+    транслитом. Код продукта остаётся specialist_app."""
     log_level: str = "INFO"
     log_json: bool = True
     release: str = "dev"
@@ -143,6 +146,29 @@ class AnalyticsSettings(_Group):
     posthog_host: str = "https://eu.i.posthog.com"
 
 
+TODO_PREFIX = "[TODO"
+"""Значение-заглушка: владелец ещё не решил. На проде процесс с заглушкой не стартует."""
+
+
+class LegalSettings(_Group):
+    """Подстановки правовых документов (DEVELOPMENT_PLAN 1.5a): `{{OPERATOR_NAME}}`,
+    `{{CONTACT_EMAIL}}` в backend/content/legal. Заглушки видны в тексте на dev и stage."""
+
+    model_config = SettingsConfigDict(env_prefix="LEGAL_")
+
+    operator_name: str = "[TODO K22: оператор данных — решает владелец, ADR-0018]"
+    contact_email: str = "[TODO K22: почта поддержки — решает владелец, K23]"
+
+    def todo_fields(self) -> list[str]:
+        """Поля, где осталась заглушка [TODO …]: переменные окружения для сообщения об ошибке."""
+        prefix = str(self.model_config.get("env_prefix", ""))
+        return [
+            prefix + name.upper()
+            for name in type(self).model_fields
+            if str(getattr(self, name)).startswith(TODO_PREFIX)
+        ]
+
+
 GROUPS: tuple[type[_Group], ...] = (
     AppSettings,
     DbSettings,
@@ -153,6 +179,7 @@ GROUPS: tuple[type[_Group], ...] = (
     SentrySettings,
     AiSettings,
     AnalyticsSettings,
+    LegalSettings,
 )
 
 
@@ -187,6 +214,10 @@ class Settings:
         self.sentry = _as(values, SentrySettings)
         self.ai = _as(values, AiSettings)
         self.analytics = _as(values, AnalyticsSettings)
+        self.legal = _as(values, LegalSettings)
+        if self.app.env is Environment.PRODUCTION and (todo := self.legal.todo_fields()):
+            # оператор и почта попадают в политику конфиденциальности: заглушка на проде — нарушение
+            raise SettingsError("Настройки неполны — на проде нужны значения: " + ", ".join(todo))
 
 
 def _as[T: _Group](values: dict[type[_Group], _Group], group: type[T]) -> T:
