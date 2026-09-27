@@ -115,6 +115,8 @@ class S3Settings(_Group):
     bucket_media: str = "media"
     bucket_private: str = "private"
     public_base_url: str | None = None
+    public_endpoint_url: str | None = None
+    """Адрес S3, доступный телефону: им подписываются presigned-ссылки (dev — туннель Garage)."""
 
 
 class SentrySettings(_Group):

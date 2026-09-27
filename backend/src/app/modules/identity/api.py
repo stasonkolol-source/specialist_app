@@ -34,8 +34,22 @@ class UserSummary:
     created_at: datetime
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class TelegramUserView:
+    """Пользователь, которого бот узнал по Telegram id (или только что создал /start)."""
+
+    id: UserId
+    display_name: str
+    ui_locale: Locale
+    trust_level: int
+
+
 class IdentityApi(Protocol):
     async def get_user(self, user_id: UserId) -> UserSummary | None: ...
+
+    async def by_telegram(self, telegram_id: int) -> TelegramUserView | None:
+        """Активный пользователь по Telegram id (бот). Telegram id наружу не отдаём."""
+        ...
 
     async def ensure_allowed(self, user_id: UserId, action: Action) -> None:
         """RestrictedError (403 `restricted`), если действие запрещено действующей санкцией."""

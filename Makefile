@@ -11,7 +11,7 @@ EXTRA_CHECKS :=
 
 COMPOSE := docker compose -p specialist-dev -f infra/compose/docker-compose.dev.yml --env-file infra/compose/.env
 
-.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker new-module new-use-case openapi contract i18n-check-backend seeds-validate seed \
+.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker new-module new-use-case openapi contract i18n-check-backend seeds-validate seed dev tunnel dev-bot \
 	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check test-int migrate migrate-roundtrip pg-bootstrap
 
 help: ## Show available targets
@@ -128,6 +128,15 @@ new-module: ## Новый модуль по шаблону copier: make new-modu
 new-use-case: ## Новый use case: make new-use-case MODULE=<модуль> NAME=<глагол_объект>
 	@test -n "$(MODULE)" && test -n "$(NAME)" || (echo "usage: make new-use-case MODULE=… NAME=…"; exit 2)
 	@cd $(BACKEND) && $(UV) run python ../scripts/new_module.py use-case "$(MODULE)" "$(NAME)"
+
+dev: ## Весь dev-стенд: compose, миграции, сиды, туннели, web, bot, worker, tma (TUNNEL=0 — без туннелей)
+	@cd scripts && TUNNEL=$(or $(TUNNEL),1) $(UV) run --no-project --quiet python dev.py
+
+tunnel: ## Quick tunnel cloudflared на Mini App и Garage: адреса в .env, menu button бота
+	@cd scripts && $(UV) run --no-project --quiet python tunnel.py
+
+dev-bot: ## Бот в режиме polling (dev)
+	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.bot
 
 dev-web: ## API на 127.0.0.1:8000 с автоперезагрузкой (/up, /api/v1/docs)
 	@cd $(BACKEND) && $(UV) run uvicorn app.entrypoints.web:create --factory --reload \

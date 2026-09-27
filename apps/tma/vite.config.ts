@@ -54,6 +54,10 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       strictPort: true,
       allowedHosts: list(env.TMA_ALLOWED_HOSTS),
+      // Через quick tunnel HMR идёт по wss:443 хоста туннеля (make tunnel пишет TMA_HMR_HOST)
+      hmr: env.TMA_HMR_HOST
+        ? { host: env.TMA_HMR_HOST, protocol: 'wss', clientPort: 443 }
+        : undefined,
       proxy: { '/api': 'http://127.0.0.1:8000' },
       headers: { 'Content-Security-Policy': contentSecurityPolicy({ dev: true, mediaOrigins }) },
     },

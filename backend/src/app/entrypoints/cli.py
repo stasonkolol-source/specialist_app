@@ -173,6 +173,39 @@ async def _seed_geo(cities: list[Any]) -> None:
         await container.close()
 
 
+@app.command("set-menu-button")
+def set_menu_button(
+    url: Annotated[
+        str | None, typer.Argument(help="Адрес Mini App; по умолчанию TELEGRAM_MINI_APP_URL")
+    ] = None,
+) -> None:
+    """Кнопка меню бота открывает Mini App по адресу url (Bot API setChatMenuButton)."""
+    asyncio.run(_set_menu_button(url))
+
+
+async def _set_menu_button(url: str | None) -> None:
+    from aiogram import Bot
+    from aiogram.types import MenuButtonWebApp, WebAppInfo
+
+    from app.platform.i18n.translator import Translator
+
+    telegram = TelegramSettings()  # type: ignore[call-arg]  # из окружения и .env
+    target = url or telegram.mini_app_url
+    if not target or not target.startswith("https://"):
+        typer.echo("set-menu-button: need an https:// Mini App URL", err=True)
+        raise typer.Exit(code=1)
+    label = Translator.load().text("bot.menu.open", Locale.RU) or "Open"
+    bot = Bot(telegram.bot_token.get_secret_value())
+    try:
+        await bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(text=label, web_app=WebAppInfo(url=target))
+        )
+        me = await bot.get_me()
+    finally:
+        await bot.session.close()
+    typer.echo(f"@{me.username}: menu button → {target}")
+
+
 @app.command("dev-initdata")
 def dev_initdata(
     *,
