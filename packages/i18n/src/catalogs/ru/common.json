@@ -1,0 +1,126 @@
+{
+  "app": {
+    "name": "{appName}",
+    "tagline": "Мастера рядом, на вашем языке",
+    "miniApp": "мини-приложение"
+  },
+  "glossary": {
+    "job": "заявка",
+    "response": "отклик",
+    "deal": "сделка",
+    "specialist": "специалист",
+    "client": "клиент",
+    "review": "отзыв",
+    "gig": "подработка"
+  },
+  "action": {
+    "next": "Далее",
+    "back": "Назад",
+    "close": "Закрыть",
+    "cancel": "Отменить",
+    "save": "Сохранить",
+    "send": "Отправить",
+    "share": "Поделиться",
+    "report": "Пожаловаться",
+    "retry": "Повторить",
+    "search": "Поиск",
+    "publish": "Опубликовать",
+    "respond": "Откликнуться",
+    "write": "Написать",
+    "choose": "Выбрать исполнителем",
+    "decline": "Отклонить",
+    "confirm": "Подтвердить",
+    "workDone": "Работа выполнена",
+    "leaveReview": "Оставить отзыв"
+  },
+  "count": {
+    "reviews": "{count, plural, one {# отзыв} few {# отзыва} many {# отзывов} other {# отзыва}}",
+    "responses": "{count, plural, one {# отклик} few {# отклика} many {# откликов} other {# отклика}}",
+    "responsesOf": "откликов {count} из {total}",
+    "slotsLeft": "{count, plural, one {осталось # место} few {осталось # места} many {осталось # мест} other {осталось # места}}",
+    "respondWithSlots": "Откликнуться · {count, plural, one {осталось # место} few {осталось # места} many {осталось # мест} other {осталось # места}}",
+    "responded": "Вы откликнулись",
+    "full": "Мест нет",
+    "firstResponder": "Откликнулся первым"
+  },
+  "time": {
+    "justNow": "только что",
+    "minutesAgo": "{count}\u00A0мин назад",
+    "hoursAgo": "{count}\u00A0ч назад",
+    "yesterday": "вчера",
+    "daysAgo": "{count, plural, one {# день} few {# дня} many {# дней} other {# дня}} назад",
+    "today": "сегодня",
+    "tomorrow": "завтра",
+    "dayAt": "{day} в\u00A0{time}"
+  },
+  "distance": {
+    "km": "≈\u00A0{value}\u00A0км",
+    "m": "≈\u00A0{value}\u00A0м"
+  },
+  "price": {
+    "from": "от\u00A0{amount}",
+    "upTo": "до\u00A0{amount}",
+    "negotiable": "договорная",
+    "perUnit": {
+      "work": "{price}",
+      "hour": "{price}/час",
+      "m2": "{price}/м²",
+      "visit": "{price} за выезд",
+      "item": "{price} за предмет",
+      "lesson": "{price}/урок",
+      "km": "{price}/км"
+    }
+  },
+  "unit": {
+    "work": "за работу",
+    "hour": "за час",
+    "m2": "за м²",
+    "visit": "за визит",
+    "item": "за штуку",
+    "lesson": "за урок",
+    "km": "за км"
+  },
+  "budget": {
+    "upTo": "до\u00A0{max}",
+    "range": "{min}–{max}\u00A0тыс.",
+    "over": "{min}\u00A0тыс.+"
+  },
+  "rating": {
+    "new": "Новый специалист"
+  },
+  "urgency": {
+    "asap": "Срочно",
+    "today": "Сегодня",
+    "this_week": "На неделе",
+    "flexible": "Гибко"
+  },
+  "status": {
+    "job": {
+      "draft": "Черновик",
+      "pending_moderation": "На проверке",
+      "published": "Опубликована",
+      "rejected": "Отклонена",
+      "assigned": "В работе",
+      "completed": "Выполнена",
+      "closed": "Закрыта",
+      "expired": "Срок истёк",
+      "removed": "Снята"
+    },
+    "response": {
+      "submitted": "Отправлен",
+      "viewed": "Просмотрен",
+      "shortlisted": "В избранных",
+      "accepted": "Выбран",
+      "declined": "Отклонён",
+      "withdrawn": "Отозван",
+      "not_selected": "Не выбран"
+    },
+    "deal": {
+      "proposed": "Ждёт подтверждения",
+      "agreed": "Договорились",
+      "completed": "Выполнена",
+      "cancelled": "Отменена",
+      "disputed": "Спор"
+    }
+  }
+}

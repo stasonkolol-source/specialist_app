@@ -2,19 +2,36 @@
   "name": "@sosed/i18n",
   "version": "0.0.0",
   "private": true,
-  "description": "Переводы и форматтеры: ru, sr-Cyrl, sr-Latn",
+  "description": "Переводы и форматтеры: ru и sr-Cyrl ведутся руками, sr-Latn генерируется транслитерацией",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
+    "generate": "node scripts/i18n.ts generate",
+    "i18n:check": "node scripts/i18n.ts check",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@sosed/domain": "workspace:*",
+    "i18next": "26.4.2",
+    "i18next-icu": "2.4.4",
+    "intl-messageformat": "11.2.15",
+    "react-i18next": "17.0.15"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
   },
   "devDependencies": {
     "@sosed/config": "workspace:*",
+    "@types/node": "26.6.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "eslint": "10.11.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
     "typescript": "6.0.3",
     "vitest": "5.0.2"
   }

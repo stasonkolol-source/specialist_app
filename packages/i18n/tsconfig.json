@@ -1,4 +1,5 @@
 {
   "extends": "@sosed/config/tsconfig.base.json",
-  "include": ["src"]
+  "compilerOptions": { "types": ["node"] },
+  "include": ["src", "scripts"]
 }
