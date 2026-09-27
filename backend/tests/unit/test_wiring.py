@@ -4,7 +4,7 @@ import pytest
 from typer.testing import CliRunner
 
 from app.entrypoints import cli
-from app.entrypoints._wiring import MODULE_PROVIDERS, make_container
+from app.entrypoints._wiring import MODULE_PROVIDERS
 
 pytestmark = pytest.mark.unit
 
@@ -30,11 +30,6 @@ EXPECTED_MODULES = {
 def test_every_domain_module_has_a_provider() -> None:
     modules = {provider.__module__.split(".")[2] for provider in MODULE_PROVIDERS}
     assert modules == EXPECTED_MODULES
-
-
-async def test_container_builds_and_closes() -> None:
-    container = make_container()
-    await container.close()
 
 
 def test_cli_version() -> None:

@@ -25,6 +25,12 @@ class NotFoundError(DomainError):
     code = "not_found"
 
 
+class NotAuthenticatedError(DomainError):
+    """401: нет действующей сессии (или её отозвали)."""
+
+    code = "not_authenticated"
+
+
 class ForbiddenError(DomainError):
     """403: у пользователя нет прав на действие."""
 

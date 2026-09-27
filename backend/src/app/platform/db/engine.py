@@ -26,6 +26,11 @@ def make_engine(settings: DbSettings, *, application_name: str = "sosed") -> Asy
     )
 
 
+def libpq_dsn(sqlalchemy_dsn: str) -> str:
+    """DSN SQLAlchemy (postgresql+psycopg://…) → строка libpq для psycopg и Procrastinate."""
+    return sqlalchemy_dsn.replace("postgresql+psycopg://", "postgresql://", 1)
+
+
 def make_session_maker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
     """expire_on_commit=False: после commit атрибуты не истекают (иначе MissingGreenlet)."""
     return async_sessionmaker(engine, expire_on_commit=False, autoflush=False)
