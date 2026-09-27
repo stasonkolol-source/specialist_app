@@ -7,9 +7,10 @@
 
 from sqlalchemy import MetaData
 
+from app.modules.geo.infrastructure.models import metadata as geo
 from app.modules.identity.infrastructure.models import metadata as identity
 from app.platform.db.platform_tables import metadata as platform
 
 
 def module_metadatas() -> list[MetaData]:
-    return [platform, identity]
+    return [platform, identity, geo]

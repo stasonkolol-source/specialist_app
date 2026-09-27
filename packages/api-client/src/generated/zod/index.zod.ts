@@ -1,2 +1,3 @@
+export * from './geo/geo.zod.ts';
 export * from './identity/identity.zod.ts';
 export * from './platform/platform.zod.ts';

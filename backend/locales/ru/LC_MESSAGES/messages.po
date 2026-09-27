@@ -77,6 +77,12 @@ msgstr "Сессия завершена. Войдите заново."
 msgid "errors.invalid_refresh_token"
 msgstr "Сессия недействительна. Войдите заново."
 
+msgid "errors.city_not_found"
+msgstr "Город не найден."
+
+msgid "errors.outside_service_area"
+msgstr "Здесь сервис пока не работает."
+
 msgid "errors.user_not_found"
 msgstr "Пользователь не найден."
 

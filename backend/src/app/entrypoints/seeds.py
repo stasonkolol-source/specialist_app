@@ -21,6 +21,12 @@ from typing import Annotated, Any
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 from shapely.geometry import MultiPolygon, Point, shape
+from shapely.ops import unary_union
+
+from app.modules.geo.application.dto import CitySeed, DistrictSeed
+from app.modules.geo.domain.place import DistrictKind as GeoDistrictKind
+from app.platform.kernel.geo import GeoPoint
+from app.platform.kernel.localized import Locale, LocalizedText
 
 SEEDS_DIR = Path(__file__).resolve().parents[3] / "seeds"
 SERBIA_BOUNDS = (18.8, 42.2, 23.1, 46.2)
@@ -136,7 +142,23 @@ class District(BaseModel):
 
 class CityInfo(BaseModel):
     slug: Slug
+    name: Names | None = None
+
+
+class CityEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: Slug
     name: Names
+    center: tuple[float, float]
+    active: bool = False
+    sort_order: int = 0
+
+
+class Cities(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    cities: list[CityEntry] = Field(min_length=1)
 
 
 class GeoCollection(BaseModel):
@@ -288,15 +310,86 @@ def check_queries(path: Path, leaves: set[str], report: Report) -> None:
     report.summary.append(f"{path.name}: {len(queries.queries)} queries")
 
 
+def check_cities(path: Path, report: Report) -> set[str]:
+    try:
+        cities = Cities.model_validate(_load_yaml(path))
+    except ValidationError as exc:
+        report.errors.extend(_pydantic_errors(path, exc))
+        return set()
+    slugs = [city.slug for city in cities.cities]
+    if len(set(slugs)) != len(slugs):
+        report.errors.append(f"{path.name}: duplicate city slugs")
+    report.summary.append(f"{path.name}: {len(slugs)} cities")
+    return set(slugs)
+
+
 def validate(seeds: Path = SEEDS_DIR) -> Report:
     report = Report()
+    known = check_cities(seeds / "geo" / "cities.yaml", report)
     cities = {
         city
         for path in sorted((seeds / "geo").glob("*.geojson"))
         if (city := check_geo(path, report))
     }
     if not cities:
-        report.errors.append("geo: no city files")
+        report.errors.append("geo: no district files")
+    if unknown := sorted(cities - known):
+        report.errors.append(f"geo: cities {unknown} are not in cities.yaml")
     leaves = check_taxonomy(seeds / "catalog" / "taxonomy.yaml", cities, report)
     check_queries(seeds / "catalog" / "queries.yaml", leaves, report)
     return report
+
+
+def load_city_seeds(seeds: Path = SEEDS_DIR) -> list[CitySeed]:
+    """Сиды городов для импорта (1.3a): cities.yaml + районы из <город>.geojson."""
+    cities = Cities.model_validate(_load_yaml(seeds / "geo" / "cities.yaml"))
+    result = []
+    for city in cities.cities:
+        path = seeds / "geo" / f"{city.slug}.geojson"
+        districts: list[DistrictSeed] = []
+        polygons: list[MultiPolygon] = []
+        if path.exists():
+            collection = GeoCollection.model_validate(json.loads(path.read_text(encoding="utf-8")))
+            for feature in collection.features:
+                district = District.model_validate(feature["properties"])
+                geometry = shape(feature["geometry"])
+                if not isinstance(geometry, MultiPolygon):
+                    raise TypeError(f"{path.name}: {district.slug}: expected MultiPolygon")
+                polygons.append(geometry)
+                districts.append(
+                    DistrictSeed(
+                        slug=district.slug,
+                        kind=GeoDistrictKind(district.kind.value),
+                        parent=district.parent,
+                        name=_localized(district.name),
+                        aliases=tuple(district.aliases),
+                        center=GeoPoint(lat=district.center[1], lon=district.center[0]),
+                        boundary_wkt=geometry.wkt,
+                        source=district.source,
+                    )
+                )
+        boundary: MultiPolygon | None = None
+        if polygons:
+            union = unary_union(polygons)
+            boundary = union if isinstance(union, MultiPolygon) else MultiPolygon([union])  # type: ignore[list-item]  # union полигонов — Polygon
+        result.append(
+            CitySeed(
+                slug=city.slug,
+                name=_localized(city.name),
+                center=GeoPoint(lat=city.center[1], lon=city.center[0]),
+                active=city.active,
+                sort_order=city.sort_order,
+                boundary_wkt=boundary.wkt if boundary is not None else None,
+                districts=tuple(districts),
+            )
+        )
+    return result
+
+
+def _localized(names: Names) -> LocalizedText:
+    values = {Locale.RU: names.ru, Locale.SR_CYRL: names.sr_cyrl}
+    if names.sr_latn:
+        values[Locale.SR_LATN] = names.sr_latn
+    if names.en:
+        values[Locale.EN] = names.en
+    return LocalizedText(values)

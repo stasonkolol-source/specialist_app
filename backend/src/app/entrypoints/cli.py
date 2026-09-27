@@ -3,11 +3,12 @@
 Команды добавляют шаги плана (dev-initdata, jwt-keys, seed, staff-grant …).
 """
 
+import asyncio
 import json
 import secrets
 from importlib.metadata import version as package_version
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import urlencode
 
 import typer
@@ -24,7 +25,7 @@ from app.platform.kernel.clock import SystemClock
 from app.platform.kernel.localized import Locale
 from app.platform.security.initdata import sign
 from app.platform.security.jwt import JwtKeys, SigningKey
-from app.platform.settings import ENV_FILE, AppSettings, Environment, TelegramSettings
+from app.platform.settings import ENV_FILE, AppSettings, Environment, Settings, TelegramSettings
 
 app = typer.Typer(help="«Сосед» — служебные команды backend.", no_args_is_help=True)
 
@@ -136,6 +137,40 @@ def seeds_validate() -> None:
     if not report.ok:
         raise typer.Exit(code=1)
     typer.echo("seeds: OK")
+
+
+@app.command()
+def seed() -> None:
+    """Загрузить сиды в БД идемпотентно: города и районы (1.3a); повтор ничего не меняет."""
+    from app.entrypoints.seeds import load_city_seeds, validate
+
+    report = validate()
+    if not report.ok:
+        for error in report.errors:
+            typer.echo(f"error: {error}", err=True)
+        raise typer.Exit(code=1)
+    asyncio.run(_seed_geo(load_city_seeds()))
+
+
+async def _seed_geo(cities: list[Any]) -> None:
+    from app.entrypoints._wiring import make_worker_container
+    from app.modules.geo.application.use_cases.import_city import (
+        ImportCity,
+        ImportCityCommand,
+    )
+
+    container = make_worker_container(Settings())
+    try:
+        for city in cities:
+            async with container() as request:
+                use_case = await request.get(ImportCity)
+                result = await use_case(ImportCityCommand(seed=city))
+            typer.echo(
+                f"geo {city.slug}: created {result.created}, updated {result.updated},"
+                f" unchanged {result.unchanged}"
+            )
+    finally:
+        await container.close()
 
 
 @app.command("dev-initdata")
