@@ -60,7 +60,7 @@ class SqlUserRepository:
         owner = select(AuthIdentityRow.user_id).where(
             AuthIdentityRow.provider == provider, AuthIdentityRow.subject == subject
         )
-        row = await self._load(UserRow.id.in_(owner.scalar_subquery()))
+        row = await self._load(UserRow.id.in_(owner.scalar_subquery()), lock=True)
         return self._tracked(user_to_domain(row)) if row is not None else None
 
     async def add(self, user: User) -> None:
@@ -85,13 +85,17 @@ class SqlUserRepository:
         user.mark_persisted(version=row.version)
         self._uow.track(user)
 
-    async def _load(self, condition: object) -> UserRow | None:
+    async def _load(self, condition: object, *, lock: bool = False) -> UserRow | None:
         stmt = (
             select(UserRow)
             .where(condition)  # type: ignore[arg-type]  # ColumnElement[bool] из вызывающего
             .options(selectinload(UserRow.identities))
             .execution_options(populate_existing=True)
         )
+        if lock:
+            # FOR NO KEY UPDATE — та же блокировка, что возьмёт UPDATE: входы одного человека
+            # идут по очереди, а вставки в дочерние таблицы (FOR KEY SHARE по FK) не ждут
+            stmt = stmt.with_for_update(of=UserRow, key_share=True)
         return (await self._session.execute(stmt)).scalar_one_or_none()
 
     def _tracked(self, user: User) -> User:

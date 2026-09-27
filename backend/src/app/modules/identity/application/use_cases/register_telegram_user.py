@@ -1,7 +1,9 @@
 """Пользователь из бота: /start создаёт аккаунт тем же кодом, что и вход Mini App (0.22).
 
 Сессия и токены боту не нужны: бот узнаёт пользователя по `from.id` на каждом апдейте.
-Каждый /start публикует `BotStarted`: Telegram теперь разрешает боту писать первым, и
+Параллельные /start одного человека (двойное нажатие, апдейты после простоя) идут по
+очереди: вход блокирует строку пользователя, а гонку двух первых регистраций решает
+повтор. Каждый /start публикует `BotStarted`: Telegram теперь разрешает боту писать первым, и
 notifications открывает канал доставки (1.4b). Фасад notifications identity вызвать не
 может — он выше по DAG (ARCHITECTURE §5.4), поэтому только событие.
 """
@@ -12,8 +14,10 @@ from app.modules.identity.api import TelegramUserView
 from app.modules.identity.application.dto import TelegramProfile
 from app.modules.identity.application.ports import IdentityQuery, UserRepository
 from app.modules.identity.application.telegram import sign_in_telegram
+from app.modules.identity.domain.user import User
 from app.platform.contracts.events.identity import BotStarted, EntryPoint
 from app.platform.db.port import UnitOfWork
+from app.platform.db.retry import retry_on_conflict
 from app.platform.kernel.clock import Clock
 
 
@@ -33,17 +37,24 @@ class RegisterTelegramUser:
     async def __call__(self, cmd: RegisterTelegramUserCommand) -> tuple[TelegramUserView, bool]:
         """(пользователь, создан ли сейчас)."""
         now = self._clock.now()
-        async with self._uow:
-            user, is_new = await sign_in_telegram(
-                self._users,
-                self._query,
-                cmd.profile,
-                now,
-                entry_point=EntryPoint.BOT,
-                start_param=cmd.start_param,
-            )
-            # состояние агрегата не меняется: факт «написал боту» — событие без агрегата
-            self._uow.add_event(BotStarted(user_id=user.id, occurred_at=now))
+
+        async def attempt() -> tuple[User, bool]:
+            async with self._uow:
+                user, is_new = await sign_in_telegram(
+                    self._users,
+                    self._query,
+                    cmd.profile,
+                    now,
+                    entry_point=EntryPoint.BOT,
+                    start_param=cmd.start_param,
+                )
+                # состояние агрегата не меняется: факт «написал боту» — событие без агрегата
+                self._uow.add_event(BotStarted(user_id=user.id, occurred_at=now))
+            return user, is_new
+
+        # накопившиеся /start polling отдаёт разом, и aiogram обрабатывает их параллельно:
+        # два первых /start создают пользователя одновременно — второй повторяет и входит
+        user, is_new = await retry_on_conflict(attempt)
         return (
             TelegramUserView(
                 id=user.id,

@@ -1,5 +1,6 @@
 """Вход, refresh, выход по HTTP (DEVELOPMENT_PLAN 0.15b, ADR-0009)."""
 
+import asyncio
 from datetime import timedelta
 
 import httpx
@@ -41,6 +42,25 @@ async def test_login_returns_tokens_and_user(api: httpx.AsyncClient, init_data: 
     again = await login(api, init_data())
     assert again["is_new"] is False
     assert again["user"] == {**user, "display_name": user["display_name"]}
+
+
+async def test_parallel_logins_of_one_user_all_succeed(
+    api: httpx.AsyncClient, init_data: InitData
+) -> None:
+    """Mini App и бот одного человека входят разом (или клиент повторил запрос): вход не
+    отвечает 409 — первый создаёт пользователя, остальные ждут строку и входят."""
+    header = {"authorization": f"tma {init_data()}"}
+
+    async def attempt() -> httpx.Response:
+        return await api.post("/api/v1/auth/telegram", headers=header)
+
+    first = await asyncio.gather(*(attempt() for _ in range(5)))
+    again = await asyncio.gather(*(attempt() for _ in range(5)))
+
+    assert [r.status_code for r in (*first, *again)] == [200] * 10, [r.text for r in first]
+    assert sum(r.json()["is_new"] for r in first) == 1
+    assert not any(r.json()["is_new"] for r in again)
+    assert len({r.json()["user"]["id"] for r in (*first, *again)}) == 1
 
 
 async def test_expired_init_data_is_401(api: httpx.AsyncClient, init_data: InitData) -> None:
