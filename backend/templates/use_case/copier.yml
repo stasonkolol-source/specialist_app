@@ -1,0 +1,20 @@
+# Шаблон use case (ADR-0020 §3, §12): файл с командой и классом и тест на реальной БД.
+# Запуск из корня: make new-use-case MODULE=<модуль> NAME=<глагол>_<объект>; строку в di.py
+# добавляет scripts/new_module.py.
+_subdirectory: .
+_templates_suffix: .jinja
+
+module:
+  type: str
+  help: Модуль (каталог в src/app/modules)
+
+name:
+  type: str
+  help: Имя use case — глагол_объект (close_job)
+  validator: >-
+    {% if not (name | regex_search('^[a-z]+(_[a-z0-9]+)+$')) %}Имя — глагол_объект в snake_case{% endif %}
+
+class_name:
+  type: str
+  default: "{{ name.split('_') | map('capitalize') | join }}"
+  when: false

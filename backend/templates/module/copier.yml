@@ -1,0 +1,20 @@
+# Шаблон модуля (ADR-0020 §12), снят с identity. Запуск из корня: make new-module NAME=<имя>.
+# Создаёт только обязательные слои; http/, bot/, admin/, tasks.py добавляются, когда нужны.
+_subdirectory: .
+_templates_suffix: .jinja
+
+name:
+  type: str
+  help: Имя модуля (snake_case, оно же схема БД)
+  validator: >-
+    {% if not (name | regex_search('^[a-z][a-z_]*[a-z]$')) %}Имя — snake_case латиницей{% endif %}
+
+title:
+  type: str
+  help: Что делает модуль (одна строка для docstring)
+  default: "Модуль {{ name }}"
+
+class_prefix:
+  type: str
+  default: "{{ name.split('_') | map('capitalize') | join }}"
+  when: false

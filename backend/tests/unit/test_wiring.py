@@ -1,5 +1,7 @@
 """Контейнер процесса собирается из провайдеров всех модулей (ADR-0020 §7)."""
 
+from pathlib import Path
+
 import pytest
 from typer.testing import CliRunner
 
@@ -27,9 +29,15 @@ EXPECTED_MODULES = {
 }
 
 
+MODULES_DIR = Path(__file__).resolve().parents[2] / "src" / "app" / "modules"
+
+
 def test_every_domain_module_has_a_provider() -> None:
+    """Каждый пакет в modules/ подключён к контейнеру, и модули MVP на месте."""
+    packages = {p.name for p in MODULES_DIR.iterdir() if p.is_dir() and not p.name.startswith("_")}
     modules = {provider.__module__.split(".")[2] for provider in MODULE_PROVIDERS}
-    assert modules == EXPECTED_MODULES
+    assert modules == packages
+    assert modules >= EXPECTED_MODULES
 
 
 def test_cli_version() -> None:
