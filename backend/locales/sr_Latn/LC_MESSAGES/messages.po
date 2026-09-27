@@ -78,6 +78,12 @@ msgstr "Sesija je završena. Prijavite se ponovo."
 msgid "errors.invalid_refresh_token"
 msgstr "Sesija nije važeća. Prijavite se ponovo."
 
+msgid "errors.city_not_found"
+msgstr "Grad nije pronađen."
+
+msgid "errors.outside_service_area"
+msgstr "Servis ovde još ne radi."
+
 msgid "errors.user_not_found"
 msgstr "Korisnik nije pronađen."
 

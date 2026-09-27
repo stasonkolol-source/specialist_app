@@ -11,7 +11,7 @@ EXTRA_CHECKS :=
 
 COMPOSE := docker compose -p specialist-dev -f infra/compose/docker-compose.dev.yml --env-file infra/compose/.env
 
-.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker new-module new-use-case openapi contract i18n-check-backend seeds-validate \
+.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker new-module new-use-case openapi contract i18n-check-backend seeds-validate seed \
 	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check test-int migrate migrate-roundtrip pg-bootstrap
 
 help: ## Show available targets
@@ -107,6 +107,9 @@ i18n-check: i18n-check-backend
 
 i18n-check-backend: ## Backend: sr_Latn сгенерирован из актуального sr_Cyrl, ключи ru = sr_Cyrl
 	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli i18n check
+
+seed: ## Загрузить сиды в dev-БД идемпотентно: города и районы (1.3a), каталог — с 1.3b
+	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli seed
 
 seeds-validate: ## Сиды пилотной зоны: гео, таксономия, запросы (шаг 0.27)
 	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli seeds-validate

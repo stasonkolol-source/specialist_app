@@ -12,6 +12,10 @@ from uuid import UUID
 UserId = NewType("UserId", UUID)
 """Внутренний идентификатор пользователя — он же `sub` в JWT и `user_id` в логах."""
 
+CityId = NewType("CityId", int)
+DistrictId = NewType("DistrictId", int)
+"""Справочники geo — int identity (ARCHITECTURE §7.3): их id видят фасады и API."""
+
 
 def new_id() -> UUID:
     """Новый UUIDv7. Монотонен в пределах процесса (счётчик внутри миллисекунды)."""
