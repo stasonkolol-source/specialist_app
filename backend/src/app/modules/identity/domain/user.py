@@ -21,7 +21,7 @@ from app.modules.identity.errors import (
     InvalidDisplayNameError,
     UserAlreadyDeletedError,
 )
-from app.platform.contracts.events.identity import UserRegistered, UserUpdated
+from app.platform.contracts.events.identity import EntryPoint, UserRegistered, UserUpdated
 from app.platform.kernel.aggregate import StatusChange, VersionedAggregate
 from app.platform.kernel.errors import ConflictError, ProgrammingError
 from app.platform.kernel.ids import CityId, UserId, new_id
@@ -137,7 +137,10 @@ class User(VersionedAggregate):
         display_name: str,
         ui_locale: Locale,
         now: datetime,
+        entry_point: EntryPoint | None = None,
+        start_param: str | None = None,
     ) -> User:
+        """Новый аккаунт. `entry_point` и `start_param` — первое касание (атрибуция в growth)."""
         user = cls(
             id=UserId(new_id()),
             status=UserStatus.ACTIVE,
@@ -159,7 +162,15 @@ class User(VersionedAggregate):
             last_seen_at=now,
             version=1,
         )
-        user._record(UserRegistered(user_id=user.id, provider=provider.value, occurred_at=now))
+        user._record(
+            UserRegistered(
+                user_id=user.id,
+                provider=provider.value,
+                entry_point=entry_point,
+                start_param=start_param,
+                occurred_at=now,
+            )
+        )
         return user
 
     def record_login(

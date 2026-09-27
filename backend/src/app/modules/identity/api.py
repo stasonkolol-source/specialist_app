@@ -64,7 +64,16 @@ class IdentityApi(Protocol):
     async def get_user(self, user_id: UserId) -> UserSummary | None: ...
 
     async def by_telegram(self, telegram_id: int) -> TelegramUserView | None:
-        """Активный пользователь по Telegram id (бот). Telegram id наружу не отдаём."""
+        """Активный пользователь по Telegram id (бот). Telegram id в DTO не отдаём."""
+        ...
+
+    async def telegram_chat_id(self, user_id: UserId) -> int | None:
+        """Личный чат пользователя с ботом — адрес канала доставки notifications (ADR-0011).
+
+        В личном чате chat_id равен Telegram id. Только для адреса доставки: в логику и
+        логи не попадает (ADR-0020 §14). None — пользователь удалён или вошёл не через
+        Telegram.
+        """
         ...
 
     async def ensure_allowed(self, user_id: UserId, action: Action) -> None:

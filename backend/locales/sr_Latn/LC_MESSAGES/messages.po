@@ -135,6 +135,12 @@ msgstr "U ovom gradu servis još ne radi. Izaberite drugi."
 msgid "errors.invalid_restriction"
 msgstr "Neispravni parametri ograničenja."
 
+msgid "errors.invalid_start_link"
+msgstr "Link nije moguće napraviti."
+
+msgid "errors.telegram_not_linked"
+msgstr "Telegram nalog nije povezan: bot nema gde da piše."
+
 msgid "errors.bad_request"
 msgstr "Neispravan zahtev."
 

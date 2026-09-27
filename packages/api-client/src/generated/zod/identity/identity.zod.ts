@@ -8,6 +8,9 @@ import * as zod from 'zod';
 
 /**
  * Обмен initData Mini App на собственную сессию.
+ *
+ * `start_param` из initData (код `startapp`) — первое касание: у нового пользователя
+ * он попадает в атрибуцию (growth), вернувшемуся не нужен.
  * @summary Authenticate Telegram
  */
 export const IdentityAuthenticateTelegramHeader = zod.object({

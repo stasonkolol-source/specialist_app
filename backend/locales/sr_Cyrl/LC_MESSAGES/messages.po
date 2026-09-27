@@ -134,6 +134,12 @@ msgstr "У овом граду сервис још не ради. Изабери
 msgid "errors.invalid_restriction"
 msgstr "Неисправни параметри ограничења."
 
+msgid "errors.invalid_start_link"
+msgstr "Линк није могуће направити."
+
+msgid "errors.telegram_not_linked"
+msgstr "Telegram налог није повезан: бот нема где да пише."
+
 msgid "errors.bad_request"
 msgstr "Неисправан захтев."
 

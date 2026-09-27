@@ -2,6 +2,7 @@
 
 `RestrictionKind` — часть published language: вид санкции ставит модерация через фасад
 identity, а подписчики (уведомления, модерация) получают его в `UserRestricted`.
+`EntryPoint` — тоже: где пользователь вошёл впервые, для атрибуции в growth.
 """
 
 from dataclasses import dataclass
@@ -23,13 +24,44 @@ class RestrictionKind(StrEnum):
     BANNED = "banned"
 
 
+class EntryPoint(StrEnum):
+    """Где пользователь вошёл через Telegram."""
+
+    MINI_APP = "mini_app"
+    """Mini App: initData, `start_param` — код `startapp`."""
+    BOT = "bot"
+    """Личный чат с ботом: `/start <payload>`."""
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class UserRegistered(DomainEvent):
-    """Новый аккаунт: первый вход через провайдера `provider` (сейчас — telegram)."""
+    """Новый аккаунт: первый вход через провайдера `provider` (сейчас — telegram).
+
+    `entry_point` и `start_param` — первое касание для атрибуции (growth, 1.4b):
+    `start_param` — сырой код `startapp` из проверенного initData или payload `/start`.
+    identity пропускает только синтаксис Telegram (до 64 символов `[A-Za-z0-9_-]`), тип
+    ссылки и суффикс `_r` разбирает кодек growth. Поля добавлены аддитивно: у событий,
+    поставленных до 1.4b, их нет.
+    """
 
     event_type = "identity.UserRegistered"
     user_id: UserId
     provider: str
+    entry_point: EntryPoint | None = None
+    start_param: str | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BotStarted(DomainEvent):
+    """Пользователь отправил боту `/start` в личном чате (и новый, и вернувшийся).
+
+    С этого момента Telegram разрешает боту писать ему первым (ADR-0011). Подписчик —
+    notifications: канал `telegram` становится доступным для доставки. identity ниже
+    notifications по DAG и не вызывает его фасад, поэтому связь — только событием.
+    """
+
+    event_type = "identity.BotStarted"
+    user_id: UserId
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

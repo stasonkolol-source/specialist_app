@@ -34,6 +34,9 @@ class IdentityFacade(IdentityApi):
     async def by_telegram(self, telegram_id: int) -> TelegramUserView | None:
         return await self._query.by_telegram(telegram_id)
 
+    async def telegram_chat_id(self, user_id: UserId) -> int | None:
+        return await self._query.telegram_chat_id(user_id)
+
     async def ensure_allowed(self, user_id: UserId, action: Action) -> None:
         await self._access.ensure_allowed(user_id, action)
 

@@ -1,0 +1,181 @@
+"""Кодек deep links `t.me/<bot>?startapp=<код>` (ARCHITECTURE §11.4, ADR-0011).
+
+Тот же кодек, что `packages/links` на фронтенде: golden-векторы `packages/links/golden.json`
+общие, юнит-тесты модуля сверяются с ними. Код — не длиннее 64 символов `[A-Za-z0-9_-]`,
+без партнёрского префикса Telegram `_tgr_`:
+
+- `j_<base62>`, `s_<base62>`, `c_<base62>`, `d_<base62>` — заявка, специалист, диалог, сделка;
+- `h` — главная;
+- `g_`, `gu_`, `gh`, `gs_`, `gc_` — зарезервированы под раздел «Вещи» (после MVP);
+- `…_r<code>` — суффикс реферала или атрибуции канала, только суффикс, не тип.
+
+`<base62>` — UUID в base62 (алфавит 0-9A-Za-z, старшие разряды слева), ровно 22 символа.
+"""
+
+import re
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from enum import StrEnum
+from typing import Final
+from uuid import UUID
+
+from app.modules.growth.errors import InvalidStartLinkError
+
+BASE62_ALPHABET: Final = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+BASE62_UUID_LENGTH: Final = 22
+START_PARAM_MAX_LENGTH: Final = 64
+TELEGRAM_RESERVED_PREFIX: Final = "_tgr_"
+"""Префикс партнёрской программы Telegram: такие параметры не наши."""
+
+_BASE62: Final = re.compile(r"[0-9A-Za-z]{22}")
+_START_PARAM: Final = re.compile(r"[A-Za-z0-9_-]+")
+_REF: Final = re.compile(r"[A-Za-z0-9]+")
+"""Реферальный код или код канала: без `_`, иначе суффикс не отделить."""
+_PAYLOAD: Final = re.compile(r"[A-Za-z0-9-]+")
+"""Значение зарезервированного кода (`gs_<id>`, `gc_<code>`): без `_`, разбор однозначен."""
+_MAX_UUID: Final = (1 << 128) - 1
+_DIGITS: Final = {ch: i for i, ch in enumerate(BASE62_ALPHABET)}
+
+
+class LinkType(StrEnum):
+    JOB = "job"
+    SPECIALIST = "specialist"
+    CHAT = "chat"
+    DEAL = "deal"
+    HOME = "home"
+    RESERVED = "reserved"
+
+
+class ReservedCode(StrEnum):
+    """Префиксы раздела «Вещи» (ADR-0019 п. 15): `gh` и `h` — разные типы."""
+
+    GOODS_LISTING = "g"
+    GOODS_SELLER = "gu"
+    GOODS_HOME = "gh"
+    GOODS_SAVED_SEARCH = "gs"
+    GOODS_PARTNER_CHAT = "gc"
+
+
+ENTITY_PREFIX: Final[Mapping[LinkType, str]] = {
+    LinkType.JOB: "j",
+    LinkType.SPECIALIST: "s",
+    LinkType.CHAT: "c",
+    LinkType.DEAL: "d",
+}
+_ENTITY_BY_PREFIX: Final = {prefix: kind for kind, prefix in ENTITY_PREFIX.items()}
+_HOME: Final = "h"
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StartLink:
+    """Разобранный код startapp.
+
+    Сущность (`job`, `specialist`, `chat`, `deal`) — с `id`; `home` — без полей;
+    `reserved` — с `code` и, кроме `gh`, со значением `value`. `ref` — суффикс `_r<code>`.
+    """
+
+    type: LinkType
+    id: UUID | None = None
+    code: ReservedCode | None = None
+    value: str | None = None
+    ref: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.type in ENTITY_PREFIX:
+            shape_ok = self.id is not None and self.code is None and self.value is None
+        elif self.type is LinkType.HOME:
+            shape_ok = self.id is None and self.code is None and self.value is None
+        else:
+            needs_value = self.code is not ReservedCode.GOODS_HOME
+            shape_ok = (
+                self.id is None
+                and self.code is not None
+                and needs_value == (self.value is not None)
+                and (self.value is None or _PAYLOAD.fullmatch(self.value) is not None)
+            )
+        if not shape_ok:
+            raise InvalidStartLinkError(reason="shape")
+        if self.ref is not None and _REF.fullmatch(self.ref) is None:
+            raise InvalidStartLinkError(reason="ref")
+
+
+def uuid_to_base62(value: UUID) -> str:
+    n = value.int
+    digits: list[str] = []
+    while n:
+        n, rest = divmod(n, 62)
+        digits.append(BASE62_ALPHABET[rest])
+    return "".join(reversed(digits)).rjust(BASE62_UUID_LENGTH, "0")
+
+
+def base62_to_uuid(value: str) -> UUID | None:
+    """UUID из 22 символов base62; None — не base62-UUID или больше 2^128 − 1."""
+    if _BASE62.fullmatch(value) is None:
+        return None
+    n = 0
+    for ch in value:
+        n = n * 62 + _DIGITS[ch]
+    return UUID(int=n) if n <= _MAX_UUID else None
+
+
+def is_valid_start_param(value: str) -> bool:
+    """Синтаксис Telegram: длина, алфавит, не партнёрский `_tgr_`."""
+    return (
+        0 < len(value) <= START_PARAM_MAX_LENGTH
+        and _START_PARAM.fullmatch(value) is not None
+        and not value.startswith(TELEGRAM_RESERVED_PREFIX)
+    )
+
+
+def encode_start_param(link: StartLink) -> str:
+    """Код startapp для ссылки; InvalidStartLinkError — длиннее 64 символов."""
+    # форму ссылки проверил __post_init__: у reserved есть code, у сущности — id
+    if link.code is not None:
+        code = link.code.value if link.value is None else f"{link.code.value}_{link.value}"
+    elif link.id is not None:
+        code = f"{ENTITY_PREFIX[link.type]}_{uuid_to_base62(link.id)}"
+    else:
+        code = _HOME
+    if link.ref is not None:
+        code += f"_r{link.ref}"
+    if not is_valid_start_param(code):
+        raise InvalidStartLinkError(reason="length")
+    return code
+
+
+def parse_start_param(value: str | None) -> StartLink | None:
+    """Разбор кода; None — неизвестный или битый код (приложение открывает главную)."""
+    if not value or not is_valid_start_param(value):
+        return None
+    parts = value.split("_")
+    plain = _parse_code(parts)
+    if plain is not None:
+        return plain
+    # `…_r<code>` — суффикс, а не тип: пробуем отрезать его
+    last = parts[-1]
+    ref = last[1:]
+    if len(parts) < 2 or not last.startswith("r") or _REF.fullmatch(ref) is None:
+        return None
+    link = _parse_code(parts[:-1])
+    if link is None:
+        return None
+    return StartLink(type=link.type, id=link.id, code=link.code, value=link.value, ref=ref)
+
+
+def _parse_code(parts: Sequence[str]) -> StartLink | None:
+    head, rest = parts[0], parts[1:]
+    if head == _HOME:
+        return StartLink(type=LinkType.HOME) if not rest else None
+    entity = _ENTITY_BY_PREFIX.get(head)
+    if entity is not None:
+        entity_id = base62_to_uuid(rest[0]) if len(rest) == 1 else None
+        return StartLink(type=entity, id=entity_id) if entity_id is not None else None
+    try:
+        code = ReservedCode(head)
+    except ValueError:
+        return None
+    if code is ReservedCode.GOODS_HOME:
+        return StartLink(type=LinkType.RESERVED, code=code) if not rest else None
+    if len(rest) != 1 or _PAYLOAD.fullmatch(rest[0]) is None:
+        return None
+    return StartLink(type=LinkType.RESERVED, code=code, value=rest[0])

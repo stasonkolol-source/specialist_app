@@ -22,9 +22,12 @@ from structlog.testing import capture_logs
 
 from app.entrypoints._wiring import make_bot_container, module_bot_routers
 from app.interfaces.bot.app import create_dispatcher
+from app.modules.growth.application.ports import RECORD_ATTRIBUTION
 from app.modules.identity.api import IdentityApi
+from app.modules.notifications.application.ports import GRANT_WRITE_ACCESS
 from app.platform.kernel.ids import new_id
 from app.platform.settings import Settings
+from tests.plugins.queue import run_queued
 
 pytestmark = pytest.mark.integration
 
@@ -157,3 +160,41 @@ async def test_banned_user_gets_restriction_message(harness: BotHarness) -> None
         )
     reply = await harness.send(telegram_id, "/start")
     assert reply.text == "Это действие для вас сейчас ограничено."
+
+
+async def test_start_with_deep_link_attributes_user_and_opens_channel(harness: BotHarness) -> None:
+    """/start <payload>: атрибуция первого касания (growth) и канал бота (notifications, 1.4b)."""
+    telegram_id = 700_000_000 + new_id().int % 10_000_000
+    await harness.send(telegram_id, "/start s_02yBkPi1NksSnHWzckDH0V_rAB12CD")
+    async with harness.container() as request:
+        user = await (await request.get(IdentityApi)).by_telegram(telegram_id)
+        engine = await request.get(AsyncEngine)
+    assert user is not None
+
+    assert await run_queued(harness.container, RECORD_ATTRIBUTION, user_id=user.id) == 1
+    assert await run_queued(harness.container, GRANT_WRITE_ACCESS, user_id=user.id) == 1
+    await harness.send(telegram_id, "/start h_rOTHER")  # второе касание
+    assert await run_queued(harness.container, RECORD_ATTRIBUTION, user_id=user.id) == 0
+    assert await run_queued(harness.container, GRANT_WRITE_ACCESS, user_id=user.id) == 1
+
+    async with engine.connect() as conn:
+        attribution = (
+            await conn.execute(
+                text(
+                    "SELECT source, referral_code, entry_point FROM growth.attributions"
+                    " WHERE user_id = :user_id"
+                ),
+                {"user_id": user.id},
+            )
+        ).one()
+        channel = (
+            await conn.execute(
+                text(
+                    "SELECT address, granted_via, disabled_at FROM notifications.channels"
+                    " WHERE user_id = :user_id"
+                ),
+                {"user_id": user.id},
+            )
+        ).one()
+    assert tuple(attribution) == ("specialist", "AB12CD", "bot")
+    assert tuple(channel) == (str(telegram_id), "bot_start", None)
