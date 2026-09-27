@@ -28,8 +28,10 @@ doctor: ## Tool versions and free local ports (step 0.1)
 plan-check: ## Validate the step table of docs/DEVELOPMENT_PLAN.md
 	@python3 scripts/plan_check.py
 
-gitleaks: ## Scan the working tree for secrets
-	@if command -v gitleaks >/dev/null 2>&1; then gitleaks dir --no-banner --redact . ; \
+gitleaks: ## Secrets in git history and in uncommitted changes of tracked files (.env are ignored)
+	@if command -v gitleaks >/dev/null 2>&1; then \
+	  gitleaks git --no-banner --redact --log-level warn . && \
+	  gitleaks git --pre-commit --no-banner --redact --log-level warn . && echo "gitleaks: no leaks"; \
 	  else echo "SKIP gitleaks (not installed yet — K1)"; fi
 
 cli: ## Backend CLI: make cli ARGS='--help'
