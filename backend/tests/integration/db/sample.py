@@ -26,6 +26,7 @@ from app.platform.db.base import (
     relation,
 )
 from app.platform.db.constraints import ConstraintErrors, raise_domain_error
+from app.platform.db.port import UnitOfWork
 from app.platform.db.query import SqlQuery, decode_cursor, encode_cursor
 from app.platform.db.types import (
     GeoPointType,
@@ -38,11 +39,13 @@ from app.platform.db.types import (
 from app.platform.db.versioning import check_loaded_version
 from app.platform.kernel.aggregate import StatusChange, VersionedAggregate
 from app.platform.kernel.errors import ConflictError, NotFoundError
+from app.platform.kernel.events import DomainEvent
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import UserId, new_id
 from app.platform.kernel.localized import LocalizedText
 from app.platform.kernel.money import Currency, Money
 from app.platform.kernel.pagination import Page, PageRequest
+from app.platform.queue.port import TaskRef
 
 SCHEMA = "sample"
 
@@ -64,6 +67,16 @@ class DuplicateWidgetTitleError(ConflictError):
 
 class WidgetNotDraftError(ConflictError):
     code = "widget_not_draft"
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class WidgetPublished(DomainEvent):
+    event_type = "sample.WidgetPublished"
+    widget_id: UUID
+    owner_id: UUID
+
+
+ON_WIDGET_PUBLISHED: Final = TaskRef("sample.on_widget_published", WidgetPublished)
 
 
 _ALLOWED: Final[Mapping[WidgetStatus, frozenset[WidgetStatus]]] = {
@@ -108,6 +121,7 @@ class Widget(VersionedAggregate):
             )
         )
         self.status = WidgetStatus.PUBLISHED
+        self._record(WidgetPublished(widget_id=self.id, owner_id=self.owner_id, occurred_at=now))
 
     def add_part(self, name: str) -> None:
         self.parts.append(name)
@@ -217,23 +231,31 @@ WIDGET_CONSTRAINTS: ConstraintErrors = {
 
 
 class SqlWidgetRepository:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, uow: UnitOfWork) -> None:
         self._session = session
+        self._uow = uow
 
     async def get(self, widget_id: UUID) -> Widget:
-        return to_domain(await self._load(widget_id, for_update=False))
+        widget = to_domain(await self._load(widget_id, for_update=False))
+        self._uow.track(widget)
+        return widget
 
     async def get_for_update(self, widget_id: UUID) -> Widget:
-        return to_domain(await self._load(widget_id, for_update=True))
+        widget = to_domain(await self._load(widget_id, for_update=True))
+        self._uow.track(widget)
+        return widget
 
     async def add(self, widget: Widget) -> None:
+        self._uow.require_active()
         row = WidgetRow(id=widget.id, version=widget.version, parts=[])
         apply(widget, row)
         self._session.add(row)
         self._session.add_all(self._history_rows(widget))
         await self._flush()
+        self._uow.track(widget)
 
     async def save(self, widget: Widget) -> None:
+        self._uow.require_active()
         row = await self._session.get(WidgetRow, widget.id, options=[selectinload(WidgetRow.parts)])
         if row is None:
             raise WidgetNotFoundError(widget_id=widget.id)
@@ -243,6 +265,7 @@ class SqlWidgetRepository:
         self._session.add_all(self._history_rows(widget))
         await self._flush()
         widget.mark_persisted(version=row.version)
+        self._uow.track(widget)
 
     async def _load(self, widget_id: UUID, *, for_update: bool) -> WidgetRow:
         stmt = (

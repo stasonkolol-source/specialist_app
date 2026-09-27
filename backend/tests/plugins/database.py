@@ -6,6 +6,7 @@
 
 from collections.abc import AsyncIterator
 
+import procrastinate
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import (
@@ -16,7 +17,28 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from app.platform.db.uow import SqlAlchemyUnitOfWork
+from app.platform.queue.dispatcher import EventDispatcher, EventRegistry
+from app.platform.queue.procrastinate_queue import ProcrastinateJobQueue
 from tests.plugins.containers import PostgresInfo
+
+
+def make_uow(
+    session: AsyncSession, app: procrastinate.App, registry: EventRegistry | None = None
+) -> SqlAlchemyUnitOfWork:
+    """UoW как в проде: диспетчер событий ставит задачи через Procrastinate в той же транзакции."""
+    queue = ProcrastinateJobQueue(session, app)
+    return SqlAlchemyUnitOfWork(session, EventDispatcher(registry or EventRegistry(), queue))
+
+
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def procrastinate_app(postgres: PostgresInfo) -> AsyncIterator[procrastinate.App]:
+    connector = procrastinate.PsycopgConnector(
+        conninfo=postgres.dsn("app", driver="postgresql"), min_size=1, max_size=4
+    )
+    app = procrastinate.App(connector=connector)
+    async with app.open_async():
+        yield app
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
