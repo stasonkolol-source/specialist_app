@@ -54,7 +54,7 @@ describe('границы routes → features → packages', () => {
   it('фича не импортирует другую фичу', async () => {
     const code = "import { deals } from '../deals/index.ts';\nexport const x = deals;\n";
     expect(await rules(fixture, 'src/features/jobs/index.ts', code, config)).toContain(
-      'boundaries/element-types',
+      'boundaries/dependencies',
     );
   });
 
@@ -63,10 +63,24 @@ describe('границы routes → features → packages', () => {
     expect(await rules(fixture, 'src/routes/jobs.ts', code, config)).toEqual([]);
   });
 
+  it('экран импортирует модули своей группы фич', async () => {
+    const code = "import { jobs } from '../index.ts';\nexport const x = jobs;\n";
+    expect(await rules(fixture, 'src/features/jobs/s22-my-jobs/Screen.ts', code, config)).toEqual(
+      [],
+    );
+  });
+
+  it('импорт каталога без файла запрещён: иначе границы не видны', async () => {
+    const code = "import { deals } from '../deals';\nexport const x = deals;\n";
+    expect(await rules(fixture, 'src/features/jobs/index.ts', code, config)).toContain(
+      'no-restricted-imports',
+    );
+  });
+
   it('фича не импортирует routes', async () => {
     const code = "import { route } from '../../routes/jobs.ts';\nexport const x = route;\n";
     expect(await rules(fixture, 'src/features/jobs/index.ts', code, config)).toContain(
-      'boundaries/element-types',
+      'boundaries/dependencies',
     );
   });
 });

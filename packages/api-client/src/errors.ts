@@ -1,5 +1,5 @@
 // Ошибки API (RFC 9457, ARCHITECTURE §8.3, ADR-0020 §9): клиент ветвится по code, а не по тексту.
-import type { FieldErrorOut, ProblemOut } from './generated/model';
+import type { FieldErrorOut, ProblemOut } from './generated/model/index.ts';
 
 /** Ответ сервера с ошибкой. `problem` — тело application/problem+json как пришло. */
 export class ApiError extends Error {

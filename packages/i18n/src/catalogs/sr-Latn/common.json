@@ -167,5 +167,29 @@
   },
   "photo": {
     "work": "Fotografija rada"
+  },
+  "stub": {
+    "title": "Ekran je u izradi",
+    "text": "Ovaj odeljak će se uskoro pojaviti"
+  },
+  "error": {
+    "title": "Nešto nije u redu",
+    "text": "Pokušajte ponovo. Ako ne pomaže — zatvorite i ponovo otvorite aplikaciju"
+  },
+  "update": {
+    "telegramTitle": "Ažurirajte Telegram",
+    "telegramText": "U ovoj verziji Telegram-a aplikacija ne radi. Ažurirajte Telegram i ponovo otvorite „{appName}”",
+    "appTitle": "Izašla je nova verzija",
+    "appText": "Ponovo učitajte aplikaciju da biste nastavili",
+    "reload": "Ponovo učitaj"
+  },
+  "home": {
+    "segment": "Odeljak",
+    "services": "Usluge",
+    "goods": "Stvari"
+  },
+  "goods": {
+    "soonTitle": "Stvari — uskoro",
+    "soonText": "Odeljak gde možete da prodate i kupite stvari od svojih — bez pretrage po grupama za prodaju."
   }
 }
