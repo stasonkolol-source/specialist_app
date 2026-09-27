@@ -21,5 +21,8 @@ export interface ProblemOut {
   until?: string | null;
   platform?: string | null;
   min_version?: string | null;
+  documents?: string[] | null;
+  document?: string | null;
+  current?: string | null;
   [key: string]: unknown;
 }

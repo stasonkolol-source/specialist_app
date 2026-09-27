@@ -91,7 +91,7 @@ export const ME: MeOut = {
   intent: 'client',
   consents: { terms: 'draft-1', privacy: 'draft-1', age_18: 'draft-1' },
   consent_required: false,
-  can_post: true,
+  can_post_jobs: true,
   can_respond: true,
   can_message: true,
 };

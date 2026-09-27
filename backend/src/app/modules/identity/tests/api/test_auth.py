@@ -32,11 +32,11 @@ async def test_login_returns_tokens_and_user(api: httpx.AsyncClient, init_data: 
         "intent",
         "consents",
         "consent_required",
-        "can_post",
+        "can_post_jobs",
         "can_respond",
         "can_message",
     }
-    assert (user["consents"], user["consent_required"], user["can_post"]) == ({}, True, False)
+    assert (user["consents"], user["consent_required"], user["can_post_jobs"]) == ({}, True, False)
 
     again = await login(api, init_data())
     assert again["is_new"] is False

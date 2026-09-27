@@ -29,7 +29,7 @@ class MeOut(BaseModel):
     """Принятые версии документов: `{"terms": "…", "privacy": "…", "age_18": "…"}`."""
     consent_required: bool
     """Нет согласия с действующими версиями из client-config: показать S02c."""
-    can_post: bool
+    can_post_jobs: bool
     can_respond: bool
     can_message: bool
 
@@ -46,7 +46,7 @@ class MeOut(BaseModel):
             intent=view.intent,
             consents={document.value: version for document, version in access.consents.items()},
             consent_required=access.consent_required,
-            can_post=Action.POST in access.allowed,
+            can_post_jobs=Action.POST in access.allowed,
             can_respond=Action.RESPOND in access.allowed,
             can_message=Action.MESSAGE in access.allowed,
         )

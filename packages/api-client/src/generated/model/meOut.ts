@@ -19,7 +19,7 @@ export interface MeOut {
   intent: UserIntent | null;
   consents: MeOutConsents;
   consent_required: boolean;
-  can_post: boolean;
+  can_post_jobs: boolean;
   can_respond: boolean;
   can_message: boolean;
 }

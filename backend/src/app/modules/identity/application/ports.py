@@ -3,7 +3,6 @@
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Protocol
-from uuid import UUID
 
 from app.modules.identity.api import TelegramUserView, UserSummary
 from app.modules.identity.application.dto import MeView
@@ -11,7 +10,7 @@ from app.modules.identity.domain.consent import Consent, ConsentDocument
 from app.modules.identity.domain.restriction import Restriction, RestrictionSource
 from app.modules.identity.domain.session import Session, SessionId
 from app.modules.identity.domain.user import AuthProvider, User
-from app.platform.kernel.ids import RestrictionId, UserId
+from app.platform.kernel.ids import CaseId, RestrictionId, UserId
 from app.platform.kernel.principal import Platform, Principal, Role
 
 
@@ -63,7 +62,7 @@ class RestrictionRepository(Protocol):
         restriction: Restriction,
         *,
         source: RestrictionSource,
-        case_id: UUID | None,
+        case_id: CaseId | None,
         created_by: UserId | None,
     ) -> RestrictionId:
         """UserNotFoundError — пользователя нет. Нужен активный UoW."""

@@ -13,6 +13,10 @@ class DomainError(Exception):
     """Ожидаемая ошибка предметной области со стабильным машинным кодом."""
 
     code: ClassVar[str] = "domain_error"
+    public_params: ClassVar[tuple[str, ...]] = ()
+    """Параметры, которые клиент получает полями ответа рядом с `code`, чтобы действовать
+    без разбора текста. Значения — JSON: строки, числа, списки. Остальные параметры идут
+    только в текст `errors.<code>` и в лог."""
 
     def __init__(self, **params: object) -> None:
         self.params: dict[str, object] = params

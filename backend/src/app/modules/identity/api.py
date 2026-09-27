@@ -7,14 +7,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
-from uuid import UUID
 
 from app.modules.identity.errors import AccountDeletedError as AccountDeletedError
 from app.modules.identity.errors import ConsentRequiredError as ConsentRequiredError
 from app.modules.identity.errors import InvalidRestrictionError as InvalidRestrictionError
 from app.modules.identity.errors import UserNotFoundError as UserNotFoundError
 from app.platform.contracts.events.identity import RestrictionKind as RestrictionKind
-from app.platform.kernel.ids import RestrictionId, UserId
+from app.platform.kernel.ids import CaseId, RestrictionId, UserId
 from app.platform.kernel.localized import Locale
 
 
@@ -57,7 +56,7 @@ class RestrictionIn:
     reason_code: str
     """Машинный код причины (`spam`, `prepayment_fraud`); текст решения — в модерации."""
     ends_at: datetime | None = None
-    case_id: UUID | None = None
+    case_id: CaseId | None = None
     created_by: UserId | None = None
 
 

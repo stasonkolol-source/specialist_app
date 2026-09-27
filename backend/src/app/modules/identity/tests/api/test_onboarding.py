@@ -98,15 +98,23 @@ async def test_consent_unlocks_creating_actions(app: HttpApp, init_data: InitDat
     refused = await api.post("/api/v1/test/jobs", headers=auth)
     assert refused.status_code == 403
     assert refused.headers["content-type"] == "application/problem+json"
-    assert refused.json()["code"] == "consent_required"
+    problem = refused.json()
+    assert (problem["code"], problem["documents"]) == (
+        "consent_required",
+        ["age_18", "privacy", "terms"],
+    )
     me = (await api.get("/api/v1/me", headers=auth)).json()
-    assert (me["consent_required"], me["can_post"], me["consents"]) == (True, False, {})
+    assert (me["consent_required"], me["can_post_jobs"], me["consents"]) == (True, False, {})
 
     accepted = await api.post("/api/v1/me/consents", headers=auth, json=TICK)
     assert accepted.status_code == 200
     body = accepted.json()
     assert body["consents"] == {"terms": "draft-1", "privacy": "draft-1", "age_18": "draft-1"}
-    assert (body["consent_required"], body["can_post"], body["can_respond"]) == (False, True, True)
+    assert (body["consent_required"], body["can_post_jobs"], body["can_respond"]) == (
+        False,
+        True,
+        True,
+    )
     assert accepted.headers["etag"] == '"1"'
     assert (await api.post("/api/v1/test/jobs", headers=auth)).status_code == 204
 
@@ -131,21 +139,30 @@ async def test_repeated_consent_is_idempotent(
 
 
 @pytest.mark.parametrize(
-    ("body", "status_code", "code"),
+    ("body", "status_code", "problem"),
     [
-        ({"terms_version": "draft-0", "privacy_version": "draft-1"}, 409, "legal_version_outdated"),
-        ({"terms_version": "draft-1"}, 422, "validation_error"),
-        ({"terms_version": "", "privacy_version": "draft-1"}, 422, "validation_error"),
+        (
+            {"terms_version": "draft-0", "privacy_version": "draft-1"},
+            409,
+            {"code": "legal_version_outdated", "document": "terms", "current": "draft-1"},
+        ),
+        ({"terms_version": "draft-1"}, 422, {"code": "validation_error"}),
+        ({"terms_version": "", "privacy_version": "draft-1"}, 422, {"code": "validation_error"}),
     ],
 )
 async def test_consent_with_wrong_versions_is_refused(
-    app: HttpApp, init_data: InitData, body: dict[str, str], status_code: int, code: str
+    app: HttpApp,
+    init_data: InitData,
+    body: dict[str, str],
+    status_code: int,
+    problem: dict[str, str],
 ) -> None:
+    """409 называет документ и действующую версию: клиенту не нужен client-config из кэша."""
     api = app.client
     tokens = await login(api, init_data())
     response = await api.post("/api/v1/me/consents", headers=bearer(tokens), json=body)
     assert response.status_code == status_code
-    assert response.json()["code"] == code
+    assert problem.items() <= response.json().items()
     assert (await api.get("/api/v1/me", headers=bearer(tokens))).json()["consent_required"]
 
 
@@ -174,7 +191,7 @@ async def test_restricted_user_gets_403_restricted(app: HttpApp, init_data: Init
         None,
     )
     me = (await api.get("/api/v1/me", headers=auth)).json()
-    assert (me["consent_required"], me["can_post"], me["can_respond"]) == (False, False, True)
+    assert (me["consent_required"], me["can_post_jobs"], me["can_respond"]) == (False, False, True)
 
 
 # --- город и намерение ---------------------------------------------------------------------

@@ -42,7 +42,7 @@ export const IdentityAuthenticateTelegramResponse = zod.object({
     ]),
     consents: zod.record(zod.string(), zod.string()),
     consent_required: zod.boolean(),
-    can_post: zod.boolean(),
+    can_post_jobs: zod.boolean(),
     can_respond: zod.boolean(),
     can_message: zod.boolean(),
   }),
@@ -97,7 +97,7 @@ export const IdentityGetMeResponse = zod.object({
   ]),
   consents: zod.record(zod.string(), zod.string()),
   consent_required: zod.boolean(),
-  can_post: zod.boolean(),
+  can_post_jobs: zod.boolean(),
   can_respond: zod.boolean(),
   can_message: zod.boolean(),
 });
@@ -150,7 +150,7 @@ export const IdentityUpdateMeResponse = zod.object({
   ]),
   consents: zod.record(zod.string(), zod.string()),
   consent_required: zod.boolean(),
-  can_post: zod.boolean(),
+  can_post_jobs: zod.boolean(),
   can_respond: zod.boolean(),
   can_message: zod.boolean(),
 });
@@ -190,7 +190,7 @@ export const IdentityAcceptConsentsResponse = zod.object({
   ]),
   consents: zod.record(zod.string(), zod.string()),
   consent_required: zod.boolean(),
-  can_post: zod.boolean(),
+  can_post_jobs: zod.boolean(),
   can_respond: zod.boolean(),
   can_message: zod.boolean(),
 });

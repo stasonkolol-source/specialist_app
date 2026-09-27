@@ -1,5 +1,7 @@
 """Ошибки модуля identity со стабильными code (ADR-0020 §9)."""
 
+from collections.abc import Sequence
+
 from app.platform.kernel.errors import (
     ConcurrentModificationError,
     ConflictError,
@@ -43,18 +45,33 @@ class InvalidDisplayNameError(DomainValidationError):
 class ConsentRequiredError(ForbiddenError):
     """Создающее действие до принятия правил площадки и политики (S02c).
 
-    `documents` — чего не хватает (`terms`, `privacy`, `age_18`): клиент показывает
-    галочку с действующими версиями из client-config.
+    `documents` — чего не хватает (`terms`, `privacy`, `age_18`), поле ответа: клиент
+    показывает галочку с действующими версиями из client-config.
     """
 
     code = "consent_required"
+    public_params = ("documents",)
+
+    def __init__(self, *, documents: Sequence[str]) -> None:
+        super().__init__(documents=list(documents))
+        self.documents = tuple(documents)
 
 
 class LegalVersionOutdatedError(ConflictError):
-    """Клиент принимает не ту версию документа, что действует сейчас: пусть перечитает
-    client-config и покажет актуальный текст."""
+    """Клиент принимает не ту версию документа, что действует сейчас.
+
+    `document` (`terms`, `privacy`) и `current` — действующая версия, поля ответа: клиент
+    показывает текст этой версии и просит галочку заново, не полагаясь на client-config
+    из кэша WebView (он может быть старше минуты).
+    """
 
     code = "legal_version_outdated"
+    public_params = ("document", "current")
+
+    def __init__(self, *, document: str, current: str) -> None:
+        super().__init__(document=document, current=current)
+        self.document = document
+        self.current = current
 
 
 class LegalVersionsUnavailableError(ExternalServiceError):

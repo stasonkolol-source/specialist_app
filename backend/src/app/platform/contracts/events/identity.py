@@ -7,10 +7,9 @@ identity, а подписчики (уведомления, модерация) �
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from uuid import UUID
 
 from app.platform.kernel.events import DomainEvent
-from app.platform.kernel.ids import RestrictionId, UserId
+from app.platform.kernel.ids import CaseId, RestrictionId, UserId
 
 
 class RestrictionKind(StrEnum):
@@ -60,4 +59,4 @@ class UserRestricted(DomainEvent):
     kind: RestrictionKind
     reason_code: str
     until: datetime | None
-    case_id: UUID | None
+    case_id: CaseId | None

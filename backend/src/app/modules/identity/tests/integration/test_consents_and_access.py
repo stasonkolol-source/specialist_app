@@ -33,7 +33,7 @@ from app.modules.identity.tests.fakes import a_city
 from app.platform.contracts.events.identity import UserRestricted, UserUpdated
 from app.platform.db.errors import WriteOutsideUnitOfWorkError
 from app.platform.kernel.errors import RestrictedError
-from app.platform.kernel.ids import CityId, UserId, new_id
+from app.platform.kernel.ids import CaseId, CityId, UserId, new_id
 from app.platform.kernel.principal import Platform
 from app.platform.queue.dispatcher import EventRegistry
 from app.platform.queue.port import TaskRef
@@ -175,7 +175,7 @@ async def test_moderation_restricts_through_facade(
     user_id = await registered(identity)
     moderator = await registered(identity)
     await identity.accept_consents(tick(user_id))
-    case_id = new_id()
+    case_id = CaseId(new_id())
     until = identity.clock.now() + timedelta(days=30)
 
     async with identity.uow:

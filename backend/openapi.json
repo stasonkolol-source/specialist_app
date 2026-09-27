@@ -889,9 +889,9 @@
             "type": "boolean",
             "title": "Consent Required"
           },
-          "can_post": {
+          "can_post_jobs": {
             "type": "boolean",
-            "title": "Can Post"
+            "title": "Can Post Jobs"
           },
           "can_respond": {
             "type": "boolean",
@@ -914,7 +914,7 @@
           "intent",
           "consents",
           "consent_required",
-          "can_post",
+          "can_post_jobs",
           "can_respond",
           "can_message"
         ],
@@ -1140,6 +1140,42 @@
               }
             ],
             "title": "Min Version"
+          },
+          "documents": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documents"
+          },
+          "document": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current"
           }
         },
         "additionalProperties": true,

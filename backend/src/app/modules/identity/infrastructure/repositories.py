@@ -2,7 +2,6 @@
 
 from collections.abc import Callable, Mapping
 from datetime import datetime
-from uuid import UUID
 
 from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
@@ -37,7 +36,7 @@ from app.modules.identity.infrastructure.models import (
 from app.platform.db.constraints import ConstraintErrors, raise_domain_error
 from app.platform.db.port import UnitOfWork
 from app.platform.db.versioning import check_loaded_version
-from app.platform.kernel.ids import RestrictionId, UserId, new_id
+from app.platform.kernel.ids import CaseId, RestrictionId, UserId, new_id
 from app.platform.kernel.principal import Platform
 
 USER_CONSTRAINTS: ConstraintErrors = {
@@ -211,7 +210,7 @@ class SqlRestrictionRepository:
         restriction: Restriction,
         *,
         source: RestrictionSource,
-        case_id: UUID | None,
+        case_id: CaseId | None,
         created_by: UserId | None,
     ) -> RestrictionId:
         self._uow.require_active()
