@@ -77,5 +77,6 @@ async def test_collations_sort_serbian_alphabet(db_connection: AsyncConnection) 
 
 
 async def test_procrastinate_schema_is_visible_to_app_role(db_connection: AsyncConnection) -> None:
-    assert await _scalar(db_connection, "SELECT count(*) FROM procrastinate_jobs") == 0
+    # в очереди могут лежать задачи подписчиков от API-тестов (они коммитят): важен доступ
+    assert await _scalar(db_connection, "SELECT count(*) >= 0 FROM procrastinate_jobs") is True
     assert await _scalar(db_connection, "SHOW search_path") == "public, procrastinate"

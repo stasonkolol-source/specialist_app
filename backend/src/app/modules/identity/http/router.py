@@ -77,8 +77,13 @@ async def authenticate_telegram(
     access: FromDishka[AccessChecker],
     authorization: Annotated[str | None, Header(description="tma <initData>")] = None,
 ) -> AuthOut:
-    """Обмен initData Mini App на собственную сессию."""
-    user = verifier.verify(init_data_of(authorization)).user
+    """Обмен initData Mini App на собственную сессию.
+
+    `start_param` из initData (код `startapp`) — первое касание: у нового пользователя
+    он попадает в атрибуцию (growth), вернувшемуся не нужен.
+    """
+    init_data = verifier.verify(init_data_of(authorization))
+    user = init_data.user
     await limiter.hit(AUTH_PER_TELEGRAM_USER, f"tg:{user.id}")
     profile = TelegramProfile(
         id=user.id,
@@ -90,7 +95,9 @@ async def authenticate_telegram(
         allows_write_to_pm=user.allows_write_to_pm,
         photo_url=user.photo_url,
     )
-    result = await authenticate(AuthenticateTelegramCommand(profile=profile))
+    result = await authenticate(
+        AuthenticateTelegramCommand(profile=profile, start_param=init_data.start_param)
+    )
     me = await _me(query, access, result.tokens.user_id)
     return AuthOut(**TokensOut.of(result.tokens).model_dump(), is_new=result.is_new, user=me)
 

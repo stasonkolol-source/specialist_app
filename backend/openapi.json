@@ -11,7 +11,7 @@
           "identity"
         ],
         "summary": "Authenticate Telegram",
-        "description": "Обмен initData Mini App на собственную сессию.",
+        "description": "Обмен initData Mini App на собственную сессию.\n\n`start_param` из initData (код `startapp`) — первое касание: у нового пользователя\nон попадает в атрибуцию (growth), вернувшемуся не нужен.",
         "operationId": "identity_authenticate_telegram",
         "parameters": [
           {
@@ -477,6 +477,43 @@
         }
       }
     },
+    "/api/v1/me/telegram/write-access": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Grant Telegram Write Access",
+        "description": "Пользователь разрешил боту писать: Mini App вызывает после успешного `requestWriteAccess`.\n\nПовтор идемпотентен: доступный канал не меняется. Нет Telegram-аккаунта — 409\n`telegram_not_linked`.",
+        "operationId": "notifications_grant_telegram_write_access",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramChannelOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/client-config": {
       "get": {
         "tags": [
@@ -819,6 +856,15 @@
           "message"
         ],
         "title": "FieldErrorOut"
+      },
+      "GrantedVia": {
+        "type": "string",
+        "enum": [
+          "bot_start",
+          "mini_app"
+        ],
+        "title": "GrantedVia",
+        "description": "Как пользователь разрешил доставку по каналу."
       },
       "Locale": {
         "type": "string",
@@ -1249,6 +1295,30 @@
           "name"
         ],
         "title": "TagOut"
+      },
+      "TelegramChannelOut": {
+        "properties": {
+          "writable": {
+            "type": "boolean",
+            "title": "Writable"
+          },
+          "granted_via": {
+            "$ref": "#/components/schemas/GrantedVia"
+          },
+          "granted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Granted At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "writable",
+          "granted_via",
+          "granted_at"
+        ],
+        "title": "TelegramChannelOut",
+        "description": "Канал «бот пишет в личный чат»: Mini App решает, просить ли разрешение (S21, S02c)."
       },
       "TokensOut": {
         "properties": {

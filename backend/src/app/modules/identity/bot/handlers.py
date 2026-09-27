@@ -1,7 +1,11 @@
-"""Бот identity (DEVELOPMENT_PLAN 0.22, ADR-0011): /start создаёт аккаунт и даёт кнопку Mini App."""
+"""Бот identity (DEVELOPMENT_PLAN 0.22, ADR-0011): /start создаёт аккаунт и даёт кнопку Mini App.
+
+Payload `/start <payload>` (ссылка `t.me/<bot>?start=<код>`) уходит в `UserRegistered` —
+первое касание для атрибуции (growth); сам /start публикует `BotStarted` (notifications).
+"""
 
 from aiogram import F, Router
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandObject, CommandStart
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
 from dishka.integrations.aiogram import FromDishka, inject
 
@@ -24,6 +28,7 @@ def open_app_keyboard(url: str, label: str) -> InlineKeyboardMarkup:
 @inject
 async def start(
     message: Message,
+    command: CommandObject,
     register: FromDishka[RegisterTelegramUser],
     translator: FromDishka[Translator],
     telegram: FromDishka[TelegramSettings],
@@ -40,7 +45,9 @@ async def start(
         is_premium=bool(author.is_premium),
         allows_write_to_pm=True,  # пользователь сам начал диалог с ботом
     )
-    user, is_new = await register(RegisterTelegramUserCommand(profile=profile))
+    user, is_new = await register(
+        RegisterTelegramUserCommand(profile=profile, start_param=command.args)
+    )
     bind_context(user_id=str(user.id))
     key = "bot.start.welcome" if is_new else "bot.start.welcome_back"
     text = translator.text(key, user.ui_locale, name=user.display_name) or key

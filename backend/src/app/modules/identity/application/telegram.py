@@ -2,9 +2,13 @@
 
 Один и тот же код находит пользователя по `auth_identities(telegram, <id>)` или
 регистрирует нового; у существующего проверяет санкции входа и обновляет снимок профиля.
+Код deep link (`startapp` или payload `/start`) попадает в `UserRegistered` для
+атрибуции первого касания (growth); вернувшемуся пользователю он не нужен.
 """
 
+import re
 from datetime import datetime
+from typing import Final
 
 from app.modules.identity.api import Action
 from app.modules.identity.application.access import ensure_allowed
@@ -16,10 +20,31 @@ from app.modules.identity.domain.user import (
     clean_display_name,
     locale_from_language,
 )
+from app.platform.contracts.events.identity import EntryPoint
+
+START_PARAM_MAX_LENGTH: Final = 64
+_START_PARAM: Final = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def telegram_start_param(raw: str | None) -> str | None:
+    """Код deep link в синтаксисе Telegram: до 64 символов `[A-Za-z0-9_-]`.
+
+    Такой код дают только ссылки `startapp=` и `start=`. Текст, набранный после /start
+    руками, — не ссылка: его не храним (там могут быть личные данные).
+    """
+    if raw is None or len(raw) > START_PARAM_MAX_LENGTH or not _START_PARAM.fullmatch(raw):
+        return None
+    return raw
 
 
 async def sign_in_telegram(
-    users: UserRepository, query: IdentityQuery, profile: TelegramProfile, now: datetime
+    users: UserRepository,
+    query: IdentityQuery,
+    profile: TelegramProfile,
+    now: datetime,
+    *,
+    entry_point: EntryPoint,
+    start_param: str | None = None,
 ) -> tuple[User, bool]:
     """(пользователь, создан ли сейчас). Нужен активный UoW вызывающего."""
     subject = str(profile.id)
@@ -32,6 +57,8 @@ async def sign_in_telegram(
             display_name=clean_display_name(profile.first_name, profile.last_name),
             ui_locale=locale_from_language(profile.language_code),
             now=now,
+            entry_point=entry_point,
+            start_param=telegram_start_param(start_param),
         )
         await users.add(user)
         return user, True

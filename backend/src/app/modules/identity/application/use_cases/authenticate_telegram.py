@@ -13,6 +13,7 @@ from app.modules.identity.application.ports import (
 from app.modules.identity.application.telegram import sign_in_telegram
 from app.modules.identity.application.tokens import issue_tokens
 from app.modules.identity.domain.session import Session, SessionId
+from app.platform.contracts.events.identity import EntryPoint
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.ids import new_id
@@ -26,6 +27,8 @@ AMR_TELEGRAM_WEBAPP = ("tg_webapp",)
 class AuthenticateTelegramCommand:
     profile: TelegramProfile
     platform: Platform = Platform.TMA
+    start_param: str | None = None
+    """`start_param` проверенного initData — код `startapp` (первое касание, growth)."""
 
 
 class AuthenticateTelegram:
@@ -48,7 +51,14 @@ class AuthenticateTelegram:
         session_id = SessionId(new_id())
         refresh = RefreshToken.new(session_id.hex)
         async with self._uow:
-            user, is_new = await sign_in_telegram(self._users, self._query, profile, now)
+            user, is_new = await sign_in_telegram(
+                self._users,
+                self._query,
+                profile,
+                now,
+                entry_point=EntryPoint.MINI_APP,
+                start_param=cmd.start_param,
+            )
             session = Session.open(
                 session_id=session_id,
                 user_id=user.id,

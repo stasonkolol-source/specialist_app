@@ -80,6 +80,10 @@ class IdentityQuery(Protocol):
         """Активный пользователь по Telegram id (бот, ADR-0020 §4 «до use case — только чтение»)."""
         ...
 
+    async def telegram_chat_id(self, user_id: UserId) -> int | None:
+        """Telegram id активного пользователя (адрес доставки для notifications)."""
+        ...
+
     async def roles(self, user_id: UserId) -> frozenset[Role]: ...
 
     async def restrictions(self, user_id: UserId, now: datetime) -> list[Restriction]:

@@ -96,6 +96,21 @@ class SqlIdentityQuery(SqlQuery):
             trust_level=row["trust_level"],
         )
 
+    async def telegram_chat_id(self, user_id: UserId) -> int | None:
+        u, i = UserRow.__table__.c, AuthIdentityRow.__table__.c
+        row = await self._fetch_one(
+            select(i.subject)
+            .join(UserRow.__table__, i.user_id == u.id)
+            .where(
+                i.user_id == user_id,
+                i.provider == AuthProvider.TELEGRAM,
+                u.status == UserStatus.ACTIVE,
+            )
+            .order_by(i.created_at)
+            .limit(1)
+        )
+        return int(row["subject"]) if row is not None else None
+
     async def roles(self, user_id: UserId) -> frozenset[Role]:
         r = UserRoleRow.__table__.c
         rows = await self._fetch(select(r.role).where(r.user_id == user_id))

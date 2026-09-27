@@ -134,6 +134,12 @@ msgstr "В этом городе сервис пока не работает. В
 msgid "errors.invalid_restriction"
 msgstr "Некорректные параметры ограничения."
 
+msgid "errors.invalid_start_link"
+msgstr "Ссылку не удалось собрать."
+
+msgid "errors.telegram_not_linked"
+msgstr "Telegram-аккаунт не привязан: боту некуда писать."
+
 msgid "errors.bad_request"
 msgstr "Некорректный запрос."
 

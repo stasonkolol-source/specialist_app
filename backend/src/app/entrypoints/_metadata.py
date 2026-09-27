@@ -9,9 +9,11 @@ from sqlalchemy import MetaData
 
 from app.modules.catalog.infrastructure.models import metadata as catalog
 from app.modules.geo.infrastructure.models import metadata as geo
+from app.modules.growth.infrastructure.models import metadata as growth
 from app.modules.identity.infrastructure.models import metadata as identity
+from app.modules.notifications.infrastructure.models import metadata as notifications
 from app.platform.db.platform_tables import metadata as platform
 
 
 def module_metadatas() -> list[MetaData]:
-    return [platform, identity, geo, catalog]
+    return [platform, identity, geo, catalog, notifications, growth]
