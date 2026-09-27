@@ -46,7 +46,7 @@ describe('переменные тем', () => {
   it('сверх ui.css — только задокументированные добавления', () => {
     const extraLight = Object.keys(genLight).filter((k) => !(k in uiLight));
     const extraDark = Object.keys(genDark).filter((k) => !(k in uiDark));
-    const radii = ['btn-sm', 'chip', 'badge', 'banner', 'sheet', 'photo'].map((r) => `r-${r}`);
+    const radii = ['btn-sm', 'chip', 'badge', 'panel', 'sheet', 'photo'].map((r) => `r-${r}`);
     const avatars = [1, 2, 3, 4, 5].flatMap((n) => [`av${n}`, `av${n}-ink`]);
     expect(extraLight.sort()).toEqual(
       ['danger-ink', 'toast', 'toast-ink', ...avatars, ...radii].sort(),
@@ -90,7 +90,7 @@ describe('радиусы', () => {
     ['btn-sm', '.btn.sm', 'border-radius'],
     ['chip', '.chip', 'border-radius'],
     ['badge', '.bdg', 'border-radius'],
-    ['banner', '.bnr', 'border-radius'],
+    ['panel', '.bnr', 'border-radius'],
     ['sheet', '.sheet', 'border-radius'],
     ['photo', '.ph', 'border-radius'],
   ])('%s = %s { %s }', (name, selector, prop) => {

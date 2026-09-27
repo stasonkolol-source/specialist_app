@@ -79,3 +79,41 @@ jobs:
 
       - name: token contrast
         run: pnpm -F design-tokens check:contrast
+
+      - name: i18n catalogs
+        run: pnpm -F i18n i18n:check
+
+  # Скриншоты галереи ui-web: тот же образ Playwright, что у make e2e, — эталоны совпадают с локальными.
+  # На PR только chromium и галерея; полная матрица экранов — с 0.21b.
+  ui-web-e2e:
+    name: ui-web screenshots
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: pnpm (corepack)
+        run: |
+          corepack enable
+          pnpm --version
+
+      - name: install
+        run: pnpm install --frozen-lockfile
+
+      - name: build gallery
+        run: pnpm -F ui-web e2e:build
+
+      - name: playwright
+        run: pnpm -F ui-web e2e
+
+      - uses: actions/upload-artifact@v7.0.1
+        if: failure()
+        with:
+          name: ui-web-playwright-report
+          path: |
+            packages/ui-web/playwright-report
+            packages/ui-web/test-results
+          retention-days: 7

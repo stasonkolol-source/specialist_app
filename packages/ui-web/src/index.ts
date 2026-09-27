@@ -1,1 +1,18 @@
-export {};
+// Компоненты веба 1:1 по классам design/ui.css. Стили — `@sosed/ui-web/styles.css`.
+export type { AvatarPalette, AvatarProps, AvatarSize } from './Avatar.tsx';
+export { Avatar, initials, paletteFor } from './Avatar.tsx';
+export type { BadgeTone } from './Badge.tsx';
+export { Badge } from './Badge.tsx';
+export type { ButtonProps, ButtonVariant, IconButtonProps } from './Button.tsx';
+export { Button, IconButton } from './Button.tsx';
+export type { CardProps } from './Card.tsx';
+export { Card } from './Card.tsx';
+export { cx } from './cx.ts';
+export type { IconName, IconProps, IconSize } from './icon/Icon.tsx';
+export { ICON_NAMES, Icon } from './icon/Icon.tsx';
+export type { Gap } from './layout/Stack.tsx';
+export { HStack, Stack } from './layout/Stack.tsx';
+export type { TabBarProps, TabItem } from './TabBar.tsx';
+export { TabBar } from './TabBar.tsx';
+export type { HeadingProps, HeadingVariant, TextVariant } from './text/Heading.tsx';
+export { Heading, SectionTitle, Text } from './text/Heading.tsx';

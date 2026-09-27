@@ -12,3 +12,5 @@ pnpm-lock.yaml
 **/*.generated.*
 **/dist/
 **/coverage/
+**/dist-gallery/
+**/__screenshots__/

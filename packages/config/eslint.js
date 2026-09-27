@@ -39,6 +39,7 @@ export function sosed({
     {
       ignores: [
         '**/dist/**',
+        '**/dist-*/**',
         '**/coverage/**',
         '**/node_modules/**',
         '**/*.generated.*',
@@ -112,7 +113,11 @@ export function sosed({
   configs.push({
     files: ['**/*.test.{ts,tsx}', '**/scripts/**', '**/*.config.{ts,js,mjs}'],
     languageOptions: { globals: { ...globals.node } },
-    rules: { 'no-restricted-globals': 'off' },
+    rules: {
+      'no-restricted-globals': 'off',
+      // тексты в тестах — данные фикстур, а не интерфейс
+      ...(i18n ? { 'sosed/no-jsx-literal': 'off' } : {}),
+    },
   });
   return configs;
 }

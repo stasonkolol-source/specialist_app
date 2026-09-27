@@ -78,6 +78,12 @@ export function renderThemeCss(source: TokenSource): string {
     `--text-${k}--font-weight: ${s.weight};`,
     ...(s.tracking ? [`--text-${k}--letter-spacing: ${s.tracking};`] : []),
   ]);
+  // Инициалы в аватаре: 600, высота строки 1 (.ava в ui.css)
+  const avatarText = Object.entries(source.avatar.size).flatMap(([k, s]) => [
+    `--text-avatar-${k}: ${s.font}px;`,
+    `--text-avatar-${k}--line-height: 1;`,
+    `--text-avatar-${k}--font-weight: 600;`,
+  ]);
   const lines = [
     // Палитру, радиусы и шкалу Tailwind по умолчанию сбрасываем: в классах — только токены
     '--color-*: initial;',
@@ -88,6 +94,7 @@ export function renderThemeCss(source: TokenSource): string {
     ...fonts,
     '--text-*: initial;',
     ...text,
+    ...avatarText,
   ];
   return `/* ${HEADER}. Подключать после tailwindcss и tokens.css */\n${block('@theme inline', lines)}`;
 }

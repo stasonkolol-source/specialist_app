@@ -1,0 +1,24 @@
+/* Стили ui-web: Tailwind 4 поверх токенов design-tokens. Приложение подключает этот файл
+   и добавляет свой @source на исходники экранов. */
+@import 'tailwindcss';
+@import '@sosed/design-tokens/tokens.css';
+@import '@sosed/design-tokens/theme.css';
+@import '@sosed/design-tokens/fonts.css';
+
+@source './';
+
+@layer base {
+  /* .scr из ui.css: фон экрана bg2, основной текст 15/22 Onest */
+  body {
+    background: var(--bg2);
+    color: var(--text);
+    font-family: var(--f-ui);
+    font-size: 15px;
+    line-height: 22px;
+    -webkit-font-smoothing: antialiased;
+  }
+  a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+}
