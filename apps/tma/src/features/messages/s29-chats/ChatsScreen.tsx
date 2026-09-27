@@ -7,7 +7,7 @@ export function ChatsScreen() {
   return (
     <section className="flex flex-col gap-2 px-4 pt-4">
       <Heading variant="h1">{t('nav.messages')}</Heading>
-      <EmptyState icon="chat" title={t('stub.title')}>
+      <EmptyState as="h2" icon="chat" title={t('stub.title')}>
         {t('stub.text')}
       </EmptyState>
     </section>

@@ -7,7 +7,7 @@ export function MyJobsScreen() {
   return (
     <section className="flex flex-col gap-2 px-4 pt-4">
       <Heading variant="h1">{t('nav.jobs')}</Heading>
-      <EmptyState icon="jobs" title={t('stub.title')}>
+      <EmptyState as="h2" icon="jobs" title={t('stub.title')}>
         {t('stub.text')}
       </EmptyState>
     </section>

@@ -149,24 +149,27 @@ export function Banner({
   );
 }
 
-/** Пустое состояние .empty + .empty-ic. */
+/** Пустое состояние .empty + .empty-ic. `as` — уровень заголовка по месту на экране
+ *  (после h1 экрана — h2): вид тот же, а порядок заголовков для скринридера не ломается. */
 export function EmptyState({
   icon,
   title,
   children,
   action,
+  as: Tag = 'h3',
 }: {
   icon: IconName;
   title: ReactNode;
   children?: ReactNode;
   action?: ReactNode;
+  as?: 'h2' | 'h3';
 }) {
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-8 text-center">
       <span className="flex size-20 items-center justify-center rounded-full bg-accent-soft text-accent-soft-ink">
         <Icon name={icon} size={32} />
       </span>
-      <h3 className="m-0 text-h3">{title}</h3>
+      <Tag className="m-0 text-h3">{title}</Tag>
       {children && <p className="m-0 text-body text-text2">{children}</p>}
       {action}
     </div>

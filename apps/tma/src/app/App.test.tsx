@@ -1,41 +1,34 @@
 // Smoke каркаса на mock-платформе (DEVELOPMENT_PLAN 0.21a): провайдеры, маршруты, таббар,
 // правило «таббар скрыт при MainButton», редирект неизвестного пути, язык из Telegram.
 import type { ClientConfigOut } from '@sosed/api-client';
+import { getSystemGetClientConfigMockHandler } from '@sosed/api-client/mocks';
 import { createMockPlatform } from '@sosed/platform';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { CLIENT_CONFIG } from '../testing/fixtures.ts';
+import { API_ORIGIN, server } from '../testing/msw.ts';
 import { App } from './App.tsx';
 import { assemble } from './bootstrap.ts';
 import { useUpgradeStore } from './upgrade.ts';
 
-const CONFIG: ClientConfigOut = {
-  min_versions: { tma: '0.1.0' },
-  flags: { 'goods.segment': false },
-  legal_versions: {},
-};
-
 interface StartOptions {
   languageCode?: string;
   config?: ClientConfigOut;
-  /** Ответ client-config вместо конфига: например, 426 от backend. */
-  configResponse?: () => Response;
   version?: string;
   telegramVersion?: string;
 }
 
 function start(path = '/', options: StartOptions = {}) {
-  const { languageCode = 'ru', config = CONFIG, version = '0.1.0', telegramVersion } = options;
+  const { languageCode = 'ru', version = '0.1.0', telegramVersion, config } = options;
+  if (config) server.use(getSystemGetClientConfigMockHandler(config));
   const { platform, telegram } = createMockPlatform({ languageCode, version: telegramVersion });
-  const fetch = async (url: RequestInfo | URL) =>
-    String(url) === '/api/v1/client-config'
-      ? (options.configResponse?.() ?? new Response(JSON.stringify(config), { status: 200 }))
-      : new Response(null, { status: 404 });
   const app = assemble(platform, {
     version,
     history: createMemoryHistory({ initialEntries: [path] }),
-    fetch,
+    baseUrl: API_ORIGIN,
   });
   render(<App {...app} />);
   return { app, telegram };
@@ -107,7 +100,7 @@ describe('Mini App skeleton', () => {
 
 describe('client-config at startup', () => {
   it('shows the «Услуги / Вещи» segment only when goods.segment is on', async () => {
-    start('/', { config: { ...CONFIG, flags: { 'goods.segment': true } } });
+    start('/');
     const segment = await screen.findByRole('radiogroup', { name: 'Раздел' });
     await act(async () => {
       fireEvent.click(within(segment).getByRole('radio', { name: 'Вещи' }));
@@ -116,7 +109,7 @@ describe('client-config at startup', () => {
   });
 
   it('hides the segment when the flag is off', async () => {
-    start('/');
+    start('/', { config: { ...CLIENT_CONFIG, flags: { 'goods.segment': false } } });
     expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
     expect(screen.queryByRole('radiogroup', { name: 'Раздел' })).toBeNull();
   });
@@ -142,13 +135,10 @@ describe('client-config at startup', () => {
       trace_id: null,
       min_version: '9.0.0',
     };
-    start('/', {
-      configResponse: () =>
-        new Response(JSON.stringify(problem), {
-          status: 426,
-          headers: { 'Content-Type': 'application/problem+json' },
-        }),
-    });
+    server.use(
+      http.get('*/api/v1/client-config', () => HttpResponse.json(problem, { status: 426 })),
+    );
+    start('/');
     expect(await screen.findByRole('heading', { name: 'Вышла новая версия' })).toBeTruthy();
   });
 });

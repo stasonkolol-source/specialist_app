@@ -8,6 +8,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "e2e:build": "vite build",
+    "e2e": "playwright test",
+    "size": "node scripts/size.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run"
@@ -31,6 +34,8 @@
     "zustand": "5.0.15"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.63.0",
     "@sosed/config": "workspace:*",
     "@tailwindcss/vite": "4.3.3",
     "@testing-library/react": "16.3.3",
@@ -40,6 +45,7 @@
     "@vitejs/plugin-react": "6.1.1",
     "eslint": "10.11.0",
     "jsdom": "29.1.1",
+    "msw": "2.15.0",
     "typescript": "6.0.3",
     "vite": "8.3.1",
     "vitest": "5.0.2"
