@@ -368,6 +368,67 @@
         }
       }
     },
+    "/api/v1/categories": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "List Categories",
+        "description": "Дерево категорий на языке Accept-Language; ETag + If-None-Match → 304.\n\nНеизвестный город — не ошибка: у категорий просто нет ориентира цены.",
+        "operationId": "catalog_list_categories",
+        "parameters": [
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64,
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "slug города для price_hint",
+              "title": "City"
+            },
+            "description": "slug города для price_hint"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryOut"
+                  },
+                  "title": "Response Catalog List Categories"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Не изменилось (If-None-Match)"
+          }
+        }
+      }
+    },
     "/api/v1/client-config": {
       "get": {
         "tags": [
@@ -450,6 +511,68 @@
         ],
         "title": "AuthOut"
       },
+      "CategoryOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "price_hint": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PriceHintOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagOut"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryOut"
+            },
+            "type": "array",
+            "title": "Children"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "icon",
+          "price_hint",
+          "tags",
+          "children"
+        ],
+        "title": "CategoryOut"
+      },
       "CityOut": {
         "properties": {
           "id": {
@@ -520,6 +643,14 @@
           "legal_versions"
         ],
         "title": "ClientConfigOut"
+      },
+      "Currency": {
+        "type": "string",
+        "enum": [
+          "RSD",
+          "XTR"
+        ],
+        "title": "Currency"
       },
       "DistrictKind": {
         "type": "string",
@@ -696,6 +827,23 @@
         "type": "object",
         "title": "MeUpdateIn"
       },
+      "MoneyOut": {
+        "properties": {
+          "amount": {
+            "type": "integer",
+            "title": "Amount"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/Currency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount",
+          "currency"
+        ],
+        "title": "MoneyOut"
+      },
       "PointOut": {
         "properties": {
           "lat": {
@@ -713,6 +861,42 @@
           "lon"
         ],
         "title": "PointOut"
+      },
+      "PriceHintOut": {
+        "properties": {
+          "min": {
+            "$ref": "#/components/schemas/MoneyOut"
+          },
+          "max": {
+            "$ref": "#/components/schemas/MoneyOut"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/PriceUnit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "min",
+          "max",
+          "unit"
+        ],
+        "title": "PriceHintOut",
+        "description": "«Обычно за это платят 1 000–2 400 RSD за час» (§7.7)."
+      },
+      "PriceUnit": {
+        "type": "string",
+        "enum": [
+          "hour",
+          "job",
+          "visit",
+          "piece",
+          "service",
+          "lesson",
+          "m2",
+          "move"
+        ],
+        "title": "PriceUnit",
+        "description": "За что цена в ориентире: за час, за работу, за выезд, за предмет, за м² …"
       },
       "ProblemOut": {
         "properties": {
@@ -862,6 +1046,29 @@
           "exact"
         ],
         "title": "ResolveOut"
+      },
+      "TagOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name"
+        ],
+        "title": "TagOut"
       },
       "TokensOut": {
         "properties": {

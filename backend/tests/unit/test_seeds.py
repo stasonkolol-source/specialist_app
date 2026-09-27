@@ -11,7 +11,11 @@ import yaml
 from typer.testing import CliRunner
 
 from app.entrypoints import cli
-from app.entrypoints.seeds import SEEDS_DIR, validate
+from app.entrypoints.seeds import SEEDS_DIR, load_catalog_seed, validate
+from app.modules.catalog.api import RiskLevel
+from app.modules.catalog.domain.category import PriceUnit
+from app.platform.kernel.localized import Locale
+from app.platform.kernel.money import Money
 
 pytestmark = pytest.mark.unit
 
@@ -152,3 +156,27 @@ def test_cli_fails_on_errors(seeds: Path, monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr("app.entrypoints.seeds.validate.__defaults__", (seeds,))
     result = CliRunner().invoke(cli.app, ["seeds-validate"])
     assert result.exit_code == 1
+
+
+def test_catalog_seed_for_import_keeps_order_para_and_scripts() -> None:
+    categories = load_catalog_seed()
+    assert [c.slug for c in categories] == ["handyman", "beauty", "cleaning", "moving", "lessons"]
+    assert [c.sort_order for c in categories] == [0, 1, 2, 3, 4]
+    handyman = categories[0]
+    assert handyman.risk_level is RiskLevel.NORMAL
+    assert handyman.price_hints == {}
+    electrical = handyman.children[3]
+    assert (electrical.slug, electrical.sort_order) == ("electrical", 3)
+    hint = electrical.price_hints["novi-sad"]
+    assert (hint.min, hint.max, hint.unit) == (Money(100_000), Money(400_000), PriceUnit.PIECE)
+    assert Locale.SR_LATN not in electrical.name.values  # латиницу генерирует импорт
+    locales = {term.text: term.locale for term in electrical.synonyms}
+    assert locales["электрик"] is Locale.RU
+    assert locales["električar"] is Locale.SR_LATN
+    assert locales["струја"] is Locale.SR_CYRL
+    assert locales["electrician"] is Locale.EN
+    assert [tag.slug for tag in electrical.tags] == [
+        "chandeliers",
+        "sockets-and-switches",
+        "fuse-box",
+    ]

@@ -95,6 +95,9 @@ msgstr "Город не найден."
 msgid "errors.outside_service_area"
 msgstr "Здесь сервис пока не работает."
 
+msgid "errors.category_too_deep"
+msgstr "Категории вкладываются не глубже {max_depth} уровней."
+
 msgid "errors.user_not_found"
 msgstr "Пользователь не найден."
 

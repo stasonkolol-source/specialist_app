@@ -12,6 +12,11 @@
 
 Проверка: `make seeds-validate` (или `cd backend && uv run python -m app.entrypoints.cli seeds-validate`).
 
+Загрузка в БД: `make seed` — гео и каталог, идемпотентно: повтор ничего не меняет, правка файла
+обновляет только изменённые города, районы и категории. Ориентиры цен из `taxonomy.yaml` (целые
+динары) хранятся в пара, названия sr-Latn генерируются из sr-Cyrl, синонимы попадают в словарь
+поиска `catalog.search_terms` вместе с названиями категорий и тегов на всех языках.
+
 Обновить полигоны из OSM: `cd backend && uv run python seeds/tools/osm_districts.py novi-sad`.
 Список районов, slug и «народные» названия — в `seeds/tools/osm_districts.py` (`NOVI_SAD`).
 Русские названия районов — черновая транслитерация: поправьте в `ru=` или в файле.

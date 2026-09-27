@@ -3,7 +3,11 @@
 import pytest
 
 from app.entrypoints._wiring import make_worker_container
-from app.entrypoints.seeds import load_city_seeds
+from app.entrypoints.seeds import load_catalog_seed, load_city_seeds
+from app.modules.catalog.application.use_cases.import_catalog import (
+    ImportCatalog,
+    ImportCatalogCommand,
+)
 from app.modules.geo.application.use_cases.import_city import ImportCity, ImportCityCommand
 from app.platform.settings import Settings
 
@@ -15,5 +19,16 @@ async def geo_seeded(settings: Settings) -> None:
         for seed in load_city_seeds():
             async with container() as request:
                 await (await request.get(ImportCity))(ImportCityCommand(seed=seed))
+    finally:
+        await container.close()
+
+
+@pytest.fixture
+async def catalog_seeded(settings: Settings) -> None:
+    container = make_worker_container(settings)
+    try:
+        async with container() as request:
+            command = ImportCatalogCommand(categories=tuple(load_catalog_seed()))
+            await (await request.get(ImportCatalog))(command)
     finally:
         await container.close()

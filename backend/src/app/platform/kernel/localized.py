@@ -64,6 +64,14 @@ class LocalizedText:
                 return as_requested(self.values[candidate], candidate, locale)
         return next(iter(self.values.values()))
 
+    def with_sr_latn(self) -> LocalizedText:
+        """sr-Latn из sr-Cyrl, если латиница не задана явно (§7.4: справочники при сохранении)."""
+        if Locale.SR_LATN in self.values or Locale.SR_CYRL not in self.values:
+            return self
+        return LocalizedText(
+            {**self.values, Locale.SR_LATN: sr_cyrl_to_latn(self.values[Locale.SR_CYRL])}
+        )
+
     def to_mapping(self) -> dict[str, str]:
         return {k.value: v for k, v in self.values.items()}
 

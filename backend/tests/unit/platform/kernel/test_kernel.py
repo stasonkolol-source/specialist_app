@@ -139,6 +139,19 @@ def test_localized_text_validation() -> None:
     assert LocalizedText.from_mapping({"ru": " Уборка "}).to_mapping() == {"ru": "Уборка"}
 
 
+def test_sr_latn_is_generated_from_cyrillic_unless_set() -> None:
+    generated = LocalizedText({Locale.RU: "Электрик", Locale.SR_CYRL: "Електричар"})
+    assert generated.with_sr_latn().to_mapping() == {
+        "ru": "Электрик",
+        "sr-Cyrl": "Електричар",
+        "sr-Latn": "Električar",
+    }
+    explicit = LocalizedText({Locale.SR_CYRL: "Њива", Locale.SR_LATN: "Njiva (ručno)"})
+    assert explicit.with_sr_latn() is explicit
+    russian_only = LocalizedText({Locale.RU: "Уборка"})
+    assert russian_only.with_sr_latn() is russian_only
+
+
 # --- GeoPoint, pagination, principal -----------------------------------------------------
 
 
