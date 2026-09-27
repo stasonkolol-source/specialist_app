@@ -5,15 +5,19 @@ from datetime import timedelta
 from dishka import Provider, Scope, provide
 
 from app.modules.identity.api import IdentityApi
+from app.modules.identity.application.access import AccessChecker
 from app.modules.identity.application.config import IdentityConfig
 from app.modules.identity.application.facade import IdentityFacade
 from app.modules.identity.application.ports import (
     AccessTokenIssuer,
+    ConsentRepository,
     IdentityQuery,
+    RestrictionRepository,
     SessionRepository,
     SessionRevocations,
     UserRepository,
 )
+from app.modules.identity.application.use_cases.accept_consents import AcceptConsents
 from app.modules.identity.application.use_cases.authenticate_telegram import AuthenticateTelegram
 from app.modules.identity.application.use_cases.logout import Logout
 from app.modules.identity.application.use_cases.refresh_session import RefreshSession
@@ -23,6 +27,8 @@ from app.modules.identity.application.use_cases.register_telegram_user import (
 from app.modules.identity.application.use_cases.update_profile import UpdateProfile
 from app.modules.identity.infrastructure.queries import SqlIdentityQuery
 from app.modules.identity.infrastructure.repositories import (
+    SqlConsentRepository,
+    SqlRestrictionRepository,
     SqlSessionRepository,
     SqlUserRepository,
 )
@@ -60,10 +66,14 @@ class IdentityProvider(Provider):
 
     users = provide(SqlUserRepository, provides=UserRepository)
     sessions = provide(SqlSessionRepository, provides=SessionRepository)
+    consents = provide(SqlConsentRepository, provides=ConsentRepository)
+    restrictions = provide(SqlRestrictionRepository, provides=RestrictionRepository)
     query = provide(SqlIdentityQuery, provides=IdentityQuery)
+    access = provide(AccessChecker)
     facade = provide(IdentityFacade, provides=IdentityApi)
     authenticate_telegram = provide(AuthenticateTelegram)
     refresh_session = provide(RefreshSession)
     logout = provide(Logout)
     update_profile = provide(UpdateProfile)
+    accept_consents = provide(AcceptConsents)
     register_telegram_user = provide(RegisterTelegramUser)

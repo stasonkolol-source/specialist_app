@@ -5,6 +5,8 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { Locale } from './locale.ts';
+import type { MeOutConsents } from './meOutConsents.ts';
+import type { UserIntent } from './userIntent.ts';
 
 export interface MeOut {
   id: string;
@@ -13,4 +15,11 @@ export interface MeOut {
   trust_level: number;
   phone_verified: boolean;
   created_at: string;
+  home_city_id: number | null;
+  intent: UserIntent | null;
+  consents: MeOutConsents;
+  consent_required: boolean;
+  can_post_jobs: boolean;
+  can_respond: boolean;
+  can_message: boolean;
 }

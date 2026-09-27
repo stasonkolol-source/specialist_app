@@ -4,6 +4,9 @@
 классу из platform/kernel/errors.py, ошибки запроса FastAPI и Starlette — по статусу.
 Прочие исключения ловит RequestContextMiddleware и отвечает 500 без деталей.
 
+Поля ответа сверх RFC 9457: у `RestrictedError` — `restriction` и `until`, у любой доменной
+ошибки — её `public_params` (`documents` у 403 `consent_required`, …).
+
 `detail` и `errors[].message` — на языке `Accept-Language` из каталогов gettext (шаг 1.2):
 ключи `errors.<code>` и `validation.<тип ошибки pydantic>`; нет ключа — текст pydantic.
 """
@@ -151,7 +154,9 @@ def install_error_handlers(app: FastAPI, problems: Problems) -> None:
             raise exc  # DomainError вне таблицы §9 — 500 в middleware
         trace_id = trace_id_of(request)
         headers: dict[str, str] = {}
-        extensions: dict[str, Any] = {}
+        extensions: dict[str, Any] = {
+            name: exc.params[name] for name in exc.public_params if name in exc.params
+        }
         match exc:
             case NotAuthenticatedError():
                 headers["WWW-Authenticate"] = "Bearer"

@@ -87,6 +87,13 @@ export const ME: MeOut = {
   trust_level: 0,
   phone_verified: false,
   created_at: '2026-09-27T10:12:00Z',
+  home_city_id: 1,
+  intent: 'client',
+  consents: { terms: 'draft-1', privacy: 'draft-1', age_18: 'draft-1' },
+  consent_required: false,
+  can_post_jobs: true,
+  can_respond: true,
+  can_message: true,
 };
 
 export const CLIENT_CONFIG: ClientConfigOut = {

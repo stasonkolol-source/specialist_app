@@ -9,7 +9,7 @@ import { faker } from '@faker-js/faker';
 import { HttpResponse, http } from 'msw';
 import type { RequestHandlerOptions } from 'msw';
 
-import { Locale } from '../../model';
+import { Locale, UserIntent } from '../../model';
 import type { AuthOut, MeOut, TokensOut } from '../../model';
 
 export const getIdentityAuthenticateTelegramResponseMock = (
@@ -28,6 +28,18 @@ export const getIdentityAuthenticateTelegramResponseMock = (
     trust_level: faker.number.int(),
     phone_verified: faker.datatype.boolean(),
     created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+    home_city_id: faker.helpers.arrayElement([faker.number.int(), null]),
+    intent: faker.helpers.arrayElement([
+      faker.helpers.arrayElement(Object.values(UserIntent)),
+      null,
+    ]),
+    consents: {
+      [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    consent_required: faker.datatype.boolean(),
+    can_post_jobs: faker.datatype.boolean(),
+    can_respond: faker.datatype.boolean(),
+    can_message: faker.datatype.boolean(),
   },
   ...overrideResponse,
 });
@@ -52,6 +64,15 @@ export const getIdentityGetMeResponseMock = (
   trust_level: faker.number.int(),
   phone_verified: faker.datatype.boolean(),
   created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  home_city_id: faker.helpers.arrayElement([faker.number.int(), null]),
+  intent: faker.helpers.arrayElement([faker.helpers.arrayElement(Object.values(UserIntent)), null]),
+  consents: {
+    [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  consent_required: faker.datatype.boolean(),
+  can_post_jobs: faker.datatype.boolean(),
+  can_respond: faker.datatype.boolean(),
+  can_message: faker.datatype.boolean(),
   ...overrideResponse,
 });
 
@@ -64,6 +85,36 @@ export const getIdentityUpdateMeResponseMock = (
   trust_level: faker.number.int(),
   phone_verified: faker.datatype.boolean(),
   created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  home_city_id: faker.helpers.arrayElement([faker.number.int(), null]),
+  intent: faker.helpers.arrayElement([faker.helpers.arrayElement(Object.values(UserIntent)), null]),
+  consents: {
+    [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  consent_required: faker.datatype.boolean(),
+  can_post_jobs: faker.datatype.boolean(),
+  can_respond: faker.datatype.boolean(),
+  can_message: faker.datatype.boolean(),
+  ...overrideResponse,
+});
+
+export const getIdentityAcceptConsentsResponseMock = (
+  overrideResponse: Partial<Extract<MeOut, object>> = {},
+): MeOut => ({
+  id: faker.string.uuid(),
+  display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ui_locale: faker.helpers.arrayElement(Object.values(Locale)),
+  trust_level: faker.number.int(),
+  phone_verified: faker.datatype.boolean(),
+  created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  home_city_id: faker.helpers.arrayElement([faker.number.int(), null]),
+  intent: faker.helpers.arrayElement([faker.helpers.arrayElement(Object.values(UserIntent)), null]),
+  consents: {
+    [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  consent_required: faker.datatype.boolean(),
+  can_post_jobs: faker.datatype.boolean(),
+  can_respond: faker.datatype.boolean(),
+  can_message: faker.datatype.boolean(),
   ...overrideResponse,
 });
 
@@ -170,10 +221,32 @@ export const getIdentityUpdateMeMockHandler = (
     options,
   );
 };
+
+export const getIdentityAcceptConsentsMockHandler = (
+  overrideResponse?:
+    MeOut | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<MeOut> | MeOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/api/v1/me/consents',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getIdentityAcceptConsentsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getIdentityMock = () => [
   getIdentityAuthenticateTelegramMockHandler(),
   getIdentityRefreshSessionMockHandler(),
   getIdentityLogoutMockHandler(),
   getIdentityGetMeMockHandler(),
   getIdentityUpdateMeMockHandler(),
+  getIdentityAcceptConsentsMockHandler(),
 ];

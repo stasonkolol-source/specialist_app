@@ -7,11 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tests.plugins.database import make_uow
 
 from app.modules.geo.application.dto import CitySeed, DistrictSeed, ImportResult
+from app.modules.geo.application.facade import GeoFacade
 from app.modules.geo.application.use_cases.import_city import ImportCity, ImportCityCommand
 from app.modules.geo.domain.place import CityStatus, DistrictKind
 from app.modules.geo.infrastructure.queries import SqlGeoQuery
 from app.modules.geo.infrastructure.writer import SqlGeoWriter
 from app.platform.kernel.geo import GeoPoint
+from app.platform.kernel.ids import CityId
 from app.platform.kernel.localized import Locale, LocalizedText
 
 pytestmark = pytest.mark.integration
@@ -119,3 +121,23 @@ async def test_far_points_and_inactive_cities_are_outside(
     assert await SqlGeoQuery(db_session).resolve(GeoPoint(lat=1.0, lon=1.0)) is None
     await _import(db_session, procrastinate_app, a_city(active=False))
     assert await SqlGeoQuery(db_session).resolve(GeoPoint(lat=0.005, lon=0.005)) is None
+
+
+async def test_facade_reports_city_and_its_status(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App
+) -> None:
+    """Город из онбординга identity проверяет через фасад (DEVELOPMENT_PLAN 1.4a)."""
+    await _import(db_session, procrastinate_app, a_city())
+    await _import(db_session, procrastinate_app, a_city("soon-city", active=False))
+    query = SqlGeoQuery(db_session)
+    ids = {c.slug: c.id for c in await query.cities()}
+    facade = GeoFacade(query)
+
+    active = await facade.city(ids["test-city"])
+    soon = await facade.city(ids["soon-city"])
+    assert active is not None
+    assert (active.slug, active.is_active) == ("test-city", True)
+    assert active.name.get(Locale.RU) == "Тест"
+    assert soon is not None
+    assert not soon.is_active
+    assert await facade.city(CityId(999_999)) is None

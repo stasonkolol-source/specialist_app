@@ -1,7 +1,7 @@
 """Фикстуры identity: репозитории и use cases на сессии теста (откат в конце).
 
-Внешнее — фейки (ADR-0020 §11): denylist Valkey. JWT подписывается настоящим ключом:
-это чистый код без I/O.
+Внешнее — фейки (ADR-0020 §11): denylist Valkey, версии документов из client-config,
+фасад geo. JWT подписывается настоящим ключом: это чистый код без I/O.
 """
 
 from dataclasses import dataclass, field
@@ -12,25 +12,33 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.plugins.database import make_uow
 
+from app.modules.identity.application.access import AccessChecker
 from app.modules.identity.application.config import IdentityConfig
 from app.modules.identity.application.dto import TelegramProfile
 from app.modules.identity.application.facade import IdentityFacade
+from app.modules.identity.application.use_cases.accept_consents import AcceptConsents
 from app.modules.identity.application.use_cases.authenticate_telegram import AuthenticateTelegram
 from app.modules.identity.application.use_cases.logout import Logout
 from app.modules.identity.application.use_cases.refresh_session import RefreshSession
+from app.modules.identity.application.use_cases.update_profile import UpdateProfile
 from app.modules.identity.domain.restriction import RestrictionKind, RestrictionSource
 from app.modules.identity.infrastructure.models import RestrictionRow, UserRoleRow
 from app.modules.identity.infrastructure.queries import SqlIdentityQuery
 from app.modules.identity.infrastructure.repositories import (
+    SqlConsentRepository,
+    SqlRestrictionRepository,
     SqlSessionRepository,
     SqlUserRepository,
 )
+from app.modules.identity.tests.fakes import FakeGeo
 from app.platform.audit.sql import SqlAuditLog
 from app.platform.db.uow import SqlAlchemyUnitOfWork
 from app.platform.kernel.ids import UserId, new_id
 from app.platform.kernel.principal import Role
+from app.platform.queue.dispatcher import EventRegistry
 from app.platform.security.jwt import AccessTokens, JwtKeys, SigningKey
 from app.platform.testing.clock import FakeClock
+from app.platform.testing.config import FakeLegalVersions
 
 CONFIG = IdentityConfig(
     bot_id=7000000001, refresh_ttl_tma=timedelta(days=7), refresh_ttl_mobile=timedelta(days=30)
@@ -58,9 +66,14 @@ class Identity:
     query: SqlIdentityQuery
     tokens: AccessTokens
     revocations: FakeRevocations
+    legal: FakeLegalVersions
+    geo: FakeGeo
+    access: AccessChecker
     authenticate: AuthenticateTelegram
     refresh: RefreshSession
     logout: Logout
+    update_profile: UpdateProfile
+    accept_consents: AcceptConsents
     facade: IdentityFacade
 
     async def restrict(
@@ -85,14 +98,25 @@ class Identity:
 
 
 @pytest.fixture
-def identity(db_session: AsyncSession, procrastinate_app: procrastinate.App) -> Identity:
+def events() -> EventRegistry:
+    """Подписки теста: событие попадает в procrastinate_jobs, только если на него подписаны."""
+    return EventRegistry()
+
+
+@pytest.fixture
+def identity(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App, events: EventRegistry
+) -> Identity:
     clock = FakeClock()
-    uow = make_uow(db_session, procrastinate_app)
+    uow = make_uow(db_session, procrastinate_app, events)
     users = SqlUserRepository(db_session, uow)
     sessions = SqlSessionRepository(db_session, uow)
     query = SqlIdentityQuery(db_session)
     tokens = AccessTokens(JwtKeys.of(KEY), clock, issuer="sosed", ttl=timedelta(minutes=15))
     revocations = FakeRevocations()
+    legal = FakeLegalVersions()
+    geo = FakeGeo()
+    access = AccessChecker(query, legal, clock)
     return Identity(
         session=db_session,
         clock=clock,
@@ -102,6 +126,9 @@ def identity(db_session: AsyncSession, procrastinate_app: procrastinate.App) -> 
         query=query,
         tokens=tokens,
         revocations=revocations,
+        legal=legal,
+        geo=geo,
+        access=access,
         authenticate=AuthenticateTelegram(uow, users, sessions, query, tokens, CONFIG, clock),
         refresh=RefreshSession(
             uow,
@@ -115,7 +142,11 @@ def identity(db_session: AsyncSession, procrastinate_app: procrastinate.App) -> 
             clock,
         ),
         logout=Logout(uow, sessions, revocations, clock),
-        facade=IdentityFacade(query, clock),
+        update_profile=UpdateProfile(uow, users, geo, clock),
+        accept_consents=AcceptConsents(
+            uow, users, SqlConsentRepository(db_session, uow), legal, clock
+        ),
+        facade=IdentityFacade(uow, query, SqlRestrictionRepository(db_session, uow), access, clock),
     )
 
 

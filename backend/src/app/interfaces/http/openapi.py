@@ -44,6 +44,13 @@ class ProblemOut(BaseModel):
     """426: платформа клиента из X-Client."""
     min_version: str | None = None
     """426: минимальная поддерживаемая версия клиента."""
+    documents: list[str] | None = None
+    """403 `consent_required`: документы без действующего согласия (`terms`, `privacy`,
+    `age_18`)."""
+    document: str | None = None
+    """409 `legal_version_outdated`: документ, у которого сменилась версия."""
+    current: str | None = None
+    """409 `legal_version_outdated`: действующая версия документа."""
 
 
 PROBLEM_RESPONSES: dict[int | str, dict[str, Any]] = {

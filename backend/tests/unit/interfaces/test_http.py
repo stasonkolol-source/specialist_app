@@ -43,6 +43,13 @@ class OrphanError(DomainError):
     code = "orphan"
 
 
+class OutdatedError(ConflictError):
+    """Ошибка модуля с полями для клиента: `current` уходит в ответ, `internal` — нет."""
+
+    code = "outdated"
+    public_params = ("current", "documents")
+
+
 ERRORS: dict[str, Exception] = {
     "not_authenticated": NotAuthenticatedError(),
     "not_found": NotFoundError(),
@@ -51,6 +58,7 @@ ERRORS: dict[str, Exception] = {
         restriction="posting_blocked", until=datetime(2026, 10, 5, 9, 0, tzinfo=UTC)
     ),
     "conflict": ConflictError(),
+    "outdated": OutdatedError(current="v2", documents=["terms"], internal="x-internal"),
     "concurrent": ConcurrentModificationError(),
     "stale": StaleVersionError(expected=3, actual=4),
     "invalid": DomainValidationError(),
@@ -194,6 +202,13 @@ async def test_restricted_carries_restriction_and_until(client: httpx.AsyncClien
     body = _problem(await client.get("/api/v1/test/raise/restricted"), 403, "restricted")
     assert body["restriction"] == "posting_blocked"
     assert body["until"] == "2026-10-05T09:00:00Z"
+
+
+async def test_public_params_become_problem_fields(client: httpx.AsyncClient) -> None:
+    body = _problem(await client.get("/api/v1/test/raise/outdated"), 409, "outdated")
+    assert (body["current"], body["documents"]) == ("v2", ["terms"])
+    assert "internal" not in body
+    assert "x-internal" not in str(body)
 
 
 async def test_rate_limited_sets_retry_after(client: httpx.AsyncClient) -> None:

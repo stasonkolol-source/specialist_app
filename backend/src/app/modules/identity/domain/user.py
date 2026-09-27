@@ -1,8 +1,9 @@
 """Пользователь и способы входа (ADR-0009, ARCHITECTURE §7.3).
 
-«Клиент» и «исполнитель» — не роли, а возможности аккаунта. Статус аккаунта — только
-`active` и `deleted`: приостановки и баны — записи `restrictions`, а не статус.
-Способы входа (`auth_identities`) входят в агрегат: вход обновляет снимок профиля.
+«Клиент» и «исполнитель» — не роли, а возможности аккаунта; намерение из онбординга
+(`intent`) лишь настраивает интерфейс. Статус аккаунта — только `active` и `deleted`:
+приостановки и баны — записи `restrictions`, а не статус. Способы входа
+(`auth_identities`) входят в агрегат: вход обновляет снимок профиля.
 """
 
 import re
@@ -14,6 +15,7 @@ from enum import StrEnum
 from typing import Final
 from uuid import UUID
 
+from app.modules.identity.domain.trust import TrustLevel
 from app.modules.identity.errors import (
     AccountDeletedError,
     InvalidDisplayNameError,
@@ -22,7 +24,7 @@ from app.modules.identity.errors import (
 from app.platform.contracts.events.identity import UserRegistered, UserUpdated
 from app.platform.kernel.aggregate import StatusChange, VersionedAggregate
 from app.platform.kernel.errors import ConflictError, ProgrammingError
-from app.platform.kernel.ids import UserId, new_id
+from app.platform.kernel.ids import CityId, UserId, new_id
 from app.platform.kernel.localized import Locale
 
 MAX_DISPLAY_NAME = 64
@@ -39,6 +41,17 @@ _ALLOWED: Final[Mapping[UserStatus, frozenset[UserStatus]]] = {
     UserStatus.ACTIVE: frozenset({UserStatus.DELETED}),
     UserStatus.DELETED: frozenset(),
 }
+
+
+class UserIntent(StrEnum):
+    """«Что вы хотите?» в онбординге S02b: стартовый экран и подсказки, не права."""
+
+    CLIENT = "client"
+    """Найти мастера."""
+    PRO = "pro"
+    """Я специалист: профиль `pro` в каталоге."""
+    CASUAL = "casual"
+    """Ищу подработку: профиль `casual`, задачи рядом."""
 
 
 class AuthProvider(StrEnum):
@@ -105,6 +118,9 @@ class User(VersionedAggregate):
     trust_level: int
     created_at: datetime
     identities: list[AuthIdentity]
+    home_city_id: CityId | None = None
+    """Город из онбординга (geo.cities); существование и статус проверяет use case."""
+    intent: UserIntent | None = None
     phone_e164: str | None = None
     phone_verified_at: datetime | None = None
     last_seen_at: datetime | None = None
@@ -157,22 +173,42 @@ class User(VersionedAggregate):
         self.last_seen_at = now
 
     def update_profile(
-        self, *, display_name: str | None, ui_locale: Locale | None, now: datetime
+        self,
+        *,
+        now: datetime,
+        display_name: str | None = None,
+        ui_locale: Locale | None = None,
+        home_city_id: CityId | None = None,
+        intent: UserIntent | None = None,
     ) -> None:
-        """Имя и язык интерфейса; None — поле не меняется."""
+        """Имя, язык интерфейса, город и намерение; None — поле не меняется."""
         self.ensure_active()
-        changed = False
+        changed: list[str] = []
         if display_name is not None:
             name = normalize_display_name(display_name)
             if not name:
                 raise InvalidDisplayNameError(field="display_name")
-            changed |= name != self.display_name
-            self.display_name = name
-        if ui_locale is not None:
-            changed |= ui_locale is not self.ui_locale
+            if name != self.display_name:
+                self.display_name = name
+                changed.append("display_name")
+        if ui_locale is not None and ui_locale is not self.ui_locale:
             self.ui_locale = ui_locale
+            changed.append("ui_locale")
+        if home_city_id is not None and home_city_id != self.home_city_id:
+            self.home_city_id = home_city_id
+            changed.append("home_city_id")
+        if intent is not None and intent is not self.intent:
+            self.intent = intent
+            changed.append("intent")
         if changed:
-            self._record(UserUpdated(user_id=self.id, occurred_at=now))
+            self._record(UserUpdated(user_id=self.id, fields=tuple(changed), occurred_at=now))
+
+    def apply_trust_level(self, level: TrustLevel, *, now: datetime) -> None:
+        """Записать пересчитанный уровень доверия (политика `trust_level`, §13.2)."""
+        self.ensure_active()
+        if level != self.trust_level:
+            self.trust_level = int(level)
+            self._record(UserUpdated(user_id=self.id, fields=("trust_level",), occurred_at=now))
 
     def identity(self, provider: AuthProvider, subject: str) -> AuthIdentity:
         for identity in self.identities:

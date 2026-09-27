@@ -28,6 +28,12 @@ ARCHITECTURE §5.4). Первая миграция модуля — `<имя>_00
 MetaData моделей добавьте в `app/entrypoints/_metadata.py`, роутер `http/router.py`
 подключится сам (`_wiring.module_routers`), задачи из `tasks.py` — тоже.
 
+FK на таблицу другого модуля (только вниз по DAG, ARCHITECTURE §5.2 п. 4) пишется в
+миграции руками (`op.create_foreign_key(..., referent_schema="geo")`), в модели — колонка
+без `ForeignKey`: MetaData модуля чужих таблиц не знает, и ORM не разрешил бы ссылку при
+flush. `alembic check` такие FK не сравнивает (`migrations/env.py`). Пример —
+`identity.users.home_city_id` в `identity_0002`.
+
 ## Правила, которые проверяются автоматически
 
 | Правило | Где |

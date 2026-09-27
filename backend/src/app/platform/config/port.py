@@ -1,7 +1,8 @@
-"""Снимок конфигурации клиентов и порт FeatureFlags.
+"""Снимок конфигурации клиентов и порты FeatureFlags, LegalVersions.
 
 Флаги называются `<модуль>.<флаг>` (ADR-0020 §10): `goods.segment`, `search.weights`.
 Публичные флаги уходят клиенту в GET /client-config, остальные видит только backend.
+Версии правовых документов клиент показывает, а identity сверяет при согласии.
 """
 
 from collections.abc import Mapping
@@ -33,4 +34,10 @@ class FeatureFlags(Protocol):
 
     async def value(self, key: str) -> object | None:
         """Параметр флага (веса ранжирования и т. п.); None — не задан или выключен."""
+        ...
+
+
+class LegalVersions(Protocol):
+    async def legal_versions(self) -> Mapping[str, str]:
+        """Действующие версии правовых документов (`terms`, `privacy`) из client-config."""
         ...
