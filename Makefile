@@ -11,7 +11,7 @@ EXTRA_CHECKS :=
 
 COMPOSE := docker compose -p specialist-dev -f infra/compose/docker-compose.dev.yml --env-file infra/compose/.env
 
-.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker new-module new-use-case \
+.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker new-module new-use-case openapi contract \
 	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check test-int migrate migrate-roundtrip pg-bootstrap
 
 help: ## Show available targets
@@ -102,6 +102,13 @@ migrate: ## alembic upgrade head на dev-БД (роль migrator)
 
 migrate-roundtrip: pg-image ## Раунд-трип миграций в testcontainers: upgrade → downgrade base → upgrade → check → heads
 	@cd $(BACKEND) && $(UV) run pytest -m integration -q -k "roundtrip"
+
+openapi: ## Контракт: backend/openapi.json из кода и перегенерация api-client
+	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli openapi
+	@if grep -q '"generate"' packages/api-client/package.json 2>/dev/null; then $(PNPM) -F api-client generate; fi
+
+contract: ## Контрактные тесты schemathesis против живого API (testcontainers)
+	@cd $(BACKEND) && $(UV) run pytest tests/contract -q
 
 new-module: ## Новый модуль по шаблону copier: make new-module NAME=<имя>
 	@test -n "$(NAME)" || (echo "usage: make new-module NAME=<имя>"; exit 2)

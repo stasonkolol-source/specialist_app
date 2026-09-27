@@ -58,6 +58,31 @@ def jwt_keys(
     typer.echo(f"{env_file.name}: JWT_KEYS {action} ({len(keys)} key(s), first signs)")
 
 
+OPENAPI_FILE = ENV_FILE.parent / "openapi.json"
+
+
+@app.command()
+def openapi(
+    *,
+    check: Annotated[bool, typer.Option("--check", help="Только сверить файл с кодом")] = False,
+    output: Annotated[Path, typer.Option(help="Файл схемы")] = OPENAPI_FILE,
+) -> None:
+    """Выгрузить контракт OpenAPI 3.1 в backend/openapi.json (DEVELOPMENT_PLAN 0.20)."""
+    from app.entrypoints._wiring import module_routers
+    from app.interfaces.http.app import openapi_spec
+
+    text = json.dumps(openapi_spec(module_routers()), indent=2, ensure_ascii=False) + "\n"
+    current = output.read_text(encoding="utf-8") if output.exists() else ""
+    if check:
+        if current != text:
+            typer.echo(f"{output.name} is out of date: run `make openapi`", err=True)
+            raise typer.Exit(code=1)
+        typer.echo(f"{output.name}: up to date")
+        return
+    output.write_text(text, encoding="utf-8")
+    typer.echo(f"{output.name}: {'unchanged' if current == text else 'written'}")
+
+
 @app.command("dev-initdata")
 def dev_initdata(
     *,

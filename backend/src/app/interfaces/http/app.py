@@ -4,8 +4,9 @@
 (entrypoints/_wiring.py) и передаёт сюда; BFF-роутеры `views/` интерфейс подключает сам.
 """
 
-from collections.abc import AsyncIterator, Sequence
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Callable, Sequence
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from typing import Any
 
 from dishka import AsyncContainer
 from dishka.integrations.fastapi import setup_dishka
@@ -15,10 +16,12 @@ from app.interfaces.http import system, views
 from app.interfaces.http.client import ClientPolicy
 from app.interfaces.http.errors import Problems, install_error_handlers
 from app.interfaces.http.middleware import RequestContextMiddleware
+from app.interfaces.http.openapi import API_TITLE, API_VERSION, PROBLEM_RESPONSES, install_openapi
 from app.interfaces.http.operation_ids import operation_id
 from app.platform.settings import Environment, Settings
 
 API_PREFIX = "/api/v1"
+Lifespan = Callable[[FastAPI], AbstractAsyncContextManager[None]]
 
 
 def create_app(
@@ -29,16 +32,7 @@ def create_app(
         yield
         await container.close()
 
-    public_docs = settings.app.env is not Environment.PRODUCTION
-    app = FastAPI(
-        title="Сосед API",
-        version=settings.app.release,
-        openapi_url=f"{API_PREFIX}/openapi.json" if public_docs else None,
-        docs_url=f"{API_PREFIX}/docs" if public_docs else None,
-        redoc_url=None,
-        generate_unique_id_function=operation_id,
-        lifespan=lifespan,
-    )
+    app = _fastapi(public_docs=settings.app.env is not Environment.PRODUCTION, lifespan=lifespan)
     problems = Problems(base_url=settings.app.api_public_url)
     install_error_handlers(app, problems)
     app.add_middleware(
@@ -48,10 +42,35 @@ def create_app(
         api_prefix=API_PREFIX,
     )
 
-    api = APIRouter(prefix=API_PREFIX)
+    _mount(app, routers)
+    setup_dishka(container, app)
+    return app
+
+
+def openapi_spec(routers: Sequence[APIRouter]) -> dict[str, Any]:
+    """Схема OpenAPI без контейнера и настроек: для `cli openapi` и проверки в CI."""
+    app = _fastapi(public_docs=True)
+    _mount(app, routers)
+    return app.openapi()
+
+
+def _fastapi(*, public_docs: bool, lifespan: Lifespan | None = None) -> FastAPI:
+    app = FastAPI(
+        title=API_TITLE,
+        version=API_VERSION,
+        openapi_url=f"{API_PREFIX}/openapi.json" if public_docs else None,
+        docs_url=f"{API_PREFIX}/docs" if public_docs else None,
+        redoc_url=None,
+        generate_unique_id_function=operation_id,
+        lifespan=lifespan,
+    )
+    install_openapi(app)
+    return app
+
+
+def _mount(app: FastAPI, routers: Sequence[APIRouter]) -> None:
+    api = APIRouter(prefix=API_PREFIX, responses=PROBLEM_RESPONSES)
     for router in (*routers, views.router):
         api.include_router(router)
     app.include_router(api)
     app.include_router(system.router)
-    setup_dishka(container, app)
-    return app

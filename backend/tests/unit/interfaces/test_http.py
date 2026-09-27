@@ -85,6 +85,16 @@ async def create_job(job: JobIn) -> dict[str, str]:
     return {"title": job.title}
 
 
+@router.get("/shared")
+async def read_shared() -> dict[str, str]:
+    return {}
+
+
+@router.patch("/shared")
+async def change_shared() -> dict[str, str]:
+    return {}
+
+
 @router.get("/locale")
 @inject
 async def current_locale(locale: FromDishka[Locale]) -> dict[str, str]:
@@ -125,10 +135,12 @@ async def test_unknown_route_is_problem_json(client: httpx.AsyncClient) -> None:
     assert body["title"] == "Not Found"
 
 
-async def test_wrong_method_keeps_allow_header(client: httpx.AsyncClient) -> None:
+async def test_wrong_method_lists_all_methods_of_path(client: httpx.AsyncClient) -> None:
     response = await client.delete("/api/v1/test/jobs")
     _problem(response, 405, "method_not_allowed")
     assert response.headers["allow"] == "POST"
+    shared = await client.put("/api/v1/test/shared")
+    assert shared.headers["allow"] == "GET, HEAD, PATCH"
 
 
 # --- таблица ADR-0020 §9 ------------------------------------------------------------------

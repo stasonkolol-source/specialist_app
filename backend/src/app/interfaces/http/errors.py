@@ -8,6 +8,7 @@
 каталоги i18n (шаг 1.2); до этого `detail` не заполняется, а `message` — текст pydantic.
 """
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC
@@ -61,6 +62,7 @@ HTTP_CODES: Mapping[int, str] = {
 }
 """Коды ошибок, которые Starlette поднимает сама (нет маршрута, не тот метод, …)."""
 
+HTTP_METHODS = frozenset({"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"})
 INTERNAL_ERROR = "internal_error"
 VALIDATION_ERROR = "validation_error"
 MALFORMED_REQUEST = "malformed_request"
@@ -101,7 +103,7 @@ class Problems:
         body: dict[str, Any] = {
             "type": f"{self.base_url.rstrip('/')}/problems/{code.replace('_', '-')}",
             "title": HTTPStatus(status).phrase,
-            "status": status,
+            "status": int(status),
             "code": code,
         }
         if detail is not None:
@@ -112,7 +114,7 @@ class Problems:
             ]
         body.update(extensions)
         body["trace_id"] = trace_id
-        return JSONResponse(body, status_code=status, headers=headers, media_type=PROBLEM_JSON)
+        return JSONResponse(body, status_code=int(status), headers=headers, media_type=PROBLEM_JSON)
 
 
 def trace_id_of(request: Request) -> str | None:
@@ -166,13 +168,41 @@ def install_error_handlers(app: FastAPI, problems: Problems) -> None:
     async def http_error(request: Request, exc: Exception) -> JSONResponse:
         assert isinstance(exc, StarletteHTTPException)  # noqa: S101
         code = HTTP_CODES.get(exc.status_code, f"http_{exc.status_code}")
+        headers = dict(exc.headers or {})
+        if exc.status_code == HTTPStatus.METHOD_NOT_ALLOWED:
+            headers["Allow"] = allowed_methods(request) or headers.get("Allow", "")
         return problems.response(
-            exc.status_code, code, trace_id=trace_id_of(request), headers=exc.headers
+            exc.status_code, code, trace_id=trace_id_of(request), headers=headers
         )
 
     app.add_exception_handler(DomainError, domain_error)
     app.add_exception_handler(RequestValidationError, request_validation)
     app.add_exception_handler(StarletteHTTPException, http_error)
+
+
+def allowed_methods(request: Request) -> str | None:
+    """Все методы пути для `Allow`. Starlette перечисляет только методы первого совпавшего
+    маршрута (GET /me без PATCH /me), поэтому берём их из схемы OpenAPI приложения."""
+    for pattern, methods in _method_table(request.app):
+        if pattern.fullmatch(request.url.path):
+            return ", ".join(sorted(methods))
+    return None
+
+
+def _method_table(app: FastAPI) -> list[tuple[re.Pattern[str], frozenset[str]]]:
+    table: list[tuple[re.Pattern[str], frozenset[str]]] | None = getattr(
+        app.state, "allow_table", None
+    )
+    if table is None:
+        table = []
+        for path, item in app.openapi().get("paths", {}).items():
+            methods = {method.upper() for method in item if method.upper() in HTTP_METHODS}
+            if "GET" in methods:
+                methods.add("HEAD")
+            regex = re.sub(r"\\\{[^}]*\\\}", "[^/]+", re.escape(path))
+            table.append((re.compile(regex), frozenset(methods)))
+        app.state.allow_table = table
+    return table
 
 
 def _field(loc: Sequence[int | str]) -> str:

@@ -161,3 +161,11 @@ async def test_auth_endpoints_are_in_openapi(api: httpx.AsyncClient) -> None:
     assert {"AuthOut", "TokensOut", "MeOut", "MeUpdateIn", "RefreshIn"} <= set(
         spec["components"]["schemas"]
     )
+
+
+async def test_authentication_comes_before_validation(api: httpx.AsyncClient) -> None:
+    response = await api.patch(
+        "/api/v1/me", headers={"if-match": "garbage"}, json={"ui_locale": "de"}
+    )
+    assert response.status_code == 401
+    assert response.json()["code"] == "not_authenticated"
