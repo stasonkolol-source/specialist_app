@@ -15,7 +15,7 @@ COMPOSE := docker compose -p specialist-dev -f infra/compose/docker-compose.dev.
 	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check test-int migrate migrate-roundtrip pg-bootstrap
 
 help: ## Show available targets
-	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-20s %s\n", $$1, $$2}'
+	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-20s %s\n", $$1, $$2}'
 
 doctor: ## Tool versions and free local ports (step 0.1)
 	@echo "uv          $$($(UV) --version 2>/dev/null || echo MISSING)"
