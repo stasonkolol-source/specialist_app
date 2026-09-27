@@ -9,6 +9,7 @@ repos:
     hooks:
       - id: check-merge-conflict
       - id: check-yaml
+        args: [--allow-multiple-documents]  # pnpm-lock.yaml pnpm 12 — два YAML-документа
       - id: end-of-file-fixer
         exclude: ^(design/|docs/research/lab/)
       - id: trailing-whitespace

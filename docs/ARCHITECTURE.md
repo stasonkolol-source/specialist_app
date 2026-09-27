@@ -2831,7 +2831,7 @@ flowchart LR
 |---|---|---|
 | `j_<base62>` | Заявка (S15 или S23 — по роли) | `j_1Xh3kQ9vB7mZ2pR4sT8dLq` |
 | `s_<base62>` | Профиль специалиста (S08) | `s_4bN8wE2rT6yU1iO3pA5sDf` |
-| `c_<base62>` | Диалог (S30) | `c_9cV2bN4mQ7wE1rT5yU8iOp` |
+| `c_<base62>` | Диалог (S30) | `c_034W1ovwx2XBd7GhiJ9CHv` |
 | `d_<base62>` | Сделка (S26) | `d_6kL3jH8gF1dS4aZ7xC2vBn` |
 | `h` | Главная (S03) | `h` |
 | `…_r<code>` | Суффикс реферала или атрибуции канала — только суффикс, не тип | `s_4bN8wE2rT6yU1iO3pA5sDf_rAB12CD`, `h_rAB12CD` |
