@@ -33,6 +33,18 @@ export const IdentityAuthenticateTelegramResponse = zod.object({
     trust_level: zod.int(),
     phone_verified: zod.boolean(),
     created_at: zod.iso.datetime({ offset: true }),
+    home_city_id: zod.union([zod.int(), zod.null()]),
+    intent: zod.union([
+      zod
+        .enum(['client', 'pro', 'casual'])
+        .describe('«Что вы хотите?» в онбординге S02b: стартовый экран и подсказки, не права.'),
+      zod.null(),
+    ]),
+    consents: zod.record(zod.string(), zod.string()),
+    consent_required: zod.boolean(),
+    can_post: zod.boolean(),
+    can_respond: zod.boolean(),
+    can_message: zod.boolean(),
   }),
 });
 
@@ -66,6 +78,7 @@ export const IdentityRefreshSessionResponse = zod.object({
 export const IdentityLogoutResponse = zod.void();
 
 /**
+ * Профиль, принятые версии документов и что можно делать (онбординг, S49b).
  * @summary Get Me
  */
 export const IdentityGetMeResponse = zod.object({
@@ -75,10 +88,22 @@ export const IdentityGetMeResponse = zod.object({
   trust_level: zod.int(),
   phone_verified: zod.boolean(),
   created_at: zod.iso.datetime({ offset: true }),
+  home_city_id: zod.union([zod.int(), zod.null()]),
+  intent: zod.union([
+    zod
+      .enum(['client', 'pro', 'casual'])
+      .describe('«Что вы хотите?» в онбординге S02b: стартовый экран и подсказки, не права.'),
+    zod.null(),
+  ]),
+  consents: zod.record(zod.string(), zod.string()),
+  consent_required: zod.boolean(),
+  can_post: zod.boolean(),
+  can_respond: zod.boolean(),
+  can_message: zod.boolean(),
 });
 
 /**
- * Имя и язык интерфейса. `If-Match: "<version>"` из ETag защищает от затирания.
+ * Имя, язык, город и намерение. `If-Match: "<version>"` из ETag защищает от затирания.
  * @summary Update Me
  */
 export const IdentityUpdateMeHeader = zod.object({
@@ -87,12 +112,27 @@ export const IdentityUpdateMeHeader = zod.object({
 
 export const identityUpdateMeBodyDisplayNameOneMax = 64;
 
-export const IdentityUpdateMeBody = zod.object({
-  display_name: zod
-    .union([zod.string().min(1).max(identityUpdateMeBodyDisplayNameOneMax), zod.null()])
-    .optional(),
-  ui_locale: zod.union([zod.enum(['ru', 'sr-Latn', 'sr-Cyrl', 'en']), zod.null()]).optional(),
-});
+export const identityUpdateMeBodyHomeCityIdOneMax = 2147483647;
+
+export const IdentityUpdateMeBody = zod
+  .object({
+    display_name: zod
+      .union([zod.string().min(1).max(identityUpdateMeBodyDisplayNameOneMax), zod.null()])
+      .optional(),
+    ui_locale: zod.union([zod.enum(['ru', 'sr-Latn', 'sr-Cyrl', 'en']), zod.null()]).optional(),
+    home_city_id: zod
+      .union([zod.int().min(1).max(identityUpdateMeBodyHomeCityIdOneMax), zod.null()])
+      .optional(),
+    intent: zod
+      .union([
+        zod
+          .enum(['client', 'pro', 'casual'])
+          .describe('«Что вы хотите?» в онбординге S02b: стартовый экран и подсказки, не права.'),
+        zod.null(),
+      ])
+      .optional(),
+  })
+  .describe('Поля, которых нет или которые null, не меняются.');
 
 export const IdentityUpdateMeResponse = zod.object({
   id: zod.uuid(),
@@ -101,4 +141,56 @@ export const IdentityUpdateMeResponse = zod.object({
   trust_level: zod.int(),
   phone_verified: zod.boolean(),
   created_at: zod.iso.datetime({ offset: true }),
+  home_city_id: zod.union([zod.int(), zod.null()]),
+  intent: zod.union([
+    zod
+      .enum(['client', 'pro', 'casual'])
+      .describe('«Что вы хотите?» в онбординге S02b: стартовый экран и подсказки, не права.'),
+    zod.null(),
+  ]),
+  consents: zod.record(zod.string(), zod.string()),
+  consent_required: zod.boolean(),
+  can_post: zod.boolean(),
+  can_respond: zod.boolean(),
+  can_message: zod.boolean(),
+});
+
+/**
+ * Одна галочка S02c: правила площадки (с 18+) и политика в версиях из client-config.
+ *
+ * Повтор идемпотентен; не та версия — 409 `legal_version_outdated`.
+ * @summary Accept Consents
+ */
+export const identityAcceptConsentsBodyTermsVersionMax = 64;
+
+export const identityAcceptConsentsBodyPrivacyVersionMax = 64;
+
+export const IdentityAcceptConsentsBody = zod
+  .object({
+    terms_version: zod.string().min(1).max(identityAcceptConsentsBodyTermsVersionMax),
+    privacy_version: zod.string().min(1).max(identityAcceptConsentsBodyPrivacyVersionMax),
+  })
+  .describe(
+    'Галочка S02c: версии правил (с 18+) и политики из client-config, которые видел\nпользователь.',
+  );
+
+export const IdentityAcceptConsentsResponse = zod.object({
+  id: zod.uuid(),
+  display_name: zod.string(),
+  ui_locale: zod.enum(['ru', 'sr-Latn', 'sr-Cyrl', 'en']),
+  trust_level: zod.int(),
+  phone_verified: zod.boolean(),
+  created_at: zod.iso.datetime({ offset: true }),
+  home_city_id: zod.union([zod.int(), zod.null()]),
+  intent: zod.union([
+    zod
+      .enum(['client', 'pro', 'casual'])
+      .describe('«Что вы хотите?» в онбординге S02b: стартовый экран и подсказки, не права.'),
+    zod.null(),
+  ]),
+  consents: zod.record(zod.string(), zod.string()),
+  consent_required: zod.boolean(),
+  can_post: zod.boolean(),
+  can_respond: zod.boolean(),
+  can_message: zod.boolean(),
 });

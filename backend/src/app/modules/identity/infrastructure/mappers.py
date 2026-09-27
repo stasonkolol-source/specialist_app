@@ -3,7 +3,7 @@
 from app.modules.identity.domain.session import Session, SessionId
 from app.modules.identity.domain.user import AuthIdentity, User
 from app.modules.identity.infrastructure.models import AuthIdentityRow, SessionRow, UserRow
-from app.platform.kernel.ids import UserId
+from app.platform.kernel.ids import CityId, UserId
 
 
 def user_to_domain(row: UserRow) -> User:
@@ -26,6 +26,8 @@ def user_to_domain(row: UserRow) -> User:
             )
             for i in row.identities
         ],
+        home_city_id=CityId(row.home_city_id) if row.home_city_id is not None else None,
+        intent=row.intent,
         phone_e164=row.phone_e164,
         phone_verified_at=row.phone_verified_at,
         last_seen_at=row.last_seen_at,
@@ -41,6 +43,8 @@ def apply_user(user: User, row: UserRow) -> None:
     row.timezone = user.timezone
     row.trust_level = user.trust_level
     row.created_at = user.created_at
+    row.home_city_id = user.home_city_id
+    row.intent = user.intent
     row.phone_e164 = user.phone_e164
     row.phone_verified_at = user.phone_verified_at
     row.last_seen_at = user.last_seen_at

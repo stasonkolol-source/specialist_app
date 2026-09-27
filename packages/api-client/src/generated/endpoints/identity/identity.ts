@@ -22,6 +22,7 @@ import type {
 
 import type {
   AuthOut,
+  ConsentsIn,
   IdentityAuthenticateTelegramHeaders,
   IdentityUpdateMeHeaders,
   MeOut,
@@ -329,6 +330,7 @@ export const getIdentityGetMeUrl = () => {
 };
 
 /**
+ * Профиль, принятые версии документов и что можно делать (онбординг, S49b).
  * @summary Get Me
  */
 export const identityGetMe = async (options?: Parameters<typeof apiFetch>[1]): Promise<MeOut> => {
@@ -440,7 +442,7 @@ export const getIdentityUpdateMeUrl = () => {
 };
 
 /**
- * Имя и язык интерфейса. `If-Match: "<version>"` из ETag защищает от затирания.
+ * Имя, язык, город и намерение. `If-Match: "<version>"` из ETag защищает от затирания.
  * @summary Update Me
  */
 export const identityUpdateMe = async (
@@ -544,4 +546,112 @@ export const useIdentityUpdateMe = <TError = ErrorType<ProblemOut>, TContext = u
   TContext
 > => {
   return useMutation(getIdentityUpdateMeMutationOptions(options), queryClient);
+};
+export const getIdentityAcceptConsentsUrl = () => {
+  return `/api/v1/me/consents`;
+};
+
+/**
+ * Одна галочка S02c: правила площадки (с 18+) и политика в версиях из client-config.
+ *
+ * Повтор идемпотентен; не та версия — 409 `legal_version_outdated`.
+ * @summary Accept Consents
+ */
+export const identityAcceptConsents = async (
+  consentsIn: ConsentsIn,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MeOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<MeOut>(getIdentityAcceptConsentsUrl(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(consentsIn),
+  });
+};
+
+export const getIdentityAcceptConsentsMutationKey = () => ['identityAcceptConsents'] as const;
+
+export const getIdentityAcceptConsentsMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof identityAcceptConsents>>,
+    TError,
+    IdentityAcceptConsentsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof identityAcceptConsents>>,
+  TError,
+  IdentityAcceptConsentsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getIdentityAcceptConsentsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof identityAcceptConsents>>,
+    IdentityAcceptConsentsMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return identityAcceptConsents(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type IdentityAcceptConsentsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof identityAcceptConsents>>
+>;
+export type IdentityAcceptConsentsMutationBody = ConsentsIn;
+export type IdentityAcceptConsentsMutationError = ErrorType<ProblemOut>;
+export type IdentityAcceptConsentsMutationVariables = { data: ConsentsIn };
+
+/**
+ * @summary Accept Consents
+ */
+export const useIdentityAcceptConsents = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof identityAcceptConsents>>,
+      TError,
+      IdentityAcceptConsentsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof identityAcceptConsents>>,
+  TError,
+  IdentityAcceptConsentsMutationVariables,
+  TContext
+> => {
+  return useMutation(getIdentityAcceptConsentsMutationOptions(options), queryClient);
 };

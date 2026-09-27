@@ -1,10 +1,14 @@
 """Результаты и входные данные use cases identity (ADR-0020 §3)."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 
+from app.modules.identity.api import Action
+from app.modules.identity.domain.consent import ConsentDocument
 from app.modules.identity.domain.session import SessionId
-from app.platform.kernel.ids import UserId
+from app.modules.identity.domain.user import UserIntent
+from app.platform.kernel.ids import CityId, UserId
 from app.platform.kernel.localized import Locale
 
 
@@ -64,3 +68,17 @@ class MeView:
     phone_verified: bool
     created_at: datetime
     version: int
+    home_city_id: CityId | None = None
+    intent: UserIntent | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AccessView:
+    """Что пользователю можно сейчас (GET /me): онбординг и экран ограничения по нему."""
+
+    consents: Mapping[ConsentDocument, str]
+    """Принятые версии документов (последняя по каждому)."""
+    consent_required: bool
+    """Нет согласия с действующими версиями правил, 18+ или политики: нужен S02c."""
+    allowed: frozenset[Action]
+    """Действия, которые не запрещены санкциями и согласиями."""

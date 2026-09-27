@@ -10,6 +10,7 @@ from tests.plugins.database import make_uow
 
 from app.modules.identity.api import Action
 from app.modules.identity.application.dto import AuthResult
+from app.modules.identity.application.use_cases.accept_consents import AcceptConsentsCommand
 from app.modules.identity.application.use_cases.authenticate_telegram import (
     AuthenticateTelegram,
     AuthenticateTelegramCommand,
@@ -284,6 +285,14 @@ async def test_facade_reports_user_and_restrictions(identity: Identity) -> None:
     )
     assert await identity.facade.get_user(UserId(UUID(int=1))) is None
 
+    await identity.accept_consents(
+        AcceptConsentsCommand(
+            actor_id=tokens.user_id,
+            terms_version="draft-1",
+            privacy_version="draft-1",
+            source=Platform.TMA,
+        )
+    )
     await identity.facade.ensure_allowed(tokens.user_id, Action.POST)
     await identity.restrict(
         tokens.user_id,

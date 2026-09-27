@@ -6,9 +6,14 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.modules.identity.application.dto import MeView, SessionTokens
-from app.modules.identity.domain.user import MAX_DISPLAY_NAME
+from app.modules.identity.api import Action
+from app.modules.identity.application.dto import AccessView, MeView, SessionTokens
+from app.modules.identity.domain.consent import MAX_VERSION
+from app.modules.identity.domain.user import MAX_DISPLAY_NAME, UserIntent
 from app.platform.kernel.localized import Locale
+
+INT4_MAX = 2**31 - 1
+"""id справочников geo — int4 identity: больше — не id, а 422 (иначе ошибка БД и 500)."""
 
 
 class MeOut(BaseModel):
@@ -18,9 +23,18 @@ class MeOut(BaseModel):
     trust_level: int
     phone_verified: bool
     created_at: datetime
+    home_city_id: int | None
+    intent: UserIntent | None
+    consents: dict[str, str]
+    """Принятые версии документов: `{"terms": "…", "privacy": "…", "age_18": "…"}`."""
+    consent_required: bool
+    """Нет согласия с действующими версиями из client-config: показать S02c."""
+    can_post: bool
+    can_respond: bool
+    can_message: bool
 
     @classmethod
-    def of(cls, view: MeView) -> MeOut:
+    def of(cls, view: MeView, access: AccessView) -> MeOut:
         return cls(
             id=view.id,
             display_name=view.display_name,
@@ -28,6 +42,13 @@ class MeOut(BaseModel):
             trust_level=view.trust_level,
             phone_verified=view.phone_verified,
             created_at=view.created_at,
+            home_city_id=view.home_city_id,
+            intent=view.intent,
+            consents={document.value: version for document, version in access.consents.items()},
+            consent_required=access.consent_required,
+            can_post=Action.POST in access.allowed,
+            can_respond=Action.RESPOND in access.allowed,
+            can_message=Action.MESSAGE in access.allowed,
         )
 
 
@@ -58,5 +79,19 @@ class RefreshIn(BaseModel):
 
 
 class MeUpdateIn(BaseModel):
+    """Поля, которых нет или которые null, не меняются."""
+
     display_name: str | None = Field(default=None, min_length=1, max_length=MAX_DISPLAY_NAME)
     ui_locale: Locale | None = None
+    home_city_id: int | None = Field(default=None, ge=1, le=INT4_MAX)
+    """Город из GET /cities со статусом active (онбординг S02a)."""
+    intent: UserIntent | None = None
+    """«Что вы хотите?» (онбординг S02b)."""
+
+
+class ConsentsIn(BaseModel):
+    """Галочка S02c: версии правил (с 18+) и политики из client-config, которые видел
+    пользователь."""
+
+    terms_version: str = Field(min_length=1, max_length=MAX_VERSION)
+    privacy_version: str = Field(min_length=1, max_length=MAX_VERSION)

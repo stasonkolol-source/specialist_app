@@ -12,6 +12,9 @@ from uuid import UUID
 UserId = NewType("UserId", UUID)
 """Внутренний идентификатор пользователя — он же `sub` в JWT и `user_id` в логах."""
 
+RestrictionId = NewType("RestrictionId", UUID)
+"""Санкция в identity.restrictions: её id возвращает фасад identity модерации (2.5a)."""
+
 CityId = NewType("CityId", int)
 DistrictId = NewType("DistrictId", int)
 """Справочники geo — int identity (ARCHITECTURE §7.3): их id видят фасады и API."""

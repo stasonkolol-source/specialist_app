@@ -5,8 +5,14 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { Locale } from './locale.ts';
+import type { UserIntent } from './userIntent.ts';
 
+/**
+ * Поля, которых нет или которые null, не меняются.
+ */
 export interface MeUpdateIn {
   display_name?: string | null;
   ui_locale?: Locale | null;
+  home_city_id?: number | null;
+  intent?: UserIntent | null;
 }

@@ -1,15 +1,23 @@
-"""Репозитории агрегатов identity (ADR-0020 §5)."""
+"""Репозитории identity (ADR-0020 §5): агрегаты и простые записи (согласия, санкции)."""
 
-from sqlalchemy import select
+from collections.abc import Callable, Mapping
+from datetime import datetime
+from uuid import UUID
+
+from sqlalchemy import select, text
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.modules.identity.domain.consent import ConsentDocument
+from app.modules.identity.domain.restriction import Restriction, RestrictionSource
 from app.modules.identity.domain.session import Session, SessionId
 from app.modules.identity.domain.user import AuthProvider, User
 from app.modules.identity.errors import (
     ConcurrentLoginError,
     SessionNotFoundError,
+    UnknownCityError,
     UserNotFoundError,
 )
 from app.modules.identity.infrastructure.mappers import (
@@ -20,6 +28,8 @@ from app.modules.identity.infrastructure.mappers import (
 )
 from app.modules.identity.infrastructure.models import (
     AuthIdentityRow,
+    ConsentRow,
+    RestrictionRow,
     SessionRow,
     StatusHistoryRow,
     UserRow,
@@ -27,10 +37,12 @@ from app.modules.identity.infrastructure.models import (
 from app.platform.db.constraints import ConstraintErrors, raise_domain_error
 from app.platform.db.port import UnitOfWork
 from app.platform.db.versioning import check_loaded_version
-from app.platform.kernel.ids import UserId
+from app.platform.kernel.ids import RestrictionId, UserId, new_id
+from app.platform.kernel.principal import Platform
 
 USER_CONSTRAINTS: ConstraintErrors = {
     "uq_auth_identities_provider_subject": ConcurrentLoginError,
+    "fk_users_home_city_id_cities": UnknownCityError,
 }
 
 
@@ -142,3 +154,85 @@ class SqlSessionRepository:
         apply_session(session, row)
         await self._session.flush()
         self._uow.track(session)
+
+
+class SqlConsentRepository:
+    def __init__(self, session: AsyncSession, uow: UnitOfWork) -> None:
+        self._session = session
+        self._uow = uow
+
+    async def grant(
+        self,
+        user_id: UserId,
+        versions: Mapping[ConsentDocument, str],
+        *,
+        source: Platform,
+        ip: str | None,
+        now: datetime,
+    ) -> int:
+        self._uow.require_active()
+        stmt = (
+            insert(ConsentRow)
+            .values(
+                [
+                    {
+                        "id": new_id(),
+                        "user_id": user_id,
+                        "document": document,
+                        "version": version,
+                        "granted_at": now,
+                        "source": source,
+                        "ip": ip,
+                    }
+                    for document, version in versions.items()
+                ]
+            )
+            .on_conflict_do_nothing(
+                index_elements=["user_id", "document", "version"],
+                index_where=text("withdrawn_at IS NULL"),
+            )
+            .returning(ConsentRow.id)
+        )
+        try:
+            inserted = (await self._session.execute(stmt)).scalars().all()
+        except IntegrityError as err:
+            raise_domain_error(err, {"fk_consents_user_id_users": _user_not_found(user_id)})
+        return len(inserted)
+
+
+class SqlRestrictionRepository:
+    def __init__(self, session: AsyncSession, uow: UnitOfWork) -> None:
+        self._session = session
+        self._uow = uow
+
+    async def add(
+        self,
+        user_id: UserId,
+        restriction: Restriction,
+        *,
+        source: RestrictionSource,
+        case_id: UUID | None,
+        created_by: UserId | None,
+    ) -> RestrictionId:
+        self._uow.require_active()
+        row = RestrictionRow(
+            id=new_id(),
+            user_id=user_id,
+            kind=restriction.kind,
+            reason_code=restriction.reason_code,
+            source=source,
+            case_id=case_id,
+            starts_at=restriction.starts_at,
+            ends_at=restriction.ends_at,
+            created_by=created_by,
+        )
+        self._session.add(row)
+        try:
+            await self._session.flush()
+        except IntegrityError as err:
+            raise_domain_error(err, {"fk_restrictions_user_id_users": _user_not_found(user_id)})
+        return RestrictionId(row.id)
+
+
+def _user_not_found(user_id: UserId) -> Callable[[], UserNotFoundError]:
+    return lambda: UserNotFoundError(user_id=user_id)

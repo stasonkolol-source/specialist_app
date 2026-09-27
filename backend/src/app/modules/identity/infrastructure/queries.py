@@ -6,16 +6,18 @@ from sqlalchemy import or_, select
 
 from app.modules.identity.api import TelegramUserView, UserSummary
 from app.modules.identity.application.dto import MeView
+from app.modules.identity.domain.consent import Consent
 from app.modules.identity.domain.restriction import Restriction
 from app.modules.identity.domain.user import AuthProvider, UserStatus
 from app.modules.identity.infrastructure.models import (
     AuthIdentityRow,
+    ConsentRow,
     RestrictionRow,
     UserRoleRow,
     UserRow,
 )
 from app.platform.db.query import SqlQuery
-from app.platform.kernel.ids import UserId
+from app.platform.kernel.ids import CityId, UserId
 from app.platform.kernel.principal import Role
 
 
@@ -56,6 +58,8 @@ class SqlIdentityQuery(SqlQuery):
                 u.phone_verified_at,
                 u.created_at,
                 u.version,
+                u.home_city_id,
+                u.intent,
             ).where(u.id == user_id, u.status == UserStatus.ACTIVE)
         )
         if row is None:
@@ -68,6 +72,8 @@ class SqlIdentityQuery(SqlQuery):
             phone_verified=row["phone_verified_at"] is not None,
             created_at=row["created_at"],
             version=row["version"],
+            home_city_id=CityId(row["home_city_id"]) if row["home_city_id"] is not None else None,
+            intent=row["intent"],
         )
 
     async def by_telegram(self, telegram_id: int) -> TelegramUserView | None:
@@ -109,5 +115,17 @@ class SqlIdentityQuery(SqlQuery):
                 starts_at=row["starts_at"],
                 ends_at=row["ends_at"],
             )
+            for row in rows
+        ]
+
+    async def consents(self, user_id: UserId) -> list[Consent]:
+        c = ConsentRow.__table__.c
+        rows = await self._fetch(
+            select(c.document, c.version, c.granted_at)
+            .where(c.user_id == user_id, c.withdrawn_at.is_(None))
+            .order_by(c.granted_at)
+        )
+        return [
+            Consent(document=row["document"], version=row["version"], granted_at=row["granted_at"])
             for row in rows
         ]

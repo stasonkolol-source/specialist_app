@@ -4,11 +4,13 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from app.modules.identity.domain.trust import TrustLevel
 from app.modules.identity.domain.user import (
     FALLBACK_DISPLAY_NAME,
     MAX_DISPLAY_NAME,
     AuthProvider,
     User,
+    UserIntent,
     UserStatus,
     clean_display_name,
     locale_from_language,
@@ -20,6 +22,7 @@ from app.modules.identity.errors import (
 )
 from app.platform.contracts.events.identity import UserRegistered, UserUpdated
 from app.platform.kernel.errors import ProgrammingError
+from app.platform.kernel.ids import CityId
 from app.platform.kernel.localized import Locale
 
 pytestmark = pytest.mark.unit
@@ -132,8 +135,42 @@ def test_update_profile_changes_name_and_locale_with_event() -> None:
     assert (user.display_name, user.ui_locale) == ("Ana P.", Locale.SR_CYRL)
     [event] = user.pull_events()
     assert isinstance(event, UserUpdated)
+    assert event.fields == ("display_name", "ui_locale")
     user.update_profile(display_name="Ana P.", ui_locale=None, now=NOW)
     assert user.pull_events() == []
+
+
+def test_update_profile_sets_city_and_intent_from_onboarding() -> None:
+    user = register()
+    user.pull_events()
+    assert (user.home_city_id, user.intent) == (None, None)
+    user.update_profile(home_city_id=CityId(7), intent=UserIntent.CASUAL, now=NOW)
+    assert (user.home_city_id, user.intent) == (7, UserIntent.CASUAL)
+    [event] = user.pull_events()
+    assert isinstance(event, UserUpdated)
+    assert event.fields == ("home_city_id", "intent")
+    user.update_profile(home_city_id=CityId(7), intent=UserIntent.CASUAL, now=NOW)
+    assert user.pull_events() == []
+    user.update_profile(intent=UserIntent.PRO, now=NOW)
+    [event] = user.pull_events()
+    assert isinstance(event, UserUpdated)
+    assert event.fields == ("intent",)
+    assert user.home_city_id == 7
+
+
+def test_trust_level_change_is_recorded_once() -> None:
+    user = register()
+    user.pull_events()
+    user.apply_trust_level(TrustLevel.NEW, now=NOW)
+    assert user.pull_events() == []
+    user.apply_trust_level(TrustLevel.BASIC, now=NOW)
+    assert user.trust_level == 1
+    [event] = user.pull_events()
+    assert isinstance(event, UserUpdated)
+    assert event.fields == ("trust_level",)
+    user.delete(by=None, now=NOW)
+    with pytest.raises(AccountDeletedError):
+        user.apply_trust_level(TrustLevel.NEW, now=NOW)
 
 
 def test_update_profile_rejects_invisible_name_and_deleted_user() -> None:

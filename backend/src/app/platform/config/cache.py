@@ -8,7 +8,7 @@
 
 import asyncio
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import timedelta
 from typing import Any
 
@@ -59,6 +59,9 @@ class ClientConfigCache:
     async def value(self, key: str) -> object | None:
         flag = (await self.get()).flags.get(key)
         return flag.value if flag is not None and flag.enabled else None
+
+    async def legal_versions(self) -> Mapping[str, str]:
+        return (await self.get()).legal_versions
 
     async def _refresh(self) -> None:
         try:

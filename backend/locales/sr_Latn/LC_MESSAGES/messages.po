@@ -117,6 +117,24 @@ msgstr "Prijava je već u toku. Pokušajte ponovo."
 msgid "errors.invalid_display_name"
 msgstr "Ime ne može biti prazno."
 
+msgid "errors.consent_required"
+msgstr "Da biste nastavili, prihvatite pravila platforme i politiku privatnosti."
+
+msgid "errors.legal_version_outdated"
+msgstr "Pravila su ažurirana. Otvorite ih ponovo i prihvatite novu verziju."
+
+msgid "errors.legal_versions_unavailable"
+msgstr "Učitavanje pravila platforme nije uspelo. Pokušajte kasnije."
+
+msgid "errors.unknown_city"
+msgstr "Tog grada nema na spisku."
+
+msgid "errors.city_not_available"
+msgstr "U ovom gradu servis još ne radi. Izaberite drugi."
+
+msgid "errors.invalid_restriction"
+msgstr "Neispravni parametri ograničenja."
+
 msgid "errors.bad_request"
 msgstr "Neispravan zahtev."
 

@@ -1,15 +1,18 @@
 """Порты модуля identity (ADR-0020 §3, §5)."""
 
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Protocol
+from uuid import UUID
 
 from app.modules.identity.api import TelegramUserView, UserSummary
 from app.modules.identity.application.dto import MeView
-from app.modules.identity.domain.restriction import Restriction
+from app.modules.identity.domain.consent import Consent, ConsentDocument
+from app.modules.identity.domain.restriction import Restriction, RestrictionSource
 from app.modules.identity.domain.session import Session, SessionId
 from app.modules.identity.domain.user import AuthProvider, User
-from app.platform.kernel.ids import UserId
-from app.platform.kernel.principal import Principal, Role
+from app.platform.kernel.ids import RestrictionId, UserId
+from app.platform.kernel.principal import Platform, Principal, Role
 
 
 class UserRepository(Protocol):
@@ -32,6 +35,41 @@ class SessionRepository(Protocol):
     async def save(self, session: Session) -> None: ...
 
 
+class ConsentRepository(Protocol):
+    """Журнал согласий — простая запись (ADR-0020 §5): правило одно — без дублей."""
+
+    async def grant(
+        self,
+        user_id: UserId,
+        versions: Mapping[ConsentDocument, str],
+        *,
+        source: Platform,
+        ip: str | None,
+        now: datetime,
+    ) -> int:
+        """Записать согласия; уже действующая версия документа пропускается.
+
+        Возвращает число новых записей: 0 — повтор. Нужен активный UoW.
+        """
+        ...
+
+
+class RestrictionRepository(Protocol):
+    """Санкции — простая запись: проверку делает `Restriction.impose`."""
+
+    async def add(
+        self,
+        user_id: UserId,
+        restriction: Restriction,
+        *,
+        source: RestrictionSource,
+        case_id: UUID | None,
+        created_by: UserId | None,
+    ) -> RestrictionId:
+        """UserNotFoundError — пользователя нет. Нужен активный UoW."""
+        ...
+
+
 class IdentityQuery(Protocol):
     async def user_summary(self, user_id: UserId) -> UserSummary | None: ...
 
@@ -47,6 +85,10 @@ class IdentityQuery(Protocol):
 
     async def restrictions(self, user_id: UserId, now: datetime) -> list[Restriction]:
         """Неснятые санкции, которые действуют сейчас или начнутся позже."""
+        ...
+
+    async def consents(self, user_id: UserId) -> list[Consent]:
+        """Действующие (не отозванные) согласия."""
         ...
 
 

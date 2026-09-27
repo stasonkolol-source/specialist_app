@@ -135,6 +135,7 @@
           "identity"
         ],
         "summary": "Get Me",
+        "description": "Профиль, принятые версии документов и что можно делать (онбординг, S49b).",
         "operationId": "identity_get_me",
         "security": [
           {
@@ -169,7 +170,7 @@
           "identity"
         ],
         "summary": "Update Me",
-        "description": "Имя и язык интерфейса. `If-Match: \"<version>\"` из ETag защищает от затирания.",
+        "description": "Имя, язык, город и намерение. `If-Match: \"<version>\"` из ETag защищает от затирания.",
         "operationId": "identity_update_me",
         "security": [
           {
@@ -226,6 +227,53 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/me/consents": {
+      "post": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Accept Consents",
+        "description": "Одна галочка S02c: правила площадки (с 18+) и политика в версиях из client-config.\n\nПовтор идемпотентен; не та версия — 409 `legal_version_outdated`.",
+        "operationId": "identity_accept_consents",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/cities": {
@@ -644,6 +692,29 @@
         ],
         "title": "ClientConfigOut"
       },
+      "ConsentsIn": {
+        "properties": {
+          "terms_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Terms Version"
+          },
+          "privacy_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Privacy Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "terms_version",
+          "privacy_version"
+        ],
+        "title": "ConsentsIn",
+        "description": "Галочка S02c: версии правил (с 18+) и политики из client-config, которые видел\nпользователь."
+      },
       "Currency": {
         "type": "string",
         "enum": [
@@ -785,6 +856,50 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "home_city_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home City Id"
+          },
+          "intent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserIntent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "consents": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Consents"
+          },
+          "consent_required": {
+            "type": "boolean",
+            "title": "Consent Required"
+          },
+          "can_post": {
+            "type": "boolean",
+            "title": "Can Post"
+          },
+          "can_respond": {
+            "type": "boolean",
+            "title": "Can Respond"
+          },
+          "can_message": {
+            "type": "boolean",
+            "title": "Can Message"
           }
         },
         "type": "object",
@@ -794,7 +909,14 @@
           "ui_locale",
           "trust_level",
           "phone_verified",
-          "created_at"
+          "created_at",
+          "home_city_id",
+          "intent",
+          "consents",
+          "consent_required",
+          "can_post",
+          "can_respond",
+          "can_message"
         ],
         "title": "MeOut"
       },
@@ -822,10 +944,34 @@
                 "type": "null"
               }
             ]
+          },
+          "home_city_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 2147483647.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home City Id"
+          },
+          "intent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserIntent"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
-        "title": "MeUpdateIn"
+        "title": "MeUpdateIn",
+        "description": "Поля, которых нет или которые null, не меняются."
       },
       "MoneyOut": {
         "properties": {
@@ -1103,6 +1249,16 @@
           "refresh_expires_at"
         ],
         "title": "TokensOut"
+      },
+      "UserIntent": {
+        "type": "string",
+        "enum": [
+          "client",
+          "pro",
+          "casual"
+        ],
+        "title": "UserIntent",
+        "description": "«Что вы хотите?» в онбординге S02b: стартовый экран и подсказки, не права."
       }
     },
     "securitySchemes": {

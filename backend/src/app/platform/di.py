@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from app.platform.audit.port import AuditLog
 from app.platform.audit.sql import SqlAuditLog
 from app.platform.config.cache import ClientConfigCache
-from app.platform.config.port import FeatureFlags
+from app.platform.config.port import FeatureFlags, LegalVersions
 from app.platform.db.engine import libpq_dsn, make_engine, make_session_maker
 from app.platform.db.port import UnitOfWork
 from app.platform.db.uow import SqlAlchemyUnitOfWork
@@ -134,6 +134,10 @@ class PlatformProvider(Provider):
 
     @provide(scope=Scope.APP)
     def feature_flags(self, cache: ClientConfigCache) -> FeatureFlags:
+        return cache
+
+    @provide(scope=Scope.APP)
+    def legal_versions(self, cache: ClientConfigCache) -> LegalVersions:
         return cache
 
     @provide(scope=Scope.APP)

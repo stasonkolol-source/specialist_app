@@ -116,6 +116,24 @@ msgstr "Вход уже выполняется. Повторите попытк�
 msgid "errors.invalid_display_name"
 msgstr "Имя не может быть пустым."
 
+msgid "errors.consent_required"
+msgstr "Чтобы продолжить, примите правила площадки и политику конфиденциальности."
+
+msgid "errors.legal_version_outdated"
+msgstr "Правила обновились. Откройте их заново и примите новую версию."
+
+msgid "errors.legal_versions_unavailable"
+msgstr "Не удалось загрузить правила площадки. Повторите позже."
+
+msgid "errors.unknown_city"
+msgstr "Такого города нет в списке."
+
+msgid "errors.city_not_available"
+msgstr "В этом городе сервис пока не работает. Выберите другой."
+
+msgid "errors.invalid_restriction"
+msgstr "Некорректные параметры ограничения."
+
 msgid "errors.bad_request"
 msgstr "Некорректный запрос."
 

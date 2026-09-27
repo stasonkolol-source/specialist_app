@@ -65,7 +65,8 @@ layers =
     app.modules.deals | app.modules.pricing
     app.modules.specialists
     app.modules.media | app.modules.billing
-    app.modules.identity | app.modules.geo | app.modules.catalog
+    app.modules.identity
+    app.modules.geo | app.modules.catalog
     app.platform
 
 [importlinter:contract:interfaces-independent]

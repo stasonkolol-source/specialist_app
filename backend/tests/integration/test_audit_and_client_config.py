@@ -77,9 +77,17 @@ async def test_audit_needs_active_unit_of_work(
 
 @pytest.fixture
 async def restore_config(migrator_engine: AsyncEngine) -> AsyncIterator[AsyncEngine]:
+    """Вернуть client-config как было: версии документов из миграции нужны тестам identity."""
+    async with migrator_engine.connect() as conn:
+        saved = dict(
+            (await conn.execute(select(client_config.c.key, client_config.c.value))).tuples().all()
+        )
     yield migrator_engine
     async with migrator_engine.begin() as conn:
-        await conn.execute(update(client_config).values(value=text("'{}'::jsonb")))
+        for key, value in saved.items():
+            await conn.execute(
+                update(client_config).where(client_config.c.key == key).values(value=value)
+            )
         await conn.execute(feature_flags.delete().where(feature_flags.c.key.like("test.%")))
 
 

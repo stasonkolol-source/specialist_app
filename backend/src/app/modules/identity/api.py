@@ -7,15 +7,19 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
+from uuid import UUID
 
 from app.modules.identity.errors import AccountDeletedError as AccountDeletedError
+from app.modules.identity.errors import ConsentRequiredError as ConsentRequiredError
+from app.modules.identity.errors import InvalidRestrictionError as InvalidRestrictionError
 from app.modules.identity.errors import UserNotFoundError as UserNotFoundError
-from app.platform.kernel.ids import UserId
+from app.platform.contracts.events.identity import RestrictionKind as RestrictionKind
+from app.platform.kernel.ids import RestrictionId, UserId
 from app.platform.kernel.localized import Locale
 
 
 class Action(StrEnum):
-    """Действие, которое может запретить санкция (identity.restrictions)."""
+    """Действие, которое проверяет единая точка «можно ли» (санкции и согласия)."""
 
     LOGIN = "login"
     POST = "post"
@@ -44,6 +48,19 @@ class TelegramUserView:
     trust_level: int
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RestrictionIn:
+    """Санкция от модерации (2.5a): действует сразу, `ends_at` None — бессрочно."""
+
+    user_id: UserId
+    kind: RestrictionKind
+    reason_code: str
+    """Машинный код причины (`spam`, `prepayment_fraud`); текст решения — в модерации."""
+    ends_at: datetime | None = None
+    case_id: UUID | None = None
+    created_by: UserId | None = None
+
+
 class IdentityApi(Protocol):
     async def get_user(self, user_id: UserId) -> UserSummary | None: ...
 
@@ -52,5 +69,18 @@ class IdentityApi(Protocol):
         ...
 
     async def ensure_allowed(self, user_id: UserId, action: Action) -> None:
-        """RestrictedError (403 `restricted`), если действие запрещено действующей санкцией."""
+        """Единая точка «можно ли» перед действием; чтение, вызывать до транзакции.
+
+        RestrictedError (403 `restricted`) — действие запрещено действующей санкцией;
+        ConsentRequiredError (403 `consent_required`) — создающее действие (всё, кроме
+        LOGIN) до принятия действующих версий правил и политики.
+        """
+        ...
+
+    async def restrict(self, data: RestrictionIn) -> RestrictionId:
+        """Наложить санкцию в транзакции вызывающего (нужен активный UoW).
+
+        Пишет identity.restrictions и событие UserRestricted. InvalidRestrictionError —
+        код причины не машинный или срок уже истёк.
+        """
         ...

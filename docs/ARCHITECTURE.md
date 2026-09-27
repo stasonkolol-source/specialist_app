@@ -319,7 +319,7 @@ flowchart TB
 | Модуль (схема) | Ответственность | Ключевые сущности | Публикует события | Вызывает фасады |
 |---|---|---|---|---|
 | `platform` (shared kernel) | Общие типы (`Money`, `LocalizedText`, `GeoPoint`); порт очереди `JobQueue` и диспетчер событий; idempotency; audit log; feature flags; client config; i18n и транслитерация; контракты событий | `idempotency_keys`, `audit_log`, `client_config`, `translations` | — | — |
-| `identity` (users/auth) | Пользователи, способы входа (Telegram сейчас; Apple, Google, телефон позже), сессии, роли персонала, согласия, ограничения, блокировки между пользователями, удаление аккаунта, уровни доверия | `users`, `auth_identities`, `sessions`, `user_roles`, `consents`, `restrictions`, `user_blocks`, `deletion_requests` | `UserRegistered`, `UserUpdated`, `PhoneVerified`, `UserRestricted`, `UserDeleted` | — |
+| `identity` (users/auth) | Пользователи, способы входа (Telegram сейчас; Apple, Google, телефон позже), сессии, роли персонала, согласия, ограничения, блокировки между пользователями, удаление аккаунта, уровни доверия | `users`, `auth_identities`, `sessions`, `user_roles`, `consents`, `restrictions`, `user_blocks`, `deletion_requests` | `UserRegistered`, `UserUpdated`, `PhoneVerified`, `UserRestricted`, `UserDeleted` | geo |
 | `geo` | Города, районы (полигоны), определение района по точке, геокодинг | `cities`, `districts` | — | — |
 | `catalog` | Дерево категорий, теги, многоязычный словарь поисковых терминов и синонимов | `categories`, `tags`, `search_terms` | `CatalogChanged` | — |
 | `media` | Загрузка по presigned URL, обработка (варианты изображений, транскодинг видео), автоматическая проверка контента, жизненный цикл файлов | `assets` | `MediaReady`, `MediaRejected` | identity |
@@ -366,6 +366,7 @@ flowchart TB
     specialists --> identity & geo & catalog & media
     media --> identity
     billing --> identity
+    identity --> geo
     identity --> platform["platform (shared kernel)"]
     geo --> platform
     catalog --> platform

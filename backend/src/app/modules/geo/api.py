@@ -14,6 +14,15 @@ from app.platform.kernel.localized import LocalizedText
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class CitySummary:
+    id: CityId
+    slug: str
+    name: LocalizedText
+    is_active: bool
+    """False — город со статусом «скоро»: виден в списке, выбрать его ещё нельзя."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class DistrictSummary:
     id: DistrictId
     city_id: CityId
@@ -30,6 +39,10 @@ class ResolvedPoint:
 
 
 class GeoApi(Protocol):
+    async def city(self, city_id: CityId) -> CitySummary | None:
+        """Город справочника; None — такого нет (identity проверяет город из онбординга)."""
+        ...
+
     async def resolve(self, point: GeoPoint) -> ResolvedPoint | None:
         """Район точки; None — точка вне зоны сервиса."""
         ...

@@ -1,6 +1,8 @@
-"""ORM-модели identity (ARCHITECTURE §7.3, миграция identity_0001).
+"""ORM-модели identity (ARCHITECTURE §7.3, миграции identity_0001–0002).
 
-`home_city_id` с FK на geo.cities добавит identity_0002 (шаг 1.4a).
+FK на таблицы других схем (`users.home_city_id` → geo.cities) объявлен только в миграции:
+MetaData модуля не знает чужих таблиц, а ORM-ForeignKey на них не разрешился бы при
+flush. `alembic check` такие FK не сравнивает (migrations/env.py).
 """
 
 from datetime import datetime
@@ -13,6 +15,7 @@ from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
     Index,
+    Integer,
     LargeBinary,
     SmallInteger,
     String,
@@ -23,9 +26,10 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import INET, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.modules.identity.domain.consent import ConsentDocument
 from app.modules.identity.domain.restriction import RestrictionKind, RestrictionSource
 from app.modules.identity.domain.session import RevokeReason
-from app.modules.identity.domain.user import AuthProvider, UserStatus
+from app.modules.identity.domain.user import AuthProvider, UserIntent, UserStatus
 from app.platform.db.base import (
     ModelBase,
     SoftDeleteMixin,
@@ -61,6 +65,9 @@ class UserRow(UuidPkMixin, TimestampsMixin, SoftDeleteMixin, VersionMixin, Base)
         str_enum(Locale, "ui_locale"), server_default=Locale.RU.value
     )
     timezone: Mapped[str] = mapped_column(String(64), server_default="Europe/Belgrade")
+    home_city_id: Mapped[int | None] = mapped_column(Integer)
+    """geo.cities: FK fk_users_home_city_id_cities — в миграции identity_0002."""
+    intent: Mapped[UserIntent | None] = mapped_column(str_enum(UserIntent, "intent"))
     phone_e164: Mapped[str | None] = mapped_column(String(16))
     phone_verified_at: Mapped[datetime | None]
     identity_verified_at: Mapped[datetime | None]
@@ -140,6 +147,31 @@ class RestrictionRow(UuidPkMixin, Base):
             "ix_restrictions_user_id_in_force",
             "user_id",
             postgresql_where=text("lifted_at IS NULL"),
+        ),
+    )
+
+
+class ConsentRow(UuidPkMixin, Base):
+    """Журнал согласий (ст. 12–15 ZET, ст. 15 ZZPL): отзыв — withdrawn_at, строки не удаляются."""
+
+    __tablename__ = "consents"
+
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    document: Mapped[ConsentDocument] = mapped_column(str_enum(ConsentDocument, "document"))
+    version: Mapped[str] = mapped_column(String(64))
+    granted_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    withdrawn_at: Mapped[datetime | None]
+    source: Mapped[Platform] = mapped_column(str_enum(Platform, "source"))
+    ip: Mapped[str | None] = mapped_column(INET)
+
+    __table_args__ = (
+        Index(
+            "uq_consents_user_id_document_version",
+            "user_id",
+            "document",
+            "version",
+            unique=True,
+            postgresql_where=text("withdrawn_at IS NULL"),
         ),
     )
 
