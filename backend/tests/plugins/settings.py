@@ -2,6 +2,7 @@
 
 import pytest
 
+from app.platform.security.jwt import SigningKey
 from app.platform.settings import GROUPS, Settings, env_names
 from tests.plugins.containers import PostgresInfo
 
@@ -16,6 +17,7 @@ def _clean(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "8123456789:AAE" + "x" * 32)
     monkeypatch.setenv("TELEGRAM_BOT_USERNAME", "sosed_test_bot")
     monkeypatch.setenv("APP_LOG_JSON", "true")
+    monkeypatch.setenv("JWT_KEYS", SigningKey.generate("test").dump())
 
 
 @pytest.fixture

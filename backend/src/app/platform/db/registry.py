@@ -1,10 +1,7 @@
-"""Реестр схем и MetaData модулей для Alembic (DEVELOPMENT_PLAN 0.9).
+"""Реестр схем модулей для Alembic (DEVELOPMENT_PLAN 0.9).
 
-Модуль, у которого появились ORM-модели, добавляет свою MetaData в `module_metadatas()`
-в том же шаге: иначе `alembic check` не увидит его таблицы.
+MetaData модулей собирает `app/entrypoints/_metadata.py`: platform модулей не видит.
 """
-
-from sqlalchemy import MetaData
 
 MODULE_SCHEMAS: tuple[str, ...] = (
     "platform",
@@ -28,8 +25,3 @@ MODULE_SCHEMAS: tuple[str, ...] = (
 
 EXCLUDED_SCHEMAS: frozenset[str] = frozenset({"procrastinate", "public", "topology", "tiger"})
 """Не наши объекты: Procrastinate управляет своей схемой, PostGIS — public/topology/tiger."""
-
-
-def module_metadatas() -> list[MetaData]:
-    """MetaData всех модулей с таблицами. Пока таблиц нет — список пуст."""
-    return []

@@ -13,7 +13,8 @@ from sqlalchemy import pool, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.platform.db.registry import EXCLUDED_SCHEMAS, MODULE_SCHEMAS, module_metadatas
+from app.entrypoints._metadata import module_metadatas
+from app.platform.db.registry import EXCLUDED_SCHEMAS, MODULE_SCHEMAS
 from app.platform.settings import DbSettings
 
 VERSION_SCHEMA = "platform"
