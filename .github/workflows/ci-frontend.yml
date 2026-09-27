@@ -1,5 +1,5 @@
 # CI frontend (DEVELOPMENT_PLAN 0.16b): те же проверки, что make check-frontend локально.
-# Дальше сюда добавляются: diff api-client (0.20), Playwright (0.19a, 0.21b), бюджет бандла (0.21b), pnpm audit (0.23).
+# Дальше сюда добавляются: Playwright экранов и бюджет бандла (0.21b), pnpm audit (0.23).
 name: ci-frontend
 
 on:
@@ -7,6 +7,7 @@ on:
     paths:
       - 'apps/**'
       - 'packages/**'
+      - 'backend/openapi.json'
       - 'design/ui.css'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -20,6 +21,7 @@ on:
     paths:
       - 'apps/**'
       - 'packages/**'
+      - 'backend/openapi.json'
       - 'design/ui.css'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -82,6 +84,13 @@ jobs:
 
       - name: i18n catalogs
         run: pnpm -F i18n i18n:check
+
+      # Клиент — вывод orval из backend/openapi.json: перегенерация не должна давать diff (make openapi)
+      - name: api-client matches OpenAPI
+        run: |
+          pnpm -F api-client generate
+          git add --intent-to-add packages/api-client
+          git diff --exit-code packages/api-client
 
   # Скриншоты галереи ui-web: тот же образ Playwright, что у make e2e, — эталоны совпадают с локальными.
   # На PR только chromium и галерея; полная матрица экранов — с 0.21b.

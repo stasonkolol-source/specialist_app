@@ -5,3 +5,8 @@ packages:
 engineStrict: true
 autoInstallPeers: true
 strictPeerDependencies: false
+# Скрипты установки не нужны: бинарь esbuild приходит optional-зависимостью платформы,
+# service worker MSW в браузер не кладём (моки — в тестах через msw/node).
+allowBuilds:
+  esbuild: false
+  msw: false
