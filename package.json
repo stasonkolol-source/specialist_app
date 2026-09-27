@@ -13,7 +13,8 @@
     "test": "turbo run test",
     "check": "turbo run typecheck lint test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "design:render": "make design-render"
   },
   "prettier": "@sosed/config/prettier",
   "devDependencies": {
