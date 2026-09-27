@@ -53,6 +53,7 @@ package = true
 
 [tool.pytest.ini_options]
 testpaths = ["src/app", "tests"]
+pythonpath = ["."]
 python_files = ["test_*.py"]
 addopts = ["--strict-markers", "--import-mode=importlib"]
 markers = [
@@ -61,7 +62,8 @@ markers = [
     "bench: бенчмарки, вручную",
 ]
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 
 [tool.ruff]
 target-version = "py314"

@@ -8,7 +8,7 @@ PORTS := 55442 56379 59100 59103 8000 5173
 COMPOSE := docker compose -p specialist-dev -f infra/compose/docker-compose.dev.yml --env-file infra/compose/.env
 
 .PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks \
-	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check
+	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check test-int
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-20s %s\n", $$1, $$2}'
@@ -49,6 +49,9 @@ imports: ## import-linter contracts (module layers, pure core, DAG)
 test: ## Unit tests
 	@cd $(BACKEND) && $(UV) run pytest -m unit -q
 
+test-int: pg-image ## Integration tests on testcontainers (our PostGIS image, Valkey, Garage)
+	@cd $(BACKEND) && $(UV) run pytest -m integration -q
+
 # --- Локальное окружение (шаг 0.3). Только compose-проект specialist-dev. ---
 
 secrets-dev: ## Сгенерировать dev-пароли и секреты в .env (значения не печатаются)
@@ -86,8 +89,7 @@ secrets-check: ## Какие переменные заданы или пусты
 garage-init: ## Ключ, бакеты и CORS в Garage; ключи — в backend/.env
 	@cd scripts && $(UV) run --no-project --quiet --with boto3 python garage_init.py
 
-check: plan-check gitleaks lint typecheck imports test ## Definition of Done checks available so far
-	@echo "SKIP integration tests (step 0.5a)"
+check: plan-check gitleaks lint typecheck imports test test-int ## Definition of Done checks available so far
 	@echo "SKIP migrate-roundtrip (step 0.9)"
 	@echo "SKIP frontend checks (step 0.16a)"
 	@echo "check: OK"
