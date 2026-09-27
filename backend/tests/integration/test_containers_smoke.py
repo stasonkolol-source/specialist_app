@@ -55,15 +55,15 @@ async def test_changes_are_rolled_back_between_tests(
     probe_table: str, db_session: AsyncSession
 ) -> None:
     # commit в коде теста — это savepoint внешней транзакции, в конце теста всё откатится
-    await db_session.execute(text(f"INSERT INTO {probe_table} VALUES (1)"))  # noqa: S608
+    await db_session.execute(text(f"INSERT INTO {probe_table} VALUES (1)"))
     await db_session.commit()
-    count = (await db_session.execute(text(f"SELECT count(*) FROM {probe_table}"))).scalar_one()  # noqa: S608
+    count = (await db_session.execute(text(f"SELECT count(*) FROM {probe_table}"))).scalar_one()
     assert count == 1
 
 
 async def test_previous_test_left_nothing(probe_table: str, db_engine: AsyncEngine) -> None:
     async with db_engine.connect() as conn:
-        assert await _scalar(conn, f"SELECT count(*) FROM {probe_table}") == 0  # noqa: S608
+        assert await _scalar(conn, f"SELECT count(*) FROM {probe_table}") == 0
 
 
 async def test_app_role_cannot_create_temp_tables(db_connection: AsyncConnection) -> None:
