@@ -1,0 +1,99 @@
+# CI backend (DEVELOPMENT_PLAN 0.5b): те же проверки, что make check локально.
+# Интеграционные тесты — на тех же testcontainers и нашем образе PostGIS.
+name: ci-backend
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "infra/postgres/**"
+      - "infra/compose/garage.toml"
+      - "scripts/**"
+      - "Makefile"
+      - ".github/workflows/ci-backend.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "infra/postgres/**"
+      - "infra/compose/garage.toml"
+      - "scripts/**"
+      - "Makefile"
+      - ".github/workflows/ci-backend.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: backend checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Python and dependencies
+        run: |
+          uv python install
+          uv sync --locked
+
+      - name: ruff
+        run: |
+          uv run ruff check
+          uv run ruff format --check
+
+      - name: mypy (strict)
+        run: uv run mypy
+
+      - name: import-linter contracts
+        run: uv run lint-imports --no-cache
+
+      - name: unit tests
+        run: uv run pytest -m unit -q
+
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - name: PostgreSQL + PostGIS image (layer cache in GitHub Actions)
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: infra/postgres
+          load: true
+          tags: specialist/postgres-postgis:18.6-3.6
+          cache-from: type=gha,scope=pg-image
+          cache-to: type=gha,scope=pg-image,mode=max
+
+      - name: integration tests (testcontainers)
+        run: uv run pytest -m integration -q
+
+  repo:
+    name: plan and secrets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: plan-check
+        run: python3 scripts/plan_check.py
+
+      - name: gitleaks (git history)
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          ./gitleaks git --no-banner --redact .
