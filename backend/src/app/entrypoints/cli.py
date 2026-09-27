@@ -121,6 +121,23 @@ def i18n_check() -> None:
     typer.echo(f"backend i18n: {len(ru)} keys, sr_Latn up to date")
 
 
+@app.command("seeds-validate")
+def seeds_validate() -> None:
+    """Проверить сиды пилотной зоны: гео, таксономию, запросы (DEVELOPMENT_PLAN 0.27)."""
+    from app.entrypoints.seeds import validate
+
+    report = validate()
+    for line in report.summary:
+        typer.echo(line)
+    for warning in report.warnings:
+        typer.echo(f"warning: {warning}")
+    for error in report.errors:
+        typer.echo(f"error: {error}", err=True)
+    if not report.ok:
+        raise typer.Exit(code=1)
+    typer.echo("seeds: OK")
+
+
 @app.command("dev-initdata")
 def dev_initdata(
     *,
