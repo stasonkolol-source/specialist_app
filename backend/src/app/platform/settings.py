@@ -9,11 +9,12 @@
 - Новая настройка появляется в `backend/.env.example` в том же шаге (это проверяет тест).
 """
 
+import re
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field, SecretStr, ValidationError
+from pydantic import Field, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
@@ -49,6 +50,20 @@ class AppSettings(_Group):
     release: str = "dev"
     heartbeat_url: str | None = None
     """Ping Healthchecks.io раз в минуту из воркера (K33), без адреса — только лог."""
+    api_public_url: str = "http://127.0.0.1:8000"
+    """Публичный адрес API: из него строится `type` ошибок RFC 9457."""
+    min_client_versions: dict[str, str] = Field(default_factory=dict)
+    """Минимальные версии клиентов для 426, JSON: {"tma": "1.0.0"}. С 1.1 — из client-config."""
+
+    @field_validator("min_client_versions")
+    @classmethod
+    def _versions(cls, value: dict[str, str]) -> dict[str, str]:
+        for platform, version in value.items():
+            if not re.fullmatch(r"[a-z]+", platform) or not re.fullmatch(
+                r"\d+(\.\d+){0,2}", version
+            ):
+                raise ValueError(f"bad min client version {platform}={version}")
+        return value
 
 
 class DbSettings(_Group):
