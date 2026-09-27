@@ -2,19 +2,38 @@
   "name": "@sosed/api-client",
   "version": "0.0.0",
   "private": true,
-  "description": "Клиент API: хуки TanStack Query из OpenAPI (orval, шаг 0.20)",
+  "description": "Клиент API: хуки TanStack Query, Zod-схемы и MSW-моки из OpenAPI (orval, шаг 0.20)",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./mocks": "./src/mocks.ts",
+    "./zod": "./src/zod.ts"
   },
   "scripts": {
+    "generate": "orval --config orval.config.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.104.0",
+    "zod": "4.6.5"
   },
   "devDependencies": {
+    "@faker-js/faker": "10.6.0",
     "@sosed/config": "workspace:*",
+    "@testing-library/react": "16.3.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "eslint": "10.11.0",
+    "jsdom": "29.1.1",
+    "msw": "2.15.0",
+    "orval": "8.34.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
     "typescript": "6.0.3",
     "vitest": "5.0.2"
   }
