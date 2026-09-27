@@ -12,7 +12,9 @@ import type { ReactNode } from 'react';
 
 import { CHROME } from './chrome.ts';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
+import { LaunchGate } from './LaunchGate.tsx';
 import { reloadRoutes } from './router.ts';
+import type { Auth } from './session.ts';
 import { StartupGate } from './StartupGate.tsx';
 
 export interface AppProps {
@@ -21,9 +23,11 @@ export interface AppProps {
   queryClient: QueryClient;
   router: AnyRouter;
   version: string;
+  launch: Auth['launch'];
+  deepLink: string | null;
 }
 
-export function App({ platform, i18n, queryClient, router, version }: AppProps) {
+export function App({ platform, i18n, queryClient, router, version, launch, deepLink }: AppProps) {
   return (
     <PlatformProvider platform={platform}>
       <I18nextProvider i18n={i18n}>
@@ -32,7 +36,9 @@ export function App({ platform, i18n, queryClient, router, version }: AppProps) 
           <QueryClientProvider client={queryClient}>
             <ErrorBoundary onReset={() => reloadRoutes(router)}>
               <StartupGate appVersion={version}>
-                <RouterProvider router={router} />
+                <LaunchGate launch={launch} deepLink={deepLink} router={router}>
+                  <RouterProvider router={router} />
+                </LaunchGate>
               </StartupGate>
             </ErrorBoundary>
           </QueryClientProvider>

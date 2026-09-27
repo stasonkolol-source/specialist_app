@@ -5,9 +5,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { AvatarStack, Chip, Chips, Price } from './Chips.tsx';
 import { Banner, EmptyState, ProgressBar, Skeleton, Stars, Steps, Toast } from './Feedback.tsx';
-import { Option, Segmented, Switch } from './form/Choice.tsx';
+import { Checkbox, Option, RadioGroup, Segmented, Switch } from './form/Choice.tsx';
 import { Field, Input, SearchField, Textarea } from './form/Field.tsx';
-import { Group, Row, Tile, Tiles } from './Group.tsx';
+import { Badge } from './Badge.tsx';
+import { Group, Row, RowIcon, Tile, Tiles } from './Group.tsx';
 import { Photo } from './Photo.tsx';
 import { a11yViolations } from './testing/a11y.ts';
 
@@ -160,6 +161,110 @@ describe('Segmented, Option, Switch', () => {
     const option = screen.getByRole('checkbox', { name: 'Только проверенные' });
     fireEvent.click(option);
     expect(option.getAttribute('aria-checked')).toBe('true');
+    expect(await a11yViolations(container)).toEqual([]);
+  });
+});
+
+describe('RadioGroup, Option (онбординг S02a–b), Checkbox', () => {
+  function Languages() {
+    const [value, setValue] = useState('ru');
+    const option = (id: string, title: string) => (
+      <Option
+        key={id}
+        control="start"
+        title={title}
+        checked={value === id}
+        onChange={() => setValue(id)}
+      />
+    );
+    return (
+      <RadioGroup label="Язык интерфейса">
+        {option('ru', 'Русский')}
+        {option('sr-Latn', 'Srpski')}
+        <Option
+          control="start"
+          title="English"
+          trailing={<Badge>скоро</Badge>}
+          checked={false}
+          onChange={() => setValue('en')}
+          disabled
+        />
+        {option('sr-Cyrl', 'Српски')}
+      </RadioGroup>
+    );
+  }
+
+  it('стрелки выбирают соседний доступный вариант и пропускают «скоро»', async () => {
+    const { container } = render(<Languages />);
+    const ru = screen.getByRole('radio', { name: 'Русский' });
+    ru.focus();
+    fireEvent.keyDown(ru, { key: 'ArrowDown' });
+    const latin = screen.getByRole('radio', { name: 'Srpski' });
+    expect(latin.getAttribute('aria-checked')).toBe('true');
+    expect(document.activeElement).toBe(latin);
+
+    fireEvent.keyDown(latin, { key: 'ArrowDown' });
+    expect(screen.getByRole('radio', { name: 'Српски' }).getAttribute('aria-checked')).toBe('true');
+    const english = screen.getByRole('radio', { name: 'English' }) as HTMLButtonElement;
+    expect(english.disabled).toBe(true);
+    expect(english.getAttribute('aria-describedby')).toBeTruthy();
+    expect(
+      document.getElementById(english.getAttribute('aria-describedby') ?? '')?.textContent,
+    ).toBe('скоро');
+    fireEvent.click(english);
+    expect(english.getAttribute('aria-checked')).toBe('false');
+
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'ArrowDown' });
+    expect(ru.getAttribute('aria-checked')).toBe('true');
+    expect(await a11yViolations(container)).toEqual([]);
+  });
+
+  it('отметка слева или справа, крупная карточка с плиткой', () => {
+    render(
+      <RadioGroup label="Цель">
+        <Option control="start" title="Нови-Сад" checked onChange={() => undefined} />
+        <Option
+          large
+          leading={<RowIcon icon="search" palette={1} xl />}
+          title="Найти мастера"
+          description="Электрик, маникюр, уборка"
+          checked={false}
+          onChange={() => undefined}
+        />
+      </RadioGroup>,
+    );
+    const city = screen.getByRole('radio', { name: 'Нови-Сад' });
+    expect(city.firstElementChild?.className).toContain('rounded-full');
+    const intent = screen.getByRole('radio', {
+      name: 'Найти мастера',
+      description: 'Электрик, маникюр, уборка',
+    });
+    expect(intent.className).toContain('items-start');
+    expect(intent.lastElementChild?.className).toContain('mt-2.75');
+    expect(intent.firstElementChild?.className).toContain('size-11');
+  });
+
+  it('галочка: вся строка нажимается, ошибка связана с полем', async () => {
+    function Demo() {
+      const [checked, setChecked] = useState(false);
+      return (
+        <>
+          <Checkbox checked={checked} onChange={setChecked} invalid={!checked} describedBy="err">
+            Мне есть 18 лет, я принимаю правила площадки
+          </Checkbox>
+          <p id="err">Отметьте галочку</p>
+        </>
+      );
+    }
+    const { container } = render(<Demo />);
+    const box = screen.getByRole('checkbox', {
+      name: 'Мне есть 18 лет, я принимаю правила площадки',
+    });
+    expect(box.getAttribute('aria-invalid')).toBe('true');
+    expect(box.getAttribute('aria-describedby')).toBe('err');
+    fireEvent.click(box);
+    expect(box.getAttribute('aria-checked')).toBe('true');
+    expect(box.getAttribute('aria-invalid')).toBeNull();
     expect(await a11yViolations(container)).toEqual([]);
   });
 });

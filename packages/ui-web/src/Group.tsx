@@ -14,21 +14,25 @@ const PALETTE: Record<AvatarPalette, string> = {
   5: 'bg-av5 text-av5-ink',
 };
 
-/** Иконка строки .row-ic: 36×36, мягкий акцент или палитра категорий. */
+/** Иконка строки .row-ic: 36×36, мягкий акцент или палитра категорий. `large` — 40×40 (плитки),
+ *  `xl` — 44×44 (карточки намерения S02b). */
 export function RowIcon({
   icon,
   palette,
   large = false,
+  xl = false,
 }: {
   icon: IconName;
   palette?: AvatarPalette;
   large?: boolean;
+  xl?: boolean;
 }) {
   return (
     <span
+      aria-hidden="true"
       className={cx(
         'flex shrink-0 items-center justify-center',
-        large ? 'size-10 rounded-btn' : 'size-9 rounded-btn-sm',
+        xl ? 'size-11 rounded-btn' : large ? 'size-10 rounded-btn' : 'size-9 rounded-btn-sm',
         palette ? PALETTE[palette] : 'bg-accent-soft text-accent-soft-ink',
       )}
     >

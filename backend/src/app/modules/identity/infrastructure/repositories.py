@@ -1,9 +1,9 @@
 """Репозитории identity (ADR-0020 §5): агрегаты и простые записи (согласия, санкции)."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime
 
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -201,6 +201,22 @@ class SqlConsentRepository:
         except IntegrityError as err:
             raise_domain_error(err, {"fk_consents_user_id_users": _user_not_found(user_id)})
         return len(inserted)
+
+    async def withdraw(
+        self, user_id: UserId, documents: Iterable[ConsentDocument], *, now: datetime
+    ) -> int:
+        self._uow.require_active()
+        stmt = (
+            update(ConsentRow)
+            .where(
+                ConsentRow.user_id == user_id,
+                ConsentRow.document.in_(list(documents)),
+                ConsentRow.withdrawn_at.is_(None),
+            )
+            .values(withdrawn_at=now)
+            .returning(ConsentRow.id)
+        )
+        return len((await self._session.execute(stmt)).scalars().all())
 
 
 class SqlRestrictionRepository:

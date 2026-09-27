@@ -9,8 +9,10 @@ export {
   DEFAULT_LOCALE,
   INTL_LOCALE,
   LOCALES,
+  LOCALE_LABELS,
   LOCALE_NAMES,
   TIME_ZONE,
+  UPCOMING_LOCALES,
   isLocale,
   resolveLocale,
 } from './locale.ts';

@@ -1,7 +1,7 @@
 // Демо-данные design/SPEC.md §4 — одни и те же во всех экранах, тестах и скриншотах.
 // Ответы существующих эндпоинтов — типами api-client; данные экранов, для которых API ещё нет
 // (специалисты, заявки, отклики), — формой из SPEC: шаги этапа 1 заменят их моделями OpenAPI.
-import type { ClientConfigOut, MeOut } from '@sosed/api-client';
+import type { CityOut, ClientConfigOut, MeOut, TelegramChannelOut } from '@sosed/api-client';
 
 import { draftDocument } from './legal.ts';
 
@@ -96,6 +96,60 @@ export const ME: MeOut = {
   can_post_jobs: true,
   can_respond: true,
   can_message: true,
+};
+
+/** Новый пользователь сразу после первого входа: ни города, ни намерения, ни согласия (S02a). */
+export const NEW_USER: MeOut = {
+  ...ME,
+  home_city_id: null,
+  intent: null,
+  consents: {},
+  consent_required: true,
+  can_post_jobs: false,
+  can_respond: false,
+  can_message: false,
+};
+
+/** Вернувшийся пользователь после новой редакции правил: снова только S02c. */
+export const OUTDATED_CONSENTS_USER: MeOut = {
+  ...ME,
+  consents: { terms: 'draft-0', privacy: 'draft-0', age_18: 'draft-0' },
+  consent_required: true,
+  can_post_jobs: false,
+  can_respond: false,
+  can_message: false,
+};
+
+/** Согласие с действующими версиями CLIENT_CONFIG: ответ POST /me/consents. */
+export const accepted = (me: MeOut): MeOut => ({
+  ...me,
+  consents: { terms: 'draft-1', privacy: 'draft-1', age_18: 'draft-1' },
+  consent_required: false,
+  can_post_jobs: true,
+  can_respond: true,
+  can_message: true,
+});
+
+/** Города seeds/geo/cities.yaml: пилот Нови-Сад и Белград «скоро»; названия — на языке запроса. */
+const CITY_NAMES: Record<string, [string, string]> = {
+  ru: ['Нови-Сад', 'Белград'],
+  'sr-Cyrl': ['Нови Сад', 'Београд'],
+  'sr-Latn': ['Novi Sad', 'Beograd'],
+};
+
+export function citiesFor(locale: string | null): CityOut[] {
+  const [noviSad, belgrade] = CITY_NAMES[locale ?? 'ru'] ?? CITY_NAMES.ru ?? ['', ''];
+  return [
+    { id: 1, slug: 'novi-sad', name: noviSad, status: 'active', center: { lat: 45.2671, lon: 19.8335 } },
+    { id: 2, slug: 'beograd', name: belgrade, status: 'soon', center: { lat: 44.8125, lon: 20.4573 } },
+  ];
+} // prettier-ignore
+
+/** POST /me/telegram/write-access: разрешение из Mini App. */
+export const WRITE_ACCESS: TelegramChannelOut = {
+  writable: true,
+  granted_via: 'mini_app',
+  granted_at: '2026-09-27T10:13:00Z',
 };
 
 /** Как client-config dev-стенда: черновики draft-1 правил и политики (0.27), флаг техработ выключен. */

@@ -58,6 +58,14 @@ class AuthResult:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class OnboardingReset:
+    """Итог `cli dev-reset-user`: чей онбординг сброшен и сколько согласий отозвано."""
+
+    user_id: UserId
+    withdrawn_consents: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class MeView:
     """Свой профиль для GET /me; version — ETag для PATCH /me."""
 

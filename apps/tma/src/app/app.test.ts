@@ -114,4 +114,52 @@ describe('sign in by initData', () => {
     expect(getSession()).toBeNull();
     expect(onSignedIn).not.toHaveBeenCalled();
   });
+
+  it('launch: one exchange for S01 and main.tsx, the user and «new» come with it', async () => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify(tokens), { status: 200 }));
+    configureApiClient({ fetch });
+    const auth = createAuth(platformWith('user=1&hash=abc'));
+
+    const [first, second] = await Promise.all([auth.launch(), auth.launch()]);
+
+    expect(first).toEqual({ kind: 'signed-in', user: tokens.user, isNew: true });
+    expect(second).toBe(first);
+    await expect(auth.launch()).resolves.toBe(first);
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it('launch: a guest without Telegram or with refused initData, a failure otherwise', async () => {
+    const refused = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ status: 401, code: 'invalid_init_data' }), { status: 401 }),
+    );
+    configureApiClient({ fetch: refused });
+    await expect(createAuth(platformWith(null)).launch()).resolves.toEqual({ kind: 'guest' });
+    await expect(createAuth(platformWith('stale')).launch()).resolves.toEqual({ kind: 'guest' });
+
+    const offline = vi.fn(async () => {
+      throw new TypeError('Failed to fetch');
+    });
+    configureApiClient({ fetch: offline });
+    const onRefused = vi.fn();
+    const result = await createAuth(platformWith('user=1'), undefined, onRefused).launch();
+    expect(result.kind).toBe('failed');
+    expect(onRefused).toHaveBeenCalledOnce();
+  });
+
+  it('launch: after a failure the next call signs in again («Повторить»)', async () => {
+    let online = false;
+    const fetch = vi.fn(async () => {
+      if (!online) throw new TypeError('Failed to fetch');
+      return new Response(JSON.stringify(tokens), { status: 200 });
+    });
+    configureApiClient({ fetch });
+    const auth = createAuth(platformWith('user=1'));
+
+    expect((await auth.launch()).kind).toBe('failed');
+    online = true;
+    expect((await auth.launch()).kind).toBe('signed-in');
+    expect((await auth.launch()).kind).toBe('signed-in');
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
 });

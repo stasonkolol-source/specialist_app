@@ -3,7 +3,7 @@
 import type { ClientConfigOut, MeOut } from '@sosed/api-client';
 import type { Page, Request, Route } from '@playwright/test';
 
-import { CLIENT_CONFIG, ME } from '../src/testing/fixtures.ts';
+import { CLIENT_CONFIG, ME, WRITE_ACCESS, accepted, citiesFor } from '../src/testing/fixtures.ts';
 
 export const json = (body: unknown, status = 200) => ({
   status,
@@ -42,7 +42,17 @@ export interface MockApiOptions {
   config?: ClientConfigOut;
   /** Свои ответы по ключу «METHOD /api/v1/…»: проверяются раньше стандартных. */
   handlers?: Record<string, (route: Route) => Promise<void>>;
+  /** Что приложение прислало в PATCH /me, POST /me/consents и POST /me/telegram/write-access. */
+  sent?: SentRequests;
 }
+
+export interface SentRequests {
+  patch: unknown[];
+  consents: unknown[];
+  writeAccess: number;
+}
+
+export const sentRequests = (): SentRequests => ({ patch: [], consents: [], writeAccess: 0 });
 
 const authorized = (request: Request) =>
   request.headers()['authorization'] === `Bearer ${TOKENS.access_token}`;
@@ -50,8 +60,16 @@ const authorized = (request: Request) =>
 export async function mockApi(
   page: Page,
   unexpected: string[],
-  { signedIn = false, me = ME, config = CLIENT_CONFIG, handlers = {} }: MockApiOptions = {},
+  {
+    signedIn = false,
+    me = ME,
+    config = CLIENT_CONFIG,
+    handlers = {},
+    sent = sentRequests(),
+  }: MockApiOptions = {},
 ): Promise<void> {
+  // пользователь с памятью, как на сервере: онбординг меняет его шаг за шагом
+  let user = me;
   await page.route('**/api/v1/**', (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -61,18 +79,31 @@ export async function mockApi(
     switch (key) {
       case 'GET /api/v1/client-config':
         return route.fulfill(json(config));
+      case 'GET /api/v1/cities':
+        return route.fulfill(json(citiesFor(request.headers()['accept-language'] ?? null)));
       case 'GET /api/v1/me':
-        return route.fulfill(authorized(request) ? json(me) : json(NOT_AUTHENTICATED, 401));
-      case 'PATCH /api/v1/me':
-        return route.fulfill(
-          authorized(request)
-            ? json({ ...me, ...(request.postDataJSON() as object) })
-            : json(NOT_AUTHENTICATED, 401),
-        );
+        return route.fulfill(authorized(request) ? json(user) : json(NOT_AUTHENTICATED, 401));
+      case 'PATCH /api/v1/me': {
+        if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
+        const body = request.postDataJSON() as Record<string, unknown>;
+        sent.patch.push(body);
+        const fields = Object.entries(body).filter(([, value]) => value != null);
+        user = { ...user, ...Object.fromEntries(fields) };
+        return route.fulfill(json(user));
+      }
+      case 'POST /api/v1/me/consents':
+        if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
+        sent.consents.push(request.postDataJSON());
+        user = accepted(user);
+        return route.fulfill(json(user));
+      case 'POST /api/v1/me/telegram/write-access':
+        if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
+        sent.writeAccess += 1;
+        return route.fulfill(json(WRITE_ACCESS));
       // по умолчанию backend отверг бы синтетический initData mock-платформы
       case 'POST /api/v1/auth/telegram':
         return route.fulfill(
-          signedIn ? json({ ...TOKENS, is_new: false, user: me }) : json(INVALID_INIT_DATA, 401),
+          signedIn ? json({ ...TOKENS, is_new: false, user }) : json(INVALID_INIT_DATA, 401),
         );
       default:
         unexpected.push(key);

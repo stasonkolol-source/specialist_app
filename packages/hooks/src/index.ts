@@ -10,6 +10,13 @@ export {
   useClientConfig,
   useFlag,
 } from './config/clientConfig.ts';
+export {
+  CITIES_STALE_MS,
+  citiesQueryKey,
+  defaultCity,
+  isSelectableCity,
+  useCities,
+} from './geo/cities.ts';
 export type { LegalDocumentKey, LegalTextView } from './legal/useLegalDocument.ts';
 export {
   LEGAL_DOCUMENTS,
@@ -17,6 +24,14 @@ export {
   legalText,
   useLegalDocument,
 } from './legal/useLegalDocument.ts';
+export type { ConsentGate, OnboardingStep } from './onboarding/onboarding.ts';
+export {
+  ONBOARDING_STEPS,
+  consentGate,
+  nextOnboardingStep,
+  onboardingStep,
+  useConsentGate,
+} from './onboarding/onboarding.ts';
 export type { Restriction, SystemState } from './system/systemState.ts';
 export {
   ACCOUNT_BLOCKING,
