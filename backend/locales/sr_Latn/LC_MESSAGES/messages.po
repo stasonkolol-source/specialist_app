@@ -1,0 +1,154 @@
+# СГЕНЕРИРОВАН из sr_Cyrl командой `cli i18n generate` — не править вручную.
+# Каталог backend «Сосед»: српски, ћирилица — исходник сербского.
+# Ключи — стабильные msgid (ADR-0013), параметры — {name}. Каталоги ru и sr_Cyrl
+# полные (архитектурный тест), sr_Latn генерирует `cli i18n generate`.
+msgid ""
+msgstr ""
+"Language: sr_Latn\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "errors.not_found"
+msgstr "Nije pronađeno."
+
+msgid "errors.not_authenticated"
+msgstr "Potrebno je da se prijavite."
+
+msgid "errors.forbidden"
+msgstr "Nemate pravo na ovu radnju."
+
+msgid "errors.restricted"
+msgstr "Ova radnja vam je trenutno ograničena."
+
+msgid "errors.conflict"
+msgstr "Radnja nije moguća u trenutnom stanju."
+
+msgid "errors.concurrent_modification"
+msgstr "Podaci su se upravo promenili. Pokušajte ponovo."
+
+msgid "errors.stale_version"
+msgstr "Podaci su zastareli. Osvežite stranicu i pokušajte ponovo."
+
+msgid "errors.validation_failed"
+msgstr "Proverite unete podatke."
+
+msgid "errors.rate_limited"
+msgstr "Previše zahteva. Pokušajte ponovo za {retry_after} s."
+
+msgid "errors.external_service_unavailable"
+msgstr "Servis je privremeno nedostupan. Pokušajte ponovo kasnije."
+
+msgid "errors.currency_mismatch"
+msgstr "Valute se ne poklapaju."
+
+msgid "errors.invalid_cursor"
+msgstr "Neispravan parametar stranice."
+
+msgid "errors.invalid_if_match"
+msgstr "Neispravno zaglavlje If-Match."
+
+msgid "errors.invalid_init_data"
+msgstr "Prijava preko Telegram-a nije uspela. Otvorite aplikaciju ponovo."
+
+msgid "errors.init_data_expired"
+msgstr "Sesija u Telegram-u je istekla. Otvorite aplikaciju ponovo."
+
+msgid "errors.invalid_token"
+msgstr "Sesija nije važeća. Prijavite se ponovo."
+
+msgid "errors.token_expired"
+msgstr "Sesija je istekla."
+
+msgid "errors.session_revoked"
+msgstr "Sesija je završena. Prijavite se ponovo."
+
+msgid "errors.invalid_refresh_token"
+msgstr "Sesija nije važeća. Prijavite se ponovo."
+
+msgid "errors.user_not_found"
+msgstr "Korisnik nije pronađen."
+
+msgid "errors.session_not_found"
+msgstr "Sesija nije pronađena."
+
+msgid "errors.account_deleted"
+msgstr "Nalog je obrisan."
+
+msgid "errors.user_already_deleted"
+msgstr "Nalog je već obrisan."
+
+msgid "errors.concurrent_login"
+msgstr "Prijava je već u toku. Pokušajte ponovo."
+
+msgid "errors.invalid_display_name"
+msgstr "Ime ne može biti prazno."
+
+msgid "errors.bad_request"
+msgstr "Neispravan zahtev."
+
+msgid "errors.method_not_allowed"
+msgstr "Metod nije dozvoljen."
+
+msgid "errors.not_acceptable"
+msgstr "Format odgovora nije podržan."
+
+msgid "errors.payload_too_large"
+msgstr "Zahtev je prevelik."
+
+msgid "errors.unsupported_media_type"
+msgstr "Tip sadržaja nije podržan."
+
+msgid "errors.validation_error"
+msgstr "Proverite unete podatke."
+
+msgid "errors.malformed_request"
+msgstr "Telo zahteva nije ispravan JSON."
+
+msgid "errors.internal_error"
+msgstr "Nešto nije u redu. Već radimo na tome."
+
+msgid "errors.invalid_client_header"
+msgstr "Neispravno zaglavlje X-Client."
+
+msgid "errors.client_upgrade_required"
+msgstr "Ažurirajte Telegram da biste nastavili."
+
+msgid "validation.missing"
+msgstr "Obavezno polje."
+
+msgid "validation.string_too_short"
+msgstr "Najmanji broj znakova: {min_length}."
+
+msgid "validation.string_too_long"
+msgstr "Najveći broj znakova: {max_length}."
+
+msgid "validation.string_type"
+msgstr "Potreban je tekst."
+
+msgid "validation.int_parsing"
+msgstr "Potreban je ceo broj."
+
+msgid "validation.int_type"
+msgstr "Potreban je ceo broj."
+
+msgid "validation.bool_parsing"
+msgstr "Potrebno je true ili false."
+
+msgid "validation.uuid_parsing"
+msgstr "Neispravan identifikator."
+
+msgid "validation.enum"
+msgstr "Nedozvoljena vrednost."
+
+msgid "validation.literal_error"
+msgstr "Nedozvoljena vrednost."
+
+msgid "validation.greater_than_equal"
+msgstr "Vrednost mora biti najmanje {ge}."
+
+msgid "validation.less_than_equal"
+msgstr "Vrednost mora biti najviše {le}."
+
+msgid "validation.extra_forbidden"
+msgstr "Nepoznato polje."

@@ -1,0 +1,9 @@
+# Каталог backend «Сосед»: английский — с v1 (ADR-0013), пока пустой.
+# Ключи — стабильные msgid (ADR-0013), параметры — {name}. Каталоги ru и sr_Cyrl
+# полные (архитектурный тест), sr_Latn генерирует `cli i18n generate`.
+msgid ""
+msgstr ""
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"

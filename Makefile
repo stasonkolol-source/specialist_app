@@ -11,7 +11,7 @@ EXTRA_CHECKS :=
 
 COMPOSE := docker compose -p specialist-dev -f infra/compose/docker-compose.dev.yml --env-file infra/compose/.env
 
-.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker new-module new-use-case openapi contract \
+.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker new-module new-use-case openapi contract i18n-check-backend \
 	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check test-int migrate migrate-roundtrip pg-bootstrap
 
 help: ## Show available targets
@@ -103,6 +103,11 @@ migrate: ## alembic upgrade head на dev-БД (роль migrator)
 migrate-roundtrip: pg-image ## Раунд-трип миграций в testcontainers: upgrade → downgrade base → upgrade → check → heads
 	@cd $(BACKEND) && $(UV) run pytest -m integration -q -k "roundtrip"
 
+i18n-check: i18n-check-backend
+
+i18n-check-backend: ## Backend: sr_Latn сгенерирован из актуального sr_Cyrl, ключи ru = sr_Cyrl
+	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli i18n check
+
 openapi: ## Контракт: backend/openapi.json из кода и перегенерация api-client
 	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli openapi
 	@if grep -q '"generate"' packages/api-client/package.json 2>/dev/null; then $(PNPM) -F api-client generate; fi
@@ -128,5 +133,5 @@ dev-worker: ## Воркер задач на dev-стенде (очереди def
 garage-init: ## Ключ, бакеты и CORS в Garage; ключи — в backend/.env
 	@cd scripts && $(UV) run --no-project --quiet --with boto3 python garage_init.py
 
-check: plan-check gitleaks lint typecheck imports test test-int $(EXTRA_CHECKS) ## Definition of Done checks available so far
+check: plan-check gitleaks lint typecheck imports i18n-check-backend test test-int $(EXTRA_CHECKS) ## Definition of Done checks available so far
 	@echo "check: OK"

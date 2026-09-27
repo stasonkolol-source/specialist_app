@@ -4,8 +4,8 @@
 классу из platform/kernel/errors.py, ошибки запроса FastAPI и Starlette — по статусу.
 Прочие исключения ловит RequestContextMiddleware и отвечает 500 без деталей.
 
-`detail` и `errors[].message` локализуются по `Accept-Language`, когда появятся
-каталоги i18n (шаг 1.2); до этого `detail` не заполняется, а `message` — текст pydantic.
+`detail` и `errors[].message` — на языке `Accept-Language` из каталогов gettext (шаг 1.2):
+ключи `errors.<code>` и `validation.<тип ошибки pydantic>`; нет ключа — текст pydantic.
 """
 
 import re
@@ -21,6 +21,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.interfaces.http.client import DEFAULT_LOCALE
+from app.platform.i18n.translator import Translator
 from app.platform.kernel.errors import (
     ConflictError,
     DomainError,
@@ -33,6 +35,7 @@ from app.platform.kernel.errors import (
     RestrictedError,
     StaleVersionError,
 )
+from app.platform.kernel.localized import Locale
 
 log = structlog.get_logger(__name__)
 
@@ -85,9 +88,19 @@ class FieldError:
 
 @dataclass(frozen=True, slots=True)
 class Problems:
-    """Фабрика ответов RFC 9457: одна на приложение, её же использует middleware."""
+    """Фабрика ответов RFC 9457: одна на приложение, её же использует middleware.
+
+    `detail` — текст ключа `errors.<code>` на языке запроса (ADR-0013); параметры шаблона —
+    именованные параметры ошибки (`retry_after`, …).
+    """
 
     base_url: str
+    translator: Translator | None = None
+
+    def text(
+        self, key: str, locale: Locale, params: Mapping[str, object] | None = None
+    ) -> str | None:
+        return self.translator.text(key, locale, **(params or {})) if self.translator else None
 
     def response(
         self,
@@ -95,11 +108,13 @@ class Problems:
         code: str,
         *,
         trace_id: str | None,
-        detail: str | None = None,
+        locale: Locale = DEFAULT_LOCALE,
+        params: Mapping[str, object] | None = None,
         errors: Sequence[FieldError] = (),
         headers: Mapping[str, str] | None = None,
         **extensions: Any,
     ) -> JSONResponse:
+        detail = self.text(f"errors.{code}", locale, params)
         body: dict[str, Any] = {
             "type": f"{self.base_url.rstrip('/')}/problems/{code.replace('_', '-')}",
             "title": HTTPStatus(status).phrase,
@@ -119,6 +134,11 @@ class Problems:
 
 def trace_id_of(request: Request) -> str | None:
     return getattr(request.state, "trace_id", None)
+
+
+def locale_of(request: Request) -> Locale:
+    locale = getattr(request.state, "locale", None)
+    return locale if isinstance(locale, Locale) else DEFAULT_LOCALE
 
 
 def install_error_handlers(app: FastAPI, problems: Problems) -> None:
@@ -150,19 +170,35 @@ def install_error_handlers(app: FastAPI, problems: Problems) -> None:
                 log.warning("external_service_unavailable", code=exc.code)
             case _:
                 pass
-        return problems.response(status, exc.code, trace_id=trace_id, headers=headers, **extensions)
+        return problems.response(
+            status,
+            exc.code,
+            trace_id=trace_id,
+            locale=locale_of(request),
+            params=exc.params,
+            headers=headers,
+            **extensions,
+        )
 
     async def request_validation(request: Request, exc: Exception) -> JSONResponse:
         assert isinstance(exc, RequestValidationError)  # noqa: S101
         raw = list(exc.errors())
+        locale = locale_of(request)
         if raw and all(e.get("type") == "json_invalid" for e in raw):
-            return problems.response(400, MALFORMED_REQUEST, trace_id=trace_id_of(request))
+            return problems.response(
+                400, MALFORMED_REQUEST, trace_id=trace_id_of(request), locale=locale
+            )
         errors = [
-            FieldError(field=_field(e.get("loc", ())), code=str(e["type"]), message=str(e["msg"]))
+            FieldError(
+                field=_field(e.get("loc", ())),
+                code=str(e["type"]),
+                message=problems.text(f"validation.{e['type']}", locale, e.get("ctx"))
+                or str(e["msg"]),
+            )
             for e in raw
         ]
         return problems.response(
-            422, VALIDATION_ERROR, trace_id=trace_id_of(request), errors=errors
+            422, VALIDATION_ERROR, trace_id=trace_id_of(request), locale=locale, errors=errors
         )
 
     async def http_error(request: Request, exc: Exception) -> JSONResponse:
@@ -172,7 +208,11 @@ def install_error_handlers(app: FastAPI, problems: Problems) -> None:
         if exc.status_code == HTTPStatus.METHOD_NOT_ALLOWED:
             headers["Allow"] = allowed_methods(request) or headers.get("Allow", "")
         return problems.response(
-            exc.status_code, code, trace_id=trace_id_of(request), headers=headers
+            exc.status_code,
+            code,
+            trace_id=trace_id_of(request),
+            locale=locale_of(request),
+            headers=headers,
         )
 
     app.add_exception_handler(DomainError, domain_error)

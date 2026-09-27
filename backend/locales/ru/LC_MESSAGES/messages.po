@@ -1,0 +1,153 @@
+# Каталог backend «Сосед»: русский.
+# Ключи — стабильные msgid (ADR-0013), параметры — {name}. Каталоги ru и sr_Cyrl
+# полные (архитектурный тест), sr_Latn генерирует `cli i18n generate`.
+msgid ""
+msgstr ""
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "errors.not_found"
+msgstr "Не найдено."
+
+msgid "errors.not_authenticated"
+msgstr "Нужно войти."
+
+msgid "errors.forbidden"
+msgstr "Недостаточно прав для этого действия."
+
+msgid "errors.restricted"
+msgstr "Это действие для вас сейчас ограничено."
+
+msgid "errors.conflict"
+msgstr "Действие недоступно в текущем состоянии."
+
+msgid "errors.concurrent_modification"
+msgstr "Данные только что изменились. Повторите попытку."
+
+msgid "errors.stale_version"
+msgstr "Данные устарели. Обновите страницу и повторите."
+
+msgid "errors.validation_failed"
+msgstr "Проверьте введённые данные."
+
+msgid "errors.rate_limited"
+msgstr "Слишком часто. Повторите через {retry_after} с."
+
+msgid "errors.external_service_unavailable"
+msgstr "Сервис временно недоступен. Повторите позже."
+
+msgid "errors.currency_mismatch"
+msgstr "Валюты не совпадают."
+
+msgid "errors.invalid_cursor"
+msgstr "Некорректный параметр страницы."
+
+msgid "errors.invalid_if_match"
+msgstr "Некорректный заголовок If-Match."
+
+msgid "errors.invalid_init_data"
+msgstr "Не удалось войти через Telegram. Откройте приложение заново."
+
+msgid "errors.init_data_expired"
+msgstr "Сессия Telegram устарела. Откройте приложение заново."
+
+msgid "errors.invalid_token"
+msgstr "Сессия недействительна. Войдите заново."
+
+msgid "errors.token_expired"
+msgstr "Сессия истекла."
+
+msgid "errors.session_revoked"
+msgstr "Сессия завершена. Войдите заново."
+
+msgid "errors.invalid_refresh_token"
+msgstr "Сессия недействительна. Войдите заново."
+
+msgid "errors.user_not_found"
+msgstr "Пользователь не найден."
+
+msgid "errors.session_not_found"
+msgstr "Сессия не найдена."
+
+msgid "errors.account_deleted"
+msgstr "Аккаунт удалён."
+
+msgid "errors.user_already_deleted"
+msgstr "Аккаунт уже удалён."
+
+msgid "errors.concurrent_login"
+msgstr "Вход уже выполняется. Повторите попытку."
+
+msgid "errors.invalid_display_name"
+msgstr "Имя не может быть пустым."
+
+msgid "errors.bad_request"
+msgstr "Некорректный запрос."
+
+msgid "errors.method_not_allowed"
+msgstr "Метод не поддерживается."
+
+msgid "errors.not_acceptable"
+msgstr "Формат ответа не поддерживается."
+
+msgid "errors.payload_too_large"
+msgstr "Слишком большой запрос."
+
+msgid "errors.unsupported_media_type"
+msgstr "Тип содержимого не поддерживается."
+
+msgid "errors.validation_error"
+msgstr "Проверьте введённые данные."
+
+msgid "errors.malformed_request"
+msgstr "Тело запроса — некорректный JSON."
+
+msgid "errors.internal_error"
+msgstr "Что-то пошло не так. Мы уже разбираемся."
+
+msgid "errors.invalid_client_header"
+msgstr "Некорректный заголовок X-Client."
+
+msgid "errors.client_upgrade_required"
+msgstr "Обновите Telegram, чтобы продолжить."
+
+msgid "validation.missing"
+msgstr "Обязательное поле."
+
+msgid "validation.string_too_short"
+msgstr "Минимум символов: {min_length}."
+
+msgid "validation.string_too_long"
+msgstr "Максимум символов: {max_length}."
+
+msgid "validation.string_type"
+msgstr "Нужна строка."
+
+msgid "validation.int_parsing"
+msgstr "Нужно целое число."
+
+msgid "validation.int_type"
+msgstr "Нужно целое число."
+
+msgid "validation.bool_parsing"
+msgstr "Нужно true или false."
+
+msgid "validation.uuid_parsing"
+msgstr "Некорректный идентификатор."
+
+msgid "validation.enum"
+msgstr "Недопустимое значение."
+
+msgid "validation.literal_error"
+msgstr "Недопустимое значение."
+
+msgid "validation.greater_than_equal"
+msgstr "Значение должно быть не меньше {ge}."
+
+msgid "validation.less_than_equal"
+msgstr "Значение должно быть не больше {le}."
+
+msgid "validation.extra_forbidden"
+msgstr "Лишнее поле."
