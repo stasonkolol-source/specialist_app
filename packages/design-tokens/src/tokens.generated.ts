@@ -26,6 +26,7 @@ export const tokens = {
       "scrim": "rgba(10,14,18,.48)",
       "toast": "#1F2630",
       "toast-ink": "#F2F5F8",
+      "knob": "#FFFFFF",
       "av1": "#DDEFE8",
       "av1-ink": "#0B5A46",
       "av2": "#E6ECF8",
@@ -62,6 +63,7 @@ export const tokens = {
       "scrim": "rgba(0,0,0,.6)",
       "toast": "#1F2630",
       "toast-ink": "#F2F5F8",
+      "knob": "#FFFFFF",
       "av1": "#DDEFE8",
       "av1-ink": "#0B5A46",
       "av2": "#E6ECF8",
@@ -83,7 +85,15 @@ export const tokens = {
     "badge": 8,
     "panel": 14,
     "sheet": 20,
-    "photo": 12
+    "photo": 12,
+    "seg-item": 9,
+    "check": 6
+  },
+  "shadow": {
+    "seg": "0 1px 2px rgba(0,0,0,.08)",
+    "knob": "0 1px 3px rgba(0,0,0,.25)",
+    "toast": "0 6px 20px rgba(0,0,0,.2)",
+    "pin": "0 2px 6px rgba(0,0,0,.18)"
   },
   "font": {
     "ui": "'Onest',system-ui,-apple-system,'Segoe UI',sans-serif",
@@ -188,6 +198,18 @@ export const tokens = {
       "weight": 700,
       "size": 22,
       "line": 28
+    },
+    "tile": {
+      "family": "ui",
+      "weight": 600,
+      "size": 14,
+      "line": 18
+    },
+    "xs": {
+      "family": "ui",
+      "weight": 400,
+      "size": 12,
+      "line": 16
     }
   },
   "icon": {

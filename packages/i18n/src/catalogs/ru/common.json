@@ -94,7 +94,9 @@
     "over": "{min}\u00A0тыс.+"
   },
   "rating": {
-    "new": "Новый специалист"
+    "new": "Новый специалист",
+    "label": "Оценка",
+    "star": "{count, plural, one {# звезда} few {# звезды} many {# звёзд} other {# звезды}}"
   },
   "urgency": {
     "asap": "Срочно",
@@ -130,5 +132,40 @@
       "cancelled": "Отменена",
       "disputed": "Спор"
     }
+  },
+  "search": {
+    "placeholder": "Электрик, маникюр, уборка…"
+  },
+  "category": {
+    "handyman": "Мастер на час",
+    "beauty": "Бьюти",
+    "cleaning": "Уборка",
+    "moving": "Переезды",
+    "tutors": "Репетиторы",
+    "all": "Все категории"
+  },
+  "safety": {
+    "prepayment": "Не вносите предоплату незнакомым исполнителям"
+  },
+  "empty": {
+    "jobsTitle": "Пока нет заявок",
+    "jobsText": "Опубликуйте заявку — специалисты рядом откликнутся"
+  },
+  "toast": {
+    "saved": "Сохранено"
+  },
+  "form": {
+    "description": "Что нужно сделать",
+    "budget": "Бюджет",
+    "budgetHint": "Можно изменить позже",
+    "required": "Заполните поле",
+    "step": "Шаг {current} из {total}"
+  },
+  "settings": {
+    "notifications": "Уведомления",
+    "language": "Язык"
+  },
+  "photo": {
+    "work": "Фото работы"
   }
 }

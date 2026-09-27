@@ -3,6 +3,7 @@ import type { Locale } from '@sosed/i18n';
 import { LOCALES, LOCALE_NAMES, useFormat, useTranslation } from '@sosed/i18n';
 import type { ReactNode } from 'react';
 
+import { MoreSections } from './GalleryMore.tsx';
 import {
   Avatar,
   Badge,
@@ -176,6 +177,8 @@ export function Gallery({ theme, locale }: { theme: string; locale: Locale }) {
           </Card>
         </Stack>
       </Section>
+
+      <MoreSections />
 
       <Section id="icons" name="Icon">
         <div className="grid grid-cols-6 gap-3 text-text">

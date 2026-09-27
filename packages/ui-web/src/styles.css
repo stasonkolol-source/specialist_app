@@ -22,3 +22,12 @@
     text-decoration: none;
   }
 }
+
+/* .ph: штриховка плейсхолдера фото, 1:1 с ui.css */
+@utility ph-stripes {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 10px,
+    rgba(91, 98, 112, 0.1) 10px 20px
+  );
+}

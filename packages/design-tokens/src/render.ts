@@ -23,6 +23,7 @@ export interface TokenSource {
     size: Record<string, { box: number; font: number }>;
   };
   radius: Record<string, number>;
+  shadow: Record<string, string>;
   font: Record<string, string>;
   type: Record<string, TypeStyle>;
   icon: { stroke: number; default: number; sizes: number[] };
@@ -54,6 +55,7 @@ export function renderTokensCss(source: TokenSource): string {
       `--${k}-ink: ${ink};`,
     ]),
     ...Object.entries(source.radius).map(([k, v]) => `--r-${k}: ${v}px;`),
+    ...Object.entries(source.shadow).map(([k, v]) => `--sh-${k}: ${v};`),
     ...Object.entries(source.font).map(([k, v]) => `--f-${k}: ${v};`),
   ];
   const light = [
@@ -71,6 +73,7 @@ export function renderTokensCss(source: TokenSource): string {
 export function renderThemeCss(source: TokenSource): string {
   const colors = Object.keys(themeColors(source, 'light')).map((k) => `--color-${k}: var(--${k});`);
   const radii = Object.keys(source.radius).map((k) => `--radius-${k}: var(--r-${k});`);
+  const shadows = Object.keys(source.shadow).map((k) => `--shadow-${k}: var(--sh-${k});`);
   const fonts = Object.keys(source.font).map((k) => `--font-${k}: var(--f-${k});`);
   const text = Object.entries(source.type).flatMap(([k, s]) => [
     `--text-${k}: ${s.size}px;`,
@@ -90,6 +93,8 @@ export function renderThemeCss(source: TokenSource): string {
     ...colors,
     '--radius-*: initial;',
     ...radii,
+    '--shadow-*: initial;',
+    ...shadows,
     '--font-sans: var(--f-ui);',
     ...fonts,
     '--text-*: initial;',
@@ -103,6 +108,7 @@ export function renderTokensTs(source: TokenSource): string {
   const data = {
     color: { light: themeColors(source, 'light'), dark: themeColors(source, 'dark') },
     radius: source.radius,
+    shadow: source.shadow,
     font: source.font,
     type: source.type,
     icon: source.icon,
