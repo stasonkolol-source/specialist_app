@@ -28,7 +28,15 @@ PLAYWRIGHT_IMAGE ?= mcr.microsoft.com/playwright:v1.63.0-noble
 PKG ?= ui-web
 E2E_DIR = $(firstword $(wildcard $(ROOT)/packages/$(PKG) $(ROOT)/apps/$(PKG)))
 
-.PHONY: e2e
+.PHONY: e2e design-render design-compare
+design-render: fe-install ## Design references: PNG of every artboard into design/reference [GREP=S03]
+	@mkdir -p "$(ROOT)/design/reference"
+	@docker run --rm --init --ipc=host -v "$(ROOT):$(ROOT)" -w "$(ROOT)/packages/ui-web" $(PLAYWRIGHT_IMAGE) \
+	  node node_modules/@playwright/test/cli.js test -c playwright.design.config.ts $(if $(GREP),--grep "$(GREP)")
+
+design-compare: ## Report «reference next to actual»: make design-compare [GREP=S03]
+	@node packages/ui-web/scripts/design-compare.mjs $(GREP)
+
 e2e: fe-install ## Playwright in Docker: make e2e [PKG=ui-web] [GREP=…] [UPDATE=1]
 	@$(PNPM) -F $(PKG) e2e:build
 	@docker run --rm --init --ipc=host -e CI -v "$(ROOT):$(ROOT)" -w "$(E2E_DIR)" $(PLAYWRIGHT_IMAGE) \
