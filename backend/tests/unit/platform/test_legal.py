@@ -82,9 +82,9 @@ date: 2026-10-01
 <!-- заметка для владельца,
      на несколько строк -->
 
-# Правила {{appName}}
+# Правила площадки {{appName}}
 
-Текст для {{ appName }}.
+Текст для площадки {{ appName }}.
 <!-- Решение владельца: скрыть -->
 
 
@@ -105,24 +105,24 @@ def test_sample_is_parsed_into_title_date_and_body(tmp_path: Path) -> None:
     assert edition is not None
     assert edition.published_on == date(2026, 10, 1)
     assert list(edition.texts) == [Locale.RU]
-    assert edition.texts[Locale.RU].title == "Правила Соседи"
-    assert edition.texts[Locale.RU].body == "Текст для Соседи.\n\n## 1. Раздел\n"
+    assert edition.texts[Locale.RU].title == "Правила площадки Соседи"
+    assert edition.texts[Locale.RU].body == "Текст для площадки Соседи.\n\n## 1. Раздел\n"
 
 
 def test_serbian_latin_is_transliterated_from_cyrillic(tmp_path: Path) -> None:
     _write(tmp_path, "terms/v2/ru.md")
     serbian = (
-        SAMPLE.replace("Правила", "Љубазна правила")
-        .replace("Текст для", "Текст за")
+        SAMPLE.replace("Правила площадки", "Љубазна правила платформе")
+        .replace("Текст для площадки", "Текст за платформу")
         .replace("Раздел", "Одељак")
     )
     _write(tmp_path, "terms/v2/sr-Cyrl.md", serbian)
     edition = FileLegalLibrary(PLACEHOLDERS, tmp_path).edition(LegalDocument.TERMS, "v2")
     assert edition is not None
     assert set(edition.texts) == {Locale.RU, Locale.SR_CYRL, Locale.SR_LATN}
-    assert edition.texts[Locale.SR_CYRL].title == "Љубазна правила Соседи"
-    assert edition.texts[Locale.SR_LATN].title == "Ljubazna pravila Sosedi"
-    assert edition.texts[Locale.SR_LATN].body == "Tekst za Sosedi.\n\n## 1. Odeljak\n"
+    assert edition.texts[Locale.SR_CYRL].title == "Љубазна правила платформе Соседи"
+    assert edition.texts[Locale.SR_LATN].title == "Ljubazna pravila platforme Sosedi"
+    assert edition.texts[Locale.SR_LATN].body == "Tekst za platformu Sosedi.\n\n## 1. Odeljak\n"
 
 
 @pytest.mark.parametrize(
