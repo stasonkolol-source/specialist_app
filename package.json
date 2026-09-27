@@ -21,6 +21,6 @@
     "@sosed/config": "workspace:*",
     "prettier": "3.9.9",
     "turbo": "2.11.4",
-    "typescript": "6.0.3"
+    "typescript": "7.0.2"
   }
 }
