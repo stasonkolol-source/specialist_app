@@ -10,12 +10,9 @@ from typing import Any
 import httpx
 import pytest
 from dishka.integrations.fastapi import FromDishka, inject
-from fastapi import APIRouter, FastAPI
 from pydantic import BaseModel
 from structlog.testing import capture_logs
 
-from app.entrypoints._wiring import make_web_container
-from app.interfaces.http.app import create_app
 from app.platform.kernel.errors import (
     ConcurrentModificationError,
     ConflictError,
@@ -32,6 +29,7 @@ from app.platform.kernel.errors import (
 )
 from app.platform.kernel.localized import Locale
 from app.platform.settings import Settings
+from tests.plugins.http import http_client, sample_router
 
 pytestmark = pytest.mark.unit
 
@@ -74,7 +72,7 @@ class JobIn(BaseModel):
     budget: BudgetIn
 
 
-router = APIRouter(prefix="/test", generate_unique_id_function=lambda route: f"test_{route.name}")
+router = sample_router()
 
 
 @router.get("/raise/{name}")
@@ -94,18 +92,8 @@ async def current_locale(locale: FromDishka[Locale]) -> dict[str, str]:
 
 
 @pytest.fixture
-async def app(offline_settings: Settings) -> AsyncIterator[FastAPI]:
-    container = make_web_container(offline_settings)
-    try:
-        yield create_app(container, offline_settings, [router])
-    finally:
-        await container.close()
-
-
-@pytest.fixture
-async def client(app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
-    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+async def client(offline_settings: Settings) -> AsyncIterator[httpx.AsyncClient]:
+    async with http_client(offline_settings, router) as client:
         yield client
 
 

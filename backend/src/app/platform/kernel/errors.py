@@ -82,13 +82,14 @@ class DomainValidationError(DomainError):
 
 
 class RateLimitedError(DomainError):
-    """429: слишком часто. `retry_after` — секунды."""
+    """429: слишком часто. `retry_after` — секунды, `limit` — размер окна, если известен."""
 
     code = "rate_limited"
 
-    def __init__(self, *, retry_after: int, **params: object) -> None:
-        super().__init__(retry_after=retry_after, **params)
+    def __init__(self, *, retry_after: int, limit: int | None = None, **params: object) -> None:
+        super().__init__(retry_after=retry_after, limit=limit, **params)
         self.retry_after = retry_after
+        self.limit = limit
 
 
 class ExternalServiceError(DomainError):

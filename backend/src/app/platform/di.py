@@ -10,6 +10,8 @@ from collections.abc import AsyncIterator
 
 import procrastinate
 from dishka import Provider, Scope, from_context, provide
+from limits.aio.storage import RedisStorage
+from limits.aio.strategies import SlidingWindowCounterRateLimiter
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
@@ -20,6 +22,7 @@ from app.platform.kernel.clock import Clock, SystemClock
 from app.platform.queue.dispatcher import EventDispatcher, EventRegistry
 from app.platform.queue.port import JobQueue
 from app.platform.queue.procrastinate_queue import ProcrastinateJobQueue
+from app.platform.ratelimit import RateLimiter
 from app.platform.settings import (
     AiSettings,
     AnalyticsSettings,
@@ -104,6 +107,18 @@ class PlatformProvider(Provider):
             yield app
 
     clock = provide(SystemClock, scope=Scope.APP, provides=Clock)
+
+    @provide(scope=Scope.APP)
+    def rate_limiter(self, valkey: Redis, settings: ValkeySettings, clock: Clock) -> RateLimiter:
+        """Лимитер на пуле соединений общего клиента Valkey."""
+        storage = RedisStorage(
+            f"async+{settings.url.get_secret_value()}",
+            implementation="redispy",
+            key_prefix="rl",
+            wrap_exceptions=True,
+            connection_pool=valkey.connection_pool,  # type: ignore[arg-type]  # limits: **options
+        )
+        return RateLimiter(SlidingWindowCounterRateLimiter(storage), valkey, clock)
 
     # --- одна команда (REQUEST) -----------------------------------------------------------
 
