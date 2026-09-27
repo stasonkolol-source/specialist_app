@@ -46,7 +46,7 @@ async def run(role: str) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Воркер задач «Соседа»")
+    parser = argparse.ArgumentParser(description="Воркер задач «Соседей»")
     parser.add_argument("--role", choices=sorted(ROLES), default="worker")
     asyncio.run(run(parser.parse_args().role))
 

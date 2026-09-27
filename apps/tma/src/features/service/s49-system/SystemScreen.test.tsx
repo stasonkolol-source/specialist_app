@@ -19,7 +19,7 @@ const UNTIL = new Date('2026-10-03T16:00:00Z');
 
 function renderWith(node: ReactNode, locale: Locale = 'ru') {
   const { platform, telegram } = createMockPlatform();
-  const i18n = createI18n({ locale, appName: 'Сосед' });
+  const i18n = createI18n({ locale, appName: 'Соседи' });
   configureApiClient({ baseUrl: API_ORIGIN, locale: () => currentLocale(i18n) });
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = render(

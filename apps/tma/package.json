@@ -2,7 +2,7 @@
   "name": "@sosed/tma",
   "version": "0.1.0",
   "private": true,
-  "description": "Telegram Mini App «Сосед»: Vite + React, экраны по утверждённому макету",
+  "description": "Telegram Mini App «Соседи»: Vite + React, экраны по утверждённому макету",
   "type": "module",
   "scripts": {
     "dev": "vite",

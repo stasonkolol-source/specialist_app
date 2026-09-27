@@ -29,12 +29,12 @@ from app.platform.security.initdata import sign
 from app.platform.security.jwt import JwtKeys, SigningKey
 from app.platform.settings import ENV_FILE, AppSettings, Environment, Settings, TelegramSettings
 
-app = typer.Typer(help="«Сосед» — служебные команды backend.", no_args_is_help=True)
+app = typer.Typer(help="«Соседи» — служебные команды backend.", no_args_is_help=True)
 
 
 @app.callback()
 def main() -> None:
-    """Служебные команды backend «Сосед»."""
+    """Служебные команды backend «Соседей»."""
 
 
 @app.command()

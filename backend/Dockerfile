@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Backend «Сосед» (DEVELOPMENT_PLAN 0.23): один образ, роль — аргумент точки входа:
+# Backend «Соседей» (DEVELOPMENT_PLAN 0.23): один образ, роль — аргумент точки входа:
 #   web | bot | worker | worker-media | migrate | cli <команда> (сиды, реиндекс, ключи, OpenAPI).
 # Код — в /app/src без установки пакета: пути к locales/, seeds/, content/, migrations/ считаются
 # от него.
@@ -43,4 +43,4 @@ ENTRYPOINT ["sosed"]
 CMD ["web"]
 
 LABEL org.opencontainers.image.title="sosed-backend" \
-      org.opencontainers.image.description="«Сосед» — backend: web, bot, worker, worker-media, cli"
+      org.opencontainers.image.description="«Соседи» — backend: web, bot, worker, worker-media, cli"

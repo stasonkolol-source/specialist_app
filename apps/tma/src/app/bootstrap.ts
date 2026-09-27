@@ -12,7 +12,7 @@ import { createQueryClient } from './query.ts';
 import { createAppRouter, historyFor } from './router.ts';
 import { createAuth } from './session.ts';
 
-export const APP_NAME = 'Сосед';
+export const APP_NAME = 'Соседи';
 
 export interface Assembled {
   platform: Platform;

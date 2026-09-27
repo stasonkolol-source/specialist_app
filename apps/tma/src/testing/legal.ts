@@ -10,7 +10,7 @@ const LEGAL_DIR = resolve(import.meta.dirname, '../../../../backend/content/lega
 
 /** Как LegalSettings и AppSettings backend по умолчанию: владелец ещё не решил (K22). */
 const PLACEHOLDERS: Record<string, string> = {
-  appName: 'Сосед',
+  appName: 'Соседи',
   OPERATOR_NAME: '[TODO K22: оператор данных — решает владелец, ADR-0018]',
   CONTACT_EMAIL: '[TODO K22: почта поддержки — решает владелец, K23]',
 };

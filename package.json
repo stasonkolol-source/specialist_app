@@ -1,7 +1,7 @@
 {
   "name": "specialist-app",
   "private": true,
-  "description": "«Сосед» — фронтенд-монорепо: Mini App и общие пакеты (ADR-0012)",
+  "description": "«Соседи» — фронтенд-монорепо: Mini App и общие пакеты (ADR-0012)",
   "packageManager": "pnpm@12.6.0",
   "engines": {
     "node": ">=24"

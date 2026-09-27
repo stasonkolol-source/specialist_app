@@ -45,7 +45,7 @@ class AppSettings(_Group):
     model_config = SettingsConfigDict(env_prefix="APP_")
 
     env: Environment = Environment.DEV
-    name: str = "Сосед"
+    name: str = "Соседи"
     """Имя продукта в текстах сервера (`{{appName}}` правовых документов); для sr-Latn —
     транслитом. Код продукта остаётся specialist_app."""
     log_level: str = "INFO"

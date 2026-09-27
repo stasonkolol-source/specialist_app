@@ -178,7 +178,7 @@
   },
   "update": {
     "telegramTitle": "Ажурирајте Telegram",
-    "telegramText": "У овој верзији Telegram-а апликација не ради. Ажурирајте Telegram и поново отворите „{appName}”",
+    "telegramText": "У овој верзији Telegram-а апликација „{appName}” не ради. Ажурирајте Telegram и отворите је поново",
     "appTitle": "Изашла је нова верзија",
     "appText": "Поново учитајте апликацију да бисте наставили",
     "reload": "Поново учитај"
