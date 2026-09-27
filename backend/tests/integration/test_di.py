@@ -18,22 +18,9 @@ from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.principal import Principal
 from app.platform.queue.port import JobQueue
-from app.platform.settings import GROUPS, Settings, env_names
-from tests.plugins.containers import PostgresInfo
+from app.platform.settings import Settings
 
 pytestmark = pytest.mark.integration
-
-
-@pytest.fixture
-def settings(postgres: PostgresInfo, valkey_url: str, monkeypatch: pytest.MonkeyPatch) -> Settings:
-    for group in GROUPS:
-        for name in env_names(group):
-            monkeypatch.delenv(name, raising=False)
-    monkeypatch.setenv("DB_DSN", postgres.dsn("app"))
-    monkeypatch.setenv("VALKEY_URL", valkey_url)
-    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "8123456789:AAE" + "x" * 32)
-    monkeypatch.setenv("TELEGRAM_BOT_USERNAME", "sosed_test_bot")
-    return Settings(env_file=None)
 
 
 class OtherModuleFacade:

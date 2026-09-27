@@ -11,7 +11,7 @@ EXTRA_CHECKS :=
 
 COMPOSE := docker compose -p specialist-dev -f infra/compose/docker-compose.dev.yml --env-file infra/compose/.env
 
-.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks \
+.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-worker \
 	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check test-int migrate migrate-roundtrip pg-bootstrap
 
 help: ## Show available targets
@@ -102,6 +102,9 @@ migrate: ## alembic upgrade head на dev-БД (роль migrator)
 
 migrate-roundtrip: pg-image ## Раунд-трип миграций в testcontainers: upgrade → downgrade base → upgrade → check → heads
 	@cd $(BACKEND) && $(UV) run pytest -m integration -q -k "roundtrip"
+
+dev-worker: ## Воркер задач на dev-стенде (очереди default и notifications; ROLE=worker-media — media)
+	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.worker --role $(or $(ROLE),worker)
 
 garage-init: ## Ключ, бакеты и CORS в Garage; ключи — в backend/.env
 	@cd scripts && $(UV) run --no-project --quiet --with boto3 python garage_init.py

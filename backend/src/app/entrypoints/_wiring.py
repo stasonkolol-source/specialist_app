@@ -5,6 +5,9 @@
 команде, и зависимость от Principal упадёт при сборке контейнера, а не в рантайме.
 """
 
+import importlib
+import importlib.util
+
 from dishka import AsyncContainer, Provider, make_async_container
 from dishka.integrations.aiogram import AiogramProvider
 from dishka.integrations.fastapi import FastapiProvider
@@ -28,6 +31,7 @@ from app.modules.search.di import SearchProvider
 from app.modules.specialists.di import SpecialistsProvider
 from app.platform.di import PlatformProvider
 from app.platform.queue.dispatcher import EventRegistry
+from app.platform.queue.tasks import TASKS
 from app.platform.settings import Settings
 
 MODULE_PROVIDERS: tuple[type[Provider], ...] = (
@@ -54,9 +58,18 @@ def module_providers() -> list[Provider]:
     return [provider() for provider in MODULE_PROVIDERS]
 
 
+def load_module_tasks() -> None:
+    """Импортировать tasks.py модулей: декораторы @task и @subscriber заполняют TASKS."""
+    for provider in MODULE_PROVIDERS:
+        module = provider.__module__.rsplit(".", 1)[0] + ".tasks"
+        if importlib.util.find_spec(module) is not None:
+            importlib.import_module(module)
+
+
 def build_event_registry() -> EventRegistry:
-    """Подписки модулей на события (tasks.py модулей добавляют их по шагам, с 0.12)."""
-    return EventRegistry()
+    """Подписки модулей на события — одна функция для web, bot и worker."""
+    load_module_tasks()
+    return TASKS.event_registry()
 
 
 def make_container(

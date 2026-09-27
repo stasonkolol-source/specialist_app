@@ -42,3 +42,6 @@ playwright-report/
 /main.py
 /pyproject.toml
 /uv.lock
+
+# Рабочие копии агентов Claude Code
+/.claude/worktrees/
