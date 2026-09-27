@@ -1,0 +1,97 @@
+# Локальное окружение «Соседа» (DEVELOPMENT_PLAN 0.3).
+# Только свой compose-проект: make up / make down / make ps / make logs.
+# Порты — только 127.0.0.1 и нестандартные: чужие контейнеры (tasks_*, auralocal*)
+# занимают 5432, 6379, 9000 и другие.
+name: specialist-dev
+
+x-limits: &limits
+  cpuset: "0-3"
+
+services:
+  postgres:
+    build:
+      context: ../postgres
+    image: specialist/postgres-postgis:18.6-3.6
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - pg_stat_statements.track=all
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - effective_cache_size=1GB
+      - -c
+      - work_mem=16MB
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - jit=off
+      - -c
+      - max_connections=100
+      - -c
+      - log_min_duration_statement=500
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?run make secrets-dev}
+      POSTGRES_DB: specialist
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?run make secrets-dev}
+      MIGRATOR_DB_PASSWORD: ${MIGRATOR_DB_PASSWORD:?run make secrets-dev}
+      READONLY_DB_PASSWORD: ${READONLY_DB_PASSWORD:?run make secrets-dev}
+      BACKUP_DB_PASSWORD: ${BACKUP_DB_PASSWORD:?run make secrets-dev}
+    ports:
+      - "127.0.0.1:55442:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    shm_size: 512m
+    mem_limit: 1536m
+    <<: *limits
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d specialist"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  valkey:
+    image: valkey/valkey:9.1@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd
+    command: ["valkey-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:56379:6379"
+    volumes:
+      - valkey:/data
+    mem_limit: 320m
+    <<: *limits
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  garage:
+    image: dxflrs/garage:v2.4.1@sha256:9c96caa2612d3411acc5b0e6701fb238dbfba33e533a6d7d3d811a4b12d0d020
+    command: ["/garage", "server", "--single-node"]
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?run make secrets-dev}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?run make secrets-dev}
+      GARAGE_METRICS_TOKEN: ${GARAGE_METRICS_TOKEN:?run make secrets-dev}
+    ports:
+      - "127.0.0.1:59100:3900"
+      - "127.0.0.1:59103:3903"
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    mem_limit: 256m
+    <<: *limits
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pgdata:
+  valkey:
+  garage-meta:
+  garage-data:
