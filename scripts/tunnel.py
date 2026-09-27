@@ -7,7 +7,8 @@
 Bot API 10.2) и Garage (:59100) — адрес для presigned-ссылок загрузки с телефона (0.24).
 Адреса *.trycloudflare.com меняются при каждом запуске, поэтому скрипт каждый раз:
 - пишет TELEGRAM_MINI_APP_URL и S3_PUBLIC_ENDPOINT_URL в backend/.env;
-- пишет TMA_ALLOWED_HOSTS и TMA_HMR_HOST в apps/tma/.env (Vite: хост туннеля и HMR по wss:443);
+- пишет TMA_ALLOWED_HOSTS и TMA_HMR_HOST в apps/tma/.env (Vite: хост туннеля и HMR по wss:443),
+  TMA_STORAGE_ORIGINS — адрес туннеля Garage для CSP (PUT по presigned-ссылкам);
 - вызывает `cli set-menu-button` — кнопка меню бота открывает новый адрес.
 """
 
@@ -77,7 +78,10 @@ def configure(app: Tunnel, garage: Tunnel | None) -> None:
         backend["S3_PUBLIC_ENDPOINT_URL"] = garage.url
     changed = update(ROOT / "backend" / ".env", backend, overwrite=True)
     tma_env = ROOT / "apps" / "tma" / ".env"
-    changed += update(tma_env, {"TMA_ALLOWED_HOSTS": app.host, "TMA_HMR_HOST": app.host}, overwrite=True)
+    tma = {"TMA_ALLOWED_HOSTS": app.host, "TMA_HMR_HOST": app.host}
+    if garage is not None:
+        tma["TMA_STORAGE_ORIGINS"] = garage.url  # CSP: PUT по presigned-ссылкам (0.24)
+    changed += update(tma_env, tma, overwrite=True)
     sys.stdout.write(f"env: updated {', '.join(changed) or 'nothing'}\n")
     result = subprocess.run(  # noqa: S603
         ["uv", "run", "python", "-m", "app.entrypoints.cli", "set-menu-button", app.url],  # noqa: S607
