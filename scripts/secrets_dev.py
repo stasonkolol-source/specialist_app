@@ -41,6 +41,8 @@ def main() -> int:
         "DB_DSN": dsn("app", "APP_DB_PASSWORD"),
         "DB_MIGRATOR_DSN": dsn("migrator", "MIGRATOR_DB_PASSWORD"),
         "VALKEY_URL": "redis://127.0.0.1:56379/0",
+        "APP_ENV": "dev",
+        "APP_LOG_JSON": "false",
     }
     changed_backend = update(BACKEND_ENV, backend_new)
 

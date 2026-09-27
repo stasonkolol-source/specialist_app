@@ -8,7 +8,7 @@ PORTS := 55442 56379 59100 59103 8000 5173
 COMPOSE := docker compose -p specialist-dev -f infra/compose/docker-compose.dev.yml --env-file infra/compose/.env
 
 .PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks \
-	pg-image up down ps logs psql pg-smoke secrets-dev garage-init
+	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-20s %s\n", $$1, $$2}'
@@ -73,6 +73,13 @@ psql: ## psql под ролью app
 
 pg-smoke: ## Smoke БД: локаль, pg_trgm, PostGIS, роли
 	@scripts/pg_smoke.sh
+
+secret: ## Скрытый ввод секрета: make secret NAME=TELEGRAM_BOT_TOKEN TARGET=dev
+	@test -n "$(NAME)" && test -n "$(TARGET)" || (echo "usage: make secret NAME=… TARGET=dev|tf-stage|tf-prod"; exit 2)
+	@python3 scripts/secret.py "$(NAME)" "$(TARGET)"
+
+secrets-check: ## Какие переменные заданы или пусты — без значений
+	@python3 scripts/secrets_check.py
 
 garage-init: ## Ключ, бакеты и CORS в Garage; ключи — в backend/.env
 	@cd scripts && $(UV) run --no-project --quiet --with boto3 python garage_init.py
