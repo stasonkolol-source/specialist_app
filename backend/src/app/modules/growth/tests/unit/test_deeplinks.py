@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 import pytest
+import yaml
 
 from app.modules.growth.domain.deeplinks import (
     BASE62_ALPHABET,
@@ -25,6 +26,7 @@ pytestmark = pytest.mark.unit
 
 GOLDEN_PATH = Path(__file__).resolve().parents[7] / "packages" / "links" / "golden.json"
 GOLDEN: dict[str, Any] = json.loads(GOLDEN_PATH.read_text(encoding="utf-8"))
+CI_BACKEND_PATH = GOLDEN_PATH.parents[2] / ".github" / "workflows" / "ci-backend.yml"
 ID = UUID("0192f5a8-7c3e-7b21-9d4f-3a6b8c1e2f47")
 
 
@@ -74,6 +76,14 @@ def test_valid_vectors_encode_and_parse(vector: dict[str, Any]) -> None:
 @pytest.mark.parametrize("param", GOLDEN["invalid"])
 def test_invalid_vectors_are_not_parsed(param: str) -> None:
     assert parse_start_param(param) is None
+
+
+@pytest.mark.parametrize("event", ["pull_request", "push"])
+def test_ci_backend_runs_on_golden_changes(event: str) -> None:
+    """Правка golden.json или TS-кодека без backend/ всё равно запускает эти тесты в CI."""
+    workflow = yaml.safe_load(CI_BACKEND_PATH.read_text(encoding="utf-8"))
+    triggers = workflow[True]  # PyYAML (YAML 1.1) читает ключ `on` как True
+    assert "packages/links/**" in triggers[event]["paths"]
 
 
 # --- base62 -------------------------------------------------------------------------------

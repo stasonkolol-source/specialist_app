@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - "backend/**"
+      - "packages/links/**" # golden-векторы deep links читает тест кодека growth
       - "infra/postgres/**"
       - "infra/compose/garage.toml"
       - "scripts/**"
@@ -15,6 +16,7 @@ on:
     branches: [main]
     paths:
       - "backend/**"
+      - "packages/links/**"
       - "infra/postgres/**"
       - "infra/compose/garage.toml"
       - "scripts/**"
