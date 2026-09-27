@@ -12,4 +12,4 @@ fe-generate: ## Frontend: regenerate design tokens and fonts CSS from tokens.jso
 check-frontend: fe-install ## Frontend: prettier, typecheck, lint, tests, token contrast
 	@$(PNPM) format:check
 	@$(PNPM) turbo run typecheck lint test
-	@$(PNPM) -s -F design-tokens check:contrast >/dev/null && echo "contrast: ok"
+	@$(PNPM) --silent -F design-tokens check:contrast >/dev/null && echo "contrast: ok"
