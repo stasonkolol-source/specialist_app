@@ -1,3 +1,3 @@
 import { sosed } from '@sosed/config/eslint';
 
-export default sosed();
+export default sosed({ root: import.meta.dirname });

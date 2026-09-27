@@ -2,10 +2,11 @@
 // Использование в пакете: `export default sosed({ react: true, i18n: true })`.
 import js from '@eslint/js';
 import boundaries from 'eslint-plugin-boundaries';
-import i18next from 'eslint-plugin-i18next';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+
+import { noJsxLiteral } from './no-jsx-literal.js';
 
 const apiOnly = {
   group: ['axios', 'ky', 'ofetch', 'node-fetch', 'undici'],
@@ -23,8 +24,11 @@ const tmaOnly = {
  * @param {boolean} [options.allowTma] — только для packages/platform
  * @param {string[]} [options.allowFetchIn] — файлы, где разрешён fetch (mutator api-client)
  * @param {boolean} [options.appBoundaries] — границы routes → features → packages (apps/tma)
+ * @param {string} [options.root] — каталог пакета (import.meta.dirname): typescript-eslint ищет tsconfig
+ *   от него, иначе в одном процессе с несколькими пакетами (IDE, тесты) не может выбрать корень
  */
 export function sosed({
+  root,
   react = false,
   i18n = false,
   allowTma = false,
@@ -45,7 +49,10 @@ export function sosed({
     js.configs.recommended,
     ...tseslint.configs.recommended,
     {
-      languageOptions: { globals: { ...globals.browser, ...globals.es2023 } },
+      languageOptions: {
+        globals: { ...globals.browser, ...globals.es2023 },
+        ...(root ? { parserOptions: { tsconfigRootDir: root } } : {}),
+      },
       rules: {
         'no-restricted-imports': ['error', { patterns: allowTma ? [apiOnly] : [tmaOnly, apiOnly] }],
         'no-restricted-globals': [
@@ -70,8 +77,8 @@ export function sosed({
   if (i18n) {
     configs.push({
       files: ['**/*.tsx'],
-      plugins: { i18next },
-      rules: { 'i18next/no-literal-string': ['error', { mode: 'jsx-text-only' }] },
+      plugins: { sosed: { rules: { 'no-jsx-literal': noJsxLiteral } } },
+      rules: { 'sosed/no-jsx-literal': 'error' },
     });
   }
   if (appBoundaries) {

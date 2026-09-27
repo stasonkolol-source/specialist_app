@@ -1,3 +1,3 @@
 import { sosed } from '@sosed/config/eslint';
 
-export default sosed({ react: true, allowTma: true });
+export default sosed({ root: import.meta.dirname, react: true, allowTma: true });
