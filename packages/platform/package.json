@@ -1,0 +1,21 @@
+{
+  "name": "@sosed/platform",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Адаптер платформы: Telegram (@tma.js), браузер, mock",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@sosed/config": "workspace:*",
+    "eslint": "10.11.0",
+    "typescript": "6.0.3",
+    "vitest": "5.0.2"
+  }
+}

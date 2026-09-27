@@ -1,0 +1,18 @@
+{
+  "name": "@sosed/tma",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Telegram Mini App «Сосед» (каркас — шаг 0.21a)",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@sosed/config": "workspace:*",
+    "eslint": "10.11.0",
+    "typescript": "6.0.3",
+    "vitest": "5.0.2"
+  }
+}
