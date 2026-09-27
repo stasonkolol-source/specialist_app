@@ -8,6 +8,7 @@
 import importlib
 import importlib.util
 
+from aiogram import Router as AiogramRouter
 from dishka import AsyncContainer, Provider, make_async_container
 from dishka.integrations.aiogram import AiogramProvider
 from dishka.integrations.fastapi import FastapiProvider
@@ -82,6 +83,16 @@ def module_routers() -> list[APIRouter]:
     return routers
 
 
+def module_bot_routers() -> list[AiogramRouter]:
+    """Роутеры бота модулей: `create_router()` из modules/<m>/bot/handlers.py, у кого он есть."""
+    routers: list[AiogramRouter] = []
+    for package in _module_packages():
+        if importlib.util.find_spec(f"{package}.bot") is None:
+            continue
+        routers.append(importlib.import_module(f"{package}.bot.handlers").create_router())
+    return routers
+
+
 def build_event_registry() -> EventRegistry:
     """Подписки модулей на события — одна функция для web, bot и worker."""
     load_module_tasks()
@@ -111,8 +122,8 @@ def make_web_container(settings: Settings, translator: Translator | None = None)
     return make_container(settings, FastapiProvider(), HttpProvider(), translator=translator)
 
 
-def make_bot_container(settings: Settings) -> AsyncContainer:
-    return make_container(settings, AiogramProvider(), BotProvider())
+def make_bot_container(settings: Settings, translator: Translator | None = None) -> AsyncContainer:
+    return make_container(settings, AiogramProvider(), BotProvider(), translator=translator)
 
 
 def make_worker_container(settings: Settings) -> AsyncContainer:

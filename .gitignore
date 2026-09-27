@@ -45,3 +45,5 @@ playwright-report/
 
 # Рабочие копии агентов Claude Code
 /.claude/worktrees/
+# Логи quick tunnel cloudflared (make tunnel / make dev)
+/.tunnel-logs/

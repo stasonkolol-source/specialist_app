@@ -9,6 +9,18 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+msgid "bot.start.welcome"
+msgstr "Zdravo, {name}! Ovo je „Sosed“ — ovde se nalaze majstori i pomoć u blizini: popravke, lepota, čišćenje, selidbe, časovi. Pritisni „Otvori“ da počneš."
+
+msgid "bot.start.welcome_back"
+msgstr "Dobro došao ponovo, {name}! Otvori „Sosed“ dugmetom ispod."
+
+msgid "bot.start.open"
+msgstr "Otvori „Sosed“"
+
+msgid "bot.menu.open"
+msgstr "Otvori"
+
 msgid "errors.not_found"
 msgstr "Nije pronađeno."
 

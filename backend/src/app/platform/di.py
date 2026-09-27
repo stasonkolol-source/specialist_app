@@ -2,7 +2,7 @@
 
 Синглтон — только объект со Scope.APP: он создаётся один раз на процесс и закрывается
 при остановке. REQUEST — всё, что живёт одну команду: сессия, UoW, очередь.
-Провайдеры внешних клиентов добавляют их шаги: Bot (0.22), S3 (0.24),
+Провайдеры внешних клиентов добавляют их шаги: S3 (0.24),
 переводы (1.2), AI (2.4), аналитика (1.7).
 """
 
@@ -10,6 +10,7 @@ from collections.abc import AsyncIterator
 from datetime import timedelta
 
 import procrastinate
+from aiogram import Bot
 from dishka import Provider, Scope, from_context, provide
 from limits.aio.storage import RedisStorage
 from limits.aio.strategies import SlidingWindowCounterRateLimiter
@@ -119,6 +120,13 @@ class PlatformProvider(Provider):
             yield app
 
     clock = provide(SystemClock, scope=Scope.APP, provides=Clock)
+
+    @provide(scope=Scope.APP)
+    async def telegram_bot(self, settings: TelegramSettings) -> AsyncIterator[Bot]:
+        """Клиент Bot API окружения: один на процесс, сессия закрывается при остановке."""
+        bot = Bot(settings.bot_token.get_secret_value())
+        yield bot
+        await bot.session.close()
 
     @provide(scope=Scope.APP)
     def client_config(self, maker: async_sessionmaker[AsyncSession]) -> ClientConfigCache:

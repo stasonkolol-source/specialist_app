@@ -8,6 +8,18 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+msgid "bot.start.welcome"
+msgstr "Привет, {name}! Это «Сосед» — здесь находят мастеров и помощь рядом: ремонт, красота, уборка, переезды, уроки. Жми «Открыть», чтобы начать."
+
+msgid "bot.start.welcome_back"
+msgstr "С возвращением, {name}! Открывай «Сосед» кнопкой ниже."
+
+msgid "bot.start.open"
+msgstr "Открыть «Сосед»"
+
+msgid "bot.menu.open"
+msgstr "Открыть"
+
 msgid "errors.not_found"
 msgstr "Не найдено."
 

@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Protocol
 
-from app.modules.identity.api import UserSummary
+from app.modules.identity.api import TelegramUserView, UserSummary
 from app.modules.identity.application.dto import MeView
 from app.modules.identity.domain.restriction import Restriction
 from app.modules.identity.domain.session import Session, SessionId
@@ -37,6 +37,10 @@ class IdentityQuery(Protocol):
 
     async def me(self, user_id: UserId) -> MeView | None:
         """Свой профиль; удалённого пользователя нет."""
+        ...
+
+    async def by_telegram(self, telegram_id: int) -> TelegramUserView | None:
+        """Активный пользователь по Telegram id (бот, ADR-0020 §4 «до use case — только чтение»)."""
         ...
 
     async def roles(self, user_id: UserId) -> frozenset[Role]: ...
