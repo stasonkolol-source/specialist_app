@@ -10,3 +10,8 @@ strictPeerDependencies: false
 allowBuilds:
   esbuild: false
   msw: false
+
+# undici < 7.29 — уязвимости (GHSA-35p6-xmwp-9g52 и др.) в транзитивной зависимости orval
+# (генерация api-client, в сборку не попадает). Снять, когда orval подтянет исправленную версию.
+overrides:
+  undici: '>=7.29.1 <8'

@@ -11,7 +11,7 @@ EXTRA_CHECKS :=
 
 COMPOSE := docker compose -p specialist-dev -f infra/compose/docker-compose.dev.yml --env-file infra/compose/.env
 
-.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker new-module new-use-case openapi contract i18n-check-backend seeds-validate seed dev tunnel dev-bot \
+.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker new-module new-use-case openapi contract i18n-check-backend seeds-validate seed dev tunnel dev-bot audit image \
 	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check test-int migrate migrate-roundtrip pg-bootstrap
 
 help: ## Show available targets
@@ -107,6 +107,15 @@ i18n-check: i18n-check-backend
 
 i18n-check-backend: ## Backend: sr_Latn сгенерирован из актуального sr_Cyrl, ключи ru = sr_Cyrl
 	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli i18n check
+
+audit: ## Уязвимости зависимостей (pip-audit, pnpm audit) и секреты (gitleaks)
+	@cd $(BACKEND) && $(UV) export --locked --no-hashes --format requirements-txt --no-emit-project \
+	  | $(UV) tool run pip-audit==2.10.1 -r /dev/stdin --no-deps --disable-pip --progress-spinner off
+	@$(PNPM) audit --audit-level low
+	@$(MAKE) --no-print-directory gitleaks
+
+image: ## Собрать образ backend: specialist/backend:dev (роль — аргумент: web | bot | worker | cli …)
+	@docker build -t specialist/backend:dev $(BACKEND)
 
 seed: ## Загрузить сиды в dev-БД идемпотентно: города и районы (1.3a), каталог — с 1.3b
 	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli seed

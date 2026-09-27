@@ -1,0 +1,91 @@
+# Образы для stage и prod (DEVELOPMENT_PLAN 0.23): stage и prod берут ровно то, что прошло CI.
+# По merge в main: ghcr.io/<owner>/sosed-backend:<sha> (+ :main) и ghcr.io/<owner>/sosed-postgres.
+name: images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'infra/postgres/**'
+      - '.github/workflows/images.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  backend:
+    name: backend image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: build and push
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: backend
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/sosed-backend:${{ github.sha }}
+            ${{ env.REGISTRY }}/sosed-backend:main
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=backend-image
+          cache-to: type=gha,scope=backend-image,mode=max
+
+      - name: smoke (cli and unknown role)
+        run: |
+          image="${REGISTRY}/sosed-backend:${GITHUB_SHA}"
+          docker run --rm "$image" cli version
+          docker run --rm -e DB_DSN=x -e VALKEY_URL=redis://x -e TELEGRAM_BOT_TOKEN=1:x \
+            -e TELEGRAM_BOT_USERNAME=x "$image" cli seeds-validate
+          if docker run --rm "$image" nope; then echo "unknown role must fail" && exit 1; fi
+
+  postgres:
+    name: postgres image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: build and push
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: infra/postgres
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/sosed-postgres:18.6-3.6
+            ${{ env.REGISTRY }}/sosed-postgres:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=pg-image
+          cache-to: type=gha,scope=pg-image,mode=max

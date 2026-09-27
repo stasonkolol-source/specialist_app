@@ -50,6 +50,9 @@ class AppSettings(_Group):
     release: str = "dev"
     heartbeat_url: str | None = None
     """Ping Healthchecks.io раз в минуту из воркера (K33), без адреса — только лог."""
+    web_host: str = "127.0.0.1"
+    """Адрес uvicorn: локально — только loopback; в контейнере — 0.0.0.0 (за kamal-proxy)."""
+    web_port: int = Field(default=8000, ge=1, le=65535)
     api_public_url: str = "http://127.0.0.1:8000"
     """Публичный адрес API: из него строится `type` ошибок RFC 9457."""
     min_client_versions: dict[str, str] = Field(default_factory=dict)
