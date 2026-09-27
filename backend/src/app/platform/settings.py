@@ -98,7 +98,10 @@ class JwtSettings(_Group):
     issuer: str = "sosed"
     access_ttl_seconds: int = Field(default=900, ge=60)
     refresh_ttl_days: int = Field(default=30, ge=1)
-    keys_dir: Path | None = None
+    """Мобильные приложения; Mini App — refresh_ttl_days_tma (ADR-0009)."""
+    refresh_ttl_days_tma: int = Field(default=7, ge=1)
+    keys: SecretStr | None = None
+    """`kid:ключ,kid:ключ` (Ed25519, base64url); первый подписывает. Создаёт `cli jwt-keys`."""
 
 
 class S3Settings(_Group):
