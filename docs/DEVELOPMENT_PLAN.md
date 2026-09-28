@@ -204,6 +204,7 @@
 | `make seed`, `make seed-demo SCALE=small\|lab` | Справочники; демо-данные через use cases (только dev и stage) | 1.3b, 2.8c |
 | `make dev-web`, `dev-bot`, `dev-worker`, `dev-worker-media`, `dev-tma` | Процессы с hot reload вне Docker | 0.12–0.22 |
 | `make dev` | Всё сразу через honcho и `Procfile.dev`: compose, миграции, процессы, туннель; печатает URL | 0.22 |
+| `make dev-bg`, `make dev-restart`, `make dev-stop` | Тот же стенд в фоне (переживает закрытие терминала и IDE, лог `.tunnel-logs/dev.log`); перезапуск только процессов без смены адресов туннеля; остановка. Стенд сам пересоздаёт quick tunnel, который Cloudflare удалил после долгого обрыва связи | 0.22 |
 | `make tunnel` | Туннели на 5173 и Garage, запись адресов в `.env`, перезапуск web, menu button | 0.22; именованный — 0.28 |
 | `make e2e [PKG=…] GREP=… [UPDATE=1]`, `make design-compare GREP=…` | Playwright в Docker; отчёт «эталон рядом с фактом» | `e2e` — 0.19a (галерея) и 0.21b (Mini App); `design-compare` — 0.19c |
 | `make openapi`, `make contract` | Экспорт `openapi.json` и генерация api-client; schemathesis и oasdiff | 0.20 |

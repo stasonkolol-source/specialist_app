@@ -11,7 +11,7 @@ EXTRA_CHECKS :=
 
 COMPOSE := docker compose -p specialist-dev -f infra/compose/docker-compose.dev.yml --env-file infra/compose/.env
 
-.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker new-module new-use-case openapi contract i18n-check-backend seeds-validate seed dev tunnel dev-bot audit image \
+.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker new-module new-use-case openapi contract i18n-check-backend seeds-validate seed dev dev-bg dev-restart dev-stop tunnel dev-bot audit image \
 	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check test-int migrate migrate-roundtrip pg-bootstrap
 
 help: ## Show available targets
@@ -140,6 +140,15 @@ new-use-case: ## Новый use case: make new-use-case MODULE=<модуль> NA
 
 dev: ## Весь dev-стенд: compose, миграции, сиды, туннели, web, bot, worker, tma (TUNNEL=0 — без туннелей)
 	@cd scripts && TUNNEL=$(or $(TUNNEL),1) $(UV) run --no-project --quiet python dev.py
+
+dev-bg: ## Тот же стенд в фоне: переживает закрытие терминала и IDE; лог .tunnel-logs/dev.log
+	@cd scripts && TUNNEL=$(or $(TUNNEL),1) $(UV) run --no-project --quiet python dev.py --background
+
+dev-restart: ## Перезапустить процессы стенда (новый код бота и воркеров); туннели и адреса остаются
+	@cd scripts && $(UV) run --no-project --quiet python dev.py --restart
+
+dev-stop: ## Остановить стенд, запущенный make dev или make dev-bg
+	@cd scripts && $(UV) run --no-project --quiet python dev.py --stop
 
 tunnel: ## Quick tunnel cloudflared на Mini App и Garage: адреса в .env, menu button бота
 	@cd scripts && $(UV) run --no-project --quiet python tunnel.py
