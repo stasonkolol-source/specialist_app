@@ -2825,7 +2825,7 @@ flowchart LR
 
 ### 11.4. Deep links
 
-Схема — `t.me/<bot>?startapp=<код>`, код не длиннее 64 символов `[A-Za-z0-9_-]`, без префикса `_tgr_`. Кодек общий для backend и фронтенда: пакет `packages/links` и модуль `growth`.
+Схема — `t.me/<bot>?startapp=<код>`, код не длиннее 64 символов `[A-Za-z0-9_-]`, без префикса `_tgr_`. Кодек общий для backend и фронтенда: пакет `packages/links` и `platform/telegram/deeplinks.py` (им пользуются бот и модуль `growth`), golden-векторы `packages/links/golden.json` общие.
 
 `<base62>` — UUID в base62, ровно 22 символа.
 
@@ -2836,9 +2836,12 @@ flowchart LR
 | `c_<base62>` | Диалог (S30) | `c_034W1ovwx2XBd7GhiJ9CHv` |
 | `d_<base62>` | Сделка (S26) | `d_6kL3jH8gF1dS4aZ7xC2vBn` |
 | `h` | Главная (S03) | `h` |
+| `l_terms`, `l_privacy` | Правила площадки, политика конфиденциальности (вкладка S48; команды бота `/terms`, `/privacy`) | `l_terms` |
 | `…_r<code>` | Суффикс реферала или атрибуции канала — только суффикс, не тип | `s_4bN8wE2rT6yU1iO3pA5sDf_rAB12CD`, `h_rAB12CD` |
 
 Команды боту — `t.me/<bot>?start=<param>`: `link_<nonce>` — привязка Telegram к аккаунту нативного приложения (этап 2). Других префиксов нет.
+
+Кнопка web_app в сообщении бота открывает адрес как есть: `start_param` в неё Telegram не передаёт. Поэтому бот кладёт тот же код в адрес — `https://<app>/?startapp=<код>`, — а Mini App берёт его, когда в launch params кода нет (`packages/platform`). Такой код — только навигация: атрибуцию backend берёт из подписанного initData или из `/start`.
 
 **Зарезервировано под раздел «Вещи»** (после MVP, итерация «Вещи»; префиксы зарезервированы [ADR-0019](adr/0019-goods-section-module-deferred.md) (п. 15), отметка — в шапке [ADR-0011](adr/0011-telegram-bot-integration.md), [research/08 §6.8](research/08-goods-marketplace.md#68-влияние-на-поиск-медиа-модерацию-чат-бот-и-deep-links)):
 

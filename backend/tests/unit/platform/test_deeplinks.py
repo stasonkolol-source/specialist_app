@@ -8,9 +8,10 @@ from uuid import UUID
 import pytest
 import yaml
 
-from app.modules.growth.domain.deeplinks import (
+from app.platform.telegram.deeplinks import (
     BASE62_ALPHABET,
     START_PARAM_MAX_LENGTH,
+    LinkDocument,
     LinkType,
     ReservedCode,
     StartLink,
@@ -20,11 +21,11 @@ from app.modules.growth.domain.deeplinks import (
     parse_start_param,
     uuid_to_base62,
 )
-from app.modules.growth.errors import InvalidStartLinkError
+from app.platform.telegram.errors import InvalidStartLinkError
 
 pytestmark = pytest.mark.unit
 
-GOLDEN_PATH = Path(__file__).resolve().parents[7] / "packages" / "links" / "golden.json"
+GOLDEN_PATH = Path(__file__).resolve().parents[4] / "packages" / "links" / "golden.json"
 GOLDEN: dict[str, Any] = json.loads(GOLDEN_PATH.read_text(encoding="utf-8"))
 CI_BACKEND_PATH = GOLDEN_PATH.parents[2] / ".github" / "workflows" / "ci-backend.yml"
 ID = UUID("0192f5a8-7c3e-7b21-9d4f-3a6b8c1e2f47")
@@ -36,6 +37,7 @@ def from_golden(data: dict[str, str]) -> StartLink:
         id=UUID(data["id"]) if "id" in data else None,
         code=ReservedCode(data["code"]) if "code" in data else None,
         value=data.get("value"),
+        document=LinkDocument(data["document"]) if "document" in data else None,
         ref=data.get("ref"),
     )
 
@@ -47,6 +49,7 @@ def as_golden(link: StartLink) -> dict[str, str]:
         "id": str(link.id) if link.id else None,
         "code": link.code.value if link.code else None,
         "value": link.value,
+        "document": link.document.value if link.document else None,
         "ref": link.ref,
     }
     return {key: value for key, value in fields.items() if value is not None}

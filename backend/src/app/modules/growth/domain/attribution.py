@@ -10,8 +10,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final
 
-from app.modules.growth.domain.deeplinks import LinkType, is_valid_start_param, parse_start_param
 from app.platform.contracts.events.identity import EntryPoint
+from app.platform.telegram.deeplinks import LinkType, is_valid_start_param, parse_start_param
 
 
 class AttributionSource(StrEnum):
@@ -24,6 +24,8 @@ class AttributionSource(StrEnum):
     CHAT = "chat"
     DEAL = "deal"
     HOME = "home"
+    LEGAL = "legal"
+    """Ссылка на правила или политику (`l_terms`, `l_privacy`): её пересылают из бота."""
     GOODS = "goods"
     """Зарезервированные коды раздела «Вещи» (после MVP)."""
     UNKNOWN = "unknown"
@@ -36,6 +38,7 @@ _SOURCE_BY_LINK: Final = {
     LinkType.CHAT: AttributionSource.CHAT,
     LinkType.DEAL: AttributionSource.DEAL,
     LinkType.HOME: AttributionSource.HOME,
+    LinkType.LEGAL: AttributionSource.LEGAL,
     LinkType.RESERVED: AttributionSource.GOODS,
 }
 

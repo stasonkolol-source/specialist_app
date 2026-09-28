@@ -9,16 +9,85 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 msgid "bot.start.welcome"
-msgstr "Привет, {name}! Это «Соседи» — здесь находят мастеров и помощь рядом: ремонт, красота, уборка, переезды, уроки. Жми «Открыть», чтобы начать."
+msgstr "Здравствуйте, {name}! Это «Соседи» — здесь находят мастеров и помощь рядом: ремонт, красота, уборка, переезды, уроки. Нажмите «Открыть», чтобы начать."
 
 msgid "bot.start.welcome_back"
-msgstr "С возвращением, {name}! Открывай «Соседи» кнопкой ниже."
+msgstr "С возвращением, {name}! Откройте «Соседи» кнопкой ниже."
 
 msgid "bot.start.open"
 msgstr "Открыть «Соседи»"
 
 msgid "bot.menu.open"
 msgstr "Открыть"
+
+msgid "bot.app.text"
+msgstr "Откройте «Соседи» кнопкой ниже или кнопкой меню слева от поля ввода."
+
+msgid "bot.help.text"
+msgstr "<b>Как это работает</b>\n• Опишите задачу — мастера рядом откликнутся с ценой. Или выберите специалиста по отзывам.\n• Договаривайтесь в чате «Соседей»: контакты — после договорённости.\n• Оплата — напрямую исполнителю, после работы. «Соседи» деньги не принимают.\n\n<b>Безопасность</b>\n• Не вносите предоплату незнакомым и никому не сообщайте коды из СМС.\n• Подозрительный профиль или сообщение — пожалуйтесь прямо в приложении.\n\n/terms — правила площадки\n/privacy — политика конфиденциальности\n/language — язык"
+
+msgid "bot.help.support"
+msgstr "Вопрос или проблема? Напишите в поддержку — ответим."
+
+msgid "bot.help.support_button"
+msgstr "Написать в поддержку"
+
+msgid "bot.help.support_soon"
+msgstr "Контакт поддержки скоро появится здесь."
+
+msgid "bot.legal.text"
+msgstr "<b>{title}</b>\nРедакция {version} от {date}.\n\nПолный текст — по кнопке ниже."
+
+msgid "bot.legal.text_no_version"
+msgstr "<b>{title}</b>\n\nПолный текст — по кнопке ниже."
+
+msgid "bot.legal.terms.title"
+msgstr "Правила площадки «Соседи»"
+
+msgid "bot.legal.terms.open"
+msgstr "Открыть правила"
+
+msgid "bot.legal.privacy.title"
+msgstr "Политика конфиденциальности"
+
+msgid "bot.legal.privacy.open"
+msgstr "Открыть политику"
+
+msgid "bot.language.prompt"
+msgstr "Выберите язык приложения и уведомлений:"
+
+msgid "bot.language.done"
+msgstr "Готово: язык — {language}."
+
+msgid "bot.language.need_start"
+msgstr "Сначала нажмите /start."
+
+msgid "bot.fallback"
+msgstr "Я понимаю команды:\n/app — открыть приложение\n/help — помощь и поддержка\n/language — язык"
+
+msgid "bot.commands.app"
+msgstr "Открыть приложение"
+
+msgid "bot.commands.help"
+msgstr "Помощь и поддержка"
+
+msgid "bot.commands.terms"
+msgstr "Правила площадки"
+
+msgid "bot.commands.privacy"
+msgstr "Политика конфиденциальности"
+
+msgid "bot.commands.language"
+msgstr "Язык"
+
+msgid "bot.profile.name"
+msgstr "Соседи"
+
+msgid "bot.profile.description"
+msgstr "«Соседи» — мастера и помощь рядом: ремонт, красота, уборка, переезды, уроки. Опишите задачу — исполнители откликнутся с ценой. Или выберите специалиста по отзывам.\n\nНажмите кнопку ниже, чтобы начать."
+
+msgid "bot.profile.short_description"
+msgstr "Мастера и помощь рядом: ремонт, красота, уборка, переезды, уроки."
 
 msgid "errors.not_found"
 msgstr "Не найдено."

@@ -90,8 +90,13 @@ class ErrorMiddleware(BaseMiddleware):
 
     async def _reply(self, event: TelegramObject, data: dict[str, Any], key: str) -> None:
         inner = event.event if isinstance(event, Update) else event
-        if not isinstance(inner, Message):
+        if not isinstance(inner, Message | CallbackQuery):
             return
         translator: Translator = await data["dishka_container"].get(Translator)
         text = translator.text(key, data.get("locale", Locale.RU)) or key
-        await inner.answer(text)
+        if isinstance(inner, CallbackQuery):
+            # нажатие кнопки ждёт ответа: без него у человека крутится индикатор
+            await inner.answer(text, show_alert=True)
+            return
+        # тексты ошибок с параметрами из данных — простым текстом, а не HTML бота
+        await inner.answer(text, parse_mode=None)

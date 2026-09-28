@@ -20,6 +20,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
 
+_TELEGRAM_USERNAME = re.compile(r"[A-Za-z][A-Za-z0-9_]{4,31}")
+"""Имя пользователя Telegram: 5–32 символа, начинается с буквы."""
+
+
 class Environment(StrEnum):
     DEV = "dev"
     TEST = "test"
@@ -96,6 +100,18 @@ class TelegramSettings(_Group):
     webhook_secret: SecretStr | None = None
     mini_app_url: str | None = None
     use_test_environment: bool = False
+    support_username: str | None = None
+    """Аккаунт поддержки для /help (K23, Q25), без `@`; пусто — «контакт появится скоро»."""
+
+    @field_validator("support_username")
+    @classmethod
+    def _support_username(cls, value: str | None) -> str | None:
+        username = (value or "").strip().removeprefix("@")
+        if not username:
+            return None
+        if not _TELEGRAM_USERNAME.fullmatch(username):
+            raise ValueError("TELEGRAM_SUPPORT_USERNAME: 5–32 символа [A-Za-z0-9_], без @")
+        return username
 
 
 class JwtSettings(_Group):

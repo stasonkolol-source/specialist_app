@@ -1,11 +1,14 @@
 """Кодек deep links `t.me/<bot>?startapp=<код>` (ARCHITECTURE §11.4, ADR-0011).
 
-Тот же кодек, что `packages/links` на фронтенде: golden-векторы `packages/links/golden.json`
-общие, юнит-тесты модуля сверяются с ними. Код — не длиннее 64 символов `[A-Za-z0-9_-]`,
-без партнёрского префикса Telegram `_tgr_`:
+Общий для бота (кнопка «Открыть приложение» несёт тот же код) и модуля growth (атрибуция
+первого касания). Тот же кодек, что `packages/links` на фронтенде: golden-векторы
+`packages/links/golden.json` общие, тесты сверяются с ними. Код — не длиннее 64 символов
+`[A-Za-z0-9_-]`, без партнёрского префикса Telegram `_tgr_`:
 
 - `j_<base62>`, `s_<base62>`, `c_<base62>`, `d_<base62>` — заявка, специалист, диалог, сделка;
 - `h` — главная;
+- `l_terms`, `l_privacy` — правила площадки и политика конфиденциальности (S48; `/terms` и
+  `/privacy` бота);
 - `g_`, `gu_`, `gh`, `gs_`, `gc_` — зарезервированы под раздел «Вещи» (после MVP);
 - `…_r<code>` — суффикс реферала или атрибуции канала, только суффикс, не тип.
 
@@ -19,7 +22,7 @@ from enum import StrEnum
 from typing import Final
 from uuid import UUID
 
-from app.modules.growth.errors import InvalidStartLinkError
+from app.platform.telegram.errors import InvalidStartLinkError
 
 BASE62_ALPHABET: Final = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 BASE62_UUID_LENGTH: Final = 22
@@ -43,7 +46,15 @@ class LinkType(StrEnum):
     CHAT = "chat"
     DEAL = "deal"
     HOME = "home"
+    LEGAL = "legal"
     RESERVED = "reserved"
+
+
+class LinkDocument(StrEnum):
+    """Документ ссылки `l_<документ>`: вкладка S48. Значения — как у LegalDocument."""
+
+    TERMS = "terms"
+    PRIVACY = "privacy"
 
 
 class ReservedCode(StrEnum):
@@ -64,31 +75,42 @@ ENTITY_PREFIX: Final[Mapping[LinkType, str]] = {
 }
 _ENTITY_BY_PREFIX: Final = {prefix: kind for kind, prefix in ENTITY_PREFIX.items()}
 _HOME: Final = "h"
+_LEGAL: Final = "l"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class StartLink:
     """Разобранный код startapp.
 
-    Сущность (`job`, `specialist`, `chat`, `deal`) — с `id`; `home` — без полей;
-    `reserved` — с `code` и, кроме `gh`, со значением `value`. `ref` — суффикс `_r<code>`.
+    Сущность (`job`, `specialist`, `chat`, `deal`) — с `id`; `home` — без полей; `legal` —
+    с `document`; `reserved` — с `code` и, кроме `gh`, со значением `value`. `ref` — суффикс
+    `_r<code>`.
     """
 
     type: LinkType
     id: UUID | None = None
     code: ReservedCode | None = None
     value: str | None = None
+    document: LinkDocument | None = None
     ref: str | None = None
 
     def __post_init__(self) -> None:
+        no_document = self.document is None
         if self.type in ENTITY_PREFIX:
-            shape_ok = self.id is not None and self.code is None and self.value is None
+            shape_ok = (
+                self.id is not None and self.code is None and self.value is None and no_document
+            )
         elif self.type is LinkType.HOME:
-            shape_ok = self.id is None and self.code is None and self.value is None
+            shape_ok = self.id is None and self.code is None and self.value is None and no_document
+        elif self.type is LinkType.LEGAL:
+            shape_ok = (
+                self.id is None and self.code is None and self.value is None and not no_document
+            )
         else:
             needs_value = self.code is not ReservedCode.GOODS_HOME
             shape_ok = (
                 self.id is None
+                and no_document
                 and self.code is not None
                 and needs_value == (self.value is not None)
                 and (self.value is None or _PAYLOAD.fullmatch(self.value) is not None)
@@ -132,6 +154,8 @@ def encode_start_param(link: StartLink) -> str:
     # форму ссылки проверил __post_init__: у reserved есть code, у сущности — id
     if link.code is not None:
         code = link.code.value if link.value is None else f"{link.code.value}_{link.value}"
+    elif link.document is not None:
+        code = f"{_LEGAL}_{link.document.value}"
     elif link.id is not None:
         code = f"{ENTITY_PREFIX[link.type]}_{uuid_to_base62(link.id)}"
     else:
@@ -159,7 +183,14 @@ def parse_start_param(value: str | None) -> StartLink | None:
     link = _parse_code(parts[:-1])
     if link is None:
         return None
-    return StartLink(type=link.type, id=link.id, code=link.code, value=link.value, ref=ref)
+    return StartLink(
+        type=link.type,
+        id=link.id,
+        code=link.code,
+        value=link.value,
+        document=link.document,
+        ref=ref,
+    )
 
 
 def _parse_code(parts: Sequence[str]) -> StartLink | None:
@@ -170,6 +201,13 @@ def _parse_code(parts: Sequence[str]) -> StartLink | None:
     if entity is not None:
         entity_id = base62_to_uuid(rest[0]) if len(rest) == 1 else None
         return StartLink(type=entity, id=entity_id) if entity_id is not None else None
+    if head == _LEGAL:
+        if len(rest) != 1:
+            return None
+        try:
+            return StartLink(type=LinkType.LEGAL, document=LinkDocument(rest[0]))
+        except ValueError:  # документа нет в S48
+            return None
     try:
         code = ReservedCode(head)
     except ValueError:

@@ -52,6 +52,7 @@ from app.platform.settings import (
 )
 from app.platform.storage.port import StoragePort
 from app.platform.storage.s3 import S3Storage
+from app.platform.telegram.texts import BOT_DEFAULTS
 
 
 class PlatformProvider(Provider):
@@ -133,7 +134,8 @@ class PlatformProvider(Provider):
     @provide(scope=Scope.APP)
     async def telegram_bot(self, settings: TelegramSettings) -> AsyncIterator[Bot]:
         """Клиент Bot API окружения: один на процесс, сессия закрывается при остановке."""
-        bot = Bot(settings.bot_token.get_secret_value())
+        # тексты бота — HTML (platform/telegram/texts.py): <b>, переносы; параметры экранированы
+        bot = Bot(settings.bot_token.get_secret_value(), default=BOT_DEFAULTS)
         yield bot
         await bot.session.close()
 

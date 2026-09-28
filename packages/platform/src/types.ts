@@ -18,6 +18,7 @@ export interface LaunchInfo {
   version: string;
   /** Сырой initData для POST /auth/telegram; в браузере — `null`. */
   rawInitData: string | null;
+  /** Код deep link `startapp`: из launch params, иначе из `?startapp=` адреса (кнопка бота). */
   startParam: string | null;
   /** `language_code` пользователя Telegram. */
   languageCode: string | null;
