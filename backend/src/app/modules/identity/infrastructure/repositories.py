@@ -3,7 +3,7 @@
 from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime
 
-from sqlalchemy import select, text, update
+from sqlalchemy import exists, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -201,6 +201,12 @@ class SqlConsentRepository:
         except IntegrityError as err:
             raise_domain_error(err, {"fk_consents_user_id_users": _user_not_found(user_id)})
         return len(inserted)
+
+    async def has_active(self, user_id: UserId) -> bool:
+        stmt = select(
+            exists().where(ConsentRow.user_id == user_id, ConsentRow.withdrawn_at.is_(None))
+        )
+        return bool((await self._session.execute(stmt)).scalar())
 
     async def withdraw(
         self, user_id: UserId, documents: Iterable[ConsentDocument], *, now: datetime

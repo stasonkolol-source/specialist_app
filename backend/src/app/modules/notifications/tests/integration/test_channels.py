@@ -83,6 +83,25 @@ async def test_permission_enables_blocked_channel_again(notifications: Notificat
     assert len(await notifications.channels(user_id)) == 1
 
 
+async def test_write_access_is_announced_only_when_it_becomes_possible(
+    notifications: Notifications,
+) -> None:
+    """Метрика «Opt-in уведомлений» (1.7): событие — переход в «можно писать», а не каждый
+    /start и не каждый повтор requestWriteAccess."""
+    user_id, _ = await notifications.user_with_chat()
+    await notifications.grant(granted(user_id, GrantedVia.MINI_APP))
+    await notifications.grant(granted(user_id, GrantedVia.BOT_START))  # повтор: уже можно
+    await notifications.session.execute(
+        text("UPDATE notifications.channels SET disabled_at = now() WHERE user_id = :user_id"),
+        {"user_id": user_id},
+    )
+    await notifications.session.commit()
+    await notifications.grant(granted(user_id, GrantedVia.BOT_START))  # включился снова
+
+    announced = await notifications.announced(user_id)
+    assert [event["via"] for event in announced] == ["mini_app", "bot_start"]
+
+
 async def test_chat_follows_its_new_account(notifications: Notifications) -> None:
     """Тот же Telegram у другого аккаунта (пересоздан после удаления): адрес один."""
     old_user, chat_id = await notifications.user_with_chat()

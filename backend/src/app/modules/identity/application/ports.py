@@ -55,6 +55,10 @@ class ConsentRepository(Protocol):
         """
         ...
 
+    async def has_active(self, user_id: UserId) -> bool:
+        """Есть ли у пользователя хоть одно действующее согласие (не отозванное)."""
+        ...
+
     async def withdraw(
         self, user_id: UserId, documents: Iterable[ConsentDocument], *, now: datetime
     ) -> int:

@@ -15,10 +15,11 @@ class ChannelRepository(Protocol):
 
     async def grant_telegram(
         self, user_id: UserId, chat_id: int, *, via: GrantedVia, now: datetime
-    ) -> ChannelView:
+    ) -> tuple[ChannelView, bool]:
         """Канал telegram доступен: создать или включить выключенный.
 
-        Уже доступный канал не меняется — повтор идемпотентен. Нужен активный UoW.
+        Уже доступный канал не меняется — повтор идемпотентен. Второе значение — стал ли
+        канал доступным сейчас (создан или включён): False у повтора. Нужен активный UoW.
         """
         ...
 

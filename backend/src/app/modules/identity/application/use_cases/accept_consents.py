@@ -1,7 +1,8 @@
 """Одна галочка S02c: правила площадки с 18+ и политика (POST /me/consents, ADR-0018).
 
 Версии, которые видел пользователь, сверяются с действующими из client-config; повтор
-той же версии ничего не пишет — запрос идемпотентен.
+той же версии ничего не пишет — запрос идемпотентен. Первое согласие — конец онбординга:
+`OnboardingCompleted` (аналитика, 1.7); согласие с новой редакцией онбордингом не считается.
 """
 
 from dataclasses import dataclass
@@ -9,6 +10,7 @@ from dataclasses import dataclass
 from app.modules.identity.application.ports import ConsentRepository, UserRepository
 from app.modules.identity.domain.policies import one_tick_consents
 from app.platform.config.port import LegalVersions
+from app.platform.contracts.events.identity import OnboardingCompleted
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.ids import UserId
@@ -44,9 +46,22 @@ class AcceptConsents:
             terms_version=cmd.terms_version,
             privacy_version=cmd.privacy_version,
         )
+        now = self._clock.now()
         async with self._uow:
             user = await self._users.get(cmd.actor_id)
             user.ensure_active()
-            return await self._consents.grant(
-                user.id, versions, source=cmd.source, ip=cmd.ip, now=self._clock.now()
+            first = not await self._consents.has_active(user.id)
+            granted = await self._consents.grant(
+                user.id, versions, source=cmd.source, ip=cmd.ip, now=now
             )
+            # параллельный второй запрос видит first=True, но его вставка — 0 строк: событие одно
+            if first and granted:
+                self._uow.add_event(
+                    OnboardingCompleted(
+                        user_id=user.id,
+                        intent=user.intent.value if user.intent else None,
+                        home_city_id=user.home_city_id,
+                        occurred_at=now,
+                    )
+                )
+            return granted

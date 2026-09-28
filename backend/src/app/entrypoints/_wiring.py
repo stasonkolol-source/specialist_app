@@ -65,11 +65,17 @@ def _module_packages() -> list[str]:
     return [provider.__module__.rsplit(".", 1)[0] for provider in MODULE_PROVIDERS]
 
 
+PLATFORM_TASKS: tuple[str, ...] = ("app.platform.analytics.tasks",)
+"""Задачи-подписчики платформы: подписываются на события так же, как задачи модулей."""
+
+
 def load_module_tasks() -> None:
-    """Импортировать tasks.py модулей: декораторы @task и @subscriber заполняют TASKS."""
+    """Импортировать tasks.py модулей и платформы: @task и @subscriber заполняют TASKS."""
     for package in _module_packages():
         if importlib.util.find_spec(f"{package}.tasks") is not None:
             importlib.import_module(f"{package}.tasks")
+    for name in PLATFORM_TASKS:
+        importlib.import_module(name)
 
 
 def module_routers() -> list[APIRouter]:

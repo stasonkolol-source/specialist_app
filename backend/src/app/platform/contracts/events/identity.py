@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import StrEnum
 
 from app.platform.kernel.events import DomainEvent
-from app.platform.kernel.ids import CaseId, RestrictionId, UserId
+from app.platform.kernel.ids import CaseId, CityId, RestrictionId, UserId
 
 
 class RestrictionKind(StrEnum):
@@ -92,3 +92,18 @@ class UserRestricted(DomainEvent):
     reason_code: str
     until: datetime | None
     case_id: CaseId | None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class OnboardingCompleted(DomainEvent):
+    """Пользователь впервые принял правила площадки и политику (S02c) — онбординг пройден.
+
+    Публикуется один раз на пользователя: повторное согласие с новой редакцией — не
+    онбординг. `intent` (`client`, `pro`, `casual`) и `home_city_id` — что выбрано на S02b и
+    S02a; None — если шаг пропустили (API это позволяет). Подписчик — аналитика (1.7).
+    """
+
+    event_type = "identity.OnboardingCompleted"
+    user_id: UserId
+    intent: str | None
+    home_city_id: CityId | None

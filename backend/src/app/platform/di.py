@@ -2,13 +2,14 @@
 
 Синглтон — только объект со Scope.APP: он создаётся один раз на процесс и закрывается
 при остановке. REQUEST — всё, что живёт одну команду: сессия, UoW, очередь.
-Провайдеры внешних клиентов добавляют их шаги: AI (2.4), аналитика (1.7).
+Провайдеры внешних клиентов добавляют их шаги: AI (2.4).
 Правовые тексты (1.5a) читаются из файлов репозитория один раз на процесс.
 """
 
 from collections.abc import AsyncIterator, Iterator
 from datetime import timedelta
 
+import httpx
 import procrastinate
 from aiogram import Bot
 from dishka import Provider, Scope, from_context, provide
@@ -17,6 +18,9 @@ from limits.aio.strategies import SlidingWindowCounterRateLimiter
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app.platform.analytics.fake import LoggingAnalytics
+from app.platform.analytics.port import Analytics
+from app.platform.analytics.posthog import PostHogAnalytics
 from app.platform.audit.port import AuditLog
 from app.platform.audit.sql import SqlAuditLog
 from app.platform.config.cache import ClientConfigCache
@@ -53,6 +57,8 @@ from app.platform.settings import (
 from app.platform.storage.port import StoragePort
 from app.platform.storage.s3 import S3Storage
 from app.platform.telegram.texts import BOT_DEFAULTS
+
+ANALYTICS_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 
 
 class PlatformProvider(Provider):
@@ -145,6 +151,22 @@ class PlatformProvider(Provider):
         storage = S3Storage(settings, clock)
         yield storage
         storage.close()
+
+    @provide(scope=Scope.APP)
+    async def analytics(
+        self, settings: AnalyticsSettings, app: AppSettings
+    ) -> AsyncIterator[Analytics]:
+        """PostHog EU, если есть ключ (K32); без ключа — события в лог (dev, тесты)."""
+        if settings.posthog_api_key is None:
+            yield LoggingAnalytics()
+            return
+        async with httpx.AsyncClient(timeout=ANALYTICS_TIMEOUT) as client:
+            yield PostHogAnalytics(
+                client,
+                api_key=settings.posthog_api_key,
+                host=settings.posthog_host,
+                environment=app.env.value,
+            )
 
     @provide(scope=Scope.APP)
     def client_config(self, maker: async_sessionmaker[AsyncSession]) -> ClientConfigCache:
