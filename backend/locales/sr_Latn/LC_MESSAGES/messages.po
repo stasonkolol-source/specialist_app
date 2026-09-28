@@ -22,7 +22,7 @@ msgid "bot.menu.open"
 msgstr "Otvori"
 
 msgid "bot.app.text"
-msgstr "Otvorite aplikaciju „Sosedi“ dugmetom ispod ili dugmetom „Otvori“ levo od polja za poruku."
+msgstr "Otvorite aplikaciju „Sosedi“ dugmetom ispod ili dugmetom menija levo od polja za poruku."
 
 msgid "bot.help.text"
 msgstr "<b>Kako funkcioniše</b>\n• Opišite zadatak — majstori u blizini će se javiti sa cenom. Ili izaberite stručnjaka po utiscima.\n• Dogovarajte se u četu aplikacije „Sosedi“: kontakti — nakon dogovora.\n• Plaćanje — direktno izvođaču, posle posla. „Sosedi“ ne primaju novac.\n\n<b>Bezbednost</b>\n• Ne plaćajte unapred nepoznatim ljudima i nikome ne govorite kodove iz SMS poruka.\n• Sumnjiv profil ili poruka — prijavite direktno u aplikaciji.\n\n/terms — pravila platforme\n/privacy — politika privatnosti\n/language — jezik"
@@ -31,16 +31,16 @@ msgid "bot.help.support"
 msgstr "Pitanje ili problem? Pišite podršci — odgovorićemo."
 
 msgid "bot.help.support_button"
-msgstr "Pišite podršci"
+msgstr "Piši podršci"
 
 msgid "bot.help.support_soon"
-msgstr "Kontakt podrške uskoro će biti ovde."
+msgstr "Uskoro će ovde biti kontakt podrške."
 
 msgid "bot.legal.text"
-msgstr "<b>{title}</b>\nVerzija {version} od {date}.\n\nCeo tekst — na dugmetu ispod."
+msgstr "<b>{title}</b>\nVerzija {version} od {date}.\n\nCeo tekst otvorite dugmetom ispod."
 
 msgid "bot.legal.text_no_version"
-msgstr "<b>{title}</b>\n\nCeo tekst — na dugmetu ispod."
+msgstr "<b>{title}</b>\n\nCeo tekst otvorite dugmetom ispod."
 
 msgid "bot.legal.terms.title"
 msgstr "Pravila platforme „Sosedi“"

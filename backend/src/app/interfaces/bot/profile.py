@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from aiogram import Bot
-from aiogram.types import BotCommand, BotCommandScopeDefault, MenuButtonWebApp, WebAppInfo
+from aiogram.types import BotCommand, BotCommandScopeAllPrivateChats, MenuButtonWebApp, WebAppInfo
 
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.localized import Locale
@@ -98,7 +98,8 @@ async def apply_profile(bot: Bot, profile: BotProfile) -> list[str]:
             short_description=profile.short_description, language_code=lang
         )
         changed.append("short description")
-    scope = BotCommandScopeDefault()
+    # только личные чаты: в группах (чат модераторов, чат дома) команды бота не работают
+    scope = BotCommandScopeAllPrivateChats()
     commands = await bot.get_my_commands(scope=scope, language_code=lang)
     if _pairs(commands) != _pairs(profile.commands):
         await bot.set_my_commands(list(profile.commands), scope=scope, language_code=lang)

@@ -6,7 +6,10 @@
 ответ на непонятное сообщение получает только то, что не взяли модули.
 """
 
+from typing import Final
+
 from aiogram import F, Router
+from aiogram.enums import ContentType
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, Message
 from dishka.integrations.aiogram import FromDishka, inject
@@ -19,6 +22,28 @@ from app.platform.settings import TelegramSettings
 from app.platform.telegram.buttons import link_keyboard, mini_app_url, open_app_keyboard
 from app.platform.telegram.deeplinks import LinkDocument, LinkType, StartLink, encode_start_param
 from app.platform.telegram.texts import html_text, plain_text
+
+USER_CONTENT: Final = frozenset(
+    {
+        ContentType.TEXT,
+        ContentType.PHOTO,
+        ContentType.VIDEO,
+        ContentType.VIDEO_NOTE,
+        ContentType.VOICE,
+        ContentType.AUDIO,
+        ContentType.DOCUMENT,
+        ContentType.ANIMATION,
+        ContentType.STICKER,
+        ContentType.CONTACT,
+        ContentType.LOCATION,
+        ContentType.VENUE,
+        ContentType.POLL,
+        ContentType.DICE,
+    }
+)
+"""На что бот отвечает подсказкой: только то, что человек прислал сам. Служебные сообщения
+(«вы разрешили боту писать» после requestWriteAccess в Mini App, закреп, таймер удаления)
+остаются без ответа — иначе первым сообщением бота был бы упрёк в непонятной команде."""
 
 DATE_FORMAT = "%d.%m.%Y"
 """Дата редакции цифрами: без падежей («от 27.09.2026», «од 27.09.2026»)."""
@@ -140,5 +165,6 @@ def create_router() -> Router:
     router.message.register(help_command, Command("help"), private)
     router.message.register(terms_command, Command("terms"), private)
     router.message.register(privacy_command, Command("privacy"), private)
-    router.message.register(fallback, private)  # последним: всё, что не взяли команды
+    # последним: всё, что человек прислал и что не взяли команды
+    router.message.register(fallback, private, F.content_type.in_(USER_CONTENT))
     return router

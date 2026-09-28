@@ -14,10 +14,19 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.session.base import BaseSession
+from aiogram.enums import ParseMode
 from aiogram.methods import AnswerCallbackQuery, EditMessageText, SendMessage, TelegramMethod
-from aiogram.types import CallbackQuery, Chat, InlineKeyboardMarkup, Message, Update, User
+from aiogram.types import (
+    CallbackQuery,
+    Chat,
+    InlineKeyboardMarkup,
+    Message,
+    Update,
+    User,
+    WriteAccessAllowed,
+)
 from dishka import AsyncContainer
 from redis.asyncio import Redis
 from sqlalchemy import text
@@ -29,10 +38,10 @@ from app.interfaces.bot.app import create_dispatcher
 from app.modules.growth.application.ports import RECORD_ATTRIBUTION
 from app.modules.identity.api import IdentityApi
 from app.modules.notifications.application.ports import GRANT_WRITE_ACCESS
+from app.platform.kernel.errors import ConflictError
 from app.platform.kernel.ids import new_id
 from app.platform.kernel.localized import Locale
 from app.platform.settings import Settings
-from app.platform.telegram.texts import BOT_DEFAULTS
 from tests.plugins.queue import run_queued
 
 pytestmark = pytest.mark.integration
@@ -95,6 +104,16 @@ class BotHarness:
         assert len(replies) == 1, replies
         return replies[0]
 
+    async def feed(self, telegram_id: int, message: Message) -> list[TelegramMethod[Any]]:
+        """Произвольное сообщение от пользователя (служебное, медиа): вызовы Bot API в ответ."""
+        before = len(self.session.calls)
+        user = User(id=telegram_id, is_bot=False, first_name="Ana", language_code="ru")
+        update = Update(
+            update_id=new_id().int % 2**31, message=message.model_copy(update={"from_user": user})
+        )
+        await self.dispatcher.feed_update(self.bot, update)
+        return self.session.calls[before:]
+
     async def press(self, telegram_id: int, data: str) -> list[TelegramMethod[Any]]:
         """Нажатие инлайн-кнопки под сообщением бота: вызовы Bot API в ответ."""
         before = len(self.session.calls)
@@ -141,15 +160,20 @@ class BotHarness:
 
 
 @asynccontextmanager
-async def bot_harness(monkeypatch: pytest.MonkeyPatch, **env: str) -> AsyncIterator[BotHarness]:
-    """Диспетчер как в процессе бота: роутеры модулей, общие команды, HTML по умолчанию."""
+async def bot_harness(
+    monkeypatch: pytest.MonkeyPatch, *extra: Router, **env: str
+) -> AsyncIterator[BotHarness]:
+    """Диспетчер как в процессе бота: роутеры модулей, общие команды. Bot — из DI (HTML по
+    умолчанию, как в проде), только сессия Bot API подменена записью вызовов."""
     monkeypatch.setenv("TELEGRAM_MINI_APP_URL", MINI_APP)
     for name, value in env.items():
         monkeypatch.setenv(name, value)
     container = make_bot_container(Settings(env_file=None))
     session = RecordingSession()
-    bot = Bot("8123456789:AAE" + "x" * 32, session=session, default=BOT_DEFAULTS)
-    dispatcher = create_dispatcher(container, await container.get(Redis), module_bot_routers())
+    bot = await container.get(Bot)
+    bot.session = session
+    routers = [*module_bot_routers(), *extra]
+    dispatcher = create_dispatcher(container, await container.get(Redis), routers)
     try:
         yield BotHarness(bot=bot, session=session, dispatcher=dispatcher, container=container)
     finally:
@@ -178,7 +202,6 @@ async def test_start_registers_user_and_offers_mini_app(harness: BotHarness) -> 
     with capture_logs() as logs:
         first = await harness.send(telegram_id, "/start", language="sr", name="Ana")
     assert first.text.startswith("Zdravo, Ana!")
-    assert first.parse_mode is not None  # HTML бота по умолчанию (BOT_DEFAULTS)
     assert _button_url(first) == MINI_APP
 
     async with harness.container() as request:
@@ -325,7 +348,7 @@ async def test_help_links_to_support_account(
 
     assert reply.text.endswith("Pitanje ili problem? Pišite podršci — odgovorićemo.")
     button = _markup(reply).inline_keyboard[0][0]
-    assert (button.text, button.url) == ("Pišite podršci", "https://t.me/sosedi_support")
+    assert (button.text, button.url) == ("Piši podršci", "https://t.me/sosedi_support")
 
 
 @pytest.mark.parametrize(
@@ -400,3 +423,61 @@ async def test_unknown_message_lists_commands(harness: BotHarness) -> None:
     for text_value in ("привет", "/unknown"):
         reply = await harness.send(telegram_id, text_value)
         assert reply.text.startswith("Я понимаю команды:\n/app — открыть приложение")
+
+
+async def test_production_bot_speaks_html(harness: BotHarness) -> None:
+    """Bot из DI (platform/di.py) — с HTML по умолчанию: без него теги ушли бы текстом."""
+    assert harness.bot.default.parse_mode == ParseMode.HTML
+    reply = await harness.send(telegram_user(), "/help")
+    assert "<b>" in reply.text
+
+
+async def test_service_messages_get_no_reply(harness: BotHarness) -> None:
+    """«Вы разрешили боту писать» после requestWriteAccess в Mini App — не повод для
+    подсказки про команды: это первое сообщение в чате человека, не нажимавшего /start."""
+    telegram_id = telegram_user()
+    service = Message(
+        message_id=1,
+        date=datetime.now(UTC),
+        chat=Chat(id=telegram_id, type="private"),
+        write_access_allowed=WriteAccessAllowed(from_request=True),
+    )
+
+    assert await harness.feed(telegram_id, service) == []
+
+
+async def test_legal_link_is_attributed_as_legal(harness: BotHarness) -> None:
+    telegram_id = telegram_user()
+    await harness.send(telegram_id, "/start l_terms")
+    async with harness.container() as request:
+        user = await (await request.get(IdentityApi)).by_telegram(telegram_id)
+        engine = await request.get(AsyncEngine)
+    assert user is not None
+
+    assert await run_queued(harness.container, RECORD_ATTRIBUTION, user_id=user.id) == 1
+    async with engine.connect() as conn:
+        source = (
+            await conn.execute(
+                text("SELECT source FROM growth.attributions WHERE user_id = :user_id"),
+                {"user_id": user.id},
+            )
+        ).scalar_one()
+    assert source == "legal"
+
+
+async def test_domain_error_on_button_is_answered_with_alert(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    boom = Router(name="test-boom")
+
+    async def fail(_callback: CallbackQuery) -> None:
+        raise ConflictError
+
+    boom.callback_query.register(fail, F.data == "boom")
+    async with bot_harness(monkeypatch, boom) as harness:
+        calls = await harness.press(telegram_user(), "boom")
+
+    answers = [c for c in calls if isinstance(c, AnswerCallbackQuery)]
+    assert [(a.text, a.show_alert) for a in answers] == [
+        ("Действие недоступно в текущем состоянии.", True)
+    ]

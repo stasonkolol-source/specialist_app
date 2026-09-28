@@ -10,6 +10,7 @@
 from typing import Final
 
 from aiogram import F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from dishka.integrations.aiogram import FromDishka, inject
@@ -23,6 +24,7 @@ from app.modules.identity.application.use_cases.update_profile import (
     UpdateProfile,
     UpdateProfileCommand,
 )
+from app.platform.db.retry import retry_on_conflict
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Principal
@@ -106,11 +108,23 @@ async def choose_language(
     if chosen is None or principal is None:
         await callback.answer()
         return
-    await update(UpdateProfileCommand(actor_id=principal.user_id, ui_locale=chosen))
+    command = UpdateProfileCommand(actor_id=principal.user_id, ui_locale=chosen)
+    # параллельная правка профиля (PATCH /me из Mini App) — перечитать и повторить
+    await retry_on_conflict(lambda: update(command))
     done = html_text(translator, "bot.language.done", chosen, language=LANGUAGES[chosen])
     await callback.answer()
     if isinstance(callback.message, Message):
-        await callback.message.edit_text(done)
+        await _edit_once(callback.message, done)
+
+
+async def _edit_once(message: Message, text: str) -> None:
+    """Двойное нажатие: второе редактирование того же текста Telegram отвергает 400
+    «message is not modified» — это не ошибка."""
+    try:
+        await message.edit_text(text)
+    except TelegramBadRequest as exc:
+        if "message is not modified" not in exc.message:
+            raise
 
 
 def _chosen_locale(data: str | None) -> Locale | None:
