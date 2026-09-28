@@ -161,3 +161,13 @@ async def test_menu_button_is_set_once() -> None:
     assert await apply_menu_button(bot, "https://new.example/", "Открыть") is True
     assert isinstance(bot.menu, MenuButtonWebApp)
     assert bot.menu.web_app.url == "https://new.example/"
+
+
+async def test_menu_button_matches_telegram_normalised_url() -> None:
+    """Telegram отдаёт адрес с `/` на конце голого хоста: это тот же адрес, не повод менять."""
+    bot: Any = FakeBot()
+    await apply_menu_button(bot, "https://app.example/", "Открыть")
+
+    assert await apply_menu_button(bot, "https://app.example", "Открыть") is False
+    assert await apply_menu_button(bot, "https://APP.example/", "Открыть") is False
+    assert await apply_menu_button(bot, "https://app.example/other", "Открыть") is True
