@@ -1,4 +1,5 @@
-"""Диспетчер бота (DEVELOPMENT_PLAN 0.22, ADR-0011): роутеры модулей, dishka, FSM в Valkey."""
+"""Диспетчер бота (DEVELOPMENT_PLAN 0.22, 1.6, ADR-0011): роутеры модулей, общие команды,
+dishka, FSM в Valkey."""
 
 from collections.abc import Sequence
 
@@ -9,6 +10,7 @@ from dishka import AsyncContainer
 from dishka.integrations.aiogram import setup_dishka
 from redis.asyncio import Redis
 
+from app.interfaces.bot import commands
 from app.interfaces.bot.middlewares import ErrorMiddleware, UserMiddleware
 
 
@@ -23,4 +25,6 @@ def create_dispatcher(
         observer.outer_middleware(UserMiddleware())
     for router in routers:
         dispatcher.include_router(router)
+    # общие команды — после модулей: ответ на непонятное сообщение ловит только остаток
+    dispatcher.include_router(commands.create_router())
     return dispatcher

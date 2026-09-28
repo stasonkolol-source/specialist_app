@@ -94,4 +94,5 @@ class ErrorMiddleware(BaseMiddleware):
             return
         translator: Translator = await data["dishka_container"].get(Translator)
         text = translator.text(key, data.get("locale", Locale.RU)) or key
-        await inner.answer(text)
+        # тексты ошибок с параметрами из данных — простым текстом, а не HTML бота
+        await inner.answer(text, parse_mode=None)

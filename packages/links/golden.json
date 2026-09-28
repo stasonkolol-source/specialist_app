@@ -1,5 +1,5 @@
 {
-  "$comment": "Golden-векторы кодека deep links (ARCHITECTURE §11.4). Общие для packages/links и backend (модуль growth): менять только вместе.",
+  "$comment": "Golden-векторы кодека deep links (ARCHITECTURE §11.4). Общие для packages/links и backend (platform/telegram/deeplinks.py): менять только вместе.",
   "alphabet": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
   "uuid": [
     {
@@ -102,6 +102,28 @@
       }
     },
     {
+      "param": "l_terms",
+      "link": {
+        "type": "legal",
+        "document": "terms"
+      }
+    },
+    {
+      "param": "l_privacy",
+      "link": {
+        "type": "legal",
+        "document": "privacy"
+      }
+    },
+    {
+      "param": "l_terms_rAB12CD",
+      "link": {
+        "type": "legal",
+        "document": "terms",
+        "ref": "AB12CD"
+      }
+    },
+    {
       "param": "j_7n42DGM5Tflk9n8mt7Fhc7_rZz9",
       "link": {
         "type": "job",
@@ -180,6 +202,13 @@
     "hh",
     "h_",
     "h_r",
+    "l",
+    "l_",
+    "l_rules",
+    "l_Terms",
+    "l_terms_privacy",
+    "l_moderation",
+    "l_rAB12",
     "j_",
     "j_1Xh3kQ9vB7mZ2pR4sT8dL",
     "j_1Xh3kQ9vB7mZ2pR4sT8dLqq",

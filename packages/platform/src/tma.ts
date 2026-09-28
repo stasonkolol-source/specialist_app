@@ -91,6 +91,15 @@ function languageOf(rawInitData: string | null): string | null {
   }
 }
 
+/** `startapp` из launch params (ссылки t.me/<bot>?startapp=…), иначе — из адреса страницы:
+ *  кнопка web_app в сообщении бота открывает URL как есть, без start_param, поэтому бот кладёт
+ *  тот же код в `?startapp=` (DEVELOPMENT_PLAN 1.6). Код — только навигация: атрибуцию backend
+ *  берёт из подписанного initData или из /start. */
+function startParamOf(lp: Payload): string | null {
+  if (typeof lp.tgWebAppStartParam === 'string') return lp.tgWebAppStartParam;
+  return new URLSearchParams(window.location.search).get('startapp');
+}
+
 function readLaunch(): { launch: LaunchInfo; themeParams: Payload | undefined } {
   const lp = retrieveLaunchParams() as unknown as Payload;
   const rawInitData = retrieveRawInitData() ?? null;
@@ -100,7 +109,7 @@ function readLaunch(): { launch: LaunchInfo; themeParams: Payload | undefined } 
       platform: String(lp.tgWebAppPlatform ?? 'unknown'),
       version: String(lp.tgWebAppVersion ?? '6.0'),
       rawInitData,
-      startParam: typeof lp.tgWebAppStartParam === 'string' ? lp.tgWebAppStartParam : null,
+      startParam: startParamOf(lp),
       languageCode,
     },
     themeParams: lp.tgWebAppThemeParams as Payload | undefined,

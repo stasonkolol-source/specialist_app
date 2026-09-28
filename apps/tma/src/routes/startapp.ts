@@ -15,6 +15,8 @@ type StartTargets = {
 
 export const START_TARGETS: StartTargets = {
   home: () => HOME,
+  // /terms и /privacy бота (1.6): вкладка S48
+  legal: (link) => `/legal/${link.document}`,
 };
 
 /** Адрес для кода `startapp`; `null` — приложение открыли без deep link. */

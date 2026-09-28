@@ -1,20 +1,23 @@
-"""Бот: /start на фейковом Update (DEVELOPMENT_PLAN 0.22, ADR-0011).
+"""Бот: команды на фейковых Update (DEVELOPMENT_PLAN 0.22, 1.6, ADR-0011).
 
 Bot API подменён сессией, которая записывает вызовы: сеть не нужна. БД и Valkey — настоящие
 (testcontainers): /start создаёт пользователя тем же кодом, что и вход Mini App.
 """
 
 import asyncio
+import json
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import pytest
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.base import BaseSession
-from aiogram.methods import SendMessage, TelegramMethod
-from aiogram.types import Chat, InlineKeyboardMarkup, Message, Update, User
+from aiogram.methods import AnswerCallbackQuery, EditMessageText, SendMessage, TelegramMethod
+from aiogram.types import CallbackQuery, Chat, InlineKeyboardMarkup, Message, Update, User
 from dishka import AsyncContainer
 from redis.asyncio import Redis
 from sqlalchemy import text
@@ -27,12 +30,17 @@ from app.modules.growth.application.ports import RECORD_ATTRIBUTION
 from app.modules.identity.api import IdentityApi
 from app.modules.notifications.application.ports import GRANT_WRITE_ACCESS
 from app.platform.kernel.ids import new_id
+from app.platform.kernel.localized import Locale
 from app.platform.settings import Settings
+from app.platform.telegram.texts import BOT_DEFAULTS
 from tests.plugins.queue import run_queued
 
 pytestmark = pytest.mark.integration
 
 MINI_APP = "https://mini.example.test/"
+GOLDEN = json.loads(
+    (Path(__file__).resolve().parents[3] / "packages" / "links" / "golden.json").read_text("utf-8")
+)
 
 
 @dataclass
@@ -51,11 +59,11 @@ class RecordingSession(BaseSession):
         timeout: int | None = None,  # noqa: ASYNC109 — сигнатура BaseSession
     ) -> Any:
         self.calls.append(method)
-        if isinstance(method, SendMessage):
+        if isinstance(method, SendMessage | EditMessageText):
             return Message(
                 message_id=len(self.calls),
                 date=datetime.now(UTC),
-                chat=Chat(id=int(method.chat_id), type="private"),
+                chat=Chat(id=int(method.chat_id or 0), type="private"),
                 text=method.text,
             )
         return True
@@ -87,6 +95,24 @@ class BotHarness:
         assert len(replies) == 1, replies
         return replies[0]
 
+    async def press(self, telegram_id: int, data: str) -> list[TelegramMethod[Any]]:
+        """Нажатие инлайн-кнопки под сообщением бота: вызовы Bot API в ответ."""
+        before = len(self.session.calls)
+        chat = Chat(id=telegram_id, type="private")
+        user = User(id=telegram_id, is_bot=False, first_name="Ana", language_code="ru")
+        message = Message(message_id=1, date=datetime.now(UTC), chat=chat, text="…")
+        callback = CallbackQuery(
+            id=str(new_id().int % 2**31),
+            from_user=user,
+            chat_instance="1",
+            data=data,
+            message=message,
+        )
+        await self.dispatcher.feed_update(
+            self.bot, Update(update_id=new_id().int % 2**31, callback_query=callback)
+        )
+        return self.session.calls[before:]
+
     async def send_parallel(self, telegram_id: int, text_value: str, times: int) -> list[str]:
         """`times` одинаковых апдейтов разом, как polling отдаёт накопившиеся; тексты ответов."""
         before = len(self.session.calls)
@@ -114,18 +140,30 @@ class BotHarness:
         )
 
 
-@pytest.fixture
-async def harness(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[BotHarness]:
+@asynccontextmanager
+async def bot_harness(monkeypatch: pytest.MonkeyPatch, **env: str) -> AsyncIterator[BotHarness]:
+    """Диспетчер как в процессе бота: роутеры модулей, общие команды, HTML по умолчанию."""
     monkeypatch.setenv("TELEGRAM_MINI_APP_URL", MINI_APP)
-    settings = Settings(env_file=None)
-    container = make_bot_container(settings)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    container = make_bot_container(Settings(env_file=None))
     session = RecordingSession()
-    bot = Bot("8123456789:AAE" + "x" * 32, session=session)
+    bot = Bot("8123456789:AAE" + "x" * 32, session=session, default=BOT_DEFAULTS)
     dispatcher = create_dispatcher(container, await container.get(Redis), module_bot_routers())
     try:
         yield BotHarness(bot=bot, session=session, dispatcher=dispatcher, container=container)
     finally:
         await container.close()
+
+
+@pytest.fixture
+async def harness(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[BotHarness]:
+    async with bot_harness(monkeypatch) as harness:
+        yield harness
+
+
+def telegram_user() -> int:
+    return 700_000_000 + new_id().int % 10_000_000
 
 
 def _button_url(reply: SendMessage) -> str | None:
@@ -140,6 +178,7 @@ async def test_start_registers_user_and_offers_mini_app(harness: BotHarness) -> 
     with capture_logs() as logs:
         first = await harness.send(telegram_id, "/start", language="sr", name="Ana")
     assert first.text.startswith("Zdravo, Ana!")
+    assert first.parse_mode is not None  # HTML бота по умолчанию (BOT_DEFAULTS)
     assert _button_url(first) == MINI_APP
 
     async with harness.container() as request:
@@ -148,7 +187,7 @@ async def test_start_registers_user_and_offers_mini_app(harness: BotHarness) -> 
     assert user.display_name == "Ana"
 
     again = await harness.send(telegram_id, "/start", language="sr")
-    assert again.text.startswith("Dobro došao ponovo, Ana!")
+    assert again.text.startswith("Dobro došli ponovo, Ana!")
     assert str(telegram_id) not in repr(logs)  # в логах только внутренний user_id
 
 
@@ -162,7 +201,9 @@ async def test_parallel_starts_of_one_user_all_get_welcome(harness: BotHarness) 
     again = await harness.send_parallel(telegram_id, "/start", 5)  # уже есть: запись входа
 
     texts = [*first, *again]
-    assert all(text.startswith(("Привет, Ana!", "С возвращением, Ana!")) for text in texts), texts
+    assert all(text.startswith(("Здравствуйте, Ana!", "С возвращением, Ana!")) for text in texts), (
+        texts
+    )
     async with harness.container() as request:
         assert await (await request.get(IdentityApi)).by_telegram(telegram_id) is not None
 
@@ -171,7 +212,7 @@ async def test_start_in_russian_by_default(harness: BotHarness) -> None:
     reply = await harness.send(
         700_000_000 + new_id().int % 10_000_000, "/start", language="de", name="Иван"
     )
-    assert reply.text.startswith("Привет, Иван!")
+    assert reply.text.startswith("Здравствуйте, Иван!")
 
 
 async def test_banned_user_gets_restriction_message(harness: BotHarness) -> None:
@@ -230,3 +271,132 @@ async def test_start_with_deep_link_attributes_user_and_opens_channel(harness: B
         ).one()
     assert tuple(attribution) == ("specialist", "AB12CD", "bot")
     assert tuple(channel) == (str(telegram_id), "bot_start", None)
+
+
+def _markup(reply: SendMessage) -> InlineKeyboardMarkup:
+    assert isinstance(reply.reply_markup, InlineKeyboardMarkup)
+    return reply.reply_markup
+
+
+async def test_start_button_carries_the_same_startapp_code(harness: BotHarness) -> None:
+    """Кнопка web_app открывает адрес как есть, поэтому код ссылки едет в `?startapp=`:
+    для всех golden-векторов кодека — тот же код, для битых — адрес без кода."""
+    telegram_id = telegram_user()
+    for vector in GOLDEN["valid"]:
+        reply = await harness.send(telegram_id, f"/start {vector['param']}")
+        assert _button_url(reply) == f"{MINI_APP}?startapp={vector['param']}"
+    for param in filter(None, GOLDEN["invalid"]):
+        reply = await harness.send(telegram_id, f"/start {param}")
+        assert _button_url(reply) == MINI_APP, param
+
+
+async def test_names_are_escaped_in_html(harness: BotHarness) -> None:
+    reply = await harness.send(telegram_user(), "/start", name="Ana & <b>Co</b>")
+
+    assert reply.text.startswith("Здравствуйте, Ana &amp; &lt;b&gt;Co&lt;/b&gt;!")
+
+
+async def test_app_opens_mini_app(harness: BotHarness) -> None:
+    telegram_id = telegram_user()
+    await harness.send(telegram_id, "/start")
+
+    reply = await harness.send(telegram_id, "/app")
+
+    assert reply.text.startswith("Откройте «Соседи» кнопкой ниже")
+    assert _button_url(reply) == MINI_APP
+
+
+async def test_help_says_support_contact_comes_later_until_owner_gives_it(
+    harness: BotHarness,
+) -> None:
+    reply = await harness.send(telegram_user(), "/help")
+
+    assert "<b>Как это работает</b>" in reply.text
+    assert "Не вносите предоплату незнакомым" in reply.text
+    assert reply.text.endswith("Контакт поддержки скоро появится здесь.")
+    assert reply.reply_markup is None
+
+
+async def test_help_links_to_support_account(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async with bot_harness(monkeypatch, TELEGRAM_SUPPORT_USERNAME="@sosedi_support") as harness:
+        reply = await harness.send(telegram_user(), "/help", language="sr")
+
+    assert reply.text.endswith("Pitanje ili problem? Pišite podršci — odgovorićemo.")
+    button = _markup(reply).inline_keyboard[0][0]
+    assert (button.text, button.url) == ("Pišite podršci", "https://t.me/sosedi_support")
+
+
+@pytest.mark.parametrize(
+    ("command", "title", "label", "code"),
+    [
+        ("/terms", "Правила площадки «Соседи»", "Открыть правила", "l_terms"),
+        ("/privacy", "Политика конфиденциальности", "Открыть политику", "l_privacy"),
+    ],
+)
+async def test_legal_commands_open_the_s48_tab(
+    harness: BotHarness, command: str, title: str, label: str, code: str
+) -> None:
+    reply = await harness.send(telegram_user(), command)
+
+    assert reply.text.startswith(f"<b>{title}</b>\nРедакция draft-1 от ")
+    button = _markup(reply).inline_keyboard[0][0]
+    assert button.text == label
+    assert button.web_app is not None
+    assert button.web_app.url == f"{MINI_APP}?startapp={code}"
+
+
+async def test_language_changes_ui_locale_and_answers_in_the_new_language(
+    harness: BotHarness,
+) -> None:
+    telegram_id = telegram_user()
+    await harness.send(telegram_id, "/start")
+
+    prompt = await harness.send(telegram_id, "/language")
+    options = [row[0] for row in _markup(prompt).inline_keyboard]
+    calls = await harness.press(telegram_id, "lang:sr-Latn")
+
+    assert prompt.text == "Выберите язык приложения и уведомлений:"
+    assert [(o.text, o.callback_data) for o in options] == [
+        ("Русский", "lang:ru"),
+        ("Srpski (latinica)", "lang:sr-Latn"),
+        ("Српски (ћирилица)", "lang:sr-Cyrl"),
+    ]
+    edits = [c for c in calls if isinstance(c, EditMessageText)]
+    assert [e.text for e in edits] == ["Gotovo: jezik — Srpski (latinica)."]
+    assert any(isinstance(c, AnswerCallbackQuery) for c in calls)
+    async with harness.container() as request:
+        user = await (await request.get(IdentityApi)).by_telegram(telegram_id)
+    assert user is not None
+    assert user.ui_locale is Locale.SR_LATN
+    again = await harness.send(telegram_id, "/start")
+    assert again.text.startswith("Dobro došli ponovo, Ana!")
+
+
+async def test_foreign_language_callback_changes_nothing(harness: BotHarness) -> None:
+    telegram_id = telegram_user()
+    await harness.send(telegram_id, "/start")
+
+    calls = await harness.press(telegram_id, "lang:en")
+
+    assert not [c for c in calls if isinstance(c, EditMessageText)]
+    async with harness.container() as request:
+        user = await (await request.get(IdentityApi)).by_telegram(telegram_id)
+    assert user is not None
+    assert user.ui_locale is Locale.RU
+
+
+async def test_language_before_start_asks_to_press_start(harness: BotHarness) -> None:
+    reply = await harness.send(telegram_user(), "/language")
+
+    assert reply.text == "Сначала нажмите /start."
+
+
+async def test_unknown_message_lists_commands(harness: BotHarness) -> None:
+    telegram_id = telegram_user()
+    await harness.send(telegram_id, "/start")
+
+    for text_value in ("привет", "/unknown"):
+        reply = await harness.send(telegram_id, text_value)
+        assert reply.text.startswith("Я понимаю команды:\n/app — открыть приложение")

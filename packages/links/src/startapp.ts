@@ -15,6 +15,10 @@ export const ENTITY_PREFIX = {
 } as const;
 export type EntityType = keyof typeof ENTITY_PREFIX;
 
+/** Правовые документы: `l_terms`, `l_privacy` — вкладка S48 (команды бота /terms и /privacy). */
+export const LEGAL_DOCUMENTS = ['terms', 'privacy'] as const;
+export type LegalDocument = (typeof LEGAL_DOCUMENTS)[number];
+
 /** Раздел «Вещи» (после MVP): префиксы зарезервированы, `gh` и `h` — разные типы. */
 export const RESERVED_CODES = ['g', 'gu', 'gh', 'gs', 'gc'] as const;
 export type ReservedCode = (typeof RESERVED_CODES)[number];
@@ -27,6 +31,7 @@ const PAYLOAD_RE = /^[A-Za-z0-9-]+$/;
 export type StartLink =
   | { type: EntityType; id: string; ref?: string }
   | { type: 'home'; ref?: string }
+  | { type: 'legal'; document: LegalDocument; ref?: string }
   | { type: 'reserved'; code: ReservedCode; value?: string; ref?: string };
 
 const PREFIX_TO_ENTITY = new Map<string, EntityType>(
@@ -51,6 +56,11 @@ export function encodeStartParam(link: StartLink): string {
   let code: string;
   if (link.type === 'home') {
     code = 'h';
+  } else if (link.type === 'legal') {
+    if (!isLegalDocument(link.document)) {
+      throw new StartParamError(`Недопустимый документ «${String(link.document)}»`);
+    }
+    code = `l_${link.document}`;
   } else if (link.type === 'reserved') {
     const needsValue = link.code !== 'gh';
     if (needsValue !== (link.value !== undefined) || (link.value && !PAYLOAD_RE.test(link.value))) {
@@ -69,9 +79,17 @@ export function encodeStartParam(link: StartLink): string {
   return code;
 }
 
+function isLegalDocument(value: string | undefined): value is LegalDocument {
+  return LEGAL_DOCUMENTS.some((document) => document === value);
+}
+
 function parseCode([head, ...rest]: string[]): StartLink | null {
   if (head === undefined) return null;
   if (head === 'h') return rest.length === 0 ? { type: 'home' } : null;
+  if (head === 'l') {
+    const [document] = rest;
+    return rest.length === 1 && isLegalDocument(document) ? { type: 'legal', document } : null;
+  }
   const entity = PREFIX_TO_ENTITY.get(head);
   if (entity) {
     const id = rest.length === 1 ? base62ToUuid(rest[0] ?? '') : null;

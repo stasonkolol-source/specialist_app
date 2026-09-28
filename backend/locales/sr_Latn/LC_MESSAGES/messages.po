@@ -10,16 +10,85 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 msgid "bot.start.welcome"
-msgstr "Zdravo, {name}! Ovo su „Sosedi“ — ovde se nalaze majstori i pomoć u blizini: popravke, lepota, čišćenje, selidbe, časovi. Pritisni „Otvori“ da počneš."
+msgstr "Zdravo, {name}! Ovo su „Sosedi“ — ovde se nalaze majstori i pomoć u blizini: popravke, lepota, čišćenje, selidbe, časovi. Pritisnite „Otvori“ da počnete."
 
 msgid "bot.start.welcome_back"
-msgstr "Dobro došao ponovo, {name}! Otvori aplikaciju „Sosedi“ dugmetom ispod."
+msgstr "Dobro došli ponovo, {name}! Otvorite aplikaciju „Sosedi“ dugmetom ispod."
 
 msgid "bot.start.open"
 msgstr "Otvori aplikaciju „Sosedi“"
 
 msgid "bot.menu.open"
 msgstr "Otvori"
+
+msgid "bot.app.text"
+msgstr "Otvorite aplikaciju „Sosedi“ dugmetom ispod ili dugmetom „Otvori“ levo od polja za poruku."
+
+msgid "bot.help.text"
+msgstr "<b>Kako funkcioniše</b>\n• Opišite zadatak — majstori u blizini će se javiti sa cenom. Ili izaberite stručnjaka po utiscima.\n• Dogovarajte se u četu aplikacije „Sosedi“: kontakti — nakon dogovora.\n• Plaćanje — direktno izvođaču, posle posla. „Sosedi“ ne primaju novac.\n\n<b>Bezbednost</b>\n• Ne plaćajte unapred nepoznatim ljudima i nikome ne govorite kodove iz SMS poruka.\n• Sumnjiv profil ili poruka — prijavite direktno u aplikaciji.\n\n/terms — pravila platforme\n/privacy — politika privatnosti\n/language — jezik"
+
+msgid "bot.help.support"
+msgstr "Pitanje ili problem? Pišite podršci — odgovorićemo."
+
+msgid "bot.help.support_button"
+msgstr "Pišite podršci"
+
+msgid "bot.help.support_soon"
+msgstr "Kontakt podrške uskoro će biti ovde."
+
+msgid "bot.legal.text"
+msgstr "<b>{title}</b>\nVerzija {version} od {date}.\n\nCeo tekst — na dugmetu ispod."
+
+msgid "bot.legal.text_no_version"
+msgstr "<b>{title}</b>\n\nCeo tekst — na dugmetu ispod."
+
+msgid "bot.legal.terms.title"
+msgstr "Pravila platforme „Sosedi“"
+
+msgid "bot.legal.terms.open"
+msgstr "Otvori pravila"
+
+msgid "bot.legal.privacy.title"
+msgstr "Politika privatnosti"
+
+msgid "bot.legal.privacy.open"
+msgstr "Otvori politiku"
+
+msgid "bot.language.prompt"
+msgstr "Izaberite jezik aplikacije i obaveštenja:"
+
+msgid "bot.language.done"
+msgstr "Gotovo: jezik — {language}."
+
+msgid "bot.language.need_start"
+msgstr "Prvo pritisnite /start."
+
+msgid "bot.fallback"
+msgstr "Razumem komande:\n/app — otvori aplikaciju\n/help — pomoć i podrška\n/language — jezik"
+
+msgid "bot.commands.app"
+msgstr "Otvori aplikaciju"
+
+msgid "bot.commands.help"
+msgstr "Pomoć i podrška"
+
+msgid "bot.commands.terms"
+msgstr "Pravila platforme"
+
+msgid "bot.commands.privacy"
+msgstr "Politika privatnosti"
+
+msgid "bot.commands.language"
+msgstr "Jezik"
+
+msgid "bot.profile.name"
+msgstr "Sosedi"
+
+msgid "bot.profile.description"
+msgstr "„Sosedi“ — majstori i pomoć u blizini: popravke, lepota, čišćenje, selidbe, časovi. Opišite zadatak — izvođači će se javiti sa cenom. Ili izaberite stručnjaka po utiscima.\n\nPritisnite dugme ispod da počnete."
+
+msgid "bot.profile.short_description"
+msgstr "Majstori i pomoć u blizini: popravke, lepota, čišćenje, selidbe, časovi."
 
 msgid "errors.not_found"
 msgstr "Nije pronađeno."

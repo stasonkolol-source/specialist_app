@@ -21,6 +21,17 @@ describe('launch и версии', () => {
     expect(platform.isVersionAtLeast('9.0')).toBe(false);
   });
 
+  it('startapp из адреса, когда кнопка бота открыла приложение без start_param', () => {
+    window.history.replaceState(null, '', '/?startapp=l_terms');
+    try {
+      expect(createMockPlatform({}).platform.launch.startParam).toBe('l_terms');
+      // подписанный параметр запуска важнее адреса
+      expect(createMockPlatform({ startParam: 'h' }).platform.launch.startParam).toBe('h');
+    } finally {
+      window.history.replaceState(null, '', '/');
+    }
+  });
+
   it('возможности по версии Bot API', () => {
     expect(createMockPlatform({ version: '7.0' }).platform.capabilities).toMatchObject({
       secondaryButton: false,

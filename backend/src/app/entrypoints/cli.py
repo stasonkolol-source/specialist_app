@@ -220,6 +220,61 @@ def set_menu_button(
     asyncio.run(_set_menu_button(url))
 
 
+@app.command("bot-setup")
+def bot_setup(
+    env: Annotated[
+        Environment,
+        typer.Option(help="Окружение бота; должно совпасть с APP_ENV — защита от чужого .env"),
+    ],
+) -> None:
+    """Профиль бота: имя, описания и меню команд на ru и sr, кнопка меню (DEVELOPMENT_PLAN 1.6).
+
+    Меняет только то, что отличается: повторный запуск ничего не трогает.
+    """
+    asyncio.run(_bot_setup(env))
+
+
+async def _bot_setup(env: Environment) -> None:
+    from aiogram import Bot
+    from aiogram.exceptions import TelegramRetryAfter
+
+    from app.interfaces.bot.profile import apply_menu_button, apply_profile, bot_profiles
+    from app.platform.i18n.translator import Translator
+
+    actual = AppSettings().env
+    if actual is not env:
+        typer.echo(f"bot-setup: --env {env.value}, but APP_ENV={actual.value}", err=True)
+        raise typer.Exit(code=1)
+    telegram = TelegramSettings()  # type: ignore[call-arg]  # из окружения и .env
+    translator = Translator.load()
+    profiles = bot_profiles(translator, env)
+    problems = [problem for profile in profiles for problem in profile.problems()]
+    if problems:
+        typer.echo("bot-setup: " + "; ".join(problems), err=True)
+        raise typer.Exit(code=1)
+    bot = Bot(telegram.bot_token.get_secret_value())
+    try:
+        me = await bot.get_me()
+        for profile in profiles:
+            changed = await apply_profile(bot, profile)
+            where = profile.language_code or "default"
+            typer.echo(f"@{me.username} [{where}]: {', '.join(changed) or 'unchanged'}")
+        url = telegram.mini_app_url
+        if url and url.startswith("https://"):
+            label = translator.text("bot.menu.open", Locale.RU) or "Open"
+            state = "set" if await apply_menu_button(bot, url, label) else "unchanged"
+            typer.echo(f"@{me.username}: menu button {state} → {url}")
+        else:
+            typer.echo(f"@{me.username}: menu button skipped (TELEGRAM_MINI_APP_URL is not https)")
+    except TelegramRetryAfter as exc:
+        typer.echo(
+            f"bot-setup: Telegram asks to wait {exc.retry_after} s, run again later", err=True
+        )
+        raise typer.Exit(code=1) from exc
+    finally:
+        await bot.session.close()
+
+
 async def _set_menu_button(url: str | None) -> None:
     from aiogram import Bot
     from aiogram.types import MenuButtonWebApp, WebAppInfo
