@@ -10,6 +10,7 @@
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
+from urllib.parse import urlsplit
 
 from aiogram import Bot
 from aiogram.types import BotCommand, BotCommandScopeAllPrivateChats, MenuButtonWebApp, WebAppInfo
@@ -113,13 +114,23 @@ async def apply_menu_button(bot: Bot, url: str, label: str) -> bool:
     if (
         isinstance(current, MenuButtonWebApp)
         and current.text == label
-        and current.web_app.url == url
+        and _same_url(current.web_app.url, url)
     ):
         return False
     await bot.set_chat_menu_button(
         menu_button=MenuButtonWebApp(text=label, web_app=WebAppInfo(url=url))
     )
     return True
+
+
+def _same_url(a: str, b: str) -> bool:
+    """Telegram хранит адрес нормализованным: к голому хосту дописывает `/`."""
+    return _normalized(a) == _normalized(b)
+
+
+def _normalized(url: str) -> tuple[str, str, str, str, str]:
+    parts = urlsplit(url)
+    return (parts.scheme, parts.netloc.lower(), parts.path or "/", parts.query, parts.fragment)
 
 
 def _pairs(commands: Sequence[BotCommand]) -> list[tuple[str, str]]:
