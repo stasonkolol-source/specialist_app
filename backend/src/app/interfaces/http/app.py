@@ -13,7 +13,6 @@ from dishka.integrations.fastapi import setup_dishka
 from fastapi import APIRouter, FastAPI
 
 from app.interfaces.http import client_config, system, views
-from app.interfaces.http import spike as spike_router
 from app.interfaces.http.client import ClientPolicy
 from app.interfaces.http.errors import Problems, install_error_handlers
 from app.interfaces.http.middleware import RequestContextMiddleware
@@ -67,7 +66,7 @@ def create_app(
         maintenance=maintenance,
     )
 
-    _mount(app, routers, spike=settings.app.env is Environment.DEV)
+    _mount(app, routers)
     setup_dishka(container, app)
     return app
 
@@ -93,12 +92,9 @@ def _fastapi(*, public_docs: bool, lifespan: Lifespan | None = None) -> FastAPI:
     return app
 
 
-def _mount(app: FastAPI, routers: Sequence[APIRouter], *, spike: bool = False) -> None:
+def _mount(app: FastAPI, routers: Sequence[APIRouter]) -> None:
     api = APIRouter(prefix=API_PREFIX, responses=PROBLEM_RESPONSES)
     for router in (*routers, views.router, client_config.router):
         api.include_router(router)
-    if spike:
-        # спайк 0.24: только dev и вне OpenAPI; удаляется в 2.1
-        api.include_router(spike_router.router)
     app.include_router(api)
     app.include_router(system.router)

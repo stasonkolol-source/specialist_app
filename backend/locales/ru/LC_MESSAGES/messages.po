@@ -280,3 +280,24 @@ msgstr "Значение должно быть не больше {le}."
 
 msgid "validation.extra_forbidden"
 msgstr "Лишнее поле."
+
+msgid "errors.media_not_found"
+msgstr "Файл не найден."
+
+msgid "errors.media_type_not_allowed"
+msgstr "Такой файл сюда не подойдёт. Можно загрузить: {allowed}."
+
+msgid "errors.media_too_large"
+msgstr "Файл слишком большой: можно не больше {max_mb} МБ."
+
+msgid "errors.media_purpose_not_available"
+msgstr "Такую загрузку пока сделать нельзя."
+
+msgid "errors.media_state_conflict"
+msgstr "С этим файлом сейчас так сделать нельзя."
+
+msgid "errors.media_upload_incomplete"
+msgstr "Файл ещё не загрузился до конца. Дождитесь загрузки и повторите."
+
+msgid "errors.media_upload_mismatch"
+msgstr "Загруженный файл не совпал с выбранным. Загрузите его заново."

@@ -166,7 +166,13 @@
     "language": "Jezik"
   },
   "photo": {
-    "work": "Fotografija rada"
+    "work": "Fotografija rada",
+    "add": "Dodaj",
+    "addMedia": "Fotografija ili video",
+    "uploading": "Otpremanje {percent}%",
+    "uploadFailed": "Nije otpremljeno",
+    "rejected": "Nije prihvaćeno",
+    "remove": "Ukloni"
   },
   "stub": {
     "title": "Ekran je u izradi",

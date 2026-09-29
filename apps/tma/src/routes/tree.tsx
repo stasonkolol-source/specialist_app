@@ -119,20 +119,6 @@ const restricted = createRoute({
   component: RestrictedRoute,
 });
 
-// Спайк 0.24 — только dev-сервер: в сборке ветка `false ? … : []` и её чанк выпадают
-const devRoutes = import.meta.env.DEV
-  ? [
-      createRoute({
-        getParentRoute: () => rootRoute,
-        path: '/__spike/upload',
-        component: screen(
-          () => import('../features/spike/upload/UploadSpikeScreen.tsx'),
-          'UploadSpikeScreen',
-        ),
-      }),
-    ]
-  : [];
-
 export const routeTree = rootRoute.addChildren([
   home,
   jobs,
@@ -144,5 +130,4 @@ export const routeTree = rootRoute.addChildren([
   onboardingRules,
   legal,
   restricted,
-  ...devRoutes,
 ]);

@@ -1,9 +1,10 @@
-// Разделы галереи для компонентов 0.19b.
+// Разделы галереи для компонентов 0.19b и плиток загрузки 2.1.
 import { useFormat, useTranslation } from '@sosed/i18n';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
+  AddTile,
   Avatar,
   AvatarStack,
   Badge,
@@ -34,6 +35,7 @@ import {
   Tile,
   Tiles,
   Toast,
+  UploadTile,
 } from '../src/index.ts';
 
 const PEOPLE = [
@@ -128,6 +130,10 @@ export function MoreSections() {
           <Photo alt={t('photo.work')} video className="h-28 w-28" />
           <Photo alt={t('photo.work')} className="h-28 flex-1" />
         </HStack>
+      </Section>
+
+      <Section id="upload" name="AddTile · UploadTile">
+        <UploadDemo />
       </Section>
 
       <Section id="form" name="SearchField · Field · Input · Textarea">
@@ -225,5 +231,112 @@ export function MoreSections() {
         </Stack>
       </Section>
     </>
+  );
+}
+
+interface DemoUpload {
+  key: number;
+  file: File;
+  progress: number;
+}
+
+const DEMO_STEP = 0.1;
+const DEMO_TICK_MS = 200;
+
+/**
+ * Плитки S37 (сетка, 114 px) и S20a (ряд, 72 px). Выбранные файлы «грузятся» понарошку: API
+ * в галерее нет, настоящая загрузка — useMediaUploads (packages/hooks). Статичные плитки
+ * показывают состояния для скриншотов.
+ */
+function UploadDemo() {
+  const { t } = useTranslation();
+  const [picked, setPicked] = useState<DemoUpload[]>([]);
+  const active = picked.some((item) => item.progress < 1);
+
+  useEffect(() => {
+    if (!active) return;
+    const timer = setInterval(() => {
+      setPicked((current) =>
+        current.map((item) => ({ ...item, progress: Math.min(1, item.progress + DEMO_STEP) })),
+      );
+    }, DEMO_TICK_MS);
+    return () => clearInterval(timer);
+  }, [active]);
+
+  const add = (files: File[]) =>
+    setPicked((current) => [
+      ...current,
+      ...files.map((file, i) => ({ key: current.length + i, file, progress: 0 })),
+    ]);
+  const failed = {
+    state: 'failed' as const,
+    retryLabel: t('action.retry'),
+    onRemove: () => {},
+    removeLabel: t('photo.remove'),
+  };
+
+  return (
+    <Stack gap={12}>
+      <div className="grid grid-cols-3 gap-2">
+        <AddTile
+          label={t('photo.addMedia')}
+          accept="image/*,video/mp4,video/quicktime"
+          multiple
+          onFiles={add}
+          className="h-28"
+        />
+        {picked.map((item) =>
+          item.progress < 1 ? (
+            <UploadTile
+              key={item.key}
+              state="uploading"
+              progress={item.progress}
+              label={t('photo.uploading', { percent: Math.round(item.progress * 100) })}
+              className="h-28"
+            />
+          ) : (
+            <Photo
+              key={item.key}
+              file={item.file}
+              alt={t('photo.work')}
+              video={item.file.type.startsWith('video/')}
+              className="h-28 w-full"
+            />
+          ),
+        )}
+        <UploadTile
+          state="uploading"
+          progress={0.64}
+          label={t('photo.uploading', { percent: 64 })}
+          className="h-28"
+        />
+        <UploadTile
+          {...failed}
+          label={t('photo.uploadFailed')}
+          onRetry={() => {}}
+          className="h-28"
+        />
+      </div>
+      <HStack gap={8}>
+        <Photo alt={t('photo.work')} className="size-18" />
+        <UploadTile
+          state="uploading"
+          compact
+          progress={0.3}
+          label={t('photo.uploading', { percent: 30 })}
+          className="size-18"
+        />
+        {/* отклонённый файл: повторять нечего */}
+        <UploadTile {...failed} label={t('photo.rejected')} compact className="size-18" />
+        <AddTile
+          icon="camera"
+          label={t('photo.add')}
+          accept="image/*"
+          multiple
+          onFiles={add}
+          className="size-18"
+        />
+      </HStack>
+    </Stack>
   );
 }

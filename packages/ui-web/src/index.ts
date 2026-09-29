@@ -26,6 +26,13 @@ export type { Gap } from './layout/Stack.tsx';
 export { HStack, Stack } from './layout/Stack.tsx';
 export type { TabBarProps, TabItem } from './TabBar.tsx';
 export { TabBar } from './TabBar.tsx';
+export type {
+  AddTileProps,
+  FailedTileProps,
+  UploadTileProps,
+  UploadingTileProps,
+} from './Upload.tsx';
+export { AddTile, UploadTile } from './Upload.tsx';
 export type { HeadingProps, HeadingVariant, TextVariant } from './text/Heading.tsx';
 export { Heading, SectionTitle, Text } from './text/Heading.tsx';
 export type { MarkdownBlocksProps, MarkdownProps } from './text/Markdown.tsx';

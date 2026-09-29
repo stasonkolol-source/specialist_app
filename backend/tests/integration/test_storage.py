@@ -1,21 +1,18 @@
-"""StoragePort на Garage и эндпоинты спайка 0.24: presign → PUT → HEAD (DEVELOPMENT_PLAN 0.24)."""
+"""StoragePort на Garage: presign → PUT → HEAD, multipart, ошибки (DEVELOPMENT_PLAN 0.24, 2.1)."""
 
 import asyncio
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import Iterator
 from datetime import timedelta
-from uuid import UUID
 
 import httpx
 import pytest
-from botocore.exceptions import ClientError
 
 from app.platform.kernel.clock import SystemClock
 from app.platform.kernel.ids import new_id
 from app.platform.settings import Settings
-from app.platform.storage.port import PART_SIZE, Bucket, UploadedPart
+from app.platform.storage.port import Bucket, StorageRejectedError, UploadedPart
 from app.platform.storage.s3 import S3Storage
 from tests.plugins.containers import GarageInfo
-from tests.plugins.http import HttpApp, bearer, http_app
 
 pytestmark = pytest.mark.integration
 
@@ -39,12 +36,6 @@ def storage(s3_settings: Settings) -> Iterator[S3Storage]:
     storage = S3Storage(s3_settings.s3, SystemClock())
     yield storage
     storage.close()
-
-
-@pytest.fixture
-async def web(s3_settings: Settings) -> AsyncIterator[HttpApp]:
-    async with http_app(s3_settings) as app:
-        yield app
 
 
 def key() -> str:
@@ -147,7 +138,7 @@ async def test_complete_of_unknown_upload_still_fails(storage: S3Storage) -> Non
     upload_id = await storage.start_multipart(Bucket.INCOMING, name, content_type="video/mp4")
     await storage.abort_multipart(Bucket.INCOMING, name, upload_id=upload_id)
 
-    with pytest.raises(ClientError):
+    with pytest.raises(StorageRejectedError):
         await storage.complete_multipart(
             Bucket.INCOMING,
             name,
@@ -163,65 +154,3 @@ async def test_aborted_multipart_leaves_nothing(storage: S3Storage) -> None:
     await storage.abort_multipart(Bucket.INCOMING, name, upload_id=upload_id)
 
     assert await storage.head(Bucket.INCOMING, name) is None
-
-
-async def test_spike_endpoints_upload_small_file(web: HttpApp, settings: Settings) -> None:
-    user_id = new_id()
-    auth = bearer(settings, user_id)
-
-    started = await web.client.post(
-        "/api/v1/__spike/uploads",
-        json={"filename": "IMG_0001.HEIC", "content_type": "", "size": len(JPEG)},
-        headers=auth,
-    )
-    assert started.status_code == 201, started.text
-    plan = started.json()
-    assert plan["upload_id"] is None
-    assert plan["key"].startswith(f"spike/{user_id}/")
-    assert plan["key"].endswith(".heic")
-    (part,) = plan["parts"]
-    async with httpx.AsyncClient() as client:
-        put = await client.put(part["url"], content=JPEG, headers=part["headers"])
-    assert put.status_code == 200, put.text
-
-    got = await web.client.get("/api/v1/__spike/uploads", params={"key": plan["key"]}, headers=auth)
-    assert got.status_code == 200, got.text
-    assert (got.json()["size"], got.json()["content_type"]) == (len(JPEG), "image/heic")
-
-
-async def test_spike_endpoints_plan_multipart_for_big_file(
-    web: HttpApp, settings: Settings
-) -> None:
-    size = PART_SIZE * 2 + 1
-    started = await web.client.post(
-        "/api/v1/__spike/uploads",
-        json={"filename": "clip.mov", "content_type": "video/quicktime", "size": size},
-        headers=bearer(settings),
-    )
-
-    assert started.status_code == 201, started.text
-    plan = started.json()
-    assert plan["upload_id"]
-    assert [p["part_number"] for p in plan["parts"]] == [1, 2, 3]
-
-
-async def test_spike_endpoints_hide_other_users_keys(web: HttpApp, settings: Settings) -> None:
-    foreign = f"spike/{UUID(int=1)}/x.jpg"
-
-    got = await web.client.get(
-        "/api/v1/__spike/uploads", params={"key": foreign}, headers=bearer(settings)
-    )
-
-    assert got.status_code == 403
-
-
-async def test_spike_endpoints_exist_only_in_dev(
-    s3_settings: Settings, settings: Settings, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("APP_ENV", "test")
-    async with http_app(Settings(env_file=None)) as app:
-        got = await app.client.get(
-            "/api/v1/__spike/uploads", params={"key": "x"}, headers=bearer(settings)
-        )
-
-    assert got.status_code == 404

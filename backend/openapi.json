@@ -477,6 +477,268 @@
         }
       }
     },
+    "/api/v1/media/uploads": {
+      "post": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Start Upload",
+        "operationId": "media_start_upload",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Ключ операции: повтор с тем же ключом вернёт тот же ответ",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 255
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/media/uploads/{media_id}/parts": {
+      "post": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Sign Upload Parts",
+        "operationId": "media_sign_upload_parts",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartsIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/media/uploads/{media_id}/complete": {
+      "post": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Complete Upload",
+        "operationId": "media_complete_upload",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/media/{media_id}": {
+      "get": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Get Media",
+        "operationId": "media_get_media",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Delete Media",
+        "operationId": "media_delete_media",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/me/telegram/write-access": {
       "post": {
         "tags": [
@@ -736,6 +998,20 @@
           "legal_documents"
         ],
         "title": "ClientConfigOut"
+      },
+      "CompleteIn": {
+        "properties": {
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/UploadedPartIn"
+            },
+            "type": "array",
+            "maxItems": 1000,
+            "title": "Parts"
+          }
+        },
+        "type": "object",
+        "title": "CompleteIn"
       },
       "ConsentsIn": {
         "properties": {
@@ -1075,6 +1351,122 @@
         "title": "MeUpdateIn",
         "description": "Поля, которых нет или которые null, не меняются."
       },
+      "MediaKind": {
+        "type": "string",
+        "enum": [
+          "image",
+          "video",
+          "document"
+        ],
+        "title": "MediaKind"
+      },
+      "MediaOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MediaKind"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/MediaPurpose"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MediaStatus"
+          },
+          "mime_type": {
+            "type": "string",
+            "title": "Mime Type"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "title": "Size Bytes"
+          },
+          "moderation_status": {
+            "$ref": "#/components/schemas/ModerationStatus"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "uploaded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploaded At"
+          },
+          "preview_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "purpose",
+          "status",
+          "mime_type",
+          "size_bytes",
+          "moderation_status",
+          "created_at",
+          "uploaded_at",
+          "preview_url"
+        ],
+        "title": "MediaOut"
+      },
+      "MediaPurpose": {
+        "type": "string",
+        "enum": [
+          "avatar",
+          "portfolio",
+          "job",
+          "message",
+          "review",
+          "verification"
+        ],
+        "title": "MediaPurpose"
+      },
+      "MediaStatus": {
+        "type": "string",
+        "enum": [
+          "pending_upload",
+          "uploaded",
+          "processing",
+          "ready",
+          "failed",
+          "rejected",
+          "deleted"
+        ],
+        "title": "MediaStatus"
+      },
+      "ModerationStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "approved",
+          "flagged",
+          "rejected"
+        ],
+        "title": "ModerationStatus",
+        "description": "Итог модерации файла (шаг 2.2 и 2.6); до обработки — `pending`."
+      },
       "MoneyOut": {
         "properties": {
           "amount": {
@@ -1091,6 +1483,27 @@
           "currency"
         ],
         "title": "MoneyOut"
+      },
+      "PartsIn": {
+        "properties": {
+          "part_numbers": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array",
+                "maxItems": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part Numbers"
+          }
+        },
+        "type": "object",
+        "title": "PartsIn"
       },
       "PointOut": {
         "properties": {
@@ -1329,6 +1742,39 @@
         ],
         "title": "ResolveOut"
       },
+      "SignedPartOut": {
+        "properties": {
+          "part_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part Number"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Headers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "part_number",
+          "url",
+          "headers"
+        ],
+        "title": "SignedPartOut"
+      },
       "TagOut": {
         "properties": {
           "id": {
@@ -1411,6 +1857,98 @@
           "refresh_expires_at"
         ],
         "title": "TokensOut"
+      },
+      "UploadIn": {
+        "properties": {
+          "purpose": {
+            "$ref": "#/components/schemas/MediaPurpose"
+          },
+          "mime_type": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 3,
+            "title": "Mime Type"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Size Bytes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "purpose",
+          "mime_type",
+          "size_bytes"
+        ],
+        "title": "UploadIn"
+      },
+      "UploadOut": {
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Media Id"
+          },
+          "multipart": {
+            "type": "boolean",
+            "title": "Multipart"
+          },
+          "part_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part Size"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/SignedPartOut"
+            },
+            "type": "array",
+            "title": "Parts"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "media_id",
+          "multipart",
+          "part_size",
+          "parts",
+          "expires_at"
+        ],
+        "title": "UploadOut"
+      },
+      "UploadedPartIn": {
+        "properties": {
+          "part_number": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Part Number"
+          },
+          "etag": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Etag"
+          }
+        },
+        "type": "object",
+        "required": [
+          "part_number",
+          "etag"
+        ],
+        "title": "UploadedPartIn"
       },
       "UserIntent": {
         "type": "string",

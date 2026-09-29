@@ -24,6 +24,23 @@ export {
   legalText,
   useLegalDocument,
 } from './legal/useLegalDocument.ts';
+export type { MediaApi, MediaTransport, Prepared, PutResult } from './media/upload.ts';
+export {
+  MediaRejectedError,
+  MediaUpload,
+  UploadCancelledError,
+  UploadFailedError,
+  contentTypeOf,
+  mediaApi,
+  waitForMedia,
+} from './media/upload.ts';
+export type {
+  MediaUploads,
+  MediaUploadsOptions,
+  UploadItem,
+  UploadStatus,
+} from './media/useMediaUploads.ts';
+export { UPLOADS_AT_ONCE, isRetryable, useMediaUploads } from './media/useMediaUploads.ts';
 export type { ConsentGate, OnboardingStep } from './onboarding/onboarding.ts';
 export {
   ONBOARDING_STEPS,

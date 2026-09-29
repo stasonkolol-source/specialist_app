@@ -23,6 +23,15 @@ PART_SIZE = 8 * 1024 * 1024
 MAX_PARTS = 1000
 
 
+class StorageRejectedError(Exception):
+    """Хранилище отвергло запрос (4xx): не те части или ETag, отменённая загрузка. Повтор
+    того же запроса не поможет. Сбой хранилища (5xx, сеть) — ExternalServiceError."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
 class Bucket(StrEnum):
     INCOMING = "incoming"
     MEDIA = "media"
@@ -87,3 +96,7 @@ class StoragePort(Protocol):
         ...
 
     async def presign_get(self, bucket: Bucket, key: str, *, ttl: timedelta = GET_TTL) -> str: ...
+
+    async def delete(self, bucket: Bucket, key: str) -> None:
+        """Удалить объект; объекта нет — не ошибка."""
+        ...
