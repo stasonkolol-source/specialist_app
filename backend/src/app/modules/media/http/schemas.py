@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.modules.media.domain.asset import MediaStatus, ModerationStatus
+from app.modules.media.domain.asset import FailureReason, MediaStatus, ModerationStatus, VariantName
 from app.modules.media.domain.policy import MediaKind, MediaPurpose
 from app.platform.storage.port import MAX_PARTS
 
@@ -52,6 +52,14 @@ class CompleteIn(BaseModel):
     """ETag частей multipart; у загрузки одним PUT — пусто."""
 
 
+class VariantOut(BaseModel):
+    name: VariantName
+    """`thumb` (320 px), `md` (800), `lg` (1600) по длинной стороне."""
+    url: str
+    width: int
+    height: int
+
+
 class MediaOut(BaseModel):
     id: UUID
     kind: MediaKind
@@ -63,4 +71,13 @@ class MediaOut(BaseModel):
     created_at: datetime
     uploaded_at: datetime | None
     preview_url: str | None
-    """Оригинал для владельца на 5 минут, пока нет вариантов (обработка — шаг 2.2)."""
+    """Оригинал для владельца на 5 минут, пока файл обрабатывается (`uploaded`, `processing`)."""
+    width: int | None
+    """Размеры самого крупного варианта (оригинал после обработки не храним)."""
+    height: int | None
+    placeholder: str | None
+    """ThumbHash в base64: превью до загрузки варианта."""
+    variants: list[VariantOut]
+    """WebP без метаданных по возрастанию ширины — для srcset; есть у `ready`."""
+    failure_reason: FailureReason | None
+    """Почему `failed` (загрузка) или `rejected` (обработка)."""

@@ -67,7 +67,13 @@ class AssetRow(UuidPkMixin, Base):
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
     uploaded_at: Mapped[datetime | None]
     processed_at: Mapped[datetime | None]
+    attempts: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    """Сколько раз начиналась обработка (MAX_ATTEMPTS)."""
     deleted_at: Mapped[datetime | None]
+    hidden_at: Mapped[datetime | None]
+    """Варианты удалённого файла перенесены в private (media.hide_variants)."""
+    purged_at: Mapped[datetime | None]
+    """Объекты удалённого файла стёрты (media.purge_deleted); запись остаётся."""
 
     __table_args__ = (
         Index("ix_assets_owner_id_created_at", "owner_id", text("created_at DESC")),
@@ -76,5 +82,10 @@ class AssetRow(UuidPkMixin, Base):
             "status",
             "created_at",
             postgresql_where=text("status IN ('pending_upload', 'uploaded', 'processing')"),
+        ),
+        Index(
+            "ix_assets_deleted_at",
+            "deleted_at",
+            postgresql_where=text("status = 'deleted' AND purged_at IS NULL"),
         ),
     )

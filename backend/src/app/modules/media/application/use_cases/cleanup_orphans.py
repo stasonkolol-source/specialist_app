@@ -2,26 +2,28 @@
 
 `pending_upload` старше суток — `failed` (abandoned): клиент начал загрузку и не закончил.
 Запись остаётся для истории, объект и незавершённый multipart убирает задача
-`media.delete_object` после commit (ADR-0020 §3, ARCHITECTURE §10.5).
+`media.delete_objects` после commit (ADR-0020 §3, ARCHITECTURE §10.5). Порциями по CHUNK
+в своей транзакции: каждая постановка — savepoint (см. purge_deleted).
 """
 
 from dataclasses import dataclass
 from datetime import timedelta
 
-from app.modules.media.application.ports import DELETE_OBJECT, MediaRepository
-from app.modules.media.application.uploads import delete_payload
+from app.modules.media.application.ports import DELETE_OBJECTS, MediaRepository
+from app.modules.media.application.uploads import delete_original
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
 from app.platform.queue.port import JobQueue
 
 ORPHAN_AFTER = timedelta(hours=24)
-BATCH = 500
+CHUNK = 50
+LIMIT = 500
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class CleanupOrphansCommand:
     older_than: timedelta = ORPHAN_AFTER
-    limit: int = BATCH
+    limit: int = LIMIT
 
 
 class CleanupOrphans:
@@ -32,14 +34,20 @@ class CleanupOrphans:
 
     async def __call__(self, cmd: CleanupOrphansCommand) -> int:
         """Число помеченных `failed`."""
-        async with self._uow:
-            orphans = await self._assets.pending_before(
-                self._clock.now() - cmd.older_than, limit=cmd.limit
-            )
-            for asset in orphans:
-                asset.abandon()
-                await self._assets.save(asset)
-                await self._queue.enqueue(
-                    DELETE_OBJECT, delete_payload(asset), dedup_key=str(asset.id)
+        before = self._clock.now() - cmd.older_than
+        total = 0
+        while total < cmd.limit:
+            async with self._uow:
+                orphans = await self._assets.pending_before(
+                    before, limit=min(CHUNK, cmd.limit - total)
                 )
-        return len(orphans)
+                for asset in orphans:
+                    asset.abandon()
+                    await self._assets.save(asset)
+                    await self._queue.enqueue(
+                        DELETE_OBJECTS, delete_original(asset), dedup_key=f"original:{asset.id}"
+                    )
+            total += len(orphans)
+            if len(orphans) < CHUNK:
+                break
+        return total

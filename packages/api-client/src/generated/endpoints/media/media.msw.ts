@@ -9,7 +9,14 @@ import { faker } from '@faker-js/faker';
 import { HttpResponse, http } from 'msw';
 import type { RequestHandlerOptions } from 'msw';
 
-import { MediaKind, MediaPurpose, MediaStatus, ModerationStatus } from '../../model';
+import {
+  FailureReason,
+  MediaKind,
+  MediaPurpose,
+  MediaStatus,
+  ModerationStatus,
+  VariantName,
+} from '../../model';
 import type { MediaOut, UploadOut } from '../../model';
 
 export const getMediaStartUploadResponseMock = (
@@ -65,6 +72,24 @@ export const getMediaCompleteUploadResponseMock = (
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
   ]),
+  width: faker.helpers.arrayElement([faker.number.int(), null]),
+  height: faker.helpers.arrayElement([faker.number.int(), null]),
+  placeholder: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      name: faker.helpers.arrayElement(Object.values(VariantName)),
+      url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      width: faker.number.int(),
+      height: faker.number.int(),
+    }),
+  ),
+  failure_reason: faker.helpers.arrayElement([
+    faker.helpers.arrayElement(Object.values(FailureReason)),
+    null,
+  ]),
   ...overrideResponse,
 });
 
@@ -85,6 +110,24 @@ export const getMediaGetMediaResponseMock = (
   ]),
   preview_url: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  width: faker.helpers.arrayElement([faker.number.int(), null]),
+  height: faker.helpers.arrayElement([faker.number.int(), null]),
+  placeholder: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      name: faker.helpers.arrayElement(Object.values(VariantName)),
+      url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      width: faker.number.int(),
+      height: faker.number.int(),
+    }),
+  ),
+  failure_reason: faker.helpers.arrayElement([
+    faker.helpers.arrayElement(Object.values(FailureReason)),
     null,
   ]),
   ...overrideResponse,

@@ -14,11 +14,11 @@ from collections import Counter
 from dataclasses import dataclass
 
 from app.modules.media.application.ports import (
-    DELETE_OBJECT,
+    DELETE_OBJECTS,
     MediaQuery,
     MediaRepository,
 )
-from app.modules.media.application.uploads import delete_payload, part_count
+from app.modules.media.application.uploads import delete_original, part_count
 from app.modules.media.domain.asset import MediaAsset, MediaStatus
 from app.modules.media.errors import (
     MediaNotFoundError,
@@ -84,7 +84,7 @@ class CompleteUpload:
             await self._assets.save(asset)
             if asset.status is MediaStatus.FAILED:  # не тот файл: хранить его незачем
                 await self._queue.enqueue(
-                    DELETE_OBJECT, delete_payload(asset), dedup_key=str(asset.id)
+                    DELETE_OBJECTS, delete_original(asset), dedup_key=f"original:{asset.id}"
                 )
         if asset.status is MediaStatus.FAILED:
             raise UploadMismatchError()

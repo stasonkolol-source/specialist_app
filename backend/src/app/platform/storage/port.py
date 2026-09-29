@@ -18,6 +18,10 @@ from typing import Protocol
 
 PUT_TTL = timedelta(minutes=10)
 GET_TTL = timedelta(minutes=5)
+IMMUTABLE = "public, max-age=31536000, immutable"
+"""Cache-Control публичных вариантов: ключ неизменяемый, новая версия — новый ключ (§10.4)."""
+PRIVATE = "private, max-age=300"
+"""Cache-Control приватных объектов: ссылка живёт 5 минут, общие кэши их не хранят."""
 PART_SIZE = 8 * 1024 * 1024
 """Часть multipart: 8 MiB (минимум S3 — 5 MiB, кроме последней)."""
 MAX_PARTS = 1000
@@ -96,6 +100,33 @@ class StoragePort(Protocol):
         ...
 
     async def presign_get(self, bucket: Bucket, key: str, *, ttl: timedelta = GET_TTL) -> str: ...
+
+    async def get(
+        self, bucket: Bucket, key: str, *, max_bytes: int, etag: str | None = None
+    ) -> bytes:
+        """Содержимое объекта целиком (файлы до лимитов §10.1 помещаются в память).
+
+        `etag` — только эта версия (If-Match): объект подменили — StorageRejectedError
+        `PreconditionFailed`. Нет объекта — `NoSuchKey`, больше `max_bytes` — `TooLarge`.
+        """
+        ...
+
+    async def put(
+        self,
+        bucket: Bucket,
+        key: str,
+        body: bytes,
+        *,
+        content_type: str,
+        cache_control: str | None = None,
+    ) -> None:
+        """Записать объект с сервера (варианты после обработки); тот же ключ — перезапись."""
+        ...
+
+    async def copy(self, bucket: Bucket, key: str, *, to: Bucket) -> bool:
+        """Копия объекта в другом бакете под тем же ключом (на стороне хранилища).
+        False — объекта нет: копировать нечего."""
+        ...
 
     async def delete(self, bucket: Bucket, key: str) -> None:
         """Удалить объект; объекта нет — не ошибка."""

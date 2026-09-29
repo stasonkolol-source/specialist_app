@@ -1118,6 +1118,18 @@
         ],
         "title": "DistrictRefOut"
       },
+      "FailureReason": {
+        "type": "string",
+        "enum": [
+          "abandoned",
+          "mismatch",
+          "unsupported",
+          "too_many_pixels",
+          "unreadable"
+        ],
+        "title": "FailureReason",
+        "description": "Почему `failed` (загрузка) или `rejected` (обработка)."
+      },
       "FieldErrorOut": {
         "properties": {
           "field": {
@@ -1414,6 +1426,56 @@
               }
             ],
             "title": "Preview Url"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "placeholder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Placeholder"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/VariantOut"
+            },
+            "type": "array",
+            "title": "Variants"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FailureReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -1427,7 +1489,12 @@
           "moderation_status",
           "created_at",
           "uploaded_at",
-          "preview_url"
+          "preview_url",
+          "width",
+          "height",
+          "placeholder",
+          "variants",
+          "failure_reason"
         ],
         "title": "MediaOut"
       },
@@ -1959,6 +2026,42 @@
         ],
         "title": "UserIntent",
         "description": "«Что вы хотите?» в онбординге S02b: стартовый экран и подсказки, не права."
+      },
+      "VariantName": {
+        "type": "string",
+        "enum": [
+          "thumb",
+          "md",
+          "lg"
+        ],
+        "title": "VariantName"
+      },
+      "VariantOut": {
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/VariantName"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "url",
+          "width",
+          "height"
+        ],
+        "title": "VariantOut"
       }
     },
     "securitySchemes": {

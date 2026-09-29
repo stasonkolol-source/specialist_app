@@ -26,6 +26,8 @@ dependencies = [
     "typer>=0.16",
     "pyyaml~=6.0",
     "boto3~=1.40",
+    "pillow~=12.3",
+    "pillow-heif~=1.8",
 ]
 
 [dependency-groups]

@@ -4,8 +4,12 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
 
-from app.modules.media.application.dto import DeleteObjectPayload
-from app.modules.media.domain.asset import MediaAsset
+from app.modules.media.application.dto import (
+    DeleteObjectsPayload,
+    HideVariantsPayload,
+    ProcessedImage,
+)
+from app.modules.media.domain.asset import FailureReason, MediaAsset
 from app.platform.contracts.events.media import MediaUploaded
 from app.platform.kernel.ids import MediaId, UserId
 from app.platform.queue.port import TaskRef
@@ -13,9 +17,33 @@ from app.platform.queue.port import TaskRef
 PROCESS_MEDIA = TaskRef("media.process", MediaUploaded, queue="media")
 """Обработка загруженного файла в worker-media (шаг 2.2): варианты, EXIF, модерация."""
 
-DELETE_OBJECT = TaskRef("media.delete_object", DeleteObjectPayload)
+DELETE_OBJECTS = TaskRef("media.delete_objects", DeleteObjectsPayload)
 """Убрать из хранилища незавершённую загрузку или не тот файл: внешняя запись — задачей
 после commit (ADR-0020 §3), с повтором при сбое хранилища."""
+
+
+HIDE_VARIANTS = TaskRef("media.hide_variants", HideVariantsPayload)
+"""Снять удалённый файл с публикации: варианты — в приватный бакет до очистки (§10.5)."""
+
+
+class UnprocessableMediaError(Exception):
+    """Обработка не принимает файл: причина — в `reason` (не картинка, бомба, не читается)."""
+
+    def __init__(self, reason: FailureReason) -> None:
+        super().__init__(reason.value)
+        self.reason = reason
+
+
+class ProcessingCrashedError(Exception):
+    """Обработка упала не по вине файла: рестарт воркера, OOM-kill, таймаут, наша ошибка.
+    Задача повторится; после MAX_ATTEMPTS запусков файл получает `rejected`."""
+
+
+class ImageProcessor(Protocol):
+    async def process(self, data: bytes) -> ProcessedImage:
+        """Варианты WebP без метаданных и ThumbHash. Файл не подходит —
+        UnprocessableMediaError; сбой самой обработки — ProcessingCrashedError."""
+        ...
 
 
 class UploadQuota(Protocol):
@@ -30,6 +58,20 @@ class MediaQuery(Protocol):
         """Файл владельца без блокировки; чужой, удалённый или несуществующий — None."""
         ...
 
+    async def asset_by_id(self, media_id: MediaId) -> MediaAsset | None:
+        """Файл в любом статусе, без проверки владельца — для задач системы."""
+        ...
+
+    async def stuck(
+        self, uploaded_before: datetime, uploaded_after: datetime, *, limit: int
+    ) -> Sequence[MediaAsset]:
+        """Фото, загруженные в этом окне и всё ещё не обработанные (`uploaded`, `processing`)."""
+        ...
+
+    async def unhidden(self, deleted_before: datetime, *, limit: int) -> Sequence[MediaAsset]:
+        """Удалённые файлы публичных назначений, чьи варианты ещё не спрятаны в private."""
+        ...
+
 
 class MediaRepository(Protocol):
     async def add(self, asset: MediaAsset) -> None:
@@ -41,8 +83,16 @@ class MediaRepository(Protocol):
         удалённый — MediaNotFoundError. Нужен активный UoW."""
         ...
 
+    async def get_by_id_for_update(self, media_id: MediaId) -> MediaAsset:
+        """Файл в любом статусе под блокировкой — для задач системы. Нужен активный UoW."""
+        ...
+
     async def save(self, asset: MediaAsset) -> None: ...
 
     async def pending_before(self, before: datetime, *, limit: int) -> Sequence[MediaAsset]:
         """Незавершённые загрузки старше `before`, под блокировкой без ожидания (SKIP LOCKED)."""
+        ...
+
+    async def deleted_before(self, before: datetime, *, limit: int) -> Sequence[MediaAsset]:
+        """Удалённые раньше `before`, чьи объекты ещё не стёрты (SKIP LOCKED)."""
         ...

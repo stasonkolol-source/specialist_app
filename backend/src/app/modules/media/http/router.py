@@ -23,6 +23,7 @@ from app.modules.media.application.use_cases.sign_upload_parts import (
     SignUploadPartsCommand,
 )
 from app.modules.media.application.use_cases.start_upload import StartUpload, StartUploadCommand
+from app.modules.media.domain.asset import VariantName
 from app.modules.media.http.schemas import (
     CompleteIn,
     MediaOut,
@@ -30,6 +31,7 @@ from app.modules.media.http.schemas import (
     SignedPartOut,
     UploadIn,
     UploadOut,
+    VariantOut,
 )
 from app.platform.http.idempotency import idempotent_router
 from app.platform.http.ratelimit import RateLimit
@@ -144,4 +146,12 @@ def _media_out(view: MediaView) -> MediaOut:
         created_at=view.created_at,
         uploaded_at=view.uploaded_at,
         preview_url=view.preview_url,
+        width=view.width,
+        height=view.height,
+        placeholder=view.placeholder,
+        variants=[
+            VariantOut(name=VariantName(v.name), url=v.url, width=v.width, height=v.height)
+            for v in view.variants
+        ],
+        failure_reason=view.failure_reason,
     )

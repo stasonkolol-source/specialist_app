@@ -3,10 +3,10 @@
 from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import ColumnElement, select
+from sqlalchemy import ColumnElement, Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.media.domain.asset import MediaAsset, MediaStatus
+from app.modules.media.domain.asset import MediaAsset, MediaStatus, Variant
 from app.modules.media.errors import MediaNotFoundError
 from app.modules.media.infrastructure.models import AssetRow
 from app.platform.db.port import UnitOfWork
@@ -41,6 +41,21 @@ class SqlMediaRepository:
         self._uow.track(asset)
         return asset
 
+    async def get_by_id_for_update(self, media_id: MediaId) -> MediaAsset:
+        self._uow.require_active()
+        stmt = (
+            select(AssetRow)
+            .where(AssetRow.id == media_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        row = (await self._session.execute(stmt)).scalar_one_or_none()
+        if row is None:
+            raise MediaNotFoundError(media_id=media_id)
+        asset = to_domain(row)
+        self._uow.track(asset)
+        return asset
+
     async def save(self, asset: MediaAsset) -> None:
         self._uow.require_active()
         row = await self._session.get(AssetRow, asset.id)
@@ -60,6 +75,25 @@ class SqlMediaRepository:
             .with_for_update(skip_locked=True)
             .execution_options(populate_existing=True)
         )
+        return await self._locked(stmt)
+
+    async def deleted_before(self, before: datetime, *, limit: int) -> Sequence[MediaAsset]:
+        self._uow.require_active()
+        stmt = (
+            select(AssetRow)
+            .where(
+                AssetRow.status == MediaStatus.DELETED,
+                AssetRow.purged_at.is_(None),
+                AssetRow.deleted_at < before,
+            )
+            .order_by(AssetRow.deleted_at)
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+            .execution_options(populate_existing=True)
+        )
+        return await self._locked(stmt)
+
+    async def _locked(self, stmt: Select[AssetRow]) -> Sequence[MediaAsset]:
         assets = [to_domain(row) for row in (await self._session.execute(stmt)).scalars()]
         for asset in assets:
             self._uow.track(asset)
@@ -92,7 +126,19 @@ def to_domain(row: AssetRow) -> MediaAsset:
         uploaded_at=row.uploaded_at,
         failure_reason=row.failure_reason,
         moderation_status=row.moderation_status,
+        width=row.width,
+        height=row.height,
+        placeholder=row.placeholder,
+        sha256=row.sha256,
+        variants={
+            name: Variant(key=value["key"], width=value["w"], height=value["h"])
+            for name, value in row.variants.items()
+        },
+        processed_at=row.processed_at,
+        attempts=row.attempts,
         deleted_at=row.deleted_at,
+        hidden_at=row.hidden_at,
+        purged_at=row.purged_at,
     )
 
 
@@ -111,4 +157,15 @@ def _apply(asset: MediaAsset, row: AssetRow) -> None:
     row.failure_reason = asset.failure_reason
     row.created_at = asset.created_at
     row.uploaded_at = asset.uploaded_at
+    row.width = asset.width
+    row.height = asset.height
+    row.placeholder = asset.placeholder
+    row.sha256 = asset.sha256
+    row.variants = {
+        name: {"key": v.key, "w": v.width, "h": v.height} for name, v in asset.variants.items()
+    }
+    row.processed_at = asset.processed_at
+    row.attempts = asset.attempts
     row.deleted_at = asset.deleted_at
+    row.hidden_at = asset.hidden_at
+    row.purged_at = asset.purged_at

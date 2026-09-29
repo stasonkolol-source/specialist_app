@@ -77,6 +77,25 @@ class FakeStorage:
     async def presign_get(self, bucket: Bucket, key: str, *, ttl: timedelta = timedelta()) -> str:
         raise NotImplementedError
 
+    async def get(
+        self, bucket: Bucket, key: str, *, max_bytes: int, etag: str | None = None
+    ) -> bytes:
+        raise NotImplementedError
+
+    async def put(
+        self,
+        bucket: Bucket,
+        key: str,
+        body: bytes,
+        *,
+        content_type: str,
+        cache_control: str | None = None,
+    ) -> None:
+        raise NotImplementedError
+
+    async def copy(self, bucket: Bucket, key: str, *, to: Bucket) -> bool:
+        raise NotImplementedError
+
     async def delete(self, bucket: Bucket, key: str) -> None:
         raise NotImplementedError
 

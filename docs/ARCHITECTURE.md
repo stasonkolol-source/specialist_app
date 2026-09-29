@@ -1185,7 +1185,7 @@ CREATE TABLE media.assets (
   mime_type         text NOT NULL,        -- заявленный клиентом; подписан в presigned PUT, сверяется HEAD
   size_bytes        bigint NOT NULL,      -- заявленный размер; подписан в presigned PUT, сверяется HEAD
   etag              text,                 -- ETag оригинала, сверенного при complete: обработка читает именно его
-  width             int,
+  width             int,                  -- размеры самого крупного варианта: оригинал после обработки не храним
   height            int,
   duration_ms       int,
   sha256            bytea,                -- дедупликация и детекция повторно загружаемого запрещённого контента
@@ -1194,14 +1194,18 @@ CREATE TABLE media.assets (
   moderation_status text NOT NULL DEFAULT 'pending'
                     CHECK (moderation_status IN ('pending','approved','flagged','rejected')),
   moderation_labels jsonb NOT NULL DEFAULT '{}',
-  failure_reason    text CHECK (failure_reason IN ('abandoned','mismatch')),  -- почему failed: загрузку бросили или не тот файл
+  failure_reason    text CHECK (failure_reason IN ('abandoned','mismatch','unsupported','too_many_pixels','unreadable')),  -- почему failed (загрузка) или rejected (обработка)
   created_at        timestamptz NOT NULL DEFAULT now(),
   uploaded_at       timestamptz,          -- complete прошёл HEAD-проверку
   processed_at      timestamptz,
-  deleted_at        timestamptz
+  attempts          int NOT NULL DEFAULT 0,  -- запуски обработки: сбой не по вине файла повторяется до трёх раз
+  deleted_at        timestamptz,
+  hidden_at         timestamptz,          -- варианты удалённого файла перенесены из media в private
+  purged_at         timestamptz           -- объекты удалённого файла отправлены на удаление (media.purge_deleted)
 );
 CREATE INDEX ON media.assets (owner_id, created_at DESC);
 CREATE INDEX ON media.assets (status, created_at) WHERE status IN ('pending_upload','uploaded','processing');
+CREATE INDEX ON media.assets (deleted_at) WHERE status = 'deleted' AND purged_at IS NULL;
 ```
 </details>
 
@@ -2713,18 +2717,28 @@ sequenceDiagram
 | Шаг | Изображения | Видео |
 |---|---|---|
 | Проверка типа | magic bytes, не заголовок клиента; отклонение полиглотов и сверхбольших разрешений (decompression bomb guard) | `ffprobe`: контейнер, кодеки, длительность ≤ 60 с, разрешение |
-| Нормализация | Автоповорот по EXIF, затем **удаление всех EXIF**, включая GPS; HEIC → JPEG/WebP (pillow-heif) | Перекодирование H.264 (yuv420p) + AAC, 720p, `-movflags +faststart`, удаление метаданных |
-| Варианты | WebP 320 / 800 / 1600 px; thumbhash-плейсхолдер | MP4 720p, постер WebP 800 px |
+| Нормализация | Автоповорот по EXIF, цвета — в sRGB по встроенному ICC, затем **удаление всех метаданных** (EXIF с GPS, XMP, ICC); HEIC → WebP (pillow-heif) | Перекодирование H.264 (yuv420p) + AAC, 720p, `-movflags +faststart`, удаление метаданных |
+| Варианты | WebP `thumb` 320 / `md` 800 / `lg` 1600 px по длинной стороне, без увеличения (маленькое фото получает меньше вариантов); thumbhash-плейсхолдер | MP4 720p, постер WebP 800 px |
 | Антифрод | pHash → поиск дубликатов у других аккаунтов (признак фейкового портфолио) | pHash постера |
 | Модерация | OpenAI `omni-moderation`; при срабатывании — SafeSearch или Rekognition; итог — `moderation_status` | Кадры раз в 2–3 с → те же проверки |
 | Результат | `variants` в `media.assets`, событие `MediaReady` или `MediaRejected` | То же |
 
 Воркер `worker-media` — отдельный процесс с ограничениями CPU и памяти. ffmpeg запускается через `asyncio.create_subprocess_exec` с таймаутом 120 с. Задача идемпотентна: при повторе варианты перезаписываются.
 
+- **Какой файл обрабатывается.** Оригинал читается из `incoming` с `If-Match` по ETag, сверенному при `complete`: presigned PUT живёт ещё до 10 минут, и подменённый после проверки файл получает `rejected` (mismatch).
+- **Изоляция.** Недоверенный файл декодирует дочерний процесс с таймаутом (60 с) и лимитами CPU и памяти; секретов воркера он не видит (окружение — белым списком). Ответ процесса (`answer.json`) проверяется: принимаются только известные имена вариантов и причины.
+- **Кто виноват.** Причину по вине файла называет сам процесс — файл `rejected`. Сбой самой обработки (таймаут, падение или убийство процесса — OOM-kill, рестарт; наша ошибка) — повтор задачи и Sentry; третий такой запуск (`attempts`) отклоняет файл как `unreadable`, чтобы бомба не жгла CPU бесконечно.
+- **Отказы** — `rejected` с причиной в `failure_reason`: `unsupported` (по magic bytes это не JPEG, PNG, WebP или HEIC), `too_many_pixels` (больше 64 MP — decompression bomb; размер кадра проверяется до декодирования, у HEIF берётся основное изображение, а не первый кадр), `unreadable` (не декодируется). Отклоняют файл только ответы хранилища о нём самом (подменён, пропал); остальные 4xx — сбой конфигурации: задача повторяется.
+- **Зависшая обработка.** `media.retry_stuck` каждые 15 минут ставит снова фото, которые дольше 15 минут `uploaded` или `processing`; зависшие дольше суток получают `rejected` (unreadable) — оригинал в incoming всё равно уберёт lifecycle.
+- **Память.** JPEG декодируется сразу уменьшенным (draft), кадр уменьшается до 1600 px до поворота и цветовых преобразований.
+- **Оригинал не храним.** После обработки сырой файл с EXIF удаляет задача `media.delete_objects`: клиент уже уменьшает фото до ≈ 2048 px, самый крупный вариант — 1600 px.
+
 ### 10.4. Раздача
 
 - **Публичные варианты** (портфолио, аватары, фото опубликованных заявок) — `https://cdn.<domain>/m/{asset_id}/{variant}.webp`. Ключи неизменяемые, поэтому `Cache-Control: public, max-age=31536000, immutable`. Клиент выбирает вариант через `srcset`.
-- **Приватные объекты** (вложения чата, документы, оригиналы) выдаются только presigned GET на 5 минут после проверки прав.
+- **Приватные объекты** (вложения чата, документы, оригинал на время обработки) выдаются только presigned GET на 5 минут после проверки прав.
+- **Без CDN** (dev, тесты: `S3_PUBLIC_BASE_URL` пуст) варианты отдаются presigned GET бакета `media` на час.
+- **Непубличные назначения** (сообщения, отзывы, документы — v1) кладут варианты в `private`: только presigned GET на 5 минут.
 - **Видео** — MP4 с range-запросами; в WebView воспроизводится с `playsinline muted preload="metadata"`.
 - **Позже:** imgproxy за CDN с подписанными URL — ресайз на лету под DPI мобильных клиентов (этап 2).
 
@@ -2732,9 +2746,9 @@ sequenceDiagram
 
 | Событие | Что происходит |
 |---|---|
-| `pending_upload` старше 24 ч | `failed` (abandoned), запись остаётся; объект и незавершённый multipart удаляет задача `media.delete_object` (`media.cleanup_orphans`) |
-| Soft delete пользователем | Сразу снимается с публикации; объекты удаляются через 30 дней. Недогруженный файл хранить незачем — его сразу убирает `media.delete_object` |
-| Не тот файл при `complete` (размер или тип) | `failed` (mismatch); объект удаляет `media.delete_object` |
+| `pending_upload` старше 24 ч | `failed` (abandoned), запись остаётся; объект и незавершённый multipart удаляет задача `media.delete_objects` (`media.cleanup_orphans`) |
+| Soft delete пользователем | Сразу снимается с публикации: API его не отдаёт, публичные варианты `media.hide_variants` переносит в `private` (`hidden_at`; не вышло — страховка `media.hide_deleted` каждые 15 минут); кэш CDN по URL сбрасывается вместе с CDN (прод-контур). Объекты удаляются через 30 дней (`media.purge_deleted`, раз в час). Недогруженный файл хранить незачем — его сразу убирает `media.delete_objects` |
+| Не тот файл при `complete` (размер или тип) | `failed` (mismatch); объект удаляет `media.delete_objects` |
 | Отклонено модерацией | Скрыто, хранится 6 месяцев (окно апелляции), затем удаляется |
 | Удаление аккаунта | Все медиа пользователя удаляются в рамках `identity.process_deletions`, кроме медиа под legal hold (открытые кейсы и споры) |
 | Жалоба «это я на фото, удалите» | Кейс P1, по решению — удаление за ≤ 2 рабочих дня (ст. 20 ZET) |

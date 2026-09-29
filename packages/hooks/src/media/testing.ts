@@ -15,6 +15,11 @@ export const media = (overrides: Partial<MediaOut> = {}): MediaOut => ({
   created_at: '2026-09-29T12:00:00Z',
   uploaded_at: '2026-09-29T12:00:01Z',
   preview_url: null,
+  width: null,
+  height: null,
+  placeholder: null,
+  variants: [],
+  failure_reason: null,
   ...overrides,
 });
 

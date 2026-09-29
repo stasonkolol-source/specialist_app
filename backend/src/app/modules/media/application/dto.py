@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from app.modules.media.domain.asset import MediaStatus, ModerationStatus
+from app.modules.media.domain.asset import FailureReason, MediaStatus, ModerationStatus
 from app.modules.media.domain.policy import MediaKind, MediaPurpose
 from app.platform.kernel.ids import MediaId
 
@@ -29,6 +29,14 @@ class UploadPlan:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class VariantView:
+    name: str
+    url: str
+    width: int
+    height: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class MediaView:
     id: MediaId
     kind: MediaKind
@@ -40,15 +48,54 @@ class MediaView:
     created_at: datetime
     uploaded_at: datetime | None
     preview_url: str | None
-    """Оригинал для владельца (presigned GET на 5 минут), пока нет вариантов (шаг 2.2)."""
+    """Оригинал для владельца (presigned GET на 5 минут), пока нет вариантов."""
+    width: int | None = None
+    height: int | None = None
+    placeholder: str | None = None
+    """ThumbHash (base64) для мгновенного превью."""
+    variants: tuple[VariantView, ...] = ()
+    """WebP-варианты по возрастанию ширины — для srcset (у `ready`)."""
+    failure_reason: FailureReason | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class DeleteObjectPayload:
-    """Задача `media.delete_object`: что убрать из хранилища."""
+class ImageVariant:
+    name: str
+    width: int
+    height: int
+    body: bytes
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ProcessedImage:
+    """Итог обработки фото: варианты WebP без метаданных и сведения об оригинале."""
+
+    width: int
+    height: int
+    placeholder: str
+    sha256: bytes
+    variants: tuple[ImageVariant, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StoredRef:
+    bucket: str
+    key: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DeleteObjectsPayload:
+    """Задача `media.delete_objects`: объекты файла, которые убрать из хранилища."""
 
     media_id: MediaId
-    bucket: str
-    object_key: str
+    objects: tuple[StoredRef, ...]
     upload_id: str | None = None
-    """Незавершённая multipart-загрузка: её части отменяются до удаления объекта."""
+    """Незавершённая multipart-загрузка первого объекта (оригинала): отменяется до удаления."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class HideVariantsPayload:
+    """Задача `media.hide_variants`: варианты удалённого файла — из media в private."""
+
+    media_id: MediaId
+    keys: tuple[str, ...]

@@ -19,7 +19,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@sosed/design-tokens": "workspace:*"
+    "@sosed/design-tokens": "workspace:*",
+    "thumbhash": "0.1.1"
   },
   "peerDependencies": {
     "react": "^19.0.0"
