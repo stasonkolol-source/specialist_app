@@ -194,7 +194,7 @@ export function Gallery({ theme, locale }: { theme: string; locale: Locale }) {
         <TabBar
           items={[...tabs]}
           activeId="home"
-          plus={{ label: t('nav.create'), href: '#create' }}
+          plus={{ id: 'create', label: t('nav.create'), href: '#create' }}
           label={t('nav.sections')}
           position="static"
         />

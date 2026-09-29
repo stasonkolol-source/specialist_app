@@ -169,7 +169,7 @@ describe('TabBar', () => {
       <TabBar
         items={[...items]}
         activeId="jobs"
-        plus={{ label: 'Создать заявку', href: '/create' }}
+        plus={{ id: 'create', label: 'Создать заявку', href: '#/create' }}
         label="Разделы"
         onNavigate={onNavigate}
         position="static"
@@ -185,7 +185,9 @@ describe('TabBar', () => {
     ]);
     expect(screen.getByRole('link', { name: /Заявки/ }).getAttribute('aria-current')).toBe('page');
     fireEvent.click(screen.getByRole('link', { name: 'Создать заявку' }));
-    expect(onNavigate).toHaveBeenCalledWith('/create', expect.anything());
+    expect(onNavigate).toHaveBeenCalledWith('create', expect.anything());
+    fireEvent.click(screen.getByRole('link', { name: 'Профиль' }));
+    expect(onNavigate).toHaveBeenLastCalledWith('me', expect.anything());
     expect(await a11yViolations(container)).toEqual([]);
   });
 });
