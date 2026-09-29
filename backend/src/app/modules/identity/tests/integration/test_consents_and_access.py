@@ -29,6 +29,7 @@ from app.modules.identity.errors import (
     UserNotFoundError,
 )
 from app.modules.identity.infrastructure.models import ConsentRow, RestrictionRow
+from app.modules.identity.infrastructure.repositories import SqlConsentRepository
 from app.modules.identity.tests.fakes import a_city
 from app.platform.contracts.events.identity import (
     OnboardingCompleted,
@@ -352,3 +353,25 @@ async def test_onboarding_without_profile_steps_carries_no_intent_or_city(
 
     [payload] = await onboarded(identity, user_id)
     assert (payload["intent"], payload["home_city_id"]) == (None, None)
+
+
+async def test_earlier_v1_consent_does_not_hide_onboarding(
+    identity: Identity, events: EventRegistry
+) -> None:
+    """Согласия v1 (геолокация, аналитика) даются раньше S02c: онбординг — первая галочка
+    S02c, а не первое согласие вообще."""
+    events.subscribe(OnboardingCompleted, ON_ONBOARDED)
+    user_id = await registered(identity)
+    consents = SqlConsentRepository(identity.session, identity.uow)
+    async with identity.uow:
+        await consents.grant(
+            user_id,
+            {ConsentDocument.PRECISE_LOCATION: "draft-1"},
+            source=Platform.TMA,
+            ip=None,
+            now=identity.clock.now(),
+        )
+
+    await identity.accept_consents(tick(user_id))
+
+    assert len(await onboarded(identity, user_id)) == 1

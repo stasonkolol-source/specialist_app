@@ -203,6 +203,8 @@ METRICS: Final[tuple[MetricSpec, ...]] = (
         name="Opt-in уведомлений",
         step="1.7",
         events=(_E.USER_REGISTERED, _E.WRITE_ACCESS_GRANTED),
+        # доля с доступным каналом — состояние: заблокировавший бота (403, шаг 2.3b) выпадает
+        source="SQL по notifications.channels (disabled_at IS NULL); события — динамика",
     ),
     MetricSpec(
         name="Repeat rate клиентов",
@@ -239,6 +241,28 @@ METRICS: Final[tuple[MetricSpec, ...]] = (
 _EVENT_ID_NAMESPACE: Final = UUID("5b1d5b7e-8f5a-4a57-9a0e-2f1c6b0d7e11")
 
 
+def ensure_allowed(event: AnalyticsEvent) -> None:
+    """Событие соответствует таксономии: подключено, свойства из схемы. Адаптеры проверяют
+    каждое событие перед отправкой — даже собранное в обход analytics_event."""
+    try:
+        name = EventName(event.name)
+    except ValueError:
+        raise ValueError(f"{event.name}: event is not in the taxonomy") from None
+    _check_properties(name, event.properties)
+
+
+def _check_properties(name: EventName, properties: Mapping[str, PropertyValue]) -> None:
+    spec = EVENTS[name]
+    if spec.properties is None:
+        raise ValueError(f"{name}: event is declared but not wired yet (step {spec.step})")
+    for key, value in properties.items():
+        kind = spec.properties.get(key)
+        if kind is None:
+            raise ValueError(f"{name}: unknown property {key!r}")
+        if not kind.check(value):
+            raise ValueError(f"{name}.{key}: value is not allowed by the taxonomy")
+
+
 def analytics_event(
     name: EventName,
     *,
@@ -249,15 +273,7 @@ def analytics_event(
 ) -> AnalyticsEvent:
     """Событие по таксономии. Неизвестное свойство или значение вне схемы — ValueError:
     это ошибка программиста, а не данных, и она не должна уйти в аналитику молча."""
-    spec = EVENTS[name]
-    if spec.properties is None:
-        raise ValueError(f"{name}: event is declared but not wired yet (step {spec.step})")
-    for key, value in properties.items():
-        kind = spec.properties.get(key)
-        if kind is None:
-            raise ValueError(f"{name}: unknown property {key!r}")
-        if not kind.check(value):
-            raise ValueError(f"{name}.{key}: value is not allowed by the taxonomy")
+    _check_properties(name, properties)
     return AnalyticsEvent(
         name=name.value,
         distinct_id=user_id,

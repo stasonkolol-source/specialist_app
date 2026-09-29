@@ -202,9 +202,13 @@ class SqlConsentRepository:
             raise_domain_error(err, {"fk_consents_user_id_users": _user_not_found(user_id)})
         return len(inserted)
 
-    async def has_active(self, user_id: UserId) -> bool:
+    async def has_active(self, user_id: UserId, documents: Iterable[ConsentDocument]) -> bool:
         stmt = select(
-            exists().where(ConsentRow.user_id == user_id, ConsentRow.withdrawn_at.is_(None))
+            exists().where(
+                ConsentRow.user_id == user_id,
+                ConsentRow.document.in_(list(documents)),
+                ConsentRow.withdrawn_at.is_(None),
+            )
         )
         return bool((await self._session.execute(stmt)).scalar())
 

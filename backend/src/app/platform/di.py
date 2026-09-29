@@ -11,6 +11,7 @@ from datetime import timedelta
 
 import httpx
 import procrastinate
+import structlog
 from aiogram import Bot
 from dishka import Provider, Scope, from_context, provide
 from limits.aio.storage import RedisStorage
@@ -46,6 +47,7 @@ from app.platform.settings import (
     AnalyticsSettings,
     AppSettings,
     DbSettings,
+    Environment,
     JwtSettings,
     LegalSettings,
     S3Settings,
@@ -57,6 +59,8 @@ from app.platform.settings import (
 from app.platform.storage.port import StoragePort
 from app.platform.storage.s3 import S3Storage
 from app.platform.telegram.texts import BOT_DEFAULTS
+
+log = structlog.get_logger(__name__)
 
 ANALYTICS_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 
@@ -158,6 +162,8 @@ class PlatformProvider(Provider):
     ) -> AsyncIterator[Analytics]:
         """PostHog EU, если есть ключ (K32); без ключа — события в лог (dev, тесты)."""
         if settings.posthog_api_key is None:
+            if app.env in {Environment.STAGE, Environment.PRODUCTION}:
+                log.warning("analytics_disabled", reason="ANALYTICS_POSTHOG_API_KEY is not set")
             yield LoggingAnalytics()
             return
         async with httpx.AsyncClient(timeout=ANALYTICS_TIMEOUT) as client:

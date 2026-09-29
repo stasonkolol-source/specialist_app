@@ -4,9 +4,10 @@
 - `$geoip_disable`: PostHog не определяет место по IP — запрос идёт с сервера, а не с
   телефона, и такой «город» только испортил бы данные.
 - `uuid` события детерминирован (events.analytics_event): повтор задачи PostHog склеит.
-- 5xx и сетевые ошибки — ExternalServiceError (задача повторит), 429 — RateLimitedError с
-  Retry-After. Остальные 4xx (неверный ключ, битое событие) повтором не лечатся: ошибка в
-  лог и Sentry, задача не падает в бесконечные повторы.
+- 5xx, 408 и сетевые ошибки — ExternalServiceError (задача повторит), 429 —
+  RateLimitedError с Retry-After. Остальное, кроме 2xx (неверный ключ, битое событие,
+  редирект с неверного адреса), повтором не лечится: ошибка в лог и Sentry, а не молчаливая
+  «доставка» и не бесконечные повторы.
 """
 
 from typing import Final
@@ -16,6 +17,7 @@ import sentry_sdk
 import structlog
 from pydantic import SecretStr
 
+from app.platform.analytics.events import ensure_allowed
 from app.platform.analytics.port import AnalyticsEvent
 from app.platform.kernel.errors import ExternalServiceError, RateLimitedError
 
@@ -36,6 +38,7 @@ class PostHogAnalytics:
         self._environment = environment
 
     async def capture(self, event: AnalyticsEvent) -> None:
+        ensure_allowed(event)
         payload = {
             "api_key": self._api_key.get_secret_value(),
             "event": event.name,
@@ -55,9 +58,12 @@ class PostHogAnalytics:
             raise ExternalServiceError(service="posthog", reason=type(exc).__name__) from exc
         if response.status_code == httpx.codes.TOO_MANY_REQUESTS:
             raise RateLimitedError(retry_after=_retry_after(response))
-        if response.status_code >= httpx.codes.INTERNAL_SERVER_ERROR:
+        if (
+            response.status_code >= httpx.codes.INTERNAL_SERVER_ERROR
+            or response.status_code == httpx.codes.REQUEST_TIMEOUT
+        ):
             raise ExternalServiceError(service="posthog", status=response.status_code)
-        if response.is_error:
+        if not response.is_success:
             sentry_sdk.capture_message(f"posthog rejected event {event.name}", level="error")
             log.error("analytics_rejected", name=event.name, status=response.status_code)
 

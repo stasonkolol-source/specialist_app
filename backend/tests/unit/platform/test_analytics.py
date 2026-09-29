@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 import pytest
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 from structlog.testing import capture_logs
 
 from app.modules.growth.domain.attribution import AttributionSource
@@ -28,9 +28,15 @@ from app.platform.analytics.events import (
 from app.platform.analytics.fake import LoggingAnalytics
 from app.platform.analytics.port import AnalyticsEvent
 from app.platform.analytics.posthog import PostHogAnalytics
-from app.platform.contracts.events.identity import EntryPoint
+from app.platform.analytics.tasks import (
+    capture_onboarding_completed,
+    capture_write_access_granted,
+)
+from app.platform.contracts.events.identity import EntryPoint, OnboardingCompleted
+from app.platform.contracts.events.notifications import WriteAccessGranted
 from app.platform.kernel.errors import ExternalServiceError, RateLimitedError
-from app.platform.kernel.ids import new_id
+from app.platform.kernel.ids import CityId, UserId, new_id
+from app.platform.settings import AnalyticsSettings
 from app.platform.telegram.deeplinks import LinkSource
 
 pytestmark = pytest.mark.unit
@@ -249,7 +255,7 @@ async def test_logging_fake_writes_event_to_log() -> None:
     with capture_logs() as logs:
         await fake.capture(event)
 
-    assert fake.captured == [event]
+    assert list(fake.captured) == [event]
     assert logs == [
         {
             "event": "analytics_event",
@@ -258,4 +264,91 @@ async def test_logging_fake_writes_event_to_log() -> None:
             "user_id": str(event.distinct_id),
             "properties": {"source": "legal", "entry_point": "bot", "has_referral": False},
         }
+    ]
+
+
+@pytest.mark.parametrize("status", [301, 308], ids=["moved", "permanent-redirect"])
+async def test_posthog_redirect_is_not_delivery(status: int) -> None:
+    """Редирект с неверного адреса (http://…) — не доставка: ошибка в лог, а не тишина."""
+    analytics = posthog(lambda _: httpx.Response(status, headers={"Location": "https://x/"}))
+
+    with capture_logs() as logs:
+        await analytics.capture(registered(source="organic"))
+
+    assert [(log["event"], log["status"]) for log in logs] == [("analytics_rejected", status)]
+
+
+async def test_posthog_request_timeout_is_retried() -> None:
+    with pytest.raises(ExternalServiceError):
+        await posthog(lambda _: httpx.Response(408)).capture(registered(source="organic"))
+
+
+def test_posthog_host_must_be_https() -> None:
+    with pytest.raises(ValidationError, match="https"):
+        AnalyticsSettings(posthog_host="http://eu.i.posthog.com")
+    assert AnalyticsSettings(posthog_host="https://eu.i.posthog.com/").posthog_host == (
+        "https://eu.i.posthog.com"
+    )
+
+
+@pytest.mark.parametrize(
+    "event",
+    [
+        AnalyticsEvent(
+            name="user_registered",
+            distinct_id=new_id(),
+            occurred_at=NOW,
+            event_id=new_id(),
+            properties={"phone": "+381641234567"},
+        ),
+        AnalyticsEvent(name="made_up", distinct_id=new_id(), occurred_at=NOW, event_id=new_id()),
+        AnalyticsEvent(
+            name="job_published", distinct_id=new_id(), occurred_at=NOW, event_id=new_id()
+        ),
+    ],
+    ids=["pii-property", "unknown-event", "not-wired"],
+)
+async def test_adapters_refuse_events_built_around_the_taxonomy(event: AnalyticsEvent) -> None:
+    """Проверка в адаптерах, а не только в analytics_event: событие, собранное напрямую, с
+    телефоном в свойствах не уйдёт ни в PostHog, ни в лог."""
+    sent: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(200)
+
+    with pytest.raises(ValueError, match=r"taxonomy|wired|unknown property"):
+        await posthog(handler).capture(event)
+    with pytest.raises(ValueError, match=r"taxonomy|wired|unknown property"):
+        await LoggingAnalytics().capture(event)
+    assert sent == []
+
+
+async def test_fake_keeps_only_the_latest_events() -> None:
+    fake = LoggingAnalytics()
+    for _ in range(fake.captured.maxlen + 5):  # type: ignore[operator]
+        await fake.capture(registered(source="organic"))
+
+    assert len(fake.captured) == fake.captured.maxlen
+
+
+async def test_onboarding_and_write_access_handlers_send_their_events() -> None:
+    fake = LoggingAnalytics()
+    user_id = UserId(new_id())
+    onboarded = OnboardingCompleted(
+        user_id=user_id, intent="casual", home_city_id=CityId(7), occurred_at=NOW
+    )
+    no_profile = OnboardingCompleted(
+        user_id=user_id, intent=None, home_city_id=None, occurred_at=NOW
+    )
+    granted = WriteAccessGranted(user_id=user_id, via="mini_app", occurred_at=NOW)
+
+    await capture_onboarding_completed(onboarded, fake)
+    await capture_onboarding_completed(no_profile, fake)
+    await capture_write_access_granted(granted, fake)
+
+    assert [(e.name, dict(e.properties)) for e in fake.captured] == [
+        ("onboarding_completed", {"intent": "casual", "city": 7}),
+        ("onboarding_completed", {"intent": "unknown"}),
+        ("write_access_granted", {"via": "mini_app"}),
     ]

@@ -8,6 +8,7 @@
 from dataclasses import dataclass
 
 from app.modules.identity.application.ports import ConsentRepository, UserRepository
+from app.modules.identity.domain.consent import ONE_TICK
 from app.modules.identity.domain.policies import one_tick_consents
 from app.platform.config.port import LegalVersions
 from app.platform.contracts.events.identity import OnboardingCompleted
@@ -50,7 +51,8 @@ class AcceptConsents:
         async with self._uow:
             user = await self._users.get(cmd.actor_id)
             user.ensure_active()
-            first = not await self._consents.has_active(user.id)
+            # только галочка S02c: согласия v1 (геолокация, аналитика) даются раньше неё
+            first = not await self._consents.has_active(user.id, ONE_TICK)
             granted = await self._consents.grant(
                 user.id, versions, source=cmd.source, ip=cmd.ip, now=now
             )
