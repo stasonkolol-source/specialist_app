@@ -8,7 +8,12 @@
 import math
 from collections.abc import Iterable
 
-from app.modules.media.application.dto import DeleteObjectPayload, SignedPart, UploadPlan
+from app.modules.media.application.dto import (
+    DeleteObjectsPayload,
+    SignedPart,
+    StoredRef,
+    UploadPlan,
+)
 from app.modules.media.domain.asset import MediaAsset
 from app.platform.kernel.errors import DomainValidationError
 from app.platform.storage.port import PART_SIZE, Bucket, StoragePort
@@ -65,11 +70,30 @@ async def upload_plan(
     )
 
 
-def delete_payload(asset: MediaAsset) -> DeleteObjectPayload:
-    """Задача `media.delete_object` для файла; multipart отменяется, если он не собран."""
-    return DeleteObjectPayload(
+def delete_original(asset: MediaAsset) -> DeleteObjectsPayload:
+    """Оригинал в incoming; незавершённый multipart отменяется."""
+    return DeleteObjectsPayload(
         media_id=asset.id,
-        bucket=asset.bucket,
-        object_key=asset.object_key,
+        objects=(StoredRef(bucket=asset.bucket, key=asset.object_key),),
         upload_id=asset.upload_id,
+    )
+
+
+def delete_variants(
+    asset: MediaAsset, bucket: str, *, with_original: bool = False
+) -> DeleteObjectsPayload:
+    """Все возможные варианты в `bucket` (и оригинал): прерванный запуск мог оставить часть."""
+    original = delete_original(asset).objects if with_original else ()
+    return DeleteObjectsPayload(
+        media_id=asset.id,
+        objects=original + tuple(StoredRef(bucket=bucket, key=key) for key in asset.variant_keys()),
+        upload_id=asset.upload_id if with_original else None,
+    )
+
+
+def delete_everything(asset: MediaAsset) -> DeleteObjectsPayload:
+    """Очистка удалённого файла: оригинал и варианты в обоих бакетах."""
+    return DeleteObjectsPayload(
+        media_id=asset.id,
+        objects=tuple(StoredRef(bucket=bucket, key=key) for bucket, key in asset.objects()),
     )

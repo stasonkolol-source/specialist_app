@@ -18,7 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from structlog.testing import capture_logs
 
-from app.entrypoints._wiring import make_container
+from app.entrypoints._wiring import load_module_tasks, make_container
 from app.interfaces.worker.registration import register_worker_tasks
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
@@ -83,6 +83,8 @@ async def container(settings: Settings) -> AsyncIterator[AsyncContainer]:
     handled.clear()
     container = make_container(settings, registry=TEST_TASKS.event_registry())
     app = await container.get(procrastinate.App)
+    # как воркер: без этого задачи модулей видны, только если их импортировал другой тест
+    load_module_tasks()
     register_worker_tasks(app)
     register_tasks(app, TEST_TASKS)
     await _clear_jobs(container)
@@ -181,4 +183,7 @@ async def test_platform_periodic_tasks_are_scheduled(container: AsyncContainer) 
         "ops.heartbeat": "* * * * *",
         "platform.idempotency_cleanup": "23 * * * *",
         "media.cleanup_orphans": "41 * * * *",
+        "media.purge_deleted": "37 * * * *",
+        "media.retry_stuck": "*/15 * * * *",
+        "media.hide_deleted": "7,22,37,52 * * * *",
     }

@@ -4,10 +4,12 @@
  * Соседи API
  * OpenAPI spec version: 1.0.0
  */
+import type { FailureReason } from './failureReason.ts';
 import type { MediaKind } from './mediaKind.ts';
 import type { MediaPurpose } from './mediaPurpose.ts';
 import type { MediaStatus } from './mediaStatus.ts';
 import type { ModerationStatus } from './moderationStatus.ts';
+import type { VariantOut } from './variantOut.ts';
 
 export interface MediaOut {
   id: string;
@@ -20,4 +22,9 @@ export interface MediaOut {
   created_at: string;
   uploaded_at: string | null;
   preview_url: string | null;
+  width: number | null;
+  height: number | null;
+  placeholder: string | null;
+  variants: VariantOut[];
+  failure_reason: FailureReason | null;
 }

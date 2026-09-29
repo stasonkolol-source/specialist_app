@@ -117,3 +117,76 @@ describe('Photo с локальным файлом', () => {
     expect(revoke).toHaveBeenCalledWith('blob:preview');
   });
 });
+
+describe('Photo с сервера', () => {
+  const variants = [320, 800, 1600].map((width) => ({
+    url: `https://cdn.test/m/1/${width}.webp`,
+    width,
+  }));
+
+  it('сначала размытый ThumbHash, потом вариант по ширине на экране', async () => {
+    const { container } = render(
+      <Photo
+        alt="Кухня"
+        variants={variants}
+        placeholder="XRgODZpwd4dxiIiHiHiIh3iACPeI"
+        sizes="33vw"
+        className="h-28"
+      />,
+    );
+    const frame = container.firstElementChild as HTMLElement;
+    const img = screen.getByRole('img', { name: 'Кухня' });
+
+    expect(frame.style.backgroundImage).toContain('data:image/png');
+    expect(img.getAttribute('srcset')).toBe(
+      'https://cdn.test/m/1/320.webp 320w, https://cdn.test/m/1/800.webp 800w, https://cdn.test/m/1/1600.webp 1600w',
+    );
+    expect(img.getAttribute('sizes')).toBe('33vw');
+    expect(img.getAttribute('src')).toBe('https://cdn.test/m/1/800.webp');
+    expect(img.className).toContain('opacity-0');
+    fireEvent.load(img);
+    expect(img.className).toContain('opacity-100');
+    // после загрузки превью убрано: не просвечивает сквозь прозрачные PNG
+    expect((container.firstElementChild as HTMLElement).style.backgroundImage).toBe('');
+    expect(await a11yViolations(container)).toEqual([]);
+  });
+
+  it('не загрузилось — снова штриховка с подписью, а не пустая рамка', () => {
+    render(<Photo alt="Кухня" variants={variants} placeholder="XRgODZpwd4dxiIiHiHiIh3iACPeI" />);
+
+    fireEvent.error(screen.getByRole('img', { name: 'Кухня' }));
+
+    const fallback = screen.getByRole('img', { name: 'Кухня' });
+    expect(fallback.tagName).toBe('SPAN');
+    expect(fallback.className).toContain('ph-stripes');
+  });
+
+  it('ширину на экране по умолчанию браузер берёт из раскладки', () => {
+    render(<Photo alt="Кухня" variants={variants} />);
+
+    expect(screen.getByRole('img', { name: 'Кухня' }).getAttribute('sizes')).toBe('auto, 100vw');
+  });
+
+  it('битый хэш не мешает показать фото', () => {
+    const { container } = render(<Photo alt="Кухня" variants={variants} placeholder="%%%" />);
+
+    expect((container.firstElementChild as HTMLElement).style.backgroundImage).toBe('');
+    expect(screen.getByRole('img', { name: 'Кухня' })).toBeTruthy();
+  });
+});
+
+describe('Photo с presigned-ссылками', () => {
+  it('новая подпись той же картинки не перезагружает фото', () => {
+    const signed = (signature: string) =>
+      [320, 800].map((width) => ({
+        url: `https://s3.test/m/1/${width}.webp?X-Sig=${signature}`,
+        width,
+      }));
+    const { rerender } = render(<Photo alt="Кухня" variants={signed('a')} />);
+    fireEvent.load(screen.getByRole('img', { name: 'Кухня' }));
+
+    rerender(<Photo alt="Кухня" variants={signed('b')} />);
+
+    expect(screen.getByRole('img', { name: 'Кухня' }).className).toContain('opacity-100');
+  });
+});

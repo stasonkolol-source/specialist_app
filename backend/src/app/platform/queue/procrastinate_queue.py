@@ -46,8 +46,10 @@ class ProcrastinateJobQueue:
         self, task: TaskRef[P], payload: P, *, dedup_key: str | None = None
     ) -> None:
         raw = await session_driver_connection(self._session)
+        # queueing_lock в Procrastinate общий на все задачи: ключ — в пространстве своей задачи
+        lock = f"{task.name}:{dedup_key}" if dedup_key is not None else None
         deferrer = self._app.configure_task(
-            name=task.name, queue=task.queue, queueing_lock=dedup_key, connection=raw
+            name=task.name, queue=task.queue, queueing_lock=lock, connection=raw
         )
         try:
             async with raw.transaction():  # в активной транзакции — SAVEPOINT

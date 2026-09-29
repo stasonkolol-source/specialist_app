@@ -187,6 +187,59 @@ class S3Storage:
             ExpiresIn=int(ttl.total_seconds()),
         )
 
+    async def get(
+        self, bucket: Bucket, key: str, *, max_bytes: int, etag: str | None = None
+    ) -> bytes:
+        params: dict[str, Any] = {"Bucket": self._names[bucket], "Key": key}
+        if etag is not None:
+            params["IfMatch"] = f'"{etag}"'
+        response = await self._call(self._client.get_object, **params)
+        body = response["Body"]
+        try:
+            if int(response["ContentLength"]) > max_bytes:
+                raise StorageRejectedError("TooLarge")
+            data: bytes = await asyncio.to_thread(body.read, max_bytes + 1)
+        except BotoCoreError as exc:  # обрыв посреди тела — сбой хранилища, задача повторит
+            raise ExternalServiceError(service="storage", reason=type(exc).__name__) from exc
+        finally:
+            body.close()
+        if len(data) > max_bytes:
+            raise StorageRejectedError("TooLarge")
+        return data
+
+    async def put(
+        self,
+        bucket: Bucket,
+        key: str,
+        body: bytes,
+        *,
+        content_type: str,
+        cache_control: str | None = None,
+    ) -> None:
+        params: dict[str, Any] = {
+            "Bucket": self._names[bucket],
+            "Key": key,
+            "Body": body,
+            "ContentType": content_type,
+        }
+        if cache_control is not None:
+            params["CacheControl"] = cache_control
+        await self._call(self._client.put_object, **params)
+
+    async def copy(self, bucket: Bucket, key: str, *, to: Bucket) -> bool:
+        try:
+            await self._call(
+                self._client.copy_object,
+                Bucket=self._names[to],
+                Key=key,
+                CopySource={"Bucket": self._names[bucket], "Key": key},
+            )
+        except StorageRejectedError as exc:
+            if exc.code in {"404", "NoSuchKey", "NotFound"}:
+                return False
+            raise
+        return True
+
     async def delete(self, bucket: Bucket, key: str) -> None:
         await self._call(self._client.delete_object, Bucket=self._names[bucket], Key=key)
 

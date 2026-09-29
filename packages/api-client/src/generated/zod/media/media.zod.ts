@@ -118,6 +118,23 @@ export const MediaCompleteUploadResponse = zod.object({
   created_at: zod.iso.datetime({ offset: true }),
   uploaded_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   preview_url: zod.union([zod.string(), zod.null()]),
+  width: zod.union([zod.int(), zod.null()]),
+  height: zod.union([zod.int(), zod.null()]),
+  placeholder: zod.union([zod.string(), zod.null()]),
+  variants: zod.array(
+    zod.object({
+      name: zod.enum(['thumb', 'md', 'lg']),
+      url: zod.string(),
+      width: zod.int(),
+      height: zod.int(),
+    }),
+  ),
+  failure_reason: zod.union([
+    zod
+      .enum(['abandoned', 'mismatch', 'unsupported', 'too_many_pixels', 'unreadable'])
+      .describe('Почему `failed` (загрузка) или `rejected` (обработка).'),
+    zod.null(),
+  ]),
 });
 
 /**
@@ -148,6 +165,23 @@ export const MediaGetMediaResponse = zod.object({
   created_at: zod.iso.datetime({ offset: true }),
   uploaded_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   preview_url: zod.union([zod.string(), zod.null()]),
+  width: zod.union([zod.int(), zod.null()]),
+  height: zod.union([zod.int(), zod.null()]),
+  placeholder: zod.union([zod.string(), zod.null()]),
+  variants: zod.array(
+    zod.object({
+      name: zod.enum(['thumb', 'md', 'lg']),
+      url: zod.string(),
+      width: zod.int(),
+      height: zod.int(),
+    }),
+  ),
+  failure_reason: zod.union([
+    zod
+      .enum(['abandoned', 'mismatch', 'unsupported', 'too_many_pixels', 'unreadable'])
+      .describe('Почему `failed` (загрузка) или `rejected` (обработка).'),
+    zod.null(),
+  ]),
 });
 
 /**

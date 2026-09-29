@@ -10,7 +10,7 @@ import pytest
 from app.platform.kernel.clock import SystemClock
 from app.platform.kernel.ids import new_id
 from app.platform.settings import Settings
-from app.platform.storage.port import Bucket, StorageRejectedError, UploadedPart
+from app.platform.storage.port import IMMUTABLE, Bucket, StorageRejectedError, UploadedPart
 from app.platform.storage.s3 import S3Storage
 from tests.plugins.containers import GarageInfo
 
@@ -154,3 +154,29 @@ async def test_aborted_multipart_leaves_nothing(storage: S3Storage) -> None:
     await storage.abort_multipart(Bucket.INCOMING, name, upload_id=upload_id)
 
     assert await storage.head(Bucket.INCOMING, name) is None
+
+
+async def test_put_then_get_reads_that_exact_version(storage: S3Storage) -> None:
+    name = key()
+    await storage.put(Bucket.MEDIA, name, JPEG, content_type="image/jpeg", cache_control=IMMUTABLE)
+    stored = await storage.head(Bucket.MEDIA, name)
+    assert stored is not None
+
+    assert await storage.get(Bucket.MEDIA, name, max_bytes=len(JPEG), etag=stored.etag) == JPEG
+
+    await storage.put(Bucket.MEDIA, name, JPEG[::-1], content_type="image/jpeg")
+    with pytest.raises(StorageRejectedError) as replaced:  # версию подменили
+        await storage.get(Bucket.MEDIA, name, max_bytes=len(JPEG), etag=stored.etag)
+    assert replaced.value.code in {"PreconditionFailed", "412"}
+
+
+async def test_get_refuses_missing_and_oversized_objects(storage: S3Storage) -> None:
+    name = key()
+    with pytest.raises(StorageRejectedError) as missing:
+        await storage.get(Bucket.MEDIA, name, max_bytes=10)
+    assert missing.value.code in {"NoSuchKey", "404"}
+
+    await storage.put(Bucket.MEDIA, name, JPEG, content_type="image/jpeg")
+    with pytest.raises(StorageRejectedError) as large:
+        await storage.get(Bucket.MEDIA, name, max_bytes=len(JPEG) - 1)
+    assert large.value.code == "TooLarge"

@@ -9,8 +9,8 @@
 from dataclasses import dataclass
 
 from app.modules.media.application.dto import UploadPlan
-from app.modules.media.application.ports import DELETE_OBJECT, MediaRepository, UploadQuota
-from app.modules.media.application.uploads import delete_payload, upload_plan
+from app.modules.media.application.ports import DELETE_OBJECTS, MediaRepository, UploadQuota
+from app.modules.media.application.uploads import delete_original, upload_plan
 from app.modules.media.domain.asset import INCOMING_BUCKET, MediaAsset, object_key
 from app.modules.media.domain.policy import MediaPurpose, upload_rule
 from app.platform.db.port import UnitOfWork
@@ -69,7 +69,7 @@ class StartUpload:
             if upload_id is not None:  # начатый multipart не нужен: отменит задача
                 async with self._uow:
                     await self._queue.enqueue(
-                        DELETE_OBJECT, delete_payload(asset), dedup_key=str(asset.id)
+                        DELETE_OBJECTS, delete_original(asset), dedup_key=f"original:{asset.id}"
                     )
             raise
         async with self._uow:

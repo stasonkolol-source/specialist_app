@@ -3,6 +3,7 @@
 - **Статус:** принято
 - **Дополнено** [ADR-0019](0019-goods-section-module-deferred.md) (раздел «Вещи», после MVP, итерация «Вещи»): `purpose='listing'`, vision-проверка всех фото, сроки хранения задачами приложения, сброс кэша CDN при снятии.
 - **Дата:** 2026-09-26
+- **Уточнено** в шаге 2.2a (2026-09-29): оригинал фото после обработки не храним — сырой файл с EXIF удаляется, самый крупный вариант (1600 px) заменяет его; клиент и так уменьшает фото до ≈2048 px. Бакет `private` — для вложений чата и документов (v1).
 - **Связанные документы:** [research/03-backend-stack.md §6](../research/03-backend-stack.md#6-медиа-хранение-и-обработка), [research/07-postgres-lab-and-infra.md §4.1](../research/07-postgres-lab-and-infra.md#41-локальный-docker-compose-для-разработки-b1), [research/02-telegram-platform.md §7](../research/02-telegram-platform.md#7-медиа), [ARCHITECTURE.md §10](../ARCHITECTURE.md#10-медиа-пайплайн)
 
 ## Контекст
@@ -45,7 +46,7 @@
    |---|---|---|
    | `incoming` | Сырые загрузки | Приватный; lifecycle удаляет объекты старше 2 дней и незавершённые multipart |
    | `media` | Обработанные варианты | Публичный через custom domain `cdn.<domain>` с Cloudflare Cache (правило Cache Everything) |
-   | `private` | Оригиналы, вложения чата, документы верификации | Выдача только короткоживущими presigned GET |
+   | `private` | Вложения чата, документы верификации (v1) | Выдача только короткоживущими presigned GET |
 
    PoP Cloudflare есть в Белграде. Бэкапы БД лежат отдельно — в Hetzner Object Storage и втором провайдере ([ADR-0015](0015-hosting-and-deployment.md)).
 2. **Загрузка напрямую с клиента** (Mini App, позже мобильное приложение), минуя backend:

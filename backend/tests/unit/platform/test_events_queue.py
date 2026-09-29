@@ -80,7 +80,8 @@ async def test_dispatcher_enqueues_one_task_per_subscriber_with_dedup_key() -> N
     registry.subscribe(JobPublished, REINDEX)
     event = JobPublished(job_id=new_id(), title="x", occurred_at=NOW)
     await EventDispatcher(registry, RecordingQueue()).enqueue([event])
+    # адаптер очереди сам добавляет имя задачи: ключ уникален в пределах задачи
     assert calls == [
-        ("jobs.match_alerts", f"jobs.match_alerts:{event.event_id}"),
-        ("search.reindex_job", f"search.reindex_job:{event.event_id}"),
+        ("jobs.match_alerts", str(event.event_id)),
+        ("search.reindex_job", str(event.event_id)),
     ]

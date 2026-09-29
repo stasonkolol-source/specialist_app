@@ -4,10 +4,12 @@
 файлы не пересекаются между тестами.
 """
 
+import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
+import boto3
 import httpx
 import pytest
 from sqlalchemy import text
@@ -116,10 +118,46 @@ class Media:
             ).scalar_one()
         return key
 
+    async def lose_jobs(self, task: str, media_id: str) -> int:
+        """Снять задачи `task` этого файла с очереди, не выполняя: задача «потерялась»."""
+        engine = await self.app.container.get(AsyncEngine)
+        async with engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    "DELETE FROM procrastinate_jobs WHERE task_name = :task AND status = 'todo'"
+                    " AND args->'payload'->>'media_id' = :id"
+                ),
+                {"task": task, "id": media_id},
+            )
+        return int(result.rowcount)
+
     async def stored(self, media_id: str) -> StoredObject | None:
         """HEAD оригинала файла в incoming."""
         storage: StoragePort = await self.app.container.get(StoragePort)
         return await storage.head(Bucket.INCOMING, await self.object_key(media_id))
+
+    async def keys(self, bucket: Bucket, prefix: str) -> set[str]:
+        """Ключи объектов с префиксом — листингом бакета, мимо порта."""
+        s3 = self.settings.s3
+        assert s3.access_key_id is not None
+        assert s3.secret_access_key is not None
+        client = boto3.client(
+            "s3",
+            endpoint_url=s3.endpoint_url,
+            region_name=s3.region,
+            aws_access_key_id=s3.access_key_id.get_secret_value(),
+            aws_secret_access_key=s3.secret_access_key.get_secret_value(),
+        )
+        page = await asyncio.to_thread(client.list_objects_v2, Bucket=str(bucket), Prefix=prefix)
+        return {item["Key"] for item in page.get("Contents", [])}
+
+    async def set_status(self, media_id: str, status: str) -> None:
+        engine = await self.app.container.get(AsyncEngine)
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("UPDATE media.assets SET status = :status WHERE id = :id"),
+                {"status": status, "id": media_id},
+            )
 
     async def other_user(self) -> Media:
         return await media_for(self.app, self.settings)

@@ -38,4 +38,4 @@ class EventDispatcher:
         """По задаче на подписчика; dedup — по паре (задача, event_id)."""
         for event in events:
             for task in self._registry.subscribers(event):
-                await self._queue.enqueue(task, event, dedup_key=f"{task.name}:{event.event_id}")
+                await self._queue.enqueue(task, event, dedup_key=str(event.event_id))

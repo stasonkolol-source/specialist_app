@@ -185,7 +185,7 @@ async def test_delete_hides_the_file_and_keeps_it_for_30_days(media: Media) -> N
     assert (await media.get(plan["media_id"])).status_code == 404
     assert (await media.delete(plan["media_id"])).status_code == 404
     # объекты загруженного файла удаляет media.purge_deleted через 30 дней (шаг 2.2)
-    assert await media.jobs("media.delete_object", plan["media_id"]) == []
+    assert await media.jobs("media.delete_objects", plan["media_id"]) == []
     assert await media.stored(plan["media_id"]) is not None
 
 
@@ -195,7 +195,7 @@ async def test_deleting_an_unfinished_upload_removes_its_object(media: Media) ->
 
     assert (await media.delete(plan["media_id"])).status_code == 204
 
-    assert await media.run_jobs("media.delete_object", plan["media_id"]) == 1
+    assert await media.run_jobs("media.delete_objects", plan["media_id"]) == 1
     assert await media.stored(plan["media_id"]) is None
 
 
@@ -204,9 +204,9 @@ async def test_deleting_an_unfinished_multipart_aborts_it(media: Media) -> None:
 
     assert (await media.delete(plan["media_id"])).status_code == 204
 
-    [payload] = await media.jobs("media.delete_object", plan["media_id"])
+    [payload] = await media.jobs("media.delete_objects", plan["media_id"])
     assert payload["upload_id"]
-    assert await media.run_jobs("media.delete_object", plan["media_id"]) == 1
+    assert await media.run_jobs("media.delete_objects", plan["media_id"]) == 1
     # часть в 1 байт: на большую Garage рвёт соединение, не дочитав тело
     storage: StoragePort = await media.app.container.get(StoragePort)
     late = await storage.presign_part(
@@ -250,7 +250,7 @@ async def test_file_other_than_declared_fails_and_is_removed(media: Media) -> No
 
     assert (response.status_code, response.json()["code"]) == (422, "media_upload_mismatch")
     assert (await media.get(plan["media_id"])).json()["status"] == "failed"
-    assert await media.run_jobs("media.delete_object", plan["media_id"]) == 1
+    assert await media.run_jobs("media.delete_objects", plan["media_id"]) == 1
     assert await media.stored(plan["media_id"]) is None
 
 
@@ -311,4 +311,4 @@ async def test_uploads_abandoned_for_a_day_fail(media: Media) -> None:
             )
         ).one()
     assert tuple(row) == ("failed", "abandoned")
-    assert len(await media.jobs("media.delete_object", plan["media_id"])) == 1
+    assert len(await media.jobs("media.delete_objects", plan["media_id"])) == 1
