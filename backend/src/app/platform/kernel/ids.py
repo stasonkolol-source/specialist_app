@@ -19,6 +19,9 @@ CaseId = NewType("CaseId", UUID)
 """Кейс модерации (moderation.cases, 2.5a). Модуль moderation выше identity по DAG, поэтому
 тип лежит здесь: его видят фасад identity (`RestrictionIn`) и событие `UserRestricted`."""
 
+MediaId = NewType("MediaId", UUID)
+"""Медиафайл media.assets (2.1): на него ссылаются аватар, портфолио, заявки и сообщения."""
+
 CityId = NewType("CityId", int)
 DistrictId = NewType("DistrictId", int)
 """Справочники geo — int identity (ARCHITECTURE §7.3): их id видят фасады и API."""

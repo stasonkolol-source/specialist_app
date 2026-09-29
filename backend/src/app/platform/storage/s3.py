@@ -18,15 +18,17 @@ from typing import TYPE_CHECKING, Any
 
 import boto3
 from botocore.config import Config
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 
 from app.platform.kernel.clock import Clock
+from app.platform.kernel.errors import ExternalServiceError
 from app.platform.settings import S3Settings
 from app.platform.storage.port import (
     GET_TTL,
     PUT_TTL,
     Bucket,
     PresignedRequest,
+    StorageRejectedError,
     StoredObject,
     UploadedPart,
 )
@@ -103,13 +105,13 @@ class S3Storage:
         )
 
     async def start_multipart(self, bucket: Bucket, key: str, *, content_type: str) -> str:
-        response = await asyncio.to_thread(
+        response = await self._call(
             self._client.create_multipart_upload,
             Bucket=self._names[bucket],
             Key=key,
             ContentType=content_type,
         )
-        return response["UploadId"]
+        return str(response["UploadId"])
 
     async def presign_part(
         self,
@@ -139,7 +141,7 @@ class S3Storage:
     ) -> None:
         ordered = sorted(parts, key=lambda part: part.part_number)
         try:
-            await asyncio.to_thread(
+            await self._call(
                 self._client.complete_multipart_upload,
                 Bucket=self._names[bucket],
                 Key=key,
@@ -148,14 +150,14 @@ class S3Storage:
                     "Parts": [{"PartNumber": p.part_number, "ETag": p.etag} for p in ordered]
                 },
             )
-        except ClientError as exc:
+        except StorageRejectedError as exc:
             # Повтор после потерянного ответа (клиент или ретрай botocore): загрузка уже
             # собрана, и хранилище её не знает. Ключ у каждой загрузки свой — объект наш.
-            if error_code(exc) != "NoSuchUpload" or await self.head(bucket, key) is None:
+            if exc.code != "NoSuchUpload" or await self.head(bucket, key) is None:
                 raise
 
     async def abort_multipart(self, bucket: Bucket, key: str, *, upload_id: str) -> None:
-        await asyncio.to_thread(
+        await self._call(
             self._client.abort_multipart_upload,
             Bucket=self._names[bucket],
             Key=key,
@@ -164,11 +166,11 @@ class S3Storage:
 
     async def head(self, bucket: Bucket, key: str) -> StoredObject | None:
         try:
-            response: Any = await asyncio.to_thread(
+            response = await self._call(
                 self._client.head_object, Bucket=self._names[bucket], Key=key
             )
-        except ClientError as exc:
-            if error_code(exc) in {"404", "NoSuchKey", "NotFound"}:
+        except StorageRejectedError as exc:
+            if exc.code in {"404", "NoSuchKey", "NotFound"}:
                 return None
             raise
         return StoredObject(
@@ -185,8 +187,24 @@ class S3Storage:
             ExpiresIn=int(ttl.total_seconds()),
         )
 
+    async def delete(self, bucket: Bucket, key: str) -> None:
+        await self._call(self._client.delete_object, Bucket=self._names[bucket], Key=key)
+
     def _expires(self, ttl: timedelta) -> datetime:
         return self._clock.now() + ttl
+
+    @staticmethod
+    async def _call(method: Any, **kwargs: Any) -> Any:
+        """Вызов boto3 в потоке; ошибки — в термины порта: 4xx — StorageRejectedError,
+        5xx и сеть — ExternalServiceError (задача повторит)."""
+        try:
+            return await asyncio.to_thread(method, **kwargs)
+        except ClientError as exc:
+            if is_client_error(exc):
+                raise StorageRejectedError(error_code(exc)) from exc
+            raise ExternalServiceError(service="storage", code=error_code(exc)) from exc
+        except BotoCoreError as exc:
+            raise ExternalServiceError(service="storage", reason=type(exc).__name__) from exc
 
 
 def error_code(exc: ClientError) -> str:

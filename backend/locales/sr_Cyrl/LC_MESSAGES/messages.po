@@ -280,3 +280,24 @@ msgstr "Вредност мора бити највише {le}."
 
 msgid "validation.extra_forbidden"
 msgstr "Непознато поље."
+
+msgid "errors.media_not_found"
+msgstr "Фајл није пронађен."
+
+msgid "errors.media_type_not_allowed"
+msgstr "Овај фајл не може да се отпреми: одговарају фотографије JPEG, PNG, WebP, HEIC или видео MP4, MOV."
+
+msgid "errors.media_too_large"
+msgstr "Фајл је превелик: највише {max_mb} MB."
+
+msgid "errors.media_purpose_not_available"
+msgstr "Ово отпремање још није доступно."
+
+msgid "errors.media_state_conflict"
+msgstr "Са овим фајлом то сада није могуће."
+
+msgid "errors.media_upload_incomplete"
+msgstr "Фајл још није отпремљен до краја. Сачекајте и покушајте поново."
+
+msgid "errors.media_upload_mismatch"
+msgstr "Отпремљени фајл се не поклапа са изабраним. Отпремите га поново."

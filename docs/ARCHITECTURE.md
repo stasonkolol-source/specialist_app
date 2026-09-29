@@ -1181,8 +1181,9 @@ CREATE TABLE media.assets (
                     CHECK (status IN ('pending_upload','uploaded','processing','ready','failed','rejected','deleted')),
   bucket            text NOT NULL,        -- incoming (сырые загрузки) / private (оригиналы, вложения чата, документы) / media (публичные варианты)
   object_key        text NOT NULL,        -- {purpose}/{yyyy}/{mm}/{id}/original
-  mime_type         text,
-  size_bytes        bigint,
+  upload_id         text,                 -- id multipart-загрузки в хранилище (видео больше 50 MB)
+  mime_type         text NOT NULL,        -- заявленный клиентом; подписан в presigned PUT, сверяется HEAD
+  size_bytes        bigint NOT NULL,      -- заявленный размер; подписан в presigned PUT, сверяется HEAD
   width             int,
   height            int,
   duration_ms       int,
@@ -1192,7 +1193,9 @@ CREATE TABLE media.assets (
   moderation_status text NOT NULL DEFAULT 'pending'
                     CHECK (moderation_status IN ('pending','approved','flagged','rejected')),
   moderation_labels jsonb NOT NULL DEFAULT '{}',
+  failure_reason    text CHECK (failure_reason IN ('abandoned','mismatch')),  -- почему failed: загрузку бросили или не тот файл
   created_at        timestamptz NOT NULL DEFAULT now(),
+  uploaded_at       timestamptz,          -- complete прошёл HEAD-проверку
   processed_at      timestamptz,
   deleted_at        timestamptz
 );

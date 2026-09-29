@@ -80,6 +80,25 @@ def test_error_codes_are_own_snake_case_and_unique(domain_errors: list[type[Doma
         seen[cls.code] = name
 
 
+RESERVED_PROBLEM_FIELDS = frozenset(
+    {"type", "title", "status", "detail", "instance", "code", "trace_id", "errors"}
+    | {"locale", "params", "headers"}  # аргументы Problems.response
+)
+"""Поля ответа RFC 9457 и аргументы Problems.response: параметр ошибки с таким именем
+уронил бы обработчик ошибок в 500 (так было с `status` у media_state_conflict)."""
+
+
+def test_public_params_do_not_shadow_problem_fields(domain_errors: list[type[DomainError]]) -> None:
+    clashes = {
+        f"{error.__module__}.{error.__qualname__}": sorted(
+            set(error.public_params) & RESERVED_PROBLEM_FIELDS
+        )
+        for error in domain_errors
+        if set(error.public_params) & RESERVED_PROBLEM_FIELDS
+    }
+    assert clashes == {}
+
+
 def test_every_error_code_has_text_in_complete_catalogs(
     domain_errors: list[type[DomainError]],
 ) -> None:

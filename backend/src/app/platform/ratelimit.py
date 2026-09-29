@@ -65,10 +65,13 @@ class RateLimiter:
         self._valkey = valkey
         self._clock = clock
 
-    async def hit(self, rate: Rate, subject: str) -> RateStatus:
-        """Засчитать действие субъекта; сверх лимита — RateLimitedError."""
+    async def hit(self, rate: Rate, subject: str, *, cost: int = 1) -> RateStatus:
+        """Засчитать действие субъекта; сверх лимита — RateLimitedError.
+
+        `cost` — вес действия: квота «1 GB загрузок в сутки» считает мегабайты, а не запросы.
+        """
         try:
-            allowed = await self._strategy.hit(rate.item, rate.name, subject)
+            allowed = await self._strategy.hit(rate.item, rate.name, subject, cost=cost)
             stats = await self._strategy.get_window_stats(rate.item, rate.name, subject)
         except StorageError as exc:
             log.warning("ratelimit_storage_unavailable", rate=rate.name, error=type(exc).__name__)
