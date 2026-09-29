@@ -24,6 +24,7 @@ import signal
 import subprocess
 import sys
 import time
+import traceback
 import urllib.error
 import urllib.request
 from collections.abc import Callable
@@ -102,17 +103,27 @@ class Stand:
         self._apps = self._spawn()
 
     def stop_apps(self) -> None:
+        """Остановить honcho и всё его дерево: web, bot, воркеры, vite.
+
+        honcho запускает каждый процесс в своей сессии (start_new_session), поэтому сигнал
+        группе honcho до них не доходит, а упавший honcho оставил бы их сиротами со старым
+        кодом и занятыми портами. Дерево собирается по ppid до остановки; SIGTERM — всем,
+        кто не вышел за APPS_STOP_TIMEOUT, получает SIGKILL."""
         apps, self._apps = self._apps, None
         if apps is None:
             return
-        group = apps.pid  # лидер новой сессии: id группы совпадает с pid
-        _signal_group(group, signal.SIGTERM)
-        try:
-            apps.wait(APPS_STOP_TIMEOUT)
-        except subprocess.TimeoutExpired:
-            _signal_group(group, signal.SIGKILL)
-            apps.wait()
-        _wait_group_gone(group, APPS_STOP_TIMEOUT)
+        tree = [apps.pid, *_descendants(apps.pid)]
+        for pid in tree:
+            _signal(pid, signal.SIGTERM)
+        deadline = time.monotonic() + APPS_STOP_TIMEOUT
+        while time.monotonic() < deadline and any(_alive(pid) for pid in tree):
+            apps.poll()  # забрать лидера, иначе он останется зомби
+            time.sleep(0.2)
+        for pid in tree:
+            if _alive(pid):
+                _signal(pid, signal.SIGKILL)
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            apps.wait(5)
 
     def restart_apps(self, reason: str) -> None:
         log(f"restart apps: {reason}")
@@ -174,32 +185,57 @@ class Stand:
             time.sleep(tick)
             if self.restart_requested:
                 self.restart_requested = False
-                self.restart_apps("make dev-restart")
+                try:
+                    self.restart_apps("make dev-restart")
+                except Exception:  # noqa: BLE001 — стенд живёт, ошибка — в лог
+                    log("restart failed:\n" + traceback.format_exc())
             code = self.apps_exit_code()
             if code is not None:
                 log(f"apps exited with code {code}")
                 return code
             if time.monotonic() >= next_check:
-                self.check_tunnels()
+                try:
+                    self.check_tunnels()
+                except Exception:  # noqa: BLE001 — сбой проверки не должен ронять стенд
+                    log("tunnel check failed:\n" + traceback.format_exc())
                 next_check = time.monotonic() + check_every
 
 
-def _signal_group(group: int, sig: signal.Signals) -> None:
-    with contextlib.suppress(ProcessLookupError):
-        os.killpg(group, sig)
+def _descendants(root: int) -> list[int]:
+    """Все потомки процесса по ppid (`ps`), в том числе в других сессиях и группах."""
+    listing = subprocess.run(  # noqa: S603 — фиксированная команда
+        ["ps", "-axo", "pid=,ppid="],  # noqa: S607
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout
+    children: dict[int, list[int]] = {}
+    for line in listing.splitlines():
+        fields = line.split()
+        if len(fields) == 2 and fields[0].isdigit() and fields[1].isdigit():
+            children.setdefault(int(fields[1]), []).append(int(fields[0]))
+    found: list[int] = []
+    stack = [root]
+    while stack:
+        for child in children.get(stack.pop(), []):
+            found.append(child)
+            stack.append(child)
+    return found
 
 
-def _wait_group_gone(group: int, timeout: float) -> None:
-    """Дождаться, пока из группы выйдут все процессы (web, bot, vite): иначе новый запуск
-    упрётся в занятые порты. Не вышли за timeout — SIGKILL."""
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        try:
-            os.killpg(group, 0)
-        except ProcessLookupError:
-            return
-        time.sleep(0.2)
-    _signal_group(group, signal.SIGKILL)
+def _alive(pid: int) -> bool:
+    """Процесс есть и его можно остановить. PermissionError — на macOS так отвечают за
+    зомби (и за чужие процессы): останавливать там нечего."""
+    try:
+        os.kill(pid, 0)
+    except (ProcessLookupError, PermissionError):
+        return False
+    return True
+
+
+def _signal(pid: int, sig: signal.Signals) -> None:
+    with contextlib.suppress(ProcessLookupError, PermissionError):
+        os.kill(pid, sig)
 
 
 # --- команды make ---------------------------------------------------------------------------

@@ -5,11 +5,11 @@
 """
 
 import importlib
-import os
 import socket
 import subprocess
 import sys
 import threading
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -244,16 +244,81 @@ def test_restart_request_restarts_apps_without_touching_tunnels(
     assert (world.opened, world.closed) == (1, [])
 
 
-def test_stop_apps_kills_whole_process_group() -> None:
-    def spawn() -> subprocess.Popen[bytes]:
-        # honcho с детьми: лидер группы и процесс-потомок
-        return subprocess.Popen(["/bin/sh", "-c", "sleep 60 & sleep 60"], start_new_session=True)
+HONCHO_LIKE = """
+import subprocess, sys, time
+# как honcho: каждый процесс — в своей сессии, у него свой потомок
+subprocess.Popen(
+    [sys.executable, "-c", "import subprocess, sys, time; "
+     "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)']); time.sleep(60)"],
+    start_new_session=True,
+)
+time.sleep(60)
+"""
 
-    s = dev.Stand(tunnels=False, apps=spawn)
+STUBBORN = """
+import signal, time
+signal.signal(signal.SIGTERM, signal.SIG_IGN)  # воркер, который не выходит по SIGTERM
+time.sleep(60)
+"""
+
+
+def spawn(code: str) -> subprocess.Popen[bytes]:
+    return subprocess.Popen([sys.executable, "-c", code], start_new_session=True)
+
+
+def wait_for_children(pid: int, count: int) -> list[int]:
+    for _ in range(100):
+        tree = dev._descendants(pid)
+        if len(tree) >= count:
+            return tree
+        time.sleep(0.05)
+    raise AssertionError(f"expected {count} descendants of {pid}")
+
+
+def test_stop_apps_kills_children_in_other_sessions() -> None:
+    """honcho держит процессы в своих сессиях: сигнал его группе до них не доходит, и
+    упавший honcho оставил бы сирот. Остановка идёт по дереву ppid."""
+    s = dev.Stand(tunnels=False, apps=lambda: spawn(HONCHO_LIKE))
     s.start_apps()
-    group = s._apps.pid
+    leader = s._apps.pid
+    tree = [leader, *wait_for_children(leader, 2)]
 
     s.stop_apps()
 
-    with pytest.raises(ProcessLookupError):
-        os.killpg(group, 0)
+    assert [pid for pid in tree if dev._alive(pid)] == []
+
+
+def test_process_ignoring_sigterm_gets_sigkill(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dev, "APPS_STOP_TIMEOUT", 0.5)
+    s = dev.Stand(tunnels=False, apps=lambda: spawn(STUBBORN))
+    s.start_apps()
+    pid = s._apps.pid
+    time.sleep(0.3)  # успел поставить обработчик SIGTERM
+
+    s.stop_apps()
+
+    assert not dev._alive(pid)
+
+
+def test_failed_tunnel_check_does_not_stop_the_stand() -> None:
+    """Сбой проверки или пересоздания туннеля пишется в лог; стенд продолжает работать."""
+    world = World()
+    polls = iter([None, None, 0])
+
+    class Apps:
+        pid = -1
+
+        @staticmethod
+        def poll() -> int | None:
+            return next(polls)
+
+    s = dev.Stand(
+        tunnels=True, probe=world.probe, opener=world.opener, closer=world.closer, apps=Apps
+    )
+
+    def broken() -> None:
+        raise RuntimeError("Operation not permitted")
+
+    s.check_tunnels = broken
+
+    assert s.run(tick=0, check_every=0) == 0
