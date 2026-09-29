@@ -8,14 +8,16 @@ App (`startapp`) или в боте (`/start <payload>`). Второе каса�
 
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final
 
 from app.platform.contracts.events.identity import EntryPoint
-from app.platform.telegram.deeplinks import LinkType, is_valid_start_param, parse_start_param
+from app.platform.telegram.deeplinks import is_valid_start_param, link_source, parse_start_param
 
 
 class AttributionSource(StrEnum):
-    """Тип ссылки первого касания. Канал или реферала различает код `_r` (`referral_code`)."""
+    """Тип ссылки первого касания. Канал или реферала различает код `_r` (`referral_code`).
+
+    Значения — те же, что у LinkSource кодека (platform/telegram): классифицирует ссылку он,
+    а здесь — колонка `growth.attributions.source` со своим CHECK."""
 
     ORGANIC = "organic"
     """Без кода: пришёл сам (поиск в Telegram, профиль бота, menu button)."""
@@ -30,17 +32,6 @@ class AttributionSource(StrEnum):
     """Зарезервированные коды раздела «Вещи» (после MVP)."""
     UNKNOWN = "unknown"
     """Код есть, но не наш: битый, устаревший или партнёрский Telegram `_tgr_`."""
-
-
-_SOURCE_BY_LINK: Final = {
-    LinkType.JOB: AttributionSource.JOB,
-    LinkType.SPECIALIST: AttributionSource.SPECIALIST,
-    LinkType.CHAT: AttributionSource.CHAT,
-    LinkType.DEAL: AttributionSource.DEAL,
-    LinkType.HOME: AttributionSource.HOME,
-    LinkType.LEGAL: AttributionSource.LEGAL,
-    LinkType.RESERVED: AttributionSource.GOODS,
-}
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -63,7 +54,7 @@ class FirstTouch:
             )
         link = parse_start_param(start_param)
         return cls(
-            source=_SOURCE_BY_LINK[link.type] if link else AttributionSource.UNKNOWN,
+            source=AttributionSource(link_source(start_param).value),
             start_param=start_param if is_valid_start_param(start_param) else None,
             referral_code=link.ref if link else None,
             entry_point=entry_point,

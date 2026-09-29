@@ -193,6 +193,44 @@ def parse_start_param(value: str | None) -> StartLink | None:
     )
 
 
+class LinkSource(StrEnum):
+    """Откуда пришёл человек по коду ссылки: источник атрибуции (growth) и свойство событий
+    аналитики. Одна классификация на всех — иначе воронки и таблица атрибуции разойдутся."""
+
+    ORGANIC = "organic"
+    """Без кода: пришёл сам (поиск в Telegram, профиль бота, menu button)."""
+    JOB = "job"
+    SPECIALIST = "specialist"
+    CHAT = "chat"
+    DEAL = "deal"
+    HOME = "home"
+    LEGAL = "legal"
+    """Ссылка на правила или политику (`l_terms`, `l_privacy`): её пересылают из бота."""
+    GOODS = "goods"
+    """Зарезервированные коды раздела «Вещи» (после MVP)."""
+    UNKNOWN = "unknown"
+    """Код есть, но не наш: битый, устаревший или партнёрский Telegram `_tgr_`."""
+
+
+_SOURCE_BY_TYPE: Final[Mapping[LinkType, LinkSource]] = {
+    LinkType.JOB: LinkSource.JOB,
+    LinkType.SPECIALIST: LinkSource.SPECIALIST,
+    LinkType.CHAT: LinkSource.CHAT,
+    LinkType.DEAL: LinkSource.DEAL,
+    LinkType.HOME: LinkSource.HOME,
+    LinkType.LEGAL: LinkSource.LEGAL,
+    LinkType.RESERVED: LinkSource.GOODS,
+}
+
+
+def link_source(start_param: str | None) -> LinkSource:
+    """Источник по сырому коду `startapp` или payload `/start`."""
+    if not start_param:
+        return LinkSource.ORGANIC
+    link = parse_start_param(start_param)
+    return _SOURCE_BY_TYPE[link.type] if link is not None else LinkSource.UNKNOWN
+
+
 def _parse_code(parts: Sequence[str]) -> StartLink | None:
     head, rest = parts[0], parts[1:]
     if head == _HOME:

@@ -161,6 +161,14 @@ class AnalyticsSettings(_Group):
     posthog_api_key: SecretStr | None = None
     posthog_host: str = "https://eu.i.posthog.com"
 
+    @field_validator("posthog_host")
+    @classmethod
+    def _https_host(cls, value: str) -> str:
+        # http:// PostHog отвечает редиректом, и события терялись бы без ошибки
+        if not value.startswith("https://"):
+            raise ValueError("ANALYTICS_POSTHOG_HOST: нужен https:// адрес")
+        return value.rstrip("/")
+
 
 TODO_PREFIX = "[TODO"
 """Значение-заглушка: владелец ещё не решил. На проде процесс с заглушкой не стартует."""

@@ -23,7 +23,7 @@ class SqlChannelRepository:
 
     async def grant_telegram(
         self, user_id: UserId, chat_id: int, *, via: GrantedVia, now: datetime
-    ) -> ChannelView:
+    ) -> tuple[ChannelView, bool]:
         self._uow.require_active()
         address = str(chat_id)
         stmt = insert(ChannelRow).values(
@@ -50,7 +50,9 @@ class SqlChannelRepository:
             ),
         )
         try:
-            await self._session.execute(stmt)
+            # RETURNING отдаёт строку, только если вставка или UPDATE сработали: повтор при
+            # доступном канале (WHERE ложен) строк не возвращает
+            changed = (await self._session.execute(stmt.returning(ChannelRow.id))).first()
         except IntegrityError as err:
             raise_domain_error(
                 err, {"fk_channels_user_id_users": lambda: UserNotFoundError(user_id=user_id)}
@@ -67,9 +69,10 @@ class SqlChannelRepository:
             .mappings()
             .one()
         )
-        return ChannelView(
+        view = ChannelView(
             kind=row["kind"],
             granted_via=row["granted_via"],
             granted_at=row["granted_at"],
             disabled_at=row["disabled_at"],
         )
+        return view, changed is not None

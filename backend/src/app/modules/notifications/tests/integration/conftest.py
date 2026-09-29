@@ -18,8 +18,15 @@ from app.modules.notifications.application.use_cases.grant_telegram_write_access
 )
 from app.modules.notifications.infrastructure.repositories import SqlChannelRepository
 from app.modules.notifications.tests.fakes import FakeIdentity
+from app.platform.contracts.events.notifications import WriteAccessGranted
 from app.platform.kernel.ids import UserId, new_id
+from app.platform.queue.dispatcher import EventRegistry
+from app.platform.queue.port import TaskRef
 from app.platform.testing.clock import FakeClock
+from app.platform.testing.queue import queued_tasks
+
+ON_WRITE_ACCESS = TaskRef("test.write_access_granted", WriteAccessGranted)
+"""Подписка теста: WriteAccessGranted видно в procrastinate_jobs."""
 
 
 @dataclass
@@ -46,12 +53,19 @@ class Notifications:
         )
         return [dict(row._mapping) for row in rows]
 
+    async def announced(self, user_id: UserId) -> list[dict[str, object]]:
+        """WriteAccessGranted пользователя, поставленные в очередь (payload события)."""
+        tasks = await queued_tasks(self.session, ON_WRITE_ACCESS.name)
+        return [t.payload for t in tasks if t.payload.get("user_id") == str(user_id)]
+
 
 @pytest.fixture
 def notifications(db_session: AsyncSession, procrastinate_app: procrastinate.App) -> Notifications:
     clock = FakeClock()
     identity = FakeIdentity()
-    uow = make_uow(db_session, procrastinate_app)
+    events = EventRegistry()
+    events.subscribe(WriteAccessGranted, ON_WRITE_ACCESS)
+    uow = make_uow(db_session, procrastinate_app, events)
     return Notifications(
         session=db_session,
         clock=clock,

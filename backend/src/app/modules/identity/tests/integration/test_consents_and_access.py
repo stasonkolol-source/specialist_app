@@ -29,8 +29,13 @@ from app.modules.identity.errors import (
     UserNotFoundError,
 )
 from app.modules.identity.infrastructure.models import ConsentRow, RestrictionRow
+from app.modules.identity.infrastructure.repositories import SqlConsentRepository
 from app.modules.identity.tests.fakes import a_city
-from app.platform.contracts.events.identity import UserRestricted, UserUpdated
+from app.platform.contracts.events.identity import (
+    OnboardingCompleted,
+    UserRestricted,
+    UserUpdated,
+)
 from app.platform.db.errors import WriteOutsideUnitOfWorkError
 from app.platform.kernel.errors import RestrictedError
 from app.platform.kernel.ids import CaseId, CityId, UserId, new_id
@@ -306,3 +311,67 @@ async def test_city_missing_in_database_is_unknown(identity: Identity) -> None:
         await identity.update_profile(UpdateProfileCommand(actor_id=user_id, home_city_id=ghost.id))
     async with identity.uow:
         assert (await identity.users.get(user_id)).home_city_id is None
+
+
+# --- OnboardingCompleted (1.7) -----------------------------------------------------------
+
+ON_ONBOARDED = TaskRef("test.onboarding_completed", OnboardingCompleted)
+
+
+async def onboarded(identity: Identity, user_id: UserId) -> list[dict[str, object]]:
+    tasks = await queued_tasks(identity.session, ON_ONBOARDED.name)
+    return [t.payload for t in tasks if t.payload.get("user_id") == str(user_id)]
+
+
+@pytest.mark.usefixtures("geo_seeded")
+async def test_first_consent_completes_onboarding_once(
+    identity: Identity, events: EventRegistry
+) -> None:
+    events.subscribe(OnboardingCompleted, ON_ONBOARDED)
+    user_id = await registered(identity)
+    novi_sad = identity.geo.add(a_city(await seeded_city_id(identity, "novi-sad")))
+    await identity.update_profile(
+        UpdateProfileCommand(actor_id=user_id, home_city_id=novi_sad.id, intent=UserIntent.PRO)
+    )
+
+    await identity.accept_consents(tick(user_id))
+    await identity.accept_consents(tick(user_id))  # повтор
+    identity.legal.versions["terms"] = "draft-2"
+    await identity.accept_consents(tick(user_id, terms="draft-2"))  # новая редакция
+
+    payloads = await onboarded(identity, user_id)
+    assert [(p["intent"], p["home_city_id"]) for p in payloads] == [("pro", novi_sad.id)]
+
+
+async def test_onboarding_without_profile_steps_carries_no_intent_or_city(
+    identity: Identity, events: EventRegistry
+) -> None:
+    events.subscribe(OnboardingCompleted, ON_ONBOARDED)
+    user_id = await registered(identity)
+
+    await identity.accept_consents(tick(user_id))
+
+    [payload] = await onboarded(identity, user_id)
+    assert (payload["intent"], payload["home_city_id"]) == (None, None)
+
+
+async def test_earlier_v1_consent_does_not_hide_onboarding(
+    identity: Identity, events: EventRegistry
+) -> None:
+    """Согласия v1 (геолокация, аналитика) даются раньше S02c: онбординг — первая галочка
+    S02c, а не первое согласие вообще."""
+    events.subscribe(OnboardingCompleted, ON_ONBOARDED)
+    user_id = await registered(identity)
+    consents = SqlConsentRepository(identity.session, identity.uow)
+    async with identity.uow:
+        await consents.grant(
+            user_id,
+            {ConsentDocument.PRECISE_LOCATION: "draft-1"},
+            source=Platform.TMA,
+            ip=None,
+            now=identity.clock.now(),
+        )
+
+    await identity.accept_consents(tick(user_id))
+
+    assert len(await onboarded(identity, user_id)) == 1
