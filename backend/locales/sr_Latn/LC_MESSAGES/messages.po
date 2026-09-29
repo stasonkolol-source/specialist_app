@@ -286,7 +286,7 @@ msgid "errors.media_not_found"
 msgstr "Fajl nije pronađen."
 
 msgid "errors.media_type_not_allowed"
-msgstr "Ovaj fajl ne može da se otpremi: odgovaraju fotografije JPEG, PNG, WebP, HEIC ili video MP4, MOV."
+msgstr "Ovaj fajl ovde ne odgovara. Može da se otpremi: {allowed}."
 
 msgid "errors.media_too_large"
 msgstr "Fajl je prevelik: najviše {max_mb} MB."

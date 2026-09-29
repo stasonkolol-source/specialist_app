@@ -11,6 +11,7 @@ export const SECTIONS = [
   'tiles',
   'chips',
   'photo',
+  'upload',
   'form',
   'choice',
   'progress',

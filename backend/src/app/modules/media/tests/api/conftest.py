@@ -18,7 +18,9 @@ from tests.plugins.identity import insert_user
 
 from app.modules.media.http.router import router
 from app.platform.kernel.ids import UserId, new_id
+from app.platform.queue.tasks import TASKS, run_task
 from app.platform.settings import Settings
+from app.platform.storage.port import Bucket, StoragePort, StoredObject
 
 
 @pytest.fixture
@@ -65,20 +67,59 @@ class Media:
     async def delete(self, media_id: str) -> httpx.Response:
         return await self.app.client.delete(f"/api/v1/media/{media_id}", headers=self.headers)
 
-    async def processing_jobs(self, media_id: str) -> int:
+    async def parts(self, media_id: str, numbers: list[int] | None = None) -> httpx.Response:
+        return await self.app.client.post(
+            f"/api/v1/media/uploads/{media_id}/parts",
+            json={"part_numbers": numbers},
+            headers=self.headers,
+        )
+
+    async def jobs(self, task: str, media_id: str) -> list[dict[str, Any]]:
+        """Payload задач `task` этого файла в очереди, по порядку постановки."""
         engine = await self.app.container.get(AsyncEngine)
         async with engine.connect() as conn:
-            return int(
-                (
-                    await conn.execute(
-                        text(
-                            "SELECT count(*) FROM procrastinate_jobs WHERE task_name ="
-                            " 'media.process' AND args->'payload'->>'media_id' = :id"
-                        ),
-                        {"id": media_id},
-                    )
-                ).scalar_one()
+            rows = await conn.execute(
+                text(
+                    "SELECT args->'payload' FROM procrastinate_jobs WHERE task_name = :task"
+                    " AND args->'payload'->>'media_id' = :id ORDER BY id"
+                ),
+                {"task": task, "id": media_id},
             )
+            return [row[0] for row in rows]
+
+    async def run_jobs(self, task: str, media_id: str) -> int:
+        """Выполнить задачи `task` этого файла, как воркер (run_task); вернуть их число."""
+        engine = await self.app.container.get(AsyncEngine)
+        async with engine.begin() as conn:
+            rows = (
+                await conn.execute(
+                    text(
+                        "DELETE FROM procrastinate_jobs WHERE task_name = :task AND status = 'todo'"
+                        " AND args->'payload'->>'media_id' = :id RETURNING id, args"
+                    ),
+                    {"task": task, "id": media_id},
+                )
+            ).all()
+        for row in sorted(rows, key=lambda r: r.id):
+            await run_task(
+                TASKS.tasks[task], self.app.container, row.args["payload"], job_id=row.id
+            )
+        return len(rows)
+
+    async def object_key(self, media_id: str) -> str:
+        engine = await self.app.container.get(AsyncEngine)
+        async with engine.connect() as conn:
+            key: str = (
+                await conn.execute(
+                    text("SELECT object_key FROM media.assets WHERE id = :id"), {"id": media_id}
+                )
+            ).scalar_one()
+        return key
+
+    async def stored(self, media_id: str) -> StoredObject | None:
+        """HEAD оригинала файла в incoming."""
+        storage: StoragePort = await self.app.container.get(StoragePort)
+        return await storage.head(Bucket.INCOMING, await self.object_key(media_id))
 
     async def other_user(self) -> Media:
         return await media_for(self.app, self.settings)

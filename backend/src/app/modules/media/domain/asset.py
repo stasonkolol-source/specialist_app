@@ -68,6 +68,9 @@ class MediaAsset(AggregateRoot):
     created_at: datetime
     upload_id: str | None = None
     """Id multipart-загрузки в хранилище (видео больше MULTIPART_THRESHOLD); иначе None."""
+    etag: str | None = None
+    """ETag оригинала после complete: presigned PUT живёт ещё до 10 минут, и обработка (2.2)
+    должна читать тот файл, который сверили, а не подменённый позже."""
     uploaded_at: datetime | None = None
     failure_reason: FailureReason | None = None
     moderation_status: ModerationStatus = ModerationStatus.PENDING
@@ -113,7 +116,7 @@ class MediaAsset(AggregateRoot):
         if self.status is not MediaStatus.PENDING_UPLOAD:
             raise MediaStateError(media_status=self.status.value)
 
-    def complete(self, *, size_bytes: int, mime_type: str | None, now: datetime) -> None:
+    def complete(self, *, size_bytes: int, mime_type: str | None, etag: str, now: datetime) -> None:
         """Файл в хранилище совпал с заявленным: `uploaded` и событие для обработки.
 
         Не тот размер или тип — `failed` (mismatch): presigned PUT подписан на размер и тип,
@@ -128,6 +131,7 @@ class MediaAsset(AggregateRoot):
             self.failure_reason = FailureReason.MISMATCH
             return
         self.status = MediaStatus.UPLOADED
+        self.etag = etag
         self.uploaded_at = now
         self._record(
             MediaUploaded(

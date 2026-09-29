@@ -10,10 +10,10 @@ class MediaNotFoundError(NotFoundError):
 
 
 class UnsupportedMediaTypeError(DomainValidationError):
-    """Тип файла не из allow-list назначения (ARCHITECTURE §10.1)."""
+    """Тип файла не из allow-list назначения (ARCHITECTURE §10.1); `allowed` — что можно."""
 
     code = "media_type_not_allowed"
-    public_params = ("mime_type",)
+    public_params = ("mime_type", "allowed")
 
 
 class MediaTooLargeError(DomainValidationError):
@@ -39,9 +39,13 @@ class MediaStateError(ConflictError):
 
 
 class UploadIncompleteError(ConflictError):
-    """`complete` раньше, чем файл дошёл до хранилища: клиенту — догрузить и повторить."""
+    """`complete` раньше, чем файл дошёл до хранилища: клиенту — догрузить и повторить.
+
+    `missing_parts` — номера частей multipart, которых нет в запросе: их и догрузить.
+    """
 
     code = "media_upload_incomplete"
+    public_params = ("missing_parts",)
 
 
 class UploadMismatchError(DomainValidationError):

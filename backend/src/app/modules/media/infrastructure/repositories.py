@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.media.domain.asset import MediaAsset, MediaStatus
@@ -26,12 +26,20 @@ class SqlMediaRepository:
         await self._session.flush()
         self._uow.track(asset)
 
-    async def get(self, owner_id: UserId, media_id: MediaId) -> MediaAsset:
-        return await self._load(owner_id, media_id, lock=False)
-
     async def get_for_update(self, owner_id: UserId, media_id: MediaId) -> MediaAsset:
         self._uow.require_active()
-        return await self._load(owner_id, media_id, lock=True)
+        stmt = (
+            select(AssetRow)
+            .where(*visible_to(owner_id, media_id))
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        row = (await self._session.execute(stmt)).scalar_one_or_none()
+        if row is None:  # нет или чужой: владелец чужого файла о нём не узнаёт
+            raise MediaNotFoundError(media_id=media_id)
+        asset = to_domain(row)
+        self._uow.track(asset)
+        return asset
 
     async def save(self, asset: MediaAsset) -> None:
         self._uow.require_active()
@@ -52,33 +60,22 @@ class SqlMediaRepository:
             .with_for_update(skip_locked=True)
             .execution_options(populate_existing=True)
         )
-        assets = [_to_domain(row) for row in (await self._session.execute(stmt)).scalars()]
+        assets = [to_domain(row) for row in (await self._session.execute(stmt)).scalars()]
         for asset in assets:
             self._uow.track(asset)
         return assets
 
-    async def _load(self, owner_id: UserId, media_id: MediaId, *, lock: bool) -> MediaAsset:
-        stmt = (
-            select(AssetRow)
-            .where(
-                AssetRow.id == media_id,
-                AssetRow.owner_id == owner_id,
-                AssetRow.status != MediaStatus.DELETED,
-            )
-            .execution_options(populate_existing=True)
-        )
-        if lock:
-            stmt = stmt.with_for_update()
-        row = (await self._session.execute(stmt)).scalar_one_or_none()
-        if row is None:  # нет или чужой: владелец чужого файла о нём не узнаёт
-            raise MediaNotFoundError(media_id=media_id)
-        asset = _to_domain(row)
-        if lock:
-            self._uow.track(asset)
-        return asset
+
+def visible_to(owner_id: UserId, media_id: MediaId) -> tuple[ColumnElement[bool], ...]:
+    """Файл владельца, кроме удалённого: чужой и удалённый для API одинаково не существуют."""
+    return (
+        AssetRow.id == media_id,
+        AssetRow.owner_id == owner_id,
+        AssetRow.status != MediaStatus.DELETED,
+    )
 
 
-def _to_domain(row: AssetRow) -> MediaAsset:
+def to_domain(row: AssetRow) -> MediaAsset:
     return MediaAsset(
         id=MediaId(row.id),
         owner_id=UserId(row.owner_id),
@@ -91,6 +88,7 @@ def _to_domain(row: AssetRow) -> MediaAsset:
         size_bytes=row.size_bytes,
         created_at=row.created_at,
         upload_id=row.upload_id,
+        etag=row.etag,
         uploaded_at=row.uploaded_at,
         failure_reason=row.failure_reason,
         moderation_status=row.moderation_status,
@@ -108,6 +106,7 @@ def _apply(asset: MediaAsset, row: AssetRow) -> None:
     row.upload_id = asset.upload_id
     row.mime_type = asset.mime_type
     row.size_bytes = asset.size_bytes
+    row.etag = asset.etag
     row.moderation_status = asset.moderation_status
     row.failure_reason = asset.failure_reason
     row.created_at = asset.created_at

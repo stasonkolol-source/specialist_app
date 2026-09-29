@@ -10,12 +10,17 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from app.modules.media.application.ports import MediaRepository
 from app.modules.media.application.use_cases.cleanup_orphans import (
     CleanupOrphans,
     CleanupOrphansCommand,
 )
-from app.modules.media.domain.policy import MB
-from app.platform.storage.port import PART_SIZE
+from app.modules.media.domain.asset import MediaAsset
+from app.modules.media.domain.policy import MB, MediaKind, MediaPurpose
+from app.platform.db.port import UnitOfWork
+from app.platform.kernel.clock import Clock
+from app.platform.kernel.ids import MediaId, new_id
+from app.platform.storage.port import PART_SIZE, Bucket, StoragePort
 
 from .conftest import Media, put
 
@@ -38,10 +43,10 @@ async def test_photo_is_uploaded_and_queued_for_processing(media: Media) -> None
     body = done.json()
     assert (body["status"], body["kind"], body["size_bytes"]) == ("uploaded", "image", len(JPEG))
     assert body["preview_url"]
-    assert await media.processing_jobs(plan["media_id"]) == 1
+    assert len(await media.jobs("media.process", plan["media_id"])) == 1
     again = await media.complete(plan["media_id"])  # ответ на первый мог потеряться
     assert (again.status_code, again.json()["status"]) == (200, "uploaded")
-    assert await media.processing_jobs(plan["media_id"]) == 1
+    assert len(await media.jobs("media.process", plan["media_id"])) == 1
 
 
 async def test_video_over_50_mb_goes_in_parts(media: Media) -> None:
@@ -64,7 +69,8 @@ async def test_video_over_50_mb_goes_in_parts(media: Media) -> None:
     assert (done.json()["status"], done.json()["size_bytes"]) == ("uploaded", size)
 
 
-async def test_expired_links_are_signed_again(media: Media) -> None:
+async def test_links_can_be_signed_again(media: Media) -> None:
+    # само истечение ссылки проверяет tests/integration/test_storage.py
     plan = (await media.start(size_bytes=len(JPEG))).json()
 
     fresh = await media.app.client.post(
@@ -95,6 +101,7 @@ async def test_foreign_media_is_not_found(media: Media) -> None:
 
     for response in (
         await stranger.get(plan["media_id"]),
+        await stranger.parts(plan["media_id"]),
         await stranger.complete(plan["media_id"]),
         await stranger.delete(plan["media_id"]),
     ):
@@ -125,6 +132,20 @@ async def test_too_large_answer_names_the_limit(media: Media) -> None:
     assert "15" in response.json()["detail"]
 
 
+async def test_file_beyond_every_limit_is_too_large_not_invalid(media: Media) -> None:
+    response = await media.start(mime_type="video/mp4", size_bytes=10**12)
+
+    assert (response.status_code, response.json()["code"]) == (422, "media_too_large")
+    assert response.json()["max_bytes"] == 200 * MB
+
+
+async def test_type_refusal_says_what_fits_this_purpose(media: Media) -> None:
+    response = await media.start(purpose="job", mime_type="video/mp4")
+
+    assert response.json()["allowed"] == "JPEG, PNG, WebP, HEIC"
+    assert "MP4" not in response.json()["detail"]
+
+
 async def test_fifty_uploads_per_hour(media: Media) -> None:
     for _ in range(50):
         assert (await media.start()).status_code == 201
@@ -133,6 +154,16 @@ async def test_fifty_uploads_per_hour(media: Media) -> None:
 
     assert (over.status_code, over.json()["code"]) == (429, "rate_limited")
     assert int(over.headers["retry-after"]) > 0
+
+
+async def test_refused_files_do_not_spend_the_daily_quota(media: Media) -> None:
+    for _ in range(6):  # 6 × 200 MB — больше суточного гигабайта, но все отказы
+        refused = await media.start(purpose="job", mime_type="video/mp4", size_bytes=200 * MB)
+        assert refused.status_code == 422
+
+    accepted = await media.start(mime_type="video/mp4", size_bytes=200 * MB)
+
+    assert accepted.status_code == 201, accepted.text
 
 
 async def test_one_gigabyte_per_day(media: Media) -> None:
@@ -145,7 +176,7 @@ async def test_one_gigabyte_per_day(media: Media) -> None:
     assert (over.status_code, over.json()["code"]) == (429, "rate_limited")
 
 
-async def test_delete_hides_the_file(media: Media) -> None:
+async def test_delete_hides_the_file_and_keeps_it_for_30_days(media: Media) -> None:
     plan = (await media.start(size_bytes=len(JPEG))).json()
     await put(plan["parts"][0], JPEG)
     await media.complete(plan["media_id"])
@@ -153,6 +184,98 @@ async def test_delete_hides_the_file(media: Media) -> None:
     assert (await media.delete(plan["media_id"])).status_code == 204
     assert (await media.get(plan["media_id"])).status_code == 404
     assert (await media.delete(plan["media_id"])).status_code == 404
+    # объекты загруженного файла удаляет media.purge_deleted через 30 дней (шаг 2.2)
+    assert await media.jobs("media.delete_object", plan["media_id"]) == []
+    assert await media.stored(plan["media_id"]) is not None
+
+
+async def test_deleting_an_unfinished_upload_removes_its_object(media: Media) -> None:
+    plan = (await media.start(size_bytes=len(JPEG))).json()
+    await put(plan["parts"][0], JPEG)  # файл дошёл, а complete не было
+
+    assert (await media.delete(plan["media_id"])).status_code == 204
+
+    assert await media.run_jobs("media.delete_object", plan["media_id"]) == 1
+    assert await media.stored(plan["media_id"]) is None
+
+
+async def test_deleting_an_unfinished_multipart_aborts_it(media: Media) -> None:
+    plan = (await media.start(mime_type="video/mp4", size_bytes=50 * MB + 1)).json()
+
+    assert (await media.delete(plan["media_id"])).status_code == 204
+
+    [payload] = await media.jobs("media.delete_object", plan["media_id"])
+    assert payload["upload_id"]
+    assert await media.run_jobs("media.delete_object", plan["media_id"]) == 1
+    # часть в 1 байт: на большую Garage рвёт соединение, не дочитав тело
+    storage: StoragePort = await media.app.container.get(StoragePort)
+    late = await storage.presign_part(
+        Bucket.INCOMING,
+        await media.object_key(plan["media_id"]),
+        upload_id=payload["upload_id"],
+        part_number=1,
+        size=1,
+    )
+    response = await put({"url": late.url, "headers": dict(late.headers)}, b"v")
+    assert response.status_code == 404  # NoSuchUpload: части больше некуда класть
+
+
+async def test_complete_names_the_missing_parts(media: Media) -> None:
+    size = 50 * MB + 1  # 7 частей по 8 MiB
+    plan = (await media.start(mime_type="video/mp4", size_bytes=size)).json()
+    parts = [{"part_number": n, "etag": f"e{n}"} for n in range(1, 7)]
+
+    response = await media.complete(plan["media_id"], parts)
+
+    assert (response.status_code, response.json()["code"]) == (409, "media_upload_incomplete")
+    assert response.json()["missing_parts"] == [7]
+    # загрузка не испорчена: недостающую часть можно подписать и догрузить
+    assert (await media.parts(plan["media_id"], [7])).status_code == 200
+
+
+async def test_file_other_than_declared_fails_and_is_removed(media: Media) -> None:
+    plan = (await media.start(size_bytes=len(JPEG))).json()
+    # объект другого размера по тому же ключу: подпись клиента такой PUT не пропустит,
+    # но хранилище могло отдать чужой или испорченный объект
+    storage: StoragePort = await media.app.container.get(StoragePort)
+    other = await storage.presign_put(
+        Bucket.INCOMING,
+        await media.object_key(plan["media_id"]),
+        content_type="image/jpeg",
+        size=len(JPEG) - 1,
+    )
+    await put({"url": other.url, "headers": dict(other.headers)}, JPEG[:-1])
+
+    response = await media.complete(plan["media_id"])
+
+    assert (response.status_code, response.json()["code"]) == (422, "media_upload_mismatch")
+    assert (await media.get(plan["media_id"])).json()["status"] == "failed"
+    assert await media.run_jobs("media.delete_object", plan["media_id"]) == 1
+    assert await media.stored(plan["media_id"]) is None
+
+
+async def test_long_multipart_upload_id_fits(media: Media) -> None:
+    # у R2 id multipart-загрузки длиннее 255 символов
+    async with media.app.container() as request:
+        uow = await request.get(UnitOfWork)
+        assets = await request.get(MediaRepository)
+        clock = await request.get(Clock)
+        asset = MediaAsset.start(
+            media_id=MediaId(new_id()),
+            owner_id=media.user_id,
+            kind=MediaKind.VIDEO,
+            purpose=MediaPurpose.PORTFOLIO,
+            mime_type="video/mp4",
+            size_bytes=60 * MB,
+            now=clock.now(),
+            upload_id="r2/" + "x" * 600,
+        )
+        async with uow:
+            await assets.add(asset)
+
+    response = await media.get(str(asset.id))
+
+    assert response.status_code == 200, response.text
 
 
 async def test_same_idempotency_key_starts_one_upload(media: Media) -> None:
@@ -188,3 +311,4 @@ async def test_uploads_abandoned_for_a_day_fail(media: Media) -> None:
             )
         ).one()
     assert tuple(row) == ("failed", "abandoned")
+    assert len(await media.jobs("media.delete_object", plan["media_id"])) == 1

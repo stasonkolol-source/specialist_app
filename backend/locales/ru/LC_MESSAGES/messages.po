@@ -285,7 +285,7 @@ msgid "errors.media_not_found"
 msgstr "Файл не найден."
 
 msgid "errors.media_type_not_allowed"
-msgstr "Такой файл загрузить нельзя: подойдут фото JPEG, PNG, WebP, HEIC или видео MP4, MOV."
+msgstr "Такой файл сюда не подойдёт. Можно загрузить: {allowed}."
 
 msgid "errors.media_too_large"
 msgstr "Файл слишком большой: можно не больше {max_mb} МБ."

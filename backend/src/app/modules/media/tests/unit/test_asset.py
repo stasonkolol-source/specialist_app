@@ -17,6 +17,7 @@ from app.platform.kernel.ids import MediaId, UserId, new_id
 pytestmark = pytest.mark.unit
 
 NOW = datetime(2026, 10, 5, 9, 0, tzinfo=UTC)
+ETAG = "a1b2c3"
 
 
 def asset(**overrides: object) -> MediaAsset:
@@ -42,9 +43,9 @@ def test_new_upload_waits_in_incoming_under_server_chosen_key() -> None:
 def test_complete_marks_uploaded_and_announces_processing() -> None:
     a = asset()
 
-    a.complete(size_bytes=1000, mime_type="image/jpeg", now=NOW)
+    a.complete(size_bytes=1000, mime_type="image/jpeg", etag=ETAG, now=NOW)
 
-    assert (a.status, a.uploaded_at) == (MediaStatus.UPLOADED, NOW)
+    assert (a.status, a.uploaded_at, a.etag) == (MediaStatus.UPLOADED, NOW, ETAG)
     [event] = a.pull_events()
     assert isinstance(event, MediaUploaded)
     assert (event.media_id, event.owner_id, event.kind, event.purpose) == (
@@ -57,10 +58,10 @@ def test_complete_marks_uploaded_and_announces_processing() -> None:
 
 def test_repeated_complete_changes_nothing() -> None:
     a = asset()
-    a.complete(size_bytes=1000, mime_type="image/jpeg", now=NOW)
+    a.complete(size_bytes=1000, mime_type="image/jpeg", etag=ETAG, now=NOW)
     a.pull_events()
 
-    a.complete(size_bytes=1000, mime_type="image/jpeg", now=NOW)
+    a.complete(size_bytes=1000, mime_type="image/jpeg", etag=ETAG, now=NOW)
 
     assert a.status is MediaStatus.UPLOADED
     assert a.pull_events() == []
@@ -70,12 +71,13 @@ def test_repeated_complete_changes_nothing() -> None:
 def test_file_not_matching_the_declaration_fails(size: int, mime: str) -> None:
     a = asset()
 
-    a.complete(size_bytes=size, mime_type=mime, now=NOW)
+    a.complete(size_bytes=size, mime_type=mime, etag=ETAG, now=NOW)
 
     assert (a.status, a.failure_reason) == (MediaStatus.FAILED, FailureReason.MISMATCH)
+    assert a.etag is None  # не тот файл — его ETag не нужен
     assert a.pull_events() == []
     with pytest.raises(MediaStateError):
-        a.complete(size_bytes=1000, mime_type="image/jpeg", now=NOW)
+        a.complete(size_bytes=1000, mime_type="image/jpeg", etag=ETAG, now=NOW)
 
 
 def test_abandoned_upload_fails() -> None:

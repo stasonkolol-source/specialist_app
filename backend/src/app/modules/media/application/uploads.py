@@ -8,7 +8,7 @@
 import math
 from collections.abc import Iterable
 
-from app.modules.media.application.dto import SignedPart, UploadPlan
+from app.modules.media.application.dto import DeleteObjectPayload, SignedPart, UploadPlan
 from app.modules.media.domain.asset import MediaAsset
 from app.platform.kernel.errors import DomainValidationError
 from app.platform.storage.port import PART_SIZE, Bucket, StoragePort
@@ -62,4 +62,14 @@ async def upload_plan(
             for n, s in zip(numbers, signed_parts, strict=True)
         ),
         expires_at=min(s.expires_at for s in signed_parts),
+    )
+
+
+def delete_payload(asset: MediaAsset) -> DeleteObjectPayload:
+    """Задача `media.delete_object` для файла; multipart отменяется, если он не собран."""
+    return DeleteObjectPayload(
+        media_id=asset.id,
+        bucket=asset.bucket,
+        object_key=asset.object_key,
+        upload_id=asset.upload_id,
     )

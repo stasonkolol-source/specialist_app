@@ -42,10 +42,12 @@ class AssetRow(UuidPkMixin, Base):
     bucket: Mapped[str] = mapped_column(String(32))
     object_key: Mapped[str] = mapped_column(String(255))
     """`{purpose}/{yyyy}/{mm}/{id}/original`."""
-    upload_id: Mapped[str | None] = mapped_column(String(255))
-    """Id multipart-загрузки в хранилище (видео больше 50 MB)."""
+    upload_id: Mapped[str | None] = mapped_column(Text)
+    """Id multipart-загрузки в хранилище (видео больше 50 MB); у R2 длиннее 255 символов."""
     mime_type: Mapped[str] = mapped_column(String(100))
     size_bytes: Mapped[int] = mapped_column(BigInteger)
+    etag: Mapped[str | None] = mapped_column(Text)
+    """ETag оригинала, сверенного HEAD-ом при complete: обработка (2.2) читает именно его."""
     width: Mapped[int | None] = mapped_column(Integer)
     height: Mapped[int | None] = mapped_column(Integer)
     duration_ms: Mapped[int | None] = mapped_column(Integer)

@@ -7,6 +7,7 @@ from app.modules.media.domain.policy import (
     MULTIPART_THRESHOLD,
     MediaKind,
     MediaPurpose,
+    allowed_formats,
     upload_rule,
 )
 from app.modules.media.errors import (
@@ -72,3 +73,12 @@ def test_too_large_error_names_the_limit_in_megabytes() -> None:
         upload_rule(MediaPurpose.JOB, "image/jpeg", 16 * MB)
 
     assert caught.value.params == {"max_bytes": 15 * MB, "max_mb": 15}
+
+
+def test_type_refusal_names_what_this_purpose_accepts() -> None:
+    # видео к заявке нельзя: текст не должен предлагать MP4
+    with pytest.raises(UnsupportedMediaTypeError) as caught:
+        upload_rule(MediaPurpose.JOB, "video/mp4", MB)
+
+    assert caught.value.params == {"mime_type": "video/mp4", "allowed": "JPEG, PNG, WebP, HEIC"}
+    assert allowed_formats(MediaPurpose.PORTFOLIO) == "JPEG, PNG, WebP, HEIC, MP4, MOV"

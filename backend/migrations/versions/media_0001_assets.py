@@ -3,7 +3,7 @@
 `assets` — файл со своим жизненным циклом `pending_upload → uploaded → processing → ready /
 failed / rejected` (и `deleted`): клиент грузит его прямо в хранилище по presigned-ссылке,
 `complete` сверяет HEAD. `upload_id` — id multipart-загрузки (видео больше 50 MB),
-`failure_reason` — почему `failed`. Поля обработки (варианты, размеры, sha256, placeholder,
+`failure_reason` — почему `failed`, `etag` — ETag оригинала, сверенного при complete. Поля обработки (варианты, размеры, sha256, placeholder,
 модерация) заполняет шаг 2.2. FK на identity.users (identity ниже media по DAG) — только
 здесь, в моделях его нет (migrations/env.py).
 
@@ -38,9 +38,10 @@ def upgrade() -> None:
     sa.Column('status', sa.String(length=22), server_default='pending_upload', nullable=False),
     sa.Column('bucket', sa.String(length=32), nullable=False),
     sa.Column('object_key', sa.String(length=255), nullable=False),
-    sa.Column('upload_id', sa.String(length=255), nullable=True),
+    sa.Column('upload_id', sa.Text(), nullable=True),
     sa.Column('mime_type', sa.String(length=100), nullable=False),
     sa.Column('size_bytes', sa.BigInteger(), nullable=False),
+    sa.Column('etag', sa.Text(), nullable=True),
     sa.Column('width', sa.Integer(), nullable=True),
     sa.Column('height', sa.Integer(), nullable=True),
     sa.Column('duration_ms', sa.Integer(), nullable=True),

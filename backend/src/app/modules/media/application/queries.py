@@ -1,8 +1,9 @@
 """Чтение файлов для владельца (GET /media/{id})."""
 
 from app.modules.media.application.dto import MediaView
-from app.modules.media.application.ports import MediaRepository
+from app.modules.media.application.ports import MediaQuery
 from app.modules.media.domain.asset import MediaAsset, MediaStatus
+from app.modules.media.errors import MediaNotFoundError
 from app.platform.kernel.ids import MediaId, UserId
 from app.platform.storage.port import Bucket, StoragePort
 
@@ -11,11 +12,14 @@ PREVIEW_STATUSES = frozenset({MediaStatus.UPLOADED, MediaStatus.PROCESSING})
 
 
 class MediaQueries:
-    def __init__(self, assets: MediaRepository, storage: StoragePort) -> None:
-        self._assets, self._storage = assets, storage
+    def __init__(self, query: MediaQuery, storage: StoragePort) -> None:
+        self._query, self._storage = query, storage
 
     async def get(self, owner_id: UserId, media_id: MediaId) -> MediaView:
-        return await self.view(await self._assets.get(owner_id, media_id))
+        asset = await self._query.asset(owner_id, media_id)
+        if asset is None:
+            raise MediaNotFoundError(media_id=media_id)
+        return await self.view(asset)
 
     async def view(self, asset: MediaAsset) -> MediaView:
         preview = None

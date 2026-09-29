@@ -41,6 +41,18 @@ IMAGE_TYPES: Final = frozenset(
 VIDEO_TYPES: Final = frozenset({"video/mp4", "video/quicktime"})
 DOCUMENT_TYPES: Final = frozenset({"application/pdf"})
 
+FORMATS: Final = (
+    ("image/jpeg", "JPEG"),
+    ("image/png", "PNG"),
+    ("image/webp", "WebP"),
+    ("image/heic", "HEIC"),
+    ("image/heif", "HEIC"),
+    ("video/mp4", "MP4"),
+    ("video/quicktime", "MOV"),
+    ("application/pdf", "PDF"),
+)
+"""Имена форматов для текста ошибки, в порядке показа."""
+
 MAX_BYTES: Final[dict[tuple[MediaPurpose, MediaKind], int]] = {
     (MediaPurpose.AVATAR, MediaKind.IMAGE): 10 * MB,
     (MediaPurpose.PORTFOLIO, MediaKind.IMAGE): 15 * MB,
@@ -62,14 +74,20 @@ class UploadRule:
     multipart: bool
 
 
-def kind_of(mime_type: str) -> MediaKind:
+def kind_of(mime_type: str) -> MediaKind | None:
     if mime_type in IMAGE_TYPES:
         return MediaKind.IMAGE
     if mime_type in VIDEO_TYPES:
         return MediaKind.VIDEO
     if mime_type in DOCUMENT_TYPES:
         return MediaKind.DOCUMENT
-    raise UnsupportedMediaTypeError(mime_type=mime_type)
+    return None
+
+
+def allowed_formats(purpose: MediaPurpose) -> str:
+    """Что можно загрузить для назначения: «JPEG, PNG, WebP, HEIC» — для текста ошибки."""
+    kinds = {kind for (target, kind) in MAX_BYTES if target is purpose}
+    return ", ".join(dict.fromkeys(name for mime, name in FORMATS if kind_of(mime) in kinds))
 
 
 def upload_rule(purpose: MediaPurpose, mime_type: str, size_bytes: int) -> UploadRule:
@@ -77,9 +95,10 @@ def upload_rule(purpose: MediaPurpose, mime_type: str, size_bytes: int) -> Uploa
     if purpose not in MVP_PURPOSES:
         raise MediaPurposeNotAvailableError(purpose=purpose.value)
     kind = kind_of(mime_type)
-    max_bytes = MAX_BYTES.get((purpose, kind))
-    if max_bytes is None:
-        raise UnsupportedMediaTypeError(mime_type=mime_type)
+    max_bytes = MAX_BYTES.get((purpose, kind)) if kind is not None else None
+    if kind is None or max_bytes is None:
+        # видео для аватара так же нельзя, как и незнакомый тип: в тексте — что можно
+        raise UnsupportedMediaTypeError(mime_type=mime_type, allowed=allowed_formats(purpose))
     if size_bytes > max_bytes:
         raise MediaTooLargeError(max_bytes=max_bytes, max_mb=max_bytes // MB)
     return UploadRule(

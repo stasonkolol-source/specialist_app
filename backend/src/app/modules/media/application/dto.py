@@ -41,3 +41,14 @@ class MediaView:
     uploaded_at: datetime | None
     preview_url: str | None
     """Оригинал для владельца (presigned GET на 5 минут), пока нет вариантов (шаг 2.2)."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DeleteObjectPayload:
+    """Задача `media.delete_object`: что убрать из хранилища."""
+
+    media_id: MediaId
+    bucket: str
+    object_key: str
+    upload_id: str | None = None
+    """Незавершённая multipart-загрузка: её части отменяются до удаления объекта."""

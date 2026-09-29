@@ -13,9 +13,6 @@ export interface UploadIn {
    * @maxLength 100
    */
   mime_type: string;
-  /**
-   * @minimum 1
-   * @maximum 209715200
-   */
+  /** @minimum 1 */
   size_bytes: number;
 }

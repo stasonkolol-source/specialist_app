@@ -6,8 +6,10 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.modules.media.application.uploads import part_count, part_size, upload_plan
+from app.modules.media.application.use_cases.complete_upload import ensure_all_parts
 from app.modules.media.domain.asset import MediaAsset
 from app.modules.media.domain.policy import MB, MediaKind, MediaPurpose
+from app.modules.media.errors import UploadIncompleteError
 from app.platform.kernel.errors import DomainValidationError
 from app.platform.kernel.ids import MediaId, UserId, new_id
 from app.platform.storage.port import (
@@ -123,3 +125,37 @@ async def test_only_requested_parts_are_resigned() -> None:
 async def test_part_numbers_outside_the_upload_are_refused(numbers: list[int]) -> None:
     with pytest.raises(DomainValidationError):
         await upload_plan(FakeStorage(), media(3 * PART_SIZE, upload_id="u1"), numbers)
+
+
+def multipart_asset(size: int) -> MediaAsset:
+    return MediaAsset.start(
+        media_id=MediaId(new_id()),
+        owner_id=UserId(new_id()),
+        kind=MediaKind.VIDEO,
+        purpose=MediaPurpose.PORTFOLIO,
+        mime_type="video/mp4",
+        size_bytes=size,
+        now=NOW,
+        upload_id="u-1",
+    )
+
+
+def parts(*numbers: int) -> tuple[UploadedPart, ...]:
+    return tuple(UploadedPart(part_number=n, etag=f"e{n}") for n in numbers)
+
+
+def test_complete_accepts_exactly_the_planned_parts() -> None:
+    ensure_all_parts(multipart_asset(2 * PART_SIZE + 1), parts(3, 1, 2))
+
+
+def test_missing_parts_are_named_so_the_client_uploads_only_them() -> None:
+    with pytest.raises(UploadIncompleteError) as caught:
+        ensure_all_parts(multipart_asset(3 * PART_SIZE), parts(2))
+
+    assert caught.value.params["missing_parts"] == [1, 3]
+
+
+@pytest.mark.parametrize("numbers", [(1, 1, 2), (1, 2, 3)], ids=["repeated", "beyond-plan"])
+def test_parts_outside_the_plan_are_rejected(numbers: tuple[int, ...]) -> None:
+    with pytest.raises(DomainValidationError):
+        ensure_all_parts(multipart_asset(2 * PART_SIZE), parts(*numbers))

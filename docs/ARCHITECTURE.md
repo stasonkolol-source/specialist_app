@@ -1184,6 +1184,7 @@ CREATE TABLE media.assets (
   upload_id         text,                 -- id multipart-загрузки в хранилище (видео больше 50 MB)
   mime_type         text NOT NULL,        -- заявленный клиентом; подписан в presigned PUT, сверяется HEAD
   size_bytes        bigint NOT NULL,      -- заявленный размер; подписан в presigned PUT, сверяется HEAD
+  etag              text,                 -- ETag оригинала, сверенного при complete: обработка читает именно его
   width             int,
   height            int,
   duration_ms       int,
@@ -2336,9 +2337,9 @@ sequenceDiagram
 
 | Метод и путь | Назначение |
 |---|---|
-| `POST /media/uploads` | Инициировать загрузку: `{purpose, mime_type, size_bytes, sha256?}` → `{media_id, upload: {method, url, fields/headers}}` или план multipart для видео |
-| `POST /media/uploads/{id}/parts` | Presigned URL для следующих частей multipart |
-| `POST /media/uploads/{id}/complete` | Завершить загрузку → обработка |
+| `POST /media/uploads` | Инициировать загрузку: `{purpose, mime_type, size_bytes}` → `{media_id, multipart, part_size, parts: [{part_number, url, headers}], expires_at}`: один presigned PUT (`part_number = null`) или план multipart для видео больше 50 MB |
+| `POST /media/uploads/{id}/parts` | Новые presigned URL: `{part_numbers?}` — нужные части, без номеров — все (ссылка истекла, обрыв) |
+| `POST /media/uploads/{id}/complete` | Завершить загрузку: `{parts: [{part_number, etag}]}` (у одного PUT — пусто) → HEAD-проверка → обработка. Недостающие части — 409 `media_upload_incomplete` с `missing_parts` |
 | `GET /media/{id}` | Статус и варианты (для поллинга после загрузки) |
 | `DELETE /media/{id}` | Удалить своё медиа |
 
@@ -2705,7 +2706,7 @@ sequenceDiagram
 
 - R2 не поддерживает presigned POST с `content-length-range`. Поэтому размер и тип проверяются `HEAD` после загрузки, а lifecycle удаляет мусор из `incoming` через 2 дня.
 - В CORS бакета: `AllowedOrigins: https://app.<domain>`, методы `PUT`, `GET`, `ExposeHeaders: ETag` (нужен для multipart).
-- При сбое загрузки клиент повторяет её по частям (Uppy `@uppy/aws-s3`). Незавершённые multipart-загрузки убирает lifecycle.
+- При сбое загрузки клиент повторяет её по частям: свой загрузчик `useMediaUploads` в `packages/hooks` ([ADR-0012](adr/0012-mini-app-frontend-and-mobile-path.md), [спайк 0.24](spikes/0.24-webview-upload.md)). Обрыв сети и 5xx — повтор той же ссылки с паузой, 400/403 — новая ссылка; «Повторить» догружает только недостающие части. Незавершённые multipart-загрузки убирает lifecycle.
 
 ### 10.3. Обработка
 
@@ -2731,8 +2732,9 @@ sequenceDiagram
 
 | Событие | Что происходит |
 |---|---|
-| `pending_upload` старше 24 ч | Удаление записи и объекта (`media.cleanup_orphans`) |
-| Soft delete пользователем | Сразу снимается с публикации; объекты удаляются через 30 дней |
+| `pending_upload` старше 24 ч | `failed` (abandoned), запись остаётся; объект и незавершённый multipart удаляет задача `media.delete_object` (`media.cleanup_orphans`) |
+| Soft delete пользователем | Сразу снимается с публикации; объекты удаляются через 30 дней. Недогруженный файл хранить незачем — его сразу убирает `media.delete_object` |
+| Не тот файл при `complete` (размер или тип) | `failed` (mismatch); объект удаляет `media.delete_object` |
 | Отклонено модерацией | Скрыто, хранится 6 месяцев (окно апелляции), затем удаляется |
 | Удаление аккаунта | Все медиа пользователя удаляются в рамках `identity.process_deletions`, кроме медиа под legal hold (открытые кейсы и споры) |
 | Жалоба «это я на фото, удалите» | Кейс P1, по решению — удаление за ≤ 2 рабочих дня (ст. 20 ZET) |

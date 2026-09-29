@@ -23,12 +23,10 @@ export const MediaStartUploadHeader = zod.object({
 export const mediaStartUploadBodyMimeTypeMin = 3;
 export const mediaStartUploadBodyMimeTypeMax = 100;
 
-export const mediaStartUploadBodySizeBytesMax = 209715200;
-
 export const MediaStartUploadBody = zod.object({
   purpose: zod.enum(['avatar', 'portfolio', 'job', 'message', 'review', 'verification']),
   mime_type: zod.string().min(mediaStartUploadBodyMimeTypeMin).max(mediaStartUploadBodyMimeTypeMax),
-  size_bytes: zod.int().min(1).max(mediaStartUploadBodySizeBytesMax),
+  size_bytes: zod.int().min(1),
 });
 
 export const MediaStartUploadResponse = zod.object({

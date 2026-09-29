@@ -7,6 +7,15 @@ import type { Platform } from './types.ts';
 
 export { createBrowserPlatform } from './browser.ts';
 export { useInsets } from './insets.ts';
+export type { PreparedMedia, PutResult } from './media.ts';
+export {
+  MAX_SIDE,
+  PREVIEW_SIDE,
+  STALL_MS,
+  prepareImage,
+  webMediaTransport,
+  xhrPut,
+} from './media.ts';
 export type { MockOptions, MockTelegram } from './mock.ts';
 export { MOCK_THEMES, MOCK_USER, createMockPlatform } from './mock.ts';
 export type { BottomButtonProps, ChromeColors } from './react.tsx';

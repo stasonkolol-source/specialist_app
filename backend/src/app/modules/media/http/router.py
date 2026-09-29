@@ -1,11 +1,10 @@
 """HTTP media: загрузка по presigned URL (ARCHITECTURE §10.2, ADR-0007, DEVELOPMENT_PLAN 2.1).
 
 Тонкие обработчики: разобрать запрос, лимиты, use case, ответ. Файл — только свой: чужой
-или удалённый — 404. Антиспам (§13.3): 50 загрузок в час и 1 GB в сутки на пользователя;
-вторую квоту считают мегабайты заявленного размера (подпись PUT его фиксирует).
+или удалённый — 404. Антиспам (§13.3): 50 загрузок в час — здесь, 1 GB в сутки — в use case
+после проверки файла (порт UploadQuota).
 """
 
-import math
 from typing import Annotated
 from uuid import UUID
 
@@ -24,7 +23,6 @@ from app.modules.media.application.use_cases.sign_upload_parts import (
     SignUploadPartsCommand,
 )
 from app.modules.media.application.use_cases.start_upload import StartUpload, StartUploadCommand
-from app.modules.media.domain.policy import MB
 from app.modules.media.http.schemas import (
     CompleteIn,
     MediaOut,
@@ -38,12 +36,10 @@ from app.platform.http.ratelimit import RateLimit
 from app.platform.http.security import AUTHENTICATED
 from app.platform.kernel.ids import MediaId
 from app.platform.kernel.principal import Principal
-from app.platform.ratelimit import Rate, RateLimiter
+from app.platform.ratelimit import Rate
 from app.platform.storage.port import UploadedPart
 
 UPLOADS_PER_USER = Rate("media.uploads", "50/hour")
-UPLOAD_MEGABYTES_PER_USER = Rate("media.upload_megabytes", "1024/day")
-"""1 GB в сутки: вес загрузки — заявленный размер в мегабайтах, с округлением вверх."""
 
 router = APIRouter(tags=["media"], dependencies=AUTHENTICATED)
 creating = idempotent_router()
@@ -57,16 +53,8 @@ MediaPath = Annotated[UUID, Path()]
 )
 @inject
 async def start_upload(
-    body: UploadIn,
-    principal: FromDishka[Principal],
-    limiter: FromDishka[RateLimiter],
-    start: FromDishka[StartUpload],
+    body: UploadIn, principal: FromDishka[Principal], start: FromDishka[StartUpload]
 ) -> UploadOut:
-    await limiter.hit(
-        UPLOAD_MEGABYTES_PER_USER,
-        f"user:{principal.user_id}",
-        cost=math.ceil(body.size_bytes / MB),
-    )
     plan = await start(
         StartUploadCommand(
             owner_id=principal.user_id,

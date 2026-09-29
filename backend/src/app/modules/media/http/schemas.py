@@ -6,18 +6,16 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.modules.media.domain.asset import MediaStatus, ModerationStatus
-from app.modules.media.domain.policy import MB, MediaKind, MediaPurpose
+from app.modules.media.domain.policy import MediaKind, MediaPurpose
 from app.platform.storage.port import MAX_PARTS
-
-MAX_UPLOAD_BYTES = 200 * MB
-"""Самый большой лимит назначения (видео портфолио); точный — по назначению и типу."""
 
 
 class UploadIn(BaseModel):
     purpose: MediaPurpose
     mime_type: str = Field(min_length=3, max_length=100)
     """Тип файла; на Android HEIC приходит без типа — клиент ставит его по расширению."""
-    size_bytes: int = Field(ge=1, le=MAX_UPLOAD_BYTES)
+    size_bytes: int = Field(ge=1)
+    """Лимит зависит от назначения и типа: больше — 422 `media_too_large` с `max_bytes`."""
 
 
 class SignedPartOut(BaseModel):
