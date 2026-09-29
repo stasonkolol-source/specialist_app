@@ -22,8 +22,15 @@ export const TABS = [
 ] as const;
 
 export const CREATE_PATH = '/jobs/new';
+const CREATE_ID = 'create';
 
 const TAB_ROOTS: ReadonlySet<string> = new Set(TABS.map((tab) => tab.path));
+/** Куда ведёт вкладка или «+»: путь маршрута, а не href ссылки. У hash history в Telegram
+ *  href — «/#/profile»: переход по нему уводил на главную. */
+const DESTINATIONS: ReadonlyMap<string, string> = new Map([
+  ...TABS.map((tab) => [tab.id, tab.path] as const),
+  [CREATE_ID, CREATE_PATH],
+]);
 
 export function AppShell() {
   const { t } = useTranslation();
@@ -40,9 +47,9 @@ export function AppShell() {
     }
   }, [router]);
 
-  const navigate = (href: string, event: MouseEvent<HTMLAnchorElement>) => {
+  const navigate = (id: string, event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
-    void router.navigate({ to: href });
+    void router.navigate({ to: DESTINATIONS.get(id) ?? '/' });
   };
   const active = TABS.find((tab) => tab.path !== '/' && pathname.startsWith(tab.path))?.id;
   const items: TabItem[] = TABS.map((tab) => ({
@@ -72,7 +79,11 @@ export function AppShell() {
         <TabBar
           items={items}
           activeId={active ?? (pathname === '/' ? 'home' : '')}
-          plus={{ label: t('nav.create'), href: router.history.createHref(CREATE_PATH) }}
+          plus={{
+            id: CREATE_ID,
+            label: t('nav.create'),
+            href: router.history.createHref(CREATE_PATH),
+          }}
           label={t('nav.sections')}
           onNavigate={navigate}
           className="mx-auto max-w-lg"

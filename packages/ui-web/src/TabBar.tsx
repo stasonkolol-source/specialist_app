@@ -20,10 +20,12 @@ export interface TabBarProps {
   items: TabItem[];
   activeId: string;
   /** Кнопка «+» в центре (S20a). */
-  plus?: { label: string; href: string };
+  plus?: { id: string; label: string; href: string };
   /** aria-label навигации («Разделы»). */
   label: string;
-  onNavigate?: (href: string, event: MouseEvent<HTMLAnchorElement>) => void;
+  /** Переход внутри приложения: id вкладки или «+». href — только адрес ссылки, путём
+   *  маршрута он бывает не всегда: у hash history в Telegram это «/#/jobs». */
+  onNavigate?: (id: string, event: MouseEvent<HTMLAnchorElement>) => void;
   /** fixed — внизу экрана приложения; static — в галерее и артбордах. */
   position?: 'fixed' | 'static';
   className?: string;
@@ -45,7 +47,7 @@ export function TabBar({
       <a
         key={item.id}
         href={item.href}
-        onClick={onNavigate ? (e) => onNavigate(item.href, e) : undefined}
+        onClick={onNavigate ? (e) => onNavigate(item.id, e) : undefined}
         aria-current={on ? 'page' : undefined}
         className={cx(
           'relative flex h-13 flex-col items-center justify-center gap-0.5 rounded-btn text-tab',
@@ -74,7 +76,7 @@ export function TabBar({
         key="plus"
         href={plus.href}
         aria-label={plus.label}
-        onClick={onNavigate ? (e) => onNavigate(plus.href, e) : undefined}
+        onClick={onNavigate ? (e) => onNavigate(plus.id, e) : undefined}
         className={cx('flex h-13 items-start justify-center rounded-btn', FOCUS)}
       >
         <span className="mt-1 flex h-11 w-14 items-center justify-center rounded-panel bg-accent text-accent-ink">

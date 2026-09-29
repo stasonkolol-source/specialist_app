@@ -10,7 +10,7 @@ import {
 } from '@sosed/api-client/mocks';
 import type { ColorScheme } from '@sosed/platform';
 import { createMockPlatform } from '@sosed/platform';
-import { createMemoryHistory } from '@tanstack/react-router';
+import { createHashHistory, createMemoryHistory } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import type { FunctionComponent } from 'react';
@@ -42,6 +42,8 @@ interface StartOptions {
   version?: string;
   telegramVersion?: string;
   colorScheme?: ColorScheme;
+  /** Hash history, как в Telegram (app/router.ts), вместо memory. */
+  hash?: boolean;
 }
 
 function start(path = '/', options: StartOptions = {}) {
@@ -54,7 +56,7 @@ function start(path = '/', options: StartOptions = {}) {
   });
   const app = assemble(platform, {
     version,
-    history: createMemoryHistory({ initialEntries: [path] }),
+    history: options.hash ? createHashHistory() : createMemoryHistory({ initialEntries: [path] }),
     baseUrl: API_ORIGIN,
   });
   render(<App {...app} />);
@@ -103,6 +105,32 @@ describe('Mini App skeleton', () => {
     expect(within(nav).getByRole('link', { name: 'Сообщения' }).getAttribute('aria-current')).toBe(
       'page',
     );
+  });
+
+  // В Telegram history — hash: href вкладки там «/#/profile», а не путь маршрута. Переход по
+  // href вёл на главную, и вкладки казались некликабельными
+  it('navigates between tabs with the hash history of Telegram', async () => {
+    try {
+      start('/', { hash: true });
+      const nav = await screen.findByRole('navigation', { name: 'Разделы' });
+      expect(within(nav).getByRole('link', { name: 'Профиль' }).getAttribute('href')).toBe(
+        '/#/profile',
+      );
+
+      await act(async () => {
+        fireEvent.click(within(nav).getByRole('link', { name: 'Профиль' }));
+      });
+
+      expect(await screen.findByRole('heading', { name: 'Профиль' })).toBeTruthy();
+      expect(window.location.hash).toBe('#/profile');
+      await act(async () => {
+        fireEvent.click(within(nav).getByRole('link', { name: 'Сообщения' }));
+      });
+      expect(await screen.findByRole('heading', { name: 'Сообщения' })).toBeTruthy();
+      expect(window.location.hash).toBe('#/messages');
+    } finally {
+      window.history.replaceState(null, '', '/');
+    }
   });
 
   it('hides the tab bar while the MainButton is shown', async () => {
