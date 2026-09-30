@@ -4,7 +4,7 @@
 хранилища, и соединение с БД в это время не висит «idle in transaction».
 """
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import datetime
 
 from sqlalchemy import Select, select
@@ -25,13 +25,18 @@ class SqlMediaQuery(SqlQuery):
         return await self._one(select(AssetRow).where(AssetRow.id == media_id))
 
     async def stuck(
-        self, uploaded_before: datetime, uploaded_after: datetime, *, limit: int
+        self,
+        uploaded_before: datetime,
+        uploaded_after: datetime,
+        *,
+        kinds: Collection[MediaKind],
+        limit: int,
     ) -> Sequence[MediaAsset]:
         stmt = (
             select(AssetRow)
             .where(
                 AssetRow.status.in_([MediaStatus.UPLOADED, MediaStatus.PROCESSING]),
-                AssetRow.kind == MediaKind.IMAGE,  # видео — с шага 2.2b
+                AssetRow.kind.in_(list(kinds)),
                 AssetRow.uploaded_at < uploaded_before,
                 AssetRow.uploaded_at >= uploaded_after,
             )

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Photo } from './Photo.tsx';
 import { a11yViolations } from './testing/a11y.ts';
 import { AddTile, UploadTile } from './Upload.tsx';
+import { VideoPlayer } from './VideoPlayer.tsx';
 
 describe('AddTile', () => {
   it('открывает выбор файла и отдаёт выбранные файлы', async () => {
@@ -188,5 +189,28 @@ describe('Photo с presigned-ссылками', () => {
     rerender(<Photo alt="Кухня" variants={signed('b')} />);
 
     expect(screen.getByRole('img', { name: 'Кухня' }).className).toContain('opacity-100');
+  });
+});
+
+describe('VideoPlayer', () => {
+  it('в WebView играет на месте, сам не запускается, грузит только метаданные', async () => {
+    const { container } = render(
+      <VideoPlayer
+        src="https://cdn.test/m/1/video.mp4"
+        poster="https://cdn.test/m/1/md.webp"
+        width={720}
+        height={1280}
+        label="Подсветка кухни"
+      />,
+    );
+    const video = container.querySelector('video') as HTMLVideoElement;
+
+    expect(video.getAttribute('playsinline')).not.toBeNull();
+    expect(video.autoplay).toBe(false);
+    expect(video.getAttribute('preload')).toBe('metadata');
+    expect(video.style.aspectRatio).toBe('720 / 1280'); // место под плеер до метаданных
+    expect(video.getAttribute('poster')).toBe('https://cdn.test/m/1/md.webp');
+    expect(video.hasAttribute('controls')).toBe(true);
+    expect(await a11yViolations(container)).toEqual([]);
   });
 });

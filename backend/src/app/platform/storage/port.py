@@ -14,6 +14,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
+from pathlib import Path
 from typing import Protocol
 
 PUT_TTL = timedelta(minutes=10)
@@ -109,6 +110,12 @@ class StoragePort(Protocol):
         `etag` — только эта версия (If-Match): объект подменили — StorageRejectedError
         `PreconditionFailed`. Нет объекта — `NoSuchKey`, больше `max_bytes` — `TooLarge`.
         """
+        ...
+
+    async def download(
+        self, bucket: Bucket, key: str, target: Path, *, max_bytes: int, etag: str | None = None
+    ) -> None:
+        """То же, что get, но потоком в файл `target`: ролик до 200 MB не держим в памяти."""
         ...
 
     async def put(

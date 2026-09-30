@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -80,6 +81,11 @@ class FakeStorage:
     async def get(
         self, bucket: Bucket, key: str, *, max_bytes: int, etag: str | None = None
     ) -> bytes:
+        raise NotImplementedError
+
+    async def download(
+        self, bucket: Bucket, key: str, target: Path, *, max_bytes: int, etag: str | None = None
+    ) -> None:
         raise NotImplementedError
 
     async def put(

@@ -1,11 +1,12 @@
 """Схемы HTTP media (ARCHITECTURE §8.5, §10.2)."""
 
 from datetime import datetime
+from enum import StrEnum
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.modules.media.domain.asset import FailureReason, MediaStatus, ModerationStatus, VariantName
+from app.modules.media.domain.asset import FailureReason, MediaStatus, ModerationStatus
 from app.modules.media.domain.policy import MediaKind, MediaPurpose
 from app.platform.storage.port import MAX_PARTS
 
@@ -52,10 +53,23 @@ class CompleteIn(BaseModel):
     """ETag частей multipart; у загрузки одним PUT — пусто."""
 
 
+class ImageVariantName(StrEnum):
+    THUMB = "thumb"
+    MD = "md"
+    LG = "lg"
+
+
 class VariantOut(BaseModel):
-    name: VariantName
-    """`thumb` (320 px), `md` (800), `lg` (1600) по длинной стороне."""
+    name: ImageVariantName
+    """`thumb` (320 px), `md` (800), `lg` (1600) по длинной стороне; у ролика это постер."""
     url: str
+    width: int
+    height: int
+
+
+class VideoOut(BaseModel):
+    url: str
+    """MP4 H.264 + AAC, длинная сторона ≤ 1280, без метаданных."""
     width: int
     height: int
 
@@ -75,9 +89,14 @@ class MediaOut(BaseModel):
     width: int | None
     """Размеры самого крупного варианта (оригинал после обработки не храним)."""
     height: int | None
+    duration_ms: int | None
+    """Длительность ролика; у фото — null."""
     placeholder: str | None
     """ThumbHash в base64: превью до загрузки варианта."""
     variants: list[VariantOut]
-    """WebP без метаданных по возрастанию ширины — для srcset; есть у `ready`."""
+    """WebP без метаданных по возрастанию ширины — для srcset; есть у `ready`. У ролика это
+    постер."""
+    video: VideoOut | None
+    """Сам ролик у готового видео; у фото — null."""
     failure_reason: FailureReason | None
     """Почему `failed` (загрузка) или `rejected` (обработка)."""

@@ -17,8 +17,10 @@ export const media = (overrides: Partial<MediaOut> = {}): MediaOut => ({
   preview_url: null,
   width: null,
   height: null,
+  duration_ms: null,
   placeholder: null,
   variants: [],
+  video: null,
   failure_reason: null,
   ...overrides,
 });

@@ -1,6 +1,6 @@
 """Порты модуля media (ADR-0020 §5): хранилище файлов — StoragePort платформы."""
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import datetime
 from typing import Protocol
 
@@ -8,11 +8,14 @@ from app.modules.media.application.dto import (
     DeleteObjectsPayload,
     HideVariantsPayload,
     ProcessedImage,
+    ProcessedVideo,
 )
 from app.modules.media.domain.asset import FailureReason, MediaAsset
+from app.modules.media.domain.policy import MediaKind
 from app.platform.contracts.events.media import MediaUploaded
 from app.platform.kernel.ids import MediaId, UserId
 from app.platform.queue.port import TaskRef
+from app.platform.storage.port import Bucket
 
 PROCESS_MEDIA = TaskRef("media.process", MediaUploaded, queue="media")
 """Обработка загруженного файла в worker-media (шаг 2.2): варианты, EXIF, модерация."""
@@ -46,6 +49,15 @@ class ImageProcessor(Protocol):
         ...
 
 
+class VideoProcessor(Protocol):
+    async def process(
+        self, bucket: Bucket, key: str, *, max_bytes: int, etag: str | None
+    ) -> ProcessedVideo:
+        """Скачать ролик потоком и перекодировать; ошибки — как у ImageProcessor, хранилище —
+        StorageRejectedError, как у StoragePort.get."""
+        ...
+
+
 class UploadQuota(Protocol):
     async def charge(self, owner_id: UserId, size_bytes: int) -> None:
         """Списать загрузку из суточной квоты (1 GB, ARCHITECTURE §13.3); сверх неё —
@@ -63,9 +75,14 @@ class MediaQuery(Protocol):
         ...
 
     async def stuck(
-        self, uploaded_before: datetime, uploaded_after: datetime, *, limit: int
+        self,
+        uploaded_before: datetime,
+        uploaded_after: datetime,
+        *,
+        kinds: Collection[MediaKind],
+        limit: int,
     ) -> Sequence[MediaAsset]:
-        """Фото, загруженные в этом окне и всё ещё не обработанные (`uploaded`, `processing`)."""
+        """Файлы этих видов, загруженные в этом окне и всё ещё не обработанные."""
         ...
 
     async def unhidden(self, deleted_before: datetime, *, limit: int) -> Sequence[MediaAsset]:

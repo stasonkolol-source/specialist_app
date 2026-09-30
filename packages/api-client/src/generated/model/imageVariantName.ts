@@ -5,9 +5,9 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export type VariantName = (typeof VariantName)[keyof typeof VariantName];
+export type ImageVariantName = (typeof ImageVariantName)[keyof typeof ImageVariantName];
 
-export const VariantName = {
+export const ImageVariantName = {
   thumb: 'thumb',
   md: 'md',
   lg: 'lg',

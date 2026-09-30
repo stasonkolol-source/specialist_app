@@ -51,10 +51,13 @@ class MediaView:
     """Оригинал для владельца (presigned GET на 5 минут), пока нет вариантов."""
     width: int | None = None
     height: int | None = None
+    duration_ms: int | None = None
     placeholder: str | None = None
     """ThumbHash (base64) для мгновенного превью."""
     variants: tuple[VariantView, ...] = ()
-    """WebP-варианты по возрастанию ширины — для srcset (у `ready`)."""
+    """WebP-варианты по возрастанию ширины — для srcset (у `ready`); у ролика — постер."""
+    video: VariantView | None = None
+    """MP4 готового ролика: в srcset ему не место, поэтому отдельно от вариантов."""
     failure_reason: FailureReason | None = None
 
 
@@ -75,6 +78,19 @@ class ProcessedImage:
     placeholder: str
     sha256: bytes
     variants: tuple[ImageVariant, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ProcessedVideo:
+    """Итог обработки ролика: MP4 H.264 720p без метаданных и кадр для постера."""
+
+    width: int
+    height: int
+    duration_ms: int
+    sha256: bytes
+    video: bytes
+    poster: bytes
+    """Кадр PNG: из него конвейер фото делает постер (варианты и ThumbHash)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

@@ -4,10 +4,8 @@
  * Соседи API
  * OpenAPI spec version: 1.0.0
  */
-import type { ImageVariantName } from './imageVariantName.ts';
 
-export interface VariantOut {
-  name: ImageVariantName;
+export interface VideoOut {
   url: string;
   width: number;
   height: number;

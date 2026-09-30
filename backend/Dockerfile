@@ -20,7 +20,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:3.14.7-slim-trixie@sha256:51dafde81dbdb6ebde285137a295cf18a47ca95234fe388a343719cb97305b3d AS runtime
 RUN groupadd --system --gid 10001 app \
-    && useradd --system --uid 10001 --gid app --home-dir /app --no-create-home app
+    && useradd --system --uid 10001 --gid app --home-dir /app --no-create-home app \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 ENV PATH=/opt/venv/bin:$PATH \
     PYTHONPATH=/app/src \
     PYTHONUNBUFFERED=1 \

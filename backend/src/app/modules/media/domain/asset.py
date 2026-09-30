@@ -54,6 +54,8 @@ class FailureReason(StrEnum):
     """Кадр больше предела пикселей: decompression bomb или сверхкрупный снимок."""
     UNREADABLE = "unreadable"
     """Файл не декодируется или пропал из хранилища."""
+    TOO_LONG = "too_long"
+    """Ролик длиннее минуты (ADR-0007: видео портфолио — до 60 с)."""
 
 
 INCOMING_BUCKET = "incoming"
@@ -68,6 +70,8 @@ class VariantName(StrEnum):
     THUMB = "thumb"
     MD = "md"
     LG = "lg"
+    VIDEO = "video"
+    """Ролик MP4 H.264 720p; у видео thumb/md/lg — его постер."""
 
 
 VARIANT_SIDES: Mapping[str, int] = MappingProxyType(
@@ -97,8 +101,9 @@ class Variant:
 
 
 def variant_key(media_id: MediaId, name: str) -> str:
-    """`m/{id}/{variant}.webp` в бакете media: CDN отдаёт его как `cdn.<domain>/m/…`."""
-    return f"m/{media_id}/{name}.webp"
+    """`m/{id}/{variant}.webp` (у ролика — `.mp4`) в бакете media: CDN отдаёт `cdn.<domain>/m/…`."""
+    extension = "mp4" if name == VariantName.VIDEO else "webp"
+    return f"m/{media_id}/{name}.{extension}"
 
 
 AFTER_UPLOAD = frozenset(
@@ -137,6 +142,8 @@ class MediaAsset(AggregateRoot):
     moderation_status: ModerationStatus = ModerationStatus.PENDING
     width: int | None = None
     height: int | None = None
+    duration_ms: int | None = None
+    """Длительность ролика; у фото — None."""
     placeholder: str | None = None
     """ThumbHash в base64: превью, пока грузится вариант."""
     sha256: bytes | None = None
@@ -235,6 +242,14 @@ class MediaAsset(AggregateRoot):
     def out_of_attempts(self) -> bool:
         return self.attempts >= MAX_ATTEMPTS
 
+    def release_attempt(self) -> bool:
+        """Запуск сорвало хранилище, а не файл: попытка не считается. False — нечего
+        возвращать (файл уже не обрабатывается или попыток не было)."""
+        if self.status is not MediaStatus.PROCESSING or self.attempts == 0:
+            return False
+        self.attempts -= 1
+        return True
+
     def give_up(self, *, now: datetime) -> None:
         """Обработка так и не удалась (сбои не по вине файла кончились попытками или файл
         завис на сутки): `rejected` (unreadable) — лучше честный отказ, чем вечное ожидание."""
@@ -258,11 +273,12 @@ class MediaAsset(AggregateRoot):
         sha256: bytes,
         variants: Mapping[str, Variant],
         now: datetime,
+        duration_ms: int | None = None,
     ) -> None:
-        """Варианты без EXIF лежат в бакете media: файл можно показывать."""
+        """Варианты без метаданных лежат в бакете назначения: файл можно показывать."""
         self._ensure_processing()
         self.status = MediaStatus.READY
-        self.width, self.height = width, height
+        self.width, self.height, self.duration_ms = width, height, duration_ms
         self.placeholder, self.sha256 = placeholder, sha256
         self.variants = dict(variants)
         self.processed_at = now
@@ -295,7 +311,7 @@ class MediaAsset(AggregateRoot):
     def variant_keys(self) -> tuple[str, ...]:
         """Все возможные ключи вариантов, а не только записанные: прерванная обработка
         могла оставить часть файлов, о которых запись не знает."""
-        return tuple(variant_key(self.id, name) for name in VARIANT_SIDES)
+        return tuple(variant_key(self.id, name) for name in VariantName)
 
     def objects(self) -> tuple[tuple[str, str], ...]:
         """Все объекты файла (бакет, ключ): оригинал и варианты — и в media, и в private:

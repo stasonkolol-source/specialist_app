@@ -120,6 +120,7 @@ export const MediaCompleteUploadResponse = zod.object({
   preview_url: zod.union([zod.string(), zod.null()]),
   width: zod.union([zod.int(), zod.null()]),
   height: zod.union([zod.int(), zod.null()]),
+  duration_ms: zod.union([zod.int(), zod.null()]),
   placeholder: zod.union([zod.string(), zod.null()]),
   variants: zod.array(
     zod.object({
@@ -129,9 +130,17 @@ export const MediaCompleteUploadResponse = zod.object({
       height: zod.int(),
     }),
   ),
+  video: zod.union([
+    zod.object({
+      url: zod.string(),
+      width: zod.int(),
+      height: zod.int(),
+    }),
+    zod.null(),
+  ]),
   failure_reason: zod.union([
     zod
-      .enum(['abandoned', 'mismatch', 'unsupported', 'too_many_pixels', 'unreadable'])
+      .enum(['abandoned', 'mismatch', 'unsupported', 'too_many_pixels', 'unreadable', 'too_long'])
       .describe('Почему `failed` (загрузка) или `rejected` (обработка).'),
     zod.null(),
   ]),
@@ -167,6 +176,7 @@ export const MediaGetMediaResponse = zod.object({
   preview_url: zod.union([zod.string(), zod.null()]),
   width: zod.union([zod.int(), zod.null()]),
   height: zod.union([zod.int(), zod.null()]),
+  duration_ms: zod.union([zod.int(), zod.null()]),
   placeholder: zod.union([zod.string(), zod.null()]),
   variants: zod.array(
     zod.object({
@@ -176,9 +186,17 @@ export const MediaGetMediaResponse = zod.object({
       height: zod.int(),
     }),
   ),
+  video: zod.union([
+    zod.object({
+      url: zod.string(),
+      width: zod.int(),
+      height: zod.int(),
+    }),
+    zod.null(),
+  ]),
   failure_reason: zod.union([
     zod
-      .enum(['abandoned', 'mismatch', 'unsupported', 'too_many_pixels', 'unreadable'])
+      .enum(['abandoned', 'mismatch', 'unsupported', 'too_many_pixels', 'unreadable', 'too_long'])
       .describe('Почему `failed` (загрузка) или `rejected` (обработка).'),
     zod.null(),
   ]),
