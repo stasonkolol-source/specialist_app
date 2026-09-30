@@ -1,6 +1,7 @@
 """Ролики для тестов media: генерирует ffmpeg (в CI и образе он есть — шаг 2.2b)."""
 
 import json
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -64,7 +65,10 @@ def with_cover(video: bytes) -> bytes:
 
 
 def has_zscale() -> bool:
-    """zscale (libzimg) есть в ffmpeg Debian и Ubuntu, в Homebrew — нет."""
+    """zscale (libzimg) есть в ffmpeg Debian и Ubuntu, в Homebrew — нет. Вызывается при
+    сборе тестов, в том числе unit-прогоном CI, где ffmpeg ещё не установлен."""
+    if shutil.which("ffmpeg") is None:
+        return False
     command = ["ffmpeg", "-hide_banner", "-filters"]
     filters = subprocess.run(command, check=True, capture_output=True)  # noqa: S603 — наши аргументы
     return b" zscale " in filters.stdout
