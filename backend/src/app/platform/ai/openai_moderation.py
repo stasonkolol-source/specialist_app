@@ -8,7 +8,8 @@
 - сбой провайдера — сеть, таймаут, 429, 5xx, 401, 404, неожиданный ответ — сбой
   предохранителя;
 - провайдер не принял именно этот запрос (400, 413, 422: изображение не скачалось, текст
-  слишком большой) — без сбоя: другие проверки это не остановит.
+  слишком большой) — без сбоя: другие проверки это не остановит. Пять таких отказов подряд —
+  уже настройка (опечатка в `AI_MODERATION_MODEL`), это сбой и ошибка в логе.
 У текста и изображений свои предохранители: пять изображений, которые провайдер не смог
 скачать, не выключат проверку текста.
 """
@@ -72,7 +73,10 @@ class OpenAiModeration:
             log.exception("ai_moderation_unexpected")
             return _failed(breaker, error=type(exc).__name__)
         if response.status_code in REJECTED:
-            log.info("ai_moderation_rejected_input", status=response.status_code)
+            if breaker.rejected():
+                log.error("ai_moderation_rejects_every_request", status=response.status_code)
+                return Unavailable(UnavailableReason.PROVIDER_ERROR)
+            log.warning("ai_moderation_rejected_input", status=response.status_code)
             return Unavailable(UnavailableReason.REJECTED_INPUT)
         if response.status_code != httpx.codes.OK:
             return _failed(breaker, status=response.status_code)

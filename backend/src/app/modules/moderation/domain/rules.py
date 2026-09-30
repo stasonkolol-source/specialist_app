@@ -28,11 +28,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 
-from app.platform.text.contact_masking import (
-    find_contacts,
-    find_domains,
-    prepayment_in_skeleton,
-)
+from app.platform.text.contact_masking import find_prepayment, scan_contacts
 from app.platform.text.normalize import skeleton
 
 
@@ -204,20 +200,20 @@ class RuleSet:
     def check(self, text: str) -> RulesVerdict:
         text = text[:MAX_TEXT]
         words = skeleton(text)
-        contacts = find_contacts(text)
+        contacts = scan_contacts(text)
         matches = [
             _matched(c.rule) for c in self._text if c.regex is not None and c.regex.search(words)
         ]
-        if self._domains and (hosts := find_domains(text, contacts)):
+        if self._domains and (hosts := contacts.domains):
             matches.extend(
                 _matched(rule)
                 for rule in self._domains
                 if any(h == rule.pattern or h.endswith("." + rule.pattern) for h in hosts)
             )
-        if contacts:
-            kinds = ", ".join(dict.fromkeys(f.kind.value for f in contacts))
+        if contacts.findings:
+            kinds = ", ".join(dict.fromkeys(f.kind.value for f in contacts.findings))
             matches.append(_detected(RuleCategory.CONTACTS, kinds))
-        if prepayment_in_skeleton(words):
+        if find_prepayment(text):
             matches.append(_detected(RuleCategory.SCAM, "prepayment"))
         return RulesVerdict(tuple(matches))
 

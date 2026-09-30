@@ -72,6 +72,27 @@ examples:
   - text: Без предоплаты не выезжаю, это правило
     action: flag
     categories: [scam]
+  - text: Не волнуйтесь, предоплата всего 30%
+    action: flag
+    categories: [scam]
+  - text: Nema problema, avans 30% pa dolazim
+    action: flag
+    categories: [scam]
+  - text: Без предоплаты никак
+    action: flag
+    categories: [scam]
+  - text: Переведите мне на карту 500
+    action: flag
+    categories: [scam]
+  - text: Нужна пpедоплата 30%
+    action: flag
+    categories: [scam]
+  - text: Продаю мефедpон
+    action: flag
+    categories: [drugs]
+  - text: Best сasino online
+    action: flag
+    categories: [spam]
   # обход: невидимый символ, греческая буква, ударение, транслит
   - text: "Ищем закла\u200bдчиков, оплата каждый день"
     action: block
@@ -151,4 +172,14 @@ examples:
   - text: "Cene: 1000, 1200, 1800, 2000 din"
     action: pass
   - text: I'm @ home all day
+    action: pass
+  - text: Radim bez avansa, ne brinite
+    action: pass
+  - text: Dimenzije 0 60 120 180 240, radno vreme 0800-1600
+    action: pass
+  - text: Cene 2000 2500 3000 3500 din
+    action: pass
+  - text: uradio sam posao.to je sve
+    action: pass
+  - text: Я и в субботу могу приехать
     action: pass

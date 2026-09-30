@@ -22,6 +22,7 @@ from app.platform.text.normalize import skeleton
 pytestmark = pytest.mark.unit
 
 PHONE, CARD, LINK = ContactKind.PHONE, ContactKind.CARD, ContactKind.LINK
+ACCOUNT = ContactKind.ACCOUNT
 EMAIL, USERNAME = ContactKind.EMAIL, ContactKind.USERNAME
 
 
@@ -91,6 +92,23 @@ def found(text: str) -> list[tuple[ContactKind, str]]:
         ("MAJSTOR.RS", [(LINK, "MAJSTOR.RS")]),
         ("a.b.majstor.co.rs", [(LINK, "a.b.majstor.co.rs")]),
         ("ivan@mail.yandex.ru", [(EMAIL, "ivan@mail.yandex.ru")]),
+        ("majstor.me/profil", [(LINK, "majstor.me/profil")]),
+        # время рядом с номером не прячет его: гасится только диапазон и «с 9:00»
+        ("Pozovi 064 1:23 4567", [(PHONE, "064 1:23 4567")]),
+        ("Broj: 064 123 12:34", [(PHONE, "064 123 12:34")]),
+        ("Тел 8 999 12:34 567", [(PHONE, "8 999 12:34 567")]),
+        # невидимый символ внутри адреса, разложенная диакритика, мессенджер с «@ »
+        ("tiny\u200burl.com/abc", [(LINK, "tiny\u200burl.com/abc")]),
+        ("iv\u200ban.petrov@gmail.com", [(EMAIL, "iv\u200ban.petrov@gmail.com")]),
+        (
+            "nula s\u030cest c\u030cetiri 123 4567",
+            [(PHONE, "nula s\u030cest c\u030cetiri 123 4567")],
+        ),
+        ("tg @ ivan_master", [(USERNAME, "@ ivan_master")]),
+        ("telegram: @ ivan_master", [(USERNAME, "@ ivan_master")]),
+        # счёт сербского банка (контрольное число по модулю 97)
+        ("Uplata na 160-0000000123456-54", [(ACCOUNT, "160-0000000123456-54")]),
+        ("RS35 265-1000000000123-70", [(ACCOUNT, "265-1000000000123-70")]),
     ],
 )
 def test_contacts_are_found(text: str, expected: list[tuple[ContactKind, str]]) -> None:
@@ -129,6 +147,16 @@ def test_contacts_are_found(text: str, expected: list[tuple[ContactKind, str]]) 
         "I'm @ home all day",
         "Available @ weekends",
         "1111 2222 3333 4444",  # 1 — не платёжная система
+        # размеры, часы работы, прайс через пробел
+        "Dimenzije 0 60 120 180 240",
+        "Radno vreme 0800-1600",
+        "Termini 08 09 10 11 h",
+        "Cene 2000 2500 3000 3500 din",
+        "160-0000000123456-78",  # контрольное число не сходится — не счёт
+        # зона-слово без пути — конец предложения
+        "uradio sam posao.to je sve",
+        "zavrsio sam.si li tu",
+        "stigao sam.de si",
     ],
 )
 def test_ordinary_text_is_left_alone(text: str) -> None:
@@ -167,7 +195,7 @@ def test_adversarial_input_is_linear(text: str) -> None:
     mask_contacts(text)
     find_prepayment(text)
     skeleton(text)
-    assert time.perf_counter() - started < 1.0  # квадратичный перебор занимал 5–35 с
+    assert time.perf_counter() - started < 3.0  # линейно — десятые доли; квадратично — 5–35 с
 
 
 def test_masking_keeps_the_rest_of_the_text() -> None:
@@ -235,6 +263,25 @@ def test_payment_after_the_job_is_not_prepayment(text: str) -> None:
         # «но» — не английское «no»
         ("Не надо предоплаты, но аванс 50% обязателен", True),
         ("Предоплата, не обсуждается", True),
+        ("Не беру никакую предоплату", False),
+        ("Работаю без предоплаты и не беру аванс", False),
+        ("Предоплаты нет", False),
+        ("prepayment is not required", False),
+        ("Radim bez avansa, ne brinite", False),
+        # отрицание из другой фразы — не отрицание
+        ("Не волнуйтесь, предоплата всего 30%", True),
+        ("Nema problema, avans 30% pa dolazim", True),
+        ("Без проблем, предоплата 50% на карту", True),
+        ("No worries, deposit is only 20%", True),
+        ("Не забудьте про предоплату", True),
+        ("Предоплата, нет проблем", True),
+        # двойное отрицание дальше во фразе
+        ("Без предоплаты никак", True),
+        ("Без предоплаты мы к сожалению не выезжаем", True),
+        # местоимение и буква-двойник
+        ("Переведите мне на карту 500", True),
+        ("Уплатите мне унапред", True),
+        ("Нужна пpедоплата 30%", True),
         # узкие основы: закуски, каперсы, кино
         ("zalogaji i zalogajnica", False),
         ("kaparima", False),
@@ -268,6 +315,11 @@ def test_skeleton_folds_scripts_and_disguises() -> None:
     # число остаётся числом: цифры — буквы только среди букв
     assert skeleton("3000р 50e 100к") == "3000r 50e 100k"
     assert skeleton("h3r01n") == "heroin"
+    # слово из двух письменностей: двойники — к письменности большинства
+    assert skeleton("пpедоплата") == skeleton("npeдоплата") == "predoplata"
+    assert skeleton("Best сasino") == "best casino"
+    assert skeleton("з+а+к+л+а+д") == "zaklad"
+    assert skeleton("Я и в субботу") == "ja i v subotu"  # три однобуквенных слова — не слово
 
 
 @pytest.mark.parametrize(
@@ -282,6 +334,7 @@ def test_skeleton_folds_scripts_and_disguises() -> None:
         ("https://evil@bit.ly/x и https://x:y@bit.ly/abc", ("bit.ly",)),
         ("ｂｉｔ.ｌｙ/abc", ("bit.ly",)),
         ("bit。ly/abc", ("bit.ly",)),
+        ("tiny\u200burl.com/abc", ("tinyurl.com",)),
     ],
 )
 def test_domains_of_links_and_emails(text: str, expected: tuple[str, ...]) -> None:

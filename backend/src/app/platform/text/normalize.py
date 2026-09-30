@@ -6,7 +6,9 @@
 - Unicode NFKC и нижний регистр (полноширинные буквы, лигатуры); невидимые символы (Cf:
   zero-width, мягкий перенос) и надстрочные знаки (ударение «закладчи́к») убираются;
 - кириллица ru, uk и sr — в латиницу ASCII, латиница без диакритики (č → c, đ → dj), буквы-
-  двойники других письменностей (греческая «ο», кириллическая «ѕ») — в латинские;
+  двойники других письменностей (греческая «ο», кириллическая «ѕ») — в латинские; в слове из
+  двух письменностей («пpедоплата» с латинской «p», «сasino» с кириллической «с») двойники
+  сначала приводятся к письменности большинства букв слова;
 - русский транслит латиницей: «ch», «sh», «zh», «kh», «shch», «ya», «yu» — как в скелете
   кириллицы («zakladchik» = «закладчик»);
 - «цифры вместо букв» внутри слов: 0 → o, 3 → e, 4 → a, 1 → i, @ → a, $ → s; в слове с
@@ -17,8 +19,9 @@
   в «masage».
 
 Скелет — только для сравнения, пользователю его не показывают. Слова словаря правил
-приводятся тем же `skeleton()`, поэтому сравнение симметрично. Время — линейное от длины
-текста: регулярные выражения без вложенного перебора.
+приводятся тем же `skeleton()`, поэтому сравнение симметрично. `clauses()` — тот же скелет по
+фразам: там, где важно, к какому слову относится «не» («Не волнуйтесь, предоплата 30%»). Время
+— линейное от длины текста: регулярные выражения без вложенного перебора.
 """
 
 import re
@@ -44,25 +47,35 @@ _CONFUSABLE = {
     "ı": "i", "ɑ": "a", "ɡ": "g", "ⅰ": "i",
 }  # fmt: skip
 """Буквы, которые выглядят как латиница: без таблицы «kοkain» с греческой «ο» потерял бы букву."""
+_LATIN_AS_CYRILLIC = {
+    "a": "а", "b": "в", "c": "с", "e": "е", "h": "н", "k": "к", "m": "м", "n": "п", "o": "о",
+    "p": "р", "t": "т", "x": "х", "y": "у",
+}  # fmt: skip
+"""Латиница, похожая на кириллицу (и прописные — после casefold): «пpедоплата», «npeдоплата»."""
+_CYRILLIC_AS_LATIN = {cyrillic: latin for latin, cyrillic in _LATIN_AS_CYRILLIC.items()}
+"""И наоборот: «сasino» с кириллической «с» — это casino, а не sasino."""
 _LEET = {"0": "o", "3": "e", "4": "a", "1": "i", "5": "s", "7": "t"}
 _LEET_CYRILLIC = {**_LEET, "3": "z", "4": "c", "6": "b"}
 _DIGRAPHS = re.compile(r"shch|ch|sh|zh|kh|ya|yu")
 _DIGRAPH = {"shch": "s", "ch": "c", "sh": "s", "zh": "z", "kh": "h", "ya": "ja", "yu": "ju"}
 _WORD = re.compile(r"[^\W_]+(?:['’][^\W_]+)*", re.UNICODE)
 _LETTER = r"[^\W\d_]"
-_GAP = r"(?:[.·*_\-/|]\s?|\s)"
+_GAP = r"(?:[.·*_\-/|+]\s?|\s)"
 """Между буквами слова по буквам: знак (и, может быть, пробел после него) или пробел."""
-_GAP_CHAR = r"[.·*_\-/|\s]"
+_GAP_CHAR = r"[.·*_\-/|+\s]"
 _SPACED = re.compile(
     rf"(?<![^\W_])"
     rf"(?<!\W{_LETTER}{_GAP_CHAR})(?<!^{_LETTER}{_GAP_CHAR})"
-    rf"(?<!\W{_LETTER}[.·*_\-/|]\s)(?<!^{_LETTER}[.·*_\-/|]\s)"
-    rf"(?:{_LETTER}{_GAP}){{2,}}{_LETTER}(?![^\W_])",
+    rf"(?<!\W{_LETTER}[.·*_\-/|+]\s)(?<!^{_LETTER}[.·*_\-/|+]\s)"
+    rf"(?:{_LETTER}{_GAP}){{3,}}{_LETTER}(?![^\W_])",
     re.UNICODE,
 )
-"""Слово по буквам: «п.р.е.д», «p r e d», «p. r. e. d», «п/р/е/д». Просмотр назад не даёт
-начать внутри такой цепочки (перед буквой — одиночная буква и разделитель), поэтому поиск
+"""Слово по буквам — от четырёх букв: «п.р.е.д», «p r e d», «p. r. e. d», «п/р/е/д», «з+а+к».
+Три однобуквенных слова подряд («Я и в субботу») — ещё не слово по буквам. Просмотр назад не
+даёт начать внутри такой цепочки (перед буквой — одиночная буква и разделитель), поэтому поиск
 линейный и на «a-a-a-…» длиной в 20 000 символов."""
+_CLAUSE = re.compile(r"[,;!?¡¿\n\r]+|[.:…](?=\s|$)|\s[-–—]\s")
+"""Граница фразы: запятая, точка с пробелом после, тире между пробелами."""
 _SIGN = re.compile(r"(?<=[^\W\d_])[@$](?=[^\W\d_])", re.UNICODE)
 """«k@zino», «ca$ino»: знак между буквами — буква, а не граница слова."""
 _SIGNS = {"@": "a", "$": "s"}
@@ -73,17 +86,35 @@ _REPEATS = re.compile(r"([a-z])\1+")
 
 def skeleton(text: str) -> str:
     """Скелет для поиска: слова через пробел, без регистра, письменности и маскировки."""
+    return _words(_prepare(text))
+
+
+def clauses(text: str) -> list[str]:
+    """Скелеты фраз текста по порядку (пустые пропущены)."""
+    return [words for part in _CLAUSE.split(_prepare(text)) if (words := _words(part))]
+
+
+def _prepare(text: str) -> str:
     text = unicodedata.normalize("NFKC", text).casefold()
     text = "".join(char for char in text if unicodedata.category(char) not in {"Cf", "Mn"})
-    text = _SPACED.sub(lambda m: re.sub(r"[\s.·*_\-/|]", "", m.group()), text)
-    text = _SIGN.sub(lambda m: _SIGNS[m.group()], text)
+    text = _SPACED.sub(lambda m: re.sub(r"[\s.·*_\-/|+]", "", m.group()), text)
+    return _SIGN.sub(lambda m: _SIGNS[m.group()], text)
+
+
+def _words(text: str) -> str:
     words = [_word_skeleton(word) for word in _WORD.findall(text)]
     return " ".join(word for word in words if word)
 
 
 def _word_skeleton(word: str) -> str:
+    cyrillic_letters = sum(1 for char in word if "\u0400" <= char <= "\u04ff")
+    latin_letters = sum(1 for char in word if char.isalpha() and char.isascii())
+    mostly_cyrillic = cyrillic_letters >= latin_letters and cyrillic_letters > 0
+    if cyrillic_letters and latin_letters:  # слово из двух письменностей: двойники — к большинству
+        lookalikes = _LATIN_AS_CYRILLIC if mostly_cyrillic else _CYRILLIC_AS_LATIN
+        word = "".join(lookalikes.get(char, char) for char in word)
     letters = sum(1 for char in word if char.isalpha())
-    leet = _LEET_CYRILLIC if any(char in _CYRILLIC for char in word) else _LEET
+    leet = _LEET_CYRILLIC if mostly_cyrillic else _LEET
     if letters:
         word = _DIGITS.sub(lambda m: _leet(m, word, letters, leet), word)
     out: list[str] = []

@@ -14,6 +14,9 @@ from datetime import timedelta
 
 THRESHOLD = 5
 COOLDOWN = timedelta(seconds=60)
+REJECTED_IN_ROW = 5
+"""Столько отказов «не принят именно этот запрос» (400, 413, 422) подряд — уже не про запрос,
+а про настройку (модель без structured outputs, опечатка в имени модели): это сбой."""
 
 
 class CircuitBreaker:
@@ -27,6 +30,7 @@ class CircuitBreaker:
         self._threshold, self._cooldown = threshold, cooldown.total_seconds()
         self._monotonic = monotonic
         self._failures = 0
+        self._rejected = 0
         self._opened_at: float | None = None
 
     def allow(self) -> bool:
@@ -40,7 +44,18 @@ class CircuitBreaker:
         return True
 
     def success(self) -> None:
-        self._failures, self._opened_at = 0, None
+        self._failures, self._opened_at, self._rejected = 0, None, 0
+
+    def rejected(self) -> bool:
+        """Провайдер ответил, но не принял запрос (400, 413, 422). Отдельный отказ — про
+        запрос: провайдер жив, пробная проверка удалась. REJECTED_IN_ROW подряд — сбой
+        предохранителя. True — это уже сбой."""
+        self._rejected += 1
+        if self._rejected < REJECTED_IN_ROW:
+            self._failures, self._opened_at = 0, None
+            return False
+        self.failure()
+        return True
 
     def failure(self) -> None:
         self._failures += 1
