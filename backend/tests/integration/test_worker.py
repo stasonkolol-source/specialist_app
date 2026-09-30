@@ -25,10 +25,14 @@ from app.platform.kernel.clock import Clock
 from app.platform.kernel.errors import ExternalServiceError
 from app.platform.kernel.events import DomainEvent
 from app.platform.kernel.ids import new_id
+from app.platform.observability.metrics import QueueMetrics
+from app.platform.queue.periodic import queue_lag
 from app.platform.queue.port import TaskRef
 from app.platform.queue.tasks import (
     CONTAINER_KEY,
+    QUEUES,
     JitteredRetry,
+    PeriodicRun,
     TaskRegistry,
     register_tasks,
     subscriber,
@@ -181,9 +185,21 @@ async def test_platform_periodic_tasks_are_scheduled(container: AsyncContainer) 
         "procrastinate.retry_stalled_jobs": "*/5 * * * *",
         "procrastinate.remove_old_jobs": "17 3 * * *",
         "ops.heartbeat": "* * * * *",
+        "ops.queue_lag": "* * * * *",
         "platform.idempotency_cleanup": "23 * * * *",
         "media.cleanup_orphans": "41 * * * *",
         "media.purge_deleted": "37 * * * *",
         "media.retry_stuck": "*/15 * * * *",
         "media.hide_deleted": "7,22,37,52 * * * *",
+        "notifications.expire_stale": "53 * * * *",
     }
+
+
+async def test_queue_lag_is_measured_for_every_queue(container: AsyncContainer) -> None:
+    app = await container.get(procrastinate.App)
+    metrics = await container.get(QueueMetrics)
+
+    await queue_lag(PeriodicRun(app=app, container=container, timestamp=0))
+
+    for queue in QUEUES:
+        assert metrics.lag.labels(queue=queue)._value.get() >= 0

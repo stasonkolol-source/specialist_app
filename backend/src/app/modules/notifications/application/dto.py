@@ -99,6 +99,7 @@ class DeliveryTarget:
     status: DeliveryStatus
     not_before: datetime
     user_id: UserId
+    channel_id: UUID
     chat_id: int
     """Личный чат с ботом. Не логируется (ADR-0020 §14)."""
     writable: bool

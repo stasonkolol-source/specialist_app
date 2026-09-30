@@ -10,6 +10,12 @@ from app.modules.notifications.application.ports import (
     SettingsRepository,
 )
 from app.modules.notifications.application.queries import NotificationQueries
+from app.modules.notifications.application.use_cases.block_telegram_channel import (
+    BlockTelegramChannel,
+)
+from app.modules.notifications.application.use_cases.expire_stale_deliveries import (
+    ExpireStaleDeliveries,
+)
 from app.modules.notifications.application.use_cases.grant_telegram_write_access import (
     GrantTelegramWriteAccess,
 )
@@ -44,6 +50,8 @@ class NotificationsProvider(Provider):
     queries = provide(NotificationQueries)
 
     grant_telegram_write_access = provide(GrantTelegramWriteAccess)
+    block_telegram_channel = provide(BlockTelegramChannel)
+    expire_stale_deliveries = provide(ExpireStaleDeliveries)
     notify = provide(Notify)
     send_delivery = provide(SendDelivery)
     mark_read = provide(MarkNotificationsRead)

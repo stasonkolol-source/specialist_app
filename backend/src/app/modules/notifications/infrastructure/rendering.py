@@ -26,13 +26,20 @@ from app.platform.kernel.localized import Locale
 from app.platform.telegram.buttons import mini_app_url
 from app.platform.telegram.port import AppButton
 
-RENDERED = frozenset({NotificationType.ACCOUNT_RESTRICTED, NotificationType.MODERATION_DECISION})
+RENDERED = frozenset(
+    {
+        NotificationType.ACCOUNT_RESTRICTED,
+        NotificationType.MODERATION_DECISION,
+        NotificationType.SYSTEM_TEST,
+    }
+)
 """Типы с шаблонами: остальные получат их вместе со своими подписчиками."""
 
 BUTTONS: Mapping[NotificationType, str] = MappingProxyType(
     {
         NotificationType.ACCOUNT_RESTRICTED: "notifications.account_restricted.button",
         NotificationType.MODERATION_DECISION: "notifications.moderation_decision.button",
+        NotificationType.SYSTEM_TEST: "notifications.system_test.button",
     }
 )
 """Подпись кнопки бота; ведёт она по коду deep link уведомления."""
@@ -57,6 +64,11 @@ class GettextNotificationRenderer:
             return self._account_restricted(params, locale)
         if type_ is NotificationType.MODERATION_DECISION:
             return self._moderation_decision(params, locale)
+        if type_ is NotificationType.SYSTEM_TEST:
+            return RenderedText(
+                title=self._t("notifications.system_test.title", locale),
+                body=self._t("notifications.system_test.body", locale),
+            )
         raise ValueError(f"no templates for notification type {type_}")
 
     def telegram(

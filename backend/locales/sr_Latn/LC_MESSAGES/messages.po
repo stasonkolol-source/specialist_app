@@ -390,3 +390,12 @@ msgstr "oglasi za posao se ovde ne objavljuju"
 
 msgid "notifications.moderation_reason.other"
 msgstr "kršenje pravila platforme"
+
+msgid "notifications.system_test.title"
+msgstr "Provera obaveštenja"
+
+msgid "notifications.system_test.body"
+msgstr "Bot aplikacije „Sosedi“ može da vam piše: ovde stižu ponude, poruke i odluke o vašim zahtevima."
+
+msgid "notifications.system_test.button"
+msgstr "Otvori „Sosedi“"

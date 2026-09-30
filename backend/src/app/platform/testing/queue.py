@@ -16,13 +16,14 @@ class QueuedTask:
     queueing_lock: str | None
     scheduled_at: datetime | None = None
     """Не раньше — `not_before` постановки; None — сразу."""
+    priority: int = 0
 
 
 async def queued_tasks(session: AsyncSession, task_name: str | None = None) -> list[QueuedTask]:
     """Задачи в статусе todo, видимые из текущей транзакции сессии."""
     rows = await session.execute(
         text(
-            "SELECT task_name, queue_name, args, queueing_lock, scheduled_at"
+            "SELECT task_name, queue_name, args, queueing_lock, scheduled_at, priority"
             " FROM procrastinate_jobs WHERE status = 'todo'"
             " AND (CAST(:name AS text) IS NULL OR task_name = :name) ORDER BY id"
         ),
@@ -35,6 +36,7 @@ async def queued_tasks(session: AsyncSession, task_name: str | None = None) -> l
             payload=dict(r.args.get("payload", {})),
             queueing_lock=r.queueing_lock,
             scheduled_at=r.scheduled_at,
+            priority=r.priority,
         )
         for r in rows
     ]

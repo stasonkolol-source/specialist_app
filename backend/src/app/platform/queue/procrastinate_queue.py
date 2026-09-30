@@ -50,6 +50,7 @@ class ProcrastinateJobQueue:
         *,
         dedup_key: str | None = None,
         not_before: datetime | None = None,
+        priority: int = 0,
     ) -> None:
         raw = await session_driver_connection(self._session)
         # queueing_lock в Procrastinate общий на все задачи: ключ — в пространстве своей задачи
@@ -59,6 +60,7 @@ class ProcrastinateJobQueue:
             queue=task.queue,
             queueing_lock=lock,
             schedule_at=not_before,
+            priority=priority,
             connection=raw,
         )
         try:

@@ -146,6 +146,16 @@ def test_without_mini_app_address_there_are_no_buttons() -> None:
 
 
 def test_types_without_templates_are_refused(renderer: GettextNotificationRenderer) -> None:
-    assert set(RENDERED) == {RESTRICTED, DECISION}
+    assert set(RENDERED) == {RESTRICTED, DECISION, NotificationType.SYSTEM_TEST}
     with pytest.raises(ValueError, match="no templates"):
         renderer.text(NotificationType.JOB_MATCHED, {}, Locale.RU)
+
+
+@pytest.mark.parametrize("locale", SCRIPTS)
+def test_channel_check_message_on_three_scripts(
+    renderer: GettextNotificationRenderer, locale: Locale
+) -> None:
+    text, [button] = renderer.telegram(NotificationType.SYSTEM_TEST, {}, "h", locale)
+
+    assert "notifications." not in text
+    assert button.url == f"{MINI_APP}?startapp=h"

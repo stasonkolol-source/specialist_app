@@ -16,6 +16,7 @@ from aiogram import Bot
 from dishka import Provider, Scope, from_context, provide
 from limits.aio.storage import RedisStorage
 from limits.aio.strategies import SlidingWindowCounterRateLimiter
+from prometheus_client import CollectorRegistry
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
@@ -35,6 +36,7 @@ from app.platform.idempotency.sql import SqlIdempotencyStore
 from app.platform.kernel.clock import Clock, SystemClock
 from app.platform.legal.files import FileLegalLibrary, placeholders
 from app.platform.legal.port import LegalLibrary
+from app.platform.observability.metrics import QueueMetrics, make_queue_metrics, make_registry
 from app.platform.queue.dispatcher import EventDispatcher, EventRegistry
 from app.platform.queue.port import JobQueue
 from app.platform.queue.procrastinate_queue import ProcrastinateJobQueue
@@ -58,7 +60,8 @@ from app.platform.settings import (
 )
 from app.platform.storage.port import StoragePort
 from app.platform.storage.s3 import S3Storage
-from app.platform.telegram.logging_sender import LoggingTelegramSender
+from app.platform.telegram.aiogram_sender import AiogramTelegramSender
+from app.platform.telegram.limiter import ValkeySendLimiter
 from app.platform.telegram.port import TelegramSender
 from app.platform.telegram.texts import BOT_DEFAULTS
 
@@ -151,8 +154,19 @@ class PlatformProvider(Provider):
         yield bot
         await bot.session.close()
 
-    telegram_sender = provide(LoggingTelegramSender, scope=Scope.APP, provides=TelegramSender)
-    """Уведомления бота: до адаптера на aiogram (шаг 2.3b) сообщения не уходят."""
+    @provide(scope=Scope.APP)
+    def metrics_registry(self) -> CollectorRegistry:
+        """Реестр метрик процесса; экспорт наружу — шаг 3.3."""
+        return make_registry()
+
+    @provide(scope=Scope.APP)
+    def queue_metrics(self, registry: CollectorRegistry) -> QueueMetrics:
+        return make_queue_metrics(registry)
+
+    @provide(scope=Scope.APP)
+    def telegram_sender(self, bot: Bot, valkey: Redis) -> TelegramSender:
+        """Уведомления бота: Bot API с лимитером в Valkey (25 msg/s, 1 msg/s на чат)."""
+        return AiogramTelegramSender(bot, ValkeySendLimiter(valkey))
 
     @provide(scope=Scope.APP)
     def storage(self, settings: S3Settings, clock: Clock) -> Iterator[StoragePort]:

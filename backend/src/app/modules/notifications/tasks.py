@@ -9,6 +9,8 @@ notifications стоит над контентными модулями (ARCHITE
 - `notifications.notify_moderation_decision` — ModerationDecisionMade: автору — отказ и
   кнопка «Исправить» к его контенту; одобрение без уведомления.
 - `notifications.send` — отправить доставку в бот (очередь `notifications`).
+- `notifications.expire_stale` — раз в час: доставки, зависшие в `queued` дольше суток после
+  срока, становятся `failed` (`stale`).
 """
 
 from dishka import FromDishka
@@ -19,6 +21,10 @@ from app.modules.notifications.application.ports import (
     NOTIFY_MODERATION_DECISION,
     SEND_DELIVERY,
     SendDeliveryPayload,
+)
+from app.modules.notifications.application.use_cases.expire_stale_deliveries import (
+    ExpireStaleDeliveries,
+    ExpireStaleDeliveriesCommand,
 )
 from app.modules.notifications.application.use_cases.grant_telegram_write_access import (
     GrantTelegramWriteAccess,
@@ -34,7 +40,7 @@ from app.modules.notifications.domain.channel import GrantedVia
 from app.modules.notifications.domain.notification import DeliveryId
 from app.platform.contracts.events.identity import BotStarted, RestrictionKind, UserRestricted
 from app.platform.contracts.events.moderation import ModerationDecision, ModerationDecisionMade
-from app.platform.queue.tasks import subscriber, task
+from app.platform.queue.tasks import PeriodicRun, periodic, subscriber, task
 from app.platform.telegram.deeplinks import LinkDocument, LinkType, StartLink, encode_start_param
 
 RULES_LINK = encode_start_param(StartLink(type=LinkType.LEGAL, document=LinkDocument.TERMS))
@@ -48,7 +54,11 @@ async def grant_write_access(
     event: BotStarted, grant: FromDishka[GrantTelegramWriteAccess]
 ) -> None:
     """Канал telegram доступен после /start; повтор задачи ничего не меняет."""
-    await grant(GrantTelegramWriteAccessCommand(user_id=event.user_id, via=GrantedVia.BOT_START))
+    await grant(
+        GrantTelegramWriteAccessCommand(
+            user_id=event.user_id, via=GrantedVia.BOT_START, at=event.occurred_at
+        )
+    )
 
 
 @subscriber(UserRestricted, NOTIFY_ACCOUNT_RESTRICTED)
@@ -89,6 +99,13 @@ async def notify_moderation_decision(
             link=link,
         )
     )
+
+
+@periodic("notifications.expire_stale", cron="53 * * * *")
+async def expire_stale(run: PeriodicRun) -> None:
+    async with run.container() as request:
+        expire = await request.get(ExpireStaleDeliveries)
+        await expire(ExpireStaleDeliveriesCommand())
 
 
 @task(SEND_DELIVERY)

@@ -7,6 +7,7 @@
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from app.modules.identity.api import IdentityApi
 from app.modules.notifications.application.dto import ChannelView
@@ -23,6 +24,9 @@ from app.platform.kernel.ids import UserId
 class GrantTelegramWriteAccessCommand:
     user_id: UserId
     via: GrantedVia
+    at: datetime | None = None
+    """Когда разрешили (время /start или апдейта Telegram); None — сейчас. Остановку бота
+    позже этого момента поздно обработанное разрешение не отменит."""
 
 
 class GrantTelegramWriteAccess:
@@ -35,7 +39,7 @@ class GrantTelegramWriteAccess:
         chat_id = await self._identity.telegram_chat_id(cmd.user_id)  # чтение — до транзакции
         if chat_id is None:
             raise TelegramNotLinkedError(user_id=cmd.user_id)
-        now = self._clock.now()
+        now = cmd.at or self._clock.now()
         async with self._uow:
             view, granted_now = await self._channels.grant_telegram(
                 cmd.user_id, chat_id, via=cmd.via, now=now

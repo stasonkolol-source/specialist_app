@@ -1,14 +1,20 @@
 """Процесс воркера (DEVELOPMENT_PLAN 0.12): `python -m app.entrypoints.worker [--role …]`.
 
 Роли: `worker` — очереди default и notifications, `worker-media` — очередь media
-(тяжёлая обработка фото и видео отдельно, ARCHITECTURE §5.7).
+(тяжёлая обработка фото и видео отдельно, ARCHITECTURE §5.7). У очереди роли свой пул
+со своей параллельностью (§12.2): рассылка уведомлений, которая ждёт слотов лимитера
+Telegram, не занимает места обработчиков событий и периодических задач (heartbeat).
+Пулы — воркеры Procrastinate в одном процессе; SIGINT и SIGTERM останавливают все сразу.
 """
 
 import argparse
 import asyncio
+import signal
+from dataclasses import dataclass
 
 import procrastinate
 import structlog
+from procrastinate.worker import Worker
 
 from app.entrypoints._wiring import make_worker_container
 from app.interfaces.worker.registration import register_worker_tasks
@@ -17,9 +23,16 @@ from app.platform.observability.sentry import init_sentry
 from app.platform.queue.tasks import CONTAINER_KEY
 from app.platform.settings import Settings, describe
 
-ROLES: dict[str, tuple[list[str], int]] = {
-    "worker": (["default", "notifications"], 8),
-    "worker-media": (["media"], 2),
+
+@dataclass(frozen=True, slots=True)
+class Pool:
+    queue: str
+    concurrency: int
+
+
+ROLES: dict[str, tuple[Pool, ...]] = {
+    "worker": (Pool("default", 8), Pool("notifications", 4)),
+    "worker-media": (Pool("media", 2),),
 }
 
 log = structlog.get_logger(__name__)
@@ -29,18 +42,34 @@ async def run(role: str) -> None:
     settings = Settings()
     configure_logging(settings.app)
     init_sentry(settings)
-    queues, concurrency = ROLES[role]
+    pools = ROLES[role]
     container = make_worker_container(settings)
     try:
         app = await container.get(procrastinate.App)
         register_worker_tasks(app)
-        log.info("worker_started", role=role, queues=queues, **describe(settings))
-        await app.run_worker_async(
-            queues=queues,
-            concurrency=concurrency,
-            additional_context={CONTAINER_KEY: container},
-            name=role,
+        workers = [
+            Worker(
+                app=app,
+                queues=[pool.queue],
+                concurrency=pool.concurrency,
+                name=f"{role}:{pool.queue}",
+                additional_context={CONTAINER_KEY: container},
+                install_signal_handlers=False,  # обработчик один на все пулы — ниже
+            )
+            for pool in pools
+        ]
+
+        def stop() -> None:
+            for worker in workers:
+                worker.stop()  # type: ignore[no-untyped-call]  # procrastinate без аннотаций
+
+        loop = asyncio.get_running_loop()
+        for signum in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(signum, stop)
+        log.info(
+            "worker_started", role=role, queues=[pool.queue for pool in pools], **describe(settings)
         )
+        await asyncio.gather(*(worker.run() for worker in workers))  # type: ignore[no-untyped-call]
     finally:
         await container.close()
 

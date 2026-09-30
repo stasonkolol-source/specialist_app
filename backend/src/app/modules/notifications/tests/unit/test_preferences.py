@@ -10,6 +10,7 @@ from app.modules.notifications.domain.catalog import (
     Channel,
     EventGroup,
     NotificationType,
+    Priority,
 )
 from app.modules.notifications.domain.settings import (
     TIMEZONE,
@@ -108,8 +109,14 @@ def test_catalog_follows_the_architecture() -> None:
         NotificationType.MESSAGE_RECEIVED,
         NotificationType.RESPONSE_ACCEPTED,
         NotificationType.DEAL_PROPOSED,
+        NotificationType.SYSTEM_TEST,  # проверку канала человек ждёт сейчас
     }
     assert {t for t, spec in CATALOG.items() if spec.group in MANDATORY_GROUPS} == {
         NotificationType.MODERATION_DECISION,
         NotificationType.ACCOUNT_RESTRICTED,
+        NotificationType.SYSTEM_TEST,
     }
+
+
+def test_urgent_types_are_taken_from_the_queue_first() -> None:
+    assert [p.job_priority for p in Priority] == [3, 2, 1, 0]  # P0 — первым

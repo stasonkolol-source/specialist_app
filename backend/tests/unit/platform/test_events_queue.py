@@ -77,6 +77,7 @@ async def test_dispatcher_enqueues_one_task_per_subscriber_with_dedup_key() -> N
             *,
             dedup_key: str | None = None,
             not_before: datetime | None = None,
+            priority: int = 0,
         ) -> None:
             calls.append((task.name, dedup_key))
 

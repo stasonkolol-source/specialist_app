@@ -106,5 +106,6 @@ class Notify:
                 SendDeliveryPayload(delivery_id=delivery_id),
                 dedup_key=str(delivery_id),
                 not_before=release if release > now else None,
+                priority=spec.priority.job_priority,
             )
         return notification_id

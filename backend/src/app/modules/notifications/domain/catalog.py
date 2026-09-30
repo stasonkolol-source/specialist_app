@@ -32,6 +32,8 @@ class NotificationType(StrEnum):
     JOB_EXPIRED = "job.expired"
     PROFILE_STALE_REMINDER = "profile.stale_reminder"
     ACCOUNT_RESTRICTED = "account.restricted"
+    SYSTEM_TEST = "system.test"
+    """Проверка канала (`cli notify-test`): бот может писать человеку."""
 
 
 class EventGroup(StrEnum):
@@ -62,6 +64,11 @@ class Priority(IntEnum):
     P1 = 1
     P2 = 2
     P3 = 3
+
+    @property
+    def job_priority(self) -> int:
+        """Приоритет задачи отправки в очереди: там раньше берутся большие."""
+        return len(Priority) - 1 - self.value
 
 
 class Channel(StrEnum):
@@ -146,6 +153,9 @@ CATALOG: Mapping[NotificationType, TypeSpec] = MappingProxyType(
         ),
         NotificationType.ACCOUNT_RESTRICTED: TypeSpec(
             group=EventGroup.ACCOUNT, priority=Priority.P0, channels=BOT_AND_APP
+        ),
+        NotificationType.SYSTEM_TEST: TypeSpec(
+            group=EventGroup.ACCOUNT, priority=Priority.P0, channels=BOT, quiet_exempt=True
         ),
     }
 )
