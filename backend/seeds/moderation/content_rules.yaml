@@ -1,0 +1,147 @@
+# Словарь контент-правил модерации (DEVELOPMENT_PLAN 2.4, ADR-0016 §3, ARCHITECTURE §14.1).
+#
+# Черновик ассистента — синтетика. Владелец дополняет его реальными словами и примерами из
+# очередей (K28); пересмотр — раз в неделю по кейсам (research/06 §2.3). Загрузка в БД —
+# `make seed`, проверка — `make seeds-validate` (заодно прогоняет rule_examples.yaml).
+#
+# Как писать правила:
+# - words — слова и фразы на любом языке и письменности. Сравнение по скелету текста:
+#   «кокаин», «kokain», «К0КАИН» и «к.о.к.а.и.н» — одно и то же, поэтому сербское слово
+#   достаточно написать один раз, латиницей или кириллицей. `*` в конце — любое окончание
+#   (основа — не короче 4 букв), без `*` — слово целиком; фраза — слова подряд.
+# - regex — регулярное выражение по скелету: латиница в нижнем регистре, слова через пробел,
+#   без двойных букв («massage» в скелете — «masage»).
+# - domains — домены ссылок и почты, поддомены тоже.
+# - action: block — только однозначное (P0: скрыть, заморозить аккаунт, кейс); flag —
+#   классификатор и при сомнении очередь P2; shadow — тихий карантин, только боты и спам-фермы.
+# - Контакты (телефоны, ссылки, @username, e-mail, номера карт) и просьбы о предоплате ловит
+#   детектор platform/text — здесь их не пишут.
+# - Слова с безобидным смыслом в услугах — не в block и лучше фразой: «закладка» — это и
+#   «закладка фундамента», «пистолет» — и «пистолет для герметика», «drog*» — и «drogerija».
+version: "2026-09-30"
+rules:
+  # --- наркотики: вербовка закладчиков — однозначно, P0 ---------------------------------
+  - category: drugs
+    action: block
+    lang: ru
+    words: [закладчик*, кладмен*, курьер закладок, делать закладки]
+  - category: drugs
+    action: block
+    lang: en
+    words: [stash placer*, drug courier*]
+  # --- наркотики: названия веществ — в классификатор ------------------------------------
+  - category: drugs
+    action: flag
+    words: [кокаин*, героин*, амфетамин*, метамфетамин*, мефедрон*, марихуан*, экстази, спайс,
+            наркотик*, mdma, lsd]
+  - category: drugs
+    action: flag
+    lang: sr
+    words: [droga, droge, drogu, drogom, hašiš*, trava za pušenje, diler droge]
+  - category: drugs
+    action: flag
+    lang: en
+    words: [cocaine, heroin, meth, weed for sale]
+  # --- оружие --------------------------------------------------------------------------
+  - category: weapons
+    action: flag
+    lang: ru
+    words: [огнестрел*, боеприпас*, калашников*, оружие без документов, купить ствол]
+  - category: weapons
+    action: flag
+    lang: ru
+    regex: ['\btravmaticesk\w* pistolet\w*']
+  - category: weapons
+    action: flag
+    lang: sr
+    words: [oružje, municij*, kalašnjikov*, vatreno oružje]
+  - category: weapons
+    action: flag
+    lang: uk
+    words: [зброя, набої, вогнепальн*]
+  - category: weapons
+    action: flag
+    lang: en
+    words: [firearm*, ammunition, ammo, handgun*, assault rifle*]
+  # --- сексуальные услуги ----------------------------------------------------------------
+  - category: escort
+    action: flag
+    lang: ru
+    words: [эскорт*, проститутк*, интим услуг*, секс услуг*, досуг для мужчин,
+            массаж с продолжением, эротический массаж]
+  - category: escort
+    action: flag
+    lang: sr
+    words: [seks usluge, erotska masaža, masaža sa srećnim krajem, devojke za druženje]
+  - category: escort
+    action: flag
+    lang: en
+    words: [escort*, happy ending, sex service*, erotic massage]
+  # --- дропы и обнал ---------------------------------------------------------------------
+  - category: mule
+    action: flag
+    lang: ru
+    words: [дропы, дропов, дроповод*, обнал*, сдать карту в аренду, сдай карту,
+            оформить карту на себя, продать свою карту]
+  - category: mule
+    action: flag
+    lang: sr
+    words: [otvori račun na svoje ime, iznajmi karticu, prodaj svoju karticu]
+  - category: mule
+    action: flag
+    lang: en
+    words: [money mule*, cash out, rent your card, rent your bank account,
+            sell your bank account]
+  # --- мошенничество (кроме предоплаты — её ловит детектор) -----------------------------
+  - category: scam
+    action: flag
+    lang: ru
+    words: [безопасная сделка, ссылка на оплату, код из смс, срок действия карты,
+            подтвердите получение средств, получить оплату по ссылке]
+  - category: scam
+    action: flag
+    lang: sr
+    words: [link za plaćanje, potvrdite uplatu]
+  - category: scam
+    action: flag
+    lang: en
+    words: [safe deal, payment link, sms code, cvv]
+  # --- спам и реклама ----------------------------------------------------------------------
+  - category: spam
+    action: flag
+    lang: ru
+    words: [заработок в интернете, пассивный доход, быстрый заработок, казино*,
+            ставки на спорт, криптовалют*]
+  - category: spam
+    action: flag
+    lang: ru
+    regex: ['\bzarabot\w* (?:ot|do) \d+']
+  - category: spam
+    action: flag
+    lang: sr
+    words: [brza zarada, pasivni prihod, sportsko klađenje, rad od kuće]
+  - category: spam
+    action: flag
+    lang: en
+    words: [casino*, passive income, make money online, work from home]
+  - category: spam
+    action: flag
+    domains: [bit.ly, tinyurl.com, cutt.ly, goo.gl, t.ly, is.gd, rb.gy, shorturl.at, clck.ru]
+  # --- вакансии: на площадке запрещены (формулировки «задачи», а не «работа») -------------
+  - category: vacancy
+    action: flag
+    lang: ru
+    words: [вакансия, вакансии, требуются сотрудники, требуется сотрудник, ищем сотрудник*,
+            официальное трудоустройство, зарплата от, полный рабочий день]
+  - category: vacancy
+    action: flag
+    lang: sr
+    words: [zapošljavamo, oglas za posao, puno radno vreme, stalni radni odnos, plata od]
+  - category: vacancy
+    action: flag
+    lang: uk
+    words: [шукаємо працівник*, офіційне працевлаштування]
+  - category: vacancy
+    action: flag
+    lang: en
+    words: [we are hiring, we're hiring, job vacancy, full-time position, salary from]

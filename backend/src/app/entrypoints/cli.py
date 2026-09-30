@@ -27,7 +27,14 @@ from app.platform.kernel.clock import SystemClock
 from app.platform.kernel.localized import Locale
 from app.platform.security.initdata import sign
 from app.platform.security.jwt import JwtKeys, SigningKey
-from app.platform.settings import ENV_FILE, AppSettings, Environment, Settings, TelegramSettings
+from app.platform.settings import (
+    ENV_FILE,
+    AiSettings,
+    AppSettings,
+    Environment,
+    Settings,
+    TelegramSettings,
+)
 
 if TYPE_CHECKING:  # модули грузятся лениво: CLI без БД не должен их импортировать
     from app.entrypoints._notify_test import NotifyTestOutcome
@@ -168,18 +175,24 @@ def seeds_validate() -> None:
 
 @app.command()
 def seed() -> None:
-    """Загрузить сиды в БД идемпотентно: гео (1.3a) и каталог (1.3b); повтор ничего не меняет."""
-    from app.entrypoints.seeds import load_catalog_seed, load_city_seeds, validate
+    """Загрузить сиды в БД идемпотентно: гео (1.3a), каталог (1.3b), словарь модерации (2.4);
+    повтор ничего не меняет."""
+    from app.entrypoints.seeds import (
+        load_catalog_seed,
+        load_city_seeds,
+        load_content_rules_seed,
+        validate,
+    )
 
     report = validate()
     if not report.ok:
         for error in report.errors:
             typer.echo(f"error: {error}", err=True)
         raise typer.Exit(code=1)
-    asyncio.run(_seed(load_city_seeds(), load_catalog_seed()))
+    asyncio.run(_seed(load_city_seeds(), load_catalog_seed(), load_content_rules_seed()))
 
 
-async def _seed(cities: list[Any], categories: list[Any]) -> None:
+async def _seed(cities: list[Any], categories: list[Any], rules: list[Any]) -> None:
     from app.entrypoints._wiring import make_worker_container
     from app.modules.catalog.application.use_cases.import_catalog import (
         ImportCatalog,
@@ -188,6 +201,10 @@ async def _seed(cities: list[Any], categories: list[Any]) -> None:
     from app.modules.geo.application.use_cases.import_city import (
         ImportCity,
         ImportCityCommand,
+    )
+    from app.modules.moderation.application.use_cases.import_content_rules import (
+        ImportContentRules,
+        ImportContentRulesCommand,
     )
 
     container = make_worker_container(Settings())
@@ -206,6 +223,14 @@ async def _seed(cities: list[Any], categories: list[Any]) -> None:
         typer.echo(
             f"catalog: created {catalog.created}, updated {catalog.updated},"
             f" unchanged {catalog.unchanged}"
+        )
+        async with container() as request:
+            import_rules = await request.get(ImportContentRules)
+            imported = await import_rules(ImportContentRulesCommand(rules=tuple(rules)))
+        typer.echo(
+            f"content rules: created {imported.created}, updated {imported.updated},"
+            f" unchanged {imported.unchanged}, deactivated {imported.deactivated},"
+            f" skipped {imported.skipped} (admin)"
         )
     finally:
         await container.close()
@@ -391,6 +416,31 @@ async def _notify_test(user_ref: str) -> NotifyTestOutcome:
         return await run_notify_test(container, user_ref)
     finally:
         await container.close()
+
+
+@app.command("ai-smoke")
+def ai_smoke(
+    record: Annotated[
+        Path | None,
+        typer.Option(help="Сохранить сырые ответы провайдеров сюда (tests/unit/platform/recorded)"),
+    ] = None,
+) -> None:
+    """Живой вызов OpenAI omni-moderation и Claude с ключами из настроек (DEVELOPMENT_PLAN 2.4).
+
+    Проверяет ключи (K25, K26), модели и разбор ответа адаптерами; провайдер без ключа
+    пропускается. Стоит доли цента. Код выхода 1 — ключей нет или проверка не состоялась.
+    """
+    from app.entrypoints._ai_smoke import run_ai_smoke
+
+    if record is not None:
+        record.mkdir(parents=True, exist_ok=True)
+    report = asyncio.run(run_ai_smoke(AiSettings(), record))
+    for line in report.lines:
+        typer.echo(line)
+    for path in report.recorded:
+        typer.echo(f"записано: {path}")
+    if report.failed:
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,8 @@
+{
+  "error": {
+    "message": "Rate limit reached for omni-moderation-latest in organization org-test on requests per min (RPM): Limit 1000, Used 1000, Requested 1. Please try again in 60ms.",
+    "type": "requests",
+    "param": null,
+    "code": "rate_limit_exceeded"
+  }
+}

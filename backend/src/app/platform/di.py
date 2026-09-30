@@ -2,13 +2,14 @@
 
 Синглтон — только объект со Scope.APP: он создаётся один раз на процесс и закрывается
 при остановке. REQUEST — всё, что живёт одну команду: сессия, UoW, очередь.
-Провайдеры внешних клиентов добавляют их шаги: AI (2.4).
+AI-проверки (2.4): реальные адаптеры — только с ключом, без него — заглушки (platform/ai/stubs.py).
 Правовые тексты (1.5a) читаются из файлов репозитория один раз на процесс.
 """
 
 from collections.abc import AsyncIterator, Iterator
 from datetime import timedelta
 
+import anthropic
 import httpx
 import procrastinate
 import structlog
@@ -20,6 +21,17 @@ from prometheus_client import CollectorRegistry
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app.platform.ai.anthropic_classifier import AnthropicPolicyClassifier
+from app.platform.ai.breaker import CircuitBreaker
+from app.platform.ai.openai_moderation import OpenAiModeration
+from app.platform.ai.port import Moderation, PolicyClassifier, SecondaryImage
+from app.platform.ai.stubs import (
+    NoModeration,
+    NoPolicyClassifier,
+    NoSecondaryImage,
+    StubModeration,
+    StubPolicyClassifier,
+)
 from app.platform.analytics.fake import LoggingAnalytics
 from app.platform.analytics.port import Analytics
 from app.platform.analytics.posthog import PostHogAnalytics
@@ -68,6 +80,9 @@ from app.platform.telegram.texts import BOT_DEFAULTS
 log = structlog.get_logger(__name__)
 
 ANALYTICS_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
+AI_CONNECT_TIMEOUT = 5.0
+AI_MAX_RETRIES = 1
+"""SDK Anthropic повторяет 429, 5xx и обрывы с паузой; больше одного — дольше ждёт автор."""
 
 
 class PlatformProvider(Provider):
@@ -194,6 +209,45 @@ class PlatformProvider(Provider):
             )
 
     @provide(scope=Scope.APP)
+    async def moderation(
+        self, settings: AiSettings, app: AppSettings, clock: Clock
+    ) -> AsyncIterator[Moderation]:
+        """OpenAI omni-moderation, если есть ключ (K25)."""
+        if settings.openai_api_key is None:
+            stub = _stubs_allowed(app, "AI_OPENAI_API_KEY")
+            yield StubModeration() if stub else NoModeration()
+            return
+        timeout = httpx.Timeout(settings.timeout_seconds, connect=AI_CONNECT_TIMEOUT)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            yield OpenAiModeration(
+                client,
+                api_key=settings.openai_api_key.get_secret_value(),
+                model=settings.moderation_model,
+                breaker=CircuitBreaker(clock),
+            )
+
+    @provide(scope=Scope.APP)
+    async def policy_classifier(
+        self, settings: AiSettings, app: AppSettings, clock: Clock
+    ) -> AsyncIterator[PolicyClassifier]:
+        """Claude (ADR-0016: Haiku 4.5), если есть ключ (K26)."""
+        if settings.anthropic_api_key is None:
+            stub = _stubs_allowed(app, "AI_ANTHROPIC_API_KEY")
+            yield StubPolicyClassifier() if stub else NoPolicyClassifier()
+            return
+        async with anthropic.AsyncAnthropic(
+            api_key=settings.anthropic_api_key.get_secret_value(),
+            timeout=anthropic.Timeout(settings.timeout_seconds, connect=AI_CONNECT_TIMEOUT),
+            max_retries=AI_MAX_RETRIES,
+        ) as client:
+            yield AnthropicPolicyClassifier(
+                client, model=settings.classifier_model, breaker=CircuitBreaker(clock)
+            )
+
+    secondary_image = provide(NoSecondaryImage, scope=Scope.APP, provides=SecondaryImage)
+    """Q20: второго проверяющего изображений пока нет — сработавшие решает модератор."""
+
+    @provide(scope=Scope.APP)
     def client_config(self, maker: async_sessionmaker[AsyncSession]) -> ClientConfigCache:
         return ClientConfigCache(maker)
 
@@ -259,3 +313,12 @@ class PlatformProvider(Provider):
     uow = provide(SqlAlchemyUnitOfWork, scope=Scope.REQUEST, provides=UnitOfWork)
     audit_log = provide(SqlAuditLog, scope=Scope.REQUEST, provides=AuditLog)
     idempotency = provide(SqlIdempotencyStore, scope=Scope.REQUEST, provides=IdempotencyStore)
+
+
+def _stubs_allowed(app: AppSettings, variable: str) -> bool:
+    """Без ключа AI: в dev и тестах — заглушка, на stage и проде — «проверка недоступна»:
+    контент уходит в ручную очередь, а не публикуется без AI (ADR-0016)."""
+    if app.env in {Environment.STAGE, Environment.PRODUCTION}:
+        log.warning("ai_check_disabled", reason=f"{variable} is not set")
+        return False
+    return True

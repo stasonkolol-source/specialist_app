@@ -1,0 +1,89 @@
+# Набор примеров для контент-правил (DEVELOPMENT_PLAN 2.4): текст → что должны сказать правила
+# (content_rules.yaml вместе с детектором контактов и предоплаты). `make seeds-validate` и
+# unit-тесты падают, если правка словаря ломает хоть один пример.
+#
+# action: block, shadow, flag или pass (правила молчат); categories — все сработавшие.
+# Черновик ассистента — синтетика; реальные обезличенные примеры — K28.
+examples:
+  # --- находят -----------------------------------------------------------------------------
+  - text: Ищем закладчиков, оплата каждый день
+    action: block
+    categories: [drugs]
+  - text: ЗАКЛАААДЧИК нужен срочно
+    action: block
+    categories: [drugs]
+  - text: "Работа: курьер закладок, график свободный"
+    action: block
+    categories: [drugs]
+  - text: Nudim k0kain i MDMA, dostava po gradu
+    action: flag
+    categories: [drugs]
+  - text: Есть м.е.ф.е.д.р.о.н, пиши
+    action: flag
+    categories: [drugs]
+  - text: Продам огнестрел, недорого
+    action: flag
+    categories: [weapons]
+  - text: Prodajem vatreno oružje i municiju
+    action: flag
+    categories: [weapons]
+  - text: Эротический массаж на выезде, круглосуточно
+    action: flag
+    categories: [escort]
+  - text: Масажа са срећним крајем, дискретно
+    action: flag
+    categories: [escort]
+  - text: Сдай карту в аренду — 5000 в неделю без вложений
+    action: flag
+    categories: [mule]
+  - text: Скиньте код из СМС, чтобы я отправил оплату
+    action: flag
+    categories: [scam]
+  - text: Для оплаты перейдите по ссылке bit.ly/3xYzQ
+    action: flag
+    categories: [contacts, spam]
+  - text: Пассивный доход от 1000 евро в неделю
+    action: flag
+    categories: [spam]
+  - text: Заработок от 3000 в день, пиши
+    action: flag
+    categories: [spam]
+  - text: Запошљавамо раднике, пуно радно време, плата од 900 евра
+    action: flag
+    categories: [vacancy]
+  - text: We are hiring cleaners, salary from 800 EUR
+    action: flag
+    categories: [vacancy]
+  - text: "Позвоните мне: +381 64 123 45 67"
+    action: flag
+    categories: [contacts]
+  - text: Pišite na viber nula šest četiri, jedan dva tri, četiri pet šest sedam
+    action: flag
+    categories: [contacts]
+  - text: Plati unapred 50e pa dolazim
+    action: flag
+    categories: [scam]
+  - text: Нужна предоплата 30%, переведите на карту
+    action: flag
+    categories: [scam]
+  # --- молчат: обычные заявки и отклики ------------------------------------------------------
+  - text: Закладка фундамента под дом 10х12, нужна бригада
+    action: pass
+  - text: Нужен мастер, монтажный пистолет для пены у меня есть
+    action: pass
+  - text: Depilacija, masaža lica i tela u salonu
+    action: pass
+  - text: Треба ми мајстор за кречење стана у Лиману
+    action: pass
+  - text: Ищу няню без вредных привычек на вечер пятницы
+    action: pass
+  - text: Uradiću posao za 3 dana, plaćanje posle završetka
+    action: pass
+  - text: Kupila sam boju u drogeriji, treba samo da se okreči
+    action: pass
+  - text: Can you drop off the keys at 5 pm?
+    action: pass
+  - text: Нужна уборка после ремонта в субботу 12.10, 3 комнаты
+    action: pass
+  - text: Tražim električara za zamenu utičnica, cena po dogovoru
+    action: pass

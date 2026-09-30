@@ -70,6 +70,23 @@ def test_upward_module_dependency_is_caught(sandbox: Path) -> None:
     assert "Граф зависимостей модулей (ARCHITECTURE §5.4, ADR-0002) BROKEN" in result.stdout
 
 
+def test_messaging_cannot_use_moderation(sandbox: Path) -> None:
+    # moderation выше messaging (§5.4): детектор контактов переписка берёт из platform/text
+    _inject(
+        sandbox, "modules/messaging/application/__init__.py", "import app.modules.moderation.api"
+    )
+    result = _run_lint_imports(sandbox)
+    assert result.returncode != 0
+    assert "Граф зависимостей модулей (ARCHITECTURE §5.4, ADR-0002) BROKEN" in result.stdout
+
+
+def test_shared_text_kernel_stays_free_of_frameworks(sandbox: Path) -> None:
+    _inject(sandbox, "platform/text/contact_masking.py", "import sqlalchemy")
+    result = _run_lint_imports(sandbox)
+    assert result.returncode != 0
+    assert "domain, application и контракты без фреймворков (ADR-0020 §1) BROKEN" in result.stdout
+
+
 def test_import_of_foreign_internals_is_caught(sandbox: Path) -> None:
     # jobs может обращаться к deals, но только через api
     _inject(sandbox, "modules/jobs/application/__init__.py", "import app.modules.deals.domain")

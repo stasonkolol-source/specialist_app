@@ -11,9 +11,10 @@ import yaml
 from typer.testing import CliRunner
 
 from app.entrypoints import cli
-from app.entrypoints.seeds import SEEDS_DIR, load_catalog_seed, validate
+from app.entrypoints.seeds import SEEDS_DIR, load_catalog_seed, load_content_rules_seed, validate
 from app.modules.catalog.api import RiskLevel
 from app.modules.catalog.domain.category import PriceUnit
+from app.modules.moderation.domain.rules import RuleAction, RuleKind
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.money import Money
 
@@ -206,3 +207,77 @@ def test_catalog_seed_for_import_keeps_order_para_and_scripts() -> None:
         "sockets-and-switches",
         "fuse-box",
     ]
+
+
+# --- словарь модерации (2.4) ---------------------------------------------------------------
+
+
+def _rules(seeds: Path) -> Path:
+    return seeds / "moderation" / "content_rules.yaml"
+
+
+def _examples(seeds: Path) -> Path:
+    return seeds / "moderation" / "rule_examples.yaml"
+
+
+def _group(data: Any, category: str, action: str = "flag") -> dict[str, Any]:
+    group: dict[str, Any] = next(
+        g for g in data["rules"] if g["category"] == category and g["action"] == action
+    )
+    return group
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        (lambda d: _group(d, "spam")["words"].append("казино*"), "repeats 'казино*'"),
+        (lambda d: _group(d, "drugs")["words"].append("KOKAIN*"), "repeats 'кокаин*'"),
+        (lambda d: _group(d, "spam").update(regex=["(oops"]), "exactly one non-empty list"),
+        (
+            lambda d: d["rules"].append({"category": "spam", "action": "flag", "regex": ["(oops"]}),
+            "does not compile",
+        ),
+        (
+            lambda d: d["rules"].append({"category": "spam", "action": "flag", "words": ["pro*"]}),
+            "at least 4",
+        ),
+        (
+            lambda d: d["rules"].append({"category": "gambling", "action": "flag", "words": ["x"]}),
+            "category",
+        ),
+    ],
+    ids=["duplicate", "same-skeleton", "two-lists", "bad-regex", "short-stem", "bad-category"],
+)
+def test_broken_content_rules_are_reported(
+    seeds: Path, change: Callable[[Any], None], message: str
+) -> None:
+    _edit_yaml(_rules(seeds), change)
+    report = validate(seeds)
+    assert any(message in error for error in report.errors), report.errors
+
+
+def test_dictionary_change_that_breaks_an_example_is_reported(seeds: Path) -> None:
+    _edit_yaml(_rules(seeds), lambda d: _group(d, "drugs", "block")["words"].remove("закладчик*"))
+    _edit_yaml(_examples(seeds), lambda d: d["examples"].append({"text": "Ok", "action": "flag"}))
+
+    errors = validate(seeds).errors
+
+    assert any("'Ищем закладчиков, оплата каждый день': expected block" in e for e in errors)
+    assert any("'Ok': expected flag [], got pass []" in e for e in errors)
+
+
+def test_content_rules_seed_for_import_has_every_rule() -> None:
+    rules = load_content_rules_seed()
+
+    assert len({(rule.kind, rule.pattern) for rule in rules}) == len(rules)
+    assert {rule.kind for rule in rules} == set(RuleKind)
+    assert all(rule.active and rule.id is None for rule in rules)
+    blocking = {rule.pattern for rule in rules if rule.action is RuleAction.BLOCK}
+    assert blocking == {
+        "закладчик*",
+        "кладмен*",
+        "курьер закладок",
+        "делать закладки",
+        "stash placer*",
+        "drug courier*",
+    }  # block — только однозначное: список меняет владелец, а не случайная правка
