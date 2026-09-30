@@ -61,7 +61,8 @@ def decode_cursor(cursor: str, types: Sequence[type]) -> tuple[Any, ...]:
         if not isinstance(values, list) or len(values) != len(types):
             raise InvalidCursorError
         return tuple(_from_json(v, t) for v, t in zip(values, types, strict=True))
-    except (ValueError, binascii.Error, TypeError, json.JSONDecodeError) as exc:
+    except (ValueError, binascii.Error, TypeError, AttributeError, json.JSONDecodeError) as exc:
+        # AttributeError — UUID(123): курсор подделан, а не битый
         raise InvalidCursorError from exc
 
 

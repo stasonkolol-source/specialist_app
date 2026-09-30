@@ -776,6 +776,204 @@
         ]
       }
     },
+    "/api/v1/me/notifications": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "List Notifications",
+        "description": "Центр уведомлений: новые сверху, по курсору; тексты — на языке Accept-Language.",
+        "operationId": "notifications_list_notifications",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPageOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/notifications/read": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Mark Notifications Read",
+        "description": "Отметить прочитанными `ids` или все (`all: true`); чужие id не находятся. Повтор\nидемпотентен. Ответ — сколько непрочитанных осталось.",
+        "operationId": "notifications_mark_notifications_read",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationsReadIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/notification-settings": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Get Notification Settings",
+        "description": "Группы × каналы, тихие часы, час дайджеста и может ли бот писать (S43).",
+        "operationId": "notifications_get_notification_settings",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Update Notification Settings",
+        "description": "Заменить настройки целиком; группы, которых нет в списке, — по умолчанию. Служебную\nгруппу выключить нельзя — 422 `notification_group_mandatory`.",
+        "operationId": "notifications_update_notification_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSettingsOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/client-config": {
       "get": {
         "tags": [
@@ -1118,6 +1316,19 @@
         ],
         "title": "DistrictRefOut"
       },
+      "EventGroup": {
+        "type": "string",
+        "enum": [
+          "job_matches",
+          "responses",
+          "messages",
+          "deals",
+          "marketing",
+          "account"
+        ],
+        "title": "EventGroup",
+        "description": "Строка настроек уведомлений S43."
+      },
       "FailureReason": {
         "type": "string",
         "enum": [
@@ -1162,6 +1373,55 @@
         ],
         "title": "GrantedVia",
         "description": "Как пользователь разрешил доставку по каналу."
+      },
+      "GroupSettingIn": {
+        "properties": {
+          "group": {
+            "$ref": "#/components/schemas/EventGroup"
+          },
+          "telegram": {
+            "type": "boolean",
+            "title": "Telegram"
+          },
+          "in_app": {
+            "type": "boolean",
+            "title": "In App"
+          }
+        },
+        "type": "object",
+        "required": [
+          "group",
+          "telegram",
+          "in_app"
+        ],
+        "title": "GroupSettingIn"
+      },
+      "GroupSettingOut": {
+        "properties": {
+          "group": {
+            "$ref": "#/components/schemas/EventGroup"
+          },
+          "telegram": {
+            "type": "boolean",
+            "title": "Telegram"
+          },
+          "in_app": {
+            "type": "boolean",
+            "title": "In App"
+          },
+          "mandatory": {
+            "type": "boolean",
+            "title": "Mandatory"
+          }
+        },
+        "type": "object",
+        "required": [
+          "group",
+          "telegram",
+          "in_app",
+          "mandatory"
+        ],
+        "title": "GroupSettingOut"
       },
       "ImageVariantName": {
         "type": "string",
@@ -1584,6 +1844,207 @@
         ],
         "title": "MoneyOut"
       },
+      "NotificationOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "type": {
+            "$ref": "#/components/schemas/NotificationType"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "read": {
+            "type": "boolean",
+            "title": "Read"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "title",
+          "body",
+          "link",
+          "created_at",
+          "read"
+        ],
+        "title": "NotificationOut",
+        "description": "Строка центра уведомлений (S42) на языке Accept-Language."
+      },
+      "NotificationPageOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "unread_count": {
+            "type": "integer",
+            "title": "Unread Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "unread_count"
+        ],
+        "title": "NotificationPageOut"
+      },
+      "NotificationSettingsIn": {
+        "properties": {
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/GroupSettingIn"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Groups"
+          },
+          "quiet_hours": {
+            "$ref": "#/components/schemas/QuietHoursIn"
+          },
+          "digest_hour": {
+            "type": "integer",
+            "maximum": 23.0,
+            "minimum": 0.0,
+            "title": "Digest Hour",
+            "default": 9
+          }
+        },
+        "type": "object",
+        "required": [
+          "groups",
+          "quiet_hours"
+        ],
+        "title": "NotificationSettingsIn",
+        "description": "Настройки целиком: группы, которых нет в списке, возвращаются к умолчаниям."
+      },
+      "NotificationSettingsOut": {
+        "properties": {
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/GroupSettingOut"
+            },
+            "type": "array",
+            "title": "Groups"
+          },
+          "quiet_hours": {
+            "$ref": "#/components/schemas/QuietHoursOut"
+          },
+          "digest_hour": {
+            "type": "integer",
+            "title": "Digest Hour"
+          },
+          "telegram": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TelegramChannelOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "groups",
+          "quiet_hours",
+          "digest_hour",
+          "telegram"
+        ],
+        "title": "NotificationSettingsOut"
+      },
+      "NotificationType": {
+        "type": "string",
+        "enum": [
+          "job.matched",
+          "response.received",
+          "response.accepted",
+          "response.not_selected",
+          "job.invited",
+          "message.received",
+          "deal.proposed",
+          "deal.cancelled",
+          "dispute.opened",
+          "deal.reminder",
+          "deal.completion_prompt",
+          "review.request",
+          "review.published",
+          "moderation.decision",
+          "job.expiring",
+          "job.expired",
+          "profile.stale_reminder",
+          "account.restricted"
+        ],
+        "title": "NotificationType"
+      },
+      "NotificationsReadIn": {
+        "properties": {
+          "ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array",
+                "maxItems": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ids"
+          },
+          "all": {
+            "type": "boolean",
+            "title": "All",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "NotificationsReadIn",
+        "description": "Что отметить прочитанным: `ids` (до 100) или `all: true`."
+      },
       "PartsIn": {
         "properties": {
           "part_numbers": {
@@ -1805,6 +2266,61 @@
         "title": "ProblemOut",
         "description": "Ошибка RFC 9457. Клиент ветвится по `code`, текст для человека — `detail`."
       },
+      "QuietHoursIn": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "start": {
+            "type": "string",
+            "format": "time",
+            "title": "Start",
+            "default": "22:00:00"
+          },
+          "end": {
+            "type": "string",
+            "format": "time",
+            "title": "End",
+            "default": "08:00:00"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "QuietHoursIn"
+      },
+      "QuietHoursOut": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "start": {
+            "type": "string",
+            "format": "time",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "time",
+            "title": "End"
+          },
+          "time_zone": {
+            "type": "string",
+            "title": "Time Zone",
+            "default": "Europe/Belgrade"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "start",
+          "end"
+        ],
+        "title": "QuietHoursOut"
+      },
       "RefreshIn": {
         "properties": {
           "refresh_token": {
@@ -1957,6 +2473,19 @@
           "refresh_expires_at"
         ],
         "title": "TokensOut"
+      },
+      "UnreadOut": {
+        "properties": {
+          "unread_count": {
+            "type": "integer",
+            "title": "Unread Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "unread_count"
+        ],
+        "title": "UnreadOut"
       },
       "UploadIn": {
         "properties": {

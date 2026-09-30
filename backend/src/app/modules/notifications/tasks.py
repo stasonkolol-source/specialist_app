@@ -1,20 +1,46 @@
-"""Задачи notifications (ADR-0020 §3): подписки на события других модулей.
+"""Задачи notifications (ADR-0020 §3): подписки на события других модулей и отправка.
 
-`/start` в боте обрабатывает identity (он регистрирует пользователя), а канал доставки —
-данные notifications. identity ниже по DAG (ARCHITECTURE §5.4) и фасад notifications не
-вызывает: он публикует `BotStarted`, а канал открывает этот подписчик после commit.
+notifications стоит над контентными модулями (ARCHITECTURE §5.4): они о нём не знают и
+публикуют события, а подписчики здесь решают, кому и что написать.
+
+- `notifications.grant_write_access` — BotStarted: /start разрешает боту писать.
+- `notifications.notify_account_restricted` — UserRestricted: уведомление о санкции;
+  теневой бан человеку не сообщается — на то он и теневой.
+- `notifications.notify_moderation_decision` — ModerationDecisionMade: автору — отказ и
+  кнопка «Исправить» к его контенту; одобрение без уведомления.
+- `notifications.send` — отправить доставку в бот (очередь `notifications`).
 """
 
 from dishka import FromDishka
 
-from app.modules.notifications.application.ports import GRANT_WRITE_ACCESS
+from app.modules.notifications.application.ports import (
+    GRANT_WRITE_ACCESS,
+    NOTIFY_ACCOUNT_RESTRICTED,
+    NOTIFY_MODERATION_DECISION,
+    SEND_DELIVERY,
+    SendDeliveryPayload,
+)
 from app.modules.notifications.application.use_cases.grant_telegram_write_access import (
     GrantTelegramWriteAccess,
     GrantTelegramWriteAccessCommand,
 )
+from app.modules.notifications.application.use_cases.notify import Notify, NotifyCommand
+from app.modules.notifications.application.use_cases.send_delivery import (
+    SendDelivery,
+    SendDeliveryCommand,
+)
+from app.modules.notifications.domain.catalog import NotificationType
 from app.modules.notifications.domain.channel import GrantedVia
-from app.platform.contracts.events.identity import BotStarted
-from app.platform.queue.tasks import subscriber
+from app.modules.notifications.domain.notification import DeliveryId
+from app.platform.contracts.events.identity import BotStarted, RestrictionKind, UserRestricted
+from app.platform.contracts.events.moderation import ModerationDecision, ModerationDecisionMade
+from app.platform.queue.tasks import subscriber, task
+from app.platform.telegram.deeplinks import LinkDocument, LinkType, StartLink, encode_start_param
+
+RULES_LINK = encode_start_param(StartLink(type=LinkType.LEGAL, document=LinkDocument.TERMS))
+HOME_LINK = encode_start_param(StartLink(type=LinkType.HOME))
+FIX_LINKS = {"job": LinkType.JOB, "profile": LinkType.SPECIALIST}
+"""Куда ведёт «Исправить»: к заявке или профилю; остальное — на Главную (экраны — позже)."""
 
 
 @subscriber(BotStarted, GRANT_WRITE_ACCESS)
@@ -23,3 +49,48 @@ async def grant_write_access(
 ) -> None:
     """Канал telegram доступен после /start; повтор задачи ничего не меняет."""
     await grant(GrantTelegramWriteAccessCommand(user_id=event.user_id, via=GrantedVia.BOT_START))
+
+
+@subscriber(UserRestricted, NOTIFY_ACCOUNT_RESTRICTED)
+async def notify_account_restricted(event: UserRestricted, notify: FromDishka[Notify]) -> None:
+    if event.kind is RestrictionKind.SHADOW_BANNED:
+        return
+    params = {"kind": event.kind.value}
+    if event.until is not None:
+        params["until"] = event.until.isoformat()
+    await notify(
+        NotifyCommand(
+            user_id=event.user_id,
+            type=NotificationType.ACCOUNT_RESTRICTED,
+            dedupe_key=f"account.restricted:{event.restriction_id}",
+            params=params,
+            link=RULES_LINK,
+        )
+    )
+
+
+@subscriber(ModerationDecisionMade, NOTIFY_MODERATION_DECISION)
+async def notify_moderation_decision(
+    event: ModerationDecisionMade, notify: FromDishka[Notify]
+) -> None:
+    if event.decision is not ModerationDecision.REJECTED:
+        return
+    kind = FIX_LINKS.get(event.entity_type)
+    link = encode_start_param(StartLink(type=kind, id=event.entity_id)) if kind else HOME_LINK
+    await notify(
+        NotifyCommand(
+            user_id=event.author_id,
+            type=NotificationType.MODERATION_DECISION,
+            dedupe_key=f"moderation.decision:{event.case_id}",
+            params={
+                "entity_type": event.entity_type,
+                "decision_code": event.decision_code or "other",
+            },
+            link=link,
+        )
+    )
+
+
+@task(SEND_DELIVERY)
+async def send(payload: SendDeliveryPayload, deliver: FromDishka[SendDelivery]) -> None:
+    await deliver(SendDeliveryCommand(delivery_id=DeliveryId(payload.delivery_id)))

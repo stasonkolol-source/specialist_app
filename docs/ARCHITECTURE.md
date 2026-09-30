@@ -1544,33 +1544,38 @@ CREATE TABLE notifications.channels (          -- куда доставлять
   UNIQUE (kind, address)
 );
 
-CREATE TABLE notifications.preferences (
+CREATE TABLE notifications.preferences (      -- только отличия от умолчаний (всё включено, кроме marketing)
   user_id     uuid NOT NULL REFERENCES identity.users(id),
-  event_group text NOT NULL,          -- job_matches / responses / messages / deals / reviews / marketing
-  channel     text NOT NULL,          -- telegram / push / in_app
+  event_group text NOT NULL,          -- job_matches / responses / messages / deals / marketing (account — не выключается)
+  channel     text NOT NULL,          -- telegram / in_app (push — этап 2)
   enabled     boolean NOT NULL,
+  updated_at  timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, event_group, channel)
 );
 
-CREATE TABLE notifications.user_settings (      -- тихие часы и дайджест (S43)
-  user_id     uuid PRIMARY KEY REFERENCES identity.users(id),
-  quiet_from  time NOT NULL DEFAULT '22:00',     -- Europe/Belgrade
-  quiet_to    time NOT NULL DEFAULT '08:00',
-  digest_hour smallint NOT NULL DEFAULT 9 CHECK (digest_hour BETWEEN 0 AND 23),
-  updated_at  timestamptz NOT NULL DEFAULT now()
+CREATE TABLE notifications.user_settings (      -- тихие часы и дайджест (S43); строки нет — умолчания
+  user_id       uuid PRIMARY KEY REFERENCES identity.users(id),
+  quiet_enabled boolean NOT NULL DEFAULT true,
+  quiet_start   time NOT NULL DEFAULT '22:00',   -- Europe/Belgrade
+  quiet_end     time NOT NULL DEFAULT '08:00',
+  digest_hour   smallint NOT NULL DEFAULT 9 CHECK (digest_hour BETWEEN 0 AND 23),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  CHECK (quiet_start <> quiet_end)
 );
 
 CREATE TABLE notifications.notifications (      -- центр уведомлений + источник для доставки
   id          uuid PRIMARY KEY DEFAULT uuidv7(),
   user_id     uuid NOT NULL REFERENCES identity.users(id),
   type        text NOT NULL,                   -- job.matched / response.received / message.received …
-  payload     jsonb NOT NULL,
-  dedupe_key  text NOT NULL UNIQUE,            -- идемпотентность: job.matched:{job_id}:{user_id}
-  priority    smallint NOT NULL DEFAULT 1,
+  payload     jsonb NOT NULL,                  -- {params: машинные значения шаблона, link: код deep link}; текст — при показе
+  dedupe_key  text NOT NULL UNIQUE,            -- идемпотентность: account.restricted:{restriction_id}
+  priority    smallint NOT NULL CHECK (priority BETWEEN 0 AND 3),
+  in_app      boolean NOT NULL,                -- виден в центре: канал in_app группы включён
   read_at     timestamptz,
   created_at  timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX ON notifications.notifications (user_id, created_at DESC);
+CREATE INDEX ON notifications.notifications (user_id, id) WHERE in_app;                        -- лента S42 по курсору (UUIDv7)
+CREATE INDEX ON notifications.notifications (user_id) WHERE in_app AND read_at IS NULL;        -- бейдж
 
 CREATE TABLE notifications.deliveries (
   id                  uuid PRIMARY KEY DEFAULT uuidv7(),
@@ -1580,8 +1585,10 @@ CREATE TABLE notifications.deliveries (
   attempts            smallint NOT NULL DEFAULT 0,
   provider_message_id text,
   error               text,
-  not_before          timestamptz NOT NULL DEFAULT now(),   -- тихие часы, дайджесты, retry_after
+  not_before          timestamptz NOT NULL,   -- тихие часы; позже — дебаунс, дайджесты, retry_after
   sent_at             timestamptz,
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  updated_at          timestamptz NOT NULL DEFAULT now(),
   UNIQUE (notification_id, channel_id)
 );
 CREATE INDEX ON notifications.deliveries (not_before) WHERE status = 'queued';
@@ -2399,8 +2406,8 @@ sequenceDiagram
 
 | Метод и путь | Назначение |
 |---|---|
-| `GET /me/notifications?cursor=`, `POST /me/notifications/read` | Центр уведомлений |
-| `GET /me/notification-settings`, `PUT /me/notification-settings` | Группы × каналы (`notifications.preferences`), тихие часы и час дайджеста (`notifications.user_settings`) |
+| `GET /me/notifications?limit=&cursor=`, `POST /me/notifications/read` | Центр уведомлений: `{items: [{id, type, title, body, link, created_at, read}], next_cursor, unread_count}` на языке Accept-Language; прочитать — `{ids}` или `{all: true}` → `{unread_count}` |
+| `GET /me/notification-settings`, `PUT /me/notification-settings` | Группы × каналы (`notifications.preferences`: `{group, telegram, in_app, mandatory}`), тихие часы и час дайджеста (`notifications.user_settings`), может ли бот писать. PUT заменяет целиком; служебную группу выключить нельзя — 422 `notification_group_mandatory` |
 | `POST /me/telegram/write-access` | Mini App сообщает, что пользователь разрешил боту писать (`requestWriteAccess`) |
 | `POST /me/push-devices`, `DELETE /me/push-devices/{id}` | Этап 2: токены APNs/FCM |
 
@@ -2802,6 +2809,8 @@ flowchart LR
 ```
 
 - **Идемпотентность.** Уникальный `dedupe_key` (например, `response.received:{job_id}:{window}`) и `UNIQUE (notification_id, channel_id)` в доставках.
+- **Как устроено (шаг 2.3a).** Подписчик события (очередь `notifications`) вызывает один use case `Notify`: в одной транзакции — уведомление, доставка в личный чат с ботом (если тип ходит в бот, группа включена и боту можно писать) и задача `notifications.send`, поставленная на `not_before` (`JobQueue.enqueue(…, not_before=…)`). Текст не хранится: `payload` — машинные параметры и код deep link, а текст собирается по шаблонам gettext на языке читателя — при показе в центре и при отправке. При отправке настройки проверяются заново: группу выключили за ночь — `suppressed`, тихие часы продлили — доставка ждёт их нового конца (срочное — нет). Отправка at-least-once: упади воркер между отправкой и записью итога, сообщение уйдёт ещё раз. Удалённому пользователю и в выключенный канал — `suppressed`.
+- **Группы S43** («группа × канал»: бот, приложение): `job_matches` — «Заявки по подпискам», `responses` — «Отклики и выбор», `messages`, `deals` — «Сделки, споры, отзывы», `marketing` — «Новости «Соседей»» (только по согласию, по умолчанию выключена). Служебная `account` — решения модерации и санкции — не выключается: без неё человек не узнает, почему контент не виден или действие запрещено. Теневой бан пользователю не сообщается.
 - **Дебаунс.** Несколько откликов на одну заявку за 5–10 минут собираются в одно сообщение. Если сообщения в чате пришли, пока получатель активен в этом диалоге Mini App (heartbeat), уведомление не отправляется.
 - **Тихие часы** 22:00–08:00 (Europe/Belgrade, настраиваются в `notifications.user_settings`) действуют для всего, кроме сообщений чата, выбора исполнителя, `deal.proposed` и заявок со срочностью `asap`.
 - **Приоритеты** (при перегрузке первые идут раньше):
@@ -2934,7 +2943,7 @@ flowchart LR
     JQ2 --> TG["Отправитель в Telegram<br/>rate limiter в Valkey"]
 ```
 
-- **Порт `JobQueue`** (`enqueue(task, payload, dedup_key)`) в `platform/queue`. Прикладной код ничего не знает о Procrastinate.
+- **Порт `JobQueue`** (`enqueue(task, payload, dedup_key, not_before)`) в `platform/queue`: `not_before` — не запускать раньше (тихие часы, пауза после 429). Прикладной код ничего не знает о Procrastinate.
 - **Диспетчер событий** при commit Unit of Work ставит по задаче на каждого подписчика события **на том же соединении и в той же транзакции**. Откат транзакции отменяет и задачи, commit делает их видимыми воркерам (NOTIFY). Таблица задач и есть outbox: dual write не возникает.
 - **Запасной путь**, если спайк не подтвердит транзакционную постановку через SQLAlchemy: таблица `platform.outbox` + relay (`FOR UPDATE SKIP LOCKED`). Интерфейс `JobQueue` не меняется.
 

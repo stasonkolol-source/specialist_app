@@ -5,6 +5,7 @@
 ленивый и вставку мимо него не защищает. AlreadyEnqueued — успех: задача уже стоит.
 """
 
+from datetime import datetime
 from typing import Any
 
 import procrastinate
@@ -43,13 +44,22 @@ class ProcrastinateJobQueue:
         self._app = app
 
     async def enqueue[P](
-        self, task: TaskRef[P], payload: P, *, dedup_key: str | None = None
+        self,
+        task: TaskRef[P],
+        payload: P,
+        *,
+        dedup_key: str | None = None,
+        not_before: datetime | None = None,
     ) -> None:
         raw = await session_driver_connection(self._session)
         # queueing_lock в Procrastinate общий на все задачи: ключ — в пространстве своей задачи
         lock = f"{task.name}:{dedup_key}" if dedup_key is not None else None
         deferrer = self._app.configure_task(
-            name=task.name, queue=task.queue, queueing_lock=lock, connection=raw
+            name=task.name,
+            queue=task.queue,
+            queueing_lock=lock,
+            schedule_at=not_before,
+            connection=raw,
         )
         try:
             async with raw.transaction():  # в активной транзакции — SAVEPOINT
