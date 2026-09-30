@@ -2,6 +2,8 @@
 детекторы platform/text и вердикт по строгости. Словарь репозитория и набор примеров
 проверяет tests/unit/test_seeds.py."""
 
+import time
+
 import pytest
 
 from app.modules.moderation.domain.rules import (
@@ -129,6 +131,24 @@ def test_detectors_work_without_any_rule() -> None:
     assert verdict.categories == {RuleCategory.CONTACTS, RuleCategory.SCAM}
     assert {m.source for m in verdict.matches} == {MatchSource.DETECTOR}
     assert [m.evidence for m in verdict.matches] == ["phone, username", "prepayment"]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "a" + " " * 19_993 + "@b.com",
+        "a@" + " " * 19_990 + "b.com",
+        "t" + " " * 19_990 + ". me/x",
+        "x [.] " * 3_000,
+    ],
+    ids=["before-at", "after-at", "before-dot", "hidden-dots"],
+)
+def test_check_is_linear_on_long_whitespace(text: str) -> None:
+    rules = RuleSet([rule("bit.ly", DOMAIN, category=RuleCategory.SPAM), rule("kokain*")])
+    started = time.perf_counter()
+    rules.check(text)
+    RuleSet().check(text)
+    assert time.perf_counter() - started < 3.0  # линейно — сотые доли секунды
 
 
 def test_verdict_takes_the_strictest_action_and_keeps_every_match() -> None:

@@ -116,6 +116,42 @@ def found(text: str) -> list[tuple[ContactKind, str]]:
         ("telegram ivan_master99", [(USERNAME, "ivan_master99")]),
         ("в телеграм — ivan_master", [(USERNAME, "ivan_master")]),
         ("пишите на ivan.petrov@gmail", [(EMAIL, "ivan.petrov@gmail")]),
+        # номер вплотную к буквам и к знакам «№», «℡» (NFKC делает из них буквы)
+        ("Zovi 064 123 4567a", [(PHONE, "064 123 4567")]),
+        ("Tel064 123 4567", [(PHONE, "064 123 4567")]),
+        ("Zovi064/123-4567", [(PHONE, "064/123-4567")]),
+        ("0641234567ivan", [(PHONE, "0641234567")]),
+        ("тел0641234567", [(PHONE, "0641234567")]),
+        ("Мой №064 123 45 67", [(PHONE, "064 123 45 67")]),
+        ("Viber℡064 123 4567", [(PHONE, "064 123 4567")]),
+        # диакритика в адресе, нике и зоне
+        ("t.mé/ivan_master", [(LINK, "t.mé/ivan_master")]),
+        ("ivan@gmail.cóm", [(EMAIL, "ivan@gmail.cóm")]),
+        ("@ivän_master", [(USERNAME, "@ivän_master")]),
+        ("majstor.ŕs", [(LINK, "majstor.ŕs")]),
+        # к карте приклеились срок и CVV
+        ("Kartica 4111 1111 1111 1111 12/28", [(CARD, "4111 1111 1111 1111")]),
+        ("Card 4111 1111 1111 1111 123", [(CARD, "4111 1111 1111 1111")]),
+        ("4111111111111111 12/28", [(CARD, "4111111111111111")]),
+        # разделители: юникодные дефисы и минус, буллет, тильда, заполнители хангыля и Брайля
+        ("064\u2011123\u20114567", [(PHONE, "064\u2011123\u20114567")]),
+        ("064\u2010123\u20104567", [(PHONE, "064\u2010123\u20104567")]),
+        ("064\u2212123\u22124567", [(PHONE, "064\u2212123\u22124567")]),
+        ("4111\u20111111\u20111111\u20111111", [(CARD, "4111\u20111111\u20111111\u20111111")]),
+        ("064•123•4567", [(PHONE, "064•123•4567")]),
+        ("064~123~4567", [(PHONE, "064~123~4567")]),
+        ("064\u3164123\u31644567", [(PHONE, "064\u3164123\u31644567")]),
+        ("064\u2800123\u28004567", [(PHONE, "064\u2800123\u28004567")]),
+        # пересекающиеся находки — одна: номер внутри ссылки
+        ("majstor.rs/064 123 4567", [(LINK, "majstor.rs/064 123 4567")]),
+        # ник с точкой, точка в скобках внутри почты
+        ("@ivan.master", [(USERNAME, "@ivan.master")]),
+        ("insta: @ ivan.master", [(USERNAME, "@ ivan.master")]),
+        ("ivan[.]petrov@gmail.com", [(EMAIL, "ivan[.]petrov@gmail.com")]),
+        # ноль отдельно, счёт без нулей в середине, IBAN без пробелов
+        ("0 64 123 45 67", [(PHONE, "0 64 123 45 67")]),
+        ("Račun 160-123456-54", [(ACCOUNT, "160-123456-54")]),
+        ("RS35265100000000012370", [(ACCOUNT, "RS35265100000000012370")]),
     ],
 )
 def test_contacts_are_found(text: str, expected: list[tuple[ContactKind, str]]) -> None:
@@ -169,6 +205,11 @@ def test_contacts_are_found(text: str, expected: list[tuple[ContactKind, str]]) 
         "zovi me na viber",
         "Dostava na mail adresu",
         "IBAN: RS35 1600 0000 0012 3456 78",
+        # списки времени
+        "Termini 09:00 10:30 12:00",
+        "Свободные окна: 09:00 10:00 11:00 12:00",
+        "Slobodni termini: 09.30 10.30 11.30 12.30",
+        "Свободно 08:00 / 09:30 / 11:00",
     ],
 )
 def test_ordinary_text_is_left_alone(text: str) -> None:
@@ -200,12 +241,20 @@ def test_unusual_digits_never_crash(text: str) -> None:
         "avans " * 3_300,
         "bez avansa ne avansa " * 4_000,  # одна фраза из тысяч повторов ключа
         "a " * 10_000 + "bc",
+        # длинные пробелы вокруг «@», «at», точки: каждое совпадение не перебирает их заново
+        "a" + " " * 19_993 + "@b.com",
+        "a@" + " " * 19_990 + "b.com",
+        "a" + " " * 19_990 + " at b.com",
+        "t" + " " * 19_990 + ". me/x",
+        "x [.] " * 3_000,
+        "a " + "(.) " * 5_000,
     ],
     ids=lambda text: text[:12],
 )
 def test_adversarial_input_is_linear(text: str) -> None:
     started = time.perf_counter()
     mask_contacts(text)
+    find_domains(text)
     find_prepayment(text)
     skeleton(text)
     assert time.perf_counter() - started < 3.0  # линейно — десятые доли; квадратично — 5–35 с
@@ -301,6 +350,42 @@ def test_payment_after_the_job_is_not_prepayment(text: str) -> None:
         ("завдати шкоди", False),
         ("kino karte", False),
         ("залог успеха", False),
+        ("Объясню страдательный залог", False),
+        # между отрицанием и словом — определитель или глагол
+        ("Without any deposit", False),
+        ("Работаю без всякой предоплаты", False),
+        ("Без какой-либо предоплаты", False),
+        ("Radim bez ikakvog avansa", False),
+        ("Не нужно вносить предоплату", False),
+        ("Ne morate plaćati unapred", False),
+        ("No need to pay in advance", False),
+        ("Nije potrebno da plaćate unapred", False),
+        ("We never take a deposit", False),
+        # однородные слова наследуют отрицание
+        ("Работаю без предоплаты и залога", False),
+        ("Bez avansa i depozita", False),
+        ("No deposit or prepayment", False),
+        ("No deposit and I do not charge for travel", False),
+        # согласование и отказ после слова — не двойное отрицание
+        ("Никаких авансов не требую", False),
+        ("Nikakav avans ne treba", False),
+        ("Предоплата: не нужна", False),
+        ("Avans: nije potreban", False),
+        ("Deposit: not required", False),
+        ("Deposit is not charged", False),
+        ("Не потрібна передоплата", False),
+        ("Передоплата не потрібна", False),
+        ("Аванс не прошу", False),
+        ("Avans ne tražim", False),
+        ("Работаю без предоплаты и не беру денег за выезд", False),
+        # отказ ехать через запятую, тире и вводное слово
+        ("Без предоплаты, к сожалению, не выезжаю", True),
+        ("Bez avansa, nažalost, ne dolazim", True),
+        ("Без предоплаты — не работаю", True),
+        ("Без передоплати, на жаль, не приїжджаю", True),
+        ("Bez avansa nikako", True),
+        ("Without deposit I will not come", True),
+        ("Нужна п\u03c1едоплата", True),  # греческая «ρ»
     ],
 )
 def test_prepayment_respects_negation_and_narrow_stems(text: str, asks: bool) -> None:
@@ -333,6 +418,11 @@ def test_skeleton_folds_scripts_and_disguises() -> None:
     assert skeleton("Best сasino") == "best casino"
     assert skeleton("з+а+к+л+а+д") == "zaklad"
     assert skeleton("Я и в субботу") == "ja i v subotu"  # три однобуквенных слова — не слово
+    # греческие двойники в кириллическом слове
+    assert skeleton("п\u03c1едоплата") == "predoplata"
+    assert skeleton("ка\u03c1ту") == "kartu"
+    assert skeleton("Ге\u03c1оин") == "geroin"
+    assert skeleton("\u03c7акер") == "haker"
 
 
 @pytest.mark.parametrize(

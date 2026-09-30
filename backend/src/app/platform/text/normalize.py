@@ -53,6 +53,10 @@ _LATIN_AS_CYRILLIC = {
 }  # fmt: skip
 """Латиница, похожая на кириллицу (и прописные — после casefold): «пpедоплата», «npeдоплата»."""
 _CYRILLIC_AS_LATIN = {cyrillic: latin for latin, cyrillic in _LATIN_AS_CYRILLIC.items()}
+_GREEK_AS_CYRILLIC = str.maketrans({
+    "ρ": "р", "χ": "х", "γ": "у", "ο": "о", "α": "а", "ε": "е", "κ": "к", "τ": "т", "μ": "м",
+    "η": "п", "ι": "і", "ү": "у",
+})  # fmt: skip
 """И наоборот: «сasino» с кириллической «с» — это casino, а не sasino."""
 _LEET = {"0": "o", "3": "e", "4": "a", "1": "i", "5": "s", "7": "t"}
 _LEET_CYRILLIC = {**_LEET, "3": "z", "4": "c", "6": "b"}
@@ -74,8 +78,9 @@ _SPACED = re.compile(
 Три однобуквенных слова подряд («Я и в субботу») — ещё не слово по буквам. Просмотр назад не
 даёт начать внутри такой цепочки (перед буквой — одиночная буква и разделитель), поэтому поиск
 линейный и на «a-a-a-…» длиной в 20 000 символов."""
-_CLAUSE = re.compile(r"[,;!?¡¿\n\r]+|[.:…](?=\s|$)|\s[-–—]\s")
-"""Граница фразы: запятая, точка с пробелом после, тире между пробелами."""
+_CLAUSE = re.compile(r"[;!?¡¿\n\r]+|[.…](?=\s|$)")
+"""Граница предложения: точка с пробелом после, «!», «?», «;», перевод строки. Запятая, двоеточие
+и тире — внутри предложения: «Предоплата: не нужна», «Без предоплаты, к сожалению, не выезжаю»."""
 _SIGN = re.compile(r"(?<=[^\W\d_])[@$](?=[^\W\d_])", re.UNICODE)
 """«k@zino», «ca$ino»: знак между буквами — буква, а не граница слова."""
 _SIGNS = {"@": "a", "$": "s"}
@@ -113,6 +118,8 @@ def _word_skeleton(word: str) -> str:
     if cyrillic_letters and latin_letters:  # слово из двух письменностей: двойники — к большинству
         lookalikes = _LATIN_AS_CYRILLIC if mostly_cyrillic else _CYRILLIC_AS_LATIN
         word = "".join(lookalikes.get(char, char) for char in word)
+    if mostly_cyrillic:  # греческие двойники в кириллическом слове: «пρедоплата», «геρоин»
+        word = word.translate(_GREEK_AS_CYRILLIC)
     letters = sum(1 for char in word if char.isalpha())
     leet = _LEET_CYRILLIC if mostly_cyrillic else _LEET
     if letters:

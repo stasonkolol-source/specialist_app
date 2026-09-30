@@ -116,6 +116,35 @@ examples:
   - text: "０６４ １２３ ４５６７"
     action: flag
     categories: [contacts]
+  # номер вплотную к буквам, юникодные разделители, ник с точкой, точка в скобках, IBAN
+  - text: Zovi064/123-4567 posle 18h
+    action: flag
+    categories: [contacts]
+  - text: "Мой №064 123 45 67"
+    action: flag
+    categories: [contacts]
+  - text: "064\u2011123\u20114567 ili 064•123•4567"
+    action: flag
+    categories: [contacts]
+  - text: "insta: @ ivan.master"
+    action: flag
+    categories: [contacts]
+  - text: Пиши на ivan[.]petrov@gmail.com
+    action: flag
+    categories: [contacts]
+  - text: Uplata na RS35265100000000012370
+    action: flag
+    categories: [contacts]
+  # предоплата: греческая буква в слове, отказ ехать через запятую и «к сожалению»
+  - text: "Нужна п\u03c1едоплата 30%"
+    action: flag
+    categories: [scam]
+  - text: Без предоплаты, к сожалению, не выезжаю
+    action: flag
+    categories: [scam]
+  - text: Bez avansa, nažalost, ne dolazim
+    action: flag
+    categories: [scam]
   # --- молчат: обычные заявки и отклики ------------------------------------------------------
   - text: Закладка фундамента под дом 10х12, нужна бригада
     action: pass
@@ -162,6 +191,25 @@ examples:
     action: pass
   - text: Zalogajnica traži dostavu, kino karte za dvoje
     action: pass
+  # отказ от предоплаты: определитель, однородные слова, глагол между «не» и словом
+  - text: Работаю без всякой предоплаты
+    action: pass
+  - text: Radim bez ikakvog avansa i depozita
+    action: pass
+  - text: Никаких авансов не требую
+    action: pass
+  - text: "Предоплата: не нужна"
+    action: pass
+  - text: Не нужно вносить предоплату
+    action: pass
+  - text: No need to pay in advance
+    action: pass
+  - text: Nije potrebno da plaćate unapred
+    action: pass
+  - text: Не потрібна передоплата
+    action: pass
+  - text: Объясню страдательный залог
+    action: pass
   # время, цены, точка без пробела, «@» как «в»
   - text: Dostupan sam 08.00-16.00, termin od 07.30 - 09.00
     action: pass
@@ -182,4 +230,9 @@ examples:
   - text: uradio sam posao.to je sve
     action: pass
   - text: Я и в субботу могу приехать
+    action: pass
+  # списки времени — не телефон
+  - text: "Slobodni termini: 09.30 10.30 11.30 12.30"
+    action: pass
+  - text: "Свободные окна: 09:00 10:00 11:00 12:00"
     action: pass

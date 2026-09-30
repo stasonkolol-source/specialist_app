@@ -239,7 +239,7 @@ class RuleSet:
     def check(self, text: str) -> RulesVerdict:
         text = text[:MAX_TEXT]
         words = skeleton(text)
-        contacts = scan_contacts(text)
+        contacts = scan_contacts(text, domains=bool(self._domains))
         matches = [
             _matched(c.rule) for c in self._text if c.regex is not None and c.regex.search(words)
         ]
