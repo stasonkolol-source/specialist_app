@@ -173,7 +173,46 @@ def _regex(pattern: str) -> re.Pattern[str]:
         raise InvalidRuleError("regex matches an empty text")
     if _DOUBLE_LETTER.search(_ESCAPE.sub(" ", pattern)):
         raise InvalidRuleError("regex works on the skeleton: no double letters (ss → s)")
+    if nested_quantifier(pattern):
+        raise InvalidRuleError("nested quantifiers like (a+)+ make matching exponential")
     return regex
+
+
+_QUANTIFIER = frozenset("+*{")
+
+
+def nested_quantifier(pattern: str) -> bool:
+    """Группа с повтором внутри, которую повторяют целиком: «(\\w+\\s?)+», «(a*)*», «(x+){2,}».
+    На совпадении, которое почти удалось, стандартный `re` перебирает варианты экспоненциально:
+    одна такая строка словаря повесила бы проверку текста любого пользователя."""
+    groups: list[bool] = []  # у каждой открытой группы — есть ли повтор внутри
+    closed_repeating = False  # группа только что закрылась и внутри был повтор
+    index = 0
+    while index < len(pattern):
+        char = pattern[index]
+        if char == "\\":
+            index += 2
+            closed_repeating = False
+            continue
+        if char == "[":  # класс символов: квантификаторы внутри — буквы
+            end = pattern.find("]", index + 2)
+            index = len(pattern) if end < 0 else end + 1
+            closed_repeating = False
+            continue
+        if closed_repeating and char in _QUANTIFIER:
+            return True
+        closed_repeating = False
+        if char == "(":
+            groups.append(False)
+        elif char == ")" and groups:
+            inner = groups.pop()
+            closed_repeating = inner
+            if groups and inner:
+                groups[-1] = True
+        elif char in _QUANTIFIER and groups:
+            groups[-1] = True
+        index += 1
+    return False
 
 
 class RuleSet:

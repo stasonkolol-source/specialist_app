@@ -5,7 +5,15 @@
 
 from enum import StrEnum
 
-from sqlalchemy import Boolean, Identity, Integer, String, UniqueConstraint, text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Identity,
+    Integer,
+    String,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.modules.moderation.domain.rules import (
@@ -50,4 +58,8 @@ class ContentRuleRow(TimestampsMixin, Base):
         str_enum(RuleOrigin, "origin"), server_default=RuleOrigin.ADMIN.value
     )
 
-    __table_args__ = (UniqueConstraint("kind", "pattern"),)
+    __table_args__ = (
+        UniqueConstraint("kind", "pattern"),
+        # регулярки — только из сида, прошедшего ревью (миграция moderation_0001)
+        CheckConstraint("kind <> 'regex' OR origin = 'seed'", name="regex_from_seed"),
+    )

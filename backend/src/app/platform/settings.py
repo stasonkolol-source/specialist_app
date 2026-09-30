@@ -9,6 +9,7 @@
 - Новая настройка появляется в `backend/.env.example` в том же шаге (это проверяет тест).
 """
 
+import os
 import re
 from enum import StrEnum
 from pathlib import Path
@@ -219,6 +220,10 @@ class Settings:
     """Все группы настроек процесса. Создаётся один раз в entrypoint и кладётся в DI."""
 
     def __init__(self, env_file: Path | None = ENV_FILE) -> None:
+        if os.environ.get("APP_ENV") == "":
+            # пустое значение в окружении превратилось бы в dev (env_ignore_empty) — и в заглушки
+            # AI, которые пропускают всё; в backend/.env пустой APP_ENV — это dev и остаётся
+            raise SettingsError("APP_ENV задан пустым: укажите dev, test, stage или production")
         values: dict[type[_Group], _Group] = {}
         missing: list[str] = []
         invalid: list[str] = []

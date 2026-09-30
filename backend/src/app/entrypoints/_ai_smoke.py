@@ -23,6 +23,7 @@ from app.platform.ai.anthropic_classifier import AnthropicPolicyClassifier
 from app.platform.ai.breaker import CircuitBreaker
 from app.platform.ai.openai_moderation import OpenAiModeration
 from app.platform.ai.port import ContentKind, PolicyLabel, Unavailable
+from app.platform.di import ANTHROPIC_API
 from app.platform.settings import AiSettings
 
 MODERATION_SAMPLES = (
@@ -157,6 +158,7 @@ async def _classifier(
     recorder = _Recorder()
     async with anthropic.AsyncAnthropic(
         api_key=key,
+        base_url=ANTHROPIC_API,
         timeout=anthropic.Timeout(settings.timeout_seconds, connect=5.0),
         max_retries=1,
         http_client=anthropic.DefaultAsyncHttpxClient(

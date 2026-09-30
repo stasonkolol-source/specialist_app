@@ -76,6 +76,15 @@ def test_empty_values_count_as_unset(clean_env: pytest.MonkeyPatch, tmp_path: Pa
     assert DbSettings(_env_file=env).pool_size == 10
 
 
+def test_explicitly_empty_app_env_stops_the_process(clean_env: pytest.MonkeyPatch) -> None:
+    # пустое значение стало бы dev — и заглушками AI, которые пропускают всё
+    for name, value in REQUIRED.items():
+        clean_env.setenv(name, value)
+    clean_env.setenv("APP_ENV", "")
+    with pytest.raises(SettingsError, match="APP_ENV"):
+        Settings(env_file=None)
+
+
 def test_every_setting_is_listed_in_env_example() -> None:
     listed = set(_read_env(BACKEND / ".env.example"))
     expected = {name for group in GROUPS for name in env_names(group)}

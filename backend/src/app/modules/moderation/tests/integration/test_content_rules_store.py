@@ -2,6 +2,7 @@
 строки админки он не трогает; снимок для проверки читает только действующие правила и
 переживает сбой БД."""
 
+import asyncio
 from dataclasses import replace
 from datetime import timedelta
 from typing import Any, cast
@@ -9,7 +10,7 @@ from typing import Any, cast
 import procrastinate
 import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession, async_sessionmaker
 from structlog.testing import capture_logs
 from tests.plugins.database import make_uow
@@ -133,8 +134,9 @@ async def test_broken_rule_is_skipped_and_reported_once(
 ) -> None:
     await db_session.execute(
         text(
-            "INSERT INTO moderation.content_rules (pattern, kind, action, category)"
-            " VALUES ('(oops', 'regex', 'flag', 'spam'), ('heroin*', 'word', 'flag', 'drugs')"
+            "INSERT INTO moderation.content_rules (pattern, kind, action, category, origin)"
+            " VALUES ('(oops', 'regex', 'flag', 'spam', 'seed'),"
+            " ('heroin*', 'word', 'flag', 'drugs', 'seed')"
         )
     )
     await db_session.commit()
@@ -201,3 +203,85 @@ async def test_dictionary_that_fails_to_build_keeps_the_last_snapshot(
 
     assert after is snapshot
     assert [entry["event"] for entry in logs] == ["content_rules_build_failed"]
+
+
+class _Blocked:
+    """async_sessionmaker, у которого БД отвечает только после `gate` (или никогда)."""
+
+    def __init__(self, gate: asyncio.Event) -> None:
+        self._gate = gate
+
+    def __call__(self) -> _Blocked:
+        return self
+
+    async def __aenter__(self) -> AsyncSession:
+        await self._gate.wait()
+        raise OperationalError("SELECT 1", {}, Exception("too late"))
+
+    async def __aexit__(self, *exc: object) -> None:
+        return None
+
+
+async def test_readers_get_the_last_snapshot_while_it_refreshes(
+    db_session: AsyncSession, db_connection: AsyncConnection, procrastinate_app: procrastinate.App
+) -> None:
+    await run_import(db_session, procrastinate_app, KOKAIN)
+    clock = [0.0]
+    rules = source(db_connection, timedelta(seconds=1), clock)
+    snapshot = await rules.current()
+    gate = asyncio.Event()
+    rules._maker = cast(async_sessionmaker[AsyncSession], _Blocked(gate))  # БД задумалась
+
+    clock[0] += 2
+    refreshing = asyncio.create_task(rules.current())
+    await asyncio.sleep(0)  # обновление взяло блокировку и ждёт БД
+
+    async with asyncio.timeout(1):
+        assert await rules.current() is snapshot  # без ожидания
+    gate.set()
+    assert await refreshing is snapshot
+
+
+async def test_slow_database_keeps_the_last_snapshot(
+    db_session: AsyncSession,
+    db_connection: AsyncConnection,
+    procrastinate_app: procrastinate.App,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await run_import(db_session, procrastinate_app, KOKAIN)
+    clock = [0.0]
+    rules = source(db_connection, timedelta(seconds=1), clock)
+    snapshot = await rules.current()
+    monkeypatch.setattr(
+        "app.modules.moderation.infrastructure.rules.REFRESH_TIMEOUT", timedelta(milliseconds=50)
+    )
+    rules._maker = cast(async_sessionmaker[AsyncSession], _Blocked(asyncio.Event()))
+
+    clock[0] += 2
+    with capture_logs() as logs:
+        async with asyncio.timeout(1):
+            assert await rules.current() is snapshot
+
+    assert [(entry["event"], entry["error"]) for entry in logs] == [
+        ("content_rules_unavailable", "TimeoutError")
+    ]
+
+
+async def test_an_empty_dictionary_is_reported(db_connection: AsyncConnection) -> None:
+    rules = source(db_connection, timedelta(seconds=60), [0.0])
+
+    with capture_logs() as logs:
+        await rules.current()
+
+    assert [entry["event"] for entry in logs] == ["content_rules_empty"]
+
+
+async def test_regex_rules_come_only_from_the_reviewed_seed(db_session: AsyncSession) -> None:
+    # стандартный re перебирает неудачную регулярку экспоненциально: из админки — нельзя
+    with pytest.raises(IntegrityError, match="ck_content_rules_regex_from_seed"):
+        await db_session.execute(
+            text(
+                "INSERT INTO moderation.content_rules (pattern, kind, action, category)"
+                " VALUES ('(\\w+\\s?)+kupim', 'regex', 'flag', 'spam')"
+            )
+        )

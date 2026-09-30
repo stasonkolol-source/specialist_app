@@ -81,6 +81,8 @@ log = structlog.get_logger(__name__)
 
 ANALYTICS_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 AI_CONNECT_TIMEOUT = 5.0
+ANTHROPIC_API = "https://api.anthropic.com"
+"""Явно: иначе SDK берёт `ANTHROPIC_BASE_URL` из окружения, и ключ с текстами ушли бы туда."""
 AI_MAX_RETRIES = 1
 """SDK Anthropic повторяет 429, 5xx и обрывы с паузой; вся проверка вместе с повтором всё равно
 укладывается в AI_TIMEOUT_SECONDS (дедлайн адаптера)."""
@@ -238,6 +240,7 @@ class PlatformProvider(Provider):
             return
         async with anthropic.AsyncAnthropic(
             api_key=settings.anthropic_api_key.get_secret_value(),
+            base_url=ANTHROPIC_API,
             timeout=anthropic.Timeout(settings.timeout_seconds, connect=AI_CONNECT_TIMEOUT),
             max_retries=AI_MAX_RETRIES,
         ) as client:

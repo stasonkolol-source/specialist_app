@@ -3,7 +3,9 @@
 `content_rules` — стоп-слова, регулярки по скелету текста и домены (modules/moderation/
 domain/rules.py). Правило определяет пара (kind, pattern). `origin` — откуда строка: сид
 (`cli seed` из seeds/moderation/content_rules.yaml) или админка (2.7b); строки админки сид не
-трогает. Схема moderation создана в platform_0001. Таблица новая и пустая: словарь загружает
+трогает. Регулярки — только из сида (`ck_content_rules_regex_from_seed`): стандартный `re`
+перебирает варианты экспоненциально на неудачной регулярке, а сид проходит ревью и
+seeds-validate; регулярки из админки — после движка с линейным временем (RE2). Схема moderation создана в platform_0001. Таблица новая и пустая: словарь загружает
 `cli seed` после миграции.
 
 Ревизия: moderation_0001 (2026-09-30 18:00:00.000000+00:00)
@@ -49,6 +51,9 @@ def upgrade() -> None:
             name=op.f("ck_content_rules_category"),
         ),
         sa.CheckConstraint("origin IN ('seed', 'admin')", name=op.f("ck_content_rules_origin")),
+        sa.CheckConstraint(
+            "kind <> 'regex' OR origin = 'seed'", name=op.f("ck_content_rules_regex_from_seed")
+        ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_content_rules")),
         sa.UniqueConstraint("kind", "pattern", name=op.f("uq_content_rules_kind_pattern")),
         schema="moderation",

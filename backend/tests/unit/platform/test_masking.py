@@ -86,3 +86,17 @@ def test_stdlib_logs_go_through_masking(capsys: pytest.CaptureFixture[str]) -> N
         structlog.reset_defaults()
     assert "+381641234567" not in err
     assert "[phone]" in err
+
+
+def test_ai_sdk_loggers_never_log_request_bodies() -> None:
+    # на DEBUG SDK пишут тело запроса — текст пользователя и промпт
+    configure_logging(AppSettings(log_level="DEBUG", _env_file=None))
+    try:
+        assert logging.getLogger("anthropic").getEffectiveLevel() == logging.INFO
+        assert logging.getLogger("httpx2").getEffectiveLevel() == logging.INFO
+        assert logging.getLogger("aiogram").getEffectiveLevel() == logging.DEBUG
+    finally:
+        structlog.reset_defaults()
+        for name in ("anthropic", "httpx2"):
+            logging.getLogger(name).setLevel(logging.NOTSET)
+        logging.getLogger().setLevel(logging.WARNING)

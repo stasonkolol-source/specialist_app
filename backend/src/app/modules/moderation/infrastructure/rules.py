@@ -9,8 +9,10 @@
 - два импорта одновременно (два деплоя) не мешают друг другу: advisory lock транзакции.
 
 Снимок (`CachedRuleSource`) живёт в процессе, как ClientConfigCache: правка словаря доходит
-до всех процессов за TTL, без деплоя. БД недоступна — остаётся прошлый снимок, повтор через
-RETRY. Правило, которое не компилируется, пропускается с предупреждением в логе.
+до всех процессов за TTL, без деплоя. БД недоступна или не ответила за REFRESH_TIMEOUT —
+остаётся прошлый снимок, повтор через RETRY; пока один запрос обновляет снимок, остальные
+получают прошлый, не дожидаясь. Правило, которое не компилируется, пропускается с
+предупреждением в логе; пустой словарь (сид не загружен) — тоже предупреждение.
 """
 
 import asyncio
@@ -32,6 +34,8 @@ log = structlog.get_logger(__name__)
 
 TTL = timedelta(seconds=60)
 RETRY = timedelta(seconds=5)
+REFRESH_TIMEOUT = timedelta(seconds=5)
+"""Чтение словаря из БД: дольше — остаётся прошлый снимок (соединение пула может ждать 30 с)."""
 IMPORT_LOCK = 0x6D6F645F72756C65
 """pg_advisory_xact_lock импорта словаря: «mod_rule» в hex."""
 
@@ -97,11 +101,14 @@ class CachedRuleSource:
         self._snapshot = RuleSet()
         self._expires = 0.0
         self._rejected: frozenset[int | None] = frozenset()
+        self._loaded = False
         self._lock = asyncio.Lock()
 
     async def current(self) -> RuleSet:
         if self._monotonic() < self._expires:
             return self._snapshot
+        if self._loaded and self._lock.locked():
+            return self._snapshot  # обновляет другой запрос: прошлый снимок, без ожидания
         async with self._lock:
             if self._monotonic() >= self._expires:
                 await self._refresh()
@@ -112,11 +119,11 @@ class CachedRuleSource:
 
     async def _refresh(self) -> None:
         try:
-            async with self._maker() as session:
+            async with asyncio.timeout(REFRESH_TIMEOUT.total_seconds()), self._maker() as session:
                 rows = (
                     await session.scalars(select(ContentRuleRow).where(ContentRuleRow.is_active))
                 ).all()
-        except SQLAlchemyError as exc:
+        except (SQLAlchemyError, TimeoutError) as exc:
             log.warning("content_rules_unavailable", error=type(exc).__name__)
             self._expires = self._monotonic() + RETRY.total_seconds()
             return
@@ -140,5 +147,8 @@ class CachedRuleSource:
         for rule, reason in ruleset.rejected:
             if rule.id not in self._rejected:  # в лог — один раз, а не каждые TTL
                 log.warning("content_rule_invalid", rule_id=rule.id, reason=reason)
-        self._snapshot, self._rejected = ruleset, rejected
+        if len(ruleset) == 0 and (not self._loaded or len(self._snapshot) > 0):
+            # словарь не загружен (`cli seed`): работают только детекторы, block-правил нет
+            log.warning("content_rules_empty")
+        self._snapshot, self._rejected, self._loaded = ruleset, rejected, True
         self._expires = self._monotonic() + self._ttl

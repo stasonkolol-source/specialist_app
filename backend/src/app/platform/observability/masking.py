@@ -22,6 +22,8 @@ SENSITIVE_KEYS = frozenset(
         "refresh_token",
         "bot_token",
         "api_key",
+        "x-api-key",
+        "x_api_key",
         "init_data",
         "initdata",
         "init_data_raw",

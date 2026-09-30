@@ -14,8 +14,9 @@ Shared kernel: чистые функции без БД. Им пользуютс�
 - счета сербских банков: 3-13-2 цифры с контрольным числом по модулю 97;
 - ссылки: http(s), www, домены с распространёнными зонами, t.me, wa.me, viber — и точки,
   спрятанные как «[.]», «(.)», «[dot]», « dot », « точка »;
-- e-mail (в том числе «(at)», « собака »), @username Telegram (и «tg @ ivan» после названия
-  мессенджера).
+- e-mail (в том числе «(at)», « собака », «ivan@gmail» без зоны у известных сервисов),
+  @username Telegram (и «tg @ ivan», «tg: ivan_master» после названия мессенджера);
+- IBAN (по модулю 97).
 Предоплату (`find_prepayment`) не маскируют: это сигнал для правил, а не контакт.
 
 Даты («12.10.2026»), время в диапазонах и после предлогов («08.00-16.00», «с 9:00»), цены
@@ -99,6 +100,8 @@ _SPELLED_SEPARATOR = re.compile(r"[\s\-.()/_·–—*|:'’,]*")
 """Рядом с цифрой словом или одиночной цифрой можно и запятую: «nula šest četiri, jedan dva
 tri, 4567» и «0, 6, 4, 1…» — это номер по цифре. Между многозначными числами — нельзя."""
 MAX_PHONE_DIGITS = 15
+MAX_PREPAYMENT_TEXT = 20_000
+"""Предоплату ищем в начале текста такой длины: тексты продукта короче, дальше — мусор."""
 CARD_PREFIXES = frozenset("234569")
 """Первая цифра карты: Mastercard 2, Amex и JCB 3, Visa 4, Mastercard 5, Maestro и UnionPay
 6, DinaCard 9."""
@@ -157,11 +160,24 @@ _EMAIL = re.compile(
 """Адрес со словом вместо «@» («ivan собака mail точка ru») — только с известной зоной:
 «Есть собака лабрадор.Нужен выгул» — не почта."""
 _USERNAME = re.compile(r"(?<![\w.])@[A-Za-z][A-Za-z0-9_]{3,31}\b")
-_MESSENGER_USERNAME = re.compile(
+_MESSENGER = (
     r"(?i:\b(?:tg|telegram|телеграм\w*|телег\w*|тг|viber|вайбер\w*|insta\w*|инст\w*|whatsapp"
-    r"|ватсап\w*|вотсап\w*))\W{0,3}?(@\s+[A-Za-z][A-Za-z0-9_]{3,31})\b"
+    r"|ватсап\w*|вотсап\w*))"
 )
-"""«tg @ ivan_master»: после названия мессенджера «@» с пробелом — тоже @username."""
+_MESSENGER_USERNAME = re.compile(
+    rf"{_MESSENGER}\W{{0,3}}?(@\s+[A-Za-z][A-Za-z0-9_]{{3,31}})\b"
+    rf"|{_MESSENGER}\s*[:\-–—]\s*([A-Za-z][A-Za-z0-9_]{{4,31}})\b"
+    rf"|{_MESSENGER}\s+([A-Za-z][A-Za-z0-9]*[0-9_][A-Za-z0-9_]*)\b"
+)
+"""Ник после названия мессенджера: «tg @ ivan_master», «tg: ivan_master», «telegram
+ivan_master99». Без «@» и двоеточия — только ник с цифрой или «_»: «telegram premium» — не ник."""
+_EMAIL_NO_ZONE = re.compile(
+    r"(?<![\w.+\-])[\w.+\-]++\s*@\s*(?i:gmail|googlemail|yahoo|outlook|hotmail|live|icloud|mail"
+    r"|yandex|ya|proton(?:mail)?|gmx|abv|ukr|inbox|list|bk|rambler|eunet|sbb|mts)(?![\w.\-])"
+)
+"""Почта без зоны «ivan.petrov@gmail»: у известных почтовых сервисов зона и не нужна человеку."""
+_IBAN = re.compile(r"\b[A-Z]{2}\d{2}(?:[ \-]?[A-Z0-9]){11,30}\b")
+"""IBAN (RS35 1600 0000 0012 3456 78): проверка — по модулю 97 (ISO 13616)."""
 _DATE = re.compile(
     r"\b(\d{1,2})([./])(\d{1,2})\2(?:\d{4}|\d{2})\b"
     r"|\b(\d{1,2})-(\d{1,2})-\d{4}\b"
@@ -227,6 +243,9 @@ _DOUBLE_NEGATION = frozenset(
     {"ne", "nece", "necu", "necemo", "not", "wont", "dont", "nisam", "nikak", "nikako"}
 )
 """Требование: «bez avansa ne dolazim», «без предоплаты никак», «…мы не выезжаем»."""
+AFTER_WORDS = 8
+"""Сколько слов после ключа смотрим: «без предоплаты мы к сожалению не выезжаем» — «не»
+шестое; дальше не смотрим, иначе фраза из тысяч повторов проверялась бы квадратично."""
 
 _HIDDEN_DOT_RE = re.compile(_HIDDEN_DOT, re.IGNORECASE)
 _SPACED_DOT = re.compile(r"\s*\.\s*")
@@ -306,7 +325,7 @@ def find_prepayment(text: str) -> bool:
     без предоплаты», «не беру аванс», «avans nije potreban», «no upfront payment»). «Не
     волнуйтесь, предоплата 30%» и «нет проблем, предоплата» — просьба: отрицание в другой
     фразе. Двойное отрицание — тоже просьба: «bez avansa ne dolazim», «без предоплаты никак»."""
-    return any(_asks_in_clause(words) for words in clauses(text))
+    return any(_asks_in_clause(words) for words in clauses(text[:MAX_PREPAYMENT_TEXT]))
 
 
 def luhn_valid(digits: str) -> bool:
@@ -324,6 +343,15 @@ def luhn_valid(digits: str) -> bool:
 def account_valid(digits: str) -> bool:
     """Счёт сербского банка: 18 цифр, число по модулю 97 равно 1 (ISO 7064 MOD 97-10)."""
     return len(digits) == ACCOUNT_DIGITS and digits.isascii() and int(digits) % 97 == 1
+
+
+def iban_valid(value: str) -> bool:
+    """IBAN: страна, две контрольные цифры, счёт; перестановка в числа по модулю 97 равна 1."""
+    compact = re.sub(r"[ \-]", "", value).upper()
+    if not 15 <= len(compact) <= 34 or not compact.isascii() or not compact.isalnum():
+        return False
+    rotated = compact[4:] + compact[:4]
+    return int("".join(str(int(char, 36)) for char in rotated)) % 97 == 1
 
 
 # --- свёрнутый текст ---------------------------------------------------------------------------
@@ -377,8 +405,16 @@ def _find_folded(text: str) -> list[Finding]:
         *(Finding(ContactKind.LINK, m.start(), m.end()) for m in _LINK.finditer(text)),
         *(Finding(ContactKind.USERNAME, m.start(), m.end()) for m in _USERNAME.finditer(text)),
         *(
-            Finding(ContactKind.USERNAME, m.start(1), m.end(1))
+            Finding(ContactKind.USERNAME, m.start(group), m.end(group))
             for m in _MESSENGER_USERNAME.finditer(text)
+            for group in (1, 2, 3)
+            if m.group(group)
+        ),
+        *(Finding(ContactKind.EMAIL, m.start(), m.end()) for m in _EMAIL_NO_ZONE.finditer(text)),
+        *(
+            Finding(ContactKind.ACCOUNT, m.start(), m.end())
+            for m in _IBAN.finditer(text)
+            if iban_valid(m.group())
         ),
     ]
     found.sort(key=lambda f: (f.start, -(f.end - f.start)))
@@ -423,7 +459,7 @@ def _negated(tokens: Sequence[str], first: int, last: int, *, english: bool) -> 
             and negator(before[2])
         )
     )
-    after = tokens[last + 1 :]
+    after = tokens[last + 1 : last + 1 + AFTER_WORDS]
     if direct:
         return not _double_negation(after)
     return _NOT_NEEDED.match(" ".join(after[:4])) is not None or after in (["net"], ["nema"])

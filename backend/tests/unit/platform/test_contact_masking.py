@@ -108,7 +108,14 @@ def found(text: str) -> list[tuple[ContactKind, str]]:
         ("telegram: @ ivan_master", [(USERNAME, "@ ivan_master")]),
         # счёт сербского банка (контрольное число по модулю 97)
         ("Uplata na 160-0000000123456-54", [(ACCOUNT, "160-0000000123456-54")]),
-        ("RS35 265-1000000000123-70", [(ACCOUNT, "265-1000000000123-70")]),
+        ("RS35 265-1000000000123-70", [(ACCOUNT, "RS35 265-1000000000123-70")]),  # IBAN целиком
+        # IBAN целиком (контрольные цифры по модулю 97), ник мессенджера без «@», почта без зоны
+        ("IBAN: RS35 1600 0000 0012 3456 54", [(ACCOUNT, "RS35 1600 0000 0012 3456 54")]),
+        ("IBAN: DE89 3704 0044 0532 0130 00", [(ACCOUNT, "DE89 3704 0044 0532 0130 00")]),
+        ("tg: ivan_master", [(USERNAME, "ivan_master")]),
+        ("telegram ivan_master99", [(USERNAME, "ivan_master99")]),
+        ("в телеграм — ivan_master", [(USERNAME, "ivan_master")]),
+        ("пишите на ivan.petrov@gmail", [(EMAIL, "ivan.petrov@gmail")]),
     ],
 )
 def test_contacts_are_found(text: str, expected: list[tuple[ContactKind, str]]) -> None:
@@ -157,6 +164,11 @@ def test_contacts_are_found(text: str, expected: list[tuple[ContactKind, str]]) 
         "uradio sam posao.to je sve",
         "zavrsio sam.si li tu",
         "stigao sam.de si",
+        # мессенджер без ника, почта как слово, IBAN с неверной контрольной суммой
+        "у меня telegram premium",
+        "zovi me na viber",
+        "Dostava na mail adresu",
+        "IBAN: RS35 1600 0000 0012 3456 78",
     ],
 )
 def test_ordinary_text_is_left_alone(text: str) -> None:
@@ -186,6 +198,7 @@ def test_unusual_digits_never_crash(text: str) -> None:
         "t" + " " * 20_000 + "x",
         "1 " * 10_000,
         "avans " * 3_300,
+        "bez avansa ne avansa " * 4_000,  # одна фраза из тысяч повторов ключа
         "a " * 10_000 + "bc",
     ],
     ids=lambda text: text[:12],

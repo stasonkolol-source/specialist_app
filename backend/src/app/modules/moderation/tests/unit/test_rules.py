@@ -14,6 +14,7 @@ from app.modules.moderation.domain.rules import (
     RuleKind,
     RuleSet,
     compile_rule,
+    nested_quantifier,
 )
 
 pytestmark = pytest.mark.unit
@@ -85,6 +86,14 @@ def test_regex_works_on_the_skeleton() -> None:
 
 def test_regex_may_start_with_word_boundary_before_a_letter() -> None:
     assert compile_rule(rule(r"\bbanka\b", REGEX)) is not None
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [r"\bzarabot\w* (?:ot|do) \d+", r"(?:ab)+", r"[(+)]+", r"(a|b)+", r"\(a+\)+", r"(ab)?+"],
+)
+def test_single_level_repetition_is_fine(pattern: str) -> None:
+    assert not nested_quantifier(pattern)
 
 
 @pytest.mark.parametrize(
@@ -165,6 +174,9 @@ def test_inactive_rules_are_skipped_and_broken_ones_do_not_stop_the_rest() -> No
         (rule("x" * (MAX_PATTERN + 1)), "1–200"),
         (rule("x*", REGEX), "empty text"),
         (rule("a{4294967296}", REGEX), "does not compile"),  # OverflowError, а не re.error
+        (rule(r"(\w+\s?)+kupim", REGEX), "nested quantifiers"),
+        (rule(r"(\d+)+ din", REGEX), "nested quantifiers"),
+        (rule(r"((a+)b)+", REGEX), "nested quantifiers"),
         (rule("massage", REGEX), "double letters"),
         (rule("Bit.ly", DOMAIN), "lower case"),
         (rule("https://bit.ly", DOMAIN), "example.com"),
