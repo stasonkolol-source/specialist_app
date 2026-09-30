@@ -4,37 +4,26 @@ Bot API подменён сессией, которая записывает в�
 (testcontainers): /start создаёт пользователя тем же кодом, что и вход Mini App.
 """
 
-import asyncio
 import json
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 import pytest
-from aiogram import Bot, Dispatcher, F, Router
-from aiogram.client.session.base import BaseSession
+from aiogram import F, Router
 from aiogram.enums import ParseMode
-from aiogram.methods import AnswerCallbackQuery, EditMessageText, SendMessage, TelegramMethod
+from aiogram.methods import AnswerCallbackQuery, EditMessageText, SendMessage
 from aiogram.types import (
     CallbackQuery,
     Chat,
     InlineKeyboardMarkup,
     Message,
-    Update,
-    User,
     WriteAccessAllowed,
 )
-from dishka import AsyncContainer
-from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 from structlog.testing import capture_logs
 
-from app.entrypoints._wiring import make_bot_container, module_bot_routers
-from app.interfaces.bot.app import create_dispatcher
 from app.modules.growth.application.ports import RECORD_ATTRIBUTION
 from app.modules.identity.api import IdentityApi
 from app.modules.notifications.application.ports import GRANT_WRITE_ACCESS
@@ -42,142 +31,14 @@ from app.platform.kernel.errors import ConflictError
 from app.platform.kernel.ids import new_id
 from app.platform.kernel.localized import Locale
 from app.platform.settings import Settings
+from tests.plugins.bot import MINI_APP, BotHarness, bot_harness
 from tests.plugins.queue import run_queued
 
 pytestmark = pytest.mark.integration
 
-MINI_APP = "https://mini.example.test/"
 GOLDEN = json.loads(
     (Path(__file__).resolve().parents[3] / "packages" / "links" / "golden.json").read_text("utf-8")
 )
-
-
-@dataclass
-class RecordingSession(BaseSession):
-    """Сессия Bot API без сети: запоминает методы и отвечает правдоподобно."""
-
-    calls: list[TelegramMethod[Any]] = field(default_factory=list)
-
-    def __post_init__(self) -> None:
-        super().__init__()
-
-    async def make_request(
-        self,
-        bot: Bot,
-        method: TelegramMethod[Any],
-        timeout: int | None = None,  # noqa: ASYNC109 — сигнатура BaseSession
-    ) -> Any:
-        self.calls.append(method)
-        if isinstance(method, SendMessage | EditMessageText):
-            return Message(
-                message_id=len(self.calls),
-                date=datetime.now(UTC),
-                chat=Chat(id=int(method.chat_id or 0), type="private"),
-                text=method.text,
-            )
-        return True
-
-    async def stream_content(
-        self, *args: Any, **kwargs: Any
-    ) -> AsyncIterator[bytes]:  # pragma: no cover
-        yield b""
-
-    async def close(self) -> None:
-        return None
-
-
-@dataclass
-class BotHarness:
-    bot: Bot
-    session: RecordingSession
-    dispatcher: Dispatcher
-    container: AsyncContainer
-
-    async def send(
-        self, telegram_id: int, text_value: str, *, language: str = "ru", name: str = "Ana"
-    ) -> SendMessage:
-        before = len(self.session.calls)
-        await self.dispatcher.feed_update(
-            self.bot, self.update(telegram_id, text_value, language=language, name=name)
-        )
-        replies = [c for c in self.session.calls[before:] if isinstance(c, SendMessage)]
-        assert len(replies) == 1, replies
-        return replies[0]
-
-    async def feed(self, telegram_id: int, message: Message) -> list[TelegramMethod[Any]]:
-        """Произвольное сообщение от пользователя (служебное, медиа): вызовы Bot API в ответ."""
-        before = len(self.session.calls)
-        user = User(id=telegram_id, is_bot=False, first_name="Ana", language_code="ru")
-        update = Update(
-            update_id=new_id().int % 2**31, message=message.model_copy(update={"from_user": user})
-        )
-        await self.dispatcher.feed_update(self.bot, update)
-        return self.session.calls[before:]
-
-    async def press(self, telegram_id: int, data: str) -> list[TelegramMethod[Any]]:
-        """Нажатие инлайн-кнопки под сообщением бота: вызовы Bot API в ответ."""
-        before = len(self.session.calls)
-        chat = Chat(id=telegram_id, type="private")
-        user = User(id=telegram_id, is_bot=False, first_name="Ana", language_code="ru")
-        message = Message(message_id=1, date=datetime.now(UTC), chat=chat, text="…")
-        callback = CallbackQuery(
-            id=str(new_id().int % 2**31),
-            from_user=user,
-            chat_instance="1",
-            data=data,
-            message=message,
-        )
-        await self.dispatcher.feed_update(
-            self.bot, Update(update_id=new_id().int % 2**31, callback_query=callback)
-        )
-        return self.session.calls[before:]
-
-    async def send_parallel(self, telegram_id: int, text_value: str, times: int) -> list[str]:
-        """`times` одинаковых апдейтов разом, как polling отдаёт накопившиеся; тексты ответов."""
-        before = len(self.session.calls)
-        updates = [self.update(telegram_id, text_value) for _ in range(times)]
-        await asyncio.gather(*(self.dispatcher.feed_update(self.bot, u) for u in updates))
-        replies = [c.text for c in self.session.calls[before:] if isinstance(c, SendMessage)]
-        assert len(replies) == times, replies
-        return replies
-
-    @staticmethod
-    def update(
-        telegram_id: int, text_value: str, *, language: str = "ru", name: str = "Ana"
-    ) -> Update:
-        return Update(
-            update_id=new_id().int % 2**31,
-            message=Message(
-                message_id=1,
-                date=datetime.now(UTC),
-                chat=Chat(id=telegram_id, type="private"),
-                from_user=User(
-                    id=telegram_id, is_bot=False, first_name=name, language_code=language
-                ),
-                text=text_value,
-            ),
-        )
-
-
-@asynccontextmanager
-async def bot_harness(
-    monkeypatch: pytest.MonkeyPatch, *extra: Router, **env: str
-) -> AsyncIterator[BotHarness]:
-    """Диспетчер как в процессе бота: роутеры модулей, общие команды. Bot — из DI (HTML по
-    умолчанию, как в проде), только сессия Bot API подменена записью вызовов."""
-    monkeypatch.setenv("TELEGRAM_MINI_APP_URL", MINI_APP)
-    for name, value in env.items():
-        monkeypatch.setenv(name, value)
-    container = make_bot_container(Settings(env_file=None))
-    session = RecordingSession()
-    bot = await container.get(Bot)
-    bot.session = session
-    routers = [*module_bot_routers(), *extra]
-    dispatcher = create_dispatcher(container, await container.get(Redis), routers)
-    try:
-        yield BotHarness(bot=bot, session=session, dispatcher=dispatcher, container=container)
-    finally:
-        await container.close()
 
 
 @pytest.fixture

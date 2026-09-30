@@ -71,6 +71,7 @@ class SqlNotificationQuery(SqlQuery):
                 n.user_id,
                 n.type,
                 n.payload,
+                c.id.label("channel_id"),
                 c.address,
                 c.disabled_at,
             )
@@ -85,6 +86,7 @@ class SqlNotificationQuery(SqlQuery):
             status=row["status"],
             not_before=row["not_before"],
             user_id=UserId(row["user_id"]),
+            channel_id=row["channel_id"],
             chat_id=int(row["address"]),
             writable=row["disabled_at"] is None,
             type=row["type"],
@@ -92,6 +94,13 @@ class SqlNotificationQuery(SqlQuery):
             link=row["payload"].get("link"),
             urgent=bool(row["payload"].get("urgent", False)),
         )
+
+    async def deliveries_of(self, notification_id: NotificationId) -> list[DeliveryId]:
+        d = DeliveryRow.__table__.c
+        rows = await self._fetch(
+            select(d.id).where(d.notification_id == notification_id).order_by(d.id)
+        )
+        return [DeliveryId(row["id"]) for row in rows]
 
     async def settings(self, user_id: UserId) -> NotificationSettings:
         p, s = PreferenceRow.__table__.c, UserSettingsRow.__table__.c

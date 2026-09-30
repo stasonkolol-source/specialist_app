@@ -60,7 +60,9 @@ class SqlChannelRepository:
             granted_at=now,
         )
         # Доступный канал того же пользователя не трогаем: повтор идемпотентен. Выключенный
-        # (403) включается; чат, перешедший к другому аккаунту, переходит вместе с ним.
+        # включается, только если разрешение новее выключения: /start, обработанный после
+        # остановки бота, но нажатый до неё, канал не включит. Чат, перешедший к другому
+        # аккаунту, переходит вместе с ним.
         stmt = stmt.on_conflict_do_update(
             index_elements=["kind", "address"],
             set_={
@@ -71,7 +73,8 @@ class SqlChannelRepository:
                 "updated_at": func.now(),
             },
             where=or_(
-                ChannelRow.disabled_at.is_not(None), ChannelRow.user_id != stmt.excluded.user_id
+                ChannelRow.disabled_at < stmt.excluded.granted_at,
+                ChannelRow.user_id != stmt.excluded.user_id,
             ),
         )
         try:
@@ -115,6 +118,35 @@ class SqlChannelRepository:
         if row is None:
             return None
         return TelegramTarget(channel_id=row.id, writable=row.disabled_at is None)
+
+    async def disable(self, channel_id: UUID, *, at: datetime) -> bool:
+        self._uow.require_active()
+        stmt = (
+            update(ChannelRow)
+            .where(
+                ChannelRow.id == channel_id,
+                ChannelRow.disabled_at.is_(None),
+                ChannelRow.granted_at < at,  # разрешение новее — оно и действует
+            )
+            .values(disabled_at=at, updated_at=func.now())
+            .returning(ChannelRow.id)
+        )
+        return (await self._session.execute(stmt)).first() is not None
+
+    async def disable_telegram(self, user_id: UserId, *, at: datetime) -> bool:
+        self._uow.require_active()
+        stmt = (
+            update(ChannelRow)
+            .where(
+                ChannelRow.user_id == user_id,
+                ChannelRow.kind == ChannelKind.TELEGRAM,
+                ChannelRow.disabled_at.is_(None),
+                ChannelRow.granted_at < at,
+            )
+            .values(disabled_at=at, updated_at=func.now())
+            .returning(ChannelRow.id)
+        )
+        return (await self._session.execute(stmt)).first() is not None
 
 
 def payload_of(params: Mapping[str, str], link: str | None, *, urgent: bool) -> dict[str, Any]:
@@ -193,6 +225,33 @@ class SqlNotificationRepository:
         )
         return delivery_id
 
+    async def record_failure(self, delivery_id: DeliveryId, *, error: str) -> int | None:
+        self._uow.require_active()
+        stmt = (
+            update(DeliveryRow)
+            .where(DeliveryRow.id == delivery_id, DeliveryRow.status == DeliveryStatus.QUEUED)
+            .values(attempts=DeliveryRow.attempts + 1, error=error[:255], updated_at=func.now())
+            .returning(DeliveryRow.attempts)
+        )
+        row = (await self._session.execute(stmt)).first()
+        return int(row.attempts) if row is not None else None
+
+    async def expire_stale(self, *, due_before: datetime, limit: int) -> int:
+        self._uow.require_active()
+        stale = (
+            select(DeliveryRow.id)
+            .where(DeliveryRow.status == DeliveryStatus.QUEUED, DeliveryRow.not_before < due_before)
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+        )
+        stmt = (
+            update(DeliveryRow)
+            .where(DeliveryRow.id.in_(stale.scalar_subquery()))
+            .values(status=DeliveryStatus.FAILED, error="stale", updated_at=func.now())
+            .returning(DeliveryRow.id)
+        )
+        return len((await self._session.execute(stmt)).all())
+
     async def postpone_delivery(self, delivery_id: DeliveryId, *, not_before: datetime) -> bool:
         self._uow.require_active()
         stmt = (
@@ -211,6 +270,7 @@ class SqlNotificationRepository:
         now: datetime,
         provider_message_id: str | None = None,
         error: str | None = None,
+        attempt: bool = True,
     ) -> bool:
         self._uow.require_active()
         stmt = (
@@ -218,7 +278,7 @@ class SqlNotificationRepository:
             .where(DeliveryRow.id == delivery_id, DeliveryRow.status == DeliveryStatus.QUEUED)
             .values(
                 status=status,
-                attempts=DeliveryRow.attempts + 1,
+                attempts=DeliveryRow.attempts + (1 if attempt else 0),
                 provider_message_id=provider_message_id,
                 error=error,
                 sent_at=now if status is DeliveryStatus.SENT else None,

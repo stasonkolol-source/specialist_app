@@ -48,6 +48,15 @@ class ChannelRepository(Protocol):
         """Канал telegram пользователя; None — боту писать не разрешали. Нужен активный UoW."""
         ...
 
+    async def disable(self, channel_id: UUID, *, at: datetime) -> bool:
+        """Бот заблокирован (403 на отправку в `at`): канал выключен. False — уже выключен
+        или разрешение новее `at` (человек снова нажал /start). Нужен активный UoW."""
+        ...
+
+    async def disable_telegram(self, user_id: UserId, *, at: datetime) -> bool:
+        """То же по пользователю (`my_chat_member` → kicked в `at`)."""
+        ...
+
 
 class NotificationRepository(Protocol):
     """Уведомления и доставки — простые записи (ADR-0020 §5). Нужен активный UoW."""
@@ -62,6 +71,14 @@ class NotificationRepository(Protocol):
         """Доставка в канал в статусе `queued`."""
         ...
 
+    async def record_failure(self, delivery_id: DeliveryId, *, error: str) -> int | None:
+        """Попытка не удалась (сеть, 5xx): сколько их уже; None — доставка не `queued`."""
+        ...
+
+    async def expire_stale(self, *, due_before: datetime, limit: int) -> int:
+        """До `limit` доставок `queued` со сроком раньше `due_before` → `failed` (`stale`)."""
+        ...
+
     async def postpone_delivery(self, delivery_id: DeliveryId, *, not_before: datetime) -> bool:
         """Сдвинуть `not_before` доставки в `queued`; False — уже не `queued`."""
         ...
@@ -74,8 +91,10 @@ class NotificationRepository(Protocol):
         now: datetime,
         provider_message_id: str | None = None,
         error: str | None = None,
+        attempt: bool = True,
     ) -> bool:
-        """`queued` → итог; False — доставка уже не `queued` (повтор задачи)."""
+        """`queued` → итог; False — доставка уже не `queued` (повтор задачи). `attempt` —
+        засчитать попытку (False — её уже записал record_failure)."""
         ...
 
     async def mark_read(
@@ -105,6 +124,10 @@ class NotificationQuery(Protocol):
     async def unread(self, user_id: UserId) -> int: ...
 
     async def delivery(self, delivery_id: DeliveryId) -> DeliveryTarget | None: ...
+
+    async def deliveries_of(self, notification_id: NotificationId) -> list[DeliveryId]:
+        """Доставки уведомления (`cli notify-test` отправляет их сразу)."""
+        ...
 
     async def settings(self, user_id: UserId) -> NotificationSettings: ...
 

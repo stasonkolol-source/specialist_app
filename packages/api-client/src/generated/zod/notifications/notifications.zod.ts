@@ -67,6 +67,7 @@ export const NotificationsListNotificationsResponse = zod.object({
           'job.expired',
           'profile.stale_reminder',
           'account.restricted',
+          'system.test',
         ]),
         title: zod.string(),
         body: zod.string(),

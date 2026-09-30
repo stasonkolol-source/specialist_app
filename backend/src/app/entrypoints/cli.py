@@ -30,6 +30,7 @@ from app.platform.security.jwt import JwtKeys, SigningKey
 from app.platform.settings import ENV_FILE, AppSettings, Environment, Settings, TelegramSettings
 
 if TYPE_CHECKING:  # модули грузятся лениво: CLI без БД не должен их импортировать
+    from app.entrypoints._notify_test import NotifyTestOutcome
     from app.modules.identity.application.dto import OnboardingReset
 
 app = typer.Typer(help="«Соседи» — служебные команды backend.", no_args_is_help=True)
@@ -359,6 +360,35 @@ async def _dev_reset_user(telegram_id: int) -> OnboardingReset | None:
         async with container() as request:
             reset = await request.get(ResetOnboarding)
             return await reset(ResetOnboardingCommand(telegram_id=telegram_id))
+    finally:
+        await container.close()
+
+
+@app.command("notify-test")
+def notify_test(
+    user: Annotated[
+        str, typer.Option("--user", help="Telegram id или внутренний id пользователя (UUID)")
+    ],
+) -> None:
+    """Тестовое уведомление в бот: проверка канала и отправителя (DEVELOPMENT_PLAN 2.3b).
+
+    Уведомление проходит весь конвейер — центр уведомлений, доставка, воркер, лимитер,
+    Bot API; команда ждёт итога до 30 с. Человек должен был нажать /start в боте, а воркер —
+    работать (`make dev`).
+    """
+    outcome = asyncio.run(_notify_test(user))
+    typer.echo(outcome.message)
+    if not outcome.sent:
+        raise typer.Exit(code=1)
+
+
+async def _notify_test(user_ref: str) -> NotifyTestOutcome:
+    from app.entrypoints._notify_test import run_notify_test
+    from app.entrypoints._wiring import make_worker_container
+
+    container = make_worker_container(Settings())
+    try:
+        return await run_notify_test(container, user_ref)
     finally:
         await container.close()
 

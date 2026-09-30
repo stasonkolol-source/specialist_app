@@ -4,11 +4,14 @@ from datetime import timedelta
 
 import httpx
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.platform.db.port import UnitOfWork
 from app.platform.idempotency.port import IdempotencyStore
 from app.platform.kernel.clock import Clock
-from app.platform.queue.tasks import PeriodicRun, periodic
+from app.platform.observability.metrics import QueueMetrics
+from app.platform.queue.lag import LAG_ALERT_SECONDS, queue_lags
+from app.platform.queue.tasks import QUEUES, PeriodicRun, periodic
 from app.platform.settings import AppSettings
 
 log = structlog.get_logger(__name__)
@@ -48,6 +51,19 @@ async def heartbeat(run: PeriodicRun) -> None:
                 await client.get(settings.heartbeat_url)
             except httpx.HTTPError as exc:
                 log.warning("heartbeat_ping_failed", error=type(exc).__name__)
+
+
+@periodic("ops.queue_lag", cron="* * * * *")
+async def queue_lag(run: PeriodicRun) -> None:
+    """Раз в минуту: лаг очередей — в метрику, а выше порога (§12.4) — предупреждение."""
+    async with run.container() as request:
+        lags = await queue_lags(await request.get(AsyncSession))
+    metrics = await run.container.get(QueueMetrics)
+    for queue in QUEUES:
+        lag = lags.get(queue, 0.0)
+        metrics.lag.labels(queue=queue).set(lag)
+        if lag > LAG_ALERT_SECONDS.get(queue, float("inf")):
+            log.warning("queue_lag_high", queue=queue, seconds=round(lag))
 
 
 @periodic("platform.idempotency_cleanup", cron="23 * * * *")

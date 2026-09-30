@@ -5,7 +5,7 @@
 identity.users вставляется SQL (tests/plugins/identity.py).
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -18,6 +18,12 @@ from tests.plugins.identity import insert_user
 
 from app.modules.notifications.application.ports import SEND_DELIVERY
 from app.modules.notifications.application.queries import NotificationQueries
+from app.modules.notifications.application.use_cases.block_telegram_channel import (
+    BlockTelegramChannel,
+)
+from app.modules.notifications.application.use_cases.expire_stale_deliveries import (
+    ExpireStaleDeliveries,
+)
 from app.modules.notifications.application.use_cases.grant_telegram_write_access import (
     GrantTelegramWriteAccess,
     GrantTelegramWriteAccessCommand,
@@ -77,10 +83,15 @@ class Notifications:
     queries: NotificationQueries
     mark_read: MarkNotificationsRead
     update_settings: UpdateNotificationSettings
+    block: BlockTelegramChannel
+    expire: ExpireStaleDeliveries
+    users: list[UserId] = field(default_factory=list)
+    """Пользователи теста: задачи отправки — только их (API-тесты коммитят чужие)."""
 
     async def user_with_chat(self, locale: Locale = Locale.RU) -> tuple[UserId, int]:
         """Пользователь с личным чатом (chat_id = Telegram id) и языком интерфейса."""
         user_id = await insert_user(self.session)
+        self.users.append(user_id)
         chat_id = 700_000_000 + new_id().int % 100_000_000
         self.identity.chats[user_id] = chat_id
         self.identity.locales[user_id] = locale
@@ -115,8 +126,18 @@ class Notifications:
         )
 
     async def sends(self) -> list[QueuedTask]:
-        """Поставленные задачи `notifications.send`."""
-        return await queued_tasks(self.session, SEND_DELIVERY.name)
+        """Поставленные задачи `notifications.send` доставок пользователей этого теста."""
+        rows = await self.session.execute(
+            text(
+                "SELECT d.id::text FROM notifications.deliveries d"
+                " JOIN notifications.notifications n ON n.id = d.notification_id"
+                " WHERE n.user_id = ANY(:users)"
+            ),
+            {"users": self.users},
+        )
+        mine = {row[0] for row in rows}
+        tasks = await queued_tasks(self.session, SEND_DELIVERY.name)
+        return [t for t in tasks if t.payload.get("delivery_id") in mine]
 
     async def take_sends(self) -> None:
         """Воркер взял ждущие задачи отправки: они больше не держат queueing_lock."""
@@ -171,8 +192,12 @@ def notifications(db_session: AsyncSession, procrastinate_app: procrastinate.App
         notify=Notify(
             uow, repository, settings, channels, AnyTypeRenderer(translator, MINI_APP), queue, clock
         ),
-        send=SendDelivery(uow, repository, query, identity, renderer, sender, queue, clock),
+        send=SendDelivery(
+            uow, repository, channels, query, identity, renderer, sender, queue, clock
+        ),
         queries=NotificationQueries(query, renderer),
         mark_read=MarkNotificationsRead(uow, repository, query, clock),
         update_settings=UpdateNotificationSettings(uow, settings, query),
+        block=BlockTelegramChannel(uow, channels),
+        expire=ExpireStaleDeliveries(uow, repository, clock),
     )
