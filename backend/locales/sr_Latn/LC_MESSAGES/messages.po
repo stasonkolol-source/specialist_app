@@ -302,3 +302,91 @@ msgstr "Fajl još nije otpremljen do kraja. Sačekajte i pokušajte ponovo."
 
 msgid "errors.media_upload_mismatch"
 msgstr "Otpremljeni fajl se ne poklapa sa izabranim. Otpremite ga ponovo."
+
+# Обавештења (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
+msgid "errors.notification_group_mandatory"
+msgstr "Službena obaveštenja ne mogu da se isključe: tiču se odluka moderacije i ograničenja naloga."
+
+msgid "notifications.account_restricted.title.restricted"
+msgstr "Nalog je ograničen"
+
+msgid "notifications.account_restricted.title.banned"
+msgstr "Nalog je blokiran"
+
+msgid "notifications.account_restricted.body.posting_blocked"
+msgstr "Objavljivanje zahteva i profila trenutno nije moguće."
+
+msgid "notifications.account_restricted.body.responding_blocked"
+msgstr "Slanje ponuda na zahteve trenutno nije moguće."
+
+msgid "notifications.account_restricted.body.messaging_blocked"
+msgstr "Slanje poruka trenutno nije moguće."
+
+msgid "notifications.account_restricted.body.suspended"
+msgstr "Nalog je privremeno suspendovan."
+
+msgid "notifications.account_restricted.body.banned"
+msgstr "Nalog je blokiran zbog kršenja pravila platforme."
+
+msgid "notifications.account_restricted.until"
+msgstr "Ograničenje važi do {until}."
+
+msgid "notifications.account_restricted.rules"
+msgstr "Detalji su u pravilima platforme."
+
+msgid "notifications.account_restricted.button"
+msgstr "Pravila platforme"
+
+msgid "notifications.moderation_decision.title.job"
+msgstr "Zahtev nije objavljen"
+
+msgid "notifications.moderation_decision.title.profile"
+msgstr "Profil nije objavljen"
+
+msgid "notifications.moderation_decision.title.response"
+msgstr "Ponuda nije poslata"
+
+msgid "notifications.moderation_decision.title.review"
+msgstr "Utisak nije objavljen"
+
+msgid "notifications.moderation_decision.title.message"
+msgstr "Poruka nije isporučena"
+
+msgid "notifications.moderation_decision.title.media"
+msgstr "Fotografija nije objavljena"
+
+msgid "notifications.moderation_decision.title.other"
+msgstr "Sadržaj nije prošao proveru"
+
+msgid "notifications.moderation_decision.body"
+msgstr "Razlog: {reason}. Ispravite i pošaljite ponovo."
+
+msgid "notifications.moderation_decision.button"
+msgstr "Ispravi"
+
+msgid "notifications.moderation_reason.prepayment_scam"
+msgstr "traženje plaćanja unapred — čest trik prevaranta"
+
+msgid "notifications.moderation_reason.off_platform_payment"
+msgstr "predlog plaćanja ili prepiske mimo aplikacije „Sosedi“"
+
+msgid "notifications.moderation_reason.mule_recruitment"
+msgstr "vrbovanje ljudi za prenos tuđeg novca ili paketa"
+
+msgid "notifications.moderation_reason.prohibited"
+msgstr "zabranjena roba ili usluge"
+
+msgid "notifications.moderation_reason.contact_leak"
+msgstr "kontakti u tekstu: telefon, linkovi i korisničko ime vide se nakon dogovora"
+
+msgid "notifications.moderation_reason.spam_ad"
+msgstr "reklama ili spam"
+
+msgid "notifications.moderation_reason.not_a_service_request"
+msgstr "ovo nije zahtev za uslugu"
+
+msgid "notifications.moderation_reason.vacancy"
+msgstr "oglasi za posao se ovde ne objavljuju"
+
+msgid "notifications.moderation_reason.other"
+msgstr "kršenje pravila platforme"

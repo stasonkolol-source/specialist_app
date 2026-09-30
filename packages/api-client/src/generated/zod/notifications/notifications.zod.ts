@@ -22,3 +22,208 @@ export const NotificationsGrantTelegramWriteAccessResponse = zod
     granted_at: zod.iso.datetime({ offset: true }),
   })
   .describe('Канал «бот пишет в личный чат»: Mini App решает, просить ли разрешение (S21, S02c).');
+
+/**
+ * Центр уведомлений: новые сверху, по курсору; тексты — на языке Accept-Language.
+ * @summary List Notifications
+ */
+export const notificationsListNotificationsQueryLimitDefault = 20;
+export const notificationsListNotificationsQueryLimitMax = 100;
+
+export const notificationsListNotificationsQueryCursorOneMax = 512;
+
+export const NotificationsListNotificationsQueryParams = zod.object({
+  limit: zod
+    .int()
+    .min(1)
+    .max(notificationsListNotificationsQueryLimitMax)
+    .default(notificationsListNotificationsQueryLimitDefault),
+  cursor: zod
+    .union([zod.string().min(1).max(notificationsListNotificationsQueryCursorOneMax), zod.null()])
+    .optional(),
+});
+
+export const NotificationsListNotificationsResponse = zod.object({
+  items: zod.array(
+    zod
+      .object({
+        id: zod.uuid(),
+        type: zod.enum([
+          'job.matched',
+          'response.received',
+          'response.accepted',
+          'response.not_selected',
+          'job.invited',
+          'message.received',
+          'deal.proposed',
+          'deal.cancelled',
+          'dispute.opened',
+          'deal.reminder',
+          'deal.completion_prompt',
+          'review.request',
+          'review.published',
+          'moderation.decision',
+          'job.expiring',
+          'job.expired',
+          'profile.stale_reminder',
+          'account.restricted',
+        ]),
+        title: zod.string(),
+        body: zod.string(),
+        link: zod.union([zod.string(), zod.null()]),
+        created_at: zod.iso.datetime({ offset: true }),
+        read: zod.boolean(),
+      })
+      .describe('Строка центра уведомлений (S42) на языке Accept-Language.'),
+  ),
+  next_cursor: zod.union([zod.string(), zod.null()]).optional(),
+  unread_count: zod.int(),
+});
+
+/**
+ * Отметить прочитанными `ids` или все (`all: true`); чужие id не находятся. Повтор
+ * идемпотентен. Ответ — сколько непрочитанных осталось.
+ * @summary Mark Notifications Read
+ */
+export const notificationsMarkNotificationsReadBodyIdsOneMax = 100;
+
+export const notificationsMarkNotificationsReadBodyAllDefault = false;
+
+export const NotificationsMarkNotificationsReadBody = zod
+  .object({
+    ids: zod
+      .union([
+        zod.array(zod.uuid()).max(notificationsMarkNotificationsReadBodyIdsOneMax),
+        zod.null(),
+      ])
+      .optional(),
+    all: zod.boolean().default(notificationsMarkNotificationsReadBodyAllDefault),
+  })
+  .describe('Что отметить прочитанным: `ids` (до 100) или `all: true`.');
+
+export const NotificationsMarkNotificationsReadResponse = zod.object({
+  unread_count: zod.int(),
+});
+
+/**
+ * Группы × каналы, тихие часы, час дайджеста и может ли бот писать (S43).
+ * @summary Get Notification Settings
+ */
+export const notificationsGetNotificationSettingsResponseQuietHoursTimeZoneDefault = `Europe/Belgrade`;
+
+export const NotificationsGetNotificationSettingsResponse = zod.object({
+  groups: zod.array(
+    zod.object({
+      group: zod
+        .enum(['job_matches', 'responses', 'messages', 'deals', 'marketing', 'account'])
+        .describe('Строка настроек уведомлений S43.'),
+      telegram: zod.boolean(),
+      in_app: zod.boolean(),
+      mandatory: zod.boolean(),
+    }),
+  ),
+  quiet_hours: zod.object({
+    enabled: zod.boolean(),
+    start: zod.iso.time({}),
+    end: zod.iso.time({}),
+    time_zone: zod
+      .string()
+      .default(notificationsGetNotificationSettingsResponseQuietHoursTimeZoneDefault),
+  }),
+  digest_hour: zod.int(),
+  telegram: zod.union([
+    zod
+      .object({
+        writable: zod.boolean(),
+        granted_via: zod
+          .enum(['bot_start', 'mini_app'])
+          .describe('Как пользователь разрешил доставку по каналу.'),
+        granted_at: zod.iso.datetime({ offset: true }),
+      })
+      .describe(
+        'Канал «бот пишет в личный чат»: Mini App решает, просить ли разрешение (S21, S02c).',
+      ),
+    zod.null(),
+  ]),
+});
+
+/**
+ * Заменить настройки целиком; группы, которых нет в списке, — по умолчанию. Служебную
+ * группу выключить нельзя — 422 `notification_group_mandatory`.
+ * @summary Update Notification Settings
+ */
+export const notificationsUpdateNotificationSettingsBodyGroupsMax = 6;
+
+export const notificationsUpdateNotificationSettingsBodyQuietHoursStartDefault = `22:00:00`;
+export const notificationsUpdateNotificationSettingsBodyQuietHoursEndDefault = `08:00:00`;
+export const notificationsUpdateNotificationSettingsBodyDigestHourDefault = 9;
+export const notificationsUpdateNotificationSettingsBodyDigestHourMin = 0;
+export const notificationsUpdateNotificationSettingsBodyDigestHourMax = 23;
+
+export const NotificationsUpdateNotificationSettingsBody = zod
+  .object({
+    groups: zod
+      .array(
+        zod.object({
+          group: zod
+            .enum(['job_matches', 'responses', 'messages', 'deals', 'marketing', 'account'])
+            .describe('Строка настроек уведомлений S43.'),
+          telegram: zod.boolean(),
+          in_app: zod.boolean(),
+        }),
+      )
+      .max(notificationsUpdateNotificationSettingsBodyGroupsMax),
+    quiet_hours: zod.object({
+      enabled: zod.boolean(),
+      start: zod.iso
+        .time({})
+        .default(notificationsUpdateNotificationSettingsBodyQuietHoursStartDefault),
+      end: zod.iso
+        .time({})
+        .default(notificationsUpdateNotificationSettingsBodyQuietHoursEndDefault),
+    }),
+    digest_hour: zod
+      .int()
+      .min(notificationsUpdateNotificationSettingsBodyDigestHourMin)
+      .max(notificationsUpdateNotificationSettingsBodyDigestHourMax)
+      .default(notificationsUpdateNotificationSettingsBodyDigestHourDefault),
+  })
+  .describe('Настройки целиком: группы, которых нет в списке, возвращаются к умолчаниям.');
+
+export const notificationsUpdateNotificationSettingsResponseQuietHoursTimeZoneDefault = `Europe/Belgrade`;
+
+export const NotificationsUpdateNotificationSettingsResponse = zod.object({
+  groups: zod.array(
+    zod.object({
+      group: zod
+        .enum(['job_matches', 'responses', 'messages', 'deals', 'marketing', 'account'])
+        .describe('Строка настроек уведомлений S43.'),
+      telegram: zod.boolean(),
+      in_app: zod.boolean(),
+      mandatory: zod.boolean(),
+    }),
+  ),
+  quiet_hours: zod.object({
+    enabled: zod.boolean(),
+    start: zod.iso.time({}),
+    end: zod.iso.time({}),
+    time_zone: zod
+      .string()
+      .default(notificationsUpdateNotificationSettingsResponseQuietHoursTimeZoneDefault),
+  }),
+  digest_hour: zod.int(),
+  telegram: zod.union([
+    zod
+      .object({
+        writable: zod.boolean(),
+        granted_via: zod
+          .enum(['bot_start', 'mini_app'])
+          .describe('Как пользователь разрешил доставку по каналу.'),
+        granted_at: zod.iso.datetime({ offset: true }),
+      })
+      .describe(
+        'Канал «бот пишет в личный чат»: Mini App решает, просить ли разрешение (S21, S02c).',
+      ),
+    zod.null(),
+  ]),
+});

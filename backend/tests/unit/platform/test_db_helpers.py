@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from uuid import UUID
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -22,6 +23,12 @@ def test_cursor_roundtrip() -> None:
     cursor = encode_cursor(moment, uid, 42)
     assert "=" not in cursor
     assert decode_cursor(cursor, (datetime, type(uid), int)) == (moment, uid, 42)
+
+
+@pytest.mark.parametrize("forged", [encode_cursor(123), encode_cursor([1]), encode_cursor({})])
+def test_forged_uuid_cursor_is_invalid_not_a_crash(forged: str) -> None:
+    with pytest.raises(InvalidCursorError):
+        decode_cursor(forged, (UUID,))
 
 
 @pytest.mark.parametrize("garbage", ["", "@@@", "bm90LWpzb24", encode_cursor(1)])

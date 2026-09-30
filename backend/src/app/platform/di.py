@@ -58,6 +58,8 @@ from app.platform.settings import (
 )
 from app.platform.storage.port import StoragePort
 from app.platform.storage.s3 import S3Storage
+from app.platform.telegram.logging_sender import LoggingTelegramSender
+from app.platform.telegram.port import TelegramSender
 from app.platform.telegram.texts import BOT_DEFAULTS
 
 log = structlog.get_logger(__name__)
@@ -148,6 +150,9 @@ class PlatformProvider(Provider):
         bot = Bot(settings.bot_token.get_secret_value(), default=BOT_DEFAULTS)
         yield bot
         await bot.session.close()
+
+    telegram_sender = provide(LoggingTelegramSender, scope=Scope.APP, provides=TelegramSender)
+    """Уведомления бота: до адаптера на aiogram (шаг 2.3b) сообщения не уходят."""
 
     @provide(scope=Scope.APP)
     def storage(self, settings: S3Settings, clock: Clock) -> Iterator[StoragePort]:

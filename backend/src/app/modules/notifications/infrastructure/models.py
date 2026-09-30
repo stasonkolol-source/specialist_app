@@ -1,17 +1,32 @@
-"""ORM-модели notifications (ARCHITECTURE §7.3, миграция notifications_0001).
+"""ORM-модели notifications (ARCHITECTURE §7.3, миграции notifications_0001–0002).
 
-FK `channels.user_id` → identity.users объявлен только в миграции: MetaData модуля не
-знает чужих таблиц (modules/README.md, migrations/env.py). Предпочтения, центр
-уведомлений и доставки — шаг 2.3a.
+FK `user_id` → identity.users объявлены только в миграциях: MetaData модуля не знает
+чужих таблиц (modules/README.md, migrations/env.py).
 """
 
-from datetime import datetime
+from datetime import datetime, time
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Index, String, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    ForeignKey,
+    Index,
+    SmallInteger,
+    String,
+    Time,
+    UniqueConstraint,
+    func,
+    text,
+)
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.modules.notifications.domain.catalog import Channel, EventGroup, NotificationType
 from app.modules.notifications.domain.channel import ChannelKind, GrantedVia
+from app.modules.notifications.domain.notification import DeliveryStatus
+from app.modules.notifications.domain.settings import DIGEST_HOUR, QUIET_END, QUIET_START
 from app.platform.db.base import ModelBase, TimestampsMixin, UuidPkMixin, module_metadata
 from app.platform.db.types import str_enum
 
@@ -42,4 +57,89 @@ class ChannelRow(UuidPkMixin, TimestampsMixin, Base):
     __table_args__ = (
         UniqueConstraint("kind", "address"),
         Index("ix_channels_user_id", "user_id"),
+    )
+
+
+class PreferenceRow(Base):
+    """Выбор «группа × канал» — только то, что человек менял (умолчания — в домене)."""
+
+    __tablename__ = "preferences"
+
+    user_id: Mapped[UUID] = mapped_column(primary_key=True)
+    event_group: Mapped[EventGroup] = mapped_column(
+        str_enum(EventGroup, "event_group"), primary_key=True
+    )
+    channel: Mapped[Channel] = mapped_column(str_enum(Channel, "channel"), primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean)
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+class UserSettingsRow(Base):
+    """Тихие часы и час дайджеста (S43); строки нет — умолчания."""
+
+    __tablename__ = "user_settings"
+
+    user_id: Mapped[UUID] = mapped_column(primary_key=True)
+    quiet_enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    quiet_start: Mapped[time] = mapped_column(
+        Time, server_default=text(f"'{QUIET_START.isoformat()}'")
+    )
+    """По часам Europe/Belgrade."""
+    quiet_end: Mapped[time] = mapped_column(Time, server_default=text(f"'{QUIET_END.isoformat()}'"))
+    digest_hour: Mapped[int] = mapped_column(SmallInteger, server_default=text(str(DIGEST_HOUR)))
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        CheckConstraint("digest_hour BETWEEN 0 AND 23", name="digest_hour"),
+        CheckConstraint("quiet_start <> quiet_end", name="quiet_window"),
+    )
+
+
+class NotificationRow(UuidPkMixin, Base):
+    """Центр уведомлений (S42) и источник доставок."""
+
+    __tablename__ = "notifications"
+
+    user_id: Mapped[UUID]
+    type: Mapped[NotificationType] = mapped_column(str_enum(NotificationType, "type"))
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    """Машинные параметры шаблона (`params`) и код deep link (`link`): текст собирается при
+    показе на языке читателя."""
+    dedupe_key: Mapped[str] = mapped_column(String(255), unique=True)
+    priority: Mapped[int] = mapped_column(SmallInteger)
+    in_app: Mapped[bool] = mapped_column(Boolean)
+    """Виден в центре уведомлений (канал `in_app` включён для группы)."""
+    read_at: Mapped[datetime | None]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint("priority BETWEEN 0 AND 3", name="priority"),
+        # лента S42 по курсору: id — UUIDv7, растёт со временем
+        Index("ix_notifications_user_id_id", "user_id", "id", postgresql_where=text("in_app")),
+        Index(
+            "ix_notifications_unread",
+            "user_id",
+            postgresql_where=text("in_app AND read_at IS NULL"),
+        ),
+    )
+
+
+class DeliveryRow(UuidPkMixin, TimestampsMixin, Base):
+    """Отправка уведомления в один канал не раньше `not_before`."""
+
+    __tablename__ = "deliveries"
+
+    notification_id: Mapped[UUID] = mapped_column(ForeignKey("notifications.id"))
+    channel_id: Mapped[UUID] = mapped_column(ForeignKey("channels.id"))
+    status: Mapped[DeliveryStatus] = mapped_column(str_enum(DeliveryStatus, "status"))
+    attempts: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
+    provider_message_id: Mapped[str | None] = mapped_column(String(64))
+    error: Mapped[str | None] = mapped_column(String(255))
+    not_before: Mapped[datetime]
+    """Тихие часы; позже — дебаунс, дайджест и пауза после 429."""
+    sent_at: Mapped[datetime | None]
+
+    __table_args__ = (
+        UniqueConstraint("notification_id", "channel_id"),
+        Index("ix_deliveries_not_before", "not_before", postgresql_where=text("status = 'queued'")),
     )

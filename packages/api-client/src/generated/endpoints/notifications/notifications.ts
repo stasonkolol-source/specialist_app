@@ -4,20 +4,52 @@
  * Соседи API
  * OpenAPI spec version: 1.0.0
  */
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseQueryResult,
   MutationFunction,
   QueryClient,
+  QueryFunction,
+  QueryKey,
+  UndefinedInitialDataOptions,
   UseMutationOptions,
   UseMutationResult,
+  UseQueryOptions,
+  UseQueryResult,
 } from '@tanstack/react-query';
 
-import type { ProblemOut, TelegramChannelOut } from '../../model';
+import type {
+  NotificationPageOut,
+  NotificationSettingsIn,
+  NotificationSettingsOut,
+  NotificationsListNotificationsParams,
+  NotificationsReadIn,
+  ProblemOut,
+  TelegramChannelOut,
+  UnreadOut,
+} from '../../model';
 
 import { apiFetch } from '../../../mutator.ts';
 import type { ErrorType } from '../../../mutator.ts';
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
+  const result = { queryKey } as T & { queryKey: K };
+  for (const key of Object.keys(query)) {
+    // The explicit queryKey always wins, matching the previous
+    // `{ ...query, queryKey }` spread where it was set last.
+    if (key === 'queryKey') continue;
+    Object.defineProperty(result, key, {
+      enumerable: true,
+      configurable: true,
+      get: () => (query as Record<string, unknown>)[key],
+    });
+  }
+  return result;
+};
 
 export const getNotificationsGrantTelegramWriteAccessUrl = () => {
   return `/api/v1/me/telegram/write-access`;
@@ -106,4 +138,525 @@ export const useNotificationsGrantTelegramWriteAccess = <
   TContext
 > => {
   return useMutation(getNotificationsGrantTelegramWriteAccessMutationOptions(options), queryClient);
+};
+export const getNotificationsListNotificationsUrl = (
+  params?: NotificationsListNotificationsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/me/notifications?${stringifiedParams}`
+    : `/api/v1/me/notifications`;
+};
+
+/**
+ * Центр уведомлений: новые сверху, по курсору; тексты — на языке Accept-Language.
+ * @summary List Notifications
+ */
+export const notificationsListNotifications = async (
+  params?: NotificationsListNotificationsParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<NotificationPageOut> => {
+  return apiFetch<NotificationPageOut>(getNotificationsListNotificationsUrl(params), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getNotificationsListNotificationsQueryKey = (
+  params?: NotificationsListNotificationsParams,
+) => {
+  return [`/api/v1/me/notifications`, ...(params ? [params] : [])] as const;
+};
+
+export const getNotificationsListNotificationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof notificationsListNotifications>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params?: NotificationsListNotificationsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof notificationsListNotifications>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getNotificationsListNotificationsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof notificationsListNotifications>>> = ({
+    signal,
+  }) => notificationsListNotifications(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof notificationsListNotifications>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type NotificationsListNotificationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof notificationsListNotifications>>
+>;
+export type NotificationsListNotificationsQueryError = ErrorType<ProblemOut>;
+
+export function useNotificationsListNotifications<
+  TData = Awaited<ReturnType<typeof notificationsListNotifications>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: undefined | NotificationsListNotificationsParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof notificationsListNotifications>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof notificationsListNotifications>>,
+          TError,
+          Awaited<ReturnType<typeof notificationsListNotifications>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useNotificationsListNotifications<
+  TData = Awaited<ReturnType<typeof notificationsListNotifications>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params?: NotificationsListNotificationsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof notificationsListNotifications>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof notificationsListNotifications>>,
+          TError,
+          Awaited<ReturnType<typeof notificationsListNotifications>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useNotificationsListNotifications<
+  TData = Awaited<ReturnType<typeof notificationsListNotifications>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params?: NotificationsListNotificationsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof notificationsListNotifications>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List Notifications
+ */
+
+export function useNotificationsListNotifications<
+  TData = Awaited<ReturnType<typeof notificationsListNotifications>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params?: NotificationsListNotificationsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof notificationsListNotifications>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getNotificationsListNotificationsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getNotificationsMarkNotificationsReadUrl = () => {
+  return `/api/v1/me/notifications/read`;
+};
+
+/**
+ * Отметить прочитанными `ids` или все (`all: true`); чужие id не находятся. Повтор
+ * идемпотентен. Ответ — сколько непрочитанных осталось.
+ * @summary Mark Notifications Read
+ */
+export const notificationsMarkNotificationsRead = async (
+  notificationsReadIn: NotificationsReadIn,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<UnreadOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<UnreadOut>(getNotificationsMarkNotificationsReadUrl(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(notificationsReadIn),
+  });
+};
+
+export const getNotificationsMarkNotificationsReadMutationKey = () =>
+  ['notificationsMarkNotificationsRead'] as const;
+
+export const getNotificationsMarkNotificationsReadMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof notificationsMarkNotificationsRead>>,
+    TError,
+    NotificationsMarkNotificationsReadMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof notificationsMarkNotificationsRead>>,
+  TError,
+  NotificationsMarkNotificationsReadMutationVariables,
+  TContext
+> => {
+  const mutationKey = getNotificationsMarkNotificationsReadMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof notificationsMarkNotificationsRead>>,
+    NotificationsMarkNotificationsReadMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return notificationsMarkNotificationsRead(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type NotificationsMarkNotificationsReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof notificationsMarkNotificationsRead>>
+>;
+export type NotificationsMarkNotificationsReadMutationBody = NotificationsReadIn;
+export type NotificationsMarkNotificationsReadMutationError = ErrorType<ProblemOut>;
+export type NotificationsMarkNotificationsReadMutationVariables = { data: NotificationsReadIn };
+
+/**
+ * @summary Mark Notifications Read
+ */
+export const useNotificationsMarkNotificationsRead = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof notificationsMarkNotificationsRead>>,
+      TError,
+      NotificationsMarkNotificationsReadMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof notificationsMarkNotificationsRead>>,
+  TError,
+  NotificationsMarkNotificationsReadMutationVariables,
+  TContext
+> => {
+  return useMutation(getNotificationsMarkNotificationsReadMutationOptions(options), queryClient);
+};
+export const getNotificationsGetNotificationSettingsUrl = () => {
+  return `/api/v1/me/notification-settings`;
+};
+
+/**
+ * Группы × каналы, тихие часы, час дайджеста и может ли бот писать (S43).
+ * @summary Get Notification Settings
+ */
+export const notificationsGetNotificationSettings = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<NotificationSettingsOut> => {
+  return apiFetch<NotificationSettingsOut>(getNotificationsGetNotificationSettingsUrl(), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getNotificationsGetNotificationSettingsQueryKey = () => {
+  return [`/api/v1/me/notification-settings`] as const;
+};
+
+export const getNotificationsGetNotificationSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof notificationsGetNotificationSettings>>,
+  TError = ErrorType<ProblemOut>,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<Awaited<ReturnType<typeof notificationsGetNotificationSettings>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getNotificationsGetNotificationSettingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof notificationsGetNotificationSettings>>
+  > = ({ signal }) => notificationsGetNotificationSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof notificationsGetNotificationSettings>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type NotificationsGetNotificationSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof notificationsGetNotificationSettings>>
+>;
+export type NotificationsGetNotificationSettingsQueryError = ErrorType<ProblemOut>;
+
+export function useNotificationsGetNotificationSettings<
+  TData = Awaited<ReturnType<typeof notificationsGetNotificationSettings>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof notificationsGetNotificationSettings>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof notificationsGetNotificationSettings>>,
+          TError,
+          Awaited<ReturnType<typeof notificationsGetNotificationSettings>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useNotificationsGetNotificationSettings<
+  TData = Awaited<ReturnType<typeof notificationsGetNotificationSettings>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof notificationsGetNotificationSettings>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof notificationsGetNotificationSettings>>,
+          TError,
+          Awaited<ReturnType<typeof notificationsGetNotificationSettings>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useNotificationsGetNotificationSettings<
+  TData = Awaited<ReturnType<typeof notificationsGetNotificationSettings>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof notificationsGetNotificationSettings>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get Notification Settings
+ */
+
+export function useNotificationsGetNotificationSettings<
+  TData = Awaited<ReturnType<typeof notificationsGetNotificationSettings>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof notificationsGetNotificationSettings>>,
+        TError,
+        TData
+      >
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getNotificationsGetNotificationSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getNotificationsUpdateNotificationSettingsUrl = () => {
+  return `/api/v1/me/notification-settings`;
+};
+
+/**
+ * Заменить настройки целиком; группы, которых нет в списке, — по умолчанию. Служебную
+ * группу выключить нельзя — 422 `notification_group_mandatory`.
+ * @summary Update Notification Settings
+ */
+export const notificationsUpdateNotificationSettings = async (
+  notificationSettingsIn: NotificationSettingsIn,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<NotificationSettingsOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<NotificationSettingsOut>(getNotificationsUpdateNotificationSettingsUrl(), {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(notificationSettingsIn),
+  });
+};
+
+export const getNotificationsUpdateNotificationSettingsMutationKey = () =>
+  ['notificationsUpdateNotificationSettings'] as const;
+
+export const getNotificationsUpdateNotificationSettingsMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof notificationsUpdateNotificationSettings>>,
+    TError,
+    NotificationsUpdateNotificationSettingsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof notificationsUpdateNotificationSettings>>,
+  TError,
+  NotificationsUpdateNotificationSettingsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getNotificationsUpdateNotificationSettingsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof notificationsUpdateNotificationSettings>>,
+    NotificationsUpdateNotificationSettingsMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return notificationsUpdateNotificationSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type NotificationsUpdateNotificationSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof notificationsUpdateNotificationSettings>>
+>;
+export type NotificationsUpdateNotificationSettingsMutationBody = NotificationSettingsIn;
+export type NotificationsUpdateNotificationSettingsMutationError = ErrorType<ProblemOut>;
+export type NotificationsUpdateNotificationSettingsMutationVariables = {
+  data: NotificationSettingsIn;
+};
+
+/**
+ * @summary Update Notification Settings
+ */
+export const useNotificationsUpdateNotificationSettings = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof notificationsUpdateNotificationSettings>>,
+      TError,
+      NotificationsUpdateNotificationSettingsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof notificationsUpdateNotificationSettings>>,
+  TError,
+  NotificationsUpdateNotificationSettingsMutationVariables,
+  TContext
+> => {
+  return useMutation(
+    getNotificationsUpdateNotificationSettingsMutationOptions(options),
+    queryClient,
+  );
 };

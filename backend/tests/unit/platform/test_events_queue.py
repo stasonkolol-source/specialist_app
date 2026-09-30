@@ -71,7 +71,12 @@ async def test_dispatcher_enqueues_one_task_per_subscriber_with_dedup_key() -> N
 
     class RecordingQueue:
         async def enqueue(
-            self, task: TaskRef[object], payload: object, *, dedup_key: str | None = None
+            self,
+            task: TaskRef[object],
+            payload: object,
+            *,
+            dedup_key: str | None = None,
+            not_before: datetime | None = None,
         ) -> None:
             calls.append((task.name, dedup_key))
 

@@ -9,8 +9,13 @@ import { faker } from '@faker-js/faker';
 import { HttpResponse, http } from 'msw';
 import type { RequestHandlerOptions } from 'msw';
 
-import { GrantedVia } from '../../model';
-import type { TelegramChannelOut } from '../../model';
+import { EventGroup, GrantedVia, NotificationType } from '../../model';
+import type {
+  NotificationPageOut,
+  NotificationSettingsOut,
+  TelegramChannelOut,
+  UnreadOut,
+} from '../../model';
 
 export const getNotificationsGrantTelegramWriteAccessResponseMock = (
   overrideResponse: Partial<Extract<TelegramChannelOut, object>> = {},
@@ -18,6 +23,88 @@ export const getNotificationsGrantTelegramWriteAccessResponseMock = (
   writable: faker.datatype.boolean(),
   granted_via: faker.helpers.arrayElement(Object.values(GrantedVia)),
   granted_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  ...overrideResponse,
+});
+
+export const getNotificationsListNotificationsResponseMock = (
+  overrideResponse: Partial<Extract<NotificationPageOut, object>> = {},
+): NotificationPageOut => ({
+  items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    id: faker.string.uuid(),
+    type: faker.helpers.arrayElement(Object.values(NotificationType)),
+    title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    body: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    link: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+    created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+    read: faker.datatype.boolean(),
+  })),
+  next_cursor: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  unread_count: faker.number.int(),
+  ...overrideResponse,
+});
+
+export const getNotificationsMarkNotificationsReadResponseMock = (
+  overrideResponse: Partial<Extract<UnreadOut, object>> = {},
+): UnreadOut => ({ unread_count: faker.number.int(), ...overrideResponse });
+
+export const getNotificationsGetNotificationSettingsResponseMock = (
+  overrideResponse: Partial<Extract<NotificationSettingsOut, object>> = {},
+): NotificationSettingsOut => ({
+  groups: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      group: faker.helpers.arrayElement(Object.values(EventGroup)),
+      telegram: faker.datatype.boolean(),
+      in_app: faker.datatype.boolean(),
+      mandatory: faker.datatype.boolean(),
+    }),
+  ),
+  quiet_hours: {
+    enabled: faker.datatype.boolean(),
+    start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    time_zone: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  digest_hour: faker.number.int(),
+  telegram: faker.helpers.arrayElement([
+    {
+      writable: faker.datatype.boolean(),
+      granted_via: faker.helpers.arrayElement(Object.values(GrantedVia)),
+      granted_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+    },
+    null,
+  ]),
+  ...overrideResponse,
+});
+
+export const getNotificationsUpdateNotificationSettingsResponseMock = (
+  overrideResponse: Partial<Extract<NotificationSettingsOut, object>> = {},
+): NotificationSettingsOut => ({
+  groups: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      group: faker.helpers.arrayElement(Object.values(EventGroup)),
+      telegram: faker.datatype.boolean(),
+      in_app: faker.datatype.boolean(),
+      mandatory: faker.datatype.boolean(),
+    }),
+  ),
+  quiet_hours: {
+    enabled: faker.datatype.boolean(),
+    start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    time_zone: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  digest_hour: faker.number.int(),
+  telegram: faker.helpers.arrayElement([
+    {
+      writable: faker.datatype.boolean(),
+      granted_via: faker.helpers.arrayElement(Object.values(GrantedVia)),
+      granted_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+    },
+    null,
+  ]),
   ...overrideResponse,
 });
 
@@ -44,4 +131,104 @@ export const getNotificationsGrantTelegramWriteAccessMockHandler = (
     options,
   );
 };
-export const getNotificationsMock = () => [getNotificationsGrantTelegramWriteAccessMockHandler()];
+
+export const getNotificationsListNotificationsMockHandler = (
+  overrideResponse?:
+    | NotificationPageOut
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<NotificationPageOut> | NotificationPageOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/me/notifications',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getNotificationsListNotificationsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getNotificationsMarkNotificationsReadMockHandler = (
+  overrideResponse?:
+    | UnreadOut
+    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<UnreadOut> | UnreadOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/api/v1/me/notifications/read',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getNotificationsMarkNotificationsReadResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getNotificationsGetNotificationSettingsMockHandler = (
+  overrideResponse?:
+    | NotificationSettingsOut
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<NotificationSettingsOut> | NotificationSettingsOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/me/notification-settings',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getNotificationsGetNotificationSettingsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getNotificationsUpdateNotificationSettingsMockHandler = (
+  overrideResponse?:
+    | NotificationSettingsOut
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0],
+      ) => Promise<NotificationSettingsOut> | NotificationSettingsOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    '*/api/v1/me/notification-settings',
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getNotificationsUpdateNotificationSettingsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+export const getNotificationsMock = () => [
+  getNotificationsGrantTelegramWriteAccessMockHandler(),
+  getNotificationsListNotificationsMockHandler(),
+  getNotificationsMarkNotificationsReadMockHandler(),
+  getNotificationsGetNotificationSettingsMockHandler(),
+  getNotificationsUpdateNotificationSettingsMockHandler(),
+];

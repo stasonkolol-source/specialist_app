@@ -301,3 +301,91 @@ msgstr "Файл ещё не загрузился до конца. Дождит�
 
 msgid "errors.media_upload_mismatch"
 msgstr "Загруженный файл не совпал с выбранным. Загрузите его заново."
+
+# Уведомления (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
+msgid "errors.notification_group_mandatory"
+msgstr "Служебные уведомления нельзя выключить: они о решениях модерации и ограничениях аккаунта."
+
+msgid "notifications.account_restricted.title.restricted"
+msgstr "Аккаунт ограничен"
+
+msgid "notifications.account_restricted.title.banned"
+msgstr "Аккаунт заблокирован"
+
+msgid "notifications.account_restricted.body.posting_blocked"
+msgstr "Публиковать заявки и профиль пока нельзя."
+
+msgid "notifications.account_restricted.body.responding_blocked"
+msgstr "Откликаться на заявки пока нельзя."
+
+msgid "notifications.account_restricted.body.messaging_blocked"
+msgstr "Писать сообщения пока нельзя."
+
+msgid "notifications.account_restricted.body.suspended"
+msgstr "Аккаунт временно приостановлен."
+
+msgid "notifications.account_restricted.body.banned"
+msgstr "Аккаунт заблокирован за нарушение правил площадки."
+
+msgid "notifications.account_restricted.until"
+msgstr "Ограничение действует до {until}."
+
+msgid "notifications.account_restricted.rules"
+msgstr "Подробности — в правилах площадки."
+
+msgid "notifications.account_restricted.button"
+msgstr "Правила площадки"
+
+msgid "notifications.moderation_decision.title.job"
+msgstr "Заявка не опубликована"
+
+msgid "notifications.moderation_decision.title.profile"
+msgstr "Профиль не опубликован"
+
+msgid "notifications.moderation_decision.title.response"
+msgstr "Отклик не отправлен"
+
+msgid "notifications.moderation_decision.title.review"
+msgstr "Отзыв не опубликован"
+
+msgid "notifications.moderation_decision.title.message"
+msgstr "Сообщение не доставлено"
+
+msgid "notifications.moderation_decision.title.media"
+msgstr "Фото не опубликовано"
+
+msgid "notifications.moderation_decision.title.other"
+msgstr "Материал не прошёл проверку"
+
+msgid "notifications.moderation_decision.body"
+msgstr "Причина: {reason}. Исправьте и отправьте снова."
+
+msgid "notifications.moderation_decision.button"
+msgstr "Исправить"
+
+msgid "notifications.moderation_reason.prepayment_scam"
+msgstr "просьба о предоплате — частая уловка мошенников"
+
+msgid "notifications.moderation_reason.off_platform_payment"
+msgstr "предложение оплаты или переписки в обход «Соседей»"
+
+msgid "notifications.moderation_reason.mule_recruitment"
+msgstr "набор людей для перевода чужих денег или передачи посылок"
+
+msgid "notifications.moderation_reason.prohibited"
+msgstr "запрещённые товары или услуги"
+
+msgid "notifications.moderation_reason.contact_leak"
+msgstr "контакты в тексте: телефон, ссылки и имя пользователя открываются после договорённости"
+
+msgid "notifications.moderation_reason.spam_ad"
+msgstr "реклама или спам"
+
+msgid "notifications.moderation_reason.not_a_service_request"
+msgstr "это не заявка на услугу"
+
+msgid "notifications.moderation_reason.vacancy"
+msgstr "вакансии здесь не публикуются"
+
+msgid "notifications.moderation_reason.other"
+msgstr "нарушение правил площадки"
