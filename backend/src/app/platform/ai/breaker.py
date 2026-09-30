@@ -3,13 +3,14 @@
 После THRESHOLD сбоев подряд провайдер COOLDOWN не вызывается вовсе: контент сразу уходит в
 ручную очередь, а не ждёт таймаутов каждой проверки. После паузы пропускается одна пробная
 проверка: удалась — предохранитель закрыт; не удалась или потерялась (отмена, неожиданная
-ошибка) — следующая пробная ещё через COOLDOWN. Состояние — в процессе: у каждого воркера
-своё, и это достаточно (провайдер общий, сбой увидят все).
+ошибка) — следующая пробная ещё через COOLDOWN. Время — монотонное: перевод часов не
+открывает и не закрывает предохранитель. Состояние — в процессе: у каждого воркера своё, и
+это достаточно (провайдер общий, сбой увидят все).
 """
 
-from datetime import datetime, timedelta
-
-from app.platform.kernel.clock import Clock
+import time
+from collections.abc import Callable
+from datetime import timedelta
 
 THRESHOLD = 5
 COOLDOWN = timedelta(seconds=60)
@@ -17,17 +18,22 @@ COOLDOWN = timedelta(seconds=60)
 
 class CircuitBreaker:
     def __init__(
-        self, clock: Clock, *, threshold: int = THRESHOLD, cooldown: timedelta = COOLDOWN
+        self,
+        *,
+        threshold: int = THRESHOLD,
+        cooldown: timedelta = COOLDOWN,
+        monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
-        self._clock, self._threshold, self._cooldown = clock, threshold, cooldown
+        self._threshold, self._cooldown = threshold, cooldown.total_seconds()
+        self._monotonic = monotonic
         self._failures = 0
-        self._opened_at: datetime | None = None
+        self._opened_at: float | None = None
 
     def allow(self) -> bool:
         """Можно ли звать провайдера сейчас."""
         if self._opened_at is None:
             return True
-        now = self._clock.now()
+        now = self._monotonic()
         if now - self._opened_at < self._cooldown:
             return False
         self._opened_at = now  # пробная проверка; остальные ждут её исхода или новой паузы
@@ -39,7 +45,7 @@ class CircuitBreaker:
     def failure(self) -> None:
         self._failures += 1
         if self._opened_at is not None or self._failures >= self._threshold:
-            self._opened_at = self._clock.now()
+            self._opened_at = self._monotonic()
 
     @property
     def open(self) -> bool:

@@ -66,6 +66,35 @@ examples:
   - text: Нужна предоплата 30%, переведите на карту
     action: flag
     categories: [scam]
+  - text: Bez avansa ne dolazim
+    action: flag
+    categories: [scam]
+  - text: Без предоплаты не выезжаю, это правило
+    action: flag
+    categories: [scam]
+  # обход: невидимый символ, греческая буква, ударение, транслит
+  - text: "Ищем закла\u200bдчиков, оплата каждый день"
+    action: block
+    categories: [drugs]
+  - text: "Prodajem k\u03bfkain"
+    action: flag
+    categories: [drugs]
+  - text: "Нужны закладчи\u0301ки"
+    action: block
+    categories: [drugs]
+  - text: Ishchem zakladchikov
+    action: block
+    categories: [drugs]
+  # контакты рядом с числами и в чужих форматах
+  - text: Cena 3000 064 123 4567
+    action: flag
+    categories: [contacts]
+  - text: Звоните 8 999 123-45-67
+    action: flag
+    categories: [contacts]
+  - text: "０６４ １２３ ４５６７"
+    action: flag
+    categories: [contacts]
   # --- молчат: обычные заявки и отклики ------------------------------------------------------
   - text: Закладка фундамента под дом 10х12, нужна бригада
     action: pass
@@ -86,4 +115,40 @@ examples:
   - text: Нужна уборка после ремонта в субботу 12.10, 3 комнаты
     action: pass
   - text: Tražim električara za zamenu utičnica, cena po dogovoru
+    action: pass
+  - text: Аниматор в образе героини мультфильма на детский праздник
+    action: pass
+  - text: Pošaljite CV i cenu, hajde amo
+    action: pass
+  - text: Escorting a patient to the clinic on Monday
+    action: pass
+  - text: Plata od 1500 din po satu za čišćenje stana
+    action: pass
+  - text: I work from home, can come after 5 pm
+    action: pass
+  # честные оплаты: «без предоплаты» — самый частый оборот у специалистов
+  - text: Работаю без предоплаты, оплата по факту
+    action: pass
+  - text: Radim bez avansa, plaćanje posle završetka
+    action: pass
+  - text: No upfront payment, you pay when the job is done
+    action: pass
+  - text: Предоплата не нужна
+    action: pass
+  - text: Avans nije potreban, cena 25.000 dinara
+    action: pass
+  - text: Не беру аванс
+    action: pass
+  - text: Zalogajnica traži dostavu, kino karte za dvoje
+    action: pass
+  # время, цены, точка без пробела, «@» как «в»
+  - text: Dostupan sam 08.00-16.00, termin od 07.30 - 09.00
+    action: pass
+  - text: Uradio sam posao.To je sve
+    action: pass
+  - text: Есть собака лабрадор.Нужен выгул
+    action: pass
+  - text: "Cene: 1000, 1200, 1800, 2000 din"
+    action: pass
+  - text: I'm @ home all day
     action: pass

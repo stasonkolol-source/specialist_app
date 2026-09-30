@@ -4,6 +4,8 @@
 обезличенные примеры владельца (K28) придут к калибровке 6.7.
 """
 
+import time
+
 import pytest
 
 from app.platform.text.contact_masking import (
@@ -65,6 +67,30 @@ def found(text: str) -> list[tuple[ContactKind, str]]:
         ("mail: ivan (at) gmail dot com", [(EMAIL, "ivan (at) gmail dot com")]),
         ("ivan собака mail точка ru", [(EMAIL, "ivan собака mail точка ru")]),
         ("мой телеграм @ivan_master", [(USERNAME, "@ivan_master")]),
+        # номер среди других чисел и в чужих форматах
+        ("Stan 45, 064 123 4567", [(PHONE, "064 123 4567")]),
+        ("Cena 3000 064 123 4567", [(PHONE, "064 123 4567")]),
+        ("Soba 3 - 064 123 4567", [(PHONE, "064 123 4567")]),
+        ("7 064 123 4567", [(PHONE, "064 123 4567")]),
+        ("064 123 4567 12", [(PHONE, "064 123 4567")]),
+        ("Звоните 8 999 123-45-67", [(PHONE, "8 999 123-45-67")]),
+        ("8(916)123-45-67", [(PHONE, "8(916)123-45-67")]),
+        ("7 999 123 45 67", [(PHONE, "7 999 123 45 67")]),
+        ("380 67 123 4567", [(PHONE, "380 67 123 4567")]),
+        ("064*123*4567 или 064|123|4567", [(PHONE, "064*123*4567"), (PHONE, "064|123|4567")]),
+        # цифры, которые выглядят иначе: полноширинные, «математические», с невидимым символом
+        ("０６４１２３４５６７", [(PHONE, "０６４１２３４５６７")]),
+        ("𝟎𝟔𝟒𝟏𝟐𝟑𝟒𝟓𝟔𝟕", [(PHONE, "𝟎𝟔𝟒𝟏𝟐𝟑𝟒𝟓𝟔𝟕")]),
+        ("064\u200b123\u200b4567", [(PHONE, "064\u200b123\u200b4567")]),
+        (
+            "nula šest četiri, jedan dva tri, 4567",
+            [(PHONE, "nula šest četiri, jedan dva tri, 4567")],
+        ),
+        # ссылки и почта со спрятанными точками и зоной прописными
+        ("bit[dot]ly/abc", [(LINK, "bit[dot]ly/abc")]),
+        ("MAJSTOR.RS", [(LINK, "MAJSTOR.RS")]),
+        ("a.b.majstor.co.rs", [(LINK, "a.b.majstor.co.rs")]),
+        ("ivan@mail.yandex.ru", [(EMAIL, "ivan@mail.yandex.ru")]),
     ],
 )
 def test_contacts_are_found(text: str, expected: list[tuple[ContactKind, str]]) -> None:
@@ -88,10 +114,60 @@ def test_contacts_are_found(text: str, expected: list[tuple[ContactKind, str]]) 
         "email me later, at home",
         "@ab — слишком коротко для Telegram",
         "4111 1111 1111 1112",  # контрольная сумма не сходится
+        # время и диапазоны
+        "Dostupan sam 08.00-16.00",
+        "termin od 07.30 - 09.00",
+        "с 08.00–17.00",
+        "od 01.10-05.10",
+        # точка без пробела — конец предложения, а не домен или почта
+        "Uradio sam posao.To je sve",
+        "televizor.TV",
+        "Есть собака лабрадор.Нужен выгул",
+        "My dog is at home.Please come",
+        # цены через запятую — не карта; «@» вместо «в» — не @username
+        "Cene: 1000, 1200, 1800, 2000 din",
+        "I'm @ home all day",
+        "Available @ weekends",
+        "1111 2222 3333 4444",  # 1 — не платёжная система
     ],
 )
 def test_ordinary_text_is_left_alone(text: str) -> None:
     assert found(text) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["Tel: ¹²³⁴⁵⁶⁷⁸⁹¹²³⁴", "①②③④⑤⑥⑦⑧⑨①②③④", "⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀", "٠٦٤١٢٣٤٥٦٧٨٩٠١٢"],
+)
+def test_unusual_digits_never_crash(text: str) -> None:
+    mask_contacts(text)
+    find_domains(text)
+    assert luhn_valid("٤١١١") is False  # только цифры ASCII
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "a-" * 10_000,
+        "dobar-dan-" * 2_000,
+        "1.2.3.4.5.6.7.8.9." * 1_100,
+        "x[.]" * 5_000,
+        "x dot " * 3_400,
+        "a@b." * 5_000,
+        "ivan собака x точка " * 1_000,
+        "t" + " " * 20_000 + "x",
+        "1 " * 10_000,
+        "avans " * 3_300,
+        "a " * 10_000 + "bc",
+    ],
+    ids=lambda text: text[:12],
+)
+def test_adversarial_input_is_linear(text: str) -> None:
+    started = time.perf_counter()
+    mask_contacts(text)
+    find_prepayment(text)
+    skeleton(text)
+    assert time.perf_counter() - started < 1.0  # квадратичный перебор занимал 5–35 с
 
 
 def test_masking_keeps_the_rest_of_the_text() -> None:
@@ -141,6 +217,36 @@ def test_payment_after_the_job_is_not_prepayment(text: str) -> None:
     assert not find_prepayment(text)
 
 
+@pytest.mark.parametrize(
+    ("text", "asks"),
+    [
+        # честные: «без предоплаты» — самый частый оборот
+        ("Работаю без предоплаты, оплата по факту", False),
+        ("Radim bez avansa", False),
+        ("avans nije potreban", False),
+        ("No upfront payment", False),
+        ("Предоплата не нужна", False),
+        ("Не беру аванс", False),
+        ("Uplata unapred nije potrebna", False),
+        ("I don't take any deposit", False),
+        # двойное отрицание — требование
+        ("Bez avansa ne dolazim", True),
+        ("Без предоплаты не выезжаю", True),
+        # «но» — не английское «no»
+        ("Не надо предоплаты, но аванс 50% обязателен", True),
+        ("Предоплата, не обсуждается", True),
+        # узкие основы: закуски, каперсы, кино
+        ("zalogaji i zalogajnica", False),
+        ("kaparima", False),
+        ("завдати шкоди", False),
+        ("kino karte", False),
+        ("залог успеха", False),
+    ],
+)
+def test_prepayment_respects_negation_and_narrow_stems(text: str, asks: bool) -> None:
+    assert find_prepayment(text) is asks
+
+
 def test_skeleton_folds_scripts_and_disguises() -> None:
     assert skeleton("Предоплата") == skeleton("predoplata") == skeleton("пред0плата")
     assert skeleton("п.р.е.д.о.п.л.а.т.а") == "predoplata"
@@ -152,6 +258,16 @@ def test_skeleton_folds_scripts_and_disguises() -> None:
     assert skeleton("3вони") == skeleton("звони") == "zvoni"  # в кириллице 3 — это з
     assert skeleton("4ел") == skeleton("чел") == "cel"
     assert skeleton("k@zino ca$ino") == "kazino casino"
+    # невидимые символы, ударение, двойники букв, транслит
+    assert skeleton("закла\u200bдчик") == skeleton("закладчи\u0301к") == "zakladcik"
+    assert skeleton("zakladchik") == skeleton("закладчик")
+    assert skeleton("k\u03bfkain") == "kokain"  # греческая «ο»
+    assert (
+        skeleton("p. r. e. d. o. p. l. a. t. a") == skeleton("п/р/е/д/о/п/л/а/т/а") == "predoplata"
+    )
+    # число остаётся числом: цифры — буквы только среди букв
+    assert skeleton("3000р 50e 100к") == "3000r 50e 100k"
+    assert skeleton("h3r01n") == "heroin"
 
 
 @pytest.mark.parametrize(
@@ -163,6 +279,9 @@ def test_skeleton_folds_scripts_and_disguises() -> None:
         ("почта ivan (at) mail точка ru", ("mail.ru",)),
         ("viber://chat?number=381641234567 и @ivan_petrov", ()),
         ("Цена 1.500 дин, срок 12.10.2026", ()),
+        ("https://evil@bit.ly/x и https://x:y@bit.ly/abc", ("bit.ly",)),
+        ("ｂｉｔ.ｌｙ/abc", ("bit.ly",)),
+        ("bit。ly/abc", ("bit.ly",)),
     ],
 )
 def test_domains_of_links_and_emails(text: str, expected: tuple[str, ...]) -> None:

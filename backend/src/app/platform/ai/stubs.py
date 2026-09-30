@@ -8,10 +8,18 @@
   умолчанию «пока без него» — сработавшие изображения решает модератор).
 """
 
-from app.platform.ai.port import ContentKind, ModerationResult, PolicyLabel, PolicyVerdict
+from app.platform.ai.port import (
+    ContentKind,
+    ModerationResult,
+    PolicyLabel,
+    PolicyVerdict,
+    Unavailable,
+    UnavailableReason,
+)
 from app.platform.text.contact_masking import find_contacts, find_prepayment
 
 STUB_NOTE = "проверка без ключа AI: заглушка"
+NO_KEY = Unavailable(UnavailableReason.NO_KEY)
 
 
 class StubModeration:
@@ -36,18 +44,18 @@ class StubPolicyClassifier:
 
 
 class NoModeration:
-    async def check_text(self, text: str) -> ModerationResult:  # noqa: ARG002 — нет ключа
-        return ModerationResult.unavailable()
+    async def check_text(self, text: str) -> Unavailable:  # noqa: ARG002 — нет ключа
+        return NO_KEY
 
-    async def check_image(self, url: str) -> ModerationResult:  # noqa: ARG002
-        return ModerationResult.unavailable()
+    async def check_image(self, url: str) -> Unavailable:  # noqa: ARG002
+        return NO_KEY
 
 
 class NoPolicyClassifier:
-    async def classify(self, text: str, *, kind: ContentKind) -> PolicyVerdict:  # noqa: ARG002
-        return PolicyVerdict.unavailable()
+    async def classify(self, text: str, *, kind: ContentKind) -> Unavailable:  # noqa: ARG002
+        return NO_KEY
 
 
 class NoSecondaryImage:
-    async def check(self, url: str) -> ModerationResult:  # noqa: ARG002 — Q20: пока без него
-        return ModerationResult.unavailable()
+    async def check(self, url: str) -> Unavailable:  # noqa: ARG002 — Q20: пока без него
+        return Unavailable(UnavailableReason.NOT_CONFIGURED)

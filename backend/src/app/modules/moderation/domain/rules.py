@@ -28,7 +28,11 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 
-from app.platform.text.contact_masking import find_contacts, find_domains, find_prepayment
+from app.platform.text.contact_masking import (
+    find_contacts,
+    find_domains,
+    prepayment_in_skeleton,
+)
 from app.platform.text.normalize import skeleton
 
 
@@ -167,7 +171,7 @@ def _word(pattern: str) -> re.Pattern[str]:
 def _regex(pattern: str) -> re.Pattern[str]:
     try:
         regex = re.compile(pattern, re.IGNORECASE)
-    except re.error as exc:
+    except (re.error, OverflowError, RecursionError, ValueError) as exc:  # «a{4294967296}»
         raise InvalidRuleError(f"regex does not compile: {exc}") from exc
     if regex.search("") is not None:
         raise InvalidRuleError("regex matches an empty text")
@@ -200,19 +204,20 @@ class RuleSet:
     def check(self, text: str) -> RulesVerdict:
         text = text[:MAX_TEXT]
         words = skeleton(text)
+        contacts = find_contacts(text)
         matches = [
             _matched(c.rule) for c in self._text if c.regex is not None and c.regex.search(words)
         ]
-        if self._domains and (hosts := find_domains(text)):
+        if self._domains and (hosts := find_domains(text, contacts)):
             matches.extend(
                 _matched(rule)
                 for rule in self._domains
                 if any(h == rule.pattern or h.endswith("." + rule.pattern) for h in hosts)
             )
-        if contacts := find_contacts(text):
+        if contacts:
             kinds = ", ".join(dict.fromkeys(f.kind.value for f in contacts))
             matches.append(_detected(RuleCategory.CONTACTS, kinds))
-        if find_prepayment(text):
+        if prepayment_in_skeleton(words):
             matches.append(_detected(RuleCategory.SCAM, "prepayment"))
         return RulesVerdict(tuple(matches))
 

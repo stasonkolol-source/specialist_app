@@ -447,6 +447,8 @@ def check_content_rules(path: Path, report: Report) -> list[ContentRule]:
             report.errors.append(f"{path.name}: {rule.kind.value} {rule.pattern!r}: {exc}")
             continue
         same = rule.pattern if rule.kind is not RuleKind.WORD else skeleton(rule.pattern)
+        if rule.kind is RuleKind.WORD:
+            _check_word_length(path, rule.pattern, same, report)
         key = (rule.kind, same + ("*" if rule.pattern.endswith("*") else ""))
         if (first := seen.setdefault(key, index)) != index:
             report.errors.append(
@@ -459,6 +461,24 @@ def check_content_rules(path: Path, report: Report) -> list[ContentRule]:
         + ")"
     )
     return rules
+
+
+MIN_WORD = 3
+"""Слово словаря короче в скелете — ловит всё подряд («cvv» → «cv»)."""
+SHORT_WORD = 5
+
+
+def _check_word_length(path: Path, pattern: str, words: str, report: Report) -> None:
+    letters = len(words.replace(" ", ""))
+    if letters < MIN_WORD:
+        report.errors.append(
+            f"{path.name}: word {pattern!r} is {words!r} in the skeleton — too short"
+        )
+    elif letters < SHORT_WORD and not pattern.endswith("*") and " " not in words:
+        report.warnings.append(
+            f"{path.name}: word {pattern!r} is only {words!r} in the skeleton — check that"
+            " ordinary words do not match"
+        )
 
 
 def check_rule_examples(path: Path, rules: list[ContentRule], report: Report) -> None:

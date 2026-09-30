@@ -70,15 +70,19 @@ async def test_smoke_reports_every_check_and_records_raw_answers(tmp_path: Path)
         anthropic_transport=anthropic_transport(),
     )
 
+    [flagged] = recorded("openai_moderation_flagged.json")["results"]
+    top = max(flagged["category_scores"].items(), key=lambda item: item[1])
+    [block] = recorded("anthropic_prepayment.json")["content"]
+    scam = json.loads(block["text"])
     assert not report.failed
     assert report.lines[0].startswith("moderation clean: flagged=False")
-    assert report.lines[1].startswith("moderation threat: flagged=True [violence 1.00")
+    assert report.lines[1].startswith(f"moderation threat: flagged=True [{top[0]} {top[1]:.2f}")
     assert [line.split(":")[0] for line in report.lines[2:]] == [
         "classifier job",
         "classifier response",
         "classifier job",
     ]
-    assert "prepayment_scam 0.94" in report.lines[3]
+    assert f"{scam['label']} {scam['confidence']:.2f}" in report.lines[3]
     assert "ожидалось" not in "".join(report.lines)
     assert sorted(path.name for path in report.recorded) == [
         "anthropic_prepayment.json",
@@ -95,10 +99,23 @@ async def test_smoke_fails_when_a_provider_is_unavailable() -> None:
 
     assert report.failed
     assert report.lines == [
-        "moderation clean: НЕДОСТУПНО (ключ, модель или сеть — см. лог)",
-        "moderation threat: НЕДОСТУПНО (ключ, модель или сеть — см. лог)",
+        "moderation clean: НЕДОСТУПНО (provider_error)",
+        "moderation threat: НЕДОСТУПНО (provider_error)",
         "classifier: пропущено — нет AI_ANTHROPIC_API_KEY (K26)",
     ]
+    assert report.recorded == []
+
+
+async def test_smoke_records_only_answers_the_tests_expect(tmp_path: Path) -> None:
+    def surprising(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, json=verdict("off_platform_payment"))
+
+    report = await run_ai_smoke(
+        settings(openai=False), tmp_path, anthropic_transport=httpx2.MockTransport(surprising)
+    )
+
+    assert "ожидалось prepayment_scam" in report.lines[2]
+    assert report.recorded == []  # запись с другой меткой сломала бы контрактные тесты
 
 
 def test_command_without_keys_exits_with_error(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -245,8 +245,20 @@ def _group(data: Any, category: str, action: str = "flag") -> dict[str, Any]:
             lambda d: d["rules"].append({"category": "gambling", "action": "flag", "words": ["x"]}),
             "category",
         ),
+        (
+            lambda d: d["rules"].append({"category": "scam", "action": "flag", "words": ["cvv"]}),
+            "'cvv' is 'cv' in the skeleton — too short",
+        ),
     ],
-    ids=["duplicate", "same-skeleton", "two-lists", "bad-regex", "short-stem", "bad-category"],
+    ids=[
+        "duplicate",
+        "same-skeleton",
+        "two-lists",
+        "bad-regex",
+        "short-stem",
+        "bad-category",
+        "short-word",
+    ],
 )
 def test_broken_content_rules_are_reported(
     seeds: Path, change: Callable[[Any], None], message: str

@@ -22,8 +22,7 @@ import httpx2
 from app.platform.ai.anthropic_classifier import AnthropicPolicyClassifier
 from app.platform.ai.breaker import CircuitBreaker
 from app.platform.ai.openai_moderation import OpenAiModeration
-from app.platform.ai.port import ContentKind, PolicyLabel
-from app.platform.kernel.clock import SystemClock
+from app.platform.ai.port import ContentKind, PolicyLabel, Unavailable
 from app.platform.settings import AiSettings
 
 MODERATION_SAMPLES = (
@@ -127,24 +126,24 @@ async def _moderation(
             http,
             api_key=key,
             model=settings.moderation_model,
-            breaker=CircuitBreaker(SystemClock()),
+            text_breaker=CircuitBreaker(),
+            image_breaker=CircuitBreaker(),
+            deadline=settings.timeout_seconds,
         )
         for name, text, recording in MODERATION_SAMPLES:
             started = time.perf_counter()
             result = await adapter.check_text(text)
             seconds = time.perf_counter() - started
-            if not result.available:
+            if isinstance(result, Unavailable):
                 report.failed = True
-                report.lines.append(
-                    f"moderation {name}: НЕДОСТУПНО (ключ, модель или сеть — см. лог)"
-                )
+                report.lines.append(f"moderation {name}: НЕДОСТУПНО ({result.reason.value})")
                 continue
             top = sorted(result.scores.items(), key=lambda item: -item[1])[:2]
             scores = ", ".join(f"{category} {score:.2f}" for category, score in top)
             report.lines.append(
                 f"moderation {name}: flagged={result.flagged} [{scores}] ({seconds * 1000:.0f} ms)"
             )
-            if recording is not None:
+            if recording is not None and result.flagged:  # запись — только настоящий пример
                 recorder.save(record, f"openai_moderation_{recording}.json", report)
 
 
@@ -165,20 +164,23 @@ async def _classifier(
         ),
     ) as client:
         adapter = AnthropicPolicyClassifier(
-            client, model=settings.classifier_model, breaker=CircuitBreaker(SystemClock())
+            client,
+            model=settings.classifier_model,
+            breaker=CircuitBreaker(),
+            deadline=settings.timeout_seconds,
         )
         for kind, text, expected, recording in CLASSIFIER_SAMPLES:
             started = time.perf_counter()
             verdict = await adapter.classify(text, kind=kind)
             seconds = time.perf_counter() - started
-            if not verdict.available:
+            if isinstance(verdict, Unavailable):
                 report.failed = True
-                report.lines.append(f"classifier {kind.value}: НЕДОСТУПНО (см. лог)")
+                report.lines.append(f"classifier {kind.value}: НЕДОСТУПНО ({verdict.reason.value})")
                 continue
             note = "" if verdict.label is expected else f" — ожидалось {expected.value}"
             report.lines.append(
                 f"classifier {kind.value}: {verdict.label.value} {verdict.confidence:.2f}{note}"
                 f" «{verdict.explanation}» ({seconds:.1f} s)"
             )
-            if recording is not None:
+            if recording is not None and verdict.label is expected:  # тесты ждут эту метку
                 recorder.save(record, recording, report)

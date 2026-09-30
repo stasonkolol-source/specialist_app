@@ -103,6 +103,16 @@ def test_domain_matches_links_and_subdomains(text: str, hit: bool) -> None:
     assert ("bit.ly" in evidence(rules, text)) is hit
 
 
+def test_invisible_characters_accents_and_lookalikes_do_not_hide_a_word() -> None:
+    rules = RuleSet([rule("закладчик*", action=BLOCK), rule("kokain*")])
+
+    assert rules.check("Ищем закла\u200bдчиков").action is BLOCK  # zero-width
+    assert rules.check("Ищем закла\u00adдчиков").action is BLOCK  # мягкий перенос
+    assert rules.check("Нужны закладчи\u0301ки").action is BLOCK  # ударение
+    assert rules.check("Ishchem zakladchikov").action is BLOCK  # русский транслит
+    assert evidence(rules, "Prodajem k\u03bfkain") == ["kokain*"]  # греческая «ο»
+
+
 def test_detectors_work_without_any_rule() -> None:
     verdict = RuleSet().check("Nudim avans 50%, zovi +381 64 123 4567 ili piši na @ivan_ns")
 
@@ -154,6 +164,7 @@ def test_inactive_rules_are_skipped_and_broken_ones_do_not_stop_the_rest() -> No
         (rule(" "), "1–200"),
         (rule("x" * (MAX_PATTERN + 1)), "1–200"),
         (rule("x*", REGEX), "empty text"),
+        (rule("a{4294967296}", REGEX), "does not compile"),  # OverflowError, а не re.error
         (rule("massage", REGEX), "double letters"),
         (rule("Bit.ly", DOMAIN), "lower case"),
         (rule("https://bit.ly", DOMAIN), "example.com"),

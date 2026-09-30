@@ -22,7 +22,8 @@ pytestmark = pytest.mark.integration
 
 
 async def _import(db_session: AsyncSession, app: procrastinate.App) -> ImportRulesResult:
-    use_case = ImportContentRules(make_uow(db_session, app), SqlRuleWriter(db_session))
+    uow = make_uow(db_session, app)
+    use_case = ImportContentRules(uow, SqlRuleWriter(db_session, uow))
     return await use_case(ImportContentRulesCommand(rules=tuple(load_content_rules_seed())))
 
 

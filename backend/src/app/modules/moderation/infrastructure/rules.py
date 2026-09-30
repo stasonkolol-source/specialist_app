@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.modules.moderation.application.dto import ImportRulesResult
 from app.modules.moderation.domain.rules import ContentRule, RuleSet
 from app.modules.moderation.infrastructure.models import ContentRuleRow, RuleOrigin
+from app.platform.db.port import UnitOfWork
 
 log = structlog.get_logger(__name__)
 
@@ -36,10 +37,11 @@ IMPORT_LOCK = 0x6D6F645F72756C65
 
 
 class SqlRuleWriter:
-    def __init__(self, session: AsyncSession) -> None:
-        self._session = session
+    def __init__(self, session: AsyncSession, uow: UnitOfWork) -> None:
+        self._session, self._uow = session, uow
 
     async def import_seed(self, rules: Sequence[ContentRule]) -> ImportRulesResult:
+        self._uow.require_active()  # advisory lock транзакции — только внутри UoW
         await self._session.execute(select(func.pg_advisory_xact_lock(IMPORT_LOCK)))
         stored = {
             (row.kind, row.pattern): row
@@ -118,17 +120,22 @@ class CachedRuleSource:
             log.warning("content_rules_unavailable", error=type(exc).__name__)
             self._expires = self._monotonic() + RETRY.total_seconds()
             return
-        ruleset = RuleSet(
-            ContentRule(
-                id=row.id,
-                pattern=row.pattern,
-                kind=row.kind,
-                lang=row.lang,
-                action=row.action,
-                category=row.category,
+        try:
+            ruleset = RuleSet(
+                ContentRule(
+                    id=row.id,
+                    pattern=row.pattern,
+                    kind=row.kind,
+                    lang=row.lang,
+                    action=row.action,
+                    category=row.category,
+                )
+                for row in rows
             )
-            for row in rows
-        )
+        except Exception:  # словарь, который не собрался, не должен выключить все проверки
+            log.exception("content_rules_build_failed")
+            self._expires = self._monotonic() + RETRY.total_seconds()
+            return
         rejected = frozenset(rule.id for rule, _ in ruleset.rejected)
         for rule, reason in ruleset.rejected:
             if rule.id not in self._rejected:  # в лог — один раз, а не каждые TTL

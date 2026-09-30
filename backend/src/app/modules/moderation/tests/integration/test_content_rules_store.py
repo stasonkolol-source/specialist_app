@@ -48,7 +48,8 @@ SHORTENER = ContentRule(
 async def run_import(
     session: AsyncSession, app: procrastinate.App, *rules: ContentRule
 ) -> ImportRulesResult:
-    use_case = ImportContentRules(make_uow(session, app), SqlRuleWriter(session))
+    uow = make_uow(session, app)
+    use_case = ImportContentRules(uow, SqlRuleWriter(session, uow))
     return await use_case(ImportContentRulesCommand(rules=rules))
 
 
@@ -177,3 +178,26 @@ async def test_database_outage_keeps_the_last_snapshot(
 
     assert after_outage is snapshot
     assert [entry["event"] for entry in logs] == ["content_rules_unavailable"]
+
+
+async def test_dictionary_that_fails_to_build_keeps_the_last_snapshot(
+    db_session: AsyncSession,
+    db_connection: AsyncConnection,
+    procrastinate_app: procrastinate.App,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await run_import(db_session, procrastinate_app, KOKAIN)
+    clock = [0.0]
+    rules = source(db_connection, timedelta(seconds=1), clock)
+    snapshot = await rules.current()
+
+    def broken(*_: object) -> None:
+        raise RuntimeError("unexpected")
+
+    monkeypatch.setattr("app.modules.moderation.infrastructure.rules.RuleSet", broken)
+    clock[0] += 2
+    with capture_logs() as logs:
+        after = await rules.current()
+
+    assert after is snapshot
+    assert [entry["event"] for entry in logs] == ["content_rules_build_failed"]

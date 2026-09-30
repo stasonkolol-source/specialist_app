@@ -82,7 +82,8 @@ log = structlog.get_logger(__name__)
 ANALYTICS_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 AI_CONNECT_TIMEOUT = 5.0
 AI_MAX_RETRIES = 1
-"""SDK Anthropic повторяет 429, 5xx и обрывы с паузой; больше одного — дольше ждёт автор."""
+"""SDK Anthropic повторяет 429, 5xx и обрывы с паузой; вся проверка вместе с повтором всё равно
+укладывается в AI_TIMEOUT_SECONDS (дедлайн адаптера)."""
 
 
 class PlatformProvider(Provider):
@@ -209,9 +210,7 @@ class PlatformProvider(Provider):
             )
 
     @provide(scope=Scope.APP)
-    async def moderation(
-        self, settings: AiSettings, app: AppSettings, clock: Clock
-    ) -> AsyncIterator[Moderation]:
+    async def moderation(self, settings: AiSettings, app: AppSettings) -> AsyncIterator[Moderation]:
         """OpenAI omni-moderation, если есть ключ (K25)."""
         if settings.openai_api_key is None:
             stub = _stubs_allowed(app, "AI_OPENAI_API_KEY")
@@ -223,12 +222,14 @@ class PlatformProvider(Provider):
                 client,
                 api_key=settings.openai_api_key.get_secret_value(),
                 model=settings.moderation_model,
-                breaker=CircuitBreaker(clock),
+                text_breaker=CircuitBreaker(),
+                image_breaker=CircuitBreaker(),
+                deadline=settings.timeout_seconds,
             )
 
     @provide(scope=Scope.APP)
     async def policy_classifier(
-        self, settings: AiSettings, app: AppSettings, clock: Clock
+        self, settings: AiSettings, app: AppSettings
     ) -> AsyncIterator[PolicyClassifier]:
         """Claude (ADR-0016: Haiku 4.5), если есть ключ (K26)."""
         if settings.anthropic_api_key is None:
@@ -241,7 +242,10 @@ class PlatformProvider(Provider):
             max_retries=AI_MAX_RETRIES,
         ) as client:
             yield AnthropicPolicyClassifier(
-                client, model=settings.classifier_model, breaker=CircuitBreaker(clock)
+                client,
+                model=settings.classifier_model,
+                breaker=CircuitBreaker(),
+                deadline=settings.timeout_seconds,
             )
 
     secondary_image = provide(NoSecondaryImage, scope=Scope.APP, provides=SecondaryImage)

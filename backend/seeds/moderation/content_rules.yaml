@@ -17,7 +17,11 @@
 # - Контакты (телефоны, ссылки, @username, e-mail, номера карт) и просьбы о предоплате ловит
 #   детектор platform/text — здесь их не пишут.
 # - Слова с безобидным смыслом в услугах — не в block и лучше фразой: «закладка» — это и
-#   «закладка фундамента», «пистолет» — и «пистолет для герметика», «drog*» — и «drogerija».
+#   «закладка фундамента», «пистолет» — и «пистолет для герметика», «drog*» — и «drogerija»,
+#   «героин*» — и «героиня», «escort*» — и «escorting a patient».
+# - Короткие слова опасны: в скелете нет двойных букв, «cvv» превращается в «cv» (резюме), а
+#   «ammo» — в сербское «amo». Слово короче 3 букв в скелете `seeds-validate` не примет, короче
+#   5 без `*` — покажет предупреждением.
 version: "2026-09-30"
 rules:
   # --- наркотики: вербовка закладчиков — однозначно, P0 ---------------------------------
@@ -32,8 +36,8 @@ rules:
   # --- наркотики: названия веществ — в классификатор ------------------------------------
   - category: drugs
     action: flag
-    words: [кокаин*, героин*, амфетамин*, метамфетамин*, мефедрон*, марихуан*, экстази, спайс,
-            наркотик*, mdma, lsd]
+    words: [кокаин*, героин, героина, героину, героином, амфетамин*, метамфетамин*, мефедрон*,
+            марихуан*, экстази, спайс, наркотик*, mdma, lsd]
   - category: drugs
     action: flag
     lang: sr
@@ -62,13 +66,13 @@ rules:
   - category: weapons
     action: flag
     lang: en
-    words: [firearm*, ammunition, ammo, handgun*, assault rifle*]
+    words: [firearm*, ammunition, handgun*, assault rifle*]
   # --- сексуальные услуги ----------------------------------------------------------------
   - category: escort
     action: flag
     lang: ru
-    words: [эскорт*, проститутк*, интим услуг*, секс услуг*, досуг для мужчин,
-            массаж с продолжением, эротический массаж]
+    words: [эскорт услуг*, эскорт агентств*, проститутк*, интим услуг*, секс услуг*,
+            досуг для мужчин, массаж с продолжением, эротический массаж]
   - category: escort
     action: flag
     lang: sr
@@ -76,7 +80,8 @@ rules:
   - category: escort
     action: flag
     lang: en
-    words: [escort*, happy ending, sex service*, erotic massage]
+    words: [escort service*, escort agenc*, escort girl*, happy ending, sex service*,
+            erotic massage]
   # --- дропы и обнал ---------------------------------------------------------------------
   - category: mule
     action: flag
@@ -105,7 +110,7 @@ rules:
   - category: scam
     action: flag
     lang: en
-    words: [safe deal, payment link, sms code, cvv]
+    words: [safe deal, payment link, sms code, cvv code, card security code]
   # --- спам и реклама ----------------------------------------------------------------------
   - category: spam
     action: flag
@@ -123,7 +128,7 @@ rules:
   - category: spam
     action: flag
     lang: en
-    words: [casino*, passive income, make money online, work from home]
+    words: [casino*, passive income, make money online]
   - category: spam
     action: flag
     domains: [bit.ly, tinyurl.com, cutt.ly, goo.gl, t.ly, is.gd, rb.gy, shorturl.at, clck.ru]
@@ -136,7 +141,7 @@ rules:
   - category: vacancy
     action: flag
     lang: sr
-    words: [zapošljavamo, oglas za posao, puno radno vreme, stalni radni odnos, plata od]
+    words: [zapošljavamo, oglas za posao, puno radno vreme, stalni radni odnos]
   - category: vacancy
     action: flag
     lang: uk

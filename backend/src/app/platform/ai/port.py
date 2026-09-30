@@ -6,16 +6,18 @@
 - `SecondaryImage` — второй проверяющий изображений, на которых сработал первый (Q20: пока
   без него — такие изображения идут в ручную очередь).
 
-Недоступная проверка (нет ключа, таймаут, сбой, открыт предохранитель) — не исключение, а
-вердикт `available=False`: модерация отправит контент в ручную очередь, а не опубликует
-его без проверки (ADR-0016). В AI уходит минимум — текст без контактов (contact_masking).
+Проверка, которая не состоялась (нет ключа, таймаут, сбой, открыт предохранитель, отказ
+модели), — не исключение и не «чисто», а отдельный ответ `Unavailable`: модерация отправит
+контент в ручную очередь, а не опубликует его без проверки (ADR-0016). Это отдельный тип, а не
+флаг: у `Unavailable` нет метки и `flagged`, поэтому mypy не даст прочитать их, не разобрав
+случай «недоступно». В AI уходит минимум — текст без контактов (contact_masking).
 """
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Protocol, Self
+from typing import Protocol
 
 
 class ContentKind(StrEnum):
@@ -44,17 +46,32 @@ class PolicyLabel(StrEnum):
     OK = "ok"
 
 
+class UnavailableReason(StrEnum):
+    NO_KEY = "no_key"
+    """Ключа нет: stage и прод без K25/K26."""
+    NOT_CONFIGURED = "not_configured"
+    """Проверки нет по решению (Q20: второй проверяющий изображений)."""
+    BREAKER_OPEN = "breaker_open"
+    PROVIDER_ERROR = "provider_error"
+    """Сеть, таймаут, 429, 5xx, 401, неожиданный ответ."""
+    REJECTED_INPUT = "rejected_input"
+    """Провайдер не принял именно этот запрос (400, 413, 422): изображение не скачалось и т. п."""
+    NO_VERDICT = "no_verdict"
+    """Ответ есть, вердикта нет: отказ модели, ответ не по схеме."""
+
+
+@dataclass(frozen=True, slots=True)
+class Unavailable:
+    """Проверка не состоялась — контент в ручную очередь (ADR-0016)."""
+
+    reason: UnavailableReason
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ModerationResult:
     flagged: bool
     scores: Mapping[str, float] = field(default_factory=lambda: MappingProxyType({}))
     """Категория классификатора → уверенность 0–1."""
-    available: bool = True
-    """False — проверка не состоялась: контент — в ручную очередь."""
-
-    @classmethod
-    def unavailable(cls) -> Self:
-        return cls(flagged=False, available=False)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -64,24 +81,19 @@ class PolicyVerdict:
     """0–1: насколько классификатор уверен в метке."""
     explanation: str
     """Коротко, по-русски — для модератора (пользователю не показывается)."""
-    available: bool = True
-
-    @classmethod
-    def unavailable(cls) -> Self:
-        return cls(label=PolicyLabel.OK, confidence=0.0, explanation="", available=False)
 
 
 class Moderation(Protocol):
-    async def check_text(self, text: str) -> ModerationResult: ...
+    async def check_text(self, text: str) -> ModerationResult | Unavailable: ...
 
-    async def check_image(self, url: str) -> ModerationResult:
+    async def check_image(self, url: str) -> ModerationResult | Unavailable:
         """Изображение по адресу (presigned GET варианта `md`)."""
         ...
 
 
 class PolicyClassifier(Protocol):
-    async def classify(self, text: str, *, kind: ContentKind) -> PolicyVerdict: ...
+    async def classify(self, text: str, *, kind: ContentKind) -> PolicyVerdict | Unavailable: ...
 
 
 class SecondaryImage(Protocol):
-    async def check(self, url: str) -> ModerationResult: ...
+    async def check(self, url: str) -> ModerationResult | Unavailable: ...
