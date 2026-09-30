@@ -8,7 +8,8 @@ import { Banner, EmptyState, ProgressBar, Skeleton, Stars, Steps, Toast } from '
 import { Checkbox, Option, RadioGroup, Segmented, Switch } from './form/Choice.tsx';
 import { Field, Input, SearchField, Textarea } from './form/Field.tsx';
 import { Badge } from './Badge.tsx';
-import { Group, Row, RowIcon, Tile, Tiles } from './Group.tsx';
+import { LinkButton } from './Button.tsx';
+import { FeedRow, Group, Row, RowIcon, Tile, Tiles, UnreadDot } from './Group.tsx';
 import { Photo } from './Photo.tsx';
 import { a11yViolations } from './testing/a11y.ts';
 
@@ -26,6 +27,46 @@ describe('Group и Row', () => {
     expect(onClick).toHaveBeenCalledOnce();
     expect(screen.getByRole('link', { name: /Язык/ }).getAttribute('href')).toBe('#lang');
     expect(container.querySelectorAll('.last\\:border-b-0')).toHaveLength(3);
+    expect(await a11yViolations(container)).toEqual([]);
+  });
+});
+
+describe('FeedRow, UnreadDot, LinkButton (S42)', () => {
+  it('строка ленты: ссылка с временем и отметкой, статичная — без ссылки', async () => {
+    const onClick = vi.fn((event: { preventDefault(): void }) => event.preventDefault());
+    const { container } = render(
+      <>
+        <LinkButton onClick={onClick}>Прочитать все</LinkButton>
+        <Group>
+          <FeedRow
+            title="Новое сообщение"
+            leading={<RowIcon icon="chat" palette={2} />}
+            meta={
+              <>
+                <UnreadDot label="Не прочитано" />5 мин
+              </>
+            }
+            href="#chat"
+            onClick={onClick}
+          >
+            Алексей Морозов: «Буду в 19:00»
+          </FeedRow>
+          <FeedRow
+            title="Жалоба рассмотрена"
+            leading={<RowIcon icon="flag" neutral />}
+            meta="12:05"
+          >
+            Спасибо! Модераторы проверили профиль
+          </FeedRow>
+        </Group>
+      </>,
+    );
+    fireEvent.click(screen.getByRole('link', { name: /Новое сообщение/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Прочитать все' }));
+    expect(onClick).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('img', { name: 'Не прочитано' })).toBeTruthy();
+    expect(screen.getAllByRole('link')).toHaveLength(1);
+    expect(container.querySelector('.bg-bg2.text-text2')).toBeTruthy();
     expect(await a11yViolations(container)).toEqual([]);
   });
 });

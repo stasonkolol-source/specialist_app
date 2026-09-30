@@ -1,7 +1,17 @@
 // Демо-данные design/SPEC.md §4 — одни и те же во всех экранах, тестах и скриншотах.
 // Ответы существующих эндпоинтов — типами api-client; данные экранов, для которых API ещё нет
 // (специалисты, заявки, отклики), — формой из SPEC: шаги этапа 1 заменят их моделями OpenAPI.
-import type { CityOut, ClientConfigOut, MeOut, TelegramChannelOut } from '@sosed/api-client';
+import type {
+  CityOut,
+  ClientConfigOut,
+  MeOut,
+  NotificationOut,
+  NotificationPageOut,
+  NotificationSettingsOut,
+  NotificationType,
+  TelegramChannelOut,
+} from '@sosed/api-client';
+import { encodeStartParam } from '@sosed/links';
 
 import { draftDocument } from './legal.ts';
 
@@ -158,4 +168,62 @@ export const CLIENT_CONFIG: ClientConfigOut = {
   flags: { 'goods.segment': true, 'platform.maintenance': false },
   legal_versions: { terms: 'draft-1', privacy: 'draft-1' },
   legal_documents: { terms: draftDocument('terms'), privacy: draftDocument('privacy') },
+};
+
+/** «Сейчас» демо-данных уведомлений (S42): как в e2e сервиса — 2 октября, 18:07 по Белграду. */
+export const NOTIFICATIONS_NOW = new Date('2026-10-02T18:07:00+02:00');
+
+const NOTIFICATION_TEXTS: Record<'ru' | 'sr-Latn', [string, string][]> = {
+  ru: [
+    ['Сделка подтверждена', 'Алексей Морозов · «Повесить люстру» · сегодня в 19:00, 3\u00a0500 RSD'],
+    ['Новое сообщение', 'Алексей Морозов: «Буду в 19:00, стремянка с собой»'],
+    ['Новый отклик', 'Никола Петрович · 4\u00a0500 RSD · «Повесить люстру», откликов 3 из 5'],
+    ['Заявка прошла проверку', '«Повесить люстру» опубликована, исполнители рядом получили уведомление'],
+    ['Как прошла уборка?', 'Оцените работу Ольги Власовой — отзыв поможет другим клиентам'],
+    ['Проверка уведомлений', 'Бот может писать вам: так приходят отклики, сообщения и решения модерации'],
+  ],
+  'sr-Latn': [
+    ['Dogovor je potvrđen', 'Aleksej Morozov · „Kačenje lustera“ · danas u 19:00, 3\u00a0500 RSD'],
+    ['Nova poruka', 'Aleksej Morozov: „Biću u 19:00, merdevine nosim“'],
+    ['Nova ponuda', 'Nikola Petrović · 4\u00a0500 RSD · „Kačenje lustera“, ponuda 3 od 5'],
+    ['Zahtev je prošao proveru', '„Kačenje lustera“ je objavljen, stručnjaci u blizini su obavešteni'],
+    ['Kako je prošlo čišćenje?', 'Ocenite rad Olge Vlasove — utisak pomaže drugim klijentima'],
+    ['Provera obaveštenja', 'Bot može da vam piše: tako stižu ponude, poruke i odluke moderacije'],
+  ],
+}; // prettier-ignore
+
+/** Тип, минуты до NOTIFICATIONS_NOW, прочитано, deep link — как макет S42. */
+const NOTIFICATION_ROWS: [NotificationType, number, boolean, string | null][] = [
+  ['deal.proposed', 2, false, encodeStartParam({ type: 'home' })],
+  ['message.received', 5, false, encodeStartParam({ type: 'home' })],
+  ['response.received', 12, true, encodeStartParam({ type: 'home' })],
+  ['moderation.decision', 15, true, encodeStartParam({ type: 'legal', document: 'terms' })],
+  ['review.request', 23 * 60 + 27, true, encodeStartParam({ type: 'home' })],
+  ['system.test', 30 * 60 + 2, true, null],
+];
+
+/** GET /me/notifications: тексты — на языке запроса, как у backend. */
+export function notificationsFor(locale: string | null): NotificationPageOut {
+  const texts = NOTIFICATION_TEXTS[locale === 'sr-Latn' ? 'sr-Latn' : 'ru'];
+  const items = NOTIFICATION_ROWS.map(([type, minutes, read, link], index): NotificationOut => {
+    const [title, body] = texts[index] ?? ['', ''];
+    const createdAt = new Date(NOTIFICATIONS_NOW.getTime() - minutes * 60_000).toISOString();
+    return { id: `0199aa00-0000-7000-8000-00000000000${index}`, type, title, body, link, created_at: createdAt, read };
+  }); // prettier-ignore
+  return { items, next_cursor: null, unread_count: items.filter((item) => !item.read).length };
+}
+
+/** GET /me/notification-settings: бот писать не может (канала нет) — S42 показывает баннер. */
+export const NOTIFICATION_SETTINGS: NotificationSettingsOut = {
+  groups: [
+    { group: 'job_matches', telegram: true, in_app: true, mandatory: false },
+    { group: 'responses', telegram: true, in_app: true, mandatory: false },
+    { group: 'messages', telegram: true, in_app: true, mandatory: false },
+    { group: 'deals', telegram: true, in_app: true, mandatory: false },
+    { group: 'marketing', telegram: false, in_app: false, mandatory: false },
+    { group: 'account', telegram: true, in_app: true, mandatory: true },
+  ],
+  quiet_hours: { enabled: true, start: '22:00:00', end: '08:00:00', time_zone: 'Europe/Belgrade' },
+  digest_hour: 9,
+  telegram: null,
 };

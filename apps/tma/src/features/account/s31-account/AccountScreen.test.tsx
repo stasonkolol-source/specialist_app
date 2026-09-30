@@ -48,8 +48,13 @@ function createTestRouter() {
     path: '/legal/$document',
     component: () => <h1>S48</h1>,
   });
+  const notifications = createRoute({
+    getParentRoute: () => root,
+    path: '/notifications',
+    component: () => <h1>S42</h1>,
+  });
   return createRouter({
-    routeTree: root.addChildren([profile, legal]),
+    routeTree: root.addChildren([profile, legal, notifications]),
     history: createMemoryHistory({ initialEntries: ['/'] }),
   });
 }
@@ -84,6 +89,34 @@ async function renderScreen(options: RenderOptions = {}) {
 const checked = (name: string) => screen.getByRole('radio', { name }).getAttribute('aria-checked');
 
 afterEach(() => setSession(null));
+
+describe('S31 notifications row', () => {
+  it('shows the unread count and opens S42', async () => {
+    const { router } = await renderScreen();
+    const row = await screen.findByRole('link', { name: /Уведомления/ });
+
+    await waitFor(() => expect(row.textContent).toContain('2 непрочитанных'));
+    expect(row.getAttribute('href')).toBe('/notifications');
+    await act(async () => {
+      fireEvent.click(row);
+    });
+    expect(await screen.findByRole('heading', { name: 'S42' })).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/notifications');
+  });
+
+  it('has no counter when everything is read', async () => {
+    server.use(
+      http.get('*/api/v1/me/notifications', () =>
+        HttpResponse.json({ items: [], next_cursor: null, unread_count: 0 }),
+      ),
+    );
+    await renderScreen();
+    const row = await screen.findByRole('link', { name: /Уведомления/ });
+    await screen.findByRole('heading', { name: 'Елена К.' });
+
+    expect(row.textContent).toBe('Уведомления');
+  });
+});
 
 describe('S31 profile stub', () => {
   it('shows the name and the internal id from GET /me', async () => {

@@ -1,9 +1,22 @@
 // API для e2e: ответы из фикстур SPEC §4 через page.route — тот же контракт, что MSW в Vitest,
 // без service worker. Неописанный запрос к /api — ошибка теста.
-import type { ClientConfigOut, MeOut } from '@sosed/api-client';
+import type {
+  ClientConfigOut,
+  MeOut,
+  NotificationPageOut,
+  NotificationSettingsOut,
+} from '@sosed/api-client';
 import type { Page, Request, Route } from '@playwright/test';
 
-import { CLIENT_CONFIG, ME, WRITE_ACCESS, accepted, citiesFor } from '../src/testing/fixtures.ts';
+import {
+  CLIENT_CONFIG,
+  ME,
+  NOTIFICATION_SETTINGS,
+  WRITE_ACCESS,
+  accepted,
+  citiesFor,
+  notificationsFor,
+} from '../src/testing/fixtures.ts';
 
 export const json = (body: unknown, status = 200) => ({
   status,
@@ -40,9 +53,14 @@ export interface MockApiOptions {
   me?: MeOut;
   /** GET /client-config; по умолчанию CLIENT_CONFIG из фикстур. */
   config?: ClientConfigOut;
+  /** GET /me/notifications; по умолчанию — лента фикстур на языке запроса. */
+  notifications?: NotificationPageOut;
+  /** GET /me/notification-settings; по умолчанию бот писать не может (баннер S42). */
+  notificationSettings?: NotificationSettingsOut;
   /** Свои ответы по ключу «METHOD /api/v1/…»: проверяются раньше стандартных. */
   handlers?: Record<string, (route: Route) => Promise<void>>;
-  /** Что приложение прислало в PATCH /me, POST /me/consents и POST /me/telegram/write-access. */
+  /** Что приложение прислало в PATCH /me, POST /me/consents, POST /me/telegram/write-access и
+   *  POST /me/notifications/read. */
   sent?: SentRequests;
 }
 
@@ -50,9 +68,15 @@ export interface SentRequests {
   patch: unknown[];
   consents: unknown[];
   writeAccess: number;
+  read: unknown[];
 }
 
-export const sentRequests = (): SentRequests => ({ patch: [], consents: [], writeAccess: 0 });
+export const sentRequests = (): SentRequests => ({
+  patch: [],
+  consents: [],
+  writeAccess: 0,
+  read: [],
+});
 
 const authorized = (request: Request) =>
   request.headers()['authorization'] === `Bearer ${TOKENS.access_token}`;
@@ -64,6 +88,8 @@ export async function mockApi(
     signedIn = false,
     me = ME,
     config = CLIENT_CONFIG,
+    notifications,
+    notificationSettings = NOTIFICATION_SETTINGS,
     handlers = {},
     sent = sentRequests(),
   }: MockApiOptions = {},
@@ -100,6 +126,19 @@ export async function mockApi(
         if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
         sent.writeAccess += 1;
         return route.fulfill(json(WRITE_ACCESS));
+      // S42 и счётчик непрочитанных на S31: тексты — на языке запроса, как у backend
+      case 'GET /api/v1/me/notifications':
+        if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
+        return route.fulfill(
+          json(notifications ?? notificationsFor(request.headers()['accept-language'] ?? null)),
+        );
+      case 'POST /api/v1/me/notifications/read':
+        if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
+        sent.read.push(request.postDataJSON());
+        return route.fulfill(json({ unread_count: 0 }));
+      case 'GET /api/v1/me/notification-settings':
+        if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
+        return route.fulfill(json(notificationSettings));
       // по умолчанию backend отверг бы синтетический initData mock-платформы
       case 'POST /api/v1/auth/telegram':
         return route.fulfill(

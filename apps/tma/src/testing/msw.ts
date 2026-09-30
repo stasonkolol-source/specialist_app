@@ -8,13 +8,24 @@ import {
   getIdentityLogoutMockHandler,
   getIdentityRefreshSessionMockHandler,
   getIdentityUpdateMeMockHandler,
+  getNotificationsGetNotificationSettingsMockHandler,
   getNotificationsGrantTelegramWriteAccessMockHandler,
+  getNotificationsListNotificationsMockHandler,
+  getNotificationsMarkNotificationsReadMockHandler,
   getSystemGetClientConfigMockHandler,
 } from '@sosed/api-client/mocks';
 import type { MeOut, MeUpdateIn, TokensOut } from '@sosed/api-client';
 import { setupServer } from 'msw/node';
 
-import { CLIENT_CONFIG, ME, WRITE_ACCESS, accepted, citiesFor } from './fixtures.ts';
+import {
+  CLIENT_CONFIG,
+  ME,
+  NOTIFICATION_SETTINGS,
+  WRITE_ACCESS,
+  accepted,
+  citiesFor,
+  notificationsFor,
+} from './fixtures.ts';
 
 /** Origin API в тестах: fetch в Node не принимает относительные URL. */
 export const API_ORIGIN = 'http://localhost';
@@ -44,6 +55,11 @@ export const handlers = [
   patchMe(ME),
   getIdentityAcceptConsentsMockHandler(accepted(ME)),
   getNotificationsGrantTelegramWriteAccessMockHandler(WRITE_ACCESS),
+  getNotificationsListNotificationsMockHandler(({ request }) =>
+    notificationsFor(request.headers.get('Accept-Language')),
+  ),
+  getNotificationsMarkNotificationsReadMockHandler({ unread_count: 0 }),
+  getNotificationsGetNotificationSettingsMockHandler(NOTIFICATION_SETTINGS),
   // названия городов — на языке запроса, как у backend
   getGeoListCitiesMockHandler(({ request }) => citiesFor(request.headers.get('Accept-Language'))),
 ];
