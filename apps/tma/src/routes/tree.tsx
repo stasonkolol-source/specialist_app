@@ -74,6 +74,13 @@ const profile = createRoute({
   component: screen(() => import('../features/account/s31-account/index.ts'), 'AccountScreen'),
 });
 
+// S42 из профиля; нажатие на уведомление ведёт по его deep link (routes/notifications.tsx)
+const notifications = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/notifications',
+  component: screen(() => import('./notifications.tsx'), 'NotificationsRoute'),
+});
+
 // Онбординг S02a–c (1.5b): первый экран выбирает S01 (app/LaunchGate), S02c открывают ещё и
 // создающие действия без согласия. `next` — куда вести после онбординга
 const onboardingLanguage = createRoute({
@@ -125,6 +132,7 @@ export const routeTree = rootRoute.addChildren([
   createJob,
   messages,
   profile,
+  notifications,
   onboardingLanguage,
   onboardingIntent,
   onboardingRules,

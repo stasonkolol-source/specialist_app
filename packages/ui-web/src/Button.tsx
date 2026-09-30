@@ -65,6 +65,29 @@ export function Button({
   );
 }
 
+/** Текстовая кнопка .link.sm: действие рядом с заголовком («Прочитать все» S42), зона нажатия
+ *  не меньше 44 px по высоте. */
+export function LinkButton({
+  children,
+  className,
+  type = 'button',
+  ...rest
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & { children: ReactNode }) {
+  return (
+    <button
+      type={type}
+      className={cx(
+        'inline-flex min-h-11 items-center border-0 bg-transparent px-2 text-sm font-semibold text-accent disabled:text-text2',
+        FOCUS,
+        className,
+      )}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}
+
 export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
   icon: IconName;
   /** Обязательная подпись: у кнопки нет текста. */

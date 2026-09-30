@@ -1,4 +1,4 @@
-// .group + .row (.row-ic, .grow, .cap, .chev), .num-ic и .tiles + .tile из ui.css.
+// .group + .row (.row-ic, .grow, .cap, .chev), .num-ic, .dot и .tiles + .tile из ui.css.
 import type { MouseEvent, ReactNode } from 'react';
 
 import type { AvatarPalette } from './Avatar.tsx';
@@ -14,16 +14,19 @@ const PALETTE: Record<AvatarPalette, string> = {
   5: 'bg-av5 text-av5-ink',
 };
 
-/** Иконка строки .row-ic: 36×36, мягкий акцент или палитра категорий. `large` — 40×40 (плитки),
- *  `xl` — 44×44 (карточки намерения S02b). */
+/** Иконка строки .row-ic: 36×36, мягкий акцент или палитра категорий; `neutral` — серая
+ *  (служебное, S42 «Жалоба рассмотрена»). `large` — 40×40 (плитки), `xl` — 44×44 (карточки
+ *  намерения S02b). */
 export function RowIcon({
   icon,
   palette,
+  neutral = false,
   large = false,
   xl = false,
 }: {
   icon: IconName;
   palette?: AvatarPalette;
+  neutral?: boolean;
   large?: boolean;
   xl?: boolean;
 }) {
@@ -33,11 +36,70 @@ export function RowIcon({
       className={cx(
         'flex shrink-0 items-center justify-center',
         xl ? 'size-11 rounded-btn' : large ? 'size-10 rounded-btn' : 'size-9 rounded-btn-sm',
-        palette ? PALETTE[palette] : 'bg-accent-soft text-accent-soft-ink',
+        neutral
+          ? 'bg-bg2 text-text2'
+          : palette
+            ? PALETTE[palette]
+            : 'bg-accent-soft text-accent-soft-ink',
       )}
     >
       <Icon name={icon} />
     </span>
+  );
+}
+
+/** Отметка «не прочитано» .dot: 8 px, акцент. Подпись обязательна — точка одна ничего не говорит. */
+export function UnreadDot({ label }: { label: string }) {
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      className="inline-block size-2 shrink-0 rounded-full bg-accent"
+    />
+  );
+}
+
+export interface FeedRowProps {
+  title: ReactNode;
+  /** Текст под заголовком: до трёх строк (.sm .t2). */
+  children: ReactNode;
+  /** Иконка слева (RowIcon с палитрой) или свой элемент. */
+  leading: ReactNode;
+  /** Справа от заголовка: время, отметка «не прочитано». */
+  meta?: ReactNode;
+  href?: string;
+  onClick?: (event: MouseEvent<HTMLElement>) => void;
+}
+
+/** Строка ленты (.row, align-items: flex-start): заголовок жирным, справа — время, под ним — текст.
+ *  С `href` — ссылка (переход внутри приложения делает `onClick`), без — статичная строка. */
+export function FeedRow({ title, children, leading, meta, href, onClick }: FeedRowProps) {
+  const classes = cx(
+    'flex w-full items-start gap-3 border-0 border-b border-line bg-transparent px-4 py-3 text-left text-text no-underline last:border-b-0',
+    href && FOCUS,
+  );
+  const content = (
+    <>
+      {leading}
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex items-start justify-between gap-2">
+          <span className="text-body font-semibold">{title}</span>
+          {meta && (
+            <span className="flex shrink-0 items-center gap-1.5 pt-0.5 text-cap text-text2">
+              {meta}
+            </span>
+          )}
+        </span>
+        <span className="text-sm text-text2">{children}</span>
+      </span>
+    </>
+  );
+  return href ? (
+    <a href={href} onClick={onClick} className={classes}>
+      {content}
+    </a>
+  ) : (
+    <div className={classes}>{content}</div>
   );
 }
 

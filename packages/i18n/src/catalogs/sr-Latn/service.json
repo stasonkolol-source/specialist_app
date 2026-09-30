@@ -26,5 +26,24 @@
     "leftBrowse": "Pregled zahteva i stručnjaka",
     "leftSettings": "Podešavanja i brisanje naloga",
     "appeal": "Žalbu na odluku možete da uložite u roku od 6 meseci. Odgovorićemo u roku od 72 sata."
+  },
+  "notifications": {
+    "title": "Obaveštenja",
+    "readAll": "Pročitaj sve",
+    "unread": "Nepročitano",
+    "today": "Danas",
+    "yesterday": "Juče",
+    "justNow": "upravo",
+    "minutes": "{count} min",
+    "botBlocked": "Bot ne može da vam piše — ponude i poruke vidite samo ovde.",
+    "allowBot": "Dozvoli botu da piše",
+    "allowBotFailed": "Nije uspelo. Pritisnite „Start“ u ćaskanju sa botom — i obaveštenja će stizati tamo.",
+    "more": "Prikaži još",
+    "moreError": "Učitavanje nije uspelo — pokušajte ponovo",
+    "readError": "Nije uspelo da se označi kao pročitano — pokušajte ponovo",
+    "emptyTitle": "Još nema obaveštenja",
+    "emptyText": "Ovde će se pojaviti ponude, poruke i odluke o vašim zahtevima",
+    "loading": "Učitavamo obaveštenja",
+    "unreadCount": "{count, plural, one {# nepročitano} few {# nepročitana} other {# nepročitanih}}"
   }
 }

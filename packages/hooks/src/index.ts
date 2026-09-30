@@ -25,6 +25,17 @@ export {
   useLegalDocument,
 } from './legal/useLegalDocument.ts';
 export type { MediaApi, MediaTransport, Prepared, PutResult } from './media/upload.ts';
+export type { DayKey, NotificationDay, NotificationFeed } from './notifications/notifications.ts';
+export {
+  NOTIFICATIONS_PAGE_SIZE,
+  feedItems,
+  groupByDay,
+  markRead,
+  notificationsQueryKey,
+  unreadCount,
+  useMarkNotificationsRead,
+  useNotificationFeed,
+} from './notifications/notifications.ts';
 export {
   MediaRejectedError,
   MediaUpload,

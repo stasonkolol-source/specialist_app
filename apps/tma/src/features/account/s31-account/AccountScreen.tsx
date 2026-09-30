@@ -1,6 +1,7 @@
 // S31 Профиль — заглушка ходячего скелета (DEVELOPMENT_PLAN 0.22): имя и внутренний id из GET /me,
 // язык интерфейса — ui_locale оттуда же, пишется через PATCH /me. Экран по макету design/project —
 // в шаге 2.9. С 1.5a — строка «Правила площадки» (S48) и S49a «Нет соединения» вместо ошибки.
+// Строка «Уведомления» ведёт в S42; число справа — непрочитанные (первая страница ленты S42).
 import type { MeOut } from '@sosed/api-client';
 import {
   ApiError,
@@ -8,12 +9,13 @@ import {
   useIdentityGetMe,
   useIdentityUpdateMe,
 } from '@sosed/api-client';
-import { systemStateOf } from '@sosed/hooks';
+import { systemStateOf, unreadCount, useNotificationFeed } from '@sosed/hooks';
 import type { Locale } from '@sosed/i18n';
 import { LOCALES, LOCALE_NAMES, isLocale, useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { usePlatform } from '@sosed/platform';
 import {
   Avatar,
+  Badge,
   Banner,
   Button,
   EmptyState,
@@ -33,6 +35,8 @@ import { useEffect, useId } from 'react';
 /** S48, правила площадки (маршрут features/service/s48-legal). */
 const LEGAL_PATH = '/legal/$document';
 const RULES_HREF = '/legal/terms';
+/** S42, уведомления (маршрут routes/notifications.tsx). */
+const NOTIFICATIONS_PATH = '/notifications';
 
 export function AccountScreen() {
   const { t } = useTranslation();
@@ -67,8 +71,40 @@ export function AccountScreen() {
     <section className="flex flex-col gap-4 px-4 pt-4 pb-6">
       <Heading variant="h1">{t('nav.profile')}</Heading>
       {content}
+      {!signedOut && <Notifications />}
       <Support />
     </section>
+  );
+}
+
+function Notifications() {
+  const { t } = useTranslation();
+  const { t: ts } = useTranslation('service');
+  const router = useRouter();
+  const feed = useNotificationFeed(useLocale());
+  const unread = unreadCount(feed.data);
+  const open = (event: MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    void router.navigate({ to: NOTIFICATIONS_PATH });
+  };
+  return (
+    <Group>
+      <Row
+        icon="bell"
+        title={t('settings.notifications')}
+        trailing={
+          unread > 0 && (
+            <Badge tone="ok">
+              <span aria-hidden="true">{unread}</span>
+              <span className="sr-only">{ts('notifications.unreadCount', { count: unread })}</span>
+            </Badge>
+          )
+        }
+        chevron
+        href={router.history.createHref(NOTIFICATIONS_PATH)}
+        onClick={open}
+      />
+    </Group>
   );
 }
 
