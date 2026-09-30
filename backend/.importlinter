@@ -28,6 +28,7 @@ source_modules =
     app.modules.*.errors
     app.platform.kernel
     app.platform.contracts
+    app.platform.text
     app.platform.*.port
 forbidden_modules =
     sqlalchemy

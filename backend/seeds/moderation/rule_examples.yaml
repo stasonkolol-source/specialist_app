@@ -1,0 +1,238 @@
+# Набор примеров для контент-правил (DEVELOPMENT_PLAN 2.4): текст → что должны сказать правила
+# (content_rules.yaml вместе с детектором контактов и предоплаты). `make seeds-validate` и
+# unit-тесты падают, если правка словаря ломает хоть один пример.
+#
+# action: block, shadow, flag или pass (правила молчат); categories — все сработавшие.
+# Черновик ассистента — синтетика; реальные обезличенные примеры — K28.
+examples:
+  # --- находят -----------------------------------------------------------------------------
+  - text: Ищем закладчиков, оплата каждый день
+    action: block
+    categories: [drugs]
+  - text: ЗАКЛАААДЧИК нужен срочно
+    action: block
+    categories: [drugs]
+  - text: "Работа: курьер закладок, график свободный"
+    action: block
+    categories: [drugs]
+  - text: Nudim k0kain i MDMA, dostava po gradu
+    action: flag
+    categories: [drugs]
+  - text: Есть м.е.ф.е.д.р.о.н, пиши
+    action: flag
+    categories: [drugs]
+  - text: Продам огнестрел, недорого
+    action: flag
+    categories: [weapons]
+  - text: Prodajem vatreno oružje i municiju
+    action: flag
+    categories: [weapons]
+  - text: Эротический массаж на выезде, круглосуточно
+    action: flag
+    categories: [escort]
+  - text: Масажа са срећним крајем, дискретно
+    action: flag
+    categories: [escort]
+  - text: Сдай карту в аренду — 5000 в неделю без вложений
+    action: flag
+    categories: [mule]
+  - text: Скиньте код из СМС, чтобы я отправил оплату
+    action: flag
+    categories: [scam]
+  - text: Для оплаты перейдите по ссылке bit.ly/3xYzQ
+    action: flag
+    categories: [contacts, spam]
+  - text: Пассивный доход от 1000 евро в неделю
+    action: flag
+    categories: [spam]
+  - text: Заработок от 3000 в день, пиши
+    action: flag
+    categories: [spam]
+  - text: Запошљавамо раднике, пуно радно време, плата од 900 евра
+    action: flag
+    categories: [vacancy]
+  - text: We are hiring cleaners, salary from 800 EUR
+    action: flag
+    categories: [vacancy]
+  - text: "Позвоните мне: +381 64 123 45 67"
+    action: flag
+    categories: [contacts]
+  - text: Pišite na viber nula šest četiri, jedan dva tri, četiri pet šest sedam
+    action: flag
+    categories: [contacts]
+  - text: Plati unapred 50e pa dolazim
+    action: flag
+    categories: [scam]
+  - text: Нужна предоплата 30%, переведите на карту
+    action: flag
+    categories: [scam]
+  - text: Bez avansa ne dolazim
+    action: flag
+    categories: [scam]
+  - text: Без предоплаты не выезжаю, это правило
+    action: flag
+    categories: [scam]
+  - text: Не волнуйтесь, предоплата всего 30%
+    action: flag
+    categories: [scam]
+  - text: Nema problema, avans 30% pa dolazim
+    action: flag
+    categories: [scam]
+  - text: Без предоплаты никак
+    action: flag
+    categories: [scam]
+  - text: Переведите мне на карту 500
+    action: flag
+    categories: [scam]
+  - text: Нужна пpедоплата 30%
+    action: flag
+    categories: [scam]
+  - text: Продаю мефедpон
+    action: flag
+    categories: [drugs]
+  - text: Best сasino online
+    action: flag
+    categories: [spam]
+  # обход: невидимый символ, греческая буква, ударение, транслит
+  - text: "Ищем закла\u200bдчиков, оплата каждый день"
+    action: block
+    categories: [drugs]
+  - text: "Prodajem k\u03bfkain"
+    action: flag
+    categories: [drugs]
+  - text: "Нужны закладчи\u0301ки"
+    action: block
+    categories: [drugs]
+  - text: Ishchem zakladchikov
+    action: block
+    categories: [drugs]
+  # контакты рядом с числами и в чужих форматах
+  - text: Cena 3000 064 123 4567
+    action: flag
+    categories: [contacts]
+  - text: Звоните 8 999 123-45-67
+    action: flag
+    categories: [contacts]
+  - text: "０６４ １２３ ４５６７"
+    action: flag
+    categories: [contacts]
+  # номер вплотную к буквам, юникодные разделители, ник с точкой, точка в скобках, IBAN
+  - text: Zovi064/123-4567 posle 18h
+    action: flag
+    categories: [contacts]
+  - text: "Мой №064 123 45 67"
+    action: flag
+    categories: [contacts]
+  - text: "064\u2011123\u20114567 ili 064•123•4567"
+    action: flag
+    categories: [contacts]
+  - text: "insta: @ ivan.master"
+    action: flag
+    categories: [contacts]
+  - text: Пиши на ivan[.]petrov@gmail.com
+    action: flag
+    categories: [contacts]
+  - text: Uplata na RS35265100000000012370
+    action: flag
+    categories: [contacts]
+  # предоплата: греческая буква в слове, отказ ехать через запятую и «к сожалению»
+  - text: "Нужна п\u03c1едоплата 30%"
+    action: flag
+    categories: [scam]
+  - text: Без предоплаты, к сожалению, не выезжаю
+    action: flag
+    categories: [scam]
+  - text: Bez avansa, nažalost, ne dolazim
+    action: flag
+    categories: [scam]
+  # --- молчат: обычные заявки и отклики ------------------------------------------------------
+  - text: Закладка фундамента под дом 10х12, нужна бригада
+    action: pass
+  - text: Нужен мастер, монтажный пистолет для пены у меня есть
+    action: pass
+  - text: Depilacija, masaža lica i tela u salonu
+    action: pass
+  - text: Треба ми мајстор за кречење стана у Лиману
+    action: pass
+  - text: Ищу няню без вредных привычек на вечер пятницы
+    action: pass
+  - text: Uradiću posao za 3 dana, plaćanje posle završetka
+    action: pass
+  - text: Kupila sam boju u drogeriji, treba samo da se okreči
+    action: pass
+  - text: Can you drop off the keys at 5 pm?
+    action: pass
+  - text: Нужна уборка после ремонта в субботу 12.10, 3 комнаты
+    action: pass
+  - text: Tražim električara za zamenu utičnica, cena po dogovoru
+    action: pass
+  - text: Аниматор в образе героини мультфильма на детский праздник
+    action: pass
+  - text: Pošaljite CV i cenu, hajde amo
+    action: pass
+  - text: Escorting a patient to the clinic on Monday
+    action: pass
+  - text: Plata od 1500 din po satu za čišćenje stana
+    action: pass
+  - text: I work from home, can come after 5 pm
+    action: pass
+  # честные оплаты: «без предоплаты» — самый частый оборот у специалистов
+  - text: Работаю без предоплаты, оплата по факту
+    action: pass
+  - text: Radim bez avansa, plaćanje posle završetka
+    action: pass
+  - text: No upfront payment, you pay when the job is done
+    action: pass
+  - text: Предоплата не нужна
+    action: pass
+  - text: Avans nije potreban, cena 25.000 dinara
+    action: pass
+  - text: Не беру аванс
+    action: pass
+  - text: Zalogajnica traži dostavu, kino karte za dvoje
+    action: pass
+  # отказ от предоплаты: определитель, однородные слова, глагол между «не» и словом
+  - text: Работаю без всякой предоплаты
+    action: pass
+  - text: Radim bez ikakvog avansa i depozita
+    action: pass
+  - text: Никаких авансов не требую
+    action: pass
+  - text: "Предоплата: не нужна"
+    action: pass
+  - text: Не нужно вносить предоплату
+    action: pass
+  - text: No need to pay in advance
+    action: pass
+  - text: Nije potrebno da plaćate unapred
+    action: pass
+  - text: Не потрібна передоплата
+    action: pass
+  - text: Объясню страдательный залог
+    action: pass
+  # время, цены, точка без пробела, «@» как «в»
+  - text: Dostupan sam 08.00-16.00, termin od 07.30 - 09.00
+    action: pass
+  - text: Uradio sam posao.To je sve
+    action: pass
+  - text: Есть собака лабрадор.Нужен выгул
+    action: pass
+  - text: "Cene: 1000, 1200, 1800, 2000 din"
+    action: pass
+  - text: I'm @ home all day
+    action: pass
+  - text: Radim bez avansa, ne brinite
+    action: pass
+  - text: Dimenzije 0 60 120 180 240, radno vreme 0800-1600
+    action: pass
+  - text: Cene 2000 2500 3000 3500 din
+    action: pass
+  - text: uradio sam posao.to je sve
+    action: pass
+  - text: Я и в субботу могу приехать
+    action: pass
+  # списки времени — не телефон
+  - text: "Slobodni termini: 09.30 10.30 11.30 12.30"
+    action: pass
+  - text: "Свободные окна: 09:00 10:00 11:00 12:00"
+    action: pass

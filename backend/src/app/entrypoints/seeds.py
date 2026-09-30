@@ -7,8 +7,13 @@
 - `seeds/geo/<город>.geojson` — валидные MultiPolygon в границах Сербии, уникальные slug,
   родитель — municipality, центр внутри своего полигона, CHECK локалей.
 
-Модели здесь — входной формат загрузки в БД (`cli seed`): `load_city_seeds` (1.3a) и
-`load_catalog_seed` (1.3b) превращают файлы в DTO импорта модулей geo и catalog.
+- `seeds/moderation/content_rules.yaml` — каждое правило компилируется, нет повторов (в том
+  числе по скелету: «кокаин» и «kokain» — одно слово); `rule_examples.yaml` — набор
+  «текст → действие и категории» проходит на этом словаре вместе с детекторами platform/text.
+
+Модели здесь — входной формат загрузки в БД (`cli seed`): `load_city_seeds` (1.3a),
+`load_catalog_seed` (1.3b) и `load_content_rules_seed` (2.4) превращают файлы в DTO импорта
+модулей geo, catalog и moderation.
 """
 
 import json
@@ -17,7 +22,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import yaml
 from pydantic import (
@@ -39,8 +44,19 @@ from app.modules.catalog.domain.category import PriceUnit
 from app.modules.catalog.domain.terms import MAX_TERM_LENGTH, SearchTerm, TermLanguage
 from app.modules.geo.application.dto import CitySeed, DistrictSeed
 from app.modules.geo.domain.place import DistrictKind as GeoDistrictKind
+from app.modules.moderation.domain.rules import (
+    ContentRule,
+    InvalidRuleError,
+    RuleAction,
+    RuleCategory,
+    RuleKind,
+    RuleLanguage,
+    RuleSet,
+    compile_rule,
+)
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.localized import Locale, LocalizedText
+from app.platform.text.normalize import skeleton
 
 SEEDS_DIR = Path(__file__).resolve().parents[3] / "seeds"
 SERBIA_BOUNDS = (18.8, 42.2, 23.1, 46.2)
@@ -185,6 +201,69 @@ class GeoCollection(BaseModel):
         if self.type != "FeatureCollection":
             raise ValueError("type must be FeatureCollection")
         return self
+
+
+class RuleGroup(BaseModel):
+    """Правила одной категории и действия: ровно один из списков words, regex, domains."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    category: RuleCategory
+    action: RuleAction
+    lang: RuleLanguage | None = None
+    active: bool = True
+    words: list[str] = Field(default_factory=list)
+    regex: list[str] = Field(default_factory=list)
+    domains: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _one_kind(self) -> RuleGroup:
+        if sum(1 for patterns in (self.words, self.regex, self.domains) if patterns) != 1:
+            raise ValueError("a group needs exactly one non-empty list: words, regex or domains")
+        return self
+
+    def rules(self) -> list[ContentRule]:
+        kind, patterns = next(
+            (kind, patterns)
+            for kind, patterns in (
+                (RuleKind.WORD, self.words),
+                (RuleKind.REGEX, self.regex),
+                (RuleKind.DOMAIN, self.domains),
+            )
+            if patterns
+        )
+        return [
+            ContentRule(
+                pattern=pattern,
+                kind=kind,
+                action=self.action,
+                category=self.category,
+                lang=self.lang,
+                active=self.active,
+            )
+            for pattern in patterns
+        ]
+
+
+class ContentRules(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: str
+    rules: list[RuleGroup] = Field(min_length=1)
+
+
+class RuleExample(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1)
+    action: RuleAction | Literal["pass"]
+    categories: list[RuleCategory] = Field(default_factory=list)
+
+
+class RuleExamples(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    examples: list[RuleExample] = Field(min_length=1)
 
 
 @dataclass
@@ -348,7 +427,78 @@ def validate(seeds: Path = SEEDS_DIR) -> Report:
         report.errors.append(f"geo: cities {unknown} are not in cities.yaml")
     leaves = check_taxonomy(seeds / "catalog" / "taxonomy.yaml", cities, report)
     check_queries(seeds / "catalog" / "queries.yaml", leaves, report)
+    rules = check_content_rules(seeds / "moderation" / "content_rules.yaml", report)
+    check_rule_examples(seeds / "moderation" / "rule_examples.yaml", rules, report)
     return report
+
+
+def check_content_rules(path: Path, report: Report) -> list[ContentRule]:
+    try:
+        seed = ContentRules.model_validate(_load_yaml(path))
+    except ValidationError as exc:
+        report.errors.extend(_pydantic_errors(path, exc))
+        return []
+    rules = [rule for group in seed.rules for rule in group.rules()]
+    seen: dict[tuple[RuleKind, str], int] = {}
+    for index, rule in enumerate(rules):
+        try:
+            compile_rule(rule)
+        except InvalidRuleError as exc:
+            report.errors.append(f"{path.name}: {rule.kind.value} {rule.pattern!r}: {exc}")
+            continue
+        same = rule.pattern if rule.kind is not RuleKind.WORD else skeleton(rule.pattern)
+        if rule.kind is RuleKind.WORD:
+            _check_word_length(path, rule.pattern, same, report)
+        key = (rule.kind, same + ("*" if rule.pattern.endswith("*") else ""))
+        if (first := seen.setdefault(key, index)) != index:
+            report.errors.append(
+                f"{path.name}: {rule.kind.value} {rule.pattern!r} repeats {rules[first].pattern!r}"
+            )
+    kinds = Counter(rule.kind.value for rule in rules)
+    report.summary.append(
+        f"{path.name}: {len(rules)} rules ("
+        + ", ".join(f"{kind} {count}" for kind, count in sorted(kinds.items()))
+        + ")"
+    )
+    return rules
+
+
+MIN_WORD = 3
+"""Слово словаря короче в скелете — ловит всё подряд («cvv» → «cv»)."""
+SHORT_WORD = 5
+
+
+def _check_word_length(path: Path, pattern: str, words: str, report: Report) -> None:
+    letters = len(words.replace(" ", ""))
+    if letters < MIN_WORD:
+        report.errors.append(
+            f"{path.name}: word {pattern!r} is {words!r} in the skeleton — too short"
+        )
+    elif letters < SHORT_WORD and not pattern.endswith("*") and " " not in words:
+        report.warnings.append(
+            f"{path.name}: word {pattern!r} is only {words!r} in the skeleton — check that"
+            " ordinary words do not match"
+        )
+
+
+def check_rule_examples(path: Path, rules: list[ContentRule], report: Report) -> None:
+    try:
+        examples = RuleExamples.model_validate(_load_yaml(path))
+    except ValidationError as exc:
+        report.errors.extend(_pydantic_errors(path, exc))
+        return
+    ruleset = RuleSet(rules)
+    for example in examples.examples:
+        verdict = ruleset.check(example.text)
+        action = verdict.action.value if verdict.action is not None else "pass"
+        categories = sorted(c.value for c in verdict.categories)
+        expected = sorted(c.value for c in example.categories)
+        if (action, categories) != (example.action, expected):
+            report.errors.append(
+                f"{path.name}: {example.text!r}: expected {example.action} {expected},"
+                f" got {action} {categories}"
+            )
+    report.summary.append(f"{path.name}: {len(examples.examples)} examples")
 
 
 def load_city_seeds(seeds: Path = SEEDS_DIR) -> list[CitySeed]:
@@ -401,6 +551,12 @@ def load_catalog_seed(seeds: Path = SEEDS_DIR) -> list[CategorySeed]:
     """Таксономия для импорта (1.3b): порядок в YAML — порядок показа, цены — в пара."""
     taxonomy = Taxonomy.model_validate(_load_yaml(seeds / "catalog" / "taxonomy.yaml"))
     return [_category(category, index) for index, category in enumerate(taxonomy.categories)]
+
+
+def load_content_rules_seed(seeds: Path = SEEDS_DIR) -> list[ContentRule]:
+    """Словарь контент-правил для импорта (2.4): все правила файла, выключенные тоже."""
+    seed = ContentRules.model_validate(_load_yaml(seeds / "moderation" / "content_rules.yaml"))
+    return [rule for group in seed.rules for rule in group.rules()]
 
 
 def _category(category: Category, sort_order: int) -> CategorySeed:

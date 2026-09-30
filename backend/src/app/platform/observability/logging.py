@@ -14,6 +14,7 @@ from app.platform.observability.masking import mask_event_dict
 from app.platform.settings import AppSettings
 
 CONTEXT_KEYS = ("request_id", "trace_id", "user_id", "job_id")
+QUIET_LOGGERS = ("anthropic", "openai", "httpx", "httpx2", "httpcore", "httpcore2")
 
 
 def configure_logging(app: AppSettings) -> None:
@@ -49,6 +50,9 @@ def configure_logging(app: AppSettings) -> None:
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(level)
+    # SDK AI на DEBUG пишут тело запроса — текст пользователя и промпт: не ниже INFO
+    for name in QUIET_LOGGERS:
+        logging.getLogger(name).setLevel(max(level, logging.INFO))
 
 
 def bind_context(**values: str | None) -> None:

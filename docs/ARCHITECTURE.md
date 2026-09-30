@@ -538,7 +538,8 @@ specialist_app/
 │   │   │   ├── i18n/                 # Babel, выбор локали, транслитерация sr-Cyrl → sr-Latn
 │   │   │   ├── storage/              # S3/R2: presign, HEAD, multipart
 │   │   │   ├── telegram/             # Bot-клиент, rate limiter отправки, deep links
-│   │   │   ├── ai/                   # порты Moderation, PolicyClassifier, Translator
+│   │   │   ├── ai/                   # порты Moderation, PolicyClassifier, SecondaryImage; адаптеры OpenAI и Claude, circuit breaker
+│   │   │   ├── text/                 # чистые функции: скелет текста, детектор контактов и предоплаты
 │   │   │   ├── observability/        # structlog, Sentry, метрики Prometheus
 │   │   │   ├── di.py                 # провайдеры dishka
 │   │   │   └── settings.py           # pydantic-settings
@@ -1651,15 +1652,20 @@ CREATE TABLE moderation.verification_requests (
   created_at   timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE moderation.content_rules (    -- стоп-слова, запрещённые ссылки и паттерны телефонов
-  id        int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  pattern   text NOT NULL,
-  kind      text NOT NULL CHECK (kind IN ('word','regex','domain')),
-  lang      text,
-  action    text NOT NULL CHECK (action IN ('block','flag','shadow')),
-  category  text NOT NULL,                  -- drugs / weapons / escort / scam / contacts …
-  is_active boolean NOT NULL DEFAULT true
-);
+CREATE TABLE moderation.content_rules (    -- стоп-слова, регулярки по скелету текста, домены (2.4)
+  id         int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  pattern    varchar(200) NOT NULL,         -- word: слово или фраза, `*` в конце — любое окончание
+  kind       text NOT NULL CHECK (kind IN ('word','regex','domain')),
+  lang       text CHECK (lang IN ('ru','sr','uk','en')),  -- язык словаря; правило применяется к любому тексту
+  action     text NOT NULL CHECK (action IN ('block','flag','shadow')),
+  category   text NOT NULL CHECK (category IN
+             ('drugs','weapons','escort','scam','mule','contacts','spam','vacancy')),
+  is_active  boolean NOT NULL DEFAULT true,
+  origin     text NOT NULL DEFAULT 'admin' CHECK (origin IN ('seed','admin')),  -- сид правит только свои строки
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (kind, pattern)
+);  -- телефоны, ссылки, карты и предоплату ловит детектор platform/text, в словаре их нет
 
 CREATE TABLE moderation.risk_signals (     -- сигналы риска для trust_level, антиспама и антифрода
   id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -3004,7 +3010,7 @@ flowchart LR
   - 403 → канал выключен, без повторов;
   - 400 → без повторов.
 
-  AI и KYC — circuit breaker. Если модерация недоступна, контент уходит в ручную очередь, а не публикуется без проверки.
+  AI и KYC — circuit breaker: после 5 сбоев подряд провайдер минуту не вызывается, затем одна пробная проверка; у текста и изображений свои предохранители, а ошибка про конкретный запрос (400, 413, 422) предохранитель не трогает. Вся AI-проверка укладывается в `AI_TIMEOUT_SECONDS`. Если модерация недоступна (сбой, таймаут, открытый предохранитель, отказ модели, нет ключа на stage и проде), порт возвращает отдельный тип `Unavailable` с причиной — не исключение и не «чисто», — и контент уходит в ручную очередь, а не публикуется без проверки. В dev и тестах без ключей работают заглушки (`platform/ai/stubs.py`).
 - **Длинные задачи** (транскодинг) идемпотентны: при повторе результат перезаписывается, прогресс виден в `media.assets.status`.
 - **Метрики:**
   - возраст старейшей задачи по очередям (алерт: > 2 мин для `notifications`, > 10 мин для `default`);
@@ -3141,6 +3147,8 @@ flowchart TB
 - контент уровня 0 выборочно проверяется после публикации.
 
 Сценарий «срочно вечером» не ждёт модератора. LLM-классификатор — Must в MVP: на нём держится модерация по риску.
+
+**Жёсткие правила (шаг 2.4).** Словарь `moderation.content_rules` загружается из `backend/seeds/moderation/content_rules.yaml` (`cli seed`) и сравнивается со **скелетом** текста (`platform/text/normalize.py`): регистр, письменность (кириллица и латиница), «цифры вместо букв», повторы, «п.р.е.д», невидимые символы, ударения, буквы-двойники других алфавитов и русский транслит сводятся к одной форме, поэтому сербское слово в словаре пишется один раз. Детектор контактов и предоплаты (`platform/text/contact_masking.py`) работает всегда, без словаря. Velocity — один текст от нескольких аккаунтов или повтор автора (отпечаток — скелет без контактов, счётчики в Valkey, fail open). Набор примеров `seeds/moderation/rule_examples.yaml` проверяет `cli seeds-validate`. Во внешний AI уходит текст без контактов, имени и id автора.
 
 Это отход от рекомендации [research/06](research/06-trust-safety-growth-monetization.md#23-трение-и-лимиты) премодерировать первые публикации всех новых аккаунтов. Компенсация — лимиты для новичков (§13.3), классификатор и пост-модерация ([ADR-0016](adr/0016-trust-safety-and-reviews.md)).
 

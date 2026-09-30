@@ -52,6 +52,7 @@ PURE_CORE = [
     *_module_parts("errors.py"),
     SRC / "platform" / "kernel",
     SRC / "platform" / "contracts",
+    SRC / "platform" / "text",
     *sorted(SRC.glob("platform/*/port.py")),
 ]
 

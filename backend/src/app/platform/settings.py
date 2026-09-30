@@ -9,6 +9,7 @@
 - Новая настройка появляется в `backend/.env.example` в том же шаге (это проверяет тест).
 """
 
+import os
 import re
 from enum import StrEnum
 from pathlib import Path
@@ -149,10 +150,18 @@ class SentrySettings(_Group):
 
 
 class AiSettings(_Group):
+    """AI-проверки контента (ADR-0016 §3). Без ключа — заглушки (platform/ai/stubs.py):
+    в dev и тестах конвейер работает, на stage/prod без ключей всё идёт в ручную очередь."""
+
     model_config = SettingsConfigDict(env_prefix="AI_")
 
     openai_api_key: SecretStr | None = None
     anthropic_api_key: SecretStr | None = None
+    moderation_model: str = "omni-moderation-latest"
+    classifier_model: str = "claude-haiku-4-5"
+    """ADR-0016: Claude Haiku 4.5 — дёшево и быстро для меток; смена модели — решение владельца."""
+    timeout_seconds: float = Field(default=10.0, gt=0, le=60)
+    """Проверка стоит на пути публикации: дольше — вердикт «недоступно», решит человек."""
 
 
 class AnalyticsSettings(_Group):
@@ -211,6 +220,10 @@ class Settings:
     """Все группы настроек процесса. Создаётся один раз в entrypoint и кладётся в DI."""
 
     def __init__(self, env_file: Path | None = ENV_FILE) -> None:
+        if os.environ.get("APP_ENV") == "":
+            # пустое значение в окружении превратилось бы в dev (env_ignore_empty) — и в заглушки
+            # AI, которые пропускают всё; в backend/.env пустой APP_ENV — это dev и остаётся
+            raise SettingsError("APP_ENV задан пустым: укажите dev, test, stage или production")
         values: dict[type[_Group], _Group] = {}
         missing: list[str] = []
         invalid: list[str] = []
@@ -265,4 +278,6 @@ def describe(settings: Settings) -> dict[str, Any]:
         "telegram_bot": settings.telegram.bot_username,
         "s3_endpoint": settings.s3.endpoint_url,
         "sentry": settings.sentry.dsn is not None,
+        "ai_moderation": settings.ai.openai_api_key is not None,
+        "ai_classifier": settings.ai.anthropic_api_key is not None,
     }
