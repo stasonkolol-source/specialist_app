@@ -8,7 +8,14 @@
 from app.modules.media.application.config import VARIANT_URL_TTL, MediaConfig
 from app.modules.media.application.dto import MediaView, VariantView
 from app.modules.media.application.ports import MediaQuery
-from app.modules.media.domain.asset import MEDIA_BUCKET, MediaAsset, MediaStatus, variant_bucket
+from app.modules.media.domain.asset import (
+    MEDIA_BUCKET,
+    VARIANT_SIDES,
+    MediaAsset,
+    MediaStatus,
+    VariantName,
+    variant_bucket,
+)
 from app.modules.media.errors import MediaNotFoundError
 from app.platform.kernel.ids import MediaId, UserId
 from app.platform.storage.port import Bucket, StoragePort
@@ -31,21 +38,20 @@ class MediaQueries:
         preview = None
         if asset.status in PREVIEW_STATUSES:
             preview = await self._storage.presign_get(Bucket(asset.bucket), asset.object_key)
-        variants: tuple[VariantView, ...] = ()
+        variants: list[VariantView] = []
+        video = None
         if asset.status is MediaStatus.READY:
-            variants = tuple(
-                [
-                    VariantView(
-                        name=name,
-                        url=await self.variant_url(asset, variant.key),
-                        width=variant.width,
-                        height=variant.height,
-                    )
-                    for name, variant in sorted(
-                        asset.variants.items(), key=lambda item: item[1].width
-                    )
-                ]
-            )
+            for name, variant in sorted(asset.variants.items(), key=lambda item: item[1].width):
+                view = VariantView(
+                    name=name,
+                    url=await self.variant_url(asset, variant.key),
+                    width=variant.width,
+                    height=variant.height,
+                )
+                if name == VariantName.VIDEO:
+                    video = view
+                elif name in VARIANT_SIDES:
+                    variants.append(view)
         return MediaView(
             id=asset.id,
             kind=asset.kind,
@@ -59,8 +65,10 @@ class MediaQueries:
             preview_url=preview,
             width=asset.width,
             height=asset.height,
+            duration_ms=asset.duration_ms,
             placeholder=asset.placeholder,
-            variants=variants,
+            variants=tuple(variants),
+            video=video,
             failure_reason=asset.failure_reason,
         )
 

@@ -10,6 +10,7 @@ import type { MediaPurpose } from './mediaPurpose.ts';
 import type { MediaStatus } from './mediaStatus.ts';
 import type { ModerationStatus } from './moderationStatus.ts';
 import type { VariantOut } from './variantOut.ts';
+import type { VideoOut } from './videoOut.ts';
 
 export interface MediaOut {
   id: string;
@@ -24,7 +25,9 @@ export interface MediaOut {
   preview_url: string | null;
   width: number | null;
   height: number | null;
+  duration_ms: number | null;
   placeholder: string | null;
   variants: VariantOut[];
+  video: VideoOut | null;
   failure_reason: FailureReason | null;
 }

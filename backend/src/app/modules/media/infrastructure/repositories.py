@@ -128,6 +128,7 @@ def to_domain(row: AssetRow) -> MediaAsset:
         moderation_status=row.moderation_status,
         width=row.width,
         height=row.height,
+        duration_ms=row.duration_ms,
         placeholder=row.placeholder,
         sha256=row.sha256,
         variants={
@@ -159,6 +160,7 @@ def _apply(asset: MediaAsset, row: AssetRow) -> None:
     row.uploaded_at = asset.uploaded_at
     row.width = asset.width
     row.height = asset.height
+    row.duration_ms = asset.duration_ms
     row.placeholder = asset.placeholder
     row.sha256 = asset.sha256
     row.variants = {

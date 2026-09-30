@@ -14,6 +14,7 @@
 import asyncio
 from collections.abc import Sequence
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import boto3
@@ -207,6 +208,23 @@ class S3Storage:
             raise StorageRejectedError("TooLarge")
         return data
 
+    async def download(
+        self, bucket: Bucket, key: str, target: Path, *, max_bytes: int, etag: str | None = None
+    ) -> None:
+        params: dict[str, Any] = {"Bucket": self._names[bucket], "Key": key}
+        if etag is not None:
+            params["IfMatch"] = f'"{etag}"'
+        response = await self._call(self._client.get_object, **params)
+        body = response["Body"]
+        try:
+            if int(response["ContentLength"]) > max_bytes:
+                raise StorageRejectedError("TooLarge")
+            await asyncio.to_thread(_copy_to_file, body, target, max_bytes)
+        except BotoCoreError as exc:  # обрыв посреди тела — сбой хранилища, задача повторит
+            raise ExternalServiceError(service="storage", reason=type(exc).__name__) from exc
+        finally:
+            body.close()
+
     async def put(
         self,
         bucket: Bucket,
@@ -258,6 +276,16 @@ class S3Storage:
             raise ExternalServiceError(service="storage", code=error_code(exc)) from exc
         except BotoCoreError as exc:
             raise ExternalServiceError(service="storage", reason=type(exc).__name__) from exc
+
+
+def _copy_to_file(body: Any, target: Path, max_bytes: int) -> None:
+    written = 0
+    with target.open("wb") as file:
+        for chunk in body.iter_chunks(1024 * 1024):
+            written += len(chunk)
+            if written > max_bytes:
+                raise StorageRejectedError("TooLarge")
+            file.write(chunk)
 
 
 def error_code(exc: ClientError) -> str:

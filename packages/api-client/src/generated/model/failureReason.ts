@@ -16,4 +16,5 @@ export const FailureReason = {
   unsupported: 'unsupported',
   too_many_pixels: 'too_many_pixels',
   unreadable: 'unreadable',
+  too_long: 'too_long',
 } as const;

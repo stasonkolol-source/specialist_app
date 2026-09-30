@@ -1,8 +1,10 @@
-"""StoragePort на Garage: presign → PUT → HEAD, multipart, ошибки (DEVELOPMENT_PLAN 0.24, 2.1)."""
+"""StoragePort на Garage: presign → PUT → HEAD, multipart, ошибки (DEVELOPMENT_PLAN 0.24, 2.1),
+чтение версии по If-Match и скачивание в файл для ffmpeg (2.2)."""
 
 import asyncio
 from collections.abc import Iterator
 from datetime import timedelta
+from pathlib import Path
 
 import httpx
 import pytest
@@ -11,7 +13,7 @@ from app.platform.kernel.clock import SystemClock
 from app.platform.kernel.ids import new_id
 from app.platform.settings import Settings
 from app.platform.storage.port import IMMUTABLE, Bucket, StorageRejectedError, UploadedPart
-from app.platform.storage.s3 import S3Storage
+from app.platform.storage.s3 import S3Storage, _copy_to_file
 from tests.plugins.containers import GarageInfo
 
 pytestmark = pytest.mark.integration
@@ -179,4 +181,47 @@ async def test_get_refuses_missing_and_oversized_objects(storage: S3Storage) -> 
     await storage.put(Bucket.MEDIA, name, JPEG, content_type="image/jpeg")
     with pytest.raises(StorageRejectedError) as large:
         await storage.get(Bucket.MEDIA, name, max_bytes=len(JPEG) - 1)
+    assert large.value.code == "TooLarge"
+
+
+async def test_download_streams_that_exact_version_to_a_file(
+    storage: S3Storage, tmp_path: Path
+) -> None:
+    name, body = key(), JPEG * 700  # больше мегабайта: несколько кусков потока
+    await storage.put(Bucket.INCOMING, name, body, content_type="video/mp4")
+    stored = await storage.head(Bucket.INCOMING, name)
+    assert stored is not None
+    target = tmp_path / "source.mov"
+
+    await storage.download(Bucket.INCOMING, name, target, max_bytes=len(body), etag=stored.etag)
+    assert await asyncio.to_thread(target.read_bytes) == body
+
+    await storage.put(Bucket.INCOMING, name, body[::-1], content_type="video/mp4")
+    with pytest.raises(StorageRejectedError) as replaced:  # подменили после complete
+        await storage.download(Bucket.INCOMING, name, target, max_bytes=len(body), etag=stored.etag)
+    assert replaced.value.code in {"PreconditionFailed", "412"}
+
+
+async def test_download_refuses_missing_and_oversized_objects(
+    storage: S3Storage, tmp_path: Path
+) -> None:
+    name, target = key(), tmp_path / "source.mov"
+    with pytest.raises(StorageRejectedError) as missing:
+        await storage.download(Bucket.INCOMING, name, target, max_bytes=10)
+    assert missing.value.code in {"NoSuchKey", "404"}
+
+    await storage.put(Bucket.INCOMING, name, JPEG, content_type="video/mp4")
+    with pytest.raises(StorageRejectedError) as large:
+        await storage.download(Bucket.INCOMING, name, target, max_bytes=len(JPEG) - 1)
+    assert large.value.code == "TooLarge"
+
+
+def test_stream_longer_than_announced_is_cut_off(tmp_path: Path) -> None:
+    # Content-Length не превысил предел, а тело длиннее: считаем сами, а не верим заголовку
+    class Body:
+        def iter_chunks(self, size: int) -> Iterator[bytes]:
+            yield from (b"x" * 1024 for _ in range(10))
+
+    with pytest.raises(StorageRejectedError) as large:
+        _copy_to_file(Body(), tmp_path / "source.mov", max_bytes=5000)
     assert large.value.code == "TooLarge"

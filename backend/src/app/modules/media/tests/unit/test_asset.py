@@ -172,8 +172,8 @@ def test_purge_lists_original_and_variants() -> None:
     # все возможные варианты в обоих бакетах: удалённый файл прячет их в private
     assert a.objects()[0] == ("incoming", a.object_key)
     assert set(a.objects()[1:]) == {
-        (bucket, f"m/{a.id}/{name}.webp")
-        for name in ("thumb", "md", "lg")
+        (bucket, f"m/{a.id}/{name}")
+        for name in ("thumb.webp", "md.webp", "lg.webp", "video.mp4")
         for bucket in ("media", "private")
     }
 
@@ -189,6 +189,15 @@ def test_third_crash_uses_up_the_attempts() -> None:
         a.start_processing()
 
     assert a.out_of_attempts is True
+
+
+def test_run_broken_by_storage_gives_its_attempt_back() -> None:
+    a = uploaded()
+    a.start_processing()
+
+    assert a.release_attempt() is True
+    assert a.attempts == 0
+    assert a.release_attempt() is False  # отдавать больше нечего
 
 
 def test_giving_up_rejects_the_file_as_unreadable() -> None:

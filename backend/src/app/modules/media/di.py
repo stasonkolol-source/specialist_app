@@ -8,6 +8,7 @@ from app.modules.media.application.ports import (
     MediaQuery,
     MediaRepository,
     UploadQuota,
+    VideoProcessor,
 )
 from app.modules.media.application.queries import MediaQueries
 from app.modules.media.application.use_cases.cleanup_orphans import CleanupOrphans
@@ -23,7 +24,9 @@ from app.modules.media.infrastructure.imaging import SubprocessImageProcessor
 from app.modules.media.infrastructure.queries import SqlMediaQuery
 from app.modules.media.infrastructure.quota import ValkeyUploadQuota
 from app.modules.media.infrastructure.repositories import SqlMediaRepository
+from app.modules.media.infrastructure.video import FfmpegVideoProcessor
 from app.platform.settings import S3Settings
+from app.platform.storage.port import StoragePort
 
 
 class MediaProvider(Provider):
@@ -38,6 +41,10 @@ class MediaProvider(Provider):
     @provide(scope=Scope.APP)
     def images(self) -> ImageProcessor:
         return SubprocessImageProcessor()
+
+    @provide(scope=Scope.APP)
+    def videos(self, storage: StoragePort) -> VideoProcessor:
+        return FfmpegVideoProcessor(storage)
 
     assets = provide(SqlMediaRepository, provides=MediaRepository)
     query = provide(SqlMediaQuery, provides=MediaQuery)

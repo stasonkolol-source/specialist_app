@@ -23,6 +23,7 @@ from app.modules.media.application.ports import (
     MediaQuery,
     MediaRepository,
     ProcessingCrashedError,
+    VideoProcessor,
 )
 from app.modules.media.application.use_cases.hide_variants import HideDeleted, HideDeletedCommand
 from app.modules.media.application.use_cases.process_media import (
@@ -36,6 +37,7 @@ from app.modules.media.application.use_cases.purge_deleted import (
 from app.modules.media.application.use_cases.retry_stuck import RetryStuck, RetryStuckCommand
 from app.modules.media.domain.asset import MAX_ATTEMPTS
 from app.modules.media.tests.images import exif, photo, png_header_only
+from app.modules.media.tests.videos import LOCATION, clip, probe
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.errors import ExternalServiceError
@@ -81,6 +83,7 @@ async def built(
         await request.get(MediaQuery),
         storage,
         processor,
+        cast(VideoProcessor, await request.get(VideoProcessor)),
         await request.get(JobQueue),
         await request.get(Clock),
     )
@@ -212,6 +215,27 @@ async def test_storage_refusal_not_about_the_file_is_retried(media: Media) -> No
 
     assert (await media.get(media_id)).json()["status"] == "processing"
     assert await media.jobs("media.delete_objects", media_id) == []  # оригинал цел
+
+
+async def test_storage_outage_does_not_use_up_the_attempts(media: Media) -> None:
+    # хранилище лежит дольше повторов задачи: исправное фото не должно стать unreadable
+    media_id = await uploaded(media, photo("JPEG"))
+    storage = await s3(media)
+
+    class DownStorage:
+        def __getattr__(self, name: str) -> Any:
+            return getattr(storage, name)
+
+        async def get(self, *_: object, **__: object) -> bytes:
+            raise ExternalServiceError(service="storage", code="503")
+
+    for _run in range(MAX_ATTEMPTS + 1):
+        async with media.app.container() as request:
+            process = await built(request, cast(StoragePort, DownStorage()))
+            with pytest.raises(ExternalServiceError):
+                await process(ProcessMediaCommand(media_id=MediaId(UUID(media_id))))
+
+    assert (await processed(media, media_id))["status"] == "ready"  # хранилище вернулось
 
 
 @pytest.mark.parametrize(
@@ -382,3 +406,113 @@ async def test_deleted_photo_stays_public_no_longer_than_the_safety_net(media: M
     assert await media.run_jobs("media.hide_variants", media_id) == 1
 
     assert await media.keys(Bucket.MEDIA, f"m/{media_id}/") == set()
+
+
+async def test_portfolio_video_gets_a_clean_mp4_and_a_poster(media: Media) -> None:
+    media_id = await uploaded(media, clip(rotation=90), "video/quicktime")
+
+    body = await processed(media, media_id)
+
+    assert (body["status"], body["kind"]) == ("ready", "video")
+    assert (body["width"], body["height"]) == (360, 640)
+    assert 1900 <= body["duration_ms"] <= 2100
+    assert body["placeholder"]
+    # постер — варианты-картинки для srcset, ролик — отдельно: в srcset mp4 не место
+    assert body["variants"]
+    assert {v["name"] for v in body["variants"]} <= {"thumb", "md", "lg"}
+    assert (body["video"]["width"], body["video"]["height"]) == (360, 640)
+    async with httpx.AsyncClient() as client:
+        got = await client.get(body["video"]["url"])
+        poster = await client.get(body["variants"][0]["url"])
+    assert got.headers["content-type"] == "video/mp4"
+    assert LOCATION not in str(probe(got.content))  # геопозиции iPhone в ролике нет
+    assert Image.open(io.BytesIO(poster.content)).format == "WEBP"
+    # сырой ролик с геопозицией после обработки не храним
+    assert await media.run_jobs("media.delete_objects", media_id) == 1
+    assert await media.stored(media_id) is None
+
+
+async def test_photo_has_no_video(media: Media) -> None:
+    body = await processed(media, await uploaded(media, photo("JPEG")))
+
+    assert (body["video"], body["duration_ms"]) == (None, None)
+
+
+async def test_video_longer_than_a_minute_is_rejected(media: Media) -> None:
+    long = clip(seconds=61, size=(64, 64), fps=1, codec="libx264", location=False)
+    media_id = await uploaded(media, long, "video/mp4")
+
+    body = await processed(media, media_id)
+
+    assert (body["status"], body["failure_reason"], body["video"]) == ("rejected", "too_long", None)
+    assert await media.run_jobs("media.delete_objects", media_id) == 1
+    assert await media.stored(media_id) is None
+
+
+async def test_video_retry_after_a_crash_overwrites_the_same_keys(media: Media) -> None:
+    media_id = await uploaded(media, clip(codec="libx264", location=False), "video/quicktime")
+
+    async def crash_on_second_put(count: int) -> None:
+        if count == 2:
+            raise ExternalServiceError(service="storage")
+
+    async with process_media(media, crash_on_second_put) as process:
+        with pytest.raises(ExternalServiceError):
+            await process(ProcessMediaCommand(media_id=MediaId(UUID(media_id))))
+
+    body = await processed(media, media_id)  # повтор задачи
+
+    assert body["status"] == "ready"
+    posters = {f"m/{media_id}/{v['name']}.webp" for v in body["variants"]}
+    assert await media.keys(Bucket.MEDIA, f"m/{media_id}/") == posters | {f"m/{media_id}/video.mp4"}
+
+
+async def test_run_after_the_last_attempt_rejects_without_processing(media: Media) -> None:
+    # все попытки умерли вместе с воркером (OOM-kill): до отказа в except дело не дошло
+    media_id = await uploaded(media, photo("JPEG"))
+    assert await media.lose_jobs("media.process", media_id) == 1
+    engine = await media.app.container.get(AsyncEngine)
+    async with engine.begin() as conn:
+        await conn.execute(
+            text("UPDATE media.assets SET status = 'processing', attempts = :n WHERE id = :id"),
+            {"id": media_id, "n": MAX_ATTEMPTS},
+        )
+
+    class Untouchable:
+        async def process(self, data: bytes) -> ProcessedImage:
+            raise AssertionError("ещё одна попытка")
+
+    async with media.app.container() as request:
+        process = await built(request, await s3(media), Untouchable())
+        assert await process(ProcessMediaCommand(media_id=MediaId(UUID(media_id)))) == "rejected"
+
+    body = (await media.get(media_id)).json()
+    assert (body["status"], body["failure_reason"]) == ("rejected", "unreadable")
+    assert len(await media.jobs("media.delete_objects", media_id)) == 1
+
+
+async def test_video_is_retried_later_than_a_photo(media: Media) -> None:
+    # перекодирование ролика само идёт до 15 минут: второй запуск поверх — лишний
+    media_id = await uploaded(media, clip(codec="libx264", location=False), "video/quicktime")
+    assert await media.lose_jobs("media.process", media_id) == 1
+    engine = await media.app.container.get(AsyncEngine)
+
+    async def uploaded_ago(minutes: int) -> None:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "UPDATE media.assets SET status = 'processing',"
+                    " uploaded_at = now() - make_interval(mins => :m) WHERE id = :id"
+                ),
+                {"id": media_id, "m": minutes},
+            )
+
+    await uploaded_ago(20)
+    async with media.app.container() as request:
+        await (await request.get(RetryStuck))(RetryStuckCommand())
+    assert await media.jobs("media.process", media_id) == []
+
+    await uploaded_ago(70)
+    async with media.app.container() as request:
+        await (await request.get(RetryStuck))(RetryStuckCommand())
+    assert len(await media.jobs("media.process", media_id)) == 1

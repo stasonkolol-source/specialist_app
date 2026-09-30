@@ -86,6 +86,9 @@ jobs:
           cache-from: type=gha,scope=pg-image
           cache-to: type=gha,scope=pg-image,mode=max
 
+      - name: ffmpeg (обработка видео, шаг 2.2b)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
+
       - name: integration tests (testcontainers)
         run: uv run pytest -m integration -q
 

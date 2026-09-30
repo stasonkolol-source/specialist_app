@@ -423,7 +423,7 @@ modules/jobs/
 | `web` | FastAPI: публичный REST API `/api/v1`, BFF-эндпоинты, admin API и SQLAdmin (`/admin`), вебхуки платёжных каналов, realtime (v1) | Горизонтально, stateless |
 | `bot` | aiogram: приём webhook от Telegram (`secret_token`), хендлеры вызывают application services in-process | 1–2 экземпляра |
 | `worker` | Procrastinate: очереди `default` (обработчики событий, read-model, модерация) и `notifications` (fan-out и отправка в Telegram с глобальным rate limiter), периодические задачи (`@periodic` с HA — отдельный scheduler не нужен) | По очередям |
-| `worker-media` | Procrastinate: очередь `media` (Pillow, ffmpeg) с лимитами CPU и памяти | Отдельно, при росте — на своей VM |
+| `worker-media` | Procrastinate: очередь `media` (Pillow, ffmpeg) с лимитами CPU и памяти. ffmpeg добавляет к образу ≈ 390 MB: пока образ общий для всех ролей; отдельный образ `worker-media` — если размер начнёт мешать деплою | Отдельно, при росте — на своей VM |
 
 После MVP (итерация «Вещи») процессов не прибавляется: `worker` берёт ещё очереди `goods` и `notifications_bulk`, `worker-media` — очередь `media_goods`. Роль Kamal `web-goods` из того же образа — только по мере M1a ([§18.3](#183-раздел-вещи-дешёвые-меры-и-триггеры-выделения-после-mvp-итерация-вещи)).
 
@@ -1189,12 +1189,12 @@ CREATE TABLE media.assets (
   height            int,
   duration_ms       int,
   sha256            bytea,                -- дедупликация и детекция повторно загружаемого запрещённого контента
-  variants          jsonb NOT NULL DEFAULT '{}',  -- {"thumb":{"key":…,"w":320},"md":{…},"poster":{…},"mp4_720":{…}}
+  variants          jsonb NOT NULL DEFAULT '{}',  -- {"thumb":{"key":…,"w":320,"h":240},"md":{…},"lg":{…},"video":{…}}; у ролика thumb/md/lg — постер
   placeholder       text,                 -- thumbhash/blurhash для мгновенного превью
   moderation_status text NOT NULL DEFAULT 'pending'
                     CHECK (moderation_status IN ('pending','approved','flagged','rejected')),
   moderation_labels jsonb NOT NULL DEFAULT '{}',
-  failure_reason    text CHECK (failure_reason IN ('abandoned','mismatch','unsupported','too_many_pixels','unreadable')),  -- почему failed (загрузка) или rejected (обработка)
+  failure_reason    text CHECK (failure_reason IN ('abandoned','mismatch','unsupported','too_many_pixels','unreadable','too_long')),  -- почему failed (загрузка) или rejected (обработка)
   created_at        timestamptz NOT NULL DEFAULT now(),
   uploaded_at       timestamptz,          -- complete прошёл HEAD-проверку
   processed_at      timestamptz,
@@ -2344,7 +2344,7 @@ sequenceDiagram
 | `POST /media/uploads` | Инициировать загрузку: `{purpose, mime_type, size_bytes}` → `{media_id, multipart, part_size, parts: [{part_number, url, headers}], expires_at}`: один presigned PUT (`part_number = null`) или план multipart для видео больше 50 MB |
 | `POST /media/uploads/{id}/parts` | Новые presigned URL: `{part_numbers?}` — нужные части, без номеров — все (ссылка истекла, обрыв) |
 | `POST /media/uploads/{id}/complete` | Завершить загрузку: `{parts: [{part_number, etag}]}` (у одного PUT — пусто) → HEAD-проверка → обработка. Недостающие части — 409 `media_upload_incomplete` с `missing_parts` |
-| `GET /media/{id}` | Статус и варианты (для поллинга после загрузки) |
+| `GET /media/{id}` | Статус и варианты (для поллинга после загрузки); у ролика — ещё `video` и `duration_ms` |
 | `DELETE /media/{id}` | Удалить своё медиа |
 
 **jobs** (доска заявок и отклики)
@@ -2716,22 +2716,27 @@ sequenceDiagram
 
 | Шаг | Изображения | Видео |
 |---|---|---|
-| Проверка типа | magic bytes, не заголовок клиента; отклонение полиглотов и сверхбольших разрешений (decompression bomb guard) | `ffprobe`: контейнер, кодеки, длительность ≤ 60 с, разрешение |
+| Проверка типа | magic bytes, не заголовок клиента; отклонение полиглотов и сверхбольших разрешений (decompression bomb guard) | magic bytes MP4/MOV; `ffprobe` по заголовкам, без декодирования: кодек, длительность ≤ 60 с, разрешение, частота кадров |
 | Нормализация | Автоповорот по EXIF, цвета — в sRGB по встроенному ICC, затем **удаление всех метаданных** (EXIF с GPS, XMP, ICC); HEIC → WebP (pillow-heif) | Перекодирование H.264 (yuv420p) + AAC, 720p, `-movflags +faststart`, удаление метаданных |
-| Варианты | WebP `thumb` 320 / `md` 800 / `lg` 1600 px по длинной стороне, без увеличения (маленькое фото получает меньше вариантов); thumbhash-плейсхолдер | MP4 720p, постер WebP 800 px |
+| Варианты | WebP `thumb` 320 / `md` 800 / `lg` 1600 px по длинной стороне, без увеличения (маленькое фото получает меньше вариантов); thumbhash-плейсхолдер | MP4 720p (`video`); постер — те же WebP-варианты и thumbhash |
 | Антифрод | pHash → поиск дубликатов у других аккаунтов (признак фейкового портфолио) | pHash постера |
 | Модерация | OpenAI `omni-moderation`; при срабатывании — SafeSearch или Rekognition; итог — `moderation_status` | Кадры раз в 2–3 с → те же проверки |
 | Результат | `variants` в `media.assets`, событие `MediaReady` или `MediaRejected` | То же |
 
-Воркер `worker-media` — отдельный процесс с ограничениями CPU и памяти. ffmpeg запускается через `asyncio.create_subprocess_exec` с таймаутом 120 с. Задача идемпотентна: при повторе варианты перезаписываются.
+Воркер `worker-media` — отдельный процесс с ограничениями CPU и памяти. ffmpeg запускается через `asyncio.create_subprocess_exec` с таймаутом по длине и размеру кадра (120–900 с). Задача идемпотентна: при повторе варианты перезаписываются.
 
 - **Какой файл обрабатывается.** Оригинал читается из `incoming` с `If-Match` по ETag, сверенному при `complete`: presigned PUT живёт ещё до 10 минут, и подменённый после проверки файл получает `rejected` (mismatch).
 - **Изоляция.** Недоверенный файл декодирует дочерний процесс с таймаутом (60 с) и лимитами CPU и памяти; секретов воркера он не видит (окружение — белым списком). Ответ процесса (`answer.json`) проверяется: принимаются только известные имена вариантов и причины.
 - **Кто виноват.** Причину по вине файла называет сам процесс — файл `rejected`. Сбой самой обработки (таймаут, падение или убийство процесса — OOM-kill, рестарт; наша ошибка) — повтор задачи и Sentry; третий такой запуск (`attempts`) отклоняет файл как `unreadable`, чтобы бомба не жгла CPU бесконечно.
 - **Отказы** — `rejected` с причиной в `failure_reason`: `unsupported` (по magic bytes это не JPEG, PNG, WebP или HEIC), `too_many_pixels` (больше 64 MP — decompression bomb; размер кадра проверяется до декодирования, у HEIF берётся основное изображение, а не первый кадр), `unreadable` (не декодируется). Отклоняют файл только ответы хранилища о нём самом (подменён, пропал); остальные 4xx — сбой конфигурации: задача повторяется.
-- **Зависшая обработка.** `media.retry_stuck` каждые 15 минут ставит снова фото, которые дольше 15 минут `uploaded` или `processing`; зависшие дольше суток получают `rejected` (unreadable) — оригинал в incoming всё равно уберёт lifecycle.
+- **Зависшая обработка.** `media.retry_stuck` каждые 15 минут ставит снова фото, которые дольше 15 минут `uploaded` или `processing`, и ролики, которые так дольше часа (перекодирование само идёт до 15 минут: второй запуск поверх первого только тратил бы попытки); зависшие дольше суток получают `rejected` (unreadable) — оригинал в incoming всё равно уберёт lifecycle. Запуски, умершие вместе с воркером, тоже считаются попытками: следующий после третьего отклоняет файл, не начиная работу. Запуск, сорванный хранилищем (5xx, сеть), попытку не тратит: иначе затянувшийся сбой хранилища отклонил бы исправные файлы.
 - **Память.** JPEG декодируется сразу уменьшенным (draft), кадр уменьшается до 1600 px до поворота и цветовых преобразований.
 - **Оригинал не храним.** После обработки сырой файл с EXIF удаляет задача `media.delete_objects`: клиент уже уменьшает фото до ≈ 2048 px, самый крупный вариант — 1600 px.
+- **Видео** (шаг 2.2b). Ролик скачивается потоком во временный каталог (до 200 MB — не в память); контейнер — только MP4/MOV по magic bytes, ffmpeg и ffprobe читают его демуксером `mov` принудительно и только протоколом `file` (плейлист HLS или concat под видом видео иначе прочитал бы чужие файлы и адреса).
+  - **Проверка.** `ffprobe` читает только заголовки контейнера и ничего не декодирует: видеокодек H.264, HEVC или MPEG-4, ≤ 60 с (`too_long`, допуск 0,5 с на смещение дорожек), кадр от 16 px до 4096 × 3072 (`too_many_pixels`), ≤ 240 кадров/с. Обложка (attached_pic) роликом не считается; звук вне списка (AAC, ALAC, MP3, Opus, LPCM) отбрасывается, ролик остаётся.
+  - **Декодирование** — только в ffmpeg и только выбранных потоков: белый список декодеров и предел кадра (`-max_pixels`) не обойти ни заголовком, солгавшим ffprobe, ни сменой SPS посреди потока. Процессу — два потока декодера, предел CPU и памяти (`prlimit`), окружение белым списком, своя группа процессов (при таймауте убивается целиком); stdout читается с пределом, от stderr хранится хвост.
+  - **Выход.** H.264 yuv420p + AAC (стерео, 48 кГц), длинная сторона ≤ 1280 с чётными сторонами, ≤ 30 кадров/с, VBV ≤ 4 Мбит/с, `+faststart`, без метаданных (геопозиция iPhone не переносится), поворот по матрице дисплея; HDR (HLG/PQ) — тонмаппинг в SDR bt709 (zscale). Кадр около первой секунды проходит конвейер фото: постер — варианты `thumb`/`md`/`lg` и ThumbHash, сам ролик — `m/{id}/video.mp4`.
+  - **Кто виноват.** Не прошёл проверку — файл (`unsupported`, `too_long`, `too_many_pixels`); перекодирование упало, зависло или процесс убит — повтор задачи, после третьего запуска — `unreadable`.
 
 ### 10.4. Раздача
 
@@ -2739,7 +2744,7 @@ sequenceDiagram
 - **Приватные объекты** (вложения чата, документы, оригинал на время обработки) выдаются только presigned GET на 5 минут после проверки прав.
 - **Без CDN** (dev, тесты: `S3_PUBLIC_BASE_URL` пуст) варианты отдаются presigned GET бакета `media` на час.
 - **Непубличные назначения** (сообщения, отзывы, документы — v1) кладут варианты в `private`: только presigned GET на 5 минут.
-- **Видео** — MP4 с range-запросами; в WebView воспроизводится с `playsinline muted preload="metadata"`.
+- **Видео** — MP4 с range-запросами; в ответе API — отдельное поле `video` (адрес и размеры), постер — в `variants` (в `srcset` ролику не место). В WebView — `playsinline preload="metadata"` без автозапуска: трафик не тратится, пока человек не нажал «смотреть».
 - **Позже:** imgproxy за CDN с подписанными URL — ресайз на лету под DPI мобильных клиентов (этап 2).
 
 ### 10.5. Жизненный цикл

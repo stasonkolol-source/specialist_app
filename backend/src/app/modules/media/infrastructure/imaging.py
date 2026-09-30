@@ -27,7 +27,6 @@ import base64
 import hashlib
 import io
 import json
-import os
 import resource
 import sys
 import tempfile
@@ -44,6 +43,7 @@ from PIL.JpegImagePlugin import JpegImageFile
 from app.modules.media.application.dto import ImageVariant, ProcessedImage
 from app.modules.media.application.ports import ProcessingCrashedError, UnprocessableMediaError
 from app.modules.media.domain.asset import VARIANT_SIDES, FailureReason
+from app.modules.media.infrastructure.processes import child_environment
 from app.modules.media.infrastructure.thumbhash import MAX_SIDE as HASH_SIDE
 from app.modules.media.infrastructure.thumbhash import rgba_to_thumbhash
 
@@ -62,8 +62,6 @@ TIMEOUT = 60.0
 CPU_SECONDS = 90
 MEMORY_BYTES = 3 * 1024**3
 """Адресное пространство процесса: с запасом для 64 MP и потоков libheif, но не весь сервер."""
-ENVIRONMENT = ("PATH", "PYTHONPATH", "LANG", "LC_ALL", "TMPDIR", "HOME")
-"""Что процесс видит из окружения воркера: без DSN, ключей S3 и токенов."""
 SIXTEEN_BIT = {"I;16", "I;16L", "I;16B", "I;16N", "I"}
 NEAREST_ONLY = {"1", "P", "PA"}
 """Режимы, которые Pillow уменьшает без сглаживания: сначала — в полноцветный."""
@@ -79,9 +77,9 @@ class SubprocessImageProcessor:
     async def process(self, data: bytes) -> ProcessedImage:
         with tempfile.TemporaryDirectory(prefix="media-image-") as tmp:
             workdir = Path(tmp)
-            (workdir / SOURCE).write_bytes(data)
+            await asyncio.to_thread((workdir / SOURCE).write_bytes, data)
             await self._run(workdir)
-            return _result(workdir)
+            return await asyncio.to_thread(_result, workdir)
 
     async def _run(self, workdir: Path) -> None:
         process = await asyncio.create_subprocess_exec(
@@ -90,7 +88,7 @@ class SubprocessImageProcessor:
             stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            env=_child_environment(),
+            env=child_environment(),
         )
         try:
             stdout, stderr = await asyncio.wait_for(process.communicate(), self._timeout)
@@ -107,12 +105,6 @@ class SubprocessImageProcessor:
             )
         if output:
             log.info("image_processing_output", output=output)
-
-
-def _child_environment() -> dict[str, str]:
-    """Белый список окружения: не настройки приложения, а изоляция недоверенного процесса."""
-    environ = os.environ  # noqa: TID251 — секреты воркера дочернему процессу не передаём
-    return {name: environ[name] for name in ENVIRONMENT if name in environ}
 
 
 def _result(workdir: Path) -> ProcessedImage:

@@ -11,11 +11,11 @@ import type { RequestHandlerOptions } from 'msw';
 
 import {
   FailureReason,
+  ImageVariantName,
   MediaKind,
   MediaPurpose,
   MediaStatus,
   ModerationStatus,
-  VariantName,
 } from '../../model';
 import type { MediaOut, UploadOut } from '../../model';
 
@@ -74,18 +74,27 @@ export const getMediaCompleteUploadResponseMock = (
   ]),
   width: faker.helpers.arrayElement([faker.number.int(), null]),
   height: faker.helpers.arrayElement([faker.number.int(), null]),
+  duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
   placeholder: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
   ]),
   variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
-      name: faker.helpers.arrayElement(Object.values(VariantName)),
+      name: faker.helpers.arrayElement(Object.values(ImageVariantName)),
       url: faker.string.alpha({ length: { min: 10, max: 20 } }),
       width: faker.number.int(),
       height: faker.number.int(),
     }),
   ),
+  video: faker.helpers.arrayElement([
+    {
+      url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      width: faker.number.int(),
+      height: faker.number.int(),
+    },
+    null,
+  ]),
   failure_reason: faker.helpers.arrayElement([
     faker.helpers.arrayElement(Object.values(FailureReason)),
     null,
@@ -114,18 +123,27 @@ export const getMediaGetMediaResponseMock = (
   ]),
   width: faker.helpers.arrayElement([faker.number.int(), null]),
   height: faker.helpers.arrayElement([faker.number.int(), null]),
+  duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
   placeholder: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
   ]),
   variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
-      name: faker.helpers.arrayElement(Object.values(VariantName)),
+      name: faker.helpers.arrayElement(Object.values(ImageVariantName)),
       url: faker.string.alpha({ length: { min: 10, max: 20 } }),
       width: faker.number.int(),
       height: faker.number.int(),
     }),
   ),
+  video: faker.helpers.arrayElement([
+    {
+      url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      width: faker.number.int(),
+      height: faker.number.int(),
+    },
+    null,
+  ]),
   failure_reason: faker.helpers.arrayElement([
     faker.helpers.arrayElement(Object.values(FailureReason)),
     null,

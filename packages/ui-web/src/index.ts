@@ -26,6 +26,8 @@ export type { Gap } from './layout/Stack.tsx';
 export { HStack, Stack } from './layout/Stack.tsx';
 export type { TabBarProps, TabItem } from './TabBar.tsx';
 export { TabBar } from './TabBar.tsx';
+export type { VideoPlayerProps } from './VideoPlayer.tsx';
+export { VideoPlayer } from './VideoPlayer.tsx';
 export type {
   AddTileProps,
   FailedTileProps,
