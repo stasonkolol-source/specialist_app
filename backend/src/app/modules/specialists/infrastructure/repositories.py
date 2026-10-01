@@ -16,7 +16,7 @@ from app.modules.specialists.infrastructure.models import (
 from app.platform.db.constraints import raise_domain_error
 from app.platform.db.port import UnitOfWork
 from app.platform.db.versioning import check_loaded_version
-from app.platform.kernel.ids import CategoryId, CityId, DistrictId, UserId
+from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, UserId
 
 
 class SqlProfileRepository:
@@ -153,6 +153,7 @@ def _to_domain(
         submitted_at=row.submitted_at,
         published_at=row.published_at,
         reviewed_kind=row.reviewed_kind,
+        avatar_media_id=MediaId(row.avatar_media_id) if row.avatar_media_id else None,
         version=row.version,
     )
 
@@ -177,5 +178,6 @@ def _apply(profile: Profile, row: ProfileRow) -> None:
     row.vacation_until = profile.vacation_until
     row.rejection_reason = profile.rejection_reason
     row.reviewed_kind = profile.reviewed_kind
+    row.avatar_media_id = profile.avatar_media_id
     row.submitted_at = profile.submitted_at
     row.published_at = profile.published_at

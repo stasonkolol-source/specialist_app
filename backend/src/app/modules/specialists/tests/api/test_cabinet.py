@@ -53,7 +53,12 @@ async def test_wizard_builds_a_profile_and_sends_it_to_review(cabinet: Cabinet) 
     await cabinet.add_service()  # первая позиция прайса (S32c)
     # полнота для кабинета S33: «о себе» короче пары предложений, у позиции нет описания
     hints = [(h["code"], h["count"]) for h in (await cabinet.get()).json()["completeness"]["hints"]]
-    assert hints == [("about", None), ("service_descriptions", 1)]
+    assert hints == [
+        ("about", None),
+        ("portfolio", 3),
+        ("avatar", None),
+        ("service_descriptions", 1),
+    ]
     submitted = await cabinet.call("POST", "/submit")
 
     assert submitted.status_code == 200, submitted.text

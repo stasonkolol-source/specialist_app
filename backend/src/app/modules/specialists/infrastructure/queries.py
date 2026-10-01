@@ -10,7 +10,7 @@ from app.modules.specialists.infrastructure.models import (
     ServiceAreaRow,
 )
 from app.platform.db.query import SqlQuery
-from app.platform.kernel.ids import CategoryId, CityId, DistrictId, UserId
+from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, UserId
 
 
 class SqlProfileQuery(SqlQuery):
@@ -57,6 +57,7 @@ class SqlProfileQuery(SqlQuery):
                 area_ids=area_ids,
             ),
             available_until=row["available_until"],
+            avatar_media_id=MediaId(row["avatar_media_id"]) if row["avatar_media_id"] else None,
             published_at=row["published_at"],
             version=row["version"],
         )

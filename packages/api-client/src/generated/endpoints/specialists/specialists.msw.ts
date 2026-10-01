@@ -9,8 +9,8 @@ import { faker } from '@faker-js/faker';
 import { HttpResponse, http } from 'msw';
 import type { RequestHandlerOptions } from 'msw';
 
-import { Language, ProfileKind, ProfileStatus, WorkMode } from '../../model';
-import type { ProfileOut } from '../../model';
+import { Language, ProfileKind, ProfileStatus, WorkKind, WorkMode } from '../../model';
+import type { PortfolioOut, ProfileOut, WorkOut } from '../../model';
 
 export const getSpecialistsGetMyProfileResponseMock = (
   overrideResponse: Partial<Extract<ProfileOut, object>> = {},
@@ -53,6 +53,31 @@ export const getSpecialistsGetMyProfileResponseMock = (
   },
   available_until: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  avatar: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      placeholder: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        }),
+      ),
+      video_url: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+    },
     null,
   ]),
   published_at: faker.helpers.arrayElement([
@@ -106,6 +131,31 @@ export const getSpecialistsCreateMyProfileResponseMock = (
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
   ]),
+  avatar: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      placeholder: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        }),
+      ),
+      video_url: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+    },
+    null,
+  ]),
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -157,11 +207,190 @@ export const getSpecialistsUpdateMyProfileResponseMock = (
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
   ]),
+  avatar: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      placeholder: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        }),
+      ),
+      video_url: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+    },
+    null,
+  ]),
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
   ]),
   version: faker.number.int(),
+  ...overrideResponse,
+});
+
+export const getSpecialistsGetMyPortfolioResponseMock = (
+  overrideResponse: Partial<Extract<PortfolioOut, object>> = {},
+): PortfolioOut => ({
+  items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    id: faker.string.uuid(),
+    kind: faker.helpers.arrayElement(Object.values(WorkKind)),
+    caption: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    position: faker.number.int(),
+    media: faker.helpers.arrayElement([
+      {
+        id: faker.string.uuid(),
+        kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        placeholder: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        variants: Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1,
+        ).map(() => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        })),
+        video_url: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+      },
+      null,
+    ]),
+  })),
+  limits: { image: faker.number.int(), video: faker.number.int() },
+  ...overrideResponse,
+});
+
+export const getSpecialistsAddMyWorkResponseMock = (
+  overrideResponse: Partial<Extract<WorkOut, object>> = {},
+): WorkOut => ({
+  id: faker.string.uuid(),
+  kind: faker.helpers.arrayElement(Object.values(WorkKind)),
+  caption: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  position: faker.number.int(),
+  media: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      placeholder: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        }),
+      ),
+      video_url: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+    },
+    null,
+  ]),
+  ...overrideResponse,
+});
+
+export const getSpecialistsReorderMyPortfolioResponseMock = (
+  overrideResponse: Partial<Extract<PortfolioOut, object>> = {},
+): PortfolioOut => ({
+  items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    id: faker.string.uuid(),
+    kind: faker.helpers.arrayElement(Object.values(WorkKind)),
+    caption: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    position: faker.number.int(),
+    media: faker.helpers.arrayElement([
+      {
+        id: faker.string.uuid(),
+        kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        placeholder: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        variants: Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1,
+        ).map(() => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        })),
+        video_url: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+      },
+      null,
+    ]),
+  })),
+  limits: { image: faker.number.int(), video: faker.number.int() },
+  ...overrideResponse,
+});
+
+export const getSpecialistsCaptionMyWorkResponseMock = (
+  overrideResponse: Partial<Extract<WorkOut, object>> = {},
+): WorkOut => ({
+  id: faker.string.uuid(),
+  kind: faker.helpers.arrayElement(Object.values(WorkKind)),
+  caption: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  position: faker.number.int(),
+  media: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      placeholder: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        }),
+      ),
+      video_url: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+    },
+    null,
+  ]),
   ...overrideResponse,
 });
 
@@ -206,6 +435,31 @@ export const getSpecialistsSetMyCategoriesResponseMock = (
   },
   available_until: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  avatar: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      placeholder: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        }),
+      ),
+      video_url: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+    },
     null,
   ]),
   published_at: faker.helpers.arrayElement([
@@ -259,6 +513,31 @@ export const getSpecialistsSetMyAreasResponseMock = (
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
   ]),
+  avatar: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      placeholder: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        }),
+      ),
+      video_url: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+    },
+    null,
+  ]),
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -308,6 +587,31 @@ export const getSpecialistsSubmitMyProfileResponseMock = (
   },
   available_until: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  avatar: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      placeholder: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        }),
+      ),
+      video_url: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+    },
     null,
   ]),
   published_at: faker.helpers.arrayElement([
@@ -361,6 +665,107 @@ export const getSpecialistsSetMyAvailabilityResponseMock = (
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
   ]),
+  avatar: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      placeholder: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        }),
+      ),
+      video_url: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+    },
+    null,
+  ]),
+  published_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  version: faker.number.int(),
+  ...overrideResponse,
+});
+
+export const getSpecialistsSetMyAvatarResponseMock = (
+  overrideResponse: Partial<Extract<ProfileOut, object>> = {},
+): ProfileOut => ({
+  id: faker.string.uuid(),
+  kind: faker.helpers.arrayElement(Object.values(ProfileKind)),
+  status: faker.helpers.arrayElement(Object.values(ProfileStatus)),
+  display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  headline: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  about: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  languages: faker.helpers.arrayElements(Object.values(Language)),
+  city_id: faker.number.int(),
+  category_ids: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => faker.number.int(),
+  ),
+  district_ids: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => faker.number.int(),
+  ),
+  travel_radius_km: faker.helpers.arrayElement([faker.number.int(), null]),
+  work_modes: faker.helpers.arrayElements(Object.values(WorkMode)),
+  listed_in_catalog: faker.datatype.boolean(),
+  rejection_reason: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  missing: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
+  completeness: {
+    percent: faker.number.int(),
+    hints: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        count: faker.helpers.arrayElement([faker.number.int(), null]),
+      }),
+    ),
+  },
+  available_until: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  avatar: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      placeholder: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        }),
+      ),
+      video_url: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+    },
+    null,
+  ]),
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -410,6 +815,31 @@ export const getSpecialistsHideMyProfileResponseMock = (
   },
   available_until: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  avatar: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      placeholder: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        }),
+      ),
+      video_url: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+    },
     null,
   ]),
   published_at: faker.helpers.arrayElement([
@@ -463,6 +893,31 @@ export const getSpecialistsShowMyProfileResponseMock = (
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
   ]),
+  avatar: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      placeholder: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        }),
+      ),
+      video_url: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+    },
+    null,
+  ]),
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -512,6 +967,31 @@ export const getSpecialistsBecomeProResponseMock = (
   },
   available_until: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  avatar: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      placeholder: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        }),
+      ),
+      video_url: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+    },
     null,
   ]),
   published_at: faker.helpers.arrayElement([
@@ -583,6 +1063,116 @@ export const getSpecialistsUpdateMyProfileMockHandler = (
           : getSpecialistsUpdateMyProfileResponseMock(),
         { status: 200 },
       );
+    },
+    options,
+  );
+};
+
+export const getSpecialistsGetMyPortfolioMockHandler = (
+  overrideResponse?:
+    | PortfolioOut
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<PortfolioOut> | PortfolioOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/me/profile/portfolio',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSpecialistsGetMyPortfolioResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getSpecialistsAddMyWorkMockHandler = (
+  overrideResponse?:
+    | WorkOut
+    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<WorkOut> | WorkOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/api/v1/me/profile/portfolio',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSpecialistsAddMyWorkResponseMock(),
+        { status: 201 },
+      );
+    },
+    options,
+  );
+};
+
+export const getSpecialistsReorderMyPortfolioMockHandler = (
+  overrideResponse?:
+    | PortfolioOut
+    | ((
+        info: Parameters<Parameters<typeof http.put>[1]>[0],
+      ) => Promise<PortfolioOut> | PortfolioOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    '*/api/v1/me/profile/portfolio/order',
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSpecialistsReorderMyPortfolioResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getSpecialistsCaptionMyWorkMockHandler = (
+  overrideResponse?:
+    | WorkOut
+    | ((info: Parameters<Parameters<typeof http.patch>[1]>[0]) => Promise<WorkOut> | WorkOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.patch(
+    '*/api/v1/me/profile/portfolio/:itemId',
+    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSpecialistsCaptionMyWorkResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getSpecialistsRemoveMyWorkMockHandler = (
+  overrideResponse?:
+    void | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    '*/api/v1/me/profile/portfolio/:itemId',
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === 'function') {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
     },
     options,
   );
@@ -676,6 +1266,28 @@ export const getSpecialistsSetMyAvailabilityMockHandler = (
   );
 };
 
+export const getSpecialistsSetMyAvatarMockHandler = (
+  overrideResponse?:
+    | ProfileOut
+    | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<ProfileOut> | ProfileOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    '*/api/v1/me/profile/avatar',
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSpecialistsSetMyAvatarResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getSpecialistsHideMyProfileMockHandler = (
   overrideResponse?:
     | ProfileOut
@@ -745,10 +1357,16 @@ export const getSpecialistsMock = () => [
   getSpecialistsGetMyProfileMockHandler(),
   getSpecialistsCreateMyProfileMockHandler(),
   getSpecialistsUpdateMyProfileMockHandler(),
+  getSpecialistsGetMyPortfolioMockHandler(),
+  getSpecialistsAddMyWorkMockHandler(),
+  getSpecialistsReorderMyPortfolioMockHandler(),
+  getSpecialistsCaptionMyWorkMockHandler(),
+  getSpecialistsRemoveMyWorkMockHandler(),
   getSpecialistsSetMyCategoriesMockHandler(),
   getSpecialistsSetMyAreasMockHandler(),
   getSpecialistsSubmitMyProfileMockHandler(),
   getSpecialistsSetMyAvailabilityMockHandler(),
+  getSpecialistsSetMyAvatarMockHandler(),
   getSpecialistsHideMyProfileMockHandler(),
   getSpecialistsShowMyProfileMockHandler(),
   getSpecialistsBecomeProMockHandler(),

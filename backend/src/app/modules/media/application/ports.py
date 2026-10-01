@@ -74,6 +74,10 @@ class MediaQuery(Protocol):
         """Файл в любом статусе, без проверки владельца — для задач системы."""
         ...
 
+    async def assets(self, media_ids: Collection[MediaId]) -> list[MediaAsset]:
+        """Неудалённые файлы по id — для показа в других модулях (фасад MediaApi)."""
+        ...
+
     async def stuck(
         self,
         uploaded_before: datetime,

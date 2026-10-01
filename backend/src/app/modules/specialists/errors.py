@@ -57,3 +57,23 @@ class AvailabilityPastError(DomainValidationError):
     """«Доступен сегодня до …»: это время сегодня уже прошло."""
 
     code = "availability_past"
+
+
+class PortfolioItemNotFoundError(NotFoundError):
+    """Работы нет в портфолио профиля (чужая — тоже)."""
+
+    code = "portfolio_item_not_found"
+
+
+class PortfolioFullError(ConflictError):
+    """Портфолио заполнено: фото — до 60, роликов — до 6 (`kind`, `limit`)."""
+
+    code = "portfolio_full"
+    public_params = ("kind", "limit")
+
+
+class InvalidPortfolioError(DomainValidationError):
+    """Поле работы нарушает правило (`field`): подпись длиннее 120, порядок не тех работ."""
+
+    code = "invalid_portfolio"
+    public_params = ("field",)

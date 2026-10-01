@@ -358,6 +358,15 @@ msgstr "Попуните профил до краја да бисте га по�
 msgid "errors.invalid_profile"
 msgstr "Проверите поља профила."
 
+msgid "errors.portfolio_item_not_found"
+msgstr "Тог рада нема у портфолију."
+
+msgid "errors.portfolio_full"
+msgstr "Портфолио је попуњен: више не може."
+
+msgid "errors.invalid_portfolio"
+msgstr "Проверите рад: опис — до 120 знакова."
+
 msgid "errors.availability_past"
 msgstr "То време је данас већ прошло — изаберите касније."
 

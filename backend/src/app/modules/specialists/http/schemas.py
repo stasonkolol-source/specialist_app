@@ -6,8 +6,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.modules.specialists.application.dto import CabinetView
+from app.modules.media.api import MediaRef
+from app.modules.specialists.application.dto import CabinetView, WorkView
 from app.modules.specialists.domain.completeness import Completeness
+from app.modules.specialists.domain.portfolio import LIMITS, MAX_CAPTION, WorkKind
 from app.modules.specialists.domain.profile import (
     MAX_ABOUT,
     MAX_AREAS,
@@ -53,6 +55,95 @@ class ProfileCategoriesIn(BaseModel):
 
 class ProfileAreasIn(BaseModel):
     district_ids: list[int] = Field(max_length=MAX_AREAS)
+
+
+class MediaVariantOut(BaseModel):
+    name: str
+    """thumb, md, lg — по возрастанию ширины (у ролика — постер)."""
+    url: str
+    width: int
+    height: int
+
+
+class MediaRefOut(BaseModel):
+    """Файл работы или фото профиля: пока он обрабатывается, вариантов нет."""
+
+    id: UUID
+    kind: str
+    """image | video."""
+    status: str
+    """uploaded | processing | ready | failed | rejected."""
+    placeholder: str | None
+    """ThumbHash (base64) для мгновенного превью."""
+    variants: list[MediaVariantOut]
+    video_url: str | None
+    duration_ms: int | None
+
+    @classmethod
+    def of(cls, ref: MediaRef) -> MediaRefOut:
+        return cls(
+            id=ref.id,
+            kind=ref.kind,
+            status=ref.status,
+            placeholder=ref.placeholder,
+            variants=[
+                MediaVariantOut(name=v.name, url=v.url, width=v.width, height=v.height)
+                for v in ref.variants
+            ],
+            video_url=ref.video_url,
+            duration_ms=ref.duration_ms,
+        )
+
+
+class WorkOut(BaseModel):
+    id: UUID
+    kind: WorkKind
+    caption: str | None
+    position: int
+    media: MediaRefOut | None
+
+    @classmethod
+    def of(cls, work: WorkView) -> WorkOut:
+        return cls(
+            id=work.id,
+            kind=work.kind,
+            caption=work.caption,
+            position=work.position,
+            media=MediaRefOut.of(work.media) if work.media else None,
+        )
+
+
+class PortfolioLimitsOut(BaseModel):
+    image: int = LIMITS[WorkKind.IMAGE]
+    video: int = LIMITS[WorkKind.VIDEO]
+
+
+class PortfolioOut(BaseModel):
+    """Портфолио в кабинете S37: работы по порядку и лимиты (60 фото, 6 роликов)."""
+
+    items: list[WorkOut]
+    limits: PortfolioLimitsOut
+
+
+class WorkIn(BaseModel):
+    media_id: UUID
+    """Загруженный файл с назначением portfolio (POST /media/uploads)."""
+    caption: str | None = Field(default=None, max_length=MAX_CAPTION)
+
+
+class WorkCaptionIn(BaseModel):
+    caption: str | None = Field(max_length=MAX_CAPTION)
+    """Пустая или null — без подписи."""
+
+
+class PortfolioOrderIn(BaseModel):
+    item_ids: list[UUID] = Field(min_length=1, max_length=sum(LIMITS.values()))
+    """Все работы в новом порядке."""
+
+
+class AvatarIn(BaseModel):
+    media_id: UUID | None
+    """Загруженный файл с назначением avatar; null — инициалы."""
 
 
 class AvailabilityIn(BaseModel):
@@ -104,6 +195,8 @@ class ProfileOut(BaseModel):
     completeness: CompletenessOut
     available_until: datetime | None
     """«Доступен сегодня до …»; null — выключено."""
+    avatar: MediaRefOut | None
+    """Фото профиля; null — инициалы."""
     published_at: datetime | None
     version: int
 
@@ -128,6 +221,7 @@ class ProfileOut(BaseModel):
             missing=list(view.missing),
             completeness=CompletenessOut.of(cabinet.completeness),
             available_until=view.available_until,
+            avatar=MediaRefOut.of(cabinet.avatar) if cabinet.avatar else None,
             published_at=view.published_at,
             version=view.version,
         )

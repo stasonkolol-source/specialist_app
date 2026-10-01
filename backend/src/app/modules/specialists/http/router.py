@@ -31,6 +31,10 @@ from app.modules.specialists.application.use_cases.set_profile_areas import (
     SetProfileAreas,
     SetProfileAreasCommand,
 )
+from app.modules.specialists.application.use_cases.set_profile_avatar import (
+    SetProfileAvatar,
+    SetProfileAvatarCommand,
+)
 from app.modules.specialists.application.use_cases.set_profile_categories import (
     SetProfileCategories,
     SetProfileCategoriesCommand,
@@ -45,8 +49,10 @@ from app.modules.specialists.application.use_cases.submit_profile import (
 )
 from app.modules.specialists.application.views import ProfileViews
 from app.modules.specialists.errors import ProfileNotFoundError
+from app.modules.specialists.http.portfolio import portfolio
 from app.modules.specialists.http.schemas import (
     AvailabilityIn,
+    AvatarIn,
     ProfileAreasIn,
     ProfileCategoriesIn,
     ProfileCreateIn,
@@ -56,7 +62,7 @@ from app.modules.specialists.http.schemas import (
 from app.platform.http.concurrency import IfMatch, set_etag
 from app.platform.http.idempotency import idempotent_router
 from app.platform.http.security import AUTHENTICATED
-from app.platform.kernel.ids import CategoryId, CityId, DistrictId, UserId
+from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, UserId
 from app.platform.kernel.principal import Principal
 
 router = APIRouter(tags=["specialists"], dependencies=AUTHENTICATED)
@@ -94,6 +100,7 @@ async def create_my_profile(
 
 
 router.include_router(creating)
+router.include_router(portfolio)
 
 
 @router.patch("/me/profile")
@@ -196,6 +203,27 @@ async def set_my_availability(
     await set_availability(
         SetAvailabilityCommand(
             actor_id=principal.user_id, until=body.until, expected_version=expected_version
+        )
+    )
+    return await _profile(query, principal.user_id, response)
+
+
+@router.put("/me/profile/avatar")
+@inject
+async def set_my_avatar(
+    body: AvatarIn,
+    expected_version: IfMatch,
+    principal: FromDishka[Principal],
+    set_avatar: FromDishka[SetProfileAvatar],
+    query: FromDishka[ProfileViews],
+    response: Response,
+) -> ProfileOut:
+    """Фото профиля (S34): загруженный файл с назначением avatar; null — инициалы."""
+    await set_avatar(
+        SetProfileAvatarCommand(
+            actor_id=principal.user_id,
+            media_id=MediaId(body.media_id) if body.media_id else None,
+            expected_version=expected_version,
         )
     )
     return await _profile(query, principal.user_id, response)

@@ -1,0 +1,40 @@
+"""Фото профиля (S34, PUT /me/profile/avatar): загруженный файл с назначением avatar; null —
+вернуть инициалы. Прежний файл удаляет media — после записи профиля, своей транзакцией."""
+
+from dataclasses import dataclass
+
+from app.modules.media.api import MediaApi
+from app.modules.specialists.application.ports import ProfileRepository
+from app.modules.specialists.application.profiles import own_profile
+from app.modules.specialists.domain.profile import Profile
+from app.platform.db.port import UnitOfWork
+from app.platform.kernel.clock import Clock
+from app.platform.kernel.ids import MediaId, UserId
+
+AVATAR_PURPOSE = "avatar"
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class SetProfileAvatarCommand:
+    actor_id: UserId
+    media_id: MediaId | None
+    expected_version: int | None = None
+
+
+class SetProfileAvatar:
+    def __init__(
+        self, uow: UnitOfWork, profiles: ProfileRepository, media: MediaApi, clock: Clock
+    ) -> None:
+        self._uow, self._profiles, self._media, self._clock = uow, profiles, media, clock
+
+    async def __call__(self, cmd: SetProfileAvatarCommand) -> Profile:
+        async with self._uow:
+            profile = await own_profile(self._profiles, cmd.actor_id, cmd.expected_version)
+            if cmd.media_id is not None:
+                await self._media.owned(cmd.actor_id, cmd.media_id, purpose=AVATAR_PURPOSE)
+            previous = profile.avatar_media_id
+            if profile.set_avatar(cmd.media_id, now=self._clock.now()):
+                await self._profiles.save(profile)
+        if previous is not None and previous != profile.avatar_media_id:
+            await self._media.discard(cmd.actor_id, previous)
+        return profile

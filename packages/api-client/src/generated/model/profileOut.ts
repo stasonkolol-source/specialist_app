@@ -6,6 +6,7 @@
  */
 import type { CompletenessOut } from './completenessOut.ts';
 import type { Language } from './language.ts';
+import type { MediaRefOut } from './mediaRefOut.ts';
 import type { ProfileKind } from './profileKind.ts';
 import type { ProfileStatus } from './profileStatus.ts';
 import type { WorkMode } from './workMode.ts';
@@ -28,6 +29,7 @@ export interface ProfileOut {
   missing: string[];
   completeness: CompletenessOut;
   available_until: string | null;
+  avatar: MediaRefOut | null;
   published_at: string | null;
   version: number;
 }

@@ -358,6 +358,15 @@ msgstr "Заполните профиль до конца, чтобы отпра
 msgid "errors.invalid_profile"
 msgstr "Проверьте поля профиля."
 
+msgid "errors.portfolio_item_not_found"
+msgstr "Такой работы нет в портфолио."
+
+msgid "errors.portfolio_full"
+msgstr "Портфолио заполнено: больше не поместится."
+
+msgid "errors.invalid_portfolio"
+msgstr "Проверьте работу: подпись — до 120 символов."
+
 msgid "errors.availability_past"
 msgstr "Это время сегодня уже прошло — выберите позже."
 

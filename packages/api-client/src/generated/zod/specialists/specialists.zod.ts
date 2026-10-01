@@ -38,6 +38,27 @@ export const SpecialistsGetMyProfileResponse = zod.object({
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  avatar: zod.union([
+    zod
+      .object({
+        id: zod.uuid(),
+        kind: zod.string(),
+        status: zod.string(),
+        placeholder: zod.union([zod.string(), zod.null()]),
+        variants: zod.array(
+          zod.object({
+            name: zod.string(),
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+          }),
+        ),
+        video_url: zod.union([zod.string(), zod.null()]),
+        duration_ms: zod.union([zod.int(), zod.null()]),
+      })
+      .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
+    zod.null(),
+  ]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -97,6 +118,27 @@ export const SpecialistsCreateMyProfileResponse = zod.object({
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  avatar: zod.union([
+    zod
+      .object({
+        id: zod.uuid(),
+        kind: zod.string(),
+        status: zod.string(),
+        placeholder: zod.union([zod.string(), zod.null()]),
+        variants: zod.array(
+          zod.object({
+            name: zod.string(),
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+          }),
+        ),
+        video_url: zod.union([zod.string(), zod.null()]),
+        duration_ms: zod.union([zod.int(), zod.null()]),
+      })
+      .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
+    zod.null(),
+  ]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -184,9 +226,230 @@ export const SpecialistsUpdateMyProfileResponse = zod.object({
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  avatar: zod.union([
+    zod
+      .object({
+        id: zod.uuid(),
+        kind: zod.string(),
+        status: zod.string(),
+        placeholder: zod.union([zod.string(), zod.null()]),
+        variants: zod.array(
+          zod.object({
+            name: zod.string(),
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+          }),
+        ),
+        video_url: zod.union([zod.string(), zod.null()]),
+        duration_ms: zod.union([zod.int(), zod.null()]),
+      })
+      .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
+    zod.null(),
+  ]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
+
+/**
+ * Работы своего профиля по порядку (S37); 404 `profile_not_found` — профиля нет.
+ * @summary Get My Portfolio
+ */
+export const specialistsGetMyPortfolioResponseLimitsImageDefault = 60;
+export const specialistsGetMyPortfolioResponseLimitsVideoDefault = 6;
+
+export const SpecialistsGetMyPortfolioResponse = zod
+  .object({
+    items: zod.array(
+      zod.object({
+        id: zod.uuid(),
+        kind: zod.enum(['image', 'video']),
+        caption: zod.union([zod.string(), zod.null()]),
+        position: zod.int(),
+        media: zod.union([
+          zod
+            .object({
+              id: zod.uuid(),
+              kind: zod.string(),
+              status: zod.string(),
+              placeholder: zod.union([zod.string(), zod.null()]),
+              variants: zod.array(
+                zod.object({
+                  name: zod.string(),
+                  url: zod.string(),
+                  width: zod.int(),
+                  height: zod.int(),
+                }),
+              ),
+              video_url: zod.union([zod.string(), zod.null()]),
+              duration_ms: zod.union([zod.int(), zod.null()]),
+            })
+            .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
+          zod.null(),
+        ]),
+      }),
+    ),
+    limits: zod.object({
+      image: zod.int().default(specialistsGetMyPortfolioResponseLimitsImageDefault),
+      video: zod.int().default(specialistsGetMyPortfolioResponseLimitsVideoDefault),
+    }),
+  })
+  .describe('Портфолио в кабинете S37: работы по порядку и лимиты (60 фото, 6 роликов).');
+
+/**
+ * Работа из загруженного файла — в конец; лимит — 409 `portfolio_full` (kind, limit).
+ * @summary Add My Work
+ */
+export const specialistsAddMyWorkHeaderIdempotencyKeyMin = 8;
+export const specialistsAddMyWorkHeaderIdempotencyKeyMax = 255;
+
+export const SpecialistsAddMyWorkHeader = zod.object({
+  'Idempotency-Key': zod
+    .string()
+    .min(specialistsAddMyWorkHeaderIdempotencyKeyMin)
+    .max(specialistsAddMyWorkHeaderIdempotencyKeyMax)
+    .describe('Ключ операции: повтор с тем же ключом вернёт тот же ответ'),
+});
+
+export const specialistsAddMyWorkBodyCaptionOneMax = 120;
+
+export const SpecialistsAddMyWorkBody = zod.object({
+  media_id: zod.uuid(),
+  caption: zod
+    .union([zod.string().max(specialistsAddMyWorkBodyCaptionOneMax), zod.null()])
+    .optional(),
+});
+
+export const SpecialistsAddMyWorkResponse = zod.object({
+  id: zod.uuid(),
+  kind: zod.enum(['image', 'video']),
+  caption: zod.union([zod.string(), zod.null()]),
+  position: zod.int(),
+  media: zod.union([
+    zod
+      .object({
+        id: zod.uuid(),
+        kind: zod.string(),
+        status: zod.string(),
+        placeholder: zod.union([zod.string(), zod.null()]),
+        variants: zod.array(
+          zod.object({
+            name: zod.string(),
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+          }),
+        ),
+        video_url: zod.union([zod.string(), zod.null()]),
+        duration_ms: zod.union([zod.int(), zod.null()]),
+      })
+      .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
+    zod.null(),
+  ]),
+});
+
+/**
+ * Новый порядок — все работы; не те или не все — 422 `invalid_portfolio`.
+ * @summary Reorder My Portfolio
+ */
+export const specialistsReorderMyPortfolioBodyItemIdsMax = 66;
+
+export const SpecialistsReorderMyPortfolioBody = zod.object({
+  item_ids: zod.array(zod.uuid()).min(1).max(specialistsReorderMyPortfolioBodyItemIdsMax),
+});
+
+export const specialistsReorderMyPortfolioResponseLimitsImageDefault = 60;
+export const specialistsReorderMyPortfolioResponseLimitsVideoDefault = 6;
+
+export const SpecialistsReorderMyPortfolioResponse = zod
+  .object({
+    items: zod.array(
+      zod.object({
+        id: zod.uuid(),
+        kind: zod.enum(['image', 'video']),
+        caption: zod.union([zod.string(), zod.null()]),
+        position: zod.int(),
+        media: zod.union([
+          zod
+            .object({
+              id: zod.uuid(),
+              kind: zod.string(),
+              status: zod.string(),
+              placeholder: zod.union([zod.string(), zod.null()]),
+              variants: zod.array(
+                zod.object({
+                  name: zod.string(),
+                  url: zod.string(),
+                  width: zod.int(),
+                  height: zod.int(),
+                }),
+              ),
+              video_url: zod.union([zod.string(), zod.null()]),
+              duration_ms: zod.union([zod.int(), zod.null()]),
+            })
+            .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
+          zod.null(),
+        ]),
+      }),
+    ),
+    limits: zod.object({
+      image: zod.int().default(specialistsReorderMyPortfolioResponseLimitsImageDefault),
+      video: zod.int().default(specialistsReorderMyPortfolioResponseLimitsVideoDefault),
+    }),
+  })
+  .describe('Портфолио в кабинете S37: работы по порядку и лимиты (60 фото, 6 роликов).');
+
+/**
+ * Подпись работы; пустая — без подписи.
+ * @summary Caption My Work
+ */
+export const SpecialistsCaptionMyWorkParams = zod.object({
+  item_id: zod.uuid(),
+});
+
+export const specialistsCaptionMyWorkBodyCaptionOneMax = 120;
+
+export const SpecialistsCaptionMyWorkBody = zod.object({
+  caption: zod.union([zod.string().max(specialistsCaptionMyWorkBodyCaptionOneMax), zod.null()]),
+});
+
+export const SpecialistsCaptionMyWorkResponse = zod.object({
+  id: zod.uuid(),
+  kind: zod.enum(['image', 'video']),
+  caption: zod.union([zod.string(), zod.null()]),
+  position: zod.int(),
+  media: zod.union([
+    zod
+      .object({
+        id: zod.uuid(),
+        kind: zod.string(),
+        status: zod.string(),
+        placeholder: zod.union([zod.string(), zod.null()]),
+        variants: zod.array(
+          zod.object({
+            name: zod.string(),
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+          }),
+        ),
+        video_url: zod.union([zod.string(), zod.null()]),
+        duration_ms: zod.union([zod.int(), zod.null()]),
+      })
+      .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
+    zod.null(),
+  ]),
+});
+
+/**
+ * Убрать работу; её файл удаляется.
+ * @summary Remove My Work
+ */
+export const SpecialistsRemoveMyWorkParams = zod.object({
+  item_id: zod.uuid(),
+});
+
+export const SpecialistsRemoveMyWorkResponse = zod.void();
 
 /**
  * Категории профиля целиком, первая — основная.
@@ -230,6 +493,27 @@ export const SpecialistsSetMyCategoriesResponse = zod.object({
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  avatar: zod.union([
+    zod
+      .object({
+        id: zod.uuid(),
+        kind: zod.string(),
+        status: zod.string(),
+        placeholder: zod.union([zod.string(), zod.null()]),
+        variants: zod.array(
+          zod.object({
+            name: zod.string(),
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+          }),
+        ),
+        video_url: zod.union([zod.string(), zod.null()]),
+        duration_ms: zod.union([zod.int(), zod.null()]),
+      })
+      .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
+    zod.null(),
+  ]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -276,6 +560,27 @@ export const SpecialistsSetMyAreasResponse = zod.object({
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  avatar: zod.union([
+    zod
+      .object({
+        id: zod.uuid(),
+        kind: zod.string(),
+        status: zod.string(),
+        placeholder: zod.union([zod.string(), zod.null()]),
+        variants: zod.array(
+          zod.object({
+            name: zod.string(),
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+          }),
+        ),
+        video_url: zod.union([zod.string(), zod.null()]),
+        duration_ms: zod.union([zod.int(), zod.null()]),
+      })
+      .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
+    zod.null(),
+  ]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -316,6 +621,27 @@ export const SpecialistsSubmitMyProfileResponse = zod.object({
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  avatar: zod.union([
+    zod
+      .object({
+        id: zod.uuid(),
+        kind: zod.string(),
+        status: zod.string(),
+        placeholder: zod.union([zod.string(), zod.null()]),
+        variants: zod.array(
+          zod.object({
+            name: zod.string(),
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+          }),
+        ),
+        video_url: zod.union([zod.string(), zod.null()]),
+        duration_ms: zod.union([zod.int(), zod.null()]),
+      })
+      .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
+    zod.null(),
+  ]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -360,6 +686,92 @@ export const SpecialistsSetMyAvailabilityResponse = zod.object({
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  avatar: zod.union([
+    zod
+      .object({
+        id: zod.uuid(),
+        kind: zod.string(),
+        status: zod.string(),
+        placeholder: zod.union([zod.string(), zod.null()]),
+        variants: zod.array(
+          zod.object({
+            name: zod.string(),
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+          }),
+        ),
+        video_url: zod.union([zod.string(), zod.null()]),
+        duration_ms: zod.union([zod.int(), zod.null()]),
+      })
+      .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
+    zod.null(),
+  ]),
+  published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  version: zod.int(),
+});
+
+/**
+ * Фото профиля (S34): загруженный файл с назначением avatar; null — инициалы.
+ * @summary Set My Avatar
+ */
+export const SpecialistsSetMyAvatarHeader = zod.object({
+  'If-Match': zod.string().optional(),
+});
+
+export const SpecialistsSetMyAvatarBody = zod.object({
+  media_id: zod.union([zod.uuid(), zod.null()]),
+});
+
+export const SpecialistsSetMyAvatarResponse = zod.object({
+  id: zod.uuid(),
+  kind: zod.enum(['pro', 'casual']),
+  status: zod.enum(['draft', 'pending_review', 'published', 'hidden', 'suspended']),
+  display_name: zod.string(),
+  headline: zod.union([zod.string(), zod.null()]),
+  about: zod.union([zod.string(), zod.null()]),
+  languages: zod.array(zod.enum(['ru', 'sr', 'en', 'uk'])),
+  city_id: zod.int(),
+  category_ids: zod.array(zod.int()),
+  district_ids: zod.array(zod.int()),
+  travel_radius_km: zod.union([zod.int(), zod.null()]),
+  work_modes: zod.array(zod.enum(['at_client', 'at_own_place', 'remote'])),
+  listed_in_catalog: zod.boolean(),
+  rejection_reason: zod.union([zod.string(), zod.null()]),
+  missing: zod.array(zod.string()),
+  completeness: zod
+    .object({
+      percent: zod.int(),
+      hints: zod.array(
+        zod.object({
+          code: zod.string(),
+          count: zod.union([zod.int(), zod.null()]),
+        }),
+      ),
+    })
+    .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
+  available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  avatar: zod.union([
+    zod
+      .object({
+        id: zod.uuid(),
+        kind: zod.string(),
+        status: zod.string(),
+        placeholder: zod.union([zod.string(), zod.null()]),
+        variants: zod.array(
+          zod.object({
+            name: zod.string(),
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+          }),
+        ),
+        video_url: zod.union([zod.string(), zod.null()]),
+        duration_ms: zod.union([zod.int(), zod.null()]),
+      })
+      .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
+    zod.null(),
+  ]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -400,6 +812,27 @@ export const SpecialistsHideMyProfileResponse = zod.object({
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  avatar: zod.union([
+    zod
+      .object({
+        id: zod.uuid(),
+        kind: zod.string(),
+        status: zod.string(),
+        placeholder: zod.union([zod.string(), zod.null()]),
+        variants: zod.array(
+          zod.object({
+            name: zod.string(),
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+          }),
+        ),
+        video_url: zod.union([zod.string(), zod.null()]),
+        duration_ms: zod.union([zod.int(), zod.null()]),
+      })
+      .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
+    zod.null(),
+  ]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -440,6 +873,27 @@ export const SpecialistsShowMyProfileResponse = zod.object({
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  avatar: zod.union([
+    zod
+      .object({
+        id: zod.uuid(),
+        kind: zod.string(),
+        status: zod.string(),
+        placeholder: zod.union([zod.string(), zod.null()]),
+        variants: zod.array(
+          zod.object({
+            name: zod.string(),
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+          }),
+        ),
+        video_url: zod.union([zod.string(), zod.null()]),
+        duration_ms: zod.union([zod.int(), zod.null()]),
+      })
+      .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
+    zod.null(),
+  ]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -480,6 +934,27 @@ export const SpecialistsBecomeProResponse = zod.object({
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  avatar: zod.union([
+    zod
+      .object({
+        id: zod.uuid(),
+        kind: zod.string(),
+        status: zod.string(),
+        placeholder: zod.union([zod.string(), zod.null()]),
+        variants: zod.array(
+          zod.object({
+            name: zod.string(),
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+          }),
+        ),
+        video_url: zod.union([zod.string(), zod.null()]),
+        duration_ms: zod.union([zod.int(), zod.null()]),
+      })
+      .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
+    zod.null(),
+  ]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
