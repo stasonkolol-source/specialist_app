@@ -15,6 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from tests.plugins.http import HttpApp, bearer, http_app
 from tests.plugins.identity import accept_rules, insert_user
+from tests.plugins.queue import run_queued
 
 from app.modules.specialists.http.router import router
 from app.platform.kernel.ids import UserId, new_id
@@ -90,6 +91,10 @@ class Cabinet:
             method, f"/api/v1/me/profile/portfolio{path}", json=body or None, headers=headers
         )
 
+    async def discard_queued(self) -> int:
+        """Выполнить задачи удаления файлов (media.discard_media), как воркер."""
+        return await run_queued(self.app.container, "media.discard_media", user_id=self.user_id)
+
     async def other_user(self) -> UserId:
         """Ещё один пользователь — владелец «чужого» файла."""
         async with self.app.container() as request:
@@ -131,22 +136,10 @@ class Cabinet:
 
 
 @pytest.fixture
-def cabinet_settings(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Settings:
-    """Настройки теста плюс S3: фото профиля и портфолио показываются ссылками на варианты.
-    Хранилище не нужно — ссылки строятся от публичного адреса CDN без запросов к S3."""
-    monkeypatch.setenv("S3_ENDPOINT_URL", "http://storage.test")
-    monkeypatch.setenv("S3_REGION", "garage")
-    monkeypatch.setenv("S3_ACCESS_KEY_ID", "test")
-    monkeypatch.setenv("S3_SECRET_ACCESS_KEY", "test")
-    monkeypatch.setenv("S3_PUBLIC_BASE_URL", "https://cdn.test")
-    return Settings(env_file=None)
-
-
-@pytest.fixture
 async def web(
-    cabinet_settings: Settings, geo_seeded: None, catalog_seeded: None
+    storage_settings: Settings, geo_seeded: None, catalog_seeded: None
 ) -> AsyncIterator[HttpApp]:
-    async with http_app(cabinet_settings, router) as app:
+    async with http_app(storage_settings, router) as app:
         yield app
 
 
@@ -160,5 +153,5 @@ async def cabinet_for(app: HttpApp, settings: Settings, *, rules: bool = True) -
 
 
 @pytest.fixture
-async def cabinet(web: HttpApp, cabinet_settings: Settings) -> Cabinet:
-    return await cabinet_for(web, cabinet_settings)
+async def cabinet(web: HttpApp, storage_settings: Settings) -> Cabinet:
+    return await cabinet_for(web, storage_settings)

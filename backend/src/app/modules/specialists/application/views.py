@@ -1,5 +1,6 @@
 """Свой профиль для кабинета: запрос плюс прайс — «чего не хватает» как при отправке, полнота
-профиля (S33) и фото профиля."""
+профиля (S33) и фото профиля. Работы и фото, чей файл не прошёл обработку, в полноту не идут:
+показать их клиенту нечем."""
 
 from dataclasses import replace
 
@@ -29,9 +30,13 @@ class ProfileViews:
         prices = await self._prices.summary(view.id)
         if view.kind is ProfileKind.PRO and prices.items == 0:
             view = replace(view, missing=(*view.missing, "services"))
-        avatar = None
+        works = await self._portfolio.of_profile(view.id)
+        wanted = [work.media_id for work in works]
         if view.avatar_media_id is not None:
-            avatar = (await self._media.refs([view.avatar_media_id])).get(view.avatar_media_id)
+            wanted.append(view.avatar_media_id)
+        refs = await self._media.refs(wanted) if wanted else {}
+        avatar = refs.get(view.avatar_media_id) if view.avatar_media_id is not None else None
+        shown = [work for work in works if (ref := refs.get(work.media_id)) and not ref.broken]
         full = completeness(
             kind=view.kind,
             category_ids=view.category_ids,
@@ -42,7 +47,7 @@ class ProfileViews:
             area_ids=view.area_ids,
             price_items=prices.items,
             undescribed_prices=prices.without_description,
-            works=await self._portfolio.count(view.id),
-            has_avatar=avatar is not None,
+            works=len(shown),
+            has_avatar=avatar is not None and not avatar.broken,
         )
         return CabinetView(profile=view, completeness=full, avatar=avatar)

@@ -1,5 +1,5 @@
 """Фото профиля (S34, PUT /me/profile/avatar): загруженный файл с назначением avatar; null —
-вернуть инициалы. Прежний файл удаляет media — после записи профиля, своей транзакцией."""
+вернуть инициалы. Прежний файл удаляет media — задачей в той же транзакции."""
 
 from dataclasses import dataclass
 
@@ -35,6 +35,6 @@ class SetProfileAvatar:
             previous = profile.avatar_media_id
             if profile.set_avatar(cmd.media_id, now=self._clock.now()):
                 await self._profiles.save(profile)
-        if previous is not None and previous != profile.avatar_media_id:
-            await self._media.discard(cmd.actor_id, previous)
+                if previous is not None:
+                    await self._media.discard(cmd.actor_id, previous)
         return profile

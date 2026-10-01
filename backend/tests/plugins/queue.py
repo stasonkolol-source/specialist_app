@@ -17,9 +17,11 @@ from app.platform.queue.port import TaskRef
 from app.platform.queue.tasks import TASKS, run_task
 
 
-async def run_queued(container: AsyncContainer, task: TaskRef[Any], *, user_id: UUID) -> int:
-    """Выполнить задачи `task` пользователя `user_id`; вернуть, сколько их было."""
-    spec = TASKS.tasks[task.name]
+async def run_queued(container: AsyncContainer, task: TaskRef[Any] | str, *, user_id: UUID) -> int:
+    """Выполнить задачи `task` пользователя `user_id`; вернуть, сколько их было. Задачу модуля
+    ниже по DAG тест называет по имени: её TaskRef снаружи модуля не виден."""
+    name = task if isinstance(task, str) else task.name
+    spec = TASKS.tasks[name]
     async with container() as request:
         engine = await request.get(AsyncEngine)
     async with engine.begin() as conn:
@@ -29,7 +31,7 @@ async def run_queued(container: AsyncContainer, task: TaskRef[Any], *, user_id: 
                     "DELETE FROM procrastinate_jobs WHERE task_name = :name AND status = 'todo'"
                     " AND args->'payload'->>'user_id' = :user_id RETURNING id, args"
                 ),
-                {"name": task.name, "user_id": str(user_id)},
+                {"name": name, "user_id": str(user_id)},
             )
         ).all()
     for row in sorted(rows, key=lambda r: r.id):

@@ -6,6 +6,8 @@
 - `media.delete_objects` — убрать объекты файла: недогруженную или брошенную загрузку,
   сырой оригинал после обработки, варианты при отказе и очистке; сбой хранилища — повтор.
 - `media.hide_variants` — варианты удалённого файла из публичного media в private.
+- `media.discard_media` — удалить файл, который модуль выше по DAG больше не показывает
+  (работа портфолио, прежнее фото профиля): как DELETE /media/{id} владельца.
 - `media.hide_deleted` — каждые 15 минут: страховка, если скрытие не прошло.
 - `media.retry_stuck` — каждые 15 минут: зависшую обработку поставить снова (фото — через
   15 минут после загрузки, ролик — через час), а зависшую дольше суток — отклонить.
@@ -18,12 +20,22 @@ from contextlib import suppress
 import structlog
 from dishka import FromDishka
 
-from app.modules.media.application.dto import DeleteObjectsPayload, HideVariantsPayload
-from app.modules.media.application.ports import DELETE_OBJECTS, HIDE_VARIANTS, PROCESS_MEDIA
+from app.modules.media.application.dto import (
+    DeleteObjectsPayload,
+    DiscardMediaPayload,
+    HideVariantsPayload,
+)
+from app.modules.media.application.ports import (
+    DELETE_OBJECTS,
+    DISCARD_MEDIA,
+    HIDE_VARIANTS,
+    PROCESS_MEDIA,
+)
 from app.modules.media.application.use_cases.cleanup_orphans import (
     CleanupOrphans,
     CleanupOrphansCommand,
 )
+from app.modules.media.application.use_cases.delete_media import DeleteMedia, DeleteMediaCommand
 from app.modules.media.application.use_cases.hide_variants import (
     HideDeleted,
     HideDeletedCommand,
@@ -39,6 +51,7 @@ from app.modules.media.application.use_cases.purge_deleted import (
     PurgeDeletedCommand,
 )
 from app.modules.media.application.use_cases.retry_stuck import RetryStuck, RetryStuckCommand
+from app.modules.media.errors import MediaNotFoundError
 from app.platform.contracts.events.media import MediaUploaded
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber, task
 from app.platform.storage.port import Bucket, StoragePort, StorageRejectedError
@@ -55,6 +68,13 @@ async def process(event: MediaUploaded, process_media: FromDishka[ProcessMedia])
 @task(HIDE_VARIANTS)
 async def hide_variants(payload: HideVariantsPayload, hide: FromDishka[HideVariants]) -> None:
     await hide(HideVariantsCommand(media_id=payload.media_id))
+
+
+@task(DISCARD_MEDIA)
+async def discard_media(payload: DiscardMediaPayload, delete: FromDishka[DeleteMedia]) -> None:
+    # файла уже нет (удалили раньше или повтор после сбоя) — удалять нечего
+    with suppress(MediaNotFoundError):
+        await delete(DeleteMediaCommand(owner_id=payload.user_id, media_id=payload.media_id))
 
 
 @task(DELETE_OBJECTS)

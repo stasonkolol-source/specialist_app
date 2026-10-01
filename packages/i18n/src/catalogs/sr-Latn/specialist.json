@@ -260,7 +260,10 @@
     "initials": "Za sada — inicijali",
     "own": "Vaša fotografija",
     "change": "Promeni fotografiju",
-    "uploading": "Učitavamo fotografiju — {percent}%",
-    "failed": "Fotografija nije učitana — pokušajte ponovo"
+    "uploading": "Otpremamo fotografiju — {percent}%",
+    "failed": "Fotografija nije otpremljena — pokušajte ponovo"
+  },
+  "uploads": {
+    "leave": "Fajlovi se još otpremaju. Izaći i prekinuti otpremanje?"
   }
 }

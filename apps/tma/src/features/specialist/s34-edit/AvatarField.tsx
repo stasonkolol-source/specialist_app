@@ -12,6 +12,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ChangeEvent } from 'react';
 import { useEffect, useRef } from 'react';
 
+import { useUploadGuard } from '../shared/leave.ts';
 import { mediaTransport } from '../shared/uploads.ts';
 
 /** Статусы файла после обработки: дальше он не изменится. */
@@ -23,6 +24,8 @@ export function AvatarField({ profile }: { profile: ProfileOut }) {
   const queryClient = useQueryClient();
   const uploads = useMediaUploads({ purpose: 'avatar', transport: mediaTransport });
   const { forget, remove } = uploads;
+  // «Сохранить» и «Назад» уводят с S34: фото, которое ещё грузится, остановилось бы
+  useUploadGuard(uploads.uploading);
   const input = useRef<HTMLInputElement>(null);
   // файл, уже отправленный в профиль, и файл, после обработки которого профиль перечитан
   const sent = useRef<string | null>(null);

@@ -5,6 +5,7 @@
 import type {
   CompletenessOut,
   HintOut,
+  MediaRefOut,
   PortfolioLimitsOut,
   ProfileCreateIn,
   ProfileOut,
@@ -336,6 +337,9 @@ function completeness(
   const undescribed = active.filter((service) => !service.description?.trim()).length;
   const travels = profile.work_modes.includes('at_client');
   const pro = profile.kind === 'pro';
+  // файлы, не прошедшие обработку, в полноту не идут — как MediaRef.broken backend
+  const broken = (media: MediaRefOut) => media.status === 'failed' || media.status === 'rejected';
+  const shown = works.filter((work) => work.media && !broken(work.media)).length;
   const hint = (code: string, count: number | null = null): HintOut => ({ code, count });
   const checks: [number, boolean, HintOut][] = [
     [15, profile.category_ids.length > 0, hint('category_ids')],
@@ -343,8 +347,8 @@ function completeness(
     [15, profile.work_modes.length > 0 && (profile.district_ids.length > 0 || !travels), hint('area_ids')],
     ...(pro ? [[15, active.length > 0, hint('services')] as [number, boolean, HintOut]] : []),
     [20, (profile.about ?? '').trim().length >= ABOUT_ENOUGH, hint('about')],
-    [15, works.length >= ENOUGH_WORKS, hint('portfolio', Math.max(ENOUGH_WORKS - works.length, 0))],
-    [10, profile.avatar !== null, hint('avatar')],
+    [15, shown >= ENOUGH_WORKS, hint('portfolio', Math.max(ENOUGH_WORKS - shown, 0))],
+    [10, profile.avatar !== null && !broken(profile.avatar), hint('avatar')],
     [10, profile.languages.length > 0, hint('languages')],
   ]; // prettier-ignore
   if (pro) {

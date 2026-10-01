@@ -19,8 +19,11 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
-async def web(settings: Settings, geo_seeded: None, catalog_seeded: None) -> AsyncIterator[HttpApp]:
-    async with http_app(settings, specialists, pricing) as app:
+async def web(
+    storage_settings: Settings, geo_seeded: None, catalog_seeded: None
+) -> AsyncIterator[HttpApp]:
+    # кабинет `/me/profile` показывает фото профиля — ему нужен S3 (ссылки CDN, без запросов)
+    async with http_app(storage_settings, specialists, pricing) as app:
         yield app
 
 
@@ -40,12 +43,12 @@ class Client:
 
 
 @pytest.fixture
-async def client(web: HttpApp, settings: Settings) -> Client:
+async def client(web: HttpApp, storage_settings: Settings) -> Client:
     async with web.container() as request:
         session = await request.get(AsyncSession)
         user_id = await insert_user(session)
         await accept_rules(session, user_id)
-    return Client(web, bearer(settings, user_id))
+    return Client(web, bearer(storage_settings, user_id))
 
 
 async def scalar(client: Client, sql: str) -> int:

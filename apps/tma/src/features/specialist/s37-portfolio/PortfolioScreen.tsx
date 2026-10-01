@@ -25,6 +25,7 @@ import { useEffect, useState } from 'react';
 
 import { LoadState } from '../shared/LoadState.tsx';
 import { SaveError } from '../shared/SaveError.tsx';
+import { useUploadGuard } from '../shared/leave.ts';
 import { ACCOUNT_PATH, CABINET_PATHS } from '../shared/paths.ts';
 import { photoVariants, useRemoveWork } from '../shared/portfolio.ts';
 import { mediaTransport } from '../shared/uploads.ts';
@@ -69,6 +70,8 @@ function Portfolio({ portfolio }: { portfolio: PortfolioOut }) {
   const { t: common } = useTranslation();
   const platform = usePlatform();
   const uploads = usePortfolioUploads(portfolio, { transport: mediaTransport });
+  // работа открывается своим экраном: уход с S37 остановил бы незаконченные загрузки
+  useUploadGuard(uploads.items.some((item) => item.status === 'uploading'));
   const remove = useRemoveWork();
   // сколько файлов последнего выбора не поместилось в лимиты
   const [skipped, setSkipped] = useState(0);

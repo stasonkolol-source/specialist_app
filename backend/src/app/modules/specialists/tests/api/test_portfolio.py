@@ -36,6 +36,8 @@ async def test_works_are_added_captioned_reordered_and_removed(cabinet: Cabinet)
     assert removed.status_code == 204
     works = (await cabinet.portfolio("GET")).json()["items"]
     assert [(w["id"], w["position"]) for w in works] == [(ids[2], 0), (ids[0], 1)]
+    # файл удаляет задача media, поставленная вместе с записью портфолио
+    assert await cabinet.discard_queued() == 1
     deleted = await cabinet.scalar(
         "SELECT deleted_at IS NOT NULL FROM media.assets WHERE id = :id", id=photos[1]
     )
@@ -76,9 +78,32 @@ async def test_profile_photo_is_set_replaced_and_removed(cabinet: Cabinet) -> No
     cleared = await cabinet.call("PUT", "/avatar", media_id=None)
     assert cleared.json()["avatar"] is None
 
+    assert await cabinet.discard_queued() == 2
     gone = await cabinet.scalar(
         "SELECT count(*) FROM media.assets WHERE id IN (:a, :b) AND deleted_at IS NOT NULL",
         a=first,
         b=second,
     )
     assert gone == 2
+
+
+async def test_files_that_failed_processing_do_not_count_toward_completeness(
+    cabinet: Cabinet,
+) -> None:
+    assert (await cabinet.create()).status_code == 201
+    works = [await cabinet.media() for _ in range(3)]
+    for media_id in works:
+        assert (await cabinet.portfolio("POST", media_id=media_id)).status_code == 201
+    avatar = await cabinet.media(purpose="avatar")
+    assert (await cabinet.call("PUT", "/avatar", media_id=avatar)).status_code == 200
+    hints = [hint["code"] for hint in (await cabinet.get()).json()["completeness"]["hints"]]
+    assert "portfolio" not in hints
+    assert "avatar" not in hints
+
+    # обработка отклонила фото профиля и одну работу (модерация изображений — 6.7)
+    await cabinet.execute(
+        "UPDATE media.assets SET status = 'rejected' WHERE id IN (:a, :w)", a=avatar, w=works[0]
+    )
+    hints = (await cabinet.get()).json()["completeness"]["hints"]
+    assert {"code": "portfolio", "count": 1} in hints
+    assert {"code": "avatar", "count": None} in hints

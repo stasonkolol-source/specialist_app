@@ -48,9 +48,5 @@ class PortfolioRepository(Protocol):
 
 class PortfolioQuery(Protocol):
     async def of_profile(self, profile_id: UUID) -> list[PortfolioItem]:
-        """Работы профиля по порядку, без блокировки."""
-        ...
-
-    async def count(self, profile_id: UUID) -> int:
-        """Сколько работ в портфолио — для полноты профиля."""
+        """Работы профиля по порядку, без блокировки: S37 и полнота профиля."""
         ...

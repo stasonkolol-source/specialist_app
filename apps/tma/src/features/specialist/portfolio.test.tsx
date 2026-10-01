@@ -11,10 +11,11 @@ import { FIRST_SERVICE, PORTFOLIO, PROFILE_FILLED } from '../../testing/fixtures
 import { profileHandlers, server } from '../../testing/msw.ts';
 import { ProfileBackend } from '../../testing/profileBackend.ts';
 
-// в jsdom нет холста и XHR в хранилище: файл «доходит» в хранилище сразу
-vi.mock('./shared/uploads.ts', () => ({
-  mediaTransport: { put: async () => ({ status: 200, etag: '"e"' }) },
+// в jsdom нет холста и XHR в хранилище: файл «доходит» в хранилище сразу (тест может задержать)
+const transport = vi.hoisted(() => ({
+  put: vi.fn(async () => ({ status: 200, etag: '"e"' as string | null })),
 }));
+vi.mock('./shared/uploads.ts', () => ({ mediaTransport: transport }));
 
 afterEach(() => setSession(null));
 
@@ -131,6 +132,46 @@ describe('S37 portfolio', () => {
     expect(writes(backend)).toEqual([
       { request: `DELETE /me/profile/portfolio/${first.id}`, body: undefined },
     ]);
+  });
+});
+
+describe('S37 leaving while files upload', () => {
+  /** Передача, которая не заканчивается: файл остаётся «Загрузка …». */
+  const stall = () => transport.put.mockImplementationOnce(() => new Promise(() => {}));
+  const work = () => screen.getByRole('link', { name: 'Люстра, Лиман' });
+
+  it('asks first and stays when the person changes their mind', async () => {
+    withBackend(PORTFOLIO.slice(0, 1));
+    stall();
+    const { app, telegram } = startApp('/cabinet/portfolio', { popupAnswer: null });
+    await screen.findByText('1 работа');
+    await choose([photo('kitchen.jpg')]);
+    expect(await screen.findByRole('status')).toBeTruthy();
+
+    await click(work());
+
+    await waitFor(() =>
+      expect(telegram.callsOf('web_app_open_popup').at(-1)?.message).toBe(
+        'Файлы ещё загружаются. Уйти и остановить загрузку?',
+      ),
+    );
+    expect(app.router.state.location.pathname).toBe('/cabinet/portfolio');
+    expect(screen.getByRole('status')).toBeTruthy();
+  });
+
+  it('leaves once the person agrees', async () => {
+    withBackend(PORTFOLIO.slice(0, 1));
+    stall();
+    const { app } = startApp('/cabinet/portfolio', { popupAnswer: 'ok' });
+    await screen.findByText('1 работа');
+    await choose([photo('kitchen.jpg')]);
+    await screen.findByRole('status');
+
+    await click(work());
+
+    await waitFor(() =>
+      expect(app.router.state.location.pathname).toBe(`/cabinet/portfolio/${PORTFOLIO[0]?.id}`),
+    );
   });
 });
 

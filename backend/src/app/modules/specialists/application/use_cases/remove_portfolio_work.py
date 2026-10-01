@@ -1,5 +1,5 @@
 """Убрать работу (S37, DELETE /me/profile/portfolio/{id}): работа исчезает, позиции
-остальных сдвигаются; файл удаляет media — после записи портфолио, своей транзакцией."""
+остальных сдвигаются; файл удаляет media — задачей в той же транзакции."""
 
 from dataclasses import dataclass
 
@@ -45,4 +45,4 @@ class RemovePortfolioWork:
                 if item.position != position:
                     item.position = position
                     await self._portfolio.save(item)
-        await self._media.discard(cmd.actor_id, removed.media_id)
+            await self._media.discard(cmd.actor_id, removed.media_id)

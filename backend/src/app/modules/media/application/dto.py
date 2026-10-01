@@ -6,7 +6,7 @@ from datetime import datetime
 
 from app.modules.media.domain.asset import FailureReason, MediaStatus, ModerationStatus
 from app.modules.media.domain.policy import MediaKind, MediaPurpose
-from app.platform.kernel.ids import MediaId
+from app.platform.kernel.ids import MediaId, UserId
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -115,3 +115,12 @@ class HideVariantsPayload:
 
     media_id: MediaId
     keys: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DiscardMediaPayload:
+    """Задача `media.discard_media`: файл, который модуль выше по DAG больше не показывает."""
+
+    user_id: UserId
+    """Владелец файла."""
+    media_id: MediaId

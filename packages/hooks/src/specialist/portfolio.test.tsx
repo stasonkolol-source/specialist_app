@@ -87,18 +87,24 @@ const json = (body: unknown, status = 200) =>
 const problem = (status: number, code: string) =>
   json({ type: 'about:blank', title: code, status, code, trace_id: null }, status);
 
-function setup(portfolio: PortfolioOut, reply: () => Response) {
+/** Ответ «сервера» на запрос; `method` — чтобы отличать прикрепление от чтения портфолио. */
+type Reply = (method: string) => Response;
+
+function setup(portfolio: PortfolioOut, reply: Reply) {
   const sent: { url: string; key: string | null; body: unknown }[] = [];
   configureApiClient({
     locale: () => 'ru',
     sleep: async () => {},
     fetch: vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      sent.push({
-        url: String(input),
-        key: new Headers(init?.headers).get('Idempotency-Key'),
-        body: JSON.parse(String(init?.body)),
-      });
-      return reply();
+      const method = init?.method ?? 'GET';
+      if (method !== 'GET') {
+        sent.push({
+          url: String(input),
+          key: new Headers(init?.headers).get('Idempotency-Key'),
+          body: JSON.parse(String(init?.body)),
+        });
+      }
+      return reply(method);
     }),
   });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -180,9 +186,28 @@ describe('usePortfolioUploads', () => {
     expect(works()).toEqual(['w1']);
   });
 
+  it('keeps the file when the work was created but its answer was lost', async () => {
+    const created = work('w1', { media: mediaRef({ id: 'm1', status: 'processing' }) });
+    const { result, api, works } = setup({ items: [], limits: LIMITS }, (method) =>
+      method === 'GET'
+        ? json({ items: [created], limits: LIMITS })
+        : problem(504, 'gateway_timeout'),
+    );
+
+    act(() => {
+      result.current.add([photo()]);
+    });
+    await waitFor(() => expect(result.current.items[0]?.status).toBe('failed'));
+    act(() => result.current.remove('upload-1'));
+
+    await waitFor(() => expect(result.current.items).toEqual([]));
+    expect(works()).toEqual(['w1']);
+    expect(api.remove).not.toHaveBeenCalled();
+  });
+
   it('offers only removal when the portfolio is already full', async () => {
-    const { result, api } = setup({ items: [], limits: LIMITS }, () =>
-      problem(409, 'portfolio_full'),
+    const { result, api } = setup({ items: [], limits: LIMITS }, (method) =>
+      method === 'GET' ? json({ items: [], limits: LIMITS }) : problem(409, 'portfolio_full'),
     );
 
     act(() => {
@@ -192,7 +217,8 @@ describe('usePortfolioUploads', () => {
     expect(result.current.items[0]?.retryable).toBe(false);
 
     act(() => result.current.remove('upload-1'));
-    expect(result.current.items).toEqual([]);
+    // работы с этим файлом на сервере нет — файл удаляется
+    await waitFor(() => expect(result.current.items).toEqual([]));
     await waitFor(() => expect(api.remove).toHaveBeenCalledWith('m1'));
   });
 });

@@ -96,13 +96,13 @@ function WorkForm({
       if (text !== (work.caption ?? '')) {
         const changed = await specialistsCaptionMyWork(work.id, { caption: text || null });
         items = items.map((item) => (item.id === changed.id ? changed : item));
-        cache((list) => list.map((item) => (item.id === changed.id ? changed : item)));
+        await cache((list) => list.map((item) => (item.id === changed.id ? changed : item)));
       }
       if (place !== items.findIndex((item) => item.id === work.id)) {
         const reordered = await specialistsReorderMyPortfolio({
           item_ids: placed(items, work.id, place),
         });
-        cache(() => reordered.items);
+        await cache(() => reordered.items);
       }
     },
     onSuccess: () => {

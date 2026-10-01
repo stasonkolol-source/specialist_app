@@ -4,7 +4,7 @@ portfolio_media (в MVP — один)."""
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.specialists.domain.portfolio import (
@@ -77,14 +77,6 @@ class SqlPortfolioQuery(SqlQuery):
         items = [_to_domain(item, media) for item, media in rows]
         await self._release()
         return items
-
-    async def count(self, profile_id: UUID) -> int:
-        row = await self._fetch_one(
-            select(func.count().label("works")).where(
-                PortfolioItemRow.profile_id == profile_id, PortfolioItemRow.deleted_at.is_(None)
-            )
-        )
-        return int(row["works"]) if row else 0
 
 
 def _to_domain(item: PortfolioItemRow, media: PortfolioMediaRow) -> PortfolioItem:

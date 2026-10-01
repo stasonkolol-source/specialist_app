@@ -15,13 +15,17 @@ export function photoVariants(media: MediaRefOut | null): PhotoVariant[] {
   return media.variants.map((variant) => ({ url: variant.url, width: variant.width }));
 }
 
-/** Записать работы в кэш портфолио. */
+/** Записать работы в кэш портфолио. Сначала — отменить перечитывание, начатое до правки
+ *  (опрос, пока файлы обрабатываются): иначе его ответ затёр бы её. */
 export function usePortfolioCache() {
   const queryClient = useQueryClient();
-  return (items: (current: WorkOut[]) => WorkOut[]) =>
-    queryClient.setQueryData<PortfolioOut>(getSpecialistsGetMyPortfolioQueryKey(), (current) =>
+  return async (items: (current: WorkOut[]) => WorkOut[]) => {
+    const queryKey = getSpecialistsGetMyPortfolioQueryKey();
+    await queryClient.cancelQueries({ queryKey });
+    queryClient.setQueryData<PortfolioOut>(queryKey, (current) =>
       current ? { ...current, items: items(current.items) } : current,
     );
+  };
 }
 
 /** Убрать работу: сервер сдвигает остальные на её место — так же и в кэше. */
@@ -30,8 +34,8 @@ export function useRemoveWork(onRemoved?: () => void) {
   const cache = usePortfolioCache();
   return useMutation({
     mutationFn: (work: WorkOut) => specialistsRemoveMyWork(work.id),
-    onSuccess: (_, work) => {
-      cache((items) =>
+    onSuccess: async (_, work) => {
+      await cache((items) =>
         items
           .filter((item) => item.id !== work.id)
           .map((item, position) => ({ ...item, position })),

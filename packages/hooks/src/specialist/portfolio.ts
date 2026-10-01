@@ -5,11 +5,14 @@
 //   файла — повтор после потерянного ответа вернёт ту же работу. Обработку файла (2.2) ждёт уже
 //   портфолио: пока файлы обрабатываются, оно перечитывается, а плитка показывает превью.
 // - Не прикрепилось (сеть, лимит) — плитка с ошибкой: «Повторить» прикрепляет снова, «Убрать»
-//   удаляет файл.
+//   удаляет файл. Ответ мог потеряться, а работа — появиться: перед удалением портфолио
+//   перечитывается, и файл работы не удаляется.
+// - Опрос портфолио, начатый до прикрепления, отменяется: его ответ затёр бы новую работу.
 import type { PortfolioLimitsOut, PortfolioOut, WorkKind, WorkOut } from '@sosed/api-client';
 import {
   ApiError,
   getSpecialistsGetMyPortfolioQueryKey,
+  getSpecialistsGetMyPortfolioQueryOptions,
   specialistsAddMyWork,
   useSpecialistsGetMyPortfolio,
 } from '@sosed/api-client';
@@ -102,7 +105,7 @@ export interface PortfolioUploads {
   add(files: readonly File_[]): number;
   /** Догрузить файл или снова прикрепить загруженный. */
   retry(key: string): void;
-  /** Убрать: передача останавливается, файл удаляется. */
+  /** Убрать: передача останавливается, файл удаляется — если он всё же не стал работой. */
   remove(key: string): void;
   /** Превью только что прикреплённых работ, пока сервер обрабатывает их файлы: по id файла. */
   readonly previews: ReadonlyMap<string, Blob>;
@@ -141,7 +144,9 @@ export function usePortfolioUploads(
           { media_id: media.id },
           { 'Idempotency-Key': `portfolio-${media.id}` },
         );
-        queryClient.setQueryData<PortfolioOut>(getSpecialistsGetMyPortfolioQueryKey(), (current) =>
+        const queryKey = getSpecialistsGetMyPortfolioQueryKey();
+        await queryClient.cancelQueries({ queryKey });
+        queryClient.setQueryData<PortfolioOut>(queryKey, (current) =>
           current && !current.items.some((other) => other.id === work.id)
             ? { ...current, items: [...current.items, work] }
             : current,
@@ -209,10 +214,28 @@ export function usePortfolioUploads(
   );
   const remove = useCallback(
     (key: string) => {
-      drop(key);
-      discard(key);
+      const media = uploads.items.find((item) => item.key === key)?.media;
+      if (!failures.has(key) || !media) {
+        drop(key);
+        discard(key);
+        return;
+      }
+      // не прикрепилось: пока портфолио перечитывается, эффект не прикрепляет файл снова
+      attaching.current.add(key);
+      void queryClient
+        .fetchQuery(getSpecialistsGetMyPortfolioQueryOptions())
+        .then(
+          (fresh) => fresh.items.some((work) => work.media?.id === media.id),
+          () => false,
+        )
+        .then((attached) => {
+          if (attached) forget(key);
+          else discard(key);
+          drop(key);
+          attaching.current.delete(key);
+        });
     },
-    [discard, drop],
+    [discard, drop, failures, forget, queryClient, uploads.items],
   );
 
   return { items, add, retry, remove, previews };
