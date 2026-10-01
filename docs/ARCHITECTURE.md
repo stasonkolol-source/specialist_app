@@ -875,7 +875,7 @@ CREATE TABLE identity.users (
   status            text NOT NULL DEFAULT 'active'
                     CHECK (status IN ('active','deleted')),   -- баны и приостановки — только через identity.restrictions
   display_name      text NOT NULL,
-  avatar_media_id   uuid,                                  -- media.assets
+  avatar_media_id   uuid,                                  -- media.assets: задел для фото клиента (v1); фото исполнителя — specialists.profiles
   ui_locale         text NOT NULL DEFAULT 'ru'
                     CHECK (ui_locale IN ('ru','sr-Latn','sr-Cyrl','en')),
   timezone          text NOT NULL DEFAULT 'Europe/Belgrade',
@@ -1029,6 +1029,7 @@ CREATE TABLE specialists.profiles (
   reviewed_kind      boolean NOT NULL DEFAULT false, -- проверка после «Подработка → Специалист»
   submitted_at       timestamptz,                   -- отправлен на проверку (2.8a)
   slug               text,                          -- для будущих публичных веб-страниц (частичный unique ниже)
+  avatar_media_id    uuid REFERENCES media.assets(id), -- фото профиля (2.11): показывает specialists — identity ниже media
   version            int NOT NULL DEFAULT 1,
   published_at       timestamptz,
   created_at         timestamptz NOT NULL DEFAULT now(),
@@ -1074,6 +1075,7 @@ CREATE TABLE specialists.portfolio_items (
 CREATE TABLE specialists.portfolio_media (
   item_id  uuid NOT NULL REFERENCES specialists.portfolio_items(id),
   media_id uuid NOT NULL REFERENCES media.assets(id),
+  kind     text NOT NULL CHECK (kind IN ('image','video')),  -- лимиты 60 фото и 6 роликов без чтения media (2.11)
   position smallint NOT NULL DEFAULT 0,
   PRIMARY KEY (item_id, media_id)
 );

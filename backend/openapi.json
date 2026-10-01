@@ -3411,16 +3411,18 @@
         "properties": {
           "image": {
             "type": "integer",
-            "title": "Image",
-            "default": 60
+            "title": "Image"
           },
           "video": {
             "type": "integer",
-            "title": "Video",
-            "default": 6
+            "title": "Video"
           }
         },
         "type": "object",
+        "required": [
+          "image",
+          "video"
+        ],
         "title": "PortfolioLimitsOut"
       },
       "PortfolioOrderIn": {

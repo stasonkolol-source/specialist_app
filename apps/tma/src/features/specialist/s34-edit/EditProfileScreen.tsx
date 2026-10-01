@@ -1,7 +1,7 @@
-// S34 Редактирование профиля (DEVELOPMENT_PLAN 2.10): имя, «коротко о себе», «о себе», языки и
-// районы выезда → PATCH /me/profile и PUT /me/profile/areas, только изменённое. Правки
-// опубликованного профиля видны сразу, текст уходит на автопроверку. Фото профиля — вместе с
-// загрузкой портфолио (2.11): на артборде «Изменить фото» есть, загрузчика пока нет.
+// S34 Редактирование профиля (DEVELOPMENT_PLAN 2.10–2.11): фото профиля (AvatarField — меняется
+// сразу), имя, «коротко о себе», «о себе», языки и районы выезда → PATCH /me/profile и
+// PUT /me/profile/areas, только изменённое. Правки опубликованного профиля видны сразу, текст
+// уходит на автопроверку.
 import type { DistrictOut, Language, ProfileOut, ProfileUpdateIn } from '@sosed/api-client';
 import { specialistsSetMyAreas, specialistsUpdateMyProfile } from '@sosed/api-client';
 import { selectableDistricts, useDistricts, useMyProfile } from '@sosed/hooks';
@@ -18,6 +18,7 @@ import { useChipList } from '../shared/chips.ts';
 import { useBecomeFlow, useStepButton } from '../shared/flow.ts';
 import { ACCOUNT_PATH, CABINET_PATHS } from '../shared/paths.ts';
 import { sameList } from '../shared/same.ts';
+import { AvatarField } from './AvatarField.tsx';
 
 /** MAX_NAME, MAX_HEADLINE, MAX_ABOUT, MAX_AREAS профиля (backend specialists/domain/profile.py). */
 const MAX_NAME = 64;
@@ -171,6 +172,7 @@ function EditForm({
       <Heading variant="h2" as="h1">
         {t('cabinet.edit.title')}
       </Heading>
+      <AvatarField profile={profile} />
       <Field
         label={t('cabinet.edit.name')}
         error={checked && missing.name ? t('cabinet.edit.nameMissing') : undefined}

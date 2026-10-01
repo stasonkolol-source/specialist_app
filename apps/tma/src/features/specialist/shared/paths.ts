@@ -12,7 +12,8 @@ export const BECOME_PATHS = {
 /** S31: сюда мастер ведёт после отправки на проверку и «Назад» с первого шага без истории. */
 export const ACCOUNT_PATH = '/profile';
 
-/** Кабинет S33, правка профиля S34, прайс S35–S36, доступность S38 (DEVELOPMENT_PLAN 2.10–2.11). */
+/** Кабинет S33, правка профиля S34, прайс S35–S36, портфолио S37 и работа, доступность S38
+ *  (DEVELOPMENT_PLAN 2.10–2.11). */
 export const CABINET_PATHS = {
   home: '/cabinet',
   profile: '/cabinet/profile',
@@ -20,6 +21,8 @@ export const CABINET_PATHS = {
   prices: '/cabinet/prices',
   newPrice: '/cabinet/prices/new',
   price: '/cabinet/prices/$serviceId',
+  portfolio: '/cabinet/portfolio',
+  work: '/cabinet/portfolio/$itemId',
 } as const;
 
 export interface BecomeSearch {

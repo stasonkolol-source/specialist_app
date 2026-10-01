@@ -22,8 +22,11 @@ export interface Watch {
 export async function open(page: Page, query: string, api: MockApiOptions = {}): Promise<Watch> {
   const watch: Watch = { problems: [], unexpectedApi: [] };
   page.on('request', (request) => {
-    if (!request.url().startsWith('http://127.0.0.1'))
-      watch.problems.push(`network ${request.url()}`);
+    const url = request.url();
+    // blob: — превью выбранного файла в памяти браузера: WebKit сообщает о нём как о запросе
+    if (!url.startsWith('http://127.0.0.1') && !url.startsWith('blob:http://127.0.0.1')) {
+      watch.problems.push(`network ${url}`);
+    }
   });
   page.on('console', (message) => {
     if (message.type() !== 'error') return;

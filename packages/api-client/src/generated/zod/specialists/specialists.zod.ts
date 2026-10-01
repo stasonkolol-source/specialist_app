@@ -255,9 +255,6 @@ export const SpecialistsUpdateMyProfileResponse = zod.object({
  * Работы своего профиля по порядку (S37); 404 `profile_not_found` — профиля нет.
  * @summary Get My Portfolio
  */
-export const specialistsGetMyPortfolioResponseLimitsImageDefault = 60;
-export const specialistsGetMyPortfolioResponseLimitsVideoDefault = 6;
-
 export const SpecialistsGetMyPortfolioResponse = zod
   .object({
     items: zod.array(
@@ -290,8 +287,8 @@ export const SpecialistsGetMyPortfolioResponse = zod
       }),
     ),
     limits: zod.object({
-      image: zod.int().default(specialistsGetMyPortfolioResponseLimitsImageDefault),
-      video: zod.int().default(specialistsGetMyPortfolioResponseLimitsVideoDefault),
+      image: zod.int(),
+      video: zod.int(),
     }),
   })
   .describe('Портфолио в кабинете S37: работы по порядку и лимиты (60 фото, 6 роликов).');
@@ -358,9 +355,6 @@ export const SpecialistsReorderMyPortfolioBody = zod.object({
   item_ids: zod.array(zod.uuid()).min(1).max(specialistsReorderMyPortfolioBodyItemIdsMax),
 });
 
-export const specialistsReorderMyPortfolioResponseLimitsImageDefault = 60;
-export const specialistsReorderMyPortfolioResponseLimitsVideoDefault = 6;
-
 export const SpecialistsReorderMyPortfolioResponse = zod
   .object({
     items: zod.array(
@@ -393,8 +387,8 @@ export const SpecialistsReorderMyPortfolioResponse = zod
       }),
     ),
     limits: zod.object({
-      image: zod.int().default(specialistsReorderMyPortfolioResponseLimitsImageDefault),
-      video: zod.int().default(specialistsReorderMyPortfolioResponseLimitsVideoDefault),
+      image: zod.int(),
+      video: zod.int(),
     }),
   })
   .describe('Портфолио в кабинете S37: работы по порядку и лимиты (60 фото, 6 роликов).');

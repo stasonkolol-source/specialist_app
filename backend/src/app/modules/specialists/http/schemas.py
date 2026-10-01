@@ -114,8 +114,12 @@ class WorkOut(BaseModel):
 
 
 class PortfolioLimitsOut(BaseModel):
-    image: int = LIMITS[WorkKind.IMAGE]
-    video: int = LIMITS[WorkKind.VIDEO]
+    image: int
+    video: int
+
+    @classmethod
+    def current(cls) -> PortfolioLimitsOut:
+        return cls(image=LIMITS[WorkKind.IMAGE], video=LIMITS[WorkKind.VIDEO])
 
 
 class PortfolioOut(BaseModel):

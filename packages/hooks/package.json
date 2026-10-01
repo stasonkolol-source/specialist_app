@@ -1,6 +1,7 @@
 {
   "name": "@sosed/hooks",
   "version": "0.0.0",
+  "sideEffects": false,
   "private": true,
   "description": "Headless-хуки сценариев: api-client + domain, без DOM и Telegram",
   "type": "module",

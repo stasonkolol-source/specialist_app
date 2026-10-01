@@ -141,11 +141,14 @@
       "languages": "Navedite jezike na kojima komunicirate",
       "area_ids": "Označite delove grada i način rada",
       "services": "Dodajte prvu stavku cenovnika",
-      "service_descriptions": "Dodajte opis za {count, plural, one {# stavku} few {# stavke} other {# stavki}} cenovnika"
+      "service_descriptions": "Dodajte opis za {count, plural, one {# stavku} few {# stavke} other {# stavki}} cenovnika",
+      "portfolio": "Dodajte još {count, plural, one {# rad} few {# rada} other {# radova}} u portfolio",
+      "avatar": "Dodajte fotografiju profila"
     },
     "manage": "Upravljanje profilom",
     "profile": "Profil",
     "prices": "Cenovnik",
+    "portfolio": "Portfolio",
     "loading": "Učitavamo kabinet",
     "edit": {
       "title": "Izmena profila",
@@ -226,5 +229,38 @@
     "delete": "Obriši stavku",
     "deleteConfirm": "Obrisati „{title}“ iz cenovnika?",
     "save": "Sačuvaj"
+  },
+  "portfolio": {
+    "title": "Portfolio",
+    "count": "{count, plural, one {# rad} few {# rada} other {# radova}}",
+    "rules": "Do {photos} fotografija i {videos} video snimaka od po 60 sekundi. Lica klijenata i brojeve stanova bolje je sakriti.",
+    "hint": "Dodirnite rad da biste promenili opis ili redosled",
+    "processing": "Obrađujemo",
+    "skipped": "{count, plural, one {# fajl nije stao} few {# fajla nisu stala} other {# fajlova nije stalo}}: u portfoliju je do {photos} fotografija i {videos} video snimaka",
+    "work": "Rad {number}",
+    "video": "Video: {title}",
+    "loading": "Učitavamo portfolio",
+    "empty": "Dodajte fotografije radova — klijenti biraju očima"
+  },
+  "work": {
+    "title": "Rad",
+    "caption": "Opis",
+    "captionPlaceholder": "Na primer: luster, Liman",
+    "captionHint": "{count, number} od {max, number}",
+    "earlier": "Ranije",
+    "later": "Kasnije",
+    "order": "Mesto u portfoliju",
+    "place": "{place, number} od {count, number}",
+    "delete": "Ukloni iz portfolija",
+    "deleteConfirm": "Ukloniti rad iz portfolija?",
+    "save": "Sačuvaj"
+  },
+  "avatar": {
+    "label": "Fotografija profila",
+    "initials": "Za sada — inicijali",
+    "own": "Vaša fotografija",
+    "change": "Promeni fotografiju",
+    "uploading": "Učitavamo fotografiju — {percent}%",
+    "failed": "Fotografija nije učitana — pokušajte ponovo"
   }
 }

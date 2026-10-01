@@ -1,4 +1,6 @@
 // .ava + .av1…av5: инициалы на пастельном фоне или фото; размеры xs 28 / sm 36 / md 48 / lg 88 / xl 104.
+// Фото — ссылкой (`src`) или только что выбранным файлом (`file`, превью загрузки S34).
+import { FileImage } from './FileImage.tsx';
 import { cx } from './cx.ts';
 
 export type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
@@ -42,6 +44,8 @@ export interface AvatarProps {
   size?: AvatarSize;
   palette?: AvatarPalette;
   src?: string;
+  /** Локальный файл (превью загрузки) — вместо `src`: ссылка на него живёт, пока фото на экране. */
+  file?: Blob | null;
   /** Внутри стопки .avs: обводка цветом поверхности. */
   stacked?: boolean;
   className?: string;
@@ -52,6 +56,7 @@ export function Avatar({
   size = 'md',
   palette,
   src,
+  file,
   stacked = false,
   className,
 }: AvatarProps) {
@@ -62,6 +67,13 @@ export function Avatar({
     stacked && 'border-2 border-surface',
     className,
   );
+  if (file) {
+    return (
+      <span className={classes}>
+        <FileImage file={file} alt={name} />
+      </span>
+    );
+  }
   if (src) {
     return <img src={src} alt={name} className={cx(classes, 'object-cover')} />;
   }

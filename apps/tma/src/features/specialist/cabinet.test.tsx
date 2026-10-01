@@ -38,11 +38,12 @@ describe('S33 cabinet', () => {
 
     expect(await screen.findByText('Профиль опубликован · виден в поиске')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Кабинет специалиста', level: 1 })).toBeTruthy();
-    expect(screen.getByText('Профиль заполнен на 90%')).toBeTruthy();
+    // без работ, фото профиля и описания позиции: 90 из 125 баллов «Специалиста»
+    expect(screen.getByText('Профиль заполнен на 72%')).toBeTruthy();
     expect(
       screen.getByRole('progressbar', { name: 'Полнота профиля' }).getAttribute('aria-valuenow'),
-    ).toBe('90');
-    expect(screen.getByText('Добавьте описания к 1 позиции прайса')).toBeTruthy();
+    ).toBe('72');
+    expect(screen.getByText('Добавьте ещё 3 работы в портфолио')).toBeTruthy();
 
     await click(screen.getByRole('link', { name: 'Профиль' }));
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/cabinet/profile'));

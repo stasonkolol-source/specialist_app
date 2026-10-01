@@ -18,7 +18,7 @@ export type { FieldProps, InputProps, SearchFieldProps, TextareaProps } from './
 export { Field, Input, SearchField, Textarea } from './form/Field.tsx';
 export type { FeedRowProps, RowProps } from './Group.tsx';
 export { FeedRow, Group, NumIcon, Row, RowIcon, Tile, Tiles, UnreadDot } from './Group.tsx';
-export type { PhotoProps } from './Photo.tsx';
+export type { PhotoProps, PhotoVariant } from './Photo.tsx';
 export { Photo } from './Photo.tsx';
 export type { IconName, IconProps, IconSize } from './icon/Icon.tsx';
 export { ICON_NAMES, Icon } from './icon/Icon.tsx';

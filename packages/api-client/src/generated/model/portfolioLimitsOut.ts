@@ -6,6 +6,6 @@
  */
 
 export interface PortfolioLimitsOut {
-  image?: number;
-  video?: number;
+  image: number;
+  video: number;
 }

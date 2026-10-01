@@ -123,7 +123,9 @@ async def _portfolio(views: PortfolioViews, user_id: UserId) -> PortfolioOut:
     works = await views.of_user(user_id)
     if works is None:
         raise ProfileNotFoundError(user_id=user_id)
-    return PortfolioOut(items=[WorkOut.of(work) for work in works], limits=PortfolioLimitsOut())
+    return PortfolioOut(
+        items=[WorkOut.of(work) for work in works], limits=PortfolioLimitsOut.current()
+    )
 
 
 async def _work(views: PortfolioViews, user_id: UserId, item_id: PortfolioItemId) -> WorkOut:
