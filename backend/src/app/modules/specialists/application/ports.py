@@ -1,5 +1,6 @@
 """Порты модуля specialists (ADR-0020 §3, §5)."""
 
+from datetime import datetime
 from typing import Protocol
 
 from app.modules.specialists.application.dto import ProfileView
@@ -21,6 +22,10 @@ class ProfileRepository(Protocol):
         ...
 
     async def save(self, profile: Profile) -> None: ...
+
+    async def expired_availability(self, now: datetime, *, limit: int) -> list[ProfileId]:
+        """Профили с истёкшим «доступен сегодня» — пропуская занятые другими (SKIP LOCKED)."""
+        ...
 
 
 class ProfileQuery(Protocol):

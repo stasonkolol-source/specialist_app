@@ -21,6 +21,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AvailabilityIn,
   ProblemOut,
   ProfileAreasIn,
   ProfileCategoriesIn,
@@ -31,6 +32,7 @@ import type {
   SpecialistsCreateMyProfileHeaders,
   SpecialistsHideMyProfileHeaders,
   SpecialistsSetMyAreasHeaders,
+  SpecialistsSetMyAvailabilityHeaders,
   SpecialistsSetMyCategoriesHeaders,
   SpecialistsShowMyProfileHeaders,
   SpecialistsSubmitMyProfileHeaders,
@@ -735,6 +737,117 @@ export const useSpecialistsSubmitMyProfile = <TError = ErrorType<ProblemOut>, TC
   TContext
 > => {
   return useMutation(getSpecialistsSubmitMyProfileMutationOptions(options), queryClient);
+};
+export const getSpecialistsSetMyAvailabilityUrl = () => {
+  return `/api/v1/me/profile/availability`;
+};
+
+/**
+ * «Доступен сегодня до …» (S38): время по Белграду, сегодня; null — выключить.
+ * @summary Set My Availability
+ */
+export const specialistsSetMyAvailability = async (
+  availabilityIn: AvailabilityIn,
+  headers?: SpecialistsSetMyAvailabilityHeaders,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ProfileOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<ProfileOut>(getSpecialistsSetMyAvailabilityUrl(), {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...headers, ...getHeaders(options?.headers) },
+    body: JSON.stringify(availabilityIn),
+  });
+};
+
+export const getSpecialistsSetMyAvailabilityMutationKey = () =>
+  ['specialistsSetMyAvailability'] as const;
+
+export const getSpecialistsSetMyAvailabilityMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof specialistsSetMyAvailability>>,
+    TError,
+    SpecialistsSetMyAvailabilityMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof specialistsSetMyAvailability>>,
+  TError,
+  SpecialistsSetMyAvailabilityMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSpecialistsSetMyAvailabilityMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof specialistsSetMyAvailability>>,
+    SpecialistsSetMyAvailabilityMutationVariables
+  > = (props) => {
+    const { data, headers } = props ?? {};
+
+    return specialistsSetMyAvailability(data, headers, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SpecialistsSetMyAvailabilityMutationResult = NonNullable<
+  Awaited<ReturnType<typeof specialistsSetMyAvailability>>
+>;
+export type SpecialistsSetMyAvailabilityMutationBody = AvailabilityIn;
+export type SpecialistsSetMyAvailabilityMutationError = ErrorType<ProblemOut>;
+export type SpecialistsSetMyAvailabilityMutationVariables = {
+  data: AvailabilityIn;
+  headers?: SpecialistsSetMyAvailabilityHeaders;
+};
+
+/**
+ * @summary Set My Availability
+ */
+export const useSpecialistsSetMyAvailability = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof specialistsSetMyAvailability>>,
+      TError,
+      SpecialistsSetMyAvailabilityMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof specialistsSetMyAvailability>>,
+  TError,
+  SpecialistsSetMyAvailabilityMutationVariables,
+  TContext
+> => {
+  return useMutation(getSpecialistsSetMyAvailabilityMutationOptions(options), queryClient);
 };
 export const getSpecialistsHideMyProfileUrl = () => {
   return `/api/v1/me/profile/hide`;

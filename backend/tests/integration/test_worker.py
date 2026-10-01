@@ -194,6 +194,7 @@ async def test_platform_periodic_tasks_are_scheduled(container: AsyncContainer) 
         "notifications.expire_stale": "53 * * * *",
         "identity.trust_aging": "41 2 * * *",
         "moderation.rate_limit_signals": "4,19,34,49 * * * *",
+        "specialists.reset_availability": "*/5 * * * *",
     }
 
 

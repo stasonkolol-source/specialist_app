@@ -56,6 +56,7 @@ class SqlProfileQuery(SqlQuery):
                 work_modes=work_modes,
                 area_ids=area_ids,
             ),
+            available_until=row["available_until"],
             published_at=row["published_at"],
             version=row["version"],
         )

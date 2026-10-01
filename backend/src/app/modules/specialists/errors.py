@@ -51,3 +51,9 @@ class DistrictNotAllowedError(DomainValidationError):
 
     code = "district_not_allowed"
     public_params = ("district_id",)
+
+
+class AvailabilityPastError(DomainValidationError):
+    """«Доступен сегодня до …»: это время сегодня уже прошло."""
+
+    code = "availability_past"

@@ -60,6 +60,12 @@ class Cabinet:
             method, f"/api/v1/me/profile{path}", json=body or None, headers=headers
         )
 
+    async def execute(self, sql: str, **params: object) -> None:
+        """Запись мимо API — своей транзакцией (подготовка данных теста)."""
+        engine = await self.app.container.get(AsyncEngine)
+        async with engine.begin() as conn:
+            await conn.execute(text(sql), params)
+
     async def scalar(self, sql: str, **params: object) -> Any:
         engine = await self.app.container.get(AsyncEngine)
         async with engine.connect() as conn:

@@ -6,6 +6,7 @@
  */
 
 export * from './authOut.ts';
+export * from './availabilityIn.ts';
 export * from './catalogListCategoriesParams.ts';
 export * from './categoryOut.ts';
 export * from './cityOut.ts';
@@ -85,6 +86,7 @@ export * from './specialistsBecomeProHeaders.ts';
 export * from './specialistsCreateMyProfileHeaders.ts';
 export * from './specialistsHideMyProfileHeaders.ts';
 export * from './specialistsSetMyAreasHeaders.ts';
+export * from './specialistsSetMyAvailabilityHeaders.ts';
 export * from './specialistsSetMyCategoriesHeaders.ts';
 export * from './specialistsShowMyProfileHeaders.ts';
 export * from './specialistsSubmitMyProfileHeaders.ts';

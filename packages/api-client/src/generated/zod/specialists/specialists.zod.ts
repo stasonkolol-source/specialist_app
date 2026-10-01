@@ -37,6 +37,7 @@ export const SpecialistsGetMyProfileResponse = zod.object({
       ),
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
+  available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -95,6 +96,7 @@ export const SpecialistsCreateMyProfileResponse = zod.object({
       ),
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
+  available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -181,6 +183,7 @@ export const SpecialistsUpdateMyProfileResponse = zod.object({
       ),
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
+  available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -226,6 +229,7 @@ export const SpecialistsSetMyCategoriesResponse = zod.object({
       ),
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
+  available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -271,6 +275,7 @@ export const SpecialistsSetMyAreasResponse = zod.object({
       ),
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
+  available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -310,6 +315,51 @@ export const SpecialistsSubmitMyProfileResponse = zod.object({
       ),
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
+  available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  version: zod.int(),
+});
+
+/**
+ * «Доступен сегодня до …» (S38): время по Белграду, сегодня; null — выключить.
+ * @summary Set My Availability
+ */
+export const SpecialistsSetMyAvailabilityHeader = zod.object({
+  'If-Match': zod.string().optional(),
+});
+
+export const SpecialistsSetMyAvailabilityBody = zod.object({
+  until: zod.union([zod.iso.time({}), zod.null()]),
+});
+
+export const SpecialistsSetMyAvailabilityResponse = zod.object({
+  id: zod.uuid(),
+  kind: zod.enum(['pro', 'casual']),
+  status: zod.enum(['draft', 'pending_review', 'published', 'hidden', 'suspended']),
+  display_name: zod.string(),
+  headline: zod.union([zod.string(), zod.null()]),
+  about: zod.union([zod.string(), zod.null()]),
+  languages: zod.array(zod.enum(['ru', 'sr', 'en', 'uk'])),
+  city_id: zod.int(),
+  category_ids: zod.array(zod.int()),
+  district_ids: zod.array(zod.int()),
+  travel_radius_km: zod.union([zod.int(), zod.null()]),
+  work_modes: zod.array(zod.enum(['at_client', 'at_own_place', 'remote'])),
+  listed_in_catalog: zod.boolean(),
+  rejection_reason: zod.union([zod.string(), zod.null()]),
+  missing: zod.array(zod.string()),
+  completeness: zod
+    .object({
+      percent: zod.int(),
+      hints: zod.array(
+        zod.object({
+          code: zod.string(),
+          count: zod.union([zod.int(), zod.null()]),
+        }),
+      ),
+    })
+    .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
+  available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -349,6 +399,7 @@ export const SpecialistsHideMyProfileResponse = zod.object({
       ),
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
+  available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -388,6 +439,7 @@ export const SpecialistsShowMyProfileResponse = zod.object({
       ),
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
+  available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -427,6 +479,7 @@ export const SpecialistsBecomeProResponse = zod.object({
       ),
     })
     .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
+  available_until: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });

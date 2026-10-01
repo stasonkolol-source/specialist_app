@@ -404,6 +404,9 @@ importers:
       '@sosed/api-client':
         specifier: workspace:*
         version: link:../api-client
+      '@sosed/domain':
+        specifier: workspace:*
+        version: link:../domain
       '@tanstack/react-query':
         specifier: 5.104.0
         version: 5.104.0(react@19.3.0)

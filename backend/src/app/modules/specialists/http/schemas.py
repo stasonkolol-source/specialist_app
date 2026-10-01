@@ -1,6 +1,6 @@
 """Схемы HTTP кабинета исполнителя `/me/profile*` (ARCHITECTURE §8.5)."""
 
-from datetime import datetime
+from datetime import datetime, time
 from typing import Literal
 from uuid import UUID
 
@@ -55,6 +55,11 @@ class ProfileAreasIn(BaseModel):
     district_ids: list[int] = Field(max_length=MAX_AREAS)
 
 
+class AvailabilityIn(BaseModel):
+    until: time | None
+    """До которого часа сегодня принимаете заявки — по Белграду («18:00»); null — выключить."""
+
+
 class HintOut(BaseModel):
     code: str
     """Что добавить: category_ids, headline, about, languages, area_ids, services,
@@ -97,6 +102,8 @@ class ProfileOut(BaseModel):
     """Что заполнить перед отправкой на проверку: category_ids, headline, work_modes, area_ids,
     services (позиция прайса у «Специалиста»)."""
     completeness: CompletenessOut
+    available_until: datetime | None
+    """«Доступен сегодня до …»; null — выключено."""
     published_at: datetime | None
     version: int
 
@@ -120,6 +127,7 @@ class ProfileOut(BaseModel):
             rejection_reason=view.rejection_reason,
             missing=list(view.missing),
             completeness=CompletenessOut.of(cabinet.completeness),
+            available_until=view.available_until,
             published_at=view.published_at,
             version=view.version,
         )

@@ -27,6 +27,7 @@ export interface ProfileOut {
   rejection_reason: string | null;
   missing: string[];
   completeness: CompletenessOut;
+  available_until: string | null;
   published_at: string | null;
   version: number;
 }

@@ -12,23 +12,26 @@
 import unicodedata
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, time
 from enum import StrEnum
 from typing import Final, NewType
 from uuid import UUID
 
 from app.modules.specialists.errors import (
+    AvailabilityPastError,
     InvalidProfileError,
     ProfileIncompleteError,
     ProfileStateError,
 )
 from app.platform.contracts.events.specialists import (
+    AvailabilityChanged,
     ProfileHidden,
     ProfilePublished,
     ProfileSubmitted,
     ProfileUpdated,
 )
 from app.platform.kernel.aggregate import VersionedAggregate
+from app.platform.kernel.clock import BUSINESS_TZ
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, UserId, new_id
 
@@ -254,6 +257,32 @@ class Profile(VersionedAggregate):
         self.listed_in_catalog = kind is ProfileKind.PRO
         return True
 
+    def set_availability(self, until: time | None, *, now: datetime) -> bool:
+        """«Доступен сегодня до …» (S38, `/available`): `until` — время по Белграду, сегодня и
+        ещё не прошедшее; None — выключить. False — ничего не изменилось."""
+        self._ensure_editable()
+        value = None if until is None else today_at(until, now=now)
+        if value is not None and value <= now:
+            raise AvailabilityPastError
+        return self._change_availability(value, now=now)
+
+    def expire_availability(self, *, now: datetime) -> bool:
+        """Срок «доступен сегодня» вышел (`specialists.reset_availability`)."""
+        if self.available_until is None or self.available_until > now:
+            return False
+        return self._change_availability(None, now=now)
+
+    def _change_availability(self, value: datetime | None, *, now: datetime) -> bool:
+        if value == self.available_until:
+            return False
+        self.available_until = value
+        self._record(
+            AvailabilityChanged(
+                profile_id=self.id, user_id=self.user_id, available_until=value, occurred_at=now
+            )
+        )
+        return True
+
     def become_pro(self, *, now: datetime) -> None:
         """«Подработка → Специалист»: в каталог, но сначала — снова проверка человеком."""
         if self.kind is ProfileKind.PRO:
@@ -385,3 +414,8 @@ def _clean(value: str) -> str:
         for char in unicodedata.normalize("NFC", value)
         if char in "\n\t" or unicodedata.category(char) not in {"Cc", "Cf"}
     )
+
+
+def today_at(at: time, *, now: datetime) -> datetime:
+    """Сегодня в `at` по Белграду (BUSINESS_TZ) — момент времени, aware."""
+    return datetime.combine(now.astimezone(BUSINESS_TZ).date(), at, tzinfo=BUSINESS_TZ)

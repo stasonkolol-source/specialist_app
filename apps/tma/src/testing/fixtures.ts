@@ -334,6 +334,7 @@ export const PROFILE_DRAFT: ProfileOut = {
       (code) => ({ code, count: null }),
     ),
   },
+  available_until: null,
   published_at: null,
   version: 1,
 };

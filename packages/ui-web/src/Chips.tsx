@@ -42,6 +42,8 @@ export interface ChipProps {
   count?: number;
   /** Чип раскрывает список: стрелка справа и aria-expanded вместо aria-pressed. */
   expanded?: boolean;
+  /** Вариант сейчас недоступен (время уже прошло): приглушён и не нажимается. */
+  disabled?: boolean;
   onClick?: () => void;
   href?: string;
 }
@@ -53,11 +55,12 @@ export function Chip({
   icon,
   count,
   expanded,
+  disabled = false,
   onClick,
   href,
 }: ChipProps) {
   const classes = cx(
-    'inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-chip border px-3.5 text-sm font-medium',
+    'inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-chip border px-3.5 text-sm font-medium disabled:opacity-55',
     selected
       ? 'border-text bg-text text-bg'
       : accent
@@ -92,6 +95,7 @@ export function Chip({
       onClick={onClick}
       aria-pressed={expanded === undefined ? selected : undefined}
       aria-expanded={expanded}
+      disabled={disabled}
       className={classes}
     >
       {content}

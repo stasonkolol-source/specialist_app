@@ -1,10 +1,18 @@
-"""Кабинет исполнителя `/me/profile*` (DEVELOPMENT_PLAN 2.8a): мастер S32a–c через API."""
+"""Кабинет исполнителя `/me/profile*` (DEVELOPMENT_PLAN 2.8a, 2.10): мастер S32a–c, полнота и
+«доступен сегодня» через API."""
+
+from datetime import timedelta
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 from tests.plugins.http import HttpApp
 
+from app.modules.specialists.application.use_cases.reset_availability import (
+    ResetAvailability,
+    ResetAvailabilityCommand,
+)
+from app.platform.kernel.clock import BUSINESS_TZ, Clock
 from app.platform.settings import Settings
 
 from .conftest import Cabinet, cabinet_for
@@ -118,3 +126,35 @@ async def test_rules_must_be_accepted_first(web: HttpApp, settings: Settings) ->
     response = await newcomer.create()
 
     assert (response.status_code, response.json()["code"]) == (403, "consent_required")
+
+
+async def test_available_today_until_a_time(cabinet: Cabinet) -> None:
+    assert (await cabinet.create()).status_code == 201
+    now = (await cabinet.app.container.get(Clock)).now().astimezone(BUSINESS_TZ)
+    soon = now + timedelta(minutes=2)
+    if soon.date() != now.date():
+        pytest.skip("последние минуты суток по Белграду: «сегодня» уже не наступит")
+
+    on = await cabinet.call("PUT", "/availability", until=soon.strftime("%H:%M"))
+    assert on.status_code == 200, on.text
+    assert on.json()["available_until"] is not None
+    off = await cabinet.call("PUT", "/availability", until=None)
+    assert off.json()["available_until"] is None
+
+    past = await cabinet.call("PUT", "/availability", until="00:00")
+    assert (past.status_code, past.json()["code"]) == (422, "availability_past")
+
+
+async def test_expired_availability_is_reset_by_the_task(cabinet: Cabinet) -> None:
+    profile = (await cabinet.create()).json()
+    await cabinet.execute(
+        "UPDATE specialists.profiles SET available_until = now() - interval '1 minute'"
+        " WHERE id = :id",
+        id=profile["id"],
+    )
+
+    async with cabinet.app.container() as request:
+        reset = await request.get(ResetAvailability)
+        assert await reset(ResetAvailabilityCommand()) >= 1
+
+    assert (await cabinet.get()).json()["available_until"] is None

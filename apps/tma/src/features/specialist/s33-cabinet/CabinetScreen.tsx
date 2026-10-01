@@ -1,19 +1,22 @@
-// S33 Кабинет специалиста (DEVELOPMENT_PLAN 2.10): статус профиля, полнота с первой подсказкой и
-// переход к правке S34. Черновик и «нужны правки» продолжают мастер S32 с нужного шага (MainButton).
-// Блоки артборда, чьих экранов ещё нет, появятся со своими шагами: доступность — 2.10b, прайс и
-// портфолио — 2.11, «Посмотреть как клиент» — 4.5; «За 30 дней» и «Скоро» — v1.
+// S33 Кабинет специалиста (DEVELOPMENT_PLAN 2.10): статус профиля, полнота с первой подсказкой,
+// «Доступен сегодня до …» (переключатель: включает «до 20:00» или ближайший вариант, подробно — S38)
+// и переходы к правке S34 и доступности S38. Черновик и «нужны правки» продолжают мастер S32 с
+// нужного шага (MainButton). Блоки артборда, чьих экранов ещё нет, появятся со своими шагами: прайс
+// и портфолио — 2.11, «Посмотреть как клиент» — 4.5; «За 30 дней» и «Скоро» — v1.
 import type { HintOut, ProfileOut } from '@sosed/api-client';
+import { availableUntil, quickHour } from '@sosed/domain';
 import type { ProfileState } from '@sosed/hooks';
-import { becomeStep, profileState, useMyProfile } from '@sosed/hooks';
-import { useTranslation } from '@sosed/i18n';
-import { useBackButton } from '@sosed/platform';
+import { becomeStep, profileState, useMyProfile, useSetAvailability } from '@sosed/hooks';
+import { useFormat, useTranslation } from '@sosed/i18n';
+import { useBackButton, usePlatform } from '@sosed/platform';
 import type { IconName } from '@sosed/ui-web';
-import { Card, Group, Heading, Icon, ProgressBar, Row, Text, cx } from '@sosed/ui-web';
+import { Card, Group, Heading, Icon, ProgressBar, Row, Switch, Text, cx } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 import type { MouseEvent } from 'react';
 import { useEffect } from 'react';
 
 import { LoadState } from '../shared/LoadState.tsx';
+import { SaveError } from '../shared/SaveError.tsx';
 import { useBecomeFlow, useStepButton } from '../shared/flow.ts';
 import { ACCOUNT_PATH, CABINET_PATHS } from '../shared/paths.ts';
 
@@ -72,10 +75,14 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
     visible: step !== null,
   });
 
-  const open = (event: MouseEvent<HTMLElement>) => {
-    event.preventDefault();
-    void router.navigate({ to: CABINET_PATHS.profile });
-  };
+  const open =
+    (to: (typeof CABINET_PATHS)['profile' | 'availability']) =>
+    (event: MouseEvent<HTMLElement>) => {
+      event.preventDefault();
+      void router.navigate({ to });
+    };
+  // доступность и пауза — у профиля, который видят клиенты
+  const visible = profile.status === 'published' || profile.status === 'hidden';
 
   return (
     <section className="flex flex-col gap-2.5 px-4 pt-2 pb-6">
@@ -98,6 +105,7 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
             {hints[0] ? <HintText hint={hints[0]} /> : t('cabinet.complete')}
           </Text>
         </div>
+        {profile.status === 'published' && <AvailableToday profile={profile} />}
       </Card>
       <nav aria-label={t('cabinet.manage')}>
         <Group>
@@ -106,8 +114,18 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
             title={t('cabinet.profile')}
             chevron
             href={router.history.createHref(CABINET_PATHS.profile)}
-            onClick={open}
+            onClick={open(CABINET_PATHS.profile)}
           />
+          {visible && (
+            <Row
+              icon="calendar"
+              title={t('cabinet.availability')}
+              trailing={<AvailabilityValue profile={profile} />}
+              chevron
+              href={router.history.createHref(CABINET_PATHS.availability)}
+              onClick={open(CABINET_PATHS.availability)}
+            />
+          )}
         </Group>
       </nav>
     </section>
@@ -133,5 +151,52 @@ function HintText({ hint }: { hint: HintOut }) {
     <span className={cx(code === 'service_descriptions' && 'tabular-nums')}>
       {t(`cabinet.hint.${code}`, { count: hint.count ?? 0 })}
     </span>
+  );
+}
+
+/** «Доступен сегодня до …» в карточке: переключатель включает «до 20:00» или ближайший вариант. */
+function AvailableToday({ profile }: { profile: ProfileOut }) {
+  const { t } = useTranslation('specialist');
+  const format = useFormat();
+  const platform = usePlatform();
+  const setAvailability = useSetAvailability();
+  const now = new Date();
+  const until = availableUntil(profile.available_until, now);
+  const quick = quickHour(now);
+  const toggle = (on: boolean) => {
+    platform.haptics.selection();
+    setAvailability.mutate(on ? quick : null);
+  };
+  const label = until
+    ? t('cabinet.availableUntil', { time: format.time(until) })
+    : t('cabinet.availableToday');
+  return (
+    <>
+      <div className="flex items-center gap-3">
+        <span className="min-w-0 flex-1 text-body">{label}</span>
+        <Switch
+          checked={until !== null}
+          onChange={toggle}
+          label={label}
+          disabled={setAvailability.isPending || (until === null && quick === null)}
+        />
+      </div>
+      {until === null && quick === null && <Text variant="cap">{t('availability.todayLate')}</Text>}
+      {setAvailability.isError && <SaveError error={setAvailability.error} />}
+    </>
+  );
+}
+
+/** Значение строки «Доступность»: «сегодня до 20:00» или «выключено». */
+function AvailabilityValue({ profile }: { profile: ProfileOut }) {
+  const { t } = useTranslation('specialist');
+  const format = useFormat();
+  const until = availableUntil(profile.available_until, new Date());
+  return (
+    <Text as="span" variant="sm" secondary>
+      {until
+        ? t('cabinet.availabilityValue', { time: format.time(until) })
+        : t('cabinet.availabilityOff')}
+    </Text>
   );
 }

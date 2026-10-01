@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@sosed/api-client": "workspace:*",
+    "@sosed/domain": "workspace:*",
     "@tanstack/react-query": "5.104.0"
   }
 }

@@ -24,6 +24,7 @@ const DRAFT: ProfileOut = {
   rejection_reason: null,
   missing: ['category_ids', 'headline', 'work_modes', 'services'],
   completeness: { percent: 0, hints: [] },
+  available_until: null,
   published_at: null,
   version: 1,
 };

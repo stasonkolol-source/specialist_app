@@ -68,6 +68,21 @@ export class ProfileBackend {
         const { district_ids } = body as { district_ids: number[] };
         return this.save({ ...profile, district_ids });
       }
+      case 'PUT /me/profile/availability': {
+        const { until } = body as { until: string | null };
+        if (until === null) return this.save({ ...profile, available_until: null });
+        const at = todayAt(until, new Date());
+        if (at <= new Date()) return problem(422, 'availability_past');
+        return this.save({ ...profile, available_until: at.toISOString() });
+      }
+      case 'POST /me/profile/hide':
+        if (profile.status === 'hidden') return this.ok(profile);
+        if (profile.status !== 'published') return problem(409, 'profile_state_conflict');
+        return this.save({ ...profile, status: 'hidden' });
+      case 'POST /me/profile/show':
+        if (profile.status === 'published') return this.ok(profile);
+        if (profile.status !== 'hidden') return problem(409, 'profile_state_conflict');
+        return this.save({ ...profile, status: 'published' });
       case 'POST /me/profile/submit':
         if (profile.status !== 'draft') return problem(409, 'profile_state_conflict');
         if (profile.missing.length > 0) {
@@ -156,6 +171,23 @@ export class ProfileBackend {
     if (profile.kind === 'pro' && this.services.length === 0) missing.push('services');
     return { ...profile, missing, completeness: completeness(profile, this.services) };
   }
+}
+
+/** Сегодня в `time` («20:00») по Белграду — как today_at backend: летом UTC+2, зимой UTC+1. */
+function todayAt(time: string, now: Date): Date {
+  const [hour = 0, minute = 0] = time.split(':').map(Number);
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Belgrade' }).format(now);
+  const [year = 0, month = 1, date = 1] = day.split('-').map(Number);
+  for (const offset of [2, 1]) {
+    const candidate = new Date(Date.UTC(year, month - 1, date, hour - offset, minute));
+    const local = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Belgrade',
+      hour: '2-digit',
+      hourCycle: 'h23',
+    }).format(candidate);
+    if (Number(local) === hour) return candidate;
+  }
+  return new Date(Date.UTC(year, month - 1, date, hour - 1, minute));
 }
 
 /** «О себе» хотя бы в пару предложений — как ABOUT_ENOUGH backend. */

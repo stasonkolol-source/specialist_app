@@ -4,6 +4,7 @@
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
 
 from app.platform.kernel.events import DomainEvent
@@ -49,3 +50,14 @@ class ProfileHidden(DomainEvent):
     profile_id: UUID
     user_id: UserId
     by_moderation: bool = False
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AvailabilityChanged(DomainEvent):
+    """«Доступен сегодня до …» включили, поменяли или сняли (`available_until` = None):
+    владелец в S38 и боте или срок истёк."""
+
+    event_type = "specialists.AvailabilityChanged"
+    profile_id: UUID
+    user_id: UserId
+    available_until: datetime | None

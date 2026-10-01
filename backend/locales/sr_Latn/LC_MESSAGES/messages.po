@@ -24,6 +24,30 @@ msgstr "Otvori"
 msgid "bot.app.text"
 msgstr "Otvorite aplikaciju „Sosedi“ dugmetom ispod ili dugmetom menija levo od polja za poruku."
 
+msgid "bot.available.on"
+msgstr "„Dostupni ste danas“ do {time}. Promenite vreme ili isključite:"
+
+msgid "bot.available.off"
+msgstr "„Dostupan danas“ je isključeno. Uključite — klijenti će videti da ste spremni da prihvatite zahtev danas:"
+
+msgid "bot.available.late"
+msgstr "Za danas je već kasno — uključite sutra."
+
+msgid "bot.available.until"
+msgstr "do {time}"
+
+msgid "bot.available.turn_off"
+msgstr "Isključi"
+
+msgid "bot.available.done_on"
+msgstr "Gotovo: dostupni ste danas do {time}."
+
+msgid "bot.available.done_off"
+msgstr "Gotovo: „dostupan danas“ je isključeno."
+
+msgid "bot.available.no_profile"
+msgstr "„Dostupan danas“ je za objavljen profil stručnjaka. Profil možete napraviti ili proveriti u aplikaciji."
+
 msgid "bot.help.text"
 msgstr "<b>Kako funkcioniše</b>\n• Opišite zadatak — majstori u blizini će se javiti sa cenom. Ili izaberite stručnjaka po utiscima.\n• Dogovarajte se u četu aplikacije „Sosedi“: kontakti — nakon dogovora.\n• Plaćanje — direktno izvođaču, posle posla. „Sosedi“ ne primaju novac.\n\n<b>Bezbednost</b>\n• Ne plaćajte unapred nepoznatim ljudima i nikome ne govorite kodove iz SMS poruka.\n• Sumnjiv profil ili poruka — prijavite direktno u aplikaciji.\n\n/terms — pravila platforme\n/privacy — politika privatnosti\n/language — jezik"
 
@@ -334,6 +358,9 @@ msgstr "Popunite profil do kraja da biste ga poslali na proveru."
 
 msgid "errors.invalid_profile"
 msgstr "Proverite polja profila."
+
+msgid "errors.availability_past"
+msgstr "To vreme je danas već prošlo — izaberite kasnije."
 
 msgid "errors.category_not_allowed"
 msgstr "Ovu kategoriju nije moguće izabrati."
