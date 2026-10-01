@@ -1,5 +1,5 @@
 // .card / .card.tight: поверхность, радиус 16, отступ 16. Ссылка или кнопка — вся карточка кликабельна.
-import type { ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 
 import { FOCUS, cx } from './cx.ts';
 
@@ -7,7 +7,8 @@ export interface CardProps {
   children: ReactNode;
   tight?: boolean;
   href?: string;
-  onClick?: () => void;
+  /** С `href` — переход внутри приложения (роутер отменяет переход браузера), без — кнопка. */
+  onClick?: (event: MouseEvent<HTMLElement>) => void;
   /** ul / ol — карточка-список (.card у пунктов правил S48, «Остаётся доступно» S49b). */
   as?: 'div' | 'section' | 'article' | 'li' | 'ul' | 'ol';
   className?: string;
@@ -29,7 +30,7 @@ export function Card({
   );
   if (href) {
     return (
-      <a href={href} className={cx(classes, 'text-text')}>
+      <a href={href} onClick={onClick} className={cx(classes, 'text-text')}>
         {children}
       </a>
     );

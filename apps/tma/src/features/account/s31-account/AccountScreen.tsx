@@ -1,28 +1,43 @@
-// S31 Профиль — заглушка ходячего скелета (DEVELOPMENT_PLAN 0.22): имя и внутренний id из GET /me,
-// язык интерфейса — ui_locale оттуда же, пишется через PATCH /me. Экран по макету design/project —
-// в шаге 2.9. С 1.5a — строка «Правила площадки» (S48) и S49a «Нет соединения» вместо ошибки.
-// Строка «Уведомления» ведёт в S42; число справа — непрочитанные (первая страница ленты S42).
-import type { MeOut } from '@sosed/api-client';
+// S31 Профиль (DEVELOPMENT_PLAN 2.9): имя и город из GET /me, вход в кабинет специалиста, меню.
+// Без профиля исполнителя — «Стать специалистом» и «Найти подработку» (мастер S32a–c с отмеченным
+// типом); с профилем — карточка кабинета со статусом, черновик продолжает мастер с нужного шага
+// (кабинет S33 — с шага 2.10). Строка «Уведомления» ведёт в S42; число справа — непрочитанные
+// (первая страница ленты S42). Язык интерфейса — ui_locale из GET /me, пишется через PATCH /me
+// (строкой «Язык» в S43 станет с шага 4.9). Без сети — S49a «Нет соединения» вместо ошибки.
+import type { MeOut, ProfileKind } from '@sosed/api-client';
 import {
   ApiError,
   getIdentityGetMeQueryKey,
   useIdentityGetMe,
   useIdentityUpdateMe,
 } from '@sosed/api-client';
-import { systemStateOf, unreadCount, useNotificationFeed } from '@sosed/hooks';
+import type { BecomeStep, ProfileState } from '@sosed/hooks';
+import {
+  becomeStep,
+  profileState,
+  systemStateOf,
+  unreadCount,
+  useCities,
+  useMyProfile,
+  useNotificationFeed,
+} from '@sosed/hooks';
 import type { Locale } from '@sosed/i18n';
 import { LOCALES, LOCALE_NAMES, isLocale, useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { usePlatform } from '@sosed/platform';
+import type { AvatarPalette, BadgeTone, IconName } from '@sosed/ui-web';
 import {
   Avatar,
   Badge,
   Banner,
   Button,
+  Card,
   EmptyState,
   Group,
   Heading,
+  Icon,
   Option,
   Row,
+  RowIcon,
   SectionTitle,
   Skeleton,
   Text,
@@ -37,6 +52,27 @@ const LEGAL_PATH = '/legal/$document';
 const RULES_HREF = '/legal/terms';
 /** S42, уведомления (маршрут routes/notifications.tsx). */
 const NOTIFICATIONS_PATH = '/notifications';
+/** Мастер S32a–c (маршруты features/specialist). */
+const BECOME_PATHS = {
+  type: '/become/type',
+  about: '/become/about',
+  area: '/become/area',
+} as const satisfies Record<BecomeStep, string>;
+
+/** Входы в мастер без профиля: тип отмечен на S32a заранее. Иконки — как на S32a. */
+const ENTRIES: readonly { kind: ProfileKind; icon: IconName; palette?: AvatarPalette }[] = [
+  { kind: 'pro', icon: 'briefcase' },
+  { kind: 'casual', icon: 'clock', palette: 3 },
+];
+
+const STATE_TONES: Record<ProfileState, BadgeTone> = {
+  draft: 'mute',
+  rejected: 'danger',
+  pending_review: 'info',
+  published: 'ok',
+  hidden: 'mute',
+  suspended: 'danger',
+};
 
 export function AccountScreen() {
   const { t } = useTranslation();
@@ -50,30 +86,101 @@ export function AccountScreen() {
   const retry = () => void me.refetch();
   const offline = me.isError && systemStateOf(me.error).kind === 'offline';
 
-  let content;
-  if (signedOut) content = <SignedOut />;
+  // Разделы — на постоянных местах: строка уведомлений не пересоздаётся, когда /me загрузился
+  let top;
+  let account = false;
+  if (signedOut) top = <SignedOut />;
   else if (me.data && offline) {
     // S49a: сеть пропала при обновлении — сохранённый профиль виден, но приглушён
-    content = (
+    top = (
       <>
         <Offline saved onRetry={retry} retrying={me.isFetching} />
         <Saved at={me.dataUpdatedAt}>
-          <Account me={me.data} />
+          <AccountHeader me={me.data} />
+          <Language me={me.data} />
         </Saved>
       </>
     );
-  } else if (me.data) content = <Account me={me.data} />;
-  else if (offline) content = <Offline saved={false} onRetry={retry} retrying={me.isFetching} />;
-  else if (me.isError) content = <LoadError onRetry={retry} />;
-  else content = <Loading />;
+  } else if (me.data) {
+    top = <AccountHeader me={me.data} />;
+    account = true;
+  } else if (offline) top = <Offline saved={false} onRetry={retry} retrying={me.isFetching} />;
+  else if (me.isError) top = <LoadError onRetry={retry} />;
+  else top = <Loading />;
 
   return (
-    <section className="flex flex-col gap-4 px-4 pt-4 pb-6">
-      <Heading variant="h1">{t('nav.profile')}</Heading>
-      {content}
+    <section className="flex flex-col gap-4 px-4 pt-3 pb-6">
+      {/* заголовок экрана — для скринридера: на артборде сверху сразу аватар и имя */}
+      <Heading variant="h1" className="sr-only">
+        {t('nav.profile')}
+      </Heading>
+      {top}
+      {account && <Specialist />}
       {!signedOut && <Notifications />}
+      {account && me.data && <Language me={me.data} />}
       <Support />
     </section>
+  );
+}
+
+/**
+ * Вход в кабинет специалиста. Профиля нет — «Стать специалистом» и «Найти подработку»; есть —
+ * карточка со статусом. Не загрузился — раздела нет: остальной профиль работает и без него.
+ */
+function Specialist() {
+  const { t } = useTranslation('specialist');
+  const router = useRouter();
+  const profile = useMyProfile();
+  if (profile.isPending) return <Skeleton radius="card" className="h-21" />;
+  if (profile.isError) return null;
+
+  const go = (event: MouseEvent<HTMLElement>, step: BecomeStep, kind?: ProfileKind) => {
+    event.preventDefault();
+    void router.navigate({ to: BECOME_PATHS[step], search: kind ? { kind } : {} });
+  };
+
+  if (profile.data === null) {
+    return (
+      <Group>
+        {ENTRIES.map((entry) => (
+          <Row
+            key={entry.kind}
+            leading={<RowIcon icon={entry.icon} palette={entry.palette} />}
+            title={t(`account.${entry.kind}.title`)}
+            subtitle={t(`account.${entry.kind}.text`)}
+            chevron
+            href={router.history.createHref(`${BECOME_PATHS.type}?kind=${entry.kind}`)}
+            onClick={(event) => go(event, 'type', entry.kind)}
+          />
+        ))}
+      </Group>
+    );
+  }
+
+  const state = profileState(profile.data);
+  // черновик — продолжить мастер; кабинет S33 для остальных — с шага 2.10
+  const step = becomeStep(profile.data);
+  return (
+    <Card
+      href={step ? router.history.createHref(BECOME_PATHS[step]) : undefined}
+      onClick={step ? (event) => go(event, step) : undefined}
+    >
+      <span className="flex items-center gap-3">
+        <RowIcon icon="briefcase" />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="font-semibold">
+            {t(profile.data.kind === 'pro' ? 'account.cabinet' : 'account.casualCabinet')}
+          </span>
+          <Text as="span" variant="cap">
+            {t(`account.status.${state}.text`)}
+          </Text>
+        </span>
+        {step && <Icon name="chev-right" className="text-text2" />}
+      </span>
+      <span className="flex flex-wrap gap-1.5">
+        <Badge tone={STATE_TONES[state]}>{t(`account.status.${state}.label`)}</Badge>
+      </span>
+    </Card>
   );
 }
 
@@ -185,7 +292,32 @@ function Saved({ at, children }: { at: number; children: ReactNode }) {
   );
 }
 
-function Account({ me }: { me: MeOut }) {
+/** Аватар, имя и город, как на артборде S31. */
+function AccountHeader({ me }: { me: MeOut }) {
+  const cities = useCities(useLocale());
+  const city = cities.data?.find((candidate) => candidate.id === me.home_city_id);
+  return (
+    <div className="flex items-center gap-4 px-1 pt-1">
+      {/* имя рядом — аватар для скринридера лишний */}
+      <span aria-hidden="true">
+        <Avatar name={me.display_name} size="lg" />
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <Heading variant="h2" as="h2">
+          {me.display_name}
+        </Heading>
+        {city && (
+          <Text as="span" variant="cap" className="flex items-center gap-1.5">
+            <Icon name="pin" size={16} />
+            {city.name}
+          </Text>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Language({ me }: { me: MeOut }) {
   const { t, i18n } = useTranslation();
   const locale = useLocale();
   const queryClient = useQueryClient();
@@ -220,45 +352,29 @@ function Account({ me }: { me: MeOut }) {
   };
 
   return (
-    <>
-      <div className="flex items-center gap-4">
-        {/* имя рядом — аватар для скринридера лишний */}
-        <span aria-hidden="true">
-          <Avatar name={me.display_name} size="lg" />
-        </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <Heading variant="h2" as="h2">
-            {me.display_name}
-          </Heading>
-          <Text variant="cap" className="break-all">
-            {t('profile.id', { id: me.id })}
-          </Text>
-        </div>
+    <div className="flex flex-col gap-2">
+      <SectionTitle>{t('profile.language')}</SectionTitle>
+      <div
+        role="radiogroup"
+        aria-label={t('profile.language')}
+        aria-busy={update.isPending}
+        className="flex flex-col gap-2"
+      >
+        {LOCALES.map((option) => (
+          <Option
+            key={option}
+            title={<span lang={option}>{LOCALE_NAMES[option]}</span>}
+            checked={option === selected}
+            onChange={() => choose(option)}
+          />
+        ))}
       </div>
-      <div className="flex flex-col gap-2">
-        <SectionTitle>{t('profile.language')}</SectionTitle>
-        <div
-          role="radiogroup"
-          aria-label={t('profile.language')}
-          aria-busy={update.isPending}
-          className="flex flex-col gap-2"
-        >
-          {LOCALES.map((option) => (
-            <Option
-              key={option}
-              title={<span lang={option}>{LOCALE_NAMES[option]}</span>}
-              checked={option === selected}
-              onChange={() => choose(option)}
-            />
-          ))}
-        </div>
-        {update.isError && (
-          <Banner tone="danger" role="alert">
-            {t('profile.languageError')}
-          </Banner>
-        )}
-      </div>
-    </>
+      {update.isError && (
+        <Banner tone="danger" role="alert">
+          {t('profile.languageError')}
+        </Banner>
+      )}
+    </div>
   );
 }
 

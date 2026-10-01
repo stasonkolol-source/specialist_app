@@ -46,6 +46,8 @@ async def test_wizard_builds_a_profile_and_sends_it_to_review(cabinet: Cabinet) 
 
     assert submitted.status_code == 200, submitted.text
     assert submitted.json()["status"] == "pending_review"
+    switched = await cabinet.call("PATCH", kind="casual")
+    assert (switched.status_code, switched.json()["code"]) == (409, "profile_state_conflict")
     jobs = await cabinet.scalar(
         "SELECT count(*) FROM procrastinate_jobs WHERE task_name = 'moderation.auto_check'"
         " AND args->'payload'->>'entity_id' = :id",
@@ -101,6 +103,9 @@ async def test_casual_profile_stays_out_of_the_catalog(cabinet: Cabinet) -> None
         False,
         "Марко",
     )
+    # S32a: вернулись на первый шаг и выбрали «Специалист» — тип черновика меняется
+    switched = await cabinet.call("PATCH", version=1, kind="pro")
+    assert (switched.json()["kind"], switched.json()["listed_in_catalog"]) == ("pro", True)
 
 
 async def test_rules_must_be_accepted_first(web: HttpApp, settings: Settings) -> None:

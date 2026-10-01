@@ -43,12 +43,13 @@ for (const theme of THEMES) {
 }
 
 for (const theme of THEMES) {
-  test(`S31 профиль ${theme}: имя и id из /me после входа`, async ({ page }) => {
+  test(`S31 профиль ${theme}: имя и город из /me, вход «Стать специалистом»`, async ({ page }) => {
     const watch = await open(page, `theme=${theme}&lang=ru`, { signedIn: true });
     await openProfile(page);
 
     await expect(page.getByRole('heading', { name: ME.display_name })).toBeVisible();
-    await expect(page.getByText(`ID: ${ME.id}`)).toBeVisible();
+    await expect(page.getByText('Нови-Сад')).toBeVisible();
+    await expect(page.getByRole('link', { name: /Стать специалистом/ })).toBeVisible();
     expect(real(watch.problems)).toEqual([]);
     expect(watch.unexpectedApi).toEqual([]);
     await expect(page).toHaveScreenshot(`S31-account-${theme}-ru.png`, { fullPage: true });

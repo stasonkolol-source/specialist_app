@@ -300,7 +300,8 @@ export const getSpecialistsUpdateMyProfileUrl = () => {
 };
 
 /**
- * Поля профиля (S32b–c, S34). Правки опубликованного — сразу, текст — на пост-модерацию.
+ * Поля профиля (S32a–c, S34). Правки опубликованного — сразу, текст — на пост-модерацию;
+ * тип — только у черновика.
  * @summary Update My Profile
  */
 export const specialistsUpdateMyProfile = async (

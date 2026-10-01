@@ -1,5 +1,5 @@
-"""Поля профиля (S32b–c, S34; PATCH /me/profile). Правки опубликованного применяются сразу,
-изменённый текст уходит на пост-модерацию (§7.9)."""
+"""Поля профиля (S32a–c, S34; PATCH /me/profile). Правки опубликованного применяются сразу,
+изменённый текст уходит на пост-модерацию (§7.9). Тип меняется только у черновика."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -10,7 +10,7 @@ from app.modules.specialists.application.profiles import (
     own_profile,
     request_review,
 )
-from app.modules.specialists.domain.profile import Profile
+from app.modules.specialists.domain.profile import Profile, ProfileKind
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.ids import UserId
@@ -20,6 +20,7 @@ from app.platform.kernel.ids import UserId
 class EditProfileCommand:
     actor_id: UserId
     expected_version: int | None = None
+    kind: str | None = None
     display_name: str | None = None
     headline: str | None = None
     """Пустая строка — очистить."""
@@ -37,6 +38,8 @@ class EditProfile:
         now = self._clock.now()
         async with self._uow:
             profile = await own_profile(self._profiles, cmd.actor_id, cmd.expected_version)
+            if cmd.kind is not None:
+                profile.change_kind(ProfileKind(cmd.kind))
             changed = profile.edit(
                 now=now,
                 display_name=cmd.display_name,

@@ -1,5 +1,6 @@
-// S31-заглушка (DEVELOPMENT_PLAN 0.22): имя из GET /me, язык из ui_locale и его смена через
-// PATCH /me, ошибки API и состояние «вне Telegram». API — MSW из orval с фикстурами SPEC §4.
+// S31 (DEVELOPMENT_PLAN 2.9): имя и город из GET /me, вход в кабинет специалиста, язык из
+// ui_locale и его смена через PATCH /me, ошибки API и состояние «вне Telegram». API — MSW из orval
+// с фикстурами SPEC §4, кабинет — фейк backend testing/profileBackend.ts.
 import type { MeUpdateIn } from '@sosed/api-client';
 import { configureApiClient, setSession } from '@sosed/api-client';
 import type { Locale } from '@sosed/i18n';
@@ -18,8 +19,9 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { HttpResponse, http } from 'msw';
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
-import { ME } from '../../../testing/fixtures.ts';
-import { API_ORIGIN, TOKENS, server } from '../../../testing/msw.ts';
+import { FIRST_SERVICE, ME, PROFILE_FILLED } from '../../../testing/fixtures.ts';
+import { API_ORIGIN, TOKENS, profileHandlers, server } from '../../../testing/msw.ts';
+import { ProfileBackend } from '../../../testing/profileBackend.ts';
 import { AccountScreen } from './AccountScreen.tsx';
 
 const ME_PATH = '*/api/v1/me';
@@ -53,8 +55,13 @@ function createTestRouter() {
     path: '/notifications',
     component: () => <h1>S42</h1>,
   });
+  const become = createRoute({
+    getParentRoute: () => root,
+    path: '/become/$step',
+    component: () => <h1>S32</h1>,
+  });
   return createRouter({
-    routeTree: root.addChildren([profile, legal, notifications]),
+    routeTree: root.addChildren([profile, legal, notifications, become]),
     history: createMemoryHistory({ initialEntries: ['/'] }),
   });
 }
@@ -118,8 +125,67 @@ describe('S31 notifications row', () => {
   });
 });
 
-describe('S31 profile stub', () => {
-  it('shows the name and the internal id from GET /me', async () => {
+describe('S31 specialist entry', () => {
+  const withProfile = (backend: ProfileBackend) => server.use(...profileHandlers(() => backend));
+
+  it('offers to become a specialist or find side jobs when there is no profile', async () => {
+    const { router } = await renderScreen();
+    const pro = await screen.findByRole('link', { name: /Стать специалистом/ });
+
+    expect(pro.textContent).toContain('Профиль в каталоге, заявки рядом');
+    expect(screen.getByRole('link', { name: /Найти подработку/ }).getAttribute('href')).toBe(
+      '/become/type?kind=casual',
+    );
+    await act(async () => {
+      fireEvent.click(pro);
+    });
+    expect(await screen.findByRole('heading', { name: 'S32' })).toBeTruthy();
+    expect(router.state.location.href).toBe('/become/type?kind=pro');
+  });
+
+  it('continues a draft at the step where something is missing', async () => {
+    withProfile(new ProfileBackend({ ...PROFILE_FILLED, headline: null }, [FIRST_SERVICE]));
+    const { router } = await renderScreen();
+    const cabinet = await screen.findByRole('link', { name: /Кабинет специалиста/ });
+
+    expect(cabinet.textContent).toContain('Черновик');
+    expect(cabinet.getAttribute('href')).toBe('/become/about');
+    await act(async () => {
+      fireEvent.click(cabinet);
+    });
+    expect(router.state.location.pathname).toBe('/become/about');
+  });
+
+  it('shows the review status without a link: the cabinet S33 comes with step 2.10', async () => {
+    withProfile(
+      new ProfileBackend({ ...PROFILE_FILLED, status: 'pending_review' }, [FIRST_SERVICE]),
+    );
+    await renderScreen();
+
+    expect(await screen.findByText('На проверке')).toBeTruthy();
+    expect(screen.getByText('Обычно до 30 минут')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /Кабинет специалиста/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Стать специалистом/ })).toBeNull();
+  });
+
+  it('marks a draft returned by moderation and names a side-job profile as such', async () => {
+    withProfile(
+      new ProfileBackend({
+        ...PROFILE_FILLED,
+        kind: 'casual',
+        rejection_reason: 'contacts_in_text',
+      }),
+    );
+    await renderScreen();
+    const cabinet = await screen.findByRole('link', { name: /Профиль подработки/ });
+
+    expect(cabinet.textContent).toContain('Нужны правки');
+    expect(cabinet.getAttribute('href')).toBe('/become/area');
+  });
+});
+
+describe('S31 profile', () => {
+  it('shows the name and the home city from GET /me', async () => {
     const auth: (string | null)[] = [];
     server.use(
       http.get(ME_PATH, ({ request }) => {
@@ -130,7 +196,7 @@ describe('S31 profile stub', () => {
     await renderScreen();
 
     expect(await screen.findByRole('heading', { name: 'Елена К.', level: 2 })).toBeTruthy();
-    expect(screen.getByText(`ID: ${ME.id}`)).toBeTruthy();
+    expect(await screen.findByText('Нови-Сад')).toBeTruthy();
     expect(auth).toEqual([`Bearer ${TOKENS.access_token}`]);
     expect(checked('Русский')).toBe('true');
   });

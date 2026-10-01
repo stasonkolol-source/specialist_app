@@ -34,6 +34,9 @@ class ProfileUpdateIn(BaseModel):
     """Поля мастера S32b–c и правки S34; не переданное поле не меняется, пустая строка
     очищает «коротко о себе» и «о себе»."""
 
+    kind: ProfileKind | None = None
+    """Только у черновика (иначе 409 `profile_state_conflict`); «Подработка → Специалист» у
+    проверенного профиля — POST /me/profile/become-pro."""
     display_name: str | None = Field(default=None, max_length=MAX_NAME)
     headline: str | None = Field(default=None, max_length=MAX_HEADLINE)
     about: str | None = Field(default=None, max_length=MAX_ABOUT)

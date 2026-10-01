@@ -1,7 +1,9 @@
 // MSW-обработчики orval с данными SPEC §4 (DEVELOPMENT_PLAN 0.21b): тесты Vitest видят API как
 // настоящий backend. Для отдельного теста — server.use(<обработчик>) поверх этих.
 import {
+  getCatalogListCategoriesMockHandler,
   getGeoListCitiesMockHandler,
+  getGeoListDistrictsMockHandler,
   getIdentityAcceptConsentsMockHandler,
   getIdentityAuthenticateTelegramMockHandler,
   getIdentityGetMeMockHandler,
@@ -15,6 +17,7 @@ import {
   getSystemGetClientConfigMockHandler,
 } from '@sosed/api-client/mocks';
 import type { MeOut, MeUpdateIn, TokensOut } from '@sosed/api-client';
+import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 
 import {
@@ -23,9 +26,12 @@ import {
   NOTIFICATION_SETTINGS,
   WRITE_ACCESS,
   accepted,
+  categoriesFor,
   citiesFor,
+  districtsFor,
   notificationsFor,
 } from './fixtures.ts';
+import { ProfileBackend } from './profileBackend.ts';
 
 /** Origin API в тестах: fetch в Node не принимает относительные URL. */
 export const API_ORIGIN = 'http://localhost';
@@ -46,6 +52,24 @@ export const patchMe = (me: MeOut) =>
     return { ...me, ...fields } as MeOut;
   });
 
+/**
+ * Кабинет исполнителя `/me/profile*` по фейку backend. По умолчанию — свежий на каждый запрос:
+ * профиля нет. Тесты мастера S32a–c ставят свой — с памятью (server.use).
+ */
+export const profileHandlers = (backend: () => ProfileBackend) => [
+  http.all(/\/api\/v1\/me\/profile(\/.*)?$/, async ({ request }) => {
+    const body = request.method === 'GET' ? undefined : await request.json().catch(() => undefined);
+    const reply = backend().handle(request.method, new URL(request.url).pathname, body);
+    if (!reply) return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+    const problem =
+      reply.status >= 400 ? { 'Content-Type': 'application/problem+json' } : undefined;
+    return HttpResponse.json(reply.body as Record<string, unknown>, {
+      status: reply.status,
+      headers: problem,
+    });
+  }),
+];
+
 export const handlers = [
   getSystemGetClientConfigMockHandler(CLIENT_CONFIG),
   getIdentityAuthenticateTelegramMockHandler({ ...TOKENS, is_new: false, user: ME }),
@@ -60,8 +84,15 @@ export const handlers = [
   ),
   getNotificationsMarkNotificationsReadMockHandler({ unread_count: 0 }),
   getNotificationsGetNotificationSettingsMockHandler(NOTIFICATION_SETTINGS),
-  // названия городов — на языке запроса, как у backend
+  // названия городов, районов и категорий — на языке запроса, как у backend
   getGeoListCitiesMockHandler(({ request }) => citiesFor(request.headers.get('Accept-Language'))),
+  getGeoListDistrictsMockHandler(({ request }) =>
+    districtsFor(request.headers.get('Accept-Language')),
+  ),
+  getCatalogListCategoriesMockHandler(({ request }) =>
+    categoriesFor(request.headers.get('Accept-Language')),
+  ),
+  ...profileHandlers(() => new ProfileBackend()),
 ];
 
 export const server = setupServer(...handlers);

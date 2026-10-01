@@ -1,5 +1,14 @@
 // Headless-хуки сценариев (ADR-0020 §13): api-client + domain, без DOM и Telegram — их
 // переиспользует мобильное приложение (этап 2).
+export {
+  DICTIONARY_STALE_MS,
+  categoriesQueryKey,
+  districtsQueryKey,
+  leafCategories,
+  selectableDistricts,
+  useCategories,
+  useDistricts,
+} from './catalog/categories.ts';
 export type { ClientVersions, FlagKey, UpdateNeeded } from './config/clientConfig.ts';
 export {
   CLIENT_CONFIG_STALE_MS,
@@ -60,6 +69,14 @@ export {
   onboardingStep,
   useConsentGate,
 } from './onboarding/onboarding.ts';
+export type { BecomeStep, ProfileState } from './specialist/profile.ts';
+export {
+  BECOME_STEPS,
+  becomeStep,
+  myProfileQueryKey,
+  profileState,
+  useMyProfile,
+} from './specialist/profile.ts';
 export type { Restriction, SystemState } from './system/systemState.ts';
 export {
   ACCOUNT_BLOCKING,

@@ -9,6 +9,10 @@ import { mockApi } from './api.ts';
 
 export const THEMES = ['light', 'dark'] as const;
 
+/** Ответы API, где 404 — по контракту, а не ошибка: «профиля исполнителя ещё нет» (2.8a). Браузер
+ *  всё равно пишет такой ответ в консоль ошибкой — её не считаем. */
+const EXPECTED_NOT_FOUND = ['/api/v1/me/profile'];
+
 export interface Watch {
   problems: string[];
   unexpectedApi: string[];
@@ -22,7 +26,10 @@ export async function open(page: Page, query: string, api: MockApiOptions = {}):
       watch.problems.push(`network ${request.url()}`);
   });
   page.on('console', (message) => {
-    if (message.type() === 'error') watch.problems.push(`console ${message.text()}`);
+    if (message.type() !== 'error') return;
+    const { pathname } = new URL(message.location().url || 'about:blank');
+    if (message.text().includes('404') && EXPECTED_NOT_FOUND.includes(pathname)) return;
+    watch.problems.push(`console ${message.text()}`);
   });
   page.on('pageerror', (error) => watch.problems.push(`page ${error.message}`));
   await mockApi(page, watch.unexpectedApi, api);

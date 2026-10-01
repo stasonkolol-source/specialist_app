@@ -78,7 +78,8 @@ export const SpecialistsCreateMyProfileResponse = zod.object({
 });
 
 /**
- * Поля профиля (S32b–c, S34). Правки опубликованного — сразу, текст — на пост-модерацию.
+ * Поля профиля (S32a–c, S34). Правки опубликованного — сразу, текст — на пост-модерацию;
+ * тип — только у черновика.
  * @summary Update My Profile
  */
 export const SpecialistsUpdateMyProfileHeader = zod.object({
@@ -97,6 +98,7 @@ export const specialistsUpdateMyProfileBodyWorkModesOneMax = 3;
 
 export const SpecialistsUpdateMyProfileBody = zod
   .object({
+    kind: zod.union([zod.enum(['pro', 'casual']), zod.null()]).optional(),
     display_name: zod
       .union([zod.string().max(specialistsUpdateMyProfileBodyDisplayNameOneMax), zod.null()])
       .optional(),

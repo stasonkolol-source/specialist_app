@@ -101,11 +101,13 @@ async def update_my_profile(
     query: FromDishka[ProfileViews],
     response: Response,
 ) -> ProfileOut:
-    """Поля профиля (S32b–c, S34). Правки опубликованного — сразу, текст — на пост-модерацию."""
+    """Поля профиля (S32a–c, S34). Правки опубликованного — сразу, текст — на пост-модерацию;
+    тип — только у черновика."""
     await edit(
         EditProfileCommand(
             actor_id=principal.user_id,
             expected_version=expected_version,
+            kind=body.kind,
             display_name=body.display_name,
             headline=body.headline,
             about=body.about,

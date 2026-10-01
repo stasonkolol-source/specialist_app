@@ -145,6 +145,20 @@ def test_casual_becoming_pro_is_reviewed_again() -> None:
     assert [type(e) for e in profile.pull_events()] == [ProfileHidden, ProfileSubmitted]
 
 
+def test_draft_changes_kind_but_a_reviewed_profile_does_not() -> None:
+    profile = draft()
+
+    assert profile.change_kind(ProfileKind.CASUAL)
+    assert (profile.kind, profile.listed_in_catalog) == (ProfileKind.CASUAL, False)
+    assert not profile.change_kind(ProfileKind.CASUAL)
+    assert profile.pull_events() == []
+
+    reviewed = ready(ProfileKind.CASUAL)
+    reviewed.submit(now=NOW)
+    with pytest.raises(ProfileStateError):
+        reviewed.change_kind(ProfileKind.PRO)  # только become_pro — с повторной проверкой
+
+
 def test_published_edits_are_events_for_post_moderation() -> None:
     profile = ready()
     profile.submit(now=NOW)

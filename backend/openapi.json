@@ -838,7 +838,7 @@
           "specialists"
         ],
         "summary": "Update My Profile",
-        "description": "Поля профиля (S32b–c, S34). Правки опубликованного — сразу, текст — на пост-модерацию.",
+        "description": "Поля профиля (S32a–c, S34). Правки опубликованного — сразу, текст — на пост-модерацию;\nтип — только у черновика.",
         "operationId": "specialists_update_my_profile",
         "security": [
           {
@@ -3269,6 +3269,16 @@
       },
       "ProfileUpdateIn": {
         "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProfileKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "display_name": {
             "anyOf": [
               {

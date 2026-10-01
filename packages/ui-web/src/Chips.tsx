@@ -1,4 +1,5 @@
 // .chips / .chips.wrap + .chip / .chip.on / .chip.acc / .chip .n; .avs + .ava.xs; .price / .price.lg.
+// Чип-раскрывашка («Другие категории», «Ещё 4 района» S32b–c) — со стрелкой и aria-expanded.
 import type { ReactNode } from 'react';
 
 import type { AvatarPalette } from './Avatar.tsx';
@@ -39,6 +40,8 @@ export interface ChipProps {
   icon?: IconName;
   /** Счётчик .n справа. */
   count?: number;
+  /** Чип раскрывает список: стрелка справа и aria-expanded вместо aria-pressed. */
+  expanded?: boolean;
   onClick?: () => void;
   href?: string;
 }
@@ -49,6 +52,7 @@ export function Chip({
   accent = false,
   icon,
   count,
+  expanded,
   onClick,
   href,
 }: ChipProps) {
@@ -70,6 +74,9 @@ export function Chip({
           {count}
         </span>
       )}
+      {expanded !== undefined && (
+        <Icon name="chev-down" size={16} className={cx(expanded && 'rotate-180')} />
+      )}
     </>
   );
   if (href) {
@@ -80,7 +87,13 @@ export function Chip({
     );
   }
   return (
-    <button type="button" onClick={onClick} aria-pressed={selected} className={classes}>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={expanded === undefined ? selected : undefined}
+      aria-expanded={expanded}
+      className={classes}
+    >
       {content}
     </button>
   );

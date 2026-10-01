@@ -114,6 +114,20 @@ describe('Chips, AvatarStack, Price', () => {
     expect(screen.getByText('5 000 RSD').className).toContain('text-price-lg');
     expect(await a11yViolations(container)).toEqual([]);
   });
+
+  it('чип-раскрывашка сообщает, раскрыт ли список', () => {
+    const { rerender } = render(<Chip expanded={false}>Ещё 4 района</Chip>);
+    const chip = screen.getByRole('button', { name: 'Ещё 4 района' });
+    expect([chip.getAttribute('aria-expanded'), chip.hasAttribute('aria-pressed')]).toEqual([
+      'false',
+      false,
+    ]);
+
+    rerender(<Chip expanded>Свернуть</Chip>);
+    expect(screen.getByRole('button', { name: 'Свернуть' }).getAttribute('aria-expanded')).toBe(
+      'true',
+    );
+  });
 });
 
 describe('Photo', () => {
