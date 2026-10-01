@@ -12,6 +12,24 @@ from app.platform.kernel.events import DomainEvent
 from app.platform.kernel.ids import CaseId, UserId
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ModerationRequested(DomainEvent):
+    """Объект ждёт проверки (ARCHITECTURE §14.1): новый или изменённый профиль, заявка,
+    отклик, сообщение, отзыв.
+
+    Публикует модуль-владелец в транзакции, где объект стал «на проверке»; подписчик —
+    `moderation.auto_check`. Текст и файлы конвейер берёт у модуля через адаптер цели
+    (moderation/infrastructure/targets): в событии только ссылка. `entity_type` — как
+    `moderation.cases.entity_type`; `edit` — правка уже опубликованного.
+    """
+
+    event_type = "moderation.ModerationRequested"
+    entity_type: str
+    entity_id: UUID
+    author_id: UserId
+    edit: bool = False
+
+
 class ModerationDecision(StrEnum):
     APPROVED = "approved"
     REJECTED = "rejected"

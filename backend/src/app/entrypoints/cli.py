@@ -7,6 +7,7 @@ import asyncio
 import json
 import secrets
 import tomllib
+from collections.abc import Awaitable, Callable
 from enum import StrEnum
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
@@ -38,6 +39,9 @@ from app.platform.settings import (
 )
 
 if TYPE_CHECKING:  # модули грузятся лениво: CLI без БД не должен их импортировать
+    from dishka import AsyncContainer
+
+    from app.entrypoints._moderation_cli import CliOutcome
     from app.entrypoints._notify_test import NotifyTestOutcome
     from app.modules.identity.application.dto import OnboardingReset, StaffRoleGranted
 
@@ -431,6 +435,87 @@ async def _staff_grant(telegram_id: int, role: str) -> StaffRoleGranted | None:
             return await grant(GrantStaffRoleCommand(telegram_id=telegram_id, role=Role(role)))
     finally:
         await container.close()
+
+
+class Verdict(StrEnum):
+    APPROVE = "approve"
+    REJECT = "reject"
+
+
+class SeverityOption(StrEnum):
+    """Тяжесть нарушения для лестницы санкций (moderation/domain/sanctions.py)."""
+
+    MINOR = "minor"
+    SERIOUS = "serious"
+    CRITICAL = "critical"
+
+
+@app.command("moderation-queue")
+def moderation_queue(
+    limit: Annotated[int, typer.Option("--limit", min=1, max=500, help="Сколько кейсов")] = 30,
+) -> None:
+    """Открытые кейсы модерации по сроку (до чата модераторов 2.5b и админки 2.7b)."""
+    outcome = asyncio.run(_moderation(lambda c: _queue(c, limit)))
+    for line in outcome.lines:
+        typer.echo(line)
+
+
+@app.command("moderation-decide")
+def moderation_decide(
+    case: Annotated[str, typer.Argument(help="id кейса из moderation-queue")],
+    verdict: Annotated[Verdict, typer.Argument(help="approve — нарушения нет, reject — есть")],
+    by: Annotated[int, typer.Option("--by", help="Telegram id модератора (staff-grant)")],
+    reason: Annotated[
+        str | None, typer.Option("--reason", help="Код причины: contact_leak, spam_ad, …")
+    ] = None,
+    severity: Annotated[
+        SeverityOption | None, typer.Option("--severity", help="Санкция по лестнице")
+    ] = None,
+    note: Annotated[str | None, typer.Option("--note", help="Заметка для журнала")] = None,
+) -> None:
+    """Решение по кейсу модерации: approve публикует объект, reject скрывает (DEVELOPMENT_PLAN
+    2.6). При reject нужен --reason; --severity назначает ступень лестницы санкций."""
+    outcome = asyncio.run(
+        _moderation(
+            lambda c: _decide(
+                c,
+                case_ref=case,
+                approve=verdict is Verdict.APPROVE,
+                by_telegram_id=by,
+                reason=reason,
+                severity=severity.value if severity else None,
+                note=note,
+            )
+        )
+    )
+    for line in outcome.lines:
+        typer.echo(line, err=not outcome.ok)
+    if not outcome.ok:
+        raise typer.Exit(code=1)
+
+
+async def _moderation(
+    run: Callable[[AsyncContainer], Awaitable[CliOutcome]],
+) -> CliOutcome:
+    from app.entrypoints._wiring import make_worker_container
+
+    container = make_worker_container(Settings())
+    try:
+        return await run(container)
+    finally:
+        await container.close()
+
+
+async def _queue(container: AsyncContainer, limit: int) -> CliOutcome:
+    from app.entrypoints._moderation_cli import moderation_queue as run_queue
+
+    return await run_queue(container, limit=limit)
+
+
+async def _decide(container: AsyncContainer, **kwargs: Any) -> CliOutcome:
+    from app.entrypoints._moderation_cli import moderation_decide as run_decide
+
+    return await run_decide(container, **kwargs)
 
 
 @app.command("notify-test")

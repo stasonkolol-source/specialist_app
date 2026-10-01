@@ -117,6 +117,10 @@ class RestrictionRepository(Protocol):
         """UserNotFoundError — пользователя нет. Нужен активный UoW."""
         ...
 
+    async def lift_for_case(self, case_id: CaseId, *, now: datetime) -> int:
+        """Снять неснятые санкции кейса (`lifted_at`). Сколько снято. Нужен активный UoW."""
+        ...
+
 
 class IdentityQuery(Protocol):
     async def user_summary(self, user_id: UserId) -> UserSummary | None: ...

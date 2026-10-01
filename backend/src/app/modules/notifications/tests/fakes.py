@@ -4,8 +4,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from app.modules.identity.api import Action, RestrictionIn, TelegramUserView, UserSummary
-from app.platform.kernel.ids import RestrictionId, UserId
+from app.platform.kernel.ids import CaseId, RestrictionId, UserId
 from app.platform.kernel.localized import Locale
+from app.platform.kernel.principal import Role
 
 
 @dataclass
@@ -43,4 +44,10 @@ class FakeIdentity:
         raise NotImplementedError
 
     async def record_violation(self, user_id: UserId) -> None:
+        raise NotImplementedError
+
+    async def roles(self, user_id: UserId) -> frozenset[Role]:
+        return frozenset()
+
+    async def lift_case_restrictions(self, case_id: CaseId) -> int:
         raise NotImplementedError

@@ -9,7 +9,7 @@ from datetime import timedelta
 import pytest
 from sqlalchemy import select, text
 
-from app.modules.identity.api import RestrictionIn
+from app.modules.identity.api import Action, RestrictionIn
 from app.modules.identity.application.use_cases import age_trust_levels
 from app.modules.identity.application.use_cases.age_trust_levels import AgeTrustLevelsCommand
 from app.modules.identity.application.use_cases.authenticate_telegram import (
@@ -22,7 +22,8 @@ from app.modules.identity.application.use_cases.revoke_restricted_sessions impor
 from app.modules.identity.domain.restriction import RestrictionKind
 from app.modules.identity.domain.trust import TrustLevel
 from app.modules.identity.infrastructure.models import SessionRow, UserRow
-from app.platform.kernel.ids import UserId
+from app.platform.kernel.errors import RestrictedError
+from app.platform.kernel.ids import CaseId, UserId, new_id
 from app.platform.kernel.principal import Role
 
 from .conftest import Identity, telegram_profile
@@ -180,3 +181,28 @@ async def test_staff_role_is_granted_once_and_audited(identity: Identity) -> Non
     assert [tuple(row) for row in audit] == [
         ("identity.role.granted", "system", {"role": "moderator"})
     ]
+
+
+async def test_approved_case_lifts_its_freeze_and_roles_are_readable(identity: Identity) -> None:
+    user_id = await registered(identity)
+    case_id = CaseId(new_id())
+    async with identity.uow:
+        await identity.facade.restrict(
+            RestrictionIn(
+                user_id=user_id,
+                kind=RestrictionKind.SUSPENDED,
+                reason_code="drug_courier",
+                case_id=case_id,
+            )
+        )
+    with pytest.raises(RestrictedError):
+        await identity.facade.ensure_allowed(user_id, Action.LOGIN)
+
+    async with identity.uow:
+        lifted = await identity.facade.lift_case_restrictions(case_id)
+        again = await identity.facade.lift_case_restrictions(case_id)
+
+    assert (lifted, again) == (1, 0)
+    await identity.facade.ensure_allowed(user_id, Action.LOGIN)
+    await identity.grant(user_id, Role.SUPPORT)
+    assert await identity.facade.roles(user_id) == frozenset({Role.SUPPORT})

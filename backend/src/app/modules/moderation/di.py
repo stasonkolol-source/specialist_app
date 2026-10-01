@@ -1,6 +1,7 @@
 """Сборка модуля moderation для dishka (ADR-0020 §7)."""
 
 from dishka import Provider, Scope, provide
+from prometheus_client import CollectorRegistry
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -8,9 +9,12 @@ from app.modules.media.api import LegalHold
 from app.modules.moderation.application.content_rules import ContentRulesChecker
 from app.modules.moderation.application.policy import PublishedModerationPolicy
 from app.modules.moderation.application.ports import (
+    AutoCheckMetrics,
+    CaseQueue,
     CaseRepository,
     CaseStats,
     ModerationPolicy,
+    ModerationTargets,
     RateLimitOverflows,
     RiskSignals,
     RuleSource,
@@ -19,11 +23,12 @@ from app.modules.moderation.application.ports import (
     VelocityCounter,
 )
 from app.modules.moderation.application.queries import ModerationQueries
+from app.modules.moderation.application.use_cases.auto_check import AutoCheck
 from app.modules.moderation.application.use_cases.decide_case import DecideCase
 from app.modules.moderation.application.use_cases.import_content_rules import (
     ImportContentRules,
 )
-from app.modules.moderation.application.use_cases.open_case import OpenCase
+from app.modules.moderation.application.use_cases.open_case import CaseOpener, OpenCase
 from app.modules.moderation.application.use_cases.record_rate_limit_signals import (
     RecordRateLimitSignals,
 )
@@ -34,9 +39,11 @@ from app.modules.moderation.infrastructure.cases import (
     SqlSanctionRepository,
 )
 from app.modules.moderation.infrastructure.legal_hold import CasesLegalHold
-from app.modules.moderation.infrastructure.queries import SqlCaseStats
+from app.modules.moderation.infrastructure.metrics import PrometheusAutoCheckMetrics
+from app.modules.moderation.infrastructure.queries import SqlCaseQueue, SqlCaseStats
 from app.modules.moderation.infrastructure.rate_limits import ValkeyRateLimitOverflows
 from app.modules.moderation.infrastructure.rules import CachedRuleSource, SqlRuleWriter
+from app.modules.moderation.infrastructure.targets import TargetRegistry
 from app.modules.moderation.infrastructure.velocity import ValkeyVelocityCounter
 from app.platform.config.port import LegalVersions
 from app.platform.legal.port import LegalLibrary
@@ -68,12 +75,24 @@ class ModerationProvider(Provider):
     def policy(self, versions: LegalVersions, library: LegalLibrary) -> ModerationPolicy:
         return PublishedModerationPolicy(versions, library)
 
+    @provide(scope=Scope.APP)
+    def targets(self) -> ModerationTargets:
+        """Адаптеры целей добавляют контентные модули в своих шагах (2.8a, 5.1, …)."""
+        return TargetRegistry({})
+
+    @provide(scope=Scope.APP)
+    def auto_check_metrics(self, registry: CollectorRegistry) -> AutoCheckMetrics:
+        return PrometheusAutoCheckMetrics(registry)
+
     checker = provide(ContentRulesChecker, scope=Scope.APP)
 
     cases = provide(SqlCaseRepository, provides=CaseRepository)
     sanctions = provide(SqlSanctionRepository, provides=SanctionRepository)
     signals = provide(SqlRiskSignals, provides=RiskSignals)
     stats = provide(SqlCaseStats, provides=CaseStats)
+    case_queue = provide(SqlCaseQueue, provides=CaseQueue)
+    opener = provide(CaseOpener)
+    auto_check = provide(AutoCheck)
     legal_hold = provide(CasesLegalHold, provides=LegalHold)
     """media.purge_deleted не стирает доказательства открытых кейсов (ADR-0016 §6)."""
     queries = provide(ModerationQueries)

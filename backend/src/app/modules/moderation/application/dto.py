@@ -1,6 +1,7 @@
 """DTO модуля moderation (ADR-0020 §6)."""
 
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
 
 from app.modules.moderation.domain.cases import CaseStatus
@@ -60,3 +61,17 @@ class QueueSla:
     def in_time_share(self) -> float | None:
         """Доля решённых в срок; None — решённых за период нет."""
         return self.decided_in_time / self.decided if self.decided else None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class OpenCaseView:
+    """Открытый кейс для `cli moderation-queue` (до чата модераторов 2.5b)."""
+
+    id: CaseId
+    queue: Queue
+    entity_type: str
+    entity_id: UUID
+    trigger: str
+    status: CaseStatus
+    due_at: datetime
+    signals: tuple[str, ...]
