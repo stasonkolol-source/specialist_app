@@ -37,7 +37,8 @@ const KINDS: readonly { kind: ProfileKind; icon: IconName; palette?: AvatarPalet
   { kind: 'casual', icon: 'clock', palette: 3 },
 ];
 
-const NEEDS = ['needs1', 'needs2', 'needs3'] as const;
+/** Что спросит мастер. Телефона нет: подтверждение — в v1, без лишних шагов (решение 2026-10-01). */
+const NEEDS = ['needs1', 'needs2'] as const;
 
 export function TypeScreen() {
   const { t } = useTranslation('specialist');
