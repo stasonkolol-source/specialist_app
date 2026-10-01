@@ -2,6 +2,8 @@
 // тот же для MSW в Vitest (testing/msw.ts) и page.route в e2e (e2e/api.ts): мастер S32a–c
 // проходит по нему от «профиля нет» до «на проверке».
 import type {
+  CompletenessOut,
+  HintOut,
   ProfileCreateIn,
   ProfileOut,
   ProfileUpdateIn,
@@ -33,7 +35,7 @@ export class ProfileBackend {
 
   constructor(profile: ProfileOut | null = null, services: ServiceOut[] = []) {
     this.services = [...services];
-    this.profile = profile && this.withMissing(profile);
+    this.profile = profile && this.refresh(profile);
   }
 
   /** Ответ на запрос кабинета `/me/profile*`; null — запрос не к кабинету. */
@@ -83,7 +85,7 @@ export class ProfileBackend {
 
   private create(body: ProfileCreateIn): BackendReply {
     if (this.profile) return problem(409, 'profile_exists');
-    this.profile = this.withMissing({
+    this.profile = this.refresh({
       ...PROFILE_DRAFT,
       kind: body.kind,
       city_id: body.city_id,
@@ -104,7 +106,7 @@ export class ProfileBackend {
   }
 
   private save(profile: ProfileOut): BackendReply {
-    this.profile = this.withMissing({ ...profile, version: profile.version + 1 });
+    this.profile = this.refresh({ ...profile, version: profile.version + 1 });
     return this.ok(this.profile);
   }
 
@@ -123,7 +125,7 @@ export class ProfileBackend {
       is_active: true,
     };
     this.services.push(service);
-    this.profile = this.withMissing(profile);
+    this.profile = this.refresh(profile);
     return { status: 201, body: service };
   }
 
@@ -134,14 +136,16 @@ export class ProfileBackend {
     const next: ServiceOut = {
       ...current,
       title: body.title ?? current.title,
+      description: body.description ?? current.description,
       price_min: body.price_min == null ? current.price_min : { amount: body.price_min, currency: 'RSD' },
     }; // prettier-ignore
     this.services[index] = next;
+    if (this.profile) this.profile = this.refresh(this.profile);
     return this.ok(next);
   }
 
-  /** «Чего не хватает» — как ProfileViews backend: «Специалисту» нужен и прайс. */
-  private withMissing(profile: ProfileOut): ProfileOut {
+  /** «Чего не хватает» и полнота — как ProfileViews backend: «Специалисту» нужен и прайс. */
+  private refresh(profile: ProfileOut): ProfileOut {
     const missing: string[] = [];
     if (profile.category_ids.length === 0) missing.push('category_ids');
     if (!profile.headline) missing.push('headline');
@@ -150,6 +154,35 @@ export class ProfileBackend {
       missing.push('area_ids');
     }
     if (profile.kind === 'pro' && this.services.length === 0) missing.push('services');
-    return { ...profile, missing };
+    return { ...profile, missing, completeness: completeness(profile, this.services) };
   }
+}
+
+/** «О себе» хотя бы в пару предложений — как ABOUT_ENOUGH backend. */
+const ABOUT_ENOUGH = 80;
+
+/** Полнота профиля — как specialists/domain/completeness.py: веса проверок и подсказки по порядку. */
+function completeness(profile: ProfileOut, services: readonly ServiceOut[]): CompletenessOut {
+  const active = services.filter((service) => service.is_active);
+  const undescribed = active.filter((service) => !service.description?.trim()).length;
+  const travels = profile.work_modes.includes('at_client');
+  const hint = (code: string, count: number | null = null): HintOut => ({ code, count });
+  const checks: [number, boolean, HintOut][] = [
+    [15, profile.category_ids.length > 0, hint('category_ids')],
+    [15, Boolean(profile.headline), hint('headline')],
+    [20, (profile.about ?? '').trim().length >= ABOUT_ENOUGH, hint('about')],
+    [10, profile.languages.length > 0, hint('languages')],
+    [15, profile.work_modes.length > 0 && (profile.district_ids.length > 0 || !travels), hint('area_ids')],
+  ]; // prettier-ignore
+  if (profile.kind === 'pro') {
+    checks.push([15, active.length > 0, hint('services')]);
+    const described = active.length > 0 && undescribed === 0;
+    checks.push([10, described, hint('service_descriptions', undescribed)]);
+  }
+  const total = checks.reduce((sum, [weight]) => sum + weight, 0);
+  const done = checks.reduce((sum, [weight, ok]) => sum + (ok ? weight : 0), 0);
+  const hints = checks
+    .filter(([, ok, item]) => !ok && (item.code !== 'service_descriptions' || active.length > 0))
+    .map(([, , item]) => item);
+  return { percent: Math.floor((done * 100) / total), hints };
 }

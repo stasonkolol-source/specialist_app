@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
+from app.modules.specialists.domain.completeness import Completeness
 from app.modules.specialists.domain.profile import (
     Language,
     ProfileId,
@@ -35,3 +36,11 @@ class ProfileView:
     """Что заполнить перед отправкой на проверку."""
     published_at: datetime | None
     version: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CabinetView:
+    """Свой профиль в кабинете (S33): профиль с тем, чего не хватает для проверки, и полнота."""
+
+    profile: ProfileView
+    completeness: Completeness

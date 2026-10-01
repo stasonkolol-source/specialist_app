@@ -328,6 +328,12 @@ export const PROFILE_DRAFT: ProfileOut = {
   listed_in_catalog: true,
   rejection_reason: null,
   missing: ['category_ids', 'headline', 'work_modes', 'services'],
+  completeness: {
+    percent: 0,
+    hints: ['category_ids', 'headline', 'about', 'languages', 'area_ids', 'services'].map(
+      (code) => ({ code, count: null }),
+    ),
+  },
   published_at: null,
   version: 1,
 };
@@ -343,6 +349,7 @@ export const PROFILE_FILLED: ProfileOut = {
   travel_radius_km: 5,
   work_modes: ['at_client'],
   missing: [],
+  completeness: { percent: 90, hints: [{ code: 'service_descriptions', count: 1 }] },
   version: 4,
 }; // prettier-ignore
 

@@ -4,7 +4,7 @@ specialists спрашивает о прайсе через свой порт, �
 from uuid import UUID
 
 from app.modules.pricing.application.ports import ServiceRepository
-from app.modules.specialists.api import PriceList
+from app.modules.specialists.api import PriceList, PriceSummary
 
 
 class ServicesPriceList(PriceList):
@@ -13,3 +13,6 @@ class ServicesPriceList(PriceList):
 
     async def has_items(self, profile_id: UUID) -> bool:
         return await self._services.has_active(profile_id)
+
+    async def summary(self, profile_id: UUID) -> PriceSummary:
+        return await self._services.summary(profile_id)

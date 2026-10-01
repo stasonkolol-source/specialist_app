@@ -60,7 +60,9 @@ export function useDraftProfile({ allowMissing = false }: { allowMissing?: boole
 }
 
 /** MainButton шага в цветах макета (акцент ui.css), а не в цвете кнопки темы Telegram. */
-export function useStepButton(props: Pick<BottomButtonProps, 'text' | 'onClick' | 'loading'>) {
+export function useStepButton(
+  props: Pick<BottomButtonProps, 'text' | 'onClick' | 'loading' | 'visible'>,
+) {
   const scheme = useColorScheme();
   const palette = tokens.color[scheme];
   return useMainButton({ ...props, color: palette.accent, textColor: palette['accent-ink'] });

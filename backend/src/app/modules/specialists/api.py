@@ -36,12 +36,25 @@ class ProfileRef:
     status: str
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PriceSummary:
+    """Прайс профиля для полноты в кабинете (S33): видимые позиции и сколько из них без
+    описания."""
+
+    items: int = 0
+    without_description: int = 0
+
+
 class PriceList(Protocol):
     """Прайс профиля — его ведёт pricing (выше по DAG): specialists спрашивает через этот порт,
     pricing реализует, связывает dishka (как LegalHold у media)."""
 
     async def has_items(self, profile_id: UUID) -> bool:
         """Есть ли видимая позиция прайса: без неё «Специалиста» на проверку не отправить."""
+        ...
+
+    async def summary(self, profile_id: UUID) -> PriceSummary:
+        """Сколько видимых позиций и сколько из них без описания."""
         ...
 
 

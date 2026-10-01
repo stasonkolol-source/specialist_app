@@ -11,7 +11,7 @@ import {
 import type { FunctionComponent } from 'react';
 
 import { ONBOARDING_PATHS, onboardingSearch } from '../features/onboarding/index.ts';
-import { BECOME_PATHS, becomeSearch } from '../features/specialist/index.ts';
+import { BECOME_PATHS, CABINET_PATHS, becomeSearch } from '../features/specialist/index.ts';
 import { LEGAL_PATH, LegalScreen } from '../features/service/s48-legal/index.ts';
 import { RESTRICTED_PATH, RestrictedRoute } from '../features/service/s49-system/index.ts';
 import { AppShell } from '../features/shell/index.ts';
@@ -99,6 +99,21 @@ const becomeArea = createRoute({
   component: screen(() => import('../features/specialist/s32c-area/index.ts'), 'AreaScreen'),
 });
 
+// Кабинет специалиста S33 (2.10): из карточки на S31. Правка профиля S34 — изменение данных
+// на площадке: без согласия с правилами — S02c
+const cabinet = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CABINET_PATHS.home,
+  component: screen(() => import('../features/specialist/s33-cabinet/index.ts'), 'CabinetScreen'),
+});
+
+const cabinetProfile = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CABINET_PATHS.profile,
+  beforeLoad: requireConsent,
+  component: screen(() => import('../features/specialist/s34-edit/index.ts'), 'EditProfileScreen'),
+});
+
 // S42 из профиля; нажатие на уведомление ведёт по его deep link (routes/notifications.tsx)
 const notifications = createRoute({
   getParentRoute: () => rootRoute,
@@ -160,6 +175,8 @@ export const routeTree = rootRoute.addChildren([
   becomeType,
   becomeAbout,
   becomeArea,
+  cabinet,
+  cabinetProfile,
   notifications,
   onboardingLanguage,
   onboardingIntent,

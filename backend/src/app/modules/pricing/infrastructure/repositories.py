@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.pricing.domain.service import Service, ServiceId
 from app.modules.pricing.errors import ServiceNotFoundError
 from app.modules.pricing.infrastructure.models import ServiceRow
+from app.modules.specialists.api import PriceSummary
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import CategoryId
 
@@ -82,6 +83,16 @@ class SqlServiceRepository:
             ServiceRow.is_active,
         )
         return int((await self._session.execute(stmt)).scalar_one()) > 0
+
+    async def summary(self, profile_id: UUID) -> PriceSummary:
+        undescribed = func.coalesce(func.btrim(ServiceRow.description), "") == ""
+        stmt = select(func.count(), func.count().filter(undescribed)).where(
+            ServiceRow.profile_id == profile_id,
+            ServiceRow.deleted_at.is_(None),
+            ServiceRow.is_active,
+        )
+        items, without_description = (await self._session.execute(stmt)).one()
+        return PriceSummary(items=int(items), without_description=int(without_description))
 
 
 def _to_domain(row: ServiceRow) -> Service:

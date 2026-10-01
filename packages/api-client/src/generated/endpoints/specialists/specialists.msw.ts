@@ -42,6 +42,15 @@ export const getSpecialistsGetMyProfileResponseMock = (
   missing: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
+  completeness: {
+    percent: faker.number.int(),
+    hints: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        count: faker.helpers.arrayElement([faker.number.int(), null]),
+      }),
+    ),
+  },
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -80,6 +89,15 @@ export const getSpecialistsCreateMyProfileResponseMock = (
   missing: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
+  completeness: {
+    percent: faker.number.int(),
+    hints: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        count: faker.helpers.arrayElement([faker.number.int(), null]),
+      }),
+    ),
+  },
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -118,6 +136,15 @@ export const getSpecialistsUpdateMyProfileResponseMock = (
   missing: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
+  completeness: {
+    percent: faker.number.int(),
+    hints: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        count: faker.helpers.arrayElement([faker.number.int(), null]),
+      }),
+    ),
+  },
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -156,6 +183,15 @@ export const getSpecialistsSetMyCategoriesResponseMock = (
   missing: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
+  completeness: {
+    percent: faker.number.int(),
+    hints: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        count: faker.helpers.arrayElement([faker.number.int(), null]),
+      }),
+    ),
+  },
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -194,6 +230,15 @@ export const getSpecialistsSetMyAreasResponseMock = (
   missing: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
+  completeness: {
+    percent: faker.number.int(),
+    hints: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        count: faker.helpers.arrayElement([faker.number.int(), null]),
+      }),
+    ),
+  },
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -232,6 +277,15 @@ export const getSpecialistsSubmitMyProfileResponseMock = (
   missing: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
+  completeness: {
+    percent: faker.number.int(),
+    hints: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        count: faker.helpers.arrayElement([faker.number.int(), null]),
+      }),
+    ),
+  },
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -270,6 +324,15 @@ export const getSpecialistsHideMyProfileResponseMock = (
   missing: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
+  completeness: {
+    percent: faker.number.int(),
+    hints: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        count: faker.helpers.arrayElement([faker.number.int(), null]),
+      }),
+    ),
+  },
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -308,6 +371,15 @@ export const getSpecialistsShowMyProfileResponseMock = (
   missing: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
+  completeness: {
+    percent: faker.number.int(),
+    hints: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        count: faker.helpers.arrayElement([faker.number.int(), null]),
+      }),
+    ),
+  },
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -346,6 +418,15 @@ export const getSpecialistsBecomeProResponseMock = (
   missing: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
+  completeness: {
+    percent: faker.number.int(),
+    hints: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        count: faker.helpers.arrayElement([faker.number.int(), null]),
+      }),
+    ),
+  },
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
