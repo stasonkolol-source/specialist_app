@@ -34,48 +34,57 @@ class OpenCaseCommand:
     appeal_of: CaseId | None = None
 
 
+class CaseOpener:
+    """Открыть кейс или дописать повод в открытый — в транзакции вызывающего (автопроверка
+    открывает кейс вместе с публикацией или скрытием объекта)."""
+
+    def __init__(self, cases: CaseRepository, audit: AuditLog, clock: Clock) -> None:
+        self._cases, self._audit, self._clock = cases, audit, clock
+
+    async def open(self, cmd: OpenCaseCommand) -> CaseId:
+        now = self._clock.now()
+        case = await self._cases.open_for_entity(cmd.entity_type, cmd.entity_id)
+        if case is not None:
+            case.add_trigger(
+                queue=cmd.queue,
+                trigger=cmd.trigger,
+                now=now,
+                details=cmd.details,
+                media_ids=cmd.media_ids,
+            )
+            await self._cases.save(case)
+            return case.id
+        case = Case.open(
+            queue=cmd.queue,
+            entity_type=cmd.entity_type,
+            entity_id=cmd.entity_id,
+            subject_id=cmd.subject_id,
+            trigger=cmd.trigger,
+            now=now,
+            details=cmd.details,
+            media_ids=cmd.media_ids,
+            appeal_of=cmd.appeal_of,
+        )
+        await self._cases.add(case)
+        await self._audit.record(
+            AuditEntry(
+                action="moderation.case.opened",
+                actor_kind=ActorKind.SYSTEM,
+                entity_type="moderation.case",
+                entity_id=case.id,
+                changes={"queue": case.queue.value, "trigger": case.trigger.value},
+            )
+        )
+        return case.id
+
+
 class OpenCase:
-    def __init__(
-        self, uow: UnitOfWork, cases: CaseRepository, audit: AuditLog, clock: Clock
-    ) -> None:
-        self._uow, self._cases, self._audit, self._clock = uow, cases, audit, clock
+    def __init__(self, uow: UnitOfWork, opener: CaseOpener) -> None:
+        self._uow, self._opener = uow, opener
 
     async def __call__(self, cmd: OpenCaseCommand) -> CaseId:
         return await retry_on_conflict(lambda: self._open(cmd))
 
     async def _open(self, cmd: OpenCaseCommand) -> CaseId:
-        now = self._clock.now()
         async with self._uow:
-            case = await self._cases.open_for_entity(cmd.entity_type, cmd.entity_id)
-            if case is not None:
-                case.add_trigger(
-                    queue=cmd.queue,
-                    trigger=cmd.trigger,
-                    now=now,
-                    details=cmd.details,
-                    media_ids=cmd.media_ids,
-                )
-                await self._cases.save(case)
-                return case.id
-            case = Case.open(
-                queue=cmd.queue,
-                entity_type=cmd.entity_type,
-                entity_id=cmd.entity_id,
-                subject_id=cmd.subject_id,
-                trigger=cmd.trigger,
-                now=now,
-                details=cmd.details,
-                media_ids=cmd.media_ids,
-                appeal_of=cmd.appeal_of,
-            )
-            await self._cases.add(case)
-            await self._audit.record(
-                AuditEntry(
-                    action="moderation.case.opened",
-                    actor_kind=ActorKind.SYSTEM,
-                    entity_type="moderation.case",
-                    entity_id=case.id,
-                    changes={"queue": case.queue.value, "trigger": case.trigger.value},
-                )
-            )
-        return case.id
+            return await self._opener.open(cmd)

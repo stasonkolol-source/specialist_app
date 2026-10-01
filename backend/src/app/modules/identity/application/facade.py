@@ -21,7 +21,8 @@ from app.modules.identity.domain.user import User, UserStatus
 from app.platform.contracts.events.identity import UserRestricted
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
-from app.platform.kernel.ids import RestrictionId, UserId
+from app.platform.kernel.ids import CaseId, RestrictionId, UserId
+from app.platform.kernel.principal import Role
 
 
 class IdentityFacade(IdentityApi):
@@ -78,6 +79,13 @@ class IdentityFacade(IdentityApi):
         )
         await self._penalize(user, now=now)
         return restriction_id
+
+    async def roles(self, user_id: UserId) -> frozenset[Role]:
+        return await self._query.roles(user_id)
+
+    async def lift_case_restrictions(self, case_id: CaseId) -> int:
+        self._uow.require_active()
+        return await self._restrictions.lift_for_case(case_id, now=self._clock.now())
 
     async def record_violation(self, user_id: UserId) -> None:
         self._uow.require_active()

@@ -33,6 +33,8 @@
 | `make cli ARGS='--help'` | Служебные команды backend |
 | `make cli ARGS='dev-reset-user <telegram_id>'` | Только dev: пройти онбординг Mini App заново — город, намерение и согласия сброшены |
 | `make cli ARGS='staff-grant --tg-id <id> --role moderator'` | Выдать роль персонала (`moderator`, `support`, `admin`); человек должен хотя бы раз открыть бот |
+| `make cli ARGS='moderation-queue'` | Открытые кейсы модерации по сроку (до чата модераторов) |
+| `make cli ARGS='moderation-decide <case> approve --by <tg_id>'` | Решение по кейсу: `approve` публикует объект, `reject --reason <код> [--severity minor]` скрывает и назначает санкцию |
 
 ## Секреты
 

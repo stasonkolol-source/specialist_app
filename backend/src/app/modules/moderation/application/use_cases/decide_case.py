@@ -8,6 +8,8 @@
   ничего не запрещает и лишь опускает уровень доверия (`record_violation`).
 - Кейс с жалобой среди поводов, решённый `rejected`, — подтверждённая жалоба: сигнал риска
   `report_confirmed` и нарушение для уровня доверия.
+- Объект кейса (2.6): одобрение публикует его, если он ждал проверки, и снимает заморозку,
+  которую поставила автопроверка; отказ скрывает его. Через адаптер цели — фасад модуля.
 - Решение и санкция пишутся в audit_log. Роль модератора проверяет точка входа (2.5b, 2.7).
 """
 
@@ -19,10 +21,11 @@ from app.modules.moderation.application.dto import CaseDecision
 from app.modules.moderation.application.ports import (
     CaseRepository,
     ModerationPolicy,
+    ModerationTargets,
     RiskSignals,
     SanctionRepository,
 )
-from app.modules.moderation.domain.cases import Case
+from app.modules.moderation.domain.cases import Case, CaseTrigger
 from app.modules.moderation.domain.risk import RiskSignal, RiskSignalKind
 from app.modules.moderation.domain.sanctions import (
     EFFECTS,
@@ -61,12 +64,14 @@ class DecideCase:
         sanctions: SanctionRepository,
         signals: RiskSignals,
         identity: IdentityApi,
+        targets: ModerationTargets,
         policy: ModerationPolicy,
         audit: AuditLog,
         clock: Clock,
     ) -> None:
         self._uow, self._cases, self._sanctions, self._signals = uow, cases, sanctions, signals
-        self._identity, self._policy, self._audit, self._clock = identity, policy, audit, clock
+        self._identity, self._targets, self._policy = identity, targets, policy
+        self._audit, self._clock = audit, clock
 
     async def __call__(self, cmd: DecideCaseCommand) -> CaseDecision:
         if cmd.severity is not None and cmd.verdict is not ModerationDecision.REJECTED:
@@ -90,6 +95,7 @@ class DecideCase:
                 note=cmd.note,
             )
             await self._cases.save(case)
+            await self._apply_to_target(case, cmd.verdict)
             restriction_id = None
             if step is not None:
                 restriction_id = await self._impose(case, step, cmd.moderator_id, now=now)
@@ -113,6 +119,19 @@ class DecideCase:
         return CaseDecision(
             case_id=case.id, status=case.status, sanction=step, restriction_id=restriction_id
         )
+
+    async def _apply_to_target(self, case: Case, verdict: ModerationDecision) -> None:
+        if case.trigger is CaseTrigger.APPEAL:
+            return  # итог апелляции — 2.5b
+        if verdict is ModerationDecision.APPROVED:
+            await self._identity.lift_case_restrictions(case.id)  # заморозка автопроверки
+        target = self._targets.get(case.entity_type)
+        if target is None:
+            return  # аккаунт или модуль, ещё не подключённый к конвейеру
+        if verdict is ModerationDecision.APPROVED:
+            await target.publish(case.entity_id)
+        else:
+            await target.hide(case.entity_id, reason_code=case.reason_code or "other")
 
     async def _impose(
         self, case: Case, step: SanctionStep, moderator_id: UserId | None, *, now: datetime

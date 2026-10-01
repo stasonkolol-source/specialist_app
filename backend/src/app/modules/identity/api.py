@@ -15,6 +15,7 @@ from app.modules.identity.errors import UserNotFoundError as UserNotFoundError
 from app.platform.contracts.events.identity import RestrictionKind as RestrictionKind
 from app.platform.kernel.ids import CaseId, RestrictionId, UserId
 from app.platform.kernel.localized import Locale
+from app.platform.kernel.principal import Role as Role
 
 
 class Action(StrEnum):
@@ -92,6 +93,15 @@ class IdentityApi(Protocol):
         (санкция — нарушение, ADR-0016 §2). InvalidRestrictionError — код причины не
         машинный или срок уже истёк; UserNotFoundError — нет пользователя.
         """
+        ...
+
+    async def roles(self, user_id: UserId) -> frozenset[Role]:
+        """Роли персонала (identity.user_roles): кнопки чата модераторов и команды CLI."""
+        ...
+
+    async def lift_case_restrictions(self, case_id: CaseId) -> int:
+        """Снять санкции, наложенные по кейсу (модератор одобрил то, что автопроверка
+        заморозила), в транзакции вызывающего. Сколько снято."""
         ...
 
     async def record_violation(self, user_id: UserId) -> None:
