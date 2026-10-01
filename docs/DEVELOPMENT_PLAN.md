@@ -356,7 +356,7 @@ gantt
 | 2.7a | Вход персонала | 1.1, 2.5a | K9, K30 | ожидает |
 | 2.7b | Админка: разделы и Admin API | 1.3b, 2.7a | K30, K31 (для stage) | ожидает |
 | 2.8a | Профили исполнителей (specialists) | 1.3b, 2.1, 2.6 | Q24 | на проверке |
-| 2.8b | Прайс (pricing) | 2.8a | — | ожидает |
+| 2.8b | Прайс (pricing) | 2.8a | — | на проверке |
 | 2.8c | Демо-данные: `seed-demo` | 2.2a, 2.8b | — | ожидает |
 | 2.9 | Mini App: S31, S32a–c, подтверждение телефона | 1.5b, 2.8b | — | ожидает |
 | 2.10 | Mini App: S33, S34, S38, S39 | 2.9 | — | ожидает |
@@ -1149,6 +1149,7 @@ gantt
 - **Backend.** Модуль `pricing`: `pricing.services`; типы цены fixed, from, range, hourly, per_unit, negotiable; только RSD (CHECK); `/me/profile/services*`, `PUT /me/profile/services/order`; событие `PriceListChanged`. `pro` без позиции прайса не отправляется на проверку (проверка в specialists через фасад pricing).
 - **Готово, когда.** API-тесты CRUD и порядка; `pro` без прайса → 409 при submit; покрытие ≥ 80%.
 - **Проверка.** `uv run pytest src/app/modules/pricing`; `make contract`.
+- **Сделано (2026-10-01).** `/me/profile/services*` (список, добавить, изменить с `clear` и «Скрыта» — `is_active`, удалить со сжатием порядка, порядок целиком), до 50 позиций, цены в пара; «Специалист» без видимой позиции прайса не уходит на проверку — `missing` содержит `services` и в 409 submit, и в GET /me/profile (порт `specialists.api.PriceList`, реализует pricing). `category_id` позиции — необязательный: первую позицию мастер S32c добавляет без группы.
 
 **2.8c. Демо-данные: `seed-demo`.**
 - **Зависит от.** 2.2a, 2.8b

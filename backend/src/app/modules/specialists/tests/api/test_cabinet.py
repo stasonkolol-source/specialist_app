@@ -19,7 +19,7 @@ async def test_wizard_builds_a_profile_and_sends_it_to_review(cabinet: Cabinet) 
     assert created.status_code == 201, created.text
     profile = created.json()
     assert (profile["kind"], profile["status"], profile["display_name"]) == ("pro", "draft", "Ana")
-    assert profile["missing"] == ["category_ids", "headline", "work_modes"]
+    assert profile["missing"] == ["category_ids", "headline", "work_modes", "services"]
     assert created.headers["etag"] == '"1"'
 
     edited = await cabinet.call(
@@ -37,8 +37,11 @@ async def test_wizard_builds_a_profile_and_sends_it_to_review(cabinet: Cabinet) 
     assert (await cabinet.call("PUT", "/categories", category_ids=[category])).status_code == 200
     areas = await cabinet.call("PUT", "/areas", district_ids=districts)
     assert areas.json()["district_ids"] == districts
-    assert areas.json()["missing"] == []
+    assert areas.json()["missing"] == ["services"]  # прайс — следующий шаг мастера
 
+    no_prices = await cabinet.call("POST", "/submit")
+    assert (no_prices.status_code, no_prices.json()["missing"]) == (409, ["services"])
+    await cabinet.add_service()  # первая позиция прайса (S32c)
     submitted = await cabinet.call("POST", "/submit")
 
     assert submitted.status_code == 200, submitted.text
@@ -68,7 +71,7 @@ async def test_incomplete_profile_is_not_sent(cabinet: Cabinet) -> None:
 
     assert response.status_code == 409
     assert response.json()["code"] == "profile_incomplete"
-    assert response.json()["missing"] == ["category_ids", "headline", "work_modes"]
+    assert response.json()["missing"] == ["category_ids", "headline", "work_modes", "services"]
 
 
 async def test_dictionaries_are_checked(cabinet: Cabinet) -> None:

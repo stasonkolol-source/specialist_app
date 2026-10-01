@@ -16,6 +16,7 @@ from app.modules.specialists.application.use_cases.set_profile_categories import
 )
 from app.modules.specialists.application.use_cases.show_profile import ShowProfile
 from app.modules.specialists.application.use_cases.submit_profile import SubmitProfile
+from app.modules.specialists.application.views import ProfileViews
 from app.modules.specialists.infrastructure.queries import SqlProfileQuery
 from app.modules.specialists.infrastructure.repositories import SqlProfileRepository
 
@@ -27,6 +28,7 @@ class SpecialistsProvider(Provider):
 
     profiles = provide(SqlProfileRepository, provides=ProfileRepository)
     query = provide(SqlProfileQuery, provides=ProfileQuery)
+    views = provide(ProfileViews)
     facade = provide(SpecialistsFacade, provides=SpecialistsApi)
     create_profile = provide(CreateProfile)
     edit_profile = provide(EditProfile)

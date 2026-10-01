@@ -4,8 +4,13 @@
 from dataclasses import dataclass
 
 from app.modules.identity.api import Action, IdentityApi
+from app.modules.specialists.api import PriceList
 from app.modules.specialists.application.ports import ProfileRepository
-from app.modules.specialists.application.profiles import own_profile, request_review
+from app.modules.specialists.application.profiles import (
+    ensure_price_list,
+    own_profile,
+    request_review,
+)
 from app.modules.specialists.domain.profile import Profile
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
@@ -24,15 +29,18 @@ class SubmitProfile:
         uow: UnitOfWork,
         profiles: ProfileRepository,
         identity: IdentityApi,
+        prices: PriceList,
         clock: Clock,
     ) -> None:
-        self._uow, self._profiles, self._identity, self._clock = uow, profiles, identity, clock
+        self._uow, self._profiles, self._identity = uow, profiles, identity
+        self._prices, self._clock = prices, clock
 
     async def __call__(self, cmd: SubmitProfileCommand) -> Profile:
         await self._identity.ensure_allowed(cmd.actor_id, Action.POST)
         now = self._clock.now()
         async with self._uow:
             profile = await own_profile(self._profiles, cmd.actor_id, cmd.expected_version)
+            await ensure_price_list(self._prices, profile)
             profile.submit(now=now)
             await self._profiles.save(profile)
             request_review(self._uow, profile, edit=False, now=now)

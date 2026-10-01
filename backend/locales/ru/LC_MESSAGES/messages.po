@@ -340,6 +340,19 @@ msgstr "Эту категорию выбрать нельзя."
 msgid "errors.district_not_allowed"
 msgstr "Этот район выбрать нельзя."
 
+# Прайс (DEVELOPMENT_PLAN 2.8b)
+msgid "errors.service_not_found"
+msgstr "Позиция прайса не найдена."
+
+msgid "errors.invalid_service"
+msgstr "Проверьте позицию прайса: название и цену."
+
+msgid "errors.price_list_full"
+msgstr "В прайсе уже {limit} позиций — больше добавить нельзя."
+
+msgid "errors.no_specialist_profile"
+msgstr "Сначала создайте профиль исполнителя."
+
 # Уведомления (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
 msgid "errors.notification_group_mandatory"
 msgstr "Служебные уведомления нельзя выключить: они о решениях модерации и ограничениях аккаунта."

@@ -20,6 +20,8 @@ from app.modules.moderation.application.use_cases.decide_case import (
 )
 from app.modules.moderation.domain.cases import EntityType
 from app.modules.moderation.domain.pipeline import Route
+from app.modules.pricing.application.use_cases.add_service import AddService, AddServiceCommand
+from app.modules.pricing.domain.service import PriceType
 from app.modules.specialists.application.use_cases.create_profile import (
     CreateProfile,
     CreateProfileCommand,
@@ -107,13 +109,23 @@ async def submitted_profile(container: AsyncContainer) -> tuple[UserId, UUID]:
             SetProfileCategoriesCommand(actor_id=user_id, category_ids=[category]),
         ),
         (SetProfileAreas, SetProfileAreasCommand(actor_id=user_id, district_ids=[district])),
+        (
+            AddService,
+            AddServiceCommand(
+                actor_id=user_id,
+                title="Вызов мастера",
+                price_type=PriceType.FROM,
+                price_min=100_000,
+            ),
+        ),
         (SubmitProfile, SubmitProfileCommand(actor_id=user_id)),
     ]
     profile_id = None
     for use_case, command in steps:
         async with container() as request:
-            profile = await (await request.get(use_case))(command)
-            profile_id = profile.id
+            result = await (await request.get(use_case))(command)
+            if use_case is not AddService:
+                profile_id = result.id
     assert profile_id is not None
     return user_id, profile_id
 

@@ -340,6 +340,19 @@ msgstr "Ову категорију није могуће изабрати."
 msgid "errors.district_not_allowed"
 msgstr "Овај део града није могуће изабрати."
 
+# Ценовник (DEVELOPMENT_PLAN 2.8b)
+msgid "errors.service_not_found"
+msgstr "Ставка ценовника није пронађена."
+
+msgid "errors.invalid_service"
+msgstr "Проверите ставку ценовника: назив и цену."
+
+msgid "errors.price_list_full"
+msgstr "Ценовник већ има {limit} ставки — више није могуће додати."
+
+msgid "errors.no_specialist_profile"
+msgstr "Прво направите профил извођача."
+
 # Обавештења (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
 msgid "errors.notification_group_mandatory"
 msgstr "Службена обавештења не могу да се искључе: тичу се одлука модерације и ограничења налога."

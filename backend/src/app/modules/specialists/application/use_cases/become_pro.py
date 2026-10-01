@@ -4,8 +4,13 @@
 from dataclasses import dataclass
 
 from app.modules.identity.api import Action, IdentityApi
+from app.modules.specialists.api import PriceList
 from app.modules.specialists.application.ports import ProfileRepository
-from app.modules.specialists.application.profiles import own_profile, request_review
+from app.modules.specialists.application.profiles import (
+    ensure_price_list,
+    own_profile,
+    request_review,
+)
 from app.modules.specialists.domain.profile import Profile, ProfileStatus
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
@@ -24,9 +29,11 @@ class BecomePro:
         uow: UnitOfWork,
         profiles: ProfileRepository,
         identity: IdentityApi,
+        prices: PriceList,
         clock: Clock,
     ) -> None:
-        self._uow, self._profiles, self._identity, self._clock = uow, profiles, identity, clock
+        self._uow, self._profiles, self._identity = uow, profiles, identity
+        self._prices, self._clock = prices, clock
 
     async def __call__(self, cmd: BecomeProCommand) -> Profile:
         await self._identity.ensure_allowed(cmd.actor_id, Action.POST)
@@ -34,6 +41,8 @@ class BecomePro:
         async with self._uow:
             profile = await own_profile(self._profiles, cmd.actor_id, cmd.expected_version)
             profile.become_pro(now=now)
+            if profile.reviewed_kind:
+                await ensure_price_list(self._prices, profile)
             await self._profiles.save(profile)
             if profile.status is ProfileStatus.PENDING_REVIEW and profile.reviewed_kind:
                 request_review(self._uow, profile, edit=False, now=now)
