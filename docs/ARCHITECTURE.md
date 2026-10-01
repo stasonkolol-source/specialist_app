@@ -884,6 +884,7 @@ CREATE TABLE identity.users (
   phone_verified_at timestamptz,
   identity_verified_at timestamptz,                        -- документ проверен (moderation)
   trust_level       smallint NOT NULL DEFAULT 0,           -- 0 новый … 3 доверенный (определения — §13.2)
+  trust_penalty_at  timestamptz,                           -- последнее нарушение: «14 дней без жалоб» считаются от него (2.5a)
   privacy           jsonb NOT NULL DEFAULT '{}',           -- {"show_telegram": false, "show_phone": false}
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now(),
@@ -931,7 +932,8 @@ CREATE TABLE identity.restrictions (
   id          uuid PRIMARY KEY DEFAULT uuidv7(),
   user_id     uuid NOT NULL REFERENCES identity.users(id),
   kind        text NOT NULL CHECK (kind IN
-              ('posting_blocked','responding_blocked','messaging_blocked','shadow_banned','suspended','banned')),
+              ('limited','posting_blocked','responding_blocked','messaging_blocked','shadow_banned','suspended','banned')),
+              -- limited — страйк 1: лимиты новичка на 7 дней, действий не запрещает (2.5a)
   reason_code text NOT NULL,
   source      text NOT NULL CHECK (source IN ('moderation','system')),
   case_id     uuid,                                -- moderation.cases (без FK: moderation выше по DAG)
@@ -1202,6 +1204,7 @@ CREATE TABLE media.assets (
   attempts          int NOT NULL DEFAULT 0,  -- запуски обработки: сбой не по вине файла повторяется до трёх раз
   deleted_at        timestamptz,
   hidden_at         timestamptz,          -- варианты удалённого файла перенесены из media в private
+  held_until        timestamptz,          -- legal hold: очистка ждёт до этого времени (открытый кейс или спор, 2.5a)
   purged_at         timestamptz           -- объекты удалённого файла отправлены на удаление (media.purge_deleted)
 );
 CREATE INDEX ON media.assets (owner_id, created_at DESC);
@@ -1621,23 +1624,44 @@ CREATE TABLE moderation.reports (
 );
 CREATE INDEX ON moderation.reports (due_at) WHERE status = 'open' AND is_legal_notice;
 
-CREATE TABLE moderation.cases (         -- единица работы модератора
-  id            uuid PRIMARY KEY DEFAULT uuidv7(),
-  entity_type   text NOT NULL,
-  entity_id     uuid NOT NULL,
-  trigger       text NOT NULL CHECK (trigger IN ('new_content','edit','report','auto_flag','verification','appeal')),
-  priority      smallint NOT NULL DEFAULT 2,       -- 0 critical … 3 low
-  status        text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','in_review','approved','rejected','escalated')),
-  auto_scores   jsonb NOT NULL DEFAULT '{}',       -- результаты правил, LLM/ML-классификаторов
-  assigned_to   uuid,
-  decided_by    uuid,
-  decision_code text,                              -- код причины (для уведомления пользователя и статистики)
-  notes         text,
-  created_at    timestamptz NOT NULL DEFAULT now(),
-  decided_at    timestamptz
+CREATE TABLE moderation.cases (         -- единица работы модератора (2.5a)
+  id             uuid PRIMARY KEY,                  -- uuidv7 приложения
+  queue          text NOT NULL CHECK (queue IN ('safety','fraud','premod','appeals')),  -- P0, P1, P2, апелляции
+  entity_type    text NOT NULL CHECK (entity_type IN ('user','profile','job','response','review','message','media')),
+  entity_id      uuid NOT NULL,
+  subject_id     uuid NOT NULL REFERENCES identity.users(id),  -- чей контент или аккаунт: ему решение и санкция
+  trigger        text NOT NULL CHECK (trigger IN ('new_content','edit','report','auto_flag','appeal')),  -- первый повод
+  status         text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','in_review','escalated','approved','rejected')),
+  due_at         timestamptz NOT NULL,              -- SLA §14.2: P0–P2 — в часы 08:00–23:00 по Белграду, апелляции — 72 ч
+  evidence       jsonb NOT NULL DEFAULT '[]',       -- поводы по порядку: правила, классификаторы, жалобы (без текста контента)
+  media_ids      uuid[] NOT NULL DEFAULT '{}',      -- файлы-доказательства: legal hold, пока кейс открыт
+  appeal_of      uuid REFERENCES moderation.cases(id),
+  assigned_to    uuid,
+  decided_by     uuid,                              -- NULL при решении — автопроверка
+  reason_code    varchar(64),                       -- машинный код причины: уведомление, санкция, статистика
+  policy_version varchar(32),                       -- версия политики модерации (content/legal/moderation)
+  decided_at     timestamptz,
+  notes          text,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now(),
+  CHECK ((status IN ('approved','rejected')) = (decided_at IS NOT NULL)),
+  CHECK (status <> 'rejected' OR reason_code IS NOT NULL)
 );
-CREATE INDEX ON moderation.cases (status, priority, created_at) WHERE status IN ('pending','in_review','escalated');
-CREATE UNIQUE INDEX ON moderation.cases (entity_type, entity_id) WHERE status IN ('pending','in_review');
+CREATE UNIQUE INDEX ON moderation.cases (entity_type, entity_id) WHERE status IN ('pending','in_review','escalated');
+CREATE INDEX ON moderation.cases (queue, due_at) WHERE status IN ('pending','in_review','escalated');
+CREATE INDEX ON moderation.cases USING gin (media_ids) WHERE status IN ('pending','in_review','escalated');
+
+CREATE TABLE moderation.sanctions (     -- ступени лестницы санкций §14.4 (2.5a); сама санкция — identity.restrictions
+  id             uuid PRIMARY KEY DEFAULT uuidv7(),
+  user_id        uuid NOT NULL REFERENCES identity.users(id),
+  case_id        uuid NOT NULL REFERENCES moderation.cases(id),
+  step           text NOT NULL CHECK (step IN ('warning','strike_1','strike_2','ban','suspension')),
+  restriction_id uuid REFERENCES identity.restrictions(id),  -- NULL у предупреждения
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  expires_at     timestamptz,                       -- предупреждения и страйки сгорают через 180 дней
+  revoked_at     timestamptz                        -- отменена апелляцией (2.5b)
+);
+CREATE INDEX ON moderation.sanctions (user_id, created_at DESC);
 
 CREATE TABLE moderation.verification_requests (
   id           uuid PRIMARY KEY DEFAULT uuidv7(),
@@ -1670,9 +1694,12 @@ CREATE TABLE moderation.content_rules (    -- стоп-слова, регуля�
 CREATE TABLE moderation.risk_signals (     -- сигналы риска для trust_level, антиспама и антифрода
   id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id    uuid NOT NULL REFERENCES identity.users(id),
-  signal     text NOT NULL,                -- rate_limit_exceeded / contact_leak / prepayment_request / reregistered_after_deletion / report_confirmed …
+  signal     text NOT NULL CHECK (signal IN ('rate_limit_exceeded','report_confirmed','contact_leak',
+             'prepayment_request','reregistered_after_deletion')),
   weight     real NOT NULL DEFAULT 1,
-  ref_type   text, ref_id uuid,
+  ref_type   varchar(32), ref_id uuid,
+  details    jsonb NOT NULL DEFAULT '{}',      -- лимит, число 429, сутки …
+  dedupe_key varchar(200) UNIQUE,              -- один факт — один сигнал
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX ON moderation.risk_signals (user_id, created_at DESC);
@@ -2104,7 +2131,7 @@ stateDiagram-v2
    - записывает HMAC телефона и Telegram ID в `identity.deleted_identity_hashes` на 12 месяцев.
 
    Повторная регистрация тем же номером или аккаунтом помечается сигналом риска `reregistered_after_deletion`. Данные при этом не восстанавливаются. Это закрывает «отмывание» рейтинга через удаление и новую регистрацию. Судьбу отзывов при удалении обсудить с юристом после MVP (§19.3).
-3. **Legal hold.** Сущности, связанные с открытыми `moderation.cases` и `deals.disputes`, не удаляются до решения.
+3. **Legal hold.** Сущности, связанные с открытыми `moderation.cases` и `deals.disputes`, не удаляются до решения. Медиа: `media.purge_deleted` спрашивает порт `media.api.LegalHold` (реализует moderation — файлы-доказательства `cases.media_ids` и кейсы о самом файле; споры — с 6.1c) и откладывает удержанный файл на сутки.
 4. Сохраняются только обезличенные сделки для статистики и записи, которые закон требует хранить:
    - бухгалтерские документы по покупкам;
    - журнал акцептов ToS и решения модерации — в пределах срока исковой давности.
@@ -2986,7 +3013,9 @@ flowchart LR
 | `search.reconcile_index` | ночью | Полная сверка read-model с источниками (≈5 с на 50k профилей) |
 | `pricing.recompute_benchmarks` | ночью (v1) | Медианы цен по категориям и городам |
 | `billing.expire_entitlements` | каждые 10 мин (v1) | Истечение подписок и бустов |
-| `media.cleanup_orphans` / `media.purge_deleted` | ежечасно / ночью | Мусор `pending_upload`; физическое удаление через 30 дней |
+| `media.cleanup_orphans` / `media.purge_deleted` | ежечасно / ночью | Мусор `pending_upload`; физическое удаление через 30 дней. Доказательства открытых кейсов (legal hold) откладываются на сутки (`held_until`) |
+| `identity.trust_aging` | ежедневно в 02:41 UTC | Уровень доверия 1 тем, кто 14 дней без нарушений и действующих санкций ([ADR-0016](adr/0016-trust-safety-and-reviews.md) §2); понижает уровень сама санкция, сразу |
+| `moderation.rate_limit_signals` | каждые 15 мин | Систематические 429 (≥ 5 по одному лимиту за сутки) → сигнал риска `rate_limit_exceeded`, один на пользователя, лимит и сутки ([§13.3](#133-антиспам-лимиты)) |
 | `identity.process_deletions` | ежечасно | Удаление аккаунтов после grace-периода ([§7.10](#710-soft-delete-ретеншн-и-аудит)) |
 | `moderation.legal_notice_sla` | каждые 30 мин (v1, [ADR-0018](adr/0018-mvp-scope-anonymous-no-payments.md)) | Эскалация жалоб по ст. 20 ZET, у которых скоро истекает срок 2 рабочих дня |
 | `moderation.purge_verification_docs` | ночью (v1) | Удаление документов после `purge_after` |

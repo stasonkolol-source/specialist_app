@@ -1,5 +1,6 @@
 """Лимиты в Valkey (DEVELOPMENT_PLAN 0.13b, ARCHITECTURE §13.3)."""
 
+import contextlib
 from collections.abc import AsyncIterator
 
 import pytest
@@ -8,11 +9,12 @@ from fastapi import Depends
 from structlog.testing import capture_logs
 
 from app.entrypoints._wiring import make_web_container
+from app.modules.moderation.application.ports import RateLimitOverflows
 from app.platform.http.ratelimit import RateLimit
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.errors import RateLimitedError
-from app.platform.kernel.ids import new_id
-from app.platform.ratelimit import Rate, RateLimiter
+from app.platform.kernel.ids import UserId, new_id
+from app.platform.ratelimit import USER_SUBJECT, Rate, RateLimiter, user_subject
 from app.platform.settings import Settings
 from tests.plugins.http import http_client, sample_router
 
@@ -53,6 +55,25 @@ async def test_limiter_counts_per_subject_and_records_exceeded(container: AsyncC
     assert (await limiter.hit(BURST, other)).remaining == 2
     assert await limiter.exceeded(subject, today) == {"test.burst": 2}
     assert await limiter.exceeded(other, today) == {}
+
+
+async def test_moderation_reads_every_users_exceeded_counters(container: AsyncContainer) -> None:
+    limiter = await container.get(RateLimiter)
+    today = (await container.get(Clock)).now().date()
+    user = new_id()
+    subject = user_subject(user)
+    for _ in range(4):
+        with contextlib.suppress(RateLimitedError):
+            await limiter.hit(BURST, subject)
+    with contextlib.suppress(RateLimitedError):
+        await limiter.hit(BURST, f"ip:10.9.{new_id().int % 250}.1")
+
+    users = await limiter.exceeded_on(today, prefix=USER_SUBJECT)
+    overflows = await (await container.get(RateLimitOverflows)).by_user(today)
+
+    assert users[subject] == {"test.burst": 1}
+    assert not any(key.startswith("ip:") for key in users)
+    assert overflows[UserId(user)] == {"test.burst": 1}
 
 
 async def test_http_limit_sets_headers_and_answers_429(settings: Settings) -> None:

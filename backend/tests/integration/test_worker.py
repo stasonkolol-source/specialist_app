@@ -192,6 +192,8 @@ async def test_platform_periodic_tasks_are_scheduled(container: AsyncContainer) 
         "media.retry_stuck": "*/15 * * * *",
         "media.hide_deleted": "7,22,37,52 * * * *",
         "notifications.expire_stale": "53 * * * *",
+        "identity.trust_aging": "41 2 * * *",
+        "moderation.rate_limit_signals": "4,19,34,49 * * * *",
     }
 
 

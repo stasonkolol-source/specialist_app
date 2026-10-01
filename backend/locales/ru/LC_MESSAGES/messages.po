@@ -302,6 +302,22 @@ msgstr "Файл ещё не загрузился до конца. Дождит�
 msgid "errors.media_upload_mismatch"
 msgstr "Загруженный файл не совпал с выбранным. Загрузите его заново."
 
+# Модерация: кейсы (DEVELOPMENT_PLAN 2.5a, ARCHITECTURE §14.2)
+msgid "errors.case_not_found"
+msgstr "Кейс не найден."
+
+msgid "errors.case_already_open"
+msgstr "По этому объекту только что открыт кейс. Повторите попытку."
+
+msgid "errors.case_state_conflict"
+msgstr "Кейс уже решён или сейчас так с ним сделать нельзя."
+
+msgid "errors.case_taken"
+msgstr "Кейс уже разбирает другой модератор."
+
+msgid "errors.invalid_decision"
+msgstr "Решение неполное: нужна причина, а санкция — только при отказе."
+
 # Уведомления (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
 msgid "errors.notification_group_mandatory"
 msgstr "Служебные уведомления нельзя выключить: они о решениях модерации и ограничениях аккаунта."
@@ -311,6 +327,9 @@ msgstr "Аккаунт ограничен"
 
 msgid "notifications.account_restricted.title.banned"
 msgstr "Аккаунт заблокирован"
+
+msgid "notifications.account_restricted.body.limited"
+msgstr "Действуют лимиты новых пользователей: меньше заявок, откликов и сообщений в сутки."
 
 msgid "notifications.account_restricted.body.posting_blocked"
 msgstr "Публиковать заявки и профиль пока нельзя."
@@ -359,6 +378,15 @@ msgstr "Материал не прошёл проверку"
 
 msgid "notifications.moderation_decision.body"
 msgstr "Причина: {reason}. Исправьте и отправьте снова."
+
+msgid "notifications.moderation_decision.warning"
+msgstr "Это предупреждение: при повторных нарушениях аккаунт ограничат."
+
+msgid "notifications.moderation_decision.automated"
+msgstr "Решение принято автоматически."
+
+msgid "notifications.moderation_decision.by_moderator"
+msgstr "Решение принял модератор."
 
 msgid "notifications.moderation_decision.button"
 msgstr "Исправить"

@@ -30,6 +30,7 @@ def user_to_domain(row: UserRow) -> User:
         intent=row.intent,
         phone_e164=row.phone_e164,
         phone_verified_at=row.phone_verified_at,
+        trust_penalty_at=row.trust_penalty_at,
         last_seen_at=row.last_seen_at,
         deleted_at=row.deleted_at,
         version=row.version,
@@ -47,6 +48,7 @@ def apply_user(user: User, row: UserRow) -> None:
     row.intent = user.intent
     row.phone_e164 = user.phone_e164
     row.phone_verified_at = user.phone_verified_at
+    row.trust_penalty_at = user.trust_penalty_at
     row.last_seen_at = user.last_seen_at
     row.deleted_at = user.deleted_at
     by_id = {identity.id: identity for identity in row.identities}

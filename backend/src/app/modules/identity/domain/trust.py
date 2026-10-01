@@ -2,13 +2,21 @@
 
 Уровень хранится в `users.trust_level` и попадает в клейм `tl` при выпуске access.
 Правила пересчёта подключают шаги: 2.9 — телефон, 2.5a — срок без жалоб и понижение
-санкцией или подтверждённой жалобой, 6.1a — завершённые сделки. До них уровень — 0.
+санкцией или подтверждённой жалобой, 6.1a — завершённые сделки.
+
+Нарушение (санкция модерации или подтверждённая жалоба) опускает уровень до 0 на
+CLEAN_PERIOD: «≥ 14 дней без подтверждённых жалоб» считается от последнего нарушения, а
+не только от регистрации. Поднимает уровень обратно ежедневный `identity.trust_aging`.
 """
 
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import IntEnum
+from typing import Final
+
+CLEAN_PERIOD: Final = timedelta(days=14)
+"""Сколько жить без нарушений до уровня 1 (ADR-0016 §2): от регистрации и от нарушения."""
 
 
 class TrustLevel(IntEnum):
@@ -28,8 +36,11 @@ class TrustSignals:
 
     account_age: timedelta
     phone_verified: bool = False
-    confirmed_complaints: int = 0
+    penalized_ago: timedelta | None = None
+    """Сколько прошло с последнего нарушения (санкция или подтверждённая жалоба); None —
+    нарушений не было."""
     active_sanctions: int = 0
+    """Санкции, которые действуют сейчас (identity.restrictions)."""
     completed_deals: int = 0
 
 

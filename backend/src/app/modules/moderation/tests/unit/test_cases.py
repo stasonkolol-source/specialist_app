@@ -1,0 +1,184 @@
+"""Кейс модерации (DEVELOPMENT_PLAN 2.5a): переходы, поводы, решение и statement of reasons."""
+
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+
+import pytest
+
+from app.modules.moderation.domain.cases import Case, CaseStatus, CaseTrigger, EntityType
+from app.modules.moderation.domain.queues import Queue
+from app.modules.moderation.domain.sanctions import SanctionStep
+from app.modules.moderation.errors import CaseStateError, CaseTakenError, InvalidDecisionError
+from app.platform.contracts.events.moderation import ModerationDecision, ModerationDecisionMade
+from app.platform.kernel.ids import MediaId, UserId, new_id
+
+pytestmark = pytest.mark.unit
+
+NOW = datetime(2026, 10, 1, 10, 0, tzinfo=UTC)  # 12:00 в Белграде — рабочее время
+AUTHOR, ANA, MARKO = UserId(new_id()), UserId(new_id()), UserId(new_id())
+APPROVED, REJECTED = ModerationDecision.APPROVED, ModerationDecision.REJECTED
+
+
+def opened(queue: Queue = Queue.PREMOD, trigger: CaseTrigger = CaseTrigger.AUTO_FLAG) -> Case:
+    return Case.open(
+        queue=queue,
+        entity_type=EntityType.JOB,
+        entity_id=new_id(),
+        subject_id=AUTHOR,
+        trigger=trigger,
+        now=NOW,
+        details={"labels": ["contact_leak"]},
+    )
+
+
+def test_new_case_waits_in_its_queue_with_a_deadline() -> None:
+    case = opened()
+
+    assert case.status is CaseStatus.PENDING
+    assert case.is_open
+    assert case.due_at == NOW + timedelta(minutes=30)  # P2
+    assert case.evidence == [
+        {"trigger": "auto_flag", "at": NOW.isoformat(), "labels": ["contact_leak"]}
+    ]
+
+
+def test_second_trigger_moves_the_case_to_the_stricter_queue() -> None:
+    first, second = MediaId(new_id()), MediaId(new_id())
+    case = opened()
+    case.add_trigger(
+        queue=Queue.SAFETY,
+        trigger=CaseTrigger.REPORT,
+        now=NOW + timedelta(minutes=5),
+        media_ids=[first, second, first],
+    )
+    case.add_trigger(queue=Queue.PREMOD, trigger=CaseTrigger.EDIT, now=NOW, media_ids=[second])
+
+    assert case.queue is Queue.SAFETY
+    assert case.due_at == NOW + timedelta(minutes=30)  # ближний срок из двух: P2 ещё раньше P0
+    assert case.media_ids == (first, second)
+    assert [e["trigger"] for e in case.evidence] == ["auto_flag", "report", "edit"]
+    assert case.reported
+
+
+def status(case: Case) -> CaseStatus:
+    return case.status  # без сужения типа mypy между переходами
+
+
+def test_moderator_takes_escalates_and_admin_decides() -> None:
+    case = opened()
+    case.take(ANA)
+    case.take(ANA)  # повтор ничего не меняет
+    with pytest.raises(CaseTakenError):
+        case.take(MARKO)
+
+    case.escalate(ANA, note="нужен старший")
+    assert status(case) is CaseStatus.ESCALATED
+    assert case.assigned_to is None
+
+    case.take(MARKO)
+    case.decide(verdict=APPROVED, reason_code=None, policy_version="draft-1", now=NOW, by=MARKO)
+    assert status(case) is CaseStatus.APPROVED
+    assert case.notes == "нужен старший"
+
+
+def test_another_moderator_cannot_decide_a_taken_case() -> None:
+    case = opened()
+    case.take(ANA)
+
+    with pytest.raises(CaseTakenError):
+        case.decide(verdict=REJECTED, reason_code="spam_ad", policy_version="v", now=NOW, by=MARKO)
+    with pytest.raises(CaseTakenError):
+        case.escalate(MARKO)
+
+
+def test_automated_decision_only_while_nobody_reviews() -> None:
+    case = opened()
+    case.take(ANA)
+
+    with pytest.raises(CaseStateError):
+        case.decide(verdict=APPROVED, reason_code=None, policy_version="v", now=NOW, by=None)
+
+
+@pytest.mark.parametrize(
+    ("verdict", "reason", "sanction", "field"),
+    [
+        (REJECTED, None, None, "reason_code"),  # отказ — только с причиной
+        (REJECTED, "Contact Leak", None, "reason_code"),  # код машинный
+        (REJECTED, "x" * 65, None, "reason_code"),
+        (APPROVED, None, SanctionStep.WARNING, "sanction"),  # санкция — только при отказе
+    ],
+)
+def test_incomplete_decision_is_refused(
+    verdict: ModerationDecision, reason: str | None, sanction: SanctionStep | None, field: str
+) -> None:
+    case = opened()
+
+    with pytest.raises(InvalidDecisionError) as raised:
+        case.decide(
+            verdict=verdict,
+            reason_code=reason,
+            policy_version="v",
+            now=NOW,
+            by=ANA,
+            sanction=sanction,
+        )
+    assert raised.value.params == {"field": field}
+    assert case.status is CaseStatus.PENDING
+
+
+def test_rejection_is_a_statement_of_reasons() -> None:
+    case = opened()
+
+    case.decide(
+        verdict=REJECTED,
+        reason_code="contact_leak",
+        policy_version="draft-1",
+        now=NOW,
+        by=None,
+        sanction=SanctionStep.WARNING,
+    )
+
+    assert case.status is CaseStatus.REJECTED
+    assert (case.decided_by, case.reason_code, case.policy_version, case.decided_at) == (
+        None,
+        "contact_leak",
+        "draft-1",
+        NOW,
+    )
+    [event] = case.pull_events()
+    assert event == ModerationDecisionMade(
+        case_id=case.id,
+        author_id=AUTHOR,
+        entity_type="job",
+        entity_id=case.entity_id,
+        decision=REJECTED,
+        decision_code="contact_leak",
+        automated=True,
+        sanction="warning",
+        occurred_at=NOW,
+        event_id=event.event_id,
+    )
+
+
+def test_decided_case_is_closed() -> None:
+    case = opened()
+    case.decide(verdict=APPROVED, reason_code=None, policy_version="v", now=NOW, by=ANA)
+
+    actions: list[Callable[[], None]] = [
+        lambda: case.take(ANA),
+        lambda: case.escalate(ANA),
+        lambda: case.add_trigger(queue=Queue.FRAUD, trigger=CaseTrigger.REPORT, now=NOW),
+        lambda: case.decide(verdict=REJECTED, reason_code="x", policy_version="v", now=NOW, by=ANA),
+    ]
+    for action in actions:
+        with pytest.raises(CaseStateError):
+            action()
+
+
+def test_appeal_outcome_is_not_a_new_rejection_notice() -> None:
+    case = opened(Queue.APPEALS, CaseTrigger.APPEAL)
+
+    case.decide(verdict=REJECTED, reason_code="spam_ad", policy_version="v", now=NOW, by=ANA)
+
+    assert case.pull_events() == []  # итог апелляции — 2.5b
+    assert case.due_at == NOW + timedelta(hours=72)

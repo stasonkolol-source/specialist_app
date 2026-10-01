@@ -27,7 +27,13 @@ from app.platform.kernel.errors import RateLimitedError
 log = structlog.get_logger(__name__)
 
 EXCEEDED_TTL_SECONDS = 3 * 24 * 3600
-"""Счётчики превышений живут трое суток: модерация читает вчерашний день ночью."""
+"""Счётчики превышений живут трое суток: модерация дочитывает вчерашний день после полуночи."""
+USER_SUBJECT = "user:"
+"""Префикс субъекта-пользователя: `user:<uuid>`; гость — `ip:<адрес>`."""
+
+
+def user_subject(user_id: object) -> str:
+    return f"{USER_SUBJECT}{user_id}"
 
 
 def exceeded_key(day: date, subject: str) -> str:
@@ -87,6 +93,20 @@ class RateLimiter:
         """Превышения субъекта за день по именам лимитов."""
         raw = await self._valkey.hgetall(exceeded_key(day, subject))  # type: ignore[misc]  # redis-py: Awaitable | dict
         return {_text(name): int(count) for name, count in raw.items()}
+
+    async def exceeded_on(self, day: date, *, prefix: str = "") -> dict[str, dict[str, int]]:
+        """Превышения всех субъектов за день (`prefix` — `user:` или `ip:`): субъект → лимит
+        → сколько 429. Для сигналов риска модерации (2.5a): SCAN по ключам дня, без KEYS.
+        RedisError — вызывающему: у периодической задачи свой повтор."""
+        head = exceeded_key(day, "")
+        found: dict[str, dict[str, int]] = {}
+        async for key in self._valkey.scan_iter(match=f"{head}{prefix}*", count=500):
+            raw = await self._valkey.hgetall(key)  # type: ignore[misc]  # redis-py: Awaitable | dict
+            if raw:
+                found[_text(key).removeprefix(head)] = {
+                    _text(name): int(count) for name, count in raw.items()
+                }
+        return found
 
     async def _count_exceeded(self, rate: Rate, subject: str) -> None:
         key = exceeded_key(self._clock.now().date(), subject)

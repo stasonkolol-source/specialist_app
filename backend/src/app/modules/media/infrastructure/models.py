@@ -72,6 +72,8 @@ class AssetRow(UuidPkMixin, Base):
     deleted_at: Mapped[datetime | None]
     hidden_at: Mapped[datetime | None]
     """Варианты удалённого файла перенесены в private (media.hide_variants)."""
+    held_until: Mapped[datetime | None]
+    """Legal hold: очистка ждёт до этого времени (открытый кейс или спор, 2.5a)."""
     purged_at: Mapped[datetime | None]
     """Объекты удалённого файла стёрты (media.purge_deleted); запись остаётся."""
 

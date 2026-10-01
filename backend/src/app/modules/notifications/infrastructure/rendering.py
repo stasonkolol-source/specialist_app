@@ -109,13 +109,19 @@ class GettextNotificationRenderer:
             f"notifications.moderation_reason.{code}",
             "notifications.moderation_reason.other",
         )
+        parts = [self._t("notifications.moderation_decision.body", locale, reason=reason)]
+        if params.get("sanction") == "warning":  # о санкции с ограничением — account.restricted
+            parts.append(self._t("notifications.moderation_decision.warning", locale))
+        if automated := params.get("automated"):  # в параметрах с 2.5a
+            who = "automated" if automated == "true" else "by_moderator"
+            parts.append(self._t(f"notifications.moderation_decision.{who}", locale))
         return RenderedText(
             title=self._first(
                 locale,
                 f"notifications.moderation_decision.title.{entity}",
                 "notifications.moderation_decision.title.other",
             ),
-            body=self._t("notifications.moderation_decision.body", locale, reason=reason),
+            body=" ".join(parts),
         )
 
     def _t(self, key: str, locale: Locale, **params: object) -> str:

@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import ColumnElement, Select, select
+from sqlalchemy import ColumnElement, Select, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.media.domain.asset import MediaAsset, MediaStatus, Variant
@@ -77,7 +77,9 @@ class SqlMediaRepository:
         )
         return await self._locked(stmt)
 
-    async def deleted_before(self, before: datetime, *, limit: int) -> Sequence[MediaAsset]:
+    async def deleted_before(
+        self, before: datetime, *, now: datetime, limit: int
+    ) -> Sequence[MediaAsset]:
         self._uow.require_active()
         stmt = (
             select(AssetRow)
@@ -85,6 +87,7 @@ class SqlMediaRepository:
                 AssetRow.status == MediaStatus.DELETED,
                 AssetRow.purged_at.is_(None),
                 AssetRow.deleted_at < before,
+                or_(AssetRow.held_until.is_(None), AssetRow.held_until <= now),
             )
             .order_by(AssetRow.deleted_at)
             .limit(limit)
@@ -139,6 +142,7 @@ def to_domain(row: AssetRow) -> MediaAsset:
         attempts=row.attempts,
         deleted_at=row.deleted_at,
         hidden_at=row.hidden_at,
+        held_until=row.held_until,
         purged_at=row.purged_at,
     )
 
@@ -170,4 +174,5 @@ def _apply(asset: MediaAsset, row: AssetRow) -> None:
     row.attempts = asset.attempts
     row.deleted_at = asset.deleted_at
     row.hidden_at = asset.hidden_at
+    row.held_until = asset.held_until
     row.purged_at = asset.purged_at

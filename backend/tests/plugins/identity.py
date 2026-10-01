@@ -83,3 +83,32 @@ async def insert_user(session: AsyncSession, *, telegram_id: int | None = None) 
     # UoW откатывает транзакцию, в которой «были только чтения»: фиксируем savepoint теста
     await session.commit()
     return user_id
+
+
+async def insert_restriction(
+    session: AsyncSession,
+    user_id: UserId,
+    kind: str,
+    *,
+    ends_at: datetime | None = None,
+    case_id: UUID | None = None,
+) -> UUID:
+    """Санкция модерации, действующая с этой минуты (как `IdentityApi.restrict`)."""
+    restriction_id = new_id()
+    await session.execute(
+        text(
+            "INSERT INTO identity.restrictions"
+            " (id, user_id, kind, reason_code, source, case_id, starts_at, ends_at)"
+            " VALUES (:id, :user_id, :kind, 'test', 'moderation', :case_id,"
+            " now() - interval '1 minute', :ends_at)"
+        ),
+        {
+            "id": restriction_id,
+            "user_id": user_id,
+            "kind": kind,
+            "case_id": case_id,
+            "ends_at": ends_at,
+        },
+    )
+    await session.commit()
+    return restriction_id

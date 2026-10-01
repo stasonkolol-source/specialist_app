@@ -8,7 +8,8 @@ from datetime import timedelta
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from tests.plugins.identity import insert_restriction
 
 from app.modules.media.application.ports import MediaRepository
 from app.modules.media.application.use_cases.cleanup_orphans import (
@@ -47,6 +48,24 @@ async def test_photo_is_uploaded_and_queued_for_processing(media: Media) -> None
     again = await media.complete(plan["media_id"])  # ответ на первый мог потеряться
     assert (again.status_code, again.json()["status"]) == (200, "uploaded")
     assert len(await media.jobs("media.process", plan["media_id"])) == 1
+
+
+@pytest.mark.parametrize("kind", ["suspended", "banned"])
+async def test_suspended_or_banned_account_cannot_upload(media: Media, kind: str) -> None:
+    async with media.app.container() as request:
+        await insert_restriction(await request.get(AsyncSession), media.user_id, kind)
+
+    response = await media.start()
+
+    assert response.status_code == 403
+    assert (response.json()["code"], response.json()["restriction"]) == ("restricted", kind)
+
+
+async def test_posting_ban_does_not_stop_uploads(media: Media) -> None:
+    async with media.app.container() as request:
+        await insert_restriction(await request.get(AsyncSession), media.user_id, "posting_blocked")
+
+    assert (await media.start()).status_code == 201  # публикацию проверит контентный модуль
 
 
 async def test_video_over_50_mb_goes_in_parts(media: Media) -> None:

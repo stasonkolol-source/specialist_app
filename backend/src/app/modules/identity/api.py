@@ -88,7 +88,13 @@ class IdentityApi(Protocol):
     async def restrict(self, data: RestrictionIn) -> RestrictionId:
         """Наложить санкцию в транзакции вызывающего (нужен активный UoW).
 
-        Пишет identity.restrictions и событие UserRestricted. InvalidRestrictionError —
-        код причины не машинный или срок уже истёк.
+        Пишет identity.restrictions и событие UserRestricted; уровень доверия падает до 0
+        (санкция — нарушение, ADR-0016 §2). InvalidRestrictionError — код причины не
+        машинный или срок уже истёк; UserNotFoundError — нет пользователя.
         """
+        ...
+
+    async def record_violation(self, user_id: UserId) -> None:
+        """Нарушение без санкции (предупреждение, подтверждённая жалоба) в транзакции
+        вызывающего: уровень доверия — 0 на 14 дней. UserNotFoundError — нет пользователя."""
         ...

@@ -303,6 +303,22 @@ msgstr "Fajl još nije otpremljen do kraja. Sačekajte i pokušajte ponovo."
 msgid "errors.media_upload_mismatch"
 msgstr "Otpremljeni fajl se ne poklapa sa izabranim. Otpremite ga ponovo."
 
+# Модерација: случајеви (DEVELOPMENT_PLAN 2.5a, ARCHITECTURE §14.2)
+msgid "errors.case_not_found"
+msgstr "Slučaj nije pronađen."
+
+msgid "errors.case_already_open"
+msgstr "Za ovaj objekat je upravo otvoren slučaj. Pokušajte ponovo."
+
+msgid "errors.case_state_conflict"
+msgstr "Slučaj je već rešen ili to sa njim sada nije moguće."
+
+msgid "errors.case_taken"
+msgstr "Slučaj već rešava drugi moderator."
+
+msgid "errors.invalid_decision"
+msgstr "Odluka nije potpuna: potreban je razlog, a sankcija — samo uz odbijanje."
+
 # Обавештења (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
 msgid "errors.notification_group_mandatory"
 msgstr "Službena obaveštenja ne mogu da se isključe: tiču se odluka moderacije i ograničenja naloga."
@@ -312,6 +328,9 @@ msgstr "Nalog je ograničen"
 
 msgid "notifications.account_restricted.title.banned"
 msgstr "Nalog je blokiran"
+
+msgid "notifications.account_restricted.body.limited"
+msgstr "Važe ograničenja za nove korisnike: manje zahteva, ponuda i poruka dnevno."
 
 msgid "notifications.account_restricted.body.posting_blocked"
 msgstr "Objavljivanje zahteva i profila trenutno nije moguće."
@@ -360,6 +379,15 @@ msgstr "Sadržaj nije prošao proveru"
 
 msgid "notifications.moderation_decision.body"
 msgstr "Razlog: {reason}. Ispravite i pošaljite ponovo."
+
+msgid "notifications.moderation_decision.warning"
+msgstr "Ovo je upozorenje: ako se prekršaji ponove, nalog će biti ograničen."
+
+msgid "notifications.moderation_decision.automated"
+msgstr "Odluka je doneta automatski."
+
+msgid "notifications.moderation_decision.by_moderator"
+msgstr "Odluku je doneo moderator."
 
 msgid "notifications.moderation_decision.button"
 msgstr "Ispravi"

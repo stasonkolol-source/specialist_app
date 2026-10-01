@@ -13,23 +13,31 @@ from app.modules.identity.application.ports import (
     ConsentRepository,
     IdentityQuery,
     RestrictionRepository,
+    RoleRepository,
     SessionRepository,
     SessionRevocations,
     UserRepository,
 )
+from app.modules.identity.application.trust import TrustRecalculation
 from app.modules.identity.application.use_cases.accept_consents import AcceptConsents
+from app.modules.identity.application.use_cases.age_trust_levels import AgeTrustLevels
 from app.modules.identity.application.use_cases.authenticate_telegram import AuthenticateTelegram
+from app.modules.identity.application.use_cases.grant_staff_role import GrantStaffRole
 from app.modules.identity.application.use_cases.logout import Logout
 from app.modules.identity.application.use_cases.refresh_session import RefreshSession
 from app.modules.identity.application.use_cases.register_telegram_user import (
     RegisterTelegramUser,
 )
 from app.modules.identity.application.use_cases.reset_onboarding import ResetOnboarding
+from app.modules.identity.application.use_cases.revoke_restricted_sessions import (
+    RevokeRestrictedSessions,
+)
 from app.modules.identity.application.use_cases.update_profile import UpdateProfile
 from app.modules.identity.infrastructure.queries import SqlIdentityQuery
 from app.modules.identity.infrastructure.repositories import (
     SqlConsentRepository,
     SqlRestrictionRepository,
+    SqlRoleRepository,
     SqlSessionRepository,
     SqlUserRepository,
 )
@@ -69,8 +77,10 @@ class IdentityProvider(Provider):
     sessions = provide(SqlSessionRepository, provides=SessionRepository)
     consents = provide(SqlConsentRepository, provides=ConsentRepository)
     restrictions = provide(SqlRestrictionRepository, provides=RestrictionRepository)
+    roles = provide(SqlRoleRepository, provides=RoleRepository)
     query = provide(SqlIdentityQuery, provides=IdentityQuery)
     access = provide(AccessChecker)
+    trust = provide(TrustRecalculation)
     facade = provide(IdentityFacade, provides=IdentityApi)
     authenticate_telegram = provide(AuthenticateTelegram)
     refresh_session = provide(RefreshSession)
@@ -79,3 +89,6 @@ class IdentityProvider(Provider):
     accept_consents = provide(AcceptConsents)
     register_telegram_user = provide(RegisterTelegramUser)
     reset_onboarding = provide(ResetOnboarding)
+    age_trust_levels = provide(AgeTrustLevels)
+    revoke_restricted_sessions = provide(RevokeRestrictedSessions)
+    grant_staff_role = provide(GrantStaffRole)

@@ -97,8 +97,32 @@ def test_accepted_versions_show_latest_per_document() -> None:
 SIGNALS = TrustSignals(account_age=timedelta(days=30), phone_verified=True, completed_deals=5)
 
 
-def test_trust_level_stays_new_until_rules_are_enabled() -> None:
-    assert trust_level(SIGNALS) is TrustLevel.NEW
+def signals(
+    *, age: int, penalized: int | None = None, sanctions: int = 0, phone: bool = False
+) -> TrustSignals:
+    return TrustSignals(
+        account_age=timedelta(days=age),
+        phone_verified=phone,
+        penalized_ago=timedelta(days=penalized) if penalized is not None else None,
+        active_sanctions=sanctions,
+    )
+
+
+@pytest.mark.parametrize(
+    ("given", "level"),
+    [
+        (signals(age=13), TrustLevel.NEW),  # новичок
+        (signals(age=14), TrustLevel.BASIC),  # 14 дней без жалоб (ADR-0016 §2)
+        (signals(age=400, penalized=3), TrustLevel.NEW),  # нарушение опускает до 0
+        (signals(age=400, penalized=13), TrustLevel.NEW),
+        (signals(age=400, penalized=14), TrustLevel.BASIC),  # 14 дней после нарушения
+        (signals(age=400, sanctions=1), TrustLevel.NEW),  # пока действует санкция
+        (signals(age=400, penalized=100, sanctions=1), TrustLevel.NEW),
+        (signals(age=5, phone=True), TrustLevel.NEW),  # телефон повысит в 2.9
+    ],
+)
+def test_trust_level_rules_of_2_5a(given: TrustSignals, level: TrustLevel) -> None:
+    assert trust_level(given) is level
 
 
 def test_trust_level_takes_best_promotion_under_lowest_cap() -> None:
