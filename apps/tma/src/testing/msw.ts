@@ -61,6 +61,7 @@ export const profileHandlers = (backend: () => ProfileBackend) => [
     const body = request.method === 'GET' ? undefined : await request.json().catch(() => undefined);
     const reply = backend().handle(request.method, new URL(request.url).pathname, body);
     if (!reply) return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+    if (reply.status === 204) return new HttpResponse(null, { status: 204 });
     const problem =
       reply.status >= 400 ? { 'Content-Type': 'application/problem+json' } : undefined;
     return HttpResponse.json(reply.body as Record<string, unknown>, {

@@ -116,6 +116,33 @@ const cabinetAvailability = createRoute({
   ),
 });
 
+// Прайс S35 и позиция S36 (2.11): правка прайса — изменение данных на площадке, как S34
+const cabinetPrices = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CABINET_PATHS.prices,
+  component: screen(() => import('../features/specialist/s35-prices/index.ts'), 'PriceListScreen'),
+});
+
+const cabinetNewPrice = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CABINET_PATHS.newPrice,
+  beforeLoad: requireConsent,
+  component: screen(
+    () => import('../features/specialist/s36-price-item/index.ts'),
+    'PriceItemScreen',
+  ),
+});
+
+const cabinetPrice = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CABINET_PATHS.price,
+  beforeLoad: requireConsent,
+  component: screen(
+    () => import('../features/specialist/s36-price-item/index.ts'),
+    'PriceItemScreen',
+  ),
+});
+
 const cabinetProfile = createRoute({
   getParentRoute: () => rootRoute,
   path: CABINET_PATHS.profile,
@@ -187,6 +214,9 @@ export const routeTree = rootRoute.addChildren([
   cabinet,
   cabinetProfile,
   cabinetAvailability,
+  cabinetPrices,
+  cabinetNewPrice,
+  cabinetPrice,
   notifications,
   onboardingLanguage,
   onboardingIntent,

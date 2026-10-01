@@ -53,8 +53,13 @@ export class ProfileBackend {
     const profile = this.profile;
     if (!profile) return problem(404, 'profile_not_found');
     if (request === 'POST /me/profile/services') return this.addService(profile, body as ServiceIn);
+    if (request === 'PUT /me/profile/services/order') {
+      return this.reorder((body as { service_ids: string[] }).service_ids);
+    }
     const service = /^PATCH \/me\/profile\/services\/(.+)$/.exec(request);
     if (service?.[1]) return this.changeService(service[1], body as ServiceUpdateIn);
+    const removed = /^DELETE \/me\/profile\/services\/(.+)$/.exec(request);
+    if (removed?.[1]) return this.removeService(profile, removed[1]);
     switch (request) {
       case 'GET /me/profile':
         return this.ok(profile);
@@ -148,15 +153,48 @@ export class ProfileBackend {
     const index = this.services.findIndex((service) => service.id === id);
     const current = this.services[index];
     if (!current) return problem(404, 'service_not_found');
+    const clear = new Set(body.clear ?? []);
+    const money = (amount: number | null | undefined, previous: ServiceOut['price_min']) =>
+      amount == null ? previous : { amount, currency: 'RSD' as const };
     const next: ServiceOut = {
       ...current,
       title: body.title ?? current.title,
-      description: body.description ?? current.description,
-      price_min: body.price_min == null ? current.price_min : { amount: body.price_min, currency: 'RSD' },
-    }; // prettier-ignore
+      price_type: body.price_type ?? current.price_type,
+      price_min: money(body.price_min, current.price_min),
+      price_max: clear.has('price_max') ? null : money(body.price_max, current.price_max),
+      description: clear.has('description') ? null : (body.description ?? current.description),
+      category_id: clear.has('category_id') ? null : (body.category_id ?? current.category_id),
+      unit: clear.has('unit') ? null : (body.unit ?? current.unit),
+      duration_min: clear.has('duration_min') ? null : (body.duration_min ?? current.duration_min),
+      is_active: body.is_active ?? current.is_active,
+    };
     this.services[index] = next;
     if (this.profile) this.profile = this.refresh(this.profile);
     return this.ok(next);
+  }
+
+  private reorder(ids: string[]): BackendReply {
+    const known = new Set(this.services.map((service) => service.id));
+    if (ids.length !== known.size || ids.some((id) => !known.has(id))) {
+      return problem(422, 'invalid_service_order');
+    }
+    this.services = ids.map((id, position) => {
+      const service = this.services.find((item) => item.id === id);
+      if (!service) throw new Error(`unknown service ${id}`);
+      return { ...service, position };
+    });
+    return this.ok({ items: this.services });
+  }
+
+  private removeService(profile: ProfileOut, id: string): BackendReply {
+    if (!this.services.some((service) => service.id === id)) {
+      return problem(404, 'service_not_found');
+    }
+    this.services = this.services
+      .filter((service) => service.id !== id)
+      .map((service, position) => ({ ...service, position }));
+    this.profile = this.refresh(profile);
+    return { status: 204, body: null };
   }
 
   /** «Чего не хватает» и полнота — как ProfileViews backend: «Специалисту» нужен и прайс. */

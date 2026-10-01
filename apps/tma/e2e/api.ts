@@ -113,6 +113,7 @@ export async function mockApi(
       if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
       const body: unknown = request.method() === 'GET' ? undefined : request.postDataJSON();
       const reply = profile.handle(request.method(), url.pathname, body);
+      if (reply?.status === 204) return route.fulfill({ status: 204 });
       if (reply) return route.fulfill(json(reply.body, reply.status));
     }
     // районы города: /cities/{id}/districts — названия на языке запроса
