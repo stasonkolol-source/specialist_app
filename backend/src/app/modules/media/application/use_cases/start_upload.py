@@ -4,10 +4,15 @@
 ссылки на загрузку: presigned PUT на 10 минут или план multipart для видео больше 50 MB.
 Квота списывается после проверок и после старта multipart: отказ по типу или размеру и сбой
 хранилища её не тратят. Лимит «50 загрузок в час» считает HTTP-слой (антиспам, §13.3).
+
+Приостановленный или забаненный аккаунт получает 403 `restricted` (2.5a) до всех проверок.
+Остальные санкции загрузку не запрещают: файл без публикации никто не видит, а публикацию
+(профиль, заявка, отклик, сообщение) проверяет use case контентного модуля.
 """
 
 from dataclasses import dataclass
 
+from app.modules.identity.api import Action, IdentityApi
 from app.modules.media.application.dto import UploadPlan
 from app.modules.media.application.ports import DELETE_OBJECTS, MediaRepository, UploadQuota
 from app.modules.media.application.uploads import delete_original, upload_plan
@@ -37,12 +42,14 @@ class StartUpload:
         storage: StoragePort,
         quota: UploadQuota,
         queue: JobQueue,
+        identity: IdentityApi,
         clock: Clock,
     ) -> None:
         self._uow, self._assets, self._storage = uow, assets, storage
-        self._quota, self._queue, self._clock = quota, queue, clock
+        self._quota, self._queue, self._identity, self._clock = quota, queue, identity, clock
 
     async def __call__(self, cmd: StartUploadCommand) -> UploadPlan:
+        await self._identity.ensure_allowed(cmd.owner_id, Action.LOGIN)
         rule = upload_rule(cmd.purpose, cmd.mime_type, cmd.size_bytes)
         media_id = MediaId(new_id())
         now = self._clock.now()

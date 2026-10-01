@@ -7,6 +7,7 @@ import asyncio
 import json
 import secrets
 import tomllib
+from enum import StrEnum
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
 from pathlib import Path
@@ -38,7 +39,7 @@ from app.platform.settings import (
 
 if TYPE_CHECKING:  # модули грузятся лениво: CLI без БД не должен их импортировать
     from app.entrypoints._notify_test import NotifyTestOutcome
-    from app.modules.identity.application.dto import OnboardingReset
+    from app.modules.identity.application.dto import OnboardingReset, StaffRoleGranted
 
 app = typer.Typer(help="«Соседи» — служебные команды backend.", no_args_is_help=True)
 
@@ -385,6 +386,49 @@ async def _dev_reset_user(telegram_id: int) -> OnboardingReset | None:
         async with container() as request:
             reset = await request.get(ResetOnboarding)
             return await reset(ResetOnboardingCommand(telegram_id=telegram_id))
+    finally:
+        await container.close()
+
+
+class StaffRole(StrEnum):
+    """Роли персонала для `staff-grant` (platform/kernel/principal.py Role)."""
+
+    MODERATOR = "moderator"
+    SUPPORT = "support"
+    ADMIN = "admin"
+
+
+@app.command("staff-grant")
+def staff_grant(
+    tg_id: Annotated[int, typer.Option("--tg-id", help="Telegram id сотрудника")],
+    role: Annotated[StaffRole, typer.Option("--role", help="Роль персонала")],
+) -> None:
+    """Выдать роль персонала (DEVELOPMENT_PLAN 2.5a): список — K29.
+
+    Сотрудник должен хотя бы раз открыть бот или Mini App. Роль появится в токене при
+    следующем входе; пароль, TOTP и вход в админку — шаг 2.7a. Выдача пишется в audit_log.
+    """
+    result = asyncio.run(_staff_grant(tg_id, role.value))
+    if result is None:
+        typer.echo("staff-grant: no such Telegram user (open the bot or Mini App once)", err=True)
+        raise typer.Exit(code=1)
+    state = "granted" if result.granted else "already granted"
+    typer.echo(f"user {result.user_id}: role {result.role.value} {state}")
+
+
+async def _staff_grant(telegram_id: int, role: str) -> StaffRoleGranted | None:
+    from app.entrypoints._wiring import make_worker_container
+    from app.modules.identity.application.use_cases.grant_staff_role import (
+        GrantStaffRole,
+        GrantStaffRoleCommand,
+    )
+    from app.platform.kernel.principal import Role
+
+    container = make_worker_container(Settings())
+    try:
+        async with container() as request:
+            grant = await request.get(GrantStaffRole)
+            return await grant(GrantStaffRoleCommand(telegram_id=telegram_id, role=Role(role)))
     finally:
         await container.close()
 

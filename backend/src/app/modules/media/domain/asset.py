@@ -91,6 +91,8 @@ def variant_bucket(purpose: MediaPurpose) -> str:
 
 PURGE_AFTER = timedelta(days=30)
 """Объекты удалённого пользователем файла живут ещё 30 дней (§10.5)."""
+HOLD_RECHECK = timedelta(days=1)
+"""Удержанный файл (legal hold, ADR-0016 §6) очистка проверяет снова через сутки."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -154,6 +156,8 @@ class MediaAsset(AggregateRoot):
     deleted_at: datetime | None = None
     hidden_at: datetime | None = None
     """Варианты удалённого файла перенесены из публичного media в private."""
+    held_until: datetime | None = None
+    """Legal hold: очистка не трогает файл до этого времени и потом проверяет снова."""
     purged_at: datetime | None = None
 
     @classmethod
@@ -330,6 +334,12 @@ class MediaAsset(AggregateRoot):
         if self.status is not MediaStatus.DELETED:
             raise MediaStateError(media_status=self.status.value)
         self.purged_at = now
+
+    def hold(self, *, now: datetime) -> None:
+        """Файл — доказательство открытого кейса или спора: очистка ждёт HOLD_RECHECK."""
+        if self.status is not MediaStatus.DELETED:
+            raise MediaStateError(media_status=self.status.value)
+        self.held_until = now + HOLD_RECHECK
 
     def _ensure_processing(self) -> None:
         if self.status is not MediaStatus.PROCESSING:

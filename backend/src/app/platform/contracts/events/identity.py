@@ -16,6 +16,9 @@ from app.platform.kernel.ids import CaseId, CityId, RestrictionId, UserId
 class RestrictionKind(StrEnum):
     """Вид санкции в identity.restrictions (ADR-0009, ADR-0016)."""
 
+    LIMITED = "limited"
+    """Лимиты новичка (страйк 1, ADR-0016 §4): действий не запрещает — антиспам-лимиты
+    считаются как для уровня доверия 0–1, а уровень доверия не выше 0."""
     POSTING_BLOCKED = "posting_blocked"
     RESPONDING_BLOCKED = "responding_blocked"
     MESSAGING_BLOCKED = "messaging_blocked"
@@ -82,7 +85,8 @@ class UserRestricted(DomainEvent):
     """На пользователя наложена санкция (identity.restrictions).
 
     `until` — до когда; None — бессрочно. `case_id` — кейс модерации, если он есть.
-    Подписчики: уведомление `account.restricted` (2.3), отзыв сессий при бане (2.5a).
+    Подписчики: уведомление `account.restricted` (2.3), отзыв сессий при приостановке и
+    бане (2.5a).
     """
 
     event_type = "identity.UserRestricted"

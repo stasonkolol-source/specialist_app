@@ -15,7 +15,7 @@ from enum import StrEnum
 from typing import Final
 from uuid import UUID
 
-from app.modules.identity.domain.trust import TrustLevel
+from app.modules.identity.domain.trust import TrustLevel, TrustSignals
 from app.modules.identity.errors import (
     AccountDeletedError,
     InvalidDisplayNameError,
@@ -123,6 +123,8 @@ class User(VersionedAggregate):
     intent: UserIntent | None = None
     phone_e164: str | None = None
     phone_verified_at: datetime | None = None
+    trust_penalty_at: datetime | None = None
+    """Последнее нарушение: санкция модерации или подтверждённая жалоба (2.5a)."""
     last_seen_at: datetime | None = None
     deleted_at: datetime | None = None
     _history: list[StatusChange[UserStatus]] = field(default_factory=list, init=False, repr=False)
@@ -242,6 +244,21 @@ class User(VersionedAggregate):
         if level != self.trust_level:
             self.trust_level = int(level)
             self._record(UserUpdated(user_id=self.id, fields=("trust_level",), occurred_at=now))
+
+    def record_violation(self, *, now: datetime) -> None:
+        """Санкция или подтверждённая жалоба: «14 дней без нарушений» отсчитываются заново."""
+        self.ensure_active()
+        if self.trust_penalty_at is None or now > self.trust_penalty_at:
+            self.trust_penalty_at = now
+
+    def trust_signals(self, *, now: datetime, active_sanctions: int) -> TrustSignals:
+        """Факты identity для пересчёта уровня; сделки добавит 6.1a."""
+        return TrustSignals(
+            account_age=now - self.created_at,
+            phone_verified=self.phone_verified_at is not None,
+            penalized_ago=None if self.trust_penalty_at is None else now - self.trust_penalty_at,
+            active_sanctions=active_sanctions,
+        )
 
     def identity(self, provider: AuthProvider, subject: str) -> AuthIdentity:
         for identity in self.identities:

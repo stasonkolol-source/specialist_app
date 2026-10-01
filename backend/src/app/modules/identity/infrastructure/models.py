@@ -70,6 +70,8 @@ class UserRow(UuidPkMixin, TimestampsMixin, SoftDeleteMixin, VersionMixin, Base)
     intent: Mapped[UserIntent | None] = mapped_column(str_enum(UserIntent, "intent"))
     phone_e164: Mapped[str | None] = mapped_column(String(16))
     phone_verified_at: Mapped[datetime | None]
+    trust_penalty_at: Mapped[datetime | None]
+    """Последнее нарушение (санкция или подтверждённая жалоба): отсчёт 14 дней, 2.5a."""
     identity_verified_at: Mapped[datetime | None]
     trust_level: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
     privacy: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
@@ -86,6 +88,8 @@ class UserRow(UuidPkMixin, TimestampsMixin, SoftDeleteMixin, VersionMixin, Base)
             postgresql_where=text("phone_e164 IS NOT NULL AND deleted_at IS NULL"),
         ),
         CheckConstraint("trust_level BETWEEN 0 AND 3", name="trust_level_range"),
+        # кандидаты ежедневного identity.trust_aging (миграция identity_0003)
+        Index("ix_users_trust_aging", "created_at", postgresql_where=text("trust_level = 0")),
     )
 
 

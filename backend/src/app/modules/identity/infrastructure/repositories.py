@@ -3,7 +3,7 @@
 from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime
 
-from sqlalchemy import exists, select, text, update
+from sqlalchemy import exists, or_, select, text, true, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +12,8 @@ from sqlalchemy.orm import selectinload
 from app.modules.identity.domain.consent import ConsentDocument
 from app.modules.identity.domain.restriction import Restriction, RestrictionSource
 from app.modules.identity.domain.session import Session, SessionId
-from app.modules.identity.domain.user import AuthProvider, User
+from app.modules.identity.domain.trust import TrustLevel
+from app.modules.identity.domain.user import AuthProvider, User, UserStatus
 from app.modules.identity.errors import (
     ConcurrentLoginError,
     SessionNotFoundError,
@@ -31,13 +32,14 @@ from app.modules.identity.infrastructure.models import (
     RestrictionRow,
     SessionRow,
     StatusHistoryRow,
+    UserRoleRow,
     UserRow,
 )
 from app.platform.db.constraints import ConstraintErrors, raise_domain_error
 from app.platform.db.port import UnitOfWork
 from app.platform.db.versioning import check_loaded_version
 from app.platform.kernel.ids import CaseId, RestrictionId, UserId, new_id
-from app.platform.kernel.principal import Platform
+from app.platform.kernel.principal import Platform, Role
 
 USER_CONSTRAINTS: ConstraintErrors = {
     "uq_auth_identities_provider_subject": ConcurrentLoginError,
@@ -56,12 +58,56 @@ class SqlUserRepository:
             raise UserNotFoundError(user_id=user_id)
         return self._tracked(user_to_domain(row))
 
+    async def get_for_update(self, user_id: UserId) -> User:
+        row = await self._load(UserRow.id == user_id, lock=True)
+        if row is None:
+            raise UserNotFoundError(user_id=user_id)
+        return self._tracked(user_to_domain(row))
+
     async def find_by_identity(self, provider: AuthProvider, subject: str) -> User | None:
         owner = select(AuthIdentityRow.user_id).where(
             AuthIdentityRow.provider == provider, AuthIdentityRow.subject == subject
         )
         row = await self._load(UserRow.id.in_(owner.scalar_subquery()), lock=True)
         return self._tracked(user_to_domain(row)) if row is not None else None
+
+    async def trust_aging_candidates(
+        self,
+        *,
+        now: datetime,
+        clean_since: datetime,
+        after: tuple[datetime, UserId] | None,
+        limit: int,
+    ) -> list[User]:
+        self._uow.require_active()
+        in_force = (
+            select(RestrictionRow.id)
+            .where(
+                RestrictionRow.user_id == UserRow.id,
+                RestrictionRow.lifted_at.is_(None),
+                RestrictionRow.starts_at <= now,
+                or_(RestrictionRow.ends_at.is_(None), RestrictionRow.ends_at > now),
+            )
+            .correlate(UserRow)
+        )
+        stmt = (
+            select(UserRow)
+            .where(
+                UserRow.status == UserStatus.ACTIVE,
+                UserRow.trust_level == int(TrustLevel.NEW),
+                UserRow.created_at <= clean_since,
+                or_(UserRow.trust_penalty_at.is_(None), UserRow.trust_penalty_at <= clean_since),
+                ~exists(in_force),
+                tuple_(UserRow.created_at, UserRow.id) > after if after is not None else true(),
+            )
+            .order_by(UserRow.created_at, UserRow.id)
+            .limit(limit)
+            .options(selectinload(UserRow.identities))
+            .with_for_update(of=UserRow, key_share=True, skip_locked=True)
+            .execution_options(populate_existing=True)
+        )
+        rows = (await self._session.execute(stmt)).scalars().all()
+        return [self._tracked(user_to_domain(row)) for row in rows]
 
     async def add(self, user: User) -> None:
         self._uow.require_active()
@@ -140,6 +186,24 @@ class SqlSessionRepository:
         session = session_to_domain(row)
         self._uow.track(session)
         return session
+
+    async def active_for_user(self, user_id: UserId, now: datetime) -> list[Session]:
+        self._uow.require_active()
+        stmt = (
+            select(SessionRow)
+            .where(
+                SessionRow.user_id == user_id,
+                SessionRow.revoked_at.is_(None),
+                SessionRow.expires_at > now,
+            )
+            .order_by(SessionRow.created_at)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        sessions = [session_to_domain(row) for row in (await self._session.execute(stmt)).scalars()]
+        for session in sessions:
+            self._uow.track(session)
+        return sessions
 
     async def add(self, session: Session) -> None:
         self._uow.require_active()
@@ -261,6 +325,26 @@ class SqlRestrictionRepository:
         except IntegrityError as err:
             raise_domain_error(err, {"fk_restrictions_user_id_users": _user_not_found(user_id)})
         return RestrictionId(row.id)
+
+
+class SqlRoleRepository:
+    def __init__(self, session: AsyncSession, uow: UnitOfWork) -> None:
+        self._session = session
+        self._uow = uow
+
+    async def grant(self, user_id: UserId, role: Role, *, granted_by: UserId | None) -> bool:
+        self._uow.require_active()
+        stmt = (
+            insert(UserRoleRow)
+            .values(user_id=user_id, role=role, granted_by=granted_by)
+            .on_conflict_do_nothing(index_elements=[UserRoleRow.user_id, UserRoleRow.role])
+            .returning(UserRoleRow.user_id)
+        )
+        try:
+            granted = (await self._session.execute(stmt)).first() is not None
+        except IntegrityError as err:
+            raise_domain_error(err, {"fk_user_roles_user_id_users": _user_not_found(user_id)})
+        return granted
 
 
 def _user_not_found(user_id: UserId) -> Callable[[], UserNotFoundError]:

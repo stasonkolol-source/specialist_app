@@ -16,10 +16,16 @@ from app.modules.identity.application.access import AccessChecker
 from app.modules.identity.application.config import IdentityConfig
 from app.modules.identity.application.dto import TelegramProfile
 from app.modules.identity.application.facade import IdentityFacade
+from app.modules.identity.application.trust import TrustRecalculation
 from app.modules.identity.application.use_cases.accept_consents import AcceptConsents
+from app.modules.identity.application.use_cases.age_trust_levels import AgeTrustLevels
 from app.modules.identity.application.use_cases.authenticate_telegram import AuthenticateTelegram
+from app.modules.identity.application.use_cases.grant_staff_role import GrantStaffRole
 from app.modules.identity.application.use_cases.logout import Logout
 from app.modules.identity.application.use_cases.refresh_session import RefreshSession
+from app.modules.identity.application.use_cases.revoke_restricted_sessions import (
+    RevokeRestrictedSessions,
+)
 from app.modules.identity.application.use_cases.update_profile import UpdateProfile
 from app.modules.identity.domain.restriction import RestrictionKind, RestrictionSource
 from app.modules.identity.infrastructure.models import RestrictionRow, UserRoleRow
@@ -27,6 +33,7 @@ from app.modules.identity.infrastructure.queries import SqlIdentityQuery
 from app.modules.identity.infrastructure.repositories import (
     SqlConsentRepository,
     SqlRestrictionRepository,
+    SqlRoleRepository,
     SqlSessionRepository,
     SqlUserRepository,
 )
@@ -75,6 +82,9 @@ class Identity:
     update_profile: UpdateProfile
     accept_consents: AcceptConsents
     facade: IdentityFacade
+    age_trust_levels: AgeTrustLevels
+    revoke_restricted_sessions: RevokeRestrictedSessions
+    grant_staff_role: GrantStaffRole
 
     async def restrict(
         self, user_id: UserId, kind: RestrictionKind, *, ends_at: datetime | None = None
@@ -117,6 +127,8 @@ def identity(
     legal = FakeLegalVersions()
     geo = FakeGeo()
     access = AccessChecker(query, legal, clock)
+    trust = TrustRecalculation(query)
+    audit = SqlAuditLog(db_session, uow)
     return Identity(
         session=db_session,
         clock=clock,
@@ -137,7 +149,7 @@ def identity(
             query,
             tokens,
             revocations,
-            SqlAuditLog(db_session, uow),
+            audit,
             CONFIG,
             clock,
         ),
@@ -146,7 +158,12 @@ def identity(
         accept_consents=AcceptConsents(
             uow, users, SqlConsentRepository(db_session, uow), legal, clock
         ),
-        facade=IdentityFacade(uow, query, SqlRestrictionRepository(db_session, uow), access, clock),
+        facade=IdentityFacade(
+            uow, query, users, SqlRestrictionRepository(db_session, uow), access, trust, clock
+        ),
+        age_trust_levels=AgeTrustLevels(uow, users, trust, clock),
+        revoke_restricted_sessions=RevokeRestrictedSessions(uow, sessions, revocations, clock),
+        grant_staff_role=GrantStaffRole(uow, users, SqlRoleRepository(db_session, uow), audit),
     )
 
 

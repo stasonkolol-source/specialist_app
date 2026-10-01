@@ -9,6 +9,7 @@ import pytest
 
 from app.modules.notifications.domain.catalog import NotificationType
 from app.modules.notifications.infrastructure.rendering import RENDERED, GettextNotificationRenderer
+from app.platform.contracts.events.identity import RestrictionKind
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.localized import Locale
 from app.platform.telegram.deeplinks import parse_start_param
@@ -52,7 +53,9 @@ def test_restriction_until_a_date_on_three_scripts(renderer: GettextNotification
 
 
 @pytest.mark.parametrize(
-    "kind", ["posting_blocked", "responding_blocked", "messaging_blocked", "suspended", "banned"]
+    "kind",
+    # теневой бан не сообщается (notify_account_restricted)
+    [kind.value for kind in RestrictionKind if kind is not RestrictionKind.SHADOW_BANNED],
 )
 @pytest.mark.parametrize("locale", SCRIPTS)
 def test_every_restriction_has_its_own_words(
@@ -93,6 +96,22 @@ def test_moderation_decision_names_the_content_and_the_reason(
 
     assert "notifications." not in text
     assert "{" not in text
+
+
+def test_decision_says_who_decided_and_warns(renderer: GettextNotificationRenderer) -> None:
+    params = {"entity_type": "job", "decision_code": "contact_leak"}
+
+    automated = renderer.text(DECISION, params | {"automated": "true"}, Locale.RU).body
+    warned = renderer.text(
+        DECISION, params | {"automated": "false", "sanction": "warning"}, Locale.RU
+    ).body
+    struck = renderer.text(DECISION, params | {"sanction": "strike_1"}, Locale.RU).body
+
+    assert automated.endswith("Исправьте и отправьте снова. Решение принято автоматически.")
+    assert warned.endswith(
+        "Это предупреждение: при повторных нарушениях аккаунт ограничат. Решение принял модератор."
+    )
+    assert struck.endswith("Исправьте и отправьте снова.")  # об ограничении — account.restricted
 
 
 def test_prohibited_labels_share_one_reason(renderer: GettextNotificationRenderer) -> None:

@@ -302,6 +302,22 @@ msgstr "Фајл још није отпремљен до краја. Сачек�
 msgid "errors.media_upload_mismatch"
 msgstr "Отпремљени фајл се не поклапа са изабраним. Отпремите га поново."
 
+# Модерација: случајеви (DEVELOPMENT_PLAN 2.5a, ARCHITECTURE §14.2)
+msgid "errors.case_not_found"
+msgstr "Случај није пронађен."
+
+msgid "errors.case_already_open"
+msgstr "За овај објекат је управо отворен случај. Покушајте поново."
+
+msgid "errors.case_state_conflict"
+msgstr "Случај је већ решен или то са њим сада није могуће."
+
+msgid "errors.case_taken"
+msgstr "Случај већ решава други модератор."
+
+msgid "errors.invalid_decision"
+msgstr "Одлука није потпуна: потребан је разлог, а санкција — само уз одбијање."
+
 # Обавештења (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
 msgid "errors.notification_group_mandatory"
 msgstr "Службена обавештења не могу да се искључе: тичу се одлука модерације и ограничења налога."
@@ -311,6 +327,9 @@ msgstr "Налог је ограничен"
 
 msgid "notifications.account_restricted.title.banned"
 msgstr "Налог је блокиран"
+
+msgid "notifications.account_restricted.body.limited"
+msgstr "Важе ограничења за нове кориснике: мање захтева, понуда и порука дневно."
 
 msgid "notifications.account_restricted.body.posting_blocked"
 msgstr "Објављивање захтева и профила тренутно није могуће."
@@ -359,6 +378,15 @@ msgstr "Садржај није прошао проверу"
 
 msgid "notifications.moderation_decision.body"
 msgstr "Разлог: {reason}. Исправите и пошаљите поново."
+
+msgid "notifications.moderation_decision.warning"
+msgstr "Ово је упозорење: ако се прекршаји понове, налог ће бити ограничен."
+
+msgid "notifications.moderation_decision.automated"
+msgstr "Одлука је донета аутоматски."
+
+msgid "notifications.moderation_decision.by_moderator"
+msgstr "Одлуку је донео модератор."
 
 msgid "notifications.moderation_decision.button"
 msgstr "Исправи"

@@ -10,6 +10,7 @@ from app.modules.identity.domain.session import SessionId
 from app.modules.identity.domain.user import UserIntent
 from app.platform.kernel.ids import CityId, UserId
 from app.platform.kernel.localized import Locale
+from app.platform.kernel.principal import Role
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -55,6 +56,15 @@ class SessionTokens:
 class AuthResult:
     tokens: SessionTokens
     is_new: bool
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StaffRoleGranted:
+    """Итог `cli staff-grant`: кому выдана роль; `granted` False — роль уже была."""
+
+    user_id: UserId
+    role: Role
+    granted: bool
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

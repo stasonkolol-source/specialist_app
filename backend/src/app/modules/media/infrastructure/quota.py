@@ -4,7 +4,7 @@ import math
 
 from app.modules.media.domain.policy import MB
 from app.platform.kernel.ids import UserId
-from app.platform.ratelimit import Rate, RateLimiter
+from app.platform.ratelimit import Rate, RateLimiter, user_subject
 
 UPLOAD_MEGABYTES_PER_USER = Rate("media.upload_megabytes", "1024/day")
 """1 GB в сутки: вес загрузки — заявленный размер в мегабайтах с округлением вверх."""
@@ -16,5 +16,5 @@ class ValkeyUploadQuota:
 
     async def charge(self, owner_id: UserId, size_bytes: int) -> None:
         await self._limiter.hit(
-            UPLOAD_MEGABYTES_PER_USER, f"user:{owner_id}", cost=math.ceil(size_bytes / MB)
+            UPLOAD_MEGABYTES_PER_USER, user_subject(owner_id), cost=math.ceil(size_bytes / MB)
         )

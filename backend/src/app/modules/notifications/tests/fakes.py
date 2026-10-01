@@ -41,3 +41,6 @@ class FakeIdentity:
 
     async def restrict(self, data: RestrictionIn) -> RestrictionId:
         raise NotImplementedError
+
+    async def record_violation(self, user_id: UserId) -> None:
+        raise NotImplementedError

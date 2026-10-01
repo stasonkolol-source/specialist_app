@@ -110,6 +110,9 @@ class MediaRepository(Protocol):
         """Незавершённые загрузки старше `before`, под блокировкой без ожидания (SKIP LOCKED)."""
         ...
 
-    async def deleted_before(self, before: datetime, *, limit: int) -> Sequence[MediaAsset]:
-        """Удалённые раньше `before`, чьи объекты ещё не стёрты (SKIP LOCKED)."""
+    async def deleted_before(
+        self, before: datetime, *, now: datetime, limit: int
+    ) -> Sequence[MediaAsset]:
+        """Удалённые раньше `before`, чьи объекты ещё не стёрты и чей legal hold к `now`
+        истёк или не ставился (SKIP LOCKED)."""
         ...

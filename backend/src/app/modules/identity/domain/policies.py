@@ -1,10 +1,11 @@
 """Политики identity (ADR-0020 §2): согласия, нужные для действий, и уровень доверия."""
 
 from collections.abc import Iterable, Mapping, Sequence
+from datetime import timedelta
 from typing import Final
 
 from app.modules.identity.domain.consent import ONE_TICK, Consent, ConsentDocument
-from app.modules.identity.domain.trust import TrustLevel, TrustRule, TrustSignals
+from app.modules.identity.domain.trust import CLEAN_PERIOD, TrustLevel, TrustRule, TrustSignals
 from app.modules.identity.errors import (
     LegalVersionOutdatedError,
     LegalVersionsUnavailableError,
@@ -78,12 +79,36 @@ def accepted_versions(accepted: Iterable[Consent]) -> dict[ConsentDocument, str]
 
 # --- уровень доверия -----------------------------------------------------------------------
 
-PROMOTIONS: Final[Sequence[TrustRule]] = ()
-"""Правила повышения (§13.2): телефон → 1 (2.9), 14 дней без жалоб → 1 (2.5a),
-3 сделки без жалоб → 2 (6.1a)."""
 
-CAPS: Final[Sequence[TrustRule]] = ()
-"""Потолки: действующая санкция и подтверждённая жалоба понижают уровень (2.5a)."""
+def _clean_for(signals: TrustSignals) -> timedelta:
+    """Сколько пользователь живёт без нарушений: с регистрации или с последнего нарушения."""
+    if signals.penalized_ago is None:
+        return signals.account_age
+    return min(signals.account_age, signals.penalized_ago)
+
+
+def clean_period_passed(signals: TrustSignals) -> TrustLevel:
+    """≥ 14 дней на площадке без подтверждённых жалоб и санкций → базовый (ADR-0016 §2)."""
+    return TrustLevel.BASIC if _clean_for(signals) >= CLEAN_PERIOD else TrustLevel.NEW
+
+
+def no_active_sanctions(signals: TrustSignals) -> TrustLevel:
+    """Пока действует санкция, уровень — 0: лимиты и модерация как у нового аккаунта."""
+    return TrustLevel.NEW if signals.active_sanctions else TrustLevel.TRUSTED
+
+
+def no_recent_violation(signals: TrustSignals) -> TrustLevel:
+    """Нарушение за последние 14 дней опускает уровень до 0 (2.5a)."""
+    recent = signals.penalized_ago is not None and signals.penalized_ago < CLEAN_PERIOD
+    return TrustLevel.NEW if recent else TrustLevel.TRUSTED
+
+
+PROMOTIONS: Final[Sequence[TrustRule]] = (clean_period_passed,)
+"""Правила повышения (§13.2): 14 дней без жалоб → 1 (2.5a); телефон → 1 (2.9),
+3 сделки без жалоб → 2 (6.1a) — в своих шагах."""
+
+CAPS: Final[Sequence[TrustRule]] = (no_active_sanctions, no_recent_violation)
+"""Потолки: действующая санкция и нарушение за 14 дней опускают уровень до 0 (2.5a)."""
 
 
 def trust_level(

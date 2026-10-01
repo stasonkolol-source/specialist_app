@@ -11,7 +11,7 @@ from collections.abc import Callable
 from fastapi import Request, Response
 
 from app.platform.kernel.principal import Principal
-from app.platform.ratelimit import Rate, RateLimiter, RateStatus
+from app.platform.ratelimit import Rate, RateLimiter, RateStatus, user_subject
 
 UNKNOWN_IP = "unknown"
 
@@ -25,7 +25,7 @@ def user_or_ip(request: Request) -> str:
     """Вошедший — по пользователю, гость — по адресу."""
     principal = getattr(request.state, "principal", None)
     if isinstance(principal, Principal):
-        return f"user:{principal.user_id}"
+        return user_subject(principal.user_id)
     return client_ip(request)
 
 

@@ -6,8 +6,9 @@ notifications стоит над контентными модулями (ARCHITE
 - `notifications.grant_write_access` — BotStarted: /start разрешает боту писать.
 - `notifications.notify_account_restricted` — UserRestricted: уведомление о санкции;
   теневой бан человеку не сообщается — на то он и теневой.
-- `notifications.notify_moderation_decision` — ModerationDecisionMade: автору — отказ и
-  кнопка «Исправить» к его контенту; одобрение без уведомления.
+- `notifications.notify_moderation_decision` — ModerationDecisionMade: автору — отказ
+  (statement of reasons: причина, предупреждение, автоматически ли) и кнопка «Исправить» к
+  его контенту; одобрение без уведомления.
 - `notifications.send` — отправить доставку в бот (очередь `notifications`).
 - `notifications.expire_stale` — раз в час: доставки, зависшие в `queued` дольше суток после
   срока, становятся `failed` (`stale`).
@@ -95,6 +96,8 @@ async def notify_moderation_decision(
             params={
                 "entity_type": event.entity_type,
                 "decision_code": event.decision_code or "other",
+                "automated": "true" if event.automated else "false",
+                **({"sanction": event.sanction} if event.sanction else {}),
             },
             link=link,
         )
