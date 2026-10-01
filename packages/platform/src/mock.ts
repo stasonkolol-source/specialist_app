@@ -19,6 +19,9 @@ export interface MockOptions {
   writeAccess?: boolean;
   contact?: boolean;
   location?: { latitude: number; longitude: number } | null;
+  /** Настоящий initData вместо синтетического: вход на dev-стенде из браузера
+   *  (`cli dev-initdata`). По умолчанию — подпись `mock`, её backend не примет. */
+  initData?: string;
 }
 
 export interface MockTelegram {
@@ -77,6 +80,7 @@ export function createMockPlatform(options: MockOptions = {}): {
     writeAccess = true,
     contact = true,
     location = { latitude: 45.2671, longitude: 19.8335 },
+    initData: rawInitData,
   } = options;
 
   const calls: MockTelegram['calls'] = [];
@@ -156,7 +160,7 @@ export function createMockPlatform(options: MockOptions = {}): {
       tgWebAppVersion: version,
       tgWebAppPlatform: clientPlatform,
       tgWebAppThemeParams: theme,
-      tgWebAppData: initData(languageCode, startParam),
+      tgWebAppData: rawInitData ?? initData(languageCode, startParam),
       ...(startParam ? { tgWebAppStartParam: startParam } : {}),
     } as never,
     onEvent: (event) => {
