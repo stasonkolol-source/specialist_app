@@ -1,6 +1,6 @@
 """Профиль исполнителя (DEVELOPMENT_PLAN 2.8a): жизненный цикл, поля, чего не хватает."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time, timedelta
 
 import pytest
 
@@ -10,13 +10,16 @@ from app.modules.specialists.domain.profile import (
     ProfileKind,
     ProfileStatus,
     WorkMode,
+    today_at,
 )
 from app.modules.specialists.errors import (
+    AvailabilityPastError,
     InvalidProfileError,
     ProfileIncompleteError,
     ProfileStateError,
 )
 from app.platform.contracts.events.specialists import (
+    AvailabilityChanged,
     ProfileHidden,
     ProfilePublished,
     ProfileSubmitted,
@@ -209,3 +212,48 @@ def test_category_and_text_limits() -> None:
     assert headline(profile) is None
     assert profile.edit(now=NOW, work_modes=[WorkMode.REMOTE]) == ("work_modes",)
     assert profile.work_modes == (WorkMode.REMOTE,)
+
+
+def available(profile: Profile) -> datetime | None:
+    """Срок «доступен сегодня» — функцией: mypy не сужает тип атрибута между вызовами."""
+    return profile.available_until
+
+
+def test_available_today_until_a_time_and_off() -> None:
+    profile = ready()
+    profile.submit(now=NOW)
+    profile.approve(now=NOW)
+    profile.pull_events()
+
+    # NOW — 12:00 по Белграду (10:00 UTC): «до 20:00» — сегодня в 18:00 UTC
+    assert profile.set_availability(time(20), now=NOW)
+    assert profile.available_until == datetime(2026, 10, 1, 18, 0, tzinfo=UTC)
+    assert not profile.set_availability(time(20), now=NOW)  # то же — без события
+    assert profile.set_availability(None, now=NOW)
+    assert available(profile) is None
+    events = profile.pull_events()
+    assert [type(e) for e in events] == [AvailabilityChanged, AvailabilityChanged]
+    off = events[1]
+    assert isinstance(off, AvailabilityChanged)
+    assert off.available_until is None
+
+    with pytest.raises(AvailabilityPastError):
+        profile.set_availability(time(11, 59), now=NOW)
+
+
+def test_expired_availability_is_switched_off() -> None:
+    profile = ready()
+    profile.set_availability(time(18), now=NOW)
+    profile.pull_events()
+
+    assert not profile.expire_availability(now=NOW)  # ещё не вышло
+    later = NOW + timedelta(hours=8)
+    assert profile.expire_availability(now=later)
+    assert available(profile) is None
+    assert [type(e) for e in profile.pull_events()] == [AvailabilityChanged]
+
+
+def test_today_is_the_business_day_in_belgrade() -> None:
+    # 23:30 UTC 1 октября — уже 2 октября в Белграде (UTC+2)
+    late = datetime(2026, 10, 1, 23, 30, tzinfo=UTC)
+    assert today_at(time(20), now=late) == datetime(2026, 10, 2, 18, 0, tzinfo=UTC)

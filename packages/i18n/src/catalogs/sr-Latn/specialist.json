@@ -129,6 +129,11 @@
     "filled": "Profil je popunjen {percent}%",
     "filledLabel": "Popunjenost profila",
     "complete": "Profil je potpuno popunjen",
+    "availableUntil": "Dostupan danas do {time}",
+    "availableToday": "Dostupan danas",
+    "availability": "Dostupnost",
+    "availabilityValue": "danas do {time}",
+    "availabilityOff": "isključeno",
     "hint": {
       "category_ids": "Izaberite kategorije usluga",
       "headline": "Napišite ukratko o sebi",
@@ -152,5 +157,18 @@
       "postModeration": "Izmene će se pojaviti u profilu nakon automatske provere",
       "save": "Sačuvaj"
     }
+  },
+  "availability": {
+    "title": "Dostupnost",
+    "today": "Dostupan danas",
+    "todayOn": "Klijenti vide „Danas do {time}“",
+    "todayOff": "Uključite kad ste spremni da prihvatite zahtev danas",
+    "todayLate": "Za danas je već kasno — uključite sutra",
+    "options": "Do kog sata",
+    "until": "do {time}",
+    "pause": "Pauza ili odmor",
+    "pauseText": "Profil je skriven, zahtevi ne stižu",
+    "pauseUnavailable": "Pauza je dostupna kad je profil objavljen",
+    "save": "Sačuvaj"
   }
 }

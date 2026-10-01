@@ -107,6 +107,15 @@ const cabinet = createRoute({
   component: screen(() => import('../features/specialist/s33-cabinet/index.ts'), 'CabinetScreen'),
 });
 
+const cabinetAvailability = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CABINET_PATHS.availability,
+  component: screen(
+    () => import('../features/specialist/s38-availability/index.ts'),
+    'AvailabilityScreen',
+  ),
+});
+
 const cabinetProfile = createRoute({
   getParentRoute: () => rootRoute,
   path: CABINET_PATHS.profile,
@@ -177,6 +186,7 @@ export const routeTree = rootRoute.addChildren([
   becomeArea,
   cabinet,
   cabinetProfile,
+  cabinetAvailability,
   notifications,
   onboardingLanguage,
   onboardingIntent,

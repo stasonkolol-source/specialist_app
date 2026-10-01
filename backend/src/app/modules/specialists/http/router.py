@@ -23,6 +23,10 @@ from app.modules.specialists.application.use_cases.hide_profile import (
     HideProfile,
     HideProfileCommand,
 )
+from app.modules.specialists.application.use_cases.set_availability import (
+    SetAvailability,
+    SetAvailabilityCommand,
+)
 from app.modules.specialists.application.use_cases.set_profile_areas import (
     SetProfileAreas,
     SetProfileAreasCommand,
@@ -42,6 +46,7 @@ from app.modules.specialists.application.use_cases.submit_profile import (
 from app.modules.specialists.application.views import ProfileViews
 from app.modules.specialists.errors import ProfileNotFoundError
 from app.modules.specialists.http.schemas import (
+    AvailabilityIn,
     ProfileAreasIn,
     ProfileCategoriesIn,
     ProfileCreateIn,
@@ -173,6 +178,25 @@ async def submit_my_profile(
     """На проверку (S32c «Отправить на проверку»); 409 `profile_incomplete` — чего не хватает."""
     await submit(
         SubmitProfileCommand(actor_id=principal.user_id, expected_version=expected_version)
+    )
+    return await _profile(query, principal.user_id, response)
+
+
+@router.put("/me/profile/availability")
+@inject
+async def set_my_availability(
+    body: AvailabilityIn,
+    expected_version: IfMatch,
+    principal: FromDishka[Principal],
+    set_availability: FromDishka[SetAvailability],
+    query: FromDishka[ProfileViews],
+    response: Response,
+) -> ProfileOut:
+    """«Доступен сегодня до …» (S38): время по Белграду, сегодня; null — выключить."""
+    await set_availability(
+        SetAvailabilityCommand(
+            actor_id=principal.user_id, until=body.until, expected_version=expected_version
+        )
     )
     return await _profile(query, principal.user_id, response)
 

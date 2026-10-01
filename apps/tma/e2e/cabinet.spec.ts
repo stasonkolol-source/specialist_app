@@ -1,11 +1,22 @@
-// Кабинет специалиста S33 и правка профиля S34 (DEVELOPMENT_PLAN 2.10): из карточки на S31,
-// скриншоты × тема × язык, axe-core. Имена скриншотов начинаются с кода артборда: make
-// design-compare кладёт их рядом с эталоном.
+// Кабинет специалиста S33, доступность S38 и правка профиля S34 (DEVELOPMENT_PLAN 2.10): из
+// карточки на S31, скриншоты × тема × язык, axe-core. Время в браузере — 15:00 по Белграду:
+// варианты «до 18/20/22» и подписи зависят от часа. Имена скриншотов начинаются с кода артборда:
+// make design-compare кладёт их рядом с эталоном.
 import { expect, test } from '@playwright/test';
 
 import { FIRST_SERVICE, ME, PROFILE_FILLED } from '../src/testing/fixtures.ts';
 import { ProfileBackend } from '../src/testing/profileBackend.ts';
-import { THEMES, expectNoAxeViolations, open, openProfile, real } from './support.ts';
+import {
+  THEMES,
+  expectNoAxeViolations,
+  open,
+  openProfile,
+  pressTelegram,
+  real,
+} from './support.ts';
+
+/** 15:00 по Белграду 1 октября: все варианты «доступен сегодня» ещё впереди. */
+const AFTERNOON = new Date('2026-10-01T15:00:00+02:00');
 
 const LOCALES = [
   {
@@ -17,6 +28,9 @@ const LOCALES = [
     published: 'Профиль опубликован · виден в поиске',
     row: 'Профиль',
     edit: 'Редактирование профиля',
+    availability: /Доступность/,
+    availabilityTitle: 'Доступность',
+    today: 'Доступен сегодня',
   },
   {
     locale: 'sr-Latn',
@@ -27,12 +41,16 @@ const LOCALES = [
     published: 'Profil je objavljen · vidljiv u pretrazi',
     row: 'Profil',
     edit: 'Izmena profila',
+    availability: /Dostupnost/,
+    availabilityTitle: 'Dostupnost',
+    today: 'Dostupan danas',
   },
 ] as const;
 
 for (const theme of THEMES) {
   for (const l of LOCALES) {
-    test(`S33 и S34 ${theme} ${l.locale}: кабинет и правка профиля`, async ({ page }) => {
+    test(`S33, S38 и S34 ${theme} ${l.locale}: кабинет, доступность и правка`, async ({ page }) => {
+      await page.clock.setFixedTime(AFTERNOON);
       const profile = new ProfileBackend({ ...PROFILE_FILLED, status: 'published' }, [
         FIRST_SERVICE,
       ]);
@@ -57,6 +75,15 @@ for (const theme of THEMES) {
       await expect(page.getByRole('heading', { name: l.title, level: 1 })).toBeVisible();
       await expect(page.getByText(l.published)).toBeVisible();
       await snap(`S33-cabinet-${theme}-${l.locale}.png`);
+
+      // S38 как на артборде: «Доступен сегодня» включён, выбрано «до 20:00»
+      await page.getByRole('link', { name: l.availability }).click();
+      await expect(
+        page.getByRole('heading', { name: l.availabilityTitle, level: 1 }),
+      ).toBeVisible();
+      await page.getByRole('switch', { name: l.today }).click();
+      await snap(`S38-availability-${theme}-${l.locale}.png`);
+      await pressTelegram(page, 'back_button_pressed');
 
       await page.getByRole('link', { name: l.row, exact: true }).click();
       await expect(page.getByRole('heading', { name: l.edit, level: 1 })).toBeVisible();

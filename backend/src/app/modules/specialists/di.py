@@ -10,6 +10,8 @@ from app.modules.specialists.application.use_cases.create_profile import CreateP
 from app.modules.specialists.application.use_cases.edit_profile import EditProfile
 from app.modules.specialists.application.use_cases.hide_profile import HideProfile
 from app.modules.specialists.application.use_cases.mark_founding import MarkFounding
+from app.modules.specialists.application.use_cases.reset_availability import ResetAvailability
+from app.modules.specialists.application.use_cases.set_availability import SetAvailability
 from app.modules.specialists.application.use_cases.set_profile_areas import SetProfileAreas
 from app.modules.specialists.application.use_cases.set_profile_categories import (
     SetProfileCategories,
@@ -38,4 +40,6 @@ class SpecialistsProvider(Provider):
     hide_profile = provide(HideProfile)
     show_profile = provide(ShowProfile)
     become_pro = provide(BecomePro)
+    set_availability = provide(SetAvailability)
+    reset_availability = provide(ResetAvailability)
     mark_founding = provide(MarkFounding)

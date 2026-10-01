@@ -115,6 +115,18 @@ describe('Chips, AvatarStack, Price', () => {
     expect(await a11yViolations(container)).toEqual([]);
   });
 
+  it('недоступный вариант не нажимается', () => {
+    const onClick = vi.fn();
+    render(
+      <Chip disabled onClick={onClick}>
+        до 18:00
+      </Chip>,
+    );
+    const chip = screen.getByRole('button', { name: 'до 18:00' });
+    fireEvent.click(chip);
+    expect([chip.hasAttribute('disabled'), onClick.mock.calls.length]).toEqual([true, 0]);
+  });
+
   it('чип-раскрывашка сообщает, раскрыт ли список', () => {
     const { rerender } = render(<Chip expanded={false}>Ещё 4 района</Chip>);
     const chip = screen.getByRole('button', { name: 'Ещё 4 района' });

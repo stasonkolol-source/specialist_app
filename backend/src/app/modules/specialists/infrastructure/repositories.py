@@ -1,5 +1,7 @@
 """Репозиторий профилей (ADR-0020 §5): профиль с категориями и районами — один агрегат."""
 
+from datetime import datetime
+
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,6 +57,17 @@ class SqlProfileRepository:
         await self._replace_children(profile)
         profile.mark_persisted(version=row.version)
         self._uow.track(profile)
+
+    async def expired_availability(self, now: datetime, *, limit: int) -> list[ProfileId]:
+        self._uow.require_active()
+        stmt = (
+            select(ProfileRow.id)
+            .where(ProfileRow.available_until <= now, ProfileRow.deleted_at.is_(None))
+            .order_by(ProfileRow.available_until)
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+        )
+        return [ProfileId(value) for value in (await self._session.scalars(stmt)).all()]
 
     async def _load(self, condition: object) -> Profile | None:
         self._uow.require_active()

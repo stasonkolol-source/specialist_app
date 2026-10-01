@@ -51,6 +51,10 @@ export const getSpecialistsGetMyProfileResponseMock = (
       }),
     ),
   },
+  available_until: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -98,6 +102,10 @@ export const getSpecialistsCreateMyProfileResponseMock = (
       }),
     ),
   },
+  available_until: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -145,6 +153,10 @@ export const getSpecialistsUpdateMyProfileResponseMock = (
       }),
     ),
   },
+  available_until: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -192,6 +204,10 @@ export const getSpecialistsSetMyCategoriesResponseMock = (
       }),
     ),
   },
+  available_until: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -239,6 +255,10 @@ export const getSpecialistsSetMyAreasResponseMock = (
       }),
     ),
   },
+  available_until: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -286,6 +306,61 @@ export const getSpecialistsSubmitMyProfileResponseMock = (
       }),
     ),
   },
+  available_until: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  published_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  version: faker.number.int(),
+  ...overrideResponse,
+});
+
+export const getSpecialistsSetMyAvailabilityResponseMock = (
+  overrideResponse: Partial<Extract<ProfileOut, object>> = {},
+): ProfileOut => ({
+  id: faker.string.uuid(),
+  kind: faker.helpers.arrayElement(Object.values(ProfileKind)),
+  status: faker.helpers.arrayElement(Object.values(ProfileStatus)),
+  display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  headline: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  about: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  languages: faker.helpers.arrayElements(Object.values(Language)),
+  city_id: faker.number.int(),
+  category_ids: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => faker.number.int(),
+  ),
+  district_ids: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => faker.number.int(),
+  ),
+  travel_radius_km: faker.helpers.arrayElement([faker.number.int(), null]),
+  work_modes: faker.helpers.arrayElements(Object.values(WorkMode)),
+  listed_in_catalog: faker.datatype.boolean(),
+  rejection_reason: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  missing: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
+  completeness: {
+    percent: faker.number.int(),
+    hints: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        code: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        count: faker.helpers.arrayElement([faker.number.int(), null]),
+      }),
+    ),
+  },
+  available_until: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -333,6 +408,10 @@ export const getSpecialistsHideMyProfileResponseMock = (
       }),
     ),
   },
+  available_until: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -380,6 +459,10 @@ export const getSpecialistsShowMyProfileResponseMock = (
       }),
     ),
   },
+  available_until: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -427,6 +510,10 @@ export const getSpecialistsBecomeProResponseMock = (
       }),
     ),
   },
+  available_until: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -567,6 +654,28 @@ export const getSpecialistsSubmitMyProfileMockHandler = (
   );
 };
 
+export const getSpecialistsSetMyAvailabilityMockHandler = (
+  overrideResponse?:
+    | ProfileOut
+    | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<ProfileOut> | ProfileOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    '*/api/v1/me/profile/availability',
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSpecialistsSetMyAvailabilityResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getSpecialistsHideMyProfileMockHandler = (
   overrideResponse?:
     | ProfileOut
@@ -639,6 +748,7 @@ export const getSpecialistsMock = () => [
   getSpecialistsSetMyCategoriesMockHandler(),
   getSpecialistsSetMyAreasMockHandler(),
   getSpecialistsSubmitMyProfileMockHandler(),
+  getSpecialistsSetMyAvailabilityMockHandler(),
   getSpecialistsHideMyProfileMockHandler(),
   getSpecialistsShowMyProfileMockHandler(),
   getSpecialistsBecomeProMockHandler(),

@@ -12,10 +12,11 @@ export const BECOME_PATHS = {
 /** S31: сюда мастер ведёт после отправки на проверку и «Назад» с первого шага без истории. */
 export const ACCOUNT_PATH = '/profile';
 
-/** Кабинет специалиста S33 и правка профиля S34 (DEVELOPMENT_PLAN 2.10). */
+/** Кабинет специалиста S33, правка профиля S34 и доступность S38 (DEVELOPMENT_PLAN 2.10). */
 export const CABINET_PATHS = {
   home: '/cabinet',
   profile: '/cabinet/profile',
+  availability: '/cabinet/availability',
 } as const;
 
 export interface BecomeSearch {

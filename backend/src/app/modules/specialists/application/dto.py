@@ -34,6 +34,8 @@ class ProfileView:
     rejection_reason: str | None
     missing: tuple[str, ...]
     """Что заполнить перед отправкой на проверку."""
+    available_until: datetime | None
+    """«Доступен сегодня до …»; прошедшее время снимает задача reset_availability."""
     published_at: datetime | None
     version: int
 
