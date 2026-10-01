@@ -25,6 +25,7 @@ export const NotificationType = {
   jobexpiring: 'job.expiring',
   jobexpired: 'job.expired',
   profilestale_reminder: 'profile.stale_reminder',
+  profilepublished: 'profile.published',
   accountrestricted: 'account.restricted',
   systemtest: 'system.test',
 } as const;

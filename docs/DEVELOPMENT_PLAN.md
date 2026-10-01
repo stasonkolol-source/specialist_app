@@ -355,7 +355,7 @@ gantt
 | 2.6 | Конвейер автомодерации | 1.3b, 2.2a, 2.5a | K27, Q20 | на проверке |
 | 2.7a | Вход персонала | 1.1, 2.5a | K9, K30 | ожидает |
 | 2.7b | Админка: разделы и Admin API | 1.3b, 2.7a | K30, K31 (для stage) | ожидает |
-| 2.8a | Профили исполнителей (specialists) | 1.3b, 2.1, 2.6 | Q24 | ожидает |
+| 2.8a | Профили исполнителей (specialists) | 1.3b, 2.1, 2.6 | Q24 | на проверке |
 | 2.8b | Прайс (pricing) | 2.8a | — | ожидает |
 | 2.8c | Демо-данные: `seed-demo` | 2.2a, 2.8b | — | ожидает |
 | 2.9 | Mini App: S31, S32a–c, подтверждение телефона | 1.5b, 2.8b | — | ожидает |
@@ -1140,7 +1140,8 @@ gantt
 - **Backend.** Модуль `specialists`: профиль `pro` или `casual`, один активный на пользователя; статусы `draft → pending_review → published ↔ hidden`, `published → suspended`; переход casual → pro — отдельной командой с повторной премодерацией; `profile_categories`, `service_areas`, `portfolio_items` и `portfolio_media`; форматы работы `work_modes` (выезжаю / у себя) и `travel_radius_km` (3, 5, 10) для S32c и фильтра «выезжает ко мне»; доступность (`available_until`, `vacation_until`); `base_point` и `base_point_public`; статус Founding — флаг `is_founding` ([§15.2][a152]), выставляется `cli founding-mark` или действием в админке, в экранах MVP бейджа нет (на макетах его нет; бейдж и бесплатный Pro — v1 по ADR-0014); колонки-задел v1 из DDL §7.3 — без логики. Кабинет `/me/profile*`: создать, править (пост-модерация), submit, hide/show, категории, районы, доступность, портфолио. Адаптеры модерации `profile` и `portfolio`. События `ProfileSubmitted`, `ProfilePublished`, `ProfileUpdated`, `ProfileHidden`, `AvailabilityChanged`. Periodic `specialists.reset_availability`, `specialists.stale_profile_reminders` + уведомление `profile.stale_reminder` (кнопку «Включить «доступен сегодня»» подключает 2.10). Раздел профилей в админке с действием «Founding». Аналитика: `profile_submitted`, `profile_published`, `pro_waitlist_joined`.
 - **Результат.** Профиль проходит путь draft → P2 → published через API.
 - **Готово, когда.** Тесты state machine профиля; submit → кейс P2 → одобрение → `published` и уведомление (интеграционный тест ветки «чисто → опубликовано, флаг → P2»); чужой профиль → 404; переход casual → pro снова ведёт в P2; покрытие ≥ 80%.
-- **Проверка.** `uv run pytest src/app/modules/specialists`; `make contract`.
+- **Проверка.** `uv run pytest src/app/modules/specialists tests/integration/test_profile_moderation.py`; `make contract`.
+- **Сделано (2026-10-01, порядок «сначала ядро»).** Профиль, категории (до 5, первая — основная), районы выезда (база и публичная точка — центр первого района: точного адреса мастер S32c не спрашивает), кабинет `/me/profile*` (создать, править, категории, районы, submit, hide/show, become-pro), адаптер модерации `profile`, уведомление `profile.published`, аналитика `profile_submitted` и `profile_published`, `cli founding-mark`. Отказ модерации возвращает новый профиль в черновик с `rejection_reason`, опубликованный — приостанавливает. Перенесено к своим экранам: портфолио и адаптер `portfolio` — в 2.11 (S37), доступность (`PUT /me/profile/availability`, `specialists.reset_availability`, `specialists.stale_profile_reminders`) — в 2.10 (S38), лист ожидания Pro (Q24) — к рассылке 2.7b, действие «Founding» в админке — 2.7b.
 
 **2.8b. Прайс (pricing).**
 - **Зависит от.** 2.8a

@@ -318,6 +318,28 @@ msgstr "Кейс уже разбирает другой модератор."
 msgid "errors.invalid_decision"
 msgstr "Решение неполное: нужна причина, а санкция — только при отказе."
 
+# Профили исполнителей (DEVELOPMENT_PLAN 2.8a)
+msgid "errors.profile_not_found"
+msgstr "Профиль исполнителя не найден."
+
+msgid "errors.profile_exists"
+msgstr "У вас уже есть профиль исполнителя."
+
+msgid "errors.profile_state_conflict"
+msgstr "С профилем в этом статусе так сделать нельзя."
+
+msgid "errors.profile_incomplete"
+msgstr "Заполните профиль до конца, чтобы отправить его на проверку."
+
+msgid "errors.invalid_profile"
+msgstr "Проверьте поля профиля."
+
+msgid "errors.category_not_allowed"
+msgstr "Эту категорию выбрать нельзя."
+
+msgid "errors.district_not_allowed"
+msgstr "Этот район выбрать нельзя."
+
 # Уведомления (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
 msgid "errors.notification_group_mandatory"
 msgstr "Служебные уведомления нельзя выключить: они о решениях модерации и ограничениях аккаунта."
@@ -417,6 +439,15 @@ msgstr "вакансии здесь не публикуются"
 
 msgid "notifications.moderation_reason.other"
 msgstr "нарушение правил площадки"
+
+msgid "notifications.profile_published.title"
+msgstr "Профиль опубликован"
+
+msgid "notifications.profile_published.body"
+msgstr "Модератор проверил ваш профиль — теперь его видят клиенты в каталоге."
+
+msgid "notifications.profile_published.button"
+msgstr "Открыть профиль"
 
 msgid "notifications.system_test.title"
 msgstr "Проверка уведомлений"

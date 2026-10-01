@@ -1,0 +1,52 @@
+"""Поля профиля (S32b–c, S34; PATCH /me/profile). Правки опубликованного применяются сразу,
+изменённый текст уходит на пост-модерацию (§7.9)."""
+
+from collections.abc import Sequence
+from dataclasses import dataclass
+
+from app.modules.specialists.application.ports import ProfileRepository
+from app.modules.specialists.application.profiles import (
+    needs_post_moderation,
+    own_profile,
+    request_review,
+)
+from app.modules.specialists.domain.profile import Profile
+from app.platform.db.port import UnitOfWork
+from app.platform.kernel.clock import Clock
+from app.platform.kernel.ids import UserId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class EditProfileCommand:
+    actor_id: UserId
+    expected_version: int | None = None
+    display_name: str | None = None
+    headline: str | None = None
+    """Пустая строка — очистить."""
+    about: str | None = None
+    languages: Sequence[str] | None = None
+    travel_radius_km: int | None = None
+    work_modes: Sequence[str] | None = None
+
+
+class EditProfile:
+    def __init__(self, uow: UnitOfWork, profiles: ProfileRepository, clock: Clock) -> None:
+        self._uow, self._profiles, self._clock = uow, profiles, clock
+
+    async def __call__(self, cmd: EditProfileCommand) -> Profile:
+        now = self._clock.now()
+        async with self._uow:
+            profile = await own_profile(self._profiles, cmd.actor_id, cmd.expected_version)
+            changed = profile.edit(
+                now=now,
+                display_name=cmd.display_name,
+                headline=cmd.headline,
+                about=cmd.about,
+                languages=cmd.languages,
+                travel_radius_km=cmd.travel_radius_km,
+                work_modes=cmd.work_modes,
+            )
+            await self._profiles.save(profile)
+            if needs_post_moderation(profile, changed):
+                request_review(self._uow, profile, edit=True, now=now)
+        return profile

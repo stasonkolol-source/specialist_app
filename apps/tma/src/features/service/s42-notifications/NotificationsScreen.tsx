@@ -71,6 +71,7 @@ const LOOK: Record<NotificationType, Look> = {
   'moderation.decision': { icon: 'shield', palette: 1 },
   'account.restricted': { icon: 'ban', neutral: true },
   'profile.stale_reminder': { icon: 'user', palette: 4 },
+  'profile.published': { icon: 'shield', palette: 1 },
   'system.test': { icon: 'bell' },
 };
 

@@ -93,6 +93,7 @@ INTENTS: Final = frozenset({"client", "pro", "casual", "unknown"})
 ENTRY_POINTS: Final = frozenset({"mini_app", "bot", "unknown"})
 """EntryPoint из UserRegistered; `unknown` — у событий, поставленных до 1.4b."""
 WRITE_ACCESS_VIA: Final = frozenset({"bot_start", "mini_app"})
+PROFILE_KINDS: Final = frozenset({"pro", "casual"})
 """GrantedVia notifications: /start в боте или requestWriteAccess в Mini App."""
 
 
@@ -125,8 +126,16 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
         description="Боту можно писать: канал telegram появился или включился снова",
         properties={"via": Choice(WRITE_ACCESS_VIA)},
     ),
-    EventName.PROFILE_SUBMITTED: EventSpec(step="2.8a", description="Профиль отправлен"),
-    EventName.PROFILE_PUBLISHED: EventSpec(step="2.8a", description="Профиль опубликован"),
+    EventName.PROFILE_SUBMITTED: EventSpec(
+        step="2.8a",
+        description="Профиль исполнителя отправлен на проверку (S32c или переход в «Специалист»)",
+        properties={"kind": Choice(PROFILE_KINDS)},
+    ),
+    EventName.PROFILE_PUBLISHED: EventSpec(
+        step="2.8a",
+        description="Профиль в каталоге: одобрен модерацией или возвращён владельцем",
+        properties={"approved": Flag()},
+    ),
     EventName.PRO_WAITLIST_JOINED: EventSpec(step="2.8a", description="Лист ожидания Pro"),
     EventName.PHONE_VERIFIED: EventSpec(step="2.9", description="Телефон подтверждён"),
     EventName.REPORT_CREATED: EventSpec(step="4.7", description="Жалоба"),

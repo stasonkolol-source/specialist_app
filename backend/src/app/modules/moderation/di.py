@@ -33,6 +33,7 @@ from app.modules.moderation.application.use_cases.record_rate_limit_signals impo
     RecordRateLimitSignals,
 )
 from app.modules.moderation.application.use_cases.take_case import EscalateCase, TakeCase
+from app.modules.moderation.domain.cases import EntityType
 from app.modules.moderation.infrastructure.cases import (
     SqlCaseRepository,
     SqlRiskSignals,
@@ -44,7 +45,9 @@ from app.modules.moderation.infrastructure.queries import SqlCaseQueue, SqlCaseS
 from app.modules.moderation.infrastructure.rate_limits import ValkeyRateLimitOverflows
 from app.modules.moderation.infrastructure.rules import CachedRuleSource, SqlRuleWriter
 from app.modules.moderation.infrastructure.targets import TargetRegistry
+from app.modules.moderation.infrastructure.targets.profile import ProfileTarget
 from app.modules.moderation.infrastructure.velocity import ValkeyVelocityCounter
+from app.modules.specialists.api import SpecialistsApi
 from app.platform.config.port import LegalVersions
 from app.platform.legal.port import LegalLibrary
 from app.platform.ratelimit import RateLimiter
@@ -75,10 +78,10 @@ class ModerationProvider(Provider):
     def policy(self, versions: LegalVersions, library: LegalLibrary) -> ModerationPolicy:
         return PublishedModerationPolicy(versions, library)
 
-    @provide(scope=Scope.APP)
-    def targets(self) -> ModerationTargets:
-        """Адаптеры целей добавляют контентные модули в своих шагах (2.8a, 5.1, …)."""
-        return TargetRegistry({})
+    @provide
+    def targets(self, specialists: SpecialistsApi) -> ModerationTargets:
+        """Адаптеры целей: контентные модули добавляют свои в своих шагах (5.1, 5.4, …)."""
+        return TargetRegistry({EntityType.PROFILE: ProfileTarget(specialists)})
 
     @provide(scope=Scope.APP)
     def auto_check_metrics(self, registry: CollectorRegistry) -> AutoCheckMetrics:
