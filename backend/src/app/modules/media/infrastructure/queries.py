@@ -24,6 +24,18 @@ class SqlMediaQuery(SqlQuery):
     async def asset_by_id(self, media_id: MediaId) -> MediaAsset | None:
         return await self._one(select(AssetRow).where(AssetRow.id == media_id))
 
+    async def assets(self, media_ids: Collection[MediaId]) -> list[MediaAsset]:
+        if not media_ids:
+            return []
+        stmt = select(AssetRow).where(
+            AssetRow.id.in_(list(media_ids)), AssetRow.deleted_at.is_(None)
+        )
+        rows = (await self._session.scalars(stmt)).all()
+        # в домен — до конца транзакции: после rollback строки ORM истекают
+        assets = [to_domain(row) for row in rows]
+        await self._release()
+        return assets
+
     async def stuck(
         self,
         uploaded_before: datetime,

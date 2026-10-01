@@ -1,40 +1,55 @@
-// Кабинет исполнителя в памяти — как backend 2.8a–b: профиль, «чего не хватает» и прайс. Один и
-// тот же для MSW в Vitest (testing/msw.ts) и page.route в e2e (e2e/api.ts): мастер S32a–c
-// проходит по нему от «профиля нет» до «на проверке».
+// Кабинет исполнителя в памяти — как backend 2.8a–2.11: профиль, «чего не хватает», прайс,
+// портфолио и фото профиля. Один и тот же для MSW в Vitest (testing/msw.ts) и page.route в e2e
+// (e2e/api.ts): мастер S32a–c проходит по нему от «профиля нет» до «на проверке». Файлы работ и
+// фото — из MediaBackend: что загружено и как обработано.
 import type {
   CompletenessOut,
   HintOut,
+  MediaRefOut,
+  PortfolioLimitsOut,
   ProfileCreateIn,
   ProfileOut,
   ProfileUpdateIn,
   ServiceIn,
   ServiceOut,
   ServiceUpdateIn,
+  WorkIn,
+  WorkOut,
 } from '@sosed/api-client';
 
+import type { BackendReply } from './backend.ts';
+import { problem } from './backend.ts';
 import { PROFILE_DRAFT } from './fixtures.ts';
+import { MediaBackend } from './mediaBackend.ts';
 
-/** Ответ backend: тело и статус; ошибки — RFC 9457 с `code`. */
-export interface BackendReply {
-  status: number;
-  body: unknown;
-}
-
-const problem = (status: number, code: string, extra: Record<string, unknown> = {}) => ({
-  status,
-  body: { type: 'about:blank', title: code, status, code, trace_id: 'test', ...extra },
-});
+/** Лимиты портфолио — LIMITS backend: 60 фото и 6 роликов. */
+export const PORTFOLIO_LIMITS: PortfolioLimitsOut = { image: 60, video: 6 };
 
 /** Что приложение прислало: запросы по порядку, как «METHOD путь» и тело. */
 export type BackendLog = { request: string; body: unknown }[];
 
+export interface ProfileBackendOptions {
+  /** Работы портфолио по порядку. */
+  works?: readonly WorkOut[];
+  /** Файлы: загрузки S37 и S34 и их обработка. */
+  media?: MediaBackend;
+}
+
 export class ProfileBackend {
   profile: ProfileOut | null;
   services: ServiceOut[];
+  works: WorkOut[];
+  readonly media: MediaBackend;
   readonly log: BackendLog = [];
 
-  constructor(profile: ProfileOut | null = null, services: ServiceOut[] = []) {
+  constructor(
+    profile: ProfileOut | null = null,
+    services: ServiceOut[] = [],
+    { works = [], media = new MediaBackend() }: ProfileBackendOptions = {},
+  ) {
     this.services = [...services];
+    this.works = [...works];
+    this.media = media;
     this.profile = profile && this.refresh(profile);
   }
 
@@ -60,9 +75,18 @@ export class ProfileBackend {
     if (service?.[1]) return this.changeService(service[1], body as ServiceUpdateIn);
     const removed = /^DELETE \/me\/profile\/services\/(.+)$/.exec(request);
     if (removed?.[1]) return this.removeService(profile, removed[1]);
+    const portfolio = this.portfolio(profile, request, body);
+    if (portfolio) return portfolio;
     switch (request) {
       case 'GET /me/profile':
-        return this.ok(profile);
+        return this.ok(this.refresh(profile));
+      case 'PUT /me/profile/avatar': {
+        const { media_id } = body as { media_id: string | null };
+        if (media_id === null) return this.save({ ...profile, avatar: null });
+        const avatar = this.media.ref(media_id);
+        if (!avatar) return problem(404, 'media_not_found');
+        return this.save({ ...profile, avatar });
+      }
       case 'PATCH /me/profile':
         return this.update(profile, body as ProfileUpdateIn);
       case 'PUT /me/profile/categories': {
@@ -101,6 +125,74 @@ export class ProfileBackend {
 
   private ok(body: unknown): BackendReply {
     return { status: 200, body };
+  }
+
+  /** Портфолио S37: файлы работ — свежие из media (обработка меняет их статус и варианты). */
+  private portfolio(profile: ProfileOut, request: string, body: unknown): BackendReply | null {
+    this.works = this.works.map((work) => ({
+      ...work,
+      media: (work.media && this.media.ref(work.media.id)) ?? work.media,
+    }));
+    const list = () => this.ok({ items: this.works, limits: PORTFOLIO_LIMITS });
+    if (request === 'GET /me/profile/portfolio') return list();
+    if (request === 'POST /me/profile/portfolio') return this.addWork(profile, body as WorkIn);
+    if (request === 'PUT /me/profile/portfolio/order') {
+      const ids = (body as { item_ids: string[] }).item_ids;
+      const known = new Set(this.works.map((work) => work.id));
+      if (ids.length !== known.size || ids.some((id) => !known.has(id))) {
+        return problem(422, 'invalid_portfolio', { field: 'item_ids' });
+      }
+      this.works = ids.map((id, position) => {
+        const work = this.works.find((item) => item.id === id);
+        if (!work) throw new Error(`unknown work ${id}`);
+        return { ...work, position };
+      });
+      return list();
+    }
+    const caption = /^PATCH \/me\/profile\/portfolio\/(.+)$/.exec(request);
+    const removed = /^DELETE \/me\/profile\/portfolio\/(.+)$/.exec(request);
+    const id = caption?.[1] ?? removed?.[1];
+    if (!id) return null;
+    const work = this.works.find((item) => item.id === id);
+    if (!work) return problem(404, 'portfolio_item_not_found');
+    if (caption) {
+      const { caption: value } = body as { caption: string | null };
+      const text = (value ?? '').split(/\s+/).filter(Boolean).join(' ');
+      const changed = { ...work, caption: text || null };
+      this.works = this.works.map((item) => (item.id === id ? changed : item));
+      return this.ok(changed);
+    }
+    this.works = this.works
+      .filter((item) => item.id !== id)
+      .map((item, position) => ({ ...item, position }));
+    this.profile = this.refresh(profile);
+    return { status: 204, body: null };
+  }
+
+  private addWork(profile: ProfileOut, body: WorkIn): BackendReply {
+    const media = this.media.ref(body.media_id);
+    if (!media) return problem(404, 'media_not_found');
+    if (media.status === 'failed' || media.status === 'rejected') {
+      return problem(409, 'media_state_conflict');
+    }
+    // повтор с тем же файлом — та же работа (Idempotency-Key у backend)
+    const same = this.works.find((work) => work.media?.id === media.id);
+    if (same) return { status: 201, body: same };
+    const kind = media.kind === 'video' ? 'video' : 'image';
+    const limit = PORTFOLIO_LIMITS[kind];
+    if (this.works.filter((work) => work.kind === kind).length >= limit) {
+      return problem(409, 'portfolio_full', { kind, limit });
+    }
+    const work: WorkOut = {
+      id: `0199dd00-0000-7000-8000-${String(this.works.length + 501).padStart(12, '0')}`,
+      kind,
+      caption: body.caption ?? null,
+      position: this.works.length,
+      media,
+    };
+    this.works.push(work);
+    this.profile = this.refresh(profile);
+    return { status: 201, body: work };
   }
 
   private create(body: ProfileCreateIn): BackendReply {
@@ -207,7 +299,9 @@ export class ProfileBackend {
       missing.push('area_ids');
     }
     if (profile.kind === 'pro' && this.services.length === 0) missing.push('services');
-    return { ...profile, missing, completeness: completeness(profile, this.services) };
+    const avatar = profile.avatar && (this.media.ref(profile.avatar.id) ?? profile.avatar);
+    const fresh = { ...profile, avatar };
+    return { ...fresh, missing, completeness: completeness(fresh, this.services, this.works) };
   }
 }
 
@@ -230,22 +324,34 @@ function todayAt(time: string, now: Date): Date {
 
 /** «О себе» хотя бы в пару предложений — как ABOUT_ENOUGH backend. */
 const ABOUT_ENOUGH = 80;
+/** Работ в портфолио, чтобы клиенту было из чего понять уровень, — ENOUGH_WORKS backend. */
+const ENOUGH_WORKS = 3;
 
 /** Полнота профиля — как specialists/domain/completeness.py: веса проверок и подсказки по порядку. */
-function completeness(profile: ProfileOut, services: readonly ServiceOut[]): CompletenessOut {
+function completeness(
+  profile: ProfileOut,
+  services: readonly ServiceOut[],
+  works: readonly WorkOut[],
+): CompletenessOut {
   const active = services.filter((service) => service.is_active);
   const undescribed = active.filter((service) => !service.description?.trim()).length;
   const travels = profile.work_modes.includes('at_client');
+  const pro = profile.kind === 'pro';
+  // файлы, не прошедшие обработку, в полноту не идут — как MediaRef.broken backend
+  const broken = (media: MediaRefOut) => media.status === 'failed' || media.status === 'rejected';
+  const shown = works.filter((work) => work.media && !broken(work.media)).length;
   const hint = (code: string, count: number | null = null): HintOut => ({ code, count });
   const checks: [number, boolean, HintOut][] = [
     [15, profile.category_ids.length > 0, hint('category_ids')],
     [15, Boolean(profile.headline), hint('headline')],
-    [20, (profile.about ?? '').trim().length >= ABOUT_ENOUGH, hint('about')],
-    [10, profile.languages.length > 0, hint('languages')],
     [15, profile.work_modes.length > 0 && (profile.district_ids.length > 0 || !travels), hint('area_ids')],
+    ...(pro ? [[15, active.length > 0, hint('services')] as [number, boolean, HintOut]] : []),
+    [20, (profile.about ?? '').trim().length >= ABOUT_ENOUGH, hint('about')],
+    [15, shown >= ENOUGH_WORKS, hint('portfolio', Math.max(ENOUGH_WORKS - shown, 0))],
+    [10, profile.avatar !== null && !broken(profile.avatar), hint('avatar')],
+    [10, profile.languages.length > 0, hint('languages')],
   ]; // prettier-ignore
-  if (profile.kind === 'pro') {
-    checks.push([15, active.length > 0, hint('services')]);
+  if (pro) {
     const described = active.length > 0 && undescribed === 0;
     checks.push([10, described, hint('service_descriptions', undescribed)]);
   }

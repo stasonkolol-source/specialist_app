@@ -22,21 +22,29 @@ import type {
 
 import type {
   AvailabilityIn,
+  AvatarIn,
+  PortfolioOrderIn,
+  PortfolioOut,
   ProblemOut,
   ProfileAreasIn,
   ProfileCategoriesIn,
   ProfileCreateIn,
   ProfileOut,
   ProfileUpdateIn,
+  SpecialistsAddMyWorkHeaders,
   SpecialistsBecomeProHeaders,
   SpecialistsCreateMyProfileHeaders,
   SpecialistsHideMyProfileHeaders,
   SpecialistsSetMyAreasHeaders,
   SpecialistsSetMyAvailabilityHeaders,
+  SpecialistsSetMyAvatarHeaders,
   SpecialistsSetMyCategoriesHeaders,
   SpecialistsShowMyProfileHeaders,
   SpecialistsSubmitMyProfileHeaders,
   SpecialistsUpdateMyProfileHeaders,
+  WorkCaptionIn,
+  WorkIn,
+  WorkOut,
 } from '../../model';
 
 import { apiFetch } from '../../../mutator.ts';
@@ -408,6 +416,545 @@ export const useSpecialistsUpdateMyProfile = <TError = ErrorType<ProblemOut>, TC
   TContext
 > => {
   return useMutation(getSpecialistsUpdateMyProfileMutationOptions(options), queryClient);
+};
+export const getSpecialistsGetMyPortfolioUrl = () => {
+  return `/api/v1/me/profile/portfolio`;
+};
+
+/**
+ * Работы своего профиля по порядку (S37); 404 `profile_not_found` — профиля нет.
+ * @summary Get My Portfolio
+ */
+export const specialistsGetMyPortfolio = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<PortfolioOut> => {
+  return apiFetch<PortfolioOut>(getSpecialistsGetMyPortfolioUrl(), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getSpecialistsGetMyPortfolioQueryKey = () => {
+  return [`/api/v1/me/profile/portfolio`] as const;
+};
+
+export const getSpecialistsGetMyPortfolioQueryOptions = <
+  TData = Awaited<ReturnType<typeof specialistsGetMyPortfolio>>,
+  TError = ErrorType<ProblemOut>,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<Awaited<ReturnType<typeof specialistsGetMyPortfolio>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getSpecialistsGetMyPortfolioQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof specialistsGetMyPortfolio>>> = ({
+    signal,
+  }) => specialistsGetMyPortfolio({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof specialistsGetMyPortfolio>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type SpecialistsGetMyPortfolioQueryResult = NonNullable<
+  Awaited<ReturnType<typeof specialistsGetMyPortfolio>>
+>;
+export type SpecialistsGetMyPortfolioQueryError = ErrorType<ProblemOut>;
+
+export function useSpecialistsGetMyPortfolio<
+  TData = Awaited<ReturnType<typeof specialistsGetMyPortfolio>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof specialistsGetMyPortfolio>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof specialistsGetMyPortfolio>>,
+          TError,
+          Awaited<ReturnType<typeof specialistsGetMyPortfolio>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useSpecialistsGetMyPortfolio<
+  TData = Awaited<ReturnType<typeof specialistsGetMyPortfolio>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof specialistsGetMyPortfolio>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof specialistsGetMyPortfolio>>,
+          TError,
+          Awaited<ReturnType<typeof specialistsGetMyPortfolio>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useSpecialistsGetMyPortfolio<
+  TData = Awaited<ReturnType<typeof specialistsGetMyPortfolio>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof specialistsGetMyPortfolio>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get My Portfolio
+ */
+
+export function useSpecialistsGetMyPortfolio<
+  TData = Awaited<ReturnType<typeof specialistsGetMyPortfolio>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof specialistsGetMyPortfolio>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getSpecialistsGetMyPortfolioQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getSpecialistsAddMyWorkUrl = () => {
+  return `/api/v1/me/profile/portfolio`;
+};
+
+/**
+ * Работа из загруженного файла — в конец; лимит — 409 `portfolio_full` (kind, limit).
+ * @summary Add My Work
+ */
+export const specialistsAddMyWork = async (
+  workIn: WorkIn,
+  headers: SpecialistsAddMyWorkHeaders,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<WorkOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<WorkOut>(getSpecialistsAddMyWorkUrl(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers, ...getHeaders(options?.headers) },
+    body: JSON.stringify(workIn),
+  });
+};
+
+export const getSpecialistsAddMyWorkMutationKey = () => ['specialistsAddMyWork'] as const;
+
+export const getSpecialistsAddMyWorkMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof specialistsAddMyWork>>,
+    TError,
+    SpecialistsAddMyWorkMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof specialistsAddMyWork>>,
+  TError,
+  SpecialistsAddMyWorkMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSpecialistsAddMyWorkMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof specialistsAddMyWork>>,
+    SpecialistsAddMyWorkMutationVariables
+  > = (props) => {
+    const { data, headers } = props ?? {};
+
+    return specialistsAddMyWork(data, headers, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SpecialistsAddMyWorkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof specialistsAddMyWork>>
+>;
+export type SpecialistsAddMyWorkMutationBody = WorkIn;
+export type SpecialistsAddMyWorkMutationError = ErrorType<ProblemOut>;
+export type SpecialistsAddMyWorkMutationVariables = {
+  data: WorkIn;
+  headers: SpecialistsAddMyWorkHeaders;
+};
+
+/**
+ * @summary Add My Work
+ */
+export const useSpecialistsAddMyWork = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof specialistsAddMyWork>>,
+      TError,
+      SpecialistsAddMyWorkMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof specialistsAddMyWork>>,
+  TError,
+  SpecialistsAddMyWorkMutationVariables,
+  TContext
+> => {
+  return useMutation(getSpecialistsAddMyWorkMutationOptions(options), queryClient);
+};
+export const getSpecialistsReorderMyPortfolioUrl = () => {
+  return `/api/v1/me/profile/portfolio/order`;
+};
+
+/**
+ * Новый порядок — все работы; не те или не все — 422 `invalid_portfolio`.
+ * @summary Reorder My Portfolio
+ */
+export const specialistsReorderMyPortfolio = async (
+  portfolioOrderIn: PortfolioOrderIn,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<PortfolioOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<PortfolioOut>(getSpecialistsReorderMyPortfolioUrl(), {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(portfolioOrderIn),
+  });
+};
+
+export const getSpecialistsReorderMyPortfolioMutationKey = () =>
+  ['specialistsReorderMyPortfolio'] as const;
+
+export const getSpecialistsReorderMyPortfolioMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof specialistsReorderMyPortfolio>>,
+    TError,
+    SpecialistsReorderMyPortfolioMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof specialistsReorderMyPortfolio>>,
+  TError,
+  SpecialistsReorderMyPortfolioMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSpecialistsReorderMyPortfolioMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof specialistsReorderMyPortfolio>>,
+    SpecialistsReorderMyPortfolioMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return specialistsReorderMyPortfolio(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SpecialistsReorderMyPortfolioMutationResult = NonNullable<
+  Awaited<ReturnType<typeof specialistsReorderMyPortfolio>>
+>;
+export type SpecialistsReorderMyPortfolioMutationBody = PortfolioOrderIn;
+export type SpecialistsReorderMyPortfolioMutationError = ErrorType<ProblemOut>;
+export type SpecialistsReorderMyPortfolioMutationVariables = { data: PortfolioOrderIn };
+
+/**
+ * @summary Reorder My Portfolio
+ */
+export const useSpecialistsReorderMyPortfolio = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof specialistsReorderMyPortfolio>>,
+      TError,
+      SpecialistsReorderMyPortfolioMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof specialistsReorderMyPortfolio>>,
+  TError,
+  SpecialistsReorderMyPortfolioMutationVariables,
+  TContext
+> => {
+  return useMutation(getSpecialistsReorderMyPortfolioMutationOptions(options), queryClient);
+};
+export const getSpecialistsCaptionMyWorkUrl = (itemId: string) => {
+  return `/api/v1/me/profile/portfolio/${itemId}`;
+};
+
+/**
+ * Подпись работы; пустая — без подписи.
+ * @summary Caption My Work
+ */
+export const specialistsCaptionMyWork = async (
+  itemId: string,
+  workCaptionIn: WorkCaptionIn,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<WorkOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<WorkOut>(getSpecialistsCaptionMyWorkUrl(itemId), {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(workCaptionIn),
+  });
+};
+
+export const getSpecialistsCaptionMyWorkMutationKey = () => ['specialistsCaptionMyWork'] as const;
+
+export const getSpecialistsCaptionMyWorkMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof specialistsCaptionMyWork>>,
+    TError,
+    SpecialistsCaptionMyWorkMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof specialistsCaptionMyWork>>,
+  TError,
+  SpecialistsCaptionMyWorkMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSpecialistsCaptionMyWorkMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof specialistsCaptionMyWork>>,
+    SpecialistsCaptionMyWorkMutationVariables
+  > = (props) => {
+    const { itemId, data } = props ?? {};
+
+    return specialistsCaptionMyWork(itemId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SpecialistsCaptionMyWorkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof specialistsCaptionMyWork>>
+>;
+export type SpecialistsCaptionMyWorkMutationBody = WorkCaptionIn;
+export type SpecialistsCaptionMyWorkMutationError = ErrorType<ProblemOut>;
+export type SpecialistsCaptionMyWorkMutationVariables = { itemId: string; data: WorkCaptionIn };
+
+/**
+ * @summary Caption My Work
+ */
+export const useSpecialistsCaptionMyWork = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof specialistsCaptionMyWork>>,
+      TError,
+      SpecialistsCaptionMyWorkMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof specialistsCaptionMyWork>>,
+  TError,
+  SpecialistsCaptionMyWorkMutationVariables,
+  TContext
+> => {
+  return useMutation(getSpecialistsCaptionMyWorkMutationOptions(options), queryClient);
+};
+export const getSpecialistsRemoveMyWorkUrl = (itemId: string) => {
+  return `/api/v1/me/profile/portfolio/${itemId}`;
+};
+
+/**
+ * Убрать работу; её файл удаляется.
+ * @summary Remove My Work
+ */
+export const specialistsRemoveMyWork = async (
+  itemId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getSpecialistsRemoveMyWorkUrl(itemId), {
+    ...options,
+    method: 'DELETE',
+  });
+};
+
+export const getSpecialistsRemoveMyWorkMutationKey = () => ['specialistsRemoveMyWork'] as const;
+
+export const getSpecialistsRemoveMyWorkMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof specialistsRemoveMyWork>>,
+    TError,
+    SpecialistsRemoveMyWorkMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof specialistsRemoveMyWork>>,
+  TError,
+  SpecialistsRemoveMyWorkMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSpecialistsRemoveMyWorkMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof specialistsRemoveMyWork>>,
+    SpecialistsRemoveMyWorkMutationVariables
+  > = (props) => {
+    const { itemId } = props ?? {};
+
+    return specialistsRemoveMyWork(itemId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SpecialistsRemoveMyWorkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof specialistsRemoveMyWork>>
+>;
+
+export type SpecialistsRemoveMyWorkMutationError = ErrorType<ProblemOut>;
+export type SpecialistsRemoveMyWorkMutationVariables = { itemId: string };
+
+/**
+ * @summary Remove My Work
+ */
+export const useSpecialistsRemoveMyWork = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof specialistsRemoveMyWork>>,
+      TError,
+      SpecialistsRemoveMyWorkMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof specialistsRemoveMyWork>>,
+  TError,
+  SpecialistsRemoveMyWorkMutationVariables,
+  TContext
+> => {
+  return useMutation(getSpecialistsRemoveMyWorkMutationOptions(options), queryClient);
 };
 export const getSpecialistsSetMyCategoriesUrl = () => {
   return `/api/v1/me/profile/categories`;
@@ -848,6 +1395,116 @@ export const useSpecialistsSetMyAvailability = <TError = ErrorType<ProblemOut>, 
   TContext
 > => {
   return useMutation(getSpecialistsSetMyAvailabilityMutationOptions(options), queryClient);
+};
+export const getSpecialistsSetMyAvatarUrl = () => {
+  return `/api/v1/me/profile/avatar`;
+};
+
+/**
+ * Фото профиля (S34): загруженный файл с назначением avatar; null — инициалы.
+ * @summary Set My Avatar
+ */
+export const specialistsSetMyAvatar = async (
+  avatarIn: AvatarIn,
+  headers?: SpecialistsSetMyAvatarHeaders,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ProfileOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<ProfileOut>(getSpecialistsSetMyAvatarUrl(), {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...headers, ...getHeaders(options?.headers) },
+    body: JSON.stringify(avatarIn),
+  });
+};
+
+export const getSpecialistsSetMyAvatarMutationKey = () => ['specialistsSetMyAvatar'] as const;
+
+export const getSpecialistsSetMyAvatarMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof specialistsSetMyAvatar>>,
+    TError,
+    SpecialistsSetMyAvatarMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof specialistsSetMyAvatar>>,
+  TError,
+  SpecialistsSetMyAvatarMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSpecialistsSetMyAvatarMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof specialistsSetMyAvatar>>,
+    SpecialistsSetMyAvatarMutationVariables
+  > = (props) => {
+    const { data, headers } = props ?? {};
+
+    return specialistsSetMyAvatar(data, headers, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SpecialistsSetMyAvatarMutationResult = NonNullable<
+  Awaited<ReturnType<typeof specialistsSetMyAvatar>>
+>;
+export type SpecialistsSetMyAvatarMutationBody = AvatarIn;
+export type SpecialistsSetMyAvatarMutationError = ErrorType<ProblemOut>;
+export type SpecialistsSetMyAvatarMutationVariables = {
+  data: AvatarIn;
+  headers?: SpecialistsSetMyAvatarHeaders;
+};
+
+/**
+ * @summary Set My Avatar
+ */
+export const useSpecialistsSetMyAvatar = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof specialistsSetMyAvatar>>,
+      TError,
+      SpecialistsSetMyAvatarMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof specialistsSetMyAvatar>>,
+  TError,
+  SpecialistsSetMyAvatarMutationVariables,
+  TContext
+> => {
+  return useMutation(getSpecialistsSetMyAvatarMutationOptions(options), queryClient);
 };
 export const getSpecialistsHideMyProfileUrl = () => {
   return `/api/v1/me/profile/hide`;

@@ -6,6 +6,7 @@ from typing import Protocol
 
 from app.modules.media.application.dto import (
     DeleteObjectsPayload,
+    DiscardMediaPayload,
     HideVariantsPayload,
     ProcessedImage,
     ProcessedVideo,
@@ -27,6 +28,10 @@ DELETE_OBJECTS = TaskRef("media.delete_objects", DeleteObjectsPayload)
 
 HIDE_VARIANTS = TaskRef("media.hide_variants", HideVariantsPayload)
 """Снять удалённый файл с публикации: варианты — в приватный бакет до очистки (§10.5)."""
+
+DISCARD_MEDIA = TaskRef("media.discard_media", DiscardMediaPayload)
+"""Удалить файл, который убрали из портфолио или сменили на фото профиля: ставится в транзакции
+модуля выше по DAG — файл удаляется, только если его запись прошла, и с повтором при сбое."""
 
 
 class UnprocessableMediaError(Exception):
@@ -72,6 +77,10 @@ class MediaQuery(Protocol):
 
     async def asset_by_id(self, media_id: MediaId) -> MediaAsset | None:
         """Файл в любом статусе, без проверки владельца — для задач системы."""
+        ...
+
+    async def assets(self, media_ids: Collection[MediaId]) -> list[MediaAsset]:
+        """Неудалённые файлы по id — для показа в других модулях (фасад MediaApi)."""
         ...
 
     async def stuck(

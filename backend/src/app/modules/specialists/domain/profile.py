@@ -33,7 +33,7 @@ from app.platform.contracts.events.specialists import (
 from app.platform.kernel.aggregate import VersionedAggregate
 from app.platform.kernel.clock import BUSINESS_TZ
 from app.platform.kernel.geo import GeoPoint
-from app.platform.kernel.ids import CategoryId, CityId, DistrictId, UserId, new_id
+from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, UserId, new_id
 
 ProfileId = NewType("ProfileId", UUID)
 
@@ -111,6 +111,8 @@ class Profile(VersionedAggregate):
     published_at: datetime | None = None
     reviewed_kind: bool = False
     """Профиль ждёт проверки после перехода «Подработка → Специалист»."""
+    avatar_media_id: MediaId | None = None
+    """Фото профиля (S34): файл media с назначением avatar; None — инициалы."""
 
     @classmethod
     def create(
@@ -142,7 +144,7 @@ class Profile(VersionedAggregate):
     def edit(self, *, now: datetime, **changes: object) -> tuple[str, ...]:
         """Изменить поля (None — не менять). Возвращает изменённые; у опубликованного —
         событие ProfileUpdated: текст уйдёт на пост-модерацию."""
-        self._ensure_editable()
+        self.ensure_editable()
         values = _validated(changes)
         changed = tuple(name for name, value in values.items() if getattr(self, name) != value)
         for name in changed:
@@ -257,10 +259,25 @@ class Profile(VersionedAggregate):
         self.listed_in_catalog = kind is ProfileKind.PRO
         return True
 
+    def set_avatar(self, media_id: MediaId | None, *, now: datetime) -> bool:
+        """Новое фото профиля (None — убрать); False — то же. Файл прежнего удаляет
+        вызывающий. У проверенного профиля — ProfileUpdated для проекций."""
+        self.ensure_editable()
+        if media_id == self.avatar_media_id:
+            return False
+        self.avatar_media_id = media_id
+        if self.status is not ProfileStatus.DRAFT:
+            self._record(
+                ProfileUpdated(
+                    profile_id=self.id, user_id=self.user_id, fields=("avatar",), occurred_at=now
+                )
+            )
+        return True
+
     def set_availability(self, until: time | None, *, now: datetime) -> bool:
         """«Доступен сегодня до …» (S38, `/available`): `until` — время по Белграду, сегодня и
         ещё не прошедшее; None — выключить. False — ничего не изменилось."""
-        self._ensure_editable()
+        self.ensure_editable()
         value = None if until is None else today_at(until, now=now)
         if value is not None and value <= now:
             raise AvailabilityPastError
@@ -313,7 +330,7 @@ class Profile(VersionedAggregate):
         return True
 
     def _replace(self, name: str, value: tuple[object, ...], *, now: datetime) -> tuple[str, ...]:
-        self._ensure_editable()
+        self.ensure_editable()
         if getattr(self, name) == value:
             return ()
         setattr(self, name, value)
@@ -325,7 +342,8 @@ class Profile(VersionedAggregate):
             )
         return (name,)
 
-    def _ensure_editable(self) -> None:
+    def ensure_editable(self) -> None:
+        """Приостановленный модерацией профиль не правится (и его портфолио — тоже)."""
         if self.status is ProfileStatus.SUSPENDED:
             raise ProfileStateError(profile_status=self.status.value)
 

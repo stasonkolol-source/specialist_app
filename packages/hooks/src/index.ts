@@ -70,6 +70,22 @@ export {
   useConsentGate,
 } from './onboarding/onboarding.ts';
 export { useSetAvailability } from './specialist/availability.ts';
+export type {
+  PortfolioRoom,
+  PortfolioUploads,
+  PortfolioUploadsOptions,
+} from './specialist/portfolio.ts';
+export {
+  PORTFOLIO_ACCEPT,
+  PORTFOLIO_POLL_MS,
+  broken,
+  fitFiles,
+  portfolioRoom,
+  processing,
+  useMyPortfolio,
+  usePortfolioUploads,
+  workKindOf,
+} from './specialist/portfolio.ts';
 export type { ServiceGroup } from './specialist/prices.ts';
 export { groupServices, moveService, servicePrice } from './specialist/prices.ts';
 export type { BecomeStep, ProfileState } from './specialist/profile.ts';

@@ -143,6 +143,24 @@ const cabinetPrice = createRoute({
   ),
 });
 
+// Портфолио S37 и работа (2.11): загрузка работ — тоже данные на площадке
+const cabinetPortfolio = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CABINET_PATHS.portfolio,
+  beforeLoad: requireConsent,
+  component: screen(
+    () => import('../features/specialist/s37-portfolio/index.ts'),
+    'PortfolioScreen',
+  ),
+});
+
+const cabinetWork = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CABINET_PATHS.work,
+  beforeLoad: requireConsent,
+  component: screen(() => import('../features/specialist/s37-work/index.ts'), 'WorkScreen'),
+});
+
 const cabinetProfile = createRoute({
   getParentRoute: () => rootRoute,
   path: CABINET_PATHS.profile,
@@ -217,6 +235,8 @@ export const routeTree = rootRoute.addChildren([
   cabinetPrices,
   cabinetNewPrice,
   cabinetPrice,
+  cabinetPortfolio,
+  cabinetWork,
   notifications,
   onboardingLanguage,
   onboardingIntent,

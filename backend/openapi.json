@@ -897,6 +897,252 @@
         }
       }
     },
+    "/api/v1/me/profile/portfolio": {
+      "get": {
+        "tags": [
+          "specialists",
+          "specialists"
+        ],
+        "summary": "Get My Portfolio",
+        "description": "Работы своего профиля по порядку (S37); 404 `profile_not_found` — профиля нет.",
+        "operationId": "specialists_get_my_portfolio",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "specialists",
+          "specialists"
+        ],
+        "summary": "Add My Work",
+        "description": "Работа из загруженного файла — в конец; лимит — 409 `portfolio_full` (kind, limit).",
+        "operationId": "specialists_add_my_work",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Ключ операции: повтор с тем же ключом вернёт тот же ответ",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 255
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/me/profile/portfolio/order": {
+      "put": {
+        "tags": [
+          "specialists",
+          "specialists"
+        ],
+        "summary": "Reorder My Portfolio",
+        "description": "Новый порядок — все работы; не те или не все — 422 `invalid_portfolio`.",
+        "operationId": "specialists_reorder_my_portfolio",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortfolioOrderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/profile/portfolio/{item_id}": {
+      "patch": {
+        "tags": [
+          "specialists",
+          "specialists"
+        ],
+        "summary": "Caption My Work",
+        "description": "Подпись работы; пустая — без подписи.",
+        "operationId": "specialists_caption_my_work",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkCaptionIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "specialists",
+          "specialists"
+        ],
+        "summary": "Remove My Work",
+        "description": "Убрать работу; её файл удаляется.",
+        "operationId": "specialists_remove_my_work",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/me/profile/categories": {
       "put": {
         "tags": [
@@ -1119,6 +1365,71 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/AvailabilityIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/profile/avatar": {
+      "put": {
+        "tags": [
+          "specialists"
+        ],
+        "summary": "Set My Avatar",
+        "description": "Фото профиля (S34): загруженный файл с назначением avatar; null — инициалы.",
+        "operationId": "specialists_set_my_avatar",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AvatarIn"
               }
             }
           }
@@ -1890,6 +2201,27 @@
           "until"
         ],
         "title": "AvailabilityIn"
+      },
+      "AvatarIn": {
+        "properties": {
+          "media_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "media_id"
+        ],
+        "title": "AvatarIn"
       },
       "CategoryOut": {
         "properties": {
@@ -2695,6 +3027,75 @@
         ],
         "title": "MediaPurpose"
       },
+      "MediaRefOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "placeholder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Placeholder"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/MediaVariantOut"
+            },
+            "type": "array",
+            "title": "Variants"
+          },
+          "video_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Url"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "placeholder",
+          "variants",
+          "video_url",
+          "duration_ms"
+        ],
+        "title": "MediaRefOut",
+        "description": "Файл работы или фото профиля: пока он обрабатывается, вариантов нет."
+      },
       "MediaStatus": {
         "type": "string",
         "enum": [
@@ -2707,6 +3108,34 @@
           "deleted"
         ],
         "title": "MediaStatus"
+      },
+      "MediaVariantOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "url",
+          "width",
+          "height"
+        ],
+        "title": "MediaVariantOut"
       },
       "ModerationStatus": {
         "type": "string",
@@ -2977,6 +3406,64 @@
           "lon"
         ],
         "title": "PointOut"
+      },
+      "PortfolioLimitsOut": {
+        "properties": {
+          "image": {
+            "type": "integer",
+            "title": "Image"
+          },
+          "video": {
+            "type": "integer",
+            "title": "Video"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image",
+          "video"
+        ],
+        "title": "PortfolioLimitsOut"
+      },
+      "PortfolioOrderIn": {
+        "properties": {
+          "item_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 66,
+            "minItems": 1,
+            "title": "Item Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item_ids"
+        ],
+        "title": "PortfolioOrderIn"
+      },
+      "PortfolioOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/PortfolioLimitsOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "limits"
+        ],
+        "title": "PortfolioOut",
+        "description": "Портфолио в кабинете S37: работы по порядку и лимиты (60 фото, 6 роликов)."
       },
       "PriceHintOut": {
         "properties": {
@@ -3365,6 +3852,16 @@
             ],
             "title": "Available Until"
           },
+          "avatar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaRefOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "published_at": {
             "anyOf": [
               {
@@ -3401,6 +3898,7 @@
           "missing",
           "completeness",
           "available_until",
+          "avatar",
           "published_at",
           "version"
         ],
@@ -4253,6 +4751,61 @@
         ],
         "title": "VideoOut"
       },
+      "WorkCaptionIn": {
+        "properties": {
+          "caption": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caption"
+          }
+        },
+        "type": "object",
+        "required": [
+          "caption"
+        ],
+        "title": "WorkCaptionIn"
+      },
+      "WorkIn": {
+        "properties": {
+          "media_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Media Id"
+          },
+          "caption": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caption"
+          }
+        },
+        "type": "object",
+        "required": [
+          "media_id"
+        ],
+        "title": "WorkIn"
+      },
+      "WorkKind": {
+        "type": "string",
+        "enum": [
+          "image",
+          "video"
+        ],
+        "title": "WorkKind"
+      },
       "WorkMode": {
         "type": "string",
         "enum": [
@@ -4261,6 +4814,52 @@
           "remote"
         ],
         "title": "WorkMode"
+      },
+      "WorkOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/WorkKind"
+          },
+          "caption": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caption"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "media": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaRefOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "caption",
+          "position",
+          "media"
+        ],
+        "title": "WorkOut"
       }
     },
     "securitySchemes": {

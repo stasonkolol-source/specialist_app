@@ -29,6 +29,19 @@ def settings(postgres: PostgresInfo, valkey_url: str, monkeypatch: pytest.Monkey
 
 
 @pytest.fixture
+def storage_settings(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Settings:
+    """Настройки с S3 без хранилища: файлы в ответах (фото профиля, работы портфолио) — ссылками
+    на адрес CDN, которые строятся без запросов к S3. Ходить в хранилище такие тесты не могут:
+    адреса не существуют."""
+    monkeypatch.setenv("S3_ENDPOINT_URL", "http://storage.test")
+    monkeypatch.setenv("S3_REGION", "garage")
+    monkeypatch.setenv("S3_ACCESS_KEY_ID", "test")
+    monkeypatch.setenv("S3_SECRET_ACCESS_KEY", "test")
+    monkeypatch.setenv("S3_PUBLIC_BASE_URL", "https://cdn.test")
+    return Settings(env_file=None)
+
+
+@pytest.fixture
 def offline_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     _clean(monkeypatch)
     monkeypatch.setenv("DB_DSN", f"postgresql+psycopg://app:pw@{UNREACHABLE}/specialist")

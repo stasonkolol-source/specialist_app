@@ -178,6 +178,29 @@ describe('useMediaUploads', () => {
     expect(api.remove).not.toHaveBeenCalled();
   });
 
+  it('forget drops an attached file without deleting it, but not one still uploading', async () => {
+    let release: (result: PutResult) => void = () => {};
+    const put = vi
+      .fn<Put>(async () => ok)
+      .mockImplementationOnce(async () => ok)
+      .mockImplementationOnce(() => new Promise<PutResult>((resolve) => (release = resolve)));
+    const { result, api } = setup(put);
+
+    act(() => {
+      result.current.add([photo('1.jpg'), photo('2.jpg')]);
+    });
+    await waitFor(() => expect(result.current.items[0]?.status).toBe('uploaded'));
+    act(() => {
+      result.current.forget('upload-1');
+      result.current.forget('upload-2');
+    });
+
+    expect(result.current.items.map((item) => item.key)).toEqual(['upload-2']);
+    act(() => release(ok));
+    await waitFor(() => expect(result.current.items[0]?.status).toBe('uploaded'));
+    expect(api.remove).not.toHaveBeenCalled();
+  });
+
   it('keeps within the limit and says how many did not fit', () => {
     const { result } = setup(
       vi.fn<Put>(() => new Promise<PutResult>(() => {})),

@@ -4,7 +4,7 @@
 // - после complete — опрос GET /media/{id}: отклонённый при обработке файл (2.2) — ошибка
 //   без повтора; обработка дольше таймаута — не ошибка, файл уже загружен;
 // - «Убрать» останавливает передачу и удаляет запись на сервере; `reset` после отправки формы
-//   забывает файлы, не удаляя их;
+//   забывает файлы, не удаляя их, `forget` — один загруженный (уже прикреплён: работа портфолио);
 // - уход с экрана останавливает незаконченные загрузки: без формы они никому не нужны.
 import type { MediaOut, MediaPurpose } from '@sosed/api-client';
 import { ApiError, RestrictedError } from '@sosed/api-client';
@@ -60,6 +60,8 @@ export interface MediaUploads {
   remove(key: string): void;
   /** Забыть все файлы, не удаляя их: форма уже отправлена. */
   reset(): void;
+  /** Забыть загруженный файл, не удаляя его: он уже прикреплён. Незагруженный — ничего. */
+  forget(key: string): void;
   /** Id загруженных файлов в порядке добавления — для отправки формы. */
   readonly mediaIds: readonly string[];
   /** Идёт загрузка: отправку формы стоит подождать. */
@@ -216,6 +218,15 @@ export function useMediaUploads(options: MediaUploadsOptions): MediaUploads {
     setItems([]);
   }, []);
 
+  const forget = useCallback((key: string) => {
+    const task = tasks.current.get(key);
+    // незагруженный файл без задачи никто бы не остановил и не удалил
+    if (!task?.done) return;
+    tasks.current.delete(key);
+    task.poll?.abort(new UploadCancelledError());
+    setItems((current) => current.filter((item) => item.key !== key));
+  }, []);
+
   useEffect(() => {
     const current = tasks.current;
     return () => {
@@ -233,5 +244,5 @@ export function useMediaUploads(options: MediaUploadsOptions): MediaUploads {
   );
   const uploading = items.some((item) => item.status === 'uploading');
 
-  return { items, add, retry, remove, reset, mediaIds, uploading };
+  return { items, add, retry, remove, reset, forget, mediaIds, uploading };
 }

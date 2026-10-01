@@ -14,6 +14,8 @@ import type {
   ProfileOut,
   ServiceOut,
   TelegramChannelOut,
+  WorkKind,
+  WorkOut,
 } from '@sosed/api-client';
 import { encodeStartParam } from '@sosed/links';
 
@@ -330,11 +332,17 @@ export const PROFILE_DRAFT: ProfileOut = {
   missing: ['category_ids', 'headline', 'work_modes', 'services'],
   completeness: {
     percent: 0,
-    hints: ['category_ids', 'headline', 'about', 'languages', 'area_ids', 'services'].map(
-      (code) => ({ code, count: null }),
-    ),
+    hints: [
+      ...['category_ids', 'headline', 'area_ids', 'services', 'about'].map((code) => ({
+        code,
+        count: null,
+      })),
+      { code: 'portfolio', count: 3 },
+      ...['avatar', 'languages'].map((code) => ({ code, count: null })),
+    ],
   },
   available_until: null,
+  avatar: null,
   published_at: null,
   version: 1,
 };
@@ -392,6 +400,34 @@ function priceItem(
     ...extra,
   };
 }
+
+/** Работа портфолио демо-данных: id по номеру, файл обработан. Вариантов нет — плитка со
+ *  штриховкой и подписью, как на артборде S37. */
+function work(n: number, caption: string | null, kind: WorkKind = 'image'): WorkOut {
+  const id = `0199dd00-0000-7000-8000-${String(n + 1).padStart(12, '0')}`;
+  return {
+    id,
+    kind,
+    caption,
+    position: n,
+    media: {
+      id: `0199ce00-0000-7000-8000-${String(n + 1).padStart(12, '0')}`,
+      kind,
+      status: 'ready',
+      placeholder: null,
+      variants: [],
+      video_url: kind === 'video' ? `/cdn/${id}/video.mp4` : null,
+      duration_ms: kind === 'video' ? 42_000 : null,
+    },
+  };
+}
+
+/** Портфолио артборда S37: работы электрика с подписями, вторая — ролик. */
+export const PORTFOLIO: WorkOut[] = [
+  'Люстра, Лиман', 'Подсветка кухни', 'Щиток', 'Бра в спальне', 'Розетки на кухне', 'Карниз',
+  'Люстра, Грбавица', 'Кабель-канал', 'Выключатели', 'Точечные светильники', 'Люстра в прихожей',
+  'Замена автомата', 'Подсветка лестницы', 'Розетка в ванной', 'Люстра, Центр', 'Щиток, Телеп',
+].map((caption, n) => work(n, caption, n === 1 ? 'video' : 'image')); // prettier-ignore
 
 /** Прайс артборда S35: электрика и люстры с карнизами, одна позиция скрыта. */
 export const PRICE_LIST: ServiceOut[] = [

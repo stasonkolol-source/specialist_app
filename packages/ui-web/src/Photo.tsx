@@ -3,9 +3,10 @@
 // (srcset: браузер берёт по ширине на экране и плотности пикселей), с плавным появлением.
 // Вариант не загрузился — снова плейсхолдер с подписью.
 import type { CSSProperties } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { thumbHashToDataURL } from 'thumbhash';
 
+import { FileImage } from './FileImage.tsx';
 import { cx } from './cx.ts';
 import { Icon } from './icon/Icon.tsx';
 
@@ -162,18 +163,4 @@ function ServerPhoto({
       {video && <Play />}
     </span>
   );
-}
-
-/** blob: URL создаётся при монтировании и отзывается при снятии: без утечки памяти на превью. */
-function FileImage({ file, alt }: { file: Blob; alt: string }) {
-  const attach = useCallback(
-    (node: HTMLImageElement | null) => {
-      if (!node) return;
-      const url = URL.createObjectURL(file);
-      node.src = url;
-      return () => URL.revokeObjectURL(url);
-    },
-    [file],
-  );
-  return <img ref={attach} alt={alt} className="size-full object-cover" />;
 }

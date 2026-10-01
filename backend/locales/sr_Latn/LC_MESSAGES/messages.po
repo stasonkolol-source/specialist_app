@@ -359,6 +359,15 @@ msgstr "Popunite profil do kraja da biste ga poslali na proveru."
 msgid "errors.invalid_profile"
 msgstr "Proverite polja profila."
 
+msgid "errors.portfolio_item_not_found"
+msgstr "Tog rada nema u portfoliju."
+
+msgid "errors.portfolio_full"
+msgstr "Portfolio je popunjen: više ne može."
+
+msgid "errors.invalid_portfolio"
+msgstr "Proverite rad: opis — do 120 znakova."
+
 msgid "errors.availability_past"
 msgstr "To vreme je danas već prošlo — izaberite kasnije."
 

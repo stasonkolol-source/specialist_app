@@ -23,6 +23,8 @@ def filled(
     area_ids: tuple[int, ...] = (11,),
     price_items: int = 3,
     undescribed_prices: int = 0,
+    works: int = 3,
+    has_avatar: bool = True,
 ) -> Completeness:
     """Заполненный профиль электрика с правками по месту."""
     return completeness(
@@ -35,6 +37,8 @@ def filled(
         area_ids=area_ids,
         price_items=price_items,
         undescribed_prices=undescribed_prices,
+        works=works,
+        has_avatar=has_avatar,
     )
 
 
@@ -49,17 +53,21 @@ def test_new_draft_has_nothing_and_asks_for_the_basics_first() -> None:
         area_ids=(),
         price_items=0,
         undescribed_prices=0,
+        works=0,
+        has_avatar=False,
     )
 
     assert empty.percent == 0
     # про описания позиций — только когда позиции есть
-    assert [hint.code for hint in empty.hints] == [
-        "category_ids",
-        "headline",
-        "about",
-        "languages",
-        "area_ids",
-        "services",
+    assert [(hint.code, hint.count) for hint in empty.hints] == [
+        ("category_ids", None),
+        ("headline", None),
+        ("area_ids", None),
+        ("services", None),
+        ("about", None),
+        ("portfolio", 3),
+        ("avatar", None),
+        ("languages", None),
     ]
 
 
@@ -68,14 +76,22 @@ def test_full_specialist_profile_is_complete() -> None:
 
 
 def test_counts_price_items_without_description() -> None:
+    # 115 из 125 баллов «Специалиста»
     assert filled(undescribed_prices=4) == Completeness(
-        percent=90, hints=(Hint("service_descriptions", 4),)
+        percent=92, hints=(Hint("service_descriptions", 4),)
     )
 
 
 def test_short_about_asks_for_more() -> None:
     assert len("Электрик") < ABOUT_ENOUGH
-    assert filled(about="Электрик") == Completeness(percent=80, hints=(Hint("about"),))
+    assert filled(about="Электрик") == Completeness(percent=84, hints=(Hint("about"),))
+
+
+def test_asks_for_works_and_a_photo() -> None:
+    result = filled(works=1, has_avatar=False)
+
+    assert result.hints == (Hint("portfolio", 2), Hint("avatar"))
+    assert result.percent == 80
 
 
 def test_side_job_needs_no_price_list_and_at_own_place_needs_no_districts() -> None:

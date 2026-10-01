@@ -21,6 +21,14 @@ import {
 } from '../src/testing/fixtures.ts';
 import { ProfileBackend } from '../src/testing/profileBackend.ts';
 
+/** «Фото работы» для загрузок и CDN: PNG 8×6, мягкий зелёный градиент — одинаковый везде. */
+export const PHOTO_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAGCAIAAABxZ0isAAAAeklEQVR42g3JoQ4AIQgA0PvTSyaTyWRyY8qcc+wygUAgEPj' +
+    'C89X3vAyJR2YsvCrvxqczTf6eVyDJyIJFVpXd5HShKTcUko6sWHRV3U1PV5p6wyDZyIbFVrXd7HSjaTccko/sWHxV381Pd5p+' +
+    'IyDFyIElVo3d4vSgGd8PB39PsTTSlHEAAAAASUVORK5CYII=',
+  'base64',
+);
+
 export const json = (body: unknown, status = 200) => ({
   status,
   contentType: status >= 400 ? 'application/problem+json' : 'application/json',
@@ -60,7 +68,8 @@ export interface MockApiOptions {
   notifications?: NotificationPageOut;
   /** GET /me/notification-settings; по умолчанию бот писать не может (баннер S42). */
   notificationSettings?: NotificationSettingsOut;
-  /** Кабинет исполнителя `/me/profile*` с памятью; по умолчанию — профиля нет. */
+  /** Кабинет исполнителя `/me/profile*` и его файлы `/media*` с памятью; по умолчанию — профиля
+   *  нет. */
   profile?: ProfileBackend;
   /** Свои ответы по ключу «METHOD /api/v1/…»: проверяются раньше стандартных. */
   handlers?: Record<string, (route: Route) => Promise<void>>;
@@ -100,6 +109,16 @@ export async function mockApi(
     sent = sentRequests(),
   }: MockApiOptions = {},
 ): Promise<void> {
+  // загрузки media (2.11): PUT в «хранилище» по presigned-ссылке и варианты готового фото — того
+  // же origin, что приложение (ссылки отдаёт MediaBackend)
+  await page.route('**/storage/**', (route) =>
+    route.request().method() === 'PUT'
+      ? route.fulfill({ status: 200, headers: { ETag: '"e2e"' } })
+      : route.fulfill({ status: 405 }),
+  );
+  await page.route('**/cdn/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'image/png', body: PHOTO_PNG }),
+  );
   // пользователь с памятью, как на сервере: онбординг меняет его шаг за шагом
   let user = me;
   await page.route('**/api/v1/**', (route) => {
@@ -113,6 +132,13 @@ export async function mockApi(
       if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
       const body: unknown = request.method() === 'GET' ? undefined : request.postDataJSON();
       const reply = profile.handle(request.method(), url.pathname, body);
+      if (reply?.status === 204) return route.fulfill({ status: 204 });
+      if (reply) return route.fulfill(json(reply.body, reply.status));
+    }
+    if (url.pathname.startsWith('/api/v1/media')) {
+      if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
+      const body: unknown = request.method() === 'GET' ? undefined : request.postDataJSON();
+      const reply = profile.media.handle(request.method(), url.pathname, body);
       if (reply?.status === 204) return route.fulfill({ status: 204 });
       if (reply) return route.fulfill(json(reply.body, reply.status));
     }

@@ -1,8 +1,8 @@
-"""ORM-модели specialists (ARCHITECTURE §7.3, миграция specialists_0001).
+"""ORM-модели specialists (ARCHITECTURE §7.3, миграции specialists_0001–0002).
 
-FK на identity.users, geo.cities, geo.districts и catalog.categories объявлены только в
-миграции: MetaData модуля не знает чужих таблиц (modules/README.md). Портфолио и рабочие
-часы — в своих шагах (2.11, v1); колонки-задел v1 из DDL — без логики.
+FK на identity.users, geo.cities, geo.districts, catalog.categories и media.assets объявлены
+только в миграциях: MetaData модуля не знает чужих таблиц (modules/README.md). Рабочие часы —
+v1; колонки-задел v1 из DDL — без логики.
 """
 
 from datetime import date, datetime
@@ -23,6 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.modules.specialists.domain.portfolio import MAX_CAPTION, WorkKind, WorkStatus
 from app.modules.specialists.domain.profile import (
     MAX_ABOUT,
     MAX_HEADLINE,
@@ -91,6 +92,8 @@ class ProfileRow(UuidPkMixin, TimestampsMixin, SoftDeleteMixin, VersionMixin, Ba
     slug: Mapped[str | None] = mapped_column(Text)
     submitted_at: Mapped[datetime | None]
     published_at: Mapped[datetime | None]
+    avatar_media_id: Mapped[UUID | None]
+    """Фото профиля — media.assets (назначение avatar): FK в миграции specialists_0002."""
 
     __table_args__ = (
         CheckConstraint(f"char_length(headline) <= {MAX_HEADLINE}", name="headline_length"),
@@ -136,4 +139,44 @@ class ServiceAreaRow(Base):
     profile_id: Mapped[UUID] = mapped_column(ForeignKey("profiles.id"), primary_key=True)
     district_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     """geo.districts: FK в миграции."""
+    position: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
+
+
+class PortfolioItemRow(UuidPkMixin, SoftDeleteMixin, Base):
+    """Работа портфолио: фото или ролик с подписью (в MVP — один файл, альбомы — потом)."""
+
+    __tablename__ = "portfolio_items"
+
+    profile_id: Mapped[UUID] = mapped_column(ForeignKey("profiles.id"))
+    category_id: Mapped[int | None] = mapped_column(Integer)
+    """catalog.categories: FK в миграции."""
+    title: Mapped[str | None] = mapped_column(Text)
+    """Подпись работы на S37."""
+    description: Mapped[str | None] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
+    status: Mapped[WorkStatus] = mapped_column(
+        str_enum(WorkStatus, "status"), server_default=WorkStatus.PENDING.value
+    )
+    created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
+
+    __table_args__ = (
+        CheckConstraint(f"char_length(title) <= {MAX_CAPTION}", name="title_length"),
+        Index(
+            "ix_portfolio_items_profile_id",
+            "profile_id",
+            "position",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+
+class PortfolioMediaRow(Base):
+    """Файлы работы: в MVP — один; `kind` — для лимитов 60 фото и 6 роликов."""
+
+    __tablename__ = "portfolio_media"
+
+    item_id: Mapped[UUID] = mapped_column(ForeignKey("portfolio_items.id"), primary_key=True)
+    media_id: Mapped[UUID] = mapped_column(primary_key=True)
+    """media.assets: FK в миграции."""
+    kind: Mapped[WorkKind] = mapped_column(str_enum(WorkKind, "kind"))
     position: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))

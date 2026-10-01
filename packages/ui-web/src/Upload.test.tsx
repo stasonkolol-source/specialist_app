@@ -2,6 +2,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { Avatar } from './Avatar.tsx';
 import { Photo } from './Photo.tsx';
 import { a11yViolations } from './testing/a11y.ts';
 import { AddTile, UploadTile } from './Upload.tsx';
@@ -116,6 +117,21 @@ describe('Photo с локальным файлом', () => {
     expect(screen.getByRole('img', { name: 'Кухня' }).getAttribute('src')).toBe('blob:preview');
     unmount();
     expect(revoke).toHaveBeenCalledWith('blob:preview');
+  });
+
+  it('аватар показывает выбранный файл вместо ссылки и инициалов', () => {
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: () => 'blob:avatar',
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+
+    render(<Avatar name="Алексей Морозов" src="https://cdn.test/a.webp" file={new Blob(['a'])} />);
+
+    expect(screen.getByRole('img', { name: 'Алексей Морозов' }).getAttribute('src')).toBe(
+      'blob:avatar',
+    );
+    expect(screen.queryByText('АМ')).toBeNull();
   });
 });
 

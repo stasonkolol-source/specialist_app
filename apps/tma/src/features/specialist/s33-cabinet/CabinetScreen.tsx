@@ -1,13 +1,19 @@
 // S33 Кабинет специалиста (DEVELOPMENT_PLAN 2.10): статус профиля, полнота с первой подсказкой,
 // «Доступен сегодня до …» (переключатель: включает «до 20:00» или ближайший вариант, подробно — S38)
-// и переходы к правке S34, прайсу S35 и доступности S38. Черновик и «нужны правки» продолжают
-// мастер S32 с нужного шага (MainButton). Блоки артборда, чьих экранов ещё нет, появятся со своими
-// шагами: портфолио — 2.11, «Посмотреть как клиент» — 4.5; «За 30 дней» и «Скоро» — v1.
+// и переходы к правке S34, прайсу S35, портфолио S37 и доступности S38. Черновик и «нужны правки»
+// продолжают мастер S32 с нужного шага (MainButton). Блоки артборда, чьих экранов ещё нет,
+// появятся со своими шагами: «Посмотреть как клиент» — 4.5; «За 30 дней» и «Скоро» — v1.
 import type { HintOut, ProfileOut } from '@sosed/api-client';
 import { usePricingListMyServices } from '@sosed/api-client';
 import { availableUntil, quickHour } from '@sosed/domain';
 import type { ProfileState } from '@sosed/hooks';
-import { becomeStep, profileState, useMyProfile, useSetAvailability } from '@sosed/hooks';
+import {
+  becomeStep,
+  profileState,
+  useMyPortfolio,
+  useMyProfile,
+  useSetAvailability,
+} from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
 import { useBackButton, usePlatform } from '@sosed/platform';
 import type { IconName } from '@sosed/ui-web';
@@ -77,7 +83,7 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
   });
 
   const open =
-    (to: (typeof CABINET_PATHS)['profile' | 'availability' | 'prices']) =>
+    (to: (typeof CABINET_PATHS)['profile' | 'availability' | 'prices' | 'portfolio']) =>
     (event: MouseEvent<HTMLElement>) => {
       event.preventDefault();
       void router.navigate({ to });
@@ -125,6 +131,14 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
             href={router.history.createHref(CABINET_PATHS.prices)}
             onClick={open(CABINET_PATHS.prices)}
           />
+          <Row
+            icon="image"
+            title={t('cabinet.portfolio')}
+            trailing={<WorkCount />}
+            chevron
+            href={router.history.createHref(CABINET_PATHS.portfolio)}
+            onClick={open(CABINET_PATHS.portfolio)}
+          />
           {visible && (
             <Row
               icon="calendar"
@@ -149,6 +163,8 @@ const HINT_CODES = [
   'area_ids',
   'services',
   'service_descriptions',
+  'portfolio',
+  'avatar',
 ] as const;
 
 /** Подсказка полноты по коду сервера; незнакомый код (новый backend) — без подсказки. */
@@ -157,7 +173,7 @@ function HintText({ hint }: { hint: HintOut }) {
   const code = HINT_CODES.find((known) => known === hint.code);
   if (!code) return null;
   return (
-    <span className={cx(code === 'service_descriptions' && 'tabular-nums')}>
+    <span className={cx(hint.count !== null && 'tabular-nums')}>
       {t(`cabinet.hint.${code}`, { count: hint.count ?? 0 })}
     </span>
   );
@@ -214,6 +230,18 @@ function AvailabilityValue({ profile }: { profile: ProfileOut }) {
 function PriceCount() {
   const services = usePricingListMyServices();
   const count = services.data?.items.length;
+  if (!count) return null;
+  return (
+    <Text as="span" variant="sm" secondary>
+      {count}
+    </Text>
+  );
+}
+
+/** Сколько работ в портфолио — справа в строке «Портфолио», как на артборде. */
+function WorkCount() {
+  const portfolio = useMyPortfolio();
+  const count = portfolio.data?.items.length;
   if (!count) return null;
   return (
     <Text as="span" variant="sm" secondary>

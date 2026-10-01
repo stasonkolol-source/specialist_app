@@ -31,6 +31,7 @@ import {
   districtsFor,
   notificationsFor,
 } from './fixtures.ts';
+import type { BackendReply } from './backend.ts';
 import { ProfileBackend } from './profileBackend.ts';
 
 /** Origin API в тестах: fetch в Node не принимает относительные URL. */
@@ -52,22 +53,29 @@ export const patchMe = (me: MeOut) =>
     return { ...me, ...fields } as MeOut;
   });
 
+/** Ответ фейка backend как HTTP: 204 без тела, ошибки — problem+json. */
+function respond(reply: BackendReply | null) {
+  if (!reply) return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+  if (reply.status === 204) return new HttpResponse(null, { status: 204 });
+  const problem = reply.status >= 400 ? { 'Content-Type': 'application/problem+json' } : undefined;
+  return HttpResponse.json(reply.body as Record<string, unknown>, {
+    status: reply.status,
+    headers: problem,
+  });
+}
+
 /**
- * Кабинет исполнителя `/me/profile*` по фейку backend. По умолчанию — свежий на каждый запрос:
- * профиля нет. Тесты мастера S32a–c ставят свой — с памятью (server.use).
+ * Кабинет исполнителя `/me/profile*` и его файлы `/media*` по фейку backend. По умолчанию —
+ * свежий на каждый запрос: профиля нет. Тесты мастера S32a–c ставят свой — с памятью (server.use).
  */
 export const profileHandlers = (backend: () => ProfileBackend) => [
   http.all(/\/api\/v1\/me\/profile(\/.*)?$/, async ({ request }) => {
     const body = request.method === 'GET' ? undefined : await request.json().catch(() => undefined);
-    const reply = backend().handle(request.method, new URL(request.url).pathname, body);
-    if (!reply) return HttpResponse.json({ code: 'not_found' }, { status: 404 });
-    if (reply.status === 204) return new HttpResponse(null, { status: 204 });
-    const problem =
-      reply.status >= 400 ? { 'Content-Type': 'application/problem+json' } : undefined;
-    return HttpResponse.json(reply.body as Record<string, unknown>, {
-      status: reply.status,
-      headers: problem,
-    });
+    return respond(backend().handle(request.method, new URL(request.url).pathname, body));
+  }),
+  http.all(/\/api\/v1\/media(\/.*)?$/, async ({ request }) => {
+    const body = request.method === 'GET' ? undefined : await request.json().catch(() => undefined);
+    return respond(backend().media.handle(request.method, new URL(request.url).pathname, body));
   }),
 ];
 

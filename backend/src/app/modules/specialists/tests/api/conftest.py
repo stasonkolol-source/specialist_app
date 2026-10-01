@@ -4,6 +4,7 @@
 (Нови-Сад, категории), их грузят фикстуры `geo_seeded` и `catalog_seeded`.
 """
 
+import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
@@ -14,6 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from tests.plugins.http import HttpApp, bearer, http_app
 from tests.plugins.identity import accept_rules, insert_user
+from tests.plugins.queue import run_queued
 
 from app.modules.specialists.http.router import router
 from app.platform.kernel.ids import UserId, new_id
@@ -60,6 +62,44 @@ class Cabinet:
             method, f"/api/v1/me/profile{path}", json=body or None, headers=headers
         )
 
+    async def media(
+        self, *, purpose: str = "portfolio", kind: str = "image", owner: UserId | None = None
+    ) -> str:
+        """Готовый файл media — SQL-вставкой: загрузка и обработка этому тесту не нужны."""
+        media_id = new_id()
+        variants = {"thumb": {"key": f"m/{media_id}/thumb.webp", "w": 320, "h": 240}}
+        await self.execute(
+            "INSERT INTO media.assets (id, owner_id, kind, purpose, status, bucket, object_key,"
+            " mime_type, size_bytes, variants)"
+            " VALUES (:id, :owner, :kind, :purpose, 'ready', 'media', :key, :mime, 1000,"
+            " CAST(:variants AS jsonb))",
+            id=media_id,
+            owner=owner or self.user_id,
+            kind=kind,
+            purpose=purpose,
+            key=f"{purpose}/2026/10/{media_id}/original",
+            mime="video/mp4" if kind == "video" else "image/jpeg",
+            variants=json.dumps(variants),
+        )
+        return str(media_id)
+
+    async def portfolio(self, method: str, path: str = "", **body: Any) -> httpx.Response:
+        headers = self.headers
+        if method == "POST":
+            headers = headers | {"idempotency-key": f"k-{new_id().hex}"}
+        return await self.app.client.request(
+            method, f"/api/v1/me/profile/portfolio{path}", json=body or None, headers=headers
+        )
+
+    async def discard_queued(self) -> int:
+        """Выполнить задачи удаления файлов (media.discard_media), как воркер."""
+        return await run_queued(self.app.container, "media.discard_media", user_id=self.user_id)
+
+    async def other_user(self) -> UserId:
+        """Ещё один пользователь — владелец «чужого» файла."""
+        async with self.app.container() as request:
+            return await insert_user(await request.get(AsyncSession))
+
     async def execute(self, sql: str, **params: object) -> None:
         """Запись мимо API — своей транзакцией (подготовка данных теста)."""
         engine = await self.app.container.get(AsyncEngine)
@@ -96,8 +136,10 @@ class Cabinet:
 
 
 @pytest.fixture
-async def web(settings: Settings, geo_seeded: None, catalog_seeded: None) -> AsyncIterator[HttpApp]:
-    async with http_app(settings, router) as app:
+async def web(
+    storage_settings: Settings, geo_seeded: None, catalog_seeded: None
+) -> AsyncIterator[HttpApp]:
+    async with http_app(storage_settings, router) as app:
         yield app
 
 
@@ -111,5 +153,5 @@ async def cabinet_for(app: HttpApp, settings: Settings, *, rules: bool = True) -
 
 
 @pytest.fixture
-async def cabinet(web: HttpApp, settings: Settings) -> Cabinet:
-    return await cabinet_for(web, settings)
+async def cabinet(web: HttpApp, storage_settings: Settings) -> Cabinet:
+    return await cabinet_for(web, storage_settings)
