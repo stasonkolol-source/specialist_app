@@ -7,7 +7,6 @@
 from dishka.integrations.fastapi import FromDishka, inject
 from fastapi import APIRouter, Response, status
 
-from app.modules.specialists.application.ports import ProfileQuery
 from app.modules.specialists.application.use_cases.become_pro import (
     BecomePro,
     BecomeProCommand,
@@ -40,6 +39,7 @@ from app.modules.specialists.application.use_cases.submit_profile import (
     SubmitProfile,
     SubmitProfileCommand,
 )
+from app.modules.specialists.application.views import ProfileViews
 from app.modules.specialists.errors import ProfileNotFoundError
 from app.modules.specialists.http.schemas import (
     ProfileAreasIn,
@@ -61,7 +61,7 @@ creating = idempotent_router()
 @router.get("/me/profile")
 @inject
 async def get_my_profile(
-    principal: FromDishka[Principal], query: FromDishka[ProfileQuery], response: Response
+    principal: FromDishka[Principal], query: FromDishka[ProfileViews], response: Response
 ) -> ProfileOut:
     """Свой профиль исполнителя (кабинет S33); 404 `profile_not_found` — профиля ещё нет."""
     return await _profile(query, principal.user_id, response)
@@ -73,7 +73,7 @@ async def create_my_profile(
     body: ProfileCreateIn,
     principal: FromDishka[Principal],
     create: FromDishka[CreateProfile],
-    query: FromDishka[ProfileQuery],
+    query: FromDishka[ProfileViews],
     response: Response,
 ) -> ProfileOut:
     """Начать профиль (S32a): «Специалист» или «Подработка» — черновик; 409 `profile_exists`."""
@@ -98,7 +98,7 @@ async def update_my_profile(
     expected_version: IfMatch,
     principal: FromDishka[Principal],
     edit: FromDishka[EditProfile],
-    query: FromDishka[ProfileQuery],
+    query: FromDishka[ProfileViews],
     response: Response,
 ) -> ProfileOut:
     """Поля профиля (S32b–c, S34). Правки опубликованного — сразу, текст — на пост-модерацию."""
@@ -124,7 +124,7 @@ async def set_my_categories(
     expected_version: IfMatch,
     principal: FromDishka[Principal],
     set_categories: FromDishka[SetProfileCategories],
-    query: FromDishka[ProfileQuery],
+    query: FromDishka[ProfileViews],
     response: Response,
 ) -> ProfileOut:
     """Категории профиля целиком, первая — основная."""
@@ -145,7 +145,7 @@ async def set_my_areas(
     expected_version: IfMatch,
     principal: FromDishka[Principal],
     set_areas: FromDishka[SetProfileAreas],
-    query: FromDishka[ProfileQuery],
+    query: FromDishka[ProfileViews],
     response: Response,
 ) -> ProfileOut:
     """Районы выезда целиком (районы города профиля)."""
@@ -165,7 +165,7 @@ async def submit_my_profile(
     expected_version: IfMatch,
     principal: FromDishka[Principal],
     submit: FromDishka[SubmitProfile],
-    query: FromDishka[ProfileQuery],
+    query: FromDishka[ProfileViews],
     response: Response,
 ) -> ProfileOut:
     """На проверку (S32c «Отправить на проверку»); 409 `profile_incomplete` — чего не хватает."""
@@ -181,7 +181,7 @@ async def hide_my_profile(
     expected_version: IfMatch,
     principal: FromDishka[Principal],
     hide: FromDishka[HideProfile],
-    query: FromDishka[ProfileQuery],
+    query: FromDishka[ProfileViews],
     response: Response,
 ) -> ProfileOut:
     """Скрыть опубликованный профиль из каталога."""
@@ -195,7 +195,7 @@ async def show_my_profile(
     expected_version: IfMatch,
     principal: FromDishka[Principal],
     show: FromDishka[ShowProfile],
-    query: FromDishka[ProfileQuery],
+    query: FromDishka[ProfileViews],
     response: Response,
 ) -> ProfileOut:
     """Вернуть скрытый профиль в каталог."""
@@ -209,7 +209,7 @@ async def become_pro(
     expected_version: IfMatch,
     principal: FromDishka[Principal],
     become: FromDishka[BecomePro],
-    query: FromDishka[ProfileQuery],
+    query: FromDishka[ProfileViews],
     response: Response,
 ) -> ProfileOut:
     """«Подработка → Специалист»: профиль снова проверяет человек, потом он в каталоге."""
@@ -217,7 +217,7 @@ async def become_pro(
     return await _profile(query, principal.user_id, response)
 
 
-async def _profile(query: ProfileQuery, user_id: UserId, response: Response) -> ProfileOut:
+async def _profile(query: ProfileViews, user_id: UserId, response: Response) -> ProfileOut:
     view = await query.of_user(user_id)
     if view is None:
         raise ProfileNotFoundError(user_id=user_id)

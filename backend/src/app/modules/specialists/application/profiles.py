@@ -5,11 +5,13 @@ from datetime import datetime
 
 from app.modules.catalog.api import CatalogApi, RiskLevel
 from app.modules.geo.api import GeoApi
+from app.modules.specialists.api import PriceList
 from app.modules.specialists.application.ports import ProfileRepository
-from app.modules.specialists.domain.profile import Profile, ProfileStatus
+from app.modules.specialists.domain.profile import Profile, ProfileKind, ProfileStatus
 from app.modules.specialists.errors import (
     CategoryNotAllowedError,
     DistrictNotAllowedError,
+    ProfileIncompleteError,
     ProfileNotFoundError,
 )
 from app.platform.contracts.events.moderation import ModerationRequested
@@ -73,3 +75,9 @@ async def allowed_areas(
         if index == 0:
             base = district.center
     return wanted, base
+
+
+async def ensure_price_list(prices: PriceList, profile: Profile) -> None:
+    """«Специалиста» без позиции прайса на проверку не отправить (2.8b): 409 со списком."""
+    if profile.kind is ProfileKind.PRO and not await prices.has_items(profile.id):
+        raise ProfileIncompleteError(missing=[*profile.missing(), "services"])

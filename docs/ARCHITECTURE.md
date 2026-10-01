@@ -1082,7 +1082,7 @@ CREATE TABLE specialists.portfolio_media (
 CREATE TABLE pricing.services (
   id           uuid PRIMARY KEY DEFAULT uuidv7(),
   profile_id   uuid NOT NULL REFERENCES specialists.profiles(id),
-  category_id  int  NOT NULL REFERENCES catalog.categories(id),
+  category_id  int  REFERENCES catalog.categories(id),  -- группа в S35; NULL — без группы (первая позиция мастера S32c, 2.8b)
   title        text NOT NULL CHECK (char_length(title) <= 120),
   description  text,
   price_type   text NOT NULL CHECK (price_type IN ('fixed','from','range','hourly','per_unit','negotiable')),

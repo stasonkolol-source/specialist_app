@@ -70,7 +70,8 @@ class ProfileOut(BaseModel):
     rejection_reason: str | None
     """Модерация вернула на правки: код причины (тексты — moderation_reason.*)."""
     missing: list[str]
-    """Что заполнить перед отправкой на проверку: category_ids, headline, work_modes, area_ids."""
+    """Что заполнить перед отправкой на проверку: category_ids, headline, work_modes, area_ids,
+    services (позиция прайса у «Специалиста»)."""
     published_at: datetime | None
     version: int
 

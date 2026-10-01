@@ -27,7 +27,29 @@ class ProfileForReview:
     """Самый строгий риск категорий профиля (catalog)."""
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ProfileRef:
+    """Профиль пользователя для модулей выше по DAG (прайс, портфолио)."""
+
+    id: UUID
+    kind: str
+    status: str
+
+
+class PriceList(Protocol):
+    """Прайс профиля — его ведёт pricing (выше по DAG): specialists спрашивает через этот порт,
+    pricing реализует, связывает dishka (как LegalHold у media)."""
+
+    async def has_items(self, profile_id: UUID) -> bool:
+        """Есть ли видимая позиция прайса: без неё «Специалиста» на проверку не отправить."""
+        ...
+
+
 class SpecialistsApi(Protocol):
+    async def profile_of(self, user_id: UserId) -> ProfileRef | None:
+        """Профиль пользователя; None — его нет (или удалён)."""
+        ...
+
     async def profile_for_review(self, profile_id: UUID) -> ProfileForReview | None:
         """Профиль на проверке или опубликованный (пост-модерация правок); None — нет такого,
         удалён или проверять нечего (черновик, приостановлен)."""

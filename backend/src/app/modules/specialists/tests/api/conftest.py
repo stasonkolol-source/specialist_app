@@ -36,6 +36,19 @@ class Cabinet:
             headers=self.headers | {"idempotency-key": f"k-{new_id().hex}"},
         )
 
+    async def add_service(self) -> None:
+        """Позиция прайса — SQL-вставкой: роутер pricing (выше по DAG) этому тесту не нужен."""
+        engine = await self.app.container.get(AsyncEngine)
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "INSERT INTO pricing.services (profile_id, title, price_type, price_min)"
+                    " SELECT id, 'Вызов мастера', 'from', 100000 FROM specialists.profiles"
+                    " WHERE user_id = :user_id"
+                ),
+                {"user_id": self.user_id},
+            )
+
     async def get(self) -> httpx.Response:
         return await self.app.client.get("/api/v1/me/profile", headers=self.headers)
 

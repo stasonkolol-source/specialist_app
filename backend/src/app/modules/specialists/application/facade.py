@@ -3,12 +3,13 @@
 from uuid import UUID
 
 from app.modules.catalog.api import CatalogApi
-from app.modules.specialists.api import ProfileForReview, SpecialistsApi
-from app.modules.specialists.application.ports import ProfileRepository
+from app.modules.specialists.api import ProfileForReview, ProfileRef, SpecialistsApi
+from app.modules.specialists.application.ports import ProfileQuery, ProfileRepository
 from app.modules.specialists.domain.profile import ProfileId, ProfileStatus
 from app.modules.specialists.errors import ProfileNotFoundError
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
+from app.platform.kernel.ids import UserId
 
 REVIEWABLE = frozenset(
     {ProfileStatus.PENDING_REVIEW, ProfileStatus.PUBLISHED, ProfileStatus.HIDDEN}
@@ -17,9 +18,21 @@ REVIEWABLE = frozenset(
 
 class SpecialistsFacade(SpecialistsApi):
     def __init__(
-        self, uow: UnitOfWork, profiles: ProfileRepository, catalog: CatalogApi, clock: Clock
+        self,
+        uow: UnitOfWork,
+        profiles: ProfileRepository,
+        query: ProfileQuery,
+        catalog: CatalogApi,
+        clock: Clock,
     ) -> None:
-        self._uow, self._profiles, self._catalog, self._clock = uow, profiles, catalog, clock
+        self._uow, self._profiles, self._query = uow, profiles, query
+        self._catalog, self._clock = catalog, clock
+
+    async def profile_of(self, user_id: UserId) -> ProfileRef | None:
+        view = await self._query.of_user(user_id)
+        if view is None:
+            return None
+        return ProfileRef(id=view.id, kind=view.kind.value, status=view.status.value)
 
     async def profile_for_review(self, profile_id: UUID) -> ProfileForReview | None:
         async with self._uow:
