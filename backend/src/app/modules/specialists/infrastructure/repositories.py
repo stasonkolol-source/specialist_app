@@ -181,3 +181,9 @@ def _apply(profile: Profile, row: ProfileRow) -> None:
     row.avatar_media_id = profile.avatar_media_id
     row.submitted_at = profile.submitted_at
     row.published_at = profile.published_at
+    row.deleted_at = profile.deleted_at
+    if profile.deleted_at is not None:
+        # колонки вне домена удалённому профилю тоже не нужны: контакты, адрес страницы, стаж
+        row.contacts = {}
+        row.slug = None
+        row.experience_since = None

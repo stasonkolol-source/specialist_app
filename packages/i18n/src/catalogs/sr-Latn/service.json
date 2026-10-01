@@ -45,5 +45,32 @@
     "emptyText": "Ovde će se pojaviti ponude, poruke i odluke o vašim zahtevima",
     "loading": "Učitavamo obaveštenja",
     "unreadCount": "{count, plural, one {# nepročitano} few {# nepročitana} other {# nepročitanih}}"
+  },
+  "deletion": {
+    "title": "Brisanje naloga",
+    "lead": "Nalog će biti obrisan za 7 dana. Do tada brisanje možete da otkažete u profilu.",
+    "pause": "Potrebna vam je pauza? Sakrijte profil iz pretrage",
+    "removedTitle": "Biće obrisano",
+    "removed": {
+      "profile": "Profil, fotografije, cenovnik i portfolio",
+      "messages": "Poruke, pretplate i omiljeno",
+      "logins": "Telefon i načini prijave",
+      "reviews": "Vaše ocene drugih i ocene o vama"
+    },
+    "keptTitle": "Ostaće bez vašeg imena",
+    "kept": {
+      "deals": "Dogovori — za statistiku, kao „Obrisani korisnik”",
+      "law": "Prihvatanje pravila i odluke moderacije — do 5 godina, po zakonu",
+      "hashes": "Heš telefona i Telegram ID — 12 meseci, protiv lažiranja ocena"
+    },
+    "keptNote": "Otvorene sporove i prijave obrisaćemo nakon što budu rešeni. Iz rezervnih kopija podaci nestaju za 30 dana.",
+    "confirm": "Razumem: za 7 dana nalog će biti trajno obrisan i neće moći da se vrati",
+    "confirmRequired": "Potvrdite da razumete: obrisani nalog ne može da se vrati",
+    "submit": "Obriši nalog",
+    "scheduled": "Nalog će biti obrisan {date}",
+    "scheduledText": "Predomislili ste se — otkažite brisanje i nalog ostaje kakav je bio.",
+    "cancel": "Otkaži brisanje",
+    "cancelShort": "Otkaži",
+    "row": "Obriši nalog"
   }
 }

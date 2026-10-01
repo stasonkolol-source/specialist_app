@@ -13,6 +13,7 @@ from app.modules.media.application.dto import (
 )
 from app.modules.media.domain.asset import FailureReason, MediaAsset
 from app.modules.media.domain.policy import MediaKind
+from app.platform.contracts.events.identity import UserDeleted
 from app.platform.contracts.events.media import MediaUploaded
 from app.platform.kernel.ids import MediaId, UserId
 from app.platform.queue.port import TaskRef
@@ -28,6 +29,9 @@ DELETE_OBJECTS = TaskRef("media.delete_objects", DeleteObjectsPayload)
 
 HIDE_VARIANTS = TaskRef("media.hide_variants", HideVariantsPayload)
 """Снять удалённый файл с публикации: варианты — в приватный бакет до очистки (§10.5)."""
+
+FORGET_OWNER = TaskRef("media.forget_owner", UserDeleted)
+"""Подписчик UserDeleted: все файлы удалённого аккаунта — на удаление (§7.10)."""
 
 DISCARD_MEDIA = TaskRef("media.discard_media", DiscardMediaPayload)
 """Удалить файл, который убрали из портфолио или сменили на фото профиля: ставится в транзакции
@@ -81,6 +85,10 @@ class MediaQuery(Protocol):
 
     async def assets(self, media_ids: Collection[MediaId]) -> list[MediaAsset]:
         """Неудалённые файлы по id — для показа в других модулях (фасад MediaApi)."""
+        ...
+
+    async def owned_ids(self, owner_id: UserId) -> list[MediaId]:
+        """Неудалённые файлы владельца — удалить вместе с аккаунтом (UserDeleted)."""
         ...
 
     async def stuck(

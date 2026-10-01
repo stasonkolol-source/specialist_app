@@ -32,6 +32,8 @@ class MeOut(BaseModel):
     can_post_jobs: bool
     can_respond: bool
     can_message: bool
+    deletion_scheduled_at: datetime | None
+    """Аккаунт удалится тогда (запрос S45); None — запроса нет. Отмена — DELETE /me/deletion."""
 
     @classmethod
     def of(cls, view: MeView, access: AccessView) -> MeOut:
@@ -49,7 +51,15 @@ class MeOut(BaseModel):
             can_post_jobs=Action.POST in access.allowed,
             can_respond=Action.RESPOND in access.allowed,
             can_message=Action.MESSAGE in access.allowed,
+            deletion_scheduled_at=view.deletion_scheduled_at,
         )
+
+
+class DeletionOut(BaseModel):
+    """Запрос на удаление аккаунта: когда принят и когда исполнится (grace 7 дней)."""
+
+    requested_at: datetime
+    execute_after: datetime
 
 
 class TokensOut(BaseModel):

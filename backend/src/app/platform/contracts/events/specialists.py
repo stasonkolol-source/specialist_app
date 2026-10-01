@@ -61,3 +61,13 @@ class AvailabilityChanged(DomainEvent):
     profile_id: UUID
     user_id: UserId
     available_until: datetime | None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ProfileDeleted(DomainEvent):
+    """Профиль удалён вместе с аккаунтом (UserDeleted, §7.10): снят с каталога и обезличен.
+    Подписчики: прайс (pricing) удаляет позиции, read-model поиска (4.1) — карточку."""
+
+    event_type = "specialists.ProfileDeleted"
+    profile_id: UUID
+    user_id: UserId

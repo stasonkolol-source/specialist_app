@@ -4,6 +4,7 @@
 фасад geo. JWT подписывается настоящим ключом: это чистый код без I/O.
 """
 
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
@@ -20,14 +21,21 @@ from app.modules.identity.application.trust import TrustRecalculation
 from app.modules.identity.application.use_cases.accept_consents import AcceptConsents
 from app.modules.identity.application.use_cases.age_trust_levels import AgeTrustLevels
 from app.modules.identity.application.use_cases.authenticate_telegram import AuthenticateTelegram
+from app.modules.identity.application.use_cases.cancel_deletion import CancelDeletion
 from app.modules.identity.application.use_cases.grant_staff_role import GrantStaffRole
 from app.modules.identity.application.use_cases.logout import Logout
+from app.modules.identity.application.use_cases.process_deletions import ProcessDeletions
 from app.modules.identity.application.use_cases.refresh_session import RefreshSession
+from app.modules.identity.application.use_cases.request_deletion import RequestDeletion
 from app.modules.identity.application.use_cases.revoke_restricted_sessions import (
     RevokeRestrictedSessions,
 )
 from app.modules.identity.application.use_cases.update_profile import UpdateProfile
 from app.modules.identity.domain.restriction import RestrictionKind, RestrictionSource
+from app.modules.identity.infrastructure.deletion import (
+    SqlDeletedIdentities,
+    SqlDeletionRepository,
+)
 from app.modules.identity.infrastructure.models import RestrictionRow, UserRoleRow
 from app.modules.identity.infrastructure.queries import SqlIdentityQuery
 from app.modules.identity.infrastructure.repositories import (
@@ -48,7 +56,10 @@ from app.platform.testing.clock import FakeClock
 from app.platform.testing.config import FakeLegalVersions
 
 CONFIG = IdentityConfig(
-    bot_id=7000000001, refresh_ttl_tma=timedelta(days=7), refresh_ttl_mobile=timedelta(days=30)
+    bot_id=7000000001,
+    refresh_ttl_tma=timedelta(days=7),
+    refresh_ttl_mobile=timedelta(days=30),
+    hash_key=b"test-hash-key",
 )
 KEY = SigningKey.generate("test")
 
@@ -59,6 +70,16 @@ class FakeRevocations:
 
     async def revoke(self, session_id: str) -> None:
         self.revoked.append(session_id)
+
+
+@dataclass
+class FakeDeletionHold:
+    """Legal hold удаления (реализует moderation): пользователи с открытыми кейсами."""
+
+    users: set[UserId] = field(default_factory=set)
+
+    async def held(self, user_ids: Collection[UserId]) -> frozenset[UserId]:
+        return frozenset(user_id for user_id in user_ids if user_id in self.users)
 
 
 @dataclass
@@ -73,6 +94,9 @@ class Identity:
     query: SqlIdentityQuery
     tokens: AccessTokens
     revocations: FakeRevocations
+    deleted: SqlDeletedIdentities
+    deletions: SqlDeletionRepository
+    hold: FakeDeletionHold
     legal: FakeLegalVersions
     geo: FakeGeo
     access: AccessChecker
@@ -85,6 +109,9 @@ class Identity:
     age_trust_levels: AgeTrustLevels
     revoke_restricted_sessions: RevokeRestrictedSessions
     grant_staff_role: GrantStaffRole
+    request_deletion: RequestDeletion
+    cancel_deletion: CancelDeletion
+    process_deletions: ProcessDeletions
 
     async def restrict(
         self, user_id: UserId, kind: RestrictionKind, *, ends_at: datetime | None = None
@@ -124,6 +151,9 @@ def identity(
     query = SqlIdentityQuery(db_session)
     tokens = AccessTokens(JwtKeys.of(KEY), clock, issuer="sosed", ttl=timedelta(minutes=15))
     revocations = FakeRevocations()
+    deleted = SqlDeletedIdentities(db_session)
+    deletions = SqlDeletionRepository(db_session, uow)
+    hold = FakeDeletionHold()
     legal = FakeLegalVersions()
     geo = FakeGeo()
     access = AccessChecker(query, legal, clock)
@@ -138,10 +168,15 @@ def identity(
         query=query,
         tokens=tokens,
         revocations=revocations,
+        deleted=deleted,
+        deletions=deletions,
+        hold=hold,
         legal=legal,
         geo=geo,
         access=access,
-        authenticate=AuthenticateTelegram(uow, users, sessions, query, tokens, CONFIG, clock),
+        authenticate=AuthenticateTelegram(
+            uow, users, sessions, query, deleted, tokens, CONFIG, clock
+        ),
         refresh=RefreshSession(
             uow,
             users,
@@ -164,6 +199,11 @@ def identity(
         age_trust_levels=AgeTrustLevels(uow, users, trust, clock),
         revoke_restricted_sessions=RevokeRestrictedSessions(uow, sessions, revocations, clock),
         grant_staff_role=GrantStaffRole(uow, users, SqlRoleRepository(db_session, uow), audit),
+        request_deletion=RequestDeletion(uow, users, deletions, clock),
+        cancel_deletion=CancelDeletion(uow, deletions, clock),
+        process_deletions=ProcessDeletions(
+            uow, users, deletions, sessions, revocations, deleted, hold, CONFIG, clock
+        ),
     )
 
 

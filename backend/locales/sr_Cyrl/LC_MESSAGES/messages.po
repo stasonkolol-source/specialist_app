@@ -206,6 +206,9 @@ msgstr "Налог је већ обрисан."
 msgid "errors.concurrent_login"
 msgstr "Пријава је већ у току. Покушајте поново."
 
+msgid "errors.concurrent_deletion_request"
+msgstr "Захтев за брисање налога се већ обрађује. Покушајте поново."
+
 msgid "errors.invalid_display_name"
 msgstr "Име не може бити празно."
 

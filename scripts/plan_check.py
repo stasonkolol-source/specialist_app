@@ -15,7 +15,7 @@ PLAN = Path(__file__).resolve().parent.parent / "docs" / "DEVELOPMENT_PLAN.md"
 STEP_RE = re.compile(r"\d+\.\d+[a-z]?")
 ROW_RE = re.compile(r"^\| \d+\.\d+[a-z]? \|")
 OPTIONAL = {"0.28", "2.2b", "7.6"}
-GATE_34_REQUIRED = ["2.5b", "2.10", "2.11", "2.12", "3.2", "3.3", "1.7"]
+GATE_34_REQUIRED = ["2.5b", "2.10", "2.11", "2.12a", "2.12b", "3.2", "3.3", "1.7"]
 
 
 def parse(text: str) -> tuple[list[str], dict[str, list[str]], dict[str, str]]:

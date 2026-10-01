@@ -18,6 +18,7 @@ from app.modules.specialists.application.use_cases.caption_portfolio_work import
 )
 from app.modules.specialists.application.use_cases.create_profile import CreateProfile
 from app.modules.specialists.application.use_cases.edit_profile import EditProfile
+from app.modules.specialists.application.use_cases.forget_profile import ForgetProfile
 from app.modules.specialists.application.use_cases.hide_profile import HideProfile
 from app.modules.specialists.application.use_cases.mark_founding import MarkFounding
 from app.modules.specialists.application.use_cases.remove_portfolio_work import (
@@ -61,6 +62,7 @@ class SpecialistsProvider(Provider):
     become_pro = provide(BecomePro)
     set_availability = provide(SetAvailability)
     reset_availability = provide(ResetAvailability)
+    forget_profile = provide(ForgetProfile)
     portfolio = provide(SqlPortfolioRepository, provides=PortfolioRepository)
     portfolio_query = provide(SqlPortfolioQuery, provides=PortfolioQuery)
     portfolio_views = provide(PortfolioViews)

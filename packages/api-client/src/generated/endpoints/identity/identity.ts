@@ -23,6 +23,7 @@ import type {
 import type {
   AuthOut,
   ConsentsIn,
+  DeletionOut,
   IdentityAuthenticateTelegramHeaders,
   IdentityUpdateMeHeaders,
   MeOut,
@@ -657,4 +658,167 @@ export const useIdentityAcceptConsents = <TError = ErrorType<ProblemOut>, TConte
   TContext
 > => {
   return useMutation(getIdentityAcceptConsentsMutationOptions(options), queryClient);
+};
+export const getIdentityRequestDeletionUrl = () => {
+  return `/api/v1/me/deletion`;
+};
+
+/**
+ * Удалить аккаунт (S45): через 7 дней — обезличен, данные удалены (§7.10). Повтор отдаёт
+ * тот же запрос; до срока — отмена DELETE /me/deletion.
+ * @summary Request Deletion
+ */
+export const identityRequestDeletion = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<DeletionOut> => {
+  return apiFetch<DeletionOut>(getIdentityRequestDeletionUrl(), {
+    ...options,
+    method: 'POST',
+  });
+};
+
+export const getIdentityRequestDeletionMutationKey = () => ['identityRequestDeletion'] as const;
+
+export const getIdentityRequestDeletionMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof identityRequestDeletion>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof identityRequestDeletion>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = getIdentityRequestDeletionMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof identityRequestDeletion>>,
+    void
+  > = () => {
+    return identityRequestDeletion(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type IdentityRequestDeletionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof identityRequestDeletion>>
+>;
+
+export type IdentityRequestDeletionMutationError = ErrorType<ProblemOut>;
+
+/**
+ * @summary Request Deletion
+ */
+export const useIdentityRequestDeletion = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof identityRequestDeletion>>,
+      TError,
+      void,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof identityRequestDeletion>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getIdentityRequestDeletionMutationOptions(options), queryClient);
+};
+export const getIdentityCancelDeletionUrl = () => {
+  return `/api/v1/me/deletion`;
+};
+
+/**
+ * Отменить запрос на удаление; запроса нет — тоже 204.
+ * @summary Cancel Deletion
+ */
+export const identityCancelDeletion = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getIdentityCancelDeletionUrl(), {
+    ...options,
+    method: 'DELETE',
+  });
+};
+
+export const getIdentityCancelDeletionMutationKey = () => ['identityCancelDeletion'] as const;
+
+export const getIdentityCancelDeletionMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof identityCancelDeletion>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof identityCancelDeletion>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = getIdentityCancelDeletionMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof identityCancelDeletion>>,
+    void
+  > = () => {
+    return identityCancelDeletion(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type IdentityCancelDeletionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof identityCancelDeletion>>
+>;
+
+export type IdentityCancelDeletionMutationError = ErrorType<ProblemOut>;
+
+/**
+ * @summary Cancel Deletion
+ */
+export const useIdentityCancelDeletion = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof identityCancelDeletion>>,
+      TError,
+      void,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof identityCancelDeletion>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getIdentityCancelDeletionMutationOptions(options), queryClient);
 };

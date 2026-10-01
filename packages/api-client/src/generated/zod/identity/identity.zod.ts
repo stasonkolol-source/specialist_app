@@ -48,6 +48,7 @@ export const IdentityAuthenticateTelegramResponse = zod.object({
     can_post_jobs: zod.boolean(),
     can_respond: zod.boolean(),
     can_message: zod.boolean(),
+    deletion_scheduled_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   }),
 });
 
@@ -103,6 +104,7 @@ export const IdentityGetMeResponse = zod.object({
   can_post_jobs: zod.boolean(),
   can_respond: zod.boolean(),
   can_message: zod.boolean(),
+  deletion_scheduled_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
 });
 
 /**
@@ -156,6 +158,7 @@ export const IdentityUpdateMeResponse = zod.object({
   can_post_jobs: zod.boolean(),
   can_respond: zod.boolean(),
   can_message: zod.boolean(),
+  deletion_scheduled_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
 });
 
 /**
@@ -196,4 +199,23 @@ export const IdentityAcceptConsentsResponse = zod.object({
   can_post_jobs: zod.boolean(),
   can_respond: zod.boolean(),
   can_message: zod.boolean(),
+  deletion_scheduled_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
 });
+
+/**
+ * Удалить аккаунт (S45): через 7 дней — обезличен, данные удалены (§7.10). Повтор отдаёт
+ * тот же запрос; до срока — отмена DELETE /me/deletion.
+ * @summary Request Deletion
+ */
+export const IdentityRequestDeletionResponse = zod
+  .object({
+    requested_at: zod.iso.datetime({ offset: true }),
+    execute_after: zod.iso.datetime({ offset: true }),
+  })
+  .describe('Запрос на удаление аккаунта: когда принят и когда исполнится (grace 7 дней).');
+
+/**
+ * Отменить запрос на удаление; запроса нет — тоже 204.
+ * @summary Cancel Deletion
+ */
+export const IdentityCancelDeletionResponse = zod.void();

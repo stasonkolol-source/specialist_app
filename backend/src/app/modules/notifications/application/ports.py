@@ -22,7 +22,7 @@ from app.modules.notifications.domain.notification import (
     NotificationId,
 )
 from app.modules.notifications.domain.settings import NotificationSettings
-from app.platform.contracts.events.identity import BotStarted, UserRestricted
+from app.platform.contracts.events.identity import BotStarted, UserDeleted, UserRestricted
 from app.platform.contracts.events.moderation import ModerationDecisionMade
 from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.kernel.ids import UserId
@@ -164,6 +164,14 @@ class SendDeliveryPayload:
     delivery_id: UUID
 
 
+class RecipientData(Protocol):
+    """Всё, что модуль хранит о получателе, — для удаления аккаунта (§7.10)."""
+
+    async def forget(self, user_id: UserId) -> None:
+        """Удалить ленту, доставки, каналы, предпочтения и настройки получателя."""
+        ...
+
+
 GRANT_WRITE_ACCESS: Final = TaskRef("notifications.grant_write_access", BotStarted)
 """Подписчик BotStarted: /start разрешает боту писать — канал telegram доступен."""
 
@@ -179,3 +187,5 @@ NOTIFY_PROFILE_PUBLISHED: Final = TaskRef(
 NOTIFY_MODERATION_DECISION: Final = TaskRef(
     "notifications.notify_moderation_decision", ModerationDecisionMade, queue="notifications"
 )
+FORGET_RECIPIENT: Final = TaskRef("notifications.forget_recipient", UserDeleted)
+"""Подписчик UserDeleted: всё о получателе удалённого аккаунта (§7.10)."""

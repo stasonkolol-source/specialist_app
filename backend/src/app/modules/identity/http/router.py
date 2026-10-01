@@ -22,20 +22,30 @@ from app.modules.identity.application.use_cases.authenticate_telegram import (
     AuthenticateTelegram,
     AuthenticateTelegramCommand,
 )
+from app.modules.identity.application.use_cases.cancel_deletion import (
+    CancelDeletion,
+    CancelDeletionCommand,
+)
 from app.modules.identity.application.use_cases.logout import Logout, LogoutCommand
 from app.modules.identity.application.use_cases.refresh_session import (
     RefreshSession,
     RefreshSessionCommand,
 )
+from app.modules.identity.application.use_cases.request_deletion import (
+    RequestDeletion,
+    RequestDeletionCommand,
+)
 from app.modules.identity.application.use_cases.update_profile import (
     UpdateProfile,
     UpdateProfileCommand,
 )
+from app.modules.identity.domain.deletion import DeletionSource
 from app.modules.identity.domain.session import SessionId
 from app.modules.identity.errors import UserNotFoundError
 from app.modules.identity.http.schemas import (
     AuthOut,
     ConsentsIn,
+    DeletionOut,
     MeOut,
     MeUpdateIn,
     RefreshIn,
@@ -46,7 +56,7 @@ from app.platform.http.ratelimit import RateLimit, client_ip
 from app.platform.http.security import AUTHENTICATED
 from app.platform.kernel.errors import NotAuthenticatedError
 from app.platform.kernel.ids import CityId, UserId
-from app.platform.kernel.principal import Principal
+from app.platform.kernel.principal import Platform, Principal
 from app.platform.ratelimit import Rate, RateLimiter
 from app.platform.security.errors import InvalidInitDataError
 from app.platform.security.initdata import InitDataVerifier
@@ -181,6 +191,38 @@ async def accept_consents(
         )
     )
     return await _me(query, access, principal.user_id, response)
+
+
+_SOURCE = {
+    Platform.TMA: DeletionSource.TMA,
+    Platform.IOS: DeletionSource.IOS,
+    Platform.ANDROID: DeletionSource.ANDROID,
+    Platform.WEB: DeletionSource.WEB,
+    Platform.ADMIN: DeletionSource.SUPPORT,
+}
+"""Откуда запрос на удаление: платформа сессии; из админки — по обращению в поддержку."""
+
+
+@router.post("/me/deletion", dependencies=AUTHENTICATED)
+@inject
+async def request_deletion(
+    principal: FromDishka[Principal], request: FromDishka[RequestDeletion]
+) -> DeletionOut:
+    """Удалить аккаунт (S45): через 7 дней — обезличен, данные удалены (§7.10). Повтор отдаёт
+    тот же запрос; до срока — отмена DELETE /me/deletion."""
+    deletion = await request(
+        RequestDeletionCommand(actor_id=principal.user_id, source=_SOURCE[principal.platform])
+    )
+    return DeletionOut(requested_at=deletion.requested_at, execute_after=deletion.execute_after)
+
+
+@router.delete("/me/deletion", status_code=status.HTTP_204_NO_CONTENT, dependencies=AUTHENTICATED)
+@inject
+async def cancel_deletion(
+    principal: FromDishka[Principal], cancel: FromDishka[CancelDeletion]
+) -> None:
+    """Отменить запрос на удаление; запроса нет — тоже 204."""
+    await cancel(CancelDeletionCommand(actor_id=principal.user_id))
 
 
 async def _me(

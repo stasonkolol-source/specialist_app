@@ -7,6 +7,7 @@ from typing import Final, Protocol
 from app.modules.identity.api import TelegramUserView, UserSummary
 from app.modules.identity.application.dto import MeView
 from app.modules.identity.domain.consent import Consent, ConsentDocument
+from app.modules.identity.domain.deletion import DeletionRequest, HashKind
 from app.modules.identity.domain.restriction import Restriction, RestrictionSource
 from app.modules.identity.domain.session import Session, SessionId
 from app.modules.identity.domain.user import AuthProvider, User
@@ -46,6 +47,46 @@ class UserRepository(Protocol):
     async def add(self, user: User) -> None: ...
 
     async def save(self, user: User) -> None: ...
+
+
+class DeletionRepository(Protocol):
+    """Запросы на удаление аккаунта (identity.deletion_requests): у пользователя — не больше
+    одного ждущего."""
+
+    async def active_for_update(self, user_id: UserId) -> DeletionRequest | None:
+        """Ждущий запрос пользователя под блокировкой строки."""
+        ...
+
+    async def due(self, now: datetime, *, limit: int) -> list[UserId]:
+        """Пользователи, чей ждущий запрос пора исполнить, — по сроку, без блокировки:
+        исполнение блокирует запрос и проверяет срок заново."""
+        ...
+
+    async def add(self, request: DeletionRequest) -> None:
+        """Новый запрос; второй ждущий у того же пользователя —
+        ConcurrentDeletionRequestError (повтор найдёт первый)."""
+        ...
+
+    async def save(self, request: DeletionRequest) -> None: ...
+
+
+class DeletedIdentities(Protocol):
+    """Хэши способов входа удалённых аккаунтов (identity.deleted_identity_hashes, 12 мес)."""
+
+    async def remember(
+        self,
+        hashes: Mapping[bytes, HashKind],
+        *,
+        had_sanctions: bool,
+        deleted_at: datetime,
+        purge_after: datetime,
+    ) -> None:
+        """Записать хэши; уже известный хэш получает новые даты и признак санкций."""
+        ...
+
+    async def find(self, digest: bytes, now: datetime) -> bool | None:
+        """Был ли у удалённого аккаунта с этим хэшем санкции; None — хэша нет или он истёк."""
+        ...
 
 
 class SessionRepository(Protocol):

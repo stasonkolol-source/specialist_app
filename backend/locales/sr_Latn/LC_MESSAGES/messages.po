@@ -207,6 +207,9 @@ msgstr "Nalog je već obrisan."
 msgid "errors.concurrent_login"
 msgstr "Prijava je već u toku. Pokušajte ponovo."
 
+msgid "errors.concurrent_deletion_request"
+msgstr "Zahtev za brisanje naloga se već obrađuje. Pokušajte ponovo."
+
 msgid "errors.invalid_display_name"
 msgstr "Ime ne može biti prazno."
 

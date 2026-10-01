@@ -4,6 +4,10 @@
 регистрирует нового; у существующего проверяет санкции входа и обновляет снимок профиля.
 Код deep link (`startapp` или payload `/start`) попадает в `UserRegistered` для
 атрибуции первого касания (growth); вернувшемуся пользователю он не нужен.
+
+Удалённый аккаунт способов входа не хранит: тот же Telegram регистрирует новый. Хэш его ID
+за последние 12 месяцев (§7.10) отмечает регистрацию повторной — модерация пишет сигнал
+риска, данные прежнего аккаунта не возвращаются.
 """
 
 import re
@@ -13,7 +17,12 @@ from typing import Final
 from app.modules.identity.api import Action
 from app.modules.identity.application.access import ensure_allowed
 from app.modules.identity.application.dto import TelegramProfile
-from app.modules.identity.application.ports import IdentityQuery, UserRepository
+from app.modules.identity.application.ports import (
+    DeletedIdentities,
+    IdentityQuery,
+    UserRepository,
+)
+from app.modules.identity.domain.deletion import HashKind, identity_hash
 from app.modules.identity.domain.user import (
     AuthProvider,
     User,
@@ -40,9 +49,11 @@ def telegram_start_param(raw: str | None) -> str | None:
 async def sign_in_telegram(
     users: UserRepository,
     query: IdentityQuery,
+    deleted: DeletedIdentities,
     profile: TelegramProfile,
     now: datetime,
     *,
+    hash_key: bytes,
     entry_point: EntryPoint,
     start_param: str | None = None,
 ) -> tuple[User, bool]:
@@ -50,6 +61,7 @@ async def sign_in_telegram(
     subject = str(profile.id)
     user = await users.find_by_identity(AuthProvider.TELEGRAM, subject)
     if user is None:
+        had_sanctions = await deleted.find(identity_hash(hash_key, HashKind.TELEGRAM, subject), now)
         user = User.register(
             provider=AuthProvider.TELEGRAM,
             subject=subject,
@@ -59,6 +71,8 @@ async def sign_in_telegram(
             now=now,
             entry_point=entry_point,
             start_param=telegram_start_param(start_param),
+            reregistered=had_sanctions is not None,
+            had_sanctions=bool(had_sanctions),
         )
         await users.add(user)
         return user, True

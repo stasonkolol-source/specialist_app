@@ -1,11 +1,16 @@
 """Порты модуля pricing (ADR-0020 §3, §5)."""
 
 from datetime import datetime
-from typing import Protocol
+from typing import Final, Protocol
 from uuid import UUID
 
 from app.modules.pricing.domain.service import Service, ServiceId
 from app.modules.specialists.api import PriceSummary
+from app.platform.contracts.events.specialists import ProfileDeleted
+from app.platform.queue.port import TaskRef
+
+REMOVE_PROFILE_PRICES: Final = TaskRef("pricing.remove_profile_prices", ProfileDeleted)
+"""Подписчик ProfileDeleted: прайс удалённого аккаунта (§7.10)."""
 
 
 class ServiceRepository(Protocol):

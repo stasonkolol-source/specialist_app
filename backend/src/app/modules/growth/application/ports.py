@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Final, Protocol
 
 from app.modules.growth.domain.attribution import FirstTouch
-from app.platform.contracts.events.identity import UserRegistered
+from app.platform.contracts.events.identity import UserDeleted, UserRegistered
 from app.platform.kernel.ids import UserId
 from app.platform.queue.port import TaskRef
 
@@ -19,6 +19,13 @@ class AttributionRepository(Protocol):
         """
         ...
 
+    async def forget(self, user_id: UserId) -> None:
+        """Удалить атрибуцию пользователя (аккаунт удалён, §7.10). Нужен активный UoW."""
+        ...
+
 
 RECORD_ATTRIBUTION: Final = TaskRef("growth.record_attribution", UserRegistered)
 """Подписчик UserRegistered: первое касание нового пользователя."""
+
+FORGET_ATTRIBUTION: Final = TaskRef("growth.forget_attribution", UserDeleted)
+"""Подписчик UserDeleted: атрибуция удалённого аккаунта (§7.10)."""

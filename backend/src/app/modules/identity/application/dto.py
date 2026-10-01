@@ -88,6 +88,8 @@ class MeView:
     version: int
     home_city_id: CityId | None = None
     intent: UserIntent | None = None
+    deletion_scheduled_at: datetime | None = None
+    """Аккаунт удалится тогда (ждущий запрос на удаление); None — запроса нет."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

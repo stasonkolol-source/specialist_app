@@ -22,4 +22,5 @@ export interface MeOut {
   can_post_jobs: boolean;
   can_respond: boolean;
   can_message: boolean;
+  deletion_scheduled_at: string | null;
 }

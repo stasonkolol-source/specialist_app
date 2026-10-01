@@ -112,7 +112,12 @@ export const ME: MeOut = {
   can_post_jobs: true,
   can_respond: true,
   can_message: true,
+  deletion_scheduled_at: null,
 };
+
+/** Запрос на удаление аккаунта S45: принят 1 октября, исполнится через 7 дней — 8 октября. */
+export const DELETION_REQUESTED_AT = '2026-10-01T12:00:00Z';
+export const DELETION_EXECUTE_AFTER = '2026-10-08T12:00:00Z';
 
 /** Новый пользователь сразу после первого входа: ни города, ни намерения, ни согласия (S02a). */
 export const NEW_USER: MeOut = {

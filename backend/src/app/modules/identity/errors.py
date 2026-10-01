@@ -36,6 +36,13 @@ class ConcurrentLoginError(ConcurrentModificationError):
     code = "concurrent_login"
 
 
+class ConcurrentDeletionRequestError(ConcurrentModificationError):
+    """Два запроса на удаление одного аккаунта одновременно: второй повторяет и находит
+    первый."""
+
+    code = "concurrent_deletion_request"
+
+
 class InvalidDisplayNameError(DomainValidationError):
     """Имя пустое после очистки от пробелов и невидимых символов."""
 

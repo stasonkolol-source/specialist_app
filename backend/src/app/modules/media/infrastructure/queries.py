@@ -36,6 +36,14 @@ class SqlMediaQuery(SqlQuery):
         await self._release()
         return assets
 
+    async def owned_ids(self, owner_id: UserId) -> list[MediaId]:
+        stmt = select(AssetRow.id).where(
+            AssetRow.owner_id == owner_id, AssetRow.deleted_at.is_(None)
+        )
+        ids = [MediaId(media_id) for media_id in (await self._session.scalars(stmt)).all()]
+        await self._release()
+        return ids
+
     async def stuck(
         self,
         uploaded_before: datetime,

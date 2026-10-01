@@ -276,6 +276,71 @@
         ]
       }
     },
+    "/api/v1/me/deletion": {
+      "post": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Request Deletion",
+        "description": "Удалить аккаунт (S45): через 7 дней — обезличен, данные удалены (§7.10). Повтор отдаёт\nтот же запрос; до срока — отмена DELETE /me/deletion.",
+        "operationId": "identity_request_deletion",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Cancel Deletion",
+        "description": "Отменить запрос на удаление; запроса нет — тоже 204.",
+        "operationId": "identity_cancel_deletion",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/cities": {
       "get": {
         "tags": [
@@ -2431,6 +2496,27 @@
         ],
         "title": "Currency"
       },
+      "DeletionOut": {
+        "properties": {
+          "requested_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Requested At"
+          },
+          "execute_after": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Execute After"
+          }
+        },
+        "type": "object",
+        "required": [
+          "requested_at",
+          "execute_after"
+        ],
+        "title": "DeletionOut",
+        "description": "Запрос на удаление аккаунта: когда принят и когда исполнится (grace 7 дней)."
+      },
       "DistrictKind": {
         "type": "string",
         "enum": [
@@ -2784,6 +2870,18 @@
           "can_message": {
             "type": "boolean",
             "title": "Can Message"
+          },
+          "deletion_scheduled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deletion Scheduled At"
           }
         },
         "type": "object",
@@ -2800,7 +2898,8 @@
           "consent_required",
           "can_post_jobs",
           "can_respond",
-          "can_message"
+          "can_message",
+          "deletion_scheduled_at"
         ],
         "title": "MeOut"
       },

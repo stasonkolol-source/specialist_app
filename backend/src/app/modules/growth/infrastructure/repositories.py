@@ -2,6 +2,7 @@
 
 from datetime import datetime
 
+from sqlalchemy import delete
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,3 +42,7 @@ class SqlAttributionRepository:
                 err, {"fk_attributions_user_id_users": lambda: UserNotFoundError(user_id=user_id)}
             )
         return inserted is not None
+
+    async def forget(self, user_id: UserId) -> None:
+        self._uow.require_active()
+        await self._session.execute(delete(AttributionRow).where(AttributionRow.user_id == user_id))

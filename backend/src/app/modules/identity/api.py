@@ -3,6 +3,7 @@
 Другие модули импортируют из identity только этот файл.
 """
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -107,4 +108,17 @@ class IdentityApi(Protocol):
     async def record_violation(self, user_id: UserId) -> None:
         """Нарушение без санкции (предупреждение, подтверждённая жалоба) в транзакции
         вызывающего: уровень доверия — 0 на 14 дней. UserNotFoundError — нет пользователя."""
+        ...
+
+
+class DeletionHold(Protocol):
+    """Legal hold удаления аккаунта (ARCHITECTURE §7.10): удаление ждёт решения открытых кейсов
+    модерации о пользователе («жалобы удалим после их решения», S45), позже — и споров (6.1c).
+
+    Реализует модуль выше по DAG (moderation): identity о нём не знает, связывает dishka — как
+    media.api.LegalHold.
+    """
+
+    async def held(self, user_ids: Collection[UserId]) -> frozenset[UserId]:
+        """Кого из пользователей удалять пока нельзя. Читает в транзакции вызывающего."""
         ...
