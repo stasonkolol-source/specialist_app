@@ -1,5 +1,6 @@
 // Рендер и доступность примитивов 0.19a. Тексты в тестах — данные, а не интерфейс.
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { MouseEvent } from 'react';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -83,6 +84,17 @@ describe('Card', () => {
     expect(onClick).toHaveBeenCalledOnce();
     expect(screen.getByRole('link', { name: 'Заявка' }).getAttribute('href')).toBe('/j/1');
     expect(await a11yViolations(container)).toEqual([]);
+  });
+
+  it('ссылка с переходом внутри приложения', () => {
+    const navigate = vi.fn((event: MouseEvent<HTMLElement>) => event.preventDefault());
+    render(
+      <Card href="/become/about" onClick={navigate}>
+        Кабинет специалиста
+      </Card>,
+    );
+    fireEvent.click(screen.getByRole('link', { name: 'Кабинет специалиста' }));
+    expect(navigate).toHaveBeenCalledOnce();
   });
 });
 

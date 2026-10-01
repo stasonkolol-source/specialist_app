@@ -1,0 +1,116 @@
+{
+  "become": {
+    "step": "Korak {current} od {total} · nacrt se čuva sam",
+    "loading": "Učitavamo nacrt",
+    "saveError": "Čuvanje nije uspelo. Proverite i pokušajte ponovo.",
+    "offlineError": "Nema veze — proverite internet i pokušajte ponovo.",
+    "missing": {
+      "category_ids": "Izaberite bar jednu kategoriju",
+      "headline": "Napišite ukratko o sebi",
+      "work_modes": "Izaberite način rada",
+      "area_ids": "Označite delove grada u koje dolazite",
+      "services": "Dodajte prvu stavku cenovnika"
+    },
+    "type": {
+      "title": "Kako želite da radite?",
+      "intro": "Izbor možete kasnije promeniti u kabinetu",
+      "label": "Vrsta profila",
+      "pro": {
+        "title": "Stručnjak",
+        "text": "Redovno pružam usluge: profil u katalogu, cenovnik i utisci"
+      },
+      "casual": {
+        "title": "Honorarni posao",
+        "text": "Povremeni zadaci kad imam vremena: selidbe, sklapanje nameštaja"
+      },
+      "casualMark": "Honorarno",
+      "casualMarkNote": "— oznaka pored imena",
+      "casualFree": "Honorarni profil je uvek besplatan. Podrazumevano se ne prikazuje u katalogu — javljate se na zahteve iz liste.",
+      "needsTitle": "Šta će vam trebati",
+      "needs1": "Kategorije i par reči o sebi",
+      "needs2": "Delovi grada i bar jedna cena",
+      "needs3": "Telefon — po želji, za značku"
+    },
+    "about": {
+      "title": "Čime se bavite?",
+      "categories": "Kategorije",
+      "moreCategories": "Ostale kategorije",
+      "lessCategories": "Skupi",
+      "categoriesLimit": "Možete izabrati do {count, plural, one {# kategorije} few {# kategorije} other {# kategorija}}",
+      "headline": "Ukratko o sebi",
+      "headlinePlaceholder": "Na primer: električar · sitne popravke · lusteri",
+      "headlineHint": "Prikazuje se ispod imena · {count} od {max}",
+      "about": "O sebi",
+      "aboutPlaceholder": "Iskustvo, alat, gde radite",
+      "aboutHint": "Bez telefona i linkova — kontakti se otvaraju nakon dogovora",
+      "languages": "Jezici",
+      "language": {
+        "ru": "Ruski",
+        "sr": "Srpski",
+        "en": "Engleski",
+        "uk": "Ukrajinski"
+      }
+    },
+    "area": {
+      "title": "Gde i po kojoj ceni radite",
+      "districts": "Delovi grada · {city}",
+      "districtsPlain": "Delovi grada",
+      "moreDistricts": "Još {count, plural, one {# deo grada} few {# dela grada} other {# delova grada}}",
+      "lessDistricts": "Skupi",
+      "format": "Način rada",
+      "atClient": "Dolazim",
+      "atOwnPlace": "Kod mene",
+      "both": "I jedno i drugo",
+      "radius": "Radijus dolaska",
+      "radiusKm": "do {km} km",
+      "price": "Prva stavka cenovnika",
+      "priceTitle": "Usluga",
+      "priceTitlePlaceholder": "Dolazak i dijagnostika",
+      "priceAmount": "Cena u dinarima",
+      "serviceTitleError": "Navedite uslugu",
+      "servicePriceError": "Unesite cenu u dinarima",
+      "priceHint": "Ostale stavke dodaćete u kabinetu",
+      "priceOptional": "Za honorarni posao — po želji. Ostale stavke dodaćete u kabinetu",
+      "review": "Novi profil proverava moderator — obično do 30 minuta",
+      "submit": "Pošalji na proveru"
+    }
+  },
+  "account": {
+    "pro": {
+      "title": "Postanite stručnjak",
+      "text": "Profil u katalogu, zahtevi u blizini"
+    },
+    "casual": {
+      "title": "Nađite honorarni posao",
+      "text": "Povremeni zadaci blizu kuće"
+    },
+    "cabinet": "Kabinet stručnjaka",
+    "casualCabinet": "Honorarni profil",
+    "status": {
+      "draft": {
+        "label": "Nacrt",
+        "text": "Ostalo je još nekoliko koraka — nastavite"
+      },
+      "rejected": {
+        "label": "Potrebne ispravke",
+        "text": "Razlog je u obaveštenju moderatora"
+      },
+      "pending_review": {
+        "label": "Na proveri",
+        "text": "Obično do 30 minuta"
+      },
+      "published": {
+        "label": "Objavljen",
+        "text": "Profil vide klijenti"
+      },
+      "hidden": {
+        "label": "Skriven",
+        "text": "Profil je pauziran — klijenti ga ne vide"
+      },
+      "suspended": {
+        "label": "Obustavljen",
+        "text": "Moderacija je sakrila profil — detalji u obaveštenju"
+      }
+    }
+  }
+}

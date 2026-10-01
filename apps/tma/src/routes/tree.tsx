@@ -11,6 +11,7 @@ import {
 import type { FunctionComponent } from 'react';
 
 import { ONBOARDING_PATHS, onboardingSearch } from '../features/onboarding/index.ts';
+import { BECOME_PATHS, becomeSearch } from '../features/specialist/index.ts';
 import { LEGAL_PATH, LegalScreen } from '../features/service/s48-legal/index.ts';
 import { RESTRICTED_PATH, RestrictedRoute } from '../features/service/s49-system/index.ts';
 import { AppShell } from '../features/shell/index.ts';
@@ -74,6 +75,30 @@ const profile = createRoute({
   component: screen(() => import('../features/account/s31-account/index.ts'), 'AccountScreen'),
 });
 
+// Мастер «Стать специалистом» S32a–c (2.9): вход — из S31. Профиль — создающее действие:
+// без согласия с правилами — S02c
+const becomeType = createRoute({
+  getParentRoute: () => rootRoute,
+  path: BECOME_PATHS.type,
+  validateSearch: becomeSearch,
+  beforeLoad: requireConsent,
+  component: screen(() => import('../features/specialist/s32a-type/index.ts'), 'TypeScreen'),
+});
+
+const becomeAbout = createRoute({
+  getParentRoute: () => rootRoute,
+  path: BECOME_PATHS.about,
+  beforeLoad: requireConsent,
+  component: screen(() => import('../features/specialist/s32b-about/index.ts'), 'AboutScreen'),
+});
+
+const becomeArea = createRoute({
+  getParentRoute: () => rootRoute,
+  path: BECOME_PATHS.area,
+  beforeLoad: requireConsent,
+  component: screen(() => import('../features/specialist/s32c-area/index.ts'), 'AreaScreen'),
+});
+
 // S42 из профиля; нажатие на уведомление ведёт по его deep link (routes/notifications.tsx)
 const notifications = createRoute({
   getParentRoute: () => rootRoute,
@@ -132,6 +157,9 @@ export const routeTree = rootRoute.addChildren([
   createJob,
   messages,
   profile,
+  becomeType,
+  becomeAbout,
+  becomeArea,
   notifications,
   onboardingLanguage,
   onboardingIntent,

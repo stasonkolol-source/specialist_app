@@ -2,13 +2,17 @@
 // Ответы существующих эндпоинтов — типами api-client; данные экранов, для которых API ещё нет
 // (специалисты, заявки, отклики), — формой из SPEC: шаги этапа 1 заменят их моделями OpenAPI.
 import type {
+  CategoryOut,
   CityOut,
   ClientConfigOut,
+  DistrictOut,
   MeOut,
   NotificationOut,
   NotificationPageOut,
   NotificationSettingsOut,
   NotificationType,
+  ProfileOut,
+  ServiceOut,
   TelegramChannelOut,
 } from '@sosed/api-client';
 import { encodeStartParam } from '@sosed/links';
@@ -226,4 +230,133 @@ export const NOTIFICATION_SETTINGS: NotificationSettingsOut = {
   quiet_hours: { enabled: true, start: '22:00:00', end: '08:00:00', time_zone: 'Europe/Belgrade' },
   digest_hour: 9,
   telegram: null,
+};
+
+/** Язык ответов справочников, как у backend: sr-Latn или ru (для остальных). */
+const latin = (locale: string | null) => locale === 'sr-Latn';
+
+/** Каталог GET /categories — разделы и подкатегории SPEC §4 (CATEGORIES); у листьев id ≥ 100. */
+const CATEGORY_TREE: [string, string, string, string, [string, string, string][]][] = [
+  ['handyman', 'wrench', 'Мастер на час', 'Majstor na sat', [
+    ['electrical', 'Электрика', 'Elektrika'],
+    ['plumbing', 'Сантехника', 'Vodoinstalacije'],
+    ['furniture-assembly', 'Сборка мебели', 'Montaža nameštaja'],
+    ['chandeliers', 'Люстры и карнизы', 'Lusteri i garnišne'],
+  ]],
+  ['beauty', 'scissors', 'Бьюти', 'Lepota', [
+    ['nails', 'Маникюр', 'Manikir'],
+    ['brows-and-lashes', 'Брови и ресницы', 'Obrve i trepavice'],
+    ['hair', 'Стрижки', 'Šišanje'],
+  ]],
+  ['cleaning', 'broom', 'Уборка', 'Čišćenje', []],
+  ['moving', 'truck', 'Переезды', 'Selidbe', []],
+  ['tutors', 'book', 'Репетиторы', 'Časovi', [
+    ['serbian-for-adults', 'Сербский язык для взрослых', 'Srpski za odrasle'],
+    ['english', 'Английский', 'Engleski'],
+  ]],
+]; // prettier-ignore
+
+/** id категорий каталога по slug: «электрика» — 101, «люстры и карнизы» — 104. */
+export const CATEGORY_IDS: Record<string, number> = Object.fromEntries(
+  CATEGORY_TREE.flatMap(([slug, , , , children], index) => [
+    [slug, index + 1],
+    ...children.map(([child], childIndex) => [child, (index + 1) * 100 + childIndex + 1]),
+  ]),
+);
+
+export function categoriesFor(locale: string | null): CategoryOut[] {
+  const node = (slug: string, icon: string | null, ru: string, sr: string): CategoryOut => ({
+    id: CATEGORY_IDS[slug] ?? 0,
+    slug,
+    name: latin(locale) ? sr : ru,
+    icon,
+    price_hint: null,
+    tags: [],
+    children: [],
+  });
+  return CATEGORY_TREE.map(([slug, icon, ru, sr, children]) => ({
+    ...node(slug, icon, ru, sr),
+    children: children.map(([child, childRu, childSr]) => node(child, null, childRu, childSr)),
+  }));
+}
+
+/** Районы Нови-Сада SPEC §4 (DISTRICTS) и муниципалитет «весь город»: id районов — с 11. */
+const DISTRICT_NAMES_LATIN: Record<(typeof DISTRICTS)[number], string> = {
+  Лиман: 'Liman',
+  Грбавица: 'Grbavica',
+  Детелинара: 'Detelinara',
+  'Нова Детелинара': 'Nova Detelinara',
+  Центр: 'Centar',
+  Адице: 'Adice',
+  Телеп: 'Telep',
+  Подбара: 'Podbara',
+};
+
+export const DISTRICT_IDS: Record<(typeof DISTRICTS)[number], number> = Object.fromEntries(
+  DISTRICTS.map((name, index) => [name, index + 11]),
+) as Record<(typeof DISTRICTS)[number], number>;
+
+export function districtsFor(locale: string | null): DistrictOut[] {
+  const center = { lat: 45.2671, lon: 19.8335 };
+  return [
+    { id: 1, slug: 'novi-sad', name: latin(locale) ? 'Novi Sad' : 'Нови-Сад', kind: 'municipality', parent_id: null, center },
+    ...DISTRICTS.map((name, index): DistrictOut => ({
+      id: index + 11,
+      slug: DISTRICT_NAMES_LATIN[name].toLowerCase().replace(' ', '-'),
+      name: latin(locale) ? DISTRICT_NAMES_LATIN[name] : name,
+      kind: 'neighborhood',
+      parent_id: 1,
+      center,
+    })),
+  ];
+} // prettier-ignore
+
+/** Черновик сразу после S32a: «Специалист» без категорий, текста, формата и прайса. */
+export const PROFILE_DRAFT: ProfileOut = {
+  id: '0199bb00-0000-7000-8000-000000000001',
+  kind: 'pro',
+  status: 'draft',
+  display_name: ME.display_name,
+  headline: null,
+  about: null,
+  languages: [],
+  city_id: 1,
+  category_ids: [],
+  district_ids: [],
+  travel_radius_km: null,
+  work_modes: [],
+  listed_in_catalog: true,
+  rejection_reason: null,
+  missing: ['category_ids', 'headline', 'work_modes', 'services'],
+  published_at: null,
+  version: 1,
+};
+
+/** Заполненный черновик артбордов S32b–c: электрик в Лимане, Грбавице, Центре и Нова Детелинаре. */
+export const PROFILE_FILLED: ProfileOut = {
+  ...PROFILE_DRAFT,
+  headline: 'Электрик · мелкий ремонт · люстры',
+  about: 'Электрик, 12 лет опыта, в Нови-Саде с 2022 года. Свой инструмент и стремянка до 3\u00a0м.',
+  languages: ['ru', 'sr'],
+  category_ids: [CATEGORY_IDS['electrical'] ?? 0, CATEGORY_IDS['chandeliers'] ?? 0],
+  district_ids: [DISTRICT_IDS['Лиман'], DISTRICT_IDS['Грбавица'], DISTRICT_IDS['Центр'], DISTRICT_IDS['Нова Детелинара']],
+  travel_radius_km: 5,
+  work_modes: ['at_client'],
+  missing: [],
+  version: 4,
+}; // prettier-ignore
+
+/** Первая позиция прайса артборда S32c: «Выезд и диагностика» — 2 000 RSD (в пара). */
+export const FIRST_SERVICE: ServiceOut = {
+  id: '0199bb00-0000-7000-8000-000000000101',
+  title: 'Выезд и диагностика',
+  description: null,
+  category_id: null,
+  price_type: 'fixed',
+  price_min: { amount: 200_000, currency: 'RSD' },
+  price_max: null,
+  unit: null,
+  duration_min: null,
+  position: 0,
+  is_active: true,
 };

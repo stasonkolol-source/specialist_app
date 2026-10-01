@@ -243,6 +243,17 @@ class Profile(VersionedAggregate):
         self.status = ProfileStatus.PUBLISHED
         self._record(ProfilePublished(profile_id=self.id, user_id=self.user_id, occurred_at=now))
 
+    def change_kind(self, kind: ProfileKind) -> bool:
+        """Тип черновика (S32a: вернулись на первый шаг и выбрали другой). False — тот же.
+        Проверенный профиль меняет тип только через `become_pro` — с повторной проверкой."""
+        if kind is self.kind:
+            return False
+        if self.status is not ProfileStatus.DRAFT:
+            raise ProfileStateError(profile_status=self.status.value)
+        self.kind = kind
+        self.listed_in_catalog = kind is ProfileKind.PRO
+        return True
+
     def become_pro(self, *, now: datetime) -> None:
         """«Подработка → Специалист»: в каталог, но сначала — снова проверка человеком."""
         if self.kind is ProfileKind.PRO:

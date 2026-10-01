@@ -14,9 +14,12 @@ import {
   NOTIFICATION_SETTINGS,
   WRITE_ACCESS,
   accepted,
+  categoriesFor,
   citiesFor,
+  districtsFor,
   notificationsFor,
 } from '../src/testing/fixtures.ts';
+import { ProfileBackend } from '../src/testing/profileBackend.ts';
 
 export const json = (body: unknown, status = 200) => ({
   status,
@@ -57,6 +60,8 @@ export interface MockApiOptions {
   notifications?: NotificationPageOut;
   /** GET /me/notification-settings; по умолчанию бот писать не может (баннер S42). */
   notificationSettings?: NotificationSettingsOut;
+  /** Кабинет исполнителя `/me/profile*` с памятью; по умолчанию — профиля нет. */
+  profile?: ProfileBackend;
   /** Свои ответы по ключу «METHOD /api/v1/…»: проверяются раньше стандартных. */
   handlers?: Record<string, (route: Route) => Promise<void>>;
   /** Что приложение прислало в PATCH /me, POST /me/consents, POST /me/telegram/write-access и
@@ -90,6 +95,7 @@ export async function mockApi(
     config = CLIENT_CONFIG,
     notifications,
     notificationSettings = NOTIFICATION_SETTINGS,
+    profile = new ProfileBackend(),
     handlers = {},
     sent = sentRequests(),
   }: MockApiOptions = {},
@@ -102,11 +108,24 @@ export async function mockApi(
     const key = `${request.method()} ${url.pathname}`;
     const handler = handlers[key];
     if (handler) return handler(route);
+    const language = request.headers()['accept-language'] ?? null;
+    if (url.pathname.startsWith('/api/v1/me/profile')) {
+      if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
+      const body: unknown = request.method() === 'GET' ? undefined : request.postDataJSON();
+      const reply = profile.handle(request.method(), url.pathname, body);
+      if (reply) return route.fulfill(json(reply.body, reply.status));
+    }
+    // районы города: /cities/{id}/districts — названия на языке запроса
+    if (/^GET \/api\/v1\/cities\/\d+\/districts$/.test(key)) {
+      return route.fulfill(json(districtsFor(language)));
+    }
     switch (key) {
       case 'GET /api/v1/client-config':
         return route.fulfill(json(config));
       case 'GET /api/v1/cities':
-        return route.fulfill(json(citiesFor(request.headers()['accept-language'] ?? null)));
+        return route.fulfill(json(citiesFor(language)));
+      case 'GET /api/v1/categories':
+        return route.fulfill(json(categoriesFor(language)));
       case 'GET /api/v1/me':
         return route.fulfill(authorized(request) ? json(user) : json(NOT_AUTHENTICATED, 401));
       case 'PATCH /api/v1/me': {

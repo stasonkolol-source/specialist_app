@@ -5,6 +5,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { Language } from './language.ts';
+import type { ProfileKind } from './profileKind.ts';
 import type { ProfileUpdateInTravelRadiusKm } from './profileUpdateInTravelRadiusKm.ts';
 import type { WorkMode } from './workMode.ts';
 
@@ -13,6 +14,7 @@ import type { WorkMode } from './workMode.ts';
  * очищает «коротко о себе» и «о себе».
  */
 export interface ProfileUpdateIn {
+  kind?: ProfileKind | null;
   display_name?: string | null;
   headline?: string | null;
   about?: string | null;
