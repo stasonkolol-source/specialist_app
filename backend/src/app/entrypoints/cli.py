@@ -44,6 +44,7 @@ if TYPE_CHECKING:  # модули грузятся лениво: CLI без БД
     from app.entrypoints._moderation_cli import CliOutcome
     from app.entrypoints._notify_test import NotifyTestOutcome
     from app.modules.identity.application.dto import OnboardingReset, StaffRoleGranted
+    from app.modules.specialists.application.use_cases.mark_founding import FoundingMarked
 
 app = typer.Typer(help="«Соседи» — служебные команды backend.", no_args_is_help=True)
 
@@ -448,6 +449,36 @@ async def _staff_grant(telegram_id: int, role: str) -> StaffRoleGranted | None:
         async with container() as request:
             grant = await request.get(GrantStaffRole)
             return await grant(GrantStaffRoleCommand(telegram_id=telegram_id, role=Role(role)))
+    finally:
+        await container.close()
+
+
+@app.command("founding-mark")
+def founding_mark(
+    tg_id: Annotated[int, typer.Option("--tg-id", help="Telegram id специалиста")],
+) -> None:
+    """Статус Founding профилю исполнителя (§15.2): первые 150–200 специалистов. Бейдж и
+    бесплатный Pro — v1 (ADR-0014); в админке — 2.7b."""
+    result = asyncio.run(_founding_mark(tg_id))
+    if result is None:
+        typer.echo("founding-mark: no such Telegram user or no specialist profile", err=True)
+        raise typer.Exit(code=1)
+    state = "marked" if result.marked else "already marked"
+    typer.echo(f"profile {result.profile_id}: founding {state}")
+
+
+async def _founding_mark(telegram_id: int) -> FoundingMarked | None:
+    from app.entrypoints._wiring import make_worker_container
+    from app.modules.specialists.application.use_cases.mark_founding import (
+        MarkFounding,
+        MarkFoundingCommand,
+    )
+
+    container = make_worker_container(Settings())
+    try:
+        async with container() as request:
+            mark = await request.get(MarkFounding)
+            return await mark(MarkFoundingCommand(telegram_id=telegram_id))
     finally:
         await container.close()
 

@@ -319,6 +319,28 @@ msgstr "Slučaj već rešava drugi moderator."
 msgid "errors.invalid_decision"
 msgstr "Odluka nije potpuna: potreban je razlog, a sankcija — samo uz odbijanje."
 
+# Профили извођача (DEVELOPMENT_PLAN 2.8a)
+msgid "errors.profile_not_found"
+msgstr "Profil izvođača nije pronađen."
+
+msgid "errors.profile_exists"
+msgstr "Već imate profil izvođača."
+
+msgid "errors.profile_state_conflict"
+msgstr "Sa profilom u ovom statusu to nije moguće."
+
+msgid "errors.profile_incomplete"
+msgstr "Popunite profil do kraja da biste ga poslali na proveru."
+
+msgid "errors.invalid_profile"
+msgstr "Proverite polja profila."
+
+msgid "errors.category_not_allowed"
+msgstr "Ovu kategoriju nije moguće izabrati."
+
+msgid "errors.district_not_allowed"
+msgstr "Ovaj deo grada nije moguće izabrati."
+
 # Обавештења (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
 msgid "errors.notification_group_mandatory"
 msgstr "Službena obaveštenja ne mogu da se isključe: tiču se odluka moderacije i ograničenja naloga."
@@ -418,6 +440,15 @@ msgstr "oglasi za posao se ovde ne objavljuju"
 
 msgid "notifications.moderation_reason.other"
 msgstr "kršenje pravila platforme"
+
+msgid "notifications.profile_published.title"
+msgstr "Profil je objavljen"
+
+msgid "notifications.profile_published.body"
+msgstr "Moderator je proverio vaš profil — sada ga klijenti vide u katalogu."
+
+msgid "notifications.profile_published.button"
+msgstr "Otvori profil"
 
 msgid "notifications.system_test.title"
 msgstr "Provera obaveštenja"

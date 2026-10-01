@@ -1,0 +1,37 @@
+"""DTO модуля specialists (ADR-0020 §6)."""
+
+from dataclasses import dataclass
+from datetime import datetime
+
+from app.modules.specialists.domain.profile import (
+    Language,
+    ProfileId,
+    ProfileKind,
+    ProfileStatus,
+    WorkMode,
+)
+from app.platform.kernel.ids import CategoryId, CityId, DistrictId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ProfileView:
+    """Свой профиль в кабинете (S33): статус, поля мастера S32a–c и чего не хватает."""
+
+    id: ProfileId
+    kind: ProfileKind
+    status: ProfileStatus
+    display_name: str
+    headline: str | None
+    about: str | None
+    languages: tuple[Language, ...]
+    city_id: CityId
+    category_ids: tuple[CategoryId, ...]
+    area_ids: tuple[DistrictId, ...]
+    travel_radius_km: int | None
+    work_modes: tuple[WorkMode, ...]
+    listed_in_catalog: bool
+    rejection_reason: str | None
+    missing: tuple[str, ...]
+    """Что заполнить перед отправкой на проверку."""
+    published_at: datetime | None
+    version: int

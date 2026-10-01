@@ -739,6 +739,514 @@
         }
       }
     },
+    "/api/v1/me/profile": {
+      "get": {
+        "tags": [
+          "specialists"
+        ],
+        "summary": "Get My Profile",
+        "description": "Свой профиль исполнителя (кабинет S33); 404 `profile_not_found` — профиля ещё нет.",
+        "operationId": "specialists_get_my_profile",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "specialists"
+        ],
+        "summary": "Create My Profile",
+        "description": "Начать профиль (S32a): «Специалист» или «Подработка» — черновик; 409 `profile_exists`.",
+        "operationId": "specialists_create_my_profile",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileCreateIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Ключ операции: повтор с тем же ключом вернёт тот же ответ",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 255
+            }
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "specialists"
+        ],
+        "summary": "Update My Profile",
+        "description": "Поля профиля (S32b–c, S34). Правки опубликованного — сразу, текст — на пост-модерацию.",
+        "operationId": "specialists_update_my_profile",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdateIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/profile/categories": {
+      "put": {
+        "tags": [
+          "specialists"
+        ],
+        "summary": "Set My Categories",
+        "description": "Категории профиля целиком, первая — основная.",
+        "operationId": "specialists_set_my_categories",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileCategoriesIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/profile/areas": {
+      "put": {
+        "tags": [
+          "specialists"
+        ],
+        "summary": "Set My Areas",
+        "description": "Районы выезда целиком (районы города профиля).",
+        "operationId": "specialists_set_my_areas",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileAreasIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/profile/submit": {
+      "post": {
+        "tags": [
+          "specialists"
+        ],
+        "summary": "Submit My Profile",
+        "description": "На проверку (S32c «Отправить на проверку»); 409 `profile_incomplete` — чего не хватает.",
+        "operationId": "specialists_submit_my_profile",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/profile/hide": {
+      "post": {
+        "tags": [
+          "specialists"
+        ],
+        "summary": "Hide My Profile",
+        "description": "Скрыть опубликованный профиль из каталога.",
+        "operationId": "specialists_hide_my_profile",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/profile/show": {
+      "post": {
+        "tags": [
+          "specialists"
+        ],
+        "summary": "Show My Profile",
+        "description": "Вернуть скрытый профиль в каталог.",
+        "operationId": "specialists_show_my_profile",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/profile/become-pro": {
+      "post": {
+        "tags": [
+          "specialists"
+        ],
+        "summary": "Become Pro",
+        "description": "«Подработка → Специалист»: профиль снова проверяет человек, потом он в каталоге.",
+        "operationId": "specialists_become_pro",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/me/telegram/write-access": {
       "post": {
         "tags": [
@@ -1432,6 +1940,16 @@
         ],
         "title": "ImageVariantName"
       },
+      "Language": {
+        "type": "string",
+        "enum": [
+          "ru",
+          "sr",
+          "en",
+          "uk"
+        ],
+        "title": "Language"
+      },
       "LegalDocumentOut": {
         "properties": {
           "version": {
@@ -2013,6 +2531,7 @@
           "job.expiring",
           "job.expired",
           "profile.stale_reminder",
+          "profile.published",
           "account.restricted",
           "system.test"
         ],
@@ -2266,6 +2785,323 @@
         ],
         "title": "ProblemOut",
         "description": "Ошибка RFC 9457. Клиент ветвится по `code`, текст для человека — `detail`."
+      },
+      "ProfileAreasIn": {
+        "properties": {
+          "district_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "title": "District Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "district_ids"
+        ],
+        "title": "ProfileAreasIn"
+      },
+      "ProfileCategoriesIn": {
+        "properties": {
+          "category_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Category Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category_ids"
+        ],
+        "title": "ProfileCategoriesIn"
+      },
+      "ProfileCreateIn": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ProfileKind"
+          },
+          "city_id": {
+            "type": "integer",
+            "maximum": 2147483647.0,
+            "minimum": 1.0,
+            "title": "City Id"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "city_id"
+        ],
+        "title": "ProfileCreateIn"
+      },
+      "ProfileKind": {
+        "type": "string",
+        "enum": [
+          "pro",
+          "casual"
+        ],
+        "title": "ProfileKind"
+      },
+      "ProfileOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ProfileKind"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProfileStatus"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "headline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headline"
+          },
+          "about": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "About"
+          },
+          "languages": {
+            "items": {
+              "$ref": "#/components/schemas/Language"
+            },
+            "type": "array",
+            "title": "Languages"
+          },
+          "city_id": {
+            "type": "integer",
+            "title": "City Id"
+          },
+          "category_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Category Ids"
+          },
+          "district_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "District Ids"
+          },
+          "travel_radius_km": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Travel Radius Km"
+          },
+          "work_modes": {
+            "items": {
+              "$ref": "#/components/schemas/WorkMode"
+            },
+            "type": "array",
+            "title": "Work Modes"
+          },
+          "listed_in_catalog": {
+            "type": "boolean",
+            "title": "Listed In Catalog"
+          },
+          "rejection_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejection Reason"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "display_name",
+          "headline",
+          "about",
+          "languages",
+          "city_id",
+          "category_ids",
+          "district_ids",
+          "travel_radius_km",
+          "work_modes",
+          "listed_in_catalog",
+          "rejection_reason",
+          "missing",
+          "published_at",
+          "version"
+        ],
+        "title": "ProfileOut"
+      },
+      "ProfileStatus": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "pending_review",
+          "published",
+          "hidden",
+          "suspended"
+        ],
+        "title": "ProfileStatus"
+      },
+      "ProfileUpdateIn": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "headline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headline"
+          },
+          "about": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "About"
+          },
+          "languages": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Language"
+                },
+                "type": "array",
+                "maxItems": 4
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Languages"
+          },
+          "travel_radius_km": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  3,
+                  5,
+                  10
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Travel Radius Km"
+          },
+          "work_modes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/WorkMode"
+                },
+                "type": "array",
+                "maxItems": 3
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Modes"
+          }
+        },
+        "type": "object",
+        "title": "ProfileUpdateIn",
+        "description": "Поля мастера S32b–c и правки S34; не переданное поле не меняется, пустая строка\nочищает «коротко о себе» и «о себе»."
       },
       "QuietHoursIn": {
         "properties": {
@@ -2639,6 +3475,15 @@
           "height"
         ],
         "title": "VideoOut"
+      },
+      "WorkMode": {
+        "type": "string",
+        "enum": [
+          "at_client",
+          "at_own_place",
+          "remote"
+        ],
+        "title": "WorkMode"
       }
     },
     "securitySchemes": {

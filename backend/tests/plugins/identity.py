@@ -112,3 +112,16 @@ async def insert_restriction(
     )
     await session.commit()
     return restriction_id
+
+
+async def accept_rules(session: AsyncSession, user_id: UserId, version: str = "draft-1") -> None:
+    """Галочка S02c: правила (с 18+) и политика в версиях client-config (platform_0003)."""
+    for document in ("terms", "privacy", "age_18"):
+        await session.execute(
+            text(
+                "INSERT INTO identity.consents (id, user_id, document, version, source)"
+                " VALUES (uuidv7(), :user_id, :document, :version, 'tma')"
+            ),
+            {"user_id": user_id, "document": document, "version": version},
+        )
+    await session.commit()

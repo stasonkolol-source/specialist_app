@@ -6,6 +6,8 @@ notifications стоит над контентными модулями (ARCHITE
 - `notifications.grant_write_access` — BotStarted: /start разрешает боту писать.
 - `notifications.notify_account_restricted` — UserRestricted: уведомление о санкции;
   теневой бан человеку не сообщается — на то он и теневой.
+- `notifications.notify_profile_published` — ProfilePublished одобренного модерацией профиля:
+  «Профиль опубликован» и кнопка к нему (2.8a).
 - `notifications.notify_moderation_decision` — ModerationDecisionMade: автору — отказ
   (statement of reasons: причина, предупреждение, автоматически ли) и кнопка «Исправить» к
   его контенту; одобрение без уведомления.
@@ -20,6 +22,7 @@ from app.modules.notifications.application.ports import (
     GRANT_WRITE_ACCESS,
     NOTIFY_ACCOUNT_RESTRICTED,
     NOTIFY_MODERATION_DECISION,
+    NOTIFY_PROFILE_PUBLISHED,
     SEND_DELIVERY,
     SendDeliveryPayload,
 )
@@ -41,6 +44,7 @@ from app.modules.notifications.domain.channel import GrantedVia
 from app.modules.notifications.domain.notification import DeliveryId
 from app.platform.contracts.events.identity import BotStarted, RestrictionKind, UserRestricted
 from app.platform.contracts.events.moderation import ModerationDecision, ModerationDecisionMade
+from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber, task
 from app.platform.telegram.deeplinks import LinkDocument, LinkType, StartLink, encode_start_param
 
@@ -100,6 +104,21 @@ async def notify_moderation_decision(
                 **({"sanction": event.sanction} if event.sanction else {}),
             },
             link=link,
+        )
+    )
+
+
+@subscriber(ProfilePublished, NOTIFY_PROFILE_PUBLISHED)
+async def notify_profile_published(event: ProfilePublished, notify: FromDishka[Notify]) -> None:
+    if not event.approved:  # владелец вернул скрытый профиль — сообщать нечего
+        return
+    await notify(
+        NotifyCommand(
+            user_id=event.user_id,
+            type=NotificationType.PROFILE_PUBLISHED,
+            dedupe_key=f"profile.published:{event.event_id}",
+            params={},
+            link=encode_start_param(StartLink(type=LinkType.SPECIALIST, id=event.profile_id)),
         )
     )
 

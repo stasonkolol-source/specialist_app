@@ -113,6 +113,7 @@ def test_catalog_follows_the_architecture() -> None:
     }
     assert {t for t, spec in CATALOG.items() if spec.group in MANDATORY_GROUPS} == {
         NotificationType.MODERATION_DECISION,
+        NotificationType.PROFILE_PUBLISHED,  # тоже решение модерации
         NotificationType.ACCOUNT_RESTRICTED,
         NotificationType.SYSTEM_TEST,
     }

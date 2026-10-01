@@ -24,6 +24,7 @@ from app.modules.notifications.domain.notification import (
 from app.modules.notifications.domain.settings import NotificationSettings
 from app.platform.contracts.events.identity import BotStarted, UserRestricted
 from app.platform.contracts.events.moderation import ModerationDecisionMade
+from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.kernel.ids import UserId
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.pagination import Page, PageRequest
@@ -171,6 +172,9 @@ SEND_DELIVERY: Final = TaskRef("notifications.send", SendDeliveryPayload, queue=
 
 NOTIFY_ACCOUNT_RESTRICTED: Final = TaskRef(
     "notifications.notify_account_restricted", UserRestricted, queue="notifications"
+)
+NOTIFY_PROFILE_PUBLISHED: Final = TaskRef(
+    "notifications.notify_profile_published", ProfilePublished, queue="notifications"
 )
 NOTIFY_MODERATION_DECISION: Final = TaskRef(
     "notifications.notify_moderation_decision", ModerationDecisionMade, queue="notifications"

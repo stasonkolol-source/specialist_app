@@ -1023,6 +1023,11 @@ CREATE TABLE specialists.profiles (
   business_verified_at timestamptz,                 -- проверка в APR / лицензия (moderation)
   contacts           jsonb NOT NULL DEFAULT '{}',   -- {"telegram":{"public":false},"instagram":"…","site":"…"}
   listed_in_catalog  boolean NOT NULL DEFAULT true, -- casual по умолчанию false
+  is_founding        boolean NOT NULL DEFAULT false, -- Founding (§15.2): cli founding-mark; бейдж — v1
+  pro_waitlist_at    timestamptz,                   -- лист ожидания Pro (Q24)
+  rejection_reason   varchar(64),                   -- модерация вернула на правки: код причины
+  reviewed_kind      boolean NOT NULL DEFAULT false, -- проверка после «Подработка → Специалист»
+  submitted_at       timestamptz,                   -- отправлен на проверку (2.8a)
   slug               text,                          -- для будущих публичных веб-страниц (частичный unique ниже)
   version            int NOT NULL DEFAULT 1,
   published_at       timestamptz,
@@ -2875,6 +2880,7 @@ flowchart LR
 | `review.request` | Клиент (v1 — обе стороны) | Бот | P2 | Оценка 1–5 кнопками, «Написать отзыв» |
 | `review.published` | Исполнитель | Бот + in-app | P3 | «Ответить на отзыв» |
 | `moderation.decision` | Автор контента | Бот + in-app | P1 | «Исправить», «Обжаловать» |
+| `profile.published` | Исполнитель | Бот + in-app | P1 | «Открыть профиль» — модерация одобрила профиль (2.8a) |
 | `job.expiring` | Клиент | Бот | P3 | «Продлить», «Закрыть: нашёл исполнителя» |
 | `job.expired` | Клиент | Бот + in-app | P3 | «Продлить», «Закрыть» |
 | `profile.stale_reminder` | Специалист | Бот | P3 | Не чаще раза в 2 недели: «Обновить профиль», «Включить „доступен сегодня“» |

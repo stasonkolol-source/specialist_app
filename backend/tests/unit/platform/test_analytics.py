@@ -87,14 +87,15 @@ def test_taxonomy_lists_exactly_the_events_of_the_plan() -> None:
     assert names == {e.value for e in EventName}
 
 
-def test_wired_events_are_those_of_step_1_7() -> None:
-    wired = {name for name, spec in EVENTS.items() if spec.properties is not None}
+def test_wired_events_are_those_of_steps_1_7_and_2_8a() -> None:
+    wired = {name: spec.step for name, spec in EVENTS.items() if spec.properties is not None}
     assert wired == {
-        EventName.USER_REGISTERED,
-        EventName.ONBOARDING_COMPLETED,
-        EventName.WRITE_ACCESS_GRANTED,
+        EventName.USER_REGISTERED: "1.7",
+        EventName.ONBOARDING_COMPLETED: "1.7",
+        EventName.WRITE_ACCESS_GRANTED: "1.7",
+        EventName.PROFILE_SUBMITTED: "2.8a",
+        EventName.PROFILE_PUBLISHED: "2.8a",
     }
-    assert all(EVENTS[name].step == "1.7" for name in wired)
 
 
 def test_closed_lists_match_the_domain() -> None:

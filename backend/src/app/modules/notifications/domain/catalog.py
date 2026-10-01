@@ -31,6 +31,8 @@ class NotificationType(StrEnum):
     JOB_EXPIRING = "job.expiring"
     JOB_EXPIRED = "job.expired"
     PROFILE_STALE_REMINDER = "profile.stale_reminder"
+    PROFILE_PUBLISHED = "profile.published"
+    """Модерация одобрила профиль исполнителя (2.8a): он в каталоге."""
     ACCOUNT_RESTRICTED = "account.restricted"
     SYSTEM_TEST = "system.test"
     """Проверка канала (`cli notify-test`): бот может писать человеку."""
@@ -150,6 +152,9 @@ CATALOG: Mapping[NotificationType, TypeSpec] = MappingProxyType(
         ),
         NotificationType.PROFILE_STALE_REMINDER: TypeSpec(
             group=EventGroup.JOB_MATCHES, priority=Priority.P3, channels=BOT
+        ),
+        NotificationType.PROFILE_PUBLISHED: TypeSpec(
+            group=EventGroup.ACCOUNT, priority=Priority.P1, channels=BOT_AND_APP
         ),
         NotificationType.ACCOUNT_RESTRICTED: TypeSpec(
             group=EventGroup.ACCOUNT, priority=Priority.P0, channels=BOT_AND_APP
