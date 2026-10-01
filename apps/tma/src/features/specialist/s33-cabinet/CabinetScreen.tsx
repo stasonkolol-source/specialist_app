@@ -1,9 +1,10 @@
 // S33 Кабинет специалиста (DEVELOPMENT_PLAN 2.10): статус профиля, полнота с первой подсказкой,
 // «Доступен сегодня до …» (переключатель: включает «до 20:00» или ближайший вариант, подробно — S38)
-// и переходы к правке S34 и доступности S38. Черновик и «нужны правки» продолжают мастер S32 с
-// нужного шага (MainButton). Блоки артборда, чьих экранов ещё нет, появятся со своими шагами: прайс
-// и портфолио — 2.11, «Посмотреть как клиент» — 4.5; «За 30 дней» и «Скоро» — v1.
+// и переходы к правке S34, прайсу S35 и доступности S38. Черновик и «нужны правки» продолжают
+// мастер S32 с нужного шага (MainButton). Блоки артборда, чьих экранов ещё нет, появятся со своими
+// шагами: портфолио — 2.11, «Посмотреть как клиент» — 4.5; «За 30 дней» и «Скоро» — v1.
 import type { HintOut, ProfileOut } from '@sosed/api-client';
+import { usePricingListMyServices } from '@sosed/api-client';
 import { availableUntil, quickHour } from '@sosed/domain';
 import type { ProfileState } from '@sosed/hooks';
 import { becomeStep, profileState, useMyProfile, useSetAvailability } from '@sosed/hooks';
@@ -76,7 +77,7 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
   });
 
   const open =
-    (to: (typeof CABINET_PATHS)['profile' | 'availability']) =>
+    (to: (typeof CABINET_PATHS)['profile' | 'availability' | 'prices']) =>
     (event: MouseEvent<HTMLElement>) => {
       event.preventDefault();
       void router.navigate({ to });
@@ -115,6 +116,14 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
             chevron
             href={router.history.createHref(CABINET_PATHS.profile)}
             onClick={open(CABINET_PATHS.profile)}
+          />
+          <Row
+            icon="list"
+            title={t('cabinet.prices')}
+            trailing={<PriceCount />}
+            chevron
+            href={router.history.createHref(CABINET_PATHS.prices)}
+            onClick={open(CABINET_PATHS.prices)}
           />
           {visible && (
             <Row
@@ -197,6 +206,18 @@ function AvailabilityValue({ profile }: { profile: ProfileOut }) {
       {until
         ? t('cabinet.availabilityValue', { time: format.time(until) })
         : t('cabinet.availabilityOff')}
+    </Text>
+  );
+}
+
+/** Сколько позиций в прайсе — справа в строке «Прайс», как на артборде. */
+function PriceCount() {
+  const services = usePricingListMyServices();
+  const count = services.data?.items.length;
+  if (!count) return null;
+  return (
+    <Text as="span" variant="sm" secondary>
+      {count}
     </Text>
   );
 }

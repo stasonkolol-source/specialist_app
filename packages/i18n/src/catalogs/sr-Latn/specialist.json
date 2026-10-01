@@ -145,6 +145,7 @@
     },
     "manage": "Upravljanje profilom",
     "profile": "Profil",
+    "prices": "Cenovnik",
     "loading": "Učitavamo kabinet",
     "edit": {
       "title": "Izmena profila",
@@ -169,6 +170,61 @@
     "pause": "Pauza ili odmor",
     "pauseText": "Profil je skriven, zahtevi ne stižu",
     "pauseUnavailable": "Pauza je dostupna kad je profil objavljen",
+    "save": "Sačuvaj"
+  },
+  "prices": {
+    "title": "Cenovnik",
+    "count": "{count, plural, one {# stavka} few {# stavke} other {# stavki}} · redosled — u meniju „…“",
+    "empty": "Još je prazno. Dodajte usluge sa cenama — klijenti upoređuju stručnjake po cenovniku",
+    "noGroup": "Bez grupe",
+    "add": "Dodaj stavku",
+    "full": "U cenovniku je {max} stavki — više ne može",
+    "hidden": "Skrivena",
+    "type": {
+      "fixed": "fiksno",
+      "from": "od",
+      "range": "od i do",
+      "hourly": "po satu",
+      "per_unit": "po jedinici",
+      "negotiable": "po dogovoru"
+    },
+    "actions": "Radnje: {title}",
+    "up": "Gore",
+    "down": "Dole",
+    "hide": "Sakrij",
+    "show": "Prikaži",
+    "loading": "Učitavamo cenovnik"
+  },
+  "price": {
+    "titleNew": "Nova stavka",
+    "title": "Stavka cenovnika",
+    "name": "Naziv",
+    "namePlaceholder": "Na primer: postavljanje lustera",
+    "nameMissing": "Navedite uslugu",
+    "group": "Grupa",
+    "noGroup": "Bez grupe",
+    "type": "Cena",
+    "fixed": "Fiksno",
+    "from": "Od",
+    "hourly": "Po satu",
+    "range": "Od i do",
+    "per_unit": "Po jedinici",
+    "negotiable": "Po dogovoru",
+    "amount": "Cena u dinarima",
+    "amountMissing": "Unesite cenu",
+    "duration": "Trajanje",
+    "durationNone": "Nije navedeno",
+    "durations": {
+      "60": "do 1 sata",
+      "120": "1–2 sata",
+      "240": "pola dana",
+      "480": "ceo dan"
+    },
+    "description": "Opis",
+    "descriptionPlaceholder": "Šta ulazi u posao, šta je potrebno od klijenta",
+    "descriptionHint": "{count, number} od {max, number}",
+    "delete": "Obriši stavku",
+    "deleteConfirm": "Obrisati „{title}“ iz cenovnika?",
     "save": "Sačuvaj"
   }
 }

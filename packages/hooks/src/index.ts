@@ -70,6 +70,8 @@ export {
   useConsentGate,
 } from './onboarding/onboarding.ts';
 export { useSetAvailability } from './specialist/availability.ts';
+export type { ServiceGroup } from './specialist/prices.ts';
+export { groupServices, moveService, servicePrice } from './specialist/prices.ts';
 export type { BecomeStep, ProfileState } from './specialist/profile.ts';
 export {
   BECOME_STEPS,

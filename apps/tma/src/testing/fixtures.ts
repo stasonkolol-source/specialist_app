@@ -368,3 +368,42 @@ export const FIRST_SERVICE: ServiceOut = {
   position: 0,
   is_active: true,
 };
+
+/** Позиция прайса демо-данных: id по номеру, цена в динарах. */
+function priceItem(
+  n: number,
+  title: string,
+  category: 'electrical' | 'chandeliers',
+  dinars: number,
+  extra: Partial<ServiceOut> = {},
+): ServiceOut {
+  return {
+    id: `0199bb00-0000-7000-8000-00000000040${n}`,
+    title,
+    description: null,
+    category_id: CATEGORY_IDS[category] ?? null,
+    price_type: 'fixed',
+    price_min: { amount: dinars * 100, currency: 'RSD' },
+    price_max: null,
+    unit: null,
+    duration_min: null,
+    position: n,
+    is_active: true,
+    ...extra,
+  };
+}
+
+/** Прайс артборда S35: электрика и люстры с карнизами, одна позиция скрыта. */
+export const PRICE_LIST: ServiceOut[] = [
+  priceItem(0, 'Выезд и диагностика', 'electrical', 2000, { description: 'Приеду, найду причину, назову цену работы' }),
+  priceItem(1, 'Мастер на час', 'electrical', 2000, { price_type: 'hourly', unit: 'hour' }),
+  priceItem(2, 'Розетка или выключатель', 'electrical', 1000, { price_type: 'per_unit', unit: 'item' }),
+  priceItem(3, 'Замена автомата', 'electrical', 1500, { price_type: 'from' }),
+  priceItem(4, 'Установка люстры', 'chandeliers', 2500, {
+    price_type: 'from',
+    duration_min: 120,
+    description: 'Сборка и подвес люстры до 5 рожков, подключение. Крюк или монтажная планка — по месту.',
+  }),
+  priceItem(5, 'Установка карниза', 'chandeliers', 1500, { price_type: 'from' }),
+  priceItem(6, 'Бра или светильник', 'chandeliers', 1200, { is_active: false }),
+]; // prettier-ignore

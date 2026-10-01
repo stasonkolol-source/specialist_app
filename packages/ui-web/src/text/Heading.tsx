@@ -32,15 +32,21 @@ export function SectionTitle({
   children,
   as: Tag = 'h2',
   inset = true,
+  id,
   className,
 }: {
   children: ReactNode;
   as?: HeadingTag;
   inset?: boolean;
+  /** Для aria-labelledby секции, которую заголовок называет. */
+  id?: string;
   className?: string;
 }) {
   return (
-    <Tag className={cx('m-0 text-section uppercase text-text2', inset && 'px-4', className)}>
+    <Tag
+      id={id}
+      className={cx('m-0 text-section uppercase text-text2', inset && 'px-4', className)}
+    >
       {children}
     </Tag>
   );

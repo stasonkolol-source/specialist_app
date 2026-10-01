@@ -21,15 +21,18 @@ export interface StartOptions {
   /** Ответ клиента на requestWriteAccess. */
   writeAccess?: boolean;
   colorScheme?: ColorScheme;
+  /** Кнопка, которую «нажмёт» человек в нативном попапе; null — закрыл попап. */
+  popupAnswer?: string | null;
 }
 
 export function startApp(path = '/', options: StartOptions = {}) {
-  const { languageCode = 'ru', startParam, writeAccess, colorScheme } = options;
+  const { languageCode = 'ru', startParam, writeAccess, colorScheme, popupAnswer } = options;
   const { platform, telegram } = createMockPlatform({
     languageCode,
     startParam,
     writeAccess,
     colorScheme,
+    popupAnswer,
   });
   const app = assemble(platform, {
     version: '0.1.0',
