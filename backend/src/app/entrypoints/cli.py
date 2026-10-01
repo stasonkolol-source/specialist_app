@@ -337,8 +337,15 @@ def dev_initdata(
     username: Annotated[str | None, typer.Option()] = "sosed_dev_user",
     language: Annotated[str, typer.Option(help="language_code клиента")] = "ru",
     start_param: Annotated[str | None, typer.Option(help="startapp из deep link")] = None,
+    url: Annotated[
+        bool, typer.Option("--url", help="Адрес Mini App на стенде для браузера (mock-клиент)")
+    ] = False,
 ) -> None:
-    """initData, подписанный токеном dev-бота, — для curl и тестов без Telegram (только dev)."""
+    """initData, подписанный токеном dev-бота, — для curl и тестов без Telegram (только dev).
+
+    `--url` печатает адрес Mini App на dev-стенде: mock-клиент Telegram с этим initData входит
+    в backend по-настоящему (apps/tma/src/app/platform.ts) — экраны видны в обычном браузере.
+    """
     settings = AppSettings()
     if settings.env is not Environment.DEV:
         typer.echo("dev-initdata works only with APP_ENV=dev", err=True)
@@ -349,12 +356,20 @@ def dev_initdata(
     fields = {
         "auth_date": str(int(SystemClock().now().timestamp())),
         "query_id": f"dev{secrets.token_hex(8)}",
+        # Bot API 8.0: клиент Telegram передаёт подпись Ed25519; без поля SDK Mini App не
+        # признаёт параметры запуска. backend её не проверяет, но она входит в hash
+        "signature": "dev",
         "user": json.dumps(user, separators=(",", ":"), ensure_ascii=False),
     }
     if start_param:
         fields["start_param"] = start_param
     token = TelegramSettings().bot_token.get_secret_value()  # type: ignore[call-arg]  # из .env
-    typer.echo(urlencode(fields | {"hash": sign(fields, token)}))
+    init_data = urlencode(fields | {"hash": sign(fields, token)})
+    if url:
+        query = urlencode({"platform": "mock", "lang": language, "initData": init_data})
+        typer.echo(f"http://localhost:5173/?{query}")
+    else:
+        typer.echo(init_data)
 
 
 @app.command("dev-reset-user")

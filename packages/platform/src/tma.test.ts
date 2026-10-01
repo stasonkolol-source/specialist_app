@@ -21,6 +21,13 @@ describe('launch и версии', () => {
     expect(platform.isVersionAtLeast('9.0')).toBe(false);
   });
 
+  it('настоящий initData вместо синтетического — вход на dev-стенде из браузера', () => {
+    const signed =
+      'auth_date=1790000000&signature=dev&user=%7B%22id%22%3A7%2C%22first_name%22%3A%22A%22%7D&hash=abc';
+    const { platform } = createMockPlatform({ initData: signed });
+    expect(platform.launch.rawInitData).toBe(signed);
+  });
+
   it('startapp из адреса, когда кнопка бота открыла приложение без start_param', () => {
     window.history.replaceState(null, '', '/?startapp=l_terms');
     try {

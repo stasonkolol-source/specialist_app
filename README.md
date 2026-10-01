@@ -31,6 +31,7 @@
 | `make check` | Все проверки Definition of Done, доступные на текущем шаге |
 | `make lint`, `make typecheck`, `make imports`, `make test` | ruff, mypy strict, контракты import-linter, unit-тесты |
 | `make cli ARGS='--help'` | Служебные команды backend |
+| `make cli ARGS='dev-initdata --url'` | Только dev: адрес Mini App на стенде для обычного браузера — mock-клиент Telegram входит тестовым пользователем по-настоящему |
 | `make cli ARGS='dev-reset-user <telegram_id>'` | Только dev: пройти онбординг Mini App заново — город, намерение и согласия сброшены |
 | `make cli ARGS='staff-grant --tg-id <id> --role moderator'` | Выдать роль персонала (`moderator`, `support`, `admin`); человек должен хотя бы раз открыть бот |
 | `make cli ARGS='moderation-queue'` | Открытые кейсы модерации по сроку (до чата модераторов) |
