@@ -5,6 +5,7 @@ from typing import Protocol
 from uuid import UUID
 
 from app.modules.pricing.domain.service import Service, ServiceId
+from app.modules.specialists.api import PriceSummary
 
 
 class ServiceRepository(Protocol):
@@ -23,3 +24,7 @@ class ServiceRepository(Protocol):
     async def delete(self, service: Service, *, now: datetime) -> None: ...
 
     async def has_active(self, profile_id: UUID) -> bool: ...
+
+    async def summary(self, profile_id: UUID) -> PriceSummary:
+        """Видимые позиции профиля и сколько из них без описания."""
+        ...

@@ -23,6 +23,7 @@ const DRAFT: ProfileOut = {
   listed_in_catalog: true,
   rejection_reason: null,
   missing: ['category_ids', 'headline', 'work_modes', 'services'],
+  completeness: { percent: 0, hints: [] },
   published_at: null,
   version: 1,
 };

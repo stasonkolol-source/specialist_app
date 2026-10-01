@@ -6,7 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.modules.specialists.application.dto import ProfileView
+from app.modules.specialists.application.dto import CabinetView
+from app.modules.specialists.domain.completeness import Completeness
 from app.modules.specialists.domain.profile import (
     MAX_ABOUT,
     MAX_AREAS,
@@ -54,6 +55,26 @@ class ProfileAreasIn(BaseModel):
     district_ids: list[int] = Field(max_length=MAX_AREAS)
 
 
+class HintOut(BaseModel):
+    code: str
+    """Что добавить: category_ids, headline, about, languages, area_ids, services,
+    service_descriptions."""
+    count: int | None
+    """Сколько: позиций прайса без описания."""
+
+
+class CompletenessOut(BaseModel):
+    """Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую."""
+
+    percent: int
+    hints: list[HintOut]
+
+    @classmethod
+    def of(cls, value: Completeness) -> CompletenessOut:
+        hints = [HintOut(code=hint.code, count=hint.count) for hint in value.hints]
+        return cls(percent=value.percent, hints=hints)
+
+
 class ProfileOut(BaseModel):
     id: UUID
     kind: ProfileKind
@@ -75,11 +96,13 @@ class ProfileOut(BaseModel):
     missing: list[str]
     """Что заполнить перед отправкой на проверку: category_ids, headline, work_modes, area_ids,
     services (позиция прайса у «Специалиста»)."""
+    completeness: CompletenessOut
     published_at: datetime | None
     version: int
 
     @classmethod
-    def of(cls, view: ProfileView) -> ProfileOut:
+    def of(cls, cabinet: CabinetView) -> ProfileOut:
+        view = cabinet.profile
         return cls(
             id=view.id,
             kind=view.kind,
@@ -96,6 +119,7 @@ class ProfileOut(BaseModel):
             listed_in_catalog=view.listed_in_catalog,
             rejection_reason=view.rejection_reason,
             missing=list(view.missing),
+            completeness=CompletenessOut.of(cabinet.completeness),
             published_at=view.published_at,
             version=view.version,
         )

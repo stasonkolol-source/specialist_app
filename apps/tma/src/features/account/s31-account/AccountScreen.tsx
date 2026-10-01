@@ -1,7 +1,7 @@
 // S31 Профиль (DEVELOPMENT_PLAN 2.9): имя и город из GET /me, вход в кабинет специалиста, меню.
 // Без профиля исполнителя — «Стать специалистом» и «Найти подработку» (мастер S32a–c с отмеченным
-// типом); с профилем — карточка кабинета со статусом, черновик продолжает мастер с нужного шага
-// (кабинет S33 — с шага 2.10). Строка «Уведомления» ведёт в S42; число справа — непрочитанные
+// типом); с профилем — карточка со статусом: черновик продолжает мастер с нужного шага, остальное
+// ведёт в кабинет S33 (2.10). Строка «Уведомления» ведёт в S42; число справа — непрочитанные
 // (первая страница ленты S42). Язык интерфейса — ui_locale из GET /me, пишется через PATCH /me
 // (строкой «Язык» в S43 станет с шага 4.9). Без сети — S49a «Нет соединения» вместо ошибки.
 import type { MeOut, ProfileKind } from '@sosed/api-client';
@@ -52,6 +52,8 @@ const LEGAL_PATH = '/legal/$document';
 const RULES_HREF = '/legal/terms';
 /** S42, уведомления (маршрут routes/notifications.tsx). */
 const NOTIFICATIONS_PATH = '/notifications';
+/** Кабинет специалиста S33 (маршрут features/specialist). */
+const CABINET_PATH = '/cabinet';
 /** Мастер S32a–c (маршруты features/specialist). */
 const BECOME_PATHS = {
   type: '/become/type',
@@ -158,13 +160,15 @@ function Specialist() {
   }
 
   const state = profileState(profile.data);
-  // черновик — продолжить мастер; кабинет S33 для остальных — с шага 2.10
+  // черновик — дописать в мастере с нужного шага, остальное — в кабинет S33
   const step = becomeStep(profile.data);
+  const target = step ? BECOME_PATHS[step] : CABINET_PATH;
+  const openCabinet = (event: MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    void router.navigate({ to: target });
+  };
   return (
-    <Card
-      href={step ? router.history.createHref(BECOME_PATHS[step]) : undefined}
-      onClick={step ? (event) => go(event, step) : undefined}
-    >
+    <Card href={router.history.createHref(target)} onClick={openCabinet}>
       <span className="flex items-center gap-3">
         <RowIcon icon="briefcase" />
         <span className="flex min-w-0 flex-1 flex-col">
@@ -175,7 +179,7 @@ function Specialist() {
             {t(`account.status.${state}.text`)}
           </Text>
         </span>
-        {step && <Icon name="chev-right" className="text-text2" />}
+        <Icon name="chev-right" className="text-text2" />
       </span>
       <span className="flex flex-wrap gap-1.5">
         <Badge tone={STATE_TONES[state]}>{t(`account.status.${state}.label`)}</Badge>

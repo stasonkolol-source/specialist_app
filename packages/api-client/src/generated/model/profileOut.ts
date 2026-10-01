@@ -4,6 +4,7 @@
  * Соседи API
  * OpenAPI spec version: 1.0.0
  */
+import type { CompletenessOut } from './completenessOut.ts';
 import type { Language } from './language.ts';
 import type { ProfileKind } from './profileKind.ts';
 import type { ProfileStatus } from './profileStatus.ts';
@@ -25,6 +26,7 @@ export interface ProfileOut {
   listed_in_catalog: boolean;
   rejection_reason: string | null;
   missing: string[];
+  completeness: CompletenessOut;
   published_at: string | null;
   version: number;
 }

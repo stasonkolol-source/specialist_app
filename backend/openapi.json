@@ -1960,6 +1960,28 @@
         "type": "object",
         "title": "CompleteIn"
       },
+      "CompletenessOut": {
+        "properties": {
+          "percent": {
+            "type": "integer",
+            "title": "Percent"
+          },
+          "hints": {
+            "items": {
+              "$ref": "#/components/schemas/HintOut"
+            },
+            "type": "array",
+            "title": "Hints"
+          }
+        },
+        "type": "object",
+        "required": [
+          "percent",
+          "hints"
+        ],
+        "title": "CompletenessOut",
+        "description": "Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую."
+      },
       "ConsentsIn": {
         "properties": {
           "terms_version": {
@@ -2171,6 +2193,31 @@
           "mandatory"
         ],
         "title": "GroupSettingOut"
+      },
+      "HintOut": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "count"
+        ],
+        "title": "HintOut"
       },
       "ImageVariantName": {
         "type": "string",
@@ -3217,6 +3264,9 @@
             "type": "array",
             "title": "Missing"
           },
+          "completeness": {
+            "$ref": "#/components/schemas/CompletenessOut"
+          },
           "published_at": {
             "anyOf": [
               {
@@ -3251,6 +3301,7 @@
           "listed_in_catalog",
           "rejection_reason",
           "missing",
+          "completeness",
           "published_at",
           "version"
         ],

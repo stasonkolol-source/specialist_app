@@ -220,8 +220,8 @@ async def become_pro(
 
 
 async def _profile(query: ProfileViews, user_id: UserId, response: Response) -> ProfileOut:
-    view = await query.of_user(user_id)
-    if view is None:
+    cabinet = await query.of_user(user_id)
+    if cabinet is None:
         raise ProfileNotFoundError(user_id=user_id)
-    set_etag(response, view.version)
-    return ProfileOut.of(view)
+    set_etag(response, cabinet.profile.version)
+    return ProfileOut.of(cabinet)

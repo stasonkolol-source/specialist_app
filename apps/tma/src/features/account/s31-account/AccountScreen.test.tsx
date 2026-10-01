@@ -60,8 +60,13 @@ function createTestRouter() {
     path: '/become/$step',
     component: () => <h1>S32</h1>,
   });
+  const cabinet = createRoute({
+    getParentRoute: () => root,
+    path: '/cabinet',
+    component: () => <h1>S33</h1>,
+  });
   return createRouter({
-    routeTree: root.addChildren([profile, legal, notifications, become]),
+    routeTree: root.addChildren([profile, legal, notifications, become, cabinet]),
     history: createMemoryHistory({ initialEntries: ['/'] }),
   });
 }
@@ -156,16 +161,21 @@ describe('S31 specialist entry', () => {
     expect(router.state.location.pathname).toBe('/become/about');
   });
 
-  it('shows the review status without a link: the cabinet S33 comes with step 2.10', async () => {
+  it('opens the cabinet S33 for a profile on review', async () => {
     withProfile(
       new ProfileBackend({ ...PROFILE_FILLED, status: 'pending_review' }, [FIRST_SERVICE]),
     );
-    await renderScreen();
+    const { router } = await renderScreen();
+    const cabinet = await screen.findByRole('link', { name: /Кабинет специалиста/ });
 
-    expect(await screen.findByText('На проверке')).toBeTruthy();
-    expect(screen.getByText('Обычно до 30 минут')).toBeTruthy();
-    expect(screen.queryByRole('link', { name: /Кабинет специалиста/ })).toBeNull();
+    expect(cabinet.textContent).toContain('На проверке');
+    expect(cabinet.textContent).toContain('Обычно до 30 минут');
+    expect(cabinet.getAttribute('href')).toBe('/cabinet');
     expect(screen.queryByRole('link', { name: /Стать специалистом/ })).toBeNull();
+    await act(async () => {
+      fireEvent.click(cabinet);
+    });
+    expect(router.state.location.pathname).toBe('/cabinet');
   });
 
   it('marks a draft returned by moderation and names a side-job profile as such', async () => {

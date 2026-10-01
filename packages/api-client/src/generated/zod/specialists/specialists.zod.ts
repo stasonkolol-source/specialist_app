@@ -26,6 +26,17 @@ export const SpecialistsGetMyProfileResponse = zod.object({
   listed_in_catalog: zod.boolean(),
   rejection_reason: zod.union([zod.string(), zod.null()]),
   missing: zod.array(zod.string()),
+  completeness: zod
+    .object({
+      percent: zod.int(),
+      hints: zod.array(
+        zod.object({
+          code: zod.string(),
+          count: zod.union([zod.int(), zod.null()]),
+        }),
+      ),
+    })
+    .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -73,6 +84,17 @@ export const SpecialistsCreateMyProfileResponse = zod.object({
   listed_in_catalog: zod.boolean(),
   rejection_reason: zod.union([zod.string(), zod.null()]),
   missing: zod.array(zod.string()),
+  completeness: zod
+    .object({
+      percent: zod.int(),
+      hints: zod.array(
+        zod.object({
+          code: zod.string(),
+          count: zod.union([zod.int(), zod.null()]),
+        }),
+      ),
+    })
+    .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -148,6 +170,17 @@ export const SpecialistsUpdateMyProfileResponse = zod.object({
   listed_in_catalog: zod.boolean(),
   rejection_reason: zod.union([zod.string(), zod.null()]),
   missing: zod.array(zod.string()),
+  completeness: zod
+    .object({
+      percent: zod.int(),
+      hints: zod.array(
+        zod.object({
+          code: zod.string(),
+          count: zod.union([zod.int(), zod.null()]),
+        }),
+      ),
+    })
+    .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -182,6 +215,17 @@ export const SpecialistsSetMyCategoriesResponse = zod.object({
   listed_in_catalog: zod.boolean(),
   rejection_reason: zod.union([zod.string(), zod.null()]),
   missing: zod.array(zod.string()),
+  completeness: zod
+    .object({
+      percent: zod.int(),
+      hints: zod.array(
+        zod.object({
+          code: zod.string(),
+          count: zod.union([zod.int(), zod.null()]),
+        }),
+      ),
+    })
+    .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -216,6 +260,17 @@ export const SpecialistsSetMyAreasResponse = zod.object({
   listed_in_catalog: zod.boolean(),
   rejection_reason: zod.union([zod.string(), zod.null()]),
   missing: zod.array(zod.string()),
+  completeness: zod
+    .object({
+      percent: zod.int(),
+      hints: zod.array(
+        zod.object({
+          code: zod.string(),
+          count: zod.union([zod.int(), zod.null()]),
+        }),
+      ),
+    })
+    .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -244,6 +299,17 @@ export const SpecialistsSubmitMyProfileResponse = zod.object({
   listed_in_catalog: zod.boolean(),
   rejection_reason: zod.union([zod.string(), zod.null()]),
   missing: zod.array(zod.string()),
+  completeness: zod
+    .object({
+      percent: zod.int(),
+      hints: zod.array(
+        zod.object({
+          code: zod.string(),
+          count: zod.union([zod.int(), zod.null()]),
+        }),
+      ),
+    })
+    .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -272,6 +338,17 @@ export const SpecialistsHideMyProfileResponse = zod.object({
   listed_in_catalog: zod.boolean(),
   rejection_reason: zod.union([zod.string(), zod.null()]),
   missing: zod.array(zod.string()),
+  completeness: zod
+    .object({
+      percent: zod.int(),
+      hints: zod.array(
+        zod.object({
+          code: zod.string(),
+          count: zod.union([zod.int(), zod.null()]),
+        }),
+      ),
+    })
+    .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -300,6 +377,17 @@ export const SpecialistsShowMyProfileResponse = zod.object({
   listed_in_catalog: zod.boolean(),
   rejection_reason: zod.union([zod.string(), zod.null()]),
   missing: zod.array(zod.string()),
+  completeness: zod
+    .object({
+      percent: zod.int(),
+      hints: zod.array(
+        zod.object({
+          code: zod.string(),
+          count: zod.union([zod.int(), zod.null()]),
+        }),
+      ),
+    })
+    .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });
@@ -328,6 +416,17 @@ export const SpecialistsBecomeProResponse = zod.object({
   listed_in_catalog: zod.boolean(),
   rejection_reason: zod.union([zod.string(), zod.null()]),
   missing: zod.array(zod.string()),
+  completeness: zod
+    .object({
+      percent: zod.int(),
+      hints: zod.array(
+        zod.object({
+          code: zod.string(),
+          count: zod.union([zod.int(), zod.null()]),
+        }),
+      ),
+    })
+    .describe('Полнота профиля (S33): процент и подсказки по порядку — кабинет показывает первую.'),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   version: zod.int(),
 });

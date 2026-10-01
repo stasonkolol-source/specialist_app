@@ -20,6 +20,7 @@ async def test_wizard_builds_a_profile_and_sends_it_to_review(cabinet: Cabinet) 
     profile = created.json()
     assert (profile["kind"], profile["status"], profile["display_name"]) == ("pro", "draft", "Ana")
     assert profile["missing"] == ["category_ids", "headline", "work_modes", "services"]
+    assert profile["completeness"]["percent"] == 0
     assert created.headers["etag"] == '"1"'
 
     edited = await cabinet.call(
@@ -42,6 +43,9 @@ async def test_wizard_builds_a_profile_and_sends_it_to_review(cabinet: Cabinet) 
     no_prices = await cabinet.call("POST", "/submit")
     assert (no_prices.status_code, no_prices.json()["missing"]) == (409, ["services"])
     await cabinet.add_service()  # первая позиция прайса (S32c)
+    # полнота для кабинета S33: «о себе» короче пары предложений, у позиции нет описания
+    hints = [(h["code"], h["count"]) for h in (await cabinet.get()).json()["completeness"]["hints"]]
+    assert hints == [("about", None), ("service_descriptions", 1)]
     submitted = await cabinet.call("POST", "/submit")
 
     assert submitted.status_code == 200, submitted.text

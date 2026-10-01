@@ -111,5 +111,46 @@
         "text": "Moderacija je sakrila profil — detalji u obaveštenju"
       }
     }
+  },
+  "cabinet": {
+    "title": "Kabinet stručnjaka",
+    "casualTitle": "Honorarni profil",
+    "state": {
+      "published": "Profil je objavljen · vidljiv u pretrazi",
+      "publishedUnlisted": "Profil je objavljen · ne prikazuje se u katalogu",
+      "pending_review": "Profil je na proveri · obično do 30 minuta",
+      "draft": "Nacrt · ostalo je još nekoliko koraka",
+      "rejected": "Potrebne su ispravke · razlog je u obaveštenju",
+      "hidden": "Profil je skriven · klijenti ga ne vide",
+      "suspended": "Profil je obustavila moderacija"
+    },
+    "continue": "Nastavite popunjavanje",
+    "fix": "Ispravite",
+    "filled": "Profil je popunjen {percent}%",
+    "filledLabel": "Popunjenost profila",
+    "complete": "Profil je potpuno popunjen",
+    "hint": {
+      "category_ids": "Izaberite kategorije usluga",
+      "headline": "Napišite ukratko o sebi",
+      "about": "Recite nešto više o sebi: iskustvo, alat, gde radite",
+      "languages": "Navedite jezike na kojima komunicirate",
+      "area_ids": "Označite delove grada i način rada",
+      "services": "Dodajte prvu stavku cenovnika",
+      "service_descriptions": "Dodajte opis za {count, plural, one {# stavku} few {# stavke} other {# stavki}} cenovnika"
+    },
+    "manage": "Upravljanje profilom",
+    "profile": "Profil",
+    "loading": "Učitavamo kabinet",
+    "edit": {
+      "title": "Izmena profila",
+      "name": "Ime",
+      "nameMissing": "Unesite ime",
+      "aboutHint": "{count, number} od {max, number} · bez telefona i linkova",
+      "areas": "Delovi grada u koje dolazite",
+      "areasNone": "Nisu izabrani",
+      "areasSummary": "{names} i još {count}",
+      "postModeration": "Izmene će se pojaviti u profilu nakon automatske provere",
+      "save": "Sačuvaj"
+    }
   }
 }
