@@ -579,6 +579,18 @@ msgstr "Модератор је проверио ваш профил — сад�
 msgid "notifications.profile_published.button"
 msgstr "Отвори профил"
 
+msgid "notifications.response_received.title"
+msgstr "Нове понуде"
+
+msgid "notifications.response_received.body_one"
+msgstr "Нова понуда на захтев „{title}“. Отворите да упоредите цену и време."
+
+msgid "notifications.response_received.body_many"
+msgstr "Нових понуда: {count} — на захтев „{title}“. Отворите да упоредите цене и време."
+
+msgid "notifications.response_received.button"
+msgstr "Погледај понуде"
+
 msgid "notifications.job_expiring.title"
 msgstr "Захтев ускоро истиче"
 

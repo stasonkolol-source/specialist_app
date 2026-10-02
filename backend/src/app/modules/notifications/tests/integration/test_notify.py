@@ -11,6 +11,7 @@ from uuid import UUID
 
 import pytest
 
+from app.modules.jobs.api import JobsApi
 from app.modules.notifications.application.use_cases.mark_notifications_read import (
     MarkNotificationsReadCommand,
 )
@@ -312,7 +313,7 @@ async def test_notify_refuses_a_type_without_templates(notifications: Notificati
     )
 
     with pytest.raises(ValueError, match="no templates"):
-        await production(of_type(user_id, NotificationType.RESPONSE_RECEIVED, "x"))
+        await production(of_type(user_id, NotificationType.JOB_MATCHED, "x"))
 
     assert await notifications.notifications(user_id) == []
 
@@ -559,9 +560,21 @@ async def test_notify_on_restriction_except_a_shadow_ban(notifications: Notifica
     }
 
 
+class ResponseJobs:
+    """Фасад jobs для уведомления о решении по отклику: только заявка отклика."""
+
+    def __init__(self, links: dict[UUID, UUID]) -> None:
+        self._links = links
+
+    async def response_job(self, response_id: UUID) -> UUID | None:
+        return self._links.get(response_id)
+
+
 async def test_notify_author_about_a_rejection_only(notifications: Notifications) -> None:
     user_id = await notifications.user_with_bot()
     job_id = new_id()
+    response_id, response_job = new_id(), new_id()
+    jobs = cast(JobsApi, ResponseJobs({response_id: response_job}))
 
     def decided(
         decision: ModerationDecision, entity: str, entity_id: UUID
@@ -577,13 +590,16 @@ async def test_notify_author_about_a_rejection_only(notifications: Notifications
         )
 
     await notify_moderation_decision(
-        decided(ModerationDecision.REJECTED, "job", job_id), notifications.notify
+        decided(ModerationDecision.REJECTED, "job", job_id), notifications.notify, jobs
     )
     await notify_moderation_decision(
-        decided(ModerationDecision.REJECTED, "review", new_id()), notifications.notify
+        decided(ModerationDecision.REJECTED, "review", new_id()), notifications.notify, jobs
     )
     await notify_moderation_decision(
-        decided(ModerationDecision.APPROVED, "job", new_id()), notifications.notify
+        decided(ModerationDecision.APPROVED, "job", new_id()), notifications.notify, jobs
+    )
+    await notify_moderation_decision(
+        decided(ModerationDecision.REJECTED, "response", response_id), notifications.notify, jobs
     )
 
     rows = await notifications.notifications(user_id)
@@ -591,4 +607,5 @@ async def test_notify_author_about_a_rejection_only(notifications: Notifications
     assert [(p["params"]["entity_type"], p["link"]) for p in payloads] == [
         ("job", f"j_{uuid_to_base62(job_id)}"),  # «Исправить» ведёт к заявке
         ("review", "h"),  # экрана отзыва пока нет — на Главную
+        ("response", f"j_{uuid_to_base62(response_job)}"),  # отклик — к его заявке
     ]

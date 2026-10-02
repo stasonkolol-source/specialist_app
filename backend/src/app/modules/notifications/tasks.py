@@ -15,6 +15,10 @@ notifications стоит над контентными модулями (ARCHITE
   «Продлить» и «Закрыть: исполнитель найден»; позже срока заявки в бот не уходит.
 - `notifications.notify_job_expired` — JobExpired: «Срок заявки вышел», «Продлить» и
   «Закрыть». Оба — только если заявка ещё в том статусе: продлённой и закрытой — ничего.
+- `notifications.schedule_responses_notice` — ResponseSubmitted: первый отклик окна ставит
+  `notifications.notify_responses` через пять минут, следующие — ничего (дебаунс, 5.4).
+- `notifications.notify_responses` — конец окна: клиенту «Новых откликов: 3» и кнопка к
+  заявке, если отклики прошли проверку и он их ещё не открыл.
 - `notifications.forget_recipient` — UserDeleted: лента, каналы и настройки удалённого
   аккаунта удалены (§7.10).
 - `notifications.send` — отправить доставку в бот (очередь `notifications`).
@@ -35,7 +39,10 @@ from app.modules.notifications.application.ports import (
     NOTIFY_JOB_EXPIRING,
     NOTIFY_MODERATION_DECISION,
     NOTIFY_PROFILE_PUBLISHED,
+    NOTIFY_RESPONSES,
+    SCHEDULE_RESPONSES_NOTICE,
     SEND_DELIVERY,
+    ResponsesWindow,
     SendDeliveryPayload,
 )
 from app.modules.notifications.application.use_cases.expire_stale_deliveries import (
@@ -51,6 +58,10 @@ from app.modules.notifications.application.use_cases.grant_telegram_write_access
     GrantTelegramWriteAccessCommand,
 )
 from app.modules.notifications.application.use_cases.notify import Notify, NotifyCommand
+from app.modules.notifications.application.use_cases.schedule_responses_notice import (
+    ScheduleResponsesNotice,
+    ScheduleResponsesNoticeCommand,
+)
 from app.modules.notifications.application.use_cases.send_delivery import (
     SendDelivery,
     SendDeliveryCommand,
@@ -64,7 +75,7 @@ from app.platform.contracts.events.identity import (
     UserDeleted,
     UserRestricted,
 )
-from app.platform.contracts.events.jobs import JobExpired, JobExpiring
+from app.platform.contracts.events.jobs import JobExpired, JobExpiring, ResponseSubmitted
 from app.platform.contracts.events.moderation import ModerationDecision, ModerationDecisionMade
 from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber, task
@@ -73,7 +84,9 @@ from app.platform.telegram.deeplinks import LinkDocument, LinkType, StartLink, e
 RULES_LINK = encode_start_param(StartLink(type=LinkType.LEGAL, document=LinkDocument.TERMS))
 HOME_LINK = encode_start_param(StartLink(type=LinkType.HOME))
 FIX_LINKS = {"job": LinkType.JOB, "profile": LinkType.SPECIALIST}
-"""Куда ведёт «Исправить»: к заявке или профилю; остальное — на Главную (экраны — позже)."""
+"""Куда ведёт «Исправить»: к заявке или профилю; отклик — к его заявке; остальное — на
+Главную (экраны — позже)."""
+RESPONSE = "response"
 
 
 @subscriber(BotStarted, GRANT_WRITE_ACCESS)
@@ -108,12 +121,14 @@ async def notify_account_restricted(event: UserRestricted, notify: FromDishka[No
 
 @subscriber(ModerationDecisionMade, NOTIFY_MODERATION_DECISION)
 async def notify_moderation_decision(
-    event: ModerationDecisionMade, notify: FromDishka[Notify]
+    event: ModerationDecisionMade, notify: FromDishka[Notify], jobs: FromDishka[JobsApi]
 ) -> None:
     if event.decision is not ModerationDecision.REJECTED:
         return
     kind = FIX_LINKS.get(event.entity_type)
     link = encode_start_param(StartLink(type=kind, id=event.entity_id)) if kind else HOME_LINK
+    if event.entity_type == RESPONSE and (job_id := await jobs.response_job(event.entity_id)):
+        link = _job_link(job_id)
     await notify(
         NotifyCommand(
             user_id=event.author_id,
@@ -178,6 +193,35 @@ async def notify_job_expired(
             dedupe_key=f"job.expired:{event.event_id}",
             params=_job_params(event.job_id, job),
             link=_job_link(event.job_id),
+        )
+    )
+
+
+@subscriber(ResponseSubmitted, SCHEDULE_RESPONSES_NOTICE)
+async def schedule_responses_notice(
+    event: ResponseSubmitted, schedule: FromDishka[ScheduleResponsesNotice]
+) -> None:
+    await schedule(ScheduleResponsesNoticeCommand(job_id=event.job_id, at=event.occurred_at))
+
+
+@task(NOTIFY_RESPONSES)
+async def notify_responses(
+    window: ResponsesWindow, notify: FromDishka[Notify], jobs: FromDishka[JobsApi]
+) -> None:
+    notice = await jobs.responses_notice(window.job_id)
+    if notice is None or notice.status != "published" or notice.unseen == 0:
+        return  # заявку закрыли, отклики ещё на проверке или клиент их уже открыл
+    await notify(
+        NotifyCommand(
+            user_id=notice.client_id,
+            type=NotificationType.RESPONSE_RECEIVED,
+            dedupe_key=f"response.received:{window.job_id}:{window.since.isoformat()}",
+            params={
+                "job_id": str(window.job_id),
+                "title": notice.title,
+                "count": str(notice.unseen),
+            },
+            link=_job_link(window.job_id),
         )
     )
 

@@ -34,6 +34,7 @@ RENDERED = frozenset(
         NotificationType.PROFILE_PUBLISHED,
         NotificationType.JOB_EXPIRING,
         NotificationType.JOB_EXPIRED,
+        NotificationType.RESPONSE_RECEIVED,
     }
 )
 """Типы с шаблонами: остальные получат их вместе со своими подписчиками."""
@@ -51,6 +52,7 @@ BUTTONS: Mapping[NotificationType, str] = MappingProxyType(
         NotificationType.MODERATION_DECISION: "notifications.moderation_decision.button",
         NotificationType.SYSTEM_TEST: "notifications.system_test.button",
         NotificationType.PROFILE_PUBLISHED: "notifications.profile_published.button",
+        NotificationType.RESPONSE_RECEIVED: "notifications.response_received.button",
     }
 )
 """Подпись кнопки бота; ведёт она по коду deep link уведомления."""
@@ -77,6 +79,8 @@ class GettextNotificationRenderer:
             return self._moderation_decision(params, locale)
         if type_ in JOB_TERM:
             return self._job_term(type_, params, locale)
+        if type_ is NotificationType.RESPONSE_RECEIVED:
+            return self._responses(params, locale)
         if type_ is NotificationType.PROFILE_PUBLISHED:
             return RenderedText(
                 title=self._t("notifications.profile_published.title", locale),
@@ -143,6 +147,21 @@ class GettextNotificationRenderer:
             )
         )
         return tuple(buttons)
+
+    def _responses(self, params: Mapping[str, str], locale: Locale) -> RenderedText:
+        """«Новый отклик» или «Новых откликов: 3» — на заявку «Повесить люстру»."""
+        count = int(params.get("count") or 1)
+        title = _short(params.get("title"))
+        body = (
+            self._t("notifications.response_received.body_one", locale, title=title)
+            if count == 1
+            else self._t(
+                "notifications.response_received.body_many", locale, title=title, count=count
+            )
+        )
+        return RenderedText(
+            title=self._t("notifications.response_received.title", locale), body=body
+        )
 
     def _account_restricted(self, params: Mapping[str, str], locale: Locale) -> RenderedText:
         kind = params.get("kind", "")

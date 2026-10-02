@@ -254,6 +254,17 @@ class SqlJobQueries(SqlQuery):
             for group, statuses in GROUP_STATUSES.items()
         }
 
+    async def unseen_responses(self, job_id: JobId) -> int:
+        row = await self._fetch_one(
+            select(func.count().label("count")).where(
+                _R.job_id == job_id,
+                _R.deleted_at.is_(None),
+                _R.review == ResponseReview.CLEAR.value,
+                _R.status == ResponseStatus.SUBMITTED.value,
+            )
+        )
+        return int(row["count"]) if row is not None else 0
+
     async def job_responses(self, job_id: JobId) -> list[OwnerResponse]:
         rows = await self._fetch(
             select(*_RESPONSE, _IS_FIRST)
