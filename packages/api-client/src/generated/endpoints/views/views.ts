@@ -23,9 +23,11 @@ import type {
   CardServicesOut,
   CardWorksOut,
   DealCardOut,
+  HistoryPageOut,
   ProblemOut,
   ResponseCardsOut,
   SpecialistProfileOut,
+  ViewsListDealHistoryParams,
   ViewsListSpecialistReviewsParams,
 } from '../../model';
 
@@ -988,6 +990,152 @@ export function useViewsGetDealCard<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getViewsGetDealCardQueryOptions(dealId, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getViewsListDealHistoryUrl = (params?: ViewsListDealHistoryParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/me/deal-history?${stringifiedParams}`
+    : `/api/v1/me/deal-history`;
+};
+
+/**
+ * Свои сделки (S28): клиентом и исполнителем, со второй стороной и отзывом.
+ * @summary List Deal History
+ */
+export const viewsListDealHistory = async (
+  params?: ViewsListDealHistoryParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<HistoryPageOut> => {
+  return apiFetch<HistoryPageOut>(getViewsListDealHistoryUrl(params), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getViewsListDealHistoryQueryKey = (params?: ViewsListDealHistoryParams) => {
+  return [`/api/v1/me/deal-history`, ...(params ? [params] : [])] as const;
+};
+
+export const getViewsListDealHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof viewsListDealHistory>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params?: ViewsListDealHistoryParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListDealHistory>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getViewsListDealHistoryQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof viewsListDealHistory>>> = ({ signal }) =>
+    viewsListDealHistory(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof viewsListDealHistory>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ViewsListDealHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof viewsListDealHistory>>
+>;
+export type ViewsListDealHistoryQueryError = ErrorType<ProblemOut>;
+
+export function useViewsListDealHistory<
+  TData = Awaited<ReturnType<typeof viewsListDealHistory>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: undefined | ViewsListDealHistoryParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListDealHistory>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsListDealHistory>>,
+          TError,
+          Awaited<ReturnType<typeof viewsListDealHistory>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsListDealHistory<
+  TData = Awaited<ReturnType<typeof viewsListDealHistory>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params?: ViewsListDealHistoryParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListDealHistory>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsListDealHistory>>,
+          TError,
+          Awaited<ReturnType<typeof viewsListDealHistory>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsListDealHistory<
+  TData = Awaited<ReturnType<typeof viewsListDealHistory>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params?: ViewsListDealHistoryParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListDealHistory>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List Deal History
+ */
+
+export function useViewsListDealHistory<
+  TData = Awaited<ReturnType<typeof viewsListDealHistory>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params?: ViewsListDealHistoryParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListDealHistory>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getViewsListDealHistoryQueryOptions(params, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;

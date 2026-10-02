@@ -32,6 +32,8 @@ class CallbackButton:
 
 
 type Button = AppButton | CallbackButton
+type ButtonLine = Button | tuple[Button, ...]
+"""Ряд клавиатуры: одна кнопка — во всю ширину, кортеж — кнопки в один ряд («1 ★ … 5 ★»)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -40,8 +42,8 @@ class OutgoingMessage:
     """Личный чат с ботом. Не логируется (ADR-0020 §14)."""
     text: str
     """HTML: шаблон доверенный, параметры экранированы (texts.py)."""
-    buttons: tuple[Button, ...] = ()
-    """По одной кнопке в ряд."""
+    buttons: tuple[ButtonLine, ...] = ()
+    """Ряды клавиатуры сверху вниз."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

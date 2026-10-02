@@ -16,6 +16,7 @@ import type {
   CardServicesOut,
   CardWorksOut,
   DealCardOut,
+  HistoryPageOut,
   ResponseCardsOut,
   SpecialistProfileOut,
 } from '../../model';
@@ -534,6 +535,83 @@ export const getViewsGetDealCardResponseMock = (
   ...overrideResponse,
 });
 
+export const getViewsListDealHistoryResponseMock = (
+  overrideResponse: Partial<Extract<HistoryPageOut, object>> = {},
+): HistoryPageOut => ({
+  items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    id: faker.string.uuid(),
+    status: faker.helpers.arrayElement([
+      'proposed',
+      'agreed',
+      'completed',
+      'cancelled',
+      'disputed',
+    ] as const),
+    my_role: faker.helpers.arrayElement(['client', 'performer'] as const),
+    title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    price: {
+      type: faker.helpers.arrayElement([
+        faker.helpers.arrayElement(['fixed', 'from', 'hourly', 'negotiable'] as const),
+        null,
+      ]),
+      amount: faker.helpers.arrayElement([
+        {
+          amount: faker.number.int(),
+          currency: faker.helpers.arrayElement(Object.values(Currency)),
+        },
+        null,
+      ]),
+    },
+    scheduled_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + 'Z',
+      null,
+    ]),
+    counterpart: {
+      id: faker.string.uuid(),
+      role: faker.helpers.arrayElement(['client', 'performer'] as const),
+      display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    completed_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + 'Z',
+      null,
+    ]),
+    cancelled_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + 'Z',
+      null,
+    ]),
+    cancelled_by_me: faker.helpers.arrayElement([faker.datatype.boolean(), null]),
+    cancel_reason: faker.helpers.arrayElement([
+      faker.helpers.arrayElement([
+        'plans_changed',
+        'no_agreement',
+        'no_contact',
+        'other',
+        'expired',
+        'account_deleted',
+      ] as const),
+      null,
+    ]),
+    created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+    my_review: faker.helpers.arrayElement([
+      {
+        id: faker.string.uuid(),
+        status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        rating: faker.number.int(),
+      },
+      null,
+    ]),
+    review_until: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + 'Z',
+      null,
+    ]),
+  })),
+  next_cursor: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  ...overrideResponse,
+});
+
 export const getViewsGetSpecialistMockHandler = (
   overrideResponse?:
     | SpecialistProfileOut
@@ -697,6 +775,30 @@ export const getViewsGetDealCardMockHandler = (
     options,
   );
 };
+
+export const getViewsListDealHistoryMockHandler = (
+  overrideResponse?:
+    | HistoryPageOut
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<HistoryPageOut> | HistoryPageOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/me/deal-history',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getViewsListDealHistoryResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getViewsMock = () => [
   getViewsGetSpecialistMockHandler(),
   getViewsListSpecialistServicesMockHandler(),
@@ -705,4 +807,5 @@ export const getViewsMock = () => [
   getViewsListResponseCardsMockHandler(),
   getViewsGetBadgesMockHandler(),
   getViewsGetDealCardMockHandler(),
+  getViewsListDealHistoryMockHandler(),
 ];

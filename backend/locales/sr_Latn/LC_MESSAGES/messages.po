@@ -123,6 +123,15 @@ msgstr "Označeno: posao je završen. Dogovor će se završiti kada potvrdi drug
 msgid "bot.deals.completed"
 msgstr "Dogovor je završen. Hvala!"
 
+msgid "bot.reviews.rated"
+msgstr "Hvala! Vaša ocena: {stars}. Utisak će se pojaviti na kartici izvođača posle provere."
+
+msgid "bot.reviews.exists"
+msgstr "Već ste ostavili utisak za ovaj dogovor."
+
+msgid "bot.reviews.closed"
+msgstr "Rok je istekao: utisak možete ostaviti u roku od 14 dana nakon završetka dogovora."
+
 msgid "bot.deals.confirmed"
 msgstr "Dogovoreno! Dogovor je na snazi — u razgovoru sada možete podeliti kontakt."
 
@@ -883,11 +892,17 @@ msgstr "Da li je posao završen?"
 msgid "notifications.deal_completion_prompt.body"
 msgstr "Dogovor „{title}“. Označite ako je sve urađeno: kada obe strane potvrde, dogovor se završava."
 
+msgid "notifications.deal_completion_prompt.body_marked_performer"
+msgstr "Izvođač je označio posao „{title}“ kao završen. Da li je sve u redu?"
+
+msgid "notifications.deal_completion_prompt.body_marked_client"
+msgstr "Klijent je označio posao „{title}“ kao završen. Da li je sve u redu?"
+
 msgid "notifications.review_request.title_first"
-msgstr "Kako je prošao posao?"
+msgstr "Ocenite posao"
 
 msgid "notifications.review_request.body_first"
-msgstr "Ocenite posao „{title}“ — izvođač {performer}. Vaš utisak će pomoći komšijama da izaberu majstora."
+msgstr "„{title}“, izvođač — {performer}. Utisak će se pojaviti na kartici izvođača posle provere."
 
 msgid "notifications.review_request.title_reminder"
 msgstr "Ocenite posao"
@@ -902,7 +917,7 @@ msgid "notifications.review_request.body_last_call"
 msgstr "Utisak o poslu „{title}“ možete ostaviti još 2 dana — izvođač {performer}."
 
 msgid "notifications.review_request.button"
-msgstr "Ostavi utisak"
+msgstr "Otvori formular za utisak"
 
 msgid "notifications.review_published.title"
 msgstr "Novi utisak: {rating} od 5"
@@ -917,10 +932,10 @@ msgid "notifications.review_published.button"
 msgstr "Odgovori na utisak"
 
 msgid "notifications.deal_completion_prompt.yes"
-msgstr "Da, završeno"
+msgstr "Da, sve je u redu"
 
 msgid "notifications.deal_completion_prompt.problem"
-msgstr "Ne, postoji problem"
+msgstr "Postoji problem"
 
 msgid "notifications.job.extend"
 msgstr "Produži"

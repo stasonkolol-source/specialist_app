@@ -23,6 +23,7 @@ from app.platform.contracts.events.deals import (
     DealAgreed,
     DealCancelled,
     DealCompleted,
+    DealMarkedDone,
     DealProposed,
 )
 from app.platform.kernel.ids import CategoryId, DealId, UserId, new_id
@@ -119,7 +120,9 @@ def test_both_parties_mark_done_to_complete() -> None:
     assert not deal.complete(actor_id=PERFORMER, now=NOW)
     assert not deal.complete(actor_id=PERFORMER, now=LATER)  # повтор — без изменений
     assert deal.performer_confirmed_at == NOW
-    assert deal.pull_events() == []
+    [marked] = deal.pull_events()  # клиента спросят «Работа выполнена?» сразу (7.3, B2)
+    assert isinstance(marked, DealMarkedDone)
+    assert (marked.deal_id, marked.marked_by, marked.occurred_at) == (deal.id, "performer", NOW)
     assert deal.complete(actor_id=CLIENT, now=LATER)
 
     assert (deal.status, deal.client_confirmed_at, deal.completed_at) == (

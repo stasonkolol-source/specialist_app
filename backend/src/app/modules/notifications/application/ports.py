@@ -25,6 +25,7 @@ from app.modules.notifications.domain.settings import NotificationSettings
 from app.platform.contracts.events.deals import (
     DealCancelled,
     DealCompletionDue,
+    DealMarkedDone,
     DealProposed,
     DealReminderDue,
 )
@@ -44,7 +45,7 @@ from app.platform.kernel.ids import UserId
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.pagination import Page, PageRequest
 from app.platform.queue.port import TaskRef
-from app.platform.telegram.port import Button
+from app.platform.telegram.port import ButtonLine
 
 
 class ChannelRepository(Protocol):
@@ -169,7 +170,7 @@ class NotificationRenderer(Protocol):
         params: Mapping[str, str],
         link: str | None,
         locale: Locale,
-    ) -> tuple[str, tuple[Button, ...]]:
+    ) -> tuple[str, tuple[ButtonLine, ...]]:
         """HTML сообщения бота и его кнопки: web_app с кодом deep link или callback."""
         ...
 
@@ -287,8 +288,13 @@ NOTIFY_DEAL_REMINDER: Final = TaskRef(
 NOTIFY_DEAL_COMPLETION: Final = TaskRef(
     "notifications.notify_deal_completion", DealCompletionDue, queue="notifications"
 )
-"""Подписчик DealCompletionDue: «Работа выполнена?» с [Да, выполнено] и [Нет, проблема] тем,
+"""Подписчик DealCompletionDue: «Работа выполнена?» с [Да, всё хорошо] и [Есть проблема] тем,
 кто ещё не отметил."""
+NOTIFY_DEAL_MARKED: Final = TaskRef(
+    "notifications.notify_deal_marked", DealMarkedDone, queue="notifications"
+)
+"""Подписчик DealMarkedDone: второй стороне — «Работа выполнена?» сразу (B2, 7.3): «исполнитель
+(клиент) отметил работу выполненной. Всё в порядке?»."""
 
 NOTIFY_REVIEW_REQUEST: Final = TaskRef(
     "notifications.notify_review_request", ReviewRequested, queue="notifications"

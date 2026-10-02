@@ -36,8 +36,10 @@ notifications стоит над контентными модулями (ARCHITE
   (при отмене системой — обеим, кроме удалённого аккаунта); клиенту из отклика — «заявка снова
   открыта».
 - `notifications.notify_deal_reminder` — DealReminderDue: обеим сторонам за 2 ч до времени.
-- `notifications.notify_deal_completion` — DealCompletionDue: «Работа выполнена?» с [Да,
-  выполнено] (кнопку обрабатывает бот deals) и [Нет, проблема] тем, кто ещё не отметил.
+- `notifications.notify_deal_completion` — DealCompletionDue: «Работа выполнена?» с [Да, всё
+  хорошо] (кнопку обрабатывает бот deals) и [Есть проблема] тем, кто ещё не отметил.
+- `notifications.notify_deal_marked` — DealMarkedDone: то же второй стороне сразу после отметки
+  первой: «исполнитель (клиент) отметил работу выполненной. Всё в порядке?» (B2, 7.3).
 - `notifications.notify_review_request` — ReviewRequested: клиенту — «Как прошла работа?» и
   «Оставить отзыв» (после завершения, через сутки, за 2 дня до конца окна; 7.2).
 - `notifications.notify_review_published` — ReviewPublished: исполнителю — новый отзыв и
@@ -64,6 +66,7 @@ from app.modules.notifications.application.ports import (
     NOTIFY_ACCOUNT_RESTRICTED,
     NOTIFY_DEAL_CANCELLED,
     NOTIFY_DEAL_COMPLETION,
+    NOTIFY_DEAL_MARKED,
     NOTIFY_DEAL_PROPOSED,
     NOTIFY_DEAL_REMINDER,
     NOTIFY_JOB_EXPIRED,
@@ -116,6 +119,7 @@ from app.modules.reviews.api import ReviewsApi
 from app.platform.contracts.events.deals import (
     DealCancelled,
     DealCompletionDue,
+    DealMarkedDone,
     DealProposed,
     DealReminderDue,
 )
@@ -605,6 +609,27 @@ def _preview(text: str) -> str:
     if len(flat) <= REVIEW_PREVIEW_CHARS:
         return flat
     return flat[: REVIEW_PREVIEW_CHARS - 1].rstrip() + "…"
+
+
+@subscriber(DealMarkedDone, NOTIFY_DEAL_MARKED)
+async def notify_deal_marked(
+    event: DealMarkedDone, notify: FromDishka[Notify], deals: FromDishka[DealsApi]
+) -> None:
+    """Второй стороне — «Работа выполнена?» сразу после отметки первой; тот же ключ, что у
+    вопроса по сроку, — второй раз не спросим."""
+    deal = await deals.deal_brief(event.deal_id)
+    if deal is None or deal.status != AGREED:
+        return  # уже завершена или отменена
+    other = event.client_id if event.marked_by == PERFORMER else event.performer_id
+    await notify(
+        NotifyCommand(
+            user_id=other,
+            type=NotificationType.DEAL_COMPLETION_PROMPT,
+            dedupe_key=f"deal.completion_prompt:{event.deal_id}:{other}",
+            params={"title": deal.title, "deal_id": str(event.deal_id), "by": event.marked_by},
+            link=_deal_link(event.deal_id),
+        )
+    )
 
 
 def _chat_link(conversation_id: UUID) -> str:

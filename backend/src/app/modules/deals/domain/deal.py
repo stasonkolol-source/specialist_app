@@ -30,6 +30,7 @@ from app.platform.contracts.events.deals import (
     DealCancelled,
     DealCompleted,
     DealCompletionDue,
+    DealMarkedDone,
     DealProposed,
     DealReminderDue,
 )
@@ -307,13 +308,24 @@ class Deal(VersionedAggregate):
         role = self._party(actor_id)
         if self.status is not DealStatus.AGREED:
             raise DealNotActiveError(deal_id=self.id, deal_status=self.status.value)
+        marked = False
         if role is DealRole.CLIENT and self.client_confirmed_at is None:
             self.client_confirmed_at = now
-            self.updated_at = now
+            self.updated_at, marked = now, True
         elif role is DealRole.PERFORMER and self.performer_confirmed_at is None:
             self.performer_confirmed_at = now
-            self.updated_at = now
+            self.updated_at, marked = now, True
         if self.client_confirmed_at is None or self.performer_confirmed_at is None:
+            if marked:
+                self._record(
+                    DealMarkedDone(
+                        deal_id=self.id,
+                        client_id=self.client_id,
+                        performer_id=self.performer_id,
+                        marked_by=role.value,
+                        occurred_at=now,
+                    )
+                )
             return False
         self._move(DealStatus.COMPLETED, by=actor_id, kind=ActorKind.USER, now=now)
         self.completed_at = now

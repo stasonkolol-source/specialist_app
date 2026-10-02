@@ -33,7 +33,7 @@ from app.platform.telegram.callbacks import (
     encode_callback,
     ref_arg,
 )
-from app.platform.telegram.port import AppButton, Button, CallbackButton
+from app.platform.telegram.port import AppButton, Button, ButtonLine, CallbackButton
 
 RENDERED = frozenset(
     {
@@ -58,6 +58,8 @@ RENDERED = frozenset(
 )
 """Типы с шаблонами: остальные получат их вместе со своими подписчиками."""
 
+SIDES = frozenset({"client", "performer"})
+"""Кто отметил «Работа выполнена» (`by` у `deal.completion_prompt`, B2): свой текст вопроса."""
 REVIEW_STAGES = frozenset({"first", "reminder", "last_call"})
 """Когда просим отзыв (ReviewRequested.stage): свой заголовок и текст у каждой."""
 
@@ -81,7 +83,6 @@ BUTTONS: Mapping[NotificationType, str] = MappingProxyType(
         NotificationType.MESSAGE_RECEIVED: "notifications.message_received.button",
         NotificationType.DEAL_CANCELLED: "notifications.deal.open",
         NotificationType.DEAL_REMINDER: "notifications.deal.open",
-        NotificationType.REVIEW_REQUEST: "notifications.review_request.button",
         NotificationType.REVIEW_PUBLISHED: "notifications.review_published.button",
     }
 )
@@ -145,6 +146,15 @@ class GettextNotificationRenderer:
                     when=self._datetime(params.get("at", ""), locale),
                 ),
             )
+        if type_ is NotificationType.DEAL_COMPLETION_PROMPT and params.get("by") in SIDES:
+            return RenderedText(
+                title=self._t("notifications.deal_completion_prompt.title", locale),
+                body=self._t(
+                    f"notifications.deal_completion_prompt.body_marked_{params['by']}",
+                    locale,
+                    title=_short(params.get("title")),
+                ),
+            )
         if type_ is NotificationType.REVIEW_REQUEST:
             stage = params.get("stage", "first")
             stage = stage if stage in REVIEW_STAGES else "first"
@@ -198,7 +208,7 @@ class GettextNotificationRenderer:
         params: Mapping[str, str],
         link: str | None,
         locale: Locale,
-    ) -> tuple[str, tuple[Button, ...]]:
+    ) -> tuple[str, tuple[ButtonLine, ...]]:
         text = self.text(type_, params, locale)
         message = f"<b>{_escape(text.title)}</b>\n{_escape(text.body)}"
         if type_ in JOB_TERM:
@@ -209,6 +219,8 @@ class GettextNotificationRenderer:
             return message, self._completion_buttons(params, link, locale)
         if type_ is NotificationType.DEAL_PROPOSED:
             return message, self._proposal_buttons(params, link, locale)
+        if type_ is NotificationType.REVIEW_REQUEST:
+            return message, self._review_buttons(params, link, locale)
         label = BUTTONS.get(type_)
         if label is None or link is None or self._mini_app is None:
             return message, ()
@@ -227,7 +239,7 @@ class GettextNotificationRenderer:
 
     def _job_buttons(
         self, type_: NotificationType, params: Mapping[str, str], locale: Locale
-    ) -> tuple[Button, ...]:
+    ) -> tuple[ButtonLine, ...]:
         try:
             job_id = UUID(params.get("job_id", ""))
         except ValueError:
@@ -320,7 +332,7 @@ class GettextNotificationRenderer:
 
     def _proposal_buttons(
         self, params: Mapping[str, str], link: str | None, locale: Locale
-    ) -> tuple[Button, ...]:
+    ) -> tuple[ButtonLine, ...]:
         """«Подтвердить» и «Отклонить» — ответ прямо из чата (бот deals); «Посмотреть условия» —
         к предложению в Mini App (S53)."""
         buttons: list[Button] = []
@@ -348,11 +360,42 @@ class GettextNotificationRenderer:
             )
         return tuple(buttons)
 
+    def _review_buttons(
+        self, params: Mapping[str, str], link: str | None, locale: Locale
+    ) -> tuple[ButtonLine, ...]:
+        """B2: «1 ★ … 5 ★» одним рядом — оценка без текста прямо из чата (бот reviews); ниже —
+        «Открыть форму отзыва» (сделка S26 → S27)."""
+        lines: list[ButtonLine] = []
+        try:
+            deal_id = UUID(params.get("deal_id", ""))
+        except ValueError:
+            pass
+        else:
+            lines.append(
+                tuple(
+                    CallbackButton(
+                        text=f"{stars} ★",
+                        data=encode_callback(
+                            CallbackData(CallbackAction.REVIEW_RATE, deal_id, str(stars))
+                        ),
+                    )
+                    for stars in range(1, 6)
+                )
+            )
+        if link is not None and self._mini_app is not None:
+            lines.append(
+                AppButton(
+                    text=self._t("notifications.review_request.button", locale),
+                    url=mini_app_url(self._mini_app, link),
+                )
+            )
+        return tuple(lines)
+
     def _completion_buttons(
         self, params: Mapping[str, str], link: str | None, locale: Locale
-    ) -> tuple[Button, ...]:
-        """«Да, выполнено» — отметка в сделке прямо из чата (бот deals); «Нет, проблема» — к
-        сделке в Mini App (спор S52 — 6.2)."""
+    ) -> tuple[ButtonLine, ...]:
+        """Один ряд (B2): «Да, всё хорошо» — отметка в сделке прямо из чата (бот deals); «Есть
+        проблема» — к сделке в Mini App (спор S52 — 6.2)."""
         buttons: list[Button] = []
         try:
             deal_id = UUID(params.get("deal_id", ""))
@@ -372,7 +415,7 @@ class GettextNotificationRenderer:
                     url=mini_app_url(self._mini_app, link),
                 )
             )
-        return tuple(buttons)
+        return (tuple(buttons),) if buttons else ()
 
     def _invited(self, params: Mapping[str, str], locale: Locale) -> RenderedText:
         """«Вас приглашают откликнуться» или «Прямой запрос»: кто и на какую заявку."""
@@ -390,7 +433,7 @@ class GettextNotificationRenderer:
 
     def _invite_buttons(
         self, params: Mapping[str, str], link: str | None, locale: Locale
-    ) -> tuple[Button, ...]:
+    ) -> tuple[ButtonLine, ...]:
         """«Посмотреть заявку» и «Откликнуться: «Могу сегодня»» — на каждый шаблон."""
         buttons: list[Button] = []
         if link is not None and self._mini_app is not None:

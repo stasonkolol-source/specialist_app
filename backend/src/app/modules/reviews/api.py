@@ -76,6 +76,16 @@ class MyReview:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class DealRef:
+    """Сделка для состояния отзыва (фасад deals): кто клиент, статус, когда завершена."""
+
+    id: DealId
+    client_id: UserId
+    status: str
+    completed_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class DealReviewState:
     """Отзыв по сделке глазами стороны (S26, S27): свой уже оставлен или до когда можно."""
 
@@ -118,6 +128,12 @@ class ReviewsApi(Protocol):
     ) -> DealReviewState:
         """Отзыв стороны по сделке: свой (не стёртый) и срок, до которого клиент может его
         оставить (по сделке `completed`, 14 дней после завершения)."""
+        ...
+
+    async def review_states(
+        self, viewer_id: UserId, deals: Collection[DealRef]
+    ) -> dict[DealId, DealReviewState]:
+        """То же пачкой — список сделок S28."""
         ...
 
     async def review_for_check(self, review_id: UUID) -> ReviewForCheck | None:

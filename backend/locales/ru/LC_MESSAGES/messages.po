@@ -122,6 +122,15 @@ msgstr "Отмечено: работа выполнена. Сделка заве
 msgid "bot.deals.completed"
 msgstr "Сделка завершена. Спасибо!"
 
+msgid "bot.reviews.rated"
+msgstr "Спасибо! Ваша оценка: {stars}. Отзыв появится на карточке исполнителя после проверки."
+
+msgid "bot.reviews.exists"
+msgstr "Вы уже оставили отзыв по этой сделке."
+
+msgid "bot.reviews.closed"
+msgstr "Срок вышел: отзыв можно оставить в течение 14 дней после завершения сделки."
+
 msgid "bot.deals.confirmed"
 msgstr "Договорились! Сделка в силе — в чате теперь можно поделиться контактом."
 
@@ -882,11 +891,17 @@ msgstr "Работа выполнена?"
 msgid "notifications.deal_completion_prompt.body"
 msgstr "Сделка «{title}». Отметьте, если всё сделано: когда отметят обе стороны, сделка завершится."
 
+msgid "notifications.deal_completion_prompt.body_marked_performer"
+msgstr "Исполнитель отметил работу «{title}» выполненной. Всё в порядке?"
+
+msgid "notifications.deal_completion_prompt.body_marked_client"
+msgstr "Клиент отметил работу «{title}» выполненной. Всё в порядке?"
+
 msgid "notifications.review_request.title_first"
-msgstr "Как прошла работа?"
+msgstr "Оцените работу"
 
 msgid "notifications.review_request.body_first"
-msgstr "Оцените работу «{title}» — исполнитель {performer}. Отзыв поможет соседям выбрать мастера."
+msgstr "«{title}», исполнитель — {performer}. Отзыв появится на карточке исполнителя после проверки."
 
 msgid "notifications.review_request.title_reminder"
 msgstr "Оцените работу"
@@ -901,7 +916,7 @@ msgid "notifications.review_request.body_last_call"
 msgstr "Отзыв о работе «{title}» можно оставить ещё 2 дня — исполнитель {performer}."
 
 msgid "notifications.review_request.button"
-msgstr "Оставить отзыв"
+msgstr "Открыть форму отзыва"
 
 msgid "notifications.review_published.title"
 msgstr "Новый отзыв: {rating} из 5"
@@ -916,10 +931,10 @@ msgid "notifications.review_published.button"
 msgstr "Ответить на отзыв"
 
 msgid "notifications.deal_completion_prompt.yes"
-msgstr "Да, выполнено"
+msgstr "Да, всё хорошо"
 
 msgid "notifications.deal_completion_prompt.problem"
-msgstr "Нет, проблема"
+msgstr "Есть проблема"
 
 msgid "notifications.job.extend"
 msgstr "Продлить"

@@ -36,6 +36,9 @@ class CallbackAction(StrEnum):
     """«Подтвердить» под `deal.proposed` (6.3b): вторая сторона согласна — сделка `agreed`."""
     DEAL_DECLINE = "dn"
     """«Отклонить» под `deal.proposed` (6.3b): предложение отменяется, пока ещё ждёт ответа."""
+    REVIEW_RATE = "rv"
+    """Звезда под «Оцените работу» (`review.request`, B2, 7.3): аргумент — оценка 1–5; отзыв без
+    текста сразу уходит на проверку (бот reviews)."""
 
 
 @dataclass(frozen=True, slots=True)

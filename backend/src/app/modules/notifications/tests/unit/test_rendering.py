@@ -26,11 +26,18 @@ from app.platform.telegram.deeplinks import (
     encode_start_param,
     parse_start_param,
 )
-from app.platform.telegram.port import AppButton, CallbackButton
+from app.platform.telegram.port import AppButton, Button, ButtonLine, CallbackButton
 
 pytestmark = pytest.mark.unit
 
 SCRIPTS = (Locale.RU, Locale.SR_CYRL, Locale.SR_LATN)
+
+
+def flat(lines: tuple[ButtonLine, ...]) -> list[Button]:
+    """Кнопки всех рядов клавиатуры по порядку."""
+    return [button for line in lines for button in (line if isinstance(line, tuple) else (line,))]
+
+
 MINI_APP = "https://app.test/"
 RESTRICTED = NotificationType.ACCOUNT_RESTRICTED
 DECISION = NotificationType.MODERATION_DECISION
@@ -273,7 +280,7 @@ def test_job_term_texts_on_three_scripts(
     for can_extend in (True, False):
         text, buttons = renderer.telegram(type_, job_params(can_extend=can_extend), None, locale)
         assert "notifications." not in text
-        assert all("notifications." not in b.text for b in buttons)
+        assert all("notifications." not in b.text for b in flat(buttons))
 
 
 def test_long_title_is_shortened_and_markup_escaped(renderer: GettextNotificationRenderer) -> None:
@@ -329,7 +336,7 @@ def test_new_responses_texts_on_three_scripts(
             NotificationType.RESPONSE_RECEIVED, {"title": "x", "count": count}, "j_abc", locale
         )
         assert "notifications." not in text
-        assert all("notifications." not in b.text for b in buttons)
+        assert all("notifications." not in b.text for b in flat(buttons))
 
 
 TEMPLATE_ID = UUID("01a0fc88-f156-726a-9a76-99e3d10e5543")
@@ -379,7 +386,7 @@ def test_direct_request_says_only_you_see_it(renderer: GettextNotificationRender
     )
 
     assert text.startswith("<b>Прямой запрос</b>\nКлиент просит именно вас: «Повесить люстру».")
-    assert [b.text for b in buttons] == ["Посмотреть заявку"]
+    assert [b.text for b in flat(buttons)] == ["Посмотреть заявку"]
 
 
 @pytest.mark.parametrize("locale", SCRIPTS)
@@ -391,7 +398,7 @@ def test_invitation_texts_on_three_scripts(
             NotificationType.JOB_INVITED, invite_params(direct=direct, templates=1), "j_x", locale
         )
         assert "notifications." not in text
-        assert all("notifications." not in b.text for b in buttons)
+        assert all("notifications." not in b.text for b in flat(buttons))
         assert len(buttons) == 2
 
 
@@ -570,7 +577,7 @@ def test_message_notice_on_three_scripts(
     )
 
     assert "notifications." not in text
-    assert all("notifications." not in b.text for b in buttons)
+    assert all("notifications." not in b.text for b in flat(buttons))
 
 
 def test_reminder_names_the_time(renderer: GettextNotificationRenderer) -> None:
@@ -585,20 +592,41 @@ def test_reminder_names_the_time(renderer: GettextNotificationRenderer) -> None:
     assert "19:00" in text.body  # Белград
 
 
-def test_completion_prompt_has_yes_and_problem(renderer: GettextNotificationRenderer) -> None:
-    text, [yes, problem] = renderer.telegram(
+def test_completion_prompt_has_yes_and_problem_in_one_row(
+    renderer: GettextNotificationRenderer,
+) -> None:
+    text, [row] = renderer.telegram(
         NotificationType.DEAL_COMPLETION_PROMPT,
         {"title": "Люстра", "deal_id": str(DEAL_ID)},
         DEAL_LINK,
         Locale.RU,
     )
+    assert isinstance(row, tuple)
+    yes, problem = row
 
     assert text.startswith("<b>Работа выполнена?</b>")
     assert isinstance(yes, CallbackButton)
-    assert yes.text == "Да, выполнено"
+    assert yes.text == "Да, всё хорошо"
     assert parse_callback(yes.data) == CallbackData(CallbackAction.DEAL_COMPLETE, DEAL_ID)
     assert isinstance(problem, AppButton)
-    assert (problem.text, problem.url) == ("Нет, проблема", f"{MINI_APP}?startapp={DEAL_LINK}")
+    assert (problem.text, problem.url) == ("Есть проблема", f"{MINI_APP}?startapp={DEAL_LINK}")
+
+
+@pytest.mark.parametrize(
+    ("by", "body"),
+    [
+        ("performer", "Исполнитель отметил работу «Люстра» выполненной. Всё в порядке?"),
+        ("client", "Клиент отметил работу «Люстра» выполненной. Всё в порядке?"),
+    ],
+)
+def test_completion_prompt_after_the_other_side_marked(
+    renderer: GettextNotificationRenderer, by: str, body: str
+) -> None:
+    text = renderer.text(
+        NotificationType.DEAL_COMPLETION_PROMPT, {"title": "Люстра", "by": by}, Locale.RU
+    )
+
+    assert (text.title, text.body) == ("Работа выполнена?", body)
 
 
 @pytest.mark.parametrize("locale", SCRIPTS)
@@ -626,7 +654,7 @@ def test_deal_texts_on_three_scripts(renderer: GettextNotificationRenderer, loca
     for type_, params in cases:
         text, buttons = renderer.telegram(type_, params, DEAL_LINK, locale)
         assert "notifications." not in text, type_
-        assert all("notifications." not in b.text for b in buttons), type_
+        assert all("notifications." not in b.text for b in flat(buttons)), type_
 
 
 @pytest.mark.parametrize("stage", ["first", "reminder", "last_call"])
@@ -636,12 +664,22 @@ def test_review_request_asks_on_each_stage_with_a_button(
 ) -> None:
     params = {"title": "Повесить люстру", "performer": "Алексей М.", "stage": stage}
 
-    text, [button] = renderer.telegram(NotificationType.REVIEW_REQUEST, params, "m_reviews", locale)
+    params |= {"deal_id": str(DEAL_ID)}
+
+    text, [stars, form] = renderer.telegram(
+        NotificationType.REVIEW_REQUEST, params, DEAL_LINK, locale
+    )
 
     assert "notifications." not in text
     assert "Алексей М." in text
-    assert isinstance(button, AppButton)
-    assert button.url == f"{MINI_APP}?startapp=m_reviews"
+    assert isinstance(stars, tuple)
+    assert [star.text for star in stars] == ["1 ★", "2 ★", "3 ★", "4 ★", "5 ★"]
+    assert all(isinstance(star, CallbackButton) for star in stars)
+    assert [parse_callback(star.data) for star in stars if isinstance(star, CallbackButton)] == [
+        CallbackData(CallbackAction.REVIEW_RATE, DEAL_ID, str(n)) for n in range(1, 6)
+    ]
+    assert isinstance(form, AppButton)
+    assert form.url == f"{MINI_APP}?startapp={DEAL_LINK}"
 
 
 def test_review_request_texts_in_russian(renderer: GettextNotificationRenderer) -> None:
@@ -653,8 +691,8 @@ def test_review_request_texts_in_russian(renderer: GettextNotificationRenderer) 
     )
     odd = renderer.text(NotificationType.REVIEW_REQUEST, params | {"stage": "x"}, Locale.RU)
 
-    assert first.title == "Как прошла работа?"
-    assert first.body.startswith("Оцените работу «Повесить люстру» — исполнитель Алексей М.")
+    assert first.title == "Оцените работу"
+    assert first.body.startswith("«Повесить люстру», исполнитель — Алексей М.")
     assert last.title == "Осталось 2 дня, чтобы оставить отзыв"
     assert odd == first  # неизвестный этап — как первая просьба
 

@@ -12,6 +12,7 @@ from uuid import UUID
 from app.modules.deals.errors import DealNotFoundError as DealNotFoundError
 from app.modules.deals.errors import InvalidDealError as InvalidDealError
 from app.platform.kernel.ids import CategoryId, DealId, UserId
+from app.platform.kernel.pagination import Page, PageRequest
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -131,4 +132,8 @@ class DealsApi(Protocol):
 
     async def deal_for(self, deal_id: DealId, viewer_id: UserId) -> DealSummary:
         """Сделка стороне; не участник или нет такой — DealNotFoundError (404)."""
+        ...
+
+    async def my_deals(self, viewer_id: UserId, page: PageRequest) -> Page[DealSummary]:
+        """Свои сделки в обеих ролях, новые первыми (S28 «Сделки и отзывы», 7.3)."""
         ...

@@ -585,3 +585,81 @@ export const ViewsGetDealCardResponse = zod.object({
       'Клиент может оставить отзыв до этого времени (14 дней после завершения); null — нельзя или уже оставлен',
     ),
 });
+
+/**
+ * Свои сделки (S28): клиентом и исполнителем, со второй стороной и отзывом.
+ * @summary List Deal History
+ */
+export const viewsListDealHistoryQueryCursorOneMax = 200;
+
+export const viewsListDealHistoryQueryLimitDefault = 20;
+export const viewsListDealHistoryQueryLimitMax = 50;
+
+export const ViewsListDealHistoryQueryParams = zod.object({
+  cursor: zod
+    .union([zod.string().max(viewsListDealHistoryQueryCursorOneMax), zod.null()])
+    .optional(),
+  limit: zod
+    .int()
+    .min(1)
+    .max(viewsListDealHistoryQueryLimitMax)
+    .default(viewsListDealHistoryQueryLimitDefault),
+});
+
+export const ViewsListDealHistoryResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      status: zod.enum(['proposed', 'agreed', 'completed', 'cancelled', 'disputed']),
+      my_role: zod.enum(['client', 'performer']),
+      title: zod.string(),
+      price: zod.object({
+        type: zod.union([zod.enum(['fixed', 'from', 'hourly', 'negotiable']), zod.null()]),
+        amount: zod.union([
+          zod.object({
+            amount: zod.int(),
+            currency: zod.enum(['RSD', 'XTR']),
+          }),
+          zod.null(),
+        ]),
+      }),
+      scheduled_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+      counterpart: zod.object({
+        id: zod.uuid(),
+        role: zod.enum(['client', 'performer']).describe('Кто вторая сторона для меня'),
+        display_name: zod.string().describe('Аккаунт удалён — пусто'),
+      }),
+      completed_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+      cancelled_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+      cancelled_by_me: zod
+        .union([zod.boolean(), zod.null()])
+        .describe('Отменил я; None — не отменена или система'),
+      cancel_reason: zod.union([
+        zod.enum([
+          'plans_changed',
+          'no_agreement',
+          'no_contact',
+          'other',
+          'expired',
+          'account_deleted',
+        ]),
+        zod.null(),
+      ]),
+      created_at: zod.iso.datetime({ offset: true }),
+      my_review: zod
+        .union([
+          zod.object({
+            id: zod.uuid(),
+            status: zod.string().describe('under_review | published | removed'),
+            rating: zod.int(),
+          }),
+          zod.null(),
+        ])
+        .describe('Свой отзыв по сделке'),
+      review_until: zod
+        .union([zod.iso.datetime({ offset: true }), zod.null()])
+        .describe('Клиент может оставить отзыв до этого времени; null — нельзя или уже оставлен'),
+    }),
+  ),
+  next_cursor: zod.union([zod.string(), zod.null()]),
+});

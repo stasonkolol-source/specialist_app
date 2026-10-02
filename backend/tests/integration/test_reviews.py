@@ -375,3 +375,52 @@ async def test_deleted_accounts_take_their_reviews_and_replies(
         )
         == 0
     )
+
+
+async def history(chat: Chat, user: UserId) -> list[Any]:
+    reply = await chat.get(user, "/me/deal-history")
+    assert reply.status_code == 200, reply.text
+    items: list[Any] = reply.json()["items"]
+    return items
+
+
+async def test_deal_history_shows_both_sides_and_the_review(
+    chat: Chat, worker: AsyncContainer
+) -> None:
+    specialist, client, deal_id = await agreed_deal(chat)
+    performer = UserId(specialist.user_id)
+
+    [active] = await history(chat, client)
+    assert (active["id"], active["status"], active["my_role"]) == (deal_id, "agreed", "client")
+    assert active["counterpart"]["role"] == "performer"
+    assert active["counterpart"]["display_name"]  # имя с карточки специалиста
+    assert (active["my_review"], active["review_until"]) == (None, None)
+
+    await complete(chat, deal_id, client, performer)
+    [done] = await history(chat, client)
+    assert done["review_until"] is not None  # можно оставить отзыв
+    left = await chat.post(client, f"/deals/{deal_id}/review", {"rating": 5})
+    assert left.status_code == 201, left.text
+
+    [reviewed] = await history(chat, client)
+    assert reviewed["my_review"]["rating"] == 5
+    assert reviewed["review_until"] is None
+    [theirs] = await history(chat, performer)
+    assert (theirs["my_role"], theirs["counterpart"]["role"]) == ("performer", "client")
+    assert (theirs["my_review"], theirs["review_until"]) == (None, None)  # отзыв пишет клиент
+
+
+async def test_client_is_asked_as_soon_as_the_performer_marks_done(
+    chat: Chat, worker: AsyncContainer
+) -> None:
+    specialist, client, deal_id = await agreed_deal(chat)
+
+    await complete(chat, deal_id, UserId(specialist.user_id))
+    asked_now = await run_queued(
+        worker, "notifications.notify_deal_marked", user_id=client, by="client_id"
+    )
+
+    assert asked_now == 1
+    [prompt] = await notified(chat, client, "deal.completion_prompt")
+    assert (prompt["by"], prompt["deal_id"]) == ("performer", deal_id)
+    assert await notified(chat, UserId(specialist.user_id), "deal.completion_prompt") == []

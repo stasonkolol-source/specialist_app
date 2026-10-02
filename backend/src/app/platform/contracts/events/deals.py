@@ -79,6 +79,19 @@ class DealCompletionDue(DomainEvent):
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class DealMarkedDone(DomainEvent):
+    """Одна сторона отметила «Работа выполнена», вторая ещё нет (7.3, B2): второй стороне —
+    «Работа выполнена?» сразу, не дожидаясь срока; молчит 72 ч — сделка завершится сама."""
+
+    event_type = "deals.DealMarkedDone"
+    deal_id: DealId
+    client_id: UserId
+    performer_id: UserId
+    marked_by: str
+    """DealRole отметившей стороны: `client` или `performer`."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class DealCancelled(DomainEvent):
     """Сделку отменили: сторона с причиной, система (истекло предложение, удалён аккаунт) или
     модератор по спору (6.1c)."""

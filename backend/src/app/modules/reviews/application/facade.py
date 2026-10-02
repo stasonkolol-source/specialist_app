@@ -10,6 +10,7 @@ from datetime import datetime
 from uuid import UUID
 
 from app.modules.reviews.api import (
+    DealRef,
     DealReviewState,
     PublicReview,
     RatingSummary,
@@ -61,12 +62,23 @@ class ReviewsFacade(ReviewsApi):
         status: str,
         completed_at: datetime | None,
     ) -> DealReviewState:
-        mine = (await self._queries.mine(viewer_id, [deal_id])).get(deal_id)
-        open_until = None
-        if mine is None and viewer_id == client_id and status == COMPLETED and completed_at:
-            until = completed_at + REVIEW_WINDOW
-            open_until = until if until > self._clock.now() else None
-        return DealReviewState(mine=mine, open_until=open_until)
+        ref = DealRef(id=deal_id, client_id=client_id, status=status, completed_at=completed_at)
+        return (await self.review_states(viewer_id, [ref]))[deal_id]
+
+    async def review_states(
+        self, viewer_id: UserId, deals: Collection[DealRef]
+    ) -> dict[DealId, DealReviewState]:
+        mine = await self._queries.mine(viewer_id, [deal.id for deal in deals])
+        now = self._clock.now()
+        states: dict[DealId, DealReviewState] = {}
+        for deal in deals:
+            own = mine.get(deal.id)
+            open_until = None
+            if own is None and viewer_id == deal.client_id and deal.status == COMPLETED:
+                until = deal.completed_at + REVIEW_WINDOW if deal.completed_at else None
+                open_until = until if until is not None and until > now else None
+            states[deal.id] = DealReviewState(mine=own, open_until=open_until)
+        return states
 
     async def review_for_check(self, review_id: UUID) -> ReviewForCheck | None:
         review = await self._read(review_id)
