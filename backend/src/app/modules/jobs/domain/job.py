@@ -20,8 +20,8 @@ from app.modules.jobs.domain.response import (
     Offer,
     Response,
     ResponseId,
+    ResponseReview,
     ResponseStatus,
-    Review,
 )
 from app.modules.jobs.errors import (
     AlreadyRespondedError,
@@ -558,7 +558,7 @@ class Job(VersionedAggregate):
         """Модерация скрыла отклик: активный освобождает место. Нет отклика или уже скрыт —
         ничего, False."""
         response = self._find_response(response_id)
-        if response is None or response.review is Review.BLOCKED:
+        if response is None or response.review is ResponseReview.BLOCKED:
             return False
         if response.block(now=now):
             self.responses_count = max(0, self.responses_count - 1)

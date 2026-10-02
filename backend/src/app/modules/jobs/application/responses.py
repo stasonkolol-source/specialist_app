@@ -12,8 +12,8 @@ from app.modules.jobs.domain.response import (
     ACTIVE,
     Offer,
     ResponseId,
+    ResponseReview,
     ResponseStatus,
-    Review,
 )
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, UserId
 
@@ -59,7 +59,7 @@ class ResponseJob:
 class MyResponse:
     id: ResponseId
     status: ResponseStatus
-    review: Review
+    review: ResponseReview
     offer: Offer
     is_first: bool
     """Первый отклик на заявку — «Первый отклик» на S17 и «Откликнулся первым» на S23."""

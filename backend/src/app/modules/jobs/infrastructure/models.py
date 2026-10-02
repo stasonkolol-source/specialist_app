@@ -42,9 +42,9 @@ from app.modules.jobs.domain.job import (
 from app.modules.jobs.domain.response import (
     MAX_AVAILABILITY,
     MAX_MESSAGE,
-    PriceType,
+    ResponsePriceType,
+    ResponseReview,
     ResponseStatus,
-    Review,
 )
 from app.platform.db.base import (
     ModelBase,
@@ -227,15 +227,15 @@ class ResponseRow(TimestampsMixin, SoftDeleteMixin, Base):
         str_enum(ResponseStatus, "status"), server_default=ResponseStatus.SUBMITTED.value
     )
     message: Mapped[str] = mapped_column(Text)
-    price_type: Mapped[PriceType] = mapped_column(str_enum(PriceType, "price_type"))
+    price_type: Mapped[ResponsePriceType] = mapped_column(str_enum(ResponsePriceType, "price_type"))
     price_amount: Mapped[int | None] = mapped_column(BigInteger)
     """Пара; у договорной — нет."""
     currency: Mapped[str] = mapped_column(String(3), server_default=text("'RSD'"))
     availability_note: Mapped[str | None] = mapped_column(Text)
     template_id: Mapped[UUID | None]
     """jobs.response_templates (5.5): отклик в один тап из шаблона."""
-    review: Mapped[Review] = mapped_column(
-        str_enum(Review, "review"), server_default=Review.PENDING.value
+    review: Mapped[ResponseReview] = mapped_column(
+        str_enum(ResponseReview, "review"), server_default=ResponseReview.PENDING.value
     )
     """Проверка текста модерацией: клиент видит только `clear`."""
     revision: Mapped[int] = mapped_column(Integer, server_default=text("1"))

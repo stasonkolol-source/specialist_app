@@ -42,9 +42,9 @@ from app.modules.jobs.domain.response import (
     MAX_MESSAGE,
     MAX_PRICE,
     Offer,
-    PriceType,
+    ResponsePriceType,
+    ResponseReview,
     ResponseStatus,
-    Review,
 )
 from app.platform.http.money import MoneyOut
 from app.platform.kernel.geo import GeoPoint
@@ -301,7 +301,7 @@ class ResponseIn(BaseModel):
     """Отклик S16: сообщение клиенту, цена и «когда смогу»."""
 
     message: str = Field(min_length=1, max_length=MAX_MESSAGE)
-    price_type: PriceType
+    price_type: ResponsePriceType
     price_amount: int | None = Field(
         default=None, ge=1, le=MAX_PRICE, description="Пара; у договорной — нет"
     )
@@ -319,7 +319,7 @@ class ResponseIn(BaseModel):
 
 
 class ResponsePriceOut(BaseModel):
-    type: PriceType
+    type: ResponsePriceType
     amount: MoneyOut | None
 
     @classmethod
@@ -374,7 +374,7 @@ class MyResponseOut(BaseModel):
 
     id: UUID
     status: ResponseStatus
-    review: Review = Field(description="pending — на проверке, blocked — скрыт модерацией")
+    review: ResponseReview = Field(description="pending — на проверке, blocked — скрыт модерацией")
     message: str
     price: ResponsePriceOut
     availability_note: str | None

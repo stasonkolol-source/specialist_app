@@ -63,8 +63,7 @@ from app.modules.jobs.application.ports import JobQueries
 from app.modules.jobs.application.use_cases.create_job import CreateJob, CreateJobCommand
 from app.modules.jobs.application.use_cases.respond import TRUSTED_LEVEL, Respond, RespondCommand
 from app.modules.jobs.domain.job import Budget, BudgetType, BudgetUnit, JobId, Urgency
-from app.modules.jobs.domain.response import Offer
-from app.modules.jobs.domain.response import PriceType as ResponsePrice
+from app.modules.jobs.domain.response import Offer, ResponsePriceType
 from app.modules.jobs.errors import AlreadyRespondedError, JobFullError, OwnJobResponseError
 from app.modules.media.application.ports import MediaQuery
 from app.modules.media.application.use_cases.complete_upload import (
@@ -655,7 +654,7 @@ def _offer(job: DemoJob, lang: Lang, rng: random.Random) -> Offer:
     """Отклик демо-специалиста: сообщение, «когда смогу» и цена около бюджета заявки."""
     base = job.dinars[0] if job.dinars else rng.choice((2000, 3000, 5000))
     amount = round(base * rng.choice((0.8, 1.0, 1.2)) / 100) * 100 * 100
-    price = ResponsePrice.FIXED if job.dinars else ResponsePrice.FROM
+    price = ResponsePriceType.FIXED if job.dinars else ResponsePriceType.FROM
     return Offer(
         message=rng.choice(RESPONSE_MESSAGES[lang]),
         price_type=price,

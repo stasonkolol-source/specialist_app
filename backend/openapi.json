@@ -2233,6 +2233,127 @@
         }
       }
     },
+    "/api/v1/jobs/{job_id}/responses": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Respond",
+        "description": "Откликнуться (S16): заявка открыта, не своя и есть место — иначе 409 (`job_not_open`,\n`own_job`, `already_responded`, `job_full`); суточный лимит по уровню доверия — 429. Текст\nуходит на проверку: клиент увидит отклик после неё.",
+        "operationId": "jobs_respond",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id заявки",
+              "title": "Job Id"
+            },
+            "description": "id заявки"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Ключ операции: повтор с тем же ключом вернёт тот же ответ",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResponseIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyResponseOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "List Job Responses",
+        "description": "Отклики на свою заявку (S23): прошедшие проверку, по порядку, с «Откликнулся первым».\nЧужая заявка — 404.",
+        "operationId": "jobs_list_job_responses",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id заявки",
+              "title": "Job Id"
+            },
+            "description": "id заявки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobResponsesOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/jobs/count": {
       "get": {
         "tags": [
@@ -2955,6 +3076,204 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/JobsOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/responses/{response_id}": {
+      "patch": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Revise Response",
+        "description": "Поправить свой отклик, пока клиент не решил (иначе 409 `response_not_active`): новая\nредакция снова на проверке.",
+        "operationId": "jobs_revise_response",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "response_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id отклика",
+              "title": "Response Id"
+            },
+            "description": "id отклика"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResponseIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyResponseOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/responses/{response_id}/withdraw": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Withdraw Response",
+        "description": "Отозвать свой отклик, пока клиент не решил: место на заявке освобождается.",
+        "operationId": "jobs_withdraw_response",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "response_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id отклика",
+              "title": "Response Id"
+            },
+            "description": "id отклика"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyResponseOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/responses": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "List My Responses",
+        "description": "Мои отклики (S17), новые первыми, с заявкой; числа на чипах и «сегодня откликов: 3 из\n50».",
+        "operationId": "jobs_list_my_responses",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ResponseGroup"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Чип S17: active, accepted, not_selected, archive; без него — все",
+              "title": "Status"
+            },
+            "description": "Чип S17: active, accepted, not_selected, archive; без него — все"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyResponsesPageOut"
                 }
               }
             }
@@ -6117,6 +6436,84 @@
         ],
         "title": "JobPointOut"
       },
+      "JobResponseOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ResponseStatus"
+          },
+          "performer": {
+            "$ref": "#/components/schemas/ResponsePerformerOut"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "price": {
+            "$ref": "#/components/schemas/ResponsePriceOut"
+          },
+          "availability_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Note"
+          },
+          "is_first": {
+            "type": "boolean",
+            "title": "Is First",
+            "description": "«Откликнулся первым»"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "performer",
+          "message",
+          "price",
+          "availability_note",
+          "is_first",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "JobResponseOut",
+        "description": "Отклик на свою заявку (S23): прошедший проверку."
+      },
+      "JobResponsesOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/JobResponseOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "JobResponsesOut"
+      },
       "JobStatus": {
         "type": "string",
         "enum": [
@@ -6720,6 +7117,122 @@
           "currency"
         ],
         "title": "MoneyOut"
+      },
+      "MyResponseOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ResponseStatus"
+          },
+          "review": {
+            "$ref": "#/components/schemas/ResponseReview",
+            "description": "pending — на проверке, blocked — скрыт модерацией"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "price": {
+            "$ref": "#/components/schemas/ResponsePriceOut"
+          },
+          "availability_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Note"
+          },
+          "is_first": {
+            "type": "boolean",
+            "title": "Is First",
+            "description": "Первый отклик на заявку — «Первый отклик»"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "job": {
+            "$ref": "#/components/schemas/ResponseJobOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "review",
+          "message",
+          "price",
+          "availability_note",
+          "is_first",
+          "created_at",
+          "updated_at",
+          "decided_at",
+          "job"
+        ],
+        "title": "MyResponseOut",
+        "description": "Свой отклик (S17): статус, проверка, предложение и заявка."
+      },
+      "MyResponsesPageOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MyResponseOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/ResponseCountsOut"
+          },
+          "today": {
+            "$ref": "#/components/schemas/TodayOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor",
+          "counts",
+          "today"
+        ],
+        "title": "MyResponsesPageOut"
       },
       "NotificationOut": {
         "properties": {
@@ -7661,6 +8174,317 @@
           "exact"
         ],
         "title": "ResolveOut"
+      },
+      "ResponseCountsOut": {
+        "properties": {
+          "all": {
+            "type": "integer",
+            "title": "All"
+          },
+          "active": {
+            "type": "integer",
+            "title": "Active"
+          },
+          "accepted": {
+            "type": "integer",
+            "title": "Accepted"
+          },
+          "not_selected": {
+            "type": "integer",
+            "title": "Not Selected"
+          },
+          "archive": {
+            "type": "integer",
+            "title": "Archive"
+          }
+        },
+        "type": "object",
+        "required": [
+          "all",
+          "active",
+          "accepted",
+          "not_selected",
+          "archive"
+        ],
+        "title": "ResponseCountsOut",
+        "description": "Числа на чипах S17: «Все 3 · Активные 2 · Выбран 1 · Не выбран 1 · Архив»."
+      },
+      "ResponseGroup": {
+        "type": "string",
+        "enum": [
+          "active",
+          "accepted",
+          "not_selected",
+          "archive"
+        ],
+        "title": "ResponseGroup"
+      },
+      "ResponseIn": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "maxLength": 1500,
+            "minLength": 1,
+            "title": "Message"
+          },
+          "price_type": {
+            "$ref": "#/components/schemas/ResponsePriceType"
+          },
+          "price_amount": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100000000000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Amount",
+            "description": "Пара; у договорной — нет"
+          },
+          "availability_note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Note",
+            "description": "«Сегодня, 19:00»"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message",
+          "price_type"
+        ],
+        "title": "ResponseIn",
+        "description": "Отклик S16: сообщение клиенту, цена и «когда смогу»."
+      },
+      "ResponseJobOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "category_id": {
+            "type": "integer",
+            "title": "Category Id"
+          },
+          "city_id": {
+            "type": "integer",
+            "title": "City Id"
+          },
+          "district_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "District Id"
+          },
+          "urgency": {
+            "$ref": "#/components/schemas/Urgency"
+          },
+          "preferred_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred From"
+          },
+          "preferred_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred To"
+          },
+          "budget_type": {
+            "$ref": "#/components/schemas/BudgetType"
+          },
+          "budget_min": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoneyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "budget_max": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoneyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "budget_unit": {
+            "$ref": "#/components/schemas/BudgetUnit"
+          },
+          "responses_count": {
+            "type": "integer",
+            "title": "Responses Count"
+          },
+          "max_responses": {
+            "type": "integer",
+            "title": "Max Responses"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "status",
+          "category_id",
+          "city_id",
+          "district_id",
+          "urgency",
+          "preferred_from",
+          "preferred_to",
+          "budget_type",
+          "budget_min",
+          "budget_max",
+          "budget_unit",
+          "responses_count",
+          "max_responses",
+          "published_at"
+        ],
+        "title": "ResponseJobOut",
+        "description": "Заявка в карточке «Мои отклики» S17."
+      },
+      "ResponsePerformerOut": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name",
+            "description": "Аккаунт удалён — пусто"
+          },
+          "profile_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Id",
+            "description": "Профиль специалиста; без него — подработка"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "display_name",
+          "profile_id"
+        ],
+        "title": "ResponsePerformerOut"
+      },
+      "ResponsePriceOut": {
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/ResponsePriceType"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoneyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "amount"
+        ],
+        "title": "ResponsePriceOut"
+      },
+      "ResponsePriceType": {
+        "type": "string",
+        "enum": [
+          "fixed",
+          "from",
+          "hourly",
+          "negotiable"
+        ],
+        "title": "ResponsePriceType",
+        "description": "Цена отклика S16: «Фикс», «От», «За час», «Договорная»."
+      },
+      "ResponseReview": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "clear",
+          "blocked"
+        ],
+        "title": "ResponseReview",
+        "description": "Проверка текста: клиент видит только `clear`."
+      },
+      "ResponseStatus": {
+        "type": "string",
+        "enum": [
+          "submitted",
+          "viewed",
+          "shortlisted",
+          "accepted",
+          "declined",
+          "withdrawn",
+          "not_selected"
+        ],
+        "title": "ResponseStatus"
       },
       "SavedJobsOut": {
         "properties": {
@@ -8659,6 +9483,25 @@
         ],
         "title": "TelegramChannelOut",
         "description": "Канал «бот пишет в личный чат»: Mini App решает, просить ли разрешение (S21, S02c)."
+      },
+      "TodayOut": {
+        "properties": {
+          "used": {
+            "type": "integer",
+            "title": "Used"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "used",
+          "limit"
+        ],
+        "title": "TodayOut",
+        "description": "«Сегодня откликов: 3 из 50 — лимит по уровню доверия» (S17)."
       },
       "TokensOut": {
         "properties": {

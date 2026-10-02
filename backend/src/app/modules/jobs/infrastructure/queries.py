@@ -49,10 +49,10 @@ from app.modules.jobs.domain.job import (
 from app.modules.jobs.domain.response import ACTIVE as ACTIVE_RESPONSES
 from app.modules.jobs.domain.response import (
     Offer,
-    PriceType,
     ResponseId,
+    ResponsePriceType,
+    ResponseReview,
     ResponseStatus,
-    Review,
 )
 from app.modules.jobs.infrastructure.models import (
     HiddenJobRow,
@@ -260,7 +260,7 @@ class SqlJobQueries(SqlQuery):
             .where(
                 _R.job_id == job_id,
                 _R.deleted_at.is_(None),
-                _R.review == Review.CLEAR.value,
+                _R.review == ResponseReview.CLEAR.value,
                 _R.status != ResponseStatus.WITHDRAWN.value,
             )
             .order_by(_R.created_at, _R.id)
@@ -343,7 +343,7 @@ _RESPONSE_JOB = (
 def _offer(row: RowMapping) -> Offer:
     return Offer(
         message=row["message"],
-        price_type=PriceType(row["price_type"]),
+        price_type=ResponsePriceType(row["price_type"]),
         price_amount=row["price_amount"],
         availability_note=row["availability_note"],
     )
@@ -354,7 +354,7 @@ def _my_response(row: RowMapping) -> MyResponse:
     return MyResponse(
         id=ResponseId(row["id"]),
         status=ResponseStatus(row["status"]),
-        review=Review(row["review"]),
+        review=ResponseReview(row["review"]),
         offer=_offer(row),
         is_first=bool(row["is_first"]),
         created_at=row["created_at"],

@@ -8,7 +8,7 @@ from app.modules.catalog.api import CatalogApi
 from app.modules.jobs.api import JobBrief, JobForReview, JobsApi, ResponseForReview
 from app.modules.jobs.application.ports import JobQueries, JobRepository
 from app.modules.jobs.domain.job import MAX_EXTENSIONS, Job, JobId, JobStatus
-from app.modules.jobs.domain.response import ResponseId, Review
+from app.modules.jobs.domain.response import ResponseId, ResponseReview
 from app.modules.jobs.errors import JobNotFoundError
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
@@ -78,7 +78,7 @@ class JobsFacade(JobsApi):
     async def response_for_review(self, response_id: UUID) -> ResponseForReview | None:
         job = await self._job_of_response(ResponseId(response_id))
         response = next((r for r in job.responses if r.id == response_id), None) if job else None
-        if response is None or response.review is not Review.PENDING:
+        if response is None or response.review is not ResponseReview.PENDING:
             return None
         offer = response.offer
         text = "\n\n".join(part for part in (offer.message, offer.availability_note) if part)

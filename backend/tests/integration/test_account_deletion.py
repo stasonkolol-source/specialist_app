@@ -29,6 +29,7 @@ from tests.plugins.http import HttpApp, http_app
 from tests.plugins.identity import (
     accept_rules,
     bearer,
+    insert_user,
     login,
     new_telegram_id,
     signed_init_data,
@@ -142,6 +143,28 @@ async def specialist(app: HttpApp, settings: Settings, telegram_id: int) -> Acco
             user=account.user_id,
             job=job.json()["id"],
         )
+    # отклик (5.4) на чужую опубликованную заявку — через API: после удаления он отозван
+    async with app.container() as request:
+        other = await insert_user(await request.get(AsyncSession))
+    other_job = new_id()
+    await account.execute(
+        "INSERT INTO jobs.jobs (id, client_id, status, title, description, content_lang,"
+        " category_id, category_path, urgency, budget_type, city_id, published_at,"
+        " expires_at, version) SELECT :id, :client, 'published', 'Собрать шкаф', '', 'ru',"
+        " c.id, c.path, 'this_week', 'negotiable', :city, now(), now() + interval '7 days', 1"
+        " FROM catalog.categories c WHERE c.id = :category",
+        id=other_job,
+        client=other,
+        city=city,
+        category=category,
+    )
+    responded = await account.call(
+        "POST",
+        f"/jobs/{other_job}/responses",
+        message="Соберу сегодня вечером, инструмент свой.",
+        price_type="negotiable",
+    )
+    assert responded.status_code == 201, responded.text
     # избранное (4.6) — строкой: сохранить через API можно только видимого в каталоге
     await account.execute(
         "INSERT INTO search.favorites (user_id, target_type, target_id)"
@@ -188,6 +211,7 @@ async def test_deleted_account_keeps_nothing_personal(
         "pricing.remove_profile_prices",
         "search.forget_favorites",
         "jobs.forget_client",
+        "jobs.withdraw_performer_responses",
     ):
         assert await account.run(task) == 1, task
     assert await account.run("media.discard_media") == 2  # работа и фото профиля
@@ -228,6 +252,8 @@ async def test_deleted_account_keeps_nothing_personal(
         " AND (deleted_at IS NULL OR status <> 'closed' OR address_private IS NOT NULL)",
         "скрытые заявки": "SELECT count(*) FROM jobs.hidden_jobs WHERE user_id = :user",
         "сохранённые заявки": "SELECT count(*) FROM jobs.saved_jobs WHERE user_id = :user",
+        "активные отклики": "SELECT count(*) FROM jobs.responses WHERE performer_id = :user"
+        " AND status IN ('submitted', 'viewed', 'shortlisted')",
     }
     for what, sql in mine.items():
         assert await count(account, sql, user=account.user_id) == 0, what

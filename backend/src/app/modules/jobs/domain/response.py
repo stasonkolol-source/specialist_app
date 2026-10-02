@@ -71,7 +71,7 @@ _ALLOWED: Final[dict[ResponseStatus, frozenset[ResponseStatus]]] = {
 }
 
 
-class Review(StrEnum):
+class ResponseReview(StrEnum):
     """Проверка текста: клиент видит только `clear`."""
 
     PENDING = "pending"
@@ -81,7 +81,7 @@ class Review(StrEnum):
     """Скрыт модерацией: место освобождено."""
 
 
-class PriceType(StrEnum):
+class ResponsePriceType(StrEnum):
     """Цена отклика S16: «Фикс», «От», «За час», «Договорная»."""
 
     FIXED = "fixed"
@@ -95,7 +95,7 @@ class Offer:
     """Что исполнитель предлагает: сообщение клиенту, цена в пара и «когда смогу»."""
 
     message: str
-    price_type: PriceType
+    price_type: ResponsePriceType
     price_amount: int | None = None
     availability_note: str | None = None
 
@@ -103,7 +103,7 @@ class Offer:
         message = self.message.strip()
         if not 1 <= len(message) <= MAX_MESSAGE:
             raise InvalidResponseError(field="message", reason="length")
-        if self.price_type is PriceType.NEGOTIABLE:
+        if self.price_type is ResponsePriceType.NEGOTIABLE:
             if self.price_amount is not None:
                 raise InvalidResponseError(field="price_amount", reason="negotiable_has_amount")
         elif self.price_amount is None:
@@ -133,7 +133,7 @@ class Response:
     profile_id: UUID | None = None
     """Профиль специалиста, от которого отклик; без профиля — подработка («Мастер на час»)."""
     template_id: UUID | None = None
-    review: Review = Review.PENDING
+    review: ResponseReview = ResponseReview.PENDING
     revision: int = 1
     """Растёт с каждой правкой: модерация публикует только ту редакцию, которую проверила."""
     viewed_at: datetime | None = None
@@ -155,15 +155,15 @@ class Response:
 
     @property
     def visible_to_client(self) -> bool:
-        return self.review is Review.CLEAR
+        return self.review is ResponseReview.CLEAR
 
     def revise(self, offer: Offer, *, now: datetime) -> None:
         """Исполнитель поправил отклик — пока клиент не решил: новая редакция снова на проверку
         и до неё скрыта от клиента."""
-        if not self.is_active or self.review is Review.BLOCKED:
+        if not self.is_active or self.review is ResponseReview.BLOCKED:
             raise ResponseNotActiveError(response_id=self.id, response_status=self.status.value)
         self.offer = offer
-        self.review = Review.PENDING
+        self.review = ResponseReview.PENDING
         self.revision += 1
         self.updated_at = now
         self._changed = True
@@ -178,21 +178,21 @@ class Response:
     def clear(self, *, revision: int | None, now: datetime) -> bool:
         """Проверка пройдена: клиент видит отклик. Другая редакция (успели поправить), уже
         видимый или скрытый — ничего, False."""
-        if self.review is not Review.PENDING:
+        if self.review is not ResponseReview.PENDING:
             return False
         if revision is not None and revision != self.revision:
             return False
-        self.review = Review.CLEAR
+        self.review = ResponseReview.CLEAR
         self.updated_at = now
         self._changed = True
         return True
 
     def block(self, *, now: datetime) -> bool:
         """Нарушение: отклик скрыт; активный перестаёт занимать место (возвращает True)."""
-        if self.review is Review.BLOCKED:
+        if self.review is ResponseReview.BLOCKED:
             return False
         freed = self.is_active
-        self.review = Review.BLOCKED
+        self.review = ResponseReview.BLOCKED
         if freed:
             self._move(ResponseStatus.WITHDRAWN, now=now)
             self.decided_at = now

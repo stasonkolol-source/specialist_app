@@ -10,11 +10,11 @@ from app.modules.jobs.domain.response import (
     MAX_AVAILABILITY,
     MAX_MESSAGE,
     Offer,
-    PriceType,
     Response,
     ResponseId,
+    ResponsePriceType,
+    ResponseReview,
     ResponseStatus,
-    Review,
 )
 from app.modules.jobs.errors import (
     AlreadyRespondedError,
@@ -39,7 +39,7 @@ LATER = NOW + timedelta(minutes=5)
 
 
 def offer(message: str = "Могу сегодня в 19:00, свой инструмент.") -> Offer:
-    return Offer(message=message, price_type=PriceType.FIXED, price_amount=350_000)
+    return Offer(message=message, price_type=ResponsePriceType.FIXED, price_amount=350_000)
 
 
 def performer() -> UserId:
@@ -60,7 +60,7 @@ def test_response_takes_a_place_and_waits_for_the_check() -> None:
 
     assert (first.status, first.review, first.revision) == (
         ResponseStatus.SUBMITTED,
-        Review.PENDING,
+        ResponseReview.PENDING,
         1,
     )
     assert job.responses_count == 2
@@ -121,7 +121,7 @@ def test_revised_response_is_checked_again() -> None:
         response.id, performer_id=someone, offer=offer("Могу завтра утром."), now=LATER
     )
 
-    assert (response.review, response.revision) == (Review.PENDING, 2)
+    assert (response.review, response.revision) == (ResponseReview.PENDING, 2)
     assert response.offer.message == "Могу завтра утром."
     assert [type(e) for e in job.pull_events()] == [ResponseUpdated]
     # проверка старой редакции не показывает новую
@@ -136,7 +136,7 @@ def test_blocked_response_is_hidden_and_frees_the_place() -> None:
 
     assert job.block_response(response.id, now=LATER)
 
-    assert (response.review, response.status) == (Review.BLOCKED, ResponseStatus.WITHDRAWN)
+    assert (response.review, response.status) == (ResponseReview.BLOCKED, ResponseStatus.WITHDRAWN)
     assert job.responses_count == 0
     assert not job.block_response(response.id, now=LATER)
     assert not job.clear_response(response.id, revision=None, now=LATER)
@@ -174,8 +174,8 @@ def test_response_change_marks_only_that_response_for_saving() -> None:
     [
         ({"message": "   "}, "message"),
         ({"message": "м" * (MAX_MESSAGE + 1)}, "message"),
-        ({"price_type": PriceType.NEGOTIABLE, "price_amount": 100}, "price_amount"),
-        ({"price_type": PriceType.FROM, "price_amount": None}, "price_amount"),
+        ({"price_type": ResponsePriceType.NEGOTIABLE, "price_amount": 100}, "price_amount"),
+        ({"price_type": ResponsePriceType.FROM, "price_amount": None}, "price_amount"),
         ({"price_amount": 0}, "price_amount"),
         ({"availability_note": "з" * (MAX_AVAILABILITY + 1)}, "availability_note"),
     ],
@@ -183,7 +183,7 @@ def test_response_change_marks_only_that_response_for_saving() -> None:
 def test_offer_rules(fields: dict[str, object], field: str) -> None:
     values: dict[str, object] = {
         "message": "Могу сегодня",
-        "price_type": PriceType.FIXED,
+        "price_type": ResponsePriceType.FIXED,
         "price_amount": 100,
     }
     with pytest.raises(InvalidResponseError) as error:
@@ -193,7 +193,7 @@ def test_offer_rules(fields: dict[str, object], field: str) -> None:
 
 def test_offer_trims_text_and_drops_an_empty_note() -> None:
     trimmed = Offer(
-        message="  Могу сегодня  ", price_type=PriceType.NEGOTIABLE, availability_note="  "
+        message="  Могу сегодня  ", price_type=ResponsePriceType.NEGOTIABLE, availability_note="  "
     )
 
     assert (trimmed.message, trimmed.availability_note) == ("Могу сегодня", None)
