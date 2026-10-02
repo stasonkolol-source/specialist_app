@@ -6,6 +6,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.identity.api import DeletionHold
+from app.modules.jobs.api import JobsApi
 from app.modules.media.api import LegalHold
 from app.modules.moderation.application.content_rules import ContentRulesChecker
 from app.modules.moderation.application.policy import PublishedModerationPolicy
@@ -50,6 +51,7 @@ from app.modules.moderation.infrastructure.queries import SqlCaseQueue, SqlCaseS
 from app.modules.moderation.infrastructure.rate_limits import ValkeyRateLimitOverflows
 from app.modules.moderation.infrastructure.rules import CachedRuleSource, SqlRuleWriter
 from app.modules.moderation.infrastructure.targets import TargetRegistry
+from app.modules.moderation.infrastructure.targets.job import JobTarget
 from app.modules.moderation.infrastructure.targets.profile import ProfileTarget
 from app.modules.moderation.infrastructure.velocity import ValkeyVelocityCounter
 from app.modules.specialists.api import SpecialistsApi
@@ -84,9 +86,11 @@ class ModerationProvider(Provider):
         return PublishedModerationPolicy(versions, library)
 
     @provide
-    def targets(self, specialists: SpecialistsApi) -> ModerationTargets:
-        """Адаптеры целей: контентные модули добавляют свои в своих шагах (5.1, 5.4, …)."""
-        return TargetRegistry({EntityType.PROFILE: ProfileTarget(specialists)})
+    def targets(self, specialists: SpecialistsApi, jobs: JobsApi) -> ModerationTargets:
+        """Адаптеры целей: контентные модули добавляют свои в своих шагах (5.4, …)."""
+        return TargetRegistry(
+            {EntityType.PROFILE: ProfileTarget(specialists), EntityType.JOB: JobTarget(jobs)}
+        )
 
     @provide(scope=Scope.APP)
     def auto_check_metrics(self, registry: CollectorRegistry) -> AutoCheckMetrics:

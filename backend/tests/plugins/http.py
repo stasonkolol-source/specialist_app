@@ -56,7 +56,9 @@ def sample_router(prefix: str = "/test") -> APIRouter:
     return APIRouter(prefix=prefix, generate_unique_id_function=lambda route: f"test_{route.name}")
 
 
-def bearer(settings: Settings, user_id: UUID | None = None) -> dict[str, str]:
+def bearer(
+    settings: Settings, user_id: UUID | None = None, *, trust_level: int = 0
+) -> dict[str, str]:
     """Заголовок Authorization с access JWT из ключей настроек теста."""
     assert settings.jwt.keys is not None
     tokens = AccessTokens(
@@ -65,7 +67,9 @@ def bearer(settings: Settings, user_id: UUID | None = None) -> dict[str, str]:
         issuer=settings.jwt.issuer,
         ttl=timedelta(minutes=15),
     )
-    principal = Principal(user_id=UserId(user_id or new_id()), session_id=new_id().hex)
+    principal = Principal(
+        user_id=UserId(user_id or new_id()), trust_level=trust_level, session_id=new_id().hex
+    )
     token, _ = tokens.issue(principal, amr=("test",))
     return {"authorization": f"Bearer {token}"}
 

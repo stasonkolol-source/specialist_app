@@ -395,6 +395,27 @@ msgstr "Прво направите профил извођача."
 msgid "errors.favorites_full"
 msgstr "У омиљенима већ има {limit} — уклоните некога да бисте додали."
 
+msgid "errors.job_not_found"
+msgstr "Захтев није пронађен: обрисан је или вам није видљив."
+
+msgid "errors.invalid_job"
+msgstr "Проверите захтев: нешто није попуњено како треба."
+
+msgid "errors.job_not_open"
+msgstr "Са захтевом у овом статусу то није могуће."
+
+msgid "errors.job_extend_limit"
+msgstr "Захтев је већ продужен {limit} пута — више није могуће. Направите нови."
+
+msgid "errors.job_category_unavailable"
+msgstr "У овој услузи тренутно није могуће направити захтев."
+
+msgid "errors.active_jobs_limit"
+msgstr "Већ имате {limit} активна захтева. Затворите један да бисте направили нови."
+
+msgid "errors.daily_jobs_limit"
+msgstr "Данас је направљено превише захтева. Покушајте сутра."
+
 # Обавештења (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
 msgid "errors.notification_group_mandatory"
 msgstr "Службена обавештења не могу да се искључе: тичу се одлука модерације и ограничења налога."

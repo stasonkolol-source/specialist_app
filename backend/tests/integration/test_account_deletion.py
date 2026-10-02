@@ -1,9 +1,10 @@
 """Удаление аккаунта сквозь модули (DEVELOPMENT_PLAN 2.12a, ARCHITECTURE §7.10).
 
 Специалист с профилем, прайсом, работой портфолио, фото профиля, каналом уведомлений,
-атрибуцией и избранным просит удалить аккаунт (S45). Когда срок прошёл, `identity.process_deletions`
-исполняет запрос, а подписчики UserDeleted и ProfileDeleted удаляют своё — задачи выполняются
-так, как их выполнил бы воркер. Сессия больше не работает, хэш Telegram ID записан.
+атрибуцией, избранным и заявкой просит удалить аккаунт (S45). Когда срок прошёл,
+`identity.process_deletions` исполняет запрос, а подписчики UserDeleted и ProfileDeleted удаляют
+своё — задачи выполняются так, как их выполнил бы воркер. Сессия больше не работает, хэш
+Telegram ID записан.
 """
 
 import json
@@ -117,6 +118,22 @@ async def specialist(app: HttpApp, settings: Settings, telegram_id: int) -> Acco
         user=account.user_id,
         address=str(telegram_id),
     )
+    # заявка (5.1): адрес — личный, после удаления аккаунта его нет
+    category = await account.scalar(
+        "SELECT min(id) FROM catalog.categories WHERE is_active AND jobs_enabled"
+        " AND risk_level = 0 AND parent_id IS NOT NULL"
+    )
+    job = await account.call(
+        "POST",
+        "/jobs",
+        title="Повесить люстру в спальне",
+        category_id=category,
+        urgency="this_week",
+        budget_type="negotiable",
+        city_id=city,
+        address_private="Народног фронта 12, стан 5",
+    )
+    assert job.status_code == 201, job.text
     # избранное (4.6) — строкой: сохранить через API можно только видимого в каталоге
     await account.execute(
         "INSERT INTO search.favorites (user_id, target_type, target_id)"
@@ -162,6 +179,7 @@ async def test_deleted_account_keeps_nothing_personal(
         "growth.forget_attribution",
         "pricing.remove_profile_prices",
         "search.forget_favorites",
+        "jobs.forget_client",
     ):
         assert await account.run(task) == 1, task
     assert await account.run("media.discard_media") == 2  # работа и фото профиля
@@ -198,6 +216,8 @@ async def test_deleted_account_keeps_nothing_personal(
         "каналы": "SELECT count(*) FROM notifications.channels WHERE user_id = :user",
         "атрибуция": "SELECT count(*) FROM growth.attributions WHERE user_id = :user",
         "избранное": "SELECT count(*) FROM search.favorites WHERE user_id = :user",
+        "заявки": "SELECT count(*) FROM jobs.jobs WHERE client_id = :user"
+        " AND (deleted_at IS NULL OR status <> 'closed' OR address_private IS NOT NULL)",
     }
     for what, sql in mine.items():
         assert await count(account, sql, user=account.user_id) == 0, what

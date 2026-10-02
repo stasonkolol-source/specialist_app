@@ -395,6 +395,27 @@ msgstr "Сначала создайте профиль исполнителя."
 msgid "errors.favorites_full"
 msgstr "В избранном уже {limit} — уберите кого-нибудь, чтобы добавить."
 
+msgid "errors.job_not_found"
+msgstr "Заявка не найдена: её удалили или она вам не видна."
+
+msgid "errors.invalid_job"
+msgstr "Проверьте заявку: что-то заполнено не так."
+
+msgid "errors.job_not_open"
+msgstr "С заявкой в этом статусе так нельзя."
+
+msgid "errors.job_extend_limit"
+msgstr "Заявку уже продлевали {limit} раза — больше нельзя. Создайте новую."
+
+msgid "errors.job_category_unavailable"
+msgstr "В этой услуге сейчас нельзя создать заявку."
+
+msgid "errors.active_jobs_limit"
+msgstr "У вас уже {limit} активные заявки. Закройте одну, чтобы создать новую."
+
+msgid "errors.daily_jobs_limit"
+msgstr "Сегодня создано слишком много заявок. Попробуйте завтра."
+
 # Уведомления (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
 msgid "errors.notification_group_mandatory"
 msgstr "Служебные уведомления нельзя выключить: они о решениях модерации и ограничениях аккаунта."

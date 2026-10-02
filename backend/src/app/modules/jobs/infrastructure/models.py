@@ -1,0 +1,167 @@
+"""ORM-модели jobs (ARCHITECTURE §7.3, миграция jobs_0001): заявки, их фото и история статусов.
+
+FK на identity.users, catalog.categories, geo.cities, geo.districts и media.assets объявлены
+только в миграции: MetaData модуля не знает чужих таблиц (modules/README.md). Отклики,
+приглашения и подписки — в своих шагах (5.4, 5.6, 5.7); `tag_ids`, `verified_only`,
+`views_count` и `search_vector` — задел ленты и поиска заявок (5.3).
+"""
+
+from datetime import datetime
+from uuid import UUID
+
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    ForeignKey,
+    Identity,
+    Index,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+    func,
+    text,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.modules.jobs.domain.job import (
+    MAX_DESCRIPTION,
+    MAX_TITLE,
+    MIN_TITLE,
+    ActorKind,
+    BudgetType,
+    BudgetUnit,
+    CloseReason,
+    JobStatus,
+    Urgency,
+    Visibility,
+)
+from app.platform.db.base import (
+    ModelBase,
+    SoftDeleteMixin,
+    TimestampsMixin,
+    UuidPkMixin,
+    VersionMixin,
+    module_metadata,
+)
+from app.platform.db.types import GeoPointType, rsd_only, str_enum
+from app.platform.kernel.geo import GeoPoint
+
+SCHEMA = "jobs"
+metadata = module_metadata(SCHEMA)
+PUBLISHED = text("status = 'published'")
+
+
+class Base(ModelBase):
+    __abstract__ = True
+    metadata = metadata
+
+
+class JobRow(UuidPkMixin, TimestampsMixin, SoftDeleteMixin, VersionMixin, Base):
+    __tablename__ = "jobs"
+
+    client_id: Mapped[UUID]
+    """identity.users: FK fk_jobs_client_id_users — в миграции jobs_0001."""
+    status: Mapped[JobStatus] = mapped_column(
+        str_enum(JobStatus, "status"), server_default=JobStatus.DRAFT.value
+    )
+    visibility: Mapped[Visibility] = mapped_column(
+        str_enum(Visibility, "visibility"), server_default=Visibility.PUBLIC.value
+    )
+    title: Mapped[str] = mapped_column(Text)
+    description: Mapped[str] = mapped_column(Text)
+    content_lang: Mapped[str] = mapped_column(String(8))
+    category_id: Mapped[int] = mapped_column(Integer)
+    """catalog.categories: FK в миграции."""
+    category_path: Mapped[list[int]] = mapped_column(ARRAY(Integer))
+    """Копия categories.path: фильтр «категория с потомками» (лента 5.3)."""
+    tag_ids: Mapped[list[int]] = mapped_column(ARRAY(Integer), server_default=text("'{}'"))
+    urgency: Mapped[Urgency] = mapped_column(str_enum(Urgency, "urgency"))
+    preferred_from: Mapped[datetime | None]
+    preferred_to: Mapped[datetime | None]
+    budget_type: Mapped[BudgetType] = mapped_column(str_enum(BudgetType, "budget_type"))
+    budget_min: Mapped[int | None] = mapped_column(BigInteger)
+    """Пара."""
+    budget_max: Mapped[int | None] = mapped_column(BigInteger)
+    budget_unit: Mapped[BudgetUnit] = mapped_column(
+        str_enum(BudgetUnit, "budget_unit"), server_default=BudgetUnit.WORK.value
+    )
+    currency: Mapped[str] = mapped_column(String(3), server_default=text("'RSD'"))
+    verified_only: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    city_id: Mapped[int] = mapped_column(Integer)
+    """geo.cities: FK в миграции."""
+    district_id: Mapped[int | None] = mapped_column(Integer)
+    """geo.districts: FK в миграции."""
+    point_exact: Mapped[GeoPoint | None] = mapped_column(GeoPointType)
+    """Точная точка — только выбранному исполнителю (§7.6)."""
+    point_public: Mapped[GeoPoint | None] = mapped_column(GeoPointType)
+    """Смещённая на 300–500 м точка — для ленты, карты и радиуса."""
+    address_private: Mapped[str | None] = mapped_column(Text)
+    languages: Mapped[list[str]] = mapped_column(ARRAY(String(8)), server_default=text("'{}'"))
+    max_responses: Mapped[int] = mapped_column(SmallInteger, server_default=text("5"))
+    responses_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    extensions_count: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
+    views_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    search_vector: Mapped[str | None] = mapped_column(TSVECTOR)
+    source: Mapped[str] = mapped_column(String(16), server_default=text("'tma'"))
+    moderation_note: Mapped[str | None] = mapped_column(String(64))
+    selected_response_id: Mapped[UUID | None]
+    published_at: Mapped[datetime | None]
+    expires_at: Mapped[datetime | None]
+    closed_at: Mapped[datetime | None]
+    close_reason: Mapped[CloseReason | None] = mapped_column(str_enum(CloseReason, "close_reason"))
+
+    __table_args__ = (
+        CheckConstraint(
+            f"char_length(title) BETWEEN {MIN_TITLE} AND {MAX_TITLE}", name="title_length"
+        ),
+        CheckConstraint(
+            f"char_length(description) <= {MAX_DESCRIPTION}", name="description_length"
+        ),
+        CheckConstraint("budget_type = 'negotiable' OR budget_min IS NOT NULL", name="budget_set"),
+        rsd_only("currency"),
+        Index(
+            "ix_jobs_client_id_created_at",
+            "client_id",
+            "created_at",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_jobs_city_id_published_at",
+            "city_id",
+            "published_at",
+            "id",
+            postgresql_where=PUBLISHED,
+        ),
+        Index("ix_jobs_expires_at", "expires_at", postgresql_where=PUBLISHED),
+    )
+
+
+class JobMediaRow(Base):
+    """Фото заявки по порядку (S20b)."""
+
+    __tablename__ = "job_media"
+
+    job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id"), primary_key=True)
+    media_id: Mapped[UUID] = mapped_column(primary_key=True)
+    """media.assets: FK в миграции."""
+    position: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
+
+
+class StatusHistoryRow(Base):
+    """Переход статуса заявки (§7.10): кто, когда и почему."""
+
+    __tablename__ = "status_history"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id"))
+    from_status: Mapped[str | None] = mapped_column(String(24))
+    to_status: Mapped[str] = mapped_column(String(24))
+    actor_id: Mapped[UUID | None]
+    actor_kind: Mapped[ActorKind] = mapped_column(str_enum(ActorKind, "actor_kind"))
+    reason: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    __table_args__ = (Index("ix_status_history_job_id", "job_id"),)
