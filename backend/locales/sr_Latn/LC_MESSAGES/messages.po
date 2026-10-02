@@ -423,6 +423,9 @@ msgstr "Prvo napravite profil izvođača."
 msgid "errors.favorites_full"
 msgstr "U omiljenima već ima {limit} — uklonite nekoga da biste dodali."
 
+msgid "errors.saved_jobs_full"
+msgstr "Već ste sačuvali {limit} zahteva — uklonite nepotrebne da biste sačuvali novi."
+
 msgid "errors.job_not_found"
 msgstr "Zahtev nije pronađen: obrisan je ili vam nije vidljiv."
 

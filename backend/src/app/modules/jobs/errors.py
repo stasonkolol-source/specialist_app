@@ -51,3 +51,10 @@ class DailyJobsLimitError(RateLimitedError):
     """За сутки уже создано максимум заявок для этого уровня доверия (§13.3)."""
 
     code = "daily_jobs_limit"
+
+
+class SavedJobsFullError(ConflictError):
+    """В сохранённых у исполнителя уже максимум заявок (S12: сто)."""
+
+    code = "saved_jobs_full"
+    public_params = ("limit",)

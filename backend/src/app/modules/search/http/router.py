@@ -211,8 +211,8 @@ async def list_favorites(
     favorites: FromDishka[ListFavorites],
     locale: FromDishka[Locale],
 ) -> FavoritesOut:
-    """Избранные специалисты S12: те, кто виден в каталоге, новые первыми. Заявки (`type=job`)
-    — с шагом 5.3."""
+    """Избранные специалисты S12: те, кто виден в каталоге, новые первыми. Сохранённые заявки —
+    `GET /me/favorites/jobs` (модуль jobs, 5.3)."""
     cards = await favorites(ListFavoritesCommand(actor_id=principal.user_id))
     response.headers["Vary"] = "Accept-Language"
     return FavoritesOut(items=[SpecialistCardOut.of(card, locale) for card in cards])

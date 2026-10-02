@@ -192,3 +192,14 @@ class HiddenJobRow(Base):
     """identity.users: FK в миграции."""
     job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id"), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class SavedJobRow(Base):
+    """Сохранённая заявка (сердечко S15, сегмент «Задачи» S12; миграция jobs_0004)."""
+
+    __tablename__ = "saved_jobs"
+
+    user_id: Mapped[UUID] = mapped_column(primary_key=True)
+    """identity.users: FK в миграции."""
+    job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

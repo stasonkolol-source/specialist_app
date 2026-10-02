@@ -5,11 +5,16 @@
 только опубликованную; точную точку и адрес — никто, кроме выбранного исполнителя (6.x).
 """
 
+from typing import Final
+
 from app.modules.jobs.domain.job import Job, JobStatus
 from app.modules.jobs.errors import JobNotFoundError
 from app.platform.kernel.ids import UserId
 
 PUBLIC: frozenset[JobStatus] = frozenset({JobStatus.PUBLISHED})
+
+MAX_SAVED_JOBS: Final = 100
+"""Сохранённых заявок у исполнителя (сердечко S15, S12): больше в списке не листают."""
 
 
 def ensure_owner(job: Job, actor_id: UserId) -> None:
