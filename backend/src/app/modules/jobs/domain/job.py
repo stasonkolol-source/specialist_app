@@ -658,7 +658,10 @@ class Job(VersionedAggregate):
         if chosen is not None and chosen.status is ResponseStatus.ACCEPTED:
             chosen.deal_cancelled(by_performer=by_performer, now=now)
         for response in self.responses:
-            if response.status is ResponseStatus.NOT_SELECTED:
+            if (
+                response.status is ResponseStatus.NOT_SELECTED
+                and response.review is not ResponseReview.BLOCKED
+            ):
                 response.reconsider(now=now)
         self.responses_count = sum(1 for response in self.responses if response.is_active)
         self.selected_response_id = None

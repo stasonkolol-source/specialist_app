@@ -12,9 +12,15 @@ from app.modules.jobs.domain.response import (
     Response,
     ResponseId,
     ResponsePriceType,
+    ResponseReview,
     ResponseStatus,
 )
-from app.modules.jobs.errors import JobNotOpenError, ResponseNotActiveError, ResponseNotFoundError
+from app.modules.jobs.errors import (
+    JobFullError,
+    JobNotOpenError,
+    ResponseNotActiveError,
+    ResponseNotFoundError,
+)
 from app.modules.jobs.tests.builders import CLIENT, NOW, published
 from app.platform.contracts.events.jobs import JobPublished, ResponseDeclined
 from app.platform.kernel.ids import UserId, new_id
@@ -155,6 +161,25 @@ def test_completed_deal_completes_the_job() -> None:
         CloseReason.HIRED_HERE,
     )
     assert not job.complete_after_deal(chosen.id, now=LATER)  # повтор задачи
+
+
+@pytest.mark.parametrize("visible", [False, True])
+def test_cancelled_deal_does_not_restore_a_blocked_response(visible: bool) -> None:
+    job = published()
+    chosen, other, blocked = respond(job), respond(job), respond(job, visible=visible)
+    job.accept_response(chosen.id, client_id=CLIENT, now=LATER)
+    assert job.block_response(blocked.id, now=LATER)
+
+    assert job.reopen_after_deal(chosen.id, by_performer=True, now=LATER)
+
+    assert blocked.review is ResponseReview.BLOCKED
+    assert not blocked.is_active
+    assert other.status is ResponseStatus.VIEWED
+    assert job.responses_count == 1
+    for _ in range(job.max_responses - 1):
+        respond(job)
+    with pytest.raises(JobFullError):
+        respond(job)
 
 
 def test_assigned_job_is_not_closed_or_deleted_by_the_client() -> None:
