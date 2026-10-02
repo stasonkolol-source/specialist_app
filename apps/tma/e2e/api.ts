@@ -29,6 +29,7 @@ import {
   suggestFor,
 } from '../src/testing/fixtures.ts';
 import { FavoritesBackend } from '../src/testing/favoritesBackend.ts';
+import { JobsBackend } from '../src/testing/jobsBackend.ts';
 import { ProfileBackend } from '../src/testing/profileBackend.ts';
 
 /** «Фото работы» для загрузок и CDN: PNG 8×6, мягкий зелёный градиент — одинаковый везде. */
@@ -83,6 +84,8 @@ export interface MockApiOptions {
   profile?: ProfileBackend;
   /** Избранное `/me/favorites*` с памятью (4.6); по умолчанию — пусто. */
   favorites?: FavoritesBackend;
+  /** Заявки `/jobs*` с памятью (5.2): POST с ключом идемпотентности, GET созданной. */
+  jobs?: JobsBackend;
   /** Задержка каждого ответа API, мс: замер холодного старта (coldstart.spec.ts). */
   delayMs?: number;
   /** Свои ответы по ключу «METHOD /api/v1/…»: проверяются раньше стандартных. */
@@ -120,6 +123,7 @@ export async function mockApi(
     notificationSettings = NOTIFICATION_SETTINGS,
     profile = new ProfileBackend(),
     favorites = new FavoritesBackend([], E2E_AVAILABLE_UNTIL),
+    jobs = new JobsBackend(),
     delayMs = 0,
     handlers = {},
     sent = sentRequests(),
@@ -164,6 +168,15 @@ export async function mockApi(
       const reply = profile.media.handle(request.method(), url.pathname, body);
       if (reply?.status === 204) return route.fulfill({ status: 204 });
       if (reply) return route.fulfill(json(reply.body, reply.status));
+    }
+    // заявки (5.2): создание с ключом идемпотентности и созданная заявка для S21
+    if (url.pathname === '/api/v1/jobs' || url.pathname.startsWith('/api/v1/jobs/')) {
+      if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
+      const reply =
+        request.method() === 'POST'
+          ? jobs.create(request.postDataJSON(), request.headers()['idempotency-key'] ?? null)
+          : jobs.get(url.pathname.split('/').at(-1) ?? '');
+      return route.fulfill(json(reply.body, reply.status));
     }
     // карточка специалиста S08–S10 (4.5): «Сегодня до 20:00» — как в выдаче (часы E2E_NOW)
     const card =

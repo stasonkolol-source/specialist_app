@@ -22,6 +22,8 @@ export interface MockOptions {
   /** Настоящий initData вместо синтетического: вход на dev-стенде из браузера
    *  (`cli dev-initdata`). По умолчанию — подпись `mock`, её backend не примет. */
   initData?: string;
+  /** Что уже лежит в DeviceStorage: Mini App открыли снова (черновик заявки S20). */
+  deviceStorage?: Record<string, string>;
 }
 
 export interface MockTelegram {
@@ -81,10 +83,11 @@ export function createMockPlatform(options: MockOptions = {}): {
     contact = true,
     location = { latitude: 45.2671, longitude: 19.8335 },
     initData: rawInitData,
+    deviceStorage = {},
   } = options;
 
   const calls: MockTelegram['calls'] = [];
-  const device = new Map<string, string>();
+  const device = new Map<string, string>(Object.entries(deviceStorage));
   const cloud = new Map<string, string>();
   let theme = MOCK_THEMES[colorScheme];
   // Ответ клиента асинхронный, как в Telegram

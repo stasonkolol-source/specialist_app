@@ -6,7 +6,10 @@
     "suggestions": "Predlozi",
     "whatToDo": "Šta treba uraditi?",
     "today": "Slobodni danas u blizini",
-    "all": "Svi"
+    "all": "Svi",
+    "createTitle": "Ne želite sami da tražite?",
+    "createText": "Opišite zadatak — javiće se do 5 izvođača, a vi birate s kim ćete se dogovoriti.",
+    "create": "Napravi zahtev"
   },
   "categories": {
     "title": "Sve usluge",
@@ -35,7 +38,9 @@
     "locationError": "Ne znamo gde ste: dozvolite pristup lokaciji u Telegram-u",
     "reviews": "({count})",
     "todayUntil": "Danas do {time}",
-    "phoneVerified": "Telefon potvrđen"
+    "phoneVerified": "Telefon potvrđen",
+    "postJob": "Napravi zahtev",
+    "postJobText": "Opišite zadatak — javiće se izvođači kojih nema u rezultatima."
   },
   "filters": {
     "title": "Filteri",
@@ -99,7 +104,7 @@
   "prices": {
     "title": "Cenovnik",
     "summary": "{name} · {count, plural, one {# usluga} few {# usluge} other {# usluga}}",
-    "note": "Cene su okvirne — tačnu cenu majstor će reći nakon pregleda.",
+    "note": "Cene su orijentacione — tačnu cenu majstor će reći posle pregleda. Dodirnite uslugu da biste predložili zahtev.",
     "other": "Ostalo",
     "durations": {
       "60": "do 1 sata",

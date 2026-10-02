@@ -19,7 +19,9 @@ import {
   HStack,
   IconButton,
   Input,
+  MapPreview,
   Option,
+  PickerButton,
   Photo,
   Price,
   ProgressBar,
@@ -145,7 +147,7 @@ export function MoreSections() {
         <UploadDemo />
       </Section>
 
-      <Section id="form" name="SearchField · Field · Input · Textarea">
+      <Section id="form" name="SearchField · Field · Input · PickerButton · Textarea">
         <Stack gap={16}>
           <SearchField
             label={t('action.search')}
@@ -158,7 +160,23 @@ export function MoreSections() {
           <Field label={t('form.budget')} hint={t('form.budgetHint')}>
             <Input inputMode="numeric" defaultValue={format.number(5_000)} suffix="RSD" />
           </Field>
+          <Field label={t('category.handyman')}>
+            <PickerButton icon="pin" onClick={() => undefined}>
+              {t('settings.language')}
+            </PickerButton>
+          </Field>
+          <Field label={t('settings.language')}>
+            <Input icon="lock" defaultValue={t('category.handyman')} />
+          </Field>
         </Stack>
+      </Section>
+
+      <Section id="map" name="MapPreview">
+        <MapPreview
+          label={t('category.handyman')}
+          caption={t('search.placeholder')}
+          description={t('settings.language')}
+        />
       </Section>
 
       <Section id="choice" name="Segmented · Option">

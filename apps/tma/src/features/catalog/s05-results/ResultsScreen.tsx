@@ -34,7 +34,7 @@ import { useCatalogCity } from '../shared/city.ts';
 import { useFavoriteToggle } from '../shared/favorite.ts';
 import { useLocate } from '../shared/location.ts';
 import type { ResultsSearch } from '../shared/paths.ts';
-import { CATALOG_PATHS, NEAR_KM } from '../shared/paths.ts';
+import { CATALOG_PATHS, CREATE_JOB_PATH, NEAR_KM } from '../shared/paths.ts';
 import { activeFilters, toQuery, withoutFilters } from '../shared/query.ts';
 
 const SKELETON_CARDS = 3;
@@ -104,10 +104,22 @@ export function ResultsScreen() {
               <Button variant="secondary" onClick={() => update(withoutFilters(search))}>
                 {t('results.resetFilters')}
               </Button>
-            ) : undefined
+            ) : (
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  void router.navigate({
+                    to: CREATE_JOB_PATH,
+                    search: { category: search.category, title: search.q },
+                  })
+                }
+              >
+                {t('results.postJob')}
+              </Button>
+            )
           }
         >
-          {filters > 0 ? t('results.relaxFilters') : t('results.emptyText')}
+          {filters > 0 ? t('results.relaxFilters') : t('results.postJobText')}
         </EmptyState>
       ) : (
         <>

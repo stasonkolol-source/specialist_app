@@ -18,6 +18,7 @@ import {
   portfolioSearch,
   resultsSearch,
 } from '../features/catalog/index.ts';
+import { CREATE_PATHS, createSearch, doneSearch } from '../features/jobs/index.ts';
 import { ONBOARDING_PATHS, onboardingSearch } from '../features/onboarding/index.ts';
 import { BECOME_PATHS, CABINET_PATHS, becomeSearch } from '../features/specialist/index.ts';
 import { LEGAL_PATH, LegalScreen } from '../features/service/s48-legal/index.ts';
@@ -64,12 +65,44 @@ const jobs = createRoute({
   component: screen(() => import('../features/jobs/s22-my-jobs/index.ts'), 'MyJobsScreen'),
 });
 
-// Создающее действие: без согласия с правилами — S02c (routes/guards.ts)
-const createJob = createRoute({
+// Мастер «Создать заявку» S20a–d (5.2) — создающее действие: без согласия с правилами — S02c
+// (routes/guards.ts). Вход — таббар и CTA с категорией и названием (`?category=&title=`).
+const createWhat = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/jobs/new',
+  path: CREATE_PATHS.what,
+  validateSearch: createSearch,
   beforeLoad: requireConsent,
-  component: screen(() => import('../features/jobs/s20a-create-what/index.ts'), 'CreateJobScreen'),
+  component: screen(() => import('../features/jobs/s20a-create-what/index.ts'), 'WhatScreen'),
+});
+
+const createWhen = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CREATE_PATHS.when,
+  beforeLoad: requireConsent,
+  component: screen(() => import('../features/jobs/s20b-create-when/index.ts'), 'WhenScreen'),
+});
+
+const createBudget = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CREATE_PATHS.budget,
+  beforeLoad: requireConsent,
+  component: screen(() => import('../features/jobs/s20c-create-budget/index.ts'), 'BudgetScreen'),
+});
+
+const createPreview = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CREATE_PATHS.preview,
+  beforeLoad: requireConsent,
+  component: screen(() => import('../features/jobs/s20d-create-preview/index.ts'), 'PreviewScreen'),
+});
+
+// S21 итог публикации: `?job=` — созданная заявка
+const createDone = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CREATE_PATHS.done,
+  validateSearch: doneSearch,
+  beforeLoad: requireUser,
+  component: screen(() => import('../features/jobs/s21-published/index.ts'), 'PublishedScreen'),
 });
 
 const messages = createRoute({
@@ -291,7 +324,11 @@ const restricted = createRoute({
 export const routeTree = rootRoute.addChildren([
   home,
   jobs,
-  createJob,
+  createWhat,
+  createWhen,
+  createBudget,
+  createPreview,
+  createDone,
   messages,
   profile,
   deleteAccount,

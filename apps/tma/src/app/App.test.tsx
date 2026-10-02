@@ -136,13 +136,12 @@ describe('Mini App skeleton', () => {
   it('hides the tab bar while the MainButton is shown', async () => {
     const { telegram } = start('/jobs/new');
 
-    expect(await screen.findByRole('heading', { name: 'Создать заявку' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Что нужно сделать?' })).toBeTruthy();
     expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
     const setup = telegram.callsOf('web_app_setup_main_button').at(-1);
     expect(setup).toMatchObject({ is_visible: true, text: 'Далее' });
-    expect(telegram.callsOf('web_app_setup_back_button').at(-1)).toMatchObject({
-      is_visible: true,
-    });
+    // открыт сразу, без истории: в шапке Telegram — «Закрыть», как на артборде S20a
+    expect(telegram.callsOf('web_app_setup_back_button').at(-1)?.is_visible ?? false).toBe(false);
   });
 
   it('redirects unknown paths to home', async () => {
