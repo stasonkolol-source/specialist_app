@@ -41,7 +41,7 @@ class BecomePro:
         async with self._uow:
             profile = await own_profile(self._profiles, cmd.actor_id, cmd.expected_version)
             profile.become_pro(now=now)
-            if profile.reviewed_kind:
+            if profile.status is ProfileStatus.PENDING_REVIEW:
                 await ensure_price_list(self._prices, profile)
             await self._profiles.save(profile)
             if profile.status is ProfileStatus.PENDING_REVIEW and profile.reviewed_kind:
