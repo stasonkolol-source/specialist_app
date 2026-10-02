@@ -37,6 +37,8 @@ from app.platform.analytics.port import Analytics
 from app.platform.analytics.posthog import PostHogAnalytics
 from app.platform.audit.port import AuditLog
 from app.platform.audit.sql import SqlAuditLog
+from app.platform.cache.port import JsonCache
+from app.platform.cache.valkey import ValkeyJsonCache
 from app.platform.config.cache import ClientConfigCache
 from app.platform.config.port import FeatureFlags, LegalVersions
 from app.platform.db.engine import libpq_dsn, make_engine, make_session_maker
@@ -285,6 +287,10 @@ class PlatformProvider(Provider):
             issuer=settings.issuer,
             ttl=timedelta(seconds=settings.access_ttl_seconds),
         )
+
+    @provide(scope=Scope.APP)
+    def json_cache(self, valkey: Redis) -> JsonCache:
+        return ValkeyJsonCache(valkey)
 
     @provide(scope=Scope.APP)
     def session_denylist(self, valkey: Redis, settings: JwtSettings) -> SessionDenylist:

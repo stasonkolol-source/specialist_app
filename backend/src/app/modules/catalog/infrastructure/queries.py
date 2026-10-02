@@ -6,9 +6,16 @@ from collections.abc import Collection, Sequence
 from typing import Any, Final
 
 from sqlalchemy import ColumnElement, Select, func, select
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.engine import RowMapping
 
-from app.modules.catalog.api import CategorySummary, RiskLevel, SearchTerm, TermMatch
+from app.modules.catalog.api import (
+    CategorySuggestion,
+    CategorySummary,
+    RiskLevel,
+    SearchTerm,
+    TermMatch,
+)
 from app.modules.catalog.application.dto import CategoryView, TagView
 from app.modules.catalog.infrastructure.models import CategoryRow, SearchTermRow, TagRow
 from app.platform.db.query import SqlQuery
@@ -21,6 +28,10 @@ MIN_PREFIX: Final = 3
 """Префикс короче — слишком общий: «эл» начинает и «электрик», и «элемент»."""
 MAX_MATCHED: Final = 10
 """Категорий из одного слова запроса — с запасом: «ремонт» узнаётся в нескольких."""
+MIN_SUGGEST: Final = 2
+"""Подсказки — с двух букв: одна буква начинает половину словаря."""
+MIN_FUZZY: Final = 3
+"""Похожие по триграммам — с трёх: у короткого ввода похоже всё."""
 _CYRILLIC = re.compile("[\u0400-\u04ff]")
 _CYRILLIC_LANGS: Final = (Locale.RU, Locale.SR_CYRL)
 _SUMMARY = (
@@ -118,6 +129,82 @@ class SqlCatalogQuery(SqlQuery):
         return TermMatch(
             category_ids=(CategoryId(row["category_id"]),), term=row["term"], exact=False
         )
+
+    async def suggest(self, text: str, *, limit: int) -> list[CategorySuggestion]:
+        norm = func.platform.search_norm(text)
+        same_script = _TERMS.lang.in_(_CYRILLIC_LANGS) == bool(_CYRILLIC.search(text))
+        literally = func.lower(_TERMS.term).startswith(text.strip().lower(), autoescape=True)
+        found = [
+            _suggestion(row, fuzzy=False)
+            for row in await self._suggested(
+                (func.length(norm) >= MIN_SUGGEST) & _TERMS.norm.startswith(norm, autoescape=False),
+                keys=((_TERMS.weight, True), (func.length(_TERMS.norm), False)),
+                prefer=(literally, same_script),
+                limit=limit,
+            )
+        ]
+        if len(found) < limit:
+            taken = [item.category_id for item in found]
+            found += [
+                _suggestion(row, fuzzy=True)
+                for row in await self._suggested(
+                    (func.length(norm) >= MIN_FUZZY)
+                    & _TERMS.norm.op("%")(norm)
+                    & _TERMS.category_id.notin_(taken),
+                    keys=((_TERMS.norm.op("<->")(norm), False), (_TERMS.weight, True)),
+                    prefer=(same_script,),
+                    limit=limit - len(found),
+                )
+            ]
+        return found
+
+    async def _suggested(
+        self,
+        condition: ColumnElement[bool],
+        *,
+        keys: tuple[tuple[ColumnElement[Any], bool], ...],
+        prefer: tuple[ColumnElement[bool], ...],
+        limit: int,
+    ) -> Sequence[RowMapping]:
+        """Лучшее слово каждой категории (DISTINCT ON), затем категории — по этому слову.
+        `keys` — (выражение, по убыванию ли) для порядка категорий; `prefer` — каким словом
+        показать категорию: набранным буквально, тем же алфавитом."""
+        c = _CATEGORIES
+        labels = [f"key_{index}" for index in range(len(keys))]
+        best = (
+            _visible_terms(
+                c.name,
+                c.icon,
+                c.sort_order,
+                *(key.label(label) for (key, _), label in zip(keys, labels, strict=True)),
+            )
+            .where(condition)
+            .ext(distinct_on(_TERMS.category_id))
+            .order_by(
+                _TERMS.category_id,
+                *(wish.desc() for wish in prefer),
+                *(key.desc() if desc else key.asc() for key, desc in keys),
+                _TERMS.id,
+            )
+            .subquery()
+        )
+        order = [
+            best.c[label].desc() if desc else best.c[label].asc()
+            for (_, desc), label in zip(keys, labels, strict=True)
+        ]
+        return await self._fetch(
+            select(best).order_by(*order, best.c.sort_order, best.c.category_id).limit(limit)
+        )
+
+
+def _suggestion(row: RowMapping, *, fuzzy: bool) -> CategorySuggestion:
+    return CategorySuggestion(
+        category_id=CategoryId(row["category_id"]),
+        name=row["name"],
+        icon=row["icon"],
+        term=row["term"],
+        fuzzy=fuzzy,
+    )
 
 
 def _visible_terms(*extra: ColumnElement[Any]) -> Select[Any]:

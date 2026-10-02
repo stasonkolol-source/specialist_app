@@ -60,6 +60,19 @@ class TermMatch:
     """Запрос совпал со словом целиком; иначе — начинает его или похож на него."""
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CategorySuggestion:
+    """Подсказка при вводе (§9.7): категория и слово словаря, с которым совпал ввод."""
+
+    category_id: CategoryId
+    name: LocalizedText
+    icon: str | None
+    term: str
+    """Слово словаря тем алфавитом, каким набран ввод (если такое есть)."""
+    fuzzy: bool
+    """Найдено по похожести (опечатка), а не по началу слова."""
+
+
 class CatalogApi(Protocol):
     async def category(self, category_id: CategoryId) -> CategorySummary | None:
         """Категория по id, в том числе выключенная: решение за вызывающим."""
@@ -84,4 +97,10 @@ class CatalogApi(Protocol):
     async def similar_term(self, text: str) -> TermMatch | None:
         """Ближайшее слово словаря по триграммам (сходство ≥ 0,3): «Возможно, вы имели в
         виду…» и его категория. Только активные и не запрещённые категории."""
+        ...
+
+    async def suggest(self, text: str, *, limit: int) -> list[CategorySuggestion]:
+        """Подсказки при вводе (§9.7): сначала слова словаря, которые начинаются с введённого,
+        затем похожие по триграммам; одна строка на категорию, не больше `limit`. Только
+        активные и не запрещённые категории."""
         ...

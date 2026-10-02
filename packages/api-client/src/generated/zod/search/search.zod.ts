@@ -183,3 +183,25 @@ export const SearchListSpecialistsResponse = zod.object({
     .describe('«Возможно, вы имели в виду …»: выдача — по этому слову'),
   hints: zod.array(zod.string()).optional().describe('Пустая выдача: relax_filters, post_job'),
 });
+
+/**
+ * Подсказки при вводе: до 8 категорий по началу слова, затем похожие (опечатки).
+ * @summary Suggest
+ */
+export const searchSuggestQueryQMax = 64;
+
+export const SearchSuggestQueryParams = zod.object({
+  q: zod.string().min(1).max(searchSuggestQueryQMax).describe('Что набрано'),
+});
+
+export const SearchSuggestResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      category_id: zod.int(),
+      name: zod.string().describe('Название категории на языке Accept-Language'),
+      icon: zod.union([zod.string(), zod.null()]),
+      term: zod.string().describe('Слово словаря, с которым совпал ввод, — тем же алфавитом'),
+      fuzzy: zod.boolean().describe('Найдено по похожести (опечатка), а не по началу слова'),
+    }),
+  ),
+});

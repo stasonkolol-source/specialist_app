@@ -549,3 +549,47 @@ async def test_misspelled_query_gets_the_nearest_term(
     assert near_cyrillic is not None
     assert near_cyrillic.term == "Водоинсталатер"
     assert await facade.similar_term("qqqqzzzz") is None
+
+
+@pytest.mark.parametrize(
+    ("typed", "term"), [("elek", "Električar"), ("элек", "Электрик"), ("елек", "Електричар")]
+)
+async def test_suggestions_by_word_start_in_three_scripts(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App, typed: str, term: str
+) -> None:
+    await _import(db_session, procrastinate_app, taxonomy())
+    facade = CatalogFacade(SqlCatalogQuery(db_session))
+    electrical = (await _summary(db_session, "t-electrical")).id
+
+    found = await facade.suggest(typed, limit=8)
+
+    ids = [item.category_id for item in found]
+    assert len(ids) == len(set(ids)) <= 8  # одна строка на категорию
+    [ours] = [item for item in found if item.category_id == electrical]
+    assert (ours.fuzzy, ours.name.get(Locale.RU)) == (False, "Электрик")
+    assert ours.term == term  # тем алфавитом, каким набран ввод
+
+
+@pytest.mark.parametrize("typed", ["vodoinstaltr", "водоинсталатр", "сантехнк"])
+async def test_typos_are_suggested_by_similarity(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App, typed: str
+) -> None:
+    await _import(db_session, procrastinate_app, taxonomy())
+    facade = CatalogFacade(SqlCatalogQuery(db_session))
+    plumbing = (await _summary(db_session, "t-plumbing")).id
+
+    found = await facade.suggest(typed, limit=8)
+
+    assert [item.fuzzy for item in found if item.category_id == plumbing] == [True]
+
+
+async def test_short_input_and_forbidden_categories_get_no_suggestions(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App
+) -> None:
+    await _import(db_session, procrastinate_app, taxonomy())
+    facade = CatalogFacade(SqlCatalogQuery(db_session))
+    weapons = (await _summary(db_session, "t-weapons")).id
+
+    assert await facade.suggest("э", limit=8) == []
+    assert weapons not in [item.category_id for item in await facade.suggest("оруж", limit=8)]
+    assert len(await facade.suggest("ре", limit=2)) <= 2

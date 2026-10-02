@@ -1,12 +1,13 @@
 """Фейки портов и фасадов для тестов search (ADR-0020 §11)."""
 
+import json
 from collections.abc import Collection
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from types import TracebackType
 from typing import Self
 
-from app.modules.catalog.api import CategorySummary, SearchTerm, TermMatch
+from app.modules.catalog.api import CategorySuggestion, CategorySummary, SearchTerm, TermMatch
 from app.modules.media.api import MediaRef
 from app.modules.search.application.dto import (
     SpecialistFilters,
@@ -62,6 +63,8 @@ class FakeCatalog:
 
     matches: dict[str, TermMatch] = field(default_factory=dict)
     similar: dict[str, TermMatch] = field(default_factory=dict)
+    suggestions: dict[str, list[CategorySuggestion]] = field(default_factory=dict)
+    suggested: list[tuple[str, int]] = field(default_factory=list)
 
     async def category(self, category_id: CategoryId) -> CategorySummary | None:
         raise NotImplementedError
@@ -79,6 +82,10 @@ class FakeCatalog:
 
     async def similar_term(self, text: str) -> TermMatch | None:
         return self.similar.get(text)
+
+    async def suggest(self, text: str, *, limit: int) -> list[CategorySuggestion]:
+        self.suggested.append((text, limit))
+        return self.suggestions.get(text, [])[:limit]
 
 
 @dataclass
@@ -150,3 +157,19 @@ class FakeUoW:
 
     def require_active(self) -> None:
         assert self.active, "no active UnitOfWork"
+
+
+@dataclass
+class FakeCache:
+    """JsonCache в памяти: значения проходят через JSON, как в Valkey."""
+
+    values: dict[str, str] = field(default_factory=dict)
+    ttls: dict[str, timedelta] = field(default_factory=dict)
+
+    async def get(self, key: str) -> object | None:
+        raw = self.values.get(key)
+        return json.loads(raw) if raw is not None else None
+
+    async def set(self, key: str, value: object, *, ttl: timedelta) -> None:
+        self.values[key] = json.dumps(value)
+        self.ttls[key] = ttl

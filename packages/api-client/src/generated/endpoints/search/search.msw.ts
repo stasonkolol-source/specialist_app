@@ -9,7 +9,7 @@ import { faker } from '@faker-js/faker';
 import { HttpResponse, http } from 'msw';
 import type { RequestHandlerOptions } from 'msw';
 
-import type { SpecialistPageOut } from '../../model';
+import type { SpecialistPageOut, SuggestOut } from '../../model';
 
 export const getSearchListSpecialistsResponseMock = (
   overrideResponse: Partial<Extract<SpecialistPageOut, object>> = {},
@@ -82,6 +82,19 @@ export const getSearchListSpecialistsResponseMock = (
   ...overrideResponse,
 });
 
+export const getSearchSuggestResponseMock = (
+  overrideResponse: Partial<Extract<SuggestOut, object>> = {},
+): SuggestOut => ({
+  items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    category_id: faker.number.int(),
+    name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    icon: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+    term: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    fuzzy: faker.datatype.boolean(),
+  })),
+  ...overrideResponse,
+});
+
 export const getSearchListSpecialistsMockHandler = (
   overrideResponse?:
     | SpecialistPageOut
@@ -105,4 +118,29 @@ export const getSearchListSpecialistsMockHandler = (
     options,
   );
 };
-export const getSearchMock = () => [getSearchListSpecialistsMockHandler()];
+
+export const getSearchSuggestMockHandler = (
+  overrideResponse?:
+    | SuggestOut
+    | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<SuggestOut> | SuggestOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/suggest',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSearchSuggestResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+export const getSearchMock = () => [
+  getSearchListSpecialistsMockHandler(),
+  getSearchSuggestMockHandler(),
+];
