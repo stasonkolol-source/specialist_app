@@ -1,5 +1,6 @@
 import './app/app.css';
 
+import { i18nReady } from '@sosed/i18n';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -21,10 +22,12 @@ void app.launch();
 void initSentry(import.meta.env.VITE_SENTRY_DSN, __APP_VERSION__);
 
 const root = document.getElementById('root');
-if (root) {
+// сербские тексты — отдельным чанком: первый кадр — уже с ними, без мелькания русского
+void i18nReady(app.i18n).then(() => {
+  if (!root) return;
   createRoot(root).render(
     <StrictMode>
       <App {...app} />
     </StrictMode>,
   );
-}
+});

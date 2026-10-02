@@ -8,7 +8,7 @@ import { flattenCatalog } from './catalog.ts';
 import type { Locale } from './locale.ts';
 import { DEFAULT_LOCALE, INTL_LOCALE, TIME_ZONE } from './locale.ts';
 import type { Messages } from './resources.ts';
-import { RESOURCES } from './resources.ts';
+import { commonOf } from './resources.ts';
 
 /** Неразрывный пробел: между числом и валютой, «≈» и числом. */
 export const NBSP = String.fromCharCode(0xa0);
@@ -25,7 +25,7 @@ const compiled = new Map<string, IntlMessageFormat>();
 function source(locale: Locale, key: string): string {
   let messages = flat.get(locale);
   if (!messages) {
-    messages = flattenCatalog(RESOURCES[locale].common);
+    messages = flattenCatalog(commonOf(locale));
     flat.set(locale, messages);
   }
   const message = messages[key];
