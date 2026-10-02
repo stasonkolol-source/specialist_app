@@ -542,6 +542,24 @@ msgstr "Већ имате {limit} активна захтева. Затвори�
 msgid "errors.daily_jobs_limit"
 msgstr "Данас је направљено превише захтева. Покушајте сутра."
 
+msgid "errors.conversation_not_found"
+msgstr "Разговор није пронађен."
+
+msgid "errors.conversation_closed"
+msgstr "У овај разговор више не можете писати."
+
+msgid "errors.cannot_start_conversation"
+msgstr "Разговор не може да почне: понуда или профил нису доступни."
+
+msgid "errors.invalid_message"
+msgstr "Порука није исправна: празна, дужа од 4000 знакова или није из овог разговора."
+
+msgid "errors.messages_limit"
+msgstr "Превише порука за сат. Сачекајте мало."
+
+msgid "errors.conversations_limit"
+msgstr "Превише нових разговора за сат. Сачекајте мало."
+
 msgid "errors.deal_not_found"
 msgstr "Договор није пронађен."
 

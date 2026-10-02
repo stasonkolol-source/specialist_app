@@ -1,5 +1,7 @@
 """Фасад deals (ADR-0020 §6): команды — в транзакции вызывающего модуля."""
 
+from uuid import UUID
+
 from app.modules.deals.api import AgreedDealIn, DealBrief
 from app.modules.deals.application.ports import DealQueries, DealRepository
 from app.modules.deals.domain.deal import Deal, DealPriceType, DealTerms
@@ -27,6 +29,10 @@ class DealsFacade:
             origin=deal.origin.value,
             scheduled_at=deal.scheduled_at,
         )
+
+    async def deal_for_response(self, response_id: UUID) -> DealBrief | None:
+        deal_id = await self._queries.of_response(response_id)
+        return await self.deal_brief(deal_id) if deal_id is not None else None
 
     async def create_agreed(self, data: AgreedDealIn) -> DealId:
         self._uow.require_active()  # транзакция jobs: отклик выбран и сделка создана вместе

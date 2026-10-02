@@ -542,6 +542,24 @@ msgstr "У вас уже {limit} активные заявки. Закройте
 msgid "errors.daily_jobs_limit"
 msgstr "Сегодня создано слишком много заявок. Попробуйте завтра."
 
+msgid "errors.conversation_not_found"
+msgstr "Диалог не найден."
+
+msgid "errors.conversation_closed"
+msgstr "В этот диалог писать уже нельзя."
+
+msgid "errors.cannot_start_conversation"
+msgstr "Начать диалог нельзя: отклик или профиль недоступен."
+
+msgid "errors.invalid_message"
+msgstr "Сообщение не подходит: пустое, длиннее 4000 символов или не из этого диалога."
+
+msgid "errors.messages_limit"
+msgstr "Слишком много сообщений за час. Подождите немного."
+
+msgid "errors.conversations_limit"
+msgstr "Слишком много новых диалогов за час. Подождите немного."
+
 msgid "errors.deal_not_found"
 msgstr "Сделка не найдена."
 

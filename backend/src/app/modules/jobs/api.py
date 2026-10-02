@@ -81,6 +81,25 @@ class InviteNotice:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class ChatResponse:
+    """Отклик для диалога по нему (6.3a): стороны, состояние и предложение — первое сообщение."""
+
+    id: UUID
+    job_id: UUID
+    client_id: UserId
+    performer_id: UserId
+    status: str
+    """ResponseStatus: `submitted`, `viewed`, …, `withdrawn`."""
+    visible_to_client: bool
+    """Проверка пройдена: клиент видит отклик."""
+    message: str
+    price_type: str
+    price_amount: int | None
+    availability_note: str | None
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class OwnerResponseView:
     """Отклик на заявку для её владельца (S23): только прошедшие проверку."""
 
@@ -135,6 +154,10 @@ class JobsApi(Protocol):
     async def see_responses(self, job_id: UUID) -> None:
         """Владелец открыл отклики — в транзакции вызывающего: дальше «новые» — только те, что
         пройдут проверку позже. Версия заявки не меняется."""
+        ...
+
+    async def chat_response(self, response_id: UUID) -> ChatResponse | None:
+        """Отклик для диалога по нему; удалённый или удалённая заявка — None."""
         ...
 
     async def passed_over(self, job_id: UUID) -> list[UserId]:

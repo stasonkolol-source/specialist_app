@@ -130,6 +130,7 @@ class FakeTarget(ModerationTarget):
         always_review: bool = False,
         risk_level: int = 0,
         media_ids: tuple[UUID, ...] = (),
+        visible: bool = False,
     ) -> UUID:
         entity_id = new_id()
         self.objects[entity_id] = TargetContent(
@@ -140,6 +141,7 @@ class FakeTarget(ModerationTarget):
             version=1,
             always_review=always_review,
             risk_level=risk_level,
+            visible=visible,
         )
         return entity_id
 

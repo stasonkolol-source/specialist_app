@@ -60,6 +60,10 @@ class SqlDealQueries(SqlQuery):
         cursor = encode_cursor(last.created_at, last.id) if more and last else None
         return Page(items=tuple(items), next_cursor=cursor)
 
+    async def of_response(self, response_id: UUID) -> DealId | None:
+        row = await self._fetch_one(select(_D.id).where(_D.response_id == response_id))
+        return DealId(row["id"]) if row is not None else None
+
     async def due(self, sweep: DealSweep, now: datetime, *, limit: int) -> list[DealId]:
         rows = await self._fetch(
             select(_D.id).where(_due(sweep, now)).order_by(_D.created_at, _D.id).limit(limit)

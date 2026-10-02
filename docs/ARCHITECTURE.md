@@ -1516,13 +1516,18 @@ CREATE TABLE reviews.rating_aggregates (   -- пересчитывается п�
 CREATE TABLE messaging.conversations (
   id              uuid PRIMARY KEY DEFAULT uuidv7(),
   kind            text NOT NULL CHECK (kind IN ('job_response','direct','support')),
+  client_id       uuid NOT NULL REFERENCES identity.users(id),  -- стороны — и в participants:
+  performer_id    uuid NOT NULL REFERENCES identity.users(id),  -- здесь для CHECK и индекса пары
   job_id          uuid REFERENCES jobs.jobs(id),
   response_id     uuid UNIQUE REFERENCES jobs.responses(id),   -- один диалог на отклик
   deal_id         uuid REFERENCES deals.deals(id),
   status          text NOT NULL DEFAULT 'open' CHECK (status IN ('open','closed','blocked')),
   last_message_at timestamptz,
-  created_at      timestamptz NOT NULL DEFAULT now()
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  CHECK (client_id <> performer_id),
+  CHECK (kind <> 'job_response' OR response_id IS NOT NULL)
 );
+CREATE UNIQUE INDEX ON messaging.conversations (client_id, performer_id) WHERE kind = 'direct';  -- прямой диалог пары — один
 
 CREATE TABLE messaging.participants (
   conversation_id      uuid NOT NULL REFERENCES messaging.conversations(id),
@@ -3253,7 +3258,7 @@ flowchart TB
 
 Сценарий «срочно вечером» не ждёт модератора. LLM-классификатор — Must в MVP: на нём держится модерация по риску.
 
-**Как устроено (шаг 2.6).** Контентный модуль в транзакции, где объект стал «на проверке», публикует событие `ModerationRequested` (тип и id объекта, автор, правка ли); подписчик `moderation.auto_check` читает текст и файлы через адаптер цели (`moderation/infrastructure/targets/<тип>.py` — фасад модуля-владельца: `content`, `publish`, `hide`) и решает маршрут (`moderation/domain/pipeline.py`). Внешние вызовы — до транзакции; публикация или скрытие, кейс и заморозка аккаунта при P0 — в одной. Решение модератора действует на объект через тот же адаптер: одобрение публикует (и снимает заморозку автопроверки), отказ скрывает. До чата модераторов (2.5b) и админки (2.7b) кейсы смотрят и решают командами `cli moderation-queue` и `cli moderation-decide` (решает только роль moderator или admin).
+**Как устроено (шаг 2.6).** Контентный модуль в транзакции, где объект стал «на проверке», публикует событие `ModerationRequested` (тип и id объекта, автор, правка ли); подписчик `moderation.auto_check` читает текст и файлы через адаптер цели (`moderation/infrastructure/targets/<тип>.py` — фасад модуля-владельца: `content`, `publish`, `hide`) и решает маршрут (`moderation/domain/pipeline.py`). Сообщение чата видно сразу (6.3a): адаптер отдаёт его как уже видимое (`TargetContent.visible`), и очередь скрывает его только при признаке нарушения (`Routing.flagged`: слово словаря, velocity, omni, метка классификатора, кроме `contact_leak`); недоступный AI, сомнение классификатора и детекторы контактов и предоплаты открывают кейс, не пряча сообщение — контакты в переписке закрывает маскирование, о предоплате предупреждает памятка. Внешние вызовы — до транзакции; публикация или скрытие, кейс и заморозка аккаунта при P0 — в одной. Решение модератора действует на объект через тот же адаптер: одобрение публикует (и снимает заморозку автопроверки), отказ скрывает. До чата модераторов (2.5b) и админки (2.7b) кейсы смотрят и решают командами `cli moderation-queue` и `cli moderation-decide` (решает только роль moderator или admin).
 
 **Жёсткие правила (шаг 2.4).** Словарь `moderation.content_rules` загружается из `backend/seeds/moderation/content_rules.yaml` (`cli seed`) и сравнивается со **скелетом** текста (`platform/text/normalize.py`): регистр, письменность (кириллица и латиница), «цифры вместо букв», повторы, «п.р.е.д», невидимые символы, ударения, буквы-двойники других алфавитов и русский транслит сводятся к одной форме, поэтому сербское слово в словаре пишется один раз. Детектор контактов и предоплаты (`platform/text/contact_masking.py`) работает всегда, без словаря. Velocity — один текст от нескольких аккаунтов или повтор автора (отпечаток — скелет без контактов, счётчики в Valkey, fail open). Набор примеров `seeds/moderation/rule_examples.yaml` проверяет `cli seeds-validate`. Во внешний AI уходит текст без контактов, имени и id автора.
 

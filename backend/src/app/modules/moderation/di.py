@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.modules.identity.api import DeletionHold
 from app.modules.jobs.api import JobsApi
 from app.modules.media.api import LegalHold
+from app.modules.messaging.api import MessagingApi
 from app.modules.moderation.application.content_rules import ContentRulesChecker
 from app.modules.moderation.application.policy import PublishedModerationPolicy
 from app.modules.moderation.application.ports import (
@@ -52,6 +53,7 @@ from app.modules.moderation.infrastructure.rate_limits import ValkeyRateLimitOve
 from app.modules.moderation.infrastructure.rules import CachedRuleSource, SqlRuleWriter
 from app.modules.moderation.infrastructure.targets import TargetRegistry
 from app.modules.moderation.infrastructure.targets.job import JobTarget
+from app.modules.moderation.infrastructure.targets.message import MessageTarget
 from app.modules.moderation.infrastructure.targets.profile import ProfileTarget
 from app.modules.moderation.infrastructure.targets.response import ResponseTarget
 from app.modules.moderation.infrastructure.velocity import ValkeyVelocityCounter
@@ -87,13 +89,16 @@ class ModerationProvider(Provider):
         return PublishedModerationPolicy(versions, library)
 
     @provide
-    def targets(self, specialists: SpecialistsApi, jobs: JobsApi) -> ModerationTargets:
-        """Адаптеры целей: контентные модули добавляют свои в своих шагах (6.3a, 7.2)."""
+    def targets(
+        self, specialists: SpecialistsApi, jobs: JobsApi, messaging: MessagingApi
+    ) -> ModerationTargets:
+        """Адаптеры целей: контентные модули добавляют свои в своих шагах (отзывы — 7.2)."""
         return TargetRegistry(
             {
                 EntityType.PROFILE: ProfileTarget(specialists),
                 EntityType.JOB: JobTarget(jobs),
                 EntityType.RESPONSE: ResponseTarget(jobs),
+                EntityType.MESSAGE: MessageTarget(messaging),
             }
         )
 

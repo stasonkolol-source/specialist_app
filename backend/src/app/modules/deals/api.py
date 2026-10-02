@@ -54,3 +54,8 @@ class DealsApi(Protocol):
     async def deal_brief(self, deal_id: DealId) -> DealBrief | None:
         """Название, статус и стороны сделки; None — нет такой."""
         ...
+
+    async def deal_for_response(self, response_id: UUID) -> DealBrief | None:
+        """Сделка по отклику (одна на отклик); нет — None. Переписка открывает контакты после
+        `agreed` (6.3a)."""
+        ...

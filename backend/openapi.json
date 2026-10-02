@@ -4194,6 +4194,329 @@
         }
       }
     },
+    "/api/v1/conversations": {
+      "get": {
+        "tags": [
+          "messaging"
+        ],
+        "summary": "List Conversations",
+        "description": "Свои диалоги, свежие первыми.",
+        "operationId": "messaging_list_conversations",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationsPageOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "messaging"
+        ],
+        "summary": "Start Conversation",
+        "description": "Начать диалог или открыть уже начатый: 201 — новый, 200 — был.",
+        "operationId": "messaging_start_conversation",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationStartIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationStartOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations/{conversation_id}/messages": {
+      "get": {
+        "tags": [
+          "messaging"
+        ],
+        "summary": "List Messages",
+        "description": "Сообщения диалога старые → новые; без изменений — 304 по ETag.",
+        "operationId": "messaging_list_messages",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id диалога",
+              "title": "Conversation Id"
+            },
+            "description": "id диалога"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "older",
+                "newer"
+              ],
+              "type": "string",
+              "default": "older",
+              "title": "Direction"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessagesPageOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Не изменилось (If-None-Match)"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "messaging"
+        ],
+        "summary": "Send Message",
+        "description": "Написать в диалог; до договорённости контакты скрыты.",
+        "operationId": "messaging_send_message",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id диалога",
+              "title": "Conversation Id"
+            },
+            "description": "id диалога"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations/{conversation_id}/read": {
+      "post": {
+        "tags": [
+          "messaging"
+        ],
+        "summary": "Read Conversation",
+        "description": "Дочитал до сообщения: непрочитанные на S29 гаснут.",
+        "operationId": "messaging_read_conversation",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id диалога",
+              "title": "Conversation Id"
+            },
+            "description": "id диалога"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/specialists": {
       "get": {
         "tags": [
@@ -6431,6 +6754,210 @@
         "title": "ConsentsIn",
         "description": "Галочка S02c: версии правил (с 18+) и политики из client-config, которые видел\nпользователь."
       },
+      "ConversationKind": {
+        "type": "string",
+        "enum": [
+          "job_response",
+          "direct",
+          "support"
+        ],
+        "title": "ConversationKind"
+      },
+      "ConversationOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ConversationKind"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConversationStatus"
+          },
+          "my_role": {
+            "$ref": "#/components/schemas/ParticipantRole"
+          },
+          "counterpart_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Counterpart Id"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "response_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Id"
+          },
+          "deal_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deal Id"
+          },
+          "last_message": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessageOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unread": {
+            "type": "integer",
+            "title": "Unread"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "last_message_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Message At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "my_role",
+          "counterpart_id",
+          "job_id",
+          "response_id",
+          "deal_id",
+          "last_message",
+          "unread",
+          "created_at",
+          "last_message_at"
+        ],
+        "title": "ConversationOut",
+        "description": "Диалог глазами участника (S29): вторая сторона, последнее сообщение, непрочитанные."
+      },
+      "ConversationStartIn": {
+        "properties": {
+          "response_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Id"
+          },
+          "profile_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Id"
+          }
+        },
+        "type": "object",
+        "title": "ConversationStartIn",
+        "description": "Начать диалог: по отклику (`response_id`) или напрямую специалисту (`profile_id`)."
+      },
+      "ConversationStartOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "created": {
+            "type": "boolean",
+            "title": "Created",
+            "description": "Диалог создан сейчас; false — уже был"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created"
+        ],
+        "title": "ConversationStartOut"
+      },
+      "ConversationStatus": {
+        "type": "string",
+        "enum": [
+          "open",
+          "closed",
+          "blocked"
+        ],
+        "title": "ConversationStatus"
+      },
+      "ConversationsPageOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ConversationOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "ConversationsPageOut"
+      },
       "Currency": {
         "type": "string",
         "enum": [
@@ -8505,6 +9032,194 @@
         ],
         "title": "MediaVariantOut"
       },
+      "MessageIn": {
+        "properties": {
+          "body": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Body"
+          },
+          "client_msg_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Msg Id",
+            "description": "Повтор с тем же — то же сообщение"
+          }
+        },
+        "type": "object",
+        "required": [
+          "body"
+        ],
+        "title": "MessageIn"
+      },
+      "MessageKind": {
+        "type": "string",
+        "enum": [
+          "text",
+          "media",
+          "system",
+          "contact_share",
+          "offer"
+        ],
+        "title": "MessageKind"
+      },
+      "MessageOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MessageKind"
+          },
+          "mine": {
+            "type": "boolean",
+            "title": "Mine",
+            "description": "Моё сообщение"
+          },
+          "sender_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sender Id",
+            "description": "None — системное"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body",
+            "description": "Скрыто модерацией или стёрто — null"
+          },
+          "masked": {
+            "type": "boolean",
+            "title": "Masked",
+            "description": "Контакты скрыты: откроются после договорённости"
+          },
+          "prepayment": {
+            "type": "boolean",
+            "title": "Prepayment",
+            "description": "Просьба о предоплате: под сообщением памятка"
+          },
+          "hidden": {
+            "type": "boolean",
+            "title": "Hidden",
+            "description": "Скрыто модерацией"
+          },
+          "offer": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer",
+            "description": "Предложение отклика (kind=offer): price_type, price_amount, availability_note"
+          },
+          "client_msg_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Msg Id",
+            "description": "Ключ идемпотентности — только у своих"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "mine",
+          "sender_id",
+          "body",
+          "masked",
+          "prepayment",
+          "hidden",
+          "offer",
+          "client_msg_id",
+          "created_at"
+        ],
+        "title": "MessageOut"
+      },
+      "MessagesPageOut": {
+        "properties": {
+          "conversation": {
+            "$ref": "#/components/schemas/ConversationOut"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MessageOut"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "По порядку: старые → новые"
+          },
+          "older_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Older Cursor",
+            "description": "Более ранние; null — начало диалога"
+          },
+          "newer_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Newer Cursor",
+            "description": "С чего спрашивать новые (поллинг S30)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "conversation",
+          "items",
+          "older_cursor",
+          "newer_cursor"
+        ],
+        "title": "MessagesPageOut"
+      },
       "ModerationStatus": {
         "type": "string",
         "enum": [
@@ -8874,6 +9589,15 @@
         "type": "object",
         "title": "NotificationsReadIn",
         "description": "Что отметить прочитанным: `ids` (до 100) или `all: true`."
+      },
+      "ParticipantRole": {
+        "type": "string",
+        "enum": [
+          "client",
+          "performer",
+          "support"
+        ],
+        "title": "ParticipantRole"
       },
       "PartsIn": {
         "properties": {
@@ -9575,6 +10299,21 @@
           "end"
         ],
         "title": "QuietHoursOut"
+      },
+      "ReadIn": {
+        "properties": {
+          "message_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Message Id",
+            "description": "Последнее сообщение, которое участник видел"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message_id"
+        ],
+        "title": "ReadIn"
       },
       "RefreshIn": {
         "properties": {

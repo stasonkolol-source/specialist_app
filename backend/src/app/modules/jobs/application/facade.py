@@ -7,6 +7,7 @@ from uuid import UUID
 from app.modules.catalog.api import CatalogApi
 from app.modules.identity.api import IdentityApi
 from app.modules.jobs.api import (
+    ChatResponse,
     InviteNotice,
     JobBrief,
     JobForReview,
@@ -133,6 +134,26 @@ class JobsFacade(JobsApi):
     async def see_responses(self, job_id: UUID) -> None:
         self._uow.require_active()
         await self._seen.mark(JobId(job_id), self._clock.now())
+
+    async def chat_response(self, response_id: UUID) -> ChatResponse | None:
+        job = await self._job_of_response(ResponseId(response_id))
+        response = next((r for r in job.responses if r.id == response_id), None) if job else None
+        if job is None or response is None:
+            return None
+        offer = response.offer
+        return ChatResponse(
+            id=response.id,
+            job_id=job.id,
+            client_id=job.client_id,
+            performer_id=response.performer_id,
+            status=response.status.value,
+            visible_to_client=response.visible_to_client,
+            message=offer.message,
+            price_type=offer.price_type.value,
+            price_amount=offer.price_amount,
+            availability_note=offer.availability_note,
+            created_at=response.created_at,
+        )
 
     async def passed_over(self, job_id: UUID) -> list[UserId]:
         return await self._queries.passed_over(JobId(job_id))

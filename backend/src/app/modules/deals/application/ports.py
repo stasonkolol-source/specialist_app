@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from enum import StrEnum
 from typing import Final, Protocol
+from uuid import UUID
 
 from app.modules.deals.application.dto import DealView
 from app.modules.deals.domain.deal import Deal, DealRole, DealStatus
@@ -55,6 +56,10 @@ class DealQueries(Protocol):
     ) -> Page[DealView]:
         """Сделки, где человек — сторона (`role` — какая; None — любая), новые первыми; пустые
         `statuses` — все."""
+        ...
+
+    async def of_response(self, response_id: UUID) -> DealId | None:
+        """Сделка по отклику (одна на отклик)."""
         ...
 
     async def due(self, sweep: DealSweep, now: datetime, *, limit: int) -> list[DealId]:
