@@ -41,6 +41,7 @@ from app.platform.kernel.ids import CaseId, RestrictionId, UserId, new_id
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.pagination import PageRequest
 from app.platform.telegram.deeplinks import uuid_to_base62
+from app.platform.telegram.port import AppButton
 
 pytestmark = pytest.mark.integration
 
@@ -218,6 +219,7 @@ async def test_notify_then_send_speaks_the_recipient_language(
     assert message.chat_id == notifications.identity.chats[user_id]
     assert message.text.startswith("<b>Nalog je ograničen</b>\nObjavljivanje zahteva")
     [button] = message.buttons
+    assert isinstance(button, AppButton)
     assert (button.text, button.url) == ("Pravila platforme", f"{MINI_APP}?startapp=l_terms")
     [delivery] = await notifications.deliveries(user_id)
     assert (delivery["status"], delivery["provider_message_id"]) == ("sent", "1001")
@@ -337,6 +339,69 @@ async def test_send_is_suppressed_for_a_blocked_bot_or_a_deleted_user(
     )
     assert status is DeliveryStatus.SUPPRESSED
     assert notifications.sender.sent == []
+
+
+DAY = datetime(2026, 10, 12, 10, 0, tzinfo=UTC)
+"""12:00 в Белграде."""
+
+
+def expiring(user_id: UserId, key: str, valid_until: datetime) -> NotifyCommand:
+    """«Заявка закроется через 2 ч»: после срока заявки сообщение — неправда."""
+    return NotifyCommand(
+        user_id=user_id,
+        type=NotificationType.JOB_EXPIRING,
+        dedupe_key=f"job.expiring:{key}",
+        params={"job_id": str(new_id()), "title": "Люстра", "can_extend": "true"},
+        valid_until=valid_until,
+    )
+
+
+async def test_notify_whose_deadline_falls_in_quiet_hours_skips_the_bot(
+    notifications: Notifications,
+) -> None:
+    notifications.clock.set(NIGHT)
+    user_id = await notifications.user_with_bot()
+
+    created = await notifications.notify(expiring(user_id, "a", NIGHT + timedelta(hours=2)))
+
+    assert created is not None
+    assert await notifications.deliveries(user_id) == []  # утром «через 2 ч» было бы неправдой
+    assert await notifications.sends() == []
+
+
+async def test_send_after_the_deadline_is_suppressed_as_late(notifications: Notifications) -> None:
+    notifications.clock.set(DAY)
+    user_id = await notifications.user_with_bot()
+    deadline = DAY + timedelta(hours=2)
+    await notifications.notify(expiring(user_id, "b", deadline))
+    [row] = await notifications.notifications(user_id)
+    assert cast(dict[str, Any], row["payload"])["valid_until"] == deadline.isoformat()
+    delivery_id = await delivery_of(notifications)
+
+    notifications.clock.set(deadline)  # очередь задержала отправку до срока заявки
+    status = await notifications.send(SendDeliveryCommand(delivery_id=delivery_id))
+
+    assert status is DeliveryStatus.SUPPRESSED
+    [delivery] = await notifications.deliveries(user_id)
+    assert delivery["error"] == "late"
+    assert notifications.sender.sent == []
+
+
+async def test_send_that_would_wait_past_the_deadline_is_suppressed(
+    notifications: Notifications,
+) -> None:
+    evening = datetime(2026, 10, 12, 19, 30, tzinfo=UTC)  # 21:30 в Белграде
+    notifications.clock.set(evening)
+    user_id = await notifications.user_with_bot()
+    await notifications.notify(expiring(user_id, "c", evening + timedelta(hours=2)))
+    delivery_id = await delivery_of(notifications)
+    await notifications.take_sends()
+
+    notifications.clock.set(NIGHT)  # воркер взял задачу уже в тихие часы
+    status = await notifications.send(SendDeliveryCommand(delivery_id=delivery_id))
+
+    assert status is DeliveryStatus.SUPPRESSED
+    assert await notifications.sends() == []  # утра не ждём
 
 
 async def test_send_failure_is_retried_later(notifications: Notifications) -> None:

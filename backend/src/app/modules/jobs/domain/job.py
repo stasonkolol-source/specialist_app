@@ -23,6 +23,7 @@ from app.modules.jobs.errors import (
 from app.platform.contracts.events.jobs import (
     JobClosed,
     JobExpired,
+    JobExpiring,
     JobPublished,
     JobSubmitted,
     JobUpdated,
@@ -39,6 +40,8 @@ MAX_TITLE: Final = 120
 MAX_DESCRIPTION: Final = 3000
 MAX_ADDRESS: Final = 300
 MAX_EXTENSIONS: Final = 3
+REMINDER_LEAD: Final = timedelta(hours=2)
+"""За столько до конца срока клиенту — «Заявка закроется через 2 ч» (§11.3, §12)."""
 MAX_PHOTOS: Final = 6
 MAX_BUDGET: Final = 1_000_000_000 * 100
 """Миллиард динаров в пара: защита от опечатки в нулях (как у прайса)."""
@@ -134,6 +137,8 @@ _ALLOWED: Final[dict[JobStatus, frozenset[JobStatus]]] = {
     JobStatus.CLOSED: frozenset(),
     JobStatus.REMOVED: frozenset(),
 }
+CLOSABLE: Final = frozenset(status for status, to in _ALLOWED.items() if JobStatus.CLOSED in to)
+"""Из этих статусов заявку можно закрыть: клиентом, удалением или удалением аккаунта."""
 
 
 class ActorKind(StrEnum):
@@ -261,6 +266,8 @@ class Job(VersionedAggregate):
     closed_at: datetime | None = None
     close_reason: CloseReason | None = None
     moderation_note: str | None = None
+    expiry_reminded_at: datetime | None = None
+    """Когда напомнили о конце текущего срока; новый срок (публикация, продление) — None."""
     deleted_at: datetime | None = None
     _history: list[tuple[StatusChange[JobStatus], ActorKind]] = field(
         default_factory=list, init=False, repr=False
@@ -300,6 +307,10 @@ class Job(VersionedAggregate):
         """Принимает отклики: опубликована и не удалена."""
         return self.status is JobStatus.PUBLISHED and self.deleted_at is None
 
+    @property
+    def can_extend(self) -> bool:
+        return self.extensions_count < MAX_EXTENSIONS
+
     def approve(self, *, version: int | None, now: datetime) -> bool:
         """Модерация пропустила: «на проверке» → «опубликована», срок — по срочности. Другая
         версия (клиент успел поправить) или статус — ничего, False."""
@@ -310,7 +321,7 @@ class Job(VersionedAggregate):
         first = self.published_at is None
         self._move(JobStatus.PUBLISHED, by=None, kind=ActorKind.MODERATOR, now=now)
         self.published_at = self.published_at or now
-        self.expires_at = lifetime(self.content.urgency, now)
+        self.expires_at, self.expiry_reminded_at = lifetime(self.content.urgency, now), None
         self.moderation_note = None
         self._publish_event(now, republished=not first)
         return True
@@ -329,15 +340,7 @@ class Job(VersionedAggregate):
         self._move(target, by=None, kind=ActorKind.MODERATOR, now=now, reason=reason_code)
         self.moderation_note = reason_code
         if target is JobStatus.REMOVED:
-            self.closed_at, self.close_reason = now, CloseReason.REMOVED
-            self._record(
-                JobClosed(
-                    job_id=self.id,
-                    client_id=self.client_id,
-                    reason=CloseReason.REMOVED.value,
-                    occurred_at=now,
-                )
-            )
+            self._closed(CloseReason.REMOVED, now)
         return True
 
     def edit(self, content: JobContent, *, now: datetime) -> bool:
@@ -366,12 +369,7 @@ class Job(VersionedAggregate):
         if reason not in CLIENT_CLOSE_REASONS:
             raise InvalidJobError(field="reason", reason="not_allowed")
         self._move(JobStatus.CLOSED, by=self.client_id, kind=ActorKind.USER, now=now)
-        self.closed_at, self.close_reason = now, reason
-        self._record(
-            JobClosed(
-                job_id=self.id, client_id=self.client_id, reason=reason.value, occurred_at=now
-            )
-        )
+        self._closed(reason, now)
 
     def extend(self, *, now: datetime) -> None:
         """Продлить опубликованную или переопубликовать истёкшую, не больше трёх раз (§7.9).
@@ -380,13 +378,13 @@ class Job(VersionedAggregate):
         self._ensure_alive()
         if self.status not in {JobStatus.PUBLISHED, JobStatus.EXPIRED}:
             raise JobNotOpenError(job_id=self.id, job_status=self.status.value)
-        if self.extensions_count >= MAX_EXTENSIONS:
+        if not self.can_extend:
             raise JobExtendLimitError(job_id=self.id, limit=MAX_EXTENSIONS)
         republished = self.status is JobStatus.EXPIRED
         self._move(JobStatus.PUBLISHED, by=self.client_id, kind=ActorKind.USER, now=now)
         self.extensions_count += 1
         start = max(now, self.expires_at) if self.expires_at is not None else now
-        self.expires_at = lifetime(self.content.urgency, start)
+        self.expires_at, self.expiry_reminded_at = lifetime(self.content.urgency, start), None
         self.updated_at = now
         if republished:
             self._publish_event(now, republished=True)
@@ -400,7 +398,33 @@ class Job(VersionedAggregate):
         if self.expires_at > now or self.deleted_at is not None:
             return False
         self._move(JobStatus.EXPIRED, by=None, kind=ActorKind.SYSTEM, now=now)
-        self._record(JobExpired(job_id=self.id, client_id=self.client_id, occurred_at=now))
+        self._record(
+            JobExpired(
+                job_id=self.id,
+                client_id=self.client_id,
+                category_id=self.content.category_id,
+                city_id=self.content.place.city_id,
+                occurred_at=now,
+            )
+        )
+        return True
+
+    def remind_expiry(self, *, now: datetime) -> bool:
+        """До конца срока опубликованной — не больше REMINDER_LEAD: напомнить клиенту один раз
+        за срок. Уже напомнили, срок дальше или вышел, другой статус — False."""
+        if not self.is_open or self.expires_at is None or self.expiry_reminded_at is not None:
+            return False
+        if not now < self.expires_at <= now + REMINDER_LEAD:
+            return False
+        self.expiry_reminded_at = now
+        self._record(
+            JobExpiring(
+                job_id=self.id,
+                client_id=self.client_id,
+                expires_at=self.expires_at,
+                occurred_at=now,
+            )
+        )
         return True
 
     def delete(self, *, now: datetime, by_system: bool = False) -> None:
@@ -408,19 +432,11 @@ class Job(VersionedAggregate):
         `by_system` — аккаунт удалён (UserDeleted)."""
         if self.deleted_at is not None:
             return
-        if self.status in _ALLOWED and JobStatus.CLOSED in _ALLOWED[self.status]:
+        if self.status in CLOSABLE:
             kind = ActorKind.SYSTEM if by_system else ActorKind.USER
             by = None if by_system else self.client_id
             self._move(JobStatus.CLOSED, by=by, kind=kind, now=now, reason="deleted")
-            self.closed_at, self.close_reason = now, CloseReason.NOT_NEEDED
-            self._record(
-                JobClosed(
-                    job_id=self.id,
-                    client_id=self.client_id,
-                    reason=CloseReason.NOT_NEEDED.value,
-                    occurred_at=now,
-                )
-            )
+            self._closed(CloseReason.NOT_NEEDED, now)
         self.deleted_at = now
         self.updated_at = now
 
@@ -439,7 +455,21 @@ class Job(VersionedAggregate):
                 client_id=self.client_id,
                 category_id=self.content.category_id,
                 city_id=self.content.place.city_id,
+                urgency=self.content.urgency.value,
                 republished=republished,
+                occurred_at=now,
+            )
+        )
+
+    def _closed(self, reason: CloseReason, now: datetime) -> None:
+        self.closed_at, self.close_reason = now, reason
+        self._record(
+            JobClosed(
+                job_id=self.id,
+                client_id=self.client_id,
+                category_id=self.content.category_id,
+                city_id=self.content.place.city_id,
+                reason=reason.value,
                 occurred_at=now,
             )
         )

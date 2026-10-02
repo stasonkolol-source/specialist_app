@@ -197,6 +197,8 @@ async def test_platform_periodic_tasks_are_scheduled(container: AsyncContainer) 
         "moderation.rate_limit_signals": "4,19,34,49 * * * *",
         "specialists.reset_availability": "*/5 * * * *",
         "search.reconcile_index": "23 3 * * *",
+        "jobs.expire_jobs": "2-59/5 * * * *",
+        "jobs.expiry_reminders": "11,26,41,56 * * * *",
     }
 
 

@@ -1,5 +1,6 @@
-"""Тексты демо-специалистов `cli seed-demo` (DEVELOPMENT_PLAN 2.8c): имена, заголовки, рассказ о
-себе, позиции прайса и подписи работ по листьям каталога (seeds/catalog/taxonomy.yaml).
+"""Тексты демо-данных `cli seed-demo` (DEVELOPMENT_PLAN 2.8c, 5.1): имена, заголовки, рассказ о
+себе, позиции прайса и подписи работ по листьям каталога (seeds/catalog/taxonomy.yaml); заявки
+демо-клиентов — что просят сделать, когда и за сколько.
 
 Половина специалистов пишет по-русски, половина — по-сербски латиницей (research/07 §2.7):
 поиск и выдача проверяются на обоих языках. Цены — в динарах, как их назвал бы мастер в
@@ -430,6 +431,255 @@ CATEGORIES: Final[tuple[DemoCategory, ...]] = (
         color=(100, 150, 210),
     ),
 )
+
+
+@dataclass(frozen=True, slots=True)
+class DemoJob:
+    """Заявка демо-клиента: текст на двух языках, срочность и бюджет."""
+
+    category: str
+    """slug листа каталога."""
+    title: dict[Lang, str]
+    description: dict[Lang, str]
+    urgency: str
+    budget_type: str
+    dinars: tuple[int, ...] = ()
+    """fixed — (сумма,), range — (от, до), negotiable — ()."""
+    unit: str = "work"
+
+
+def _j(
+    category: str,
+    title: tuple[str, str],
+    description: tuple[str, str],
+    urgency: str,
+    budget_type: str,
+    *dinars: int,
+    unit: str = "work",
+) -> DemoJob:
+    return DemoJob(
+        category=category,
+        title={"ru": title[0], "sr": title[1]},
+        description={"ru": description[0], "sr": description[1]},
+        urgency=urgency,
+        budget_type=budget_type,
+        dinars=dinars,
+        unit=unit,
+    )
+
+
+JOBS: Final[tuple[DemoJob, ...]] = (
+    _j(
+        "small-repairs",
+        ("Повесить полки и карниз", "Okačiti police i garnišnu"),
+        (
+            "Две полки в гостиной и карниз в спальне, стены бетонные. Дюбели и саморезы есть.",
+            "Dve police u dnevnoj sobi i garnišna u spavaćoj, zidovi su betonski. Imam tiplove.",
+        ),
+        "this_week",
+        "fixed",
+        3000,
+    ),
+    _j(
+        "small-repairs",
+        ("Починить дверцу кухонного шкафа", "Popraviti vrata kuhinjskog ormarića"),
+        (
+            "Отвалилась петля, дверца висит. Нужно заменить петлю и подтянуть остальные.",
+            "Otpala je šarka i vrata vise. Treba zameniti šarku i pritegnuti ostale.",
+        ),
+        "flexible",
+        "negotiable",
+    ),
+    _j(
+        "furniture-assembly",
+        ("Собрать шкаф-купе", "Sklopiti plakar sa kliznim vratima"),
+        (
+            "Шкаф из IKEA шириной 2 м, коробки уже в квартире. Нужен свой инструмент.",
+            "Plakar iz IKEA širine 2 m, kutije su već u stanu. Potreban je sopstveni alat.",
+        ),
+        "this_week",
+        "fixed",
+        6000,
+    ),
+    _j(
+        "furniture-assembly",
+        ("Собрать кровать и комод", "Sklopiti krevet i komodu"),
+        (
+            "Кровать 160×200 и комод на четыре ящика, инструкции есть.",
+            "Krevet 160×200 i komoda sa četiri fioke, uputstva postoje.",
+        ),
+        "today",
+        "range",
+        4000,
+        6000,
+    ),
+    _j(
+        "plumbing",
+        ("Течёт смеситель на кухне", "Curi slavina u kuhinji"),
+        (
+            "Капает из-под крана, похоже, нужна замена картриджа или смесителя.",
+            "Kaplje ispod slavine, verovatno treba zameniti uložak ili celu slavinu.",
+        ),
+        "asap",
+        "negotiable",
+    ),
+    _j(
+        "plumbing",
+        ("Установить бойлер на 80 литров", "Montirati bojler od 80 litara"),
+        (
+            "Новый бойлер уже куплен, старый нужно снять и вынести.",
+            "Novi bojler je kupljen, stari treba skinuti i izneti.",
+        ),
+        "this_week",
+        "fixed",
+        5000,
+    ),
+    _j(
+        "electrical",
+        ("Повесить люстру в спальне", "Okačiti luster u spavaćoj sobi"),
+        (
+            "Люстра на пять рожков, потолок 2,7 м, крюк есть.",
+            "Luster sa pet sijalica, plafon je 2,7 m, kuka postoji.",
+        ),
+        "this_week",
+        "fixed",
+        2500,
+    ),
+    _j(
+        "electrical",
+        ("Не работают розетки на кухне", "Ne rade utičnice u kuhinji"),
+        (
+            "Выбивает автомат, когда включаю чайник. Нужно найти причину и починить.",
+            "Izbacuje osigurač kad uključim kuvalo. Treba naći uzrok i popraviti.",
+        ),
+        "asap",
+        "negotiable",
+    ),
+    _j(
+        "nails",
+        ("Маникюр с покрытием на дому", "Manikir sa gel lakom kod kuće"),
+        (
+            "Удобно в субботу утром, нужен выезд ко мне.",
+            "Odgovara mi subota ujutru, potreban je dolazak kod mene.",
+        ),
+        "this_week",
+        "fixed",
+        2500,
+    ),
+    _j(
+        "brows-and-lashes",
+        ("Коррекция и окрашивание бровей", "Korekcija i farbanje obrva"),
+        (
+            "Удобно вечером после 18:00, можно у мастера.",
+            "Odgovara mi uveče posle 18 h, može i kod vas.",
+        ),
+        "this_week",
+        "fixed",
+        1500,
+    ),
+    _j(
+        "hair",
+        ("Стрижка и укладка", "Šišanje i feniranje"),
+        (
+            "Стрижка средней длины, хочу освежить форму.",
+            "Šišanje srednje dužine, želim da osvežim oblik.",
+        ),
+        "today",
+        "fixed",
+        2000,
+    ),
+    _j(
+        "hair",
+        ("Окрашивание в один тон", "Farbanje u jednoj nijansi"),
+        (
+            "Волосы до плеч, закрасить седину в натуральный цвет.",
+            "Kosa do ramena, treba prekriti sede u prirodnoj boji.",
+        ),
+        "flexible",
+        "negotiable",
+    ),
+    _j(
+        "regular-cleaning",
+        ("Уборка двухкомнатной квартиры", "Čišćenje dvosobnog stana"),
+        (
+            "55 м², раз в неделю, средства для уборки мои.",
+            "55 m², jednom nedeljno, sredstva za čišćenje su moja.",
+        ),
+        "this_week",
+        "fixed",
+        3500,
+        unit="visit",
+    ),
+    _j(
+        "regular-cleaning",
+        ("Помыть окна", "Oprati prozore"),
+        (
+            "Шесть окон и балконная дверь, третий этаж.",
+            "Šest prozora i balkonska vrata, treći sprat.",
+        ),
+        "this_week",
+        "fixed",
+        3000,
+    ),
+    _j(
+        "deep-cleaning",
+        ("Генеральная уборка после ремонта", "Generalno čišćenje posle renoviranja"),
+        (
+            "Квартира 70 м², везде строительная пыль после шпаклёвки.",
+            "Stan od 70 m², svuda je prašina posle gletovanja.",
+        ),
+        "this_week",
+        "range",
+        8000,
+        12000,
+    ),
+    _j(
+        "apartment-move",
+        ("Переезд однокомнатной квартиры", "Selidba garsonjere"),
+        (
+            "С Лимана на Детелинару, третий этаж без лифта, вещей немного.",
+            "Sa Limana na Detelinaru, treći sprat bez lifta, stvari nema mnogo.",
+        ),
+        "this_week",
+        "negotiable",
+    ),
+    _j(
+        "movers",
+        ("Поднять диван на четвёртый этаж", "Uneti kauč na četvrti sprat"),
+        (
+            "Лифта нет, нужны двое грузчиков на полчаса.",
+            "Nema lifta, potrebne su dve osobe na pola sata.",
+        ),
+        "today",
+        "fixed",
+        2500,
+    ),
+    _j(
+        "serbian-language",
+        ("Сербский для начинающих", "Srpski za početnike"),
+        (
+            "Два занятия в неделю, онлайн или у меня дома.",
+            "Dva časa nedeljno, onlajn ili kod mene.",
+        ),
+        "flexible",
+        "fixed",
+        1500,
+        unit="lesson",
+    ),
+    _j(
+        "foreign-languages",
+        ("Английский для школьника", "Engleski za đaka"),
+        (
+            "Седьмой класс, подтянуть грамматику и подготовиться к тестам.",
+            "Sedmi razred, da popravi gramatiku i pripremi se za testove.",
+        ),
+        "flexible",
+        "fixed",
+        1800,
+        unit="lesson",
+    ),
+)
+"""Заявки демо-клиентов: по одной-две на клиента, язык — язык клиента."""
 
 FIRST_NAMES: Final[dict[tuple[Lang, bool], tuple[str, ...]]] = {
     ("ru", False): (

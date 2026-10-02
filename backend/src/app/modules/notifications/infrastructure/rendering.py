@@ -3,7 +3,9 @@
 Шаблоны — простой текст в каталогах `notifications.*`, параметры — машинные значения из
 payload: коды превращаются в слова каталога, даты — в время Белграда на языке читателя.
 Для бота заголовок и текст экранируются целиком и заголовок выделяется `<b>`: ни шаблон,
-ни параметр не внесут в сообщение разметку. Кнопка — web_app с кодом deep link.
+ни параметр не внесут в сообщение разметку. Кнопка — web_app с кодом deep link; у срока
+заявки (`job.expiring`, `job.expired`) — callback-кнопки «Продлить» и «Закрыть»: их
+нажатие обрабатывает бот модуля jobs (platform/telegram/callbacks.py).
 
 Шаблоны есть у типов, которые создаёт подписчик (tasks.py): тип без шаблонов — ошибка
 программиста, её ловит тест на каталоги.
@@ -13,18 +15,16 @@ import html
 from collections.abc import Mapping
 from datetime import datetime
 from types import MappingProxyType
-
-import babel
-from babel.dates import format_datetime
+from uuid import UUID
 
 from app.modules.notifications.application.dto import RenderedText
 from app.modules.notifications.domain.catalog import NotificationType
-from app.modules.notifications.domain.settings import TIMEZONE
-from app.platform.i18n.catalogs import CATALOG_NAMES
+from app.platform.i18n.dates import long_datetime
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.localized import Locale
 from app.platform.telegram.buttons import mini_app_url
-from app.platform.telegram.port import AppButton
+from app.platform.telegram.callbacks import CallbackAction, CallbackData, encode_callback
+from app.platform.telegram.port import AppButton, Button, CallbackButton
 
 RENDERED = frozenset(
     {
@@ -32,9 +32,18 @@ RENDERED = frozenset(
         NotificationType.MODERATION_DECISION,
         NotificationType.SYSTEM_TEST,
         NotificationType.PROFILE_PUBLISHED,
+        NotificationType.JOB_EXPIRING,
+        NotificationType.JOB_EXPIRED,
     }
 )
 """Типы с шаблонами: остальные получат их вместе со своими подписчиками."""
+
+JOB_TERM = frozenset({NotificationType.JOB_EXPIRING, NotificationType.JOB_EXPIRED})
+"""Срок заявки: «Продлить» (если ещё можно) и «Закрыть» — callback-кнопки бота jobs."""
+FOUND = "found"
+"""Аргумент «Закрыть» у `job.expiring`: спросить, где нашёлся исполнитель (callbacks.py)."""
+TITLE_CHARS = 60
+"""Название заявки в тексте — не длиннее, дальше «…»."""
 
 BUTTONS: Mapping[NotificationType, str] = MappingProxyType(
     {
@@ -66,6 +75,8 @@ class GettextNotificationRenderer:
             return self._account_restricted(params, locale)
         if type_ is NotificationType.MODERATION_DECISION:
             return self._moderation_decision(params, locale)
+        if type_ in JOB_TERM:
+            return self._job_term(type_, params, locale)
         if type_ is NotificationType.PROFILE_PUBLISHED:
             return RenderedText(
                 title=self._t("notifications.profile_published.title", locale),
@@ -84,14 +95,54 @@ class GettextNotificationRenderer:
         params: Mapping[str, str],
         link: str | None,
         locale: Locale,
-    ) -> tuple[str, tuple[AppButton, ...]]:
+    ) -> tuple[str, tuple[Button, ...]]:
         text = self.text(type_, params, locale)
         message = f"<b>{_escape(text.title)}</b>\n{_escape(text.body)}"
+        if type_ in JOB_TERM:
+            return message, self._job_buttons(type_, params, locale)
         label = BUTTONS.get(type_)
         if label is None or link is None or self._mini_app is None:
             return message, ()
         button = AppButton(text=self._t(label, locale), url=mini_app_url(self._mini_app, link))
         return message, (button,)
+
+    def _job_term(
+        self, type_: NotificationType, params: Mapping[str, str], locale: Locale
+    ) -> RenderedText:
+        key = "job_expiring" if type_ is NotificationType.JOB_EXPIRING else "job_expired"
+        body = "body" if params.get("can_extend") == "true" else "body_final"
+        return RenderedText(
+            title=self._t(f"notifications.{key}.title", locale),
+            body=self._t(f"notifications.{key}.{body}", locale, title=_short(params.get("title"))),
+        )
+
+    def _job_buttons(
+        self, type_: NotificationType, params: Mapping[str, str], locale: Locale
+    ) -> tuple[Button, ...]:
+        try:
+            job_id = UUID(params.get("job_id", ""))
+        except ValueError:
+            return ()
+        buttons: list[Button] = []
+        if params.get("can_extend") == "true":
+            buttons.append(
+                CallbackButton(
+                    text=self._t("notifications.job.extend", locale),
+                    data=encode_callback(CallbackData(CallbackAction.JOB_EXTEND, job_id)),
+                )
+            )
+        found = type_ is NotificationType.JOB_EXPIRING
+        buttons.append(
+            CallbackButton(
+                text=self._t(
+                    "notifications.job.close_found" if found else "notifications.job.close", locale
+                ),
+                data=encode_callback(
+                    CallbackData(CallbackAction.JOB_CLOSE, job_id, FOUND if found else None)
+                ),
+            )
+        )
+        return tuple(buttons)
 
     def _account_restricted(self, params: Mapping[str, str], locale: Locale) -> RenderedText:
         kind = params.get("kind", "")
@@ -141,12 +192,13 @@ class GettextNotificationRenderer:
 
     def _datetime(self, value: str, locale: Locale) -> str:
         """Дата и время по Белграду в формате языка: «12 октября 2026 г., 08:30»."""
-        moment = datetime.fromisoformat(value)
-        cldr = babel.Locale.parse(CATALOG_NAMES[locale])
-        long_date = cldr.date_formats["long"].pattern
-        pattern = cldr.datetime_formats["long"].replace("{1}", long_date).replace("{0}", "HH:mm")
-        return format_datetime(moment, pattern, tzinfo=TIMEZONE, locale=cldr)
+        return long_datetime(datetime.fromisoformat(value), locale)
 
 
 def _escape(text: str) -> str:
     return html.escape(text, quote=False)
+
+
+def _short(title: str | None) -> str:
+    title = (title or "").strip()
+    return title if len(title) <= TITLE_CHARS else title[: TITLE_CHARS - 1].rstrip() + "…"

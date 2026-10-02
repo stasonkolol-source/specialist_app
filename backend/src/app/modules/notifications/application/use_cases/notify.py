@@ -6,7 +6,8 @@
 - в центре уведомлений (S42) оно видно, если канал `in_app` у группы включён;
 - доставка в личный чат с ботом — если тип ходит в бот, группа там включена и боту можно
   писать; не раньше конца тихих часов (кроме срочного), и задача `notifications.send`
-  ставится на то же время.
+  ставится на то же время. Тихие часы кончатся позже `valid_until` — доставки нет: сообщение
+  к утру стало бы неправдой.
 
 Выключенная группа доставки не создаёт; служебную (решения модерации, санкции) не
 выключить. Текст не хранится: его собирают на языке читателя при показе и отправке.
@@ -14,6 +15,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import datetime
 from types import MappingProxyType
 
 from app.modules.notifications.application.dto import NewNotification
@@ -47,6 +49,8 @@ class NotifyCommand:
     """Код deep link (§11.4): куда ведут кнопка бота и строка центра уведомлений."""
     urgent: bool = False
     """Срочное (заявка `asap`): уходит и в тихие часы."""
+    valid_until: datetime | None = None
+    """Позже сообщение уже неправда («закроется через 2 ч»): в бот не уходит."""
 
 
 class Notify:
@@ -86,6 +90,7 @@ class Notify:
                     urgent=cmd.urgent,
                     priority=spec.priority,
                     in_app=Channel.IN_APP in spec.channels and allows(spec.group, Channel.IN_APP),
+                    valid_until=cmd.valid_until,
                 )
             )
             if notification_id is None:
@@ -98,6 +103,8 @@ class Notify:
             release = (
                 now if spec.quiet_exempt or cmd.urgent else settings.quiet_hours.release_at(now)
             )
+            if cmd.valid_until is not None and release >= cmd.valid_until:
+                return notification_id
             delivery_id = await self._notifications.add_delivery(
                 notification_id, target.channel_id, not_before=release
             )

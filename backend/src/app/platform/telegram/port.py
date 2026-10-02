@@ -1,9 +1,9 @@
 """Порт отправки в Telegram (шаги 2.3a–2.3b, ARCHITECTURE §11.2, §12.4, ADR-0011).
 
-Уведомление бота — HTML-текст (texts.py) и кнопки web_app: каждая открывает Mini App на
-экране кода deep link (buttons.py). Адаптер — aiogram_sender.py: перед вызовом Bot API
-занимает слот лимитера (25 msg/s на бота и 1 msg/s на чат, limiter.py). Ответы Bot API —
-ошибки порта:
+Уведомление бота — HTML-текст (texts.py) и кнопки: web_app открывает Mini App на экране кода
+deep link (buttons.py), callback — действие прямо в чате (callbacks.py, план 5.1). Адаптер —
+aiogram_sender.py: перед вызовом Bot API занимает слот лимитера (25 msg/s на бота и 1 msg/s
+на чат, limiter.py). Ответы Bot API — ошибки порта:
 - 429 и слот дальше горизонта лимитера — RateLimitedError с `retry_after`: доставка ждёт,
   попытка не тратится;
 - 403 (бот заблокирован, чата нет) — TelegramBlockedError: канал выключается;
@@ -24,12 +24,23 @@ class AppButton:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class CallbackButton:
+    """Кнопка действия в чате: нажатие получает бот модуля (`data` — callbacks.py)."""
+
+    text: str
+    data: str
+
+
+type Button = AppButton | CallbackButton
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class OutgoingMessage:
     chat_id: int
     """Личный чат с ботом. Не логируется (ADR-0020 §14)."""
     text: str
     """HTML: шаблон доверенный, параметры экранированы (texts.py)."""
-    buttons: tuple[AppButton, ...] = ()
+    buttons: tuple[Button, ...] = ()
     """По одной кнопке в ряд."""
 
 

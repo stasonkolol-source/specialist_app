@@ -7,7 +7,7 @@
   текст, Sentry и лог. Тексты сообщений пользователей не логируются.
 """
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
 import sentry_sdk
@@ -79,7 +79,7 @@ class ErrorMiddleware(BaseMiddleware):
             return await handler(event, data)
         except DomainError as exc:
             log.info("bot_domain_error", code=exc.code)
-            await self._reply(event, data, f"errors.{exc.code}")
+            await self._reply(event, data, f"errors.{exc.code}", exc.params)
         except Exception:
             sentry_sdk.capture_exception()
             log.exception("bot_handler_failed")
@@ -88,12 +88,19 @@ class ErrorMiddleware(BaseMiddleware):
             clear_context()
         return None
 
-    async def _reply(self, event: TelegramObject, data: dict[str, Any], key: str) -> None:
+    async def _reply(
+        self,
+        event: TelegramObject,
+        data: dict[str, Any],
+        key: str,
+        params: Mapping[str, object] | None = None,
+    ) -> None:
         inner = event.event if isinstance(event, Update) else event
         if not isinstance(inner, Message | CallbackQuery):
             return
         translator: Translator = await data["dishka_container"].get(Translator)
-        text = translator.text(key, data.get("locale", Locale.RU)) or key
+        # параметры шаблона — как у HTTP (`{limit}` в «продлевали {limit} раза»)
+        text = translator.text(key, data.get("locale", Locale.RU), **(params or {})) or key
         if isinstance(inner, CallbackQuery):
             # нажатие кнопки ждёт ответа: без него у человека крутится индикатор
             await inner.answer(text, show_alert=True)

@@ -1,5 +1,5 @@
 """Заявка (DEVELOPMENT_PLAN 5.1; ARCHITECTURE §7.9): жизненный цикл, срок жизни, продления,
-правки, закрытие, политики владения."""
+напоминание о сроке, правки, закрытие, политики владения."""
 
 from datetime import UTC, datetime, timedelta
 
@@ -22,10 +22,18 @@ from app.modules.jobs.errors import (
     JobNotFoundError,
     JobNotOpenError,
 )
-from app.modules.jobs.tests.builders import CLIENT, NOW, content, published, submitted
+from app.modules.jobs.tests.builders import (
+    CLIENT,
+    ELECTRICAL,
+    NOW,
+    content,
+    published,
+    submitted,
+)
 from app.platform.contracts.events.jobs import (
     JobClosed,
     JobExpired,
+    JobExpiring,
     JobPublished,
     JobSubmitted,
     JobUpdated,
@@ -223,3 +231,49 @@ def test_title_and_dates_are_checked() -> None:
         content(preferred_from=NOW, preferred_to=NOW - timedelta(hours=1))
     assert content(title="  Повесить полку  ").title == "Повесить полку"
     assert Budget(type=BudgetType.RANGE, min=100, unit=BudgetUnit.HOUR).max is None
+
+
+def test_reminder_comes_once_per_term_two_hours_before_the_end() -> None:
+    job = published(urgency=Urgency.ASAP)
+    expires = job.expires_at
+    assert expires is not None
+
+    assert not job.remind_expiry(now=expires - timedelta(hours=3))
+    assert job.remind_expiry(now=expires - timedelta(hours=2))
+    assert not job.remind_expiry(now=expires - timedelta(hours=1))  # одно за срок
+
+    event = job.pull_events()[-1]
+    assert isinstance(event, JobExpiring)
+    assert (event.job_id, event.expires_at) == (job.id, expires)
+    job.extend(now=expires - timedelta(hours=1))  # новый срок — новое напоминание
+    renewed = job.expires_at
+    assert renewed is not None
+    assert job.expiry_reminded_at is None
+    assert job.remind_expiry(now=renewed - timedelta(minutes=30))
+
+
+def test_no_reminder_once_the_term_is_over_or_the_job_closed() -> None:
+    job = published()
+    expires = job.expires_at
+    assert expires is not None
+
+    assert not job.remind_expiry(now=expires + timedelta(minutes=1))
+    job.close(CloseReason.NOT_NEEDED, now=NOW)
+    assert not job.remind_expiry(now=expires - timedelta(hours=1))
+
+
+def test_events_carry_category_city_and_urgency() -> None:
+    job = submitted(urgency=Urgency.TODAY)
+    assert job.approve(version=None, now=NOW)
+    published_event = job.pull_events()[-1]
+    job.close(CloseReason.HIRED_HERE, now=NOW)
+    closed_event = job.pull_events()[-1]
+
+    assert isinstance(published_event, JobPublished)
+    assert (published_event.urgency, published_event.category_id) == ("today", ELECTRICAL)
+    assert isinstance(closed_event, JobClosed)
+    assert (closed_event.reason, closed_event.category_id, closed_event.city_id) == (
+        "hired_here",
+        ELECTRICAL,
+        job.content.place.city_id,
+    )

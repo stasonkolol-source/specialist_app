@@ -23,13 +23,14 @@ from app.modules.notifications.domain.notification import (
 )
 from app.modules.notifications.domain.settings import NotificationSettings
 from app.platform.contracts.events.identity import BotStarted, UserDeleted, UserRestricted
+from app.platform.contracts.events.jobs import JobExpired, JobExpiring
 from app.platform.contracts.events.moderation import ModerationDecisionMade
 from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.kernel.ids import UserId
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.pagination import Page, PageRequest
 from app.platform.queue.port import TaskRef
-from app.platform.telegram.port import AppButton
+from app.platform.telegram.port import Button
 
 
 class ChannelRepository(Protocol):
@@ -154,8 +155,8 @@ class NotificationRenderer(Protocol):
         params: Mapping[str, str],
         link: str | None,
         locale: Locale,
-    ) -> tuple[str, tuple[AppButton, ...]]:
-        """HTML сообщения бота и кнопки web_app с кодом deep link."""
+    ) -> tuple[str, tuple[Button, ...]]:
+        """HTML сообщения бота и его кнопки: web_app с кодом deep link или callback."""
         ...
 
 
@@ -186,6 +187,12 @@ NOTIFY_PROFILE_PUBLISHED: Final = TaskRef(
 )
 NOTIFY_MODERATION_DECISION: Final = TaskRef(
     "notifications.notify_moderation_decision", ModerationDecisionMade, queue="notifications"
+)
+NOTIFY_JOB_EXPIRING: Final = TaskRef(
+    "notifications.notify_job_expiring", JobExpiring, queue="notifications"
+)
+NOTIFY_JOB_EXPIRED: Final = TaskRef(
+    "notifications.notify_job_expired", JobExpired, queue="notifications"
 )
 FORGET_RECIPIENT: Final = TaskRef("notifications.forget_recipient", UserDeleted)
 """Подписчик UserDeleted: всё о получателе удалённого аккаунта (§7.10)."""

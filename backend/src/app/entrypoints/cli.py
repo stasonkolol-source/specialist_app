@@ -494,11 +494,15 @@ class DemoScale(StrEnum):
 @app.command("seed-demo")
 def seed_demo(
     scale: Annotated[
-        DemoScale, typer.Option(help="small — 60 специалистов с фото; lab — 50 000 без фото")
+        DemoScale,
+        typer.Option(
+            help="small — 60 специалистов с фото и 20 клиентов с заявками; lab — 50 000 без фото"
+        ),
     ] = DemoScale.SMALL,
 ) -> None:
-    """Демо-специалисты для dev и stage (2.8c): профили, прайс, районы и портфолио через use
-    cases, одобрены сразу. Повторный запуск количества не меняет. На проде не работает."""
+    """Демо-данные для dev и stage (2.8c, 5.1): специалисты — профили, прайс, районы и портфолио;
+    клиенты — опубликованные заявки. Всё через use cases, одобрено сразу. Повторный запуск
+    количества не меняет. На проде не работает."""
     from app.entrypoints._seed_demo import SeedDemoRefusedError
 
     try:
@@ -508,7 +512,7 @@ def seed_demo(
         raise typer.Exit(code=1) from exc
     typer.echo(
         f"seed-demo {scale.value}: {report.created} created, {report.skipped} already there,"
-        f" {report.photos} photos"
+        f" {report.photos} photos, {report.jobs} jobs"
     )
 
 

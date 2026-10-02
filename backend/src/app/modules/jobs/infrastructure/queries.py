@@ -1,9 +1,10 @@
-"""Чтение заявок (экраны S15, S22, S23 и лимит активных): без блокировок, сессия освобождается
-после запроса (SqlQuery)."""
+"""Чтение заявок (экраны S15, S22, S23, лимит активных, сроки): без блокировок, сессия
+освобождается после запроса (SqlQuery)."""
 
 from collections.abc import Sequence
+from datetime import datetime
 
-from sqlalchemy import RowMapping, func, select, text
+from sqlalchemy import RowMapping, and_, func, select, text
 from sqlalchemy.dialects.postgresql import aggregate_order_by
 
 from app.modules.jobs.application.dto import JobView
@@ -23,6 +24,8 @@ from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, Use
 
 _J = JobRow.__table__.c
 _M = JobMediaRow.__table__.c
+_OPEN = and_(_J.status == JobStatus.PUBLISHED.value, _J.deleted_at.is_(None))
+"""Опубликованная и не удалённая: частичный индекс ix_jobs_expires_at."""
 _MEDIA_IDS = (
     select(
         func.coalesce(
@@ -50,6 +53,29 @@ class SqlJobQueries(SqlQuery):
             stmt = stmt.where(_J.status.in_([status.value for status in statuses]))
         rows = await self._fetch(stmt.order_by(_J.created_at.desc(), _J.id.desc()).limit(limit))
         return [_view(row) for row in rows]
+
+    async def due_to_expire(self, now: datetime, *, limit: int) -> list[JobId]:
+        rows = await self._fetch(
+            select(_J.id)
+            .where(_OPEN, _J.expires_at <= now)
+            .order_by(_J.expires_at, _J.id)
+            .limit(limit)
+        )
+        return [JobId(row["id"]) for row in rows]
+
+    async def expiring(self, now: datetime, until: datetime, *, limit: int) -> list[JobId]:
+        rows = await self._fetch(
+            select(_J.id)
+            .where(
+                _OPEN,
+                _J.expires_at > now,
+                _J.expires_at <= until,
+                _J.expiry_reminded_at.is_(None),
+            )
+            .order_by(_J.expires_at, _J.id)
+            .limit(limit)
+        )
+        return [JobId(row["id"]) for row in rows]
 
     async def count_active(self, client_id: UserId) -> int:
         row = await self._fetch_one(

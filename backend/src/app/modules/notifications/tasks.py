@@ -11,6 +11,10 @@ notifications стоит над контентными модулями (ARCHITE
 - `notifications.notify_moderation_decision` — ModerationDecisionMade: автору — отказ
   (statement of reasons: причина, предупреждение, автоматически ли) и кнопка «Исправить» к
   его контенту; одобрение без уведомления.
+- `notifications.notify_job_expiring` — JobExpiring: «Заявка закроется через 2 ч» с кнопками
+  «Продлить» и «Закрыть: исполнитель найден»; позже срока заявки в бот не уходит.
+- `notifications.notify_job_expired` — JobExpired: «Срок заявки вышел», «Продлить» и
+  «Закрыть». Оба — только если заявка ещё в том статусе: продлённой и закрытой — ничего.
 - `notifications.forget_recipient` — UserDeleted: лента, каналы и настройки удалённого
   аккаунта удалены (§7.10).
 - `notifications.send` — отправить доставку в бот (очередь `notifications`).
@@ -18,12 +22,17 @@ notifications стоит над контентными модулями (ARCHITE
   срока, становятся `failed` (`stale`).
 """
 
+from uuid import UUID
+
 from dishka import FromDishka
 
+from app.modules.jobs.api import JobBrief, JobsApi
 from app.modules.notifications.application.ports import (
     FORGET_RECIPIENT,
     GRANT_WRITE_ACCESS,
     NOTIFY_ACCOUNT_RESTRICTED,
+    NOTIFY_JOB_EXPIRED,
+    NOTIFY_JOB_EXPIRING,
     NOTIFY_MODERATION_DECISION,
     NOTIFY_PROFILE_PUBLISHED,
     SEND_DELIVERY,
@@ -55,6 +64,7 @@ from app.platform.contracts.events.identity import (
     UserDeleted,
     UserRestricted,
 )
+from app.platform.contracts.events.jobs import JobExpired, JobExpiring
 from app.platform.contracts.events.moderation import ModerationDecision, ModerationDecisionMade
 from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber, task
@@ -133,6 +143,55 @@ async def notify_profile_published(event: ProfilePublished, notify: FromDishka[N
             link=encode_start_param(StartLink(type=LinkType.SPECIALIST, id=event.profile_id)),
         )
     )
+
+
+@subscriber(JobExpiring, NOTIFY_JOB_EXPIRING)
+async def notify_job_expiring(
+    event: JobExpiring, notify: FromDishka[Notify], jobs: FromDishka[JobsApi]
+) -> None:
+    job = await jobs.job_brief(event.job_id)
+    if job is None or job.status != "published" or job.expires_at != event.expires_at:
+        return  # пока задача ждала, заявку продлили, закрыли или удалили
+    await notify(
+        NotifyCommand(
+            user_id=event.client_id,
+            type=NotificationType.JOB_EXPIRING,
+            dedupe_key=f"job.expiring:{event.event_id}",
+            params=_job_params(event.job_id, job),
+            link=_job_link(event.job_id),
+            valid_until=event.expires_at,
+        )
+    )
+
+
+@subscriber(JobExpired, NOTIFY_JOB_EXPIRED)
+async def notify_job_expired(
+    event: JobExpired, notify: FromDishka[Notify], jobs: FromDishka[JobsApi]
+) -> None:
+    job = await jobs.job_brief(event.job_id)
+    if job is None or job.status != "expired":
+        return  # клиент уже продлил или закрыл
+    await notify(
+        NotifyCommand(
+            user_id=event.client_id,
+            type=NotificationType.JOB_EXPIRED,
+            dedupe_key=f"job.expired:{event.event_id}",
+            params=_job_params(event.job_id, job),
+            link=_job_link(event.job_id),
+        )
+    )
+
+
+def _job_params(job_id: UUID, job: JobBrief) -> dict[str, str]:
+    return {
+        "job_id": str(job_id),
+        "title": job.title,
+        "can_extend": "true" if job.can_extend else "false",
+    }
+
+
+def _job_link(job_id: UUID) -> str:
+    return encode_start_param(StartLink(type=LinkType.JOB, id=job_id))
 
 
 @periodic("notifications.expire_stale", cron="53 * * * *")

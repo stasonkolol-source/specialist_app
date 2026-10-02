@@ -14,13 +14,16 @@ from structlog.testing import capture_logs
 
 from app.modules.growth.domain.attribution import AttributionSource
 from app.modules.identity.domain.user import UserIntent
+from app.modules.jobs.domain.job import CloseReason, Urgency
 from app.modules.notifications.domain.channel import GrantedVia
 from app.platform.analytics.events import (
+    CLOSE_REASONS,
     ENTRY_POINTS,
     EVENTS,
     INTENTS,
     METRICS,
     NORTH_STAR,
+    URGENCIES,
     WRITE_ACCESS_VIA,
     EventName,
     analytics_event,
@@ -87,7 +90,7 @@ def test_taxonomy_lists_exactly_the_events_of_the_plan() -> None:
     assert names == {e.value for e in EventName}
 
 
-def test_wired_events_are_those_of_steps_1_7_and_2_8a() -> None:
+def test_wired_events_are_those_of_steps_1_7_2_8a_and_5_1() -> None:
     wired = {name: spec.step for name, spec in EVENTS.items() if spec.properties is not None}
     assert wired == {
         EventName.USER_REGISTERED: "1.7",
@@ -95,6 +98,9 @@ def test_wired_events_are_those_of_steps_1_7_and_2_8a() -> None:
         EventName.WRITE_ACCESS_GRANTED: "1.7",
         EventName.PROFILE_SUBMITTED: "2.8a",
         EventName.PROFILE_PUBLISHED: "2.8a",
+        EventName.JOB_PUBLISHED: "5.1",
+        EventName.JOB_CLOSED: "5.1",
+        EventName.JOB_EXPIRED: "5.1",
     }
 
 
@@ -103,6 +109,8 @@ def test_closed_lists_match_the_domain() -> None:
     assert {i.value for i in UserIntent} | {"unknown"} == INTENTS
     assert {e.value for e in EntryPoint} | {"unknown"} == ENTRY_POINTS
     assert {v.value for v in GrantedVia} == WRITE_ACCESS_VIA
+    assert {u.value for u in Urgency} == URGENCIES
+    assert {r.value for r in CloseReason} == CLOSE_REASONS
 
 
 def registered(**properties: Any) -> AnalyticsEvent:
@@ -162,7 +170,10 @@ def test_city_is_a_reference_id_not_text() -> None:
 def test_declared_but_not_wired_event_is_refused() -> None:
     with pytest.raises(ValueError, match="not wired yet"):
         analytics_event(
-            EventName.JOB_PUBLISHED, user_id=new_id(), occurred_at=NOW, source_event_id=new_id()
+            EventName.RESPONSE_SUBMITTED,
+            user_id=new_id(),
+            occurred_at=NOW,
+            source_event_id=new_id(),
         )
 
 
@@ -304,7 +315,7 @@ def test_posthog_host_must_be_https() -> None:
         ),
         AnalyticsEvent(name="made_up", distinct_id=new_id(), occurred_at=NOW, event_id=new_id()),
         AnalyticsEvent(
-            name="job_published", distinct_id=new_id(), occurred_at=NOW, event_id=new_id()
+            name="response_submitted", distinct_id=new_id(), occurred_at=NOW, event_id=new_id()
         ),
     ],
     ids=["pii-property", "unknown-event", "not-wired"],

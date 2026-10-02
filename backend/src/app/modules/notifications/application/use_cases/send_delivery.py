@@ -6,6 +6,8 @@
   отпускает задачу по часам базы, а сравниваем мы по часам воркера: расхождение до
   CLOCK_SLACK не гоняет задачу по кругу;
 - боту писать нельзя (канал выключен) или получателя удалили — `suppressed`;
+- срок актуальности прошёл (`valid_until`: «закроется через 2 ч», а заявка уже истекла) или
+  пройдёт раньше конца тихих часов — `suppressed` (`late`);
 - настройки могли измениться, пока доставка ждала утра: группу выключили — `suppressed`,
   тихие часы сдвинули — доставка ждёт их нового конца (кроме срочного);
 - текст — на языке получателя в момент отправки (язык мог смениться за ночь).
@@ -28,6 +30,7 @@ from datetime import datetime, timedelta
 from uuid import UUID
 
 from app.modules.identity.api import IdentityApi
+from app.modules.notifications.application.dto import DeliveryTarget
 from app.modules.notifications.application.ports import (
     SEND_DELIVERY,
     ChannelRepository,
@@ -53,6 +56,8 @@ CLOCK_SLACK = timedelta(seconds=30)
 """Настолько раньше срока можно отправить: полминуты до конца тихих часов — не ночь."""
 MAX_ATTEMPTS = 5
 """Неудач сети и 5xx до `failed`: меньше, чем повторов задачи (JitteredRetry)."""
+LATE = "late"
+"""Причина `suppressed`: к моменту отправки сообщение уже неправда (`valid_until`)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -85,6 +90,8 @@ class SendDelivery:
             return None
         now = self._clock.now()
         spec = CATALOG[target.type]
+        if _late(target, now):
+            return await self._settle(target.id, DeliveryStatus.SUPPRESSED, now, error=LATE)
         if target.not_before - now > CLOCK_SLACK:  # задача пришла раньше срока: ждём его
             await self._postpone(target.id, target.not_before, spec.priority.job_priority)
             return None
@@ -97,6 +104,8 @@ class SendDelivery:
         if not (spec.quiet_exempt or target.urgent):
             release = settings.quiet_hours.release_at(now)
             if release - now > CLOCK_SLACK:
+                if _late(target, release):
+                    return await self._settle(target.id, DeliveryStatus.SUPPRESSED, now, error=LATE)
                 await self._postpone(target.id, release, spec.priority.job_priority)
                 return None
         text, buttons = self._renderer.telegram(
@@ -185,3 +194,7 @@ class SendDelivery:
                 error=error,
             )
         return status if settled else None
+
+
+def _late(target: DeliveryTarget, at: datetime) -> bool:
+    return target.valid_until is not None and at >= target.valid_until
