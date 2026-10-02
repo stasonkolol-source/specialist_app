@@ -140,10 +140,17 @@ class SqlSpecialistSearch(SqlQuery):
         stmt = (
             select(category.c.category_id, func.count().label("n"))
             .select_from(SpecialistIndexRow.__table__.join(category, true()))
-            .where(_SI.is_listed, _SI.kind == kind, _SI.city_id == city_id)
+            .where(_kind_filter(kind), _SI.city_id == city_id)
             .group_by(category.c.category_id)
         )
         return {CategoryId(row["category_id"]): int(row["n"]) for row in await self._fetch(stmt)}
+
+
+def _kind_filter(kind: str) -> ColumnElement[bool]:
+    """«Подработка» не listed по умолчанию, но доступна по явному фильтру типа.
+    Неопубликованные профили и скрытых авторов в индекс не допускает проектор."""
+    matching = _SI.kind == kind
+    return matching if kind == "casual" else and_(_SI.is_listed, matching)
 
 
 class _Text:
@@ -176,8 +183,7 @@ def _conditions(
     now: datetime,
 ) -> list[ColumnElement[bool]]:
     found: list[ColumnElement[bool]] = [
-        _SI.is_listed,
-        _SI.kind == filters.kind,
+        _kind_filter(filters.kind),
         _SI.city_id == filters.city_id,
     ]
     if filters.category_id is not None:

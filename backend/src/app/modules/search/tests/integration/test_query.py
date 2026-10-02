@@ -108,13 +108,19 @@ def text(q: str, stage: Stage = Stage.ALL_WORDS) -> TextMatch:
 async def test_query_shows_listed_pros_unless_casual_is_asked(index: Index) -> None:
     pro, casual, hidden = await index.add(
         entry("Pro"),
-        entry("Casual", kind="casual"),
+        entry("Casual", kind="casual", is_listed=False),
         entry("Hidden", is_listed=False),
     )
 
     assert await index.found() == [pro]
     assert await index.found(kind="casual") == [casual]
     assert hidden not in await index.found(kind="pro")
+    search = SqlSpecialistSearch(index.session)
+    assert await search.count(SpecialistFilters(city_id=CITY), None, now=NOW, cap=100) == 1
+    assert (
+        await search.count(SpecialistFilters(city_id=CITY, kind="casual"), None, now=NOW, cap=100)
+        == 1
+    )
 
 
 async def test_query_category_includes_its_subcategories(index: Index) -> None:
@@ -262,10 +268,14 @@ async def test_query_counts_by_category_include_subcategories(index: Index) -> N
         entry("A"),
         entry("B"),
         entry("C", category_ids=(REPAIR, PLUMBING), document=PLUMBER),
-        entry("Casual", kind="casual"),
+        entry("Casual", kind="casual", is_listed=False),
         entry("Hidden", is_listed=False),
     )
 
     counts = await SqlSpecialistSearch(index.session).count_by_category(CITY, "pro")
 
     assert counts == {REPAIR: 3, ELECTRIC: 2, PLUMBING: 1}
+    assert await SqlSpecialistSearch(index.session).count_by_category(CITY, "casual") == {
+        REPAIR: 1,
+        ELECTRIC: 1,
+    }
