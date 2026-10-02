@@ -2,13 +2,15 @@
 
 - `jobs.forget_client` — UserDeleted: заявки удалённого аккаунта закрываются и удаляются,
   точная точка и адрес стираются (§7.10).
+- `jobs.withdraw_performer_responses` — UserDeleted: его активные отклики отзываются, места на
+  чужих заявках освобождаются (5.4).
 - `jobs.expire_jobs` — каждые 5 минут: опубликованные со сроком в прошлом — «истекла».
 - `jobs.expiry_reminders` — каждые 15 минут: «Заявка закроется через 2 ч».
 """
 
 from dishka import FromDishka
 
-from app.modules.jobs.application.ports import FORGET_CLIENT_JOBS
+from app.modules.jobs.application.ports import FORGET_CLIENT_JOBS, WITHDRAW_PERFORMER_RESPONSES
 from app.modules.jobs.application.use_cases.expire_jobs import ExpireJobs, ExpireJobsCommand
 from app.modules.jobs.application.use_cases.forget_client_jobs import (
     ForgetClientJobs,
@@ -18,6 +20,10 @@ from app.modules.jobs.application.use_cases.remind_expiring_jobs import (
     RemindExpiringJobs,
     RemindExpiringJobsCommand,
 )
+from app.modules.jobs.application.use_cases.withdraw_performer_responses import (
+    WithdrawPerformerResponses,
+    WithdrawPerformerResponsesCommand,
+)
 from app.platform.contracts.events.identity import UserDeleted
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber
 
@@ -25,6 +31,13 @@ from app.platform.queue.tasks import PeriodicRun, periodic, subscriber
 @subscriber(UserDeleted, FORGET_CLIENT_JOBS)
 async def forget_client(event: UserDeleted, forget: FromDishka[ForgetClientJobs]) -> None:
     await forget(ForgetClientJobsCommand(user_id=event.user_id))
+
+
+@subscriber(UserDeleted, WITHDRAW_PERFORMER_RESPONSES)
+async def withdraw_performer_responses(
+    event: UserDeleted, withdraw: FromDishka[WithdrawPerformerResponses]
+) -> None:
+    await withdraw(WithdrawPerformerResponsesCommand(user_id=event.user_id))
 
 
 @periodic("jobs.expire_jobs", cron="2-59/5 * * * *")  # со сдвигом от других «раз в 5 минут»

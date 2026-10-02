@@ -24,15 +24,21 @@ import type {
   JobCloseIn,
   JobIn,
   JobOut,
+  JobResponsesOut,
   JobsCountJobsParams,
   JobsCountOut,
   JobsCreateJobHeaders,
   JobsListJobsParams,
   JobsListMyJobsParams,
+  JobsListMyResponsesParams,
   JobsOut,
   JobsPageOut,
+  JobsRespondHeaders,
   JobsUpdateJobHeaders,
+  MyResponseOut,
+  MyResponsesPageOut,
   ProblemOut,
+  ResponseIn,
   SavedJobsOut,
 } from '../../model';
 
@@ -294,6 +300,256 @@ export function useJobsListJobs<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getJobsListJobsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getJobsRespondUrl = (jobId: string) => {
+  return `/api/v1/jobs/${jobId}/responses`;
+};
+
+/**
+ * Откликнуться (S16): заявка открыта, не своя и есть место — иначе 409 (`job_not_open`,
+ * `own_job`, `already_responded`, `job_full`); суточный лимит по уровню доверия — 429. Текст
+ * уходит на проверку: клиент увидит отклик после неё.
+ * @summary Respond
+ */
+export const jobsRespond = async (
+  jobId: string,
+  responseIn: ResponseIn,
+  headers: JobsRespondHeaders,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MyResponseOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<MyResponseOut>(getJobsRespondUrl(jobId), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers, ...getHeaders(options?.headers) },
+    body: JSON.stringify(responseIn),
+  });
+};
+
+export const getJobsRespondMutationKey = () => ['jobsRespond'] as const;
+
+export const getJobsRespondMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof jobsRespond>>,
+    TError,
+    JobsRespondMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof jobsRespond>>,
+  TError,
+  JobsRespondMutationVariables,
+  TContext
+> => {
+  const mutationKey = getJobsRespondMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof jobsRespond>>,
+    JobsRespondMutationVariables
+  > = (props) => {
+    const { jobId, data, headers } = props ?? {};
+
+    return jobsRespond(jobId, data, headers, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JobsRespondMutationResult = NonNullable<Awaited<ReturnType<typeof jobsRespond>>>;
+export type JobsRespondMutationBody = ResponseIn;
+export type JobsRespondMutationError = ErrorType<ProblemOut>;
+export type JobsRespondMutationVariables = {
+  jobId: string;
+  data: ResponseIn;
+  headers: JobsRespondHeaders;
+};
+
+/**
+ * @summary Respond
+ */
+export const useJobsRespond = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof jobsRespond>>,
+      TError,
+      JobsRespondMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof jobsRespond>>,
+  TError,
+  JobsRespondMutationVariables,
+  TContext
+> => {
+  return useMutation(getJobsRespondMutationOptions(options), queryClient);
+};
+export const getJobsListJobResponsesUrl = (jobId: string) => {
+  return `/api/v1/jobs/${jobId}/responses`;
+};
+
+/**
+ * Отклики на свою заявку (S23): прошедшие проверку, по порядку, с «Откликнулся первым».
+ * Чужая заявка — 404.
+ * @summary List Job Responses
+ */
+export const jobsListJobResponses = async (
+  jobId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<JobResponsesOut> => {
+  return apiFetch<JobResponsesOut>(getJobsListJobResponsesUrl(jobId), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getJobsListJobResponsesQueryKey = (jobId: string) => {
+  return [`/api/v1/jobs/${jobId}/responses`] as const;
+};
+
+export const getJobsListJobResponsesQueryOptions = <
+  TData = Awaited<ReturnType<typeof jobsListJobResponses>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  jobId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof jobsListJobResponses>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getJobsListJobResponsesQueryKey(jobId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof jobsListJobResponses>>> = ({ signal }) =>
+    jobsListJobResponses(jobId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: jobId !== null && jobId !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof jobsListJobResponses>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+};
+
+export type JobsListJobResponsesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof jobsListJobResponses>>
+>;
+export type JobsListJobResponsesQueryError = ErrorType<ProblemOut>;
+
+export function useJobsListJobResponses<
+  TData = Awaited<ReturnType<typeof jobsListJobResponses>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  jobId: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof jobsListJobResponses>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof jobsListJobResponses>>,
+          TError,
+          Awaited<ReturnType<typeof jobsListJobResponses>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useJobsListJobResponses<
+  TData = Awaited<ReturnType<typeof jobsListJobResponses>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  jobId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof jobsListJobResponses>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof jobsListJobResponses>>,
+          TError,
+          Awaited<ReturnType<typeof jobsListJobResponses>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useJobsListJobResponses<
+  TData = Awaited<ReturnType<typeof jobsListJobResponses>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  jobId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof jobsListJobResponses>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List Job Responses
+ */
+
+export function useJobsListJobResponses<
+  TData = Awaited<ReturnType<typeof jobsListJobResponses>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  jobId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof jobsListJobResponses>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getJobsListJobResponsesQueryOptions(jobId, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;
@@ -1447,6 +1703,346 @@ export function useJobsListMyJobs<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getJobsListMyJobsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getJobsReviseResponseUrl = (responseId: string) => {
+  return `/api/v1/responses/${responseId}`;
+};
+
+/**
+ * Поправить свой отклик, пока клиент не решил (иначе 409 `response_not_active`): новая
+ * редакция снова на проверке.
+ * @summary Revise Response
+ */
+export const jobsReviseResponse = async (
+  responseId: string,
+  responseIn: ResponseIn,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MyResponseOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<MyResponseOut>(getJobsReviseResponseUrl(responseId), {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(responseIn),
+  });
+};
+
+export const getJobsReviseResponseMutationKey = () => ['jobsReviseResponse'] as const;
+
+export const getJobsReviseResponseMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof jobsReviseResponse>>,
+    TError,
+    JobsReviseResponseMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof jobsReviseResponse>>,
+  TError,
+  JobsReviseResponseMutationVariables,
+  TContext
+> => {
+  const mutationKey = getJobsReviseResponseMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof jobsReviseResponse>>,
+    JobsReviseResponseMutationVariables
+  > = (props) => {
+    const { responseId, data } = props ?? {};
+
+    return jobsReviseResponse(responseId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JobsReviseResponseMutationResult = NonNullable<
+  Awaited<ReturnType<typeof jobsReviseResponse>>
+>;
+export type JobsReviseResponseMutationBody = ResponseIn;
+export type JobsReviseResponseMutationError = ErrorType<ProblemOut>;
+export type JobsReviseResponseMutationVariables = { responseId: string; data: ResponseIn };
+
+/**
+ * @summary Revise Response
+ */
+export const useJobsReviseResponse = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof jobsReviseResponse>>,
+      TError,
+      JobsReviseResponseMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof jobsReviseResponse>>,
+  TError,
+  JobsReviseResponseMutationVariables,
+  TContext
+> => {
+  return useMutation(getJobsReviseResponseMutationOptions(options), queryClient);
+};
+export const getJobsWithdrawResponseUrl = (responseId: string) => {
+  return `/api/v1/responses/${responseId}/withdraw`;
+};
+
+/**
+ * Отозвать свой отклик, пока клиент не решил: место на заявке освобождается.
+ * @summary Withdraw Response
+ */
+export const jobsWithdrawResponse = async (
+  responseId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MyResponseOut> => {
+  return apiFetch<MyResponseOut>(getJobsWithdrawResponseUrl(responseId), {
+    ...options,
+    method: 'POST',
+  });
+};
+
+export const getJobsWithdrawResponseMutationKey = () => ['jobsWithdrawResponse'] as const;
+
+export const getJobsWithdrawResponseMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof jobsWithdrawResponse>>,
+    TError,
+    JobsWithdrawResponseMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof jobsWithdrawResponse>>,
+  TError,
+  JobsWithdrawResponseMutationVariables,
+  TContext
+> => {
+  const mutationKey = getJobsWithdrawResponseMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof jobsWithdrawResponse>>,
+    JobsWithdrawResponseMutationVariables
+  > = (props) => {
+    const { responseId } = props ?? {};
+
+    return jobsWithdrawResponse(responseId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JobsWithdrawResponseMutationResult = NonNullable<
+  Awaited<ReturnType<typeof jobsWithdrawResponse>>
+>;
+
+export type JobsWithdrawResponseMutationError = ErrorType<ProblemOut>;
+export type JobsWithdrawResponseMutationVariables = { responseId: string };
+
+/**
+ * @summary Withdraw Response
+ */
+export const useJobsWithdrawResponse = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof jobsWithdrawResponse>>,
+      TError,
+      JobsWithdrawResponseMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof jobsWithdrawResponse>>,
+  TError,
+  JobsWithdrawResponseMutationVariables,
+  TContext
+> => {
+  return useMutation(getJobsWithdrawResponseMutationOptions(options), queryClient);
+};
+export const getJobsListMyResponsesUrl = (params?: JobsListMyResponsesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/me/responses?${stringifiedParams}`
+    : `/api/v1/me/responses`;
+};
+
+/**
+ * Мои отклики (S17), новые первыми, с заявкой; числа на чипах и «сегодня откликов: 3 из
+ * 50».
+ * @summary List My Responses
+ */
+export const jobsListMyResponses = async (
+  params?: JobsListMyResponsesParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MyResponsesPageOut> => {
+  return apiFetch<MyResponsesPageOut>(getJobsListMyResponsesUrl(params), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getJobsListMyResponsesQueryKey = (params?: JobsListMyResponsesParams) => {
+  return [`/api/v1/me/responses`, ...(params ? [params] : [])] as const;
+};
+
+export const getJobsListMyResponsesQueryOptions = <
+  TData = Awaited<ReturnType<typeof jobsListMyResponses>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params?: JobsListMyResponsesParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof jobsListMyResponses>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getJobsListMyResponsesQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof jobsListMyResponses>>> = ({ signal }) =>
+    jobsListMyResponses(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof jobsListMyResponses>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type JobsListMyResponsesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof jobsListMyResponses>>
+>;
+export type JobsListMyResponsesQueryError = ErrorType<ProblemOut>;
+
+export function useJobsListMyResponses<
+  TData = Awaited<ReturnType<typeof jobsListMyResponses>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: undefined | JobsListMyResponsesParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof jobsListMyResponses>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof jobsListMyResponses>>,
+          TError,
+          Awaited<ReturnType<typeof jobsListMyResponses>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useJobsListMyResponses<
+  TData = Awaited<ReturnType<typeof jobsListMyResponses>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params?: JobsListMyResponsesParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof jobsListMyResponses>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof jobsListMyResponses>>,
+          TError,
+          Awaited<ReturnType<typeof jobsListMyResponses>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useJobsListMyResponses<
+  TData = Awaited<ReturnType<typeof jobsListMyResponses>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params?: JobsListMyResponsesParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof jobsListMyResponses>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List My Responses
+ */
+
+export function useJobsListMyResponses<
+  TData = Awaited<ReturnType<typeof jobsListMyResponses>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params?: JobsListMyResponsesParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof jobsListMyResponses>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getJobsListMyResponsesQueryOptions(params, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;

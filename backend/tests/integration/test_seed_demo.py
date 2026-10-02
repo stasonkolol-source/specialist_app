@@ -67,6 +67,17 @@ async def test_seed_is_repeatable_and_published(
         **clients,
     )
     assert published_jobs == planned
+    # отклики демо-специалистов (5.4): сразу прошедшие проверку, повтор сида их не плодит
+    responses = await scalar(
+        settings,
+        "SELECT count(*) FROM jobs.responses r JOIN jobs.jobs j ON j.id = r.job_id"
+        " JOIN identity.auth_identities a ON a.user_id = j.client_id WHERE a.provider ="
+        " 'telegram' AND CAST(a.subject AS bigint) BETWEEN :first AND :last"
+        " AND r.review = 'clear' AND r.status = 'submitted'",
+        **clients,
+    )
+    assert responses == first.responses
+    assert again.responses == 0
     published = await scalar(
         settings, f"SELECT count(*) {DEMO_PROFILES} AND p.status = 'published'", **numbers(scale)
     )

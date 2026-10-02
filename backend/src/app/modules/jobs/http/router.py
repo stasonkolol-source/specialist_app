@@ -13,6 +13,10 @@
 - `POST /jobs/{id}/hide` — «не интересно»: заявка пропадает из ленты этого исполнителя.
 - `GET /me/favorites/jobs`, `PUT` и `DELETE /me/favorites/job/{id}` — сохранённые заявки
   (сердечко S15, сегмент «Задачи» S12): открытые, новые первыми, до ста (`saved_jobs_full`).
+- Отклики (5.4): `POST /jobs/{id}/responses` (Idempotency-Key) — пять мест на заявку под
+  блокировкой её строки, суточный лимит по уровню доверия; `PATCH /responses/{id}`,
+  `POST /responses/{id}/withdraw` — исполнителю, пока клиент не решил; `GET /me/responses` —
+  «Мои отклики» S17; `GET /jobs/{id}/responses` — владельцу заявки (S23).
 Лимиты новичка — в use case (§13.3); лента и счётчик — 60 / 120 запросов в минуту.
 """
 
@@ -27,6 +31,7 @@ from fastapi import APIRouter, Depends, Path, Query, Response, status
 from app.modules.jobs.application.feed import FeedFilters
 from app.modules.jobs.application.photos import LARGE, photos_of
 from app.modules.jobs.application.ports import JobQueries
+from app.modules.jobs.application.responses import ResponseGroup
 from app.modules.jobs.application.use_cases.browse_jobs import BrowseJobs, BrowseJobsCommand
 from app.modules.jobs.application.use_cases.close_job import CloseJob, CloseJobCommand
 from app.modules.jobs.application.use_cases.create_job import CreateJob, CreateJobCommand
@@ -34,24 +39,49 @@ from app.modules.jobs.application.use_cases.delete_job import DeleteJob, DeleteJ
 from app.modules.jobs.application.use_cases.edit_job import EditJob, EditJobCommand
 from app.modules.jobs.application.use_cases.extend_job import ExtendJob, ExtendJobCommand
 from app.modules.jobs.application.use_cases.hide_job import HideJob, HideJobCommand
+from app.modules.jobs.application.use_cases.list_job_responses import (
+    ListJobResponses,
+    ListJobResponsesCommand,
+)
+from app.modules.jobs.application.use_cases.list_my_responses import (
+    ListMyResponses,
+    ListMyResponsesCommand,
+)
 from app.modules.jobs.application.use_cases.list_saved_jobs import (
     ListSavedJobs,
     ListSavedJobsCommand,
 )
+from app.modules.jobs.application.use_cases.respond import Respond, RespondCommand
+from app.modules.jobs.application.use_cases.revise_response import (
+    ReviseResponse,
+    ReviseResponseCommand,
+)
 from app.modules.jobs.application.use_cases.save_job import SaveJob, SaveJobCommand
 from app.modules.jobs.application.use_cases.show_job import JobDetails, ShowJob, ShowJobCommand
 from app.modules.jobs.application.use_cases.unsave_job import UnsaveJob, UnsaveJobCommand
+from app.modules.jobs.application.use_cases.withdraw_response import (
+    WithdrawResponse,
+    WithdrawResponseCommand,
+)
 from app.modules.jobs.domain.job import CloseReason, JobId, JobStatus, Urgency
-from app.modules.jobs.errors import JobNotFoundError
+from app.modules.jobs.domain.response import ResponseId
+from app.modules.jobs.errors import JobNotFoundError, ResponseNotFoundError
 from app.modules.jobs.http.schemas import (
     JobCardOut,
     JobCloseIn,
     JobIn,
     JobOut,
+    JobResponseOut,
+    JobResponsesOut,
     JobsCountOut,
     JobsOut,
     JobsPageOut,
+    MyResponseOut,
+    MyResponsesPageOut,
+    ResponseCountsOut,
+    ResponseIn,
     SavedJobsOut,
+    TodayOut,
 )
 from app.modules.media.api import MediaApi
 from app.platform.http.concurrency import IfMatch, set_etag
@@ -68,6 +98,7 @@ from app.platform.kernel.principal import Principal
 from app.platform.ratelimit import Rate
 
 MY_JOBS_LIMIT: Final = 50
+MY_RESPONSES_LIMIT: Final = 50
 FEED_MAX_LIMIT: Final = 50
 MAX_RADIUS_KM: Final = 50
 MAX_NEW_HOURS: Final = 168
@@ -78,6 +109,7 @@ feed_limit = [Depends(GuestOrUserRateLimit(guest=FEED_GUEST, user=FEED_USER))]
 router = APIRouter(tags=["jobs"])
 creating = idempotent_router()
 JobPath = Annotated[UUID, Path(description="id заявки")]
+ResponsePath = Annotated[UUID, Path(description="id отклика")]
 Viewer = Annotated[Principal | None, Depends(optional_principal)]
 
 
@@ -102,6 +134,34 @@ async def create_job(
         )
     )
     return await _own(show, job_id, principal.user_id, response)
+
+
+@creating.post(
+    "/jobs/{job_id:uuid}/responses",
+    status_code=status.HTTP_201_CREATED,
+    response_model=MyResponseOut,
+    dependencies=AUTHENTICATED,
+)
+@inject
+async def respond(
+    job_id: JobPath,
+    body: ResponseIn,
+    principal: FromDishka[Principal],
+    respond: FromDishka[Respond],
+    queries: FromDishka[JobQueries],
+) -> MyResponseOut:
+    """Откликнуться (S16): заявка открыта, не своя и есть место — иначе 409 (`job_not_open`,
+    `own_job`, `already_responded`, `job_full`); суточный лимит по уровню доверия — 429. Текст
+    уходит на проверку: клиент увидит отклик после неё."""
+    _, response_id = await respond(
+        RespondCommand(
+            actor_id=principal.user_id,
+            trust_level=principal.trust_level,
+            job_id=JobId(job_id),
+            offer=body.offer(),
+        )
+    )
+    return await _my_response(queries, principal.user_id, response_id)
 
 
 router.include_router(creating)
@@ -360,3 +420,101 @@ async def _own(show: ShowJob, job_id: JobId, owner_id: UserId, response: Respons
 def _language(locale: Locale) -> str:
     """Язык текста заявки — язык интерфейса автора: ru или sr (обе письменности)."""
     return locale.value.split("-")[0]
+
+
+@router.patch(
+    "/responses/{response_id:uuid}", response_model=MyResponseOut, dependencies=AUTHENTICATED
+)
+@inject
+async def revise_response(
+    response_id: ResponsePath,
+    body: ResponseIn,
+    principal: FromDishka[Principal],
+    revise: FromDishka[ReviseResponse],
+    queries: FromDishka[JobQueries],
+) -> MyResponseOut:
+    """Поправить свой отклик, пока клиент не решил (иначе 409 `response_not_active`): новая
+    редакция снова на проверке."""
+    await revise(
+        ReviseResponseCommand(
+            actor_id=principal.user_id, response_id=ResponseId(response_id), offer=body.offer()
+        )
+    )
+    return await _my_response(queries, principal.user_id, ResponseId(response_id))
+
+
+@router.post(
+    "/responses/{response_id:uuid}/withdraw",
+    response_model=MyResponseOut,
+    dependencies=AUTHENTICATED,
+)
+@inject
+async def withdraw_response(
+    response_id: ResponsePath,
+    principal: FromDishka[Principal],
+    withdraw: FromDishka[WithdrawResponse],
+    queries: FromDishka[JobQueries],
+) -> MyResponseOut:
+    """Отозвать свой отклик, пока клиент не решил: место на заявке освобождается."""
+    await withdraw(
+        WithdrawResponseCommand(actor_id=principal.user_id, response_id=ResponseId(response_id))
+    )
+    return await _my_response(queries, principal.user_id, ResponseId(response_id))
+
+
+@router.get("/me/responses", response_model=MyResponsesPageOut, dependencies=AUTHENTICATED)
+@inject
+async def list_my_responses(
+    *,
+    status_group: Annotated[
+        ResponseGroup | None,
+        Query(
+            alias="status",
+            description="Чип S17: active, accepted, not_selected, archive; без него — все",
+        ),
+    ] = None,
+    cursor: Annotated[str | None, Query(max_length=200)] = None,
+    limit: Annotated[int, Query(ge=1, le=MY_RESPONSES_LIMIT)] = DEFAULT_LIMIT,
+    principal: FromDishka[Principal],
+    responses: FromDishka[ListMyResponses],
+) -> MyResponsesPageOut:
+    """Мои отклики (S17), новые первыми, с заявкой; числа на чипах и «сегодня откликов: 3 из
+    50»."""
+    found = await responses(
+        ListMyResponsesCommand(
+            actor_id=principal.user_id,
+            trust_level=principal.trust_level,
+            group=status_group,
+            page=PageRequest(cursor=cursor, limit=limit),
+        )
+    )
+    return MyResponsesPageOut(
+        items=[MyResponseOut.of(item) for item in found.page.items],
+        next_cursor=found.page.next_cursor,
+        counts=ResponseCountsOut.of(found.counts),
+        today=TodayOut.of(found.today),
+    )
+
+
+@router.get(
+    "/jobs/{job_id:uuid}/responses", response_model=JobResponsesOut, dependencies=AUTHENTICATED
+)
+@inject
+async def list_job_responses(
+    job_id: JobPath, principal: FromDishka[Principal], responses: FromDishka[ListJobResponses]
+) -> JobResponsesOut:
+    """Отклики на свою заявку (S23): прошедшие проверку, по порядку, с «Откликнулся первым».
+    Чужая заявка — 404."""
+    listed = await responses(
+        ListJobResponsesCommand(actor_id=principal.user_id, job_id=JobId(job_id))
+    )
+    return JobResponsesOut(items=[JobResponseOut.of(item) for item in listed])
+
+
+async def _my_response(
+    queries: JobQueries, user_id: UserId, response_id: ResponseId
+) -> MyResponseOut:
+    found = await queries.my_response(user_id, response_id)
+    if found is None:
+        raise ResponseNotFoundError(response_id=response_id)
+    return MyResponseOut.of(found)

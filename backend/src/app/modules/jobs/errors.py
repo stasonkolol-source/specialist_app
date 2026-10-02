@@ -58,3 +58,55 @@ class SavedJobsFullError(ConflictError):
 
     code = "saved_jobs_full"
     public_params = ("limit",)
+
+
+class InvalidResponseError(DomainValidationError):
+    """Поле отклика нарушает правило (`field`, `reason`): длина сообщения, цена, «когда смогу»."""
+
+    code = "invalid_response"
+    public_params = ("field", "reason")
+
+
+class ResponseNotFoundError(NotFoundError):
+    """Отклика нет, он удалён или не принадлежит этому исполнителю (чужой — тоже 404)."""
+
+    code = "response_not_found"
+
+
+class ResponseNotActiveError(ConflictError):
+    """Клиент уже решил по отклику (выбран, отклонён, не выбран) или его отозвали."""
+
+    code = "response_not_active"
+    public_params = ("response_status",)
+
+
+class AlreadyRespondedError(ConflictError):
+    """Исполнитель уже откликался на эту заявку: отклик один, отозванный не повторяется."""
+
+    code = "already_responded"
+
+
+class OwnJobResponseError(ConflictError):
+    """На свою заявку откликнуться нельзя."""
+
+    code = "own_job"
+
+
+class JobFullError(ConflictError):
+    """Все места на заявке заняты (§7.9: пять активных откликов) — приём откликов закрыт."""
+
+    code = "job_full"
+    public_params = ("limit",)
+
+
+class DailyResponsesLimitError(RateLimitedError):
+    """За сутки уже отправлено максимум откликов для этого уровня доверия (§13.3)."""
+
+    code = "daily_responses_limit"
+
+
+class ActiveResponsesLimitError(ConflictError):
+    """Откликов, ждущих решения клиента, уже столько, сколько позволяет тариф (v1, §15.2)."""
+
+    code = "active_responses_limit"
+    public_params = ("limit",)

@@ -1,4 +1,4 @@
-"""Схемы HTTP jobs (ARCHITECTURE §8.5): заявка на входе и на выходе, карточка ленты.
+"""Схемы HTTP jobs (ARCHITECTURE §8.5): заявка на входе и на выходе, карточка ленты, отклики.
 
 Суммы — в пара (1 RSD = 100 пара), наружу — `MoneyOut`. Точная точка и адрес — только
 владельцу (`viewer_role: owner`); гость и исполнитель видят район и смещённую точку (§7.6).
@@ -13,6 +13,14 @@ from pydantic import BaseModel, Field
 
 from app.modules.jobs.application.content import JobDraft
 from app.modules.jobs.application.feed import JobCard, Photo
+from app.modules.jobs.application.responses import (
+    MyResponse,
+    OwnerResponse,
+    ResponseGroup,
+    ResponseJob,
+    TodayQuota,
+)
+from app.modules.jobs.application.use_cases.list_job_responses import JobResponse
 from app.modules.jobs.application.use_cases.show_job import JobClient, JobDetails
 from app.modules.jobs.domain.job import (
     MAX_ADDRESS,
@@ -28,6 +36,15 @@ from app.modules.jobs.domain.job import (
     JobStatus,
     Urgency,
     Visibility,
+)
+from app.modules.jobs.domain.response import (
+    MAX_AVAILABILITY,
+    MAX_MESSAGE,
+    MAX_PRICE,
+    Offer,
+    ResponsePriceType,
+    ResponseReview,
+    ResponseStatus,
 )
 from app.platform.http.money import MoneyOut
 from app.platform.kernel.geo import GeoPoint
@@ -278,3 +295,188 @@ def _money(amount: int | None) -> MoneyOut | None:
 
 def _point(point: GeoPoint | None) -> JobPointOut | None:
     return JobPointOut(lat=point.lat, lon=point.lon) if point is not None else None
+
+
+class ResponseIn(BaseModel):
+    """Отклик S16: сообщение клиенту, цена и «когда смогу»."""
+
+    message: str = Field(min_length=1, max_length=MAX_MESSAGE)
+    price_type: ResponsePriceType
+    price_amount: int | None = Field(
+        default=None, ge=1, le=MAX_PRICE, description="Пара; у договорной — нет"
+    )
+    availability_note: str | None = Field(
+        default=None, max_length=MAX_AVAILABILITY, description="«Сегодня, 19:00»"
+    )
+
+    def offer(self) -> Offer:
+        return Offer(
+            message=self.message,
+            price_type=self.price_type,
+            price_amount=self.price_amount,
+            availability_note=self.availability_note,
+        )
+
+
+class ResponsePriceOut(BaseModel):
+    type: ResponsePriceType
+    amount: MoneyOut | None
+
+    @classmethod
+    def of(cls, offer: Offer) -> ResponsePriceOut:
+        return cls(type=offer.price_type, amount=_money(offer.price_amount))
+
+
+class ResponseJobOut(BaseModel):
+    """Заявка в карточке «Мои отклики» S17."""
+
+    id: UUID
+    title: str
+    status: JobStatus
+    category_id: int
+    city_id: int
+    district_id: int | None
+    urgency: Urgency
+    preferred_from: datetime | None
+    preferred_to: datetime | None
+    budget_type: BudgetType
+    budget_min: MoneyOut | None
+    budget_max: MoneyOut | None
+    budget_unit: BudgetUnit
+    responses_count: int
+    max_responses: int
+    published_at: datetime | None
+
+    @classmethod
+    def of(cls, job: ResponseJob) -> ResponseJobOut:
+        return cls(
+            id=job.id,
+            title=job.title,
+            status=job.status,
+            category_id=job.category_id,
+            city_id=job.city_id,
+            district_id=job.district_id,
+            urgency=job.urgency,
+            preferred_from=job.preferred_from,
+            preferred_to=job.preferred_to,
+            budget_type=job.budget_type,
+            budget_min=_money(job.budget_min),
+            budget_max=_money(job.budget_max),
+            budget_unit=job.budget_unit,
+            responses_count=job.responses_count,
+            max_responses=job.max_responses,
+            published_at=job.published_at,
+        )
+
+
+class MyResponseOut(BaseModel):
+    """Свой отклик (S17): статус, проверка, предложение и заявка."""
+
+    id: UUID
+    status: ResponseStatus
+    review: ResponseReview = Field(description="pending — на проверке, blocked — скрыт модерацией")
+    message: str
+    price: ResponsePriceOut
+    availability_note: str | None
+    is_first: bool = Field(description="Первый отклик на заявку — «Первый отклик»")
+    created_at: datetime
+    updated_at: datetime
+    decided_at: datetime | None
+    job: ResponseJobOut
+
+    @classmethod
+    def of(cls, response: MyResponse) -> MyResponseOut:
+        return cls(
+            id=response.id,
+            status=response.status,
+            review=response.review,
+            message=response.offer.message,
+            price=ResponsePriceOut.of(response.offer),
+            availability_note=response.offer.availability_note,
+            is_first=response.is_first,
+            created_at=response.created_at,
+            updated_at=response.updated_at,
+            decided_at=response.decided_at,
+            job=ResponseJobOut.of(response.job),
+        )
+
+
+class ResponseCountsOut(BaseModel):
+    """Числа на чипах S17: «Все 3 · Активные 2 · Выбран 1 · Не выбран 1 · Архив»."""
+
+    all: int
+    active: int
+    accepted: int
+    not_selected: int
+    archive: int
+
+    @classmethod
+    def of(cls, counts: dict[ResponseGroup, int]) -> ResponseCountsOut:
+        return cls(
+            all=sum(counts.values()),
+            active=counts.get(ResponseGroup.ACTIVE, 0),
+            accepted=counts.get(ResponseGroup.ACCEPTED, 0),
+            not_selected=counts.get(ResponseGroup.NOT_SELECTED, 0),
+            archive=counts.get(ResponseGroup.ARCHIVE, 0),
+        )
+
+
+class TodayOut(BaseModel):
+    """«Сегодня откликов: 3 из 50 — лимит по уровню доверия» (S17)."""
+
+    used: int
+    limit: int
+
+    @classmethod
+    def of(cls, today: TodayQuota) -> TodayOut:
+        return cls(used=today.used, limit=today.limit)
+
+
+class MyResponsesPageOut(BaseModel):
+    items: list[MyResponseOut]
+    next_cursor: str | None
+    counts: ResponseCountsOut
+    today: TodayOut
+
+
+class ResponsePerformerOut(BaseModel):
+    user_id: UUID
+    display_name: str = Field(description="Аккаунт удалён — пусто")
+    profile_id: UUID | None = Field(description="Профиль специалиста; без него — подработка")
+
+
+class JobResponseOut(BaseModel):
+    """Отклик на свою заявку (S23): прошедший проверку."""
+
+    id: UUID
+    status: ResponseStatus
+    performer: ResponsePerformerOut
+    message: str
+    price: ResponsePriceOut
+    availability_note: str | None
+    is_first: bool = Field(description="«Откликнулся первым»")
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def of(cls, listed: JobResponse) -> JobResponseOut:
+        response: OwnerResponse = listed.response
+        return cls(
+            id=response.id,
+            status=response.status,
+            performer=ResponsePerformerOut(
+                user_id=response.performer_id,
+                display_name=listed.performer_name,
+                profile_id=response.profile_id,
+            ),
+            message=response.offer.message,
+            price=ResponsePriceOut.of(response.offer),
+            availability_note=response.offer.availability_note,
+            is_first=response.is_first,
+            created_at=response.created_at,
+            updated_at=response.updated_at,
+        )
+
+
+class JobResponsesOut(BaseModel):
+    items: list[JobResponseOut]

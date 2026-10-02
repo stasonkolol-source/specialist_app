@@ -1288,16 +1288,19 @@ CREATE TABLE jobs.job_media (
   PRIMARY KEY (job_id, media_id)
 );
 
-CREATE TABLE jobs.responses (
+CREATE TABLE jobs.responses (               -- подагрегат заявки (5.4): пишется вместе с ней
   id                uuid PRIMARY KEY DEFAULT uuidv7(),
   job_id            uuid NOT NULL REFERENCES jobs.jobs(id),
   performer_id      uuid NOT NULL REFERENCES identity.users(id),
   profile_id        uuid REFERENCES specialists.profiles(id),
   status            text NOT NULL DEFAULT 'submitted' CHECK (status IN
                     ('submitted','viewed','shortlisted','accepted','declined','withdrawn','not_selected')),
+  review            text NOT NULL DEFAULT 'pending' CHECK (review IN ('pending','clear','blocked')),
+                                                 -- клиент видит только clear (проверка текста, §14.1)
+  revision          int NOT NULL DEFAULT 1,      -- редакция, которую проверяла модерация
   message           text NOT NULL CHECK (char_length(message) BETWEEN 1 AND 1500),
-  price_type        text CHECK (price_type IN ('fixed','from','hourly','negotiable')),
-  price_amount      bigint,
+  price_type        text NOT NULL CHECK (price_type IN ('fixed','from','hourly','negotiable')),
+  price_amount      bigint,                       -- у negotiable — NULL, у остальных — обязательно
   currency          char(3) NOT NULL DEFAULT 'RSD' CHECK (currency = 'RSD'),
   availability_note text,                         -- «могу сегодня после 18:00»
   template_id       uuid,                         -- отклик в один тап из шаблона (jobs.response_templates)
@@ -2443,11 +2446,11 @@ sequenceDiagram
 | `DELETE /jobs/{id}` | Удалить (soft) |
 | `POST /jobs/{id}/hide` | «Не интересно» — скрыть из своей ленты |
 | `GET /me/jobs?status=` | Заявки клиента |
-| `POST /jobs/{id}/responses` | Откликнуться: `{message, price, availability_note, profile_id?, template_id?}` |
+| `POST /jobs/{id}/responses` | Откликнуться (5.4, Idempotency-Key): `{message, price_type, price_amount, availability_note}`; профиль — опубликованный профиль специалиста автора, если есть. Пять мест на заявку под блокировкой её строки; 409 `job_not_open`, `own_job`, `already_responded`, `job_full`; суточный лимит по уровню доверия — 429. Текст — на проверку: клиент видит отклик после неё |
 | `GET /me/response-templates`, `POST /me/response-templates`, `DELETE /me/response-templates/{id}` | Шаблоны откликов. До двух шаблонов доступны кнопками прямо в уведомлении бота (отклик в один тап, callback `respond:<job>:<tpl>`) |
-| `GET /jobs/{id}/responses` | Отклики на свою заявку (владелец) |
-| `GET /me/responses?status=` | Мои отклики (исполнитель) |
-| `PATCH /responses/{id}`, `POST /responses/{id}/withdraw` | Правка и отзыв отклика исполнителем |
+| `GET /jobs/{id}/responses` | Отклики на свою заявку (владелец; чужая — 404): прошедшие проверку, по порядку, с `is_first` — «Откликнулся первым» |
+| `GET /me/responses?status=` | Мои отклики (исполнитель): группы чипов S17 — `active`, `accepted`, `not_selected`, `archive`; страницы по курсору, `counts` по группам, `today` — «сегодня откликов: 3 из 50» |
+| `PATCH /responses/{id}`, `POST /responses/{id}/withdraw` | Правка и отзыв отклика исполнителем, пока клиент не решил (иначе 409 `response_not_active`); правка — снова на проверку; версия заявки растёт |
 | `POST /responses/{id}/shortlist`, `/decline`, `/accept` | Действия клиента; `accept` → создаёт сделку, возвращает `deal_id` |
 | `GET /me/job-alerts`, `POST /me/job-alerts`, `PATCH /me/job-alerts/{id}`, `DELETE /me/job-alerts/{id}` | Подписки на новые заявки |
 | `POST /specialists/{id}/requests` | Прямой запрос специалисту из каталога — заявка с `visibility=direct` |
@@ -3341,7 +3344,7 @@ flowchart LR
 - **Проверки в коде** идут по фичам, а не по планам: `quota(user, "active_responses")`, `has(user, "pro_badge")`. Поэтому в новом канале — только новый адаптер.
 - **Учёт.** Каждая транзакция хранит RSD-эквивалент на дату и канал. Налоговая квалификация выручки в Stars и Gram (TON) — открытый вопрос к бухгалтеру после MVP.
 - **Обязательно для Stars:** команды `/paysupport` и `/terms`, возвраты через `refundStarPayment`.
-- **В MVP модуля billing нет** ([ADR-0018](adr/0018-mvp-scope-anonymous-no-payments.md)). Лимит 5 откликов на заявку и антиспам-лимиты (§13.3) — простые счётчики в модулях `jobs` и `platform`. Статус Founding — флаг профиля. Схемы `billing.*` и сервис entitlements появляются в v1 без переделки других модулей: проверки уже спрятаны за портом `Entitlements`, который в MVP возвращает «без ограничений».
+- **В MVP модуля billing нет** ([ADR-0018](adr/0018-mvp-scope-anonymous-no-payments.md)). Лимит 5 откликов на заявку и антиспам-лимиты (§13.3) — простые счётчики в модулях `jobs` и `platform`. Статус Founding — флаг профиля. Схемы `billing.*` и сервис entitlements появляются в v1 без переделки других модулей: проверки уже спрятаны за портом `Entitlements` (`platform/entitlements/port.py`, с 5.4), который в MVP возвращает «без ограничений» (`UnlimitedEntitlements`); отклик сверяется с квотой `active_responses`.
 - **Вещи (после MVP, итерация «Вещи»).** Раздел бесплатный. Монетизация (≈ 1–1,5 pw) — бусты и подписка магазинов за Stars: SKU `goods_*` для частных продавцов без KYC, `promotions.target_type='listing'`. Включается только при юрлице, готовом `billing` и 4 неделях подряд «живого» раздела. Базовая выручка ≈ €390 в месяц, после revenue share админам ≈ €270–310 — меньше стоимости владения стадии «Раздел» ≈ €375–730 в месяц ([research/08 §5.2, §5.7](research/08-goods-marketplace.md#57-стоимость-владения)).
 
 ---

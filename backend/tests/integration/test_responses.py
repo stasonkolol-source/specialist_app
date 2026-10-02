@@ -1,0 +1,433 @@
+"""Отклики (DEVELOPMENT_PLAN 5.4) через API и конвейер модерации: исполнитель откликается на
+опубликованную заявку, текст уходит на проверку — клиент видит отклик после неё (чистый — сразу,
+с контактами — после решения модератора); на свою, закрытую и полную заявку — 409 со своим кодом;
+десять параллельных откликов на пять мест дают ровно пять; правка отклика увеличивает версию
+заявки; суточный лимит по уровню доверия — 429 на своей границе; «Мои отклики» с группами и
+квотой дня; удалённый аккаунт отзывает свои отклики. Данные коммитятся.
+"""
+
+import asyncio
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
+from typing import Any
+from uuid import UUID
+
+import httpx
+import pytest
+from dishka import AsyncContainer
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+
+from app.entrypoints._wiring import make_worker_container, module_routers
+from app.entrypoints.seeds import load_city_seeds
+from app.modules.jobs.application.use_cases.withdraw_performer_responses import (
+    WithdrawPerformerResponses,
+    WithdrawPerformerResponsesCommand,
+)
+from app.modules.moderation.application.use_cases.auto_check import AutoCheck, AutoCheckCommand
+from app.modules.moderation.application.use_cases.decide_case import (
+    DecideCase,
+    DecideCaseCommand,
+)
+from app.modules.moderation.domain.cases import EntityType
+from app.modules.moderation.domain.pipeline import Route, Routing
+from app.platform.contracts.events.moderation import ModerationDecision
+from app.platform.kernel.ids import UserId, new_id
+from app.platform.ratelimit import Rate
+from app.platform.settings import Settings
+from tests.plugins.http import HttpApp, bearer, http_app
+from tests.plugins.identity import accept_rules, insert_user
+
+pytestmark = pytest.mark.integration
+
+API = "/api/v1"
+
+
+@pytest.fixture
+async def web(
+    storage_settings: Settings, geo_seeded: None, catalog_seeded: None
+) -> AsyncIterator[HttpApp]:
+    ip = f"10.{new_id().int % 250}.{new_id().int % 250}.{new_id().int % 250}"
+    async with http_app(storage_settings, *module_routers(), client_ip=ip) as app:
+        yield app
+
+
+@pytest.fixture
+async def worker(storage_settings: Settings) -> AsyncIterator[AsyncContainer]:
+    container = make_worker_container(storage_settings)
+    try:
+        yield container
+    finally:
+        await container.close()
+
+
+def unique(text_: str) -> str:
+    """Текст с меткой теста: один текст от трёх аккаунтов за сутки velocity считает рассылкой."""
+    mark = "".join(chr(ord("a") + int(digit, 16)) for digit in new_id().hex[-10:])
+    return f"{text_} Метка {mark}."
+
+
+class World:
+    def __init__(self, app: HttpApp, settings: Settings) -> None:
+        self.app, self.settings = app, settings
+        self.users: list[UserId] = []
+        self.centers = {d.slug: d.center for s in load_city_seeds() for d in s.districts}
+
+    async def scalar(self, sql: str, **params: object) -> Any:
+        engine = await self.app.container.get(AsyncEngine)
+        async with engine.connect() as conn:
+            return (await conn.execute(text(sql), params)).scalar()
+
+    async def execute(self, sql: str, **params: object) -> None:
+        engine = await self.app.container.get(AsyncEngine)
+        async with engine.begin() as conn:
+            await conn.execute(text(sql), params)
+
+    async def user(self, name: str = "Марко") -> UserId:
+        async with self.app.container() as request:
+            session = await request.get(AsyncSession)
+            user_id = await insert_user(session)
+            await accept_rules(session, user_id)
+        await self.execute(
+            "UPDATE identity.users SET display_name = :name WHERE id = :id", name=name, id=user_id
+        )
+        self.users.append(user_id)
+        return user_id
+
+    async def job(
+        self, client_id: UserId, *, status: str = "published", max_responses: int = 5
+    ) -> UUID:
+        """Опубликованная заявка строкой: модерация заявки этим тестам не нужна."""
+        job_id = new_id()
+        category = await self.scalar(
+            "SELECT min(id) FROM catalog.categories WHERE is_active AND jobs_enabled"
+            " AND risk_level = 0 AND parent_id IS NOT NULL"
+        )
+        path = await self.scalar("SELECT path FROM catalog.categories WHERE id = :id", id=category)
+        center = self.centers["liman-3"]
+        now = datetime.now(UTC)
+        await self.execute(
+            "INSERT INTO jobs.jobs (id, client_id, status, title, description, content_lang,"
+            " category_id, category_path, urgency, budget_type, budget_min, city_id,"
+            " district_id, point_public, max_responses, published_at, expires_at, version)"
+            " VALUES (:id, :client, :status, 'Повесить люстру', 'Люстра на пять рожков', 'ru',"
+            " :category, :path, 'this_week', 'fixed', 500000,"
+            " (SELECT id FROM geo.cities WHERE slug = 'novi-sad'),"
+            " (SELECT id FROM geo.districts WHERE slug = 'liman-3'),"
+            " ST_GeogFromText(:point), :max_responses, :published, :expires, 1)",
+            id=job_id,
+            client=client_id,
+            status=status,
+            category=category,
+            path=list(path),
+            point=f"SRID=4326;POINT({center.lon} {center.lat})",
+            max_responses=max_responses,
+            published=now - timedelta(minutes=30) if status == "published" else None,
+            expires=now + timedelta(days=7),
+        )
+        return job_id
+
+    def headers(self, user_id: UserId, *, trust_level: int = 0) -> dict[str, str]:
+        return bearer(self.settings, user_id, trust_level=trust_level)
+
+    async def respond(
+        self,
+        performer: UserId,
+        job_id: UUID,
+        *,
+        message: str | None = None,
+        trust_level: int = 0,
+        price: dict[str, Any] | None = None,
+    ) -> httpx.Response:
+        body = {
+            "message": message or unique("Здравствуйте! Могу сегодня в 19:00, свой инструмент."),
+            **(price or {"price_type": "fixed", "price_amount": 350_000}),
+            "availability_note": "Сегодня, 19:00",
+        }
+        headers = self.headers(performer, trust_level=trust_level) | {
+            "Idempotency-Key": new_id().hex
+        }
+        return await self.app.client.post(
+            f"{API}/jobs/{job_id}/responses", json=body, headers=headers
+        )
+
+    async def responded(self, performer: UserId, job_id: UUID, **kwargs: Any) -> dict[str, Any]:
+        reply = await self.respond(performer, job_id, **kwargs)
+        assert reply.status_code == 201, reply.text
+        body: dict[str, Any] = reply.json()
+        return body
+
+    async def owner_list(self, client: UserId, job_id: UUID) -> list[dict[str, Any]]:
+        reply = await self.app.client.get(
+            f"{API}/jobs/{job_id}/responses", headers=self.headers(client)
+        )
+        assert reply.status_code == 200, reply.text
+        items: list[dict[str, Any]] = reply.json()["items"]
+        return items
+
+    async def job_row(self, job_id: UUID) -> tuple[int, int]:
+        """Версия заявки и число активных откликов."""
+        engine = await self.app.container.get(AsyncEngine)
+        async with engine.connect() as conn:
+            row = (
+                await conn.execute(
+                    text("SELECT version, responses_count FROM jobs.jobs WHERE id = :id"),
+                    {"id": job_id},
+                )
+            ).one()
+        return int(row[0]), int(row[1])
+
+
+@pytest.fixture
+async def world(web: HttpApp, storage_settings: Settings) -> AsyncIterator[World]:
+    """Пользователи теста; их задачи в очереди (проверка текста, события) тест не выполняет."""
+    created = World(web, storage_settings)
+    yield created
+    engine = await web.container.get(AsyncEngine)
+    async with engine.begin() as conn:
+        for user_id in created.users:
+            await conn.execute(
+                text(
+                    "DELETE FROM procrastinate_jobs WHERE status = 'todo' AND args::text LIKE :id"
+                ),
+                {"id": f"%{user_id}%"},
+            )
+
+
+async def auto_check(worker: AsyncContainer, performer: UserId, response_id: str) -> Routing:
+    async with worker() as request:
+        routing = await (await request.get(AutoCheck))(
+            AutoCheckCommand(
+                entity_type=EntityType.RESPONSE,
+                entity_id=UUID(response_id),
+                author_id=performer,
+            )
+        )
+    assert routing is not None
+    return routing
+
+
+async def test_clean_response_is_shown_to_the_owner_after_the_check(
+    world: World, worker: AsyncContainer
+) -> None:
+    client, performer = await world.user("Елена К."), await world.user("Марко П.")
+    job_id = await world.job(client)
+
+    response = await world.responded(performer, job_id)
+
+    assert (response["status"], response["review"], response["is_first"]) == (
+        "submitted",
+        "pending",
+        True,
+    )
+    assert response["price"] == {
+        "type": "fixed",
+        "amount": {"amount": 350_000, "currency": "RSD"},
+    }
+    assert response["job"]["id"] == str(job_id)
+    assert response["job"]["responses_count"] == 1
+    assert await world.owner_list(client, job_id) == []  # на проверке — клиенту не видно
+
+    routing = await auto_check(worker, performer, response["id"])
+
+    assert routing.route is Route.PUBLISH
+    [listed] = await world.owner_list(client, job_id)
+    assert listed["id"] == response["id"]
+    assert listed["performer"]["display_name"] == "Марко П."
+    assert listed["is_first"] is True
+    assert listed["availability_note"] == "Сегодня, 19:00"
+    stranger = await world.user()
+    other = await world.app.client.get(
+        f"{API}/jobs/{job_id}/responses", headers=world.headers(stranger)
+    )
+    assert (other.status_code, other.json()["code"]) == (404, "job_not_found")
+
+
+async def test_response_with_contacts_waits_for_a_moderator(
+    world: World, worker: AsyncContainer
+) -> None:
+    client, performer = await world.user(), await world.user()
+    job_id = await world.job(client)
+    leaking = unique("Здравствуйте! Звоните: +381 64 123 4567, приеду сегодня.")
+    response = await world.responded(performer, job_id, message=leaking)
+
+    routing = await auto_check(worker, performer, response["id"])
+
+    assert routing.route is Route.REVIEW
+    assert await world.owner_list(client, job_id) == []
+    case_id = await world.scalar(
+        "SELECT id FROM moderation.cases WHERE entity_id = :id AND status = 'pending'",
+        id=UUID(response["id"]),
+    )
+    async with worker() as request:
+        await (await request.get(DecideCase))(
+            DecideCaseCommand(
+                case_id=case_id, verdict=ModerationDecision.REJECTED, reason_code="contact_leak"
+            )
+        )
+    mine = await world.app.client.get(f"{API}/me/responses", headers=world.headers(performer))
+    [blocked] = mine.json()["items"]
+    assert (blocked["review"], blocked["status"]) == ("blocked", "withdrawn")
+    assert await world.job_row(job_id) == (3, 0)  # место освободилось
+    assert await world.owner_list(client, job_id) == []
+
+
+async def test_responding_refuses_own_full_closed_and_repeated(world: World) -> None:
+    client, performer = await world.user(), await world.user()
+    job_id = await world.job(client, max_responses=1)
+    hidden = await world.job(client, status="pending_moderation")
+
+    own = await world.respond(client, job_id)
+    first = await world.respond(performer, job_id)
+    again = await world.respond(performer, job_id)
+    late = await world.respond(await world.user(), job_id)
+    unpublished = await world.respond(performer, hidden)
+    unknown = await world.respond(performer, new_id())
+
+    assert (own.status_code, own.json()["code"]) == (409, "own_job")
+    assert first.status_code == 201, first.text
+    assert (again.status_code, again.json()["code"]) == (409, "already_responded")
+    assert (late.status_code, late.json()["code"], late.json()["limit"]) == (409, "job_full", 1)
+    assert (unpublished.status_code, unpublished.json()["code"]) == (404, "job_not_found")
+    assert (unknown.status_code, unknown.json()["code"]) == (404, "job_not_found")
+    invalid = await world.respond(
+        await world.user(), job_id, price={"price_type": "negotiable", "price_amount": 100}
+    )
+    assert (invalid.status_code, invalid.json()["code"]) == (422, "invalid_response")
+    guest = await world.app.client.post(
+        f"{API}/jobs/{job_id}/responses",
+        json={"message": "Привет", "price_type": "negotiable"},
+        headers={"Idempotency-Key": new_id().hex},
+    )
+    assert guest.status_code == 401
+
+
+async def test_ten_parallel_responses_take_exactly_five_places(world: World) -> None:
+    client = await world.user()
+    job_id = await world.job(client)
+    performers = [await world.user() for _ in range(10)]
+
+    replies = await asyncio.gather(*(world.respond(p, job_id) for p in performers))
+
+    codes = sorted(reply.status_code for reply in replies)
+    assert codes == [201] * 5 + [409] * 5
+    assert {r.json()["code"] for r in replies if r.status_code == 409} == {"job_full"}
+    version, count = await world.job_row(job_id)
+    assert (count, version) == (5, 6)  # каждый отклик — новая версия заявки
+    stored = await world.scalar("SELECT count(*) FROM jobs.responses WHERE job_id = :id", id=job_id)
+    assert stored == 5
+
+
+async def test_revising_and_withdrawing_bump_the_job_version(world: World) -> None:
+    client, performer = await world.user(), await world.user()
+    job_id = await world.job(client)
+    response = await world.responded(performer, job_id)
+    assert await world.job_row(job_id) == (2, 1)
+    headers = world.headers(performer)
+
+    revised = await world.app.client.patch(
+        f"{API}/responses/{response['id']}",
+        json={"message": unique("Могу завтра утром."), "price_type": "negotiable"},
+        headers=headers,
+    )
+
+    assert revised.status_code == 200, revised.text
+    assert (revised.json()["price"], revised.json()["review"]) == (
+        {"type": "negotiable", "amount": None},
+        "pending",
+    )
+    assert await world.job_row(job_id) == (3, 1)  # правка отклика — новая версия заявки
+    withdrawn = await world.app.client.post(
+        f"{API}/responses/{response['id']}/withdraw", headers=headers
+    )
+    assert (withdrawn.status_code, withdrawn.json()["status"]) == (200, "withdrawn")
+    assert await world.job_row(job_id) == (4, 0)
+    twice = await world.app.client.post(
+        f"{API}/responses/{response['id']}/withdraw", headers=headers
+    )
+    assert (twice.status_code, twice.json()["code"]) == (409, "response_not_active")
+    again = await world.respond(performer, job_id)
+    assert (again.status_code, again.json()["code"]) == (409, "already_responded")
+    stranger = await world.app.client.post(
+        f"{API}/responses/{response['id']}/withdraw", headers=world.headers(await world.user())
+    )
+    assert (stranger.status_code, stranger.json()["code"]) == (404, "response_not_found")
+
+
+async def test_my_responses_have_groups_and_the_daily_quota(world: World) -> None:
+    client, performer = await world.user(), await world.user()
+    jobs = [await world.job(client) for _ in range(3)]
+    responses = [await world.responded(performer, job_id) for job_id in jobs]
+    headers = world.headers(performer)
+    await world.app.client.post(f"{API}/responses/{responses[0]['id']}/withdraw", headers=headers)
+    await world.app.client.post(
+        f"{API}/jobs/{jobs[1]}/close", json={"reason": "not_needed"}, headers=world.headers(client)
+    )
+
+    everything = await world.app.client.get(f"{API}/me/responses", headers=headers)
+    active = await world.app.client.get(
+        f"{API}/me/responses", params={"status": "active"}, headers=headers
+    )
+
+    assert everything.status_code == 200, everything.text
+    body = everything.json()
+    assert [item["id"] for item in body["items"]] == [r["id"] for r in reversed(responses)]
+    assert body["counts"] == {
+        "all": 3,
+        "active": 1,
+        "accepted": 0,
+        "not_selected": 1,
+        "archive": 1,
+    }
+    assert body["today"] == {"used": 3, "limit": 10}
+    assert [item["id"] for item in active.json()["items"]] == [responses[2]["id"]]
+    closed = next(item for item in body["items"] if item["job"]["id"] == str(jobs[1]))
+    assert (closed["status"], closed["job"]["status"]) == ("not_selected", "closed")
+
+
+async def test_daily_limit_depends_on_trust_level(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    quota = "app.modules.jobs.infrastructure.quota"
+    monkeypatch.setattr(f"{quota}.RESPONSES", Rate("jobs.responses_per_day", "2/day"))
+    monkeypatch.setattr(
+        f"{quota}.RESPONSES_TRUSTED", Rate("jobs.responses_per_day_trusted", "3/day")
+    )
+    client = await world.user()
+    jobs = [await world.job(client) for _ in range(4)]
+    newbie, trusted = await world.user(), await world.user()
+
+    newbie_codes = [(await world.respond(newbie, job_id)).status_code for job_id in jobs[:3]]
+    trusted_codes = [
+        (await world.respond(trusted, job_id, trust_level=2)).status_code for job_id in jobs
+    ]
+
+    assert newbie_codes == [201, 201, 429]
+    assert trusted_codes == [201, 201, 201, 429]
+    refused = await world.respond(newbie, jobs[3])
+    assert (refused.json()["code"], "Retry-After" in refused.headers) == (
+        "daily_responses_limit",
+        True,
+    )
+    full = await world.respond(await world.user(), await world.job(client, max_responses=0))
+    assert full.json()["code"] == "job_full"  # отказ «мест нет» квоту не тратит
+
+
+async def test_deleted_performer_responses_are_withdrawn(
+    world: World, worker: AsyncContainer
+) -> None:
+    client, performer = await world.user(), await world.user()
+    job_id = await world.job(client)
+    response = await world.responded(performer, job_id)
+
+    async with worker() as request:
+        withdrawn = await (await request.get(WithdrawPerformerResponses))(
+            WithdrawPerformerResponsesCommand(user_id=performer)
+        )
+
+    assert withdrawn == 1
+    status = await world.scalar(
+        "SELECT status FROM jobs.responses WHERE id = :id", id=UUID(response["id"])
+    )
+    assert status == "withdrawn"
+    assert (await world.job_row(job_id))[1] == 0

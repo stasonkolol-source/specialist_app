@@ -6,7 +6,14 @@ from typing import Final, Protocol
 
 from app.modules.jobs.application.dto import JobView
 from app.modules.jobs.application.feed import FeedFilters, FeedItem
+from app.modules.jobs.application.responses import (
+    MyResponse,
+    OwnerResponse,
+    ResponseGroup,
+    TodayQuota,
+)
 from app.modules.jobs.domain.job import Job, JobId, JobStatus
+from app.modules.jobs.domain.response import ResponseId
 from app.platform.contracts.events.identity import UserDeleted
 from app.platform.kernel.ids import UserId
 from app.platform.kernel.pagination import Page, PageRequest
@@ -79,6 +86,37 @@ class JobQueries(Protocol):
         """Сколько заявок в ленте с этими фильтрами — «Показать N» S14 и счётчик Главной."""
         ...
 
+    async def job_of_response(self, response_id: ResponseId) -> JobId | None:
+        """Заявка отклика; нет такого или удалён — None."""
+        ...
+
+    async def performer_jobs(self, performer_id: UserId) -> list[JobId]:
+        """Заявки, где у исполнителя есть активный отклик — удаление аккаунта."""
+        ...
+
+    async def count_active_responses(self, performer_id: UserId) -> int:
+        """Сколько откликов исполнителя ждут решения клиента — квота `active_responses` (v1)."""
+        ...
+
+    async def my_responses(
+        self, performer_id: UserId, group: ResponseGroup | None, *, page: PageRequest
+    ) -> Page[MyResponse]:
+        """Отклики исполнителя (S17), новые первыми; группа — чип S17, None — все."""
+        ...
+
+    async def my_response(self, performer_id: UserId, response_id: ResponseId) -> MyResponse | None:
+        """Отклик исполнителя с заявкой — ответ на отклик, правку и отзыв; чужой — None."""
+        ...
+
+    async def my_response_counts(self, performer_id: UserId) -> dict[ResponseGroup, int]:
+        """Сколько откликов в каждой группе — числа на чипах S17."""
+        ...
+
+    async def job_responses(self, job_id: JobId) -> list[OwnerResponse]:
+        """Отклики на заявку для владельца (S23): прошедшие проверку, не отозванные, по
+        порядку; `is_first` — самый ранний отклик заявки."""
+        ...
+
     async def saved(self, user_id: UserId, *, now: datetime) -> list[FeedItem]:
         """Сохранённые пользователем заявки, которые ещё открыты (опубликованы, публичны, срок
         не вышел), — новые сохранения первыми; без расстояния."""
@@ -121,6 +159,17 @@ class SavedJobs(Protocol):
         ...
 
 
+class ResponseQuota(Protocol):
+    async def take(self, performer_id: UserId, *, trusted: bool) -> None:
+        """Отклик за сутки (§13.3): у уровней 0–1 — десять, у проверенных — пятьдесят; сверх —
+        DailyResponsesLimitError (429)."""
+        ...
+
+    async def today(self, performer_id: UserId, *, trusted: bool) -> TodayQuota:
+        """Сколько откликов засчитано за сутки и сколько можно — без нового отклика."""
+        ...
+
+
 class JobQuota(Protocol):
     async def take(self, client_id: UserId, *, trusted: bool) -> None:
         """Новая заявка за сутки (§13.3): у уровней 0–1 — пять, у проверенных — двадцать;
@@ -130,3 +179,5 @@ class JobQuota(Protocol):
 
 FORGET_CLIENT_JOBS: Final = TaskRef("jobs.forget_client", UserDeleted)
 """Аккаунт удалён — его заявки закрываются и удаляются, адрес стирается (§7.10)."""
+WITHDRAW_PERFORMER_RESPONSES: Final = TaskRef("jobs.withdraw_performer_responses", UserDeleted)
+"""Аккаунт удалён — его активные отклики отзываются: места на чужих заявках освобождаются."""

@@ -1,10 +1,10 @@
-"""ORM-модели jobs (ARCHITECTURE §7.3, миграции jobs_0001–0003): заявки, их фото, история
-статусов и скрытые исполнителями заявки.
+"""ORM-модели jobs (ARCHITECTURE §7.3, миграции jobs_0001–0005): заявки, их фото, история
+статусов, скрытые и сохранённые исполнителями заявки, отклики.
 
-FK на identity.users, catalog.categories, geo.cities, geo.districts и media.assets объявлены
-только в миграции: MetaData модуля не знает чужих таблиц (modules/README.md). Отклики,
-приглашения и подписки — в своих шагах (5.4, 5.6, 5.7); `tag_ids`, `verified_only`,
-`views_count` и `search_vector` — задел ленты и поиска заявок (5.3).
+FK на identity.users, catalog.categories, geo.cities, geo.districts, media.assets и
+specialists.profiles объявлены только в миграции: MetaData модуля не знает чужих таблиц
+(modules/README.md). Приглашения и подписки — в своих шагах (5.6, 5.7); `tag_ids`,
+`verified_only`, `views_count` и `search_vector` — задел ленты и поиска заявок (5.3).
 """
 
 from datetime import datetime
@@ -38,6 +38,13 @@ from app.modules.jobs.domain.job import (
     JobStatus,
     Urgency,
     Visibility,
+)
+from app.modules.jobs.domain.response import (
+    MAX_AVAILABILITY,
+    MAX_MESSAGE,
+    ResponsePriceType,
+    ResponseReview,
+    ResponseStatus,
 )
 from app.platform.db.base import (
     ModelBase,
@@ -203,3 +210,56 @@ class SavedJobRow(Base):
     """identity.users: FK в миграции."""
     job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id"), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class ResponseRow(TimestampsMixin, SoftDeleteMixin, Base):
+    """Отклик исполнителя (§7.9, миграция jobs_0005): подагрегат заявки, пишется вместе с ней."""
+
+    __tablename__ = "responses"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id"))
+    performer_id: Mapped[UUID]
+    """identity.users: FK в миграции."""
+    profile_id: Mapped[UUID | None]
+    """specialists.profiles: FK в миграции; без профиля — подработка."""
+    status: Mapped[ResponseStatus] = mapped_column(
+        str_enum(ResponseStatus, "status"), server_default=ResponseStatus.SUBMITTED.value
+    )
+    message: Mapped[str] = mapped_column(Text)
+    price_type: Mapped[ResponsePriceType] = mapped_column(str_enum(ResponsePriceType, "price_type"))
+    price_amount: Mapped[int | None] = mapped_column(BigInteger)
+    """Пара; у договорной — нет."""
+    currency: Mapped[str] = mapped_column(String(3), server_default=text("'RSD'"))
+    availability_note: Mapped[str | None] = mapped_column(Text)
+    template_id: Mapped[UUID | None]
+    """jobs.response_templates (5.5): отклик в один тап из шаблона."""
+    review: Mapped[ResponseReview] = mapped_column(
+        str_enum(ResponseReview, "review"), server_default=ResponseReview.PENDING.value
+    )
+    """Проверка текста модерацией: клиент видит только `clear`."""
+    revision: Mapped[int] = mapped_column(Integer, server_default=text("1"))
+    viewed_at: Mapped[datetime | None]
+    decided_at: Mapped[datetime | None]
+
+    __table_args__ = (
+        CheckConstraint(f"char_length(message) BETWEEN 1 AND {MAX_MESSAGE}", name="message_length"),
+        CheckConstraint(
+            f"char_length(availability_note) <= {MAX_AVAILABILITY}",
+            name="availability_note_length",
+        ),
+        CheckConstraint(
+            "(price_type = 'negotiable') = (price_amount IS NULL)", name="price_amount_set"
+        ),
+        rsd_only("currency"),
+        # один отклик на заявку от исполнителя; отозванный не повторяется
+        Index(
+            "uq_responses_job_id_performer_id",
+            "job_id",
+            "performer_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("ix_responses_job_id_created_at", "job_id", "created_at"),
+        Index("ix_responses_performer_id_created_at", "performer_id", text("created_at DESC")),
+    )

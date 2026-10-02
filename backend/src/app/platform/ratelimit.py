@@ -89,6 +89,16 @@ class RateLimiter:
             raise RateLimitedError(retry_after=reset_after, limit=rate.limit)
         return RateStatus(limit=rate.limit, remaining=stats.remaining, reset_after=reset_after)
 
+    async def peek(self, rate: Rate, subject: str) -> RateStatus:
+        """Состояние окна без засчитанного действия: «сегодня откликов 3 из 50» (S17)."""
+        try:
+            stats = await self._strategy.get_window_stats(rate.item, rate.name, subject)
+        except StorageError as exc:
+            log.warning("ratelimit_storage_unavailable", rate=rate.name, error=type(exc).__name__)
+            return RateStatus(limit=rate.limit, remaining=rate.limit, reset_after=0)
+        reset_after = max(0, ceil(stats.reset_time - time.time()))
+        return RateStatus(limit=rate.limit, remaining=stats.remaining, reset_after=reset_after)
+
     async def exceeded(self, subject: str, day: date) -> dict[str, int]:
         """Превышения субъекта за день по именам лимитов."""
         raw = await self._valkey.hgetall(exceeded_key(day, subject))  # type: ignore[misc]  # redis-py: Awaitable | dict
