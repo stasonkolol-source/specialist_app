@@ -3,14 +3,14 @@
 from collections.abc import Collection
 from uuid import UUID
 
-from app.modules.deals.api import AgreedDealIn, DealBrief, ProposedDealIn
+from app.modules.deals.api import AgreedDealIn, DealBrief, DealSummary, ProposedDealIn
 from app.modules.deals.application.dto import DealView
 from app.modules.deals.application.ports import DealQueries, DealRepository
 from app.modules.deals.domain.deal import Deal, DealPriceType, DealTerms
-from app.modules.deals.errors import InvalidDealError
+from app.modules.deals.errors import DealNotFoundError, InvalidDealError
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
-from app.platform.kernel.ids import DealId, new_id
+from app.platform.kernel.ids import DealId, UserId, new_id
 
 
 class DealsFacade:
@@ -29,6 +29,38 @@ class DealsFacade:
     async def deal_for_response(self, response_id: UUID) -> DealBrief | None:
         deal_id = await self._queries.of_response(response_id)
         return await self.deal_brief(deal_id) if deal_id is not None else None
+
+    async def deal_for(self, deal_id: DealId, viewer_id: UserId) -> DealSummary:
+        deal = await self._queries.view(deal_id)
+        role = deal.role_of(viewer_id) if deal is not None else None
+        if deal is None or role is None:
+            raise DealNotFoundError(deal_id=deal_id)
+        return DealSummary(
+            id=deal.id,
+            status=deal.status.value,
+            origin=deal.origin.value,
+            my_role=role.value,
+            title=deal.title,
+            price_type=deal.price_type.value if deal.price_type is not None else None,
+            agreed_price=deal.agreed_price,
+            scheduled_at=deal.scheduled_at,
+            client_id=deal.client_id,
+            performer_id=deal.performer_id,
+            profile_id=deal.profile_id,
+            job_id=deal.job_id,
+            response_id=deal.response_id,
+            conversation_id=deal.conversation_id,
+            proposed_by=deal.proposed_by,
+            agreed_at=deal.agreed_at,
+            client_confirmed_at=deal.client_confirmed_at,
+            performer_confirmed_at=deal.performer_confirmed_at,
+            completed_at=deal.completed_at,
+            cancelled_at=deal.cancelled_at,
+            cancelled_by=deal.cancelled_by,
+            cancel_reason=deal.cancel_reason.value if deal.cancel_reason is not None else None,
+            created_at=deal.created_at,
+            version=deal.version,
+        )
 
     async def create_agreed(self, data: AgreedDealIn) -> DealId:
         self._uow.require_active()  # транзакция jobs: отклик выбран и сделка создана вместе

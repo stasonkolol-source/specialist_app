@@ -9,7 +9,8 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
-from app.platform.kernel.ids import MediaId, UserId
+from app.platform.kernel.geo import GeoPoint
+from app.platform.kernel.ids import CityId, DistrictId, MediaId, UserId
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -101,6 +102,27 @@ class ChatResponse:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class DealJob:
+    """Заявка сделки для экрана S26 (6.2): район, окно времени и отклик; точные адрес и точка —
+    только владельцу и выбранному исполнителю."""
+
+    title: str
+    city_id: CityId
+    district_id: DistrictId | None
+    urgency: str
+    preferred_from: datetime | None
+    preferred_to: datetime | None
+    budget_min: int | None
+    budget_max: int | None
+    address: str | None
+    point: GeoPoint | None
+    responded_at: datetime | None
+    """Когда исполнитель откликнулся — первая веха таймлайна."""
+    availability_note: str | None
+    """«Когда смогу» из отклика: время сделки, если в заявке его нет."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class OwnerResponseView:
     """Отклик на заявку для её владельца (S23): только прошедшие проверку."""
 
@@ -167,6 +189,13 @@ class JobsApi(Protocol):
 
     async def chat_response(self, response_id: UUID) -> ChatResponse | None:
         """Отклик для диалога по нему; удалённый или удалённая заявка — None."""
+        ...
+
+    async def deal_job(
+        self, job_id: UUID, response_id: UUID | None, viewer_id: UserId
+    ) -> DealJob | None:
+        """Заявка сделки для её стороны (S26); удалённая — None. Точный адрес — владельцу и
+        исполнителю, чей отклик выбран."""
         ...
 
     async def passed_over(self, job_id: UUID) -> list[UserId]:

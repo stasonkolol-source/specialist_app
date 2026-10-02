@@ -22,7 +22,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, aggregate_order_by
 
-from app.modules.jobs.application.dto import JobView, MyResponseRef
+from app.modules.jobs.application.dto import DealResponse, JobView, MyResponseRef
 from app.modules.jobs.application.feed import (
     CARD_PHOTOS,
     DESCRIPTION_PREVIEW,
@@ -238,6 +238,23 @@ class SqlJobQueries(SqlQuery):
         more = len(rows) > page.limit
         cursor = encode_cursor(last.created_at, last.id) if more and last else None
         return Page(items=tuple(items), next_cursor=cursor)
+
+    async def deal_response(self, response_id: ResponseId) -> DealResponse | None:
+        row = await self._fetch_one(
+            select(
+                _R.id, _R.job_id, _R.performer_id, _R.status, _R.created_at, _R.availability_note
+            ).where(_R.id == response_id, _R.deleted_at.is_(None))
+        )
+        if row is None:
+            return None
+        return DealResponse(
+            id=ResponseId(row["id"]),
+            job_id=JobId(row["job_id"]),
+            performer_id=UserId(row["performer_id"]),
+            status=ResponseStatus(row["status"]),
+            created_at=row["created_at"],
+            availability_note=row["availability_note"],
+        )
 
     async def passed_over(self, job_id: JobId) -> list[UserId]:
         rows = await self._fetch(
