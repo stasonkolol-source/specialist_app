@@ -1,11 +1,13 @@
-"""Видна ли заявка зрителю (ARCHITECTURE §13.1, DEVELOPMENT_PLAN 5.6): правило — в policies, а
-приглашён ли зритель в прямой запрос, use case узнаёт запросом — только когда это важно."""
+"""Видна ли заявка зрителю (ARCHITECTURE §13.1, DEVELOPMENT_PLAN 5.6, 6.1a): правило — в
+policies, а приглашён ли зритель в прямой запрос и выбран ли он исполнителем, use case узнаёт
+запросом — только когда это важно."""
 
 from typing import Protocol
 
 from app.modules.jobs.application.ports import JobQueries
 from app.modules.jobs.domain.job import JobId, JobStatus, Visibility
-from app.modules.jobs.domain.policies import can_view, needs_invite
+from app.modules.jobs.domain.policies import can_view, needs_chosen, needs_invite
+from app.modules.jobs.domain.response import ResponseStatus
 from app.platform.kernel.ids import UserId
 
 
@@ -29,10 +31,17 @@ async def visible_to(queries: JobQueries, job: Viewable, viewer_id: UserId | Non
         client_id=job.client_id, visibility=job.visibility, viewer_id=viewer_id
     ):
         invited = await queries.is_invited(job.id, viewer_id)
+    chosen = False
+    if viewer_id is not None and needs_chosen(
+        client_id=job.client_id, status=job.status, viewer_id=viewer_id
+    ):
+        mine = await queries.performer_response(job.id, viewer_id)
+        chosen = mine is not None and mine.status is ResponseStatus.ACCEPTED
     return can_view(
         client_id=job.client_id,
         status=job.status,
         viewer_id=viewer_id,
         visibility=job.visibility,
         invited=invited,
+        chosen=chosen,
     )

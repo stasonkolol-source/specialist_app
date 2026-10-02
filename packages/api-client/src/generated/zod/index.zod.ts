@@ -1,4 +1,5 @@
 export * from './catalog/catalog.zod.ts';
+export * from './deals/deals.zod.ts';
 export * from './geo/geo.zod.ts';
 export * from './identity/identity.zod.ts';
 export * from './jobs/jobs.zod.ts';

@@ -21,6 +21,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AcceptedOut,
   InvitesIn,
   JobCloseIn,
   JobIn,
@@ -2392,6 +2393,262 @@ export const useJobsWithdrawResponse = <TError = ErrorType<ProblemOut>, TContext
   TContext
 > => {
   return useMutation(getJobsWithdrawResponseMutationOptions(options), queryClient);
+};
+export const getJobsAcceptResponseUrl = (responseId: string) => {
+  return `/api/v1/responses/${responseId}/accept`;
+};
+
+/**
+ * Выбрать исполнителем: создана сделка `agreed`, заявка «в работе», остальные отклики — «не
+ * выбран». Заявка не опубликована или отклик уже решён — 409.
+ * @summary Accept Response
+ */
+export const jobsAcceptResponse = async (
+  responseId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<AcceptedOut> => {
+  return apiFetch<AcceptedOut>(getJobsAcceptResponseUrl(responseId), {
+    ...options,
+    method: 'POST',
+  });
+};
+
+export const getJobsAcceptResponseMutationKey = () => ['jobsAcceptResponse'] as const;
+
+export const getJobsAcceptResponseMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof jobsAcceptResponse>>,
+    TError,
+    JobsAcceptResponseMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof jobsAcceptResponse>>,
+  TError,
+  JobsAcceptResponseMutationVariables,
+  TContext
+> => {
+  const mutationKey = getJobsAcceptResponseMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof jobsAcceptResponse>>,
+    JobsAcceptResponseMutationVariables
+  > = (props) => {
+    const { responseId } = props ?? {};
+
+    return jobsAcceptResponse(responseId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JobsAcceptResponseMutationResult = NonNullable<
+  Awaited<ReturnType<typeof jobsAcceptResponse>>
+>;
+
+export type JobsAcceptResponseMutationError = ErrorType<ProblemOut>;
+export type JobsAcceptResponseMutationVariables = { responseId: string };
+
+/**
+ * @summary Accept Response
+ */
+export const useJobsAcceptResponse = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof jobsAcceptResponse>>,
+      TError,
+      JobsAcceptResponseMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof jobsAcceptResponse>>,
+  TError,
+  JobsAcceptResponseMutationVariables,
+  TContext
+> => {
+  return useMutation(getJobsAcceptResponseMutationOptions(options), queryClient);
+};
+export const getJobsShortlistResponseUrl = (responseId: string) => {
+  return `/api/v1/responses/${responseId}/shortlist`;
+};
+
+/**
+ * «В избранные»: отклик среди лучших кандидатов; повтор — без изменений.
+ * @summary Shortlist Response
+ */
+export const jobsShortlistResponse = async (
+  responseId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<JobOut> => {
+  return apiFetch<JobOut>(getJobsShortlistResponseUrl(responseId), {
+    ...options,
+    method: 'POST',
+  });
+};
+
+export const getJobsShortlistResponseMutationKey = () => ['jobsShortlistResponse'] as const;
+
+export const getJobsShortlistResponseMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof jobsShortlistResponse>>,
+    TError,
+    JobsShortlistResponseMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof jobsShortlistResponse>>,
+  TError,
+  JobsShortlistResponseMutationVariables,
+  TContext
+> => {
+  const mutationKey = getJobsShortlistResponseMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof jobsShortlistResponse>>,
+    JobsShortlistResponseMutationVariables
+  > = (props) => {
+    const { responseId } = props ?? {};
+
+    return jobsShortlistResponse(responseId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JobsShortlistResponseMutationResult = NonNullable<
+  Awaited<ReturnType<typeof jobsShortlistResponse>>
+>;
+
+export type JobsShortlistResponseMutationError = ErrorType<ProblemOut>;
+export type JobsShortlistResponseMutationVariables = { responseId: string };
+
+/**
+ * @summary Shortlist Response
+ */
+export const useJobsShortlistResponse = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof jobsShortlistResponse>>,
+      TError,
+      JobsShortlistResponseMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof jobsShortlistResponse>>,
+  TError,
+  JobsShortlistResponseMutationVariables,
+  TContext
+> => {
+  return useMutation(getJobsShortlistResponseMutationOptions(options), queryClient);
+};
+export const getJobsDeclineResponseUrl = (responseId: string) => {
+  return `/api/v1/responses/${responseId}/decline`;
+};
+
+/**
+ * Отклонить отклик: место на заявке освобождается.
+ * @summary Decline Response
+ */
+export const jobsDeclineResponse = async (
+  responseId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<JobOut> => {
+  return apiFetch<JobOut>(getJobsDeclineResponseUrl(responseId), {
+    ...options,
+    method: 'POST',
+  });
+};
+
+export const getJobsDeclineResponseMutationKey = () => ['jobsDeclineResponse'] as const;
+
+export const getJobsDeclineResponseMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof jobsDeclineResponse>>,
+    TError,
+    JobsDeclineResponseMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof jobsDeclineResponse>>,
+  TError,
+  JobsDeclineResponseMutationVariables,
+  TContext
+> => {
+  const mutationKey = getJobsDeclineResponseMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof jobsDeclineResponse>>,
+    JobsDeclineResponseMutationVariables
+  > = (props) => {
+    const { responseId } = props ?? {};
+
+    return jobsDeclineResponse(responseId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JobsDeclineResponseMutationResult = NonNullable<
+  Awaited<ReturnType<typeof jobsDeclineResponse>>
+>;
+
+export type JobsDeclineResponseMutationError = ErrorType<ProblemOut>;
+export type JobsDeclineResponseMutationVariables = { responseId: string };
+
+/**
+ * @summary Decline Response
+ */
+export const useJobsDeclineResponse = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof jobsDeclineResponse>>,
+      TError,
+      JobsDeclineResponseMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof jobsDeclineResponse>>,
+  TError,
+  JobsDeclineResponseMutationVariables,
+  TContext
+> => {
+  return useMutation(getJobsDeclineResponseMutationOptions(options), queryClient);
 };
 export const getJobsListMyResponsesUrl = (params?: JobsListMyResponsesParams) => {
   const normalizedParams = new URLSearchParams();

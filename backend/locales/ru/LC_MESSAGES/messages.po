@@ -536,6 +536,15 @@ msgstr "У вас уже {limit} активные заявки. Закройте
 msgid "errors.daily_jobs_limit"
 msgstr "Сегодня создано слишком много заявок. Попробуйте завтра."
 
+msgid "errors.deal_not_found"
+msgstr "Сделка не найдена."
+
+msgid "errors.deal_not_active"
+msgstr "Со сделкой в этом статусе так нельзя."
+
+msgid "errors.invalid_deal"
+msgstr "Проверьте сделку: что-то заполнено не так."
+
 # Уведомления (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
 msgid "errors.notification_group_mandatory"
 msgstr "Служебные уведомления нельзя выключить: они о решениях модерации и ограничениях аккаунта."

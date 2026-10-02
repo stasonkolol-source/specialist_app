@@ -24,6 +24,10 @@
   специалистов; `POST /specialists/{id}/requests` (Idempotency-Key) — заявка с
   `visibility = direct`, видна только приглашённому. Открытие заявки не владельцем считается
   просмотром (`views_count` — владельцу).
+- Выбор исполнителя (6.1a): `POST /responses/{id}/accept` — отклик принят, остальные «не
+  выбран», заявка «в работе», в той же транзакции — сделка `agreed` (deals); `…/shortlist` —
+  «в избранные»; `…/decline` — отклонить, место освобождается. Только владельцу заявки и только
+  видимый ему активный отклик; чужой — 404.
 Лимиты новичка — в use case (§13.3); лента и счётчик — 60 / 120 запросов в минуту.
 """
 
@@ -39,6 +43,10 @@ from app.modules.jobs.application.feed import FeedFilters
 from app.modules.jobs.application.photos import LARGE, photos_of
 from app.modules.jobs.application.ports import JobQueries
 from app.modules.jobs.application.responses import ResponseGroup
+from app.modules.jobs.application.use_cases.accept_response import (
+    AcceptResponse,
+    AcceptResponseCommand,
+)
 from app.modules.jobs.application.use_cases.browse_jobs import BrowseJobs, BrowseJobsCommand
 from app.modules.jobs.application.use_cases.close_job import CloseJob, CloseJobCommand
 from app.modules.jobs.application.use_cases.count_job_view import (
@@ -49,6 +57,10 @@ from app.modules.jobs.application.use_cases.create_job import CreateJob, CreateJ
 from app.modules.jobs.application.use_cases.create_template import (
     CreateTemplate,
     CreateTemplateCommand,
+)
+from app.modules.jobs.application.use_cases.decline_response import (
+    DeclineResponse,
+    DeclineResponseCommand,
 )
 from app.modules.jobs.application.use_cases.delete_job import DeleteJob, DeleteJobCommand
 from app.modules.jobs.application.use_cases.delete_template import (
@@ -88,6 +100,10 @@ from app.modules.jobs.application.use_cases.revise_response import (
     ReviseResponseCommand,
 )
 from app.modules.jobs.application.use_cases.save_job import SaveJob, SaveJobCommand
+from app.modules.jobs.application.use_cases.shortlist_response import (
+    ShortlistResponse,
+    ShortlistResponseCommand,
+)
 from app.modules.jobs.application.use_cases.show_job import JobDetails, ShowJob, ShowJobCommand
 from app.modules.jobs.application.use_cases.unsave_job import UnsaveJob, UnsaveJobCommand
 from app.modules.jobs.application.use_cases.update_template import (
@@ -103,6 +119,7 @@ from app.modules.jobs.domain.response import ResponseId
 from app.modules.jobs.domain.template import TemplateId
 from app.modules.jobs.errors import JobNotFoundError, ResponseNotFoundError
 from app.modules.jobs.http.schemas import (
+    AcceptedOut,
     InvitesIn,
     JobCardOut,
     JobCloseIn,
@@ -579,6 +596,62 @@ async def withdraw_response(
         WithdrawResponseCommand(actor_id=principal.user_id, response_id=ResponseId(response_id))
     )
     return await _my_response(queries, principal.user_id, ResponseId(response_id))
+
+
+@router.post(
+    "/responses/{response_id:uuid}/accept", response_model=AcceptedOut, dependencies=AUTHENTICATED
+)
+@inject
+async def accept_response(
+    response_id: ResponsePath,
+    principal: FromDishka[Principal],
+    accept: FromDishka[AcceptResponse],
+    show: FromDishka[ShowJob],
+    response: Response,
+) -> AcceptedOut:
+    """Выбрать исполнителем: создана сделка `agreed`, заявка «в работе», остальные отклики — «не
+    выбран». Заявка не опубликована или отклик уже решён — 409."""
+    accepted = await accept(
+        AcceptResponseCommand(actor_id=principal.user_id, response_id=ResponseId(response_id))
+    )
+    job = await _own(show, accepted.job_id, principal.user_id, response)
+    return AcceptedOut(deal_id=accepted.deal_id, job=job)
+
+
+@router.post(
+    "/responses/{response_id:uuid}/shortlist", response_model=JobOut, dependencies=AUTHENTICATED
+)
+@inject
+async def shortlist_response(
+    response_id: ResponsePath,
+    principal: FromDishka[Principal],
+    shortlist: FromDishka[ShortlistResponse],
+    show: FromDishka[ShowJob],
+    response: Response,
+) -> JobOut:
+    """«В избранные»: отклик среди лучших кандидатов; повтор — без изменений."""
+    job_id = await shortlist(
+        ShortlistResponseCommand(actor_id=principal.user_id, response_id=ResponseId(response_id))
+    )
+    return await _own(show, job_id, principal.user_id, response)
+
+
+@router.post(
+    "/responses/{response_id:uuid}/decline", response_model=JobOut, dependencies=AUTHENTICATED
+)
+@inject
+async def decline_response(
+    response_id: ResponsePath,
+    principal: FromDishka[Principal],
+    decline: FromDishka[DeclineResponse],
+    show: FromDishka[ShowJob],
+    response: Response,
+) -> JobOut:
+    """Отклонить отклик: место на заявке освобождается."""
+    job_id = await decline(
+        DeclineResponseCommand(actor_id=principal.user_id, response_id=ResponseId(response_id))
+    )
+    return await _own(show, job_id, principal.user_id, response)
 
 
 @router.get("/me/responses", response_model=MyResponsesPageOut, dependencies=AUTHENTICATED)

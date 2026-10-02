@@ -7,7 +7,7 @@ from datetime import datetime
 from uuid import UUID
 
 from app.platform.kernel.events import DomainEvent
-from app.platform.kernel.ids import CategoryId, CityId, UserId
+from app.platform.kernel.ids import CategoryId, CityId, DealId, UserId
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -110,6 +110,30 @@ class ResponseWithdrawn(DomainEvent):
     """Исполнитель отозвал отклик (или его аккаунт удалён): место на заявке освободилось."""
 
     event_type = "jobs.ResponseWithdrawn"
+    job_id: UUID
+    response_id: UUID
+    performer_id: UserId
+    client_id: UserId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ResponseAccepted(DomainEvent):
+    """Клиент выбрал отклик исполнителем (6.1a): создана сделка `agreed`, остальные активные
+    отклики — «не выбран», заявка — «в работе»."""
+
+    event_type = "jobs.ResponseAccepted"
+    job_id: UUID
+    response_id: UUID
+    performer_id: UserId
+    client_id: UserId
+    deal_id: DealId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ResponseDeclined(DomainEvent):
+    """Клиент отклонил отклик (6.1a): место на заявке освободилось."""
+
+    event_type = "jobs.ResponseDeclined"
     job_id: UUID
     response_id: UUID
     performer_id: UserId

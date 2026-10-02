@@ -1,4 +1,5 @@
 export * from './catalog/catalog.ts';
+export * from './deals/deals.ts';
 export * from './geo/geo.ts';
 export * from './identity/identity.ts';
 export * from './jobs/jobs.ts';

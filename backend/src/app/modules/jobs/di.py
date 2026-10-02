@@ -17,12 +17,15 @@ from app.modules.jobs.application.ports import (
     ResponseTemplates,
     SavedJobs,
 )
+from app.modules.jobs.application.use_cases.accept_response import AcceptResponse
 from app.modules.jobs.application.use_cases.announce_direct_request import AnnounceDirectRequest
 from app.modules.jobs.application.use_cases.browse_jobs import BrowseJobs
 from app.modules.jobs.application.use_cases.close_job import CloseJob
+from app.modules.jobs.application.use_cases.complete_job import CompleteJob
 from app.modules.jobs.application.use_cases.count_job_view import CountJobView
 from app.modules.jobs.application.use_cases.create_job import CreateJob
 from app.modules.jobs.application.use_cases.create_template import CreateTemplate
+from app.modules.jobs.application.use_cases.decline_response import DeclineResponse
 from app.modules.jobs.application.use_cases.delete_job import DeleteJob
 from app.modules.jobs.application.use_cases.delete_template import DeleteTemplate
 from app.modules.jobs.application.use_cases.edit_job import EditJob
@@ -37,10 +40,12 @@ from app.modules.jobs.application.use_cases.list_my_responses import ListMyRespo
 from app.modules.jobs.application.use_cases.list_saved_jobs import ListSavedJobs
 from app.modules.jobs.application.use_cases.list_templates import ListTemplates
 from app.modules.jobs.application.use_cases.remind_expiring_jobs import RemindExpiringJobs
+from app.modules.jobs.application.use_cases.reopen_job import ReopenJob
 from app.modules.jobs.application.use_cases.respond import Respond
 from app.modules.jobs.application.use_cases.respond_with_template import RespondWithTemplate
 from app.modules.jobs.application.use_cases.revise_response import ReviseResponse
 from app.modules.jobs.application.use_cases.save_job import SaveJob
+from app.modules.jobs.application.use_cases.shortlist_response import ShortlistResponse
 from app.modules.jobs.application.use_cases.show_job import ShowJob
 from app.modules.jobs.application.use_cases.unsave_job import UnsaveJob
 from app.modules.jobs.application.use_cases.update_template import UpdateTemplate
@@ -105,3 +110,8 @@ class JobsProvider(Provider):
     list_job_invites = provide(ListJobInvites)
     announce_direct_request = provide(AnnounceDirectRequest)
     count_job_view = provide(CountJobView)
+    accept_response = provide(AcceptResponse)
+    shortlist_response = provide(ShortlistResponse)
+    decline_response = provide(DeclineResponse)
+    reopen_job = provide(ReopenJob)
+    complete_job = provide(CompleteJob)
