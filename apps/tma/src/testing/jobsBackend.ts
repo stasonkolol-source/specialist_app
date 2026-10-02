@@ -65,6 +65,13 @@ export function jobOut(id: string, body: JobIn, status: JobStatus): JobOut {
     address_private: body.address_private ?? null,
     languages: body.languages ?? [],
     media_ids: body.media_ids ?? [],
+    photos: [],
+    client: {
+      display_name: 'Елена К.',
+      member_since: '2026-07-01T09:00:00Z',
+      jobs_count: 1,
+      phone_verified: false,
+    },
     max_responses: 5,
     responses_count: 0,
     extensions_count: 0,
