@@ -29,6 +29,11 @@ class RestrictionSource(StrEnum):
 ACCOUNT_BLOCKING = frozenset({RestrictionKind.SUSPENDED, RestrictionKind.BANNED})
 """Блокируют весь аккаунт: вход, refresh и любое действие."""
 
+HIDDEN_FROM_OTHERS = frozenset(
+    {RestrictionKind.SUSPENDED, RestrictionKind.BANNED, RestrictionKind.SHADOW_BANNED}
+)
+"""Прячут человека от других: профиля нет в поиске, пока санкция действует (4.1)."""
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Restriction:

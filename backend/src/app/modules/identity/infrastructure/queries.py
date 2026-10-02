@@ -1,5 +1,6 @@
 """Чтение identity для фасада и use cases (ADR-0020 §5)."""
 
+from collections.abc import Collection
 from datetime import datetime
 
 from sqlalchemy import or_, select
@@ -141,6 +142,38 @@ class SqlIdentityQuery(SqlQuery):
             )
             for row in rows
         ]
+
+    async def deleted_among(self, user_ids: Collection[UserId]) -> frozenset[UserId]:
+        u = UserRow.__table__.c
+        ids = list(user_ids)
+        active = {
+            row["id"]
+            for row in await self._fetch(
+                select(u.id).where(u.id.in_(ids), u.status == UserStatus.ACTIVE)
+            )
+        }
+        return frozenset(user_id for user_id in ids if user_id not in active)
+
+    async def restrictions_of(
+        self, user_ids: Collection[UserId], now: datetime
+    ) -> dict[UserId, list[Restriction]]:
+        r = RestrictionRow.__table__.c
+        rows = await self._fetch(
+            select(r.user_id, r.kind, r.reason_code, r.starts_at, r.ends_at)
+            .where(r.user_id.in_(list(user_ids)), r.lifted_at.is_(None))
+            .where(or_(r.ends_at.is_(None), r.ends_at > now))
+        )
+        found: dict[UserId, list[Restriction]] = {}
+        for row in rows:
+            found.setdefault(UserId(row["user_id"]), []).append(
+                Restriction(
+                    kind=row["kind"],
+                    reason_code=row["reason_code"],
+                    starts_at=row["starts_at"],
+                    ends_at=row["ends_at"],
+                )
+            )
+        return found
 
     async def consents(self, user_id: UserId) -> list[Consent]:
         c = ConsentRow.__table__.c

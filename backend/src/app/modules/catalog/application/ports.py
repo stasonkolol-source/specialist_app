@@ -3,7 +3,7 @@
 from collections.abc import Collection, Sequence
 from typing import Protocol
 
-from app.modules.catalog.api import CategorySummary
+from app.modules.catalog.api import CategorySummary, SearchTerm
 from app.modules.catalog.application.dto import CategorySeed, CategoryView, ImportResult
 from app.platform.kernel.ids import CategoryId
 
@@ -16,6 +16,10 @@ class CatalogQuery(Protocol):
     async def category(self, category_id: CategoryId) -> CategorySummary | None: ...
 
     async def categories(self, category_ids: Collection[CategoryId]) -> list[CategorySummary]: ...
+
+    async def search_terms(
+        self, category_ids: Collection[CategoryId]
+    ) -> dict[CategoryId, tuple[SearchTerm, ...]]: ...
 
 
 class CatalogWriter(Protocol):

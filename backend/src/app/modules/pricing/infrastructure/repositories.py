@@ -1,5 +1,6 @@
 """Прайс профиля в PostgreSQL: позиции — простые записи профиля (ADR-0020 §5)."""
 
+from collections.abc import Collection
 from datetime import datetime
 from uuid import UUID
 
@@ -93,6 +94,21 @@ class SqlServiceRepository:
         )
         items, without_description = (await self._session.execute(stmt)).one()
         return PriceSummary(items=int(items), without_description=int(without_description))
+
+    async def visible(self, profile_ids: Collection[UUID]) -> list[Service]:
+        """Видимые позиции профилей без блокировки: по профилю, затем по порядку S35."""
+        if not profile_ids:
+            return []
+        stmt = (
+            select(ServiceRow)
+            .where(
+                ServiceRow.profile_id.in_(list(profile_ids)),
+                ServiceRow.deleted_at.is_(None),
+                ServiceRow.is_active,
+            )
+            .order_by(ServiceRow.profile_id, ServiceRow.position, ServiceRow.created_at)
+        )
+        return [_to_domain(row) for row in (await self._session.scalars(stmt)).all()]
 
 
 def _to_domain(row: ServiceRow) -> Service:

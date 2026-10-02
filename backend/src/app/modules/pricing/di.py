@@ -2,6 +2,8 @@
 
 from dishka import Provider, Scope, provide
 
+from app.modules.pricing.api import PricingApi
+from app.modules.pricing.application.facade import PricingFacade
 from app.modules.pricing.application.ports import ServiceRepository
 from app.modules.pricing.application.price_list import ServicesPriceList
 from app.modules.pricing.application.queries import PriceListQueries
@@ -22,6 +24,8 @@ class PricingProvider(Provider):
     services = provide(SqlServiceRepository, provides=ServiceRepository)
     price_list = provide(ServicesPriceList, provides=PriceList)
     """Порт specialists: «Специалиста» без прайса на проверку не отправить (2.8b)."""
+    facade = provide(PricingFacade, provides=PricingApi)
+    """Фасад для поиска: видимый прайс профилей пачкой (4.1)."""
     queries = provide(PriceListQueries)
     add_service = provide(AddService)
     change_service = provide(ChangeService)

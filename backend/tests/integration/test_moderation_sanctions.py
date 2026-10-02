@@ -136,6 +136,7 @@ async def test_strike_restricts_through_identity_and_lowers_trust(
             ("identity.revoke_restricted_sessions", 1),  # limited сессии не трогает
             ("notifications.notify_account_restricted", 1),
             ("notifications.notify_moderation_decision", 2),
+            ("search.on_user_restricted", 1),  # профиль пересоберётся: скрыт ли автор
         ]
         decided = await rows(
             container,

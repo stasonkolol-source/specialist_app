@@ -2,7 +2,7 @@
 
 from collections.abc import Collection
 
-from app.modules.catalog.api import CatalogApi, CategorySummary
+from app.modules.catalog.api import CatalogApi, CategorySummary, SearchTerm
 from app.modules.catalog.application.ports import CatalogQuery
 from app.platform.kernel.ids import CategoryId
 
@@ -18,3 +18,10 @@ class CatalogFacade(CatalogApi):
         if not category_ids:
             return []
         return await self._query.categories(category_ids)
+
+    async def search_terms(
+        self, category_ids: Collection[CategoryId]
+    ) -> dict[CategoryId, tuple[SearchTerm, ...]]:
+        if not category_ids:
+            return {}
+        return await self._query.search_terms(category_ids)

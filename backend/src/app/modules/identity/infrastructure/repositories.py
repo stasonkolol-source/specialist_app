@@ -333,15 +333,15 @@ class SqlRestrictionRepository:
             raise_domain_error(err, {"fk_restrictions_user_id_users": _user_not_found(user_id)})
         return RestrictionId(row.id)
 
-    async def lift_for_case(self, case_id: CaseId, *, now: datetime) -> int:
+    async def lift_for_case(self, case_id: CaseId, *, now: datetime) -> list[UserId]:
         self._uow.require_active()
         stmt = (
             update(RestrictionRow)
             .where(RestrictionRow.case_id == case_id, RestrictionRow.lifted_at.is_(None))
             .values(lifted_at=now)
-            .returning(RestrictionRow.id)
+            .returning(RestrictionRow.user_id)
         )
-        return len((await self._session.execute(stmt)).scalars().all())
+        return [UserId(user_id) for user_id in (await self._session.execute(stmt)).scalars()]
 
 
 class SqlRoleRepository:

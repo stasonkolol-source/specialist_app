@@ -1,9 +1,20 @@
-"""Запросы specialists (ADR-0020 §4): свой профиль для кабинета."""
+"""Запросы specialists (ADR-0020 §4): свой профиль для кабинета и профили для поиска (4.1)."""
 
-from sqlalchemy import select
+from collections import defaultdict
+from collections.abc import Collection
+from uuid import UUID
 
+from sqlalchemy import RowMapping, Select, select
+
+from app.modules.specialists.api import ProfileForIndex
 from app.modules.specialists.application.dto import ProfileView
-from app.modules.specialists.domain.profile import Language, ProfileId, WorkMode, missing_fields
+from app.modules.specialists.domain.profile import (
+    Language,
+    ProfileId,
+    ProfileStatus,
+    WorkMode,
+    missing_fields,
+)
 from app.modules.specialists.infrastructure.models import (
     ProfileCategoryRow,
     ProfileRow,
@@ -61,3 +72,73 @@ class SqlProfileQuery(SqlQuery):
             published_at=row["published_at"],
             version=row["version"],
         )
+
+    async def for_index(self, profile_ids: Collection[UUID]) -> list[ProfileForIndex]:
+        """Неудалённые профили с категориями и районами — тремя запросами на пачку."""
+        ids = list(profile_ids)
+        if not ids:
+            return []
+        c, a = ProfileCategoryRow.__table__.c, ServiceAreaRow.__table__.c
+        rows = await self._fetch(
+            select(ProfileRow.__table__).where(
+                ProfileRow.id.in_(ids), ProfileRow.deleted_at.is_(None)
+            )
+        )
+        categories = await self._grouped(
+            select(c.profile_id, c.category_id.label("item"))
+            .where(c.profile_id.in_(ids))
+            .order_by(c.profile_id, c.position)
+        )
+        areas = await self._grouped(
+            select(a.profile_id, a.district_id.label("item"))
+            .where(a.profile_id.in_(ids))
+            .order_by(a.profile_id, a.position)
+        )
+        return [
+            _for_index(row, categories.get(row["id"], ()), areas.get(row["id"], ())) for row in rows
+        ]
+
+    async def published_ids(self, *, after: UUID | None, limit: int) -> list[UUID]:
+        p = ProfileRow.__table__.c
+        stmt = (
+            select(p.id)
+            .where(p.status == ProfileStatus.PUBLISHED, p.deleted_at.is_(None))
+            .order_by(p.id)
+            .limit(limit)
+        )
+        if after is not None:
+            stmt = stmt.where(p.id > after)
+        return [row["id"] for row in await self._fetch(stmt)]
+
+    async def _grouped(self, stmt: Select[tuple[UUID, int]]) -> dict[UUID, tuple[int, ...]]:
+        grouped: defaultdict[UUID, list[int]] = defaultdict(list)
+        for row in await self._fetch(stmt):
+            grouped[row["profile_id"]].append(row["item"])
+        return {profile_id: tuple(items) for profile_id, items in grouped.items()}
+
+
+def _for_index(
+    row: RowMapping, category_ids: tuple[int, ...], area_ids: tuple[int, ...]
+) -> ProfileForIndex:
+    return ProfileForIndex(
+        id=row["id"],
+        user_id=UserId(row["user_id"]),
+        kind=row["kind"].value,
+        status=row["status"].value,
+        listed_in_catalog=row["listed_in_catalog"],
+        display_name=row["display_name"],
+        headline=row["headline"],
+        about=row["about"],
+        languages=tuple(row["languages"]),
+        city_id=CityId(row["city_id"]),
+        area_ids=tuple(DistrictId(item) for item in area_ids),
+        base_point=row["base_point"],
+        base_point_public=row["base_point_public"],
+        travel_radius_km=row["travel_radius_km"],
+        work_modes=tuple(row["work_modes"]),
+        category_ids=tuple(CategoryId(item) for item in category_ids),
+        available_until=row["available_until"],
+        avatar_media_id=MediaId(row["avatar_media_id"]) if row["avatar_media_id"] else None,
+        published_at=row["published_at"],
+        updated_at=row["updated_at"],
+    )

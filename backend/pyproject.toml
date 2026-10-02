@@ -63,7 +63,7 @@ package = true
 testpaths = ["src/app", "tests"]
 pythonpath = ["."]
 python_files = ["test_*.py"]
-addopts = ["--strict-markers", "--import-mode=importlib"]
+addopts = ["--strict-markers", "--import-mode=importlib", "-m", "not bench"]  # бенчмарки — только `-m bench`
 markers = [
     "unit: чистые тесты без I/O",
     "integration: тесты на настоящем PostgreSQL / Valkey / Garage (testcontainers)",
@@ -97,6 +97,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S101", "ARG", "FBT", "S608", "PT012"]
 "tests/**" = ["S101", "ARG", "FBT", "S603", "S607", "S608", "TID251", "PT012"]
+"tests/bench/**" = ["T201"]  # бенчмарк печатает замер (DEVELOPMENT_PLAN 4.1: «тест печатает число»)
 "src/app/platform/settings.py" = ["TID251"]
 "src/app/platform/kernel/clock.py" = ["TID251"]
 

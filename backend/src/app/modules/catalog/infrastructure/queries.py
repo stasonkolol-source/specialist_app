@@ -6,9 +6,9 @@ from collections.abc import Collection, Sequence
 from sqlalchemy import select
 from sqlalchemy.engine import RowMapping
 
-from app.modules.catalog.api import CategorySummary, RiskLevel
+from app.modules.catalog.api import CategorySummary, RiskLevel, SearchTerm
 from app.modules.catalog.application.dto import CategoryView, TagView
-from app.modules.catalog.infrastructure.models import CategoryRow, TagRow
+from app.modules.catalog.infrastructure.models import CategoryRow, SearchTermRow, TagRow
 from app.platform.db.query import SqlQuery
 from app.platform.kernel.ids import CategoryId, TagId
 
@@ -50,6 +50,22 @@ class SqlCatalogQuery(SqlQuery):
             .order_by(_CATEGORIES.path)
         )
         return [_summary(row) for row in rows]
+
+    async def search_terms(
+        self, category_ids: Collection[CategoryId]
+    ) -> dict[CategoryId, tuple[SearchTerm, ...]]:
+        t = SearchTermRow.__table__.c
+        rows = await self._fetch(
+            select(t.category_id, t.lang, t.term)
+            .where(t.category_id.in_(list(category_ids)))
+            .order_by(t.category_id, t.lang, t.term)
+        )
+        terms: defaultdict[CategoryId, list[SearchTerm]] = defaultdict(list)
+        for row in rows:
+            terms[CategoryId(row["category_id"])].append(
+                SearchTerm(lang=row["lang"], term=row["term"])
+            )
+        return {category_id: tuple(found) for category_id, found in terms.items()}
 
 
 def _tree(categories: Sequence[RowMapping], tags: Sequence[RowMapping]) -> list[CategoryView]:

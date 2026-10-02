@@ -1,5 +1,6 @@
 """Порты модуля pricing (ADR-0020 §3, §5)."""
 
+from collections.abc import Collection
 from datetime import datetime
 from typing import Final, Protocol
 from uuid import UUID
@@ -32,4 +33,8 @@ class ServiceRepository(Protocol):
 
     async def summary(self, profile_id: UUID) -> PriceSummary:
         """Видимые позиции профиля и сколько из них без описания."""
+        ...
+
+    async def visible(self, profile_ids: Collection[UUID]) -> list[Service]:
+        """Видимые позиции профилей без блокировки — для поиска (4.1)."""
         ...

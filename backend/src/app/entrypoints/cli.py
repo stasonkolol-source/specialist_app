@@ -43,6 +43,7 @@ if TYPE_CHECKING:  # модули грузятся лениво: CLI без БД
 
     from app.entrypoints._moderation_cli import CliOutcome
     from app.entrypoints._notify_test import NotifyTestOutcome
+    from app.entrypoints._search_cli import ReindexReport
     from app.entrypoints._seed_demo import SeedReport
     from app.modules.identity.application.dto import OnboardingReset, StaffRoleGranted
     from app.modules.specialists.application.use_cases.mark_founding import FoundingMarked
@@ -514,6 +515,37 @@ async def _seed_demo(scale: str) -> SeedReport:
     from app.entrypoints._seed_demo import SCALES, seed_demo
 
     return await seed_demo(Settings(), SCALES[scale], echo=typer.echo)
+
+
+@app.command()
+def reindex(
+    *,
+    everything: Annotated[
+        bool, typer.Option("--all", help="Все опубликованные профили и все строки индекса")
+    ] = False,
+) -> None:
+    """Пересобрать read-model поиска (4.1) в процессе CLI, без воркера: после смены формулы
+    балла или состава строки, после восстановления базы. Отдельный профиль пересобирает
+    воркер по событию."""
+    if not everything:
+        typer.echo("reindex: pass --all", err=True)
+        raise typer.Exit(code=2)
+    report = asyncio.run(_reindex())
+    typer.echo(
+        f"reindex: {report.published} published, {report.indexed_before} rows before;"
+        f" {report.rebuilt} rebuilt, {report.removed} removed"
+    )
+
+
+async def _reindex() -> ReindexReport:
+    from app.entrypoints._search_cli import reindex_all
+    from app.entrypoints._wiring import make_worker_container
+
+    container = make_worker_container(Settings())
+    try:
+        return await reindex_all(container)
+    finally:
+        await container.close()
 
 
 class Verdict(StrEnum):

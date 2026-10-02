@@ -1,9 +1,15 @@
-"""Реализация SpecialistsApi для модерации (ADR-0020 §6): проверка профиля через адаптер цели."""
+"""Реализация SpecialistsApi (ADR-0020 §6): проверка профиля для модерации, профили для поиска."""
 
+from collections.abc import Collection
 from uuid import UUID
 
 from app.modules.catalog.api import CatalogApi
-from app.modules.specialists.api import ProfileForReview, ProfileRef, SpecialistsApi
+from app.modules.specialists.api import (
+    ProfileForIndex,
+    ProfileForReview,
+    ProfileRef,
+    SpecialistsApi,
+)
 from app.modules.specialists.application.ports import ProfileQuery, ProfileRepository
 from app.modules.specialists.domain.profile import ProfileId, ProfileStatus
 from app.modules.specialists.errors import ProfileNotFoundError
@@ -33,6 +39,12 @@ class SpecialistsFacade(SpecialistsApi):
         if view is None:
             return None
         return ProfileRef(id=view.id, kind=view.kind.value, status=view.status.value)
+
+    async def profiles_for_index(self, profile_ids: Collection[UUID]) -> list[ProfileForIndex]:
+        return await self._query.for_index(profile_ids)
+
+    async def published_profile_ids(self, *, after: UUID | None, limit: int) -> list[UUID]:
+        return await self._query.published_ids(after=after, limit=limit)
 
     async def profile_for_review(self, profile_id: UUID) -> ProfileForReview | None:
         async with self._uow:
