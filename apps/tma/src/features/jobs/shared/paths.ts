@@ -14,9 +14,13 @@ export const JOBS_PATHS = {
   job: '/jobs/$jobId',
   respond: '/jobs/$jobId/respond',
   templates: '/jobs/responses/templates',
+  manage: '/jobs/$jobId/manage',
 } as const;
 
-export type JobsSegment = Exclude<keyof typeof JOBS_PATHS, 'job' | 'respond' | 'templates'>;
+export type JobsSegment = Exclude<
+  keyof typeof JOBS_PATHS,
+  'job' | 'respond' | 'templates' | 'manage'
+>;
 export const JOBS_SEGMENTS: readonly JobsSegment[] = ['feed', 'responses', 'mine'];
 
 /** Избранное S12: «Мастера» — фича catalog, «Задачи» — сохранённые заявки (здесь). */
@@ -31,6 +35,9 @@ export const jobPath = (jobId: string) => `/jobs/${jobId}`;
 
 /** Отклик S16 на заявку; свой отклик там же правится. */
 export const respondPath = (jobId: string) => `/jobs/${jobId}/respond`;
+
+/** Своя заявка S23 (5.6): статус, отклики, закрыть, продлить, пригласить. */
+export const managePath = (jobId: string) => `/jobs/${jobId}/manage`;
 
 export const CREATE_PATHS = {
   what: '/jobs/new',

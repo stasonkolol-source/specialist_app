@@ -3206,7 +3206,7 @@
           "jobs"
         ],
         "summary": "List My Jobs",
-        "description": "Свои заявки (S22), новые первыми; блока клиента в своём списке нет.",
+        "description": "Свои заявки (S22), новые первыми, с числом новых откликов; блока клиента в своём списке\nнет.",
         "operationId": "jobs_list_my_jobs",
         "security": [
           {
@@ -5027,6 +5027,57 @@
         }
       }
     },
+    "/api/v1/jobs/{job_id}/response-cards": {
+      "get": {
+        "tags": [
+          "views"
+        ],
+        "summary": "List Response Cards",
+        "description": "Отклики на свою заявку для S23: исполнитель с фото, районом и рейтингом, «Откликнулся\nпервым», новые для клиента. Ответ отмечает отклики просмотренными.",
+        "operationId": "views_list_response_cards",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id своей заявки",
+              "title": "Job Id"
+            },
+            "description": "id своей заявки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseCardsOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/client-config": {
       "get": {
         "tags": [
@@ -6768,6 +6819,18 @@
             "title": "Views Count",
             "description": "Просмотры (S23) — владельцу; остальным — null"
           },
+          "new_responses": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Responses",
+            "description": "Отклики, которых владелец ещё не видел (бейдж S22); остальным — null"
+          },
           "moderation_note": {
             "anyOf": [
               {
@@ -6867,6 +6930,7 @@
           "my_response",
           "extensions_count",
           "views_count",
+          "new_responses",
           "moderation_note",
           "version",
           "created_at",
@@ -8715,6 +8779,124 @@
         ],
         "title": "ResolveOut"
       },
+      "ResponseCardOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "submitted",
+              "viewed",
+              "shortlisted",
+              "accepted",
+              "declined",
+              "withdrawn",
+              "not_selected"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "price": {
+            "$ref": "#/components/schemas/ResponseCardPriceOut"
+          },
+          "availability_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Note"
+          },
+          "is_first": {
+            "type": "boolean",
+            "title": "Is First",
+            "description": "«Откликнулся первым»"
+          },
+          "is_new": {
+            "type": "boolean",
+            "title": "Is New",
+            "description": "Клиент ещё не видел этот отклик"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "performer": {
+            "$ref": "#/components/schemas/ResponsePerformerCardOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "message",
+          "price",
+          "availability_note",
+          "is_first",
+          "is_new",
+          "created_at",
+          "performer"
+        ],
+        "title": "ResponseCardOut"
+      },
+      "ResponseCardPriceOut": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "from",
+              "hourly",
+              "negotiable"
+            ],
+            "title": "Type"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoneyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "amount"
+        ],
+        "title": "ResponseCardPriceOut"
+      },
+      "ResponseCardsOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ResponseCardOut"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "По времени отклика"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "ResponseCardsOut"
+      },
       "ResponseCountsOut": {
         "properties": {
           "all": {
@@ -8994,6 +9176,99 @@
         ],
         "title": "ResponseOfferIn",
         "description": "Предложение исполнителя S16: сообщение клиенту, цена и «когда смогу»."
+      },
+      "ResponsePerformerCardOut": {
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "title": "Display Name",
+            "description": "Аккаунт удалён — пусто"
+          },
+          "profile_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Id",
+            "description": "Профиль специалиста; без него — подработка"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind",
+            "description": "pro | casual; без профиля — null"
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardPhotoOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "district": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardNamedOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Основной район профиля"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating",
+            "description": "Когда отзывов достаточно; иначе is_new"
+          },
+          "rating_count": {
+            "type": "integer",
+            "title": "Rating Count"
+          },
+          "is_new": {
+            "type": "boolean",
+            "title": "Is New",
+            "description": "«Новый специалист»: меньше трёх отзывов по сделкам"
+          },
+          "phone_verified": {
+            "type": "boolean",
+            "title": "Phone Verified"
+          }
+        },
+        "type": "object",
+        "required": [
+          "display_name",
+          "profile_id",
+          "kind",
+          "avatar",
+          "district",
+          "rating",
+          "rating_count",
+          "is_new",
+          "phone_verified"
+        ],
+        "title": "ResponsePerformerCardOut"
       },
       "ResponsePerformerOut": {
         "properties": {

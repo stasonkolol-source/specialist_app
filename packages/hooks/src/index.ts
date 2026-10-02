@@ -203,6 +203,19 @@ export {
   useReviseResponse,
   useWithdrawResponse,
 } from './jobs/responses.ts';
+export type { CloseJob, InviteSpecialists } from './jobs/mine.ts';
+export {
+  RESPONSES_POLL_MS,
+  jobInvitesQueryKey,
+  myJobsQueryKey,
+  responseCardsQueryKey,
+  useCloseJob,
+  useExtendJob,
+  useInviteSpecialists,
+  useJobInvites,
+  useMyJobs,
+  useResponseCards,
+} from './jobs/mine.ts';
 export type { CreateTemplate, UpdateTemplate } from './jobs/templates.ts';
 export {
   templatesQueryKey,

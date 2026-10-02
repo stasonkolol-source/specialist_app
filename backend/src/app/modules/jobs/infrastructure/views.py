@@ -1,7 +1,9 @@
 """Просмотры заявки (S23 «просмотры», DEVELOPMENT_PLAN 5.6): не владелец открыл заявку — счётчик
 `jobs.views_count` растёт, но от одного человека не чаще раза в сутки (окно платформенного
-лимитера на Valkey). Счётчик пишется отдельным UPDATE мимо агрегата: просмотр не меняет версию
-заявки (If-Match владельца) и не рождает событий."""
+лимитера на Valkey). Владелец открыл отклики — `responses_seen_at`. Оба пишутся отдельным UPDATE
+мимо агрегата: просмотр не меняет версию заявки (If-Match владельца) и не рождает событий."""
+
+from datetime import datetime
 
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,5 +34,19 @@ class LimitedJobViews:
             update(JobRow)
             .where(_J.id == job_id)
             .values(views_count=_J.views_count + 1)
+            .execution_options(synchronize_session=False)
+        )
+
+
+class SqlResponsesSeen:
+    def __init__(self, session: AsyncSession, uow: UnitOfWork) -> None:
+        self._session, self._uow = session, uow
+
+    async def mark(self, job_id: JobId, at: datetime) -> None:
+        self._uow.require_active()
+        await self._session.execute(
+            update(JobRow)
+            .where(_J.id == job_id)
+            .values(responses_seen_at=at)
             .execution_options(synchronize_session=False)
         )

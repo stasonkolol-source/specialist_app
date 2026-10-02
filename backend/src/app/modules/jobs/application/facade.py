@@ -11,13 +11,19 @@ from app.modules.jobs.api import (
     JobBrief,
     JobForReview,
     JobsApi,
+    OwnerResponseView,
     ResponseForReview,
     ResponsesNotice,
     TemplateRef,
 )
-from app.modules.jobs.application.ports import JobQueries, JobRepository, ResponseTemplates
+from app.modules.jobs.application.ports import (
+    JobQueries,
+    JobRepository,
+    ResponsesSeen,
+    ResponseTemplates,
+)
 from app.modules.jobs.domain.job import MAX_EXTENSIONS, Job, JobId, JobStatus
-from app.modules.jobs.domain.response import ResponseId, ResponseReview
+from app.modules.jobs.domain.response import ACTIVE, ResponseId, ResponseReview
 from app.modules.jobs.errors import JobNotFoundError
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
@@ -33,12 +39,13 @@ class JobsFacade(JobsApi):
         jobs: JobRepository,
         queries: JobQueries,
         templates: ResponseTemplates,
+        seen: ResponsesSeen,
         catalog: CatalogApi,
         identity: IdentityApi,
         clock: Clock,
     ) -> None:
         self._uow, self._jobs, self._queries, self._templates = uow, jobs, queries, templates
-        self._catalog, self._identity, self._clock = catalog, identity, clock
+        self._seen, self._catalog, self._identity, self._clock = seen, catalog, identity, clock
 
     async def job_for_review(self, job_id: UUID) -> JobForReview | None:
         async with self._uow:
@@ -100,6 +107,32 @@ class JobsFacade(JobsApi):
 
     async def response_job(self, response_id: UUID) -> UUID | None:
         return await self._queries.job_of_response(ResponseId(response_id))
+
+    async def owner_responses(self, job_id: UUID, owner_id: UserId) -> list[OwnerResponseView]:
+        job = await self._queries.view(JobId(job_id))
+        if job is None or job.client_id != owner_id:
+            raise JobNotFoundError(job_id=job_id)
+        seen = job.responses_seen_at
+        return [
+            OwnerResponseView(
+                id=response.id,
+                performer_id=response.performer_id,
+                profile_id=response.profile_id,
+                status=response.status.value,
+                message=response.offer.message,
+                price_type=response.offer.price_type.value,
+                price_amount=response.offer.price_amount,
+                availability_note=response.offer.availability_note,
+                is_first=response.is_first,
+                is_new=response.status in ACTIVE and (seen is None or response.updated_at > seen),
+                created_at=response.created_at,
+            )
+            for response in await self._queries.job_responses(job.id)
+        ]
+
+    async def see_responses(self, job_id: UUID) -> None:
+        self._uow.require_active()
+        await self._seen.mark(JobId(job_id), self._clock.now())
 
     async def invite_notice(self, job_id: UUID, performer_id: UserId) -> InviteNotice | None:
         job = await self._queries.view(JobId(job_id))

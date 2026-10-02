@@ -1,6 +1,6 @@
 """Порты модуля jobs (ADR-0020 §3, §5): репозиторий заявок, суточная квота и задачи."""
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import datetime
 from typing import Final, Protocol
 
@@ -119,6 +119,10 @@ class JobQueries(Protocol):
         """Сколько откликов в каждой группе — числа на чипах S17."""
         ...
 
+    async def unseen_counts(self, job_ids: Collection[JobId]) -> dict[JobId, int]:
+        """Новые отклики по заявкам — бейдж S22; без новых заявки в ответе нет."""
+        ...
+
     async def unseen_responses(self, job_id: JobId) -> int:
         """Видимые клиенту отклики, которые он ещё не открыл, — «Новых откликов: 3»."""
         ...
@@ -186,6 +190,12 @@ class JobInvites(Protocol):
 
     async def forget(self, performer_id: UserId) -> None:
         """Удалённый аккаунт исполнителя: его приглашения стираются (§7.10)."""
+        ...
+
+
+class ResponsesSeen(Protocol):
+    async def mark(self, job_id: JobId, at: datetime) -> None:
+        """Клиент открыл отклики (S23): отметка — мимо версии заявки. Активный UoW."""
         ...
 
 

@@ -282,3 +282,86 @@ export const ViewsListSpecialistReviewsResponse = zod.object({
     .describe('Новые сначала — отзывы появятся с 7.2'),
   next_cursor: zod.union([zod.string(), zod.null()]),
 });
+
+/**
+ * Отклики на свою заявку для S23: исполнитель с фото, районом и рейтингом, «Откликнулся
+ * первым», новые для клиента. Ответ отмечает отклики просмотренными.
+ * @summary List Response Cards
+ */
+export const ViewsListResponseCardsParams = zod.object({
+  job_id: zod.uuid().describe('id своей заявки'),
+});
+
+export const ViewsListResponseCardsResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        status: zod.enum([
+          'submitted',
+          'viewed',
+          'shortlisted',
+          'accepted',
+          'declined',
+          'withdrawn',
+          'not_selected',
+        ]),
+        message: zod.string(),
+        price: zod.object({
+          type: zod.enum(['fixed', 'from', 'hourly', 'negotiable']),
+          amount: zod.union([
+            zod.object({
+              amount: zod.int(),
+              currency: zod.enum(['RSD', 'XTR']),
+            }),
+            zod.null(),
+          ]),
+        }),
+        availability_note: zod.union([zod.string(), zod.null()]),
+        is_first: zod.boolean().describe('«Откликнулся первым»'),
+        is_new: zod.boolean().describe('Клиент ещё не видел этот отклик'),
+        created_at: zod.iso.datetime({ offset: true }),
+        performer: zod.object({
+          display_name: zod.string().describe('Аккаунт удалён — пусто'),
+          profile_id: zod
+            .union([zod.uuid(), zod.null()])
+            .describe('Профиль специалиста; без него — подработка'),
+          kind: zod.union([zod.string(), zod.null()]).describe('pro | casual; без профиля — null'),
+          avatar: zod.union([
+            zod.object({
+              placeholder: zod
+                .union([zod.string(), zod.null()])
+                .describe('ThumbHash (base64) для мгновенного превью'),
+              variants: zod.array(
+                zod.object({
+                  name: zod.string().describe('thumb 320 · md 800 · lg 1600'),
+                  url: zod.string(),
+                  width: zod.int(),
+                  height: zod.int(),
+                }),
+              ),
+              video_url: zod.union([zod.string(), zod.null()]).optional(),
+              duration_ms: zod.union([zod.int(), zod.null()]).optional(),
+            }),
+            zod.null(),
+          ]),
+          district: zod
+            .union([
+              zod.object({
+                id: zod.int(),
+                name: zod.string(),
+              }),
+              zod.null(),
+            ])
+            .describe('Основной район профиля'),
+          rating: zod
+            .union([zod.number(), zod.null()])
+            .describe('Когда отзывов достаточно; иначе is_new'),
+          rating_count: zod.int(),
+          is_new: zod.boolean().describe('«Новый специалист»: меньше трёх отзывов по сделкам'),
+          phone_verified: zod.boolean(),
+        }),
+      }),
+    )
+    .describe('По времени отклика'),
+});

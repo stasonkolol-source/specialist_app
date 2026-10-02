@@ -14,6 +14,7 @@ import type {
   CardReviewsOut,
   CardServicesOut,
   CardWorksOut,
+  ResponseCardsOut,
   SpecialistProfileOut,
 } from '../../model';
 
@@ -264,6 +265,81 @@ export const getViewsListSpecialistReviewsResponseMock = (
   ...overrideResponse,
 });
 
+export const getViewsListResponseCardsResponseMock = (
+  overrideResponse: Partial<Extract<ResponseCardsOut, object>> = {},
+): ResponseCardsOut => ({
+  items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    id: faker.string.uuid(),
+    status: faker.helpers.arrayElement([
+      'submitted',
+      'viewed',
+      'shortlisted',
+      'accepted',
+      'declined',
+      'withdrawn',
+      'not_selected',
+    ] as const),
+    message: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    price: {
+      type: faker.helpers.arrayElement(['fixed', 'from', 'hourly', 'negotiable'] as const),
+      amount: faker.helpers.arrayElement([
+        {
+          amount: faker.number.int(),
+          currency: faker.helpers.arrayElement(Object.values(Currency)),
+        },
+        null,
+      ]),
+    },
+    availability_note: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    is_first: faker.datatype.boolean(),
+    is_new: faker.datatype.boolean(),
+    created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+    performer: {
+      display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      profile_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+      kind: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      avatar: faker.helpers.arrayElement([
+        {
+          placeholder: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
+          variants: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => ({
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            width: faker.number.int(),
+            height: faker.number.int(),
+          })),
+          video_url: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
+          duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+        },
+        null,
+      ]),
+      district: faker.helpers.arrayElement([
+        { id: faker.number.int(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+        null,
+      ]),
+      rating: faker.helpers.arrayElement([faker.number.float({ fractionDigits: 2 }), null]),
+      rating_count: faker.number.int(),
+      is_new: faker.datatype.boolean(),
+      phone_verified: faker.datatype.boolean(),
+    },
+  })),
+  ...overrideResponse,
+});
+
 export const getViewsGetSpecialistMockHandler = (
   overrideResponse?:
     | SpecialistProfileOut
@@ -359,9 +435,34 @@ export const getViewsListSpecialistReviewsMockHandler = (
     options,
   );
 };
+
+export const getViewsListResponseCardsMockHandler = (
+  overrideResponse?:
+    | ResponseCardsOut
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<ResponseCardsOut> | ResponseCardsOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/jobs/:jobId/response-cards',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getViewsListResponseCardsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getViewsMock = () => [
   getViewsGetSpecialistMockHandler(),
   getViewsListSpecialistServicesMockHandler(),
   getViewsListSpecialistWorksMockHandler(),
   getViewsListSpecialistReviewsMockHandler(),
+  getViewsListResponseCardsMockHandler(),
 ];

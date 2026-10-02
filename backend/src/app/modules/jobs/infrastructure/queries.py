@@ -1,7 +1,7 @@
 """Чтение заявок (лента S13, экраны S12, S15, S22, S23, лимит активных, сроки): без блокировок,
 сессия освобождается после запроса (SqlQuery)."""
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import datetime
 from uuid import UUID
 
@@ -73,6 +73,13 @@ _H = HiddenJobRow.__table__.c
 _S = SavedJobRow.__table__.c
 _R = ResponseRow.__table__.c
 _I = InviteRow.__table__.c
+_UNSEEN = (
+    _R.deleted_at.is_(None),
+    _R.review == ResponseReview.CLEAR.value,
+    _R.status.in_([status.value for status in ACTIVE_RESPONSES]),
+    or_(_J.responses_seen_at.is_(None), _R.updated_at > _J.responses_seen_at),
+)
+"""Новые для клиента: прошли проверку (или поправлены) после того, как он открыл отклики."""
 _OPEN = and_(_J.status == JobStatus.PUBLISHED.value, _J.deleted_at.is_(None))
 """Опубликованная и не удалённая: частичный индекс ix_jobs_expires_at."""
 DISTANCE_STEP_M = 100
@@ -278,14 +285,24 @@ class SqlJobQueries(SqlQuery):
 
     async def unseen_responses(self, job_id: JobId) -> int:
         row = await self._fetch_one(
-            select(func.count().label("count")).where(
-                _R.job_id == job_id,
-                _R.deleted_at.is_(None),
-                _R.review == ResponseReview.CLEAR.value,
-                _R.status == ResponseStatus.SUBMITTED.value,
-            )
+            select(func.count().label("count"))
+            .select_from(ResponseRow)
+            .join(JobRow, _J.id == _R.job_id)
+            .where(_R.job_id == job_id, *_UNSEEN)
         )
         return int(row["count"]) if row is not None else 0
+
+    async def unseen_counts(self, job_ids: Collection[JobId]) -> dict[JobId, int]:
+        if not job_ids:
+            return {}
+        rows = await self._fetch(
+            select(_R.job_id, func.count().label("count"))
+            .select_from(ResponseRow)
+            .join(JobRow, _J.id == _R.job_id)
+            .where(_R.job_id.in_(list(job_ids)), *_UNSEEN)
+            .group_by(_R.job_id)
+        )
+        return {JobId(row["job_id"]): int(row["count"]) for row in rows}
 
     async def job_responses(self, job_id: JobId) -> list[OwnerResponse]:
         rows = await self._fetch(
@@ -532,6 +549,7 @@ def _view(row: RowMapping) -> JobView:
         responses_count=row["responses_count"],
         extensions_count=row["extensions_count"],
         views_count=row["views_count"],
+        responses_seen_at=row["responses_seen_at"],
         moderation_note=row["moderation_note"],
         version=row["version"],
         created_at=row["created_at"],

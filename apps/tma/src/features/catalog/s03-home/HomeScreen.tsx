@@ -5,10 +5,12 @@
 // тексту. Плитки разделов — в выдачу раздела, «Все услуги» — в S04. Переключатель «Услуги / Вещи»
 // — по флагу goods.segment (client-config, ADR-0019): «Вещи» в MVP — заглушка S58.
 // «Не хотите искать сами?» ведёт в мастер заявки S20a (5.2), «Ищете подработку?» — в ленту заявок
-// S13 (5.3): число заявок за сутки, без новых блока нет. Скрыто до своего шага: «Мои активные
-// заявки» (5.6). «Свободны сегодня рядом» и «Ищете подработку?» — своими чанками (TodayNearby.tsx,
-// SideJob.tsx): до первого кадра Главной они не нужны.
+// S13 (5.3): число заявок за сутки, без новых блока нет. «Мои активные заявки» (5.6) — у клиента с
+// открытыми заявками, сразу под поиском. «Свободны сегодня рядом», «Ищете подработку?» и «Мои
+// активные заявки» — своими чанками (TodayNearby.tsx, SideJob.tsx, MyActiveJobs.tsx): до первого
+// кадра Главной они не нужны.
 import type { CategoryOut, SuggestionOut } from '@sosed/api-client';
+import { getSession } from '@sosed/api-client';
 import {
   FLAGS,
   nearestDistrict,
@@ -73,6 +75,9 @@ const TodayNearby = optionalChunk(() =>
   import('./TodayNearby.tsx').then((module) => module.TodayNearby),
 );
 const SideJob = optionalChunk(() => import('./SideJob.tsx').then((module) => module.SideJob));
+const MyActiveJobs = optionalChunk(() =>
+  import('./MyActiveJobs.tsx').then((module) => module.MyActiveJobs),
+);
 
 const iconOf = (name: string | null): IconName =>
   (ICON_NAMES as readonly string[]).includes(name ?? '') ? (name as IconName) : 'grid';
@@ -107,6 +112,8 @@ export function HomeScreen() {
 }
 
 function Services() {
+  // гостю своих заявок нет: без сессии список не запрашивается
+  const signedIn = getSession() !== null;
   const { t } = useTranslation('catalog');
   const locale = useLocale();
   const router = useRouter();
@@ -156,6 +163,11 @@ function Services() {
           </Banner>
         )}
       </section>
+      {signedIn && (
+        <Suspense fallback={null}>
+          <MyActiveJobs />
+        </Suspense>
+      )}
       <section aria-labelledby={categoriesId} className="flex flex-col gap-3">
         <Heading variant="h3" as="h2" id={categoriesId}>
           {t('home.whatToDo')}

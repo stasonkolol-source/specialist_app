@@ -1,8 +1,8 @@
 // S21 «Заявка опубликована» (DEVELOPMENT_PLAN 5.2): итог публикации — опубликована сразу или на
 // проверке (обычно минуты). Если боту нельзя писать — контекстный запрос «Сообщать об откликах?»:
-// requestWriteAccess клиента Telegram, затем POST /me/telegram/write-access. «Пригласить
-// специалистов» (5.6), «Поделиться в чат» (7.4) и «К заявке» (S23, 5.6) — в своих шагах; пока
-// MainButton «Готово» ведёт на Главную. Число уведомлённых исполнителей появится с подписками (5.7).
+// requestWriteAccess клиента Telegram, затем POST /me/telegram/write-access. MainButton «К заявке»
+// — своя заявка S23 (5.6). «Пригласить специалистов» — следующим шагом, «Поделиться в чат» — 7.4.
+// Число уведомлённых исполнителей появится с подписками (5.7).
 import type { JobOut } from '@sosed/api-client';
 import {
   getNotificationsGetNotificationSettingsQueryKey,
@@ -17,17 +17,20 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearch } from '@tanstack/react-router';
 
 import { useStepButton } from '../shared/flow.ts';
-import { CREATE_PATHS, HOME_PATH } from '../shared/paths.ts';
+import { CREATE_PATHS, HOME_PATH, managePath } from '../shared/paths.ts';
 
 export function PublishedScreen() {
   const { t } = useTranslation('jobs');
   const router = useRouter();
   const { job: jobId } = useSearch({ from: CREATE_PATHS.done });
   const job = useJob(jobId ?? null);
-  const home = () => void router.navigate({ to: HOME_PATH, replace: true });
+  const toJob = () =>
+    void router.navigate(
+      jobId ? { to: managePath(jobId), replace: true } : { to: HOME_PATH, replace: true },
+    );
   // «Назад» в мастер не ведёт: черновика больше нет, заявка уже создана
   useBackButton(null);
-  useStepButton({ text: t('published.done'), onClick: home });
+  useStepButton({ text: t('published.toJob'), onClick: toJob });
 
   if (!jobId || job.isError) {
     return (

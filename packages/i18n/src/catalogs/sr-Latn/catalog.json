@@ -11,7 +11,12 @@
     "createText": "Opišite zadatak — javiće se do 5 izvođača, a vi birate s kim ćete se dogovoriti.",
     "create": "Napravi zahtev",
     "sideJobTitle": "Tražite dodatni posao?",
-    "sideJobText": "{count, plural, one {# novi zadatak u blizini} few {# nova zadatka u blizini} other {# novih zadataka u blizini}}"
+    "sideJobText": "{count, plural, one {# novi zadatak u blizini} few {# nova zadatka u blizini} other {# novih zadataka u blizini}}",
+    "myJobs": "Moji aktivni zahtevi",
+    "myJobsReview": "Na proveri",
+    "myJobsWaiting": "Čekamo ponude",
+    "myJobsResponses": "{count, plural, one {# ponuda} few {# ponude} other {# ponuda}}",
+    "myJobsFresh": "{count, plural, one {# nova} few {# nove} other {# novih}}"
   },
   "categories": {
     "title": "Sve usluge",

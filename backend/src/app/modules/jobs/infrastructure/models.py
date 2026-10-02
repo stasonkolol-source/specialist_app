@@ -113,6 +113,8 @@ class JobRow(UuidPkMixin, TimestampsMixin, SoftDeleteMixin, VersionMixin, Base):
     responses_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     extensions_count: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
     views_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    responses_seen_at: Mapped[datetime | None]
+    """Клиент открыл отклики на S23 (jobs_0008): позже прошедшие проверку — «новые»."""
     search_vector: Mapped[str | None] = mapped_column(TSVECTOR)
     source: Mapped[str] = mapped_column(String(16), server_default=text("'tma'"))
     moderation_note: Mapped[str | None] = mapped_column(String(64))

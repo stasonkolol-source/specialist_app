@@ -195,6 +195,9 @@ class JobOut(BaseModel):
     )
     extensions_count: int = Field(description="Сколько раз продлевали: не больше трёх")
     views_count: int | None = Field(description="Просмотры (S23) — владельцу; остальным — null")
+    new_responses: int | None = Field(
+        description="Отклики, которых владелец ещё не видел (бейдж S22); остальным — null"
+    )
     moderation_note: str | None = Field(description="Причина отказа модерации — владельцу")
     version: int
     created_at: datetime
@@ -236,6 +239,7 @@ class JobOut(BaseModel):
             my_response=MyResponseRefOut.of(details.my_response) if details.my_response else None,
             extensions_count=job.extensions_count,
             views_count=job.views_count if owner else None,
+            new_responses=details.new_responses if owner else None,
             moderation_note=job.moderation_note if owner else None,
             version=job.version,
             created_at=job.created_at,

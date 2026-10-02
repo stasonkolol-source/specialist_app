@@ -201,6 +201,9 @@ export const JobsCreateJobResponse = zod.object({
   views_count: zod
     .union([zod.int(), zod.null()])
     .describe('Просмотры (S23) — владельцу; остальным — null'),
+  new_responses: zod
+    .union([zod.int(), zod.null()])
+    .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
   moderation_note: zod
     .union([zod.string(), zod.null()])
     .describe('Причина отказа модерации — владельцу'),
@@ -821,6 +824,9 @@ export const JobsRequestSpecialistResponse = zod.object({
   views_count: zod
     .union([zod.int(), zod.null()])
     .describe('Просмотры (S23) — владельцу; остальным — null'),
+  new_responses: zod
+    .union([zod.int(), zod.null()])
+    .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
   moderation_note: zod
     .union([zod.string(), zod.null()])
     .describe('Причина отказа модерации — владельцу'),
@@ -1030,6 +1036,9 @@ export const JobsGetJobResponse = zod.object({
   views_count: zod
     .union([zod.int(), zod.null()])
     .describe('Просмотры (S23) — владельцу; остальным — null'),
+  new_responses: zod
+    .union([zod.int(), zod.null()])
+    .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
   moderation_note: zod
     .union([zod.string(), zod.null()])
     .describe('Причина отказа модерации — владельцу'),
@@ -1236,6 +1245,9 @@ export const JobsUpdateJobResponse = zod.object({
   views_count: zod
     .union([zod.int(), zod.null()])
     .describe('Просмотры (S23) — владельцу; остальным — null'),
+  new_responses: zod
+    .union([zod.int(), zod.null()])
+    .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
   moderation_note: zod
     .union([zod.string(), zod.null()])
     .describe('Причина отказа модерации — владельцу'),
@@ -1476,6 +1488,9 @@ export const JobsCloseJobResponse = zod.object({
   views_count: zod
     .union([zod.int(), zod.null()])
     .describe('Просмотры (S23) — владельцу; остальным — null'),
+  new_responses: zod
+    .union([zod.int(), zod.null()])
+    .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
   moderation_note: zod
     .union([zod.string(), zod.null()])
     .describe('Причина отказа модерации — владельцу'),
@@ -1612,6 +1627,9 @@ export const JobsExtendJobResponse = zod.object({
   views_count: zod
     .union([zod.int(), zod.null()])
     .describe('Просмотры (S23) — владельцу; остальным — null'),
+  new_responses: zod
+    .union([zod.int(), zod.null()])
+    .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
   moderation_note: zod
     .union([zod.string(), zod.null()])
     .describe('Причина отказа модерации — владельцу'),
@@ -1627,7 +1645,8 @@ export const JobsExtendJobResponse = zod.object({
 });
 
 /**
- * Свои заявки (S22), новые первыми; блока клиента в своём списке нет.
+ * Свои заявки (S22), новые первыми, с числом новых откликов; блока клиента в своём списке
+ * нет.
  * @summary List My Jobs
  */
 export const JobsListMyJobsQueryParams = zod.object({
@@ -1768,6 +1787,9 @@ export const JobsListMyJobsResponse = zod.object({
       views_count: zod
         .union([zod.int(), zod.null()])
         .describe('Просмотры (S23) — владельцу; остальным — null'),
+      new_responses: zod
+        .union([zod.int(), zod.null()])
+        .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
       moderation_note: zod
         .union([zod.string(), zod.null()])
         .describe('Причина отказа модерации — владельцу'),
