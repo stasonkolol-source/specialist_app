@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from types import TracebackType
 from typing import Self
+from uuid import UUID
 
 from app.modules.catalog.api import CategorySuggestion, CategorySummary, SearchTerm, TermMatch
 from app.modules.media.api import MediaRef
@@ -15,6 +16,7 @@ from app.modules.search.application.dto import (
     TextMatch,
     ZeroResult,
 )
+from app.modules.search.domain.favorites import FavoriteType
 from app.modules.search.domain.query import RankWeights, SpecialistSort, Stage
 from app.platform.kernel.aggregate import AggregateRoot
 from app.platform.kernel.events import DomainEvent
@@ -43,6 +45,8 @@ class FakeSearch:
     counted: list[Stage] = field(default_factory=list)
     categories: dict[CategoryId, int] = field(default_factory=dict)
     counted_categories: list[tuple[CityId, str]] = field(default_factory=list)
+    visible: dict[UUID, SpecialistHit] = field(default_factory=dict)
+    """Строки, видимые в каталоге: `listed` (избранное)."""
 
     async def search(
         self,
@@ -74,6 +78,35 @@ class FakeSearch:
     async def count_by_category(self, city_id: CityId, kind: str) -> dict[CategoryId, int]:
         self.counted_categories.append((city_id, kind))
         return dict(self.categories)
+
+    async def listed(self, profile_ids: Collection[UUID]) -> list[SpecialistHit]:
+        return [self.visible[i] for i in profile_ids if i in self.visible]
+
+
+@dataclass
+class FakeFavorites:
+    """Favorites: записи по порядку добавления; `ids` — новые первыми."""
+
+    rows: list[tuple[UserId, FavoriteType, UUID]] = field(default_factory=list)
+
+    async def add(self, user_id: UserId, target_type: FavoriteType, target_id: UUID) -> bool:
+        if (user_id, target_type, target_id) in self.rows:
+            return False
+        self.rows.append((user_id, target_type, target_id))
+        return True
+
+    async def remove(self, user_id: UserId, target_type: FavoriteType, target_id: UUID) -> None:
+        if (user_id, target_type, target_id) in self.rows:
+            self.rows.remove((user_id, target_type, target_id))
+
+    async def count(self, user_id: UserId, target_type: FavoriteType) -> int:
+        return len(await self.ids(user_id, target_type))
+
+    async def ids(self, user_id: UserId, target_type: FavoriteType) -> list[UUID]:
+        return [t for u, k, t in reversed(self.rows) if (u, k) == (user_id, target_type)]
+
+    async def forget(self, user_id: UserId) -> None:
+        self.rows = [row for row in self.rows if row[0] != user_id]
 
 
 @dataclass

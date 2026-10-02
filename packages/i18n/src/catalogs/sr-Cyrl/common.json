@@ -53,21 +53,21 @@
   },
   "time": {
     "justNow": "управо сада",
-    "minutesAgo": "пре {count}\u00A0мин",
-    "hoursAgo": "пре {count}\u00A0ч",
+    "minutesAgo": "пре {count} мин",
+    "hoursAgo": "пре {count} ч",
     "yesterday": "јуче",
     "daysAgo": "пре {count, plural, one {# дан} few {# дана} other {# дана}}",
     "today": "данас",
     "tomorrow": "сутра",
-    "dayAt": "{day} у\u00A0{time}"
+    "dayAt": "{day} у {time}"
   },
   "distance": {
-    "km": "≈\u00A0{value}\u00A0км",
-    "m": "≈\u00A0{value}\u00A0м"
+    "km": "≈ {value} км",
+    "m": "≈ {value} м"
   },
   "price": {
-    "from": "од\u00A0{amount}",
-    "upTo": "до\u00A0{amount}",
+    "from": "од {amount}",
+    "upTo": "до {amount}",
     "negotiable": "по договору",
     "perUnit": {
       "work": "{price}",
@@ -89,9 +89,9 @@
     "km": "по км"
   },
   "budget": {
-    "upTo": "до\u00A0{max}",
-    "range": "{min}–{max}\u00A0хиљ.",
-    "over": "{min}\u00A0хиљ.+"
+    "upTo": "до {max}",
+    "range": "{min}–{max} хиљ.",
+    "over": "{min} хиљ.+"
   },
   "rating": {
     "new": "Нови стручњак",
@@ -215,6 +215,8 @@
     "signedOutTitle": "Отворите у Telegram-у",
     "signedOutText": "Профил је доступан у мини-апликацији „{appName}“ у Telegram-у. Ако је већ отворена — затворите је и отворите поново",
     "support": "Подршка",
-    "rules": "Правила платформе"
+    "rules": "Правила платформе",
+    "activity": "Моја активност",
+    "favorites": "Омиљени"
   }
 }

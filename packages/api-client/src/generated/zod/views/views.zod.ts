@@ -7,7 +7,7 @@
 import * as zod from 'zod';
 
 /**
- * Карточка специалиста S08: профиль, первые позиции прайса и превью портфолио.
+ * Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио и рейтинг.
  * @summary Get Specialist
  */
 export const ViewsGetSpecialistParams = zod.object({
@@ -137,6 +137,27 @@ export const ViewsGetSpecialistResponse = zod.object({
     )
     .describe('Превью портфолио (S08)'),
   works_count: zod.int(),
+  reviews: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        kind: zod.string().describe('deal | pre_platform'),
+        author_name: zod.string().describe('Имя и первая буква фамилии: «Ирина С.»'),
+        rating: zod.int(),
+        body: zod.union([zod.string(), zod.null()]),
+        category: zod
+          .union([
+            zod.object({
+              id: zod.int(),
+              name: zod.string(),
+            }),
+            zod.null(),
+          ])
+          .describe('Услуга сделки: «Сентябрь · люстры»'),
+        published_at: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .describe('Последний отзыв (S08) — с 7.2'),
   published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
 });
 
@@ -215,4 +236,49 @@ export const ViewsListSpecialistWorksResponse = zod.object({
       }),
     }),
   ),
+});
+
+/**
+ * Отзывы S11: рейтинг с гистограммой и отзывы по сделкам. Сами отзывы и вкладка «До
+ * платформы» (`kind`, курсор) — с 7.2 и 7.6; до того список пуст.
+ * @summary List Specialist Reviews
+ */
+export const ViewsListSpecialistReviewsParams = zod.object({
+  profile_id: zod.uuid().describe('id профиля специалиста'),
+});
+
+export const ViewsListSpecialistReviewsResponse = zod.object({
+  summary: zod.object({
+    rating: zod
+      .union([zod.number(), zod.null()])
+      .describe('«4,9», когда отзывов достаточно; иначе is_new'),
+    count: zod.int().describe('Отзывов по сделкам: «до платформы» в рейтинг не входят'),
+    is_new: zod.boolean(),
+    distribution: zod.array(zod.int()).describe('Оценок в 1, 2, 3, 4, 5 звёзд — гистограмма S11'),
+    criteria: zod
+      .record(zod.string(), zod.number())
+      .describe('quality, punctuality, communication, price'),
+  }),
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        kind: zod.string().describe('deal | pre_platform'),
+        author_name: zod.string().describe('Имя и первая буква фамилии: «Ирина С.»'),
+        rating: zod.int(),
+        body: zod.union([zod.string(), zod.null()]),
+        category: zod
+          .union([
+            zod.object({
+              id: zod.int(),
+              name: zod.string(),
+            }),
+            zod.null(),
+          ])
+          .describe('Услуга сделки: «Сентябрь · люстры»'),
+        published_at: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .describe('Новые сначала — отзывы появятся с 7.2'),
+  next_cursor: zod.union([zod.string(), zod.null()]),
 });

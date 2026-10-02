@@ -1474,6 +1474,7 @@ CREATE TABLE reviews.rating_aggregates (   -- пересчитывается п�
   rating_avg    numeric(3,2) NOT NULL,
   rating_bayes  numeric(4,3) NOT NULL,       -- байесовское среднее: показ и фильтр «рейтинг от»
   rating_lower_bound numeric(4,3) NOT NULL,  -- нижняя граница доверительного интервала (Dirichlet prior): ранжирование
+  distribution  int[] NOT NULL DEFAULT '{0,0,0,0,0}' CHECK (cardinality(distribution) = 5),  -- оценок в 1…5 звёзд: гистограмма S11
   criteria_avg  jsonb NOT NULL DEFAULT '{}',
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
@@ -2387,8 +2388,8 @@ sequenceDiagram
 | `GET /specialists/by-category?city_id=` 🔓 | Видимые специалисты города по категориям (с подкатегориями) — дерево S04; кэш 5 минут |
 | `GET /specialists/{id}` 🔓 | Публичный профиль S08 одним запросом (BFF `interfaces/http/views`): профиль, первые три позиции прайса и три работы, рейтинг, бейджи; ETag, `max-age=60`. Скрытый, снятый санкцией или удалённый профиль — 404 без объяснения, как в поиске |
 | `GET /specialists/{id}/services` 🔓, `GET /specialists/{id}/portfolio` 🔓 | Весь прайс с группами (S09) и все готовые работы (S10) одним ответом: прайс — до 50 позиций, работ — в пределах лимита портфолио |
-| `GET /specialists/{id}/reviews?kind=deal\|pre_platform` 🔓 | Отзывы постранично (7.2) |
-| `GET /me/favorites?type=profile\|job`, `PUT /me/favorites/{type}/{id}`, `DELETE /me/favorites/{type}/{id}` | Избранное: «мои мастера» и сохранённые заявки |
+| `GET /specialists/{id}/reviews?kind=deal\|pre_platform` 🔓 | Отзывы S11 (BFF): рейтинг с гистограммой и средними по критериям из `reviews.rating_aggregates`; сами отзывы постранично и `kind` — с 7.2 и 7.6, до того список пуст. Скрытый профиль — 404 |
+| `GET /me/favorites?type=profile\|job`, `PUT /me/favorites/{type}/{id}`, `DELETE /me/favorites/{type}/{id}` | Избранное: «мои мастера» S12 — карточки, как в выдаче, только видимые в каталоге, новые первыми; до 100 записей типа (`favorites_full`); повтор и удаление отсутствующего — без ошибки. Заявки (`type=job`) — с 5.3 |
 | `GET /me/saved-searches`, `POST /me/saved-searches`, `DELETE /me/saved-searches/{id}` | v1: сохранённые поиски с уведомлением |
 | `GET /price-benchmarks?category=&city=` 🔓 | Ценовые ориентиры (v1) |
 

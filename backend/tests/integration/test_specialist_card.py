@@ -1,5 +1,5 @@
-"""BFF карточки специалиста S08–S10 (DEVELOPMENT_PLAN 4.5) сквозь модули: профиль, прайс и
-портфолио одним запросом, ETag, 404 для невидимого профиля. Данные коммитятся.
+"""BFF карточки специалиста S08–S11 (DEVELOPMENT_PLAN 4.5, 4.6) сквозь модули: профиль, прайс,
+портфолио и рейтинг, ETag, 404 для невидимого профиля. Данные коммитятся.
 """
 
 import json
@@ -122,12 +122,49 @@ async def test_price_list_and_portfolio_pages(web: HttpApp) -> None:
     assert [item["caption"] for item in works["items"]] == ["Люстра в гостиной"]
 
 
+async def test_reviews_page_and_card_show_the_rating(web: HttpApp) -> None:
+    specialist = await published(web)
+
+    empty = (await get(web, f"{specialist.profile_id}/reviews")).json()
+    assert empty == {
+        "summary": {
+            "rating": None,
+            "count": 0,
+            "is_new": True,
+            "distribution": [0, 0, 0, 0, 0],
+            "criteria": {},
+        },
+        "items": [],
+        "next_cursor": None,
+    }
+    # агрегаты пересчитают отзывы по сделкам (7.2) — здесь строкой
+    await specialist.execute(
+        "INSERT INTO reviews.rating_aggregates (subject_profile_id, rating_count, rating_avg,"
+        " rating_bayes, rating_lower_bound, distribution, criteria_avg) VALUES (:id, 37, 4.92,"
+        " 4.8, 4.5, '{0,0,1,1,35}', CAST(:criteria AS jsonb))",
+        id=specialist.profile_id,
+        criteria=json.dumps({"quality": 4.9, "price": 4.8}),
+    )
+
+    summary = (await get(web, f"{specialist.profile_id}/reviews")).json()["summary"]
+    card = (await get(web, str(specialist.profile_id))).json()
+
+    assert summary == {
+        "rating": 4.9,
+        "count": 37,
+        "is_new": False,
+        "distribution": [0, 0, 1, 1, 35],
+        "criteria": {"quality": 4.9, "price": 4.8},
+    }
+    assert (card["rating"], card["rating_count"], card["is_new"]) == (4.9, 37, False)
+
+
 async def test_hidden_profile_is_not_found(web: HttpApp) -> None:
     specialist = await published(web)
 
     await specialist.call(HideProfile, HideProfileCommand(actor_id=specialist.user_id))
 
-    for path in ("", "/services", "/portfolio"):
+    for path in ("", "/services", "/portfolio", "/reviews"):
         response = await get(web, f"{specialist.profile_id}{path}")
         assert (response.status_code, response.json()["code"]) == (404, "not_found"), path
 

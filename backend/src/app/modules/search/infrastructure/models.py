@@ -1,8 +1,9 @@
-"""ORM-модели search (ARCHITECTURE §7.3, миграции search_0001–0002): read-model специалистов
-и журнал запросов без результатов.
+"""ORM-модели search (ARCHITECTURE §7.3, миграции search_0001–0003): read-model специалистов,
+журнал запросов без результатов и избранное.
 
 Таблицы — проекция: источник правды — модули ниже по DAG, строки пересобирает проектор.
-FK на чужие схемы нет — у read-model их и не должно быть: строка удаляется событием.
+FK на чужие схемы нет — у read-model их и не должно быть: строка удаляется событием. У избранного
+FK на identity.users — только в миграции search_0003 (modules/README.md).
 Индексы — набор лаборатории (research/07 §3.4, lab/sql/15): частичные `WHERE is_listed`.
 """
 
@@ -25,8 +26,9 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, REAL, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.modules.search.domain.favorites import FavoriteType
 from app.platform.db.base import ModelBase, module_metadata
-from app.platform.db.types import GeoPointType
+from app.platform.db.types import GeoPointType, str_enum
 from app.platform.kernel.geo import GeoPoint
 
 SCHEMA = "search"
@@ -174,3 +176,17 @@ class QueryLogRow(Base):
         Index("ix_query_log_created_at", "created_at"),
         Index("ix_query_log_q_norm", "q_norm"),
     )
+
+
+class FavoriteRow(Base):
+    """Избранное пользователя: специалист (с 5.3 — и заявка). Новые — первыми в S12."""
+
+    __tablename__ = "favorites"
+
+    user_id: Mapped[UUID] = mapped_column(primary_key=True)
+    """identity.users: FK fk_favorites_user_id_users — в миграции search_0003."""
+    target_type: Mapped[FavoriteType] = mapped_column(
+        str_enum(FavoriteType, "target_type"), primary_key=True
+    )
+    target_id: Mapped[UUID] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

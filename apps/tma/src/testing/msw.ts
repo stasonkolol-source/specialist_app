@@ -40,6 +40,7 @@ import {
   searchPage,
 } from './fixtures.ts';
 import type { BackendReply } from './backend.ts';
+import { FavoritesBackend } from './favoritesBackend.ts';
 import { ProfileBackend } from './profileBackend.ts';
 
 /** Origin API в тестах: fetch в Node не принимает относительные URL. */
@@ -102,10 +103,24 @@ export const searchHandlers = [
   getSearchCountByCategoryMockHandler(CATEGORY_COUNTS),
 ];
 
+/** Избранное S12 и сердечки (4.6) по фейку backend; по умолчанию — свежий на каждый запрос:
+ *  список пуст. Тесты избранного ставят свой — с памятью (server.use). */
+export const favoritesHandlers = (backend: () => FavoritesBackend) => [
+  http.all(/\/api\/v1\/me\/favorites(\/.*)?$/, ({ request }) =>
+    respond(
+      backend().handle(
+        request.method,
+        new URL(request.url).pathname,
+        request.headers.get('Accept-Language'),
+      ),
+    ),
+  ),
+];
+
 /** Карточка S08–S10 (4.5). После searchHandlers: путь `/specialists/:id` иначе перехватил бы
  *  `/specialists/count` и `/specialists/by-category`. */
 export const cardHandlers = [
-  http.get(/\/api\/v1\/specialists\/[^/]+(\/services|\/portfolio)?$/, ({ request }) =>
+  http.get(/\/api\/v1\/specialists\/[^/]+(\/services|\/portfolio|\/reviews)?$/, ({ request }) =>
     respond(
       cardReply(new URL(request.url).pathname, request.headers.get('Accept-Language')) ?? null,
     ),
@@ -136,6 +151,7 @@ export const handlers = [
   ),
   ...searchHandlers,
   ...cardHandlers,
+  ...favoritesHandlers(() => new FavoritesBackend()),
   ...profileHandlers(() => new ProfileBackend()),
 ];
 

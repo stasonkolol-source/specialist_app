@@ -6,6 +6,7 @@
  */
 import type { CardNamedOut } from './cardNamedOut.ts';
 import type { CardPhotoOut } from './cardPhotoOut.ts';
+import type { CardReviewOut } from './cardReviewOut.ts';
 import type { CardServiceOut } from './cardServiceOut.ts';
 import type { CardWorkOut } from './cardWorkOut.ts';
 
@@ -42,5 +43,7 @@ export interface SpecialistProfileOut {
   /** Превью портфолио (S08) */
   works: CardWorkOut[];
   works_count: number;
+  /** Последний отзыв (S08) — с 7.2 */
+  reviews: CardReviewOut[];
   published_at: string | null;
 }

@@ -1,5 +1,5 @@
-"""Порты модуля search (ADR-0020 §3, §5): read-model специалистов, очередь её обновления
-и выдача по ней."""
+"""Порты модуля search (ADR-0020 §3, §5): read-model специалистов, очередь её обновления,
+выдача по ней и избранное."""
 
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
@@ -13,6 +13,7 @@ from app.modules.search.application.dto import (
     TextMatch,
     ZeroResult,
 )
+from app.modules.search.domain.favorites import FavoriteType
 from app.modules.search.domain.index import IndexEntry
 from app.modules.search.domain.query import RankWeights, SpecialistSort
 from app.platform.contracts.events.catalog import CatalogChanged
@@ -113,6 +114,30 @@ class SpecialistSearch(Protocol):
         """Видимые специалисты города по категориям — с подкатегориями (дерево S04)."""
         ...
 
+    async def listed(self, profile_ids: Collection[UUID]) -> list[SpecialistHit]:
+        """Строки этих профилей, которые видны в каталоге (избранное S12), в любом порядке."""
+        ...
+
+
+class Favorites(Protocol):
+    """Избранное пользователя (4.6). Запись — идемпотентна; нужен активный UoW."""
+
+    async def add(self, user_id: UserId, target_type: FavoriteType, target_id: UUID) -> bool:
+        """Добавить; False — уже было."""
+        ...
+
+    async def remove(self, user_id: UserId, target_type: FavoriteType, target_id: UUID) -> None: ...
+
+    async def count(self, user_id: UserId, target_type: FavoriteType) -> int: ...
+
+    async def ids(self, user_id: UserId, target_type: FavoriteType) -> list[UUID]:
+        """Цели этого типа, новые первыми."""
+        ...
+
+    async def forget(self, user_id: UserId) -> None:
+        """Всё избранное пользователя — аккаунт удалён (§7.10)."""
+        ...
+
 
 class QueryLog(Protocol):
     async def record(self, entry: ZeroResult) -> None:
@@ -158,3 +183,6 @@ ON_USER_LIFTED: Final = TaskRef("search.on_user_restrictions_lifted", UserRestri
 ON_USER_DELETED: Final = TaskRef("search.on_user_deleted", UserDeleted)
 ON_MEDIA_READY: Final = TaskRef("search.on_media_ready", MediaReady)
 """Подписчики событий-источников: каждое отмечает профили к пересборке (MarkProfiles)."""
+
+FORGET_FAVORITES: Final = TaskRef("search.forget_favorites", UserDeleted)
+"""Аккаунт удалён — его избранное тоже (§7.10)."""

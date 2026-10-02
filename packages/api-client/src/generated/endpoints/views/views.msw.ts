@@ -10,7 +10,12 @@ import { HttpResponse, http } from 'msw';
 import type { RequestHandlerOptions } from 'msw';
 
 import { Currency } from '../../model';
-import type { CardServicesOut, CardWorksOut, SpecialistProfileOut } from '../../model';
+import type {
+  CardReviewsOut,
+  CardServicesOut,
+  CardWorksOut,
+  SpecialistProfileOut,
+} from '../../model';
 
 export const getViewsGetSpecialistResponseMock = (
   overrideResponse: Partial<Extract<SpecialistProfileOut, object>> = {},
@@ -139,6 +144,23 @@ export const getViewsGetSpecialistResponseMock = (
     },
   })),
   works_count: faker.number.int(),
+  reviews: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      id: faker.string.uuid(),
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      author_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      rating: faker.number.int(),
+      body: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      category: faker.helpers.arrayElement([
+        { id: faker.number.int(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+        null,
+      ]),
+      published_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+    }),
+  ),
   published_at: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
@@ -205,6 +227,40 @@ export const getViewsListSpecialistWorksResponseMock = (
       duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
     },
   })),
+  ...overrideResponse,
+});
+
+export const getViewsListSpecialistReviewsResponseMock = (
+  overrideResponse: Partial<Extract<CardReviewsOut, object>> = {},
+): CardReviewsOut => ({
+  summary: {
+    rating: faker.helpers.arrayElement([faker.number.float({ fractionDigits: 2 }), null]),
+    count: faker.number.int(),
+    is_new: faker.datatype.boolean(),
+    distribution: Array.from(
+      { length: faker.number.int({ min: 1, max: 10 }) },
+      (_, i) => i + 1,
+    ).map(() => faker.number.int()),
+    criteria: {
+      [faker.string.alphanumeric(5)]: faker.number.float({ fractionDigits: 2 }),
+    },
+  },
+  items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    id: faker.string.uuid(),
+    kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    author_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    rating: faker.number.int(),
+    body: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+    category: faker.helpers.arrayElement([
+      { id: faker.number.int(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+      null,
+    ]),
+    published_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  })),
+  next_cursor: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
   ...overrideResponse,
 });
 
@@ -279,8 +335,33 @@ export const getViewsListSpecialistWorksMockHandler = (
     options,
   );
 };
+
+export const getViewsListSpecialistReviewsMockHandler = (
+  overrideResponse?:
+    | CardReviewsOut
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<CardReviewsOut> | CardReviewsOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/specialists/:profileId/reviews',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getViewsListSpecialistReviewsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getViewsMock = () => [
   getViewsGetSpecialistMockHandler(),
   getViewsListSpecialistServicesMockHandler(),
   getViewsListSpecialistWorksMockHandler(),
+  getViewsListSpecialistReviewsMockHandler(),
 ];

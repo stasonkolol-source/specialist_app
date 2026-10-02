@@ -215,6 +215,8 @@
     "signedOutTitle": "Otvorite u Telegram-u",
     "signedOutText": "Profil je dostupan u mini-aplikaciji „{appName}“ u Telegram-u. Ako je već otvorena — zatvorite je i otvorite ponovo",
     "support": "Podrška",
-    "rules": "Pravila platforme"
+    "rules": "Pravila platforme",
+    "activity": "Moja aktivnost",
+    "favorites": "Omiljeni"
   }
 }

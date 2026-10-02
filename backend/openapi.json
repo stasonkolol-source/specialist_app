@@ -2697,6 +2697,114 @@
         }
       }
     },
+    "/api/v1/me/favorites": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "summary": "List Favorites",
+        "description": "Избранные специалисты S12: те, кто виден в каталоге, новые первыми. Заявки (`type=job`)\n— с шагом 5.3.",
+        "operationId": "search_list_favorites",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FavoritesOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/favorites/profile/{profile_id}": {
+      "put": {
+        "tags": [
+          "search"
+        ],
+        "summary": "Add Favorite",
+        "description": "Специалист — в избранное (сердечко S05, S08). Повтор — без ошибки; профиль, которого нет\nв каталоге, — 404; больше 100 — `favorites_full`.",
+        "operationId": "search_add_favorite",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id профиля специалиста",
+              "title": "Profile Id"
+            },
+            "description": "id профиля специалиста"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "search"
+        ],
+        "summary": "Remove Favorite",
+        "description": "Убрать специалиста из избранного; чего нет — без ошибки.",
+        "operationId": "search_remove_favorite",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id профиля специалиста",
+              "title": "Profile Id"
+            },
+            "description": "id профиля специалиста"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/me/telegram/write-access": {
       "post": {
         "tags": [
@@ -2938,7 +3046,7 @@
           "views"
         ],
         "summary": "Get Specialist",
-        "description": "Карточка специалиста S08: профиль, первые позиции прайса и превью портфолио.",
+        "description": "Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио и рейтинг.",
         "operationId": "views_get_specialist",
         "parameters": [
           {
@@ -3059,6 +3167,55 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CardWorksOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Не изменилось (If-None-Match)"
+          }
+        }
+      }
+    },
+    "/api/v1/specialists/{profile_id}/reviews": {
+      "get": {
+        "tags": [
+          "views"
+        ],
+        "summary": "List Specialist Reviews",
+        "description": "Отзывы S11: рейтинг с гистограммой и отзывы по сделкам. Сами отзывы и вкладка «До\nплатформы» (`kind`, курсор) — с 7.2 и 7.6; до того список пуст.",
+        "operationId": "views_list_specialist_reviews",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id профиля специалиста",
+              "title": "Profile Id"
+            },
+            "description": "id профиля специалиста"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardReviewsOut"
                 }
               }
             }
@@ -3325,6 +3482,150 @@
           "variants"
         ],
         "title": "CardPhotoOut"
+      },
+      "CardRatingOut": {
+        "properties": {
+          "rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating",
+            "description": "«4,9», когда отзывов достаточно; иначе is_new"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "Отзывов по сделкам: «до платформы» в рейтинг не входят"
+          },
+          "is_new": {
+            "type": "boolean",
+            "title": "Is New"
+          },
+          "distribution": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Distribution",
+            "description": "Оценок в 1, 2, 3, 4, 5 звёзд — гистограмма S11"
+          },
+          "criteria": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Criteria",
+            "description": "quality, punctuality, communication, price"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rating",
+          "count",
+          "is_new",
+          "distribution",
+          "criteria"
+        ],
+        "title": "CardRatingOut"
+      },
+      "CardReviewOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "deal | pre_platform"
+          },
+          "author_name": {
+            "type": "string",
+            "title": "Author Name",
+            "description": "Имя и первая буква фамилии: «Ирина С.»"
+          },
+          "rating": {
+            "type": "integer",
+            "title": "Rating"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardNamedOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Услуга сделки: «Сентябрь · люстры»"
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Published At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "author_name",
+          "rating",
+          "body",
+          "category",
+          "published_at"
+        ],
+        "title": "CardReviewOut"
+      },
+      "CardReviewsOut": {
+        "properties": {
+          "summary": {
+            "$ref": "#/components/schemas/CardRatingOut"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CardReviewOut"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "Новые сначала — отзывы появятся с 7.2"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary",
+          "items",
+          "next_cursor"
+        ],
+        "title": "CardReviewsOut"
       },
       "CardServiceOut": {
         "properties": {
@@ -3890,6 +4191,23 @@
         ],
         "title": "FailureReason",
         "description": "Почему `failed` (загрузка) или `rejected` (обработка)."
+      },
+      "FavoritesOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SpecialistCardOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "FavoritesOut",
+        "description": "Избранные специалисты S12: карточки, как в выдаче, новые первыми."
       },
       "FieldErrorOut": {
         "properties": {
@@ -6292,6 +6610,14 @@
             "type": "integer",
             "title": "Works Count"
           },
+          "reviews": {
+            "items": {
+              "$ref": "#/components/schemas/CardReviewOut"
+            },
+            "type": "array",
+            "title": "Reviews",
+            "description": "Последний отзыв (S08) — с 7.2"
+          },
           "published_at": {
             "anyOf": [
               {
@@ -6331,6 +6657,7 @@
           "services_count",
           "works",
           "works_count",
+          "reviews",
           "published_at"
         ],
         "title": "SpecialistProfileOut"

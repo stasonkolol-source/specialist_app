@@ -112,5 +112,36 @@
     "more": "{count, plural, one {Još # rad} few {Još # rada} other {Još # radova}}",
     "moreShort": "+{count}",
     "empty": "Radova još nema"
+  },
+  "reviews": {
+    "title": "Utisci",
+    "summary": "Pregled ocene",
+    "average": "Prosečna ocena {rating} od 5",
+    "distribution": "Raspodela ocena",
+    "bar": "{stars, plural, one {# zvezdica} few {# zvezdice} other {# zvezdica}}: {count}",
+    "criteria": {
+      "quality": "Kvalitet",
+      "punctuality": "Na vreme",
+      "communication": "Komunikacija",
+      "price": "Cena"
+    },
+    "policy": "Ocena se računa samo po poslovima u aplikaciji „Sosedi“: utisci „pre platforme“ ne ulaze u nju.",
+    "emptyTitle": "Utisaka još nema",
+    "emptyText": "Stručnjak je nov na platformi — utisci će se pojaviti posle prvih poslova",
+    "viaDeal": "Posao u aplikaciji „Sosedi“",
+    "rating": "Ocena {rating} od 5",
+    "all": "Svi {count}"
+  },
+  "favorites": {
+    "title": "Omiljeni",
+    "add": "Dodaj u omiljene",
+    "remove": "Ukloni iz omiljenih",
+    "addNamed": "U omiljene: {name}",
+    "removeNamed": "Ukloni iz omiljenih: {name}",
+    "emptyTitle": "Ovde će biti vaši majstori",
+    "emptyText": "Dodirnite srce na kartici stručnjaka — pojaviće se na ovom spisku",
+    "find": "Pronađite stručnjaka",
+    "error": "Čuvanje nije uspelo. Pokušajte ponovo",
+    "full": "U omiljenima već ima {limit} — uklonite nekoga da biste dodali"
   }
 }

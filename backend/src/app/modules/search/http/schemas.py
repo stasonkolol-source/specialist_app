@@ -139,3 +139,9 @@ class CategoryCountOut(BaseModel):
 
 class CategoryCountsOut(BaseModel):
     items: list[CategoryCountOut]
+
+
+class FavoritesOut(BaseModel):
+    """Избранные специалисты S12: карточки, как в выдаче, новые первыми."""
+
+    items: list[SpecialistCardOut]

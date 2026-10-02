@@ -392,6 +392,9 @@ msgstr "В прайсе уже {limit} позиций — больше доба�
 msgid "errors.no_specialist_profile"
 msgstr "Сначала создайте профиль исполнителя."
 
+msgid "errors.favorites_full"
+msgstr "В избранном уже {limit} — уберите кого-нибудь, чтобы добавить."
+
 # Уведомления (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
 msgid "errors.notification_group_mandatory"
 msgstr "Служебные уведомления нельзя выключить: они о решениях модерации и ограничениях аккаунта."

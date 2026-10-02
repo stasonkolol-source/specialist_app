@@ -9,17 +9,14 @@
 Пустая выдача с текстом пишется в журнал для словаря; ответ подсказывает, что делать.
 """
 
-from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime
-from typing import Any, Final
-from uuid import UUID
+from typing import Final
 
 from app.modules.catalog.api import CatalogApi
-from app.modules.media.api import MediaApi, MediaRef
+from app.modules.media.api import MediaApi
+from app.modules.search.application.cards import specialist_cards
 from app.modules.search.application.dto import (
-    Avatar,
-    SpecialistCard,
     SpecialistFilters,
     SpecialistHit,
     SpecialistResults,
@@ -30,25 +27,19 @@ from app.modules.search.application.ports import QueryLog, SpecialistSearch
 from app.modules.search.application.stages import QueryStages
 from app.modules.search.domain.query import (
     MAX_OFFSET,
-    NEW_UNTIL_REVIEWS,
     WEIGHTS_FLAG,
     PageCursor,
     QueryText,
     RankWeights,
     SpecialistSort,
     Stage,
-    rounded_distance,
 )
 from app.platform.config.port import FeatureFlags
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.errors import DomainValidationError
-from app.platform.kernel.ids import MediaId
 from app.platform.kernel.pagination import Page, PageRequest
 
-AVATAR_VARIANT: Final = "thumb"
-"""320 px — карточка выдачи."""
-READY = "ready"
 RELAX_FILTERS: Final = "relax_filters"
 POST_JOB: Final = "post_job"
 
@@ -122,12 +113,10 @@ class SearchSpecialists:
         stage = match.stage if match is not None else Stage.BROWSE
         more = len(hits) > limit and offset + limit <= MAX_OFFSET
         shown = hits[:limit]
-        wanted = {media for hit in shown if (media := _avatar_id(hit.card)) is not None}
-        refs = await self._media.refs(wanted) if wanted else {}
         recognized = match.category_ids if match is not None else ()
         return SpecialistResults(
             page=Page(
-                items=tuple(_card(hit, refs, now) for hit in shown),
+                items=tuple(await specialist_cards(shown, self._media, now)),
                 next_cursor=PageCursor(stage, offset + limit).encode() if more else None,
             ),
             stage=stage,
@@ -172,47 +161,3 @@ def _chosen(filters: SpecialistFilters) -> tuple[str, ...]:
         "with_reviews": filters.with_reviews,
     }
     return tuple(name for name, chosen in flags.items() if chosen)
-
-
-def _avatar_id(card: Mapping[str, Any]) -> MediaId | None:
-    avatar = card.get("avatar")
-    return MediaId(UUID(avatar["media_id"])) if avatar else None
-
-
-def _avatar(card: Mapping[str, Any], refs: Mapping[MediaId, MediaRef]) -> Avatar | None:
-    media_id = _avatar_id(card)
-    ref = refs.get(media_id) if media_id is not None else None
-    if ref is None or ref.status != READY:
-        return None
-    variant = next((v for v in ref.variants if v.name == AVATAR_VARIANT), None)
-    if variant is None:
-        return None
-    return Avatar(
-        url=variant.url, width=variant.width, height=variant.height, placeholder=ref.placeholder
-    )
-
-
-def _card(hit: SpecialistHit, refs: Mapping[MediaId, MediaRef], now: datetime) -> SpecialistCard:
-    card = hit.card
-    district = card.get("district") or {}
-    is_new = hit.rating_count < NEW_UNTIL_REVIEWS
-    available = hit.available_until
-    return SpecialistCard(
-        profile_id=hit.profile_id,
-        display_name=card["display_name"],
-        headline=card.get("headline"),
-        kind=card["kind"],
-        avatar=_avatar(card, refs),
-        district_id=district.get("id"),
-        district_name=district.get("name") or {},
-        distance_m=rounded_distance(hit.distance_m),
-        languages=tuple(card.get("languages") or ()),
-        category_ids=tuple(card.get("category_ids") or ()),
-        price_from=hit.price_from,
-        negotiable=bool(card.get("negotiable")) and hit.price_from is None,
-        rating=None if is_new else hit.rating_bayes,
-        rating_count=hit.rating_count,
-        is_new=is_new,
-        available_until=available if available is not None and available > now else None,
-        badges=hit.badges,
-    )

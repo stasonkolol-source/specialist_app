@@ -27,6 +27,7 @@ import {
   searchFound,
   searchPage,
 } from '../src/testing/fixtures.ts';
+import { FavoritesBackend } from '../src/testing/favoritesBackend.ts';
 import { ProfileBackend } from '../src/testing/profileBackend.ts';
 
 /** «Фото работы» для загрузок и CDN: PNG 8×6, мягкий зелёный градиент — одинаковый везде. */
@@ -79,6 +80,8 @@ export interface MockApiOptions {
   /** Кабинет исполнителя `/me/profile*` и его файлы `/media*` с памятью; по умолчанию — профиля
    *  нет. */
   profile?: ProfileBackend;
+  /** Избранное `/me/favorites*` с памятью (4.6); по умолчанию — пусто. */
+  favorites?: FavoritesBackend;
   /** Свои ответы по ключу «METHOD /api/v1/…»: проверяются раньше стандартных. */
   handlers?: Record<string, (route: Route) => Promise<void>>;
   /** Что приложение прислало в PATCH /me, POST /me/consents, POST /me/telegram/write-access и
@@ -113,6 +116,7 @@ export async function mockApi(
     notifications,
     notificationSettings = NOTIFICATION_SETTINGS,
     profile = new ProfileBackend(),
+    favorites = new FavoritesBackend([], E2E_AVAILABLE_UNTIL),
     handlers = {},
     sent = sentRequests(),
   }: MockApiOptions = {},
@@ -140,6 +144,12 @@ export async function mockApi(
       if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
       const body: unknown = request.method() === 'GET' ? undefined : request.postDataJSON();
       const reply = profile.handle(request.method(), url.pathname, body);
+      if (reply?.status === 204) return route.fulfill({ status: 204 });
+      if (reply) return route.fulfill(json(reply.body, reply.status));
+    }
+    if (url.pathname.startsWith('/api/v1/me/favorites')) {
+      if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
+      const reply = favorites.handle(request.method(), url.pathname, language);
       if (reply?.status === 204) return route.fulfill({ status: 204 });
       if (reply) return route.fulfill(json(reply.body, reply.status));
     }

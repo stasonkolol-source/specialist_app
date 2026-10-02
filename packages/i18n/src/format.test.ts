@@ -105,6 +105,14 @@ describe('даты в Europe/Belgrade', () => {
     expect(cyr.fullDate(new Date('2026-09-27T10:00:00Z'))).toBe('27. септембар 2026.');
   });
 
+  it('месяц отзыва — с заглавной: «Сентябрь · люстры» на S11', () => {
+    expect(ru.month(new Date('2026-09-27T10:00:00Z'))).toBe('Сентябрь');
+    expect(lat.month(new Date('2026-09-27T10:00:00Z'))).toBe('Septembar');
+    expect(cyr.month(new Date('2026-09-27T10:00:00Z'))).toBe('Септембар');
+    // 23:30 UTC 30.09 — уже октябрь в Белграде
+    expect(ru.month(new Date('2026-09-30T23:30:00Z'))).toBe('Октябрь');
+  });
+
   it('«сегодня в 19:00»', () => {
     expect(ru.calendar(new Date('2026-09-27T17:00:00Z'), now)).toBe(nb('сегодня в_19:00'));
     expect(lat.calendar(new Date('2026-09-27T17:00:00Z'), now)).toBe(nb('danas u_19:00'));

@@ -2,6 +2,8 @@
 // Ответы существующих эндпоинтов — типами api-client; данные экранов, для которых API ещё нет
 // (специалисты, заявки, отклики), — формой из SPEC: шаги этапа 1 заменят их моделями OpenAPI.
 import type {
+  CardReviewOut,
+  CardReviewsOut,
   CardServiceOut,
   CardServicesOut,
   CardWorkOut,
@@ -616,6 +618,46 @@ export const CARD_WORKS: CardWorkOut[] = [
   };
 }); // prettier-ignore
 
+/** Отзывы артборда S11 (ответ специалиста — 7.3): услуги — категории каталога на языке запроса. */
+export function cardReviewsFor(locale: string | null): CardReviewOut[] {
+  const review = (
+    n: number,
+    author: string,
+    rating: number,
+    category: string,
+    publishedAt: string,
+    body: string,
+  ): CardReviewOut => ({
+    id: `0199ee00-0000-7000-8000-00000000000${n}`,
+    kind: 'deal',
+    author_name: author,
+    rating,
+    body,
+    category: { id: CATEGORY_IDS[category] ?? 0, name: categoryName(category, locale) },
+    published_at: publishedAt,
+  });
+  return [
+    review(1, 'Ирина С.', 5, 'chandeliers', '2026-09-24T15:00:00Z', 'Повесил две люстры и заменил розетку. Пришёл вовремя, всё аккуратно, убрал за собой.'),
+    review(2, 'Павел Н.', 5, 'electrical', '2026-08-28T12:00:00Z', 'Быстро нашёл, почему выбивает автомат, и заменил его. Всё объяснил по-русски.'),
+    review(3, 'Светлана Б.', 4, 'chandeliers', '2026-08-12T09:00:00Z', 'Люстру повесил хорошо, но опоздал на полчаса — правда, предупредил заранее.'),
+  ];
+} // prettier-ignore
+
+/** GET /specialists/{id}/reviews артборда S11: 37 отзывов, 35 — на пять звёзд. */
+export function cardRatingFor(locale: string | null): CardReviewsOut {
+  return {
+    summary: {
+      rating: 4.9,
+      count: 37,
+      is_new: false,
+      distribution: [0, 0, 1, 1, 35],
+      criteria: { quality: 4.9, punctuality: 4.8, communication: 5.0, price: 4.8 },
+    },
+    items: cardReviewsFor(locale),
+    next_cursor: null,
+  };
+}
+
 /** GET /specialists/{id} артборда S08: «Сегодня до» — `availableUntil`, по умолчанию через 3 часа. */
 export function specialistCardFor(
   locale: string | null,
@@ -653,6 +695,7 @@ export function specialistCardFor(
     services_count: CARD_SERVICES.length,
     works: CARD_WORKS.slice(0, 3),
     works_count: CARD_WORKS.length,
+    reviews: cardReviewsFor(locale).slice(0, 1),
     published_at: '2026-09-20T10:00:00Z',
   };
 }
@@ -684,6 +727,7 @@ export function plainCardFor(card: SpecialistCardOut): SpecialistProfileOut {
     services_count: 0,
     works: [],
     works_count: 0,
+    reviews: [],
     published_at: null,
   };
 }
@@ -702,7 +746,7 @@ export function cardServicesFor(locale: string | null): CardServicesOut {
 
 export const CARD_WORKS_OUT: CardWorksOut = { items: CARD_WORKS };
 
-const PROFILE_PATH = /^\/api\/v1\/specialists\/([^/]+)(\/services|\/portfolio)?$/;
+const PROFILE_PATH = /^\/api\/v1\/specialists\/([^/]+)(\/services|\/portfolio|\/reviews)?$/;
 
 const notFound = {
   type: 'about:blank',
@@ -731,6 +775,20 @@ export function cardReply(
     return { status: 200, body: full ? cardServicesFor(locale) : { items: [], categories: [] } };
   }
   if (page === '/portfolio') return { status: 200, body: full ? CARD_WORKS_OUT : { items: [] } };
+  if (page === '/reviews') {
+    const empty: CardReviewsOut = {
+      summary: {
+        rating: null,
+        count: 0,
+        is_new: true,
+        distribution: [0, 0, 0, 0, 0],
+        criteria: {},
+      },
+      items: [],
+      next_cursor: null,
+    };
+    return { status: 200, body: full ? cardRatingFor(locale) : empty };
+  }
   const card = full ? specialistCardFor(locale, availableUntil) : plainCardFor(search!);
   return { status: 200, body: card };
 }

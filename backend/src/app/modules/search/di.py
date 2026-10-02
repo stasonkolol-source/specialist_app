@@ -4,6 +4,7 @@ from dishka import Provider, Scope, provide
 from prometheus_client import CollectorRegistry
 
 from app.modules.search.application.ports import (
+    Favorites,
     IndexMetrics,
     PendingProfiles,
     QueryLog,
@@ -11,13 +12,18 @@ from app.modules.search.application.ports import (
     SpecialistSearch,
 )
 from app.modules.search.application.projection import SpecialistProjection
+from app.modules.search.application.use_cases.add_favorite import AddFavorite
 from app.modules.search.application.use_cases.count_by_category import CountByCategory
 from app.modules.search.application.use_cases.count_specialists import CountSpecialists
 from app.modules.search.application.use_cases.flush_index import FlushIndex
+from app.modules.search.application.use_cases.forget_favorites import ForgetFavorites
+from app.modules.search.application.use_cases.list_favorites import ListFavorites
 from app.modules.search.application.use_cases.mark_profiles import MarkProfiles
 from app.modules.search.application.use_cases.reconcile_index import ReconcileIndex
+from app.modules.search.application.use_cases.remove_favorite import RemoveFavorite
 from app.modules.search.application.use_cases.search_specialists import SearchSpecialists
 from app.modules.search.application.use_cases.suggest_categories import SuggestCategories
+from app.modules.search.infrastructure.favorites import SqlFavorites
 from app.modules.search.infrastructure.index import SqlSpecialistIndex
 from app.modules.search.infrastructure.metrics import PrometheusIndexMetrics
 from app.modules.search.infrastructure.pending import SqlPendingProfiles
@@ -46,3 +52,8 @@ class SearchProvider(Provider):
     suggest_categories = provide(SuggestCategories)
     count_specialists = provide(CountSpecialists)
     count_by_category = provide(CountByCategory)
+    favorites = provide(SqlFavorites, provides=Favorites)
+    add_favorite = provide(AddFavorite)
+    remove_favorite = provide(RemoveFavorite)
+    list_favorites = provide(ListFavorites)
+    forget_favorites = provide(ForgetFavorites)

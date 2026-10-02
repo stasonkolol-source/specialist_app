@@ -5,6 +5,7 @@
 - `search.flush_index` — пересобрать отмеченные пачкой (одна ждущая задача на всех).
 - `search.reindex_profiles` — отметить профили позже: конец срочной санкции автора.
 - `search.reconcile_index` — ночью: сверка read-model с источником.
+- `search.forget_favorites` — UserDeleted: избранное удалённого аккаунта (4.6).
 """
 
 import structlog
@@ -12,6 +13,7 @@ from dishka import FromDishka
 
 from app.modules.search.application.ports import (
     FLUSH_INDEX,
+    FORGET_FAVORITES,
     ON_AVAILABILITY,
     ON_CATALOG,
     ON_MEDIA_READY,
@@ -28,6 +30,10 @@ from app.modules.search.application.ports import (
     ReindexPayload,
 )
 from app.modules.search.application.use_cases.flush_index import FlushIndex, FlushIndexCommand
+from app.modules.search.application.use_cases.forget_favorites import (
+    ForgetFavorites,
+    ForgetFavoritesCommand,
+)
 from app.modules.search.application.use_cases.mark_profiles import (
     MarkProfiles,
     MarkProfilesCommand,
@@ -119,6 +125,11 @@ async def on_user_lifted(event: UserRestrictionsLifted, mark: FromDishka[MarkPro
 @subscriber(UserDeleted, ON_USER_DELETED)
 async def on_user_deleted(event: UserDeleted, mark: FromDishka[MarkProfiles]) -> None:
     await _user(mark, event)
+
+
+@subscriber(UserDeleted, FORGET_FAVORITES)
+async def forget_favorites(event: UserDeleted, forget: FromDishka[ForgetFavorites]) -> None:
+    await forget(ForgetFavoritesCommand(user_id=event.user_id))
 
 
 @subscriber(CatalogChanged, ON_CATALOG)

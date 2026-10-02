@@ -53,21 +53,21 @@
   },
   "time": {
     "justNow": "только что",
-    "minutesAgo": "{count}\u00A0мин назад",
-    "hoursAgo": "{count}\u00A0ч назад",
+    "minutesAgo": "{count} мин назад",
+    "hoursAgo": "{count} ч назад",
     "yesterday": "вчера",
     "daysAgo": "{count, plural, one {# день} few {# дня} many {# дней} other {# дня}} назад",
     "today": "сегодня",
     "tomorrow": "завтра",
-    "dayAt": "{day} в\u00A0{time}"
+    "dayAt": "{day} в {time}"
   },
   "distance": {
-    "km": "≈\u00A0{value}\u00A0км",
-    "m": "≈\u00A0{value}\u00A0м"
+    "km": "≈ {value} км",
+    "m": "≈ {value} м"
   },
   "price": {
-    "from": "от\u00A0{amount}",
-    "upTo": "до\u00A0{amount}",
+    "from": "от {amount}",
+    "upTo": "до {amount}",
     "negotiable": "договорная",
     "perUnit": {
       "work": "{price}",
@@ -89,9 +89,9 @@
     "km": "за км"
   },
   "budget": {
-    "upTo": "до\u00A0{max}",
-    "range": "{min}–{max}\u00A0тыс.",
-    "over": "{min}\u00A0тыс.+"
+    "upTo": "до {max}",
+    "range": "{min}–{max} тыс.",
+    "over": "{min} тыс.+"
   },
   "rating": {
     "new": "Новый специалист",
@@ -215,6 +215,8 @@
     "signedOutTitle": "Откройте в Telegram",
     "signedOutText": "Профиль доступен в мини-приложении «{appName}» в Telegram. Если оно уже открыто — закройте его и откройте снова",
     "support": "Поддержка",
-    "rules": "Правила площадки"
+    "rules": "Правила площадки",
+    "activity": "Моя активность",
+    "favorites": "Избранное"
   }
 }

@@ -1,0 +1,44 @@
+// Отзыв по сделке на S08 и S11 (DEVELOPMENT_PLAN 4.6): автор «Ирина С.», месяц и услуга, звёзды,
+// текст и «Сделка в «Соседях»». Ответ специалиста — с 7.3, «Пожаловаться» — 4.7.
+import type { CardReviewOut } from '@sosed/api-client';
+import { useFormat, useTranslation } from '@sosed/i18n';
+import { Avatar, Badge, Card, Stars, Text } from '@sosed/ui-web';
+
+export function ReviewCard({ review }: { review: CardReviewOut }) {
+  const { t } = useTranslation('catalog');
+  const common = useTranslation().t;
+  const format = useFormat();
+  const month = format.month(new Date(review.published_at));
+  return (
+    <Card as="article" tight>
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex items-center gap-2.5">
+          <Avatar name={review.author_name} size="sm" />
+          <span className="flex flex-col">
+            <span className="font-semibold">{review.author_name}</span>
+            <Text as="span" variant="cap">
+              {review.category ? `${month} · ${review.category.name}` : month}
+            </Text>
+          </span>
+        </span>
+        <Stars
+          value={review.rating}
+          label={t('reviews.rating', { rating: review.rating })}
+          starLabel={(n) => common('rating.star', { count: n })}
+        />
+      </div>
+      {review.body && (
+        <Text variant="sm" className="whitespace-pre-line">
+          {review.body}
+        </Text>
+      )}
+      {review.kind === 'deal' && (
+        <span className="self-start">
+          <Badge tone="ok" icon="check">
+            {t('reviews.viaDeal')}
+          </Badge>
+        </span>
+      )}
+    </Card>
+  );
+}

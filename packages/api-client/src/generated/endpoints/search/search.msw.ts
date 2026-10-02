@@ -11,6 +11,7 @@ import type { RequestHandlerOptions } from 'msw';
 
 import type {
   CategoryCountsOut,
+  FavoritesOut,
   SpecialistCountOut,
   SpecialistPageOut,
   SuggestOut,
@@ -118,6 +119,57 @@ export const getSearchCountByCategoryResponseMock = (
   ...overrideResponse,
 });
 
+export const getSearchListFavoritesResponseMock = (
+  overrideResponse: Partial<Extract<FavoritesOut, object>> = {},
+): FavoritesOut => ({
+  items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    profile_id: faker.string.uuid(),
+    display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    headline: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    avatar: faker.helpers.arrayElement([
+      {
+        url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        width: faker.number.int(),
+        height: faker.number.int(),
+        placeholder: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+      },
+      null,
+    ]),
+    district: faker.helpers.arrayElement([
+      { id: faker.number.int(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+      null,
+    ]),
+    distance_m: faker.helpers.arrayElement([faker.number.int(), null]),
+    languages: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    category_ids: Array.from(
+      { length: faker.number.int({ min: 1, max: 10 }) },
+      (_, i) => i + 1,
+    ).map(() => faker.number.int()),
+    price_from: faker.helpers.arrayElement([faker.number.int(), null]),
+    negotiable: faker.datatype.boolean(),
+    rating: faker.helpers.arrayElement([faker.number.float({ fractionDigits: 2 }), null]),
+    rating_count: faker.number.int(),
+    is_new: faker.datatype.boolean(),
+    available_until: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + 'Z',
+      null,
+    ]),
+    badges: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+  })),
+  ...overrideResponse,
+});
+
 export const getSearchListSpecialistsMockHandler = (
   overrideResponse?:
     | SpecialistPageOut
@@ -211,9 +263,72 @@ export const getSearchCountByCategoryMockHandler = (
     options,
   );
 };
+
+export const getSearchListFavoritesMockHandler = (
+  overrideResponse?:
+    | FavoritesOut
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<FavoritesOut> | FavoritesOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/me/favorites',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSearchListFavoritesResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getSearchAddFavoriteMockHandler = (
+  overrideResponse?:
+    void | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    '*/api/v1/me/favorites/profile/:profileId',
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      if (typeof overrideResponse === 'function') {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
+export const getSearchRemoveFavoriteMockHandler = (
+  overrideResponse?:
+    void | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    '*/api/v1/me/favorites/profile/:profileId',
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === 'function') {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
 export const getSearchMock = () => [
   getSearchListSpecialistsMockHandler(),
   getSearchSuggestMockHandler(),
   getSearchCountSpecialistsMockHandler(),
   getSearchCountByCategoryMockHandler(),
+  getSearchListFavoritesMockHandler(),
+  getSearchAddFavoriteMockHandler(),
+  getSearchRemoveFavoriteMockHandler(),
 ];
