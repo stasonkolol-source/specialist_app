@@ -77,7 +77,7 @@ class InitDataVerifier:
         expected = hmac.new(
             self._secret, data_check_string(fields).encode(), hashlib.sha256
         ).hexdigest()
-        if not hmac.compare_digest(expected, received.lower()):
+        if not received.isascii() or not hmac.compare_digest(expected, received.lower()):
             raise InvalidInitDataError
         auth_date = _auth_date(fields.get("auth_date"))
         now = self._clock.now()
