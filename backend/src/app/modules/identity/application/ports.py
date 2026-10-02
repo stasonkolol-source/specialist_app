@@ -1,6 +1,6 @@
 """Порты модуля identity (ADR-0020 §3, §5)."""
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from datetime import datetime
 from typing import Final, Protocol
 
@@ -167,8 +167,9 @@ class RestrictionRepository(Protocol):
         """UserNotFoundError — пользователя нет. Нужен активный UoW."""
         ...
 
-    async def lift_for_case(self, case_id: CaseId, *, now: datetime) -> int:
-        """Снять неснятые санкции кейса (`lifted_at`). Сколько снято. Нужен активный UoW."""
+    async def lift_for_case(self, case_id: CaseId, *, now: datetime) -> list[UserId]:
+        """Снять неснятые санкции кейса (`lifted_at`): пользователь каждой снятой (по одному на
+        санкцию). Нужен активный UoW."""
         ...
 
 
@@ -191,6 +192,16 @@ class IdentityQuery(Protocol):
 
     async def restrictions(self, user_id: UserId, now: datetime) -> list[Restriction]:
         """Неснятые санкции, которые действуют сейчас или начнутся позже."""
+        ...
+
+    async def deleted_among(self, user_ids: Collection[UserId]) -> frozenset[UserId]:
+        """Кто из пользователей удалён (или его нет)."""
+        ...
+
+    async def restrictions_of(
+        self, user_ids: Collection[UserId], now: datetime
+    ) -> dict[UserId, list[Restriction]]:
+        """Неснятые санкции пользователей, которые действуют сейчас или начнутся позже."""
         ...
 
     async def consents(self, user_id: UserId) -> list[Consent]:

@@ -1,6 +1,6 @@
 """Фейки фасадов и портов для тестов moderation (ADR-0020 §11)."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
@@ -90,6 +90,11 @@ class FakeIdentity:
 
     async def record_violation(self, user_id: UserId) -> None:
         self.violations.append(user_id)
+
+    async def hidden_from_search(
+        self, user_ids: Collection[UserId]
+    ) -> dict[UserId, datetime | None]:
+        raise NotImplementedError
 
 
 @dataclass

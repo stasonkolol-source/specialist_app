@@ -110,6 +110,14 @@ class IdentityApi(Protocol):
         вызывающего: уровень доверия — 0 на 14 дней. UserNotFoundError — нет пользователя."""
         ...
 
+    async def hidden_from_search(
+        self, user_ids: Collection[UserId]
+    ) -> dict[UserId, datetime | None]:
+        """Кого из пользователей не показывать в поиске (4.1): удалённых и тех, на ком
+        действует приостановка, бан или теневой бан. Значение — когда человек снова станет
+        виден (конец санкции); None — без срока. Остальных в ответе нет."""
+        ...
+
 
 class DeletionHold(Protocol):
     """Legal hold удаления аккаунта (ARCHITECTURE §7.10): удаление ждёт решения открытых кейсов

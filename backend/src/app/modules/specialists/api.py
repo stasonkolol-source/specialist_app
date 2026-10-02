@@ -4,12 +4,44 @@
 профиль через адаптер цели: читает текст и публикует или возвращает на правки.
 """
 
+from collections.abc import Collection
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
 from app.modules.specialists.errors import ProfileNotFoundError as ProfileNotFoundError
-from app.platform.kernel.ids import UserId
+from app.platform.kernel.geo import GeoPoint
+from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, UserId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ProfileForIndex:
+    """Профиль для read-model поиска (search, 4.1): всё, что видит выдача, одним объектом."""
+
+    id: UUID
+    user_id: UserId
+    kind: str
+    status: str
+    listed_in_catalog: bool
+    display_name: str
+    headline: str | None
+    about: str | None
+    languages: tuple[str, ...]
+    city_id: CityId
+    area_ids: tuple[DistrictId, ...]
+    """Районы выезда по порядку: первый — основной."""
+    base_point: GeoPoint | None
+    """Точная база — только для фильтра «выезжает ко мне», наружу не отдаётся."""
+    base_point_public: GeoPoint | None
+    travel_radius_km: int | None
+    work_modes: tuple[str, ...]
+    category_ids: tuple[CategoryId, ...]
+    """Категории по порядку: первая — основная."""
+    available_until: datetime | None
+    avatar_media_id: MediaId | None
+    published_at: datetime | None
+    updated_at: datetime
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -76,4 +108,12 @@ class SpecialistsApi(Protocol):
     async def reject_profile(self, profile_id: UUID, *, reason_code: str) -> None:
         """Нарушение — в транзакции вызывающего: ждавший проверки возвращается на правки,
         опубликованный приостанавливается."""
+        ...
+
+    async def profiles_for_index(self, profile_ids: Collection[UUID]) -> list[ProfileForIndex]:
+        """Профили для поиска в любом статусе (решает вызывающий); удалённых нет."""
+        ...
+
+    async def published_profile_ids(self, *, after: UUID | None, limit: int) -> list[UUID]:
+        """Опубликованные профили по id после `after` — сверка индекса поиска."""
         ...

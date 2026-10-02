@@ -1,5 +1,6 @@
 """Реализация IdentityApi для других модулей (ADR-0020 §6)."""
 
+from collections.abc import Collection
 from datetime import datetime
 
 from app.modules.identity.api import (
@@ -16,9 +17,14 @@ from app.modules.identity.application.ports import (
     UserRepository,
 )
 from app.modules.identity.application.trust import TrustRecalculation
-from app.modules.identity.domain.restriction import Restriction, RestrictionSource
+from app.modules.identity.domain.restriction import (
+    HIDDEN_FROM_OTHERS,
+    Restriction,
+    RestrictionSource,
+    blocking,
+)
 from app.modules.identity.domain.user import User, UserStatus
-from app.platform.contracts.events.identity import UserRestricted
+from app.platform.contracts.events.identity import UserRestricted, UserRestrictionsLifted
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.ids import CaseId, RestrictionId, UserId
@@ -85,7 +91,28 @@ class IdentityFacade(IdentityApi):
 
     async def lift_case_restrictions(self, case_id: CaseId) -> int:
         self._uow.require_active()
-        return await self._restrictions.lift_for_case(case_id, now=self._clock.now())
+        now = self._clock.now()
+        lifted = await self._restrictions.lift_for_case(case_id, now=now)
+        for user_id in dict.fromkeys(lifted):
+            self._uow.add_event(UserRestrictionsLifted(user_id=user_id, occurred_at=now))
+        return len(lifted)
+
+    async def hidden_from_search(
+        self, user_ids: Collection[UserId]
+    ) -> dict[UserId, datetime | None]:
+        if not user_ids:
+            return {}
+        now = self._clock.now()
+        hidden: dict[UserId, datetime | None] = dict.fromkeys(
+            await self._query.deleted_among(user_ids)
+        )
+        for user_id, restrictions in (await self._query.restrictions_of(user_ids, now)).items():
+            if user_id in hidden:
+                continue
+            found = blocking(restrictions, HIDDEN_FROM_OTHERS, now)
+            if found is not None:
+                hidden[user_id] = found.ends_at
+        return hidden
 
     async def record_violation(self, user_id: UserId) -> None:
         self._uow.require_active()

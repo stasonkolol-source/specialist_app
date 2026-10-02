@@ -1820,6 +1820,7 @@ CREATE INDEX ON billing.ledger_entries (user_id, id);
 -- Read-model каталога: одна строка на опубликованный профиль, обновляется по событиям за секунды
 CREATE TABLE search.specialist_index (
   profile_id         uuid PRIMARY KEY,
+  user_id            uuid NOT NULL,                 -- автор: санкция или удаление аккаунта находят его строки
   kind               text NOT NULL,
   is_listed          boolean NOT NULL,
   city_id            int NOT NULL,
@@ -1844,7 +1845,8 @@ CREATE TABLE search.specialist_index (
   name_norm          text,                          -- search_norm(display_name) для поиска по имени
   search_vector      tsvector NOT NULL,
   card               jsonb NOT NULL,                -- готовая карточка для выдачи (имя, фото, headline) — без JOIN-ов
-  updated_at         timestamptz NOT NULL DEFAULT now()
+  source_updated_at  timestamptz NOT NULL,          -- когда менялся профиль-источник
+  indexed_at         timestamptz NOT NULL DEFAULT now()
 );
 -- Набор индексов проверен в лаборатории (docs/research/07-postgres-lab-and-infra.md §3.4)
 CREATE INDEX ON search.specialist_index USING gin (category_ids) WHERE is_listed;
@@ -1860,6 +1862,12 @@ CREATE TABLE search.specialist_category_prices (   -- фильтр «цена д
   category_id int NOT NULL,
   price_from  bigint NOT NULL,
   PRIMARY KEY (category_id, profile_id)
+);
+
+CREATE TABLE search.pending_profiles (             -- очередь пересборки read-model (4.1)
+  profile_id  uuid PRIMARY KEY,
+  occurred_at timestamptz,                         -- самое раннее событие (метрика лага); NULL — плановая пересборка
+  marked_at   timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE search.favorites (                    -- «Мои мастера» и сохранённые заявки
@@ -2558,6 +2566,8 @@ sequenceDiagram
 | Матчинг новой заявки с подписками | `jobs.alerts` | GIN по массивам, GiST по `area` | 0,9 мс на 317 подписчиков из 74k |
 | Автодополнение и «возможно, вы имели в виду» | `catalog.search_terms` | btree `norm` (префикс), GiST trgm | 0,007–0,2 мс |
 
+**Как обновляется read-model (4.1).** Подписчики событий профиля, прайса, каталога, санкций, удаления аккаунта и готового фото профиля только отмечают профили в `search.pending_profiles`: строка на профиль, в ней самое раннее событие для метрики лага. Пересобирает одна задача `search.flush_index` на всех (dedup: пока она ждёт, вторая не ставится). Пачка до 200 профилей берётся под `SKIP LOCKED`; строки собираются через фасады модулей ниже по DAG несколькими запросами на пачку; upsert, удаление лишних строк и снятие отметок идут одной транзакцией. В индексе только опубликованные профили, чей автор не удалён и не скрыт санкцией (приостановка, бан, теневой бан). У срочной санкции пересборка ставится на её конец (`search.reindex_profiles`). Ночная `search.reconcile_index` отмечает все опубликованные профили и все строки индекса; `cli reindex --all` делает то же и пересобирает в процессе CLI. Лаг — гистограмма `search_index_lag_seconds`; бенчмарк 1 000 событий разом — p95 4,7 с. Фото в карточке — `media_id` и плейсхолдер: ссылку с коротким сроком строит выдача (4.2). Рейтинг (7.2), бейджи и фильтр «проверенные» (v1) пока пустые.
+
 ### 9.2. Конвейер запроса каталога
 
 ```mermaid
@@ -2615,7 +2625,7 @@ CREATE FUNCTION public.q_all(q text) RETURNS tsquery LANGUAGE sql IMMUTABLE PARA
 | A | Имя; названия категорий профиля на ru, sr-Latn, en |
 | B | Синонимы категорий из таксономии |
 | C | Заголовки услуг прайса |
-| D | Текст «о себе» (конфигурация по `content_lang`; сербский предварительно проходит `sr_cyr2lat`) |
+| D | Текст «о себе» (конфигурация по `content_lang`; сербский предварительно проходит `sr_cyr2lat`). Пока `content_lang` не заполняется, «о себе» и прайс идут и в русскую, и в сербскую конфигурацию |
 
 Обогащение названиями категорий поднимает полноту межъязыкового поиска с ~52% до 100% (лаборатория, запрос «электрик»).
 

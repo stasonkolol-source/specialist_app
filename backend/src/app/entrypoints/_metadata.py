@@ -15,6 +15,7 @@ from app.modules.media.infrastructure.models import metadata as media
 from app.modules.moderation.infrastructure.models import metadata as moderation
 from app.modules.notifications.infrastructure.models import metadata as notifications
 from app.modules.pricing.infrastructure.models import metadata as pricing
+from app.modules.search.infrastructure.models import metadata as search
 from app.modules.specialists.infrastructure.models import metadata as specialists
 from app.platform.db.platform_tables import metadata as platform
 
@@ -31,4 +32,5 @@ def module_metadatas() -> list[MetaData]:
         moderation,
         specialists,
         pricing,
+        search,
     ]

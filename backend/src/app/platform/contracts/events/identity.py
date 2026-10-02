@@ -105,6 +105,17 @@ class UserRestricted(DomainEvent):
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class UserRestrictionsLifted(DomainEvent):
+    """Санкции пользователя сняты досрочно: модератор одобрил то, что автопроверка заморозила
+    (кейс), позже — снятие в админке. Подписчик — поиск (4.1): профиль снова в выдаче, если
+    других скрывающих санкций нет. Санкция, истёкшая по сроку, события не даёт — её конец
+    подписчик знает заранее из `UserRestricted.until`."""
+
+    event_type = "identity.UserRestrictionsLifted"
+    user_id: UserId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class OnboardingCompleted(DomainEvent):
     """Пользователь впервые принял правила площадки и политику (S02c) — онбординг пройден.
 

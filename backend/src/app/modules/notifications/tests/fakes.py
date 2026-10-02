@@ -1,5 +1,6 @@
 """Фейки фасадов других модулей для тестов notifications (ADR-0020 §11)."""
 
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -50,4 +51,9 @@ class FakeIdentity:
         return frozenset()
 
     async def lift_case_restrictions(self, case_id: CaseId) -> int:
+        raise NotImplementedError
+
+    async def hidden_from_search(
+        self, user_ids: Collection[UserId]
+    ) -> dict[UserId, datetime | None]:
         raise NotImplementedError

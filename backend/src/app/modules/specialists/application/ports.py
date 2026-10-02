@@ -1,9 +1,11 @@
 """Порты модуля specialists (ADR-0020 §3, §5)."""
 
+from collections.abc import Collection
 from datetime import datetime
 from typing import Final, Protocol
 from uuid import UUID
 
+from app.modules.specialists.api import ProfileForIndex
 from app.modules.specialists.application.dto import ProfileView
 from app.modules.specialists.domain.portfolio import PortfolioItem
 from app.modules.specialists.domain.profile import Profile, ProfileId
@@ -38,6 +40,14 @@ class ProfileRepository(Protocol):
 class ProfileQuery(Protocol):
     async def of_user(self, user_id: UserId) -> ProfileView | None:
         """Свой профиль для кабинета (GET /me/profile)."""
+        ...
+
+    async def for_index(self, profile_ids: Collection[UUID]) -> list[ProfileForIndex]:
+        """Неудалённые профили для поиска — пачкой."""
+        ...
+
+    async def published_ids(self, *, after: UUID | None, limit: int) -> list[UUID]:
+        """Опубликованные профили по id после `after`."""
         ...
 
 

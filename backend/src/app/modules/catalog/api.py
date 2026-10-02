@@ -2,7 +2,8 @@
 
 Другие модули импортируют из catalog только этот файл: jobs и specialists проверяют
 категорию и берут её `path` для `category_path` (фильтр «с подкатегориями» без рекурсии,
-§7.5), moderation — `risk_level`, jobs — `jobs_enabled` и `max_responses`.
+§7.5), moderation — `risk_level`, jobs — `jobs_enabled` и `max_responses`, search — названия
+и словарь поиска для документа специалиста.
 """
 
 from collections.abc import Collection
@@ -11,7 +12,7 @@ from enum import IntEnum
 from typing import Protocol
 
 from app.platform.kernel.ids import CategoryId
-from app.platform.kernel.localized import LocalizedText
+from app.platform.kernel.localized import Locale, LocalizedText
 
 
 class RiskLevel(IntEnum):
@@ -40,6 +41,14 @@ class CategorySummary:
     """Лимит откликов на заявку в категории."""
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class SearchTerm:
+    """Слово словаря поиска категории (`catalog.search_terms`): название, синоним или тег."""
+
+    lang: Locale
+    term: str
+
+
 class CatalogApi(Protocol):
     async def category(self, category_id: CategoryId) -> CategorySummary | None:
         """Категория по id, в том числе выключенная: решение за вызывающим."""
@@ -47,4 +56,11 @@ class CatalogApi(Protocol):
 
     async def categories(self, category_ids: Collection[CategoryId]) -> list[CategorySummary]:
         """Несколько категорий одним запросом (категории профиля); порядок — по path."""
+        ...
+
+    async def search_terms(
+        self, category_ids: Collection[CategoryId]
+    ) -> dict[CategoryId, tuple[SearchTerm, ...]]:
+        """Словарь поиска категорий: названия, синонимы и теги на всех языках — для документа
+        поиска специалиста (search, 4.1). Категория без слов в ответ не попадает."""
         ...
