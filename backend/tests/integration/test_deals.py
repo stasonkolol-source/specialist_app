@@ -3,7 +3,8 @@
 выбран», заявка «в работе», адрес видит только выбранный исполнитель. «Работа выполнена» от
 обеих сторон завершает сделку и заявку; отмена с причиной снова открывает заявку, прежние
 кандидаты ждут решения. «В избранные», «отклонить», подтверждение «Договорились» и списки
-сделок. Данные коммитятся.
+сделок. Третья завершённая сделка поднимает обеим сторонам уровень доверия до 2; удалённый
+аккаунт отменяет свои сделки. Данные коммитятся.
 """
 
 from collections.abc import AsyncIterator
@@ -19,12 +20,20 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.entrypoints._wiring import make_worker_container, module_routers
+from app.modules.deals.application.use_cases.cancel_user_deals import (
+    CancelUserDeals,
+    CancelUserDealsCommand,
+)
+from app.modules.identity.application.use_cases.record_completed_deal import (
+    RecordCompletedDeal,
+    RecordCompletedDealCommand,
+)
 from app.modules.jobs.application.use_cases.accept_response import (
     AcceptResponse,
     AcceptResponseCommand,
 )
 from app.modules.jobs.domain.response import ResponseId
-from app.platform.kernel.ids import UserId, new_id
+from app.platform.kernel.ids import DealId, UserId, new_id
 from app.platform.settings import Settings
 from tests.plugins.http import HttpApp, bearer, http_app
 from tests.plugins.identity import accept_rules, insert_user
@@ -381,3 +390,73 @@ async def test_my_deals_by_role_and_status(world: World) -> None:
     assert [item["id"] for item in page["items"]] == [second]
     rest = (await world.get(client, f"/me/deals?limit=1&cursor={page['next_cursor']}")).json()
     assert ([item["id"] for item in rest["items"]], rest["next_cursor"]) == ([first], None)
+
+
+async def test_third_completed_deal_verifies_both_sides(
+    world: World, worker: AsyncContainer
+) -> None:
+    client, performer = await world.user(), await world.user()
+    deals = []
+    for _ in range(3):
+        deal_id = await world.accepted(
+            client, await world.response(performer, await world.job(client))
+        )
+        for side in (client, performer):
+            assert (await world.post(side, f"/deals/{deal_id}/complete")).status_code == 200
+        deals.append(deal_id)
+
+    recorded = await run_queued(
+        worker, "identity.record_completed_deal", user_id=client, by="client_id"
+    )
+
+    assert recorded == 3
+    levels = [
+        await world.scalar("SELECT trust_level FROM identity.users WHERE id = :id", id=user)
+        for user in (client, performer)
+    ]
+    assert levels == [2, 2]  # «Новые» аккаунты: уровень даёт только число сделок
+    async with worker() as request:  # повтор задачи — тот же факт, ничего нового
+        again = await (await request.get(RecordCompletedDeal))(
+            RecordCompletedDealCommand(
+                deal_id=DealId(UUID(deals[0])),
+                user_ids=(client, performer),
+                completed_at=datetime.now(UTC),
+            )
+        )
+    assert again == 0
+    facts = await world.scalar(
+        "SELECT count(*) FROM identity.completed_deals WHERE user_id IN (:client, :performer)",
+        client=client,
+        performer=performer,
+    )
+    assert facts == 6
+
+
+async def test_deleted_account_cancels_its_deals(world: World, worker: AsyncContainer) -> None:
+    client, performer = await world.user(), await world.user()
+    job_id = await world.job(client)
+    response_id = await world.response(performer, job_id)
+    deal_id = await world.accepted(client, response_id)
+
+    async with worker() as request:
+        cancelled = await (await request.get(CancelUserDeals))(
+            CancelUserDealsCommand(user_id=performer)
+        )
+
+    assert cancelled == 1
+    engine = await world.app.container.get(AsyncEngine)
+    async with engine.connect() as conn:
+        deal = (
+            await conn.execute(
+                text("SELECT status, cancel_reason, cancelled_by FROM deals.deals WHERE id = :id"),
+                {"id": UUID(deal_id)},
+            )
+        ).one()
+    assert (deal.status, deal.cancel_reason, deal.cancelled_by) == (
+        "cancelled",
+        "account_deleted",
+        None,
+    )
+    assert await run_queued(worker, "jobs.reopen_job", user_id=client, by="client_id") == 1
+    assert (await world.job_row(job_id)).status == "published"
+    assert await world.statuses(job_id) == {response_id: "declined"}

@@ -3,7 +3,7 @@
 from collections.abc import Collection
 from datetime import datetime
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 
 from app.modules.identity.api import TelegramUserView, UserSummary
 from app.modules.identity.application.dto import MeView
@@ -12,6 +12,7 @@ from app.modules.identity.domain.restriction import Restriction
 from app.modules.identity.domain.user import AuthProvider, UserStatus
 from app.modules.identity.infrastructure.models import (
     AuthIdentityRow,
+    CompletedDealRow,
     ConsentRow,
     DeletionRequestRow,
     RestrictionRow,
@@ -142,6 +143,12 @@ class SqlIdentityQuery(SqlQuery):
             )
             for row in rows
         ]
+
+    async def completed_deals(self, user_id: UserId) -> int:
+        row = await self._fetch_one(
+            select(func.count().label("count")).where(CompletedDealRow.user_id == user_id)
+        )
+        return int(row["count"]) if row is not None else 0
 
     async def deleted_among(self, user_ids: Collection[UserId]) -> frozenset[UserId]:
         u = UserRow.__table__.c

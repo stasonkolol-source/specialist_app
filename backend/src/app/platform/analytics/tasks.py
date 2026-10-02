@@ -4,14 +4,19 @@
 аналитики уходит только после commit и не уходит при rollback. Здесь подключаются
 `user_registered` (с источником атрибуции), `onboarding_completed` и `write_access_granted`
 (1.7), `profile_submitted` и `profile_published` (2.8a), `job_published`, `job_closed` и
-`job_expired` (5.1), `response_submitted` (5.4), `invite_sent` и `direct_request_sent` (5.6);
+`job_expired` (5.1), `response_submitted` (5.4), `invite_sent` и `direct_request_sent` (5.6),
+`deal_agreed`, `deal_completed` и `deal_cancelled` (6.1a) — по событию на каждую сторону сделки;
 остальные события подключает шаг своего модуля (таксономия — events.py).
 """
+
+import uuid
+from uuid import UUID
 
 from dishka import FromDishka
 
 from app.platform.analytics.events import EventName, analytics_event
-from app.platform.analytics.port import Analytics
+from app.platform.analytics.port import Analytics, AnalyticsEvent
+from app.platform.contracts.events.deals import DealAgreed, DealCancelled, DealCompleted
 from app.platform.contracts.events.identity import OnboardingCompleted, UserRegistered
 from app.platform.contracts.events.jobs import (
     JobClosed,
@@ -38,6 +43,9 @@ CAPTURE_JOB_CLOSED = TaskRef("analytics.capture_job_closed", JobClosed)
 CAPTURE_JOB_EXPIRED = TaskRef("analytics.capture_job_expired", JobExpired)
 CAPTURE_RESPONSE_SUBMITTED = TaskRef("analytics.capture_response_submitted", ResponseSubmitted)
 CAPTURE_JOB_INVITED = TaskRef("analytics.capture_job_invited", JobInvited)
+CAPTURE_DEAL_AGREED = TaskRef("analytics.capture_deal_agreed", DealAgreed)
+CAPTURE_DEAL_COMPLETED = TaskRef("analytics.capture_deal_completed", DealCompleted)
+CAPTURE_DEAL_CANCELLED = TaskRef("analytics.capture_deal_cancelled", DealCancelled)
 
 
 @subscriber(UserRegistered, CAPTURE_USER_REGISTERED)
@@ -195,3 +203,51 @@ async def capture_job_invited(event: JobInvited, analytics: FromDishka[Analytics
             source_event_id=event.event_id,
         )
     )
+
+
+@subscriber(DealAgreed, CAPTURE_DEAL_AGREED)
+async def capture_deal_agreed(event: DealAgreed, analytics: FromDishka[Analytics]) -> None:
+    for captured in _deal_sides(EventName.DEAL_AGREED, event):
+        await analytics.capture(captured)
+
+
+@subscriber(DealCompleted, CAPTURE_DEAL_COMPLETED)
+async def capture_deal_completed(event: DealCompleted, analytics: FromDishka[Analytics]) -> None:
+    for captured in _deal_sides(EventName.DEAL_COMPLETED, event):
+        await analytics.capture(captured)
+
+
+@subscriber(DealCancelled, CAPTURE_DEAL_CANCELLED)
+async def capture_deal_cancelled(event: DealCancelled, analytics: FromDishka[Analytics]) -> None:
+    for captured in _deal_sides(
+        EventName.DEAL_CANCELLED, event, by=event.cancelled_by, reason=event.reason
+    ):
+        await analytics.capture(captured)
+
+
+def _deal_sides(
+    name: EventName,
+    event: DealAgreed | DealCompleted | DealCancelled,
+    **extra: str,
+) -> list[AnalyticsEvent]:
+    """По событию на каждую сторону сделки: fill rate считается по клиентам, win rate и
+    концентрация — по исполнителям. У копий свои id: повтор задачи не удваивает ни одну."""
+    sides = (("client", event.client_id), ("performer", event.performer_id))
+    category = {"category": event.category_id} if event.category_id is not None else {}
+    return [
+        analytics_event(
+            name,
+            user_id=user_id,
+            occurred_at=event.occurred_at,
+            source_event_id=_side_id(event.event_id, role),
+            role=role,
+            origin=event.origin,
+            **category,
+            **extra,
+        )
+        for role, user_id in sides
+    ]
+
+
+def _side_id(event_id: UUID, role: str) -> UUID:
+    return uuid.uuid5(event_id, role)

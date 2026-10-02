@@ -1,4 +1,4 @@
-"""ORM-модели identity (ARCHITECTURE §7.3, миграции identity_0001–0004).
+"""ORM-модели identity (ARCHITECTURE §7.3, миграции identity_0001–0005).
 
 FK на таблицы других схем (`users.home_city_id` → geo.cities) объявлен только в миграции:
 MetaData модуля не знает чужих таблиц, а ORM-ForeignKey на них не разрешился бы при
@@ -245,3 +245,15 @@ class DeletedIdentityHashRow(Base):
     deleted_at: Mapped[datetime]
     purge_after: Mapped[datetime]
     """deleted_at + 12 месяцев: дальше хэш удаляет platform.retention_sweep (2.12b)."""
+
+
+class CompletedDealRow(Base):
+    """Завершённая сделка стороны (6.1a): из числа таких — уровень доверия 2. Ключ — пара
+    (пользователь, сделка): повтор задачи-подписчика факт не удваивает."""
+
+    __tablename__ = "completed_deals"
+
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    deal_id: Mapped[UUID] = mapped_column(primary_key=True)
+    """deals.deals — модуль выше по DAG: без FK."""
+    completed_at: Mapped[datetime]

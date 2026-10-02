@@ -6,6 +6,7 @@ from app.modules.deals.api import DealsApi
 from app.modules.deals.application.facade import DealsFacade
 from app.modules.deals.application.ports import DealQueries, DealRepository
 from app.modules.deals.application.use_cases.cancel_deal import CancelDeal
+from app.modules.deals.application.use_cases.cancel_user_deals import CancelUserDeals
 from app.modules.deals.application.use_cases.complete_deal import CompleteDeal
 from app.modules.deals.application.use_cases.confirm_deal import ConfirmDeal
 from app.modules.deals.application.use_cases.list_my_deals import ListMyDeals
@@ -28,3 +29,4 @@ class DealsProvider(Provider):
     confirm_deal = provide(ConfirmDeal)
     complete_deal = provide(CompleteDeal)
     cancel_deal = provide(CancelDeal)
+    cancel_user_deals = provide(CancelUserDeals)

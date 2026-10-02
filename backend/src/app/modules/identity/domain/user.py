@@ -262,13 +262,16 @@ class User(VersionedAggregate):
         if self.trust_penalty_at is None or now > self.trust_penalty_at:
             self.trust_penalty_at = now
 
-    def trust_signals(self, *, now: datetime, active_sanctions: int) -> TrustSignals:
-        """Факты identity для пересчёта уровня; сделки добавит 6.1a."""
+    def trust_signals(
+        self, *, now: datetime, active_sanctions: int, completed_deals: int = 0
+    ) -> TrustSignals:
+        """Факты identity для пересчёта уровня."""
         return TrustSignals(
             account_age=now - self.created_at,
             phone_verified=self.phone_verified_at is not None,
             penalized_ago=None if self.trust_penalty_at is None else now - self.trust_penalty_at,
             active_sanctions=active_sanctions,
+            completed_deals=completed_deals,
         )
 
     def identity(self, provider: AuthProvider, subject: str) -> AuthIdentity:

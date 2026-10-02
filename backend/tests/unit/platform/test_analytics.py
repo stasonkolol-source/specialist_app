@@ -12,12 +12,17 @@ import pytest
 from pydantic import SecretStr, ValidationError
 from structlog.testing import capture_logs
 
+from app.modules.deals.domain.deal import DealCancelReason, DealOrigin, DealRole
 from app.modules.growth.domain.attribution import AttributionSource
 from app.modules.identity.domain.user import UserIntent
 from app.modules.jobs.domain.job import CloseReason, Urgency
 from app.modules.notifications.domain.channel import GrantedVia
 from app.platform.analytics.events import (
     CLOSE_REASONS,
+    DEAL_CANCEL_REASONS,
+    DEAL_CANCELLED_BY,
+    DEAL_ORIGINS,
+    DEAL_ROLES,
     ENTRY_POINTS,
     EVENTS,
     INTENTS,
@@ -32,13 +37,18 @@ from app.platform.analytics.fake import LoggingAnalytics
 from app.platform.analytics.port import AnalyticsEvent
 from app.platform.analytics.posthog import PostHogAnalytics
 from app.platform.analytics.tasks import (
+    capture_deal_agreed,
+    capture_deal_cancelled,
+    capture_job_invited,
     capture_onboarding_completed,
     capture_write_access_granted,
 )
+from app.platform.contracts.events.deals import DealAgreed, DealCancelled
 from app.platform.contracts.events.identity import EntryPoint, OnboardingCompleted
+from app.platform.contracts.events.jobs import JobInvited
 from app.platform.contracts.events.notifications import WriteAccessGranted
 from app.platform.kernel.errors import ExternalServiceError, RateLimitedError
-from app.platform.kernel.ids import CityId, UserId, new_id
+from app.platform.kernel.ids import CategoryId, CityId, DealId, UserId, new_id
 from app.platform.settings import AnalyticsSettings
 from app.platform.telegram.deeplinks import LinkSource
 
@@ -90,7 +100,7 @@ def test_taxonomy_lists_exactly_the_events_of_the_plan() -> None:
     assert names == {e.value for e in EventName}
 
 
-def test_wired_events_are_those_of_steps_1_7_2_8a_5_1_and_5_4() -> None:
+def test_wired_events_are_those_of_the_finished_steps() -> None:
     wired = {name: spec.step for name, spec in EVENTS.items() if spec.properties is not None}
     assert wired == {
         EventName.USER_REGISTERED: "1.7",
@@ -102,6 +112,11 @@ def test_wired_events_are_those_of_steps_1_7_2_8a_5_1_and_5_4() -> None:
         EventName.JOB_CLOSED: "5.1",
         EventName.JOB_EXPIRED: "5.1",
         EventName.RESPONSE_SUBMITTED: "5.4",
+        EventName.INVITE_SENT: "5.6",
+        EventName.DIRECT_REQUEST_SENT: "5.6",
+        EventName.DEAL_AGREED: "6.1a",
+        EventName.DEAL_COMPLETED: "6.1a",
+        EventName.DEAL_CANCELLED: "6.1a",
     }
 
 
@@ -112,6 +127,10 @@ def test_closed_lists_match_the_domain() -> None:
     assert {v.value for v in GrantedVia} == WRITE_ACCESS_VIA
     assert {u.value for u in Urgency} == URGENCIES
     assert {r.value for r in CloseReason} == CLOSE_REASONS
+    assert {r.value for r in DealRole} == DEAL_ROLES
+    assert {o.value for o in DealOrigin} == DEAL_ORIGINS
+    assert {r.value for r in DealRole} | {"system"} == DEAL_CANCELLED_BY
+    assert {r.value for r in DealCancelReason} == DEAL_CANCEL_REASONS
 
 
 def registered(**properties: Any) -> AnalyticsEvent:
@@ -171,7 +190,7 @@ def test_city_is_a_reference_id_not_text() -> None:
 def test_declared_but_not_wired_event_is_refused() -> None:
     with pytest.raises(ValueError, match="not wired yet"):
         analytics_event(
-            EventName.INVITE_SENT,
+            EventName.ALERT_CREATED,
             user_id=new_id(),
             occurred_at=NOW,
             source_event_id=new_id(),
@@ -316,7 +335,7 @@ def test_posthog_host_must_be_https() -> None:
         ),
         AnalyticsEvent(name="made_up", distinct_id=new_id(), occurred_at=NOW, event_id=new_id()),
         AnalyticsEvent(
-            name="invite_sent", distinct_id=new_id(), occurred_at=NOW, event_id=new_id()
+            name="alert_created", distinct_id=new_id(), occurred_at=NOW, event_id=new_id()
         ),
     ],
     ids=["pii-property", "unknown-event", "not-wired"],
@@ -364,4 +383,82 @@ async def test_onboarding_and_write_access_handlers_send_their_events() -> None:
         ("onboarding_completed", {"intent": "casual", "city": 7}),
         ("onboarding_completed", {"intent": "unknown"}),
         ("write_access_granted", {"via": "mini_app"}),
+    ]
+
+
+async def test_deal_events_go_to_both_sides_once() -> None:
+    """Сделка — по событию на каждую сторону: fill rate по клиентам, win rate по исполнителям.
+    У копий разные id, а повтор задачи даёт те же — PostHog не удвоит."""
+    fake = LoggingAnalytics()
+    client, performer = UserId(new_id()), UserId(new_id())
+    deal_id = DealId(new_id())
+    agreed = DealAgreed(
+        deal_id=deal_id,
+        client_id=client,
+        performer_id=performer,
+        origin="job_response",
+        job_id=new_id(),
+        response_id=new_id(),
+        category_id=CategoryId(5),
+        occurred_at=NOW,
+    )
+    cancelled = DealCancelled(
+        deal_id=deal_id,
+        client_id=client,
+        performer_id=performer,
+        origin="chat",
+        job_id=None,
+        response_id=None,
+        category_id=None,
+        cancelled_by="performer",
+        reason="no_contact",
+        occurred_at=NOW,
+    )
+
+    await capture_deal_agreed(agreed, fake)
+    await capture_deal_agreed(agreed, fake)  # повтор задачи
+    await capture_deal_cancelled(cancelled, fake)
+
+    events = list(fake.captured)
+    assert [(e.name, e.distinct_id, dict(e.properties)) for e in events] == [
+        ("deal_agreed", client, {"role": "client", "origin": "job_response", "category": 5}),
+        ("deal_agreed", performer, {"role": "performer", "origin": "job_response", "category": 5}),
+        ("deal_agreed", client, {"role": "client", "origin": "job_response", "category": 5}),
+        ("deal_agreed", performer, {"role": "performer", "origin": "job_response", "category": 5}),
+        (
+            "deal_cancelled",
+            client,
+            {"role": "client", "origin": "chat", "by": "performer", "reason": "no_contact"},
+        ),
+        (
+            "deal_cancelled",
+            performer,
+            {"role": "performer", "origin": "chat", "by": "performer", "reason": "no_contact"},
+        ),
+    ]
+    assert events[0].event_id != events[1].event_id
+    assert [events[0].event_id, events[1].event_id] == [events[2].event_id, events[3].event_id]
+
+
+async def test_invites_and_direct_requests_are_captured() -> None:
+    """5.6: приглашение и прямой запрос — без свойств, от клиента."""
+    fake = LoggingAnalytics()
+    client = UserId(new_id())
+
+    for direct in (False, True):
+        await capture_job_invited(
+            JobInvited(
+                job_id=new_id(),
+                client_id=client,
+                profile_id=new_id(),
+                performer_id=UserId(new_id()),
+                direct=direct,
+                occurred_at=NOW,
+            ),
+            fake,
+        )
+
+    assert [(e.name, e.distinct_id) for e in fake.captured] == [
+        ("invite_sent", client),
+        ("direct_request_sent", client),
     ]

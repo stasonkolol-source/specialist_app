@@ -5,7 +5,13 @@ from datetime import timedelta
 from typing import Final
 
 from app.modules.identity.domain.consent import ONE_TICK, Consent, ConsentDocument
-from app.modules.identity.domain.trust import CLEAN_PERIOD, TrustLevel, TrustRule, TrustSignals
+from app.modules.identity.domain.trust import (
+    CLEAN_PERIOD,
+    VERIFIED_DEALS,
+    TrustLevel,
+    TrustRule,
+    TrustSignals,
+)
 from app.modules.identity.errors import (
     LegalVersionOutdatedError,
     LegalVersionsUnavailableError,
@@ -92,6 +98,12 @@ def clean_period_passed(signals: TrustSignals) -> TrustLevel:
     return TrustLevel.BASIC if _clean_for(signals) >= CLEAN_PERIOD else TrustLevel.NEW
 
 
+def deals_completed(signals: TrustSignals) -> TrustLevel:
+    """≥ 3 завершённые сделки → проверенный (ADR-0016 §2). «Без подтверждённых жалоб» держат
+    потолки: санкция и нарушение за 14 дней опускают уровень до 0."""
+    return TrustLevel.VERIFIED if signals.completed_deals >= VERIFIED_DEALS else TrustLevel.NEW
+
+
 def no_active_sanctions(signals: TrustSignals) -> TrustLevel:
     """Пока действует санкция, уровень — 0: лимиты и модерация как у нового аккаунта."""
     return TrustLevel.NEW if signals.active_sanctions else TrustLevel.TRUSTED
@@ -103,9 +115,9 @@ def no_recent_violation(signals: TrustSignals) -> TrustLevel:
     return TrustLevel.NEW if recent else TrustLevel.TRUSTED
 
 
-PROMOTIONS: Final[Sequence[TrustRule]] = (clean_period_passed,)
-"""Правила повышения (§13.2): 14 дней без жалоб → 1 (2.5a); телефон → 1 (2.9),
-3 сделки без жалоб → 2 (6.1a) — в своих шагах."""
+PROMOTIONS: Final[Sequence[TrustRule]] = (clean_period_passed, deals_completed)
+"""Правила повышения (§13.2): 14 дней без жалоб → 1 (2.5a), 3 завершённые сделки → 2 (6.1a);
+телефон → 1 — с подтверждением телефона (v1)."""
 
 CAPS: Final[Sequence[TrustRule]] = (no_active_sanctions, no_recent_violation)
 """Потолки: действующая санкция и нарушение за 14 дней опускают уровень до 0 (2.5a)."""

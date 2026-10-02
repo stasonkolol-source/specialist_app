@@ -11,8 +11,9 @@ from app.modules.identity.domain.deletion import DeletionRequest, HashKind
 from app.modules.identity.domain.restriction import Restriction, RestrictionSource
 from app.modules.identity.domain.session import Session, SessionId
 from app.modules.identity.domain.user import AuthProvider, User
+from app.platform.contracts.events.deals import DealCompleted
 from app.platform.contracts.events.identity import UserRestricted
-from app.platform.kernel.ids import CaseId, RestrictionId, UserId
+from app.platform.kernel.ids import CaseId, DealId, RestrictionId, UserId
 from app.platform.kernel.principal import Platform, Principal, Role
 from app.platform.queue.port import TaskRef
 
@@ -208,6 +209,16 @@ class IdentityQuery(Protocol):
         """Действующие (не отозванные) согласия."""
         ...
 
+    async def completed_deals(self, user_id: UserId) -> int:
+        """Сколько сделок пользователь завершил стороной — уровень доверия 2 (6.1a)."""
+        ...
+
+
+class CompletedDeals(Protocol):
+    async def record(self, user_id: UserId, deal_id: DealId, at: datetime) -> bool:
+        """Запомнить завершённую сделку стороны; уже была (повтор задачи) — False."""
+        ...
+
 
 class AccessTokenIssuer(Protocol):
     """Выпуск access JWT (platform/security/jwt.py: AccessTokens)."""
@@ -222,4 +233,6 @@ class SessionRevocations(Protocol):
 
 
 REVOKE_RESTRICTED_SESSIONS: Final = TaskRef("identity.revoke_restricted_sessions", UserRestricted)
+RECORD_COMPLETED_DEAL: Final = TaskRef("identity.record_completed_deal", DealCompleted)
+"""Сделка завершена — обеим сторонам факт сделки и пересчёт уровня доверия (6.1a)."""
 """Подписчик UserRestricted: приостановка и бан отзывают сессии сразу, не дожидаясь refresh."""

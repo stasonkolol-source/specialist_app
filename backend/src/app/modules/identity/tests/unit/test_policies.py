@@ -98,13 +98,19 @@ SIGNALS = TrustSignals(account_age=timedelta(days=30), phone_verified=True, comp
 
 
 def signals(
-    *, age: int, penalized: int | None = None, sanctions: int = 0, phone: bool = False
+    *,
+    age: int,
+    penalized: int | None = None,
+    sanctions: int = 0,
+    phone: bool = False,
+    deals: int = 0,
 ) -> TrustSignals:
     return TrustSignals(
         account_age=timedelta(days=age),
         phone_verified=phone,
         penalized_ago=timedelta(days=penalized) if penalized is not None else None,
         active_sanctions=sanctions,
+        completed_deals=deals,
     )
 
 
@@ -118,10 +124,18 @@ def signals(
         (signals(age=400, penalized=14), TrustLevel.BASIC),  # 14 дней после нарушения
         (signals(age=400, sanctions=1), TrustLevel.NEW),  # пока действует санкция
         (signals(age=400, penalized=100, sanctions=1), TrustLevel.NEW),
-        (signals(age=5, phone=True), TrustLevel.NEW),  # телефон повысит в 2.9
+        (signals(age=5, phone=True), TrustLevel.NEW),  # телефон повысит в v1
+        # 6.1a: три завершённые сделки — проверенный, жалобы и санкции держат потолки
+        (signals(age=5, deals=2), TrustLevel.NEW),
+        (signals(age=30, deals=2), TrustLevel.BASIC),
+        (signals(age=5, deals=3), TrustLevel.VERIFIED),
+        (signals(age=400, deals=12), TrustLevel.VERIFIED),  # 3 (доверенный) — с KYC в v1
+        (signals(age=400, deals=5, penalized=3), TrustLevel.NEW),
+        (signals(age=400, deals=5, penalized=30), TrustLevel.VERIFIED),
+        (signals(age=400, deals=5, sanctions=1), TrustLevel.NEW),
     ],
 )
-def test_trust_level_rules_of_2_5a(given: TrustSignals, level: TrustLevel) -> None:
+def test_trust_level_rules(given: TrustSignals, level: TrustLevel) -> None:
     assert trust_level(given) is level
 
 
