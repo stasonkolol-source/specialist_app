@@ -20,7 +20,7 @@ import {
   getSearchSuggestMockHandler,
   getSystemGetClientConfigMockHandler,
 } from '@sosed/api-client/mocks';
-import type { JobIn, MeOut, MeUpdateIn, TokensOut } from '@sosed/api-client';
+import type { MeOut, MeUpdateIn, TokensOut } from '@sosed/api-client';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 
@@ -136,17 +136,22 @@ export const cardHandlers = [
   ),
 ];
 
-/** Заявки (5.2) по фейку backend; по умолчанию — свежий на каждый запрос. Тесты мастера S20
- *  ставят свой — с памятью (server.use). */
+/** Заявки: создание (5.2), лента и «не интересно» (5.3) по фейку backend; по умолчанию —
+ *  свежий на каждый запрос. Тесты мастера S20 и ленты ставят свой — с памятью (server.use). */
 export const jobsHandlers = (backend: () => JobsBackend) => [
-  http.post(/\/api\/v1\/jobs$/, async ({ request }) =>
-    respond(
-      backend().create((await request.json()) as JobIn, request.headers.get('Idempotency-Key')),
-    ),
-  ),
-  http.get(/\/api\/v1\/jobs\/([^/]+)$/, ({ request }) =>
-    respond(backend().get(new URL(request.url).pathname.split('/').at(-1) ?? '')),
-  ),
+  http.all(/\/api\/v1\/jobs(\/.*)?$/, async ({ request }) => {
+    const body =
+      request.method === 'POST' ? await request.json().catch(() => undefined) : undefined;
+    return respond(
+      backend().handle(
+        request.method,
+        new URL(request.url),
+        body,
+        request.headers.get('Idempotency-Key'),
+        request.headers.has('Authorization'),
+      ),
+    );
+  }),
 ];
 
 export const handlers = [

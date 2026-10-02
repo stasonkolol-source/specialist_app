@@ -109,5 +109,87 @@
     "notifyDenied": "Bez dozvole bot ne može da vam piše — ponude će biti u aplikaciji.",
     "done": "Gotovo",
     "missing": "Zahtev nije pronađen — možda je već obrisan."
+  },
+  "segments": {
+    "label": "Odeljak zahteva",
+    "feed": "Svi zahtevi",
+    "responses": "Moje ponude",
+    "mine": "Moji zahtevi"
+  },
+  "feed": {
+    "title": "Zahtevi u blizini",
+    "chips": "Filteri lente",
+    "filters": "Filteri",
+    "near": "Do {km} km",
+    "today": "Danas",
+    "urgent": "Hitni",
+    "locationError": "Ne znamo gde ste: dozvolite pristup lokaciji u Telegram-u",
+    "count": "{count, plural, one {# zahtev} few {# zahteva} other {# zahteva}} · najnoviji prvi",
+    "countFiltered": "{count, plural, one {# zahtev} few {# zahteva} other {# zahteva}} po filterima · najnoviji prvi",
+    "emptyTitle": "Još nema zahteva",
+    "emptyText": "Novi zahtevi će se pojaviti ovde — svratite malo kasnije",
+    "emptyFilteredTitle": "Nema zahteva po ovim filterima",
+    "emptyFilteredText": "Povećajte radijus ili uklonite neke filtere",
+    "resetFilters": "Poništi filtere",
+    "more": "Prikaži još",
+    "moreError": "Nismo uspeli da učitamo još zahteva. Pokušajte ponovo."
+  },
+  "card": {
+    "negotiable": "Po dogovoru",
+    "todaySlot": "Danas {from}–{to}",
+    "photo": "Fotografija {number}"
+  },
+  "filters": {
+    "title": "Filteri",
+    "close": "Zatvori filtere",
+    "show": "{count, plural, one {Prikaži # zahtev} few {Prikaži # zahteva} other {Prikaži # zahteva}}",
+    "nothing": "Nema zahteva",
+    "radius": "Radijus",
+    "radiusFrom": "Radijus od vas · {place}",
+    "km": "{km} km",
+    "categories": "Kategorije",
+    "when": "Kada je potrebno",
+    "anyTime": "Bilo kada",
+    "today": "Danas",
+    "week": "Ove nedelje",
+    "extra": "Dodatno",
+    "urgentOnly": "Samo hitni",
+    "photosOnly": "Samo sa fotografijom",
+    "budget": "Budžet od",
+    "budgetFrom": "od {amount}",
+    "language": "Jezik sporazumevanja",
+    "any": "Bilo koji",
+    "reset": "Poništi"
+  },
+  "job": {
+    "ownerPublished": "Ovo je vaš zahtev — ovako ga vide izvođači",
+    "ownerStatus": "Ovo je vaš zahtev · {status}",
+    "photos": "Fotografije uz zahtev: {count}",
+    "photo": "Fotografija {number} od {total}",
+    "unitWork": "za ceo posao",
+    "description": "Opis",
+    "languages": "Jezik sporazumevanja: {languages}",
+    "langs": {
+      "ru": "ruski",
+      "sr": "srpski",
+      "en": "engleski"
+    },
+    "where": "Gde",
+    "placeDistance": "{place}, {distance} od vas",
+    "map": "Približno područje na mapi: {place}",
+    "addressPrivate": "Tačnu adresu videće samo izabrani izvođač",
+    "client": {
+      "label": "Naručilac",
+      "memberNew": "U aplikaciji „Sosedi“ manje od mesec dana",
+      "memberMonths": "U aplikaciji „Sosedi“ {count, plural, one {# mesec} few {# meseca} other {# meseci}}",
+      "memberYears": "U aplikaciji „Sosedi“ {count, plural, one {# godinu} few {# godine} other {# godina}}",
+      "jobs": "{count, plural, one {# zahtev} few {# zahteva} other {# zahteva}}",
+      "phoneVerified": "Telefon potvrđen"
+    },
+    "hide": "Nije zanimljivo",
+    "hideError": "Nismo uspeli da sakrijemo zahtev. Pokušajte ponovo.",
+    "unavailableTitle": "Zahtev nije dostupan",
+    "unavailableText": "Zatvoren je, skinut sa objave ili obrisan.",
+    "toFeed": "Na lentu zahteva"
   }
 }

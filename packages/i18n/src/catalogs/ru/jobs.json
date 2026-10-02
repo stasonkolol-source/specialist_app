@@ -109,5 +109,87 @@
     "notifyDenied": "Без разрешения бот писать не сможет — отклики будут в приложении.",
     "done": "Готово",
     "missing": "Заявка не найдена — возможно, её уже удалили."
+  },
+  "segments": {
+    "label": "Раздел заявок",
+    "feed": "Лента",
+    "responses": "Мои отклики",
+    "mine": "Мои заявки"
+  },
+  "feed": {
+    "title": "Заявки рядом",
+    "chips": "Фильтры ленты",
+    "filters": "Фильтры",
+    "near": "До {km} км",
+    "today": "Сегодня",
+    "urgent": "Срочные",
+    "locationError": "Не получилось узнать, где вы: разрешите доступ к местоположению в Telegram",
+    "count": "{count, plural, one {# заявка} few {# заявки} many {# заявок} other {# заявки}} · новые сверху",
+    "countFiltered": "{count, plural, one {# заявка} few {# заявки} many {# заявок} other {# заявки}} по фильтрам · новые сверху",
+    "emptyTitle": "Пока заявок нет",
+    "emptyText": "Новые заявки появятся здесь — загляните чуть позже",
+    "emptyFilteredTitle": "По этим фильтрам заявок нет",
+    "emptyFilteredText": "Попробуйте увеличить радиус или убрать часть фильтров",
+    "resetFilters": "Сбросить фильтры",
+    "more": "Показать ещё",
+    "moreError": "Не получилось загрузить ещё заявки. Повторите."
+  },
+  "card": {
+    "negotiable": "Договорная",
+    "todaySlot": "Сегодня {from}–{to}",
+    "photo": "Фото {number}"
+  },
+  "filters": {
+    "title": "Фильтры",
+    "close": "Закрыть фильтры",
+    "show": "{count, plural, one {Показать # заявку} few {Показать # заявки} many {Показать # заявок} other {Показать # заявки}}",
+    "nothing": "Заявок нет",
+    "radius": "Радиус",
+    "radiusFrom": "Радиус от вас · {place}",
+    "km": "{km} км",
+    "categories": "Категории",
+    "when": "Когда нужно",
+    "anyTime": "Любое время",
+    "today": "Сегодня",
+    "week": "На неделе",
+    "extra": "Дополнительно",
+    "urgentOnly": "Только срочные",
+    "photosOnly": "Только с фото",
+    "budget": "Бюджет от",
+    "budgetFrom": "от {amount}",
+    "language": "Язык общения",
+    "any": "Любой",
+    "reset": "Сбросить"
+  },
+  "job": {
+    "ownerPublished": "Это ваша заявка — так её видят исполнители",
+    "ownerStatus": "Это ваша заявка · {status}",
+    "photos": "Фото к заявке: {count}",
+    "photo": "Фото {number} из {total}",
+    "unitWork": "за всю работу",
+    "description": "Описание",
+    "languages": "Язык общения: {languages}",
+    "langs": {
+      "ru": "русский",
+      "sr": "сербский",
+      "en": "английский"
+    },
+    "where": "Где",
+    "placeDistance": "{place}, {distance} от вас",
+    "map": "Примерный район на карте: {place}",
+    "addressPrivate": "Точный адрес увидит только выбранный исполнитель",
+    "client": {
+      "label": "Заказчик",
+      "memberNew": "В «Соседях» меньше месяца",
+      "memberMonths": "В «Соседях» {count, plural, one {# месяц} few {# месяца} many {# месяцев} other {# месяца}}",
+      "memberYears": "В «Соседях» {count, plural, one {# год} few {# года} many {# лет} other {# года}}",
+      "jobs": "{count, plural, one {# заявка} few {# заявки} many {# заявок} other {# заявки}}",
+      "phoneVerified": "Телефон подтверждён"
+    },
+    "hide": "Не интересно",
+    "hideError": "Не получилось скрыть заявку. Повторите.",
+    "unavailableTitle": "Заявка недоступна",
+    "unavailableText": "Её закрыли, сняли с публикации или удалили.",
+    "toFeed": "К ленте заявок"
   }
 }

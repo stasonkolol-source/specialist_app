@@ -8,6 +8,7 @@ import type { StartLink } from '@sosed/links';
 import { parseStartParam } from '@sosed/links';
 
 import { profilePath } from '../features/catalog/index.ts';
+import { jobPath } from '../features/jobs/index.ts';
 
 const HOME = '/';
 
@@ -25,6 +26,8 @@ export const START_TARGETS: StartTargets = {
   legal: (link) => `/legal/${link.document}`,
   // карточка специалиста S08: ссылки из выдачи, каналов и чатов диаспоры (4.5, шаринг — 7.4)
   specialist: (link) => profilePath(link.id),
+  // заявка S15: кнопки уведомлений бота и ссылки из чатов (5.3); владельцу — S23 с 5.6
+  job: (link) => jobPath(link.id),
 };
 
 /** Адрес для кода `startapp`; `null` — приложение открыли без deep link. */
