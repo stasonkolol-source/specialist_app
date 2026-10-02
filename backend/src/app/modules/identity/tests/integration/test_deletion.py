@@ -15,7 +15,11 @@ from app.modules.identity.application.use_cases.process_deletions import Process
 from app.modules.identity.application.use_cases.request_deletion import RequestDeletionCommand
 from app.modules.identity.domain.deletion import DeletionSource, HashKind, identity_hash
 from app.modules.identity.domain.user import DELETED_DISPLAY_NAME, User, UserStatus
-from app.modules.identity.infrastructure.models import AuthIdentityRow, DeletedIdentityHashRow
+from app.modules.identity.infrastructure.models import (
+    AuthIdentityRow,
+    DeletedIdentityHashRow,
+    SessionRow,
+)
 from app.platform.contracts.events.identity import UserDeleted, UserRegistered
 from app.platform.kernel.ids import UserId
 from app.platform.queue.dispatcher import EventRegistry
@@ -107,7 +111,12 @@ async def test_after_seven_days_the_account_is_anonymized(
         .where(DeletedIdentityHashRow.hash == digest)
     )
     assert stored == 1
-    assert len(identity.revocations.revoked) == 1  # живая сессия отозвана, истёкшая — нет
+    # живая сессия — в denylist (access ещё действует), записи обеих — удалены с IP и устройством
+    assert len(identity.revocations.revoked) == 1
+    sessions = await identity.session.scalar(
+        select(func.count()).select_from(SessionRow).where(SessionRow.user_id == user_id)
+    )
+    assert sessions == 0
     assert await identity.query.me(user_id) is None
     deleted = await queued_tasks(identity.session, ON_DELETED.name)
     assert [task.payload["user_id"] for task in deleted] == [str(user_id)]
@@ -127,6 +136,20 @@ async def test_open_case_holds_the_deletion(identity: Identity) -> None:
     assert (await load(identity, user_id)).status is UserStatus.ACTIVE
     identity.hold.users.clear()
     assert (await identity.process_deletions(ProcessDeletionsCommand())).deleted == 1
+
+
+async def test_held_accounts_do_not_block_the_rest_of_the_queue(identity: Identity) -> None:
+    users = [await sign_in(identity, 811000100 + n) for n in range(3)]
+    for user_id in users:
+        await request(identity, user_id)
+        identity.clock.advance(timedelta(minutes=1))
+    identity.hold.users.update(users[:2])
+    identity.clock.advance(WEEK)
+
+    report = await identity.process_deletions(ProcessDeletionsCommand(limit=1))
+
+    assert (report.deleted, report.held) == (1, 2)
+    assert (await load(identity, users[2])).status is UserStatus.DELETED
 
 
 async def test_same_telegram_registers_anew_and_is_flagged(

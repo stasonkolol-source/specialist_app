@@ -49,6 +49,10 @@ class UserRepository(Protocol):
     async def save(self, user: User) -> None: ...
 
 
+type DueCursor = tuple[datetime, UserId]
+"""Позиция в очереди запросов на удаление: срок исполнения и пользователь."""
+
+
 class DeletionRepository(Protocol):
     """Запросы на удаление аккаунта (identity.deletion_requests): у пользователя — не больше
     одного ждущего."""
@@ -57,9 +61,9 @@ class DeletionRepository(Protocol):
         """Ждущий запрос пользователя под блокировкой строки."""
         ...
 
-    async def due(self, now: datetime, *, limit: int) -> list[UserId]:
-        """Пользователи, чей ждущий запрос пора исполнить, — по сроку, без блокировки:
-        исполнение блокирует запрос и проверяет срок заново."""
+    async def due(self, now: datetime, *, after: DueCursor | None, limit: int) -> list[DueCursor]:
+        """Ждущие запросы, которые пора исполнить, — (срок, пользователь) по порядку после
+        `after`, без блокировки: исполнение блокирует строки и проверяет срок заново."""
         ...
 
     async def add(self, request: DeletionRequest) -> None:
@@ -96,6 +100,11 @@ class SessionRepository(Protocol):
 
     async def active_for_user(self, user_id: UserId, now: datetime) -> list[Session]:
         """Неотозванные и неистёкшие сессии пользователя под блокировкой строк."""
+        ...
+
+    async def forget_user(self, user_id: UserId) -> int:
+        """Удалить все сессии пользователя (с IP и устройством) — аккаунт удалён (§7.10).
+        Сколько удалено. Нужен активный UoW."""
         ...
 
     async def add(self, session: Session) -> None: ...

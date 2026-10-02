@@ -4,11 +4,12 @@
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.identity.application.ports import DueCursor
 from app.modules.identity.domain.deletion import DeletionRequest, DeletionRequestId, HashKind
 from app.modules.identity.errors import ConcurrentDeletionRequestError
 from app.modules.identity.infrastructure.models import DeletedIdentityHashRow, DeletionRequestRow
@@ -42,14 +43,18 @@ class SqlDeletionRepository:
         self._uow.track(request)
         return request
 
-    async def due(self, now: datetime, *, limit: int) -> list[UserId]:
+    async def due(self, now: datetime, *, after: DueCursor | None, limit: int) -> list[DueCursor]:
+        position = tuple_(DeletionRequestRow.execute_after, DeletionRequestRow.user_id)
         stmt = (
-            select(DeletionRequestRow.user_id)
+            select(DeletionRequestRow.execute_after, DeletionRequestRow.user_id)
             .where(DeletionRequestRow.execute_after <= now, *_ACTIVE)
-            .order_by(DeletionRequestRow.execute_after)
+            .order_by(DeletionRequestRow.execute_after, DeletionRequestRow.user_id)
             .limit(limit)
         )
-        return [UserId(user_id) for user_id in (await self._session.scalars(stmt)).all()]
+        if after is not None:
+            stmt = stmt.where(position > tuple_(*after))
+        rows = (await self._session.execute(stmt)).all()
+        return [(execute_after, UserId(user_id)) for execute_after, user_id in rows]
 
     async def add(self, request: DeletionRequest) -> None:
         self._uow.require_active()

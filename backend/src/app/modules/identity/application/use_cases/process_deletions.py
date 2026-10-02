@@ -7,7 +7,8 @@
 1. хэши Telegram ID и телефона — антифрод на 12 месяцев (повторная регистрация — сигнал риска);
 2. `User.forget` — обезличен, без способов входа; событие UserDeleted подписчикам — профиль,
    прайс, файлы, уведомления, атрибуция;
-3. сессии отозваны — в БД и в denylist Valkey (access живёт ещё до 15 минут);
+3. сессии удалены (в них IP и устройство), живые — сначала в denylist Valkey: access-токен
+   действует ещё до 15 минут;
 4. запрос исполнен.
 """
 
@@ -21,12 +22,12 @@ from app.modules.identity.application.config import IdentityConfig
 from app.modules.identity.application.ports import (
     DeletedIdentities,
     DeletionRepository,
+    DueCursor,
     SessionRepository,
     SessionRevocations,
     UserRepository,
 )
 from app.modules.identity.domain.deletion import HASH_RETENTION, login_hashes
-from app.modules.identity.domain.session import RevokeReason
 from app.modules.identity.domain.user import AuthProvider, UserStatus
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
@@ -35,7 +36,8 @@ from app.platform.kernel.ids import UserId
 log = structlog.get_logger(__name__)
 
 BATCH: Final = 100
-"""Сколько аккаунтов за запуск; остальные — в следующий час."""
+"""Страница очереди: запуск проходит её всю, страницами, — удержанные (legal hold) не
+заслоняют остальных."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -69,10 +71,16 @@ class ProcessDeletions:
     async def __call__(self, cmd: ProcessDeletionsCommand) -> DeletionsReport:
         now = self._clock.now()
         deleted = held = 0
-        for user_id in await self._deletions.due(now, limit=cmd.limit):
-            outcome = await self._process(user_id)
-            deleted += outcome == "deleted"
-            held += outcome == "held"
+        cursor: DueCursor | None = None
+        while True:
+            page = await self._deletions.due(now, after=cursor, limit=cmd.limit)
+            for _, user_id in page:
+                outcome = await self._process(user_id)
+                deleted += outcome == "deleted"
+                held += outcome == "held"
+            if len(page) < cmd.limit:
+                break
+            cursor = page[-1]
         if deleted or held:
             log.info("account_deletions_processed", deleted=deleted, held=held)
         return DeletionsReport(deleted=deleted, held=held)
@@ -80,12 +88,13 @@ class ProcessDeletions:
     async def _process(self, user_id: UserId) -> str:
         now = self._clock.now()
         async with self._uow:
+            # порядок блокировок — как у RequestDeletion: пользователь, затем запрос
+            user = await self._users.get_for_update(user_id)
             request = await self._deletions.active_for_update(user_id)
             if request is None or not request.due(now):
                 return "skipped"  # отменили или исполнил параллельный запуск
             if user_id in await self._hold.held([user_id]):
                 return "held"
-            user = await self._users.get_for_update(user_id)
             if user.status is not UserStatus.DELETED:
                 telegram = [
                     identity.subject
@@ -104,9 +113,8 @@ class ProcessDeletions:
                 user.forget(now=now)
                 await self._users.save(user)
             for session in await self._sessions.active_for_user(user_id, now):
-                session.revoke(reason=RevokeReason.ACCOUNT_DELETED, now=now)
-                await self._sessions.save(session)
                 await self._revocations.revoke(session.sid)
+            await self._sessions.forget_user(user_id)
             request.complete(now=now)
             await self._deletions.save(request)
         return "deleted"

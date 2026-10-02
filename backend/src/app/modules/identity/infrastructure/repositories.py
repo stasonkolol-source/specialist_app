@@ -3,7 +3,7 @@
 from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime
 
-from sqlalchemy import exists, or_, select, text, true, tuple_, update
+from sqlalchemy import delete, exists, or_, select, text, true, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -204,6 +204,13 @@ class SqlSessionRepository:
         for session in sessions:
             self._uow.track(session)
         return sessions
+
+    async def forget_user(self, user_id: UserId) -> int:
+        self._uow.require_active()
+        result = await self._session.execute(
+            delete(SessionRow).where(SessionRow.user_id == user_id)
+        )
+        return int(result.rowcount or 0)  # type: ignore[attr-defined]  # CursorResult у DML
 
     async def add(self, session: Session) -> None:
         self._uow.require_active()
