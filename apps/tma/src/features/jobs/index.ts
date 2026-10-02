@@ -1,8 +1,9 @@
 // Фича «Заявки» (SPEC §6): лента S13–S15 и сохранённые заявки S12 (5.3), создание S20a–d и S21
-// (5.2); отклики (5.5) и «Мои заявки» (5.6) — заглушками сегментов.
+// (5.2), отклик S16, «Мои отклики» S17 и шаблоны откликов S57 (5.5); «Мои заявки» (5.6) — заглушкой
+// сегмента.
 export type { FeedSearch } from './shared/feed.ts';
 export { feedSearch } from './shared/feed.ts';
-export type { CreateSearch, DoneSearch, JobSearch } from './shared/paths.ts';
+export type { CreateSearch, DoneSearch, JobSearch, ResponsesSearch } from './shared/paths.ts';
 export {
   CREATE_PATHS,
   JOBS_PATHS,
@@ -11,4 +12,6 @@ export {
   doneSearch,
   jobPath,
   jobSearch,
+  respondPath,
+  responsesSearch,
 } from './shared/paths.ts';

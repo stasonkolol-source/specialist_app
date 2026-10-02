@@ -118,7 +118,11 @@ describe('Button и IconButton', () => {
       </>,
     );
     expect(screen.getByRole('button', { name: 'Откликнуться' }).className).toContain('bg-accent');
-    expect(screen.getByRole('button', { name: 'Изменить' }).className).toContain('h-9');
+    const outline = screen.getByRole('button', { name: 'Изменить' }).className.split(' ');
+    expect(outline).toContain('h-9');
+    // рамка .btn.out: border-0 в CSS идёт после border и снял бы её
+    expect(outline).toContain('border');
+    expect(outline).not.toContain('border-0');
     expect(screen.getByRole('button', { name: 'Отменить' }).hasAttribute('disabled')).toBe(true);
     expect(screen.getByRole('link', { name: 'Профиль' }).className).toContain('w-full');
     expect(await a11yViolations(container)).toEqual([]);

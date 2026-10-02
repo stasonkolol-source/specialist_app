@@ -370,6 +370,9 @@ async def test_revising_and_withdrawing_bump_the_job_version(world: World) -> No
         "pending",
     )
     assert await world.job_row(job_id) == (3, 1)  # правка отклика — новая версия заявки
+    shown = await world.app.client.get(f"{API}/responses/{response['id']}", headers=headers)
+    assert (shown.status_code, shown.json()["message"]) == (200, revised.json()["message"])
+    assert shown.json()["job"]["id"] == str(job_id)
     withdrawn = await world.app.client.post(
         f"{API}/responses/{response['id']}/withdraw", headers=headers
     )
@@ -385,6 +388,10 @@ async def test_revising_and_withdrawing_bump_the_job_version(world: World) -> No
         f"{API}/responses/{response['id']}/withdraw", headers=world.headers(await world.user())
     )
     assert (stranger.status_code, stranger.json()["code"]) == (404, "response_not_found")
+    peeked = await world.app.client.get(
+        f"{API}/responses/{response['id']}", headers=world.headers(client)
+    )
+    assert (peeked.status_code, peeked.json()["code"]) == (404, "response_not_found")
 
 
 async def test_my_responses_have_groups_and_the_daily_quota(world: World) -> None:

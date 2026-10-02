@@ -172,6 +172,45 @@ export { jobQueryKey, useCreateJob, useJob } from './jobs/jobs.ts';
 export type { FeedPages, FeedQuery } from './jobs/feed.ts';
 export { FEED_PAGE_SIZE, feedQueryKey, jobCards, useHideJob, useJobsFeed } from './jobs/feed.ts';
 export { useJobsCount } from './jobs/count.ts';
+export type { OfferDraft, OfferProblem } from './jobs/offer.ts';
+export {
+  RESPONSE_AVAILABILITY_MAX,
+  RESPONSE_MESSAGE_MAX,
+  RESPONSE_PRICE_TYPES,
+  TEMPLATES_MAX,
+  TEMPLATE_TITLE_MAX,
+  emptyOffer,
+  offerDraftOf,
+  offerIn,
+  offerPriceOf,
+  offerProblems,
+  sameOffer,
+  templateTitleOf,
+} from './jobs/offer.ts';
+export type {
+  MyResponsesPages,
+  ReviseResponse,
+  SendResponse,
+  WithdrawResponse,
+} from './jobs/responses.ts';
+export {
+  MY_RESPONSES_PAGE_SIZE,
+  myResponseItems,
+  myResponsesQueryKey,
+  useMyResponse,
+  useMyResponses,
+  useRespond,
+  useReviseResponse,
+  useWithdrawResponse,
+} from './jobs/responses.ts';
+export type { CreateTemplate, UpdateTemplate } from './jobs/templates.ts';
+export {
+  templatesQueryKey,
+  useCreateTemplate,
+  useDeleteTemplate,
+  useResponseTemplates,
+  useUpdateTemplate,
+} from './jobs/templates.ts';
 export type { SavedJobToggle } from './jobs/saved.ts';
 export {
   jobCardOf,

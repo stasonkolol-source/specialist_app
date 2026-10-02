@@ -941,6 +941,67 @@ export const getJobsListMyJobsResponseMock = (
   ...overrideResponse,
 });
 
+export const getJobsGetResponseResponseMock = (
+  overrideResponse: Partial<Extract<MyResponseOut, object>> = {},
+): MyResponseOut => ({
+  id: faker.string.uuid(),
+  status: faker.helpers.arrayElement(Object.values(ResponseStatus)),
+  review: faker.helpers.arrayElement(Object.values(ResponseReview)),
+  message: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  price: {
+    type: faker.helpers.arrayElement(Object.values(ResponsePriceType)),
+    amount: faker.helpers.arrayElement([
+      { amount: faker.number.int(), currency: faker.helpers.arrayElement(Object.values(Currency)) },
+      null,
+    ]),
+  },
+  availability_note: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  is_first: faker.datatype.boolean(),
+  created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  updated_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  decided_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  job: {
+    id: faker.string.uuid(),
+    title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    status: faker.helpers.arrayElement(Object.values(JobStatus)),
+    category_id: faker.number.int(),
+    city_id: faker.number.int(),
+    district_id: faker.helpers.arrayElement([faker.number.int(), null]),
+    urgency: faker.helpers.arrayElement(Object.values(Urgency)),
+    preferred_from: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + 'Z',
+      null,
+    ]),
+    preferred_to: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + 'Z',
+      null,
+    ]),
+    budget_type: faker.helpers.arrayElement(Object.values(BudgetType)),
+    budget_min: faker.helpers.arrayElement([
+      { amount: faker.number.int(), currency: faker.helpers.arrayElement(Object.values(Currency)) },
+      null,
+    ]),
+    budget_max: faker.helpers.arrayElement([
+      { amount: faker.number.int(), currency: faker.helpers.arrayElement(Object.values(Currency)) },
+      null,
+    ]),
+    budget_unit: faker.helpers.arrayElement(Object.values(BudgetUnit)),
+    responses_count: faker.number.int(),
+    max_responses: faker.number.int(),
+    published_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + 'Z',
+      null,
+    ]),
+  },
+  ...overrideResponse,
+});
+
 export const getJobsReviseResponseResponseMock = (
   overrideResponse: Partial<Extract<MyResponseOut, object>> = {},
 ): MyResponseOut => ({
@@ -1533,6 +1594,30 @@ export const getJobsListMyJobsMockHandler = (
   );
 };
 
+export const getJobsGetResponseMockHandler = (
+  overrideResponse?:
+    | MyResponseOut
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<MyResponseOut> | MyResponseOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/responses/:responseId',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getJobsGetResponseResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getJobsReviseResponseMockHandler = (
   overrideResponse?:
     | MyResponseOut
@@ -1664,6 +1749,7 @@ export const getJobsMock = () => [
   getJobsCloseJobMockHandler(),
   getJobsExtendJobMockHandler(),
   getJobsListMyJobsMockHandler(),
+  getJobsGetResponseMockHandler(),
   getJobsReviseResponseMockHandler(),
   getJobsWithdrawResponseMockHandler(),
   getJobsListMyResponsesMockHandler(),

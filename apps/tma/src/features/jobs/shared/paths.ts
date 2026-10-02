@@ -1,7 +1,9 @@
 // Адреса вкладки «Заявки»: лента S13 и сегменты «Мои отклики» (5.5) и «Мои заявки» (5.6), заявка
-// S15 (DEVELOPMENT_PLAN 5.3); мастер «Создать заявку» S20a–d и итог S21 (5.2). Вход в мастер —
+// S15 (DEVELOPMENT_PLAN 5.3), отклик на неё S16 и шаблоны откликов S57 (5.5); мастер «Создать
+// заявку» S20a–d и итог S21 (5.2). Вход в мастер —
 // «Создать заявку» таббара, CTA Главной и пустой выдачи, «Заказать эту услугу» на S09: они
 // передают категорию и название (`?category=&title=`) — новый черновик начинается с них.
+import type { ResponseGroup } from '@sosed/api-client';
 import { isUuid } from '@sosed/links';
 
 /** Сегменты вкладки: у каждого свой адрес — таббар виден на всех трёх (AppShell). */
@@ -10,9 +12,11 @@ export const JOBS_PATHS = {
   responses: '/jobs/responses',
   mine: '/jobs/mine',
   job: '/jobs/$jobId',
+  respond: '/jobs/$jobId/respond',
+  templates: '/jobs/responses/templates',
 } as const;
 
-export type JobsSegment = Exclude<keyof typeof JOBS_PATHS, 'job'>;
+export type JobsSegment = Exclude<keyof typeof JOBS_PATHS, 'job' | 'respond' | 'templates'>;
 export const JOBS_SEGMENTS: readonly JobsSegment[] = ['feed', 'responses', 'mine'];
 
 /** Избранное S12: «Мастера» — фича catalog, «Задачи» — сохранённые заявки (здесь). */
@@ -24,6 +28,9 @@ export const ACCOUNT_PATH = '/profile';
 
 /** Заявка S15: deep link `j_` (routes/startapp.ts) ведёт сюда же. */
 export const jobPath = (jobId: string) => `/jobs/${jobId}`;
+
+/** Отклик S16 на заявку; свой отклик там же правится. */
+export const respondPath = (jobId: string) => `/jobs/${jobId}/respond`;
 
 export const CREATE_PATHS = {
   what: '/jobs/new',
@@ -88,6 +95,24 @@ export function jobSearch(search: Record<string, unknown>): JobSearch {
   const lat = coordinate(search.lat, 90);
   const lon = coordinate(search.lon, 180);
   return lat !== undefined && lon !== undefined ? { lat, lon } : {};
+}
+
+export interface ResponsesSearch {
+  /** Чип S17; без него — «Все». */
+  status?: ResponseGroup;
+  /** Отклик только что отправлен с S16: «клиент увидит его после проверки». */
+  sent?: boolean;
+}
+
+const GROUPS: readonly ResponseGroup[] = ['active', 'accepted', 'not_selected', 'archive'];
+
+/** validateSearch S17: чип — из известных, `sent` — только «да». */
+export function responsesSearch(search: Record<string, unknown>): ResponsesSearch {
+  const result: ResponsesSearch = {};
+  const status = GROUPS.find((group) => group === search.status);
+  if (status) result.status = status;
+  if (search.sent === true || search.sent === 'true' || search.sent === 1) result.sent = true;
+  return result;
 }
 
 /** Id заявки из адреса: `/jobs/oops` — не заявка, запрашивать нечего. */

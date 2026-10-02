@@ -7,11 +7,12 @@ import { Icon } from './icon/Icon.tsx';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'danger';
 
+// рамка только у .btn.out: общий border-0 в CSS идёт после border и снимал её у всех
 const VARIANT: Record<ButtonVariant, string> = {
-  primary: 'bg-accent text-accent-ink',
-  secondary: 'bg-accent-soft text-accent-soft-ink',
+  primary: 'border-0 bg-accent text-accent-ink',
+  secondary: 'border-0 bg-accent-soft text-accent-soft-ink',
   outline: 'border border-line bg-surface text-text',
-  danger: 'bg-danger-soft text-danger',
+  danger: 'border-0 bg-danger-soft text-danger',
 };
 
 export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
@@ -37,7 +38,7 @@ export function Button({
   ...rest
 }: ButtonProps) {
   const classes = cx(
-    'inline-flex items-center justify-center gap-2 whitespace-nowrap border-0 text-button',
+    'inline-flex items-center justify-center gap-2 whitespace-nowrap text-button',
     size === 'md' ? 'h-11 rounded-btn px-4' : 'h-9 rounded-btn-sm px-3 text-sm font-semibold',
     VARIANT[variant],
     full && 'w-full',
@@ -73,6 +74,8 @@ export type LinkButtonProps = Omit<
   /** Переход на экран («Весь прайс · 9» S08) — ссылка; с `onClick` — внутри приложения. */
   href?: string;
   onClick?: (event: MouseEvent<HTMLElement>) => void;
+  /** Цветом ошибки — разрушающее действие текстом («Отозвать отклик» S17). */
+  danger?: boolean;
 };
 
 /** Текстовая кнопка .link.sm: действие рядом с заголовком («Прочитать все» S42) или ссылка на
@@ -83,10 +86,12 @@ export function LinkButton({
   type = 'button',
   href,
   onClick,
+  danger = false,
   ...rest
 }: LinkButtonProps) {
   const classes = cx(
-    'inline-flex min-h-11 items-center border-0 bg-transparent px-2 text-sm font-semibold text-accent disabled:text-text2',
+    'inline-flex min-h-11 items-center border-0 bg-transparent px-2 text-sm font-semibold disabled:text-text2',
+    danger ? 'text-danger' : 'text-accent',
     FOCUS,
     className,
   );

@@ -3189,6 +3189,55 @@
       }
     },
     "/api/v1/responses/{response_id}": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Get Response",
+        "description": "Свой отклик с заявкой — форма правки S16; чужой — 404.",
+        "operationId": "jobs_get_response",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "response_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id отклика",
+              "title": "Response Id"
+            },
+            "description": "id отклика"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyResponseOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      },
       "patch": {
         "tags": [
           "jobs"

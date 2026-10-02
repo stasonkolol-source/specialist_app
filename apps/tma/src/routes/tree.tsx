@@ -26,6 +26,7 @@ import {
   doneSearch,
   feedSearch,
   jobSearch,
+  responsesSearch,
 } from '../features/jobs/index.ts';
 import { ONBOARDING_PATHS, onboardingSearch } from '../features/onboarding/index.ts';
 import { BECOME_PATHS, CABINET_PATHS, becomeSearch } from '../features/specialist/index.ts';
@@ -68,7 +69,7 @@ const home = createRoute({
 });
 
 // Вкладка «Заявки» (5.3): лента S13 открыта и гостю, фильтры — в параметрах адреса. Сегменты
-// «Мои отклики» (5.5) и «Мои заявки» (5.6) — свои адреса, пока заглушки
+// «Мои отклики» S17 (5.5, чип — в адресе) и «Мои заявки» (5.6, пока заглушка) — свои адреса
 const jobs = createRoute({
   getParentRoute: () => rootRoute,
   path: JOBS_PATHS.feed,
@@ -79,10 +80,19 @@ const jobs = createRoute({
 const myResponses = createRoute({
   getParentRoute: () => rootRoute,
   path: JOBS_PATHS.responses,
+  validateSearch: responsesSearch,
   component: screen(
     () => import('../features/jobs/s17-my-responses/index.ts'),
     'MyResponsesScreen',
   ),
+});
+
+// Шаблоны откликов S57 (5.5): из S16 и S17; создание шаблона — создающее действие
+const templates = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.templates,
+  beforeLoad: requireConsent,
+  component: screen(() => import('../features/jobs/s57-templates/index.ts'), 'TemplatesScreen'),
 });
 
 const myJobs = createRoute({
@@ -98,6 +108,14 @@ const job = createRoute({
   path: JOBS_PATHS.job,
   validateSearch: jobSearch,
   component: screen(() => import('../features/jobs/s15-job/index.ts'), 'JobScreen'),
+});
+
+// Отклик S16 (5.5) — из MainButton S15 и «Изменить» S17; создающее действие: без согласия — S02c
+const respond = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.respond,
+  beforeLoad: requireConsent,
+  component: screen(() => import('../features/jobs/s16-respond/index.ts'), 'RespondScreen'),
 });
 
 // Мастер «Создать заявку» S20a–d (5.2) — создающее действие: без согласия с правилами — S02c
@@ -367,8 +385,10 @@ export const routeTree = rootRoute.addChildren([
   home,
   jobs,
   myResponses,
+  templates,
   myJobs,
   job,
+  respond,
   createWhat,
   createWhen,
   createBudget,

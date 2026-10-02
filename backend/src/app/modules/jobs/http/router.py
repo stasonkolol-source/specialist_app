@@ -14,8 +14,9 @@
 - `GET /me/favorites/jobs`, `PUT` и `DELETE /me/favorites/job/{id}` — сохранённые заявки
   (сердечко S15, сегмент «Задачи» S12): открытые, новые первыми, до ста (`saved_jobs_full`).
 - Отклики (5.4): `POST /jobs/{id}/responses` (Idempotency-Key) — пять мест на заявку под
-  блокировкой её строки, суточный лимит по уровню доверия; `PATCH /responses/{id}`,
-  `POST /responses/{id}/withdraw` — исполнителю, пока клиент не решил; `GET /me/responses` —
+  блокировкой её строки, суточный лимит по уровню доверия; `GET /responses/{id}` — свой отклик
+  с заявкой (правка на S16); `PATCH /responses/{id}`, `POST /responses/{id}/withdraw` —
+  исполнителю, пока клиент не решил; `GET /me/responses` —
   «Мои отклики» S17; `GET /jobs/{id}/responses` — владельцу заявки (S23).
 - Шаблоны откликов (5.5): `GET`, `POST` (Idempotency-Key), `PATCH` и `DELETE
   /me/response-templates` — до двух, первый — основной; отклик из шаблона несёт `template_id`.
@@ -464,6 +465,17 @@ async def _own(show: ShowJob, job_id: JobId, owner_id: UserId, response: Respons
 def _language(locale: Locale) -> str:
     """Язык текста заявки — язык интерфейса автора: ru или sr (обе письменности)."""
     return locale.value.split("-")[0]
+
+
+@router.get(
+    "/responses/{response_id:uuid}", response_model=MyResponseOut, dependencies=AUTHENTICATED
+)
+@inject
+async def get_response(
+    response_id: ResponsePath, principal: FromDishka[Principal], queries: FromDishka[JobQueries]
+) -> MyResponseOut:
+    """Свой отклик с заявкой — форма правки S16; чужой — 404."""
+    return await _my_response(queries, principal.user_id, ResponseId(response_id))
 
 
 @router.patch(

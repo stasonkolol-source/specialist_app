@@ -6,8 +6,9 @@
 // интересно» убирает её из ленты навсегда — оба только вошедшему. Чужая
 // неопубликованная или удалённая заявка — «Заявка недоступна». Своя — с пометкой «так её видят
 // исполнители» (экран владельца S23 — 5.6). Открывается из ленты и по ссылке `startapp=j_…`; гость
-// видит экран без входа. Скрыто до своих шагов: MainButton «Откликнуться · осталось N мест» (форма
-// отклика — 5.5), «Поделиться» (7.4), «Пожаловаться» (S46, 4.7).
+// видит экран без входа. MainButton (5.5): «Откликнуться · осталось N мест» — форма S16 (гостю —
+// сначала согласие с правилами), «Вы откликнулись» — «Мои отклики» S17, «Мест нет» — не нажимается;
+// у своей заявки кнопки нет. Скрыто до своих шагов: «Поделиться» (7.4), «Пожаловаться» (S46, 4.7).
 import type { JobOut } from '@sosed/api-client';
 import { ApiError, getSession } from '@sosed/api-client';
 import {
@@ -33,7 +34,6 @@ import {
   Banner,
   Button,
   Card,
-  EmptyState,
   Heading,
   Icon,
   IconButton,
@@ -47,11 +47,13 @@ import { useParams, useRouter, useSearch } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useId } from 'react';
 
+import { JobUnavailable } from '../shared/JobUnavailable.tsx';
 import { LoadError } from '../shared/LoadError.tsx';
 import { findCategory } from '../shared/categories.ts';
+import { useStepButton } from '../shared/flow.ts';
 import { useBudgetText, useMemberFor, useWhenBadge } from '../shared/labels.ts';
 import type { JobSearch } from '../shared/paths.ts';
-import { JOBS_PATHS, jobIdOf } from '../shared/paths.ts';
+import { JOBS_PATHS, jobIdOf, respondPath } from '../shared/paths.ts';
 
 const LANGUAGE_NAMES = ['ru', 'sr', 'en'] as const;
 type LanguageName = (typeof LANGUAGE_NAMES)[number];
@@ -72,7 +74,7 @@ export function JobScreen() {
   useBackButton(toFeed);
 
   if (jobId === null || (job.isError && isUnavailable(job.error))) {
-    return <Unavailable onFeed={() => void router.navigate({ to: JOBS_PATHS.feed })} />;
+    return <JobUnavailable onFeed={() => void router.navigate({ to: JOBS_PATHS.feed })} />;
   }
   if (job.isError) {
     return (
@@ -120,6 +122,7 @@ function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
   );
   const descriptionId = useId();
   const whereId = useId();
+  useRespondButton(job, owner);
 
   return (
     <section className="flex flex-col gap-3 px-4 pt-3 pb-6">
@@ -363,24 +366,23 @@ function Client({
   );
 }
 
-function Unavailable({ onFeed }: { onFeed: () => void }) {
-  const { t } = useTranslation('jobs');
-  return (
-    <section className="px-4 pt-6">
-      <EmptyState
-        as="h1"
-        icon="jobs"
-        title={t('job.unavailableTitle')}
-        action={
-          <Button variant="secondary" onClick={onFeed}>
-            {t('job.toFeed')}
-          </Button>
-        }
-      >
-        {t('job.unavailableText')}
-      </EmptyState>
-    </section>
-  );
+/** MainButton S15 по местам и своему отклику; владельцу и у неопубликованной — кнопки нет. */
+function useRespondButton(job: JobOut, owner: boolean) {
+  const { t: common } = useTranslation();
+  const router = useRouter();
+  const left = Math.max(job.max_responses - job.responses_count, 0);
+  const responded = job.my_response !== null;
+  useStepButton({
+    visible: !owner && job.status === 'published',
+    enabled: responded || left > 0,
+    text: responded
+      ? common('count.responded')
+      : left > 0
+        ? common('count.respondWithSlots', { count: left })
+        : common('count.full'),
+    onClick: () =>
+      void router.navigate(responded ? { to: JOBS_PATHS.responses } : { to: respondPath(job.id) }),
+  });
 }
 
 function Loading() {
