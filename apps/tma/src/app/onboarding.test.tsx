@@ -428,7 +428,7 @@ describe('returning users', () => {
 describe('deep links (startapp)', () => {
   it('open home for targets whose screens are not built yet', async () => {
     userBackend(ME);
-    const { app } = startApp('/', { startParam: 's_02y9UKmeRG6vSNbdsEYkkR_rAB12CD' });
+    const { app } = startApp('/', { startParam: 'j_02y9UKmeRG6vSNbdsEYkkR_rAB12CD' });
     expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
     expect(app.router.state.location.pathname).toBe('/');
   });

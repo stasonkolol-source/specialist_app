@@ -2,8 +2,7 @@
 // карточки специалистов по страницам. Текст, фильтры и порядок — в адресе: переживают «Назад».
 // Опечатку сервер поправил — «Возможно, вы имели в виду …». Пусто — совет ослабить фильтры
 // (CTA «Разместите заявку» — с шагом 5.2). «До 3 км» спрашивает местоположение.
-// Карточка ведёт в профиль S08 — с шагом 4.5, до того она не ссылка; «в избранное» — 4.6.
-// Гость видит экран без входа.
+// Карточка ведёт в профиль S08 (4.5); «в избранное» — 4.6. Гость видит экран без входа.
 import type { SpecialistCardOut } from '@sosed/api-client';
 import {
   resultItems,
@@ -35,7 +34,7 @@ import { LoadError } from '../shared/LoadError.tsx';
 import { useCatalogCity } from '../shared/city.ts';
 import { useLocate } from '../shared/location.ts';
 import type { ResultsSearch } from '../shared/paths.ts';
-import { CATALOG_PATHS, NEAR_KM } from '../shared/paths.ts';
+import { CARD_PATHS, CATALOG_PATHS, NEAR_KM, profilePath } from '../shared/paths.ts';
 import { activeFilters, toQuery, withoutFilters } from '../shared/query.ts';
 
 const SKELETON_CARDS = 3;
@@ -235,6 +234,7 @@ function Card({ card }: { card: SpecialistCardOut }) {
   const { t } = useTranslation('catalog');
   const common = useTranslation().t;
   const format = useFormat();
+  const router = useRouter();
   const now = new Date();
   const place = [
     card.district?.name,
@@ -272,6 +272,11 @@ function Card({ card }: { card: SpecialistCardOut }) {
       meta={meta}
       badges={badges}
       price={price}
+      href={router.history.createHref(profilePath(card.profile_id))}
+      onOpen={(event) => {
+        event.preventDefault();
+        void router.navigate({ to: CARD_PATHS.profile, params: { profileId: card.profile_id } });
+      }}
     />
   );
 }

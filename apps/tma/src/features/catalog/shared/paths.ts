@@ -1,9 +1,22 @@
-// Адреса каталога S04–S06 (DEVELOPMENT_PLAN 4.4). Текст, фильтры и порядок выдачи — в параметрах
-// адреса (ADR-0020 §13): переживают «Назад», ими можно поделиться, а экран ничего не хранит сам.
+// Адреса каталога S04–S06 (DEVELOPMENT_PLAN 4.4) и карточки специалиста S08–S10 (4.5). Текст,
+// фильтры и порядок выдачи — в параметрах адреса (ADR-0020 §13): переживают «Назад», ими можно
+// поделиться, а экран ничего не хранит сам. Открытая работа просмотрщика S10 — тоже.
+import { isUuid } from '@sosed/links';
+
 export const CATALOG_PATHS = {
   categories: '/catalog',
   results: '/catalog/results',
 } as const;
+
+/** Карточка специалиста: профиль S08, прайс S09, просмотрщик работ S10. */
+export const CARD_PATHS = {
+  profile: '/specialists/$profileId',
+  services: '/specialists/$profileId/services',
+  portfolio: '/specialists/$profileId/portfolio',
+} as const;
+
+/** Адрес профиля S08 для ссылки: deep link `s_` (routes/startapp.ts) ведёт сюда же. */
+export const profilePath = (profileId: string) => `/specialists/${profileId}`;
 
 /** Порядок выдачи на S06 — как на макете; «по цене» сервер умеет, в шторке его нет. */
 export const RESULT_SORTS = ['relevance', 'distance', 'rating'] as const;
@@ -96,4 +109,14 @@ export function resultsSearch(search: Record<string, unknown>): ResultsSearch {
   return Object.fromEntries(
     Object.entries(result).filter(([, value]) => value !== undefined),
   ) as ResultsSearch;
+}
+
+export interface PortfolioSearch {
+  /** Открытая работа; без неё — первая. */
+  work?: string;
+}
+
+/** validateSearch S10: id работы, остальное отбрасывается. */
+export function portfolioSearch(search: Record<string, unknown>): PortfolioSearch {
+  return typeof search.work === 'string' && isUuid(search.work) ? { work: search.work } : {};
 }

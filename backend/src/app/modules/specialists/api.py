@@ -45,6 +45,42 @@ class ProfileForIndex:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class PublicWork:
+    """Опубликованная работа портфолио (S08, S10); готов ли файл — решает media."""
+
+    id: UUID
+    kind: str
+    """image | video."""
+    caption: str | None
+    media_id: MediaId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PublicProfile:
+    """Опубликованный профиль для карточки специалиста S08 (4.5): что видит клиент."""
+
+    id: UUID
+    user_id: UserId
+    kind: str
+    display_name: str
+    headline: str | None
+    about: str | None
+    languages: tuple[str, ...]
+    city_id: CityId
+    area_ids: tuple[DistrictId, ...]
+    """Районы выезда по порядку: первый — основной."""
+    travel_radius_km: int | None
+    work_modes: tuple[str, ...]
+    category_ids: tuple[CategoryId, ...]
+    available_until: datetime | None
+    avatar_media_id: MediaId | None
+    is_founding: bool
+    published_at: datetime | None
+    works: tuple[PublicWork, ...]
+    """Опубликованные работы портфолио по порядку S37."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ProfileForReview:
     """Что проверяет модерация: текст профиля без контактов автора не очищен — это делает
     конвейер (ai/prompt.py)."""
@@ -112,6 +148,11 @@ class SpecialistsApi(Protocol):
 
     async def profiles_for_index(self, profile_ids: Collection[UUID]) -> list[ProfileForIndex]:
         """Профили для поиска в любом статусе (решает вызывающий); удалённых нет."""
+        ...
+
+    async def public_profile(self, profile_id: UUID) -> PublicProfile | None:
+        """Опубликованный профиль с работами портфолио (S08). Черновик, скрытый, удалённый или
+        несуществующий — None. Санкции автора проверяет вызывающий (identity)."""
         ...
 
     async def published_profile_ids(self, *, after: UUID | None, limit: int) -> list[UUID]:

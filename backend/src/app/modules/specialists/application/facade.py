@@ -8,6 +8,7 @@ from app.modules.specialists.api import (
     ProfileForIndex,
     ProfileForReview,
     ProfileRef,
+    PublicProfile,
     SpecialistsApi,
 )
 from app.modules.specialists.application.ports import ProfileQuery, ProfileRepository
@@ -42,6 +43,9 @@ class SpecialistsFacade(SpecialistsApi):
 
     async def profiles_for_index(self, profile_ids: Collection[UUID]) -> list[ProfileForIndex]:
         return await self._query.for_index(profile_ids)
+
+    async def public_profile(self, profile_id: UUID) -> PublicProfile | None:
+        return await self._query.public(profile_id)
 
     async def published_profile_ids(self, *, after: UUID | None, limit: int) -> list[UUID]:
         return await self._query.published_ids(after=after, limit=limit)

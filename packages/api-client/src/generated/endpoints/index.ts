@@ -7,3 +7,4 @@ export * from './platform/platform.ts';
 export * from './pricing/pricing.ts';
 export * from './search/search.ts';
 export * from './specialists/specialists.ts';
+export * from './views/views.ts';

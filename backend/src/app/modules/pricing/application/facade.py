@@ -4,7 +4,7 @@ from collections import defaultdict
 from collections.abc import Collection, Iterable
 from uuid import UUID
 
-from app.modules.pricing.api import PricingApi, SearchPrices
+from app.modules.pricing.api import PricingApi, PublicService, SearchPrices
 from app.modules.pricing.application.ports import ServiceRepository
 from app.modules.pricing.domain.service import PriceType, Service
 from app.platform.kernel.ids import CategoryId
@@ -19,6 +19,9 @@ class PricingFacade(PricingApi):
         for service in await self._services.visible(profile_ids):
             grouped[service.profile_id].append(service)
         return {profile_id: _summary(items) for profile_id, items in grouped.items()}
+
+    async def public_services(self, profile_id: UUID) -> list[PublicService]:
+        return [_public(service) for service in await self._services.visible([profile_id])]
 
 
 def _summary(services: Iterable[Service]) -> SearchPrices:
@@ -35,3 +38,17 @@ def _summary(services: Iterable[Service]) -> SearchPrices:
             known = by_category.get(service.category_id)
             by_category[service.category_id] = price if known is None else min(known, price)
     return SearchPrices(titles=tuple(titles), price_from=lowest, by_category=by_category)
+
+
+def _public(service: Service) -> PublicService:
+    return PublicService(
+        id=service.id,
+        title=service.title,
+        description=service.description,
+        category_id=service.category_id,
+        price_type=service.price_type.value,
+        price_min=service.price_min,
+        price_max=service.price_max,
+        unit=service.unit,
+        duration_min=service.duration_min,
+    )

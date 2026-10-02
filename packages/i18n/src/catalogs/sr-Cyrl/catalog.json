@@ -63,5 +63,54 @@
       "en": "Енглески",
       "uk": "Украјински"
     }
+  },
+  "profile": {
+    "title": "Профил стручњака",
+    "reviews": "{count, plural, one {# утисак} few {# утиска} other {# утисака}}",
+    "prepayment": "Не уплаћујте аванс непознатим извођачима. Платите када посао буде завршен.",
+    "prices": "Цене",
+    "allPrices": "Цео ценовник · {count}",
+    "works": "Радови",
+    "allWorks": "Сви · {count}",
+    "work": "Рад {number}",
+    "video": "Видео: {title}",
+    "about": "О мени",
+    "languageNames": {
+      "ru": "руски",
+      "sr": "српски",
+      "en": "енглески",
+      "uk": "украјински"
+    },
+    "travel": "Долази: {areas}",
+    "radius": "Долази до {km} км",
+    "unavailableTitle": "Профил није доступан",
+    "unavailableText": "Стручњак је сакрио профил или га више нема",
+    "toCatalog": "Пронађите другог стручњака"
+  },
+  "prices": {
+    "title": "Ценовник",
+    "summary": "{name} · {count, plural, one {# услуга} few {# услуге} other {# услуга}}",
+    "note": "Цене су оквирне — тачну цену мајстор ће рећи након прегледа.",
+    "other": "Остало",
+    "durations": {
+      "60": "до 1 сата",
+      "120": "1–2 сата",
+      "240": "пола дана",
+      "480": "цео дан"
+    },
+    "empty": "Ценовника још нема"
+  },
+  "portfolio": {
+    "title": "Радови",
+    "close": "Затвори преглед",
+    "position": "{number} / {count}",
+    "previous": "Претходни рад",
+    "next": "Следећи рад",
+    "others": "Други радови",
+    "thumb": "Рад {number} од {count}",
+    "thumbCurrent": "Рад {number} од {count}, отворен",
+    "more": "{count, plural, one {Још # рад} few {Још # рада} other {Још # радова}}",
+    "moreShort": "+{count}",
+    "empty": "Радова још нема"
   }
 }

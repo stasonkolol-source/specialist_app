@@ -11,7 +11,12 @@ import {
 import type { FunctionComponent } from 'react';
 
 import { ACCOUNT_PATHS } from '../features/account/index.ts';
-import { CATALOG_PATHS, resultsSearch } from '../features/catalog/index.ts';
+import {
+  CARD_PATHS,
+  CATALOG_PATHS,
+  portfolioSearch,
+  resultsSearch,
+} from '../features/catalog/index.ts';
 import { ONBOARDING_PATHS, onboardingSearch } from '../features/onboarding/index.ts';
 import { BECOME_PATHS, CABINET_PATHS, becomeSearch } from '../features/specialist/index.ts';
 import { LEGAL_PATH, LegalScreen } from '../features/service/s48-legal/index.ts';
@@ -240,6 +245,27 @@ const catalogResults = createRoute({
   component: screen(() => import('../features/catalog/s05-results/index.ts'), 'ResultsScreen'),
 });
 
+// Карточка специалиста S08–S10 (4.5): из выдачи и по deep link `s_` (routes/startapp.ts); открыта
+// и гостю. Открытая работа просмотрщика — в параметрах адреса
+const specialist = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CARD_PATHS.profile,
+  component: screen(() => import('../features/catalog/s08-profile/index.ts'), 'SpecialistScreen'),
+});
+
+const specialistServices = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CARD_PATHS.services,
+  component: screen(() => import('../features/catalog/s09-prices/index.ts'), 'PricesScreen'),
+});
+
+const specialistWorks = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CARD_PATHS.portfolio,
+  validateSearch: portfolioSearch,
+  component: screen(() => import('../features/catalog/s10-portfolio/index.ts'), 'WorksScreen'),
+});
+
 // S49b после действия, отклонённого частичной санкцией
 const restricted = createRoute({
   getParentRoute: () => rootRoute,
@@ -268,6 +294,9 @@ export const routeTree = rootRoute.addChildren([
   notifications,
   catalog,
   catalogResults,
+  specialist,
+  specialistServices,
+  specialistWorks,
   onboardingLanguage,
   onboardingIntent,
   onboardingRules,

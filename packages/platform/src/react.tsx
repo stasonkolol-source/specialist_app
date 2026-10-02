@@ -65,10 +65,37 @@ class ClosingGate {
   }
 }
 
+/** Тема, которую просит экран (просмотрщик S10 — тёмная): последний запрос побеждает. */
+class SchemeOverride {
+  private readonly requests: ColorScheme[] = [];
+  private readonly listeners = new Set<() => void>();
+
+  request(scheme: ColorScheme): () => void {
+    this.requests.push(scheme);
+    this.emit();
+    return () => {
+      this.requests.splice(this.requests.lastIndexOf(scheme), 1);
+      this.emit();
+    };
+  }
+
+  current = (): ColorScheme | null => this.requests.at(-1) ?? null;
+
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  };
+
+  private emit(): void {
+    for (const listener of this.listeners) listener();
+  }
+}
+
 interface PlatformContextValue {
   platform: Platform;
   back: BackStack;
   closing: ClosingGate;
+  scheme: SchemeOverride;
 }
 
 const PlatformContext = createContext<PlatformContextValue | null>(null);
@@ -81,7 +108,12 @@ export function PlatformProvider({
   children: ReactNode;
 }) {
   const value = useMemo(
-    () => ({ platform, back: new BackStack(platform), closing: new ClosingGate(platform) }),
+    () => ({
+      platform,
+      back: new BackStack(platform),
+      closing: new ClosingGate(platform),
+      scheme: new SchemeOverride(),
+    }),
     [platform],
   );
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;
@@ -184,10 +216,15 @@ export interface ChromeColors {
   bottomBar: string;
 }
 
-/** `data-theme` на <html> по colorScheme Telegram и цвета шапки, фона и нижней панели клиента. */
+/**
+ * `data-theme` на <html> по colorScheme Telegram и цвета шапки, фона и нижней панели клиента.
+ * Пока экран просит свою тему (`useColorSchemeOverride`), — она.
+ */
 export function useThemeSync(chrome?: Record<ColorScheme, ChromeColors>): ColorScheme {
-  const platform = usePlatform();
-  const scheme = useColorScheme();
+  const { platform, scheme: override } = useCtx();
+  const telegram = useColorScheme();
+  const requested = useSyncExternalStore(override.subscribe, override.current, override.current);
+  const scheme = requested ?? telegram;
   useEffect(() => {
     document.documentElement.dataset.theme = scheme;
     const colors = chrome?.[scheme];
@@ -197,4 +234,10 @@ export function useThemeSync(chrome?: Record<ColorScheme, ChromeColors>): ColorS
     platform.theme.setBottomBarColor(colors.bottomBar);
   }, [platform, scheme, chrome]);
   return scheme;
+}
+
+/** Экран в своей теме, пока смонтирован: просмотрщик работ S10 — на тёмном фоне при любой теме. */
+export function useColorSchemeOverride(scheme: ColorScheme): void {
+  const { scheme: override } = useCtx();
+  useEffect(() => override.request(scheme), [override, scheme]);
 }

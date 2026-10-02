@@ -7,16 +7,24 @@
 import type { StartLink } from '@sosed/links';
 import { parseStartParam } from '@sosed/links';
 
+import { profilePath } from '../features/catalog/index.ts';
+
 const HOME = '/';
 
+/** Вариант ссылки с типом K: у сущностей тип — объединение (`job | specialist | …`), поэтому
+ *  `Extract` их не находит — сужаем по каждому варианту. */
+type LinkOf<L, K> = L extends { type: infer T } ? (K extends T ? L & { type: K } : never) : never;
+
 type StartTargets = {
-  [K in StartLink['type']]?: (link: Extract<StartLink, { type: K }>) => string;
+  [K in StartLink['type']]?: (link: LinkOf<StartLink, K>) => string;
 };
 
 export const START_TARGETS: StartTargets = {
   home: () => HOME,
   // /terms и /privacy бота (1.6): вкладка S48
   legal: (link) => `/legal/${link.document}`,
+  // карточка специалиста S08: ссылки из выдачи, каналов и чатов диаспоры (4.5, шаринг — 7.4)
+  specialist: (link) => profilePath(link.id),
 };
 
 /** Адрес для кода `startapp`; `null` — приложение открыли без deep link. */

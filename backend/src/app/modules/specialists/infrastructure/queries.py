@@ -6,8 +6,9 @@ from uuid import UUID
 
 from sqlalchemy import RowMapping, Select, select
 
-from app.modules.specialists.api import ProfileForIndex
+from app.modules.specialists.api import ProfileForIndex, PublicProfile, PublicWork
 from app.modules.specialists.application.dto import ProfileView
+from app.modules.specialists.domain.portfolio import WorkStatus
 from app.modules.specialists.domain.profile import (
     Language,
     ProfileId,
@@ -16,6 +17,8 @@ from app.modules.specialists.domain.profile import (
     missing_fields,
 )
 from app.modules.specialists.infrastructure.models import (
+    PortfolioItemRow,
+    PortfolioMediaRow,
     ProfileCategoryRow,
     ProfileRow,
     ServiceAreaRow,
@@ -98,6 +101,53 @@ class SqlProfileQuery(SqlQuery):
             _for_index(row, categories.get(row["id"], ()), areas.get(row["id"], ())) for row in rows
         ]
 
+    async def public(self, profile_id: UUID) -> PublicProfile | None:
+        """Опубликованный профиль, его категории, районы и работы — четырьмя запросами."""
+        p = ProfileRow.__table__.c
+        row = await self._fetch_one(
+            select(ProfileRow.__table__).where(
+                p.id == profile_id, p.status == ProfileStatus.PUBLISHED, p.deleted_at.is_(None)
+            )
+        )
+        if row is None:
+            return None
+        c, a = ProfileCategoryRow.__table__.c, ServiceAreaRow.__table__.c
+        categories = await self._grouped(
+            select(c.profile_id, c.category_id.label("item"))
+            .where(c.profile_id == profile_id)
+            .order_by(c.position)
+        )
+        areas = await self._grouped(
+            select(a.profile_id, a.district_id.label("item"))
+            .where(a.profile_id == profile_id)
+            .order_by(a.position)
+        )
+        w, m = PortfolioItemRow.__table__.c, PortfolioMediaRow.__table__.c
+        works = await self._fetch(
+            select(w.id, w.title, m.media_id, m.kind)
+            .join(PortfolioMediaRow.__table__, m.item_id == w.id)
+            .where(
+                w.profile_id == profile_id,
+                w.deleted_at.is_(None),
+                w.status == WorkStatus.PUBLISHED,
+            )
+            .order_by(w.position, w.created_at, m.position)
+        )
+        return _public(
+            row,
+            categories.get(profile_id, ()),
+            areas.get(profile_id, ()),
+            tuple(
+                PublicWork(
+                    id=work["id"],
+                    kind=work["kind"].value,
+                    caption=work["title"],
+                    media_id=MediaId(work["media_id"]),
+                )
+                for work in works
+            ),
+        )
+
     async def published_ids(self, *, after: UUID | None, limit: int) -> list[UUID]:
         p = ProfileRow.__table__.c
         stmt = (
@@ -141,4 +191,31 @@ def _for_index(
         avatar_media_id=MediaId(row["avatar_media_id"]) if row["avatar_media_id"] else None,
         published_at=row["published_at"],
         updated_at=row["updated_at"],
+    )
+
+
+def _public(
+    row: RowMapping,
+    category_ids: tuple[int, ...],
+    area_ids: tuple[int, ...],
+    works: tuple[PublicWork, ...],
+) -> PublicProfile:
+    return PublicProfile(
+        id=row["id"],
+        user_id=UserId(row["user_id"]),
+        kind=row["kind"].value,
+        display_name=row["display_name"],
+        headline=row["headline"],
+        about=row["about"],
+        languages=tuple(row["languages"]),
+        city_id=CityId(row["city_id"]),
+        area_ids=tuple(DistrictId(item) for item in area_ids),
+        travel_radius_km=row["travel_radius_km"],
+        work_modes=tuple(row["work_modes"]),
+        category_ids=tuple(CategoryId(item) for item in category_ids),
+        available_until=row["available_until"],
+        avatar_media_id=MediaId(row["avatar_media_id"]) if row["avatar_media_id"] else None,
+        is_founding=row["is_founding"],
+        published_at=row["published_at"],
+        works=works,
     )

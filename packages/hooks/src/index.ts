@@ -87,7 +87,7 @@ export {
   usePortfolioUploads,
   workKindOf,
 } from './specialist/portfolio.ts';
-export type { ServiceGroup } from './specialist/prices.ts';
+export type { PricedService, ServiceGroup } from './specialist/prices.ts';
 export { groupServices, moveService, servicePrice } from './specialist/prices.ts';
 export type { BecomeStep, ProfileState } from './specialist/profile.ts';
 export {
@@ -118,3 +118,16 @@ export {
   useSpecialistCount,
   useSpecialistSearch,
 } from './search/search.ts';
+export type { PriceGroup } from './card/card.ts';
+export {
+  CARD_STALE_MS,
+  cardVariants,
+  isUnavailable,
+  largestVariant,
+  priceGroups,
+  specialistCardQueryKey,
+  specialistServicesQueryKey,
+  useSpecialistCard,
+  useSpecialistServices,
+  useSpecialistWorks,
+} from './card/card.ts';

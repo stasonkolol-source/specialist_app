@@ -155,6 +155,30 @@ describe('Photo', () => {
     expect(screen.getByRole('img', { name: 'Кухня' }).tagName).toBe('IMG');
     expect(await a11yViolations(container)).toEqual([]);
   });
+
+  it('в просмотрщике — фото целиком, без скругления', () => {
+    render(
+      <Photo
+        alt="Люстра"
+        fit="contain"
+        variants={[{ url: 'https://cdn.test/lg.webp', width: 1600 }]}
+        className="w-full"
+      />,
+    );
+    const image = screen.getByRole('img', { name: 'Люстра' });
+    expect(image.className).toContain('object-contain');
+    expect(image.parentElement?.className).not.toContain('rounded-photo');
+  });
+
+  it('без подписи — декоративное: плейсхолдер скрыт от скринридера', async () => {
+    const { container } = render(
+      <button type="button" aria-label="Работа 2 из 18">
+        <Photo alt="" className="size-14" />
+      </button>,
+    );
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(await a11yViolations(container)).toEqual([]);
+  });
 });
 
 describe('Field, Input, Textarea, SearchField', () => {
