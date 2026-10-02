@@ -16,6 +16,7 @@ import pytest
 import schemathesis
 import uvicorn
 from hypothesis import HealthCheck, settings
+from schemathesis.specs.openapi.checks import positive_data_acceptance
 
 from app.entrypoints._wiring import make_web_container, module_routers
 from app.interfaces.http.app import create_app
@@ -33,10 +34,11 @@ def _free_port() -> int:
 
 
 @pytest.fixture
-def live_api(settings: Settings) -> Iterator[str]:
-    """uvicorn с приложением теста в своём потоке и цикле событий."""
+def live_api(storage_settings: Settings) -> Iterator[str]:
+    """uvicorn с приложением теста в своём потоке и цикле событий. С хранилищем, как в проде:
+    открытая выдача специалистов строит ссылки на фото профиля."""
     port = _free_port()
-    app = create_app(make_web_container(settings), settings, module_routers())
+    app = create_app(make_web_container(storage_settings), storage_settings, module_routers())
     server = uvicorn.Server(
         uvicorn.Config(app, host="127.0.0.1", port=port, log_config=None, lifespan="on")
     )
@@ -55,6 +57,11 @@ def live_api(settings: Settings) -> Iterator[str]:
 
 schema = schemathesis.openapi.from_path(OPENAPI)
 
+CROSS_FIELD_RULES = frozenset({"GET /api/v1/specialists"})
+"""Выдача (4.2): правила между параметрами, которых нет в OpenAPI, — широта без долготы,
+радиус или сортировка по расстоянию без точки, непрозрачный курсор. На такой запрос по
+схеме API честно отвечает 422; остальные проверки (5xx, схема ответа) для них остаются."""
+
 
 @schema.parametrize()
 @settings(
@@ -64,4 +71,7 @@ schema = schemathesis.openapi.from_path(OPENAPI)
     suppress_health_check=[HealthCheck.function_scoped_fixture, HealthCheck.too_slow],
 )
 def test_api_matches_contract(case: schemathesis.Case, live_api: str) -> None:
-    case.call_and_validate(base_url=live_api)
+    lenient = case.operation.label in CROSS_FIELD_RULES
+    case.call_and_validate(
+        base_url=live_api, excluded_checks=[positive_data_acceptance] if lenient else None
+    )

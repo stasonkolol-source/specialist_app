@@ -160,6 +160,14 @@ async def test_nothing_found_is_logged_with_hints(catalog: Catalog) -> None:
     assert logged == "qwertyzzz:available_today"
 
 
+async def test_control_characters_do_not_break_search(catalog: Catalog) -> None:
+    await catalog.add(catalog.specialist("A"))
+
+    response = await catalog.get(q="elek\x00trik")  # NUL PostgreSQL не примет вовсе
+
+    assert response.status_code == 200
+
+
 async def test_casual_only_on_request(catalog: Catalog) -> None:
     pro, casual = await catalog.add(
         catalog.specialist("Pro"), catalog.specialist("Casual", kind="casual")

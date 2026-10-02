@@ -35,7 +35,14 @@ def test_query_text_drops_cyrillic_stopwords_too() -> None:
     assert text.words == ("Мајстор", "купатило")
 
 
-@pytest.mark.parametrize("q", [None, "", "   ", "i za na", "!!!"])
+def test_query_text_drops_control_and_invisible_characters() -> None:
+    text = QueryText.parse("elek\x00tri\u200bčar\tstan")
+
+    assert text is not None
+    assert text.raw == "elek tri čar stan"
+
+
+@pytest.mark.parametrize("q", [None, "", "   ", "i za na", "!!!", "\x00\x01"])
 def test_nothing_to_search_is_no_text(q: str | None) -> None:
     assert QueryText.parse(q) is None
 

@@ -9,6 +9,7 @@ import binascii
 import json
 import math
 import re
+import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass, fields, replace
 from enum import StrEnum
@@ -69,6 +70,12 @@ class Stage(StrEnum):
 FTS_STAGES: Final = (Stage.ALL_WORDS, Stage.PREFIX, Stage.ANY_WORD)
 
 
+def readable(text: str) -> str:
+    """Ввод без управляющих и невидимых символов (категория Unicode C): NUL PostgreSQL не
+    примет вовсе, а невидимые знаки ломают словарь и кэш. Вместо них — пробел."""
+    return "".join(" " if unicodedata.category(char)[0] == "C" else char for char in text)
+
+
 @dataclass(frozen=True, slots=True)
 class QueryText:
     raw: str
@@ -78,7 +85,7 @@ class QueryText:
 
     @classmethod
     def parse(cls, q: str | None) -> QueryText | None:
-        raw = " ".join((q or "").split())[:MAX_QUERY].strip()
+        raw = " ".join(readable(q or "").split())[:MAX_QUERY].strip()
         words = tuple(
             word for word in _WORD.findall(serbian(raw)) if word.lower() not in SERBIAN_STOPWORDS
         )
