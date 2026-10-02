@@ -95,6 +95,12 @@ ENTRY_POINTS: Final = frozenset({"mini_app", "bot", "unknown"})
 WRITE_ACCESS_VIA: Final = frozenset({"bot_start", "mini_app"})
 PROFILE_KINDS: Final = frozenset({"pro", "casual"})
 """GrantedVia notifications: /start в боте или requestWriteAccess в Mini App."""
+URGENCIES: Final = frozenset({"asap", "today", "this_week", "flexible"})
+"""Urgency заявки (jobs); сверяет тест модуля jobs."""
+CLOSE_REASONS: Final = frozenset(
+    {"hired_here", "hired_elsewhere", "not_needed", "no_suitable", "expired", "removed"}
+)
+"""CloseReason заявки (jobs): причины клиента, срок и снятие модерацией."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -139,9 +145,26 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
     EventName.PRO_WAITLIST_JOINED: EventSpec(step="2.8a", description="Лист ожидания Pro"),
     EventName.PHONE_VERIFIED: EventSpec(step="2.9", description="Телефон подтверждён"),
     EventName.REPORT_CREATED: EventSpec(step="4.7", description="Жалоба"),
-    EventName.JOB_PUBLISHED: EventSpec(step="5.1", description="Заявка опубликована"),
-    EventName.JOB_CLOSED: EventSpec(step="5.1", description="Заявка закрыта"),
-    EventName.JOB_EXPIRED: EventSpec(step="5.1", description="Заявка истекла"),
+    EventName.JOB_PUBLISHED: EventSpec(
+        step="5.1",
+        description="Заявка опубликована: после проверки или снова — продлением истёкшей",
+        properties={
+            "category": Ref(),
+            "city": Ref(),
+            "urgency": Choice(URGENCIES),
+            "republished": Flag(),
+        },
+    ),
+    EventName.JOB_CLOSED: EventSpec(
+        step="5.1",
+        description="Заявка закрыта клиентом (с причиной), удалена или снята модерацией",
+        properties={"category": Ref(), "city": Ref(), "reason": Choice(CLOSE_REASONS)},
+    ),
+    EventName.JOB_EXPIRED: EventSpec(
+        step="5.1",
+        description="Срок заявки вышел",
+        properties={"category": Ref(), "city": Ref()},
+    ),
     EventName.RESPONSE_SUBMITTED: EventSpec(step="5.4", description="Отклик на заявку"),
     EventName.INVITE_SENT: EventSpec(step="5.6", description="Приглашение в заявку"),
     EventName.DIRECT_REQUEST_SENT: EventSpec(step="5.6", description="Прямой запрос"),

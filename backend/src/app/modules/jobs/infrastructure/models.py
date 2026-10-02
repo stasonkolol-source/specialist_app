@@ -1,4 +1,5 @@
-"""ORM-модели jobs (ARCHITECTURE §7.3, миграция jobs_0001): заявки, их фото и история статусов.
+"""ORM-модели jobs (ARCHITECTURE §7.3, миграции jobs_0001–0002): заявки, их фото и история
+статусов.
 
 FK на identity.users, catalog.categories, geo.cities, geo.districts и media.assets объявлены
 только в миграции: MetaData модуля не знает чужих таблиц (modules/README.md). Отклики,
@@ -110,6 +111,8 @@ class JobRow(UuidPkMixin, TimestampsMixin, SoftDeleteMixin, VersionMixin, Base):
     selected_response_id: Mapped[UUID | None]
     published_at: Mapped[datetime | None]
     expires_at: Mapped[datetime | None]
+    expiry_reminded_at: Mapped[datetime | None]
+    """Напомнили о конце текущего срока (`job.expiring`, миграция jobs_0002)."""
     closed_at: Mapped[datetime | None]
     close_reason: Mapped[CloseReason | None] = mapped_column(str_enum(CloseReason, "close_reason"))
 

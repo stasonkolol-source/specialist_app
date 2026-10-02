@@ -2,6 +2,7 @@
 ModerationRequested), уведомления, поиск заявок и подписки (5.3, 5.7), аналитика."""
 
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
 
 from app.platform.kernel.events import DomainEvent
@@ -26,6 +27,8 @@ class JobPublished(DomainEvent):
     client_id: UserId
     category_id: CategoryId
     city_id: CityId
+    urgency: str
+    """Urgency заявки: срез аналитики и режим рассылки подписчикам (5.7)."""
     republished: bool = False
     """Не первая публикация: после правки, продления истёкшей — подписчикам не рассылать снова."""
 
@@ -46,6 +49,8 @@ class JobClosed(DomainEvent):
     event_type = "jobs.JobClosed"
     job_id: UUID
     client_id: UserId
+    category_id: CategoryId
+    city_id: CityId
     reason: str
 
 
@@ -56,3 +61,16 @@ class JobExpired(DomainEvent):
     event_type = "jobs.JobExpired"
     job_id: UUID
     client_id: UserId
+    category_id: CategoryId
+    city_id: CityId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class JobExpiring(DomainEvent):
+    """До конца срока опубликованной заявки осталось два часа (`jobs.expiry_reminders`):
+    клиенту — «Продлить» или «Закрыть»."""
+
+    event_type = "jobs.JobExpiring"
+    job_id: UUID
+    client_id: UserId
+    expires_at: datetime

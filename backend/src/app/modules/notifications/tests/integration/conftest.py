@@ -119,7 +119,8 @@ class Notifications:
 
     async def deliveries(self, user_id: UserId) -> list[dict[str, object]]:
         return await self._rows(
-            "SELECT d.id, d.status, d.not_before, d.sent_at, d.provider_message_id, d.attempts"
+            "SELECT d.id, d.status, d.not_before, d.sent_at, d.provider_message_id, d.attempts,"
+            " d.error"
             " FROM notifications.deliveries d JOIN notifications.notifications n"
             " ON n.id = d.notification_id WHERE n.user_id = :user_id ORDER BY d.id",
             user_id,

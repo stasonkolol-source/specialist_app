@@ -1,5 +1,6 @@
-"""`cli seed-demo` (DEVELOPMENT_PLAN 2.8c): план демо-специалиста детерминирован и правдоподобен,
-сербские тексты — латиницей, заглушка фото — JPEG, на проде команда отказывается работать.
+"""`cli seed-demo` (DEVELOPMENT_PLAN 2.8c, 5.1): планы демо-специалиста и демо-клиента
+детерминированы и правдоподобны, сербские тексты — латиницей, заглушка фото — JPEG, на проде
+команда отказывается работать.
 Сам сид на базе — в интеграционном тесте."""
 
 import io
@@ -16,11 +17,12 @@ from app.entrypoints._seed_demo import (
     SCALES,
     SeedDemoRefusedError,
     SeedReport,
+    client_plan,
     placeholder_photo,
     plan,
     seed_demo,
 )
-from app.entrypoints._seed_demo_content import CATEGORIES, CLOSERS, OPENERS
+from app.entrypoints._seed_demo_content import CATEGORIES, CLOSERS, JOBS, OPENERS
 from app.modules.specialists.domain.profile import ProfileKind
 from app.platform.contracts.events.identity import UserRegistered
 from app.platform.kernel.ids import UserId, new_id
@@ -96,7 +98,29 @@ def test_registry_without_a_subscriber_keeps_the_others() -> None:
 def test_demo_telegram_ids_are_beyond_real_ones() -> None:
     # у настоящих пользователей Telegram ID — до 52 бит
     assert plan(0).telegram_id >= 2**52
-    assert plan(SCALES["lab"].specialists).telegram_id < 2**53  # и без потерь в JS
+    assert plan(SCALES["lab"].specialists).telegram_id < client_plan(0).telegram_id
+    assert client_plan(SCALES["small"].clients).telegram_id < 2**53  # и без потерь в JS
+
+
+def test_demo_clients_post_one_or_two_jobs_in_their_language() -> None:
+    clients = [client_plan(number) for number in range(SCALES["small"].clients)]
+
+    assert client_plan(3) == client_plan(3)
+    assert {client.lang for client in clients} == {"ru", "sr"}
+    assert sum(len(client.jobs) for client in clients) > len(clients)
+    categories = {category.slug for category in CATEGORIES}
+    for client in clients:
+        assert 1 <= len(client.jobs) <= 2
+        assert len(client.district_picks) == len(client.jobs)
+        for job in client.jobs:
+            assert job.category in categories
+            assert 5 <= len(job.title[client.lang]) <= 120  # как у формы S20a
+            assert len(job.dinars) == {"fixed": 1, "range": 2, "negotiable": 0}[job.budget_type]
+
+
+def test_demo_jobs_in_serbian_are_latin() -> None:
+    for job in JOBS:
+        assert not CYRILLIC.search(job.title["sr"] + job.description["sr"]), job.title["ru"]
 
 
 async def test_production_refuses_demo_data(
@@ -119,13 +143,13 @@ def test_cli_reports_the_counts(monkeypatch: pytest.MonkeyPatch) -> None:
 
     async def seeded(scale: str) -> SeedReport:
         scales.append(scale)
-        return SeedReport(created=58, skipped=2, photos=80)
+        return SeedReport(created=58, skipped=2, photos=80, jobs=27)
 
     monkeypatch.setattr(cli, "_seed_demo", seeded)
     result = CliRunner().invoke(cli.app, ["seed-demo"])
 
     assert (result.exit_code, scales) == (0, ["small"])
-    assert "seed-demo small: 58 created, 2 already there, 80 photos" in result.output
+    assert "seed-demo small: 58 created, 2 already there, 80 photos, 27 jobs" in result.output
 
 
 def test_cli_reports_refusal(monkeypatch: pytest.MonkeyPatch) -> None:

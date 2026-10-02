@@ -149,8 +149,22 @@ class SqlChannelRepository:
         return (await self._session.execute(stmt)).first() is not None
 
 
-def payload_of(params: Mapping[str, str], link: str | None, *, urgent: bool) -> dict[str, Any]:
-    return {"params": dict(params), "link": link, "urgent": urgent}
+def payload_of(
+    params: Mapping[str, str],
+    link: str | None,
+    *,
+    urgent: bool,
+    valid_until: datetime | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {"params": dict(params), "link": link, "urgent": urgent}
+    if valid_until is not None:
+        payload["valid_until"] = valid_until.isoformat()
+    return payload
+
+
+def valid_until_of(payload: Mapping[str, Any]) -> datetime | None:
+    value = payload.get("valid_until")
+    return datetime.fromisoformat(value) if isinstance(value, str) else None
 
 
 def params_of(payload: Mapping[str, Any]) -> Mapping[str, str]:
@@ -187,7 +201,10 @@ class SqlNotificationRepository:
                 user_id=notification.user_id,
                 type=notification.type,
                 payload=payload_of(
-                    notification.params, notification.link, urgent=notification.urgent
+                    notification.params,
+                    notification.link,
+                    urgent=notification.urgent,
+                    valid_until=notification.valid_until,
                 ),
                 dedupe_key=notification.dedupe_key,
                 priority=int(notification.priority),

@@ -48,6 +48,33 @@ msgstr "Gotovo: „dostupan danas“ je isključeno."
 msgid "bot.available.no_profile"
 msgstr "„Dostupan danas“ je za objavljen profil stručnjaka. Profil možete napraviti ili proveriti u aplikaciji."
 
+msgid "bot.jobs.extended"
+msgstr "Zahtev „{title}“ je produžen do {until}."
+
+msgid "bot.jobs.closed"
+msgstr "Zahtev „{title}“ je zatvoren."
+
+msgid "bot.jobs.extend"
+msgstr "Produži"
+
+msgid "bot.jobs.close_question"
+msgstr "Zašto zatvarate zahtev „{title}“?"
+
+msgid "bot.jobs.found_question"
+msgstr "Gde ste našli izvođača za zahtev „{title}“?"
+
+msgid "bot.jobs.reason.hired_here"
+msgstr "Ovde, u „Sosedima“"
+
+msgid "bot.jobs.reason.hired_elsewhere"
+msgstr "Na drugom mestu"
+
+msgid "bot.jobs.reason.not_needed"
+msgstr "Više nije potrebno"
+
+msgid "bot.jobs.reason.no_suitable"
+msgstr "Niko nije odgovarao"
+
 msgid "bot.help.text"
 msgstr "<b>Kako funkcioniše</b>\n• Opišite zadatak — majstori u blizini će se javiti sa cenom. Ili izaberite stručnjaka po utiscima.\n• Dogovarajte se u četu aplikacije „Sosedi“: kontakti — nakon dogovora.\n• Plaćanje — direktno izvođaču, posle posla. „Sosedi“ ne primaju novac.\n\n<b>Bezbednost</b>\n• Ne plaćajte unapred nepoznatim ljudima i nikome ne govorite kodove iz SMS poruka.\n• Sumnjiv profil ili poruka — prijavite direktno u aplikaciji.\n\n/terms — pravila platforme\n/privacy — politika privatnosti\n/language — jezik"
 
@@ -525,6 +552,33 @@ msgstr "Moderator je proverio vaš profil — sada ga klijenti vide u katalogu."
 
 msgid "notifications.profile_published.button"
 msgstr "Otvori profil"
+
+msgid "notifications.job_expiring.title"
+msgstr "Zahtev uskoro ističe"
+
+msgid "notifications.job_expiring.body"
+msgstr "„{title}“ ističe za 2 sata. Ako vam je izvođač još potreban, produžite zahtev."
+
+msgid "notifications.job_expiring.body_final"
+msgstr "„{title}“ ističe za 2 sata. Više ne može da se produži: ako vam je izvođač još potreban, napravite novi zahtev."
+
+msgid "notifications.job_expired.title"
+msgstr "Zahtev je istekao"
+
+msgid "notifications.job_expired.body"
+msgstr "„{title}“ više ne vide izvođači. Ako vam je izvođač još potreban, produžite zahtev."
+
+msgid "notifications.job_expired.body_final"
+msgstr "„{title}“ više ne vide izvođači. Više ne može da se produži: ako vam je izvođač još potreban, napravite novi zahtev."
+
+msgid "notifications.job.extend"
+msgstr "Produži"
+
+msgid "notifications.job.close_found"
+msgstr "Zatvori: izvođač je nađen"
+
+msgid "notifications.job.close"
+msgstr "Zatvori"
 
 msgid "notifications.system_test.title"
 msgstr "Provera obaveštenja"

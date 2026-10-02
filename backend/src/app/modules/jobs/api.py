@@ -4,6 +4,7 @@
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -23,6 +24,20 @@ class JobForReview:
     """Риск категории: `≥ 1` — заявку проверяет человек (P2)."""
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class JobBrief:
+    """Заявка для уведомлений клиенту о её сроке (`job.expiring`, `job.expired`)."""
+
+    client_id: UserId
+    title: str
+    status: str
+    """Статус заявки (`published`, `expired`, …): уведомление о сроке нужно, только пока она
+    в ожидаемом статусе."""
+    expires_at: datetime | None
+    can_extend: bool
+    """Продлевали меньше трёх раз — кнопка «Продлить» имеет смысл."""
+
+
 class JobsApi(Protocol):
     async def job_for_review(self, job_id: UUID) -> JobForReview | None:
         """Заявка на проверке или опубликованная (выборочная проверка после публикации);
@@ -37,4 +52,8 @@ class JobsApi(Protocol):
     async def reject_job(self, job_id: UUID, *, reason_code: str) -> None:
         """Нарушение — в транзакции вызывающего: ждавшая проверки отклоняется (клиент
         исправит), опубликованная снимается."""
+        ...
+
+    async def job_brief(self, job_id: UUID) -> JobBrief | None:
+        """Название, статус и срок заявки; None — нет такой или удалена."""
         ...

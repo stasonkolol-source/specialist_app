@@ -47,6 +47,33 @@ msgstr "Готово: «доступен сегодня» выключено."
 msgid "bot.available.no_profile"
 msgstr "«Доступен сегодня» — для опубликованного профиля специалиста. Создать или проверить профиль можно в приложении."
 
+msgid "bot.jobs.extended"
+msgstr "Заявка «{title}» продлена до {until}."
+
+msgid "bot.jobs.closed"
+msgstr "Заявка «{title}» закрыта."
+
+msgid "bot.jobs.extend"
+msgstr "Продлить"
+
+msgid "bot.jobs.close_question"
+msgstr "Почему закрываете заявку «{title}»?"
+
+msgid "bot.jobs.found_question"
+msgstr "Где нашёлся исполнитель для заявки «{title}»?"
+
+msgid "bot.jobs.reason.hired_here"
+msgstr "Нашёлся здесь, в «Соседях»"
+
+msgid "bot.jobs.reason.hired_elsewhere"
+msgstr "Нашёлся в другом месте"
+
+msgid "bot.jobs.reason.not_needed"
+msgstr "Уже не нужно"
+
+msgid "bot.jobs.reason.no_suitable"
+msgstr "Никто не подошёл"
+
 msgid "bot.help.text"
 msgstr "<b>Как это работает</b>\n• Опишите задачу — мастера рядом откликнутся с ценой. Или выберите специалиста по отзывам.\n• Договаривайтесь в чате «Соседей»: контакты — после договорённости.\n• Оплата — напрямую исполнителю, после работы. «Соседи» деньги не принимают.\n\n<b>Безопасность</b>\n• Не вносите предоплату незнакомым и никому не сообщайте коды из СМС.\n• Подозрительный профиль или сообщение — пожалуйтесь прямо в приложении.\n\n/terms — правила площадки\n/privacy — политика конфиденциальности\n/language — язык"
 
@@ -524,6 +551,33 @@ msgstr "Модератор проверил ваш профиль — тепер
 
 msgid "notifications.profile_published.button"
 msgstr "Открыть профиль"
+
+msgid "notifications.job_expiring.title"
+msgstr "Заявка скоро закроется"
+
+msgid "notifications.job_expiring.body"
+msgstr "«{title}» закроется через 2 часа. Если исполнитель ещё нужен — продлите заявку."
+
+msgid "notifications.job_expiring.body_final"
+msgstr "«{title}» закроется через 2 часа. Продлевать её больше нельзя: если исполнитель ещё нужен, создайте новую заявку."
+
+msgid "notifications.job_expired.title"
+msgstr "Срок заявки вышел"
+
+msgid "notifications.job_expired.body"
+msgstr "«{title}» больше не видна исполнителям. Если исполнитель ещё нужен — продлите заявку."
+
+msgid "notifications.job_expired.body_final"
+msgstr "«{title}» больше не видна исполнителям. Продлевать её больше нельзя: если исполнитель ещё нужен, создайте новую заявку."
+
+msgid "notifications.job.extend"
+msgstr "Продлить"
+
+msgid "notifications.job.close_found"
+msgstr "Закрыть: исполнитель найден"
+
+msgid "notifications.job.close"
+msgstr "Закрыть"
 
 msgid "notifications.system_test.title"
 msgstr "Проверка уведомлений"

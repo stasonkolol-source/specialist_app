@@ -3,8 +3,8 @@
 Доменное событие ставит задачу в той же транзакции, что и изменение (ADR-0020 §8): событие
 аналитики уходит только после commit и не уходит при rollback. Здесь подключаются
 `user_registered` (с источником атрибуции), `onboarding_completed` и `write_access_granted`
-(1.7), `profile_submitted` и `profile_published` (2.8a); остальные события подключает шаг
-своего модуля (таксономия — events.py).
+(1.7), `profile_submitted` и `profile_published` (2.8a), `job_published`, `job_closed` и
+`job_expired` (5.1); остальные события подключает шаг своего модуля (таксономия — events.py).
 """
 
 from dishka import FromDishka
@@ -12,6 +12,7 @@ from dishka import FromDishka
 from app.platform.analytics.events import EventName, analytics_event
 from app.platform.analytics.port import Analytics
 from app.platform.contracts.events.identity import OnboardingCompleted, UserRegistered
+from app.platform.contracts.events.jobs import JobClosed, JobExpired, JobPublished
 from app.platform.contracts.events.notifications import WriteAccessGranted
 from app.platform.contracts.events.specialists import ProfilePublished, ProfileSubmitted
 from app.platform.queue.port import TaskRef
@@ -25,6 +26,9 @@ CAPTURE_ONBOARDING_COMPLETED = TaskRef(
 CAPTURE_WRITE_ACCESS_GRANTED = TaskRef("analytics.capture_write_access_granted", WriteAccessGranted)
 CAPTURE_PROFILE_SUBMITTED = TaskRef("analytics.capture_profile_submitted", ProfileSubmitted)
 CAPTURE_PROFILE_PUBLISHED = TaskRef("analytics.capture_profile_published", ProfilePublished)
+CAPTURE_JOB_PUBLISHED = TaskRef("analytics.capture_job_published", JobPublished)
+CAPTURE_JOB_CLOSED = TaskRef("analytics.capture_job_closed", JobClosed)
+CAPTURE_JOB_EXPIRED = TaskRef("analytics.capture_job_expired", JobExpired)
 
 
 @subscriber(UserRegistered, CAPTURE_USER_REGISTERED)
@@ -101,5 +105,50 @@ async def capture_profile_published(
             occurred_at=event.occurred_at,
             source_event_id=event.event_id,
             approved=event.approved,
+        )
+    )
+
+
+@subscriber(JobPublished, CAPTURE_JOB_PUBLISHED)
+async def capture_job_published(event: JobPublished, analytics: FromDishka[Analytics]) -> None:
+    await analytics.capture(
+        analytics_event(
+            EventName.JOB_PUBLISHED,
+            user_id=event.client_id,
+            occurred_at=event.occurred_at,
+            source_event_id=event.event_id,
+            category=event.category_id,
+            city=event.city_id,
+            urgency=event.urgency,
+            republished=event.republished,
+        )
+    )
+
+
+@subscriber(JobClosed, CAPTURE_JOB_CLOSED)
+async def capture_job_closed(event: JobClosed, analytics: FromDishka[Analytics]) -> None:
+    await analytics.capture(
+        analytics_event(
+            EventName.JOB_CLOSED,
+            user_id=event.client_id,
+            occurred_at=event.occurred_at,
+            source_event_id=event.event_id,
+            category=event.category_id,
+            city=event.city_id,
+            reason=event.reason,
+        )
+    )
+
+
+@subscriber(JobExpired, CAPTURE_JOB_EXPIRED)
+async def capture_job_expired(event: JobExpired, analytics: FromDishka[Analytics]) -> None:
+    await analytics.capture(
+        analytics_event(
+            EventName.JOB_EXPIRED,
+            user_id=event.client_id,
+            occurred_at=event.occurred_at,
+            source_event_id=event.event_id,
+            category=event.category_id,
+            city=event.city_id,
         )
     )

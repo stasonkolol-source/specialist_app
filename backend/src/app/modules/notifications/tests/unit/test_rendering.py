@@ -4,6 +4,7 @@
 """
 
 from collections.abc import Mapping
+from uuid import UUID
 
 import pytest
 
@@ -12,7 +13,9 @@ from app.modules.notifications.infrastructure.rendering import RENDERED, Gettext
 from app.platform.contracts.events.identity import RestrictionKind
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.localized import Locale
+from app.platform.telegram.callbacks import CallbackAction, CallbackData, parse_callback
 from app.platform.telegram.deeplinks import parse_start_param
+from app.platform.telegram.port import AppButton, CallbackButton
 
 pytestmark = pytest.mark.unit
 
@@ -133,6 +136,7 @@ def test_bot_message_is_escaped_html_with_a_mini_app_button(
     assert text.startswith("<b>Заявка не опубликована</b>\n")
     assert "<b>x</b>" not in text  # неизвестный код — общие слова; разметку он не вносит
     [button] = buttons
+    assert isinstance(button, AppButton)
     assert button.text == "Исправить"
     assert button.url == f"{MINI_APP}?startapp=l_terms"
     assert parse_start_param("l_terms") is not None
@@ -170,6 +174,8 @@ def test_types_without_templates_are_refused(renderer: GettextNotificationRender
         DECISION,
         NotificationType.SYSTEM_TEST,
         NotificationType.PROFILE_PUBLISHED,
+        NotificationType.JOB_EXPIRING,
+        NotificationType.JOB_EXPIRED,
     }
     with pytest.raises(ValueError, match="no templates"):
         renderer.text(NotificationType.JOB_MATCHED, {}, Locale.RU)
@@ -182,6 +188,7 @@ def test_channel_check_message_on_three_scripts(
     text, [button] = renderer.telegram(NotificationType.SYSTEM_TEST, {}, "h", locale)
 
     assert "notifications." not in text
+    assert isinstance(button, AppButton)
     assert button.url == f"{MINI_APP}?startapp=h"
 
 
@@ -194,3 +201,73 @@ def test_profile_published_says_so_with_a_button(
 
     assert "notifications." not in text
     assert len(buttons) == 1
+
+
+JOB_ID = UUID("01a0fc88-f156-726a-9a76-99e3d10e5542")
+
+
+def job_params(*, can_extend: bool, title: str = "Повесить люстру") -> dict[str, str]:
+    return {"job_id": str(JOB_ID), "title": title, "can_extend": "true" if can_extend else "false"}
+
+
+def callbacks(buttons: tuple[object, ...]) -> list[tuple[str, CallbackData | None]]:
+    assert all(isinstance(b, CallbackButton) for b in buttons)
+    return [(b.text, parse_callback(b.data)) for b in buttons if isinstance(b, CallbackButton)]
+
+
+def test_expiring_job_offers_extend_and_close_as_found(
+    renderer: GettextNotificationRenderer,
+) -> None:
+    text, buttons = renderer.telegram(
+        NotificationType.JOB_EXPIRING, job_params(can_extend=True), "j_abc", Locale.RU
+    )
+
+    assert text == (
+        "<b>Заявка скоро закроется</b>\n«Повесить люстру» закроется через 2 часа."
+        " Если исполнитель ещё нужен — продлите заявку."
+    )
+    assert callbacks(buttons) == [
+        ("Продлить", CallbackData(CallbackAction.JOB_EXTEND, JOB_ID)),
+        ("Закрыть: исполнитель найден", CallbackData(CallbackAction.JOB_CLOSE, JOB_ID, "found")),
+    ]
+
+
+def test_expired_job_after_three_extensions_can_only_be_closed(
+    renderer: GettextNotificationRenderer,
+) -> None:
+    text, buttons = renderer.telegram(
+        NotificationType.JOB_EXPIRED, job_params(can_extend=False), "j_abc", Locale.RU
+    )
+
+    assert "Продлевать её больше нельзя" in text
+    assert callbacks(buttons) == [("Закрыть", CallbackData(CallbackAction.JOB_CLOSE, JOB_ID))]
+
+
+@pytest.mark.parametrize("locale", SCRIPTS)
+@pytest.mark.parametrize("type_", [NotificationType.JOB_EXPIRING, NotificationType.JOB_EXPIRED])
+def test_job_term_texts_on_three_scripts(
+    renderer: GettextNotificationRenderer, type_: NotificationType, locale: Locale
+) -> None:
+    for can_extend in (True, False):
+        text, buttons = renderer.telegram(type_, job_params(can_extend=can_extend), None, locale)
+        assert "notifications." not in text
+        assert all("notifications." not in b.text for b in buttons)
+
+
+def test_long_title_is_shortened_and_markup_escaped(renderer: GettextNotificationRenderer) -> None:
+    title = "<b>Люстра</b> " + "очень " * 20
+
+    text, _ = renderer.telegram(
+        NotificationType.JOB_EXPIRED, job_params(can_extend=True, title=title), None, Locale.RU
+    )
+
+    assert "&lt;b&gt;Люстра&lt;/b&gt;" in text
+    assert "…»" in text
+
+
+def test_job_term_without_a_job_id_has_no_buttons(renderer: GettextNotificationRenderer) -> None:
+    _, buttons = renderer.telegram(
+        NotificationType.JOB_EXPIRING, {"title": "x", "can_extend": "true"}, None, Locale.RU
+    )
+
+    assert buttons == ()

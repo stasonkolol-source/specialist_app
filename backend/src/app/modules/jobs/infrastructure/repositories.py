@@ -149,6 +149,7 @@ def _to_domain(row: JobRow, media: tuple[MediaId, ...]) -> Job:
         closed_at=row.closed_at,
         close_reason=row.close_reason,
         moderation_note=row.moderation_note,
+        expiry_reminded_at=row.expiry_reminded_at,
         deleted_at=row.deleted_at,
         version=row.version,
     )
@@ -184,6 +185,7 @@ def _apply(job: Job, row: JobRow) -> None:
     row.moderation_note = job.moderation_note
     row.published_at = job.published_at
     row.expires_at = job.expires_at
+    row.expiry_reminded_at = job.expiry_reminded_at
     row.closed_at = job.closed_at
     row.close_reason = job.close_reason
     row.updated_at = job.updated_at

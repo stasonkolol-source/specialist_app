@@ -43,6 +43,8 @@ class NewNotification:
     urgent: bool
     priority: Priority
     in_app: bool
+    valid_until: datetime | None = None
+    """Позже — сообщение уже неправда: доставка в бот не уходит («закроется через 2 ч»)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -108,6 +110,8 @@ class DeliveryTarget:
     link: str | None
     urgent: bool
     """Срочное (заявка `asap`): тихие часы не действуют."""
+    valid_until: datetime | None = None
+    """Позже этого момента не отправлять: доставка `suppressed`."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

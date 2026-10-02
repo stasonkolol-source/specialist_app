@@ -1,12 +1,19 @@
-"""`cli seed-demo` на базе (DEVELOPMENT_PLAN 2.8c): демо-специалисты созданы use cases и сразу
-опубликованы, повторный запуск количества не меняет, автопроверки в очереди нет; фото работ —
-через хранилище (Garage) и обычную загрузку media."""
+"""`cli seed-demo` на базе (DEVELOPMENT_PLAN 2.8c, 5.1): демо-специалисты и заявки демо-клиентов
+созданы use cases и сразу опубликованы, повторный запуск количества не меняет, автопроверки в
+очереди нет; фото работ — через хранилище (Garage) и обычную загрузку media."""
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-from app.entrypoints._seed_demo import DEMO_TELEGRAM_BASE, Scale, plan, seed_demo
+from app.entrypoints._seed_demo import (
+    DEMO_CLIENT_BASE,
+    DEMO_TELEGRAM_BASE,
+    Scale,
+    client_plan,
+    plan,
+    seed_demo,
+)
 from app.platform.settings import Settings
 from tests.plugins.containers import GarageInfo
 
@@ -35,15 +42,31 @@ def numbers(scale: Scale) -> dict[str, int]:
     }
 
 
+DEMO_JOBS = (
+    "FROM jobs.jobs j JOIN identity.auth_identities a ON a.user_id = j.client_id"
+    " WHERE a.provider = 'telegram' AND CAST(a.subject AS bigint) BETWEEN :first AND :last"
+)
+
+
 async def test_seed_is_repeatable_and_published(
-    settings: Settings, geo_seeded: None, catalog_seeded: None
+    storage_settings: Settings, geo_seeded: None, catalog_seeded: None
 ) -> None:
-    scale = Scale(4, photos=False, start=1000)
+    settings = storage_settings  # заявке нужен media: фото нет, но порт собирается
+    scale = Scale(4, photos=False, start=1000, clients=3)
     first = await seed_demo(settings, scale, echo=lambda _: None)
     again = await seed_demo(settings, scale, echo=lambda _: None)
 
     assert (first.created, first.skipped) == (4, 0)
-    assert (again.created, again.skipped) == (0, 4)
+    assert (again.created, again.skipped, again.jobs) == (0, 4, 0)
+    planned = sum(len(client_plan(n).jobs) for n in range(scale.start, scale.start + 3))
+    assert first.jobs == planned
+    clients = {"first": DEMO_CLIENT_BASE + scale.start, "last": DEMO_CLIENT_BASE + scale.start + 2}
+    published_jobs = await scalar(
+        settings,
+        f"SELECT count(*) {DEMO_JOBS} AND j.status = 'published' AND j.point_public IS NOT NULL",
+        **clients,
+    )
+    assert published_jobs == planned
     published = await scalar(
         settings, f"SELECT count(*) {DEMO_PROFILES} AND p.status = 'published'", **numbers(scale)
     )

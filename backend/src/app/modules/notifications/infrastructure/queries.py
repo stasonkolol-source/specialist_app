@@ -19,7 +19,11 @@ from app.modules.notifications.infrastructure.models import (
     PreferenceRow,
     UserSettingsRow,
 )
-from app.modules.notifications.infrastructure.repositories import params_of, settings_of
+from app.modules.notifications.infrastructure.repositories import (
+    params_of,
+    settings_of,
+    valid_until_of,
+)
 from app.platform.db.query import SqlQuery, decode_cursor, encode_cursor
 from app.platform.kernel.ids import UserId
 from app.platform.kernel.pagination import Page, PageRequest
@@ -93,6 +97,7 @@ class SqlNotificationQuery(SqlQuery):
             params=params_of(row["payload"]),
             link=row["payload"].get("link"),
             urgent=bool(row["payload"].get("urgent", False)),
+            valid_until=valid_until_of(row["payload"]),
         )
 
     async def deliveries_of(self, notification_id: NotificationId) -> list[DeliveryId]:

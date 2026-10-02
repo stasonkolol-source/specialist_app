@@ -1,6 +1,7 @@
 """Порты модуля jobs (ADR-0020 §3, §5): репозиторий заявок, суточная квота и задачи."""
 
 from collections.abc import Sequence
+from datetime import datetime
 from typing import Final, Protocol
 
 from app.modules.jobs.application.dto import JobView
@@ -41,6 +42,14 @@ class JobQueries(Protocol):
         self, client_id: UserId, statuses: Sequence[JobStatus], *, limit: int
     ) -> list[JobView]:
         """Заявки клиента в этих статусах, новые первыми; пусто — все статусы."""
+        ...
+
+    async def due_to_expire(self, now: datetime, *, limit: int) -> list[JobId]:
+        """Опубликованные, чей срок вышел, — самые давние первыми."""
+        ...
+
+    async def expiring(self, now: datetime, until: datetime, *, limit: int) -> list[JobId]:
+        """Опубликованные со сроком в (now, until], о котором клиенту ещё не напоминали."""
         ...
 
     async def count_active(self, client_id: UserId) -> int:

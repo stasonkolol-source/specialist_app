@@ -1,13 +1,15 @@
-"""`cli seed-demo` (DEVELOPMENT_PLAN 2.8c): демо-специалисты для dev и stage — профиль, прайс,
-районы, портфолио и «доступен сегодня», созданные теми же use cases, что и в Mini App.
+"""`cli seed-demo` (DEVELOPMENT_PLAN 2.8c, 5.1): демо-специалисты для dev и stage — профиль, прайс,
+районы, портфолио и «доступен сегодня» — и демо-клиенты с опубликованными заявками, созданные
+теми же use cases, что и в Mini App.
 
-- Детерминированно: каждый специалист — из генератора `random.Random` с фиксированным seed и его
-  номером, а узнаётся по Telegram ID из своего диапазона. Повторный запуск пропускает готовых и
-  доделывает прерванных: количества не меняются.
-- Модерация — «одобрить всё»: сид сам одобряет отправленный профиль через фасад specialists, а
-  контейнер сида собран без подписки `moderation.auto_check` — в очереди модераторов демо-кейсов
-  нет. Без подписок аналитики, уведомлений и атрибуции: демо-люди не портят воронки и не
-  наполняют ленты. Обработка фото и проекции (поиск, 4.1) — остаются.
+- Детерминированно: каждый специалист и клиент — из генератора `random.Random` с фиксированным
+  seed и его номером, а узнаётся по Telegram ID из своего диапазона. Повторный запуск пропускает
+  готовых (клиента — если заявки у него уже есть) и доделывает прерванных специалистов:
+  количества не меняются.
+- Модерация — «одобрить всё»: сид сам одобряет отправленный профиль и заявку через фасады
+  specialists и jobs, а контейнер сида собран без подписки `moderation.auto_check` — в очереди
+  модераторов демо-кейсов нет. Без подписок аналитики, уведомлений и атрибуции: демо-люди не
+  портят воронки и не наполняют ленты. Обработка фото и проекции (поиск, 4.1) — остаются.
 - Фото работ (`small`) — JPEG-заглушки цвета категории: загрузка и обработка — обычные (кладёт
   сервер, обрабатывает worker-media). Без хранилища (S3 не настроен) — без фото.
 - `lab` — объём лаборатории (research/07 §2.7): 50 000 специалистов, без фото.
@@ -17,7 +19,7 @@
 import io
 import random
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import time
 from typing import Final
 
@@ -29,8 +31,10 @@ from app.entrypoints._seed_demo_content import (
     CLOSERS,
     FIRST_NAMES,
     INITIALS,
+    JOBS,
     OPENERS,
     DemoCategory,
+    DemoJob,
     DemoService,
     Lang,
 )
@@ -51,6 +55,11 @@ from app.modules.identity.application.use_cases.update_profile import (
     UpdateProfileCommand,
 )
 from app.modules.identity.domain.user import UserIntent
+from app.modules.jobs.api import JobsApi
+from app.modules.jobs.application.content import JobDraft
+from app.modules.jobs.application.ports import JobQueries
+from app.modules.jobs.application.use_cases.create_job import CreateJob, CreateJobCommand
+from app.modules.jobs.domain.job import Budget, BudgetType, BudgetUnit, Urgency
 from app.modules.media.application.ports import MediaQuery
 from app.modules.media.application.use_cases.complete_upload import (
     CompleteUpload,
@@ -93,6 +102,7 @@ from app.modules.specialists.domain.profile import ProfileKind
 from app.platform.config.port import LegalVersions
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import BUSINESS_TZ, Clock
+from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, UserId
 from app.platform.kernel.principal import Platform
 from app.platform.settings import Environment, Settings
@@ -101,6 +111,8 @@ from app.platform.storage.port import Bucket, StoragePort
 DEMO_TELEGRAM_BASE: Final = 5_000_000_000_000_000
 """Telegram ID демо-пользователя — база плюс номер. У настоящих пользователей ID не длиннее 52
 бит (< 4,6·10¹⁵): войти под демо-ID из Telegram нельзя, даже на общем stage."""
+DEMO_CLIENT_BASE: Final = DEMO_TELEGRAM_BASE + 100_000_000
+"""Telegram ID демо-клиента — база плюс номер: специалистов даже в `lab` меньше ста миллионов."""
 SEED: Final = "sosed-demo-v1"
 CITY: Final = "novi-sad"
 PHOTO_SIZE: Final = (1200, 900)
@@ -112,10 +124,15 @@ class Scale:
     specialists: int
     photos: bool
     start: int = 0
-    """Номер первого специалиста: тесты на общей базе берут свои номера."""
+    """Номер первого специалиста и клиента: тесты на общей базе берут свои номера."""
+    clients: int = 0
+    """Демо-клиенты с опубликованными заявками (5.1): лента и экраны заявок на стенде."""
 
 
-SCALES: Final = {"small": Scale(60, photos=True), "lab": Scale(50_000, photos=False)}
+SCALES: Final = {
+    "small": Scale(60, photos=True, clients=20),
+    "lab": Scale(50_000, photos=False),
+}
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -210,6 +227,39 @@ def plan(number: int) -> DemoSpecialist:
     )
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DemoClient:
+    """План демо-клиента — чистая функция номера (`client_plan`)."""
+
+    number: int
+    lang: Lang
+    first_name: str
+    last_initial: str
+    jobs: tuple[DemoJob, ...]
+    district_picks: tuple[int, ...]
+    """Район каждой заявки — индекс среди районов города (по порядку id)."""
+
+    @property
+    def telegram_id(self) -> int:
+        return DEMO_CLIENT_BASE + self.number
+
+
+def client_plan(number: int) -> DemoClient:
+    """Демо-клиент номер `number`: одна-две заявки на своём языке, каждая в своём районе."""
+    rng = random.Random(f"{SEED}:client:{number}")  # noqa: S311 — демо-данные, не криптография
+    lang: Lang = "ru" if rng.random() < 0.5 else "sr"
+    female = rng.random() < 0.5
+    jobs = tuple(rng.sample(JOBS, k=rng.choice((1, 1, 2))))
+    return DemoClient(
+        number=number,
+        lang=lang,
+        first_name=rng.choice(FIRST_NAMES[(lang, female)]),
+        last_initial=rng.choice(INITIALS[lang]),
+        jobs=jobs,
+        district_picks=tuple(rng.randrange(1_000_000) for _ in jobs),
+    )
+
+
 def _root(category: DemoCategory) -> str:
     """Группа каталога: соседние листья одной группы — правдоподобный набор умений."""
     for root, slugs in ROOTS.items():
@@ -255,12 +305,15 @@ class SeedReport:
     created: int = 0
     skipped: int = 0
     photos: int = 0
+    jobs: int = 0
+    """Заявок демо-клиентов создано в этот запуск."""
 
 
 @dataclass(frozen=True, slots=True)
 class _World:
     city_id: CityId
     districts: tuple[DistrictId, ...]
+    centers: dict[DistrictId, GeoPoint]
     categories: dict[str, CategoryId]
     terms: str
     privacy: str
@@ -283,6 +336,8 @@ class DemoSeeder:
             report.photos += added
             if done % 500 == 0:
                 self._echo(f"seed-demo: {done}/{scale.specialists}")
+        for number in range(scale.start, scale.start + scale.clients):
+            report.jobs += await self._client(client_plan(number), world)
         return report
 
     async def _world(self) -> _World:
@@ -302,6 +357,7 @@ class DemoSeeder:
         return _World(
             city_id=city.id,
             districts=tuple(sorted(d.id for d in neighborhoods)),
+            centers={d.id: d.center for d in neighborhoods},
             categories=slugs,
             terms=legal["terms"],
             privacy=legal["privacy"],
@@ -318,7 +374,18 @@ class DemoSeeder:
             if draft is not None and draft.status != "draft":
                 return False, 0
             # прерванный запуск доделывается: вход и согласия идемпотентны, профиль — уже есть
-            user_id = await self._sign_up(request, demo, world)
+            intent = UserIntent.PRO if demo.kind is ProfileKind.PRO else UserIntent.CASUAL
+            user_id = await self._sign_up(
+                request,
+                TelegramProfile(
+                    id=demo.telegram_id,
+                    first_name=demo.first_name,
+                    last_name=f"{demo.last_initial}.",
+                    language_code=demo.lang,
+                ),
+                intent,
+                world,
+            )
             await self._profile(request, user_id, demo, world)
             fresh = draft is None
             added = await self._portfolio(request, user_id, demo) if photos and fresh else 0
@@ -333,20 +400,14 @@ class DemoSeeder:
         return True, added
 
     async def _sign_up(
-        self, request: AsyncContainer, demo: DemoSpecialist, world: _World
+        self,
+        request: AsyncContainer,
+        profile: TelegramProfile,
+        intent: UserIntent,
+        world: _World,
     ) -> UserId:
         auth = await request.get(AuthenticateTelegram)
-        result = await auth(
-            AuthenticateTelegramCommand(
-                profile=TelegramProfile(
-                    id=demo.telegram_id,
-                    first_name=demo.first_name,
-                    last_name=f"{demo.last_initial}.",
-                    language_code=demo.lang,
-                ),
-                platform=Platform.TMA,
-            )
-        )
+        result = await auth(AuthenticateTelegramCommand(profile=profile, platform=Platform.TMA))
         user_id = result.tokens.user_id
         await (await request.get(AcceptConsents))(
             AcceptConsentsCommand(
@@ -356,11 +417,55 @@ class DemoSeeder:
                 source=Platform.TMA,
             )
         )
-        intent = UserIntent.PRO if demo.kind is ProfileKind.PRO else UserIntent.CASUAL
         await (await request.get(UpdateProfile))(
             UpdateProfileCommand(actor_id=user_id, home_city_id=world.city_id, intent=intent)
         )
         return user_id
+
+    async def _client(self, demo: DemoClient, world: _World) -> int:
+        """Сколько заявок создано сейчас; у клиента, у которого заявки уже есть, — ни одной."""
+        async with self._container() as request:
+            existing = await (await request.get(IdentityQuery)).by_telegram(demo.telegram_id)
+            if existing is not None and await (await request.get(JobQueries)).own(
+                existing.id, [], limit=1
+            ):
+                return 0
+            user_id = await self._sign_up(
+                request,
+                TelegramProfile(
+                    id=demo.telegram_id,
+                    first_name=demo.first_name,
+                    last_name=f"{demo.last_initial}.",
+                    language_code=demo.lang,
+                ),
+                UserIntent.CLIENT,
+                world,
+            )
+            create, jobs = await request.get(CreateJob), await request.get(JobsApi)
+            uow = await request.get(UnitOfWork)
+            for job, pick in zip(demo.jobs, demo.district_picks, strict=True):
+                district = world.districts[pick % len(world.districts)]
+                job_id = await create(
+                    CreateJobCommand(
+                        actor_id=user_id,
+                        trust_level=0,
+                        draft=JobDraft(
+                            title=job.title[demo.lang],
+                            description=job.description[demo.lang],
+                            category_id=world.categories[job.category],
+                            urgency=Urgency(job.urgency),
+                            budget=_budget(job),
+                            city_id=world.city_id,
+                            content_lang=demo.lang,
+                            district_id=district,
+                            point=world.centers[district],
+                            languages=(demo.lang,),
+                        ),
+                    )
+                )
+                async with uow:
+                    await jobs.approve_job(job_id, version=None)
+        return len(demo.jobs)
 
     async def _profile(
         self, request: AsyncContainer, user_id: UserId, demo: DemoSpecialist, world: _World
@@ -462,20 +567,34 @@ class DemoSeeder:
 
 
 async def seed_demo(settings: Settings, scale: Scale, *, echo: Callable[[str], None]) -> SeedReport:
-    """Демо-специалисты в базу окружения `settings`; на проде — SeedDemoRefusedError."""
+    """Демо-специалисты и клиенты в базу окружения `settings`; на проде — SeedDemoRefusedError."""
     if settings.app.env is Environment.PRODUCTION:
         raise SeedDemoRefusedError("seed-demo is for dev and stage only")
     from app.entrypoints._wiring import build_event_registry, make_container
 
-    # «одобрить всё»: профили одобряет сид, автопроверка с кейсами в очереди не нужна
+    # «одобрить всё»: профили и заявки одобряет сид, автопроверка с кейсами в очереди не нужна
     registry = build_event_registry().without(
         "moderation.auto_check", "analytics.", "notifications.", "growth."
     )
     container = make_container(settings, registry=registry)
     try:
-        photos = scale.photos and settings.s3.endpoint_url is not None
+        storage = settings.s3.endpoint_url is not None
+        photos = scale.photos and storage
         if scale.photos and not photos:
             echo("seed-demo: S3 is not configured — portfolio photos are skipped")
+        if scale.clients and not storage:  # заявка проверяет фото через media, а ему нужно S3
+            echo("seed-demo: S3 is not configured — demo jobs are skipped")
+            scale = replace(scale, clients=0)
         return await DemoSeeder(container, photos=photos, echo=echo).run(scale)
     finally:
         await container.close()
+
+
+def _budget(job: DemoJob) -> Budget:
+    amounts = [dinars * 100 for dinars in job.dinars]
+    return Budget(
+        type=BudgetType(job.budget_type),
+        min=amounts[0] if amounts else None,
+        max=amounts[1] if len(amounts) > 1 else None,
+        unit=BudgetUnit(job.unit),
+    )
