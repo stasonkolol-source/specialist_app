@@ -208,7 +208,7 @@ test('S02c новая редакция правил: вернувшийся ви
 });
 
 test('S01 deep link на экран следующих шагов открывает главную', async ({ page }) => {
-  const watch = await open(page, 'theme=light&lang=ru&start=j_02y9UKmeRG6vSNbdsEYkkR_rAB12CD', {
+  const watch = await open(page, 'theme=light&lang=ru&start=d_3Nf1YTX8urRqobGWgo1mmN_rAB12CD', {
     signedIn: true,
     me: ME,
   });
