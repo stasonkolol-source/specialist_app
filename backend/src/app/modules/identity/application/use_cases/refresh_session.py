@@ -90,8 +90,10 @@ class RefreshSession:
                     restriction=restriction.kind.value, until=restriction.ends_at
                 )
             await self._sessions.save(session)
+            if refused is not None:
+                # Сбой denylist должен откатить отзыв: повтор refresh снова запишет sid.
+                await self._revocations.revoke(session.sid)
         if refused is not None:
-            await self._revocations.revoke(session.sid)
             raise refused
         if outcome is RefreshOutcome.RACE:
             raise InvalidRefreshTokenError
