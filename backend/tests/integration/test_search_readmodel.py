@@ -27,10 +27,15 @@ from app.modules.identity.application.use_cases.request_deletion import (
     RequestDeletionCommand,
 )
 from app.modules.identity.domain.deletion import DeletionSource
+from app.modules.search.application.dto import SpecialistFilters
 from app.modules.search.application.ports import PendingProfiles
 from app.modules.search.application.use_cases.reconcile_index import (
     ReconcileIndex,
     ReconcileIndexCommand,
+)
+from app.modules.search.application.use_cases.search_specialists import (
+    SearchSpecialists,
+    SearchSpecialistsCommand,
 )
 from app.modules.specialists.application.use_cases.hide_profile import (
     HideProfile,
@@ -150,7 +155,9 @@ async def test_deleted_account_leaves_the_index(specialist: Specialist) -> None:
     assert await specialist.row() is None
 
 
-async def test_casual_profile_is_indexed_but_not_listed(container: AsyncContainer) -> None:
+async def test_casual_profile_is_found_only_when_explicitly_requested(
+    container: AsyncContainer,
+) -> None:
     casual = Specialist(container)
     try:
         await casual.publish(ProfileKind.CASUAL)
@@ -159,6 +166,23 @@ async def test_casual_profile_is_indexed_but_not_listed(container: AsyncContaine
         row = await casual.row()
         assert row is not None
         assert (row["kind"], row["is_listed"]) == ("casual", False)
+
+        command = SearchSpecialistsCommand(
+            filters=SpecialistFilters(city_id=casual.city, kind="casual")
+        )
+        found = await casual.call(SearchSpecialists, command)
+        assert casual.profile_id in {card.profile_id for card in found.page.items}
+
+        default = await casual.call(
+            SearchSpecialists,
+            SearchSpecialistsCommand(filters=SpecialistFilters(city_id=casual.city)),
+        )
+        assert casual.profile_id not in {card.profile_id for card in default.page.items}
+
+        await casual.call(HideProfile, HideProfileCommand(actor_id=casual.user_id))
+        await casual.handle("search.on_profile_hidden")
+        hidden = await casual.call(SearchSpecialists, command)
+        assert casual.profile_id not in {card.profile_id for card in hidden.page.items}
     finally:
         await casual.drop_jobs()
 
