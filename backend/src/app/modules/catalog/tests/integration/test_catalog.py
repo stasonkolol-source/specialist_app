@@ -522,6 +522,24 @@ async def test_query_is_matched_whole_or_by_prefix(
     assert await facade.match_query("   ") is None
 
 
+async def test_word_of_a_section_and_its_service_matches_the_service(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App
+) -> None:
+    electrical = a_category(
+        "t-electrical",
+        names("Электрик", "Електричар"),
+        synonyms=[(TermLanguage.SR, "majstor"), (TermLanguage.SR, "električar")],
+    )
+    await _import(db_session, procrastinate_app, taxonomy(electrical=electrical))
+    facade = CatalogFacade(SqlCatalogQuery(db_session))
+
+    found = await facade.match_query("majstor")
+
+    assert found is not None
+    assert (await _summary(db_session, "t-electrical")).id in found.category_ids
+    assert (await _summary(db_session, "t-repairs")).id not in found.category_ids
+
+
 async def test_forbidden_category_is_not_matched(
     db_session: AsyncSession, procrastinate_app: procrastinate.App
 ) -> None:

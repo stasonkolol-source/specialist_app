@@ -30,9 +30,9 @@ categories:
         price_hint:
           novi-sad: {rsd: [1000, 2400], unit: hour}
         terms:
-          ru: [повесить полку, повесить картину, прибить, починить дверь, заменить замок, повесить шторы, карниз]
+          ru: [повесить полку, повесить картину, прибить, починить дверь, заменить замок, повесить шторы, карниз, мастер на пару часов, нужен мастер, ручка окна, починить окно, повесить телевизор, починить дверцу, дверца шкафа]
           sr: [okačiti policu, zakucati, popraviti vrata, zamena brave, garnišna, karnišna]
-          en: [hang shelf, fix door, curtain rod]
+          en: [hang shelf, fix door, curtain rod, mount tv, tv on wall, hang tv]
         tags:
           - slug: shelves-and-hanging
             name: {ru: Полки и подвес, sr-Cyrl: Полице и качење, en: Shelves and hanging}
@@ -46,7 +46,7 @@ categories:
         price_hint:
           novi-sad: {rsd: [1800, 5000], unit: item}
         terms:
-          ru: [собрать шкаф, сборка мебели икеа, собрать кровать, собрать кухню, разобрать мебель]
+          ru: [собрать шкаф, сборка мебели икеа, собрать кровать, собрать кухню, разобрать мебель, разобрать шкаф, собрать шкаф при переезде, разобрать и собрать]
           sr: [montaža nameštaja, sklapanje nameštaja, montaža ikea, sklopiti ormar, монтажа намештаја]
           en: [furniture assembly, ikea assembly, assemble wardrobe]
         tags:
@@ -62,8 +62,8 @@ categories:
         price_hint:
           novi-sad: {rsd: [2000, 5000], unit: work}
         terms:
-          ru: [сантехник, заменить смеситель, течет кран, засор, прочистить унитаз, установить бойлер]
-          sr: [vodoinstalater, zamena slavine, curi slavina, odgušenje, bojler, водоинсталатер]
+          ru: [сантехник, заменить смеситель, течет кран, засор, прочистить унитаз, установить бойлер, сифон, поменять сифон, не сливается вода, слив в ванной]
+          sr: [vodoinstalater, zamena slavine, curi slavina, odgušenje, bojler, водоинсталатер, zapušen odvod, začepljen odvod, odvod]
           en: [plumber, leaking tap, clogged drain, boiler installation]
         tags:
           - slug: faucets
@@ -78,8 +78,8 @@ categories:
         price_hint:
           novi-sad: {rsd: [1000, 4000], unit: item}
         terms:
-          ru: [электрик, повесить люстру, установить люстру, розетка, выключатель, выбивает пробки, проводка]
-          sr: [električar, luster, montaža lustera, utičnica, prekidač, osigurač, instalacije, струја]
+          ru: [электрик, повесить люстру, установить люстру, розетка, выключатель, выбивает пробки, проводка, провести свет, свет на балкон, повесить бра, бра, светильник, заменить автомат, автомат в щитке, щиток]
+          sr: [električar, luster, montaža lustera, utičnica, prekidač, osigurač, instalacije, струја, instalirati svetlo, svetlo, rasveta]
           en: [electrician, install chandelier, socket, light switch, wiring]
         tags:
           - slug: chandeliers
@@ -132,8 +132,8 @@ categories:
         price_hint:
           novi-sad: {rsd: [1100, 5500], unit: work}
         terms:
-          ru: [стрижка, женская стрижка, мужская стрижка, окрашивание, парикмахер на дом]
-          sr: [šišanje, frizer, farbanje kose, pramenovi, фризер]
+          ru: [стрижка, женская стрижка, мужская стрижка, окрашивание, парикмахер на дом, мелирование, покраска корней, покрасить волосы, подстричься, постричься, подстричь]
+          sr: [šišanje, frizer, farbanje kose, pramenovi, фризер, frizerka, frizer dolazi kući]
           en: [haircut, hairdresser, hair coloring]
         tags:
           - slug: haircut
@@ -156,8 +156,8 @@ categories:
         price_hint:
           novi-sad: {rsd: [700, 1000], unit: hour}
         terms:
-          ru: [поддерживающая уборка, уборка квартиры, еженедельная уборка]
-          sr: [redovno čišćenje, nedeljno čišćenje, spremanje stana]
+          ru: [поддерживающая уборка, уборка квартиры, еженедельная уборка, уборщица, нужна уборщица, убраться, убраться в квартире, уборка студии, помыть полы, мытьё полов, чистка квартиры, уборка каждую неделю]
+          sr: [redovno čišćenje, nedeljno čišćenje, spremanje stana, čistačica, čistačica za stan, spremanje stana jednom nedeljno]
           en: [regular cleaning, weekly cleaning]
       - slug: deep-cleaning
         icon: sparkles
@@ -165,7 +165,7 @@ categories:
         price_hint:
           novi-sad: {rsd: [180, 450], unit: m2}
         terms:
-          ru: [генеральная уборка, уборка после ремонта, уборка после переезда, помыть окна]
+          ru: [генеральная уборка, уборка после ремонта, уборка после переезда, помыть окна, отмыть кухню, отмыть от жира, жир на кухне, мойка окон, мытьё окон]
           sr: [generalno čišćenje, čišćenje posle renoviranja, pranje prozora, генерално]
           en: [deep cleaning, post-renovation cleaning, window cleaning]
         tags:
@@ -189,7 +189,7 @@ categories:
         price_hint:
           novi-sad: {rsd: [9400, 23500], unit: work}
         terms:
-          ru: [переезд квартиры, переезд под ключ, перевезти мебель]
+          ru: [переезд квартиры, переезд под ключ, перевезти мебель, переехать, переезд по городу, переехать в другую квартиру]
           sr: [selidba stana, preseljenje, prevoz nameštaja]
           en: [apartment move, furniture transport]
       - slug: movers
@@ -198,8 +198,8 @@ categories:
         price_hint:
           novi-sad: {rsd: [2900, 8200], unit: hour}
         terms:
-          ru: [грузчики, фургон с грузчиками, поднять на этаж, вынести мебель, вывоз мусора]
-          sr: [nosači, kombi prevoz, iznošenje nameštaja, odvoz šuta, носачи]
+          ru: [грузчики, фургон с грузчиками, поднять на этаж, вынести мебель, вывоз мусора, вывезти мебель, вывезти старую мебель, вывоз мебели, перевезти холодильник, вынести мусор, вывоз мусора после ремонта]
+          sr: [nosači, kombi prevoz, iznošenje nameštaja, odvoz šuta, носачи, nosači za selidbu, iznošenje starog nameštaja, iznošenje]
           en: [movers, van with driver, furniture removal]
         tags:
           - slug: van

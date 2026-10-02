@@ -46,6 +46,7 @@ if TYPE_CHECKING:  # модули грузятся лениво: CLI без БД
     from app.entrypoints._search_cli import ReindexReport
     from app.entrypoints._seed_demo import SeedReport
     from app.modules.identity.application.dto import OnboardingReset, StaffRoleGranted
+    from app.modules.search.application.dto import ZeroResultStat
     from app.modules.specialists.application.use_cases.mark_founding import FoundingMarked
 
 app = typer.Typer(help="«Соседи» — служебные команды backend.", no_args_is_help=True)
@@ -535,6 +536,37 @@ def reindex(
         f"reindex: {report.published} published, {report.indexed_before} rows before;"
         f" {report.rebuilt} rebuilt, {report.removed} removed"
     )
+
+
+@app.command("query-log-report")
+def query_log_report(
+    *,
+    days: Annotated[int, typer.Option(min=1, max=90, help="За сколько дней")] = 7,
+    limit: Annotated[int, typer.Option(min=1, max=500, help="Сколько запросов показать")] = 50,
+) -> None:
+    """Запросы без результатов (4.3b): что ищут и не находят — для еженедельного разбора
+    словаря категорий. «filters» — сколько раз пустоту дали фильтры, а не пробел в словаре."""
+    stats = asyncio.run(_query_log_report(days, limit))
+    if not stats:
+        typer.echo(f"query-log-report: no zero-result queries in {days} days")
+        return
+    typer.echo(f"query-log-report: top {len(stats)} zero-result queries in {days} days")
+    for stat in stats:
+        hint = f" -> {stat.did_you_mean}" if stat.did_you_mean else ""
+        narrowed = f", filters {stat.narrowed}" if stat.narrowed else ""
+        locales = ", ".join(stat.locales)
+        typer.echo(f"{stat.count:>5}  {stat.q}  [{locales}]{hint}{narrowed}")
+
+
+async def _query_log_report(days: int, limit: int) -> list[ZeroResultStat]:
+    from app.entrypoints._search_cli import zero_results
+    from app.entrypoints._wiring import make_worker_container
+
+    container = make_worker_container(Settings())
+    try:
+        return await zero_results(container, days=days, limit=limit)
+    finally:
+        await container.close()
 
 
 async def _reindex() -> ReindexReport:
