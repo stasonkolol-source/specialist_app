@@ -199,6 +199,10 @@ async def test_platform_periodic_tasks_are_scheduled(container: AsyncContainer) 
         "search.reconcile_index": "23 3 * * *",
         "jobs.expire_jobs": "2-59/5 * * * *",
         "jobs.expiry_reminders": "11,26,41,56 * * * *",
+        "deals.reminders": "3-59/15 * * * *",
+        "deals.completion_prompts": "7-59/15 * * * *",
+        "deals.expire_proposed": "12-59/15 * * * *",
+        "deals.auto_complete": "27 * * * *",
     }
 
 

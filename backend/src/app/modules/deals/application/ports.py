@@ -1,6 +1,8 @@
 """Порты deals (ADR-0020 §1): репозиторий сделки, чтение для экранов S25, S26 и списков, задачи."""
 
 from collections.abc import Sequence
+from datetime import datetime
+from enum import StrEnum
 from typing import Final, Protocol
 
 from app.modules.deals.application.dto import DealView
@@ -9,6 +11,19 @@ from app.platform.contracts.events.identity import UserDeleted
 from app.platform.kernel.ids import DealId, UserId
 from app.platform.kernel.pagination import Page, PageRequest
 from app.platform.queue.port import TaskRef
+
+
+class DealSweep(StrEnum):
+    """Проход периодической задачи по срокам сделок (6.1b, ARCHITECTURE §12.3)."""
+
+    REMIND = "remind"
+    """`deals.reminders`: за 2 ч до времени сделки — напоминание сторонам."""
+    PROMPT = "prompt"
+    """`deals.completion_prompts`: время прошло — «Работа выполнена?»."""
+    AUTO_COMPLETE = "auto_complete"
+    """`deals.auto_complete`: одна сторона отметила «выполнено», 72 ч без возражений."""
+    EXPIRE_PROPOSALS = "expire_proposals"
+    """`deals.expire_proposed`: «Договорились» без ответа 72 ч."""
 
 
 class DealRepository(Protocol):
@@ -40,6 +55,10 @@ class DealQueries(Protocol):
     ) -> Page[DealView]:
         """Сделки, где человек — сторона (`role` — какая; None — любая), новые первыми; пустые
         `statuses` — все."""
+        ...
+
+    async def due(self, sweep: DealSweep, now: datetime, *, limit: int) -> list[DealId]:
+        """Сделки, которым пора в этот проход, — давние первыми."""
         ...
 
 

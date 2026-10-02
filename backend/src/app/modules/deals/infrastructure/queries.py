@@ -4,10 +4,19 @@ from collections.abc import Sequence
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import RowMapping, or_, select, tuple_
+from sqlalchemy import ColumnElement, RowMapping, and_, func, or_, select, tuple_
 
 from app.modules.deals.application.dto import DealView
-from app.modules.deals.domain.deal import DealRole, DealStatus
+from app.modules.deals.application.ports import DealSweep
+from app.modules.deals.domain.deal import (
+    AUTO_COMPLETE_AFTER,
+    PROMPT_DELAY,
+    PROMPT_WITHOUT_TIME,
+    PROPOSAL_TTL,
+    REMINDER_LEAD,
+    DealRole,
+    DealStatus,
+)
 from app.modules.deals.infrastructure.models import DealRow
 from app.platform.db.query import SqlQuery, decode_cursor, encode_cursor
 from app.platform.kernel.ids import CategoryId, DealId, UserId
@@ -50,6 +59,41 @@ class SqlDealQueries(SqlQuery):
         more = len(rows) > page.limit
         cursor = encode_cursor(last.created_at, last.id) if more and last else None
         return Page(items=tuple(items), next_cursor=cursor)
+
+    async def due(self, sweep: DealSweep, now: datetime, *, limit: int) -> list[DealId]:
+        rows = await self._fetch(
+            select(_D.id).where(_due(sweep, now)).order_by(_D.created_at, _D.id).limit(limit)
+        )
+        return [DealId(row["id"]) for row in rows]
+
+
+def _due(sweep: DealSweep, now: datetime) -> ColumnElement[bool]:
+    """Условие прохода; метод сделки перепроверит его под блокировкой строки."""
+    agreed = _D.status == DealStatus.AGREED.value
+    if sweep is DealSweep.REMIND:
+        return and_(
+            agreed,
+            _D.reminded_at.is_(None),
+            _D.scheduled_at > now,
+            _D.scheduled_at <= now + REMINDER_LEAD,
+        )
+    if sweep is DealSweep.PROMPT:
+        return and_(
+            agreed,
+            _D.completion_prompted_at.is_(None),
+            or_(
+                _D.scheduled_at <= now - PROMPT_DELAY,
+                and_(_D.scheduled_at.is_(None), _D.agreed_at <= now - PROMPT_WITHOUT_TIME),
+            ),
+        )
+    if sweep is DealSweep.AUTO_COMPLETE:
+        marked = func.coalesce(_D.client_confirmed_at, _D.performer_confirmed_at)
+        return and_(
+            agreed,
+            _D.client_confirmed_at.is_(None) != _D.performer_confirmed_at.is_(None),
+            marked <= now - AUTO_COMPLETE_AFTER,
+        )
+    return and_(_D.status == DealStatus.PROPOSED.value, _D.created_at <= now - PROPOSAL_TTL)
 
 
 def _view(row: RowMapping) -> DealView:

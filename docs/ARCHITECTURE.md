@@ -1416,8 +1416,10 @@ CREATE TABLE deals.deals (
   price_type            text CHECK (price_type IN ('fixed','from','hourly','negotiable')),  -- как у цены отклика
   agreed_price          bigint,
   currency              char(3) NOT NULL DEFAULT 'RSD' CHECK (currency = 'RSD'),
-  scheduled_at          timestamptz,
+  scheduled_at          timestamptz,      -- из окна заявки («Сегодня 18–21», дата и время) или из «Договорились»
   agreed_at             timestamptz,      -- стороны договорились: отклик выбран или «Договорились» подтверждено
+  reminded_at           timestamptz,      -- напомнили за 2 ч до scheduled_at (6.1b)
+  completion_prompted_at timestamptz,     -- спросили «Работа выполнена?» (6.1b)
   client_confirmed_at   timestamptz,      -- «работа выполнена»
   performer_confirmed_at timestamptz,
   completed_at          timestamptz,
@@ -2937,10 +2939,10 @@ flowchart LR
 | `job.invited` | Приглашённый специалист | Бот + in-app | P1 | «Посмотреть заявку», «Откликнуться шаблоном» |
 | `message.received` | Участник диалога | Бот (если не в диалоге) + in-app | P0 | «Ответить» (открывает диалог) |
 | `deal.proposed` | Вторая сторона договорённости | Бот + in-app | P0 | «Подтвердить», «Отклонить»; истекает через 72 ч |
-| `deal.cancelled` | Вторая сторона сделки | Бот + in-app | P1 | «Открыть заявку» (клиенту: заявка снова открыта, прежние кандидаты доступны) |
+| `deal.cancelled` | Вторая сторона сделки (отмена системой — обе, кроме удалённого аккаунта) | Бот + in-app | P1 | «Открыть сделку»; кто отменил и причина, клиенту из отклика — «заявка снова открыта, прежние отклики вернулись» |
 | `dispute.opened` | Вторая сторона сделки | Бот + in-app | P0 | «Ответить» (48 ч на ответ) |
 | `deal.reminder` | Обе стороны | Бот | P1 | «Открыть» (за 2 ч до времени) |
-| `deal.completion_prompt` | Обе стороны | Бот | P1 | «Да, выполнено», «Нет, проблема» |
+| `deal.completion_prompt` | Стороны, которые ещё не отметили | Бот | P1 | «Да, выполнено» (callback `dc:<deal>`, бот deals), «Нет, проблема» (web_app `d_` → S52) |
 | `review.request` | Клиент (v1 — обе стороны) | Бот | P2 | Оценка 1–5 кнопками, «Написать отзыв» |
 | `review.published` | Исполнитель | Бот + in-app | P3 | «Ответить на отзыв» |
 | `moderation.decision` | Автор контента | Бот + in-app | P1 | «Исправить», «Обжаловать» |
@@ -3075,7 +3077,7 @@ flowchart LR
 | `jobs.expire_jobs` | каждые 5 мин | `published` с `expires_at < now()` → `expired`, уведомление владельцу |
 | `jobs.expiry_reminders` | каждые 15 мин | «Заявка закроется через 2 ч» |
 | `jobs.alert_digests` | ежечасно и в 09:00 | Дайджесты для подписок с `delivery = digest` |
-| `deals.completion_prompts` | каждые 15 мин | «Работа выполнена?» через 3 ч после `scheduled_at` |
+| `deals.completion_prompts` | каждые 15 мин | «Работа выполнена?» через 3 ч после `scheduled_at` (время не договорено — через 24 ч после `agreed_at`); отметка `completion_prompted_at` |
 | `deals.auto_complete` | ежечасно | Одна сторона подтвердила, прошло 72 ч → `completed`, запрос отзыва клиенту (v1 — обеим сторонам) |
 | `deals.expire_proposed` | каждые 15 мин | `proposed` старше 72 ч без подтверждения → `cancelled` («истекло»), уведомление инициатору |
 | `deals.reminders` | каждые 15 мин | `deal.reminder` за 2 ч до `scheduled_at` |

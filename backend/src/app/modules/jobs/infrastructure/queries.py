@@ -239,6 +239,16 @@ class SqlJobQueries(SqlQuery):
         cursor = encode_cursor(last.created_at, last.id) if more and last else None
         return Page(items=tuple(items), next_cursor=cursor)
 
+    async def passed_over(self, job_id: JobId) -> list[UserId]:
+        rows = await self._fetch(
+            select(_R.performer_id).where(
+                _R.job_id == job_id,
+                _R.deleted_at.is_(None),
+                _R.status == ResponseStatus.NOT_SELECTED.value,
+            )
+        )
+        return [UserId(row["performer_id"]) for row in rows]
+
     async def is_invited(self, job_id: JobId, performer_id: UserId) -> bool:
         row = await self._fetch_one(
             select(_I.job_id).where(_I.job_id == job_id, _I.performer_id == performer_id).limit(1)

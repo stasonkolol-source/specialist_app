@@ -189,6 +189,11 @@ def test_types_without_templates_are_refused(renderer: GettextNotificationRender
         NotificationType.JOB_EXPIRED,
         NotificationType.RESPONSE_RECEIVED,
         NotificationType.JOB_INVITED,
+        NotificationType.RESPONSE_ACCEPTED,
+        NotificationType.RESPONSE_NOT_SELECTED,
+        NotificationType.DEAL_CANCELLED,
+        NotificationType.DEAL_REMINDER,
+        NotificationType.DEAL_COMPLETION_PROMPT,
     }
     with pytest.raises(ValueError, match="no templates"):
         renderer.text(NotificationType.JOB_MATCHED, {}, Locale.RU)
@@ -384,3 +389,108 @@ def test_invitation_texts_on_three_scripts(
         assert "notifications." not in text
         assert all("notifications." not in b.text for b in buttons)
         assert len(buttons) == 2
+
+
+# --- сделки (6.1b) -------------------------------------------------------------------------
+
+DEAL_ID = UUID("0192f5a8-7c3e-7b21-9d4f-3a6b8c1e2f47")
+DEAL_LINK = encode_start_param(StartLink(type=LinkType.DEAL, id=DEAL_ID))
+
+
+def test_accepted_performer_is_led_to_the_deal(renderer: GettextNotificationRenderer) -> None:
+    text, [button] = renderer.telegram(
+        NotificationType.RESPONSE_ACCEPTED, {"title": "Повесить люстру"}, DEAL_LINK, Locale.RU
+    )
+
+    assert text == "<b>Клиент выбрал вас</b>\nЗаявка «Повесить люстру». Адрес и время — в сделке."
+    assert isinstance(button, AppButton)
+    assert (button.text, button.url) == ("Открыть сделку", f"{MINI_APP}?startapp={DEAL_LINK}")
+
+
+def test_passed_over_performer_gets_a_kind_word_without_buttons(
+    renderer: GettextNotificationRenderer,
+) -> None:
+    text, buttons = renderer.telegram(
+        NotificationType.RESPONSE_NOT_SELECTED, {"title": "Повесить люстру"}, None, Locale.RU
+    )
+
+    assert text.startswith("<b>Клиент выбрал другого исполнителя</b>")
+    assert buttons == ()
+
+
+@pytest.mark.parametrize(
+    ("params", "body"),
+    [
+        (
+            {"by": "performer", "reason": "plans_changed", "reopened": "true"},
+            "Исполнитель отменил сделку «Люстра»: планы изменились. Заявка снова открыта,"
+            " прежние отклики вернулись.",
+        ),
+        (
+            {"by": "client", "reason": "no_contact", "reopened": "false"},
+            "Клиент отменил сделку «Люстра»: нет связи.",
+        ),
+        (
+            {"by": "system", "reason": "expired", "reopened": "false"},
+            "Предложение «Люстра» истекло: ответа не было 3 дня.",
+        ),
+        (
+            {"by": "system", "reason": "account_deleted", "reopened": "true"},
+            "Сделка «Люстра» отменена: аккаунт второй стороны удалён. Заявка снова открыта,"
+            " прежние отклики вернулись.",
+        ),
+    ],
+    ids=["by-performer", "by-client", "expired", "account-deleted"],
+)
+def test_cancelled_deal_says_who_and_why(
+    renderer: GettextNotificationRenderer, params: dict[str, str], body: str
+) -> None:
+    text = renderer.text(NotificationType.DEAL_CANCELLED, {"title": "Люстра", **params}, Locale.RU)
+
+    assert (text.title, text.body) == ("Сделка отменена", body)
+
+
+def test_reminder_names_the_time(renderer: GettextNotificationRenderer) -> None:
+    text = renderer.text(
+        NotificationType.DEAL_REMINDER,
+        {"title": "Люстра", "at": "2026-10-03T17:00:00+00:00"},
+        Locale.RU,
+    )
+
+    assert text.title == "Скоро работа"
+    assert text.body.startswith("«Люстра» — 3 октября 2026")
+    assert "19:00" in text.body  # Белград
+
+
+def test_completion_prompt_has_yes_and_problem(renderer: GettextNotificationRenderer) -> None:
+    text, [yes, problem] = renderer.telegram(
+        NotificationType.DEAL_COMPLETION_PROMPT,
+        {"title": "Люстра", "deal_id": str(DEAL_ID)},
+        DEAL_LINK,
+        Locale.RU,
+    )
+
+    assert text.startswith("<b>Работа выполнена?</b>")
+    assert isinstance(yes, CallbackButton)
+    assert yes.text == "Да, выполнено"
+    assert parse_callback(yes.data) == CallbackData(CallbackAction.DEAL_COMPLETE, DEAL_ID)
+    assert isinstance(problem, AppButton)
+    assert (problem.text, problem.url) == ("Нет, проблема", f"{MINI_APP}?startapp={DEAL_LINK}")
+
+
+@pytest.mark.parametrize("locale", SCRIPTS)
+def test_deal_texts_on_three_scripts(renderer: GettextNotificationRenderer, locale: Locale) -> None:
+    cases: list[tuple[NotificationType, dict[str, str]]] = [
+        (NotificationType.RESPONSE_ACCEPTED, {"title": "Люстра"}),
+        (NotificationType.RESPONSE_NOT_SELECTED, {"title": "Люстра"}),
+        (
+            NotificationType.DEAL_CANCELLED,
+            {"title": "Люстра", "by": "client", "reason": "other", "reopened": "true"},
+        ),
+        (NotificationType.DEAL_REMINDER, {"title": "Люстра", "at": "2026-10-03T17:00:00+00:00"}),
+        (NotificationType.DEAL_COMPLETION_PROMPT, {"title": "Люстра", "deal_id": str(DEAL_ID)}),
+    ]
+    for type_, params in cases:
+        text, buttons = renderer.telegram(type_, params, DEAL_LINK, locale)
+        assert "notifications." not in text, type_
+        assert all("notifications." not in b.text for b in buttons), type_
