@@ -329,3 +329,78 @@ export const SearchCountByCategoryResponse = zod.object({
     }),
   ),
 });
+
+/**
+ * Избранные специалисты S12: те, кто виден в каталоге, новые первыми. Заявки (`type=job`)
+ * — с шагом 5.3.
+ * @summary List Favorites
+ */
+export const SearchListFavoritesResponse = zod
+  .object({
+    items: zod.array(
+      zod.object({
+        profile_id: zod.uuid(),
+        display_name: zod.string(),
+        headline: zod.union([zod.string(), zod.null()]),
+        kind: zod.string().describe('pro | casual'),
+        avatar: zod.union([
+          zod.object({
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+            placeholder: zod
+              .union([zod.string(), zod.null()])
+              .describe('ThumbHash (base64) для мгновенного превью'),
+          }),
+          zod.null(),
+        ]),
+        district: zod.union([
+          zod.object({
+            id: zod.int(),
+            name: zod.string(),
+          }),
+          zod.null(),
+        ]),
+        distance_m: zod
+          .union([zod.int(), zod.null()])
+          .describe('От точки клиента, шагом 500 м; без точки — нет'),
+        languages: zod.array(zod.string()),
+        category_ids: zod.array(zod.int()),
+        price_from: zod
+          .union([zod.int(), zod.null()])
+          .describe('Цена «от», пара (1 RSD = 100 пара)'),
+        negotiable: zod.boolean().describe('Цены нет, но прайс есть: «договорная»'),
+        rating: zod
+          .union([zod.number(), zod.null()])
+          .describe('Когда отзывов достаточно; иначе is_new'),
+        rating_count: zod.int(),
+        is_new: zod.boolean().describe('«Новый специалист»: отзывов меньше трёх'),
+        available_until: zod
+          .union([zod.iso.datetime({ offset: true }), zod.null()])
+          .describe('«Доступен сегодня до …»'),
+        badges: zod.array(zod.string()),
+      }),
+    ),
+  })
+  .describe('Избранные специалисты S12: карточки, как в выдаче, новые первыми.');
+
+/**
+ * Специалист — в избранное (сердечко S05, S08). Повтор — без ошибки; профиль, которого нет
+ * в каталоге, — 404; больше 100 — `favorites_full`.
+ * @summary Add Favorite
+ */
+export const SearchAddFavoriteParams = zod.object({
+  profile_id: zod.uuid().describe('id профиля специалиста'),
+});
+
+export const SearchAddFavoriteResponse = zod.void();
+
+/**
+ * Убрать специалиста из избранного; чего нет — без ошибки.
+ * @summary Remove Favorite
+ */
+export const SearchRemoveFavoriteParams = zod.object({
+  profile_id: zod.uuid().describe('id профиля специалиста'),
+});
+
+export const SearchRemoveFavoriteResponse = zod.void();

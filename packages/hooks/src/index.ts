@@ -128,6 +128,15 @@ export {
   specialistCardQueryKey,
   specialistServicesQueryKey,
   useSpecialistCard,
+  useSpecialistReviews,
   useSpecialistServices,
   useSpecialistWorks,
 } from './card/card.ts';
+export type { FavoriteToggle } from './favorites/favorites.ts';
+export {
+  favoriteIds,
+  favoritesQueryKey,
+  searchCardOf,
+  useFavorites,
+  useToggleFavorite,
+} from './favorites/favorites.ts';

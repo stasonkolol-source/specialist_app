@@ -2,8 +2,8 @@
 // карточки специалистов по страницам. Текст, фильтры и порядок — в адресе: переживают «Назад».
 // Опечатку сервер поправил — «Возможно, вы имели в виду …». Пусто — совет ослабить фильтры
 // (CTA «Разместите заявку» — с шагом 5.2). «До 3 км» спрашивает местоположение.
-// Карточка ведёт в профиль S08 (4.5); «в избранное» — 4.6. Гость видит экран без входа.
-import type { SpecialistCardOut } from '@sosed/api-client';
+// Карточка ведёт в профиль S08 (4.5), сердечко — в избранное (4.6). Гость видит экран без входа,
+// но без сердечек.
 import {
   resultItems,
   resultSummary,
@@ -11,9 +11,8 @@ import {
   useSpecialistCount,
   useSpecialistSearch,
 } from '@sosed/hooks';
-import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
+import { useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton } from '@sosed/platform';
-import type { SpecialistBadge } from '@sosed/ui-web';
 import {
   Banner,
   Button,
@@ -23,7 +22,6 @@ import {
   IconButton,
   SearchField,
   Skeleton,
-  SpecialistCard,
 } from '@sosed/ui-web';
 import { useRouter, useSearch } from '@tanstack/react-router';
 import type { FormEvent } from 'react';
@@ -31,14 +29,15 @@ import { useState } from 'react';
 
 import { FiltersSheet } from '../s06-filters/index.ts';
 import { LoadError } from '../shared/LoadError.tsx';
+import { ResultCard } from '../shared/ResultCard.tsx';
 import { useCatalogCity } from '../shared/city.ts';
+import { useFavoriteToggle } from '../shared/favorite.ts';
 import { useLocate } from '../shared/location.ts';
 import type { ResultsSearch } from '../shared/paths.ts';
-import { CARD_PATHS, CATALOG_PATHS, NEAR_KM, profilePath } from '../shared/paths.ts';
+import { CATALOG_PATHS, NEAR_KM } from '../shared/paths.ts';
 import { activeFilters, toQuery, withoutFilters } from '../shared/query.ts';
 
 const SKELETON_CARDS = 3;
-const PHONE_VERIFIED = 'phone_verified';
 
 export function ResultsScreen() {
   const { t } = useTranslation('catalog');
@@ -51,6 +50,7 @@ export function ResultsScreen() {
   const count = useSpecialistCount(query);
   const categories = useCategories(locale).data ?? [];
   const locate = useLocate();
+  const { control, failure } = useFavoriteToggle();
   const [typed, setTyped] = useState(search.q ?? '');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [locationFailed, setLocationFailed] = useState(false);
@@ -116,7 +116,7 @@ export function ResultsScreen() {
           )}
           <div className="flex flex-col gap-2.5">
             {items.map((item) => (
-              <Card key={item.profile_id} card={item} />
+              <ResultCard key={item.profile_id} card={item} favorite={control(item)} />
             ))}
           </div>
           {results.hasNextPage && (
@@ -200,6 +200,11 @@ export function ResultsScreen() {
           {t('filters.nearMe', { km: NEAR_KM })}
         </Chip>
       </Chips>
+      {failure && (
+        <Banner tone="danger" role="alert">
+          {failure}
+        </Banner>
+      )}
       {locationFailed && (
         <Banner tone="warn" role="alert">
           {t('results.locationError')}
@@ -227,56 +232,5 @@ export function ResultsScreen() {
         />
       )}
     </section>
-  );
-}
-
-function Card({ card }: { card: SpecialistCardOut }) {
-  const { t } = useTranslation('catalog');
-  const common = useTranslation().t;
-  const format = useFormat();
-  const router = useRouter();
-  const now = new Date();
-  const place = [
-    card.district?.name,
-    card.distance_m === null ? undefined : format.distance(card.distance_m),
-  ]
-    .filter(Boolean)
-    .join(', ');
-  const meta = [place, card.languages.join(', ')].filter(Boolean);
-  const until = card.available_until ? new Date(card.available_until) : null;
-  const badges: SpecialistBadge[] = [];
-  if (until && until > now) {
-    badges.push({
-      label: t('results.todayUntil', { time: format.time(until) }),
-      tone: 'ok',
-      dot: true,
-    });
-  }
-  if (card.badges.includes(PHONE_VERIFIED)) {
-    badges.push({ label: t('results.phoneVerified'), tone: 'info', icon: 'shield' });
-  }
-  const price =
-    card.price_from !== null
-      ? format.price({ type: 'from', min: card.price_from })
-      : card.negotiable
-        ? common('price.negotiable')
-        : null;
-  return (
-    <SpecialistCard
-      name={card.display_name}
-      headline={card.headline}
-      photo={card.avatar ? { src: card.avatar.url, placeholder: card.avatar.placeholder } : null}
-      rating={card.rating === null || card.is_new ? null : format.rating(card.rating)}
-      reviews={t('results.reviews', { count: card.rating_count })}
-      newLabel={common('rating.new')}
-      meta={meta}
-      badges={badges}
-      price={price}
-      href={router.history.createHref(profilePath(card.profile_id))}
-      onOpen={(event) => {
-        event.preventDefault();
-        void router.navigate({ to: CARD_PATHS.profile, params: { profileId: card.profile_id } });
-      }}
-    />
   );
 }

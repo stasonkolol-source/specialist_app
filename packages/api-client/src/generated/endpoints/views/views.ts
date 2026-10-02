@@ -17,7 +17,13 @@ import type {
   UseQueryResult,
 } from '@tanstack/react-query';
 
-import type { CardServicesOut, CardWorksOut, ProblemOut, SpecialistProfileOut } from '../../model';
+import type {
+  CardReviewsOut,
+  CardServicesOut,
+  CardWorksOut,
+  ProblemOut,
+  SpecialistProfileOut,
+} from '../../model';
 
 import { apiFetch } from '../../../mutator.ts';
 import type { ErrorType } from '../../../mutator.ts';
@@ -44,7 +50,7 @@ export const getViewsGetSpecialistUrl = (profileId: string) => {
 };
 
 /**
- * Карточка специалиста S08: профиль, первые позиции прайса и превью портфолио.
+ * Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио и рейтинг.
  * @summary Get Specialist
  */
 export const viewsGetSpecialist = async (
@@ -436,6 +442,145 @@ export function useViewsListSpecialistWorks<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getViewsListSpecialistWorksQueryOptions(profileId, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getViewsListSpecialistReviewsUrl = (profileId: string) => {
+  return `/api/v1/specialists/${profileId}/reviews`;
+};
+
+/**
+ * Отзывы S11: рейтинг с гистограммой и отзывы по сделкам. Сами отзывы и вкладка «До
+ * платформы» (`kind`, курсор) — с 7.2 и 7.6; до того список пуст.
+ * @summary List Specialist Reviews
+ */
+export const viewsListSpecialistReviews = async (
+  profileId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<CardReviewsOut> => {
+  return apiFetch<CardReviewsOut>(getViewsListSpecialistReviewsUrl(profileId), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getViewsListSpecialistReviewsQueryKey = (profileId: string) => {
+  return [`/api/v1/specialists/${profileId}/reviews`] as const;
+};
+
+export const getViewsListSpecialistReviewsQueryOptions = <
+  TData = Awaited<ReturnType<typeof viewsListSpecialistReviews>>,
+  TError = ErrorType<void | ProblemOut>,
+>(
+  profileId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListSpecialistReviews>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getViewsListSpecialistReviewsQueryKey(profileId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof viewsListSpecialistReviews>>> = ({
+    signal,
+  }) => viewsListSpecialistReviews(profileId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: profileId !== null && profileId !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof viewsListSpecialistReviews>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+};
+
+export type ViewsListSpecialistReviewsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof viewsListSpecialistReviews>>
+>;
+export type ViewsListSpecialistReviewsQueryError = ErrorType<void | ProblemOut>;
+
+export function useViewsListSpecialistReviews<
+  TData = Awaited<ReturnType<typeof viewsListSpecialistReviews>>,
+  TError = ErrorType<void | ProblemOut>,
+>(
+  profileId: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListSpecialistReviews>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsListSpecialistReviews>>,
+          TError,
+          Awaited<ReturnType<typeof viewsListSpecialistReviews>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsListSpecialistReviews<
+  TData = Awaited<ReturnType<typeof viewsListSpecialistReviews>>,
+  TError = ErrorType<void | ProblemOut>,
+>(
+  profileId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListSpecialistReviews>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsListSpecialistReviews>>,
+          TError,
+          Awaited<ReturnType<typeof viewsListSpecialistReviews>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsListSpecialistReviews<
+  TData = Awaited<ReturnType<typeof viewsListSpecialistReviews>>,
+  TError = ErrorType<void | ProblemOut>,
+>(
+  profileId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListSpecialistReviews>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List Specialist Reviews
+ */
+
+export function useViewsListSpecialistReviews<
+  TData = Awaited<ReturnType<typeof viewsListSpecialistReviews>>,
+  TError = ErrorType<void | ProblemOut>,
+>(
+  profileId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListSpecialistReviews>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getViewsListSpecialistReviewsQueryOptions(profileId, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;

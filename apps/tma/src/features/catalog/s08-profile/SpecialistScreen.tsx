@@ -1,13 +1,14 @@
 // S08 Профиль специалиста (DEVELOPMENT_PLAN 4.5): экран, на котором клиент решает, писать ли.
-// Шапка — фото, имя, «коротко о себе», рейтинг или «Новый специалист», район; бейджи «Сегодня
-// до …» и «Телефон подтверждён»; памятка «не платите предоплату незнакомым»; первые позиции
-// прайса со ссылкой на S09, превью работ со ссылкой на просмотрщик S10; «О себе» — текст, языки и
-// районы выезда. Всё — одним запросом BFF. Профиль скрыт или его нет — «Профиль недоступен».
-// Скрыто до своих шагов: MainButton «Написать …» (прямой запрос 5.6, диалог 6.4), «Предложить
-// заявку» (5.6), «В избранное» (4.6), «Поделиться» (7.4), отзывы (7.2), «Обычно отвечает за …»
-// (6.3b), «Пожаловаться» и «Заблокировать» (4.7). Гость видит экран без входа.
+// Шапка — фото, имя, «коротко о себе», рейтинг или «Новый специалист», район, сердечко «в
+// избранное» (4.6); бейджи «Сегодня до …» и «Телефон подтверждён»; памятка «не платите предоплату
+// незнакомым»; первые позиции прайса со ссылкой на S09, превью работ со ссылкой на просмотрщик S10,
+// последний отзыв со ссылкой на S11; «О себе» — текст, языки и районы выезда. Всё — одним запросом
+// BFF. Профиль скрыт или его нет — «Профиль недоступен». Скрыто до своих шагов: MainButton
+// «Написать …» (прямой запрос 5.6, диалог 6.4), «Предложить заявку» (5.6), «Поделиться» (7.4),
+// «Обычно отвечает за …» (6.3b), «Пожаловаться» и «Заблокировать» (4.7). Гость видит экран без
+// входа, но без сердечка.
 import type { CardWorkOut, SpecialistProfileOut } from '@sosed/api-client';
-import { cardVariants, isUnavailable, useSpecialistCard } from '@sosed/hooks';
+import { cardVariants, isUnavailable, searchCardOf, useSpecialistCard } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton } from '@sosed/platform';
 import {
@@ -18,6 +19,7 @@ import {
   Group,
   Heading,
   Icon,
+  IconButton,
   LinkButton,
   Photo,
   Price,
@@ -30,8 +32,10 @@ import type { MouseEvent, ReactNode } from 'react';
 import { useId } from 'react';
 
 import { LoadError } from '../shared/LoadError.tsx';
+import { ReviewCard } from '../shared/ReviewCard.tsx';
 import { Unavailable } from '../shared/Unavailable.tsx';
 import { avatarSrc, knownLanguages, place, priceAmount, sentence } from '../shared/card.ts';
+import { useFavoriteToggle } from '../shared/favorite.ts';
 import { CARD_PATHS } from '../shared/paths.ts';
 
 const PHONE_VERIFIED = 'phone_verified';
@@ -77,7 +81,10 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
   const router = useRouter();
   const pricesId = useId();
   const worksId = useId();
+  const reviewsId = useId();
   const aboutId = useId();
+  const { control, failure } = useFavoriteToggle();
+  const favorite = control(searchCardOf(card), false);
   const params = { profileId: card.id };
   const go = (to: string, search?: { work: string }) => (event: MouseEvent<HTMLElement>) => {
     event.preventDefault();
@@ -101,7 +108,18 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
 
   return (
     <section className="flex flex-col gap-3.5 px-4 pt-3 pb-6">
-      <Card as="section">
+      <Card as="section" className="relative">
+        {favorite && (
+          <IconButton
+            plain
+            icon="heart"
+            label={favorite.label}
+            active={favorite.active}
+            aria-pressed={favorite.active}
+            onClick={favorite.onToggle}
+            className="absolute top-1 right-1"
+          />
+        )}
         <div className="flex items-center gap-4">
           <Avatar
             name={card.display_name}
@@ -110,7 +128,7 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
             placeholder={card.avatar?.placeholder}
           />
           <div className="flex min-w-0 grow flex-col gap-1">
-            <Heading variant="h2" as="h1">
+            <Heading variant="h2" as="h1" className={favorite && 'pr-8'}>
               {card.display_name}
             </Heading>
             {card.headline && (
@@ -149,6 +167,11 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
           </div>
         )}
       </Card>
+      {failure && (
+        <Banner tone="danger" role="alert">
+          {failure}
+        </Banner>
+      )}
       <Banner tone="warn">{t('profile.prepayment')}</Banner>
       {card.services_count > 0 && (
         <section aria-labelledby={pricesId} className="flex flex-col gap-2">
@@ -190,6 +213,20 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
               />
             ))}
           </div>
+        </section>
+      )}
+      {card.rating_count > 0 && (
+        <section aria-labelledby={reviewsId} className="flex flex-col gap-2">
+          <SectionHead
+            id={reviewsId}
+            title={t('reviews.title')}
+            link={t('reviews.all', { count: card.rating_count })}
+            href={href(CARD_PATHS.reviews)}
+            onClick={go(CARD_PATHS.reviews)}
+          />
+          {card.reviews.map((review) => (
+            <ReviewCard key={review.id} review={review} />
+          ))}
         </section>
       )}
       {(card.about || languages.length > 0 || travel) && (

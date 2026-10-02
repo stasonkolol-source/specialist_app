@@ -1,8 +1,8 @@
 // S31 Профиль (DEVELOPMENT_PLAN 2.9): имя и город из GET /me, вход в кабинет специалиста, меню.
 // Без профиля исполнителя — «Стать специалистом» и «Найти подработку» (мастер S32a–c с отмеченным
 // типом); с профилем — карточка со статусом: черновик продолжает мастер с нужного шага, остальное
-// ведёт в кабинет S33 (2.10). Строка «Уведомления» ведёт в S42; число справа — непрочитанные
-// (первая страница ленты S42). Язык интерфейса — ui_locale из GET /me, пишется через PATCH /me
+// ведёт в кабинет S33 (2.10). «Моя активность»: «Избранное» ведёт в S12 (4.6), «Уведомления» — в
+// S42; число справа — непрочитанные (первая страница ленты S42). Язык интерфейса — ui_locale из GET /me, пишется через PATCH /me
 // (строкой «Язык» в S43 станет с шага 4.9). Без сети — S49a «Нет соединения» вместо ошибки.
 // «Удалить аккаунт» ведёт в S45 (2.12a; с 4.9 — из настроек S43); пока удаление запланировано,
 // сверху — дата и «Отменить».
@@ -57,6 +57,8 @@ const LEGAL_PATH = '/legal/$document';
 const RULES_HREF = '/legal/terms';
 /** S42, уведомления (маршрут routes/notifications.tsx). */
 const NOTIFICATIONS_PATH = '/notifications';
+/** S12, избранное (маршрут features/catalog). */
+const FAVORITES_PATH = '/favorites';
 /** Кабинет специалиста S33 (маршрут features/specialist). */
 const CABINET_PATH = '/cabinet';
 /** Мастер S32a–c (маршруты features/specialist). */
@@ -130,7 +132,7 @@ export function AccountScreen() {
       </Heading>
       {top}
       {account && <Specialist />}
-      {!signedOut && <Notifications />}
+      {!signedOut && <Activity />}
       {account && me.data && <Language me={me.data} />}
       <Support />
       {account && <DeleteAccount />}
@@ -201,34 +203,46 @@ function Specialist() {
   );
 }
 
-function Notifications() {
+/** «Моя активность»: избранное S12 и уведомления S42 (история сделок — с 6.x). */
+function Activity() {
   const { t } = useTranslation();
   const { t: ts } = useTranslation('service');
   const router = useRouter();
   const feed = useNotificationFeed(useLocale());
   const unread = unreadCount(feed.data);
-  const open = (event: MouseEvent<HTMLElement>) => {
+  const open = (to: string) => (event: MouseEvent<HTMLElement>) => {
     event.preventDefault();
-    void router.navigate({ to: NOTIFICATIONS_PATH });
+    void router.navigate({ to });
   };
   return (
-    <Group>
-      <Row
-        icon="bell"
-        title={t('settings.notifications')}
-        trailing={
-          unread > 0 && (
-            <Badge tone="ok">
-              <span aria-hidden="true">{unread}</span>
-              <span className="sr-only">{ts('notifications.unreadCount', { count: unread })}</span>
-            </Badge>
-          )
-        }
-        chevron
-        href={router.history.createHref(NOTIFICATIONS_PATH)}
-        onClick={open}
-      />
-    </Group>
+    <nav aria-label={t('profile.activity')}>
+      <Group>
+        <Row
+          icon="heart"
+          title={t('profile.favorites')}
+          chevron
+          href={router.history.createHref(FAVORITES_PATH)}
+          onClick={open(FAVORITES_PATH)}
+        />
+        <Row
+          icon="bell"
+          title={t('settings.notifications')}
+          trailing={
+            unread > 0 && (
+              <Badge tone="ok">
+                <span aria-hidden="true">{unread}</span>
+                <span className="sr-only">
+                  {ts('notifications.unreadCount', { count: unread })}
+                </span>
+              </Badge>
+            )
+          }
+          chevron
+          href={router.history.createHref(NOTIFICATIONS_PATH)}
+          onClick={open(NOTIFICATIONS_PATH)}
+        />
+      </Group>
+    </nav>
   );
 }
 

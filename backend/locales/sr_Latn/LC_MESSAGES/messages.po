@@ -393,6 +393,9 @@ msgstr "Cenovnik već ima {limit} stavki — više nije moguće dodati."
 msgid "errors.no_specialist_profile"
 msgstr "Prvo napravite profil izvođača."
 
+msgid "errors.favorites_full"
+msgstr "U omiljenima već ima {limit} — uklonite nekoga da biste dodali."
+
 # Обавештења (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
 msgid "errors.notification_group_mandatory"
 msgstr "Službena obaveštenja ne mogu da se isključe: tiču se odluka moderacije i ograničenja naloga."

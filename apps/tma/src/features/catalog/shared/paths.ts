@@ -1,6 +1,7 @@
-// Адреса каталога S04–S06 (DEVELOPMENT_PLAN 4.4) и карточки специалиста S08–S10 (4.5). Текст,
-// фильтры и порядок выдачи — в параметрах адреса (ADR-0020 §13): переживают «Назад», ими можно
-// поделиться, а экран ничего не хранит сам. Открытая работа просмотрщика S10 — тоже.
+// Адреса каталога S04–S06 (DEVELOPMENT_PLAN 4.4), карточки специалиста S08–S11 (4.5, 4.6) и
+// избранного S12. Текст, фильтры и порядок выдачи — в параметрах адреса (ADR-0020 §13):
+// переживают «Назад», ими можно поделиться, а экран ничего не хранит сам. Открытая работа
+// просмотрщика S10 — тоже.
 import { isUuid } from '@sosed/links';
 
 export const CATALOG_PATHS = {
@@ -8,12 +9,16 @@ export const CATALOG_PATHS = {
   results: '/catalog/results',
 } as const;
 
-/** Карточка специалиста: профиль S08, прайс S09, просмотрщик работ S10. */
+/** Карточка специалиста: профиль S08, прайс S09, просмотрщик работ S10, отзывы S11. */
 export const CARD_PATHS = {
   profile: '/specialists/$profileId',
   services: '/specialists/$profileId/services',
   portfolio: '/specialists/$profileId/portfolio',
+  reviews: '/specialists/$profileId/reviews',
 } as const;
+
+/** Избранное S12: вход — из профиля S31. */
+export const FAVORITES_PATH = '/favorites';
 
 /** Адрес профиля S08 для ссылки: deep link `s_` (routes/startapp.ts) ведёт сюда же. */
 export const profilePath = (profileId: string) => `/specialists/${profileId}`;

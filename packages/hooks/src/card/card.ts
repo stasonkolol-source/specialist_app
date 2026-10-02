@@ -12,9 +12,11 @@ import type {
 import {
   ApiError,
   getViewsGetSpecialistQueryKey,
+  getViewsListSpecialistReviewsQueryKey,
   getViewsListSpecialistServicesQueryKey,
   getViewsListSpecialistWorksQueryKey,
   useViewsGetSpecialist,
+  useViewsListSpecialistReviews,
   useViewsListSpecialistServices,
   useViewsListSpecialistWorks,
 } from '@sosed/api-client';
@@ -48,6 +50,16 @@ export function useSpecialistServices(profileId: string, locale: Locale) {
 export function useSpecialistWorks(profileId: string) {
   return useViewsListSpecialistWorks(profileId, {
     query: { queryKey: getViewsListSpecialistWorksQueryKey(profileId), staleTime: CARD_STALE_MS },
+  });
+}
+
+/** S11: рейтинг с гистограммой и отзывы; услуги в отзывах — на языке запроса. */
+export function useSpecialistReviews(profileId: string, locale: Locale) {
+  return useViewsListSpecialistReviews(profileId, {
+    query: {
+      queryKey: [...getViewsListSpecialistReviewsQueryKey(profileId), locale] as const,
+      staleTime: CARD_STALE_MS,
+    },
   });
 }
 

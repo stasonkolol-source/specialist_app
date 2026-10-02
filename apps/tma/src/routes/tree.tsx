@@ -14,6 +14,7 @@ import { ACCOUNT_PATHS } from '../features/account/index.ts';
 import {
   CARD_PATHS,
   CATALOG_PATHS,
+  FAVORITES_PATH,
   portfolioSearch,
   resultsSearch,
 } from '../features/catalog/index.ts';
@@ -245,8 +246,8 @@ const catalogResults = createRoute({
   component: screen(() => import('../features/catalog/s05-results/index.ts'), 'ResultsScreen'),
 });
 
-// Карточка специалиста S08–S10 (4.5): из выдачи и по deep link `s_` (routes/startapp.ts); открыта
-// и гостю. Открытая работа просмотрщика — в параметрах адреса
+// Карточка специалиста S08–S11 (4.5, 4.6): из выдачи и по deep link `s_` (routes/startapp.ts);
+// открыта и гостю. Открытая работа просмотрщика — в параметрах адреса
 const specialist = createRoute({
   getParentRoute: () => rootRoute,
   path: CARD_PATHS.profile,
@@ -264,6 +265,19 @@ const specialistWorks = createRoute({
   path: CARD_PATHS.portfolio,
   validateSearch: portfolioSearch,
   component: screen(() => import('../features/catalog/s10-portfolio/index.ts'), 'WorksScreen'),
+});
+
+const specialistReviews = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CARD_PATHS.reviews,
+  component: screen(() => import('../features/catalog/s11-reviews/index.ts'), 'ReviewsScreen'),
+});
+
+// Избранное S12 (4.6): из профиля S31; гостю — «Откройте в Telegram»
+const favorites = createRoute({
+  getParentRoute: () => rootRoute,
+  path: FAVORITES_PATH,
+  component: screen(() => import('../features/catalog/s12-favorites/index.ts'), 'FavoritesScreen'),
 });
 
 // S49b после действия, отклонённого частичной санкцией
@@ -297,6 +311,8 @@ export const routeTree = rootRoute.addChildren([
   specialist,
   specialistServices,
   specialistWorks,
+  specialistReviews,
+  favorites,
   onboardingLanguage,
   onboardingIntent,
   onboardingRules,

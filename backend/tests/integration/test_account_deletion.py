@@ -1,7 +1,7 @@
 """Удаление аккаунта сквозь модули (DEVELOPMENT_PLAN 2.12a, ARCHITECTURE §7.10).
 
-Специалист с профилем, прайсом, работой портфолио, фото профиля, каналом уведомлений и
-атрибуцией просит удалить аккаунт (S45). Когда срок прошёл, `identity.process_deletions`
+Специалист с профилем, прайсом, работой портфолио, фото профиля, каналом уведомлений,
+атрибуцией и избранным просит удалить аккаунт (S45). Когда срок прошёл, `identity.process_deletions`
 исполняет запрос, а подписчики UserDeleted и ProfileDeleted удаляют своё — задачи выполняются
 так, как их выполнил бы воркер. Сессия больше не работает, хэш Telegram ID записан.
 """
@@ -117,6 +117,13 @@ async def specialist(app: HttpApp, settings: Settings, telegram_id: int) -> Acco
         user=account.user_id,
         address=str(telegram_id),
     )
+    # избранное (4.6) — строкой: сохранить через API можно только видимого в каталоге
+    await account.execute(
+        "INSERT INTO search.favorites (user_id, target_type, target_id)"
+        " VALUES (:user, 'profile', :target)",
+        user=account.user_id,
+        target=new_id(),
+    )
     return account
 
 
@@ -154,6 +161,7 @@ async def test_deleted_account_keeps_nothing_personal(
         "notifications.forget_recipient",
         "growth.forget_attribution",
         "pricing.remove_profile_prices",
+        "search.forget_favorites",
     ):
         assert await account.run(task) == 1, task
     assert await account.run("media.discard_media") == 2  # работа и фото профиля
@@ -189,6 +197,7 @@ async def test_deleted_account_keeps_nothing_personal(
         "файлы": "SELECT count(*) FROM media.assets WHERE owner_id = :user AND deleted_at IS NULL",
         "каналы": "SELECT count(*) FROM notifications.channels WHERE user_id = :user",
         "атрибуция": "SELECT count(*) FROM growth.attributions WHERE user_id = :user",
+        "избранное": "SELECT count(*) FROM search.favorites WHERE user_id = :user",
     }
     for what, sql in mine.items():
         assert await count(account, sql, user=account.user_id) == 0, what

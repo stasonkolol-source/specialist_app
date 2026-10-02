@@ -392,6 +392,9 @@ msgstr "Ценовник већ има {limit} ставки — више ниј�
 msgid "errors.no_specialist_profile"
 msgstr "Прво направите профил извођача."
 
+msgid "errors.favorites_full"
+msgstr "У омиљенима већ има {limit} — уклоните некога да бисте додали."
+
 # Обавештења (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
 msgid "errors.notification_group_mandatory"
 msgstr "Службена обавештења не могу да се искључе: тичу се одлука модерације и ограничења налога."

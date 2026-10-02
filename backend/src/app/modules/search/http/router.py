@@ -1,16 +1,22 @@
-"""HTTP search 🔓 (DEVELOPMENT_PLAN 4.2, 4.3a): выдача специалистов S05 с фильтрами шторки S06
-и подсказки при вводе.
+"""HTTP search (DEVELOPMENT_PLAN 4.2, 4.3a, 4.6): выдача специалистов S05 с фильтрами шторки S06,
+подсказки при вводе и избранное.
 
-Каталог открыт и гостю. Лимит — 60 запросов в минуту на адрес гостя и 120 на вошедшего
-(ARCHITECTURE §13.3). Порядок, этапы поиска и пустая выдача — в use case.
+Каталог 🔓 открыт и гостю. Лимит — 60 запросов в минуту на адрес гостя и 120 на вошедшего
+(ARCHITECTURE §13.3). Порядок, этапы поиска и пустая выдача — в use case. Избранное — только
+вошедшему: «мои мастера» S12 и сердечко на S05 и S08; заявки — с шагом 5.3.
 """
 
 from typing import Annotated, Literal
+from uuid import UUID
 
 from dishka.integrations.fastapi import FromDishka, inject
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Path, Query, Response, status
 
 from app.modules.search.application.dto import SpecialistFilters
+from app.modules.search.application.use_cases.add_favorite import (
+    AddFavorite,
+    AddFavoriteCommand,
+)
 from app.modules.search.application.use_cases.count_by_category import (
     CountByCategory,
     CountByCategoryCommand,
@@ -18,6 +24,14 @@ from app.modules.search.application.use_cases.count_by_category import (
 from app.modules.search.application.use_cases.count_specialists import (
     CountSpecialists,
     CountSpecialistsCommand,
+)
+from app.modules.search.application.use_cases.list_favorites import (
+    ListFavorites,
+    ListFavoritesCommand,
+)
+from app.modules.search.application.use_cases.remove_favorite import (
+    RemoveFavorite,
+    RemoveFavoriteCommand,
 )
 from app.modules.search.application.use_cases.search_specialists import (
     SearchSpecialists,
@@ -28,10 +42,13 @@ from app.modules.search.application.use_cases.suggest_categories import (
     SuggestCategories,
     SuggestCategoriesCommand,
 )
+from app.modules.search.domain.favorites import FavoriteType
 from app.modules.search.domain.query import MAX_QUERY, SpecialistSort
 from app.modules.search.http.schemas import (
     CategoryCountOut,
     CategoryCountsOut,
+    FavoritesOut,
+    SpecialistCardOut,
     SpecialistCountOut,
     SpecialistPageOut,
     SuggestOut,
@@ -42,6 +59,7 @@ from app.platform.kernel.errors import DomainValidationError
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId
 from app.platform.kernel.localized import Locale
+from app.platform.kernel.principal import Principal
 from app.platform.ratelimit import Rate
 
 SEARCH_GUEST = Rate("search.guest", "60/minute")
@@ -56,6 +74,7 @@ MAX_LISTED = 20
 """Районов, языков, форматов в одном фильтре — больше в шторке не выбрать."""
 
 router = APIRouter(tags=["search"])
+FavoriteProfile = Annotated[UUID, Path(description="id профиля специалиста")]
 search_limit = [Depends(GuestOrUserRateLimit(guest=SEARCH_GUEST, user=SEARCH_USER))]
 suggest_limit = [Depends(GuestOrUserRateLimit(guest=SUGGEST_GUEST, user=SUGGEST_USER))]
 
@@ -180,4 +199,50 @@ async def count_by_category(
             CategoryCountOut(category_id=category_id, count=number)
             for category_id, number in sorted(found.items())
         ]
+    )
+
+
+@router.get("/me/favorites", response_model=FavoritesOut)
+@inject
+async def list_favorites(
+    *,
+    response: Response,
+    principal: FromDishka[Principal],
+    favorites: FromDishka[ListFavorites],
+    locale: FromDishka[Locale],
+) -> FavoritesOut:
+    """Избранные специалисты S12: те, кто виден в каталоге, новые первыми. Заявки (`type=job`)
+    — с шагом 5.3."""
+    cards = await favorites(ListFavoritesCommand(actor_id=principal.user_id))
+    response.headers["Vary"] = "Accept-Language"
+    return FavoritesOut(items=[SpecialistCardOut.of(card, locale) for card in cards])
+
+
+@router.put("/me/favorites/profile/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+@inject
+async def add_favorite(
+    *, profile_id: FavoriteProfile, principal: FromDishka[Principal], add: FromDishka[AddFavorite]
+) -> None:
+    """Специалист — в избранное (сердечко S05, S08). Повтор — без ошибки; профиль, которого нет
+    в каталоге, — 404; больше 100 — `favorites_full`."""
+    await add(
+        AddFavoriteCommand(
+            actor_id=principal.user_id, target_type=FavoriteType.PROFILE, target_id=profile_id
+        )
+    )
+
+
+@router.delete("/me/favorites/profile/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+@inject
+async def remove_favorite(
+    *,
+    profile_id: FavoriteProfile,
+    principal: FromDishka[Principal],
+    remove: FromDishka[RemoveFavorite],
+) -> None:
+    """Убрать специалиста из избранного; чего нет — без ошибки."""
+    await remove(
+        RemoveFavoriteCommand(
+            actor_id=principal.user_id, target_type=FavoriteType.PROFILE, target_id=profile_id
+        )
     )

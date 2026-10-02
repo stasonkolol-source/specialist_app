@@ -5,8 +5,10 @@ search). Фильтры §9.5 ложатся на частичные индек�
 SQL; гео — только geography и метры: `ST_DWithin` по geometry(4326) считал бы градусы.
 """
 
+from collections.abc import Collection
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import (
     ColumnElement,
@@ -116,6 +118,21 @@ class SqlSpecialistSearch(SqlQuery):
         )
         row = await self._fetch_one(select(func.count().label("n")).select_from(matching))
         return int(row["n"]) if row is not None else 0
+
+    async def listed(self, profile_ids: Collection[UUID]) -> list[SpecialistHit]:
+        if not profile_ids:
+            return []
+        stmt = select(
+            _SI.profile_id,
+            _SI.card,
+            _SI.price_from,
+            _SI.rating_bayes,
+            _SI.rating_count,
+            _SI.badges,
+            _SI.available_until,
+            cast(null(), Float).label("distance_m"),
+        ).where(_SI.is_listed, _SI.profile_id.in_(list(profile_ids)))
+        return [_hit(row) for row in await self._fetch(stmt)]
 
     async def count_by_category(self, city_id: CityId, kind: str) -> dict[CategoryId, int]:
         # category_ids уже несут предков: строка считается и в разделе, и в подкатегории

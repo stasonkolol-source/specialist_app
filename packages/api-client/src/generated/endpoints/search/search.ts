@@ -4,21 +4,25 @@
  * Соседи API
  * OpenAPI spec version: 1.0.0
  */
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import type {
   DataTag,
   DefinedInitialDataOptions,
   DefinedUseQueryResult,
+  MutationFunction,
   QueryClient,
   QueryFunction,
   QueryKey,
   UndefinedInitialDataOptions,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from '@tanstack/react-query';
 
 import type {
   CategoryCountsOut,
+  FavoritesOut,
   ProblemOut,
   SearchCountByCategoryParams,
   SearchCountSpecialistsParams,
@@ -636,3 +640,300 @@ export function useSearchCountByCategory<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+export const getSearchListFavoritesUrl = () => {
+  return `/api/v1/me/favorites`;
+};
+
+/**
+ * Избранные специалисты S12: те, кто виден в каталоге, новые первыми. Заявки (`type=job`)
+ * — с шагом 5.3.
+ * @summary List Favorites
+ */
+export const searchListFavorites = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<FavoritesOut> => {
+  return apiFetch<FavoritesOut>(getSearchListFavoritesUrl(), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getSearchListFavoritesQueryKey = () => {
+  return [`/api/v1/me/favorites`] as const;
+};
+
+export const getSearchListFavoritesQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchListFavorites>>,
+  TError = ErrorType<ProblemOut>,
+>(options?: {
+  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof searchListFavorites>>, TError, TData>>;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getSearchListFavoritesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof searchListFavorites>>> = ({ signal }) =>
+    searchListFavorites({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchListFavorites>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type SearchListFavoritesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchListFavorites>>
+>;
+export type SearchListFavoritesQueryError = ErrorType<ProblemOut>;
+
+export function useSearchListFavorites<
+  TData = Awaited<ReturnType<typeof searchListFavorites>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof searchListFavorites>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchListFavorites>>,
+          TError,
+          Awaited<ReturnType<typeof searchListFavorites>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useSearchListFavorites<
+  TData = Awaited<ReturnType<typeof searchListFavorites>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof searchListFavorites>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchListFavorites>>,
+          TError,
+          Awaited<ReturnType<typeof searchListFavorites>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useSearchListFavorites<
+  TData = Awaited<ReturnType<typeof searchListFavorites>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof searchListFavorites>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List Favorites
+ */
+
+export function useSearchListFavorites<
+  TData = Awaited<ReturnType<typeof searchListFavorites>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof searchListFavorites>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getSearchListFavoritesQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getSearchAddFavoriteUrl = (profileId: string) => {
+  return `/api/v1/me/favorites/profile/${profileId}`;
+};
+
+/**
+ * Специалист — в избранное (сердечко S05, S08). Повтор — без ошибки; профиль, которого нет
+ * в каталоге, — 404; больше 100 — `favorites_full`.
+ * @summary Add Favorite
+ */
+export const searchAddFavorite = async (
+  profileId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getSearchAddFavoriteUrl(profileId), {
+    ...options,
+    method: 'PUT',
+  });
+};
+
+export const getSearchAddFavoriteMutationKey = () => ['searchAddFavorite'] as const;
+
+export const getSearchAddFavoriteMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof searchAddFavorite>>,
+    TError,
+    SearchAddFavoriteMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof searchAddFavorite>>,
+  TError,
+  SearchAddFavoriteMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSearchAddFavoriteMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof searchAddFavorite>>,
+    SearchAddFavoriteMutationVariables
+  > = (props) => {
+    const { profileId } = props ?? {};
+
+    return searchAddFavorite(profileId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SearchAddFavoriteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof searchAddFavorite>>
+>;
+
+export type SearchAddFavoriteMutationError = ErrorType<ProblemOut>;
+export type SearchAddFavoriteMutationVariables = { profileId: string };
+
+/**
+ * @summary Add Favorite
+ */
+export const useSearchAddFavorite = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof searchAddFavorite>>,
+      TError,
+      SearchAddFavoriteMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof searchAddFavorite>>,
+  TError,
+  SearchAddFavoriteMutationVariables,
+  TContext
+> => {
+  return useMutation(getSearchAddFavoriteMutationOptions(options), queryClient);
+};
+export const getSearchRemoveFavoriteUrl = (profileId: string) => {
+  return `/api/v1/me/favorites/profile/${profileId}`;
+};
+
+/**
+ * Убрать специалиста из избранного; чего нет — без ошибки.
+ * @summary Remove Favorite
+ */
+export const searchRemoveFavorite = async (
+  profileId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getSearchRemoveFavoriteUrl(profileId), {
+    ...options,
+    method: 'DELETE',
+  });
+};
+
+export const getSearchRemoveFavoriteMutationKey = () => ['searchRemoveFavorite'] as const;
+
+export const getSearchRemoveFavoriteMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof searchRemoveFavorite>>,
+    TError,
+    SearchRemoveFavoriteMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof searchRemoveFavorite>>,
+  TError,
+  SearchRemoveFavoriteMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSearchRemoveFavoriteMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof searchRemoveFavorite>>,
+    SearchRemoveFavoriteMutationVariables
+  > = (props) => {
+    const { profileId } = props ?? {};
+
+    return searchRemoveFavorite(profileId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SearchRemoveFavoriteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof searchRemoveFavorite>>
+>;
+
+export type SearchRemoveFavoriteMutationError = ErrorType<ProblemOut>;
+export type SearchRemoveFavoriteMutationVariables = { profileId: string };
+
+/**
+ * @summary Remove Favorite
+ */
+export const useSearchRemoveFavorite = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof searchRemoveFavorite>>,
+      TError,
+      SearchRemoveFavoriteMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof searchRemoveFavorite>>,
+  TError,
+  SearchRemoveFavoriteMutationVariables,
+  TContext
+> => {
+  return useMutation(getSearchRemoveFavoriteMutationOptions(options), queryClient);
+};

@@ -77,6 +77,8 @@ export interface Format {
   date(date: Date, now?: Date): string;
   /** Дата с годом всегда: «27 сентября 2026» (редакция документа, S48). */
   fullDate(date: Date): string;
+  /** Месяц отзыва: «Сентябрь», «Septembar». */
+  month(date: Date): string;
   /** «сегодня в 19:00», «завтра в 10:00», «12 октября в 19:00». */
   calendar(date: Date, now?: Date): string;
   /** «только что», «15 мин назад», «2 ч назад», «вчера», «5 дней назад», дальше — дата. */
@@ -182,6 +184,11 @@ export function createFormat(locale: Locale): Format {
     return dateOnly(date, now);
   };
 
+  const month = (date: Date) => {
+    const name = new Intl.DateTimeFormat(intl, { timeZone: TIME_ZONE, month: 'long' }).format(date);
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  };
+
   return {
     number,
     rating,
@@ -193,6 +200,7 @@ export function createFormat(locale: Locale): Format {
     time,
     date: dateOnly,
     fullDate,
+    month,
     calendar,
     relative,
   };
