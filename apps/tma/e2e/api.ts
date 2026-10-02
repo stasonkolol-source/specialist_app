@@ -84,7 +84,7 @@ export interface MockApiOptions {
   profile?: ProfileBackend;
   /** Избранное `/me/favorites*` с памятью (4.6); по умолчанию — пусто. */
   favorites?: FavoritesBackend;
-  /** Заявки `/jobs*` с памятью (5.2): POST с ключом идемпотентности, GET созданной. */
+  /** Заявки `/jobs*` с памятью: создание (5.2), лента, счётчик и «не интересно» (5.3). */
   jobs?: JobsBackend;
   /** Задержка каждого ответа API, мс: замер холодного старта (coldstart.spec.ts). */
   delayMs?: number;
@@ -169,14 +169,19 @@ export async function mockApi(
       if (reply?.status === 204) return route.fulfill({ status: 204 });
       if (reply) return route.fulfill(json(reply.body, reply.status));
     }
-    // заявки (5.2): создание с ключом идемпотентности и созданная заявка для S21
+    // заявки: создание с ключом идемпотентности и созданная заявка для S21 (5.2); лента, счётчик
+    // и «не интересно» (5.3) — лента открыта и гостю
     if (url.pathname === '/api/v1/jobs' || url.pathname.startsWith('/api/v1/jobs/')) {
-      if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
-      const reply =
-        request.method() === 'POST'
-          ? jobs.create(request.postDataJSON(), request.headers()['idempotency-key'] ?? null)
-          : jobs.get(url.pathname.split('/').at(-1) ?? '');
-      return route.fulfill(json(reply.body, reply.status));
+      const body: unknown = request.method() === 'POST' ? request.postDataJSON() : undefined;
+      const reply = jobs.handle(
+        request.method(),
+        url,
+        body,
+        request.headers()['idempotency-key'] ?? null,
+        authorized(request),
+      );
+      if (reply?.status === 204) return route.fulfill({ status: 204 });
+      if (reply) return route.fulfill(json(reply.body, reply.status));
     }
     // карточка специалиста S08–S10 (4.5): «Сегодня до 20:00» — как в выдаче (часы E2E_NOW)
     const card =

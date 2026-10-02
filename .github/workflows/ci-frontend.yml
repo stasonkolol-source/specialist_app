@@ -137,11 +137,16 @@ jobs:
           retention-days: 7
 
   # Экраны Mini App: webkit 390×844, chromium 360×800 и 375×667, desktop 1280×800 — в том же образе,
-  # что make e2e PKG=tma; скриншоты × тема × язык, axe-core, CSP собранного приложения.
+  # что make e2e PKG=tma; скриншоты × тема × язык, axe-core, CSP собранного приложения. Прогон растёт
+  # с каждым экраном — четыре машины параллельно (Playwright --shard): одна не укладывается во время.
   tma-e2e:
-    name: Mini App e2e
+    name: Mini App e2e (${{ matrix.shard }}/4)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
       options: --ipc=host
@@ -160,12 +165,12 @@ jobs:
         run: pnpm -F tma e2e:build
 
       - name: playwright
-        run: pnpm -F tma e2e
+        run: pnpm -F tma e2e --shard=${{ matrix.shard }}/4
 
       - uses: actions/upload-artifact@v7.0.1
         if: failure()
         with:
-          name: tma-playwright-report
+          name: tma-playwright-report-${{ matrix.shard }}
           path: |
             apps/tma/playwright-report
             apps/tma/test-results

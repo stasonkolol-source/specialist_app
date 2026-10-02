@@ -12,9 +12,18 @@ describe('startTarget', () => {
   it('opens home for `h` and for targets whose screens come in later steps', () => {
     expect(startTarget('h')).toBe('/');
     expect(startTarget('h_rAB12CD')).toBe('/');
-    // S15 (5.3), S26 (6.2), S30 (6.4) — до своих шагов на главную
+    // S26 (6.2), S30 (6.4) — до своих шагов на главную
+    const ready = new Set(['legal', 'specialist', 'job']);
     for (const { param, link } of golden.valid) {
-      if (link.type !== 'legal' && link.type !== 'specialist') expect(startTarget(param)).toBe('/');
+      if (!ready.has(link.type)) expect(startTarget(param)).toBe('/');
+    }
+  });
+
+  it('opens the job S15 for `j_` links, with or without attribution (5.3)', () => {
+    const jobs = golden.valid.filter(({ link }) => link.type === 'job');
+    expect(jobs.length).toBeGreaterThan(0);
+    for (const { param, link } of jobs) {
+      expect(startTarget(param)).toBe(`/jobs/${'id' in link ? link.id : ''}`);
     }
   });
 

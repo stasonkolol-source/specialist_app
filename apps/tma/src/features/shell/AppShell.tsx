@@ -24,7 +24,9 @@ export const TABS = [
 export const CREATE_PATH = '/jobs/new';
 const CREATE_ID = 'create';
 
-const TAB_ROOTS: ReadonlySet<string> = new Set(TABS.map((tab) => tab.path));
+/** Сегменты вкладки «Заявки» (фича jobs): у каждого свой адрес, таббар виден и на них. */
+const JOBS_SEGMENTS = ['/jobs/responses', '/jobs/mine'] as const;
+const TAB_ROOTS: ReadonlySet<string> = new Set([...TABS.map((tab) => tab.path), ...JOBS_SEGMENTS]);
 /** Куда ведёт вкладка или «+»: путь маршрута, а не href ссылки. У hash history в Telegram
  *  href — «/#/profile»: переход по нему уводил на главную. */
 const DESTINATIONS: ReadonlyMap<string, string> = new Map([

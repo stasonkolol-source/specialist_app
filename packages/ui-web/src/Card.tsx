@@ -12,6 +12,9 @@ export interface CardProps {
   /** ul / ol — карточка-список (.card у пунктов правил S48, «Остаётся доступно» S49b). */
   as?: 'div' | 'section' | 'article' | 'li' | 'ul' | 'ol';
   className?: string;
+  /** Подпись раздела-карточки (`as="section"`): заголовок внутри или текст для скринридера. */
+  'aria-labelledby'?: string;
+  'aria-label'?: string;
 }
 
 export function Card({
@@ -21,6 +24,8 @@ export function Card({
   onClick,
   as: Tag = 'div',
   className,
+  'aria-labelledby': labelledBy,
+  'aria-label': label,
 }: CardProps) {
   const classes = cx(
     'm-0 flex list-none flex-col rounded-card bg-surface p-4 text-text',
@@ -42,5 +47,9 @@ export function Card({
       </button>
     );
   }
-  return <Tag className={classes}>{children}</Tag>;
+  return (
+    <Tag className={classes} aria-labelledby={labelledBy} aria-label={label}>
+      {children}
+    </Tag>
+  );
 }

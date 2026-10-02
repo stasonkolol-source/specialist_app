@@ -1,8 +1,11 @@
-// Шторка и карточка специалиста (DEVELOPMENT_PLAN 4.4, макеты S05, S06). Тексты — данные фикстур.
+// Шторка, карточка специалиста и карточка заявки (DEVELOPMENT_PLAN 4.4, 5.3; макеты S05, S06, S13).
+// Тексты — данные фикстур.
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { SegmentedNav } from './form/Choice.tsx';
+import { JobCard } from './JobCard.tsx';
 import { Sheet } from './Sheet.tsx';
 import { SpecialistCard } from './SpecialistCard.tsx';
 import { a11yViolations } from './testing/a11y.ts';
@@ -104,5 +107,91 @@ describe('SpecialistCard (S05)', () => {
 
     expect(screen.getByRole('link').textContent).toContain('Новый специалист');
     expect(screen.getByRole('img', { name: 'Ana Ilić' }).textContent).toBe('AI');
+  });
+});
+
+describe('JobCard (S13)', () => {
+  it('заголовок и бюджет, бейджи и время, описание, место и места; ссылка — вся карточка', async () => {
+    const onOpen = vi.fn((event: { preventDefault: () => void }) => event.preventDefault());
+    const { container } = render(
+      <JobCard
+        title="Повесить люстру"
+        budget="5 000 RSD"
+        badges={[
+          { label: 'Сегодня 18–21', tone: 'info', icon: 'clock' },
+          { label: 'Люстры', tone: 'mute' },
+        ]}
+        time="15 мин назад"
+        description="Потолок бетонный, крюк есть."
+        photos={[{ src: '' }, { src: '' }]}
+        photoLabel={(number) => `Фото ${number}`}
+        place="Лиман, ≈ 1,2 км"
+        slots={{ taken: 3, total: 5, label: 'откликов 3 из 5' }}
+        href="#s15"
+        onOpen={onOpen}
+      />,
+    );
+
+    const link = screen.getByRole('link', { name: /Повесить люстру/ });
+    expect(link.getAttribute('href')).toBe('#s15');
+    expect(screen.getByRole('heading', { name: 'Повесить люстру', level: 2 })).toBeTruthy();
+    expect(screen.getByText('5 000 RSD')).toBeTruthy();
+    expect(screen.getByText('Сегодня 18–21')).toBeTruthy();
+    expect(screen.getByText('Лиман, ≈ 1,2 км')).toBeTruthy();
+    expect(screen.getByText('откликов 3 из 5')).toBeTruthy();
+    expect(screen.getAllByRole('img', { name: /^Фото \d$/ })).toHaveLength(2);
+    // полоски мест — декорация: число мест читается подписью
+    expect(container.querySelectorAll('[aria-hidden="true"] > i')).toHaveLength(5);
+    expect(container.querySelectorAll('[aria-hidden="true"] > i.bg-accent')).toHaveLength(3);
+    fireEvent.click(link);
+    expect(onOpen).toHaveBeenCalledOnce();
+    expect(await a11yViolations(container)).toEqual([]);
+  });
+
+  it('договорная — текстом без цены; без ссылки — статья', () => {
+    render(
+      <JobCard
+        title="Течёт смеситель на кухне"
+        budget="Договорная"
+        negotiable
+        badges={[{ label: 'Срочно', tone: 'urgent', icon: 'zap' }]}
+        time="5 мин назад"
+        slots={{ taken: 4, total: 5, label: 'откликов 4 из 5' }}
+      />,
+    );
+
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getByRole('article')).toBeTruthy();
+    expect(screen.getByText('Договорная').className).toContain('text-text2');
+  });
+});
+
+describe('SegmentedNav (S13)', () => {
+  it('ссылки разделов, текущий — aria-current; переход — через onNavigate', async () => {
+    const onNavigate = vi.fn((_id: string, event: { preventDefault: () => void }) =>
+      event.preventDefault(),
+    );
+    const { container } = render(
+      <SegmentedNav
+        label="Раздел заявок"
+        current="feed"
+        items={[
+          { id: 'feed', label: 'Лента', href: '#feed' },
+          { id: 'responses', label: 'Мои отклики', href: '#responses' },
+          { id: 'mine', label: 'Мои заявки', href: '#mine' },
+        ]}
+        onNavigate={onNavigate}
+      />,
+    );
+
+    const nav = screen.getByRole('navigation', { name: 'Раздел заявок' });
+    expect(nav).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Лента' }).getAttribute('aria-current')).toBe('page');
+    expect(
+      screen.getByRole('link', { name: 'Мои заявки' }).getAttribute('aria-current'),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole('link', { name: 'Мои заявки' }));
+    expect(onNavigate).toHaveBeenCalledWith('mine', expect.anything());
+    expect(await a11yViolations(container)).toEqual([]);
   });
 });

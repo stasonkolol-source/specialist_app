@@ -4,9 +4,10 @@
 // подсказками `/suggest` (с задержкой): подсказка ведёт в выдачу категории, Enter — в выдачу по
 // тексту. Плитки разделов — в выдачу раздела, «Все услуги» — в S04. Переключатель «Услуги / Вещи»
 // — по флагу goods.segment (client-config, ADR-0019): «Вещи» в MVP — заглушка S58.
-// «Не хотите искать сами?» ведёт в мастер заявки S20a (5.2). Скрыто до своих шагов: «Ищете
-// подработку?» (5.3), «Мои активные заявки» (5.6). «Свободны сегодня рядом» — своим чанком
-// (TodayNearby.tsx).
+// «Не хотите искать сами?» ведёт в мастер заявки S20a (5.2), «Ищете подработку?» — в ленту заявок
+// S13 (5.3): число заявок за сутки, без новых блока нет. Скрыто до своего шага: «Мои активные
+// заявки» (5.6). «Свободны сегодня рядом» и «Ищете подработку?» — своими чанками (TodayNearby.tsx,
+// SideJob.tsx): до первого кадра Главной они не нужны.
 import type { CategoryOut, SuggestionOut } from '@sosed/api-client';
 import {
   FLAGS,
@@ -37,7 +38,7 @@ import {
   Tiles,
 } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
-import type { FormEvent, MouseEvent } from 'react';
+import type { ComponentType, FormEvent, MouseEvent } from 'react';
 import { Suspense, lazy, useId, useState } from 'react';
 
 import { useCatalogCity } from '../shared/city.ts';
@@ -45,7 +46,7 @@ import { useDebounced } from '../shared/debounce.ts';
 import type { ClientPoint } from '../shared/location.ts';
 import { useLocate } from '../shared/location.ts';
 import type { ResultsSearch } from '../shared/paths.ts';
-import { CATALOG_PATHS, CREATE_JOB_PATH } from '../shared/paths.ts';
+import { CATALOG_PATHS, CREATE_JOB_PATH, JOBS_FEED_PATH } from '../shared/paths.ts';
 
 type Segment = 'services' | 'goods';
 
@@ -56,9 +57,22 @@ const PALETTES: readonly AvatarPalette[] = [1, 4, 2, 3, 5];
 /** Подсказки — когда человек перестал печатать. */
 const SUGGEST_DELAY_MS = 250;
 
-const TodayNearby = lazy(() =>
-  import('./TodayNearby.tsx').then((module) => ({ default: module.TodayNearby })),
+/** Необязательный блок своим чанком: не скачался (пропала сеть) — блока нет, а Главная работает.
+ *  Иначе ошибка чанка дошла бы до экрана ошибки и закрыла бы всю Главную. */
+function optionalChunk<P extends object>(load: () => Promise<ComponentType<P>>) {
+  return lazy(async (): Promise<{ default: ComponentType<P> }> => {
+    try {
+      return { default: await load() };
+    } catch {
+      return { default: () => null };
+    }
+  });
+}
+
+const TodayNearby = optionalChunk(() =>
+  import('./TodayNearby.tsx').then((module) => module.TodayNearby),
 );
+const SideJob = optionalChunk(() => import('./SideJob.tsx').then((module) => module.SideJob));
 
 const iconOf = (name: string | null): IconName =>
   (ICON_NAMES as readonly string[]).includes(name ?? '') ? (name as IconName) : 'grid';
@@ -155,6 +169,18 @@ function Services() {
             cards={cards}
             allHref={href(CATALOG_PATHS.results, { today: true, ...near })}
             onAll={results({ today: true, ...near })}
+          />
+        </Suspense>
+      )}
+      {city && (
+        <Suspense fallback={null}>
+          <SideJob
+            cityId={city.id}
+            href={href(JOBS_FEED_PATH)}
+            onOpen={(event) => {
+              event.preventDefault();
+              void router.navigate({ to: JOBS_FEED_PATH });
+            }}
           />
         </Suspense>
       )}

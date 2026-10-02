@@ -17,6 +17,7 @@ export const SECTIONS = [
   'progress',
   'feedback',
   'specialist',
+  'job',
   'sheet',
   'icons',
   'tabbar',

@@ -19,6 +19,7 @@ import {
   HStack,
   IconButton,
   Input,
+  JobCard,
   MapPreview,
   Option,
   PickerButton,
@@ -28,6 +29,7 @@ import {
   Row,
   SearchField,
   Segmented,
+  SegmentedNav,
   Sheet,
   Skeleton,
   SpecialistCard,
@@ -46,6 +48,24 @@ import {
 const CARDS = [
   { headline: 'Электрик · мелкий ремонт · люстры', district: 'Лиман', km: 1_500, rating: 4.9 },
   { headline: 'Сборка мебели · полки · карнизы', district: 'Детелинара', km: 3_000, rating: null },
+] as const;
+
+/** Заявки S13 — как SPEC §4 (JOBS): заголовки, категории и районы — данные. */
+const JOB_CARDS = [
+  {
+    title: 'Течёт смеситель на кухне',
+    category: 'Сантехника',
+    description: 'Капает из-под крана. Нужно заменить картридж или смеситель целиком.',
+    district: 'Центр',
+    km: 2_000,
+  },
+  {
+    title: 'Повесить люстру',
+    category: 'Люстры',
+    description: 'Потолок бетонный, крюк есть. Люстра на 5 рожков, нужно подключить.',
+    district: 'Лиман',
+    km: 1_200,
+  },
 ] as const;
 
 const PEOPLE = [
@@ -78,6 +98,7 @@ export function MoreSections() {
   const [langs, setLangs] = useState(true);
   const [notify, setNotify] = useState(true);
   const [stars, setStars] = useState(4);
+  const negotiable = t('price.negotiable').replace(/^./u, (letter) => letter.toUpperCase());
 
   return (
     <>
@@ -288,6 +309,48 @@ export function MoreSections() {
               />
             );
           })}
+        </Stack>
+      </Section>
+
+      <Section id="job" name="JobCard · SegmentedNav">
+        <Stack gap={12}>
+          <SegmentedNav
+            label={t('nav.sections')}
+            current="jobs"
+            items={[
+              { id: 'home', label: t('nav.home'), href: '#home' },
+              { id: 'jobs', label: t('nav.jobs'), href: '#jobs' },
+              { id: 'messages', label: t('nav.messages'), href: '#messages' },
+            ]}
+          />
+          <JobCard
+            title={JOB_CARDS[0].title}
+            budget={negotiable}
+            negotiable
+            badges={[
+              { label: t('urgency.asap'), tone: 'urgent', icon: 'zap' },
+              { label: JOB_CARDS[0].category, tone: 'mute' },
+            ]}
+            time={t('time.minutesAgo', { count: 5 })}
+            description={JOB_CARDS[0].description}
+            place={`${JOB_CARDS[0].district}, ${format.distance(JOB_CARDS[0].km)}`}
+            slots={{ taken: 4, total: 5, label: t('count.responsesOf', { count: 4, total: 5 }) }}
+            href="#s15"
+          />
+          <JobCard
+            title={JOB_CARDS[1].title}
+            budget={format.money(500_000)}
+            badges={[
+              { label: t('urgency.today'), tone: 'info', icon: 'clock' },
+              { label: JOB_CARDS[1].category, tone: 'mute' },
+            ]}
+            time={t('time.minutesAgo', { count: 15 })}
+            description={JOB_CARDS[1].description}
+            photos={[{ src: '' }, { src: '' }]}
+            photoLabel={() => t('photo.work')}
+            place={`${JOB_CARDS[1].district}, ${format.distance(JOB_CARDS[1].km)}`}
+            slots={{ taken: 3, total: 5, label: t('count.responsesOf', { count: 3, total: 5 }) }}
+          />
         </Stack>
       </Section>
 

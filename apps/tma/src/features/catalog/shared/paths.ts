@@ -24,6 +24,9 @@ export const FAVORITES_PATH = '/favorites';
  *  категорией и названием, если они известны. */
 export const CREATE_JOB_PATH = '/jobs/new';
 
+/** Лента заявок S13 (фича jobs, 5.3): блок «Ищете подработку?» на Главной. */
+export const JOBS_FEED_PATH = '/jobs';
+
 export interface CreateJobSearch {
   category?: number;
   title?: string;

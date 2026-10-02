@@ -18,7 +18,14 @@ import {
   portfolioSearch,
   resultsSearch,
 } from '../features/catalog/index.ts';
-import { CREATE_PATHS, createSearch, doneSearch } from '../features/jobs/index.ts';
+import {
+  CREATE_PATHS,
+  JOBS_PATHS,
+  createSearch,
+  doneSearch,
+  feedSearch,
+  jobSearch,
+} from '../features/jobs/index.ts';
 import { ONBOARDING_PATHS, onboardingSearch } from '../features/onboarding/index.ts';
 import { BECOME_PATHS, CABINET_PATHS, becomeSearch } from '../features/specialist/index.ts';
 import { LEGAL_PATH, LegalScreen } from '../features/service/s48-legal/index.ts';
@@ -59,10 +66,37 @@ const home = createRoute({
   component: screen(() => import('../features/catalog/s03-home/index.ts'), 'HomeScreen'),
 });
 
+// Вкладка «Заявки» (5.3): лента S13 открыта и гостю, фильтры — в параметрах адреса. Сегменты
+// «Мои отклики» (5.5) и «Мои заявки» (5.6) — свои адреса, пока заглушки
 const jobs = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/jobs',
+  path: JOBS_PATHS.feed,
+  validateSearch: feedSearch,
+  component: screen(() => import('../features/jobs/s13-feed/index.ts'), 'FeedScreen'),
+});
+
+const myResponses = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.responses,
+  component: screen(
+    () => import('../features/jobs/s17-my-responses/index.ts'),
+    'MyResponsesScreen',
+  ),
+});
+
+const myJobs = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.mine,
   component: screen(() => import('../features/jobs/s22-my-jobs/index.ts'), 'MyJobsScreen'),
+});
+
+// Заявка S15: из ленты (с точкой ленты — «≈ 1,2 км от вас») и по deep link `j_`
+// (routes/startapp.ts); открыта и гостю. Статические /jobs/new, /jobs/mine… важнее параметра
+const job = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.job,
+  validateSearch: jobSearch,
+  component: screen(() => import('../features/jobs/s15-job/index.ts'), 'JobScreen'),
 });
 
 // Мастер «Создать заявку» S20a–d (5.2) — создающее действие: без согласия с правилами — S02c
@@ -324,6 +358,9 @@ const restricted = createRoute({
 export const routeTree = rootRoute.addChildren([
   home,
   jobs,
+  myResponses,
+  myJobs,
+  job,
   createWhat,
   createWhen,
   createBudget,
