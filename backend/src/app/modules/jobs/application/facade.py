@@ -5,7 +5,13 @@ from typing import Final
 from uuid import UUID
 
 from app.modules.catalog.api import CatalogApi
-from app.modules.jobs.api import JobBrief, JobForReview, JobsApi, ResponseForReview
+from app.modules.jobs.api import (
+    JobBrief,
+    JobForReview,
+    JobsApi,
+    ResponseForReview,
+    ResponsesNotice,
+)
 from app.modules.jobs.application.ports import JobQueries, JobRepository
 from app.modules.jobs.domain.job import MAX_EXTENSIONS, Job, JobId, JobStatus
 from app.modules.jobs.domain.response import ResponseId, ResponseReview
@@ -74,6 +80,20 @@ class JobsFacade(JobsApi):
             expires_at=job.expires_at,
             can_extend=job.extensions_count < MAX_EXTENSIONS,
         )
+
+    async def responses_notice(self, job_id: UUID) -> ResponsesNotice | None:
+        job = await self._queries.view(JobId(job_id))
+        if job is None:
+            return None
+        return ResponsesNotice(
+            client_id=job.client_id,
+            title=job.title,
+            status=job.status.value,
+            unseen=await self._queries.unseen_responses(JobId(job_id)),
+        )
+
+    async def response_job(self, response_id: UUID) -> UUID | None:
+        return await self._queries.job_of_response(ResponseId(response_id))
 
     async def response_for_review(self, response_id: UUID) -> ResponseForReview | None:
         job = await self._job_of_response(ResponseId(response_id))

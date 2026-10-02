@@ -49,6 +49,17 @@ class ResponseForReview:
     """Редакция, которую проверяют: публикация устаревшей — ничего."""
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ResponsesNotice:
+    """Отклики на заявку для уведомления клиенту `response.received` (5.4)."""
+
+    client_id: UserId
+    title: str
+    status: str
+    unseen: int
+    """Видимые клиенту отклики, которые он ещё не открыл (проверка пройдена, «отправлен»)."""
+
+
 class JobsApi(Protocol):
     async def job_for_review(self, job_id: UUID) -> JobForReview | None:
         """Заявка на проверке или опубликованная (выборочная проверка после публикации);
@@ -67,6 +78,14 @@ class JobsApi(Protocol):
 
     async def job_brief(self, job_id: UUID) -> JobBrief | None:
         """Название, статус и срок заявки; None — нет такой или удалена."""
+        ...
+
+    async def responses_notice(self, job_id: UUID) -> ResponsesNotice | None:
+        """Название, статус и непросмотренные отклики заявки; None — нет такой или удалена."""
+        ...
+
+    async def response_job(self, response_id: UUID) -> UUID | None:
+        """Заявка отклика — куда вести исполнителя из уведомления о его отклике."""
         ...
 
     async def response_for_review(self, response_id: UUID) -> ResponseForReview | None:

@@ -165,7 +165,11 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
         description="Срок заявки вышел",
         properties={"category": Ref(), "city": Ref()},
     ),
-    EventName.RESPONSE_SUBMITTED: EventSpec(step="5.4", description="Отклик на заявку"),
+    EventName.RESPONSE_SUBMITTED: EventSpec(
+        step="5.4",
+        description="Отклик на заявку: первый ли и через сколько минут после публикации (TTFR)",
+        properties={"is_first": Flag(), "minutes_since_published": Count()},
+    ),
     EventName.INVITE_SENT: EventSpec(step="5.6", description="Приглашение в заявку"),
     EventName.DIRECT_REQUEST_SENT: EventSpec(step="5.6", description="Прямой запрос"),
     EventName.ALERT_CREATED: EventSpec(step="5.7", description="Подписка на заявки"),

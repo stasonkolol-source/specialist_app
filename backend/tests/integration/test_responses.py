@@ -3,7 +3,8 @@
 с контактами — после решения модератора); на свою, закрытую и полную заявку — 409 со своим кодом;
 десять параллельных откликов на пять мест дают ровно пять; правка отклика увеличивает версию
 заявки; суточный лимит по уровню доверия — 429 на своей границе; «Мои отклики» с группами и
-квотой дня; удалённый аккаунт отзывает свои отклики. Данные коммитятся.
+квотой дня; удалённый аккаунт отзывает свои отклики; три отклика за окно — одно уведомление
+клиенту «Новых откликов: 3». Данные коммитятся.
 """
 
 import asyncio
@@ -37,6 +38,7 @@ from app.platform.ratelimit import Rate
 from app.platform.settings import Settings
 from tests.plugins.http import HttpApp, bearer, http_app
 from tests.plugins.identity import accept_rules, insert_user
+from tests.plugins.queue import run_queued
 
 pytestmark = pytest.mark.integration
 
@@ -431,3 +433,55 @@ async def test_deleted_performer_responses_are_withdrawn(
     )
     assert status == "withdrawn"
     assert (await world.job_row(job_id))[1] == 0
+
+
+async def test_three_responses_in_a_window_make_one_notice(
+    world: World, worker: AsyncContainer
+) -> None:
+    client = await world.user("Елена К.")
+    job_id = await world.job(client)
+    performers = [await world.user() for _ in range(3)]
+    responses = [await world.responded(performer, job_id) for performer in performers]
+
+    scheduled = await run_queued(
+        world.app.container,
+        "notifications.schedule_responses_notice",
+        user_id=job_id,
+        by="job_id",
+    )
+
+    assert scheduled == 3
+    waiting = await world.scalar(
+        "SELECT count(*) FROM procrastinate_jobs WHERE task_name = 'notifications.notify_responses'"
+        " AND status = 'todo' AND args->'payload'->>'job_id' = :job",
+        job=str(job_id),
+    )
+    assert waiting == 1  # окно одно: замок очереди по заявке
+    scheduled_at = await world.scalar(
+        "SELECT scheduled_at FROM procrastinate_jobs WHERE task_name ="
+        " 'notifications.notify_responses' AND args->'payload'->>'job_id' = :job",
+        job=str(job_id),
+    )
+    assert scheduled_at > datetime.now(UTC) + timedelta(minutes=4)
+    for performer, response in zip(performers, responses, strict=True):
+        assert (await auto_check(worker, performer, response["id"])).route is Route.PUBLISH
+
+    sent = await run_queued(
+        world.app.container, "notifications.notify_responses", user_id=job_id, by="job_id"
+    )
+
+    assert sent == 1
+    engine = await world.app.container.get(AsyncEngine)
+    async with engine.connect() as conn:
+        notices = (
+            await conn.execute(
+                text(
+                    "SELECT payload->'params'->>'count', payload->>'link' FROM"
+                    " notifications.notifications WHERE user_id = :user"
+                    " AND type = 'response.received'"
+                ),
+                {"user": client},
+            )
+        ).all()
+    assert [count for count, _ in notices] == ["3"]
+    assert notices[0][1].startswith("j_")

@@ -14,7 +14,12 @@ from app.platform.contracts.events.identity import RestrictionKind
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.localized import Locale
 from app.platform.telegram.callbacks import CallbackAction, CallbackData, parse_callback
-from app.platform.telegram.deeplinks import parse_start_param
+from app.platform.telegram.deeplinks import (
+    LinkType,
+    StartLink,
+    encode_start_param,
+    parse_start_param,
+)
 from app.platform.telegram.port import AppButton, CallbackButton
 
 pytestmark = pytest.mark.unit
@@ -176,6 +181,7 @@ def test_types_without_templates_are_refused(renderer: GettextNotificationRender
         NotificationType.PROFILE_PUBLISHED,
         NotificationType.JOB_EXPIRING,
         NotificationType.JOB_EXPIRED,
+        NotificationType.RESPONSE_RECEIVED,
     }
     with pytest.raises(ValueError, match="no templates"):
         renderer.text(NotificationType.JOB_MATCHED, {}, Locale.RU)
@@ -271,3 +277,40 @@ def test_job_term_without_a_job_id_has_no_buttons(renderer: GettextNotificationR
     )
 
     assert buttons == ()
+
+
+def test_new_responses_message_counts_them_and_leads_to_the_job(
+    renderer: GettextNotificationRenderer,
+) -> None:
+    link = encode_start_param(StartLink(type=LinkType.JOB, id=JOB_ID))
+    one, buttons = renderer.telegram(
+        NotificationType.RESPONSE_RECEIVED,
+        {"title": "Повесить люстру", "count": "1"},
+        link,
+        Locale.RU,
+    )
+    three, _ = renderer.telegram(
+        NotificationType.RESPONSE_RECEIVED,
+        {"title": "Повесить люстру", "count": "3"},
+        "j_abc",
+        Locale.RU,
+    )
+
+    assert one.startswith("<b>Новые отклики</b>\nНовый отклик на заявку «Повесить люстру».")
+    assert "Новых откликов: 3 — на заявку «Повесить люстру»." in three
+    [button] = buttons
+    assert isinstance(button, AppButton)
+    assert button.text == "Посмотреть отклики"
+    assert button.url == f"{MINI_APP}?startapp={link}"
+
+
+@pytest.mark.parametrize("locale", SCRIPTS)
+def test_new_responses_texts_on_three_scripts(
+    renderer: GettextNotificationRenderer, locale: Locale
+) -> None:
+    for count in ("1", "4"):
+        text, buttons = renderer.telegram(
+            NotificationType.RESPONSE_RECEIVED, {"title": "x", "count": count}, "j_abc", locale
+        )
+        assert "notifications." not in text
+        assert all("notifications." not in b.text for b in buttons)

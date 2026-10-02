@@ -2,7 +2,7 @@
 
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Final, Protocol
 from uuid import UUID
 
@@ -23,7 +23,7 @@ from app.modules.notifications.domain.notification import (
 )
 from app.modules.notifications.domain.settings import NotificationSettings
 from app.platform.contracts.events.identity import BotStarted, UserDeleted, UserRestricted
-from app.platform.contracts.events.jobs import JobExpired, JobExpiring
+from app.platform.contracts.events.jobs import JobExpired, JobExpiring, ResponseSubmitted
 from app.platform.contracts.events.moderation import ModerationDecisionMade
 from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.kernel.ids import UserId
@@ -194,5 +194,28 @@ NOTIFY_JOB_EXPIRING: Final = TaskRef(
 NOTIFY_JOB_EXPIRED: Final = TaskRef(
     "notifications.notify_job_expired", JobExpired, queue="notifications"
 )
+RESPONSES_DEBOUNCE: Final = timedelta(minutes=5)
+"""Окно дебаунса `response.received` (§11.3): отклики за пять минут — одно уведомление."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ResponsesWindow:
+    """Окно откликов на заявку: уведомление клиенту — в его конце."""
+
+    job_id: UUID
+    since: datetime
+    """Первый отклик окна: окно — ключ дедупликации уведомления."""
+
+
+SCHEDULE_RESPONSES_NOTICE: Final = TaskRef(
+    "notifications.schedule_responses_notice", ResponseSubmitted, queue="notifications"
+)
+"""Подписчик ResponseSubmitted: первый отклик окна ставит уведомление через RESPONSES_DEBOUNCE,
+следующие, пока оно ждёт, — ничего (замок очереди по заявке)."""
+NOTIFY_RESPONSES: Final = TaskRef(
+    "notifications.notify_responses", ResponsesWindow, queue="notifications"
+)
+"""Конец окна: «Новых откликов: 3» по видимым клиенту и ещё не открытым откликам."""
+
 FORGET_RECIPIENT: Final = TaskRef("notifications.forget_recipient", UserDeleted)
 """Подписчик UserDeleted: всё о получателе удалённого аккаунта (§7.10)."""

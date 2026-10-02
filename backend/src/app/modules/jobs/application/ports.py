@@ -112,6 +112,10 @@ class JobQueries(Protocol):
         """Сколько откликов в каждой группе — числа на чипах S17."""
         ...
 
+    async def unseen_responses(self, job_id: JobId) -> int:
+        """Видимые клиенту отклики, которые он ещё не открыл, — «Новых откликов: 3»."""
+        ...
+
     async def job_responses(self, job_id: JobId) -> list[OwnerResponse]:
         """Отклики на заявку для владельца (S23): прошедшие проверку, не отозванные, по
         порядку; `is_first` — самый ранний отклик заявки."""

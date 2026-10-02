@@ -4,7 +4,8 @@
 аналитики уходит только после commit и не уходит при rollback. Здесь подключаются
 `user_registered` (с источником атрибуции), `onboarding_completed` и `write_access_granted`
 (1.7), `profile_submitted` и `profile_published` (2.8a), `job_published`, `job_closed` и
-`job_expired` (5.1); остальные события подключает шаг своего модуля (таксономия — events.py).
+`job_expired` (5.1), `response_submitted` (5.4); остальные события подключает шаг своего модуля
+(таксономия — events.py).
 """
 
 from dishka import FromDishka
@@ -12,7 +13,12 @@ from dishka import FromDishka
 from app.platform.analytics.events import EventName, analytics_event
 from app.platform.analytics.port import Analytics
 from app.platform.contracts.events.identity import OnboardingCompleted, UserRegistered
-from app.platform.contracts.events.jobs import JobClosed, JobExpired, JobPublished
+from app.platform.contracts.events.jobs import (
+    JobClosed,
+    JobExpired,
+    JobPublished,
+    ResponseSubmitted,
+)
 from app.platform.contracts.events.notifications import WriteAccessGranted
 from app.platform.contracts.events.specialists import ProfilePublished, ProfileSubmitted
 from app.platform.queue.port import TaskRef
@@ -29,6 +35,7 @@ CAPTURE_PROFILE_PUBLISHED = TaskRef("analytics.capture_profile_published", Profi
 CAPTURE_JOB_PUBLISHED = TaskRef("analytics.capture_job_published", JobPublished)
 CAPTURE_JOB_CLOSED = TaskRef("analytics.capture_job_closed", JobClosed)
 CAPTURE_JOB_EXPIRED = TaskRef("analytics.capture_job_expired", JobExpired)
+CAPTURE_RESPONSE_SUBMITTED = TaskRef("analytics.capture_response_submitted", ResponseSubmitted)
 
 
 @subscriber(UserRegistered, CAPTURE_USER_REGISTERED)
@@ -150,5 +157,25 @@ async def capture_job_expired(event: JobExpired, analytics: FromDishka[Analytics
             source_event_id=event.event_id,
             category=event.category_id,
             city=event.city_id,
+        )
+    )
+
+
+@subscriber(ResponseSubmitted, CAPTURE_RESPONSE_SUBMITTED)
+async def capture_response_submitted(
+    event: ResponseSubmitted, analytics: FromDishka[Analytics]
+) -> None:
+    """Отклик: первый ли на заявку и через сколько минут после публикации — TTFR и response
+    rate (§16.2). Без времени публикации (не должно случаться) — ноль минут."""
+    since = event.published_at or event.occurred_at
+    minutes = max(0, int((event.occurred_at - since).total_seconds() // 60))
+    await analytics.capture(
+        analytics_event(
+            EventName.RESPONSE_SUBMITTED,
+            user_id=event.performer_id,
+            occurred_at=event.occurred_at,
+            source_event_id=event.event_id,
+            is_first=event.is_first,
+            minutes_since_published=minutes,
         )
     )

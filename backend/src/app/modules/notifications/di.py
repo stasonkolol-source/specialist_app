@@ -25,6 +25,9 @@ from app.modules.notifications.application.use_cases.mark_notifications_read imp
     MarkNotificationsRead,
 )
 from app.modules.notifications.application.use_cases.notify import Notify
+from app.modules.notifications.application.use_cases.schedule_responses_notice import (
+    ScheduleResponsesNotice,
+)
 from app.modules.notifications.application.use_cases.send_delivery import SendDelivery
 from app.modules.notifications.application.use_cases.update_notification_settings import (
     UpdateNotificationSettings,
@@ -56,6 +59,7 @@ class NotificationsProvider(Provider):
     block_telegram_channel = provide(BlockTelegramChannel)
     expire_stale_deliveries = provide(ExpireStaleDeliveries)
     notify = provide(Notify)
+    schedule_responses_notice = provide(ScheduleResponsesNotice)
     send_delivery = provide(SendDelivery)
     mark_read = provide(MarkNotificationsRead)
     update_settings = provide(UpdateNotificationSettings)

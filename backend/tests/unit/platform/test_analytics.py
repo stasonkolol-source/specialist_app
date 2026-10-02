@@ -90,7 +90,7 @@ def test_taxonomy_lists_exactly_the_events_of_the_plan() -> None:
     assert names == {e.value for e in EventName}
 
 
-def test_wired_events_are_those_of_steps_1_7_2_8a_and_5_1() -> None:
+def test_wired_events_are_those_of_steps_1_7_2_8a_5_1_and_5_4() -> None:
     wired = {name: spec.step for name, spec in EVENTS.items() if spec.properties is not None}
     assert wired == {
         EventName.USER_REGISTERED: "1.7",
@@ -101,6 +101,7 @@ def test_wired_events_are_those_of_steps_1_7_2_8a_and_5_1() -> None:
         EventName.JOB_PUBLISHED: "5.1",
         EventName.JOB_CLOSED: "5.1",
         EventName.JOB_EXPIRED: "5.1",
+        EventName.RESPONSE_SUBMITTED: "5.4",
     }
 
 
@@ -170,7 +171,7 @@ def test_city_is_a_reference_id_not_text() -> None:
 def test_declared_but_not_wired_event_is_refused() -> None:
     with pytest.raises(ValueError, match="not wired yet"):
         analytics_event(
-            EventName.RESPONSE_SUBMITTED,
+            EventName.INVITE_SENT,
             user_id=new_id(),
             occurred_at=NOW,
             source_event_id=new_id(),
@@ -315,7 +316,7 @@ def test_posthog_host_must_be_https() -> None:
         ),
         AnalyticsEvent(name="made_up", distinct_id=new_id(), occurred_at=NOW, event_id=new_id()),
         AnalyticsEvent(
-            name="response_submitted", distinct_id=new_id(), occurred_at=NOW, event_id=new_id()
+            name="invite_sent", distinct_id=new_id(), occurred_at=NOW, event_id=new_id()
         ),
     ],
     ids=["pii-property", "unknown-event", "not-wired"],
