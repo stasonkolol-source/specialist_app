@@ -1,4 +1,13 @@
 {
+  "home": {
+    "title": "Pronaći ćemo majstora u blizini",
+    "subtitle": "Govore ruski i srpski",
+    "search": "Električar, manikir, čišćenje…",
+    "suggestions": "Predlozi",
+    "whatToDo": "Šta treba uraditi?",
+    "today": "Slobodni danas u blizini",
+    "all": "Svi"
+  },
   "categories": {
     "title": "Sve usluge",
     "search": "Pronađite uslugu",

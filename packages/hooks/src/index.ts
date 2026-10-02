@@ -109,15 +109,21 @@ export type { SpecialistQuery, SpecialistResults } from './search/search.ts';
 export {
   CATEGORY_COUNTS_STALE_MS,
   SEARCH_PAGE_SIZE,
+  SUGGEST_MIN,
+  SUGGEST_STALE_MS,
+  TODAY_PREVIEW,
   countQuery,
   countsByCategory,
   resultItems,
   resultSummary,
   specialistsQueryKey,
+  useAvailableToday,
   useCategoryCounts,
   useSpecialistCount,
   useSpecialistSearch,
+  useSuggest,
 } from './search/search.ts';
+export { distanceMeters, nearestDistrict } from './geo/districts.ts';
 export type { PriceGroup } from './card/card.ts';
 export {
   CARD_STALE_MS,

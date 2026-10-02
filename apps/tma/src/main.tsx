@@ -1,5 +1,6 @@
 import './app/app.css';
 
+import { i18nReady } from '@sosed/i18n';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -18,13 +19,18 @@ const app = assemble(platform, {
 });
 // вход — сразу, параллельно с client-config: экран запуска S01 (LaunchGate) дождётся того же итога
 void app.launch();
+// чанк экрана, с которого открыли (обычно Главная), — тоже сразу, а не после входа: холодный
+// старт на «среднем Android» < 2,5 с (DEVELOPMENT_PLAN 4.8)
+void app.router.preloadRoute({ to: app.router.state.location.pathname }).catch(() => undefined);
 void initSentry(import.meta.env.VITE_SENTRY_DSN, __APP_VERSION__);
 
 const root = document.getElementById('root');
-if (root) {
+// сербские тексты — отдельным чанком: первый кадр — уже с ними, без мелькания русского
+void i18nReady(app.i18n).then(() => {
+  if (!root) return;
   createRoot(root).render(
     <StrictMode>
       <App {...app} />
     </StrictMode>,
   );
-}
+});

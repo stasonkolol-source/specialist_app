@@ -16,6 +16,7 @@ const LOCALES = [
     telegram: 'ru',
     profile: 'Профиль',
     home: 'Главная',
+    homeTitle: 'Найдём мастера рядом',
     rules: 'Правила площадки',
     edition: 'Редакция draft-1 от 27 сентября 2026',
     privacyTab: 'Конфиденциальность',
@@ -38,6 +39,7 @@ const LOCALES = [
     telegram: 'sr',
     profile: 'Profil',
     home: 'Početna',
+    homeTitle: 'Pronaći ćemo majstora u blizini',
     rules: 'Pravila platforme',
     // месяц — как у Intl браузера (в образе Playwright): падеж здесь не проверяем
     edition: /^Verzija draft-1 od 27\. septemb\S+ 2026\.?$/,
@@ -228,7 +230,7 @@ for (const theme of THEMES) {
 
       online = true;
       await page.getByRole('button', { name: l.retry }).click();
-      await expect(page.getByRole('heading', { name: l.home, level: 1 })).toBeVisible();
+      await expect(page.getByRole('heading', { name: l.homeTitle, level: 1 })).toBeVisible();
     });
 
     test(`S49 техработы ${theme} ${l.locale}: флаг client-config закрывает приложение`, async ({
@@ -302,7 +304,7 @@ test('S49a нет сети: чанк вкладки не скачался — «
   // чанк «Сообщений» недоступен с самого старта: фоновая загрузка вкладок его не получила
   await page.route('**/assets/s29-chats-*.js', (route) => route.abort('internetdisconnected'));
   const watch = await open(page, 'theme=light&lang=ru');
-  await expect(page.getByRole('heading', { name: 'Главная', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Найдём мастера рядом', level: 1 })).toBeVisible();
   // метка в памяти страницы: перезагрузка её сотрёт (sessionStorage пережил бы)
   await page.evaluate(() => Object.assign(window, { e2eSamePage: true }));
 

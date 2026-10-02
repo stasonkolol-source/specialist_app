@@ -85,9 +85,10 @@ describe('S49b account restricted', () => {
     expect(screen.queryByRole('region', { name: 'Остаётся доступно' })).toBeNull();
   });
 
-  it('says a ban is permanent and speaks Serbian', () => {
+  it('says a ban is permanent and speaks Serbian', async () => {
     renderWith(<SystemScreen state={restricted('banned', null)} onRetry={vi.fn()} />, 'sr-Latn');
-    expect(screen.getByRole('heading', { name: 'Nalog je blokiran' })).toBeTruthy();
+    // сербские тексты — отдельным чанком: экран дорисовывается, когда он загрузился
+    expect(await screen.findByRole('heading', { name: 'Nalog je blokiran' })).toBeTruthy();
     expect(screen.getByRole('alert').textContent).toBe('Ne možete da koristite nalog');
   });
 

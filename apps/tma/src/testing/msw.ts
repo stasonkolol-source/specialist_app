@@ -17,6 +17,7 @@ import {
   getSearchCountByCategoryMockHandler,
   getSearchCountSpecialistsMockHandler,
   getSearchListSpecialistsMockHandler,
+  getSearchSuggestMockHandler,
   getSystemGetClientConfigMockHandler,
 } from '@sosed/api-client/mocks';
 import type { MeOut, MeUpdateIn, TokensOut } from '@sosed/api-client';
@@ -38,6 +39,7 @@ import {
   notificationsFor,
   searchFound,
   searchPage,
+  suggestFor,
 } from './fixtures.ts';
 import type { BackendReply } from './backend.ts';
 import { FavoritesBackend } from './favoritesBackend.ts';
@@ -101,6 +103,12 @@ export const searchHandlers = [
     capped: false,
   })),
   getSearchCountByCategoryMockHandler(CATEGORY_COUNTS),
+  getSearchSuggestMockHandler(({ request }) =>
+    suggestFor(
+      new URL(request.url).searchParams.get('q') ?? '',
+      request.headers.get('Accept-Language'),
+    ),
+  ),
 ];
 
 /** Избранное S12 и сердечки (4.6) по фейку backend; по умолчанию — свежий на каждый запрос:
