@@ -3,6 +3,7 @@
 Другие модули импортируют из jobs только этот файл.
 """
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
@@ -140,6 +141,14 @@ class JobsApi(Protocol):
 
     async def responses_notice(self, job_id: UUID) -> ResponsesNotice | None:
         """Название, статус и непросмотренные отклики заявки; None — нет такой или удалена."""
+        ...
+
+    async def job_titles(self, job_ids: Collection[UUID]) -> dict[UUID, str]:
+        """Названия заявок пачкой (контекст диалогов S29); удалённых нет в ответе."""
+        ...
+
+    async def unseen_responses(self, client_id: UserId) -> int:
+        """Новые отклики на открытые заявки клиента — бейдж «Заявки N» таббара (6.4)."""
         ...
 
     async def response_job(self, response_id: UUID) -> UUID | None:

@@ -73,7 +73,7 @@ export const getMessagingListConversationsUrl = (params?: MessagingListConversat
 };
 
 /**
- * Свои диалоги, свежие первыми.
+ * Свои диалоги, свежие первыми; `role` — где я клиент или исполнитель.
  * @summary List Conversations
  */
 export const messagingListConversations = async (

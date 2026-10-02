@@ -6,7 +6,8 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from app.modules.messaging.application.dto import ConversationView, MessagesPage
+from app.modules.messaging.application.cards import ConversationCard, ConversationCards
+from app.modules.messaging.application.dto import MessagesPage
 from app.modules.messaging.application.ports import ConversationQueries, Direction, Presence
 from app.modules.messaging.errors import ConversationNotFoundError
 from app.platform.kernel.ids import UserId
@@ -23,13 +24,15 @@ class ListMessagesCommand:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ConversationMessages:
-    conversation: ConversationView
+    conversation: ConversationCard
     page: MessagesPage
 
 
 class ListMessages:
-    def __init__(self, queries: ConversationQueries, presence: Presence) -> None:
-        self._queries, self._presence = queries, presence
+    def __init__(
+        self, queries: ConversationQueries, presence: Presence, cards: ConversationCards
+    ) -> None:
+        self._queries, self._presence, self._cards = queries, presence, cards
 
     async def __call__(self, cmd: ListMessagesCommand) -> ConversationMessages:
         conversation = await self._queries.view(cmd.conversation_id, cmd.actor_id)
@@ -43,4 +46,5 @@ class ListMessages:
             direction=cmd.direction,
             limit=cmd.limit,
         )
-        return ConversationMessages(conversation=conversation, page=page)
+        [card] = await self._cards.of([conversation])
+        return ConversationMessages(conversation=card, page=page)

@@ -3,6 +3,7 @@
 from dishka import Provider, Scope, provide
 
 from app.modules.messaging.api import MessagingApi
+from app.modules.messaging.application.cards import ConversationCards
 from app.modules.messaging.application.facade import MessagingFacade
 from app.modules.messaging.application.ports import (
     ContactShares,
@@ -46,6 +47,7 @@ class MessagingProvider(Provider):
     queries = provide(SqlConversationQueries, provides=ConversationQueries)
     quota = provide(ValkeyMessageQuota, provides=MessageQuota)
     presence = provide(CachePresence, provides=Presence)
+    cards = provide(ConversationCards)
     facade = provide(MessagingFacade, provides=MessagingApi)
     """Фасад для модерации (адаптер цели `message`) и уведомлений (`message.received`)."""
     start_conversation = provide(StartConversation)

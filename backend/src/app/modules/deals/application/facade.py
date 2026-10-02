@@ -1,8 +1,10 @@
 """Фасад deals (ADR-0020 §6): команды — в транзакции вызывающего модуля."""
 
+from collections.abc import Collection
 from uuid import UUID
 
 from app.modules.deals.api import AgreedDealIn, DealBrief, ProposedDealIn
+from app.modules.deals.application.dto import DealView
 from app.modules.deals.application.ports import DealQueries, DealRepository
 from app.modules.deals.domain.deal import Deal, DealPriceType, DealTerms
 from app.modules.deals.errors import InvalidDealError
@@ -19,19 +21,10 @@ class DealsFacade:
 
     async def deal_brief(self, deal_id: DealId) -> DealBrief | None:
         deal = await self._queries.view(deal_id)
-        if deal is None:
-            return None
-        return DealBrief(
-            id=deal_id,
-            client_id=deal.client_id,
-            performer_id=deal.performer_id,
-            title=deal.title,
-            status=deal.status.value,
-            origin=deal.origin.value,
-            scheduled_at=deal.scheduled_at,
-            price_type=deal.price_type.value if deal.price_type is not None else None,
-            agreed_price=deal.agreed_price,
-        )
+        return _brief(deal) if deal is not None else None
+
+    async def deal_briefs(self, deal_ids: Collection[DealId]) -> dict[DealId, DealBrief]:
+        return {deal.id: _brief(deal) for deal in await self._queries.views(deal_ids)}
 
     async def deal_for_response(self, response_id: UUID) -> DealBrief | None:
         deal_id = await self._queries.of_response(response_id)
@@ -86,3 +79,17 @@ def _price_type(value: str) -> DealPriceType:
         return DealPriceType(value)
     except ValueError:
         raise InvalidDealError(field="price_type", reason="unknown") from None
+
+
+def _brief(deal: DealView) -> DealBrief:
+    return DealBrief(
+        id=deal.id,
+        client_id=deal.client_id,
+        performer_id=deal.performer_id,
+        title=deal.title,
+        status=deal.status.value,
+        origin=deal.origin.value,
+        scheduled_at=deal.scheduled_at,
+        price_type=deal.price_type.value if deal.price_type is not None else None,
+        agreed_price=deal.agreed_price,
+    )

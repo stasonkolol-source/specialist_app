@@ -3,7 +3,7 @@
 from collections.abc import Collection
 from datetime import datetime
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import RowMapping, func, or_, select
 
 from app.modules.identity.api import TelegramUserView, UserSummary
 from app.modules.identity.application.dto import MeView
@@ -26,29 +26,14 @@ from app.platform.kernel.principal import Role
 
 class SqlIdentityQuery(SqlQuery):
     async def user_summary(self, user_id: UserId) -> UserSummary | None:
-        u = UserRow.__table__.c
-        row = await self._fetch_one(
-            select(
-                u.id,
-                u.display_name,
-                u.ui_locale,
-                u.trust_level,
-                u.phone_verified_at,
-                u.status,
-                u.created_at,
-            ).where(u.id == user_id)
-        )
-        if row is None:
-            return None
-        return UserSummary(
-            id=UserId(row["id"]),
-            display_name=row["display_name"],
-            ui_locale=row["ui_locale"],
-            trust_level=row["trust_level"],
-            phone_verified=row["phone_verified_at"] is not None,
-            is_deleted=row["status"] == UserStatus.DELETED,
-            created_at=row["created_at"],
-        )
+        row = await self._fetch_one(_SUMMARY.where(UserRow.__table__.c.id == user_id))
+        return _summary(row) if row is not None else None
+
+    async def user_summaries(self, user_ids: Collection[UserId]) -> dict[UserId, UserSummary]:
+        if not user_ids:
+            return {}
+        rows = await self._fetch(_SUMMARY.where(UserRow.__table__.c.id.in_(list(user_ids))))
+        return {summary.id: summary for summary in map(_summary, rows)}
 
     async def me(self, user_id: UserId) -> MeView | None:
         u, d = UserRow.__table__.c, DeletionRequestRow.__table__.c
@@ -193,3 +178,27 @@ class SqlIdentityQuery(SqlQuery):
             Consent(document=row["document"], version=row["version"], granted_at=row["granted_at"])
             for row in rows
         ]
+
+
+_U = UserRow.__table__.c
+_SUMMARY = select(
+    _U.id,
+    _U.display_name,
+    _U.ui_locale,
+    _U.trust_level,
+    _U.phone_verified_at,
+    _U.status,
+    _U.created_at,
+)
+
+
+def _summary(row: RowMapping) -> UserSummary:
+    return UserSummary(
+        id=UserId(row["id"]),
+        display_name=row["display_name"],
+        ui_locale=row["ui_locale"],
+        trust_level=row["trust_level"],
+        phone_verified=row["phone_verified_at"] is not None,
+        is_deleted=row["status"] == UserStatus.DELETED,
+        created_at=row["created_at"],
+    )

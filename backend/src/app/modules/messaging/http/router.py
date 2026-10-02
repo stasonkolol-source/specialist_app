@@ -1,8 +1,8 @@
 """HTTP messaging (DEVELOPMENT_PLAN 6.3a; ARCHITECTURE §8.5, §11.5): переписка клиента и
 исполнителя.
 
-- `GET /conversations` — свои диалоги, свежие первыми: вторая сторона, последнее сообщение,
-  непрочитанные;
+- `GET /conversations?role=` — свои диалоги, свежие первыми: вторая сторона (имя, карточка
+  специалиста), заявка, сделка, последнее сообщение, непрочитанные; `role` — вкладки S29;
 - `POST /conversations {response_id | profile_id}` — начать (или открыть уже начатый) диалог:
   по отклику — клиент заявки или исполнитель отклика, напрямую — клиент специалисту; новый
   тратит часовой лимит (пять);
@@ -55,6 +55,7 @@ from app.modules.messaging.application.use_cases.start_conversation import (
     StartConversation,
     StartConversationCommand,
 )
+from app.modules.messaging.domain.conversation import ParticipantRole
 from app.modules.messaging.http.schemas import (
     ContactShareIn,
     ConversationOut,
@@ -84,15 +85,18 @@ ConversationPath = Annotated[UUID, Path(description="id диалога")]
 @inject
 async def list_conversations(
     *,
+    role: Annotated[
+        ParticipantRole | None, Query(description="client | performer — вкладки S29")
+    ] = None,
     cursor: Annotated[str | None, Query(max_length=200)] = None,
     limit: Annotated[int, Query(ge=1, le=CONVERSATIONS_LIMIT)] = DEFAULT_LIMIT,
     principal: FromDishka[Principal],
     conversations: FromDishka[ListConversations],
 ) -> ConversationsPageOut:
-    """Свои диалоги, свежие первыми."""
+    """Свои диалоги, свежие первыми; `role` — где я клиент или исполнитель."""
     page = await conversations(
         ListConversationsCommand(
-            actor_id=principal.user_id, page=PageRequest(cursor=cursor, limit=limit)
+            actor_id=principal.user_id, page=PageRequest(cursor=cursor, limit=limit), role=role
         )
     )
     return ConversationsPageOut(

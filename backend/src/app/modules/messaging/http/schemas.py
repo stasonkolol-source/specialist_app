@@ -6,7 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.modules.messaging.application.dto import ConversationView, MessagesPage
+from app.modules.messaging.application.cards import ConversationCard
+from app.modules.messaging.application.dto import MessagesPage
 from app.modules.messaging.domain.conversation import (
     ConversationKind,
     ConversationStatus,
@@ -108,33 +109,55 @@ def _event(message: Message) -> SystemEventOut | None:
     )
 
 
+class ConversationDealOut(BaseModel):
+    """Сделка диалога: шапка S30 «Ещё не договорились», «Ждёт подтверждения», «Договорились»."""
+
+    id: UUID
+    status: str = Field(description="proposed | agreed | completed | cancelled | disputed")
+    title: str
+
+
 class ConversationOut(BaseModel):
-    """Диалог глазами участника (S29): вторая сторона, последнее сообщение, непрочитанные."""
+    """Диалог глазами участника (S29, шапка S30): вторая сторона, заявка, сделка, последнее
+    сообщение, непрочитанные."""
 
     id: UUID
     kind: ConversationKind
     status: ConversationStatus
     my_role: ParticipantRole
     counterpart_id: UUID
+    counterpart_name: str | None = Field(description="Имя второй стороны; null — аккаунт удалён")
+    counterpart_profile_id: UUID | None = Field(
+        description="Опубликованный профиль второй стороны-исполнителя: ссылка на S08"
+    )
     job_id: UUID | None
+    job_title: str | None = Field(description="Заявка диалога по отклику: «Заявка: …»")
     response_id: UUID | None
-    deal_id: UUID | None
+    deal: ConversationDealOut | None
     last_message: MessageOut | None
     unread: int
     created_at: datetime
     last_message_at: datetime | None
 
     @classmethod
-    def of(cls, view: ConversationView, viewer_id: UserId) -> ConversationOut:
+    def of(cls, card: ConversationCard, viewer_id: UserId) -> ConversationOut:
+        view, deal = card.view, card.deal
         return cls(
             id=view.id,
             kind=view.kind,
             status=view.status,
             my_role=view.my_role,
             counterpart_id=view.counterpart_id,
+            counterpart_name=card.counterpart_name,
+            counterpart_profile_id=card.counterpart_profile_id,
             job_id=view.job_id,
+            job_title=card.job_title,
             response_id=view.response_id,
-            deal_id=view.deal_id,
+            deal=(
+                ConversationDealOut(id=deal.id, status=deal.status, title=deal.title)
+                if deal is not None
+                else None
+            ),
             last_message=MessageOut.of(view.last_message, viewer_id) if view.last_message else None,
             unread=view.unread,
             created_at=view.created_at,
@@ -155,7 +178,7 @@ class MessagesPageOut(BaseModel):
 
     @classmethod
     def of(
-        cls, conversation: ConversationView, page: MessagesPage, viewer_id: UserId
+        cls, conversation: ConversationCard, page: MessagesPage, viewer_id: UserId
     ) -> MessagesPageOut:
         return cls(
             conversation=ConversationOut.of(conversation, viewer_id),

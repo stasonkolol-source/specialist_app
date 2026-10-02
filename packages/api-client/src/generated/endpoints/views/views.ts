@@ -18,6 +18,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  BadgesOut,
   CardReviewsOut,
   CardServicesOut,
   CardWorksOut,
@@ -721,6 +722,120 @@ export function useViewsListResponseCards<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getViewsListResponseCardsQueryOptions(jobId, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getViewsGetBadgesUrl = () => {
+  return `/api/v1/me/badges`;
+};
+
+/**
+ * Счётчики таббара: новые отклики и непрочитанные сообщения.
+ * @summary Get Badges
+ */
+export const viewsGetBadges = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BadgesOut> => {
+  return apiFetch<BadgesOut>(getViewsGetBadgesUrl(), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getViewsGetBadgesQueryKey = () => {
+  return [`/api/v1/me/badges`] as const;
+};
+
+export const getViewsGetBadgesQueryOptions = <
+  TData = Awaited<ReturnType<typeof viewsGetBadges>>,
+  TError = ErrorType<ProblemOut>,
+>(options?: {
+  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetBadges>>, TError, TData>>;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getViewsGetBadgesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof viewsGetBadges>>> = ({ signal }) =>
+    viewsGetBadges({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof viewsGetBadges>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ViewsGetBadgesQueryResult = NonNullable<Awaited<ReturnType<typeof viewsGetBadges>>>;
+export type ViewsGetBadgesQueryError = ErrorType<ProblemOut>;
+
+export function useViewsGetBadges<
+  TData = Awaited<ReturnType<typeof viewsGetBadges>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetBadges>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsGetBadges>>,
+          TError,
+          Awaited<ReturnType<typeof viewsGetBadges>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsGetBadges<
+  TData = Awaited<ReturnType<typeof viewsGetBadges>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetBadges>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsGetBadges>>,
+          TError,
+          Awaited<ReturnType<typeof viewsGetBadges>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsGetBadges<
+  TData = Awaited<ReturnType<typeof viewsGetBadges>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetBadges>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get Badges
+ */
+
+export function useViewsGetBadges<
+  TData = Awaited<ReturnType<typeof viewsGetBadges>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetBadges>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getViewsGetBadgesQueryOptions(options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;

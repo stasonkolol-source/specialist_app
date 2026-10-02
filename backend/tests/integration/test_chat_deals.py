@@ -150,7 +150,7 @@ async def test_direct_proposal_is_confirmed_by_the_other_side(
         {"type": "deal_proposed", "deal_id": deal_id, "by": "client", "reason": None}
     ]
     page = await chat.messages(performer, conversation_id)
-    assert page["conversation"]["deal_id"] == deal_id
+    assert page["conversation"]["deal"]["id"] == deal_id
     again = await propose(chat, performer, conversation_id)
     assert (again.status_code, again.json()["code"], again.json()["deal_id"]) == (
         409,
@@ -288,7 +288,7 @@ async def test_response_conversation_agrees_by_choosing_the_response(
     )
 
     page = await chat.messages(performer, conversation_id)
-    assert page["conversation"]["deal_id"] == accepted.json()["deal_id"]
+    assert page["conversation"]["deal"]["id"] == accepted.json()["deal_id"]
     assert [item["event"]["type"] for item in page["items"] if item["kind"] == "system"] == [
         "deal_agreed"
     ]

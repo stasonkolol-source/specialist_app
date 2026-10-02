@@ -302,6 +302,23 @@ class SqlJobQueries(SqlQuery):
         )
         return int(row["count"]) if row is not None else 0
 
+    async def unseen_total(self, client_id: UserId) -> int:
+        row = await self._fetch_one(
+            select(func.count().label("count"))
+            .select_from(ResponseRow)
+            .join(JobRow, _J.id == _R.job_id)
+            .where(_J.client_id == client_id, _OPEN, *_UNSEEN)
+        )
+        return int(row["count"]) if row is not None else 0
+
+    async def titles(self, job_ids: Collection[JobId]) -> dict[JobId, str]:
+        if not job_ids:
+            return {}
+        rows = await self._fetch(
+            select(_J.id, _J.title).where(_J.id.in_(list(job_ids)), _J.deleted_at.is_(None))
+        )
+        return {JobId(row["id"]): row["title"] for row in rows}
+
     async def unseen_counts(self, job_ids: Collection[JobId]) -> dict[JobId, int]:
         if not job_ids:
             return {}

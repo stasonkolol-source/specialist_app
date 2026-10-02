@@ -97,11 +97,13 @@ class ProfileForReview:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ProfileRef:
-    """Профиль пользователя для модулей выше по DAG (прайс, портфолио)."""
+    """Профиль пользователя для модулей выше по DAG (прайс, портфолио, переписка)."""
 
     id: UUID
     kind: str
     status: str
+    display_name: str | None = None
+    """Имя на карточке: в переписке у специалиста — оно, а не имя аккаунта."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -129,6 +131,11 @@ class PriceList(Protocol):
 class SpecialistsApi(Protocol):
     async def profile_of(self, user_id: UserId) -> ProfileRef | None:
         """Профиль пользователя; None — его нет (или удалён)."""
+        ...
+
+    async def profiles_of(self, user_ids: Collection[UserId]) -> dict[UserId, ProfileRef]:
+        """Профили пользователей пачкой (список диалогов S29: ссылка на карточку); без профиля
+        или с удалённым — нет в ответе."""
         ...
 
     async def profile_for_review(self, profile_id: UUID) -> ProfileForReview | None:

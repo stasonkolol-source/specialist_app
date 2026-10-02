@@ -177,6 +177,10 @@ class RestrictionRepository(Protocol):
 class IdentityQuery(Protocol):
     async def user_summary(self, user_id: UserId) -> UserSummary | None: ...
 
+    async def user_summaries(self, user_ids: Collection[UserId]) -> dict[UserId, UserSummary]:
+        """Пользователи пачкой; кого нет — нет и в ответе."""
+        ...
+
     async def me(self, user_id: UserId) -> MeView | None:
         """Свой профиль; удалённого пользователя нет."""
         ...

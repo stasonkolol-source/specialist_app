@@ -65,6 +65,10 @@ class RestrictionIn:
 class IdentityApi(Protocol):
     async def get_user(self, user_id: UserId) -> UserSummary | None: ...
 
+    async def users(self, user_ids: Collection[UserId]) -> dict[UserId, UserSummary]:
+        """Пользователи пачкой (имена в списке диалогов S29); кого нет — нет и в ответе."""
+        ...
+
     async def by_telegram(self, telegram_id: int) -> TelegramUserView | None:
         """Активный пользователь по Telegram id (бот). Telegram id в DTO не отдаём."""
         ...

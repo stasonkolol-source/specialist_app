@@ -81,6 +81,9 @@ class MessagingFacade:
             for stat in stats
         ]
 
+    async def unread_total(self, user_id: UserId) -> int:
+        return await self._queries.unread_total(user_id)
+
 
 def _preview(body: str) -> str:
     text = " ".join(body.split())

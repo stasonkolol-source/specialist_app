@@ -1,6 +1,7 @@
 """Реализация JobsApi (ADR-0020 §6): заявка и отклик для конвейера модерации, публикация и отказ;
 краткие сведения о сроке, откликах и приглашении — для уведомлений."""
 
+from collections.abc import Collection
 from typing import Final
 from uuid import UUID
 
@@ -105,6 +106,13 @@ class JobsFacade(JobsApi):
             status=job.status.value,
             unseen=await self._queries.unseen_responses(JobId(job_id)),
         )
+
+    async def job_titles(self, job_ids: Collection[UUID]) -> dict[UUID, str]:
+        titles = await self._queries.titles([JobId(job_id) for job_id in job_ids])
+        return {UUID(str(job_id)): title for job_id, title in titles.items()}
+
+    async def unseen_responses(self, client_id: UserId) -> int:
+        return await self._queries.unseen_total(client_id)
 
     async def response_job(self, response_id: UUID) -> UUID | None:
         return await self._queries.job_of_response(ResponseId(response_id))

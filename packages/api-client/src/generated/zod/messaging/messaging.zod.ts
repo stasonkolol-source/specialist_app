@@ -7,7 +7,7 @@
 import * as zod from 'zod';
 
 /**
- * Свои диалоги, свежие первыми.
+ * Свои диалоги, свежие первыми; `role` — где я клиент или исполнитель.
  * @summary List Conversations
  */
 export const messagingListConversationsQueryCursorOneMax = 200;
@@ -16,6 +16,10 @@ export const messagingListConversationsQueryLimitDefault = 20;
 export const messagingListConversationsQueryLimitMax = 50;
 
 export const MessagingListConversationsQueryParams = zod.object({
+  role: zod
+    .union([zod.enum(['client', 'performer', 'support']), zod.null()])
+    .optional()
+    .describe('client | performer — вкладки S29'),
   cursor: zod
     .union([zod.string().max(messagingListConversationsQueryCursorOneMax), zod.null()])
     .optional(),
@@ -35,9 +39,29 @@ export const MessagingListConversationsResponse = zod.object({
         status: zod.enum(['open', 'closed', 'blocked']),
         my_role: zod.enum(['client', 'performer', 'support']),
         counterpart_id: zod.uuid(),
+        counterpart_name: zod
+          .union([zod.string(), zod.null()])
+          .describe('Имя второй стороны; null — аккаунт удалён'),
+        counterpart_profile_id: zod
+          .union([zod.uuid(), zod.null()])
+          .describe('Опубликованный профиль второй стороны-исполнителя: ссылка на S08'),
         job_id: zod.union([zod.uuid(), zod.null()]),
+        job_title: zod
+          .union([zod.string(), zod.null()])
+          .describe('Заявка диалога по отклику: «Заявка: …»'),
         response_id: zod.union([zod.uuid(), zod.null()]),
-        deal_id: zod.union([zod.uuid(), zod.null()]),
+        deal: zod.union([
+          zod
+            .object({
+              id: zod.uuid(),
+              status: zod.string().describe('proposed | agreed | completed | cancelled | disputed'),
+              title: zod.string(),
+            })
+            .describe(
+              'Сделка диалога: шапка S30 «Ещё не договорились», «Ждёт подтверждения», «Договорились».',
+            ),
+          zod.null(),
+        ]),
         last_message: zod.union([
           zod.object({
             id: zod.uuid(),
@@ -105,7 +129,7 @@ export const MessagingListConversationsResponse = zod.object({
         last_message_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
       })
       .describe(
-        'Диалог глазами участника (S29): вторая сторона, последнее сообщение, непрочитанные.',
+        'Диалог глазами участника (S29, шапка S30): вторая сторона, заявка, сделка, последнее\nсообщение, непрочитанные.',
       ),
   ),
   next_cursor: zod.union([zod.string(), zod.null()]),
@@ -161,9 +185,29 @@ export const MessagingListMessagesResponse = zod.object({
       status: zod.enum(['open', 'closed', 'blocked']),
       my_role: zod.enum(['client', 'performer', 'support']),
       counterpart_id: zod.uuid(),
+      counterpart_name: zod
+        .union([zod.string(), zod.null()])
+        .describe('Имя второй стороны; null — аккаунт удалён'),
+      counterpart_profile_id: zod
+        .union([zod.uuid(), zod.null()])
+        .describe('Опубликованный профиль второй стороны-исполнителя: ссылка на S08'),
       job_id: zod.union([zod.uuid(), zod.null()]),
+      job_title: zod
+        .union([zod.string(), zod.null()])
+        .describe('Заявка диалога по отклику: «Заявка: …»'),
       response_id: zod.union([zod.uuid(), zod.null()]),
-      deal_id: zod.union([zod.uuid(), zod.null()]),
+      deal: zod.union([
+        zod
+          .object({
+            id: zod.uuid(),
+            status: zod.string().describe('proposed | agreed | completed | cancelled | disputed'),
+            title: zod.string(),
+          })
+          .describe(
+            'Сделка диалога: шапка S30 «Ещё не договорились», «Ждёт подтверждения», «Договорились».',
+          ),
+        zod.null(),
+      ]),
       last_message: zod.union([
         zod.object({
           id: zod.uuid(),
@@ -231,7 +275,7 @@ export const MessagingListMessagesResponse = zod.object({
       last_message_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
     })
     .describe(
-      'Диалог глазами участника (S29): вторая сторона, последнее сообщение, непрочитанные.',
+      'Диалог глазами участника (S29, шапка S30): вторая сторона, заявка, сделка, последнее\nсообщение, непрочитанные.',
     ),
   items: zod
     .array(

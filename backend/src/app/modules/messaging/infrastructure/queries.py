@@ -10,6 +10,7 @@ from sqlalchemy import RowMapping, Select, and_, func, or_, select, true, tuple_
 
 from app.modules.messaging.application.dto import ConversationView, MessagesPage, ResponseStat
 from app.modules.messaging.application.ports import Direction
+from app.modules.messaging.domain.conversation import ParticipantRole
 from app.modules.messaging.domain.message import Message, MessageKind, MessageModeration
 from app.modules.messaging.infrastructure.models import ConversationRow, MessageRow, ParticipantRow
 from app.platform.db.query import SqlQuery, decode_cursor, encode_cursor
@@ -27,9 +28,13 @@ _UNREAD = MessageRow.__table__.alias("unread_message")
 
 
 class SqlConversationQueries(SqlQuery):
-    async def mine(self, user_id: UserId, *, page: PageRequest) -> Page[ConversationView]:
+    async def mine(
+        self, user_id: UserId, *, role: ParticipantRole | None, page: PageRequest
+    ) -> Page[ConversationView]:
         activity = func.coalesce(_C.last_message_at, _C.created_at)
         stmt = self._views(user_id)
+        if role is not None:
+            stmt = stmt.where(_P.role == role)
         if page.cursor is not None:
             at, conversation_id = decode_cursor(page.cursor, (datetime, UUID))
             stmt = stmt.where(tuple_(activity, _C.id) < tuple_(at, conversation_id))
@@ -40,6 +45,22 @@ class SqlConversationQueries(SqlQuery):
         if len(rows) > page.limit and last is not None:
             cursor = encode_cursor(last.last_message_at or last.created_at, last.id)
         return Page(items=tuple(items), next_cursor=cursor)
+
+    async def unread_total(self, user_id: UserId) -> int:
+        row = await self._fetch_one(
+            select(func.count().label("count"))
+            .select_from(MessageRow)
+            .join(
+                ParticipantRow,
+                and_(_P.conversation_id == _M.conversation_id, _P.user_id == user_id),
+            )
+            .where(
+                _M.sender_id != user_id,  # свои и системные (без автора) — не в счёт
+                _M.moderation != MessageModeration.HIDDEN,
+                or_(_P.last_read_message_id.is_(None), _M.id > _P.last_read_message_id),
+            )
+        )
+        return int(row["count"]) if row is not None else 0
 
     async def view(self, conversation_id: UUID, user_id: UserId) -> ConversationView | None:
         row = await self._fetch_one(self._views(user_id).where(_C.id == conversation_id))

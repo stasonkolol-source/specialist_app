@@ -4,13 +4,15 @@
  * Соседи API
  * OpenAPI spec version: 1.0.0
  */
+import type { ConversationDealOut } from './conversationDealOut.ts';
 import type { ConversationKind } from './conversationKind.ts';
 import type { ConversationStatus } from './conversationStatus.ts';
 import type { MessageOut } from './messageOut.ts';
 import type { ParticipantRole } from './participantRole.ts';
 
 /**
- * Диалог глазами участника (S29): вторая сторона, последнее сообщение, непрочитанные.
+ * Диалог глазами участника (S29, шапка S30): вторая сторона, заявка, сделка, последнее
+ * сообщение, непрочитанные.
  */
 export interface ConversationOut {
   id: string;
@@ -18,9 +20,15 @@ export interface ConversationOut {
   status: ConversationStatus;
   my_role: ParticipantRole;
   counterpart_id: string;
+  /** Имя второй стороны; null — аккаунт удалён */
+  counterpart_name: string | null;
+  /** Опубликованный профиль второй стороны-исполнителя: ссылка на S08 */
+  counterpart_profile_id: string | null;
   job_id: string | null;
+  /** Заявка диалога по отклику: «Заявка: …» */
+  job_title: string | null;
   response_id: string | null;
-  deal_id: string | null;
+  deal: ConversationDealOut | null;
   last_message: MessageOut | null;
   unread: number;
   created_at: string;

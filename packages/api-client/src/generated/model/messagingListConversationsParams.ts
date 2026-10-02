@@ -4,8 +4,13 @@
  * Соседи API
  * OpenAPI spec version: 1.0.0
  */
+import type { ParticipantRole } from './participantRole.ts';
 
 export type MessagingListConversationsParams = {
+  /**
+   * client | performer — вкладки S29
+   */
+  role?: ParticipantRole | null;
   cursor?: string | null;
   /**
    * @minimum 1

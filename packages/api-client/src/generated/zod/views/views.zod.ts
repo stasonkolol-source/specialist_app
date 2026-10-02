@@ -368,3 +368,12 @@ export const ViewsListResponseCardsResponse = zod.object({
     )
     .describe('По времени отклика'),
 });
+
+/**
+ * Счётчики таббара: новые отклики и непрочитанные сообщения.
+ * @summary Get Badges
+ */
+export const ViewsGetBadgesResponse = zod.object({
+  jobs: zod.int().describe('«Заявки N»: новые отклики на свои открытые заявки'),
+  messages: zod.int().describe('«Сообщения N»: непрочитанные сообщения'),
+});

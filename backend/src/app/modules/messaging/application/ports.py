@@ -6,7 +6,7 @@ from typing import Final, Literal, Protocol
 from uuid import UUID
 
 from app.modules.messaging.application.dto import ConversationView, MessagesPage, ResponseStat
-from app.modules.messaging.domain.conversation import Conversation
+from app.modules.messaging.domain.conversation import Conversation, ParticipantRole
 from app.modules.messaging.domain.message import ContactType, Message
 from app.platform.contracts.events.deals import DealAgreed, DealCancelled
 from app.platform.contracts.events.identity import UserDeleted
@@ -115,8 +115,15 @@ class ContactVerifier(Protocol):
 class ConversationQueries(Protocol):
     """Чтение для экранов: без блокировок и UoW."""
 
-    async def mine(self, user_id: UserId, *, page: PageRequest) -> Page[ConversationView]:
-        """Диалоги участника: свежие первыми (по последнему сообщению)."""
+    async def mine(
+        self, user_id: UserId, *, role: ParticipantRole | None, page: PageRequest
+    ) -> Page[ConversationView]:
+        """Диалоги участника: свежие первыми (по последнему сообщению); `role` — только те, где
+        он клиент или исполнитель (вкладки S29)."""
+        ...
+
+    async def unread_total(self, user_id: UserId) -> int:
+        """Непрочитанные сообщения во всех диалогах — бейдж «Сообщения N» таббара (6.4)."""
         ...
 
     async def view(self, conversation_id: UUID, user_id: UserId) -> ConversationView | None:

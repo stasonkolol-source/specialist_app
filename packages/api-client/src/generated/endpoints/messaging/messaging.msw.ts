@@ -34,9 +34,25 @@ export const getMessagingListConversationsResponseMock = (
     status: faker.helpers.arrayElement(Object.values(ConversationStatus)),
     my_role: faker.helpers.arrayElement(Object.values(ParticipantRole)),
     counterpart_id: faker.string.uuid(),
+    counterpart_name: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    counterpart_profile_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
     job_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    job_title: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
     response_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
-    deal_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    deal: faker.helpers.arrayElement([
+      {
+        id: faker.string.uuid(),
+        status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+      null,
+    ]),
     last_message: faker.helpers.arrayElement([
       {
         id: faker.string.uuid(),
@@ -112,9 +128,25 @@ export const getMessagingListMessagesResponseMock = (
     status: faker.helpers.arrayElement(Object.values(ConversationStatus)),
     my_role: faker.helpers.arrayElement(Object.values(ParticipantRole)),
     counterpart_id: faker.string.uuid(),
+    counterpart_name: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    counterpart_profile_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
     job_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    job_title: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
     response_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
-    deal_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    deal: faker.helpers.arrayElement([
+      {
+        id: faker.string.uuid(),
+        status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+      null,
+    ]),
     last_message: faker.helpers.arrayElement([
       {
         id: faker.string.uuid(),

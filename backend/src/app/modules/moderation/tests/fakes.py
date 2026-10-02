@@ -52,6 +52,10 @@ class FakeIdentity:
             created_at=START,
         )
 
+    async def users(self, user_ids: Collection[UserId]) -> dict[UserId, UserSummary]:
+        found = {user_id: await self.get_user(user_id) for user_id in user_ids}
+        return {user_id: user for user_id, user in found.items() if user is not None}
+
     async def by_telegram(self, telegram_id: int) -> TelegramUserView | None:
         return None
 

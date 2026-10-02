@@ -3,6 +3,7 @@
 Другие модули импортируют из deals только этот файл.
 """
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
@@ -82,6 +83,10 @@ class DealsApi(Protocol):
 
     async def deal_brief(self, deal_id: DealId) -> DealBrief | None:
         """Название, статус и стороны сделки; None — нет такой."""
+        ...
+
+    async def deal_briefs(self, deal_ids: Collection[DealId]) -> dict[DealId, DealBrief]:
+        """Сделки пачкой (статус в списке диалогов S29); каких нет — нет и в ответе."""
         ...
 
     async def deal_for_response(self, response_id: UUID) -> DealBrief | None:

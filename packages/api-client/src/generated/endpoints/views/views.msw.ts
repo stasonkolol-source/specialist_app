@@ -11,6 +11,7 @@ import type { RequestHandlerOptions } from 'msw';
 
 import { Currency } from '../../model';
 import type {
+  BadgesOut,
   CardReviewsOut,
   CardServicesOut,
   CardWorksOut,
@@ -340,6 +341,10 @@ export const getViewsListResponseCardsResponseMock = (
   ...overrideResponse,
 });
 
+export const getViewsGetBadgesResponseMock = (
+  overrideResponse: Partial<Extract<BadgesOut, object>> = {},
+): BadgesOut => ({ jobs: faker.number.int(), messages: faker.number.int(), ...overrideResponse });
+
 export const getViewsGetSpecialistMockHandler = (
   overrideResponse?:
     | SpecialistProfileOut
@@ -459,10 +464,33 @@ export const getViewsListResponseCardsMockHandler = (
     options,
   );
 };
+
+export const getViewsGetBadgesMockHandler = (
+  overrideResponse?:
+    | BadgesOut
+    | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<BadgesOut> | BadgesOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/me/badges',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getViewsGetBadgesResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getViewsMock = () => [
   getViewsGetSpecialistMockHandler(),
   getViewsListSpecialistServicesMockHandler(),
   getViewsListSpecialistWorksMockHandler(),
   getViewsListSpecialistReviewsMockHandler(),
   getViewsListResponseCardsMockHandler(),
+  getViewsGetBadgesMockHandler(),
 ];

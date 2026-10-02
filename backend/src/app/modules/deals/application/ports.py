@@ -1,6 +1,6 @@
 """Порты deals (ADR-0020 §1): репозиторий сделки, чтение для экранов S25, S26 и списков, задачи."""
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import datetime
 from enum import StrEnum
 from typing import Final, Protocol
@@ -45,6 +45,10 @@ class DealQueries(Protocol):
     """Чтение сделок для экранов: без блокировок и UoW."""
 
     async def view(self, deal_id: DealId) -> DealView | None: ...
+
+    async def views(self, deal_ids: Collection[DealId]) -> list[DealView]:
+        """Сделки пачкой (статус в списке диалогов S29); каких нет — нет и в ответе."""
+        ...
 
     async def mine(
         self,
