@@ -768,3 +768,23 @@ CLOSERS: Final[dict[Lang, tuple[str, ...]]] = {
         "Odgovaram brzo, mogu i danas.",
     ),
 }
+
+RESPONSE_MESSAGES: Final[dict[Lang, tuple[str, ...]]] = {
+    "ru": (
+        "Здравствуйте! Могу приехать сегодня вечером, инструмент свой.",
+        "Добрый день! Делал такое много раз, займёт пару часов.",
+        "Здравствуйте! Могу завтра утром. Цену подтвержу на месте, если всё как на фото.",
+        "Приветствую! Свободен на этой неделе, работаю аккуратно и убираю за собой.",
+    ),
+    "sr": (
+        "Zdravo! Mogu da dođem večeras, imam svoj alat.",
+        "Dobar dan! Radio sam ovo mnogo puta, trajaće par sati.",
+        "Zdravo! Mogu sutra ujutru. Cenu potvrđujem na licu mesta.",
+        "Pozdrav! Slobodan sam ove nedelje, radim uredno.",
+    ),
+}
+"""Отклики демо-специалистов (5.4) на языке заявки."""
+RESPONSE_WHEN: Final[dict[Lang, tuple[str, ...]]] = {
+    "ru": ("Сегодня, 19:00", "Завтра, 10:00", "На этой неделе"),
+    "sr": ("Danas, 19:00", "Sutra, 10:00", "Ove nedelje"),
+}

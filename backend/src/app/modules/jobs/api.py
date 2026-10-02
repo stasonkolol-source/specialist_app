@@ -38,6 +38,17 @@ class JobBrief:
     """Продлевали меньше трёх раз — кнопка «Продлить» имеет смысл."""
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ResponseForReview:
+    """Отклик для конвейера модерации (адаптер цели `response`, §14.1)."""
+
+    performer_id: UserId
+    text: str
+    """Сообщение клиенту и «когда смогу» — то, что увидит клиент."""
+    revision: int
+    """Редакция, которую проверяют: публикация устаревшей — ничего."""
+
+
 class JobsApi(Protocol):
     async def job_for_review(self, job_id: UUID) -> JobForReview | None:
         """Заявка на проверке или опубликованная (выборочная проверка после публикации);
@@ -56,4 +67,17 @@ class JobsApi(Protocol):
 
     async def job_brief(self, job_id: UUID) -> JobBrief | None:
         """Название, статус и срок заявки; None — нет такой или удалена."""
+        ...
+
+    async def response_for_review(self, response_id: UUID) -> ResponseForReview | None:
+        """Отклик, ждущий проверки; None — нет такого, удалён или проверять нечего."""
+        ...
+
+    async def approve_response(self, response_id: UUID, *, version: int | None) -> None:
+        """Проверка пройдена — в транзакции вызывающего: клиент видит отклик; другая редакция
+        (исполнитель успел поправить) или уже решено — ничего."""
+        ...
+
+    async def reject_response(self, response_id: UUID, *, reason_code: str) -> None:
+        """Нарушение — в транзакции вызывающего: отклик скрыт, его место освобождается."""
         ...

@@ -10,6 +10,7 @@ from app.modules.jobs.application.ports import (
     JobQueries,
     JobQuota,
     JobRepository,
+    ResponseQuota,
     SavedJobs,
 )
 from app.modules.jobs.application.use_cases.browse_jobs import BrowseJobs
@@ -21,14 +22,22 @@ from app.modules.jobs.application.use_cases.expire_jobs import ExpireJobs
 from app.modules.jobs.application.use_cases.extend_job import ExtendJob
 from app.modules.jobs.application.use_cases.forget_client_jobs import ForgetClientJobs
 from app.modules.jobs.application.use_cases.hide_job import HideJob
+from app.modules.jobs.application.use_cases.list_job_responses import ListJobResponses
+from app.modules.jobs.application.use_cases.list_my_responses import ListMyResponses
 from app.modules.jobs.application.use_cases.list_saved_jobs import ListSavedJobs
 from app.modules.jobs.application.use_cases.remind_expiring_jobs import RemindExpiringJobs
+from app.modules.jobs.application.use_cases.respond import Respond
+from app.modules.jobs.application.use_cases.revise_response import ReviseResponse
 from app.modules.jobs.application.use_cases.save_job import SaveJob
 from app.modules.jobs.application.use_cases.show_job import ShowJob
 from app.modules.jobs.application.use_cases.unsave_job import UnsaveJob
+from app.modules.jobs.application.use_cases.withdraw_performer_responses import (
+    WithdrawPerformerResponses,
+)
+from app.modules.jobs.application.use_cases.withdraw_response import WithdrawResponse
 from app.modules.jobs.infrastructure.hides import SqlJobHides
 from app.modules.jobs.infrastructure.queries import SqlJobQueries
-from app.modules.jobs.infrastructure.quota import ValkeyJobQuota
+from app.modules.jobs.infrastructure.quota import ValkeyJobQuota, ValkeyResponseQuota
 from app.modules.jobs.infrastructure.repositories import SqlJobRepository
 from app.modules.jobs.infrastructure.saved import SqlSavedJobs
 
@@ -43,6 +52,7 @@ class JobsProvider(Provider):
     hides = provide(SqlJobHides, provides=JobHides)
     saved = provide(SqlSavedJobs, provides=SavedJobs)
     quota = provide(ValkeyJobQuota, provides=JobQuota)
+    response_quota = provide(ValkeyResponseQuota, provides=ResponseQuota)
     builder = provide(ContentBuilder)
     facade = provide(JobsFacade, provides=JobsApi)
     """Фасад для модерации (адаптер цели `job`) и уведомлений о сроке (5.1)."""
@@ -60,3 +70,9 @@ class JobsProvider(Provider):
     save_job = provide(SaveJob)
     unsave_job = provide(UnsaveJob)
     list_saved_jobs = provide(ListSavedJobs)
+    respond = provide(Respond)
+    revise_response = provide(ReviseResponse)
+    withdraw_response = provide(WithdrawResponse)
+    list_my_responses = provide(ListMyResponses)
+    list_job_responses = provide(ListJobResponses)
+    withdraw_performer_responses = provide(WithdrawPerformerResponses)

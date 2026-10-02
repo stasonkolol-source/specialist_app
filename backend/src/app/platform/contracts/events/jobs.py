@@ -1,5 +1,6 @@
 """События модуля jobs (ADR-0020 §2; ARCHITECTURE §5.3, §7.9). Подписчики: модерация (через
-ModerationRequested), уведомления, поиск заявок и подписки (5.3, 5.7), аналитика."""
+ModerationRequested), уведомления, поиск заявок и подписки (5.3, 5.7), аналитика. Отклики
+(5.4) — события того же модуля: отклик — подагрегат заявки."""
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -74,3 +75,39 @@ class JobExpiring(DomainEvent):
     job_id: UUID
     client_id: UserId
     expires_at: datetime
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ResponseSubmitted(DomainEvent):
+    """Исполнитель откликнулся: клиенту — уведомление (с дебаунсом), тексту — проверка."""
+
+    event_type = "jobs.ResponseSubmitted"
+    job_id: UUID
+    response_id: UUID
+    performer_id: UserId
+    client_id: UserId
+    is_first: bool
+    """Первый отклик на заявку — «Откликнулся первым» и время до первого отклика (TTFR)."""
+    published_at: datetime | None
+    """Когда заявку опубликовали: время от публикации до отклика — в аналитику."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ResponseUpdated(DomainEvent):
+    """Исполнитель поправил отклик: новый текст снова проходит проверку."""
+
+    event_type = "jobs.ResponseUpdated"
+    job_id: UUID
+    response_id: UUID
+    performer_id: UserId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ResponseWithdrawn(DomainEvent):
+    """Исполнитель отозвал отклик (или его аккаунт удалён): место на заявке освободилось."""
+
+    event_type = "jobs.ResponseWithdrawn"
+    job_id: UUID
+    response_id: UUID
+    performer_id: UserId
+    client_id: UserId

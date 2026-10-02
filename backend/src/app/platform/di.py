@@ -44,6 +44,8 @@ from app.platform.config.port import FeatureFlags, LegalVersions
 from app.platform.db.engine import libpq_dsn, make_engine, make_session_maker
 from app.platform.db.port import UnitOfWork
 from app.platform.db.uow import SqlAlchemyUnitOfWork
+from app.platform.entitlements.port import Entitlements
+from app.platform.entitlements.unlimited import UnlimitedEntitlements
 from app.platform.i18n.translator import Translator
 from app.platform.idempotency.port import IdempotencyStore
 from app.platform.idempotency.sql import SqlIdempotencyStore
@@ -295,6 +297,9 @@ class PlatformProvider(Provider):
     @provide(scope=Scope.APP)
     def session_denylist(self, valkey: Redis, settings: JwtSettings) -> SessionDenylist:
         return SessionDenylist(valkey, ttl=timedelta(seconds=settings.access_ttl_seconds))
+
+    entitlements = provide(UnlimitedEntitlements, scope=Scope.APP, provides=Entitlements)
+    """MVP: тарифов нет — «без ограничений» (ADR-0018); v1 — сервис entitlements."""
 
     @provide(scope=Scope.APP)
     def rate_limiter(self, valkey: Redis, settings: ValkeySettings, clock: Clock) -> RateLimiter:

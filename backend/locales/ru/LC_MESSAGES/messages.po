@@ -425,6 +425,30 @@ msgstr "В избранном уже {limit} — уберите кого-ниб�
 msgid "errors.saved_jobs_full"
 msgstr "Сохранено уже {limit} заявок — уберите ненужные, чтобы сохранить новую."
 
+msgid "errors.invalid_response"
+msgstr "Проверьте отклик: сообщение, цену и время."
+
+msgid "errors.response_not_found"
+msgstr "Отклик не найден."
+
+msgid "errors.response_not_active"
+msgstr "Клиент уже решил по этому отклику — изменить или отозвать его нельзя."
+
+msgid "errors.already_responded"
+msgstr "Вы уже откликались на эту заявку."
+
+msgid "errors.own_job"
+msgstr "На свою заявку откликнуться нельзя."
+
+msgid "errors.job_full"
+msgstr "Свободных мест на заявке больше нет: не больше {limit} откликов."
+
+msgid "errors.daily_responses_limit"
+msgstr "Сегодня отправлено слишком много откликов. Попробуйте завтра."
+
+msgid "errors.active_responses_limit"
+msgstr "Ждущих решения откликов уже максимум ({limit}) — дождитесь ответа клиентов или отзовите один."
+
 msgid "errors.job_not_found"
 msgstr "Заявка не найдена: её удалили или она вам не видна."
 

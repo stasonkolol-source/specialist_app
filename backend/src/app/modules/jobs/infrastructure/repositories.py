@@ -1,5 +1,6 @@
-"""Репозиторий заявок (ADR-0020 §5): заявка с фото — один агрегат, переходы статусов — в
-`jobs.status_history` при каждом сохранении."""
+"""Репозиторий заявок (ADR-0020 §5): заявка с фото и откликами — один агрегат, переходы статусов —
+в `jobs.status_history` при каждом сохранении. Отклики читаются вместе с заявкой под её
+блокировкой, пишутся только новые и изменённые; версия заявки растёт и от правки отклика."""
 
 from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,8 +12,14 @@ from app.modules.jobs.domain.job import (
     JobId,
     Place,
 )
+from app.modules.jobs.domain.response import Offer, Response, ResponseId
 from app.modules.jobs.errors import JobNotFoundError
-from app.modules.jobs.infrastructure.models import JobMediaRow, JobRow, StatusHistoryRow
+from app.modules.jobs.infrastructure.models import (
+    JobMediaRow,
+    JobRow,
+    ResponseRow,
+    StatusHistoryRow,
+)
 from app.platform.db.port import UnitOfWork
 from app.platform.db.versioning import check_loaded_version
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, UserId
@@ -29,6 +36,7 @@ class SqlJobRepository:
         self._session.add(row)
         await self._session.flush()
         await self._replace_media(job)
+        await self._write_responses(job)
         self._add_history(job)
         await self._session.flush()
         self._uow.track(job)
@@ -51,7 +59,15 @@ class SqlJobRepository:
                 .order_by(JobMediaRow.position)
             )
         ).scalars()
-        job = _to_domain(row, tuple(MediaId(m) for m in media))
+        responses = (
+            await self._session.execute(
+                select(ResponseRow)
+                .where(ResponseRow.job_id == row.id, ResponseRow.deleted_at.is_(None))
+                .order_by(ResponseRow.created_at, ResponseRow.id)
+                .execution_options(populate_existing=True)
+            )
+        ).scalars()
+        job = _to_domain(row, tuple(MediaId(m) for m in media), [_response(r) for r in responses])
         self._uow.track(job)
         return job
 
@@ -65,6 +81,7 @@ class SqlJobRepository:
         row.version = job.version + 1
         await self._session.flush()
         await self._replace_media(job)
+        await self._write_responses(job)
         self._add_history(job)
         await self._session.flush()
         job.mark_persisted(version=row.version)
@@ -94,6 +111,17 @@ class SqlJobRepository:
             for index, media_id in enumerate(job.content.media_ids)
         )
 
+    async def _write_responses(self, job: Job) -> None:
+        for response in job.responses:
+            if not response.changed:
+                continue
+            row = await self._session.get(ResponseRow, response.id)
+            if row is None:
+                row = ResponseRow(id=response.id, job_id=job.id, created_at=response.created_at)
+                self._session.add(row)
+            _apply_response(response, row)
+            response.mark_saved()
+
     def _add_history(self, job: Job) -> None:
         self._session.add_all(
             StatusHistoryRow(
@@ -109,7 +137,46 @@ class SqlJobRepository:
         )
 
 
-def _to_domain(row: JobRow, media: tuple[MediaId, ...]) -> Job:
+def _response(row: ResponseRow) -> Response:
+    return Response(
+        id=ResponseId(row.id),
+        performer_id=UserId(row.performer_id),
+        status=row.status,
+        offer=Offer(
+            message=row.message,
+            price_type=row.price_type,
+            price_amount=row.price_amount,
+            availability_note=row.availability_note,
+        ),
+        profile_id=row.profile_id,
+        template_id=row.template_id,
+        review=row.review,
+        revision=row.revision,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+        viewed_at=row.viewed_at,
+        decided_at=row.decided_at,
+    )
+
+
+def _apply_response(response: Response, row: ResponseRow) -> None:
+    offer = response.offer
+    row.performer_id = response.performer_id
+    row.profile_id = response.profile_id
+    row.status = response.status
+    row.message = offer.message
+    row.price_type = offer.price_type
+    row.price_amount = offer.price_amount
+    row.availability_note = offer.availability_note
+    row.template_id = response.template_id
+    row.review = response.review
+    row.revision = response.revision
+    row.updated_at = response.updated_at
+    row.viewed_at = response.viewed_at
+    row.decided_at = response.decided_at
+
+
+def _to_domain(row: JobRow, media: tuple[MediaId, ...], responses: list[Response]) -> Job:
     content = JobContent(
         title=row.title,
         description=row.description,
@@ -151,6 +218,7 @@ def _to_domain(row: JobRow, media: tuple[MediaId, ...]) -> Job:
         moderation_note=row.moderation_note,
         expiry_reminded_at=row.expiry_reminded_at,
         deleted_at=row.deleted_at,
+        responses=responses,
         version=row.version,
     )
 

@@ -1,13 +1,14 @@
-"""Реализация JobsApi (ADR-0020 §6): заявка для конвейера модерации, публикация и отказ;
+"""Реализация JobsApi (ADR-0020 §6): заявка и отклик для конвейера модерации, публикация и отказ;
 краткие сведения о сроке — для уведомлений клиенту."""
 
 from typing import Final
 from uuid import UUID
 
 from app.modules.catalog.api import CatalogApi
-from app.modules.jobs.api import JobBrief, JobForReview, JobsApi
+from app.modules.jobs.api import JobBrief, JobForReview, JobsApi, ResponseForReview
 from app.modules.jobs.application.ports import JobQueries, JobRepository
-from app.modules.jobs.domain.job import MAX_EXTENSIONS, JobId, JobStatus
+from app.modules.jobs.domain.job import MAX_EXTENSIONS, Job, JobId, JobStatus
+from app.modules.jobs.domain.response import ResponseId, Review
 from app.modules.jobs.errors import JobNotFoundError
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
@@ -73,3 +74,47 @@ class JobsFacade(JobsApi):
             expires_at=job.expires_at,
             can_extend=job.extensions_count < MAX_EXTENSIONS,
         )
+
+    async def response_for_review(self, response_id: UUID) -> ResponseForReview | None:
+        job = await self._job_of_response(ResponseId(response_id))
+        response = next((r for r in job.responses if r.id == response_id), None) if job else None
+        if response is None or response.review is not Review.PENDING:
+            return None
+        offer = response.offer
+        text = "\n\n".join(part for part in (offer.message, offer.availability_note) if part)
+        return ResponseForReview(
+            performer_id=response.performer_id, text=text, revision=response.revision
+        )
+
+    async def approve_response(self, response_id: UUID, *, version: int | None) -> None:
+        self._uow.require_active()
+        job = await self._job_for_update(ResponseId(response_id))
+        if job is not None and job.clear_response(
+            ResponseId(response_id), revision=version, now=self._clock.now()
+        ):
+            await self._jobs.save(job)
+
+    async def reject_response(
+        self,
+        response_id: UUID,
+        *,
+        reason_code: str,  # noqa: ARG002 — причина остаётся в деле модерации
+    ) -> None:
+        self._uow.require_active()
+        job = await self._job_for_update(ResponseId(response_id))
+        if job is not None and job.block_response(ResponseId(response_id), now=self._clock.now()):
+            await self._jobs.save(job)
+
+    async def _job_of_response(self, response_id: ResponseId) -> Job | None:
+        """Заявка отклика целиком — в своей транзакции (конвейер читает до своей)."""
+        async with self._uow:
+            return await self._job_for_update(response_id)
+
+    async def _job_for_update(self, response_id: ResponseId) -> Job | None:
+        job_id = await self._queries.job_of_response(response_id)
+        if job_id is None:
+            return None
+        try:
+            return await self._jobs.get_for_update(job_id)
+        except JobNotFoundError:
+            return None

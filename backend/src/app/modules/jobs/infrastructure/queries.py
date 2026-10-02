@@ -29,6 +29,13 @@ from app.modules.jobs.application.feed import (
     FeedFilters,
     FeedItem,
 )
+from app.modules.jobs.application.responses import (
+    GROUP_STATUSES,
+    MyResponse,
+    OwnerResponse,
+    ResponseGroup,
+    ResponseJob,
+)
 from app.modules.jobs.domain.job import (
     ACTIVE,
     BudgetType,
@@ -39,10 +46,19 @@ from app.modules.jobs.domain.job import (
     Urgency,
     Visibility,
 )
+from app.modules.jobs.domain.response import ACTIVE as ACTIVE_RESPONSES
+from app.modules.jobs.domain.response import (
+    Offer,
+    PriceType,
+    ResponseId,
+    ResponseStatus,
+    Review,
+)
 from app.modules.jobs.infrastructure.models import (
     HiddenJobRow,
     JobMediaRow,
     JobRow,
+    ResponseRow,
     SavedJobRow,
 )
 from app.platform.db.query import SqlQuery, decode_cursor, encode_cursor
@@ -54,6 +70,7 @@ _J = JobRow.__table__.c
 _M = JobMediaRow.__table__.c
 _H = HiddenJobRow.__table__.c
 _S = SavedJobRow.__table__.c
+_R = ResponseRow.__table__.c
 _OPEN = and_(_J.status == JobStatus.PUBLISHED.value, _J.deleted_at.is_(None))
 """Опубликованная и не удалённая: частичный индекс ix_jobs_expires_at."""
 DISTANCE_STEP_M = 100
@@ -163,6 +180,93 @@ class SqlJobQueries(SqlQuery):
         )
         return int(row["count"]) if row is not None else 0
 
+    async def job_of_response(self, response_id: ResponseId) -> JobId | None:
+        row = await self._fetch_one(
+            select(_R.job_id).where(_R.id == response_id, _R.deleted_at.is_(None))
+        )
+        return JobId(row["job_id"]) if row is not None else None
+
+    async def performer_jobs(self, performer_id: UserId) -> list[JobId]:
+        rows = await self._fetch(
+            select(_R.job_id)
+            .where(
+                _R.performer_id == performer_id,
+                _R.deleted_at.is_(None),
+                _R.status.in_([status.value for status in ACTIVE_RESPONSES]),
+            )
+            .distinct()
+        )
+        return [JobId(row["job_id"]) for row in rows]
+
+    async def count_active_responses(self, performer_id: UserId) -> int:
+        row = await self._fetch_one(
+            select(func.count().label("count")).where(
+                _R.performer_id == performer_id,
+                _R.deleted_at.is_(None),
+                _R.status.in_([status.value for status in ACTIVE_RESPONSES]),
+            )
+        )
+        return int(row["count"]) if row is not None else 0
+
+    async def my_responses(
+        self, performer_id: UserId, group: ResponseGroup | None, *, page: PageRequest
+    ) -> Page[MyResponse]:
+        stmt = (
+            select(*_RESPONSE, _IS_FIRST, *_RESPONSE_JOB)
+            .join_from(ResponseRow, JobRow, _J.id == _R.job_id)
+            .where(_R.performer_id == performer_id, _R.deleted_at.is_(None))
+        )
+        if group is not None:
+            stmt = stmt.where(_R.status.in_([status.value for status in GROUP_STATUSES[group]]))
+        if page.cursor is not None:
+            created_at, response_id = decode_cursor(page.cursor, (datetime, UUID))
+            stmt = stmt.where(tuple_(_R.created_at, _R.id) < tuple_(created_at, response_id))
+        rows = await self._fetch(
+            stmt.order_by(_R.created_at.desc(), _R.id.desc()).limit(page.limit + 1)
+        )
+        items = [_my_response(row) for row in rows[: page.limit]]
+        last = items[-1] if items else None
+        more = len(rows) > page.limit
+        cursor = encode_cursor(last.created_at, last.id) if more and last else None
+        return Page(items=tuple(items), next_cursor=cursor)
+
+    async def my_response(self, performer_id: UserId, response_id: ResponseId) -> MyResponse | None:
+        row = await self._fetch_one(
+            select(*_RESPONSE, _IS_FIRST, *_RESPONSE_JOB)
+            .join_from(ResponseRow, JobRow, _J.id == _R.job_id)
+            .where(
+                _R.id == response_id,
+                _R.performer_id == performer_id,
+                _R.deleted_at.is_(None),
+            )
+        )
+        return _my_response(row) if row is not None else None
+
+    async def my_response_counts(self, performer_id: UserId) -> dict[ResponseGroup, int]:
+        rows = await self._fetch(
+            select(_R.status, func.count().label("count"))
+            .where(_R.performer_id == performer_id, _R.deleted_at.is_(None))
+            .group_by(_R.status)
+        )
+        by_status = {ResponseStatus(row["status"]): int(row["count"]) for row in rows}
+        return {
+            group: sum(by_status.get(status, 0) for status in statuses)
+            for group, statuses in GROUP_STATUSES.items()
+        }
+
+    async def job_responses(self, job_id: JobId) -> list[OwnerResponse]:
+        rows = await self._fetch(
+            select(*_RESPONSE, _IS_FIRST)
+            .where(
+                _R.job_id == job_id,
+                _R.deleted_at.is_(None),
+                _R.review == Review.CLEAR.value,
+                _R.status != ResponseStatus.WITHDRAWN.value,
+            )
+            .order_by(_R.created_at, _R.id)
+        )
+        return [_owner_response(row) for row in rows]
+
     async def saved(self, user_id: UserId, *, now: datetime) -> list[FeedItem]:
         rows = await self._fetch(
             select(*_CARD, literal(None).label("distance"))
@@ -189,6 +293,105 @@ class SqlJobQueries(SqlQuery):
             )
         )
         return int(row["count"]) if row is not None else 0
+
+
+_EARLIER = ResponseRow.__table__.alias("earlier")
+_IS_FIRST = (
+    ~exists()
+    .where(
+        _EARLIER.c.job_id == _R.job_id,
+        _EARLIER.c.deleted_at.is_(None),
+        tuple_(_EARLIER.c.created_at, _EARLIER.c.id) < tuple_(_R.created_at, _R.id),
+    )
+    .correlate(ResponseRow)
+).label("is_first")
+"""Самый ранний неудалённый отклик заявки — «Откликнулся первым»."""
+_RESPONSE = (
+    _R.id,
+    _R.performer_id,
+    _R.profile_id,
+    _R.status,
+    _R.review,
+    _R.message,
+    _R.price_type,
+    _R.price_amount,
+    _R.availability_note,
+    _R.created_at,
+    _R.updated_at,
+    _R.decided_at,
+)
+_RESPONSE_JOB = (
+    _J.id.label("job_id"),
+    _J.title,
+    _J.status.label("job_status"),
+    _J.category_id,
+    _J.city_id,
+    _J.district_id,
+    _J.urgency,
+    _J.preferred_from,
+    _J.preferred_to,
+    _J.budget_type,
+    _J.budget_min,
+    _J.budget_max,
+    _J.budget_unit,
+    _J.responses_count,
+    _J.max_responses,
+    _J.published_at,
+)
+
+
+def _offer(row: RowMapping) -> Offer:
+    return Offer(
+        message=row["message"],
+        price_type=PriceType(row["price_type"]),
+        price_amount=row["price_amount"],
+        availability_note=row["availability_note"],
+    )
+
+
+def _my_response(row: RowMapping) -> MyResponse:
+    district = row["district_id"]
+    return MyResponse(
+        id=ResponseId(row["id"]),
+        status=ResponseStatus(row["status"]),
+        review=Review(row["review"]),
+        offer=_offer(row),
+        is_first=bool(row["is_first"]),
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        decided_at=row["decided_at"],
+        job=ResponseJob(
+            id=JobId(row["job_id"]),
+            title=row["title"],
+            status=JobStatus(row["job_status"]),
+            category_id=CategoryId(row["category_id"]),
+            city_id=CityId(row["city_id"]),
+            district_id=DistrictId(district) if district is not None else None,
+            urgency=Urgency(row["urgency"]),
+            preferred_from=row["preferred_from"],
+            preferred_to=row["preferred_to"],
+            budget_type=BudgetType(row["budget_type"]),
+            budget_min=row["budget_min"],
+            budget_max=row["budget_max"],
+            budget_unit=BudgetUnit(row["budget_unit"]),
+            responses_count=row["responses_count"],
+            max_responses=row["max_responses"],
+            published_at=row["published_at"],
+        ),
+    )
+
+
+def _owner_response(row: RowMapping) -> OwnerResponse:
+    return OwnerResponse(
+        id=ResponseId(row["id"]),
+        performer_id=UserId(row["performer_id"]),
+        profile_id=row["profile_id"],
+        status=ResponseStatus(row["status"]),
+        offer=_offer(row),
+        is_first=bool(row["is_first"]),
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
 
 
 def _open_to_all(now: datetime) -> list[ColumnElement[bool]]:

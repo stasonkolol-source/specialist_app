@@ -53,6 +53,7 @@ from app.modules.moderation.infrastructure.rules import CachedRuleSource, SqlRul
 from app.modules.moderation.infrastructure.targets import TargetRegistry
 from app.modules.moderation.infrastructure.targets.job import JobTarget
 from app.modules.moderation.infrastructure.targets.profile import ProfileTarget
+from app.modules.moderation.infrastructure.targets.response import ResponseTarget
 from app.modules.moderation.infrastructure.velocity import ValkeyVelocityCounter
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.config.port import LegalVersions
@@ -87,9 +88,13 @@ class ModerationProvider(Provider):
 
     @provide
     def targets(self, specialists: SpecialistsApi, jobs: JobsApi) -> ModerationTargets:
-        """Адаптеры целей: контентные модули добавляют свои в своих шагах (5.4, …)."""
+        """Адаптеры целей: контентные модули добавляют свои в своих шагах (6.3a, 7.2)."""
         return TargetRegistry(
-            {EntityType.PROFILE: ProfileTarget(specialists), EntityType.JOB: JobTarget(jobs)}
+            {
+                EntityType.PROFILE: ProfileTarget(specialists),
+                EntityType.JOB: JobTarget(jobs),
+                EntityType.RESPONSE: ResponseTarget(jobs),
+            }
         )
 
     @provide(scope=Scope.APP)

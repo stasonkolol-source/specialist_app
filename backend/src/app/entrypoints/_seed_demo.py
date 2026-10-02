@@ -33,6 +33,8 @@ from app.entrypoints._seed_demo_content import (
     INITIALS,
     JOBS,
     OPENERS,
+    RESPONSE_MESSAGES,
+    RESPONSE_WHEN,
     DemoCategory,
     DemoJob,
     DemoService,
@@ -59,7 +61,11 @@ from app.modules.jobs.api import JobsApi
 from app.modules.jobs.application.content import JobDraft
 from app.modules.jobs.application.ports import JobQueries
 from app.modules.jobs.application.use_cases.create_job import CreateJob, CreateJobCommand
-from app.modules.jobs.domain.job import Budget, BudgetType, BudgetUnit, Urgency
+from app.modules.jobs.application.use_cases.respond import TRUSTED_LEVEL, Respond, RespondCommand
+from app.modules.jobs.domain.job import Budget, BudgetType, BudgetUnit, JobId, Urgency
+from app.modules.jobs.domain.response import Offer
+from app.modules.jobs.domain.response import PriceType as ResponsePrice
+from app.modules.jobs.errors import AlreadyRespondedError, JobFullError, OwnJobResponseError
 from app.modules.media.application.ports import MediaQuery
 from app.modules.media.application.use_cases.complete_upload import (
     CompleteUpload,
@@ -311,6 +317,8 @@ class SeedReport:
     photos: int = 0
     jobs: int = 0
     """Заявок демо-клиентов создано в этот запуск."""
+    responses: int = 0
+    """Откликов демо-специалистов на эти заявки (5.4)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -340,8 +348,15 @@ class DemoSeeder:
             report.photos += added
             if done % 500 == 0:
                 self._echo(f"seed-demo: {done}/{scale.specialists}")
+        performers = range(scale.start, scale.start + scale.specialists)
         for number in range(scale.start, scale.start + scale.clients):
-            report.jobs += await self._client(client_plan(number, scale.jobs_each), world)
+            demo = client_plan(number, scale.jobs_each)
+            made = await self._client(demo, world)
+            report.jobs += len(made)
+            for index, (job_id, job) in enumerate(made):
+                report.responses += await self._responses(
+                    job_id, job, demo, performers, seed=number * 10 + index
+                )
         return report
 
     async def _world(self) -> _World:
@@ -426,14 +441,14 @@ class DemoSeeder:
         )
         return user_id
 
-    async def _client(self, demo: DemoClient, world: _World) -> int:
-        """Сколько заявок создано сейчас; у клиента, у которого заявки уже есть, — ни одной."""
+    async def _client(self, demo: DemoClient, world: _World) -> list[tuple[JobId, DemoJob]]:
+        """Заявки, созданные сейчас; у клиента, у которого заявки уже есть, — ни одной."""
         async with self._container() as request:
             existing = await (await request.get(IdentityQuery)).by_telegram(demo.telegram_id)
             if existing is not None and await (await request.get(JobQueries)).own(
                 existing.id, [], limit=1
             ):
-                return 0
+                return []
             user_id = await self._sign_up(
                 request,
                 TelegramProfile(
@@ -447,6 +462,7 @@ class DemoSeeder:
             )
             create, jobs = await request.get(CreateJob), await request.get(JobsApi)
             uow = await request.get(UnitOfWork)
+            created: list[tuple[JobId, DemoJob]] = []
             for job, pick in zip(demo.jobs, demo.district_picks, strict=True):
                 district = world.districts[pick % len(world.districts)]
                 job_id = await create(
@@ -469,7 +485,48 @@ class DemoSeeder:
                 )
                 async with uow:
                     await jobs.approve_job(job_id, version=None)
-        return len(demo.jobs)
+                created.append((job_id, job))
+        return created
+
+    async def _responses(
+        self,
+        job_id: JobId,
+        job: DemoJob,
+        client: DemoClient,
+        performers: range,
+        *,
+        seed: int,
+    ) -> int:
+        """Ноль–три отклика демо-специалистов на заявку (5.4), сразу прошедшие проверку: экраны
+        откликов на стенде не пустые. Цена — около бюджета заявки."""
+        if not performers:
+            return 0
+        rng = random.Random(f"{SEED}:responses:{seed}")  # noqa: S311 — демо-данные
+        count = 0
+        for number in rng.sample(performers, k=min(rng.choice((0, 1, 2, 3)), len(performers))):
+            async with self._container() as request:
+                performer = await (await request.get(IdentityQuery)).by_telegram(
+                    DEMO_TELEGRAM_BASE + number
+                )
+                if performer is None:
+                    continue
+                respond = await request.get(Respond)
+                try:
+                    _, response_id = await respond(
+                        RespondCommand(
+                            actor_id=performer.id,
+                            trust_level=TRUSTED_LEVEL,
+                            job_id=job_id,
+                            offer=_offer(job, client.lang, rng),
+                        )
+                    )
+                except JobFullError, AlreadyRespondedError, OwnJobResponseError:
+                    continue
+                jobs, uow = await request.get(JobsApi), await request.get(UnitOfWork)
+                async with uow:
+                    await jobs.approve_response(response_id, version=None)
+            count += 1
+        return count
 
     async def _profile(
         self, request: AsyncContainer, user_id: UserId, demo: DemoSpecialist, world: _World
@@ -592,6 +649,19 @@ async def seed_demo(settings: Settings, scale: Scale, *, echo: Callable[[str], N
         return await DemoSeeder(container, photos=photos, echo=echo).run(scale)
     finally:
         await container.close()
+
+
+def _offer(job: DemoJob, lang: Lang, rng: random.Random) -> Offer:
+    """Отклик демо-специалиста: сообщение, «когда смогу» и цена около бюджета заявки."""
+    base = job.dinars[0] if job.dinars else rng.choice((2000, 3000, 5000))
+    amount = round(base * rng.choice((0.8, 1.0, 1.2)) / 100) * 100 * 100
+    price = ResponsePrice.FIXED if job.dinars else ResponsePrice.FROM
+    return Offer(
+        message=rng.choice(RESPONSE_MESSAGES[lang]),
+        price_type=price,
+        price_amount=amount,
+        availability_note=rng.choice(RESPONSE_WHEN[lang]),
+    )
 
 
 def _budget(job: DemoJob) -> Budget:

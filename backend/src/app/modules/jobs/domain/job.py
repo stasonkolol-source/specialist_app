@@ -6,7 +6,8 @@
 больше трёх раз; истёкшую можно переопубликовать. Существенная правка опубликованной (текст,
 категория, бюджет) — снова на проверку. Закрывает клиент — с причиной, истекает по сроку
 система, снимает модерация. `assigned` и `completed` ведут сделки (6.1). Каждый переход — в
-историю статусов (§7.10).
+историю статусов (§7.10). Отклики (5.4) — подагрегат: создаются, правятся и отзываются методами
+заявки, а лимит мест — её инвариант (`domain/response.py`).
 """
 
 from dataclasses import dataclass, field
@@ -15,10 +16,21 @@ from enum import StrEnum
 from typing import Final, NewType
 from uuid import UUID
 
+from app.modules.jobs.domain.response import (
+    Offer,
+    Response,
+    ResponseId,
+    ResponseStatus,
+    Review,
+)
 from app.modules.jobs.errors import (
+    AlreadyRespondedError,
     InvalidJobError,
     JobExtendLimitError,
+    JobFullError,
     JobNotOpenError,
+    OwnJobResponseError,
+    ResponseNotFoundError,
 )
 from app.platform.contracts.events.jobs import (
     JobClosed,
@@ -27,6 +39,9 @@ from app.platform.contracts.events.jobs import (
     JobPublished,
     JobSubmitted,
     JobUpdated,
+    ResponseSubmitted,
+    ResponseUpdated,
+    ResponseWithdrawn,
 )
 from app.platform.kernel.aggregate import StatusChange, VersionedAggregate
 from app.platform.kernel.clock import BUSINESS_TZ
@@ -269,6 +284,8 @@ class Job(VersionedAggregate):
     expiry_reminded_at: datetime | None = None
     """Когда напомнили о конце текущего срока; новый срок (публикация, продление) — None."""
     deleted_at: datetime | None = None
+    responses: list[Response] = field(default_factory=list)
+    """Отклики, кроме удалённых: репозиторий загружает их вместе с заявкой."""
     _history: list[tuple[StatusChange[JobStatus], ActorKind]] = field(
         default_factory=list, init=False, repr=False
     )
@@ -440,9 +457,127 @@ class Job(VersionedAggregate):
         self.deleted_at = now
         self.updated_at = now
 
+    def respond(
+        self,
+        *,
+        response_id: ResponseId,
+        performer_id: UserId,
+        offer: Offer,
+        profile_id: UUID | None = None,
+        template_id: UUID | None = None,
+        now: datetime,
+    ) -> Response:
+        """Отклик исполнителя (§7.9): заявка открыта, она не своя, отклика от него ещё нет и
+        есть место — иначе 409 со своим кодом. Вызывается под блокировкой строки заявки:
+        параллельные отклики не займут больше мест, чем есть."""
+        self._ensure_alive()
+        if not self.is_open:
+            raise JobNotOpenError(job_id=self.id, job_status=self.status.value)
+        if performer_id == self.client_id:
+            raise OwnJobResponseError(job_id=self.id)
+        if any(response.performer_id == performer_id for response in self.responses):
+            raise AlreadyRespondedError(job_id=self.id)
+        if self.responses_count >= self.max_responses:
+            raise JobFullError(job_id=self.id, limit=self.max_responses)
+        first = not self.responses
+        response = Response(
+            id=response_id,
+            performer_id=performer_id,
+            status=ResponseStatus.SUBMITTED,
+            offer=offer,
+            profile_id=profile_id,
+            template_id=template_id,
+            created_at=now,
+            updated_at=now,
+            _changed=True,
+        )
+        self.responses.append(response)
+        self.responses_count += 1
+        self.updated_at = now
+        self._record(
+            ResponseSubmitted(
+                job_id=self.id,
+                response_id=response.id,
+                performer_id=performer_id,
+                client_id=self.client_id,
+                is_first=first,
+                published_at=self.published_at,
+                occurred_at=now,
+            )
+        )
+        return response
+
+    def revise_response(
+        self, response_id: ResponseId, *, performer_id: UserId, offer: Offer, now: datetime
+    ) -> Response:
+        """Исполнитель поправил свой отклик, пока клиент не решил: текст снова на проверку."""
+        response = self._performer_response(response_id, performer_id)
+        response.revise(offer, now=now)
+        self.updated_at = now
+        self._record(
+            ResponseUpdated(
+                job_id=self.id,
+                response_id=response.id,
+                performer_id=performer_id,
+                occurred_at=now,
+            )
+        )
+        return response
+
+    def withdraw_response(
+        self, response_id: ResponseId, *, performer_id: UserId, now: datetime
+    ) -> Response:
+        """Исполнитель отозвал свой отклик, пока клиент не решил: место освобождается."""
+        response = self._performer_response(response_id, performer_id)
+        response.withdraw(now=now)
+        self.responses_count = max(0, self.responses_count - 1)
+        self.updated_at = now
+        self._record(
+            ResponseWithdrawn(
+                job_id=self.id,
+                response_id=response.id,
+                performer_id=performer_id,
+                client_id=self.client_id,
+                occurred_at=now,
+            )
+        )
+        return response
+
+    def clear_response(
+        self, response_id: ResponseId, *, revision: int | None, now: datetime
+    ) -> bool:
+        """Модерация пропустила текст отклика: клиент его видит. Нет отклика, другая редакция
+        или уже решено — ничего, False."""
+        response = self._find_response(response_id)
+        if response is None or not response.clear(revision=revision, now=now):
+            return False
+        self.updated_at = now
+        return True
+
+    def block_response(self, response_id: ResponseId, *, now: datetime) -> bool:
+        """Модерация скрыла отклик: активный освобождает место. Нет отклика или уже скрыт —
+        ничего, False."""
+        response = self._find_response(response_id)
+        if response is None or response.review is Review.BLOCKED:
+            return False
+        if response.block(now=now):
+            self.responses_count = max(0, self.responses_count - 1)
+        self.updated_at = now
+        return True
+
     def pull_history(self) -> list[tuple[StatusChange[JobStatus], ActorKind]]:
         history, self._history = self._history, []
         return history
+
+    def _find_response(self, response_id: ResponseId) -> Response | None:
+        return next((r for r in self.responses if r.id == response_id), None)
+
+    def _performer_response(self, response_id: ResponseId, performer_id: UserId) -> Response:
+        """Отклик этого исполнителя; чужой — как несуществующий (404)."""
+        response = self._find_response(response_id)
+        if response is None or response.performer_id != performer_id:
+            raise ResponseNotFoundError(response_id=response_id)
+        return response
 
     def _ensure_alive(self) -> None:
         if self.deleted_at is not None:
@@ -463,6 +598,10 @@ class Job(VersionedAggregate):
 
     def _closed(self, reason: CloseReason, now: datetime) -> None:
         self.closed_at, self.close_reason = now, reason
+        # закрытая заявка решений не ждёт: активные отклики — «не выбран», места свободны
+        for response in self.responses:
+            response.job_closed(now=now)
+        self.responses_count = 0
         self._record(
             JobClosed(
                 job_id=self.id,

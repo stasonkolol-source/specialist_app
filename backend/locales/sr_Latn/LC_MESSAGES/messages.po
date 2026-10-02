@@ -426,6 +426,30 @@ msgstr "U omiljenima već ima {limit} — uklonite nekoga da biste dodali."
 msgid "errors.saved_jobs_full"
 msgstr "Već ste sačuvali {limit} zahteva — uklonite nepotrebne da biste sačuvali novi."
 
+msgid "errors.invalid_response"
+msgstr "Proverite ponudu: poruku, cenu i vreme."
+
+msgid "errors.response_not_found"
+msgstr "Ponuda nije pronađena."
+
+msgid "errors.response_not_active"
+msgstr "Naručilac je već odlučio o ovoj ponudi — ne može se izmeniti ni povući."
+
+msgid "errors.already_responded"
+msgstr "Već ste poslali ponudu na ovaj zahtev."
+
+msgid "errors.own_job"
+msgstr "Ne možete poslati ponudu na svoj zahtev."
+
+msgid "errors.job_full"
+msgstr "Nema više slobodnih mesta na zahtevu: najviše {limit} ponuda."
+
+msgid "errors.daily_responses_limit"
+msgstr "Danas je poslato previše ponuda. Pokušajte sutra."
+
+msgid "errors.active_responses_limit"
+msgstr "Dostignut je maksimum ponuda koje čekaju odluku ({limit}) — sačekajte odgovor naručilaca ili povucite jednu."
+
 msgid "errors.job_not_found"
 msgstr "Zahtev nije pronađen: obrisan je ili vam nije vidljiv."
 
