@@ -213,6 +213,21 @@ class SavedJobRow(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
+class InviteRow(Base):
+    """Приглашение профиля в заявку или прямой запрос ему (S21, S23, S08; миграция jobs_0007)."""
+
+    __tablename__ = "invites"
+
+    job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id"), primary_key=True)
+    profile_id: Mapped[UUID] = mapped_column(primary_key=True)
+    """specialists.profiles: FK в миграции."""
+    performer_id: Mapped[UUID]
+    """identity.users — владелец профиля: FK в миграции."""
+    invited_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    __table_args__ = (Index("ix_invites_performer_id_job_id", "performer_id", "job_id"),)
+
+
 class ResponseRow(TimestampsMixin, SoftDeleteMixin, Base):
     """Отклик исполнителя (§7.9, миграция jobs_0005): подагрегат заявки, пишется вместе с ней."""
 

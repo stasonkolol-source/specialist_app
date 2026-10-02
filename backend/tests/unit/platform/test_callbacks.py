@@ -1,4 +1,5 @@
-"""Данные callback-кнопок бота (DEVELOPMENT_PLAN 5.1): туда и обратно, в пределах 64 байт."""
+"""Данные callback-кнопок бота (DEVELOPMENT_PLAN 5.1, 5.6): туда и обратно, в пределах 64 байт;
+«Откликнуться шаблоном» несёт второй id — шаблона."""
 
 from uuid import UUID
 
@@ -8,8 +9,10 @@ from app.platform.telegram.callbacks import (
     MAX_CALLBACK_DATA,
     CallbackAction,
     CallbackData,
+    arg_ref,
     encode_callback,
     parse_callback,
+    ref_arg,
 )
 
 pytestmark = pytest.mark.unit
@@ -23,6 +26,7 @@ MAX_UUID = UUID(int=(1 << 128) - 1)
         CallbackData(CallbackAction.JOB_EXTEND, UUID("01a0fc88-f156-726a-9a76-99e3d10e5542")),
         CallbackData(CallbackAction.JOB_CLOSE, MAX_UUID, "found"),
         CallbackData(CallbackAction.JOB_CLOSE, MAX_UUID, "hired_elsewhere"),
+        CallbackData(CallbackAction.JOB_RESPOND, MAX_UUID, ref_arg(MAX_UUID)),
     ],
 )
 def test_round_trip_fits_the_bot_api_limit(data: CallbackData) -> None:
@@ -59,3 +63,15 @@ def test_foreign_or_broken_data_is_not_parsed(raw: str | None) -> None:
 def test_argument_must_be_a_code() -> None:
     with pytest.raises(ValueError, match="not a code"):
         CallbackData(CallbackAction.JOB_CLOSE, UUID(int=1), "два слова")
+
+
+def test_respond_button_carries_the_template_id() -> None:
+    template = UUID("01a0fc88-f156-726a-9a76-99e3d10e5542")
+    raw = encode_callback(CallbackData(CallbackAction.JOB_RESPOND, UUID(int=0), ref_arg(template)))
+
+    data = parse_callback(raw)
+
+    assert raw.startswith("jr:0000000000000000000000:")
+    assert data is not None
+    assert arg_ref(data.arg) == template
+    assert arg_ref("found") is None

@@ -12,10 +12,12 @@ from app.modules.jobs.application.responses import (
     ResponseGroup,
     TodayQuota,
 )
+from app.modules.jobs.domain.invite import Invite
 from app.modules.jobs.domain.job import Job, JobId, JobStatus
 from app.modules.jobs.domain.response import ResponseId
 from app.modules.jobs.domain.template import ResponseTemplate, TemplateId
 from app.platform.contracts.events.identity import UserDeleted
+from app.platform.contracts.events.jobs import JobPublished
 from app.platform.kernel.ids import UserId
 from app.platform.kernel.pagination import Page, PageRequest
 from app.platform.queue.port import TaskRef
@@ -126,6 +128,10 @@ class JobQueries(Protocol):
         порядку; `is_first` — самый ранний отклик заявки."""
         ...
 
+    async def is_invited(self, job_id: JobId, performer_id: UserId) -> bool:
+        """Исполнителя пригласили в заявку: прямой запрос ему виден (5.6)."""
+        ...
+
     async def saved(self, user_id: UserId, *, now: datetime) -> list[FeedItem]:
         """Сохранённые пользователем заявки, которые ещё открыты (опубликованы, публичны, срок
         не вышел), — новые сохранения первыми; без расстояния."""
@@ -165,6 +171,28 @@ class SavedJobs(Protocol):
 
     async def forget(self, user_id: UserId) -> None:
         """Удалить сохранённое пользователем — удаление аккаунта (§7.10)."""
+        ...
+
+
+class JobInvites(Protocol):
+    """Приглашения в заявку (5.6). Пишутся под блокировкой строки заявки: параллельные
+    приглашения не превысят предела."""
+
+    async def of_job(self, job_id: JobId) -> list[Invite]:
+        """Приглашённые по порядку приглашения."""
+        ...
+
+    async def add(self, invite: Invite) -> None: ...
+
+    async def forget(self, performer_id: UserId) -> None:
+        """Удалённый аккаунт исполнителя: его приглашения стираются (§7.10)."""
+        ...
+
+
+class JobViews(Protocol):
+    async def count(self, job_id: JobId, viewer_id: UserId) -> None:
+        """Просмотр заявки не владельцем (S23 «просмотры»): один человек — не чаще раза в
+        сутки. Активный UoW."""
         ...
 
 
@@ -212,3 +240,5 @@ FORGET_CLIENT_JOBS: Final = TaskRef("jobs.forget_client", UserDeleted)
 """Аккаунт удалён — его заявки закрываются и удаляются, адрес стирается (§7.10)."""
 WITHDRAW_PERFORMER_RESPONSES: Final = TaskRef("jobs.withdraw_performer_responses", UserDeleted)
 """Аккаунт удалён — его активные отклики отзываются: места на чужих заявках освобождаются."""
+ANNOUNCE_DIRECT_REQUEST: Final = TaskRef("jobs.announce_direct_request", JobPublished)
+"""Прямой запрос опубликован — приглашённому специалисту JobInvited (5.6)."""

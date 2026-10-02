@@ -32,6 +32,9 @@ class JobPublished(DomainEvent):
     """Urgency заявки: срез аналитики и режим рассылки подписчикам (5.7)."""
     republished: bool = False
     """Не первая публикация: после правки, продления истёкшей — подписчикам не рассылать снова."""
+    direct: bool = False
+    """Прямой запрос (`visibility = direct`, 5.6): её видят только приглашённые — подписчикам не
+    рассылать, приглашённым — уведомление."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -111,3 +114,19 @@ class ResponseWithdrawn(DomainEvent):
     response_id: UUID
     performer_id: UserId
     client_id: UserId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class JobInvited(DomainEvent):
+    """Клиент пригласил специалиста в опубликованную заявку или его прямой запрос опубликован
+    (5.6): специалисту — уведомление `job.invited` с «Посмотреть заявку» и «Откликнуться шаблоном»,
+    в аналитику — `invite_sent` или `direct_request_sent`."""
+
+    event_type = "jobs.JobInvited"
+    job_id: UUID
+    client_id: UserId
+    profile_id: UUID
+    performer_id: UserId
+    """Владелец профиля — получатель уведомления."""
+    direct: bool
+    """Прямой запрос: заявку видит только он."""

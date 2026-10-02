@@ -45,6 +45,8 @@ class JobView:
     max_responses: int
     responses_count: int
     extensions_count: int
+    views_count: int
+    """Сколько разных людей открывали заявку (не чаще раза в сутки каждый, 5.6)."""
     moderation_note: str | None
     version: int
     created_at: datetime

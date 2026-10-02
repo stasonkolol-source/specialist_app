@@ -592,6 +592,7 @@ class Job(VersionedAggregate):
                 city_id=self.content.place.city_id,
                 urgency=self.content.urgency.value,
                 republished=republished,
+                direct=self.visibility is Visibility.DIRECT,
                 occurred_at=now,
             )
         )

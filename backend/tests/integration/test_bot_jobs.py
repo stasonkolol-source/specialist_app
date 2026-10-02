@@ -1,6 +1,7 @@
-"""Кнопки уведомлений о сроке заявки в боте (DEVELOPMENT_PLAN 5.1, ARCHITECTURE §11.3):
+"""Кнопки уведомлений о заявке в боте (DEVELOPMENT_PLAN 5.1, 5.6, ARCHITECTURE §11.3):
 «Продлить» и «Закрыть» на фейковых Update вызывают те же use cases, что Mini App. Чужая заявка —
-«не найдена», четвёртое продление — отказ с числом продлений."""
+«не найдена», четвёртое продление — отказ с числом продлений. «Откликнуться: «…»» из приглашения
+создаёт отклик из шаблона, повтор — «уже откликались»."""
 
 from collections.abc import AsyncIterator
 from datetime import timedelta
@@ -11,11 +12,17 @@ import pytest
 from aiogram.methods import AnswerCallbackQuery, EditMessageText, TelegramMethod
 from aiogram.types import InlineKeyboardMarkup
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from app.platform.kernel.ids import new_id
-from app.platform.telegram.callbacks import CallbackAction, CallbackData, encode_callback
+from app.platform.kernel.ids import UserId, new_id
+from app.platform.telegram.callbacks import (
+    CallbackAction,
+    CallbackData,
+    encode_callback,
+    ref_arg,
+)
 from tests.plugins.bot import BotHarness, bot_harness
+from tests.plugins.identity import accept_rules
 
 pytestmark = pytest.mark.integration
 
@@ -168,3 +175,64 @@ async def test_button_of_someone_without_an_account_is_ignored(harness: BotHarne
 
     assert edits(calls) == []
     assert alerts(calls) == [None]
+
+
+async def accept(harness: BotHarness, telegram_id: int) -> None:
+    async with harness.container() as request:
+        engine = await request.get(AsyncEngine)
+        async with engine.connect() as conn:
+            user_id = (
+                await conn.execute(
+                    text(
+                        "SELECT user_id FROM identity.auth_identities"
+                        " WHERE provider = 'telegram' AND subject = :subject"
+                    ),
+                    {"subject": str(telegram_id)},
+                )
+            ).scalar_one()
+        await accept_rules(await request.get(AsyncSession), UserId(user_id))
+
+
+async def template_of(harness: BotHarness, telegram_id: int) -> UUID:
+    """Шаблон отклика пользователя бота — строкой."""
+    template_id = new_id()
+    await execute(
+        harness,
+        "INSERT INTO jobs.response_templates (id, user_id, title, message, price_type,"
+        " price_amount, availability_note, position) SELECT :id, a.user_id, 'Могу сегодня',"
+        " 'Здравствуйте! Могу сегодня вечером.', 'fixed', 300000, 'сегодня', 0"
+        " FROM identity.auth_identities a WHERE a.provider = 'telegram' AND a.subject = :subject",
+        id=template_id,
+        subject=str(telegram_id),
+    )
+    return template_id
+
+
+async def test_template_button_responds_once(harness: BotHarness) -> None:
+    client, performer = telegram_user(), telegram_user()
+    for telegram_id in (client, performer):
+        await harness.send(telegram_id, "/start")
+    await accept(harness, performer)  # отклик — создающее действие: правила приняты
+    job_id = await published_job(harness, client)
+    template_id = await template_of(harness, performer)
+    button = pressed(CallbackAction.JOB_RESPOND, job_id, ref_arg(template_id))
+
+    first = await harness.press(performer, button)
+    again = await harness.press(performer, button)
+
+    assert alerts(first) == [
+        "Отклик отправлен шаблоном «Могу сегодня» — клиент увидит его после проверки."
+    ]
+    assert alerts(again) == ["Вы уже откликались на эту заявку."]
+    async with harness.container() as request:
+        engine = await request.get(AsyncEngine)
+    async with engine.connect() as conn:
+        rows = (
+            await conn.execute(
+                text("SELECT template_id, message FROM jobs.responses WHERE job_id = :id"),
+                {"id": job_id},
+            )
+        ).all()
+    assert [(row.template_id, row.message) for row in rows] == [
+        (template_id, "Здравствуйте! Могу сегодня вечером.")
+    ]

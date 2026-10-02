@@ -4,13 +4,22 @@
   точная точка и адрес стираются (§7.10).
 - `jobs.withdraw_performer_responses` — UserDeleted: его активные отклики отзываются, места на
   чужих заявках освобождаются (5.4).
+- `jobs.announce_direct_request` — JobPublished прямого запроса: приглашённому — JobInvited (5.6).
 - `jobs.expire_jobs` — каждые 5 минут: опубликованные со сроком в прошлом — «истекла».
 - `jobs.expiry_reminders` — каждые 15 минут: «Заявка закроется через 2 ч».
 """
 
 from dishka import FromDishka
 
-from app.modules.jobs.application.ports import FORGET_CLIENT_JOBS, WITHDRAW_PERFORMER_RESPONSES
+from app.modules.jobs.application.ports import (
+    ANNOUNCE_DIRECT_REQUEST,
+    FORGET_CLIENT_JOBS,
+    WITHDRAW_PERFORMER_RESPONSES,
+)
+from app.modules.jobs.application.use_cases.announce_direct_request import (
+    AnnounceDirectRequest,
+    AnnounceDirectRequestCommand,
+)
 from app.modules.jobs.application.use_cases.expire_jobs import ExpireJobs, ExpireJobsCommand
 from app.modules.jobs.application.use_cases.forget_client_jobs import (
     ForgetClientJobs,
@@ -24,7 +33,9 @@ from app.modules.jobs.application.use_cases.withdraw_performer_responses import 
     WithdrawPerformerResponses,
     WithdrawPerformerResponsesCommand,
 )
+from app.modules.jobs.domain.job import JobId
 from app.platform.contracts.events.identity import UserDeleted
+from app.platform.contracts.events.jobs import JobPublished
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber
 
 
@@ -38,6 +49,14 @@ async def withdraw_performer_responses(
     event: UserDeleted, withdraw: FromDishka[WithdrawPerformerResponses]
 ) -> None:
     await withdraw(WithdrawPerformerResponsesCommand(user_id=event.user_id))
+
+
+@subscriber(JobPublished, ANNOUNCE_DIRECT_REQUEST)
+async def announce_direct_request(
+    event: JobPublished, announce: FromDishka[AnnounceDirectRequest]
+) -> None:
+    if event.direct and not event.republished:
+        await announce(AnnounceDirectRequestCommand(job_id=JobId(event.job_id)))
 
 
 @periodic("jobs.expire_jobs", cron="2-59/5 * * * *")  # со сдвигом от других «раз в 5 минут»

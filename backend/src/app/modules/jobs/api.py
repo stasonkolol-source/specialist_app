@@ -60,6 +60,26 @@ class ResponsesNotice:
     """Видимые клиенту отклики, которые он ещё не открыл (проверка пройдена, «отправлен»)."""
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class TemplateRef:
+    """Шаблон отклика для кнопки «Откликнуться шаблоном» в уведомлении."""
+
+    id: UUID
+    title: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class InviteNotice:
+    """Приглашение для уведомления специалисту `job.invited` (5.6)."""
+
+    title: str
+    status: str
+    client_name: str | None
+    """Как подписан клиент («Елена К.»); аккаунт удалён — None."""
+    templates: tuple[TemplateRef, ...]
+    """Шаблоны приглашённого по порядку — кнопки; уже откликнулся — пусто."""
+
+
 class JobsApi(Protocol):
     async def job_for_review(self, job_id: UUID) -> JobForReview | None:
         """Заявка на проверке или опубликованная (выборочная проверка после публикации);
@@ -86,6 +106,11 @@ class JobsApi(Protocol):
 
     async def response_job(self, response_id: UUID) -> UUID | None:
         """Заявка отклика — куда вести исполнителя из уведомления о его отклике."""
+        ...
+
+    async def invite_notice(self, job_id: UUID, performer_id: UserId) -> InviteNotice | None:
+        """Заявка, клиент и шаблоны приглашённого для `job.invited`; None — заявки нет или она
+        удалена."""
         ...
 
     async def response_for_review(self, response_id: UUID) -> ResponseForReview | None:

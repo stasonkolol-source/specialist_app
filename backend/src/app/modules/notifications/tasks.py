@@ -19,6 +19,9 @@ notifications стоит над контентными модулями (ARCHITE
   `notifications.notify_responses` через пять минут, следующие — ничего (дебаунс, 5.4).
 - `notifications.notify_responses` — конец окна: клиенту «Новых откликов: 3» и кнопка к
   заявке, если отклики прошли проверку и он их ещё не открыл.
+- `notifications.notify_job_invited` — JobInvited: специалисту «Вас приглашают откликнуться»
+  или «Прямой запрос» — кнопка к заявке и «Шаблон «…»» на каждый его шаблон (отклик в один
+  тап обрабатывает бот jobs), если заявка ещё открыта (5.6).
 - `notifications.forget_recipient` — UserDeleted: лента, каналы и настройки удалённого
   аккаунта удалены (§7.10).
 - `notifications.send` — отправить доставку в бот (очередь `notifications`).
@@ -26,17 +29,19 @@ notifications стоит над контентными модулями (ARCHITE
   срока, становятся `failed` (`stale`).
 """
 
+from typing import Final
 from uuid import UUID
 
 from dishka import FromDishka
 
-from app.modules.jobs.api import JobBrief, JobsApi
+from app.modules.jobs.api import InviteNotice, JobBrief, JobsApi
 from app.modules.notifications.application.ports import (
     FORGET_RECIPIENT,
     GRANT_WRITE_ACCESS,
     NOTIFY_ACCOUNT_RESTRICTED,
     NOTIFY_JOB_EXPIRED,
     NOTIFY_JOB_EXPIRING,
+    NOTIFY_JOB_INVITED,
     NOTIFY_MODERATION_DECISION,
     NOTIFY_PROFILE_PUBLISHED,
     NOTIFY_RESPONSES,
@@ -75,11 +80,19 @@ from app.platform.contracts.events.identity import (
     UserDeleted,
     UserRestricted,
 )
-from app.platform.contracts.events.jobs import JobExpired, JobExpiring, ResponseSubmitted
+from app.platform.contracts.events.jobs import (
+    JobExpired,
+    JobExpiring,
+    JobInvited,
+    ResponseSubmitted,
+)
 from app.platform.contracts.events.moderation import ModerationDecision, ModerationDecisionMade
 from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber, task
 from app.platform.telegram.deeplinks import LinkDocument, LinkType, StartLink, encode_start_param
+
+TEMPLATE_BUTTONS: Final = 2
+"""Кнопок «Откликнуться шаблоном» в уведомлении: шаблонов у исполнителя не больше двух."""
 
 RULES_LINK = encode_start_param(StartLink(type=LinkType.LEGAL, document=LinkDocument.TERMS))
 HOME_LINK = encode_start_param(StartLink(type=LinkType.HOME))
@@ -224,6 +237,38 @@ async def notify_responses(
             link=_job_link(window.job_id),
         )
     )
+
+
+@subscriber(JobInvited, NOTIFY_JOB_INVITED)
+async def notify_job_invited(
+    event: JobInvited, notify: FromDishka[Notify], jobs: FromDishka[JobsApi]
+) -> None:
+    notice = await jobs.invite_notice(event.job_id, event.performer_id)
+    if notice is None or notice.status != "published":
+        return  # пока задача ждала, заявку закрыли или удалили
+    await notify(
+        NotifyCommand(
+            user_id=event.performer_id,
+            type=NotificationType.JOB_INVITED,
+            dedupe_key=f"job.invited:{event.job_id}:{event.performer_id}",
+            params=_invite_params(event, notice),
+            link=_job_link(event.job_id),
+        )
+    )
+
+
+def _invite_params(event: JobInvited, notice: InviteNotice) -> dict[str, str]:
+    """Заявка, клиент и до двух шаблонов приглашённого — кнопки «Шаблон «…»» (MAX_TEMPLATES)."""
+    params = {
+        "job_id": str(event.job_id),
+        "title": notice.title,
+        "client": notice.client_name or "",
+        "direct": "true" if event.direct else "false",
+    }
+    for index, template in enumerate(notice.templates[:TEMPLATE_BUTTONS]):
+        params[f"template_{index}"] = str(template.id)
+        params[f"template_{index}_title"] = template.title
+    return params
 
 
 def _job_params(job_id: UUID, job: JobBrief) -> dict[str, str]:

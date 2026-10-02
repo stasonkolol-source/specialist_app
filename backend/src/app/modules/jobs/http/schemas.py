@@ -26,6 +26,7 @@ from app.modules.jobs.application.responses import (
 )
 from app.modules.jobs.application.use_cases.list_job_responses import JobResponse
 from app.modules.jobs.application.use_cases.show_job import JobClient, JobDetails
+from app.modules.jobs.domain.invite import MAX_INVITES, Invite
 from app.modules.jobs.domain.job import (
     MAX_ADDRESS,
     MAX_BUDGET,
@@ -193,6 +194,7 @@ class JobOut(BaseModel):
         description="Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null"
     )
     extensions_count: int = Field(description="Сколько раз продлевали: не больше трёх")
+    views_count: int | None = Field(description="Просмотры (S23) — владельцу; остальным — null")
     moderation_note: str | None = Field(description="Причина отказа модерации — владельцу")
     version: int
     created_at: datetime
@@ -233,6 +235,7 @@ class JobOut(BaseModel):
             responses_count=job.responses_count,
             my_response=MyResponseRefOut.of(details.my_response) if details.my_response else None,
             extensions_count=job.extensions_count,
+            views_count=job.views_count if owner else None,
             moderation_note=job.moderation_note if owner else None,
             version=job.version,
             created_at=job.created_at,
@@ -592,3 +595,29 @@ class ResponseTemplatesOut(BaseModel):
     @classmethod
     def of(cls, templates: list[ResponseTemplate]) -> ResponseTemplatesOut:
         return cls(items=[ResponseTemplateOut.of(t) for t in templates], limit=MAX_TEMPLATES)
+
+
+class InvitesIn(BaseModel):
+    """Кого пригласить в заявку (S21, S23): профили специалистов из каталога."""
+
+    profile_ids: list[UUID] = Field(min_length=1, max_length=MAX_INVITES)
+
+
+class JobInviteOut(BaseModel):
+    profile_id: UUID
+    invited_at: datetime
+
+
+class JobInvitesOut(BaseModel):
+    items: list[JobInviteOut] = Field(description="По порядку приглашения")
+    limit: int = Field(description="Сколько можно пригласить в одну заявку")
+
+    @classmethod
+    def of(cls, invites: list[Invite]) -> JobInvitesOut:
+        return cls(
+            items=[
+                JobInviteOut(profile_id=invite.profile_id, invited_at=invite.invited_at)
+                for invite in invites
+            ],
+            limit=MAX_INVITES,
+        )

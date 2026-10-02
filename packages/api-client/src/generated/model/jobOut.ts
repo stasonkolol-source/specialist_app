@@ -54,6 +54,8 @@ export interface JobOut {
   my_response: MyResponseRefOut | null;
   /** Сколько раз продлевали: не больше трёх */
   extensions_count: number;
+  /** Просмотры (S23) — владельцу; остальным — null */
+  views_count: number | null;
   /** Причина отказа модерации — владельцу */
   moderation_note: string | null;
   version: number;

@@ -198,6 +198,9 @@ export const JobsCreateJobResponse = zod.object({
     ])
     .describe('Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null'),
   extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
+  views_count: zod
+    .union([zod.int(), zod.null()])
+    .describe('Просмотры (S23) — владельцу; остальным — null'),
   moderation_note: zod
     .union([zod.string(), zod.null()])
     .describe('Причина отказа модерации — владельцу'),
@@ -612,6 +615,227 @@ export const JobsListResponseTemplatesResponse = zod.object({
 });
 
 /**
+ * Прямой запрос специалисту (S08 «Написать», S09 «Заказать эту услугу»): заявка, которую
+ * видит только он, — на проверку, как любая; после публикации ему уведомление. Профиль скрыт,
+ * удалён или автор под санкцией — 404 `invitee_not_found`; свой — 409 `own_profile_invite`.
+ * @summary Request Specialist
+ */
+export const JobsRequestSpecialistParams = zod.object({
+  profile_id: zod.uuid().describe('id профиля специалиста'),
+});
+
+export const jobsRequestSpecialistHeaderIdempotencyKeyMin = 8;
+export const jobsRequestSpecialistHeaderIdempotencyKeyMax = 255;
+
+export const JobsRequestSpecialistHeader = zod.object({
+  'Idempotency-Key': zod
+    .string()
+    .min(jobsRequestSpecialistHeaderIdempotencyKeyMin)
+    .max(jobsRequestSpecialistHeaderIdempotencyKeyMax)
+    .describe('Ключ операции: повтор с тем же ключом вернёт тот же ответ'),
+});
+
+export const jobsRequestSpecialistBodyTitleMin = 5;
+export const jobsRequestSpecialistBodyTitleMax = 120;
+
+export const jobsRequestSpecialistBodyDescriptionDefault = ``;
+export const jobsRequestSpecialistBodyDescriptionMax = 3000;
+
+export const jobsRequestSpecialistBodyBudgetMinOneMax = 100000000000;
+
+export const jobsRequestSpecialistBodyBudgetMaxOneMax = 100000000000;
+
+export const jobsRequestSpecialistBodyBudgetUnitDefault = `work`;
+
+export const jobsRequestSpecialistBodyPointOneLatMin = -90;
+export const jobsRequestSpecialistBodyPointOneLatMax = 90;
+
+export const jobsRequestSpecialistBodyPointOneLonMin = -180;
+export const jobsRequestSpecialistBodyPointOneLonMax = 180;
+
+export const jobsRequestSpecialistBodyAddressPrivateOneMax = 300;
+
+export const jobsRequestSpecialistBodyLanguagesMax = 4;
+
+export const jobsRequestSpecialistBodyMediaIdsMax = 6;
+
+export const JobsRequestSpecialistBody = zod.object({
+  title: zod.string().min(jobsRequestSpecialistBodyTitleMin).max(jobsRequestSpecialistBodyTitleMax),
+  description: zod
+    .string()
+    .max(jobsRequestSpecialistBodyDescriptionMax)
+    .default(jobsRequestSpecialistBodyDescriptionDefault),
+  category_id: zod.int().min(1).describe('Услуга (лист каталога), где включены заявки'),
+  urgency: zod.enum(['asap', 'today', 'this_week', 'flexible']),
+  budget_type: zod.enum(['fixed', 'range', 'negotiable']),
+  budget_min: zod
+    .union([zod.int().min(1).max(jobsRequestSpecialistBodyBudgetMinOneMax), zod.null()])
+    .optional()
+    .describe('Пара'),
+  budget_max: zod
+    .union([zod.int().min(1).max(jobsRequestSpecialistBodyBudgetMaxOneMax), zod.null()])
+    .optional()
+    .describe('Пара'),
+  budget_unit: zod
+    .enum(['work', 'hour', 'm2', 'visit', 'item', 'lesson'])
+    .default(jobsRequestSpecialistBodyBudgetUnitDefault),
+  city_id: zod.int().min(1),
+  district_id: zod.union([zod.int().min(1), zod.null()]).optional(),
+  point: zod
+    .union([
+      zod.object({
+        lat: zod
+          .number()
+          .min(jobsRequestSpecialistBodyPointOneLatMin)
+          .max(jobsRequestSpecialistBodyPointOneLatMax),
+        lon: zod
+          .number()
+          .min(jobsRequestSpecialistBodyPointOneLonMin)
+          .max(jobsRequestSpecialistBodyPointOneLonMax),
+      }),
+      zod.null(),
+    ])
+    .optional()
+    .describe('Точная точка: видит только выбранный исполнитель'),
+  address_private: zod
+    .union([zod.string().max(jobsRequestSpecialistBodyAddressPrivateOneMax), zod.null()])
+    .optional()
+    .describe('Подъезд и этаж — тоже только ему'),
+  preferred_from: zod.union([zod.iso.datetime({ offset: true }), zod.null()]).optional(),
+  preferred_to: zod.union([zod.iso.datetime({ offset: true }), zod.null()]).optional(),
+  languages: zod.array(zod.string()).max(jobsRequestSpecialistBodyLanguagesMax).optional(),
+  media_ids: zod.array(zod.uuid()).max(jobsRequestSpecialistBodyMediaIdsMax).optional(),
+});
+
+export const JobsRequestSpecialistResponse = zod.object({
+  id: zod.uuid(),
+  viewer_role: zod
+    .enum(['owner', 'viewer'])
+    .describe('owner — своя заявка; viewer — гость, исполнитель'),
+  status: zod.enum([
+    'draft',
+    'pending_moderation',
+    'published',
+    'assigned',
+    'completed',
+    'closed',
+    'expired',
+    'rejected',
+    'removed',
+  ]),
+  visibility: zod.enum(['public', 'direct']),
+  title: zod.string(),
+  description: zod.string(),
+  content_lang: zod.string(),
+  category_id: zod.int(),
+  urgency: zod.enum(['asap', 'today', 'this_week', 'flexible']),
+  preferred_from: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  preferred_to: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  budget_type: zod.enum(['fixed', 'range', 'negotiable']),
+  budget_min: zod.union([
+    zod.object({
+      amount: zod.int(),
+      currency: zod.enum(['RSD', 'XTR']),
+    }),
+    zod.null(),
+  ]),
+  budget_max: zod.union([
+    zod.object({
+      amount: zod.int(),
+      currency: zod.enum(['RSD', 'XTR']),
+    }),
+    zod.null(),
+  ]),
+  budget_unit: zod.enum(['work', 'hour', 'm2', 'visit', 'item', 'lesson']),
+  city_id: zod.int(),
+  district_id: zod.union([zod.int(), zod.null()]),
+  point_public: zod
+    .union([
+      zod.object({
+        lat: zod.number(),
+        lon: zod.number(),
+      }),
+      zod.null(),
+    ])
+    .describe('Смещённая на 300–500 м точка'),
+  point_exact: zod
+    .union([
+      zod.object({
+        lat: zod.number(),
+        lon: zod.number(),
+      }),
+      zod.null(),
+    ])
+    .describe('Только владельцу'),
+  address_private: zod.union([zod.string(), zod.null()]).describe('Только владельцу'),
+  languages: zod.array(zod.string()),
+  media_ids: zod.array(zod.uuid()),
+  photos: zod
+    .array(
+      zod.object({
+        url: zod.string(),
+        width: zod.int(),
+        height: zod.int(),
+        placeholder: zod
+          .union([zod.string(), zod.null()])
+          .describe('ThumbHash (base64) для мгновенного превью'),
+      }),
+    )
+    .describe('Готовые фото, вариант md (800 px)'),
+  client: zod
+    .union([
+      zod
+        .object({
+          display_name: zod.string(),
+          member_since: zod.iso.datetime({ offset: true }),
+          jobs_count: zod.int().describe('Сколько заявок клиента публиковалось'),
+          phone_verified: zod.boolean(),
+        })
+        .describe('Блок клиента S15: «Елена К. · в «Соседях» 3 месяца · 2 заявки».'),
+      zod.null(),
+    ])
+    .describe('Блок клиента; null — аккаунт удалён'),
+  max_responses: zod.int(),
+  responses_count: zod.int(),
+  my_response: zod
+    .union([
+      zod.object({
+        id: zod.uuid(),
+        status: zod.enum([
+          'submitted',
+          'viewed',
+          'shortlisted',
+          'accepted',
+          'declined',
+          'withdrawn',
+          'not_selected',
+        ]),
+        review: zod
+          .enum(['pending', 'clear', 'blocked'])
+          .describe('pending — на проверке, blocked — скрыт модерацией'),
+      }),
+      zod.null(),
+    ])
+    .describe('Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null'),
+  extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
+  views_count: zod
+    .union([zod.int(), zod.null()])
+    .describe('Просмотры (S23) — владельцу; остальным — null'),
+  moderation_note: zod
+    .union([zod.string(), zod.null()])
+    .describe('Причина отказа модерации — владельцу'),
+  version: zod.int(),
+  created_at: zod.iso.datetime({ offset: true }),
+  published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  expires_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  closed_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  close_reason: zod.union([
+    zod.enum(['hired_here', 'hired_elsewhere', 'not_needed', 'no_suitable', 'expired', 'removed']),
+    zod.null(),
+  ]),
+});
+
+/**
  * Сколько заявок с фильтрами 🔓: «Показать N» S14, «N новых задач рядом» на Главной.
  * @summary Count Jobs
  */
@@ -684,7 +908,8 @@ export const JobsCountJobsResponse = zod.object({
 });
 
 /**
- * Заявка 🔓: опубликованная — всем без точной точки и адреса, своя — владельцу целиком.
+ * Заявка 🔓: опубликованная — всем без точной точки и адреса, своя — владельцу целиком;
+ * прямой запрос — только приглашённому. Вошедший не владелец — просмотр (раз в сутки).
  * @summary Get Job
  */
 export const JobsGetJobParams = zod.object({
@@ -802,6 +1027,9 @@ export const JobsGetJobResponse = zod.object({
     ])
     .describe('Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null'),
   extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
+  views_count: zod
+    .union([zod.int(), zod.null()])
+    .describe('Просмотры (S23) — владельцу; остальным — null'),
   moderation_note: zod
     .union([zod.string(), zod.null()])
     .describe('Причина отказа модерации — владельцу'),
@@ -1005,6 +1233,9 @@ export const JobsUpdateJobResponse = zod.object({
     ])
     .describe('Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null'),
   extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
+  views_count: zod
+    .union([zod.int(), zod.null()])
+    .describe('Просмотры (S23) — владельцу; остальным — null'),
   moderation_note: zod
     .union([zod.string(), zod.null()])
     .describe('Причина отказа модерации — владельцу'),
@@ -1242,6 +1473,9 @@ export const JobsCloseJobResponse = zod.object({
     ])
     .describe('Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null'),
   extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
+  views_count: zod
+    .union([zod.int(), zod.null()])
+    .describe('Просмотры (S23) — владельцу; остальным — null'),
   moderation_note: zod
     .union([zod.string(), zod.null()])
     .describe('Причина отказа модерации — владельцу'),
@@ -1375,6 +1609,9 @@ export const JobsExtendJobResponse = zod.object({
     ])
     .describe('Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null'),
   extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
+  views_count: zod
+    .union([zod.int(), zod.null()])
+    .describe('Просмотры (S23) — владельцу; остальным — null'),
   moderation_note: zod
     .union([zod.string(), zod.null()])
     .describe('Причина отказа модерации — владельцу'),
@@ -1528,6 +1765,9 @@ export const JobsListMyJobsResponse = zod.object({
         ])
         .describe('Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null'),
       extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
+      views_count: zod
+        .union([zod.int(), zod.null()])
+        .describe('Просмотры (S23) — владельцу; остальным — null'),
       moderation_note: zod
         .union([zod.string(), zod.null()])
         .describe('Причина отказа модерации — владельцу'),
@@ -2032,3 +2272,53 @@ export const JobsDeleteResponseTemplateParams = zod.object({
 });
 
 export const JobsDeleteResponseTemplateResponse = zod.void();
+
+/**
+ * Пригласить специалистов в свою открытую заявку (S21, S23): им — уведомление с «Посмотреть
+ * заявку» и «Откликнуться шаблоном». Повтор — без ошибки; больше десяти — 409 `job_invites_full`;
+ * скрытый профиль или автор под санкцией — 404 `invitee_not_found`.
+ * @summary Invite Specialists
+ */
+export const JobsInviteSpecialistsParams = zod.object({
+  job_id: zod.uuid().describe('id заявки'),
+});
+
+export const jobsInviteSpecialistsBodyProfileIdsMax = 10;
+
+export const JobsInviteSpecialistsBody = zod
+  .object({
+    profile_ids: zod.array(zod.uuid()).min(1).max(jobsInviteSpecialistsBodyProfileIdsMax),
+  })
+  .describe('Кого пригласить в заявку (S21, S23): профили специалистов из каталога.');
+
+export const JobsInviteSpecialistsResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        profile_id: zod.uuid(),
+        invited_at: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .describe('По порядку приглашения'),
+  limit: zod.int().describe('Сколько можно пригласить в одну заявку'),
+});
+
+/**
+ * Кого владелец пригласил в заявку (S23), по порядку. Чужая — 404.
+ * @summary List Job Invites
+ */
+export const JobsListJobInvitesParams = zod.object({
+  job_id: zod.uuid().describe('id заявки'),
+});
+
+export const JobsListJobInvitesResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        profile_id: zod.uuid(),
+        invited_at: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .describe('По порядку приглашения'),
+  limit: zod.int().describe('Сколько можно пригласить в одну заявку'),
+});

@@ -50,6 +50,9 @@ msgstr "«Доступен сегодня» — для опубликованн�
 msgid "bot.jobs.extended"
 msgstr "Заявка «{title}» продлена до {until}."
 
+msgid "bot.jobs.responded"
+msgstr "Отклик отправлен шаблоном «{template}» — клиент увидит его после проверки."
+
 msgid "bot.jobs.closed"
 msgstr "Заявка «{title}» закрыта."
 
@@ -458,6 +461,15 @@ msgstr "Шаблон не найден: его удалили."
 msgid "errors.response_templates_full"
 msgstr "Шаблонов уже максимум ({limit}) — удалите один, чтобы добавить новый."
 
+msgid "errors.job_invites_full"
+msgstr "В заявку уже приглашено {limit} специалистов — больше пригласить нельзя."
+
+msgid "errors.invitee_not_found"
+msgstr "Специалист не найден: его профиль скрыт или удалён."
+
+msgid "errors.own_profile_invite"
+msgstr "Себя пригласить нельзя."
+
 msgid "errors.job_not_found"
 msgstr "Заявка не найдена: её удалили или она вам не видна."
 
@@ -599,6 +611,27 @@ msgstr "Новых откликов: {count} — на заявку «{title}». 
 
 msgid "notifications.response_received.button"
 msgstr "Посмотреть отклики"
+
+msgid "notifications.job_invited.title"
+msgstr "Вас приглашают откликнуться"
+
+msgid "notifications.job_invited.title_direct"
+msgstr "Прямой запрос"
+
+msgid "notifications.job_invited.body"
+msgstr "{client} приглашает вас откликнуться на заявку «{title}»."
+
+msgid "notifications.job_invited.body_direct"
+msgstr "{client} просит именно вас: «{title}». Эту заявку видите только вы."
+
+msgid "notifications.job_invited.client"
+msgstr "Клиент"
+
+msgid "notifications.job_invited.button"
+msgstr "Посмотреть заявку"
+
+msgid "notifications.job_invited.template"
+msgstr "Откликнуться: «{title}»"
 
 msgid "notifications.job_expiring.title"
 msgstr "Заявка скоро закроется"
