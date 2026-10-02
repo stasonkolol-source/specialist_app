@@ -1,6 +1,6 @@
 import './app/app.css';
 
-import { i18nReady } from '@sosed/i18n';
+import { i18nReady, preloadCatalogs } from '@sosed/i18n';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -33,4 +33,9 @@ void i18nReady(app.i18n).then(() => {
       <App {...app} />
     </StrictMode>,
   );
+  // тексты остальных экранов — после первого кадра, когда браузер свободен
+  const preload = () => void preloadCatalogs(app.i18n);
+  // в Safari (Telegram на iOS) requestIdleCallback нет
+  if ('requestIdleCallback' in window) window.requestIdleCallback(preload);
+  else setTimeout(preload, 1);
 });

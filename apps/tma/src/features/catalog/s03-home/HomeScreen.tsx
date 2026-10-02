@@ -5,7 +5,7 @@
 // тексту. Плитки разделов — в выдачу раздела, «Все услуги» — в S04. Переключатель «Услуги / Вещи»
 // — по флагу goods.segment (client-config, ADR-0019): «Вещи» в MVP — заглушка S58.
 // Скрыто до своих шагов: «Не хотите искать сами? Создать заявку» (5.2), «Ищете подработку?»
-// (5.3), «Мои активные заявки» (5.6).
+// (5.3), «Мои активные заявки» (5.6). «Свободны сегодня рядом» — своим чанком (TodayNearby.tsx).
 import type { CategoryOut, SuggestionOut } from '@sosed/api-client';
 import {
   FLAGS,
@@ -25,7 +25,6 @@ import {
   Group,
   Heading,
   ICON_NAMES,
-  LinkButton,
   Row,
   RowIcon,
   SearchField,
@@ -36,12 +35,10 @@ import {
 } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 import type { FormEvent, MouseEvent } from 'react';
-import { useId, useState } from 'react';
+import { Suspense, lazy, useId, useState } from 'react';
 
-import { ResultCard } from '../shared/ResultCard.tsx';
 import { useCatalogCity } from '../shared/city.ts';
 import { useDebounced } from '../shared/debounce.ts';
-import { useFavoriteToggle } from '../shared/favorite.ts';
 import type { ClientPoint } from '../shared/location.ts';
 import { useLocate } from '../shared/location.ts';
 import type { ResultsSearch } from '../shared/paths.ts';
@@ -55,6 +52,10 @@ const TILES = 5;
 const PALETTES: readonly AvatarPalette[] = [1, 4, 2, 3, 5];
 /** Подсказки — когда человек перестал печатать. */
 const SUGGEST_DELAY_MS = 250;
+
+const TodayNearby = lazy(() =>
+  import('./TodayNearby.tsx').then((module) => ({ default: module.TodayNearby })),
+);
 
 const iconOf = (name: string | null): IconName =>
   (ICON_NAMES as readonly string[]).includes(name ?? '') ? (name as IconName) : 'grid';
@@ -101,9 +102,7 @@ function Services() {
   const district = point && districts.data ? nearestDistrict(districts.data, point) : null;
   const today = useAvailableToday(locale, city ? city.id : null, point);
   const cards = today.data?.items ?? [];
-  const { control, failure } = useFavoriteToggle();
   const categoriesId = useId();
-  const todayId = useId();
 
   const results = (search: ResultsSearch) => (event?: MouseEvent<HTMLElement>) => {
     event?.preventDefault();
@@ -146,29 +145,14 @@ function Services() {
         </Heading>
         <Sections onOpen={(id) => results({ category: id })} href={href} />
       </section>
-      {failure && (
-        <Banner tone="danger" role="alert">
-          {failure}
-        </Banner>
-      )}
       {cards.length > 0 && (
-        <section aria-labelledby={todayId} className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-3">
-            <Heading variant="h3" as="h2" id={todayId}>
-              {t('home.today')}
-            </Heading>
-            <LinkButton
-              href={href(CATALOG_PATHS.results, { today: true, ...near })}
-              onClick={results({ today: true, ...near })}
-              className="-mr-2"
-            >
-              {t('home.all')}
-            </LinkButton>
-          </div>
-          {cards.map((card) => (
-            <ResultCard key={card.profile_id} card={card} favorite={control(card)} />
-          ))}
-        </section>
+        <Suspense fallback={null}>
+          <TodayNearby
+            cards={cards}
+            allHref={href(CATALOG_PATHS.results, { today: true, ...near })}
+            onAll={results({ today: true, ...near })}
+          />
+        </Suspense>
       )}
     </>
   );

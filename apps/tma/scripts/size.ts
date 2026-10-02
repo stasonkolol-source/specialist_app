@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 
 const BUDGET_KB = 200;
-const FIRST_ROUTE = 'src/features/home/s03-home/index.ts';
+const FIRST_ROUTE = 'src/features/catalog/s03-home/index.ts';
 
 interface Chunk {
   file: string;
@@ -32,6 +32,8 @@ const visit = (key: string) => {
 const entry = Object.keys(manifest).find((key) => manifest[key]?.isEntry);
 if (!entry) throw new Error('entry chunk not found: build with build.manifest');
 visit(entry);
+// маршрут переехал, а бюджет молча перестал его считать — так было после 4.8: пусть упадёт
+if (!manifest[FIRST_ROUTE]) throw new Error(`first route ${FIRST_ROUTE} is not in the manifest`);
 visit(FIRST_ROUTE);
 
 const rows = [...files].map((file) => {
