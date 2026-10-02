@@ -38,7 +38,7 @@ import {
   Tiles,
 } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
-import type { FormEvent, MouseEvent } from 'react';
+import type { ComponentType, FormEvent, MouseEvent } from 'react';
 import { Suspense, lazy, useId, useState } from 'react';
 
 import { useCatalogCity } from '../shared/city.ts';
@@ -57,10 +57,22 @@ const PALETTES: readonly AvatarPalette[] = [1, 4, 2, 3, 5];
 /** Подсказки — когда человек перестал печатать. */
 const SUGGEST_DELAY_MS = 250;
 
-const TodayNearby = lazy(() =>
-  import('./TodayNearby.tsx').then((module) => ({ default: module.TodayNearby })),
+/** Необязательный блок своим чанком: не скачался (пропала сеть) — блока нет, а Главная работает.
+ *  Иначе ошибка чанка дошла бы до экрана ошибки и закрыла бы всю Главную. */
+function optionalChunk<P extends object>(load: () => Promise<ComponentType<P>>) {
+  return lazy(async (): Promise<{ default: ComponentType<P> }> => {
+    try {
+      return { default: await load() };
+    } catch {
+      return { default: () => null };
+    }
+  });
+}
+
+const TodayNearby = optionalChunk(() =>
+  import('./TodayNearby.tsx').then((module) => module.TodayNearby),
 );
-const SideJob = lazy(() => import('./SideJob.tsx').then((module) => ({ default: module.SideJob })));
+const SideJob = optionalChunk(() => import('./SideJob.tsx').then((module) => module.SideJob));
 
 const iconOf = (name: string | null): IconName =>
   (ICON_NAMES as readonly string[]).includes(name ?? '') ? (name as IconName) : 'grid';

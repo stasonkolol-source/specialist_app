@@ -328,3 +328,24 @@ test('S49a нет сети: чанк вкладки не скачался — «
     ]),
   ).toEqual([]);
 });
+
+test('S03 нет сети: блок Главной не скачался — Главная работает без него', async ({ page }) => {
+  // «Ищете подработку?» — своим чанком после первого кадра: сеть пропала раньше, чем он скачался
+  await page.route('**/assets/SideJob-*.js', (route) => route.abort('internetdisconnected'));
+  const watch = await open(page, 'theme=light&lang=ru');
+
+  await expect(page.getByRole('heading', { name: 'Найдём мастера рядом', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Свободны сегодня рядом' })).toBeVisible();
+  await expect(page.getByText('Ищете подработку?')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Нет соединения' })).toHaveCount(0);
+  await openTab(page, 'Заявки');
+  await expect(page.getByRole('heading', { name: 'Заявки рядом', level: 1 })).toBeVisible();
+  expect(
+    real(watch.problems, [
+      OFFLINE_CONSOLE,
+      'WebKit encountered an internal error',
+      'dynamically imported module',
+      'Importing a module script failed',
+    ]),
+  ).toEqual([]);
+});
