@@ -11,6 +11,7 @@ const LOCALES = [
     locale: 'ru',
     telegram: 'ru',
     home: 'Найдём мастера рядом',
+    today: 'Свободны сегодня рядом',
     create: 'Создать заявку',
     goods: 'Вещи',
   },
@@ -18,17 +19,20 @@ const LOCALES = [
     locale: 'sr-Latn',
     telegram: 'sr',
     home: 'Pronaći ćemo majstora u blizini',
+    today: 'Slobodni danas u blizini',
     create: 'Novi zahtev',
     goods: 'Stvari',
   },
 ] as const;
 
 for (const theme of THEMES) {
-  for (const { locale, telegram, home, goods } of LOCALES) {
+  for (const { locale, telegram, home, today, goods } of LOCALES) {
     test(`S03 главная ${theme} ${locale}`, async ({ page }) => {
       const watch = await open(page, `theme=${theme}&lang=${telegram}`);
 
       await expect(page.getByRole('heading', { name: home })).toBeVisible();
+      // «Свободны сегодня рядом» — своим чанком после данных: снимок — когда блок на месте
+      await expect(page.getByRole('heading', { name: today })).toBeVisible();
       await expect(page.getByRole('radio', { name: goods })).toBeVisible();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       await expect(page.locator('html')).toHaveAttribute('lang', locale);
