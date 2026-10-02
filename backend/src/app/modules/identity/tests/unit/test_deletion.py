@@ -13,7 +13,13 @@ from app.modules.identity.domain.deletion import (
     identity_hash,
     login_hashes,
 )
-from app.modules.identity.domain.user import DELETED_DISPLAY_NAME, AuthProvider, User, UserStatus
+from app.modules.identity.domain.user import (
+    DELETED_DISPLAY_NAME,
+    AuthIdentity,
+    AuthProvider,
+    User,
+    UserStatus,
+)
 from app.modules.identity.errors import AccountDeletedError
 from app.platform.contracts.events.identity import UserDeleted
 from app.platform.kernel.ids import CityId, UserId, new_id
@@ -57,6 +63,11 @@ def test_hashes_depend_on_the_key_and_the_kind() -> None:
     assert sorted(with_phone.values()) == [HashKind.PHONE, HashKind.TELEGRAM]
 
 
+def personal(user: User) -> tuple[str, list[AuthIdentity], str | None, CityId | None]:
+    """Личные поля пользователя — функцией: mypy не сужает их по прошлым присваиваниям."""
+    return user.display_name, user.identities, user.phone_e164, user.home_city_id
+
+
 def test_forgotten_user_keeps_no_personal_data() -> None:
     user = User.register(
         provider=AuthProvider.TELEGRAM,
@@ -73,12 +84,7 @@ def test_forgotten_user_keeps_no_personal_data() -> None:
     user.forget(now=NOW + GRACE_PERIOD)
 
     assert user.status is UserStatus.DELETED
-    assert (user.display_name, user.identities, user.phone_e164, user.home_city_id) == (
-        DELETED_DISPLAY_NAME,
-        [],
-        None,
-        None,
-    )
+    assert personal(user) == (DELETED_DISPLAY_NAME, [], None, None)
     assert [type(event) for event in user.pull_events()] == [UserDeleted]
     with pytest.raises(AccountDeletedError):
         user.ensure_active()
