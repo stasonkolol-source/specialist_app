@@ -242,8 +242,6 @@ def _method_table(app: FastAPI) -> list[tuple[re.Pattern[str], frozenset[str]]]:
         table = []
         for path, item in app.openapi().get("paths", {}).items():
             methods = {method.upper() for method in item if method.upper() in HTTP_METHODS}
-            if "GET" in methods:
-                methods.add("HEAD")
             regex = re.sub(r"\\\{[^}]*\\\}", "[^/]+", re.escape(path))
             table.append((re.compile(regex), frozenset(methods)))
         app.state.allow_table = table
