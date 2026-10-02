@@ -537,6 +537,15 @@ msgstr "Već imate {limit} aktivna zahteva. Zatvorite jedan da biste napravili n
 msgid "errors.daily_jobs_limit"
 msgstr "Danas je napravljeno previše zahteva. Pokušajte sutra."
 
+msgid "errors.deal_not_found"
+msgstr "Dogovor nije pronađen."
+
+msgid "errors.deal_not_active"
+msgstr "Sa dogovorom u ovom statusu to nije moguće."
+
+msgid "errors.invalid_deal"
+msgstr "Proverite dogovor: nešto nije dobro popunjeno."
+
 # Обавештења (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
 msgid "errors.notification_group_mandatory"
 msgstr "Službena obaveštenja ne mogu da se isključe: tiču se odluka moderacije i ograničenja naloga."

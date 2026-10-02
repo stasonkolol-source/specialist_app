@@ -536,6 +536,15 @@ msgstr "Већ имате {limit} активна захтева. Затвори�
 msgid "errors.daily_jobs_limit"
 msgstr "Данас је направљено превише захтева. Покушајте сутра."
 
+msgid "errors.deal_not_found"
+msgstr "Договор није пронађен."
+
+msgid "errors.deal_not_active"
+msgstr "Са договором у овом статусу то није могуће."
+
+msgid "errors.invalid_deal"
+msgstr "Проверите договор: нешто није добро попуњено."
+
 # Обавештења (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
 msgid "errors.notification_group_mandatory"
 msgstr "Службена обавештења не могу да се искључе: тичу се одлука модерације и ограничења налога."

@@ -5,6 +5,8 @@
 - `jobs.withdraw_performer_responses` — UserDeleted: его активные отклики отзываются, места на
   чужих заявках освобождаются (5.4).
 - `jobs.announce_direct_request` — JobPublished прямого запроса: приглашённому — JobInvited (5.6).
+- `jobs.reopen_job` — DealCancelled сделки из отклика: заявка снова открыта (6.1a).
+- `jobs.complete_job` — DealCompleted сделки из отклика: заявка завершена (6.1a).
 - `jobs.expire_jobs` — каждые 5 минут: опубликованные со сроком в прошлом — «истекла».
 - `jobs.expiry_reminders` — каждые 15 минут: «Заявка закроется через 2 ч».
 """
@@ -13,13 +15,16 @@ from dishka import FromDishka
 
 from app.modules.jobs.application.ports import (
     ANNOUNCE_DIRECT_REQUEST,
+    COMPLETE_JOB,
     FORGET_CLIENT_JOBS,
+    REOPEN_JOB,
     WITHDRAW_PERFORMER_RESPONSES,
 )
 from app.modules.jobs.application.use_cases.announce_direct_request import (
     AnnounceDirectRequest,
     AnnounceDirectRequestCommand,
 )
+from app.modules.jobs.application.use_cases.complete_job import CompleteJob, CompleteJobCommand
 from app.modules.jobs.application.use_cases.expire_jobs import ExpireJobs, ExpireJobsCommand
 from app.modules.jobs.application.use_cases.forget_client_jobs import (
     ForgetClientJobs,
@@ -29,11 +34,14 @@ from app.modules.jobs.application.use_cases.remind_expiring_jobs import (
     RemindExpiringJobs,
     RemindExpiringJobsCommand,
 )
+from app.modules.jobs.application.use_cases.reopen_job import ReopenJob, ReopenJobCommand
 from app.modules.jobs.application.use_cases.withdraw_performer_responses import (
     WithdrawPerformerResponses,
     WithdrawPerformerResponsesCommand,
 )
 from app.modules.jobs.domain.job import JobId
+from app.modules.jobs.domain.response import ResponseId
+from app.platform.contracts.events.deals import DealCancelled, DealCompleted
 from app.platform.contracts.events.identity import UserDeleted
 from app.platform.contracts.events.jobs import JobPublished
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber
@@ -57,6 +65,28 @@ async def announce_direct_request(
 ) -> None:
     if event.direct and not event.republished:
         await announce(AnnounceDirectRequestCommand(job_id=JobId(event.job_id)))
+
+
+@subscriber(DealCancelled, REOPEN_JOB)
+async def reopen_job(event: DealCancelled, reopen: FromDishka[ReopenJob]) -> None:
+    if event.job_id is None or event.response_id is None:  # сделка не из отклика
+        return
+    await reopen(
+        ReopenJobCommand(
+            job_id=JobId(event.job_id),
+            response_id=ResponseId(event.response_id),
+            by_performer=event.cancelled_by == "performer",
+        )
+    )
+
+
+@subscriber(DealCompleted, COMPLETE_JOB)
+async def complete_job(event: DealCompleted, complete: FromDishka[CompleteJob]) -> None:
+    if event.job_id is None or event.response_id is None:
+        return
+    await complete(
+        CompleteJobCommand(job_id=JobId(event.job_id), response_id=ResponseId(event.response_id))
+    )
 
 
 @periodic("jobs.expire_jobs", cron="2-59/5 * * * *")  # со сдвигом от других «раз в 5 минут»

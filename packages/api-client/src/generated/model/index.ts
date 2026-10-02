@@ -5,6 +5,7 @@
  * OpenAPI spec version: 1.0.0
  */
 
+export * from './acceptedOut.ts';
 export * from './authOut.ts';
 export * from './availabilityIn.ts';
 export * from './avatarIn.ts';
@@ -39,6 +40,16 @@ export * from './completeIn.ts';
 export * from './completenessOut.ts';
 export * from './consentsIn.ts';
 export * from './currency.ts';
+export * from './dealCancelIn.ts';
+export * from './dealCancelReason.ts';
+export * from './dealOrigin.ts';
+export * from './dealOut.ts';
+export * from './dealPriceOut.ts';
+export * from './dealPriceType.ts';
+export * from './dealRole.ts';
+export * from './dealsListMyDealsParams.ts';
+export * from './dealsPageOut.ts';
+export * from './dealStatus.ts';
 export * from './deletionOut.ts';
 export * from './districtKind.ts';
 export * from './districtOut.ts';

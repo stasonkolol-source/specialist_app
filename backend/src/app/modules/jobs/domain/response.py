@@ -4,7 +4,8 @@
 поэтому отклик создаётся, правится и отзывается её методами под блокировкой строки заявки, а
 каждое изменение отклика увеличивает версию заявки. Место занимают активные отклики —
 отправленный, просмотренный и «в избранных клиента». Один исполнитель — один отклик на заявку:
-отозванный не повторяется. Выбор клиента (просмотр, избранные, отказ, выбор) — шаги 5.6 и 6.1.
+отозванный не повторяется. Выбор клиента (6.1a): «в избранные», «отклонить» и «выбрать
+исполнителем» — из отправленного отклик сначала становится просмотренным (§7.9).
 
 Текст проверяет модерация (§14.1, адаптер цели `response`): клиент видит отклик, когда проверка
 пройдена; с флагом — после решения модератора; нарушение скрывает отклик и освобождает место.
@@ -200,6 +201,38 @@ class Response:
         self._changed = True
         return freed
 
+    def accept(self, *, now: datetime) -> None:
+        """Клиент выбрал отклик исполнителем: создана сделка (6.1a)."""
+        self._see(now)
+        self._move(ResponseStatus.ACCEPTED, now=now)
+        self.decided_at = now
+
+    def shortlist(self, *, now: datetime) -> bool:
+        """Клиент добавил отклик в избранные; уже там — ничего, False."""
+        if self.status is ResponseStatus.SHORTLISTED:
+            return False
+        self._see(now)
+        self._move(ResponseStatus.SHORTLISTED, now=now)
+        return True
+
+    def decline(self, *, now: datetime) -> None:
+        """Клиент отклонил отклик: место освобождается."""
+        self._see(now)
+        self._move(ResponseStatus.DECLINED, now=now)
+        self.decided_at = now
+
+    def deal_cancelled(self, *, by_performer: bool, now: datetime) -> None:
+        """Сделку по выбранному отклику отменили (§7.9): исполнитель — «отозван», клиент или
+        система — «отклонён»."""
+        target = ResponseStatus.WITHDRAWN if by_performer else ResponseStatus.DECLINED
+        self._move(target, now=now)
+        self.decided_at = now
+
+    def reconsider(self, *, now: datetime) -> None:
+        """Сделку отменили — «не выбран» снова ждёт решения клиента как «просмотрен» (§7.9)."""
+        self._move(ResponseStatus.VIEWED, now=now)
+        self.decided_at = None
+
     def withdraw(self, *, now: datetime) -> None:
         """Исполнитель отозвал отклик, пока клиент не решил: место освобождается. Отказ от
         выбранного отклика — отмена сделки (6.1), не отзыв."""
@@ -207,6 +240,12 @@ class Response:
             raise ResponseNotActiveError(response_id=self.id, response_status=self.status.value)
         self._move(ResponseStatus.WITHDRAWN, now=now)
         self.decided_at = now
+
+    def _see(self, now: datetime) -> None:
+        """Решение клиента начинается с просмотра: отправленный — «просмотрен»."""
+        if self.status is ResponseStatus.SUBMITTED:
+            self._move(ResponseStatus.VIEWED, now=now)
+            self.viewed_at = now
 
     def _move(self, target: ResponseStatus, *, now: datetime) -> None:
         if target not in _ALLOWED[self.status]:

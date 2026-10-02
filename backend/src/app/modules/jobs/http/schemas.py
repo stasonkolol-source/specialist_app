@@ -182,8 +182,8 @@ class JobOut(BaseModel):
     city_id: int
     district_id: int | None
     point_public: JobPointOut | None = Field(description="Смещённая на 300–500 м точка")
-    point_exact: JobPointOut | None = Field(description="Только владельцу")
-    address_private: str | None = Field(description="Только владельцу")
+    point_exact: JobPointOut | None = Field(description="Владельцу и выбранному исполнителю")
+    address_private: str | None = Field(description="Владельцу и выбранному исполнителю")
     languages: list[str]
     media_ids: list[UUID]
     photos: list[JobPhotoOut] = Field(description="Готовые фото, вариант md (800 px)")
@@ -209,6 +209,8 @@ class JobOut(BaseModel):
     @classmethod
     def of(cls, details: JobDetails, *, owner: bool) -> JobOut:
         job = details.job
+        mine = details.my_response
+        exact = owner or (mine is not None and mine.status is ResponseStatus.ACCEPTED)
         return cls(
             id=job.id,
             viewer_role="owner" if owner else "viewer",
@@ -228,8 +230,8 @@ class JobOut(BaseModel):
             city_id=job.city_id,
             district_id=job.district_id,
             point_public=_point(job.point_public),
-            point_exact=_point(job.point_exact) if owner else None,
-            address_private=job.address_private if owner else None,
+            point_exact=_point(job.point_exact) if exact else None,
+            address_private=job.address_private if exact else None,
             languages=list(job.languages),
             media_ids=list(job.media_ids),
             photos=[JobPhotoOut.of(photo) for photo in details.photos],
@@ -625,3 +627,10 @@ class JobInvitesOut(BaseModel):
             ],
             limit=MAX_INVITES,
         )
+
+
+class AcceptedOut(BaseModel):
+    """Отклик выбран (S25): заявка «в работе» и созданная сделка — экран сделки S26."""
+
+    deal_id: UUID
+    job: JobOut

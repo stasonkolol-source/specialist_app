@@ -16,6 +16,7 @@ from app.modules.jobs.domain.invite import Invite
 from app.modules.jobs.domain.job import Job, JobId, JobStatus
 from app.modules.jobs.domain.response import ResponseId
 from app.modules.jobs.domain.template import ResponseTemplate, TemplateId
+from app.platform.contracts.events.deals import DealCancelled, DealCompleted
 from app.platform.contracts.events.identity import UserDeleted
 from app.platform.contracts.events.jobs import JobPublished
 from app.platform.kernel.ids import UserId
@@ -252,3 +253,7 @@ WITHDRAW_PERFORMER_RESPONSES: Final = TaskRef("jobs.withdraw_performer_responses
 """Аккаунт удалён — его активные отклики отзываются: места на чужих заявках освобождаются."""
 ANNOUNCE_DIRECT_REQUEST: Final = TaskRef("jobs.announce_direct_request", JobPublished)
 """Прямой запрос опубликован — приглашённому специалисту JobInvited (5.6)."""
+REOPEN_JOB: Final = TaskRef("jobs.reopen_job", DealCancelled)
+"""Сделку по отклику отменили — заявка снова открыта, прежние кандидаты ждут решения (6.1a)."""
+COMPLETE_JOB: Final = TaskRef("jobs.complete_job", DealCompleted)
+"""Сделка по отклику завершена — заявка завершена (6.1a)."""

@@ -19,6 +19,10 @@ CaseId = NewType("CaseId", UUID)
 """Кейс модерации (moderation.cases, 2.5a). Модуль moderation выше identity по DAG, поэтому
 тип лежит здесь: его видят фасад identity (`RestrictionIn`) и событие `UserRestricted`."""
 
+DealId = NewType("DealId", UUID)
+"""Сделка deals.deals (6.1a). Модуль jobs выше deals по DAG и создаёт сделку через фасад, а фасад
+импортирует только kernel — поэтому тип лежит здесь."""
+
 MediaId = NewType("MediaId", UUID)
 """Медиафайл media.assets (2.1): на него ссылаются аватар, портфолио, заявки и сообщения."""
 

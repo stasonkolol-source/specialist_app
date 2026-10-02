@@ -1929,6 +1929,327 @@
         }
       }
     },
+    "/api/v1/me/deals": {
+      "get": {
+        "tags": [
+          "deals"
+        ],
+        "summary": "List My Deals",
+        "description": "Свои сделки, новые первыми.",
+        "operationId": "deals_list_my_deals",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/DealRole"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "client или performer; без него — все",
+              "title": "Role"
+            },
+            "description": "client или performer; без него — все"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DealStatus"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Без фильтра — все",
+              "title": "Status"
+            },
+            "description": "Без фильтра — все"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DealsPageOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{deal_id}": {
+      "get": {
+        "tags": [
+          "deals"
+        ],
+        "summary": "Get Deal",
+        "description": "Сделка стороне (S26); не участник — 404.",
+        "operationId": "deals_get_deal",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "deal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id сделки",
+              "title": "Deal Id"
+            },
+            "description": "id сделки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DealOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{deal_id}/confirm": {
+      "post": {
+        "tags": [
+          "deals"
+        ],
+        "summary": "Confirm Deal",
+        "description": "Подтвердить «Договорились» второй стороной: сделка `agreed`. Предложившему — 409.",
+        "operationId": "deals_confirm_deal",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "deal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id сделки",
+              "title": "Deal Id"
+            },
+            "description": "id сделки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DealOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{deal_id}/complete": {
+      "post": {
+        "tags": [
+          "deals"
+        ],
+        "summary": "Complete Deal",
+        "description": "«Работа выполнена»: отметка стороны, повтор — без изменений; отметили обе —\n`completed`.",
+        "operationId": "deals_complete_deal",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "deal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id сделки",
+              "title": "Deal Id"
+            },
+            "description": "id сделки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DealOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{deal_id}/cancel": {
+      "post": {
+        "tags": [
+          "deals"
+        ],
+        "summary": "Cancel Deal",
+        "description": "Отменить сделку или предложение «Договорились» с причиной.",
+        "operationId": "deals_cancel_deal",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "deal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id сделки",
+              "title": "Deal Id"
+            },
+            "description": "id сделки"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DealCancelIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DealOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/jobs": {
       "post": {
         "tags": [
@@ -3404,6 +3725,159 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MyResponseOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/responses/{response_id}/accept": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Accept Response",
+        "description": "Выбрать исполнителем: создана сделка `agreed`, заявка «в работе», остальные отклики — «не\nвыбран». Заявка не опубликована или отклик уже решён — 409.",
+        "operationId": "jobs_accept_response",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "response_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id отклика",
+              "title": "Response Id"
+            },
+            "description": "id отклика"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptedOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/responses/{response_id}/shortlist": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Shortlist Response",
+        "description": "«В избранные»: отклик среди лучших кандидатов; повтор — без изменений.",
+        "operationId": "jobs_shortlist_response",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "response_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id отклика",
+              "title": "Response Id"
+            },
+            "description": "id отклика"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/responses/{response_id}/decline": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Decline Response",
+        "description": "Отклонить отклик: место на заявке освобождается.",
+        "operationId": "jobs_decline_response",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "response_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id отклика",
+              "title": "Response Id"
+            },
+            "description": "id отклика"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOut"
                 }
               }
             }
@@ -5115,6 +5589,25 @@
   },
   "components": {
     "schemas": {
+      "AcceptedOut": {
+        "properties": {
+          "deal_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Deal Id"
+          },
+          "job": {
+            "$ref": "#/components/schemas/JobOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deal_id",
+          "job"
+        ],
+        "title": "AcceptedOut",
+        "description": "Отклик выбран (S25): заявка «в работе» и созданная сделка — экран сделки S26."
+      },
       "AuthOut": {
         "properties": {
           "token_type": {
@@ -5946,6 +6439,347 @@
         ],
         "title": "Currency"
       },
+      "DealCancelIn": {
+        "properties": {
+          "reason": {
+            "$ref": "#/components/schemas/DealCancelReason",
+            "description": "plans_changed, no_agreement, no_contact или other; остальные ставит система"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "DealCancelIn"
+      },
+      "DealCancelReason": {
+        "type": "string",
+        "enum": [
+          "plans_changed",
+          "no_agreement",
+          "no_contact",
+          "other",
+          "expired",
+          "account_deleted"
+        ],
+        "title": "DealCancelReason"
+      },
+      "DealOrigin": {
+        "type": "string",
+        "enum": [
+          "job_response",
+          "direct",
+          "chat"
+        ],
+        "title": "DealOrigin"
+      },
+      "DealOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DealStatus"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/DealOrigin"
+          },
+          "my_role": {
+            "$ref": "#/components/schemas/DealRole"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "price": {
+            "$ref": "#/components/schemas/DealPriceOut"
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled At"
+          },
+          "client_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Client Id"
+          },
+          "performer_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Performer Id"
+          },
+          "profile_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Id",
+            "description": "Профиль специалиста исполнителя (S08)"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "response_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Id"
+          },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
+          "awaits_my_confirmation": {
+            "type": "boolean",
+            "title": "Awaits My Confirmation",
+            "description": "«Договорились» предложила вторая сторона: подтвердить или отклонить"
+          },
+          "i_marked_done": {
+            "type": "boolean",
+            "title": "I Marked Done",
+            "description": "Я уже отметил «Работа выполнена»"
+          },
+          "other_marked_done": {
+            "type": "boolean",
+            "title": "Other Marked Done",
+            "description": "Вторая сторона отметила «Работа выполнена»"
+          },
+          "agreed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agreed At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "cancelled_by_me": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled By Me",
+            "description": "Отменил я; None — не отменена или система"
+          },
+          "cancel_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DealCancelReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "origin",
+          "my_role",
+          "title",
+          "category_id",
+          "price",
+          "scheduled_at",
+          "client_id",
+          "performer_id",
+          "profile_id",
+          "job_id",
+          "response_id",
+          "conversation_id",
+          "awaits_my_confirmation",
+          "i_marked_done",
+          "other_marked_done",
+          "agreed_at",
+          "completed_at",
+          "cancelled_at",
+          "cancelled_by_me",
+          "cancel_reason",
+          "version",
+          "created_at"
+        ],
+        "title": "DealOut",
+        "description": "Сделка стороне (S26): кто я в ней, условия и вехи для таймлайна."
+      },
+      "DealPriceOut": {
+        "properties": {
+          "type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DealPriceType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoneyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "amount"
+        ],
+        "title": "DealPriceOut",
+        "description": "Договорённая цена: «3 500 RSD», «от 3 500 RSD», «3 500 RSD/час», «Договорная»."
+      },
+      "DealPriceType": {
+        "type": "string",
+        "enum": [
+          "fixed",
+          "from",
+          "hourly",
+          "negotiable"
+        ],
+        "title": "DealPriceType",
+        "description": "Как понимать цену: значения — как у цены отклика S16."
+      },
+      "DealRole": {
+        "type": "string",
+        "enum": [
+          "client",
+          "performer"
+        ],
+        "title": "DealRole"
+      },
+      "DealStatus": {
+        "type": "string",
+        "enum": [
+          "proposed",
+          "agreed",
+          "completed",
+          "cancelled",
+          "disputed"
+        ],
+        "title": "DealStatus"
+      },
+      "DealsPageOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DealOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "DealsPageOut"
+      },
       "DeletionOut": {
         "properties": {
           "requested_at": {
@@ -6735,7 +7569,7 @@
                 "type": "null"
               }
             ],
-            "description": "Только владельцу"
+            "description": "Владельцу и выбранному исполнителю"
           },
           "address_private": {
             "anyOf": [
@@ -6747,7 +7581,7 @@
               }
             ],
             "title": "Address Private",
-            "description": "Только владельцу"
+            "description": "Владельцу и выбранному исполнителю"
           },
           "languages": {
             "items": {

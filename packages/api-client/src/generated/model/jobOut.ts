@@ -38,9 +38,9 @@ export interface JobOut {
   district_id: number | null;
   /** Смещённая на 300–500 м точка */
   point_public: JobPointOut | null;
-  /** Только владельцу */
+  /** Владельцу и выбранному исполнителю */
   point_exact: JobPointOut | null;
-  /** Только владельцу */
+  /** Владельцу и выбранному исполнителю */
   address_private: string | null;
   languages: string[];
   media_ids: string[];

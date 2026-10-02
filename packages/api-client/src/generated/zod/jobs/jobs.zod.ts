@@ -146,8 +146,10 @@ export const JobsCreateJobResponse = zod.object({
       }),
       zod.null(),
     ])
-    .describe('Только владельцу'),
-  address_private: zod.union([zod.string(), zod.null()]).describe('Только владельцу'),
+    .describe('Владельцу и выбранному исполнителю'),
+  address_private: zod
+    .union([zod.string(), zod.null()])
+    .describe('Владельцу и выбранному исполнителю'),
   languages: zod.array(zod.string()),
   media_ids: zod.array(zod.uuid()),
   photos: zod
@@ -769,8 +771,10 @@ export const JobsRequestSpecialistResponse = zod.object({
       }),
       zod.null(),
     ])
-    .describe('Только владельцу'),
-  address_private: zod.union([zod.string(), zod.null()]).describe('Только владельцу'),
+    .describe('Владельцу и выбранному исполнителю'),
+  address_private: zod
+    .union([zod.string(), zod.null()])
+    .describe('Владельцу и выбранному исполнителю'),
   languages: zod.array(zod.string()),
   media_ids: zod.array(zod.uuid()),
   photos: zod
@@ -981,8 +985,10 @@ export const JobsGetJobResponse = zod.object({
       }),
       zod.null(),
     ])
-    .describe('Только владельцу'),
-  address_private: zod.union([zod.string(), zod.null()]).describe('Только владельцу'),
+    .describe('Владельцу и выбранному исполнителю'),
+  address_private: zod
+    .union([zod.string(), zod.null()])
+    .describe('Владельцу и выбранному исполнителю'),
   languages: zod.array(zod.string()),
   media_ids: zod.array(zod.uuid()),
   photos: zod
@@ -1190,8 +1196,10 @@ export const JobsUpdateJobResponse = zod.object({
       }),
       zod.null(),
     ])
-    .describe('Только владельцу'),
-  address_private: zod.union([zod.string(), zod.null()]).describe('Только владельцу'),
+    .describe('Владельцу и выбранному исполнителю'),
+  address_private: zod
+    .union([zod.string(), zod.null()])
+    .describe('Владельцу и выбранному исполнителю'),
   languages: zod.array(zod.string()),
   media_ids: zod.array(zod.uuid()),
   photos: zod
@@ -1433,8 +1441,10 @@ export const JobsCloseJobResponse = zod.object({
       }),
       zod.null(),
     ])
-    .describe('Только владельцу'),
-  address_private: zod.union([zod.string(), zod.null()]).describe('Только владельцу'),
+    .describe('Владельцу и выбранному исполнителю'),
+  address_private: zod
+    .union([zod.string(), zod.null()])
+    .describe('Владельцу и выбранному исполнителю'),
   languages: zod.array(zod.string()),
   media_ids: zod.array(zod.uuid()),
   photos: zod
@@ -1572,8 +1582,10 @@ export const JobsExtendJobResponse = zod.object({
       }),
       zod.null(),
     ])
-    .describe('Только владельцу'),
-  address_private: zod.union([zod.string(), zod.null()]).describe('Только владельцу'),
+    .describe('Владельцу и выбранному исполнителю'),
+  address_private: zod
+    .union([zod.string(), zod.null()])
+    .describe('Владельцу и выбранному исполнителю'),
   languages: zod.array(zod.string()),
   media_ids: zod.array(zod.uuid()),
   photos: zod
@@ -1732,8 +1744,10 @@ export const JobsListMyJobsResponse = zod.object({
           }),
           zod.null(),
         ])
-        .describe('Только владельцу'),
-      address_private: zod.union([zod.string(), zod.null()]).describe('Только владельцу'),
+        .describe('Владельцу и выбранному исполнителю'),
+      address_private: zod
+        .union([zod.string(), zod.null()])
+        .describe('Владельцу и выбранному исполнителю'),
       languages: zod.array(zod.string()),
       media_ids: zod.array(zod.uuid()),
       photos: zod
@@ -2094,6 +2108,442 @@ export const JobsWithdrawResponseResponse = zod
       .describe('Заявка в карточке «Мои отклики» S17.'),
   })
   .describe('Свой отклик (S17): статус, проверка, предложение и заявка.');
+
+/**
+ * Выбрать исполнителем: создана сделка `agreed`, заявка «в работе», остальные отклики — «не
+ * выбран». Заявка не опубликована или отклик уже решён — 409.
+ * @summary Accept Response
+ */
+export const JobsAcceptResponseParams = zod.object({
+  response_id: zod.uuid().describe('id отклика'),
+});
+
+export const JobsAcceptResponseResponse = zod
+  .object({
+    deal_id: zod.uuid(),
+    job: zod.object({
+      id: zod.uuid(),
+      viewer_role: zod
+        .enum(['owner', 'viewer'])
+        .describe('owner — своя заявка; viewer — гость, исполнитель'),
+      status: zod.enum([
+        'draft',
+        'pending_moderation',
+        'published',
+        'assigned',
+        'completed',
+        'closed',
+        'expired',
+        'rejected',
+        'removed',
+      ]),
+      visibility: zod.enum(['public', 'direct']),
+      title: zod.string(),
+      description: zod.string(),
+      content_lang: zod.string(),
+      category_id: zod.int(),
+      urgency: zod.enum(['asap', 'today', 'this_week', 'flexible']),
+      preferred_from: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+      preferred_to: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+      budget_type: zod.enum(['fixed', 'range', 'negotiable']),
+      budget_min: zod.union([
+        zod.object({
+          amount: zod.int(),
+          currency: zod.enum(['RSD', 'XTR']),
+        }),
+        zod.null(),
+      ]),
+      budget_max: zod.union([
+        zod.object({
+          amount: zod.int(),
+          currency: zod.enum(['RSD', 'XTR']),
+        }),
+        zod.null(),
+      ]),
+      budget_unit: zod.enum(['work', 'hour', 'm2', 'visit', 'item', 'lesson']),
+      city_id: zod.int(),
+      district_id: zod.union([zod.int(), zod.null()]),
+      point_public: zod
+        .union([
+          zod.object({
+            lat: zod.number(),
+            lon: zod.number(),
+          }),
+          zod.null(),
+        ])
+        .describe('Смещённая на 300–500 м точка'),
+      point_exact: zod
+        .union([
+          zod.object({
+            lat: zod.number(),
+            lon: zod.number(),
+          }),
+          zod.null(),
+        ])
+        .describe('Владельцу и выбранному исполнителю'),
+      address_private: zod
+        .union([zod.string(), zod.null()])
+        .describe('Владельцу и выбранному исполнителю'),
+      languages: zod.array(zod.string()),
+      media_ids: zod.array(zod.uuid()),
+      photos: zod
+        .array(
+          zod.object({
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+            placeholder: zod
+              .union([zod.string(), zod.null()])
+              .describe('ThumbHash (base64) для мгновенного превью'),
+          }),
+        )
+        .describe('Готовые фото, вариант md (800 px)'),
+      client: zod
+        .union([
+          zod
+            .object({
+              display_name: zod.string(),
+              member_since: zod.iso.datetime({ offset: true }),
+              jobs_count: zod.int().describe('Сколько заявок клиента публиковалось'),
+              phone_verified: zod.boolean(),
+            })
+            .describe('Блок клиента S15: «Елена К. · в «Соседях» 3 месяца · 2 заявки».'),
+          zod.null(),
+        ])
+        .describe('Блок клиента; null — аккаунт удалён'),
+      max_responses: zod.int(),
+      responses_count: zod.int(),
+      my_response: zod
+        .union([
+          zod.object({
+            id: zod.uuid(),
+            status: zod.enum([
+              'submitted',
+              'viewed',
+              'shortlisted',
+              'accepted',
+              'declined',
+              'withdrawn',
+              'not_selected',
+            ]),
+            review: zod
+              .enum(['pending', 'clear', 'blocked'])
+              .describe('pending — на проверке, blocked — скрыт модерацией'),
+          }),
+          zod.null(),
+        ])
+        .describe('Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null'),
+      extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
+      views_count: zod
+        .union([zod.int(), zod.null()])
+        .describe('Просмотры (S23) — владельцу; остальным — null'),
+      new_responses: zod
+        .union([zod.int(), zod.null()])
+        .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
+      moderation_note: zod
+        .union([zod.string(), zod.null()])
+        .describe('Причина отказа модерации — владельцу'),
+      version: zod.int(),
+      created_at: zod.iso.datetime({ offset: true }),
+      published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+      expires_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+      closed_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+      close_reason: zod.union([
+        zod.enum([
+          'hired_here',
+          'hired_elsewhere',
+          'not_needed',
+          'no_suitable',
+          'expired',
+          'removed',
+        ]),
+        zod.null(),
+      ]),
+    }),
+  })
+  .describe('Отклик выбран (S25): заявка «в работе» и созданная сделка — экран сделки S26.');
+
+/**
+ * «В избранные»: отклик среди лучших кандидатов; повтор — без изменений.
+ * @summary Shortlist Response
+ */
+export const JobsShortlistResponseParams = zod.object({
+  response_id: zod.uuid().describe('id отклика'),
+});
+
+export const JobsShortlistResponseResponse = zod.object({
+  id: zod.uuid(),
+  viewer_role: zod
+    .enum(['owner', 'viewer'])
+    .describe('owner — своя заявка; viewer — гость, исполнитель'),
+  status: zod.enum([
+    'draft',
+    'pending_moderation',
+    'published',
+    'assigned',
+    'completed',
+    'closed',
+    'expired',
+    'rejected',
+    'removed',
+  ]),
+  visibility: zod.enum(['public', 'direct']),
+  title: zod.string(),
+  description: zod.string(),
+  content_lang: zod.string(),
+  category_id: zod.int(),
+  urgency: zod.enum(['asap', 'today', 'this_week', 'flexible']),
+  preferred_from: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  preferred_to: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  budget_type: zod.enum(['fixed', 'range', 'negotiable']),
+  budget_min: zod.union([
+    zod.object({
+      amount: zod.int(),
+      currency: zod.enum(['RSD', 'XTR']),
+    }),
+    zod.null(),
+  ]),
+  budget_max: zod.union([
+    zod.object({
+      amount: zod.int(),
+      currency: zod.enum(['RSD', 'XTR']),
+    }),
+    zod.null(),
+  ]),
+  budget_unit: zod.enum(['work', 'hour', 'm2', 'visit', 'item', 'lesson']),
+  city_id: zod.int(),
+  district_id: zod.union([zod.int(), zod.null()]),
+  point_public: zod
+    .union([
+      zod.object({
+        lat: zod.number(),
+        lon: zod.number(),
+      }),
+      zod.null(),
+    ])
+    .describe('Смещённая на 300–500 м точка'),
+  point_exact: zod
+    .union([
+      zod.object({
+        lat: zod.number(),
+        lon: zod.number(),
+      }),
+      zod.null(),
+    ])
+    .describe('Владельцу и выбранному исполнителю'),
+  address_private: zod
+    .union([zod.string(), zod.null()])
+    .describe('Владельцу и выбранному исполнителю'),
+  languages: zod.array(zod.string()),
+  media_ids: zod.array(zod.uuid()),
+  photos: zod
+    .array(
+      zod.object({
+        url: zod.string(),
+        width: zod.int(),
+        height: zod.int(),
+        placeholder: zod
+          .union([zod.string(), zod.null()])
+          .describe('ThumbHash (base64) для мгновенного превью'),
+      }),
+    )
+    .describe('Готовые фото, вариант md (800 px)'),
+  client: zod
+    .union([
+      zod
+        .object({
+          display_name: zod.string(),
+          member_since: zod.iso.datetime({ offset: true }),
+          jobs_count: zod.int().describe('Сколько заявок клиента публиковалось'),
+          phone_verified: zod.boolean(),
+        })
+        .describe('Блок клиента S15: «Елена К. · в «Соседях» 3 месяца · 2 заявки».'),
+      zod.null(),
+    ])
+    .describe('Блок клиента; null — аккаунт удалён'),
+  max_responses: zod.int(),
+  responses_count: zod.int(),
+  my_response: zod
+    .union([
+      zod.object({
+        id: zod.uuid(),
+        status: zod.enum([
+          'submitted',
+          'viewed',
+          'shortlisted',
+          'accepted',
+          'declined',
+          'withdrawn',
+          'not_selected',
+        ]),
+        review: zod
+          .enum(['pending', 'clear', 'blocked'])
+          .describe('pending — на проверке, blocked — скрыт модерацией'),
+      }),
+      zod.null(),
+    ])
+    .describe('Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null'),
+  extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
+  views_count: zod
+    .union([zod.int(), zod.null()])
+    .describe('Просмотры (S23) — владельцу; остальным — null'),
+  new_responses: zod
+    .union([zod.int(), zod.null()])
+    .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
+  moderation_note: zod
+    .union([zod.string(), zod.null()])
+    .describe('Причина отказа модерации — владельцу'),
+  version: zod.int(),
+  created_at: zod.iso.datetime({ offset: true }),
+  published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  expires_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  closed_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  close_reason: zod.union([
+    zod.enum(['hired_here', 'hired_elsewhere', 'not_needed', 'no_suitable', 'expired', 'removed']),
+    zod.null(),
+  ]),
+});
+
+/**
+ * Отклонить отклик: место на заявке освобождается.
+ * @summary Decline Response
+ */
+export const JobsDeclineResponseParams = zod.object({
+  response_id: zod.uuid().describe('id отклика'),
+});
+
+export const JobsDeclineResponseResponse = zod.object({
+  id: zod.uuid(),
+  viewer_role: zod
+    .enum(['owner', 'viewer'])
+    .describe('owner — своя заявка; viewer — гость, исполнитель'),
+  status: zod.enum([
+    'draft',
+    'pending_moderation',
+    'published',
+    'assigned',
+    'completed',
+    'closed',
+    'expired',
+    'rejected',
+    'removed',
+  ]),
+  visibility: zod.enum(['public', 'direct']),
+  title: zod.string(),
+  description: zod.string(),
+  content_lang: zod.string(),
+  category_id: zod.int(),
+  urgency: zod.enum(['asap', 'today', 'this_week', 'flexible']),
+  preferred_from: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  preferred_to: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  budget_type: zod.enum(['fixed', 'range', 'negotiable']),
+  budget_min: zod.union([
+    zod.object({
+      amount: zod.int(),
+      currency: zod.enum(['RSD', 'XTR']),
+    }),
+    zod.null(),
+  ]),
+  budget_max: zod.union([
+    zod.object({
+      amount: zod.int(),
+      currency: zod.enum(['RSD', 'XTR']),
+    }),
+    zod.null(),
+  ]),
+  budget_unit: zod.enum(['work', 'hour', 'm2', 'visit', 'item', 'lesson']),
+  city_id: zod.int(),
+  district_id: zod.union([zod.int(), zod.null()]),
+  point_public: zod
+    .union([
+      zod.object({
+        lat: zod.number(),
+        lon: zod.number(),
+      }),
+      zod.null(),
+    ])
+    .describe('Смещённая на 300–500 м точка'),
+  point_exact: zod
+    .union([
+      zod.object({
+        lat: zod.number(),
+        lon: zod.number(),
+      }),
+      zod.null(),
+    ])
+    .describe('Владельцу и выбранному исполнителю'),
+  address_private: zod
+    .union([zod.string(), zod.null()])
+    .describe('Владельцу и выбранному исполнителю'),
+  languages: zod.array(zod.string()),
+  media_ids: zod.array(zod.uuid()),
+  photos: zod
+    .array(
+      zod.object({
+        url: zod.string(),
+        width: zod.int(),
+        height: zod.int(),
+        placeholder: zod
+          .union([zod.string(), zod.null()])
+          .describe('ThumbHash (base64) для мгновенного превью'),
+      }),
+    )
+    .describe('Готовые фото, вариант md (800 px)'),
+  client: zod
+    .union([
+      zod
+        .object({
+          display_name: zod.string(),
+          member_since: zod.iso.datetime({ offset: true }),
+          jobs_count: zod.int().describe('Сколько заявок клиента публиковалось'),
+          phone_verified: zod.boolean(),
+        })
+        .describe('Блок клиента S15: «Елена К. · в «Соседях» 3 месяца · 2 заявки».'),
+      zod.null(),
+    ])
+    .describe('Блок клиента; null — аккаунт удалён'),
+  max_responses: zod.int(),
+  responses_count: zod.int(),
+  my_response: zod
+    .union([
+      zod.object({
+        id: zod.uuid(),
+        status: zod.enum([
+          'submitted',
+          'viewed',
+          'shortlisted',
+          'accepted',
+          'declined',
+          'withdrawn',
+          'not_selected',
+        ]),
+        review: zod
+          .enum(['pending', 'clear', 'blocked'])
+          .describe('pending — на проверке, blocked — скрыт модерацией'),
+      }),
+      zod.null(),
+    ])
+    .describe('Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null'),
+  extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
+  views_count: zod
+    .union([zod.int(), zod.null()])
+    .describe('Просмотры (S23) — владельцу; остальным — null'),
+  new_responses: zod
+    .union([zod.int(), zod.null()])
+    .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
+  moderation_note: zod
+    .union([zod.string(), zod.null()])
+    .describe('Причина отказа модерации — владельцу'),
+  version: zod.int(),
+  created_at: zod.iso.datetime({ offset: true }),
+  published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  expires_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  closed_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  close_reason: zod.union([
+    zod.enum(['hired_here', 'hired_elsewhere', 'not_needed', 'no_suitable', 'expired', 'removed']),
+    zod.null(),
+  ]),
+});
 
 /**
  * Мои отклики (S17), новые первыми, с заявкой; числа на чипах и «сегодня откликов: 3 из

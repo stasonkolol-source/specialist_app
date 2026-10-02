@@ -15,7 +15,7 @@ from app.modules.jobs.domain.job import (
 )
 from app.modules.jobs.domain.response import ResponseId, ResponseReview, ResponseStatus
 from app.platform.kernel.geo import GeoPoint
-from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, UserId
+from app.platform.kernel.ids import CategoryId, CityId, DealId, DistrictId, MediaId, UserId
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -65,3 +65,11 @@ class MyResponseRef:
     id: ResponseId
     status: ResponseStatus
     review: ResponseReview
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AcceptedResponse:
+    """Отклик выбран (S25, 6.1a): заявка и созданная сделка — экран сделки S26."""
+
+    job_id: JobId
+    deal_id: DealId

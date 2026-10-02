@@ -5,9 +5,11 @@
 исправляет — снова на проверку. Опубликованная живёт по срочности (§7.9) и продлевается не
 больше трёх раз; истёкшую можно переопубликовать. Существенная правка опубликованной (текст,
 категория, бюджет) — снова на проверку. Закрывает клиент — с причиной, истекает по сроку
-система, снимает модерация. `assigned` и `completed` ведут сделки (6.1). Каждый переход — в
-историю статусов (§7.10). Отклики (5.4) — подагрегат: создаются, правятся и отзываются методами
-заявки, а лимит мест — её инвариант (`domain/response.py`).
+система, снимает модерация. `assigned` и `completed` ведут сделки (6.1a): клиент выбирает отклик —
+заявка «в работе», сделку создаёт модуль deals в той же транзакции; отменённая сделка снова
+открывает заявку, завершённая — завершает. Каждый переход — в историю статусов (§7.10). Отклики
+(5.4) — подагрегат: создаются, правятся и отзываются методами заявки, а лимит мест — её
+инвариант (`domain/response.py`).
 """
 
 from dataclasses import dataclass, field
@@ -30,6 +32,7 @@ from app.modules.jobs.errors import (
     JobFullError,
     JobNotOpenError,
     OwnJobResponseError,
+    ResponseNotActiveError,
     ResponseNotFoundError,
 )
 from app.platform.contracts.events.jobs import (
@@ -39,6 +42,7 @@ from app.platform.contracts.events.jobs import (
     JobPublished,
     JobSubmitted,
     JobUpdated,
+    ResponseDeclined,
     ResponseSubmitted,
     ResponseUpdated,
     ResponseWithdrawn,
@@ -284,6 +288,8 @@ class Job(VersionedAggregate):
     expiry_reminded_at: datetime | None = None
     """Когда напомнили о конце текущего срока; новый срок (публикация, продление) — None."""
     deleted_at: datetime | None = None
+    selected_response_id: ResponseId | None = None
+    """Выбранный клиентом отклик, пока по нему идёт сделка (6.1a)."""
     responses: list[Response] = field(default_factory=list)
     """Отклики, кроме удалённых: репозиторий загружает их вместе с заявкой."""
     _history: list[tuple[StatusChange[JobStatus], ActorKind]] = field(
@@ -381,8 +387,11 @@ class Job(VersionedAggregate):
         return review or self.status is JobStatus.PENDING_MODERATION
 
     def close(self, reason: CloseReason, *, now: datetime) -> None:
-        """Клиент закрыл: с причиной из `CLIENT_CLOSE_REASONS`."""
+        """Клиент закрыл: с причиной из `CLIENT_CLOSE_REASONS`. Заявку «в работе» закрывает
+        отмена её сделки, а не клиент напрямую — иначе сделка осталась бы без заявки."""
         self._ensure_alive()
+        if self.status is JobStatus.ASSIGNED:
+            raise JobNotOpenError(job_id=self.id, job_status=self.status.value)
         if reason not in CLIENT_CLOSE_REASONS:
             raise InvalidJobError(field="reason", reason="not_allowed")
         self._move(JobStatus.CLOSED, by=self.client_id, kind=ActorKind.USER, now=now)
@@ -449,6 +458,8 @@ class Job(VersionedAggregate):
         `by_system` — аккаунт удалён (UserDeleted)."""
         if self.deleted_at is not None:
             return
+        if self.status is JobStatus.ASSIGNED and not by_system:  # сначала отменить сделку
+            raise JobNotOpenError(job_id=self.id, job_status=self.status.value)
         if self.status in CLOSABLE:
             kind = ActorKind.SYSTEM if by_system else ActorKind.USER
             by = None if by_system else self.client_id
@@ -565,12 +576,120 @@ class Job(VersionedAggregate):
         self.updated_at = now
         return True
 
+    def accept_response(
+        self, response_id: ResponseId, *, client_id: UserId, now: datetime
+    ) -> Response:
+        """Клиент выбрал отклик исполнителем (§7.9): заявка «в работе», остальные активные
+        отклики — «не выбран», места свободны. Выбрать можно активный видимый клиенту отклик
+        опубликованной заявки; сделку создаёт use case через фасад deals в той же транзакции и
+        сам записывает событие ResponseAccepted — в нём id сделки."""
+        response = self._client_response(response_id, client_id)
+        if self.status is not JobStatus.PUBLISHED:
+            raise JobNotOpenError(job_id=self.id, job_status=self.status.value)
+        if not response.is_active:
+            raise ResponseNotActiveError(
+                response_id=response.id, response_status=response.status.value
+            )
+        response.accept(now=now)
+        for other in self.responses:
+            if other is not response:
+                other.job_closed(now=now)
+        self.responses_count = 0
+        self.selected_response_id = response.id
+        self._move(JobStatus.ASSIGNED, by=client_id, kind=ActorKind.USER, now=now)
+        return response
+
+    def shortlist_response(
+        self, response_id: ResponseId, *, client_id: UserId, now: datetime
+    ) -> Response:
+        """«В избранные» (S24): отклик ждёт решения среди лучших; повтор — без изменений."""
+        response = self._client_response(response_id, client_id)
+        if self.status is not JobStatus.PUBLISHED:
+            raise JobNotOpenError(job_id=self.id, job_status=self.status.value)
+        if not response.is_active:
+            raise ResponseNotActiveError(
+                response_id=response.id, response_status=response.status.value
+            )
+        if response.shortlist(now=now):
+            self.updated_at = now
+        return response
+
+    def decline_response(
+        self, response_id: ResponseId, *, client_id: UserId, now: datetime
+    ) -> Response:
+        """«Отклонить» (S24): место на заявке освобождается."""
+        response = self._client_response(response_id, client_id)
+        if self.status is not JobStatus.PUBLISHED:
+            raise JobNotOpenError(job_id=self.id, job_status=self.status.value)
+        if not response.is_active:
+            raise ResponseNotActiveError(
+                response_id=response.id, response_status=response.status.value
+            )
+        response.decline(now=now)
+        self.responses_count = max(0, self.responses_count - 1)
+        self.updated_at = now
+        self._record(
+            ResponseDeclined(
+                job_id=self.id,
+                response_id=response.id,
+                performer_id=response.performer_id,
+                client_id=self.client_id,
+                occurred_at=now,
+            )
+        )
+        return response
+
+    def reopen_after_deal(
+        self, response_id: ResponseId, *, by_performer: bool, now: datetime
+    ) -> bool:
+        """Сделку по выбранному отклику отменили (§7.9): заявка снова «опубликована», прежние
+        кандидаты («не выбран») — «просмотрен», выбранный — «отозван» исполнителем или
+        «отклонён»; места — по активным откликам. Срок вышел, пока шла сделка, — новый срок.
+        Заявка уже не «в работе» по этому отклику — ничего, False."""
+        if self.status is not JobStatus.ASSIGNED or self.selected_response_id != response_id:
+            return False
+        chosen = self._find_response(response_id)
+        if chosen is not None and chosen.status is ResponseStatus.ACCEPTED:
+            chosen.deal_cancelled(by_performer=by_performer, now=now)
+        for response in self.responses:
+            if response.status is ResponseStatus.NOT_SELECTED:
+                response.reconsider(now=now)
+        self.responses_count = sum(1 for response in self.responses if response.is_active)
+        self.selected_response_id = None
+        self._move(
+            JobStatus.PUBLISHED, by=None, kind=ActorKind.SYSTEM, now=now, reason="deal_cancelled"
+        )
+        if self.expires_at is None or self.expires_at <= now:
+            self.expires_at, self.expiry_reminded_at = lifetime(self.content.urgency, now), None
+        self._publish_event(now, republished=True)
+        return True
+
+    def complete_after_deal(self, response_id: ResponseId, *, now: datetime) -> bool:
+        """Сделка по выбранному отклику завершена: заявка «завершена» — «нашёлся здесь».
+        Заявка уже не «в работе» по этому отклику — ничего, False."""
+        if self.status is not JobStatus.ASSIGNED or self.selected_response_id != response_id:
+            return False
+        self._move(
+            JobStatus.COMPLETED, by=None, kind=ActorKind.SYSTEM, now=now, reason="deal_completed"
+        )
+        self.closed_at, self.close_reason = now, CloseReason.HIRED_HERE
+        return True
+
     def pull_history(self) -> list[tuple[StatusChange[JobStatus], ActorKind]]:
         history, self._history = self._history, []
         return history
 
     def _find_response(self, response_id: ResponseId) -> Response | None:
         return next((r for r in self.responses if r.id == response_id), None)
+
+    def _client_response(self, response_id: ResponseId, client_id: UserId) -> Response:
+        """Отклик на свою заявку, который клиент видит (проверка пройдена); чужая заявка,
+        невидимый или удалённый отклик — как несуществующий (404)."""
+        self._ensure_alive()
+        response = self._find_response(response_id)
+        if client_id != self.client_id or response is None or not response.visible_to_client:
+            raise ResponseNotFoundError(response_id=response_id)
+        return response
 
     def _performer_response(self, response_id: ResponseId, performer_id: UserId) -> Response:
         """Отклик этого исполнителя; чужой — как несуществующий (404)."""

@@ -218,6 +218,9 @@ def _to_domain(row: JobRow, media: tuple[MediaId, ...], responses: list[Response
         moderation_note=row.moderation_note,
         expiry_reminded_at=row.expiry_reminded_at,
         deleted_at=row.deleted_at,
+        selected_response_id=(
+            ResponseId(row.selected_response_id) if row.selected_response_id is not None else None
+        ),
         responses=responses,
         version=row.version,
     )
@@ -258,3 +261,4 @@ def _apply(job: Job, row: JobRow) -> None:
     row.close_reason = job.close_reason
     row.updated_at = job.updated_at
     row.deleted_at = job.deleted_at
+    row.selected_response_id = job.selected_response_id

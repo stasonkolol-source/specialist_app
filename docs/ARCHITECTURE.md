@@ -1407,9 +1407,11 @@ CREATE TABLE deals.deals (
   status                text NOT NULL DEFAULT 'agreed'
                         CHECK (status IN ('proposed','agreed','completed','cancelled','disputed')),
   proposed_by           uuid,             -- для origin=chat: кто нажал «Договорились» (вторая сторона подтверждает)
+  price_type            text CHECK (price_type IN ('fixed','from','hourly','negotiable')),  -- как у цены отклика
   agreed_price          bigint,
   currency              char(3) NOT NULL DEFAULT 'RSD' CHECK (currency = 'RSD'),
   scheduled_at          timestamptz,
+  agreed_at             timestamptz,      -- стороны договорились: отклик выбран или «Договорились» подтверждено
   client_confirmed_at   timestamptz,      -- «работа выполнена»
   performer_confirmed_at timestamptz,
   completed_at          timestamptz,
