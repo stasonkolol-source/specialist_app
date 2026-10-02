@@ -146,3 +146,26 @@ export {
   useFavorites,
   useToggleFavorite,
 } from './favorites/favorites.ts';
+export type { DraftLanguage, DraftPhoto, DraftProblem, DraftUnit, JobDraft } from './jobs/draft.ts';
+export {
+  BUDGET_DIGITS,
+  DRAFT_LANGUAGES,
+  DRAFT_STORAGE_KEY,
+  DRAFT_TTL_MS,
+  DRAFT_UNITS,
+  JOB_ADDRESS_MAX,
+  JOB_DESCRIPTION_MAX,
+  JOB_PHOTOS_MAX,
+  JOB_TITLE_MAX,
+  JOB_TITLE_MIN,
+  amountOf,
+  budgetProblems,
+  draftSlot,
+  jobInOf,
+  newDraft,
+  parseDraft,
+  whatProblems,
+  whenProblems,
+} from './jobs/draft.ts';
+export type { PublishJob } from './jobs/jobs.ts';
+export { jobQueryKey, useCreateJob, useJob } from './jobs/jobs.ts';

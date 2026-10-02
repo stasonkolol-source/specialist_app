@@ -8,3 +8,4 @@ export * from './price.ts';
 export * from './rating.ts';
 export * from './response.ts';
 export * from './slots.ts';
+export * from './when.ts';

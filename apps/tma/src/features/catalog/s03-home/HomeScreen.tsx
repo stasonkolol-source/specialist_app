@@ -4,8 +4,9 @@
 // подсказками `/suggest` (с задержкой): подсказка ведёт в выдачу категории, Enter — в выдачу по
 // тексту. Плитки разделов — в выдачу раздела, «Все услуги» — в S04. Переключатель «Услуги / Вещи»
 // — по флагу goods.segment (client-config, ADR-0019): «Вещи» в MVP — заглушка S58.
-// Скрыто до своих шагов: «Не хотите искать сами? Создать заявку» (5.2), «Ищете подработку?»
-// (5.3), «Мои активные заявки» (5.6). «Свободны сегодня рядом» — своим чанком (TodayNearby.tsx).
+// «Не хотите искать сами?» ведёт в мастер заявки S20a (5.2). Скрыто до своих шагов: «Ищете
+// подработку?» (5.3), «Мои активные заявки» (5.6). «Свободны сегодня рядом» — своим чанком
+// (TodayNearby.tsx).
 import type { CategoryOut, SuggestionOut } from '@sosed/api-client';
 import {
   FLAGS,
@@ -20,6 +21,8 @@ import { useLocale, useTranslation } from '@sosed/i18n';
 import type { AvatarPalette, IconName } from '@sosed/ui-web';
 import {
   Banner,
+  Button,
+  Card,
   Chip,
   EmptyState,
   Group,
@@ -42,7 +45,7 @@ import { useDebounced } from '../shared/debounce.ts';
 import type { ClientPoint } from '../shared/location.ts';
 import { useLocate } from '../shared/location.ts';
 import type { ResultsSearch } from '../shared/paths.ts';
-import { CATALOG_PATHS } from '../shared/paths.ts';
+import { CATALOG_PATHS, CREATE_JOB_PATH } from '../shared/paths.ts';
 
 type Segment = 'services' | 'goods';
 
@@ -145,6 +148,7 @@ function Services() {
         </Heading>
         <Sections onOpen={(id) => results({ category: id })} href={href} />
       </section>
+      <CreateJob onOpen={() => void router.navigate({ to: CREATE_JOB_PATH })} />
       {cards.length > 0 && (
         <Suspense fallback={null}>
           <TodayNearby
@@ -155,6 +159,29 @@ function Services() {
         </Suspense>
       )}
     </>
+  );
+}
+
+/** «Не хотите искать сами?»: описать задачу — откликнутся до пяти исполнителей. */
+function CreateJob({ onOpen }: { onOpen: () => void }) {
+  const { t } = useTranslation('catalog');
+  return (
+    <Card className="flex flex-col gap-3">
+      <div className="flex items-start gap-3">
+        <RowIcon icon="jobs" xl />
+        <div className="flex min-w-0 flex-col gap-1">
+          <Heading variant="h3" as="h2">
+            {t('home.createTitle')}
+          </Heading>
+          <Text variant="sm" secondary>
+            {t('home.createText')}
+          </Text>
+        </div>
+      </div>
+      <Button full onClick={onOpen}>
+        {t('home.create')}
+      </Button>
+    </Card>
   );
 }
 

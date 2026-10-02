@@ -45,16 +45,15 @@ for (const theme of THEMES) {
   }
 
   test(`S20a создание ${theme}: MainButton скрывает таббар`, async ({ page }) => {
-    const watch = await open(page, `theme=${theme}&lang=ru`);
+    const watch = await open(page, `theme=${theme}&lang=ru`, { signedIn: true });
     const tabs = page.getByRole('navigation', { name: 'Разделы' });
 
     await tabs.getByRole('link', { name: 'Создать заявку' }).click();
 
-    await expect(page.getByRole('heading', { name: 'Создать заявку' })).toBeVisible();
+    // экраны мастера со скриншотами — jobs.spec.ts
+    await expect(page.getByRole('heading', { name: 'Что нужно сделать?' })).toBeVisible();
     await expect(tabs).toBeHidden();
     expect(real(watch.problems)).toEqual([]);
-    await expect(page).toHaveScreenshot(`S20a-create-${theme}-ru.png`, { fullPage: true });
-    await expectNoAxeViolations(page);
   });
 }
 

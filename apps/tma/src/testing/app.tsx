@@ -28,6 +28,8 @@ export interface StartOptions {
   colorScheme?: ColorScheme;
   /** Кнопка, которую «нажмёт» человек в нативном попапе; null — закрыл попап. */
   popupAnswer?: string | null;
+  /** Что уже лежит в DeviceStorage Telegram. */
+  deviceStorage?: Record<string, string>;
 }
 
 export function startApp(path = '/', options: StartOptions = {}) {
@@ -38,6 +40,7 @@ export function startApp(path = '/', options: StartOptions = {}) {
     writeAccess,
     colorScheme,
     popupAnswer,
+    deviceStorage: options.deviceStorage,
   });
   const app = assemble(platform, {
     version: '0.1.0',

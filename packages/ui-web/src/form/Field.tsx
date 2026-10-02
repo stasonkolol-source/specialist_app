@@ -3,6 +3,7 @@ import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'rea
 import { cloneElement, isValidElement, useId } from 'react';
 
 import { cx } from '../cx.ts';
+import type { IconName } from '../icon/Icon.tsx';
 import { Icon } from '../icon/Icon.tsx';
 
 const FRAME =
@@ -52,10 +53,12 @@ export function Field({ label, hint, error, children }: FieldProps) {
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   /** Суффикс в поле («RSD»). */
   suffix?: ReactNode;
+  /** Иконка слева: замок у приватного адреса S20b. */
+  icon?: IconName;
   invalid?: boolean;
 }
 
-export function Input({ suffix, invalid = false, className, ...rest }: InputProps) {
+export function Input({ suffix, icon, invalid = false, className, ...rest }: InputProps) {
   return (
     <div
       className={cx(
@@ -65,9 +68,47 @@ export function Input({ suffix, invalid = false, className, ...rest }: InputProp
         className,
       )}
     >
+      {icon && <Icon name={icon} className="shrink-0 text-text2" />}
       <input {...rest} aria-invalid={invalid || undefined} className={cx(BARE, 'h-full')} />
       {suffix && <span className="ml-auto font-semibold text-text2">{suffix}</span>}
     </div>
+  );
+}
+
+export interface PickerButtonProps {
+  /** Выбранное значение или приглашение выбрать. */
+  children: ReactNode;
+  icon?: IconName;
+  onClick: () => void;
+  invalid?: boolean;
+  id?: string;
+  'aria-describedby'?: string;
+}
+
+/** Поле-кнопка .inp со стрелкой вниз: выбор из списка в шторке («Где» S20b). */
+export function PickerButton({
+  children,
+  icon,
+  onClick,
+  invalid = false,
+  ...rest
+}: PickerButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-invalid={invalid || undefined}
+      {...rest}
+      className={cx(
+        FRAME,
+        'flex h-12 items-center gap-2 px-3.5 text-left',
+        invalid ? 'border-danger' : 'border-field',
+      )}
+    >
+      {icon && <Icon name={icon} className="shrink-0 text-accent" />}
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+      <Icon name="chev-down" className="shrink-0 text-text2" />
+    </button>
   );
 }
 

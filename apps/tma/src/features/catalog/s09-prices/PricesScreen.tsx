@@ -24,7 +24,7 @@ import { useId } from 'react';
 import { LoadError } from '../shared/LoadError.tsx';
 import { Unavailable } from '../shared/Unavailable.tsx';
 import { avatarSrc, priceAmount, serviceDuration, serviceUnit } from '../shared/card.ts';
-import { CARD_PATHS } from '../shared/paths.ts';
+import { CARD_PATHS, CREATE_JOB_PATH } from '../shared/paths.ts';
 
 /** Аватар sm — 36 px. */
 const AVATAR_SM = 36;
@@ -103,9 +103,16 @@ function Prices({ card, services }: { card: SpecialistProfileOut; services: Card
   );
 }
 
+/** Услуга ведёт в мастер заявки S20a с её категорией и названием (5.2); прямой запрос этому
+ *  специалисту — с 5.6. */
 function PriceSection({ title, items }: { title: string; items: CardServiceOut[] }) {
   const id = useId();
   const format = useFormat();
+  const router = useRouter();
+  const order = (service: CardServiceOut) => ({
+    to: CREATE_JOB_PATH,
+    search: { category: service.category_id ?? undefined, title: service.title },
+  });
   return (
     <section aria-labelledby={id} className="flex flex-col gap-2">
       <SectionTitle id={id}>{title}</SectionTitle>
@@ -116,6 +123,11 @@ function PriceSection({ title, items }: { title: string; items: CardServiceOut[]
             title={service.title}
             subtitle={<ServiceNote service={service} />}
             trailing={<Price>{priceAmount(format, service)}</Price>}
+            href={router.history.createHref(router.buildLocation(order(service)).href)}
+            onClick={(event) => {
+              event.preventDefault();
+              void router.navigate(order(service));
+            }}
           />
         ))}
       </Group>

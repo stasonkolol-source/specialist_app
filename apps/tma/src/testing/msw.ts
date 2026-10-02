@@ -20,7 +20,7 @@ import {
   getSearchSuggestMockHandler,
   getSystemGetClientConfigMockHandler,
 } from '@sosed/api-client/mocks';
-import type { MeOut, MeUpdateIn, TokensOut } from '@sosed/api-client';
+import type { JobIn, MeOut, MeUpdateIn, TokensOut } from '@sosed/api-client';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 
@@ -43,6 +43,7 @@ import {
 } from './fixtures.ts';
 import type { BackendReply } from './backend.ts';
 import { FavoritesBackend } from './favoritesBackend.ts';
+import { JobsBackend } from './jobsBackend.ts';
 import { ProfileBackend } from './profileBackend.ts';
 
 /** Origin API в тестах: fetch в Node не принимает относительные URL. */
@@ -135,6 +136,22 @@ export const cardHandlers = [
   ),
 ];
 
+/** Заявки (5.2) по фейку backend; по умолчанию — свежий на каждый запрос. Тесты мастера S20
+ *  ставят свой — с памятью (server.use). */
+export const jobsHandlers = (backend: () => JobsBackend) => [
+  http.post(/\/api\/v1\/jobs$/, async ({ request }) =>
+    respond(
+      backend().create(
+        (await request.json()) as JobIn,
+        request.headers.get('Idempotency-Key'),
+      ),
+    ),
+  ),
+  http.get(/\/api\/v1\/jobs\/([^/]+)$/, ({ request }) =>
+    respond(backend().get(new URL(request.url).pathname.split('/').at(-1) ?? '')),
+  ),
+];
+
 export const handlers = [
   getSystemGetClientConfigMockHandler(CLIENT_CONFIG),
   getIdentityAuthenticateTelegramMockHandler({ ...TOKENS, is_new: false, user: ME }),
@@ -161,6 +178,7 @@ export const handlers = [
   ...cardHandlers,
   ...favoritesHandlers(() => new FavoritesBackend()),
   ...profileHandlers(() => new ProfileBackend()),
+  ...jobsHandlers(() => new JobsBackend()),
 ];
 
 export const server = setupServer(...handlers);

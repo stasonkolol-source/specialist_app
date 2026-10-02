@@ -20,6 +20,15 @@ export const CARD_PATHS = {
 /** Избранное S12: вход — из профиля S31. */
 export const FAVORITES_PATH = '/favorites';
 
+/** Мастер заявки S20a (фича jobs, 5.2): CTA Главной и пустой выдачи, услуга прайса S09 — с
+ *  категорией и названием, если они известны. */
+export const CREATE_JOB_PATH = '/jobs/new';
+
+export interface CreateJobSearch {
+  category?: number;
+  title?: string;
+}
+
 /** Адрес профиля S08 для ссылки: deep link `s_` (routes/startapp.ts) ведёт сюда же. */
 export const profilePath = (profileId: string) => `/specialists/${profileId}`;
 

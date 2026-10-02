@@ -453,7 +453,7 @@ describe('deep links (startapp)', () => {
     });
     await pressMainButton(telegram);
 
-    expect(await screen.findByRole('heading', { name: 'Создать заявку' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Что нужно сделать?' })).toBeTruthy();
     expect(app.router.state.location.pathname).toBe('/jobs/new');
   });
 });
@@ -480,7 +480,7 @@ describe('creating actions require S02c', () => {
     });
     await pressMainButton(telegram);
 
-    expect(await screen.findByRole('heading', { name: 'Создать заявку' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Что нужно сделать?' })).toBeTruthy();
     expect(app.router.state.location.pathname).toBe('/jobs/new');
   });
 
