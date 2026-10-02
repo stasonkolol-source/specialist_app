@@ -1,5 +1,6 @@
-// .seg, .opt + .radio/.chk, .sw из ui.css: выбор одного, нескольких и переключатель.
-import type { KeyboardEvent, ReactNode, Ref } from 'react';
+// .seg, .opt + .radio/.chk, .sw из ui.css: выбор одного, нескольких и переключатель. Сегменты
+// ссылками (nav.seg) — разделы одного экрана со своими адресами: «Лента / Мои отклики / Мои заявки».
+import type { KeyboardEvent, MouseEvent, ReactNode, Ref } from 'react';
 import { useId, useRef } from 'react';
 
 import { FOCUS, cx } from '../cx.ts';
@@ -11,6 +12,15 @@ export interface SegmentedOption<T extends string> {
   label: ReactNode;
   icon?: IconName;
 }
+
+const SEGMENTS = 'grid auto-cols-fr grid-flow-col gap-0.75 rounded-btn bg-bg2 p-0.75';
+
+const segment = (on: boolean) =>
+  cx(
+    'flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-seg-item border-0 text-sm font-semibold',
+    on ? 'bg-surface text-text shadow-seg' : 'bg-transparent text-text2',
+    FOCUS,
+  );
 
 /** Сегменты (.seg): radiogroup, стрелки влево-вправо меняют выбор. */
 export function Segmented<T extends string>({
@@ -36,11 +46,7 @@ export function Segmented<T extends string>({
     refs.current[next]?.focus();
   };
   return (
-    <div
-      role="radiogroup"
-      aria-label={label}
-      className="grid auto-cols-fr grid-flow-col gap-0.75 rounded-btn bg-bg2 p-0.75"
-    >
+    <div role="radiogroup" aria-label={label} className={SEGMENTS}>
       {options.map((o, i) => {
         const on = o.value === value;
         return (
@@ -55,11 +61,7 @@ export function Segmented<T extends string>({
             tabIndex={on ? 0 : -1}
             onClick={() => onChange(o.value)}
             onKeyDown={(e) => onKey(e, i)}
-            className={cx(
-              'flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-seg-item border-0 text-sm font-semibold',
-              on ? 'bg-surface text-text shadow-seg' : 'bg-transparent text-text2',
-              FOCUS,
-            )}
+            className={segment(on)}
           >
             {o.icon && <Icon name={o.icon} size={16} />}
             {o.label}
@@ -67,6 +69,45 @@ export function Segmented<T extends string>({
         );
       })}
     </div>
+  );
+}
+
+export interface SegmentLink {
+  id: string;
+  label: ReactNode;
+  href: string;
+}
+
+/** Сегменты-ссылки (nav.seg): текущий раздел — aria-current="page". */
+export function SegmentedNav({
+  items,
+  current,
+  label,
+  onNavigate,
+}: {
+  items: readonly SegmentLink[];
+  current: string;
+  label: string;
+  /** Переход внутри приложения: роутер отменяет переход браузера. */
+  onNavigate?: (id: string, event: MouseEvent<HTMLAnchorElement>) => void;
+}) {
+  return (
+    <nav aria-label={label} className={SEGMENTS}>
+      {items.map((item) => {
+        const on = item.id === current;
+        return (
+          <a
+            key={item.id}
+            href={item.href}
+            aria-current={on ? 'page' : undefined}
+            onClick={onNavigate ? (event) => onNavigate(item.id, event) : undefined}
+            className={segment(on)}
+          >
+            {item.label}
+          </a>
+        );
+      })}
+    </nav>
   );
 }
 

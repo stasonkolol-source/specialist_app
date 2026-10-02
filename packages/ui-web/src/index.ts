@@ -12,8 +12,8 @@ export { AvatarStack, Chip, Chips, Price } from './Chips.tsx';
 export { cx } from './cx.ts';
 export type { BannerTone, EmptyTone } from './Feedback.tsx';
 export { Banner, EmptyState, ProgressBar, Skeleton, Stars, Steps, Toast } from './Feedback.tsx';
-export type { CheckboxProps, OptionProps, SegmentedOption } from './form/Choice.tsx';
-export { Checkbox, Option, RadioGroup, Segmented, Switch } from './form/Choice.tsx';
+export type { CheckboxProps, OptionProps, SegmentLink, SegmentedOption } from './form/Choice.tsx';
+export { Checkbox, Option, RadioGroup, Segmented, SegmentedNav, Switch } from './form/Choice.tsx';
 export type {
   FieldProps,
   InputProps,
@@ -24,6 +24,8 @@ export type {
 export { Field, Input, PickerButton, SearchField, Textarea } from './form/Field.tsx';
 export type { FeedRowProps, RowProps } from './Group.tsx';
 export { FeedRow, Group, NumIcon, Row, RowIcon, Tile, Tiles, UnreadDot } from './Group.tsx';
+export type { JobCardBadge, JobCardProps, JobSlots } from './JobCard.tsx';
+export { JobCard } from './JobCard.tsx';
 export type { MapPreviewProps } from './MapPreview.tsx';
 export { MapPreview } from './MapPreview.tsx';
 export type { PhotoFit, PhotoProps, PhotoVariant } from './Photo.tsx';
