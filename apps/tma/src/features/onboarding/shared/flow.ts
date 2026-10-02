@@ -1,5 +1,5 @@
-// Переходы онбординга: следующий шаг с тем же адресом возврата и выход по окончании. Выход
-// заменяет запись истории: «Назад» с главной не возвращает в онбординг.
+// Переходы онбординга: следующий шаг с тем же адресом возврата и выход по окончании. Шаги и выход
+// заменяют запись истории: «Назад» после завершения не возвращает в онбординг.
 import type { MeOut } from '@sosed/api-client';
 import { getIdentityGetMeQueryKey } from '@sosed/api-client';
 import type { OnboardingStep } from '@sosed/hooks';
@@ -35,7 +35,7 @@ export function useOnboardingFlow() {
     saved(step: OnboardingStep, me: MeOut) {
       queryClient.setQueryData(getIdentityGetMeQueryKey(), me);
       const following = nextOnboardingStep(step, me);
-      if (following) open(following);
+      if (following) open(following, true);
       else finish();
     },
     /** «Назад» Telegram: на прошлый экран, а без истории (открыли сразу этот шаг) — на `fallback`. */
