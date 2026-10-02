@@ -45,3 +45,32 @@ class ConversationsLimitError(RateLimitedError):
     """За час начато максимум новых диалогов (§13.3: пять)."""
 
     code = "conversations_limit"
+
+
+class CannotProposeError(ConflictError):
+    """«Договорились» здесь нельзя (`reason`): в диалоге по отклику договорённость — выбор
+    отклика клиентом (S24)."""
+
+    code = "cannot_propose"
+    public_params = ("reason",)
+
+
+class DealInProgressError(ConflictError):
+    """В диалоге уже идёт договорённость (`deal_id`): предложение ждёт ответа или сделка идёт."""
+
+    code = "deal_in_progress"
+    public_params = ("deal_id",)
+
+
+class ContactsLockedError(ConflictError):
+    """Контактом делятся только после договорённости: сделки `agreed` в диалоге нет."""
+
+    code = "contacts_locked"
+
+
+class InvalidContactError(DomainValidationError):
+    """Контакт не принят (`reason`): нет username в Telegram, контакт чужой, подпись Telegram не
+    сошлась или устарела."""
+
+    code = "invalid_contact"
+    public_params = ("reason",)

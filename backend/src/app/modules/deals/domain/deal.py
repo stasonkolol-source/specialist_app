@@ -30,6 +30,7 @@ from app.platform.contracts.events.deals import (
     DealCancelled,
     DealCompleted,
     DealCompletionDue,
+    DealProposed,
     DealReminderDue,
 )
 from app.platform.kernel.aggregate import VersionedAggregate
@@ -244,7 +245,7 @@ class Deal(VersionedAggregate):
         terms: DealTerms,
         now: datetime,
     ) -> Deal:
-        """«Договорились» в чате одной стороной (6.4): сделка ждёт подтверждения второй."""
+        """«Договорились» в чате одной стороной (6.3b): сделка ждёт подтверждения второй."""
         if proposed_by not in (client_id, performer_id):
             raise InvalidDealError(field="proposed_by", reason="not_a_party")
         deal = cls._new(
@@ -269,6 +270,16 @@ class Deal(VersionedAggregate):
                 actor_kind=ActorKind.USER,
                 reason=None,
                 at=now,
+            )
+        )
+        deal._record(
+            DealProposed(
+                deal_id=deal_id,
+                client_id=client_id,
+                performer_id=performer_id,
+                proposed_by=proposed_by,
+                conversation_id=conversation_id,
+                occurred_at=now,
             )
         )
         return deal

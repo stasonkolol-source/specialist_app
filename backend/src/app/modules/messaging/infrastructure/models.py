@@ -1,6 +1,6 @@
-"""ORM-модели messaging (ARCHITECTURE §7.3, миграция messaging_0001): диалоги, участники,
-сообщения. FK на identity.users, jobs.jobs, jobs.responses и deals.deals объявлены только в
-миграции: MetaData модуля не знает чужих таблиц (modules/README.md). Обмен контактами — 6.3b.
+"""ORM-модели messaging (ARCHITECTURE §7.3, миграции messaging_0001–0002): диалоги, участники,
+сообщения, обмен контактами. FK на identity.users, jobs.jobs, jobs.responses и deals.deals
+объявлены только в миграции: MetaData модуля не знает чужих таблиц (modules/README.md).
 """
 
 from datetime import datetime
@@ -25,7 +25,12 @@ from app.modules.messaging.domain.conversation import (
     ConversationStatus,
     ParticipantRole,
 )
-from app.modules.messaging.domain.message import MAX_BODY, MessageKind, MessageModeration
+from app.modules.messaging.domain.message import (
+    MAX_BODY,
+    ContactType,
+    MessageKind,
+    MessageModeration,
+)
 from app.platform.db.base import ModelBase, UuidPkMixin, module_metadata
 from app.platform.db.types import str_enum
 
@@ -52,8 +57,8 @@ class ConversationRow(UuidPkMixin, Base):
     """jobs.jobs: FK в миграции."""
     response_id: Mapped[UUID | None] = mapped_column(unique=True)
     """jobs.responses: один диалог на отклик."""
-    deal_id: Mapped[UUID | None]
-    """deals.deals: «Договорились» в чате (6.3b)."""
+    deal_id: Mapped[UUID | None] = mapped_column(index=True)
+    """deals.deals: «Договорились» в чате или выбранный отклик диалога (6.3b)."""
     last_message_at: Mapped[datetime | None]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
@@ -109,4 +114,37 @@ class MessageRow(UuidPkMixin, Base):
         CheckConstraint(f"char_length(body) <= {MAX_BODY}", name="body_length"),
         UniqueConstraint("sender_id", "client_msg_id", name="uq_messages_sender_id_client_msg_id"),
         Index("ix_messages_conversation_id_id", "conversation_id", text("id DESC")),
+        Index(
+            "uq_messages_system_key",
+            "conversation_id",
+            "client_msg_id",
+            unique=True,
+            postgresql_where=text("sender_id IS NULL"),
+        ),
+    )
+
+
+class ContactShareRow(UuidPkMixin, Base):
+    """Сторона поделилась контактом по сделке (S54): по разу на вид контакта. Сам контакт — в
+    сообщении `contact_share`."""
+
+    __tablename__ = "contact_shares"
+
+    conversation_id: Mapped[UUID] = mapped_column(ForeignKey("conversations.id"))
+    deal_id: Mapped[UUID]
+    """deals.deals: FK в миграции."""
+    shared_by: Mapped[UUID]
+    """identity.users: FK в миграции."""
+    shared_with: Mapped[UUID]
+    contact_type: Mapped[ContactType] = mapped_column(str_enum(ContactType, "contact_type"))
+    message_id: Mapped[UUID] = mapped_column(ForeignKey("messages.id"))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint(
+            "deal_id",
+            "shared_by",
+            "contact_type",
+            name="uq_contact_shares_deal_id_shared_by_contact_type",
+        ),
     )

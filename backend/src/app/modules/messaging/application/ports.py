@@ -1,12 +1,14 @@
 """Порты messaging (ADR-0020 §1): диалоги, сообщения, чтение для экранов, лимиты, задачи."""
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Final, Literal, Protocol
 from uuid import UUID
 
 from app.modules.messaging.application.dto import ConversationView, MessagesPage
 from app.modules.messaging.domain.conversation import Conversation
-from app.modules.messaging.domain.message import Message
+from app.modules.messaging.domain.message import ContactType, Message
+from app.platform.contracts.events.deals import DealAgreed, DealCancelled
 from app.platform.contracts.events.identity import UserDeleted
 from app.platform.kernel.ids import UserId
 from app.platform.kernel.pagination import Page, PageRequest
@@ -36,6 +38,10 @@ class ConversationRepository(Protocol):
         """Прямой диалог клиента со специалистом — один на пару."""
         ...
 
+    async def of_deal(self, deal_id: UUID) -> UUID | None:
+        """Диалог, где договорились (`deal_id`)."""
+        ...
+
 
 class MessageStore(Protocol):
     async def add(self, message: Message) -> Message:
@@ -44,6 +50,10 @@ class MessageStore(Protocol):
 
     async def by_client_id(self, sender_id: UserId, client_msg_id: str) -> Message | None:
         """Сообщение, уже отправленное с этим ключом идемпотентности."""
+        ...
+
+    async def system_exists(self, conversation_id: UUID, key: str) -> bool:
+        """Системное сообщение с этим ключом (`<событие>:<сделка>`) в диалоге уже есть."""
         ...
 
     async def get(self, message_id: UUID) -> Message | None: ...
@@ -58,6 +68,47 @@ class MessageStore(Protocol):
 
     async def purge(self, before: datetime, *, now: datetime, limit: int) -> int:
         """Правило хранения: текст сообщений старше срока стирается порциями."""
+        ...
+
+
+class ContactShares(Protocol):
+    async def message_of(
+        self, deal_id: UUID, shared_by: UserId, contact_type: ContactType
+    ) -> UUID | None:
+        """Сообщение, которым сторона уже поделилась этим контактом по сделке."""
+        ...
+
+    async def add(
+        self,
+        *,
+        conversation_id: UUID,
+        deal_id: UUID,
+        shared_by: UserId,
+        shared_with: UserId,
+        contact_type: ContactType,
+        message_id: UUID,
+    ) -> None: ...
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class VerifiedContact:
+    """Контакт из подписи Telegram и чей он."""
+
+    telegram_id: int
+    value: str | None
+    """«@username» или телефон в E.164; None — username в Telegram нет."""
+
+
+class ContactVerifier(Protocol):
+    """Подпись Telegram (ADR-0009): контакт берём только из подписанных ботом данных.
+    InvalidContactError — подпись не сошлась (`signature`) или устарела (`expired`)."""
+
+    def telegram(self, init_data: str) -> VerifiedContact:
+        """username из initData Mini App: подпись не старше суток."""
+        ...
+
+    def phone(self, contact: str) -> VerifiedContact:
+        """Телефон из ответа `requestContact`: подпись не старше часа."""
         ...
 
 
@@ -97,3 +148,8 @@ class MessageQuota(Protocol):
 
 FORGET_MESSAGES: Final = TaskRef("messaging.forget_messages", UserDeleted)
 """Аккаунт удалён — текст его сообщений стирается (§7.10)."""
+RECORD_DEAL_AGREED: Final = TaskRef("messaging.record_deal_agreed", DealAgreed)
+"""Договорились (подтверждено «Договорились» или выбран отклик) — системное сообщение в диалоге
+и сделка диалога: контакты открыты (6.3b)."""
+RECORD_DEAL_CANCELLED: Final = TaskRef("messaging.record_deal_cancelled", DealCancelled)
+"""Предложение отклонено, истекло или сделку отменили — системное сообщение в диалоге (6.3b)."""

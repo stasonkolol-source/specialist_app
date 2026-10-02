@@ -115,6 +115,7 @@ def test_unanswered_proposal_expires() -> None:
         terms=DealTerms(title="Уборка"),
         now=NOW,
     )
+    proposal.pull_events()  # DealProposed
 
     assert not proposal.expire_proposal(now=NOW + timedelta(hours=71))
     assert proposal.expire_proposal(now=NOW + timedelta(hours=72))

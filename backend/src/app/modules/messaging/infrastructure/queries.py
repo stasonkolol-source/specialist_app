@@ -85,7 +85,7 @@ class SqlConversationQueries(SqlQuery):
             .select_from(_UNREAD)
             .where(
                 _UNREAD.c.conversation_id == _C.id,
-                or_(_UNREAD.c.sender_id.is_(None), _UNREAD.c.sender_id != user_id),
+                _UNREAD.c.sender_id != user_id,  # системные (без автора) — не в счёт
                 _UNREAD.c.moderation != MessageModeration.HIDDEN,
                 or_(_P.last_read_message_id.is_(None), _UNREAD.c.id > _P.last_read_message_id),
             )

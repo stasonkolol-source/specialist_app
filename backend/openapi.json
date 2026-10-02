@@ -4517,6 +4517,138 @@
         }
       }
     },
+    "/api/v1/conversations/{conversation_id}/deal": {
+      "post": {
+        "tags": [
+          "messaging"
+        ],
+        "summary": "Propose Deal",
+        "description": "«Договорились»: сделка `proposed` ждёт подтверждения второй стороны.",
+        "operationId": "messaging_propose_deal",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id диалога",
+              "title": "Conversation Id"
+            },
+            "description": "id диалога"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DealProposalIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DealProposalOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations/{conversation_id}/share-contact": {
+      "post": {
+        "tags": [
+          "messaging"
+        ],
+        "summary": "Share Contact",
+        "description": "Поделиться своим контактом после договорённости: 201 — новое сообщение, 200 — уже было.",
+        "operationId": "messaging_share_contact",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id диалога",
+              "title": "Conversation Id"
+            },
+            "description": "id диалога"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactShareIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Уже делились",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/specialists": {
       "get": {
         "tags": [
@@ -6754,6 +6886,73 @@
         "title": "ConsentsIn",
         "description": "Галочка S02c: версии правил (с 18+) и политики из client-config, которые видел\nпользователь."
       },
+      "ContactOut": {
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/ContactType"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value",
+            "description": "«@username» или телефон в E.164"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "value"
+        ],
+        "title": "ContactOut",
+        "description": "Контакт, которым сторона поделилась после договорённости (S54)."
+      },
+      "ContactShareIn": {
+        "properties": {
+          "contact_type": {
+            "$ref": "#/components/schemas/ContactType"
+          },
+          "init_data": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 8192
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Init Data",
+            "description": "telegram: `Telegram.WebApp.initData`"
+          },
+          "contact": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 8192
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact",
+            "description": "phone: поле `response` из ответа `requestContact` (подписано Telegram)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "contact_type"
+        ],
+        "title": "ContactShareIn",
+        "description": "Чем поделиться (S54): username Telegram — из initData, телефон — из `requestContact`."
+      },
+      "ContactType": {
+        "type": "string",
+        "enum": [
+          "telegram",
+          "phone"
+        ],
+        "title": "ContactType",
+        "description": "Чем делятся после договорённости (S54): username Telegram или телефон."
+      },
       "ConversationKind": {
         "type": "string",
         "enum": [
@@ -7259,6 +7458,81 @@
         ],
         "title": "DealPriceType",
         "description": "Как понимать цену: значения — как у цены отклика S16."
+      },
+      "DealProposalIn": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "description": "Что делаем"
+          },
+          "price_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "fixed",
+                  "from",
+                  "hourly",
+                  "negotiable"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Type"
+          },
+          "price_amount": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Amount",
+            "description": "Пара; без вида цены — 422"
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled At",
+            "description": "Когда: впереди и не дальше трёх месяцев"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "DealProposalIn",
+        "description": "«Договорились» (S30): что делаем, цена и когда — вторая сторона увидит их на S53."
+      },
+      "DealProposalOut": {
+        "properties": {
+          "deal_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Deal Id",
+            "description": "Сделка `proposed`: ждёт подтверждения второй стороны"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deal_id"
+        ],
+        "title": "DealProposalOut"
       },
       "DealRole": {
         "type": "string",
@@ -9139,6 +9413,28 @@
             "title": "Offer",
             "description": "Предложение отклика (kind=offer): price_type, price_amount, availability_note"
           },
+          "contact": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContactOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Контакт (kind=contact_share)"
+          },
+          "event": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SystemEventOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Что со сделкой (kind=system)"
+          },
           "client_msg_id": {
             "anyOf": [
               {
@@ -9168,6 +9464,8 @@
           "prepayment",
           "hidden",
           "offer",
+          "contact",
+          "event",
           "client_msg_id",
           "created_at"
         ],
@@ -12087,6 +12385,61 @@
           "fuzzy"
         ],
         "title": "SuggestionOut"
+      },
+      "SystemEvent": {
+        "type": "string",
+        "enum": [
+          "deal_proposed",
+          "deal_agreed",
+          "deal_cancelled"
+        ],
+        "title": "SystemEvent",
+        "description": "Системное сообщение в ленте диалога: что случилось со сделкой (6.3b)."
+      },
+      "SystemEventOut": {
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/SystemEvent"
+          },
+          "deal_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Deal Id"
+          },
+          "by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By",
+            "description": "Кто: `client`, `performer`; у отмены ещё `system` (истекло, удалён аккаунт)"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "Причина отмены (DealCancelReason)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "deal_id",
+          "by",
+          "reason"
+        ],
+        "title": "SystemEventOut",
+        "description": "Системное сообщение: что случилось со сделкой диалога."
       },
       "TagOut": {
         "properties": {

@@ -142,6 +142,15 @@ class Conversation(AggregateRoot):
         self.participant(sender_id).last_read_message_id = message_id
         self.last_message_at = now
 
+    def system_posted(self, now: datetime) -> None:
+        """Системное сообщение (о сделке): диалог поднимается в списке."""
+        self.last_message_at = now
+
+    def link_deal(self, deal_id: UUID) -> None:
+        """Сделка диалога: «Договорились» здесь или выбор отклика этого диалога. По ней —
+        открыты ли контакты."""
+        self.deal_id = deal_id
+
     def read(self, user_id: UserId, message_id: UUID) -> bool:
         """Участник дочитал до сообщения; более раннее, чем уже прочитанное, — ничего."""
         reader = self.participant(user_id)

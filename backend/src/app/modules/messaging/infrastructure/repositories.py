@@ -1,6 +1,7 @@
 """Диалоги и сообщения (ADR-0020 §5): диалог с участниками — агрегат под блокировкой строки;
 сообщение — простая запись, повтор `client_msg_id` того же автора отдаёт уже записанное.
-Новые диалоги пары сериализует advisory lock транзакции."""
+Новые диалоги пары сериализует advisory lock транзакции. Обмен контактами — запись на сторону,
+сделку и вид контакта (6.3b)."""
 
 from datetime import datetime
 from uuid import UUID
@@ -15,11 +16,16 @@ from app.modules.messaging.domain.conversation import (
     Participant,
     ParticipantRole,
 )
-from app.modules.messaging.domain.message import Message, MessageModeration
+from app.modules.messaging.domain.message import ContactType, Message, MessageModeration
 from app.modules.messaging.errors import ConversationNotFoundError
-from app.modules.messaging.infrastructure.models import ConversationRow, MessageRow, ParticipantRow
+from app.modules.messaging.infrastructure.models import (
+    ContactShareRow,
+    ConversationRow,
+    MessageRow,
+    ParticipantRow,
+)
 from app.platform.db.port import UnitOfWork
-from app.platform.kernel.ids import UserId
+from app.platform.kernel.ids import UserId, new_id
 
 
 class SqlConversationRepository:
@@ -131,6 +137,10 @@ class SqlConversationRepository:
         )
         return (await self._session.execute(stmt)).scalar_one_or_none()
 
+    async def of_deal(self, deal_id: UUID) -> UUID | None:
+        stmt = select(ConversationRow.id).where(ConversationRow.deal_id == deal_id).limit(1)
+        return (await self._session.execute(stmt)).scalar_one_or_none()
+
 
 class SqlMessageStore:
     def __init__(self, session: AsyncSession, uow: UnitOfWork) -> None:
@@ -169,6 +179,14 @@ class SqlMessageStore:
             )
         ).scalar_one_or_none()
         return _message(row) if row is not None else None
+
+    async def system_exists(self, conversation_id: UUID, key: str) -> bool:
+        stmt = select(MessageRow.id).where(
+            MessageRow.conversation_id == conversation_id,
+            MessageRow.sender_id.is_(None),
+            MessageRow.client_msg_id == key,
+        )
+        return (await self._session.execute(stmt)).first() is not None
 
     async def get(self, message_id: UUID) -> Message | None:
         row = await self._session.get(MessageRow, message_id)
@@ -231,3 +249,42 @@ def _message(row: MessageRow) -> Message:
         payload=dict(row.payload),
         moderation=row.moderation,
     )
+
+
+class SqlContactShares:
+    def __init__(self, session: AsyncSession, uow: UnitOfWork) -> None:
+        self._session, self._uow = session, uow
+
+    async def message_of(
+        self, deal_id: UUID, shared_by: UserId, contact_type: ContactType
+    ) -> UUID | None:
+        stmt = select(ContactShareRow.message_id).where(
+            ContactShareRow.deal_id == deal_id,
+            ContactShareRow.shared_by == shared_by,
+            ContactShareRow.contact_type == contact_type,
+        )
+        return (await self._session.execute(stmt)).scalar_one_or_none()
+
+    async def add(
+        self,
+        *,
+        conversation_id: UUID,
+        deal_id: UUID,
+        shared_by: UserId,
+        shared_with: UserId,
+        contact_type: ContactType,
+        message_id: UUID,
+    ) -> None:
+        self._uow.require_active()
+        self._session.add(
+            ContactShareRow(
+                id=new_id(),
+                conversation_id=conversation_id,
+                deal_id=deal_id,
+                shared_by=shared_by,
+                shared_with=shared_with,
+                contact_type=contact_type,
+                message_id=message_id,
+            )
+        )
+        await self._session.flush()

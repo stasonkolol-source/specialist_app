@@ -191,6 +191,7 @@ def test_types_without_templates_are_refused(renderer: GettextNotificationRender
         NotificationType.JOB_INVITED,
         NotificationType.RESPONSE_ACCEPTED,
         NotificationType.RESPONSE_NOT_SELECTED,
+        NotificationType.DEAL_PROPOSED,
         NotificationType.DEAL_CANCELLED,
         NotificationType.DEAL_REMINDER,
         NotificationType.DEAL_COMPLETION_PROMPT,
@@ -450,6 +451,25 @@ def test_cancelled_deal_says_who_and_why(
     assert (text.title, text.body) == ("Сделка отменена", body)
 
 
+@pytest.mark.parametrize(
+    ("by", "body"),
+    [
+        ("client", "Клиент предлагает договориться: «Люстра». Проверьте условия и подтвердите"),
+        ("performer", "Исполнитель предлагает договориться: «Люстра». Проверьте условия"),
+    ],
+)
+def test_proposal_says_who_proposes_with_a_button(
+    renderer: GettextNotificationRenderer, by: str, body: str
+) -> None:
+    text, [button] = renderer.telegram(
+        NotificationType.DEAL_PROPOSED, {"title": "Люстра", "by": by}, DEAL_LINK, Locale.RU
+    )
+
+    assert text.startswith(f"<b>Договорились?</b>\n{body}")
+    assert isinstance(button, AppButton)
+    assert (button.text, button.url) == ("Посмотреть условия", f"{MINI_APP}?startapp={DEAL_LINK}")
+
+
 def test_reminder_names_the_time(renderer: GettextNotificationRenderer) -> None:
     text = renderer.text(
         NotificationType.DEAL_REMINDER,
@@ -483,6 +503,7 @@ def test_deal_texts_on_three_scripts(renderer: GettextNotificationRenderer, loca
     cases: list[tuple[NotificationType, dict[str, str]]] = [
         (NotificationType.RESPONSE_ACCEPTED, {"title": "Люстра"}),
         (NotificationType.RESPONSE_NOT_SELECTED, {"title": "Люстра"}),
+        (NotificationType.DEAL_PROPOSED, {"title": "Люстра", "by": "performer"}),
         (
             NotificationType.DEAL_CANCELLED,
             {"title": "Люстра", "by": "client", "reason": "other", "reopened": "true"},

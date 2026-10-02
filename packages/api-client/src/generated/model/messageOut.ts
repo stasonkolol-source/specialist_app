@@ -4,8 +4,10 @@
  * Соседи API
  * OpenAPI spec version: 1.0.0
  */
+import type { ContactOut } from './contactOut.ts';
 import type { MessageKind } from './messageKind.ts';
 import type { MessageOutOffer } from './messageOutOffer.ts';
+import type { SystemEventOut } from './systemEventOut.ts';
 
 export interface MessageOut {
   id: string;
@@ -24,6 +26,10 @@ export interface MessageOut {
   hidden: boolean;
   /** Предложение отклика (kind=offer): price_type, price_amount, availability_note */
   offer: MessageOutOffer;
+  /** Контакт (kind=contact_share) */
+  contact: ContactOut | null;
+  /** Что со сделкой (kind=system) */
+  event: SystemEventOut | null;
   /** Ключ идемпотентности — только у своих */
   client_msg_id: string | null;
   created_at: string;

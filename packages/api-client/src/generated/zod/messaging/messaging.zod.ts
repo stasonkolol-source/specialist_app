@@ -55,6 +55,44 @@ export const MessagingListConversationsResponse = zod.object({
               .describe(
                 'Предложение отклика (kind=offer): price_type, price_amount, availability_note',
               ),
+            contact: zod
+              .union([
+                zod
+                  .object({
+                    type: zod
+                      .enum(['telegram', 'phone'])
+                      .describe(
+                        'Чем делятся после договорённости (S54): username Telegram или телефон.',
+                      ),
+                    value: zod.string().describe('«@username» или телефон в E.164'),
+                  })
+                  .describe('Контакт, которым сторона поделилась после договорённости (S54).'),
+                zod.null(),
+              ])
+              .describe('Контакт (kind=contact_share)'),
+            event: zod
+              .union([
+                zod
+                  .object({
+                    type: zod
+                      .enum(['deal_proposed', 'deal_agreed', 'deal_cancelled'])
+                      .describe(
+                        'Системное сообщение в ленте диалога: что случилось со сделкой (6.3b).',
+                      ),
+                    deal_id: zod.uuid(),
+                    by: zod
+                      .union([zod.string(), zod.null()])
+                      .describe(
+                        'Кто: `client`, `performer`; у отмены ещё `system` (истекло, удалён аккаунт)',
+                      ),
+                    reason: zod
+                      .union([zod.string(), zod.null()])
+                      .describe('Причина отмены (DealCancelReason)'),
+                  })
+                  .describe('Системное сообщение: что случилось со сделкой диалога.'),
+                zod.null(),
+              ])
+              .describe('Что со сделкой (kind=system)'),
             client_msg_id: zod
               .union([zod.string(), zod.null()])
               .describe('Ключ идемпотентности — только у своих'),
@@ -143,6 +181,44 @@ export const MessagingListMessagesResponse = zod.object({
             .describe(
               'Предложение отклика (kind=offer): price_type, price_amount, availability_note',
             ),
+          contact: zod
+            .union([
+              zod
+                .object({
+                  type: zod
+                    .enum(['telegram', 'phone'])
+                    .describe(
+                      'Чем делятся после договорённости (S54): username Telegram или телефон.',
+                    ),
+                  value: zod.string().describe('«@username» или телефон в E.164'),
+                })
+                .describe('Контакт, которым сторона поделилась после договорённости (S54).'),
+              zod.null(),
+            ])
+            .describe('Контакт (kind=contact_share)'),
+          event: zod
+            .union([
+              zod
+                .object({
+                  type: zod
+                    .enum(['deal_proposed', 'deal_agreed', 'deal_cancelled'])
+                    .describe(
+                      'Системное сообщение в ленте диалога: что случилось со сделкой (6.3b).',
+                    ),
+                  deal_id: zod.uuid(),
+                  by: zod
+                    .union([zod.string(), zod.null()])
+                    .describe(
+                      'Кто: `client`, `performer`; у отмены ещё `system` (истекло, удалён аккаунт)',
+                    ),
+                  reason: zod
+                    .union([zod.string(), zod.null()])
+                    .describe('Причина отмены (DealCancelReason)'),
+                })
+                .describe('Системное сообщение: что случилось со сделкой диалога.'),
+              zod.null(),
+            ])
+            .describe('Что со сделкой (kind=system)'),
           client_msg_id: zod
             .union([zod.string(), zod.null()])
             .describe('Ключ идемпотентности — только у своих'),
@@ -173,6 +249,44 @@ export const MessagingListMessagesResponse = zod.object({
           .describe(
             'Предложение отклика (kind=offer): price_type, price_amount, availability_note',
           ),
+        contact: zod
+          .union([
+            zod
+              .object({
+                type: zod
+                  .enum(['telegram', 'phone'])
+                  .describe(
+                    'Чем делятся после договорённости (S54): username Telegram или телефон.',
+                  ),
+                value: zod.string().describe('«@username» или телефон в E.164'),
+              })
+              .describe('Контакт, которым сторона поделилась после договорённости (S54).'),
+            zod.null(),
+          ])
+          .describe('Контакт (kind=contact_share)'),
+        event: zod
+          .union([
+            zod
+              .object({
+                type: zod
+                  .enum(['deal_proposed', 'deal_agreed', 'deal_cancelled'])
+                  .describe(
+                    'Системное сообщение в ленте диалога: что случилось со сделкой (6.3b).',
+                  ),
+                deal_id: zod.uuid(),
+                by: zod
+                  .union([zod.string(), zod.null()])
+                  .describe(
+                    'Кто: `client`, `performer`; у отмены ещё `system` (истекло, удалён аккаунт)',
+                  ),
+                reason: zod
+                  .union([zod.string(), zod.null()])
+                  .describe('Причина отмены (DealCancelReason)'),
+              })
+              .describe('Системное сообщение: что случилось со сделкой диалога.'),
+            zod.null(),
+          ])
+          .describe('Что со сделкой (kind=system)'),
         client_msg_id: zod
           .union([zod.string(), zod.null()])
           .describe('Ключ идемпотентности — только у своих'),
@@ -220,6 +334,40 @@ export const MessagingSendMessageResponse = zod.object({
   offer: zod
     .union([zod.record(zod.string(), zod.unknown()), zod.null()])
     .describe('Предложение отклика (kind=offer): price_type, price_amount, availability_note'),
+  contact: zod
+    .union([
+      zod
+        .object({
+          type: zod
+            .enum(['telegram', 'phone'])
+            .describe('Чем делятся после договорённости (S54): username Telegram или телефон.'),
+          value: zod.string().describe('«@username» или телефон в E.164'),
+        })
+        .describe('Контакт, которым сторона поделилась после договорённости (S54).'),
+      zod.null(),
+    ])
+    .describe('Контакт (kind=contact_share)'),
+  event: zod
+    .union([
+      zod
+        .object({
+          type: zod
+            .enum(['deal_proposed', 'deal_agreed', 'deal_cancelled'])
+            .describe('Системное сообщение в ленте диалога: что случилось со сделкой (6.3b).'),
+          deal_id: zod.uuid(),
+          by: zod
+            .union([zod.string(), zod.null()])
+            .describe(
+              'Кто: `client`, `performer`; у отмены ещё `system` (истекло, удалён аккаунт)',
+            ),
+          reason: zod
+            .union([zod.string(), zod.null()])
+            .describe('Причина отмены (DealCancelReason)'),
+        })
+        .describe('Системное сообщение: что случилось со сделкой диалога.'),
+      zod.null(),
+    ])
+    .describe('Что со сделкой (kind=system)'),
   client_msg_id: zod
     .union([zod.string(), zod.null()])
     .describe('Ключ идемпотентности — только у своих'),
@@ -239,3 +387,116 @@ export const MessagingReadConversationBody = zod.object({
 });
 
 export const MessagingReadConversationResponse = zod.void();
+
+/**
+ * «Договорились»: сделка `proposed` ждёт подтверждения второй стороны.
+ * @summary Propose Deal
+ */
+export const MessagingProposeDealParams = zod.object({
+  conversation_id: zod.uuid().describe('id диалога'),
+});
+
+export const messagingProposeDealBodyTitleMax = 120;
+
+export const MessagingProposeDealBody = zod
+  .object({
+    title: zod.string().min(1).max(messagingProposeDealBodyTitleMax).describe('Что делаем'),
+    price_type: zod
+      .union([zod.enum(['fixed', 'from', 'hourly', 'negotiable']), zod.null()])
+      .optional(),
+    price_amount: zod
+      .union([zod.int().min(1), zod.null()])
+      .optional()
+      .describe('Пара; без вида цены — 422'),
+    scheduled_at: zod
+      .union([zod.iso.datetime({ offset: true }), zod.null()])
+      .optional()
+      .describe('Когда: впереди и не дальше трёх месяцев'),
+  })
+  .describe('«Договорились» (S30): что делаем, цена и когда — вторая сторона увидит их на S53.');
+
+export const MessagingProposeDealResponse = zod.object({
+  deal_id: zod.uuid().describe('Сделка `proposed`: ждёт подтверждения второй стороны'),
+});
+
+/**
+ * Поделиться своим контактом после договорённости: 201 — новое сообщение, 200 — уже было.
+ * @summary Share Contact
+ */
+export const MessagingShareContactParams = zod.object({
+  conversation_id: zod.uuid().describe('id диалога'),
+});
+
+export const messagingShareContactBodyInitDataOneMax = 8192;
+
+export const messagingShareContactBodyContactOneMax = 8192;
+
+export const MessagingShareContactBody = zod
+  .object({
+    contact_type: zod
+      .enum(['telegram', 'phone'])
+      .describe('Чем делятся после договорённости (S54): username Telegram или телефон.'),
+    init_data: zod
+      .union([zod.string().max(messagingShareContactBodyInitDataOneMax), zod.null()])
+      .optional()
+      .describe('telegram: `Telegram.WebApp.initData`'),
+    contact: zod
+      .union([zod.string().max(messagingShareContactBodyContactOneMax), zod.null()])
+      .optional()
+      .describe('phone: поле `response` из ответа `requestContact` (подписано Telegram)'),
+  })
+  .describe(
+    'Чем поделиться (S54): username Telegram — из initData, телефон — из `requestContact`.',
+  );
+
+export const MessagingShareContactResponse = zod.object({
+  id: zod.uuid(),
+  kind: zod.enum(['text', 'media', 'system', 'contact_share', 'offer']),
+  mine: zod.boolean().describe('Моё сообщение'),
+  sender_id: zod.union([zod.uuid(), zod.null()]).describe('None — системное'),
+  body: zod.union([zod.string(), zod.null()]).describe('Скрыто модерацией или стёрто — null'),
+  masked: zod.boolean().describe('Контакты скрыты: откроются после договорённости'),
+  prepayment: zod.boolean().describe('Просьба о предоплате: под сообщением памятка'),
+  hidden: zod.boolean().describe('Скрыто модерацией'),
+  offer: zod
+    .union([zod.record(zod.string(), zod.unknown()), zod.null()])
+    .describe('Предложение отклика (kind=offer): price_type, price_amount, availability_note'),
+  contact: zod
+    .union([
+      zod
+        .object({
+          type: zod
+            .enum(['telegram', 'phone'])
+            .describe('Чем делятся после договорённости (S54): username Telegram или телефон.'),
+          value: zod.string().describe('«@username» или телефон в E.164'),
+        })
+        .describe('Контакт, которым сторона поделилась после договорённости (S54).'),
+      zod.null(),
+    ])
+    .describe('Контакт (kind=contact_share)'),
+  event: zod
+    .union([
+      zod
+        .object({
+          type: zod
+            .enum(['deal_proposed', 'deal_agreed', 'deal_cancelled'])
+            .describe('Системное сообщение в ленте диалога: что случилось со сделкой (6.3b).'),
+          deal_id: zod.uuid(),
+          by: zod
+            .union([zod.string(), zod.null()])
+            .describe(
+              'Кто: `client`, `performer`; у отмены ещё `system` (истекло, удалён аккаунт)',
+            ),
+          reason: zod
+            .union([zod.string(), zod.null()])
+            .describe('Причина отмены (DealCancelReason)'),
+        })
+        .describe('Системное сообщение: что случилось со сделкой диалога.'),
+      zod.null(),
+    ])
+    .describe('Что со сделкой (kind=system)'),
+  client_msg_id: zod
+    .union([zod.string(), zod.null()])
+    .describe('Ключ идемпотентности — только у своих'),
+  created_at: zod.iso.datetime({ offset: true }),
+});

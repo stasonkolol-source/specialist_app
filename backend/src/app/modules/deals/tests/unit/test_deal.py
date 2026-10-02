@@ -19,7 +19,12 @@ from app.modules.deals.domain.deal import (
     DealTerms,
 )
 from app.modules.deals.errors import DealNotActiveError, DealNotFoundError, InvalidDealError
-from app.platform.contracts.events.deals import DealAgreed, DealCancelled, DealCompleted
+from app.platform.contracts.events.deals import (
+    DealAgreed,
+    DealCancelled,
+    DealCompleted,
+    DealProposed,
+)
 from app.platform.kernel.ids import CategoryId, DealId, UserId, new_id
 
 pytestmark = pytest.mark.unit
@@ -70,6 +75,7 @@ def proposed(by: UserId = PERFORMER) -> Deal:
         terms=terms(),
         now=NOW,
     )
+    deal.pull_events()
     deal.pull_history()
     return deal
 
@@ -178,6 +184,23 @@ def test_system_cancels_an_agreed_deal() -> None:
     assert event.cancelled_by == "system"
     [change] = deal.pull_history()
     assert change.actor_kind is ActorKind.SYSTEM
+
+
+def test_proposal_is_announced_to_the_other_party() -> None:
+    deal = Deal.propose(
+        deal_id=DealId(new_id()),
+        client_id=CLIENT,
+        performer_id=PERFORMER,
+        proposed_by=PERFORMER,
+        profile_id=None,
+        conversation_id=UUID(int=7),
+        terms=terms(),
+        now=NOW,
+    )
+
+    [event] = deal.pull_events()
+    assert isinstance(event, DealProposed)
+    assert (event.proposed_by, event.conversation_id) == (PERFORMER, UUID(int=7))
 
 
 def test_proposal_waits_for_the_other_party() -> None:

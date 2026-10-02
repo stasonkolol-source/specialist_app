@@ -46,6 +46,7 @@ RENDERED = frozenset(
         NotificationType.JOB_INVITED,
         NotificationType.RESPONSE_ACCEPTED,
         NotificationType.RESPONSE_NOT_SELECTED,
+        NotificationType.DEAL_PROPOSED,
         NotificationType.DEAL_CANCELLED,
         NotificationType.DEAL_REMINDER,
         NotificationType.DEAL_COMPLETION_PROMPT,
@@ -70,6 +71,7 @@ BUTTONS: Mapping[NotificationType, str] = MappingProxyType(
         NotificationType.PROFILE_PUBLISHED: "notifications.profile_published.button",
         NotificationType.RESPONSE_RECEIVED: "notifications.response_received.button",
         NotificationType.RESPONSE_ACCEPTED: "notifications.deal.open",
+        NotificationType.DEAL_PROPOSED: "notifications.deal_proposed.button",
         NotificationType.DEAL_CANCELLED: "notifications.deal.open",
         NotificationType.DEAL_REMINDER: "notifications.deal.open",
     }
@@ -115,6 +117,16 @@ class GettextNotificationRenderer:
             return self._responses(params, locale)
         if type_ is NotificationType.JOB_INVITED:
             return self._invited(params, locale)
+        if type_ is NotificationType.DEAL_PROPOSED:
+            by = "client" if params.get("by") == "client" else "performer"
+            return RenderedText(
+                title=self._t("notifications.deal_proposed.title", locale),
+                body=self._t(
+                    f"notifications.deal_proposed.body_{by}",
+                    locale,
+                    title=_short(params.get("title")),
+                ),
+            )
         if type_ is NotificationType.DEAL_CANCELLED:
             return self._deal_cancelled(params, locale)
         if type_ is NotificationType.DEAL_REMINDER:

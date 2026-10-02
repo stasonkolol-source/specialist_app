@@ -22,7 +22,12 @@ from app.modules.notifications.domain.notification import (
     NotificationId,
 )
 from app.modules.notifications.domain.settings import NotificationSettings
-from app.platform.contracts.events.deals import DealCancelled, DealCompletionDue, DealReminderDue
+from app.platform.contracts.events.deals import (
+    DealCancelled,
+    DealCompletionDue,
+    DealProposed,
+    DealReminderDue,
+)
 from app.platform.contracts.events.identity import BotStarted, UserDeleted, UserRestricted
 from app.platform.contracts.events.jobs import (
     JobExpired,
@@ -239,6 +244,10 @@ NOTIFY_PASSED_OVER: Final = TaskRef(
     "notifications.notify_passed_over", ResponseAccepted, queue="notifications"
 )
 """Подписчик ResponseAccepted: остальным откликнувшимся — «Клиент выбрал другого исполнителя»."""
+NOTIFY_DEAL_PROPOSED: Final = TaskRef(
+    "notifications.notify_deal_proposed", DealProposed, queue="notifications"
+)
+"""Подписчик DealProposed: второй стороне — «предлагает договориться», подтвердить за 72 ч."""
 NOTIFY_DEAL_CANCELLED: Final = TaskRef(
     "notifications.notify_deal_cancelled", DealCancelled, queue="notifications"
 )

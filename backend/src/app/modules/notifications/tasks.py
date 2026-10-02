@@ -26,6 +26,8 @@ notifications стоит над контентными модулями (ARCHITE
   выбрал вас» и кнопка к сделке (6.1b), если сделка ещё идёт.
 - `notifications.notify_passed_over` — ResponseAccepted: остальным откликнувшимся «Клиент выбрал
   другого исполнителя», пока заявка «в работе».
+- `notifications.notify_deal_proposed` — DealProposed: второй стороне «Клиент (исполнитель)
+  предлагает договориться» и кнопка к условиям, пока предложение ждёт (6.3b).
 - `notifications.notify_deal_cancelled` — DealCancelled: второй стороне — кто отменил и почему
   (при отмене системой — обеим, кроме удалённого аккаунта); клиенту из отклика — «заявка снова
   открыта».
@@ -53,6 +55,7 @@ from app.modules.notifications.application.ports import (
     NOTIFY_ACCOUNT_RESTRICTED,
     NOTIFY_DEAL_CANCELLED,
     NOTIFY_DEAL_COMPLETION,
+    NOTIFY_DEAL_PROPOSED,
     NOTIFY_DEAL_REMINDER,
     NOTIFY_JOB_EXPIRED,
     NOTIFY_JOB_EXPIRING,
@@ -91,7 +94,12 @@ from app.modules.notifications.application.use_cases.send_delivery import (
 from app.modules.notifications.domain.catalog import NotificationType
 from app.modules.notifications.domain.channel import GrantedVia
 from app.modules.notifications.domain.notification import DeliveryId
-from app.platform.contracts.events.deals import DealCancelled, DealCompletionDue, DealReminderDue
+from app.platform.contracts.events.deals import (
+    DealCancelled,
+    DealCompletionDue,
+    DealProposed,
+    DealReminderDue,
+)
 from app.platform.contracts.events.identity import (
     BotStarted,
     RestrictionKind,
@@ -120,7 +128,7 @@ FIX_LINKS = {"job": LinkType.JOB, "profile": LinkType.SPECIALIST}
 """Куда ведёт «Исправить»: к заявке или профилю; отклик — к его заявке; остальное — на
 Главную (экраны — позже)."""
 RESPONSE = "response"
-AGREED = "agreed"
+AGREED, PROPOSED = "agreed", "proposed"
 CLIENT, PERFORMER = "client", "performer"
 """Стороны сделки — как `cancelled_by` в DealCancelled."""
 
@@ -328,6 +336,33 @@ async def notify_passed_over(
                 params={"title": job.title},
             )
         )
+
+
+@subscriber(DealProposed, NOTIFY_DEAL_PROPOSED)
+async def notify_deal_proposed(
+    event: DealProposed,
+    notify: FromDishka[Notify],
+    deals: FromDishka[DealsApi],
+    identity: FromDishka[IdentityApi],
+) -> None:
+    """Второй стороне — «Клиент (исполнитель) предлагает договориться» со ссылкой на условия."""
+    deal = await deals.deal_brief(event.deal_id)
+    if deal is None or deal.status != PROPOSED:
+        return  # уже подтвердили, отклонили или истекло
+    by_client = event.proposed_by == event.client_id
+    other = event.performer_id if by_client else event.client_id
+    user = await identity.get_user(other)
+    if user is None or user.is_deleted:
+        return
+    await notify(
+        NotifyCommand(
+            user_id=other,
+            type=NotificationType.DEAL_PROPOSED,
+            dedupe_key=f"deal.proposed:{event.deal_id}",
+            params={"title": deal.title, "by": CLIENT if by_client else PERFORMER},
+            link=_deal_link(event.deal_id),
+        )
+    )
 
 
 @subscriber(DealCancelled, NOTIFY_DEAL_CANCELLED)

@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from app.modules.deals.api import AgreedDealIn, DealBrief
+from app.modules.deals.api import AgreedDealIn, DealBrief, ProposedDealIn
 from app.modules.deals.application.ports import DealQueries, DealRepository
 from app.modules.deals.domain.deal import Deal, DealPriceType, DealTerms
 from app.modules.deals.errors import InvalidDealError
@@ -22,6 +22,7 @@ class DealsFacade:
         if deal is None:
             return None
         return DealBrief(
+            id=deal_id,
             client_id=deal.client_id,
             performer_id=deal.performer_id,
             title=deal.title,
@@ -36,10 +37,7 @@ class DealsFacade:
 
     async def create_agreed(self, data: AgreedDealIn) -> DealId:
         self._uow.require_active()  # транзакция jobs: отклик выбран и сделка создана вместе
-        try:
-            price_type = DealPriceType(data.price_type)
-        except ValueError:
-            raise InvalidDealError(field="price_type", reason="unknown") from None
+        price_type = _price_type(data.price_type)
         deal = Deal.agree_from_response(
             deal_id=DealId(new_id()),
             client_id=data.client_id,
@@ -58,3 +56,31 @@ class DealsFacade:
         )
         await self._deals.add(deal)
         return deal.id
+
+    async def propose(self, data: ProposedDealIn) -> DealId:
+        self._uow.require_active()  # транзакция переписки: сделка и сообщение о ней вместе
+        deal = Deal.propose(
+            deal_id=DealId(new_id()),
+            client_id=data.client_id,
+            performer_id=data.performer_id,
+            proposed_by=data.proposed_by,
+            profile_id=data.profile_id,
+            conversation_id=data.conversation_id,
+            terms=DealTerms(
+                title=data.title,
+                category_id=data.category_id,
+                price_type=_price_type(data.price_type) if data.price_type else None,
+                agreed_price=data.agreed_price,
+                scheduled_at=data.scheduled_at,
+            ),
+            now=self._clock.now(),
+        )
+        await self._deals.add(deal)
+        return deal.id
+
+
+def _price_type(value: str) -> DealPriceType:
+    try:
+        return DealPriceType(value)
+    except ValueError:
+        raise InvalidDealError(field="price_type", reason="unknown") from None

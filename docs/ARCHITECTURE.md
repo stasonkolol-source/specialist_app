@@ -1565,9 +1565,13 @@ CREATE TABLE messaging.contact_shares (
   shared_by       uuid NOT NULL REFERENCES identity.users(id),
   shared_with     uuid NOT NULL REFERENCES identity.users(id),
   contact_type    text NOT NULL CHECK (contact_type IN ('telegram','phone')),
+  message_id      uuid NOT NULL REFERENCES messaging.messages(id),  -- сам контакт — в сообщении contact_share
   created_at      timestamptz NOT NULL DEFAULT now(),
   UNIQUE (deal_id, shared_by, contact_type)
 );
+CREATE INDEX ON messaging.conversations (deal_id);   -- диалог сделки: подписчики DealAgreed, DealCancelled
+-- системное сообщение о сделке (без автора) — одно на ключ «<событие>:<сделка>» в client_msg_id
+CREATE UNIQUE INDEX ON messaging.messages (conversation_id, client_msg_id) WHERE sender_id IS NULL;
 ```
 </details>
 
@@ -2485,7 +2489,7 @@ sequenceDiagram
 | Метод и путь | Назначение |
 |---|---|
 | `GET /me/deals?role=client\|performer&status=`, `GET /deals/{id}` | Сделки |
-| `POST /conversations/{id}/deal` | «Договорились» из чата → сделка `proposed` |
+| `POST /conversations/{id}/deal` | «Договорились» из прямого диалога → сделка `proposed`; в диалоге по отклику договорённость — выбор отклика (409 `cannot_propose`) |
 | `POST /deals/{id}/confirm` | Вторая сторона подтверждает договорённость |
 | `POST /deals/{id}/complete`, `/cancel`, `/dispute` | Выполнено / отмена с причиной / спор |
 | `POST /deals/{id}/review` | Оставить отзыв: оценка, критерии, текст; фото — v1 |

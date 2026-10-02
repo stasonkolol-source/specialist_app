@@ -34,9 +34,29 @@ class AgreedDealIn:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class DealBrief:
-    """Сделка для уведомлений сторонам (6.1b): название, статус, стороны и время."""
+class ProposedDealIn:
+    """«Договорились» в чате (переписка, 6.3b): условия задаёт нажавшая сторона, вторая
+    подтверждает или отклоняет за 72 ч."""
 
+    client_id: UserId
+    performer_id: UserId
+    proposed_by: UserId
+    profile_id: UUID | None
+    conversation_id: UUID
+    title: str
+    category_id: CategoryId | None = None
+    price_type: str | None = None
+    """Как у цены отклика: `fixed`, `from`, `hourly`, `negotiable`; None — цену не назвали."""
+    agreed_price: int | None = None
+    scheduled_at: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DealBrief:
+    """Сделка для уведомлений сторонам (6.1b) и переписки (6.3b): название, статус, стороны и
+    время."""
+
+    id: DealId
     client_id: UserId
     performer_id: UserId
     title: str
@@ -49,6 +69,11 @@ class DealBrief:
 class DealsApi(Protocol):
     async def create_agreed(self, data: AgreedDealIn) -> DealId:
         """Сделка `agreed` в транзакции вызывающего: нужен активный UoW (ADR-0020 §4)."""
+        ...
+
+    async def propose(self, data: ProposedDealIn) -> DealId:
+        """Сделка `proposed` в транзакции вызывающего: нужен активный UoW. InvalidDealError —
+        условия не проходят (пустое название, цена вне диапазона)."""
         ...
 
     async def deal_brief(self, deal_id: DealId) -> DealBrief | None:

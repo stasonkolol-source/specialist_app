@@ -1,5 +1,6 @@
-"""События модуля messaging (ADR-0020 §2; ARCHITECTURE §11.5; DEVELOPMENT_PLAN 6.3a). Подписчики:
-модерация (через ModerationRequested), уведомления о новом сообщении (6.3b), аналитика."""
+"""События модуля messaging (ADR-0020 §2; ARCHITECTURE §11.5; DEVELOPMENT_PLAN 6.3a, 6.3b).
+Подписчики: модерация (через ModerationRequested), уведомления о новом сообщении (6.3b),
+аналитика."""
 
 from dataclasses import dataclass
 from uuid import UUID
@@ -36,3 +37,19 @@ class MessageSent(DomainEvent):
     """ParticipantRole отправителя: `client`, `performer`."""
     masked: bool
     """Контакты в тексте скрыты: договорённости ещё нет."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ContactShared(DomainEvent):
+    """Сторона поделилась своим контактом после договорённости (6.3b). Самого контакта в событии
+    нет — только какой."""
+
+    event_type = "messaging.ContactShared"
+    conversation_id: UUID
+    deal_id: UUID
+    shared_by: UserId
+    shared_with: UserId
+    sharer_role: str
+    """ParticipantRole поделившегося: `client`, `performer`."""
+    contact_type: str
+    """ContactType: `telegram`, `phone`."""

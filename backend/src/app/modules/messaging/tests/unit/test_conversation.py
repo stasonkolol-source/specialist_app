@@ -11,7 +11,14 @@ from app.modules.messaging.domain.conversation import (
     ConversationStatus,
     ParticipantRole,
 )
-from app.modules.messaging.domain.message import MAX_BODY, check_client_id, compose
+from app.modules.messaging.domain.message import (
+    MAX_BODY,
+    MessageKind,
+    SystemEvent,
+    check_client_id,
+    compose,
+    system_message,
+)
 from app.modules.messaging.errors import (
     CannotStartConversationError,
     ConversationClosedError,
@@ -185,3 +192,31 @@ def test_client_message_id_is_optional_and_short() -> None:
     with pytest.raises(InvalidMessageError) as raised:
         check_client_id("x" * 65)
     assert raised.value.params == {"field": "client_msg_id", "reason": "too_long"}
+
+
+def test_deal_of_the_conversation_and_system_messages() -> None:
+    conversation = for_response()
+    deal_id = new_id()
+
+    conversation.link_deal(deal_id)
+    conversation.system_posted(NOW)
+    message = system_message(
+        message_id=new_id(),
+        conversation_id=conversation.id,
+        event=SystemEvent.DEAL_CANCELLED,
+        deal_id=deal_id,
+        now=NOW,
+        by="system",
+        reason="expired",
+    )
+
+    assert (conversation.deal_id, conversation.last_message_at) == (deal_id, NOW)
+    assert conversation.client.last_read_message_id is None  # системное никто не «прочитал»
+    assert (message.kind, message.sender_id, message.body) == (MessageKind.SYSTEM, None, None)
+    assert message.client_msg_id == f"deal_cancelled:{deal_id}"  # ключ от повтора задачи
+    assert message.payload == {
+        "event": "deal_cancelled",
+        "deal_id": str(deal_id),
+        "by": "system",
+        "reason": "expired",
+    }

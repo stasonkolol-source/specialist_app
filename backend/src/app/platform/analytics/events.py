@@ -113,6 +113,8 @@ DEAL_CANCEL_REASONS: Final = frozenset(
 """DealCancelReason сделки (deals): причины стороны и системы."""
 CONVERSATION_KINDS: Final = frozenset({"job_response", "direct"})
 """ConversationKind диалога (messaging), который начинают пользователи."""
+CONTACT_TYPES: Final = frozenset({"telegram", "phone"})
+"""ContactType (messaging): чем поделились после договорённости."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -223,7 +225,11 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
         description="Сообщение в чате: чья сторона и скрыты ли контакты до договорённости",
         properties={"role": Choice(DEAL_ROLES), "masked": Flag()},
     ),
-    EventName.CONTACT_SHARED: EventSpec(step="6.3b", description="Открыт контакт"),
+    EventName.CONTACT_SHARED: EventSpec(
+        step="6.3b",
+        description="Сторона поделилась контактом после договорённости: чем и чья сторона",
+        properties={"contact_type": Choice(CONTACT_TYPES), "role": Choice(DEAL_ROLES)},
+    ),
     EventName.REVIEW_PUBLISHED: EventSpec(step="7.2", description="Опубликован отзыв"),
     EventName.SHARE_CREATED: EventSpec(step="7.4", description="Поделились ссылкой"),
     EventName.ATTRIBUTION_RECORDED: EventSpec(step="7.4", description="Атрибуция по ссылке"),

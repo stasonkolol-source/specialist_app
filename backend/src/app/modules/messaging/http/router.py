@@ -11,7 +11,11 @@
   S30; ETag по телу и 304;
 - `POST /conversations/{id}/messages` — написать (`client_msg_id` — повтор не дублирует): до
   договорённости контакты в тексте скрыты; лимит 20 или 100 в час по уровню доверия;
-- `POST /conversations/{id}/read` — дочитал до сообщения.
+- `POST /conversations/{id}/read` — дочитал до сообщения;
+- `POST /conversations/{id}/deal` — «Договорились» в прямом диалоге: сделка `proposed`, вторая
+  сторона подтверждает (S53) за 72 ч; в диалоге по отклику договорённость — выбор отклика (409);
+- `POST /conversations/{id}/share-contact` — после договорённости поделиться своим контактом
+  (username Telegram или телефон из `requestContact`); до неё — 409 `contacts_locked`.
 
 Чужой диалог — 404.
 """
@@ -31,6 +35,10 @@ from app.modules.messaging.application.use_cases.list_messages import (
     ListMessages,
     ListMessagesCommand,
 )
+from app.modules.messaging.application.use_cases.propose_deal import (
+    ProposeDeal,
+    ProposeDealCommand,
+)
 from app.modules.messaging.application.use_cases.read_conversation import (
     ReadConversation,
     ReadConversationCommand,
@@ -39,15 +47,22 @@ from app.modules.messaging.application.use_cases.send_message import (
     SendMessage,
     SendMessageCommand,
 )
+from app.modules.messaging.application.use_cases.share_contact import (
+    ShareContact,
+    ShareContactCommand,
+)
 from app.modules.messaging.application.use_cases.start_conversation import (
     StartConversation,
     StartConversationCommand,
 )
 from app.modules.messaging.http.schemas import (
+    ContactShareIn,
     ConversationOut,
     ConversationsPageOut,
     ConversationStartIn,
     ConversationStartOut,
+    DealProposalIn,
+    DealProposalOut,
     MessageIn,
     MessageOut,
     MessagesPageOut,
@@ -184,3 +199,60 @@ async def read_conversation(
             actor_id=principal.user_id, conversation_id=conversation_id, message_id=body.message_id
         )
     )
+
+
+@router.post(
+    "/conversations/{conversation_id:uuid}/deal",
+    status_code=status.HTTP_201_CREATED,
+    response_model=DealProposalOut,
+    dependencies=AUTHENTICATED,
+)
+@inject
+async def propose_deal(
+    conversation_id: ConversationPath,
+    body: DealProposalIn,
+    principal: FromDishka[Principal],
+    propose: FromDishka[ProposeDeal],
+) -> DealProposalOut:
+    """«Договорились»: сделка `proposed` ждёт подтверждения второй стороны."""
+    deal_id = await propose(
+        ProposeDealCommand(
+            actor_id=principal.user_id,
+            conversation_id=conversation_id,
+            title=body.title,
+            price_type=body.price_type,
+            price_amount=body.price_amount,
+            scheduled_at=body.scheduled_at,
+        )
+    )
+    return DealProposalOut(deal_id=deal_id)
+
+
+@router.post(
+    "/conversations/{conversation_id:uuid}/share-contact",
+    response_model=MessageOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={status.HTTP_200_OK: {"model": MessageOut, "description": "Уже делились"}},
+    dependencies=AUTHENTICATED,
+)
+@inject
+async def share_contact(
+    conversation_id: ConversationPath,
+    body: ContactShareIn,
+    principal: FromDishka[Principal],
+    share: FromDishka[ShareContact],
+    response: Response,
+) -> MessageOut:
+    """Поделиться своим контактом после договорённости: 201 — новое сообщение, 200 — уже было."""
+    shared = await share(
+        ShareContactCommand(
+            actor_id=principal.user_id,
+            conversation_id=conversation_id,
+            contact_type=body.contact_type,
+            init_data=body.init_data,
+            contact=body.contact,
+        )
+    )
+    if not shared.created:
+        response.status_code = status.HTTP_200_OK
+    return MessageOut.of(shared.message, principal.user_id)

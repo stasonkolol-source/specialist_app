@@ -17,9 +17,11 @@ from app.modules.growth.domain.attribution import AttributionSource
 from app.modules.identity.domain.user import UserIntent
 from app.modules.jobs.domain.job import CloseReason, Urgency
 from app.modules.messaging.domain.conversation import ConversationKind, ParticipantRole
+from app.modules.messaging.domain.message import ContactType
 from app.modules.notifications.domain.channel import GrantedVia
 from app.platform.analytics.events import (
     CLOSE_REASONS,
+    CONTACT_TYPES,
     CONVERSATION_KINDS,
     DEAL_CANCEL_REASONS,
     DEAL_CANCELLED_BY,
@@ -39,6 +41,7 @@ from app.platform.analytics.fake import LoggingAnalytics
 from app.platform.analytics.port import AnalyticsEvent
 from app.platform.analytics.posthog import PostHogAnalytics
 from app.platform.analytics.tasks import (
+    capture_contact_shared,
     capture_conversation_started,
     capture_deal_agreed,
     capture_deal_cancelled,
@@ -50,7 +53,7 @@ from app.platform.analytics.tasks import (
 from app.platform.contracts.events.deals import DealAgreed, DealCancelled
 from app.platform.contracts.events.identity import EntryPoint, OnboardingCompleted
 from app.platform.contracts.events.jobs import JobInvited
-from app.platform.contracts.events.messaging import ConversationStarted, MessageSent
+from app.platform.contracts.events.messaging import ContactShared, ConversationStarted, MessageSent
 from app.platform.contracts.events.notifications import WriteAccessGranted
 from app.platform.kernel.errors import ExternalServiceError, RateLimitedError
 from app.platform.kernel.ids import CategoryId, CityId, DealId, UserId, new_id
@@ -124,6 +127,7 @@ def test_wired_events_are_those_of_the_finished_steps() -> None:
         EventName.DEAL_CANCELLED: "6.1a",
         EventName.CONVERSATION_STARTED: "6.3a",
         EventName.MESSAGE_SENT: "6.3a",
+        EventName.CONTACT_SHARED: "6.3b",
     }
 
 
@@ -140,6 +144,7 @@ def test_closed_lists_match_the_domain() -> None:
     assert {r.value for r in DealCancelReason} == DEAL_CANCEL_REASONS
     assert {k.value for k in ConversationKind} - {"support"} == CONVERSATION_KINDS
     assert {r.value for r in ParticipantRole} - {"support"} == DEAL_ROLES
+    assert {t.value for t in ContactType} == CONTACT_TYPES
 
 
 def registered(**properties: Any) -> AnalyticsEvent:
@@ -498,10 +503,22 @@ async def test_chat_events_say_who_and_whether_contacts_were_hidden() -> None:
         occurred_at=NOW,
     )
 
+    shared = ContactShared(
+        conversation_id=conversation_id,
+        deal_id=new_id(),
+        shared_by=performer,
+        shared_with=client,
+        sharer_role="performer",
+        contact_type="phone",
+        occurred_at=NOW,
+    )
+
     await capture_conversation_started(started, fake)
     await capture_message_sent(sent, fake)
+    await capture_contact_shared(shared, fake)
 
     assert [(e.name, e.distinct_id, dict(e.properties)) for e in fake.captured] == [
         ("conversation_started", performer, {"kind": "job_response", "initiator": "performer"}),
         ("message_sent", client, {"role": "client", "masked": True}),
+        ("contact_shared", performer, {"contact_type": "phone", "role": "performer"}),
     ]

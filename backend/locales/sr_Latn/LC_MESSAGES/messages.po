@@ -561,6 +561,18 @@ msgstr "Previše poruka za sat. Sačekajte malo."
 msgid "errors.conversations_limit"
 msgstr "Previše novih razgovora za sat. Sačekajte malo."
 
+msgid "errors.cannot_propose"
+msgstr "Ovde ne možete da se dogovorite: u razgovoru o ponudi naručilac bira izvođača na stranici ponuda."
+
+msgid "errors.deal_in_progress"
+msgstr "Dogovor već postoji: predlog čeka odgovor ili je dogovor u toku."
+
+msgid "errors.contacts_locked"
+msgstr "Kontakt možete podeliti nakon dogovora."
+
+msgid "errors.invalid_contact"
+msgstr "Deljenje kontakta nije uspelo. Ponovo otvorite aplikaciju i pokušajte opet."
+
 msgid "errors.deal_not_found"
 msgstr "Dogovor nije pronađen."
 
@@ -744,6 +756,18 @@ msgstr "Zahtev „{title}“. Hvala na ponudi — u listi ima drugih zahteva u b
 
 msgid "notifications.deal.open"
 msgstr "Otvori dogovor"
+
+msgid "notifications.deal_proposed.title"
+msgstr "Dogovoreno?"
+
+msgid "notifications.deal_proposed.body_client"
+msgstr "Naručilac predlaže dogovor: „{title}“. Proverite uslove i potvrdite u roku od 3 dana."
+
+msgid "notifications.deal_proposed.body_performer"
+msgstr "Izvođač predlaže dogovor: „{title}“. Proverite uslove i potvrdite u roku od 3 dana."
+
+msgid "notifications.deal_proposed.button"
+msgstr "Pogledaj uslove"
 
 msgid "notifications.deal_cancelled.title"
 msgstr "Dogovor je otkazan"

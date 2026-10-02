@@ -9,10 +9,18 @@ import { faker } from '@faker-js/faker';
 import { HttpResponse, http } from 'msw';
 import type { RequestHandlerOptions } from 'msw';
 
-import { ConversationKind, ConversationStatus, MessageKind, ParticipantRole } from '../../model';
+import {
+  ContactType,
+  ConversationKind,
+  ConversationStatus,
+  MessageKind,
+  ParticipantRole,
+  SystemEvent,
+} from '../../model';
 import type {
   ConversationStartOut,
   ConversationsPageOut,
+  DealProposalOut,
   MessageOut,
   MessagesPageOut,
 } from '../../model';
@@ -43,6 +51,28 @@ export const getMessagingListConversationsResponseMock = (
         prepayment: faker.datatype.boolean(),
         hidden: faker.datatype.boolean(),
         offer: faker.helpers.arrayElement([null]),
+        contact: faker.helpers.arrayElement([
+          {
+            type: faker.helpers.arrayElement(Object.values(ContactType)),
+            value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+          null,
+        ]),
+        event: faker.helpers.arrayElement([
+          {
+            type: faker.helpers.arrayElement(Object.values(SystemEvent)),
+            deal_id: faker.string.uuid(),
+            by: faker.helpers.arrayElement([
+              faker.string.alpha({ length: { min: 10, max: 20 } }),
+              null,
+            ]),
+            reason: faker.helpers.arrayElement([
+              faker.string.alpha({ length: { min: 10, max: 20 } }),
+              null,
+            ]),
+          },
+          null,
+        ]),
         client_msg_id: faker.helpers.arrayElement([
           faker.string.alpha({ length: { min: 10, max: 20 } }),
           null,
@@ -99,6 +129,28 @@ export const getMessagingListMessagesResponseMock = (
         prepayment: faker.datatype.boolean(),
         hidden: faker.datatype.boolean(),
         offer: faker.helpers.arrayElement([null]),
+        contact: faker.helpers.arrayElement([
+          {
+            type: faker.helpers.arrayElement(Object.values(ContactType)),
+            value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
+          null,
+        ]),
+        event: faker.helpers.arrayElement([
+          {
+            type: faker.helpers.arrayElement(Object.values(SystemEvent)),
+            deal_id: faker.string.uuid(),
+            by: faker.helpers.arrayElement([
+              faker.string.alpha({ length: { min: 10, max: 20 } }),
+              null,
+            ]),
+            reason: faker.helpers.arrayElement([
+              faker.string.alpha({ length: { min: 10, max: 20 } }),
+              null,
+            ]),
+          },
+          null,
+        ]),
         client_msg_id: faker.helpers.arrayElement([
           faker.string.alpha({ length: { min: 10, max: 20 } }),
           null,
@@ -124,6 +176,28 @@ export const getMessagingListMessagesResponseMock = (
     prepayment: faker.datatype.boolean(),
     hidden: faker.datatype.boolean(),
     offer: faker.helpers.arrayElement([null]),
+    contact: faker.helpers.arrayElement([
+      {
+        type: faker.helpers.arrayElement(Object.values(ContactType)),
+        value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+      null,
+    ]),
+    event: faker.helpers.arrayElement([
+      {
+        type: faker.helpers.arrayElement(Object.values(SystemEvent)),
+        deal_id: faker.string.uuid(),
+        by: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        reason: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+      },
+      null,
+    ]),
     client_msg_id: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
       null,
@@ -153,6 +227,25 @@ export const getMessagingSendMessageResponseMock = (
   prepayment: faker.datatype.boolean(),
   hidden: faker.datatype.boolean(),
   offer: faker.helpers.arrayElement([null]),
+  contact: faker.helpers.arrayElement([
+    {
+      type: faker.helpers.arrayElement(Object.values(ContactType)),
+      value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    null,
+  ]),
+  event: faker.helpers.arrayElement([
+    {
+      type: faker.helpers.arrayElement(Object.values(SystemEvent)),
+      deal_id: faker.string.uuid(),
+      by: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+      reason: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+    },
+    null,
+  ]),
   client_msg_id: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
@@ -160,6 +253,100 @@ export const getMessagingSendMessageResponseMock = (
   created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
   ...overrideResponse,
 });
+
+export const getMessagingProposeDealResponseMock = (
+  overrideResponse: Partial<Extract<DealProposalOut, object>> = {},
+): DealProposalOut => ({ deal_id: faker.string.uuid(), ...overrideResponse });
+
+export const getMessagingShareContactResponseMock = (
+  overrideResponse: Partial<Extract<MessageOut, object>> = {},
+): MessageOut =>
+  faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      kind: faker.helpers.arrayElement(Object.values(MessageKind)),
+      mine: faker.datatype.boolean(),
+      sender_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+      body: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      masked: faker.datatype.boolean(),
+      prepayment: faker.datatype.boolean(),
+      hidden: faker.datatype.boolean(),
+      offer: faker.helpers.arrayElement([null]),
+      contact: faker.helpers.arrayElement([
+        {
+          type: faker.helpers.arrayElement(Object.values(ContactType)),
+          value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        },
+        null,
+      ]),
+      event: faker.helpers.arrayElement([
+        {
+          type: faker.helpers.arrayElement(Object.values(SystemEvent)),
+          deal_id: faker.string.uuid(),
+          by: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
+          reason: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
+        },
+        null,
+      ]),
+      client_msg_id: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+      ...overrideResponse,
+    },
+    {
+      id: faker.string.uuid(),
+      kind: faker.helpers.arrayElement(Object.values(MessageKind)),
+      mine: faker.datatype.boolean(),
+      sender_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+      body: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      masked: faker.datatype.boolean(),
+      prepayment: faker.datatype.boolean(),
+      hidden: faker.datatype.boolean(),
+      offer: faker.helpers.arrayElement([null]),
+      contact: faker.helpers.arrayElement([
+        {
+          type: faker.helpers.arrayElement(Object.values(ContactType)),
+          value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        },
+        null,
+      ]),
+      event: faker.helpers.arrayElement([
+        {
+          type: faker.helpers.arrayElement(Object.values(SystemEvent)),
+          deal_id: faker.string.uuid(),
+          by: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
+          reason: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
+        },
+        null,
+      ]),
+      client_msg_id: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+      ...overrideResponse,
+    },
+  ]);
 
 export const getMessagingListConversationsMockHandler = (
   overrideResponse?:
@@ -272,10 +459,58 @@ export const getMessagingReadConversationMockHandler = (
     options,
   );
 };
+
+export const getMessagingProposeDealMockHandler = (
+  overrideResponse?:
+    | DealProposalOut
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<DealProposalOut> | DealProposalOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/api/v1/conversations/:conversationId/deal',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getMessagingProposeDealResponseMock(),
+        { status: 201 },
+      );
+    },
+    options,
+  );
+};
+
+export const getMessagingShareContactMockHandler = (
+  overrideResponse?:
+    | MessageOut
+    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<MessageOut> | MessageOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/api/v1/conversations/:conversationId/share-contact',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getMessagingShareContactResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getMessagingMock = () => [
   getMessagingListConversationsMockHandler(),
   getMessagingStartConversationMockHandler(),
   getMessagingListMessagesMockHandler(),
   getMessagingSendMessageMockHandler(),
   getMessagingReadConversationMockHandler(),
+  getMessagingProposeDealMockHandler(),
+  getMessagingShareContactMockHandler(),
 ];

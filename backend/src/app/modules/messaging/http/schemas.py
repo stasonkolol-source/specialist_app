@@ -1,7 +1,7 @@
 """Схемы HTTP messaging (ARCHITECTURE §8.5): диалоги, сообщения, начать диалог, написать."""
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
@@ -15,11 +15,31 @@ from app.modules.messaging.domain.conversation import (
 from app.modules.messaging.domain.message import (
     MAX_BODY,
     MAX_CLIENT_ID,
+    ContactType,
     Message,
     MessageKind,
     MessageModeration,
+    SystemEvent,
 )
 from app.platform.kernel.ids import UserId
+
+
+class ContactOut(BaseModel):
+    """Контакт, которым сторона поделилась после договорённости (S54)."""
+
+    type: ContactType
+    value: str = Field(description="«@username» или телефон в E.164")
+
+
+class SystemEventOut(BaseModel):
+    """Системное сообщение: что случилось со сделкой диалога."""
+
+    type: SystemEvent
+    deal_id: UUID
+    by: str | None = Field(
+        description="Кто: `client`, `performer`; у отмены ещё `system` (истекло, удалён аккаунт)"
+    )
+    reason: str | None = Field(description="Причина отмены (DealCancelReason)")
 
 
 class MessageOut(BaseModel):
@@ -34,6 +54,8 @@ class MessageOut(BaseModel):
     offer: dict[str, Any] | None = Field(
         description="Предложение отклика (kind=offer): price_type, price_amount, availability_note"
     )
+    contact: ContactOut | None = Field(description="Контакт (kind=contact_share)")
+    event: SystemEventOut | None = Field(description="Что со сделкой (kind=system)")
     client_msg_id: str | None = Field(description="Ключ идемпотентности — только у своих")
     created_at: datetime
 
@@ -59,9 +81,31 @@ class MessageOut(BaseModel):
             prepayment=bool(payload.get("prepayment")),
             hidden=message.moderation is MessageModeration.HIDDEN,
             offer=offer,
+            contact=_contact(message),
+            event=_event(message),
             client_msg_id=message.client_msg_id if message.sender_id == viewer_id else None,
             created_at=message.created_at,
         )
+
+
+def _contact(message: Message) -> ContactOut | None:
+    payload = message.payload
+    if message.kind is not MessageKind.CONTACT_SHARE or "value" not in payload:
+        return None  # стёрт: аккаунт удалён или срок хранения вышел
+    return ContactOut(type=ContactType(str(payload["contact_type"])), value=str(payload["value"]))
+
+
+def _event(message: Message) -> SystemEventOut | None:
+    payload = message.payload
+    if message.kind is not MessageKind.SYSTEM or "event" not in payload:
+        return None
+    by, reason = payload.get("by"), payload.get("reason")
+    return SystemEventOut(
+        type=SystemEvent(str(payload["event"])),
+        deal_id=UUID(str(payload["deal_id"])),
+        by=str(by) if by is not None else None,
+        reason=str(reason) if reason is not None else None,
+    )
 
 
 class ConversationOut(BaseModel):
@@ -148,3 +192,32 @@ class MessageIn(BaseModel):
 
 class ReadIn(BaseModel):
     message_id: UUID = Field(description="Последнее сообщение, которое участник видел")
+
+
+class DealProposalIn(BaseModel):
+    """«Договорились» (S30): что делаем, цена и когда — вторая сторона увидит их на S53."""
+
+    title: str = Field(min_length=1, max_length=120, description="Что делаем")
+    price_type: Literal["fixed", "from", "hourly", "negotiable"] | None = None
+    price_amount: int | None = Field(default=None, ge=1, description="Пара; без вида цены — 422")
+    scheduled_at: datetime | None = Field(
+        default=None, description="Когда: впереди и не дальше трёх месяцев"
+    )
+
+
+class DealProposalOut(BaseModel):
+    deal_id: UUID = Field(description="Сделка `proposed`: ждёт подтверждения второй стороны")
+
+
+class ContactShareIn(BaseModel):
+    """Чем поделиться (S54): username Telegram — из initData, телефон — из `requestContact`."""
+
+    contact_type: ContactType
+    init_data: str | None = Field(
+        default=None, max_length=8192, description="telegram: `Telegram.WebApp.initData`"
+    )
+    contact: str | None = Field(
+        default=None,
+        max_length=8192,
+        description="phone: поле `response` из ответа `requestContact` (подписано Telegram)",
+    )

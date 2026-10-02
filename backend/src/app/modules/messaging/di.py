@@ -5,6 +5,8 @@ from dishka import Provider, Scope, provide
 from app.modules.messaging.api import MessagingApi
 from app.modules.messaging.application.facade import MessagingFacade
 from app.modules.messaging.application.ports import (
+    ContactShares,
+    ContactVerifier,
     ConversationQueries,
     ConversationRepository,
     MessageQuota,
@@ -13,13 +15,18 @@ from app.modules.messaging.application.ports import (
 from app.modules.messaging.application.use_cases.forget_messages import ForgetMessages
 from app.modules.messaging.application.use_cases.list_conversations import ListConversations
 from app.modules.messaging.application.use_cases.list_messages import ListMessages
+from app.modules.messaging.application.use_cases.propose_deal import ProposeDeal
 from app.modules.messaging.application.use_cases.purge_messages import PurgeMessages
 from app.modules.messaging.application.use_cases.read_conversation import ReadConversation
+from app.modules.messaging.application.use_cases.record_deal_event import RecordDealEvent
 from app.modules.messaging.application.use_cases.send_message import SendMessage
+from app.modules.messaging.application.use_cases.share_contact import ShareContact
 from app.modules.messaging.application.use_cases.start_conversation import StartConversation
+from app.modules.messaging.infrastructure.contacts import TelegramContactVerifier
 from app.modules.messaging.infrastructure.queries import SqlConversationQueries
 from app.modules.messaging.infrastructure.quota import ValkeyMessageQuota
 from app.modules.messaging.infrastructure.repositories import (
+    SqlContactShares,
     SqlConversationRepository,
     SqlMessageStore,
 )
@@ -32,6 +39,8 @@ class MessagingProvider(Provider):
 
     conversations = provide(SqlConversationRepository, provides=ConversationRepository)
     messages = provide(SqlMessageStore, provides=MessageStore)
+    shares = provide(SqlContactShares, provides=ContactShares)
+    contact_verifier = provide(TelegramContactVerifier, provides=ContactVerifier)
     queries = provide(SqlConversationQueries, provides=ConversationQueries)
     quota = provide(ValkeyMessageQuota, provides=MessageQuota)
     facade = provide(MessagingFacade, provides=MessagingApi)
@@ -41,5 +50,8 @@ class MessagingProvider(Provider):
     read_conversation = provide(ReadConversation)
     list_conversations = provide(ListConversations)
     list_messages = provide(ListMessages)
+    propose_deal = provide(ProposeDeal)
+    share_contact = provide(ShareContact)
+    record_deal_event = provide(RecordDealEvent)
     forget_messages = provide(ForgetMessages)
     purge_messages = provide(PurgeMessages)

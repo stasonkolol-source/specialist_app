@@ -560,6 +560,18 @@ msgstr "Слишком много сообщений за час. Подожди
 msgid "errors.conversations_limit"
 msgstr "Слишком много новых диалогов за час. Подождите немного."
 
+msgid "errors.cannot_propose"
+msgstr "Здесь договориться нельзя: в диалоге по отклику клиент выбирает исполнителя на странице откликов."
+
+msgid "errors.deal_in_progress"
+msgstr "Договорённость уже есть: предложение ждёт ответа или сделка идёт."
+
+msgid "errors.contacts_locked"
+msgstr "Контактами можно поделиться после договорённости."
+
+msgid "errors.invalid_contact"
+msgstr "Не удалось поделиться контактом. Откройте приложение заново и попробуйте ещё раз."
+
 msgid "errors.deal_not_found"
 msgstr "Сделка не найдена."
 
@@ -743,6 +755,18 @@ msgstr "Заявка «{title}». Спасибо за отклик — в лен
 
 msgid "notifications.deal.open"
 msgstr "Открыть сделку"
+
+msgid "notifications.deal_proposed.title"
+msgstr "Договорились?"
+
+msgid "notifications.deal_proposed.body_client"
+msgstr "Клиент предлагает договориться: «{title}». Проверьте условия и подтвердите в течение 3 дней."
+
+msgid "notifications.deal_proposed.body_performer"
+msgstr "Исполнитель предлагает договориться: «{title}». Проверьте условия и подтвердите в течение 3 дней."
+
+msgid "notifications.deal_proposed.button"
+msgstr "Посмотреть условия"
 
 msgid "notifications.deal_cancelled.title"
 msgstr "Сделка отменена"

@@ -1,6 +1,7 @@
 """События модуля deals (ADR-0020 §2; ARCHITECTURE §7.9; DEVELOPMENT_PLAN 6.1a). Подписчики:
 jobs (заявка «в работе», отменённая — снова открыта, завершённая — завершена), identity
-(уровень доверия по завершённым сделкам), уведомления (6.1b), аналитика."""
+(уровень доверия по завершённым сделкам), уведомления (6.1b, 6.3b), переписка (6.3b),
+аналитика."""
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -8,6 +9,18 @@ from uuid import UUID
 
 from app.platform.kernel.events import DomainEvent
 from app.platform.kernel.ids import CategoryId, DealId, UserId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DealProposed(DomainEvent):
+    """«Договорились» в чате одной стороной (6.3b): вторая подтверждает или отклоняет за 72 ч."""
+
+    event_type = "deals.DealProposed"
+    deal_id: DealId
+    client_id: UserId
+    performer_id: UserId
+    proposed_by: UserId
+    conversation_id: UUID | None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
