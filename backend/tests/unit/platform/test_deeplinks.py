@@ -12,6 +12,7 @@ from app.platform.telegram.deeplinks import (
     BASE62_ALPHABET,
     START_PARAM_MAX_LENGTH,
     LinkDocument,
+    LinkSection,
     LinkType,
     ReservedCode,
     StartLink,
@@ -38,6 +39,7 @@ def from_golden(data: dict[str, str]) -> StartLink:
         code=ReservedCode(data["code"]) if "code" in data else None,
         value=data.get("value"),
         document=LinkDocument(data["document"]) if "document" in data else None,
+        section=LinkSection(data["section"]) if "section" in data else None,
         ref=data.get("ref"),
     )
 
@@ -50,6 +52,7 @@ def as_golden(link: StartLink) -> dict[str, str]:
         "code": link.code.value if link.code else None,
         "value": link.value,
         "document": link.document.value if link.document else None,
+        "section": link.section.value if link.section else None,
         "ref": link.ref,
     }
     return {key: value for key, value in fields.items() if value is not None}
@@ -156,6 +159,10 @@ def test_telegram_partner_params_are_not_ours() -> None:
         {"type": LinkType.RESERVED, "code": ReservedCode.GOODS_SAVED_SEARCH, "value": ""},
         {"type": LinkType.JOB},
         {"type": LinkType.HOME, "id": ID},
+        {"type": LinkType.NEW_JOB, "id": ID},
+        {"type": LinkType.MINE},
+        {"type": LinkType.HOME, "section": LinkSection.JOBS},
+        {"type": LinkType.LEGAL, "document": LinkDocument.TERMS, "section": LinkSection.JOBS},
     ],
     ids=[
         "ref-underscore",
@@ -165,6 +172,10 @@ def test_telegram_partner_params_are_not_ours() -> None:
         "gs-empty",
         "job-no-id",
         "h-id",
+        "n-id",
+        "m-no-section",
+        "h-section",
+        "l-section",
     ],
 )
 def test_invalid_links_are_rejected(fields: dict[str, Any]) -> None:

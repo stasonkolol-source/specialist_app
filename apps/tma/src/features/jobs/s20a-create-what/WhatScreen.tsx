@@ -11,6 +11,7 @@ import {
   JOB_TITLE_MIN,
   useCategories,
   useMediaUploads,
+  useSpecialistCard,
   useSuggest,
   whatProblems,
 } from '@sosed/hooks';
@@ -31,9 +32,10 @@ import {
   Textarea,
   UploadTile,
 } from '@sosed/ui-web';
-import { useSearch } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useId, useState } from 'react';
 
+import { DirectBanner } from '../shared/DirectBanner.tsx';
 import { categoryPath, findCategory } from '../shared/categories.ts';
 import { useDebounced } from '../shared/debounce.ts';
 import { useJobDraft } from '../shared/draft.ts';
@@ -66,6 +68,7 @@ function WhatForm({
   const { t: common } = useTranslation();
   const locale = useLocale();
   const search = useSearch({ from: CREATE_PATHS.what });
+  const navigate = useNavigate();
   const tree = useCategories(locale).data ?? [];
   const [picking, setPicking] = useState(false);
   // незаполненное подсвечиваем после первого «Далее»
@@ -82,6 +85,13 @@ function WhatForm({
       categoryChosen: search.category !== undefined,
     });
   }, [draft.title, draft.categoryId, search.title, search.category, patch]);
+
+  // «Написать» на S08, «Заказать эту услугу» на S09: прямой запрос этому специалисту
+  const card = useSpecialistCard(search.direct ?? null, locale);
+  useEffect(() => {
+    if (!search.direct || draft.direct?.profileId === search.direct || !card.data) return;
+    patch({ direct: { profileId: search.direct, name: card.data.display_name } });
+  }, [search.direct, draft.direct, card.data, patch]);
 
   // категория по тексту, пока человек её не выбрал сам
   const settled = useDebounced(draft.title.trim(), SUGGEST_DELAY_MS);
@@ -111,6 +121,19 @@ function WhatForm({
   return (
     <section className="flex flex-col gap-4 px-4 pt-3 pb-6">
       <WizardHeader step={1} title={t('create.what.title')} />
+      {draft.direct && (
+        <DirectBanner
+          direct={draft.direct}
+          onAll={() =>
+            // сначала убрать параметр адреса, потом запрос: иначе эффект вернул бы его сам
+            void navigate({
+              to: CREATE_PATHS.what,
+              search: { ...search, direct: undefined },
+              replace: true,
+            }).then(() => patch({ direct: null }))
+          }
+        />
+      )}
       <Field
         label={t('create.what.summary')}
         error={

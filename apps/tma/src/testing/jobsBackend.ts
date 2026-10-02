@@ -448,8 +448,8 @@ export function templatesFixture(): ResponseTemplateOut[] {
 const withChildren = (id: number) => (job: number) => job === id || Math.floor(job / 100) === id;
 
 export class JobsBackend {
-  /** Принятые POST /jobs: тело и ключ — все, включая повторы. */
-  readonly posts: { body: JobIn; key: string | null }[] = [];
+  /** Принятые POST /jobs и прямые запросы: тело, ключ и кому — все, включая повторы. */
+  readonly posts: { body: JobIn; key: string | null; directTo?: string | null }[] = [];
   readonly jobs = new Map<string, JobOut>();
   /** «Не интересно»: id скрытых заявок ленты. */
   readonly hidden = new Set<string>();
@@ -506,6 +506,7 @@ export class JobsBackend {
     body: unknown,
     key: string | null,
     signedIn: boolean,
+    ifMatch: string | null = null,
   ): BackendReply | null {
     const path = url.pathname.replace(/^\/api\/v1/, '');
     if (path.startsWith('/me/favorites/job')) {
@@ -543,13 +544,51 @@ export class JobsBackend {
     if (method === 'POST' && path === '/jobs') {
       return signedIn ? this.create(body as JobIn, key) : problem(401, 'not_authenticated');
     }
+    const direct = /^\/specialists\/([^/]+)\/requests$/.exec(path);
+    if (method === 'POST' && direct) {
+      return signedIn
+        ? this.create(body as JobIn, key, direct[1] ?? null)
+        : problem(401, 'not_authenticated');
+    }
     const job = /^\/jobs\/([^/]+)$/.exec(path);
     if (method === 'GET' && job) return this.get(job[1] ?? '');
+    if (method === 'PATCH' && job) {
+      return signedIn
+        ? this.update(job[1] ?? '', body as JobIn, ifMatch)
+        : problem(401, 'not_authenticated');
+    }
     return null;
   }
 
-  create(body: JobIn, key: string | null): BackendReply {
-    this.posts.push({ body, key });
+  /** Принятые PATCH /jobs/{id}: тело и If-Match. */
+  readonly updates: { jobId: string; body: JobIn; ifMatch: string | null }[] = [];
+
+  /** Правка своей заявки, как у сервера: If-Match не той версии — 412 `stale_version`. */
+  update(id: string, body: JobIn, ifMatch: string | null): BackendReply {
+    this.updates.push({ jobId: id, body, ifMatch });
+    const job = this.jobs.get(id);
+    if (!job) return problem(404, 'job_not_found');
+    if (ifMatch !== null && ifMatch !== `"${job.version}"`) {
+      return problem(412, 'stale_version', {
+        detail: 'Данные устарели. Обновите страницу и повторите.',
+      });
+    }
+    const edited: JobOut = {
+      ...jobOut(id, body, job.status),
+      viewer_role: 'owner',
+      responses_count: job.responses_count,
+      views_count: job.views_count,
+      new_responses: job.new_responses,
+      published_at: job.published_at,
+      version: job.version + 1,
+    };
+    this.jobs.set(id, edited);
+    return { status: 200, body: edited };
+  }
+
+  /** Новая заявка; `directTo` — прямой запрос этому профилю (5.6): `visibility = direct`. */
+  create(body: JobIn, key: string | null, directTo: string | null = null): BackendReply {
+    this.posts.push({ body, key, directTo });
     if (this.failNext) {
       const reply = this.failNext;
       this.failNext = null;
@@ -558,7 +597,8 @@ export class JobsBackend {
     if (!key) return problem(400, 'idempotency_key_required');
     const known = this.byKey.get(key);
     if (known) return { status: 201, body: known };
-    const job = jobOut(`job-${this.jobs.size + 1}`, body, this.status);
+    const created = jobOut(`job-${this.jobs.size + 1}`, body, this.status);
+    const job: JobOut = directTo ? { ...created, visibility: 'direct' } : created;
     this.jobs.set(job.id, job);
     this.byKey.set(key, job);
     return { status: 201, body: job };

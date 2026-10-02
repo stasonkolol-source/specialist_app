@@ -13,7 +13,7 @@ describe('startTarget', () => {
     expect(startTarget('h')).toBe('/');
     expect(startTarget('h_rAB12CD')).toBe('/');
     // S26 (6.2), S30 (6.4) — до своих шагов на главную
-    const ready = new Set(['legal', 'specialist', 'job']);
+    const ready = new Set(['legal', 'specialist', 'job', 'new_job', 'mine']);
     for (const { param, link } of golden.valid) {
       if (!ready.has(link.type)) expect(startTarget(param)).toBe('/');
     }
@@ -39,6 +39,13 @@ describe('startTarget', () => {
     expect(startTarget('l_terms')).toBe('/legal/terms');
     expect(startTarget('l_privacy')).toBe('/legal/privacy');
     expect(startTarget('l_privacy_rAB12CD')).toBe('/legal/privacy');
+  });
+
+  it('opens the job wizard S20a for `n` and my jobs S22 for `m_jobs` (bot /new, /jobs; 5.6)', () => {
+    expect(startTarget('n')).toBe('/jobs/new');
+    expect(startTarget('n_rAB12CD')).toBe('/jobs/new');
+    expect(startTarget('m_jobs')).toBe('/jobs/mine');
+    expect(startTarget('m_jobs_rAB12CD')).toBe('/jobs/mine');
   });
 
   it('opens home for broken and foreign codes', () => {

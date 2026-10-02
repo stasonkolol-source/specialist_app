@@ -56,19 +56,32 @@ export const HOME_PATH = '/';
 /** Название из CTA — не длиннее заголовка заявки. */
 const MAX_PREFILL_TITLE = 120;
 
-export interface CreateSearch {
+export interface EditSearch {
+  /** Мастер правит свою заявку (S23 «Изменить», 5.6), а не новую. */
+  edit?: string;
+}
+
+export interface CreateSearch extends EditSearch {
   category?: number;
   title?: string;
+  /** Прямой запрос этому профилю (S08, S09; 5.6): заявку увидит только этот профиль. */
+  direct?: string;
+}
+
+/** validateSearch шагов мастера: правится ли своя заявка — её id. */
+export function editSearch(search: Record<string, unknown>): EditSearch {
+  return typeof search.edit === 'string' && isUuid(search.edit) ? { edit: search.edit } : {};
 }
 
 /** validateSearch первого шага: категория — целое больше нуля, название — строка. */
 export function createSearch(search: Record<string, unknown>): CreateSearch {
-  const result: CreateSearch = {};
+  const result: CreateSearch = editSearch(search);
   const category = Number(search.category);
   if (Number.isInteger(category) && category > 0) result.category = category;
   if (typeof search.title === 'string' && search.title.trim()) {
     result.title = search.title.trim().slice(0, MAX_PREFILL_TITLE);
   }
+  if (typeof search.direct === 'string' && isUuid(search.direct)) result.direct = search.direct;
   return result;
 }
 

@@ -1,7 +1,7 @@
 // Свои заявки клиента (S22, S23; DEVELOPMENT_PLAN 5.6): список с числом новых откликов, отклики
 // карточками — опрос раз в 15 секунд, пока экран открыт; закрыть с причиной, продлить, пригласить
 // специалистов. После действия заявка, список и счётчики перечитываются.
-import type { JobCloseInReason, JobOut } from '@sosed/api-client';
+import type { JobCloseInReason, JobIn, JobOut } from '@sosed/api-client';
 import {
   getJobsListJobInvitesQueryKey,
   getJobsListMyJobsQueryKey,
@@ -12,6 +12,7 @@ import {
   jobsInviteSpecialists,
   jobsListJobInvites,
   jobsListMyJobs,
+  jobsUpdateJob,
   viewsListResponseCards,
 } from '@sosed/api-client';
 import type { QueryClient } from '@tanstack/react-query';
@@ -67,6 +68,24 @@ export function useCloseJob() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({ jobId, reason }: CloseJob) => jobsCloseJob(jobId, { reason }),
+    onSuccess: (job) => refresh(client, job),
+  });
+}
+
+export interface UpdateJob {
+  jobId: string;
+  /** Версия, которую клиент правил: If-Match — чужая правка между ними даст 412. */
+  version: number;
+  body: JobIn;
+}
+
+/** «Изменить» на S23: заявка целиком, с If-Match; отклонённая и заметно изменённая — снова на
+ *  проверку (решает сервер). */
+export function useUpdateJob() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ jobId, version, body }: UpdateJob) =>
+      jobsUpdateJob(jobId, body, { 'If-Match': `"${version}"` }),
     onSuccess: (job) => refresh(client, job),
   });
 }

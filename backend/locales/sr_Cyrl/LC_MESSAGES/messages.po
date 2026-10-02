@@ -77,6 +77,45 @@ msgstr "Више није потребно"
 msgid "bot.jobs.reason.no_suitable"
 msgstr "Нико није одговарао"
 
+msgid "bot.jobs.new.text"
+msgstr "<b>Нови захтев</b>\nОпишите шта треба урадити — стручњаци у близини ће видети захтев и послати понуде са ценом."
+
+msgid "bot.jobs.new.button"
+msgstr "Направи захтев"
+
+msgid "bot.jobs.mine.header"
+msgstr "<b>Активни захтеви</b>"
+
+msgid "bot.jobs.mine.line"
+msgstr "• <b>{title}</b> — {state}"
+
+msgid "bot.jobs.mine.more"
+msgstr "…и још {count} — у „Мојим захтевима“."
+
+msgid "bot.jobs.mine.empty"
+msgstr "Немате активних захтева. Опишите задатак — стручњаци у близини ће послати понуде."
+
+msgid "bot.jobs.mine.all"
+msgstr "Сви моји захтеви"
+
+msgid "bot.jobs.mine.new"
+msgstr "Нови захтев"
+
+msgid "bot.jobs.state.pending_moderation"
+msgstr "на провери"
+
+msgid "bot.jobs.state.rejected"
+msgstr "потребна исправка"
+
+msgid "bot.jobs.state.waiting"
+msgstr "чекамо понуде"
+
+msgid "bot.jobs.state.responses"
+msgstr "понуда: {count} од {max}"
+
+msgid "bot.jobs.state.fresh"
+msgstr "понуда: {count} од {max}, нових: {fresh}"
+
 msgid "bot.help.text"
 msgstr "<b>Како функционише</b>\n• Опишите задатак — мајстори у близини ће се јавити са ценом. Или изаберите стручњака по утисцима.\n• Договарајте се у чету апликације „Соседи“: контакти — након договора.\n• Плаћање — директно извођачу, после посла. „Соседи“ не примају новац.\n\n<b>Безбедност</b>\n• Не плаћајте унапред непознатим људима и никоме не говорите кодове из СМС порука.\n• Сумњив профил или порука — пријавите директно у апликацији.\n\n/terms — правила платформе\n/privacy — политика приватности\n/language — језик"
 
@@ -117,10 +156,16 @@ msgid "bot.language.need_start"
 msgstr "Прво притисните /start."
 
 msgid "bot.fallback"
-msgstr "Разумем команде:\n/app — отвори апликацију\n/help — помоћ и подршка\n/language — језик"
+msgstr "Разумем команде:\n/app — отвори апликацију\n/new — нови захтев\n/jobs — моји захтеви\n/help — помоћ и подршка\n/language — језик"
 
 msgid "bot.commands.app"
 msgstr "Отвори апликацију"
+
+msgid "bot.commands.new"
+msgstr "Нови захтев"
+
+msgid "bot.commands.jobs"
+msgstr "Моји захтеви"
 
 msgid "bot.commands.help"
 msgstr "Помоћ и подршка"

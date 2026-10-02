@@ -3,14 +3,23 @@
 // избранное» (4.6); бейджи «Сегодня до …» и «Телефон подтверждён»; памятка «не платите предоплату
 // незнакомым»; первые позиции прайса со ссылкой на S09, превью работ со ссылкой на просмотрщик S10,
 // последний отзыв со ссылкой на S11; «О себе» — текст, языки и районы выезда. Всё — одним запросом
-// BFF. Профиль скрыт или его нет — «Профиль недоступен». Скрыто до своих шагов: MainButton
-// «Написать …» (прямой запрос 5.6, диалог 6.4), «Предложить заявку» (5.6), «Поделиться» (7.4),
-// «Обычно отвечает за …» (6.3b), «Пожаловаться» и «Заблокировать» (4.7). Гость видит экран без
-// входа, но без сердечка.
+// BFF. Профиль скрыт или его нет — «Профиль недоступен». MainButton «Написать» (5.6) — прямой
+// запрос: мастер заявки S20a, заявку увидит только этот специалист (с 6.4 — диалог); на своём
+// профиле кнопки нет. Скрыто до своих шагов: «Предложить заявку», «Поделиться» (7.4), «Обычно
+// отвечает за …» (6.3b), «Пожаловаться» и «Заблокировать» (4.7). Гость видит экран без входа, но
+// без сердечка.
 import type { CardWorkOut, SpecialistProfileOut } from '@sosed/api-client';
-import { cardVariants, isUnavailable, searchCardOf, useSpecialistCard } from '@sosed/hooks';
+import { getSession } from '@sosed/api-client';
+import { tokens } from '@sosed/design-tokens';
+import {
+  cardVariants,
+  isUnavailable,
+  searchCardOf,
+  useMyProfile,
+  useSpecialistCard,
+} from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
-import { useBackButton } from '@sosed/platform';
+import { useBackButton, useColorScheme, useMainButton } from '@sosed/platform';
 import {
   Avatar,
   Badge,
@@ -36,7 +45,7 @@ import { ReviewCard } from '../shared/ReviewCard.tsx';
 import { Unavailable } from '../shared/Unavailable.tsx';
 import { avatarSrc, knownLanguages, place, priceAmount, sentence } from '../shared/card.ts';
 import { useFavoriteToggle } from '../shared/favorite.ts';
-import { CARD_PATHS } from '../shared/paths.ts';
+import { CARD_PATHS, CREATE_JOB_PATH } from '../shared/paths.ts';
 
 const PHONE_VERIFIED = 'phone_verified';
 /** Аватар lg — 88 px. */
@@ -74,6 +83,23 @@ export function SpecialistScreen() {
   );
 }
 
+/** MainButton «Написать»: прямой запрос специалисту через мастер заявки; себе — не пишут. */
+function useWriteButton(profileId: string) {
+  const { t: common } = useTranslation();
+  const router = useRouter();
+  const scheme = useColorScheme();
+  const palette = tokens.color[scheme];
+  const signedIn = getSession() !== null;
+  const own = useMyProfile({ enabled: signedIn }).data?.id === profileId;
+  useMainButton({
+    text: common('action.write'),
+    visible: !own,
+    color: palette.accent,
+    textColor: palette['accent-ink'],
+    onClick: () => void router.navigate({ to: CREATE_JOB_PATH, search: { direct: profileId } }),
+  });
+}
+
 function Profile({ card }: { card: SpecialistProfileOut }) {
   const { t } = useTranslation('catalog');
   const common = useTranslation().t;
@@ -85,6 +111,7 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
   const aboutId = useId();
   const { control, failure } = useFavoriteToggle();
   const favorite = control(searchCardOf(card), false);
+  useWriteButton(card.id);
   const params = { profileId: card.id };
   const go = (to: string, search?: { work: string }) => (event: MouseEvent<HTMLElement>) => {
     event.preventDefault();

@@ -1,8 +1,9 @@
 // S21 «Заявка опубликована» (DEVELOPMENT_PLAN 5.2): итог публикации — опубликована сразу или на
 // проверке (обычно минуты). Если боту нельзя писать — контекстный запрос «Сообщать об откликах?»:
 // requestWriteAccess клиента Telegram, затем POST /me/telegram/write-access. MainButton «К заявке»
-// — своя заявка S23 (5.6). «Пригласить специалистов» — следующим шагом, «Поделиться в чат» — 7.4.
-// Число уведомлённых исполнителей появится с подписками (5.7).
+// — своя заявка S23 (5.6). Опубликованной сразу — «Пригласите специалистов» из каталога (5.6);
+// прямой запрос — «Запрос отправлен». «Поделиться в чат» — 7.4. Число уведомлённых исполнителей
+// появится с подписками (5.7).
 import type { JobOut } from '@sosed/api-client';
 import {
   getNotificationsGetNotificationSettingsQueryKey,
@@ -15,7 +16,9 @@ import { useBackButton, usePlatform } from '@sosed/platform';
 import { Banner, Button, Card, EmptyState, Heading, Icon, Text } from '@sosed/ui-web';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearch } from '@tanstack/react-router';
+import { useId } from 'react';
 
+import { InviteList } from '../shared/InviteList.tsx';
 import { useStepButton } from '../shared/flow.ts';
 import { CREATE_PATHS, HOME_PATH, managePath } from '../shared/paths.ts';
 
@@ -46,6 +49,20 @@ export function PublishedScreen() {
 function Published({ job }: { job: JobOut }) {
   const { t } = useTranslation('jobs');
   const published = job.status === 'published';
+  const direct = job.visibility === 'direct';
+  const inviteId = useId();
+  const title = direct
+    ? 'published.titleDirect'
+    : published
+      ? 'published.titlePublished'
+      : 'published.titlePending';
+  const text = direct
+    ? published
+      ? 'published.textDirectPublished'
+      : 'published.textDirectPending'
+    : published
+      ? 'published.textPublished'
+      : 'published.textPending';
   return (
     <section className="flex flex-col gap-5 px-4 pt-6 pb-6">
       <div className="flex flex-col items-center gap-3 text-center">
@@ -53,11 +70,22 @@ function Published({ job }: { job: JobOut }) {
           <Icon name={published ? 'check' : 'clock'} size={32} />
         </span>
         <Heading variant="h2" as="h1">
-          {t(published ? 'published.titlePublished' : 'published.titlePending')}
+          {t(title)}
         </Heading>
-        <Text secondary>{t(published ? 'published.textPublished' : 'published.textPending')}</Text>
+        <Text secondary>{t(text)}</Text>
       </div>
       <BotChannel />
+      {published && !direct && (
+        <section aria-labelledby={inviteId} className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1 px-1">
+            <Heading variant="h3" as="h2" id={inviteId}>
+              {t('manage.inviteTitle')}
+            </Heading>
+            <Text variant="cap">{t('manage.inviteHint')}</Text>
+          </div>
+          <InviteList job={job} />
+        </section>
+      )}
     </section>
   );
 }

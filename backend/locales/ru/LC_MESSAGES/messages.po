@@ -77,6 +77,45 @@ msgstr "Уже не нужно"
 msgid "bot.jobs.reason.no_suitable"
 msgstr "Никто не подошёл"
 
+msgid "bot.jobs.new.text"
+msgstr "<b>Новая заявка</b>\nОпишите, что нужно сделать, — специалисты рядом увидят заявку и откликнутся с ценой."
+
+msgid "bot.jobs.new.button"
+msgstr "Создать заявку"
+
+msgid "bot.jobs.mine.header"
+msgstr "<b>Активные заявки</b>"
+
+msgid "bot.jobs.mine.line"
+msgstr "• <b>{title}</b> — {state}"
+
+msgid "bot.jobs.mine.more"
+msgstr "…и ещё {count} — в «Моих заявках»."
+
+msgid "bot.jobs.mine.empty"
+msgstr "Активных заявок нет. Опишите задачу — специалисты рядом откликнутся."
+
+msgid "bot.jobs.mine.all"
+msgstr "Все мои заявки"
+
+msgid "bot.jobs.mine.new"
+msgstr "Новая заявка"
+
+msgid "bot.jobs.state.pending_moderation"
+msgstr "на проверке"
+
+msgid "bot.jobs.state.rejected"
+msgstr "нужно исправить"
+
+msgid "bot.jobs.state.waiting"
+msgstr "ждём откликов"
+
+msgid "bot.jobs.state.responses"
+msgstr "откликов: {count} из {max}"
+
+msgid "bot.jobs.state.fresh"
+msgstr "откликов: {count} из {max}, новых: {fresh}"
+
 msgid "bot.help.text"
 msgstr "<b>Как это работает</b>\n• Опишите задачу — мастера рядом откликнутся с ценой. Или выберите специалиста по отзывам.\n• Договаривайтесь в чате «Соседей»: контакты — после договорённости.\n• Оплата — напрямую исполнителю, после работы. «Соседи» деньги не принимают.\n\n<b>Безопасность</b>\n• Не вносите предоплату незнакомым и никому не сообщайте коды из СМС.\n• Подозрительный профиль или сообщение — пожалуйтесь прямо в приложении.\n\n/terms — правила площадки\n/privacy — политика конфиденциальности\n/language — язык"
 
@@ -117,10 +156,16 @@ msgid "bot.language.need_start"
 msgstr "Сначала нажмите /start."
 
 msgid "bot.fallback"
-msgstr "Я понимаю команды:\n/app — открыть приложение\n/help — помощь и поддержка\n/language — язык"
+msgstr "Я понимаю команды:\n/app — открыть приложение\n/new — новая заявка\n/jobs — мои заявки\n/help — помощь и поддержка\n/language — язык"
 
 msgid "bot.commands.app"
 msgstr "Открыть приложение"
+
+msgid "bot.commands.new"
+msgstr "Новая заявка"
+
+msgid "bot.commands.jobs"
+msgstr "Мои заявки"
 
 msgid "bot.commands.help"
 msgstr "Помощь и поддержка"

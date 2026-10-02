@@ -94,7 +94,15 @@
       "limitText": "— posle toga prijem ponuda se zatvara",
       "moderation": "Pre objavljivanja zahtev proverava moderacija — obično to traje nekoliko minuta",
       "publishError": "Objavljivanje nije uspelo. Proverite i pokušajte ponovo.",
-      "limitError": "Sada ne možete da napravite još jedan zahtev: {reason}"
+      "limitError": "Sada ne možete da napravite još jedan zahtev: {reason}",
+      "save": "Sačuvaj izmene",
+      "stale": "Zahtev je već izmenjen na drugom mestu — otvorite ga ponovo i ponovite izmenu.",
+      "reopen": "Otvori zahtev"
+    },
+    "editStep": "Korak {current} od {total} · izmena zahteva",
+    "direct": {
+      "banner": "Direktan zahtev: {name}. Zahtev vidi i ponudu može da pošalje samo ovaj stručnjak.",
+      "all": "Pošalji svim izvođačima"
     }
   },
   "published": {
@@ -108,7 +116,10 @@
     "notifyOn": "Ponude će stizati u Telegram",
     "notifyDenied": "Bez dozvole bot ne može da vam piše — ponude će biti u aplikaciji.",
     "missing": "Zahtev nije pronađen — možda je već obrisan.",
-    "toJob": "Na zahtev"
+    "toJob": "Na zahtev",
+    "titleDirect": "Zahtev je poslat",
+    "textDirectPending": "Izvođač će ga dobiti posle provere zahteva — obično za minut.",
+    "textDirectPublished": "Izvođač je obavešten i može da pošalje ponudu."
   },
   "segments": {
     "label": "Odeljak zahteva",
@@ -369,6 +380,7 @@
     "inviteHint": "Dobiće poziv da pošalju ponudu za ovaj zahtev",
     "invited": "Pozvan",
     "inviteNobody": "Odgovarajućih stručnjaka u blizini još nema",
-    "inviteLimit": "Pozvano {count} od {limit}"
+    "inviteLimit": "Pozvano {count} od {limit}",
+    "edit": "Izmeni"
   }
 }

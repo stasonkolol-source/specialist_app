@@ -78,6 +78,45 @@ msgstr "Više nije potrebno"
 msgid "bot.jobs.reason.no_suitable"
 msgstr "Niko nije odgovarao"
 
+msgid "bot.jobs.new.text"
+msgstr "<b>Novi zahtev</b>\nOpišite šta treba uraditi — stručnjaci u blizini će videti zahtev i poslati ponude sa cenom."
+
+msgid "bot.jobs.new.button"
+msgstr "Napravi zahtev"
+
+msgid "bot.jobs.mine.header"
+msgstr "<b>Aktivni zahtevi</b>"
+
+msgid "bot.jobs.mine.line"
+msgstr "• <b>{title}</b> — {state}"
+
+msgid "bot.jobs.mine.more"
+msgstr "…i još {count} — u „Mojim zahtevima“."
+
+msgid "bot.jobs.mine.empty"
+msgstr "Nemate aktivnih zahteva. Opišite zadatak — stručnjaci u blizini će poslati ponude."
+
+msgid "bot.jobs.mine.all"
+msgstr "Svi moji zahtevi"
+
+msgid "bot.jobs.mine.new"
+msgstr "Novi zahtev"
+
+msgid "bot.jobs.state.pending_moderation"
+msgstr "na proveri"
+
+msgid "bot.jobs.state.rejected"
+msgstr "potrebna ispravka"
+
+msgid "bot.jobs.state.waiting"
+msgstr "čekamo ponude"
+
+msgid "bot.jobs.state.responses"
+msgstr "ponuda: {count} od {max}"
+
+msgid "bot.jobs.state.fresh"
+msgstr "ponuda: {count} od {max}, novih: {fresh}"
+
 msgid "bot.help.text"
 msgstr "<b>Kako funkcioniše</b>\n• Opišite zadatak — majstori u blizini će se javiti sa cenom. Ili izaberite stručnjaka po utiscima.\n• Dogovarajte se u četu aplikacije „Sosedi“: kontakti — nakon dogovora.\n• Plaćanje — direktno izvođaču, posle posla. „Sosedi“ ne primaju novac.\n\n<b>Bezbednost</b>\n• Ne plaćajte unapred nepoznatim ljudima i nikome ne govorite kodove iz SMS poruka.\n• Sumnjiv profil ili poruka — prijavite direktno u aplikaciji.\n\n/terms — pravila platforme\n/privacy — politika privatnosti\n/language — jezik"
 
@@ -118,10 +157,16 @@ msgid "bot.language.need_start"
 msgstr "Prvo pritisnite /start."
 
 msgid "bot.fallback"
-msgstr "Razumem komande:\n/app — otvori aplikaciju\n/help — pomoć i podrška\n/language — jezik"
+msgstr "Razumem komande:\n/app — otvori aplikaciju\n/new — novi zahtev\n/jobs — moji zahtevi\n/help — pomoć i podrška\n/language — jezik"
 
 msgid "bot.commands.app"
 msgstr "Otvori aplikaciju"
+
+msgid "bot.commands.new"
+msgstr "Novi zahtev"
+
+msgid "bot.commands.jobs"
+msgstr "Moji zahtevi"
 
 msgid "bot.commands.help"
 msgstr "Pomoć i podrška"

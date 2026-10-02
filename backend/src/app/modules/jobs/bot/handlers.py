@@ -1,6 +1,6 @@
 """Бот jobs (DEVELOPMENT_PLAN 5.1, 5.6): кнопки уведомлений о сроке заявки — `job.expiring` и
-`job.expired` — и приглашения `job.invited` (ARCHITECTURE §11.3). Кнопки рисует notifications,
-данные — общий кодек platform/telegram/callbacks.py.
+`job.expired` — и приглашения `job.invited` (ARCHITECTURE §11.3), команды `/new` и `/jobs`.
+Кнопки уведомлений рисует notifications, данные — общий кодек platform/telegram/callbacks.py.
 
 - «Продлить» — тот же ExtendJob, что `POST /jobs/{id}/extend` и S23: сообщение заменяется
   итогом «продлена до …».
@@ -11,13 +11,26 @@
   нажатие «Отклик отправлен…», кнопки шаблонов под сообщением пропадают («Посмотреть заявку»
   остаётся). Мест нет, уже откликались, лимит дня, шаблон удалён — текстом ошибки.
 Владелец — по Telegram: чужая или удалённая заявка — «не найдена» (ErrorMiddleware).
+
+- `/new` — кнопка мастера новой заявки S20a (код `n`): описать задачу и выбрать район удобнее
+  в Mini App.
+- `/jobs` — активные заявки, как на S22 (на проверке, приём откликов, нужно исправить): строка
+  с состоянием и кнопка на каждую (код `j_`; владельца S15 ведёт в S23), «Все мои заявки»
+  (S22, `m_jobs`) и «Новая заявка».
 """
 
 from typing import Final
 
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.filters import Command
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+    WebAppInfo,
+)
 from dishka.integrations.aiogram import FromDishka, inject
 
 from app.modules.jobs.application.dto import JobView
@@ -35,6 +48,8 @@ from app.platform.i18n.dates import long_datetime
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Principal
+from app.platform.settings import TelegramSettings
+from app.platform.telegram.buttons import mini_app_url
 from app.platform.telegram.callbacks import (
     CallbackAction,
     CallbackData,
@@ -42,6 +57,7 @@ from app.platform.telegram.callbacks import (
     encode_callback,
     parse_callback,
 )
+from app.platform.telegram.deeplinks import LinkSection, LinkType, StartLink, encode_start_param
 from app.platform.telegram.texts import html_text, plain_text
 
 FOUND: Final = "found"
@@ -54,6 +70,17 @@ REASONS: Final = (
 )
 FOUND_REASONS: Final = (CloseReason.HIRED_HERE, CloseReason.HIRED_ELSEWHERE)
 EXTENDABLE: Final = frozenset({JobStatus.PUBLISHED, JobStatus.EXPIRED})
+
+OPEN: Final = (JobStatus.PENDING_MODERATION, JobStatus.PUBLISHED, JobStatus.REJECTED)
+"""Активные заявки `/jobs` — как группа «Активные» S22."""
+SHOWN: Final = 8
+"""Сколько активных заявок `/jobs` показывает кнопками; остальные — в «Моих заявках» S22."""
+OWN_LIMIT: Final = 50
+"""Сколько активных заявок читаем, чтобы сказать «и ещё N» (как `MY_JOBS_LIMIT` у S22)."""
+BUTTON_TITLE: Final = 40
+"""Название заявки на кнопке: длиннее Telegram обрезает его посередине."""
+NEW_JOB_LINK: Final = encode_start_param(StartLink(type=LinkType.NEW_JOB))
+MY_JOBS_LINK: Final = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSection.JOBS))
 
 
 @inject
@@ -205,9 +232,111 @@ async def _replace(
             raise
 
 
+@inject
+async def new_job(
+    message: Message,
+    locale: Locale,
+    translator: FromDishka[Translator],
+    telegram: FromDishka[TelegramSettings],
+) -> None:
+    button = (plain_text(translator, "bot.jobs.new.button", locale), NEW_JOB_LINK)
+    await message.answer(
+        html_text(translator, "bot.jobs.new.text", locale),
+        reply_markup=_app_keyboard(telegram, [[button]]),
+    )
+
+
+@inject
+async def my_jobs(
+    message: Message,
+    locale: Locale,
+    translator: FromDishka[Translator],
+    queries: FromDishka[JobQueries],
+    telegram: FromDishka[TelegramSettings],
+    principal: Principal | None = None,
+) -> None:
+    if principal is None:  # чат есть, а аккаунта нет — сначала /start
+        await message.answer(html_text(translator, "bot.language.need_start", locale))
+        return
+    jobs = await queries.own(principal.user_id, OPEN, limit=OWN_LIMIT)
+    all_jobs = (plain_text(translator, "bot.jobs.mine.all", locale), MY_JOBS_LINK)
+    if not jobs:
+        rows = [[(plain_text(translator, "bot.jobs.new.button", locale), NEW_JOB_LINK)]]
+        if await queries.own(principal.user_id, (), limit=1):  # закрытые и завершённые — в S22
+            rows.append([all_jobs])
+        await message.answer(
+            html_text(translator, "bot.jobs.mine.empty", locale),
+            reply_markup=_app_keyboard(telegram, rows),
+        )
+        return
+    shown = jobs[:SHOWN]
+    fresh = await queries.unseen_counts([job.id for job in shown])
+    lines = [
+        html_text(
+            translator,
+            "bot.jobs.mine.line",
+            locale,
+            title=job.title,
+            state=_state(job, fresh.get(job.id, 0), translator, locale),
+        )
+        for job in shown
+    ]
+    if len(jobs) > SHOWN:
+        lines.append(html_text(translator, "bot.jobs.mine.more", locale, count=len(jobs) - SHOWN))
+    rows = [
+        [(_button_title(job.title), encode_start_param(StartLink(type=LinkType.JOB, id=job.id)))]
+        for job in shown
+    ]
+    rows.append([all_jobs, (plain_text(translator, "bot.jobs.mine.new", locale), NEW_JOB_LINK)])
+    text = "\n".join([html_text(translator, "bot.jobs.mine.header", locale), "", *lines])
+    await message.answer(text, reply_markup=_app_keyboard(telegram, rows))
+
+
+def _state(job: JobView, fresh: int, translator: Translator, locale: Locale) -> str:
+    """Состояние заявки строкой, как бейджи S22: «на проверке», «откликов: 3 из 5, новых: 1»."""
+    if job.status is not JobStatus.PUBLISHED:
+        return plain_text(translator, f"bot.jobs.state.{job.status.value}", locale)
+    if job.responses_count == 0:
+        return plain_text(translator, "bot.jobs.state.waiting", locale)
+    key = "bot.jobs.state.fresh" if fresh else "bot.jobs.state.responses"
+    return plain_text(
+        translator,
+        key,
+        locale,
+        count=job.responses_count,
+        max=job.max_responses,
+        fresh=fresh,
+    )
+
+
+def _button_title(title: str) -> str:
+    return title if len(title) <= BUTTON_TITLE else f"{title[: BUTTON_TITLE - 1].rstrip()}…"
+
+
+def _app_keyboard(
+    telegram: TelegramSettings, rows: list[list[tuple[str, str]]]
+) -> InlineKeyboardMarkup | None:
+    """Кнопки web_app (подпись, код deep link экрана); без адреса Mini App — без кнопок."""
+    base = telegram.mini_app_url
+    if not base:
+        return None
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=label, web_app=WebAppInfo(url=mini_app_url(base, link)))
+                for label, link in row
+            ]
+            for row in rows
+        ]
+    )
+
+
 def create_router() -> Router:
     """Новый роутер на каждый вызов: роутер aiogram подключается только к одному диспетчеру."""
     router = Router(name="jobs")
+    private = F.chat.type == "private"
+    router.message.register(new_job, Command("new"), private)
+    router.message.register(my_jobs, Command("jobs"), private)
     router.callback_query.register(extend, F.data.startswith(f"{CallbackAction.JOB_EXTEND}:"))
     router.callback_query.register(close, F.data.startswith(f"{CallbackAction.JOB_CLOSE}:"))
     router.callback_query.register(respond, F.data.startswith(f"{CallbackAction.JOB_RESPOND}:"))

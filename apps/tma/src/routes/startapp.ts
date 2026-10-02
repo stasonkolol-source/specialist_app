@@ -1,14 +1,15 @@
 // Deep link `startapp` → адрес экрана (DEVELOPMENT_PLAN 1.5b, ARCHITECTURE §11.4, ADR-0011).
 // Разбор кода — packages/links (golden-векторы общие с backend). Цель без готового экрана и
 // неизвестный код ведут на главную (до 4.8 — заглушка). Шаг экрана-цели добавляет в START_TARGETS
-// свою строку: `s_` → S08 (4.5), `j_` → S15 (5.3), `d_` → S26 (6.2), `c_` → S30 (6.4); коды `g…`
+// свою строку: `s_` → S08 (4.5), `j_` → S15 (5.3), `n` → S20a и `m_jobs` → S22 (5.6), `d_` → S26
+// (6.2), `c_` → S30 (6.4); коды `g…`
 // раздела «Вещи» — после MVP. Суффикс `_r<code>` — атрибуция: её записывает backend при входе
 // (модуль growth), на выбор экрана он не влияет.
 import type { StartLink } from '@sosed/links';
 import { parseStartParam } from '@sosed/links';
 
 import { profilePath } from '../features/catalog/index.ts';
-import { jobPath } from '../features/jobs/index.ts';
+import { CREATE_PATHS, JOBS_PATHS, jobPath } from '../features/jobs/index.ts';
 
 const HOME = '/';
 
@@ -26,8 +27,11 @@ export const START_TARGETS: StartTargets = {
   legal: (link) => `/legal/${link.document}`,
   // карточка специалиста S08: ссылки из выдачи, каналов и чатов диаспоры (4.5, шаринг — 7.4)
   specialist: (link) => profilePath(link.id),
-  // заявка S15: кнопки уведомлений бота и ссылки из чатов (5.3); владельцу — S23 с 5.6
+  // заявка S15: кнопки уведомлений бота и ссылки из чатов (5.3); владельца S15 ведёт в S23 (5.6)
   job: (link) => jobPath(link.id),
+  // мастер новой заявки S20a и «Мои заявки» S22: команды бота /new и /jobs (5.6)
+  new_job: () => CREATE_PATHS.what,
+  mine: () => JOBS_PATHS.mine,
 };
 
 /** Адрес для кода `startapp`; `null` — приложение открыли без deep link. */

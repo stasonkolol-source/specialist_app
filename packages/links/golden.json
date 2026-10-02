@@ -124,6 +124,34 @@
       }
     },
     {
+      "param": "n",
+      "link": {
+        "type": "new_job"
+      }
+    },
+    {
+      "param": "n_rAB12CD",
+      "link": {
+        "type": "new_job",
+        "ref": "AB12CD"
+      }
+    },
+    {
+      "param": "m_jobs",
+      "link": {
+        "type": "mine",
+        "section": "jobs"
+      }
+    },
+    {
+      "param": "m_jobs_rAB12CD",
+      "link": {
+        "type": "mine",
+        "section": "jobs",
+        "ref": "AB12CD"
+      }
+    },
+    {
       "param": "j_7n42DGM5Tflk9n8mt7Fhc7_rZz9",
       "link": {
         "type": "job",
@@ -209,6 +237,16 @@
     "l_terms_privacy",
     "l_moderation",
     "l_rAB12",
+    "N",
+    "nn",
+    "n_",
+    "n_x",
+    "m",
+    "m_",
+    "m_Jobs",
+    "m_feed",
+    "m_jobs_deals",
+    "m_rAB12",
     "j_",
     "j_1Xh3kQ9vB7mZ2pR4sT8dL",
     "j_1Xh3kQ9vB7mZ2pR4sT8dLqq",
