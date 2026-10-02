@@ -233,6 +233,53 @@ def test_title_and_dates_are_checked() -> None:
     assert Budget(type=BudgetType.RANGE, min=100, unit=BudgetUnit.HOUR).max is None
 
 
+@pytest.mark.parametrize(
+    ("preferred_from", "preferred_to", "field"),
+    [
+        (NOW.replace(tzinfo=None), NOW, "preferred_from"),
+        (NOW, NOW.replace(tzinfo=None), "preferred_to"),
+        (NOW.replace(tzinfo=None), None, "preferred_from"),
+        (None, NOW.replace(tzinfo=None), "preferred_to"),
+        (NOW.replace(tzinfo=None), NOW.replace(tzinfo=None), "preferred_from"),
+    ],
+)
+def test_preferred_dates_require_timezone(
+    preferred_from: datetime | None, preferred_to: datetime | None, field: str
+) -> None:
+    with pytest.raises(InvalidJobError) as error:
+        content(preferred_from=preferred_from, preferred_to=preferred_to)
+
+    assert error.value.params == {"field": field, "reason": "timezone_required"}
+
+
+@pytest.mark.parametrize(
+    ("preferred_from", "preferred_to"),
+    [
+        (None, None),
+        (NOW, None),
+        (None, NOW),
+        (NOW, datetime.fromisoformat("2026-10-02T12:00:00+02:00")),
+    ],
+)
+def test_preferred_dates_accept_timezone_and_optional_bounds(
+    preferred_from: datetime | None, preferred_to: datetime | None
+) -> None:
+    job_content = content(preferred_from=preferred_from, preferred_to=preferred_to)
+
+    assert job_content.preferred_from == preferred_from
+    assert job_content.preferred_to == preferred_to
+
+
+def test_preferred_dates_are_ordered_by_instant() -> None:
+    with pytest.raises(InvalidJobError) as error:
+        content(
+            preferred_from=NOW,
+            preferred_to=datetime.fromisoformat("2026-10-02T11:00:00+02:00"),
+        )
+
+    assert error.value.params == {"field": "preferred_to", "reason": "before_from"}
+
+
 def test_reminder_comes_once_per_term_two_hours_before_the_end() -> None:
     job = published(urgency=Urgency.ASAP)
     expires = job.expires_at
