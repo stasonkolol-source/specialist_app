@@ -53,6 +53,7 @@ class AcceptResponse:
                     category_id=job.content.category_id,
                     price_type=offer.price_type.value,
                     agreed_price=offer.price_amount,
+                    scheduled_at=job.content.preferred_from,
                 )
             )
             await self._jobs.save(job)

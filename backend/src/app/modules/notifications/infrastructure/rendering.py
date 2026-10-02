@@ -6,7 +6,9 @@ payload: коды превращаются в слова каталога, да�
 ни параметр не внесут в сообщение разметку. Кнопка — web_app с кодом deep link; у срока
 заявки (`job.expiring`, `job.expired`) — callback-кнопки «Продлить» и «Закрыть», у приглашения
 (`job.invited`, 5.6) — «Посмотреть заявку» и «Откликнуться: «…»» на каждый шаблон получателя:
-нажатие обрабатывает бот модуля jobs (platform/telegram/callbacks.py).
+нажатие обрабатывает бот модуля jobs (platform/telegram/callbacks.py). У «Работа выполнена?»
+(`deal.completion_prompt`, 6.1b) — callback «Да, выполнено» (бот deals) и web_app «Нет,
+проблема» к сделке.
 
 Шаблоны есть у типов, которые создаёт подписчик (tasks.py): тип без шаблонов — ошибка
 программиста, её ловит тест на каталоги.
@@ -42,6 +44,11 @@ RENDERED = frozenset(
         NotificationType.JOB_EXPIRED,
         NotificationType.RESPONSE_RECEIVED,
         NotificationType.JOB_INVITED,
+        NotificationType.RESPONSE_ACCEPTED,
+        NotificationType.RESPONSE_NOT_SELECTED,
+        NotificationType.DEAL_CANCELLED,
+        NotificationType.DEAL_REMINDER,
+        NotificationType.DEAL_COMPLETION_PROMPT,
     }
 )
 """Типы с шаблонами: остальные получат их вместе со своими подписчиками."""
@@ -62,9 +69,25 @@ BUTTONS: Mapping[NotificationType, str] = MappingProxyType(
         NotificationType.SYSTEM_TEST: "notifications.system_test.button",
         NotificationType.PROFILE_PUBLISHED: "notifications.profile_published.button",
         NotificationType.RESPONSE_RECEIVED: "notifications.response_received.button",
+        NotificationType.RESPONSE_ACCEPTED: "notifications.deal.open",
+        NotificationType.DEAL_CANCELLED: "notifications.deal.open",
+        NotificationType.DEAL_REMINDER: "notifications.deal.open",
     }
 )
 """Подпись кнопки бота; ведёт она по коду deep link уведомления."""
+
+TITLED: Mapping[NotificationType, str] = MappingProxyType(
+    {
+        NotificationType.RESPONSE_ACCEPTED: "response_accepted",
+        NotificationType.RESPONSE_NOT_SELECTED: "response_not_selected",
+        NotificationType.DEAL_COMPLETION_PROMPT: "deal_completion_prompt",
+    }
+)
+"""Шаблоны «заголовок + текст с названием»: `notifications.<ключ>.title` и `.body`."""
+
+DEAL_CANCEL_REASONS = frozenset({"plans_changed", "no_agreement", "no_contact", "other"})
+"""Причины, которые выбирает сторона (`deal_cancel_reason.*`); `expired` и `account_deleted` —
+свои тексты отмены системой."""
 
 PROHIBITED = frozenset({"drug_courier", "sexual_services", "weapons"})
 """Метки ADR-0016, которые человеку называются одинаково: запрещённые товары и услуги."""
@@ -92,6 +115,24 @@ class GettextNotificationRenderer:
             return self._responses(params, locale)
         if type_ is NotificationType.JOB_INVITED:
             return self._invited(params, locale)
+        if type_ is NotificationType.DEAL_CANCELLED:
+            return self._deal_cancelled(params, locale)
+        if type_ is NotificationType.DEAL_REMINDER:
+            return RenderedText(
+                title=self._t("notifications.deal_reminder.title", locale),
+                body=self._t(
+                    "notifications.deal_reminder.body",
+                    locale,
+                    title=_short(params.get("title")),
+                    when=self._datetime(params.get("at", ""), locale),
+                ),
+            )
+        if type_ in TITLED:
+            key, title = TITLED[type_], _short(params.get("title"))
+            return RenderedText(
+                title=self._t(f"notifications.{key}.title", locale),
+                body=self._t(f"notifications.{key}.body", locale, title=title),
+            )
         if type_ is NotificationType.PROFILE_PUBLISHED:
             return RenderedText(
                 title=self._t("notifications.profile_published.title", locale),
@@ -117,6 +158,8 @@ class GettextNotificationRenderer:
             return message, self._job_buttons(type_, params, locale)
         if type_ is NotificationType.JOB_INVITED:
             return message, self._invite_buttons(params, link, locale)
+        if type_ is NotificationType.DEAL_COMPLETION_PROMPT:
+            return message, self._completion_buttons(params, link, locale)
         label = BUTTONS.get(type_)
         if label is None or link is None or self._mini_app is None:
             return message, ()
@@ -159,6 +202,52 @@ class GettextNotificationRenderer:
                 ),
             )
         )
+        return tuple(buttons)
+
+    def _deal_cancelled(self, params: Mapping[str, str], locale: Locale) -> RenderedText:
+        """Кто отменил и почему: «Клиент отменил сделку «…»: планы изменились»; отмена системой —
+        своим текстом; клиенту из отклика — «Заявка снова открыта»."""
+        title = _short(params.get("title"))
+        reason = params.get("reason", "")
+        by = params.get("by", "")
+        if reason in DEAL_CANCEL_REASONS and by in {"client", "performer"}:
+            body = self._t(
+                f"notifications.deal_cancelled.body_{by}",
+                locale,
+                title=title,
+                reason=self._t(f"notifications.deal_cancel_reason.{reason}", locale),
+            )
+        else:
+            system = reason if reason in {"expired", "account_deleted"} else "other"
+            body = self._t(f"notifications.deal_cancelled.body_{system}", locale, title=title)
+        if params.get("reopened") == "true":
+            body = f"{body} {self._t('notifications.deal_cancelled.reopened', locale)}"
+        return RenderedText(title=self._t("notifications.deal_cancelled.title", locale), body=body)
+
+    def _completion_buttons(
+        self, params: Mapping[str, str], link: str | None, locale: Locale
+    ) -> tuple[Button, ...]:
+        """«Да, выполнено» — отметка в сделке прямо из чата (бот deals); «Нет, проблема» — к
+        сделке в Mini App (спор S52 — 6.2)."""
+        buttons: list[Button] = []
+        try:
+            deal_id = UUID(params.get("deal_id", ""))
+        except ValueError:
+            pass
+        else:
+            buttons.append(
+                CallbackButton(
+                    text=self._t("notifications.deal_completion_prompt.yes", locale),
+                    data=encode_callback(CallbackData(CallbackAction.DEAL_COMPLETE, deal_id)),
+                )
+            )
+        if link is not None and self._mini_app is not None:
+            buttons.append(
+                AppButton(
+                    text=self._t("notifications.deal_completion_prompt.problem", locale),
+                    url=mini_app_url(self._mini_app, link),
+                )
+            )
         return tuple(buttons)
 
     def _invited(self, params: Mapping[str, str], locale: Locale) -> RenderedText:

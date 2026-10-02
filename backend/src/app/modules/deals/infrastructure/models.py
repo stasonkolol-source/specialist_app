@@ -1,4 +1,4 @@
-"""ORM-модели deals (ARCHITECTURE §7.3, миграция deals_0001): сделки и история их статусов.
+"""ORM-модели deals (ARCHITECTURE §7.3, миграции deals_0001–0002): сделки и история их статусов.
 
 FK на identity.users, specialists.profiles и catalog.categories объявлены только в миграции:
 MetaData модуля не знает чужих таблиц (modules/README.md). Ссылки вверх по DAG — `job_id`,
@@ -41,6 +41,8 @@ from app.platform.db.types import rsd_only, str_enum
 
 SCHEMA = "deals"
 metadata = module_metadata(SCHEMA)
+AGREED = text("status = 'agreed'")
+PROPOSED = text("status = 'proposed'")
 
 
 class Base(ModelBase):
@@ -84,6 +86,10 @@ class DealRow(UuidPkMixin, TimestampsMixin, VersionMixin, Base):
     cancel_reason: Mapped[DealCancelReason | None] = mapped_column(
         str_enum(DealCancelReason, "cancel_reason")
     )
+    reminded_at: Mapped[datetime | None]
+    """Сторонам напомнили о времени сделки (deals_0002)."""
+    completion_prompted_at: Mapped[datetime | None]
+    """Сторонам задали вопрос «Работа выполнена?» (deals_0002)."""
 
     __table_args__ = (
         CheckConstraint(
@@ -98,6 +104,10 @@ class DealRow(UuidPkMixin, TimestampsMixin, VersionMixin, Base):
         Index("ix_deals_client_id_created_at", "client_id", "created_at"),
         Index("ix_deals_performer_id_created_at", "performer_id", "created_at"),
         Index("ix_deals_job_id", "job_id", postgresql_where=text("job_id IS NOT NULL")),
+        # проходы периодических задач сроков (6.1b)
+        Index("ix_deals_agreed_scheduled_at", "scheduled_at", postgresql_where=AGREED),
+        Index("ix_deals_agreed_agreed_at", "agreed_at", postgresql_where=AGREED),
+        Index("ix_deals_proposed_created_at", "created_at", postgresql_where=PROPOSED),
     )
 
 

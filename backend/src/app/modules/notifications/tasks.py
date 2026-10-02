@@ -22,6 +22,16 @@ notifications стоит над контентными модулями (ARCHITE
 - `notifications.notify_job_invited` — JobInvited: специалисту «Вас приглашают откликнуться»
   или «Прямой запрос» — кнопка к заявке и «Шаблон «…»» на каждый его шаблон (отклик в один
   тап обрабатывает бот jobs), если заявка ещё открыта (5.6).
+- `notifications.notify_response_accepted` — ResponseAccepted: выбранному исполнителю «Клиент
+  выбрал вас» и кнопка к сделке (6.1b), если сделка ещё идёт.
+- `notifications.notify_passed_over` — ResponseAccepted: остальным откликнувшимся «Клиент выбрал
+  другого исполнителя», пока заявка «в работе».
+- `notifications.notify_deal_cancelled` — DealCancelled: второй стороне — кто отменил и почему
+  (при отмене системой — обеим, кроме удалённого аккаунта); клиенту из отклика — «заявка снова
+  открыта».
+- `notifications.notify_deal_reminder` — DealReminderDue: обеим сторонам за 2 ч до времени.
+- `notifications.notify_deal_completion` — DealCompletionDue: «Работа выполнена?» с [Да,
+  выполнено] (кнопку обрабатывает бот deals) и [Нет, проблема] тем, кто ещё не отметил.
 - `notifications.forget_recipient` — UserDeleted: лента, каналы и настройки удалённого
   аккаунта удалены (§7.10).
 - `notifications.send` — отправить доставку в бот (очередь `notifications`).
@@ -34,16 +44,23 @@ from uuid import UUID
 
 from dishka import FromDishka
 
+from app.modules.deals.api import DealsApi
+from app.modules.identity.api import IdentityApi
 from app.modules.jobs.api import InviteNotice, JobBrief, JobsApi
 from app.modules.notifications.application.ports import (
     FORGET_RECIPIENT,
     GRANT_WRITE_ACCESS,
     NOTIFY_ACCOUNT_RESTRICTED,
+    NOTIFY_DEAL_CANCELLED,
+    NOTIFY_DEAL_COMPLETION,
+    NOTIFY_DEAL_REMINDER,
     NOTIFY_JOB_EXPIRED,
     NOTIFY_JOB_EXPIRING,
     NOTIFY_JOB_INVITED,
     NOTIFY_MODERATION_DECISION,
+    NOTIFY_PASSED_OVER,
     NOTIFY_PROFILE_PUBLISHED,
+    NOTIFY_RESPONSE_ACCEPTED,
     NOTIFY_RESPONSES,
     SCHEDULE_RESPONSES_NOTICE,
     SEND_DELIVERY,
@@ -74,6 +91,7 @@ from app.modules.notifications.application.use_cases.send_delivery import (
 from app.modules.notifications.domain.catalog import NotificationType
 from app.modules.notifications.domain.channel import GrantedVia
 from app.modules.notifications.domain.notification import DeliveryId
+from app.platform.contracts.events.deals import DealCancelled, DealCompletionDue, DealReminderDue
 from app.platform.contracts.events.identity import (
     BotStarted,
     RestrictionKind,
@@ -84,10 +102,12 @@ from app.platform.contracts.events.jobs import (
     JobExpired,
     JobExpiring,
     JobInvited,
+    ResponseAccepted,
     ResponseSubmitted,
 )
 from app.platform.contracts.events.moderation import ModerationDecision, ModerationDecisionMade
 from app.platform.contracts.events.specialists import ProfilePublished
+from app.platform.kernel.ids import DealId, UserId
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber, task
 from app.platform.telegram.deeplinks import LinkDocument, LinkType, StartLink, encode_start_param
 
@@ -100,6 +120,9 @@ FIX_LINKS = {"job": LinkType.JOB, "profile": LinkType.SPECIALIST}
 """Куда ведёт «Исправить»: к заявке или профилю; отклик — к его заявке; остальное — на
 Главную (экраны — позже)."""
 RESPONSE = "response"
+AGREED = "agreed"
+CLIENT, PERFORMER = "client", "performer"
+"""Стороны сделки — как `cancelled_by` в DealCancelled."""
 
 
 @subscriber(BotStarted, GRANT_WRITE_ACCESS)
@@ -269,6 +292,124 @@ def _invite_params(event: JobInvited, notice: InviteNotice) -> dict[str, str]:
         params[f"template_{index}"] = str(template.id)
         params[f"template_{index}_title"] = template.title
     return params
+
+
+@subscriber(ResponseAccepted, NOTIFY_RESPONSE_ACCEPTED)
+async def notify_response_accepted(
+    event: ResponseAccepted, notify: FromDishka[Notify], deals: FromDishka[DealsApi]
+) -> None:
+    deal = await deals.deal_brief(event.deal_id)
+    if deal is None or deal.status != AGREED:
+        return  # пока задача ждала, сделку уже отменили
+    await notify(
+        NotifyCommand(
+            user_id=event.performer_id,
+            type=NotificationType.RESPONSE_ACCEPTED,
+            dedupe_key=f"response.accepted:{event.response_id}",
+            params={"title": deal.title},
+            link=_deal_link(event.deal_id),
+        )
+    )
+
+
+@subscriber(ResponseAccepted, NOTIFY_PASSED_OVER)
+async def notify_passed_over(
+    event: ResponseAccepted, notify: FromDishka[Notify], jobs: FromDishka[JobsApi]
+) -> None:
+    job = await jobs.job_brief(event.job_id)
+    if job is None or job.status != "assigned":
+        return  # сделку отменили — прежние кандидаты снова ждут решения
+    for performer_id in await jobs.passed_over(event.job_id):
+        await notify(
+            NotifyCommand(
+                user_id=performer_id,
+                type=NotificationType.RESPONSE_NOT_SELECTED,
+                dedupe_key=f"response.not_selected:{event.response_id}:{performer_id}",
+                params={"title": job.title},
+            )
+        )
+
+
+@subscriber(DealCancelled, NOTIFY_DEAL_CANCELLED)
+async def notify_deal_cancelled(
+    event: DealCancelled,
+    notify: FromDishka[Notify],
+    deals: FromDishka[DealsApi],
+    identity: FromDishka[IdentityApi],
+) -> None:
+    deal = await deals.deal_brief(event.deal_id)
+    if deal is None:
+        return
+    sides = ((CLIENT, event.client_id), (PERFORMER, event.performer_id))
+    for role, user_id in sides:
+        if role == event.cancelled_by:
+            continue  # отменивший и так знает
+        user = await identity.get_user(user_id)
+        if user is None or user.is_deleted:
+            continue
+        reopened = role == CLIENT and event.job_id is not None
+        await notify(
+            NotifyCommand(
+                user_id=user_id,
+                type=NotificationType.DEAL_CANCELLED,
+                dedupe_key=f"deal.cancelled:{event.deal_id}:{user_id}",
+                params={
+                    "title": deal.title,
+                    "by": event.cancelled_by,
+                    "reason": event.reason,
+                    "reopened": "true" if reopened else "false",
+                },
+                link=_deal_link(event.deal_id),
+            )
+        )
+
+
+@subscriber(DealReminderDue, NOTIFY_DEAL_REMINDER)
+async def notify_deal_reminder(
+    event: DealReminderDue, notify: FromDishka[Notify], deals: FromDishka[DealsApi]
+) -> None:
+    deal = await deals.deal_brief(event.deal_id)
+    if deal is None or deal.status != AGREED or deal.scheduled_at != event.scheduled_at:
+        return  # сделку отменили или перенесли
+    for user_id in (event.client_id, event.performer_id):
+        await notify(
+            NotifyCommand(
+                user_id=user_id,
+                type=NotificationType.DEAL_REMINDER,
+                dedupe_key=f"deal.reminder:{event.deal_id}:{user_id}",
+                params={"title": deal.title, "at": event.scheduled_at.isoformat()},
+                link=_deal_link(event.deal_id),
+                valid_until=event.scheduled_at,
+            )
+        )
+
+
+@subscriber(DealCompletionDue, NOTIFY_DEAL_COMPLETION)
+async def notify_deal_completion(
+    event: DealCompletionDue, notify: FromDishka[Notify], deals: FromDishka[DealsApi]
+) -> None:
+    deal = await deals.deal_brief(event.deal_id)
+    if deal is None or deal.status != AGREED:
+        return  # уже завершена или отменена
+    asked: list[UserId] = []
+    if event.ask_client:
+        asked.append(event.client_id)
+    if event.ask_performer:
+        asked.append(event.performer_id)
+    for user_id in asked:
+        await notify(
+            NotifyCommand(
+                user_id=user_id,
+                type=NotificationType.DEAL_COMPLETION_PROMPT,
+                dedupe_key=f"deal.completion_prompt:{event.deal_id}:{user_id}",
+                params={"title": deal.title, "deal_id": str(event.deal_id)},
+                link=_deal_link(event.deal_id),
+            )
+        )
+
+
+def _deal_link(deal_id: DealId) -> str:
+    return encode_start_param(StartLink(type=LinkType.DEAL, id=deal_id))
 
 
 def _job_params(job_id: UUID, job: JobBrief) -> dict[str, str]:

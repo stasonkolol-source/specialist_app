@@ -134,6 +134,9 @@ class JobsFacade(JobsApi):
         self._uow.require_active()
         await self._seen.mark(JobId(job_id), self._clock.now())
 
+    async def passed_over(self, job_id: UUID) -> list[UserId]:
+        return await self._queries.passed_over(JobId(job_id))
+
     async def invite_notice(self, job_id: UUID, performer_id: UserId) -> InviteNotice | None:
         job = await self._queries.view(JobId(job_id))
         if job is None:

@@ -137,6 +137,10 @@ class JobsApi(Protocol):
         пройдут проверку позже. Версия заявки не меняется."""
         ...
 
+    async def passed_over(self, job_id: UUID) -> list[UserId]:
+        """Исполнители, чьи отклики «не выбран»: клиент выбрал другого (6.1b)."""
+        ...
+
     async def invite_notice(self, job_id: UUID, performer_id: UserId) -> InviteNotice | None:
         """Заявка, клиент и шаблоны приглашённого для `job.invited`; None — заявки нет или она
         удалена."""

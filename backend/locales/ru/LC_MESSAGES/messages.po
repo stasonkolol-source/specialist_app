@@ -116,6 +116,12 @@ msgstr "откликов: {count} из {max}"
 msgid "bot.jobs.state.fresh"
 msgstr "откликов: {count} из {max}, новых: {fresh}"
 
+msgid "bot.deals.marked"
+msgstr "Отмечено: работа выполнена. Сделка завершится, когда подтвердит вторая сторона, — или сама через 3 дня."
+
+msgid "bot.deals.completed"
+msgstr "Сделка завершена. Спасибо!"
+
 msgid "bot.help.text"
 msgstr "<b>Как это работает</b>\n• Опишите задачу — мастера рядом откликнутся с ценой. Или выберите специалиста по отзывам.\n• Договаривайтесь в чате «Соседей»: контакты — после договорённости.\n• Оплата — напрямую исполнителю, после работы. «Соседи» деньги не принимают.\n\n<b>Безопасность</b>\n• Не вносите предоплату незнакомым и никому не сообщайте коды из СМС.\n• Подозрительный профиль или сообщение — пожалуйтесь прямо в приложении.\n\n/terms — правила площадки\n/privacy — политика конфиденциальности\n/language — язык"
 
@@ -704,6 +710,72 @@ msgstr "«{title}» больше не видна исполнителям. Ес�
 
 msgid "notifications.job_expired.body_final"
 msgstr "«{title}» больше не видна исполнителям. Продлевать её больше нельзя: если исполнитель ещё нужен, создайте новую заявку."
+
+msgid "notifications.response_accepted.title"
+msgstr "Клиент выбрал вас"
+
+msgid "notifications.response_accepted.body"
+msgstr "Заявка «{title}». Адрес и время — в сделке."
+
+msgid "notifications.response_not_selected.title"
+msgstr "Клиент выбрал другого исполнителя"
+
+msgid "notifications.response_not_selected.body"
+msgstr "Заявка «{title}». Спасибо за отклик — в ленте есть другие заявки рядом."
+
+msgid "notifications.deal.open"
+msgstr "Открыть сделку"
+
+msgid "notifications.deal_cancelled.title"
+msgstr "Сделка отменена"
+
+msgid "notifications.deal_cancelled.body_client"
+msgstr "Клиент отменил сделку «{title}»: {reason}."
+
+msgid "notifications.deal_cancelled.body_performer"
+msgstr "Исполнитель отменил сделку «{title}»: {reason}."
+
+msgid "notifications.deal_cancelled.body_expired"
+msgstr "Предложение «{title}» истекло: ответа не было 3 дня."
+
+msgid "notifications.deal_cancelled.body_account_deleted"
+msgstr "Сделка «{title}» отменена: аккаунт второй стороны удалён."
+
+msgid "notifications.deal_cancelled.body_other"
+msgstr "Сделка «{title}» отменена."
+
+msgid "notifications.deal_cancelled.reopened"
+msgstr "Заявка снова открыта, прежние отклики вернулись."
+
+msgid "notifications.deal_cancel_reason.plans_changed"
+msgstr "планы изменились"
+
+msgid "notifications.deal_cancel_reason.no_agreement"
+msgstr "не договорились о цене или времени"
+
+msgid "notifications.deal_cancel_reason.no_contact"
+msgstr "нет связи"
+
+msgid "notifications.deal_cancel_reason.other"
+msgstr "другая причина"
+
+msgid "notifications.deal_reminder.title"
+msgstr "Скоро работа"
+
+msgid "notifications.deal_reminder.body"
+msgstr "«{title}» — {when}."
+
+msgid "notifications.deal_completion_prompt.title"
+msgstr "Работа выполнена?"
+
+msgid "notifications.deal_completion_prompt.body"
+msgstr "Сделка «{title}». Отметьте, если всё сделано: когда отметят обе стороны, сделка завершится."
+
+msgid "notifications.deal_completion_prompt.yes"
+msgstr "Да, выполнено"
+
+msgid "notifications.deal_completion_prompt.problem"
+msgstr "Нет, проблема"
 
 msgid "notifications.job.extend"
 msgstr "Продлить"
