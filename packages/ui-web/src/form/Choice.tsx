@@ -231,6 +231,8 @@ export interface CheckboxProps {
   invalid?: boolean;
   /** id текста ошибки или подсказки под галочкой. */
   describedBy?: string;
+  /** Сейчас недоступна («Сохранить как шаблон», когда шаблонов уже два): приглушена. */
+  disabled?: boolean;
   /** Оформление строки по месту: карточка S02c — `rounded-card bg-surface p-4`. */
   className?: string;
   ref?: Ref<HTMLButtonElement>;
@@ -243,6 +245,7 @@ export function Checkbox({
   children,
   invalid = false,
   describedBy,
+  disabled = false,
   className,
   ref,
 }: CheckboxProps) {
@@ -254,9 +257,10 @@ export function Checkbox({
       aria-checked={checked}
       aria-invalid={invalid || undefined}
       aria-describedby={describedBy}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cx(
-        'flex w-full items-start gap-3 border-0 text-left text-body text-text',
+        'flex w-full items-start gap-3 border-0 text-left text-body text-text disabled:opacity-55',
         FOCUS,
         className,
       )}

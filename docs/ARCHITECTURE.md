@@ -2455,6 +2455,7 @@ sequenceDiagram
 | `GET /me/response-templates`, `POST /me/response-templates` (Idempotency-Key), `PATCH /me/response-templates/{id}`, `DELETE /me/response-templates/{id}` | Шаблоны откликов (5.5): не больше двух, по порядку, первый — основной (S16 подставляет его сразу), `limit` — «1 из 2» на S57; третий — 409 `response_templates_full`; `PATCH` — название, предложение целиком (`message` и `price_type` вместе), `primary: true` — «Сделать основным»; после удаления основным становится следующий. Оба шаблона доступны кнопками прямо в уведомлении бота (отклик в один тап, callback `respond:<job>:<tpl>`) |
 | `GET /jobs/{id}/responses` | Отклики на свою заявку (владелец; чужая — 404): прошедшие проверку, по порядку, с `is_first` — «Откликнулся первым» |
 | `GET /me/responses?status=` | Мои отклики (исполнитель): группы чипов S17 — `active`, `accepted`, `not_selected`, `archive`; страницы по курсору, `counts` по группам, `today` — «сегодня откликов: 3 из 50» |
+| `GET /responses/{id}` | Свой отклик с заявкой — форма правки S16 (5.5); чужой — 404 |
 | `PATCH /responses/{id}`, `POST /responses/{id}/withdraw` | Правка и отзыв отклика исполнителем, пока клиент не решил (иначе 409 `response_not_active`); правка — снова на проверку; версия заявки растёт |
 | `POST /responses/{id}/shortlist`, `/decline`, `/accept` | Действия клиента; `accept` → создаёт сделку, возвращает `deal_id` |
 | `GET /me/job-alerts`, `POST /me/job-alerts`, `PATCH /me/job-alerts/{id}`, `DELETE /me/job-alerts/{id}` | Подписки на новые заявки |

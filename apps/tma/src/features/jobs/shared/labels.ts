@@ -1,10 +1,11 @@
 // Подписи заявки в ленте S13 и на экране заявки S15 (DEVELOPMENT_PLAN 5.3): «когда» бейджем,
 // бюджет, «Лиман, ≈ 1,2 км», счётчик мест и «в «Соседях» 3 месяца». Время — по Белграду, как у
 // сервера и мастера S20b: «Сегодня 18–21» — только в тот же день, иначе дата.
-import type { JobCardOut, MoneyOut } from '@sosed/api-client';
+import type { JobCardOut, MoneyOut, ResponsePriceOut } from '@sosed/api-client';
 import type { BudgetUnit, JobUrgency } from '@sosed/domain';
 import { budgetAsPrice, businessDay, responseSlots } from '@sosed/domain';
-import { useFormat, useTranslation } from '@sosed/i18n';
+import { useCities, useDistricts } from '@sosed/hooks';
+import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import type { JobCardBadge, JobSlots } from '@sosed/ui-web';
 
 interface JobWhen {
@@ -112,4 +113,18 @@ export function useMemberFor(): (since: string) => string {
     if (months < MONTHS_IN_YEAR) return t('job.client.memberMonths', { count: months });
     return t('job.client.memberYears', { count: Math.floor(months / MONTHS_IN_YEAR) });
   };
+}
+
+/** Цена отклика или шаблона: «3 500 RSD», «от 2 000 RSD», «1 500 RSD/час», «договорная». */
+export function useOfferPrice(): (price: ResponsePriceOut) => string {
+  const format = useFormat();
+  return (price) => format.price({ type: price.type, min: price.amount?.amount ?? null });
+}
+
+/** Район заявки по справочнику города; без района — город. */
+export function useDistrictName(cityId: number, districtId: number | null): string | null {
+  const locale = useLocale();
+  const districts = useDistricts(cityId, locale).data;
+  const city = useCities(locale).data?.find((item) => item.id === cityId);
+  return districts?.find((item) => item.id === districtId)?.name ?? city?.name ?? null;
 }

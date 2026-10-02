@@ -84,7 +84,8 @@ export interface MockApiOptions {
   profile?: ProfileBackend;
   /** Избранное `/me/favorites*` с памятью (4.6); по умолчанию — пусто. */
   favorites?: FavoritesBackend;
-  /** Заявки `/jobs*` с памятью: создание (5.2), лента, счётчик и «не интересно» (5.3). */
+  /** Заявки `/jobs*` с памятью: создание (5.2), лента, счётчик и «не интересно» (5.3), отклики
+   *  и шаблоны откликов (5.5). */
   jobs?: JobsBackend;
   /** Задержка каждого ответа API, мс: замер холодного старта (coldstart.spec.ts). */
   delayMs?: number;
@@ -174,13 +175,18 @@ export async function mockApi(
       if (reply) return route.fulfill(json(reply.body, reply.status));
     }
     // заявки: создание с ключом идемпотентности и созданная заявка для S21 (5.2); лента, счётчик
-    // и «не интересно» (5.3) — лента открыта и гостю
+    // и «не интересно» (5.3) — лента открыта и гостю; отклики и шаблоны откликов (5.5)
     if (
       url.pathname === '/api/v1/jobs' ||
       url.pathname.startsWith('/api/v1/jobs/') ||
-      url.pathname.startsWith('/api/v1/me/favorites/job')
+      url.pathname.startsWith('/api/v1/me/favorites/job') ||
+      url.pathname.startsWith('/api/v1/responses/') ||
+      url.pathname === '/api/v1/me/responses' ||
+      url.pathname.startsWith('/api/v1/me/response-templates')
     ) {
-      const body: unknown = request.method() === 'POST' ? request.postDataJSON() : undefined;
+      const body: unknown = ['POST', 'PATCH'].includes(request.method())
+        ? request.postDataJSON()
+        : undefined;
       const reply = jobs.handle(
         request.method(),
         url,

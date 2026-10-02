@@ -240,8 +240,8 @@ describe('S15 job', () => {
     expect(within(client).getByText('В «Соседях» 3 месяца · 2 заявки')).toBeTruthy();
     expect(within(client).getByText('Телефон подтверждён')).toBeTruthy();
     expect(screen.getAllByRole('img', { name: /Фото \d из 2/ })).toHaveLength(2);
-    // отклик — с формой 5.5: главной кнопки пока нет
-    expect(mainButton(telegram)?.is_visible ?? false).toBe(false);
+    // отклик (5.5): два места из пяти свободны
+    await waitFor(() => expect(mainButton(telegram)?.text).toBe('Откликнуться · осталось 2 места'));
     expect(backButtonVisible(telegram)).toBe(true);
   });
 

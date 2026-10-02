@@ -1552,6 +1552,92 @@ export const JobsListMyJobsResponse = zod.object({
 });
 
 /**
+ * Свой отклик с заявкой — форма правки S16; чужой — 404.
+ * @summary Get Response
+ */
+export const JobsGetResponseParams = zod.object({
+  response_id: zod.uuid().describe('id отклика'),
+});
+
+export const JobsGetResponseResponse = zod
+  .object({
+    id: zod.uuid(),
+    status: zod.enum([
+      'submitted',
+      'viewed',
+      'shortlisted',
+      'accepted',
+      'declined',
+      'withdrawn',
+      'not_selected',
+    ]),
+    review: zod
+      .enum(['pending', 'clear', 'blocked'])
+      .describe('pending — на проверке, blocked — скрыт модерацией'),
+    message: zod.string(),
+    price: zod.object({
+      type: zod
+        .enum(['fixed', 'from', 'hourly', 'negotiable'])
+        .describe('Цена отклика S16: «Фикс», «От», «За час», «Договорная».'),
+      amount: zod.union([
+        zod.object({
+          amount: zod.int(),
+          currency: zod.enum(['RSD', 'XTR']),
+        }),
+        zod.null(),
+      ]),
+    }),
+    availability_note: zod.union([zod.string(), zod.null()]),
+    is_first: zod.boolean().describe('Первый отклик на заявку — «Первый отклик»'),
+    created_at: zod.iso.datetime({ offset: true }),
+    updated_at: zod.iso.datetime({ offset: true }),
+    decided_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    job: zod
+      .object({
+        id: zod.uuid(),
+        title: zod.string(),
+        status: zod.enum([
+          'draft',
+          'pending_moderation',
+          'published',
+          'assigned',
+          'completed',
+          'closed',
+          'expired',
+          'rejected',
+          'removed',
+        ]),
+        category_id: zod.int(),
+        city_id: zod.int(),
+        district_id: zod.union([zod.int(), zod.null()]),
+        urgency: zod.enum(['asap', 'today', 'this_week', 'flexible']),
+        preferred_from: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+        preferred_to: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+        budget_type: zod.enum(['fixed', 'range', 'negotiable']),
+        budget_min: zod.union([
+          zod.object({
+            amount: zod.int(),
+            currency: zod.enum(['RSD', 'XTR']),
+          }),
+          zod.null(),
+        ]),
+        budget_max: zod.union([
+          zod.object({
+            amount: zod.int(),
+            currency: zod.enum(['RSD', 'XTR']),
+          }),
+          zod.null(),
+        ]),
+        budget_unit: zod.enum(['work', 'hour', 'm2', 'visit', 'item', 'lesson']),
+        responses_count: zod.int(),
+        max_responses: zod.int(),
+        published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+      })
+      .describe('Заявка в карточке «Мои отклики» S17.'),
+  })
+  .describe('Свой отклик (S17): статус, проверка, предложение и заявка.');
+
+/**
  * Поправить свой отклик, пока клиент не решил (иначе 409 `response_not_active`): новая
  * редакция снова на проверке.
  * @summary Revise Response

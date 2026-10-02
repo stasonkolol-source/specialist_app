@@ -4,13 +4,26 @@
 // (J1–J3 — как на артборде S13) с фильтрами и курсором, GET /jobs/count — их число, POST
 // /jobs/{id}/hide — «не интересно»; GET /jobs/{id} — созданная заявка (владельцу) или заявка ленты.
 // Сохранённые заявки (S12, S15): GET /me/favorites/jobs, PUT и DELETE /me/favorites/job/{id}.
-// Время публикации — от E2E_NOW: в e2e часы браузера стоят на нём же.
+// Отклики (5.5): POST /jobs/{id}/responses с ключом идемпотентности, места и суточная квота как у
+// сервера; GET, PATCH /responses/{id} и /withdraw; GET /me/responses — чипы групп и «сегодня N из
+// M»; шаблоны /me/response-templates — не больше двух, первый — основной. GET /jobs/{id} отдаёт
+// свой отклик (`my_response`) и место, занятое им. Время публикации — от E2E_NOW: в e2e часы
+// браузера стоят на нём же.
 import type {
   JobCardOut,
   JobClientOut,
   JobIn,
   JobOut,
   JobStatus,
+  MyResponseOut,
+  ResponseGroup,
+  ResponseIn,
+  ResponseJobOut,
+  ResponseOfferIn,
+  ResponseStatus,
+  ResponseTemplateIn,
+  ResponseTemplateOut,
+  ResponseTemplatePatchIn,
   Urgency,
 } from '@sosed/api-client';
 
@@ -24,6 +37,16 @@ const HOUR_MS = 60 * MINUTE_MS;
 const PARA = 100;
 const MAX_RESPONSES = 5;
 const MAX_SAVED = 100;
+const MAX_TEMPLATES = 2;
+/** Суточная квота откликов новичка (§13.3). */
+const DAILY_RESPONSES = 10;
+const ACTIVE: ReadonlySet<ResponseStatus> = new Set(['submitted', 'viewed', 'shortlisted']);
+const GROUPS: Record<ResponseGroup, ReadonlySet<ResponseStatus>> = {
+  active: ACTIVE,
+  accepted: new Set(['accepted']),
+  not_selected: new Set(['not_selected', 'declined']),
+  archive: new Set(['withdrawn']),
+};
 
 export interface FeedFixture {
   card: JobCardOut;
@@ -211,6 +234,109 @@ export const FEED_JOBS: FeedFixture[] = [
   ),
 ];
 
+/** Заявка в карточке «Мои отклики». */
+export function responseJobOf(card: JobCardOut): ResponseJobOut {
+  return {
+    id: card.id,
+    title: card.title,
+    status: 'published',
+    category_id: card.category_id,
+    city_id: 1,
+    district_id: card.district_id,
+    urgency: card.urgency,
+    preferred_from: card.preferred_from,
+    preferred_to: card.preferred_to,
+    budget_type: card.budget_type,
+    budget_min: card.budget_min,
+    budget_max: card.budget_max,
+    budget_unit: card.budget_unit,
+    responses_count: card.responses_count,
+    max_responses: card.max_responses,
+    published_at: card.published_at,
+  };
+}
+
+const priceOf = (body: ResponseOfferIn) => ({
+  type: body.price_type,
+  amount:
+    body.price_amount === null || body.price_amount === undefined
+      ? null
+      : { amount: body.price_amount, currency: 'RSD' as const },
+});
+
+/** «Мои отклики» как на артборде S17: выбран — люстра, ждёт решения — шкаф (первый отклик),
+ *  не выбран — смеситель. Места заявок ленты эти отклики уже учитывают. */
+export function myResponsesFixture(feed: FeedFixture[] = FEED_JOBS): MyResponseOut[] {
+  const job = (title: string) => {
+    const found = feed.find((item) => item.card.title === title);
+    if (!found) throw new Error(`no feed job ${title}`);
+    return responseJobOf(found.card);
+  };
+  const base = { review: 'clear' as const, is_first: false, decided_at: null };
+  return [
+    {
+      ...base,
+      id: '0199dd10-0000-7000-8000-000000000001',
+      status: 'accepted',
+      message: 'Здравствуйте! Могу сегодня в 19:00, приеду со своим инструментом.',
+      price: { type: 'fixed', amount: money(3500) },
+      availability_note: 'сегодня в 19:00',
+      created_at: at(50),
+      updated_at: at(50),
+      decided_at: at(10),
+      job: job('Повесить люстру'),
+    },
+    {
+      ...base,
+      id: '0199dd10-0000-7000-8000-000000000002',
+      status: 'submitted',
+      message: 'Соберу шкаф за пару часов, есть опыт с PAX.',
+      price: { type: 'fixed', amount: money(5000) },
+      availability_note: 'завтра с 10:00',
+      is_first: true,
+      created_at: at(90),
+      updated_at: at(90),
+      job: job('Собрать шкаф PAX, 2 м'),
+    },
+    {
+      ...base,
+      id: '0199dd10-0000-7000-8000-000000000003',
+      status: 'not_selected',
+      message: 'Заменю смеситель сегодня, картридж привезу.',
+      price: { type: 'fixed', amount: money(2000) },
+      availability_note: null,
+      created_at: at(180),
+      updated_at: at(1),
+      decided_at: at(1),
+      job: job('Течёт смеситель на кухне'),
+    },
+  ];
+}
+
+/** Шаблоны как на артборде S57 — два: основной и «В боте». */
+export function templatesFixture(): ResponseTemplateOut[] {
+  return [
+    {
+      id: '0199dd20-0000-7000-8000-000000000001',
+      title: 'Могу сегодня',
+      message: 'Здравствуйте! Могу сегодня вечером, приеду со своим инструментом.',
+      price: { type: 'from', amount: money(2000) },
+      availability_note: 'сегодня',
+      primary: true,
+      updated_at: at(600),
+    },
+    {
+      id: '0199dd20-0000-7000-8000-000000000002',
+      title: 'Свой инструмент',
+      message: 'Приеду со своим инструментом и стремянкой. Работаю аккуратно, убираю за собой.',
+      price: { type: 'from', amount: money(2500) },
+      availability_note: 'завтра',
+      primary: false,
+      updated_at: at(700),
+    },
+  ];
+}
+
 /** Раздел каталога → он и его услуги: id услуг раздела N — N01…N99 (fixtures.CATEGORY_IDS). */
 const withChildren = (id: number) => (job: number) => job === id || Math.floor(job / 100) === id;
 
@@ -230,6 +356,20 @@ export class JobsBackend {
   failNext: BackendReply | null = null;
   /** Ответ на следующий POST /jobs/{id}/hide ошибкой. */
   failNextHide: BackendReply | null = null;
+  /** Отклики исполнителя, новые первыми. */
+  responses: MyResponseOut[] = [];
+  /** Принятые POST /jobs/{id}/responses: заявка, тело и ключ — все, включая повторы. */
+  readonly responsePosts: { jobId: string; body: ResponseIn; key: string | null }[] = [];
+  private readonly responsesByKey = new Map<string, MyResponseOut>();
+  /** Заявки, на которые откликнулись здесь: их место ещё не учтено в ленте. */
+  private readonly answered = new Set<string>();
+  /** Отклики за сегодня — «сегодня откликов: N из 10». */
+  respondedToday = 0;
+  /** Ответ на следующий POST /jobs/{id}/responses ошибкой. */
+  failNextRespond: BackendReply | null = null;
+  /** Шаблоны по порядку: первый — основной. */
+  templates: ResponseTemplateOut[] = [];
+  private readonly templatesByKey = new Map<string, ResponseTemplateOut>();
 
   /** Заявки ленты: по умолчанию J1–J6; замер прокрутки ставит свою тысячу. */
   readonly feedJobs: FeedFixture[];
@@ -249,6 +389,20 @@ export class JobsBackend {
     const path = url.pathname.replace(/^\/api\/v1/, '');
     if (path.startsWith('/me/favorites/job')) {
       return signedIn ? this.favorites(method, path) : problem(401, 'not_authenticated');
+    }
+    if (path === '/me/responses' || path.startsWith('/responses/')) {
+      return signedIn
+        ? this.mine(method, path, url.searchParams, body)
+        : problem(401, 'not_authenticated');
+    }
+    if (path.startsWith('/me/response-templates')) {
+      return signedIn ? this.templated(method, path, body, key) : problem(401, 'not_authenticated');
+    }
+    const respond = /^\/jobs\/([^/]+)\/responses$/.exec(path);
+    if (method === 'POST' && respond) {
+      return signedIn
+        ? this.respond(respond[1] ?? '', body as ResponseIn, key)
+        : problem(401, 'not_authenticated');
     }
     if (method === 'GET' && path === '/jobs') return this.feed(url.searchParams);
     if (method === 'GET' && path === '/jobs/count') return this.count(url.searchParams);
@@ -284,7 +438,182 @@ export class JobsBackend {
     const own = this.jobs.get(id);
     if (own) return { status: 200, body: own };
     const listed = this.feedJobs.find((item) => item.card.id === id);
-    return listed ? { status: 200, body: feedJobOut(listed) } : problem(404, 'job_not_found');
+    if (!listed) return problem(404, 'job_not_found');
+    const mine = this.responses.find((item) => item.job.id === id);
+    const job = feedJobOut(listed);
+    return {
+      status: 200,
+      body: {
+        ...job,
+        responses_count: this.taken(listed.card),
+        my_response: mine ? { id: mine.id, status: mine.status, review: mine.review } : null,
+      },
+    };
+  }
+
+  /** Занятые места: из ленты и свой активный отклик, отправленный здесь. */
+  private taken(card: JobCardOut): number {
+    const mine = this.responses.find((item) => item.job.id === card.id);
+    const added = mine && this.answered.has(card.id) && ACTIVE.has(mine.status) ? 1 : 0;
+    return card.responses_count + added;
+  }
+
+  /** Отклик, как у сервера: ключ обязателен, повтор с ним — тот же отклик; своя заявка, повтор,
+   *  нет мест — 409; чужой шаблон — 404; квота дня — 429. */
+  respond(jobId: string, body: ResponseIn, key: string | null): BackendReply {
+    this.responsePosts.push({ jobId, body, key });
+    if (this.failNextRespond) {
+      const reply = this.failNextRespond;
+      this.failNextRespond = null;
+      return reply;
+    }
+    if (!key) return problem(400, 'idempotency_key_required');
+    const known = this.responsesByKey.get(key);
+    if (known) return { status: 201, body: known };
+    const listed = this.feedJobs.find((item) => item.card.id === jobId);
+    if (!listed) return problem(404, 'job_not_found');
+    if (body.template_id && !this.templates.some((item) => item.id === body.template_id)) {
+      return problem(404, 'response_template_not_found');
+    }
+    if (this.responses.some((item) => item.job.id === jobId)) {
+      return problem(409, 'already_responded');
+    }
+    if (this.taken(listed.card) >= listed.card.max_responses) {
+      return problem(409, 'job_full', { limit: listed.card.max_responses });
+    }
+    if (this.respondedToday >= DAILY_RESPONSES) return problem(429, 'daily_responses_limit');
+    const now = new Date(E2E_NOW).toISOString();
+    const response: MyResponseOut = {
+      id: `0199dd10-0000-7000-8000-${String(this.responses.length + 100).padStart(12, '0')}`,
+      status: 'submitted',
+      review: 'pending',
+      message: body.message,
+      price: priceOf(body),
+      availability_note: body.availability_note ?? null,
+      is_first: this.taken(listed.card) === 0,
+      created_at: now,
+      updated_at: now,
+      decided_at: null,
+      job: { ...responseJobOf(listed.card), responses_count: this.taken(listed.card) + 1 },
+    };
+    this.responses = [response, ...this.responses];
+    this.answered.add(jobId);
+    this.responsesByKey.set(key, response);
+    this.respondedToday += 1;
+    return { status: 201, body: response };
+  }
+
+  /** «Мои отклики» и свой отклик: список с чипами, правка и отзыв, пока клиент не решил. */
+  mine(method: string, path: string, params: URLSearchParams, body: unknown): BackendReply | null {
+    if (method === 'GET' && path === '/me/responses') return this.myPage(params);
+    const match = /^\/responses\/([^/]+)(\/withdraw)?$/.exec(path);
+    const found = this.responses.find((item) => item.id === match?.[1]);
+    if (!match) return null;
+    if (!found) return problem(404, 'response_not_found');
+    if (method === 'GET' && !match[2]) return { status: 200, body: found };
+    if (!ACTIVE.has(found.status)) return problem(409, 'response_not_active');
+    const now = new Date(E2E_NOW).toISOString();
+    let changed: MyResponseOut;
+    if (method === 'PATCH' && !match[2]) {
+      const offer = body as ResponseOfferIn;
+      changed = {
+        ...found,
+        message: offer.message,
+        price: priceOf(offer),
+        availability_note: offer.availability_note ?? null,
+        review: 'pending',
+        updated_at: now,
+      };
+    } else if (method === 'POST' && match[2]) {
+      changed = { ...found, status: 'withdrawn', updated_at: now };
+    } else {
+      return null;
+    }
+    this.responses = this.responses.map((item) => (item.id === found.id ? changed : item));
+    return { status: 200, body: changed };
+  }
+
+  private myPage(params: URLSearchParams): BackendReply {
+    const group = params.get('status') as ResponseGroup | null;
+    const found = this.responses.filter((item) => !group || GROUPS[group].has(item.status));
+    const limit = Number(params.get('limit') ?? 20);
+    const cursor = params.get('cursor');
+    const start = cursor ? Number(cursor.replace(/^r/, '')) : 0;
+    const count = (statuses: ReadonlySet<ResponseStatus>) =>
+      this.responses.filter((item) => statuses.has(item.status)).length;
+    return {
+      status: 200,
+      body: {
+        items: found.slice(start, start + limit),
+        next_cursor: start + limit < found.length ? `r${start + limit}` : null,
+        counts: {
+          all: this.responses.length,
+          active: count(GROUPS.active),
+          accepted: count(GROUPS.accepted),
+          not_selected: count(GROUPS.not_selected),
+          archive: count(GROUPS.archive),
+        },
+        today: { used: this.respondedToday, limit: DAILY_RESPONSES },
+      },
+    };
+  }
+
+  /** Шаблоны: не больше двух (третий — 409), «сделать основным» ставит первым, удаление
+   *  сдвигает. */
+  templated(method: string, path: string, body: unknown, key: string | null): BackendReply | null {
+    const list = () => this.templates.map((item, index) => ({ ...item, primary: index === 0 }));
+    if (path === '/me/response-templates') {
+      if (method === 'GET') return { status: 200, body: { items: list(), limit: MAX_TEMPLATES } };
+      if (method !== 'POST') return null;
+      if (!key) return problem(400, 'idempotency_key_required');
+      const known = this.templatesByKey.get(key);
+      if (known) return { status: 201, body: known };
+      if (this.templates.length >= MAX_TEMPLATES) {
+        return problem(409, 'response_templates_full', { limit: MAX_TEMPLATES });
+      }
+      const input = body as ResponseTemplateIn;
+      const created: ResponseTemplateOut = {
+        id: `0199dd20-0000-7000-8000-${String(this.templatesByKey.size + 100).padStart(12, '0')}`,
+        title: input.title.trim(),
+        message: input.message,
+        price: priceOf(input),
+        availability_note: input.availability_note ?? null,
+        primary: this.templates.length === 0,
+        updated_at: new Date(E2E_NOW).toISOString(),
+      };
+      this.templates = [...this.templates, created];
+      this.templatesByKey.set(key, created);
+      return { status: 201, body: created };
+    }
+    const id = /^\/me\/response-templates\/([^/]+)$/.exec(path)?.[1];
+    const found = this.templates.find((item) => item.id === id);
+    if (!found) return problem(404, 'response_template_not_found');
+    if (method === 'DELETE') {
+      this.templates = this.templates.filter((item) => item.id !== found.id);
+      return { status: 204, body: null };
+    }
+    if (method !== 'PATCH') return null;
+    const patch = body as ResponseTemplatePatchIn;
+    const edited: ResponseTemplateOut = {
+      ...found,
+      title: patch.title?.trim() ?? found.title,
+      ...(patch.message && patch.price_type
+        ? {
+            message: patch.message,
+            price: priceOf({
+              message: patch.message,
+              price_type: patch.price_type,
+              price_amount: patch.price_amount,
+            }),
+            availability_note: patch.availability_note ?? null,
+          }
+        : {}),
+    };
+    const others = this.templates.filter((item) => item.id !== found.id);
+    this.templates = patch.primary
+      ? [edited, ...others]
+      : this.templates.map((item) => (item.id === found.id ? edited : item));
+    return { status: 200, body: list().find((item) => item.id === found.id) };
   }
 
   feed(params: URLSearchParams): BackendReply {

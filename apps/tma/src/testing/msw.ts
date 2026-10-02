@@ -137,13 +137,17 @@ export const cardHandlers = [
   ),
 ];
 
-/** Заявки: создание (5.2), лента, «не интересно» и сохранённые (5.3) по фейку backend; по
- *  умолчанию — свежий на каждый запрос. Тесты мастера S20 и ленты ставят свой — с памятью
- *  (server.use). */
+/** Заявки: создание (5.2), лента, «не интересно» и сохранённые (5.3), отклики и шаблоны (5.5)
+ *  по фейку backend; по умолчанию — свежий на каждый запрос. Тесты мастера S20, ленты и откликов
+ *  ставят свой — с памятью (server.use). */
+const JOBS_API =
+  /\/api\/v1\/(jobs(\/.*)?|me\/favorites\/jobs?(\/[^/]+)?|responses\/.+|me\/responses|me\/response-templates(\/[^/]+)?)$/;
+
 export const jobsHandlers = (backend: () => JobsBackend) => [
-  http.all(/\/api\/v1\/(jobs(\/.*)?|me\/favorites\/jobs?(\/[^/]+)?)$/, async ({ request }) => {
-    const body =
-      request.method === 'POST' ? await request.json().catch(() => undefined) : undefined;
+  http.all(JOBS_API, async ({ request }) => {
+    const body = ['POST', 'PATCH'].includes(request.method)
+      ? await request.json().catch(() => undefined)
+      : undefined;
     return respond(
       backend().handle(
         request.method,

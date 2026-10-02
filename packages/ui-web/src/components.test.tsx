@@ -69,6 +69,13 @@ describe('FeedRow, UnreadDot, LinkButton (S42)', () => {
     expect(container.querySelector('.bg-bg2.text-text2')).toBeTruthy();
     expect(await a11yViolations(container)).toEqual([]);
   });
+
+  it('LinkButton danger — разрушающее действие текстом цвета ошибки (S17)', () => {
+    render(<LinkButton danger>Отозвать отклик</LinkButton>);
+    const classes = screen.getByRole('button', { name: 'Отозвать отклик' }).className.split(' ');
+    expect(classes).toContain('text-danger');
+    expect(classes).not.toContain('text-accent');
+  });
 });
 
 describe('Tiles и Tile', () => {
@@ -357,6 +364,19 @@ describe('RadioGroup, Option (онбординг S02a–b), Checkbox', () => {
     expect(box.getAttribute('aria-checked')).toBe('true');
     expect(box.getAttribute('aria-invalid')).toBeNull();
     expect(await a11yViolations(container)).toEqual([]);
+  });
+
+  it('недоступная галочка не нажимается', () => {
+    const onChange = vi.fn();
+    render(
+      <Checkbox checked={false} onChange={onChange} disabled>
+        Сохранить как шаблон
+      </Checkbox>,
+    );
+    const box = screen.getByRole('checkbox', { name: 'Сохранить как шаблон' });
+    fireEvent.click(box);
+    expect(onChange).not.toHaveBeenCalled();
+    expect((box as HTMLButtonElement).disabled).toBe(true);
   });
 });
 
