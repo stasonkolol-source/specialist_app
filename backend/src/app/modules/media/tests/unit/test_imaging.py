@@ -85,6 +85,25 @@ def test_transparency_survives() -> None:
     assert corner[3] == 0
 
 
+@pytest.mark.parametrize("mode", ["RGB", "L", "1", "P"])
+def test_png_transparent_color_survives_scaling(mode: str) -> None:
+    image = Image.new("L", (2000, 1000), 0)
+    image.paste(255, (500, 250, 1500, 750))
+    out = io.BytesIO()
+    image.convert(mode).save(out, "PNG", transparency=(0, 0, 0) if mode == "RGB" else 0)
+
+    result = process_image(out.getvalue())
+
+    assert len(result.variants) == 3
+    for variant in result.variants:
+        decoded = assert_clean(variant.body)
+        assert decoded.mode == "RGBA"
+        alpha = decoded.getchannel("A")
+        assert alpha.getpixel((0, 0)) == 0
+        assert alpha.getpixel((decoded.width // 2, decoded.height // 2)) == 255
+        assert sum(alpha.histogram()[1:255]) > 0
+
+
 def test_small_photo_is_not_upscaled() -> None:
     result = process_image(photo("PNG", size=(640, 480)))
 

@@ -247,7 +247,9 @@ def _fit(size: tuple[int, int]) -> tuple[int, int]:
 
 
 def _full_color(image: Image.Image) -> Image.Image:
-    """Палитра и 1 бит — в полноцветный режим до уменьшения, чтобы уменьшать со сглаживанием."""
+    """Прозрачный цвет — в альфа-канал, палитра и 1 бит — в полноцветный режим до уменьшения."""
+    if image.mode in {"1", "L", "P", "RGB"} and "transparency" in image.info:
+        return image.convert("RGBA")
     if image.mode not in NEAREST_ONLY:
         return image
     return image.convert("RGBA" if _has_alpha(image) else ("L" if image.mode == "1" else "RGB"))
