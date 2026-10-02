@@ -428,6 +428,27 @@ describe('returning users', () => {
 });
 
 describe('deep links (startapp)', () => {
+  it('не возвращает в завершённый онбординг по «Назад» с цели startapp', async () => {
+    userBackend(NEW_USER);
+    const { app, telegram } = startApp('/', { startParam: 'l_privacy' });
+    await screen.findByRole('radio', { name: 'Нови-Сад' });
+    await pressMainButton(telegram);
+    await screen.findByRole('heading', { name: 'Что вы хотите?' });
+    await pressMainButton(telegram);
+    const checkbox = await screen.findByRole('checkbox');
+    await act(async () => {
+      fireEvent.click(checkbox);
+    });
+    await pressMainButton(telegram);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/legal/privacy'));
+    await screen.findByText('Редакция draft-1 от 27 сентября 2026');
+    await pressBackButton(telegram);
+
+    expect(await screen.findByRole('heading', { name: NEW_USER.display_name })).toBeTruthy();
+    expect(app.router.state.location.pathname).toBe('/profile');
+  });
+
   it('open home for targets whose screens are not built yet', async () => {
     userBackend(ME);
     const { app } = startApp('/', { startParam: 'd_3Nf1YTX8urRqobGWgo1mmN_rAB12CD' });
