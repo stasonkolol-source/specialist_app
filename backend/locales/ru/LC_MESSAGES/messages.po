@@ -882,6 +882,39 @@ msgstr "Работа выполнена?"
 msgid "notifications.deal_completion_prompt.body"
 msgstr "Сделка «{title}». Отметьте, если всё сделано: когда отметят обе стороны, сделка завершится."
 
+msgid "notifications.review_request.title_first"
+msgstr "Как прошла работа?"
+
+msgid "notifications.review_request.body_first"
+msgstr "Оцените работу «{title}» — исполнитель {performer}. Отзыв поможет соседям выбрать мастера."
+
+msgid "notifications.review_request.title_reminder"
+msgstr "Оцените работу"
+
+msgid "notifications.review_request.body_reminder"
+msgstr "Вы ещё не оценили работу «{title}» — исполнитель {performer}. Это займёт минуту."
+
+msgid "notifications.review_request.title_last_call"
+msgstr "Осталось 2 дня, чтобы оставить отзыв"
+
+msgid "notifications.review_request.body_last_call"
+msgstr "Отзыв о работе «{title}» можно оставить ещё 2 дня — исполнитель {performer}."
+
+msgid "notifications.review_request.button"
+msgstr "Оставить отзыв"
+
+msgid "notifications.review_published.title"
+msgstr "Новый отзыв: {rating} из 5"
+
+msgid "notifications.review_published.body"
+msgstr "«{text}» — о работе «{title}»."
+
+msgid "notifications.review_published.body_rating"
+msgstr "Клиент поставил оценку без текста — работа «{title}»."
+
+msgid "notifications.review_published.button"
+msgstr "Ответить на отзыв"
+
 msgid "notifications.deal_completion_prompt.yes"
 msgstr "Да, выполнено"
 

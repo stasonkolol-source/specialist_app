@@ -72,6 +72,18 @@ class SqlReviewRepository:
         review.mark_persisted(version=row.version)
         self._uow.track(review)
 
+    async def written_by(self, user_id: UserId) -> list[ReviewId]:
+        stmt = select(ReviewRow.id).where(
+            ReviewRow.author_id == user_id, ReviewRow.deleted_at.is_(None)
+        )
+        return [ReviewId(value) for value in (await self._session.scalars(stmt)).all()]
+
+    async def replied_by(self, user_id: UserId) -> list[ReviewId]:
+        stmt = select(ReviewRow.id).where(
+            ReviewRow.subject_user_id == user_id, ReviewRow.reply_body.is_not(None)
+        )
+        return [ReviewId(value) for value in (await self._session.scalars(stmt)).all()]
+
     async def of_deal(self, deal_id: DealId, author_id: UserId) -> ReviewId | None:
         stmt = select(ReviewRow.id).where(
             ReviewRow.deal_id == deal_id,

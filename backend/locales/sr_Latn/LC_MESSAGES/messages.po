@@ -583,22 +583,22 @@ msgid "errors.invalid_contact"
 msgstr "Deljenje kontakta nije uspelo. Ponovo otvorite aplikaciju i pokušajte opet."
 
 msgid "errors.review_not_found"
-msgstr "Recenzija nije pronađena."
+msgstr "Utisak nije pronađen."
 
 msgid "errors.review_not_allowed"
-msgstr "Za ovaj dogovor ne možete ostaviti recenziju: klijent je može ostaviti u roku od 14 dana nakon završetka."
+msgstr "Za ovaj dogovor ne možete ostaviti utisak: klijent ga može ostaviti u roku od 14 dana nakon završetka."
 
 msgid "errors.review_exists"
-msgstr "Već ste ostavili recenziju za ovaj dogovor."
+msgstr "Već ste ostavili utisak za ovaj dogovor."
 
 msgid "errors.invalid_review"
-msgstr "Recenzija nije prihvaćena: ocena od 1 do 5, tekst do 2000 znakova."
+msgstr "Utisak nije prihvaćen: ocena od 1 do 5, tekst do 2000 znakova."
 
 msgid "errors.not_review_subject"
-msgstr "Na recenziju može odgovoriti samo onaj o kome je napisana."
+msgstr "Na utisak može odgovoriti samo onaj o kome je napisan."
 
 msgid "errors.reply_exists"
-msgstr "Već ste odgovorili na ovu recenziju."
+msgstr "Već ste odgovorili na ovaj utisak."
 
 msgid "errors.deal_not_found"
 msgstr "Dogovor nije pronađen."
@@ -882,6 +882,39 @@ msgstr "Da li je posao završen?"
 
 msgid "notifications.deal_completion_prompt.body"
 msgstr "Dogovor „{title}“. Označite ako je sve urađeno: kada obe strane potvrde, dogovor se završava."
+
+msgid "notifications.review_request.title_first"
+msgstr "Kako je prošao posao?"
+
+msgid "notifications.review_request.body_first"
+msgstr "Ocenite posao „{title}“ — izvođač {performer}. Vaš utisak će pomoći komšijama da izaberu majstora."
+
+msgid "notifications.review_request.title_reminder"
+msgstr "Ocenite posao"
+
+msgid "notifications.review_request.body_reminder"
+msgstr "Još niste ocenili posao „{title}“ — izvođač {performer}. Potreban je samo minut."
+
+msgid "notifications.review_request.title_last_call"
+msgstr "Ostalo je 2 dana za utisak"
+
+msgid "notifications.review_request.body_last_call"
+msgstr "Utisak o poslu „{title}“ možete ostaviti još 2 dana — izvođač {performer}."
+
+msgid "notifications.review_request.button"
+msgstr "Ostavi utisak"
+
+msgid "notifications.review_published.title"
+msgstr "Novi utisak: {rating} od 5"
+
+msgid "notifications.review_published.body"
+msgstr "„{text}“ — o poslu „{title}“."
+
+msgid "notifications.review_published.body_rating"
+msgstr "Klijent je dao ocenu bez teksta — posao „{title}“."
+
+msgid "notifications.review_published.button"
+msgstr "Odgovori na utisak"
 
 msgid "notifications.deal_completion_prompt.yes"
 msgstr "Da, završeno"

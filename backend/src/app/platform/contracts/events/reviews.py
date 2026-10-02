@@ -42,3 +42,15 @@ class RatingChanged(DomainEvent):
     event_type = "reviews.RatingChanged"
     profile_id: UUID
     rating_count: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ReviewRequested(DomainEvent):
+    """Пора попросить клиента оценить сделку (`review.request`): `stage` — `first` (сделка
+    завершена), `reminder` (через сутки), `last_call` (за 2 дня до конца 14-дневного окна)."""
+
+    event_type = "reviews.ReviewRequested"
+    deal_id: DealId
+    client_id: UserId
+    performer_id: UserId
+    stage: str

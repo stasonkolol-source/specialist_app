@@ -152,6 +152,13 @@
       }
     },
     {
+      "param": "m_reviews",
+      "link": {
+        "type": "mine",
+        "section": "reviews"
+      }
+    },
+    {
       "param": "j_7n42DGM5Tflk9n8mt7Fhc7_rZz9",
       "link": {
         "type": "job",

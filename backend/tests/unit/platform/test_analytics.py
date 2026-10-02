@@ -128,6 +128,7 @@ def test_wired_events_are_those_of_the_finished_steps() -> None:
         EventName.CONVERSATION_STARTED: "6.3a",
         EventName.MESSAGE_SENT: "6.3a",
         EventName.CONTACT_SHARED: "6.3b",
+        EventName.REVIEW_PUBLISHED: "7.2",
     }
 
 

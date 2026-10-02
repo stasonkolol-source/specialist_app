@@ -32,7 +32,8 @@ export const START_TARGETS: StartTargets = {
   job: (link) => jobPath(link.id),
   // мастер новой заявки S20a и «Мои заявки» S22: команды бота /new и /jobs (5.6)
   new_job: () => CREATE_PATHS.what,
-  mine: () => JOBS_PATHS.mine,
+  // «Мои отзывы» S28 (`m_reviews`) — с экраном в 7.3, до того — главная
+  mine: (link) => (link.section === 'jobs' ? JOBS_PATHS.mine : HOME),
   // диалог S30: кнопка «Ответить» уведомления `message.received` (6.3b, 6.4)
   chat: (link) => chatPath(link.id),
   // сделка S26: кнопки уведомлений о сделке — «Открыть сделку», «Нет, проблема» (6.2)

@@ -128,3 +128,30 @@ class RatingAggregateRow(Base):
     last_published_at: Mapped[datetime | None]
     """Когда опубликован последний отзыв (ADR-0016: показывается рядом с рейтингом)."""
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class ReviewRequestRow(Base):
+    """Просьба оставить отзыв по завершённой сделке (7.2): когда напомнили. Отзыв по сделке есть
+    или окно закрылось — напоминаний больше нет (проверка — при отправке)."""
+
+    __tablename__ = "review_requests"
+
+    deal_id: Mapped[UUID] = mapped_column(primary_key=True)
+    """deals.deals: FK в миграции."""
+    client_id: Mapped[UUID]
+    """identity.users: FK в миграции; кого просим."""
+    performer_id: Mapped[UUID]
+    completed_at: Mapped[datetime]
+    reminded_at: Mapped[datetime | None]
+    last_call_at: Mapped[datetime | None]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    __table_args__ = (
+        Index(
+            "ix_review_requests_completed_at",
+            "completed_at",
+            postgresql_where=text("last_call_at IS NULL"),
+        ),
+        Index("ix_review_requests_client_id", "client_id"),
+        Index("ix_review_requests_performer_id", "performer_id"),
+    )

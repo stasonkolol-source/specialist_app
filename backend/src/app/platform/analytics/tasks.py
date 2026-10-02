@@ -6,7 +6,8 @@
 (1.7), `profile_submitted` и `profile_published` (2.8a), `job_published`, `job_closed` и
 `job_expired` (5.1), `response_submitted` (5.4), `invite_sent` и `direct_request_sent` (5.6),
 `deal_agreed`, `deal_completed` и `deal_cancelled` (6.1a) — по событию на каждую сторону сделки,
-`conversation_started` и `message_sent` (6.3a), `contact_shared` (6.3b); остальные события
+`conversation_started` и `message_sent` (6.3a), `contact_shared` (6.3b), `review_published`
+(7.2); остальные события
 подключает шаг своего модуля (таксономия — events.py).
 """
 
@@ -28,6 +29,7 @@ from app.platform.contracts.events.jobs import (
 )
 from app.platform.contracts.events.messaging import ContactShared, ConversationStarted, MessageSent
 from app.platform.contracts.events.notifications import WriteAccessGranted
+from app.platform.contracts.events.reviews import ReviewPublished
 from app.platform.contracts.events.specialists import ProfilePublished, ProfileSubmitted
 from app.platform.queue.port import TaskRef
 from app.platform.queue.tasks import subscriber
@@ -53,6 +55,7 @@ CAPTURE_CONVERSATION_STARTED = TaskRef(
 )
 CAPTURE_MESSAGE_SENT = TaskRef("analytics.capture_message_sent", MessageSent)
 CAPTURE_CONTACT_SHARED = TaskRef("analytics.capture_contact_shared", ContactShared)
+CAPTURE_REVIEW_PUBLISHED = TaskRef("analytics.capture_review_published", ReviewPublished)
 
 
 @subscriber(UserRegistered, CAPTURE_USER_REGISTERED)
@@ -273,6 +276,23 @@ async def capture_contact_shared(event: ContactShared, analytics: FromDishka[Ana
             source_event_id=event.event_id,
             contact_type=event.contact_type,
             role=event.sharer_role,
+        )
+    )
+
+
+@subscriber(ReviewPublished, CAPTURE_REVIEW_PUBLISHED)
+async def capture_review_published(
+    event: ReviewPublished, analytics: FromDishka[Analytics]
+) -> None:
+    """Review rate (6.6) — опубликованные отзывы к завершённым сделкам; от лица автора."""
+    await analytics.capture(
+        analytics_event(
+            EventName.REVIEW_PUBLISHED,
+            user_id=event.author_id,
+            occurred_at=event.occurred_at,
+            source_event_id=event.event_id,
+            rating=event.rating,
+            has_text=event.has_text,
         )
     )
 

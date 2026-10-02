@@ -39,6 +39,16 @@ class SqlReviewQueries(SqlQuery):
             cursor = encode_cursor(items[-1].published_at, items[-1].id)
         return Page(items=tuple(items), next_cursor=cursor)
 
+    async def public(self, review_id: UUID) -> PublicReview | None:
+        row = await self._fetch_one(
+            select(_T).where(
+                _R.id == review_id,
+                _R.status == ReviewStatus.PUBLISHED.value,
+                _R.deleted_at.is_(None),
+            )
+        )
+        return _public(row) if row is not None else None
+
     async def mine(self, author_id: UserId, deal_ids: Collection[DealId]) -> dict[DealId, MyReview]:
         if not deal_ids:
             return {}

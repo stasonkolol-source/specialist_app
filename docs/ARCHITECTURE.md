@@ -1489,6 +1489,16 @@ CREATE UNIQUE INDEX ON reviews.reviews (deal_id, author_id) WHERE deal_id IS NOT
 -- отдельная метка и вкладка, в rating_aggregates не входит (ADR-0016)
 CREATE INDEX ON reviews.reviews (subject_profile_id, published_at DESC) WHERE status = 'published';
 
+CREATE TABLE reviews.review_requests (  -- просьба оставить отзыв по завершённой сделке (7.2)
+  deal_id       uuid PRIMARY KEY REFERENCES deals.deals(id),
+  client_id     uuid NOT NULL REFERENCES identity.users(id),
+  performer_id  uuid NOT NULL REFERENCES identity.users(id),
+  completed_at  timestamptz NOT NULL,
+  reminded_at   timestamptz,             -- напоминание через 24 ч
+  last_call_at  timestamptz,             -- за 2 дня до конца окна
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE reviews.review_invites (   -- приглашение прошлому клиенту на «отзыв до платформы» (Should MVP)
   token       text PRIMARY KEY,           -- случайный токен ссылки
   profile_id  uuid NOT NULL REFERENCES specialists.profiles(id),
@@ -2958,8 +2968,8 @@ flowchart LR
 | `dispute.opened` | Вторая сторона сделки | Бот + in-app | P0 | «Ответить» (48 ч на ответ) |
 | `deal.reminder` | Обе стороны | Бот | P1 | «Открыть» (за 2 ч до времени) |
 | `deal.completion_prompt` | Стороны, которые ещё не отметили | Бот | P1 | «Да, выполнено» (callback `dc:<deal>`, бот deals), «Нет, проблема» (web_app `d_` → S52) |
-| `review.request` | Клиент (v1 — обе стороны) | Бот | P2 | Оценка 1–5 кнопками, «Написать отзыв» |
-| `review.published` | Исполнитель | Бот + in-app | P3 | «Ответить на отзыв» |
+| `review.request` | Клиент (v1 — обе стороны) | Бот | P2 | «Как прошла работа?» после завершения, напоминание через 24 ч и за 2 дня до конца окна, пока отзыва нет; «Оставить отзыв» — к сделке (`d_`); оценка 1–5 кнопками — B2 (7.3) |
+| `review.published` | Исполнитель | Бот + in-app | P3 | Оценка и начало текста, «Ответить на отзыв» — «Мои отзывы» (`m_reviews`) |
 | `moderation.decision` | Автор контента | Бот + in-app | P1 | «Исправить», «Обжаловать» |
 | `profile.published` | Исполнитель | Бот + in-app | P1 | «Открыть профиль» — модерация одобрила профиль (2.8a) |
 | `job.expiring` | Клиент | Бот | P3 | «Продлить», «Закрыть: исполнитель найден» (бот спросит: здесь или в другом месте); после срока заявки не отправляется |
@@ -2994,6 +3004,7 @@ flowchart LR
 | `h` | Главная (S03) | `h` |
 | `n` | Мастер новой заявки (S20a; команда бота `/new`) | `n` |
 | `m_jobs` | Мои заявки (S22; команда бота `/jobs`) | `m_jobs` |
+| `m_reviews` | Мои отзывы (S28, 7.3; кнопка «Ответить на отзыв» уведомления `review.published`) | `m_reviews` |
 | `l_terms`, `l_privacy` | Правила площадки, политика конфиденциальности (вкладка S48; команды бота `/terms`, `/privacy`) | `l_terms` |
 | `…_r<code>` | Суффикс реферала или атрибуции канала — только суффикс, не тип | `s_4bN8wE2rT6yU1iO3pA5sDf_rAB12CD`, `h_rAB12CD` |
 
@@ -3097,7 +3108,8 @@ flowchart LR
 | `deals.expire_proposed` | каждые 15 мин | `proposed` старше 72 ч без подтверждения → `cancelled` («истекло»), уведомление инициатору |
 | `deals.reminders` | каждые 15 мин | `deal.reminder` за 2 ч до `scheduled_at` |
 | `disputes.response_sla` | каждые 30 мин | Вторая сторона не ответила за 48 ч → спор уходит модератору с пометкой «нет ответа» |
-| `reviews.reminders` | ежечасно | Напоминание об отзыве через 24 ч после завершения и за 2 дня до закрытия окна 14 дней |
+| `reviews.reminders` | ежечасно | Напоминание об отзыве через 24 ч после завершения и за 2 дня до закрытия окна 14 дней (`reviews.review_requests`) |
+| `reviews.recompute_ratings` | ночью | Пересчёт всех рейтингов: вес отзывов затухает (half-life 12 мес.), меняются средние категорий; изменившийся — `RatingChanged` |
 | `reviews.reveal_expired` | ежечасно (v1) | Double-blind: окно 14 дней закрылось → публикация отзыва, написанного одной стороной |
 | `specialists.stale_profile_reminders` | ежедневно в 11:00 | `profile.stale_reminder` не чаще раза в 2 недели, если профиль давно не обновлялся и «доступен сегодня» не включался |
 | `specialists.reset_availability` | каждые 5 мин | Снять «доступен сегодня» по `available_until` |

@@ -92,6 +92,15 @@ async def test_seed_is_repeatable_and_published(
     assert (assigned, deals) == (first.deals, first.completed)
     assert first.deals > 0
     assert (again.deals, again.completed) == (0, 0)
+    # отзывы (7.2): по каждой выполненной сделке — опубликованный отзыв клиента
+    reviews = await scalar(
+        settings,
+        "SELECT count(*) FROM reviews.reviews r JOIN identity.auth_identities a"
+        " ON a.user_id = r.author_id WHERE a.provider = 'telegram'"
+        " AND CAST(a.subject AS bigint) BETWEEN :first AND :last AND r.status = 'published'",
+        **clients,
+    )
+    assert reviews == first.completed
     published = await scalar(
         settings, f"SELECT count(*) {DEMO_PROFILES} AND p.status = 'published'", **numbers(scale)
     )

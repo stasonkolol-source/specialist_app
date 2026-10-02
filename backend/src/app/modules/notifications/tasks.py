@@ -38,6 +38,10 @@ notifications стоит над контентными модулями (ARCHITE
 - `notifications.notify_deal_reminder` — DealReminderDue: обеим сторонам за 2 ч до времени.
 - `notifications.notify_deal_completion` — DealCompletionDue: «Работа выполнена?» с [Да,
   выполнено] (кнопку обрабатывает бот deals) и [Нет, проблема] тем, кто ещё не отметил.
+- `notifications.notify_review_request` — ReviewRequested: клиенту — «Как прошла работа?» и
+  «Оставить отзыв» (после завершения, через сутки, за 2 дня до конца окна; 7.2).
+- `notifications.notify_review_published` — ReviewPublished: исполнителю — новый отзыв и
+  «Ответить на отзыв» (7.2).
 - `notifications.forget_recipient` — UserDeleted: лента, каналы и настройки удалённого
   аккаунта удалены (§7.10).
 - `notifications.send` — отправить доставку в бот (очередь `notifications`).
@@ -50,7 +54,7 @@ from uuid import UUID
 
 from dishka import FromDishka
 
-from app.modules.deals.api import DealsApi
+from app.modules.deals.api import DealNotFoundError, DealsApi
 from app.modules.identity.api import IdentityApi
 from app.modules.jobs.api import InviteNotice, JobBrief, JobsApi
 from app.modules.messaging.api import MessagingApi
@@ -71,6 +75,8 @@ from app.modules.notifications.application.ports import (
     NOTIFY_PROFILE_PUBLISHED,
     NOTIFY_RESPONSE_ACCEPTED,
     NOTIFY_RESPONSES,
+    NOTIFY_REVIEW_PUBLISHED,
+    NOTIFY_REVIEW_REQUEST,
     SCHEDULE_MESSAGES_NOTICE,
     SCHEDULE_RESPONSES_NOTICE,
     SEND_DELIVERY,
@@ -106,6 +112,7 @@ from app.modules.notifications.application.use_cases.send_delivery import (
 from app.modules.notifications.domain.catalog import NotificationType
 from app.modules.notifications.domain.channel import GrantedVia
 from app.modules.notifications.domain.notification import DeliveryId
+from app.modules.reviews.api import ReviewsApi
 from app.platform.contracts.events.deals import (
     DealCancelled,
     DealCompletionDue,
@@ -127,15 +134,26 @@ from app.platform.contracts.events.jobs import (
 )
 from app.platform.contracts.events.messaging import MessageSent
 from app.platform.contracts.events.moderation import ModerationDecision, ModerationDecisionMade
+from app.platform.contracts.events.reviews import ReviewPublished, ReviewRequested
 from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.kernel.ids import DealId, UserId
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber, task
-from app.platform.telegram.deeplinks import LinkDocument, LinkType, StartLink, encode_start_param
+from app.platform.telegram.deeplinks import (
+    LinkDocument,
+    LinkSection,
+    LinkType,
+    StartLink,
+    encode_start_param,
+)
 
 TEMPLATE_BUTTONS: Final = 2
 """Кнопок «Откликнуться шаблоном» в уведомлении: шаблонов у исполнителя не больше двух."""
 
+REVIEW_PREVIEW_CHARS: Final = 100
+"""Начало отзыва в уведомлении исполнителю — как превью сообщения (6.3b)."""
+
 RULES_LINK = encode_start_param(StartLink(type=LinkType.LEGAL, document=LinkDocument.TERMS))
+REVIEWS_LINK = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSection.REVIEWS))
 HOME_LINK = encode_start_param(StartLink(type=LinkType.HOME))
 FIX_LINKS = {"job": LinkType.JOB, "profile": LinkType.SPECIALIST}
 """Куда ведёт «Исправить»: к заявке или профилю; отклик — к его заявке; остальное — на
@@ -513,6 +531,80 @@ async def notify_deal_completion(
                 link=_deal_link(event.deal_id),
             )
         )
+
+
+@subscriber(ReviewRequested, NOTIFY_REVIEW_REQUEST)
+async def notify_review_request(
+    event: ReviewRequested,
+    notify: FromDishka[Notify],
+    deals: FromDishka[DealsApi],
+    identity: FromDishka[IdentityApi],
+    reviews: FromDishka[ReviewsApi],
+) -> None:
+    """Клиенту — «Как прошла работа?» с кнопкой «Оставить отзыв» (сделка S26). Отзыв уже
+    оставлен, окно закрылось или исполнителя нет — не просим."""
+    try:
+        deal = await deals.deal_for(event.deal_id, event.client_id)
+    except DealNotFoundError:
+        return
+    state = await reviews.review_state(
+        deal.id,
+        event.client_id,
+        client_id=deal.client_id,
+        status=deal.status,
+        completed_at=deal.completed_at,
+    )
+    performer = await identity.get_user(event.performer_id)
+    if state.open_until is None or performer is None or performer.is_deleted:
+        return
+    await notify(
+        NotifyCommand(
+            user_id=event.client_id,
+            type=NotificationType.REVIEW_REQUEST,
+            dedupe_key=f"review.request:{event.deal_id}:{event.stage}",
+            params={
+                "title": deal.title,
+                "performer": performer.display_name,
+                "stage": event.stage,
+                "deal_id": str(event.deal_id),
+            },
+            link=_deal_link(event.deal_id),
+            valid_until=state.open_until,
+        )
+    )
+
+
+@subscriber(ReviewPublished, NOTIFY_REVIEW_PUBLISHED)
+async def notify_review_published(
+    event: ReviewPublished,
+    notify: FromDishka[Notify],
+    deals: FromDishka[DealsApi],
+    reviews: FromDishka[ReviewsApi],
+) -> None:
+    """Исполнителю — новый отзыв: оценка, начало текста, «Ответить на отзыв» («Мои отзывы»)."""
+    review = await reviews.published_review(event.review_id)
+    if review is None:
+        return  # успели снять
+    deal = await deals.deal_brief(event.deal_id) if event.deal_id is not None else None
+    params = {"rating": str(review.rating), "title": deal.title if deal is not None else ""}
+    if review.body:
+        params["preview"] = _preview(review.body)
+    await notify(
+        NotifyCommand(
+            user_id=event.subject_user_id,
+            type=NotificationType.REVIEW_PUBLISHED,
+            dedupe_key=f"review.published:{event.review_id}",
+            params=params,
+            link=REVIEWS_LINK,
+        )
+    )
+
+
+def _preview(text: str) -> str:
+    flat = " ".join(text.split())
+    if len(flat) <= REVIEW_PREVIEW_CHARS:
+        return flat
+    return flat[: REVIEW_PREVIEW_CHARS - 1].rstrip() + "…"
 
 
 def _chat_link(conversation_id: UUID) -> str:

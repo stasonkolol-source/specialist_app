@@ -1,8 +1,9 @@
 """Отзывы по сделкам (DEVELOPMENT_PLAN 7.2) через API: отзыв оставляет только клиент по
 завершённой сделке и не позже 14 дней (иначе 409), один раз; он виден на карточке специалиста
 после автопроверки, рейтинг пересчитывается и попадает в выдачу; специалист отвечает один раз,
-ответ виден после своей проверки; снятый отзыв убирает рейтинг. Подписчики выполняются из
-очереди. Данные коммитятся.
+ответ виден после своей проверки; снятый отзыв убирает рейтинг. Клиента просят об отзыве после
+завершения и напоминают, пока отзыва нет; специалист узнаёт о новом отзыве; удалённый аккаунт
+уносит свои отзывы и ответы. Подписчики выполняются из очереди. Данные коммитятся.
 """
 
 from collections.abc import AsyncIterator
@@ -16,6 +17,14 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.entrypoints._wiring import make_worker_container, module_routers
 from app.modules.reviews.api import ReviewsApi
+from app.modules.reviews.application.use_cases.forget_user_reviews import (
+    ForgetUserReviews,
+    ForgetUserReviewsCommand,
+)
+from app.modules.reviews.application.use_cases.remind_reviews import (
+    RemindReviews,
+    RemindReviewsCommand,
+)
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import UserId, new_id
 from app.platform.settings import Settings
@@ -244,3 +253,125 @@ async def test_specialist_replies_once_and_the_reply_shows_after_its_check(
     [written] = await mine(chat, client, "written")
     assert written["reply"]["body"] == "Спасибо!"
     assert written["counterpart_name"]
+
+
+async def notified(chat: Chat, user: UserId, kind: str) -> list[dict[str, Any]]:
+    rows = await chat.rows(
+        "SELECT payload FROM notifications.notifications WHERE user_id = :user AND type = :type"
+        " ORDER BY id",
+        user=user,
+        type=kind,
+    )
+    return [row[0]["params"] for row in rows]
+
+
+async def remind(worker: AsyncContainer, chat: Chat, deal_id: str, ago: str) -> int:
+    """Сдвинуть завершение просьбы в прошлое и прогнать `reviews.reminders`."""
+    await chat.execute(
+        f"UPDATE reviews.review_requests SET completed_at = now() - interval '{ago}'"
+        " WHERE deal_id = :id",
+        id=deal_id,
+    )
+    async with worker() as request:
+        await (await request.get(RemindReviews))(RemindReviewsCommand())
+    return 0
+
+
+async def asked(worker: AsyncContainer, client: UserId) -> int:
+    return await run_queued(
+        worker, "notifications.notify_review_request", user_id=client, by="client_id"
+    )
+
+
+async def test_client_is_asked_for_a_review_and_reminded_until_the_window_closes(
+    chat: Chat, worker: AsyncContainer
+) -> None:
+    specialist, client, deal_id = await agreed_deal(chat)
+    await complete(chat, deal_id, client, UserId(specialist.user_id))
+
+    assert await run_queued(worker, "reviews.open_request", user_id=client, by="client_id") == 1
+    assert await asked(worker, client) == 1
+    [first] = await notified(chat, client, "review.request")
+    assert (first["stage"], first["title"], first["deal_id"]) == (
+        "first",
+        "Повесить люстру",
+        deal_id,
+    )
+
+    await remind(worker, chat, deal_id, "25 hours")
+    assert await asked(worker, client) == 1
+    await remind(worker, chat, deal_id, "25 hours")  # уже напомнили — не повторяем
+    assert await asked(worker, client) == 0
+    await remind(worker, chat, deal_id, "12 days 12 hours")
+    assert await asked(worker, client) == 1
+    stages = [params["stage"] for params in await notified(chat, client, "review.request")]
+    assert stages == ["first", "reminder", "last_call"]
+
+
+async def test_no_reminder_once_the_review_is_left(chat: Chat, worker: AsyncContainer) -> None:
+    specialist, client, deal_id = await agreed_deal(chat)
+    await complete(chat, deal_id, client, UserId(specialist.user_id))
+    assert await run_queued(worker, "reviews.open_request", user_id=client, by="client_id") == 1
+    left = await chat.post(client, f"/deals/{deal_id}/review", {"rating": 5})
+    assert left.status_code == 201, left.text
+
+    assert await asked(worker, client) == 1  # задача первой просьбы опоздала: отзыв уже есть
+    await remind(worker, chat, deal_id, "25 hours")
+    assert await asked(worker, client) == 0  # напоминание не ставится
+    assert await notified(chat, client, "review.request") == []
+
+
+async def test_specialist_hears_about_a_published_review(
+    chat: Chat, worker: AsyncContainer
+) -> None:
+    specialist, client, deal_id = await agreed_deal(chat)
+    performer = UserId(specialist.user_id)
+    await complete(chat, deal_id, client, performer)
+    body = "Очень аккуратно и быстро, рекомендую всем соседям"
+    left = await chat.post(client, f"/deals/{deal_id}/review", {"rating": 5, "body": body})
+    assert left.status_code == 201, left.text
+    await checked(worker, client)
+
+    published = await run_queued(
+        worker, "notifications.notify_review_published", user_id=performer, by="subject_user_id"
+    )
+
+    assert published == 1
+    [params] = await notified(chat, performer, "review.published")
+    assert params == {"rating": "5", "title": "Повесить люстру", "preview": body}
+
+
+async def test_deleted_accounts_take_their_reviews_and_replies(
+    chat: Chat, worker: AsyncContainer
+) -> None:
+    specialist, client, deal_id = await agreed_deal(chat)
+    performer = UserId(specialist.user_id)
+    await complete(chat, deal_id, client, performer)
+    created = await chat.post(client, f"/deals/{deal_id}/review", {"rating": 2, "body": "Плохо"})
+    review_id = created.json()["id"]
+    await checked(worker, client)
+    await recomputed(worker, specialist, "reviews.recompute_on_published")
+    replied = await chat.post(performer, f"/reviews/{review_id}/reply", {"body": "Жаль"})
+    assert replied.status_code == 201, replied.text
+    await checked(worker, performer)
+
+    async with worker() as request:
+        forget = await request.get(ForgetUserReviews)
+        await forget(ForgetUserReviewsCommand(user_id=performer))
+        await forget(ForgetUserReviewsCommand(user_id=client))
+    await recomputed(worker, specialist, "reviews.recompute_on_removed")
+
+    [(body, reply, status, deleted)] = await chat.rows(
+        "SELECT body, reply_body, status, deleted_at IS NOT NULL FROM reviews.reviews"
+        " WHERE id = :id",
+        id=review_id,
+    )
+    assert (body, reply, status, deleted) == (None, None, "removed", True)
+    listed = await profile_reviews(chat, performer, specialist)
+    assert (listed["items"], listed["summary"]["count"]) == ([], 0)
+    assert (
+        await chat.scalar(
+            "SELECT count(*) FROM reviews.review_requests WHERE deal_id = :id", id=deal_id
+        )
+        == 0
+    )

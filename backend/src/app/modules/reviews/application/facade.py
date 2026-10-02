@@ -49,6 +49,9 @@ class ReviewsFacade(ReviewsApi):
     async def reviews_of(self, profile_id: UUID, page: PageRequest) -> Page[PublicReview]:
         return await self._queries.public_of(profile_id, page)
 
+    async def published_review(self, review_id: UUID) -> PublicReview | None:
+        return await self._queries.public(review_id)
+
     async def review_state(
         self,
         deal_id: DealId,

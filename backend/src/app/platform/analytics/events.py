@@ -230,7 +230,11 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
         description="Сторона поделилась контактом после договорённости: чем и чья сторона",
         properties={"contact_type": Choice(CONTACT_TYPES), "role": Choice(DEAL_ROLES)},
     ),
-    EventName.REVIEW_PUBLISHED: EventSpec(step="7.2", description="Опубликован отзыв"),
+    EventName.REVIEW_PUBLISHED: EventSpec(
+        step="7.2",
+        description="Опубликован отзыв по сделке (прошёл проверку): оценка и есть ли текст",
+        properties={"rating": Count(), "has_text": Flag()},
+    ),
     EventName.SHARE_CREATED: EventSpec(step="7.4", description="Поделились ссылкой"),
     EventName.ATTRIBUTION_RECORDED: EventSpec(step="7.4", description="Атрибуция по ссылке"),
     EventName.GOODS_WAITLIST_JOINED: EventSpec(

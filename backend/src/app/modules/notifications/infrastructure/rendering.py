@@ -52,9 +52,14 @@ RENDERED = frozenset(
         NotificationType.DEAL_CANCELLED,
         NotificationType.DEAL_REMINDER,
         NotificationType.DEAL_COMPLETION_PROMPT,
+        NotificationType.REVIEW_REQUEST,
+        NotificationType.REVIEW_PUBLISHED,
     }
 )
 """Типы с шаблонами: остальные получат их вместе со своими подписчиками."""
+
+REVIEW_STAGES = frozenset({"first", "reminder", "last_call"})
+"""Когда просим отзыв (ReviewRequested.stage): свой заголовок и текст у каждой."""
 
 JOB_TERM = frozenset({NotificationType.JOB_EXPIRING, NotificationType.JOB_EXPIRED})
 """Срок заявки: «Продлить» (если ещё можно) и «Закрыть» — callback-кнопки бота jobs."""
@@ -76,6 +81,8 @@ BUTTONS: Mapping[NotificationType, str] = MappingProxyType(
         NotificationType.MESSAGE_RECEIVED: "notifications.message_received.button",
         NotificationType.DEAL_CANCELLED: "notifications.deal.open",
         NotificationType.DEAL_REMINDER: "notifications.deal.open",
+        NotificationType.REVIEW_REQUEST: "notifications.review_request.button",
+        NotificationType.REVIEW_PUBLISHED: "notifications.review_published.button",
     }
 )
 """Подпись кнопки бота; ведёт она по коду deep link уведомления."""
@@ -136,6 +143,35 @@ class GettextNotificationRenderer:
                     locale,
                     title=_short(params.get("title")),
                     when=self._datetime(params.get("at", ""), locale),
+                ),
+            )
+        if type_ is NotificationType.REVIEW_REQUEST:
+            stage = params.get("stage", "first")
+            stage = stage if stage in REVIEW_STAGES else "first"
+            return RenderedText(
+                title=self._t(f"notifications.review_request.title_{stage}", locale),
+                body=self._t(
+                    f"notifications.review_request.body_{stage}",
+                    locale,
+                    title=_short(params.get("title")),
+                    performer=params.get("performer", ""),
+                ),
+            )
+        if type_ is NotificationType.REVIEW_PUBLISHED:
+            title = _short(params.get("title"))
+            preview = params.get("preview")
+            return RenderedText(
+                title=self._t(
+                    "notifications.review_published.title",
+                    locale,
+                    rating=params.get("rating", ""),
+                ),
+                body=(
+                    self._t(
+                        "notifications.review_published.body", locale, text=preview, title=title
+                    )
+                    if preview
+                    else self._t("notifications.review_published.body_rating", locale, title=title)
                 ),
             )
         if type_ in TITLED:

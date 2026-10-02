@@ -38,6 +38,7 @@ from app.platform.contracts.events.jobs import (
 )
 from app.platform.contracts.events.messaging import MessageSent
 from app.platform.contracts.events.moderation import ModerationDecisionMade
+from app.platform.contracts.events.reviews import ReviewPublished, ReviewRequested
 from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.kernel.ids import UserId
 from app.platform.kernel.localized import Locale
@@ -288,6 +289,16 @@ NOTIFY_DEAL_COMPLETION: Final = TaskRef(
 )
 """Подписчик DealCompletionDue: «Работа выполнена?» с [Да, выполнено] и [Нет, проблема] тем,
 кто ещё не отметил."""
+
+NOTIFY_REVIEW_REQUEST: Final = TaskRef(
+    "notifications.notify_review_request", ReviewRequested, queue="notifications"
+)
+"""Подписчик ReviewRequested: клиенту — «Как прошла работа?» и «Оставить отзыв» (7.2), пока
+отзыва нет и окно открыто."""
+NOTIFY_REVIEW_PUBLISHED: Final = TaskRef(
+    "notifications.notify_review_published", ReviewPublished, queue="notifications"
+)
+"""Подписчик ReviewPublished: исполнителю — новый отзыв и «Ответить на отзыв» (7.2)."""
 
 FORGET_RECIPIENT: Final = TaskRef("notifications.forget_recipient", UserDeleted)
 """Подписчик UserDeleted: всё о получателе удалённого аккаунта (§7.10)."""

@@ -132,6 +132,10 @@ class SqlRatingStore(SqlQuery):
         )
         return True
 
+    async def rated_profiles(self) -> list[UUID]:
+        rows = await self._fetch(select(_RA.subject_profile_id))
+        return [row["subject_profile_id"] for row in rows]
+
 
 def _same(old: dict[str, Any], new: dict[str, Any]) -> bool:
     """Записанное совпадает с новым: пересчёт ничего не изменил (событие не нужно)."""

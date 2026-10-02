@@ -19,8 +19,9 @@ export type EntityType = keyof typeof ENTITY_PREFIX;
 export const LEGAL_DOCUMENTS = ['terms', 'privacy'] as const;
 export type LegalDocument = (typeof LEGAL_DOCUMENTS)[number];
 
-/** Свои разделы: `m_jobs` — «Мои заявки» S22 (команда бота /jobs). */
-export const MINE_SECTIONS = ['jobs'] as const;
+/** Свои разделы: `m_jobs` — «Мои заявки» S22 (команда бота /jobs), `m_reviews` — «Мои отзывы»
+ *  S28 (кнопка «Ответить на отзыв» уведомления `review.published`, 7.2). */
+export const MINE_SECTIONS = ['jobs', 'reviews'] as const;
 export type MineSection = (typeof MINE_SECTIONS)[number];
 
 /** Раздел «Вещи» (после MVP): префиксы зарезервированы, `gh` и `h` — разные типы. */

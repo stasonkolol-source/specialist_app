@@ -103,6 +103,10 @@ class ReviewsApi(Protocol):
         """Опубликованные отзывы профиля, новые первыми (S11; первый — на S08)."""
         ...
 
+    async def published_review(self, review_id: UUID) -> PublicReview | None:
+        """Опубликованный отзыв (уведомление `review.published`); снят или стёрт — None."""
+        ...
+
     async def review_state(
         self,
         deal_id: DealId,

@@ -196,6 +196,8 @@ def test_types_without_templates_are_refused(renderer: GettextNotificationRender
         NotificationType.DEAL_CANCELLED,
         NotificationType.DEAL_REMINDER,
         NotificationType.DEAL_COMPLETION_PROMPT,
+        NotificationType.REVIEW_REQUEST,
+        NotificationType.REVIEW_PUBLISHED,
     }
     with pytest.raises(ValueError, match="no templates"):
         renderer.text(NotificationType.JOB_MATCHED, {}, Locale.RU)
@@ -625,3 +627,48 @@ def test_deal_texts_on_three_scripts(renderer: GettextNotificationRenderer, loca
         text, buttons = renderer.telegram(type_, params, DEAL_LINK, locale)
         assert "notifications." not in text, type_
         assert all("notifications." not in b.text for b in buttons), type_
+
+
+@pytest.mark.parametrize("stage", ["first", "reminder", "last_call"])
+@pytest.mark.parametrize("locale", SCRIPTS)
+def test_review_request_asks_on_each_stage_with_a_button(
+    renderer: GettextNotificationRenderer, stage: str, locale: Locale
+) -> None:
+    params = {"title": "Повесить люстру", "performer": "Алексей М.", "stage": stage}
+
+    text, [button] = renderer.telegram(NotificationType.REVIEW_REQUEST, params, "m_reviews", locale)
+
+    assert "notifications." not in text
+    assert "Алексей М." in text
+    assert isinstance(button, AppButton)
+    assert button.url == f"{MINI_APP}?startapp=m_reviews"
+
+
+def test_review_request_texts_in_russian(renderer: GettextNotificationRenderer) -> None:
+    params = {"title": "Повесить люстру", "performer": "Алексей М."}
+
+    first = renderer.text(NotificationType.REVIEW_REQUEST, params | {"stage": "first"}, Locale.RU)
+    last = renderer.text(
+        NotificationType.REVIEW_REQUEST, params | {"stage": "last_call"}, Locale.RU
+    )
+    odd = renderer.text(NotificationType.REVIEW_REQUEST, params | {"stage": "x"}, Locale.RU)
+
+    assert first.title == "Как прошла работа?"
+    assert first.body.startswith("Оцените работу «Повесить люстру» — исполнитель Алексей М.")
+    assert last.title == "Осталось 2 дня, чтобы оставить отзыв"
+    assert odd == first  # неизвестный этап — как первая просьба
+
+
+def test_review_published_with_text_and_rating_only(renderer: GettextNotificationRenderer) -> None:
+    with_text = renderer.text(
+        NotificationType.REVIEW_PUBLISHED,
+        {"rating": "5", "title": "Повесить люстру", "preview": "Всё отлично"},
+        Locale.RU,
+    )
+    bare = renderer.text(
+        NotificationType.REVIEW_PUBLISHED, {"rating": "4", "title": "Повесить люстру"}, Locale.RU
+    )
+
+    assert with_text.title == "Новый отзыв: 5 из 5"
+    assert with_text.body == "«Всё отлично» — о работе «Повесить люстру»."
+    assert bare.body == "Клиент поставил оценку без текста — работа «Повесить люстру»."

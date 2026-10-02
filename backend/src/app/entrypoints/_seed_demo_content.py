@@ -788,3 +788,33 @@ RESPONSE_WHEN: Final[dict[Lang, tuple[str, ...]]] = {
     "ru": ("Сегодня, 19:00", "Завтра, 10:00", "На этой неделе"),
     "sr": ("Danas, 19:00", "Sutra, 10:00", "Ove nedelje"),
 }
+
+REVIEW_TEXTS: Final[dict[Lang, dict[int, tuple[str, ...]]]] = {
+    "ru": {
+        5: (
+            "Пришёл вовремя, всё сделал аккуратно и убрал за собой. Рекомендую!",
+            "Быстро разобрался, в чём дело, и всё объяснил. Буду обращаться ещё.",
+            "Отличная работа: цена как договорились, результат — лучше, чем ожидала.",
+        ),
+        4: (
+            "Сделал хорошо, но немного опоздал — правда, предупредил заранее.",
+            "Работой довольна, хотя заняло больше времени, чем обещал.",
+        ),
+        3: ("Работа сделана, но пришлось переделывать мелочи. Общение нормальное.",),
+        2: ("Сделал не всё, о чём договаривались, пришлось звать другого мастера.",),
+    },
+    "sr": {
+        5: (
+            "Došao na vreme, sve uradio uredno i počistio za sobom. Preporučujem!",
+            "Brzo je našao problem i sve objasnio. Zvaću ga ponovo.",
+            "Odličan posao: cena kao što smo se dogovorili, rezultat bolji od očekivanog.",
+        ),
+        4: (
+            "Dobro urađeno, ali je malo kasnio — doduše, javio se unapred.",
+            "Zadovoljna sam poslom, iako je trajalo duže nego što je rekao.",
+        ),
+        3: ("Posao je urađen, ali sam morala da tražim sitne popravke. Komunikacija u redu.",),
+        2: ("Nije uradio sve što smo se dogovorili, morala sam da zovem drugog majstora.",),
+    },
+}
+"""Отзывы демо-клиентов (7.2) по оценке: у части отзывов текста нет — только оценка."""
