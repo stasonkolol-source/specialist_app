@@ -417,7 +417,8 @@
     "note": "Ako dogovor propadne, zahtev možete ponovo otvoriti i izabrati među prethodnim ponudama.",
     "confirm": "Izaberi izvođača",
     "cancel": "Otkaži",
-    "acceptError": "Izvođač nije izabran. Pokušajte ponovo"
+    "acceptError": "Izvođač nije izabran. Pokušajte ponovo",
+    "writeError": "Razgovor nije moguće otvoriti. Pokušajte ponovo."
   },
   "deal": {
     "unavailable": "Dogovor nije dostupan",

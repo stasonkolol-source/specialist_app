@@ -48,6 +48,9 @@ export const choicePath = (jobId: string, responseId: string) =>
 /** Сделка S26 (6.2): из S25, «Открыть сделку» S23 и S17, уведомлений бота (`d_`). */
 export const dealPath = (dealId: string) => `/deals/${dealId}`;
 
+/** Диалог S30 (фича messages, 6.4): «Написать» на S24 открывает диалог по отклику. */
+export const chatPath = (conversationId: string) => `/messages/${conversationId}`;
+
 /** Профиль специалиста S08 (фича catalog): из мини-профиля S24 и S26. */
 export const specialistPath = (profileId: string) => `/specialists/${profileId}`;
 

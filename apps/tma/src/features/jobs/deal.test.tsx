@@ -3,7 +3,8 @@
 // «Выбрать исполнителем» открывает S25 — что изменится сразу, и подтверждение создаёт сделку и
 // ведёт на S26: статус, вторая сторона, адрес, таймлайн и памятка. «Работа выполнена» — отметка
 // стороны, вторая завершает сделку; отмена — причиной из шторки. Ссылка `d_` открывает сделку,
-// S23 «в работе» и S17 выбранного — «Открыть сделку».
+// S23 «в работе» и S17 выбранного — «Открыть сделку». SecondaryButton «Написать» на S24 начинает
+// диалог по отклику (6.4).
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,7 +17,8 @@ import {
   myJobsFixture,
   responseCardsFixture,
 } from '../../testing/jobsBackend.ts';
-import { jobsHandlers, server } from '../../testing/msw.ts';
+import { ChatBackend } from '../../testing/chatBackend.ts';
+import { chatHandlers, jobsHandlers, server } from '../../testing/msw.ts';
 
 const [CHANDELIER] = myJobsFixture();
 const JOB_ID = CHANDELIER?.id ?? '';
@@ -90,6 +92,24 @@ describe('S24 response and S25 choice', () => {
     expect(backend.decisions).toEqual([{ id: ALEKSEY?.id, action: 'accept' }]);
     expect(await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeTruthy();
     expect(screen.getAllByText('Договорились')).toHaveLength(2); // статус и шаг таймлайна
+  });
+
+  it('writes to the performer from the response with the secondary button', async () => {
+    withMine();
+    const chat = new ChatBackend();
+    server.use(...chatHandlers(() => chat));
+    const { app, telegram } = startApp(CHOICE);
+    await screen.findByRole('heading', { name: 'Алексей Морозов', level: 1 });
+    await waitFor(() =>
+      expect(telegram.callsOf('web_app_setup_secondary_button').at(-1)?.text).toBe('Написать'),
+    );
+
+    await act(async () => {
+      telegram.emit('secondary_button_pressed');
+    });
+
+    await waitFor(() => expect(chat.starts).toEqual([{ response_id: ALEKSEY?.id }]));
+    await waitFor(() => expect(app.router.state.location.pathname).toMatch(/^\/messages\/.+$/));
   });
 
   it('declines a response and goes back to the job', async () => {

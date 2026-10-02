@@ -5,8 +5,9 @@
 // шторку S25: что изменится сразу (адрес исполнителю, уведомление остальным), «если сделка
 // сорвётся — заявка снова откроется»; подтверждение создаёт сделку и ведёт на S26. Решённый
 // отклик — словами («Вы отклонили…», «Выбран другой исполнитель»), выбранный — «Открыть сделку».
-// Отклик берётся из карточек S23 (уже в кэше). «Написать» (6.4) и последние отзывы (7.2) —
-// в своих шагах.
+// SecondaryButton «Написать» (6.4) — диалог по отклику S30 (на клиентах без SecondaryButton —
+// кнопкой в контенте). Отклик берётся из карточек S23 (уже в кэше). Последние отзывы (7.2) — в
+// своём шаге.
 import type { JobOut, ResponseCardOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import {
@@ -16,9 +17,10 @@ import {
   useJob,
   useMyDeals,
   useResponseCards,
+  useStartConversation,
 } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
-import { useBackButton, useBottomButtonState } from '@sosed/platform';
+import { useBackButton, useBottomButtonState, useSecondaryButton } from '@sosed/platform';
 import {
   Avatar,
   Badge,
@@ -43,6 +45,7 @@ import { useBudgetText, useOfferPrice } from '../shared/labels.ts';
 import { LoadError } from '../shared/LoadError.tsx';
 import {
   JOBS_PATHS,
+  chatPath,
   dealPath,
   jobIdOf,
   jobPath,
@@ -109,6 +112,7 @@ function Choice({ job, card, others }: { job: JobOut; card: ResponseCardOut; oth
     enabled: !decline.isPending,
     onClick: () => setConfirming(true),
   });
+  const write = useWrite(card);
 
   return (
     <section className="flex flex-col gap-3.5 px-4 pt-3 pb-6">
@@ -129,6 +133,18 @@ function Choice({ job, card, others }: { job: JobOut; card: ResponseCardOut; oth
           {t('choice.budget', { amount: budget })}
         </Text>
       )}
+      {write.available && !write.native && (
+        <Button
+          variant="secondary"
+          full
+          onClick={write.start}
+          disabled={write.pending}
+          aria-busy={write.pending}
+        >
+          {write.label}
+        </Button>
+      )}
+      {write.error && <ActionError error={write.error} fallback={t('choice.writeError')} />}
       {decline.error && <ActionError error={decline.error} fallback={t('choice.declineError')} />}
       {open ? (
         <LinkButton
@@ -153,6 +169,34 @@ function Choice({ job, card, others }: { job: JobOut; card: ResponseCardOut; oth
       )}
     </section>
   );
+}
+
+/** «Написать»: диалог по отклику — начать или открыть начатый; отозванному писать некуда. */
+function useWrite(card: ResponseCardOut) {
+  const { t: common } = useTranslation();
+  const router = useRouter();
+  const start = useStartConversation();
+  const available = card.status !== 'withdrawn';
+  const begin = () =>
+    start.mutate(
+      { response_id: card.id },
+      { onSuccess: (started) => void router.navigate({ to: chatPath(started.id) }) },
+    );
+  const { native } = useSecondaryButton({
+    text: common('action.write'),
+    visible: available,
+    enabled: !start.isPending,
+    loading: start.isPending,
+    onClick: begin,
+  });
+  return {
+    available,
+    native,
+    label: common('action.write'),
+    start: begin,
+    pending: start.isPending,
+    error: start.error,
+  };
 }
 
 /** Мини-профиль: фото, имя, рейтинг, бейджи; профиль специалиста — ссылкой на S08. */
