@@ -97,11 +97,7 @@ describe('тело POST /jobs', () => {
 
   it('договорная — без сумм, пустой адрес — null', () => {
     const body = jobInOf(ready({ budgetType: 'negotiable', address: '  ' }), NOW);
-    expect([body?.budget_min, body?.budget_max, body?.address_private]).toEqual([
-      null,
-      null,
-      null,
-    ]);
+    expect([body?.budget_min, body?.budget_max, body?.address_private]).toEqual([null, null, null]);
   });
 
   it('недоделанный черновик не отправляется', () => {

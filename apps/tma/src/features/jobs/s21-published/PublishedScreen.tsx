@@ -52,9 +52,7 @@ function Published({ job }: { job: JobOut }) {
         <Heading variant="h2" as="h1">
           {t(published ? 'published.titlePublished' : 'published.titlePending')}
         </Heading>
-        <Text secondary>
-          {t(published ? 'published.textPublished' : 'published.textPending')}
-        </Text>
+        <Text secondary>{t(published ? 'published.textPublished' : 'published.textPending')}</Text>
       </div>
       <BotChannel />
     </section>

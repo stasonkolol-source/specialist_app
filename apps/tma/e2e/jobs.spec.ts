@@ -47,7 +47,8 @@ const LOCALES = [
     title: 'Okačiti luster',
     category: 'Majstor na sat → Lusteri i garnišne',
     details: 'Detalji',
-    detailsText: 'Plafon je betonski, kuka postoji. Luster sa 5 sijalica treba sklopiti i povezati.',
+    detailsText:
+      'Plafon je betonski, kuka postoji. Luster sa 5 sijalica treba sklopiti i povezati.',
     when: 'Kada i gde?',
     today: 'Danas',
     where: 'Gde',

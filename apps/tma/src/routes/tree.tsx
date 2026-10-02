@@ -93,10 +93,7 @@ const createPreview = createRoute({
   getParentRoute: () => rootRoute,
   path: CREATE_PATHS.preview,
   beforeLoad: requireConsent,
-  component: screen(
-    () => import('../features/jobs/s20d-create-preview/index.ts'),
-    'PreviewScreen',
-  ),
+  component: screen(() => import('../features/jobs/s20d-create-preview/index.ts'), 'PreviewScreen'),
 });
 
 // S21 итог публикации: `?job=` — созданная заявка

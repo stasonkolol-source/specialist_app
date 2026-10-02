@@ -122,14 +122,7 @@ function isDraft(value: unknown): value is JobDraft {
 }
 
 /** Что мешает перейти дальше — коды для подписи под полем. */
-export type DraftProblem =
-  | 'title'
-  | 'category'
-  | 'when'
-  | 'date'
-  | 'district'
-  | 'amount'
-  | 'range';
+export type DraftProblem = 'title' | 'category' | 'when' | 'date' | 'district' | 'amount' | 'range';
 
 /** S20a: заголовок не короче пяти символов и категория. */
 export function whatProblems(draft: JobDraft): DraftProblem[] {
@@ -176,7 +169,6 @@ function whenOf(draft: JobDraft, now: Date) {
 export function draftSlot(draft: JobDraft): TodaySlot | null {
   return draft.when === 'today' ? slotOf(draft.slot) : null;
 }
-
 
 /** Тело POST /jobs; null — черновик ещё не готов (не пройдены шаги). */
 export function jobInOf(draft: JobDraft, now: Date): JobIn | null {

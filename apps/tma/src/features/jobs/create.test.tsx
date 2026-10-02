@@ -154,10 +154,7 @@ describe('S20a–d create a job', () => {
     await pressMainButton(telegram);
 
     expect(await screen.findByRole('heading', { name: 'Заявка на проверке' })).toBeTruthy();
-    expect(jobs.posts.map((post) => post.key)).toEqual([
-      jobs.posts[0]?.key,
-      jobs.posts[0]?.key,
-    ]);
+    expect(jobs.posts.map((post) => post.key)).toEqual([jobs.posts[0]?.key, jobs.posts[0]?.key]);
     expect(jobs.jobs.size).toBe(1);
     expect(jobs.posts[1]?.body).toMatchObject({ budget_type: 'negotiable', budget_min: null });
   });

@@ -111,10 +111,9 @@ function JobCard({ draft }: { draft: JobDraft }) {
   const category = draft.categoryId !== null ? findCategory(tree, draft.categoryId) : null;
   const when = useWhenLabel(draft);
   const city = useCities(locale).data?.find((item) => item.id === draft.cityId) ?? null;
-  const district = selectableDistricts(
-    useDistricts(draft.cityId, locale).data ?? [],
-    locale,
-  ).find((item) => item.id === draft.districtId);
+  const district = selectableDistricts(useDistricts(draft.cityId, locale).data ?? [], locale).find(
+    (item) => item.id === draft.districtId,
+  );
   const min = amountOf(draft.budgetMin);
   const max = amountOf(draft.budgetMax);
   const budget = format.price({

@@ -47,9 +47,10 @@ function BudgetForm({
   const [checked, setChecked] = useState(false);
   const problems = budgetProblems(draft);
   const min = amountOf(draft.budgetMin);
-  const lowRate = draft.budgetType !== 'negotiable' && draft.budgetUnit === 'hour' && min !== null
-    ? min < MIN_HOURLY_RSD
-    : false;
+  const lowRate =
+    draft.budgetType !== 'negotiable' && draft.budgetUnit === 'hour' && min !== null
+      ? min < MIN_HOURLY_RSD
+      : false;
 
   useStepButton({
     text: common('action.next'),
@@ -165,7 +166,12 @@ function Amounts({
   }
   return (
     <div className="grid grid-cols-2 gap-2">
-      {amount(t('create.budget.from'), draft.budgetMin, (budgetMin) => patch({ budgetMin }), missing)}
+      {amount(
+        t('create.budget.from'),
+        draft.budgetMin,
+        (budgetMin) => patch({ budgetMin }),
+        missing,
+      )}
       {amount(
         t('create.budget.to'),
         draft.budgetMax,

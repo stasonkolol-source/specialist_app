@@ -11,11 +11,7 @@ export function WizardHeader({ step, title }: { step: 1 | 2 | 3 | 4; title: stri
   return (
     <>
       <div className="flex flex-col gap-2">
-        <Steps
-          total={total}
-          current={step}
-          label={common('form.step', { current: step, total })}
-        />
+        <Steps total={total} current={step} label={common('form.step', { current: step, total })} />
         <Text variant="cap">{t('create.step', { current: step, total })}</Text>
       </div>
       <Heading variant="h2" as="h1">

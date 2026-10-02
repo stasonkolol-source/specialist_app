@@ -141,10 +141,7 @@ export const cardHandlers = [
 export const jobsHandlers = (backend: () => JobsBackend) => [
   http.post(/\/api\/v1\/jobs$/, async ({ request }) =>
     respond(
-      backend().create(
-        (await request.json()) as JobIn,
-        request.headers.get('Idempotency-Key'),
-      ),
+      backend().create((await request.json()) as JobIn, request.headers.get('Idempotency-Key')),
     ),
   ),
   http.get(/\/api\/v1\/jobs\/([^/]+)$/, ({ request }) =>

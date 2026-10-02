@@ -93,9 +93,7 @@ function WhatForm({
 
   const problems = whatProblems(draft);
   const label =
-    draft.categoryId !== null
-      ? (categoryPath(tree, draft.categoryId) ?? draft.categoryName)
-      : null;
+    draft.categoryId !== null ? (categoryPath(tree, draft.categoryId) ?? draft.categoryName) : null;
   useStepButton({
     text: common('action.next'),
     loading: photos.uploading,
