@@ -5,9 +5,11 @@ from datetime import datetime
 from typing import Final, Protocol
 
 from app.modules.jobs.application.dto import JobView
+from app.modules.jobs.application.feed import FeedFilters, FeedItem
 from app.modules.jobs.domain.job import Job, JobId, JobStatus
 from app.platform.contracts.events.identity import UserDeleted
 from app.platform.kernel.ids import UserId
+from app.platform.kernel.pagination import Page, PageRequest
 from app.platform.queue.port import TaskRef
 
 
@@ -54,6 +56,39 @@ class JobQueries(Protocol):
 
     async def count_active(self, client_id: UserId) -> int:
         """Сколько заявок клиента на проверке или опубликовано — лимит новичка (§13.3)."""
+        ...
+
+    async def count_published(self, client_id: UserId) -> int:
+        """Сколько заявок клиента когда-либо публиковалось — «2 заявки» в блоке клиента S15."""
+        ...
+
+    async def feed(
+        self,
+        filters: FeedFilters,
+        *,
+        viewer_id: UserId | None,
+        page: PageRequest,
+        now: datetime,
+    ) -> Page[FeedItem]:
+        """Лента: свежие сверху, курсор — непрозрачный; свои и скрытые зрителем — не в ней."""
+        ...
+
+    async def feed_count(
+        self, filters: FeedFilters, *, viewer_id: UserId | None, now: datetime
+    ) -> int:
+        """Сколько заявок в ленте с этими фильтрами — «Показать N» S14 и счётчик Главной."""
+        ...
+
+
+class JobHides(Protocol):
+    """«Не интересно» (S15): заявка пропадает из ленты этого исполнителя."""
+
+    async def hide(self, user_id: UserId, job_id: JobId) -> None:
+        """Повтор ничего не меняет (запись — в активном UoW)."""
+        ...
+
+    async def forget(self, user_id: UserId) -> None:
+        """Удалить скрытое пользователем — удаление аккаунта (§7.10)."""
         ...
 
 

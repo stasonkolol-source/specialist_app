@@ -24,9 +24,13 @@ import type {
   JobCloseIn,
   JobIn,
   JobOut,
+  JobsCountJobsParams,
+  JobsCountOut,
   JobsCreateJobHeaders,
+  JobsListJobsParams,
   JobsListMyJobsParams,
   JobsOut,
+  JobsPageOut,
   JobsUpdateJobHeaders,
   ProblemOut,
 } from '../../model';
@@ -156,6 +160,290 @@ export const useJobsCreateJob = <TError = ErrorType<ProblemOut>, TContext = unkn
 > => {
   return useMutation(getJobsCreateJobMutationOptions(options), queryClient);
 };
+export const getJobsListJobsUrl = (params: JobsListJobsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ['category', 'district', 'urgency', 'lang'];
+
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? 'null' : String(v));
+      });
+      return;
+    }
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/jobs?${stringifiedParams}` : `/api/v1/jobs`;
+};
+
+/**
+ * Лента 🔓 (S13): опубликованные заявки города, свежие сверху; свои и скрытые — нет.
+ * @summary List Jobs
+ */
+export const jobsListJobs = async (
+  params: JobsListJobsParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<JobsPageOut> => {
+  return apiFetch<JobsPageOut>(getJobsListJobsUrl(params), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getJobsListJobsQueryKey = (params?: JobsListJobsParams) => {
+  return [`/api/v1/jobs`, ...(params ? [params] : [])] as const;
+};
+
+export const getJobsListJobsQueryOptions = <
+  TData = Awaited<ReturnType<typeof jobsListJobs>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: JobsListJobsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListJobs>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getJobsListJobsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof jobsListJobs>>> = ({ signal }) =>
+    jobsListJobs(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof jobsListJobs>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type JobsListJobsQueryResult = NonNullable<Awaited<ReturnType<typeof jobsListJobs>>>;
+export type JobsListJobsQueryError = ErrorType<ProblemOut>;
+
+export function useJobsListJobs<
+  TData = Awaited<ReturnType<typeof jobsListJobs>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: JobsListJobsParams,
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListJobs>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof jobsListJobs>>,
+          TError,
+          Awaited<ReturnType<typeof jobsListJobs>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useJobsListJobs<
+  TData = Awaited<ReturnType<typeof jobsListJobs>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: JobsListJobsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListJobs>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof jobsListJobs>>,
+          TError,
+          Awaited<ReturnType<typeof jobsListJobs>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useJobsListJobs<
+  TData = Awaited<ReturnType<typeof jobsListJobs>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: JobsListJobsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListJobs>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List Jobs
+ */
+
+export function useJobsListJobs<
+  TData = Awaited<ReturnType<typeof jobsListJobs>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: JobsListJobsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListJobs>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getJobsListJobsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getJobsCountJobsUrl = (params: JobsCountJobsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ['category', 'district', 'urgency', 'lang'];
+
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? 'null' : String(v));
+      });
+      return;
+    }
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/jobs/count?${stringifiedParams}`
+    : `/api/v1/jobs/count`;
+};
+
+/**
+ * Сколько заявок с фильтрами 🔓: «Показать N» S14, «N новых задач рядом» на Главной.
+ * @summary Count Jobs
+ */
+export const jobsCountJobs = async (
+  params: JobsCountJobsParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<JobsCountOut> => {
+  return apiFetch<JobsCountOut>(getJobsCountJobsUrl(params), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getJobsCountJobsQueryKey = (params?: JobsCountJobsParams) => {
+  return [`/api/v1/jobs/count`, ...(params ? [params] : [])] as const;
+};
+
+export const getJobsCountJobsQueryOptions = <
+  TData = Awaited<ReturnType<typeof jobsCountJobs>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: JobsCountJobsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsCountJobs>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getJobsCountJobsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof jobsCountJobs>>> = ({ signal }) =>
+    jobsCountJobs(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof jobsCountJobs>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type JobsCountJobsQueryResult = NonNullable<Awaited<ReturnType<typeof jobsCountJobs>>>;
+export type JobsCountJobsQueryError = ErrorType<ProblemOut>;
+
+export function useJobsCountJobs<
+  TData = Awaited<ReturnType<typeof jobsCountJobs>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: JobsCountJobsParams,
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsCountJobs>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof jobsCountJobs>>,
+          TError,
+          Awaited<ReturnType<typeof jobsCountJobs>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useJobsCountJobs<
+  TData = Awaited<ReturnType<typeof jobsCountJobs>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: JobsCountJobsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsCountJobs>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof jobsCountJobs>>,
+          TError,
+          Awaited<ReturnType<typeof jobsCountJobs>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useJobsCountJobs<
+  TData = Awaited<ReturnType<typeof jobsCountJobs>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: JobsCountJobsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsCountJobs>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Count Jobs
+ */
+
+export function useJobsCountJobs<
+  TData = Awaited<ReturnType<typeof jobsCountJobs>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: JobsCountJobsParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsCountJobs>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getJobsCountJobsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
 export const getJobsGetJobUrl = (jobId: string) => {
   return `/api/v1/jobs/${jobId}`;
 };
@@ -474,6 +762,89 @@ export const useJobsDeleteJob = <TError = ErrorType<ProblemOut>, TContext = unkn
 > => {
   return useMutation(getJobsDeleteJobMutationOptions(options), queryClient);
 };
+export const getJobsHideJobUrl = (jobId: string) => {
+  return `/api/v1/jobs/${jobId}/hide`;
+};
+
+/**
+ * «Не интересно» (S15): заявка пропадает из ленты; повтор — без ошибки.
+ * @summary Hide Job
+ */
+export const jobsHideJob = async (
+  jobId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getJobsHideJobUrl(jobId), {
+    ...options,
+    method: 'POST',
+  });
+};
+
+export const getJobsHideJobMutationKey = () => ['jobsHideJob'] as const;
+
+export const getJobsHideJobMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof jobsHideJob>>,
+    TError,
+    JobsHideJobMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof jobsHideJob>>,
+  TError,
+  JobsHideJobMutationVariables,
+  TContext
+> => {
+  const mutationKey = getJobsHideJobMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof jobsHideJob>>,
+    JobsHideJobMutationVariables
+  > = (props) => {
+    const { jobId } = props ?? {};
+
+    return jobsHideJob(jobId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JobsHideJobMutationResult = NonNullable<Awaited<ReturnType<typeof jobsHideJob>>>;
+
+export type JobsHideJobMutationError = ErrorType<ProblemOut>;
+export type JobsHideJobMutationVariables = { jobId: string };
+
+/**
+ * @summary Hide Job
+ */
+export const useJobsHideJob = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof jobsHideJob>>,
+      TError,
+      JobsHideJobMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof jobsHideJob>>,
+  TError,
+  JobsHideJobMutationVariables,
+  TContext
+> => {
+  return useMutation(getJobsHideJobMutationOptions(options), queryClient);
+};
 export const getJobsCloseJobUrl = (jobId: string) => {
   return `/api/v1/jobs/${jobId}/close`;
 };
@@ -682,7 +1053,7 @@ export const getJobsListMyJobsUrl = (params?: JobsListMyJobsParams) => {
 };
 
 /**
- * Свои заявки (S22), новые первыми.
+ * Свои заявки (S22), новые первыми; блока клиента в своём списке нет.
  * @summary List My Jobs
  */
 export const jobsListMyJobs = async (

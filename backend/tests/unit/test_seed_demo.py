@@ -118,6 +118,14 @@ def test_demo_clients_post_one_or_two_jobs_in_their_language() -> None:
             assert len(job.dinars) == {"fixed": 1, "range": 2, "negotiable": 0}[job.budget_type]
 
 
+def test_lab_scale_gives_a_thousand_jobs() -> None:
+    lab = SCALES["lab"]
+    plans = [client_plan(number, lab.jobs_each) for number in range(lab.clients)]
+
+    assert sum(len(plan.jobs) for plan in plans) == 1000
+    assert client_plan(SCALES["lab"].clients).telegram_id < 2**53
+
+
 def test_demo_jobs_in_serbian_are_latin() -> None:
     for job in JOBS:
         assert not CYRILLIC.search(job.title["sr"] + job.description["sr"]), job.title["ru"]
