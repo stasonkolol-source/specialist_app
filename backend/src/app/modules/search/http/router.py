@@ -55,6 +55,7 @@ from app.modules.search.http.schemas import (
 )
 from app.platform.http.pagination import PageParams
 from app.platform.http.ratelimit import GuestOrUserRateLimit
+from app.platform.http.security import AUTHENTICATED
 from app.platform.kernel.errors import DomainValidationError
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId
@@ -202,7 +203,7 @@ async def count_by_category(
     )
 
 
-@router.get("/me/favorites", response_model=FavoritesOut)
+@router.get("/me/favorites", response_model=FavoritesOut, dependencies=AUTHENTICATED)
 @inject
 async def list_favorites(
     *,
@@ -218,7 +219,11 @@ async def list_favorites(
     return FavoritesOut(items=[SpecialistCardOut.of(card, locale) for card in cards])
 
 
-@router.put("/me/favorites/profile/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.put(
+    "/me/favorites/profile/{profile_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=AUTHENTICATED,
+)
 @inject
 async def add_favorite(
     *, profile_id: FavoriteProfile, principal: FromDishka[Principal], add: FromDishka[AddFavorite]
@@ -232,7 +237,11 @@ async def add_favorite(
     )
 
 
-@router.delete("/me/favorites/profile/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/me/favorites/profile/{profile_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=AUTHENTICATED,
+)
 @inject
 async def remove_favorite(
     *,

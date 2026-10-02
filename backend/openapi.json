@@ -4991,7 +4991,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/me/favorites/profile/{profile_id}": {
@@ -5002,6 +5007,11 @@
         "summary": "Add Favorite",
         "description": "Специалист — в избранное (сердечко S05, S08). Повтор — без ошибки; профиль, которого нет\nв каталоге, — 404; больше 100 — `favorites_full`.",
         "operationId": "search_add_favorite",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "profile_id",
@@ -5039,6 +5049,11 @@
         "summary": "Remove Favorite",
         "description": "Убрать специалиста из избранного; чего нет — без ошибки.",
         "operationId": "search_remove_favorite",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "profile_id",
