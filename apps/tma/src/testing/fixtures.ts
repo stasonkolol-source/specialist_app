@@ -23,6 +23,7 @@ import type {
   SpecialistCardOut,
   SpecialistPageOut,
   SpecialistProfileOut,
+  SuggestOut,
   TelegramChannelOut,
   WorkKind,
   WorkOut,
@@ -791,4 +792,28 @@ export function cardReply(
   }
   const card = full ? specialistCardFor(locale, availableUntil) : plainCardFor(search!);
   return { status: 200, body: card };
+}
+
+/** GET /suggest: категории дерева, у которых слово названия начинается с введённого, — на языке
+ *  запроса; как у backend 4.3a — с двух букв, не больше восьми. */
+export function suggestFor(q: string, locale: string | null): SuggestOut {
+  const text = q.trim().toLowerCase();
+  if (text.length < 2) return { items: [] };
+  const nodes = categoriesFor(locale).flatMap((node) => [node, ...node.children]);
+  const items = nodes
+    .filter((node) =>
+      node.name
+        .toLowerCase()
+        .split(/\s+/)
+        .some((word) => word.startsWith(text)),
+    )
+    .slice(0, 8)
+    .map((node) => ({
+      category_id: node.id,
+      name: node.name,
+      icon: node.icon,
+      term: node.name,
+      fuzzy: false,
+    }));
+  return { items };
 }

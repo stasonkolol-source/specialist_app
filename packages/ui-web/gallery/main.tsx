@@ -1,5 +1,5 @@
 // Галерея: ?theme=light|dark&lang=ru|sr-Latn|sr-Cyrl. Эталон для сверки — design/project/Main.dc.html.
-import { I18nextProvider, createI18n, isLocale } from '@sosed/i18n';
+import { I18nextProvider, createI18n, i18nReady, isLocale } from '@sosed/i18n';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -16,7 +16,9 @@ document.documentElement.lang = locale;
 
 const i18n = createI18n({ locale, appName: 'Соседи' });
 const root = document.getElementById('root');
-if (root) {
+// сербские тексты — отдельным чанком, как в приложении: первый кадр — уже с ними
+void i18nReady(i18n).then(() => {
+  if (!root) return;
   createRoot(root).render(
     <StrictMode>
       <I18nextProvider i18n={i18n}>
@@ -24,4 +26,4 @@ if (root) {
       </I18nextProvider>
     </StrictMode>,
   );
-}
+});

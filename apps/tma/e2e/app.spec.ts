@@ -7,8 +7,20 @@ import { ME } from '../src/testing/fixtures.ts';
 import { THEMES, expectNoAxeViolations, open, openProfile, real } from './support.ts';
 
 const LOCALES = [
-  { locale: 'ru', telegram: 'ru', home: 'Главная', create: 'Создать заявку', goods: 'Вещи' },
-  { locale: 'sr-Latn', telegram: 'sr', home: 'Početna', create: 'Novi zahtev', goods: 'Stvari' },
+  {
+    locale: 'ru',
+    telegram: 'ru',
+    home: 'Найдём мастера рядом',
+    create: 'Создать заявку',
+    goods: 'Вещи',
+  },
+  {
+    locale: 'sr-Latn',
+    telegram: 'sr',
+    home: 'Pronaći ćemo majstora u blizini',
+    create: 'Novi zahtev',
+    goods: 'Stvari',
+  },
 ] as const;
 
 for (const theme of THEMES) {
@@ -91,9 +103,16 @@ test('S31 без входа: «Откройте в Telegram» вместо ош�
 test('таббар переключает разделы', async ({ page }) => {
   await open(page, 'theme=light&lang=ru');
   const tabs = page.getByRole('navigation', { name: 'Разделы' });
-  for (const name of ['Заявки', 'Сообщения', 'Профиль', 'Главная']) {
+  // вкладка → заголовок её экрана; у Главной — свой, как на артборде S03
+  const screens = [
+    ['Заявки', 'Заявки'],
+    ['Сообщения', 'Сообщения'],
+    ['Профиль', 'Профиль'],
+    ['Главная', 'Найдём мастера рядом'],
+  ] as const;
+  for (const [name, heading] of screens) {
     await tabs.getByRole('link', { name }).click();
-    await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: heading, level: 1 })).toBeVisible();
     await expect(tabs.getByRole('link', { name })).toHaveAttribute('aria-current', 'page');
   }
 });
@@ -107,7 +126,9 @@ test('«Вещи» на главной — заглушка S58', async ({ page 
 test('sr-Cyrl: smoke — выбранный язык остаётся кириллицей', async ({ page }) => {
   const watch = await open(page, 'theme=light&lang=sr&locale=sr-Cyrl');
   await expect(page.locator('html')).toHaveAttribute('lang', 'sr-Cyrl');
-  await expect(page.getByRole('heading', { name: 'Почетна' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Пронаћи ћемо мајстора у близини' }),
+  ).toBeVisible();
   expect(real(watch.problems)).toEqual([]);
 });
 

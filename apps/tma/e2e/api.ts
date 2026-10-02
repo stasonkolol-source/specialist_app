@@ -26,6 +26,7 @@ import {
   notificationsFor,
   searchFound,
   searchPage,
+  suggestFor,
 } from '../src/testing/fixtures.ts';
 import { FavoritesBackend } from '../src/testing/favoritesBackend.ts';
 import { ProfileBackend } from '../src/testing/profileBackend.ts';
@@ -82,6 +83,8 @@ export interface MockApiOptions {
   profile?: ProfileBackend;
   /** Избранное `/me/favorites*` с памятью (4.6); по умолчанию — пусто. */
   favorites?: FavoritesBackend;
+  /** Задержка каждого ответа API, мс: замер холодного старта (coldstart.spec.ts). */
+  delayMs?: number;
   /** Свои ответы по ключу «METHOD /api/v1/…»: проверяются раньше стандартных. */
   handlers?: Record<string, (route: Route) => Promise<void>>;
   /** Что приложение прислало в PATCH /me, POST /me/consents, POST /me/telegram/write-access и
@@ -117,6 +120,7 @@ export async function mockApi(
     notificationSettings = NOTIFICATION_SETTINGS,
     profile = new ProfileBackend(),
     favorites = new FavoritesBackend([], E2E_AVAILABLE_UNTIL),
+    delayMs = 0,
     handlers = {},
     sent = sentRequests(),
   }: MockApiOptions = {},
@@ -133,7 +137,8 @@ export async function mockApi(
   );
   // пользователь с памятью, как на сервере: онбординг меняет его шаг за шагом
   let user = me;
-  await page.route('**/api/v1/**', (route) => {
+  await page.route('**/api/v1/**', async (route) => {
+    if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
     const request = route.request();
     const url = new URL(request.url());
     const key = `${request.method()} ${url.pathname}`;
@@ -190,6 +195,9 @@ export async function mockApi(
         );
       case 'GET /api/v1/specialists/by-category':
         return route.fulfill(json(CATEGORY_COUNTS));
+      // подсказки при вводе на Главной S03 (4.8)
+      case 'GET /api/v1/suggest':
+        return route.fulfill(json(suggestFor(url.searchParams.get('q') ?? '', language)));
       case 'GET /api/v1/me':
         return route.fulfill(authorized(request) ? json(user) : json(NOT_AUTHENTICATED, 401));
       case 'PATCH /api/v1/me': {

@@ -192,14 +192,18 @@ export function Tile({
   label,
   icon,
   palette,
+  neutral = false,
   href,
   onClick,
 }: {
   label: string;
   icon: IconName;
   palette?: AvatarPalette;
+  /** Серая иконка: «Все услуги» среди категорий (S03). */
+  neutral?: boolean;
   href?: string;
-  onClick?: () => void;
+  /** С `href` — переход внутри приложения (роутер отменяет переход браузера), без — кнопка. */
+  onClick?: (event: MouseEvent<HTMLElement>) => void;
 }) {
   const classes = cx(
     'flex min-h-24 w-full flex-col justify-between gap-2 rounded-card border-0 bg-surface p-3 text-left text-tile text-text',
@@ -207,12 +211,12 @@ export function Tile({
   );
   const content = (
     <>
-      <RowIcon icon={icon} palette={palette} large />
+      <RowIcon icon={icon} palette={palette} neutral={neutral} large />
       {label}
     </>
   );
   return href ? (
-    <a href={href} className={classes}>
+    <a href={href} onClick={onClick} className={classes}>
       {content}
     </a>
   ) : (

@@ -76,7 +76,7 @@ test('deeplink-s: startapp=s_… открывает профиль S08, «Наз
 
   await expect(page.getByRole('heading', { name: NAME, level: 1 })).toBeVisible();
   await pressTelegram(page, 'back_button_pressed');
-  await expect(page.getByRole('heading', { name: 'Главная', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Найдём мастера рядом', level: 1 })).toBeVisible();
   expect(real(watch.problems)).toEqual([]);
   expect(watch.unexpectedApi).toEqual([]);
 });

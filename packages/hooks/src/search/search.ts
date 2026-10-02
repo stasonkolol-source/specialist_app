@@ -1,5 +1,6 @@
 // Выдача специалистов S05 (DEVELOPMENT_PLAN 4.2, 4.4): страницы по курсору, «Показать N» в шторке
-// S06 и числа в дереве категорий S04. Район в карточке приходит на языке запроса
+// S06 и числа в дереве категорий S04; на Главной S03 (4.8) — подсказки при вводе и «Свободны
+// сегодня рядом». Район в карточке приходит на языке запроса
 // (Accept-Language), поэтому язык — часть ключа выдачи. Смена фильтра не стирает экран: прежняя
 // выдача видна, пока грузится новая.
 import type {
@@ -14,9 +15,11 @@ import {
   getSearchCountByCategoryQueryKey,
   getSearchCountSpecialistsQueryKey,
   getSearchListSpecialistsQueryKey,
+  getSearchSuggestQueryKey,
   searchCountByCategory,
   searchCountSpecialists,
   searchListSpecialists,
+  searchSuggest,
 } from '@sosed/api-client';
 import type { InfiniteData } from '@tanstack/react-query';
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
@@ -101,5 +104,47 @@ export function useCategoryCounts(cityId: number | null) {
     enabled: cityId !== null,
     staleTime: CATEGORY_COUNTS_STALE_MS,
     select: countsByCategory,
+  });
+}
+
+/** Подсказки — с двух букв, как у backend (4.3a). */
+export const SUGGEST_MIN = 2;
+/** Как Cache-Control ответа (max-age=300). */
+export const SUGGEST_STALE_MS = 5 * 60_000;
+
+/** Подсказки при вводе (`GET /suggest`): названия на языке запроса — язык в ключе. Текст
+ *  приходит уже с задержкой (экран ждёт, пока человек перестанет печатать). */
+export function useSuggest(text: string, locale: Locale) {
+  const q = text.trim();
+  return useQuery({
+    queryKey: [...getSearchSuggestQueryKey({ q }), locale] as const,
+    queryFn: ({ signal }) => searchSuggest({ q }, { signal }),
+    enabled: q.length >= SUGGEST_MIN,
+    staleTime: SUGGEST_STALE_MS,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Карточек «Свободны сегодня рядом» на Главной — как на артборде S03. */
+export const TODAY_PREVIEW = 2;
+
+/** «Свободны сегодня рядом»: доступные сегодня в городе; с точкой клиента — ближние первыми. */
+export function useAvailableToday(
+  locale: Locale,
+  cityId: number | null,
+  point: { lat: number; lon: number } | null,
+) {
+  const query: SpecialistQuery | null =
+    cityId === null
+      ? null
+      : point
+        ? { city_id: cityId, available_today: true, sort: 'distance', ...point }
+        : { city_id: cityId, available_today: true };
+  const params = query === null ? null : { ...query, limit: TODAY_PREVIEW };
+  return useQuery({
+    queryKey: [...getSearchListSpecialistsQueryKey(params ?? { city_id: 0 }), locale] as const,
+    queryFn: ({ signal }) => searchListSpecialists(required(params), { signal }),
+    enabled: params !== null,
+    placeholderData: keepPreviousData,
   });
 }

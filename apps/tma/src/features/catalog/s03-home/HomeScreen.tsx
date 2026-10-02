@@ -1,0 +1,268 @@
+// S03 Главная (DEVELOPMENT_PLAN 4.8): точка входа клиента из блоков каталога — поэтому экран в
+// фиче catalog (фичи не импортируют друг друга). Чип города: нажатие спрашивает местоположение у
+// Telegram — «Нови-Сад · Лиман», и «Свободны сегодня рядом» — ближние первыми. Строка поиска с
+// подсказками `/suggest` (с задержкой): подсказка ведёт в выдачу категории, Enter — в выдачу по
+// тексту. Плитки разделов — в выдачу раздела, «Все услуги» — в S04. Переключатель «Услуги / Вещи»
+// — по флагу goods.segment (client-config, ADR-0019): «Вещи» в MVP — заглушка S58.
+// Скрыто до своих шагов: «Не хотите искать сами? Создать заявку» (5.2), «Ищете подработку?»
+// (5.3), «Мои активные заявки» (5.6).
+import type { CategoryOut, SuggestionOut } from '@sosed/api-client';
+import {
+  FLAGS,
+  nearestDistrict,
+  useAvailableToday,
+  useCategories,
+  useDistricts,
+  useFlag,
+  useSuggest,
+} from '@sosed/hooks';
+import { useLocale, useTranslation } from '@sosed/i18n';
+import type { AvatarPalette, IconName } from '@sosed/ui-web';
+import {
+  Banner,
+  Chip,
+  EmptyState,
+  Group,
+  Heading,
+  ICON_NAMES,
+  LinkButton,
+  Row,
+  RowIcon,
+  SearchField,
+  Segmented,
+  Text,
+  Tile,
+  Tiles,
+} from '@sosed/ui-web';
+import { useRouter } from '@tanstack/react-router';
+import type { FormEvent, MouseEvent } from 'react';
+import { useId, useState } from 'react';
+
+import { ResultCard } from '../shared/ResultCard.tsx';
+import { useCatalogCity } from '../shared/city.ts';
+import { useDebounced } from '../shared/debounce.ts';
+import { useFavoriteToggle } from '../shared/favorite.ts';
+import type { ClientPoint } from '../shared/location.ts';
+import { useLocate } from '../shared/location.ts';
+import type { ResultsSearch } from '../shared/paths.ts';
+import { CATALOG_PATHS } from '../shared/paths.ts';
+
+type Segment = 'services' | 'goods';
+
+/** Плиток разделов до «Все услуги» — как на артборде: два ряда по три. */
+const TILES = 5;
+/** Цвета плиток по порядку разделов — как на артборде. */
+const PALETTES: readonly AvatarPalette[] = [1, 4, 2, 3, 5];
+/** Подсказки — когда человек перестал печатать. */
+const SUGGEST_DELAY_MS = 250;
+
+const iconOf = (name: string | null): IconName =>
+  (ICON_NAMES as readonly string[]).includes(name ?? '') ? (name as IconName) : 'grid';
+
+export function HomeScreen() {
+  const { t } = useTranslation();
+  const goodsSegment = useFlag(FLAGS.goodsSegment);
+  const [segment, setSegment] = useState<Segment>('services');
+  const showGoods = goodsSegment && segment === 'goods';
+  return (
+    <section className="flex flex-col gap-5 px-4 pt-3 pb-6">
+      {goodsSegment && (
+        <Segmented<Segment>
+          label={t('home.segment')}
+          value={segment}
+          onChange={setSegment}
+          options={[
+            { value: 'services', label: t('home.services') },
+            { value: 'goods', label: t('home.goods') },
+          ]}
+        />
+      )}
+      {showGoods ? (
+        <EmptyState as="h1" icon="bag" title={t('goods.soonTitle')}>
+          {t('goods.soonText')}
+        </EmptyState>
+      ) : (
+        <Services />
+      )}
+    </section>
+  );
+}
+
+function Services() {
+  const { t } = useTranslation('catalog');
+  const locale = useLocale();
+  const router = useRouter();
+  const city = useCatalogCity();
+  const locate = useLocate();
+  const [point, setPoint] = useState<ClientPoint | null>(null);
+  const [locationFailed, setLocationFailed] = useState(false);
+  // районы — только когда есть точка: чипу нужен ближайший
+  const districts = useDistricts(point && city ? city.id : null, locale);
+  const district = point && districts.data ? nearestDistrict(districts.data, point) : null;
+  const today = useAvailableToday(locale, city ? city.id : null, point);
+  const cards = today.data?.items ?? [];
+  const { control, failure } = useFavoriteToggle();
+  const categoriesId = useId();
+  const todayId = useId();
+
+  const results = (search: ResultsSearch) => (event?: MouseEvent<HTMLElement>) => {
+    event?.preventDefault();
+    void router.navigate({ to: CATALOG_PATHS.results, search });
+  };
+  const href = (to: string, search?: ResultsSearch) =>
+    router.history.createHref(router.buildLocation({ to, search }).href);
+  const near: ResultsSearch = point ? { sort: 'distance', ...point } : {};
+  const askLocation = async () => {
+    setLocationFailed(false);
+    const found = await locate();
+    if (found) setPoint(found);
+    else setLocationFailed(true);
+  };
+
+  return (
+    <>
+      <section className="flex flex-col gap-3">
+        {city && (
+          <span className="self-start">
+            <Chip icon="pin" onClick={() => void askLocation()}>
+              {district ? `${city.name} · ${district.name}` : city.name}
+            </Chip>
+          </span>
+        )}
+        <div className="flex flex-col gap-1">
+          <Heading variant="h1">{t('home.title')}</Heading>
+          <Text secondary>{t('home.subtitle')}</Text>
+        </div>
+        <Search onCategory={(id) => results({ category: id })()} />
+        {locationFailed && (
+          <Banner tone="warn" role="alert">
+            {t('results.locationError')}
+          </Banner>
+        )}
+      </section>
+      <section aria-labelledby={categoriesId} className="flex flex-col gap-3">
+        <Heading variant="h3" as="h2" id={categoriesId}>
+          {t('home.whatToDo')}
+        </Heading>
+        <Sections onOpen={(id) => results({ category: id })} href={href} />
+      </section>
+      {failure && (
+        <Banner tone="danger" role="alert">
+          {failure}
+        </Banner>
+      )}
+      {cards.length > 0 && (
+        <section aria-labelledby={todayId} className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <Heading variant="h3" as="h2" id={todayId}>
+              {t('home.today')}
+            </Heading>
+            <LinkButton
+              href={href(CATALOG_PATHS.results, { today: true, ...near })}
+              onClick={results({ today: true, ...near })}
+              className="-mr-2"
+            >
+              {t('home.all')}
+            </LinkButton>
+          </div>
+          {cards.map((card) => (
+            <ResultCard key={card.profile_id} card={card} favorite={control(card)} />
+          ))}
+        </section>
+      )}
+    </>
+  );
+}
+
+/** Строка поиска: Enter — выдача по тексту, подсказка — выдача её категории. */
+function Search({ onCategory }: { onCategory: (categoryId: number) => void }) {
+  const { t } = useTranslation('catalog');
+  const locale = useLocale();
+  const router = useRouter();
+  const [typed, setTyped] = useState('');
+  const settled = useDebounced(typed, SUGGEST_DELAY_MS);
+  const suggest = useSuggest(settled, locale);
+  const suggestions = typed.trim() ? (suggest.data?.items ?? []) : [];
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    const q = typed.trim();
+    if (q) void router.navigate({ to: CATALOG_PATHS.results, search: { q } });
+  };
+  return (
+    <div className="flex flex-col gap-2">
+      <form onSubmit={submit}>
+        <SearchField
+          label={t('results.search')}
+          placeholder={t('home.search')}
+          value={typed}
+          onChange={(event) => setTyped(event.target.value)}
+        />
+      </form>
+      {suggestions.length > 0 && (
+        <nav aria-label={t('home.suggestions')}>
+          <Group>
+            {suggestions.map((item) => (
+              <Suggestion key={item.category_id} item={item} onOpen={onCategory} />
+            ))}
+          </Group>
+        </nav>
+      )}
+    </div>
+  );
+}
+
+function Suggestion({
+  item,
+  onOpen,
+}: {
+  item: SuggestionOut;
+  onOpen: (categoryId: number) => void;
+}) {
+  // слово словаря, которым узнан ввод, — подписью, если оно не название категории
+  const term = item.term.toLowerCase() === item.name.toLowerCase() ? undefined : item.term;
+  return (
+    <Row
+      leading={<RowIcon icon={iconOf(item.icon)} />}
+      title={item.name}
+      subtitle={term}
+      onClick={() => onOpen(item.category_id)}
+    />
+  );
+}
+
+/** Разделы каталога плитками и «Все услуги». */
+function Sections({
+  onOpen,
+  href,
+}: {
+  onOpen: (categoryId: number) => (event?: MouseEvent<HTMLElement>) => void;
+  href: (to: string, search?: ResultsSearch) => string;
+}) {
+  const { t } = useTranslation('catalog');
+  const router = useRouter();
+  const categories: CategoryOut[] = useCategories(useLocale()).data ?? [];
+  return (
+    <Tiles>
+      {categories.slice(0, TILES).map((section, index) => (
+        <Tile
+          key={section.id}
+          label={section.name}
+          icon={iconOf(section.icon)}
+          palette={PALETTES[index % PALETTES.length]}
+          href={href(CATALOG_PATHS.results, { category: section.id })}
+          onClick={onOpen(section.id)}
+        />
+      ))}
+      <Tile
+        label={t('categories.title')}
+        icon="grid"
+        neutral
+        href={href(CATALOG_PATHS.categories)}
+        onClick={(event) => {
+          event.preventDefault();
+          void router.navigate({ to: CATALOG_PATHS.categories });
+        }}
+      />
+    </Tiles>
+  );
+}

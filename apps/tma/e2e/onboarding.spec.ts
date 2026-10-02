@@ -170,7 +170,7 @@ test('новый пользователь: S01 → S02a → S02b → S02c → г
   await page.getByRole('checkbox', { name: /Мне есть 18 лет/ }).click();
   await main(page);
 
-  await expect(page.getByRole('heading', { name: 'Главная', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Найдём мастера рядом', level: 1 })).toBeVisible();
   await expect(page.getByRole('navigation', { name: TABS })).toBeVisible();
   expect(sent.consents).toEqual([{ terms_version: 'draft-1', privacy_version: 'draft-1' }]);
   expect(sent.writeAccess).toBe(1);
@@ -182,7 +182,7 @@ test('S01 вернувшийся пользователь сразу попад�
   const sent = sentRequests();
   const watch = await open(page, 'theme=light&lang=ru', { signedIn: true, me: ME, sent });
 
-  await expect(page.getByRole('heading', { name: 'Главная', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Найдём мастера рядом', level: 1 })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Язык и город' })).toHaveCount(0);
   expect(sent.patch).toEqual([]);
   expect(real(watch.problems)).toEqual([]);
@@ -201,7 +201,7 @@ test('S02c новая редакция правил: вернувшийся ви
   await page.getByRole('checkbox', { name: /Мне есть 18 лет/ }).click();
   await main(page);
 
-  await expect(page.getByRole('heading', { name: 'Главная', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Найдём мастера рядом', level: 1 })).toBeVisible();
   expect(sent.patch).toEqual([]);
   expect(sent.consents).toHaveLength(1);
   expect(real(watch.problems)).toEqual([]);
@@ -212,7 +212,7 @@ test('S01 deep link на экран следующих шагов открыва
     signedIn: true,
     me: ME,
   });
-  await expect(page.getByRole('heading', { name: 'Главная', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Найдём мастера рядом', level: 1 })).toBeVisible();
   expect(real(watch.problems)).toEqual([]);
   expect(watch.unexpectedApi).toEqual([]);
 });

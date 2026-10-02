@@ -51,10 +51,11 @@ export const rootRoute = createRootRouteWithContext<RouterContext>()({
   notFoundComponent: () => <Navigate to="/" replace />,
 });
 
+// Главная S03 (4.8): точка входа клиента из блоков каталога — экран в фиче catalog
 const home = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: screen(() => import('../features/home/s03-home/index.ts'), 'HomeScreen'),
+  component: screen(() => import('../features/catalog/s03-home/index.ts'), 'HomeScreen'),
 });
 
 const jobs = createRoute({

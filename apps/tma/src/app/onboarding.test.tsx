@@ -74,7 +74,7 @@ describe('S01 launch', () => {
     expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
 
     release();
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
     expect(screen.queryByText('Входим через Telegram…')).toBeNull();
   });
 
@@ -92,7 +92,7 @@ describe('S01 launch', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
     });
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
   });
 
   it('shows «Что-то пошло не так» on a server failure and retries', async () => {
@@ -111,14 +111,14 @@ describe('S01 launch', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
     });
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
   });
 
   it('lets a guest browse when initData is refused: no onboarding', async () => {
     server.use(http.post('*/api/v1/auth/telegram', () => problem(401, 'invalid_init_data')));
     const { app } = startApp('/onboarding/language');
 
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
     expect(app.router.state.location.pathname).toBe('/');
   });
 });
@@ -187,7 +187,9 @@ describe('new user: S02a → S02b → S02c → home', () => {
     await pressMainButton(telegram);
 
     // главная (заглушка до 4.8); согласие с версиями из client-config, разрешение писать
-    expect(await screen.findByRole('heading', { name: 'Главная', level: 1 })).toBeTruthy();
+    expect(
+      await screen.findByRole('heading', { name: 'Найдём мастера рядом', level: 1 }),
+    ).toBeTruthy();
     expect(backend.requests.consents).toEqual([
       { terms_version: 'draft-1', privacy_version: 'draft-1' },
     ]);
@@ -278,7 +280,7 @@ describe('new user: S02a → S02b → S02c → home', () => {
     });
     await pressMainButton(telegram);
 
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
     expect(telegram.callsOf('web_app_request_write_access')).toEqual([]);
     expect(backend.requests.writeAccess).toBe(0);
   });
@@ -292,7 +294,7 @@ describe('new user: S02a → S02b → S02c → home', () => {
     });
     await pressMainButton(telegram);
 
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
     expect(telegram.callsOf('web_app_request_write_access')).toHaveLength(1);
     expect(backend.requests.writeAccess).toBe(0);
   });
@@ -336,7 +338,7 @@ describe('new user: S02a → S02b → S02c → home', () => {
       fireEvent.click(checkbox);
     });
     await pressMainButton(telegram);
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
 
     // техработы посреди сессии: S49 закрывает приложение вместе с экраном запуска
     let maintenance = true;
@@ -356,7 +358,7 @@ describe('new user: S02a → S02b → S02c → home', () => {
     });
 
     // итог входа при запуске (новый пользователь) не применяется второй раз
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
     expect(app.router.state.location.pathname).toBe('/');
     expect(meInCache(app)).toMatchObject({
       home_city_id: 1,
@@ -372,7 +374,7 @@ describe('returning users', () => {
     const backend = userBackend(ME);
     const { app, telegram } = startApp('/');
 
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
     expect(app.router.state.location.pathname).toBe('/');
     expect(backend.requests.patch).toEqual([]);
     expect(mainButton(telegram)?.is_visible ?? false).toBe(false);
@@ -391,7 +393,7 @@ describe('returning users', () => {
     });
     await pressMainButton(telegram);
 
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
     expect(backend.requests.patch).toEqual([]);
     expect(backend.requests.consents).toHaveLength(1);
   });
@@ -429,14 +431,14 @@ describe('deep links (startapp)', () => {
   it('open home for targets whose screens are not built yet', async () => {
     userBackend(ME);
     const { app } = startApp('/', { startParam: 'j_02y9UKmeRG6vSNbdsEYkkR_rAB12CD' });
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
     expect(app.router.state.location.pathname).toBe('/');
   });
 
   it('open home for a broken code', async () => {
     userBackend(ME);
     const { app } = startApp('/', { startParam: 'nonsense' });
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
     expect(app.router.state.location.pathname).toBe('/');
   });
 
@@ -460,7 +462,7 @@ describe('creating actions require S02c', () => {
   it('sends a user without current consents from «+» to S02c and back to the form', async () => {
     const backend = userBackend(ME);
     const { app, telegram } = startApp('/');
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
     // редакция правил сменилась, пока приложение открыто: перечитанный /me требует согласия
     backend.user = OUTDATED_CONSENTS_USER;
     act(() => {
@@ -528,7 +530,7 @@ describe('/me stays cached for the whole session', () => {
     fakeGcTimers();
     const backend = userBackend(ME);
     const { app } = startApp('/');
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
     backend.user = OUTDATED_CONSENTS_USER;
     act(() => {
       app.queryClient.setQueryData(getIdentityGetMeQueryKey(), OUTDATED_CONSENTS_USER);
@@ -554,7 +556,7 @@ describe('/me stays cached for the whole session', () => {
       ),
     );
     const { app, telegram } = startApp('/');
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
 
     act(() => {
       vi.advanceTimersByTime(PAST_DEFAULT_GC_MS);

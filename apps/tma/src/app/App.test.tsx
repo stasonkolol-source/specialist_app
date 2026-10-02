@@ -76,7 +76,7 @@ describe('Mini App skeleton', () => {
   it('renders home with the tab bar and signals ready to Telegram', async () => {
     const { telegram } = start('/');
 
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
     const nav = screen.getByRole('navigation', { name: 'Разделы' });
     const links = within(nav).getAllByRole('link');
     expect(links.map((link) => link.textContent || link.getAttribute('aria-label'))).toEqual([
@@ -147,7 +147,7 @@ describe('Mini App skeleton', () => {
 
   it('redirects unknown paths to home', async () => {
     start('/no/such/screen');
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
   });
 
   it('takes the language from Telegram launch params', async () => {
@@ -156,7 +156,9 @@ describe('Mini App skeleton', () => {
     const { app } = start('/', { languageCode: 'sr' });
     expect(app.i18n.language).toBe('sr-Latn');
     expect(document.documentElement.lang).toBe('sr-Latn');
-    expect(await screen.findByRole('heading', { name: app.i18n.t('nav.home') })).toBeTruthy();
+    expect(
+      await screen.findByRole('heading', { name: 'Pronaći ćemo majstora u blizini' }),
+    ).toBeTruthy();
   });
 });
 
@@ -172,7 +174,7 @@ describe('client-config at startup', () => {
 
   it('hides the segment when the flag is off', async () => {
     start('/', { config: { ...CLIENT_CONFIG, flags: { 'goods.segment': false } } });
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
     expect(screen.queryByRole('radiogroup', { name: 'Раздел' })).toBeNull();
   });
 
@@ -239,11 +241,15 @@ describe('walking skeleton (0.22)', () => {
     const { app } = start('/', { languageCode: 'ru' });
 
     // вход при запуске (S01) — до первого экрана: главная сразу на сохранённом языке, без мигания ru
-    expect(await screen.findByRole('heading', { name: 'Почетна' })).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'Главная' })).toBeNull();
+    expect(
+      await screen.findByRole('heading', { name: 'Пронаћи ћемо мајстора у близини' }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Найдём мастера рядом' })).toBeNull();
     expect(app.i18n.language).toBe('sr-Cyrl');
     expect(document.documentElement.lang).toBe('sr-Cyrl');
-    expect(await screen.findByRole('heading', { name: 'Почетна' })).toBeTruthy();
+    expect(
+      await screen.findByRole('heading', { name: 'Пронаћи ћемо мајстора у близини' }),
+    ).toBeTruthy();
   });
 });
 
@@ -318,7 +324,7 @@ describe('S49 system states (1.5a)', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
     });
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
   });
 
   it('switches to maintenance on 503 maintenance from any request', async () => {
@@ -357,7 +363,7 @@ describe('S49 system states (1.5a)', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
     });
-    expect(await screen.findByRole('heading', { name: 'Главная' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
   }, 10_000);
 
   it('closes the app with S49b when sign-in is refused by an account suspension', async () => {

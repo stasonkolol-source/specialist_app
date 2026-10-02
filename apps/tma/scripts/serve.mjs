@@ -1,8 +1,10 @@
 // Статический сервер собранного Mini App для Playwright: без зависимостей (работает в Docker-образе),
-// применяет dist/_headers (CSP, как на Cloudflare), неизвестный путь без расширения → index.html.
+// применяет dist/_headers (CSP, как на Cloudflare), сжимает текст gzip (как Cloudflare — иначе
+// замер холодного старта качал бы втрое больше), неизвестный путь без расширения → index.html.
 import { createReadStream, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize } from 'node:path';
+import { createGzip } from 'node:zlib';
 
 const [dir = 'dist', port = '4174'] = process.argv.slice(2);
 const TYPES = {
@@ -31,6 +33,7 @@ function parseHeaders(path) {
 }
 
 const headers = parseHeaders(join(dir, '_headers'));
+const COMPRESSIBLE = new Set(['.html', '.js', '.css', '.svg', '.json']);
 
 createServer((req, res) => {
   const path = normalize(decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname)).replace(
@@ -48,9 +51,13 @@ createServer((req, res) => {
     }
     file = join(dir, 'index.html');
   }
+  const gzip =
+    COMPRESSIBLE.has(extname(file)) && /\bgzip\b/.test(String(req.headers['accept-encoding']));
   res.writeHead(200, {
     'content-type': TYPES[extname(file)] ?? 'application/octet-stream',
+    ...(gzip ? { 'content-encoding': 'gzip', vary: 'Accept-Encoding' } : {}),
     ...Object.fromEntries(headers),
   });
-  createReadStream(file).pipe(res);
+  const stream = createReadStream(file);
+  (gzip ? stream.pipe(createGzip()) : stream).pipe(res);
 }).listen(Number(port), '127.0.0.1');

@@ -32,6 +32,8 @@ for (const theme of THEMES) {
         if (!r.url().startsWith('http://127.0.0.1')) external.push(r.url());
       });
       await page.goto(`/?theme=${theme}&lang=${lang}`);
+      // сербские тексты — отдельным чанком: галерея появляется после него, шрифты — следом
+      await page.locator('[data-gallery]').first().waitFor();
       await page.evaluate(() => document.fonts.ready);
       // шрифты self-host: Google Fonts и прочая сеть не нужны
       expect(external).toEqual([]);
