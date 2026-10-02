@@ -13,6 +13,7 @@ from app.modules.jobs.domain.job import (
     Urgency,
     Visibility,
 )
+from app.modules.jobs.domain.response import ResponseId, ResponseReview, ResponseStatus
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, UserId
 
@@ -51,3 +52,12 @@ class JobView:
     expires_at: datetime | None
     closed_at: datetime | None
     close_reason: CloseReason | None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class MyResponseRef:
+    """Свой отклик исполнителя на заявку — MainButton S15: «Вы откликнулись» (5.5)."""
+
+    id: ResponseId
+    status: ResponseStatus
+    review: ResponseReview

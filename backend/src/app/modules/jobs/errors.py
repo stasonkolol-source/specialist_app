@@ -110,3 +110,23 @@ class ActiveResponsesLimitError(ConflictError):
 
     code = "active_responses_limit"
     public_params = ("limit",)
+
+
+class InvalidTemplateError(DomainValidationError):
+    """Поле шаблона отклика нарушает правило (`field`, `reason`): название, сообщение, цена."""
+
+    code = "invalid_response_template"
+    public_params = ("field", "reason")
+
+
+class TemplateNotFoundError(NotFoundError):
+    """Шаблона нет, он удалён или чужой."""
+
+    code = "response_template_not_found"
+
+
+class TemplatesFullError(ConflictError):
+    """У исполнителя уже максимум шаблонов (два) — удалите один, чтобы добавить новый."""
+
+    code = "response_templates_full"
+    public_params = ("limit",)

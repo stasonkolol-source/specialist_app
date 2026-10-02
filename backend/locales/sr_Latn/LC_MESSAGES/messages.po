@@ -450,6 +450,15 @@ msgstr "Danas je poslato previše ponuda. Pokušajte sutra."
 msgid "errors.active_responses_limit"
 msgstr "Dostignut je maksimum ponuda koje čekaju odluku ({limit}) — sačekajte odgovor naručilaca ili povucite jednu."
 
+msgid "errors.invalid_response_template"
+msgstr "Proverite šablon: naziv, poruku i cenu."
+
+msgid "errors.response_template_not_found"
+msgstr "Šablon nije pronađen: obrisan je."
+
+msgid "errors.response_templates_full"
+msgstr "Već imate najviše šablona ({limit}) — obrišite jedan da biste dodali novi."
+
 msgid "errors.job_not_found"
 msgstr "Zahtev nije pronađen: obrisan je ili vam nije vidljiv."
 

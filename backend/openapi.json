@@ -2354,6 +2354,101 @@
         }
       }
     },
+    "/api/v1/me/response-templates": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Create Response Template",
+        "description": "Новый шаблон (S57, «Сохранить как шаблон» на S16): не больше двух — третий 409\n`response_templates_full`; первый — основной.",
+        "operationId": "jobs_create_response_template",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResponseTemplateIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseTemplateOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Ключ операции: повтор с тем же ключом вернёт тот же ответ",
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 255
+            }
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "List Response Templates",
+        "description": "Шаблоны откликов (S57, S16): по порядку, первый — основной.",
+        "operationId": "jobs_list_response_templates",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseTemplatesOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/jobs/count": {
       "get": {
         "tags": [
@@ -3125,7 +3220,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ResponseIn"
+                "$ref": "#/components/schemas/ResponseOfferIn"
               }
             }
           }
@@ -3277,6 +3372,109 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/response-templates/{template_id}": {
+      "patch": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Update Response Template",
+        "description": "Поправить шаблон (S57) или сделать основным (`primary: true`); чужой — 404.",
+        "operationId": "jobs_update_response_template",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id шаблона отклика",
+              "title": "Template Id"
+            },
+            "description": "id шаблона отклика"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResponseTemplatePatchIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponseTemplateOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Delete Response Template",
+        "description": "Удалить шаблон (S57): основным становится следующий; чужой — 404.",
+        "operationId": "jobs_delete_response_template",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id шаблона отклика",
+              "title": "Template Id"
+            },
+            "description": "id шаблона отклика"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "default": {
             "description": "Ошибка в формате RFC 9457",
@@ -6248,6 +6446,17 @@
             "type": "integer",
             "title": "Responses Count"
           },
+          "my_response": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MyResponseRefOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null"
+          },
           "extensions_count": {
             "type": "integer",
             "title": "Extensions Count",
@@ -6349,6 +6558,7 @@
           "client",
           "max_responses",
           "responses_count",
+          "my_response",
           "extensions_count",
           "moderation_note",
           "version",
@@ -7197,6 +7407,29 @@
         ],
         "title": "MyResponseOut",
         "description": "Свой отклик (S17): статус, проверка, предложение и заявка."
+      },
+      "MyResponseRefOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ResponseStatus"
+          },
+          "review": {
+            "$ref": "#/components/schemas/ResponseReview",
+            "description": "pending — на проверке, blocked — скрыт модерацией"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "review"
+        ],
+        "title": "MyResponseRefOut"
       },
       "MyResponsesPageOut": {
         "properties": {
@@ -8256,6 +8489,19 @@
             ],
             "title": "Availability Note",
             "description": "«Сегодня, 19:00»"
+          },
+          "template_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Id",
+            "description": "Свой шаблон, из которого отклик (S16, кнопка бота); чужой — 404"
           }
         },
         "type": "object",
@@ -8264,7 +8510,7 @@
           "price_type"
         ],
         "title": "ResponseIn",
-        "description": "Отклик S16: сообщение клиенту, цена и «когда смогу»."
+        "description": "Отклик S16; собранный из шаблона — с его id."
       },
       "ResponseJobOut": {
         "properties": {
@@ -8395,6 +8641,53 @@
         "title": "ResponseJobOut",
         "description": "Заявка в карточке «Мои отклики» S17."
       },
+      "ResponseOfferIn": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "maxLength": 1500,
+            "minLength": 1,
+            "title": "Message"
+          },
+          "price_type": {
+            "$ref": "#/components/schemas/ResponsePriceType"
+          },
+          "price_amount": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100000000000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Amount",
+            "description": "Пара; у договорной — нет"
+          },
+          "availability_note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Note",
+            "description": "«Сегодня, 19:00»"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message",
+          "price_type"
+        ],
+        "title": "ResponseOfferIn",
+        "description": "Предложение исполнителя S16: сообщение клиенту, цена и «когда смогу»."
+      },
       "ResponsePerformerOut": {
         "properties": {
           "user_id": {
@@ -8485,6 +8778,209 @@
           "not_selected"
         ],
         "title": "ResponseStatus"
+      },
+      "ResponseTemplateIn": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "maxLength": 1500,
+            "minLength": 1,
+            "title": "Message"
+          },
+          "price_type": {
+            "$ref": "#/components/schemas/ResponsePriceType"
+          },
+          "price_amount": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100000000000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Amount",
+            "description": "Пара; у договорной — нет"
+          },
+          "availability_note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Note",
+            "description": "«Сегодня, 19:00»"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Title",
+            "description": "«Могу сегодня»"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message",
+          "price_type",
+          "title"
+        ],
+        "title": "ResponseTemplateIn",
+        "description": "Новый шаблон S57 или «Сохранить как шаблон» на S16."
+      },
+      "ResponseTemplateOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "price": {
+            "$ref": "#/components/schemas/ResponsePriceOut"
+          },
+          "availability_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Note"
+          },
+          "primary": {
+            "type": "boolean",
+            "title": "Primary",
+            "description": "Основной — первый: S16 подставляет его сразу"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "message",
+          "price",
+          "availability_note",
+          "primary",
+          "updated_at"
+        ],
+        "title": "ResponseTemplateOut"
+      },
+      "ResponseTemplatePatchIn": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1500,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "price_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResponsePriceType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "price_amount": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100000000000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Amount"
+          },
+          "availability_note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Note"
+          },
+          "primary": {
+            "type": "boolean",
+            "title": "Primary",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "ResponseTemplatePatchIn",
+        "description": "Правка шаблона S57 — что прислано. Предложение меняется целиком: `message` и `price_type`\nвместе (без `price_amount` — суммы нет). `primary: true` — «Сделать основным»: шаблон\nстановится первым."
+      },
+      "ResponseTemplatesOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ResponseTemplateOut"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "По порядку, первый — основной"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit",
+            "description": "Сколько шаблонов можно: «1 из 2» на S57"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "limit"
+        ],
+        "title": "ResponseTemplatesOut"
       },
       "SavedJobsOut": {
         "properties": {

@@ -22,7 +22,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, aggregate_order_by
 
-from app.modules.jobs.application.dto import JobView
+from app.modules.jobs.application.dto import JobView, MyResponseRef
 from app.modules.jobs.application.feed import (
     CARD_PHOTOS,
     DESCRIPTION_PREVIEW,
@@ -229,6 +229,20 @@ class SqlJobQueries(SqlQuery):
         more = len(rows) > page.limit
         cursor = encode_cursor(last.created_at, last.id) if more and last else None
         return Page(items=tuple(items), next_cursor=cursor)
+
+    async def performer_response(self, job_id: JobId, performer_id: UserId) -> MyResponseRef | None:
+        row = await self._fetch_one(
+            select(_R.id, _R.status, _R.review).where(
+                _R.job_id == job_id, _R.performer_id == performer_id, _R.deleted_at.is_(None)
+            )
+        )
+        if row is None:
+            return None
+        return MyResponseRef(
+            id=ResponseId(row["id"]),
+            status=ResponseStatus(row["status"]),
+            review=ResponseReview(row["review"]),
+        )
 
     async def my_response(self, performer_id: UserId, response_id: ResponseId) -> MyResponse | None:
         row = await self._fetch_one(

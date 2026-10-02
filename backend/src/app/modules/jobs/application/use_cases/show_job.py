@@ -1,12 +1,13 @@
-"""Карточка заявки (GET /jobs/{id}; S15 исполнителю и гостю, S23 владельцу): заявка, её фото
-и блок клиента «в «Соседях» N месяцев · M заявок» (пробел §8.5). Что из заявки показать —
-решает HTTP по политике (точка и адрес — только владельцу)."""
+"""Карточка заявки (GET /jobs/{id}; S15 исполнителю и гостю, S23 владельцу): заявка, её фото,
+блок клиента «в «Соседях» N месяцев · M заявок» (пробел §8.5) и свой отклик исполнителя —
+«Вы откликнулись» (5.5). Что из заявки показать — решает HTTP по политике (точка и адрес —
+только владельцу)."""
 
 from dataclasses import dataclass
 from datetime import datetime
 
 from app.modules.identity.api import IdentityApi
-from app.modules.jobs.application.dto import JobView
+from app.modules.jobs.application.dto import JobView, MyResponseRef
 from app.modules.jobs.application.feed import Photo
 from app.modules.jobs.application.photos import LARGE, photos_of
 from app.modules.jobs.application.ports import JobQueries
@@ -32,6 +33,8 @@ class JobDetails:
     photos: tuple[Photo, ...]
     client: JobClient | None
     """None — аккаунт клиента удалён."""
+    my_response: MyResponseRef | None = None
+    """Отклик зрителя-исполнителя; гостю и владельцу — None."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -60,4 +63,12 @@ class ShowJob:
                 jobs_count=await self._queries.count_published(job.client_id),
                 phone_verified=user.phone_verified,
             )
-        return JobDetails(job=job, photos=photos_of(job.media_ids, refs, LARGE), client=client)
+        mine = None
+        if query.viewer_id is not None and query.viewer_id != job.client_id:
+            mine = await self._queries.performer_response(query.job_id, query.viewer_id)
+        return JobDetails(
+            job=job,
+            photos=photos_of(job.media_ids, refs, LARGE),
+            client=client,
+            my_response=mine,
+        )

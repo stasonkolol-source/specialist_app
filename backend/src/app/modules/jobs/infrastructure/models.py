@@ -1,5 +1,5 @@
-"""ORM-модели jobs (ARCHITECTURE §7.3, миграции jobs_0001–0005): заявки, их фото, история
-статусов, скрытые и сохранённые исполнителями заявки, отклики.
+"""ORM-модели jobs (ARCHITECTURE §7.3, миграции jobs_0001–0006): заявки, их фото, история
+статусов, скрытые и сохранённые исполнителями заявки, отклики и шаблоны откликов.
 
 FK на identity.users, catalog.categories, geo.cities, geo.districts, media.assets и
 specialists.profiles объявлены только в миграции: MetaData модуля не знает чужих таблиц
@@ -46,6 +46,7 @@ from app.modules.jobs.domain.response import (
     ResponseReview,
     ResponseStatus,
 )
+from app.modules.jobs.domain.template import MAX_TEMPLATE_TITLE
 from app.platform.db.base import (
     ModelBase,
     SoftDeleteMixin,
@@ -262,4 +263,42 @@ class ResponseRow(TimestampsMixin, SoftDeleteMixin, Base):
         ),
         Index("ix_responses_job_id_created_at", "job_id", "created_at"),
         Index("ix_responses_performer_id_created_at", "performer_id", text("created_at DESC")),
+    )
+
+
+class ResponseTemplateRow(TimestampsMixin, SoftDeleteMixin, Base):
+    """Шаблон отклика (S57, миграция jobs_0006): не больше двух у исполнителя, 0 — основной."""
+
+    __tablename__ = "response_templates"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    user_id: Mapped[UUID]
+    """identity.users: FK в миграции."""
+    title: Mapped[str] = mapped_column(Text)
+    message: Mapped[str] = mapped_column(Text)
+    price_type: Mapped[ResponsePriceType] = mapped_column(str_enum(ResponsePriceType, "price_type"))
+    price_amount: Mapped[int | None] = mapped_column(BigInteger)
+    currency: Mapped[str] = mapped_column(String(3), server_default=text("'RSD'"))
+    availability_note: Mapped[str | None] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
+
+    __table_args__ = (
+        CheckConstraint(
+            f"char_length(title) BETWEEN 1 AND {MAX_TEMPLATE_TITLE}", name="title_length"
+        ),
+        CheckConstraint(f"char_length(message) BETWEEN 1 AND {MAX_MESSAGE}", name="message_length"),
+        CheckConstraint(
+            f"char_length(availability_note) <= {MAX_AVAILABILITY}",
+            name="availability_note_length",
+        ),
+        CheckConstraint(
+            "(price_type = 'negotiable') = (price_amount IS NULL)", name="price_amount_set"
+        ),
+        rsd_only("currency"),
+        Index(
+            "ix_response_templates_user_id_position",
+            "user_id",
+            "position",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
     )

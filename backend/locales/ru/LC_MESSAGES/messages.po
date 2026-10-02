@@ -449,6 +449,15 @@ msgstr "Сегодня отправлено слишком много откли
 msgid "errors.active_responses_limit"
 msgstr "Ждущих решения откликов уже максимум ({limit}) — дождитесь ответа клиентов или отзовите один."
 
+msgid "errors.invalid_response_template"
+msgstr "Проверьте шаблон: название, сообщение и цену."
+
+msgid "errors.response_template_not_found"
+msgstr "Шаблон не найден: его удалили."
+
+msgid "errors.response_templates_full"
+msgstr "Шаблонов уже максимум ({limit}) — удалите один, чтобы добавить новый."
+
 msgid "errors.job_not_found"
 msgstr "Заявка не найдена: её удалили или она вам не видна."
 
