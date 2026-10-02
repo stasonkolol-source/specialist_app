@@ -20,6 +20,7 @@ export const SECTIONS = [
   'sheet',
   'icons',
   'tabbar',
+  'map',
 ];
 const THEMES = ['light', 'dark'];
 const LOCALES = ['ru', 'sr-Latn', 'sr-Cyrl'];
