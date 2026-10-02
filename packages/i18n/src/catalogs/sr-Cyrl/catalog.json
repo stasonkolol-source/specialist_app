@@ -106,7 +106,11 @@
     "radius": "Долази до {km} км",
     "unavailableTitle": "Профил није доступан",
     "unavailableText": "Стручњак је сакрио профил или га више нема",
-    "toCatalog": "Пронађите другог стручњака"
+    "toCatalog": "Пронађите другог стручњака",
+    "proposeJob": "Предложи захтев",
+    "responseMinutes": "Обично одговори за {count, plural, one {# минут} few {# минута} other {# минута}}",
+    "responseHours": "Обично одговори за {count, plural, one {# сат} few {# сата} other {# сати}}",
+    "writeFailed": "Разговор није могуће отворити. Покушајте поново."
   },
   "prices": {
     "title": "Ценовник",

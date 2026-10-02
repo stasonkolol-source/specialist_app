@@ -3,6 +3,7 @@
 import srCyrlCatalog from './catalogs/sr-Cyrl/catalog.json' with { type: 'json' };
 import srCyrlCommon from './catalogs/sr-Cyrl/common.json' with { type: 'json' };
 import srCyrlJobs from './catalogs/sr-Cyrl/jobs.json' with { type: 'json' };
+import srCyrlMessages from './catalogs/sr-Cyrl/messages.json' with { type: 'json' };
 import srCyrlOnboarding from './catalogs/sr-Cyrl/onboarding.json' with { type: 'json' };
 import srCyrlService from './catalogs/sr-Cyrl/service.json' with { type: 'json' };
 import srCyrlSpecialist from './catalogs/sr-Cyrl/specialist.json' with { type: 'json' };
@@ -15,4 +16,5 @@ export const SR_CYRL: Messages = {
   specialist: srCyrlSpecialist,
   catalog: srCyrlCatalog,
   jobs: srCyrlJobs,
+  messages: srCyrlMessages,
 };

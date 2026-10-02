@@ -691,7 +691,7 @@ export function specialistCardFor(
     rating_count: 37,
     is_new: false,
     badges: ['phone_verified'],
-    response_time_minutes: null,
+    response_time_minutes: 15,
     services: CARD_SERVICES.slice(0, 3),
     services_count: CARD_SERVICES.length,
     works: CARD_WORKS.slice(0, 3),

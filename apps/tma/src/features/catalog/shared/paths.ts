@@ -36,6 +36,9 @@ export interface CreateJobSearch {
   title?: string;
 }
 
+/** Диалог S30 (фича messages, 6.4): «Написать» на S08 открывает его. */
+export const chatPath = (conversationId: string) => `/messages/${conversationId}`;
+
 /** Адрес профиля S08 для ссылки: deep link `s_` (routes/startapp.ts) ведёт сюда же. */
 export const profilePath = (profileId: string) => `/specialists/${profileId}`;
 

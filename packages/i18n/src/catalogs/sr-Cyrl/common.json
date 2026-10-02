@@ -10,7 +10,11 @@
     "messages": "Поруке",
     "profile": "Профил",
     "create": "Нови захтев",
-    "sections": "Одељци"
+    "sections": "Одељци",
+    "count": {
+      "jobs": "{count, plural, one {# нова понуда} few {# нове понуде} other {# нових понуда}}",
+      "messages": "{count, plural, one {# непрочитана порука} few {# непрочитане поруке} other {# непрочитаних порука}}"
+    }
   },
   "glossary": {
     "job": "захтев",

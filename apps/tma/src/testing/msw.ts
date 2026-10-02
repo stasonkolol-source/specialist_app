@@ -42,6 +42,7 @@ import {
   suggestFor,
 } from './fixtures.ts';
 import type { BackendReply } from './backend.ts';
+import { ChatBackend } from './chatBackend.ts';
 import { FavoritesBackend } from './favoritesBackend.ts';
 import { JobsBackend } from './jobsBackend.ts';
 import { ProfileBackend } from './profileBackend.ts';
@@ -161,6 +162,18 @@ export const jobsHandlers = (backend: () => JobsBackend) => [
   }),
 ];
 
+/** Переписка (6.4) и бейджи таббара по фейку backend; по умолчанию — свежий на каждый запрос:
+ *  диалогов нет. Тесты S29 и S30 ставят свой — с памятью (server.use). */
+const CHAT_API = /\/api\/v1\/(conversations(\/.*)?|me\/badges)$/;
+
+export const chatHandlers = (backend: () => ChatBackend) => [
+  http.all(CHAT_API, async ({ request }) => {
+    const body =
+      request.method === 'POST' ? await request.json().catch(() => undefined) : undefined;
+    return respond(backend().handle(request.method, new URL(request.url), body));
+  }),
+];
+
 export const handlers = [
   getSystemGetClientConfigMockHandler(CLIENT_CONFIG),
   getIdentityAuthenticateTelegramMockHandler({ ...TOKENS, is_new: false, user: ME }),
@@ -188,6 +201,7 @@ export const handlers = [
   ...favoritesHandlers(() => new FavoritesBackend()),
   ...profileHandlers(() => new ProfileBackend()),
   ...jobsHandlers(() => new JobsBackend()),
+  ...chatHandlers(() => new ChatBackend()),
 ];
 
 export const server = setupServer(...handlers);

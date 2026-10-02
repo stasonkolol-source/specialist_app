@@ -59,8 +59,10 @@ describe('S08 profile', () => {
     expect(about.getByText(/^Электрик, 12 лет опыта/)).toBeTruthy();
     expect(about.getByText('Русский, сербский')).toBeTruthy();
     expect(about.getByText('Выезд: Лиман, Грбавица, Центр, Нова Детелинара')).toBeTruthy();
+    expect(about.getByText('Обычно отвечает за 15 минут')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Предложить заявку' })).toBeTruthy();
 
-    // «Написать» (5.6) — прямой запрос через мастер заявки
+    // «Написать» (6.4) — диалог со специалистом
     await waitFor(() => expect(mainButton(telegram)?.text).toBe('Написать'));
     expect(requests.paths.filter((path) => path.startsWith('/api/v1/specialists'))).toEqual([
       `/api/v1${PROFILE}`,

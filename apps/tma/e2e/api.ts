@@ -28,6 +28,7 @@ import {
   searchPage,
   suggestFor,
 } from '../src/testing/fixtures.ts';
+import { ChatBackend } from '../src/testing/chatBackend.ts';
 import { FavoritesBackend } from '../src/testing/favoritesBackend.ts';
 import { JobsBackend } from '../src/testing/jobsBackend.ts';
 import { ProfileBackend } from '../src/testing/profileBackend.ts';
@@ -87,6 +88,9 @@ export interface MockApiOptions {
   /** Заявки `/jobs*` с памятью: создание (5.2), лента, счётчик и «не интересно» (5.3), отклики
    *  и шаблоны откликов (5.5). */
   jobs?: JobsBackend;
+  /** Переписка `/conversations*` и бейджи таббара `/me/badges` с памятью (6.4); по умолчанию —
+   *  диалогов нет. */
+  chat?: ChatBackend;
   /** Задержка каждого ответа API, мс: замер холодного старта (coldstart.spec.ts). */
   delayMs?: number;
   /** Свои ответы по ключу «METHOD /api/v1/…»: проверяются раньше стандартных. */
@@ -125,6 +129,7 @@ export async function mockApi(
     profile = new ProfileBackend(),
     favorites = new FavoritesBackend([], E2E_AVAILABLE_UNTIL),
     jobs = new JobsBackend(),
+    chat = new ChatBackend(),
     delayMs = 0,
     handlers = {},
     sent = sentRequests(),
@@ -197,6 +202,14 @@ export async function mockApi(
         authorized(request),
         request.headers()['if-match'] ?? null,
       );
+      if (reply?.status === 204) return route.fulfill({ status: 204 });
+      if (reply) return route.fulfill(json(reply.body, reply.status));
+    }
+    // переписка S29–S30 и бейджи таббара (6.4): только вошедшему
+    if (url.pathname.startsWith('/api/v1/conversations') || url.pathname === '/api/v1/me/badges') {
+      if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
+      const body: unknown = request.method() === 'POST' ? request.postDataJSON() : undefined;
+      const reply = chat.handle(request.method(), url, body);
       if (reply?.status === 204) return route.fulfill({ status: 204 });
       if (reply) return route.fulfill(json(reply.body, reply.status));
     }

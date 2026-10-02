@@ -11,10 +11,11 @@
 // состояния); onboarding — «Вход» SPEC §6 (S01 запуск, S02a–c онбординг); specialist — «Кабинет
 // специалиста» SPEC §6 (S32a–c «Стать специалистом», вход в кабинет на S31); catalog — «Каталог»
 // SPEC §6 (S04–S06, карточка S08–S11, избранное S12); jobs — «Заявки» SPEC §6 (создание S20a–d,
-// S21; дальше лента, отклики, мои заявки).
+// S21; дальше лента, отклики, мои заявки); messages — «Сообщения» SPEC §6 (S29 диалоги, S30 чат).
 import ruCatalog from './catalogs/ru/catalog.json' with { type: 'json' };
 import ruCommon from './catalogs/ru/common.json' with { type: 'json' };
 import type ruJobs from './catalogs/ru/jobs.json';
+import type ruMessages from './catalogs/ru/messages.json';
 import type ruOnboarding from './catalogs/ru/onboarding.json';
 import ruService from './catalogs/ru/service.json' with { type: 'json' };
 import type ruSpecialist from './catalogs/ru/specialist.json';
@@ -30,6 +31,7 @@ export const NAMESPACES = [
   'specialist',
   'catalog',
   'jobs',
+  'messages',
 ] as const;
 export type Namespace = (typeof NAMESPACES)[number];
 
@@ -46,6 +48,7 @@ export type Messages = {
   specialist: typeof ruSpecialist;
   catalog: typeof ruCatalog;
   jobs: typeof ruJobs;
+  messages: typeof ruMessages;
 };
 
 export function isNamespace(value: string): value is Namespace {
@@ -67,6 +70,7 @@ const RU_LATER: Record<Exclude<Namespace, FirstScreen>, () => Promise<Catalog>> 
   onboarding: () => import('./catalogs/ru/onboarding.json').then((module) => module.default),
   specialist: () => import('./catalogs/ru/specialist.json').then((module) => module.default),
   jobs: () => import('./catalogs/ru/jobs.json').then((module) => module.default),
+  messages: () => import('./catalogs/ru/messages.json').then((module) => module.default),
 };
 
 const isFirstScreen = (namespace: Namespace): namespace is FirstScreen =>

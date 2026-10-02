@@ -34,6 +34,28 @@ export {
   useLegalDocument,
 } from './legal/useLegalDocument.ts';
 export type { MediaApi, MediaTransport, Prepared, PutResult } from './media/upload.ts';
+export type { ChatEntry, PendingMessage } from './messages/chat.ts';
+export {
+  CHAT_PAGE_SIZE,
+  CHAT_POLL_MS,
+  MAX_MESSAGE,
+  chatQueryKey,
+  useChat,
+  useProposeDeal,
+} from './messages/chat.ts';
+export type { ChatRole, ConversationPages, DealState } from './messages/conversations.ts';
+export {
+  BADGES_POLL_MS,
+  CONVERSATIONS_KEY,
+  CONVERSATIONS_PAGE_SIZE,
+  conversationItems,
+  conversationsQueryKey,
+  dealState,
+  refreshInbox,
+  useBadges,
+  useConversations,
+  useStartConversation,
+} from './messages/conversations.ts';
 export type { DayKey, NotificationDay, NotificationFeed } from './notifications/notifications.ts';
 export {
   NOTIFICATIONS_PAGE_SIZE,

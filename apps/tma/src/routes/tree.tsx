@@ -29,6 +29,7 @@ import {
   jobSearch,
   responsesSearch,
 } from '../features/jobs/index.ts';
+import { MESSAGES_PATHS } from '../features/messages/index.ts';
 import { ONBOARDING_PATHS, onboardingSearch } from '../features/onboarding/index.ts';
 import { BECOME_PATHS, CABINET_PATHS, becomeSearch } from '../features/specialist/index.ts';
 import { LEGAL_PATH, LegalScreen } from '../features/service/s48-legal/index.ts';
@@ -170,10 +171,19 @@ const createDone = createRoute({
   component: screen(() => import('../features/jobs/s21-published/index.ts'), 'PublishedScreen'),
 });
 
+// Сообщения S29 (6.4) — вкладка таббара; гостю — пустой список
 const messages = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/messages',
+  path: MESSAGES_PATHS.list,
   component: screen(() => import('../features/messages/s29-chats/index.ts'), 'ChatsScreen'),
+});
+
+// Диалог S30 (6.4): из S29, «Написать» на S08 и по deep link `c_`; без входа писать нечем
+const chat = createRoute({
+  getParentRoute: () => rootRoute,
+  path: MESSAGES_PATHS.chat,
+  beforeLoad: requireUser,
+  component: screen(() => import('../features/messages/s30-chat/index.ts'), 'ChatScreen'),
 });
 
 const profile = createRoute({
@@ -408,6 +418,7 @@ export const routeTree = rootRoute.addChildren([
   createPreview,
   createDone,
   messages,
+  chat,
   profile,
   deleteAccount,
   becomeType,
