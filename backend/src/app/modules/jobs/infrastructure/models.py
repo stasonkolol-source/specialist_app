@@ -1,5 +1,5 @@
-"""ORM-модели jobs (ARCHITECTURE §7.3, миграции jobs_0001–0002): заявки, их фото и история
-статусов.
+"""ORM-модели jobs (ARCHITECTURE §7.3, миграции jobs_0001–0003): заявки, их фото, история
+статусов и скрытые исполнителями заявки.
 
 FK на identity.users, catalog.categories, geo.cities, geo.districts и media.assets объявлены
 только в миграции: MetaData модуля не знает чужих таблиц (modules/README.md). Отклики,
@@ -139,6 +139,19 @@ class JobRow(UuidPkMixin, TimestampsMixin, SoftDeleteMixin, VersionMixin, Base):
             postgresql_where=PUBLISHED,
         ),
         Index("ix_jobs_expires_at", "expires_at", postgresql_where=PUBLISHED),
+        # лента 5.3: радиус от точки зрителя и «категория с подкатегориями» (&&)
+        Index(
+            "ix_jobs_point_public",
+            "point_public",
+            postgresql_using="gist",
+            postgresql_where=PUBLISHED,
+        ),
+        Index(
+            "ix_jobs_category_path",
+            "category_path",
+            postgresql_using="gin",
+            postgresql_where=PUBLISHED,
+        ),
     )
 
 
@@ -168,3 +181,14 @@ class StatusHistoryRow(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     __table_args__ = (Index("ix_status_history_job_id", "job_id"),)
+
+
+class HiddenJobRow(Base):
+    """«Не интересно» (S15): заявка скрыта из ленты исполнителя (миграция jobs_0003)."""
+
+    __tablename__ = "hidden_jobs"
+
+    user_id: Mapped[UUID] = mapped_column(primary_key=True)
+    """identity.users: FK в миграции."""
+    job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

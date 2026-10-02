@@ -127,11 +127,14 @@ class Scale:
     """Номер первого специалиста и клиента: тесты на общей базе берут свои номера."""
     clients: int = 0
     """Демо-клиенты с опубликованными заявками (5.1): лента и экраны заявок на стенде."""
+    jobs_each: int | None = None
+    """Заявок у каждого клиента; None — одна-две, как у людей."""
 
 
 SCALES: Final = {
     "small": Scale(60, photos=True, clients=20),
-    "lab": Scale(50_000, photos=False),
+    # лента 5.3: тысяча заявок для замера выдачи
+    "lab": Scale(50_000, photos=False, clients=500, jobs_each=2),
 }
 
 
@@ -244,12 +247,13 @@ class DemoClient:
         return DEMO_CLIENT_BASE + self.number
 
 
-def client_plan(number: int) -> DemoClient:
-    """Демо-клиент номер `number`: одна-две заявки на своём языке, каждая в своём районе."""
+def client_plan(number: int, jobs_each: int | None = None) -> DemoClient:
+    """Демо-клиент номер `number`: одна-две заявки (или `jobs_each`) на своём языке, каждая в
+    своём районе."""
     rng = random.Random(f"{SEED}:client:{number}")  # noqa: S311 — демо-данные, не криптография
     lang: Lang = "ru" if rng.random() < 0.5 else "sr"
     female = rng.random() < 0.5
-    jobs = tuple(rng.sample(JOBS, k=rng.choice((1, 1, 2))))
+    jobs = tuple(rng.sample(JOBS, k=jobs_each or rng.choice((1, 1, 2))))
     return DemoClient(
         number=number,
         lang=lang,
@@ -337,7 +341,7 @@ class DemoSeeder:
             if done % 500 == 0:
                 self._echo(f"seed-demo: {done}/{scale.specialists}")
         for number in range(scale.start, scale.start + scale.clients):
-            report.jobs += await self._client(client_plan(number), world)
+            report.jobs += await self._client(client_plan(number, scale.jobs_each), world)
         return report
 
     async def _world(self) -> _World:

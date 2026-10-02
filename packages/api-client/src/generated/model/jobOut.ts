@@ -7,7 +7,9 @@
 import type { BudgetType } from './budgetType.ts';
 import type { BudgetUnit } from './budgetUnit.ts';
 import type { CloseReason } from './closeReason.ts';
+import type { JobClientOut } from './jobClientOut.ts';
 import type { JobOutViewerRole } from './jobOutViewerRole.ts';
+import type { JobPhotoOut } from './jobPhotoOut.ts';
 import type { JobPointOut } from './jobPointOut.ts';
 import type { JobStatus } from './jobStatus.ts';
 import type { MoneyOut } from './moneyOut.ts';
@@ -41,6 +43,10 @@ export interface JobOut {
   address_private: string | null;
   languages: string[];
   media_ids: string[];
+  /** Готовые фото, вариант md (800 px) */
+  photos: JobPhotoOut[];
+  /** Блок клиента; null — аккаунт удалён */
+  client: JobClientOut | null;
   max_responses: number;
   responses_count: number;
   /** Сколько раз продлевали: не больше трёх */

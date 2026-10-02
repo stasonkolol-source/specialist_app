@@ -150,6 +150,31 @@ export const JobsCreateJobResponse = zod.object({
   address_private: zod.union([zod.string(), zod.null()]).describe('Только владельцу'),
   languages: zod.array(zod.string()),
   media_ids: zod.array(zod.uuid()),
+  photos: zod
+    .array(
+      zod.object({
+        url: zod.string(),
+        width: zod.int(),
+        height: zod.int(),
+        placeholder: zod
+          .union([zod.string(), zod.null()])
+          .describe('ThumbHash (base64) для мгновенного превью'),
+      }),
+    )
+    .describe('Готовые фото, вариант md (800 px)'),
+  client: zod
+    .union([
+      zod
+        .object({
+          display_name: zod.string(),
+          member_since: zod.iso.datetime({ offset: true }),
+          jobs_count: zod.int().describe('Сколько заявок клиента публиковалось'),
+          phone_verified: zod.boolean(),
+        })
+        .describe('Блок клиента S15: «Елена К. · в «Соседях» 3 месяца · 2 заявки».'),
+      zod.null(),
+    ])
+    .describe('Блок клиента; null — аккаунт удалён'),
   max_responses: zod.int(),
   responses_count: zod.int(),
   extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
@@ -165,6 +190,200 @@ export const JobsCreateJobResponse = zod.object({
     zod.enum(['hired_here', 'hired_elsewhere', 'not_needed', 'no_suitable', 'expired', 'removed']),
     zod.null(),
   ]),
+});
+
+/**
+ * Лента 🔓 (S13): опубликованные заявки города, свежие сверху; свои и скрытые — нет.
+ * @summary List Jobs
+ */
+export const jobsListJobsQueryCursorOneMax = 512;
+
+export const jobsListJobsQueryLimitDefault = 20;
+export const jobsListJobsQueryLimitMax = 50;
+
+export const jobsListJobsQueryLatOneMin = -90;
+export const jobsListJobsQueryLatOneMax = 90;
+
+export const jobsListJobsQueryLonOneMin = -180;
+export const jobsListJobsQueryLonOneMax = 180;
+
+export const jobsListJobsQueryRadiusKmOneExclusiveMin = 0;
+export const jobsListJobsQueryRadiusKmOneMax = 50;
+
+export const jobsListJobsQueryHasPhotosDefault = false;
+
+export const JobsListJobsQueryParams = zod.object({
+  cursor: zod.union([zod.string().max(jobsListJobsQueryCursorOneMax), zod.null()]).optional(),
+  limit: zod.int().min(1).max(jobsListJobsQueryLimitMax).default(jobsListJobsQueryLimitDefault),
+  city_id: zod.int().min(1).describe('Город ленты'),
+  category: zod
+    .union([zod.array(zod.int()), zod.null()])
+    .optional()
+    .describe('Категории: с подкатегориями, любая из них'),
+  district: zod
+    .union([zod.array(zod.int()), zod.null()])
+    .optional()
+    .describe('Районы: любой из них'),
+  lat: zod
+    .union([
+      zod.number().min(jobsListJobsQueryLatOneMin).max(jobsListJobsQueryLatOneMax),
+      zod.null(),
+    ])
+    .optional()
+    .describe('Точка зрителя'),
+  lon: zod
+    .union([
+      zod.number().min(jobsListJobsQueryLonOneMin).max(jobsListJobsQueryLonOneMax),
+      zod.null(),
+    ])
+    .optional(),
+  radius_km: zod
+    .union([
+      zod
+        .number()
+        .gt(jobsListJobsQueryRadiusKmOneExclusiveMin)
+        .max(jobsListJobsQueryRadiusKmOneMax),
+      zod.null(),
+    ])
+    .optional()
+    .describe('Радиус от точки'),
+  urgency: zod
+    .union([zod.array(zod.enum(['asap', 'today', 'this_week', 'flexible'])), zod.null()])
+    .optional(),
+  budget_from: zod
+    .union([zod.int().min(1), zod.null()])
+    .optional()
+    .describe('Пара: бюджет не меньше (договорные — нет)'),
+  lang: zod
+    .union([zod.array(zod.string()), zod.null()])
+    .optional()
+    .describe('Языки общения: заявки на любом из них'),
+  has_photos: zod.boolean().default(jobsListJobsQueryHasPhotosDefault).describe('Только с фото'),
+});
+
+export const JobsListJobsResponse = zod.object({
+  items: zod.array(
+    zod
+      .object({
+        id: zod.uuid(),
+        title: zod.string(),
+        description: zod.string().describe('Начало описания — до 280 знаков, дальше «…»'),
+        category_id: zod.int(),
+        urgency: zod.enum(['asap', 'today', 'this_week', 'flexible']),
+        preferred_from: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+        preferred_to: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+        budget_type: zod.enum(['fixed', 'range', 'negotiable']),
+        budget_min: zod.union([
+          zod.object({
+            amount: zod.int(),
+            currency: zod.enum(['RSD', 'XTR']),
+          }),
+          zod.null(),
+        ]),
+        budget_max: zod.union([
+          zod.object({
+            amount: zod.int(),
+            currency: zod.enum(['RSD', 'XTR']),
+          }),
+          zod.null(),
+        ]),
+        budget_unit: zod.enum(['work', 'hour', 'm2', 'visit', 'item', 'lesson']),
+        district_id: zod.union([zod.int(), zod.null()]),
+        distance_m: zod
+          .union([zod.int(), zod.null()])
+          .describe('До точки зрителя, шагом 100 м; без точки — null'),
+        photos: zod
+          .array(
+            zod.object({
+              url: zod.string(),
+              width: zod.int(),
+              height: zod.int(),
+              placeholder: zod
+                .union([zod.string(), zod.null()])
+                .describe('ThumbHash (base64) для мгновенного превью'),
+            }),
+          )
+          .describe('До трёх превью (thumb)'),
+        photos_count: zod.int(),
+        responses_count: zod.int(),
+        max_responses: zod.int(),
+        published_at: zod.iso.datetime({ offset: true }),
+      })
+      .describe('Карточка ленты S13: начало описания, превью фото, место и счётчик откликов.'),
+  ),
+  next_cursor: zod.union([zod.string(), zod.null()]),
+});
+
+/**
+ * Сколько заявок с фильтрами 🔓: «Показать N» S14, «N новых задач рядом» на Главной.
+ * @summary Count Jobs
+ */
+export const jobsCountJobsQueryNewHoursOneMax = 168;
+
+export const jobsCountJobsQueryLatOneMin = -90;
+export const jobsCountJobsQueryLatOneMax = 90;
+
+export const jobsCountJobsQueryLonOneMin = -180;
+export const jobsCountJobsQueryLonOneMax = 180;
+
+export const jobsCountJobsQueryRadiusKmOneExclusiveMin = 0;
+export const jobsCountJobsQueryRadiusKmOneMax = 50;
+
+export const jobsCountJobsQueryHasPhotosDefault = false;
+
+export const JobsCountJobsQueryParams = zod.object({
+  new_hours: zod
+    .union([zod.int().min(1).max(jobsCountJobsQueryNewHoursOneMax), zod.null()])
+    .optional()
+    .describe('Только опубликованные за часы'),
+  city_id: zod.int().min(1).describe('Город ленты'),
+  category: zod
+    .union([zod.array(zod.int()), zod.null()])
+    .optional()
+    .describe('Категории: с подкатегориями, любая из них'),
+  district: zod
+    .union([zod.array(zod.int()), zod.null()])
+    .optional()
+    .describe('Районы: любой из них'),
+  lat: zod
+    .union([
+      zod.number().min(jobsCountJobsQueryLatOneMin).max(jobsCountJobsQueryLatOneMax),
+      zod.null(),
+    ])
+    .optional()
+    .describe('Точка зрителя'),
+  lon: zod
+    .union([
+      zod.number().min(jobsCountJobsQueryLonOneMin).max(jobsCountJobsQueryLonOneMax),
+      zod.null(),
+    ])
+    .optional(),
+  radius_km: zod
+    .union([
+      zod
+        .number()
+        .gt(jobsCountJobsQueryRadiusKmOneExclusiveMin)
+        .max(jobsCountJobsQueryRadiusKmOneMax),
+      zod.null(),
+    ])
+    .optional()
+    .describe('Радиус от точки'),
+  urgency: zod
+    .union([zod.array(zod.enum(['asap', 'today', 'this_week', 'flexible'])), zod.null()])
+    .optional(),
+  budget_from: zod
+    .union([zod.int().min(1), zod.null()])
+    .optional()
+    .describe('Пара: бюджет не меньше (договорные — нет)'),
+  lang: zod
+    .union([zod.array(zod.string()), zod.null()])
+    .optional()
+    .describe('Языки общения: заявки на любом из них'),
+  has_photos: zod.boolean().default(jobsCountJobsQueryHasPhotosDefault).describe('Только с фото'),
+});
+
+export const JobsCountJobsResponse = zod.object({
+  count: zod.int(),
 });
 
 /**
@@ -238,6 +457,31 @@ export const JobsGetJobResponse = zod.object({
   address_private: zod.union([zod.string(), zod.null()]).describe('Только владельцу'),
   languages: zod.array(zod.string()),
   media_ids: zod.array(zod.uuid()),
+  photos: zod
+    .array(
+      zod.object({
+        url: zod.string(),
+        width: zod.int(),
+        height: zod.int(),
+        placeholder: zod
+          .union([zod.string(), zod.null()])
+          .describe('ThumbHash (base64) для мгновенного превью'),
+      }),
+    )
+    .describe('Готовые фото, вариант md (800 px)'),
+  client: zod
+    .union([
+      zod
+        .object({
+          display_name: zod.string(),
+          member_since: zod.iso.datetime({ offset: true }),
+          jobs_count: zod.int().describe('Сколько заявок клиента публиковалось'),
+          phone_verified: zod.boolean(),
+        })
+        .describe('Блок клиента S15: «Елена К. · в «Соседях» 3 месяца · 2 заявки».'),
+      zod.null(),
+    ])
+    .describe('Блок клиента; null — аккаунт удалён'),
   max_responses: zod.int(),
   responses_count: zod.int(),
   extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
@@ -396,6 +640,31 @@ export const JobsUpdateJobResponse = zod.object({
   address_private: zod.union([zod.string(), zod.null()]).describe('Только владельцу'),
   languages: zod.array(zod.string()),
   media_ids: zod.array(zod.uuid()),
+  photos: zod
+    .array(
+      zod.object({
+        url: zod.string(),
+        width: zod.int(),
+        height: zod.int(),
+        placeholder: zod
+          .union([zod.string(), zod.null()])
+          .describe('ThumbHash (base64) для мгновенного превью'),
+      }),
+    )
+    .describe('Готовые фото, вариант md (800 px)'),
+  client: zod
+    .union([
+      zod
+        .object({
+          display_name: zod.string(),
+          member_since: zod.iso.datetime({ offset: true }),
+          jobs_count: zod.int().describe('Сколько заявок клиента публиковалось'),
+          phone_verified: zod.boolean(),
+        })
+        .describe('Блок клиента S15: «Елена К. · в «Соседях» 3 месяца · 2 заявки».'),
+      zod.null(),
+    ])
+    .describe('Блок клиента; null — аккаунт удалён'),
   max_responses: zod.int(),
   responses_count: zod.int(),
   extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
@@ -422,6 +691,16 @@ export const JobsDeleteJobParams = zod.object({
 });
 
 export const JobsDeleteJobResponse = zod.void();
+
+/**
+ * «Не интересно» (S15): заявка пропадает из ленты; повтор — без ошибки.
+ * @summary Hide Job
+ */
+export const JobsHideJobParams = zod.object({
+  job_id: zod.uuid().describe('id заявки'),
+});
+
+export const JobsHideJobResponse = zod.void();
 
 /**
  * Закрыть с причиной: нашёл здесь, нашёл в другом месте, уже не нужно, не подошли.
@@ -498,6 +777,31 @@ export const JobsCloseJobResponse = zod.object({
   address_private: zod.union([zod.string(), zod.null()]).describe('Только владельцу'),
   languages: zod.array(zod.string()),
   media_ids: zod.array(zod.uuid()),
+  photos: zod
+    .array(
+      zod.object({
+        url: zod.string(),
+        width: zod.int(),
+        height: zod.int(),
+        placeholder: zod
+          .union([zod.string(), zod.null()])
+          .describe('ThumbHash (base64) для мгновенного превью'),
+      }),
+    )
+    .describe('Готовые фото, вариант md (800 px)'),
+  client: zod
+    .union([
+      zod
+        .object({
+          display_name: zod.string(),
+          member_since: zod.iso.datetime({ offset: true }),
+          jobs_count: zod.int().describe('Сколько заявок клиента публиковалось'),
+          phone_verified: zod.boolean(),
+        })
+        .describe('Блок клиента S15: «Елена К. · в «Соседях» 3 месяца · 2 заявки».'),
+      zod.null(),
+    ])
+    .describe('Блок клиента; null — аккаунт удалён'),
   max_responses: zod.int(),
   responses_count: zod.int(),
   extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
@@ -586,6 +890,31 @@ export const JobsExtendJobResponse = zod.object({
   address_private: zod.union([zod.string(), zod.null()]).describe('Только владельцу'),
   languages: zod.array(zod.string()),
   media_ids: zod.array(zod.uuid()),
+  photos: zod
+    .array(
+      zod.object({
+        url: zod.string(),
+        width: zod.int(),
+        height: zod.int(),
+        placeholder: zod
+          .union([zod.string(), zod.null()])
+          .describe('ThumbHash (base64) для мгновенного превью'),
+      }),
+    )
+    .describe('Готовые фото, вариант md (800 px)'),
+  client: zod
+    .union([
+      zod
+        .object({
+          display_name: zod.string(),
+          member_since: zod.iso.datetime({ offset: true }),
+          jobs_count: zod.int().describe('Сколько заявок клиента публиковалось'),
+          phone_verified: zod.boolean(),
+        })
+        .describe('Блок клиента S15: «Елена К. · в «Соседях» 3 месяца · 2 заявки».'),
+      zod.null(),
+    ])
+    .describe('Блок клиента; null — аккаунт удалён'),
   max_responses: zod.int(),
   responses_count: zod.int(),
   extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
@@ -604,7 +933,7 @@ export const JobsExtendJobResponse = zod.object({
 });
 
 /**
- * Свои заявки (S22), новые первыми.
+ * Свои заявки (S22), новые первыми; блока клиента в своём списке нет.
  * @summary List My Jobs
  */
 export const JobsListMyJobsQueryParams = zod.object({
@@ -694,6 +1023,31 @@ export const JobsListMyJobsResponse = zod.object({
       address_private: zod.union([zod.string(), zod.null()]).describe('Только владельцу'),
       languages: zod.array(zod.string()),
       media_ids: zod.array(zod.uuid()),
+      photos: zod
+        .array(
+          zod.object({
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+            placeholder: zod
+              .union([zod.string(), zod.null()])
+              .describe('ThumbHash (base64) для мгновенного превью'),
+          }),
+        )
+        .describe('Готовые фото, вариант md (800 px)'),
+      client: zod
+        .union([
+          zod
+            .object({
+              display_name: zod.string(),
+              member_since: zod.iso.datetime({ offset: true }),
+              jobs_count: zod.int().describe('Сколько заявок клиента публиковалось'),
+              phone_verified: zod.boolean(),
+            })
+            .describe('Блок клиента S15: «Елена К. · в «Соседях» 3 месяца · 2 заявки».'),
+          zod.null(),
+        ])
+        .describe('Блок клиента; null — аккаунт удалён'),
       max_responses: zod.int(),
       responses_count: zod.int(),
       extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),

@@ -8,33 +8,63 @@
 - `PATCH /jobs/{id}` (If-Match → 412), `POST /jobs/{id}/close`, `POST /jobs/{id}/extend`,
   `DELETE /jobs/{id}` — только владелец; чужая заявка — 404.
 - `GET /me/jobs?status=` — свои заявки, новые первыми.
-Лимиты новичка — в use case (§13.3).
+- `GET /jobs` 🔓 — лента исполнителя (S13, 5.3): заявки города, свежие сверху, фильтры §9.6,
+  курсор; `GET /jobs/count` 🔓 — «Показать N» шторки S14 и «N новых задач рядом» Главной.
+- `POST /jobs/{id}/hide` — «не интересно»: заявка пропадает из ленты этого исполнителя.
+Лимиты новичка — в use case (§13.3); лента и счётчик — 60 / 120 запросов в минуту.
 """
 
+from dataclasses import replace
+from datetime import timedelta
 from typing import Annotated, Final
 from uuid import UUID
 
 from dishka.integrations.fastapi import FromDishka, inject
 from fastapi import APIRouter, Depends, Path, Query, Response, status
 
+from app.modules.jobs.application.feed import FeedFilters
+from app.modules.jobs.application.photos import LARGE, photos_of
 from app.modules.jobs.application.ports import JobQueries
+from app.modules.jobs.application.use_cases.browse_jobs import BrowseJobs, BrowseJobsCommand
 from app.modules.jobs.application.use_cases.close_job import CloseJob, CloseJobCommand
 from app.modules.jobs.application.use_cases.create_job import CreateJob, CreateJobCommand
 from app.modules.jobs.application.use_cases.delete_job import DeleteJob, DeleteJobCommand
 from app.modules.jobs.application.use_cases.edit_job import EditJob, EditJobCommand
 from app.modules.jobs.application.use_cases.extend_job import ExtendJob, ExtendJobCommand
-from app.modules.jobs.domain.job import CloseReason, JobId, JobStatus
-from app.modules.jobs.domain.policies import can_view
+from app.modules.jobs.application.use_cases.hide_job import HideJob, HideJobCommand
+from app.modules.jobs.application.use_cases.show_job import JobDetails, ShowJob, ShowJobCommand
+from app.modules.jobs.domain.job import CloseReason, JobId, JobStatus, Urgency
 from app.modules.jobs.errors import JobNotFoundError
-from app.modules.jobs.http.schemas import JobCloseIn, JobIn, JobOut, JobsOut
+from app.modules.jobs.http.schemas import (
+    JobCardOut,
+    JobCloseIn,
+    JobIn,
+    JobOut,
+    JobsCountOut,
+    JobsOut,
+    JobsPageOut,
+)
+from app.modules.media.api import MediaApi
 from app.platform.http.concurrency import IfMatch, set_etag
 from app.platform.http.idempotency import idempotent_router
+from app.platform.http.ratelimit import GuestOrUserRateLimit
 from app.platform.http.security import AUTHENTICATED, optional_principal
-from app.platform.kernel.ids import UserId
+from app.platform.kernel.clock import Clock
+from app.platform.kernel.errors import DomainValidationError
+from app.platform.kernel.geo import GeoPoint
+from app.platform.kernel.ids import CategoryId, CityId, DistrictId, UserId
 from app.platform.kernel.localized import Locale
+from app.platform.kernel.pagination import DEFAULT_LIMIT, PageRequest
 from app.platform.kernel.principal import Principal
+from app.platform.ratelimit import Rate
 
 MY_JOBS_LIMIT: Final = 50
+FEED_MAX_LIMIT: Final = 50
+MAX_RADIUS_KM: Final = 50
+MAX_NEW_HOURS: Final = 168
+FEED_GUEST = Rate("jobs.feed_guest", "60/minute")
+FEED_USER = Rate("jobs.feed_user", "120/minute")
+feed_limit = [Depends(GuestOrUserRateLimit(guest=FEED_GUEST, user=FEED_USER))]
 
 router = APIRouter(tags=["jobs"])
 creating = idempotent_router()
@@ -51,7 +81,7 @@ async def create_job(
     principal: FromDishka[Principal],
     locale: FromDishka[Locale],
     create: FromDishka[CreateJob],
-    queries: FromDishka[JobQueries],
+    show: FromDishka[ShowJob],
     response: Response,
 ) -> JobOut:
     """Создать заявку: сразу на проверку, лимиты новичка — 429."""
@@ -62,29 +92,124 @@ async def create_job(
             draft=body.draft(_language(locale)),
         )
     )
-    return await _own(queries, job_id, principal.user_id, response)
+    return await _own(show, job_id, principal.user_id, response)
 
 
 router.include_router(creating)
 
 
-@router.get("/jobs/{job_id}", response_model=JobOut)
+def feed_filters(
+    *,
+    city_id: Annotated[int, Query(ge=1, description="Город ленты")],
+    category: Annotated[
+        list[int] | None, Query(description="Категории: с подкатегориями, любая из них")
+    ] = None,
+    district: Annotated[list[int] | None, Query(description="Районы: любой из них")] = None,
+    lat: Annotated[float | None, Query(ge=-90, le=90, description="Точка зрителя")] = None,
+    lon: Annotated[float | None, Query(ge=-180, le=180)] = None,
+    radius_km: Annotated[
+        float | None, Query(gt=0, le=MAX_RADIUS_KM, description="Радиус от точки")
+    ] = None,
+    urgency: Annotated[list[Urgency] | None, Query()] = None,
+    budget_from: Annotated[
+        int | None, Query(ge=1, description="Пара: бюджет не меньше (договорные — нет)")
+    ] = None,
+    lang: Annotated[
+        list[str] | None, Query(description="Языки общения: заявки на любом из них")
+    ] = None,
+    has_photos: Annotated[bool, Query(description="Только с фото")] = False,
+) -> FeedFilters:
+    if (lat is None) != (lon is None):
+        raise DomainValidationError(field="lon" if lon is None else "lat", reason="pair")
+    if radius_km is not None and lat is None:
+        raise DomainValidationError(field="radius_km", reason="needs_point")
+    return FeedFilters(
+        city_id=CityId(city_id),
+        category_ids=tuple(CategoryId(item) for item in dict.fromkeys(category or [])),
+        district_ids=tuple(DistrictId(item) for item in dict.fromkeys(district or [])),
+        near=GeoPoint(lat=lat, lon=lon) if lat is not None and lon is not None else None,
+        radius_m=round(radius_km * 1000) if radius_km is not None else None,
+        urgencies=tuple(dict.fromkeys(urgency or [])),
+        budget_from=budget_from,
+        languages=tuple(dict.fromkeys(lang or [])),
+        with_photos=has_photos,
+    )
+
+
+Feed = Annotated[FeedFilters, Depends(feed_filters)]
+
+
+@router.get("/jobs", response_model=JobsPageOut, dependencies=feed_limit)
+@inject
+async def list_jobs(
+    filters: Feed,
+    viewer: Viewer,
+    browse: FromDishka[BrowseJobs],
+    cursor: Annotated[str | None, Query(max_length=512)] = None,
+    limit: Annotated[int, Query(ge=1, le=FEED_MAX_LIMIT)] = DEFAULT_LIMIT,
+) -> JobsPageOut:
+    """Лента 🔓 (S13): опубликованные заявки города, свежие сверху; свои и скрытые — нет."""
+    page = await browse(
+        BrowseJobsCommand(
+            filters=filters,
+            viewer_id=viewer.user_id if viewer is not None else None,
+            page=PageRequest(limit=limit, cursor=cursor),
+        )
+    )
+    return JobsPageOut(
+        items=[JobCardOut.of(card) for card in page.items], next_cursor=page.next_cursor
+    )
+
+
+@router.get("/jobs/count", response_model=JobsCountOut, dependencies=feed_limit)
+@inject
+async def count_jobs(
+    filters: Feed,
+    viewer: Viewer,
+    queries: FromDishka[JobQueries],
+    clock: FromDishka[Clock],
+    new_hours: Annotated[
+        int | None, Query(ge=1, le=MAX_NEW_HOURS, description="Только опубликованные за часы")
+    ] = None,
+) -> JobsCountOut:
+    """Сколько заявок с фильтрами 🔓: «Показать N» S14, «N новых задач рядом» на Главной."""
+    now = clock.now()
+    if new_hours is not None:
+        filters = replace(filters, published_after=now - timedelta(hours=new_hours))
+    count = await queries.feed_count(
+        filters, viewer_id=viewer.user_id if viewer is not None else None, now=now
+    )
+    return JobsCountOut(count=count)
+
+
+@router.get("/jobs/{job_id:uuid}", response_model=JobOut)
 @inject
 async def get_job(
-    job_id: JobPath, viewer: Viewer, queries: FromDishka[JobQueries], response: Response
+    job_id: JobPath, viewer: Viewer, show: FromDishka[ShowJob], response: Response
 ) -> JobOut:
     """Заявка 🔓: опубликованная — всем без точной точки и адреса, своя — владельцу целиком."""
     viewer_id = viewer.user_id if viewer is not None else None
-    job = await queries.view(JobId(job_id))
-    if job is None or not can_view(client_id=job.client_id, status=job.status, viewer_id=viewer_id):
-        raise JobNotFoundError(job_id=job_id)
-    owner = viewer_id == job.client_id
+    details = await show(ShowJobCommand(job_id=JobId(job_id), viewer_id=viewer_id))
+    owner = viewer_id == details.job.client_id
     if owner:
-        set_etag(response, job.version)
-    return JobOut.of(job, owner=owner)
+        set_etag(response, details.job.version)
+    return JobOut.of(details, owner=owner)
 
 
-@router.patch("/jobs/{job_id}", response_model=JobOut, dependencies=AUTHENTICATED)
+@router.post(
+    "/jobs/{job_id:uuid}/hide",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=AUTHENTICATED,
+)
+@inject
+async def hide_job(
+    job_id: JobPath, principal: FromDishka[Principal], hide: FromDishka[HideJob]
+) -> None:
+    """«Не интересно» (S15): заявка пропадает из ленты; повтор — без ошибки."""
+    await hide(HideJobCommand(actor_id=principal.user_id, job_id=JobId(job_id)))
+
+
+@router.patch("/jobs/{job_id:uuid}", response_model=JobOut, dependencies=AUTHENTICATED)
 @inject
 async def update_job(
     job_id: JobPath,
@@ -93,7 +218,7 @@ async def update_job(
     principal: FromDishka[Principal],
     locale: FromDishka[Locale],
     edit: FromDishka[EditJob],
-    queries: FromDishka[JobQueries],
+    show: FromDishka[ShowJob],
     response: Response,
 ) -> JobOut:
     """Правка владельцем целиком: отклонённая и существенно изменённая — снова на проверку."""
@@ -105,17 +230,17 @@ async def update_job(
             expected_version=expected_version,
         )
     )
-    return await _own(queries, JobId(job_id), principal.user_id, response)
+    return await _own(show, JobId(job_id), principal.user_id, response)
 
 
-@router.post("/jobs/{job_id}/close", response_model=JobOut, dependencies=AUTHENTICATED)
+@router.post("/jobs/{job_id:uuid}/close", response_model=JobOut, dependencies=AUTHENTICATED)
 @inject
 async def close_job(
     job_id: JobPath,
     body: JobCloseIn,
     principal: FromDishka[Principal],
     close: FromDishka[CloseJob],
-    queries: FromDishka[JobQueries],
+    show: FromDishka[ShowJob],
     response: Response,
 ) -> JobOut:
     """Закрыть с причиной: нашёл здесь, нашёл в другом месте, уже не нужно, не подошли."""
@@ -124,24 +249,26 @@ async def close_job(
             actor_id=principal.user_id, job_id=JobId(job_id), reason=CloseReason(body.reason)
         )
     )
-    return await _own(queries, JobId(job_id), principal.user_id, response)
+    return await _own(show, JobId(job_id), principal.user_id, response)
 
 
-@router.post("/jobs/{job_id}/extend", response_model=JobOut, dependencies=AUTHENTICATED)
+@router.post("/jobs/{job_id:uuid}/extend", response_model=JobOut, dependencies=AUTHENTICATED)
 @inject
 async def extend_job(
     job_id: JobPath,
     principal: FromDishka[Principal],
     extend: FromDishka[ExtendJob],
-    queries: FromDishka[JobQueries],
+    show: FromDishka[ShowJob],
     response: Response,
 ) -> JobOut:
     """Продлить опубликованную или переопубликовать истёкшую; четвёртый раз — 409."""
     await extend(ExtendJobCommand(actor_id=principal.user_id, job_id=JobId(job_id)))
-    return await _own(queries, JobId(job_id), principal.user_id, response)
+    return await _own(show, JobId(job_id), principal.user_id, response)
 
 
-@router.delete("/jobs/{job_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=AUTHENTICATED)
+@router.delete(
+    "/jobs/{job_id:uuid}", status_code=status.HTTP_204_NO_CONTENT, dependencies=AUTHENTICATED
+)
 @inject
 async def delete_job(
     job_id: JobPath, principal: FromDishka[Principal], delete: FromDishka[DeleteJob]
@@ -155,21 +282,32 @@ async def delete_job(
 async def list_my_jobs(
     principal: FromDishka[Principal],
     queries: FromDishka[JobQueries],
+    media: FromDishka[MediaApi],
     statuses: Annotated[
         list[JobStatus] | None, Query(alias="status", description="Без фильтра — все")
     ] = None,
 ) -> JobsOut:
-    """Свои заявки (S22), новые первыми."""
+    """Свои заявки (S22), новые первыми; блока клиента в своём списке нет."""
     jobs = await queries.own(principal.user_id, statuses or [], limit=MY_JOBS_LIMIT)
-    return JobsOut(items=[JobOut.of(job, owner=True) for job in jobs])
+    wanted = {media_id for job in jobs for media_id in job.media_ids}
+    refs = await media.refs(wanted) if wanted else {}
+    return JobsOut(
+        items=[
+            JobOut.of(
+                JobDetails(job=job, photos=photos_of(job.media_ids, refs, LARGE), client=None),
+                owner=True,
+            )
+            for job in jobs
+        ]
+    )
 
 
-async def _own(queries: JobQueries, job_id: JobId, owner_id: UserId, response: Response) -> JobOut:
-    job = await queries.view(job_id)
-    if job is None or job.client_id != owner_id:
+async def _own(show: ShowJob, job_id: JobId, owner_id: UserId, response: Response) -> JobOut:
+    details = await show(ShowJobCommand(job_id=job_id, viewer_id=owner_id))
+    if details.job.client_id != owner_id:
         raise JobNotFoundError(job_id=job_id)
-    set_etag(response, job.version)
-    return JobOut.of(job, owner=True)
+    set_etag(response, details.job.version)
+    return JobOut.of(details, owner=True)
 
 
 def _language(locale: Locale) -> str:

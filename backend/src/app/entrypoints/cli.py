@@ -496,7 +496,10 @@ def seed_demo(
     scale: Annotated[
         DemoScale,
         typer.Option(
-            help="small — 60 специалистов с фото и 20 клиентов с заявками; lab — 50 000 без фото"
+            help=(
+                "small — 60 специалистов с фото и 20 клиентов с заявками;"
+                " lab — 50 000 специалистов без фото и 1 000 заявок"
+            )
         ),
     ] = DemoScale.SMALL,
 ) -> None:

@@ -134,6 +134,12 @@ async def specialist(app: HttpApp, settings: Settings, telegram_id: int) -> Acco
         address_private="Народног фронта 12, стан 5",
     )
     assert job.status_code == 201, job.text
+    # «не интересно» в ленте (5.3) — строкой: своя заявка в ленте не видна, но строка законна
+    await account.execute(
+        "INSERT INTO jobs.hidden_jobs (user_id, job_id) VALUES (:user, :job)",
+        user=account.user_id,
+        job=job.json()["id"],
+    )
     # избранное (4.6) — строкой: сохранить через API можно только видимого в каталоге
     await account.execute(
         "INSERT INTO search.favorites (user_id, target_type, target_id)"
@@ -218,6 +224,7 @@ async def test_deleted_account_keeps_nothing_personal(
         "избранное": "SELECT count(*) FROM search.favorites WHERE user_id = :user",
         "заявки": "SELECT count(*) FROM jobs.jobs WHERE client_id = :user"
         " AND (deleted_at IS NULL OR status <> 'closed' OR address_private IS NOT NULL)",
+        "скрытые заявки": "SELECT count(*) FROM jobs.hidden_jobs WHERE user_id = :user",
     }
     for what, sql in mine.items():
         assert await count(account, sql, user=account.user_id) == 0, what

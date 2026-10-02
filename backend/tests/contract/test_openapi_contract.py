@@ -57,7 +57,15 @@ def live_api(storage_settings: Settings) -> Iterator[str]:
 
 schema = schemathesis.openapi.from_path(OPENAPI)
 
-CROSS_FIELD_RULES = frozenset({"GET /api/v1/specialists", "GET /api/v1/specialists/count"})
+CROSS_FIELD_RULES = frozenset(
+    {
+        "GET /api/v1/specialists",
+        "GET /api/v1/specialists/count",
+        # лента заявок (5.3): точка — парой lat и lon, радиус — от точки, курсор — непрозрачный
+        "GET /api/v1/jobs",
+        "GET /api/v1/jobs/count",
+    }
+)
 """Выдача (4.2, 4.4): правила между параметрами, которых нет в OpenAPI, — широта без долготы,
 радиус или сортировка по расстоянию без точки, непрозрачный курсор. На такой запрос по
 схеме API честно отвечает 422; остальные проверки (5xx, схема ответа) для них остаются."""
