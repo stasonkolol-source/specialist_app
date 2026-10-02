@@ -18,6 +18,7 @@ import {
   accepted,
   CATEGORY_COUNTS,
   E2E_AVAILABLE_UNTIL,
+  cardReply,
   cardsFor,
   categoriesFor,
   citiesFor,
@@ -149,6 +150,10 @@ export async function mockApi(
       if (reply?.status === 204) return route.fulfill({ status: 204 });
       if (reply) return route.fulfill(json(reply.body, reply.status));
     }
+    // карточка специалиста S08–S10 (4.5): «Сегодня до 20:00» — как в выдаче (часы E2E_NOW)
+    const card =
+      request.method() === 'GET' ? cardReply(url.pathname, language, E2E_AVAILABLE_UNTIL) : null;
+    if (card) return route.fulfill(json(card.body, card.status));
     // районы города: /cities/{id}/districts — названия на языке запроса
     if (/^GET \/api\/v1\/cities\/\d+\/districts$/.test(key)) {
       return route.fulfill(json(districtsFor(language)));

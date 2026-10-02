@@ -2,6 +2,10 @@
 // Ответы существующих эндпоинтов — типами api-client; данные экранов, для которых API ещё нет
 // (специалисты, заявки, отклики), — формой из SPEC: шаги этапа 1 заменят их моделями OpenAPI.
 import type {
+  CardServiceOut,
+  CardServicesOut,
+  CardWorkOut,
+  CardWorksOut,
   CategoryCountsOut,
   CategoryOut,
   CityOut,
@@ -16,11 +20,12 @@ import type {
   ServiceOut,
   SpecialistCardOut,
   SpecialistPageOut,
+  SpecialistProfileOut,
   TelegramChannelOut,
   WorkKind,
   WorkOut,
 } from '@sosed/api-client';
-import { encodeStartParam } from '@sosed/links';
+import { encodeStartParam, isUuid } from '@sosed/links';
 
 import { draftDocument } from './legal.ts';
 
@@ -537,3 +542,195 @@ export const CATEGORY_COUNTS: CategoryCountsOut = {
     { category_id: CATEGORY_IDS['cleaning'] ?? 0, count: 3 },
   ],
 };
+
+/** Карточка S08–S10 — первый специалист выдачи (Алексей Морозов), как на артбордах. */
+export const CARD_PROFILE_ID = '0199cc00-0000-7000-8000-000000000001';
+/** Профиль, который скрыт или снят: BFF отвечает 404. */
+export const HIDDEN_PROFILE_ID = '0199cc00-0000-7000-8000-000000000404';
+
+const categoryName = (slug: string, locale: string | null) =>
+  categoriesFor(locale)
+    .flatMap((node) => [node, ...node.children])
+    .find((node) => node.slug === slug)?.name ?? slug;
+
+const districtName = (name: (typeof DISTRICTS)[number], locale: string | null) => ({
+  id: DISTRICT_IDS[name],
+  name: latin(locale) ? DISTRICT_NAMES_LATIN[name] : name,
+});
+
+/** Позиция прайса артборда S09: id по номеру, цена в динарах. */
+function cardService(
+  n: number,
+  title: string,
+  category: string,
+  dinars: number,
+  extra: Partial<CardServiceOut> = {},
+): CardServiceOut {
+  return {
+    id: `0199bb00-0000-7000-8000-00000000050${n}`,
+    title,
+    description: null,
+    category_id: CATEGORY_IDS[category] ?? null,
+    price_type: 'fixed',
+    price_min: { amount: dinars * 100, currency: 'RSD' },
+    price_max: null,
+    unit: null,
+    duration_min: null,
+    ...extra,
+  };
+}
+
+/** Прайс артборда S09 в порядке позиций: первые три — «Цены» на S08, группы — по первой позиции. */
+export const CARD_SERVICES: CardServiceOut[] = [
+  cardService(1, 'Выезд и диагностика', 'handyman', 2000, { unit: 'visit', duration_min: 60 }),
+  cardService(2, 'Установка люстры', 'chandeliers', 2500, { price_type: 'from', unit: 'item', duration_min: 120 }),
+  cardService(3, 'Розетка или выключатель', 'electrical', 1000, { unit: 'item', duration_min: 60 }),
+  cardService(4, 'Мастер на час', 'handyman', 2000, { price_type: 'hourly', description: 'Мелкий ремонт' }),
+  cardService(5, 'Срочный выезд', 'handyman', 3000, { unit: 'visit', description: 'В течение 2 часов' }),
+  cardService(6, 'Точечный светильник', 'chandeliers', 600, { unit: 'item', duration_min: 60 }),
+  cardService(7, 'Бра', 'chandeliers', 1200, { unit: 'item', duration_min: 60 }),
+  cardService(8, 'Замена автомата в щитке', 'electrical', 1500, { unit: 'item', duration_min: 60 }),
+  cardService(9, 'Прокладка кабеля', 'electrical', 400, { price_type: 'from', description: 'Открыто или в штробе' }),
+]; // prettier-ignore
+
+/** Работы артбордов S08 и S10: 18 штук, третья — ролик. Вариантов нет — плитки со штриховкой и
+ *  подписью, как на артбордах. */
+export const CARD_WORKS: CardWorkOut[] = [
+  'Люстра, Лиман', 'Щиток', 'Подсветка кухни', 'Люстра на 5 рожков', 'Бра в спальне',
+  'Розетки на кухне', 'Карниз', 'Люстра, Грбавица', 'Кабель-канал', 'Выключатели',
+  'Точечные светильники', 'Люстра в прихожей', 'Замена автомата', 'Подсветка лестницы',
+  'Розетка в ванной', 'Люстра, Центр', 'Щиток, Телеп', 'Подсветка ниши',
+].map((caption, n): CardWorkOut => {
+  const kind = n === 2 ? 'video' : 'image';
+  const id = `0199dd00-0000-7000-8000-${String(n + 101).padStart(12, '0')}`;
+  return {
+    id,
+    kind,
+    caption,
+    photo: {
+      placeholder: null,
+      variants: [],
+      video_url: kind === 'video' ? `/cdn/${id}/video.mp4` : null,
+      duration_ms: kind === 'video' ? 42_000 : null,
+    },
+  };
+}); // prettier-ignore
+
+/** GET /specialists/{id} артборда S08: «Сегодня до» — `availableUntil`, по умолчанию через 3 часа. */
+export function specialistCardFor(
+  locale: string | null,
+  availableUntil = new Date(Date.now() + THREE_HOURS_MS).toISOString(),
+): SpecialistProfileOut {
+  const areas = (['Лиман', 'Грбавица', 'Центр', 'Нова Детелинара'] as const).map((name) =>
+    districtName(name, locale),
+  );
+  return {
+    id: CARD_PROFILE_ID,
+    kind: 'pro',
+    display_name: 'Алексей Морозов',
+    headline: 'Электрик · мелкий ремонт · люстры',
+    about:
+      'Электрик, 12 лет опыта, в Нови-Саде с 2022 года. Свой инструмент и стремянка до 3\u00A0м.',
+    avatar: null,
+    city: { id: 1, name: latin(locale) ? 'Novi Sad' : 'Нови-Сад' },
+    district: areas[0] ?? null,
+    areas,
+    travel_radius_km: null,
+    work_modes: ['at_client'],
+    languages: ['ru', 'sr'],
+    categories: ['electrical', 'chandeliers'].map((slug) => ({
+      id: CATEGORY_IDS[slug] ?? 0,
+      name: categoryName(slug, locale),
+    })),
+    available_until: availableUntil,
+    is_founding: false,
+    rating: 4.9,
+    rating_count: 37,
+    is_new: false,
+    badges: ['phone_verified'],
+    response_time_minutes: null,
+    services: CARD_SERVICES.slice(0, 3),
+    services_count: CARD_SERVICES.length,
+    works: CARD_WORKS.slice(0, 3),
+    works_count: CARD_WORKS.length,
+    published_at: '2026-09-20T10:00:00Z',
+  };
+}
+
+/** Карточка остальных специалистов выдачи: из карточки S05, без прайса и работ. */
+export function plainCardFor(card: SpecialistCardOut): SpecialistProfileOut {
+  return {
+    id: card.profile_id,
+    kind: card.kind,
+    display_name: card.display_name,
+    headline: card.headline,
+    about: null,
+    avatar: null,
+    city: { id: 1, name: CITY },
+    district: card.district,
+    areas: card.district ? [card.district] : [],
+    travel_radius_km: null,
+    work_modes: [],
+    languages: card.languages,
+    categories: [],
+    available_until: card.available_until,
+    is_founding: false,
+    rating: card.rating,
+    rating_count: card.rating_count,
+    is_new: card.is_new,
+    badges: card.badges,
+    response_time_minutes: null,
+    services: [],
+    services_count: 0,
+    works: [],
+    works_count: 0,
+    published_at: null,
+  };
+}
+
+/** GET /specialists/{id}/services: группы — категории в порядке первой позиции, на языке запроса. */
+export function cardServicesFor(locale: string | null): CardServicesOut {
+  const groups = [...new Set(CARD_SERVICES.map((service) => service.category_id))];
+  const slugs = Object.fromEntries(Object.entries(CATEGORY_IDS).map(([slug, id]) => [id, slug]));
+  return {
+    items: CARD_SERVICES,
+    categories: groups
+      .filter((id): id is number => id !== null)
+      .map((id) => ({ id, name: categoryName(slugs[id] ?? '', locale) })),
+  };
+}
+
+export const CARD_WORKS_OUT: CardWorksOut = { items: CARD_WORKS };
+
+const PROFILE_PATH = /^\/api\/v1\/specialists\/([^/]+)(\/services|\/portfolio)?$/;
+
+const notFound = {
+  type: 'about:blank',
+  title: 'Not Found',
+  status: 404,
+  code: 'not_found',
+  trace_id: null,
+};
+
+/**
+ * BFF карточки S08–S10 по фикстурам, как backend: Алексей Морозов — по артбордам, остальные из
+ * выдачи — без прайса и работ, HIDDEN_PROFILE_ID и незнакомые — 404. `null` — путь не карточки
+ * (`/specialists/count`, `/specialists/by-category` — у выдачи).
+ */
+export function cardReply(
+  pathname: string,
+  locale: string | null,
+  availableUntil?: string,
+): { status: number; body: unknown } | null {
+  const [, id = '', page] = PROFILE_PATH.exec(pathname) ?? [];
+  if (!isUuid(id)) return null;
+  const search = cardsFor(locale, availableUntil).find((card) => card.profile_id === id);
+  const full = id === CARD_PROFILE_ID;
+  if (!full && !search) return { status: 404, body: notFound };
+  if (page === '/services') {
+    return { status: 200, body: full ? cardServicesFor(locale) : { items: [], categories: [] } };
+  }
+  if (page === '/portfolio') return { status: 200, body: full ? CARD_WORKS_OUT : { items: [] } };
+  const card = full ? specialistCardFor(locale, availableUntil) : plainCardFor(search!);
+  return { status: 200, body: card };
+}

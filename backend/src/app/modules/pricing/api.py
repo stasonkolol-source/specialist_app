@@ -26,7 +26,28 @@ class SearchPrices:
     """Самая низкая цена по группе позиции (категории S35), пара."""
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PublicService:
+    """Позиция прайса для клиента (карточка S08, прайс S09): видимая, в порядке S35."""
+
+    id: UUID
+    title: str
+    description: str | None
+    category_id: CategoryId | None
+    price_type: str
+    """fixed | from | range | hourly | per_unit | negotiable."""
+    price_min: int | None
+    """Пара."""
+    price_max: int | None
+    unit: str | None
+    duration_min: int | None
+
+
 class PricingApi(Protocol):
     async def search_prices(self, profile_ids: Collection[UUID]) -> dict[UUID, SearchPrices]:
         """Прайсы профилей для поиска; профиль без видимых позиций в ответ не попадает."""
+        ...
+
+    async def public_services(self, profile_id: UUID) -> list[PublicService]:
+        """Видимые позиции прайса профиля в порядке S35: «Скрытые» и удалённые — нет."""
         ...

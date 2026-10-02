@@ -3,7 +3,7 @@ export type { AvatarPalette, AvatarProps, AvatarSize } from './Avatar.tsx';
 export { Avatar, initials, paletteFor } from './Avatar.tsx';
 export type { BadgeTone } from './Badge.tsx';
 export { Badge } from './Badge.tsx';
-export type { ButtonProps, ButtonVariant, IconButtonProps } from './Button.tsx';
+export type { ButtonProps, ButtonVariant, IconButtonProps, LinkButtonProps } from './Button.tsx';
 export { Button, IconButton, LinkButton } from './Button.tsx';
 export type { CardProps } from './Card.tsx';
 export { Card } from './Card.tsx';
@@ -18,7 +18,7 @@ export type { FieldProps, InputProps, SearchFieldProps, TextareaProps } from './
 export { Field, Input, SearchField, Textarea } from './form/Field.tsx';
 export type { FeedRowProps, RowProps } from './Group.tsx';
 export { FeedRow, Group, NumIcon, Row, RowIcon, Tile, Tiles, UnreadDot } from './Group.tsx';
-export type { PhotoProps, PhotoVariant } from './Photo.tsx';
+export type { PhotoFit, PhotoProps, PhotoVariant } from './Photo.tsx';
 export { Photo } from './Photo.tsx';
 export type { SheetProps } from './Sheet.tsx';
 export { Sheet } from './Sheet.tsx';

@@ -63,5 +63,54 @@
       "en": "Engleski",
       "uk": "Ukrajinski"
     }
+  },
+  "profile": {
+    "title": "Profil stručnjaka",
+    "reviews": "{count, plural, one {# utisak} few {# utiska} other {# utisaka}}",
+    "prepayment": "Ne uplaćujte avans nepoznatim izvođačima. Platite kada posao bude završen.",
+    "prices": "Cene",
+    "allPrices": "Ceo cenovnik · {count}",
+    "works": "Radovi",
+    "allWorks": "Svi · {count}",
+    "work": "Rad {number}",
+    "video": "Video: {title}",
+    "about": "O meni",
+    "languageNames": {
+      "ru": "ruski",
+      "sr": "srpski",
+      "en": "engleski",
+      "uk": "ukrajinski"
+    },
+    "travel": "Dolazi: {areas}",
+    "radius": "Dolazi do {km} km",
+    "unavailableTitle": "Profil nije dostupan",
+    "unavailableText": "Stručnjak je sakrio profil ili ga više nema",
+    "toCatalog": "Pronađite drugog stručnjaka"
+  },
+  "prices": {
+    "title": "Cenovnik",
+    "summary": "{name} · {count, plural, one {# usluga} few {# usluge} other {# usluga}}",
+    "note": "Cene su okvirne — tačnu cenu majstor će reći nakon pregleda.",
+    "other": "Ostalo",
+    "durations": {
+      "60": "do 1 sata",
+      "120": "1–2 sata",
+      "240": "pola dana",
+      "480": "ceo dan"
+    },
+    "empty": "Cenovnika još nema"
+  },
+  "portfolio": {
+    "title": "Radovi",
+    "close": "Zatvori pregled",
+    "position": "{number} / {count}",
+    "previous": "Prethodni rad",
+    "next": "Sledeći rad",
+    "others": "Drugi radovi",
+    "thumb": "Rad {number} od {count}",
+    "thumbCurrent": "Rad {number} od {count}, otvoren",
+    "more": "{count, plural, one {Još # rad} few {Još # rada} other {Još # radova}}",
+    "moreShort": "+{count}",
+    "empty": "Radova još nema"
   }
 }

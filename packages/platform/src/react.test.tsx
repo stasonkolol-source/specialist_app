@@ -8,6 +8,7 @@ import {
   useBackButton,
   useBottomButtonState,
   useClosingConfirmation,
+  useColorSchemeOverride,
   useMainButton,
   useSecondaryButton,
   useThemeSync,
@@ -128,5 +129,29 @@ describe('useThemeSync', () => {
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(telegram.callsOf('web_app_set_header_color').at(-1)).toEqual({ color: '#17212B' });
     expect(telegram.callsOf('web_app_set_bottom_bar_color').at(-1)).toEqual({ color: '#17212B' });
+  });
+
+  it('экран со своей темой перекрашивает приложение и клиент, после — снова тема Telegram', () => {
+    const { telegram, wrap } = setup();
+    const chrome = {
+      light: { header: '#FFFFFF', background: '#F2F3F5', bottomBar: '#FFFFFF' },
+      dark: { header: '#17212B', background: '#0E1621', bottomBar: '#17212B' },
+    };
+    function Viewer() {
+      useColorSchemeOverride('dark');
+      return null;
+    }
+    function App({ viewer }: { viewer: boolean }) {
+      useThemeSync(chrome);
+      return viewer ? <Viewer /> : null;
+    }
+    const view = render(wrap(<App viewer />));
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(telegram.callsOf('web_app_set_header_color').at(-1)).toEqual({ color: '#17212B' });
+
+    view.rerender(wrap(<App viewer={false} />));
+
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(telegram.callsOf('web_app_set_header_color').at(-1)).toEqual({ color: '#FFFFFF' });
   });
 });

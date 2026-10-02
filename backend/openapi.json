@@ -2932,6 +2932,153 @@
         ]
       }
     },
+    "/api/v1/specialists/{profile_id}": {
+      "get": {
+        "tags": [
+          "views"
+        ],
+        "summary": "Get Specialist",
+        "description": "Карточка специалиста S08: профиль, первые позиции прайса и превью портфолио.",
+        "operationId": "views_get_specialist",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id профиля специалиста",
+              "title": "Profile Id"
+            },
+            "description": "id профиля специалиста"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpecialistProfileOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Не изменилось (If-None-Match)"
+          }
+        }
+      }
+    },
+    "/api/v1/specialists/{profile_id}/services": {
+      "get": {
+        "tags": [
+          "views"
+        ],
+        "summary": "List Specialist Services",
+        "description": "Прайс специалиста S09: все видимые позиции и их группы (категории).",
+        "operationId": "views_list_specialist_services",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id профиля специалиста",
+              "title": "Profile Id"
+            },
+            "description": "id профиля специалиста"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardServicesOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Не изменилось (If-None-Match)"
+          }
+        }
+      }
+    },
+    "/api/v1/specialists/{profile_id}/portfolio": {
+      "get": {
+        "tags": [
+          "views"
+        ],
+        "summary": "List Specialist Works",
+        "description": "Портфолио специалиста S10: все работы с готовыми файлами, по порядку.",
+        "operationId": "views_list_specialist_works",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id профиля специалиста",
+              "title": "Profile Id"
+            },
+            "description": "id профиля специалиста"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardWorksOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Не изменилось (If-None-Match)"
+          }
+        }
+      }
+    },
     "/api/v1/client-config": {
       "get": {
         "tags": [
@@ -3109,6 +3256,276 @@
           "name"
         ],
         "title": "CardDistrictOut"
+      },
+      "CardNamedOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "CardNamedOut"
+      },
+      "CardPhotoOut": {
+        "properties": {
+          "placeholder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Placeholder",
+            "description": "ThumbHash (base64) для мгновенного превью"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/CardVariantOut"
+            },
+            "type": "array",
+            "title": "Variants"
+          },
+          "video_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Url"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "placeholder",
+          "variants"
+        ],
+        "title": "CardPhotoOut"
+      },
+      "CardServiceOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "price_type": {
+            "type": "string",
+            "title": "Price Type",
+            "description": "fixed | from | range | hourly | per_unit | negotiable"
+          },
+          "price_min": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoneyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "price_max": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoneyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "duration_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Min"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "description",
+          "category_id",
+          "price_type",
+          "price_min",
+          "price_max",
+          "unit",
+          "duration_min"
+        ],
+        "title": "CardServiceOut"
+      },
+      "CardServicesOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CardServiceOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/CardNamedOut"
+            },
+            "type": "array",
+            "title": "Categories",
+            "description": "Группы прайса S09 в порядке позиций"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "categories"
+        ],
+        "title": "CardServicesOut"
+      },
+      "CardVariantOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "thumb 320 · md 800 · lg 1600"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "url",
+          "width",
+          "height"
+        ],
+        "title": "CardVariantOut"
+      },
+      "CardWorkOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "image | video"
+          },
+          "caption": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caption"
+          },
+          "photo": {
+            "$ref": "#/components/schemas/CardPhotoOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "caption",
+          "photo"
+        ],
+        "title": "CardWorkOut"
+      },
+      "CardWorksOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CardWorkOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "CardWorksOut"
       },
       "CategoryCountOut": {
         "properties": {
@@ -5685,6 +6102,238 @@
           "items"
         ],
         "title": "SpecialistPageOut"
+      },
+      "SpecialistProfileOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "pro | casual"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "headline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headline"
+          },
+          "about": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "About"
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardPhotoOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "city": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardNamedOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "district": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardNamedOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Основной район"
+          },
+          "areas": {
+            "items": {
+              "$ref": "#/components/schemas/CardNamedOut"
+            },
+            "type": "array",
+            "title": "Areas",
+            "description": "Районы выезда по порядку"
+          },
+          "travel_radius_km": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Travel Radius Km"
+          },
+          "work_modes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Work Modes"
+          },
+          "languages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Languages"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/CardNamedOut"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "available_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Until",
+            "description": "«Доступен сегодня до …», если ещё да"
+          },
+          "is_founding": {
+            "type": "boolean",
+            "title": "Is Founding"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating",
+            "description": "Когда отзывов достаточно (7.2); иначе is_new"
+          },
+          "rating_count": {
+            "type": "integer",
+            "title": "Rating Count"
+          },
+          "is_new": {
+            "type": "boolean",
+            "title": "Is New"
+          },
+          "badges": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Badges"
+          },
+          "response_time_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Time Minutes",
+            "description": "«Обычно отвечает за …» — с 6.3b"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/CardServiceOut"
+            },
+            "type": "array",
+            "title": "Services",
+            "description": "Первые позиции прайса (S08)"
+          },
+          "services_count": {
+            "type": "integer",
+            "title": "Services Count"
+          },
+          "works": {
+            "items": {
+              "$ref": "#/components/schemas/CardWorkOut"
+            },
+            "type": "array",
+            "title": "Works",
+            "description": "Превью портфолио (S08)"
+          },
+          "works_count": {
+            "type": "integer",
+            "title": "Works Count"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "display_name",
+          "headline",
+          "about",
+          "avatar",
+          "city",
+          "district",
+          "areas",
+          "travel_radius_km",
+          "work_modes",
+          "languages",
+          "categories",
+          "available_until",
+          "is_founding",
+          "rating",
+          "rating_count",
+          "is_new",
+          "badges",
+          "response_time_minutes",
+          "services",
+          "services_count",
+          "works",
+          "works_count",
+          "published_at"
+        ],
+        "title": "SpecialistProfileOut"
       },
       "SpecialistSort": {
         "type": "string",

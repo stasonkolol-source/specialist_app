@@ -30,6 +30,7 @@ import {
   WRITE_ACCESS,
   CATEGORY_COUNTS,
   accepted,
+  cardReply,
   cardsFor,
   categoriesFor,
   citiesFor,
@@ -101,6 +102,16 @@ export const searchHandlers = [
   getSearchCountByCategoryMockHandler(CATEGORY_COUNTS),
 ];
 
+/** Карточка S08–S10 (4.5). После searchHandlers: путь `/specialists/:id` иначе перехватил бы
+ *  `/specialists/count` и `/specialists/by-category`. */
+export const cardHandlers = [
+  http.get(/\/api\/v1\/specialists\/[^/]+(\/services|\/portfolio)?$/, ({ request }) =>
+    respond(
+      cardReply(new URL(request.url).pathname, request.headers.get('Accept-Language')) ?? null,
+    ),
+  ),
+];
+
 export const handlers = [
   getSystemGetClientConfigMockHandler(CLIENT_CONFIG),
   getIdentityAuthenticateTelegramMockHandler({ ...TOKENS, is_new: false, user: ME }),
@@ -124,6 +135,7 @@ export const handlers = [
     categoriesFor(request.headers.get('Accept-Language')),
   ),
   ...searchHandlers,
+  ...cardHandlers,
   ...profileHandlers(() => new ProfileBackend()),
 ];
 

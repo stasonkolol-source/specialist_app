@@ -1,5 +1,5 @@
 // .btn pri/sec/out/dng, .btn.sm, .btn.full и .ibtn из ui.css.
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, MouseEvent, ReactNode } from 'react';
 
 import { FOCUS, cx } from './cx.ts';
 import type { IconName } from './icon/Icon.tsx';
@@ -65,24 +65,40 @@ export function Button({
   );
 }
 
-/** Текстовая кнопка .link.sm: действие рядом с заголовком («Прочитать все» S42), зона нажатия
- *  не меньше 44 px по высоте. */
+export type LinkButtonProps = Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  'children' | 'onClick'
+> & {
+  children: ReactNode;
+  /** Переход на экран («Весь прайс · 9» S08) — ссылка; с `onClick` — внутри приложения. */
+  href?: string;
+  onClick?: (event: MouseEvent<HTMLElement>) => void;
+};
+
+/** Текстовая кнопка .link.sm: действие рядом с заголовком («Прочитать все» S42) или ссылка на
+ *  экран, зона нажатия не меньше 44 px по высоте. */
 export function LinkButton({
   children,
   className,
   type = 'button',
+  href,
+  onClick,
   ...rest
-}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & { children: ReactNode }) {
+}: LinkButtonProps) {
+  const classes = cx(
+    'inline-flex min-h-11 items-center border-0 bg-transparent px-2 text-sm font-semibold text-accent disabled:text-text2',
+    FOCUS,
+    className,
+  );
+  if (href) {
+    return (
+      <a href={href} onClick={onClick} className={classes}>
+        {children}
+      </a>
+    );
+  }
   return (
-    <button
-      type={type}
-      className={cx(
-        'inline-flex min-h-11 items-center border-0 bg-transparent px-2 text-sm font-semibold text-accent disabled:text-text2',
-        FOCUS,
-        className,
-      )}
-      {...rest}
-    >
+    <button type={type} onClick={onClick} className={classes} {...rest}>
       {children}
     </button>
   );

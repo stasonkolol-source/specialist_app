@@ -2385,8 +2385,9 @@ sequenceDiagram
 | `GET /specialists` 🔓 | Поиск по каталогу (фильтры и сортировки из 8.4) → карточки |
 | `GET /specialists/count` 🔓 | Сколько найдёт выдача с теми же фильтрами — «Показать N» в шторке S06 (до 1000) |
 | `GET /specialists/by-category?city_id=` 🔓 | Видимые специалисты города по категориям (с подкатегориями) — дерево S04; кэш 5 минут |
-| `GET /specialists/{id}` 🔓 | Публичный профиль (BFF: профиль, прайс, портфолио, рейтинг, бейджи) |
-| `GET /specialists/{id}/services` 🔓, `GET /specialists/{id}/portfolio` 🔓, `GET /specialists/{id}/reviews?kind=deal\|pre_platform` 🔓 | Полный прайс, портфолио и отзывы постранично |
+| `GET /specialists/{id}` 🔓 | Публичный профиль S08 одним запросом (BFF `interfaces/http/views`): профиль, первые три позиции прайса и три работы, рейтинг, бейджи; ETag, `max-age=60`. Скрытый, снятый санкцией или удалённый профиль — 404 без объяснения, как в поиске |
+| `GET /specialists/{id}/services` 🔓, `GET /specialists/{id}/portfolio` 🔓 | Весь прайс с группами (S09) и все готовые работы (S10) одним ответом: прайс — до 50 позиций, работ — в пределах лимита портфолио |
+| `GET /specialists/{id}/reviews?kind=deal\|pre_platform` 🔓 | Отзывы постранично (7.2) |
 | `GET /me/favorites?type=profile\|job`, `PUT /me/favorites/{type}/{id}`, `DELETE /me/favorites/{type}/{id}` | Избранное: «мои мастера» и сохранённые заявки |
 | `GET /me/saved-searches`, `POST /me/saved-searches`, `DELETE /me/saved-searches/{id}` | v1: сохранённые поиски с уведомлением |
 | `GET /price-benchmarks?category=&city=` 🔓 | Ценовые ориентиры (v1) |

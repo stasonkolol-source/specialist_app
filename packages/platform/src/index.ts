@@ -25,6 +25,7 @@ export {
   useBottomButtonState,
   useClosingConfirmation,
   useColorScheme,
+  useColorSchemeOverride,
   useMainButton,
   usePlatform,
   useSecondaryButton,
