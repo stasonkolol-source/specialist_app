@@ -143,3 +143,18 @@ class ZeroResult:
     filters: tuple[str, ...]
     """Имена выбранных фильтров (без значений): «ослабить фильтры» или пробел в словаре."""
     did_you_mean: str | None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ZeroResultStat:
+    """Запрос без результатов за период: сколько раз и как его писали (отчёт 4.3b)."""
+
+    q: str
+    """Самое частое написание."""
+    count: int
+    locales: tuple[str, ...]
+    did_you_mean: str | None
+    """Что подсказали — если подсказка была."""
+    narrowed: int
+    """Сколько раз с фильтрами: пустоту дали фильтры, а не пробел в словаре."""
+    last_seen: datetime

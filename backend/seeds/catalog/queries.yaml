@@ -1,7 +1,8 @@
-# Регрессионный набор «запрос → категория» — ЧЕРНОВИК (K21), расширяется в шаге 4.3b.
+# Регрессионный набор «запрос → категория» (DEVELOPMENT_PLAN 4.3b) — ЧЕРНОВИК для утверждения владельцем (K21).
 # Разбор запроса в поиске (ARCHITECTURE §9) должен находить для каждого запроса указанную
 # категорию второго уровня. Запросы — как пишут люди: ru, sr латиницей и кириллицей, en,
-# разговорные формы и районы. Проверка: cli seeds-validate.
+# разговорные формы, районы, опечатки, сербский без диакритики. Проверка: cli seeds-validate; доля
+# попаданий — tests/integration/test_search_regression.py (порог предложен 95%).
 
 queries:
   - {q: "повесить полку в ванной", category: small-repairs}
@@ -143,3 +144,78 @@ queries:
   - {q: "часови српског језика", category: serbian-language}
   - {q: "маникир гел лак", category: nails}
   - {q: "одгушење канализације", category: plumbing}
+  # 4.3b: опечатки, сербский без диакритики и кириллицей, разговорные формы
+  - {q: "повесить полку на кухне", category: small-repairs}
+  - {q: "okaciti policu", category: small-repairs}
+  - {q: "заменить личинку замка", category: small-repairs}
+  - {q: "мастер по мелкому ремонту", category: small-repairs}
+  - {q: "починить дверцу шкафа", category: small-repairs}
+  - {q: "ситне поправке у стану", category: small-repairs}
+  - {q: "сборка шкафа купе", category: furniture-assembly}
+  - {q: "собрать стол", category: furniture-assembly}
+  - {q: "montaža kreveta", category: furniture-assembly}
+  - {q: "склапање ормара", category: furniture-assembly}
+  - {q: "sklapanje namestaja", category: furniture-assembly}
+  - {q: "собрать икею", category: furniture-assembly}
+  - {q: "течёт труба под раковиной", category: plumbing}
+  - {q: "замена смесителя в ванной", category: plumbing}
+  - {q: "vodoinstalater hitno", category: plumbing}
+  - {q: "водоинсталатер", category: plumbing}
+  - {q: "zapušen odvod u kuhinji", category: plumbing}
+  - {q: "сантехнк", category: plumbing}
+  - {q: "электрк", category: electrical}
+  - {q: "elektricar", category: electrical}
+  - {q: "заменить автомат в щитке", category: electrical}
+  - {q: "не работает розетка", category: electrical}
+  - {q: "zamena prekidača", category: electrical}
+  - {q: "установить светильник в ванной", category: electrical}
+  - {q: "сделать маникюр", category: nails}
+  - {q: "маникюр гель-лак", category: nails}
+  - {q: "manikir kod kuće", category: nails}
+  - {q: "маникир", category: nails}
+  - {q: "pedikir", category: nails}
+  - {q: "нарастить ресницы", category: brows-and-lashes}
+  - {q: "trepavice ekstenzije", category: brows-and-lashes}
+  - {q: "obrve laminacija", category: brows-and-lashes}
+  - {q: "brow lamination at home", category: brows-and-lashes}
+  - {q: "трепавице", category: brows-and-lashes}
+  - {q: "подстричься", category: hair}
+  - {q: "стрижка мужская", category: hair}
+  - {q: "sisanje", category: hair}
+  - {q: "frizerka dolazi kući", category: hair}
+  - {q: "фризер на кућну адресу", category: hair}
+  - {q: "покрасить волосы дома", category: hair}
+  - {q: "уборка квартиры", category: regular-cleaning}
+  - {q: "помыть полы в квартире", category: regular-cleaning}
+  - {q: "чистка квартиры каждую неделю", category: regular-cleaning}
+  - {q: "ciscenje stana", category: regular-cleaning}
+  - {q: "spremačica", category: regular-cleaning}
+  - {q: "house cleaning every week", category: regular-cleaning}
+  - {q: "генеральная уборка после ремонта", category: deep-cleaning}
+  - {q: "помыть окна на балконе", category: deep-cleaning}
+  - {q: "мойка окон", category: deep-cleaning}
+  - {q: "generalno ciscenje", category: deep-cleaning}
+  - {q: "прање прозора", category: deep-cleaning}
+  - {q: "window cleaning", category: deep-cleaning}
+  - {q: "переезд в другой город", category: apartment-move}
+  - {q: "помочь с переездом", category: apartment-move}
+  - {q: "selidba stana na Limanu", category: apartment-move}
+  - {q: "preseljenje stana", category: apartment-move}
+  - {q: "move to a new apartment", category: apartment-move}
+  - {q: "грузчики", category: movers}
+  - {q: "газель с грузчиками", category: movers}
+  - {q: "вынести мусор после ремонта", category: movers}
+  - {q: "носачи", category: movers}
+  - {q: "kombi za prevoz", category: movers}
+  - {q: "furniture removal", category: movers}
+  - {q: "выучить сербский", category: serbian-language}
+  - {q: "курсы сербского языка", category: serbian-language}
+  - {q: "srpski za strance", category: serbian-language}
+  - {q: "српски за странце", category: serbian-language}
+  - {q: "learn serbian", category: serbian-language}
+  - {q: "английский язык онлайн", category: foreign-languages}
+  - {q: "репетитор немецкого", category: foreign-languages}
+  - {q: "engleski za odrasle", category: foreign-languages}
+  - {q: "енглески језик", category: foreign-languages}
+  - {q: "german lessons", category: foreign-languages}
+  - {q: "подтянуть английский", category: foreign-languages}

@@ -92,7 +92,7 @@ class SqlCatalogQuery(SqlQuery):
         norm = func.platform.search_norm(text)
         exact = _TERMS.norm == norm
         rows = await self._fetch(
-            _visible_terms(exact.label("exact"))
+            _visible_terms(exact.label("exact"), _CATEGORIES.path)
             .where(
                 exact
                 | (
@@ -105,7 +105,16 @@ class SqlCatalogQuery(SqlQuery):
         if not rows:
             return None
         best = [row for row in rows if row["exact"] == rows[0]["exact"]]
-        ids = list(dict.fromkeys(CategoryId(row["category_id"]) for row in best))
+        # слово и у раздела, и у его услуги («грузчики» — «Переезды» и «Грузчики»): точнее —
+        # услуга, раздел отбрасывается, иначе выдача смешала бы все его услуги
+        ancestors = {ancestor for row in best for ancestor in row["path"][:-1]}
+        ids = list(
+            dict.fromkeys(
+                CategoryId(row["category_id"])
+                for row in best
+                if row["category_id"] not in ancestors
+            )
+        )
         return TermMatch(
             category_ids=tuple(ids[:MAX_MATCHED]), term=best[0]["term"], exact=best[0]["exact"]
         )

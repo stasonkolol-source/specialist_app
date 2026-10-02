@@ -1,18 +1,26 @@
-"""`cli reindex --all` (DEVELOPMENT_PLAN 4.1): пересобрать read-model поиска в процессе CLI.
+"""Служебные команды поиска.
 
-Сверка отмечает все опубликованные профили и все строки индекса, пачки пересобираются здесь
-же — воркер не нужен, итог виден сразу. Нужна после смены формулы балла или состава строки,
-после восстановления базы и для проверки стенда.
+- `cli reindex --all` (DEVELOPMENT_PLAN 4.1): пересобрать read-model поиска в процессе CLI.
+  Сверка отмечает все опубликованные профили и все строки индекса, пачки пересобираются здесь
+  же — воркер не нужен, итог виден сразу. Нужна после смены формулы балла или состава строки,
+  после восстановления базы и для проверки стенда.
+- `cli query-log-report` (4.3b): запросы без результатов за период — еженедельный разбор
+  словаря категорий.
 """
 
 from dataclasses import dataclass
 
 from dishka import AsyncContainer
 
+from app.modules.search.application.dto import ZeroResultStat
 from app.modules.search.application.use_cases.flush_index import FlushIndex, FlushIndexCommand
 from app.modules.search.application.use_cases.reconcile_index import (
     ReconcileIndex,
     ReconcileIndexCommand,
+)
+from app.modules.search.application.use_cases.report_zero_results import (
+    ReportZeroResults,
+    ReportZeroResultsCommand,
 )
 
 
@@ -39,3 +47,9 @@ async def reindex_all(container: AsyncContainer) -> ReindexReport:
         rebuilt=rebuilt,
         removed=removed,
     )
+
+
+async def zero_results(container: AsyncContainer, *, days: int, limit: int) -> list[ZeroResultStat]:
+    async with container() as request:
+        report = await request.get(ReportZeroResults)
+        return await report(ReportZeroResultsCommand(days=days, limit=limit))

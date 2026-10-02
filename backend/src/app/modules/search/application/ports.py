@@ -12,6 +12,7 @@ from app.modules.search.application.dto import (
     SpecialistHit,
     TextMatch,
     ZeroResult,
+    ZeroResultStat,
 )
 from app.modules.search.domain.favorites import FavoriteType
 from app.modules.search.domain.index import IndexEntry
@@ -142,6 +143,11 @@ class Favorites(Protocol):
 class QueryLog(Protocol):
     async def record(self, entry: ZeroResult) -> None:
         """Запрос без результатов (§9.2). Нужен активный UoW."""
+        ...
+
+    async def zero_results(self, since: datetime, *, limit: int) -> list[ZeroResultStat]:
+        """Запросы без результатов с `since`, сгруппированные по нормализованному тексту: самые
+        частые первыми."""
         ...
 
 

@@ -21,6 +21,7 @@ from app.modules.search.application.use_cases.list_favorites import ListFavorite
 from app.modules.search.application.use_cases.mark_profiles import MarkProfiles
 from app.modules.search.application.use_cases.reconcile_index import ReconcileIndex
 from app.modules.search.application.use_cases.remove_favorite import RemoveFavorite
+from app.modules.search.application.use_cases.report_zero_results import ReportZeroResults
 from app.modules.search.application.use_cases.search_specialists import SearchSpecialists
 from app.modules.search.application.use_cases.suggest_categories import SuggestCategories
 from app.modules.search.infrastructure.favorites import SqlFavorites
@@ -57,3 +58,4 @@ class SearchProvider(Provider):
     remove_favorite = provide(RemoveFavorite)
     list_favorites = provide(ListFavorites)
     forget_favorites = provide(ForgetFavorites)
+    report_zero_results = provide(ReportZeroResults)

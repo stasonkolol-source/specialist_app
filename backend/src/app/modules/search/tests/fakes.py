@@ -15,6 +15,7 @@ from app.modules.search.application.dto import (
     SpecialistHit,
     TextMatch,
     ZeroResult,
+    ZeroResultStat,
 )
 from app.modules.search.domain.favorites import FavoriteType
 from app.modules.search.domain.query import RankWeights, SpecialistSort, Stage
@@ -175,9 +176,14 @@ class FakeFlags:
 @dataclass
 class FakeLog:
     entries: list[ZeroResult] = field(default_factory=list)
+    reported: list[tuple[datetime, int]] = field(default_factory=list)
 
     async def record(self, entry: ZeroResult) -> None:
         self.entries.append(entry)
+
+    async def zero_results(self, since: datetime, *, limit: int) -> list[ZeroResultStat]:
+        self.reported.append((since, limit))
+        return []
 
 
 class FakeUoW:
