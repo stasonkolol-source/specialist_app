@@ -17,14 +17,10 @@ from sqlalchemy import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Executable
 
-from app.platform.kernel.errors import DomainValidationError
+from app.platform.kernel.pagination import InvalidCursorError
 
 UOW_ACTIVE = "uow_active"
 """Ключ в session.info: UoW открыт — чтения идут в его транзакции."""
-
-
-class InvalidCursorError(DomainValidationError):
-    code = "invalid_cursor"
 
 
 class SqlQuery:

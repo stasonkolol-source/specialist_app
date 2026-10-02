@@ -10,6 +10,7 @@ from collections.abc import Callable
 
 from fastapi import Request, Response
 
+from app.platform.http.security import optional_principal
 from app.platform.kernel.principal import Principal
 from app.platform.ratelimit import Rate, RateLimiter, RateStatus, user_subject
 
@@ -47,4 +48,22 @@ class RateLimit:
     async def __call__(self, request: Request, response: Response) -> None:
         limiter = await request.state.dishka_container.get(RateLimiter)
         status = await limiter.hit(self.rate, self.key(request))
+        response.headers.update(rate_limit_headers(status))
+
+
+class GuestOrUserRateLimit:
+    """Лимит открытого эндпоинта: гость — по адресу в `guest`, вошедший — по пользователю в
+    `user` (ARCHITECTURE §13.3: поиск и каталог — 60 / 120 в минуту)."""
+
+    def __init__(self, *, guest: Rate, user: Rate) -> None:
+        self.guest, self.user = guest, user
+
+    async def __call__(self, request: Request, response: Response) -> None:
+        principal = await optional_principal(request)
+        if principal is None:
+            rate, subject = self.guest, client_ip(request)
+        else:
+            rate, subject = self.user, user_subject(principal.user_id)
+        limiter = await request.state.dishka_container.get(RateLimiter)
+        status = await limiter.hit(rate, subject)
         response.headers.update(rate_limit_headers(status))

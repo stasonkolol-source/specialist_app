@@ -56,6 +56,9 @@ test: ## Unit tests
 test-int: pg-image ## Integration tests on testcontainers (our PostGIS image, Valkey, Garage)
 	@cd $(BACKEND) && $(UV) run pytest -m integration -q
 
+bench-search: pg-image ## Выдача специалистов на 50 000 строк read-model: p95 набора запросов < 200 мс (4.2)
+	@cd $(BACKEND) && $(UV) run pytest -m bench -k search_query -q
+
 # --- Локальное окружение (шаг 0.3). Только compose-проект specialist-dev. ---
 
 secrets-dev: ## Сгенерировать dev-пароли и секреты в .env (значения не печатаются)

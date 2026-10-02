@@ -3,14 +3,23 @@
 from dishka import Provider, Scope, provide
 from prometheus_client import CollectorRegistry
 
-from app.modules.search.application.ports import IndexMetrics, PendingProfiles, SpecialistIndex
+from app.modules.search.application.ports import (
+    IndexMetrics,
+    PendingProfiles,
+    QueryLog,
+    SpecialistIndex,
+    SpecialistSearch,
+)
 from app.modules.search.application.projection import SpecialistProjection
 from app.modules.search.application.use_cases.flush_index import FlushIndex
 from app.modules.search.application.use_cases.mark_profiles import MarkProfiles
 from app.modules.search.application.use_cases.reconcile_index import ReconcileIndex
+from app.modules.search.application.use_cases.search_specialists import SearchSpecialists
 from app.modules.search.infrastructure.index import SqlSpecialistIndex
 from app.modules.search.infrastructure.metrics import PrometheusIndexMetrics
 from app.modules.search.infrastructure.pending import SqlPendingProfiles
+from app.modules.search.infrastructure.query_log import SqlQueryLog
+from app.modules.search.infrastructure.search import SqlSpecialistSearch
 
 
 class SearchProvider(Provider):
@@ -28,3 +37,6 @@ class SearchProvider(Provider):
     mark_profiles = provide(MarkProfiles)
     flush_index = provide(FlushIndex)
     reconcile_index = provide(ReconcileIndex)
+    specialist_search = provide(SqlSpecialistSearch, provides=SpecialistSearch)
+    query_log = provide(SqlQueryLog, provides=QueryLog)
+    search_specialists = provide(SearchSpecialists)

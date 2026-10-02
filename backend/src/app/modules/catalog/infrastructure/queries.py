@@ -1,18 +1,28 @@
 """Чтение справочника catalog (ADR-0020 §5): публичное дерево и категории для фасада."""
 
+import re
 from collections import defaultdict
 from collections.abc import Collection, Sequence
+from typing import Any, Final
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, Select, func, select
 from sqlalchemy.engine import RowMapping
 
-from app.modules.catalog.api import CategorySummary, RiskLevel, SearchTerm
+from app.modules.catalog.api import CategorySummary, RiskLevel, SearchTerm, TermMatch
 from app.modules.catalog.application.dto import CategoryView, TagView
 from app.modules.catalog.infrastructure.models import CategoryRow, SearchTermRow, TagRow
 from app.platform.db.query import SqlQuery
 from app.platform.kernel.ids import CategoryId, TagId
+from app.platform.kernel.localized import Locale
 
 _CATEGORIES = CategoryRow.__table__.c
+_TERMS = SearchTermRow.__table__.c
+MIN_PREFIX: Final = 3
+"""Префикс короче — слишком общий: «эл» начинает и «электрик», и «элемент»."""
+MAX_MATCHED: Final = 10
+"""Категорий из одного слова запроса — с запасом: «ремонт» узнаётся в нескольких."""
+_CYRILLIC = re.compile("[\u0400-\u04ff]")
+_CYRILLIC_LANGS: Final = (Locale.RU, Locale.SR_CYRL)
 _SUMMARY = (
     _CATEGORIES.id,
     _CATEGORIES.parent_id,
@@ -66,6 +76,58 @@ class SqlCatalogQuery(SqlQuery):
                 SearchTerm(lang=row["lang"], term=row["term"])
             )
         return {category_id: tuple(found) for category_id, found in terms.items()}
+
+    async def match_query(self, text: str) -> TermMatch | None:
+        norm = func.platform.search_norm(text)
+        exact = _TERMS.norm == norm
+        rows = await self._fetch(
+            _visible_terms(exact.label("exact"))
+            .where(
+                exact
+                | (
+                    (func.length(norm) >= MIN_PREFIX)
+                    & _TERMS.norm.startswith(norm, autoescape=False)
+                )
+            )
+            .order_by(exact.desc(), _TERMS.weight.desc(), func.length(_TERMS.norm), _TERMS.id)
+        )
+        if not rows:
+            return None
+        best = [row for row in rows if row["exact"] == rows[0]["exact"]]
+        ids = list(dict.fromkeys(CategoryId(row["category_id"]) for row in best))
+        return TermMatch(
+            category_ids=tuple(ids[:MAX_MATCHED]), term=best[0]["term"], exact=best[0]["exact"]
+        )
+
+    async def similar_term(self, text: str) -> TermMatch | None:
+        norm = func.platform.search_norm(text)
+        row = await self._fetch_one(
+            _visible_terms()
+            .where(_TERMS.norm.op("%")(norm))
+            .order_by(
+                _TERMS.norm.op("<->")(norm),
+                # подсказка — тем же алфавитом, каким набран запрос
+                _TERMS.lang.in_(_CYRILLIC_LANGS) != bool(_CYRILLIC.search(text)),
+                _TERMS.weight.desc(),
+                _TERMS.id,
+            )
+            .limit(1)
+        )
+        if row is None:
+            return None
+        return TermMatch(
+            category_ids=(CategoryId(row["category_id"]),), term=row["term"], exact=False
+        )
+
+
+def _visible_terms(*extra: ColumnElement[Any]) -> Select[Any]:
+    """Слова словаря активных и не запрещённых категорий (как в публичном дереве)."""
+    c = _CATEGORIES
+    return (
+        select(_TERMS.category_id, _TERMS.term, *extra)
+        .join(CategoryRow.__table__, c.id == _TERMS.category_id)
+        .where(c.is_active, c.risk_level < int(RiskLevel.FORBIDDEN))
+    )
 
 
 def _tree(categories: Sequence[RowMapping], tags: Sequence[RowMapping]) -> list[CategoryView]:

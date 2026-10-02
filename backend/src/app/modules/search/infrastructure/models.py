@@ -1,4 +1,5 @@
-"""ORM-модели search (ARCHITECTURE §7.3, миграция search_0001): read-model специалистов.
+"""ORM-модели search (ARCHITECTURE §7.3, миграции search_0001–0002): read-model специалистов
+и журнал запросов без результатов.
 
 Таблицы — проекция: источник правды — модули ниже по DAG, строки пересобирает проектор.
 FK на чужие схемы нет — у read-model их и не должно быть: строка удаляется событием.
@@ -12,6 +13,7 @@ from uuid import UUID
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    Computed,
     Index,
     Integer,
     Numeric,
@@ -145,3 +147,30 @@ class PendingProfileRow(Base):
     marked_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     __table_args__ = (Index("ix_pending_profiles_marked_at", "marked_at"),)
+
+
+class QueryLogRow(Base):
+    """Запрос выдачи без результатов (§9.2): чего нет в словаре категорий. Без пользователя:
+    для словаря важен текст, а не кто искал. Срок хранения — матрица 2.12b."""
+
+    __tablename__ = "query_log"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, server_default=text("uuidv7()"))
+    q: Mapped[str] = mapped_column(String(100))
+    q_norm: Mapped[str] = mapped_column(
+        # ::text — как PostgreSQL хранит выражение; иначе alembic check видит расхождение
+        Text,
+        Computed("platform.search_norm(q::text)", persisted=True),
+    )
+    locale: Mapped[str] = mapped_column(String(8))
+    city_id: Mapped[int] = mapped_column(Integer)
+    category_id: Mapped[int | None] = mapped_column(Integer)
+    filters: Mapped[list[str]] = mapped_column(ARRAY(String(32)), server_default=text("'{}'"))
+    did_you_mean: Mapped[str | None] = mapped_column(String(120))
+    """Подсказка, которая тоже ничего не нашла."""
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_query_log_created_at", "created_at"),
+        Index("ix_query_log_q_norm", "q_norm"),
+    )
