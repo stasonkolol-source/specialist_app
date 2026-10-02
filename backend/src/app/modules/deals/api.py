@@ -64,6 +64,10 @@ class DealBrief:
     """DealStatus: уведомление нужно, пока сделка в ожидаемом статусе."""
     origin: str
     scheduled_at: datetime | None
+    price_type: str | None = None
+    """Как у цены отклика: `fixed`, `from`, `hourly`, `negotiable`; None — цену не называли."""
+    agreed_price: int | None = None
+    """Пара."""
 
 
 class DealsApi(Protocol):

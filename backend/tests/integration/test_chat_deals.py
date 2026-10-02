@@ -171,7 +171,14 @@ async def test_direct_proposal_is_confirmed_by_the_other_side(
     )
     link = encode_start_param(StartLink(type=LinkType.DEAL, id=UUID(deal_id)))
     assert payload == {
-        "params": {"title": "Повесить люстру", "by": "client"},
+        "params": {
+            "title": "Повесить люстру",
+            "by": "client",
+            "deal_id": deal_id,
+            "at": tomorrow.isoformat(),
+            "price_type": "fixed",
+            "price": "350000",
+        },
         "link": link,
         "urgent": False,
     }
@@ -328,6 +335,12 @@ async def test_contact_is_shared_after_the_deal_and_only_ones_own(
         id=conversation_id,
     )
     assert queued == 2
+    noticed = await chat.scalar(
+        "SELECT count(*) FROM procrastinate_jobs WHERE task_name ="
+        " 'notifications.schedule_messages_notice' AND args->'payload'->>'message_id' = :id",
+        id=shared.json()["id"],
+    )
+    assert noticed == 1  # контакт — сообщение: второй стороне придёт уведомление
 
     async def refused(user: UserId, body: dict[str, str]) -> tuple[int, str]:
         reply = await chat.post(user, path, body)

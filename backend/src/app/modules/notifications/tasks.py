@@ -19,6 +19,10 @@ notifications стоит над контентными модулями (ARCHITE
   `notifications.notify_responses` через пять минут, следующие — ничего (дебаунс, 5.4).
 - `notifications.notify_responses` — конец окна: клиенту «Новых откликов: 3» и кнопка к
   заявке, если отклики прошли проверку и он их ещё не открыл.
+- `notifications.schedule_messages_notice` — MessageSent: первое сообщение окна ставит
+  `notifications.notify_messages` получателю через минуту, следующие — ничего (дебаунс, 6.3b).
+- `notifications.notify_messages` — конец окна: «Алексей пишет» с началом последнего сообщения и
+  кнопкой «Ответить», если получатель ещё не прочитал и не смотрит диалог прямо сейчас.
 - `notifications.notify_job_invited` — JobInvited: специалисту «Вас приглашают откликнуться»
   или «Прямой запрос» — кнопка к заявке и «Шаблон «…»» на каждый его шаблон (отклик в один
   тап обрабатывает бот jobs), если заявка ещё открыта (5.6).
@@ -49,6 +53,7 @@ from dishka import FromDishka
 from app.modules.deals.api import DealsApi
 from app.modules.identity.api import IdentityApi
 from app.modules.jobs.api import InviteNotice, JobBrief, JobsApi
+from app.modules.messaging.api import MessagingApi
 from app.modules.notifications.application.ports import (
     FORGET_RECIPIENT,
     GRANT_WRITE_ACCESS,
@@ -60,13 +65,16 @@ from app.modules.notifications.application.ports import (
     NOTIFY_JOB_EXPIRED,
     NOTIFY_JOB_EXPIRING,
     NOTIFY_JOB_INVITED,
+    NOTIFY_MESSAGES,
     NOTIFY_MODERATION_DECISION,
     NOTIFY_PASSED_OVER,
     NOTIFY_PROFILE_PUBLISHED,
     NOTIFY_RESPONSE_ACCEPTED,
     NOTIFY_RESPONSES,
+    SCHEDULE_MESSAGES_NOTICE,
     SCHEDULE_RESPONSES_NOTICE,
     SEND_DELIVERY,
+    MessagesWindow,
     ResponsesWindow,
     SendDeliveryPayload,
 )
@@ -83,6 +91,10 @@ from app.modules.notifications.application.use_cases.grant_telegram_write_access
     GrantTelegramWriteAccessCommand,
 )
 from app.modules.notifications.application.use_cases.notify import Notify, NotifyCommand
+from app.modules.notifications.application.use_cases.schedule_messages_notice import (
+    ScheduleMessagesNotice,
+    ScheduleMessagesNoticeCommand,
+)
 from app.modules.notifications.application.use_cases.schedule_responses_notice import (
     ScheduleResponsesNotice,
     ScheduleResponsesNoticeCommand,
@@ -113,6 +125,7 @@ from app.platform.contracts.events.jobs import (
     ResponseAccepted,
     ResponseSubmitted,
 )
+from app.platform.contracts.events.messaging import MessageSent
 from app.platform.contracts.events.moderation import ModerationDecision, ModerationDecisionMade
 from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.kernel.ids import DealId, UserId
@@ -270,6 +283,53 @@ async def notify_responses(
     )
 
 
+@subscriber(MessageSent, SCHEDULE_MESSAGES_NOTICE)
+async def schedule_messages_notice(
+    event: MessageSent, schedule: FromDishka[ScheduleMessagesNotice]
+) -> None:
+    await schedule(
+        ScheduleMessagesNoticeCommand(
+            conversation_id=event.conversation_id,
+            recipient_id=event.recipient_id,
+            at=event.occurred_at,
+        )
+    )
+
+
+@task(NOTIFY_MESSAGES)
+async def notify_messages(
+    window: MessagesWindow,
+    notify: FromDishka[Notify],
+    messaging: FromDishka[MessagingApi],
+    identity: FromDishka[IdentityApi],
+) -> None:
+    notice = await messaging.message_notice(window.conversation_id, window.recipient_id)
+    if notice is None:
+        return  # всё прочитано или диалог открыт прямо сейчас
+    recipient = await identity.get_user(window.recipient_id)
+    if recipient is None or recipient.is_deleted:
+        return
+    sender = await identity.get_user(notice.sender_id)
+    params = {
+        "name": sender.display_name if sender is not None and not sender.is_deleted else "",
+        "count": str(notice.unread),
+    }
+    if notice.preview is not None:
+        params["preview"] = notice.preview
+    await notify(
+        NotifyCommand(
+            user_id=window.recipient_id,
+            type=NotificationType.MESSAGE_RECEIVED,
+            dedupe_key=(
+                f"message.received:{window.conversation_id}:{window.recipient_id}:"
+                f"{window.since.isoformat()}"
+            ),
+            params=params,
+            link=_chat_link(window.conversation_id),
+        )
+    )
+
+
 @subscriber(JobInvited, NOTIFY_JOB_INVITED)
 async def notify_job_invited(
     event: JobInvited, notify: FromDishka[Notify], jobs: FromDishka[JobsApi]
@@ -345,7 +405,8 @@ async def notify_deal_proposed(
     deals: FromDishka[DealsApi],
     identity: FromDishka[IdentityApi],
 ) -> None:
-    """Второй стороне — «Клиент (исполнитель) предлагает договориться» со ссылкой на условия."""
+    """Второй стороне — «Клиент (исполнитель) предлагает договориться»: условия в тексте, кнопки
+    «Подтвердить» и «Отклонить» (бот deals) и ссылка на условия в Mini App (S53)."""
     deal = await deals.deal_brief(event.deal_id)
     if deal is None or deal.status != PROPOSED:
         return  # уже подтвердили, отклонили или истекло
@@ -354,12 +415,23 @@ async def notify_deal_proposed(
     user = await identity.get_user(other)
     if user is None or user.is_deleted:
         return
+    params = {
+        "title": deal.title,
+        "by": CLIENT if by_client else PERFORMER,
+        "deal_id": str(event.deal_id),
+    }
+    if deal.scheduled_at is not None:
+        params["at"] = deal.scheduled_at.isoformat()
+    if deal.price_type is not None:
+        params["price_type"] = deal.price_type
+    if deal.agreed_price is not None:
+        params["price"] = str(deal.agreed_price)
     await notify(
         NotifyCommand(
             user_id=other,
             type=NotificationType.DEAL_PROPOSED,
             dedupe_key=f"deal.proposed:{event.deal_id}",
-            params={"title": deal.title, "by": CLIENT if by_client else PERFORMER},
+            params=params,
             link=_deal_link(event.deal_id),
         )
     )
@@ -441,6 +513,10 @@ async def notify_deal_completion(
                 link=_deal_link(event.deal_id),
             )
         )
+
+
+def _chat_link(conversation_id: UUID) -> str:
+    return encode_start_param(StartLink(type=LinkType.CHAT, id=conversation_id))
 
 
 def _deal_link(deal_id: DealId) -> str:

@@ -2138,6 +2138,57 @@
         }
       }
     },
+    "/api/v1/deals/{deal_id}/decline": {
+      "post": {
+        "tags": [
+          "deals"
+        ],
+        "summary": "Decline Deal",
+        "description": "Отклонить «Договорились» (S53): только пока предложение ждёт ответа, иначе 409.",
+        "operationId": "deals_decline_deal",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "deal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id сделки",
+              "title": "Deal Id"
+            },
+            "description": "id сделки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DealOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/deals/{deal_id}/complete": {
       "post": {
         "tags": [
@@ -5766,7 +5817,7 @@
           "views"
         ],
         "summary": "Get Specialist",
-        "description": "Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио и рейтинг.",
+        "description": "Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио, рейтинг и\nвремя ответа.",
         "operationId": "views_get_specialist",
         "parameters": [
           {
@@ -12239,7 +12290,7 @@
               }
             ],
             "title": "Response Time Minutes",
-            "description": "«Обычно отвечает за …» — с 6.3b"
+            "description": "«Обычно отвечает за …»: медиана первого ответа в диалогах за 30 дней, в минутах; меньше пяти диалогов с ответом — null"
           },
           "services": {
             "items": {

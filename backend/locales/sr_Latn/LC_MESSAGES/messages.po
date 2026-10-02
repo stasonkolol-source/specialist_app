@@ -123,6 +123,15 @@ msgstr "Označeno: posao je završen. Dogovor će se završiti kada potvrdi drug
 msgid "bot.deals.completed"
 msgstr "Dogovor je završen. Hvala!"
 
+msgid "bot.deals.confirmed"
+msgstr "Dogovoreno! Dogovor je na snazi — u razgovoru sada možete podeliti kontakt."
+
+msgid "bot.deals.declined"
+msgstr "Predlog je odbijen."
+
+msgid "bot.deals.proposal_closed"
+msgstr "Predlog više nije aktuelan: potvrđen je, odbijen ili je rok istekao."
+
 msgid "bot.help.text"
 msgstr "<b>Kako funkcioniše</b>\n• Opišite zadatak — majstori u blizini će se javiti sa cenom. Ili izaberite stručnjaka po utiscima.\n• Dogovarajte se u četu aplikacije „Sosedi“: kontakti — nakon dogovora.\n• Plaćanje — direktno izvođaču, posle posla. „Sosedi“ ne primaju novac.\n\n<b>Bezbednost</b>\n• Ne plaćajte unapred nepoznatim ljudima i nikome ne govorite kodove iz SMS poruka.\n• Sumnjiv profil ili poruka — prijavite direktno u aplikaciji.\n\n/terms — pravila platforme\n/privacy — politika privatnosti\n/language — jezik"
 
@@ -754,6 +763,21 @@ msgstr "Naručilac je izabrao drugog izvođača"
 msgid "notifications.response_not_selected.body"
 msgstr "Zahtev „{title}“. Hvala na ponudi — u listi ima drugih zahteva u blizini."
 
+msgid "notifications.message_received.title"
+msgstr "{name} piše"
+
+msgid "notifications.message_received.preview"
+msgstr "„{text}“"
+
+msgid "notifications.message_received.count"
+msgstr "Novih poruka: {count}."
+
+msgid "notifications.message_received.someone"
+msgstr "Sagovornik"
+
+msgid "notifications.message_received.button"
+msgstr "Odgovori"
+
 msgid "notifications.deal.open"
 msgstr "Otvori dogovor"
 
@@ -761,13 +785,40 @@ msgid "notifications.deal_proposed.title"
 msgstr "Dogovoreno?"
 
 msgid "notifications.deal_proposed.body_client"
-msgstr "Naručilac predlaže dogovor: „{title}“. Proverite uslove i potvrdite u roku od 3 dana."
+msgstr "Naručilac predlaže dogovor: „{title}“."
 
 msgid "notifications.deal_proposed.body_performer"
-msgstr "Izvođač predlaže dogovor: „{title}“. Proverite uslove i potvrdite u roku od 3 dana."
+msgstr "Izvođač predlaže dogovor: „{title}“."
 
 msgid "notifications.deal_proposed.button"
 msgstr "Pogledaj uslove"
+
+msgid "notifications.deal_proposed.when"
+msgstr "Kada: {when}."
+
+msgid "notifications.deal_proposed.price"
+msgstr "Cena: {price}."
+
+msgid "notifications.deal_proposed.deadline"
+msgstr "Potvrdite ili odbijte u roku od 3 dana."
+
+msgid "notifications.deal_proposed.confirm"
+msgstr "Potvrdi"
+
+msgid "notifications.deal_proposed.decline"
+msgstr "Odbij"
+
+msgid "notifications.price.fixed"
+msgstr "{amount} RSD"
+
+msgid "notifications.price.from"
+msgstr "od {amount} RSD"
+
+msgid "notifications.price.hourly"
+msgstr "{amount} RSD po satu"
+
+msgid "notifications.price.negotiable"
+msgstr "po dogovoru"
 
 msgid "notifications.deal_cancelled.title"
 msgstr "Dogovor je otkazan"

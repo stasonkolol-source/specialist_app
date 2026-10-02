@@ -122,6 +122,15 @@ msgstr "Отмечено: работа выполнена. Сделка заве
 msgid "bot.deals.completed"
 msgstr "Сделка завершена. Спасибо!"
 
+msgid "bot.deals.confirmed"
+msgstr "Договорились! Сделка в силе — в чате теперь можно поделиться контактом."
+
+msgid "bot.deals.declined"
+msgstr "Предложение отклонено."
+
+msgid "bot.deals.proposal_closed"
+msgstr "Предложение уже неактуально: его подтвердили, отклонили или срок истёк."
+
 msgid "bot.help.text"
 msgstr "<b>Как это работает</b>\n• Опишите задачу — мастера рядом откликнутся с ценой. Или выберите специалиста по отзывам.\n• Договаривайтесь в чате «Соседей»: контакты — после договорённости.\n• Оплата — напрямую исполнителю, после работы. «Соседи» деньги не принимают.\n\n<b>Безопасность</b>\n• Не вносите предоплату незнакомым и никому не сообщайте коды из СМС.\n• Подозрительный профиль или сообщение — пожалуйтесь прямо в приложении.\n\n/terms — правила площадки\n/privacy — политика конфиденциальности\n/language — язык"
 
@@ -753,6 +762,21 @@ msgstr "Клиент выбрал другого исполнителя"
 msgid "notifications.response_not_selected.body"
 msgstr "Заявка «{title}». Спасибо за отклик — в ленте есть другие заявки рядом."
 
+msgid "notifications.message_received.title"
+msgstr "{name} пишет"
+
+msgid "notifications.message_received.preview"
+msgstr "«{text}»"
+
+msgid "notifications.message_received.count"
+msgstr "Новых сообщений: {count}."
+
+msgid "notifications.message_received.someone"
+msgstr "Собеседник"
+
+msgid "notifications.message_received.button"
+msgstr "Ответить"
+
 msgid "notifications.deal.open"
 msgstr "Открыть сделку"
 
@@ -760,13 +784,40 @@ msgid "notifications.deal_proposed.title"
 msgstr "Договорились?"
 
 msgid "notifications.deal_proposed.body_client"
-msgstr "Клиент предлагает договориться: «{title}». Проверьте условия и подтвердите в течение 3 дней."
+msgstr "Клиент предлагает договориться: «{title}»."
 
 msgid "notifications.deal_proposed.body_performer"
-msgstr "Исполнитель предлагает договориться: «{title}». Проверьте условия и подтвердите в течение 3 дней."
+msgstr "Исполнитель предлагает договориться: «{title}»."
 
 msgid "notifications.deal_proposed.button"
 msgstr "Посмотреть условия"
+
+msgid "notifications.deal_proposed.when"
+msgstr "Когда: {when}."
+
+msgid "notifications.deal_proposed.price"
+msgstr "Цена: {price}."
+
+msgid "notifications.deal_proposed.deadline"
+msgstr "Подтвердите или отклоните в течение 3 дней."
+
+msgid "notifications.deal_proposed.confirm"
+msgstr "Подтвердить"
+
+msgid "notifications.deal_proposed.decline"
+msgstr "Отклонить"
+
+msgid "notifications.price.fixed"
+msgstr "{amount} RSD"
+
+msgid "notifications.price.from"
+msgstr "от {amount} RSD"
+
+msgid "notifications.price.hourly"
+msgstr "{amount} RSD в час"
+
+msgid "notifications.price.negotiable"
+msgstr "договорная"
 
 msgid "notifications.deal_cancelled.title"
 msgstr "Сделка отменена"

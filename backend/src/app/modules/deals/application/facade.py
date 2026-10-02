@@ -29,6 +29,8 @@ class DealsFacade:
             status=deal.status.value,
             origin=deal.origin.value,
             scheduled_at=deal.scheduled_at,
+            price_type=deal.price_type.value if deal.price_type is not None else None,
+            agreed_price=deal.agreed_price,
         )
 
     async def deal_for_response(self, response_id: UUID) -> DealBrief | None:

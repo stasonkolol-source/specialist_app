@@ -40,3 +40,14 @@ class MessagesPage:
     """Курсор более ранних; None — это начало диалога."""
     newer: str | None
     """Курсор, с которого спрашивать новые (поллинг S30)."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ResponseStat:
+    """Как быстро исполнитель отвечает (6.3b): медиана от первого сообщения клиента в диалоге до
+    первого ответа исполнителя."""
+
+    performer_id: UserId
+    median_seconds: float
+    conversations: int
+    """Диалогов с ответом в окне — по ним медиана."""

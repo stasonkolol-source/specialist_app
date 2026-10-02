@@ -6,6 +6,8 @@
 - `search.reindex_profiles` — отметить профили позже: конец срочной санкции автора.
 - `search.reconcile_index` — ночью: сверка read-model с источником.
 - `search.forget_favorites` — UserDeleted: избранное удалённого аккаунта (4.6).
+- `search.response_time_stats` — раз в час: «Обычно отвечает за …» — медиана первого ответа в
+  диалогах за 30 дней (6.3b).
 """
 
 import structlog
@@ -41,6 +43,10 @@ from app.modules.search.application.use_cases.mark_profiles import (
 from app.modules.search.application.use_cases.reconcile_index import (
     ReconcileIndex,
     ReconcileIndexCommand,
+)
+from app.modules.search.application.use_cases.refresh_response_times import (
+    RefreshResponseTimes,
+    RefreshResponseTimesCommand,
 )
 from app.platform.contracts.events.catalog import CatalogChanged
 from app.platform.contracts.events.identity import (
@@ -168,3 +174,12 @@ async def reconcile_index(run: PeriodicRun) -> None:
         reconcile = await request.get(ReconcileIndex)
         report = await reconcile(ReconcileIndexCommand())
     log.info("search_index_reconcile", published=report.published, indexed=report.indexed)
+
+
+@periodic("search.response_time_stats", cron="31 * * * *")
+async def response_time_stats(run: PeriodicRun) -> None:
+    """Раз в час: «Обычно отвечает за …» по диалогам за 30 дней (6.3b)."""
+    async with run.container() as request:
+        refresh = await request.get(RefreshResponseTimes)
+        counted = await refresh(RefreshResponseTimesCommand())
+    log.info("search_response_times", specialists=counted)

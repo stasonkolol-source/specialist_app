@@ -228,6 +228,26 @@ def test_proposal_can_be_declined_by_the_other_party() -> None:
     assert deal.status is DealStatus.CANCELLED
 
 
+def test_only_a_waiting_proposal_can_be_declined() -> None:
+    deal = proposed(by=PERFORMER)
+
+    deal.decline(actor_id=CLIENT, now=LATER)
+
+    assert (deal.status, deal.cancel_reason) == (
+        DealStatus.CANCELLED,
+        DealCancelReason.NO_AGREEMENT,
+    )
+    [event] = deal.pull_events()
+    assert isinstance(event, DealCancelled)
+    assert (event.cancelled_by, event.reason) == ("client", "no_agreement")
+    agreed = proposed(by=PERFORMER)
+    agreed.confirm(actor_id=CLIENT, now=LATER)
+    with pytest.raises(DealNotActiveError):  # идущую сделку — только отменой с причиной
+        agreed.decline(actor_id=CLIENT, now=LATER)
+    with pytest.raises(DealNotFoundError):
+        proposed().decline(actor_id=STRANGER, now=LATER)
+
+
 def test_proposal_needs_a_party() -> None:
     with pytest.raises(InvalidDealError):
         proposed(by=STRANGER)

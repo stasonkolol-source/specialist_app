@@ -8,9 +8,9 @@ from uuid import UUID
 
 from sqlalchemy import RowMapping, Select, and_, func, or_, select, true, tuple_
 
-from app.modules.messaging.application.dto import ConversationView, MessagesPage
+from app.modules.messaging.application.dto import ConversationView, MessagesPage, ResponseStat
 from app.modules.messaging.application.ports import Direction
-from app.modules.messaging.domain.message import Message, MessageModeration
+from app.modules.messaging.domain.message import Message, MessageKind, MessageModeration
 from app.modules.messaging.infrastructure.models import ConversationRow, MessageRow, ParticipantRow
 from app.platform.db.query import SqlQuery, decode_cursor, encode_cursor
 from app.platform.kernel.ids import UserId
@@ -21,6 +21,8 @@ _P = ParticipantRow.__table__.c
 _M = MessageRow.__table__.c
 _OTHER = ParticipantRow.__table__.alias("other")
 _LAST = MessageRow.__table__.alias("last_message")
+_ASKED = MessageRow.__table__.alias("asked")
+_REPLY = MessageRow.__table__.alias("reply")
 _UNREAD = MessageRow.__table__.alias("unread_message")
 
 
@@ -71,6 +73,58 @@ class SqlConversationQueries(SqlQuery):
         older = encode_cursor(str(items[0].id)) if more and items else None
         newer = encode_cursor(str(items[-1].id)) if items and after is None else None
         return MessagesPage(items=items, older=older, newer=newer)
+
+    async def response_stats(
+        self, *, since: datetime, min_conversations: int
+    ) -> list[ResponseStat]:
+        asked = (
+            select(func.min(_ASKED.c.created_at))
+            .where(
+                _ASKED.c.conversation_id == _C.id,
+                _ASKED.c.sender_id == _C.client_id,
+                _ASKED.c.kind == MessageKind.TEXT,
+            )
+            .scalar_subquery()
+        )
+        firsts = select(
+            _C.id.label("conversation_id"), _C.performer_id, asked.label("asked_at")
+        ).cte("firsts")
+        replied = (
+            select(func.min(_REPLY.c.created_at))
+            .where(
+                _REPLY.c.conversation_id == firsts.c.conversation_id,
+                _REPLY.c.sender_id == firsts.c.performer_id,
+                _REPLY.c.kind.in_([MessageKind.TEXT, MessageKind.CONTACT_SHARE]),
+                _REPLY.c.created_at >= firsts.c.asked_at,
+            )
+            .scalar_subquery()
+        )
+        waits = (
+            select(
+                firsts.c.performer_id,
+                func.extract("epoch", replied - firsts.c.asked_at).label("seconds"),
+            )
+            .where(firsts.c.asked_at >= since)
+            .cte("waits")
+        )
+        rows = await self._fetch(
+            select(
+                waits.c.performer_id,
+                func.percentile_cont(0.5).within_group(waits.c.seconds).label("median"),
+                func.count().label("conversations"),
+            )
+            .where(waits.c.seconds.is_not(None))
+            .group_by(waits.c.performer_id)
+            .having(func.count() >= min_conversations)
+        )
+        return [
+            ResponseStat(
+                performer_id=UserId(row["performer_id"]),
+                median_seconds=float(row["median"]),
+                conversations=int(row["conversations"]),
+            )
+            for row in rows
+        ]
 
     def _views(self, user_id: UserId) -> Select[Any]:  # Any: строки из колонок трёх таблиц
         last = (

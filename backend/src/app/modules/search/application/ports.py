@@ -1,7 +1,7 @@
 """Порты модуля search (ADR-0020 §3, §5): read-model специалистов, очередь её обновления,
 выдача по ней и избранное."""
 
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Final, Protocol
@@ -51,6 +51,15 @@ class SpecialistIndex(Protocol):
     async def upsert(self, entries: Sequence[IndexEntry]) -> None: ...
 
     async def delete(self, profile_ids: Collection[UUID]) -> None: ...
+
+    async def set_response_times(self, minutes: Mapping[UserId, int]) -> None:
+        """«Обычно отвечает за …» (6.3b): медиана в минутах по пользователю; у кого её больше
+        нет — NULL. Нужен активный UoW."""
+        ...
+
+    async def response_time(self, profile_id: UUID) -> int | None:
+        """Медиана первого ответа специалиста в минутах; нет строки или мало диалогов — None."""
+        ...
 
     async def ids_of_users(self, user_ids: Collection[UserId]) -> list[UUID]:
         """Строки пользователей (профиль удалён — строка ещё может быть)."""

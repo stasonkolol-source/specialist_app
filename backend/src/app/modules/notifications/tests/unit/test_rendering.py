@@ -191,6 +191,7 @@ def test_types_without_templates_are_refused(renderer: GettextNotificationRender
         NotificationType.JOB_INVITED,
         NotificationType.RESPONSE_ACCEPTED,
         NotificationType.RESPONSE_NOT_SELECTED,
+        NotificationType.MESSAGE_RECEIVED,
         NotificationType.DEAL_PROPOSED,
         NotificationType.DEAL_CANCELLED,
         NotificationType.DEAL_REMINDER,
@@ -396,6 +397,7 @@ def test_invitation_texts_on_three_scripts(
 
 DEAL_ID = UUID("0192f5a8-7c3e-7b21-9d4f-3a6b8c1e2f47")
 DEAL_LINK = encode_start_param(StartLink(type=LinkType.DEAL, id=DEAL_ID))
+CHAT_LINK = encode_start_param(StartLink(type=LinkType.CHAT, id=DEAL_ID))
 
 
 def test_accepted_performer_is_led_to_the_deal(renderer: GettextNotificationRenderer) -> None:
@@ -452,22 +454,121 @@ def test_cancelled_deal_says_who_and_why(
 
 
 @pytest.mark.parametrize(
-    ("by", "body"),
+    ("by", "first"),
     [
-        ("client", "Клиент предлагает договориться: «Люстра». Проверьте условия и подтвердите"),
-        ("performer", "Исполнитель предлагает договориться: «Люстра». Проверьте условия"),
+        ("client", "Клиент предлагает договориться: «Люстра»."),
+        ("performer", "Исполнитель предлагает договориться: «Люстра»."),
     ],
 )
-def test_proposal_says_who_proposes_with_a_button(
-    renderer: GettextNotificationRenderer, by: str, body: str
+def test_proposal_shows_terms_with_confirm_and_decline(
+    renderer: GettextNotificationRenderer, by: str, first: str
 ) -> None:
-    text, [button] = renderer.telegram(
-        NotificationType.DEAL_PROPOSED, {"title": "Люстра", "by": by}, DEAL_LINK, Locale.RU
+    params = {
+        "title": "Люстра",
+        "by": by,
+        "deal_id": str(DEAL_ID),
+        "at": "2026-10-03T17:00:00+00:00",
+        "price_type": "fixed",
+        "price": "350000",
+    }
+
+    text, [confirm, decline, terms] = renderer.telegram(
+        NotificationType.DEAL_PROPOSED, params, DEAL_LINK, Locale.RU
     )
 
-    assert text.startswith(f"<b>Договорились?</b>\n{body}")
+    title, *lines = text.split("\n")
+    assert (title, lines[0]) == ("<b>Договорились?</b>", first)
+    assert lines[1].startswith("Когда: 3 октября 2026")
+    assert "19:00" in lines[1]  # Белград
+    assert lines[2:] == ["Цена: 3\u00a0500 RSD.", "Подтвердите или отклоните в течение 3 дней."]
+    assert isinstance(confirm, CallbackButton)
+    assert isinstance(decline, CallbackButton)
+    assert (confirm.text, decline.text) == ("Подтвердить", "Отклонить")
+    assert parse_callback(confirm.data) == CallbackData(CallbackAction.DEAL_CONFIRM, DEAL_ID)
+    assert parse_callback(decline.data) == CallbackData(CallbackAction.DEAL_DECLINE, DEAL_ID)
+    assert isinstance(terms, AppButton)
+    assert (terms.text, terms.url) == ("Посмотреть условия", f"{MINI_APP}?startapp={DEAL_LINK}")
+
+
+@pytest.mark.parametrize(
+    ("locale", "price_type", "price", "line"),
+    [
+        (Locale.RU, "from", "350050", "Цена: от 3\u00a0500,50 RSD."),
+        (Locale.RU, "hourly", "120000", "Цена: 1\u00a0200 RSD в час."),
+        (Locale.RU, "negotiable", None, "Цена: договорная."),
+        (Locale.SR_CYRL, "fixed", "1250000", "Цена: 12.500 RSD."),
+        (Locale.SR_LATN, "negotiable", None, "Cena: po dogovoru."),
+    ],
+)
+def test_proposal_price_in_words_of_the_language(
+    renderer: GettextNotificationRenderer,
+    locale: Locale,
+    price_type: str,
+    price: str | None,
+    line: str,
+) -> None:
+    params = {"title": "Люстра", "by": "client", "price_type": price_type}
+    if price is not None:
+        params["price"] = price
+
+    text = renderer.text(NotificationType.DEAL_PROPOSED, params, locale)
+
+    assert line in text.body.split("\n")
+
+
+def test_proposal_without_terms_is_just_the_title(renderer: GettextNotificationRenderer) -> None:
+    text = renderer.text(
+        NotificationType.DEAL_PROPOSED, {"title": "Люстра", "by": "performer"}, Locale.RU
+    )
+
+    assert text.body == (
+        "Исполнитель предлагает договориться: «Люстра».\n"
+        "Подтвердите или отклоните в течение 3 дней."
+    )
+
+
+@pytest.mark.parametrize(
+    ("params", "title", "body"),
+    [
+        (
+            {"name": "Алексей", "count": "1", "preview": "Буду в 19:00"},
+            "Алексей пишет",
+            "«Буду в 19:00»",
+        ),
+        (
+            {"name": "Алексей", "count": "3", "preview": "Буду в 19:00"},
+            "Алексей пишет",
+            "«Буду в 19:00»\nНовых сообщений: 3.",
+        ),
+        ({"name": "", "count": "2"}, "Собеседник пишет", "Новых сообщений: 2."),
+    ],
+    ids=["one", "several", "no-text"],
+)
+def test_message_notice_says_who_and_what_with_a_reply_button(
+    renderer: GettextNotificationRenderer, params: dict[str, str], title: str, body: str
+) -> None:
+    text, [button] = renderer.telegram(
+        NotificationType.MESSAGE_RECEIVED, params, CHAT_LINK, Locale.RU
+    )
+
+    assert text == f"<b>{title}</b>\n{body}"
     assert isinstance(button, AppButton)
-    assert (button.text, button.url) == ("Посмотреть условия", f"{MINI_APP}?startapp={DEAL_LINK}")
+    assert (button.text, button.url) == ("Ответить", f"{MINI_APP}?startapp={CHAT_LINK}")
+
+
+@pytest.mark.parametrize("locale", SCRIPTS)
+def test_message_notice_on_three_scripts(
+    renderer: GettextNotificationRenderer, locale: Locale
+) -> None:
+    text, buttons = renderer.telegram(
+        NotificationType.MESSAGE_RECEIVED,
+        {"name": "Ana", "count": "2", "preview": "Dobar dan"},
+        CHAT_LINK,
+        locale,
+    )
+
+    assert "notifications." not in text
+    assert all("notifications." not in b.text for b in buttons)
 
 
 def test_reminder_names_the_time(renderer: GettextNotificationRenderer) -> None:
@@ -503,7 +604,16 @@ def test_deal_texts_on_three_scripts(renderer: GettextNotificationRenderer, loca
     cases: list[tuple[NotificationType, dict[str, str]]] = [
         (NotificationType.RESPONSE_ACCEPTED, {"title": "Люстра"}),
         (NotificationType.RESPONSE_NOT_SELECTED, {"title": "Люстра"}),
-        (NotificationType.DEAL_PROPOSED, {"title": "Люстра", "by": "performer"}),
+        (
+            NotificationType.DEAL_PROPOSED,
+            {
+                "title": "Люстра",
+                "by": "performer",
+                "deal_id": str(DEAL_ID),
+                "price_type": "fixed",
+                "price": "350000",
+            },
+        ),
         (
             NotificationType.DEAL_CANCELLED,
             {"title": "Люстра", "by": "client", "reason": "other", "reopened": "true"},

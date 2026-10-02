@@ -7,7 +7,8 @@
 import * as zod from 'zod';
 
 /**
- * Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио и рейтинг.
+ * Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио, рейтинг и
+ * время ответа.
  * @summary Get Specialist
  */
 export const ViewsGetSpecialistParams = zod.object({
@@ -83,7 +84,9 @@ export const ViewsGetSpecialistResponse = zod.object({
   badges: zod.array(zod.string()),
   response_time_minutes: zod
     .union([zod.int(), zod.null()])
-    .describe('«Обычно отвечает за …» — с 6.3b'),
+    .describe(
+      '«Обычно отвечает за …»: медиана первого ответа в диалогах за 30 дней, в минутах; меньше пяти диалогов с ответом — null',
+    ),
   services: zod
     .array(
       zod.object({

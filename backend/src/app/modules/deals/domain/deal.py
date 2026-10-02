@@ -399,6 +399,21 @@ class Deal(VersionedAggregate):
             raise DealNotActiveError(deal_id=self.id, deal_status=self.status.value)
         self._cancel(by=actor_id, by_role=role.value, kind=ActorKind.USER, reason=reason, now=now)
 
+    def decline(self, *, actor_id: UserId, now: datetime) -> None:
+        """«Отклонить» предложение «Договорились» (S53, кнопка в боте, 6.3b): только пока оно
+        ждёт ответа — идущую сделку так не отменить (для неё `cancel` с причиной). Предложившая
+        сторона так же отзывает своё."""
+        role = self._party(actor_id)
+        if self.status is not DealStatus.PROPOSED:
+            raise DealNotActiveError(deal_id=self.id, deal_status=self.status.value)
+        self._cancel(
+            by=actor_id,
+            by_role=role.value,
+            kind=ActorKind.USER,
+            reason=DealCancelReason.NO_AGREEMENT,
+            now=now,
+        )
+
     def cancel_by_system(self, *, reason: DealCancelReason, now: datetime) -> bool:
         """Система отменяет: истекло предложение, удалён аккаунт. Уже завершена, отменена или
         под спором — ничего, False."""

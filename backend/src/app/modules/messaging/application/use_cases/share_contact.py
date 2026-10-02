@@ -4,8 +4,8 @@ Telegram или телефон. Это и есть double opt-in: до сдел�
 
 Контакт берём только из подписанного Telegram: username — из initData Mini App, телефон — из
 ответа `requestContact`. Оба должны принадлежать тому, кто делится (Telegram id совпадает).
-Контакт уходит второй стороне сообщением в диалоге; повтор того же контакта по той же сделке —
-то же сообщение.
+Контакт уходит второй стороне сообщением в диалоге (MessageSent — уведомление, как о любом
+сообщении); повтор того же контакта по той же сделке — то же сообщение.
 """
 
 from dataclasses import dataclass
@@ -22,7 +22,7 @@ from app.modules.messaging.application.ports import (
 )
 from app.modules.messaging.domain.message import ContactType, Message, MessageKind
 from app.modules.messaging.errors import ContactsLockedError, InvalidContactError
-from app.platform.contracts.events.messaging import ContactShared
+from app.platform.contracts.events.messaging import ContactShared, MessageSent
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.ids import UserId, new_id
@@ -100,6 +100,17 @@ class ShareContact:
                 conversation.link_deal(deal.id)
             conversation.message_posted(sender_id=cmd.actor_id, message_id=message.id, now=now)
             await self._conversations.save(conversation)
+            self._uow.add_event(
+                MessageSent(
+                    conversation_id=conversation.id,
+                    message_id=message.id,
+                    sender_id=cmd.actor_id,
+                    recipient_id=other.user_id,
+                    sender_role=sharer.role.value,
+                    masked=False,
+                    occurred_at=now,
+                )
+            )
             self._uow.add_event(
                 ContactShared(
                     conversation_id=conversation.id,

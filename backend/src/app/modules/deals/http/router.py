@@ -3,7 +3,8 @@
 - `GET /me/deals?role=&status=` — свои сделки клиентом, исполнителем или все, новые первыми,
   курсор;
 - `GET /deals/{id}` — сделка стороне (S26); не участник — 404;
-- `POST /deals/{id}/confirm` — вторая сторона подтверждает «Договорились» из чата (6.4);
+- `POST /deals/{id}/confirm` — вторая сторона подтверждает «Договорились» из чата (S53, 6.3b);
+- `POST /deals/{id}/decline` — отклонить «Договорились», пока предложение ждёт ответа (S53);
 - `POST /deals/{id}/complete` — «Работа выполнена»: отметили обе — сделка завершена;
 - `POST /deals/{id}/cancel` — отмена с причиной: заявка снова открыта, прежние кандидаты —
   «просмотрен» (§7.9).
@@ -23,6 +24,7 @@ from app.modules.deals.application.use_cases.complete_deal import (
     CompleteDealCommand,
 )
 from app.modules.deals.application.use_cases.confirm_deal import ConfirmDeal, ConfirmDealCommand
+from app.modules.deals.application.use_cases.decline_deal import DeclineDeal, DeclineDealCommand
 from app.modules.deals.application.use_cases.list_my_deals import (
     ListMyDeals,
     ListMyDealsCommand,
@@ -90,6 +92,19 @@ async def confirm_deal(
 ) -> DealOut:
     """Подтвердить «Договорились» второй стороной: сделка `agreed`. Предложившему — 409."""
     await confirm(ConfirmDealCommand(actor_id=principal.user_id, deal_id=DealId(deal_id)))
+    return await _shown(show, principal.user_id, DealId(deal_id))
+
+
+@router.post("/deals/{deal_id:uuid}/decline", response_model=DealOut, dependencies=AUTHENTICATED)
+@inject
+async def decline_deal(
+    deal_id: DealPath,
+    principal: FromDishka[Principal],
+    decline: FromDishka[DeclineDeal],
+    show: FromDishka[ShowDeal],
+) -> DealOut:
+    """Отклонить «Договорились» (S53): только пока предложение ждёт ответа, иначе 409."""
+    await decline(DeclineDealCommand(actor_id=principal.user_id, deal_id=DealId(deal_id)))
     return await _shown(show, principal.user_id, DealId(deal_id))
 
 

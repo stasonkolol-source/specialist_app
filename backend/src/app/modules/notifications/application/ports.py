@@ -36,6 +36,7 @@ from app.platform.contracts.events.jobs import (
     ResponseAccepted,
     ResponseSubmitted,
 )
+from app.platform.contracts.events.messaging import MessageSent
 from app.platform.contracts.events.moderation import ModerationDecisionMade
 from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.kernel.ids import UserId
@@ -228,6 +229,31 @@ NOTIFY_RESPONSES: Final = TaskRef(
     "notifications.notify_responses", ResponsesWindow, queue="notifications"
 )
 """Конец окна: «Новых откликов: 3» по видимым клиенту и ещё не открытым откликам."""
+
+MESSAGES_DEBOUNCE: Final = timedelta(minutes=1)
+"""Окно дебаунса `message.received` (6.3b): серия сообщений за минуту — одно уведомление."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class MessagesWindow:
+    """Окно сообщений диалога для одного получателя: уведомление — в его конце."""
+
+    conversation_id: UUID
+    recipient_id: UserId
+    since: datetime
+    """Первое сообщение окна: окно — ключ дедупликации уведомления."""
+
+
+SCHEDULE_MESSAGES_NOTICE: Final = TaskRef(
+    "notifications.schedule_messages_notice", MessageSent, queue="notifications"
+)
+"""Подписчик MessageSent: первое сообщение окна ставит уведомление получателю через
+MESSAGES_DEBOUNCE, следующие, пока оно ждёт, — ничего (замок очереди по диалогу и получателю)."""
+NOTIFY_MESSAGES: Final = TaskRef(
+    "notifications.notify_messages", MessagesWindow, queue="notifications"
+)
+"""Конец окна: «Алексей пишет» с началом последнего сообщения, если получатель ещё не прочитал
+и не смотрит диалог прямо сейчас."""
 
 NOTIFY_JOB_INVITED: Final = TaskRef(
     "notifications.notify_job_invited", JobInvited, queue="notifications"

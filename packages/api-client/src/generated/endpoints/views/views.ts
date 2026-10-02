@@ -51,7 +51,8 @@ export const getViewsGetSpecialistUrl = (profileId: string) => {
 };
 
 /**
- * Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио и рейтинг.
+ * Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио, рейтинг и
+ * время ответа.
  * @summary Get Specialist
  */
 export const viewsGetSpecialist = async (

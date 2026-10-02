@@ -11,6 +11,7 @@ from app.modules.messaging.application.ports import (
     ConversationRepository,
     MessageQuota,
     MessageStore,
+    Presence,
 )
 from app.modules.messaging.application.use_cases.forget_messages import ForgetMessages
 from app.modules.messaging.application.use_cases.list_conversations import ListConversations
@@ -23,6 +24,7 @@ from app.modules.messaging.application.use_cases.send_message import SendMessage
 from app.modules.messaging.application.use_cases.share_contact import ShareContact
 from app.modules.messaging.application.use_cases.start_conversation import StartConversation
 from app.modules.messaging.infrastructure.contacts import TelegramContactVerifier
+from app.modules.messaging.infrastructure.presence import CachePresence
 from app.modules.messaging.infrastructure.queries import SqlConversationQueries
 from app.modules.messaging.infrastructure.quota import ValkeyMessageQuota
 from app.modules.messaging.infrastructure.repositories import (
@@ -43,8 +45,9 @@ class MessagingProvider(Provider):
     contact_verifier = provide(TelegramContactVerifier, provides=ContactVerifier)
     queries = provide(SqlConversationQueries, provides=ConversationQueries)
     quota = provide(ValkeyMessageQuota, provides=MessageQuota)
+    presence = provide(CachePresence, provides=Presence)
     facade = provide(MessagingFacade, provides=MessagingApi)
-    """Фасад для модерации: адаптер цели `message`."""
+    """Фасад для модерации (адаптер цели `message`) и уведомлений (`message.received`)."""
     start_conversation = provide(StartConversation)
     send_message = provide(SendMessage)
     read_conversation = provide(ReadConversation)

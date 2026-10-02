@@ -122,6 +122,15 @@ msgstr "Означено: посао је завршен. Договор ће с
 msgid "bot.deals.completed"
 msgstr "Договор је завршен. Хвала!"
 
+msgid "bot.deals.confirmed"
+msgstr "Договорено! Договор је на снази — у разговору сада можете поделити контакт."
+
+msgid "bot.deals.declined"
+msgstr "Предлог је одбијен."
+
+msgid "bot.deals.proposal_closed"
+msgstr "Предлог више није актуелан: потврђен је, одбијен или је рок истекао."
+
 msgid "bot.help.text"
 msgstr "<b>Како функционише</b>\n• Опишите задатак — мајстори у близини ће се јавити са ценом. Или изаберите стручњака по утисцима.\n• Договарајте се у чету апликације „Соседи“: контакти — након договора.\n• Плаћање — директно извођачу, после посла. „Соседи“ не примају новац.\n\n<b>Безбедност</b>\n• Не плаћајте унапред непознатим људима и никоме не говорите кодове из СМС порука.\n• Сумњив профил или порука — пријавите директно у апликацији.\n\n/terms — правила платформе\n/privacy — политика приватности\n/language — језик"
 
@@ -753,6 +762,21 @@ msgstr "Наручилац је изабрао другог извођача"
 msgid "notifications.response_not_selected.body"
 msgstr "Захтев „{title}“. Хвала на понуди — у листи има других захтева у близини."
 
+msgid "notifications.message_received.title"
+msgstr "{name} пише"
+
+msgid "notifications.message_received.preview"
+msgstr "„{text}“"
+
+msgid "notifications.message_received.count"
+msgstr "Нових порука: {count}."
+
+msgid "notifications.message_received.someone"
+msgstr "Саговорник"
+
+msgid "notifications.message_received.button"
+msgstr "Одговори"
+
 msgid "notifications.deal.open"
 msgstr "Отвори договор"
 
@@ -760,13 +784,40 @@ msgid "notifications.deal_proposed.title"
 msgstr "Договорено?"
 
 msgid "notifications.deal_proposed.body_client"
-msgstr "Наручилац предлаже договор: „{title}“. Проверите услове и потврдите у року од 3 дана."
+msgstr "Наручилац предлаже договор: „{title}“."
 
 msgid "notifications.deal_proposed.body_performer"
-msgstr "Извођач предлаже договор: „{title}“. Проверите услове и потврдите у року од 3 дана."
+msgstr "Извођач предлаже договор: „{title}“."
 
 msgid "notifications.deal_proposed.button"
 msgstr "Погледај услове"
+
+msgid "notifications.deal_proposed.when"
+msgstr "Када: {when}."
+
+msgid "notifications.deal_proposed.price"
+msgstr "Цена: {price}."
+
+msgid "notifications.deal_proposed.deadline"
+msgstr "Потврдите или одбијте у року од 3 дана."
+
+msgid "notifications.deal_proposed.confirm"
+msgstr "Потврди"
+
+msgid "notifications.deal_proposed.decline"
+msgstr "Одбиј"
+
+msgid "notifications.price.fixed"
+msgstr "{amount} RSD"
+
+msgid "notifications.price.from"
+msgstr "од {amount} RSD"
+
+msgid "notifications.price.hourly"
+msgstr "{amount} RSD по сату"
+
+msgid "notifications.price.negotiable"
+msgstr "по договору"
 
 msgid "notifications.deal_cancelled.title"
 msgstr "Договор је отказан"

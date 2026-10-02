@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Final, Literal, Protocol
 from uuid import UUID
 
-from app.modules.messaging.application.dto import ConversationView, MessagesPage
+from app.modules.messaging.application.dto import ConversationView, MessagesPage, ResponseStat
 from app.modules.messaging.domain.conversation import Conversation
 from app.modules.messaging.domain.message import ContactType, Message
 from app.platform.contracts.events.deals import DealAgreed, DealCancelled
@@ -134,6 +134,23 @@ class ConversationQueries(Protocol):
     ) -> MessagesPage:
         """Сообщения по порядку; скрытые модерацией — без текста, кроме своих."""
         ...
+
+    async def response_stats(
+        self, *, since: datetime, min_conversations: int
+    ) -> list[ResponseStat]:
+        """Медиана первого ответа исполнителей по диалогам, где клиент впервые написал после
+        `since`; исполнители, у кого диалогов с ответом меньше `min_conversations`, — без неё."""
+        ...
+
+
+class Presence(Protocol):
+    """Кто сейчас смотрит диалог (S30 опрашивает новые каждые 3–5 с): уведомление о сообщении
+    такому получателю не нужно (§11.3). Метка короткая и без гарантий: нет Valkey — «не смотрит»,
+    уведомление уйдёт."""
+
+    async def viewing(self, conversation_id: UUID, user_id: UserId) -> None: ...
+
+    async def is_viewing(self, conversation_id: UUID, user_id: UserId) -> bool: ...
 
 
 class MessageQuota(Protocol):

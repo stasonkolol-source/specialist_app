@@ -1,12 +1,13 @@
 """BFF карточки специалиста S08–S11 (DEVELOPMENT_PLAN 4.5, 4.6): профиль, прайс, портфолио и
-отзывы — из фасадов specialists, pricing, media, reviews, catalog, geo и identity (ARCHITECTURE
-§5.2 п. 7).
+отзывы — из фасадов specialists, pricing, media, reviews, catalog, geo, identity и search
+(ARCHITECTURE §5.2 п. 7).
 
 Профиль виден, если он опубликован, а автор не удалён и не скрыт санкцией — как в поиске;
 иначе 404, без подсказки почему. Ответ на языке Accept-Language, с ETag: повторный запрос без
 изменений — 304. Фото — готовые варианты; пока файл обрабатывается, его на карточке нет.
-Рейтинг — агрегаты reviews; сами отзывы — с 7.2, «Обычно отвечает за …» — с 6.3b, бейджи — v1:
-пока пусто.
+Рейтинг — агрегаты reviews; сами отзывы — с 7.2. «Обычно отвечает за …» — медиана первого ответа
+в диалогах за 30 дней из read-model поиска (6.3b; при пяти и больше диалогах с ответом). Бейджи —
+v1: пока пусто.
 """
 
 from datetime import datetime
@@ -23,6 +24,7 @@ from app.modules.identity.api import IdentityApi
 from app.modules.media.api import MediaApi, MediaRef
 from app.modules.pricing.api import PricingApi, PublicService
 from app.modules.reviews.api import RatingSummary, ReviewsApi
+from app.modules.search.api import SearchApi
 from app.modules.specialists.api import PublicProfile, PublicWork, SpecialistsApi
 from app.platform.http.caching import NOT_MODIFIED, cached_json
 from app.platform.http.money import MoneyOut
@@ -117,7 +119,10 @@ class SpecialistProfileOut(BaseModel):
     rating_count: int
     is_new: bool
     badges: list[str]
-    response_time_minutes: int | None = Field(description="«Обычно отвечает за …» — с 6.3b")
+    response_time_minutes: int | None = Field(
+        description="«Обычно отвечает за …»: медиана первого ответа в диалогах за 30 дней, в"
+        " минутах; меньше пяти диалогов с ответом — null"
+    )
     services: list[CardServiceOut] = Field(description="Первые позиции прайса (S08)")
     services_count: int
     works: list[CardWorkOut] = Field(description="Превью портфолио (S08)")
@@ -244,10 +249,12 @@ async def get_specialist(
     reviews: FromDishka[ReviewsApi],
     catalog: FromDishka[CatalogApi],
     geo: FromDishka[GeoApi],
+    search: FromDishka[SearchApi],
     clock: FromDishka[Clock],
     locale: FromDishka[Locale],
 ) -> Response:
-    """Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио и рейтинг."""
+    """Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио, рейтинг и
+    время ответа."""
     profile = await _visible(profile_id, specialists, identity)
     rating = _rating((await reviews.summaries([profile.id])).get(profile.id))
     services = await pricing.public_services(profile.id)
@@ -276,7 +283,7 @@ async def get_specialist(
         rating_count=rating.count,
         is_new=rating.is_new,
         badges=[],
-        response_time_minutes=None,
+        response_time_minutes=await search.response_time(profile.id),
         services=[_service(service) for service in services[:TOP_SERVICES]],
         services_count=len(services),
         works=works[:PREVIEW_WORKS],
