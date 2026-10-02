@@ -8,6 +8,7 @@
 - `media.hide_variants` — варианты удалённого файла из публичного media в private.
 - `media.discard_media` — удалить файл, который модуль выше по DAG больше не показывает
   (работа портфолио, прежнее фото профиля): как DELETE /media/{id} владельца.
+- `media.forget_owner` — UserDeleted: все файлы удалённого аккаунта — на удаление (§7.10).
 - `media.hide_deleted` — каждые 15 минут: страховка, если скрытие не прошло.
 - `media.retry_stuck` — каждые 15 минут: зависшую обработку поставить снова (фото — через
   15 минут после загрузки, ролик — через час), а зависшую дольше суток — отклонить.
@@ -28,6 +29,7 @@ from app.modules.media.application.dto import (
 from app.modules.media.application.ports import (
     DELETE_OBJECTS,
     DISCARD_MEDIA,
+    FORGET_OWNER,
     HIDE_VARIANTS,
     PROCESS_MEDIA,
 )
@@ -36,6 +38,7 @@ from app.modules.media.application.use_cases.cleanup_orphans import (
     CleanupOrphansCommand,
 )
 from app.modules.media.application.use_cases.delete_media import DeleteMedia, DeleteMediaCommand
+from app.modules.media.application.use_cases.forget_owner import ForgetOwner, ForgetOwnerCommand
 from app.modules.media.application.use_cases.hide_variants import (
     HideDeleted,
     HideDeletedCommand,
@@ -52,6 +55,7 @@ from app.modules.media.application.use_cases.purge_deleted import (
 )
 from app.modules.media.application.use_cases.retry_stuck import RetryStuck, RetryStuckCommand
 from app.modules.media.errors import MediaNotFoundError
+from app.platform.contracts.events.identity import UserDeleted
 from app.platform.contracts.events.media import MediaUploaded
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber, task
 from app.platform.storage.port import Bucket, StoragePort, StorageRejectedError
@@ -68,6 +72,11 @@ async def process(event: MediaUploaded, process_media: FromDishka[ProcessMedia])
 @task(HIDE_VARIANTS)
 async def hide_variants(payload: HideVariantsPayload, hide: FromDishka[HideVariants]) -> None:
     await hide(HideVariantsCommand(media_id=payload.media_id))
+
+
+@subscriber(UserDeleted, FORGET_OWNER)
+async def forget_owner(event: UserDeleted, forget: FromDishka[ForgetOwner]) -> None:
+    await forget(ForgetOwnerCommand(owner_id=event.user_id))
 
 
 @task(DISCARD_MEDIA)

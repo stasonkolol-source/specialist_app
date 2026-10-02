@@ -45,6 +45,10 @@ class UserRegistered(DomainEvent):
     identity пропускает только синтаксис Telegram (до 64 символов `[A-Za-z0-9_-]`), тип
     ссылки и суффикс `_r` разбирает кодек growth. Поля добавлены аддитивно: у событий,
     поставленных до 1.4b, их нет.
+
+    `reregistered` — тот же Telegram-аккаунт удалял аккаунт в последние 12 месяцев (хэш в
+    `deleted_identity_hashes`, 2.12): модерация пишет сигнал риска, данные не возвращаются.
+    `had_sanctions` — у удалённого аккаунта были санкции. Поля аддитивные, с 2.12.
     """
 
     event_type = "identity.UserRegistered"
@@ -52,6 +56,8 @@ class UserRegistered(DomainEvent):
     provider: str
     entry_point: EntryPoint | None = None
     start_param: str | None = None
+    reregistered: bool = False
+    had_sanctions: bool = False
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -111,3 +117,19 @@ class OnboardingCompleted(DomainEvent):
     user_id: UserId
     intent: str | None
     home_city_id: CityId | None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class UserDeleted(DomainEvent):
+    """Аккаунт удалён по запросу после grace-периода (ARCHITECTURE §7.10, 2.12).
+
+    identity уже обезличил пользователя: имя «Удалённый пользователь», способов входа и
+    телефона нет. Подписчики удаляют или обезличивают своё: профиль исполнителя и прайс,
+    файлы, каналы и ленту уведомлений, атрибуцию. Модуль с персональными данными, который
+    появится позже, подписывается в своём шаге (правило DoD). Записи, которые закон требует
+    хранить (согласия, решения модерации), остаются с тем же `user_id` — он ничего не говорит
+    о человеке.
+    """
+
+    event_type = "identity.UserDeleted"
+    user_id: UserId

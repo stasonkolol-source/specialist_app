@@ -1,4 +1,4 @@
-"""ORM-модели identity (ARCHITECTURE §7.3, миграции identity_0001–0002).
+"""ORM-модели identity (ARCHITECTURE §7.3, миграции identity_0001–0004).
 
 FK на таблицы других схем (`users.home_city_id` → geo.cities) объявлен только в миграции:
 MetaData модуля не знает чужих таблиц, а ORM-ForeignKey на них не разрешился бы при
@@ -27,6 +27,7 @@ from sqlalchemy.dialects.postgresql import INET, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.modules.identity.domain.consent import ConsentDocument
+from app.modules.identity.domain.deletion import DeletionSource, HashKind
 from app.modules.identity.domain.restriction import RestrictionKind, RestrictionSource
 from app.modules.identity.domain.session import RevokeReason
 from app.modules.identity.domain.user import AuthProvider, UserIntent, UserStatus
@@ -201,3 +202,46 @@ class StatusHistoryRow(Base):
     actor_id: Mapped[UUID | None]
     reason: Mapped[str | None]
     at: Mapped[datetime]
+
+
+class DeletionRequestRow(UuidPkMixin, Base):
+    """Запрос на удаление аккаунта (§7.10): grace 7 дней, исполняет identity.process_deletions."""
+
+    __tablename__ = "deletion_requests"
+
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    requested_at: Mapped[datetime]
+    execute_after: Mapped[datetime]
+    """requested_at + 7 дней."""
+    cancelled_at: Mapped[datetime | None]
+    completed_at: Mapped[datetime | None]
+    source: Mapped[DeletionSource] = mapped_column(str_enum(DeletionSource, "source"))
+
+    __table_args__ = (
+        # у пользователя — не больше одного ждущего запроса
+        Index(
+            "uq_deletion_requests_user_id_active",
+            "user_id",
+            unique=True,
+            postgresql_where=text("cancelled_at IS NULL AND completed_at IS NULL"),
+        ),
+        # ждущие запросы по сроку — для identity.process_deletions
+        Index(
+            "ix_deletion_requests_execute_after",
+            "execute_after",
+            postgresql_where=text("cancelled_at IS NULL AND completed_at IS NULL"),
+        ),
+    )
+
+
+class DeletedIdentityHashRow(Base):
+    """HMAC Telegram ID или телефона удалённого аккаунта: антифрод 12 месяцев (§7.10)."""
+
+    __tablename__ = "deleted_identity_hashes"
+
+    hash: Mapped[bytes] = mapped_column(LargeBinary(32), primary_key=True)
+    kind: Mapped[HashKind] = mapped_column(str_enum(HashKind, "kind"))
+    had_sanctions: Mapped[bool] = mapped_column(server_default=text("false"))
+    deleted_at: Mapped[datetime]
+    purge_after: Mapped[datetime]
+    """deleted_at + 12 месяцев: дальше хэш удаляет platform.retention_sweep (2.12b)."""

@@ -51,11 +51,14 @@ class Harness:
             users,
             SqlSessionRepository(identity.session, uow),
             identity.query,
+            identity.deleted,
             identity.tokens,
             CONFIG,
             identity.clock,
         )
-        self.register = RegisterTelegramUser(uow, users, identity.query, identity.clock)
+        self.register = RegisterTelegramUser(
+            uow, users, identity.query, identity.deleted, CONFIG, identity.clock
+        )
 
     async def payloads(self, task: TaskRef[object], user_id: UserId) -> list[dict[str, object]]:
         tasks = await queued_tasks(self.identity.session, task.name)

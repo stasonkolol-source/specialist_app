@@ -43,6 +43,7 @@ def main() -> int:
         "VALKEY_URL": "redis://127.0.0.1:56379/0",
         "APP_ENV": "dev",
         "APP_LOG_JSON": "false",
+        "APP_HASH_KEY": token(32),
     }
     changed_backend = update(BACKEND_ENV, backend_new)
 

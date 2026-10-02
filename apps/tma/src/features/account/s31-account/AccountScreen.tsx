@@ -4,6 +4,8 @@
 // ведёт в кабинет S33 (2.10). Строка «Уведомления» ведёт в S42; число справа — непрочитанные
 // (первая страница ленты S42). Язык интерфейса — ui_locale из GET /me, пишется через PATCH /me
 // (строкой «Язык» в S43 станет с шага 4.9). Без сети — S49a «Нет соединения» вместо ошибки.
+// «Удалить аккаунт» ведёт в S45 (2.12a; с 4.9 — из настроек S43); пока удаление запланировано,
+// сверху — дата и «Отменить».
 import type { MeOut, ProfileKind } from '@sosed/api-client';
 import {
   ApiError,
@@ -17,6 +19,7 @@ import {
   profileState,
   systemStateOf,
   unreadCount,
+  useCancelDeletion,
   useCities,
   useMyProfile,
   useNotificationFeed,
@@ -46,6 +49,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import type { MouseEvent, ReactNode } from 'react';
 import { useEffect, useId } from 'react';
+
+import { ACCOUNT_PATHS } from '../paths.ts';
 
 /** S48, правила площадки (маршрут features/service/s48-legal). */
 const LEGAL_PATH = '/legal/$document';
@@ -104,7 +109,14 @@ export function AccountScreen() {
       </>
     );
   } else if (me.data) {
-    top = <AccountHeader me={me.data} />;
+    top = (
+      <>
+        <AccountHeader me={me.data} />
+        {me.data.deletion_scheduled_at && (
+          <DeletionScheduled at={new Date(me.data.deletion_scheduled_at)} />
+        )}
+      </>
+    );
     account = true;
   } else if (offline) top = <Offline saved={false} onRetry={retry} retrying={me.isFetching} />;
   else if (me.isError) top = <LoadError onRetry={retry} />;
@@ -121,6 +133,7 @@ export function AccountScreen() {
       {!signedOut && <Notifications />}
       {account && me.data && <Language me={me.data} />}
       <Support />
+      {account && <DeleteAccount />}
     </section>
   );
 }
@@ -238,6 +251,54 @@ function Support() {
         />
       </Group>
     </nav>
+  );
+}
+
+/** Удаление запланировано (S45): дата и «Отменить» — передумавшему не нужно искать экран. */
+function DeletionScheduled({ at }: { at: Date }) {
+  const { t } = useTranslation('service');
+  const format = useFormat();
+  const platform = usePlatform();
+  const cancel = useCancelDeletion();
+  return (
+    <Banner tone="danger" role="status">
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="font-semibold">{t('deletion.scheduled', { date: format.date(at) })}</span>
+        <button
+          type="button"
+          disabled={cancel.isPending}
+          onClick={() =>
+            cancel.mutate(undefined, {
+              onSuccess: () => platform.haptics.notification('success'),
+            })
+          }
+          className="min-h-11 border-0 bg-transparent p-0 font-semibold text-inherit underline"
+        >
+          {t('deletion.cancelShort')}
+        </button>
+      </span>
+    </Banner>
+  );
+}
+
+/** «Удалить аккаунт» — S45 с последствиями и подтверждением. */
+function DeleteAccount() {
+  const { t } = useTranslation('service');
+  const router = useRouter();
+  const open = (event: MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    void router.navigate({ to: ACCOUNT_PATHS.delete });
+  };
+  return (
+    <Group>
+      <Row
+        icon="trash"
+        title={t('deletion.row')}
+        chevron
+        href={router.history.createHref(ACCOUNT_PATHS.delete)}
+        onClick={open}
+      />
+    </Group>
   );
 }
 

@@ -21,7 +21,12 @@ from app.modules.identity.errors import (
     InvalidDisplayNameError,
     UserAlreadyDeletedError,
 )
-from app.platform.contracts.events.identity import EntryPoint, UserRegistered, UserUpdated
+from app.platform.contracts.events.identity import (
+    EntryPoint,
+    UserDeleted,
+    UserRegistered,
+    UserUpdated,
+)
 from app.platform.kernel.aggregate import StatusChange, VersionedAggregate
 from app.platform.kernel.errors import ConflictError, ProgrammingError
 from app.platform.kernel.ids import CityId, UserId, new_id
@@ -30,6 +35,7 @@ from app.platform.kernel.localized import Locale
 MAX_DISPLAY_NAME = 64
 DEFAULT_TIMEZONE = "Europe/Belgrade"
 FALLBACK_DISPLAY_NAME = "Сосед"
+DELETED_DISPLAY_NAME = "Удалённый пользователь"
 
 
 class UserStatus(StrEnum):
@@ -141,8 +147,11 @@ class User(VersionedAggregate):
         now: datetime,
         entry_point: EntryPoint | None = None,
         start_param: str | None = None,
+        reregistered: bool = False,
+        had_sanctions: bool = False,
     ) -> User:
-        """Новый аккаунт. `entry_point` и `start_param` — первое касание (атрибуция в growth)."""
+        """Новый аккаунт. `entry_point` и `start_param` — первое касание (атрибуция в growth);
+        `reregistered` — этот способ входа был у аккаунта, удалённого за последние 12 месяцев."""
         user = cls(
             id=UserId(new_id()),
             status=UserStatus.ACTIVE,
@@ -170,6 +179,8 @@ class User(VersionedAggregate):
                 provider=provider.value,
                 entry_point=entry_point,
                 start_param=start_param,
+                reregistered=reregistered,
+                had_sanctions=had_sanctions,
                 occurred_at=now,
             )
         )
@@ -275,6 +286,20 @@ class User(VersionedAggregate):
             UserStatus.DELETED, error=UserAlreadyDeletedError, by=by, now=now, reason=reason
         )
         self.deleted_at = now
+
+    def forget(self, *, now: datetime) -> None:
+        """Исполнить удаление аккаунта по запросу (§7.10): удалён и обезличен — имя «Удалённый
+        пользователь», без способов входа, телефона, города и намерения. Хэши способов входа
+        для антифрода use case берёт до вызова. Остальное удаляют подписчики UserDeleted."""
+        self.delete(by=self.id, now=now, reason="deletion_request")
+        self.display_name = DELETED_DISPLAY_NAME
+        self.identities = []
+        self.home_city_id = None
+        self.intent = None
+        self.phone_e164 = None
+        self.phone_verified_at = None
+        self.last_seen_at = None
+        self._record(UserDeleted(user_id=self.id, occurred_at=now))
 
     def pull_history(self) -> list[StatusChange[UserStatus]]:
         history, self._history = self._history, []

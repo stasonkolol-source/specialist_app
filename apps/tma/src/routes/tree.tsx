@@ -10,6 +10,7 @@ import {
 } from '@tanstack/react-router';
 import type { FunctionComponent } from 'react';
 
+import { ACCOUNT_PATHS } from '../features/account/index.ts';
 import { ONBOARDING_PATHS, onboardingSearch } from '../features/onboarding/index.ts';
 import { BECOME_PATHS, CABINET_PATHS, becomeSearch } from '../features/specialist/index.ts';
 import { LEGAL_PATH, LegalScreen } from '../features/service/s48-legal/index.ts';
@@ -71,8 +72,16 @@ const messages = createRoute({
 
 const profile = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/profile',
+  path: ACCOUNT_PATHS.home,
   component: screen(() => import('../features/account/s31-account/index.ts'), 'AccountScreen'),
+});
+
+// S45 удаление аккаунта (2.12a): из S31; без входа удалять нечего
+const deleteAccount = createRoute({
+  getParentRoute: () => rootRoute,
+  path: ACCOUNT_PATHS.delete,
+  beforeLoad: requireUser,
+  component: screen(() => import('../features/account/s45-delete/index.ts'), 'DeleteAccountScreen'),
 });
 
 // Мастер «Стать специалистом» S32a–c (2.9): вход — из S31. Профиль — создающее действие:
@@ -226,6 +235,7 @@ export const routeTree = rootRoute.addChildren([
   createJob,
   messages,
   profile,
+  deleteAccount,
   becomeType,
   becomeAbout,
   becomeArea,

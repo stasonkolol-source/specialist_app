@@ -21,6 +21,7 @@ export * from './completeIn.ts';
 export * from './completenessOut.ts';
 export * from './consentsIn.ts';
 export * from './currency.ts';
+export * from './deletionOut.ts';
 export * from './districtKind.ts';
 export * from './districtOut.ts';
 export * from './districtRefOut.ts';

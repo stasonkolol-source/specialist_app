@@ -2,12 +2,16 @@
 
 from dishka import FromDishka
 
-from app.modules.growth.application.ports import RECORD_ATTRIBUTION
+from app.modules.growth.application.ports import FORGET_ATTRIBUTION, RECORD_ATTRIBUTION
+from app.modules.growth.application.use_cases.forget_attribution import (
+    ForgetAttribution,
+    ForgetAttributionCommand,
+)
 from app.modules.growth.application.use_cases.record_attribution import (
     RecordAttribution,
     RecordAttributionCommand,
 )
-from app.platform.contracts.events.identity import UserRegistered
+from app.platform.contracts.events.identity import UserDeleted, UserRegistered
 from app.platform.queue.tasks import subscriber
 
 
@@ -22,3 +26,9 @@ async def record_attribution(event: UserRegistered, record: FromDishka[RecordAtt
             touched_at=event.occurred_at,
         )
     )
+
+
+@subscriber(UserDeleted, FORGET_ATTRIBUTION)
+async def forget_attribution(event: UserDeleted, forget: FromDishka[ForgetAttribution]) -> None:
+    """Аккаунт удалён — его атрибуция тоже (§7.10)."""
+    await forget(ForgetAttributionCommand(user_id=event.user_id))

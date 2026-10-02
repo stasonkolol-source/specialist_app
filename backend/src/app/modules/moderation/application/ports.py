@@ -13,6 +13,7 @@ from app.modules.moderation.domain.risk import RiskSignal
 from app.modules.moderation.domain.rules import ContentRule, RuleSet
 from app.modules.moderation.domain.sanctions import Sanction
 from app.platform.ai.port import ContentKind
+from app.platform.contracts.events.identity import UserRegistered
 from app.platform.contracts.events.moderation import ModerationRequested
 from app.platform.kernel.ids import CaseId, MediaId, UserId
 from app.platform.queue.port import TaskRef
@@ -146,3 +147,6 @@ class CaseQueue(Protocol):
 
 AUTO_CHECK: Final = TaskRef("moderation.auto_check", ModerationRequested)
 """Подписчик ModerationRequested: автопроверка объекта (§14.1)."""
+
+RECORD_REREGISTRATION: Final = TaskRef("moderation.record_reregistration", UserRegistered)
+"""Подписчик UserRegistered: повторная регистрация после удаления — сигнал риска (2.12)."""

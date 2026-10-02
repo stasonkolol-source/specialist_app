@@ -5,6 +5,7 @@ from datetime import UTC, datetime, time, timedelta
 import pytest
 
 from app.modules.specialists.domain.profile import (
+    DELETED_NAME,
     Language,
     Profile,
     ProfileKind,
@@ -20,6 +21,7 @@ from app.modules.specialists.errors import (
 )
 from app.platform.contracts.events.specialists import (
     AvailabilityChanged,
+    ProfileDeleted,
     ProfileHidden,
     ProfilePublished,
     ProfileSubmitted,
@@ -257,3 +259,17 @@ def test_today_is_the_business_day_in_belgrade() -> None:
     # 23:30 UTC 1 октября — уже 2 октября в Белграде (UTC+2)
     late = datetime(2026, 10, 1, 23, 30, tzinfo=UTC)
     assert today_at(time(20), now=late) == datetime(2026, 10, 2, 18, 0, tzinfo=UTC)
+
+
+def test_forgotten_profile_leaves_the_catalog_without_personal_data() -> None:
+    profile = ready()
+    profile.submit(now=NOW)
+    profile.approve(now=NOW)
+    profile.pull_events()
+
+    profile.forget(now=NOW)
+
+    assert profile.deleted_at == NOW
+    assert (profile.display_name, profile.headline, profile.about) == (DELETED_NAME, None, None)
+    assert not profile.listed_in_catalog
+    assert [type(event) for event in profile.pull_events()] == [ProfileDeleted]

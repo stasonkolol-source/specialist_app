@@ -69,6 +69,7 @@ export {
   onboardingStep,
   useConsentGate,
 } from './onboarding/onboarding.ts';
+export { useCancelDeletion, useRequestDeletion } from './account/deletion.ts';
 export { useSetAvailability } from './specialist/availability.ts';
 export type {
   PortfolioRoom,

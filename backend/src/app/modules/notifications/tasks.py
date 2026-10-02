@@ -11,6 +11,8 @@ notifications стоит над контентными модулями (ARCHITE
 - `notifications.notify_moderation_decision` — ModerationDecisionMade: автору — отказ
   (statement of reasons: причина, предупреждение, автоматически ли) и кнопка «Исправить» к
   его контенту; одобрение без уведомления.
+- `notifications.forget_recipient` — UserDeleted: лента, каналы и настройки удалённого
+  аккаунта удалены (§7.10).
 - `notifications.send` — отправить доставку в бот (очередь `notifications`).
 - `notifications.expire_stale` — раз в час: доставки, зависшие в `queued` дольше суток после
   срока, становятся `failed` (`stale`).
@@ -19,6 +21,7 @@ notifications стоит над контентными модулями (ARCHITE
 from dishka import FromDishka
 
 from app.modules.notifications.application.ports import (
+    FORGET_RECIPIENT,
     GRANT_WRITE_ACCESS,
     NOTIFY_ACCOUNT_RESTRICTED,
     NOTIFY_MODERATION_DECISION,
@@ -29,6 +32,10 @@ from app.modules.notifications.application.ports import (
 from app.modules.notifications.application.use_cases.expire_stale_deliveries import (
     ExpireStaleDeliveries,
     ExpireStaleDeliveriesCommand,
+)
+from app.modules.notifications.application.use_cases.forget_recipient import (
+    ForgetRecipient,
+    ForgetRecipientCommand,
 )
 from app.modules.notifications.application.use_cases.grant_telegram_write_access import (
     GrantTelegramWriteAccess,
@@ -42,7 +49,12 @@ from app.modules.notifications.application.use_cases.send_delivery import (
 from app.modules.notifications.domain.catalog import NotificationType
 from app.modules.notifications.domain.channel import GrantedVia
 from app.modules.notifications.domain.notification import DeliveryId
-from app.platform.contracts.events.identity import BotStarted, RestrictionKind, UserRestricted
+from app.platform.contracts.events.identity import (
+    BotStarted,
+    RestrictionKind,
+    UserDeleted,
+    UserRestricted,
+)
 from app.platform.contracts.events.moderation import ModerationDecision, ModerationDecisionMade
 from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber, task
@@ -133,3 +145,8 @@ async def expire_stale(run: PeriodicRun) -> None:
 @task(SEND_DELIVERY)
 async def send(payload: SendDeliveryPayload, deliver: FromDishka[SendDelivery]) -> None:
     await deliver(SendDeliveryCommand(delivery_id=DeliveryId(payload.delivery_id)))
+
+
+@subscriber(UserDeleted, FORGET_RECIPIENT)
+async def forget_recipient(event: UserDeleted, forget: FromDishka[ForgetRecipient]) -> None:
+    await forget(ForgetRecipientCommand(user_id=event.user_id))

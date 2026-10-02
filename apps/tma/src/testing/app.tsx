@@ -11,7 +11,12 @@ import { HttpResponse, http } from 'msw';
 
 import { App } from '../app/App.tsx';
 import { assemble } from '../app/bootstrap.ts';
-import { WRITE_ACCESS, accepted } from './fixtures.ts';
+import {
+  DELETION_EXECUTE_AFTER,
+  DELETION_REQUESTED_AT,
+  WRITE_ACCESS,
+  accepted,
+} from './fixtures.ts';
 import { API_ORIGIN, TOKENS, server } from './msw.ts';
 
 export interface StartOptions {
@@ -70,6 +75,7 @@ export function userBackend(initial: MeOut) {
     patch: [] as MeUpdateIn[],
     consents: [] as ConsentsIn[],
     writeAccess: 0,
+    deletion: [] as ('request' | 'cancel')[],
   };
   server.use(
     getIdentityAuthenticateTelegramMockHandler(() => ({ ...TOKENS, is_new: true, user })),
@@ -89,6 +95,18 @@ export function userBackend(initial: MeOut) {
     http.post('*/api/v1/me/telegram/write-access', () => {
       requests.writeAccess += 1;
       return HttpResponse.json(WRITE_ACCESS);
+    }),
+    // S45: grace 7 дней от DELETION_REQUESTED_AT; повтор — тот же срок, отмена идемпотентна
+    http.post('*/api/v1/me/deletion', () => {
+      requests.deletion.push('request');
+      const execute = user.deletion_scheduled_at ?? DELETION_EXECUTE_AFTER;
+      user = { ...user, deletion_scheduled_at: execute };
+      return HttpResponse.json({ requested_at: DELETION_REQUESTED_AT, execute_after: execute });
+    }),
+    http.delete('*/api/v1/me/deletion', () => {
+      requests.deletion.push('cancel');
+      user = { ...user, deletion_scheduled_at: null };
+      return new HttpResponse(null, { status: 204 });
     }),
   );
   return {

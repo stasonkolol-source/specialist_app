@@ -13,6 +13,11 @@ from app.modules.moderation.application.use_cases.decide_case import DecideCaseC
 from app.modules.moderation.application.use_cases.record_rate_limit_signals import (
     RecordRateLimitSignalsCommand,
 )
+from app.modules.moderation.application.use_cases.record_reregistration import (
+    WEIGHT_AFTER_SANCTIONS,
+    RecordReregistration,
+    RecordReregistrationCommand,
+)
 from app.modules.moderation.application.use_cases.take_case import (
     EscalateCaseCommand,
     TakeCaseCommand,
@@ -21,6 +26,8 @@ from app.modules.moderation.domain.cases import Case, CaseStatus, CaseTrigger, E
 from app.modules.moderation.domain.queues import Queue
 from app.modules.moderation.domain.sanctions import SanctionStep, Severity
 from app.modules.moderation.errors import CaseAlreadyOpenError, CaseTakenError
+from app.modules.moderation.infrastructure.cases import SqlRiskSignals
+from app.modules.moderation.infrastructure.deletion_hold import CasesDeletionHold
 from app.platform.contracts.events.moderation import ModerationDecision
 from app.platform.kernel.ids import CaseId, MediaId, UserId, new_id
 from app.platform.testing.queue import queued_tasks
@@ -241,6 +248,49 @@ async def test_open_cases_hold_their_evidence(moderation: Moderation) -> None:
         held = await moderation.hold.held([evidence, reported, closed, free])
 
     assert held == {evidence, reported}
+
+
+async def test_open_case_about_a_user_holds_their_deletion(moderation: Moderation) -> None:
+    accused, cleared, bystander = [await moderation.user() for _ in range(3)]
+    await moderation.case(accused)
+    done = await moderation.case(cleared)
+    await moderation.decide(DecideCaseCommand(case_id=done, verdict=APPROVED))
+
+    async with moderation.uow:
+        held = await CasesDeletionHold(moderation.session).held([accused, cleared, bystander])
+
+    assert held == {accused}
+
+
+async def test_registering_again_after_deletion_is_a_risk_signal(moderation: Moderation) -> None:
+    returned, banned, fresh = [await moderation.user() for _ in range(3)]
+    record = RecordReregistration(
+        moderation.uow, SqlRiskSignals(moderation.session, moderation.uow)
+    )
+
+    recorded = [
+        await record(
+            RecordReregistrationCommand(user_id=user, reregistered=again, had_sanctions=sanctions)
+        )
+        for user, again, sanctions in (
+            (returned, True, False),
+            (banned, True, True),
+            (fresh, False, False),
+        )
+    ]
+    repeat = await record(
+        RecordReregistrationCommand(user_id=returned, reregistered=True, had_sanctions=False)
+    )
+
+    assert (recorded, repeat) == ([True, True, False], False)
+    rows = await moderation.rows(
+        "SELECT user_id, weight FROM moderation.risk_signals"
+        " WHERE signal = 'reregistered_after_deletion' AND user_id IN (:a, :b, :c) ORDER BY weight",
+        a=returned,
+        b=banned,
+        c=fresh,
+    )
+    assert rows == [(returned, 1.0), (banned, WEIGHT_AFTER_SANCTIONS)]
 
 
 async def test_systematic_429_become_risk_signals_once(moderation: Moderation) -> None:

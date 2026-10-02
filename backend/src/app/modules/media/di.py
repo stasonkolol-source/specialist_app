@@ -16,6 +16,7 @@ from app.modules.media.application.queries import MediaQueries
 from app.modules.media.application.use_cases.cleanup_orphans import CleanupOrphans
 from app.modules.media.application.use_cases.complete_upload import CompleteUpload
 from app.modules.media.application.use_cases.delete_media import DeleteMedia
+from app.modules.media.application.use_cases.forget_owner import ForgetOwner
 from app.modules.media.application.use_cases.hide_variants import HideDeleted, HideVariants
 from app.modules.media.application.use_cases.process_media import ProcessMedia
 from app.modules.media.application.use_cases.purge_deleted import PurgeDeleted
@@ -57,6 +58,7 @@ class MediaProvider(Provider):
     sign_upload_parts = provide(SignUploadParts)
     complete_upload = provide(CompleteUpload)
     delete_media = provide(DeleteMedia)
+    forget_owner = provide(ForgetOwner)
     cleanup_orphans = provide(CleanupOrphans)
     process_media = provide(ProcessMedia)
     purge_deleted = provide(PurgeDeleted)

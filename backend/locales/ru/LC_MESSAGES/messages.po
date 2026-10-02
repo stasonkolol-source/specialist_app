@@ -206,6 +206,9 @@ msgstr "Аккаунт уже удалён."
 msgid "errors.concurrent_login"
 msgstr "Вход уже выполняется. Повторите попытку."
 
+msgid "errors.concurrent_deletion_request"
+msgstr "Запрос на удаление уже обрабатывается. Повторите попытку."
+
 msgid "errors.invalid_display_name"
 msgstr "Имя не может быть пустым."
 

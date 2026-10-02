@@ -5,6 +5,7 @@ from prometheus_client import CollectorRegistry
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.modules.identity.api import DeletionHold
 from app.modules.media.api import LegalHold
 from app.modules.moderation.application.content_rules import ContentRulesChecker
 from app.modules.moderation.application.policy import PublishedModerationPolicy
@@ -32,6 +33,9 @@ from app.modules.moderation.application.use_cases.open_case import CaseOpener, O
 from app.modules.moderation.application.use_cases.record_rate_limit_signals import (
     RecordRateLimitSignals,
 )
+from app.modules.moderation.application.use_cases.record_reregistration import (
+    RecordReregistration,
+)
 from app.modules.moderation.application.use_cases.take_case import EscalateCase, TakeCase
 from app.modules.moderation.domain.cases import EntityType
 from app.modules.moderation.infrastructure.cases import (
@@ -39,6 +43,7 @@ from app.modules.moderation.infrastructure.cases import (
     SqlRiskSignals,
     SqlSanctionRepository,
 )
+from app.modules.moderation.infrastructure.deletion_hold import CasesDeletionHold
 from app.modules.moderation.infrastructure.legal_hold import CasesLegalHold
 from app.modules.moderation.infrastructure.metrics import PrometheusAutoCheckMetrics
 from app.modules.moderation.infrastructure.queries import SqlCaseQueue, SqlCaseStats
@@ -97,6 +102,8 @@ class ModerationProvider(Provider):
     opener = provide(CaseOpener)
     auto_check = provide(AutoCheck)
     legal_hold = provide(CasesLegalHold, provides=LegalHold)
+    deletion_hold = provide(CasesDeletionHold, provides=DeletionHold)
+    record_reregistration = provide(RecordReregistration)
     """media.purge_deleted не стирает доказательства открытых кейсов (ADR-0016 §6)."""
     queries = provide(ModerationQueries)
     open_case = provide(OpenCase)

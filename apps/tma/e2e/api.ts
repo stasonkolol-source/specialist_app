@@ -10,6 +10,8 @@ import type { Page, Request, Route } from '@playwright/test';
 
 import {
   CLIENT_CONFIG,
+  DELETION_EXECUTE_AFTER,
+  DELETION_REQUESTED_AT,
   ME,
   NOTIFICATION_SETTINGS,
   WRITE_ACCESS,
@@ -168,6 +170,17 @@ export async function mockApi(
         sent.consents.push(request.postDataJSON());
         user = accepted(user);
         return route.fulfill(json(user));
+      // S45: grace 7 дней; повтор — тот же срок, отмена идемпотентна
+      case 'POST /api/v1/me/deletion': {
+        if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
+        const execute = user.deletion_scheduled_at ?? DELETION_EXECUTE_AFTER;
+        user = { ...user, deletion_scheduled_at: execute };
+        return route.fulfill(json({ requested_at: DELETION_REQUESTED_AT, execute_after: execute }));
+      }
+      case 'DELETE /api/v1/me/deletion':
+        if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
+        user = { ...user, deletion_scheduled_at: null };
+        return route.fulfill({ status: 204 });
       case 'POST /api/v1/me/telegram/write-access':
         if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
         sent.writeAccess += 1;

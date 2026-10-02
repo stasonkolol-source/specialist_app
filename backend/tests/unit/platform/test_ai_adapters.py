@@ -624,6 +624,7 @@ async def test_di_without_keys_on_production_sends_to_people(
     offline_settings: Settings, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("APP_HASH_KEY", "test-hash-key")
     monkeypatch.setenv("LEGAL_OPERATOR_NAME", "Operator")
     monkeypatch.setenv("LEGAL_CONTACT_EMAIL", "support@example.test")
 

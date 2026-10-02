@@ -7,6 +7,7 @@ from app.modules.notifications.application.ports import (
     NotificationQuery,
     NotificationRenderer,
     NotificationRepository,
+    RecipientData,
     SettingsRepository,
 )
 from app.modules.notifications.application.queries import NotificationQueries
@@ -16,6 +17,7 @@ from app.modules.notifications.application.use_cases.block_telegram_channel impo
 from app.modules.notifications.application.use_cases.expire_stale_deliveries import (
     ExpireStaleDeliveries,
 )
+from app.modules.notifications.application.use_cases.forget_recipient import ForgetRecipient
 from app.modules.notifications.application.use_cases.grant_telegram_write_access import (
     GrantTelegramWriteAccess,
 )
@@ -28,6 +30,7 @@ from app.modules.notifications.application.use_cases.update_notification_setting
     UpdateNotificationSettings,
 )
 from app.modules.notifications.infrastructure.queries import SqlNotificationQuery
+from app.modules.notifications.infrastructure.recipients import SqlRecipientData
 from app.modules.notifications.infrastructure.rendering import GettextNotificationRenderer
 from app.modules.notifications.infrastructure.repositories import (
     SqlChannelRepository,
@@ -56,6 +59,8 @@ class NotificationsProvider(Provider):
     send_delivery = provide(SendDelivery)
     mark_read = provide(MarkNotificationsRead)
     update_settings = provide(UpdateNotificationSettings)
+    recipients = provide(SqlRecipientData, provides=RecipientData)
+    forget_recipient = provide(ForgetRecipient)
 
     @provide(scope=Scope.APP)
     def renderer(self, translator: Translator, telegram: TelegramSettings) -> NotificationRenderer:

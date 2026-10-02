@@ -65,6 +65,10 @@ class AppSettings(_Group):
     """Публичный адрес API: из него строится `type` ошибок RFC 9457."""
     min_client_versions: dict[str, str] = Field(default_factory=dict)
     """Минимальные версии клиентов для 426, JSON: {"tma": "1.0.0"}. С 1.1 — из client-config."""
+    hash_key: SecretStr | None = None
+    """Ключ HMAC для хэшей способов входа удалённых аккаунтов (антифрод 12 месяцев, §7.10).
+    Постоянный: смена ключа «забудет» все хэши. На stage и проде обязателен; в dev и тестах без
+    него — фиксированный ключ разработки."""
 
     @field_validator("min_client_versions")
     @classmethod
@@ -252,6 +256,11 @@ class Settings:
         self.ai = _as(values, AiSettings)
         self.analytics = _as(values, AnalyticsSettings)
         self.legal = _as(values, LegalSettings)
+        if (
+            self.app.env in (Environment.STAGE, Environment.PRODUCTION)
+            and self.app.hash_key is None
+        ):
+            raise SettingsError("Настройки неполны — не заданы: APP_HASH_KEY")
         if self.app.env is Environment.PRODUCTION and (todo := self.legal.todo_fields()):
             # оператор и почта попадают в политику конфиденциальности: заглушка на проде — нарушение
             raise SettingsError("Настройки неполны — на проде нужны значения: " + ", ".join(todo))

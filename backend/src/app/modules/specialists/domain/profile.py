@@ -25,6 +25,7 @@ from app.modules.specialists.errors import (
 )
 from app.platform.contracts.events.specialists import (
     AvailabilityChanged,
+    ProfileDeleted,
     ProfileHidden,
     ProfilePublished,
     ProfileSubmitted,
@@ -38,6 +39,8 @@ from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, Use
 ProfileId = NewType("ProfileId", UUID)
 
 MAX_NAME: Final = 64
+DELETED_NAME: Final = "Удалённый пользователь"
+"""Имя профиля удалённого аккаунта — как имя пользователя в identity."""
 MAX_HEADLINE: Final = 80
 MAX_ABOUT: Final = 4000
 MAX_CATEGORIES: Final = 5
@@ -113,6 +116,8 @@ class Profile(VersionedAggregate):
     """Профиль ждёт проверки после перехода «Подработка → Специалист»."""
     avatar_media_id: MediaId | None = None
     """Фото профиля (S34): файл media с назначением avatar; None — инициалы."""
+    deleted_at: datetime | None = None
+    """Удалён вместе с аккаунтом (`forget`): репозиторий удалённых не загружает."""
 
     @classmethod
     def create(
@@ -247,6 +252,23 @@ class Profile(VersionedAggregate):
             raise ProfileStateError(profile_status=self.status.value)
         self.status = ProfileStatus.PUBLISHED
         self._record(ProfilePublished(profile_id=self.id, user_id=self.user_id, occurred_at=now))
+
+    def forget(self, *, now: datetime) -> None:
+        """Аккаунт удалён (UserDeleted, ARCHITECTURE §7.10): профиль снят с каталога, удалён и
+        обезличен — имя, тексты, языки, точки, «доступен сегодня» и фото стёрты. Работы
+        портфолио удаляет use case, прайс — pricing по ProfileDeleted, файлы — media."""
+        self.deleted_at = now
+        self.display_name = DELETED_NAME
+        self.headline = None
+        self.about = None
+        self.languages = ()
+        self.base_point = None
+        self.base_point_public = None
+        self.available_until = None
+        self.vacation_until = None
+        self.avatar_media_id = None
+        self.listed_in_catalog = False
+        self._record(ProfileDeleted(profile_id=self.id, user_id=self.user_id, occurred_at=now))
 
     def change_kind(self, kind: ProfileKind) -> bool:
         """Тип черновика (S32a: вернулись на первый шаг и выбрали другой). False — тот же.

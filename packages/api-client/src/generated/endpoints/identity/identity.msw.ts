@@ -10,7 +10,7 @@ import { HttpResponse, http } from 'msw';
 import type { RequestHandlerOptions } from 'msw';
 
 import { Locale, UserIntent } from '../../model';
-import type { AuthOut, MeOut, TokensOut } from '../../model';
+import type { AuthOut, DeletionOut, MeOut, TokensOut } from '../../model';
 
 export const getIdentityAuthenticateTelegramResponseMock = (
   overrideResponse: Partial<Extract<AuthOut, object>> = {},
@@ -40,6 +40,10 @@ export const getIdentityAuthenticateTelegramResponseMock = (
     can_post_jobs: faker.datatype.boolean(),
     can_respond: faker.datatype.boolean(),
     can_message: faker.datatype.boolean(),
+    deletion_scheduled_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + 'Z',
+      null,
+    ]),
   },
   ...overrideResponse,
 });
@@ -73,6 +77,10 @@ export const getIdentityGetMeResponseMock = (
   can_post_jobs: faker.datatype.boolean(),
   can_respond: faker.datatype.boolean(),
   can_message: faker.datatype.boolean(),
+  deletion_scheduled_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
   ...overrideResponse,
 });
 
@@ -94,6 +102,10 @@ export const getIdentityUpdateMeResponseMock = (
   can_post_jobs: faker.datatype.boolean(),
   can_respond: faker.datatype.boolean(),
   can_message: faker.datatype.boolean(),
+  deletion_scheduled_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
   ...overrideResponse,
 });
 
@@ -115,6 +127,18 @@ export const getIdentityAcceptConsentsResponseMock = (
   can_post_jobs: faker.datatype.boolean(),
   can_respond: faker.datatype.boolean(),
   can_message: faker.datatype.boolean(),
+  deletion_scheduled_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  ...overrideResponse,
+});
+
+export const getIdentityRequestDeletionResponseMock = (
+  overrideResponse: Partial<Extract<DeletionOut, object>> = {},
+): DeletionOut => ({
+  requested_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  execute_after: faker.date.past().toISOString().slice(0, 19) + 'Z',
   ...overrideResponse,
 });
 
@@ -242,6 +266,48 @@ export const getIdentityAcceptConsentsMockHandler = (
     options,
   );
 };
+
+export const getIdentityRequestDeletionMockHandler = (
+  overrideResponse?:
+    | DeletionOut
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<DeletionOut> | DeletionOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/api/v1/me/deletion',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getIdentityRequestDeletionResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getIdentityCancelDeletionMockHandler = (
+  overrideResponse?:
+    void | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    '*/api/v1/me/deletion',
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === 'function') {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
 export const getIdentityMock = () => [
   getIdentityAuthenticateTelegramMockHandler(),
   getIdentityRefreshSessionMockHandler(),
@@ -249,4 +315,6 @@ export const getIdentityMock = () => [
   getIdentityGetMeMockHandler(),
   getIdentityUpdateMeMockHandler(),
   getIdentityAcceptConsentsMockHandler(),
+  getIdentityRequestDeletionMockHandler(),
+  getIdentityCancelDeletionMockHandler(),
 ];

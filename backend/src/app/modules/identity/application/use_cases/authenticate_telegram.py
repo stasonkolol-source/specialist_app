@@ -6,6 +6,7 @@ from app.modules.identity.application.config import IdentityConfig
 from app.modules.identity.application.dto import AuthResult, TelegramProfile
 from app.modules.identity.application.ports import (
     AccessTokenIssuer,
+    DeletedIdentities,
     IdentityQuery,
     SessionRepository,
     UserRepository,
@@ -40,12 +41,14 @@ class AuthenticateTelegram:
         users: UserRepository,
         sessions: SessionRepository,
         query: IdentityQuery,
+        deleted: DeletedIdentities,
         issuer: AccessTokenIssuer,
         config: IdentityConfig,
         clock: Clock,
     ) -> None:
         self._uow, self._users, self._sessions = uow, users, sessions
-        self._query, self._issuer, self._config, self._clock = query, issuer, config, clock
+        self._query, self._deleted, self._issuer = query, deleted, issuer
+        self._config, self._clock = config, clock
 
     async def __call__(self, cmd: AuthenticateTelegramCommand) -> AuthResult:
         now = self._clock.now()
@@ -58,8 +61,10 @@ class AuthenticateTelegram:
                 user, is_new = await sign_in_telegram(
                     self._users,
                     self._query,
+                    self._deleted,
                     profile,
                     now,
+                    hash_key=self._config.hash_key,
                     entry_point=EntryPoint.MINI_APP,
                     start_param=cmd.start_param,
                 )

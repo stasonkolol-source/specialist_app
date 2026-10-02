@@ -12,6 +12,8 @@ class IdentityConfig:
     """Бот окружения, чей initData принимаем: пишется в сессию (ADR-0009 п. 7)."""
     refresh_ttl_tma: timedelta
     refresh_ttl_mobile: timedelta
+    hash_key: bytes
+    """Ключ HMAC хэшей способов входа удалённых аккаунтов (APP_HASH_KEY)."""
 
     def refresh_ttl(self, platform: Platform) -> timedelta:
         return self.refresh_ttl_tma if platform is Platform.TMA else self.refresh_ttl_mobile

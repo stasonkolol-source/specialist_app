@@ -12,6 +12,7 @@ from app.modules.identity.domain.user import AuthProvider, UserStatus
 from app.modules.identity.infrastructure.models import (
     AuthIdentityRow,
     ConsentRow,
+    DeletionRequestRow,
     RestrictionRow,
     UserRoleRow,
     UserRow,
@@ -48,7 +49,13 @@ class SqlIdentityQuery(SqlQuery):
         )
 
     async def me(self, user_id: UserId) -> MeView | None:
-        u = UserRow.__table__.c
+        u, d = UserRow.__table__.c, DeletionRequestRow.__table__.c
+        # ждущий запрос на удаление: S31 показывает дату и «Отменить»
+        scheduled = (
+            select(d.execute_after)
+            .where(d.user_id == u.id, d.cancelled_at.is_(None), d.completed_at.is_(None))
+            .scalar_subquery()
+        )
         row = await self._fetch_one(
             select(
                 u.id,
@@ -60,6 +67,7 @@ class SqlIdentityQuery(SqlQuery):
                 u.version,
                 u.home_city_id,
                 u.intent,
+                scheduled.label("deletion_scheduled_at"),
             ).where(u.id == user_id, u.status == UserStatus.ACTIVE)
         )
         if row is None:
@@ -74,6 +82,7 @@ class SqlIdentityQuery(SqlQuery):
             version=row["version"],
             home_city_id=CityId(row["home_city_id"]) if row["home_city_id"] is not None else None,
             intent=row["intent"],
+            deletion_scheduled_at=row["deletion_scheduled_at"],
         )
 
     async def by_telegram(self, telegram_id: int) -> TelegramUserView | None:

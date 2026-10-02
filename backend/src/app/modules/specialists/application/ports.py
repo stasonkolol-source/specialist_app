@@ -1,13 +1,18 @@
 """Порты модуля specialists (ADR-0020 §3, §5)."""
 
 from datetime import datetime
-from typing import Protocol
+from typing import Final, Protocol
 from uuid import UUID
 
 from app.modules.specialists.application.dto import ProfileView
 from app.modules.specialists.domain.portfolio import PortfolioItem
 from app.modules.specialists.domain.profile import Profile, ProfileId
+from app.platform.contracts.events.identity import UserDeleted
 from app.platform.kernel.ids import UserId
+from app.platform.queue.port import TaskRef
+
+FORGET_PROFILE: Final = TaskRef("specialists.forget_profile", UserDeleted)
+"""Подписчик UserDeleted: профиль и портфолио удалённого аккаунта (§7.10)."""
 
 
 class ProfileRepository(Protocol):

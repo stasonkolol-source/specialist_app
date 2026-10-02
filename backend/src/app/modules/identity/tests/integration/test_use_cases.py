@@ -101,6 +101,7 @@ async def test_registration_event_reaches_subscribers_in_same_transaction(
         SqlUserRepository(identity.session, uow),
         SqlSessionRepository(identity.session, uow),
         identity.query,
+        identity.deleted,
         identity.tokens,
         CONFIG,
         identity.clock,

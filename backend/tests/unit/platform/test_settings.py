@@ -61,6 +61,7 @@ def test_settings_load_from_environment(clean_env: pytest.MonkeyPatch) -> None:
     for name, value in REQUIRED.items():
         clean_env.setenv(name, value)
     clean_env.setenv("APP_ENV", "stage")
+    clean_env.setenv("APP_HASH_KEY", "test-hash-key")
     settings = Settings(env_file=None)
     assert settings.app.env is Environment.STAGE
     assert settings.telegram.bot_username == "sosed_dev_bot"
@@ -106,6 +107,7 @@ def test_production_refuses_legal_placeholders(clean_env: pytest.MonkeyPatch) ->
     for name, value in REQUIRED.items():
         clean_env.setenv(name, value)
     clean_env.setenv("APP_ENV", "stage")
+    clean_env.setenv("APP_HASH_KEY", "test-hash-key")
     assert Settings(env_file=None).legal.todo_fields() == [
         "LEGAL_OPERATOR_NAME",
         "LEGAL_CONTACT_EMAIL",
@@ -116,3 +118,13 @@ def test_production_refuses_legal_placeholders(clean_env: pytest.MonkeyPatch) ->
         Settings(env_file=None)
     clean_env.setenv("LEGAL_CONTACT_EMAIL", "help@example.test")
     assert Settings(env_file=None).legal.todo_fields() == []
+
+
+def test_stage_and_production_need_the_hash_key(clean_env: pytest.MonkeyPatch) -> None:
+    """Хэши удалённых аккаунтов (2.12): без постоянного ключа антифрод «забыл» бы их."""
+    for name, value in REQUIRED.items():
+        clean_env.setenv(name, value)
+    assert Settings(env_file=None).app.hash_key is None  # dev — ключ разработки
+    clean_env.setenv("APP_ENV", "stage")
+    with pytest.raises(SettingsError, match="APP_HASH_KEY"):
+        Settings(env_file=None)

@@ -11,8 +11,13 @@ notifications открывает канал доставки (1.4b). Фасад 
 from dataclasses import dataclass
 
 from app.modules.identity.api import TelegramUserView
+from app.modules.identity.application.config import IdentityConfig
 from app.modules.identity.application.dto import TelegramProfile
-from app.modules.identity.application.ports import IdentityQuery, UserRepository
+from app.modules.identity.application.ports import (
+    DeletedIdentities,
+    IdentityQuery,
+    UserRepository,
+)
 from app.modules.identity.application.telegram import sign_in_telegram
 from app.modules.identity.domain.user import User
 from app.platform.contracts.events.identity import BotStarted, EntryPoint
@@ -30,9 +35,16 @@ class RegisterTelegramUserCommand:
 
 class RegisterTelegramUser:
     def __init__(
-        self, uow: UnitOfWork, users: UserRepository, query: IdentityQuery, clock: Clock
+        self,
+        uow: UnitOfWork,
+        users: UserRepository,
+        query: IdentityQuery,
+        deleted: DeletedIdentities,
+        config: IdentityConfig,
+        clock: Clock,
     ) -> None:
-        self._uow, self._users, self._query, self._clock = uow, users, query, clock
+        self._uow, self._users, self._query = uow, users, query
+        self._deleted, self._config, self._clock = deleted, config, clock
 
     async def __call__(self, cmd: RegisterTelegramUserCommand) -> tuple[TelegramUserView, bool]:
         """(пользователь, создан ли сейчас)."""
@@ -43,8 +55,10 @@ class RegisterTelegramUser:
                 user, is_new = await sign_in_telegram(
                     self._users,
                     self._query,
+                    self._deleted,
                     cmd.profile,
                     now,
+                    hash_key=self._config.hash_key,
                     entry_point=EntryPoint.BOT,
                     start_param=cmd.start_param,
                 )
