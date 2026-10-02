@@ -1,17 +1,21 @@
-"""Схемы HTTP jobs (ARCHITECTURE §8.5): заявка на входе и на выходе, карточка ленты, отклики.
+"""Схемы HTTP jobs (ARCHITECTURE §8.5): заявка на входе и на выходе, карточка ленты, отклики и
+шаблоны откликов.
 
 Суммы — в пара (1 RSD = 100 пара), наружу — `MoneyOut`. Точная точка и адрес — только
 владельцу (`viewer_role: owner`); гость и исполнитель видят район и смещённую точку (§7.6).
 Названия категорий и районов клиент берёт из справочников: в ответе — их id.
 """
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.modules.jobs.application.content import JobDraft
+from app.modules.jobs.application.dto import MyResponseRef
 from app.modules.jobs.application.feed import JobCard, Photo
 from app.modules.jobs.application.responses import (
     MyResponse,
@@ -46,6 +50,8 @@ from app.modules.jobs.domain.response import (
     ResponseReview,
     ResponseStatus,
 )
+from app.modules.jobs.domain.template import MAX_TEMPLATE_TITLE, MAX_TEMPLATES, ResponseTemplate
+from app.modules.jobs.errors import InvalidResponseError, InvalidTemplateError
 from app.platform.http.money import MoneyOut
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId
@@ -146,6 +152,16 @@ class JobClientOut(BaseModel):
         )
 
 
+class MyResponseRefOut(BaseModel):
+    id: UUID
+    status: ResponseStatus
+    review: ResponseReview = Field(description="pending — на проверке, blocked — скрыт модерацией")
+
+    @classmethod
+    def of(cls, ref: MyResponseRef) -> MyResponseRefOut:
+        return cls(id=ref.id, status=ref.status, review=ref.review)
+
+
 class JobOut(BaseModel):
     id: UUID
     viewer_role: ViewerRole = Field(description="owner — своя заявка; viewer — гость, исполнитель")
@@ -173,6 +189,9 @@ class JobOut(BaseModel):
     client: JobClientOut | None = Field(description="Блок клиента; null — аккаунт удалён")
     max_responses: int
     responses_count: int
+    my_response: MyResponseRefOut | None = Field(
+        description="Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null"
+    )
     extensions_count: int = Field(description="Сколько раз продлевали: не больше трёх")
     moderation_note: str | None = Field(description="Причина отказа модерации — владельцу")
     version: int
@@ -212,6 +231,7 @@ class JobOut(BaseModel):
             client=JobClientOut.of(details.client) if details.client else None,
             max_responses=job.max_responses,
             responses_count=job.responses_count,
+            my_response=MyResponseRefOut.of(details.my_response) if details.my_response else None,
             extensions_count=job.extensions_count,
             moderation_note=job.moderation_note if owner else None,
             version=job.version,
@@ -297,8 +317,8 @@ def _point(point: GeoPoint | None) -> JobPointOut | None:
     return JobPointOut(lat=point.lat, lon=point.lon) if point is not None else None
 
 
-class ResponseIn(BaseModel):
-    """Отклик S16: сообщение клиенту, цена и «когда смогу»."""
+class ResponseOfferIn(BaseModel):
+    """Предложение исполнителя S16: сообщение клиенту, цена и «когда смогу»."""
 
     message: str = Field(min_length=1, max_length=MAX_MESSAGE)
     price_type: ResponsePriceType
@@ -316,6 +336,14 @@ class ResponseIn(BaseModel):
             price_amount=self.price_amount,
             availability_note=self.availability_note,
         )
+
+
+class ResponseIn(ResponseOfferIn):
+    """Отклик S16; собранный из шаблона — с его id."""
+
+    template_id: UUID | None = Field(
+        default=None, description="Свой шаблон, из которого отклик (S16, кнопка бота); чужой — 404"
+    )
 
 
 class ResponsePriceOut(BaseModel):
@@ -480,3 +508,87 @@ class JobResponseOut(BaseModel):
 
 class JobResponsesOut(BaseModel):
     items: list[JobResponseOut]
+
+
+class ResponseTemplateIn(ResponseOfferIn):
+    """Новый шаблон S57 или «Сохранить как шаблон» на S16."""
+
+    title: str = Field(min_length=1, max_length=MAX_TEMPLATE_TITLE, description="«Могу сегодня»")
+
+    def offer(self) -> Offer:
+        with _as_template_error():
+            return super().offer()
+
+
+class ResponseTemplatePatchIn(BaseModel):
+    """Правка шаблона S57 — что прислано. Предложение меняется целиком: `message` и `price_type`
+    вместе (без `price_amount` — суммы нет). `primary: true` — «Сделать основным»: шаблон
+    становится первым."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=MAX_TEMPLATE_TITLE)
+    message: str | None = Field(default=None, min_length=1, max_length=MAX_MESSAGE)
+    price_type: ResponsePriceType | None = None
+    price_amount: int | None = Field(default=None, ge=1, le=MAX_PRICE)
+    availability_note: str | None = Field(default=None, max_length=MAX_AVAILABILITY)
+    primary: bool = False
+
+    @model_validator(mode="after")
+    def _whole_offer(self) -> ResponseTemplatePatchIn:
+        sent = self.model_fields_set & _OFFER_FIELDS
+        if sent and (self.message is None or self.price_type is None):
+            raise ValueError("message and price_type go together")
+        return self
+
+    def offer(self) -> Offer | None:
+        if self.message is None or self.price_type is None:
+            return None
+        with _as_template_error():
+            return Offer(
+                message=self.message,
+                price_type=self.price_type,
+                price_amount=self.price_amount,
+                availability_note=self.availability_note,
+            )
+
+
+@contextmanager
+def _as_template_error() -> Iterator[None]:
+    """Неверное предложение в шаблоне — «Проверьте шаблон», а не «Проверьте отклик»."""
+    try:
+        yield
+    except InvalidResponseError as error:
+        raise InvalidTemplateError(**error.params) from error
+
+
+_OFFER_FIELDS = frozenset({"message", "price_type", "price_amount", "availability_note"})
+
+
+class ResponseTemplateOut(BaseModel):
+    id: UUID
+    title: str
+    message: str
+    price: ResponsePriceOut
+    availability_note: str | None
+    primary: bool = Field(description="Основной — первый: S16 подставляет его сразу")
+    updated_at: datetime
+
+    @classmethod
+    def of(cls, template: ResponseTemplate) -> ResponseTemplateOut:
+        return cls(
+            id=template.id,
+            title=template.title,
+            message=template.offer.message,
+            price=ResponsePriceOut.of(template.offer),
+            availability_note=template.offer.availability_note,
+            primary=template.primary,
+            updated_at=template.updated_at,
+        )
+
+
+class ResponseTemplatesOut(BaseModel):
+    items: list[ResponseTemplateOut] = Field(description="По порядку, первый — основной")
+    limit: int = Field(description="Сколько шаблонов можно: «1 из 2» на S57")
+
+    @classmethod
+    def of(cls, templates: list[ResponseTemplate]) -> ResponseTemplatesOut:
+        return cls(items=[ResponseTemplateOut.of(t) for t in templates], limit=MAX_TEMPLATES)

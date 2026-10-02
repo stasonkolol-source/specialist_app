@@ -11,12 +11,15 @@ from app.modules.jobs.application.ports import (
     JobQuota,
     JobRepository,
     ResponseQuota,
+    ResponseTemplates,
     SavedJobs,
 )
 from app.modules.jobs.application.use_cases.browse_jobs import BrowseJobs
 from app.modules.jobs.application.use_cases.close_job import CloseJob
 from app.modules.jobs.application.use_cases.create_job import CreateJob
+from app.modules.jobs.application.use_cases.create_template import CreateTemplate
 from app.modules.jobs.application.use_cases.delete_job import DeleteJob
+from app.modules.jobs.application.use_cases.delete_template import DeleteTemplate
 from app.modules.jobs.application.use_cases.edit_job import EditJob
 from app.modules.jobs.application.use_cases.expire_jobs import ExpireJobs
 from app.modules.jobs.application.use_cases.extend_job import ExtendJob
@@ -25,12 +28,14 @@ from app.modules.jobs.application.use_cases.hide_job import HideJob
 from app.modules.jobs.application.use_cases.list_job_responses import ListJobResponses
 from app.modules.jobs.application.use_cases.list_my_responses import ListMyResponses
 from app.modules.jobs.application.use_cases.list_saved_jobs import ListSavedJobs
+from app.modules.jobs.application.use_cases.list_templates import ListTemplates
 from app.modules.jobs.application.use_cases.remind_expiring_jobs import RemindExpiringJobs
 from app.modules.jobs.application.use_cases.respond import Respond
 from app.modules.jobs.application.use_cases.revise_response import ReviseResponse
 from app.modules.jobs.application.use_cases.save_job import SaveJob
 from app.modules.jobs.application.use_cases.show_job import ShowJob
 from app.modules.jobs.application.use_cases.unsave_job import UnsaveJob
+from app.modules.jobs.application.use_cases.update_template import UpdateTemplate
 from app.modules.jobs.application.use_cases.withdraw_performer_responses import (
     WithdrawPerformerResponses,
 )
@@ -40,6 +45,7 @@ from app.modules.jobs.infrastructure.queries import SqlJobQueries
 from app.modules.jobs.infrastructure.quota import ValkeyJobQuota, ValkeyResponseQuota
 from app.modules.jobs.infrastructure.repositories import SqlJobRepository
 from app.modules.jobs.infrastructure.saved import SqlSavedJobs
+from app.modules.jobs.infrastructure.templates import SqlResponseTemplates
 
 
 class JobsProvider(Provider):
@@ -51,6 +57,7 @@ class JobsProvider(Provider):
     queries = provide(SqlJobQueries, provides=JobQueries)
     hides = provide(SqlJobHides, provides=JobHides)
     saved = provide(SqlSavedJobs, provides=SavedJobs)
+    templates = provide(SqlResponseTemplates, provides=ResponseTemplates)
     quota = provide(ValkeyJobQuota, provides=JobQuota)
     response_quota = provide(ValkeyResponseQuota, provides=ResponseQuota)
     builder = provide(ContentBuilder)
@@ -76,3 +83,7 @@ class JobsProvider(Provider):
     list_my_responses = provide(ListMyResponses)
     list_job_responses = provide(ListJobResponses)
     withdraw_performer_responses = provide(WithdrawPerformerResponses)
+    list_templates = provide(ListTemplates)
+    create_template = provide(CreateTemplate)
+    update_template = provide(UpdateTemplate)
+    delete_template = provide(DeleteTemplate)

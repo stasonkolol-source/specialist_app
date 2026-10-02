@@ -28,6 +28,7 @@ import type {
   JobsCountJobsParams,
   JobsCountOut,
   JobsCreateJobHeaders,
+  JobsCreateResponseTemplateHeaders,
   JobsListJobsParams,
   JobsListMyJobsParams,
   JobsListMyResponsesParams,
@@ -39,6 +40,11 @@ import type {
   MyResponsesPageOut,
   ProblemOut,
   ResponseIn,
+  ResponseOfferIn,
+  ResponseTemplateIn,
+  ResponseTemplateOut,
+  ResponseTemplatePatchIn,
+  ResponseTemplatesOut,
   SavedJobsOut,
 } from '../../model';
 
@@ -550,6 +556,245 @@ export function useJobsListJobResponses<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getJobsListJobResponsesQueryOptions(jobId, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getJobsCreateResponseTemplateUrl = () => {
+  return `/api/v1/me/response-templates`;
+};
+
+/**
+ * Новый шаблон (S57, «Сохранить как шаблон» на S16): не больше двух — третий 409
+ * `response_templates_full`; первый — основной.
+ * @summary Create Response Template
+ */
+export const jobsCreateResponseTemplate = async (
+  responseTemplateIn: ResponseTemplateIn,
+  headers: JobsCreateResponseTemplateHeaders,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ResponseTemplateOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<ResponseTemplateOut>(getJobsCreateResponseTemplateUrl(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers, ...getHeaders(options?.headers) },
+    body: JSON.stringify(responseTemplateIn),
+  });
+};
+
+export const getJobsCreateResponseTemplateMutationKey = () =>
+  ['jobsCreateResponseTemplate'] as const;
+
+export const getJobsCreateResponseTemplateMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof jobsCreateResponseTemplate>>,
+    TError,
+    JobsCreateResponseTemplateMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof jobsCreateResponseTemplate>>,
+  TError,
+  JobsCreateResponseTemplateMutationVariables,
+  TContext
+> => {
+  const mutationKey = getJobsCreateResponseTemplateMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof jobsCreateResponseTemplate>>,
+    JobsCreateResponseTemplateMutationVariables
+  > = (props) => {
+    const { data, headers } = props ?? {};
+
+    return jobsCreateResponseTemplate(data, headers, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JobsCreateResponseTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof jobsCreateResponseTemplate>>
+>;
+export type JobsCreateResponseTemplateMutationBody = ResponseTemplateIn;
+export type JobsCreateResponseTemplateMutationError = ErrorType<ProblemOut>;
+export type JobsCreateResponseTemplateMutationVariables = {
+  data: ResponseTemplateIn;
+  headers: JobsCreateResponseTemplateHeaders;
+};
+
+/**
+ * @summary Create Response Template
+ */
+export const useJobsCreateResponseTemplate = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof jobsCreateResponseTemplate>>,
+      TError,
+      JobsCreateResponseTemplateMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof jobsCreateResponseTemplate>>,
+  TError,
+  JobsCreateResponseTemplateMutationVariables,
+  TContext
+> => {
+  return useMutation(getJobsCreateResponseTemplateMutationOptions(options), queryClient);
+};
+export const getJobsListResponseTemplatesUrl = () => {
+  return `/api/v1/me/response-templates`;
+};
+
+/**
+ * Шаблоны откликов (S57, S16): по порядку, первый — основной.
+ * @summary List Response Templates
+ */
+export const jobsListResponseTemplates = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ResponseTemplatesOut> => {
+  return apiFetch<ResponseTemplatesOut>(getJobsListResponseTemplatesUrl(), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getJobsListResponseTemplatesQueryKey = () => {
+  return [`/api/v1/me/response-templates`] as const;
+};
+
+export const getJobsListResponseTemplatesQueryOptions = <
+  TData = Awaited<ReturnType<typeof jobsListResponseTemplates>>,
+  TError = ErrorType<ProblemOut>,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<Awaited<ReturnType<typeof jobsListResponseTemplates>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getJobsListResponseTemplatesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof jobsListResponseTemplates>>> = ({
+    signal,
+  }) => jobsListResponseTemplates({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof jobsListResponseTemplates>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type JobsListResponseTemplatesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof jobsListResponseTemplates>>
+>;
+export type JobsListResponseTemplatesQueryError = ErrorType<ProblemOut>;
+
+export function useJobsListResponseTemplates<
+  TData = Awaited<ReturnType<typeof jobsListResponseTemplates>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof jobsListResponseTemplates>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof jobsListResponseTemplates>>,
+          TError,
+          Awaited<ReturnType<typeof jobsListResponseTemplates>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useJobsListResponseTemplates<
+  TData = Awaited<ReturnType<typeof jobsListResponseTemplates>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof jobsListResponseTemplates>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof jobsListResponseTemplates>>,
+          TError,
+          Awaited<ReturnType<typeof jobsListResponseTemplates>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useJobsListResponseTemplates<
+  TData = Awaited<ReturnType<typeof jobsListResponseTemplates>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof jobsListResponseTemplates>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List Response Templates
+ */
+
+export function useJobsListResponseTemplates<
+  TData = Awaited<ReturnType<typeof jobsListResponseTemplates>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof jobsListResponseTemplates>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getJobsListResponseTemplatesQueryOptions(options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;
@@ -1722,7 +1967,7 @@ export const getJobsReviseResponseUrl = (responseId: string) => {
  */
 export const jobsReviseResponse = async (
   responseId: string,
-  responseIn: ResponseIn,
+  responseOfferIn: ResponseOfferIn,
   options?: Parameters<typeof apiFetch>[1],
 ): Promise<MyResponseOut> => {
   const getHeaders = (
@@ -1748,7 +1993,7 @@ export const jobsReviseResponse = async (
     ...options,
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(responseIn),
+    body: JSON.stringify(responseOfferIn),
   });
 };
 
@@ -1793,9 +2038,9 @@ export const getJobsReviseResponseMutationOptions = <
 export type JobsReviseResponseMutationResult = NonNullable<
   Awaited<ReturnType<typeof jobsReviseResponse>>
 >;
-export type JobsReviseResponseMutationBody = ResponseIn;
+export type JobsReviseResponseMutationBody = ResponseOfferIn;
 export type JobsReviseResponseMutationError = ErrorType<ProblemOut>;
-export type JobsReviseResponseMutationVariables = { responseId: string; data: ResponseIn };
+export type JobsReviseResponseMutationVariables = { responseId: string; data: ResponseOfferIn };
 
 /**
  * @summary Revise Response
@@ -2050,3 +2295,201 @@ export function useJobsListMyResponses<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+export const getJobsUpdateResponseTemplateUrl = (templateId: string) => {
+  return `/api/v1/me/response-templates/${templateId}`;
+};
+
+/**
+ * Поправить шаблон (S57) или сделать основным (`primary: true`); чужой — 404.
+ * @summary Update Response Template
+ */
+export const jobsUpdateResponseTemplate = async (
+  templateId: string,
+  responseTemplatePatchIn: ResponseTemplatePatchIn,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ResponseTemplateOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<ResponseTemplateOut>(getJobsUpdateResponseTemplateUrl(templateId), {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(responseTemplatePatchIn),
+  });
+};
+
+export const getJobsUpdateResponseTemplateMutationKey = () =>
+  ['jobsUpdateResponseTemplate'] as const;
+
+export const getJobsUpdateResponseTemplateMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof jobsUpdateResponseTemplate>>,
+    TError,
+    JobsUpdateResponseTemplateMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof jobsUpdateResponseTemplate>>,
+  TError,
+  JobsUpdateResponseTemplateMutationVariables,
+  TContext
+> => {
+  const mutationKey = getJobsUpdateResponseTemplateMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof jobsUpdateResponseTemplate>>,
+    JobsUpdateResponseTemplateMutationVariables
+  > = (props) => {
+    const { templateId, data } = props ?? {};
+
+    return jobsUpdateResponseTemplate(templateId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JobsUpdateResponseTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof jobsUpdateResponseTemplate>>
+>;
+export type JobsUpdateResponseTemplateMutationBody = ResponseTemplatePatchIn;
+export type JobsUpdateResponseTemplateMutationError = ErrorType<ProblemOut>;
+export type JobsUpdateResponseTemplateMutationVariables = {
+  templateId: string;
+  data: ResponseTemplatePatchIn;
+};
+
+/**
+ * @summary Update Response Template
+ */
+export const useJobsUpdateResponseTemplate = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof jobsUpdateResponseTemplate>>,
+      TError,
+      JobsUpdateResponseTemplateMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof jobsUpdateResponseTemplate>>,
+  TError,
+  JobsUpdateResponseTemplateMutationVariables,
+  TContext
+> => {
+  return useMutation(getJobsUpdateResponseTemplateMutationOptions(options), queryClient);
+};
+export const getJobsDeleteResponseTemplateUrl = (templateId: string) => {
+  return `/api/v1/me/response-templates/${templateId}`;
+};
+
+/**
+ * Удалить шаблон (S57): основным становится следующий; чужой — 404.
+ * @summary Delete Response Template
+ */
+export const jobsDeleteResponseTemplate = async (
+  templateId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getJobsDeleteResponseTemplateUrl(templateId), {
+    ...options,
+    method: 'DELETE',
+  });
+};
+
+export const getJobsDeleteResponseTemplateMutationKey = () =>
+  ['jobsDeleteResponseTemplate'] as const;
+
+export const getJobsDeleteResponseTemplateMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof jobsDeleteResponseTemplate>>,
+    TError,
+    JobsDeleteResponseTemplateMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof jobsDeleteResponseTemplate>>,
+  TError,
+  JobsDeleteResponseTemplateMutationVariables,
+  TContext
+> => {
+  const mutationKey = getJobsDeleteResponseTemplateMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof jobsDeleteResponseTemplate>>,
+    JobsDeleteResponseTemplateMutationVariables
+  > = (props) => {
+    const { templateId } = props ?? {};
+
+    return jobsDeleteResponseTemplate(templateId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JobsDeleteResponseTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof jobsDeleteResponseTemplate>>
+>;
+
+export type JobsDeleteResponseTemplateMutationError = ErrorType<ProblemOut>;
+export type JobsDeleteResponseTemplateMutationVariables = { templateId: string };
+
+/**
+ * @summary Delete Response Template
+ */
+export const useJobsDeleteResponseTemplate = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof jobsDeleteResponseTemplate>>,
+      TError,
+      JobsDeleteResponseTemplateMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof jobsDeleteResponseTemplate>>,
+  TError,
+  JobsDeleteResponseTemplateMutationVariables,
+  TContext
+> => {
+  return useMutation(getJobsDeleteResponseTemplateMutationOptions(options), queryClient);
+};

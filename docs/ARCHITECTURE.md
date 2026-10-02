@@ -1357,18 +1357,23 @@ CREATE TABLE jobs.invites (          -- «пригласить специали�
   PRIMARY KEY (job_id, profile_id)
 );
 
-CREATE TABLE jobs.response_templates (   -- шаблоны откликов; до 2 доступны кнопками в уведомлении бота
-  id           uuid PRIMARY KEY DEFAULT uuidv7(),
-  user_id      uuid NOT NULL REFERENCES identity.users(id),
-  title        text NOT NULL CHECK (char_length(title) <= 40),
-  message      text NOT NULL CHECK (char_length(message) <= 1500),
-  price_type   text CHECK (price_type IN ('fixed','from','hourly','negotiable')),
-  price_amount bigint,
-  position     smallint NOT NULL DEFAULT 0,
-  created_at   timestamptz NOT NULL DEFAULT now(),
-  deleted_at   timestamptz
+CREATE TABLE jobs.response_templates (   -- шаблоны откликов (5.5): не больше 2, оба — кнопками в уведомлении бота
+  id                uuid PRIMARY KEY DEFAULT uuidv7(),
+  user_id           uuid NOT NULL REFERENCES identity.users(id),
+  title             text NOT NULL CHECK (char_length(title) BETWEEN 1 AND 40),  -- «Могу сегодня»
+  message           text NOT NULL CHECK (char_length(message) BETWEEN 1 AND 1500),
+  price_type        text NOT NULL CHECK (price_type IN ('fixed','from','hourly','negotiable')),
+  price_amount      bigint,                       -- у negotiable — NULL, у остальных — обязательно
+  currency          char(3) NOT NULL DEFAULT 'RSD' CHECK (currency = 'RSD'),
+  availability_note text CHECK (char_length(availability_note) <= 200),
+  position          smallint NOT NULL DEFAULT 0,  -- 0 — основной: S16 подставляет его сразу
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  updated_at        timestamptz NOT NULL DEFAULT now(),
+  deleted_at        timestamptz                   -- удаление аккаунта стирает title и message
 );
 CREATE INDEX ON jobs.response_templates (user_id, position) WHERE deleted_at IS NULL;
+-- создание и порядок шаблонов сериализует pg_advisory_xact_lock по пользователю: два параллельных
+-- «Новый шаблон» не дадут третьего
 
 CREATE TABLE jobs.status_history (
   id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -2439,15 +2444,15 @@ sequenceDiagram
 | `POST /jobs/parse` | v1: свободный текст или голос → черновик заявки (категория, срочность, бюджет, район) |
 | `GET /jobs` 🔓 | Лента доски: `city_id`, `category` (с подкатегориями), `district`, `lat` + `lon` + `radius_km`, `urgency`, `budget_from`, `lang`, `has_photos=true`, курсор; свежие сверху; свои и скрытые зрителем — нет; `feed=alerts` (по моим подпискам) — с 5.7 |
 | `GET /jobs/count` 🔓 | Сколько заявок с теми же фильтрами: «Показать N» S14; `new_hours` — «N новых задач рядом» на Главной |
-| `GET /jobs/{id}` 🔓 | Детали, фото и `viewer_role` (`owner` / `viewer`); блок клиента — имя, «в «Соседях» с…», сколько заявок публиковал; гость и исполнитель видят опубликованную заявку со смещённой точкой; точная точка и адрес — владельцу и выбранному исполнителю |
+| `GET /jobs/{id}` 🔓 | Детали, фото и `viewer_role` (`owner` / `viewer`); блок клиента — имя, «в «Соседях» с…», сколько заявок публиковал; гость и исполнитель видят опубликованную заявку со смещённой точкой; точная точка и адрес — владельцу и выбранному исполнителю; исполнителю — его отклик `my_response` (`id`, `status`, `review`): MainButton «Вы откликнулись» на S15 (5.5) |
 | `PATCH /jobs/{id}` | Правка владельцем (существенные правки → повторная модерация) |
 | `POST /jobs/{id}/close`, `/extend` | Переходы state machine: закрыть с причиной; продлить `published` до истечения или переопубликовать `expired` (не больше 3 раз). Отдельного `submit` нет: заявка создаётся отправленной. Возврат в `published` после отмены сделки происходит автоматически по событию `DealCancelled` |
 | `POST /jobs/{id}/invites` | Пригласить специалистов из каталога в уже опубликованную заявку (S21) → уведомление `job.invited` |
 | `DELETE /jobs/{id}` | Удалить (soft) |
 | `POST /jobs/{id}/hide` | «Не интересно» — скрыть из своей ленты |
 | `GET /me/jobs?status=` | Заявки клиента |
-| `POST /jobs/{id}/responses` | Откликнуться (5.4, Idempotency-Key): `{message, price_type, price_amount, availability_note}`; профиль — опубликованный профиль специалиста автора, если есть. Пять мест на заявку под блокировкой её строки; 409 `job_not_open`, `own_job`, `already_responded`, `job_full`; суточный лимит по уровню доверия — 429. Текст — на проверку: клиент видит отклик после неё |
-| `GET /me/response-templates`, `POST /me/response-templates`, `DELETE /me/response-templates/{id}` | Шаблоны откликов. До двух шаблонов доступны кнопками прямо в уведомлении бота (отклик в один тап, callback `respond:<job>:<tpl>`) |
+| `POST /jobs/{id}/responses` | Откликнуться (5.4, Idempotency-Key): `{message, price_type, price_amount, availability_note, template_id?}` — из своего шаблона отклик хранит его id (чужой — 404 `response_template_not_found`); профиль — опубликованный профиль специалиста автора, если есть. Пять мест на заявку под блокировкой её строки; 409 `job_not_open`, `own_job`, `already_responded`, `job_full`; суточный лимит по уровню доверия — 429. Текст — на проверку: клиент видит отклик после неё |
+| `GET /me/response-templates`, `POST /me/response-templates` (Idempotency-Key), `PATCH /me/response-templates/{id}`, `DELETE /me/response-templates/{id}` | Шаблоны откликов (5.5): не больше двух, по порядку, первый — основной (S16 подставляет его сразу), `limit` — «1 из 2» на S57; третий — 409 `response_templates_full`; `PATCH` — название, предложение целиком (`message` и `price_type` вместе), `primary: true` — «Сделать основным»; после удаления основным становится следующий. Оба шаблона доступны кнопками прямо в уведомлении бота (отклик в один тап, callback `respond:<job>:<tpl>`) |
 | `GET /jobs/{id}/responses` | Отклики на свою заявку (владелец; чужая — 404): прошедшие проверку, по порядку, с `is_first` — «Откликнулся первым» |
 | `GET /me/responses?status=` | Мои отклики (исполнитель): группы чипов S17 — `active`, `accepted`, `not_selected`, `archive`; страницы по курсору, `counts` по группам, `today` — «сегодня откликов: 3 из 50» |
 | `PATCH /responses/{id}`, `POST /responses/{id}/withdraw` | Правка и отзыв отклика исполнителем, пока клиент не решил (иначе 409 `response_not_active`); правка — снова на проверку; версия заявки растёт |

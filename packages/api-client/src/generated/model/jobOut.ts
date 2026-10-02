@@ -13,6 +13,7 @@ import type { JobPhotoOut } from './jobPhotoOut.ts';
 import type { JobPointOut } from './jobPointOut.ts';
 import type { JobStatus } from './jobStatus.ts';
 import type { MoneyOut } from './moneyOut.ts';
+import type { MyResponseRefOut } from './myResponseRefOut.ts';
 import type { Urgency } from './urgency.ts';
 import type { Visibility } from './visibility.ts';
 
@@ -49,6 +50,8 @@ export interface JobOut {
   client: JobClientOut | null;
   max_responses: number;
   responses_count: number;
+  /** Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null */
+  my_response: MyResponseRefOut | null;
   /** Сколько раз продлевали: не больше трёх */
   extensions_count: number;
   /** Причина отказа модерации — владельцу */

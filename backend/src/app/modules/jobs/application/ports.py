@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Final, Protocol
 
-from app.modules.jobs.application.dto import JobView
+from app.modules.jobs.application.dto import JobView, MyResponseRef
 from app.modules.jobs.application.feed import FeedFilters, FeedItem
 from app.modules.jobs.application.responses import (
     MyResponse,
@@ -14,6 +14,7 @@ from app.modules.jobs.application.responses import (
 )
 from app.modules.jobs.domain.job import Job, JobId, JobStatus
 from app.modules.jobs.domain.response import ResponseId
+from app.modules.jobs.domain.template import ResponseTemplate, TemplateId
 from app.platform.contracts.events.identity import UserDeleted
 from app.platform.kernel.ids import UserId
 from app.platform.kernel.pagination import Page, PageRequest
@@ -104,6 +105,10 @@ class JobQueries(Protocol):
         """Отклики исполнителя (S17), новые первыми; группа — чип S17, None — все."""
         ...
 
+    async def performer_response(self, job_id: JobId, performer_id: UserId) -> MyResponseRef | None:
+        """Неудалённый отклик исполнителя на заявку — «Вы откликнулись» на S15."""
+        ...
+
     async def my_response(self, performer_id: UserId, response_id: ResponseId) -> MyResponse | None:
         """Отклик исполнителя с заявкой — ответ на отклик, правку и отзыв; чужой — None."""
         ...
@@ -160,6 +165,28 @@ class SavedJobs(Protocol):
 
     async def forget(self, user_id: UserId) -> None:
         """Удалить сохранённое пользователем — удаление аккаунта (§7.10)."""
+        ...
+
+
+class ResponseTemplates(Protocol):
+    """Шаблоны откликов исполнителя (S57): не больше двух, 0 — основной."""
+
+    async def lock(self, user_id: UserId) -> None:
+        """Сериализовать правку шаблонов пользователя до конца транзакции (активный UoW)."""
+        ...
+
+    async def of_user(self, user_id: UserId) -> list[ResponseTemplate]:
+        """Неудалённые шаблоны по порядку: первый — основной."""
+        ...
+
+    async def add(self, template: ResponseTemplate) -> None: ...
+
+    async def save(self, template: ResponseTemplate) -> None: ...
+
+    async def delete(self, template_id: TemplateId, *, now: datetime) -> None: ...
+
+    async def forget(self, user_id: UserId) -> None:
+        """Стереть шаблоны пользователя — удаление аккаунта (§7.10)."""
         ...
 
 

@@ -17,6 +17,8 @@
   блокировкой её строки, суточный лимит по уровню доверия; `PATCH /responses/{id}`,
   `POST /responses/{id}/withdraw` — исполнителю, пока клиент не решил; `GET /me/responses` —
   «Мои отклики» S17; `GET /jobs/{id}/responses` — владельцу заявки (S23).
+- Шаблоны откликов (5.5): `GET`, `POST` (Idempotency-Key), `PATCH` и `DELETE
+  /me/response-templates` — до двух, первый — основной; отклик из шаблона несёт `template_id`.
 Лимиты новичка — в use case (§13.3); лента и счётчик — 60 / 120 запросов в минуту.
 """
 
@@ -35,7 +37,15 @@ from app.modules.jobs.application.responses import ResponseGroup
 from app.modules.jobs.application.use_cases.browse_jobs import BrowseJobs, BrowseJobsCommand
 from app.modules.jobs.application.use_cases.close_job import CloseJob, CloseJobCommand
 from app.modules.jobs.application.use_cases.create_job import CreateJob, CreateJobCommand
+from app.modules.jobs.application.use_cases.create_template import (
+    CreateTemplate,
+    CreateTemplateCommand,
+)
 from app.modules.jobs.application.use_cases.delete_job import DeleteJob, DeleteJobCommand
+from app.modules.jobs.application.use_cases.delete_template import (
+    DeleteTemplate,
+    DeleteTemplateCommand,
+)
 from app.modules.jobs.application.use_cases.edit_job import EditJob, EditJobCommand
 from app.modules.jobs.application.use_cases.extend_job import ExtendJob, ExtendJobCommand
 from app.modules.jobs.application.use_cases.hide_job import HideJob, HideJobCommand
@@ -51,6 +61,10 @@ from app.modules.jobs.application.use_cases.list_saved_jobs import (
     ListSavedJobs,
     ListSavedJobsCommand,
 )
+from app.modules.jobs.application.use_cases.list_templates import (
+    ListTemplates,
+    ListTemplatesCommand,
+)
 from app.modules.jobs.application.use_cases.respond import Respond, RespondCommand
 from app.modules.jobs.application.use_cases.revise_response import (
     ReviseResponse,
@@ -59,12 +73,17 @@ from app.modules.jobs.application.use_cases.revise_response import (
 from app.modules.jobs.application.use_cases.save_job import SaveJob, SaveJobCommand
 from app.modules.jobs.application.use_cases.show_job import JobDetails, ShowJob, ShowJobCommand
 from app.modules.jobs.application.use_cases.unsave_job import UnsaveJob, UnsaveJobCommand
+from app.modules.jobs.application.use_cases.update_template import (
+    UpdateTemplate,
+    UpdateTemplateCommand,
+)
 from app.modules.jobs.application.use_cases.withdraw_response import (
     WithdrawResponse,
     WithdrawResponseCommand,
 )
 from app.modules.jobs.domain.job import CloseReason, JobId, JobStatus, Urgency
 from app.modules.jobs.domain.response import ResponseId
+from app.modules.jobs.domain.template import TemplateId
 from app.modules.jobs.errors import JobNotFoundError, ResponseNotFoundError
 from app.modules.jobs.http.schemas import (
     JobCardOut,
@@ -80,6 +99,11 @@ from app.modules.jobs.http.schemas import (
     MyResponsesPageOut,
     ResponseCountsOut,
     ResponseIn,
+    ResponseOfferIn,
+    ResponseTemplateIn,
+    ResponseTemplateOut,
+    ResponseTemplatePatchIn,
+    ResponseTemplatesOut,
     SavedJobsOut,
     TodayOut,
 )
@@ -110,6 +134,7 @@ router = APIRouter(tags=["jobs"])
 creating = idempotent_router()
 JobPath = Annotated[UUID, Path(description="id заявки")]
 ResponsePath = Annotated[UUID, Path(description="id отклика")]
+TemplatePath = Annotated[UUID, Path(description="id шаблона отклика")]
 Viewer = Annotated[Principal | None, Depends(optional_principal)]
 
 
@@ -159,9 +184,28 @@ async def respond(
             trust_level=principal.trust_level,
             job_id=JobId(job_id),
             offer=body.offer(),
+            template_id=TemplateId(body.template_id) if body.template_id else None,
         )
     )
     return await _my_response(queries, principal.user_id, response_id)
+
+
+@creating.post(
+    "/me/response-templates",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ResponseTemplateOut,
+    dependencies=AUTHENTICATED,
+)
+@inject
+async def create_response_template(
+    body: ResponseTemplateIn, principal: FromDishka[Principal], create: FromDishka[CreateTemplate]
+) -> ResponseTemplateOut:
+    """Новый шаблон (S57, «Сохранить как шаблон» на S16): не больше двух — третий 409
+    `response_templates_full`; первый — основной."""
+    template = await create(
+        CreateTemplateCommand(actor_id=principal.user_id, title=body.title, offer=body.offer())
+    )
+    return ResponseTemplateOut.of(template)
 
 
 router.include_router(creating)
@@ -428,7 +472,7 @@ def _language(locale: Locale) -> str:
 @inject
 async def revise_response(
     response_id: ResponsePath,
-    body: ResponseIn,
+    body: ResponseOfferIn,
     principal: FromDishka[Principal],
     revise: FromDishka[ReviseResponse],
     queries: FromDishka[JobQueries],
@@ -509,6 +553,59 @@ async def list_job_responses(
         ListJobResponsesCommand(actor_id=principal.user_id, job_id=JobId(job_id))
     )
     return JobResponsesOut(items=[JobResponseOut.of(item) for item in listed])
+
+
+@router.get(
+    "/me/response-templates", response_model=ResponseTemplatesOut, dependencies=AUTHENTICATED
+)
+@inject
+async def list_response_templates(
+    principal: FromDishka[Principal], templates: FromDishka[ListTemplates]
+) -> ResponseTemplatesOut:
+    """Шаблоны откликов (S57, S16): по порядку, первый — основной."""
+    return ResponseTemplatesOut.of(
+        await templates(ListTemplatesCommand(actor_id=principal.user_id))
+    )
+
+
+@router.patch(
+    "/me/response-templates/{template_id:uuid}",
+    response_model=ResponseTemplateOut,
+    dependencies=AUTHENTICATED,
+)
+@inject
+async def update_response_template(
+    template_id: TemplatePath,
+    body: ResponseTemplatePatchIn,
+    principal: FromDishka[Principal],
+    update: FromDishka[UpdateTemplate],
+) -> ResponseTemplateOut:
+    """Поправить шаблон (S57) или сделать основным (`primary: true`); чужой — 404."""
+    template = await update(
+        UpdateTemplateCommand(
+            actor_id=principal.user_id,
+            template_id=TemplateId(template_id),
+            title=body.title,
+            offer=body.offer(),
+            primary=body.primary,
+        )
+    )
+    return ResponseTemplateOut.of(template)
+
+
+@router.delete(
+    "/me/response-templates/{template_id:uuid}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=AUTHENTICATED,
+)
+@inject
+async def delete_response_template(
+    template_id: TemplatePath, principal: FromDishka[Principal], delete: FromDishka[DeleteTemplate]
+) -> None:
+    """Удалить шаблон (S57): основным становится следующий; чужой — 404."""
+    await delete(
+        DeleteTemplateCommand(actor_id=principal.user_id, template_id=TemplateId(template_id))
+    )
 
 
 async def _my_response(

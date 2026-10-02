@@ -7,9 +7,9 @@
 import type { ResponsePriceType } from './responsePriceType.ts';
 
 /**
- * Отклик S16; собранный из шаблона — с его id.
+ * Предложение исполнителя S16: сообщение клиенту, цена и «когда смогу».
  */
-export interface ResponseIn {
+export interface ResponseOfferIn {
   /**
    * @minLength 1
    * @maxLength 1500
@@ -20,6 +20,4 @@ export interface ResponseIn {
   price_amount?: number | null;
   /** «Сегодня, 19:00» */
   availability_note?: string | null;
-  /** Свой шаблон, из которого отклик (S16, кнопка бота); чужой — 404 */
-  template_id?: string | null;
 }

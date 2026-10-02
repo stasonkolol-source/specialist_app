@@ -177,6 +177,26 @@ export const JobsCreateJobResponse = zod.object({
     .describe('Блок клиента; null — аккаунт удалён'),
   max_responses: zod.int(),
   responses_count: zod.int(),
+  my_response: zod
+    .union([
+      zod.object({
+        id: zod.uuid(),
+        status: zod.enum([
+          'submitted',
+          'viewed',
+          'shortlisted',
+          'accepted',
+          'declined',
+          'withdrawn',
+          'not_selected',
+        ]),
+        review: zod
+          .enum(['pending', 'clear', 'blocked'])
+          .describe('pending — на проверке, blocked — скрыт модерацией'),
+      }),
+      zod.null(),
+    ])
+    .describe('Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null'),
   extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
   moderation_note: zod
     .union([zod.string(), zod.null()])
@@ -355,8 +375,12 @@ export const JobsRespondBody = zod
       .union([zod.string().max(jobsRespondBodyAvailabilityNoteOneMax), zod.null()])
       .optional()
       .describe('«Сегодня, 19:00»'),
+    template_id: zod
+      .union([zod.uuid(), zod.null()])
+      .optional()
+      .describe('Свой шаблон, из которого отклик (S16, кнопка бота); чужой — 404'),
   })
-  .describe('Отклик S16: сообщение клиенту, цена и «когда смогу».');
+  .describe('Отклик S16; собранный из шаблона — с его id.');
 
 export const JobsRespondResponse = zod
   .object({
@@ -486,6 +510,105 @@ export const JobsListJobResponsesResponse = zod.object({
       })
       .describe('Отклик на свою заявку (S23): прошедший проверку.'),
   ),
+});
+
+/**
+ * Новый шаблон (S57, «Сохранить как шаблон» на S16): не больше двух — третий 409
+ * `response_templates_full`; первый — основной.
+ * @summary Create Response Template
+ */
+export const jobsCreateResponseTemplateHeaderIdempotencyKeyMin = 8;
+export const jobsCreateResponseTemplateHeaderIdempotencyKeyMax = 255;
+
+export const JobsCreateResponseTemplateHeader = zod.object({
+  'Idempotency-Key': zod
+    .string()
+    .min(jobsCreateResponseTemplateHeaderIdempotencyKeyMin)
+    .max(jobsCreateResponseTemplateHeaderIdempotencyKeyMax)
+    .describe('Ключ операции: повтор с тем же ключом вернёт тот же ответ'),
+});
+
+export const jobsCreateResponseTemplateBodyMessageMax = 1500;
+
+export const jobsCreateResponseTemplateBodyPriceAmountOneMax = 100000000000;
+
+export const jobsCreateResponseTemplateBodyAvailabilityNoteOneMax = 200;
+
+export const jobsCreateResponseTemplateBodyTitleMax = 40;
+
+export const JobsCreateResponseTemplateBody = zod
+  .object({
+    message: zod.string().min(1).max(jobsCreateResponseTemplateBodyMessageMax),
+    price_type: zod
+      .enum(['fixed', 'from', 'hourly', 'negotiable'])
+      .describe('Цена отклика S16: «Фикс», «От», «За час», «Договорная».'),
+    price_amount: zod
+      .union([zod.int().min(1).max(jobsCreateResponseTemplateBodyPriceAmountOneMax), zod.null()])
+      .optional()
+      .describe('Пара; у договорной — нет'),
+    availability_note: zod
+      .union([zod.string().max(jobsCreateResponseTemplateBodyAvailabilityNoteOneMax), zod.null()])
+      .optional()
+      .describe('«Сегодня, 19:00»'),
+    title: zod
+      .string()
+      .min(1)
+      .max(jobsCreateResponseTemplateBodyTitleMax)
+      .describe('«Могу сегодня»'),
+  })
+  .describe('Новый шаблон S57 или «Сохранить как шаблон» на S16.');
+
+export const JobsCreateResponseTemplateResponse = zod.object({
+  id: zod.uuid(),
+  title: zod.string(),
+  message: zod.string(),
+  price: zod.object({
+    type: zod
+      .enum(['fixed', 'from', 'hourly', 'negotiable'])
+      .describe('Цена отклика S16: «Фикс», «От», «За час», «Договорная».'),
+    amount: zod.union([
+      zod.object({
+        amount: zod.int(),
+        currency: zod.enum(['RSD', 'XTR']),
+      }),
+      zod.null(),
+    ]),
+  }),
+  availability_note: zod.union([zod.string(), zod.null()]),
+  primary: zod.boolean().describe('Основной — первый: S16 подставляет его сразу'),
+  updated_at: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Шаблоны откликов (S57, S16): по порядку, первый — основной.
+ * @summary List Response Templates
+ */
+export const JobsListResponseTemplatesResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        title: zod.string(),
+        message: zod.string(),
+        price: zod.object({
+          type: zod
+            .enum(['fixed', 'from', 'hourly', 'negotiable'])
+            .describe('Цена отклика S16: «Фикс», «От», «За час», «Договорная».'),
+          amount: zod.union([
+            zod.object({
+              amount: zod.int(),
+              currency: zod.enum(['RSD', 'XTR']),
+            }),
+            zod.null(),
+          ]),
+        }),
+        availability_note: zod.union([zod.string(), zod.null()]),
+        primary: zod.boolean().describe('Основной — первый: S16 подставляет его сразу'),
+        updated_at: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .describe('По порядку, первый — основной'),
+  limit: zod.int().describe('Сколько шаблонов можно: «1 из 2» на S57'),
 });
 
 /**
@@ -658,6 +781,26 @@ export const JobsGetJobResponse = zod.object({
     .describe('Блок клиента; null — аккаунт удалён'),
   max_responses: zod.int(),
   responses_count: zod.int(),
+  my_response: zod
+    .union([
+      zod.object({
+        id: zod.uuid(),
+        status: zod.enum([
+          'submitted',
+          'viewed',
+          'shortlisted',
+          'accepted',
+          'declined',
+          'withdrawn',
+          'not_selected',
+        ]),
+        review: zod
+          .enum(['pending', 'clear', 'blocked'])
+          .describe('pending — на проверке, blocked — скрыт модерацией'),
+      }),
+      zod.null(),
+    ])
+    .describe('Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null'),
   extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
   moderation_note: zod
     .union([zod.string(), zod.null()])
@@ -841,6 +984,26 @@ export const JobsUpdateJobResponse = zod.object({
     .describe('Блок клиента; null — аккаунт удалён'),
   max_responses: zod.int(),
   responses_count: zod.int(),
+  my_response: zod
+    .union([
+      zod.object({
+        id: zod.uuid(),
+        status: zod.enum([
+          'submitted',
+          'viewed',
+          'shortlisted',
+          'accepted',
+          'declined',
+          'withdrawn',
+          'not_selected',
+        ]),
+        review: zod
+          .enum(['pending', 'clear', 'blocked'])
+          .describe('pending — на проверке, blocked — скрыт модерацией'),
+      }),
+      zod.null(),
+    ])
+    .describe('Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null'),
   extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
   moderation_note: zod
     .union([zod.string(), zod.null()])
@@ -1058,6 +1221,26 @@ export const JobsCloseJobResponse = zod.object({
     .describe('Блок клиента; null — аккаунт удалён'),
   max_responses: zod.int(),
   responses_count: zod.int(),
+  my_response: zod
+    .union([
+      zod.object({
+        id: zod.uuid(),
+        status: zod.enum([
+          'submitted',
+          'viewed',
+          'shortlisted',
+          'accepted',
+          'declined',
+          'withdrawn',
+          'not_selected',
+        ]),
+        review: zod
+          .enum(['pending', 'clear', 'blocked'])
+          .describe('pending — на проверке, blocked — скрыт модерацией'),
+      }),
+      zod.null(),
+    ])
+    .describe('Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null'),
   extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
   moderation_note: zod
     .union([zod.string(), zod.null()])
@@ -1171,6 +1354,26 @@ export const JobsExtendJobResponse = zod.object({
     .describe('Блок клиента; null — аккаунт удалён'),
   max_responses: zod.int(),
   responses_count: zod.int(),
+  my_response: zod
+    .union([
+      zod.object({
+        id: zod.uuid(),
+        status: zod.enum([
+          'submitted',
+          'viewed',
+          'shortlisted',
+          'accepted',
+          'declined',
+          'withdrawn',
+          'not_selected',
+        ]),
+        review: zod
+          .enum(['pending', 'clear', 'blocked'])
+          .describe('pending — на проверке, blocked — скрыт модерацией'),
+      }),
+      zod.null(),
+    ])
+    .describe('Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null'),
   extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
   moderation_note: zod
     .union([zod.string(), zod.null()])
@@ -1304,6 +1507,26 @@ export const JobsListMyJobsResponse = zod.object({
         .describe('Блок клиента; null — аккаунт удалён'),
       max_responses: zod.int(),
       responses_count: zod.int(),
+      my_response: zod
+        .union([
+          zod.object({
+            id: zod.uuid(),
+            status: zod.enum([
+              'submitted',
+              'viewed',
+              'shortlisted',
+              'accepted',
+              'declined',
+              'withdrawn',
+              'not_selected',
+            ]),
+            review: zod
+              .enum(['pending', 'clear', 'blocked'])
+              .describe('pending — на проверке, blocked — скрыт модерацией'),
+          }),
+          zod.null(),
+        ])
+        .describe('Свой отклик исполнителя — «Вы откликнулись» на S15; гостю и владельцу — null'),
       extensions_count: zod.int().describe('Сколько раз продлевали: не больше трёх'),
       moderation_note: zod
         .union([zod.string(), zod.null()])
@@ -1358,7 +1581,7 @@ export const JobsReviseResponseBody = zod
       .optional()
       .describe('«Сегодня, 19:00»'),
   })
-  .describe('Отклик S16: сообщение клиенту, цена и «когда смогу».');
+  .describe('Предложение исполнителя S16: сообщение клиенту, цена и «когда смогу».');
 
 export const JobsReviseResponseResponse = zod
   .object({
@@ -1646,3 +1869,80 @@ export const JobsListMyResponsesResponse = zod.object({
     })
     .describe('«Сегодня откликов: 3 из 50 — лимит по уровню доверия» (S17).'),
 });
+
+/**
+ * Поправить шаблон (S57) или сделать основным (`primary: true`); чужой — 404.
+ * @summary Update Response Template
+ */
+export const JobsUpdateResponseTemplateParams = zod.object({
+  template_id: zod.uuid().describe('id шаблона отклика'),
+});
+
+export const jobsUpdateResponseTemplateBodyTitleOneMax = 40;
+
+export const jobsUpdateResponseTemplateBodyMessageOneMax = 1500;
+
+export const jobsUpdateResponseTemplateBodyPriceAmountOneMax = 100000000000;
+
+export const jobsUpdateResponseTemplateBodyAvailabilityNoteOneMax = 200;
+
+export const jobsUpdateResponseTemplateBodyPrimaryDefault = false;
+
+export const JobsUpdateResponseTemplateBody = zod
+  .object({
+    title: zod
+      .union([zod.string().min(1).max(jobsUpdateResponseTemplateBodyTitleOneMax), zod.null()])
+      .optional(),
+    message: zod
+      .union([zod.string().min(1).max(jobsUpdateResponseTemplateBodyMessageOneMax), zod.null()])
+      .optional(),
+    price_type: zod
+      .union([
+        zod
+          .enum(['fixed', 'from', 'hourly', 'negotiable'])
+          .describe('Цена отклика S16: «Фикс», «От», «За час», «Договорная».'),
+        zod.null(),
+      ])
+      .optional(),
+    price_amount: zod
+      .union([zod.int().min(1).max(jobsUpdateResponseTemplateBodyPriceAmountOneMax), zod.null()])
+      .optional(),
+    availability_note: zod
+      .union([zod.string().max(jobsUpdateResponseTemplateBodyAvailabilityNoteOneMax), zod.null()])
+      .optional(),
+    primary: zod.boolean().default(jobsUpdateResponseTemplateBodyPrimaryDefault),
+  })
+  .describe(
+    'Правка шаблона S57 — что прислано. Предложение меняется целиком: `message` и `price_type`\nвместе (без `price_amount` — суммы нет). `primary: true` — «Сделать основным»: шаблон\nстановится первым.',
+  );
+
+export const JobsUpdateResponseTemplateResponse = zod.object({
+  id: zod.uuid(),
+  title: zod.string(),
+  message: zod.string(),
+  price: zod.object({
+    type: zod
+      .enum(['fixed', 'from', 'hourly', 'negotiable'])
+      .describe('Цена отклика S16: «Фикс», «От», «За час», «Договорная».'),
+    amount: zod.union([
+      zod.object({
+        amount: zod.int(),
+        currency: zod.enum(['RSD', 'XTR']),
+      }),
+      zod.null(),
+    ]),
+  }),
+  availability_note: zod.union([zod.string(), zod.null()]),
+  primary: zod.boolean().describe('Основной — первый: S16 подставляет его сразу'),
+  updated_at: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Удалить шаблон (S57): основным становится следующий; чужой — 404.
+ * @summary Delete Response Template
+ */
+export const JobsDeleteResponseTemplateParams = zod.object({
+  template_id: zod.uuid().describe('id шаблона отклика'),
+});
+
+export const JobsDeleteResponseTemplateResponse = zod.void();

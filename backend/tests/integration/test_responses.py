@@ -4,7 +4,9 @@
 десять параллельных откликов на пять мест дают ровно пять; правка отклика увеличивает версию
 заявки; суточный лимит по уровню доверия — 429 на своей границе; «Мои отклики» с группами и
 квотой дня; удалённый аккаунт отзывает свои отклики; три отклика за окно — одно уведомление
-клиенту «Новых откликов: 3». Данные коммитятся.
+клиенту «Новых откликов: 3». Шаблоны откликов (5.5): не больше двух и под гонкой, первый —
+основной, «сделать основным» и удаление сдвигают порядок, чужой — 404; отклик из шаблона хранит
+его id, а карточка заявки показывает исполнителю его отклик. Данные коммитятся.
 """
 
 import asyncio
@@ -21,6 +23,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.entrypoints._wiring import make_worker_container, module_routers
 from app.entrypoints.seeds import load_city_seeds
+from app.modules.jobs.application.use_cases.forget_client_jobs import (
+    ForgetClientJobs,
+    ForgetClientJobsCommand,
+)
 from app.modules.jobs.application.use_cases.withdraw_performer_responses import (
     WithdrawPerformerResponses,
     WithdrawPerformerResponsesCommand,
@@ -140,11 +146,13 @@ class World:
         message: str | None = None,
         trust_level: int = 0,
         price: dict[str, Any] | None = None,
+        template_id: str | None = None,
     ) -> httpx.Response:
         body = {
             "message": message or unique("Здравствуйте! Могу сегодня в 19:00, свой инструмент."),
             **(price or {"price_type": "fixed", "price_amount": 350_000}),
             "availability_note": "Сегодня, 19:00",
+            "template_id": template_id,
         }
         headers = self.headers(performer, trust_level=trust_level) | {
             "Idempotency-Key": new_id().hex
@@ -158,6 +166,29 @@ class World:
         assert reply.status_code == 201, reply.text
         body: dict[str, Any] = reply.json()
         return body
+
+    async def template(self, performer: UserId, title: str, **offer: Any) -> httpx.Response:
+        body = {
+            "title": title,
+            "message": unique("Здравствуйте! Могу сегодня вечером, инструмент свой."),
+            "price_type": "fixed",
+            "price_amount": 300_000,
+        } | offer
+        headers = self.headers(performer) | {"Idempotency-Key": new_id().hex}
+        return await self.app.client.post(
+            f"{API}/me/response-templates", json=body, headers=headers
+        )
+
+    async def templates(self, performer: UserId) -> list[str]:
+        """Id шаблонов по порядку; первый — основной."""
+        reply = await self.app.client.get(
+            f"{API}/me/response-templates", headers=self.headers(performer)
+        )
+        assert reply.status_code == 200, reply.text
+        body = reply.json()
+        assert body["limit"] == 2
+        assert [t["primary"] for t in body["items"]] == [n == 0 for n in range(len(body["items"]))]
+        return [t["id"] for t in body["items"]]
 
     async def owner_list(self, client: UserId, job_id: UUID) -> list[dict[str, Any]]:
         reply = await self.app.client.get(
@@ -485,3 +516,136 @@ async def test_three_responses_in_a_window_make_one_notice(
         ).all()
     assert [count for count, _ in notices] == ["3"]
     assert notices[0][1].startswith("j_")
+
+
+async def test_templates_are_two_at_most_and_the_first_is_primary(world: World) -> None:
+    performer, stranger = await world.user(), await world.user()
+    first = await world.template(performer, "Могу сегодня")
+    second = await world.template(
+        performer,
+        "  На неделе  ",
+        price_type="negotiable",
+        price_amount=None,
+        availability_note="На неделе",
+    )
+    third = await world.template(performer, "Ещё один")
+    blank = await world.template(stranger, "   ")
+    priced = await world.template(stranger, "Договорная", price_type="negotiable")
+
+    assert (first.status_code, second.status_code) == (201, 201), second.text
+    assert (first.json()["primary"], second.json()["primary"]) == (True, False)
+    assert second.json()["title"] == "На неделе"
+    assert second.json()["price"] == {"type": "negotiable", "amount": None}
+    assert (third.status_code, third.json()["code"], third.json()["limit"]) == (
+        409,
+        "response_templates_full",
+        2,
+    )
+    assert (blank.status_code, blank.json()["code"]) == (422, "invalid_response_template")
+    assert (priced.status_code, priced.json()["code"], priced.json()["field"]) == (
+        422,
+        "invalid_response_template",
+        "price_amount",
+    )
+    first_id, second_id = first.json()["id"], second.json()["id"]
+    assert await world.templates(performer) == [first_id, second_id]
+    assert await world.templates(stranger) == []
+
+    headers = world.headers(performer)
+    url = f"{API}/me/response-templates"
+    primary = await world.app.client.patch(
+        f"{url}/{second_id}", json={"primary": True}, headers=headers
+    )
+    assert (primary.status_code, primary.json()["primary"]) == (200, True)
+    assert await world.templates(performer) == [second_id, first_id]
+    edited = await world.app.client.patch(
+        f"{url}/{first_id}",
+        json={
+            "title": "Вечером",
+            "message": "Могу вечером.",
+            "price_type": "from",
+            "price_amount": 2,
+        },
+        headers=headers,
+    )
+    assert edited.status_code == 200, edited.text
+    assert (edited.json()["title"], edited.json()["message"], edited.json()["primary"]) == (
+        "Вечером",
+        "Могу вечером.",
+        False,
+    )
+    assert edited.json()["price"] == {"type": "from", "amount": {"amount": 2, "currency": "RSD"}}
+    halves = await world.app.client.patch(
+        f"{url}/{first_id}", json={"price_amount": 5}, headers=headers
+    )
+    assert halves.status_code == 422  # предложение меняется только целиком
+    foreign = world.headers(stranger)
+    stolen = await world.app.client.patch(
+        f"{url}/{first_id}", json={"primary": True}, headers=foreign
+    )
+    removed_by_stranger = await world.app.client.delete(f"{url}/{first_id}", headers=foreign)
+    assert (stolen.status_code, stolen.json()["code"]) == (404, "response_template_not_found")
+    assert removed_by_stranger.status_code == 404
+
+    removed = await world.app.client.delete(f"{url}/{second_id}", headers=headers)
+    assert removed.status_code == 204
+    assert await world.templates(performer) == [first_id]  # основным стал оставшийся
+    again = await world.app.client.delete(f"{url}/{second_id}", headers=headers)
+    assert (again.status_code, again.json()["code"]) == (404, "response_template_not_found")
+    replacement = await world.template(performer, "Снова второй")
+    assert replacement.status_code == 201, replacement.text
+    assert await world.templates(performer) == [first_id, replacement.json()["id"]]
+
+
+async def test_parallel_new_templates_stop_at_two(world: World) -> None:
+    performer = await world.user()
+
+    replies = await asyncio.gather(*(world.template(performer, f"Шаблон {n}") for n in range(4)))
+
+    assert sorted(reply.status_code for reply in replies) == [201, 201, 409, 409]
+    positions = await world.scalar(
+        "SELECT array_agg(position ORDER BY position) FROM jobs.response_templates"
+        " WHERE user_id = :user AND deleted_at IS NULL",
+        user=performer,
+    )
+    assert positions == [0, 1]
+
+
+async def test_response_from_a_template_and_the_performer_sees_it_on_the_job(
+    world: World,
+) -> None:
+    client, performer, other = await world.user(), await world.user(), await world.user()
+    job_id = await world.job(client)
+    template = (await world.template(performer, "Могу сегодня")).json()
+    foreign = (await world.template(other, "Чужой")).json()
+
+    stolen = await world.respond(performer, job_id, template_id=foreign["id"])
+    assert (stolen.status_code, stolen.json()["code"]) == (404, "response_template_not_found")
+    response = await world.responded(performer, job_id, template_id=template["id"])
+
+    stored = await world.scalar(
+        "SELECT template_id FROM jobs.responses WHERE id = :id", id=UUID(response["id"])
+    )
+    assert stored == UUID(template["id"])
+    url = f"{API}/jobs/{job_id}"
+    mine = (await world.app.client.get(url, headers=world.headers(performer))).json()
+    assert mine["my_response"] == {"id": response["id"], "status": "submitted", "review": "pending"}
+    for headers in (world.headers(client), world.headers(other), {}):
+        assert (await world.app.client.get(url, headers=headers)).json()["my_response"] is None
+
+
+async def test_deleted_account_templates_are_forgotten(
+    world: World, worker: AsyncContainer
+) -> None:
+    performer = await world.user()
+    assert (await world.template(performer, "Могу сегодня")).status_code == 201
+
+    async with worker() as request:
+        await (await request.get(ForgetClientJobs))(ForgetClientJobsCommand(user_id=performer))
+
+    kept = await world.scalar(
+        "SELECT count(*) FROM jobs.response_templates WHERE user_id = :user"
+        " AND (deleted_at IS NULL OR message <> '—' OR title <> '—')",
+        user=performer,
+    )
+    assert kept == 0

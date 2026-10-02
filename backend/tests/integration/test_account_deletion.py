@@ -165,6 +165,15 @@ async def specialist(app: HttpApp, settings: Settings, telegram_id: int) -> Acco
         price_type="negotiable",
     )
     assert responded.status_code == 201, responded.text
+    # шаблон отклика (5.5) — через API: после удаления его текст стёрт
+    template = await account.call(
+        "POST",
+        "/me/response-templates",
+        title="Могу сегодня",
+        message="Соберу сегодня вечером, инструмент свой.",
+        price_type="negotiable",
+    )
+    assert template.status_code == 201, template.text
     # избранное (4.6) — строкой: сохранить через API можно только видимого в каталоге
     await account.execute(
         "INSERT INTO search.favorites (user_id, target_type, target_id)"
@@ -254,6 +263,8 @@ async def test_deleted_account_keeps_nothing_personal(
         "сохранённые заявки": "SELECT count(*) FROM jobs.saved_jobs WHERE user_id = :user",
         "активные отклики": "SELECT count(*) FROM jobs.responses WHERE performer_id = :user"
         " AND status IN ('submitted', 'viewed', 'shortlisted')",
+        "шаблоны откликов": "SELECT count(*) FROM jobs.response_templates WHERE user_id = :user"
+        " AND (deleted_at IS NULL OR message <> '—' OR title <> '—')",
     }
     for what, sql in mine.items():
         assert await count(account, sql, user=account.user_id) == 0, what

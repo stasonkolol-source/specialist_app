@@ -449,6 +449,15 @@ msgstr "Данас је послато превише понуда. Покуша
 msgid "errors.active_responses_limit"
 msgstr "Достигнут је максимум понуда које чекају одлуку ({limit}) — сачекајте одговор наручилаца или повуците једну."
 
+msgid "errors.invalid_response_template"
+msgstr "Проверите шаблон: назив, поруку и цену."
+
+msgid "errors.response_template_not_found"
+msgstr "Шаблон није пронађен: обрисан је."
+
+msgid "errors.response_templates_full"
+msgstr "Већ имате највише шаблона ({limit}) — обришите један да бисте додали нови."
+
 msgid "errors.job_not_found"
 msgstr "Захтев није пронађен: обрисан је или вам није видљив."
 
