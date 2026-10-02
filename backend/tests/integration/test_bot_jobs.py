@@ -1,7 +1,9 @@
-"""Кнопки уведомлений о заявке в боте (DEVELOPMENT_PLAN 5.1, 5.6, ARCHITECTURE §11.3):
+"""Заявки в боте (DEVELOPMENT_PLAN 5.1, 5.6, ARCHITECTURE §11.3): кнопки уведомлений и команды.
+
 «Продлить» и «Закрыть» на фейковых Update вызывают те же use cases, что Mini App. Чужая заявка —
 «не найдена», четвёртое продление — отказ с числом продлений. «Откликнуться: «…»» из приглашения
-создаёт отклик из шаблона, повтор — «уже откликались»."""
+создаёт отклик из шаблона, повтор — «уже откликались». `/new` — кнопка мастера S20a, `/jobs` —
+активные заявки с состоянием и кнопками в Mini App."""
 
 from collections.abc import AsyncIterator
 from datetime import timedelta
@@ -9,7 +11,7 @@ from typing import Any
 from uuid import UUID
 
 import pytest
-from aiogram.methods import AnswerCallbackQuery, EditMessageText, TelegramMethod
+from aiogram.methods import AnswerCallbackQuery, EditMessageText, SendMessage, TelegramMethod
 from aiogram.types import InlineKeyboardMarkup
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
@@ -21,7 +23,8 @@ from app.platform.telegram.callbacks import (
     encode_callback,
     ref_arg,
 )
-from tests.plugins.bot import BotHarness, bot_harness
+from app.platform.telegram.deeplinks import uuid_to_base62
+from tests.plugins.bot import MINI_APP, BotHarness, bot_harness
 from tests.plugins.identity import accept_rules
 
 pytestmark = pytest.mark.integration
@@ -48,21 +51,30 @@ async def execute(harness: BotHarness, sql: str, **params: object) -> None:
         await conn.execute(text(sql), params)
 
 
-async def published_job(harness: BotHarness, telegram_id: int, *, extensions: int = 0) -> UUID:
-    """Опубликованная заявка пользователя бота — SQL-вставкой: модерация тесту не нужна."""
+async def published_job(
+    harness: BotHarness,
+    telegram_id: int,
+    *,
+    extensions: int = 0,
+    title: str = TITLE,
+    status: str = "published",
+) -> UUID:
+    """Заявка пользователя бота (по умолчанию опубликованная) — SQL-вставкой: модерация тесту
+    не нужна."""
     job_id = new_id()
     await execute(
         harness,
         "INSERT INTO jobs.jobs (id, client_id, status, title, description, content_lang,"
         " category_id, category_path, urgency, budget_type, city_id, extensions_count,"
         " published_at, expires_at, version)"
-        " SELECT :id, a.user_id, 'published', :title, '', 'ru', c.id, ARRAY[c.id], 'this_week',"
+        " SELECT :id, a.user_id, :status, :title, '', 'ru', c.id, ARRAY[c.id], 'this_week',"
         " 'negotiable', ci.id, :extensions, now(), now() + interval '1 hour', 1"
         " FROM identity.auth_identities a, geo.cities ci,"
         " (SELECT min(id) AS id FROM catalog.categories WHERE parent_id IS NOT NULL) c"
         " WHERE a.provider = 'telegram' AND a.subject = :subject AND ci.slug = 'novi-sad'",
         id=job_id,
-        title=TITLE,
+        title=title,
+        status=status,
         extensions=extensions,
         subject=str(telegram_id),
     )
@@ -236,3 +248,104 @@ async def test_template_button_responds_once(harness: BotHarness) -> None:
     assert [(row.template_id, row.message) for row in rows] == [
         (template_id, "Здравствуйте! Могу сегодня вечером.")
     ]
+
+
+def app_buttons(reply: SendMessage) -> list[list[tuple[str, str]]]:
+    """Кнопки web_app под ответом: подпись и адрес Mini App."""
+    markup = reply.reply_markup
+    assert isinstance(markup, InlineKeyboardMarkup)
+    return [
+        [(button.text, button.web_app.url if button.web_app else "") for button in row]
+        for row in markup.inline_keyboard
+    ]
+
+
+def app_url(code: str) -> str:
+    return f"{MINI_APP}?startapp={code}"
+
+
+async def test_new_opens_the_job_wizard(harness: BotHarness) -> None:
+    reply = await harness.send(telegram_user(), "/new")  # и без аккаунта: Mini App его заведёт
+
+    assert reply.text is not None
+    assert reply.text.startswith("<b>Новая заявка</b>\nОпишите, что нужно сделать")
+    assert app_buttons(reply) == [[("Создать заявку", app_url("n"))]]
+
+
+async def test_jobs_needs_an_account(harness: BotHarness) -> None:
+    reply = await harness.send(telegram_user(), "/jobs")
+
+    assert reply.text == "Сначала нажмите /start."
+
+
+async def test_jobs_without_active_jobs_offers_a_new_one(harness: BotHarness) -> None:
+    telegram_id = telegram_user()
+    await harness.send(telegram_id, "/start")
+
+    empty = await harness.send(telegram_id, "/jobs")
+    await published_job(harness, telegram_id, status="closed")
+    closed_only = await harness.send(telegram_id, "/jobs")
+
+    assert empty.text is not None
+    assert empty.text.startswith("Активных заявок нет.")
+    assert app_buttons(empty) == [[("Создать заявку", app_url("n"))]]
+    # закрытые — в «Моих заявках» S22
+    assert closed_only.text == empty.text
+    assert app_buttons(closed_only) == [
+        [("Создать заявку", app_url("n"))],
+        [("Все мои заявки", app_url("m_jobs"))],
+    ]
+
+
+async def test_jobs_lists_active_jobs_with_their_state(harness: BotHarness) -> None:
+    client, performer = telegram_user(), telegram_user()
+    for telegram_id in (client, performer):
+        await harness.send(telegram_id, "/start")
+    await accept(harness, performer)
+    await published_job(harness, client, title="Старая", status="expired")
+    long_title = "Собрать шкаф-купе из ИКЕА в спальне, три двери и зеркала"
+    rejected = await published_job(harness, client, title=long_title, status="rejected")
+    pending = await published_job(
+        harness, client, title="Покрасить стену", status="pending_moderation"
+    )
+    waiting = await published_job(harness, client, title="Помыть окна")
+    answered = await published_job(harness, client)
+    template_id = await template_of(harness, performer)
+    await harness.press(
+        performer, pressed(CallbackAction.JOB_RESPOND, answered, ref_arg(template_id))
+    )
+
+    before_review = await harness.send(client, "/jobs")
+    await execute(
+        harness, "UPDATE jobs.responses SET review = 'clear' WHERE job_id = :id", id=answered
+    )
+    after_review = await harness.send(client, "/jobs")
+
+    assert before_review.text == (
+        "<b>Активные заявки</b>\n\n"
+        f"• <b>{TITLE}</b> — откликов: 1 из 5\n"
+        "• <b>Помыть окна</b> — ждём откликов\n"
+        "• <b>Покрасить стену</b> — на проверке\n"
+        f"• <b>{long_title}</b> — нужно исправить"
+    )
+    assert after_review.text is not None
+    assert f"• <b>{TITLE}</b> — откликов: 1 из 5, новых: 1\n" in after_review.text
+    # заявка открывается кнопкой `j_` (владельца S15 ведёт в S23), длинное название обрезано
+    assert app_buttons(after_review) == [
+        [(TITLE, app_url(f"j_{uuid_to_base62(answered)}"))],
+        [("Помыть окна", app_url(f"j_{uuid_to_base62(waiting)}"))],
+        [("Покрасить стену", app_url(f"j_{uuid_to_base62(pending)}"))],
+        [("Собрать шкаф-купе из ИКЕА в спальне, тр…", app_url(f"j_{uuid_to_base62(rejected)}"))],
+        [("Все мои заявки", app_url("m_jobs")), ("Новая заявка", app_url("n"))],
+    ]
+
+
+async def test_jobs_escapes_titles(harness: BotHarness) -> None:
+    telegram_id = telegram_user()
+    await harness.send(telegram_id, "/start")
+    await published_job(harness, telegram_id, title="Кран <b>течёт</b> & капает")
+
+    reply = await harness.send(telegram_id, "/jobs")
+
+    assert reply.text is not None
+    assert "• <b>Кран &lt;b&gt;течёт&lt;/b&gt; &amp; капает</b> — ждём откликов" in reply.text

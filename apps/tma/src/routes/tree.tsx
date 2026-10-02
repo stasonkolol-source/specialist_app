@@ -24,6 +24,7 @@ import {
   SAVED_PATHS,
   createSearch,
   doneSearch,
+  editSearch,
   feedSearch,
   jobSearch,
   responsesSearch,
@@ -139,6 +140,7 @@ const createWhat = createRoute({
 const createWhen = createRoute({
   getParentRoute: () => rootRoute,
   path: CREATE_PATHS.when,
+  validateSearch: editSearch,
   beforeLoad: requireConsent,
   component: screen(() => import('../features/jobs/s20b-create-when/index.ts'), 'WhenScreen'),
 });
@@ -146,6 +148,7 @@ const createWhen = createRoute({
 const createBudget = createRoute({
   getParentRoute: () => rootRoute,
   path: CREATE_PATHS.budget,
+  validateSearch: editSearch,
   beforeLoad: requireConsent,
   component: screen(() => import('../features/jobs/s20c-create-budget/index.ts'), 'BudgetScreen'),
 });
@@ -153,6 +156,7 @@ const createBudget = createRoute({
 const createPreview = createRoute({
   getParentRoute: () => rootRoute,
   path: CREATE_PATHS.preview,
+  validateSearch: editSearch,
   beforeLoad: requireConsent,
   component: screen(() => import('../features/jobs/s20d-create-preview/index.ts'), 'PreviewScreen'),
 });

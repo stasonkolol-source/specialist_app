@@ -60,8 +60,8 @@ describe('S08 profile', () => {
     expect(about.getByText('Русский, сербский')).toBeTruthy();
     expect(about.getByText('Выезд: Лиман, Грбавица, Центр, Нова Детелинара')).toBeTruthy();
 
-    // «Написать …» — с шагами 5.6 и 6.4: MainButton не показана
-    expect(mainButton(telegram)?.is_visible ?? false).toBe(false);
+    // «Написать» (5.6) — прямой запрос через мастер заявки
+    await waitFor(() => expect(mainButton(telegram)?.text).toBe('Написать'));
     expect(requests.paths.filter((path) => path.startsWith('/api/v1/specialists'))).toEqual([
       `/api/v1${PROFILE}`,
     ]);

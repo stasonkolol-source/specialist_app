@@ -7,9 +7,9 @@ import type { MockTelegram } from '@sosed/platform';
 import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { pressMainButton, startApp } from '../../testing/app.tsx';
+import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
 import { problem } from '../../testing/backend.ts';
-import { CATEGORY_IDS, DISTRICT_IDS } from '../../testing/fixtures.ts';
+import { CARD_PROFILE_ID, CATEGORY_IDS, DISTRICT_IDS } from '../../testing/fixtures.ts';
 import { JobsBackend } from '../../testing/jobsBackend.ts';
 import { jobsHandlers, server } from '../../testing/msw.ts';
 import { useDraftStore } from './shared/draft.ts';
@@ -216,5 +216,74 @@ describe('S21 published', () => {
 
     expect(await screen.findByText('Отклики придут в Telegram')).toBeTruthy();
     expect(telegram.callsOf('web_app_request_write_access')).toHaveLength(1);
+  });
+});
+
+describe('S08 «Написать» — direct request', () => {
+  it('goes through the wizard and sends the job to the specialist only', async () => {
+    const jobs = withJobs(new JobsBackend());
+    const { app, telegram } = startApp(`/specialists/${CARD_PROFILE_ID}`);
+    await waitFor(() => expect(mainButton(telegram)?.text).toBe('Написать'));
+
+    await pressMainButton(telegram);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs/new'));
+    expect(await screen.findByText(/^Прямой запрос: Алексей Морозов\./)).toBeTruthy();
+    await fillWhat(telegram);
+    await fillWhen(telegram);
+    expect(await screen.findByRole('heading', { name: 'Сколько готовы заплатить?' })).toBeTruthy();
+    type('Сумма', '5000');
+    await pressMainButton(telegram);
+    expect(await screen.findByRole('heading', { name: 'Проверьте заявку' })).toBeTruthy();
+    expect(screen.getByText(/^Прямой запрос: Алексей Морозов\./)).toBeTruthy();
+    await pressMainButton(telegram);
+
+    expect(await screen.findByRole('heading', { name: 'Запрос отправлен' })).toBeTruthy();
+    expect(jobs.posts).toHaveLength(1);
+    expect(jobs.posts[0]?.directTo).toBe(CARD_PROFILE_ID);
+    expect(jobs.posts[0]?.body.title).toBe('Люстры');
+  });
+
+  it('becomes a job for everyone with «Отправить всем исполнителям»', async () => {
+    const jobs = withJobs(new JobsBackend());
+    const { telegram } = startApp(`/jobs/new?direct=${CARD_PROFILE_ID}`);
+    expect(await screen.findByText(/^Прямой запрос: Алексей Морозов\./)).toBeTruthy();
+
+    await click(screen.getByRole('button', { name: 'Отправить всем исполнителям' }));
+
+    await waitFor(() => expect(screen.queryByText(/^Прямой запрос/)).toBeNull());
+    await fillWhat(telegram);
+    await fillWhen(telegram);
+    type('Сумма', '5000');
+    await pressMainButton(telegram);
+    await screen.findByRole('heading', { name: 'Проверьте заявку' });
+    await pressMainButton(telegram);
+
+    expect(await screen.findByRole('heading', { name: 'Заявка на проверке' })).toBeTruthy();
+    expect(jobs.posts[0]?.directTo ?? null).toBeNull();
+  });
+});
+
+describe('S21 invite specialists', () => {
+  it('offers specialists from the catalog when the job is published at once', async () => {
+    const jobs = new JobsBackend();
+    jobs.status = 'published';
+    withJobs(jobs);
+    const { telegram } = startApp('/jobs/new');
+    await fillWhat(telegram);
+    await fillWhen(telegram);
+    type('Сумма', '5000');
+    await pressMainButton(telegram);
+    await screen.findByRole('heading', { name: 'Проверьте заявку' });
+    await pressMainButton(telegram);
+
+    expect(await screen.findByRole('heading', { name: 'Пригласите специалистов' })).toBeTruthy();
+    await waitFor(() => expect(mainButton(telegram)?.text).toBe('К заявке'));
+    const [invite] = await screen.findAllByRole('button', { name: 'Пригласить' });
+    if (!invite) throw new Error('no specialists to invite');
+    await click(invite);
+
+    await waitFor(() => expect(jobs.invites.get('job-1')).toHaveLength(1));
+    expect(await screen.findByText('Приглашён')).toBeTruthy();
   });
 });

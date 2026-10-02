@@ -3,13 +3,20 @@
 // сегмента.
 export type { FeedSearch } from './shared/feed.ts';
 export { feedSearch } from './shared/feed.ts';
-export type { CreateSearch, DoneSearch, JobSearch, ResponsesSearch } from './shared/paths.ts';
+export type {
+  CreateSearch,
+  DoneSearch,
+  EditSearch,
+  JobSearch,
+  ResponsesSearch,
+} from './shared/paths.ts';
 export {
   CREATE_PATHS,
   JOBS_PATHS,
   SAVED_PATHS,
   createSearch,
   doneSearch,
+  editSearch,
   jobPath,
   jobSearch,
   respondPath,

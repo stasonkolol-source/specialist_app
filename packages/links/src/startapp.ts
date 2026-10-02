@@ -19,6 +19,10 @@ export type EntityType = keyof typeof ENTITY_PREFIX;
 export const LEGAL_DOCUMENTS = ['terms', 'privacy'] as const;
 export type LegalDocument = (typeof LEGAL_DOCUMENTS)[number];
 
+/** Свои разделы: `m_jobs` — «Мои заявки» S22 (команда бота /jobs). */
+export const MINE_SECTIONS = ['jobs'] as const;
+export type MineSection = (typeof MINE_SECTIONS)[number];
+
 /** Раздел «Вещи» (после MVP): префиксы зарезервированы, `gh` и `h` — разные типы. */
 export const RESERVED_CODES = ['g', 'gu', 'gh', 'gs', 'gc'] as const;
 export type ReservedCode = (typeof RESERVED_CODES)[number];
@@ -31,6 +35,9 @@ const PAYLOAD_RE = /^[A-Za-z0-9-]+$/;
 export type StartLink =
   | { type: EntityType; id: string; ref?: string }
   | { type: 'home'; ref?: string }
+  /** `n` — мастер новой заявки S20a (команда бота /new). */
+  | { type: 'new_job'; ref?: string }
+  | { type: 'mine'; section: MineSection; ref?: string }
   | { type: 'legal'; document: LegalDocument; ref?: string }
   | { type: 'reserved'; code: ReservedCode; value?: string; ref?: string };
 
@@ -56,6 +63,13 @@ export function encodeStartParam(link: StartLink): string {
   let code: string;
   if (link.type === 'home') {
     code = 'h';
+  } else if (link.type === 'new_job') {
+    code = 'n';
+  } else if (link.type === 'mine') {
+    if (!isMineSection(link.section)) {
+      throw new StartParamError(`Недопустимый раздел «${String(link.section)}»`);
+    }
+    code = `m_${link.section}`;
   } else if (link.type === 'legal') {
     if (!isLegalDocument(link.document)) {
       throw new StartParamError(`Недопустимый документ «${String(link.document)}»`);
@@ -83,9 +97,18 @@ function isLegalDocument(value: string | undefined): value is LegalDocument {
   return LEGAL_DOCUMENTS.some((document) => document === value);
 }
 
+function isMineSection(value: string | undefined): value is MineSection {
+  return MINE_SECTIONS.some((section) => section === value);
+}
+
 function parseCode([head, ...rest]: string[]): StartLink | null {
   if (head === undefined) return null;
   if (head === 'h') return rest.length === 0 ? { type: 'home' } : null;
+  if (head === 'n') return rest.length === 0 ? { type: 'new_job' } : null;
+  if (head === 'm') {
+    const [section] = rest;
+    return rest.length === 1 && isMineSection(section) ? { type: 'mine', section } : null;
+  }
   if (head === 'l') {
     const [document] = rest;
     return rest.length === 1 && isLegalDocument(document) ? { type: 'legal', document } : null;

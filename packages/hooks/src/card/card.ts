@@ -32,10 +32,15 @@ export function specialistServicesQueryKey(profileId: string, locale: Locale) {
   return [...getViewsListSpecialistServicesQueryKey(profileId), locale] as const;
 }
 
-/** S08: профиль, первые позиции прайса и превью работ. */
-export function useSpecialistCard(profileId: string, locale: Locale) {
-  return useViewsGetSpecialist(profileId, {
-    query: { queryKey: specialistCardQueryKey(profileId, locale), staleTime: CARD_STALE_MS },
+/** S08: профиль, первые позиции прайса и превью работ; `null` — карточка не нужна (мастер заявки
+ *  без прямого запроса). */
+export function useSpecialistCard(profileId: string | null, locale: Locale) {
+  return useViewsGetSpecialist(profileId ?? '', {
+    query: {
+      queryKey: specialistCardQueryKey(profileId ?? '', locale),
+      staleTime: CARD_STALE_MS,
+      enabled: profileId !== null,
+    },
   });
 }
 

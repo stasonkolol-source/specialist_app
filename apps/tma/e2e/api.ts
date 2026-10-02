@@ -183,6 +183,7 @@ export async function mockApi(
       url.pathname.startsWith('/api/v1/responses/') ||
       url.pathname === '/api/v1/me/responses' ||
       url.pathname === '/api/v1/me/jobs' ||
+      /^\/api\/v1\/specialists\/[^/]+\/requests$/.test(url.pathname) ||
       url.pathname.startsWith('/api/v1/me/response-templates')
     ) {
       const body: unknown = ['POST', 'PATCH'].includes(request.method())
@@ -194,6 +195,7 @@ export async function mockApi(
         body,
         request.headers()['idempotency-key'] ?? null,
         authorized(request),
+        request.headers()['if-match'] ?? null,
       );
       if (reply?.status === 204) return route.fulfill({ status: 204 });
       if (reply) return route.fulfill(json(reply.body, reply.status));

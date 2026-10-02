@@ -5,26 +5,12 @@
 // срок на исходе или вышел, «Поднять» — v1. Отклики — карточками по времени отклика: фото и имя,
 // рейтинг или «Отзывов пока нет», район, цена, сообщение, «Откликнулся первым», «Телефон
 // подтверждён», «Подработка», «Новый»; опрос раз в 15 секунд. «Закрыть заявку» спрашивает
-// причину. Выбор исполнителя (S24) — 6.2, «Изменить» и «Поделиться» — следующими шагами.
-import type {
-  JobCloseInReason,
-  JobOut,
-  ResponseCardOut,
-  SpecialistCardOut,
-} from '@sosed/api-client';
+// причину. «Изменить» — мастер S20a–d с этой заявкой (`?edit=<id>`, сохранение с If-Match).
+// Выбор исполнителя (S24) — 6.2, «Поделиться» — 7.4.
+import type { JobCloseInReason, JobOut, ResponseCardOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
-import {
-  isUnavailable,
-  resultItems,
-  useCloseJob,
-  useExtendJob,
-  useInviteSpecialists,
-  useJob,
-  useJobInvites,
-  useResponseCards,
-  useSpecialistSearch,
-} from '@sosed/hooks';
-import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
+import { isUnavailable, useCloseJob, useExtendJob, useJob, useResponseCards } from '@sosed/hooks';
+import { useFormat, useTranslation } from '@sosed/i18n';
 import { useBackButton, useBottomButtonState } from '@sosed/platform';
 import {
   Avatar,
@@ -45,10 +31,12 @@ import {
 import { Navigate, useParams, useRouter } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
+import { InviteList } from '../shared/InviteList.tsx';
 import { JobUnavailable } from '../shared/JobUnavailable.tsx';
+import { useDraftStore } from '../shared/draft.ts';
 import { LoadError } from '../shared/LoadError.tsx';
 import { useBudgetText, useDistrictName, useOfferPrice, useWhenBadge } from '../shared/labels.ts';
-import { JOBS_PATHS, jobIdOf, jobPath } from '../shared/paths.ts';
+import { CREATE_PATHS, JOBS_PATHS, jobIdOf, jobPath } from '../shared/paths.ts';
 
 const REASONS: readonly JobCloseInReason[] = [
   'hired_here',
@@ -58,7 +46,12 @@ const REASONS: readonly JobCloseInReason[] = [
 ];
 const MAX_EXTENSIONS = 3;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const INVITE_SUGGESTIONS = 10;
+/** Что можно править: опубликованную, ждущую проверки и возвращённую модерацией. */
+const EDITABLE: ReadonlySet<JobOut['status']> = new Set([
+  'published',
+  'pending_moderation',
+  'rejected',
+]);
 
 export function ManageJobScreen() {
   const { jobId: raw = '' } = useParams({ strict: false });
@@ -92,6 +85,7 @@ export function ManageJobScreen() {
 
 function Manage({ job }: { job: JobOut }) {
   const { t } = useTranslation('jobs');
+  const router = useRouter();
   const cards = useResponseCards(job.id);
   const close = useCloseJob();
   const extend = useExtendJob();
@@ -106,6 +100,11 @@ function Manage({ job }: { job: JobOut }) {
     <section className="flex flex-col gap-3.5 px-4 pt-3 pb-6">
       <Summary
         job={job}
+        onEdit={() => {
+          // правка — всегда с версии, которую видно сейчас
+          useDraftStore.getState().edit(job);
+          void router.navigate({ to: CREATE_PATHS.what, search: { edit: job.id } });
+        }}
         onInvite={() => setInviting(true)}
         onExtend={() => extend.mutate(job.id)}
         extending={extend.isPending}
@@ -183,11 +182,13 @@ function Manage({ job }: { job: JobOut }) {
 /** Карточка заявки: статус, «когда», район, бюджет, места, просмотры и действия. */
 function Summary({
   job,
+  onEdit,
   onInvite,
   onExtend,
   extending,
 }: {
   job: JobOut;
+  onEdit: () => void;
   onInvite: () => void;
   onExtend: () => void;
   extending: boolean;
@@ -273,6 +274,11 @@ function Summary({
         </span>
       </div>
       <div className="grid grid-cols-2 gap-2">
+        {EDITABLE.has(job.status) && (
+          <Button variant="outline" icon="edit" onClick={onEdit}>
+            {t('manage.edit')}
+          </Button>
+        )}
         {published && (
           <Button variant="outline" icon="users" onClick={onInvite}>
             {t('manage.invite')}
@@ -394,31 +400,12 @@ function CloseSheet({
   );
 }
 
-/** «Пригласите специалистов»: подходящие по категории и городу заявки; приглашённые — бейджем. */
+/** «Пригласите специалистов» шторкой (S23). */
 function InviteSheet({ job, onClose }: { job: JobOut; onClose: () => void }) {
   const { t } = useTranslation('jobs');
   const { t: common } = useTranslation();
-  const format = useFormat();
-  const locale = useLocale();
   const button = useBottomButtonState('main');
-  const search = useSpecialistSearch(locale, {
-    city_id: job.city_id,
-    category_id: job.category_id,
-  });
-  const invites = useJobInvites(job.id);
-  const invite = useInviteSpecialists();
   useBackButton(onClose);
-  const invited = new Set(invites.data?.items.map((item) => item.profile_id) ?? []);
-  const found = resultItems(search.data).slice(0, INVITE_SUGGESTIONS);
-  const limit = invites.data?.limit ?? INVITE_SUGGESTIONS;
-  const full = invited.size >= limit;
-  const subtitle = (card: SpecialistCardOut) =>
-    [
-      card.rating !== null ? format.rating(card.rating) : common('rating.new'),
-      card.district?.name ?? null,
-    ]
-      .filter(Boolean)
-      .join(' · ');
   return (
     <Sheet
       open
@@ -427,47 +414,7 @@ function InviteSheet({ job, onClose }: { job: JobOut; onClose: () => void }) {
       closeLabel={common('action.close')}
     >
       <Text variant="cap">{t('manage.inviteHint')}</Text>
-      {invite.isError && <ActionError error={invite.error} />}
-      {invited.size > 0 && (
-        <Text variant="cap">{t('manage.inviteLimit', { count: invited.size, limit })}</Text>
-      )}
-      {!search.data ? (
-        <Skeleton radius="card" className="h-40 w-full" />
-      ) : found.length === 0 ? (
-        <Text secondary>{t('manage.inviteNobody')}</Text>
-      ) : (
-        <Group>
-          {found.map((card) => (
-            <Row
-              key={card.profile_id}
-              leading={
-                <Avatar
-                  name={card.display_name}
-                  size="sm"
-                  src={card.avatar?.url}
-                  placeholder={card.avatar?.placeholder}
-                />
-              }
-              title={card.display_name}
-              subtitle={subtitle(card)}
-              trailing={
-                invited.has(card.profile_id) ? (
-                  <Badge tone="ok">{t('manage.invited')}</Badge>
-                ) : (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={full || invite.isPending}
-                    onClick={() => invite.mutate({ jobId: job.id, profileIds: [card.profile_id] })}
-                  >
-                    {t('manage.invite')}
-                  </Button>
-                )
-              }
-            />
-          ))}
-        </Group>
-      )}
+      <InviteList job={job} />
       {!button.native && <div className="h-19" aria-hidden="true" />}
     </Sheet>
   );

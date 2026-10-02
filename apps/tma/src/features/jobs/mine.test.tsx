@@ -2,15 +2,17 @@
 // «3 отклика — выберите исполнителя» и «2 новых», чипы; своя заявка — статус, район, бюджет,
 // просмотры, места, отклики карточками («Откликнулся первым», «Подработка», рейтинг), закрыть с
 // причиной, пригласить специалиста; ссылка на свою заявку ведёт владельца на S23; вкладка
-// «Заявки» клиенту открывает «Мои заявки»; на Главной — «Мои активные заявки».
+// «Заявки» клиенту открывает «Мои заявки»; на Главной — «Мои активные заявки». «Изменить» —
+// мастер с полями заявки и сохранение с If-Match; чужая правка между ними — «откройте заново».
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { startApp } from '../../testing/app.tsx';
+import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
 import { E2E_NOW } from '../../testing/fixtures.ts';
 import { JobsBackend, myJobsFixture } from '../../testing/jobsBackend.ts';
 import { jobsHandlers, server } from '../../testing/msw.ts';
+import { useDraftStore } from './shared/draft.ts';
 
 const [CHANDELIER] = myJobsFixture();
 const MANAGE = `/jobs/${CHANDELIER?.id ?? ''}/manage`;
@@ -147,6 +149,58 @@ describe('S03 my active jobs', () => {
     expect(within(block).queryByText('Уборка после ремонта')).toBeNull();
 
     await click(row);
+    await waitFor(() => expect(app.router.state.location.pathname).toBe(MANAGE));
+  });
+});
+
+describe('S23 edit', () => {
+  /** «Изменить» и шаги мастера до «Проверьте заявку». */
+  async function toPreview(telegram: Parameters<typeof pressMainButton>[0]) {
+    await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 });
+    await click(screen.getByRole('button', { name: 'Изменить' }));
+    expect(await screen.findByText('Шаг 1 из 4 · правка заявки')).toBeTruthy();
+    expect(screen.getByDisplayValue('Повесить люстру')).toBeTruthy();
+    for (const step of ['Шаг 2 из 4 · правка заявки', 'Шаг 3 из 4 · правка заявки']) {
+      await pressMainButton(telegram);
+      expect(await screen.findByText(step)).toBeTruthy();
+    }
+    await pressMainButton(telegram);
+    await waitFor(() => expect(mainButton(telegram)?.text).toBe('Сохранить изменения'));
+  }
+
+  it('saves the job with the version it was opened at', async () => {
+    const backend = withMine();
+    const { app, telegram } = startApp(MANAGE);
+
+    await toPreview(telegram);
+    await pressMainButton(telegram);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe(MANAGE));
+    const [update] = backend.updates;
+    expect(update?.ifMatch).toBe('"1"');
+    expect(update?.body.title).toBe('Повесить люстру');
+    expect(update?.body.urgency).toBe('today');
+    expect(backend.jobs.get(CHANDELIER?.id ?? '')?.version).toBe(2);
+    // правка закрыта: следующая начнётся с той версии, что видна на S23
+    await waitFor(() => expect(useDraftStore.getState().editing).toBeNull());
+  });
+
+  it('asks to reopen the job changed elsewhere', async () => {
+    const backend = withMine();
+    const { app, telegram } = startApp(MANAGE);
+    await toPreview(telegram);
+    const id = CHANDELIER?.id ?? '';
+    const job = backend.jobs.get(id);
+    if (job) backend.jobs.set(id, { ...job, version: job.version + 1 });
+
+    await pressMainButton(telegram);
+
+    expect(
+      await screen.findByText(
+        'Заявку уже изменили в другом месте — откройте её заново и повторите правку.',
+      ),
+    ).toBeTruthy();
+    await click(screen.getByRole('button', { name: 'Открыть заявку' }));
     await waitFor(() => expect(app.router.state.location.pathname).toBe(MANAGE));
   });
 });

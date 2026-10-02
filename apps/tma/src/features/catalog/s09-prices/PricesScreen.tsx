@@ -1,7 +1,8 @@
 // S09 Прайс специалиста (DEVELOPMENT_PLAN 4.5): все видимые позиции по группам — категориям в
 // порядке прайса, без группы — в конце «Другое». Под названием — длительность и единица («до 1
 // часа · за визит») и описание; справа — сумма. Памятка: цены ориентировочные. Имя и фото — из
-// профиля S08 (обычно уже в кэше). «Заказать эту услугу» — с шагом 5.2, до того строки не ссылки.
+// профиля S08 (обычно уже в кэше). Строка — «Заказать эту услугу»: мастер заявки S20a с её
+// категорией и названием, прямым запросом этому специалисту (5.6).
 import type { CardServiceOut, CardServicesOut, SpecialistProfileOut } from '@sosed/api-client';
 import { isUnavailable, priceGroups, useSpecialistCard, useSpecialistServices } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
@@ -96,6 +97,7 @@ function Prices({ card, services }: { card: SpecialistProfileOut; services: Card
             key={group.category?.id ?? 'other'}
             title={group.category?.name ?? t('prices.other')}
             items={group.items}
+            profileId={card.id}
           />
         ))
       )}
@@ -103,15 +105,27 @@ function Prices({ card, services }: { card: SpecialistProfileOut; services: Card
   );
 }
 
-/** Услуга ведёт в мастер заявки S20a с её категорией и названием (5.2); прямой запрос этому
- *  специалисту — с 5.6. */
-function PriceSection({ title, items }: { title: string; items: CardServiceOut[] }) {
+/** Услуга ведёт в мастер заявки S20a с её категорией и названием (5.2) — прямым запросом этому
+ *  специалисту (5.6): заявку увидит только этот специалист. */
+function PriceSection({
+  title,
+  items,
+  profileId,
+}: {
+  title: string;
+  items: CardServiceOut[];
+  profileId: string;
+}) {
   const id = useId();
   const format = useFormat();
   const router = useRouter();
   const order = (service: CardServiceOut) => ({
     to: CREATE_JOB_PATH,
-    search: { category: service.category_id ?? undefined, title: service.title },
+    search: {
+      category: service.category_id ?? undefined,
+      title: service.title,
+      direct: profileId,
+    },
   });
   return (
     <section aria-labelledby={id} className="flex flex-col gap-2">

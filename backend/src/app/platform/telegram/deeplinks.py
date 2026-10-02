@@ -7,6 +7,8 @@
 
 - `j_<base62>`, `s_<base62>`, `c_<base62>`, `d_<base62>` — заявка, специалист, диалог, сделка;
 - `h` — главная;
+- `n` — новая заявка (мастер S20a; `/new` бота);
+- `m_jobs` — свои заявки (S22; `/jobs` бота);
 - `l_terms`, `l_privacy` — правила площадки и политика конфиденциальности (S48; `/terms` и
   `/privacy` бота);
 - `g_`, `gu_`, `gh`, `gs_`, `gc_` — зарезервированы под раздел «Вещи» (после MVP);
@@ -46,6 +48,8 @@ class LinkType(StrEnum):
     CHAT = "chat"
     DEAL = "deal"
     HOME = "home"
+    NEW_JOB = "new_job"
+    MINE = "mine"
     LEGAL = "legal"
     RESERVED = "reserved"
 
@@ -55,6 +59,12 @@ class LinkDocument(StrEnum):
 
     TERMS = "terms"
     PRIVACY = "privacy"
+
+
+class LinkSection(StrEnum):
+    """Свой раздел ссылки `m_<раздел>`: `jobs` — «Мои заявки» (S22)."""
+
+    JOBS = "jobs"
 
 
 class ReservedCode(StrEnum):
@@ -75,6 +85,8 @@ ENTITY_PREFIX: Final[Mapping[LinkType, str]] = {
 }
 _ENTITY_BY_PREFIX: Final = {prefix: kind for kind, prefix in ENTITY_PREFIX.items()}
 _HOME: Final = "h"
+_NEW_JOB: Final = "n"
+_MINE: Final = "m"
 _LEGAL: Final = "l"
 
 
@@ -82,9 +94,9 @@ _LEGAL: Final = "l"
 class StartLink:
     """Разобранный код startapp.
 
-    Сущность (`job`, `specialist`, `chat`, `deal`) — с `id`; `home` — без полей; `legal` —
-    с `document`; `reserved` — с `code` и, кроме `gh`, со значением `value`. `ref` — суффикс
-    `_r<code>`.
+    Сущность (`job`, `specialist`, `chat`, `deal`) — с `id`; `home` и `new_job` — без полей;
+    `mine` — с `section`; `legal` — с `document`; `reserved` — с `code` и, кроме `gh`, со
+    значением `value`. `ref` — суффикс `_r<code>`.
     """
 
     type: LinkType
@@ -92,25 +104,27 @@ class StartLink:
     code: ReservedCode | None = None
     value: str | None = None
     document: LinkDocument | None = None
+    section: LinkSection | None = None
     ref: str | None = None
 
     def __post_init__(self) -> None:
+        no_code = self.code is None and self.value is None
         no_document = self.document is None
+        no_section = self.section is None
         if self.type in ENTITY_PREFIX:
-            shape_ok = (
-                self.id is not None and self.code is None and self.value is None and no_document
-            )
-        elif self.type is LinkType.HOME:
-            shape_ok = self.id is None and self.code is None and self.value is None and no_document
+            shape_ok = self.id is not None and no_code and no_document and no_section
+        elif self.type in (LinkType.HOME, LinkType.NEW_JOB):
+            shape_ok = self.id is None and no_code and no_document and no_section
+        elif self.type is LinkType.MINE:
+            shape_ok = self.id is None and no_code and no_document and not no_section
         elif self.type is LinkType.LEGAL:
-            shape_ok = (
-                self.id is None and self.code is None and self.value is None and not no_document
-            )
+            shape_ok = self.id is None and no_code and not no_document and no_section
         else:
             needs_value = self.code is not ReservedCode.GOODS_HOME
             shape_ok = (
                 self.id is None
                 and no_document
+                and no_section
                 and self.code is not None
                 and needs_value == (self.value is not None)
                 and (self.value is None or _PAYLOAD.fullmatch(self.value) is not None)
@@ -156,10 +170,12 @@ def encode_start_param(link: StartLink) -> str:
         code = link.code.value if link.value is None else f"{link.code.value}_{link.value}"
     elif link.document is not None:
         code = f"{_LEGAL}_{link.document.value}"
+    elif link.section is not None:
+        code = f"{_MINE}_{link.section.value}"
     elif link.id is not None:
         code = f"{ENTITY_PREFIX[link.type]}_{uuid_to_base62(link.id)}"
     else:
-        code = _HOME
+        code = _NEW_JOB if link.type is LinkType.NEW_JOB else _HOME
     if link.ref is not None:
         code += f"_r{link.ref}"
     if not is_valid_start_param(code):
@@ -189,6 +205,7 @@ def parse_start_param(value: str | None) -> StartLink | None:
         code=link.code,
         value=link.value,
         document=link.document,
+        section=link.section,
         ref=ref,
     )
 
@@ -204,6 +221,10 @@ class LinkSource(StrEnum):
     CHAT = "chat"
     DEAL = "deal"
     HOME = "home"
+    NEW_JOB = "new_job"
+    """«Разместить заявку» (`n`): её шлёт `/new` бота и пересылают в чаты."""
+    MINE = "mine"
+    """Свой раздел (`m_jobs`): кнопка `/jobs` бота."""
     LEGAL = "legal"
     """Ссылка на правила или политику (`l_terms`, `l_privacy`): её пересылают из бота."""
     GOODS = "goods"
@@ -218,6 +239,8 @@ _SOURCE_BY_TYPE: Final[Mapping[LinkType, LinkSource]] = {
     LinkType.CHAT: LinkSource.CHAT,
     LinkType.DEAL: LinkSource.DEAL,
     LinkType.HOME: LinkSource.HOME,
+    LinkType.NEW_JOB: LinkSource.NEW_JOB,
+    LinkType.MINE: LinkSource.MINE,
     LinkType.LEGAL: LinkSource.LEGAL,
     LinkType.RESERVED: LinkSource.GOODS,
 }
@@ -235,6 +258,8 @@ def _parse_code(parts: Sequence[str]) -> StartLink | None:
     head, rest = parts[0], parts[1:]
     if head == _HOME:
         return StartLink(type=LinkType.HOME) if not rest else None
+    if head == _NEW_JOB:
+        return StartLink(type=LinkType.NEW_JOB) if not rest else None
     entity = _ENTITY_BY_PREFIX.get(head)
     if entity is not None:
         entity_id = base62_to_uuid(rest[0]) if len(rest) == 1 else None
@@ -245,6 +270,13 @@ def _parse_code(parts: Sequence[str]) -> StartLink | None:
         try:
             return StartLink(type=LinkType.LEGAL, document=LinkDocument(rest[0]))
         except ValueError:  # документа нет в S48
+            return None
+    if head == _MINE:
+        if len(rest) != 1:
+            return None
+        try:
+            return StartLink(type=LinkType.MINE, section=LinkSection(rest[0]))
+        except ValueError:  # такого своего раздела нет
             return None
     try:
         code = ReservedCode(head)

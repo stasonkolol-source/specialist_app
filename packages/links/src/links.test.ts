@@ -88,6 +88,9 @@ describe('коды startapp', () => {
     expect(() => encodeStartParam({ type: 'reserved', code: 'gc', value: 'a_b' })).toThrow(
       StartParamError,
     );
+    expect(() => encodeStartParam({ type: 'mine', section: 'feed' as 'jobs' })).toThrow(
+      StartParamError,
+    );
   });
 
   it('пустое значение и null', () => {

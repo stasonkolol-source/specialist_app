@@ -1,7 +1,9 @@
 // S20d «Проверьте заявку», шаг 4 из 4 (DEVELOPMENT_PLAN 5.2): заявка так, как её увидят
 // исполнители, и «кто что увидит»: точный адрес — только выбранному, телефон — никому, откликов —
 // не больше пяти. «Опубликовать» — POST /jobs с ключом черновика: двойное нажатие и повтор после
-// обрыва сети не создают вторую заявку. Потом черновик стирается, а человек — на S21.
+// обрыва сети не создают вторую заявку. Потом черновик стирается, а человек — на S21. Правка своей
+// заявки (5.6) — «Сохранить изменения»: PATCH с If-Match версии, с которой начали; заявку успели
+// изменить в другом месте (412) — «откройте её заново»; сохранили — обратно на S23.
 import { ApiError } from '@sosed/api-client';
 import { DEFAULT_MAX_RESPONSES, rsdToPara } from '@sosed/domain';
 import type { JobDraft } from '@sosed/hooks';
@@ -16,6 +18,7 @@ import {
   useCities,
   useCreateJob,
   useDistricts,
+  useUpdateJob,
   whatProblems,
   whenProblems,
 } from '@sosed/hooks';
@@ -25,37 +28,45 @@ import { Badge, Banner, Card, Heading, Icon, LinkButton, Photo, Text } from '@so
 import { useRouter } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
+import { DirectBanner } from '../shared/DirectBanner.tsx';
 import { findCategory } from '../shared/categories.ts';
+import type { Editing } from '../shared/draft.ts';
 import { useDraftStore, useJobDraft } from '../shared/draft.ts';
 import { useCreateFlow, useStepButton } from '../shared/flow.ts';
-import { CREATE_PATHS } from '../shared/paths.ts';
+import { CREATE_PATHS, managePath } from '../shared/paths.ts';
 import { WizardHeader } from '../shared/WizardHeader.tsx';
 
 export function PreviewScreen() {
-  const { draft } = useJobDraft();
+  const { draft, editing } = useJobDraft();
   const flow = useCreateFlow('preview', draft);
   if (!draft) return null;
-  return <Preview draft={draft} open={flow.open} />;
+  return <Preview draft={draft} editing={editing} open={flow.open} />;
 }
 
 function Preview({
   draft,
+  editing,
   open,
 }: {
   draft: JobDraft;
+  editing: Editing | null;
   open: (step: 'what' | 'when' | 'budget') => void;
 }) {
   const { t } = useTranslation('jobs');
   const { t: common } = useTranslation();
   const router = useRouter();
   const clear = useDraftStore((state) => state.clear);
+  const patchDraft = useDraftStore((state) => state.patch);
+  const endEdit = useDraftStore((state) => state.endEdit);
   const publish = useCreateJob();
+  const update = useUpdateJob();
+  const mutation = editing ? update : publish;
 
   useStepButton({
-    text: common('action.publish'),
-    loading: publish.isPending,
+    text: editing ? t('create.preview.save') : common('action.publish'),
+    loading: mutation.isPending,
     onClick: () => {
-      if (publish.isPending) return;
+      if (mutation.isPending) return;
       const now = new Date();
       const body = jobInOf(draft, now);
       if (!body) {
@@ -65,8 +76,20 @@ function Preview({
         else if (budgetProblems(draft).length > 0) open('budget');
         return;
       }
+      if (editing) {
+        update.mutate(
+          { jobId: editing.jobId, version: editing.version, body },
+          {
+            // правку закрываем, когда мастер уже ушёл с экрана: иначе он начал бы её заново
+            // с сохранённой заявкой
+            onSuccess: (job) =>
+              void router.navigate({ to: managePath(job.id), replace: true }).then(endEdit),
+          },
+        );
+        return;
+      }
       publish.mutate(
-        { body, key: draft.key },
+        { body, key: draft.key, directTo: draft.direct?.profileId ?? null },
         {
           onSuccess: async (job) => {
             await clear();
@@ -84,6 +107,9 @@ function Preview({
   return (
     <section className="flex flex-col gap-4 px-4 pt-3 pb-6">
       <WizardHeader step={4} title={t('create.preview.title')} />
+      {draft.direct && !editing && (
+        <DirectBanner direct={draft.direct} onAll={() => patchDraft({ direct: null })} />
+      )}
       <div className="flex items-center justify-between gap-3">
         <Text variant="cap">{t('create.preview.seenAs')}</Text>
         <LinkButton onClick={() => open('what')} className="-mr-2">
@@ -97,6 +123,14 @@ function Preview({
         <Text variant="cap">{t('create.preview.moderation')}</Text>
       </div>
       {publish.isError && <PublishError error={publish.error} />}
+      {editing && update.isError && (
+        <SaveError
+          error={update.error}
+          onReopen={() =>
+            void router.navigate({ to: managePath(editing.jobId), replace: true }).then(endEdit)
+          }
+        />
+      )}
     </section>
   );
 }
@@ -226,6 +260,24 @@ function Who({ icon, who, children }: { icon: IconName; who: string; children: R
 }
 
 /** Нет сети, лимит новичка (429 — текст сервера), прочий отказ — с текстом сервера или общим. */
+/** Правка не сохранилась: заявку уже изменили (412) — открыть её заново; иначе — как публикация. */
+function SaveError({ error, onReopen }: { error: unknown; onReopen: () => void }) {
+  const { t } = useTranslation('jobs');
+  if (!(error instanceof ApiError && error.code === 'stale_version')) {
+    return <PublishError error={error} />;
+  }
+  return (
+    <Banner tone="warn" role="alert">
+      <span className="flex flex-col items-start gap-2">
+        <span>{t('create.preview.stale')}</span>
+        <LinkButton onClick={onReopen} className="-ml-2">
+          {t('create.preview.reopen')}
+        </LinkButton>
+      </span>
+    </Banner>
+  );
+}
+
 function PublishError({ error }: { error: unknown }) {
   const { t } = useTranslation('jobs');
   const { t: common } = useTranslation();

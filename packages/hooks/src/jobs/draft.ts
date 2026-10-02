@@ -2,9 +2,19 @@
 // Telegram (в браузере — localStorage, так даёт платформа) — и уходит на сервер целиком с S20d
 // (POST /jobs без отдельного submit, ARCHITECTURE §8.5). Ключ идемпотентности — один на черновик:
 // повторное «Опубликовать» (двойное нажатие, ответ потерялся в сети) не создаёт вторую заявку.
-import type { BudgetType, JobIn, Language } from '@sosed/api-client';
+import type { BudgetType, JobIn, JobOut, Language } from '@sosed/api-client';
 import type { TodaySlot, WhenChoice } from '@sosed/domain';
-import { WHEN_CHOICES, jobWhen, rsdToPara, slotOf } from '@sosed/domain';
+import {
+  TODAY_SLOTS,
+  WHEN_CHOICES,
+  businessDay,
+  businessTime,
+  jobWhen,
+  paraToRsd,
+  rsdToPara,
+  slotKey,
+  slotOf,
+} from '@sosed/domain';
 
 /** Ключ в хранилище платформы. */
 export const DRAFT_STORAGE_KEY = 'job-draft';
@@ -27,6 +37,13 @@ export type DraftUnit = (typeof DRAFT_UNITS)[number];
 /** Языки общения на S20c. */
 export const DRAFT_LANGUAGES = ['ru', 'sr', 'en'] as const satisfies readonly Language[];
 export type DraftLanguage = (typeof DRAFT_LANGUAGES)[number];
+
+/** Прямой запрос (S08 «Написать», S09 «Заказать эту услугу»; 5.6): заявку увидит только этот
+ *  специалист. */
+export interface DirectTarget {
+  profileId: string;
+  name: string;
+}
 
 export interface DraftPhoto {
   id: string;
@@ -61,6 +78,8 @@ export interface JobDraft {
   budgetMax: string;
   budgetUnit: DraftUnit;
   languages: DraftLanguage[];
+  /** Прямой запрос специалисту; нет — заявка для всех исполнителей. */
+  direct?: DirectTarget | null;
   /** Когда черновик последний раз меняли (ISO) — для срока жизни. */
   savedAt: string;
 }
@@ -203,5 +222,65 @@ export function jobInOf(draft: JobDraft, now: Date): JobIn | null {
     address_private: address || null,
     languages: [...draft.languages],
     media_ids: draft.photos.map((photo) => photo.id),
+  };
+}
+
+/** «18:00» по Белграду. */
+function clock(moment: Date): string {
+  const { hour, minute } = businessTime(moment);
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+const digitsOf = (para: number | undefined) => (para === undefined ? '' : String(paraToRsd(para)));
+
+/** Выбор «когда» мастера из срочности и удобного времени заявки (обратное `jobWhen`). */
+function whenOfJob(job: JobOut): Pick<JobDraft, 'when' | 'slot' | 'day' | 'time'> {
+  const none = { slot: null, day: null, time: null };
+  if (job.urgency === 'asap') return { when: 'asap', ...none };
+  const from = job.preferred_from ? new Date(job.preferred_from) : null;
+  const to = job.preferred_to ? new Date(job.preferred_to) : null;
+  if (from && to && job.urgency === 'today') {
+    const slot = TODAY_SLOTS.find(
+      ([start, end]) =>
+        clock(from) === `${String(start).padStart(2, '0')}:00` &&
+        clock(to) === `${String(end).padStart(2, '0')}:00`,
+    );
+    if (slot) return { when: 'today', ...none, slot: slotKey(slot) };
+  }
+  if (from) return { when: 'date', slot: null, day: businessDay(from), time: clock(from) };
+  return { when: job.urgency === 'today' ? 'today' : 'week', ...none };
+}
+
+/**
+ * Черновик правки своей заявки (S23 «Изменить», 5.6): мастер S20a–d с её полями. Ключ — id
+ * заявки (правке ключ идемпотентности не нужен: её защищает If-Match). Своя дата в прошлом
+ * мастер попросит выбрать заново.
+ */
+export function draftOfJob(job: JobOut, now: Date): JobDraft {
+  const units: readonly string[] = DRAFT_UNITS;
+  const languages: readonly string[] = DRAFT_LANGUAGES;
+  const paired = job.photos.length === job.media_ids.length;
+  return {
+    version: DRAFT_VERSION,
+    key: job.id,
+    title: job.title,
+    description: job.description,
+    categoryId: job.category_id,
+    categoryName: null,
+    categoryChosen: true,
+    photos: job.media_ids.map((id, index) => ({
+      id,
+      thumb: paired ? (job.photos[index]?.url ?? null) : null,
+    })),
+    ...whenOfJob(job),
+    cityId: job.city_id,
+    districtId: job.district_id,
+    address: job.address_private ?? '',
+    budgetType: job.budget_type,
+    budgetMin: digitsOf(job.budget_min?.amount),
+    budgetMax: digitsOf(job.budget_max?.amount),
+    budgetUnit: units.includes(job.budget_unit) ? (job.budget_unit as DraftUnit) : 'work',
+    languages: job.languages.filter((code): code is DraftLanguage => languages.includes(code)),
+    savedAt: now.toISOString(),
   };
 }

@@ -146,7 +146,14 @@ export {
   useFavorites,
   useToggleFavorite,
 } from './favorites/favorites.ts';
-export type { DraftLanguage, DraftPhoto, DraftProblem, DraftUnit, JobDraft } from './jobs/draft.ts';
+export type {
+  DirectTarget,
+  DraftLanguage,
+  DraftPhoto,
+  DraftProblem,
+  DraftUnit,
+  JobDraft,
+} from './jobs/draft.ts';
 export {
   BUDGET_DIGITS,
   DRAFT_LANGUAGES,
@@ -160,6 +167,7 @@ export {
   JOB_TITLE_MIN,
   amountOf,
   budgetProblems,
+  draftOfJob,
   draftSlot,
   jobInOf,
   newDraft,
@@ -203,7 +211,7 @@ export {
   useReviseResponse,
   useWithdrawResponse,
 } from './jobs/responses.ts';
-export type { CloseJob, InviteSpecialists } from './jobs/mine.ts';
+export type { CloseJob, InviteSpecialists, UpdateJob } from './jobs/mine.ts';
 export {
   RESPONSES_POLL_MS,
   jobInvitesQueryKey,
@@ -215,6 +223,7 @@ export {
   useJobInvites,
   useMyJobs,
   useResponseCards,
+  useUpdateJob,
 } from './jobs/mine.ts';
 export type { CreateTemplate, UpdateTemplate } from './jobs/templates.ts';
 export {
