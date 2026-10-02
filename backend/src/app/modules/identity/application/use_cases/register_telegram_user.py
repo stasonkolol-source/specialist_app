@@ -9,6 +9,7 @@ notifications открывает канал доставки (1.4b). Фасад 
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from app.modules.identity.api import TelegramUserView
 from app.modules.identity.application.config import IdentityConfig
@@ -31,6 +32,8 @@ class RegisterTelegramUserCommand:
     profile: TelegramProfile
     start_param: str | None = None
     """Payload `/start <payload>` — код deep link `t.me/<bot>?start=` (первое касание)."""
+    started_at: datetime | None = None
+    """Дата сообщения Telegram: запоздавший /start не отменяет более позднюю блокировку бота."""
 
 
 class RegisterTelegramUser:
@@ -63,7 +66,7 @@ class RegisterTelegramUser:
                     start_param=cmd.start_param,
                 )
                 # состояние агрегата не меняется: факт «написал боту» — событие без агрегата
-                self._uow.add_event(BotStarted(user_id=user.id, occurred_at=now))
+                self._uow.add_event(BotStarted(user_id=user.id, occurred_at=cmd.started_at or now))
             return user, is_new
 
         # накопившиеся /start polling отдаёт разом, и aiogram обрабатывает их параллельно:
