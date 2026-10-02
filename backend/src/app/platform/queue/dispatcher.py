@@ -28,6 +28,22 @@ class EventRegistry:
     def subscribers(self, event: DomainEvent) -> list[TaskRef[DomainEvent]]:
         return list(self._subscribers.get(type(event), ()))
 
+    def without(self, *names: str) -> EventRegistry:
+        """Копия реестра без этих подписчиков: имя задачи или префикс с точкой на конце
+        (`analytics.`). Для процесса, которому их работа не нужна: `cli seed-demo` сам одобряет
+        свои профили, а демо-данные не идут в аналитику и ленты уведомлений."""
+
+        def dropped(task: TaskRef[DomainEvent]) -> bool:
+            return any(
+                task.name.startswith(name) if name.endswith(".") else task.name == name
+                for name in names
+            )
+
+        copy = EventRegistry()
+        for event_type, tasks in self._subscribers.items():
+            copy._subscribers[event_type] = [task for task in tasks if not dropped(task)]
+        return copy
+
 
 class EventDispatcher:
     def __init__(self, registry: EventRegistry, queue: JobQueue) -> None:
