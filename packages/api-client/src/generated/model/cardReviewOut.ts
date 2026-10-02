@@ -5,16 +5,22 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { CardNamedOut } from './cardNamedOut.ts';
+import type { CardReplyOut } from './cardReplyOut.ts';
+import type { CardReviewOutCriteria } from './cardReviewOutCriteria.ts';
 
 export interface CardReviewOut {
   id: string;
   /** deal | pre_platform */
   kind: string;
-  /** Имя и первая буква фамилии: «Ирина С.» */
+  /** Имя и первая буква фамилии: «Ирина С.»; удалён — пусто */
   author_name: string;
   rating: number;
+  /** Оценённые критерии: quality, punctuality, … */
+  criteria: CardReviewOutCriteria;
   body: string | null;
-  /** Услуга сделки: «Сентябрь · люстры» */
+  /** Услуга сделки */
   category: CardNamedOut | null;
   published_at: string;
+  /** Ответ специалиста (прошёл проверку) */
+  reply: CardReplyOut | null;
 }

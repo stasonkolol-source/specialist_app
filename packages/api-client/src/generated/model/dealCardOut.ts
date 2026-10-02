@@ -11,6 +11,7 @@ import type { DealCardOutStatus } from './dealCardOutStatus.ts';
 import type { DealCardPriceOut } from './dealCardPriceOut.ts';
 import type { DealCounterpartOut } from './dealCounterpartOut.ts';
 import type { DealPlaceOut } from './dealPlaceOut.ts';
+import type { DealReviewOut } from './dealReviewOut.ts';
 import type { DealTimelineOut } from './dealTimelineOut.ts';
 import type { MoneyOut } from './moneyOut.ts';
 
@@ -48,4 +49,8 @@ export interface DealCardOut {
   proposed_at: string | null;
   /** Предложение отменится, если не ответить до этого времени (72 ч) */
   proposal_expires_at: string | null;
+  /** Свой отзыв по сделке (7.2) */
+  my_review: DealReviewOut | null;
+  /** Клиент может оставить отзыв до этого времени (14 дней после завершения); null — нельзя или уже оставлен */
+  review_until: string | null;
 }

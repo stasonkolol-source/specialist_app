@@ -26,6 +26,7 @@ import type {
   ProblemOut,
   ResponseCardsOut,
   SpecialistProfileOut,
+  ViewsListSpecialistReviewsParams,
 } from '../../model';
 
 import { apiFetch } from '../../../mutator.ts';
@@ -454,27 +455,46 @@ export function useViewsListSpecialistWorks<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
-export const getViewsListSpecialistReviewsUrl = (profileId: string) => {
-  return `/api/v1/specialists/${profileId}/reviews`;
+export const getViewsListSpecialistReviewsUrl = (
+  profileId: string,
+  params?: ViewsListSpecialistReviewsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/specialists/${profileId}/reviews?${stringifiedParams}`
+    : `/api/v1/specialists/${profileId}/reviews`;
 };
 
 /**
- * Отзывы S11: рейтинг с гистограммой и отзывы по сделкам. Сами отзывы и вкладка «До
- * платформы» (`kind`, курсор) — с 7.2 и 7.6; до того список пуст.
+ * Отзывы S11: рейтинг с гистограммой и опубликованные отзывы по сделкам с ответами,
+ * новые первыми (курсор). Вкладка «До платформы» (`kind`) — 7.6.
  * @summary List Specialist Reviews
  */
 export const viewsListSpecialistReviews = async (
   profileId: string,
+  params?: ViewsListSpecialistReviewsParams,
   options?: Parameters<typeof apiFetch>[1],
 ): Promise<CardReviewsOut> => {
-  return apiFetch<CardReviewsOut>(getViewsListSpecialistReviewsUrl(profileId), {
+  return apiFetch<CardReviewsOut>(getViewsListSpecialistReviewsUrl(profileId, params), {
     ...options,
     method: 'GET',
   });
 };
 
-export const getViewsListSpecialistReviewsQueryKey = (profileId: string) => {
-  return [`/api/v1/specialists/${profileId}/reviews`] as const;
+export const getViewsListSpecialistReviewsQueryKey = (
+  profileId: string,
+  params?: ViewsListSpecialistReviewsParams,
+) => {
+  return [`/api/v1/specialists/${profileId}/reviews`, ...(params ? [params] : [])] as const;
 };
 
 export const getViewsListSpecialistReviewsQueryOptions = <
@@ -482,6 +502,7 @@ export const getViewsListSpecialistReviewsQueryOptions = <
   TError = ErrorType<void | ProblemOut>,
 >(
   profileId: string,
+  params?: ViewsListSpecialistReviewsParams,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof viewsListSpecialistReviews>>, TError, TData>
@@ -491,11 +512,12 @@ export const getViewsListSpecialistReviewsQueryOptions = <
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getViewsListSpecialistReviewsQueryKey(profileId);
+  const queryKey =
+    queryOptions?.queryKey ?? getViewsListSpecialistReviewsQueryKey(profileId, params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof viewsListSpecialistReviews>>> = ({
     signal,
-  }) => viewsListSpecialistReviews(profileId, { signal, ...requestOptions });
+  }) => viewsListSpecialistReviews(profileId, params, { signal, ...requestOptions });
 
   return {
     queryKey,
@@ -517,6 +539,7 @@ export function useViewsListSpecialistReviews<
   TError = ErrorType<void | ProblemOut>,
 >(
   profileId: string,
+  params: undefined | ViewsListSpecialistReviewsParams,
   options: {
     query: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof viewsListSpecialistReviews>>, TError, TData>
@@ -538,6 +561,7 @@ export function useViewsListSpecialistReviews<
   TError = ErrorType<void | ProblemOut>,
 >(
   profileId: string,
+  params?: ViewsListSpecialistReviewsParams,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof viewsListSpecialistReviews>>, TError, TData>
@@ -559,6 +583,7 @@ export function useViewsListSpecialistReviews<
   TError = ErrorType<void | ProblemOut>,
 >(
   profileId: string,
+  params?: ViewsListSpecialistReviewsParams,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof viewsListSpecialistReviews>>, TError, TData>
@@ -576,6 +601,7 @@ export function useViewsListSpecialistReviews<
   TError = ErrorType<void | ProblemOut>,
 >(
   profileId: string,
+  params?: ViewsListSpecialistReviewsParams,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof viewsListSpecialistReviews>>, TError, TData>
@@ -584,7 +610,7 @@ export function useViewsListSpecialistReviews<
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-  const queryOptions = getViewsListSpecialistReviewsQueryOptions(profileId, options);
+  const queryOptions = getViewsListSpecialistReviewsQueryOptions(profileId, params, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;

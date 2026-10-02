@@ -581,6 +581,24 @@ msgstr "Контакт можете поделити након договора
 msgid "errors.invalid_contact"
 msgstr "Дељење контакта није успело. Поново отворите апликацију и покушајте опет."
 
+msgid "errors.review_not_found"
+msgstr "Рецензија није пронађена."
+
+msgid "errors.review_not_allowed"
+msgstr "За овај договор не можете оставити рецензију: клијент је може оставити у року од 14 дана након завршетка."
+
+msgid "errors.review_exists"
+msgstr "Већ сте оставили рецензију за овај договор."
+
+msgid "errors.invalid_review"
+msgstr "Рецензија није прихваћена: оцена од 1 до 5, текст до 2000 знакова."
+
+msgid "errors.not_review_subject"
+msgstr "На рецензију може одговорити само онај о коме је написана."
+
+msgid "errors.reply_exists"
+msgstr "Већ сте одговорили на ову рецензију."
+
 msgid "errors.deal_not_found"
 msgstr "Договор није пронађен."
 

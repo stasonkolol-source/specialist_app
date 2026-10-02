@@ -102,6 +102,8 @@ class DealSummary:
     version: int
     proposal_expires_at: datetime | None = None
     """Предложение «Договорились» истечёт тогда (S53); у других статусов — None."""
+    category_id: CategoryId | None = None
+    """Категория заявки сделки: отзыв по ней считается в среднем категории (7.2)."""
 
 
 class DealsApi(Protocol):

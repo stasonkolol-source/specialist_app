@@ -56,7 +56,9 @@ from app.modules.moderation.infrastructure.targets.job import JobTarget
 from app.modules.moderation.infrastructure.targets.message import MessageTarget
 from app.modules.moderation.infrastructure.targets.profile import ProfileTarget
 from app.modules.moderation.infrastructure.targets.response import ResponseTarget
+from app.modules.moderation.infrastructure.targets.review import ReviewReplyTarget, ReviewTarget
 from app.modules.moderation.infrastructure.velocity import ValkeyVelocityCounter
+from app.modules.reviews.api import ReviewsApi
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.config.port import LegalVersions
 from app.platform.legal.port import LegalLibrary
@@ -90,15 +92,21 @@ class ModerationProvider(Provider):
 
     @provide
     def targets(
-        self, specialists: SpecialistsApi, jobs: JobsApi, messaging: MessagingApi
+        self,
+        specialists: SpecialistsApi,
+        jobs: JobsApi,
+        messaging: MessagingApi,
+        reviews: ReviewsApi,
     ) -> ModerationTargets:
-        """Адаптеры целей: контентные модули добавляют свои в своих шагах (отзывы — 7.2)."""
+        """Адаптеры целей: контентные модули добавляют свои в своих шагах."""
         return TargetRegistry(
             {
                 EntityType.PROFILE: ProfileTarget(specialists),
                 EntityType.JOB: JobTarget(jobs),
                 EntityType.RESPONSE: ResponseTarget(jobs),
                 EntityType.MESSAGE: MessageTarget(messaging),
+                EntityType.REVIEW: ReviewTarget(reviews),
+                EntityType.REVIEW_REPLY: ReviewReplyTarget(reviews),
             }
         )
 

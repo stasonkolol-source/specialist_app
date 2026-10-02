@@ -1,7 +1,7 @@
 """Задачи search (ADR-0020 §3; DEVELOPMENT_PLAN 4.1).
 
-- Подписчики событий профиля, прайса, каталога, санкций, удаления и готового фото профиля —
-  отмечают профили к пересборке read-model.
+- Подписчики событий профиля, прайса, каталога, санкций, удаления, готового фото профиля и
+  рейтинга (отзывы, 7.2) — отмечают профили к пересборке read-model.
 - `search.flush_index` — пересобрать отмеченные пачкой (одна ждущая задача на всех).
 - `search.reindex_profiles` — отметить профили позже: конец срочной санкции автора.
 - `search.reconcile_index` — ночью: сверка read-model с источником.
@@ -24,6 +24,7 @@ from app.modules.search.application.ports import (
     ON_PROFILE_HIDDEN,
     ON_PROFILE_PUBLISHED,
     ON_PROFILE_UPDATED,
+    ON_RATING_CHANGED,
     ON_USER_DELETED,
     ON_USER_LIFTED,
     ON_USER_RESTRICTED,
@@ -56,6 +57,7 @@ from app.platform.contracts.events.identity import (
 )
 from app.platform.contracts.events.media import MediaReady
 from app.platform.contracts.events.pricing import PriceListChanged
+from app.platform.contracts.events.reviews import RatingChanged
 from app.platform.contracts.events.specialists import (
     AvailabilityChanged,
     ProfileDeleted,
@@ -76,6 +78,7 @@ type ProfileEvent = (
     | ProfileDeleted
     | AvailabilityChanged
     | PriceListChanged
+    | RatingChanged
 )
 type UserEvent = UserRestricted | UserRestrictionsLifted | UserDeleted
 
@@ -148,6 +151,12 @@ async def on_media_ready(event: MediaReady, mark: FromDishka[MarkProfiles]) -> N
     """Фото профиля обработано: в карточке вместо инициалов — фото."""
     if event.purpose == AVATAR:
         await mark(MarkProfilesCommand(user_ids=(event.owner_id,), occurred_at=event.occurred_at))
+
+
+@subscriber(RatingChanged, ON_RATING_CHANGED)
+async def on_rating_changed(event: RatingChanged, mark: FromDishka[MarkProfiles]) -> None:
+    """Рейтинг пересчитан (отзыв опубликован или снят, 7.2): рейтинг и место в выдаче."""
+    await _profile(mark, event)
 
 
 @task(FLUSH_INDEX)

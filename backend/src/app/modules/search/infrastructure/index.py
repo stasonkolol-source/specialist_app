@@ -74,6 +74,9 @@ def _row(entry: IndexEntry) -> dict[str, Any]:
         "price_from": entry.price_from,
         "available_until": entry.available_until,
         "activity_score": entry.activity_score,
+        "rating_bayes": entry.rating_bayes,
+        "rating_lower_bound": entry.rating_lower_bound,
+        "rating_count": entry.rating_count,
         "score": entry.score,
         "name_norm": func.platform.search_norm(entry.name),
         "search_vector": _vector(entry.document),
@@ -93,7 +96,7 @@ class SqlSpecialistIndex:
             return
         rows = [_row(entry) for entry in entries]
         stmt = insert(SpecialistIndexRow).values(rows)
-        # только колонки проектора: рейтинг, время ответа и бейджи пишут свои задачи
+        # только колонки проектора: время ответа и бейджи пишут свои задачи
         updated = {name: stmt.excluded[name] for name in rows[0] if name != "profile_id"}
         await self._session.execute(
             stmt.on_conflict_do_update(index_elements=["profile_id"], set_=updated)

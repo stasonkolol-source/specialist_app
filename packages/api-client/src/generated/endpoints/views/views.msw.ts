@@ -153,6 +153,9 @@ export const getViewsGetSpecialistResponseMock = (
       kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
       author_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
       rating: faker.number.int(),
+      criteria: {
+        [faker.string.alphanumeric(5)]: faker.number.int(),
+      },
       body: faker.helpers.arrayElement([
         faker.string.alpha({ length: { min: 10, max: 20 } }),
         null,
@@ -162,6 +165,13 @@ export const getViewsGetSpecialistResponseMock = (
         null,
       ]),
       published_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+      reply: faker.helpers.arrayElement([
+        {
+          body: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+        },
+        null,
+      ]),
     }),
   ),
   published_at: faker.helpers.arrayElement([
@@ -253,12 +263,22 @@ export const getViewsListSpecialistReviewsResponseMock = (
     kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
     author_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     rating: faker.number.int(),
+    criteria: {
+      [faker.string.alphanumeric(5)]: faker.number.int(),
+    },
     body: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
     category: faker.helpers.arrayElement([
       { id: faker.number.int(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
       null,
     ]),
     published_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+    reply: faker.helpers.arrayElement([
+      {
+        body: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+      },
+      null,
+    ]),
   })),
   next_cursor: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -496,6 +516,18 @@ export const getViewsGetDealCardResponseMock = (
     null,
   ]),
   proposal_expires_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  my_review: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      rating: faker.number.int(),
+    },
+    null,
+  ]),
+  review_until: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
   ]),

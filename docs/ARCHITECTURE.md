@@ -1468,14 +1468,17 @@ CREATE TABLE reviews.reviews (
   subject_profile_id uuid REFERENCES specialists.profiles(id),
   direction          text NOT NULL CHECK (direction IN ('client_to_performer','performer_to_client')),
   rating             smallint NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  category_id        int,                           -- снимок категории сделки: её среднее — априорное в рейтинге (7.2)
   criteria           jsonb NOT NULL DEFAULT '{}',   -- {"quality":5,"punctuality":4,"communication":5,"price":4}
   body               text CHECK (char_length(body) <= 2000),
   content_lang       text,
   status             text NOT NULL DEFAULT 'under_review'   -- MVP: автопроверки → published; v1: hidden до раскрытия (double-blind)
                      CHECK (status IN ('hidden','published','under_review','removed')),
-  reply_body         text,
+  reply_body         text CHECK (char_length(reply_body) <= 2000),
   reply_at           timestamptz,
+  reply_status       text CHECK (reply_status IN ('under_review','published','removed')),  -- ответ проверяется отдельно (цель review_reply)
   published_at       timestamptz,
+  version            int NOT NULL,                  -- optimistic locking агрегата
   created_at         timestamptz NOT NULL DEFAULT now(),
   updated_at         timestamptz NOT NULL DEFAULT now(),
   deleted_at         timestamptz,
@@ -1504,6 +1507,7 @@ CREATE TABLE reviews.rating_aggregates (   -- пересчитывается п�
   rating_lower_bound numeric(4,3) NOT NULL,  -- нижняя граница доверительного интервала (Dirichlet prior): ранжирование
   distribution  int[] NOT NULL DEFAULT '{0,0,0,0,0}' CHECK (cardinality(distribution) = 5),  -- оценок в 1…5 звёзд: гистограмма S11
   criteria_avg  jsonb NOT NULL DEFAULT '{}',
+  last_published_at timestamptz,             -- дата последнего отзыва рядом с рейтингом (ADR-0016)
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
 ```
@@ -1672,7 +1676,7 @@ CREATE INDEX ON moderation.reports (due_at) WHERE status = 'open' AND is_legal_n
 CREATE TABLE moderation.cases (         -- единица работы модератора (2.5a)
   id             uuid PRIMARY KEY,                  -- uuidv7 приложения
   queue          text NOT NULL CHECK (queue IN ('safety','fraud','premod','appeals')),  -- P0, P1, P2, апелляции
-  entity_type    text NOT NULL CHECK (entity_type IN ('user','profile','job','response','review','message','media')),
+  entity_type    text NOT NULL CHECK (entity_type IN ('user','profile','job','response','review','review_reply','message','media')),
   entity_id      uuid NOT NULL,
   subject_id     uuid NOT NULL REFERENCES identity.users(id),  -- чей контент или аккаунт: ему решение и санкция
   trigger        text NOT NULL CHECK (trigger IN ('new_content','edit','report','auto_flag','appeal')),  -- первый повод
@@ -2173,8 +2177,8 @@ stateDiagram-v2
 - **MVP: отзыв оставляет только клиент** о исполнителе. Отзыв создаётся со статусом `under_review` и публикуется сразу после автопроверок (правила, классификатор); при флаге уходит к модератору. Второго отзыва в MVP нет, поэтому скрывать первый было бы бессмысленно.
 - **v1: double-blind.** Когда появляются оценки клиентов исполнителями, отзыв хранится со статусом `hidden`, пока не случится одно из двух: вторая сторона оставила свой отзыв или окно закрылось. Тогда оба отзыва публикуются одновременно, и отзывы не пишутся «в ответ» на чужую оценку.
 - **Ответ.** Исполнитель может один раз публично ответить на отзыв (`reply_body`).
-- **Показ рейтинга** — байесовское среднее `(C·m + Σr) / (C + n)`, где `m` — средний рейтинг по категории, `C = 5`. Пример при `m = 4,6`: одна «пятёрка» даёт 4,67, 40 отзывов со средним 4,8 дают 4,78. По этому же значению работает фильтр «рейтинг от». При `n < 3` вместо числа показывается «Новый специалист».
-- **Ранжирование** — по нижней границе доверительного интервала с Dirichlet prior (`rating_lower_bound`). Так новичок не обгоняет опытного мастера за одну «пятёрку» ([§9.4](#94-ранжирование)).
+- **Показ рейтинга** — байесовское среднее `(C·m + Σr) / (C + n)`, где `m` — средний рейтинг по категории, `C = 5`. Пример при `m = 4,6`: одна «пятёрка» даёт 4,67, 40 отзывов со средним 4,8 дают 4,78. По этому же значению работает фильтр «рейтинг от». При `n < 3` вместо числа показывается «Новый специалист». Реализация (7.2, `reviews/domain/rating.py`): `m` профиля — средние категорий его отзывов, каждая притянута к 4,6 весом 20 отзывов (пока отзывов в категории мало); вес отзыва в сумме затухает вдвое за 12 месяцев; число, гистограмма и средние по критериям — без весов.
+- **Ранжирование** — по нижней границе доверительного интервала с Dirichlet prior (`rating_lower_bound`; единица на звезду, z = 1,645). Так новичок не обгоняет опытного мастера за одну «пятёрку» ([§9.4](#94-ранжирование)). Профиль без отзывов ранжируется по априорной границе ≈ 2,05: выше профиля с одной «единицей», ниже профиля с одной «пятёркой». Пересчёт — после публикации или снятия отзыва (`RatingChanged` → поиск за секунды).
 
 **Профиль исполнителя** и **медиа**
 
@@ -2426,7 +2430,7 @@ sequenceDiagram
 | `GET /specialists/by-category?city_id=` 🔓 | Видимые специалисты города по категориям (с подкатегориями) — дерево S04; кэш 5 минут |
 | `GET /specialists/{id}` 🔓 | Публичный профиль S08 одним запросом (BFF `interfaces/http/views`): профиль, первые три позиции прайса и три работы, рейтинг, бейджи; ETag, `max-age=60`. Скрытый, снятый санкцией или удалённый профиль — 404 без объяснения, как в поиске |
 | `GET /specialists/{id}/services` 🔓, `GET /specialists/{id}/portfolio` 🔓 | Весь прайс с группами (S09) и все готовые работы (S10) одним ответом: прайс — до 50 позиций, работ — в пределах лимита портфолио |
-| `GET /specialists/{id}/reviews?kind=deal\|pre_platform` 🔓 | Отзывы S11 (BFF): рейтинг с гистограммой и средними по критериям из `reviews.rating_aggregates`; сами отзывы постранично и `kind` — с 7.2 и 7.6, до того список пуст. Скрытый профиль — 404 |
+| `GET /specialists/{id}/reviews?cursor&limit` 🔓 | Отзывы S11 (BFF): рейтинг с гистограммой и средними по критериям из `reviews.rating_aggregates`; опубликованные отзывы по сделкам с ответами специалиста, новые первыми, автор — «Имя Ф.» (7.2); вкладка «До платформы» (`kind`) — 7.6. Скрытый профиль — 404 |
 | `GET /me/favorites`, `PUT /me/favorites/profile/{id}`, `DELETE /me/favorites/profile/{id}` | Избранное: «мои мастера» S12 — карточки, как в выдаче, только видимые в каталоге, новые первыми; до 100 (`favorites_full`); повтор и удаление отсутствующего — без ошибки |
 | `GET /me/favorites/jobs`, `PUT /me/favorites/job/{id}`, `DELETE /me/favorites/job/{id}` | Сохранённые заявки (5.3): сердечко S15, сегмент «Задачи» S12 — карточки, как в ленте, только открытые (опубликована, публична, срок не вышел), новые сохранения первыми; сохранить можно видимую опубликованную (иначе 404); до 100 (`saved_jobs_full`); повтор и удаление отсутствующего — без ошибки. Модуль `jobs` (`jobs.saved_jobs`): карточка и видимость заявки — у него |
 | `GET /me/saved-searches`, `POST /me/saved-searches`, `DELETE /me/saved-searches/{id}` | v1: сохранённые поиски с уведомлением |
@@ -2492,12 +2496,12 @@ sequenceDiagram
 | `GET /me/deals?role=client\|performer&status=`, `GET /deals/{id}` | Сделки |
 | `POST /conversations/{id}/deal` | «Договорились» из прямого диалога → сделка `proposed`; в диалоге по отклику договорённость — выбор отклика (409 `cannot_propose`) |
 | `POST /deals/{id}/confirm`, `/decline` | Вторая сторона подтверждает или отклоняет ждущее предложение (S53, кнопки бота `deal.proposed`); подтверждённую сделку `decline` не отменяет |
-| `GET /deals/{id}/card` | BFF S26 и S53 (`interfaces/http/views/deal.py`, 6.2a и 6.5): условия, вторая сторона (её @username — только после `agreed` и если она его показывает), место, вехи; у ждущего предложения — `proposed_at` и `proposal_expires_at` (72 ч) |
+| `GET /deals/{id}/card` | BFF S26 и S53 (`interfaces/http/views/deal.py`, 6.2a и 6.5): условия, вторая сторона (её @username — только после `agreed` и если она его показывает), место, вехи; у ждущего предложения — `proposed_at` и `proposal_expires_at` (72 ч); свой отзыв (`my_review`) и до когда клиент может его оставить (`review_until`, 7.2) |
 | `POST /deals/{id}/complete`, `/cancel`, `/dispute` | Выполнено / отмена с причиной / спор |
-| `POST /deals/{id}/review` | Оставить отзыв: оценка, критерии, текст; фото — v1 |
-| `POST /reviews/{id}/reply` | Публичный ответ исполнителя |
+| `POST /deals/{id}/review` | Оставить отзыв (S27): клиент по сделке `completed`, не позже 14 дней, один раз — иначе 409 `review_not_allowed` (`not_completed`, `window_closed`, `not_client`) или `review_exists`; оценка, критерии, текст; виден после автопроверки; фото — v1 |
+| `POST /reviews/{id}/reply` | Публичный ответ того, о ком отзыв: один (409 `reply_exists`), виден после своей проверки |
 | `GET /review-invites/{token}` 🔓, `POST /review-invites/{token}` | Форма «отзыва до платформы» по приглашению (вход через Telegram обязателен, отдельная метка, в рейтинг не входит) |
-| `GET /me/reviews?direction=received\|written` | Мои отзывы |
+| `GET /me/reviews?direction=received\|written` | Мои отзывы (S28): полученные — опубликованные, со своим ответом и `can_reply`; написанные — в любом статусе |
 
 **messaging**
 

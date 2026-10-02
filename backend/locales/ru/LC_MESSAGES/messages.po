@@ -581,6 +581,24 @@ msgstr "Контактами можно поделиться после дого
 msgid "errors.invalid_contact"
 msgstr "Не удалось поделиться контактом. Откройте приложение заново и попробуйте ещё раз."
 
+msgid "errors.review_not_found"
+msgstr "Отзыв не найден."
+
+msgid "errors.review_not_allowed"
+msgstr "Отзыв по этой сделке оставить нельзя: он доступен клиенту в течение 14 дней после завершения сделки."
+
+msgid "errors.review_exists"
+msgstr "Вы уже оставили отзыв по этой сделке."
+
+msgid "errors.invalid_review"
+msgstr "Отзыв не принят: оценка от 1 до 5, текст до 2000 знаков."
+
+msgid "errors.not_review_subject"
+msgstr "Ответить на отзыв может только тот, о ком он написан."
+
+msgid "errors.reply_exists"
+msgstr "Вы уже ответили на этот отзыв."
+
 msgid "errors.deal_not_found"
 msgstr "Сделка не найдена."
 

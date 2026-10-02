@@ -25,6 +25,7 @@ from app.platform.contracts.events.identity import (
 )
 from app.platform.contracts.events.media import MediaReady
 from app.platform.contracts.events.pricing import PriceListChanged
+from app.platform.contracts.events.reviews import RatingChanged
 from app.platform.contracts.events.specialists import (
     AvailabilityChanged,
     ProfileDeleted,
@@ -197,6 +198,7 @@ ON_USER_RESTRICTED: Final = TaskRef("search.on_user_restricted", UserRestricted)
 ON_USER_LIFTED: Final = TaskRef("search.on_user_restrictions_lifted", UserRestrictionsLifted)
 ON_USER_DELETED: Final = TaskRef("search.on_user_deleted", UserDeleted)
 ON_MEDIA_READY: Final = TaskRef("search.on_media_ready", MediaReady)
+ON_RATING_CHANGED: Final = TaskRef("search.on_rating_changed", RatingChanged)
 """Подписчики событий-источников: каждое отмечает профили к пересборке (MarkProfiles)."""
 
 FORGET_FAVORITES: Final = TaskRef("search.forget_favorites", UserDeleted)

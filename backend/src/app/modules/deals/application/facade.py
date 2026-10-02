@@ -69,6 +69,7 @@ class DealsFacade:
             proposal_expires_at=(
                 deal.created_at + PROPOSAL_TTL if deal.status is DealStatus.PROPOSED else None
             ),
+            category_id=deal.category_id,
         )
 
     async def create_agreed(self, data: AgreedDealIn) -> DealId:

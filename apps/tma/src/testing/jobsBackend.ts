@@ -1199,6 +1199,8 @@ export function dealCardFixture(
     version: 1,
     proposed_at: null,
     proposal_expires_at: null,
+    my_review: null,
+    review_until: null,
   };
   return role === 'client' ? deal : asOther(deal);
 }
@@ -1307,5 +1309,7 @@ export function proposedDealFixture(conversationId: string): DealCardOut {
     version: 1,
     proposed_at: proposedAt.toISOString(),
     proposal_expires_at: new Date(proposedAt.getTime() + 72 * 60 * 60 * 1000).toISOString(),
+    my_review: null,
+    review_until: null,
   };
 }

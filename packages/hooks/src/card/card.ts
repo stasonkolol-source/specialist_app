@@ -58,9 +58,10 @@ export function useSpecialistWorks(profileId: string) {
   });
 }
 
-/** S11: рейтинг с гистограммой и отзывы; услуги в отзывах — на языке запроса. */
+/** S11: рейтинг с гистограммой и первая страница отзывов; услуги в отзывах — на языке запроса.
+ * Следующие страницы (`cursor`) — с экраном S11 в 7.3. */
 export function useSpecialistReviews(profileId: string, locale: Locale) {
-  return useViewsListSpecialistReviews(profileId, {
+  return useViewsListSpecialistReviews(profileId, undefined, {
     query: {
       queryKey: [...getViewsListSpecialistReviewsQueryKey(profileId), locale] as const,
       staleTime: CARD_STALE_MS,

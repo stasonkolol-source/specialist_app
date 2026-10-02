@@ -634,9 +634,11 @@ export function cardReviewsFor(locale: string | null): CardReviewOut[] {
     kind: 'deal',
     author_name: author,
     rating,
+    criteria: {},
     body,
     category: { id: CATEGORY_IDS[category] ?? 0, name: categoryName(category, locale) },
     published_at: publishedAt,
+    reply: null,
   });
   return [
     review(1, 'Ирина С.', 5, 'chandeliers', '2026-09-24T15:00:00Z', 'Повесил две люстры и заменил розетку. Пришёл вовремя, всё аккуратно, убрал за собой.'),

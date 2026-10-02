@@ -145,8 +145,13 @@ export const ViewsGetSpecialistResponse = zod.object({
       zod.object({
         id: zod.uuid(),
         kind: zod.string().describe('deal | pre_platform'),
-        author_name: zod.string().describe('Имя и первая буква фамилии: «Ирина С.»'),
+        author_name: zod
+          .string()
+          .describe('Имя и первая буква фамилии: «Ирина С.»; удалён — пусто'),
         rating: zod.int(),
+        criteria: zod
+          .record(zod.string(), zod.int())
+          .describe('Оценённые критерии: quality, punctuality, …'),
         body: zod.union([zod.string(), zod.null()]),
         category: zod
           .union([
@@ -156,8 +161,17 @@ export const ViewsGetSpecialistResponse = zod.object({
             }),
             zod.null(),
           ])
-          .describe('Услуга сделки: «Сентябрь · люстры»'),
+          .describe('Услуга сделки'),
         published_at: zod.iso.datetime({ offset: true }),
+        reply: zod
+          .union([
+            zod.object({
+              body: zod.string(),
+              at: zod.iso.datetime({ offset: true }),
+            }),
+            zod.null(),
+          ])
+          .describe('Ответ специалиста (прошёл проверку)'),
       }),
     )
     .describe('Последний отзыв (S08) — с 7.2'),
@@ -242,12 +256,28 @@ export const ViewsListSpecialistWorksResponse = zod.object({
 });
 
 /**
- * Отзывы S11: рейтинг с гистограммой и отзывы по сделкам. Сами отзывы и вкладка «До
- * платформы» (`kind`, курсор) — с 7.2 и 7.6; до того список пуст.
+ * Отзывы S11: рейтинг с гистограммой и опубликованные отзывы по сделкам с ответами,
+ * новые первыми (курсор). Вкладка «До платформы» (`kind`) — 7.6.
  * @summary List Specialist Reviews
  */
 export const ViewsListSpecialistReviewsParams = zod.object({
   profile_id: zod.uuid().describe('id профиля специалиста'),
+});
+
+export const viewsListSpecialistReviewsQueryCursorOneMax = 200;
+
+export const viewsListSpecialistReviewsQueryLimitDefault = 20;
+export const viewsListSpecialistReviewsQueryLimitMax = 100;
+
+export const ViewsListSpecialistReviewsQueryParams = zod.object({
+  cursor: zod
+    .union([zod.string().max(viewsListSpecialistReviewsQueryCursorOneMax), zod.null()])
+    .optional(),
+  limit: zod
+    .int()
+    .min(1)
+    .max(viewsListSpecialistReviewsQueryLimitMax)
+    .default(viewsListSpecialistReviewsQueryLimitDefault),
 });
 
 export const ViewsListSpecialistReviewsResponse = zod.object({
@@ -267,8 +297,13 @@ export const ViewsListSpecialistReviewsResponse = zod.object({
       zod.object({
         id: zod.uuid(),
         kind: zod.string().describe('deal | pre_platform'),
-        author_name: zod.string().describe('Имя и первая буква фамилии: «Ирина С.»'),
+        author_name: zod
+          .string()
+          .describe('Имя и первая буква фамилии: «Ирина С.»; удалён — пусто'),
         rating: zod.int(),
+        criteria: zod
+          .record(zod.string(), zod.int())
+          .describe('Оценённые критерии: quality, punctuality, …'),
         body: zod.union([zod.string(), zod.null()]),
         category: zod
           .union([
@@ -278,11 +313,20 @@ export const ViewsListSpecialistReviewsResponse = zod.object({
             }),
             zod.null(),
           ])
-          .describe('Услуга сделки: «Сентябрь · люстры»'),
+          .describe('Услуга сделки'),
         published_at: zod.iso.datetime({ offset: true }),
+        reply: zod
+          .union([
+            zod.object({
+              body: zod.string(),
+              at: zod.iso.datetime({ offset: true }),
+            }),
+            zod.null(),
+          ])
+          .describe('Ответ специалиста (прошёл проверку)'),
       }),
     )
-    .describe('Новые сначала — отзывы появятся с 7.2'),
+    .describe('Опубликованные отзывы по сделкам, новые первыми'),
   next_cursor: zod.union([zod.string(), zod.null()]),
 });
 
@@ -525,4 +569,19 @@ export const ViewsGetDealCardResponse = zod.object({
   proposal_expires_at: zod
     .union([zod.iso.datetime({ offset: true }), zod.null()])
     .describe('Предложение отменится, если не ответить до этого времени (72 ч)'),
+  my_review: zod
+    .union([
+      zod.object({
+        id: zod.uuid(),
+        status: zod.string().describe('under_review | published | removed'),
+        rating: zod.int(),
+      }),
+      zod.null(),
+    ])
+    .describe('Свой отзыв по сделке (7.2)'),
+  review_until: zod
+    .union([zod.iso.datetime({ offset: true }), zod.null()])
+    .describe(
+      'Клиент может оставить отзыв до этого времени (14 дней после завершения); null — нельзя или уже оставлен',
+    ),
 });

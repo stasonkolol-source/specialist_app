@@ -8,6 +8,7 @@ export * from './messaging/messaging.zod.ts';
 export * from './notifications/notifications.zod.ts';
 export * from './platform/platform.zod.ts';
 export * from './pricing/pricing.zod.ts';
+export * from './reviews/reviews.zod.ts';
 export * from './search/search.zod.ts';
 export * from './specialists/specialists.zod.ts';
 export * from './views/views.zod.ts';

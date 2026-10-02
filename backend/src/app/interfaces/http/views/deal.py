@@ -3,7 +3,8 @@
 исполнитель — профиль specialists, фото media и рейтинг reviews, клиент — имя identity.
 
 Только сторонам: чужая сделка — 404 `deal_not_found`. Вехи таймлайна — отклик, выбор, отметки
-«Работа выполнена» обеих сторон, завершение или отмена.
+«Работа выполнена» обеих сторон, завершение или отмена. Отзыв (7.2): свой — статус и оценка;
+клиенту завершённой сделки — до когда его можно оставить.
 """
 
 from datetime import datetime
@@ -82,6 +83,12 @@ class DealTimelineOut(BaseModel):
     cancelled_at: datetime | None
 
 
+class DealReviewOut(BaseModel):
+    id: UUID
+    status: str = Field(description="under_review | published | removed")
+    rating: int
+
+
 class DealCardOut(BaseModel):
     id: UUID
     status: DealState
@@ -108,6 +115,11 @@ class DealCardOut(BaseModel):
     proposed_at: datetime | None = Field(description="«Договорились» предложено тогда (S53)")
     proposal_expires_at: datetime | None = Field(
         description="Предложение отменится, если не ответить до этого времени (72 ч)"
+    )
+    my_review: DealReviewOut | None = Field(description="Свой отзыв по сделке (7.2)")
+    review_until: datetime | None = Field(
+        description="Клиент может оставить отзыв до этого времени (14 дней после завершения);"
+        " null — нельзя или уже оставлен"
     )
 
 
@@ -144,6 +156,13 @@ async def get_deal_card(
     cancelled_by_me = None
     if deal.status == "cancelled" and deal.cancelled_by is not None:
         cancelled_by_me = deal.cancelled_by == viewer
+    review = await reviews.review_state(
+        deal.id,
+        viewer,
+        client_id=deal.client_id,
+        status=deal.status,
+        completed_at=deal.completed_at,
+    )
     return DealCardOut(
         id=deal.id,
         status=cast(DealState, deal.status),
@@ -182,6 +201,12 @@ async def get_deal_card(
         response_id=deal.response_id,
         conversation_id=deal.conversation_id,
         version=deal.version,
+        my_review=(
+            DealReviewOut(id=review.mine.id, status=review.mine.status, rating=review.mine.rating)
+            if review.mine is not None
+            else None
+        ),
+        review_until=review.open_until,
     )
 
 
