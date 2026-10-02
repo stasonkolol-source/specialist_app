@@ -1,23 +1,27 @@
 """Реализация JobsApi (ADR-0020 §6): заявка и отклик для конвейера модерации, публикация и отказ;
-краткие сведения о сроке — для уведомлений клиенту."""
+краткие сведения о сроке, откликах и приглашении — для уведомлений."""
 
 from typing import Final
 from uuid import UUID
 
 from app.modules.catalog.api import CatalogApi
+from app.modules.identity.api import IdentityApi
 from app.modules.jobs.api import (
+    InviteNotice,
     JobBrief,
     JobForReview,
     JobsApi,
     ResponseForReview,
     ResponsesNotice,
+    TemplateRef,
 )
-from app.modules.jobs.application.ports import JobQueries, JobRepository
+from app.modules.jobs.application.ports import JobQueries, JobRepository, ResponseTemplates
 from app.modules.jobs.domain.job import MAX_EXTENSIONS, Job, JobId, JobStatus
 from app.modules.jobs.domain.response import ResponseId, ResponseReview
 from app.modules.jobs.errors import JobNotFoundError
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
+from app.platform.kernel.ids import UserId
 
 REVIEWABLE: Final = frozenset({JobStatus.PENDING_MODERATION, JobStatus.PUBLISHED})
 
@@ -28,11 +32,13 @@ class JobsFacade(JobsApi):
         uow: UnitOfWork,
         jobs: JobRepository,
         queries: JobQueries,
+        templates: ResponseTemplates,
         catalog: CatalogApi,
+        identity: IdentityApi,
         clock: Clock,
     ) -> None:
-        self._uow, self._jobs, self._queries = uow, jobs, queries
-        self._catalog, self._clock = catalog, clock
+        self._uow, self._jobs, self._queries, self._templates = uow, jobs, queries, templates
+        self._catalog, self._identity, self._clock = catalog, identity, clock
 
     async def job_for_review(self, job_id: UUID) -> JobForReview | None:
         async with self._uow:
@@ -94,6 +100,20 @@ class JobsFacade(JobsApi):
 
     async def response_job(self, response_id: UUID) -> UUID | None:
         return await self._queries.job_of_response(ResponseId(response_id))
+
+    async def invite_notice(self, job_id: UUID, performer_id: UserId) -> InviteNotice | None:
+        job = await self._queries.view(JobId(job_id))
+        if job is None:
+            return None
+        client = await self._identity.get_user(job.client_id)
+        responded = await self._queries.performer_response(job.id, performer_id) is not None
+        templates = () if responded else await self._templates.of_user(performer_id)
+        return InviteNotice(
+            title=job.title,
+            status=job.status.value,
+            client_name=client.display_name if client and not client.is_deleted else None,
+            templates=tuple(TemplateRef(id=item.id, title=item.title) for item in templates),
+        )
 
     async def response_for_review(self, response_id: UUID) -> ResponseForReview | None:
         job = await self._job_of_response(ResponseId(response_id))

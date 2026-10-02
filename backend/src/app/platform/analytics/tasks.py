@@ -4,8 +4,8 @@
 аналитики уходит только после commit и не уходит при rollback. Здесь подключаются
 `user_registered` (с источником атрибуции), `onboarding_completed` и `write_access_granted`
 (1.7), `profile_submitted` и `profile_published` (2.8a), `job_published`, `job_closed` и
-`job_expired` (5.1), `response_submitted` (5.4); остальные события подключает шаг своего модуля
-(таксономия — events.py).
+`job_expired` (5.1), `response_submitted` (5.4), `invite_sent` и `direct_request_sent` (5.6);
+остальные события подключает шаг своего модуля (таксономия — events.py).
 """
 
 from dishka import FromDishka
@@ -16,6 +16,7 @@ from app.platform.contracts.events.identity import OnboardingCompleted, UserRegi
 from app.platform.contracts.events.jobs import (
     JobClosed,
     JobExpired,
+    JobInvited,
     JobPublished,
     ResponseSubmitted,
 )
@@ -36,6 +37,7 @@ CAPTURE_JOB_PUBLISHED = TaskRef("analytics.capture_job_published", JobPublished)
 CAPTURE_JOB_CLOSED = TaskRef("analytics.capture_job_closed", JobClosed)
 CAPTURE_JOB_EXPIRED = TaskRef("analytics.capture_job_expired", JobExpired)
 CAPTURE_RESPONSE_SUBMITTED = TaskRef("analytics.capture_response_submitted", ResponseSubmitted)
+CAPTURE_JOB_INVITED = TaskRef("analytics.capture_job_invited", JobInvited)
 
 
 @subscriber(UserRegistered, CAPTURE_USER_REGISTERED)
@@ -177,5 +179,19 @@ async def capture_response_submitted(
             source_event_id=event.event_id,
             is_first=event.is_first,
             minutes_since_published=minutes,
+        )
+    )
+
+
+@subscriber(JobInvited, CAPTURE_JOB_INVITED)
+async def capture_job_invited(event: JobInvited, analytics: FromDishka[Analytics]) -> None:
+    """Клиент позвал специалиста: приглашение в заявку или прямой запрос (5.6). Прямой запрос
+    считается, когда его опубликовали и специалист о нём узнал."""
+    await analytics.capture(
+        analytics_event(
+            EventName.DIRECT_REQUEST_SENT if event.direct else EventName.INVITE_SENT,
+            user_id=event.client_id,
+            occurred_at=event.occurred_at,
+            source_event_id=event.event_id,
         )
     )

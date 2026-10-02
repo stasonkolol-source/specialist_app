@@ -21,8 +21,10 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  InvitesIn,
   JobCloseIn,
   JobIn,
+  JobInvitesOut,
   JobOut,
   JobResponsesOut,
   JobsCountJobsParams,
@@ -34,6 +36,7 @@ import type {
   JobsListMyResponsesParams,
   JobsOut,
   JobsPageOut,
+  JobsRequestSpecialistHeaders,
   JobsRespondHeaders,
   JobsUpdateJobHeaders,
   MyResponseOut,
@@ -803,6 +806,120 @@ export function useJobsListResponseTemplates<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export const getJobsRequestSpecialistUrl = (profileId: string) => {
+  return `/api/v1/specialists/${profileId}/requests`;
+};
+
+/**
+ * Прямой запрос специалисту (S08 «Написать», S09 «Заказать эту услугу»): заявка, которую
+ * видит только он, — на проверку, как любая; после публикации ему уведомление. Профиль скрыт,
+ * удалён или автор под санкцией — 404 `invitee_not_found`; свой — 409 `own_profile_invite`.
+ * @summary Request Specialist
+ */
+export const jobsRequestSpecialist = async (
+  profileId: string,
+  jobIn: JobIn,
+  headers: JobsRequestSpecialistHeaders,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<JobOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<JobOut>(getJobsRequestSpecialistUrl(profileId), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers, ...getHeaders(options?.headers) },
+    body: JSON.stringify(jobIn),
+  });
+};
+
+export const getJobsRequestSpecialistMutationKey = () => ['jobsRequestSpecialist'] as const;
+
+export const getJobsRequestSpecialistMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof jobsRequestSpecialist>>,
+    TError,
+    JobsRequestSpecialistMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof jobsRequestSpecialist>>,
+  TError,
+  JobsRequestSpecialistMutationVariables,
+  TContext
+> => {
+  const mutationKey = getJobsRequestSpecialistMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof jobsRequestSpecialist>>,
+    JobsRequestSpecialistMutationVariables
+  > = (props) => {
+    const { profileId, data, headers } = props ?? {};
+
+    return jobsRequestSpecialist(profileId, data, headers, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JobsRequestSpecialistMutationResult = NonNullable<
+  Awaited<ReturnType<typeof jobsRequestSpecialist>>
+>;
+export type JobsRequestSpecialistMutationBody = JobIn;
+export type JobsRequestSpecialistMutationError = ErrorType<ProblemOut>;
+export type JobsRequestSpecialistMutationVariables = {
+  profileId: string;
+  data: JobIn;
+  headers: JobsRequestSpecialistHeaders;
+};
+
+/**
+ * @summary Request Specialist
+ */
+export const useJobsRequestSpecialist = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof jobsRequestSpecialist>>,
+      TError,
+      JobsRequestSpecialistMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof jobsRequestSpecialist>>,
+  TError,
+  JobsRequestSpecialistMutationVariables,
+  TContext
+> => {
+  return useMutation(getJobsRequestSpecialistMutationOptions(options), queryClient);
+};
 export const getJobsCountJobsUrl = (params: JobsCountJobsParams) => {
   const normalizedParams = new URLSearchParams();
 
@@ -951,7 +1068,8 @@ export const getJobsGetJobUrl = (jobId: string) => {
 };
 
 /**
- * Заявка 🔓: опубликованная — всем без точной точки и адреса, своя — владельцу целиком.
+ * Заявка 🔓: опубликованная — всем без точной точки и адреса, своя — владельцу целиком;
+ * прямой запрос — только приглашённому. Вошедший не владелец — просмотр (раз в сутки).
  * @summary Get Job
  */
 export const jobsGetJob = async (
@@ -2618,3 +2736,240 @@ export const useJobsDeleteResponseTemplate = <TError = ErrorType<ProblemOut>, TC
 > => {
   return useMutation(getJobsDeleteResponseTemplateMutationOptions(options), queryClient);
 };
+export const getJobsInviteSpecialistsUrl = (jobId: string) => {
+  return `/api/v1/jobs/${jobId}/invites`;
+};
+
+/**
+ * Пригласить специалистов в свою открытую заявку (S21, S23): им — уведомление с «Посмотреть
+ * заявку» и «Откликнуться шаблоном». Повтор — без ошибки; больше десяти — 409 `job_invites_full`;
+ * скрытый профиль или автор под санкцией — 404 `invitee_not_found`.
+ * @summary Invite Specialists
+ */
+export const jobsInviteSpecialists = async (
+  jobId: string,
+  invitesIn: InvitesIn,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<JobInvitesOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<JobInvitesOut>(getJobsInviteSpecialistsUrl(jobId), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(invitesIn),
+  });
+};
+
+export const getJobsInviteSpecialistsMutationKey = () => ['jobsInviteSpecialists'] as const;
+
+export const getJobsInviteSpecialistsMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof jobsInviteSpecialists>>,
+    TError,
+    JobsInviteSpecialistsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof jobsInviteSpecialists>>,
+  TError,
+  JobsInviteSpecialistsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getJobsInviteSpecialistsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof jobsInviteSpecialists>>,
+    JobsInviteSpecialistsMutationVariables
+  > = (props) => {
+    const { jobId, data } = props ?? {};
+
+    return jobsInviteSpecialists(jobId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JobsInviteSpecialistsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof jobsInviteSpecialists>>
+>;
+export type JobsInviteSpecialistsMutationBody = InvitesIn;
+export type JobsInviteSpecialistsMutationError = ErrorType<ProblemOut>;
+export type JobsInviteSpecialistsMutationVariables = { jobId: string; data: InvitesIn };
+
+/**
+ * @summary Invite Specialists
+ */
+export const useJobsInviteSpecialists = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof jobsInviteSpecialists>>,
+      TError,
+      JobsInviteSpecialistsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof jobsInviteSpecialists>>,
+  TError,
+  JobsInviteSpecialistsMutationVariables,
+  TContext
+> => {
+  return useMutation(getJobsInviteSpecialistsMutationOptions(options), queryClient);
+};
+export const getJobsListJobInvitesUrl = (jobId: string) => {
+  return `/api/v1/jobs/${jobId}/invites`;
+};
+
+/**
+ * Кого владелец пригласил в заявку (S23), по порядку. Чужая — 404.
+ * @summary List Job Invites
+ */
+export const jobsListJobInvites = async (
+  jobId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<JobInvitesOut> => {
+  return apiFetch<JobInvitesOut>(getJobsListJobInvitesUrl(jobId), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getJobsListJobInvitesQueryKey = (jobId: string) => {
+  return [`/api/v1/jobs/${jobId}/invites`] as const;
+};
+
+export const getJobsListJobInvitesQueryOptions = <
+  TData = Awaited<ReturnType<typeof jobsListJobInvites>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  jobId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListJobInvites>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getJobsListJobInvitesQueryKey(jobId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof jobsListJobInvites>>> = ({ signal }) =>
+    jobsListJobInvites(jobId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: jobId !== null && jobId !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof jobsListJobInvites>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+};
+
+export type JobsListJobInvitesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof jobsListJobInvites>>
+>;
+export type JobsListJobInvitesQueryError = ErrorType<ProblemOut>;
+
+export function useJobsListJobInvites<
+  TData = Awaited<ReturnType<typeof jobsListJobInvites>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  jobId: string,
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListJobInvites>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof jobsListJobInvites>>,
+          TError,
+          Awaited<ReturnType<typeof jobsListJobInvites>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useJobsListJobInvites<
+  TData = Awaited<ReturnType<typeof jobsListJobInvites>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  jobId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof jobsListJobInvites>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof jobsListJobInvites>>,
+          TError,
+          Awaited<ReturnType<typeof jobsListJobInvites>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useJobsListJobInvites<
+  TData = Awaited<ReturnType<typeof jobsListJobInvites>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  jobId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListJobInvites>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List Job Invites
+ */
+
+export function useJobsListJobInvites<
+  TData = Awaited<ReturnType<typeof jobsListJobInvites>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  jobId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListJobInvites>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getJobsListJobInvitesQueryOptions(jobId, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}

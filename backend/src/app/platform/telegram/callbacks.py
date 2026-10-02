@@ -3,8 +3,9 @@
 Кнопку рисует один модуль (уведомление — notifications), нажатие обрабатывает другой (бот
 модуля сущности), поэтому формат общий и живёт здесь, как кодек deep links. Bot API
 ограничивает данные 64 байтами: действие — две буквы, id — UUID в base62 (22 символа),
-аргумент — код из закрытого списка. Кнопки одного модуля, которые он сам и обрабатывает
-(`avail:` в specialists), кодек не нужен.
+аргумент — код из закрытого списка или второй id в base62 (`ref_arg`): «Откликнуться шаблоном» —
+`jr:<заявка>:<шаблон>`, 48 байт. Кнопки одного модуля, которые он сам и обрабатывает (`avail:` в
+specialists), кодек не нужен.
 """
 
 import re
@@ -17,7 +18,8 @@ from app.platform.telegram.deeplinks import base62_to_uuid, uuid_to_base62
 
 MAX_CALLBACK_DATA: Final = 64
 """Предел Bot API для `callback_data`, байт."""
-_ARG: Final = re.compile(r"[a-z_]{1,24}")
+_ARG: Final = re.compile(r"[A-Za-z0-9_]{1,24}")
+"""Код (`found`, `hired_here`) или id в base62."""
 
 
 class CallbackAction(StrEnum):
@@ -26,6 +28,8 @@ class CallbackAction(StrEnum):
     JOB_CLOSE = "jc"
     """Закрыть заявку: без аргумента — спросить причину, `found` — спросить, где нашли
     исполнителя, с причиной (`hired_here`, …) — закрыть."""
+    JOB_RESPOND = "jr"
+    """Откликнуться шаблоном (`job.invited`, 5.6; `job.matched`, 5.7): аргумент — id шаблона."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,3 +66,13 @@ def parse_callback(raw: str | None) -> CallbackData | None:
     if entity is None or (arg is not None and _ARG.fullmatch(arg) is None):
         return None
     return CallbackData(action, entity, arg)
+
+
+def ref_arg(ref: UUID) -> str:
+    """Второй id аргументом кнопки: «Откликнуться шаблоном» — id шаблона."""
+    return uuid_to_base62(ref)
+
+
+def arg_ref(arg: str | None) -> UUID | None:
+    """id из аргумента кнопки; не id — None."""
+    return base62_to_uuid(arg) if arg else None

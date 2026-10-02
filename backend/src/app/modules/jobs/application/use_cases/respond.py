@@ -18,8 +18,8 @@ from app.modules.jobs.application.ports import (
     ResponseTemplates,
 )
 from app.modules.jobs.application.review import request_response_review
+from app.modules.jobs.application.visibility import visible_to
 from app.modules.jobs.domain.job import JobId
-from app.modules.jobs.domain.policies import can_view
 from app.modules.jobs.domain.response import Offer, ResponseId
 from app.modules.jobs.domain.template import TemplateId
 from app.modules.jobs.errors import (
@@ -82,7 +82,7 @@ class Respond:
             ):
                 raise TemplateNotFoundError(template_id=cmd.template_id)
             job = await self._jobs.get_for_update(cmd.job_id)
-            if not can_view(client_id=job.client_id, status=job.status, viewer_id=cmd.actor_id):
+            if not await visible_to(self._queries, job, cmd.actor_id):
                 raise JobNotFoundError(job_id=cmd.job_id)
             response = job.respond(
                 response_id=ResponseId(new_id()),

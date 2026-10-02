@@ -23,7 +23,12 @@ from app.modules.notifications.domain.notification import (
 )
 from app.modules.notifications.domain.settings import NotificationSettings
 from app.platform.contracts.events.identity import BotStarted, UserDeleted, UserRestricted
-from app.platform.contracts.events.jobs import JobExpired, JobExpiring, ResponseSubmitted
+from app.platform.contracts.events.jobs import (
+    JobExpired,
+    JobExpiring,
+    JobInvited,
+    ResponseSubmitted,
+)
 from app.platform.contracts.events.moderation import ModerationDecisionMade
 from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.kernel.ids import UserId
@@ -216,6 +221,12 @@ NOTIFY_RESPONSES: Final = TaskRef(
     "notifications.notify_responses", ResponsesWindow, queue="notifications"
 )
 """Конец окна: «Новых откликов: 3» по видимым клиенту и ещё не открытым откликам."""
+
+NOTIFY_JOB_INVITED: Final = TaskRef(
+    "notifications.notify_job_invited", JobInvited, queue="notifications"
+)
+"""Подписчик JobInvited (5.6): специалисту — «Вас пригласили» или «Прямой запрос» с «Посмотреть
+заявку» и кнопками его шаблонов."""
 
 FORGET_RECIPIENT: Final = TaskRef("notifications.forget_recipient", UserDeleted)
 """Подписчик UserDeleted: всё о получателе удалённого аккаунта (§7.10)."""

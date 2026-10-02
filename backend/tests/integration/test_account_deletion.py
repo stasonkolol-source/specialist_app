@@ -196,6 +196,21 @@ async def test_deleted_account_keeps_nothing_personal(
     profile_id = await account.scalar(
         "SELECT id FROM specialists.profiles WHERE user_id = :user", user=account.user_id
     )
+    # приглашение его профиля в чужую заявку (5.6) — строкой: после удаления его нет
+    await account.execute(
+        "INSERT INTO jobs.invites (job_id, profile_id, performer_id) SELECT j.id, :profile, :user"
+        " FROM jobs.jobs j WHERE j.client_id <> :user AND j.title = 'Собрать шкаф' LIMIT 1",
+        profile=profile_id,
+        user=account.user_id,
+    )
+    assert (
+        await count(
+            account,
+            "SELECT count(*) FROM jobs.invites WHERE performer_id = :user",
+            user=account.user_id,
+        )
+        == 1
+    )
 
     requested = await account.call("POST", "/me/deletion")
     assert requested.status_code == 200
@@ -265,6 +280,7 @@ async def test_deleted_account_keeps_nothing_personal(
         " AND status IN ('submitted', 'viewed', 'shortlisted')",
         "шаблоны откликов": "SELECT count(*) FROM jobs.response_templates WHERE user_id = :user"
         " AND (deleted_at IS NULL OR message <> '—' OR title <> '—')",
+        "приглашения": "SELECT count(*) FROM jobs.invites WHERE performer_id = :user",
     }
     for what, sql in mine.items():
         assert await count(account, sql, user=account.user_id) == 0, what

@@ -1350,12 +1350,14 @@ CREATE TABLE jobs.saved_jobs (       -- сохранённые заявки: с�
   PRIMARY KEY (user_id, job_id)        -- до 100 на пользователя (`saved_jobs_full`)
 );
 
-CREATE TABLE jobs.invites (          -- «пригласить специалиста» в уже опубликованную заявку (S21)
-  job_id     uuid NOT NULL REFERENCES jobs.jobs(id),
-  profile_id uuid NOT NULL REFERENCES specialists.profiles(id),
-  invited_at timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (job_id, profile_id)
+CREATE TABLE jobs.invites (          -- «пригласить специалиста» в опубликованную заявку (S21, S23) и прямой запрос (5.6)
+  job_id       uuid NOT NULL REFERENCES jobs.jobs(id),
+  profile_id   uuid NOT NULL REFERENCES specialists.profiles(id),
+  performer_id uuid NOT NULL REFERENCES identity.users(id),  -- владелец профиля: видит прямой запрос
+  invited_at   timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (job_id, profile_id)     -- до 10 на заявку (`job_invites_full`), под блокировкой строки заявки
 );
+CREATE INDEX ON jobs.invites (performer_id, job_id);
 
 CREATE TABLE jobs.response_templates (   -- шаблоны откликов (5.5): не больше 2, оба — кнопками в уведомлении бота
   id                uuid PRIMARY KEY DEFAULT uuidv7(),
@@ -2444,22 +2446,22 @@ sequenceDiagram
 | `POST /jobs/parse` | v1: свободный текст или голос → черновик заявки (категория, срочность, бюджет, район) |
 | `GET /jobs` 🔓 | Лента доски: `city_id`, `category` (с подкатегориями), `district`, `lat` + `lon` + `radius_km`, `urgency`, `budget_from`, `lang`, `has_photos=true`, курсор; свежие сверху; свои и скрытые зрителем — нет; `feed=alerts` (по моим подпискам) — с 5.7 |
 | `GET /jobs/count` 🔓 | Сколько заявок с теми же фильтрами: «Показать N» S14; `new_hours` — «N новых задач рядом» на Главной |
-| `GET /jobs/{id}` 🔓 | Детали, фото и `viewer_role` (`owner` / `viewer`); блок клиента — имя, «в «Соседях» с…», сколько заявок публиковал; гость и исполнитель видят опубликованную заявку со смещённой точкой; точная точка и адрес — владельцу и выбранному исполнителю; исполнителю — его отклик `my_response` (`id`, `status`, `review`): MainButton «Вы откликнулись» на S15 (5.5) |
+| `GET /jobs/{id}` 🔓 | Детали, фото и `viewer_role` (`owner` / `viewer`); блок клиента — имя, «в «Соседях» с…», сколько заявок публиковал; гость и исполнитель видят опубликованную заявку со смещённой точкой; точная точка и адрес — владельцу и выбранному исполнителю; исполнителю — его отклик `my_response` (`id`, `status`, `review`): MainButton «Вы откликнулись» на S15 (5.5); прямой запрос — только приглашённым; вошедший не владелец — просмотр (не чаще раза в сутки от человека), `views_count` — владельцу (S23, 5.6) |
 | `PATCH /jobs/{id}` | Правка владельцем (существенные правки → повторная модерация) |
 | `POST /jobs/{id}/close`, `/extend` | Переходы state machine: закрыть с причиной; продлить `published` до истечения или переопубликовать `expired` (не больше 3 раз). Отдельного `submit` нет: заявка создаётся отправленной. Возврат в `published` после отмены сделки происходит автоматически по событию `DealCancelled` |
-| `POST /jobs/{id}/invites` | Пригласить специалистов из каталога в уже опубликованную заявку (S21) → уведомление `job.invited` |
+| `POST /jobs/{id}/invites`, `GET /jobs/{id}/invites` | Пригласить специалистов из каталога в свою открытую заявку (S21, S23; 5.6): `{profile_ids}`, до 10 на заявку (409 `job_invites_full`), повтор — без дублей; профиль скрыт, удалён или автор под санкцией — 404 `invitee_not_found`, свой — 409 `own_profile_invite`. Новому приглашённому — уведомление `job.invited`. `GET` — кого пригласили, по порядку |
 | `DELETE /jobs/{id}` | Удалить (soft) |
 | `POST /jobs/{id}/hide` | «Не интересно» — скрыть из своей ленты |
 | `GET /me/jobs?status=` | Заявки клиента |
 | `POST /jobs/{id}/responses` | Откликнуться (5.4, Idempotency-Key): `{message, price_type, price_amount, availability_note, template_id?}` — из своего шаблона отклик хранит его id (чужой — 404 `response_template_not_found`); профиль — опубликованный профиль специалиста автора, если есть. Пять мест на заявку под блокировкой её строки; 409 `job_not_open`, `own_job`, `already_responded`, `job_full`; суточный лимит по уровню доверия — 429. Текст — на проверку: клиент видит отклик после неё |
-| `GET /me/response-templates`, `POST /me/response-templates` (Idempotency-Key), `PATCH /me/response-templates/{id}`, `DELETE /me/response-templates/{id}` | Шаблоны откликов (5.5): не больше двух, по порядку, первый — основной (S16 подставляет его сразу), `limit` — «1 из 2» на S57; третий — 409 `response_templates_full`; `PATCH` — название, предложение целиком (`message` и `price_type` вместе), `primary: true` — «Сделать основным»; после удаления основным становится следующий. Оба шаблона доступны кнопками прямо в уведомлении бота (отклик в один тап, callback `respond:<job>:<tpl>`) |
+| `GET /me/response-templates`, `POST /me/response-templates` (Idempotency-Key), `PATCH /me/response-templates/{id}`, `DELETE /me/response-templates/{id}` | Шаблоны откликов (5.5): не больше двух, по порядку, первый — основной (S16 подставляет его сразу), `limit` — «1 из 2» на S57; третий — 409 `response_templates_full`; `PATCH` — название, предложение целиком (`message` и `price_type` вместе), `primary: true` — «Сделать основным»; после удаления основным становится следующий. Оба шаблона доступны кнопками прямо в уведомлении бота (отклик в один тап, callback `jr:<job>:<tpl>`, id в base62) |
 | `GET /jobs/{id}/responses` | Отклики на свою заявку (владелец; чужая — 404): прошедшие проверку, по порядку, с `is_first` — «Откликнулся первым» |
 | `GET /me/responses?status=` | Мои отклики (исполнитель): группы чипов S17 — `active`, `accepted`, `not_selected`, `archive`; страницы по курсору, `counts` по группам, `today` — «сегодня откликов: 3 из 50» |
 | `GET /responses/{id}` | Свой отклик с заявкой — форма правки S16 (5.5); чужой — 404 |
 | `PATCH /responses/{id}`, `POST /responses/{id}/withdraw` | Правка и отзыв отклика исполнителем, пока клиент не решил (иначе 409 `response_not_active`); правка — снова на проверку; версия заявки растёт |
 | `POST /responses/{id}/shortlist`, `/decline`, `/accept` | Действия клиента; `accept` → создаёт сделку, возвращает `deal_id` |
 | `GET /me/job-alerts`, `POST /me/job-alerts`, `PATCH /me/job-alerts/{id}`, `DELETE /me/job-alerts/{id}` | Подписки на новые заявки |
-| `POST /specialists/{id}/requests` | Прямой запрос специалисту из каталога — заявка с `visibility=direct` |
+| `POST /specialists/{id}/requests` | Прямой запрос специалисту из каталога (S08, S09; 5.6, Idempotency-Key): тело — как у `POST /jobs`, заявка с `visibility=direct` и приглашением этого профиля; модерация — та же, после публикации специалисту `job.invited`. Видят её только клиент и приглашённые: остальным — 404, в ленте её нет, откликнуться может только приглашённый |
 
 **deals / reviews**
 
@@ -2919,7 +2921,7 @@ flowchart LR
 
 | Тип | Кому | Канал | Приоритет | Кнопки |
 |---|---|---|---|---|
-| `job.matched` | Исполнитель с подходящей подпиской | Бот (мгновенно или дайджест) | P2 | «Откликнуться» (deep link `j_…`), до двух кнопок «Откликнуться шаблоном» (callback `respond:<job>:<tpl>`), «Не интересно», «Пауза подписки» |
+| `job.matched` | Исполнитель с подходящей подпиской | Бот (мгновенно или дайджест) | P2 | «Откликнуться» (deep link `j_…`), до двух кнопок «Откликнуться шаблоном» (callback `jr:<job>:<tpl>`, id в base62), «Не интересно», «Пауза подписки» |
 | `response.received` | Клиент | Бот + in-app, дебаунс окном 5 мин (5.4): первый отклик ставит задачу на конец окна, остальные, пока она ждёт, — ничего (замок очереди по заявке); в тексте — видимые клиенту и ещё не открытые отклики | P1 | «Посмотреть отклики» |
 | `response.accepted` / `response.not_selected` | Исполнитель | Бот + in-app | P0 / P3 | «Открыть сделку» (адрес — только внутри Mini App, в тексте бота его нет), «Написать» |
 | `job.invited` | Приглашённый специалист | Бот + in-app | P1 | «Посмотреть заявку», «Откликнуться шаблоном» |

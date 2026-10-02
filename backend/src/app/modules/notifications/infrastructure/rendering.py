@@ -4,7 +4,8 @@
 payload: коды превращаются в слова каталога, даты — в время Белграда на языке читателя.
 Для бота заголовок и текст экранируются целиком и заголовок выделяется `<b>`: ни шаблон,
 ни параметр не внесут в сообщение разметку. Кнопка — web_app с кодом deep link; у срока
-заявки (`job.expiring`, `job.expired`) — callback-кнопки «Продлить» и «Закрыть»: их
+заявки (`job.expiring`, `job.expired`) — callback-кнопки «Продлить» и «Закрыть», у приглашения
+(`job.invited`, 5.6) — «Посмотреть заявку» и «Откликнуться: «…»» на каждый шаблон получателя:
 нажатие обрабатывает бот модуля jobs (platform/telegram/callbacks.py).
 
 Шаблоны есть у типов, которые создаёт подписчик (tasks.py): тип без шаблонов — ошибка
@@ -23,7 +24,12 @@ from app.platform.i18n.dates import long_datetime
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.localized import Locale
 from app.platform.telegram.buttons import mini_app_url
-from app.platform.telegram.callbacks import CallbackAction, CallbackData, encode_callback
+from app.platform.telegram.callbacks import (
+    CallbackAction,
+    CallbackData,
+    encode_callback,
+    ref_arg,
+)
 from app.platform.telegram.port import AppButton, Button, CallbackButton
 
 RENDERED = frozenset(
@@ -35,6 +41,7 @@ RENDERED = frozenset(
         NotificationType.JOB_EXPIRING,
         NotificationType.JOB_EXPIRED,
         NotificationType.RESPONSE_RECEIVED,
+        NotificationType.JOB_INVITED,
     }
 )
 """Типы с шаблонами: остальные получат их вместе со своими подписчиками."""
@@ -45,6 +52,8 @@ FOUND = "found"
 """Аргумент «Закрыть» у `job.expiring`: спросить, где нашёлся исполнитель (callbacks.py)."""
 TITLE_CHARS = 60
 """Название заявки в тексте — не длиннее, дальше «…»."""
+TEMPLATE_BUTTONS = 2
+"""Кнопок «Откликнуться: «…»» — по шаблонам получателя (их не больше двух)."""
 
 BUTTONS: Mapping[NotificationType, str] = MappingProxyType(
     {
@@ -81,6 +90,8 @@ class GettextNotificationRenderer:
             return self._job_term(type_, params, locale)
         if type_ is NotificationType.RESPONSE_RECEIVED:
             return self._responses(params, locale)
+        if type_ is NotificationType.JOB_INVITED:
+            return self._invited(params, locale)
         if type_ is NotificationType.PROFILE_PUBLISHED:
             return RenderedText(
                 title=self._t("notifications.profile_published.title", locale),
@@ -104,6 +115,8 @@ class GettextNotificationRenderer:
         message = f"<b>{_escape(text.title)}</b>\n{_escape(text.body)}"
         if type_ in JOB_TERM:
             return message, self._job_buttons(type_, params, locale)
+        if type_ is NotificationType.JOB_INVITED:
+            return message, self._invite_buttons(params, link, locale)
         label = BUTTONS.get(type_)
         if label is None or link is None or self._mini_app is None:
             return message, ()
@@ -146,6 +159,52 @@ class GettextNotificationRenderer:
                 ),
             )
         )
+        return tuple(buttons)
+
+    def _invited(self, params: Mapping[str, str], locale: Locale) -> RenderedText:
+        """«Вас приглашают откликнуться» или «Прямой запрос»: кто и на какую заявку."""
+        key = "_direct" if params.get("direct") == "true" else ""
+        client = params.get("client") or self._t("notifications.job_invited.client", locale)
+        return RenderedText(
+            title=self._t(f"notifications.job_invited.title{key}", locale),
+            body=self._t(
+                f"notifications.job_invited.body{key}",
+                locale,
+                client=client,
+                title=_short(params.get("title")),
+            ),
+        )
+
+    def _invite_buttons(
+        self, params: Mapping[str, str], link: str | None, locale: Locale
+    ) -> tuple[Button, ...]:
+        """«Посмотреть заявку» и «Откликнуться: «Могу сегодня»» — на каждый шаблон."""
+        buttons: list[Button] = []
+        if link is not None and self._mini_app is not None:
+            buttons.append(
+                AppButton(
+                    text=self._t("notifications.job_invited.button", locale),
+                    url=mini_app_url(self._mini_app, link),
+                )
+            )
+        try:
+            job_id = UUID(params.get("job_id", ""))
+        except ValueError:
+            return tuple(buttons)
+        for index in range(TEMPLATE_BUTTONS):
+            try:
+                template_id = UUID(params.get(f"template_{index}", ""))
+            except ValueError:
+                continue
+            title = params.get(f"template_{index}_title", "")
+            buttons.append(
+                CallbackButton(
+                    text=self._t("notifications.job_invited.template", locale, title=title),
+                    data=encode_callback(
+                        CallbackData(CallbackAction.JOB_RESPOND, job_id, ref_arg(template_id))
+                    ),
+                )
+            )
         return tuple(buttons)
 
     def _responses(self, params: Mapping[str, str], locale: Locale) -> RenderedText:

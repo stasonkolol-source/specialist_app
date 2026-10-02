@@ -56,6 +56,7 @@ from app.modules.jobs.domain.response import (
 )
 from app.modules.jobs.infrastructure.models import (
     HiddenJobRow,
+    InviteRow,
     JobMediaRow,
     JobRow,
     ResponseRow,
@@ -71,6 +72,7 @@ _M = JobMediaRow.__table__.c
 _H = HiddenJobRow.__table__.c
 _S = SavedJobRow.__table__.c
 _R = ResponseRow.__table__.c
+_I = InviteRow.__table__.c
 _OPEN = and_(_J.status == JobStatus.PUBLISHED.value, _J.deleted_at.is_(None))
 """Опубликованная и не удалённая: частичный индекс ix_jobs_expires_at."""
 DISTANCE_STEP_M = 100
@@ -229,6 +231,12 @@ class SqlJobQueries(SqlQuery):
         more = len(rows) > page.limit
         cursor = encode_cursor(last.created_at, last.id) if more and last else None
         return Page(items=tuple(items), next_cursor=cursor)
+
+    async def is_invited(self, job_id: JobId, performer_id: UserId) -> bool:
+        row = await self._fetch_one(
+            select(_I.job_id).where(_I.job_id == job_id, _I.performer_id == performer_id).limit(1)
+        )
+        return row is not None
 
     async def performer_response(self, job_id: JobId, performer_id: UserId) -> MyResponseRef | None:
         row = await self._fetch_one(
@@ -523,6 +531,7 @@ def _view(row: RowMapping) -> JobView:
         max_responses=row["max_responses"],
         responses_count=row["responses_count"],
         extensions_count=row["extensions_count"],
+        views_count=row["views_count"],
         moderation_note=row["moderation_note"],
         version=row["version"],
         created_at=row["created_at"],

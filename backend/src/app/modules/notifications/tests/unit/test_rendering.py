@@ -13,7 +13,13 @@ from app.modules.notifications.infrastructure.rendering import RENDERED, Gettext
 from app.platform.contracts.events.identity import RestrictionKind
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.localized import Locale
-from app.platform.telegram.callbacks import CallbackAction, CallbackData, parse_callback
+from app.platform.telegram.callbacks import (
+    CallbackAction,
+    CallbackData,
+    arg_ref,
+    parse_callback,
+    ref_arg,
+)
 from app.platform.telegram.deeplinks import (
     LinkType,
     StartLink,
@@ -182,6 +188,7 @@ def test_types_without_templates_are_refused(renderer: GettextNotificationRender
         NotificationType.JOB_EXPIRING,
         NotificationType.JOB_EXPIRED,
         NotificationType.RESPONSE_RECEIVED,
+        NotificationType.JOB_INVITED,
     }
     with pytest.raises(ValueError, match="no templates"):
         renderer.text(NotificationType.JOB_MATCHED, {}, Locale.RU)
@@ -314,3 +321,66 @@ def test_new_responses_texts_on_three_scripts(
         )
         assert "notifications." not in text
         assert all("notifications." not in b.text for b in buttons)
+
+
+TEMPLATE_ID = UUID("01a0fc88-f156-726a-9a76-99e3d10e5543")
+
+
+def invite_params(*, direct: bool, templates: int = 1) -> dict[str, str]:
+    params = {
+        "job_id": str(JOB_ID),
+        "title": "Повесить люстру",
+        "client": "Елена К.",
+        "direct": "true" if direct else "false",
+    }
+    if templates:
+        params |= {"template_0": str(TEMPLATE_ID), "template_0_title": "Могу сегодня"}
+    return params
+
+
+def test_invitation_leads_to_the_job_and_responds_with_a_template(
+    renderer: GettextNotificationRenderer,
+) -> None:
+    link = encode_start_param(StartLink(type=LinkType.JOB, id=JOB_ID))
+
+    text, buttons = renderer.telegram(
+        NotificationType.JOB_INVITED, invite_params(direct=False), link, Locale.RU
+    )
+
+    assert text == (
+        "<b>Вас приглашают откликнуться</b>\n"
+        "Елена К. приглашает вас откликнуться на заявку «Повесить люстру»."
+    )
+    app, template = buttons
+    assert isinstance(app, AppButton)
+    assert (app.text, app.url) == ("Посмотреть заявку", f"{MINI_APP}?startapp={link}")
+    assert isinstance(template, CallbackButton)
+    assert template.text == "Откликнуться: «Могу сегодня»"
+    data = parse_callback(template.data)
+    assert data == CallbackData(CallbackAction.JOB_RESPOND, JOB_ID, ref_arg(TEMPLATE_ID))
+    assert arg_ref(data.arg) == TEMPLATE_ID
+
+
+def test_direct_request_says_only_you_see_it(renderer: GettextNotificationRenderer) -> None:
+    text, buttons = renderer.telegram(
+        NotificationType.JOB_INVITED,
+        invite_params(direct=True, templates=0) | {"client": ""},
+        "j_abc",
+        Locale.RU,
+    )
+
+    assert text.startswith("<b>Прямой запрос</b>\nКлиент просит именно вас: «Повесить люстру».")
+    assert [b.text for b in buttons] == ["Посмотреть заявку"]
+
+
+@pytest.mark.parametrize("locale", SCRIPTS)
+def test_invitation_texts_on_three_scripts(
+    renderer: GettextNotificationRenderer, locale: Locale
+) -> None:
+    for direct in (True, False):
+        text, buttons = renderer.telegram(
+            NotificationType.JOB_INVITED, invite_params(direct=direct, templates=1), "j_x", locale
+        )
+        assert "notifications." not in text
+        assert all("notifications." not in b.text for b in buttons)
+        assert len(buttons) == 2

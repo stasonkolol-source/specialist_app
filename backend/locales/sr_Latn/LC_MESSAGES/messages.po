@@ -51,6 +51,9 @@ msgstr "„Dostupan danas“ je za objavljen profil stručnjaka. Profil možete 
 msgid "bot.jobs.extended"
 msgstr "Zahtev „{title}“ je produžen do {until}."
 
+msgid "bot.jobs.responded"
+msgstr "Ponuda je poslata šablonom „{template}“ — naručilac će je videti posle provere."
+
 msgid "bot.jobs.closed"
 msgstr "Zahtev „{title}“ je zatvoren."
 
@@ -459,6 +462,15 @@ msgstr "Šablon nije pronađen: obrisan je."
 msgid "errors.response_templates_full"
 msgstr "Već imate najviše šablona ({limit}) — obrišite jedan da biste dodali novi."
 
+msgid "errors.job_invites_full"
+msgstr "U zahtev je već pozvano {limit} izvođača — više nije moguće pozvati."
+
+msgid "errors.invitee_not_found"
+msgstr "Izvođač nije pronađen: profil je sakriven ili obrisan."
+
+msgid "errors.own_profile_invite"
+msgstr "Ne možete pozvati sami sebe."
+
 msgid "errors.job_not_found"
 msgstr "Zahtev nije pronađen: obrisan je ili vam nije vidljiv."
 
@@ -600,6 +612,27 @@ msgstr "Novih ponuda: {count} — na zahtev „{title}“. Otvorite da uporedite
 
 msgid "notifications.response_received.button"
 msgstr "Pogledaj ponude"
+
+msgid "notifications.job_invited.title"
+msgstr "Pozvani ste da pošaljete ponudu"
+
+msgid "notifications.job_invited.title_direct"
+msgstr "Direktan zahtev"
+
+msgid "notifications.job_invited.body"
+msgstr "{client} vas poziva da pošaljete ponudu za zahtev „{title}“."
+
+msgid "notifications.job_invited.body_direct"
+msgstr "{client} traži baš vas: „{title}“. Ovaj zahtev vidite samo vi."
+
+msgid "notifications.job_invited.client"
+msgstr "Naručilac"
+
+msgid "notifications.job_invited.button"
+msgstr "Pogledaj zahtev"
+
+msgid "notifications.job_invited.template"
+msgstr "Ponuda: „{title}“"
 
 msgid "notifications.job_expiring.title"
 msgstr "Zahtev uskoro ističe"

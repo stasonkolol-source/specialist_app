@@ -4,8 +4,9 @@
 from dataclasses import dataclass
 
 from app.modules.jobs.application.ports import JobQueries, SavedJobs
+from app.modules.jobs.application.visibility import visible_to
 from app.modules.jobs.domain.job import JobId, JobStatus
-from app.modules.jobs.domain.policies import MAX_SAVED_JOBS, can_view
+from app.modules.jobs.domain.policies import MAX_SAVED_JOBS
 from app.modules.jobs.errors import JobNotFoundError, SavedJobsFullError
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import UserId
@@ -26,7 +27,7 @@ class SaveJob:
         if (
             job is None
             or job.status is not JobStatus.PUBLISHED
-            or not can_view(client_id=job.client_id, status=job.status, viewer_id=cmd.actor_id)
+            or not await visible_to(self._queries, job, cmd.actor_id)
         ):
             raise JobNotFoundError(job_id=cmd.job_id)
         async with self._uow:

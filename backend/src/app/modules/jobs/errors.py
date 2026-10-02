@@ -130,3 +130,23 @@ class TemplatesFullError(ConflictError):
 
     code = "response_templates_full"
     public_params = ("limit",)
+
+
+class JobInvitesFullError(ConflictError):
+    """В заявку уже приглашено максимум специалистов (десять)."""
+
+    code = "job_invites_full"
+    public_params = ("limit",)
+
+
+class InviteeNotFoundError(NotFoundError):
+    """Пригласить или запросить некого: профиль не опубликован, скрыт, удалён или его автор под
+    санкцией («заблокированного пригласить нельзя»)."""
+
+    code = "invitee_not_found"
+
+
+class OwnProfileInviteError(ConflictError):
+    """Свой профиль в свою заявку не приглашают."""
+
+    code = "own_profile_invite"

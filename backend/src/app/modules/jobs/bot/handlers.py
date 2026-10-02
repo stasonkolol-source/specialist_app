@@ -1,12 +1,15 @@
-"""Бот jobs (DEVELOPMENT_PLAN 5.1): кнопки уведомлений о сроке заявки — `job.expiring` и
-`job.expired` (ARCHITECTURE §11.3). Кнопки рисует notifications, данные — общий кодек
-platform/telegram/callbacks.py.
+"""Бот jobs (DEVELOPMENT_PLAN 5.1, 5.6): кнопки уведомлений о сроке заявки — `job.expiring` и
+`job.expired` — и приглашения `job.invited` (ARCHITECTURE §11.3). Кнопки рисует notifications,
+данные — общий кодек platform/telegram/callbacks.py.
 
 - «Продлить» — тот же ExtendJob, что `POST /jobs/{id}/extend` и S23: сообщение заменяется
   итогом «продлена до …».
 - «Закрыть» сначала спрашивает причину кнопками под тем же сообщением: у `job.expiring`
   («исполнитель найден») — где нашёлся, у `job.expired` — все четыре причины; рядом остаётся
   «Продлить», если передумали. Выбор вызывает CloseJob, как S23.
+- «Откликнуться: «Могу сегодня»» — тот же Respond, что S16, с предложением из шаблона: ответ на
+  нажатие «Отклик отправлен…», кнопки шаблонов под сообщением пропадают («Посмотреть заявку»
+  остаётся). Мест нет, уже откликались, лимит дня, шаблон удалён — текстом ошибки.
 Владелец — по Telegram: чужая или удалённая заявка — «не найдена» (ErrorMiddleware).
 """
 
@@ -21,7 +24,12 @@ from app.modules.jobs.application.dto import JobView
 from app.modules.jobs.application.ports import JobQueries
 from app.modules.jobs.application.use_cases.close_job import CloseJob, CloseJobCommand
 from app.modules.jobs.application.use_cases.extend_job import ExtendJob, ExtendJobCommand
+from app.modules.jobs.application.use_cases.respond_with_template import (
+    RespondWithTemplate,
+    RespondWithTemplateCommand,
+)
 from app.modules.jobs.domain.job import CLOSABLE, MAX_EXTENSIONS, CloseReason, JobId, JobStatus
+from app.modules.jobs.domain.template import TemplateId
 from app.modules.jobs.errors import JobNotFoundError, JobNotOpenError
 from app.platform.i18n.dates import long_datetime
 from app.platform.i18n.translator import Translator
@@ -30,6 +38,7 @@ from app.platform.kernel.principal import Principal
 from app.platform.telegram.callbacks import (
     CallbackAction,
     CallbackData,
+    arg_ref,
     encode_callback,
     parse_callback,
 )
@@ -110,6 +119,53 @@ async def close(
     await _replace(callback, html_text(translator, "bot.jobs.closed", locale, title=job.title))
 
 
+@inject
+async def respond(
+    callback: CallbackQuery,
+    locale: Locale,
+    translator: FromDishka[Translator],
+    respond_with_template: FromDishka[RespondWithTemplate],
+    principal: Principal | None = None,
+) -> None:
+    data = parse_callback(callback.data)
+    template_id = arg_ref(data.arg) if data is not None else None
+    if principal is None or data is None or template_id is None:
+        await callback.answer()
+        return
+    template, _ = await respond_with_template(
+        RespondWithTemplateCommand(
+            actor_id=principal.user_id,
+            trust_level=principal.trust_level,
+            job_id=JobId(data.id),
+            template_id=TemplateId(template_id),
+        )
+    )
+    await callback.answer(
+        plain_text(translator, "bot.jobs.responded", locale, template=template.title)
+    )
+    await _drop_template_buttons(callback)
+
+
+async def _drop_template_buttons(callback: CallbackQuery) -> None:
+    """Откликнулись — кнопки шаблонов больше не нужны; «Посмотреть заявку» остаётся."""
+    message = callback.message
+    if not isinstance(message, Message) or message.reply_markup is None:
+        return
+    rows = [
+        row
+        for row in message.reply_markup.inline_keyboard
+        if not any(
+            (button.callback_data or "").startswith(f"{CallbackAction.JOB_RESPOND}:")
+            for button in row
+        )
+    ]
+    try:
+        await message.edit_reply_markup(reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+    except TelegramBadRequest as exc:  # двойное нажатие: разметка уже та же
+        if "message is not modified" not in exc.message:
+            raise
+
+
 def _reasons(
     job: JobView, reasons: tuple[CloseReason, ...], translator: Translator, locale: Locale
 ) -> InlineKeyboardMarkup:
@@ -154,4 +210,5 @@ def create_router() -> Router:
     router = Router(name="jobs")
     router.callback_query.register(extend, F.data.startswith(f"{CallbackAction.JOB_EXTEND}:"))
     router.callback_query.register(close, F.data.startswith(f"{CallbackAction.JOB_CLOSE}:"))
+    router.callback_query.register(respond, F.data.startswith(f"{CallbackAction.JOB_RESPOND}:"))
     return router

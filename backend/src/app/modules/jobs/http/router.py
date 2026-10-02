@@ -20,6 +20,10 @@
   «Мои отклики» S17; `GET /jobs/{id}/responses` — владельцу заявки (S23).
 - Шаблоны откликов (5.5): `GET`, `POST` (Idempotency-Key), `PATCH` и `DELETE
   /me/response-templates` — до двух, первый — основной; отклик из шаблона несёт `template_id`.
+- Приглашения и прямой запрос (5.6): `POST` и `GET /jobs/{id}/invites` — владельцу, до десяти
+  специалистов; `POST /specialists/{id}/requests` (Idempotency-Key) — заявка с
+  `visibility = direct`, видна только приглашённому. Открытие заявки не владельцем считается
+  просмотром (`views_count` — владельцу).
 Лимиты новичка — в use case (§13.3); лента и счётчик — 60 / 120 запросов в минуту.
 """
 
@@ -37,6 +41,10 @@ from app.modules.jobs.application.ports import JobQueries
 from app.modules.jobs.application.responses import ResponseGroup
 from app.modules.jobs.application.use_cases.browse_jobs import BrowseJobs, BrowseJobsCommand
 from app.modules.jobs.application.use_cases.close_job import CloseJob, CloseJobCommand
+from app.modules.jobs.application.use_cases.count_job_view import (
+    CountJobView,
+    CountJobViewCommand,
+)
 from app.modules.jobs.application.use_cases.create_job import CreateJob, CreateJobCommand
 from app.modules.jobs.application.use_cases.create_template import (
     CreateTemplate,
@@ -50,6 +58,14 @@ from app.modules.jobs.application.use_cases.delete_template import (
 from app.modules.jobs.application.use_cases.edit_job import EditJob, EditJobCommand
 from app.modules.jobs.application.use_cases.extend_job import ExtendJob, ExtendJobCommand
 from app.modules.jobs.application.use_cases.hide_job import HideJob, HideJobCommand
+from app.modules.jobs.application.use_cases.invite_specialists import (
+    InviteSpecialists,
+    InviteSpecialistsCommand,
+)
+from app.modules.jobs.application.use_cases.list_job_invites import (
+    ListJobInvites,
+    ListJobInvitesCommand,
+)
 from app.modules.jobs.application.use_cases.list_job_responses import (
     ListJobResponses,
     ListJobResponsesCommand,
@@ -87,9 +103,11 @@ from app.modules.jobs.domain.response import ResponseId
 from app.modules.jobs.domain.template import TemplateId
 from app.modules.jobs.errors import JobNotFoundError, ResponseNotFoundError
 from app.modules.jobs.http.schemas import (
+    InvitesIn,
     JobCardOut,
     JobCloseIn,
     JobIn,
+    JobInvitesOut,
     JobOut,
     JobResponseOut,
     JobResponsesOut,
@@ -136,6 +154,7 @@ creating = idempotent_router()
 JobPath = Annotated[UUID, Path(description="id заявки")]
 ResponsePath = Annotated[UUID, Path(description="id отклика")]
 TemplatePath = Annotated[UUID, Path(description="id шаблона отклика")]
+ProfilePath = Annotated[UUID, Path(description="id профиля специалиста")]
 Viewer = Annotated[Principal | None, Depends(optional_principal)]
 
 
@@ -207,6 +226,36 @@ async def create_response_template(
         CreateTemplateCommand(actor_id=principal.user_id, title=body.title, offer=body.offer())
     )
     return ResponseTemplateOut.of(template)
+
+
+@creating.post(
+    "/specialists/{profile_id:uuid}/requests",
+    status_code=status.HTTP_201_CREATED,
+    response_model=JobOut,
+    dependencies=AUTHENTICATED,
+)
+@inject
+async def request_specialist(
+    profile_id: ProfilePath,
+    body: JobIn,
+    principal: FromDishka[Principal],
+    locale: FromDishka[Locale],
+    create: FromDishka[CreateJob],
+    show: FromDishka[ShowJob],
+    response: Response,
+) -> JobOut:
+    """Прямой запрос специалисту (S08 «Написать», S09 «Заказать эту услугу»): заявка, которую
+    видит только он, — на проверку, как любая; после публикации ему уведомление. Профиль скрыт,
+    удалён или автор под санкцией — 404 `invitee_not_found`; свой — 409 `own_profile_invite`."""
+    job_id = await create(
+        CreateJobCommand(
+            actor_id=principal.user_id,
+            trust_level=principal.trust_level,
+            draft=body.draft(_language(locale)),
+            direct_profile_id=profile_id,
+        )
+    )
+    return await _own(show, job_id, principal.user_id, response)
 
 
 router.include_router(creating)
@@ -299,14 +348,21 @@ async def count_jobs(
 @router.get("/jobs/{job_id:uuid}", response_model=JobOut)
 @inject
 async def get_job(
-    job_id: JobPath, viewer: Viewer, show: FromDishka[ShowJob], response: Response
+    job_id: JobPath,
+    viewer: Viewer,
+    show: FromDishka[ShowJob],
+    count_view: FromDishka[CountJobView],
+    response: Response,
 ) -> JobOut:
-    """Заявка 🔓: опубликованная — всем без точной точки и адреса, своя — владельцу целиком."""
+    """Заявка 🔓: опубликованная — всем без точной точки и адреса, своя — владельцу целиком;
+    прямой запрос — только приглашённому. Вошедший не владелец — просмотр (раз в сутки)."""
     viewer_id = viewer.user_id if viewer is not None else None
     details = await show(ShowJobCommand(job_id=JobId(job_id), viewer_id=viewer_id))
     owner = viewer_id == details.job.client_id
     if owner:
         set_etag(response, details.job.version)
+    elif viewer_id is not None and details.job.status is JobStatus.PUBLISHED:
+        await count_view(CountJobViewCommand(job_id=JobId(job_id), viewer_id=viewer_id))
     return JobOut.of(details, owner=owner)
 
 
@@ -627,3 +683,34 @@ async def _my_response(
     if found is None:
         raise ResponseNotFoundError(response_id=response_id)
     return MyResponseOut.of(found)
+
+
+@router.post(
+    "/jobs/{job_id:uuid}/invites", response_model=JobInvitesOut, dependencies=AUTHENTICATED
+)
+@inject
+async def invite_specialists(
+    job_id: JobPath,
+    body: InvitesIn,
+    principal: FromDishka[Principal],
+    invite: FromDishka[InviteSpecialists],
+) -> JobInvitesOut:
+    """Пригласить специалистов в свою открытую заявку (S21, S23): им — уведомление с «Посмотреть
+    заявку» и «Откликнуться шаблоном». Повтор — без ошибки; больше десяти — 409 `job_invites_full`;
+    скрытый профиль или автор под санкцией — 404 `invitee_not_found`."""
+    invites = await invite(
+        InviteSpecialistsCommand(
+            actor_id=principal.user_id, job_id=JobId(job_id), profile_ids=body.profile_ids
+        )
+    )
+    return JobInvitesOut.of(invites)
+
+
+@router.get("/jobs/{job_id:uuid}/invites", response_model=JobInvitesOut, dependencies=AUTHENTICATED)
+@inject
+async def list_job_invites(
+    job_id: JobPath, principal: FromDishka[Principal], invites: FromDishka[ListJobInvites]
+) -> JobInvitesOut:
+    """Кого владелец пригласил в заявку (S23), по порядку. Чужая — 404."""
+    found = await invites(ListJobInvitesCommand(actor_id=principal.user_id, job_id=JobId(job_id)))
+    return JobInvitesOut.of(found)
