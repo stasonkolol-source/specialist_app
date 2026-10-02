@@ -1,14 +1,23 @@
 // Лента заявок S13–S15 (DEVELOPMENT_PLAN 5.3) на фейке backend: вкладка «Заявки» → «До 3 км» →
 // шторка S14 с «Мастер на час» → «Показать 3 заявки» → лента S13, как на артборде (тёмная — D13)
-// → заявка S15. Скриншоты × тема × язык, axe-core. Часы браузера — E2E_NOW (10:00 по Белграду):
-// окно «18–21» ещё сегодня. Ссылка `startapp=j_…` открывает S15 сразу. Имена скриншотов
-// начинаются с кода артборда: make design-compare кладёт их рядом с эталоном.
+// → заявка S15; сохранённые заявки — сегмент «Задачи» избранного S12. Скриншоты × тема × язык,
+// axe-core. Часы браузера — E2E_NOW (10:00 по Белграду): окно «18–21» ещё сегодня. Ссылка
+// `startapp=j_…` открывает S15 сразу. Имена скриншотов начинаются с кода артборда: make
+// design-compare кладёт их рядом с эталоном.
 import { encodeStartParam } from '@sosed/links';
 import { expect, test } from '@playwright/test';
 
 import { E2E_NOW, ME } from '../src/testing/fixtures.ts';
 import { FEED_JOBS, JobsBackend } from '../src/testing/jobsBackend.ts';
-import { THEMES, expectNoAxeViolations, open, openTab, pressTelegram, real } from './support.ts';
+import {
+  THEMES,
+  expectNoAxeViolations,
+  open,
+  openProfile,
+  openTab,
+  pressTelegram,
+  real,
+} from './support.ts';
 
 const LOCALES = [
   {
@@ -24,6 +33,9 @@ const LOCALES = [
     found: '3 заявки по фильтрам · новые сверху',
     job: 'Повесить люстру',
     client: 'В «Соседях» 3 месяца · 2 заявки',
+    profile: 'Профиль',
+    favorites: 'Избранное',
+    savedJobs: 'Задачи · 2',
   },
   {
     locale: 'sr-Latn',
@@ -38,9 +50,13 @@ const LOCALES = [
     found: '3 zahteva po filterima · najnoviji prvi',
     job: 'Повесить люстру',
     client: 'U aplikaciji „Sosedi“ 3 meseca · 2 zahteva',
+    profile: 'Profil',
+    favorites: 'Omiljeni',
+    savedJobs: 'Zadaci · 2',
   },
 ] as const;
 
+const LEAK = FEED_JOBS[0]?.card.id ?? '';
 const CHANDELIER = FEED_JOBS[1]?.card.id ?? '';
 
 for (const theme of THEMES) {
@@ -89,6 +105,32 @@ for (const theme of THEMES) {
 
       await pressTelegram(page, 'back_button_pressed');
       await expect(page.getByText(l.found)).toBeVisible();
+    });
+  }
+}
+
+for (const theme of THEMES) {
+  for (const l of LOCALES) {
+    test(`S12 ${theme} ${l.locale}: сохранённые заявки — сегмент «Задачи»`, async ({ page }) => {
+      await page.clock.setFixedTime(new Date(E2E_NOW));
+      const jobs = new JobsBackend();
+      jobs.saved = [LEAK, CHANDELIER];
+      const watch = await open(page, `theme=${theme}&lang=${l.telegram}`, {
+        signedIn: true,
+        me: { ...ME, ui_locale: l.locale },
+        jobs,
+      });
+
+      await openProfile(page, l.profile);
+      await page.getByRole('link', { name: l.favorites }).click();
+      await page.getByRole('link', { name: l.savedJobs }).click();
+      await expect(page.getByRole('heading', { name: l.job, level: 2 })).toBeVisible();
+      expect(real(watch.problems)).toEqual([]);
+      expect(watch.unexpectedApi).toEqual([]);
+      await expect(page).toHaveScreenshot(`S12-favorites-jobs-${theme}-${l.locale}.png`, {
+        fullPage: true,
+      });
+      await expectNoAxeViolations(page);
     });
   }
 }

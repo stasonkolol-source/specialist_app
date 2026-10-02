@@ -156,7 +156,11 @@ export async function mockApi(
       if (reply?.status === 204) return route.fulfill({ status: 204 });
       if (reply) return route.fulfill(json(reply.body, reply.status));
     }
-    if (url.pathname.startsWith('/api/v1/me/favorites')) {
+    // сохранённые заявки (5.3) — у фейка заявок, ниже
+    if (
+      url.pathname.startsWith('/api/v1/me/favorites') &&
+      !url.pathname.startsWith('/api/v1/me/favorites/job')
+    ) {
       if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
       const reply = favorites.handle(request.method(), url.pathname, language);
       if (reply?.status === 204) return route.fulfill({ status: 204 });
@@ -171,7 +175,11 @@ export async function mockApi(
     }
     // заявки: создание с ключом идемпотентности и созданная заявка для S21 (5.2); лента, счётчик
     // и «не интересно» (5.3) — лента открыта и гостю
-    if (url.pathname === '/api/v1/jobs' || url.pathname.startsWith('/api/v1/jobs/')) {
+    if (
+      url.pathname === '/api/v1/jobs' ||
+      url.pathname.startsWith('/api/v1/jobs/') ||
+      url.pathname.startsWith('/api/v1/me/favorites/job')
+    ) {
       const body: unknown = request.method() === 'POST' ? request.postDataJSON() : undefined;
       const reply = jobs.handle(
         request.method(),

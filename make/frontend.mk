@@ -32,7 +32,7 @@ PLAYWRIGHT_IMAGE ?= mcr.microsoft.com/playwright:v1.63.0-noble
 PKG ?= ui-web
 E2E_DIR = $(firstword $(wildcard $(ROOT)/packages/$(PKG) $(ROOT)/apps/$(PKG)))
 
-.PHONY: e2e coldstart design-render design-compare
+.PHONY: e2e coldstart feed-perf design-render design-compare
 design-render: fe-install ## Design references: PNG of every artboard into design/reference [GREP=S03]
 	@mkdir -p "$(ROOT)/design/reference"
 	@docker run --rm --init --ipc=host -v "$(ROOT):$(ROOT)" -w "$(ROOT)/packages/ui-web" $(PLAYWRIGHT_IMAGE) \
@@ -43,8 +43,11 @@ design-compare: ## Report «reference next to actual»: make design-compare [GRE
 
 e2e: fe-install ## Playwright in Docker: make e2e [PKG=ui-web] [GREP=…] [UPDATE=1]
 	@$(PNPM) -F $(PKG) e2e:build
-	@docker run --rm --init --ipc=host -e CI -e COLDSTART -v "$(ROOT):$(ROOT)" -w "$(E2E_DIR)" $(PLAYWRIGHT_IMAGE) \
+	@docker run --rm --init --ipc=host -e CI -e COLDSTART -e FEED_PERF -v "$(ROOT):$(ROOT)" -w "$(E2E_DIR)" $(PLAYWRIGHT_IMAGE) \
 	  node node_modules/@playwright/test/cli.js test $(if $(GREP),--grep "$(GREP)") $(if $(UPDATE),--update-snapshots)
 
 coldstart: ## Холодный старт Главной на «среднем Android» (CPU ×4, медленный 4G): < 2,5 с (4.8)
 	@COLDSTART=1 $(MAKE) --no-print-directory e2e PKG=tma GREP=coldstart
+
+feed-perf: ## Прокрутка 1 000 заявок в ленте S13 (CPU ×4): без long tasks длиннее 50 мс (5.3)
+	@FEED_PERF=1 $(MAKE) --no-print-directory e2e PKG=tma GREP=feed-perf
