@@ -2288,6 +2288,53 @@
         }
       }
     },
+    "/api/v1/suggest": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "summary": "Suggest",
+        "description": "Подсказки при вводе: до 8 категорий по началу слова, затем похожие (опечатки).",
+        "operationId": "search_suggest",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Что набрано",
+              "title": "Q"
+            },
+            "description": "Что набрано"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/me/telegram/write-access": {
       "post": {
         "tags": [
@@ -5232,6 +5279,65 @@
           "price"
         ],
         "title": "SpecialistSort"
+      },
+      "SuggestOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SuggestionOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "SuggestOut"
+      },
+      "SuggestionOut": {
+        "properties": {
+          "category_id": {
+            "type": "integer",
+            "title": "Category Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Название категории на языке Accept-Language"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "term": {
+            "type": "string",
+            "title": "Term",
+            "description": "Слово словаря, с которым совпал ввод, — тем же алфавитом"
+          },
+          "fuzzy": {
+            "type": "boolean",
+            "title": "Fuzzy",
+            "description": "Найдено по похожести (опечатка), а не по началу слова"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category_id",
+          "name",
+          "icon",
+          "term",
+          "fuzzy"
+        ],
+        "title": "SuggestionOut"
       },
       "TagOut": {
         "properties": {

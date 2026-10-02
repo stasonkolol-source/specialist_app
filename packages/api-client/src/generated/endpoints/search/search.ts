@@ -17,7 +17,13 @@ import type {
   UseQueryResult,
 } from '@tanstack/react-query';
 
-import type { ProblemOut, SearchListSpecialistsParams, SpecialistPageOut } from '../../model';
+import type {
+  ProblemOut,
+  SearchListSpecialistsParams,
+  SearchSuggestParams,
+  SpecialistPageOut,
+  SuggestOut,
+} from '../../model';
 
 import { apiFetch } from '../../../mutator.ts';
 import type { ErrorType } from '../../../mutator.ts';
@@ -186,6 +192,138 @@ export function useSearchListSpecialists<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getSearchListSpecialistsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getSearchSuggestUrl = (params: SearchSuggestParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/suggest?${stringifiedParams}` : `/api/v1/suggest`;
+};
+
+/**
+ * Подсказки при вводе: до 8 категорий по началу слова, затем похожие (опечатки).
+ * @summary Suggest
+ */
+export const searchSuggest = async (
+  params: SearchSuggestParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<SuggestOut> => {
+  return apiFetch<SuggestOut>(getSearchSuggestUrl(params), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getSearchSuggestQueryKey = (params?: SearchSuggestParams) => {
+  return [`/api/v1/suggest`, ...(params ? [params] : [])] as const;
+};
+
+export const getSearchSuggestQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchSuggest>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: SearchSuggestParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof searchSuggest>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getSearchSuggestQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof searchSuggest>>> = ({ signal }) =>
+    searchSuggest(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchSuggest>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type SearchSuggestQueryResult = NonNullable<Awaited<ReturnType<typeof searchSuggest>>>;
+export type SearchSuggestQueryError = ErrorType<ProblemOut>;
+
+export function useSearchSuggest<
+  TData = Awaited<ReturnType<typeof searchSuggest>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: SearchSuggestParams,
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof searchSuggest>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchSuggest>>,
+          TError,
+          Awaited<ReturnType<typeof searchSuggest>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useSearchSuggest<
+  TData = Awaited<ReturnType<typeof searchSuggest>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: SearchSuggestParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof searchSuggest>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchSuggest>>,
+          TError,
+          Awaited<ReturnType<typeof searchSuggest>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useSearchSuggest<
+  TData = Awaited<ReturnType<typeof searchSuggest>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: SearchSuggestParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof searchSuggest>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Suggest
+ */
+
+export function useSearchSuggest<
+  TData = Awaited<ReturnType<typeof searchSuggest>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: SearchSuggestParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof searchSuggest>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getSearchSuggestQueryOptions(params, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;

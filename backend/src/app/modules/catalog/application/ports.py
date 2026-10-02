@@ -3,7 +3,7 @@
 from collections.abc import Collection, Sequence
 from typing import Protocol
 
-from app.modules.catalog.api import CategorySummary, SearchTerm, TermMatch
+from app.modules.catalog.api import CategorySuggestion, CategorySummary, SearchTerm, TermMatch
 from app.modules.catalog.application.dto import CategorySeed, CategoryView, ImportResult
 from app.platform.kernel.ids import CategoryId
 
@@ -24,6 +24,8 @@ class CatalogQuery(Protocol):
     async def match_query(self, text: str) -> TermMatch | None: ...
 
     async def similar_term(self, text: str) -> TermMatch | None: ...
+
+    async def suggest(self, text: str, *, limit: int) -> list[CategorySuggestion]: ...
 
 
 class CatalogWriter(Protocol):

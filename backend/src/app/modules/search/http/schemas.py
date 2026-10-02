@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.modules.catalog.api import CategorySuggestion
 from app.modules.search.application.dto import SpecialistCard, SpecialistResults
 from app.platform.http.pagination import PageOut
 from app.platform.kernel.localized import Locale, LocalizedText
@@ -96,4 +97,31 @@ class SpecialistPageOut(PageOut[SpecialistCardOut]):
             category_ids=list(results.category_ids),
             did_you_mean=results.did_you_mean,
             hints=list(results.hints),
+        )
+
+
+class SuggestionOut(BaseModel):
+    category_id: int
+    name: str = Field(description="Название категории на языке Accept-Language")
+    icon: str | None
+    term: str = Field(description="Слово словаря, с которым совпал ввод, — тем же алфавитом")
+    fuzzy: bool = Field(description="Найдено по похожести (опечатка), а не по началу слова")
+
+
+class SuggestOut(BaseModel):
+    items: list[SuggestionOut]
+
+    @classmethod
+    def of(cls, found: list[CategorySuggestion], locale: Locale) -> SuggestOut:
+        return cls(
+            items=[
+                SuggestionOut(
+                    category_id=item.category_id,
+                    name=item.name.get(locale),
+                    icon=item.icon,
+                    term=item.term,
+                    fuzzy=item.fuzzy,
+                )
+                for item in found
+            ]
         )

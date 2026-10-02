@@ -15,6 +15,7 @@ from app.modules.search.application.use_cases.flush_index import FlushIndex
 from app.modules.search.application.use_cases.mark_profiles import MarkProfiles
 from app.modules.search.application.use_cases.reconcile_index import ReconcileIndex
 from app.modules.search.application.use_cases.search_specialists import SearchSpecialists
+from app.modules.search.application.use_cases.suggest_categories import SuggestCategories
 from app.modules.search.infrastructure.index import SqlSpecialistIndex
 from app.modules.search.infrastructure.metrics import PrometheusIndexMetrics
 from app.modules.search.infrastructure.pending import SqlPendingProfiles
@@ -40,3 +41,4 @@ class SearchProvider(Provider):
     specialist_search = provide(SqlSpecialistSearch, provides=SpecialistSearch)
     query_log = provide(SqlQueryLog, provides=QueryLog)
     search_specialists = provide(SearchSpecialists)
+    suggest_categories = provide(SuggestCategories)

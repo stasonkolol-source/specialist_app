@@ -1,4 +1,5 @@
-"""HTTP search 🔓 (DEVELOPMENT_PLAN 4.2): выдача специалистов S05 с фильтрами шторки S06.
+"""HTTP search 🔓 (DEVELOPMENT_PLAN 4.2, 4.3a): выдача специалистов S05 с фильтрами шторки S06
+и подсказки при вводе.
 
 Каталог открыт и гостю. Лимит — 60 запросов в минуту на адрес гостя и 120 на вошедшего
 (ARCHITECTURE §13.3). Порядок, этапы поиска и пустая выдача — в use case.
@@ -14,8 +15,13 @@ from app.modules.search.application.use_cases.search_specialists import (
     SearchSpecialists,
     SearchSpecialistsCommand,
 )
+from app.modules.search.application.use_cases.suggest_categories import (
+    MAX_INPUT,
+    SuggestCategories,
+    SuggestCategoriesCommand,
+)
 from app.modules.search.domain.query import MAX_QUERY, SpecialistSort
-from app.modules.search.http.schemas import SpecialistPageOut
+from app.modules.search.http.schemas import SpecialistPageOut, SuggestOut
 from app.platform.http.pagination import PageParams
 from app.platform.http.ratelimit import GuestOrUserRateLimit
 from app.platform.kernel.errors import DomainValidationError
@@ -26,12 +32,17 @@ from app.platform.ratelimit import Rate
 
 SEARCH_GUEST = Rate("search.guest", "60/minute")
 SEARCH_USER = Rate("search.user", "120/minute")
+SUGGEST_GUEST = Rate("search.suggest_guest", "60/minute")
+SUGGEST_USER = Rate("search.suggest_user", "120/minute")
+"""Свои счётчики: набор текста не съедает лимит выдачи."""
+SUGGEST_MAX_AGE = 300
 METERS_IN_KM = 1000
 MAX_LISTED = 20
 """Районов, языков, форматов в одном фильтре — больше в шторке не выбрать."""
 
 router = APIRouter(tags=["search"])
 search_limit = [Depends(GuestOrUserRateLimit(guest=SEARCH_GUEST, user=SEARCH_USER))]
+suggest_limit = [Depends(GuestOrUserRateLimit(guest=SUGGEST_GUEST, user=SUGGEST_USER))]
 
 
 def specialist_filters(
@@ -106,3 +117,19 @@ async def list_specialists(
     )
     response.headers["Vary"] = "Accept-Language"
     return SpecialistPageOut.from_results(results, locale)
+
+
+@router.get("/suggest", response_model=SuggestOut, dependencies=suggest_limit)
+@inject
+async def suggest(
+    *,
+    response: Response,
+    suggest: FromDishka[SuggestCategories],
+    locale: FromDishka[Locale],
+    q: Annotated[str, Query(min_length=1, max_length=MAX_INPUT, description="Что набрано")],
+) -> SuggestOut:
+    """Подсказки при вводе: до 8 категорий по началу слова, затем похожие (опечатки)."""
+    found = await suggest(SuggestCategoriesCommand(q=q))
+    response.headers["Vary"] = "Accept-Language"
+    response.headers["Cache-Control"] = f"private, max-age={SUGGEST_MAX_AGE}"
+    return SuggestOut.of(found, locale)

@@ -2,7 +2,13 @@
 
 from collections.abc import Collection
 
-from app.modules.catalog.api import CatalogApi, CategorySummary, SearchTerm, TermMatch
+from app.modules.catalog.api import (
+    CatalogApi,
+    CategorySuggestion,
+    CategorySummary,
+    SearchTerm,
+    TermMatch,
+)
 from app.modules.catalog.application.ports import CatalogQuery
 from app.platform.kernel.ids import CategoryId
 
@@ -31,3 +37,6 @@ class CatalogFacade(CatalogApi):
 
     async def similar_term(self, text: str) -> TermMatch | None:
         return await self._query.similar_term(text) if text.strip() else None
+
+    async def suggest(self, text: str, *, limit: int) -> list[CategorySuggestion]:
+        return await self._query.suggest(text, limit=limit) if text.strip() else []
