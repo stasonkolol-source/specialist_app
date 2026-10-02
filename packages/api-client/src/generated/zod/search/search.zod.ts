@@ -205,3 +205,127 @@ export const SearchSuggestResponse = zod.object({
     }),
   ),
 });
+
+/**
+ * Сколько специалистов покажет выдача с этими фильтрами: «Показать N» в шторке S06.
+ * @summary Count Specialists
+ */
+export const searchCountSpecialistsQueryQOneMax = 200;
+
+export const searchCountSpecialistsQueryDistrictIdsOneMax = 20;
+
+export const searchCountSpecialistsQueryLatOneMin = -90;
+export const searchCountSpecialistsQueryLatOneMax = 90;
+
+export const searchCountSpecialistsQueryLonOneMin = -180;
+export const searchCountSpecialistsQueryLonOneMax = 180;
+
+export const searchCountSpecialistsQueryRadiusKmOneMax = 50;
+
+export const searchCountSpecialistsQueryTravelsToMeDefault = false;
+export const searchCountSpecialistsQueryPriceMaxOneMin = 0;
+
+export const searchCountSpecialistsQueryRatingMinOneMax = 5;
+
+export const searchCountSpecialistsQueryLanguagesOneMax = 20;
+
+export const searchCountSpecialistsQueryWorkModesOneMax = 20;
+
+export const searchCountSpecialistsQueryAvailableTodayDefault = false;
+export const searchCountSpecialistsQueryVerifiedDefault = false;
+export const searchCountSpecialistsQueryWithReviewsDefault = false;
+export const searchCountSpecialistsQueryKindDefault = `pro`;
+
+export const SearchCountSpecialistsQueryParams = zod.object({
+  q: zod.union([zod.string().max(searchCountSpecialistsQueryQOneMax), zod.null()]).optional(),
+  city_id: zod.int().min(1).describe('Город выдачи'),
+  category_id: zod
+    .union([zod.int().min(1), zod.null()])
+    .optional()
+    .describe('С подкатегориями'),
+  district_ids: zod
+    .union([zod.array(zod.int()).max(searchCountSpecialistsQueryDistrictIdsOneMax), zod.null()])
+    .optional(),
+  lat: zod
+    .union([
+      zod
+        .number()
+        .min(searchCountSpecialistsQueryLatOneMin)
+        .max(searchCountSpecialistsQueryLatOneMax),
+      zod.null(),
+    ])
+    .optional()
+    .describe('Точка клиента'),
+  lon: zod
+    .union([
+      zod
+        .number()
+        .min(searchCountSpecialistsQueryLonOneMin)
+        .max(searchCountSpecialistsQueryLonOneMax),
+      zod.null(),
+    ])
+    .optional(),
+  radius_km: zod
+    .union([zod.int().min(1).max(searchCountSpecialistsQueryRadiusKmOneMax), zod.null()])
+    .optional()
+    .describe('Нужна точка'),
+  travels_to_me: zod
+    .boolean()
+    .default(searchCountSpecialistsQueryTravelsToMeDefault)
+    .describe('Выезжает к точке клиента (его радиус выезда)'),
+  price_max: zod
+    .union([zod.int().min(searchCountSpecialistsQueryPriceMaxOneMin), zod.null()])
+    .optional()
+    .describe('Цена «до», пара'),
+  rating_min: zod
+    .union([zod.number().min(1).max(searchCountSpecialistsQueryRatingMinOneMax), zod.null()])
+    .optional(),
+  languages: zod
+    .union([zod.array(zod.string()).max(searchCountSpecialistsQueryLanguagesOneMax), zod.null()])
+    .optional()
+    .describe('ru, sr, en, uk'),
+  work_modes: zod
+    .union([
+      zod
+        .array(zod.enum(['at_client', 'at_own_place', 'remote']))
+        .max(searchCountSpecialistsQueryWorkModesOneMax),
+      zod.null(),
+    ])
+    .optional(),
+  available_today: zod.boolean().default(searchCountSpecialistsQueryAvailableTodayDefault),
+  verified: zod
+    .boolean()
+    .default(searchCountSpecialistsQueryVerifiedDefault)
+    .describe('С подтверждённым телефоном (v1)'),
+  with_reviews: zod.boolean().default(searchCountSpecialistsQueryWithReviewsDefault),
+  kind: zod
+    .enum(['pro', 'casual'])
+    .default(searchCountSpecialistsQueryKindDefault)
+    .describe('«Подработка» — только явно'),
+});
+
+export const SearchCountSpecialistsResponse = zod.object({
+  count: zod.int(),
+  capped: zod.boolean().describe('Подходит больше, чем считали: «Показать 1000+»'),
+});
+
+/**
+ * Сколько специалистов в каждой категории города — для дерева S04 (с подкатегориями).
+ * @summary Count By Category
+ */
+
+export const searchCountByCategoryQueryKindDefault = `pro`;
+
+export const SearchCountByCategoryQueryParams = zod.object({
+  city_id: zod.int().min(1),
+  kind: zod.enum(['pro', 'casual']).default(searchCountByCategoryQueryKindDefault),
+});
+
+export const SearchCountByCategoryResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      category_id: zod.int(),
+      count: zod.int().describe('Видимые специалисты — с подкатегориями'),
+    }),
+  ),
+});

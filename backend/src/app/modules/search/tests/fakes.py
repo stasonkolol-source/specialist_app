@@ -18,7 +18,7 @@ from app.modules.search.application.dto import (
 from app.modules.search.domain.query import RankWeights, SpecialistSort, Stage
 from app.platform.kernel.aggregate import AggregateRoot
 from app.platform.kernel.events import DomainEvent
-from app.platform.kernel.ids import CategoryId, MediaId, UserId
+from app.platform.kernel.ids import CategoryId, CityId, MediaId, UserId
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +40,9 @@ class FakeSearch:
 
     by_stage: dict[Stage, list[SpecialistHit]] = field(default_factory=dict)
     calls: list[SearchCall] = field(default_factory=list)
+    counted: list[Stage] = field(default_factory=list)
+    categories: dict[CategoryId, int] = field(default_factory=dict)
+    counted_categories: list[tuple[CityId, str]] = field(default_factory=list)
 
     async def search(
         self,
@@ -55,6 +58,22 @@ class FakeSearch:
         call = SearchCall(match=match, sort=sort, weights=weights, offset=offset, limit=limit)
         self.calls.append(call)
         return self.by_stage.get(call.stage, [])[offset : offset + limit]
+
+    async def count(
+        self,
+        filters: SpecialistFilters,
+        match: TextMatch | None,
+        *,
+        now: datetime,
+        cap: int,
+    ) -> int:
+        stage = match.stage if match is not None else Stage.BROWSE
+        self.counted.append(stage)
+        return min(len(self.by_stage.get(stage, [])), cap)
+
+    async def count_by_category(self, city_id: CityId, kind: str) -> dict[CategoryId, int]:
+        self.counted_categories.append((city_id, kind))
+        return dict(self.categories)
 
 
 @dataclass

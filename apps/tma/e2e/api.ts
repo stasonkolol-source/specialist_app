@@ -16,10 +16,15 @@ import {
   NOTIFICATION_SETTINGS,
   WRITE_ACCESS,
   accepted,
+  CATEGORY_COUNTS,
+  E2E_AVAILABLE_UNTIL,
+  cardsFor,
   categoriesFor,
   citiesFor,
   districtsFor,
   notificationsFor,
+  searchFound,
+  searchPage,
 } from '../src/testing/fixtures.ts';
 import { ProfileBackend } from '../src/testing/profileBackend.ts';
 
@@ -155,6 +160,21 @@ export async function mockApi(
         return route.fulfill(json(citiesFor(language)));
       case 'GET /api/v1/categories':
         return route.fulfill(json(categoriesFor(language)));
+      // каталог S04–S06 (4.4): выдача из фикстур SPEC §4; «Свободен сегодня» — до 20:00 по
+      // Белграду при часах браузера E2E_NOW (catalog.spec.ts)
+      case 'GET /api/v1/specialists':
+        return route.fulfill(
+          json(searchPage(url.searchParams, cardsFor(language, E2E_AVAILABLE_UNTIL))),
+        );
+      case 'GET /api/v1/specialists/count':
+        return route.fulfill(
+          json({
+            count: searchFound(url.searchParams, cardsFor(language, E2E_AVAILABLE_UNTIL)).length,
+            capped: false,
+          }),
+        );
+      case 'GET /api/v1/specialists/by-category':
+        return route.fulfill(json(CATEGORY_COUNTS));
       case 'GET /api/v1/me':
         return route.fulfill(authorized(request) ? json(user) : json(NOT_AUTHENTICATED, 401));
       case 'PATCH /api/v1/me': {

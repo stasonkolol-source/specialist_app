@@ -16,6 +16,8 @@ export const SECTIONS = [
   'choice',
   'progress',
   'feedback',
+  'specialist',
+  'sheet',
   'icons',
   'tabbar',
 ];

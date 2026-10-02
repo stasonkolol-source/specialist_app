@@ -243,3 +243,29 @@ async def test_query_sorts(index: Index) -> None:
     # рейтинг весит больше активности; без рейтинга порядок решает активность
     assert await index.found(sort=SpecialistSort.RELEVANCE) == [cheap, pricey, no_price]
     assert (await index.found(sort=SpecialistSort.DISTANCE, point=CENTER))[-1] == pricey
+
+
+async def test_query_count_follows_filters_and_stops_at_the_cap(index: Index) -> None:
+    await index.add(*(entry(f"M{number}") for number in range(5)), entry("Sr", languages=("sr",)))
+    search = SqlSpecialistSearch(index.session)
+    filters = SpecialistFilters(city_id=CITY)
+
+    assert await search.count(filters, None, now=NOW, cap=100) == 6
+    assert await search.count(filters, None, now=NOW, cap=3) == 3
+    by_language = SpecialistFilters(city_id=CITY, languages=("sr",))
+    assert await search.count(by_language, None, now=NOW, cap=100) == 1
+    assert await search.count(filters, text("vodoinstalater"), now=NOW, cap=100) == 0
+
+
+async def test_query_counts_by_category_include_subcategories(index: Index) -> None:
+    await index.add(
+        entry("A"),
+        entry("B"),
+        entry("C", category_ids=(REPAIR, PLUMBING), document=PLUMBER),
+        entry("Casual", kind="casual"),
+        entry("Hidden", is_listed=False),
+    )
+
+    counts = await SqlSpecialistSearch(index.session).count_by_category(CITY, "pro")
+
+    assert counts == {REPAIR: 3, ELECTRIC: 2, PLUMBING: 1}

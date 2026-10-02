@@ -9,7 +9,12 @@ import { faker } from '@faker-js/faker';
 import { HttpResponse, http } from 'msw';
 import type { RequestHandlerOptions } from 'msw';
 
-import type { SpecialistPageOut, SuggestOut } from '../../model';
+import type {
+  CategoryCountsOut,
+  SpecialistCountOut,
+  SpecialistPageOut,
+  SuggestOut,
+} from '../../model';
 
 export const getSearchListSpecialistsResponseMock = (
   overrideResponse: Partial<Extract<SpecialistPageOut, object>> = {},
@@ -95,6 +100,24 @@ export const getSearchSuggestResponseMock = (
   ...overrideResponse,
 });
 
+export const getSearchCountSpecialistsResponseMock = (
+  overrideResponse: Partial<Extract<SpecialistCountOut, object>> = {},
+): SpecialistCountOut => ({
+  count: faker.number.int(),
+  capped: faker.datatype.boolean(),
+  ...overrideResponse,
+});
+
+export const getSearchCountByCategoryResponseMock = (
+  overrideResponse: Partial<Extract<CategoryCountsOut, object>> = {},
+): CategoryCountsOut => ({
+  items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    category_id: faker.number.int(),
+    count: faker.number.int(),
+  })),
+  ...overrideResponse,
+});
+
 export const getSearchListSpecialistsMockHandler = (
   overrideResponse?:
     | SpecialistPageOut
@@ -140,7 +163,57 @@ export const getSearchSuggestMockHandler = (
     options,
   );
 };
+
+export const getSearchCountSpecialistsMockHandler = (
+  overrideResponse?:
+    | SpecialistCountOut
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<SpecialistCountOut> | SpecialistCountOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/specialists/count',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSearchCountSpecialistsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getSearchCountByCategoryMockHandler = (
+  overrideResponse?:
+    | CategoryCountsOut
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<CategoryCountsOut> | CategoryCountsOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/specialists/by-category',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSearchCountByCategoryResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getSearchMock = () => [
   getSearchListSpecialistsMockHandler(),
   getSearchSuggestMockHandler(),
+  getSearchCountSpecialistsMockHandler(),
+  getSearchCountByCategoryMockHandler(),
 ];

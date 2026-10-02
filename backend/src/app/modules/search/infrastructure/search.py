@@ -20,6 +20,7 @@ from sqlalchemy import (
     null,
     or_,
     select,
+    true,
 )
 
 from app.modules.search.application.dto import SpecialistFilters, SpecialistHit, TextMatch
@@ -38,6 +39,7 @@ from app.modules.search.infrastructure.models import (
 )
 from app.platform.db.query import SqlQuery
 from app.platform.db.types import GeoPointType
+from app.platform.kernel.ids import CategoryId, CityId
 
 AT_CLIENT = "at_client"
 PHONE_VERIFIED = "phone_verified"
@@ -95,6 +97,36 @@ class SqlSpecialistSearch(SqlQuery):
             )
         stmt = stmt.order_by(*_order(sort, rank, price, point)).offset(offset).limit(limit)
         return [_hit(row) for row in await self._fetch(stmt)]
+
+    async def count(
+        self,
+        filters: SpecialistFilters,
+        match: TextMatch | None,
+        *,
+        now: datetime,
+        cap: int,
+    ) -> int:
+        point = literal(filters.point, GeoPointType) if filters.point is not None else None
+        text = _Text(match) if match is not None and match.stage in FTS_STAGES else None
+        matching = (
+            select(_SI.profile_id)
+            .where(*_conditions(filters, match, text, point, now))
+            .limit(cap)
+            .subquery()
+        )
+        row = await self._fetch_one(select(func.count().label("n")).select_from(matching))
+        return int(row["n"]) if row is not None else 0
+
+    async def count_by_category(self, city_id: CityId, kind: str) -> dict[CategoryId, int]:
+        # category_ids уже несут предков: строка считается и в разделе, и в подкатегории
+        category = func.unnest(_SI.category_ids).table_valued("category_id").render_derived()
+        stmt = (
+            select(category.c.category_id, func.count().label("n"))
+            .select_from(SpecialistIndexRow.__table__.join(category, true()))
+            .where(_SI.is_listed, _SI.kind == kind, _SI.city_id == city_id)
+            .group_by(category.c.category_id)
+        )
+        return {CategoryId(row["category_id"]): int(row["n"]) for row in await self._fetch(stmt)}
 
 
 class _Text:

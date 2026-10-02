@@ -228,3 +228,37 @@ async def test_paging_walks_the_whole_list(catalog: Catalog) -> None:
     assert len(seen) == len(set(seen)) == 5
     assert set(seen) == added
     assert all(UUID(profile_id) for profile_id in seen)
+
+
+async def test_count_matches_the_list(catalog: Catalog) -> None:
+    electrical, plumbing = await catalog.path("electrical"), await catalog.path("plumbing")
+    await catalog.add(
+        catalog.specialist("A", category_ids=electrical),
+        catalog.specialist("B", category_ids=electrical, languages=("sr",)),
+        catalog.specialist("C", category_ids=plumbing, document=PLUMBER),
+    )
+
+    for params in ({}, {"q": "električar"}, {"languages": "sr"}, {"q": "qwertyzzz"}):
+        counted = (
+            await catalog.app.client.get(f"{API}/count", params={"city_id": catalog.city, **params})
+        ).json()
+        assert counted == {"count": len(await catalog.found(**params)), "capped": False}, params
+
+
+async def test_counts_by_category_include_subcategories(catalog: Catalog) -> None:
+    electrical, plumbing = await catalog.path("electrical"), await catalog.path("plumbing")
+    await catalog.add(
+        catalog.specialist("A", category_ids=electrical),
+        catalog.specialist("B", category_ids=electrical),
+        catalog.specialist("C", category_ids=plumbing, document=PLUMBER),
+        catalog.specialist("Casual", category_ids=electrical, kind="casual"),
+    )
+
+    response = await catalog.app.client.get(f"{API}/by-category", params={"city_id": catalog.city})
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "private, max-age=300"
+    counts = {item["category_id"]: item["count"] for item in response.json()["items"]}
+    assert counts[electrical[-1]] == 2
+    assert counts[plumbing[-1]] == 1
+    assert counts[electrical[0]] == 3  # раздел — со всеми подкатегориями

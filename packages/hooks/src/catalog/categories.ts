@@ -13,14 +13,15 @@ import { keepPreviousData } from '@tanstack/react-query';
 /** Как Cache-Control ответов (max-age=300): справочники меняются редко. */
 export const DICTIONARY_STALE_MS = 5 * 60_000;
 
-export function categoriesQueryKey(locale: Locale) {
-  return [...getCatalogListCategoriesQueryKey(), locale] as const;
+export function categoriesQueryKey(locale: Locale, city?: string) {
+  return [...getCatalogListCategoriesQueryKey(city ? { city } : undefined), locale] as const;
 }
 
-export function useCategories(locale: Locale) {
-  return useCatalogListCategories(undefined, {
+/** `city` — slug города: с ним у категорий ориентир цены `price_hint` (S04). */
+export function useCategories(locale: Locale, city?: string) {
+  return useCatalogListCategories(city ? { city } : undefined, {
     query: {
-      queryKey: categoriesQueryKey(locale),
+      queryKey: categoriesQueryKey(locale, city),
       staleTime: DICTIONARY_STALE_MS,
       placeholderData: keepPreviousData,
     },

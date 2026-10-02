@@ -129,6 +129,10 @@ export interface RowProps {
   href?: string;
   /** С `href` — переход внутри приложения (роутер отменяет переход браузера), без — кнопка. */
   onClick?: (event: MouseEvent<HTMLElement>) => void;
+  /** Строка-раскрывашка (дерево категорий S04): aria-expanded и стрелка вниз или вверх. */
+  expanded?: boolean;
+  /** Вложенная строка: отступ под иконку родителя (подкатегории S04). */
+  inset?: boolean;
 }
 
 export function Row({
@@ -140,9 +144,12 @@ export function Row({
   chevron = false,
   href,
   onClick,
+  expanded,
+  inset = false,
 }: RowProps) {
   const classes = cx(
-    'flex min-h-13 w-full items-center gap-3 border-0 border-b border-line bg-transparent px-4 py-3 text-left text-text last:border-b-0',
+    'flex min-h-13 w-full items-center gap-3 border-0 border-b border-line bg-transparent py-3 pr-4 text-left text-text last:border-b-0',
+    inset ? 'pl-16' : 'pl-4',
     (href || onClick) && FOCUS,
   );
   const content = (
@@ -154,6 +161,9 @@ export function Row({
       </span>
       {trailing}
       {chevron && <Icon name="chev-right" className="text-text2" />}
+      {expanded !== undefined && (
+        <Icon name="chev-down" className={cx('text-text2', expanded && 'rotate-180')} />
+      )}
     </>
   );
   if (href) {
@@ -165,7 +175,7 @@ export function Row({
   }
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={classes}>
+      <button type="button" onClick={onClick} aria-expanded={expanded} className={classes}>
         {content}
       </button>
     );

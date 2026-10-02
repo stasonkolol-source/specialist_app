@@ -19,12 +19,18 @@ export interface HeadingProps {
   /** Крупный заголовок раздела — h1 (Unbounded); внутреннего экрана — h2; секции в карточке — h3. */
   variant?: HeadingVariant;
   as?: HeadingTag;
+  /** Для aria-labelledby: заголовок подписывает диалог (шторка S06) или секцию. */
+  id?: string;
   className?: string;
 }
 
-export function Heading({ children, variant = 'h2', as, className }: HeadingProps) {
+export function Heading({ children, variant = 'h2', as, id, className }: HeadingProps) {
   const Tag = as ?? (variant === 'h3' ? 'h2' : 'h1');
-  return <Tag className={cx('m-0', VARIANT[variant], className)}>{children}</Tag>;
+  return (
+    <Tag id={id} className={cx('m-0', VARIANT[variant], className)}>
+      {children}
+    </Tag>
+  );
 }
 
 /** Подзаголовок секции снаружи карточек: капсом, вторичный цвет, отступ 16 по бокам. */

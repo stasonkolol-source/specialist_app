@@ -125,3 +125,17 @@ class SuggestOut(BaseModel):
                 for item in found
             ]
         )
+
+
+class SpecialistCountOut(BaseModel):
+    count: int
+    capped: bool = Field(description="Подходит больше, чем считали: «Показать 1000+»")
+
+
+class CategoryCountOut(BaseModel):
+    category_id: int
+    count: int = Field(description="Видимые специалисты — с подкатегориями")
+
+
+class CategoryCountsOut(BaseModel):
+    items: list[CategoryCountOut]

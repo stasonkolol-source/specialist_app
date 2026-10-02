@@ -18,9 +18,13 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CategoryCountsOut,
   ProblemOut,
+  SearchCountByCategoryParams,
+  SearchCountSpecialistsParams,
   SearchListSpecialistsParams,
   SearchSuggestParams,
+  SpecialistCountOut,
   SpecialistPageOut,
   SuggestOut,
 } from '../../model';
@@ -324,6 +328,307 @@ export function useSearchSuggest<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getSearchSuggestQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getSearchCountSpecialistsUrl = (params: SearchCountSpecialistsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ['district_ids', 'languages', 'work_modes'];
+
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? 'null' : String(v));
+      });
+      return;
+    }
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/specialists/count?${stringifiedParams}`
+    : `/api/v1/specialists/count`;
+};
+
+/**
+ * Сколько специалистов покажет выдача с этими фильтрами: «Показать N» в шторке S06.
+ * @summary Count Specialists
+ */
+export const searchCountSpecialists = async (
+  params: SearchCountSpecialistsParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<SpecialistCountOut> => {
+  return apiFetch<SpecialistCountOut>(getSearchCountSpecialistsUrl(params), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getSearchCountSpecialistsQueryKey = (params?: SearchCountSpecialistsParams) => {
+  return [`/api/v1/specialists/count`, ...(params ? [params] : [])] as const;
+};
+
+export const getSearchCountSpecialistsQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchCountSpecialists>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: SearchCountSpecialistsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof searchCountSpecialists>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getSearchCountSpecialistsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof searchCountSpecialists>>> = ({ signal }) =>
+    searchCountSpecialists(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchCountSpecialists>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type SearchCountSpecialistsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchCountSpecialists>>
+>;
+export type SearchCountSpecialistsQueryError = ErrorType<ProblemOut>;
+
+export function useSearchCountSpecialists<
+  TData = Awaited<ReturnType<typeof searchCountSpecialists>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: SearchCountSpecialistsParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof searchCountSpecialists>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchCountSpecialists>>,
+          TError,
+          Awaited<ReturnType<typeof searchCountSpecialists>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useSearchCountSpecialists<
+  TData = Awaited<ReturnType<typeof searchCountSpecialists>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: SearchCountSpecialistsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof searchCountSpecialists>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchCountSpecialists>>,
+          TError,
+          Awaited<ReturnType<typeof searchCountSpecialists>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useSearchCountSpecialists<
+  TData = Awaited<ReturnType<typeof searchCountSpecialists>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: SearchCountSpecialistsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof searchCountSpecialists>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Count Specialists
+ */
+
+export function useSearchCountSpecialists<
+  TData = Awaited<ReturnType<typeof searchCountSpecialists>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: SearchCountSpecialistsParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof searchCountSpecialists>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getSearchCountSpecialistsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getSearchCountByCategoryUrl = (params: SearchCountByCategoryParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/specialists/by-category?${stringifiedParams}`
+    : `/api/v1/specialists/by-category`;
+};
+
+/**
+ * Сколько специалистов в каждой категории города — для дерева S04 (с подкатегориями).
+ * @summary Count By Category
+ */
+export const searchCountByCategory = async (
+  params: SearchCountByCategoryParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<CategoryCountsOut> => {
+  return apiFetch<CategoryCountsOut>(getSearchCountByCategoryUrl(params), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getSearchCountByCategoryQueryKey = (params?: SearchCountByCategoryParams) => {
+  return [`/api/v1/specialists/by-category`, ...(params ? [params] : [])] as const;
+};
+
+export const getSearchCountByCategoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchCountByCategory>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: SearchCountByCategoryParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof searchCountByCategory>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getSearchCountByCategoryQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof searchCountByCategory>>> = ({ signal }) =>
+    searchCountByCategory(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchCountByCategory>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type SearchCountByCategoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchCountByCategory>>
+>;
+export type SearchCountByCategoryQueryError = ErrorType<ProblemOut>;
+
+export function useSearchCountByCategory<
+  TData = Awaited<ReturnType<typeof searchCountByCategory>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: SearchCountByCategoryParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof searchCountByCategory>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchCountByCategory>>,
+          TError,
+          Awaited<ReturnType<typeof searchCountByCategory>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useSearchCountByCategory<
+  TData = Awaited<ReturnType<typeof searchCountByCategory>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: SearchCountByCategoryParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof searchCountByCategory>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchCountByCategory>>,
+          TError,
+          Awaited<ReturnType<typeof searchCountByCategory>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useSearchCountByCategory<
+  TData = Awaited<ReturnType<typeof searchCountByCategory>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: SearchCountByCategoryParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof searchCountByCategory>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Count By Category
+ */
+
+export function useSearchCountByCategory<
+  TData = Awaited<ReturnType<typeof searchCountByCategory>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: SearchCountByCategoryParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof searchCountByCategory>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getSearchCountByCategoryQueryOptions(params, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;

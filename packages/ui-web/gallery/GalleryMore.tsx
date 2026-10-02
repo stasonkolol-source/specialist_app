@@ -26,7 +26,9 @@ import {
   Row,
   SearchField,
   Segmented,
+  Sheet,
   Skeleton,
+  SpecialistCard,
   Stack,
   Stars,
   Steps,
@@ -37,6 +39,12 @@ import {
   Toast,
   UploadTile,
 } from '../src/index.ts';
+
+/** Карточки S05 — как SPEC §4: «коротко о себе» и районы — данные, не строки интерфейса. */
+const CARDS = [
+  { headline: 'Электрик · мелкий ремонт · люстры', district: 'Лиман', km: 1_500, rating: 4.9 },
+  { headline: 'Сборка мебели · полки · карнизы', district: 'Детелинара', km: 3_000, rating: null },
+] as const;
 
 const PEOPLE = [
   { name: 'Алексей Морозов', palette: 1 },
@@ -61,6 +69,7 @@ export function Section({ id, name, children }: { id: string; name: string; chil
 
 export function MoreSections() {
   const { t } = useTranslation();
+  const catalog = useTranslation('catalog').t;
   const format = useFormat();
   const [urgency, setUrgency] = useState<'asap' | 'today' | 'this_week'>('today');
   const [budget, setBudget] = useState<'fixed' | 'range'>('fixed');
@@ -229,6 +238,64 @@ export function MoreSections() {
             </HStack>
           </Card>
         </Stack>
+      </Section>
+
+      <Section id="specialist" name="SpecialistCard">
+        <Stack gap={12}>
+          {CARDS.map((card, index) => {
+            const person = PEOPLE[index] ?? PEOPLE[0];
+            return (
+              <SpecialistCard
+                key={person.name}
+                name={person.name}
+                headline={card.headline}
+                rating={card.rating === null ? null : format.rating(card.rating)}
+                reviews={catalog('results.reviews', { count: 37 })}
+                newLabel={t('rating.new')}
+                meta={[`${card.district}, ${format.distance(card.km)}`, 'ru, sr']}
+                badges={
+                  index === 0
+                    ? [
+                        {
+                          label: catalog('results.todayUntil', { time: '20:00' }),
+                          tone: 'ok',
+                          dot: true,
+                        },
+                        { label: catalog('results.phoneVerified'), tone: 'info', icon: 'shield' },
+                      ]
+                    : []
+                }
+                price={format.price({ type: 'from', min: 200_000 })}
+                href="#s08"
+              />
+            );
+          })}
+        </Stack>
+      </Section>
+
+      <Section id="sheet" name="Sheet">
+        {/* transform делает рамку точкой отсчёта для fixed: шторка — внутри раздела, а не окна */}
+        <div className="relative h-96 transform-gpu overflow-hidden rounded-card bg-bg2">
+          <Sheet
+            open
+            title={catalog('filters.title')}
+            closeLabel={catalog('filters.close')}
+            onClose={() => {}}
+          >
+            <Chips wrap label={catalog('filters.districts')}>
+              <Chip selected>{catalog('filters.wholeCity')}</Chip>
+              <Chip>{PEOPLE[0].name}</Chip>
+            </Chips>
+            <Group className="border border-line">
+              <Row
+                title={catalog('filters.availableToday')}
+                trailing={
+                  <Switch label={catalog('filters.availableToday')} checked onChange={() => {}} />
+                }
+              />
+            </Group>
+          </Sheet>
+        </div>
       </Section>
     </>
   );

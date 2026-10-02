@@ -1,0 +1,105 @@
+// Выдача специалистов S05 (DEVELOPMENT_PLAN 4.2, 4.4): страницы по курсору, «Показать N» в шторке
+// S06 и числа в дереве категорий S04. Район в карточке приходит на языке запроса
+// (Accept-Language), поэтому язык — часть ключа выдачи. Смена фильтра не стирает экран: прежняя
+// выдача видна, пока грузится новая.
+import type {
+  CategoryCountsOut,
+  Locale,
+  SearchCountSpecialistsParams,
+  SearchListSpecialistsParams,
+  SpecialistCardOut,
+  SpecialistPageOut,
+} from '@sosed/api-client';
+import {
+  getSearchCountByCategoryQueryKey,
+  getSearchCountSpecialistsQueryKey,
+  getSearchListSpecialistsQueryKey,
+  searchCountByCategory,
+  searchCountSpecialists,
+  searchListSpecialists,
+} from '@sosed/api-client';
+import type { InfiniteData } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
+
+export const SEARCH_PAGE_SIZE = 20;
+/** Как Cache-Control ответа (max-age=300): числа в дереве меняются не чаще публикаций. */
+export const CATEGORY_COUNTS_STALE_MS = 5 * 60_000;
+
+/** Запрос выдачи без страницы: текст, фильтры, порядок. */
+export type SpecialistQuery = Omit<SearchListSpecialistsParams, 'limit' | 'cursor'>;
+export type SpecialistResults = InfiniteData<SpecialistPageOut, string | null>;
+
+function required<T>(value: T | null): T {
+  if (value === null) throw new Error('query is disabled without parameters');
+  return value;
+}
+
+export function specialistsQueryKey(locale: Locale, query: SpecialistQuery) {
+  return [...getSearchListSpecialistsQueryKey(query), locale] as const;
+}
+
+/** `null` — запрашивать нечего (город ещё не известен). */
+export function useSpecialistSearch(locale: Locale, query: SpecialistQuery | null) {
+  return useInfiniteQuery({
+    queryKey: specialistsQueryKey(locale, query ?? { city_id: 0 }),
+    queryFn: ({ pageParam, signal }) =>
+      searchListSpecialists(
+        pageParam === null
+          ? { ...required(query), limit: SEARCH_PAGE_SIZE }
+          : { ...required(query), limit: SEARCH_PAGE_SIZE, cursor: pageParam },
+        { signal },
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.next_cursor ?? null,
+    enabled: query !== null,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Карточки всех загруженных страниц подряд. */
+export function resultItems(results: Pick<SpecialistResults, 'pages'> | undefined) {
+  return results?.pages.flatMap((page) => page.items) ?? ([] as SpecialistCardOut[]);
+}
+
+/** Что сервер понял из запроса — по первой странице: категории, подсказка, советы. */
+export function resultSummary(results: Pick<SpecialistResults, 'pages'> | undefined) {
+  const first = results?.pages[0];
+  return {
+    categoryIds: first?.category_ids ?? [],
+    didYouMean: first?.did_you_mean ?? null,
+    hints: first?.hints ?? [],
+  };
+}
+
+/** Тот же запрос для «Показать N»: порядок и «срочно» на число не влияют. */
+export function countQuery(query: SpecialistQuery): SearchCountSpecialistsParams {
+  const filters: SpecialistQuery = { ...query };
+  delete filters.sort;
+  delete filters.urgent;
+  return filters;
+}
+
+export function useSpecialistCount(query: SpecialistQuery | null) {
+  const params = query === null ? null : countQuery(query);
+  return useQuery({
+    queryKey: getSearchCountSpecialistsQueryKey(params ?? { city_id: 0 }),
+    queryFn: ({ signal }) => searchCountSpecialists(required(params), { signal }),
+    enabled: params !== null,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function countsByCategory(out: CategoryCountsOut): ReadonlyMap<number, number> {
+  return new Map(out.items.map((item) => [item.category_id, item.count]));
+}
+
+/** Сколько видимых специалистов в каждой категории города (с подкатегориями). */
+export function useCategoryCounts(cityId: number | null) {
+  return useQuery({
+    queryKey: getSearchCountByCategoryQueryKey({ city_id: cityId ?? 0 }),
+    queryFn: ({ signal }) => searchCountByCategory({ city_id: required(cityId) }, { signal }),
+    enabled: cityId !== null,
+    staleTime: CATEGORY_COUNTS_STALE_MS,
+    select: countsByCategory,
+  });
+}

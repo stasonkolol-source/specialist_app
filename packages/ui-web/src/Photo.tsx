@@ -2,13 +2,12 @@
 // Фото с сервера (шаг 2.2a): сразу — размытый ThumbHash, затем WebP-вариант нужного размера
 // (srcset: браузер берёт по ширине на экране и плотности пикселей), с плавным появлением.
 // Вариант не загрузился — снова плейсхолдер с подписью.
-import type { CSSProperties } from 'react';
-import { useMemo, useState } from 'react';
-import { thumbHashToDataURL } from 'thumbhash';
+import { useState } from 'react';
 
 import { FileImage } from './FileImage.tsx';
 import { cx } from './cx.ts';
 import { Icon } from './icon/Icon.tsx';
+import { usePlaceholder } from './thumbhash.ts';
 
 export interface PhotoVariant {
   url: string;
@@ -105,19 +104,6 @@ function Play() {
       <Icon name="play" size={32} />
     </span>
   );
-}
-
-/** ThumbHash → PNG data URL фоном рамки; битый хэш — без превью. */
-function usePlaceholder(placeholder: string | null | undefined): CSSProperties | undefined {
-  return useMemo(() => {
-    if (!placeholder) return undefined;
-    try {
-      const bytes = Uint8Array.from(atob(placeholder), (char) => char.charCodeAt(0));
-      return { backgroundImage: `url(${thumbHashToDataURL(bytes)})`, backgroundSize: 'cover' };
-    } catch {
-      return undefined;
-    }
-  }, [placeholder]);
 }
 
 /** Вариант с сервера появляется плавно поверх размытого превью; не загрузился — штриховка. */

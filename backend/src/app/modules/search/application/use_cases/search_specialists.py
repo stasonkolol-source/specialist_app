@@ -9,7 +9,7 @@
 Пустая выдача с текстом пишется в журнал для словаря; ответ подсказывает, что делать.
 """
 
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any, Final
@@ -27,8 +27,8 @@ from app.modules.search.application.dto import (
     ZeroResult,
 )
 from app.modules.search.application.ports import QueryLog, SpecialistSearch
+from app.modules.search.application.stages import QueryStages
 from app.modules.search.domain.query import (
-    FTS_STAGES,
     MAX_OFFSET,
     NEW_UNTIL_REVIEWS,
     WEIGHTS_FLAG,
@@ -77,7 +77,7 @@ class SearchSpecialists:
         uow: UnitOfWork,
         clock: Clock,
     ) -> None:
-        self._search, self._catalog, self._media = search, catalog, media
+        self._search, self._stages, self._media = search, QueryStages(catalog), media
         self._flags, self._log, self._uow, self._clock = flags, log, uow, clock
 
     async def __call__(self, cmd: SearchSpecialistsCommand) -> SpecialistResults:
@@ -108,28 +108,6 @@ class SearchSpecialists:
         hints = (RELAX_FILTERS, POST_JOB) if cmd.filters.narrowed else (POST_JOB,)
         stage = Stage.BROWSE if text is None else Stage.ANY_WORD
         return SpecialistResults(page=Page(items=()), stage=stage, hints=hints)
-
-    async def _stages(
-        self, text: QueryText | None, only: Stage | None
-    ) -> AsyncIterator[tuple[TextMatch | None, str | None]]:
-        """Этапы §9.2 по порядку: чем сузить выдачу и что подсказать. С курсором — только
-        его этап: словарь и подсказка находятся заново, они детерминированы."""
-        if text is None:
-            yield None, None
-            return
-        taxonomy = None
-        if only in {None, Stage.TAXONOMY}:
-            taxonomy = await self._catalog.match_query(text.raw)
-            if taxonomy is not None:
-                yield TextMatch(stage=Stage.TAXONOMY, category_ids=taxonomy.category_ids), None
-        for stage in FTS_STAGES:
-            if only in {None, stage}:
-                yield TextMatch(stage=stage, fts=text.fts(stage), name=text.raw), None
-        if only in {None, Stage.SIMILAR} and taxonomy is None:
-            similar = await self._catalog.similar_term(text.raw)
-            if similar is not None:
-                match = TextMatch(stage=Stage.SIMILAR, category_ids=similar.category_ids)
-                yield match, similar.term
 
     async def _results(
         self,
@@ -176,9 +154,7 @@ class SearchSpecialists:
 def _check(cmd: SearchSpecialistsCommand) -> None:
     """Расстояние, радиус и «выезжает ко мне» считаются от точки клиента — без неё нельзя."""
     filters = cmd.filters
-    if filters.point is None and (
-        cmd.sort is SpecialistSort.DISTANCE or filters.radius_m or filters.travels_to_me
-    ):
+    if filters.missing_point or (filters.point is None and cmd.sort is SpecialistSort.DISTANCE):
         raise DomainValidationError(field="lat", reason="point_required")
 
 
