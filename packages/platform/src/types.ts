@@ -143,6 +143,10 @@ export interface Platform {
 
   requestWriteAccess(): Promise<boolean>;
   requestContact(): Promise<boolean>;
+  /** Поделиться своим телефоном (S54): Telegram спрашивает человека, затем отдаёт подписанный
+   *  ответ (`contact=…&auth_date=…&hash=…`) — его проверяет backend. Отказ, старый клиент или
+   *  нет ответа за 3 с — `null`. */
+  shareContact(): Promise<string | null>;
   /** `savePreparedInlineMessage` на backend → id сюда. */
   shareMessage(preparedMessageId: string): Promise<boolean>;
   /** Ссылка на экран: в Telegram — выбор чата, в браузере — navigator.share или копирование. */

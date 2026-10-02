@@ -471,6 +471,29 @@
     "cancelHintClient": "Zahtev će se ponovo otvoriti — možete izabrati među prethodnim ponudama",
     "cancelHintPerformer": "Naručilac će moći da izabere drugog izvođača",
     "cancelTitle": "Zašto otkazujete?",
-    "cancelError": "Dogovor nije otkazan. Pokušajte ponovo"
+    "cancelError": "Dogovor nije otkazan. Pokušajte ponovo",
+    "proposal": {
+      "title": "{name} predlaže dogovor",
+      "titleNoName": "Predlažu vam dogovor",
+      "text": "Proverite uslove. Posle potvrde nastaće dogovor — i moći ćete da razmenite kontakte.",
+      "what": "Šta",
+      "when": "Kada",
+      "where": "Gde",
+      "addressLater": "tačna adresa — posle potvrde",
+      "price": "Cena",
+      "proposedAt": "predloženo {time}",
+      "expires": "Ako ne odgovorite za 72 sata, dogovor će biti otkazan. Rok — do {date}.",
+      "confirm": "Potvrdi",
+      "decline": "Odbij",
+      "answerError": "Odgovor nije uspeo. Pokušajte ponovo",
+      "waiting": "Čekamo da druga strana potvrdi dogovor. Predlog važi do {date}."
+    },
+    "contacts": {
+      "title": "Kontakti",
+      "telegram": "Telegram: {username}",
+      "share": "Podelite kontakt",
+      "shareHint": "Pošaljite svoj Telegram ili telefon u razgovor o dogovoru",
+      "shareError": "Razgovor nije moguće otvoriti. Pokušajte ponovo"
+    }
   }
 }

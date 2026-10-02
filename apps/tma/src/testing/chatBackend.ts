@@ -2,9 +2,10 @@
 // роли, свежие первыми), POST /conversations (начатый диалог — тот же, 200), GET
 // /conversations/{id}/messages (последние, `direction=older` — раньше), POST …/messages (повтор
 // `client_msg_id` — то же сообщение; до договорённости телефон — «•••»), POST …/read, POST …/deal
-// (сделка `proposed`) и GET /me/badges. «Собеседник пишет» — `incoming`; `failNext` — следующая
+// (сделка `proposed`), POST …/share-contact (после договорённости, 6.5) и GET /me/badges. «Собеседник пишет» — `incoming`; `failNext` — следующая
 // отправка падает ошибкой (ключ не занимается: повтор выполнится заново). Время — от NOW.
 import type {
+  ContactShareIn,
   ConversationOut,
   ConversationStartIn,
   DealProposalIn,
@@ -83,6 +84,7 @@ export class ChatBackend {
   reads: string[] = [];
   proposals: DealProposalIn[] = [];
   starts: ConversationStartIn[] = [];
+  shares: ContactShareIn[] = [];
   jobsBadge = 0;
 
   /** Три диалога макета S29: в прямом — замаскированный телефон и два непрочитанных. */
@@ -191,7 +193,7 @@ export class ChatBackend {
       if (method === 'GET') return this.list(url.searchParams);
       if (method === 'POST') return this.start(body as ConversationStartIn);
     }
-    const match = /^\/conversations\/([^/]+)\/(messages|read|deal)$/.exec(path);
+    const match = /^\/conversations\/([^/]+)\/(messages|read|deal|share-contact)$/.exec(path);
     const dialog = match ? this.dialogs.get(match[1] ?? '') : undefined;
     if (!match || !dialog) return problem(404, 'conversation_not_found');
     const action = match[2];
@@ -203,6 +205,9 @@ export class ChatBackend {
       return { status: 204, body: null };
     }
     if (action === 'deal' && method === 'POST') return this.propose(dialog, body as DealProposalIn);
+    if (action === 'share-contact' && method === 'POST') {
+      return this.shareContact(dialog, body as ContactShareIn);
+    }
     return null;
   }
 
@@ -292,6 +297,21 @@ export class ChatBackend {
     return { status: 201, body: item };
   }
 
+  /** «Поделиться контактом» (S54): только после договорённости; контакт — сообщением. */
+  private shareContact(dialog: Dialog, input: ContactShareIn): BackendReply {
+    if (!AGREED.has(dialog.conversation.deal?.status ?? '')) {
+      return problem(409, 'contacts_locked');
+    }
+    this.shares.push(input);
+    const value = input.contact_type === 'telegram' ? '@elena_k' : '+381641234567';
+    const item = message(ME.id, null, Date.now(), {
+      kind: 'contact_share',
+      contact: { type: input.contact_type, value },
+    });
+    dialog.messages.push(item);
+    return { status: 201, body: item };
+  }
+
   private propose(dialog: Dialog, terms: DealProposalIn): BackendReply {
     if (dialog.conversation.kind !== 'direct') {
       return problem(409, 'cannot_propose', { reason: 'choose_response' });
@@ -327,6 +347,7 @@ function conversation(
     status: 'open',
     counterpart_name: null,
     counterpart_profile_id: null,
+    counterpart_telegram: null,
     job_id: null,
     job_title: null,
     response_id: null,

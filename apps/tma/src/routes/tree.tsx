@@ -29,7 +29,7 @@ import {
   jobSearch,
   responsesSearch,
 } from '../features/jobs/index.ts';
-import { MESSAGES_PATHS } from '../features/messages/index.ts';
+import { MESSAGES_PATHS, chatSearch } from '../features/messages/index.ts';
 import { ONBOARDING_PATHS, onboardingSearch } from '../features/onboarding/index.ts';
 import { BECOME_PATHS, CABINET_PATHS, becomeSearch } from '../features/specialist/index.ts';
 import { LEGAL_PATH, LegalScreen } from '../features/service/s48-legal/index.ts';
@@ -196,6 +196,7 @@ const messages = createRoute({
 const chat = createRoute({
   getParentRoute: () => rootRoute,
   path: MESSAGES_PATHS.chat,
+  validateSearch: chatSearch,
   beforeLoad: requireUser,
   component: screen(() => import('../features/messages/s30-chat/index.ts'), 'ChatScreen'),
 });
@@ -207,6 +208,14 @@ const profile = createRoute({
 });
 
 // S45 удаление аккаунта (2.12a): из S31; без входа удалять нечего
+// Настройки S43 (6.5 — раздел приватности, 4.9 — остальное); без входа настраивать нечего
+const settings = createRoute({
+  getParentRoute: () => rootRoute,
+  path: ACCOUNT_PATHS.settings,
+  beforeLoad: requireUser,
+  component: screen(() => import('../features/account/s43-settings/index.ts'), 'SettingsScreen'),
+});
+
 const deleteAccount = createRoute({
   getParentRoute: () => rootRoute,
   path: ACCOUNT_PATHS.delete,
@@ -436,6 +445,7 @@ export const routeTree = rootRoute.addChildren([
   messages,
   chat,
   profile,
+  settings,
   deleteAccount,
   becomeType,
   becomeAbout,

@@ -24,6 +24,8 @@ export interface ConversationOut {
   counterpart_name: string | null;
   /** Опубликованный профиль второй стороны-исполнителя: ссылка на S08 */
   counterpart_profile_id: string | null;
+  /** «@username» второй стороны после договорённости, если она его показывает */
+  counterpart_telegram: string | null;
   job_id: string | null;
   /** Заявка диалога по отклику: «Заявка: …» */
   job_title: string | null;

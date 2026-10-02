@@ -6,7 +6,13 @@ from uuid import UUID
 from app.modules.deals.api import AgreedDealIn, DealBrief, DealSummary, ProposedDealIn
 from app.modules.deals.application.dto import DealView
 from app.modules.deals.application.ports import DealQueries, DealRepository
-from app.modules.deals.domain.deal import Deal, DealPriceType, DealTerms
+from app.modules.deals.domain.deal import (
+    PROPOSAL_TTL,
+    Deal,
+    DealPriceType,
+    DealStatus,
+    DealTerms,
+)
 from app.modules.deals.errors import DealNotFoundError, InvalidDealError
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
@@ -60,6 +66,9 @@ class DealsFacade:
             cancel_reason=deal.cancel_reason.value if deal.cancel_reason is not None else None,
             created_at=deal.created_at,
             version=deal.version,
+            proposal_expires_at=(
+                deal.created_at + PROPOSAL_TTL if deal.status is DealStatus.PROPOSED else None
+            ),
         )
 
     async def create_agreed(self, data: AgreedDealIn) -> DealId:

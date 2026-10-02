@@ -167,7 +167,8 @@
   },
   "settings": {
     "notifications": "Obaveštenja",
-    "language": "Jezik"
+    "language": "Jezik",
+    "title": "Podešavanja"
   },
   "photo": {
     "work": "Fotografija rada",

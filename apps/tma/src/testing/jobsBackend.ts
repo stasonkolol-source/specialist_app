@@ -10,7 +10,8 @@
 // свой отклик (`my_response`) и место, занятое им. Свои заявки клиента (5.6): GET /me/jobs, отклики
 // карточками GET /jobs/{id}/response-cards (отмечают просмотренными), закрыть, продлить,
 // пригласить. Выбор исполнителя и сделка (6.2): POST /responses/{id}/accept и /decline, сделки —
-// GET /me/deals, GET /deals/{id}/card, POST /deals/{id}/complete и /cancel; сторона — клиент или
+// GET /me/deals, GET /deals/{id}/card, POST /deals/{id}/complete и /cancel, ответ на «Договорились»
+// из чата — /confirm и /decline (S53, 6.5); сторона — клиент или
 // исполнитель (`dealRole`). Время публикации — от E2E_NOW: в e2e часы браузера стоят на нём же.
 import type {
   DealCardOut,
@@ -791,14 +792,39 @@ export class JobsBackend {
       const items = [...this.deals.values()].reverse().map((deal) => dealOut(viewer(deal)));
       return { status: 200, body: { items, next_cursor: null } };
     }
-    const match = /^\/deals\/([^/]+)\/(card|complete|cancel)$/.exec(path);
+    const match = /^\/deals\/([^/]+)\/(card|complete|cancel|confirm|decline)$/.exec(path);
     const found = this.deals.get(match?.[1] ?? '');
     if (!match) return null;
     if (!found) return problem(404, 'deal_not_found');
     const deal = viewer(found);
     if (method === 'GET' && match[2] === 'card') return { status: 200, body: deal };
-    if (deal.status !== 'agreed') return problem(409, 'deal_not_active');
     const now = new Date(E2E_NOW).toISOString();
+    if (method === 'POST' && (match[2] === 'confirm' || match[2] === 'decline')) {
+      // S53: ответ на «Договорились» — только пока предложение ждёт
+      if (deal.status !== 'proposed') return problem(409, 'deal_not_active');
+      this.decisions.push({ id: deal.id, action: match[2] });
+      const answered: DealCardOut =
+        match[2] === 'confirm'
+          ? {
+              ...deal,
+              status: 'agreed',
+              awaits_my_confirmation: false,
+              proposal_expires_at: null,
+              timeline: { ...deal.timeline, agreed_at: now },
+            }
+          : {
+              ...deal,
+              status: 'cancelled',
+              cancel_reason: 'no_agreement',
+              cancelled_by_me: true,
+              awaits_my_confirmation: false,
+              proposal_expires_at: null,
+              timeline: { ...deal.timeline, cancelled_at: now },
+            };
+      this.deals.set(deal.id, answered);
+      return { status: 200, body: dealOut(answered) };
+    }
+    if (deal.status !== 'agreed') return problem(409, 'deal_not_active');
     let changed: DealCardOut;
     if (method === 'POST' && match[2] === 'complete') {
       this.decisions.push({ id: deal.id, action: 'complete' });
@@ -1148,6 +1174,7 @@ export function dealCardFixture(
       rating_count: card.performer.rating_count,
       is_new: card.performer.is_new,
       phone_verified: card.performer.phone_verified,
+      telegram: '@aleksey_m',
     },
     place: {
       city: { id: job.city_id, name: 'Нови-Сад' },
@@ -1170,6 +1197,8 @@ export function dealCardFixture(
     response_id: card.id,
     conversation_id: null,
     version: 1,
+    proposed_at: null,
+    proposal_expires_at: null,
   };
   return role === 'client' ? deal : asOther(deal);
 }
@@ -1190,6 +1219,7 @@ function asOther(deal: DealCardOut): DealCardOut {
           rating_count: 0,
           is_new: false,
           phone_verified: true,
+          telegram: '@elena_k',
         }
       : { ...deal.counterpart, role: 'performer' },
     timeline: {
@@ -1228,5 +1258,54 @@ function dealOut(deal: DealCardOut): DealOut {
     cancel_reason: deal.cancel_reason,
     version: deal.version,
     created_at: deal.timeline.agreed_at ?? new Date(E2E_NOW).toISOString(),
+  };
+}
+
+/** «Договорились» из прямого диалога ждёт ответа исполнителя (S53, 6.5): условия, район без
+ *  адреса, срок 72 ч. Смотрит исполнитель — клиент предложил. */
+export function proposedDealFixture(conversationId: string): DealCardOut {
+  const proposedAt = new Date(E2E_NOW);
+  return {
+    id: '0199de00-0000-7000-8000-00000000c0de',
+    status: 'proposed',
+    origin: 'chat',
+    my_role: 'performer',
+    title: 'Повесить люстру',
+    price: { type: 'fixed', amount: { amount: 350_000, currency: 'RSD' } },
+    scheduled_at: new Date(proposedAt.getTime() + 9 * 60 * 60 * 1000).toISOString(),
+    preferred_from: null,
+    preferred_to: null,
+    urgency: null,
+    availability_note: null,
+    budget: null,
+    counterpart: {
+      role: 'client',
+      display_name: 'Елена К.',
+      profile_id: null,
+      avatar: null,
+      rating: null,
+      rating_count: 0,
+      is_new: false,
+      phone_verified: false,
+      telegram: null,
+    },
+    place: { city: { id: 1, name: 'Нови-Сад' }, district: null, address: null, point: null },
+    timeline: {
+      responded_at: null,
+      agreed_at: null,
+      my_mark_at: null,
+      other_mark_at: null,
+      completed_at: null,
+      cancelled_at: null,
+    },
+    awaits_my_confirmation: true,
+    cancelled_by_me: null,
+    cancel_reason: null,
+    job_id: null,
+    response_id: null,
+    conversation_id: conversationId,
+    version: 1,
+    proposed_at: proposedAt.toISOString(),
+    proposal_expires_at: new Date(proposedAt.getTime() + 72 * 60 * 60 * 1000).toISOString(),
   };
 }

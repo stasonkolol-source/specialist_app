@@ -39,6 +39,10 @@ export const getMessagingListConversationsResponseMock = (
       null,
     ]),
     counterpart_profile_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    counterpart_telegram: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
     job_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
     job_title: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -133,6 +137,10 @@ export const getMessagingListMessagesResponseMock = (
       null,
     ]),
     counterpart_profile_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    counterpart_telegram: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
     job_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
     job_title: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),

@@ -10,6 +10,7 @@ import {
   getIdentityLogoutMockHandler,
   getIdentityRefreshSessionMockHandler,
   getIdentityUpdateMeMockHandler,
+  getIdentityUpdatePrivacyMockHandler,
   getNotificationsGetNotificationSettingsMockHandler,
   getNotificationsGrantTelegramWriteAccessMockHandler,
   getNotificationsListNotificationsMockHandler,
@@ -20,7 +21,7 @@ import {
   getSearchSuggestMockHandler,
   getSystemGetClientConfigMockHandler,
 } from '@sosed/api-client/mocks';
-import type { MeOut, MeUpdateIn, TokensOut } from '@sosed/api-client';
+import type { MeOut, MeUpdateIn, PrivacyIn, TokensOut } from '@sosed/api-client';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 
@@ -64,6 +65,16 @@ export const patchMe = (me: MeOut) =>
     const body = (await request.json()) as MeUpdateIn;
     const fields = Object.fromEntries(Object.entries(body).filter(([, value]) => value != null));
     return { ...me, ...fields } as MeOut;
+  });
+
+/** PATCH /me/privacy (S43, 6.5): «Мой Telegram» — в `privacy` свежего /me. */
+export const patchPrivacy = (me: MeOut) =>
+  getIdentityUpdatePrivacyMockHandler(async ({ request }) => {
+    const body = (await request.json()) as PrivacyIn;
+    return {
+      ...me,
+      privacy: { show_telegram: body.show_telegram ?? me.privacy.show_telegram },
+    };
   });
 
 /** Ответ фейка backend как HTTP: 204 без тела, ошибки — problem+json. */
@@ -181,6 +192,7 @@ export const handlers = [
   getIdentityLogoutMockHandler(),
   getIdentityGetMeMockHandler(ME),
   patchMe(ME),
+  patchPrivacy(ME),
   getIdentityAcceptConsentsMockHandler(accepted(ME)),
   getNotificationsGrantTelegramWriteAccessMockHandler(WRITE_ACCESS),
   getNotificationsListNotificationsMockHandler(({ request }) =>

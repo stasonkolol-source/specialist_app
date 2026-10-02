@@ -12,6 +12,7 @@ from uuid import UUID
 from app.modules.deals.api import DealBrief, DealsApi
 from app.modules.identity.api import IdentityApi
 from app.modules.jobs.api import JobsApi
+from app.modules.messaging.application.contacts import OPEN_DEALS
 from app.modules.messaging.application.dto import ConversationView
 from app.modules.messaging.domain.conversation import ParticipantRole
 from app.modules.specialists.api import SpecialistsApi
@@ -32,6 +33,8 @@ class ConversationCard:
     """Заявка диалога по отклику («Заявка: …» на S29)."""
     deal: DealBrief | None
     """Сделка диалога: «Ещё не договорились», «Предложено», «Договорились»."""
+    counterpart_telegram: str | None = None
+    """«@username» второй стороны — когда договорились и она показывает Telegram (S43, 6.5)."""
 
 
 class ConversationCards:
@@ -56,6 +59,14 @@ class ConversationCards:
         deals = await self._deals.deal_briefs(
             {DealId(v.deal_id) for v in views if v.deal_id is not None}
         )
+        agreed = {
+            v.counterpart_id
+            for v in views
+            if v.deal_id is not None
+            and (deal := deals.get(DealId(v.deal_id))) is not None
+            and deal.status in OPEN_DEALS
+        }
+        telegram = await self._identity.telegram_contacts(agreed) if agreed else {}
         cards = []
         for view in views:
             user = users.get(view.counterpart_id)
@@ -71,6 +82,7 @@ class ConversationCards:
                     counterpart_profile_id=public.id if public is not None else None,
                     job_title=titles.get(view.job_id) if view.job_id is not None else None,
                     deal=deals.get(DealId(view.deal_id)) if view.deal_id is not None else None,
+                    counterpart_telegram=telegram.get(view.counterpart_id),
                 )
             )
         return cards

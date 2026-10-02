@@ -452,6 +452,9 @@ export const ViewsGetDealCardResponse = zod.object({
     rating_count: zod.int(),
     is_new: zod.boolean().describe('«Новый специалист» — у исполнителя без трёх отзывов'),
     phone_verified: zod.boolean(),
+    telegram: zod
+      .union([zod.string(), zod.null()])
+      .describe('«@username» после договорённости, если вторая сторона его показывает (S43)'),
   }),
   place: zod.object({
     city: zod.union([
@@ -516,4 +519,10 @@ export const ViewsGetDealCardResponse = zod.object({
   response_id: zod.union([zod.uuid(), zod.null()]),
   conversation_id: zod.union([zod.uuid(), zod.null()]),
   version: zod.int(),
+  proposed_at: zod
+    .union([zod.iso.datetime({ offset: true }), zod.null()])
+    .describe('«Договорились» предложено тогда (S53)'),
+  proposal_expires_at: zod
+    .union([zod.iso.datetime({ offset: true }), zod.null()])
+    .describe('Предложение отменится, если не ответить до этого времени (72 ч)'),
 });

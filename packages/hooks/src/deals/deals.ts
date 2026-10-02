@@ -1,10 +1,13 @@
-// Сделки (S24–S26; DEVELOPMENT_PLAN 6.2): выбрать отклик исполнителем — сделка создаётся сразу;
-// карточка сделки сторонам (BFF), «Работа выполнена», отмена с причиной, свои сделки. После
-// действия перечитываются сделка, отклики заявки, свои заявки и отклики.
+// Сделки (S24–S26, S53; DEVELOPMENT_PLAN 6.2, 6.5): выбрать отклик исполнителем — сделка создаётся
+// сразу; карточка сделки сторонам (BFF), «Работа выполнена», отмена с причиной, свои сделки;
+// «Договорились» из чата — подтвердить или отклонить. После действия перечитываются сделка,
+// отклики заявки, свои заявки и отклики, а после ответа на предложение — и переписка.
 import type { DealCancelReason, DealsListMyDealsParams } from '@sosed/api-client';
 import {
   dealsCancelDeal,
   dealsCompleteDeal,
+  dealsConfirmDeal,
+  dealsDeclineDeal,
   dealsListMyDeals,
   getDealsListMyDealsQueryKey,
   getSession,
@@ -20,6 +23,7 @@ import { FEED_KEY } from '../jobs/feed.ts';
 import { jobQueryKey } from '../jobs/jobs.ts';
 import { myJobsQueryKey, responseCardsQueryKey } from '../jobs/mine.ts';
 import { MY_RESPONSES_KEY } from '../jobs/responses.ts';
+import { refreshInbox } from '../messages/conversations.ts';
 
 export const dealCardQueryKey = (dealId: string) => getViewsGetDealCardQueryKey(dealId);
 /** Префикс всех списков `GET /me/deals`: после действия перечитываются все. */
@@ -115,6 +119,22 @@ export function useCancelDeal() {
       await Promise.all([
         client.invalidateQueries({ queryKey: dealCardQueryKey(deal.id) }),
         refresh(client, deal.job_id ?? null),
+      ]);
+    },
+  });
+}
+
+/** S53: подтвердить «Договорились» — сделка `agreed`; отклонить — предложение отменяется. */
+export function useAnswerProposal() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ dealId, confirm }: { dealId: string; confirm: boolean }) =>
+      confirm ? dealsConfirmDeal(dealId) : dealsDeclineDeal(dealId),
+    onSuccess: async (deal) => {
+      await Promise.all([
+        client.invalidateQueries({ queryKey: dealCardQueryKey(deal.id) }),
+        refresh(client, deal.job_id ?? null),
+        refreshInbox(client),
       ]);
     },
   });

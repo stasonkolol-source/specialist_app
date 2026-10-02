@@ -4,13 +4,23 @@
 // таймлайн «Отклик на заявку → Выбран исполнителем → Договорились (работа …) → Работа выполнена →
 // Отзыв»; памятка о предоплате клиенту. MainButton «Работа выполнена» — отметка стороны, вторая
 // завершает сделку (или сама через 3 дня); «Отменить сделку» спрашивает причину — заявка снова
-// открыта. Данные — BFF `GET /deals/{id}/card`. «Написать» (6.4), «Поделиться контактом» (6.5),
-// «Есть проблема» → S52 (спор, 6.1c) и отзыв (7.2) — в своих шагах.
+// открыта. Данные — BFF `GET /deals/{id}/card`. «Договорились» из чата (6.5): второй стороне — S53
+// «… предлагает договориться» с условиями, сроком (72 ч) и «Подтвердить» / «Отклонить»,
+// предложившей — «ждём подтверждения». После договорённости — контакты: Telegram второй стороны
+// (если она его показывает) и «Поделиться контактом» — шторка S54 в чате сделки. «Есть проблема» →
+// S52 (спор, 6.1c) и отзыв (7.2) — в своих шагах.
 import type { DealCancelReason, DealCardOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
-import { isUnavailable, useCancelDeal, useCompleteDeal, useDealCard } from '@sosed/hooks';
+import {
+  isUnavailable,
+  useAnswerProposal,
+  useCancelDeal,
+  useCompleteDeal,
+  useDealCard,
+  useStartConversation,
+} from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
-import { useBackButton } from '@sosed/platform';
+import { useBackButton, usePlatform } from '@sosed/platform';
 import type { TimelineItem } from '@sosed/ui-web';
 import {
   Avatar,
@@ -23,6 +33,7 @@ import {
   Heading,
   Icon,
   IconButton,
+  LinkButton,
   Price,
   Row,
   Sheet,
@@ -36,7 +47,7 @@ import { useId, useState } from 'react';
 import { useStepButton } from '../shared/flow.ts';
 import { useOfferPrice } from '../shared/labels.ts';
 import { LoadError } from '../shared/LoadError.tsx';
-import { JOBS_PATHS, jobIdOf, specialistPath } from '../shared/paths.ts';
+import { JOBS_PATHS, chatPath, jobIdOf, specialistPath } from '../shared/paths.ts';
 
 /** Причины, которые выбирает сторона; `expired` и `account_deleted` ставит система. */
 type PartyReason = Extract<
@@ -77,11 +88,102 @@ export function DealScreen() {
     );
   }
   if (!card.data) return <Loading />;
+  if (card.data.awaits_my_confirmation) return <Proposal deal={card.data} />;
   return <Deal deal={card.data} />;
+}
+
+/** S53: вторая сторона предложила «Договорились» — условия, срок и ответ. */
+function Proposal({ deal }: { deal: DealCardOut }) {
+  const { t } = useTranslation('jobs');
+  const format = useFormat();
+  const offerPrice = useOfferPrice();
+  const router = useRouter();
+  const answer = useAnswerProposal();
+  const name = deal.counterpart.display_name;
+  const when = deal.scheduled_at
+    ? format.calendar(new Date(deal.scheduled_at))
+    : deal.availability_note;
+  const price =
+    deal.price.type === null || deal.price.type === 'negotiable'
+      ? t('card.negotiable')
+      : offerPrice({ type: deal.price.type, amount: deal.price.amount });
+  const district = deal.place.district?.name ?? deal.place.city?.name ?? null;
+  useStepButton({
+    text: t('deal.proposal.confirm'),
+    loading: answer.isPending,
+    onClick: () => answer.mutate({ dealId: deal.id, confirm: true }),
+  });
+  const decline = () =>
+    answer.mutate(
+      { dealId: deal.id, confirm: false },
+      {
+        onSuccess: () => {
+          if (router.history.canGoBack()) router.history.back();
+        },
+      },
+    );
+  return (
+    <section className="flex flex-col gap-3 px-4 pt-3 pb-6">
+      <Heading variant="h2" as="h1">
+        {name ? t('deal.proposal.title', { name }) : t('deal.proposal.titleNoName')}
+      </Heading>
+      <Text variant="sm" secondary>
+        {t('deal.proposal.text')}
+      </Text>
+      <Card tight as="section" aria-label={deal.title}>
+        <dl className="m-0 flex flex-col gap-2">
+          <Term label={t('deal.proposal.what')}>{deal.title}</Term>
+          {when && <Term label={t('deal.proposal.when')}>{when}</Term>}
+          {district && (
+            <Term label={t('deal.proposal.where')}>
+              <span className="flex flex-col items-end">
+                <span>{district}</span>
+                <span className="text-cap font-normal text-text2">
+                  {t('deal.proposal.addressLater')}
+                </span>
+              </span>
+            </Term>
+          )}
+          <Term label={t('deal.proposal.price')}>
+            <Price>{price}</Price>
+          </Term>
+        </dl>
+        {deal.proposed_at && (
+          <Text variant="cap" secondary>
+            {t('deal.proposal.proposedAt', { time: format.calendar(new Date(deal.proposed_at)) })}
+          </Text>
+        )}
+      </Card>
+      {deal.proposal_expires_at && (
+        <Banner tone="info">
+          {t('deal.proposal.expires', {
+            date: format.calendar(new Date(deal.proposal_expires_at)),
+          })}
+        </Banner>
+      )}
+      {answer.error && (
+        <ActionError error={answer.error} fallback={t('deal.proposal.answerError')} />
+      )}
+      <LinkButton danger disabled={answer.isPending} onClick={decline}>
+        {t('deal.proposal.decline')}
+      </LinkButton>
+    </section>
+  );
+}
+
+/** Строка условий: подпись слева, значение справа. */
+function Term({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="text-text2">{label}</dt>
+      <dd className="m-0 text-right font-semibold">{children}</dd>
+    </div>
+  );
 }
 
 function Deal({ deal }: { deal: DealCardOut }) {
   const { t } = useTranslation('jobs');
+  const format = useFormat();
   const complete = useCompleteDeal();
   const cancel = useCancelDeal();
   const [cancelling, setCancelling] = useState(false);
@@ -98,7 +200,15 @@ function Deal({ deal }: { deal: DealCardOut }) {
   return (
     <section className="flex flex-col gap-3 px-4 pt-3 pb-6">
       <Header deal={deal} />
+      {deal.status === 'proposed' && deal.proposal_expires_at && (
+        <Banner tone="info">
+          {t('deal.proposal.waiting', {
+            date: format.calendar(new Date(deal.proposal_expires_at)),
+          })}
+        </Banner>
+      )}
       <Counterpart deal={deal} />
+      {(agreed || deal.status === 'completed') && <Contacts deal={deal} />}
       <Address deal={deal} />
       <Steps deal={deal} />
       <State deal={deal} />
@@ -218,6 +328,48 @@ function Counterpart({ deal }: { deal: DealCardOut }) {
         </div>
       )}
     </Card>
+  );
+}
+
+/** После договорённости: Telegram второй стороны (если показывает) и «Поделиться контактом» —
+ *  шторка S54 в чате сделки (диалог по отклику начинается, если его ещё нет). */
+function Contacts({ deal }: { deal: DealCardOut }) {
+  const { t } = useTranslation('jobs');
+  const platform = usePlatform();
+  const router = useRouter();
+  const start = useStartConversation();
+  const username = deal.counterpart.telegram;
+  const openChat = (conversationId: string) =>
+    void router.navigate({ to: chatPath(conversationId), search: { share: true } });
+  const share = () => {
+    if (deal.conversation_id) openChat(deal.conversation_id);
+    else if (deal.response_id)
+      start.mutate({ response_id: deal.response_id }, { onSuccess: (s) => openChat(s.id) });
+  };
+  const canShare = Boolean(deal.conversation_id ?? deal.response_id);
+  return (
+    <section className="flex flex-col gap-2" aria-label={t('deal.contacts.title')}>
+      <Group>
+        {username && (
+          <Row
+            icon="send"
+            title={t('deal.contacts.telegram', { username })}
+            chevron
+            onClick={() => platform.openTelegramLink(`https://t.me/${username.replace(/^@/, '')}`)}
+          />
+        )}
+        {canShare && (
+          <Row
+            icon="phone"
+            title={t('deal.contacts.share')}
+            subtitle={t('deal.contacts.shareHint')}
+            chevron
+            onClick={share}
+          />
+        )}
+      </Group>
+      {start.error && <ActionError error={start.error} fallback={t('deal.contacts.shareError')} />}
+    </section>
   );
 }
 

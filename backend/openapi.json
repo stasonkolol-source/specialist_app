@@ -229,6 +229,53 @@
         }
       }
     },
+    "/api/v1/me/privacy": {
+      "patch": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Update Privacy",
+        "description": "«Показывать после договорённости» (S43): свой Telegram второй стороне сделки.",
+        "operationId": "identity_update_privacy",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivacyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/consents": {
       "post": {
         "tags": [
@@ -7211,6 +7258,18 @@
             "title": "Counterpart Profile Id",
             "description": "Опубликованный профиль второй стороны-исполнителя: ссылка на S08"
           },
+          "counterpart_telegram": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterpart Telegram",
+            "description": "«@username» второй стороны после договорённости, если она его показывает"
+          },
           "job_id": {
             "anyOf": [
               {
@@ -7298,6 +7357,7 @@
           "counterpart_id",
           "counterpart_name",
           "counterpart_profile_id",
+          "counterpart_telegram",
           "job_id",
           "job_title",
           "response_id",
@@ -7630,6 +7690,32 @@
           "version": {
             "type": "integer",
             "title": "Version"
+          },
+          "proposed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed At",
+            "description": "«Договорились» предложено тогда (S53)"
+          },
+          "proposal_expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposal Expires At",
+            "description": "Предложение отменится, если не ответить до этого времени (72 ч)"
           }
         },
         "type": "object",
@@ -7655,7 +7741,9 @@
           "job_id",
           "response_id",
           "conversation_id",
-          "version"
+          "version",
+          "proposed_at",
+          "proposal_expires_at"
         ],
         "title": "DealCardOut"
       },
@@ -7759,6 +7847,18 @@
           "phone_verified": {
             "type": "boolean",
             "title": "Phone Verified"
+          },
+          "telegram": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telegram",
+            "description": "«@username» после договорённости, если вторая сторона его показывает (S43)"
           }
         },
         "type": "object",
@@ -7770,7 +7870,8 @@
           "rating",
           "rating_count",
           "is_new",
-          "phone_verified"
+          "phone_verified",
+          "telegram"
         ],
         "title": "DealCounterpartOut"
       },
@@ -9699,6 +9800,9 @@
               }
             ],
             "title": "Deletion Scheduled At"
+          },
+          "privacy": {
+            "$ref": "#/components/schemas/PrivacyOut"
           }
         },
         "type": "object",
@@ -9716,7 +9820,8 @@
           "can_post_jobs",
           "can_respond",
           "can_message",
-          "deletion_scheduled_at"
+          "deletion_scheduled_at",
+          "privacy"
         ],
         "title": "MeOut"
       },
@@ -10786,6 +10891,38 @@
         ],
         "title": "PriceUnit",
         "description": "За что цена в ориентире; те же значения, что у бюджета заявки (`jobs.budget_unit`, §7.3).\n\n`work` — за работу целиком (вызов сантехника, маникюр, переезд), `item` — за штуку."
+      },
+      "PrivacyIn": {
+        "properties": {
+          "show_telegram": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Show Telegram"
+          }
+        },
+        "type": "object",
+        "title": "PrivacyIn"
+      },
+      "PrivacyOut": {
+        "properties": {
+          "show_telegram": {
+            "type": "boolean",
+            "title": "Show Telegram",
+            "description": "Свой Telegram (@username) — в сделке и чате"
+          }
+        },
+        "type": "object",
+        "required": [
+          "show_telegram"
+        ],
+        "title": "PrivacyOut",
+        "description": "«Показывать после договорённости» (S43)."
       },
       "ProblemOut": {
         "properties": {

@@ -21,4 +21,6 @@ export interface DealCounterpartOut {
   /** «Новый специалист» — у исполнителя без трёх отзывов */
   is_new: boolean;
   phone_verified: boolean;
+  /** «@username» после договорённости, если вторая сторона его показывает (S43) */
+  telegram: string | null;
 }

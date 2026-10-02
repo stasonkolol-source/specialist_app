@@ -885,7 +885,7 @@ CREATE TABLE identity.users (
   identity_verified_at timestamptz,                        -- документ проверен (moderation)
   trust_level       smallint NOT NULL DEFAULT 0,           -- 0 новый … 3 доверенный (определения — §13.2)
   trust_penalty_at  timestamptz,                           -- последнее нарушение: «14 дней без жалоб» считаются от него (2.5a)
-  privacy           jsonb NOT NULL DEFAULT '{}',           -- {"show_telegram": false, "show_phone": false}
+  privacy           jsonb NOT NULL DEFAULT '{}',           -- {"show_telegram": true} (ключа нет — умолчание; телефон — только явным действием S54, 6.5)
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now(),
   last_seen_at      timestamptz,
@@ -2406,7 +2406,7 @@ sequenceDiagram
 | `POST /auth/apple`, `/auth/google`, `/auth/phone/*`, `/auth/telegram/oidc`, `/auth/telegram/link/*` | Этап 2 (App Store) |
 | `GET /me`, `PATCH /me` | Текущий пользователь, возможности (`can_post_jobs`, `has_profile`), флаги; имя, язык, город |
 | `POST /me/consents` | Принятие правил площадки (с 18+) и политики; v1 — полный журнал согласий (аналитика, маркетинг, AI) |
-| `PATCH /me/privacy` | Приватность: показывать ли Telegram и телефон после договорённости (`identity.users.privacy`) |
+| `PATCH /me/privacy` | Приватность (S43, 6.5): `show_telegram` — показывать ли второй стороне свой @username после договорённости (по умолчанию да; `identity.users.privacy`); ответ — как `GET /me`. Телефон виден только после явного «Поделиться контактом» (S54); переключатель телефона — v1 |
 | `POST /me/phone/verify-telegram` | Подтверждение телефона контактом из Telegram (`requestContact`) — добровольный бейдж, повышает `trust_level` |
 | `GET /me/blocks`, `PUT /me/blocks/{user_id}`, `DELETE /me/blocks/{user_id}` | Блокировки пользователей |
 | `POST /me/deletion`, `DELETE /me/deletion` | Запрос и отмена удаления аккаунта |
@@ -2491,7 +2491,8 @@ sequenceDiagram
 |---|---|
 | `GET /me/deals?role=client\|performer&status=`, `GET /deals/{id}` | Сделки |
 | `POST /conversations/{id}/deal` | «Договорились» из прямого диалога → сделка `proposed`; в диалоге по отклику договорённость — выбор отклика (409 `cannot_propose`) |
-| `POST /deals/{id}/confirm` | Вторая сторона подтверждает договорённость |
+| `POST /deals/{id}/confirm`, `/decline` | Вторая сторона подтверждает или отклоняет ждущее предложение (S53, кнопки бота `deal.proposed`); подтверждённую сделку `decline` не отменяет |
+| `GET /deals/{id}/card` | BFF S26 и S53 (`interfaces/http/views/deal.py`, 6.2a и 6.5): условия, вторая сторона (её @username — только после `agreed` и если она его показывает), место, вехи; у ждущего предложения — `proposed_at` и `proposal_expires_at` (72 ч) |
 | `POST /deals/{id}/complete`, `/cancel`, `/dispute` | Выполнено / отмена с причиной / спор |
 | `POST /deals/{id}/review` | Оставить отзыв: оценка, критерии, текст; фото — v1 |
 | `POST /reviews/{id}/reply` | Публичный ответ исполнителя |
@@ -2507,7 +2508,7 @@ sequenceDiagram
 | `GET /conversations/{id}/messages?cursor=&direction=older\|newer` | История |
 | `POST /conversations/{id}/messages` | Отправить `{client_msg_id, kind, body, media_id?}` |
 | `POST /conversations/{id}/read` | Отметить прочитанным до `message_id` |
-| `POST /conversations/{id}/share-contact` | Поделиться своим Telegram-контактом или телефоном. Доступно только при сделке в статусе `agreed`, до этого `409 contacts_locked` ([§11.5](#115-переписка-модель-чата)) |
+| `POST /conversations/{id}/share-contact` | Поделиться своим Telegram-контактом (подписанная initData) или телефоном (подписанный ответ `requestContact`). Доступно только при сделке `agreed` или `completed`, до этого `409 contacts_locked` ([§11.5](#115-переписка-модель-чата)) |
 | `GET /realtime` | v1: SSE-поток событий `message.new`, `message.read`, `response.new`, `deal.updated` (авторизация — [§11.6](#116-realtime)) |
 
 **notifications**
@@ -3016,7 +3017,7 @@ flowchart LR
 
 | Этап | Что есть |
 |---|---|
-| **MVP** | Диалог на отклик или прямое обращение; экран диалога в Mini App (текст, поллинг 3–5 с, пока экран открыт); уведомление в боте с кнопкой «Ответить»; «Договорились» создаёт сделку (`proposed` → вторая сторона подтверждает → `agreed`); **до сделки `agreed` обмен контактами недоступен**, а телефоны, ссылки и @username в сообщениях автоматически маскируются с подсказкой «контакты откроются после договорённости»; после `agreed` у каждой стороны появляется кнопка «Поделиться контактом» (Telegram или телефон): каждый делится своим, явным действием. Это и есть наш double opt-in. Плюс автопроверки сообщений («предоплата», фишинг) с баннером безопасности |
+| **MVP** | Диалог на отклик или прямое обращение; экран диалога в Mini App (текст, поллинг 3–5 с, пока экран открыт); уведомление в боте с кнопкой «Ответить»; «Договорились» создаёт сделку (`proposed` → вторая сторона подтверждает → `agreed`); **до сделки `agreed` обмен контактами недоступен**, а телефоны, ссылки и @username в сообщениях автоматически маскируются с подсказкой «контакты откроются после договорённости»; после `agreed` у каждой стороны появляется кнопка «Поделиться контактом» (Telegram или телефон): каждый делится своим, явным действием. Это и есть наш double opt-in. Исключение — @username Telegram: после `agreed` он виден второй стороне в шапке диалога и в сделке, если владелец не выключил «Мой Telegram» в настройках (S43, по умолчанию включено); телефон — только явным действием. Плюс автопроверки сообщений («предоплата», фишинг) с баннером безопасности |
 | **v1** | Ответ прямо из бота: reply на уведомление или активный диалог в FSM; SSE-поток событий; фото в сообщениях; автоперевод ru ↔ sr по кнопке |
 | **Этап 2** | Нативный чат в iOS/Android на том же API + push |
 

@@ -4,13 +4,19 @@
 // последних сдвигается, а показанное не пропадает. Отправка оптимистична: сообщение сразу в ленте
 // («отправляется»), ошибка — «не отправлено, повторить» с тем же `client_msg_id`, поэтому повтор
 // не создаёт второго. Новое от собеседника отмечается прочитанным, пока экран на виду.
-import type { DealProposalIn, MessageOut, MessagesPageOut } from '@sosed/api-client';
+import type {
+  ContactShareIn,
+  DealProposalIn,
+  MessageOut,
+  MessagesPageOut,
+} from '@sosed/api-client';
 import {
   getMessagingListMessagesQueryKey,
   messagingListMessages,
   messagingProposeDeal,
   messagingReadConversation,
   messagingSendMessage,
+  messagingShareContact,
 } from '@sosed/api-client';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
@@ -206,6 +212,21 @@ export function useProposeDeal(conversationId: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (terms: DealProposalIn) => messagingProposeDeal(conversationId, terms),
+    onSuccess: async () => {
+      await Promise.all([
+        client.invalidateQueries({ queryKey: chatQueryKey(conversationId) }),
+        refreshInbox(client),
+      ]);
+    },
+  });
+}
+
+/** «Поделиться контактом» (S54): username Telegram — по initData, телефон — подписанным ответом
+ *  Telegram; контакт уходит второй стороне сообщением в диалоге. */
+export function useShareContact(conversationId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (contact: ContactShareIn) => messagingShareContact(conversationId, contact),
     onSuccess: async () => {
       await Promise.all([
         client.invalidateQueries({ queryKey: chatQueryKey(conversationId) }),

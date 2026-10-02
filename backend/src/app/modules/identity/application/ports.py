@@ -181,6 +181,10 @@ class IdentityQuery(Protocol):
         """Пользователи пачкой; кого нет — нет и в ответе."""
         ...
 
+    async def telegram_contacts(self, user_ids: Collection[UserId]) -> dict[UserId, str]:
+        """«@username» тех, у кого он есть и кто показывает Telegram после договорённости."""
+        ...
+
     async def me(self, user_id: UserId) -> MeView | None:
         """Свой профиль; удалённого пользователя нет."""
         ...

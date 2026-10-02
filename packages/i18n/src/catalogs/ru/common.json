@@ -167,7 +167,8 @@
   },
   "settings": {
     "notifications": "Уведомления",
-    "language": "Язык"
+    "language": "Язык",
+    "title": "Настройки"
   },
   "photo": {
     "work": "Фото работы",

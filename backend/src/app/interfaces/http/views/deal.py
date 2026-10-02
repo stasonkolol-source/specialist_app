@@ -7,7 +7,7 @@
 """
 
 from datetime import datetime
-from typing import Annotated, Literal, cast
+from typing import Annotated, Final, Literal, cast
 from uuid import UUID
 
 from dishka.integrations.fastapi import FromDishka, inject
@@ -29,6 +29,8 @@ from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Principal
 
 router = APIRouter(tags=["views"])
+OPEN: Final = frozenset({"agreed", "completed"})
+"""Договорились: Telegram второй стороны виден (S43, 6.5)."""
 DealPath = Annotated[UUID, Path(description="id сделки")]
 
 DealState = Literal["proposed", "agreed", "completed", "cancelled", "disputed"]
@@ -54,6 +56,9 @@ class DealCounterpartOut(BaseModel):
     rating_count: int
     is_new: bool = Field(description="«Новый специалист» — у исполнителя без трёх отзывов")
     phone_verified: bool
+    telegram: str | None = Field(
+        description="«@username» после договорённости, если вторая сторона его показывает (S43)"
+    )
 
 
 class DealPointOut(BaseModel):
@@ -100,6 +105,10 @@ class DealCardOut(BaseModel):
     response_id: UUID | None
     conversation_id: UUID | None
     version: int
+    proposed_at: datetime | None = Field(description="«Договорились» предложено тогда (S53)")
+    proposal_expires_at: datetime | None = Field(
+        description="Предложение отменится, если не ответить до этого времени (72 ч)"
+    )
 
 
 @router.get("/deals/{deal_id:uuid}/card", response_model=DealCardOut, dependencies=AUTHENTICATED)
@@ -126,6 +135,10 @@ async def get_deal_card(
         counterpart = await _performer(deal, specialists, identity, media, reviews)
     else:
         counterpart = await _client(deal, identity)
+    if deal.status in OPEN:
+        other_id = deal.performer_id if client else deal.client_id
+        contacts = await identity.telegram_contacts([other_id])
+        counterpart = counterpart.model_copy(update={"telegram": contacts.get(other_id)})
     mine = deal.client_confirmed_at if client else deal.performer_confirmed_at
     other = deal.performer_confirmed_at if client else deal.client_confirmed_at
     cancelled_by_me = None
@@ -156,6 +169,8 @@ async def get_deal_card(
             completed_at=deal.completed_at,
             cancelled_at=deal.cancelled_at,
         ),
+        proposed_at=deal.created_at if deal.status == "proposed" else None,
+        proposal_expires_at=deal.proposal_expires_at,
         awaits_my_confirmation=(
             deal.status == "proposed"
             and deal.proposed_by is not None
@@ -202,6 +217,7 @@ async def _performer(
         rating_count=rating.count if rating is not None else 0,
         is_new=rating is None or rating.is_new,
         phone_verified=bool(alive and user is not None and user.phone_verified),
+        telegram=None,
     )
 
 
@@ -218,6 +234,7 @@ async def _client(deal: DealSummary, identity: IdentityApi) -> DealCounterpartOu
         rating_count=0,
         is_new=False,
         phone_verified=bool(alive and user is not None and user.phone_verified),
+        telegram=None,
     )
 
 

@@ -7,13 +7,15 @@
 // скрытое модерацией — словами (автор видит своё и что оно скрыто); отклик — карточкой с ценой;
 // контакт — ссылкой; что со сделкой — системной строкой. Отправка сразу в ленте, неотправленное —
 // «повторить». Лента опрашивается раз в 4 с (ETag), пока экран открыт; новое — прочитано.
-// Закрытый диалог — без композера. «Пожаловаться» и «Заблокировать» — в шаге 4.7.
+// Закрытый диалог — без композера. После договорённости в шапке — «Поделиться контактом» (шторка
+// S54, 6.5; из сделки S26 — сразу открытой, `?share`) и Telegram второй стороны, если она его
+// показывает. «Пожаловаться» и «Заблокировать» — в шаге 4.7.
 import type { ConversationOut, MessageOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import type { ChatEntry } from '@sosed/hooks';
 import { MAX_MESSAGE, dealState, useChat } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
-import { useBackButton, useInsets } from '@sosed/platform';
+import { useBackButton, useInsets, usePlatform } from '@sosed/platform';
 import {
   Avatar,
   Banner,
@@ -27,13 +29,14 @@ import {
   SystemNote,
   paletteFor,
 } from '@sosed/ui-web';
-import { useParams, useRouter } from '@tanstack/react-router';
+import { useParams, useRouter, useSearch } from '@tanstack/react-router';
 import type { MouseEvent, ReactNode } from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { LoadError } from '../shared/LoadError.tsx';
-import { MESSAGES_PATHS, managedJobPath, profilePath } from '../shared/paths.ts';
+import { MESSAGES_PATHS, dealPath, managedJobPath, profilePath } from '../shared/paths.ts';
 import { ProposeSheet } from './ProposeSheet.tsx';
+import { ShareContactSheet } from './ShareContactSheet.tsx';
 
 const NOT_FOUND = 404;
 /** Ближе к низу ленты, чем на столько пикселей, — новое прокручивается в вид само. */
@@ -97,6 +100,9 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
   const insets = useInsets();
   const [draft, setDraft] = useState('');
   const [proposing, setProposing] = useState(false);
+  const { share: shareAsked } = useSearch({ strict: false }) as { share?: true };
+  const contactsOpen = ['agreed', 'completed'].includes(dealState(conversation));
+  const [sharing, setSharing] = useState(Boolean(shareAsked) && contactsOpen);
   const [proposed, setProposed] = useState(false);
   const writable = conversation.status === 'open';
   const name = conversation.counterpart_name ?? t('list.deleted');
@@ -125,7 +131,13 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
   const started = new Date(conversation.created_at);
   return (
     <div className="flex min-h-[calc(100dvh-var(--tg-top,0px))] flex-col">
-      <Header conversation={conversation} name={name} onPropose={() => setProposing(true)} />
+      <Header
+        conversation={conversation}
+        name={name}
+        onPropose={() => setProposing(true)}
+        onShare={() => setSharing(true)}
+      />
+      <DealBar conversation={conversation} />
       <div className="flex flex-1 flex-col justify-end">
         <ChatList label={t('list.title')} className="pb-4">
           <Banner tone="warn" icon="alert">
@@ -185,6 +197,11 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
           </Banner>
         </div>
       )}
+      <ShareContactSheet
+        open={sharing}
+        conversationId={conversation.id}
+        onClose={() => setSharing(false)}
+      />
       <ProposeSheet
         open={proposing}
         conversationId={conversation.id}
@@ -198,17 +215,44 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
   );
 }
 
+/** Сделка диалога ссылкой на S26; второй стороне ждущего предложения там — S53 (6.5). */
+function DealBar({ conversation }: { conversation: ConversationOut }) {
+  const { t } = useTranslation('messages');
+  const router = useRouter();
+  const state = dealState(conversation);
+  const deal = conversation.deal;
+  if (!deal || state === 'none' || state === 'cancelled') return null;
+  const path = dealPath(deal.id);
+  const open = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    void router.navigate({ to: path });
+  };
+  return (
+    <div className="px-4 pt-3">
+      <Banner tone={state === 'proposed' ? 'warn' : 'info'} icon="briefcase">
+        {t('chat.dealBar', { title: deal.title })}{' '}
+        <a href={router.history.createHref(path)} onClick={open}>
+          {state === 'proposed' ? t('chat.dealTerms') : t('chat.dealOpen')}
+        </a>
+      </Banner>
+    </div>
+  );
+}
+
 function Header({
   conversation,
   name,
   onPropose,
+  onShare,
 }: {
   conversation: ConversationOut;
   name: string;
   onPropose: () => void;
+  onShare: () => void;
 }) {
   const { t } = useTranslation('messages');
   const router = useRouter();
+  const platform = usePlatform();
   const state = dealState(conversation);
   const settled = state === 'proposed' || state === 'agreed' || state === 'disputed';
   const open = conversation.status === 'open';
@@ -222,13 +266,20 @@ function Header({
       </span>
     </>
   );
+  const telegram = conversation.counterpart_telegram;
   const toProfile = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     if (profileId) void router.navigate({ to: profilePath(profileId) });
   };
 
   let action: ReactNode = null;
-  if (open && !settled && conversation.kind === 'direct') {
+  if (open && (state === 'agreed' || state === 'completed')) {
+    action = (
+      <Button size="sm" onClick={onShare}>
+        {t('chat.shareContact')}
+      </Button>
+    );
+  } else if (open && !settled && conversation.kind === 'direct') {
     action = (
       <Button size="sm" onClick={onPropose}>
         {t('chat.agree')}
@@ -268,6 +319,17 @@ function Header({
         </a>
       ) : (
         <div className="flex min-w-0 flex-1 items-center gap-2.5">{person}</div>
+      )}
+      {telegram && (
+        <Button
+          size="sm"
+          variant="secondary"
+          icon="send"
+          aria-label={`${t('chat.telegram')}: ${telegram}`}
+          onClick={() => platform.openTelegramLink(`https://t.me/${telegram.replace(/^@/, '')}`)}
+        >
+          {t('chat.telegram')}
+        </Button>
       )}
       {action}
     </header>

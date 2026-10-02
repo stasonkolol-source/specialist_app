@@ -130,6 +130,9 @@ class ConversationOut(BaseModel):
     counterpart_profile_id: UUID | None = Field(
         description="Опубликованный профиль второй стороны-исполнителя: ссылка на S08"
     )
+    counterpart_telegram: str | None = Field(
+        description="«@username» второй стороны после договорённости, если она его показывает"
+    )
     job_id: UUID | None
     job_title: str | None = Field(description="Заявка диалога по отклику: «Заявка: …»")
     response_id: UUID | None
@@ -150,6 +153,7 @@ class ConversationOut(BaseModel):
             counterpart_id=view.counterpart_id,
             counterpart_name=card.counterpart_name,
             counterpart_profile_id=card.counterpart_profile_id,
+            counterpart_telegram=card.counterpart_telegram,
             job_id=view.job_id,
             job_title=card.job_title,
             response_id=view.response_id,

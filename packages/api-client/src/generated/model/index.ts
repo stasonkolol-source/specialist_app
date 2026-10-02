@@ -164,6 +164,8 @@ export * from './priceHintOut.ts';
 export * from './priceType.ts';
 export * from './priceUnit.ts';
 export * from './pricingAddMyServiceHeaders.ts';
+export * from './privacyIn.ts';
+export * from './privacyOut.ts';
 export * from './problemOut.ts';
 export * from './profileAreasIn.ts';
 export * from './profileCategoriesIn.ts';

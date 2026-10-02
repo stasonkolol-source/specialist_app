@@ -45,6 +45,9 @@ export const MessagingListConversationsResponse = zod.object({
         counterpart_profile_id: zod
           .union([zod.uuid(), zod.null()])
           .describe('Опубликованный профиль второй стороны-исполнителя: ссылка на S08'),
+        counterpart_telegram: zod
+          .union([zod.string(), zod.null()])
+          .describe('«@username» второй стороны после договорённости, если она его показывает'),
         job_id: zod.union([zod.uuid(), zod.null()]),
         job_title: zod
           .union([zod.string(), zod.null()])
@@ -191,6 +194,9 @@ export const MessagingListMessagesResponse = zod.object({
       counterpart_profile_id: zod
         .union([zod.uuid(), zod.null()])
         .describe('Опубликованный профиль второй стороны-исполнителя: ссылка на S08'),
+      counterpart_telegram: zod
+        .union([zod.string(), zod.null()])
+        .describe('«@username» второй стороны после договорённости, если она его показывает'),
       job_id: zod.union([zod.uuid(), zod.null()]),
       job_title: zod
         .union([zod.string(), zod.null()])

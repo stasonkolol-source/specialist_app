@@ -9,7 +9,7 @@ from app.modules.identity.api import TelegramUserView, UserSummary
 from app.modules.identity.application.dto import MeView
 from app.modules.identity.domain.consent import Consent
 from app.modules.identity.domain.restriction import Restriction
-from app.modules.identity.domain.user import AuthProvider, UserStatus
+from app.modules.identity.domain.user import AuthProvider, Privacy, UserStatus
 from app.modules.identity.infrastructure.models import (
     AuthIdentityRow,
     CompletedDealRow,
@@ -54,6 +54,7 @@ class SqlIdentityQuery(SqlQuery):
                 u.version,
                 u.home_city_id,
                 u.intent,
+                u.privacy,
                 scheduled.label("deletion_scheduled_at"),
             ).where(u.id == user_id, u.status == UserStatus.ACTIVE)
         )
@@ -70,7 +71,29 @@ class SqlIdentityQuery(SqlQuery):
             home_city_id=CityId(row["home_city_id"]) if row["home_city_id"] is not None else None,
             intent=row["intent"],
             deletion_scheduled_at=row["deletion_scheduled_at"],
+            show_telegram=Privacy.from_mapping(row["privacy"] or {}).show_telegram,
         )
+
+    async def telegram_contacts(self, user_ids: Collection[UserId]) -> dict[UserId, str]:
+        if not user_ids:
+            return {}
+        u, i = UserRow.__table__.c, AuthIdentityRow.__table__.c
+        username = i.profile["username"].astext
+        rows = await self._fetch(
+            select(u.id, u.privacy, username.label("username"))
+            .join(AuthIdentityRow.__table__, i.user_id == u.id)
+            .where(
+                u.id.in_(list(user_ids)),
+                u.status == UserStatus.ACTIVE,
+                i.provider == AuthProvider.TELEGRAM,
+                username.is_not(None),
+            )
+        )
+        return {
+            UserId(row["id"]): f"@{row['username']}"
+            for row in rows
+            if Privacy.from_mapping(row["privacy"] or {}).show_telegram
+        }
 
     async def by_telegram(self, telegram_id: int) -> TelegramUserView | None:
         u, i = UserRow.__table__.c, AuthIdentityRow.__table__.c

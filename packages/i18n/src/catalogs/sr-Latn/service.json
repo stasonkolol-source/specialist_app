@@ -72,5 +72,13 @@
     "cancel": "Otkaži brisanje",
     "cancelShort": "Otkaži",
     "row": "Obriši nalog"
+  },
+  "settings": {
+    "title": "Podešavanja",
+    "privacyTitle": "Prikaži posle dogovora",
+    "privacyTelegram": "Moj Telegram",
+    "privacyTelegramHint": "Sagovornik će videti link na vaš Telegram u dogovoru i u razgovoru kad se dogovorite",
+    "privacyPhoneHint": "Telefon možete podeliti u razgovoru dugmetom „Podelite kontakt“ — Telegram će tražiti potvrdu",
+    "saveError": "Čuvanje nije uspelo. Pokušajte ponovo."
   }
 }

@@ -100,6 +100,8 @@ class DealSummary:
     cancel_reason: str | None
     created_at: datetime
     version: int
+    proposal_expires_at: datetime | None = None
+    """Предложение «Договорились» истечёт тогда (S53); у других статусов — None."""
 
 
 class DealsApi(Protocol):

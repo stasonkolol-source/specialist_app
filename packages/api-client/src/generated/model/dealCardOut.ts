@@ -44,4 +44,8 @@ export interface DealCardOut {
   response_id: string | null;
   conversation_id: string | null;
   version: number;
+  /** «Договорились» предложено тогда (S53) */
+  proposed_at: string | null;
+  /** Предложение отменится, если не ответить до этого времени (72 ч) */
+  proposal_expires_at: string | null;
 }

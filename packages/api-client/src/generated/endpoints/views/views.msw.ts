@@ -422,6 +422,10 @@ export const getViewsGetDealCardResponseMock = (
     rating_count: faker.number.int(),
     is_new: faker.datatype.boolean(),
     phone_verified: faker.datatype.boolean(),
+    telegram: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
   },
   place: {
     city: faker.helpers.arrayElement([
@@ -487,6 +491,14 @@ export const getViewsGetDealCardResponseMock = (
   response_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
   conversation_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
   version: faker.number.int(),
+  proposed_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  proposal_expires_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
   ...overrideResponse,
 });
 

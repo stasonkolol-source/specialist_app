@@ -124,6 +124,7 @@ export const ME: MeOut = {
   can_respond: true,
   can_message: true,
   deletion_scheduled_at: null,
+  privacy: { show_telegram: true },
 };
 
 /** Запрос на удаление аккаунта S45: принят 1 октября, исполнится через 7 дней — 8 октября. */

@@ -34,6 +34,7 @@ export {
   useLegalDocument,
 } from './legal/useLegalDocument.ts';
 export type { MediaApi, MediaTransport, Prepared, PutResult } from './media/upload.ts';
+export { useUpdatePrivacy } from './account/privacy.ts';
 export type { ChatEntry, PendingMessage } from './messages/chat.ts';
 export {
   CHAT_PAGE_SIZE,
@@ -42,6 +43,7 @@ export {
   chatQueryKey,
   useChat,
   useProposeDeal,
+  useShareContact,
 } from './messages/chat.ts';
 export type { ChatRole, ConversationPages, DealState } from './messages/conversations.ts';
 export {
@@ -238,6 +240,7 @@ export {
   MY_DEALS_KEY,
   dealCardQueryKey,
   useAcceptResponse,
+  useAnswerProposal,
   useCancelDeal,
   useCompleteDeal,
   useDealCard,

@@ -18,6 +18,8 @@ export interface MockOptions {
   popupAnswer?: string | null;
   writeAccess?: boolean;
   contact?: boolean;
+  /** Подписанный ответ `getRequestedContact` после «Поделиться» (S54); по умолчанию — синтетика. */
+  contactResponse?: string;
   location?: { latitude: number; longitude: number } | null;
   /** Настоящий initData вместо синтетического: вход на dev-стенде из браузера
    *  (`cli dev-initdata`). По умолчанию — подпись `mock`, её backend не примет. */
@@ -54,6 +56,7 @@ export const MOCK_USER = {
   id: 100_000_001,
   first_name: 'Елена',
   last_name: 'К.',
+  username: 'elena_k',
   language_code: 'ru',
 };
 
@@ -81,6 +84,7 @@ export function createMockPlatform(options: MockOptions = {}): {
     popupAnswer = 'ok',
     writeAccess = true,
     contact = true,
+    contactResponse = 'contact=%7B%22user_id%22%3A1%2C%22phone_number%22%3A%22381641234567%22%7D&auth_date=1&hash=mock',
     location = { latitude: 45.2671, longitude: 19.8335 },
     initData: rawInitData,
     deviceStorage = {},
@@ -146,7 +150,11 @@ export function createMockPlatform(options: MockOptions = {}): {
         const result =
           p.method === 'getStorageValues'
             ? Object.fromEntries(keys.map((k) => [k, cloud.get(k) ?? '']))
-            : true;
+            : p.method === 'getRequestedContact'
+              ? contact
+                ? contactResponse
+                : ''
+              : true;
         return reply('custom_method_invoked', { req_id: id, result });
       }
       default:

@@ -241,6 +241,13 @@ function Activity() {
           href={router.history.createHref(NOTIFICATIONS_PATH)}
           onClick={open(NOTIFICATIONS_PATH)}
         />
+        <Row
+          icon="settings"
+          title={t('settings.title')}
+          chevron
+          href={router.history.createHref(ACCOUNT_PATHS.settings)}
+          onClick={open(ACCOUNT_PATHS.settings)}
+        />
       </Group>
     </nav>
   );
