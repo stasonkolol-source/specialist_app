@@ -30,7 +30,7 @@ from app.platform.contracts.events.specialists import (
     ProfilePublished,
     ProfileUpdated,
 )
-from app.platform.kernel.ids import CategoryId, UserId
+from app.platform.kernel.ids import CategoryId, CityId, UserId
 from app.platform.queue.port import TaskRef
 
 
@@ -96,6 +96,21 @@ class SpecialistSearch(Protocol):
         now: datetime,
     ) -> list[SpecialistHit]:
         """До `limit` строк по порядку `sort`, начиная с `offset`."""
+        ...
+
+    async def count(
+        self,
+        filters: SpecialistFilters,
+        match: TextMatch | None,
+        *,
+        now: datetime,
+        cap: int,
+    ) -> int:
+        """Сколько строк подходит, но не больше `cap`: «Показать 1000+» дальше не считает."""
+        ...
+
+    async def count_by_category(self, city_id: CityId, kind: str) -> dict[CategoryId, int]:
+        """Видимые специалисты города по категориям — с подкатегориями (дерево S04)."""
         ...
 
 

@@ -38,6 +38,11 @@ class SpecialistFilters:
     with_reviews: bool = False
 
     @property
+    def missing_point(self) -> bool:
+        """Радиус и «выезжает ко мне» считаются от точки клиента — без неё нельзя."""
+        return self.point is None and bool(self.radius_m or self.travels_to_me)
+
+    @property
     def narrowed(self) -> bool:
         """Выбрано что-то сверх города и категории: пустой выдаче подскажем ослабить фильтры."""
         return bool(

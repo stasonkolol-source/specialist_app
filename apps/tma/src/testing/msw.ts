@@ -14,6 +14,9 @@ import {
   getNotificationsGrantTelegramWriteAccessMockHandler,
   getNotificationsListNotificationsMockHandler,
   getNotificationsMarkNotificationsReadMockHandler,
+  getSearchCountByCategoryMockHandler,
+  getSearchCountSpecialistsMockHandler,
+  getSearchListSpecialistsMockHandler,
   getSystemGetClientConfigMockHandler,
 } from '@sosed/api-client/mocks';
 import type { MeOut, MeUpdateIn, TokensOut } from '@sosed/api-client';
@@ -25,11 +28,15 @@ import {
   ME,
   NOTIFICATION_SETTINGS,
   WRITE_ACCESS,
+  CATEGORY_COUNTS,
   accepted,
+  cardsFor,
   categoriesFor,
   citiesFor,
   districtsFor,
   notificationsFor,
+  searchFound,
+  searchPage,
 } from './fixtures.ts';
 import type { BackendReply } from './backend.ts';
 import { ProfileBackend } from './profileBackend.ts';
@@ -79,6 +86,21 @@ export const profileHandlers = (backend: () => ProfileBackend) => [
   }),
 ];
 
+/** Каталог S04–S06 (4.4): выдача, «Показать N» и числа дерева — из фикстур, как у backend. */
+export const searchHandlers = [
+  getSearchListSpecialistsMockHandler(({ request }) =>
+    searchPage(new URL(request.url).searchParams, cardsFor(request.headers.get('Accept-Language'))),
+  ),
+  getSearchCountSpecialistsMockHandler(({ request }) => ({
+    count: searchFound(
+      new URL(request.url).searchParams,
+      cardsFor(request.headers.get('Accept-Language')),
+    ).length,
+    capped: false,
+  })),
+  getSearchCountByCategoryMockHandler(CATEGORY_COUNTS),
+];
+
 export const handlers = [
   getSystemGetClientConfigMockHandler(CLIENT_CONFIG),
   getIdentityAuthenticateTelegramMockHandler({ ...TOKENS, is_new: false, user: ME }),
@@ -101,6 +123,7 @@ export const handlers = [
   getCatalogListCategoriesMockHandler(({ request }) =>
     categoriesFor(request.headers.get('Accept-Language')),
   ),
+  ...searchHandlers,
   ...profileHandlers(() => new ProfileBackend()),
 ];
 

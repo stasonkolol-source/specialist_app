@@ -11,6 +11,14 @@ from dishka.integrations.fastapi import FromDishka, inject
 from fastapi import APIRouter, Depends, Query, Response
 
 from app.modules.search.application.dto import SpecialistFilters
+from app.modules.search.application.use_cases.count_by_category import (
+    CountByCategory,
+    CountByCategoryCommand,
+)
+from app.modules.search.application.use_cases.count_specialists import (
+    CountSpecialists,
+    CountSpecialistsCommand,
+)
 from app.modules.search.application.use_cases.search_specialists import (
     SearchSpecialists,
     SearchSpecialistsCommand,
@@ -21,7 +29,13 @@ from app.modules.search.application.use_cases.suggest_categories import (
     SuggestCategoriesCommand,
 )
 from app.modules.search.domain.query import MAX_QUERY, SpecialistSort
-from app.modules.search.http.schemas import SpecialistPageOut, SuggestOut
+from app.modules.search.http.schemas import (
+    CategoryCountOut,
+    CategoryCountsOut,
+    SpecialistCountOut,
+    SpecialistPageOut,
+    SuggestOut,
+)
 from app.platform.http.pagination import PageParams
 from app.platform.http.ratelimit import GuestOrUserRateLimit
 from app.platform.kernel.errors import DomainValidationError
@@ -36,6 +50,7 @@ SUGGEST_GUEST = Rate("search.suggest_guest", "60/minute")
 SUGGEST_USER = Rate("search.suggest_user", "120/minute")
 """Свои счётчики: набор текста не съедает лимит выдачи."""
 SUGGEST_MAX_AGE = 300
+COUNTS_MAX_AGE = 300
 METERS_IN_KM = 1000
 MAX_LISTED = 20
 """Районов, языков, форматов в одном фильтре — больше в шторке не выбрать."""
@@ -133,3 +148,36 @@ async def suggest(
     response.headers["Vary"] = "Accept-Language"
     response.headers["Cache-Control"] = f"private, max-age={SUGGEST_MAX_AGE}"
     return SuggestOut.of(found, locale)
+
+
+@router.get("/specialists/count", response_model=SpecialistCountOut, dependencies=search_limit)
+@inject
+async def count_specialists(
+    *,
+    count: FromDishka[CountSpecialists],
+    filters: Annotated[SpecialistFilters, Depends(specialist_filters)],
+    q: Annotated[str | None, Query(max_length=2 * MAX_QUERY)] = None,
+) -> SpecialistCountOut:
+    """Сколько специалистов покажет выдача с этими фильтрами: «Показать N» в шторке S06."""
+    found = await count(CountSpecialistsCommand(filters=filters, q=q))
+    return SpecialistCountOut(count=found.count, capped=found.capped)
+
+
+@router.get("/specialists/by-category", response_model=CategoryCountsOut, dependencies=search_limit)
+@inject
+async def count_by_category(
+    *,
+    response: Response,
+    counts: FromDishka[CountByCategory],
+    city_id: Annotated[CityId, Query(ge=1)],
+    kind: Annotated[Literal["pro", "casual"], Query()] = "pro",
+) -> CategoryCountsOut:
+    """Сколько специалистов в каждой категории города — для дерева S04 (с подкатегориями)."""
+    found = await counts(CountByCategoryCommand(city_id=city_id, kind=kind))
+    response.headers["Cache-Control"] = f"private, max-age={COUNTS_MAX_AGE}"
+    return CategoryCountsOut(
+        items=[
+            CategoryCountOut(category_id=category_id, count=number)
+            for category_id, number in sorted(found.items())
+        ]
+    )

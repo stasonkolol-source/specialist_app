@@ -5,4 +5,5 @@ export * from './generated/endpoints/identity/identity.msw.ts';
 export * from './generated/endpoints/notifications/notifications.msw.ts';
 export * from './generated/endpoints/platform/platform.msw.ts';
 export * from './generated/endpoints/pricing/pricing.msw.ts';
+export * from './generated/endpoints/search/search.msw.ts';
 export * from './generated/endpoints/specialists/specialists.msw.ts';

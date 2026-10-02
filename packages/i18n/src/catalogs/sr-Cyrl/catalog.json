@@ -1,0 +1,67 @@
+{
+  "categories": {
+    "title": "Све услуге",
+    "search": "Пронађите услугу",
+    "specialists": "{count, plural, one {# стручњак} few {# стручњака} other {# стручњака}}",
+    "loadError": "Категорије нису учитане"
+  },
+  "results": {
+    "title": "Стручњаци",
+    "search": "Претрага услуга и стручњака",
+    "clear": "Обриши претрагу",
+    "chips": "Филтери резултата",
+    "filters": "Филтери",
+    "remove": "Уклони филтер „{name}“",
+    "count": "{count, plural, one {# стручњак} few {# стручњака} other {# стручњака}}",
+    "countNear": "{count, plural, one {# стручњак у близини} few {# стручњака у близини} other {# стручњака у близини}}",
+    "countMore": "Више од {count} стручњака",
+    "didYouMean": "Да ли сте мислили „{term}“?",
+    "emptyTitle": "Нико није пронађен",
+    "emptyText": "Покушајте другачије да напишете или изаберите категорију",
+    "relaxFilters": "Ублажите филтере — на пример, уклоните део града или цену",
+    "resetFilters": "Поништи филтере",
+    "more": "Још стручњака",
+    "moreError": "Учитавање није успело. Покушајте поново",
+    "loadError": "Стручњаци нису учитани",
+    "locationError": "Не знамо где сте: дозволите приступ локацији у Telegram-у",
+    "reviews": "({count})",
+    "todayUntil": "Данас до {time}",
+    "phoneVerified": "Телефон потврђен"
+  },
+  "filters": {
+    "title": "Филтери",
+    "close": "Затвори филтере",
+    "sort": "Редослед",
+    "sortRelevance": "Препорука",
+    "sortDistance": "Ближе",
+    "sortRating": "Оцена",
+    "districts": "Делови града",
+    "wholeCity": "Цео град",
+    "moreDistricts": "Још {count}",
+    "priceMax": "Цена до",
+    "language": "Језик комуникације",
+    "anyLanguage": "Било који",
+    "workMode": "Начин рада",
+    "workModes": {
+      "at_client": "Долазак код клијента",
+      "at_own_place": "Код себе",
+      "remote": "Онлајн"
+    },
+    "category": "Категорија",
+    "anyCategory": "Све",
+    "availableToday": "Слободан данас",
+    "withReviews": "Има утиске",
+    "nearMe": "До {km} км",
+    "reset": "Поништи",
+    "show": "{count, plural, one {Прикажи # стручњака} few {Прикажи # стручњака} other {Прикажи # стручњака}}",
+    "showMore": "Прикажи више од {count}",
+    "nobody": "Нико није пронађен",
+    "pickCategory": "Изаберите категорију",
+    "languages": {
+      "ru": "Руски",
+      "sr": "Српски",
+      "en": "Енглески",
+      "uk": "Украјински"
+    }
+  }
+}

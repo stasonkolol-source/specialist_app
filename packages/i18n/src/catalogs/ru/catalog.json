@@ -1,0 +1,67 @@
+{
+  "categories": {
+    "title": "Все услуги",
+    "search": "Найти услугу",
+    "specialists": "{count, plural, one {# специалист} few {# специалиста} many {# специалистов} other {# специалиста}}",
+    "loadError": "Не получилось загрузить категории"
+  },
+  "results": {
+    "title": "Специалисты",
+    "search": "Поиск услуг и специалистов",
+    "clear": "Очистить поиск",
+    "chips": "Фильтры выдачи",
+    "filters": "Фильтры",
+    "remove": "Убрать фильтр «{name}»",
+    "count": "{count, plural, one {# специалист} few {# специалиста} many {# специалистов} other {# специалиста}}",
+    "countNear": "{count, plural, one {# специалист рядом} few {# специалиста рядом} many {# специалистов рядом} other {# специалиста рядом}}",
+    "countMore": "Больше {count} специалистов",
+    "didYouMean": "Возможно, вы имели в виду «{term}»",
+    "emptyTitle": "Никого не нашли",
+    "emptyText": "Попробуйте написать иначе или выбрать категорию",
+    "relaxFilters": "Ослабьте фильтры — например, уберите район или цену",
+    "resetFilters": "Сбросить фильтры",
+    "more": "Ещё специалисты",
+    "moreError": "Не получилось загрузить ещё. Попробуйте снова",
+    "loadError": "Не получилось загрузить специалистов",
+    "locationError": "Не получилось узнать, где вы: разрешите доступ к местоположению в Telegram",
+    "reviews": "({count})",
+    "todayUntil": "Сегодня до {time}",
+    "phoneVerified": "Телефон подтверждён"
+  },
+  "filters": {
+    "title": "Фильтры",
+    "close": "Закрыть фильтры",
+    "sort": "Сортировка",
+    "sortRelevance": "Рекомендуем",
+    "sortDistance": "Ближе",
+    "sortRating": "Рейтинг",
+    "districts": "Районы",
+    "wholeCity": "Весь город",
+    "moreDistricts": "Ещё {count}",
+    "priceMax": "Цена до",
+    "language": "Язык общения",
+    "anyLanguage": "Любой",
+    "workMode": "Формат",
+    "workModes": {
+      "at_client": "Выезд",
+      "at_own_place": "У себя",
+      "remote": "Онлайн"
+    },
+    "category": "Категория",
+    "anyCategory": "Все",
+    "availableToday": "Свободен сегодня",
+    "withReviews": "Есть отзывы",
+    "nearMe": "До {km} км",
+    "reset": "Сбросить",
+    "show": "{count, plural, one {Показать # специалиста} few {Показать # специалиста} many {Показать # специалистов} other {Показать # специалиста}}",
+    "showMore": "Показать больше {count}",
+    "nobody": "Никого не нашли",
+    "pickCategory": "Выберите категорию",
+    "languages": {
+      "ru": "Русский",
+      "sr": "Сербский",
+      "en": "Английский",
+      "uk": "Украинский"
+    }
+  }
+}

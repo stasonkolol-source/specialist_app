@@ -11,6 +11,8 @@ from app.modules.search.application.ports import (
     SpecialistSearch,
 )
 from app.modules.search.application.projection import SpecialistProjection
+from app.modules.search.application.use_cases.count_by_category import CountByCategory
+from app.modules.search.application.use_cases.count_specialists import CountSpecialists
 from app.modules.search.application.use_cases.flush_index import FlushIndex
 from app.modules.search.application.use_cases.mark_profiles import MarkProfiles
 from app.modules.search.application.use_cases.reconcile_index import ReconcileIndex
@@ -42,3 +44,5 @@ class SearchProvider(Provider):
     query_log = provide(SqlQueryLog, provides=QueryLog)
     search_specialists = provide(SearchSpecialists)
     suggest_categories = provide(SuggestCategories)
+    count_specialists = provide(CountSpecialists)
+    count_by_category = provide(CountByCategory)

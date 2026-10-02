@@ -2,6 +2,7 @@
 // Ответы существующих эндпоинтов — типами api-client; данные экранов, для которых API ещё нет
 // (специалисты, заявки, отклики), — формой из SPEC: шаги этапа 1 заменят их моделями OpenAPI.
 import type {
+  CategoryCountsOut,
   CategoryOut,
   CityOut,
   ClientConfigOut,
@@ -13,6 +14,8 @@ import type {
   NotificationType,
   ProfileOut,
   ServiceOut,
+  SpecialistCardOut,
+  SpecialistPageOut,
   TelegramChannelOut,
   WorkKind,
   WorkOut,
@@ -448,3 +451,89 @@ export const PRICE_LIST: ServiceOut[] = [
   priceItem(5, 'Установка карниза', 'chandeliers', 1500, { price_type: 'from' }),
   priceItem(6, 'Бра или светильник', 'chandeliers', 1200, { is_active: false }),
 ]; // prettier-ignore
+
+/** Запрос, по которому выдача пуста (как у backend — с подсказками). */
+export const NOBODY_QUERY = 'никого';
+/** Опечатка, которую выдача «поправляет»: «Возможно, вы имели в виду …». */
+export const TYPO_QUERY = 'elektricr';
+/** e2e: часы браузера стоят на утре 5 октября, «Свободен сегодня» — до 20:00 по Белграду, как
+ *  на макете S05; без этого подпись менялась бы с каждым прогоном и скриншоты расходились. */
+export const E2E_NOW = '2026-10-05T08:00:00Z';
+export const E2E_AVAILABLE_UNTIL = '2026-10-05T18:00:00Z';
+const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+
+/** Карточки выдачи S05 из специалистов SPEC §4 (SPECIALISTS): как GET /specialists. У первого —
+ *  «сегодня до» и подтверждённый телефон, у последнего (без отзывов) — «Новый специалист». */
+export function cardsFor(
+  locale: string | null,
+  availableUntil = new Date(Date.now() + THREE_HOURS_MS).toISOString(),
+): SpecialistCardOut[] {
+  return SPECIALISTS.map((fixture, index): SpecialistCardOut => {
+    const district = (DISTRICTS as readonly string[]).includes(fixture.district)
+      ? (fixture.district as (typeof DISTRICTS)[number])
+      : null;
+    return {
+      profile_id: `0199cc00-0000-7000-8000-${String(index + 1).padStart(12, '0')}`,
+      display_name: fixture.name,
+      headline: fixture.title,
+      kind: 'pro',
+      avatar: null,
+      district: district
+        ? {
+            id: DISTRICT_IDS[district],
+            name: latin(locale) ? DISTRICT_NAMES_LATIN[district] : district,
+          }
+        : null,
+      distance_m: fixture.distanceKm === null ? null : fixture.distanceKm * 1000,
+      languages: fixture.languages,
+      category_ids: [],
+      price_from: fixture.price ? Number(fixture.price.replace(/\D/g, '')) * 100 : null,
+      negotiable: false,
+      rating: fixture.rating,
+      rating_count: fixture.reviews,
+      is_new: fixture.reviews < 3,
+      available_until: index === 0 ? availableUntil : null,
+      badges: index === 0 ? ['phone_verified'] : [],
+    };
+  });
+}
+
+/** Выдача как у backend 4.2: «доступен сегодня» и языки фильтруют, текст NOBODY_QUERY — пусто. */
+export function searchFound(
+  params: URLSearchParams,
+  cards: readonly SpecialistCardOut[],
+): SpecialistCardOut[] {
+  if (params.get('q') === NOBODY_QUERY) return [];
+  const languages = params.getAll('languages');
+  return cards.filter(
+    (card) =>
+      (params.get('available_today') !== 'true' || card.available_until !== null) &&
+      (languages.length === 0 || card.languages.some((lang) => languages.includes(lang))),
+  );
+}
+
+/** Страница GET /specialists: курсор — смещение, опечатка TYPO_QUERY поправлена. */
+export function searchPage(
+  params: URLSearchParams,
+  cards: readonly SpecialistCardOut[],
+): SpecialistPageOut {
+  const all = searchFound(params, cards);
+  const offset = Number(params.get('cursor') ?? 0);
+  const end = offset + Number(params.get('limit') ?? 20);
+  return {
+    items: all.slice(offset, end),
+    next_cursor: end < all.length ? String(end) : null,
+    category_ids: [],
+    did_you_mean: params.get('q') === TYPO_QUERY ? 'Električar' : null,
+    hints: all.length === 0 ? ['relax_filters', 'post_job'] : [],
+  };
+}
+
+/** GET /specialists/by-category: «Мастер на час» с подкатегориями, «Электрика», «Уборка». */
+export const CATEGORY_COUNTS: CategoryCountsOut = {
+  items: [
+    { category_id: CATEGORY_IDS['handyman'] ?? 0, count: 12 },
+    { category_id: CATEGORY_IDS['electrical'] ?? 0, count: 5 },
+    { category_id: CATEGORY_IDS['cleaning'] ?? 0, count: 3 },
+  ],
+};

@@ -11,6 +11,7 @@ import {
 import type { FunctionComponent } from 'react';
 
 import { ACCOUNT_PATHS } from '../features/account/index.ts';
+import { CATALOG_PATHS, resultsSearch } from '../features/catalog/index.ts';
 import { ONBOARDING_PATHS, onboardingSearch } from '../features/onboarding/index.ts';
 import { BECOME_PATHS, CABINET_PATHS, becomeSearch } from '../features/specialist/index.ts';
 import { LEGAL_PATH, LegalScreen } from '../features/service/s48-legal/index.ts';
@@ -222,6 +223,23 @@ const legal = createRoute({
   component: LegalScreen,
 });
 
+// Каталог S04–S06 (4.4): открыт и гостю; фильтры и порядок выдачи — в параметрах адреса
+const catalog = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CATALOG_PATHS.categories,
+  component: screen(
+    () => import('../features/catalog/s04-categories/index.ts'),
+    'CategoriesScreen',
+  ),
+});
+
+const catalogResults = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CATALOG_PATHS.results,
+  validateSearch: resultsSearch,
+  component: screen(() => import('../features/catalog/s05-results/index.ts'), 'ResultsScreen'),
+});
+
 // S49b после действия, отклонённого частичной санкцией
 const restricted = createRoute({
   getParentRoute: () => rootRoute,
@@ -248,6 +266,8 @@ export const routeTree = rootRoute.addChildren([
   cabinetPortfolio,
   cabinetWork,
   notifications,
+  catalog,
+  catalogResults,
   onboardingLanguage,
   onboardingIntent,
   onboardingRules,

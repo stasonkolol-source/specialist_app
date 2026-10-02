@@ -105,3 +105,16 @@ export {
   startupState,
   systemStateOf,
 } from './system/systemState.ts';
+export type { SpecialistQuery, SpecialistResults } from './search/search.ts';
+export {
+  CATEGORY_COUNTS_STALE_MS,
+  SEARCH_PAGE_SIZE,
+  countQuery,
+  countsByCategory,
+  resultItems,
+  resultSummary,
+  specialistsQueryKey,
+  useCategoryCounts,
+  useSpecialistCount,
+  useSpecialistSearch,
+} from './search/search.ts';

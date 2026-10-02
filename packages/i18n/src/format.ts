@@ -64,6 +64,8 @@ function dayNumber(date: Date): number {
 
 export interface Format {
   number(value: number, maxFractionDigits?: number): string;
+  /** Рейтинг — всегда с одним знаком: «4,9», «5,0» (карточка S05, профиль S08). */
+  rating(value: number): string;
   /** para → «5 000 RSD» (ru), «5.000 RSD» (sr). */
   money(amount: Para): string;
   moneyRange(min: Para, max: Para): string;
@@ -88,6 +90,10 @@ export function createFormat(locale: Locale): Format {
 
   const number = (value: number, maxFractionDigits = 0) =>
     new Intl.NumberFormat(intl, { maximumFractionDigits: maxFractionDigits }).format(value);
+  const rating = (value: number) =>
+    new Intl.NumberFormat(intl, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(
+      value,
+    );
 
   const amount = (para: Para) => {
     const rsd = paraToRsd(para);
@@ -178,6 +184,7 @@ export function createFormat(locale: Locale): Format {
 
   return {
     number,
+    rating,
     money,
     moneyRange,
     price,

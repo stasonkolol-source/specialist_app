@@ -90,8 +90,9 @@ export function AppShell() {
         />
       )}
       {contentButton && (
+        // над шторками (Sheet — z-40): нативная MainButton Telegram тоже поверх всего WebView
         <div
-          className="fixed inset-x-0 bottom-0 mx-auto max-w-lg bg-bg px-4 pt-3"
+          className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-lg bg-bg px-4 pt-3"
           style={{ paddingBottom: insets.bottom + 12 }}
         >
           <Button full disabled={!main.enabled} onClick={main.click}>

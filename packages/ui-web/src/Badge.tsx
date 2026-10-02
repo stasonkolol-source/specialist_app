@@ -20,11 +20,14 @@ export function Badge({
   children,
   tone = 'mute',
   icon,
+  dot = false,
   className,
 }: {
   children: ReactNode;
   tone?: BadgeTone;
   icon?: IconName;
+  /** .dot — точка-индикатор («Сегодня до 20:00» в карточке S05). */
+  dot?: boolean;
   className?: string;
 }) {
   return (
@@ -35,6 +38,7 @@ export function Badge({
         className,
       )}
     >
+      {dot && <span className="size-2 shrink-0 rounded-full bg-accent" aria-hidden="true" />}
       {icon && <Icon name={icon} size={16} />}
       {children}
     </span>
