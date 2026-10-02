@@ -5,11 +5,16 @@
 - `identity.revoke_restricted_sessions` — UserRestricted: приостановка и бан отзывают сессии.
 - `identity.process_deletions` — ежечасно: удалить аккаунты, чей grace-период 7 дней прошёл
   (§7.10); с открытым кейсом модерации — ждать решения.
+- `identity.record_completed_deal` — DealCompleted: обеим сторонам факт сделки и пересчёт уровня
+  доверия (третья сделка — уровень 2, 6.1a).
 """
 
 from dishka import FromDishka
 
-from app.modules.identity.application.ports import REVOKE_RESTRICTED_SESSIONS
+from app.modules.identity.application.ports import (
+    RECORD_COMPLETED_DEAL,
+    REVOKE_RESTRICTED_SESSIONS,
+)
 from app.modules.identity.application.use_cases.age_trust_levels import (
     AgeTrustLevels,
     AgeTrustLevelsCommand,
@@ -18,10 +23,15 @@ from app.modules.identity.application.use_cases.process_deletions import (
     ProcessDeletions,
     ProcessDeletionsCommand,
 )
+from app.modules.identity.application.use_cases.record_completed_deal import (
+    RecordCompletedDeal,
+    RecordCompletedDealCommand,
+)
 from app.modules.identity.application.use_cases.revoke_restricted_sessions import (
     RevokeRestrictedSessions,
     RevokeRestrictedSessionsCommand,
 )
+from app.platform.contracts.events.deals import DealCompleted
 from app.platform.contracts.events.identity import UserRestricted
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber
 
@@ -45,3 +55,16 @@ async def revoke_restricted_sessions(
     event: UserRestricted, revoke: FromDishka[RevokeRestrictedSessions]
 ) -> None:
     await revoke(RevokeRestrictedSessionsCommand(user_id=event.user_id, kind=event.kind))
+
+
+@subscriber(DealCompleted, RECORD_COMPLETED_DEAL)
+async def record_completed_deal(
+    event: DealCompleted, record: FromDishka[RecordCompletedDeal]
+) -> None:
+    await record(
+        RecordCompletedDealCommand(
+            deal_id=event.deal_id,
+            user_ids=(event.client_id, event.performer_id),
+            completed_at=event.occurred_at,
+        )
+    )

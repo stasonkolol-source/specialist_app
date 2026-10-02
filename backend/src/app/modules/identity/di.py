@@ -10,6 +10,7 @@ from app.modules.identity.application.config import IdentityConfig
 from app.modules.identity.application.facade import IdentityFacade
 from app.modules.identity.application.ports import (
     AccessTokenIssuer,
+    CompletedDeals,
     ConsentRepository,
     DeletedIdentities,
     DeletionRepository,
@@ -28,6 +29,7 @@ from app.modules.identity.application.use_cases.cancel_deletion import CancelDel
 from app.modules.identity.application.use_cases.grant_staff_role import GrantStaffRole
 from app.modules.identity.application.use_cases.logout import Logout
 from app.modules.identity.application.use_cases.process_deletions import ProcessDeletions
+from app.modules.identity.application.use_cases.record_completed_deal import RecordCompletedDeal
 from app.modules.identity.application.use_cases.refresh_session import RefreshSession
 from app.modules.identity.application.use_cases.register_telegram_user import (
     RegisterTelegramUser,
@@ -38,6 +40,7 @@ from app.modules.identity.application.use_cases.revoke_restricted_sessions impor
     RevokeRestrictedSessions,
 )
 from app.modules.identity.application.use_cases.update_profile import UpdateProfile
+from app.modules.identity.infrastructure.completed_deals import SqlCompletedDeals
 from app.modules.identity.infrastructure.deletion import (
     SqlDeletedIdentities,
     SqlDeletionRepository,
@@ -114,3 +117,5 @@ class IdentityProvider(Provider):
     cancel_deletion = provide(CancelDeletion)
     process_deletions = provide(ProcessDeletions)
     grant_staff_role = provide(GrantStaffRole)
+    completed_deals = provide(SqlCompletedDeals, provides=CompletedDeals)
+    record_completed_deal = provide(RecordCompletedDeal)

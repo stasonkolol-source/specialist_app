@@ -964,6 +964,12 @@ CREATE TABLE identity.user_roles (   -- только персонал; «кли�
   PRIMARY KEY (user_id, role)
 );
 
+CREATE TABLE identity.completed_deals (   -- уровень доверия 2: ≥ 3 завершённые сделки (6.1a)
+  user_id      uuid NOT NULL REFERENCES identity.users(id),
+  deal_id      uuid NOT NULL,                -- deals.deals — выше по DAG, без FK
+  completed_at timestamptz NOT NULL,
+  PRIMARY KEY (user_id, deal_id)             -- повтор подписчика DealCompleted факт не удваивает
+);
 CREATE TABLE identity.user_blocks (  -- требование App Store 1.2: пользователь может заблокировать другого
   blocker_id uuid NOT NULL REFERENCES identity.users(id),
   blocked_id uuid NOT NULL REFERENCES identity.users(id),

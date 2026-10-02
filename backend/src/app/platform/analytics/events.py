@@ -101,6 +101,16 @@ CLOSE_REASONS: Final = frozenset(
     {"hired_here", "hired_elsewhere", "not_needed", "no_suitable", "expired", "removed"}
 )
 """CloseReason заявки (jobs): причины клиента, срок и снятие модерацией."""
+DEAL_ROLES: Final = frozenset({"client", "performer"})
+"""Чья копия события сделки: метрики клиента (fill rate) и исполнителя (win rate, концентрация)
+считаются по своей стороне."""
+DEAL_ORIGINS: Final = frozenset({"job_response", "direct", "chat"})
+"""DealOrigin сделки (deals)."""
+DEAL_CANCELLED_BY: Final = frozenset({"client", "performer", "system"})
+DEAL_CANCEL_REASONS: Final = frozenset(
+    {"plans_changed", "no_agreement", "no_contact", "other", "expired", "account_deleted"}
+)
+"""DealCancelReason сделки (deals): причины стороны и системы."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -170,13 +180,36 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
         description="Отклик на заявку: первый ли и через сколько минут после публикации (TTFR)",
         properties={"is_first": Flag(), "minutes_since_published": Count()},
     ),
-    EventName.INVITE_SENT: EventSpec(step="5.6", description="Приглашение в заявку"),
-    EventName.DIRECT_REQUEST_SENT: EventSpec(step="5.6", description="Прямой запрос"),
+    EventName.INVITE_SENT: EventSpec(step="5.6", description="Приглашение в заявку", properties={}),
+    EventName.DIRECT_REQUEST_SENT: EventSpec(
+        step="5.6",
+        description="Прямой запрос: опубликован, и специалист о нём узнал",
+        properties={},
+    ),
     EventName.ALERT_CREATED: EventSpec(step="5.7", description="Подписка на заявки"),
     EventName.JOB_MATCHED_NOTIFIED: EventSpec(step="5.7", description="Заявка по подписке"),
-    EventName.DEAL_AGREED: EventSpec(step="6.1a", description="Выбран исполнитель"),
-    EventName.DEAL_COMPLETED: EventSpec(step="6.1a", description="Сделка завершена"),
-    EventName.DEAL_CANCELLED: EventSpec(step="6.1a", description="Сделка отменена"),
+    EventName.DEAL_AGREED: EventSpec(
+        step="6.1a",
+        description="Стороны договорились: выбран отклик или подтверждено «Договорились» — по "
+        "событию на каждую сторону (`role`)",
+        properties={"role": Choice(DEAL_ROLES), "origin": Choice(DEAL_ORIGINS), "category": Ref()},
+    ),
+    EventName.DEAL_COMPLETED: EventSpec(
+        step="6.1a",
+        description="Сделка завершена — по событию на каждую сторону",
+        properties={"role": Choice(DEAL_ROLES), "origin": Choice(DEAL_ORIGINS), "category": Ref()},
+    ),
+    EventName.DEAL_CANCELLED: EventSpec(
+        step="6.1a",
+        description="Сделка отменена: кем и почему — по событию на каждую сторону",
+        properties={
+            "role": Choice(DEAL_ROLES),
+            "origin": Choice(DEAL_ORIGINS),
+            "category": Ref(),
+            "by": Choice(DEAL_CANCELLED_BY),
+            "reason": Choice(DEAL_CANCEL_REASONS),
+        },
+    ),
     EventName.DISPUTE_OPENED: EventSpec(step="6.1c", description="Открыт спор"),
     EventName.CONVERSATION_STARTED: EventSpec(step="6.3a", description="Начат диалог"),
     EventName.MESSAGE_SENT: EventSpec(step="6.3a", description="Сообщение в чате"),

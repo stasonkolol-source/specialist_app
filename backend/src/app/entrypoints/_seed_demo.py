@@ -41,6 +41,10 @@ from app.entrypoints._seed_demo_content import (
     Lang,
 )
 from app.modules.catalog.application.ports import CatalogQuery
+from app.modules.deals.application.use_cases.complete_deal import (
+    CompleteDeal,
+    CompleteDealCommand,
+)
 from app.modules.geo.application.ports import GeoQuery
 from app.modules.identity.application.dto import TelegramProfile
 from app.modules.identity.application.ports import IdentityQuery
@@ -60,6 +64,10 @@ from app.modules.identity.domain.user import UserIntent
 from app.modules.jobs.api import JobsApi
 from app.modules.jobs.application.content import JobDraft
 from app.modules.jobs.application.ports import JobQueries
+from app.modules.jobs.application.use_cases.accept_response import (
+    AcceptResponse,
+    AcceptResponseCommand,
+)
 from app.modules.jobs.application.use_cases.create_job import CreateJob, CreateJobCommand
 from app.modules.jobs.application.use_cases.respond import TRUSTED_LEVEL, Respond, RespondCommand
 from app.modules.jobs.domain.job import Budget, BudgetType, BudgetUnit, JobId, Urgency
@@ -318,6 +326,10 @@ class SeedReport:
     """Заявок демо-клиентов создано в этот запуск."""
     responses: int = 0
     """Откликов демо-специалистов на эти заявки (5.4)."""
+    deals: int = 0
+    """Сделок по этим заявкам: клиент выбрал первый отклик (6.1a)."""
+    completed: int = 0
+    """Из них завершённых: «Работа выполнена» от обеих сторон."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -353,9 +365,16 @@ class DemoSeeder:
             made = await self._client(demo, world)
             report.jobs += len(made)
             for index, (job_id, job) in enumerate(made):
-                report.responses += await self._responses(
+                responded = await self._responses(
                     job_id, job, demo, performers, seed=number * 10 + index
                 )
+                report.responses += responded
+                # каждая третья заявка с откликами — «в работе», каждая шестая — уже выполнена
+                if responded and (number + index) % 3 == 0:
+                    complete = (number + index) % 6 == 0
+                    await self._deal(job_id, demo, complete=complete)
+                    report.deals += 1
+                    report.completed += complete
         return report
 
     async def _world(self) -> _World:
@@ -526,6 +545,26 @@ class DemoSeeder:
                     await jobs.approve_response(response_id, version=None)
             count += 1
         return count
+
+    async def _deal(self, job_id: JobId, client: DemoClient, *, complete: bool) -> None:
+        """Клиент выбирает первый отклик (6.1a); `complete` — обе стороны отметили «Работа
+        выполнена». Заявка станет «завершена», когда воркер выполнит `jobs.complete_job`."""
+        async with self._container() as request:
+            owner = await (await request.get(IdentityQuery)).by_telegram(client.telegram_id)
+            responses = await (await request.get(JobQueries)).job_responses(job_id)
+            if owner is None or not responses:
+                return
+            chosen = responses[0]
+            accepted = await (await request.get(AcceptResponse))(
+                AcceptResponseCommand(actor_id=owner.id, response_id=chosen.id)
+            )
+        if not complete:
+            return
+        for actor in (owner.id, chosen.performer_id):
+            async with self._container() as request:
+                await (await request.get(CompleteDeal))(
+                    CompleteDealCommand(actor_id=actor, deal_id=accepted.deal_id)
+                )
 
     async def _profile(
         self, request: AsyncContainer, user_id: UserId, demo: DemoSpecialist, world: _World

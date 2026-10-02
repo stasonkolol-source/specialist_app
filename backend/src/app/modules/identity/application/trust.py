@@ -1,8 +1,9 @@
 """Пересчёт уровня доверия (ADR-0016 §2, ARCHITECTURE §13.2): политика `trust_level`.
 
-Факты — у identity: возраст аккаунта, последнее нарушение (`users.trust_penalty_at`) и
-действующие санкции (identity.restrictions). Модерация сообщает о нарушениях через фасад
-(`restrict`, `record_violation`), а поднимает уровень ежедневный `identity.trust_aging`.
+Факты — у identity: возраст аккаунта, последнее нарушение (`users.trust_penalty_at`),
+действующие санкции (identity.restrictions) и завершённые сделки (identity.completed_deals).
+Модерация сообщает о нарушениях через фасад (`restrict`, `record_violation`), сделки — событием
+DealCompleted, а поднимает уровень ещё и ежедневный `identity.trust_aging`.
 """
 
 from datetime import datetime
@@ -20,5 +21,6 @@ class TrustRecalculation:
         """Пересчитать уровень пользователя в текущей транзакции (санкции уже записаны)."""
         restrictions = await self._query.restrictions(user.id, now)
         active = sum(1 for restriction in restrictions if restriction.is_active(now))
-        signals = user.trust_signals(now=now, active_sanctions=active)
+        deals = await self._query.completed_deals(user.id)
+        signals = user.trust_signals(now=now, active_sanctions=active, completed_deals=deals)
         user.apply_trust_level(trust_level(signals), now=now)

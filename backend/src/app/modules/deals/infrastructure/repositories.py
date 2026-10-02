@@ -1,10 +1,10 @@
 """Репозиторий сделок (ADR-0020 §5): переходы статусов — в `deals.status_history` при каждом
 сохранении. Второй выбор того же отклика упирается в `uq_deals_response_id`."""
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.deals.domain.deal import Deal, DealTerms
+from app.modules.deals.domain.deal import CANCELLABLE, Deal, DealTerms
 from app.modules.deals.errors import DealNotFoundError
 from app.modules.deals.infrastructure.models import DealRow, StatusHistoryRow
 from app.platform.db.port import UnitOfWork
@@ -54,6 +54,14 @@ class SqlDealRepository:
         await self._session.flush()
         deal.mark_persisted(version=row.version)
         self._uow.track(deal)
+
+    async def cancellable_of(self, user_id: UserId) -> list[DealId]:
+        self._uow.require_active()
+        stmt = select(DealRow.id).where(
+            or_(DealRow.client_id == user_id, DealRow.performer_id == user_id),
+            DealRow.status.in_([status.value for status in CANCELLABLE]),
+        )
+        return [DealId(value) for value in (await self._session.scalars(stmt)).all()]
 
     def _add_history(self, deal: Deal) -> None:
         self._session.add_all(

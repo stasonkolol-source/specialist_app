@@ -503,9 +503,9 @@ def seed_demo(
         ),
     ] = DemoScale.SMALL,
 ) -> None:
-    """Демо-данные для dev и stage (2.8c, 5.1): специалисты — профили, прайс, районы и портфолио;
-    клиенты — опубликованные заявки. Всё через use cases, одобрено сразу. Повторный запуск
-    количества не меняет. На проде не работает."""
+    """Демо-данные для dev и stage (2.8c, 5.1, 6.1a): специалисты — профили, прайс, районы и
+    портфолио; клиенты — опубликованные заявки с откликами, часть — со сделкой. Всё через use
+    cases, одобрено сразу. Повторный запуск количества не меняет. На проде не работает."""
     from app.entrypoints._seed_demo import SeedDemoRefusedError
 
     try:
@@ -515,7 +515,8 @@ def seed_demo(
         raise typer.Exit(code=1) from exc
     typer.echo(
         f"seed-demo {scale.value}: {report.created} created, {report.skipped} already there,"
-        f" {report.photos} photos, {report.jobs} jobs"
+        f" {report.photos} photos, {report.jobs} jobs, {report.responses} responses,"
+        f" {report.deals} deals ({report.completed} completed)"
     )
 
 
