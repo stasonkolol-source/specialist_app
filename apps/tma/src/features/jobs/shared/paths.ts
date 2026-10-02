@@ -15,6 +15,13 @@ export const JOBS_PATHS = {
 export type JobsSegment = Exclude<keyof typeof JOBS_PATHS, 'job'>;
 export const JOBS_SEGMENTS: readonly JobsSegment[] = ['feed', 'responses', 'mine'];
 
+/** Избранное S12: «Мастера» — фича catalog, «Задачи» — сохранённые заявки (здесь). */
+export const SAVED_PATHS = { masters: '/favorites', jobs: '/favorites/jobs' } as const;
+export type SavedSegment = keyof typeof SAVED_PATHS;
+
+/** Профиль S31 (фича account): «Назад» из S12 без истории. */
+export const ACCOUNT_PATH = '/profile';
+
 /** Заявка S15: deep link `j_` (routes/startapp.ts) ведёт сюда же. */
 export const jobPath = (jobId: string) => `/jobs/${jobId}`;
 

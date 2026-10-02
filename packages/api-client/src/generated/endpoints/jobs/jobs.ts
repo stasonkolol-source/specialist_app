@@ -33,6 +33,7 @@ import type {
   JobsPageOut,
   JobsUpdateJobHeaders,
   ProblemOut,
+  SavedJobsOut,
 } from '../../model';
 
 import { apiFetch } from '../../../mutator.ts';
@@ -844,6 +845,290 @@ export const useJobsHideJob = <TError = ErrorType<ProblemOut>, TContext = unknow
   TContext
 > => {
   return useMutation(getJobsHideJobMutationOptions(options), queryClient);
+};
+export const getJobsListSavedJobsUrl = () => {
+  return `/api/v1/me/favorites/jobs`;
+};
+
+/**
+ * Сохранённые заявки S12: открытые, новые сохранения первыми; закрытые и истёкшие — не
+ * в списке.
+ * @summary List Saved Jobs
+ */
+export const jobsListSavedJobs = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<SavedJobsOut> => {
+  return apiFetch<SavedJobsOut>(getJobsListSavedJobsUrl(), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getJobsListSavedJobsQueryKey = () => {
+  return [`/api/v1/me/favorites/jobs`] as const;
+};
+
+export const getJobsListSavedJobsQueryOptions = <
+  TData = Awaited<ReturnType<typeof jobsListSavedJobs>>,
+  TError = ErrorType<ProblemOut>,
+>(options?: {
+  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListSavedJobs>>, TError, TData>>;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getJobsListSavedJobsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof jobsListSavedJobs>>> = ({ signal }) =>
+    jobsListSavedJobs({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof jobsListSavedJobs>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type JobsListSavedJobsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof jobsListSavedJobs>>
+>;
+export type JobsListSavedJobsQueryError = ErrorType<ProblemOut>;
+
+export function useJobsListSavedJobs<
+  TData = Awaited<ReturnType<typeof jobsListSavedJobs>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListSavedJobs>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof jobsListSavedJobs>>,
+          TError,
+          Awaited<ReturnType<typeof jobsListSavedJobs>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useJobsListSavedJobs<
+  TData = Awaited<ReturnType<typeof jobsListSavedJobs>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListSavedJobs>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof jobsListSavedJobs>>,
+          TError,
+          Awaited<ReturnType<typeof jobsListSavedJobs>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useJobsListSavedJobs<
+  TData = Awaited<ReturnType<typeof jobsListSavedJobs>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListSavedJobs>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List Saved Jobs
+ */
+
+export function useJobsListSavedJobs<
+  TData = Awaited<ReturnType<typeof jobsListSavedJobs>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListSavedJobs>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getJobsListSavedJobsQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getJobsSaveJobUrl = (jobId: string) => {
+  return `/api/v1/me/favorites/job/${jobId}`;
+};
+
+/**
+ * Сердечко S15: заявка — в сохранённые. Повтор — без ошибки; невидимая — 404; больше ста —
+ * `saved_jobs_full`.
+ * @summary Save Job
+ */
+export const jobsSaveJob = async (
+  jobId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getJobsSaveJobUrl(jobId), {
+    ...options,
+    method: 'PUT',
+  });
+};
+
+export const getJobsSaveJobMutationKey = () => ['jobsSaveJob'] as const;
+
+export const getJobsSaveJobMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof jobsSaveJob>>,
+    TError,
+    JobsSaveJobMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof jobsSaveJob>>,
+  TError,
+  JobsSaveJobMutationVariables,
+  TContext
+> => {
+  const mutationKey = getJobsSaveJobMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof jobsSaveJob>>,
+    JobsSaveJobMutationVariables
+  > = (props) => {
+    const { jobId } = props ?? {};
+
+    return jobsSaveJob(jobId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JobsSaveJobMutationResult = NonNullable<Awaited<ReturnType<typeof jobsSaveJob>>>;
+
+export type JobsSaveJobMutationError = ErrorType<ProblemOut>;
+export type JobsSaveJobMutationVariables = { jobId: string };
+
+/**
+ * @summary Save Job
+ */
+export const useJobsSaveJob = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof jobsSaveJob>>,
+      TError,
+      JobsSaveJobMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof jobsSaveJob>>,
+  TError,
+  JobsSaveJobMutationVariables,
+  TContext
+> => {
+  return useMutation(getJobsSaveJobMutationOptions(options), queryClient);
+};
+export const getJobsUnsaveJobUrl = (jobId: string) => {
+  return `/api/v1/me/favorites/job/${jobId}`;
+};
+
+/**
+ * Убрать заявку из сохранённых; чего нет — без ошибки.
+ * @summary Unsave Job
+ */
+export const jobsUnsaveJob = async (
+  jobId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getJobsUnsaveJobUrl(jobId), {
+    ...options,
+    method: 'DELETE',
+  });
+};
+
+export const getJobsUnsaveJobMutationKey = () => ['jobsUnsaveJob'] as const;
+
+export const getJobsUnsaveJobMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof jobsUnsaveJob>>,
+    TError,
+    JobsUnsaveJobMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof jobsUnsaveJob>>,
+  TError,
+  JobsUnsaveJobMutationVariables,
+  TContext
+> => {
+  const mutationKey = getJobsUnsaveJobMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof jobsUnsaveJob>>,
+    JobsUnsaveJobMutationVariables
+  > = (props) => {
+    const { jobId } = props ?? {};
+
+    return jobsUnsaveJob(jobId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JobsUnsaveJobMutationResult = NonNullable<Awaited<ReturnType<typeof jobsUnsaveJob>>>;
+
+export type JobsUnsaveJobMutationError = ErrorType<ProblemOut>;
+export type JobsUnsaveJobMutationVariables = { jobId: string };
+
+/**
+ * @summary Unsave Job
+ */
+export const useJobsUnsaveJob = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof jobsUnsaveJob>>,
+      TError,
+      JobsUnsaveJobMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof jobsUnsaveJob>>,
+  TError,
+  JobsUnsaveJobMutationVariables,
+  TContext
+> => {
+  return useMutation(getJobsUnsaveJobMutationOptions(options), queryClient);
 };
 export const getJobsCloseJobUrl = (jobId: string) => {
   return `/api/v1/jobs/${jobId}/close`;

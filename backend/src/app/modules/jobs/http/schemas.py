@@ -266,6 +266,12 @@ class JobsCountOut(BaseModel):
     count: int
 
 
+class SavedJobsOut(BaseModel):
+    """Сохранённые заявки S12: открытые, новые сохранения первыми, не больше ста."""
+
+    items: list[JobCardOut]
+
+
 def _money(amount: int | None) -> MoneyOut | None:
     return MoneyOut.of(Money(amount, Currency.RSD)) if amount is not None else None
 

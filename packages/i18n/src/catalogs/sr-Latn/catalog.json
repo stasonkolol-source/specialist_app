@@ -158,6 +158,10 @@
     "emptyText": "Dodirnite srce na kartici stručnjaka — pojaviće se na ovom spisku",
     "find": "Pronađite stručnjaka",
     "error": "Čuvanje nije uspelo. Pokušajte ponovo",
-    "full": "U omiljenima već ima {limit} — uklonite nekoga da biste dodali"
+    "full": "U omiljenima već ima {limit} — uklonite nekoga da biste dodali",
+    "segments": "Šta prikazati",
+    "masters": "Majstori",
+    "jobs": "Zadaci",
+    "withCount": "{label} · {count}"
   }
 }

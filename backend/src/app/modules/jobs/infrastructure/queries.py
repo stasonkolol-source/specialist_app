@@ -1,5 +1,5 @@
-"""Чтение заявок (экраны S15, S22, S23, лимит активных, сроки): без блокировок, сессия
-освобождается после запроса (SqlQuery)."""
+"""Чтение заявок (лента S13, экраны S12, S15, S22, S23, лимит активных, сроки): без блокировок,
+сессия освобождается после запроса (SqlQuery)."""
 
 from collections.abc import Sequence
 from datetime import datetime
@@ -39,7 +39,12 @@ from app.modules.jobs.domain.job import (
     Urgency,
     Visibility,
 )
-from app.modules.jobs.infrastructure.models import HiddenJobRow, JobMediaRow, JobRow
+from app.modules.jobs.infrastructure.models import (
+    HiddenJobRow,
+    JobMediaRow,
+    JobRow,
+    SavedJobRow,
+)
 from app.platform.db.query import SqlQuery, decode_cursor, encode_cursor
 from app.platform.db.types import GeoPointType
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, UserId
@@ -48,6 +53,7 @@ from app.platform.kernel.pagination import Page, PageRequest
 _J = JobRow.__table__.c
 _M = JobMediaRow.__table__.c
 _H = HiddenJobRow.__table__.c
+_S = SavedJobRow.__table__.c
 _OPEN = and_(_J.status == JobStatus.PUBLISHED.value, _J.deleted_at.is_(None))
 """Опубликованная и не удалённая: частичный индекс ix_jobs_expires_at."""
 DISTANCE_STEP_M = 100
@@ -62,6 +68,25 @@ _MEDIA_IDS = (
     .scalar_subquery()
     .label("media_ids")
 )
+_CARD = (
+    _J.id,
+    _J.title,
+    func.left(_J.description, DESCRIPTION_PREVIEW + 1).label("description"),
+    _J.category_id,
+    _J.urgency,
+    _J.preferred_from,
+    _J.preferred_to,
+    _J.budget_type,
+    _J.budget_min,
+    _J.budget_max,
+    _J.budget_unit,
+    _J.district_id,
+    _J.responses_count,
+    _J.max_responses,
+    _J.published_at,
+    _MEDIA_IDS,
+)
+"""Колонки карточки ленты S13 и сохранённых S12; расстояние добавляет запрос."""
 
 
 class SqlJobQueries(SqlQuery):
@@ -117,25 +142,7 @@ class SqlJobQueries(SqlQuery):
             if point is not None
             else literal(None).label("distance")
         )
-        stmt = select(
-            _J.id,
-            _J.title,
-            func.left(_J.description, DESCRIPTION_PREVIEW + 1).label("description"),
-            _J.category_id,
-            _J.urgency,
-            _J.preferred_from,
-            _J.preferred_to,
-            _J.budget_type,
-            _J.budget_min,
-            _J.budget_max,
-            _J.budget_unit,
-            _J.district_id,
-            _J.responses_count,
-            _J.max_responses,
-            _J.published_at,
-            distance,
-            _MEDIA_IDS,
-        ).where(*_feed_conditions(filters, viewer_id, now))
+        stmt = select(*_CARD, distance).where(*_feed_conditions(filters, viewer_id, now))
         if page.cursor is not None:
             published_at, job_id = decode_cursor(page.cursor, (datetime, UUID))
             stmt = stmt.where(tuple_(_J.published_at, _J.id) < tuple_(published_at, job_id))
@@ -156,6 +163,15 @@ class SqlJobQueries(SqlQuery):
         )
         return int(row["count"]) if row is not None else 0
 
+    async def saved(self, user_id: UserId, *, now: datetime) -> list[FeedItem]:
+        rows = await self._fetch(
+            select(*_CARD, literal(None).label("distance"))
+            .join_from(JobRow, SavedJobRow, and_(_S.job_id == _J.id, _S.user_id == user_id))
+            .where(*_open_to_all(now))
+            .order_by(_S.created_at.desc(), _J.id.desc())
+        )
+        return [_feed_item(row) for row in rows]
+
     async def count_published(self, client_id: UserId) -> int:
         row = await self._fetch_one(
             select(func.count().label("count")).where(
@@ -175,15 +191,19 @@ class SqlJobQueries(SqlQuery):
         return int(row["count"]) if row is not None else 0
 
 
+def _open_to_all(now: datetime) -> list[ColumnElement[bool]]:
+    """Открыта для всех: опубликована, публична и срок не вышел."""
+    return [
+        _OPEN,
+        _J.visibility == Visibility.PUBLIC.value,
+        or_(_J.expires_at.is_(None), _J.expires_at > now),
+    ]
+
+
 def _feed_conditions(
     filters: FeedFilters, viewer_id: UserId | None, now: datetime
 ) -> list[ColumnElement[bool]]:
-    conditions: list[ColumnElement[bool]] = [
-        _OPEN,
-        _J.visibility == Visibility.PUBLIC.value,
-        _J.city_id == filters.city_id,
-        or_(_J.expires_at.is_(None), _J.expires_at > now),
-    ]
+    conditions = [*_open_to_all(now), _J.city_id == filters.city_id]
     if viewer_id is not None:
         conditions.append(_J.client_id != viewer_id)
         conditions.append(~exists().where(_H.user_id == viewer_id, _H.job_id == _J.id))

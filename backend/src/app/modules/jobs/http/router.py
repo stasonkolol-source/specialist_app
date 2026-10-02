@@ -11,6 +11,8 @@
 - `GET /jobs` 🔓 — лента исполнителя (S13, 5.3): заявки города, свежие сверху, фильтры §9.6,
   курсор; `GET /jobs/count` 🔓 — «Показать N» шторки S14 и «N новых задач рядом» Главной.
 - `POST /jobs/{id}/hide` — «не интересно»: заявка пропадает из ленты этого исполнителя.
+- `GET /me/favorites/jobs`, `PUT` и `DELETE /me/favorites/job/{id}` — сохранённые заявки
+  (сердечко S15, сегмент «Задачи» S12): открытые, новые первыми, до ста (`saved_jobs_full`).
 Лимиты новичка — в use case (§13.3); лента и счётчик — 60 / 120 запросов в минуту.
 """
 
@@ -32,7 +34,13 @@ from app.modules.jobs.application.use_cases.delete_job import DeleteJob, DeleteJ
 from app.modules.jobs.application.use_cases.edit_job import EditJob, EditJobCommand
 from app.modules.jobs.application.use_cases.extend_job import ExtendJob, ExtendJobCommand
 from app.modules.jobs.application.use_cases.hide_job import HideJob, HideJobCommand
+from app.modules.jobs.application.use_cases.list_saved_jobs import (
+    ListSavedJobs,
+    ListSavedJobsCommand,
+)
+from app.modules.jobs.application.use_cases.save_job import SaveJob, SaveJobCommand
 from app.modules.jobs.application.use_cases.show_job import JobDetails, ShowJob, ShowJobCommand
+from app.modules.jobs.application.use_cases.unsave_job import UnsaveJob, UnsaveJobCommand
 from app.modules.jobs.domain.job import CloseReason, JobId, JobStatus, Urgency
 from app.modules.jobs.errors import JobNotFoundError
 from app.modules.jobs.http.schemas import (
@@ -43,6 +51,7 @@ from app.modules.jobs.http.schemas import (
     JobsCountOut,
     JobsOut,
     JobsPageOut,
+    SavedJobsOut,
 )
 from app.modules.media.api import MediaApi
 from app.platform.http.concurrency import IfMatch, set_etag
@@ -207,6 +216,44 @@ async def hide_job(
 ) -> None:
     """«Не интересно» (S15): заявка пропадает из ленты; повтор — без ошибки."""
     await hide(HideJobCommand(actor_id=principal.user_id, job_id=JobId(job_id)))
+
+
+@router.get("/me/favorites/jobs", response_model=SavedJobsOut, dependencies=AUTHENTICATED)
+@inject
+async def list_saved_jobs(
+    principal: FromDishka[Principal], saved: FromDishka[ListSavedJobs]
+) -> SavedJobsOut:
+    """Сохранённые заявки S12: открытые, новые сохранения первыми; закрытые и истёкшие — не
+    в списке."""
+    cards = await saved(ListSavedJobsCommand(actor_id=principal.user_id))
+    return SavedJobsOut(items=[JobCardOut.of(card) for card in cards])
+
+
+@router.put(
+    "/me/favorites/job/{job_id:uuid}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=AUTHENTICATED,
+)
+@inject
+async def save_job(
+    job_id: JobPath, principal: FromDishka[Principal], save: FromDishka[SaveJob]
+) -> None:
+    """Сердечко S15: заявка — в сохранённые. Повтор — без ошибки; невидимая — 404; больше ста —
+    `saved_jobs_full`."""
+    await save(SaveJobCommand(actor_id=principal.user_id, job_id=JobId(job_id)))
+
+
+@router.delete(
+    "/me/favorites/job/{job_id:uuid}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=AUTHENTICATED,
+)
+@inject
+async def unsave_job(
+    job_id: JobPath, principal: FromDishka[Principal], unsave: FromDishka[UnsaveJob]
+) -> None:
+    """Убрать заявку из сохранённых; чего нет — без ошибки."""
+    await unsave(UnsaveJobCommand(actor_id=principal.user_id, job_id=JobId(job_id)))
 
 
 @router.patch("/jobs/{job_id:uuid}", response_model=JobOut, dependencies=AUTHENTICATED)

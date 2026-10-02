@@ -646,8 +646,8 @@ export const getSearchListFavoritesUrl = () => {
 };
 
 /**
- * Избранные специалисты S12: те, кто виден в каталоге, новые первыми. Заявки (`type=job`)
- * — с шагом 5.3.
+ * Избранные специалисты S12: те, кто виден в каталоге, новые первыми. Сохранённые заявки —
+ * `GET /me/favorites/jobs` (модуль jobs, 5.3).
  * @summary List Favorites
  */
 export const searchListFavorites = async (

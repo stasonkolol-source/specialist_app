@@ -1,8 +1,9 @@
 """Лента заявок (DEVELOPMENT_PLAN 5.3; ARCHITECTURE §9.6) через API: опубликованные заявки
 города, свежие сверху; фильтры — категория с подкатегориями, район, радиус, срочность, бюджет
 «от», язык, «только с фото»; курсор; свои и скрытые («не интересно») зритель не видит; счётчик
-для «Показать N» и «новых рядом»; карточка с фото и блоком клиента. Данные коммитятся: заявки
-других тестов тоже в ленте — тест отбирает свои бюджетом, которого у других нет.
+для «Показать N» и «новых рядом»; карточка с фото и блоком клиента; сохранённые заявки (сердечко
+S15, S12) — открытые, новые первыми, до ста. Данные коммитятся: заявки других тестов тоже в
+ленте — тест отбирает свои бюджетом, которого у других нет.
 """
 
 import json
@@ -287,3 +288,57 @@ async def test_job_card_has_photos_and_the_client_block(world: World) -> None:
     assert (item["photos_count"], item["photos"][0]["url"].endswith("/thumb.webp")) == (1, True)
     with_photos = await world.ids(has_photos="true")
     assert str(job) in with_photos
+
+
+async def test_saved_jobs_are_open_ones_newest_first(world: World) -> None:
+    client, worker = await world.user(), await world.user()
+    first = await world.job(client)
+    second = await world.job(client, category="plumbing")
+    closed = await world.job(client)
+    pending = await world.job(client, status="pending_moderation")
+    headers = world.headers(worker)
+
+    replies = [
+        await world.app.client.put(f"{API}/me/favorites/job/{job}", headers=headers)
+        for job in (first, second, closed, first)
+    ]
+    await world.execute("UPDATE jobs.jobs SET status = 'closed' WHERE id = :id", id=closed)
+    listed = await world.app.client.get(f"{API}/me/favorites/jobs", headers=headers)
+
+    assert [reply.status_code for reply in replies] == [204, 204, 204, 204]
+    assert listed.status_code == 200, listed.text
+    items = listed.json()["items"]
+    assert [item["id"] for item in items] == [str(second), str(first)]  # закрытой нет
+    assert items[0]["distance_m"] is None
+    assert items[0]["description"].endswith("…")
+    hidden = await world.app.client.put(f"{API}/me/favorites/job/{pending}", headers=headers)
+    assert (hidden.status_code, hidden.json()["code"]) == (404, "job_not_found")
+    removed = await world.app.client.delete(f"{API}/me/favorites/job/{second}", headers=headers)
+    again = await world.app.client.delete(f"{API}/me/favorites/job/{second}", headers=headers)
+    assert (removed.status_code, again.status_code) == (204, 204)
+    left = await world.app.client.get(f"{API}/me/favorites/jobs", headers=headers)
+    assert [item["id"] for item in left.json()["items"]] == [str(first)]
+    guest = await world.app.client.get(f"{API}/me/favorites/jobs")
+    assert guest.status_code == 401
+
+
+async def test_saved_jobs_stop_at_the_limit(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.modules.jobs.application.use_cases.save_job.MAX_SAVED_JOBS", 2)
+    client, worker = await world.user(), await world.user()
+    jobs = [await world.job(client) for _ in range(3)]
+    headers = world.headers(worker)
+
+    saved = [
+        await world.app.client.put(f"{API}/me/favorites/job/{job}", headers=headers)
+        for job in jobs[:2]
+    ]
+    full = await world.app.client.put(f"{API}/me/favorites/job/{jobs[2]}", headers=headers)
+    repeat = await world.app.client.put(f"{API}/me/favorites/job/{jobs[0]}", headers=headers)
+
+    assert [reply.status_code for reply in saved] == [204, 204]
+    assert (full.status_code, full.json()["code"], full.json()["limit"]) == (
+        409,
+        "saved_jobs_full",
+        2,
+    )
+    assert repeat.status_code == 204  # уже сохранённая — не ошибка и при полном списке

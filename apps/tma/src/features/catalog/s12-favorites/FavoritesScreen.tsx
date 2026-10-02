@@ -1,6 +1,7 @@
 // S12 Избранное (DEVELOPMENT_PLAN 4.6): «мои мастера» — карточки, как в выдаче, новые первыми;
 // сердечко убирает из списка сразу. Пусто — подсказка и «Найти специалиста». Вход — из профиля
-// S31; гостю избранного нет — «Откройте в Telegram». Сегмент «Задачи» — с шагом 5.3.
+// S31; гостю избранного нет — «Откройте в Telegram». Сегмент «Задачи» — сохранённые заявки (фича
+// jobs, 5.3).
 import type { SpecialistCardOut } from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
 import { useTranslation } from '@sosed/i18n';
@@ -8,6 +9,7 @@ import { useBackButton } from '@sosed/platform';
 import { Banner, Button, EmptyState, Heading, Skeleton } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 
+import { FavoritesSegments } from '../shared/FavoritesSegments.tsx';
 import { LoadError } from '../shared/LoadError.tsx';
 import { ResultCard } from '../shared/ResultCard.tsx';
 import { useFavoriteToggle } from '../shared/favorite.ts';
@@ -82,6 +84,7 @@ export function FavoritesScreen() {
       <Heading variant="h2" as="h1">
         {t('favorites.title')}
       </Heading>
+      <FavoritesSegments current="masters" />
       {failure && (
         <Banner tone="danger" role="alert">
           {failure}

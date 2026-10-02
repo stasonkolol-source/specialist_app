@@ -190,6 +190,19 @@
     "hideError": "Nismo uspeli da sakrijemo zahtev. Pokušajte ponovo.",
     "unavailableTitle": "Zahtev nije dostupan",
     "unavailableText": "Zatvoren je, skinut sa objave ili obrisan.",
-    "toFeed": "Na lentu zahteva"
+    "toFeed": "Na lentu zahteva",
+    "save": "Sačuvaj zahtev",
+    "unsave": "Ukloni iz sačuvanih",
+    "savedFull": "Već ste sačuvali {limit} zahteva — uklonite nepotrebne da biste sačuvali novi",
+    "saveError": "Čuvanje nije uspelo. Pokušajte ponovo"
+  },
+  "saved": {
+    "title": "Omiljeni",
+    "segments": "Šta prikazati",
+    "masters": "Majstori",
+    "jobs": "Zadaci",
+    "withCount": "{label} · {count}",
+    "emptyTitle": "Ovde će biti sačuvani zahtevi",
+    "emptyText": "Dodirnite srce na zahtevu — pojaviće se na ovom spisku"
   }
 }

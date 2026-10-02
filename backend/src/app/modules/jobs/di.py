@@ -5,7 +5,13 @@ from dishka import Provider, Scope, provide
 from app.modules.jobs.api import JobsApi
 from app.modules.jobs.application.content import ContentBuilder
 from app.modules.jobs.application.facade import JobsFacade
-from app.modules.jobs.application.ports import JobHides, JobQueries, JobQuota, JobRepository
+from app.modules.jobs.application.ports import (
+    JobHides,
+    JobQueries,
+    JobQuota,
+    JobRepository,
+    SavedJobs,
+)
 from app.modules.jobs.application.use_cases.browse_jobs import BrowseJobs
 from app.modules.jobs.application.use_cases.close_job import CloseJob
 from app.modules.jobs.application.use_cases.create_job import CreateJob
@@ -15,12 +21,16 @@ from app.modules.jobs.application.use_cases.expire_jobs import ExpireJobs
 from app.modules.jobs.application.use_cases.extend_job import ExtendJob
 from app.modules.jobs.application.use_cases.forget_client_jobs import ForgetClientJobs
 from app.modules.jobs.application.use_cases.hide_job import HideJob
+from app.modules.jobs.application.use_cases.list_saved_jobs import ListSavedJobs
 from app.modules.jobs.application.use_cases.remind_expiring_jobs import RemindExpiringJobs
+from app.modules.jobs.application.use_cases.save_job import SaveJob
 from app.modules.jobs.application.use_cases.show_job import ShowJob
+from app.modules.jobs.application.use_cases.unsave_job import UnsaveJob
 from app.modules.jobs.infrastructure.hides import SqlJobHides
 from app.modules.jobs.infrastructure.queries import SqlJobQueries
 from app.modules.jobs.infrastructure.quota import ValkeyJobQuota
 from app.modules.jobs.infrastructure.repositories import SqlJobRepository
+from app.modules.jobs.infrastructure.saved import SqlSavedJobs
 
 
 class JobsProvider(Provider):
@@ -31,6 +41,7 @@ class JobsProvider(Provider):
     jobs = provide(SqlJobRepository, provides=JobRepository)
     queries = provide(SqlJobQueries, provides=JobQueries)
     hides = provide(SqlJobHides, provides=JobHides)
+    saved = provide(SqlSavedJobs, provides=SavedJobs)
     quota = provide(ValkeyJobQuota, provides=JobQuota)
     builder = provide(ContentBuilder)
     facade = provide(JobsFacade, provides=JobsApi)
@@ -46,3 +57,6 @@ class JobsProvider(Provider):
     browse_jobs = provide(BrowseJobs)
     show_job = provide(ShowJob)
     hide_job = provide(HideJob)
+    save_job = provide(SaveJob)
+    unsave_job = provide(UnsaveJob)
+    list_saved_jobs = provide(ListSavedJobs)

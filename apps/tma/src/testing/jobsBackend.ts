@@ -3,6 +3,7 @@
 // (ключ не занимается: повтор выполнится заново). Лента (5.3): GET /jobs — заявки J1–J6 SPEC §4
 // (J1–J3 — как на артборде S13) с фильтрами и курсором, GET /jobs/count — их число, POST
 // /jobs/{id}/hide — «не интересно»; GET /jobs/{id} — созданная заявка (владельцу) или заявка ленты.
+// Сохранённые заявки (S12, S15): GET /me/favorites/jobs, PUT и DELETE /me/favorites/job/{id}.
 // Время публикации — от E2E_NOW: в e2e часы браузера стоят на нём же.
 import type {
   JobCardOut,
@@ -22,6 +23,7 @@ const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const PARA = 100;
 const MAX_RESPONSES = 5;
+const MAX_SAVED = 100;
 
 export interface FeedFixture {
   card: JobCardOut;
@@ -218,6 +220,8 @@ export class JobsBackend {
   readonly jobs = new Map<string, JobOut>();
   /** «Не интересно»: id скрытых заявок ленты. */
   readonly hidden = new Set<string>();
+  /** Сохранённые заявки: id, новые первыми. */
+  saved: string[] = [];
   /** Параметры каждого GET /jobs — что прислал экран. */
   readonly feedRequests: URLSearchParams[] = [];
   private readonly byKey = new Map<string, JobOut>();
@@ -243,6 +247,9 @@ export class JobsBackend {
     signedIn: boolean,
   ): BackendReply | null {
     const path = url.pathname.replace(/^\/api\/v1/, '');
+    if (path.startsWith('/me/favorites/job')) {
+      return signedIn ? this.favorites(method, path) : problem(401, 'not_authenticated');
+    }
     if (method === 'GET' && path === '/jobs') return this.feed(url.searchParams);
     if (method === 'GET' && path === '/jobs/count') return this.count(url.searchParams);
     const hide = /^\/jobs\/([^/]+)\/hide$/.exec(path);
@@ -309,6 +316,32 @@ export class JobsBackend {
     }
     if (!this.feedJobs.some((item) => item.card.id === id)) return problem(404, 'job_not_found');
     this.hidden.add(id);
+    return { status: 204, body: null };
+  }
+
+  /** Сохранённые: список открытых, новые первыми; сохранить — видимую, до ста; убрать — молча. */
+  favorites(method: string, path: string): BackendReply | null {
+    if (method === 'GET' && path === '/me/favorites/jobs') {
+      const items = this.saved
+        .map((id) => this.feedJobs.find((item) => item.card.id === id)?.card)
+        .filter((card) => card !== undefined)
+        // у списка нет точки зрителя — расстояния нет, как у сервера
+        .map((card) => ({ ...card, distance_m: null }));
+      return { status: 200, body: { items } };
+    }
+    const id = /^\/me\/favorites\/job\/([^/]+)$/.exec(path)?.[1];
+    if (!id) return null;
+    if (method === 'DELETE') {
+      this.saved = this.saved.filter((item) => item !== id);
+      return { status: 204, body: null };
+    }
+    if (method !== 'PUT') return null;
+    if (!this.feedJobs.some((item) => item.card.id === id)) return problem(404, 'job_not_found');
+    if (this.saved.includes(id)) return { status: 204, body: null };
+    if (this.saved.length >= MAX_SAVED) {
+      return problem(409, 'saved_jobs_full', { limit: MAX_SAVED });
+    }
+    this.saved = [id, ...this.saved];
     return { status: 204, body: null };
   }
 

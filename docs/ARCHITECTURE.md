@@ -327,7 +327,7 @@ flowchart TB
 | `specialists` | Профиль исполнителя (`pro` — специалист в каталоге; `casual` — «подработка»), категории, зоны работы, доступность, портфолио, контакты | `profiles`, `profile_categories`, `service_areas`, `working_hours`, `portfolio_items`, `portfolio_media` | `ProfileSubmitted`, `ProfilePublished`, `ProfileUpdated`, `ProfileHidden`, `AvailabilityChanged` | identity, geo, catalog, media |
 | `pricing` (services/pricing) | Прайс-лист специалиста, нормализация цен, ценовые ориентиры по категориям и городам | `services`, `price_benchmarks` | `PriceListChanged` | specialists, catalog |
 | `deals` | Сделка — факт договорённости «клиент ↔ исполнитель» (из отклика, из каталога или чата), подтверждение выполнения, отмена, спор | `deals`, `status_history` | `DealAgreed`, `DealCompleted`, `DealCancelled`, `DealDisputed` | identity, specialists |
-| `jobs` (job board + responses) | Заявки и их state machine, отклики, подписки на новые заявки, скрытие заявок в ленте | `jobs`, `job_media`, `responses`, `alerts`, `hidden_jobs`, `status_history` | `JobSubmitted`, `JobPublished`, `JobUpdated`, `JobClosed`, `JobExpired`, `ResponseSubmitted`, `ResponseAccepted`, `ResponseDeclined` | identity, geo, catalog, media, specialists, deals, billing |
+| `jobs` (job board + responses) | Заявки и их state machine, отклики, подписки на новые заявки, скрытие и сохранение заявок в ленте | `jobs`, `job_media`, `responses`, `alerts`, `hidden_jobs`, `saved_jobs`, `status_history` | `JobSubmitted`, `JobPublished`, `JobUpdated`, `JobClosed`, `JobExpired`, `ResponseSubmitted`, `ResponseAccepted`, `ResponseDeclined` | identity, geo, catalog, media, specialists, deals, billing |
 | `messaging` (chat) | Диалоги по откликам и прямым обращениям, сообщения, прочтения, обмен контактами, relay в Telegram | `conversations`, `participants`, `messages`, `contact_shares` | `ConversationStarted`, `MessageSent`, `ContactShared` | identity, media, jobs, deals |
 | `reviews` | Отзывы по сделкам (double-blind), ответы, агрегаты рейтинга | `reviews`, `review_media`, `rating_aggregates` | `ReviewPublished`, `ReviewRemoved`, `RatingChanged` | identity, deals, specialists, media |
 | `search` | Read-model каталога специалистов, разбор запроса, ранжирование, автодополнение, журнал запросов | `specialist_index`, `specialist_category_prices`, `query_log` | — | catalog, geo, specialists, pricing, reviews, billing |
@@ -1221,7 +1221,7 @@ CREATE INDEX ON media.assets (deleted_at) WHERE status = 'deleted' AND purged_at
 </details>
 
 <details>
-<summary><b>jobs</b>: jobs, job_media, responses, alerts, hidden_jobs, invites, response_templates, status_history</summary>
+<summary><b>jobs</b>: jobs, job_media, responses, alerts, hidden_jobs, saved_jobs, invites, response_templates, status_history</summary>
 
 ```sql
 CREATE TABLE jobs.jobs (
@@ -1338,6 +1338,13 @@ CREATE INDEX ON jobs.alerts (user_id);
 CREATE TABLE jobs.hidden_jobs (      -- «не интересно» в ленте исполнителя
   user_id uuid NOT NULL, job_id uuid NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, job_id)
+);
+
+CREATE TABLE jobs.saved_jobs (       -- сохранённые заявки: сердечко S15, сегмент «Задачи» S12 (5.3)
+  user_id     uuid NOT NULL REFERENCES identity.users(id),
+  job_id      uuid NOT NULL REFERENCES jobs.jobs(id),
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, job_id)        -- до 100 на пользователя (`saved_jobs_full`)
 );
 
 CREATE TABLE jobs.invites (          -- «пригласить специалиста» в уже опубликованную заявку (S21)
@@ -1883,7 +1890,7 @@ CREATE TABLE search.query_log (                    -- запросы без ре
   created_at   timestamptz NOT NULL DEFAULT now()  -- без пользователя: словарю важен текст
 );
 
-CREATE TABLE search.favorites (                    -- «Мои мастера» и сохранённые заявки
+CREATE TABLE search.favorites (                    -- «Мои мастера»; 'job' не используется: заявки — jobs.saved_jobs
   user_id     uuid NOT NULL REFERENCES identity.users(id),
   target_type text NOT NULL CHECK (target_type IN ('profile','job')),
   target_id   uuid NOT NULL,
@@ -2389,7 +2396,8 @@ sequenceDiagram
 | `GET /specialists/{id}` 🔓 | Публичный профиль S08 одним запросом (BFF `interfaces/http/views`): профиль, первые три позиции прайса и три работы, рейтинг, бейджи; ETag, `max-age=60`. Скрытый, снятый санкцией или удалённый профиль — 404 без объяснения, как в поиске |
 | `GET /specialists/{id}/services` 🔓, `GET /specialists/{id}/portfolio` 🔓 | Весь прайс с группами (S09) и все готовые работы (S10) одним ответом: прайс — до 50 позиций, работ — в пределах лимита портфолио |
 | `GET /specialists/{id}/reviews?kind=deal\|pre_platform` 🔓 | Отзывы S11 (BFF): рейтинг с гистограммой и средними по критериям из `reviews.rating_aggregates`; сами отзывы постранично и `kind` — с 7.2 и 7.6, до того список пуст. Скрытый профиль — 404 |
-| `GET /me/favorites?type=profile\|job`, `PUT /me/favorites/{type}/{id}`, `DELETE /me/favorites/{type}/{id}` | Избранное: «мои мастера» S12 — карточки, как в выдаче, только видимые в каталоге, новые первыми; до 100 записей типа (`favorites_full`); повтор и удаление отсутствующего — без ошибки. Заявки (`type=job`) — с 5.3 |
+| `GET /me/favorites`, `PUT /me/favorites/profile/{id}`, `DELETE /me/favorites/profile/{id}` | Избранное: «мои мастера» S12 — карточки, как в выдаче, только видимые в каталоге, новые первыми; до 100 (`favorites_full`); повтор и удаление отсутствующего — без ошибки |
+| `GET /me/favorites/jobs`, `PUT /me/favorites/job/{id}`, `DELETE /me/favorites/job/{id}` | Сохранённые заявки (5.3): сердечко S15, сегмент «Задачи» S12 — карточки, как в ленте, только открытые (опубликована, публична, срок не вышел), новые сохранения первыми; сохранить можно видимую опубликованную (иначе 404); до 100 (`saved_jobs_full`); повтор и удаление отсутствующего — без ошибки. Модуль `jobs` (`jobs.saved_jobs`): карточка и видимость заявки — у него |
 | `GET /me/saved-searches`, `POST /me/saved-searches`, `DELETE /me/saved-searches/{id}` | v1: сохранённые поиски с уведомлением |
 | `GET /price-benchmarks?category=&city=` 🔓 | Ценовые ориентиры (v1) |
 

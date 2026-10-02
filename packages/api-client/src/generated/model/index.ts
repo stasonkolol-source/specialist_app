@@ -119,6 +119,7 @@ export * from './quietHoursIn.ts';
 export * from './quietHoursOut.ts';
 export * from './refreshIn.ts';
 export * from './resolveOut.ts';
+export * from './savedJobsOut.ts';
 export * from './searchCountByCategoryKind.ts';
 export * from './searchCountByCategoryParams.ts';
 export * from './searchCountSpecialistsKind.ts';

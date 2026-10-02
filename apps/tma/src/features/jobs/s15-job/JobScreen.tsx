@@ -2,13 +2,14 @@
 // и категория, заголовок, бюджет с единицей, «15 мин назад», места «Откликов 3 из 5 · осталось 2
 // места»; описание и язык общения; «Где» — район на схеме (точка смещена на 300–500 м) и «≈ 1,2 км
 // от вас», если лента знала точку; заказчик — имя, сколько он в «Соседях», сколько заявок
-// публиковал, «Телефон подтверждён». «Не интересно» убирает заявку из ленты навсегда. Чужая
+// публиковал, «Телефон подтверждён». Сердечко сохраняет заявку (сегмент «Задачи» S12), «Не
+// интересно» убирает её из ленты навсегда — оба только вошедшему. Чужая
 // неопубликованная или удалённая заявка — «Заявка недоступна». Своя — с пометкой «так её видят
 // исполнители» (экран владельца S23 — 5.6). Открывается из ленты и по ссылке `startapp=j_…`; гость
 // видит экран без входа. Скрыто до своих шагов: MainButton «Откликнуться · осталось N мест» (форма
-// отклика — 5.5), сердечко (5.3c), «Поделиться» (7.4), «Пожаловаться» (S46, 4.7).
+// отклика — 5.5), «Поделиться» (7.4), «Пожаловаться» (S46, 4.7).
 import type { JobOut } from '@sosed/api-client';
-import { getSession } from '@sosed/api-client';
+import { ApiError, getSession } from '@sosed/api-client';
 import {
   distanceMeters,
   isUnavailable,
@@ -17,11 +18,15 @@ import {
   useCities,
   useCategories,
   useDistricts,
+  jobCardOf,
+  savedJobIds,
   useHideJob,
+  useSavedJobs,
+  useToggleSavedJob,
   useJob,
 } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
-import { useBackButton } from '@sosed/platform';
+import { useBackButton, usePlatform } from '@sosed/platform';
 import {
   Avatar,
   Badge,
@@ -31,6 +36,7 @@ import {
   EmptyState,
   Heading,
   Icon,
+  IconButton,
   MapPreview,
   Photo,
   Price,
@@ -51,6 +57,8 @@ const LANGUAGE_NAMES = ['ru', 'sr', 'en'] as const;
 type LanguageName = (typeof LANGUAGE_NAMES)[number];
 
 const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+const SAVED_FULL = 'saved_jobs_full';
+const MAX_SAVED = 100;
 
 export function JobScreen() {
   const { jobId: raw = '' } = useParams({ strict: false });
@@ -86,6 +94,7 @@ function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
   const { t: common } = useTranslation();
   const format = useFormat();
   const locale = useLocale();
+  const platform = usePlatform();
   const client = useQueryClient();
   const whenBadge = useWhenBadge();
   const budgetText = useBudgetText();
@@ -93,8 +102,17 @@ function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
   const tree = useCategories(locale).data ?? [];
   const category = findCategory(tree, job.category_id)?.name ?? null;
   const owner = job.viewer_role === 'owner';
-  // скрыть может только вошедший: гостю кнопки нет
-  const canHide = !owner && getSession() !== null;
+  // сохранить и скрыть может только вошедший: гостю кнопок нет
+  const performer = !owner && getSession() !== null;
+  const saved = useSavedJobs();
+  const toggleSaved = useToggleSavedJob();
+  const isSaved = savedJobIds(saved.data).has(job.id);
+  const saveError = toggleSaved.error;
+  const saveFailure = !toggleSaved.isError
+    ? null
+    : saveError instanceof ApiError && saveError.code === SAVED_FULL
+      ? t('job.savedFull', { limit: Number(saveError.problem['limit'] ?? MAX_SAVED) })
+      : t('job.saveError');
   const budget = budgetText(job, { unit: false });
   const when = whenBadge(job, true);
   const languages = job.languages.filter((code): code is LanguageName =>
@@ -112,6 +130,11 @@ function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
             : t('job.ownerStatus', { status: common(`status.job.${job.status}`) })}
         </Banner>
       )}
+      {saveFailure && (
+        <Banner tone="danger" role="alert">
+          {saveFailure}
+        </Banner>
+      )}
       {job.photos.length > 0 && <Photos job={job} />}
       <Card as="section">
         <div className="flex flex-wrap gap-1.5">
@@ -120,9 +143,25 @@ function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
           </Badge>
           {category && <Badge>{category}</Badge>}
         </div>
-        <Heading variant="h2" as="h1">
-          {job.title}
-        </Heading>
+        <div className="flex items-start justify-between gap-2">
+          <Heading variant="h2" as="h1" className="pt-2">
+            {job.title}
+          </Heading>
+          {performer && saved.data && (
+            <IconButton
+              plain
+              icon="heart"
+              label={isSaved ? t('job.unsave') : t('job.save')}
+              active={isSaved}
+              aria-pressed={isSaved}
+              className="-mt-1 -mr-2"
+              onClick={() => {
+                platform.haptics.selection();
+                toggleSaved.mutate({ card: jobCardOf(job), on: !isSaved });
+              }}
+            />
+          )}
+        </div>
         <div className="flex items-baseline justify-between gap-3">
           <span className="flex min-w-0 items-baseline gap-2">
             {budget ? (
@@ -170,7 +209,7 @@ function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
           phoneVerified={job.client.phone_verified}
         />
       )}
-      {canHide && (
+      {performer && (
         <>
           {hide.isError && (
             <Banner tone="danger" role="alert">

@@ -422,6 +422,9 @@ msgstr "Сначала создайте профиль исполнителя."
 msgid "errors.favorites_full"
 msgstr "В избранном уже {limit} — уберите кого-нибудь, чтобы добавить."
 
+msgid "errors.saved_jobs_full"
+msgstr "Сохранено уже {limit} заявок — уберите ненужные, чтобы сохранить новую."
+
 msgid "errors.job_not_found"
 msgstr "Заявка не найдена: её удалили или она вам не видна."
 

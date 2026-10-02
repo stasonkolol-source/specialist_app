@@ -115,7 +115,8 @@ export const searchHandlers = [
 /** Избранное S12 и сердечки (4.6) по фейку backend; по умолчанию — свежий на каждый запрос:
  *  список пуст. Тесты избранного ставят свой — с памятью (server.use). */
 export const favoritesHandlers = (backend: () => FavoritesBackend) => [
-  http.all(/\/api\/v1\/me\/favorites(\/.*)?$/, ({ request }) =>
+  // сохранённые заявки (/me/favorites/job*) — у фейка заявок
+  http.all(/\/api\/v1\/me\/favorites(\/profile\/[^/]+)?$/, ({ request }) =>
     respond(
       backend().handle(
         request.method,
@@ -136,10 +137,11 @@ export const cardHandlers = [
   ),
 ];
 
-/** Заявки: создание (5.2), лента и «не интересно» (5.3) по фейку backend; по умолчанию —
- *  свежий на каждый запрос. Тесты мастера S20 и ленты ставят свой — с памятью (server.use). */
+/** Заявки: создание (5.2), лента, «не интересно» и сохранённые (5.3) по фейку backend; по
+ *  умолчанию — свежий на каждый запрос. Тесты мастера S20 и ленты ставят свой — с памятью
+ *  (server.use). */
 export const jobsHandlers = (backend: () => JobsBackend) => [
-  http.all(/\/api\/v1\/jobs(\/.*)?$/, async ({ request }) => {
+  http.all(/\/api\/v1\/(jobs(\/.*)?|me\/favorites\/jobs?(\/[^/]+)?)$/, async ({ request }) => {
     const body =
       request.method === 'POST' ? await request.json().catch(() => undefined) : undefined;
     return respond(

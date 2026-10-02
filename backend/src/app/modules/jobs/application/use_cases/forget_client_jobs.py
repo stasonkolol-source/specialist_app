@@ -1,10 +1,10 @@
 """Заявки удалённого аккаунта (UserDeleted, ARCHITECTURE §7.10): открытые закрываются, все —
 удаляются из выдачи, точная точка и адрес стираются сразу — и у удалённых раньше; скрытые им в
-ленте заявки забываются."""
+ленте и сохранённые заявки забываются."""
 
 from dataclasses import dataclass
 
-from app.modules.jobs.application.ports import JobHides, JobRepository
+from app.modules.jobs.application.ports import JobHides, JobRepository, SavedJobs
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.ids import UserId
@@ -16,8 +16,16 @@ class ForgetClientJobsCommand:
 
 
 class ForgetClientJobs:
-    def __init__(self, uow: UnitOfWork, jobs: JobRepository, hides: JobHides, clock: Clock) -> None:
-        self._uow, self._jobs, self._hides, self._clock = uow, jobs, hides, clock
+    def __init__(
+        self,
+        uow: UnitOfWork,
+        jobs: JobRepository,
+        hides: JobHides,
+        saved: SavedJobs,
+        clock: Clock,
+    ) -> None:
+        self._uow, self._jobs, self._hides, self._saved = uow, jobs, hides, saved
+        self._clock = clock
 
     async def __call__(self, cmd: ForgetClientJobsCommand) -> int:
         now = self._clock.now()
@@ -29,4 +37,5 @@ class ForgetClientJobs:
                 await self._jobs.save(job)
             await self._jobs.forget_private(cmd.user_id)
             await self._hides.forget(cmd.user_id)
+            await self._saved.forget(cmd.user_id)
         return len(ids)

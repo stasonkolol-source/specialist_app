@@ -79,6 +79,11 @@ class JobQueries(Protocol):
         """Сколько заявок в ленте с этими фильтрами — «Показать N» S14 и счётчик Главной."""
         ...
 
+    async def saved(self, user_id: UserId, *, now: datetime) -> list[FeedItem]:
+        """Сохранённые пользователем заявки, которые ещё открыты (опубликованы, публичны, срок
+        не вышел), — новые сохранения первыми; без расстояния."""
+        ...
+
 
 class JobHides(Protocol):
     """«Не интересно» (S15): заявка пропадает из ленты этого исполнителя."""
@@ -89,6 +94,30 @@ class JobHides(Protocol):
 
     async def forget(self, user_id: UserId) -> None:
         """Удалить скрытое пользователем — удаление аккаунта (§7.10)."""
+        ...
+
+
+class SavedJobs(Protocol):
+    """Сохранённые заявки исполнителя: сердечко S15, сегмент «Задачи» S12."""
+
+    async def save(self, user_id: UserId, job_id: JobId) -> None:
+        """Повтор ничего не меняет (запись — в активном UoW)."""
+        ...
+
+    async def unsave(self, user_id: UserId, job_id: JobId) -> None:
+        """Чего нет — ничего (запись — в активном UoW)."""
+        ...
+
+    async def count(self, user_id: UserId) -> int:
+        """Сколько сохранено — для лимита."""
+        ...
+
+    async def has(self, user_id: UserId, job_id: JobId) -> bool:
+        """Уже сохранена — при полном списке повтор не ошибка."""
+        ...
+
+    async def forget(self, user_id: UserId) -> None:
+        """Удалить сохранённое пользователем — удаление аккаунта (§7.10)."""
         ...
 
 
