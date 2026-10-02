@@ -501,3 +501,51 @@ async def test_misspelling_is_found_by_trigram_similarity(
         {"q": "vodoinstaltr"},
     )
     assert nearest.scalar_one() == "t-plumbing"
+
+
+async def test_query_is_matched_whole_or_by_prefix(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App
+) -> None:
+    await _import(db_session, procrastinate_app, taxonomy())
+    facade = CatalogFacade(SqlCatalogQuery(db_session))
+    electrical = (await _summary(db_session, "t-electrical")).id
+
+    whole = await facade.match_query("Електричар")
+    prefix = await facade.match_query("электр")
+
+    assert whole is not None
+    assert (whole.exact, electrical in whole.category_ids) == (True, True)
+    assert prefix is not None
+    assert (prefix.exact, electrical in prefix.category_ids) == (False, True)
+    # префикс короче трёх букв не узнаётся: слишком общий
+    assert await facade.match_query("зз") is None
+    assert await facade.match_query("   ") is None
+
+
+async def test_forbidden_category_is_not_matched(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App
+) -> None:
+    await _import(db_session, procrastinate_app, taxonomy())
+    facade = CatalogFacade(SqlCatalogQuery(db_session))
+    weapons = (await _summary(db_session, "t-weapons")).id
+
+    found = await facade.match_query("Оружие")
+
+    assert found is None or weapons not in found.category_ids
+
+
+async def test_misspelled_query_gets_the_nearest_term(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App
+) -> None:
+    await _import(db_session, procrastinate_app, taxonomy())
+    facade = CatalogFacade(SqlCatalogQuery(db_session))
+
+    near = await facade.similar_term("vodoinstaltr")
+    near_cyrillic = await facade.similar_term("водоинсталатр")
+
+    # то же слово словаря, но тем алфавитом, каким набран запрос
+    assert near is not None
+    assert (near.term, near.exact) == ("Vodoinstalater", False)  # название важнее синонима
+    assert near_cyrillic is not None
+    assert near_cyrillic.term == "Водоинсталатер"
+    assert await facade.similar_term("qqqqzzzz") is None

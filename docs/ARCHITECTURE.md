@@ -1870,6 +1870,18 @@ CREATE TABLE search.pending_profiles (             -- очередь перес�
   marked_at   timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE search.query_log (                    -- запросы без результатов: пополнение словаря (4.2)
+  id           uuid PRIMARY KEY DEFAULT uuidv7(),
+  q            varchar(100) NOT NULL,
+  q_norm       text GENERATED ALWAYS AS (platform.search_norm(q)) STORED,
+  locale       varchar(8) NOT NULL,
+  city_id      int NOT NULL,
+  category_id  int,
+  filters      varchar(32)[] NOT NULL DEFAULT '{}', -- имена выбранных фильтров, без значений
+  did_you_mean varchar(120),
+  created_at   timestamptz NOT NULL DEFAULT now()  -- без пользователя: словарю важен текст
+);
+
 CREATE TABLE search.favorites (                    -- «Мои мастера» и сохранённые заявки
   user_id     uuid NOT NULL REFERENCES identity.users(id),
   target_type text NOT NULL CHECK (target_type IN ('profile','job')),
@@ -1938,7 +1950,7 @@ CREATE TABLE platform.translations (          -- кэш машинного пе�
 ```
 </details>
 
-Таблицы `reviews.review_media`, `search.query_log`, `search.saved_searches` (v1), `growth.referral_rewards`, `pricing.price_benchmarks` (v1) и `platform.client_config` описаны в тексте разделов 5, 9, 11 и 15; их DDL пишется при реализации. Всего в модели ≈ 65 таблиц. Таблицы модуля `goods` (после MVP, итерация «Вещи») сюда не входят — [§7.11](#711-модуль-goods-после-mvp-итерация-вещи).
+Таблицы `reviews.review_media`, `search.saved_searches` (v1), `growth.referral_rewards`, `pricing.price_benchmarks` (v1) и `platform.client_config` описаны в тексте разделов 5, 9, 11 и 15; их DDL пишется при реализации. Всего в модели ≈ 65 таблиц. Таблицы модуля `goods` (после MVP, итерация «Вещи») сюда не входят — [§7.11](#711-модуль-goods-после-mvp-итерация-вещи).
 
 ### 7.4. Мультиязычный контент
 
@@ -2586,6 +2598,7 @@ flowchart LR
     R --> P["keyset-пагинация<br/>или offset ≤ 500"]
 ```
 
+- **Порядок этапов (4.2).** Запрос целиком или его начало в словаре → FTS (AND → префикс → OR, имя — по триграммам) → ближайшее слово словаря («Возможно, вы имели в виду»). Нечёткое совпадение — последним: имя мастера или редкое слово прайса FTS находит точнее похожей категории. Курсор следующей страницы хранит этап, которым найдена первая.
 - **Нулевая выдача.** Сначала мягкий fallback: AND → префиксный `слово:*` → OR. Если результатов всё равно нет, показываем подсказки: «ослабьте фильтры», «разместите заявку — мастера откликнутся сами». Запрос пишется в `search.query_log` для пополнения таксономии.
 - **Язык запроса.** Интерпретации ru, sr и en объединяются через OR. Язык UI даёт своей интерпретации больший вес в ранжировании.
 
@@ -2645,7 +2658,7 @@ rank = 0.35 · text_relevance        -- ts_rank_cd (0..1); без текста �
      + 0.15 · trust                 -- бейджи: телефон 0.3, KYC 0.5, бизнес/лицензия 0.2
      + 0.10 · responsiveness        -- медиана времени ответа, доля отвеченных заявок за 30 дней
      + 0.05 · activity              -- свежесть активности, полнота профиля
-     + 0.10 · availability_boost    -- «доступен сегодня» при фильтре срочности
+     + 0.10 · availability_boost    -- «доступен сегодня» при «Срочно» (urgent, чип S03)
      × distance_decay               -- exp(−d / d0) при сортировке «рядом»; d0 = 3 км
 ```
 

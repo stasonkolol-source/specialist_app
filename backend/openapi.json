@@ -1929,6 +1929,365 @@
         }
       }
     },
+    "/api/v1/specialists": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "summary": "List Specialists",
+        "description": "Выдача специалистов: текст, фильтры, порядок; карточки готовы к показу.",
+        "operationId": "search_list_specialists",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Текст: ru, sr, en, с опечатками",
+              "title": "Q"
+            },
+            "description": "Текст: ru, sr, en, с опечатками"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SpecialistSort",
+              "description": "distance — нужна точка клиента",
+              "default": "relevance"
+            },
+            "description": "distance — нужна точка клиента"
+          },
+          {
+            "name": "urgent",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "«Срочно»: доступные сегодня — выше",
+              "default": false,
+              "title": "Urgent"
+            },
+            "description": "«Срочно»: доступные сегодня — выше"
+          },
+          {
+            "name": "city_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Город выдачи",
+              "title": "City Id"
+            },
+            "description": "Город выдачи"
+          },
+          {
+            "name": "category_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "С подкатегориями",
+              "title": "Category Id"
+            },
+            "description": "С подкатегориями"
+          },
+          {
+            "name": "district_ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  },
+                  "maxItems": 20
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "District Ids"
+            }
+          },
+          {
+            "name": "lat",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 90,
+                  "minimum": -90
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Точка клиента",
+              "title": "Lat"
+            },
+            "description": "Точка клиента"
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 180,
+                  "minimum": -180
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lon"
+            }
+          },
+          {
+            "name": "radius_km",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 50,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Нужна точка",
+              "title": "Radius Km"
+            },
+            "description": "Нужна точка"
+          },
+          {
+            "name": "travels_to_me",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Выезжает к точке клиента (его радиус выезда)",
+              "default": false,
+              "title": "Travels To Me"
+            },
+            "description": "Выезжает к точке клиента (его радиус выезда)"
+          },
+          {
+            "name": "price_max",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Цена «до», пара",
+              "title": "Price Max"
+            },
+            "description": "Цена «до», пара"
+          },
+          {
+            "name": "rating_min",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 5,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Rating Min"
+            }
+          },
+          {
+            "name": "languages",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 20
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ru, sr, en, uk",
+              "title": "Languages"
+            },
+            "description": "ru, sr, en, uk"
+          },
+          {
+            "name": "work_modes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "at_client",
+                      "at_own_place",
+                      "remote"
+                    ],
+                    "type": "string"
+                  },
+                  "maxItems": 20
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Work Modes"
+            }
+          },
+          {
+            "name": "available_today",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Available Today"
+            }
+          },
+          {
+            "name": "verified",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "С подтверждённым телефоном (v1)",
+              "default": false,
+              "title": "Verified"
+            },
+            "description": "С подтверждённым телефоном (v1)"
+          },
+          {
+            "name": "with_reviews",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "With Reviews"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "pro",
+                "casual"
+              ],
+              "type": "string",
+              "description": "«Подработка» — только явно",
+              "default": "pro",
+              "title": "Kind"
+            },
+            "description": "«Подработка» — только явно"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpecialistPageOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/me/telegram/write-access": {
       "post": {
         "tags": [
@@ -2287,6 +2646,60 @@
           "media_id"
         ],
         "title": "AvatarIn"
+      },
+      "CardAvatarOut": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          },
+          "placeholder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Placeholder",
+            "description": "ThumbHash (base64) для мгновенного превью"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "width",
+          "height",
+          "placeholder"
+        ],
+        "title": "CardAvatarOut"
+      },
+      "CardDistrictOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "CardDistrictOut"
       },
       "CategoryOut": {
         "properties": {
@@ -4601,6 +5014,224 @@
           "headers"
         ],
         "title": "SignedPartOut"
+      },
+      "SpecialistCardOut": {
+        "properties": {
+          "profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Profile Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "headline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headline"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "pro | casual"
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardAvatarOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "district": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardDistrictOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "distance_m": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M",
+            "description": "От точки клиента, шагом 500 м; без точки — нет"
+          },
+          "languages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Languages"
+          },
+          "category_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Category Ids"
+          },
+          "price_from": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price From",
+            "description": "Цена «от», пара (1 RSD = 100 пара)"
+          },
+          "negotiable": {
+            "type": "boolean",
+            "title": "Negotiable",
+            "description": "Цены нет, но прайс есть: «договорная»"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating",
+            "description": "Когда отзывов достаточно; иначе is_new"
+          },
+          "rating_count": {
+            "type": "integer",
+            "title": "Rating Count"
+          },
+          "is_new": {
+            "type": "boolean",
+            "title": "Is New",
+            "description": "«Новый специалист»: отзывов меньше трёх"
+          },
+          "available_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Until",
+            "description": "«Доступен сегодня до …»"
+          },
+          "badges": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Badges"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile_id",
+          "display_name",
+          "headline",
+          "kind",
+          "avatar",
+          "district",
+          "distance_m",
+          "languages",
+          "category_ids",
+          "price_from",
+          "negotiable",
+          "rating",
+          "rating_count",
+          "is_new",
+          "available_until",
+          "badges"
+        ],
+        "title": "SpecialistCardOut"
+      },
+      "SpecialistPageOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SpecialistCardOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "category_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Category Ids",
+            "description": "Категории, в которых узнан запрос: чип над выдачей"
+          },
+          "did_you_mean": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Did You Mean",
+            "description": "«Возможно, вы имели в виду …»: выдача — по этому слову"
+          },
+          "hints": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Hints",
+            "description": "Пустая выдача: relax_filters, post_job"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "SpecialistPageOut"
+      },
+      "SpecialistSort": {
+        "type": "string",
+        "enum": [
+          "relevance",
+          "rating",
+          "distance",
+          "price"
+        ],
+        "title": "SpecialistSort"
       },
       "TagOut": {
         "properties": {

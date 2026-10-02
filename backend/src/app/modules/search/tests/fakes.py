@@ -1,0 +1,152 @@
+"""Фейки портов и фасадов для тестов search (ADR-0020 §11)."""
+
+from collections.abc import Collection
+from dataclasses import dataclass, field
+from datetime import datetime
+from types import TracebackType
+from typing import Self
+
+from app.modules.catalog.api import CategorySummary, SearchTerm, TermMatch
+from app.modules.media.api import MediaRef
+from app.modules.search.application.dto import (
+    SpecialistFilters,
+    SpecialistHit,
+    TextMatch,
+    ZeroResult,
+)
+from app.modules.search.domain.query import RankWeights, SpecialistSort, Stage
+from app.platform.kernel.aggregate import AggregateRoot
+from app.platform.kernel.events import DomainEvent
+from app.platform.kernel.ids import CategoryId, MediaId, UserId
+
+
+@dataclass(frozen=True, slots=True)
+class SearchCall:
+    match: TextMatch | None
+    sort: SpecialistSort
+    weights: RankWeights
+    offset: int
+    limit: int
+
+    @property
+    def stage(self) -> Stage:
+        return self.match.stage if self.match is not None else Stage.BROWSE
+
+
+@dataclass
+class FakeSearch:
+    """SpecialistSearch: строки по этапам; помнит, какие этапы и страницы спрашивали."""
+
+    by_stage: dict[Stage, list[SpecialistHit]] = field(default_factory=dict)
+    calls: list[SearchCall] = field(default_factory=list)
+
+    async def search(
+        self,
+        filters: SpecialistFilters,
+        match: TextMatch | None,
+        *,
+        sort: SpecialistSort,
+        weights: RankWeights,
+        offset: int,
+        limit: int,
+        now: datetime,
+    ) -> list[SpecialistHit]:
+        call = SearchCall(match=match, sort=sort, weights=weights, offset=offset, limit=limit)
+        self.calls.append(call)
+        return self.by_stage.get(call.stage, [])[offset : offset + limit]
+
+
+@dataclass
+class FakeCatalog:
+    """CatalogApi: словарь поиска — запрос целиком → совпадение."""
+
+    matches: dict[str, TermMatch] = field(default_factory=dict)
+    similar: dict[str, TermMatch] = field(default_factory=dict)
+
+    async def category(self, category_id: CategoryId) -> CategorySummary | None:
+        raise NotImplementedError
+
+    async def categories(self, category_ids: Collection[CategoryId]) -> list[CategorySummary]:
+        raise NotImplementedError
+
+    async def search_terms(
+        self, category_ids: Collection[CategoryId]
+    ) -> dict[CategoryId, tuple[SearchTerm, ...]]:
+        raise NotImplementedError
+
+    async def match_query(self, text: str) -> TermMatch | None:
+        return self.matches.get(text)
+
+    async def similar_term(self, text: str) -> TermMatch | None:
+        return self.similar.get(text)
+
+
+@dataclass
+class FakeMedia:
+    """MediaApi: как показать файлы — для фото профиля в карточке."""
+
+    files: dict[MediaId, MediaRef] = field(default_factory=dict)
+    asked: list[frozenset[MediaId]] = field(default_factory=list)
+
+    async def owned(self, owner_id: UserId, media_id: MediaId, *, purpose: str) -> MediaRef:
+        raise NotImplementedError
+
+    async def refs(self, media_ids: Collection[MediaId]) -> dict[MediaId, MediaRef]:
+        self.asked.append(frozenset(media_ids))
+        return {media_id: self.files[media_id] for media_id in media_ids if media_id in self.files}
+
+    async def discard(self, owner_id: UserId, media_id: MediaId) -> None:
+        raise NotImplementedError
+
+    async def held(self, media_ids: Collection[MediaId]) -> frozenset[MediaId]:
+        raise NotImplementedError
+
+
+@dataclass
+class FakeFlags:
+    values: dict[str, object] = field(default_factory=dict)
+
+    async def is_enabled(self, key: str) -> bool:
+        return key in self.values
+
+    async def value(self, key: str) -> object | None:
+        return self.values.get(key)
+
+
+@dataclass
+class FakeLog:
+    entries: list[ZeroResult] = field(default_factory=list)
+
+    async def record(self, entry: ZeroResult) -> None:
+        self.entries.append(entry)
+
+
+class FakeUoW:
+    """UnitOfWork без базы: считает завершённые блоки."""
+
+    def __init__(self) -> None:
+        self.active = False
+        self.committed = 0
+
+    async def __aenter__(self) -> Self:
+        self.active = True
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        self.active = False
+        if exc is None:
+            self.committed += 1
+
+    def track(self, aggregate: AggregateRoot) -> None:
+        raise NotImplementedError
+
+    def add_event(self, event: DomainEvent) -> None:
+        raise NotImplementedError
+
+    def require_active(self) -> None:
+        assert self.active, "no active UnitOfWork"

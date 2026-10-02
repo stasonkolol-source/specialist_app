@@ -5,4 +5,5 @@ export * from './media/media.zod.ts';
 export * from './notifications/notifications.zod.ts';
 export * from './platform/platform.zod.ts';
 export * from './pricing/pricing.zod.ts';
+export * from './search/search.zod.ts';
 export * from './specialists/specialists.zod.ts';

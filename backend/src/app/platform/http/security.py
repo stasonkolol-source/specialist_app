@@ -12,6 +12,7 @@ from typing import Annotated
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from app.platform.kernel.errors import NotAuthenticatedError
 from app.platform.kernel.principal import Principal
 
 BEARER = HTTPBearer(auto_error=False, description="Access JWT из POST /auth/telegram")
@@ -25,3 +26,13 @@ async def authenticated(
 
 
 AUTHENTICATED = [Depends(authenticated)]
+
+
+async def optional_principal(request: Request) -> Principal | None:
+    """Вошедший или гость — для открытых 🔓 эндпоинтов, где от входа зависит лимит или
+    ответ. Нет токена или он недействителен — гость, а не 401: каталог открыт всем."""
+    try:
+        principal: Principal = await request.state.dishka_container.get(Principal)
+    except NotAuthenticatedError:
+        return None
+    return principal

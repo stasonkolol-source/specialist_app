@@ -8,6 +8,12 @@ DEFAULT_LIMIT = 20
 MAX_LIMIT = 100
 
 
+class InvalidCursorError(DomainValidationError):
+    """Курсор не разобрать: битый или подделан (422)."""
+
+    code = "invalid_cursor"
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class PageRequest:
     limit: int = DEFAULT_LIMIT

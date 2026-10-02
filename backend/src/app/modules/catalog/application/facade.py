@@ -2,7 +2,7 @@
 
 from collections.abc import Collection
 
-from app.modules.catalog.api import CatalogApi, CategorySummary, SearchTerm
+from app.modules.catalog.api import CatalogApi, CategorySummary, SearchTerm, TermMatch
 from app.modules.catalog.application.ports import CatalogQuery
 from app.platform.kernel.ids import CategoryId
 
@@ -25,3 +25,9 @@ class CatalogFacade(CatalogApi):
         if not category_ids:
             return {}
         return await self._query.search_terms(category_ids)
+
+    async def match_query(self, text: str) -> TermMatch | None:
+        return await self._query.match_query(text) if text.strip() else None
+
+    async def similar_term(self, text: str) -> TermMatch | None:
+        return await self._query.similar_term(text) if text.strip() else None

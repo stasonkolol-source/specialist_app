@@ -1,4 +1,5 @@
-"""Порты модуля search (ADR-0020 §3, §5): read-model специалистов и очередь её обновления."""
+"""Порты модуля search (ADR-0020 §3, §5): read-model специалистов, очередь её обновления
+и выдача по ней."""
 
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
@@ -6,7 +7,14 @@ from datetime import datetime
 from typing import Final, Protocol
 from uuid import UUID
 
+from app.modules.search.application.dto import (
+    SpecialistFilters,
+    SpecialistHit,
+    TextMatch,
+    ZeroResult,
+)
 from app.modules.search.domain.index import IndexEntry
+from app.modules.search.domain.query import RankWeights, SpecialistSort
 from app.platform.contracts.events.catalog import CatalogChanged
 from app.platform.contracts.events.identity import (
     UserDeleted,
@@ -70,6 +78,31 @@ class PendingProfiles(Protocol):
     async def clear(self, profile_ids: Collection[UUID]) -> None: ...
 
     async def count(self) -> int: ...
+
+
+class SpecialistSearch(Protocol):
+    """Выдача по read-model (§9.2–9.5). Порт — граница замены: при росте за ним встанет
+    поисковый движок, а use case и HTTP не изменятся (ARCHITECTURE §18)."""
+
+    async def search(
+        self,
+        filters: SpecialistFilters,
+        match: TextMatch | None,
+        *,
+        sort: SpecialistSort,
+        weights: RankWeights,
+        offset: int,
+        limit: int,
+        now: datetime,
+    ) -> list[SpecialistHit]:
+        """До `limit` строк по порядку `sort`, начиная с `offset`."""
+        ...
+
+
+class QueryLog(Protocol):
+    async def record(self, entry: ZeroResult) -> None:
+        """Запрос без результатов (§9.2). Нужен активный UoW."""
+        ...
 
 
 class IndexMetrics(Protocol):
