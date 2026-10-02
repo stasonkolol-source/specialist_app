@@ -90,11 +90,14 @@ async def discard_media(payload: DiscardMediaPayload, delete: FromDishka[DeleteM
 async def delete_objects(payload: DeleteObjectsPayload, storage: FromDishka[StoragePort]) -> None:
     if payload.upload_id is not None and payload.objects:
         original = payload.objects[0]
-        # multipart уже собран или отменён — хранилище откажет (4xx): остаётся удалить объект
-        with suppress(StorageRejectedError):
+        try:
             await storage.abort_multipart(
                 Bucket(original.bucket), original.key, upload_id=payload.upload_id
             )
+        except StorageRejectedError as exc:
+            # Только отсутствующий multipart уже собран или отменён; прочие ошибки — повтор.
+            if exc.code != "NoSuchUpload":
+                raise
     for item in payload.objects:  # объекта нет — не ошибка: повтор после сбоя проходит
         await storage.delete(Bucket(item.bucket), item.key)
     log.info("media_objects_deleted", media_id=str(payload.media_id), count=len(payload.objects))
