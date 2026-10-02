@@ -28,6 +28,9 @@ export const CREATE_JOB_PATH = '/jobs/new';
 /** Лента заявок S13 (фича jobs, 5.3): блок «Ищете подработку?» на Главной. */
 export const JOBS_FEED_PATH = '/jobs';
 
+/** Своя заявка клиента S23 (фича jobs, 5.6): «Мои активные заявки» на Главной. */
+export const managedJobPath = (jobId: string) => `/jobs/${jobId}/manage`;
+
 export interface CreateJobSearch {
   category?: number;
   title?: string;

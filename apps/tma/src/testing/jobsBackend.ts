@@ -7,8 +7,9 @@
 // Отклики (5.5): POST /jobs/{id}/responses с ключом идемпотентности, места и суточная квота как у
 // сервера; GET, PATCH /responses/{id} и /withdraw; GET /me/responses — чипы групп и «сегодня N из
 // M»; шаблоны /me/response-templates — не больше двух, первый — основной. GET /jobs/{id} отдаёт
-// свой отклик (`my_response`) и место, занятое им. Время публикации — от E2E_NOW: в e2e часы
-// браузера стоят на нём же.
+// свой отклик (`my_response`) и место, занятое им. Свои заявки клиента (5.6): GET /me/jobs, отклики
+// карточками GET /jobs/{id}/response-cards (отмечают просмотренными), закрыть, продлить,
+// пригласить. Время публикации — от E2E_NOW: в e2e часы браузера стоят на нём же.
 import type {
   JobCardOut,
   JobClientOut,
@@ -24,6 +25,7 @@ import type {
   ResponseTemplateIn,
   ResponseTemplateOut,
   ResponseTemplatePatchIn,
+  ResponseCardOut,
   Urgency,
 } from '@sosed/api-client';
 
@@ -313,6 +315,111 @@ export function myResponsesFixture(feed: FeedFixture[] = FEED_JOBS): MyResponseO
   ];
 }
 
+/** Свои заявки клиента как на артборде S22: люстра — три отклика, уборка — ждёт откликов,
+ *  уборка после ремонта — закрыта. Карточки ленты с теми же заголовками, но владельцу. */
+export function myJobsFixture(feed: FeedFixture[] = FEED_JOBS): JobOut[] {
+  const own = (title: string, patch: Partial<JobOut>): JobOut => {
+    const found = feed.find((item) => item.card.title === title);
+    if (!found) throw new Error(`no feed job ${title}`);
+    return {
+      ...feedJobOut(found),
+      id: `0199dd30-0000-7000-8000-${String(feed.indexOf(found) + 1).padStart(12, '0')}`,
+      viewer_role: 'owner',
+      point_exact: found.point,
+      address_private: 'Народног фронта 12',
+      views_count: 12,
+      new_responses: 0,
+      client: null,
+      ...patch,
+    };
+  };
+  const cleaning = feed.find((item) => item.card.title.startsWith('Генеральная уборка'));
+  return [
+    own('Повесить люстру', { responses_count: 3, new_responses: 2 }),
+    own(cleaning?.card.title ?? 'Генеральная уборка, 2-комн. квартира', {
+      responses_count: 0,
+      views_count: 4,
+    }),
+    own('Течёт смеситель на кухне', {
+      title: 'Уборка после ремонта',
+      status: 'closed',
+      close_reason: 'hired_here',
+      closed_at: '2026-09-14T15:00:00Z',
+      responses_count: 0,
+    }),
+  ];
+}
+
+/** Отклики на люстру как на артборде S23: первый — с рейтингом и телефоном, подработка, третий —
+ *  на сербском. */
+export function responseCardsFixture(): ResponseCardOut[] {
+  const base = {
+    status: 'submitted' as const,
+    availability_note: null,
+    is_first: false,
+    is_new: false,
+  };
+  const performer = {
+    profile_id: null,
+    kind: null,
+    avatar: null,
+    district: null,
+    rating: null,
+    rating_count: 0,
+    is_new: true,
+    phone_verified: false,
+  };
+  return [
+    {
+      ...base,
+      id: '0199dd40-0000-7000-8000-000000000001',
+      message: 'Могу сегодня в 19:00, свой инструмент и стремянка',
+      price: { type: 'fixed', amount: money(3500) },
+      availability_note: 'сегодня в 19:00',
+      is_first: true,
+      is_new: true,
+      created_at: at(12),
+      performer: {
+        ...performer,
+        display_name: 'Алексей Морозов',
+        profile_id: '0199dd50-0000-7000-8000-000000000001',
+        kind: 'pro',
+        district: { id: DISTRICT_IDS.Лиман, name: 'Лиман' },
+        rating: 4.9,
+        rating_count: 37,
+        is_new: false,
+        phone_verified: true,
+      },
+    },
+    {
+      ...base,
+      id: '0199dd40-0000-7000-8000-000000000002',
+      message: 'Буду в 20:00',
+      price: { type: 'fixed', amount: money(3000) },
+      is_new: true,
+      created_at: at(8),
+      performer: { ...performer, display_name: 'Иван Гаврилов' },
+    },
+    {
+      ...base,
+      id: '0199dd40-0000-7000-8000-000000000003',
+      message: 'Mogu danas posle 18h',
+      price: { type: 'fixed', amount: money(4500) },
+      created_at: at(3),
+      performer: {
+        ...performer,
+        display_name: 'Никола Петрович',
+        profile_id: '0199dd50-0000-7000-8000-000000000003',
+        kind: 'pro',
+        district: { id: DISTRICT_IDS.Детелинара, name: 'Детелинара' },
+        rating: 4.7,
+        rating_count: 18,
+        is_new: false,
+      },
+    },
+  ];
+}
+
 /** Шаблоны как на артборде S57 — два: основной и «В боте». */
 export function templatesFixture(): ResponseTemplateOut[] {
   return [
@@ -369,6 +476,20 @@ export class JobsBackend {
   failNextRespond: BackendReply | null = null;
   /** Шаблоны по порядку: первый — основной. */
   templates: ResponseTemplateOut[] = [];
+  /** Отклики на свои заявки карточками (S23): id заявки → карточки. */
+  readonly responseCards = new Map<string, ResponseCardOut[]>();
+  /** Приглашённые профили: id заявки → id профилей по порядку. */
+  readonly invites = new Map<string, string[]>();
+  /** Закрытия и продления — что прислал экран. */
+  readonly actions: { jobId: string; action: 'close' | 'extend'; reason?: string }[] = [];
+
+  /** Свои заявки клиента (S22) и отклики люстры (S23), как на артбордах. */
+  seedMine(): this {
+    for (const job of myJobsFixture(this.feedJobs)) this.jobs.set(job.id, job);
+    const [chandelier] = myJobsFixture(this.feedJobs);
+    if (chandelier) this.responseCards.set(chandelier.id, responseCardsFixture());
+    return this;
+  }
   private readonly templatesByKey = new Map<string, ResponseTemplateOut>();
 
   /** Заявки ленты: по умолчанию J1–J6; замер прокрутки ставит свою тысячу. */
@@ -389,6 +510,15 @@ export class JobsBackend {
     const path = url.pathname.replace(/^\/api\/v1/, '');
     if (path.startsWith('/me/favorites/job')) {
       return signedIn ? this.favorites(method, path) : problem(401, 'not_authenticated');
+    }
+    if (method === 'GET' && path === '/me/jobs') {
+      return signedIn ? this.mineList() : problem(401, 'not_authenticated');
+    }
+    const own = /^\/jobs\/([^/]+)\/(response-cards|close|extend|invites)$/.exec(path);
+    if (own) {
+      return signedIn
+        ? this.owner(method, own[1] ?? '', own[2] ?? '', body)
+        : problem(401, 'not_authenticated');
     }
     if (path === '/me/responses' || path.startsWith('/responses/')) {
       return signedIn
@@ -501,6 +631,60 @@ export class JobsBackend {
     this.responsesByKey.set(key, response);
     this.respondedToday += 1;
     return { status: 201, body: response };
+  }
+
+  /** Свои заявки: новые первыми — как сохранены (созданные здесь — первыми). */
+  mineList(): BackendReply {
+    const items = [...this.jobs.values()].reverse();
+    return { status: 200, body: { items } };
+  }
+
+  /** Действия владельца над своей заявкой (S23). */
+  owner(method: string, jobId: string, action: string, body: unknown): BackendReply | null {
+    const job = this.jobs.get(jobId);
+    if (!job) return problem(404, 'job_not_found');
+    if (action === 'response-cards' && method === 'GET') {
+      const items = this.responseCards.get(jobId) ?? [];
+      // ответ отмечает отклики просмотренными: второй раз они уже не новые
+      this.responseCards.set(
+        jobId,
+        items.map((item) => ({ ...item, is_new: false })),
+      );
+      this.jobs.set(jobId, { ...job, new_responses: 0 });
+      return { status: 200, body: { items } };
+    }
+    const now = new Date(E2E_NOW).toISOString();
+    if (action === 'close' && method === 'POST') {
+      const reason = (body as { reason: JobOut['close_reason'] }).reason;
+      this.actions.push({ jobId, action: 'close', reason: reason ?? undefined });
+      const closed: JobOut = { ...job, status: 'closed', close_reason: reason, closed_at: now };
+      this.jobs.set(jobId, closed);
+      return { status: 200, body: closed };
+    }
+    if (action === 'extend' && method === 'POST') {
+      this.actions.push({ jobId, action: 'extend' });
+      const extended: JobOut = {
+        ...job,
+        status: 'published',
+        extensions_count: job.extensions_count + 1,
+        expires_at: new Date(new Date(E2E_NOW).getTime() + 7 * 24 * HOUR_MS).toISOString(),
+      };
+      this.jobs.set(jobId, extended);
+      return { status: 200, body: extended };
+    }
+    if (action === 'invites') {
+      if (method === 'POST') {
+        const ids = (body as { profile_ids: string[] }).profile_ids;
+        const known = this.invites.get(jobId) ?? [];
+        this.invites.set(jobId, [...known, ...ids.filter((id) => !known.includes(id))]);
+      }
+      const items = (this.invites.get(jobId) ?? []).map((profile_id) => ({
+        profile_id,
+        invited_at: now,
+      }));
+      return { status: 200, body: { items, limit: 10 } };
+    }
+    return null;
   }
 
   /** «Мои отклики» и свой отклик: список с чипами, правка и отзыв, пока клиент не решил. */
@@ -733,6 +917,7 @@ function feedJobOut({ card, description, languages, client, point }: FeedFixture
     my_response: null,
     extensions_count: 0,
     views_count: null,
+    new_responses: null,
     moderation_note: null,
     version: 1,
     created_at: card.published_at,
@@ -781,6 +966,7 @@ export function jobOut(id: string, body: JobIn, status: JobStatus): JobOut {
     my_response: null,
     extensions_count: 0,
     views_count: 0,
+    new_responses: 0,
     moderation_note: null,
     version: 1,
     created_at: NOW,

@@ -64,7 +64,7 @@ for (const theme of THEMES) {
       jobs.templates = templatesFixture();
       const watch = await open(page, `theme=${theme}&lang=${l.telegram}`, {
         signedIn: true,
-        me: { ...ME, ui_locale: l.locale },
+        me: { ...ME, intent: 'pro', ui_locale: l.locale },
         jobs,
       });
 
@@ -92,7 +92,7 @@ for (const theme of THEMES) {
       jobs.templates = templatesFixture();
       const watch = await open(page, `theme=${theme}&lang=${l.telegram}`, {
         signedIn: true,
-        me: { ...ME, ui_locale: l.locale },
+        me: { ...ME, intent: 'pro', ui_locale: l.locale },
         jobs,
       });
 

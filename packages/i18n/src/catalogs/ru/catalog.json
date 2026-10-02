@@ -11,7 +11,12 @@
     "createText": "Опишите задачу — откликнутся до 5 исполнителей, а вы выберете, с кем договориться.",
     "create": "Создать заявку",
     "sideJobTitle": "Ищете подработку?",
-    "sideJobText": "{count, plural, one {# новая задача рядом} few {# новые задачи рядом} many {# новых задач рядом} other {# новой задачи рядом}}"
+    "sideJobText": "{count, plural, one {# новая задача рядом} few {# новые задачи рядом} many {# новых задач рядом} other {# новой задачи рядом}}",
+    "myJobs": "Мои активные заявки",
+    "myJobsReview": "На проверке",
+    "myJobsWaiting": "Ждём откликов",
+    "myJobsResponses": "{count, plural, one {# отклик} few {# отклика} many {# откликов} other {# отклика}}",
+    "myJobsFresh": "{count, plural, one {# новый} few {# новых} many {# новых} other {# новых}}"
   },
   "categories": {
     "title": "Все услуги",

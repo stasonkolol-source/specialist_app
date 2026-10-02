@@ -47,6 +47,8 @@ class JobView:
     extensions_count: int
     views_count: int
     """Сколько разных людей открывали заявку (не чаще раза в сутки каждый, 5.6)."""
+    responses_seen_at: datetime | None
+    """Клиент последний раз открывал отклики (S23): позже прошедшие проверку — «новые»."""
     moderation_note: str | None
     version: int
     created_at: datetime

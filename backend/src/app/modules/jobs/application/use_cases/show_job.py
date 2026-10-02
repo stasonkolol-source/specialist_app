@@ -35,6 +35,8 @@ class JobDetails:
     """None — аккаунт клиента удалён."""
     my_response: MyResponseRef | None = None
     """Отклик зрителя-исполнителя; гостю и владельцу — None."""
+    new_responses: int | None = None
+    """Владельцу — отклики, которых он ещё не видел (бейдж S22, S23); остальным — None."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -62,11 +64,15 @@ class ShowJob:
                 phone_verified=user.phone_verified,
             )
         mine = None
+        fresh = None
         if query.viewer_id is not None and query.viewer_id != job.client_id:
             mine = await self._queries.performer_response(query.job_id, query.viewer_id)
+        elif query.viewer_id is not None:
+            fresh = await self._queries.unseen_responses(query.job_id)
         return JobDetails(
             job=job,
             photos=photos_of(job.media_ids, refs, LARGE),
             client=client,
             my_response=mine,
+            new_responses=fresh,
         )

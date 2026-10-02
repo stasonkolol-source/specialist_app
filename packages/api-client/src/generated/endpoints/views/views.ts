@@ -22,6 +22,7 @@ import type {
   CardServicesOut,
   CardWorksOut,
   ProblemOut,
+  ResponseCardsOut,
   SpecialistProfileOut,
 } from '../../model';
 
@@ -581,6 +582,144 @@ export function useViewsListSpecialistReviews<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getViewsListSpecialistReviewsQueryOptions(profileId, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getViewsListResponseCardsUrl = (jobId: string) => {
+  return `/api/v1/jobs/${jobId}/response-cards`;
+};
+
+/**
+ * Отклики на свою заявку для S23: исполнитель с фото, районом и рейтингом, «Откликнулся
+ * первым», новые для клиента. Ответ отмечает отклики просмотренными.
+ * @summary List Response Cards
+ */
+export const viewsListResponseCards = async (
+  jobId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ResponseCardsOut> => {
+  return apiFetch<ResponseCardsOut>(getViewsListResponseCardsUrl(jobId), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getViewsListResponseCardsQueryKey = (jobId: string) => {
+  return [`/api/v1/jobs/${jobId}/response-cards`] as const;
+};
+
+export const getViewsListResponseCardsQueryOptions = <
+  TData = Awaited<ReturnType<typeof viewsListResponseCards>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  jobId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListResponseCards>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getViewsListResponseCardsQueryKey(jobId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof viewsListResponseCards>>> = ({ signal }) =>
+    viewsListResponseCards(jobId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: jobId !== null && jobId !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof viewsListResponseCards>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+};
+
+export type ViewsListResponseCardsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof viewsListResponseCards>>
+>;
+export type ViewsListResponseCardsQueryError = ErrorType<ProblemOut>;
+
+export function useViewsListResponseCards<
+  TData = Awaited<ReturnType<typeof viewsListResponseCards>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  jobId: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListResponseCards>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsListResponseCards>>,
+          TError,
+          Awaited<ReturnType<typeof viewsListResponseCards>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsListResponseCards<
+  TData = Awaited<ReturnType<typeof viewsListResponseCards>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  jobId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListResponseCards>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsListResponseCards>>,
+          TError,
+          Awaited<ReturnType<typeof viewsListResponseCards>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsListResponseCards<
+  TData = Awaited<ReturnType<typeof viewsListResponseCards>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  jobId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListResponseCards>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List Response Cards
+ */
+
+export function useViewsListResponseCards<
+  TData = Awaited<ReturnType<typeof viewsListResponseCards>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  jobId: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListResponseCards>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getViewsListResponseCardsQueryOptions(jobId, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;

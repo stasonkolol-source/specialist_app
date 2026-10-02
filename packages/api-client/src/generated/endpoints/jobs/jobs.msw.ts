@@ -123,6 +123,7 @@ export const getJobsCreateJobResponseMock = (
   ]),
   extensions_count: faker.number.int(),
   views_count: faker.helpers.arrayElement([faker.number.int(), null]),
+  new_responses: faker.helpers.arrayElement([faker.number.int(), null]),
   moderation_note: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
@@ -429,6 +430,7 @@ export const getJobsRequestSpecialistResponseMock = (
   ]),
   extensions_count: faker.number.int(),
   views_count: faker.helpers.arrayElement([faker.number.int(), null]),
+  new_responses: faker.helpers.arrayElement([faker.number.int(), null]),
   moderation_note: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
@@ -543,6 +545,7 @@ export const getJobsGetJobResponseMock = (
   ]),
   extensions_count: faker.number.int(),
   views_count: faker.helpers.arrayElement([faker.number.int(), null]),
+  new_responses: faker.helpers.arrayElement([faker.number.int(), null]),
   moderation_note: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
@@ -653,6 +656,7 @@ export const getJobsUpdateJobResponseMock = (
   ]),
   extensions_count: faker.number.int(),
   views_count: faker.helpers.arrayElement([faker.number.int(), null]),
+  new_responses: faker.helpers.arrayElement([faker.number.int(), null]),
   moderation_note: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
@@ -811,6 +815,7 @@ export const getJobsCloseJobResponseMock = (
   ]),
   extensions_count: faker.number.int(),
   views_count: faker.helpers.arrayElement([faker.number.int(), null]),
+  new_responses: faker.helpers.arrayElement([faker.number.int(), null]),
   moderation_note: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
@@ -921,6 +926,7 @@ export const getJobsExtendJobResponseMock = (
   ]),
   extensions_count: faker.number.int(),
   views_count: faker.helpers.arrayElement([faker.number.int(), null]),
+  new_responses: faker.helpers.arrayElement([faker.number.int(), null]),
   moderation_note: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
@@ -1032,6 +1038,7 @@ export const getJobsListMyJobsResponseMock = (
     ]),
     extensions_count: faker.number.int(),
     views_count: faker.helpers.arrayElement([faker.number.int(), null]),
+    new_responses: faker.helpers.arrayElement([faker.number.int(), null]),
     moderation_note: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
       null,

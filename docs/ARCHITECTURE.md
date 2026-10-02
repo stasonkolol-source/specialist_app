@@ -1255,7 +1255,8 @@ CREATE TABLE jobs.jobs (
   max_responses    smallint NOT NULL DEFAULT 5,       -- лимит откликов (из categories.max_responses)
   responses_count  int NOT NULL DEFAULT 0,          -- только активные отклики: submitted / viewed / shortlisted
   extensions_count smallint NOT NULL DEFAULT 0,     -- сколько раз продлевали (лимит — 3)
-  views_count      int NOT NULL DEFAULT 0,
+  views_count      int NOT NULL DEFAULT 0,       -- разные люди, не чаще раза в сутки каждый (5.6)
+  responses_seen_at timestamptz,                   -- клиент открыл отклики (S23): позже прошедшие проверку — «новые»
   search_vector    tsvector,                        -- заполняется приложением (§9.3)
   source           text NOT NULL DEFAULT 'tma',     -- tma / bot / ios / android / web
   moderation_note  text,
@@ -2452,10 +2453,11 @@ sequenceDiagram
 | `POST /jobs/{id}/invites`, `GET /jobs/{id}/invites` | Пригласить специалистов из каталога в свою открытую заявку (S21, S23; 5.6): `{profile_ids}`, до 10 на заявку (409 `job_invites_full`), повтор — без дублей; профиль скрыт, удалён или автор под санкцией — 404 `invitee_not_found`, свой — 409 `own_profile_invite`. Новому приглашённому — уведомление `job.invited`. `GET` — кого пригласили, по порядку |
 | `DELETE /jobs/{id}` | Удалить (soft) |
 | `POST /jobs/{id}/hide` | «Не интересно» — скрыть из своей ленты |
-| `GET /me/jobs?status=` | Заявки клиента |
+| `GET /me/jobs?status=` | Заявки клиента (S22), новые первыми; `new_responses` — отклики, которых он ещё не видел (бейдж), то же поле у `GET /jobs/{id}` владельцу |
 | `POST /jobs/{id}/responses` | Откликнуться (5.4, Idempotency-Key): `{message, price_type, price_amount, availability_note, template_id?}` — из своего шаблона отклик хранит его id (чужой — 404 `response_template_not_found`); профиль — опубликованный профиль специалиста автора, если есть. Пять мест на заявку под блокировкой её строки; 409 `job_not_open`, `own_job`, `already_responded`, `job_full`; суточный лимит по уровню доверия — 429. Текст — на проверку: клиент видит отклик после неё |
 | `GET /me/response-templates`, `POST /me/response-templates` (Idempotency-Key), `PATCH /me/response-templates/{id}`, `DELETE /me/response-templates/{id}` | Шаблоны откликов (5.5): не больше двух, по порядку, первый — основной (S16 подставляет его сразу), `limit` — «1 из 2» на S57; третий — 409 `response_templates_full`; `PATCH` — название, предложение целиком (`message` и `price_type` вместе), `primary: true` — «Сделать основным»; после удаления основным становится следующий. Оба шаблона доступны кнопками прямо в уведомлении бота (отклик в один тап, callback `jr:<job>:<tpl>`, id в base62) |
 | `GET /jobs/{id}/responses` | Отклики на свою заявку (владелец; чужая — 404): прошедшие проверку, по порядку, с `is_first` — «Откликнулся первым» |
+| `GET /jobs/{id}/response-cards` | BFF S23 (`interfaces/http/views/my_job.py`, 5.6): те же отклики карточками — исполнитель из specialists (профиль, основной район, фото), reviews (рейтинг или «Новый»), identity (имя подработчика, «Телефон подтверждён»), `is_new` — новые для клиента. Ответ отмечает отклики просмотренными (`responses_seen_at`, мимо версии заявки): бейдж S22 гаснет, `response.received` о них не уходит. S23 опрашивает раз в 15 секунд |
 | `GET /me/responses?status=` | Мои отклики (исполнитель): группы чипов S17 — `active`, `accepted`, `not_selected`, `archive`; страницы по курсору, `counts` по группам, `today` — «сегодня откликов: 3 из 50» |
 | `GET /responses/{id}` | Свой отклик с заявкой — форма правки S16 (5.5); чужой — 404 |
 | `PATCH /responses/{id}`, `POST /responses/{id}/withdraw` | Правка и отзыв отклика исполнителем, пока клиент не решил (иначе 409 `response_not_active`); правка — снова на проверку; версия заявки растёт |

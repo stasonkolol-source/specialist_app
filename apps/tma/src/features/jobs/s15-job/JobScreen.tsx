@@ -4,8 +4,8 @@
 // от вас», если лента знала точку; заказчик — имя, сколько он в «Соседях», сколько заявок
 // публиковал, «Телефон подтверждён». Сердечко сохраняет заявку (сегмент «Задачи» S12), «Не
 // интересно» убирает её из ленты навсегда — оба только вошедшему. Чужая
-// неопубликованная или удалённая заявка — «Заявка недоступна». Своя — с пометкой «так её видят
-// исполнители» (экран владельца S23 — 5.6). Открывается из ленты и по ссылке `startapp=j_…`; гость
+// неопубликованная или удалённая заявка — «Заявка недоступна». Своя — экран владельца S23 (5.6).
+// Открывается из ленты и по ссылке `startapp=j_…`; гость
 // видит экран без входа. MainButton (5.5): «Откликнуться · осталось N мест» — форма S16 (гостю —
 // сначала согласие с правилами), «Вы откликнулись» — «Мои отклики» S17, «Мест нет» — не нажимается;
 // у своей заявки кнопки нет. Скрыто до своих шагов: «Поделиться» (7.4), «Пожаловаться» (S46, 4.7).
@@ -43,7 +43,7 @@ import {
   Skeleton,
   Text,
 } from '@sosed/ui-web';
-import { useParams, useRouter, useSearch } from '@tanstack/react-router';
+import { Navigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useId } from 'react';
 
@@ -53,7 +53,7 @@ import { findCategory } from '../shared/categories.ts';
 import { useStepButton } from '../shared/flow.ts';
 import { useBudgetText, useMemberFor, useWhenBadge } from '../shared/labels.ts';
 import type { JobSearch } from '../shared/paths.ts';
-import { JOBS_PATHS, jobIdOf, respondPath } from '../shared/paths.ts';
+import { JOBS_PATHS, jobIdOf, managePath, respondPath } from '../shared/paths.ts';
 
 const LANGUAGE_NAMES = ['ru', 'sr', 'en'] as const;
 type LanguageName = (typeof LANGUAGE_NAMES)[number];
@@ -88,6 +88,8 @@ export function JobScreen() {
     );
   }
   if (!job.data) return <Loading />;
+  // своя заявка — экран владельца S23 (5.6): отклики, закрыть, продлить
+  if (job.data.viewer_role === 'owner') return <Navigate to={managePath(job.data.id)} replace />;
   return <Job job={job.data} onHidden={toFeed} />;
 }
 

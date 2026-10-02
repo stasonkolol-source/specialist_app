@@ -1,11 +1,16 @@
 // Оболочка экранов: safe area, таббар и нижняя кнопка (DEVELOPMENT_PLAN 0.21a). Тему клиента
 // синхронизирует точка сборки (app/App.tsx): экраны S49 при старте рисуются без оболочки.
+// Вкладка «Заявки» открывается сегментом по намерению из S02b (5.6): клиенту — «Мои заявки»,
+// исполнителю и подработке — «Лента».
 // Таббар — только на корневых экранах вкладок (SPEC §2) и скрыт, пока показана MainButton: у
 // экрана с главным действием нет навигации вниз. Внутренние экраны (S48, S49b) — с «Назад».
+import type { MeOut } from '@sosed/api-client';
+import { getIdentityGetMeQueryKey } from '@sosed/api-client';
 import { useTranslation } from '@sosed/i18n';
 import { useBottomButtonState, useInsets } from '@sosed/platform';
 import type { TabItem } from '@sosed/ui-web';
 import { Button, TabBar } from '@sosed/ui-web';
+import { useQueryClient } from '@tanstack/react-query';
 import { Outlet, useRouter, useRouterState } from '@tanstack/react-router';
 import type { MouseEvent } from 'react';
 import { useEffect } from 'react';
@@ -26,6 +31,8 @@ const CREATE_ID = 'create';
 
 /** Сегменты вкладки «Заявки» (фича jobs): у каждого свой адрес, таббар виден и на них. */
 const JOBS_SEGMENTS = ['/jobs/responses', '/jobs/mine'] as const;
+/** «Мои заявки» — стартовый сегмент вкладки для клиента. */
+const MY_JOBS_PATH = '/jobs/mine';
 const TAB_ROOTS: ReadonlySet<string> = new Set([...TABS.map((tab) => tab.path), ...JOBS_SEGMENTS]);
 /** Куда ведёт вкладка или «+»: путь маршрута, а не href ссылки. У hash history в Telegram
  *  href — «/#/profile»: переход по нему уводил на главную. */
@@ -38,6 +45,10 @@ export function AppShell() {
   const { t } = useTranslation();
   const router = useRouter();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const queryClient = useQueryClient();
+  const client = queryClient.getQueryData<MeOut>(getIdentityGetMeQueryKey())?.intent === 'client';
+  const destination = (id: string) =>
+    id === 'jobs' && client ? MY_JOBS_PATH : (DESTINATIONS.get(id) ?? '/');
   const main = useBottomButtonState('main');
   const insets = useInsets();
 
@@ -51,14 +62,14 @@ export function AppShell() {
 
   const navigate = (id: string, event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
-    void router.navigate({ to: DESTINATIONS.get(id) ?? '/' });
+    void router.navigate({ to: destination(id) });
   };
   const active = TABS.find((tab) => tab.path !== '/' && pathname.startsWith(tab.path))?.id;
   const items: TabItem[] = TABS.map((tab) => ({
     id: tab.id,
     label: t(tab.label),
     icon: tab.icon,
-    href: router.history.createHref(tab.path),
+    href: router.history.createHref(destination(tab.id)),
   }));
   const tabsVisible = !main.visible && TAB_ROOTS.has(pathname);
   const contentButton = main.visible && !main.native;

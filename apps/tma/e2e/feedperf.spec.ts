@@ -43,7 +43,11 @@ test('feed-perf: 1 000 заявок прокручиваются без long tas
   test.setTimeout(240_000);
   await page.clock.setFixedTime(new Date(E2E_NOW));
   const jobs = new JobsBackend(thousand());
-  const watch = await open(page, 'theme=light&lang=ru', { signedIn: true, me: ME, jobs });
+  const watch = await open(page, 'theme=light&lang=ru', {
+    signedIn: true,
+    me: { ...ME, intent: 'pro' },
+    jobs,
+  });
   await openTab(page, 'Заявки');
   await expect(page.getByRole('heading', { name: 'Заявки рядом', level: 1 })).toBeVisible();
   await expect(page.getByRole('heading', { level: 2 }).first()).toBeVisible();

@@ -1957,7 +1957,8 @@ export const getJobsListMyJobsUrl = (params?: JobsListMyJobsParams) => {
 };
 
 /**
- * Свои заявки (S22), новые первыми; блока клиента в своём списке нет.
+ * Свои заявки (S22), новые первыми, с числом новых откликов; блока клиента в своём списке
+ * нет.
  * @summary List My Jobs
  */
 export const jobsListMyJobs = async (

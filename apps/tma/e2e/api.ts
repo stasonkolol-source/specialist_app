@@ -182,6 +182,7 @@ export async function mockApi(
       url.pathname.startsWith('/api/v1/me/favorites/job') ||
       url.pathname.startsWith('/api/v1/responses/') ||
       url.pathname === '/api/v1/me/responses' ||
+      url.pathname === '/api/v1/me/jobs' ||
       url.pathname.startsWith('/api/v1/me/response-templates')
     ) {
       const body: unknown = ['POST', 'PATCH'].includes(request.method())

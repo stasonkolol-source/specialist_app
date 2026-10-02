@@ -69,7 +69,7 @@ const home = createRoute({
 });
 
 // Вкладка «Заявки» (5.3): лента S13 открыта и гостю, фильтры — в параметрах адреса. Сегменты
-// «Мои отклики» S17 (5.5, чип — в адресе) и «Мои заявки» (5.6, пока заглушка) — свои адреса
+// «Мои отклики» S17 (5.5, чип — в адресе) и «Мои заявки» S22 (5.6) — свои адреса
 const jobs = createRoute({
   getParentRoute: () => rootRoute,
   path: JOBS_PATHS.feed,
@@ -108,6 +108,14 @@ const job = createRoute({
   path: JOBS_PATHS.job,
   validateSearch: jobSearch,
   component: screen(() => import('../features/jobs/s15-job/index.ts'), 'JobScreen'),
+});
+
+// Своя заявка S23 (5.6): из «Моих заявок» S22, «К заявке» S21 и по deep link `j_` владельцу (S15
+// перенаправляет); чужому — экран S15
+const manage = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.manage,
+  component: screen(() => import('../features/jobs/s23-manage-job/index.ts'), 'ManageJobScreen'),
 });
 
 // Отклик S16 (5.5) — из MainButton S15 и «Изменить» S17; создающее действие: без согласия — S02c
@@ -389,6 +397,7 @@ export const routeTree = rootRoute.addChildren([
   myJobs,
   job,
   respond,
+  manage,
   createWhat,
   createWhen,
   createBudget,

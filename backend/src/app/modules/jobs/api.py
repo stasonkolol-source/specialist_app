@@ -80,6 +80,25 @@ class InviteNotice:
     """Шаблоны приглашённого по порядку — кнопки; уже откликнулся — пусто."""
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class OwnerResponseView:
+    """Отклик на заявку для её владельца (S23): только прошедшие проверку."""
+
+    id: UUID
+    performer_id: UserId
+    profile_id: UUID | None
+    """Профиль специалиста; без него — подработка."""
+    status: str
+    message: str
+    price_type: str
+    price_amount: int | None
+    availability_note: str | None
+    is_first: bool
+    is_new: bool
+    """Клиент его ещё не видел: прошёл проверку или поправлен после прошлого просмотра."""
+    created_at: datetime
+
+
 class JobsApi(Protocol):
     async def job_for_review(self, job_id: UUID) -> JobForReview | None:
         """Заявка на проверке или опубликованная (выборочная проверка после публикации);
@@ -106,6 +125,16 @@ class JobsApi(Protocol):
 
     async def response_job(self, response_id: UUID) -> UUID | None:
         """Заявка отклика — куда вести исполнителя из уведомления о его отклике."""
+        ...
+
+    async def owner_responses(self, job_id: UUID, owner_id: UserId) -> list[OwnerResponseView]:
+        """Отклики на свою заявку по порядку (S23); чужая или удалённая — JobNotFoundError
+        (404 `job_not_found`)."""
+        ...
+
+    async def see_responses(self, job_id: UUID) -> None:
+        """Владелец открыл отклики — в транзакции вызывающего: дальше «новые» — только те, что
+        пройдут проверку позже. Версия заявки не меняется."""
         ...
 
     async def invite_notice(self, job_id: UUID, performer_id: UserId) -> InviteNotice | None:

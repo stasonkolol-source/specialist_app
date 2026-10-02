@@ -13,6 +13,7 @@ from app.modules.jobs.application.ports import (
     JobRepository,
     JobViews,
     ResponseQuota,
+    ResponsesSeen,
     ResponseTemplates,
     SavedJobs,
 )
@@ -54,7 +55,7 @@ from app.modules.jobs.infrastructure.quota import ValkeyJobQuota, ValkeyResponse
 from app.modules.jobs.infrastructure.repositories import SqlJobRepository
 from app.modules.jobs.infrastructure.saved import SqlSavedJobs
 from app.modules.jobs.infrastructure.templates import SqlResponseTemplates
-from app.modules.jobs.infrastructure.views import LimitedJobViews
+from app.modules.jobs.infrastructure.views import LimitedJobViews, SqlResponsesSeen
 
 
 class JobsProvider(Provider):
@@ -69,6 +70,7 @@ class JobsProvider(Provider):
     templates = provide(SqlResponseTemplates, provides=ResponseTemplates)
     invites = provide(SqlJobInvites, provides=JobInvites)
     views = provide(LimitedJobViews, provides=JobViews)
+    responses_seen = provide(SqlResponsesSeen, provides=ResponsesSeen)
     quota = provide(ValkeyJobQuota, provides=JobQuota)
     response_quota = provide(ValkeyResponseQuota, provides=ResponseQuota)
     builder = provide(ContentBuilder)

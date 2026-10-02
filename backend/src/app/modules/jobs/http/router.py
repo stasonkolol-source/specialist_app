@@ -495,14 +495,21 @@ async def list_my_jobs(
         list[JobStatus] | None, Query(alias="status", description="Без фильтра — все")
     ] = None,
 ) -> JobsOut:
-    """Свои заявки (S22), новые первыми; блока клиента в своём списке нет."""
+    """Свои заявки (S22), новые первыми, с числом новых откликов; блока клиента в своём списке
+    нет."""
     jobs = await queries.own(principal.user_id, statuses or [], limit=MY_JOBS_LIMIT)
     wanted = {media_id for job in jobs for media_id in job.media_ids}
     refs = await media.refs(wanted) if wanted else {}
+    fresh = await queries.unseen_counts([job.id for job in jobs])
     return JobsOut(
         items=[
             JobOut.of(
-                JobDetails(job=job, photos=photos_of(job.media_ids, refs, LARGE), client=None),
+                JobDetails(
+                    job=job,
+                    photos=photos_of(job.media_ids, refs, LARGE),
+                    client=None,
+                    new_responses=fresh.get(job.id, 0),
+                ),
                 owner=True,
             )
             for job in jobs
