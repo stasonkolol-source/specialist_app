@@ -5,23 +5,33 @@
   своей транзакции через фасад;
 - `proposed` → `agreed` — «Договорились» в чате одной стороной (`propose`, 6.4) и подтверждение
   второй (`confirm`);
-- `agreed` → `completed` — обе стороны отметили «Работа выполнена» (одна и 72 ч без возражений —
-  задача `deals.auto_complete`, 6.1b);
-- `proposed` или `agreed` → `cancelled` — сторона отменяет с причиной, система — истёкшее
-  предложение (6.1b) и удалённый аккаунт;
+- `agreed` → `completed` — обе стороны отметили «Работа выполнена» или одна, и 72 ч без возражений
+  (`auto_complete`, задача `deals.auto_complete`, 6.1b);
+- `proposed` или `agreed` → `cancelled` — сторона отменяет с причиной, система — предложение без
+  ответа 72 ч (`expire_proposal`, 6.1b) и удалённый аккаунт;
 - `agreed` → `disputed` → `completed` / `cancelled` — спор и решение модератора (6.1c).
+
+Сроки (ARCHITECTURE §12.3, 6.1b): за 2 ч до времени сделки — напоминание сторонам (`remind`),
+через 3 ч после него — «Работа выполнена?» (`prompt_completion`); у сделки без времени вопрос
+приходит через сутки после договорённости. Каждое — один раз: отметка в сделке.
 
 Переходы пишутся в `deals.status_history`: создание — без исходного статуса.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Final
 from uuid import UUID
 
 from app.modules.deals.errors import DealNotActiveError, DealNotFoundError, InvalidDealError
-from app.platform.contracts.events.deals import DealAgreed, DealCancelled, DealCompleted
+from app.platform.contracts.events.deals import (
+    DealAgreed,
+    DealCancelled,
+    DealCompleted,
+    DealCompletionDue,
+    DealReminderDue,
+)
 from app.platform.kernel.aggregate import VersionedAggregate
 from app.platform.kernel.ids import CategoryId, DealId, UserId
 
@@ -29,6 +39,16 @@ MAX_TITLE: Final = 120
 """Как у заявки: название сделки — снимок названия заявки."""
 MAX_PRICE: Final = 1_000_000_000 * 100
 """Миллиард динаров в пара: защита от опечатки в нулях (как у бюджета заявки и отклика)."""
+REMINDER_LEAD: Final = timedelta(hours=2)
+"""Напоминание сторонам — за 2 ч до времени сделки (§12.3)."""
+PROMPT_DELAY: Final = timedelta(hours=3)
+"""«Работа выполнена?» — через 3 ч после времени сделки (§12.3)."""
+PROMPT_WITHOUT_TIME: Final = timedelta(hours=24)
+"""Время не договорено (отклик без даты): вопрос — через сутки после договорённости."""
+AUTO_COMPLETE_AFTER: Final = timedelta(hours=72)
+"""Одна сторона отметила «выполнено», вторая молчит 72 ч — сделка завершена (§7.9)."""
+PROPOSAL_TTL: Final = timedelta(hours=72)
+"""«Договорились» без ответа второй стороны 72 ч — предложение истекло (§7.9)."""
 
 
 class DealStatus(StrEnum):
@@ -167,6 +187,10 @@ class Deal(VersionedAggregate):
     cancelled_at: datetime | None = None
     cancelled_by: UserId | None = None
     cancel_reason: DealCancelReason | None = None
+    reminded_at: datetime | None = None
+    """Сторонам напомнили о времени сделки."""
+    completion_prompted_at: datetime | None = None
+    """Сторонам задали вопрос «Работа выполнена?»."""
     _history: list[DealTransition] = field(default_factory=list, init=False, repr=False)
 
     @classmethod
@@ -282,19 +306,77 @@ class Deal(VersionedAggregate):
             return False
         self._move(DealStatus.COMPLETED, by=actor_id, kind=ActorKind.USER, now=now)
         self.completed_at = now
+        self._record(self._completed_event(now, auto=False))
+        return True
+
+    @property
+    def completion_due_at(self) -> datetime | None:
+        """Когда спросить «Работа выполнена?»; не договорились — None."""
+        if self.terms.scheduled_at is not None:
+            return self.terms.scheduled_at + PROMPT_DELAY
+        if self.agreed_at is not None:
+            return self.agreed_at + PROMPT_WITHOUT_TIME
+        return None
+
+    def remind(self, *, now: datetime) -> bool:
+        """До времени сделки 2 ч или меньше: напомнить сторонам один раз (DealReminderDue).
+        Время не договорено, уже прошло, напоминали или сделка не идёт — False."""
+        when = self.terms.scheduled_at
+        if self.status is not DealStatus.AGREED or when is None or self.reminded_at is not None:
+            return False
+        if not now < when <= now + REMINDER_LEAD:
+            return False
+        self.reminded_at = now
         self._record(
-            DealCompleted(
+            DealReminderDue(
                 deal_id=self.id,
                 client_id=self.client_id,
                 performer_id=self.performer_id,
-                origin=self.origin.value,
-                job_id=self.job_id,
-                response_id=self.response_id,
-                category_id=self.terms.category_id,
+                scheduled_at=when,
                 occurred_at=now,
             )
         )
         return True
+
+    def prompt_completion(self, *, now: datetime) -> bool:
+        """Пора спросить «Работа выполнена?» (DealCompletionDue) — тех, кто ещё не отметил;
+        один раз. Рано, уже спрашивали или сделка не идёт — False."""
+        due = self.completion_due_at
+        if self.status is not DealStatus.AGREED or self.completion_prompted_at is not None:
+            return False
+        if due is None or due > now:
+            return False
+        self.completion_prompted_at = now
+        self._record(
+            DealCompletionDue(
+                deal_id=self.id,
+                client_id=self.client_id,
+                performer_id=self.performer_id,
+                ask_client=self.client_confirmed_at is None,
+                ask_performer=self.performer_confirmed_at is None,
+                occurred_at=now,
+            )
+        )
+        return True
+
+    def auto_complete(self, *, now: datetime) -> bool:
+        """Одна сторона отметила «выполнено», вторая не возразила 72 ч — сделка завершена
+        системой (§7.9). Иначе — False."""
+        if self.status is not DealStatus.AGREED:
+            return False
+        marks = [m for m in (self.client_confirmed_at, self.performer_confirmed_at) if m]
+        if len(marks) != 1 or marks[0] + AUTO_COMPLETE_AFTER > now:
+            return False
+        self._move(DealStatus.COMPLETED, by=None, kind=ActorKind.SYSTEM, now=now, reason="auto")
+        self.completed_at = now
+        self._record(self._completed_event(now, auto=True))
+        return True
+
+    def expire_proposal(self, *, now: datetime) -> bool:
+        """«Договорились» без ответа 72 ч — система отменяет предложение (`expired`)."""
+        if self.status is not DealStatus.PROPOSED or self.created_at + PROPOSAL_TTL > now:
+            return False
+        return self.cancel_by_system(reason=DealCancelReason.EXPIRED, now=now)
 
     def cancel(self, *, actor_id: UserId, reason: DealCancelReason, now: datetime) -> None:
         """Сторона отменяет с причиной: идущую сделку или предложение «Договорились» (своё —
@@ -375,6 +457,19 @@ class Deal(VersionedAggregate):
                 reason=reason.value,
                 occurred_at=now,
             )
+        )
+
+    def _completed_event(self, now: datetime, *, auto: bool) -> DealCompleted:
+        return DealCompleted(
+            deal_id=self.id,
+            client_id=self.client_id,
+            performer_id=self.performer_id,
+            origin=self.origin.value,
+            job_id=self.job_id,
+            response_id=self.response_id,
+            category_id=self.terms.category_id,
+            auto=auto,
+            occurred_at=now,
         )
 
     def _agreed_event(self, now: datetime) -> DealAgreed:

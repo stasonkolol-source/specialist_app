@@ -11,6 +11,7 @@ from app.modules.deals.application.use_cases.complete_deal import CompleteDeal
 from app.modules.deals.application.use_cases.confirm_deal import ConfirmDeal
 from app.modules.deals.application.use_cases.list_my_deals import ListMyDeals
 from app.modules.deals.application.use_cases.show_deal import ShowDeal
+from app.modules.deals.application.use_cases.sweep_deals import SweepDeals
 from app.modules.deals.infrastructure.queries import SqlDealQueries
 from app.modules.deals.infrastructure.repositories import SqlDealRepository
 
@@ -30,3 +31,4 @@ class DealsProvider(Provider):
     complete_deal = provide(CompleteDeal)
     cancel_deal = provide(CancelDeal)
     cancel_user_deals = provide(CancelUserDeals)
+    sweep_deals = provide(SweepDeals)

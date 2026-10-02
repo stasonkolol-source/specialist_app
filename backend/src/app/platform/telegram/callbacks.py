@@ -30,6 +30,8 @@ class CallbackAction(StrEnum):
     исполнителя, с причиной (`hired_here`, …) — закрыть."""
     JOB_RESPOND = "jr"
     """Откликнуться шаблоном (`job.invited`, 5.6; `job.matched`, 5.7): аргумент — id шаблона."""
+    DEAL_COMPLETE = "dc"
+    """«Да, выполнено» — кнопка `deal.completion_prompt` (6.1b): отметка стороны в сделке."""
 
 
 @dataclass(frozen=True, slots=True)

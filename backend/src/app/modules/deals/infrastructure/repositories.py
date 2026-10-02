@@ -106,6 +106,8 @@ def _to_domain(row: DealRow) -> Deal:
         cancelled_at=row.cancelled_at,
         cancelled_by=UserId(row.cancelled_by) if row.cancelled_by is not None else None,
         cancel_reason=row.cancel_reason,
+        reminded_at=row.reminded_at,
+        completion_prompted_at=row.completion_prompted_at,
         version=row.version,
     )
 
@@ -133,4 +135,6 @@ def _apply(deal: Deal, row: DealRow) -> None:
     row.cancelled_at = deal.cancelled_at
     row.cancelled_by = deal.cancelled_by
     row.cancel_reason = deal.cancel_reason
+    row.reminded_at = deal.reminded_at
+    row.completion_prompted_at = deal.completion_prompted_at
     row.updated_at = deal.updated_at

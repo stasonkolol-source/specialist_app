@@ -4,6 +4,7 @@
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -27,9 +28,29 @@ class AgreedDealIn:
     """Цена отклика: `fixed`, `from`, `hourly`, `negotiable`."""
     agreed_price: int | None
     """Пара; у договорной — None."""
+    scheduled_at: datetime | None = None
+    """Время работы, если заявка его называет (окно «Сегодня 18–21», дата и время): по нему —
+    напоминание и «Работа выполнена?» (6.1b)."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DealBrief:
+    """Сделка для уведомлений сторонам (6.1b): название, статус, стороны и время."""
+
+    client_id: UserId
+    performer_id: UserId
+    title: str
+    status: str
+    """DealStatus: уведомление нужно, пока сделка в ожидаемом статусе."""
+    origin: str
+    scheduled_at: datetime | None
 
 
 class DealsApi(Protocol):
     async def create_agreed(self, data: AgreedDealIn) -> DealId:
         """Сделка `agreed` в транзакции вызывающего: нужен активный UoW (ADR-0020 §4)."""
+        ...
+
+    async def deal_brief(self, deal_id: DealId) -> DealBrief | None:
+        """Название, статус и стороны сделки; None — нет такой."""
         ...

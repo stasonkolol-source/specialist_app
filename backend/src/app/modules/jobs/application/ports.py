@@ -133,6 +133,10 @@ class JobQueries(Protocol):
         порядку; `is_first` — самый ранний отклик заявки."""
         ...
 
+    async def passed_over(self, job_id: JobId) -> list[UserId]:
+        """Исполнители неудалённых откликов «не выбран» — клиент выбрал другого."""
+        ...
+
     async def is_invited(self, job_id: JobId, performer_id: UserId) -> bool:
         """Исполнителя пригласили в заявку: прямой запрос ему виден (5.6)."""
         ...

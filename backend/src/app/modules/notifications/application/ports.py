@@ -22,11 +22,13 @@ from app.modules.notifications.domain.notification import (
     NotificationId,
 )
 from app.modules.notifications.domain.settings import NotificationSettings
+from app.platform.contracts.events.deals import DealCancelled, DealCompletionDue, DealReminderDue
 from app.platform.contracts.events.identity import BotStarted, UserDeleted, UserRestricted
 from app.platform.contracts.events.jobs import (
     JobExpired,
     JobExpiring,
     JobInvited,
+    ResponseAccepted,
     ResponseSubmitted,
 )
 from app.platform.contracts.events.moderation import ModerationDecisionMade
@@ -227,6 +229,30 @@ NOTIFY_JOB_INVITED: Final = TaskRef(
 )
 """Подписчик JobInvited (5.6): специалисту — «Вас пригласили» или «Прямой запрос» с «Посмотреть
 заявку» и кнопками его шаблонов."""
+
+NOTIFY_RESPONSE_ACCEPTED: Final = TaskRef(
+    "notifications.notify_response_accepted", ResponseAccepted, queue="notifications"
+)
+"""Подписчик ResponseAccepted (6.1b): выбранному исполнителю — «Клиент выбрал вас» и кнопка
+к сделке; адрес в сообщение не кладём — он внутри сделки."""
+NOTIFY_PASSED_OVER: Final = TaskRef(
+    "notifications.notify_passed_over", ResponseAccepted, queue="notifications"
+)
+"""Подписчик ResponseAccepted: остальным откликнувшимся — «Клиент выбрал другого исполнителя»."""
+NOTIFY_DEAL_CANCELLED: Final = TaskRef(
+    "notifications.notify_deal_cancelled", DealCancelled, queue="notifications"
+)
+"""Подписчик DealCancelled: второй стороне — кто отменил и почему; клиенту из отклика — «заявка
+снова открыта»."""
+NOTIFY_DEAL_REMINDER: Final = TaskRef(
+    "notifications.notify_deal_reminder", DealReminderDue, queue="notifications"
+)
+"""Подписчик DealReminderDue: обеим сторонам — напоминание за 2 ч до времени сделки."""
+NOTIFY_DEAL_COMPLETION: Final = TaskRef(
+    "notifications.notify_deal_completion", DealCompletionDue, queue="notifications"
+)
+"""Подписчик DealCompletionDue: «Работа выполнена?» с [Да, выполнено] и [Нет, проблема] тем,
+кто ещё не отметил."""
 
 FORGET_RECIPIENT: Final = TaskRef("notifications.forget_recipient", UserDeleted)
 """Подписчик UserDeleted: всё о получателе удалённого аккаунта (§7.10)."""

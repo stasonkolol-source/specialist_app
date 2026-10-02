@@ -117,6 +117,12 @@ msgstr "ponuda: {count} od {max}"
 msgid "bot.jobs.state.fresh"
 msgstr "ponuda: {count} od {max}, novih: {fresh}"
 
+msgid "bot.deals.marked"
+msgstr "Označeno: posao je završen. Dogovor će se završiti kada potvrdi druga strana — ili sam za 3 dana."
+
+msgid "bot.deals.completed"
+msgstr "Dogovor je završen. Hvala!"
+
 msgid "bot.help.text"
 msgstr "<b>Kako funkcioniše</b>\n• Opišite zadatak — majstori u blizini će se javiti sa cenom. Ili izaberite stručnjaka po utiscima.\n• Dogovarajte se u četu aplikacije „Sosedi“: kontakti — nakon dogovora.\n• Plaćanje — direktno izvođaču, posle posla. „Sosedi“ ne primaju novac.\n\n<b>Bezbednost</b>\n• Ne plaćajte unapred nepoznatim ljudima i nikome ne govorite kodove iz SMS poruka.\n• Sumnjiv profil ili poruka — prijavite direktno u aplikaciji.\n\n/terms — pravila platforme\n/privacy — politika privatnosti\n/language — jezik"
 
@@ -705,6 +711,72 @@ msgstr "„{title}“ više ne vide izvođači. Ako vam je izvođač još potreb
 
 msgid "notifications.job_expired.body_final"
 msgstr "„{title}“ više ne vide izvođači. Više ne može da se produži: ako vam je izvođač još potreban, napravite novi zahtev."
+
+msgid "notifications.response_accepted.title"
+msgstr "Naručilac je izabrao vas"
+
+msgid "notifications.response_accepted.body"
+msgstr "Zahtev „{title}“. Adresa i vreme — u dogovoru."
+
+msgid "notifications.response_not_selected.title"
+msgstr "Naručilac je izabrao drugog izvođača"
+
+msgid "notifications.response_not_selected.body"
+msgstr "Zahtev „{title}“. Hvala na ponudi — u listi ima drugih zahteva u blizini."
+
+msgid "notifications.deal.open"
+msgstr "Otvori dogovor"
+
+msgid "notifications.deal_cancelled.title"
+msgstr "Dogovor je otkazan"
+
+msgid "notifications.deal_cancelled.body_client"
+msgstr "Naručilac je otkazao dogovor „{title}“: {reason}."
+
+msgid "notifications.deal_cancelled.body_performer"
+msgstr "Izvođač je otkazao dogovor „{title}“: {reason}."
+
+msgid "notifications.deal_cancelled.body_expired"
+msgstr "Predlog „{title}“ je istekao: odgovora nije bilo 3 dana."
+
+msgid "notifications.deal_cancelled.body_account_deleted"
+msgstr "Dogovor „{title}“ je otkazan: nalog druge strane je obrisan."
+
+msgid "notifications.deal_cancelled.body_other"
+msgstr "Dogovor „{title}“ je otkazan."
+
+msgid "notifications.deal_cancelled.reopened"
+msgstr "Zahtev je ponovo otvoren, prethodne ponude su vraćene."
+
+msgid "notifications.deal_cancel_reason.plans_changed"
+msgstr "planovi su se promenili"
+
+msgid "notifications.deal_cancel_reason.no_agreement"
+msgstr "nisu se dogovorili o ceni ili vremenu"
+
+msgid "notifications.deal_cancel_reason.no_contact"
+msgstr "nema kontakta"
+
+msgid "notifications.deal_cancel_reason.other"
+msgstr "drugi razlog"
+
+msgid "notifications.deal_reminder.title"
+msgstr "Uskoro posao"
+
+msgid "notifications.deal_reminder.body"
+msgstr "„{title}“ — {when}."
+
+msgid "notifications.deal_completion_prompt.title"
+msgstr "Da li je posao završen?"
+
+msgid "notifications.deal_completion_prompt.body"
+msgstr "Dogovor „{title}“. Označite ako je sve urađeno: kada obe strane potvrde, dogovor se završava."
+
+msgid "notifications.deal_completion_prompt.yes"
+msgstr "Da, završeno"
+
+msgid "notifications.deal_completion_prompt.problem"
+msgstr "Ne, postoji problem"
 
 msgid "notifications.job.extend"
 msgstr "Produži"

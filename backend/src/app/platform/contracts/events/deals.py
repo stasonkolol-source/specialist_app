@@ -3,6 +3,7 @@ jobs (заявка «в работе», отменённая — снова от
 (уровень доверия по завершённым сделкам), уведомления (6.1b), аналитика."""
 
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
 
 from app.platform.kernel.events import DomainEvent
@@ -36,6 +37,32 @@ class DealCompleted(DomainEvent):
     job_id: UUID | None
     response_id: UUID | None
     category_id: CategoryId | None
+    auto: bool = False
+    """Завершила система: одна сторона отметила «выполнено», вторая молчала 72 ч (6.1b)."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DealReminderDue(DomainEvent):
+    """До времени сделки 2 ч: сторонам — напоминание `deal.reminder` (6.1b)."""
+
+    event_type = "deals.DealReminderDue"
+    deal_id: DealId
+    client_id: UserId
+    performer_id: UserId
+    scheduled_at: datetime
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DealCompletionDue(DomainEvent):
+    """Время сделки прошло: «Работа выполнена?» `deal.completion_prompt` тем, кто ещё не
+    отметил (6.1b)."""
+
+    event_type = "deals.DealCompletionDue"
+    deal_id: DealId
+    client_id: UserId
+    performer_id: UserId
+    ask_client: bool
+    ask_performer: bool
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
