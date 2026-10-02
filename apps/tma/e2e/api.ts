@@ -188,6 +188,8 @@ export async function mockApi(
       url.pathname.startsWith('/api/v1/responses/') ||
       url.pathname === '/api/v1/me/responses' ||
       url.pathname === '/api/v1/me/jobs' ||
+      url.pathname === '/api/v1/me/deals' ||
+      url.pathname.startsWith('/api/v1/deals/') ||
       /^\/api\/v1\/specialists\/[^/]+\/requests$/.test(url.pathname) ||
       url.pathname.startsWith('/api/v1/me/response-templates')
     ) {

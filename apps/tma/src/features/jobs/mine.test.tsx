@@ -82,12 +82,12 @@ describe('S23 manage job', () => {
     expect(screen.getByText(/^5\s000\sRSD · фикс, за работу$/u)).toBeTruthy();
     expect(screen.getByText('12 просмотров')).toBeTruthy();
     expect(screen.getByText('3 из 5')).toBeTruthy();
-    const first = await screen.findByRole('article', { name: /^Алексей Морозов/ });
+    const first = await screen.findByRole('link', { name: /^Алексей Морозов/ });
     expect(within(first).getByText('4,9 · 37 отзывов · Лиман')).toBeTruthy();
     expect(within(first).getByText('Откликнулся первым')).toBeTruthy();
     expect(within(first).getByText('Телефон подтверждён')).toBeTruthy();
     expect(within(first).getByText('Новый')).toBeTruthy();
-    const casual = screen.getByRole('article', { name: /^Иван Гаврилов/ });
+    const casual = screen.getByRole('link', { name: /^Иван Гаврилов/ });
     expect(within(casual).getByText('Отзывов пока нет')).toBeTruthy();
     expect(within(casual).getByText('Подработка')).toBeTruthy();
     expect(

@@ -120,6 +120,20 @@ const manage = createRoute({
   component: screen(() => import('../features/jobs/s23-manage-job/index.ts'), 'ManageJobScreen'),
 });
 
+// Отклик на свою заявку S24 со шторкой выбора S25 (6.2): из карточки отклика S23
+const choice = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.response,
+  component: screen(() => import('../features/jobs/s24-response/index.ts'), 'ChoiceScreen'),
+});
+
+// Сделка S26 (6.2): из S25, «Открыть сделку» S23 и S17 и по deep link `d_` (уведомления бота)
+const deal = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.deal,
+  component: screen(() => import('../features/jobs/s26-deal/index.ts'), 'DealScreen'),
+});
+
 // Отклик S16 (5.5) — из MainButton S15 и «Изменить» S17; создающее действие: без согласия — S02c
 const respond = createRoute({
   getParentRoute: () => rootRoute,
@@ -412,6 +426,8 @@ export const routeTree = rootRoute.addChildren([
   job,
   respond,
   manage,
+  choice,
+  deal,
   createWhat,
   createWhen,
   createBudget,

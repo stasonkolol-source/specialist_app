@@ -15,11 +15,13 @@ export const JOBS_PATHS = {
   respond: '/jobs/$jobId/respond',
   templates: '/jobs/responses/templates',
   manage: '/jobs/$jobId/manage',
+  response: '/jobs/$jobId/responses/$responseId',
+  deal: '/deals/$dealId',
 } as const;
 
 export type JobsSegment = Exclude<
   keyof typeof JOBS_PATHS,
-  'job' | 'respond' | 'templates' | 'manage'
+  'job' | 'respond' | 'templates' | 'manage' | 'response' | 'deal'
 >;
 export const JOBS_SEGMENTS: readonly JobsSegment[] = ['feed', 'responses', 'mine'];
 
@@ -38,6 +40,16 @@ export const respondPath = (jobId: string) => `/jobs/${jobId}/respond`;
 
 /** Своя заявка S23 (5.6): статус, отклики, закрыть, продлить, пригласить. */
 export const managePath = (jobId: string) => `/jobs/${jobId}/manage`;
+
+/** Отклик на свою заявку глазами клиента S24 (6.2): выбрать, отклонить. */
+export const choicePath = (jobId: string, responseId: string) =>
+  `/jobs/${jobId}/responses/${responseId}`;
+
+/** Сделка S26 (6.2): из S25, «Открыть сделку» S23 и S17, уведомлений бота (`d_`). */
+export const dealPath = (dealId: string) => `/deals/${dealId}`;
+
+/** Профиль специалиста S08 (фича catalog): из мини-профиля S24 и S26. */
+export const specialistPath = (profileId: string) => `/specialists/${profileId}`;
 
 export const CREATE_PATHS = {
   what: '/jobs/new',

@@ -12,8 +12,8 @@ describe('startTarget', () => {
   it('opens home for `h` and for targets whose screens come in later steps', () => {
     expect(startTarget('h')).toBe('/');
     expect(startTarget('h_rAB12CD')).toBe('/');
-    // S26 (6.2) — до своего шага на главную
-    const ready = new Set(['legal', 'specialist', 'job', 'new_job', 'mine', 'chat']);
+    // у остальных целей (коды «Вещей», `h`) экрана нет — на главную
+    const ready = new Set(['legal', 'specialist', 'job', 'new_job', 'mine', 'chat', 'deal']);
     for (const { param, link } of golden.valid) {
       if (!ready.has(link.type)) expect(startTarget(param)).toBe('/');
     }
@@ -53,6 +53,14 @@ describe('startTarget', () => {
     expect(chats.length).toBeGreaterThan(0);
     for (const { param, link } of chats) {
       expect(startTarget(param)).toBe(`/messages/${'id' in link ? link.id : ''}`);
+    }
+  });
+
+  it('opens the deal S26 for `d_` links — buttons of deal notifications (6.2)', () => {
+    const deals = golden.valid.filter(({ link }) => link.type === 'deal');
+    expect(deals.length).toBeGreaterThan(0);
+    for (const { param, link } of deals) {
+      expect(startTarget(param)).toBe(`/deals/${'id' in link ? link.id : ''}`);
     }
   });
 

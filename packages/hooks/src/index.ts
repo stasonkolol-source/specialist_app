@@ -233,6 +233,17 @@ export {
   useReviseResponse,
   useWithdrawResponse,
 } from './jobs/responses.ts';
+export type { CancelDeal, DecideResponse } from './deals/deals.ts';
+export {
+  MY_DEALS_KEY,
+  dealCardQueryKey,
+  useAcceptResponse,
+  useCancelDeal,
+  useCompleteDeal,
+  useDealCard,
+  useDeclineResponse,
+  useMyDeals,
+} from './deals/deals.ts';
 export type { CloseJob, InviteSpecialists, UpdateJob } from './jobs/mine.ts';
 export {
   RESPONSES_POLL_MS,

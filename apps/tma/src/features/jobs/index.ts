@@ -17,6 +17,7 @@ export {
   createSearch,
   doneSearch,
   editSearch,
+  dealPath,
   jobPath,
   jobSearch,
   respondPath,
