@@ -7,7 +7,7 @@
 // его после проверки». «Открыть чат» и «Сделка» у выбранного появятся с перепиской и сделкой (6.x).
 import type { MyResponseOut, ResponseGroup, ResponseStatus } from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
-import { myResponseItems, useMyResponses, useWithdrawResponse } from '@sosed/hooks';
+import { myResponseItems, useMyDeals, useMyResponses, useWithdrawResponse } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
 import { usePlatform } from '@sosed/platform';
 import {
@@ -34,7 +34,7 @@ import { LoadError } from '../shared/LoadError.tsx';
 import { MiniSlots } from '../shared/MiniSlots.tsx';
 import { useDistrictName, useOfferPrice } from '../shared/labels.ts';
 import type { ResponsesSearch } from '../shared/paths.ts';
-import { JOBS_PATHS, jobPath, respondPath } from '../shared/paths.ts';
+import { JOBS_PATHS, dealPath, jobPath, respondPath } from '../shared/paths.ts';
 
 const GROUPS: readonly (ResponseGroup | null)[] = [
   null,
@@ -198,6 +198,8 @@ function ResponseCard({
   const price = offerPrice(response.price);
   const when = response.availability_note;
   const decided = response.decided_at ?? response.updated_at;
+  const deals = useMyDeals({ role: 'performer' });
+  const deal = accepted ? deals.data?.items.find((item) => item.response_id === response.id) : null;
 
   const confirmWithdraw = async () => {
     if (await platform.confirm(t('responses.withdrawConfirm'))) onWithdraw();
@@ -242,8 +244,17 @@ function ResponseCard({
       </div>
       {(active || accepted) && (
         <div className="mt-1 flex flex-wrap items-center gap-2">
+          {deal && (
+            <Button
+              size="sm"
+              aria-describedby={titleId}
+              onClick={() => void navigate({ to: dealPath(deal.id) })}
+            >
+              {t('responses.openDeal')}
+            </Button>
+          )}
           <Button
-            variant={accepted ? 'primary' : 'outline'}
+            variant={accepted && !deal ? 'primary' : 'outline'}
             size="sm"
             aria-describedby={titleId}
             onClick={() => void navigate({ to: jobPath(job.id) })}

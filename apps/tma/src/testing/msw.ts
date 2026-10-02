@@ -141,7 +141,7 @@ export const cardHandlers = [
  *  по фейку backend; по умолчанию — свежий на каждый запрос. Тесты мастера S20, ленты и откликов
  *  ставят свой — с памятью (server.use). */
 const JOBS_API =
-  /\/api\/v1\/(jobs(\/.*)?|me\/favorites\/jobs?(\/[^/]+)?|responses\/.+|me\/responses|me\/jobs|me\/response-templates(\/[^/]+)?|specialists\/[^/]+\/requests)$/;
+  /\/api\/v1\/(jobs(\/.*)?|me\/favorites\/jobs?(\/[^/]+)?|responses\/.+|me\/responses|me\/jobs|me\/response-templates(\/[^/]+)?|specialists\/[^/]+\/requests|me\/deals|deals\/.+)$/;
 
 export const jobsHandlers = (backend: () => JobsBackend) => [
   http.all(JOBS_API, async ({ request }) => {

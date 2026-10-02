@@ -9,7 +9,7 @@ import type { StartLink } from '@sosed/links';
 import { parseStartParam } from '@sosed/links';
 
 import { profilePath } from '../features/catalog/index.ts';
-import { CREATE_PATHS, JOBS_PATHS, jobPath } from '../features/jobs/index.ts';
+import { CREATE_PATHS, JOBS_PATHS, dealPath, jobPath } from '../features/jobs/index.ts';
 
 const HOME = '/';
 
@@ -32,6 +32,8 @@ export const START_TARGETS: StartTargets = {
   // мастер новой заявки S20a и «Мои заявки» S22: команды бота /new и /jobs (5.6)
   new_job: () => CREATE_PATHS.what,
   mine: () => JOBS_PATHS.mine,
+  // сделка S26: кнопки уведомлений о сделке — «Открыть сделку», «Нет, проблема» (6.2)
+  deal: (link) => dealPath(link.id),
 };
 
 /** Адрес для кода `startapp`; `null` — приложение открыли без deep link. */
