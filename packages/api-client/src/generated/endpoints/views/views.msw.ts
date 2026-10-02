@@ -14,6 +14,7 @@ import type {
   CardReviewsOut,
   CardServicesOut,
   CardWorksOut,
+  DealCardOut,
   ResponseCardsOut,
   SpecialistProfileOut,
 } from '../../model';
@@ -340,6 +341,150 @@ export const getViewsListResponseCardsResponseMock = (
   ...overrideResponse,
 });
 
+export const getViewsGetDealCardResponseMock = (
+  overrideResponse: Partial<Extract<DealCardOut, object>> = {},
+): DealCardOut => ({
+  id: faker.string.uuid(),
+  status: faker.helpers.arrayElement([
+    'proposed',
+    'agreed',
+    'completed',
+    'cancelled',
+    'disputed',
+  ] as const),
+  origin: faker.helpers.arrayElement(['job_response', 'direct', 'chat'] as const),
+  my_role: faker.helpers.arrayElement(['client', 'performer'] as const),
+  title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  price: {
+    type: faker.helpers.arrayElement([
+      faker.helpers.arrayElement(['fixed', 'from', 'hourly', 'negotiable'] as const),
+      null,
+    ]),
+    amount: faker.helpers.arrayElement([
+      { amount: faker.number.int(), currency: faker.helpers.arrayElement(Object.values(Currency)) },
+      null,
+    ]),
+  },
+  scheduled_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  preferred_from: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  preferred_to: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  urgency: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  availability_note: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  budget: faker.helpers.arrayElement([
+    { amount: faker.number.int(), currency: faker.helpers.arrayElement(Object.values(Currency)) },
+    null,
+  ]),
+  counterpart: {
+    role: faker.helpers.arrayElement(['client', 'performer'] as const),
+    display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    profile_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    avatar: faker.helpers.arrayElement([
+      {
+        placeholder: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        variants: Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1,
+        ).map(() => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        })),
+        video_url: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+      },
+      null,
+    ]),
+    rating: faker.helpers.arrayElement([faker.number.float({ fractionDigits: 2 }), null]),
+    rating_count: faker.number.int(),
+    is_new: faker.datatype.boolean(),
+    phone_verified: faker.datatype.boolean(),
+  },
+  place: {
+    city: faker.helpers.arrayElement([
+      { id: faker.number.int(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+      null,
+    ]),
+    district: faker.helpers.arrayElement([
+      { id: faker.number.int(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+      null,
+    ]),
+    address: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    point: faker.helpers.arrayElement([
+      {
+        lat: faker.number.float({ fractionDigits: 2 }),
+        lon: faker.number.float({ fractionDigits: 2 }),
+      },
+      null,
+    ]),
+  },
+  timeline: {
+    responded_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + 'Z',
+      null,
+    ]),
+    agreed_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + 'Z',
+      null,
+    ]),
+    my_mark_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + 'Z',
+      null,
+    ]),
+    other_mark_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + 'Z',
+      null,
+    ]),
+    completed_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + 'Z',
+      null,
+    ]),
+    cancelled_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + 'Z',
+      null,
+    ]),
+  },
+  awaits_my_confirmation: faker.datatype.boolean(),
+  cancelled_by_me: faker.helpers.arrayElement([faker.datatype.boolean(), null]),
+  cancel_reason: faker.helpers.arrayElement([
+    faker.helpers.arrayElement([
+      'plans_changed',
+      'no_agreement',
+      'no_contact',
+      'other',
+      'expired',
+      'account_deleted',
+    ] as const),
+    null,
+  ]),
+  job_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  response_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  conversation_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  version: faker.number.int(),
+  ...overrideResponse,
+});
+
 export const getViewsGetSpecialistMockHandler = (
   overrideResponse?:
     | SpecialistProfileOut
@@ -459,10 +604,33 @@ export const getViewsListResponseCardsMockHandler = (
     options,
   );
 };
+
+export const getViewsGetDealCardMockHandler = (
+  overrideResponse?:
+    | DealCardOut
+    | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<DealCardOut> | DealCardOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/deals/:dealId/card',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getViewsGetDealCardResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getViewsMock = () => [
   getViewsGetSpecialistMockHandler(),
   getViewsListSpecialistServicesMockHandler(),
   getViewsListSpecialistWorksMockHandler(),
   getViewsListSpecialistReviewsMockHandler(),
   getViewsListResponseCardsMockHandler(),
+  getViewsGetDealCardMockHandler(),
 ];

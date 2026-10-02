@@ -21,6 +21,7 @@ import type {
   CardReviewsOut,
   CardServicesOut,
   CardWorksOut,
+  DealCardOut,
   ProblemOut,
   ResponseCardsOut,
   SpecialistProfileOut,
@@ -720,6 +721,131 @@ export function useViewsListResponseCards<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getViewsListResponseCardsQueryOptions(jobId, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getViewsGetDealCardUrl = (dealId: string) => {
+  return `/api/v1/deals/${dealId}/card`;
+};
+
+/**
+ * Сделка стороне (S26): условия, вторая сторона, место и вехи; чужая — 404.
+ * @summary Get Deal Card
+ */
+export const viewsGetDealCard = async (
+  dealId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<DealCardOut> => {
+  return apiFetch<DealCardOut>(getViewsGetDealCardUrl(dealId), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getViewsGetDealCardQueryKey = (dealId: string) => {
+  return [`/api/v1/deals/${dealId}/card`] as const;
+};
+
+export const getViewsGetDealCardQueryOptions = <
+  TData = Awaited<ReturnType<typeof viewsGetDealCard>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  dealId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetDealCard>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getViewsGetDealCardQueryKey(dealId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof viewsGetDealCard>>> = ({ signal }) =>
+    viewsGetDealCard(dealId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: dealId !== null && dealId !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof viewsGetDealCard>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+};
+
+export type ViewsGetDealCardQueryResult = NonNullable<Awaited<ReturnType<typeof viewsGetDealCard>>>;
+export type ViewsGetDealCardQueryError = ErrorType<ProblemOut>;
+
+export function useViewsGetDealCard<
+  TData = Awaited<ReturnType<typeof viewsGetDealCard>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  dealId: string,
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetDealCard>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsGetDealCard>>,
+          TError,
+          Awaited<ReturnType<typeof viewsGetDealCard>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsGetDealCard<
+  TData = Awaited<ReturnType<typeof viewsGetDealCard>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  dealId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetDealCard>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsGetDealCard>>,
+          TError,
+          Awaited<ReturnType<typeof viewsGetDealCard>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsGetDealCard<
+  TData = Awaited<ReturnType<typeof viewsGetDealCard>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  dealId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetDealCard>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get Deal Card
+ */
+
+export function useViewsGetDealCard<
+  TData = Awaited<ReturnType<typeof viewsGetDealCard>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  dealId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetDealCard>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getViewsGetDealCardQueryOptions(dealId, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;

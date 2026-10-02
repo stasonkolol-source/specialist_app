@@ -5552,6 +5552,57 @@
         }
       }
     },
+    "/api/v1/deals/{deal_id}/card": {
+      "get": {
+        "tags": [
+          "views"
+        ],
+        "summary": "Get Deal Card",
+        "description": "Сделка стороне (S26): условия, вторая сторона, место и вехи; чужая — 404.",
+        "operationId": "views_get_deal_card",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "deal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id сделки",
+              "title": "Deal Id"
+            },
+            "description": "id сделки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DealCardOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/client-config": {
       "get": {
         "tags": [
@@ -6464,6 +6515,349 @@
         ],
         "title": "DealCancelReason"
       },
+      "DealCardOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "agreed",
+              "completed",
+              "cancelled",
+              "disputed"
+            ],
+            "title": "Status"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "job_response",
+              "direct",
+              "chat"
+            ],
+            "title": "Origin"
+          },
+          "my_role": {
+            "type": "string",
+            "enum": [
+              "client",
+              "performer"
+            ],
+            "title": "My Role"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "price": {
+            "$ref": "#/components/schemas/DealCardPriceOut"
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled At",
+            "description": "Договорённое время"
+          },
+          "preferred_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred From",
+            "description": "Окно времени из заявки"
+          },
+          "preferred_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred To"
+          },
+          "urgency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Urgency",
+            "description": "Срочность заявки: asap, today, this_week, flexible"
+          },
+          "availability_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availability Note",
+            "description": "«Когда смогу» из отклика"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoneyOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Бюджет заявки «от» — для сравнения с ценой"
+          },
+          "counterpart": {
+            "$ref": "#/components/schemas/DealCounterpartOut"
+          },
+          "place": {
+            "$ref": "#/components/schemas/DealPlaceOut"
+          },
+          "timeline": {
+            "$ref": "#/components/schemas/DealTimelineOut"
+          },
+          "awaits_my_confirmation": {
+            "type": "boolean",
+            "title": "Awaits My Confirmation",
+            "description": "«Договорились» предложила вторая сторона"
+          },
+          "cancelled_by_me": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled By Me",
+            "description": "Отменил я; None — не отменена или система"
+          },
+          "cancel_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "plans_changed",
+                  "no_agreement",
+                  "no_contact",
+                  "other",
+                  "expired",
+                  "account_deleted"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Reason"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "response_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Id"
+          },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "origin",
+          "my_role",
+          "title",
+          "price",
+          "scheduled_at",
+          "preferred_from",
+          "preferred_to",
+          "urgency",
+          "availability_note",
+          "budget",
+          "counterpart",
+          "place",
+          "timeline",
+          "awaits_my_confirmation",
+          "cancelled_by_me",
+          "cancel_reason",
+          "job_id",
+          "response_id",
+          "conversation_id",
+          "version"
+        ],
+        "title": "DealCardOut"
+      },
+      "DealCardPriceOut": {
+        "properties": {
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "fixed",
+                  "from",
+                  "hourly",
+                  "negotiable"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MoneyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "amount"
+        ],
+        "title": "DealCardPriceOut"
+      },
+      "DealCounterpartOut": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "client",
+              "performer"
+            ],
+            "title": "Role",
+            "description": "Кто вторая сторона для меня"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name",
+            "description": "Аккаунт удалён — пусто"
+          },
+          "profile_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Id",
+            "description": "Профиль специалиста исполнителя (S08)"
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardPhotoOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating",
+            "description": "Когда отзывов достаточно; иначе is_new"
+          },
+          "rating_count": {
+            "type": "integer",
+            "title": "Rating Count"
+          },
+          "is_new": {
+            "type": "boolean",
+            "title": "Is New",
+            "description": "«Новый специалист» — у исполнителя без трёх отзывов"
+          },
+          "phone_verified": {
+            "type": "boolean",
+            "title": "Phone Verified"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "display_name",
+          "profile_id",
+          "avatar",
+          "rating",
+          "rating_count",
+          "is_new",
+          "phone_verified"
+        ],
+        "title": "DealCounterpartOut"
+      },
       "DealOrigin": {
         "type": "string",
         "enum": [
@@ -6691,6 +7085,79 @@
         "title": "DealOut",
         "description": "Сделка стороне (S26): кто я в ней, условия и вехи для таймлайна."
       },
+      "DealPlaceOut": {
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardNamedOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "district": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardNamedOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address",
+            "description": "Только владельцу и выбранному исполнителю"
+          },
+          "point": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DealPointOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Точная точка — тем же"
+          }
+        },
+        "type": "object",
+        "required": [
+          "city",
+          "district",
+          "address",
+          "point"
+        ],
+        "title": "DealPlaceOut"
+      },
+      "DealPointOut": {
+        "properties": {
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lat",
+          "lon"
+        ],
+        "title": "DealPointOut"
+      },
       "DealPriceOut": {
         "properties": {
           "type": {
@@ -6751,6 +7218,96 @@
           "disputed"
         ],
         "title": "DealStatus"
+      },
+      "DealTimelineOut": {
+        "properties": {
+          "responded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responded At",
+            "description": "Отклик на заявку"
+          },
+          "agreed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agreed At",
+            "description": "Выбран исполнителем / договорились"
+          },
+          "my_mark_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "My Mark At",
+            "description": "Я отметил «Работа выполнена»"
+          },
+          "other_mark_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Other Mark At",
+            "description": "Вторая сторона отметила"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "responded_at",
+          "agreed_at",
+          "my_mark_at",
+          "other_mark_at",
+          "completed_at",
+          "cancelled_at"
+        ],
+        "title": "DealTimelineOut"
       },
       "DealsPageOut": {
         "properties": {

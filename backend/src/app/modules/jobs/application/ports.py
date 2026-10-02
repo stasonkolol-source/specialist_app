@@ -4,7 +4,7 @@ from collections.abc import Collection, Sequence
 from datetime import datetime
 from typing import Final, Protocol
 
-from app.modules.jobs.application.dto import JobView, MyResponseRef
+from app.modules.jobs.application.dto import DealResponse, JobView, MyResponseRef
 from app.modules.jobs.application.feed import FeedFilters, FeedItem
 from app.modules.jobs.application.responses import (
     MyResponse,
@@ -131,6 +131,10 @@ class JobQueries(Protocol):
     async def job_responses(self, job_id: JobId) -> list[OwnerResponse]:
         """Отклики на заявку для владельца (S23): прошедшие проверку, не отозванные, по
         порядку; `is_first` — самый ранний отклик заявки."""
+        ...
+
+    async def deal_response(self, response_id: ResponseId) -> DealResponse | None:
+        """Неудалённый отклик — для экрана сделки по нему (S26)."""
         ...
 
     async def passed_over(self, job_id: JobId) -> list[UserId]:

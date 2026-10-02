@@ -46,6 +46,37 @@ class DealBrief:
     scheduled_at: datetime | None
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DealSummary:
+    """Сделка стороне — экран сделки S26 (6.2): условия, стороны и вехи. Значения перечислений —
+    строками: `status` (DealStatus), `origin`, `my_role` (`client` | `performer`), цена — пара."""
+
+    id: DealId
+    status: str
+    origin: str
+    my_role: str
+    title: str
+    price_type: str | None
+    agreed_price: int | None
+    scheduled_at: datetime | None
+    client_id: UserId
+    performer_id: UserId
+    profile_id: UUID | None
+    job_id: UUID | None
+    response_id: UUID | None
+    conversation_id: UUID | None
+    proposed_by: UserId | None
+    agreed_at: datetime | None
+    client_confirmed_at: datetime | None
+    performer_confirmed_at: datetime | None
+    completed_at: datetime | None
+    cancelled_at: datetime | None
+    cancelled_by: UserId | None
+    cancel_reason: str | None
+    created_at: datetime
+    version: int
+
+
 class DealsApi(Protocol):
     async def create_agreed(self, data: AgreedDealIn) -> DealId:
         """Сделка `agreed` в транзакции вызывающего: нужен активный UoW (ADR-0020 §4)."""
@@ -53,4 +84,8 @@ class DealsApi(Protocol):
 
     async def deal_brief(self, deal_id: DealId) -> DealBrief | None:
         """Название, статус и стороны сделки; None — нет такой."""
+        ...
+
+    async def deal_for(self, deal_id: DealId, viewer_id: UserId) -> DealSummary:
+        """Сделка стороне; не участник или нет такой — DealNotFoundError (404)."""
         ...
