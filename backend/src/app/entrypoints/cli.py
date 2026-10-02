@@ -43,6 +43,7 @@ if TYPE_CHECKING:  # модули грузятся лениво: CLI без БД
 
     from app.entrypoints._moderation_cli import CliOutcome
     from app.entrypoints._notify_test import NotifyTestOutcome
+    from app.entrypoints._seed_demo import SeedReport
     from app.modules.identity.application.dto import OnboardingReset, StaffRoleGranted
     from app.modules.specialists.application.use_cases.mark_founding import FoundingMarked
 
@@ -481,6 +482,38 @@ async def _founding_mark(telegram_id: int) -> FoundingMarked | None:
             return await mark(MarkFoundingCommand(telegram_id=telegram_id))
     finally:
         await container.close()
+
+
+class DemoScale(StrEnum):
+    SMALL = "small"
+    LAB = "lab"
+
+
+@app.command("seed-demo")
+def seed_demo(
+    scale: Annotated[
+        DemoScale, typer.Option(help="small — 60 специалистов с фото; lab — 50 000 без фото")
+    ] = DemoScale.SMALL,
+) -> None:
+    """Демо-специалисты для dev и stage (2.8c): профили, прайс, районы и портфолио через use
+    cases, одобрены сразу. Повторный запуск количества не меняет. На проде не работает."""
+    from app.entrypoints._seed_demo import SeedDemoRefusedError
+
+    try:
+        report = asyncio.run(_seed_demo(scale.value))
+    except SeedDemoRefusedError as exc:
+        typer.echo(f"seed-demo: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(
+        f"seed-demo {scale.value}: {report.created} created, {report.skipped} already there,"
+        f" {report.photos} photos"
+    )
+
+
+async def _seed_demo(scale: str) -> SeedReport:
+    from app.entrypoints._seed_demo import SCALES, seed_demo
+
+    return await seed_demo(Settings(), SCALES[scale], echo=typer.echo)
 
 
 class Verdict(StrEnum):

@@ -11,7 +11,7 @@ EXTRA_CHECKS :=
 
 COMPOSE := docker compose -p specialist-dev -f infra/compose/docker-compose.dev.yml --env-file infra/compose/.env
 
-.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker dev-worker-media new-module new-use-case openapi contract i18n-check-backend seeds-validate seed dev dev-bg dev-restart dev-stop tunnel dev-bot audit image \
+.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker dev-worker-media new-module new-use-case openapi contract i18n-check-backend seeds-validate seed seed-demo dev dev-bg dev-restart dev-stop tunnel dev-bot audit image \
 	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check test-int migrate migrate-roundtrip pg-bootstrap
 
 help: ## Show available targets
@@ -119,6 +119,9 @@ image: ## Собрать образ backend: specialist/backend:dev (роль �
 
 seed: ## Загрузить сиды в dev-БД идемпотентно: гео (1.3a), каталог (1.3b), словарь модерации (2.4)
 	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli seed
+
+seed-demo: ## Демо-специалисты для dev и stage (2.8c): SCALE=small (60 с фото) | lab (50 000); повтор не плодит дубли
+	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli seed-demo --scale $(or $(SCALE),small)
 
 seeds-validate: ## Сиды: гео, таксономия, запросы (0.27), словарь модерации и его примеры (2.4)
 	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli seeds-validate
