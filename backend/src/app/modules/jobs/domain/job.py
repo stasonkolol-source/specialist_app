@@ -228,6 +228,12 @@ class JobContent:
             raise InvalidJobError(field="description", reason="too_long")
         if len(self.media_ids) > MAX_PHOTOS:
             raise InvalidJobError(field="media_ids", reason="too_many")
+        for name, value in (
+            ("preferred_from", self.preferred_from),
+            ("preferred_to", self.preferred_to),
+        ):
+            if value is not None and value.utcoffset() is None:
+                raise InvalidJobError(field=name, reason="timezone_required")
         if (
             self.preferred_from is not None
             and self.preferred_to is not None
