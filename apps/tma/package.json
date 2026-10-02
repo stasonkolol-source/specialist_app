@@ -28,6 +28,7 @@
     "@sosed/ui-web": "workspace:*",
     "@tanstack/react-query": "5.104.0",
     "@tanstack/react-router": "1.170.39",
+    "@tanstack/react-virtual": "3.14.13",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-hook-form": "7.88.0",

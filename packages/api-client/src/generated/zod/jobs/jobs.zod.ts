@@ -703,6 +703,86 @@ export const JobsHideJobParams = zod.object({
 export const JobsHideJobResponse = zod.void();
 
 /**
+ * Сохранённые заявки S12: открытые, новые сохранения первыми; закрытые и истёкшие — не
+ * в списке.
+ * @summary List Saved Jobs
+ */
+export const JobsListSavedJobsResponse = zod
+  .object({
+    items: zod.array(
+      zod
+        .object({
+          id: zod.uuid(),
+          title: zod.string(),
+          description: zod.string().describe('Начало описания — до 280 знаков, дальше «…»'),
+          category_id: zod.int(),
+          urgency: zod.enum(['asap', 'today', 'this_week', 'flexible']),
+          preferred_from: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+          preferred_to: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+          budget_type: zod.enum(['fixed', 'range', 'negotiable']),
+          budget_min: zod.union([
+            zod.object({
+              amount: zod.int(),
+              currency: zod.enum(['RSD', 'XTR']),
+            }),
+            zod.null(),
+          ]),
+          budget_max: zod.union([
+            zod.object({
+              amount: zod.int(),
+              currency: zod.enum(['RSD', 'XTR']),
+            }),
+            zod.null(),
+          ]),
+          budget_unit: zod.enum(['work', 'hour', 'm2', 'visit', 'item', 'lesson']),
+          district_id: zod.union([zod.int(), zod.null()]),
+          distance_m: zod
+            .union([zod.int(), zod.null()])
+            .describe('До точки зрителя, шагом 100 м; без точки — null'),
+          photos: zod
+            .array(
+              zod.object({
+                url: zod.string(),
+                width: zod.int(),
+                height: zod.int(),
+                placeholder: zod
+                  .union([zod.string(), zod.null()])
+                  .describe('ThumbHash (base64) для мгновенного превью'),
+              }),
+            )
+            .describe('До трёх превью (thumb)'),
+          photos_count: zod.int(),
+          responses_count: zod.int(),
+          max_responses: zod.int(),
+          published_at: zod.iso.datetime({ offset: true }),
+        })
+        .describe('Карточка ленты S13: начало описания, превью фото, место и счётчик откликов.'),
+    ),
+  })
+  .describe('Сохранённые заявки S12: открытые, новые сохранения первыми, не больше ста.');
+
+/**
+ * Сердечко S15: заявка — в сохранённые. Повтор — без ошибки; невидимая — 404; больше ста —
+ * `saved_jobs_full`.
+ * @summary Save Job
+ */
+export const JobsSaveJobParams = zod.object({
+  job_id: zod.uuid().describe('id заявки'),
+});
+
+export const JobsSaveJobResponse = zod.void();
+
+/**
+ * Убрать заявку из сохранённых; чего нет — без ошибки.
+ * @summary Unsave Job
+ */
+export const JobsUnsaveJobParams = zod.object({
+  job_id: zod.uuid().describe('id заявки'),
+});
+
+export const JobsUnsaveJobResponse = zod.void();
+
+/**
  * Закрыть с причиной: нашёл здесь, нашёл в другом месте, уже не нужно, не подошли.
  * @summary Close Job
  */

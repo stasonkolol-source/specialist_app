@@ -172,3 +172,11 @@ export { jobQueryKey, useCreateJob, useJob } from './jobs/jobs.ts';
 export type { FeedPages, FeedQuery } from './jobs/feed.ts';
 export { FEED_PAGE_SIZE, feedQueryKey, jobCards, useHideJob, useJobsFeed } from './jobs/feed.ts';
 export { useJobsCount } from './jobs/count.ts';
+export type { SavedJobToggle } from './jobs/saved.ts';
+export {
+  jobCardOf,
+  savedJobIds,
+  savedJobsQueryKey,
+  useSavedJobs,
+  useToggleSavedJob,
+} from './jobs/saved.ts';

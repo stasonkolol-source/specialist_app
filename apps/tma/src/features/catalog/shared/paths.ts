@@ -17,8 +17,9 @@ export const CARD_PATHS = {
   reviews: '/specialists/$profileId/reviews',
 } as const;
 
-/** Избранное S12: вход — из профиля S31. */
+/** Избранное S12: вход — из профиля S31. «Задачи» — сохранённые заявки (фича jobs, 5.3). */
 export const FAVORITES_PATH = '/favorites';
+export const SAVED_JOBS_PATH = '/favorites/jobs';
 
 /** Мастер заявки S20a (фича jobs, 5.2): CTA Главной и пустой выдачи, услуга прайса S09 — с
  *  категорией и названием, если они известны. */

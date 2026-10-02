@@ -1,15 +1,15 @@
-// Карточка ленты S13: строки для `JobCard` — бюджет, «когда» и категория бейджами, «5 мин
-// назад», район с расстоянием и счётчик мест; нажатие ведёт в заявку S15 (с точкой ленты — для
-// «≈ 1,2 км от вас»).
+// Карточка заявки в ленте S13 и в сохранённых S12: строки для `JobCard` — бюджет, «когда» и
+// категория бейджами, «5 мин назад», район с расстоянием и счётчик мест; нажатие ведёт в заявку
+// S15 (с точкой ленты — для «≈ 1,2 км от вас»).
 import type { JobCardOut } from '@sosed/api-client';
 import { useFormat, useTranslation } from '@sosed/i18n';
 import type { JobCardBadge } from '@sosed/ui-web';
 import { JobCard } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 
-import { useBudgetText, usePlaceText, useSlots, useWhenBadge } from '../shared/labels.ts';
-import type { JobSearch } from '../shared/paths.ts';
-import { JOBS_PATHS } from '../shared/paths.ts';
+import { useBudgetText, usePlaceText, useSlots, useWhenBadge } from './labels.ts';
+import type { JobSearch } from './paths.ts';
+import { JOBS_PATHS } from './paths.ts';
 
 export function FeedCard({
   card,

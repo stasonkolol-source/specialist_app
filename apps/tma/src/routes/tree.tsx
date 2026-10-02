@@ -21,6 +21,7 @@ import {
 import {
   CREATE_PATHS,
   JOBS_PATHS,
+  SAVED_PATHS,
   createSearch,
   doneSearch,
   feedSearch,
@@ -348,6 +349,13 @@ const favorites = createRoute({
   component: screen(() => import('../features/catalog/s12-favorites/index.ts'), 'FavoritesScreen'),
 });
 
+// Избранное S12, сегмент «Задачи» (5.3): сохранённые заявки; гостю — «Откройте в Telegram»
+const savedJobs = createRoute({
+  getParentRoute: () => rootRoute,
+  path: SAVED_PATHS.jobs,
+  component: screen(() => import('../features/jobs/s12-saved-jobs/index.ts'), 'SavedJobsScreen'),
+});
+
 // S49b после действия, отклонённого частичной санкцией
 const restricted = createRoute({
   getParentRoute: () => rootRoute,
@@ -388,6 +396,7 @@ export const routeTree = rootRoute.addChildren([
   specialistWorks,
   specialistReviews,
   favorites,
+  savedJobs,
   onboardingLanguage,
   onboardingIntent,
   onboardingRules,

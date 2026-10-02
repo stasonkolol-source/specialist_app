@@ -1,8 +1,9 @@
 // S13 Лента заявок (DEVELOPMENT_PLAN 5.3): сегмент «Лента» вкладки «Заявки» — заявки города,
 // новые сверху. Чипы: «Фильтры N» открывает шторку S14, «До 3 км» спрашивает местоположение,
 // выбранные категории снимаются нажатием, «Сегодня» и «Срочные» — быстрые фильтры. Фильтры — в
-// адресе: переживают «Назад» из заявки. Следующая страница грузится, когда кнопка «Показать ещё»
-// доезжает до экрана. Скрыто до своих шагов: колокольчик подписок S18 и «По моим подпискам» (5.7).
+// адресе: переживают «Назад» из заявки. Список виртуальный (FeedList.tsx); следующая страница
+// грузится, когда кнопка «Показать ещё» доезжает до экрана. Скрыто до своих шагов: колокольчик
+// подписок S18 и «По моим подпискам» (5.7).
 // Гость видит ленту без входа.
 import type { CategoryOut } from '@sosed/api-client';
 import {
@@ -19,6 +20,7 @@ import { useRouter, useSearch } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
 import { FiltersSheet } from '../s14-feed-filters/index.ts';
+import { FeedCard } from '../shared/FeedCard.tsx';
 import { JobsSegments } from '../shared/JobsSegments.tsx';
 import { LoadError } from '../shared/LoadError.tsx';
 import { findCategory } from '../shared/categories.ts';
@@ -27,7 +29,7 @@ import type { FeedSearch } from '../shared/feed.ts';
 import { NEAR_KM, activeFilters, toFeedQuery, toggle, withoutFilters } from '../shared/feed.ts';
 import { useLocate } from '../shared/location.ts';
 import { JOBS_PATHS } from '../shared/paths.ts';
-import { FeedCard } from './FeedCard.tsx';
+import { FeedList } from './FeedList.tsx';
 
 const SKELETON_CARDS = 3;
 
@@ -91,17 +93,17 @@ export function FeedScreen() {
         </EmptyState>
       ) : (
         <>
-          <div className="flex flex-col gap-2.5">
-            {cards.map((card) => (
+          <FeedList
+            cards={cards}
+            render={(card) => (
               <FeedCard
-                key={card.id}
                 card={card}
                 category={categoryName(card.category_id)}
                 district={districtName(card.district_id)}
                 point={pointSearch}
               />
-            ))}
-          </div>
+            )}
+          />
           {feed.hasNextPage && (
             <MoreButton
               loading={feed.isFetchingNextPage}

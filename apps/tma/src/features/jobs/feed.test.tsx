@@ -1,8 +1,9 @@
 // Лента заявок S13–S15 (DEVELOPMENT_PLAN 5.3) на фейке backend: новые сверху со счётчиком,
 // быстрые чипы и шторка фильтров меняют адрес, «Показать N» считает черновик, «Показать ещё»
 // грузит следующую страницу; заявка — места, описание, «Где» с расстоянием от точки ленты, блок
-// заказчика; «Не интересно» убирает её из ленты; ссылка `j_` открывает S15; блок «Ищете
-// подработку?» на Главной. Часы — E2E_NOW (10:00 по Белграду): окно «18–21» ещё сегодня.
+// заказчика; «Не интересно» убирает её из ленты; сердечко сохраняет её в «Задачи» S12; ссылка `j_`
+// открывает S15; блок «Ищете подработку?» на Главной. Часы — E2E_NOW (10:00 по Белграду): окно
+// «18–21» ещё сегодня.
 import { setSession } from '@sosed/api-client';
 import { encodeStartParam } from '@sosed/links';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
@@ -136,16 +137,18 @@ describe('S13 feed', () => {
       const id = `0199dd00-0000-7000-8000-${String(100 + index).padStart(12, '0')}`;
       return { ...source, card: { ...source.card, id, title: `Заявка ${index + 1}` } };
     });
-    withJobs(new JobsBackend(many));
+    const jobs = withJobs(new JobsBackend(many));
     startApp('/jobs');
 
-    expect(await screen.findByText('Заявка 20')).toBeTruthy();
-    expect(screen.queryByText('Заявка 21')).toBeNull();
-    await click(screen.getByRole('button', { name: 'Показать ещё' }));
+    await waitFor(() => expect(titles().length).toBeGreaterThan(0));
+    await click(await screen.findByRole('button', { name: 'Показать ещё' }));
 
-    expect(await screen.findByText('Заявка 25')).toBeTruthy();
-    expect(titles()).toHaveLength(25);
-    expect(screen.queryByRole('button', { name: 'Показать ещё' })).toBeNull();
+    // список виртуальный: в DOM — карточки у экрана, поэтому проверяем страницы
+    await waitFor(() => expect(jobs.feedRequests).toHaveLength(2));
+    expect(jobs.feedRequests[0]?.get('limit')).toBe('20');
+    expect(jobs.feedRequests[1]?.get('cursor')).toBe('c20');
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Показать ещё' })).toBeNull());
+    expect(titles().length).toBeLessThan(25);
   });
 });
 
@@ -280,7 +283,7 @@ describe('S15 job', () => {
     expect(app.router.state.location.pathname).toBe(CHANDELIER_PATH);
   });
 
-  it('has no «Not interested» for a guest', async () => {
+  it('has no «Not interested» and no heart for a guest', async () => {
     asGuest();
     withJobs();
     startApp(CHANDELIER_PATH);
@@ -288,6 +291,37 @@ describe('S15 job', () => {
     expect(await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeTruthy();
     expect(await screen.findByText('Елена К.')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Не интересно' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Сохранить заявку' })).toBeNull();
+  });
+
+  it('saves the job with the heart: it shows under «Jobs» in S12', async () => {
+    const jobs = withJobs();
+    const { app } = startApp(CHANDELIER_PATH);
+
+    await click(await screen.findByRole('button', { name: 'Сохранить заявку', pressed: false }));
+
+    expect(await screen.findByRole('button', { name: 'Убрать из сохранённых' })).toBeTruthy();
+    await waitFor(() => expect(jobs.saved).toEqual([CHANDELIER.card.id]));
+    await act(async () => {
+      await app.router.navigate({ to: '/favorites/jobs' });
+    });
+    expect(await screen.findByRole('heading', { name: 'Повесить люстру', level: 2 })).toBeTruthy();
+    const segments = screen.getByRole('navigation', { name: 'Что показать' });
+    expect(within(segments).getByRole('link', { name: 'Задачи · 1' }).ariaCurrent).toBe('page');
+    expect(within(segments).getByRole('link', { name: 'Мастера · 0' })).toBeTruthy();
+  });
+
+  it('says when the saved list is full and keeps the heart off', async () => {
+    const jobs = withJobs();
+    jobs.saved = Array.from({ length: 100 }, (_, index) => `saved-${index}`);
+    startApp(CHANDELIER_PATH);
+
+    await click(await screen.findByRole('button', { name: 'Сохранить заявку', pressed: false }));
+
+    expect(
+      await screen.findByText('Сохранено уже 100 заявок — уберите ненужные, чтобы сохранить новую'),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Сохранить заявку', pressed: false })).toBeTruthy();
   });
 
   it('says the job is unavailable for an unknown id and a broken address', async () => {
@@ -343,5 +377,22 @@ describe('Jobs tab segments and the home block', () => {
     expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
     await screen.findByRole('heading', { name: 'Что нужно сделать?' });
     expect(screen.queryByText('Ищете подработку?')).toBeNull();
+  });
+});
+
+describe('S12 saved jobs', () => {
+  it('switches «Masters» to «Jobs»; nothing saved — a hint and the way to the feed', async () => {
+    withJobs();
+    const { app } = startApp('/favorites');
+    const segments = await screen.findByRole('navigation', { name: 'Что показать' });
+
+    await click(await within(segments).findByRole('link', { name: 'Задачи · 0' }));
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/favorites/jobs'));
+    expect(
+      await screen.findByRole('heading', { name: 'Здесь будут сохранённые заявки' }),
+    ).toBeTruthy();
+    await click(screen.getByRole('button', { name: 'К ленте заявок' }));
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs'));
   });
 });
