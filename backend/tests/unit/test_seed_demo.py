@@ -15,6 +15,7 @@ from app.entrypoints._seed_demo import (
     DEMO_TELEGRAM_BASE,
     SCALES,
     SeedDemoRefusedError,
+    SeedReport,
     placeholder_photo,
     plan,
     seed_demo,
@@ -113,11 +114,25 @@ async def test_production_refuses_demo_data(
         await seed_demo(Settings(env_file=None), SCALES["small"], echo=lambda _: None)
 
 
+def test_cli_reports_the_counts(monkeypatch: pytest.MonkeyPatch) -> None:
+    scales: list[str] = []
+
+    async def seeded(scale: str) -> SeedReport:
+        scales.append(scale)
+        return SeedReport(created=58, skipped=2, photos=80)
+
+    monkeypatch.setattr(cli, "_seed_demo", seeded)
+    result = CliRunner().invoke(cli.app, ["seed-demo"])
+
+    assert (result.exit_code, scales) == (0, ["small"])
+    assert "seed-demo small: 58 created, 2 already there, 80 photos" in result.output
+
+
 def test_cli_reports_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def refuse(*_: object, **__: object) -> None:
+    async def refuse(scale: str) -> SeedReport:
         raise SeedDemoRefusedError("seed-demo is for dev and stage only")
 
-    monkeypatch.setattr("app.entrypoints._seed_demo.seed_demo", refuse)
+    monkeypatch.setattr(cli, "_seed_demo", refuse)
     result = CliRunner().invoke(cli.app, ["seed-demo", "--scale", "lab"])
 
     assert result.exit_code == 1
