@@ -4,6 +4,7 @@
 If-Match, три продления, лимиты новичка и проверенного, удаление аккаунта. Данные коммитятся.
 """
 
+import asyncio
 from collections.abc import AsyncIterator
 from datetime import datetime, timedelta
 from typing import Any
@@ -341,6 +342,30 @@ async def test_newcomer_keeps_three_active_jobs_and_five_new_a_day(
     assert (sixth.status_code, sixth.json()["code"]) == (429, "daily_jobs_limit")
     assert sorted(await me.mine()) == sorted([ids[0], ids[2], ids[3], ids[4]])
     assert sorted(await me.mine("closed")) == sorted([ids[0], ids[2]])
+
+
+@pytest.mark.parametrize("trust_level", [0, 1])
+async def test_parallel_creations_take_only_the_last_active_place(
+    web: HttpApp,
+    storage_settings: Settings,
+    clients: list[Client],
+    body: dict[str, Any],
+    trust_level: int,
+) -> None:
+    me = await new_client(web, storage_settings, clients, trust_level=trust_level)
+    existing = [(await me.created(body))["id"] for _ in range(2)]
+
+    replies = await asyncio.gather(*(me.create(body) for _ in range(5)))
+
+    assert sorted(reply.status_code for reply in replies) == [201, 429, 429, 429, 429]
+    assert {reply.json()["code"] for reply in replies if reply.status_code == 429} == {
+        "active_jobs_limit"
+    }
+    assert len(await me.mine("pending_moderation")) == 3
+    # Отказы по активным местам не тратят оставшиеся две заявки суточной квоты.
+    for job_id in existing:
+        assert (await me.close(job_id)).status_code == 200
+        await me.created(body)
 
 
 async def test_trusted_client_has_no_active_limit_but_twenty_new_a_day(
