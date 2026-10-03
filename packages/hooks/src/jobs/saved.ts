@@ -51,8 +51,17 @@ export function useToggleSavedJob() {
       });
       return { before };
     },
-    onError: (_error, _toggle, context) => {
-      client.setQueryData(key, context?.before);
+    onError: (_error, { card }, context) => {
+      if (!context) return;
+      client.setQueryData<SavedJobsOut>(key, (old) => {
+        if (!old) return old;
+        // Откатываем только эту карточку: соседние сохранения могли уже завершиться.
+        const items = old.items.filter((item) => item.id !== card.id);
+        const index = context.before?.items.findIndex((item) => item.id === card.id) ?? -1;
+        const previous = context.before?.items[index];
+        if (previous) items.splice(index, 0, previous);
+        return { items };
+      });
     },
     onSettled: () => client.invalidateQueries({ queryKey: key }),
   });

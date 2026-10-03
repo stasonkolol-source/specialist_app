@@ -57,8 +57,9 @@ class QuietHours:
             day = local.date()
         else:
             return now
-        # время по часам Белграда в день выхода: переход на летнее время учитывает zoneinfo
-        return datetime.combine(day, self.end, tzinfo=TIMEZONE).astimezone(UTC)
+        # При повторении часа конец окна относится к тому же повторению, что и now.
+        end = self.end.replace(fold=local.fold)
+        return datetime.combine(day, end, tzinfo=TIMEZONE).astimezone(UTC)
 
 
 @dataclass(frozen=True, slots=True)
