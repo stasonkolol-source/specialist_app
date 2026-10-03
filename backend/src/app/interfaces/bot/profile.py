@@ -26,7 +26,7 @@ PROFILE_LANGUAGES: Final[Mapping[str | None, Locale]] = {
     "sr": Locale.SR_LATN,
 }
 """language_code Bot API → локаль текстов; None — профиль по умолчанию (любой другой язык)."""
-COMMANDS: Final = ("app", "new", "jobs", "help", "terms", "privacy", "language")
+COMMANDS: Final = ("app", "new", "jobs", "settings", "help", "terms", "privacy", "language")
 """Меню команд по порядку. /start Telegram показывает сам; остальные — в своих шагах."""
 
 NAME_LIMIT: Final = 64

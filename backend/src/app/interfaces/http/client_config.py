@@ -17,7 +17,7 @@ from app.platform.config.cache import ClientConfigCache
 from app.platform.http.caching import NOT_MODIFIED, cached_json
 from app.platform.kernel.localized import Locale
 from app.platform.legal.port import LegalDocument, LegalEdition, LegalLibrary
-from app.platform.settings import AppSettings
+from app.platform.settings import AppSettings, TelegramSettings
 
 log = structlog.get_logger(__name__)
 
@@ -61,6 +61,9 @@ class ClientConfigOut(BaseModel):
     legal_documents: dict[str, LegalDocumentOut]
     """Тексты действующих версий (S48), ключи — как в `legal_versions`. Версии без текста
     здесь нет: клиент покажет «документ недоступен», а не чужую редакцию."""
+    support_username: str | None
+    """Аккаунт поддержки в Telegram без `@` (K23, Q25): «Написать в поддержку» S47 и экспорт
+    данных S43; null — контакт ещё не назначен, кнопки «скоро»."""
 
 
 @router.get(
@@ -73,6 +76,7 @@ async def get_client_config(
     request: Request,
     cache: FromDishka[ClientConfigCache],
     app: FromDishka[AppSettings],
+    telegram: FromDishka[TelegramSettings],
     library: FromDishka[LegalLibrary],
 ) -> Response:
     snapshot = await cache.get()
@@ -81,6 +85,7 @@ async def get_client_config(
         flags=snapshot.public_flags(),
         legal_versions=dict(snapshot.legal_versions),
         legal_documents=_documents(snapshot.legal_versions, library),
+        support_username=telegram.support_username,
     ).model_dump(mode="json")
     return cached_json(request, body, max_age=MAX_AGE_SECONDS)
 

@@ -97,7 +97,13 @@ async def test_client_config_serves_flags_with_etag(settings: Settings) -> None:
         assert response.status_code == 200
         body = response.json()
         assert body["flags"]["goods.segment"] is True
-        assert set(body) == {"min_versions", "flags", "legal_versions", "legal_documents"}
+        assert set(body) == {
+            "min_versions",
+            "flags",
+            "legal_versions",
+            "legal_documents",
+            "support_username",
+        }
         etag = response.headers["etag"]
         assert response.headers["cache-control"] == "public, max-age=60"
         cached = await client.get("/api/v1/client-config", headers={"if-none-match": etag})
