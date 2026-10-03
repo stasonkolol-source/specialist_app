@@ -212,7 +212,7 @@ function TemplateSheet({
     template ? offerDraftOf(template) : emptyOffer(),
   );
   const [checked, setChecked] = useState(false);
-  const key = useRef<string | null>(null);
+  const attempt = useRef<{ body: string; key: string } | null>(null);
   const create = useCreateTemplate();
   const update = useUpdateTemplate();
   const remove = useDeleteTemplate();
@@ -229,8 +229,11 @@ function TemplateSheet({
       if (template) {
         await update.mutateAsync({ templateId: template.id, body: { ...body, title: name } });
       } else {
-        key.current ??= crypto.randomUUID();
-        await create.mutateAsync({ key: key.current, body: { ...body, title: name } });
+        const sent = { ...body, title: name };
+        const json = JSON.stringify(sent);
+        if (attempt.current?.body !== json)
+          attempt.current = { body: json, key: crypto.randomUUID() };
+        await create.mutateAsync({ key: attempt.current.key, body: sent });
       }
       onClose();
     } catch {
