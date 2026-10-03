@@ -148,7 +148,16 @@ async def test_wrong_method_lists_all_methods_of_path(client: httpx.AsyncClient)
     _problem(response, 405, "method_not_allowed")
     assert response.headers["allow"] == "POST"
     shared = await client.put("/api/v1/test/shared")
-    assert shared.headers["allow"] == "GET, HEAD, PATCH"
+    assert shared.headers["allow"] == "GET, PATCH"
+
+
+@pytest.mark.parametrize("path", ["/api/v1/test/shared", "/up"])
+async def test_allow_only_lists_supported_methods(client: httpx.AsyncClient, path: str) -> None:
+    response = await client.put(path)
+    assert response.status_code == 405
+    for method in response.headers["allow"].split(", "):
+        allowed = await client.request(method, path)
+        assert allowed.status_code == 200, method
 
 
 # --- таблица ADR-0020 §9 ------------------------------------------------------------------

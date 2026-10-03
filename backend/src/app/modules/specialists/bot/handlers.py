@@ -97,7 +97,7 @@ async def choose(
     principal: Principal | None = None,
 ) -> None:
     value = (callback.data or "").removeprefix(AVAILABLE_CALLBACK)
-    if principal is None or (value != OFF and not value.isdigit()):
+    if principal is None or (value != OFF and value not in {str(hour) for hour in HOURS}):
         await callback.answer()
         return
     until = None if value == OFF else time(int(value))
