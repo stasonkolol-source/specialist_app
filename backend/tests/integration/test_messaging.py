@@ -6,12 +6,14 @@
 удаление аккаунта и срок хранения стирают текст. Данные коммитятся.
 """
 
+import re
 from collections.abc import AsyncIterator
 from uuid import UUID
 
 import pytest
 from dishka import AsyncContainer
 from sqlalchemy import text
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.entrypoints._wiring import make_worker_container, module_routers
@@ -24,6 +26,7 @@ from app.modules.messaging.application.use_cases.purge_messages import (
     PurgeMessages,
     PurgeMessagesCommand,
 )
+from app.modules.messaging.infrastructure.queries import unread_total_query
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import new_id
 from app.platform.settings import Settings
@@ -232,6 +235,21 @@ async def test_pages_polling_and_etag(chat: Chat) -> None:
     assert (quiet["items"], quiet["newer_cursor"]) == ([], polled["newer_cursor"])
     changed = await chat.get(client, path, **{"if-none-match": initial.headers["etag"]})
     assert changed.status_code == 200
+
+
+async def test_unread_count_is_an_index_range(chat: Chat) -> None:
+    """Перф-аудит: непрочитанные считаются диапазоном индекса (conversation_id, id) от границы
+    прочитанного, а не фильтром по всем сообщениям диалогов (`IS NULL OR id > …`)."""
+    client, performer, response_id = await chat.pair()
+    await chat.start(performer, response_id=response_id)
+    sql = unread_total_query(client).compile(
+        dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+    )
+    engine = await chat.app.container.get(AsyncEngine)
+    async with engine.begin() as conn:
+        await conn.execute(text("SET LOCAL enable_seqscan = off"))  # маленькая база теста
+        plan = "\n".join((await conn.execute(text(f"EXPLAIN {sql}"))).scalars())
+    assert re.search(r"Index Cond: .*\(id > COALESCE\(", plan), plan
 
 
 async def test_unread_until_read(chat: Chat) -> None:
