@@ -1,7 +1,10 @@
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 
 import { server } from './msw.ts';
+
+// Первый экран файла под нагрузкой (turbo гоняет тесты пакетов параллельно) бывает дольше секунды
+configure({ asyncUtilTimeout: 3000 });
 
 // Запрос без обработчика — ошибка теста: экран не должен ходить в неописанный API
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
