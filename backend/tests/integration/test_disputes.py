@@ -469,3 +469,26 @@ async def test_open_dispute_holds_account_deletion_and_evidence(world: World) ->
     status = await world.row("SELECT status FROM identity.users WHERE id = :id", id=performer)
     assert status.status == "deleted"
     assert released == set()
+
+
+async def test_contacts_stay_open_under_dispute(world: World) -> None:
+    """Спор открывают только по договорённости: контакты в чате сделки под спором не прячутся
+    снова — сторонам нужно договориться."""
+    client, performer = await world.user(), await world.user()
+    deal_id = await world.deal(client, performer)
+    response = await world.row(
+        "SELECT response_id FROM deals.deals WHERE id = :id", id=UUID(deal_id)
+    )
+    started = await world.post(client, "/conversations", {"response_id": str(response.response_id)})
+    assert started.status_code in (200, 201), started.text
+    conversation_id = started.json()["id"]
+    await world.dispute(client, deal_id)
+
+    phone = await world.post(
+        performer,
+        f"/conversations/{conversation_id}/messages",
+        {"body": "Мой номер +381 64 123 4567"},
+    )
+
+    assert phone.status_code == 201, phone.text
+    assert (phone.json()["masked"], phone.json()["body"]) == (False, "Мой номер +381 64 123 4567")

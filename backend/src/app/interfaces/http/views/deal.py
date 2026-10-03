@@ -41,8 +41,9 @@ from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Principal
 
 router = APIRouter(tags=["views"])
-OPEN: Final = frozenset({"agreed", "completed"})
-"""Договорились: Telegram второй стороны виден (S43, 6.5)."""
+OPEN: Final = frozenset({"agreed", "disputed", "completed"})
+"""Договорились: Telegram второй стороны виден (S43, 6.5) — и под спором (6.1c): спор открывают
+только по договорённости."""
 DealPath = Annotated[UUID, Path(description="id сделки")]
 
 DealState = Literal["proposed", "agreed", "completed", "cancelled", "disputed"]

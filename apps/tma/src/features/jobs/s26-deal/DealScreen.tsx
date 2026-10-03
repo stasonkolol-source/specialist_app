@@ -234,7 +234,9 @@ function Deal({ deal }: { deal: DealCardOut }) {
         </Banner>
       )}
       <Counterpart deal={deal} />
-      {(agreed || deal.status === 'completed') && <Contacts deal={deal} />}
+      {(agreed || deal.status === 'disputed' || deal.status === 'completed') && (
+        <Contacts deal={deal} />
+      )}
       <Address deal={deal} />
       <Steps deal={deal} />
       <State deal={deal} />
