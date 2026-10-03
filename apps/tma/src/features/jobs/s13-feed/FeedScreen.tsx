@@ -42,6 +42,8 @@ import { JOBS_PATHS } from '../shared/paths.ts';
 import { FeedList } from './FeedList.tsx';
 
 const SKELETON_CARDS = 3;
+/** За сколько пикселей до конца ленты грузить следующую страницу: ~1,5 экрана телефона. */
+const NEXT_PAGE_MARGIN_PX = 1500;
 
 export function FeedScreen() {
   const { t } = useTranslation('jobs');
@@ -253,7 +255,8 @@ function MoreButton({
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) more();
       },
-      { rootMargin: '400px 0px' },
+      // следующая страница — за полтора экрана до конца: к концу ленты она уже пришла
+      { rootMargin: `${NEXT_PAGE_MARGIN_PX}px 0px` },
     );
     observer.observe(target);
     return () => observer.disconnect();

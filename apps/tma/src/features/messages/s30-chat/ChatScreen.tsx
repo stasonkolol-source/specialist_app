@@ -34,7 +34,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter, useSearch } from '@tanstack/react-router';
 import type { MouseEvent, ReactNode } from 'react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { LoadError } from '../shared/LoadError.tsx';
 import { MESSAGES_PATHS, dealPath, managedJobPath, profilePath } from '../shared/paths.ts';
@@ -104,7 +104,6 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
   const { t } = useTranslation('messages');
   const format = useFormat();
   const insets = useInsets();
-  const [draft, setDraft] = useState('');
   const [proposing, setProposing] = useState(false);
   const { share: shareAsked } = useSearch({ strict: false }) as { share?: true };
   const contactsOpen = ['agreed', 'completed'].includes(dealState(conversation));
@@ -128,10 +127,9 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
     if (count > 0 && stick.current) bottom.current?.scrollIntoView?.({ block: 'end' });
   }, [count]);
 
-  const send = () => {
+  const send = (text: string) => {
     stick.current = true;
-    chat.send(draft);
-    setDraft('');
+    chat.send(text);
   };
 
   const started = new Date(conversation.created_at);
@@ -183,16 +181,7 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
       </div>
       <SendError error={chat.sendError} />
       {writable ? (
-        <Composer
-          value={draft}
-          onChange={setDraft}
-          onSend={send}
-          placeholder={t('chat.placeholder')}
-          label={t('chat.placeholder')}
-          sendLabel={t('chat.send')}
-          maxLength={MAX_MESSAGE}
-          bottomInset={insets.bottom}
-        />
+        <DraftComposer onSend={send} bottomInset={insets.bottom} />
       ) : (
         <div
           className="sticky bottom-0 bg-bg px-4 pt-3"
@@ -342,7 +331,36 @@ function Header({
   );
 }
 
-function Entry({
+/** Поле ввода со своим черновиком: набор текста перерисовывает только его, а не всю переписку. */
+function DraftComposer({
+  onSend,
+  bottomInset,
+}: {
+  onSend: (text: string) => void;
+  bottomInset: number;
+}) {
+  const { t } = useTranslation('messages');
+  const [draft, setDraft] = useState('');
+  return (
+    <Composer
+      value={draft}
+      onChange={setDraft}
+      onSend={() => {
+        onSend(draft);
+        setDraft('');
+      }}
+      placeholder={t('chat.placeholder')}
+      label={t('chat.placeholder')}
+      sendLabel={t('chat.send')}
+      maxLength={MAX_MESSAGE}
+      bottomInset={bottomInset}
+    />
+  );
+}
+
+/** Сообщение ленты: перерисовывается, только когда изменилось оно само (опрос раз в 4 с отдаёт
+ *  ту же историю — те же объекты). */
+const Entry = memo(function Entry({
   entry,
   conversation,
   onRetry,
@@ -386,7 +404,7 @@ function Entry({
       )}
     </>
   );
-}
+});
 
 function MessageBody({ message }: { message: MessageOut }) {
   const { t } = useTranslation('messages');
