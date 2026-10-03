@@ -44,8 +44,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** Дольше gcTime React Query по умолчанию: запись кэша без подписчиков уже была бы удалена. */
-const PAST_DEFAULT_GC_MS = 5 * 60_000 + 1;
+/** Дольше gcTime приложения (app/query.ts): запись кэша без подписчиков уже была бы удалена. */
+const PAST_DEFAULT_GC_MS = 30 * 60_000 + 1;
 
 /** Таймеры React Query (сборка мусора) — поддельные; остальное время идёт как обычно. */
 const fakeGcTimers = () =>

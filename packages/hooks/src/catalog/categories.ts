@@ -10,8 +10,9 @@ import {
 } from '@sosed/api-client';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
-/** Как Cache-Control ответов (max-age=300): справочники меняются редко. */
-export const DICTIONARY_STALE_MS = 5 * 60_000;
+/** Справочники меняются редко: час без перечитывания (ответ сервера кэшируется на 5 минут —
+ *  Cache-Control max-age=300 — и после часа браузер спросит его заново). */
+export const DICTIONARY_STALE_MS = 60 * 60_000;
 
 export function categoriesQueryKey(locale: Locale, city?: string) {
   return [...getCatalogListCategoriesQueryKey(city ? { city } : undefined), locale] as const;

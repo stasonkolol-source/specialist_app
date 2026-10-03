@@ -5,8 +5,9 @@ import type { CityOut, Locale } from '@sosed/api-client';
 import { getGeoListCitiesQueryKey, getGeoListCitiesQueryOptions } from '@sosed/api-client';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
-/** Как Cache-Control ответа (max-age=300): справочник меняется редко. */
-export const CITIES_STALE_MS = 5 * 60_000;
+/** Справочник меняется редко: час без перечитывания (ответ сервера кэшируется на 5 минут —
+ *  Cache-Control max-age=300). */
+export const CITIES_STALE_MS = 60 * 60_000;
 
 export function citiesQueryKey(locale: Locale) {
   return [...getGeoListCitiesQueryKey(), locale] as const;
