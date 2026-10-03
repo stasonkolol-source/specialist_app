@@ -11,7 +11,7 @@ from aiogram.utils.web_app import check_webapp_signature
 from pydantic import SecretStr
 
 from app.platform.security.errors import InitDataExpiredError, InvalidInitDataError
-from app.platform.security.initdata import InitDataVerifier, sign
+from app.platform.security.initdata import InitDataVerifier, SharedContact, sign
 from app.platform.testing.clock import FakeClock
 
 pytestmark = pytest.mark.unit
@@ -191,3 +191,43 @@ def test_errors_do_not_carry_initdata() -> None:
         verifier().verify(init_data(token=OTHER_BOT_TOKEN))
     assert "ana_ns" not in str(caught.value)
     assert caught.value.params == {}
+
+
+def contact_response(contact: object, *, token: str = BOT_TOKEN) -> str:
+    """Ответ `requestContact`: поле `contact` (JSON), `auth_date` и подпись, как у initData."""
+    fields = {"auth_date": FIELDS["auth_date"], "contact": json.dumps(contact)}
+    return urlencode(fields | {"hash": sign(fields, token)})
+
+
+def test_shared_contact_gives_the_phone_and_its_owner() -> None:
+    raw = contact_response(
+        {"user_id": USER["id"], "phone_number": "381641234567", "first_name": "Ana"}
+    )
+
+    assert verifier().verify_contact(raw) == SharedContact(
+        user_id=279058397, phone_e164="+381641234567"
+    )
+
+
+@pytest.mark.parametrize(
+    "contact",
+    [
+        {"phone_number": "381641234567"},  # без владельца
+        {"user_id": 1, "phone_number": "64 123"},  # не номер
+        {"user_id": 1, "phone_number": "1" * 16},  # длиннее E.164
+        ["381641234567"],
+    ],
+)
+def test_malformed_contact_is_rejected(contact: object) -> None:
+    with pytest.raises(InvalidInitDataError):
+        verifier().verify_contact(contact_response(contact))
+
+
+def test_contact_of_another_bot_or_stale_is_rejected() -> None:
+    contact = {"user_id": USER["id"], "phone_number": "+381641234567"}
+    with pytest.raises(InvalidInitDataError):
+        verifier().verify_contact(contact_response(contact, token=OTHER_BOT_TOKEN))
+    with pytest.raises(InitDataExpiredError):
+        verifier(now=AUTH_DATE + timedelta(hours=2)).verify_contact(contact_response(contact))
+    with pytest.raises(InvalidInitDataError):
+        verifier().verify_contact(init_data())  # initData без контакта — не контакт

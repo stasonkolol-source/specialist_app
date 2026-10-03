@@ -9,7 +9,7 @@ import type { CardReviewOut } from './cardReviewOut.ts';
 
 export interface CardReviewsOut {
   summary: CardRatingOut;
-  /** Новые сначала — отзывы появятся с 7.2 */
+  /** Опубликованные отзывы по сделкам, новые первыми */
   items: CardReviewOut[];
   next_cursor: string | null;
 }

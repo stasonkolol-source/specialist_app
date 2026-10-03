@@ -67,6 +67,7 @@ def test_reminder_two_hours_before_once() -> None:
 def test_completion_prompt_after_the_time_asks_who_has_not_marked() -> None:
     work = deal(at=NOW + timedelta(hours=1))
     work.complete(actor_id=PERFORMER, now=NOW + timedelta(hours=2))
+    work.pull_events()  # DealMarkedDone: клиента спросили сразу (7.3), здесь — вопрос по сроку
 
     assert not work.prompt_completion(now=NOW + timedelta(hours=3, minutes=59))
     assert work.prompt_completion(now=NOW + timedelta(hours=4))
@@ -88,6 +89,7 @@ def test_completion_prompt_without_time_a_day_after_agreement() -> None:
 def test_silent_party_for_three_days_completes_the_deal() -> None:
     work = deal()
     work.complete(actor_id=CLIENT, now=NOW)
+    work.pull_events()  # DealMarkedDone
 
     assert not work.auto_complete(now=NOW + timedelta(hours=71))
     assert work.auto_complete(now=NOW + timedelta(hours=72))
@@ -115,6 +117,7 @@ def test_unanswered_proposal_expires() -> None:
         terms=DealTerms(title="Уборка"),
         now=NOW,
     )
+    proposal.pull_events()  # DealProposed
 
     assert not proposal.expire_proposal(now=NOW + timedelta(hours=71))
     assert proposal.expire_proposal(now=NOW + timedelta(hours=72))

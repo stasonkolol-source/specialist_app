@@ -10,7 +10,11 @@
     "messages": "Poruke",
     "profile": "Profil",
     "create": "Novi zahtev",
-    "sections": "Odeljci"
+    "sections": "Odeljci",
+    "count": {
+      "jobs": "{count, plural, one {# nova ponuda} few {# nove ponude} other {# novih ponuda}}",
+      "messages": "{count, plural, one {# nepročitana poruka} few {# nepročitane poruke} other {# nepročitanih poruka}}"
+    }
   },
   "glossary": {
     "job": "zahtev",
@@ -163,7 +167,8 @@
   },
   "settings": {
     "notifications": "Obaveštenja",
-    "language": "Jezik"
+    "language": "Jezik",
+    "title": "Podešavanja"
   },
   "photo": {
     "work": "Fotografija rada",
@@ -217,6 +222,7 @@
     "support": "Podrška",
     "rules": "Pravila platforme",
     "activity": "Moja aktivnost",
-    "favorites": "Omiljeni"
+    "favorites": "Omiljeni",
+    "history": "Dogovori i utisci"
   }
 }

@@ -19,6 +19,10 @@ notifications стоит над контентными модулями (ARCHITE
   `notifications.notify_responses` через пять минут, следующие — ничего (дебаунс, 5.4).
 - `notifications.notify_responses` — конец окна: клиенту «Новых откликов: 3» и кнопка к
   заявке, если отклики прошли проверку и он их ещё не открыл.
+- `notifications.schedule_messages_notice` — MessageSent: первое сообщение окна ставит
+  `notifications.notify_messages` получателю через минуту, следующие — ничего (дебаунс, 6.3b).
+- `notifications.notify_messages` — конец окна: «Алексей пишет» с началом последнего сообщения и
+  кнопкой «Ответить», если получатель ещё не прочитал и не смотрит диалог прямо сейчас.
 - `notifications.notify_job_invited` — JobInvited: специалисту «Вас приглашают откликнуться»
   или «Прямой запрос» — кнопка к заявке и «Шаблон «…»» на каждый его шаблон (отклик в один
   тап обрабатывает бот jobs), если заявка ещё открыта (5.6).
@@ -26,12 +30,20 @@ notifications стоит над контентными модулями (ARCHITE
   выбрал вас» и кнопка к сделке (6.1b), если сделка ещё идёт.
 - `notifications.notify_passed_over` — ResponseAccepted: остальным откликнувшимся «Клиент выбрал
   другого исполнителя», пока заявка «в работе».
+- `notifications.notify_deal_proposed` — DealProposed: второй стороне «Клиент (исполнитель)
+  предлагает договориться» и кнопка к условиям, пока предложение ждёт (6.3b).
 - `notifications.notify_deal_cancelled` — DealCancelled: второй стороне — кто отменил и почему
   (при отмене системой — обеим, кроме удалённого аккаунта); клиенту из отклика — «заявка снова
   открыта».
 - `notifications.notify_deal_reminder` — DealReminderDue: обеим сторонам за 2 ч до времени.
-- `notifications.notify_deal_completion` — DealCompletionDue: «Работа выполнена?» с [Да,
-  выполнено] (кнопку обрабатывает бот deals) и [Нет, проблема] тем, кто ещё не отметил.
+- `notifications.notify_deal_completion` — DealCompletionDue: «Работа выполнена?» с [Да, всё
+  хорошо] (кнопку обрабатывает бот deals) и [Есть проблема] тем, кто ещё не отметил.
+- `notifications.notify_deal_marked` — DealMarkedDone: то же второй стороне сразу после отметки
+  первой: «исполнитель (клиент) отметил работу выполненной. Всё в порядке?» (B2, 7.3).
+- `notifications.notify_review_request` — ReviewRequested: клиенту — «Как прошла работа?» и
+  «Оставить отзыв» (после завершения, через сутки, за 2 дня до конца окна; 7.2).
+- `notifications.notify_review_published` — ReviewPublished: исполнителю — новый отзыв и
+  «Ответить на отзыв» (7.2).
 - `notifications.forget_recipient` — UserDeleted: лента, каналы и настройки удалённого
   аккаунта удалены (§7.10).
 - `notifications.send` — отправить доставку в бот (очередь `notifications`).
@@ -44,26 +56,34 @@ from uuid import UUID
 
 from dishka import FromDishka
 
-from app.modules.deals.api import DealsApi
+from app.modules.deals.api import DealNotFoundError, DealsApi
 from app.modules.identity.api import IdentityApi
 from app.modules.jobs.api import InviteNotice, JobBrief, JobsApi
+from app.modules.messaging.api import MessagingApi
 from app.modules.notifications.application.ports import (
     FORGET_RECIPIENT,
     GRANT_WRITE_ACCESS,
     NOTIFY_ACCOUNT_RESTRICTED,
     NOTIFY_DEAL_CANCELLED,
     NOTIFY_DEAL_COMPLETION,
+    NOTIFY_DEAL_MARKED,
+    NOTIFY_DEAL_PROPOSED,
     NOTIFY_DEAL_REMINDER,
     NOTIFY_JOB_EXPIRED,
     NOTIFY_JOB_EXPIRING,
     NOTIFY_JOB_INVITED,
+    NOTIFY_MESSAGES,
     NOTIFY_MODERATION_DECISION,
     NOTIFY_PASSED_OVER,
     NOTIFY_PROFILE_PUBLISHED,
     NOTIFY_RESPONSE_ACCEPTED,
     NOTIFY_RESPONSES,
+    NOTIFY_REVIEW_PUBLISHED,
+    NOTIFY_REVIEW_REQUEST,
+    SCHEDULE_MESSAGES_NOTICE,
     SCHEDULE_RESPONSES_NOTICE,
     SEND_DELIVERY,
+    MessagesWindow,
     ResponsesWindow,
     SendDeliveryPayload,
 )
@@ -80,6 +100,10 @@ from app.modules.notifications.application.use_cases.grant_telegram_write_access
     GrantTelegramWriteAccessCommand,
 )
 from app.modules.notifications.application.use_cases.notify import Notify, NotifyCommand
+from app.modules.notifications.application.use_cases.schedule_messages_notice import (
+    ScheduleMessagesNotice,
+    ScheduleMessagesNoticeCommand,
+)
 from app.modules.notifications.application.use_cases.schedule_responses_notice import (
     ScheduleResponsesNotice,
     ScheduleResponsesNoticeCommand,
@@ -91,7 +115,14 @@ from app.modules.notifications.application.use_cases.send_delivery import (
 from app.modules.notifications.domain.catalog import NotificationType
 from app.modules.notifications.domain.channel import GrantedVia
 from app.modules.notifications.domain.notification import DeliveryId
-from app.platform.contracts.events.deals import DealCancelled, DealCompletionDue, DealReminderDue
+from app.modules.reviews.api import ReviewsApi
+from app.platform.contracts.events.deals import (
+    DealCancelled,
+    DealCompletionDue,
+    DealMarkedDone,
+    DealProposed,
+    DealReminderDue,
+)
 from app.platform.contracts.events.identity import (
     BotStarted,
     RestrictionKind,
@@ -105,22 +136,34 @@ from app.platform.contracts.events.jobs import (
     ResponseAccepted,
     ResponseSubmitted,
 )
+from app.platform.contracts.events.messaging import MessageSent
 from app.platform.contracts.events.moderation import ModerationDecision, ModerationDecisionMade
+from app.platform.contracts.events.reviews import ReviewPublished, ReviewRequested
 from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.kernel.ids import DealId, UserId
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber, task
-from app.platform.telegram.deeplinks import LinkDocument, LinkType, StartLink, encode_start_param
+from app.platform.telegram.deeplinks import (
+    LinkDocument,
+    LinkSection,
+    LinkType,
+    StartLink,
+    encode_start_param,
+)
 
 TEMPLATE_BUTTONS: Final = 2
 """Кнопок «Откликнуться шаблоном» в уведомлении: шаблонов у исполнителя не больше двух."""
 
+REVIEW_PREVIEW_CHARS: Final = 100
+"""Начало отзыва в уведомлении исполнителю — как превью сообщения (6.3b)."""
+
 RULES_LINK = encode_start_param(StartLink(type=LinkType.LEGAL, document=LinkDocument.TERMS))
+REVIEWS_LINK = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSection.REVIEWS))
 HOME_LINK = encode_start_param(StartLink(type=LinkType.HOME))
 FIX_LINKS = {"job": LinkType.JOB, "profile": LinkType.SPECIALIST}
 """Куда ведёт «Исправить»: к заявке или профилю; отклик — к его заявке; остальное — на
 Главную (экраны — позже)."""
 RESPONSE = "response"
-AGREED = "agreed"
+AGREED, PROPOSED = "agreed", "proposed"
 CLIENT, PERFORMER = "client", "performer"
 """Стороны сделки — как `cancelled_by` в DealCancelled."""
 
@@ -262,6 +305,53 @@ async def notify_responses(
     )
 
 
+@subscriber(MessageSent, SCHEDULE_MESSAGES_NOTICE)
+async def schedule_messages_notice(
+    event: MessageSent, schedule: FromDishka[ScheduleMessagesNotice]
+) -> None:
+    await schedule(
+        ScheduleMessagesNoticeCommand(
+            conversation_id=event.conversation_id,
+            recipient_id=event.recipient_id,
+            at=event.occurred_at,
+        )
+    )
+
+
+@task(NOTIFY_MESSAGES)
+async def notify_messages(
+    window: MessagesWindow,
+    notify: FromDishka[Notify],
+    messaging: FromDishka[MessagingApi],
+    identity: FromDishka[IdentityApi],
+) -> None:
+    notice = await messaging.message_notice(window.conversation_id, window.recipient_id)
+    if notice is None:
+        return  # всё прочитано или диалог открыт прямо сейчас
+    recipient = await identity.get_user(window.recipient_id)
+    if recipient is None or recipient.is_deleted:
+        return
+    sender = await identity.get_user(notice.sender_id)
+    params = {
+        "name": sender.display_name if sender is not None and not sender.is_deleted else "",
+        "count": str(notice.unread),
+    }
+    if notice.preview is not None:
+        params["preview"] = notice.preview
+    await notify(
+        NotifyCommand(
+            user_id=window.recipient_id,
+            type=NotificationType.MESSAGE_RECEIVED,
+            dedupe_key=(
+                f"message.received:{window.conversation_id}:{window.recipient_id}:"
+                f"{window.since.isoformat()}"
+            ),
+            params=params,
+            link=_chat_link(window.conversation_id),
+        )
+    )
+
+
 @subscriber(JobInvited, NOTIFY_JOB_INVITED)
 async def notify_job_invited(
     event: JobInvited, notify: FromDishka[Notify], jobs: FromDishka[JobsApi]
@@ -328,6 +418,45 @@ async def notify_passed_over(
                 params={"title": job.title},
             )
         )
+
+
+@subscriber(DealProposed, NOTIFY_DEAL_PROPOSED)
+async def notify_deal_proposed(
+    event: DealProposed,
+    notify: FromDishka[Notify],
+    deals: FromDishka[DealsApi],
+    identity: FromDishka[IdentityApi],
+) -> None:
+    """Второй стороне — «Клиент (исполнитель) предлагает договориться»: условия в тексте, кнопки
+    «Подтвердить» и «Отклонить» (бот deals) и ссылка на условия в Mini App (S53)."""
+    deal = await deals.deal_brief(event.deal_id)
+    if deal is None or deal.status != PROPOSED:
+        return  # уже подтвердили, отклонили или истекло
+    by_client = event.proposed_by == event.client_id
+    other = event.performer_id if by_client else event.client_id
+    user = await identity.get_user(other)
+    if user is None or user.is_deleted:
+        return
+    params = {
+        "title": deal.title,
+        "by": CLIENT if by_client else PERFORMER,
+        "deal_id": str(event.deal_id),
+    }
+    if deal.scheduled_at is not None:
+        params["at"] = deal.scheduled_at.isoformat()
+    if deal.price_type is not None:
+        params["price_type"] = deal.price_type
+    if deal.agreed_price is not None:
+        params["price"] = str(deal.agreed_price)
+    await notify(
+        NotifyCommand(
+            user_id=other,
+            type=NotificationType.DEAL_PROPOSED,
+            dedupe_key=f"deal.proposed:{event.deal_id}",
+            params=params,
+            link=_deal_link(event.deal_id),
+        )
+    )
 
 
 @subscriber(DealCancelled, NOTIFY_DEAL_CANCELLED)
@@ -406,6 +535,105 @@ async def notify_deal_completion(
                 link=_deal_link(event.deal_id),
             )
         )
+
+
+@subscriber(ReviewRequested, NOTIFY_REVIEW_REQUEST)
+async def notify_review_request(
+    event: ReviewRequested,
+    notify: FromDishka[Notify],
+    deals: FromDishka[DealsApi],
+    identity: FromDishka[IdentityApi],
+    reviews: FromDishka[ReviewsApi],
+) -> None:
+    """Клиенту — «Как прошла работа?» с кнопкой «Оставить отзыв» (сделка S26). Отзыв уже
+    оставлен, окно закрылось или исполнителя нет — не просим."""
+    try:
+        deal = await deals.deal_for(event.deal_id, event.client_id)
+    except DealNotFoundError:
+        return
+    state = await reviews.review_state(
+        deal.id,
+        event.client_id,
+        client_id=deal.client_id,
+        status=deal.status,
+        completed_at=deal.completed_at,
+    )
+    performer = await identity.get_user(event.performer_id)
+    if state.open_until is None or performer is None or performer.is_deleted:
+        return
+    await notify(
+        NotifyCommand(
+            user_id=event.client_id,
+            type=NotificationType.REVIEW_REQUEST,
+            dedupe_key=f"review.request:{event.deal_id}:{event.stage}",
+            params={
+                "title": deal.title,
+                "performer": performer.display_name,
+                "stage": event.stage,
+                "deal_id": str(event.deal_id),
+            },
+            link=_deal_link(event.deal_id),
+            valid_until=state.open_until,
+        )
+    )
+
+
+@subscriber(ReviewPublished, NOTIFY_REVIEW_PUBLISHED)
+async def notify_review_published(
+    event: ReviewPublished,
+    notify: FromDishka[Notify],
+    deals: FromDishka[DealsApi],
+    reviews: FromDishka[ReviewsApi],
+) -> None:
+    """Исполнителю — новый отзыв: оценка, начало текста, «Ответить на отзыв» («Мои отзывы»)."""
+    review = await reviews.published_review(event.review_id)
+    if review is None:
+        return  # успели снять
+    deal = await deals.deal_brief(event.deal_id) if event.deal_id is not None else None
+    params = {"rating": str(review.rating), "title": deal.title if deal is not None else ""}
+    if review.body:
+        params["preview"] = _preview(review.body)
+    await notify(
+        NotifyCommand(
+            user_id=event.subject_user_id,
+            type=NotificationType.REVIEW_PUBLISHED,
+            dedupe_key=f"review.published:{event.review_id}",
+            params=params,
+            link=REVIEWS_LINK,
+        )
+    )
+
+
+def _preview(text: str) -> str:
+    flat = " ".join(text.split())
+    if len(flat) <= REVIEW_PREVIEW_CHARS:
+        return flat
+    return flat[: REVIEW_PREVIEW_CHARS - 1].rstrip() + "…"
+
+
+@subscriber(DealMarkedDone, NOTIFY_DEAL_MARKED)
+async def notify_deal_marked(
+    event: DealMarkedDone, notify: FromDishka[Notify], deals: FromDishka[DealsApi]
+) -> None:
+    """Второй стороне — «Работа выполнена?» сразу после отметки первой; тот же ключ, что у
+    вопроса по сроку, — второй раз не спросим."""
+    deal = await deals.deal_brief(event.deal_id)
+    if deal is None or deal.status != AGREED:
+        return  # уже завершена или отменена
+    other = event.client_id if event.marked_by == PERFORMER else event.performer_id
+    await notify(
+        NotifyCommand(
+            user_id=other,
+            type=NotificationType.DEAL_COMPLETION_PROMPT,
+            dedupe_key=f"deal.completion_prompt:{event.deal_id}:{other}",
+            params={"title": deal.title, "deal_id": str(event.deal_id), "by": event.marked_by},
+            link=_deal_link(event.deal_id),
+        )
+    )
+
+
+def _chat_link(conversation_id: UUID) -> str:
+    return encode_start_param(StartLink(type=LinkType.CHAT, id=conversation_id))
 
 
 def _deal_link(deal_id: DealId) -> str:

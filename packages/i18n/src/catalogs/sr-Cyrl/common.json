@@ -10,7 +10,11 @@
     "messages": "Поруке",
     "profile": "Профил",
     "create": "Нови захтев",
-    "sections": "Одељци"
+    "sections": "Одељци",
+    "count": {
+      "jobs": "{count, plural, one {# нова понуда} few {# нове понуде} other {# нових понуда}}",
+      "messages": "{count, plural, one {# непрочитана порука} few {# непрочитане поруке} other {# непрочитаних порука}}"
+    }
   },
   "glossary": {
     "job": "захтев",
@@ -163,7 +167,8 @@
   },
   "settings": {
     "notifications": "Обавештења",
-    "language": "Језик"
+    "language": "Језик",
+    "title": "Подешавања"
   },
   "photo": {
     "work": "Фотографија рада",
@@ -217,6 +222,7 @@
     "support": "Подршка",
     "rules": "Правила платформе",
     "activity": "Моја активност",
-    "favorites": "Омиљени"
+    "favorites": "Омиљени",
+    "history": "Договори и утисци"
   }
 }

@@ -4,8 +4,10 @@
 // исполнителю и подработке — «Лента».
 // Таббар — только на корневых экранах вкладок (SPEC §2) и скрыт, пока показана MainButton: у
 // экрана с главным действием нет навигации вниз. Внутренние экраны (S48, S49b) — с «Назад».
+// Счётчики вкладок (6.4): «Заявки» — новые отклики на свои заявки, «Сообщения» — непрочитанные.
 import type { MeOut } from '@sosed/api-client';
 import { getIdentityGetMeQueryKey } from '@sosed/api-client';
+import { useBadges } from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
 import { useBottomButtonState, useInsets } from '@sosed/platform';
 import type { TabItem } from '@sosed/ui-web';
@@ -51,6 +53,8 @@ export function AppShell() {
     id === 'jobs' && client ? MY_JOBS_PATH : (DESTINATIONS.get(id) ?? '/');
   const main = useBottomButtonState('main');
   const insets = useInsets();
+  // «Заявки N» и «Сообщения N»: новые отклики и непрочитанные (6.4); гостю — без запроса
+  const badges = useBadges();
 
   // Экраны вкладок — отдельные чанки: загрузить их сразу после старта, пока есть сеть. Иначе
   // вкладка, открытая впервые без сети (метро), не откроется совсем
@@ -65,12 +69,25 @@ export function AppShell() {
     void router.navigate({ to: destination(id) });
   };
   const active = TABS.find((tab) => tab.path !== '/' && pathname.startsWith(tab.path))?.id;
-  const items: TabItem[] = TABS.map((tab) => ({
-    id: tab.id,
-    label: t(tab.label),
-    icon: tab.icon,
-    href: router.history.createHref(destination(tab.id)),
-  }));
+  const counts: Record<string, number | undefined> = {
+    jobs: badges.data?.jobs,
+    messages: badges.data?.messages,
+  };
+  const items: TabItem[] = TABS.map((tab) => {
+    const count = counts[tab.id];
+    return {
+      id: tab.id,
+      label: t(tab.label),
+      icon: tab.icon,
+      href: router.history.createHref(destination(tab.id)),
+      ...(count
+        ? {
+            count,
+            countLabel: t(`nav.count.${tab.id === 'jobs' ? 'jobs' : 'messages'}`, { count }),
+          }
+        : {}),
+    };
+  });
   const tabsVisible = !main.visible && TAB_ROOTS.has(pathname);
   const contentButton = main.visible && !main.native;
   const bottom = tabsVisible ? TABBAR_HEIGHT : contentButton ? BUTTON_AREA + insets.bottom : 0;

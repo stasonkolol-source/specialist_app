@@ -18,12 +18,17 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  BadgesOut,
   CardReviewsOut,
   CardServicesOut,
   CardWorksOut,
+  DealCardOut,
+  HistoryPageOut,
   ProblemOut,
   ResponseCardsOut,
   SpecialistProfileOut,
+  ViewsListDealHistoryParams,
+  ViewsListSpecialistReviewsParams,
 } from '../../model';
 
 import { apiFetch } from '../../../mutator.ts';
@@ -51,7 +56,8 @@ export const getViewsGetSpecialistUrl = (profileId: string) => {
 };
 
 /**
- * Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио и рейтинг.
+ * Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио, рейтинг и
+ * время ответа.
  * @summary Get Specialist
  */
 export const viewsGetSpecialist = async (
@@ -451,27 +457,46 @@ export function useViewsListSpecialistWorks<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
-export const getViewsListSpecialistReviewsUrl = (profileId: string) => {
-  return `/api/v1/specialists/${profileId}/reviews`;
+export const getViewsListSpecialistReviewsUrl = (
+  profileId: string,
+  params?: ViewsListSpecialistReviewsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/specialists/${profileId}/reviews?${stringifiedParams}`
+    : `/api/v1/specialists/${profileId}/reviews`;
 };
 
 /**
- * Отзывы S11: рейтинг с гистограммой и отзывы по сделкам. Сами отзывы и вкладка «До
- * платформы» (`kind`, курсор) — с 7.2 и 7.6; до того список пуст.
+ * Отзывы S11: рейтинг с гистограммой и опубликованные отзывы по сделкам с ответами,
+ * новые первыми (курсор). Вкладка «До платформы» (`kind`) — 7.6.
  * @summary List Specialist Reviews
  */
 export const viewsListSpecialistReviews = async (
   profileId: string,
+  params?: ViewsListSpecialistReviewsParams,
   options?: Parameters<typeof apiFetch>[1],
 ): Promise<CardReviewsOut> => {
-  return apiFetch<CardReviewsOut>(getViewsListSpecialistReviewsUrl(profileId), {
+  return apiFetch<CardReviewsOut>(getViewsListSpecialistReviewsUrl(profileId, params), {
     ...options,
     method: 'GET',
   });
 };
 
-export const getViewsListSpecialistReviewsQueryKey = (profileId: string) => {
-  return [`/api/v1/specialists/${profileId}/reviews`] as const;
+export const getViewsListSpecialistReviewsQueryKey = (
+  profileId: string,
+  params?: ViewsListSpecialistReviewsParams,
+) => {
+  return [`/api/v1/specialists/${profileId}/reviews`, ...(params ? [params] : [])] as const;
 };
 
 export const getViewsListSpecialistReviewsQueryOptions = <
@@ -479,6 +504,7 @@ export const getViewsListSpecialistReviewsQueryOptions = <
   TError = ErrorType<void | ProblemOut>,
 >(
   profileId: string,
+  params?: ViewsListSpecialistReviewsParams,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof viewsListSpecialistReviews>>, TError, TData>
@@ -488,11 +514,12 @@ export const getViewsListSpecialistReviewsQueryOptions = <
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getViewsListSpecialistReviewsQueryKey(profileId);
+  const queryKey =
+    queryOptions?.queryKey ?? getViewsListSpecialistReviewsQueryKey(profileId, params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof viewsListSpecialistReviews>>> = ({
     signal,
-  }) => viewsListSpecialistReviews(profileId, { signal, ...requestOptions });
+  }) => viewsListSpecialistReviews(profileId, params, { signal, ...requestOptions });
 
   return {
     queryKey,
@@ -514,6 +541,7 @@ export function useViewsListSpecialistReviews<
   TError = ErrorType<void | ProblemOut>,
 >(
   profileId: string,
+  params: undefined | ViewsListSpecialistReviewsParams,
   options: {
     query: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof viewsListSpecialistReviews>>, TError, TData>
@@ -535,6 +563,7 @@ export function useViewsListSpecialistReviews<
   TError = ErrorType<void | ProblemOut>,
 >(
   profileId: string,
+  params?: ViewsListSpecialistReviewsParams,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof viewsListSpecialistReviews>>, TError, TData>
@@ -556,6 +585,7 @@ export function useViewsListSpecialistReviews<
   TError = ErrorType<void | ProblemOut>,
 >(
   profileId: string,
+  params?: ViewsListSpecialistReviewsParams,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof viewsListSpecialistReviews>>, TError, TData>
@@ -573,6 +603,7 @@ export function useViewsListSpecialistReviews<
   TError = ErrorType<void | ProblemOut>,
 >(
   profileId: string,
+  params?: ViewsListSpecialistReviewsParams,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof viewsListSpecialistReviews>>, TError, TData>
@@ -581,7 +612,7 @@ export function useViewsListSpecialistReviews<
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-  const queryOptions = getViewsListSpecialistReviewsQueryOptions(profileId, options);
+  const queryOptions = getViewsListSpecialistReviewsQueryOptions(profileId, params, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;
@@ -720,6 +751,391 @@ export function useViewsListResponseCards<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getViewsListResponseCardsQueryOptions(jobId, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getViewsGetBadgesUrl = () => {
+  return `/api/v1/me/badges`;
+};
+
+/**
+ * Счётчики таббара: новые отклики и непрочитанные сообщения.
+ * @summary Get Badges
+ */
+export const viewsGetBadges = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BadgesOut> => {
+  return apiFetch<BadgesOut>(getViewsGetBadgesUrl(), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getViewsGetBadgesQueryKey = () => {
+  return [`/api/v1/me/badges`] as const;
+};
+
+export const getViewsGetBadgesQueryOptions = <
+  TData = Awaited<ReturnType<typeof viewsGetBadges>>,
+  TError = ErrorType<ProblemOut>,
+>(options?: {
+  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetBadges>>, TError, TData>>;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getViewsGetBadgesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof viewsGetBadges>>> = ({ signal }) =>
+    viewsGetBadges({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof viewsGetBadges>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ViewsGetBadgesQueryResult = NonNullable<Awaited<ReturnType<typeof viewsGetBadges>>>;
+export type ViewsGetBadgesQueryError = ErrorType<ProblemOut>;
+
+export function useViewsGetBadges<
+  TData = Awaited<ReturnType<typeof viewsGetBadges>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetBadges>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsGetBadges>>,
+          TError,
+          Awaited<ReturnType<typeof viewsGetBadges>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsGetBadges<
+  TData = Awaited<ReturnType<typeof viewsGetBadges>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetBadges>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsGetBadges>>,
+          TError,
+          Awaited<ReturnType<typeof viewsGetBadges>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsGetBadges<
+  TData = Awaited<ReturnType<typeof viewsGetBadges>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetBadges>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get Badges
+ */
+
+export function useViewsGetBadges<
+  TData = Awaited<ReturnType<typeof viewsGetBadges>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetBadges>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getViewsGetBadgesQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getViewsGetDealCardUrl = (dealId: string) => {
+  return `/api/v1/deals/${dealId}/card`;
+};
+
+/**
+ * Сделка стороне (S26): условия, вторая сторона, место и вехи; чужая — 404.
+ * @summary Get Deal Card
+ */
+export const viewsGetDealCard = async (
+  dealId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<DealCardOut> => {
+  return apiFetch<DealCardOut>(getViewsGetDealCardUrl(dealId), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getViewsGetDealCardQueryKey = (dealId: string) => {
+  return [`/api/v1/deals/${dealId}/card`] as const;
+};
+
+export const getViewsGetDealCardQueryOptions = <
+  TData = Awaited<ReturnType<typeof viewsGetDealCard>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  dealId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetDealCard>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getViewsGetDealCardQueryKey(dealId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof viewsGetDealCard>>> = ({ signal }) =>
+    viewsGetDealCard(dealId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: dealId !== null && dealId !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof viewsGetDealCard>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+};
+
+export type ViewsGetDealCardQueryResult = NonNullable<Awaited<ReturnType<typeof viewsGetDealCard>>>;
+export type ViewsGetDealCardQueryError = ErrorType<ProblemOut>;
+
+export function useViewsGetDealCard<
+  TData = Awaited<ReturnType<typeof viewsGetDealCard>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  dealId: string,
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetDealCard>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsGetDealCard>>,
+          TError,
+          Awaited<ReturnType<typeof viewsGetDealCard>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsGetDealCard<
+  TData = Awaited<ReturnType<typeof viewsGetDealCard>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  dealId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetDealCard>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsGetDealCard>>,
+          TError,
+          Awaited<ReturnType<typeof viewsGetDealCard>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsGetDealCard<
+  TData = Awaited<ReturnType<typeof viewsGetDealCard>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  dealId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetDealCard>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get Deal Card
+ */
+
+export function useViewsGetDealCard<
+  TData = Awaited<ReturnType<typeof viewsGetDealCard>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  dealId: string,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsGetDealCard>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getViewsGetDealCardQueryOptions(dealId, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getViewsListDealHistoryUrl = (params?: ViewsListDealHistoryParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/me/deal-history?${stringifiedParams}`
+    : `/api/v1/me/deal-history`;
+};
+
+/**
+ * Свои сделки (S28): клиентом и исполнителем, со второй стороной и отзывом.
+ * @summary List Deal History
+ */
+export const viewsListDealHistory = async (
+  params?: ViewsListDealHistoryParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<HistoryPageOut> => {
+  return apiFetch<HistoryPageOut>(getViewsListDealHistoryUrl(params), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getViewsListDealHistoryQueryKey = (params?: ViewsListDealHistoryParams) => {
+  return [`/api/v1/me/deal-history`, ...(params ? [params] : [])] as const;
+};
+
+export const getViewsListDealHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof viewsListDealHistory>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params?: ViewsListDealHistoryParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListDealHistory>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getViewsListDealHistoryQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof viewsListDealHistory>>> = ({ signal }) =>
+    viewsListDealHistory(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof viewsListDealHistory>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ViewsListDealHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof viewsListDealHistory>>
+>;
+export type ViewsListDealHistoryQueryError = ErrorType<ProblemOut>;
+
+export function useViewsListDealHistory<
+  TData = Awaited<ReturnType<typeof viewsListDealHistory>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: undefined | ViewsListDealHistoryParams,
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListDealHistory>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsListDealHistory>>,
+          TError,
+          Awaited<ReturnType<typeof viewsListDealHistory>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsListDealHistory<
+  TData = Awaited<ReturnType<typeof viewsListDealHistory>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params?: ViewsListDealHistoryParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListDealHistory>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsListDealHistory>>,
+          TError,
+          Awaited<ReturnType<typeof viewsListDealHistory>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsListDealHistory<
+  TData = Awaited<ReturnType<typeof viewsListDealHistory>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params?: ViewsListDealHistoryParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListDealHistory>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List Deal History
+ */
+
+export function useViewsListDealHistory<
+  TData = Awaited<ReturnType<typeof viewsListDealHistory>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params?: ViewsListDealHistoryParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsListDealHistory>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getViewsListDealHistoryQueryOptions(params, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;

@@ -6,7 +6,7 @@ from uuid import UUID
 
 from sqlalchemy import RowMapping, Select, select
 
-from app.modules.specialists.api import ProfileForIndex, PublicProfile, PublicWork
+from app.modules.specialists.api import ProfileForIndex, ProfileRef, PublicProfile, PublicWork
 from app.modules.specialists.application.dto import ProfileView
 from app.modules.specialists.domain.portfolio import WorkStatus
 from app.modules.specialists.domain.profile import (
@@ -28,6 +28,25 @@ from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, Use
 
 
 class SqlProfileQuery(SqlQuery):
+    async def refs_of_users(self, user_ids: Collection[UserId]) -> dict[UserId, ProfileRef]:
+        if not user_ids:
+            return {}
+        p = ProfileRow.__table__.c
+        rows = await self._fetch(
+            select(p.id, p.user_id, p.kind, p.status, p.display_name).where(
+                p.user_id.in_(list(user_ids)), p.deleted_at.is_(None)
+            )
+        )
+        return {
+            UserId(row["user_id"]): ProfileRef(
+                id=row["id"],
+                kind=str(row["kind"]),
+                status=str(row["status"]),
+                display_name=row["display_name"],
+            )
+            for row in rows
+        }
+
     async def of_user(self, user_id: UserId) -> ProfileView | None:
         p = ProfileRow.__table__.c
         row = await self._fetch_one(

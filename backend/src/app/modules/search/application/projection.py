@@ -17,6 +17,7 @@ from app.modules.geo.api import DistrictSummary, GeoApi
 from app.modules.identity.api import IdentityApi
 from app.modules.media.api import MediaApi, MediaRef
 from app.modules.pricing.api import PricingApi, SearchPrices
+from app.modules.reviews.api import NO_REVIEWS_LOWER_BOUND, RatingSummary, ReviewsApi
 from app.modules.search.domain.index import (
     IndexEntry,
     Labels,
@@ -54,10 +55,12 @@ class SpecialistProjection:
         catalog: CatalogApi,
         geo: GeoApi,
         media: MediaApi,
+        reviews: ReviewsApi,
         clock: Clock,
     ) -> None:
         self._specialists, self._identity, self._pricing = specialists, identity, pricing
         self._catalog, self._geo, self._media, self._clock = catalog, geo, media, clock
+        self._reviews = reviews
 
     async def build(self, profile_ids: Collection[UUID]) -> Projection:
         result = Projection()
@@ -92,12 +95,19 @@ class SpecialistProjection:
                 districts[district_id] = district
         avatars = [p.avatar_media_id for p in profiles if p.avatar_media_id is not None]
         refs = await self._media.refs(avatars) if avatars else {}
+        ratings = await self._reviews.summaries([p.id for p in profiles])
         return _Context(
-            prices=prices, categories=categories, terms=terms, districts=districts, avatars=refs
+            prices=prices,
+            categories=categories,
+            terms=terms,
+            districts=districts,
+            avatars=refs,
+            ratings=ratings,
         )
 
     def _entry(self, profile: ProfileForIndex, context: _Context) -> IndexEntry:
         prices = context.prices.get(profile.id, SearchPrices())
+        rating = context.ratings.get(profile.id)
         paths = {c.id: c.path for c in context.categories.values()}
         own = [context.categories[c] for c in profile.category_ids if c in context.categories]
         media = profile.avatar_media_id
@@ -130,7 +140,16 @@ class SpecialistProjection:
             category_prices=category_prices(prices.by_category, paths),
             available_until=profile.available_until,
             activity_score=activity,
-            score=base_score(rating_lower_bound=0.0, trust=0.0, activity=activity),
+            rating_bayes=rating.average if rating is not None else None,
+            rating_lower_bound=rating.lower_bound if rating is not None else None,
+            rating_count=rating.count if rating is not None else 0,
+            score=base_score(
+                rating_lower_bound=(
+                    rating.lower_bound if rating is not None else NO_REVIEWS_LOWER_BOUND
+                ),
+                trust=0.0,
+                activity=activity,
+            ),
             name=profile.display_name,
             document=_document(profile, own, context.terms, prices),
             card=_card(profile, prices, avatar, district),
@@ -145,6 +164,7 @@ class _Context:
     terms: Mapping[CategoryId, tuple[SearchTerm, ...]]
     districts: Mapping[DistrictId, DistrictSummary]
     avatars: Mapping[MediaId, MediaRef]
+    ratings: Mapping[UUID, RatingSummary]
 
 
 def _document(

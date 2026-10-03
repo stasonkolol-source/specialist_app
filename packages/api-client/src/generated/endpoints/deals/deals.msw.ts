@@ -184,6 +184,57 @@ export const getDealsConfirmDealResponseMock = (
   ...overrideResponse,
 });
 
+export const getDealsDeclineDealResponseMock = (
+  overrideResponse: Partial<Extract<DealOut, object>> = {},
+): DealOut => ({
+  id: faker.string.uuid(),
+  status: faker.helpers.arrayElement(Object.values(DealStatus)),
+  origin: faker.helpers.arrayElement(Object.values(DealOrigin)),
+  my_role: faker.helpers.arrayElement(Object.values(DealRole)),
+  title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  category_id: faker.helpers.arrayElement([faker.number.int(), null]),
+  price: {
+    type: faker.helpers.arrayElement([
+      faker.helpers.arrayElement(Object.values(DealPriceType)),
+      null,
+    ]),
+    amount: faker.helpers.arrayElement([
+      { amount: faker.number.int(), currency: faker.helpers.arrayElement(Object.values(Currency)) },
+      null,
+    ]),
+  },
+  scheduled_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  client_id: faker.string.uuid(),
+  performer_id: faker.string.uuid(),
+  profile_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  job_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  response_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  conversation_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  awaits_my_confirmation: faker.datatype.boolean(),
+  i_marked_done: faker.datatype.boolean(),
+  other_marked_done: faker.datatype.boolean(),
+  agreed_at: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + 'Z', null]),
+  completed_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  cancelled_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  cancelled_by_me: faker.helpers.arrayElement([faker.datatype.boolean(), null]),
+  cancel_reason: faker.helpers.arrayElement([
+    faker.helpers.arrayElement(Object.values(DealCancelReason)),
+    null,
+  ]),
+  version: faker.number.int(),
+  created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  ...overrideResponse,
+});
+
 export const getDealsCompleteDealResponseMock = (
   overrideResponse: Partial<Extract<DealOut, object>> = {},
 ): DealOut => ({
@@ -353,6 +404,28 @@ export const getDealsConfirmDealMockHandler = (
   );
 };
 
+export const getDealsDeclineDealMockHandler = (
+  overrideResponse?:
+    | DealOut
+    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<DealOut> | DealOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/api/v1/deals/:dealId/decline',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getDealsDeclineDealResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getDealsCompleteDealMockHandler = (
   overrideResponse?:
     | DealOut
@@ -400,6 +473,7 @@ export const getDealsMock = () => [
   getDealsListMyDealsMockHandler(),
   getDealsGetDealMockHandler(),
   getDealsConfirmDealMockHandler(),
+  getDealsDeclineDealMockHandler(),
   getDealsCompleteDealMockHandler(),
   getDealsCancelDealMockHandler(),
 ];
