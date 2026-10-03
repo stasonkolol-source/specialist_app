@@ -1,5 +1,6 @@
 // .seg, .opt + .radio/.chk, .sw из ui.css: выбор одного, нескольких и переключатель. Сегменты
 // ссылками (nav.seg) — разделы одного экрана со своими адресами: «Лента / Мои отклики / Мои заявки».
+// Строка выбора в группе (.group > .row[role=radio] + .radio) — «Что случилось?» S52.
 import type { KeyboardEvent, MouseEvent, ReactNode, Ref } from 'react';
 import { useId, useRef } from 'react';
 
@@ -320,6 +321,37 @@ export function RadioGroup({
     >
       {children}
     </div>
+  );
+}
+
+/** Строка выбора внутри Group (.row + .radio слева): короткие варианты одним списком, как «Что
+ *  случилось?» S52. Стрелки между строками — у RadioGroup. */
+export function RadioRow({
+  title,
+  checked,
+  onChange,
+  disabled = false,
+}: {
+  title: ReactNode;
+  checked: boolean;
+  onChange: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={onChange}
+      className={cx(
+        'flex min-h-13 w-full items-center gap-3 border-0 border-b border-line bg-transparent px-4 py-3 text-left text-body text-text last:border-b-0 disabled:opacity-55',
+        FOCUS,
+      )}
+    >
+      <Mark kind="radio" checked={checked} />
+      <span className="min-w-0 flex-1">{title}</span>
+    </button>
   );
 }
 

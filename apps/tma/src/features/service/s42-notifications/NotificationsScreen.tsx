@@ -67,6 +67,7 @@ const LOOK: Record<NotificationType, Look> = {
   'deal.reminder': { icon: 'calendar' },
   'deal.completion_prompt': { icon: 'check-circle' },
   'dispute.opened': { icon: 'flag', palette: 3 },
+  'dispute.resolved': { icon: 'shield', palette: 1 },
   'review.request': { icon: 'star', palette: 5 },
   'review.published': { icon: 'star', palette: 5 },
   'moderation.decision': { icon: 'shield', palette: 1 },

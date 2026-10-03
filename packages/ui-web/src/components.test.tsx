@@ -11,7 +11,7 @@ import {
   SpecialistCardSkeleton,
 } from './CardSkeletons.tsx';
 import { Banner, EmptyState, ProgressBar, Skeleton, Stars, Steps, Toast } from './Feedback.tsx';
-import { Checkbox, Option, RadioGroup, Segmented, Switch } from './form/Choice.tsx';
+import { Checkbox, Option, RadioGroup, RadioRow, Segmented, Switch } from './form/Choice.tsx';
 import { Field, Input, SearchField, Textarea } from './form/Field.tsx';
 import { Badge } from './Badge.tsx';
 import { LinkButton } from './Button.tsx';
@@ -321,6 +321,39 @@ describe('RadioGroup, Option (онбординг S02a–b), Checkbox', () => {
 
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'ArrowDown' });
     expect(ru.getAttribute('aria-checked')).toBe('true');
+    expect(await a11yViolations(container)).toEqual([]);
+  });
+
+  it('строки выбора в группе (S52): отметка слева, стрелки — по строкам', async () => {
+    function Kinds() {
+      const [value, setValue] = useState<string | null>(null);
+      return (
+        <RadioGroup label="Что случилось?">
+          <Group>
+            {['Не пришёл', 'Сделал плохо или не то', 'Другое'].map((title) => (
+              <RadioRow
+                key={title}
+                title={title}
+                checked={value === title}
+                onChange={() => setValue(title)}
+              />
+            ))}
+          </Group>
+        </RadioGroup>
+      );
+    }
+    const { container } = render(<Kinds />);
+    const first = screen.getByRole('radio', { name: 'Не пришёл' });
+    expect(first.getAttribute('aria-checked')).toBe('false');
+
+    fireEvent.click(first);
+    first.focus();
+    fireEvent.keyDown(first, { key: 'ArrowDown' });
+
+    expect(first.getAttribute('aria-checked')).toBe('false');
+    const second = screen.getByRole('radio', { name: 'Сделал плохо или не то' });
+    expect(second.getAttribute('aria-checked')).toBe('true');
+    expect(second.firstElementChild?.className).toContain('border-7');
     expect(await a11yViolations(container)).toEqual([]);
   });
 

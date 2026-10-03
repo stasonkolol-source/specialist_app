@@ -11,11 +11,17 @@
 // карточками GET /jobs/{id}/response-cards (отмечают просмотренными), закрыть, продлить,
 // пригласить. Выбор исполнителя и сделка (6.2): POST /responses/{id}/accept и /decline, сделки —
 // GET /me/deals, GET /deals/{id}/card, POST /deals/{id}/complete и /cancel, ответ на «Договорились»
-// из чата — /confirm и /decline (S53, 6.5); сторона — клиент или
+// из чата — /confirm и /decline (S53, 6.5); спор S52 (6.1c) — POST /deals/{id}/dispute,
+// …/respond и …/withdraw, фото — из MediaBackend (`media`); сторона — клиент или
 // исполнитель (`dealRole`). Время публикации — от E2E_NOW: в e2e часы браузера стоят на нём же.
 import type {
+  DealCardDisputeOut,
+  DealCardDisputePhotoOut,
   DealCardOut,
   DealCancelIn,
+  DisputeAnswerIn,
+  DisputeIn,
+  DisputeOut,
   DealOut,
   HistoryDealOut,
   JobCardOut,
@@ -41,6 +47,7 @@ import type {
 } from '@sosed/api-client';
 
 import type { BackendReply } from './backend.ts';
+import type { MediaBackend } from './mediaBackend.ts';
 import { problem } from './backend.ts';
 import { CATEGORY_IDS, DISTRICT_IDS, E2E_NOW } from './fixtures.ts';
 
@@ -499,6 +506,8 @@ export class JobsBackend {
   readonly decisions: { id: string; action: string; reason?: string }[] = [];
   /** Кто смотрит сделки: клиент (по умолчанию) или выбранный исполнитель. */
   dealRole: DealCardOut['my_role'] = 'client';
+  /** Файлы, загруженные экраном (S52): фото спора показываются по ним, как у backend. */
+  media: MediaBackend | null = null;
   /** Отзывы клиента по сделкам (7.3): id сделки → что прислал экран S27. */
   readonly reviews = new Map<string, ReviewOut>();
   /** «Обо мне» на S28: полученные отзывы исполнителя. */
@@ -808,6 +817,10 @@ export class JobsBackend {
       const items = [...this.deals.values()].reverse().map((deal) => dealOut(viewer(deal)));
       return { status: 200, body: { items, next_cursor: null } };
     }
+    const disputed = /^\/deals\/([^/]+)\/dispute(?:\/(respond|withdraw))?$/.exec(path);
+    if (method === 'POST' && disputed) {
+      return this.disputed(disputed[1] ?? '', disputed[2] ?? 'open', body);
+    }
     const match = /^\/deals\/([^/]+)\/(card|complete|cancel|confirm|decline|review)$/.exec(path);
     const found = this.deals.get(match?.[1] ?? '');
     if (!match) return null;
@@ -893,6 +906,79 @@ export class JobsBackend {
     }
     this.deals.set(deal.id, changed);
     return { status: 200, body: dealOut(changed) };
+  }
+
+  /** Спор S52 (6.1c) глазами `dealRole`: открыть по идущей сделке, ответ второй стороны (один),
+   *  отзыв открывшим — как у backend; ответ — спор со статусом сделки. */
+  private disputed(dealId: string, action: string, body: unknown): BackendReply {
+    const found = this.deals.get(dealId);
+    if (!found) return problem(404, 'deal_not_found');
+    const viewer = found.my_role === this.dealRole;
+    const deal = viewer ? found : asOther(found);
+    const now = new Date(E2E_NOW).toISOString();
+    const current = deal.dispute;
+    const active = current !== null && !['resolved', 'withdrawn'].includes(current.status);
+    let dispute: DealCardDisputeOut;
+    let status: DealCardOut['status'] = deal.status;
+    if (action === 'open') {
+      if (deal.status !== 'agreed') return problem(409, 'deal_not_active');
+      const sent = body as DisputeIn;
+      this.decisions.push({ id: deal.id, action: 'dispute', reason: sent.kind });
+      dispute = {
+        id: `0199df00-0000-7000-8000-${deal.id.slice(-12)}`,
+        deal_id: deal.id,
+        deal_status: 'disputed',
+        status: 'open',
+        kind: sent.kind,
+        opened_by_me: true,
+        description: sent.description,
+        photos: this.photos(sent.media_ids ?? []),
+        respond_by: new Date(Date.parse(now) + 48 * 60 * 60 * 1000).toISOString(),
+        response: null,
+        response_photos: [],
+        responded_at: null,
+        unanswered_at: null,
+        withdrawn_at: null,
+        outcome: null,
+        reason_code: null,
+        resolved_at: null,
+        created_at: now,
+      };
+      status = 'disputed';
+    } else if (!current || !active) {
+      return problem(404, 'dispute_not_found');
+    } else if (action === 'respond') {
+      if (current.opened_by_me || current.status === 'answered') {
+        return problem(409, 'dispute_state_conflict');
+      }
+      const sent = body as DisputeAnswerIn;
+      this.decisions.push({ id: deal.id, action: 'respond' });
+      dispute = {
+        ...current,
+        status: 'answered',
+        response: sent.text,
+        response_photos: this.photos(sent.media_ids ?? []),
+        responded_at: now,
+      };
+    } else {
+      if (!current.opened_by_me) return problem(409, 'dispute_state_conflict');
+      this.decisions.push({ id: deal.id, action: 'withdraw' });
+      dispute = { ...current, status: 'withdrawn', withdrawn_at: now };
+      status = 'agreed';
+    }
+    dispute = { ...dispute, deal_status: status };
+    const changed: DealCardOut = { ...deal, status, dispute };
+    this.deals.set(found.id, viewer ? changed : asOther(changed));
+    const reply: DisputeOut = dispute;
+    return { status: action === 'open' ? 201 : 200, body: reply };
+  }
+
+  /** Фото спора: загруженные экраном — из MediaBackend; неизвестные — без вариантов. */
+  private photos(ids: readonly string[]): DealCardDisputePhotoOut[] {
+    return ids.map((id) => {
+      const ref = this.media?.ref(id);
+      return { id, placeholder: ref?.placeholder ?? null, variants: ref?.variants ?? [] };
+    });
   }
 
   /** S28: «Сделки и отзывы», «Мои отзывы» и ответ на отзыв о себе (7.3). */
@@ -1281,6 +1367,7 @@ export function dealCardFixture(
     proposal_expires_at: null,
     my_review: null,
     review_until: null,
+    dispute: null,
   };
   return role === 'client' ? deal : asOther(deal);
 }
@@ -1313,6 +1400,7 @@ function asOther(deal: DealCardOut): DealCardOut {
       other_mark_at: deal.timeline.my_mark_at,
     },
     cancelled_by_me: deal.cancelled_by_me === null ? null : !deal.cancelled_by_me,
+    dispute: deal.dispute ? { ...deal.dispute, opened_by_me: !deal.dispute.opened_by_me } : null,
   };
 }
 
@@ -1394,6 +1482,7 @@ export function proposedDealFixture(conversationId: string): DealCardOut {
     proposal_expires_at: new Date(proposedAt.getTime() + 72 * 60 * 60 * 1000).toISOString(),
     my_review: null,
     review_until: null,
+    dispute: null,
   };
 }
 

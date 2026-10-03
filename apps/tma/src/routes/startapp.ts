@@ -2,14 +2,20 @@
 // Разбор кода — packages/links (golden-векторы общие с backend). Цель без готового экрана и
 // неизвестный код ведут на главную (до 4.8 — заглушка). Шаг экрана-цели добавляет в START_TARGETS
 // свою строку: `s_` → S08 (4.5), `j_` → S15 (5.3), `n` → S20a и `m_jobs` → S22 (5.6), `d_` → S26
-// (6.2), `c_` → S30 (6.4); коды `g…`
+// (6.2), `p_` → S52 (6.1c), `c_` → S30 (6.4); коды `g…`
 // раздела «Вещи» — после MVP. Суффикс `_r<code>` — атрибуция: её записывает backend при входе
 // (модуль growth), на выбор экрана он не влияет.
 import type { StartLink } from '@sosed/links';
 import { parseStartParam } from '@sosed/links';
 
 import { profilePath } from '../features/catalog/index.ts';
-import { CREATE_PATHS, JOBS_PATHS, dealPath, jobPath } from '../features/jobs/index.ts';
+import {
+  CREATE_PATHS,
+  JOBS_PATHS,
+  dealPath,
+  disputePath,
+  jobPath,
+} from '../features/jobs/index.ts';
 import { chatPath } from '../features/messages/index.ts';
 
 const HOME = '/';
@@ -37,8 +43,11 @@ export const START_TARGETS: StartTargets = {
     link.section === 'reviews' ? `${JOBS_PATHS.history}?tab=reviews` : JOBS_PATHS.mine,
   // диалог S30: кнопка «Ответить» уведомления `message.received` (6.3b, 6.4)
   chat: (link) => chatPath(link.id),
-  // сделка S26: кнопки уведомлений о сделке — «Открыть сделку», «Нет, проблема» (6.2)
+  // сделка S26: кнопки уведомлений о сделке — «Открыть сделку» (6.2)
   deal: (link) => dealPath(link.id),
+  // спор S52 сразу, без S26: «Есть проблема» под «Работа выполнена?», «Ответить» и «Посмотреть
+  // решение» уведомлений о споре (6.1c)
+  dispute: (link) => disputePath(link.id),
 };
 
 /** Адрес для кода `startapp`; `null` — приложение открыли без deep link. */

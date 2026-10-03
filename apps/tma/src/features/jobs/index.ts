@@ -19,6 +19,7 @@ export {
   doneSearch,
   editSearch,
   dealPath,
+  disputePath,
   historySearch,
   jobIdOf,
   jobPath,

@@ -263,6 +263,7 @@ export {
   useDeclineResponse,
   useMyDeals,
 } from './deals/deals.ts';
+export { useOpenDispute, useRespondDispute, useWithdrawDispute } from './deals/disputes.ts';
 export type { CloseJob, InviteSpecialists, UpdateJob } from './jobs/mine.ts';
 export {
   RESPONSES_POLL_MS,
