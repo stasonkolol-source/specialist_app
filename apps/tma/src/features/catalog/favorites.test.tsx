@@ -37,9 +37,10 @@ describe('S11 reviews', () => {
     await click(reviews.getByRole('link', { name: 'Все 37' }));
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe(`${PROFILE}/reviews`));
+    // шапка — сразу из профиля S08 в кэше, сводка — когда придут отзывы
     expect(await screen.findByRole('heading', { name: 'Отзывы', level: 1 })).toBeTruthy();
     expect(screen.getByText('Алексей Морозов · Электрика')).toBeTruthy();
-    expect(screen.getByRole('img', { name: 'Средняя оценка 4,9 из 5' })).toBeTruthy();
+    expect(await screen.findByRole('img', { name: 'Средняя оценка 4,9 из 5' })).toBeTruthy();
     expect(screen.getByRole('progressbar', { name: '5 звёзд: 35' })).toBeTruthy();
     // критерий: подпись и среднее рядом
     expect(screen.getByText('Вовремя').nextSibling?.textContent).toBe('4,8');

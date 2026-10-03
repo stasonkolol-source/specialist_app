@@ -142,8 +142,9 @@ describe('S09 prices', () => {
     await click(await screen.findByRole('link', { name: 'Весь прайс · 9' }));
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe(`${PROFILE}/services`));
+    // шапка — сразу из профиля S08 в кэше, число услуг — с прайсом
     expect(await screen.findByRole('heading', { name: 'Прайс', level: 1 })).toBeTruthy();
-    expect(screen.getByText('Алексей Морозов · 9 услуг')).toBeTruthy();
+    expect(await screen.findByText('Алексей Морозов · 9 услуг')).toBeTruthy();
     expect(screen.getByText(/^Цены ориентировочные/)).toBeTruthy();
     const groups = screen.getAllByRole('region');
     expect(groups.map((group) => group.textContent)).toEqual([
