@@ -341,3 +341,7 @@ class SqlWidgetQuery(SqlQuery):
             encode_cursor(items[-1].created_at, items[-1].id) if len(rows) > page.limit else None
         )
         return Page(items=items, next_cursor=cursor)
+
+    async def boom(self) -> None:
+        """Запрос, который падает на сервере (деление на ноль)."""
+        await self._fetch(select(text("1 / 0")))
