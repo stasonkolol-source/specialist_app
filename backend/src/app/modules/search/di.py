@@ -3,6 +3,8 @@
 from dishka import Provider, Scope, provide
 from prometheus_client import CollectorRegistry
 
+from app.modules.search.api import SearchApi
+from app.modules.search.application.facade import SearchFacade
 from app.modules.search.application.ports import (
     Favorites,
     IndexMetrics,
@@ -20,6 +22,7 @@ from app.modules.search.application.use_cases.forget_favorites import ForgetFavo
 from app.modules.search.application.use_cases.list_favorites import ListFavorites
 from app.modules.search.application.use_cases.mark_profiles import MarkProfiles
 from app.modules.search.application.use_cases.reconcile_index import ReconcileIndex
+from app.modules.search.application.use_cases.refresh_response_times import RefreshResponseTimes
 from app.modules.search.application.use_cases.remove_favorite import RemoveFavorite
 from app.modules.search.application.use_cases.report_zero_results import ReportZeroResults
 from app.modules.search.application.use_cases.search_specialists import SearchSpecialists
@@ -47,6 +50,9 @@ class SearchProvider(Provider):
     mark_profiles = provide(MarkProfiles)
     flush_index = provide(FlushIndex)
     reconcile_index = provide(ReconcileIndex)
+    refresh_response_times = provide(RefreshResponseTimes)
+    facade = provide(SearchFacade, provides=SearchApi)
+    """Фасад для BFF карточки S08: время ответа."""
     specialist_search = provide(SqlSpecialistSearch, provides=SpecialistSearch)
     query_log = provide(SqlQueryLog, provides=QueryLog)
     search_specialists = provide(SearchSpecialists)

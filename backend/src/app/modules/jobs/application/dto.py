@@ -68,6 +68,18 @@ class MyResponseRef:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class DealResponse:
+    """Отклик, по которому сделка (S26, 6.2): кто, когда и «когда смогу»."""
+
+    id: ResponseId
+    job_id: JobId
+    performer_id: UserId
+    status: ResponseStatus
+    created_at: datetime
+    availability_note: str | None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class AcceptedResponse:
     """Отклик выбран (S25, 6.1a): заявка и созданная сделка — экран сделки S26."""
 

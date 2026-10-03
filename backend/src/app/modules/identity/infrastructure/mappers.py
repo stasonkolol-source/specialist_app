@@ -1,7 +1,7 @@
 """Маппинг строк ORM ⇄ агрегаты identity (ADR-0020 §5)."""
 
 from app.modules.identity.domain.session import Session, SessionId
-from app.modules.identity.domain.user import AuthIdentity, User, UserStatus
+from app.modules.identity.domain.user import AuthIdentity, Privacy, User, UserStatus
 from app.modules.identity.infrastructure.models import AuthIdentityRow, SessionRow, UserRow
 from app.platform.kernel.ids import CityId, UserId
 
@@ -33,6 +33,7 @@ def user_to_domain(row: UserRow) -> User:
         trust_penalty_at=row.trust_penalty_at,
         last_seen_at=row.last_seen_at,
         deleted_at=row.deleted_at,
+        privacy=Privacy.from_mapping(row.privacy or {}),
         version=row.version,
     )
 
@@ -51,6 +52,7 @@ def apply_user(user: User, row: UserRow) -> None:
     row.trust_penalty_at = user.trust_penalty_at
     row.last_seen_at = user.last_seen_at
     row.deleted_at = user.deleted_at
+    row.privacy = user.privacy.to_mapping()
     if user.status is UserStatus.DELETED:
         # колонки вне домена: фото и настройки приватности удалённому не нужны
         row.avatar_media_id = None

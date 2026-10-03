@@ -4,7 +4,7 @@ from collections.abc import Collection, Sequence
 from datetime import datetime
 from typing import Final, Protocol
 
-from app.modules.jobs.application.dto import JobView, MyResponseRef
+from app.modules.jobs.application.dto import DealResponse, JobView, MyResponseRef
 from app.modules.jobs.application.feed import FeedFilters, FeedItem
 from app.modules.jobs.application.responses import (
     MyResponse,
@@ -128,6 +128,14 @@ class JobQueries(Protocol):
         """Новые отклики по заявкам — бейдж S22; без новых заявки в ответе нет."""
         ...
 
+    async def unseen_total(self, client_id: UserId) -> int:
+        """Новые отклики на все открытые заявки клиента — бейдж «Заявки N» таббара (6.4)."""
+        ...
+
+    async def titles(self, job_ids: Collection[JobId]) -> dict[JobId, str]:
+        """Названия заявок пачкой (контекст диалогов S29); удалённых нет в ответе."""
+        ...
+
     async def unseen_responses(self, job_id: JobId) -> int:
         """Видимые клиенту отклики, которые он ещё не открыл, — «Новых откликов: 3»."""
         ...
@@ -135,6 +143,10 @@ class JobQueries(Protocol):
     async def job_responses(self, job_id: JobId) -> list[OwnerResponse]:
         """Отклики на заявку для владельца (S23): прошедшие проверку, не отозванные, по
         порядку; `is_first` — самый ранний отклик заявки."""
+        ...
+
+    async def deal_response(self, response_id: ResponseId) -> DealResponse | None:
+        """Неудалённый отклик — для экрана сделки по нему (S26)."""
         ...
 
     async def passed_over(self, job_id: JobId) -> list[UserId]:

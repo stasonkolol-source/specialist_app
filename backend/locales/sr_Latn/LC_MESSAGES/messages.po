@@ -123,6 +123,24 @@ msgstr "Označeno: posao je završen. Dogovor će se završiti kada potvrdi drug
 msgid "bot.deals.completed"
 msgstr "Dogovor je završen. Hvala!"
 
+msgid "bot.reviews.rated"
+msgstr "Hvala! Vaša ocena: {stars}. Utisak će se pojaviti na kartici izvođača posle provere."
+
+msgid "bot.reviews.exists"
+msgstr "Već ste ostavili utisak za ovaj dogovor."
+
+msgid "bot.reviews.closed"
+msgstr "Rok je istekao: utisak možete ostaviti u roku od 14 dana nakon završetka dogovora."
+
+msgid "bot.deals.confirmed"
+msgstr "Dogovoreno! Dogovor je na snazi — u razgovoru sada možete podeliti kontakt."
+
+msgid "bot.deals.declined"
+msgstr "Predlog je odbijen."
+
+msgid "bot.deals.proposal_closed"
+msgstr "Predlog više nije aktuelan: potvrđen je, odbijen ili je rok istekao."
+
 msgid "bot.help.text"
 msgstr "<b>Kako funkcioniše</b>\n• Opišite zadatak — majstori u blizini će se javiti sa cenom. Ili izaberite stručnjaka po utiscima.\n• Dogovarajte se u četu aplikacije „Sosedi“: kontakti — nakon dogovora.\n• Plaćanje — direktno izvođaču, posle posla. „Sosedi“ ne primaju novac.\n\n<b>Bezbednost</b>\n• Ne plaćajte unapred nepoznatim ljudima i nikome ne govorite kodove iz SMS poruka.\n• Sumnjiv profil ili poruka — prijavite direktno u aplikaciji.\n\n/terms — pravila platforme\n/privacy — politika privatnosti\n/language — jezik"
 
@@ -543,6 +561,54 @@ msgstr "Već imate {limit} aktivna zahteva. Zatvorite jedan da biste napravili n
 msgid "errors.daily_jobs_limit"
 msgstr "Danas je napravljeno previše zahteva. Pokušajte sutra."
 
+msgid "errors.conversation_not_found"
+msgstr "Razgovor nije pronađen."
+
+msgid "errors.conversation_closed"
+msgstr "U ovaj razgovor više ne možete pisati."
+
+msgid "errors.cannot_start_conversation"
+msgstr "Razgovor ne može da počne: ponuda ili profil nisu dostupni."
+
+msgid "errors.invalid_message"
+msgstr "Poruka nije ispravna: prazna, duža od 4000 znakova ili nije iz ovog razgovora."
+
+msgid "errors.messages_limit"
+msgstr "Previše poruka za sat. Sačekajte malo."
+
+msgid "errors.conversations_limit"
+msgstr "Previše novih razgovora za sat. Sačekajte malo."
+
+msgid "errors.cannot_propose"
+msgstr "Ovde ne možete da se dogovorite: u razgovoru o ponudi naručilac bira izvođača na stranici ponuda."
+
+msgid "errors.deal_in_progress"
+msgstr "Dogovor već postoji: predlog čeka odgovor ili je dogovor u toku."
+
+msgid "errors.contacts_locked"
+msgstr "Kontakt možete podeliti nakon dogovora."
+
+msgid "errors.invalid_contact"
+msgstr "Deljenje kontakta nije uspelo. Ponovo otvorite aplikaciju i pokušajte opet."
+
+msgid "errors.review_not_found"
+msgstr "Utisak nije pronađen."
+
+msgid "errors.review_not_allowed"
+msgstr "Za ovaj dogovor ne možete ostaviti utisak: klijent ga može ostaviti u roku od 14 dana nakon završetka."
+
+msgid "errors.review_exists"
+msgstr "Već ste ostavili utisak za ovaj dogovor."
+
+msgid "errors.invalid_review"
+msgstr "Utisak nije prihvaćen: ocena od 1 do 5, tekst do 2000 znakova."
+
+msgid "errors.not_review_subject"
+msgstr "Na utisak može odgovoriti samo onaj o kome je napisan."
+
+msgid "errors.reply_exists"
+msgstr "Već ste odgovorili na ovaj utisak."
+
 msgid "errors.deal_not_found"
 msgstr "Dogovor nije pronađen."
 
@@ -724,8 +790,62 @@ msgstr "Naručilac je izabrao drugog izvođača"
 msgid "notifications.response_not_selected.body"
 msgstr "Zahtev „{title}“. Hvala na ponudi — u listi ima drugih zahteva u blizini."
 
+msgid "notifications.message_received.title"
+msgstr "{name} piše"
+
+msgid "notifications.message_received.preview"
+msgstr "„{text}“"
+
+msgid "notifications.message_received.count"
+msgstr "Novih poruka: {count}."
+
+msgid "notifications.message_received.someone"
+msgstr "Sagovornik"
+
+msgid "notifications.message_received.button"
+msgstr "Odgovori"
+
 msgid "notifications.deal.open"
 msgstr "Otvori dogovor"
+
+msgid "notifications.deal_proposed.title"
+msgstr "Dogovoreno?"
+
+msgid "notifications.deal_proposed.body_client"
+msgstr "Naručilac predlaže dogovor: „{title}“."
+
+msgid "notifications.deal_proposed.body_performer"
+msgstr "Izvođač predlaže dogovor: „{title}“."
+
+msgid "notifications.deal_proposed.button"
+msgstr "Pogledaj uslove"
+
+msgid "notifications.deal_proposed.when"
+msgstr "Kada: {when}."
+
+msgid "notifications.deal_proposed.price"
+msgstr "Cena: {price}."
+
+msgid "notifications.deal_proposed.deadline"
+msgstr "Potvrdite ili odbijte u roku od 3 dana."
+
+msgid "notifications.deal_proposed.confirm"
+msgstr "Potvrdi"
+
+msgid "notifications.deal_proposed.decline"
+msgstr "Odbij"
+
+msgid "notifications.price.fixed"
+msgstr "{amount} RSD"
+
+msgid "notifications.price.from"
+msgstr "od {amount} RSD"
+
+msgid "notifications.price.hourly"
+msgstr "{amount} RSD po satu"
+
+msgid "notifications.price.negotiable"
+msgstr "po dogovoru"
 
 msgid "notifications.deal_cancelled.title"
 msgstr "Dogovor je otkazan"
@@ -772,11 +892,50 @@ msgstr "Da li je posao završen?"
 msgid "notifications.deal_completion_prompt.body"
 msgstr "Dogovor „{title}“. Označite ako je sve urađeno: kada obe strane potvrde, dogovor se završava."
 
+msgid "notifications.deal_completion_prompt.body_marked_performer"
+msgstr "Izvođač je označio posao „{title}“ kao završen. Da li je sve u redu?"
+
+msgid "notifications.deal_completion_prompt.body_marked_client"
+msgstr "Klijent je označio posao „{title}“ kao završen. Da li je sve u redu?"
+
+msgid "notifications.review_request.title_first"
+msgstr "Ocenite posao"
+
+msgid "notifications.review_request.body_first"
+msgstr "„{title}“, izvođač — {performer}. Utisak će se pojaviti na kartici izvođača posle provere."
+
+msgid "notifications.review_request.title_reminder"
+msgstr "Ocenite posao"
+
+msgid "notifications.review_request.body_reminder"
+msgstr "Još niste ocenili posao „{title}“ — izvođač {performer}. Potreban je samo minut."
+
+msgid "notifications.review_request.title_last_call"
+msgstr "Ostalo je 2 dana za utisak"
+
+msgid "notifications.review_request.body_last_call"
+msgstr "Utisak o poslu „{title}“ možete ostaviti još 2 dana — izvođač {performer}."
+
+msgid "notifications.review_request.button"
+msgstr "Otvori formular za utisak"
+
+msgid "notifications.review_published.title"
+msgstr "Novi utisak: {rating} od 5"
+
+msgid "notifications.review_published.body"
+msgstr "„{text}“ — o poslu „{title}“."
+
+msgid "notifications.review_published.body_rating"
+msgstr "Klijent je dao ocenu bez teksta — posao „{title}“."
+
+msgid "notifications.review_published.button"
+msgstr "Odgovori na utisak"
+
 msgid "notifications.deal_completion_prompt.yes"
-msgstr "Da, završeno"
+msgstr "Da, sve je u redu"
 
 msgid "notifications.deal_completion_prompt.problem"
-msgstr "Ne, postoji problem"
+msgstr "Postoji problem"
 
 msgid "notifications.job.extend"
 msgstr "Produži"

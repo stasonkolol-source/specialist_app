@@ -137,11 +137,11 @@ async def test_reviews_page_and_card_show_the_rating(web: HttpApp) -> None:
         "items": [],
         "next_cursor": None,
     }
-    # агрегаты пересчитают отзывы по сделкам (7.2) — здесь строкой
+    # агрегат пересчитывают отзывы по сделкам (7.2) — здесь строкой; показ — байесовское среднее
     await specialist.execute(
         "INSERT INTO reviews.rating_aggregates (subject_profile_id, rating_count, rating_avg,"
         " rating_bayes, rating_lower_bound, distribution, criteria_avg) VALUES (:id, 37, 4.92,"
-        " 4.8, 4.5, '{0,0,1,1,35}', CAST(:criteria AS jsonb))",
+        " 4.87, 4.5, '{0,0,1,1,35}', CAST(:criteria AS jsonb))",
         id=specialist.profile_id,
         criteria=json.dumps({"quality": 4.9, "price": 4.8}),
     )

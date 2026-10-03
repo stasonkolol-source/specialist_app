@@ -37,7 +37,9 @@ async def test_login_returns_tokens_and_user(api: httpx.AsyncClient, init_data: 
         "can_respond",
         "can_message",
         "deletion_scheduled_at",
+        "privacy",
     }
+    assert user["privacy"] == {"show_telegram": True}
     assert (user["consents"], user["consent_required"], user["can_post_jobs"]) == ({}, True, False)
     assert user["deletion_scheduled_at"] is None
 

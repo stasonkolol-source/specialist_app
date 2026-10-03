@@ -885,7 +885,7 @@ CREATE TABLE identity.users (
   identity_verified_at timestamptz,                        -- документ проверен (moderation)
   trust_level       smallint NOT NULL DEFAULT 0,           -- 0 новый … 3 доверенный (определения — §13.2)
   trust_penalty_at  timestamptz,                           -- последнее нарушение: «14 дней без жалоб» считаются от него (2.5a)
-  privacy           jsonb NOT NULL DEFAULT '{}',           -- {"show_telegram": false, "show_phone": false}
+  privacy           jsonb NOT NULL DEFAULT '{}',           -- {"show_telegram": true} (ключа нет — умолчание; телефон — только явным действием S54, 6.5)
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now(),
   last_seen_at      timestamptz,
@@ -1468,14 +1468,17 @@ CREATE TABLE reviews.reviews (
   subject_profile_id uuid REFERENCES specialists.profiles(id),
   direction          text NOT NULL CHECK (direction IN ('client_to_performer','performer_to_client')),
   rating             smallint NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  category_id        int,                           -- снимок категории сделки: её среднее — априорное в рейтинге (7.2)
   criteria           jsonb NOT NULL DEFAULT '{}',   -- {"quality":5,"punctuality":4,"communication":5,"price":4}
   body               text CHECK (char_length(body) <= 2000),
   content_lang       text,
   status             text NOT NULL DEFAULT 'under_review'   -- MVP: автопроверки → published; v1: hidden до раскрытия (double-blind)
                      CHECK (status IN ('hidden','published','under_review','removed')),
-  reply_body         text,
+  reply_body         text CHECK (char_length(reply_body) <= 2000),
   reply_at           timestamptz,
+  reply_status       text CHECK (reply_status IN ('under_review','published','removed')),  -- ответ проверяется отдельно (цель review_reply)
   published_at       timestamptz,
+  version            int NOT NULL,                  -- optimistic locking агрегата
   created_at         timestamptz NOT NULL DEFAULT now(),
   updated_at         timestamptz NOT NULL DEFAULT now(),
   deleted_at         timestamptz,
@@ -1485,6 +1488,16 @@ CREATE UNIQUE INDEX ON reviews.reviews (deal_id, author_id) WHERE deal_id IS NOT
 -- kind='pre_platform': «отзыв до платформы» по приглашению специалиста (≤ 5 на профиль),
 -- отдельная метка и вкладка, в rating_aggregates не входит (ADR-0016)
 CREATE INDEX ON reviews.reviews (subject_profile_id, published_at DESC) WHERE status = 'published';
+
+CREATE TABLE reviews.review_requests (  -- просьба оставить отзыв по завершённой сделке (7.2)
+  deal_id       uuid PRIMARY KEY REFERENCES deals.deals(id),
+  client_id     uuid NOT NULL REFERENCES identity.users(id),
+  performer_id  uuid NOT NULL REFERENCES identity.users(id),
+  completed_at  timestamptz NOT NULL,
+  reminded_at   timestamptz,             -- напоминание через 24 ч
+  last_call_at  timestamptz,             -- за 2 дня до конца окна
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
 
 CREATE TABLE reviews.review_invites (   -- приглашение прошлому клиенту на «отзыв до платформы» (Should MVP)
   token       text PRIMARY KEY,           -- случайный токен ссылки
@@ -1504,6 +1517,7 @@ CREATE TABLE reviews.rating_aggregates (   -- пересчитывается п�
   rating_lower_bound numeric(4,3) NOT NULL,  -- нижняя граница доверительного интервала (Dirichlet prior): ранжирование
   distribution  int[] NOT NULL DEFAULT '{0,0,0,0,0}' CHECK (cardinality(distribution) = 5),  -- оценок в 1…5 звёзд: гистограмма S11
   criteria_avg  jsonb NOT NULL DEFAULT '{}',
+  last_published_at timestamptz,             -- дата последнего отзыва рядом с рейтингом (ADR-0016)
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
 ```
@@ -1516,13 +1530,18 @@ CREATE TABLE reviews.rating_aggregates (   -- пересчитывается п�
 CREATE TABLE messaging.conversations (
   id              uuid PRIMARY KEY DEFAULT uuidv7(),
   kind            text NOT NULL CHECK (kind IN ('job_response','direct','support')),
+  client_id       uuid NOT NULL REFERENCES identity.users(id),  -- стороны — и в participants:
+  performer_id    uuid NOT NULL REFERENCES identity.users(id),  -- здесь для CHECK и индекса пары
   job_id          uuid REFERENCES jobs.jobs(id),
   response_id     uuid UNIQUE REFERENCES jobs.responses(id),   -- один диалог на отклик
   deal_id         uuid REFERENCES deals.deals(id),
   status          text NOT NULL DEFAULT 'open' CHECK (status IN ('open','closed','blocked')),
   last_message_at timestamptz,
-  created_at      timestamptz NOT NULL DEFAULT now()
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  CHECK (client_id <> performer_id),
+  CHECK (kind <> 'job_response' OR response_id IS NOT NULL)
 );
+CREATE UNIQUE INDEX ON messaging.conversations (client_id, performer_id) WHERE kind = 'direct';  -- прямой диалог пары — один
 
 CREATE TABLE messaging.participants (
   conversation_id      uuid NOT NULL REFERENCES messaging.conversations(id),
@@ -1560,9 +1579,13 @@ CREATE TABLE messaging.contact_shares (
   shared_by       uuid NOT NULL REFERENCES identity.users(id),
   shared_with     uuid NOT NULL REFERENCES identity.users(id),
   contact_type    text NOT NULL CHECK (contact_type IN ('telegram','phone')),
+  message_id      uuid NOT NULL REFERENCES messaging.messages(id),  -- сам контакт — в сообщении contact_share
   created_at      timestamptz NOT NULL DEFAULT now(),
   UNIQUE (deal_id, shared_by, contact_type)
 );
+CREATE INDEX ON messaging.conversations (deal_id);   -- диалог сделки: подписчики DealAgreed, DealCancelled
+-- системное сообщение о сделке (без автора) — одно на ключ «<событие>:<сделка>» в client_msg_id
+CREATE UNIQUE INDEX ON messaging.messages (conversation_id, client_msg_id) WHERE sender_id IS NULL;
 ```
 </details>
 
@@ -1663,7 +1686,7 @@ CREATE INDEX ON moderation.reports (due_at) WHERE status = 'open' AND is_legal_n
 CREATE TABLE moderation.cases (         -- единица работы модератора (2.5a)
   id             uuid PRIMARY KEY,                  -- uuidv7 приложения
   queue          text NOT NULL CHECK (queue IN ('safety','fraud','premod','appeals')),  -- P0, P1, P2, апелляции
-  entity_type    text NOT NULL CHECK (entity_type IN ('user','profile','job','response','review','message','media')),
+  entity_type    text NOT NULL CHECK (entity_type IN ('user','profile','job','response','review','review_reply','message','media')),
   entity_id      uuid NOT NULL,
   subject_id     uuid NOT NULL REFERENCES identity.users(id),  -- чей контент или аккаунт: ему решение и санкция
   trigger        text NOT NULL CHECK (trigger IN ('new_content','edit','report','auto_flag','appeal')),  -- первый повод
@@ -1866,6 +1889,7 @@ CREATE TABLE search.specialist_index (
   rating_bayes       numeric(4,3),                  -- показ и фильтр «рейтинг от»
   rating_lower_bound numeric(4,3),                  -- ранжирование (нижняя граница доверительного интервала)
   rating_count       int NOT NULL DEFAULT 0,
+  response_time_minutes int,                        -- «Обычно отвечает за …»: медиана первого ответа за 30 дней (6.3b, раз в час)
   badges             text[] NOT NULL DEFAULT '{}',  -- phone_verified, id_verified, business_verified, pro
   available_until    timestamptz,
   promoted_until     timestamptz,
@@ -2163,8 +2187,8 @@ stateDiagram-v2
 - **MVP: отзыв оставляет только клиент** о исполнителе. Отзыв создаётся со статусом `under_review` и публикуется сразу после автопроверок (правила, классификатор); при флаге уходит к модератору. Второго отзыва в MVP нет, поэтому скрывать первый было бы бессмысленно.
 - **v1: double-blind.** Когда появляются оценки клиентов исполнителями, отзыв хранится со статусом `hidden`, пока не случится одно из двух: вторая сторона оставила свой отзыв или окно закрылось. Тогда оба отзыва публикуются одновременно, и отзывы не пишутся «в ответ» на чужую оценку.
 - **Ответ.** Исполнитель может один раз публично ответить на отзыв (`reply_body`).
-- **Показ рейтинга** — байесовское среднее `(C·m + Σr) / (C + n)`, где `m` — средний рейтинг по категории, `C = 5`. Пример при `m = 4,6`: одна «пятёрка» даёт 4,67, 40 отзывов со средним 4,8 дают 4,78. По этому же значению работает фильтр «рейтинг от». При `n < 3` вместо числа показывается «Новый специалист».
-- **Ранжирование** — по нижней границе доверительного интервала с Dirichlet prior (`rating_lower_bound`). Так новичок не обгоняет опытного мастера за одну «пятёрку» ([§9.4](#94-ранжирование)).
+- **Показ рейтинга** — байесовское среднее `(C·m + Σr) / (C + n)`, где `m` — средний рейтинг по категории, `C = 5`. Пример при `m = 4,6`: одна «пятёрка» даёт 4,67, 40 отзывов со средним 4,8 дают 4,78. По этому же значению работает фильтр «рейтинг от». При `n < 3` вместо числа показывается «Новый специалист». Реализация (7.2, `reviews/domain/rating.py`): `m` профиля — средние категорий его отзывов, каждая притянута к 4,6 весом 20 отзывов (пока отзывов в категории мало); вес отзыва в сумме затухает вдвое за 12 месяцев; число, гистограмма и средние по критериям — без весов.
+- **Ранжирование** — по нижней границе доверительного интервала с Dirichlet prior (`rating_lower_bound`; единица на звезду, z = 1,645). Так новичок не обгоняет опытного мастера за одну «пятёрку» ([§9.4](#94-ранжирование)). Профиль без отзывов ранжируется по априорной границе ≈ 2,05: выше профиля с одной «единицей», ниже профиля с одной «пятёркой». Пересчёт — после публикации или снятия отзыва (`RatingChanged` → поиск за секунды).
 
 **Профиль исполнителя** и **медиа**
 
@@ -2396,7 +2420,7 @@ sequenceDiagram
 | `POST /auth/apple`, `/auth/google`, `/auth/phone/*`, `/auth/telegram/oidc`, `/auth/telegram/link/*` | Этап 2 (App Store) |
 | `GET /me`, `PATCH /me` | Текущий пользователь, возможности (`can_post_jobs`, `has_profile`), флаги; имя, язык, город |
 | `POST /me/consents` | Принятие правил площадки (с 18+) и политики; v1 — полный журнал согласий (аналитика, маркетинг, AI) |
-| `PATCH /me/privacy` | Приватность: показывать ли Telegram и телефон после договорённости (`identity.users.privacy`) |
+| `PATCH /me/privacy` | Приватность (S43, 6.5): `show_telegram` — показывать ли второй стороне свой @username после договорённости (по умолчанию да; `identity.users.privacy`); ответ — как `GET /me`. Телефон виден только после явного «Поделиться контактом» (S54); переключатель телефона — v1 |
 | `POST /me/phone/verify-telegram` | Подтверждение телефона контактом из Telegram (`requestContact`) — добровольный бейдж, повышает `trust_level` |
 | `GET /me/blocks`, `PUT /me/blocks/{user_id}`, `DELETE /me/blocks/{user_id}` | Блокировки пользователей |
 | `POST /me/deletion`, `DELETE /me/deletion` | Запрос и отмена удаления аккаунта |
@@ -2416,7 +2440,7 @@ sequenceDiagram
 | `GET /specialists/by-category?city_id=` 🔓 | Видимые специалисты города по категориям (с подкатегориями) — дерево S04; кэш 5 минут |
 | `GET /specialists/{id}` 🔓 | Публичный профиль S08 одним запросом (BFF `interfaces/http/views`): профиль, первые три позиции прайса и три работы, рейтинг, бейджи; ETag, `max-age=60`. Скрытый, снятый санкцией или удалённый профиль — 404 без объяснения, как в поиске |
 | `GET /specialists/{id}/services` 🔓, `GET /specialists/{id}/portfolio` 🔓 | Весь прайс с группами (S09) и все готовые работы (S10) одним ответом: прайс — до 50 позиций, работ — в пределах лимита портфолио |
-| `GET /specialists/{id}/reviews?kind=deal\|pre_platform` 🔓 | Отзывы S11 (BFF): рейтинг с гистограммой и средними по критериям из `reviews.rating_aggregates`; сами отзывы постранично и `kind` — с 7.2 и 7.6, до того список пуст. Скрытый профиль — 404 |
+| `GET /specialists/{id}/reviews?cursor&limit` 🔓 | Отзывы S11 (BFF): рейтинг с гистограммой и средними по критериям из `reviews.rating_aggregates`; опубликованные отзывы по сделкам с ответами специалиста, новые первыми, автор — «Имя Ф.» (7.2); вкладка «До платформы» (`kind`) — 7.6. Скрытый профиль — 404 |
 | `GET /me/favorites`, `PUT /me/favorites/profile/{id}`, `DELETE /me/favorites/profile/{id}` | Избранное: «мои мастера» S12 — карточки, как в выдаче, только видимые в каталоге, новые первыми; до 100 (`favorites_full`); повтор и удаление отсутствующего — без ошибки |
 | `GET /me/favorites/jobs`, `PUT /me/favorites/job/{id}`, `DELETE /me/favorites/job/{id}` | Сохранённые заявки (5.3): сердечко S15, сегмент «Задачи» S12 — карточки, как в ленте, только открытые (опубликована, публична, срок не вышел), новые сохранения первыми; сохранить можно видимую опубликованную (иначе 404); до 100 (`saved_jobs_full`); повтор и удаление отсутствующего — без ошибки. Модуль `jobs` (`jobs.saved_jobs`): карточка и видимость заявки — у него |
 | `GET /me/saved-searches`, `POST /me/saved-searches`, `DELETE /me/saved-searches/{id}` | v1: сохранённые поиски с уведомлением |
@@ -2480,13 +2504,15 @@ sequenceDiagram
 | Метод и путь | Назначение |
 |---|---|
 | `GET /me/deals?role=client\|performer&status=`, `GET /deals/{id}` | Сделки |
-| `POST /conversations/{id}/deal` | «Договорились» из чата → сделка `proposed` |
-| `POST /deals/{id}/confirm` | Вторая сторона подтверждает договорённость |
+| `POST /conversations/{id}/deal` | «Договорились» из прямого диалога → сделка `proposed`; в диалоге по отклику договорённость — выбор отклика (409 `cannot_propose`) |
+| `POST /deals/{id}/confirm`, `/decline` | Вторая сторона подтверждает или отклоняет ждущее предложение (S53, кнопки бота `deal.proposed`); подтверждённую сделку `decline` не отменяет |
+| `GET /me/deal-history?cursor` | BFF S28 «Сделки и отзывы» (`interfaces/http/views/history.py`, 7.3): свои сделки в обеих ролях, новые первыми — вторая сторона (у исполнителя — имя с карточки специалиста), цена, статус, кто отменил, свой отзыв и `review_until` |
+| `GET /deals/{id}/card` | BFF S26 и S53 (`interfaces/http/views/deal.py`, 6.2a и 6.5): условия, вторая сторона (её @username — только после `agreed` и если она его показывает), место, вехи; у ждущего предложения — `proposed_at` и `proposal_expires_at` (72 ч); свой отзыв (`my_review`) и до когда клиент может его оставить (`review_until`, 7.2) |
 | `POST /deals/{id}/complete`, `/cancel`, `/dispute` | Выполнено / отмена с причиной / спор |
-| `POST /deals/{id}/review` | Оставить отзыв: оценка, критерии, текст; фото — v1 |
-| `POST /reviews/{id}/reply` | Публичный ответ исполнителя |
+| `POST /deals/{id}/review` | Оставить отзыв (S27): клиент по сделке `completed`, не позже 14 дней, один раз — иначе 409 `review_not_allowed` (`not_completed`, `window_closed`, `not_client`) или `review_exists`; оценка, критерии, текст; виден после автопроверки; фото — v1 |
+| `POST /reviews/{id}/reply` | Публичный ответ того, о ком отзыв: один (409 `reply_exists`), виден после своей проверки |
 | `GET /review-invites/{token}` 🔓, `POST /review-invites/{token}` | Форма «отзыва до платформы» по приглашению (вход через Telegram обязателен, отдельная метка, в рейтинг не входит) |
-| `GET /me/reviews?direction=received\|written` | Мои отзывы |
+| `GET /me/reviews?direction=received\|written` | Мои отзывы (S28): полученные — опубликованные, со своим ответом и `can_reply`; написанные — в любом статусе |
 
 **messaging**
 
@@ -2497,7 +2523,7 @@ sequenceDiagram
 | `GET /conversations/{id}/messages?cursor=&direction=older\|newer` | История |
 | `POST /conversations/{id}/messages` | Отправить `{client_msg_id, kind, body, media_id?}` |
 | `POST /conversations/{id}/read` | Отметить прочитанным до `message_id` |
-| `POST /conversations/{id}/share-contact` | Поделиться своим Telegram-контактом или телефоном. Доступно только при сделке в статусе `agreed`, до этого `409 contacts_locked` ([§11.5](#115-переписка-модель-чата)) |
+| `POST /conversations/{id}/share-contact` | Поделиться своим Telegram-контактом (подписанная initData) или телефоном (подписанный ответ `requestContact`). Доступно только при сделке `agreed` или `completed`, до этого `409 contacts_locked` ([§11.5](#115-переписка-модель-чата)) |
 | `GET /realtime` | v1: SSE-поток событий `message.new`, `message.read`, `response.new`, `deal.updated` (авторизация — [§11.6](#116-realtime)) |
 
 **notifications**
@@ -2937,14 +2963,14 @@ flowchart LR
 | `response.received` | Клиент | Бот + in-app, дебаунс окном 5 мин (5.4): первый отклик ставит задачу на конец окна, остальные, пока она ждёт, — ничего (замок очереди по заявке); в тексте — видимые клиенту и ещё не открытые отклики | P1 | «Посмотреть отклики» |
 | `response.accepted` / `response.not_selected` | Исполнитель | Бот + in-app | P0 / P3 | «Открыть сделку» (адрес — только внутри Mini App, в тексте бота его нет), «Написать» |
 | `job.invited` | Приглашённый специалист | Бот + in-app | P1 | «Посмотреть заявку», «Откликнуться шаблоном» |
-| `message.received` | Участник диалога | Бот (если не в диалоге) + in-app | P0 | «Ответить» (открывает диалог) |
+| `message.received` | Участник диалога | Бот (если не в диалоге) + in-app, дебаунс окном 1 мин (6.3b): первое сообщение ставит задачу на конец окна; в конце окна — ничего, если получатель всё прочитал или смотрит диалог (метка присутствия по поллингу S30, 20 с) | P0 | «Ответить» (открывает диалог) |
 | `deal.proposed` | Вторая сторона договорённости | Бот + in-app | P0 | «Подтвердить», «Отклонить»; истекает через 72 ч |
 | `deal.cancelled` | Вторая сторона сделки (отмена системой — обе, кроме удалённого аккаунта) | Бот + in-app | P1 | «Открыть сделку»; кто отменил и причина, клиенту из отклика — «заявка снова открыта, прежние отклики вернулись» |
 | `dispute.opened` | Вторая сторона сделки | Бот + in-app | P0 | «Ответить» (48 ч на ответ) |
 | `deal.reminder` | Обе стороны | Бот | P1 | «Открыть» (за 2 ч до времени) |
-| `deal.completion_prompt` | Стороны, которые ещё не отметили | Бот | P1 | «Да, выполнено» (callback `dc:<deal>`, бот deals), «Нет, проблема» (web_app `d_` → S52) |
-| `review.request` | Клиент (v1 — обе стороны) | Бот | P2 | Оценка 1–5 кнопками, «Написать отзыв» |
-| `review.published` | Исполнитель | Бот + in-app | P3 | «Ответить на отзыв» |
+| `deal.completion_prompt` | Стороны, которые ещё не отметили: по сроку (3 ч после времени работы) и сразу, как отметила вторая сторона (`DealMarkedDone`, B2: «Исполнитель отметил работу «…» выполненной. Всё в порядке?») — один раз | Бот | P1 | Одним рядом: «Да, всё хорошо» (callback `dc:<deal>`, бот deals), «Есть проблема» (web_app `d_` → S52) |
+| `review.request` | Клиент (v1 — обе стороны) | Бот | P2 | «Оцените работу» после завершения, напоминание через 24 ч и за 2 дня до конца окна, пока отзыва нет; «1 ★ … 5 ★» одним рядом (callback `rv:<deal>:<оценка>`, бот reviews — отзыв без текста сразу на проверку), «Открыть форму отзыва» — к сделке (`d_` → S27) |
+| `review.published` | Исполнитель | Бот + in-app | P3 | Оценка и начало текста, «Ответить на отзыв» — «Мои отзывы» (`m_reviews`) |
 | `moderation.decision` | Автор контента | Бот + in-app | P1 | «Исправить», «Обжаловать» |
 | `profile.published` | Исполнитель | Бот + in-app | P1 | «Открыть профиль» — модерация одобрила профиль (2.8a) |
 | `job.expiring` | Клиент | Бот | P3 | «Продлить», «Закрыть: исполнитель найден» (бот спросит: здесь или в другом месте); после срока заявки не отправляется |
@@ -2954,7 +2980,7 @@ flowchart LR
 
 Тексты — шаблоны gettext по локали получателя. Дата и время — в часовом поясе получателя (сущность `date_time` Bot API 9.5). Когда заявка закрыта, кнопка «Откликнуться» в разосланных сообщениях заменяется на `DisabledButton` (Bot API 10.3).
 
-Кнопки действий в чате — callback: данные `<действие>:<id base62>[:<аргумент>]` не длиннее 64 байт, кодек общий (`platform/telegram/callbacks.py`): кнопку рисует notifications, нажатие обрабатывает бот модуля сущности теми же use cases, что и API. У уведомления, которое со временем становится неправдой («закроется через 2 ч»), есть срок актуальности `valid_until`: позже него доставка в бот не уходит (`suppressed`, `late`), в том числе если тихие часы кончаются позже.
+Кнопки уведомления — ряды клавиатуры: одна кнопка во всю ширину или несколько в ряд («Да, всё хорошо» | «Есть проблема», «1 ★ … 5 ★»). Кнопки действий в чате — callback: данные `<действие>:<id base62>[:<аргумент>]` не длиннее 64 байт, кодек общий (`platform/telegram/callbacks.py`): кнопку рисует notifications, нажатие обрабатывает бот модуля сущности теми же use cases, что и API. У уведомления, которое со временем становится неправдой («закроется через 2 ч»), есть срок актуальности `valid_until`: позже него доставка в бот не уходит (`suppressed`, `late`), в том числе если тихие часы кончаются позже.
 
 **Вещи (после MVP, итерация «Вещи»).** Бот у услуг и вещей один, и кто заблокирует его из-за дайджестов вещей, не получит ни подходящих заявок, ни сообщений чата. Поэтому:
 - группа `goods` в `notifications.preferences`, типы `listing.expiring`, `saved_search.matched`, `listing.reserved`;
@@ -2979,6 +3005,7 @@ flowchart LR
 | `h` | Главная (S03) | `h` |
 | `n` | Мастер новой заявки (S20a; команда бота `/new`) | `n` |
 | `m_jobs` | Мои заявки (S22; команда бота `/jobs`) | `m_jobs` |
+| `m_reviews` | Мои отзывы (S28, 7.3; кнопка «Ответить на отзыв» уведомления `review.published`) | `m_reviews` |
 | `l_terms`, `l_privacy` | Правила площадки, политика конфиденциальности (вкладка S48; команды бота `/terms`, `/privacy`) | `l_terms` |
 | `…_r<code>` | Суффикс реферала или атрибуции канала — только суффикс, не тип | `s_4bN8wE2rT6yU1iO3pA5sDf_rAB12CD`, `h_rAB12CD` |
 
@@ -3006,7 +3033,7 @@ flowchart LR
 
 | Этап | Что есть |
 |---|---|
-| **MVP** | Диалог на отклик или прямое обращение; экран диалога в Mini App (текст, поллинг 3–5 с, пока экран открыт); уведомление в боте с кнопкой «Ответить»; «Договорились» создаёт сделку (`proposed` → вторая сторона подтверждает → `agreed`); **до сделки `agreed` обмен контактами недоступен**, а телефоны, ссылки и @username в сообщениях автоматически маскируются с подсказкой «контакты откроются после договорённости»; после `agreed` у каждой стороны появляется кнопка «Поделиться контактом» (Telegram или телефон): каждый делится своим, явным действием. Это и есть наш double opt-in. Плюс автопроверки сообщений («предоплата», фишинг) с баннером безопасности |
+| **MVP** | Диалог на отклик или прямое обращение; экран диалога в Mini App (текст, поллинг 3–5 с, пока экран открыт); уведомление в боте с кнопкой «Ответить»; «Договорились» создаёт сделку (`proposed` → вторая сторона подтверждает → `agreed`); **до сделки `agreed` обмен контактами недоступен**, а телефоны, ссылки и @username в сообщениях автоматически маскируются с подсказкой «контакты откроются после договорённости»; после `agreed` у каждой стороны появляется кнопка «Поделиться контактом» (Telegram или телефон): каждый делится своим, явным действием. Это и есть наш double opt-in. Исключение — @username Telegram: после `agreed` он виден второй стороне в шапке диалога и в сделке, если владелец не выключил «Мой Telegram» в настройках (S43, по умолчанию включено); телефон — только явным действием. Плюс автопроверки сообщений («предоплата», фишинг) с баннером безопасности |
 | **v1** | Ответ прямо из бота: reply на уведомление или активный диалог в FSM; SSE-поток событий; фото в сообщениях; автоперевод ru ↔ sr по кнопке |
 | **Этап 2** | Нативный чат в iOS/Android на том же API + push |
 
@@ -3082,7 +3109,8 @@ flowchart LR
 | `deals.expire_proposed` | каждые 15 мин | `proposed` старше 72 ч без подтверждения → `cancelled` («истекло»), уведомление инициатору |
 | `deals.reminders` | каждые 15 мин | `deal.reminder` за 2 ч до `scheduled_at` |
 | `disputes.response_sla` | каждые 30 мин | Вторая сторона не ответила за 48 ч → спор уходит модератору с пометкой «нет ответа» |
-| `reviews.reminders` | ежечасно | Напоминание об отзыве через 24 ч после завершения и за 2 дня до закрытия окна 14 дней |
+| `reviews.reminders` | ежечасно | Напоминание об отзыве через 24 ч после завершения и за 2 дня до закрытия окна 14 дней (`reviews.review_requests`) |
+| `reviews.recompute_ratings` | ночью | Пересчёт всех рейтингов: вес отзывов затухает (half-life 12 мес.), меняются средние категорий; изменившийся — `RatingChanged` |
 | `reviews.reveal_expired` | ежечасно (v1) | Double-blind: окно 14 дней закрылось → публикация отзыва, написанного одной стороной |
 | `specialists.stale_profile_reminders` | ежедневно в 11:00 | `profile.stale_reminder` не чаще раза в 2 недели, если профиль давно не обновлялся и «доступен сегодня» не включался |
 | `specialists.reset_availability` | каждые 5 мин | Снять «доступен сегодня» по `available_until` |
@@ -3253,7 +3281,7 @@ flowchart TB
 
 Сценарий «срочно вечером» не ждёт модератора. LLM-классификатор — Must в MVP: на нём держится модерация по риску.
 
-**Как устроено (шаг 2.6).** Контентный модуль в транзакции, где объект стал «на проверке», публикует событие `ModerationRequested` (тип и id объекта, автор, правка ли); подписчик `moderation.auto_check` читает текст и файлы через адаптер цели (`moderation/infrastructure/targets/<тип>.py` — фасад модуля-владельца: `content`, `publish`, `hide`) и решает маршрут (`moderation/domain/pipeline.py`). Внешние вызовы — до транзакции; публикация или скрытие, кейс и заморозка аккаунта при P0 — в одной. Решение модератора действует на объект через тот же адаптер: одобрение публикует (и снимает заморозку автопроверки), отказ скрывает. До чата модераторов (2.5b) и админки (2.7b) кейсы смотрят и решают командами `cli moderation-queue` и `cli moderation-decide` (решает только роль moderator или admin).
+**Как устроено (шаг 2.6).** Контентный модуль в транзакции, где объект стал «на проверке», публикует событие `ModerationRequested` (тип и id объекта, автор, правка ли); подписчик `moderation.auto_check` читает текст и файлы через адаптер цели (`moderation/infrastructure/targets/<тип>.py` — фасад модуля-владельца: `content`, `publish`, `hide`) и решает маршрут (`moderation/domain/pipeline.py`). Сообщение чата видно сразу (6.3a): адаптер отдаёт его как уже видимое (`TargetContent.visible`), и очередь скрывает его только при признаке нарушения (`Routing.flagged`: слово словаря, velocity, omni, метка классификатора, кроме `contact_leak`); недоступный AI, сомнение классификатора и детекторы контактов и предоплаты открывают кейс, не пряча сообщение — контакты в переписке закрывает маскирование, о предоплате предупреждает памятка. Внешние вызовы — до транзакции; публикация или скрытие, кейс и заморозка аккаунта при P0 — в одной. Решение модератора действует на объект через тот же адаптер: одобрение публикует (и снимает заморозку автопроверки), отказ скрывает. До чата модераторов (2.5b) и админки (2.7b) кейсы смотрят и решают командами `cli moderation-queue` и `cli moderation-decide` (решает только роль moderator или admin).
 
 **Жёсткие правила (шаг 2.4).** Словарь `moderation.content_rules` загружается из `backend/seeds/moderation/content_rules.yaml` (`cli seed`) и сравнивается со **скелетом** текста (`platform/text/normalize.py`): регистр, письменность (кириллица и латиница), «цифры вместо букв», повторы, «п.р.е.д», невидимые символы, ударения, буквы-двойники других алфавитов и русский транслит сводятся к одной форме, поэтому сербское слово в словаре пишется один раз. Детектор контактов и предоплаты (`platform/text/contact_masking.py`) работает всегда, без словаря. Velocity — один текст от нескольких аккаунтов или повтор автора (отпечаток — скелет без контактов, счётчики в Valkey, fail open). Набор примеров `seeds/moderation/rule_examples.yaml` проверяет `cli seeds-validate`. Во внешний AI уходит текст без контактов, имени и id автора.
 

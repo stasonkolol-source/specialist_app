@@ -28,6 +28,7 @@ import type {
   IdentityUpdateMeHeaders,
   MeOut,
   MeUpdateIn,
+  PrivacyIn,
   ProblemOut,
   RefreshIn,
   TokensOut,
@@ -550,6 +551,112 @@ export const useIdentityUpdateMe = <TError = ErrorType<ProblemOut>, TContext = u
   TContext
 > => {
   return useMutation(getIdentityUpdateMeMutationOptions(options), queryClient);
+};
+export const getIdentityUpdatePrivacyUrl = () => {
+  return `/api/v1/me/privacy`;
+};
+
+/**
+ * «Показывать после договорённости» (S43): свой Telegram второй стороне сделки.
+ * @summary Update Privacy
+ */
+export const identityUpdatePrivacy = async (
+  privacyIn: PrivacyIn,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MeOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<MeOut>(getIdentityUpdatePrivacyUrl(), {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(privacyIn),
+  });
+};
+
+export const getIdentityUpdatePrivacyMutationKey = () => ['identityUpdatePrivacy'] as const;
+
+export const getIdentityUpdatePrivacyMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof identityUpdatePrivacy>>,
+    TError,
+    IdentityUpdatePrivacyMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof identityUpdatePrivacy>>,
+  TError,
+  IdentityUpdatePrivacyMutationVariables,
+  TContext
+> => {
+  const mutationKey = getIdentityUpdatePrivacyMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof identityUpdatePrivacy>>,
+    IdentityUpdatePrivacyMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return identityUpdatePrivacy(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type IdentityUpdatePrivacyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof identityUpdatePrivacy>>
+>;
+export type IdentityUpdatePrivacyMutationBody = PrivacyIn;
+export type IdentityUpdatePrivacyMutationError = ErrorType<ProblemOut>;
+export type IdentityUpdatePrivacyMutationVariables = { data: PrivacyIn };
+
+/**
+ * @summary Update Privacy
+ */
+export const useIdentityUpdatePrivacy = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof identityUpdatePrivacy>>,
+      TError,
+      IdentityUpdatePrivacyMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof identityUpdatePrivacy>>,
+  TError,
+  IdentityUpdatePrivacyMutationVariables,
+  TContext
+> => {
+  return useMutation(getIdentityUpdatePrivacyMutationOptions(options), queryClient);
 };
 export const getIdentityAcceptConsentsUrl = () => {
   return `/api/v1/me/consents`;

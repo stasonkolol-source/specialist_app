@@ -49,6 +49,11 @@ export const IdentityAuthenticateTelegramResponse = zod.object({
     can_respond: zod.boolean(),
     can_message: zod.boolean(),
     deletion_scheduled_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    privacy: zod
+      .object({
+        show_telegram: zod.boolean().describe('Свой Telegram (@username) — в сделке и чате'),
+      })
+      .describe('«Показывать после договорённости» (S43).'),
   }),
 });
 
@@ -105,6 +110,11 @@ export const IdentityGetMeResponse = zod.object({
   can_respond: zod.boolean(),
   can_message: zod.boolean(),
   deletion_scheduled_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  privacy: zod
+    .object({
+      show_telegram: zod.boolean().describe('Свой Telegram (@username) — в сделке и чате'),
+    })
+    .describe('«Показывать после договорённости» (S43).'),
 });
 
 /**
@@ -159,6 +169,46 @@ export const IdentityUpdateMeResponse = zod.object({
   can_respond: zod.boolean(),
   can_message: zod.boolean(),
   deletion_scheduled_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  privacy: zod
+    .object({
+      show_telegram: zod.boolean().describe('Свой Telegram (@username) — в сделке и чате'),
+    })
+    .describe('«Показывать после договорённости» (S43).'),
+});
+
+/**
+ * «Показывать после договорённости» (S43): свой Telegram второй стороне сделки.
+ * @summary Update Privacy
+ */
+export const IdentityUpdatePrivacyBody = zod.object({
+  show_telegram: zod.union([zod.boolean(), zod.null()]).optional(),
+});
+
+export const IdentityUpdatePrivacyResponse = zod.object({
+  id: zod.uuid(),
+  display_name: zod.string(),
+  ui_locale: zod.enum(['ru', 'sr-Latn', 'sr-Cyrl', 'en']),
+  trust_level: zod.int(),
+  phone_verified: zod.boolean(),
+  created_at: zod.iso.datetime({ offset: true }),
+  home_city_id: zod.union([zod.int(), zod.null()]),
+  intent: zod.union([
+    zod
+      .enum(['client', 'pro', 'casual'])
+      .describe('«Что вы хотите?» в онбординге S02b: стартовый экран и подсказки, не права.'),
+    zod.null(),
+  ]),
+  consents: zod.record(zod.string(), zod.string()),
+  consent_required: zod.boolean(),
+  can_post_jobs: zod.boolean(),
+  can_respond: zod.boolean(),
+  can_message: zod.boolean(),
+  deletion_scheduled_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  privacy: zod
+    .object({
+      show_telegram: zod.boolean().describe('Свой Telegram (@username) — в сделке и чате'),
+    })
+    .describe('«Показывать после договорённости» (S43).'),
 });
 
 /**
@@ -200,6 +250,11 @@ export const IdentityAcceptConsentsResponse = zod.object({
   can_respond: zod.boolean(),
   can_message: zod.boolean(),
   deletion_scheduled_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  privacy: zod
+    .object({
+      show_telegram: zod.boolean().describe('Свой Telegram (@username) — в сделке и чате'),
+    })
+    .describe('«Показывать после договорённости» (S43).'),
 });
 
 /**

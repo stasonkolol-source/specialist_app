@@ -62,9 +62,11 @@ class LinkDocument(StrEnum):
 
 
 class LinkSection(StrEnum):
-    """Свой раздел ссылки `m_<раздел>`: `jobs` — «Мои заявки» (S22)."""
+    """Свой раздел ссылки `m_<раздел>`: `jobs` — «Мои заявки» (S22), `reviews` — «Мои отзывы»
+    (S28, 7.3; кнопка «Ответить на отзыв» уведомления `review.published`)."""
 
     JOBS = "jobs"
+    REVIEWS = "reviews"
 
 
 class ReservedCode(StrEnum):

@@ -3,11 +3,12 @@
 // избранное» (4.6); бейджи «Сегодня до …» и «Телефон подтверждён»; памятка «не платите предоплату
 // незнакомым»; первые позиции прайса со ссылкой на S09, превью работ со ссылкой на просмотрщик S10,
 // последний отзыв со ссылкой на S11; «О себе» — текст, языки и районы выезда. Всё — одним запросом
-// BFF. Профиль скрыт или его нет — «Профиль недоступен». MainButton «Написать» (5.6) — прямой
-// запрос: мастер заявки S20a, заявку увидит только этот специалист (с 6.4 — диалог); на своём
-// профиле кнопки нет. Скрыто до своих шагов: «Предложить заявку», «Поделиться» (7.4), «Обычно
-// отвечает за …» (6.3b), «Пожаловаться» и «Заблокировать» (4.7). Гость видит экран без входа, но
-// без сердечка.
+// BFF. Профиль скрыт или его нет — «Профиль недоступен». MainButton «Написать» (6.4) — диалог S30
+// со специалистом (начатый — тот же); «Предложить заявку» под шапкой — прямой запрос (5.6): мастер
+// заявки S20a, заявку увидит только этот специалист. На своём профиле обеих кнопок нет. «Обычно
+// отвечает за …» — в «О себе», когда диалогов с ответом за 30 дней набралось пять. Скрыто до своих
+// шагов: «Поделиться» (7.4), «Пожаловаться» и «Заблокировать» (4.7). Гость видит экран без входа,
+// но без сердечка; «Написать» гостю — тоже мастер заявки: диалог начинается после входа.
 import type { CardWorkOut, SpecialistProfileOut } from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
 import { tokens } from '@sosed/design-tokens';
@@ -17,6 +18,7 @@ import {
   searchCardOf,
   useMyProfile,
   useSpecialistCard,
+  useStartConversation,
 } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton, useColorScheme, useMainButton } from '@sosed/platform';
@@ -24,6 +26,7 @@ import {
   Avatar,
   Badge,
   Banner,
+  Button,
   Card,
   Group,
   Heading,
@@ -45,11 +48,12 @@ import { ReviewCard } from '../shared/ReviewCard.tsx';
 import { Unavailable } from '../shared/Unavailable.tsx';
 import { avatarSrc, knownLanguages, place, priceAmount, sentence } from '../shared/card.ts';
 import { useFavoriteToggle } from '../shared/favorite.ts';
-import { CARD_PATHS, CREATE_JOB_PATH } from '../shared/paths.ts';
+import { CARD_PATHS, CREATE_JOB_PATH, chatPath } from '../shared/paths.ts';
 
 const PHONE_VERIFIED = 'phone_verified';
 /** Аватар lg — 88 px. */
 const AVATAR_LG = 88;
+const MINUTES_IN_HOUR = 60;
 
 export function SpecialistScreen() {
   const { profileId } = useParams({ strict: false }) as { profileId: string };
@@ -82,7 +86,8 @@ export function SpecialistScreen() {
   );
 }
 
-/** MainButton «Написать»: прямой запрос специалисту через мастер заявки; себе — не пишут. */
+/** MainButton «Написать»: диалог S30 со специалистом; гостю — прямой запрос через мастер заявки
+ *  (написать без входа нечем); себе — не пишут. Возвращает, свой ли это профиль. */
 function useWriteButton(profileId: string) {
   const { t: common } = useTranslation();
   const router = useRouter();
@@ -90,13 +95,25 @@ function useWriteButton(profileId: string) {
   const palette = tokens.color[scheme];
   const signedIn = getSession() !== null;
   const own = useMyProfile({ enabled: signedIn }).data?.id === profileId;
+  const start = useStartConversation();
+  const write = () =>
+    start.mutate(
+      { profile_id: profileId },
+      { onSuccess: (started) => void router.navigate({ to: chatPath(started.id) }) },
+    );
   useMainButton({
     text: common('action.write'),
     visible: !own,
+    enabled: !start.isPending,
+    loading: start.isPending,
     color: palette.accent,
     textColor: palette['accent-ink'],
-    onClick: () => void router.navigate({ to: CREATE_JOB_PATH, search: { direct: profileId } }),
+    onClick: () =>
+      signedIn
+        ? write()
+        : void router.navigate({ to: CREATE_JOB_PATH, search: { direct: profileId } }),
   });
+  return { own, writeError: start.error };
 }
 
 function Profile({ card }: { card: SpecialistProfileOut }) {
@@ -110,7 +127,7 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
   const aboutId = useId();
   const { control, failure } = useFavoriteToggle();
   const favorite = control(searchCardOf(card), false);
-  useWriteButton(card.id);
+  const { own, writeError } = useWriteButton(card.id);
   const params = { profileId: card.id };
   const go = (to: string, search?: { work: string }) => (event: MouseEvent<HTMLElement>) => {
     event.preventDefault();
@@ -124,6 +141,7 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
   const today = until !== null && until > new Date();
   const languages = knownLanguages(card).map((code) => t(`profile.languageNames.${code}`));
   const areas = card.areas.map((area) => area.name);
+  const response = responseTime(card.response_time_minutes, t);
   const travel =
     areas.length > 0
       ? t('profile.travel', { areas: areas.join(', ') })
@@ -192,7 +210,23 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
             )}
           </div>
         )}
+        {!own && (
+          <Button
+            variant="outline"
+            full
+            onClick={() =>
+              void router.navigate({ to: CREATE_JOB_PATH, search: { direct: card.id } })
+            }
+          >
+            {t('profile.proposeJob')}
+          </Button>
+        )}
       </Card>
+      {writeError && (
+        <Banner tone="danger" role="alert">
+          {t('profile.writeFailed')}
+        </Banner>
+      )}
       {failure && (
         <Banner tone="danger" role="alert">
           {failure}
@@ -255,7 +289,7 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
           ))}
         </section>
       )}
-      {(card.about || languages.length > 0 || travel) && (
+      {(card.about || languages.length > 0 || travel || response) && (
         <section
           aria-labelledby={aboutId}
           className="flex flex-col gap-2 rounded-card bg-surface p-4 text-text"
@@ -268,10 +302,11 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
               {card.about}
             </Text>
           )}
-          {card.about && (languages.length > 0 || travel) && (
+          {card.about && (languages.length > 0 || travel || response) && (
             <div className="h-px bg-line" aria-hidden="true" />
           )}
           {languages.length > 0 && <Meta icon="languages">{sentence(languages)}</Meta>}
+          {response && <Meta icon="clock">{response}</Meta>}
           {travel && <Meta icon="pin">{travel}</Meta>}
         </section>
       )}
@@ -337,7 +372,17 @@ function WorkTile({
   );
 }
 
-function Meta({ icon, children }: { icon: 'languages' | 'pin'; children: ReactNode }) {
+/** «Обычно отвечает за 15 минут»; от часа — часами. */
+function responseTime(
+  minutes: number | null | undefined,
+  t: ReturnType<typeof useTranslation<'catalog'>>['t'],
+): string | null {
+  if (minutes == null) return null;
+  if (minutes < MINUTES_IN_HOUR) return t('profile.responseMinutes', { count: minutes });
+  return t('profile.responseHours', { count: Math.round(minutes / MINUTES_IN_HOUR) });
+}
+
+function Meta({ icon, children }: { icon: 'languages' | 'pin' | 'clock'; children: ReactNode }) {
   return (
     <p className="m-0 flex items-center gap-1.5 text-cap text-text2">
       <Icon name={icon} size={16} />

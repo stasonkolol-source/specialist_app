@@ -9,7 +9,8 @@ import type { StartLink } from '@sosed/links';
 import { parseStartParam } from '@sosed/links';
 
 import { profilePath } from '../features/catalog/index.ts';
-import { CREATE_PATHS, JOBS_PATHS, jobPath } from '../features/jobs/index.ts';
+import { CREATE_PATHS, JOBS_PATHS, dealPath, jobPath } from '../features/jobs/index.ts';
+import { chatPath } from '../features/messages/index.ts';
 
 const HOME = '/';
 
@@ -31,7 +32,13 @@ export const START_TARGETS: StartTargets = {
   job: (link) => jobPath(link.id),
   // мастер новой заявки S20a и «Мои заявки» S22: команды бота /new и /jobs (5.6)
   new_job: () => CREATE_PATHS.what,
-  mine: () => JOBS_PATHS.mine,
+  // «Мои заявки» S22 (`m_jobs`) и «Сделки и отзывы» S28 на вкладке «Отзывы» (`m_reviews`, 7.3)
+  mine: (link) =>
+    link.section === 'reviews' ? `${JOBS_PATHS.history}?tab=reviews` : JOBS_PATHS.mine,
+  // диалог S30: кнопка «Ответить» уведомления `message.received` (6.3b, 6.4)
+  chat: (link) => chatPath(link.id),
+  // сделка S26: кнопки уведомлений о сделке — «Открыть сделку», «Нет, проблема» (6.2)
+  deal: (link) => dealPath(link.id),
 };
 
 /** Адрес для кода `startapp`; `null` — приложение открыли без deep link. */

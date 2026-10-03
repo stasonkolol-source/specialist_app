@@ -5,7 +5,8 @@
 - любой сигнал — флаг правил или omni, метка или неуверенность классификатора, проверка
   не состоялась (AI недоступен), категория с `risk_level ≥ 1`, профиль, который всегда
   проверяет человек, — в очередь: контент ждёт решения; очередь — по самому строгому
-  сигналу (P0 safety, P1 fraud, иначе P2 premod);
+  сигналу (P0 safety, P1 fraud, иначе P2 premod); уже видимый объект (сообщение чата) очередь
+  скрывает только при признаке нарушения (`flagged`);
 - иначе — публикация; у уровня 0 доля SAMPLE_RATE публикаций — ещё и в P2 после публикации.
 """
 
@@ -17,7 +18,12 @@ from typing import Final
 from uuid import UUID
 
 from app.modules.moderation.domain.queues import Queue, stricter
-from app.modules.moderation.domain.rules import RuleAction, RuleCategory, RulesVerdict
+from app.modules.moderation.domain.rules import (
+    MatchSource,
+    RuleAction,
+    RuleCategory,
+    RulesVerdict,
+)
 from app.platform.ai.port import ModerationResult, PolicyLabel, PolicyVerdict, Unavailable
 
 CONFIDENT: Final = 0.8
@@ -67,6 +73,8 @@ class Routing:
     """Что сработало — в доказательства кейса и журнал (без текста контента)."""
     post_review: bool = False
     """Опубликовано, но попало в выборочную проверку."""
+    flagged: bool = False
+    """REVIEW по признаку нарушения: видимый объект (сообщение чата) скрывается до решения."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -120,12 +128,34 @@ def route(checks: Checks) -> Routing:
         queue = Queue.PREMOD
         for candidate, _ in found:
             queue = stricter(candidate, queue)
-        return Routing(route=Route.REVIEW, queue=queue, signals=tuple(s for _, s in found))
+        return Routing(
+            route=Route.REVIEW,
+            queue=queue,
+            signals=tuple(s for _, s in found),
+            flagged=_flagged(checks),
+        )
     if checks.sampled:
         return Routing(
             route=Route.PUBLISH, queue=Queue.PREMOD, signals=("sample",), post_review=True
         )
     return Routing(route=Route.PUBLISH)
+
+
+def _flagged(checks: Checks) -> bool:
+    """Признак нарушения: слово словаря или velocity, флаг omni, метка классификатора. Контакты
+    (детектор, правило или метка), детектор предоплаты, недоступный AI и сомнение классификатора —
+    повод показать человеку, но не нарушение: в переписке контакты скрывает маскирование, о
+    предоплате предупреждает памятка (6.3a)."""
+    rules = any(
+        match.source is not MatchSource.DETECTOR and match.category is not RuleCategory.CONTACTS
+        for match in checks.rules.matches
+    )
+    omni = isinstance(checks.omni, ModerationResult) and checks.omni.flagged
+    policy = isinstance(checks.policy, PolicyVerdict) and checks.policy.label not in _NOT_VIOLATIONS
+    return rules or omni or policy
+
+
+_NOT_VIOLATIONS: Final = frozenset({PolicyLabel.OK, PolicyLabel.CONTACT_LEAK})
 
 
 def sampled(entity_id: UUID, rate: float) -> bool:

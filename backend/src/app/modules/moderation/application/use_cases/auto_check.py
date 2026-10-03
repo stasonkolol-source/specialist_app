@@ -136,7 +136,7 @@ class AutoCheck:
             case_id = None
             if routing.route is Route.PUBLISH:
                 await target.publish(cmd.entity_id, version=content.version)
-            elif routing.route is Route.BLOCK:
+            elif routing.route is Route.BLOCK or (routing.flagged and content.visible):
                 await target.hide(cmd.entity_id, reason_code=routing.reason_code or "other")
             if routing.queue is not None:
                 case_id = await self._opener.open(

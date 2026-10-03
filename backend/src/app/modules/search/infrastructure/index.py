@@ -6,11 +6,21 @@ Upsert идемпотентен: повтор с той же строкой ни
 писатель строки: все колонки считаются из источников (рейтинг добавит 7.2, продвижение — v1).
 """
 
-from collections.abc import Collection, Sequence
-from typing import Any
+from collections.abc import Collection, Mapping, Sequence
+from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, delete, func, literal_column, select
+from sqlalchemy import (
+    ColumnElement,
+    Table,
+    and_,
+    bindparam,
+    delete,
+    func,
+    literal_column,
+    select,
+    update,
+)
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -64,6 +74,9 @@ def _row(entry: IndexEntry) -> dict[str, Any]:
         "price_from": entry.price_from,
         "available_until": entry.available_until,
         "activity_score": entry.activity_score,
+        "rating_bayes": entry.rating_bayes,
+        "rating_lower_bound": entry.rating_lower_bound,
+        "rating_count": entry.rating_count,
         "score": entry.score,
         "name_norm": func.platform.search_norm(entry.name),
         "search_vector": _vector(entry.document),
@@ -81,12 +94,10 @@ class SqlSpecialistIndex:
         self._uow.require_active()
         if not entries:
             return
-        stmt = insert(SpecialistIndexRow).values([_row(entry) for entry in entries])
-        updated = {
-            column.name: stmt.excluded[column.name]
-            for column in SpecialistIndexRow.__table__.columns
-            if column.name != "profile_id"
-        }
+        rows = [_row(entry) for entry in entries]
+        stmt = insert(SpecialistIndexRow).values(rows)
+        # только колонки проектора: время ответа и бейджи пишут свои задачи
+        updated = {name: stmt.excluded[name] for name in rows[0] if name != "profile_id"}
         await self._session.execute(
             stmt.on_conflict_do_update(index_elements=["profile_id"], set_=updated)
         )
@@ -116,6 +127,27 @@ class SqlSpecialistIndex:
         ]
         if prices:
             await self._session.execute(insert(SpecialistCategoryPriceRow).values(prices))
+
+    async def set_response_times(self, minutes: Mapping[UserId, int]) -> None:
+        self._uow.require_active()
+        table = cast(Table, SpecialistIndexRow.__table__)  # Core: executemany по user_id
+        stale: ColumnElement[bool] = table.c.response_time_minutes.is_not(None)
+        if minutes:
+            stale = and_(stale, table.c.user_id.not_in(list(minutes)))
+        await self._session.execute(update(table).where(stale).values(response_time_minutes=None))
+        if minutes:
+            await self._session.execute(
+                update(table)
+                .where(table.c.user_id == bindparam("user"))
+                .values(response_time_minutes=bindparam("minutes")),
+                [{"user": user_id, "minutes": value} for user_id, value in minutes.items()],
+            )
+
+    async def response_time(self, profile_id: UUID) -> int | None:
+        stmt = select(SpecialistIndexRow.response_time_minutes).where(
+            SpecialistIndexRow.profile_id == profile_id
+        )
+        return (await self._session.execute(stmt)).scalar_one_or_none()
 
     async def ids_of_users(self, user_ids: Collection[UserId]) -> list[UUID]:
         column = SpecialistIndexRow.profile_id

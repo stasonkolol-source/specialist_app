@@ -22,7 +22,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, aggregate_order_by
 
-from app.modules.jobs.application.dto import JobView, MyResponseRef
+from app.modules.jobs.application.dto import DealResponse, JobView, MyResponseRef
 from app.modules.jobs.application.feed import (
     CARD_PHOTOS,
     DESCRIPTION_PREVIEW,
@@ -239,6 +239,23 @@ class SqlJobQueries(SqlQuery):
         cursor = encode_cursor(last.created_at, last.id) if more and last else None
         return Page(items=tuple(items), next_cursor=cursor)
 
+    async def deal_response(self, response_id: ResponseId) -> DealResponse | None:
+        row = await self._fetch_one(
+            select(
+                _R.id, _R.job_id, _R.performer_id, _R.status, _R.created_at, _R.availability_note
+            ).where(_R.id == response_id, _R.deleted_at.is_(None))
+        )
+        if row is None:
+            return None
+        return DealResponse(
+            id=ResponseId(row["id"]),
+            job_id=JobId(row["job_id"]),
+            performer_id=UserId(row["performer_id"]),
+            status=ResponseStatus(row["status"]),
+            created_at=row["created_at"],
+            availability_note=row["availability_note"],
+        )
+
     async def passed_over(self, job_id: JobId) -> list[UserId]:
         rows = await self._fetch(
             select(_R.performer_id).where(
@@ -301,6 +318,23 @@ class SqlJobQueries(SqlQuery):
             .where(_R.job_id == job_id, *_UNSEEN)
         )
         return int(row["count"]) if row is not None else 0
+
+    async def unseen_total(self, client_id: UserId) -> int:
+        row = await self._fetch_one(
+            select(func.count().label("count"))
+            .select_from(ResponseRow)
+            .join(JobRow, _J.id == _R.job_id)
+            .where(_J.client_id == client_id, _OPEN, *_UNSEEN)
+        )
+        return int(row["count"]) if row is not None else 0
+
+    async def titles(self, job_ids: Collection[JobId]) -> dict[JobId, str]:
+        if not job_ids:
+            return {}
+        rows = await self._fetch(
+            select(_J.id, _J.title).where(_J.id.in_(list(job_ids)), _J.deleted_at.is_(None))
+        )
+        return {JobId(row["id"]): row["title"] for row in rows}
 
     async def unseen_counts(self, job_ids: Collection[JobId]) -> dict[JobId, int]:
         if not job_ids:

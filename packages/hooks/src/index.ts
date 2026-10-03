@@ -34,6 +34,29 @@ export {
   useLegalDocument,
 } from './legal/useLegalDocument.ts';
 export type { MediaApi, MediaTransport, Prepared, PutResult } from './media/upload.ts';
+export { useUpdatePrivacy } from './account/privacy.ts';
+export type { ChatEntry, PendingMessage } from './messages/chat.ts';
+export {
+  CHAT_PAGE_SIZE,
+  CHAT_POLL_MS,
+  MAX_MESSAGE,
+  chatQueryKey,
+  useChat,
+  useProposeDeal,
+  useShareContact,
+} from './messages/chat.ts';
+export { BADGES_POLL_MS, useBadges } from './messages/badges.ts';
+export type { ChatRole, ConversationPages, DealState } from './messages/conversations.ts';
+export {
+  CONVERSATIONS_KEY,
+  CONVERSATIONS_PAGE_SIZE,
+  conversationItems,
+  conversationsQueryKey,
+  dealState,
+  refreshInbox,
+  useConversations,
+  useStartConversation,
+} from './messages/conversations.ts';
 export type { DayKey, NotificationDay, NotificationFeed } from './notifications/notifications.ts';
 export {
   NOTIFICATIONS_PAGE_SIZE,
@@ -211,6 +234,28 @@ export {
   useReviseResponse,
   useWithdrawResponse,
 } from './jobs/responses.ts';
+export type { CancelDeal, DecideResponse } from './deals/deals.ts';
+export type { HistoryPages, MyReviewsPages } from './reviews/reviews.ts';
+export {
+  DEAL_HISTORY_KEY,
+  MY_REVIEWS_KEY,
+  pagedItems,
+  useDealHistory,
+  useLeaveReview,
+  useMyReviews,
+  useReplyToReview,
+} from './reviews/reviews.ts';
+export {
+  MY_DEALS_KEY,
+  dealCardQueryKey,
+  useAcceptResponse,
+  useAnswerProposal,
+  useCancelDeal,
+  useCompleteDeal,
+  useDealCard,
+  useDeclineResponse,
+  useMyDeals,
+} from './deals/deals.ts';
 export type { CloseJob, InviteSpecialists, UpdateJob } from './jobs/mine.ts';
 export {
   RESPONSES_POLL_MS,

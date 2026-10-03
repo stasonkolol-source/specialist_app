@@ -6,6 +6,8 @@
 - `auth_date` не старше часа, из будущего — не больше 60 с (расхождение часов).
 - initData — bearer-секрет: не логируем, в ошибки не кладём. Полям `initDataUnsafe` на
   клиенте не доверяем: всё берём только отсюда, после проверки подписи.
+- Ответ `requestContact` (телефон, которым пользователь делится в чате, 6.3b) подписан так же:
+  `verify_contact` отдаёт номер и Telegram id владельца только после проверки подписи и срока.
 """
 
 import hashlib
@@ -25,6 +27,9 @@ MAX_AGE = timedelta(hours=1)
 CLOCK_SKEW = timedelta(seconds=60)
 MAX_LENGTH = 8192
 """Реальный initData — 0,5–1,5 КБ; длиннее — мусор, не тратим на него HMAC и парсинг."""
+MIN_PHONE_DIGITS = 7
+MAX_PHONE_DIGITS = 15
+"""E.164: не длиннее 15 цифр с кодом страны."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -37,6 +42,14 @@ class TelegramUser:
     is_premium: bool = False
     allows_write_to_pm: bool = False
     photo_url: str | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class SharedContact:
+    """Контакт из `requestContact`: телефон в E.164 и чей он (Telegram id)."""
+
+    user_id: int
+    phone_e164: str
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -71,7 +84,28 @@ class InitDataVerifier:
         self._clock = clock
         self._max_age = max_age
 
-    def verify(self, raw: str) -> InitData:
+    def verify(self, raw: str, *, max_age: timedelta | None = None) -> InitData:
+        """initData этого бота; `max_age` — свой срок вместо часа (username для обмена
+        контактами, 6.3b: Mini App могли открыть давно, а подпись по-прежнему его)."""
+        fields, auth_date = self._signed(raw, max_age=max_age)
+        return InitData(
+            user=_user(fields.get("user")),
+            auth_date=auth_date,
+            query_id=fields.get("query_id"),
+            start_param=fields.get("start_param"),
+            chat_type=fields.get("chat_type"),
+            chat_instance=fields.get("chat_instance"),
+        )
+
+    def verify_contact(self, raw: str) -> SharedContact:
+        """Ответ `requestContact` Mini App: номер телефона владельца аккаунта Telegram."""
+        fields, _ = self._signed(raw)
+        return _contact(fields.get("contact"))
+
+    def _signed(
+        self, raw: str, *, max_age: timedelta | None = None
+    ) -> tuple[dict[str, str], datetime]:
+        """Поля с проверенной подписью этого бота и свежим `auth_date`."""
         fields = _parse(raw)
         received = fields.get("hash", "")
         expected = hmac.new(
@@ -83,16 +117,9 @@ class InitDataVerifier:
         now = self._clock.now()
         if auth_date - now > CLOCK_SKEW:
             raise InvalidInitDataError
-        if now - auth_date > self._max_age:
+        if now - auth_date > (max_age or self._max_age):
             raise InitDataExpiredError
-        return InitData(
-            user=_user(fields.get("user")),
-            auth_date=auth_date,
-            query_id=fields.get("query_id"),
-            start_param=fields.get("start_param"),
-            chat_type=fields.get("chat_type"),
-            chat_instance=fields.get("chat_instance"),
-        )
+        return fields, auth_date
 
 
 def _parse(raw: str) -> dict[str, str]:
@@ -135,6 +162,22 @@ def _user(raw: str | None) -> TelegramUser:
         allows_write_to_pm=data.get("allows_write_to_pm") is True,
         photo_url=_opt_str(data.get("photo_url")),
     )
+
+
+def _contact(raw: str | None) -> SharedContact:
+    if raw is None:
+        raise InvalidInitDataError
+    try:
+        data: Any = json.loads(raw)
+    except ValueError as exc:
+        raise InvalidInitDataError from exc
+    if not isinstance(data, dict) or not isinstance(data.get("user_id"), int):
+        raise InvalidInitDataError
+    phone = data.get("phone_number")
+    digits = phone.removeprefix("+") if isinstance(phone, str) else ""
+    if not digits.isdigit() or not MIN_PHONE_DIGITS <= len(digits) <= MAX_PHONE_DIGITS:
+        raise InvalidInitDataError
+    return SharedContact(user_id=data["user_id"], phone_e164=f"+{digits}")
 
 
 def _opt_str(value: object) -> str | None:

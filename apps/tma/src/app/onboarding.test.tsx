@@ -470,7 +470,8 @@ describe('deep links (startapp)', () => {
 
   it('open home for targets whose screens are not built yet', async () => {
     userBackend(ME);
-    const { app } = startApp('/', { startParam: 'd_3Nf1YTX8urRqobGWgo1mmN_rAB12CD' });
+    // раздел «Вещи» (`g_`) — после MVP
+    const { app } = startApp('/', { startParam: 'g_02y9UKmeRG6vSNbdsEYkkR' });
     expect(await screen.findByRole('heading', { name: 'Найдём мастера рядом' })).toBeTruthy();
     expect(app.router.state.location.pathname).toBe('/');
   });

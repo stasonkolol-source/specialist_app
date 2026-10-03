@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.modules.identity.api import DeletionHold
 from app.modules.jobs.api import JobsApi
 from app.modules.media.api import LegalHold
+from app.modules.messaging.api import MessagingApi
 from app.modules.moderation.application.content_rules import ContentRulesChecker
 from app.modules.moderation.application.policy import PublishedModerationPolicy
 from app.modules.moderation.application.ports import (
@@ -52,9 +53,12 @@ from app.modules.moderation.infrastructure.rate_limits import ValkeyRateLimitOve
 from app.modules.moderation.infrastructure.rules import CachedRuleSource, SqlRuleWriter
 from app.modules.moderation.infrastructure.targets import TargetRegistry
 from app.modules.moderation.infrastructure.targets.job import JobTarget
+from app.modules.moderation.infrastructure.targets.message import MessageTarget
 from app.modules.moderation.infrastructure.targets.profile import ProfileTarget
 from app.modules.moderation.infrastructure.targets.response import ResponseTarget
+from app.modules.moderation.infrastructure.targets.review import ReviewReplyTarget, ReviewTarget
 from app.modules.moderation.infrastructure.velocity import ValkeyVelocityCounter
+from app.modules.reviews.api import ReviewsApi
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.config.port import LegalVersions
 from app.platform.legal.port import LegalLibrary
@@ -87,13 +91,22 @@ class ModerationProvider(Provider):
         return PublishedModerationPolicy(versions, library)
 
     @provide
-    def targets(self, specialists: SpecialistsApi, jobs: JobsApi) -> ModerationTargets:
-        """Адаптеры целей: контентные модули добавляют свои в своих шагах (6.3a, 7.2)."""
+    def targets(
+        self,
+        specialists: SpecialistsApi,
+        jobs: JobsApi,
+        messaging: MessagingApi,
+        reviews: ReviewsApi,
+    ) -> ModerationTargets:
+        """Адаптеры целей: контентные модули добавляют свои в своих шагах."""
         return TargetRegistry(
             {
                 EntityType.PROFILE: ProfileTarget(specialists),
                 EntityType.JOB: JobTarget(jobs),
                 EntityType.RESPONSE: ResponseTarget(jobs),
+                EntityType.MESSAGE: MessageTarget(messaging),
+                EntityType.REVIEW: ReviewTarget(reviews),
+                EntityType.REVIEW_REPLY: ReviewReplyTarget(reviews),
             }
         )
 

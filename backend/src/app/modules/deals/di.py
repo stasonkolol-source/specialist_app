@@ -9,6 +9,7 @@ from app.modules.deals.application.use_cases.cancel_deal import CancelDeal
 from app.modules.deals.application.use_cases.cancel_user_deals import CancelUserDeals
 from app.modules.deals.application.use_cases.complete_deal import CompleteDeal
 from app.modules.deals.application.use_cases.confirm_deal import ConfirmDeal
+from app.modules.deals.application.use_cases.decline_deal import DeclineDeal
 from app.modules.deals.application.use_cases.list_my_deals import ListMyDeals
 from app.modules.deals.application.use_cases.show_deal import ShowDeal
 from app.modules.deals.application.use_cases.sweep_deals import SweepDeals
@@ -28,6 +29,7 @@ class DealsProvider(Provider):
     show_deal = provide(ShowDeal)
     list_my_deals = provide(ListMyDeals)
     confirm_deal = provide(ConfirmDeal)
+    decline_deal = provide(DeclineDeal)
     complete_deal = provide(CompleteDeal)
     cancel_deal = provide(CancelDeal)
     cancel_user_deals = provide(CancelUserDeals)

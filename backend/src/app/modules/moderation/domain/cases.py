@@ -41,6 +41,8 @@ class EntityType(StrEnum):
     JOB = "job"
     RESPONSE = "response"
     REVIEW = "review"
+    REVIEW_REPLY = "review_reply"
+    """Ответ исполнителя на отзыв (7.2): проверяется отдельно, нарушение скрывает только его."""
     MESSAGE = "message"
     MEDIA = "media"
 

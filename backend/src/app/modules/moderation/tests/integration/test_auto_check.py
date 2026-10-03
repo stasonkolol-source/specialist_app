@@ -88,6 +88,34 @@ async def test_stop_word_waits_in_the_queue_of_its_category(moderation: Moderati
     assert queue == "safety"  # наркотики — очередь P0, даже когда слово только флаг (§14.2)
 
 
+async def test_visible_message_is_hidden_only_for_a_violation(moderation: Moderation) -> None:
+    """Сообщение чата видно сразу (6.3a): нарушение прячет его до решения, одобрение возвращает;
+    сомнение (AI недоступен) — кейс для человека, но сообщение остаётся видно."""
+    moderation.rules.rules = (EASY_MONEY,)
+    author = await moderation.user(trust_level=1)
+
+    async def check(text: str) -> UUID:
+        message = moderation.jobs.add(author, text, kind=ContentKind.MESSAGE, visible=True)
+        await moderation.auto_check(
+            AutoCheckCommand(entity_type=EntityType.JOB, entity_id=message, author_id=author)
+        )
+        return message
+
+    flagged = await check("Pasivni prihod od kuće!")
+    clean = await check("Буду в 19:00")
+    moderation.omni.result = Unavailable(UnavailableReason.PROVIDER_ERROR)
+    doubtful = await check("Захвачу стремянку")
+
+    assert moderation.jobs.hidden == [(flagged, "other")]
+    assert moderation.jobs.published == [(clean, 1)]
+    cases = {view.entity_id: view.id for view in await moderation.queries.open_cases()}
+    assert set(cases) == {flagged, doubtful}
+    await moderation.decide(
+        DecideCaseCommand(case_id=cases[flagged], verdict=ModerationDecision.APPROVED)
+    )
+    assert moderation.jobs.published == [(clean, 1), (flagged, None)]
+
+
 async def test_ai_unavailable_goes_to_p2(moderation: Moderation) -> None:
     moderation.omni.result = Unavailable(UnavailableReason.NO_KEY)
     author = await moderation.user(trust_level=1)

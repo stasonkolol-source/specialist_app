@@ -219,13 +219,12 @@ describe('S21 published', () => {
   });
 });
 
-describe('S08 «Написать» — direct request', () => {
+describe('S08 «Предложить заявку» — direct request', () => {
   it('goes through the wizard and sends the job to the specialist only', async () => {
     const jobs = withJobs(new JobsBackend());
     const { app, telegram } = startApp(`/specialists/${CARD_PROFILE_ID}`);
-    await waitFor(() => expect(mainButton(telegram)?.text).toBe('Написать'));
 
-    await pressMainButton(telegram);
+    await click(await screen.findByRole('button', { name: 'Предложить заявку' }));
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs/new'));
     expect(await screen.findByText(/^Прямой запрос: Алексей Морозов\./)).toBeTruthy();

@@ -35,6 +35,10 @@ from app.modules.identity.application.use_cases.request_deletion import (
     RequestDeletion,
     RequestDeletionCommand,
 )
+from app.modules.identity.application.use_cases.update_privacy import (
+    UpdatePrivacy,
+    UpdatePrivacyCommand,
+)
 from app.modules.identity.application.use_cases.update_profile import (
     UpdateProfile,
     UpdateProfileCommand,
@@ -48,6 +52,7 @@ from app.modules.identity.http.schemas import (
     DeletionOut,
     MeOut,
     MeUpdateIn,
+    PrivacyIn,
     RefreshIn,
     TokensOut,
 )
@@ -138,6 +143,21 @@ async def get_me(
     response: Response,
 ) -> MeOut:
     """Профиль, принятые версии документов и что можно делать (онбординг, S49b)."""
+    return await _me(query, access, principal.user_id, response)
+
+
+@router.patch("/me/privacy", dependencies=AUTHENTICATED)
+@inject
+async def update_privacy(
+    body: PrivacyIn,
+    principal: FromDishka[Principal],
+    update: FromDishka[UpdatePrivacy],
+    query: FromDishka[IdentityQuery],
+    access: FromDishka[AccessChecker],
+    response: Response,
+) -> MeOut:
+    """«Показывать после договорённости» (S43): свой Telegram второй стороне сделки."""
+    await update(UpdatePrivacyCommand(actor_id=principal.user_id, show_telegram=body.show_telegram))
     return await _me(query, access, principal.user_id, response)
 
 
