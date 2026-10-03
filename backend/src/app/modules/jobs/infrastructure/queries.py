@@ -37,6 +37,7 @@ from app.modules.jobs.application.responses import (
     ResponseGroup,
     ResponseJob,
 )
+from app.modules.jobs.domain.alert import AlertId
 from app.modules.jobs.domain.job import (
     ACTIVE,
     BudgetType,
@@ -55,7 +56,9 @@ from app.modules.jobs.domain.response import (
     ResponseReview,
     ResponseStatus,
 )
+from app.modules.jobs.infrastructure.alerts import alert_fits
 from app.modules.jobs.infrastructure.models import (
+    AlertRow,
     HiddenJobRow,
     InviteRow,
     JobMediaRow,
@@ -362,6 +365,53 @@ class SqlJobQueries(SqlQuery):
         )
         return [_owner_response(row) for row in rows]
 
+    async def still_open(self, job_ids: Collection[JobId], now: datetime) -> set[JobId]:
+        if not job_ids:
+            return set()
+        rows = await self._fetch(
+            select(_J.id).where(
+                _J.id.in_(list(job_ids)),
+                _OPEN,
+                or_(_J.expires_at.is_(None), _J.expires_at > now),
+                _J.responses_count < _J.max_responses,
+            )
+        )
+        return {JobId(row["id"]) for row in rows}
+
+    async def skipped(self, job_ids: Collection[JobId], user_id: UserId) -> set[JobId]:
+        if not job_ids:
+            return set()
+        wanted = list(job_ids)
+        responded = select(_R.job_id.label("job_id")).where(
+            _R.job_id.in_(wanted), _R.performer_id == user_id, _R.deleted_at.is_(None)
+        )
+        hidden = select(_H.job_id.label("job_id")).where(
+            _H.job_id.in_(wanted), _H.user_id == user_id
+        )
+        rows = await self._fetch(responded.union(hidden))
+        return {JobId(row["job_id"]) for row in rows}
+
+    async def alert_counts(
+        self, user_id: UserId, *, since: datetime, hidden_clients: Collection[UserId] = ()
+    ) -> dict[AlertId, int]:
+        alerts, jobs = AlertRow.__table__, JobRow.__table__
+        matched = [
+            *alert_fits(alerts, jobs),
+            _J.published_at >= since,
+            _J.visibility == Visibility.PUBLIC.value,
+            _J.deleted_at.is_(None),
+        ]
+        if hidden_clients:
+            matched.append(_J.client_id.not_in(list(hidden_clients)))
+        # опубликованные за неделю — и те, что уже закрыты: подписке они подходили
+        count = (
+            select(func.count()).select_from(jobs).where(*matched).correlate(alerts)
+        ).scalar_subquery()
+        rows = await self._fetch(
+            select(alerts.c.id, count.label("count")).where(alerts.c.user_id == user_id)
+        )
+        return {AlertId(row["id"]): int(row["count"]) for row in rows}
+
     async def saved(
         self, user_id: UserId, *, now: datetime, hidden_clients: Collection[UserId] = ()
     ) -> list[FeedItem]:
@@ -531,7 +581,20 @@ def _open_to_all(now: datetime) -> list[ColumnElement[bool]]:
 def _feed_conditions(
     filters: FeedFilters, viewer_id: UserId | None, now: datetime
 ) -> list[ColumnElement[bool]]:
-    conditions = [*_open_to_all(now), _J.city_id == filters.city_id]
+    conditions = [*_open_to_all(now)]
+    if filters.city_id is not None:
+        conditions.append(_J.city_id == filters.city_id)
+    if filters.alerts_of is not None:
+        alerts = AlertRow.__table__
+        conditions.append(
+            exists()
+            .where(
+                alerts.c.user_id == filters.alerts_of,
+                alerts.c.is_active,
+                *alert_fits(alerts, JobRow.__table__),
+            )
+            .correlate(JobRow)
+        )
     if viewer_id is not None:
         conditions.append(_J.client_id != viewer_id)
         conditions.append(~exists().where(_H.user_id == viewer_id, _H.job_id == _J.id))
@@ -626,6 +689,7 @@ def _view(row: RowMapping) -> JobView:
         responses_count=row["responses_count"],
         extensions_count=row["extensions_count"],
         views_count=row["views_count"],
+        notified_count=row["notified_count"],
         responses_seen_at=row["responses_seen_at"],
         moderation_note=row["moderation_note"],
         version=row["version"],

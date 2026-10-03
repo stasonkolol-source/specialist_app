@@ -112,6 +112,8 @@ class DeliveryTarget:
     """Срочное (заявка `asap`): тихие часы не действуют."""
     valid_until: datetime | None = None
     """Позже этого момента не отправлять: доставка `suppressed`."""
+    provider_message_id: str | None = None
+    """id сообщения в чате после отправки — правка его кнопок (карточка B1, 5.7)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

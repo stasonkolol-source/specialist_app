@@ -2,6 +2,7 @@
 
 from dishka import Provider, Scope, provide
 
+from app.modules.jobs.api import DigestSchedule
 from app.modules.notifications.application.ports import (
     ChannelRepository,
     NotificationQuery,
@@ -25,6 +26,8 @@ from app.modules.notifications.application.use_cases.mark_notifications_read imp
     MarkNotificationsRead,
 )
 from app.modules.notifications.application.use_cases.notify import Notify
+from app.modules.notifications.application.use_cases.retire_card import RetireCard
+from app.modules.notifications.application.use_cases.retire_job_cards import RetireJobCards
 from app.modules.notifications.application.use_cases.schedule_messages_notice import (
     ScheduleMessagesNotice,
 )
@@ -36,6 +39,7 @@ from app.modules.notifications.application.use_cases.toggle_bot_setting import T
 from app.modules.notifications.application.use_cases.update_notification_settings import (
     UpdateNotificationSettings,
 )
+from app.modules.notifications.infrastructure.digest_schedule import SettingsDigestSchedule
 from app.modules.notifications.infrastructure.queries import SqlNotificationQuery
 from app.modules.notifications.infrastructure.recipients import SqlRecipientData
 from app.modules.notifications.infrastructure.rendering import GettextNotificationRenderer
@@ -71,6 +75,10 @@ class NotificationsProvider(Provider):
     toggle_bot_setting = provide(ToggleBotSetting)
     recipients = provide(SqlRecipientData, provides=RecipientData)
     forget_recipient = provide(ForgetRecipient)
+    retire_job_cards = provide(RetireJobCards)
+    retire_card = provide(RetireCard)
+    digest_schedule = provide(SettingsDigestSchedule, provides=DigestSchedule)
+    """Когда кому подборка заявок по подпискам (jobs.alert_digests, 5.7)."""
 
     @provide(scope=Scope.APP)
     def renderer(self, translator: Translator, telegram: TelegramSettings) -> NotificationRenderer:

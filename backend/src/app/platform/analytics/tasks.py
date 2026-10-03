@@ -7,8 +7,9 @@
 `job_expired` (5.1), `response_submitted` (5.4), `invite_sent` и `direct_request_sent` (5.6),
 `deal_agreed`, `deal_completed` и `deal_cancelled` (6.1a) — по событию на каждую сторону сделки,
 `dispute_opened` (6.1c) — открывшему, `conversation_started` и `message_sent` (6.3a),
-`contact_shared` (6.3b), `review_published` (7.2), `report_created` (4.7); остальные события
-подключает шаг своего модуля (таксономия — events.py).
+`contact_shared` (6.3b), `review_published` (7.2), `report_created` (4.7), `alert_created` и
+`job_matched_notified` (5.7); остальные события подключает шаг своего модуля (таксономия —
+events.py).
 """
 
 import uuid
@@ -26,6 +27,8 @@ from app.platform.contracts.events.deals import (
 )
 from app.platform.contracts.events.identity import OnboardingCompleted, UserRegistered
 from app.platform.contracts.events.jobs import (
+    AlertCreated,
+    AlertsMatched,
     JobClosed,
     JobExpired,
     JobInvited,
@@ -64,6 +67,8 @@ CAPTURE_MESSAGE_SENT = TaskRef("analytics.capture_message_sent", MessageSent)
 CAPTURE_CONTACT_SHARED = TaskRef("analytics.capture_contact_shared", ContactShared)
 CAPTURE_REVIEW_PUBLISHED = TaskRef("analytics.capture_review_published", ReviewPublished)
 CAPTURE_REPORT_CREATED = TaskRef("analytics.capture_report_created", ReportCreated)
+CAPTURE_ALERT_CREATED = TaskRef("analytics.capture_alert_created", AlertCreated)
+CAPTURE_ALERTS_MATCHED = TaskRef("analytics.capture_alerts_matched", AlertsMatched)
 
 
 @subscriber(UserRegistered, CAPTURE_USER_REGISTERED)
@@ -363,5 +368,42 @@ async def capture_report_created(event: ReportCreated, analytics: FromDishka[Ana
             target=event.target_type,
             reason=event.reason,
             queue=event.queue,
+        )
+    )
+
+
+@subscriber(AlertCreated, CAPTURE_ALERT_CREATED)
+async def capture_alert_created(event: AlertCreated, analytics: FromDishka[Analytics]) -> None:
+    await analytics.capture(
+        analytics_event(
+            EventName.ALERT_CREATED,
+            user_id=event.user_id,
+            occurred_at=event.occurred_at,
+            source_event_id=event.event_id,
+            city=event.city_id,
+            delivery=event.delivery,
+            area=event.area,
+            categories=event.categories,
+            has_budget=event.has_budget,
+            urgent_only=event.urgent_only,
+        )
+    )
+
+
+@subscriber(AlertsMatched, CAPTURE_ALERTS_MATCHED)
+async def capture_alerts_matched(event: AlertsMatched, analytics: FromDishka[Analytics]) -> None:
+    """Сколько подписчиков узнали о заявке — от автора заявки (ликвидность по паре «город ×
+    категория»); получатели в аналитику не уходят."""
+    await analytics.capture(
+        analytics_event(
+            EventName.JOB_MATCHED_NOTIFIED,
+            user_id=event.client_id,
+            occurred_at=event.occurred_at,
+            source_event_id=event.event_id,
+            category=event.category_id,
+            city=event.city_id,
+            urgency=event.urgency,
+            instant=event.instant,
+            digest=event.digest,
         )
     )
