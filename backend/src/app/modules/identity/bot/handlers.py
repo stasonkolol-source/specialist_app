@@ -64,7 +64,9 @@ async def start(
         allows_write_to_pm=True,  # пользователь сам начал диалог с ботом
     )
     user, is_new = await register(
-        RegisterTelegramUserCommand(profile=profile, start_param=command.args)
+        RegisterTelegramUserCommand(
+            profile=profile, start_param=command.args, started_at=message.date
+        )
     )
     bind_context(user_id=str(user.id))
     key = "bot.start.welcome" if is_new else "bot.start.welcome_back"
