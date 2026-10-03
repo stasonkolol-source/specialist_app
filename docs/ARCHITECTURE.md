@@ -2432,7 +2432,7 @@ sequenceDiagram
 | Метод и путь | Назначение |
 |---|---|
 | `GET /categories` 🔓 | Дерево категорий с `price_hint` для подсказки цены (кэшируется, ETag) |
-| `GET /cities` 🔓, `GET /cities/{id}/districts` 🔓 | Справочники гео |
+| `GET /cities` 🔓, `GET /cities/{id}/districts` 🔓 | Справочники гео (ETag; как и дерево — `max-age=300, stale-while-revalidate=86400`, тело строится раз на снимок справочника в памяти процесса) |
 | `GET /geo/resolve?lat=&lon=` 🔓 | Точка → город и район |
 | `GET /suggest?q=` 🔓 | Автодополнение: категории, теги, «популярные запросы» |
 | `GET /specialists` 🔓 | Поиск по каталогу (фильтры и сортировки из 8.4) → карточки |
