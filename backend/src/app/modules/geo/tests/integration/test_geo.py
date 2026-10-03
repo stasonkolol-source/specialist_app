@@ -74,7 +74,15 @@ def a_city(slug: str = "test-city", *, active: bool = True, name: str = "Тес�
 
 async def _import(db_session: AsyncSession, app: procrastinate.App, seed: CitySeed) -> ImportResult:
     uow = make_uow(db_session, app)
-    return await ImportCity(uow, SqlGeoWriter(db_session, uow))(ImportCityCommand(seed=seed))
+    import_city = ImportCity(uow, SqlGeoWriter(db_session, uow), NoCache())
+    return await import_city(ImportCityCommand(seed=seed))
+
+
+class NoCache:
+    """Снимка справочника у теста нет: сбрасывать нечего."""
+
+    def invalidate(self) -> None:
+        pass
 
 
 async def test_import_is_idempotent_and_generates_latin(

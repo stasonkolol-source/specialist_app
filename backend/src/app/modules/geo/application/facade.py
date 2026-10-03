@@ -1,5 +1,7 @@
 """Реализация GeoApi для identity, specialists и jobs (ADR-0020 §6)."""
 
+from collections.abc import Collection
+
 from app.modules.geo.api import CitySummary, DistrictSummary, GeoApi, ResolvedPoint
 from app.modules.geo.application.ports import GeoQuery
 from app.modules.geo.domain.place import CityStatus
@@ -28,6 +30,11 @@ class GeoFacade(GeoApi):
 
     async def district(self, district_id: DistrictId) -> DistrictSummary | None:
         return await self._query.district(district_id)
+
+    async def districts(
+        self, district_ids: Collection[DistrictId]
+    ) -> dict[DistrictId, DistrictSummary]:
+        return await self._query.district_summaries(district_ids) if district_ids else {}
 
     def public_point(self, point: GeoPoint, *, seed: bytes) -> GeoPoint:
         return blur(point, seed=seed)

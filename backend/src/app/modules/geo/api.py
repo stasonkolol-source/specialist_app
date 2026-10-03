@@ -3,6 +3,7 @@
 Другие модули импортируют из geo только этот файл.
 """
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -48,6 +49,12 @@ class GeoApi(Protocol):
         ...
 
     async def district(self, district_id: DistrictId) -> DistrictSummary | None: ...
+
+    async def districts(
+        self, district_ids: Collection[DistrictId]
+    ) -> dict[DistrictId, DistrictSummary]:
+        """Районы пачкой — карточки BFF (S08, S23); кого нет — нет и в ответе."""
+        ...
 
     def public_point(self, point: GeoPoint, *, seed: bytes) -> GeoPoint:
         """Смещённая на 300–500 м точка, стабильная для одного seed (id сущности)."""
