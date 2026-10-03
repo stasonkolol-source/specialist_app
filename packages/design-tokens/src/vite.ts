@@ -1,5 +1,6 @@
-// Vite-плагин: <link rel="preload"> для шрифтов первого экрана (Onest 400 и 600, кириллица и латиница).
-// Имена файлов с хэшем известны только после сборки, поэтому ссылки ставятся в transformIndexHtml.
+// Vite-плагин: <link rel="preload"> для шрифтов первого экрана (FONT_PRELOAD). Имена файлов с хэшем
+// известны только после сборки, поэтому ссылки ставятся в transformIndexHtml — после скрипта входа
+// и стилей: шрифты с font-display: swap не должны обгонять JS и CSS первого экрана.
 import type { HtmlTagDescriptor, Plugin } from 'vite';
 
 import { FONT_PRELOAD } from './fonts.ts';
@@ -32,7 +33,7 @@ export function fontPreload(): Plugin {
               crossorigin: '',
               href: `${base}${chunk.fileName}`,
             },
-            injectTo: 'head-prepend',
+            injectTo: 'head',
           });
         }
         return tags;
