@@ -55,19 +55,21 @@ class ShowJob:
             raise JobNotFoundError(job_id=query.job_id)
         refs = await self._media.refs(job.media_ids) if job.media_ids else {}
         user = await self._identity.get_user(job.client_id)
+        performer = query.viewer_id if query.viewer_id != job.client_id else None
+        # счётчик заявок клиента и «Вы откликнулись» зрителя — одним запросом
+        published, mine = await self._queries.published_and_response(
+            job.client_id, query.job_id, performer
+        )
         client = None
         if user is not None and not user.is_deleted:
             client = JobClient(
                 display_name=user.display_name,
                 member_since=user.created_at,
-                jobs_count=await self._queries.count_published(job.client_id),
+                jobs_count=published,
                 phone_verified=user.phone_verified,
             )
-        mine = None
         fresh = None
-        if query.viewer_id is not None and query.viewer_id != job.client_id:
-            mine = await self._queries.performer_response(query.job_id, query.viewer_id)
-        elif query.viewer_id is not None:
+        if query.viewer_id is not None and query.viewer_id == job.client_id:
             fresh = await self._queries.unseen_responses(query.job_id)
         return JobDetails(
             job=job,

@@ -11,7 +11,7 @@ import procrastinate
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession, async_sessionmaker
 from tests.plugins.database import make_uow
 
 from app.modules.catalog.api import CategorySummary, RiskLevel
@@ -24,6 +24,7 @@ from app.modules.catalog.application.use_cases.import_catalog import (
 from app.modules.catalog.domain.category import PriceHint, PriceUnit
 from app.modules.catalog.domain.terms import SearchTerm, TermLanguage
 from app.modules.catalog.errors import CategoryTooDeepError
+from app.modules.catalog.infrastructure.cache import CachedCatalogQuery, TaxonomySnapshotCache
 from app.modules.catalog.infrastructure.queries import SqlCatalogQuery
 from app.modules.catalog.infrastructure.writer import SqlCatalogWriter
 from app.platform.contracts.events.catalog import CatalogChanged
@@ -32,6 +33,7 @@ from app.platform.kernel.localized import Locale, LocalizedText
 from app.platform.kernel.money import Money
 from app.platform.queue.dispatcher import EventRegistry
 from app.platform.queue.port import TaskRef
+from app.platform.testing.cache import NoSnapshotCache
 from app.platform.testing.clock import FakeClock
 from app.platform.testing.queue import queued_tasks
 
@@ -118,7 +120,7 @@ async def _import(
     registry: EventRegistry | None = None,
 ) -> ImportResult:
     uow = make_uow(db_session, app, registry)
-    use_case = ImportCatalog(uow, SqlCatalogWriter(db_session, uow), FakeClock())
+    use_case = ImportCatalog(uow, SqlCatalogWriter(db_session, uow), FakeClock(), NoSnapshotCache())
     return await use_case(ImportCatalogCommand(categories=tuple(categories)))
 
 
@@ -420,6 +422,34 @@ async def test_public_tree_hides_inactive_and_forbidden_categories(
     assert _find_or_none(tree, "t-home") is None
     assert _find_or_none(tree, "t-electrical") is None
     assert _find(tree, "t-repairs").children == ()
+
+
+async def test_cached_taxonomy_matches_database_and_sees_new_categories(
+    db_session: AsyncSession, db_connection: AsyncConnection, procrastinate_app: procrastinate.App
+) -> None:
+    """Снимок в памяти процесса отдаёт то же дерево и названия, что база; категория, добавленная
+    после снимка, находится по id запросом, а в дереве появляется после сброса (импорт в
+    процессе). Категории для решений — всегда из базы."""
+    await _import(db_session, procrastinate_app, taxonomy())
+    maker = async_sessionmaker(bind=db_connection, join_transaction_mode="create_savepoint")
+    cache = TaxonomySnapshotCache(maker)
+    sql = SqlCatalogQuery(db_session)
+    cached = CachedCatalogQuery(cache, sql)
+    slugs = ("t-lessons", "t-home", "t-electrical")
+    ids = [(await _summary(db_session, slug)).id for slug in slugs]
+
+    assert await cached.tree() == await sql.tree()
+    assert await cached.labels(ids) == await sql.labels(ids)
+    assert "novi-sad" in await cached.price_hint_cities()
+
+    late_seed = a_category("t-late", names("Позже", "Касније"))
+    await _import(db_session, procrastinate_app, [*taxonomy(), late_seed])
+    late = await _summary(db_session, "t-late")
+    assert await cached.labels([late.id]) == {late.id: late.name}
+    assert await cached.category(late.id) == late
+    assert _find_or_none(await cached.tree(), "t-late") is None
+    cache.invalidate()
+    assert _find(await cached.tree(), "t-late").slug == "t-late"
 
 
 async def test_seed_owns_tags_and_dictionary_of_its_category(

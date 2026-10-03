@@ -12,12 +12,17 @@ from app.modules.pricing.errors import ServiceNotFoundError
 from app.modules.pricing.infrastructure.models import ServiceRow
 from app.modules.specialists.api import PriceSummary
 from app.platform.db.port import UnitOfWork
+from app.platform.db.query import SqlQuery
 from app.platform.kernel.ids import CategoryId
 
 
-class SqlServiceRepository:
+class SqlServiceRepository(SqlQuery):
+    """Чтения без блокировки (`has_active`, `summary`, `visible`) идут как у query-сервиса: вне
+    UoW соединение сразу возвращается в пул (ADR-0021), в UoW — в его транзакции."""
+
     def __init__(self, session: AsyncSession, uow: UnitOfWork) -> None:
-        self._session, self._uow = session, uow
+        super().__init__(session)
+        self._uow = uow
 
     async def list_for_update(self, profile_id: UUID) -> list[Service]:
         """Весь прайс по позиции; блокировка профиля защищает порядок и лимит от вставок."""
@@ -85,7 +90,10 @@ class SqlServiceRepository:
             ServiceRow.deleted_at.is_(None),
             ServiceRow.is_active,
         )
-        return int((await self._session.execute(stmt)).scalar_one()) > 0
+        try:
+            return int((await self._execute(stmt)).scalar_one()) > 0
+        finally:
+            await self._release()
 
     async def summary(self, profile_id: UUID) -> PriceSummary:
         undescribed = func.coalesce(func.btrim(ServiceRow.description), "") == ""
@@ -94,7 +102,10 @@ class SqlServiceRepository:
             ServiceRow.deleted_at.is_(None),
             ServiceRow.is_active,
         )
-        items, without_description = (await self._session.execute(stmt)).one()
+        try:
+            items, without_description = (await self._execute(stmt)).one()
+        finally:
+            await self._release()
         return PriceSummary(items=int(items), without_description=int(without_description))
 
     async def visible(self, profile_ids: Collection[UUID]) -> list[Service]:
@@ -110,7 +121,11 @@ class SqlServiceRepository:
             )
             .order_by(ServiceRow.profile_id, ServiceRow.position, ServiceRow.created_at)
         )
-        return [_to_domain(row) for row in (await self._session.scalars(stmt)).all()]
+        try:
+            # в домен — до конца транзакции: после rollback строки ORM истекают
+            return [_to_domain(row) for row in (await self._execute(stmt)).scalars().all()]
+        finally:
+            await self._release()
 
 
 def _to_domain(row: ServiceRow) -> Service:

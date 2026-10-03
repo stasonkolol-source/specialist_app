@@ -4,7 +4,9 @@ from collections.abc import AsyncIterator
 
 import httpx
 import pytest
-from tests.plugins.http import http_client
+from sqlalchemy.ext.asyncio import AsyncEngine
+from tests.plugins.http import http_app, http_client
+from tests.plugins.round_trips import round_trips
 
 from app.modules.geo.http.router import router
 from app.platform.settings import Settings
@@ -38,7 +40,9 @@ async def test_cities_are_localized_with_status(
 ) -> None:
     response = await api.get("/api/v1/cities", headers={"accept-language": language})
     assert response.status_code == 200
-    assert response.headers["cache-control"] == "public, max-age=300"
+    assert response.headers["cache-control"] == (
+        "public, max-age=300, stale-while-revalidate=86400"
+    )
     assert response.headers["vary"] == "Accept-Language"
     cities = {c["slug"]: c for c in response.json()}
     assert (cities["novi-sad"]["name"], cities["novi-sad"]["status"]) == (novi_sad, "active")
@@ -59,6 +63,30 @@ async def test_districts_of_city(api: httpx.AsyncClient) -> None:
     missing = await api.get("/api/v1/cities/999999/districts")
     assert missing.status_code == 404
     assert missing.json()["code"] == "city_not_found"
+
+
+async def test_dictionary_answers_304_from_memory(settings: Settings) -> None:
+    """Перф-аудит: города и районы — из снимка в памяти процесса; тот же ETag — 304, а
+    повторные запросы в базу не ходят (снимок уже прочитан)."""
+    async with http_app(settings, router) as app:
+        api = app.client
+        cities = await api.get("/api/v1/cities", headers={"accept-language": "ru"})
+        city_id = await _city_id(api, "novi-sad")
+        districts = await api.get(f"/api/v1/cities/{city_id}/districts")
+        engine = await app.container.get(AsyncEngine)
+        with round_trips(engine) as trips:
+            again = await api.get(
+                "/api/v1/cities",
+                headers={"accept-language": "ru", "if-none-match": cities.headers["etag"]},
+            )
+            same = await api.get(
+                f"/api/v1/cities/{city_id}/districts",
+                headers={"if-none-match": districts.headers["etag"]},
+            )
+            other = await api.get("/api/v1/cities", headers={"accept-language": "sr-Latn"})
+        assert (again.status_code, same.status_code, other.status_code) == (304, 304, 200)
+        assert other.headers["etag"] != cities.headers["etag"]
+        assert trips.queries == 0
 
 
 async def test_resolve_point_to_district(api: httpx.AsyncClient) -> None:

@@ -11,6 +11,7 @@
 v1: пока пусто.
 """
 
+from collections.abc import Collection, Mapping
 from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
@@ -26,7 +27,7 @@ from app.modules.media.api import MediaApi, MediaRef
 from app.modules.pricing.api import PricingApi, PublicService
 from app.modules.reviews.api import PublicReview, RatingSummary, ReviewsApi
 from app.modules.search.api import SearchApi
-from app.modules.specialists.api import PublicProfile, PublicWork, SpecialistsApi
+from app.modules.specialists.api import PublicCard, PublicProfile, PublicWork, SpecialistsApi
 from app.platform.http.caching import NOT_MODIFIED, cached_json
 from app.platform.http.money import MoneyOut
 from app.platform.http.ratelimit import GuestOrUserRateLimit
@@ -178,6 +179,27 @@ async def _visible(
     return profile
 
 
+async def _visible_card(
+    profile_id: UUID, specialists: SpecialistsApi, identity: IdentityApi
+) -> PublicCard:
+    """Видимость профиля для S09 и S11: та же проверка, что `_visible`, но без описаний,
+    категорий и портфолио — экранам они не нужны."""
+    card = (await _visible_cards([profile_id], specialists, identity)).get(profile_id)
+    if card is None:
+        raise NotFoundError()
+    return card
+
+
+async def _visible_cards(
+    profile_ids: Collection[UUID], specialists: SpecialistsApi, identity: IdentityApi
+) -> dict[UUID, PublicCard]:
+    """Опубликованные профили карточками, чьи авторы не удалены и не скрыты санкцией (как в
+    поиске), — двумя запросами на пачку (S23, S26, S09, S11)."""
+    cards = await specialists.public_cards(profile_ids)
+    hidden = await identity.hidden_from_search([card.user_id for card in cards.values()])
+    return {pid: card for pid, card in cards.items() if card.user_id not in hidden}
+
+
 def _photo(ref: MediaRef | None) -> CardPhotoOut | None:
     if ref is None or ref.status != READY or not ref.variants:
         return None
@@ -195,6 +217,12 @@ def _photo(ref: MediaRef | None) -> CardPhotoOut | None:
 async def _works(media: MediaApi, works: tuple[PublicWork, ...]) -> list[CardWorkOut]:
     """Работы с готовыми файлами по порядку: обрабатываемые и сбойные клиенту не видны."""
     refs = await media.refs([work.media_id for work in works]) if works else {}
+    return _ready_works(refs, works)
+
+
+def _ready_works(
+    refs: Mapping[MediaId, MediaRef], works: tuple[PublicWork, ...]
+) -> list[CardWorkOut]:
     shown: list[CardWorkOut] = []
     for work in works:
         photo = _photo(refs.get(work.media_id))
@@ -224,21 +252,23 @@ def _service(service: PublicService) -> CardServiceOut:
 async def _categories(
     catalog: CatalogApi, ids: list[CategoryId], locale: Locale
 ) -> list[CardNamedOut]:
-    found = {category.id: category for category in await catalog.categories(ids)}
+    """Названия категорий для показа — из снимка таксономии (без запроса в базу)."""
+    found = await catalog.labels(ids) if ids else {}
     return [
-        CardNamedOut(id=category_id, name=found[category_id].name.get(locale))
+        CardNamedOut(id=category_id, name=found[category_id].get(locale))
         for category_id in ids
         if category_id in found
     ]
 
 
 async def _areas(geo: GeoApi, ids: tuple[DistrictId, ...], locale: Locale) -> list[CardNamedOut]:
-    areas: list[CardNamedOut] = []
-    for district_id in ids:
-        district = await geo.district(district_id)
-        if district is not None:
-            areas.append(CardNamedOut(id=district.id, name=district.name.get(locale)))
-    return areas
+    """Районы по порядку профиля — пачкой из справочника."""
+    found = await geo.districts(ids) if ids else {}
+    return [
+        CardNamedOut(id=district.id, name=district.name.get(locale))
+        for district in (found.get(district_id) for district_id in ids)
+        if district is not None
+    ]
 
 
 def _avatar_ids(profile: PublicProfile) -> list[MediaId]:
@@ -273,8 +303,9 @@ async def get_specialist(
     rating = _rating((await reviews.summaries([profile.id])).get(profile.id))
     latest = await reviews.reviews_of(profile.id, PageRequest(limit=LATEST_REVIEWS))
     services = await pricing.public_services(profile.id)
-    works = await _works(media, profile.works)
-    avatars = await media.refs(_avatar_ids(profile))
+    # фото профиля и работы — одним запросом; готовность всех работ нужна для works_count
+    avatars = await media.refs([*_avatar_ids(profile), *(work.media_id for work in profile.works)])
+    works = _ready_works(avatars, profile.works)
     city = await geo.city(profile.city_id)
     areas = await _areas(geo, profile.area_ids, locale)
     until = profile.available_until
@@ -327,7 +358,7 @@ async def list_specialist_services(
     locale: FromDishka[Locale],
 ) -> Response:
     """Прайс специалиста S09: все видимые позиции и их группы (категории)."""
-    profile = await _visible(profile_id, specialists, identity)
+    profile = await _visible_card(profile_id, specialists, identity)
     services = await pricing.public_services(profile.id)
     groups = list(dict.fromkeys(s.category_id for s in services if s.category_id is not None))
     body = CardServicesOut(
@@ -379,7 +410,7 @@ async def list_specialist_reviews(
 ) -> Response:
     """Отзывы S11: рейтинг с гистограммой и опубликованные отзывы по сделкам с ответами,
     новые первыми (курсор). Вкладка «До платформы» (`kind`) — 7.6."""
-    profile = await _visible(profile_id, specialists, identity)
+    profile = await _visible_card(profile_id, specialists, identity)
     summary = (await reviews.summaries([profile.id])).get(profile.id)
     page = await reviews.reviews_of(profile.id, PageRequest(limit=limit, cursor=cursor))
     body = CardReviewsOut(

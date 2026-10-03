@@ -175,7 +175,7 @@ def identity(
         geo=geo,
         access=access,
         authenticate=AuthenticateTelegram(
-            uow, users, sessions, query, deleted, tokens, CONFIG, clock
+            uow, users, sessions, query, deleted, tokens, CONFIG, clock, access
         ),
         refresh=RefreshSession(
             uow,

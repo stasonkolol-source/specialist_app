@@ -15,6 +15,7 @@ from app.platform.kernel.ids import UserId, new_id
 from app.platform.settings import Settings
 from tests.plugins.http import HttpApp, bearer, http_app
 from tests.plugins.identity import accept_rules, insert_user
+from tests.plugins.round_trips import round_trips
 
 pytestmark = pytest.mark.integration
 
@@ -130,3 +131,10 @@ async def test_deal_card_for_both_sides(web: HttpApp, storage_settings: Settings
     assert for_performer["place"]["address"] == ADDRESS  # выбранному — точный адрес
     assert for_performer["timeline"]["my_mark_at"] is not None
     assert foreign.status_code == 404
+    engine = await web.container.get(AsyncEngine)
+    with round_trips(engine) as trips:
+        again = await call(web, storage_settings, client, "GET", f"/deals/{deal_id}/card")
+    assert again.json() == for_client
+    # сделка, заявка с откликом, имя второй стороны, её Telegram, отзыв; место — из снимка
+    # справочника (было ещё по запросу на город и район)
+    assert trips.queries == 6, trips.statements

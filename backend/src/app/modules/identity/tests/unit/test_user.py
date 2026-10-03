@@ -72,6 +72,26 @@ def test_login_refreshes_profile_snapshot() -> None:
     assert user.last_seen_at == later
 
 
+def test_login_writes_unchanged_profile_at_most_every_15_minutes() -> None:
+    """Mini App входит при каждом открытии: без изменений агрегат не меняется (нет записи и
+    новой версии), время входа — не чаще раза в 15 минут, новый снимок — сразу."""
+    user = register()
+    profile = dict(user.identities[0].profile)
+
+    def login(at: datetime, snapshot: dict[str, object]) -> bool:
+        return user.record_login(
+            provider=AuthProvider.TELEGRAM, subject="279058397", profile=snapshot, now=at
+        )
+
+    assert login(NOW + timedelta(minutes=14), profile) is False
+    assert (user.identities[0].last_login_at, user.last_seen_at) == (NOW, NOW)
+    assert login(NOW + timedelta(minutes=15), profile) is True
+    assert user.last_seen_at == NOW + timedelta(minutes=15)
+    assert login(NOW + timedelta(minutes=16), {**profile, "username": "new"}) is True
+    assert user.identities[0].profile["username"] == "new"
+    assert user.identities[0].last_login_at == NOW + timedelta(minutes=16)
+
+
 def test_login_with_unknown_identity_is_a_bug() -> None:
     with pytest.raises(ProgrammingError):
         register().record_login(provider=AuthProvider.APPLE, subject="x", profile={}, now=NOW)

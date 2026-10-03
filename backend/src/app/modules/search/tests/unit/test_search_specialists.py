@@ -163,6 +163,9 @@ async def test_nothing_found_is_logged_and_hinted() -> None:
     filters = SpecialistFilters(city_id=CITY, available_today=True, languages=("sr",))
 
     results = await world.run("qwerty", filters=filters, locale="sr-Latn")
+    assert world.log.entries == []  # журнал пишет вызывающий после ответа
+    assert results.zero_result is not None
+    await world.use_case.record(results.zero_result)
 
     assert results.hints == ("relax_filters", "post_job")
     [entry] = world.log.entries
@@ -180,7 +183,7 @@ async def test_empty_browse_is_hinted_but_not_logged() -> None:
 
     results = await world.run()
 
-    assert (results.hints, world.log.entries) == (("post_job",), [])
+    assert (results.hints, results.zero_result) == (("post_job",), None)
 
 
 async def test_next_page_is_found_by_the_same_stage() -> None:

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Final, Protocol
 
 from app.modules.identity.api import TelegramUserView, UserSummary
-from app.modules.identity.application.dto import MeView
+from app.modules.identity.application.dto import LoginState, MeState, MeView
 from app.modules.identity.domain.consent import Consent, ConsentDocument
 from app.modules.identity.domain.deletion import DeletionRequest, HashKind
 from app.modules.identity.domain.restriction import Restriction, RestrictionSource
@@ -189,6 +189,14 @@ class IdentityQuery(Protocol):
         """Свой профиль; удалённого пользователя нет."""
         ...
 
+    async def me_state(self, user_id: UserId, now: datetime) -> MeState | None:
+        """Свой профиль с санкциями и согласиями — одним запросом; удалённого нет."""
+        ...
+
+    async def login_state(self, user_id: UserId) -> LoginState:
+        """Роли, согласия и ждущее удаление — одним запросом (в транзакции входа)."""
+        ...
+
     async def by_telegram(self, telegram_id: int) -> TelegramUserView | None:
         """Активный пользователь по Telegram id (бот, ADR-0020 §4 «до use case — только чтение»)."""
         ...
@@ -203,14 +211,11 @@ class IdentityQuery(Protocol):
         """Неснятые санкции, которые действуют сейчас или начнутся позже."""
         ...
 
-    async def deleted_among(self, user_ids: Collection[UserId]) -> frozenset[UserId]:
-        """Кто из пользователей удалён (или его нет)."""
-        ...
-
-    async def restrictions_of(
+    async def active_restrictions(
         self, user_ids: Collection[UserId], now: datetime
     ) -> dict[UserId, list[Restriction]]:
-        """Неснятые санкции пользователей, которые действуют сейчас или начнутся позже."""
+        """Неудалённые пользователи и их неснятые санкции — одним запросом; удалённого и
+        несуществующего нет в ответе."""
         ...
 
     async def consents(self, user_id: UserId) -> list[Consent]:

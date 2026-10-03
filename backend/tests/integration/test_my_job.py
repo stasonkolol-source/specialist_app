@@ -18,6 +18,7 @@ from app.platform.settings import Settings
 from tests.integration.test_invites import Invites
 from tests.integration.test_responses import API
 from tests.plugins.http import HttpApp, http_app
+from tests.plugins.round_trips import round_trips
 
 pytestmark = pytest.mark.integration
 
@@ -98,6 +99,39 @@ async def test_new_responses_become_seen_on_the_response_cards(world: Invites) -
         f"{API}/jobs/{job_id}/response-cards", headers=world.headers(await world.user())
     )
     assert (stranger.status_code, stranger.json()["code"]) == (404, "job_not_found")
+
+
+async def test_response_cards_are_read_in_batches(world: Invites) -> None:
+    """Перф-аудит: карточки S23 читаются пачками — запросов столько же при пяти откликах, что и
+    при одном, — а опрос без новых откликов ничего не пишет."""
+    client = await world.user()
+    job_id = await world.job(client)
+    district = await world.scalar("SELECT id FROM geo.districts WHERE slug = 'liman-3'")
+    for index in range(5):
+        performer, profile_id = await world.specialist(f"Pro {index}")
+        await world.execute(
+            "INSERT INTO specialists.service_areas (profile_id, district_id, position)"
+            " VALUES (:profile, :district, 0)",
+            profile=profile_id,
+            district=district,
+        )
+        assert (await world.respond(performer, job_id)).status_code == 201
+    await world.execute(
+        "UPDATE jobs.responses SET review = 'clear', updated_at = now() WHERE job_id = :job",
+        job=job_id,
+    )
+    first = await cards(world, client, job_id)
+    engine = await world.app.container.get(AsyncEngine)
+    with round_trips(engine) as trips:
+        again = await cards(world, client, job_id)
+
+    assert [card["is_new"] for card in first] == [True] * 5
+    assert [card["is_new"] for card in again] == [False] * 5
+    assert {card["performer"]["district"]["id"] for card in again} == {district}
+    # заявка, отклики, карточки профилей, санкции авторов, рейтинги, имена; районы — из
+    # снимка справочника; было 35 запросов и UPDATE на каждый опрос
+    assert trips.queries == 6, trips.statements
+    assert (trips.begins, trips.ends) == (0, 0)
 
 
 async def test_response_on_review_is_neither_shown_nor_new(world: Invites) -> None:

@@ -73,8 +73,11 @@ class JobQueries(Protocol):
         """Сколько заявок клиента на проверке или опубликовано — лимит новичка (§13.3)."""
         ...
 
-    async def count_published(self, client_id: UserId) -> int:
-        """Сколько заявок клиента когда-либо публиковалось — «2 заявки» в блоке клиента S15."""
+    async def published_and_response(
+        self, client_id: UserId, job_id: JobId, viewer_id: UserId | None
+    ) -> tuple[int, MyResponseRef | None]:
+        """Сколько заявок клиента когда-либо публиковалось («2 заявки» в блоке клиента S15) и
+        неудалённый отклик зрителя на эту заявку («Вы откликнулись») — одним запросом."""
         ...
 
     async def feed(

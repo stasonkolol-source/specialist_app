@@ -14,11 +14,14 @@ from app.entrypoints._wiring import (
     make_web_container,
     make_worker_container,
 )
+from app.interfaces.http.warmup import WARM_CONNECTIONS, warm_up_web
+from app.platform.config.cache import ClientConfigCache
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.principal import Principal
 from app.platform.queue.port import JobQueue
 from app.platform.settings import Settings
+from tests.plugins.round_trips import round_trips
 
 pytestmark = pytest.mark.integration
 
@@ -95,3 +98,18 @@ class NeedsPrincipalProvider(Provider):
 def test_worker_has_no_principal_and_fails_at_build(settings: Settings) -> None:
     with pytest.raises(GraphMissingFactoryError, match="Principal"):
         make_container(settings, NeedsPrincipalProvider())
+
+
+async def test_web_warm_up_opens_connections_and_reads_client_config(settings: Settings) -> None:
+    """Перф-аудит: lifespan web открывает соединения с базой и читает client-config до первого
+    запроса — первый запрос после рестарта их уже не ждёт."""
+    container = make_web_container(settings)
+    try:
+        await warm_up_web(container)
+        engine = await container.get(AsyncEngine)
+        assert engine.pool.checkedin() >= WARM_CONNECTIONS  # type: ignore[attr-defined]
+        with round_trips(engine) as trips:
+            await (await container.get(ClientConfigCache)).get()
+        assert trips.queries == 0
+    finally:
+        await container.close()
