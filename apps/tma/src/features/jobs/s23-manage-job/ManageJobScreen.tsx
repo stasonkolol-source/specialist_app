@@ -33,7 +33,7 @@ import {
   Price,
   Row,
   Sheet,
-  Skeleton,
+  SkeletonText,
   Text,
 } from '@sosed/ui-web';
 import { Navigate, useParams, useRouter } from '@tanstack/react-router';
@@ -44,6 +44,7 @@ import { JobUnavailable } from '../shared/JobUnavailable.tsx';
 import { useDraftStore } from '../shared/draft.ts';
 import { LoadError } from '../shared/LoadError.tsx';
 import { useBudgetText, useDistrictName, useOfferPrice, useWhenBadge } from '../shared/labels.ts';
+import { JobSummarySkeleton, OfferCardSkeleton } from '../shared/skeletons.tsx';
 import {
   CREATE_PATHS,
   JOBS_PATHS,
@@ -159,7 +160,7 @@ function Manage({ job }: { job: JobOut }) {
             retrying={cards.isRefetching}
           />
         ) : !cards.data ? (
-          <Skeleton radius="card" className="h-32 w-full" />
+          <OfferCardSkeleton />
         ) : items.length === 0 ? (
           <EmptyState as="h3" icon="send" title={t('manage.noResponsesTitle')}>
             {published ? t('manage.noResponsesText') : null}
@@ -483,8 +484,9 @@ function ActionError({ error }: { error: unknown }) {
 function Loading() {
   return (
     <section className="flex flex-col gap-3.5 px-4 pt-3 pb-6" aria-busy="true">
-      <Skeleton radius="card" className="h-56 w-full" />
-      <Skeleton radius="card" className="h-32 w-full" />
+      <JobSummarySkeleton />
+      <SkeletonText size="h3" screen className="w-1/3" />
+      <OfferCardSkeleton />
     </section>
   );
 }

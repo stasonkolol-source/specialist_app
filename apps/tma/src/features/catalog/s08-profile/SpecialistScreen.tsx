@@ -36,7 +36,10 @@ import {
   Photo,
   Price,
   Row,
+  RowsSkeleton,
   Skeleton,
+  SkeletonCard,
+  SkeletonText,
   Text,
 } from '@sosed/ui-web';
 import { useParams, useRouter } from '@tanstack/react-router';
@@ -79,9 +82,20 @@ export function SpecialistScreen() {
   }
   return (
     <section className="flex flex-col gap-3.5 px-4 pt-3 pb-6" aria-busy="true">
-      <Skeleton className="h-40 w-full" />
-      <Skeleton className="h-16 w-full" />
-      <Skeleton className="h-44 w-full" />
+      {/* шапка: фото, имя, «коротко о себе», рейтинг, район и «Предложить заявку» */}
+      <SkeletonCard>
+        <div className="flex items-center gap-4">
+          <Skeleton round className="size-22 shrink-0" />
+          <div className="flex min-w-0 grow flex-col gap-1">
+            <SkeletonText size="h2" className="w-3/5" />
+            <SkeletonText size="sm" className="w-4/5" />
+            <SkeletonText size="cap" className="w-1/2" />
+          </div>
+        </div>
+        <Skeleton radius="panel" className="h-11 w-full" />
+      </SkeletonCard>
+      <SkeletonText size="h3" screen className="w-1/3" />
+      <RowsSkeleton rows={3} leading="none" subtitle={false} trailing />
     </section>
   );
 }

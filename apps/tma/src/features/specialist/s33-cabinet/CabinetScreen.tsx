@@ -56,6 +56,7 @@ export function CabinetScreen() {
         {t('cabinet.title')}
       </Heading>
       <LoadState
+        shape="cabinet"
         error={profile.isError ? profile.error : null}
         onRetry={() => void profile.refetch()}
         retrying={profile.isFetching}

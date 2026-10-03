@@ -33,6 +33,8 @@ import {
   LinkButton,
   Sheet,
   Skeleton,
+  SkeletonCard,
+  SkeletonText,
   Text,
 } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
@@ -75,8 +77,8 @@ export function TemplatesScreen() {
   } else if (!templates.data) {
     content = (
       <>
-        <Skeleton radius="card" className="h-32 w-full" />
-        <Skeleton radius="card" className="h-32 w-full" />
+        <TemplateSkeleton />
+        <TemplateSkeleton />
       </>
     );
   } else if (items.length === 0) {
@@ -141,6 +143,23 @@ function NewButton({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation('jobs');
   useStepButton({ text: t('templates.new'), onClick });
   return null;
+}
+
+/** Шаблон, пока не пришёл: название с отметкой, «Изменить», текст и строка цены. */
+function TemplateSkeleton() {
+  return (
+    <SkeletonCard tight>
+      <div className="flex items-center justify-between gap-3">
+        <SkeletonText size="title" className="w-2/5" />
+        <Skeleton radius="panel" className="h-9 w-24" />
+      </div>
+      <div className="flex flex-col">
+        <SkeletonText size="sm" className="w-full" />
+        <SkeletonText size="sm" className="w-3/4" />
+      </div>
+      <SkeletonText size="cap" className="w-1/3" />
+    </SkeletonCard>
+  );
 }
 
 function TemplateCard({

@@ -42,6 +42,7 @@ import { useJobDraft } from '../shared/draft.ts';
 import { useCreateFlow, useStepButton } from '../shared/flow.ts';
 import { CREATE_PATHS } from '../shared/paths.ts';
 import { mediaTransport } from '../shared/uploads.ts';
+import { WizardSkeleton } from '../shared/skeletons.tsx';
 import { WizardHeader } from '../shared/WizardHeader.tsx';
 
 /** Подбор категории — когда человек перестал печатать. */
@@ -51,7 +52,7 @@ const PHOTO_TILE = 'size-18';
 export function WhatScreen() {
   const { draft, patch } = useJobDraft();
   const flow = useCreateFlow('what', draft);
-  if (!draft) return null;
+  if (!draft) return <WizardSkeleton step={1} />;
   return <WhatForm draft={draft} patch={patch} next={flow.next} />;
 }
 

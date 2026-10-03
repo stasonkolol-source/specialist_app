@@ -34,12 +34,13 @@ import type { Editing } from '../shared/draft.ts';
 import { useDraftStore, useJobDraft } from '../shared/draft.ts';
 import { useCreateFlow, useStepButton } from '../shared/flow.ts';
 import { CREATE_PATHS, managePath } from '../shared/paths.ts';
+import { WizardSkeleton } from '../shared/skeletons.tsx';
 import { WizardHeader } from '../shared/WizardHeader.tsx';
 
 export function PreviewScreen() {
   const { draft, editing } = useJobDraft();
   const flow = useCreateFlow('preview', draft);
-  if (!draft) return null;
+  if (!draft) return <WizardSkeleton step={4} />;
   return <Preview draft={draft} editing={editing} open={flow.open} />;
 }
 

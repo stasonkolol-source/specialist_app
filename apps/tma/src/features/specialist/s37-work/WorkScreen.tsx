@@ -53,6 +53,7 @@ export function WorkScreen() {
         {t('work.title')}
       </Heading>
       <LoadState
+        shape="work"
         error={failed ? failed.error : null}
         onRetry={() => {
           for (const load of loads) if (load.isError) void load.refetch();

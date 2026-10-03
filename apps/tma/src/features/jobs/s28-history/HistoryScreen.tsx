@@ -22,6 +22,8 @@ import {
   Segmented,
   Sheet,
   Skeleton,
+  SkeletonCard,
+  SkeletonText,
   Stars,
   Text,
   Textarea,
@@ -387,11 +389,24 @@ function ReplySheet({ review, onClose }: { review: MyReviewOut; onClose: () => v
   );
 }
 
+/** Карточки сделок (аватар, название, кто и когда, цена, статус) или отзывов, пока не пришли. */
 function Loading() {
   return (
     <div className="flex flex-col gap-2" aria-busy="true">
-      <Skeleton className="h-24 w-full" />
-      <Skeleton className="h-24 w-full" />
+      <SkeletonText size="cap" screen className="w-1/4" />
+      {[0, 1].map((card) => (
+        <SkeletonCard key={card} tight>
+          <div className="flex items-start gap-3">
+            <Skeleton round className="size-12 shrink-0" />
+            <div className="flex min-w-0 grow flex-col gap-0.5">
+              <SkeletonText size="title" className="w-3/5" />
+              <SkeletonText size="cap" className="w-2/5" />
+            </div>
+            <SkeletonText size="title" className="w-16 shrink-0" />
+          </div>
+          <Skeleton className="h-6 w-28" />
+        </SkeletonCard>
+      ))}
     </div>
   );
 }

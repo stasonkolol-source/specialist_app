@@ -9,8 +9,8 @@
 // открытыми заявками, сразу под поиском. «Свободны сегодня рядом», «Ищете подработку?» и «Мои
 // активные заявки» — своими чанками (TodayNearby.tsx, SideJob.tsx, MyActiveJobs.tsx): до первого
 // кадра Главной они не нужны.
-import type { CategoryOut, SuggestionOut } from '@sosed/api-client';
-import { getSession } from '@sosed/api-client';
+import type { CategoryOut, MeOut, SuggestionOut } from '@sosed/api-client';
+import { getIdentityGetMeQueryKey, getSession } from '@sosed/api-client';
 import {
   FLAGS,
   nearestDistrict,
@@ -27,23 +27,28 @@ import {
   Button,
   Card,
   Chip,
+  ChipSkeleton,
   EmptyState,
   Group,
   Heading,
   ICON_NAMES,
   Row,
   RowIcon,
+  RowsSkeleton,
   SearchField,
   Segmented,
+  SkeletonText,
   Text,
   Tile,
+  TileSkeleton,
   Tiles,
 } from '@sosed/ui-web';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import type { ComponentType, FormEvent, MouseEvent } from 'react';
 import { Suspense, lazy, useId, useState } from 'react';
 
-import { useCatalogCity } from '../shared/city.ts';
+import { useCatalogCityState } from '../shared/city.ts';
 import { useDebounced } from '../shared/debounce.ts';
 import type { ClientPoint } from '../shared/location.ts';
 import { useLocate } from '../shared/location.ts';
@@ -116,7 +121,10 @@ function Services() {
   const { t } = useTranslation('catalog');
   const locale = useLocale();
   const router = useRouter();
-  const city = useCatalogCity();
+  const { city, pending: cityPending } = useCatalogCityState();
+  // клиент с заявками видит их над разделами: место под блок — до ответа, плитки не прыгают вниз
+  const client =
+    useQueryClient().getQueryData<MeOut>(getIdentityGetMeQueryKey())?.intent === 'client';
   const locate = useLocate();
   const [point, setPoint] = useState<ClientPoint | null>(null);
   const [locationFailed, setLocationFailed] = useState(false);
@@ -144,12 +152,14 @@ function Services() {
   return (
     <>
       <section className="flex flex-col gap-3">
-        {city && (
+        {city ? (
           <span className="self-start">
             <Chip icon="pin" onClick={() => void askLocation()}>
               {district ? `${city.name} · ${district.name}` : city.name}
             </Chip>
           </span>
+        ) : (
+          cityPending && <ChipSkeleton className="w-32 self-start" />
         )}
         <div className="flex flex-col gap-1">
           <Heading variant="h1">{t('home.title')}</Heading>
@@ -163,8 +173,8 @@ function Services() {
         )}
       </section>
       {signedIn && (
-        <Suspense fallback={null}>
-          <MyActiveJobs />
+        <Suspense fallback={client ? <MyActiveJobsSkeleton /> : null}>
+          <MyActiveJobs pending={client ? <MyActiveJobsSkeleton /> : null} />
         </Suspense>
       )}
       <section aria-labelledby={categoriesId} className="flex flex-col gap-3">
@@ -196,6 +206,16 @@ function Services() {
         </Suspense>
       )}
     </>
+  );
+}
+
+/** «Мои активные заявки», пока список не пришёл: заголовок и строка. */
+function MyActiveJobsSkeleton() {
+  return (
+    <div aria-hidden="true" className="flex flex-col gap-3">
+      <SkeletonText size="h3" screen className="w-2/5" />
+      <RowsSkeleton rows={1} leading="icon" />
+    </div>
   );
 }
 
@@ -288,9 +308,12 @@ function Sections({
 }) {
   const { t } = useTranslation('catalog');
   const router = useRouter();
-  const categories: CategoryOut[] = useCategories(useLocale()).data ?? [];
+  const query = useCategories(useLocale());
+  const categories: CategoryOut[] = query.data ?? [];
   return (
     <Tiles>
+      {/* пока разделов нет — плитки той же сетки, что на S01: «Все услуги» не остаётся одна */}
+      {query.isPending && Array.from({ length: TILES }, (_, index) => <TileSkeleton key={index} />)}
       {categories.slice(0, TILES).map((section, index) => (
         <Tile
           key={section.id}

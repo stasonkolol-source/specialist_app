@@ -41,6 +41,8 @@ import {
   Photo,
   Price,
   Skeleton,
+  SkeletonCard,
+  SkeletonText,
   Text,
 } from '@sosed/ui-web';
 import { Navigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
@@ -390,9 +392,34 @@ function useRespondButton(job: JobOut, owner: boolean) {
 function Loading() {
   return (
     <section className="flex flex-col gap-3 px-4 pt-3 pb-6" aria-busy="true">
-      <Skeleton radius="card" className="h-44 w-full" />
-      <Skeleton radius="card" className="h-28 w-full" />
-      <Skeleton radius="card" className="h-44 w-full" />
+      {/* сроки и раздел, название, бюджет и время, места */}
+      <SkeletonCard>
+        <div className="flex gap-1.5">
+          <Skeleton className="h-6 w-24" />
+          <Skeleton className="h-6 w-20" />
+        </div>
+        <SkeletonText size="h2" className="w-4/5" />
+        <div className="flex items-center justify-between gap-3">
+          <SkeletonText size="h1" className="w-1/3" />
+          <SkeletonText size="cap" className="w-16" />
+        </div>
+        <hr className="m-0 h-px border-0 bg-line" />
+        <SkeletonText size="cap" className="w-1/2" />
+      </SkeletonCard>
+      {/* описание */}
+      <SkeletonCard tight>
+        <SkeletonText size="h3" className="w-1/3" />
+        <div className="flex flex-col">
+          <SkeletonText className="w-full" />
+          <SkeletonText className="w-full" />
+          <SkeletonText className="w-2/3" />
+        </div>
+      </SkeletonCard>
+      {/* где */}
+      <SkeletonCard tight>
+        <SkeletonText size="h3" className="w-1/4" />
+        <SkeletonText size="sm" className="w-1/2" />
+      </SkeletonCard>
     </section>
   );
 }

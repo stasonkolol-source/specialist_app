@@ -6,7 +6,7 @@ import { getSession } from '@sosed/api-client';
 import { selectableDistricts, useCategories, useDistricts, useSavedJobs } from '@sosed/hooks';
 import { useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton } from '@sosed/platform';
-import { Button, EmptyState, Heading, Skeleton } from '@sosed/ui-web';
+import { Button, EmptyState, Heading, JobCardSkeleton } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 
 import { FeedCard } from '../shared/FeedCard.tsx';
@@ -82,7 +82,7 @@ export function SavedJobsScreen() {
     content = (
       <div className="flex flex-col gap-2.5" aria-busy="true">
         {Array.from({ length: SKELETON_CARDS }, (_, card) => (
-          <Skeleton key={card} radius="card" className="h-36 w-full" />
+          <JobCardSkeleton key={card} />
         ))}
       </div>
     );

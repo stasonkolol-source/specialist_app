@@ -7,7 +7,7 @@ import { useCategories, useCategoryCounts } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton } from '@sosed/platform';
 import type { AvatarPalette, IconName } from '@sosed/ui-web';
-import { Group, Heading, ICON_NAMES, Row, RowIcon, SearchField, Skeleton } from '@sosed/ui-web';
+import { Group, Heading, ICON_NAMES, Row, RowIcon, RowsSkeleton, SearchField } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 import type { FormEvent, MouseEvent } from 'react';
 import { Fragment, useState } from 'react';
@@ -131,11 +131,10 @@ export function CategoriesScreen() {
       />
     );
   } else {
+    // строки дерева в .group: иконка раздела, название с подкатегориями, число справа
     content = (
-      <div className="flex flex-col gap-2" aria-busy="true">
-        {Array.from({ length: SKELETON_ROWS }, (_, row) => (
-          <Skeleton key={row} className="h-13 w-full" />
-        ))}
+      <div aria-busy="true">
+        <RowsSkeleton rows={SKELETON_ROWS} leading="icon" trailing />
       </div>
     );
   }

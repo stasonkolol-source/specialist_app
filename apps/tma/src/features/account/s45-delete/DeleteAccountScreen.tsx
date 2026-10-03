@@ -9,7 +9,17 @@ import { useCancelDeletion, useMyProfile, useRequestDeletion } from '@sosed/hook
 import { useFormat, useTranslation } from '@sosed/i18n';
 import { useBackButton, useColorScheme, useMainButton, usePlatform } from '@sosed/platform';
 import type { IconName } from '@sosed/ui-web';
-import { Banner, Button, Checkbox, Heading, Icon, Skeleton, Text } from '@sosed/ui-web';
+import {
+  Banner,
+  Button,
+  Checkbox,
+  Heading,
+  Icon,
+  Skeleton,
+  SkeletonCard,
+  SkeletonText,
+  Text,
+} from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useId, useRef, useState } from 'react';
@@ -42,7 +52,19 @@ export function DeleteAccountScreen() {
       <Heading variant="h2" as="h1">
         {t('deletion.title')}
       </Heading>
-      <Skeleton className="h-40" radius="card" />
+      {/* предупреждение, что сохранится, согласие и действие */}
+      <SkeletonCard>
+        <SkeletonText size="title" className="w-3/5" />
+        <div className="flex flex-col">
+          <SkeletonText size="sm" className="w-full" />
+          <SkeletonText size="sm" className="w-full" />
+          <SkeletonText size="sm" className="w-2/3" />
+        </div>
+        <div className="flex items-center gap-3">
+          <Skeleton className="size-5 shrink-0" />
+          <SkeletonText size="sm" className="w-1/2" />
+        </div>
+      </SkeletonCard>
     </section>
   );
 }

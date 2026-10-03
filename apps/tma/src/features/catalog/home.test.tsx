@@ -3,10 +3,12 @@
 // «Свободны сегодня рядом» и «Все» с точкой клиента после нажатия на чип, «Вещи» — заглушка S58.
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { HttpResponse, http } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { startApp } from '../../testing/app.tsx';
-import { CATEGORY_IDS } from '../../testing/fixtures.ts';
+import { CATEGORY_IDS, categoriesFor } from '../../testing/fixtures.ts';
+import { server } from '../../testing/msw.ts';
 
 const HOME = 'Найдём мастера рядом';
 
@@ -34,6 +36,33 @@ describe('S03 home', () => {
     ]);
     const today = within(await screen.findByRole('region', { name: 'Свободны сегодня рядом' }));
     expect(today.getByText('Алексей Морозов')).toBeTruthy();
+  });
+
+  it('keeps the tile grid while the sections load: no lone «All services»', async () => {
+    let answer: () => void = () => undefined;
+    const answered = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    server.use(
+      http.get('*/api/v1/categories', async ({ request }) => {
+        await answered;
+        return HttpResponse.json(categoriesFor(request.headers.get('Accept-Language')));
+      }),
+    );
+    startApp('/');
+
+    const region = await screen.findByRole('region', { name: 'Что нужно сделать?' });
+    // пять плиток-скелетонов в сетке и «Все услуги» — та же геометрия, что после ответа
+    expect(region.querySelectorAll('.grid > [aria-hidden="true"]')).toHaveLength(5);
+    expect(
+      within(region)
+        .getAllByRole('link')
+        .map((tile) => tile.textContent?.trim()),
+    ).toEqual(['Все услуги']);
+
+    answer();
+    expect(await within(region).findByRole('link', { name: /Уборка/ })).toBeTruthy();
+    expect(region.querySelectorAll('.grid > [aria-hidden="true"]')).toHaveLength(0);
   });
 
   it('opens the results of a section and the whole catalog', async () => {

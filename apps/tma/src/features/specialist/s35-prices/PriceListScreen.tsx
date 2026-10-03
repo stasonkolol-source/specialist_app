@@ -68,6 +68,7 @@ export function PriceListScreen() {
         {t('prices.title')}
       </Heading>
       <LoadState
+        shape="prices"
         error={failed ? failed.error : null}
         onRetry={() => {
           for (const load of loads) if (load.isError) void load.refetch();

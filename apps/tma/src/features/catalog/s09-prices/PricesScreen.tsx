@@ -15,8 +15,10 @@ import {
   Heading,
   Price,
   Row,
+  RowsSkeleton,
   SectionTitle,
   Skeleton,
+  SkeletonText,
   Text,
 } from '@sosed/ui-web';
 import { useParams, useRouter } from '@tanstack/react-router';
@@ -57,11 +59,36 @@ export function PricesScreen() {
       </section>
     );
   }
+  return <Loading card={card.data} />;
+}
+
+/** Прайс ещё грузится: шапка — из профиля S08 в кэше (его обычно открыли перед этим), позиции —
+ *  скелетоном строк. */
+function Loading({ card }: { card: SpecialistProfileOut | undefined }) {
+  const { t } = useTranslation('catalog');
   return (
     <section className="flex flex-col gap-3 px-4 pt-3 pb-6" aria-busy="true">
-      <Skeleton className="h-12 w-full" />
-      <Skeleton className="h-16 w-full" />
-      <Skeleton className="h-52 w-full" />
+      <div className="flex items-center gap-3">
+        {card ? (
+          <Avatar
+            name={card.display_name}
+            size="sm"
+            src={avatarSrc(card.avatar, AVATAR_SM)}
+            placeholder={card.avatar?.placeholder}
+          />
+        ) : (
+          <Skeleton round screen className="size-9 shrink-0" />
+        )}
+        <div className="flex min-w-0 grow flex-col">
+          <Heading variant="h2" as="h1">
+            {t('prices.title')}
+          </Heading>
+          <SkeletonText size="cap" screen className="w-1/2" />
+        </div>
+      </div>
+      <Banner tone="info">{t('prices.note')}</Banner>
+      <SkeletonText size="cap" screen className="w-1/4" />
+      <RowsSkeleton rows={4} leading="none" trailing />
     </section>
   );
 }

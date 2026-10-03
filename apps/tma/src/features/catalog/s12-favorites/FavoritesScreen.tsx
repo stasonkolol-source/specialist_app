@@ -6,7 +6,7 @@ import type { SpecialistCardOut } from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
 import { useTranslation } from '@sosed/i18n';
 import { useBackButton } from '@sosed/platform';
-import { Banner, Button, EmptyState, Heading, Skeleton } from '@sosed/ui-web';
+import { Banner, Button, EmptyState, Heading, SpecialistCardSkeleton } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 
 import { FavoritesSegments } from '../shared/FavoritesSegments.tsx';
@@ -74,7 +74,7 @@ export function FavoritesScreen() {
     content = (
       <div className="flex flex-col gap-3" aria-busy="true">
         {Array.from({ length: SKELETON_CARDS }, (_, card) => (
-          <Skeleton key={card} className="h-28 w-full" />
+          <SpecialistCardSkeleton key={card} />
         ))}
       </div>
     );

@@ -22,10 +22,12 @@ import {
   Bubble,
   Button,
   ChatList,
+  ChatSkeleton,
   Composer,
   EmptyState,
   MaskedText,
   Skeleton,
+  SkeletonText,
   SystemNote,
   paletteFor,
 } from '@sosed/ui-web';
@@ -473,13 +475,27 @@ function entryKey(entry: ChatEntry): string {
   return entry.type === 'message' ? entry.message.id : `pending:${entry.pending.clientMsgId}`;
 }
 
+/** Диалог до первого ответа — как настоящий: шапка с собеседником, пузыри по низу, поле ввода. */
 function Loading() {
+  const insets = useInsets();
   return (
-    <div className="flex flex-col gap-3 px-4 pt-4">
-      <Skeleton className="h-12 w-full" />
-      <Skeleton className="h-16 w-2/3" />
-      <Skeleton className="ml-auto h-12 w-1/2" />
-      <Skeleton className="h-16 w-3/4" />
+    <div aria-busy="true" className="flex min-h-[calc(100dvh-var(--tg-top,0px))] flex-col">
+      <div className="flex items-center gap-2.5 border-0 border-b border-solid border-line bg-bg px-4 py-2.5">
+        <Skeleton round className="size-9 shrink-0" />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <SkeletonText className="w-2/5" />
+          <SkeletonText size="cap" className="w-1/4" />
+        </div>
+      </div>
+      <ChatSkeleton />
+      <div
+        aria-hidden="true"
+        className="flex items-end gap-2 border-0 border-t border-solid border-line bg-bg px-2.5 pt-2"
+        style={{ paddingBottom: insets.bottom + 8 }}
+      >
+        <span className="block h-11 flex-1 rounded-[22px] border border-solid border-line bg-bg2" />
+        <Skeleton round className="size-11 shrink-0" />
+      </div>
     </div>
   );
 }

@@ -72,7 +72,7 @@ export function WorksScreen() {
       />
     );
   } else {
-    content = <Skeleton className="aspect-5/6 w-full" />;
+    content = <Loading onClose={close} />;
   }
   return (
     <section className="flex flex-col gap-4 pt-1.5 pb-6">
@@ -81,6 +81,27 @@ export function WorksScreen() {
       </Heading>
       {content}
     </section>
+  );
+}
+
+/** Просмотрщик до ответа: «Закрыть» уже работает, кадр и превью — скелетоном (фон экрана тёмный,
+ *  фигуры — цвета поверхности). */
+function Loading({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation('catalog');
+  return (
+    <div aria-busy="true" className="flex flex-col gap-4">
+      <div className="flex items-center justify-between px-2">
+        <IconButton plain icon="x" label={t('portfolio.close')} onClick={onClose} />
+        <Skeleton screen className="h-4 w-12" />
+        <span className="size-11" aria-hidden="true" />
+      </div>
+      <Skeleton screen radius="panel" className="aspect-5/6 w-full" />
+      <div className="flex gap-2 px-4">
+        {[0, 1, 2, 3].map((thumb) => (
+          <Skeleton key={thumb} screen radius="panel" className="size-14" />
+        ))}
+      </div>
+    </div>
   );
 }
 
