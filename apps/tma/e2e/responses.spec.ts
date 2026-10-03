@@ -71,6 +71,8 @@ for (const theme of THEMES) {
       await openTab(page, l.tab);
       await page.getByRole('link', { name: new RegExp(l.job) }).click();
       await expect(page.getByRole('heading', { name: l.job, level: 1 })).toBeVisible();
+      // шапка S15 — сразу из ленты, а MainButton «Откликнуться» — по полной заявке: дождаться её
+      await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
       await pressTelegram(page, 'main_button_pressed');
       await expect(page.getByText(l.caption)).toBeVisible();
       await expect(page.getByRole('heading', { name: l.job, level: 1 })).toBeVisible();
