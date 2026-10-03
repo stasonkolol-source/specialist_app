@@ -12,15 +12,15 @@ import type {
 import {
   ApiError,
   getViewsGetSpecialistQueryKey,
+  getViewsGetSpecialistQueryOptions,
   getViewsListSpecialistReviewsQueryKey,
   getViewsListSpecialistServicesQueryKey,
   getViewsListSpecialistWorksQueryKey,
-  useViewsGetSpecialist,
   useViewsListSpecialistServices,
   useViewsListSpecialistWorks,
   viewsListSpecialistReviews,
 } from '@sosed/api-client';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 /** Как Cache-Control ответов (max-age=60). */
 export const CARD_STALE_MS = 60_000;
@@ -33,15 +33,19 @@ export function specialistServicesQueryKey(profileId: string, locale: Locale) {
   return [...getViewsListSpecialistServicesQueryKey(profileId), locale] as const;
 }
 
+/** Запрос S08 — один у хука и у предзагрузки по нажатию на карточку. */
+export function specialistCardQueryOptions(profileId: string, locale: Locale) {
+  return getViewsGetSpecialistQueryOptions(profileId, {
+    query: { queryKey: specialistCardQueryKey(profileId, locale), staleTime: CARD_STALE_MS },
+  });
+}
+
 /** S08: профиль, первые позиции прайса и превью работ; `null` — карточка не нужна (мастер заявки
  *  без прямого запроса). */
 export function useSpecialistCard(profileId: string | null, locale: Locale) {
-  return useViewsGetSpecialist(profileId ?? '', {
-    query: {
-      queryKey: specialistCardQueryKey(profileId ?? '', locale),
-      staleTime: CARD_STALE_MS,
-      enabled: profileId !== null,
-    },
+  return useQuery({
+    ...specialistCardQueryOptions(profileId ?? '', locale),
+    enabled: profileId !== null,
   });
 }
 

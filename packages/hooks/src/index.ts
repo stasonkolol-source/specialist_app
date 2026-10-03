@@ -44,6 +44,7 @@ export {
   CHAT_POLL_MS,
   MAX_MESSAGE,
   chatQueryKey,
+  chatQueryOptions,
   useChat,
   useProposeDeal,
   useShareContact,
@@ -160,6 +161,7 @@ export {
   largestVariant,
   priceGroups,
   specialistCardQueryKey,
+  specialistCardQueryOptions,
   specialistServicesQueryKey,
   useSpecialistCard,
   useSpecialistReviews,
@@ -204,7 +206,7 @@ export {
   whenProblems,
 } from './jobs/draft.ts';
 export type { PublishJob } from './jobs/jobs.ts';
-export { jobQueryKey, useCreateJob, useJob } from './jobs/jobs.ts';
+export { jobQueryKey, jobQueryOptions, useCreateJob, useJob } from './jobs/jobs.ts';
 export type { FeedPages, FeedQuery } from './jobs/feed.ts';
 export { FEED_PAGE_SIZE, feedQueryKey, jobCards, useHideJob, useJobsFeed } from './jobs/feed.ts';
 export { NEW_JOBS_HOURS, jobsCountQueryOptions, useJobsCount } from './jobs/count.ts';

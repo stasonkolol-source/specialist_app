@@ -42,7 +42,7 @@ export function afterFirstScreen(queryClient: QueryClient, task: () => void): ()
 }
 
 /** requestIdleCallback с пределом; в Safari (Telegram на iOS) его нет — следующая задача. */
-function whenIdle(task: () => void): () => void {
+export function whenIdle(task: () => void): () => void {
   if ('requestIdleCallback' in window) {
     const id = window.requestIdleCallback(task, { timeout: IDLE_TIMEOUT_MS });
     return () => window.cancelIdleCallback(id);

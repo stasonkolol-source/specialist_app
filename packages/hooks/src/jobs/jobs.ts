@@ -5,18 +5,21 @@
 import type { JobIn, JobOut } from '@sosed/api-client';
 import {
   getJobsGetJobQueryKey,
+  getJobsGetJobQueryOptions,
   jobsCreateJob,
   jobsRequestSpecialist,
-  useJobsGetJob,
 } from '@sosed/api-client';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export const jobQueryKey = (jobId: string) => getJobsGetJobQueryKey(jobId);
 
+/** Запрос заявки — один у S15, S23 и предзагрузки по нажатию на карточку. */
+export function jobQueryOptions(jobId: string) {
+  return getJobsGetJobQueryOptions(jobId, { query: { queryKey: jobQueryKey(jobId) } });
+}
+
 export function useJob(jobId: string | null) {
-  return useJobsGetJob(jobId ?? '', {
-    query: { queryKey: jobQueryKey(jobId ?? ''), enabled: jobId !== null },
-  });
+  return useQuery({ ...jobQueryOptions(jobId ?? ''), enabled: jobId !== null });
 }
 
 export interface PublishJob {

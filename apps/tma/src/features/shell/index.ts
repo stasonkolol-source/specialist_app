@@ -1,2 +1,2 @@
 export { AppShell, CREATE_PATH, TABS } from './AppShell.tsx';
-export { afterFirstScreen } from './idle.ts';
+export { afterFirstScreen, saveData, whenIdle } from './idle.ts';
