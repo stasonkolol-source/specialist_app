@@ -3,4 +3,7 @@ web: cd backend && env -u VIRTUAL_ENV uv run uvicorn app.entrypoints.web:create 
 bot: cd backend && env -u VIRTUAL_ENV uv run python -m app.entrypoints.bot
 worker: cd backend && env -u VIRTUAL_ENV uv run python -m app.entrypoints.worker --role worker
 worker-media: cd backend && env -u VIRTUAL_ENV uv run python -m app.entrypoints.worker --role worker-media
-tma: corepack pnpm -F tma dev
+# tma: собранное приложение (vite build + vite preview на :5173) — в Telegram открывается то же,
+# что увидят пользователи: ~10 файлов вместо ~450 модулей dev-сервера через туннель.
+# HMR для работы над экранами: TMA=dev make dev (или pnpm -F tma dev без туннеля).
+tma: corepack pnpm -F tma "${TMA:-stand}"
