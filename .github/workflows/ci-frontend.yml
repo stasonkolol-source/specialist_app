@@ -18,22 +18,10 @@ on:
       - '.prettierignore'
       - 'make/frontend.mk'
       - '.github/workflows/ci-frontend.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'apps/**'
-      - 'packages/**'
-      - 'backend/openapi.json'
-      # тексты S48: их читают unit-тесты, фикстуры e2e и эталоны скриншотов (testing/legal.ts)
-      - 'backend/content/legal/**'
-      - 'design/ui.css'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'turbo.json'
-      - '.prettierignore'
-      - 'make/frontend.mk'
-      - '.github/workflows/ci-frontend.yml'
+  # main проверяется не после каждого вливания (PR уже проверен), а раз в ночь: страховка от
+  # «каждый PR зелёный, а вместе нет» и тёплые кэши main, которые читают PR.
+  schedule:
+    - cron: '13 3 * * *'
   workflow_dispatch:
 
 concurrency:
