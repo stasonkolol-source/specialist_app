@@ -51,9 +51,16 @@ export default defineConfig(({ mode }) => {
       assetsInlineLimit: (file: string) => (file.endsWith('.woff2') ? false : undefined),
       // Всё, что вход импортирует статически, — одним чанком: иначе rolldown выносит модули, общие
       // с ленивыми чанками (i18next, SDK Telegram, хелперы рантайма), в мелкие отдельные. Первый
-      // экран — тот же код, но меньше запросов и лучше сжатие (≈2 KB gzip бюджета)
+      // экран — тот же код, но меньше запросов и лучше сжатие. Без рекурсии по зависимостям: иначе
+      // в чанк входа попадало и то, что только реэкспортируют пакеты-«бочки» (загрузка медиа,
+      // сроки заявок), — оно нужно лишь ленивым экранам. Вход ничего не импортирует из других
+      // чанков (scripts/size.ts считает его целиком), поэтому круговых зависимостей с ним нет
       rolldownOptions: {
-        output: { codeSplitting: { groups: [{ name: 'app', tags: ['$initial'] }] } },
+        output: {
+          codeSplitting: {
+            groups: [{ name: 'app', tags: ['$initial'], includeDependenciesRecursively: false }],
+          },
+        },
       },
     },
     server: {
