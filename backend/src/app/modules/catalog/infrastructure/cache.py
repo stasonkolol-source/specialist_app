@@ -3,11 +3,15 @@
 Дерево отдаёт GET /categories на каждом запуске, а названия категорий нужны карточкам S08, S11 и
 прайсу S09; меняет таксономию только импорт сидов (и админка). Снимок — два запроса — живёт
 минуту (platform/cache/snapshot.py), как словарь модерации: столько же правка доходит до всех
-процессов. Чего нет в снимке (категория добавлена после него), читается из базы. Поиск по
-словарю (подсказки, триграммы) — по-прежнему запросами.
+процессов. Чего нет в снимке (категория добавлена после него), читается из базы.
+
+Распознанный текст запроса (словарь целиком или по началу, ближайшее слово) запоминается в
+снимке: один и тот же запрос выдачи и её счётчика («Показать N») не ходит в словарь дважды, а
+обновление снимка сбрасывает и эти ответы. Подсказки при вводе — запросами (у них свой кэш в
+Valkey).
 """
 
-from collections.abc import Collection, Sequence
+from collections.abc import Awaitable, Callable, Collection, Sequence
 from datetime import timedelta
 from typing import Final
 
@@ -22,6 +26,8 @@ from app.platform.cache.snapshot import SnapshotCache
 from app.platform.kernel.ids import CategoryId
 
 TTL: Final = timedelta(seconds=60)
+MAX_MATCHES: Final = 1024
+"""Распознанных текстов на снимок не больше: ввод клиента не должен раздувать память."""
 
 
 class Taxonomy:
@@ -31,6 +37,7 @@ class Taxonomy:
         self.tree = tuple(tree)
         self.by_id = {category.id: category for category in categories}
         self.hint_cities = frozenset(_hint_cities(self.tree))
+        self.matches: dict[tuple[str, str], TermMatch | None] = {}
 
 
 def _hint_cities(nodes: Sequence[CategoryView]) -> set[str]:
@@ -77,10 +84,10 @@ class CachedCatalogQuery(CatalogQuery):
         return await self._sql.search_terms(category_ids)
 
     async def match_query(self, text: str) -> TermMatch | None:
-        return await self._sql.match_query(text)
+        return await self._remembered("match", text, self._sql.match_query)
 
     async def similar_term(self, text: str) -> TermMatch | None:
-        return await self._sql.similar_term(text)
+        return await self._remembered("similar", text, self._sql.similar_term)
 
     async def suggest(self, text: str, *, limit: int) -> list[CategorySuggestion]:
         return await self._sql.suggest(text, limit=limit)
@@ -90,3 +97,15 @@ class CachedCatalogQuery(CatalogQuery):
 
     async def price_hint_cities(self) -> frozenset[str]:
         return (await self._cache.get()).data.hint_cities
+
+    async def _remembered(
+        self, kind: str, text: str, load: Callable[[str], Awaitable[TermMatch | None]]
+    ) -> TermMatch | None:
+        matches = (await self._cache.get()).data.matches
+        key = (kind, text)
+        if key in matches:
+            return matches[key]
+        found = await load(text)
+        if len(matches) < MAX_MATCHES:
+            matches[key] = found
+        return found
