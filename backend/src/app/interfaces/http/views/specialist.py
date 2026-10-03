@@ -11,6 +11,7 @@
 v1: пока пусто.
 """
 
+from collections.abc import Collection
 from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
@@ -26,7 +27,7 @@ from app.modules.media.api import MediaApi, MediaRef
 from app.modules.pricing.api import PricingApi, PublicService
 from app.modules.reviews.api import PublicReview, RatingSummary, ReviewsApi
 from app.modules.search.api import SearchApi
-from app.modules.specialists.api import PublicProfile, PublicWork, SpecialistsApi
+from app.modules.specialists.api import PublicCard, PublicProfile, PublicWork, SpecialistsApi
 from app.platform.http.caching import NOT_MODIFIED, cached_json
 from app.platform.http.money import MoneyOut
 from app.platform.http.ratelimit import GuestOrUserRateLimit
@@ -176,6 +177,27 @@ async def _visible(
     if profile is None or await identity.hidden_from_search([profile.user_id]):
         raise NotFoundError()
     return profile
+
+
+async def _visible_card(
+    profile_id: UUID, specialists: SpecialistsApi, identity: IdentityApi
+) -> PublicCard:
+    """Видимость профиля для S09 и S11: та же проверка, что `_visible`, но без описаний,
+    категорий и портфолио — экранам они не нужны."""
+    card = (await _visible_cards([profile_id], specialists, identity)).get(profile_id)
+    if card is None:
+        raise NotFoundError()
+    return card
+
+
+async def _visible_cards(
+    profile_ids: Collection[UUID], specialists: SpecialistsApi, identity: IdentityApi
+) -> dict[UUID, PublicCard]:
+    """Опубликованные профили карточками, чьи авторы не удалены и не скрыты санкцией (как в
+    поиске), — двумя запросами на пачку (S23, S26, S09, S11)."""
+    cards = await specialists.public_cards(profile_ids)
+    hidden = await identity.hidden_from_search([card.user_id for card in cards.values()])
+    return {pid: card for pid, card in cards.items() if card.user_id not in hidden}
 
 
 def _photo(ref: MediaRef | None) -> CardPhotoOut | None:

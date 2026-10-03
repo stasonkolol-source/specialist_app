@@ -4,7 +4,7 @@ from collections.abc import Collection, Mapping
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ColumnElement, RowMapping, func, literal_column, or_, select
+from sqlalchemy import ColumnElement, RowMapping, and_, func, literal_column, or_, select
 from sqlalchemy.dialects.postgresql import aggregate_order_by
 
 from app.modules.identity.api import TelegramUserView, UserSummary
@@ -158,36 +158,33 @@ class SqlIdentityQuery(SqlQuery):
         )
         return int(row["count"]) if row is not None else 0
 
-    async def deleted_among(self, user_ids: Collection[UserId]) -> frozenset[UserId]:
-        u = UserRow.__table__.c
-        ids = list(user_ids)
-        active = {
-            row["id"]
-            for row in await self._fetch(
-                select(u.id).where(u.id.in_(ids), u.status == UserStatus.ACTIVE)
-            )
-        }
-        return frozenset(user_id for user_id in ids if user_id not in active)
-
-    async def restrictions_of(
+    async def active_restrictions(
         self, user_ids: Collection[UserId], now: datetime
     ) -> dict[UserId, list[Restriction]]:
-        r = RestrictionRow.__table__.c
+        """Неудалённые пользователи из списка и их неснятые санкции (действующие сейчас или
+        позже) — одним запросом; удалённого и несуществующего нет в ответе."""
+        u, r = UserRow.__table__.c, RestrictionRow.__table__.c
+        in_force = and_(
+            r.user_id == u.id, r.lifted_at.is_(None), or_(r.ends_at.is_(None), r.ends_at > now)
+        )
         rows = await self._fetch(
-            select(r.user_id, r.kind, r.reason_code, r.starts_at, r.ends_at)
-            .where(r.user_id.in_(list(user_ids)), r.lifted_at.is_(None))
-            .where(or_(r.ends_at.is_(None), r.ends_at > now))
+            select(u.id, r.kind, r.reason_code, r.starts_at, r.ends_at)
+            .select_from(UserRow.__table__)
+            .outerjoin(RestrictionRow.__table__, in_force)
+            .where(u.id.in_(list(user_ids)), u.status == UserStatus.ACTIVE)
         )
         found: dict[UserId, list[Restriction]] = {}
         for row in rows:
-            found.setdefault(UserId(row["user_id"]), []).append(
-                Restriction(
-                    kind=row["kind"],
-                    reason_code=row["reason_code"],
-                    starts_at=row["starts_at"],
-                    ends_at=row["ends_at"],
+            restrictions = found.setdefault(UserId(row["id"]), [])
+            if row["kind"] is not None:
+                restrictions.append(
+                    Restriction(
+                        kind=row["kind"],
+                        reason_code=row["reason_code"],
+                        starts_at=row["starts_at"],
+                        ends_at=row["ends_at"],
+                    )
                 )
-            )
         return found
 
     async def consents(self, user_id: UserId) -> list[Consent]:

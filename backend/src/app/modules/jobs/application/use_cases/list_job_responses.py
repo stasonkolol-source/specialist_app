@@ -35,9 +35,10 @@ class ListJobResponses:
         if job is None or job.client_id != cmd.actor_id:
             raise JobNotFoundError(job_id=cmd.job_id)
         responses = await self._queries.job_responses(cmd.job_id)
+        users = await self._identity.users({response.performer_id for response in responses})
         listed = []
         for response in responses:
-            user = await self._identity.get_user(response.performer_id)
+            user = users.get(response.performer_id)
             name = user.display_name if user is not None and not user.is_deleted else ""
             listed.append(JobResponse(response=response, performer_name=name))
         return listed

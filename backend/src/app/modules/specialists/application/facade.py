@@ -8,6 +8,7 @@ from app.modules.specialists.api import (
     ProfileForIndex,
     ProfileForReview,
     ProfileRef,
+    PublicCard,
     PublicProfile,
     SpecialistsApi,
 )
@@ -49,6 +50,9 @@ class SpecialistsFacade(SpecialistsApi):
 
     async def public_profile(self, profile_id: UUID) -> PublicProfile | None:
         return await self._query.public(profile_id)
+
+    async def public_cards(self, profile_ids: Collection[UUID]) -> dict[UUID, PublicCard]:
+        return await self._query.public_cards(profile_ids) if profile_ids else {}
 
     async def published_profile_ids(self, *, after: UUID | None, limit: int) -> list[UUID]:
         return await self._query.published_ids(after=after, limit=limit)

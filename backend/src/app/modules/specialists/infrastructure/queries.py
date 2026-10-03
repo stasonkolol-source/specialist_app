@@ -2,11 +2,18 @@
 
 from collections import defaultdict
 from collections.abc import Collection
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import RowMapping, Select, select
+from sqlalchemy import ColumnElement, RowMapping, Select, func, select
 
-from app.modules.specialists.api import ProfileForIndex, ProfileRef, PublicProfile, PublicWork
+from app.modules.specialists.api import (
+    ProfileForIndex,
+    ProfileRef,
+    PublicCard,
+    PublicProfile,
+    PublicWork,
+)
 from app.modules.specialists.application.dto import ProfileView
 from app.modules.specialists.domain.portfolio import WorkStatus
 from app.modules.specialists.domain.profile import (
@@ -50,23 +57,16 @@ class SqlProfileQuery(SqlQuery):
     async def of_user(self, user_id: UserId) -> ProfileView | None:
         p = ProfileRow.__table__.c
         row = await self._fetch_one(
-            select(ProfileRow.__table__).where(p.user_id == user_id, p.deleted_at.is_(None))
+            select(
+                ProfileRow.__table__,
+                _ordered_ids(ProfileCategoryRow, "category_id").label("category_ids"),
+                _ordered_ids(ServiceAreaRow, "district_id").label("area_ids"),
+            ).where(p.user_id == user_id, p.deleted_at.is_(None))
         )
         if row is None:
             return None
-        c, a = ProfileCategoryRow.__table__.c, ServiceAreaRow.__table__.c
-        category_ids = tuple(
-            CategoryId(r["category_id"])
-            for r in await self._fetch(
-                select(c.category_id).where(c.profile_id == row["id"]).order_by(c.position)
-            )
-        )
-        area_ids = tuple(
-            DistrictId(r["district_id"])
-            for r in await self._fetch(
-                select(a.district_id).where(a.profile_id == row["id"]).order_by(a.position)
-            )
-        )
+        category_ids = tuple(CategoryId(item) for item in row["category_ids"])
+        area_ids = tuple(DistrictId(item) for item in row["area_ids"])
         work_modes = tuple(WorkMode(v) for v in row["work_modes"])
         return ProfileView(
             id=ProfileId(row["id"]),
@@ -121,26 +121,18 @@ class SqlProfileQuery(SqlQuery):
         ]
 
     async def public(self, profile_id: UUID) -> PublicProfile | None:
-        """Опубликованный профиль, его категории, районы и работы — четырьмя запросами."""
+        """Опубликованный профиль с категориями и районами (массивы-подзапросы) и работы — двумя
+        запросами."""
         p = ProfileRow.__table__.c
         row = await self._fetch_one(
-            select(ProfileRow.__table__).where(
-                p.id == profile_id, p.status == ProfileStatus.PUBLISHED, p.deleted_at.is_(None)
-            )
+            select(
+                ProfileRow.__table__,
+                _ordered_ids(ProfileCategoryRow, "category_id").label("category_ids"),
+                _ordered_ids(ServiceAreaRow, "district_id").label("area_ids"),
+            ).where(p.id == profile_id, p.status == ProfileStatus.PUBLISHED, p.deleted_at.is_(None))
         )
         if row is None:
             return None
-        c, a = ProfileCategoryRow.__table__.c, ServiceAreaRow.__table__.c
-        categories = await self._grouped(
-            select(c.profile_id, c.category_id.label("item"))
-            .where(c.profile_id == profile_id)
-            .order_by(c.position)
-        )
-        areas = await self._grouped(
-            select(a.profile_id, a.district_id.label("item"))
-            .where(a.profile_id == profile_id)
-            .order_by(a.position)
-        )
         w, m = PortfolioItemRow.__table__.c, PortfolioMediaRow.__table__.c
         works = await self._fetch(
             select(w.id, w.title, m.media_id, m.kind)
@@ -154,8 +146,8 @@ class SqlProfileQuery(SqlQuery):
         )
         return _public(
             row,
-            categories.get(profile_id, ()),
-            areas.get(profile_id, ()),
+            tuple(row["category_ids"]),
+            tuple(row["area_ids"]),
             tuple(
                 PublicWork(
                     id=work["id"],
@@ -166,6 +158,46 @@ class SqlProfileQuery(SqlQuery):
                 for work in works
             ),
         )
+
+    async def public_cards(self, profile_ids: Collection[UUID]) -> dict[UUID, PublicCard]:
+        """Опубликованные профили карточками: основной район — подзапросом, одним запросом."""
+        p, a = ProfileRow.__table__.c, ServiceAreaRow.__table__.c
+        primary = (
+            select(a.district_id)
+            .where(a.profile_id == p.id)
+            .order_by(a.position)
+            .limit(1)
+            .scalar_subquery()
+        )
+        rows = await self._fetch(
+            select(
+                p.id,
+                p.user_id,
+                p.kind,
+                p.display_name,
+                p.avatar_media_id,
+                primary.label("primary_area_id"),
+            ).where(
+                p.id.in_(list(profile_ids)),
+                p.status == ProfileStatus.PUBLISHED,
+                p.deleted_at.is_(None),
+            )
+        )
+        return {
+            row["id"]: PublicCard(
+                id=row["id"],
+                user_id=UserId(row["user_id"]),
+                kind=row["kind"].value,
+                display_name=row["display_name"],
+                avatar_media_id=MediaId(row["avatar_media_id"]) if row["avatar_media_id"] else None,
+                primary_area_id=(
+                    DistrictId(row["primary_area_id"])
+                    if row["primary_area_id"] is not None
+                    else None
+                ),
+            )
+            for row in rows
+        }
 
     async def published_ids(self, *, after: UUID | None, limit: int) -> list[UUID]:
         p = ProfileRow.__table__.c
@@ -184,6 +216,13 @@ class SqlProfileQuery(SqlQuery):
         for row in await self._fetch(stmt):
             grouped[row["profile_id"]].append(row["item"])
         return {profile_id: tuple(items) for profile_id, items in grouped.items()}
+
+
+def _ordered_ids(model: Any, column: str) -> ColumnElement[list[int]]:
+    """id категорий или районов профиля по позиции — массивом в строке профиля."""
+    t = model.__table__.c
+    ids = select(t[column]).where(t.profile_id == ProfileRow.id).order_by(t.position)
+    return func.array(ids.scalar_subquery())
 
 
 def _for_index(

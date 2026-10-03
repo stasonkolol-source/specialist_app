@@ -81,6 +81,20 @@ class PublicProfile:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class PublicCard:
+    """Опубликованный профиль карточкой исполнителя (S23, S26, приглашения): без описаний,
+    категорий и портфолио — одним запросом на пачку."""
+
+    id: UUID
+    user_id: UserId
+    kind: str
+    display_name: str
+    avatar_media_id: MediaId | None
+    primary_area_id: DistrictId | None
+    """Основной район выезда (первый по порядку)."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ProfileForReview:
     """Что проверяет модерация: текст профиля без контактов автора не очищен — это делает
     конвейер (ai/prompt.py)."""
@@ -160,6 +174,11 @@ class SpecialistsApi(Protocol):
     async def public_profile(self, profile_id: UUID) -> PublicProfile | None:
         """Опубликованный профиль с работами портфолио (S08). Черновик, скрытый, удалённый или
         несуществующий — None. Санкции автора проверяет вызывающий (identity)."""
+        ...
+
+    async def public_cards(self, profile_ids: Collection[UUID]) -> dict[UUID, PublicCard]:
+        """Опубликованные профили карточками — пачкой; черновика, скрытого, удалённого и
+        несуществующего нет в ответе. Санкции автора проверяет вызывающий (identity)."""
         ...
 
     async def published_profile_ids(self, *, after: UUID | None, limit: int) -> list[UUID]:

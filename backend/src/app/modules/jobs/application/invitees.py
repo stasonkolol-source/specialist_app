@@ -6,7 +6,7 @@ from uuid import UUID
 
 from app.modules.identity.api import IdentityApi
 from app.modules.jobs.errors import InviteeNotFoundError, OwnProfileInviteError
-from app.modules.specialists.api import PublicProfile, SpecialistsApi
+from app.modules.specialists.api import PublicCard, SpecialistsApi
 from app.platform.kernel.ids import UserId
 
 
@@ -15,12 +15,13 @@ async def invitees(
     identity: IdentityApi,
     actor_id: UserId,
     profile_ids: Sequence[UUID],
-) -> list[PublicProfile]:
+) -> list[PublicCard]:
     """Опубликованные профили, чьи авторы не под санкцией и не сам клиент; иначе — ошибка с
-    первым неподходящим. Читает до транзакции."""
+    первым неподходящим. Читает до транзакции: профили и санкции — по запросу на всех."""
+    found = await specialists.public_cards(profile_ids)
     profiles = []
     for profile_id in profile_ids:
-        profile = await specialists.public_profile(profile_id)
+        profile = found.get(profile_id)
         if profile is None:
             raise InviteeNotFoundError(profile_id=profile_id)
         if profile.user_id == actor_id:

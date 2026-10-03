@@ -211,14 +211,11 @@ class IdentityQuery(Protocol):
         """Неснятые санкции, которые действуют сейчас или начнутся позже."""
         ...
 
-    async def deleted_among(self, user_ids: Collection[UserId]) -> frozenset[UserId]:
-        """Кто из пользователей удалён (или его нет)."""
-        ...
-
-    async def restrictions_of(
+    async def active_restrictions(
         self, user_ids: Collection[UserId], now: datetime
     ) -> dict[UserId, list[Restriction]]:
-        """Неснятые санкции пользователей, которые действуют сейчас или начнутся позже."""
+        """Неудалённые пользователи и их неснятые санкции — одним запросом; удалённого и
+        несуществующего нет в ответе."""
         ...
 
     async def consents(self, user_id: UserId) -> list[Consent]:
