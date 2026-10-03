@@ -1,18 +1,15 @@
 // Оболочка экранов: safe area, таббар и нижняя кнопка (DEVELOPMENT_PLAN 0.21a). Тему клиента
 // синхронизирует точка сборки (app/App.tsx): экраны S49 при старте рисуются без оболочки.
-// Вкладка «Заявки» открывается сегментом по намерению из S02b (5.6): клиенту — «Мои заявки»,
-// исполнителю и подработке — «Лента».
+// Вкладка «Заявки» всегда открывает «Ленту» — все заявки рядом; «Мои отклики» и «Мои заявки» —
+// сегментами на ней (решение владельца 2026-10-03; раньше клиенту — сразу «Мои заявки», 5.6).
 // Таббар — только на корневых экранах вкладок (SPEC §2) и скрыт, пока показана MainButton: у
 // экрана с главным действием нет навигации вниз. Внутренние экраны (S48, S49b) — с «Назад».
 // Счётчики вкладок (6.4): «Заявки» — новые отклики на свои заявки, «Сообщения» — непрочитанные.
-import type { MeOut } from '@sosed/api-client';
-import { getIdentityGetMeQueryKey } from '@sosed/api-client';
 import { useBadges } from '@sosed/hooks';
 import { preloadCatalogs, useTranslation } from '@sosed/i18n';
 import { useBottomButtonState, useInsets } from '@sosed/platform';
 import type { TabItem } from '@sosed/ui-web';
 import { Button, TabBar } from '@sosed/ui-web';
-import type { QueryClient } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { Outlet, useRouter, useRouterState } from '@tanstack/react-router';
 import type { MouseEvent } from 'react';
@@ -36,8 +33,6 @@ const CREATE_ID = 'create';
 
 /** Сегменты вкладки «Заявки» (фича jobs): у каждого свой адрес, таббар виден и на них. */
 const JOBS_SEGMENTS = ['/jobs/responses', '/jobs/mine'] as const;
-/** «Мои заявки» — стартовый сегмент вкладки для клиента. */
-const MY_JOBS_PATH = '/jobs/mine';
 const TAB_ROOTS: ReadonlySet<string> = new Set([...TABS.map((tab) => tab.path), ...JOBS_SEGMENTS]);
 /** Куда ведёт вкладка или «+»: путь маршрута, а не href ссылки. У hash history в Telegram
  *  href — «/#/profile»: переход по нему уводил на главную. */
@@ -46,18 +41,13 @@ const DESTINATIONS: ReadonlyMap<string, string> = new Map([
   [CREATE_ID, CREATE_PATH],
 ]);
 
-/** Куда ведёт вкладка: «Заявки» клиента — «Мои заявки». */
-function destinationOf(id: string, queryClient: QueryClient): string {
-  const client = queryClient.getQueryData<MeOut>(getIdentityGetMeQueryKey())?.intent === 'client';
-  return id === 'jobs' && client ? MY_JOBS_PATH : (DESTINATIONS.get(id) ?? '/');
-}
+const destination = (id: string): string => DESTINATIONS.get(id) ?? '/';
 
 export function AppShell() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const queryClient = useQueryClient();
-  const destination = (id: string) => destinationOf(id, queryClient);
   const main = useBottomButtonState('main');
   const insets = useInsets();
   // «Заявки N» и «Сообщения N»: новые отклики и непрочитанные (6.4); гостю — без запроса
@@ -71,7 +61,7 @@ export function AppShell() {
     if (saveData()) return undefined;
     return afterFirstScreen(queryClient, () => {
       for (const id of [...TABS.map((tab) => tab.id), CREATE_ID]) {
-        void router.preloadRoute({ to: destinationOf(id, queryClient) });
+        void router.preloadRoute({ to: destination(id) });
       }
       void preloadCatalogs(i18n);
     });
