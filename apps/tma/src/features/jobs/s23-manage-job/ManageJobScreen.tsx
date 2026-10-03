@@ -7,15 +7,16 @@
 // подтверждён», «Подработка», «Новый»; опрос раз в 15 секунд. «Закрыть заявку» спрашивает
 // причину. «Изменить» — мастер S20a–d с этой заявкой (`?edit=<id>`, сохранение с If-Match).
 // Карточка отклика ведёт на S24 — выбрать исполнителя или отклонить (6.2); заявка «в работе» и
-// завершённая — «Исполнитель выбран» и «Открыть сделку» (S26). «Поделиться» — 7.4.
+// завершённая — «Исполнитель выбран» и «Открыть сделку» (S26). «Поделиться» — 7.4. Из «Моих
+// заявок» S22 экран рисуется сразу — заявкой из списка, отклики грузятся вместе с ней.
 import type { JobCloseInReason, JobOut, ResponseCardOut } from '@sosed/api-client';
-import { ApiError } from '@sosed/api-client';
+import { ApiError, getSession } from '@sosed/api-client';
 import {
   isUnavailable,
   useCloseJob,
   useExtendJob,
-  useJob,
   useMyDeals,
+  useOwnJob,
   useResponseCards,
 } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
@@ -72,7 +73,10 @@ const EDITABLE: ReadonlySet<JobOut['status']> = new Set([
 export function ManageJobScreen() {
   const { jobId: raw = '' } = useParams({ strict: false });
   const jobId = jobIdOf(raw);
-  const job = useJob(jobId);
+  const job = useOwnJob(jobId);
+  // отклики — вместе с заявкой, а не после неё; чужая заявка (уйдёт на S15) получит отказ
+  // сервера, гостю своих заявок нет
+  useResponseCards(getSession() !== null ? jobId : null);
   const router = useRouter();
   useBackButton(() => {
     if (router.history.canGoBack()) router.history.back();

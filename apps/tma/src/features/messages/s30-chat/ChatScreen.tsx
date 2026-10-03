@@ -13,7 +13,7 @@
 import type { ConversationOut, MessageOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import type { ChatEntry } from '@sosed/hooks';
-import { MAX_MESSAGE, dealState, useChat } from '@sosed/hooks';
+import { MAX_MESSAGE, cachedConversation, dealState, useChat } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
 import { useBackButton, useInsets, usePlatform } from '@sosed/platform';
 import {
@@ -31,6 +31,7 @@ import {
   SystemNote,
   paletteFor,
 } from '@sosed/ui-web';
+import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter, useSearch } from '@tanstack/react-router';
 import type { MouseEvent, ReactNode } from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -58,6 +59,7 @@ function Chat({ conversationId }: { conversationId: string }) {
   const { t } = useTranslation('messages');
   const chat = useChat(conversationId);
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   if (chat.error) {
     if (chat.error instanceof ApiError && chat.error.status === NOT_FOUND) {
@@ -90,7 +92,9 @@ function Chat({ conversationId }: { conversationId: string }) {
       );
     }
   }
-  if (!chat.conversation) return <Loading />;
+  if (!chat.conversation) {
+    return <Loading conversation={cachedConversation(queryClient, conversationId)} />;
+  }
   return <Dialog conversation={chat.conversation} chat={chat} />;
 }
 
@@ -475,17 +479,33 @@ function entryKey(entry: ChatEntry): string {
   return entry.type === 'message' ? entry.message.id : `pending:${entry.pending.clientMsgId}`;
 }
 
-/** Диалог до первого ответа — как настоящий: шапка с собеседником, пузыри по низу, поле ввода. */
-function Loading() {
+/** Диалог до первого ответа — как настоящий: шапка с собеседником, пузыри по низу, поле ввода.
+ *  Открыли из списка S29 — собеседник и сделка в шапке из него сразу; кнопки шапки (сделка,
+ *  контакты) — только по ответу диалога. */
+function Loading({ conversation }: { conversation: ConversationOut | undefined }) {
+  const { t } = useTranslation('messages');
   const insets = useInsets();
+  const name = conversation ? (conversation.counterpart_name ?? t('list.deleted')) : null;
   return (
     <div aria-busy="true" className="flex min-h-[calc(100dvh-var(--tg-top,0px))] flex-col">
       <div className="flex items-center gap-2.5 border-0 border-b border-solid border-line bg-bg px-4 py-2.5">
-        <Skeleton round className="size-9 shrink-0" />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <SkeletonText className="w-2/5" />
-          <SkeletonText size="cap" className="w-1/4" />
-        </div>
+        {conversation && name ? (
+          <>
+            <Avatar name={name} size="sm" palette={paletteFor(conversation.counterpart_id)} />
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate font-semibold">{name}</span>
+              <span className="text-cap text-text2">{t(`deal.${dealState(conversation)}`)}</span>
+            </span>
+          </>
+        ) : (
+          <>
+            <Skeleton round className="size-9 shrink-0" />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <SkeletonText className="w-2/5" />
+              <SkeletonText size="cap" className="w-1/4" />
+            </div>
+          </>
+        )}
       </div>
       <ChatSkeleton />
       <div

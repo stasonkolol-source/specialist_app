@@ -6,6 +6,7 @@
 // мастер с полями заявки и сохранение с If-Match; чужая правка между ними — «откройте заново».
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { http } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
@@ -58,6 +59,19 @@ describe('S22 my jobs', () => {
 
     await click(screen.getByRole('link', { name: /Повесить люстру/ }));
     await waitFor(() => expect(app.router.state.location.pathname).toBe(MANAGE));
+  });
+
+  it('opens S23 at once from the list while the job itself reloads', async () => {
+    withMine();
+    const { app } = startApp('/jobs/mine');
+    const link = await screen.findByRole('link', { name: /Повесить люстру/ });
+    // заявка перечитывается долго — экран рисует её из списка «Мои заявки»
+    server.use(http.get('*/api/v1/jobs/:jobId', () => new Promise<never>(() => undefined)));
+    await click(link);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe(MANAGE));
+    expect(await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeTruthy();
+    expect(screen.getByText('Приём откликов')).toBeTruthy();
   });
 
   it('opens for a client from the jobs tab', async () => {

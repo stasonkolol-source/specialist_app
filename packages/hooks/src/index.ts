@@ -151,6 +151,7 @@ export {
   useSuggest,
 } from './search/search.ts';
 export { distanceMeters, nearestDistrict } from './geo/districts.ts';
+export { cachedConversation, cachedJobCard, cachedSpecialistCard } from './previews.ts';
 export type { PriceGroup } from './card/card.ts';
 export {
   CARD_STALE_MS,
@@ -272,6 +273,7 @@ export {
   useInviteSpecialists,
   useJobInvites,
   useMyJobs,
+  useOwnJob,
   useResponseCards,
   useUpdateJob,
 } from './jobs/mine.ts';

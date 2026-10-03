@@ -10,6 +10,7 @@ import {
   getViewsGetBadgesQueryKey,
   getViewsListResponseCardsQueryKey,
   jobsCloseJob,
+  jobsGetJob,
   jobsExtendJob,
   jobsInviteSpecialists,
   jobsListJobInvites,
@@ -41,6 +42,21 @@ export function myJobsQueryOptions() {
 /** Все свои заявки, новые первыми; гостю — нечего запрашивать. */
 export function useMyJobs() {
   return useQuery(myJobsQueryOptions());
+}
+
+/** Своя заявка (S23). В списке «Мои заявки» — та же JobOut целиком (без блока клиента, его на
+ *  своей заявке нет): пока она перечитывается, экран рисует её из списка, с временем того ответа —
+ *  устаревшая перечитается сразу. Нет в списке — обычная загрузка. */
+export function useOwnJob(jobId: string | null) {
+  const client = useQueryClient();
+  return useQuery({
+    queryKey: jobQueryKey(jobId ?? ''),
+    queryFn: ({ signal }) => jobsGetJob(jobId ?? '', { signal }),
+    enabled: jobId !== null,
+    initialData: () =>
+      client.getQueryData<JobsOut>(myJobsQueryKey())?.items.find((job) => job.id === jobId),
+    initialDataUpdatedAt: () => client.getQueryState(myJobsQueryKey())?.dataUpdatedAt,
+  });
 }
 
 /** Отклики своей заявки карточками; сервер отмечает их просмотренными — бейдж S22 гаснет. Список
