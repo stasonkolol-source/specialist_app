@@ -970,12 +970,14 @@ CREATE TABLE identity.completed_deals (   -- уровень доверия 2: �
   completed_at timestamptz NOT NULL,
   PRIMARY KEY (user_id, deal_id)             -- повтор подписчика DealCompleted факт не удваивает
 );
-CREATE TABLE identity.user_blocks (  -- требование App Store 1.2: пользователь может заблокировать другого
+CREATE TABLE identity.user_blocks (  -- требование App Store 1.2: пользователь может заблокировать другого (4.7)
   blocker_id uuid NOT NULL REFERENCES identity.users(id),
   blocked_id uuid NOT NULL REFERENCES identity.users(id),
   created_at timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (blocker_id, blocked_id)
+  PRIMARY KEY (blocker_id, blocked_id),
+  CHECK (blocker_id <> blocked_id)
 );
+CREATE INDEX ON identity.user_blocks (blocked_id);  -- «кто заблокировал меня»: правило — в обе стороны
 
 CREATE TABLE identity.deletion_requests (   -- удаление аккаунта: grace 7 дней, затем identity.process_deletions
   id            uuid PRIMARY KEY DEFAULT uuidv7(),
@@ -1691,9 +1693,11 @@ CREATE TABLE moderation.reports (
   resolution   text,                                -- обоснование решения (журнал решений)
   resolved_by  uuid,
   resolved_at  timestamptz,
-  created_at   timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (reporter_id, target_type, target_id)
+  created_at   timestamptz NOT NULL DEFAULT now()
 );
+-- одна открытая жалоба человека на объект: повтор, пока кейс не решён, — та же жалоба (4.7)
+CREATE UNIQUE INDEX ON moderation.reports (reporter_id, target_type, target_id) WHERE status = 'open';
+CREATE INDEX ON moderation.reports (case_id);  -- решение по кейсу закрывает его жалобы
 CREATE INDEX ON moderation.reports (due_at) WHERE status = 'open' AND is_legal_notice;
 
 CREATE TABLE moderation.cases (         -- единица работы модератора (2.5a)
@@ -2436,7 +2440,7 @@ sequenceDiagram
 | `POST /me/consents` | Принятие правил площадки (с 18+) и политики; v1 — полный журнал согласий (аналитика, маркетинг, AI) |
 | `PATCH /me/privacy` | Приватность (S43, 6.5): `show_telegram` — показывать ли второй стороне свой @username после договорённости (по умолчанию да; `identity.users.privacy`); ответ — как `GET /me`. Телефон виден только после явного «Поделиться контактом» (S54); переключатель телефона — v1 |
 | `POST /me/phone/verify-telegram` | Подтверждение телефона контактом из Telegram (`requestContact`) — добровольный бейдж, повышает `trust_level` |
-| `GET /me/blocks`, `PUT /me/blocks/{user_id}`, `DELETE /me/blocks/{user_id}` | Блокировки пользователей |
+| `GET /me/blocks`, `PUT /me/blocks/{user_id}`, `DELETE /me/blocks/{user_id}` | Блокировки пользователей (4.7): список S44 — BFF (имя «Олег Р.», у специалиста — фото и профиль), заблокировать и разблокировать — повтор без ошибки, себя — 409, до 1000. Правило — в обе стороны: выдача, избранное, лента, сохранённые заявки, S15, отклики S23, приглашения и прямой запрос не показывают их друг другу, отклик, выбор и приглашение — 404, переписка — только чтение (409 `conversation_closed` / `blocked`). Снять можно только свою блокировку |
 | `POST /me/deletion`, `DELETE /me/deletion` | Запрос и отмена удаления аккаунта |
 | `POST /me/data-export` | Выгрузка данных (ZZPL): v1; в MVP — вручную по запросу в поддержку ([ADR-0018](adr/0018-mvp-scope-anonymous-no-payments.md)) |
 | `GET /client-config` 🔓 | Минимальные версии клиентов, feature flags, версии юрдокументов и их тексты по языкам (S48, `legal_documents`), лимиты загрузки |
@@ -2554,7 +2558,7 @@ sequenceDiagram
 
 | Метод и путь | Назначение |
 |---|---|
-| `POST /reports` | Жалоба: `{target_type, target_id, reason, comment}` |
+| `POST /reports` | Жалоба (S46, 4.7): `{target_type, target_id, reason, comment, conversation_id?}` — профиль, заявка, отзыв, сообщение или собеседник (`user`; из чата — с диалогом); причины — свои у типа; угрозы, запрещённое и незаконное — кейс P0, остальное — P1; объект, которого жалующийся не видит, — 404, свой — 422; повтор, пока кейс открыт, — та же жалоба (200); 20 в сутки — 429 `reports_limit`. Решение по кейсу закрывает его жалобы (`resolved` — нарушение, `rejected` — нет) |
 | `POST /me/verification`, `GET /me/verification` | Верификация и её статус: телефон — MVP; документ (KYC), бизнес и лицензия — v1 |
 | `POST /appeals` | Обжалование решения модерации (MVP: кнопки «Обжаловать» есть в уведомлениях о санкциях) |
 | `POST /deals/{id}/dispute` | Спор по сделке (см. deals / reviews): вторая сторона отвечает в течение 48 ч |

@@ -1,11 +1,20 @@
 """Чтение identity для фасада и use cases (ADR-0020 §5)."""
 
 from collections.abc import Collection, Mapping
-from dataclasses import replace
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ColumnElement, RowMapping, and_, exists, func, literal_column, or_, select
+from sqlalchemy import (
+    ColumnElement,
+    RowMapping,
+    Select,
+    and_,
+    exists,
+    func,
+    literal_column,
+    or_,
+    select,
+)
 from sqlalchemy.dialects.postgresql import aggregate_order_by
 
 from app.modules.identity.api import BlockSide, TelegramUserView, UserSummary
@@ -32,31 +41,18 @@ class SqlIdentityQuery(SqlQuery):
     async def user_summary(
         self, user_id: UserId, *, viewer_id: UserId | None = None
     ) -> UserSummary | None:
-        stmt = _SUMMARY.where(UserRow.__table__.c.id == user_id)
-        if viewer_id is not None:
-            blocks = UserBlockRow.__table__.c
-            stmt = stmt.add_columns(
-                exists()
-                .where(blocks.blocker_id == viewer_id, blocks.blocked_id == _U.id)
-                .label("by_me"),
-                exists()
-                .where(blocks.blocker_id == _U.id, blocks.blocked_id == viewer_id)
-                .label("by_them"),
-            )
+        stmt = _with_block(_SUMMARY.where(_U.id == user_id), viewer_id)
         row = await self._fetch_one(stmt)
-        if row is None:
-            return None
-        summary = _summary(row)
-        if viewer_id is None:
-            return summary
-        block = BlockSide.BY_ME if row["by_me"] else BlockSide.BY_THEM if row["by_them"] else None
-        return replace(summary, block=block)
+        return _summary(row, viewer_id) if row is not None else None
 
-    async def user_summaries(self, user_ids: Collection[UserId]) -> dict[UserId, UserSummary]:
+    async def user_summaries(
+        self, user_ids: Collection[UserId], *, viewer_id: UserId | None = None
+    ) -> dict[UserId, UserSummary]:
         if not user_ids:
             return {}
-        rows = await self._fetch(_SUMMARY.where(UserRow.__table__.c.id.in_(list(user_ids))))
-        return {summary.id: summary for summary in map(_summary, rows)}
+        rows = await self._fetch(_with_block(_SUMMARY.where(_U.id.in_(list(user_ids))), viewer_id))
+        summaries = (_summary(row, viewer_id) for row in rows)
+        return {summary.id: summary for summary in summaries}
 
     async def me(self, user_id: UserId) -> MeView | None:
         row = await self._fetch_one(_ME.where(_U.id == user_id, _U.status == UserStatus.ACTIVE))
@@ -233,7 +229,22 @@ _SUMMARY = select(
 )
 
 
-def _summary(row: RowMapping) -> UserSummary:
+def _with_block(stmt: Select[Any], viewer_id: UserId | None) -> Select[Any]:
+    """Блокировка со зрителем (4.7) — колонками того же запроса: экрану не нужно чтение блокировок
+    отдельно (S15, S23)."""
+    if viewer_id is None:
+        return stmt
+    blocks = UserBlockRow.__table__.c
+    return stmt.add_columns(
+        exists().where(blocks.blocker_id == viewer_id, blocks.blocked_id == _U.id).label("by_me"),
+        exists().where(blocks.blocker_id == _U.id, blocks.blocked_id == viewer_id).label("by_them"),
+    )
+
+
+def _summary(row: RowMapping, viewer_id: UserId | None = None) -> UserSummary:
+    block = None
+    if viewer_id is not None:
+        block = BlockSide.BY_ME if row["by_me"] else BlockSide.BY_THEM if row["by_them"] else None
     return UserSummary(
         id=UserId(row["id"]),
         display_name=row["display_name"],
@@ -242,6 +253,7 @@ def _summary(row: RowMapping) -> UserSummary:
         phone_verified=row["phone_verified_at"] is not None,
         is_deleted=row["status"] == UserStatus.DELETED,
         created_at=row["created_at"],
+        block=block,
     )
 
 

@@ -181,8 +181,10 @@ class IdentityQuery(Protocol):
         """С `viewer_id` — и блокировка со зрителем (`block`), тем же запросом."""
         ...
 
-    async def user_summaries(self, user_ids: Collection[UserId]) -> dict[UserId, UserSummary]:
-        """Пользователи пачкой; кого нет — нет и в ответе."""
+    async def user_summaries(
+        self, user_ids: Collection[UserId], *, viewer_id: UserId | None = None
+    ) -> dict[UserId, UserSummary]:
+        """Пользователи пачкой; кого нет — нет и в ответе. С `viewer_id` — и блокировка."""
         ...
 
     async def telegram_contacts(self, user_ids: Collection[UserId]) -> dict[UserId, str]:

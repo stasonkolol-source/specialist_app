@@ -291,3 +291,29 @@ async def test_report_from_a_chat_and_the_twenty_first_a_day(chat: Chat) -> None
         assert filed.status_code == 201, filed.text
     over = await report(chat, client, target_type="user", target_id=str(stranger))
     assert (over.status_code, over.json()["code"]) == (429, "reports_limit")
+
+
+async def test_blocked_performers_response_is_hidden_and_cannot_be_chosen(chat: Chat) -> None:
+    client, performer, response_id = await chat.pair()
+    job_id = await chat.scalar(
+        "SELECT job_id FROM jobs.responses WHERE id = :id", id=UUID(response_id)
+    )
+
+    async def shown() -> tuple[list[str], list[str]]:
+        cards = await chat.get(client, f"/jobs/{job_id}/response-cards")
+        listed = await chat.get(client, f"/jobs/{job_id}/responses")
+        assert (cards.status_code, listed.status_code) == (200, 200), cards.text
+        return (
+            [item["id"] for item in cards.json()["items"]],
+            [item["id"] for item in listed.json()["items"]],
+        )
+
+    assert await shown() == ([response_id], [response_id])
+    await block(chat, performer, client)  # исполнитель заблокировал клиента
+
+    assert await shown() == ([], [])
+    chosen = await chat.post(client, f"/responses/{response_id}/accept")
+    assert (chosen.status_code, chosen.json()["code"]) == (404, "response_not_found")
+
+    await unblock(chat, performer, client)
+    assert await shown() == ([response_id], [response_id])

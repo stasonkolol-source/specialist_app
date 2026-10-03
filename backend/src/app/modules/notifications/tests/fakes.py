@@ -41,7 +41,9 @@ class FakeIdentity:
             created_at=datetime(2026, 9, 1, tzinfo=UTC),
         )
 
-    async def users(self, user_ids: Collection[UserId]) -> dict[UserId, UserSummary]:
+    async def users(
+        self, user_ids: Collection[UserId], *, viewer_id: UserId | None = None
+    ) -> dict[UserId, UserSummary]:
         found = {user_id: await self.get_user(user_id) for user_id in user_ids}
         return {user_id: user for user_id, user in found.items() if user is not None}
 

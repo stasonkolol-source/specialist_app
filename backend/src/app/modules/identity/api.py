@@ -91,8 +91,11 @@ class IdentityApi(Protocol):
         заявки S15 не тратит на неё отдельное чтение)."""
         ...
 
-    async def users(self, user_ids: Collection[UserId]) -> dict[UserId, UserSummary]:
-        """Пользователи пачкой (имена в списке диалогов S29); кого нет — нет и в ответе."""
+    async def users(
+        self, user_ids: Collection[UserId], *, viewer_id: UserId | None = None
+    ) -> dict[UserId, UserSummary]:
+        """Пользователи пачкой (имена в списке диалогов S29); кого нет — нет и в ответе. С
+        `viewer_id` — и блокировка с ним тем же запросом (отклики S23, 4.7)."""
         ...
 
     async def telegram_contacts(self, user_ids: Collection[UserId]) -> dict[UserId, str]:

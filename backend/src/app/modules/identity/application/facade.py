@@ -55,8 +55,10 @@ class IdentityFacade(IdentityApi):
     ) -> UserSummary | None:
         return await self._query.user_summary(user_id, viewer_id=viewer_id)
 
-    async def users(self, user_ids: Collection[UserId]) -> dict[UserId, UserSummary]:
-        return await self._query.user_summaries(user_ids)
+    async def users(
+        self, user_ids: Collection[UserId], *, viewer_id: UserId | None = None
+    ) -> dict[UserId, UserSummary]:
+        return await self._query.user_summaries(user_ids, viewer_id=viewer_id)
 
     async def telegram_contacts(self, user_ids: Collection[UserId]) -> dict[UserId, str]:
         return await self._query.telegram_contacts(user_ids)
