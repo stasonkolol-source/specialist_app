@@ -8,7 +8,7 @@ import {
   getGeoListDistrictsQueryKey,
   useGeoListDistricts,
 } from '@sosed/api-client';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 
 /** Справочники меняются редко: час без перечитывания (ответ сервера кэшируется на 5 минут —
  *  Cache-Control max-age=300 — и после часа браузер спросит его заново). */
@@ -25,9 +25,18 @@ export function categoriesQueryOptions(locale: Locale, city?: string) {
   });
 }
 
-/** `city` — slug города: с ним у категорий ориентир цены `price_hint` (S04). */
+/** `city` — slug города: с ним у категорий ориентир цены `price_hint` (S04, S20c); дерево то же.
+ *  Пока ориентиров нет — дерево без города из кэша (его грузят Главная и выдача): разделы видны
+ *  сразу, а цены дописываются, когда придут. Без города — только для названий, второй запрос не
+ *  нужен. */
 export function useCategories(locale: Locale, city?: string) {
-  return useQuery({ ...categoriesQueryOptions(locale, city), placeholderData: keepPreviousData });
+  const client = useQueryClient();
+  return useQuery({
+    ...categoriesQueryOptions(locale, city),
+    placeholderData: (previous: CategoryOut[] | undefined) =>
+      previous ??
+      (city ? client.getQueryData<CategoryOut[]>(categoriesQueryKey(locale)) : undefined),
+  });
 }
 
 /** Листья дерева в порядке каталога: специалист выбирает конкретные услуги, а не разделы. */

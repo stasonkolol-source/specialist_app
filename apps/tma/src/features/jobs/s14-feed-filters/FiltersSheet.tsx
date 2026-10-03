@@ -136,7 +136,6 @@ export function FiltersSheet({ search, city, onClose, onApply }: FiltersSheetPro
           </Banner>
         )}
         <Categories
-          citySlug={city?.slug}
           selected={draft.categories}
           onToggle={(id) => set({ categories: toggle(draft.categories, id) })}
         />
@@ -258,19 +257,18 @@ function Radius({
   );
 }
 
-/** Разделы каталога чипами; выбранная услуга не из разделов (с Главной, из ссылки) — тоже чип. */
+/** Разделы каталога чипами; выбранная услуга не из разделов (с Главной, из ссылки) — тоже чип.
+ *  Дерево — без города: ориентир цены (`?city=`) здесь не нужен, а это дерево уже в кэше ленты. */
 function Categories({
-  citySlug,
   selected,
   onToggle,
 }: {
-  citySlug: string | undefined;
   selected: number[] | undefined;
   onToggle: (id: number) => void;
 }) {
   const { t } = useTranslation('jobs');
   const locale = useLocale();
-  const tree: CategoryOut[] = useCategories(locale, citySlug).data ?? [];
+  const tree: CategoryOut[] = useCategories(locale).data ?? [];
   const extra = (selected ?? [])
     .filter((id) => !tree.some((section) => section.id === id))
     .map((id) => findCategory(tree, id))
