@@ -22,6 +22,7 @@ import {
   CREATE_PATHS,
   JOBS_PATHS,
   SAVED_PATHS,
+  alertFormSearch,
   createSearch,
   doneSearch,
   editSearch,
@@ -98,6 +99,31 @@ const templates = createRoute({
   path: JOBS_PATHS.templates,
   beforeLoad: requireConsent,
   component: screen(() => import('../features/jobs/s57-templates/index.ts'), 'TemplatesScreen'),
+});
+
+// Подписки на заявки S18 (5.7): колокольчик ленты S13, кнопки бота (`m_alerts`); без входа
+// подписок нет. Форма S19 — новая (из S18 и шторки фильтров S14 с её фильтрами) и правка; подписка
+// — создающее действие: без согласия S02c
+const alerts = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.alerts,
+  beforeLoad: requireUser,
+  component: screen(() => import('../features/jobs/s18-alerts/index.ts'), 'AlertsScreen'),
+});
+
+const newAlert = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.newAlert,
+  validateSearch: alertFormSearch,
+  beforeLoad: requireConsent,
+  component: screen(() => import('../features/jobs/s19-alert-form/index.ts'), 'AlertFormScreen'),
+});
+
+const editAlert = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.alert,
+  beforeLoad: requireConsent,
+  component: screen(() => import('../features/jobs/s19-alert-form/index.ts'), 'AlertFormScreen'),
 });
 
 const myJobs = createRoute({
@@ -479,6 +505,9 @@ export const routeTree = rootRoute.addChildren([
   jobs,
   myResponses,
   templates,
+  alerts,
+  newAlert,
+  editAlert,
   myJobs,
   job,
   respond,

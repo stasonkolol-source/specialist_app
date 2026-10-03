@@ -2,13 +2,15 @@
 // Разбор кода — packages/links (golden-векторы общие с backend). Цель без готового экрана и
 // неизвестный код ведут на главную (до 4.8 — заглушка). Шаг экрана-цели добавляет в START_TARGETS
 // свою строку: `s_` → S08 (4.5), `j_` → S15 (5.3), `n` → S20a и `m_jobs` → S22 (5.6), `d_` → S26
-// (6.2), `p_` → S52 (6.1c), `c_` → S30 (6.4); коды `g…`
+// (6.2), `p_` → S52 (6.1c), `c_` → S30 (6.4), `m_alerts`, `m_feed`, `m_availability`, `m_profile`
+// (5.7); коды `g…`
 // раздела «Вещи» — после MVP. Суффикс `_r<code>` — атрибуция: её записывает backend при входе
 // (модуль growth), на выбор экрана он не влияет.
 import type { MineSection, StartLink } from '@sosed/links';
 import { parseStartParam } from '@sosed/links';
 
 import { ACCOUNT_PATHS } from '../features/account/index.ts';
+import { CABINET_PATHS } from '../features/specialist/index.ts';
 import { profilePath } from '../features/catalog/index.ts';
 import {
   CREATE_PATHS,
@@ -26,6 +28,10 @@ const MINE_TARGETS: Record<MineSection, string> = {
   reviews: `${JOBS_PATHS.history}?tab=reviews`,
   settings: ACCOUNT_PATHS.settings,
   deletion: ACCOUNT_PATHS.delete,
+  alerts: JOBS_PATHS.alerts,
+  feed: `${JOBS_PATHS.feed}?alerts=true`,
+  availability: CABINET_PATHS.availability,
+  profile: CABINET_PATHS.home,
 };
 
 /** Вариант ссылки с типом K: у сущностей тип — объединение (`job | specialist | …`), поэтому
@@ -47,7 +53,9 @@ export const START_TARGETS: StartTargets = {
   // мастер новой заявки S20a и «Мои заявки» S22: команды бота /new и /jobs (5.6)
   new_job: () => CREATE_PATHS.what,
   // «Мои заявки» S22 (`m_jobs`), «Сделки и отзывы» S28 на вкладке «Отзывы» (`m_reviews`, 7.3),
-  // настройки S43 и удаление аккаунта S45 — кнопки `/settings` бота (4.9)
+  // настройки S43 и удаление аккаунта S45 — кнопки `/settings` бота (4.9); подписки S18
+  // (`m_alerts`), лента «по моим подпискам» (`m_feed`), «доступен сегодня» S38 (`m_availability`)
+  // и кабинет S33 (`m_profile`) — кнопки уведомлений и команд `/feed`, `/alerts` (5.7)
   mine: (link) => MINE_TARGETS[link.section],
   // диалог S30: кнопка «Ответить» уведомления `message.received` (6.3b, 6.4)
   chat: (link) => chatPath(link.id),
