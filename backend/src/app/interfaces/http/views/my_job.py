@@ -100,7 +100,7 @@ async def list_response_cards(
     locale: FromDishka[Locale],
 ) -> ResponseCardsOut:
     """Отклики на свою заявку для S23: исполнитель с фото, районом и рейтингом, «Откликнулся
-    первым», новые для клиента. Ответ с новыми отмечает отклики просмотренными."""
+    первым», новые для клиента. Ответ отмечает отклики просмотренными."""
     responses = await jobs.owner_responses(job_id, principal.user_id)
     cards = await _visible_cards(
         {r.profile_id for r in responses if r.profile_id is not None}, specialists, identity

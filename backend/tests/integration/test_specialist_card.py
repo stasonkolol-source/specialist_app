@@ -8,6 +8,7 @@ from typing import Any
 
 import httpx
 import pytest
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.modules.identity.api import RestrictionKind
 from app.modules.specialists.application.use_cases.add_portfolio_work import (
@@ -21,6 +22,7 @@ from app.modules.specialists.application.use_cases.hide_profile import (
 from app.platform.kernel.ids import MediaId, new_id
 from app.platform.settings import Settings
 from tests.plugins.http import HttpApp, http_app
+from tests.plugins.round_trips import round_trips
 from tests.plugins.search import NAME, Specialist
 
 pytestmark = pytest.mark.integration
@@ -98,6 +100,27 @@ async def test_card_comes_in_one_request_with_etag(web: HttpApp) -> None:
         web, str(specialist.profile_id), **{"if-none-match": response.headers["etag"]}
     )
     assert again.status_code == 304
+
+
+async def test_card_reads_do_not_grow_with_the_profile(web: HttpApp) -> None:
+    """Перф-аудит: карточка S08 — восемь запросов при любом числе районов и работ (было 16 и
+    по запросу на район): фото и работы — одним, справочники — из снимка в памяти процесса.
+    Прайс S09 и отзывы S11 проверяют видимость без описаний и портфолио."""
+    specialist = await published(web)
+    await get(web, str(specialist.profile_id))  # снимки справочников прочитаны
+    engine = await web.container.get(AsyncEngine)
+
+    with round_trips(engine) as card:
+        assert (await get(web, str(specialist.profile_id))).status_code == 200
+    with round_trips(engine) as services:
+        assert (await get(web, f"{specialist.profile_id}/services")).status_code == 200
+    with round_trips(engine) as reviews:
+        assert (await get(web, f"{specialist.profile_id}/reviews")).status_code == 200
+
+    assert card.queries == 8, card.statements
+    assert (card.begins, card.ends) == (0, 0)
+    assert services.queries == 3, services.statements
+    assert reviews.queries == 4, reviews.statements
 
 
 async def test_names_follow_the_language(web: HttpApp) -> None:

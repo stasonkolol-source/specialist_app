@@ -11,7 +11,7 @@
 v1: пока пусто.
 """
 
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
@@ -217,6 +217,12 @@ def _photo(ref: MediaRef | None) -> CardPhotoOut | None:
 async def _works(media: MediaApi, works: tuple[PublicWork, ...]) -> list[CardWorkOut]:
     """Работы с готовыми файлами по порядку: обрабатываемые и сбойные клиенту не видны."""
     refs = await media.refs([work.media_id for work in works]) if works else {}
+    return _ready_works(refs, works)
+
+
+def _ready_works(
+    refs: Mapping[MediaId, MediaRef], works: tuple[PublicWork, ...]
+) -> list[CardWorkOut]:
     shown: list[CardWorkOut] = []
     for work in works:
         photo = _photo(refs.get(work.media_id))
@@ -255,12 +261,13 @@ async def _categories(
 
 
 async def _areas(geo: GeoApi, ids: tuple[DistrictId, ...], locale: Locale) -> list[CardNamedOut]:
-    areas: list[CardNamedOut] = []
-    for district_id in ids:
-        district = await geo.district(district_id)
-        if district is not None:
-            areas.append(CardNamedOut(id=district.id, name=district.name.get(locale)))
-    return areas
+    """Районы по порядку профиля — пачкой из справочника."""
+    found = await geo.districts(ids) if ids else {}
+    return [
+        CardNamedOut(id=district.id, name=district.name.get(locale))
+        for district in (found.get(district_id) for district_id in ids)
+        if district is not None
+    ]
 
 
 def _avatar_ids(profile: PublicProfile) -> list[MediaId]:
@@ -295,8 +302,9 @@ async def get_specialist(
     rating = _rating((await reviews.summaries([profile.id])).get(profile.id))
     latest = await reviews.reviews_of(profile.id, PageRequest(limit=LATEST_REVIEWS))
     services = await pricing.public_services(profile.id)
-    works = await _works(media, profile.works)
-    avatars = await media.refs(_avatar_ids(profile))
+    # фото профиля и работы — одним запросом; готовность всех работ нужна для works_count
+    avatars = await media.refs([*_avatar_ids(profile), *(work.media_id for work in profile.works)])
+    works = _ready_works(avatars, profile.works)
     city = await geo.city(profile.city_id)
     areas = await _areas(geo, profile.area_ids, locale)
     until = profile.available_until
@@ -349,7 +357,7 @@ async def list_specialist_services(
     locale: FromDishka[Locale],
 ) -> Response:
     """Прайс специалиста S09: все видимые позиции и их группы (категории)."""
-    profile = await _visible(profile_id, specialists, identity)
+    profile = await _visible_card(profile_id, specialists, identity)
     services = await pricing.public_services(profile.id)
     groups = list(dict.fromkeys(s.category_id for s in services if s.category_id is not None))
     body = CardServicesOut(
@@ -401,7 +409,7 @@ async def list_specialist_reviews(
 ) -> Response:
     """Отзывы S11: рейтинг с гистограммой и опубликованные отзывы по сделкам с ответами,
     новые первыми (курсор). Вкладка «До платформы» (`kind`) — 7.6."""
-    profile = await _visible(profile_id, specialists, identity)
+    profile = await _visible_card(profile_id, specialists, identity)
     summary = (await reviews.summaries([profile.id])).get(profile.id)
     page = await reviews.reviews_of(profile.id, PageRequest(limit=limit, cursor=cursor))
     body = CardReviewsOut(

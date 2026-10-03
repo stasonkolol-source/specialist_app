@@ -71,7 +71,9 @@ async def test_etag_and_if_none_match(api: httpx.AsyncClient) -> None:
     first = await api.get("/api/v1/categories", headers={"accept-language": "ru"})
     etag = first.headers["etag"]
     assert etag.startswith('"')
-    assert first.headers["cache-control"] == "public, max-age=300"
+    assert first.headers["cache-control"] == (
+        "public, max-age=300, stale-while-revalidate=86400"
+    )
     assert first.headers["vary"] == "Accept-Language"
 
     for header in (etag, f"W/{etag}", f'"other", {etag}', "*"):

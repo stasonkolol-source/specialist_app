@@ -13,6 +13,7 @@ from app.modules.geo.domain.place import CityStatus
 from app.modules.geo.infrastructure.queries import SqlGeoQuery
 from app.modules.geo.infrastructure.writer import SqlGeoWriter
 from app.platform.kernel.localized import Locale
+from app.platform.testing.cache import NoSnapshotCache
 from tests.plugins.database import make_uow
 
 pytestmark = pytest.mark.integration
@@ -20,7 +21,8 @@ pytestmark = pytest.mark.integration
 
 async def _import(db_session: AsyncSession, app: procrastinate.App, seed):  # type: ignore[no-untyped-def]
     uow = make_uow(db_session, app)
-    return await ImportCity(uow, SqlGeoWriter(db_session, uow))(ImportCityCommand(seed=seed))
+    import_city = ImportCity(uow, SqlGeoWriter(db_session, uow), NoSnapshotCache())
+    return await import_city(ImportCityCommand(seed=seed))
 
 
 async def test_repository_seeds_resolve_novi_sad(

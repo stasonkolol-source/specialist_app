@@ -15,6 +15,7 @@ from app.modules.geo.infrastructure.writer import SqlGeoWriter
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CityId
 from app.platform.kernel.localized import Locale, LocalizedText
+from app.platform.testing.cache import NoSnapshotCache
 
 pytestmark = pytest.mark.integration
 
@@ -74,15 +75,8 @@ def a_city(slug: str = "test-city", *, active: bool = True, name: str = "Тес�
 
 async def _import(db_session: AsyncSession, app: procrastinate.App, seed: CitySeed) -> ImportResult:
     uow = make_uow(db_session, app)
-    import_city = ImportCity(uow, SqlGeoWriter(db_session, uow), NoCache())
+    import_city = ImportCity(uow, SqlGeoWriter(db_session, uow), NoSnapshotCache())
     return await import_city(ImportCityCommand(seed=seed))
-
-
-class NoCache:
-    """Снимка справочника у теста нет: сбрасывать нечего."""
-
-    def invalidate(self) -> None:
-        pass
 
 
 async def test_import_is_idempotent_and_generates_latin(

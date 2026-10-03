@@ -18,6 +18,7 @@ from app.modules.catalog.api import (
 )
 from app.modules.catalog.application.dto import CategoryView, TagView
 from app.modules.catalog.infrastructure.models import CategoryRow, SearchTermRow, TagRow
+from app.platform.cache.memo import Memo
 from app.platform.db.query import SqlQuery
 from app.platform.kernel.ids import CategoryId, TagId
 from app.platform.kernel.localized import Locale
@@ -49,16 +50,38 @@ _SUMMARY = (
 
 class SqlCatalogQuery(SqlQuery):
     async def tree(self) -> list[CategoryView]:
-        c, t = _CATEGORIES, TagRow.__table__.c
+        c = _CATEGORIES
         categories = await self._fetch(
             select(c.id, c.parent_id, c.slug, c.name, c.icon, c.price_hint)
             .where(c.is_active, c.risk_level < int(RiskLevel.FORBIDDEN))
             .order_by(c.sort_order, c.id)
         )
-        tags = await self._fetch(
+        return _tree(categories, await self._active_tags())
+
+    async def taxonomy(self) -> tuple[list[CategoryView], list[CategorySummary]]:
+        """Публичное дерево и все категории (любые, как `categories`) — снимок справочника:
+        два запроса."""
+        c = _CATEGORIES
+        rows = await self._fetch(
+            select(*_SUMMARY, c.icon, c.price_hint).order_by(c.sort_order, c.id)
+        )
+        public = [
+            row for row in rows if row["is_active"] and row["risk_level"] < RiskLevel.FORBIDDEN
+        ]
+        tree = _tree(public, await self._active_tags())
+        return tree, sorted((_summary(row) for row in rows), key=lambda c: c.path)
+
+    async def representations(self) -> Memo:
+        return Memo()  # без снимка запоминать не в чем: строится на каждый запрос
+
+    async def price_hint_cities(self) -> frozenset[str]:
+        return frozenset()  # без снимка ключ по городу не нужен
+
+    async def _active_tags(self) -> Sequence[RowMapping]:
+        t = TagRow.__table__.c
+        return await self._fetch(
             select(t.id, t.category_id, t.slug, t.name).where(t.is_active).order_by(t.id)
         )
-        return _tree(categories, tags)
 
     async def category(self, category_id: CategoryId) -> CategorySummary | None:
         row = await self._fetch_one(select(*_SUMMARY).where(_CATEGORIES.id == category_id))

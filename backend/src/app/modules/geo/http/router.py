@@ -14,7 +14,6 @@ from app.modules.geo.errors import CityNotFoundError, OutsideServiceAreaError
 from app.modules.geo.http.schemas import CityOut, DistrictOut, DistrictRefOut, PointOut, ResolveOut
 from app.platform.http.caching import (
     DICTIONARY_SWR,
-    NOT_MODIFIED,
     EncodedJson,
     cached_response,
     encode_json,
@@ -29,7 +28,9 @@ INT4_MAX = 2**31 - 1
 MAX_AGE_SECONDS = 300
 
 
-@router.get("/cities", response_model=list[CityOut], responses=NOT_MODIFIED)
+# 304 в схему не внесён: его получает HTTP-кэш браузера, клиенту приходит 200 из кэша, а
+# сгенерированный клиент без изменений контракта
+@router.get("/cities", response_model=list[CityOut])
 @inject
 async def list_cities(
     request: Request, query: FromDishka[GeoQuery], locale: FromDishka[Locale]
@@ -42,7 +43,7 @@ async def list_cities(
     return _cached(request, body)
 
 
-@router.get("/cities/{city_id}/districts", response_model=list[DistrictOut], responses=NOT_MODIFIED)
+@router.get("/cities/{city_id}/districts", response_model=list[DistrictOut])
 @inject
 async def list_districts(
     request: Request,

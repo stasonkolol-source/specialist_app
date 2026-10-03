@@ -15,7 +15,13 @@ from dishka.integrations.fastapi import FromDishka, inject
 from fastapi import APIRouter, Path
 from pydantic import BaseModel, Field
 
-from app.interfaces.http.views.specialist import CardNamedOut, CardPhotoOut, _money, _photo
+from app.interfaces.http.views.specialist import (
+    CardNamedOut,
+    CardPhotoOut,
+    _money,
+    _photo,
+    _visible_cards,
+)
 from app.modules.deals.api import DealsApi, DealSummary
 from app.modules.geo.api import GeoApi
 from app.modules.identity.api import IdentityApi
@@ -25,7 +31,7 @@ from app.modules.reviews.api import ReviewsApi
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.http.money import MoneyOut
 from app.platform.http.security import AUTHENTICATED
-from app.platform.kernel.ids import CityId, DealId, DistrictId, UserId
+from app.platform.kernel.ids import CityId, DealId, DistrictId
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Principal
 
@@ -218,15 +224,14 @@ async def _performer(
     reviews: ReviewsApi,
 ) -> DealCounterpartOut:
     """Исполнитель — клиенту: опубликованный профиль с фото и рейтингом; без профиля (подработка,
-    скрыт) — имя аккаунта."""
+    скрыт) — имя аккаунта. Профиль — карточкой: описания и портфолио экрану не нужны."""
     user = await identity.get_user(deal.performer_id)
     alive = user is not None and not user.is_deleted
     account_name = user.display_name if user is not None and alive else ""
-    profile = await specialists.public_profile(deal.profile_id) if deal.profile_id else None
-    if profile is not None and profile.user_id in await identity.hidden_from_search(
-        [UserId(profile.user_id)]
-    ):
-        profile = None
+    profile = None
+    if deal.profile_id is not None:
+        cards = await _visible_cards([deal.profile_id], specialists, identity)
+        profile = cards.get(deal.profile_id)
     rating = (await reviews.summaries([profile.id])).get(profile.id) if profile else None
     avatar = None
     if profile is not None and profile.avatar_media_id is not None:

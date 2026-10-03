@@ -30,6 +30,7 @@ from app.modules.search.infrastructure.models import (
     SpecialistIndexRow,
 )
 from app.platform.db.port import UnitOfWork
+from app.platform.db.query import SqlQuery
 from app.platform.kernel.ids import CategoryId, UserId
 
 
@@ -86,9 +87,10 @@ def _row(entry: IndexEntry) -> dict[str, Any]:
     }
 
 
-class SqlSpecialistIndex:
+class SqlSpecialistIndex(SqlQuery):
     def __init__(self, session: AsyncSession, uow: UnitOfWork) -> None:
-        self._session, self._uow = session, uow
+        super().__init__(session)
+        self._uow = uow
 
     async def upsert(self, entries: Sequence[IndexEntry]) -> None:
         self._uow.require_active()
@@ -144,10 +146,13 @@ class SqlSpecialistIndex:
             )
 
     async def response_time(self, profile_id: UUID) -> int | None:
-        stmt = select(SpecialistIndexRow.response_time_minutes).where(
-            SpecialistIndexRow.profile_id == profile_id
+        """Карточка S08 читает вне UoW: как query-сервис, соединение сразу возвращается в пул."""
+        row = await self._fetch_one(
+            select(SpecialistIndexRow.response_time_minutes.label("minutes")).where(
+                SpecialistIndexRow.profile_id == profile_id
+            )
         )
-        return (await self._session.execute(stmt)).scalar_one_or_none()
+        return row["minutes"] if row is not None else None
 
     async def ids_of_users(self, user_ids: Collection[UserId]) -> list[UUID]:
         column = SpecialistIndexRow.profile_id
