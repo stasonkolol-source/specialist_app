@@ -91,6 +91,16 @@ async def restore_config(migrator_engine: AsyncEngine) -> AsyncIterator[AsyncEng
         await conn.execute(feature_flags.delete().where(feature_flags.c.key.like("test.%")))
 
 
+async def test_client_config_names_the_support_account(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """«Написать в поддержку» S47 и экспорт данных S43 — тот же аккаунт, что у /help в боте."""
+    monkeypatch.setenv("TELEGRAM_SUPPORT_USERNAME", "@sosedi_support")
+    async with http_client(Settings(env_file=None)) as client:
+        body = (await client.get("/api/v1/client-config")).json()
+    assert body["support_username"] == "sosedi_support"
+
+
 async def test_client_config_serves_flags_with_etag(settings: Settings) -> None:
     async with http_client(settings) as client:
         response = await client.get("/api/v1/client-config")
@@ -104,6 +114,8 @@ async def test_client_config_serves_flags_with_etag(settings: Settings) -> None:
             "legal_documents",
             "support_username",
         }
+        # K23, Q25: контакт поддержки не назначен — S43 и S47 показывают «скоро»
+        assert body["support_username"] is None
         etag = response.headers["etag"]
         assert response.headers["cache-control"] == "public, max-age=60"
         cached = await client.get("/api/v1/client-config", headers={"if-none-match": etag})

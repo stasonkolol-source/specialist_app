@@ -27,4 +27,5 @@ export const SystemGetClientConfigResponse = zod.object({
       ),
     }),
   ),
+  support_username: zod.union([zod.string(), zod.null()]),
 });

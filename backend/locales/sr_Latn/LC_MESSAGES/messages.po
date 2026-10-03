@@ -205,11 +205,10 @@ msgid "bot.commands.language"
 msgstr "Jezik"
 
 msgid "bot.commands.settings"
-msgstr "Podešavanja obaveštenja"
+msgstr "Podešavanja"
 
 msgid "bot.settings.text"
-msgstr "<b>Podešavanja</b>
-Обавештења у овом ћаскању — додирните да укључите или искључите. Језик — /language."
+msgstr "<b>Podešavanja</b>\nJezik je u prvom redu. Ispod su obaveštenja u ovom ćaskanju: dodirnite da uključite ili isključite. Grad, obaveštenja u aplikaciji i privatnost — dugmetom „Sva podešavanja“."
 
 msgid "bot.settings.start"
 msgstr "Prvo dodirnite /start — tada će se ovde pojaviti podešavanja."
@@ -229,11 +228,8 @@ msgstr "Dogovori, sporovi, utisci"
 msgid "bot.settings.group.marketing"
 msgstr "Novosti aplikacije „Sosedi“"
 
-msgid "bot.settings.quiet_on"
-msgstr "🌙 Tihi sati {start}–{end}: uključeni"
-
-msgid "bot.settings.quiet_off"
-msgstr "🌙 Tihi sati {start}–{end}: isključeni"
+msgid "bot.settings.quiet"
+msgstr "Tihi sati {start}–{end}"
 
 msgid "bot.settings.all"
 msgstr "Sva podešavanja"

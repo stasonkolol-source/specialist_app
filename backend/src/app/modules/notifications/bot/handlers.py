@@ -4,8 +4,9 @@
 запустил снова (`member`) — включается, как после /start. Апдейт человека, которого нет
 среди пользователей (ещё не нажал /start), ничего не меняет: канал появится с /start.
 
-`/settings` — уведомления в боте по группам и тихие часы: нажатие переключает и перерисовывает
-кнопки; «Все настройки» — S43, «Удалить аккаунт» — S45 (язык — /language).
+`/settings` — язык, уведомления в боте по группам и тихие часы: нажатие на группу или тихие часы
+переключает и перерисовывает кнопки; «Все настройки» — S43, «Удалить аккаунт» — S45. Язык — те же
+кнопки `lang:`, что у /language: их обрабатывает бот identity и отвечает «Готово» на новом языке.
 """
 
 from typing import Final
@@ -46,10 +47,13 @@ from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Principal
 from app.platform.settings import TelegramSettings
 from app.platform.telegram.buttons import mini_app_url
+from app.platform.telegram.callbacks import LANGUAGE_CALLBACK
 from app.platform.telegram.deeplinks import LinkSection, LinkType, StartLink, encode_start_param
 from app.platform.telegram.texts import html_text, plain_text
 
 SETTINGS_CALLBACK: Final = "nset:"
+"""Кнопки /settings: `nset:<группа>` и `nset:quiet`. Рисует и обрабатывает их этот модуль — общий
+кодек (platform/telegram/callbacks.py) не нужен."""
 QUIET: Final = "quiet"
 GROUPS: Final = (
     EventGroup.JOB_MATCHES,
@@ -63,6 +67,14 @@ ALL_SETTINGS: Final = encode_start_param(
     StartLink(type=LinkType.MINE, section=LinkSection.SETTINGS)
 )
 DELETION: Final = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSection.DELETION))
+LANGUAGE_BUTTONS: Final[dict[Locale, str]] = {
+    Locale.RU: "Русский",
+    Locale.SR_LATN: "Srpski",
+    Locale.SR_CYRL: "Српски",
+}
+"""Языки одной строкой, как на S43: самоназвания не переводятся, письмо видно по буквам."""
+ON: Final = "✅"
+OFF: Final = "▫️"
 
 
 @inject
@@ -137,30 +149,38 @@ async def toggle(
 def _keyboard(
     current: NotificationSettings, translator: Translator, locale: Locale, mini_app: str | None
 ) -> InlineKeyboardMarkup:
-    rows: list[list[InlineKeyboardButton]] = []
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text=f"{ON} {name}" if option is locale else name,
+                callback_data=f"{LANGUAGE_CALLBACK}{option}",
+            )
+            for option, name in LANGUAGE_BUTTONS.items()
+        ]
+    ]
     for group in GROUPS:
         on = current.preferences.allows(group, Channel.TELEGRAM)
         name = plain_text(translator, f"bot.settings.group.{group.value}", locale)
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=f"{'✅' if on else '▫️'} {name}",
+                    text=f"{ON if on else OFF} {name}",
                     callback_data=f"{SETTINGS_CALLBACK}{group.value}",
                 )
             ]
         )
     quiet = current.quiet_hours
-    key = "bot.settings.quiet_on" if quiet.enabled else "bot.settings.quiet_off"
+    window = plain_text(
+        translator,
+        "bot.settings.quiet",
+        locale,
+        start=quiet.start.strftime("%H:%M"),
+        end=quiet.end.strftime("%H:%M"),
+    )
     rows.append(
         [
             InlineKeyboardButton(
-                text=plain_text(
-                    translator,
-                    key,
-                    locale,
-                    start=quiet.start.strftime("%H:%M"),
-                    end=quiet.end.strftime("%H:%M"),
-                ),
+                text=f"{ON if quiet.enabled else OFF} {window}",
                 callback_data=f"{SETTINGS_CALLBACK}{QUIET}",
             )
         ]
