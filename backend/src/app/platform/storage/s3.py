@@ -9,6 +9,8 @@
 - `request_checksum_calculation=when_required`: иначе новые boto3 добавляют в подпись
   заголовки CRC, которые не отправляет браузер, и Garage/R2 отвечают ошибкой подписи.
 - boto3 блокирующий: сетевые вызовы — через asyncio.to_thread (ADR-0020 §10).
+- Presigned GET переиспользуется первую половину срока (storage/presigned.py): одна и та же
+  ссылка — кэш браузера и стабильные ETag ответов с фото там, где нет CDN.
 """
 
 import asyncio
@@ -33,6 +35,7 @@ from app.platform.storage.port import (
     StoredObject,
     UploadedPart,
 )
+from app.platform.storage.presigned import PresignedUrls
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
@@ -80,6 +83,7 @@ class S3Storage:
         self._client = _client(settings, settings.endpoint_url)
         self._signer = _client(settings, settings.public_endpoint_url or settings.endpoint_url)
         self._clock = clock
+        self._presigned = PresignedUrls()
 
     def close(self) -> None:
         self._client.close()
@@ -182,11 +186,14 @@ class S3Storage:
         )
 
     async def presign_get(self, bucket: Bucket, key: str, *, ttl: timedelta = GET_TTL) -> str:
-        return self._signer.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": self._names[bucket], "Key": key},
-            ExpiresIn=int(ttl.total_seconds()),
-        )
+        def sign() -> str:
+            return self._signer.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": self._names[bucket], "Key": key},
+                ExpiresIn=int(ttl.total_seconds()),
+            )
+
+        return self._presigned.reuse((bucket, key, ttl), ttl, sign)
 
     async def get(
         self, bucket: Bucket, key: str, *, max_bytes: int, etag: str | None = None
