@@ -1,3 +1,4 @@
+import { closeReport } from '@sosed/hooks';
 import { cleanup, configure } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 
@@ -12,6 +13,8 @@ afterEach(() => {
   server.resetHandlers();
   // Без globals Testing Library не чистит DOM сама
   cleanup();
+  // шторка жалобы S46 — одна на приложение (4.7): следующий тест начинает без неё
+  closeReport();
 });
 afterAll(() => server.close());
 

@@ -47,6 +47,7 @@ import { ChatBackend } from './chatBackend.ts';
 import { FavoritesBackend } from './favoritesBackend.ts';
 import { JobsBackend } from './jobsBackend.ts';
 import { ProfileBackend } from './profileBackend.ts';
+import { SafetyBackend } from './safetyBackend.ts';
 
 /** Origin API в тестах: fetch в Node не принимает относительные URL. */
 export const API_ORIGIN = 'http://localhost';
@@ -185,6 +186,18 @@ export const chatHandlers = (backend: () => ChatBackend) => [
   }),
 ];
 
+/** Жалобы и блокировки (4.7) по фейку backend; по умолчанию — свежий на каждый запрос: никого не
+ *  заблокировали. Тесты S44, S46 и меню S08, S30 ставят свой — с памятью (server.use). */
+const SAFETY_API = /\/api\/v1\/(me\/blocks(\/[^/]+)?|reports)$/;
+
+export const safetyHandlers = (backend: () => SafetyBackend) => [
+  http.all(SAFETY_API, async ({ request }) => {
+    const body =
+      request.method === 'POST' ? await request.json().catch(() => undefined) : undefined;
+    return respond(backend().handle(request.method, new URL(request.url).pathname, body));
+  }),
+];
+
 export const handlers = [
   getSystemGetClientConfigMockHandler(CLIENT_CONFIG),
   getIdentityAuthenticateTelegramMockHandler({ ...TOKENS, is_new: false, user: ME }),
@@ -214,6 +227,7 @@ export const handlers = [
   ...profileHandlers(() => new ProfileBackend()),
   ...jobsHandlers(() => new JobsBackend()),
   ...chatHandlers(() => new ChatBackend()),
+  ...safetyHandlers(() => new SafetyBackend()),
 ];
 
 export const server = setupServer(...handlers);

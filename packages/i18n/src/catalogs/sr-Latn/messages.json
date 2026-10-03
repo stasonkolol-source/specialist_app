@@ -98,7 +98,12 @@
       "nothing": "Nema šta da se podeli: u Telegram-u nemate korisničko ime, a ovaj Telegram klijent ne ume da pošalje telefon. Ažurirajte Telegram.",
       "notSent": "Telefon nije poslat",
       "failed": "Deljenje kontakta nije uspelo. Pokušajte ponovo."
-    }
+    },
+    "menu": "Meni razgovora: prijavi ili blokiraj",
+    "blockConfirm": "Blokirati sagovornika? Neće moći da vam piše niti da šalje ponude na vaše zahteve.",
+    "blockedByMe": "Blokirali ste sagovornika. Prepiska je samo za čitanje.",
+    "blockedByThem": "Sagovornik nije dostupan: ne možete mu pisati.",
+    "blockFailed": "Nije uspelo. Pokušajte ponovo."
   },
   "write": {
     "failed": "Razgovor nije moguće otvoriti. Pokušajte ponovo."

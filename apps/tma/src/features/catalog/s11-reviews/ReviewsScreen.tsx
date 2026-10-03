@@ -1,10 +1,12 @@
 // S11 Отзывы о специалисте (DEVELOPMENT_PLAN 4.6): сводка — средняя оценка, звёзды, сколько
 // отзывов, распределение оценок и средние по критериям; ниже — отзывы по сделкам, новые первыми.
 // Пока отзывов нет — «Отзывов пока нет»: специалист новый. Ответы специалиста под отзывами и
-// «Показать ещё» — 7.3. Вкладка «До платформы» — 7.6, «Пожаловаться на отзыв» — 4.7, «Как мы проверяем
-// отзывы» (S51) — со своим шагом. Имя и услуга в шапке — из профиля S08 (обычно уже в кэше).
+// «Показать ещё» — 7.3. «⋯» у отзыва — жалоба на него (шторка S46, 4.7; вошедшему). Вкладка «До
+// платформы» — 7.6, «Как мы проверяем отзывы» (S51) — со своим шагом. Имя и услуга в шапке — из
+// профиля S08 (обычно уже в кэше).
 import type { CardRatingOut, CardReviewOut, SpecialistProfileOut } from '@sosed/api-client';
-import { isUnavailable, useSpecialistCard, useSpecialistReviews } from '@sosed/hooks';
+import { getSession } from '@sosed/api-client';
+import { isUnavailable, openReport, useSpecialistCard, useSpecialistReviews } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton } from '@sosed/platform';
 import {
@@ -128,6 +130,8 @@ function Reviews({
 }) {
   const { t } = useTranslation('catalog');
   const category = card.categories[0]?.name;
+  // пожаловаться может только вошедший: гостю «⋯» нет
+  const signedIn = getSession() !== null;
   return (
     <section className="flex flex-col gap-3 px-4 pt-3 pb-6">
       <div className="flex flex-col">
@@ -147,7 +151,15 @@ function Reviews({
           <Summary summary={summary} />
           <Text variant="cap">{t('reviews.policy')}</Text>
           {items.map((review) => (
-            <ReviewCard key={review.id} review={review} />
+            <ReviewCard
+              key={review.id}
+              review={review}
+              onReport={
+                signedIn
+                  ? () => openReport({ type: 'review', id: review.id, name: review.author_name })
+                  : undefined
+              }
+            />
           ))}
           {more && (
             <Button

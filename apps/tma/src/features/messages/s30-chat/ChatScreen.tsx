@@ -9,11 +9,24 @@
 // «повторить». Лента опрашивается раз в 4 с (ETag), пока экран открыт; новое — прочитано.
 // Закрытый диалог — без композера. После договорённости в шапке — «Поделиться контактом» (шторка
 // S54, 6.5; из сделки S26 — сразу открытой, `?share`) и Telegram второй стороны, если она его
-// показывает. «Пожаловаться» и «Заблокировать» — в шаге 4.7.
+// показывает. «⋯» в шапке (4.7) — попап Telegram: «Пожаловаться» (шторка S46 на собеседника с
+// этим диалогом) и «Заблокировать» с подтверждением или «Разблокировать». Блокировка в любую
+// сторону — переписка только для чтения: вместо композера «Вы заблокировали собеседника» с
+// «Разблокировать» или «Собеседник недоступен».
 import type { ConversationOut, MessageOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import type { ChatEntry } from '@sosed/hooks';
-import { MAX_MESSAGE, cachedConversation, dealState, useChat } from '@sosed/hooks';
+import {
+  MAX_MESSAGE,
+  blockedIds,
+  blockedUserOf,
+  cachedConversation,
+  dealState,
+  openReport,
+  useBlocks,
+  useChat,
+  useToggleBlock,
+} from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
 import { useBackButton, useInsets, usePlatform } from '@sosed/platform';
 import {
@@ -25,6 +38,7 @@ import {
   ChatSkeleton,
   Composer,
   EmptyState,
+  IconButton,
   MaskedText,
   Skeleton,
   SkeletonText,
@@ -102,6 +116,7 @@ type ChatState = ReturnType<typeof useChat>;
 
 function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: ChatState }) {
   const { t } = useTranslation('messages');
+  const { t: common } = useTranslation();
   const format = useFormat();
   const insets = useInsets();
   const [proposing, setProposing] = useState(false);
@@ -109,7 +124,8 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
   const contactsOpen = ['agreed', 'completed'].includes(dealState(conversation));
   const [sharing, setSharing] = useState(Boolean(shareAsked) && contactsOpen);
   const [proposed, setProposed] = useState(false);
-  const writable = conversation.status === 'open';
+  const block = useBlockState(conversation);
+  const writable = conversation.status === 'open' && block.state === null;
   const name = conversation.counterpart_name ?? t('list.deleted');
 
   const bottom = useRef<HTMLDivElement>(null);
@@ -138,8 +154,10 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
       <Header
         conversation={conversation}
         name={name}
+        writable={writable}
         onPropose={() => setProposing(true)}
         onShare={() => setSharing(true)}
+        onMenu={() => void block.menu(name)}
       />
       <DealBar conversation={conversation} />
       <div className="flex flex-1 flex-col justify-end">
@@ -180,16 +198,32 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
         </ChatList>
       </div>
       <SendError error={chat.sendError} />
+      {block.failed && (
+        <div className="px-4 pt-2">
+          <Banner tone="danger" role="alert">
+            {t('chat.blockFailed')}
+          </Banner>
+        </div>
+      )}
       {writable ? (
         <DraftComposer onSend={send} bottomInset={insets.bottom} />
       ) : (
         <div
-          className="sticky bottom-0 bg-bg px-4 pt-3"
+          className="sticky bottom-0 flex flex-col gap-2 bg-bg px-4 pt-3"
           style={{ paddingBottom: insets.bottom + 12 }}
         >
-          <Banner tone="info" role="status">
-            {t('chat.closed')}
+          <Banner tone="info" icon={block.state ? 'ban' : undefined} role="status">
+            {block.state === 'mine'
+              ? t('chat.blockedByMe')
+              : block.state === 'theirs'
+                ? t('chat.blockedByThem')
+                : t('chat.closed')}
           </Banner>
+          {block.state === 'mine' && (
+            <Button variant="secondary" full disabled={block.busy} onClick={block.unblock}>
+              {common('action.unblock')}
+            </Button>
+          )}
         </div>
       )}
       <ShareContactSheet
@@ -208,6 +242,56 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
       />
     </div>
   );
+}
+
+/** Блокировка со второй стороной (4.7): моя — по списку блокировок (он меняется сразу, до
+ *  ответа сервера), чужая — по диалогу. `menu` — попап «⋯» шапки: жалоба или (раз)блокировка. */
+function useBlockState(conversation: ConversationOut) {
+  const { t } = useTranslation('messages');
+  const { t: common } = useTranslation();
+  const platform = usePlatform();
+  const blocks = useBlocks();
+  const toggle = useToggleBlock();
+  const other = conversation.counterpart_id;
+  const mine = blocks.data ? blockedIds(blocks.data).has(other) : conversation.blocked_by_me;
+  const theirs = conversation.blocked && !conversation.blocked_by_me;
+  const state: 'mine' | 'theirs' | null = mine ? 'mine' : theirs ? 'theirs' : null;
+  const user = (name: string) =>
+    blockedUserOf({
+      user_id: other,
+      display_name: name,
+      profile_id: conversation.counterpart_profile_id,
+    });
+
+  const menu = async (name: string) => {
+    const choice = await platform.popup({
+      message: name,
+      buttons: [
+        { id: 'report', text: common('action.report') },
+        mine
+          ? { id: 'unblock', text: common('action.unblock') }
+          : { id: 'block', type: 'destructive', text: common('action.block') },
+        { id: 'cancel', type: 'cancel' },
+      ],
+    });
+    if (choice === 'report') {
+      openReport({
+        type: 'user',
+        id: other,
+        userId: other,
+        name,
+        profileId: conversation.counterpart_profile_id ?? undefined,
+        conversationId: conversation.id,
+      });
+    } else if (choice === 'unblock') {
+      toggle.mutate({ user: user(name), on: false });
+    } else if (choice === 'block' && (await platform.confirm(t('chat.blockConfirm')))) {
+      toggle.mutate({ user: user(name), on: true });
+    }
+  };
+  const unblock = () =>
+    toggle.mutate({ user: user(conversation.counterpart_name ?? ''), on: false });
+  return { state, menu, unblock, busy: toggle.isPending, failed: toggle.isError };
 }
 
 /** Сделка диалога ссылкой на S26; второй стороне ждущего предложения там — S53 (6.5). */
@@ -237,20 +321,25 @@ function DealBar({ conversation }: { conversation: ConversationOut }) {
 function Header({
   conversation,
   name,
+  writable,
   onPropose,
   onShare,
+  onMenu,
 }: {
   conversation: ConversationOut;
   name: string;
+  /** Открыт и без блокировки: договариваться и делиться контактом можно. */
+  writable: boolean;
   onPropose: () => void;
   onShare: () => void;
+  onMenu: () => void;
 }) {
   const { t } = useTranslation('messages');
   const router = useRouter();
   const platform = usePlatform();
   const state = dealState(conversation);
   const settled = state === 'proposed' || state === 'agreed' || state === 'disputed';
-  const open = conversation.status === 'open';
+  const open = writable;
   const profileId = conversation.counterpart_profile_id;
   const person = (
     <>
@@ -327,6 +416,9 @@ function Header({
         </Button>
       )}
       {action}
+      {conversation.counterpart_name !== null && (
+        <IconButton plain icon="more" label={t('chat.menu')} className="-mr-2" onClick={onMenu} />
+      )}
     </header>
   );
 }

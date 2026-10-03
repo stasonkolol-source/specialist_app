@@ -6,6 +6,7 @@ import srCyrlCommon from './catalogs/sr-Cyrl/common.json' with { type: 'json' };
 import srCyrlJobs from './catalogs/sr-Cyrl/jobs.json' with { type: 'json' };
 import srCyrlMessages from './catalogs/sr-Cyrl/messages.json' with { type: 'json' };
 import srCyrlOnboarding from './catalogs/sr-Cyrl/onboarding.json' with { type: 'json' };
+import srCyrlSafety from './catalogs/sr-Cyrl/safety.json' with { type: 'json' };
 import srCyrlService from './catalogs/sr-Cyrl/service.json' with { type: 'json' };
 import srCyrlSpecialist from './catalogs/sr-Cyrl/specialist.json' with { type: 'json' };
 import type { Messages } from './resources.ts';
@@ -19,4 +20,5 @@ export const SR_CYRL: Messages = {
   jobs: srCyrlJobs,
   messages: srCyrlMessages,
   account: srCyrlAccount,
+  safety: srCyrlSafety,
 };

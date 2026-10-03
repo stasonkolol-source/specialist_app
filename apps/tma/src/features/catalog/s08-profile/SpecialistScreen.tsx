@@ -6,23 +6,33 @@
 // BFF. Профиль скрыт или его нет — «Профиль недоступен». MainButton «Написать» (6.4) — диалог S30
 // со специалистом (начатый — тот же); «Предложить заявку» под шапкой — прямой запрос (5.6): мастер
 // заявки S20a, заявку увидит только этот специалист. На своём профиле обеих кнопок нет. «Обычно
-// отвечает за …» — в «О себе», когда диалогов с ответом за 30 дней набралось пять. Скрыто до своих
-// шагов: «Поделиться» (7.4), «Пожаловаться» и «Заблокировать» (4.7). Гость видит экран без входа,
-// но без сердечка; «Написать» гостю — тоже мастер заявки: диалог начинается после входа.
+// отвечает за …» — в «О себе», когда диалогов с ответом за 30 дней набралось пять. Внизу (4.7) —
+// «Пожаловаться на профиль» (шторка S46; пока она открыта, MainButton спрятана) и «Заблокировать»
+// с подтверждением: заблокированному не написать и не предложить заявку — вместо кнопок памятка и
+// «Разблокировать». Меню «⋯» артборда — часть шапки Telegram, своих пунктов в нём у Mini App нет:
+// действия — строками, как «Пожаловаться на профиль» на артборде. Скрыто до своего шага:
+// «Поделиться» (7.4). Гость видит экран без входа, но без сердечка, жалобы и блокировки; «Написать»
+// гостю — тоже мастер заявки: диалог начинается после входа.
 import type { CardWorkOut, SpecialistCardOut, SpecialistProfileOut } from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
 import { color } from '@sosed/design-tokens';
 import {
+  blockedIds,
+  blockedUserOf,
   cachedSpecialistCard,
   cardVariants,
   isUnavailable,
+  openReport,
   searchCardOf,
+  useBlocks,
   useMyProfile,
+  useReportTarget,
   useSpecialistCard,
   useStartConversation,
+  useToggleBlock,
 } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
-import { useBackButton, useColorScheme, useMainButton } from '@sosed/platform';
+import { useBackButton, useColorScheme, useMainButton, usePlatform } from '@sosed/platform';
 import {
   Avatar,
   Badge,
@@ -159,8 +169,9 @@ function PreviewHead({ card }: { card: SpecialistCardOut }) {
 }
 
 /** MainButton «Написать»: диалог S30 со специалистом; гостю — прямой запрос через мастер заявки
- *  (написать без входа нечем); себе — не пишут. Возвращает, свой ли это профиль. */
-function useWriteButton(profileId: string) {
+ *  (написать без входа нечем); себе и заблокированному — не пишут; пока открыта шторка жалобы —
+ *  кнопки нет (`hidden`). Возвращает, свой ли это профиль. */
+function useWriteButton(profileId: string, hidden: boolean) {
   const { t: common } = useTranslation();
   const router = useRouter();
   const scheme = useColorScheme();
@@ -175,7 +186,7 @@ function useWriteButton(profileId: string) {
     );
   useMainButton({
     text: common('action.write'),
-    visible: !own,
+    visible: !own && !hidden,
     enabled: !start.isPending,
     loading: start.isPending,
     color: palette.accent,
@@ -199,7 +210,10 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
   const aboutId = useId();
   const { control, failure } = useFavoriteToggle();
   const favorite = control(searchCardOf(card), false);
-  const { own, writeError } = useWriteButton(card.id);
+  const blocks = useBlocks();
+  const blocked = blockedIds(blocks.data).has(card.user_id);
+  const reporting = useReportTarget() !== null;
+  const { own, writeError } = useWriteButton(card.id, blocked || reporting);
   const params = { profileId: card.id };
   const go = (to: string, search?: { work: string }) => (event: MouseEvent<HTMLElement>) => {
     event.preventDefault();
@@ -283,7 +297,7 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
             )}
           </div>
         )}
-        {!own && (
+        {!own && !blocked && (
           <Button
             variant="outline"
             full
@@ -295,6 +309,11 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
           </Button>
         )}
       </Card>
+      {blocked && (
+        <Banner tone="info" icon="ban" role="status">
+          {t('profile.blocked')}
+        </Banner>
+      )}
       {writeError && (
         <Banner tone="danger" role="alert">
           {t('profile.writeFailed')}
@@ -383,7 +402,57 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
           {travel && <Meta icon="pin">{travel}</Meta>}
         </section>
       )}
+      {!own && getSession() !== null && <Safety card={card} blocked={blocked} />}
     </section>
+  );
+}
+
+/** «Пожаловаться на профиль» (шторка S46) и «Заблокировать» с подтверждением или
+ *  «Разблокировать» (4.7): строками внизу карточки — только вошедшему и не на своём профиле. */
+function Safety({ card, blocked }: { card: SpecialistProfileOut; blocked: boolean }) {
+  const { t } = useTranslation('catalog');
+  const { t: common } = useTranslation();
+  const platform = usePlatform();
+  const toggle = useToggleBlock();
+  const user = blockedUserOf({
+    user_id: card.user_id,
+    display_name: card.display_name,
+    avatar: card.avatar,
+    profile_id: card.id,
+  });
+  const block = async () => {
+    if (blocked) toggle.mutate({ user, on: false });
+    else if (await platform.confirm(t('profile.blockConfirm'))) toggle.mutate({ user, on: true });
+  };
+  return (
+    <>
+      {toggle.isError && (
+        <Banner tone="danger" role="alert">
+          {t('profile.blockFailed')}
+        </Banner>
+      )}
+      <Group>
+        <Row
+          icon="flag"
+          title={t('profile.report')}
+          chevron
+          onClick={() =>
+            openReport({
+              type: 'profile',
+              id: card.id,
+              userId: card.user_id,
+              name: card.display_name,
+              profileId: card.id,
+            })
+          }
+        />
+        <Row
+          icon="ban"
+          title={blocked ? common('action.unblock') : common('action.block')}
+          onClick={() => void block()}
+        />
+      </Group>
+    </>
   );
 }
 

@@ -8,7 +8,9 @@
 // Открывается из ленты и по ссылке `startapp=j_…`; гость
 // видит экран без входа. MainButton (5.5): «Откликнуться · осталось N мест» — форма S16 (гостю —
 // сначала согласие с правилами), «Вы откликнулись» — «Мои отклики» S17, «Мест нет» — не нажимается;
-// у своей заявки кнопки нет. Скрыто до своих шагов: «Поделиться» (7.4), «Пожаловаться» (S46, 4.7).
+// у своей заявки кнопки нет. «Пожаловаться» рядом с «Не интересно» — шторка S46 (4.7; пока она
+// открыта, MainButton спрятана). Заявку того, с кем блокировка, сервер не отдаёт — «Заявка
+// недоступна». Скрыто до своего шага: «Поделиться» (7.4).
 import type { JobCardOut, JobOut } from '@sosed/api-client';
 import { ApiError, getSession } from '@sosed/api-client';
 import {
@@ -21,8 +23,10 @@ import {
   useCategories,
   useDistricts,
   jobCardOf,
+  openReport,
   savedJobIds,
   useHideJob,
+  useReportTarget,
   useSavedJobs,
   useToggleSavedJob,
   useJob,
@@ -121,7 +125,9 @@ function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
   );
   const descriptionId = useId();
   const whereId = useId();
-  useRespondButton(job, owner);
+  const reporting = useReportTarget() !== null;
+  // своя заявка или открыта шторка жалобы: кнопки Telegram нет
+  useRespondButton(job, owner || reporting);
 
   return (
     <section className="flex flex-col gap-3 px-4 pt-3 pb-6">
@@ -188,23 +194,31 @@ function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
               {t('job.hideError')}
             </Banner>
           )}
-          <Button
-            variant="outline"
-            icon="x"
-            full
-            disabled={hide.isPending}
-            aria-busy={hide.isPending}
-            onClick={() =>
-              hide.mutate(job.id, {
-                onSuccess: () => {
-                  client.removeQueries({ queryKey: jobQueryKey(job.id) });
-                  onHidden();
-                },
-              })
-            }
-          >
-            {t('job.hide')}
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              icon="x"
+              disabled={hide.isPending}
+              aria-busy={hide.isPending}
+              onClick={() =>
+                hide.mutate(job.id, {
+                  onSuccess: () => {
+                    client.removeQueries({ queryKey: jobQueryKey(job.id) });
+                    onHidden();
+                  },
+                })
+              }
+            >
+              {t('job.hide')}
+            </Button>
+            <Button
+              variant="outline"
+              icon="flag"
+              onClick={() => openReport({ type: 'job', id: job.id, name: job.title })}
+            >
+              {t('job.report')}
+            </Button>
+          </div>
         </>
       )}
     </section>
@@ -388,14 +402,15 @@ function Client({
   );
 }
 
-/** MainButton S15 по местам и своему отклику; владельцу и у неопубликованной — кнопки нет. */
-function useRespondButton(job: JobOut, owner: boolean) {
+/** MainButton S15 по местам и своему отклику; владельцу, у неопубликованной и под шторкой жалобы
+ *  (`hidden`) — кнопки нет. */
+function useRespondButton(job: JobOut, hidden: boolean) {
   const { t: common } = useTranslation();
   const router = useRouter();
   const left = Math.max(job.max_responses - job.responses_count, 0);
   const responded = job.my_response !== null;
   useStepButton({
-    visible: !owner && job.status === 'published',
+    visible: !hidden && job.status === 'published',
     enabled: responded || left > 0,
     text: responded
       ? common('count.responded')

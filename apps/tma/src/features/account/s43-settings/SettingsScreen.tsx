@@ -8,10 +8,10 @@
 // телефона» — с подтверждением номера (v1).
 // «Экспорт моих данных» — запрос в поддержку (runbook 2.12, выгрузку делает `cli export-user-data`):
 // строка открывает чат с аккаунтом поддержки из client-config; пока его нет (K23, Q25) — «скоро».
-// «Заблокированные» (S44) — с шагом 4.7: до него строки нет.
+// «Заблокированные» (S44, 4.7) — сколько человек заблокировано: список тот же, что у S44.
 import type { MeOut } from '@sosed/api-client';
 import { useIdentityGetMe } from '@sosed/api-client';
-import { useSupportLink, useUpdatePrivacy } from '@sosed/hooks';
+import { useBlocks, useSupportLink, useUpdatePrivacy } from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
 import { useBackButton, usePlatform } from '@sosed/platform';
 import {
@@ -128,18 +128,35 @@ function Privacy({ me }: { me: MeOut | undefined }) {
   );
 }
 
-/** Экспорт данных — через поддержку; удаление — S45 с последствиями и подтверждением. */
+/** Заблокированные S44 (с числом), экспорт данных — через поддержку; удаление — S45 с
+ *  последствиями и подтверждением. */
 function AccountActions() {
   const { t } = useTranslation('account');
   const router = useRouter();
   const platform = usePlatform();
   const support = useSupportLink();
-  const openDeletion = (event: MouseEvent<HTMLElement>) => {
+  const blocks = useBlocks();
+  const open = (to: string) => (event: MouseEvent<HTMLElement>) => {
     event.preventDefault();
-    void router.navigate({ to: ACCOUNT_PATHS.delete });
+    void router.navigate({ to });
   };
+  const blockedCount = blocks.data?.items.length;
   return (
     <Group>
+      <Row
+        icon="ban"
+        title={t('settings.blocked')}
+        trailing={
+          blockedCount ? (
+            <Text as="span" variant="sm" secondary>
+              {blockedCount}
+            </Text>
+          ) : undefined
+        }
+        chevron
+        href={router.history.createHref(ACCOUNT_PATHS.blocked)}
+        onClick={open(ACCOUNT_PATHS.blocked)}
+      />
       {support ? (
         <Row
           icon="file"
@@ -162,7 +179,7 @@ function AccountActions() {
         danger
         chevron
         href={router.history.createHref(ACCOUNT_PATHS.delete)}
-        onClick={openDeletion}
+        onClick={open(ACCOUNT_PATHS.delete)}
       />
     </Group>
   );

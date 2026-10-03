@@ -303,3 +303,22 @@ export {
   useSavedJobs,
   useToggleSavedJob,
 } from './jobs/saved.ts';
+export type { BlockToggle } from './safety/blocks.ts';
+export {
+  blockedIds,
+  blockedUserOf,
+  blocksQueryKey,
+  shortName,
+  useBlocks,
+  useToggleBlock,
+} from './safety/blocks.ts';
+export type { ReportTargetType } from './safety/reports.ts';
+export {
+  MAX_REPORT_COMMENT,
+  REPORT_REASONS,
+  allowedReason,
+  reportQueue,
+  useReport,
+} from './safety/reports.ts';
+export type { ReportTarget } from './safety/reportRequest.ts';
+export { closeReport, openReport, useReportTarget } from './safety/reportRequest.ts';

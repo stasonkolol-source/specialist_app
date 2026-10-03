@@ -44,7 +44,9 @@
     "decline": "Одбиј",
     "confirm": "Потврди",
     "workDone": "Посао је завршен",
-    "leaveReview": "Остави утисак"
+    "leaveReview": "Остави утисак",
+    "block": "Блокирај",
+    "unblock": "Одблокирај"
   },
   "count": {
     "reviews": "{count, plural, one {# утисак} few {# утиска} other {# утисака}}",
