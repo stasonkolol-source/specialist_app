@@ -114,6 +114,25 @@ describe('S08 profile', () => {
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/catalog/results'));
   });
 
+  it('paints the header from the results card while the profile loads', async () => {
+    startApp('/catalog/results');
+    const card = await screen.findByRole('link', { name: /Алексей Морозов/ });
+    // профиль отвечает долго: имя и фото — из карточки выдачи, остальное — скелетоном
+    server.use(
+      http.get(
+        `*/api/v1/specialists/${CARD_PROFILE_ID}`,
+        () => new Promise<never>(() => undefined),
+      ),
+    );
+    await click(card);
+
+    expect(await screen.findByRole('heading', { name: 'Алексей Морозов', level: 1 })).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Алексей Морозов' })).toBeTruthy();
+    // действия — только по полному профилю
+    expect(screen.queryByRole('button', { name: 'Предложить заявку' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /избранное/i })).toBeNull();
+  });
+
   it('opens from an `s_` link; Back leads home', async () => {
     const startParam = encodeStartParam({ type: 'specialist', id: CARD_PROFILE_ID });
     const { app, telegram } = startApp('/', { startParam });
@@ -142,8 +161,9 @@ describe('S09 prices', () => {
     await click(await screen.findByRole('link', { name: 'Весь прайс · 9' }));
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe(`${PROFILE}/services`));
+    // шапка — сразу из профиля S08 в кэше, число услуг — с прайсом
     expect(await screen.findByRole('heading', { name: 'Прайс', level: 1 })).toBeTruthy();
-    expect(screen.getByText('Алексей Морозов · 9 услуг')).toBeTruthy();
+    expect(await screen.findByText('Алексей Морозов · 9 услуг')).toBeTruthy();
     expect(screen.getByText(/^Цены ориентировочные/)).toBeTruthy();
     const groups = screen.getAllByRole('region');
     expect(groups.map((group) => group.textContent)).toEqual([

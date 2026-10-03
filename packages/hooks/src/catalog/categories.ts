@@ -4,27 +4,38 @@
 import type { CategoryOut, DistrictOut, Locale } from '@sosed/api-client';
 import {
   getCatalogListCategoriesQueryKey,
+  getCatalogListCategoriesQueryOptions,
   getGeoListDistrictsQueryKey,
-  useCatalogListCategories,
   useGeoListDistricts,
 } from '@sosed/api-client';
-import { keepPreviousData } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 
-/** Как Cache-Control ответов (max-age=300): справочники меняются редко. */
-export const DICTIONARY_STALE_MS = 5 * 60_000;
+/** Справочники меняются редко: час без перечитывания (ответ сервера кэшируется на 5 минут —
+ *  Cache-Control max-age=300 — и после часа браузер спросит его заново). */
+export const DICTIONARY_STALE_MS = 60 * 60_000;
 
 export function categoriesQueryKey(locale: Locale, city?: string) {
   return [...getCatalogListCategoriesQueryKey(city ? { city } : undefined), locale] as const;
 }
 
-/** `city` — slug города: с ним у категорий ориентир цены `price_hint` (S04). */
+/** Ключ и свежесть — одни у хука и у предзагрузки при запуске: запрос не задвоится. */
+export function categoriesQueryOptions(locale: Locale, city?: string) {
+  return getCatalogListCategoriesQueryOptions(city ? { city } : undefined, {
+    query: { queryKey: categoriesQueryKey(locale, city), staleTime: DICTIONARY_STALE_MS },
+  });
+}
+
+/** `city` — slug города: с ним у категорий ориентир цены `price_hint` (S04, S20c); дерево то же.
+ *  Пока ориентиров нет — дерево без города из кэша (его грузят Главная и выдача): разделы видны
+ *  сразу, а цены дописываются, когда придут. Без города — только для названий, второй запрос не
+ *  нужен. */
 export function useCategories(locale: Locale, city?: string) {
-  return useCatalogListCategories(city ? { city } : undefined, {
-    query: {
-      queryKey: categoriesQueryKey(locale, city),
-      staleTime: DICTIONARY_STALE_MS,
-      placeholderData: keepPreviousData,
-    },
+  const client = useQueryClient();
+  return useQuery({
+    ...categoriesQueryOptions(locale, city),
+    placeholderData: (previous: CategoryOut[] | undefined) =>
+      previous ??
+      (city ? client.getQueryData<CategoryOut[]>(categoriesQueryKey(locale)) : undefined),
   });
 }
 

@@ -1,8 +1,10 @@
 // .ph / .ph.play: фото работы или плейсхолдер со штриховкой и подписью.
 // Фото с сервера (шаг 2.2a): сразу — размытый ThumbHash, затем WebP-вариант нужного размера
-// (srcset: браузер берёт по ширине на экране и плотности пикселей), с плавным появлением.
-// Вариант не загрузился — снова плейсхолдер с подписью. В просмотрщике S10 фото целиком, во всю
-// ширину экрана: без обрезки и скругления (`fit="contain"`).
+// (srcset: браузер берёт по ширине на экране и плотности пикселей), с плавным появлением; так же —
+// одна ссылка `src` (фото заявок S12–S15). Грузится, когда доезжает до экрана, и декодируется не в
+// главном потоке; главное фото экрана (`priority`) — сразу и первым. Не загрузилось — снова
+// плейсхолдер с подписью. В просмотрщике S10 фото целиком, во всю ширину экрана: без обрезки и
+// скругления (`fit="contain"`). Локальный файл (превью загрузки) — как есть, без плейсхолдера.
 import { useState } from 'react';
 
 import { FileImage } from './FileImage.tsx';
@@ -35,6 +37,8 @@ export interface PhotoProps {
   video?: boolean;
   /** cover — плитка (обрезка по рамке); contain — фото целиком, без скругления (просмотрщик S10). */
   fit?: PhotoFit;
+  /** Главное фото экрана (первое на S15, открытое в S10): грузится сразу и раньше остальных. */
+  priority?: boolean;
   /** Размер задаёт раскладка: size-*, aspect-*, w-full. */
   className?: string;
 }
@@ -56,35 +60,40 @@ export function Photo({
   alt,
   video = false,
   fit = 'cover',
+  priority = false,
   className,
 }: PhotoProps) {
-  if (!file && variants.length > 0) {
-    const srcSet = variants.map((variant) => `${variant.url} ${variant.width}w`).join(', ');
+  if (!file && (variants.length > 0 || src)) {
+    const sized = variants.length > 0;
+    // старым WebView без srcset — средний вариант
+    const fallback = sized ? variants[Math.floor((variants.length - 1) / 2)]?.url : src;
+    const srcSet = sized
+      ? variants.map((variant) => `${variant.url} ${variant.width}w`).join(', ')
+      : undefined;
     // другие варианты — новое фото: загрузка заново. Подпись presigned-ссылки меняется при
     // каждом запросе — ключ без неё, иначе фото мигало бы на каждом обновлении
-    const identity = variants.map((variant) => variant.url.split('?')[0]).join(' ');
+    const identity = (sized ? variants.map((variant) => variant.url) : [src ?? ''])
+      .map((url) => url.split('?')[0])
+      .join(' ');
     return (
       <ServerPhoto
         key={identity}
-        variants={variants}
+        src={fallback}
         srcSet={srcSet}
-        sizes={sizes}
+        sizes={srcSet ? sizes : undefined}
         placeholder={placeholder}
         alt={alt}
         video={video}
         fit={fit}
+        priority={priority}
         className={className}
       />
     );
   }
-  if (src || file) {
+  if (file) {
     return (
       <span className={frame(className, fit)}>
-        {file ? (
-          <FileImage file={file} alt={alt} />
-        ) : (
-          <img src={src} alt={alt} className={cx('size-full', FIT[fit])} />
-        )}
+        <FileImage file={file} alt={alt} />
         {video && <Play />}
       </span>
     );
@@ -127,24 +136,26 @@ function Play() {
   );
 }
 
-/** Вариант с сервера появляется плавно поверх размытого превью; не загрузился — штриховка. */
+/** Фото с сервера появляется плавно поверх размытого превью; не загрузилось — штриховка. */
 function ServerPhoto({
-  variants,
+  src,
   srcSet,
   sizes,
   placeholder,
   alt,
   video,
   fit,
+  priority,
   className,
 }: {
-  variants: readonly PhotoVariant[];
-  srcSet: string;
-  sizes: string;
+  src: string | undefined;
+  srcSet: string | undefined;
+  sizes: string | undefined;
   placeholder: string | null | undefined;
   alt: string;
   video: boolean;
   fit: PhotoFit;
+  priority: boolean;
   className: string | undefined;
 }) {
   const [phase, setPhase] = useState<'loading' | 'loaded' | 'failed'>('loading');
@@ -152,17 +163,16 @@ function ServerPhoto({
   if (phase === 'failed') {
     return <Stripes alt={alt} video={video} fit={fit} className={className} />;
   }
-  // старым WebView без srcset — средний вариант
-  const fallback = variants[Math.floor((variants.length - 1) / 2)]?.url;
   return (
     // превью убирается после загрузки: иначе просвечивало бы сквозь прозрачные PNG
     <span className={frame(className, fit)} style={phase === 'loaded' ? undefined : blur}>
       <img
-        src={fallback}
+        src={src}
         srcSet={srcSet}
         sizes={sizes}
         alt={alt}
-        loading="lazy"
+        loading={priority ? 'eager' : 'lazy'}
+        fetchPriority={priority ? 'high' : undefined}
         decoding="async"
         onLoad={() => setPhase('loaded')}
         onError={() => setPhase('failed')}

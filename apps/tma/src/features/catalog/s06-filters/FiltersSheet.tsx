@@ -4,7 +4,7 @@
 // счёт ждёт (лимит гостя — 60 запросов в минуту). «Ближе» спрашивает местоположение.
 // Категория выбирается вторым видом шторки; «только проверенные» — с бейджами v1.
 import type { CategoryOut, CityOut } from '@sosed/api-client';
-import { tokens } from '@sosed/design-tokens';
+import { color } from '@sosed/design-tokens';
 import { selectableDistricts, useCategories, useDistricts, useSpecialistCount } from '@sosed/hooks';
 import { useLocale, useTranslation } from '@sosed/i18n';
 import {
@@ -63,7 +63,7 @@ export function FiltersSheet({ search, city, onClose, onApply }: FiltersSheetPro
   const [locationFailed, setLocationFailed] = useState(false);
   const locate = useLocate();
   const scheme = useColorScheme();
-  const palette = tokens.color[scheme];
+  const palette = color[scheme];
   const button = useBottomButtonState('main');
 
   const query = useMemo(() => (city ? toQuery(draft, city.id) : null), [draft, city]);
@@ -103,7 +103,6 @@ export function FiltersSheet({ search, city, onClose, onApply }: FiltersSheetPro
       {view === 'category' ? (
         <CategoryPicker
           selected={draft.category}
-          citySlug={city?.slug}
           onPick={(category) => {
             set({ category });
             setView('filters');
@@ -182,11 +181,7 @@ export function FiltersSheet({ search, city, onClose, onApply }: FiltersSheetPro
           </Section>
           {/* у шторки фон как у группы: рамка отделяет строки, как на макете */}
           <Group className="border border-line">
-            <CategoryRow
-              selected={draft.category}
-              citySlug={city?.slug}
-              onOpen={() => setView('category')}
-            />
+            <CategoryRow selected={draft.category} onOpen={() => setView('category')} />
             <Row
               title={t('filters.availableToday')}
               trailing={
@@ -290,18 +285,12 @@ function findCategory(tree: readonly CategoryOut[], id: number): CategoryOut | u
   return undefined;
 }
 
-function CategoryRow({
-  selected,
-  citySlug,
-  onOpen,
-}: {
-  selected: number | undefined;
-  citySlug: string | undefined;
-  onOpen: () => void;
-}) {
+/** Названия разделов — из дерева без города: ориентир цены (`?city=`) шторке не нужен, а то же
+ *  дерево уже в кэше у Главной и выдачи — второй запрос не нужен. */
+function CategoryRow({ selected, onOpen }: { selected: number | undefined; onOpen: () => void }) {
   const { t } = useTranslation('catalog');
   const locale = useLocale();
-  const tree = useCategories(locale, citySlug).data ?? [];
+  const tree = useCategories(locale).data ?? [];
   const name = selected === undefined ? undefined : findCategory(tree, selected)?.name;
   return (
     <Row
@@ -315,16 +304,14 @@ function CategoryRow({
 
 function CategoryPicker({
   selected,
-  citySlug,
   onPick,
 }: {
   selected: number | undefined;
-  citySlug: string | undefined;
   onPick: (category: number | undefined) => void;
 }) {
   const { t } = useTranslation('catalog');
   const locale = useLocale();
-  const tree = useCategories(locale, citySlug).data ?? [];
+  const tree = useCategories(locale).data ?? [];
   const mark = (id: number | undefined) =>
     selected === id ? <Icon name="check" className="text-accent" /> : undefined;
   return (

@@ -87,6 +87,7 @@ export function AvatarField({ profile }: { profile: ProfileOut }) {
       <Avatar
         name={profile.display_name}
         src={avatar?.status === 'ready' ? avatar.variants[0]?.url : undefined}
+        placeholder={avatar?.status === 'ready' ? avatar.placeholder : null}
         file={item?.preview}
       />
       <span className={cx('min-w-0 flex-1 text-cap', failed ? 'text-danger' : 'text-text2')}>

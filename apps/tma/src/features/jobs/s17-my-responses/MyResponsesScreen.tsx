@@ -23,7 +23,10 @@ import {
   IconButton,
   LinkButton,
   Price,
+  ChipSkeleton,
   Skeleton,
+  SkeletonCard,
+  SkeletonText,
   Text,
 } from '@sosed/ui-web';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -129,6 +132,17 @@ function Responses({
           {t('responses.today', { used: first.today.used, limit: first.today.limit })}
         </p>
       )}
+      {/* чипы групп с числами и лимит дня — из первой страницы: до неё их место держат скелетоны */}
+      {!list.data && (
+        <>
+          <div aria-hidden="true" className="flex gap-2 overflow-hidden">
+            {GROUPS.map((item) => (
+              <ChipSkeleton key={item ?? 'all'} className="w-24" />
+            ))}
+          </div>
+          <SkeletonText size="cap" screen className="w-1/2" />
+        </>
+      )}
       {sent && (
         <Banner tone="ok" role="status">
           {t('responses.sent')}
@@ -140,10 +154,10 @@ function Responses({
         </Banner>
       )}
       {!list.data ? (
-        <>
-          <Skeleton radius="card" className="h-36 w-full" />
-          <Skeleton radius="card" className="h-36 w-full" />
-        </>
+        <div aria-busy="true" className="flex flex-col gap-3">
+          <ResponseCardSkeleton />
+          <ResponseCardSkeleton />
+        </div>
       ) : items.length === 0 ? (
         <Empty group={group} />
       ) : (
@@ -172,6 +186,21 @@ function Responses({
         </>
       )}
     </>
+  );
+}
+
+/** Отклик, пока не пришёл: статус, заявка и цена, место, действия. */
+function ResponseCardSkeleton() {
+  return (
+    <SkeletonCard tight>
+      <Skeleton className="h-6 w-28" />
+      <div className="flex items-start justify-between gap-3">
+        <SkeletonText size="title" className="w-3/5" />
+        <SkeletonText size="title" className="w-20" />
+      </div>
+      <SkeletonText size="cap" className="w-1/2" />
+      <Skeleton radius="panel" className="mt-1 h-9 w-32" />
+    </SkeletonCard>
   );
 }
 

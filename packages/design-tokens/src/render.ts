@@ -105,8 +105,8 @@ export function renderThemeCss(source: TokenSource): string {
 }
 
 export function renderTokensTs(source: TokenSource): string {
-  const data = {
-    color: { light: themeColors(source, 'light'), dark: themeColors(source, 'dark') },
+  const color = { light: themeColors(source, 'light'), dark: themeColors(source, 'dark') };
+  const rest = {
     radius: source.radius,
     shadow: source.shadow,
     font: source.font,
@@ -114,7 +114,18 @@ export function renderTokensTs(source: TokenSource): string {
     icon: source.icon,
     avatar: source.avatar,
   };
-  return `// ${HEADER}\nexport const tokens = ${JSON.stringify(data, null, 2)} as const;\n\nexport type Tokens = typeof tokens;\n`;
+  // цвета — отдельной константой: точке сборки Mini App нужны только они (цвета клиента Telegram),
+  // а весь объект токенов лёг бы в первый экран
+  const tokens = JSON.stringify(rest, null, 2).replace(/^\{/, '{\n  color,');
+  return [
+    `// ${HEADER}`,
+    `export const color = ${JSON.stringify(color, null, 2)} as const;`,
+    '',
+    `export const tokens = ${tokens} as const;`,
+    '',
+    'export type Tokens = typeof tokens;',
+    '',
+  ].join('\n');
 }
 
 export interface GeneratedFile {

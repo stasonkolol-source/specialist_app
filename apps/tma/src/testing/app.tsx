@@ -4,7 +4,7 @@
 import type { ConsentsIn, MeOut, MeUpdateIn } from '@sosed/api-client';
 import { getIdentityAuthenticateTelegramMockHandler } from '@sosed/api-client/mocks';
 import type { ColorScheme, MockTelegram } from '@sosed/platform';
-import { createMockPlatform } from '@sosed/platform';
+import { createMockPlatform } from '@sosed/platform/mock';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { act, render } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';

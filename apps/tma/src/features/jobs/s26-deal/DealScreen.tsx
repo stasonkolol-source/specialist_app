@@ -39,6 +39,8 @@ import {
   Row,
   Sheet,
   Skeleton,
+  SkeletonCard,
+  SkeletonText,
   Text,
   Timeline,
 } from '@sosed/ui-web';
@@ -612,9 +614,37 @@ function ActionError({ error, fallback }: { error: unknown; fallback: string }) 
 function Loading() {
   return (
     <section className="flex flex-col gap-3 px-4 pt-3 pb-6" aria-busy="true">
-      <Skeleton className="h-14 w-full" />
-      <Skeleton radius="card" className="h-24 w-full" />
-      <Skeleton radius="card" className="h-48 w-full" />
+      {/* шапка на фоне экрана: название и статус, цена */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-start justify-between gap-3">
+          <SkeletonText size="h2" screen className="w-3/5" />
+          <Skeleton screen className="h-6 w-24" />
+        </div>
+        <SkeletonText size="sm" screen className="w-1/2" />
+      </div>
+      {/* вторая сторона */}
+      <SkeletonCard>
+        <div className="flex items-center gap-3">
+          <Skeleton round className="size-12 shrink-0" />
+          <div className="flex min-w-0 grow flex-col">
+            <SkeletonText size="title" className="w-2/5" />
+            <SkeletonText size="cap" className="w-1/3" />
+          </div>
+        </div>
+      </SkeletonCard>
+      {/* место и шаги сделки */}
+      <SkeletonCard tight>
+        <SkeletonText size="h3" className="w-1/4" />
+        <SkeletonText size="sm" className="w-3/5" />
+      </SkeletonCard>
+      <SkeletonCard>
+        {[0, 1, 2].map((step) => (
+          <div key={step} className="flex items-center gap-3">
+            <Skeleton round className="size-6 shrink-0" />
+            <SkeletonText size="sm" className={step === 1 ? 'w-2/5' : 'w-1/2'} />
+          </div>
+        ))}
+      </SkeletonCard>
     </section>
   );
 }

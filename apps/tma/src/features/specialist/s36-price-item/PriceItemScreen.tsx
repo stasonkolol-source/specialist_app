@@ -17,9 +17,8 @@ import {
   pricingAddMyService,
   pricingChangeMyService,
   pricingRemoveMyService,
-  usePricingListMyServices,
 } from '@sosed/api-client';
-import { myProfileQueryKey, useCategories, useMyProfile } from '@sosed/hooks';
+import { myProfileQueryKey, useCategories, useMyProfile, useMyServices } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton, usePlatform } from '@sosed/platform';
 import { Button, Field, Heading, Icon, Input, Segmented, Textarea, cx } from '@sosed/ui-web';
@@ -66,7 +65,7 @@ export function PriceItemScreen() {
   const router = useRouter();
   const params: { serviceId?: string } = useParams({ strict: false });
   const profile = useMyProfile();
-  const services = usePricingListMyServices({ query: { enabled: Boolean(profile.data) } });
+  const services = useMyServices({ enabled: Boolean(profile.data) });
   const categories = useCategories(useLocale());
   const back = () => {
     if (router.history.canGoBack()) router.history.back();

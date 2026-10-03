@@ -67,8 +67,11 @@ describe('шрифты', () => {
     expect(css.match(/format\('woff2'\)/g)?.length).toBe(faceCount);
   });
 
-  it('preload указывает на существующие файлы Onest 400 и 600', () => {
+  it('preload указывает на существующие файлы первого экрана, заголовок Unbounded — тоже', () => {
     expect(FONT_PRELOAD).toHaveLength(4);
+    expect(FONT_PRELOAD).toContain(
+      '@fontsource/unbounded/files/unbounded-cyrillic-600-normal.woff2',
+    );
     for (const file of FONT_PRELOAD) {
       expect(faces.map((f) => f.file)).toContain(file);
       expect(() => resolveFontFile(file)).not.toThrow();

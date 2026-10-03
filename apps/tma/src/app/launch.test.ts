@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { launchHref, openedByTelegram } from './launch.ts';
+import { launchHref, launchTarget, openedByTelegram } from './launch.ts';
 
 const DONE = { home_city_id: 1, intent: 'client', consent_required: false } as const;
 const NEW = { home_city_id: null, intent: null, consent_required: true } as const;
@@ -63,5 +63,19 @@ describe('openedByTelegram', () => {
     expect(openedByTelegram('tma', '#/profile')).toBe(false);
     expect(openedByTelegram('tma', '')).toBe(false);
     expect(openedByTelegram('mock', '')).toBe(true);
+  });
+});
+
+describe('launchTarget', () => {
+  it('is home or the deep link while sign-in is pending', () => {
+    // в Telegram путь роутера — launch params: грузим не их, а Главную
+    expect(launchTarget(TELEGRAM_LAUNCH, null)).toBe('/');
+    expect(launchTarget(TELEGRAM_LAUNCH, '/jobs/new')).toBe('/jobs/new');
+    expect(launchTarget(at('/'), null)).toBe('/');
+  });
+
+  it('keeps a screen reopened inside the client', () => {
+    expect(launchTarget(at('/profile'), null)).toBe('/profile');
+    expect(launchTarget(at('/onboarding/rules?next=%2Fjobs'), null)).toBe('/jobs');
   });
 });

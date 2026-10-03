@@ -20,6 +20,7 @@ export {
   editSearch,
   dealPath,
   historySearch,
+  jobIdOf,
   jobPath,
   reviewPath,
   jobSearch,

@@ -6,6 +6,7 @@
 import { encodeStartParam } from '@sosed/links';
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { http } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
@@ -60,6 +61,26 @@ describe('S29 chats', () => {
 
     await click(await screen.findByRole('link', { name: /Алексей Морозов/ }));
     await waitFor(() => expect(app.router.state.location.pathname).toBe(DIRECT));
+  });
+
+  it('opens a dialog with its header from the list while messages load', async () => {
+    withChats();
+    startApp('/messages');
+    const direct = await screen.findByRole('link', { name: /Алексей Морозов/ });
+    // сообщения отвечают долго: собеседник и сделка — из списка, пузыри — скелетоном
+    server.use(
+      http.get(
+        `*/api/v1/conversations/${CONVERSATION_IDS.direct}/messages`,
+        () => new Promise<never>(() => undefined),
+      ),
+    );
+    await click(direct);
+
+    expect(await screen.findByText('Ещё не договорились')).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Алексей Морозов' })).toBeTruthy();
+    // кнопки шапки и поле ввода — только по ответу диалога
+    expect(screen.queryByRole('button', { name: 'Договорились' })).toBeNull();
+    expect(screen.queryByRole('textbox')).toBeNull();
   });
 
   it('shows the unread count on the Messages tab', async () => {

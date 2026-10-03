@@ -41,12 +41,13 @@ import { useEffect, useId, useState } from 'react';
 
 import { useJobDraft } from '../shared/draft.ts';
 import { useCreateFlow, useStepButton } from '../shared/flow.ts';
+import { WizardSkeleton } from '../shared/skeletons.tsx';
 import { WizardHeader } from '../shared/WizardHeader.tsx';
 
 export function WhenScreen() {
   const { draft, patch } = useJobDraft();
   const flow = useCreateFlow('when', draft);
-  if (!draft) return null;
+  if (!draft) return <WizardSkeleton step={2} />;
   return <WhenForm draft={draft} patch={patch} next={flow.next} />;
 }
 

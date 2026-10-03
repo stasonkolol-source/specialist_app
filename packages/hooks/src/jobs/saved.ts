@@ -12,6 +12,8 @@ import {
 } from '@sosed/api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { OWN_STALE_MS } from '../cache.ts';
+
 /** Превью фото в карточке — как в ленте. */
 const CARD_PHOTOS = 3;
 
@@ -22,6 +24,7 @@ export function useSavedJobs() {
     queryKey: savedJobsQueryKey(),
     queryFn: ({ signal }) => jobsListSavedJobs({ signal }),
     enabled: getSession() !== null,
+    staleTime: OWN_STALE_MS,
   });
 }
 
@@ -63,7 +66,8 @@ export function useToggleSavedJob() {
         return { items };
       });
     },
-    onSettled: () => client.invalidateQueries({ queryKey: key }),
+    // список уже поправлен оптимистично: сверка с сервером — в фоне
+    onSettled: () => void client.invalidateQueries({ queryKey: key }),
   });
 }
 

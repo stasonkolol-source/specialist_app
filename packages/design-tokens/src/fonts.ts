@@ -22,10 +22,15 @@ export const FONT_FAMILIES: readonly FontFamily[] = [
   { family: 'Unbounded', pkg: '@fontsource/unbounded', weights: [500, 600], subsets: BASE_SUBSETS },
 ];
 
-/** Первый экран: Onest 400 и 600, кириллица и латиница. Ссылки preload ставит index.html приложения. */
-export const FONT_PRELOAD: readonly string[] = [400, 600].flatMap((w) =>
-  ['cyrillic', 'latin'].map((s) => `@fontsource/onest/files/onest-${s}-${w}-normal.woff2`),
-);
+/** Первый экран (S01, S03): заголовок Unbounded 600 («Соседи», «Найдём мастера рядом») и текст
+ *  Onest 400 и 600 — кириллица; латиница — только 400 («Telegram», цифры, «…»). Латиница 600 на
+ *  первом экране не встречается: качается, когда понадобится. Ссылки ставит плагин vite.ts. */
+export const FONT_PRELOAD: readonly string[] = [
+  '@fontsource/unbounded/files/unbounded-cyrillic-600-normal.woff2',
+  '@fontsource/onest/files/onest-cyrillic-400-normal.woff2',
+  '@fontsource/onest/files/onest-latin-400-normal.woff2',
+  '@fontsource/onest/files/onest-cyrillic-600-normal.woff2',
+];
 
 export interface FontFace {
   family: string;

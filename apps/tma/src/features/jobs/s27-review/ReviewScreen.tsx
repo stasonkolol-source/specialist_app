@@ -20,7 +20,11 @@ import {
   Field,
   Heading,
   Icon,
+  ChipSkeleton,
+  FieldSkeleton,
   Skeleton,
+  SkeletonCard,
+  SkeletonText,
   Stars,
   Text,
   Textarea,
@@ -224,10 +228,26 @@ function Closed({ text, onDeal }: { text: ReturnType<typeof reason> | null; onDe
 
 function Loading() {
   return (
-    <section className="flex flex-col gap-3 px-4 pt-3 pb-6" aria-busy="true">
-      <Skeleton className="h-9 w-2/3" />
-      <Skeleton className="h-16 w-full" />
-      <Skeleton className="h-24 w-full" />
+    <section className="flex flex-col gap-4 px-4 pt-3 pb-6" aria-busy="true">
+      <SkeletonText size="h1" screen className="w-2/3" />
+      {/* кому отзыв */}
+      <SkeletonCard tight>
+        <div className="flex items-center gap-3">
+          <Skeleton round className="size-12 shrink-0" />
+          <div className="flex min-w-0 grow flex-col gap-0.5">
+            <SkeletonText size="title" className="w-2/5" />
+            <SkeletonText size="cap" className="w-3/5" />
+          </div>
+        </div>
+      </SkeletonCard>
+      {/* звёзды, критерии и текст */}
+      <Skeleton screen className="h-9 w-48 self-center" />
+      <div className="flex flex-wrap gap-2">
+        {['w-28', 'w-24', 'w-32', 'w-20'].map((width) => (
+          <ChipSkeleton key={width} className={width} />
+        ))}
+      </div>
+      <FieldSkeleton tall />
     </section>
   );
 }

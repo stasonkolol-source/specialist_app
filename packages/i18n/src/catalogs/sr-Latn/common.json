@@ -2,6 +2,7 @@
   "app": {
     "name": "{appName}",
     "tagline": "Majstori u blizini, na vašem jeziku",
+    "signingIn": "Prijavljujemo vas preko Telegram-a…",
     "miniApp": "mini-aplikacija"
   },
   "nav": {

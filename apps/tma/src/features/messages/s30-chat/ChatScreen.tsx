@@ -13,7 +13,7 @@
 import type { ConversationOut, MessageOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import type { ChatEntry } from '@sosed/hooks';
-import { MAX_MESSAGE, dealState, useChat } from '@sosed/hooks';
+import { MAX_MESSAGE, cachedConversation, dealState, useChat } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
 import { useBackButton, useInsets, usePlatform } from '@sosed/platform';
 import {
@@ -22,16 +22,19 @@ import {
   Bubble,
   Button,
   ChatList,
+  ChatSkeleton,
   Composer,
   EmptyState,
   MaskedText,
   Skeleton,
+  SkeletonText,
   SystemNote,
   paletteFor,
 } from '@sosed/ui-web';
+import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter, useSearch } from '@tanstack/react-router';
 import type { MouseEvent, ReactNode } from 'react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { LoadError } from '../shared/LoadError.tsx';
 import { MESSAGES_PATHS, dealPath, managedJobPath, profilePath } from '../shared/paths.ts';
@@ -56,6 +59,7 @@ function Chat({ conversationId }: { conversationId: string }) {
   const { t } = useTranslation('messages');
   const chat = useChat(conversationId);
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   if (chat.error) {
     if (chat.error instanceof ApiError && chat.error.status === NOT_FOUND) {
@@ -88,7 +92,9 @@ function Chat({ conversationId }: { conversationId: string }) {
       );
     }
   }
-  if (!chat.conversation) return <Loading />;
+  if (!chat.conversation) {
+    return <Loading conversation={cachedConversation(queryClient, conversationId)} />;
+  }
   return <Dialog conversation={chat.conversation} chat={chat} />;
 }
 
@@ -98,7 +104,6 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
   const { t } = useTranslation('messages');
   const format = useFormat();
   const insets = useInsets();
-  const [draft, setDraft] = useState('');
   const [proposing, setProposing] = useState(false);
   const { share: shareAsked } = useSearch({ strict: false }) as { share?: true };
   const contactsOpen = ['agreed', 'completed'].includes(dealState(conversation));
@@ -122,10 +127,9 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
     if (count > 0 && stick.current) bottom.current?.scrollIntoView?.({ block: 'end' });
   }, [count]);
 
-  const send = () => {
+  const send = (text: string) => {
     stick.current = true;
-    chat.send(draft);
-    setDraft('');
+    chat.send(text);
   };
 
   const started = new Date(conversation.created_at);
@@ -177,16 +181,7 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
       </div>
       <SendError error={chat.sendError} />
       {writable ? (
-        <Composer
-          value={draft}
-          onChange={setDraft}
-          onSend={send}
-          placeholder={t('chat.placeholder')}
-          label={t('chat.placeholder')}
-          sendLabel={t('chat.send')}
-          maxLength={MAX_MESSAGE}
-          bottomInset={insets.bottom}
-        />
+        <DraftComposer onSend={send} bottomInset={insets.bottom} />
       ) : (
         <div
           className="sticky bottom-0 bg-bg px-4 pt-3"
@@ -336,7 +331,36 @@ function Header({
   );
 }
 
-function Entry({
+/** Поле ввода со своим черновиком: набор текста перерисовывает только его, а не всю переписку. */
+function DraftComposer({
+  onSend,
+  bottomInset,
+}: {
+  onSend: (text: string) => void;
+  bottomInset: number;
+}) {
+  const { t } = useTranslation('messages');
+  const [draft, setDraft] = useState('');
+  return (
+    <Composer
+      value={draft}
+      onChange={setDraft}
+      onSend={() => {
+        onSend(draft);
+        setDraft('');
+      }}
+      placeholder={t('chat.placeholder')}
+      label={t('chat.placeholder')}
+      sendLabel={t('chat.send')}
+      maxLength={MAX_MESSAGE}
+      bottomInset={bottomInset}
+    />
+  );
+}
+
+/** Сообщение ленты: перерисовывается, только когда изменилось оно само (опрос раз в 4 с отдаёт
+ *  ту же историю — те же объекты). */
+const Entry = memo(function Entry({
   entry,
   conversation,
   onRetry,
@@ -380,7 +404,7 @@ function Entry({
       )}
     </>
   );
-}
+});
 
 function MessageBody({ message }: { message: MessageOut }) {
   const { t } = useTranslation('messages');
@@ -473,13 +497,43 @@ function entryKey(entry: ChatEntry): string {
   return entry.type === 'message' ? entry.message.id : `pending:${entry.pending.clientMsgId}`;
 }
 
-function Loading() {
+/** Диалог до первого ответа — как настоящий: шапка с собеседником, пузыри по низу, поле ввода.
+ *  Открыли из списка S29 — собеседник и сделка в шапке из него сразу; кнопки шапки (сделка,
+ *  контакты) — только по ответу диалога. */
+function Loading({ conversation }: { conversation: ConversationOut | undefined }) {
+  const { t } = useTranslation('messages');
+  const insets = useInsets();
+  const name = conversation ? (conversation.counterpart_name ?? t('list.deleted')) : null;
   return (
-    <div className="flex flex-col gap-3 px-4 pt-4">
-      <Skeleton className="h-12 w-full" />
-      <Skeleton className="h-16 w-2/3" />
-      <Skeleton className="ml-auto h-12 w-1/2" />
-      <Skeleton className="h-16 w-3/4" />
+    <div aria-busy="true" className="flex min-h-[calc(100dvh-var(--tg-top,0px))] flex-col">
+      <div className="flex items-center gap-2.5 border-0 border-b border-solid border-line bg-bg px-4 py-2.5">
+        {conversation && name ? (
+          <>
+            <Avatar name={name} size="sm" palette={paletteFor(conversation.counterpart_id)} />
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate font-semibold">{name}</span>
+              <span className="text-cap text-text2">{t(`deal.${dealState(conversation)}`)}</span>
+            </span>
+          </>
+        ) : (
+          <>
+            <Skeleton round className="size-9 shrink-0" />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <SkeletonText className="w-2/5" />
+              <SkeletonText size="cap" className="w-1/4" />
+            </div>
+          </>
+        )}
+      </div>
+      <ChatSkeleton />
+      <div
+        aria-hidden="true"
+        className="flex items-end gap-2 border-0 border-t border-solid border-line bg-bg px-2.5 pt-2"
+        style={{ paddingBottom: insets.bottom + 8 }}
+      >
+        <span className="block h-11 flex-1 rounded-[22px] border border-solid border-line bg-bg2" />
+        <Skeleton round className="size-11 shrink-0" />
+      </div>
     </div>
   );
 }

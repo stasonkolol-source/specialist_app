@@ -56,7 +56,8 @@ export function conversationItems(pages: Pick<ConversationPages, 'pages'> | unde
   return pages?.pages.flatMap((page) => page.items) ?? [];
 }
 
-/** Прочитали или написали — бейдж и список S29 перечитываются. */
+/** Прочитали или написали — бейдж и список S29 перечитываются. Экран действия их не ждёт:
+ *  вызывающие запускают перечитывание в фоне (`void`). */
 export async function refreshInbox(client: QueryClient) {
   await Promise.all([
     client.invalidateQueries({ queryKey: getViewsGetBadgesQueryKey() }),
@@ -70,7 +71,8 @@ export function useStartConversation() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (target: ConversationStartIn) => messagingStartConversation(target),
-    onSuccess: () => refreshInbox(client),
+    // диалог S30 открывается сразу, бейджи и список S29 — в фоне
+    onSuccess: () => void refreshInbox(client),
   });
 }
 

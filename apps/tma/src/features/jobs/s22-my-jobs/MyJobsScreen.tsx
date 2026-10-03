@@ -13,13 +13,15 @@ import {
   Button,
   Card,
   Chip,
+  ChipSkeleton,
   Chips,
   EmptyState,
   Heading,
   IconButton,
+  JobCardSkeleton,
   Price,
   SectionTitle,
-  Skeleton,
+  SkeletonText,
   Text,
 } from '@sosed/ui-web';
 import { useNavigate, useRouter } from '@tanstack/react-router';
@@ -81,11 +83,18 @@ function MyJobs() {
     );
   }
   if (!jobs.data) {
+    // чипы групп, заголовок группы и карточки заявок — на своих местах
     return (
-      <>
-        <Skeleton radius="card" className="h-36 w-full" />
-        <Skeleton radius="card" className="h-36 w-full" />
-      </>
+      <div aria-busy="true" className="flex flex-col gap-3">
+        <div aria-hidden="true" className="flex gap-2 overflow-hidden">
+          {[null, ...GROUPS].map((item) => (
+            <ChipSkeleton key={item ?? 'all'} className="w-24" />
+          ))}
+        </div>
+        <SkeletonText size="cap" screen className="w-1/4" />
+        <JobCardSkeleton />
+        <JobCardSkeleton />
+      </div>
     );
   }
   const items = jobs.data.items;

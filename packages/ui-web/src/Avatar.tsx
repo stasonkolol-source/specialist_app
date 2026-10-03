@@ -54,6 +54,8 @@ export interface AvatarProps {
   file?: Blob | null;
   /** Внутри стопки .avs: обводка цветом поверхности. */
   stacked?: boolean;
+  /** Главное фото экрана (шапка профиля S08): грузится сразу и раньше остальных. */
+  priority?: boolean;
   className?: string;
 }
 
@@ -65,6 +67,7 @@ export function Avatar({
   placeholder,
   file,
   stacked = false,
+  priority = false,
   className,
 }: AvatarProps) {
   const [failed, setFailed] = useState<string | null>(null);
@@ -88,7 +91,8 @@ export function Avatar({
       <img
         src={src}
         alt={name}
-        loading="lazy"
+        loading={priority ? 'eager' : 'lazy'}
+        fetchPriority={priority ? 'high' : undefined}
         decoding="async"
         style={blur}
         onError={() => setFailed(src)}

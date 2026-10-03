@@ -32,8 +32,9 @@ import {
   Heading,
   LinkButton,
   RowIcon,
+  RowsSkeleton,
   SectionTitle,
-  Skeleton,
+  SkeletonText,
   UnreadDot,
 } from '@sosed/ui-web';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -285,9 +286,8 @@ function Loading() {
   return (
     <div role="status" className="flex flex-col gap-2">
       <span className="sr-only">{t('notifications.loading')}</span>
-      <Skeleton className="h-4 w-24" />
-      <Skeleton className="h-20 w-full" />
-      <Skeleton className="h-20 w-full" />
+      <SkeletonText size="cap" screen className="w-24" />
+      <RowsSkeleton rows={3} leading="icon" />
     </div>
   );
 }

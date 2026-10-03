@@ -1,7 +1,7 @@
 // Переходы мастера S32a–c. Каждое сохранение отвечает свежим профилем: он сразу ложится в кэш, и
 // следующий шаг и S31 видят черновик без перечитывания.
 import type { ProfileOut } from '@sosed/api-client';
-import { tokens } from '@sosed/design-tokens';
+import { color } from '@sosed/design-tokens';
 import type { BecomeStep } from '@sosed/hooks';
 import { myProfileQueryKey, useMyProfile } from '@sosed/hooks';
 import type { BottomButtonProps } from '@sosed/platform';
@@ -64,6 +64,6 @@ export function useStepButton(
   props: Pick<BottomButtonProps, 'text' | 'onClick' | 'loading' | 'visible'>,
 ) {
   const scheme = useColorScheme();
-  const palette = tokens.color[scheme];
+  const palette = color[scheme];
   return useMainButton({ ...props, color: palette.accent, textColor: palette['accent-ink'] });
 }

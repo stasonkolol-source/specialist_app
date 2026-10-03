@@ -8,7 +8,6 @@ import {
   getPricingListMyServicesQueryKey,
   pricingChangeMyService,
   pricingReorderMyServices,
-  usePricingListMyServices,
 } from '@sosed/api-client';
 import {
   groupServices,
@@ -16,6 +15,7 @@ import {
   myProfileQueryKey,
   useCategories,
   useMyProfile,
+  useMyServices,
 } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton, usePlatform } from '@sosed/platform';
@@ -45,7 +45,7 @@ export function PriceListScreen() {
   const { t } = useTranslation('specialist');
   const router = useRouter();
   const profile = useMyProfile();
-  const services = usePricingListMyServices({ query: { enabled: Boolean(profile.data) } });
+  const services = useMyServices({ enabled: Boolean(profile.data) });
   const categories = useCategories(useLocale());
   useBackButton(() => {
     if (router.history.canGoBack()) router.history.back();
@@ -68,6 +68,7 @@ export function PriceListScreen() {
         {t('prices.title')}
       </Heading>
       <LoadState
+        shape="prices"
         error={failed ? failed.error : null}
         onRetry={() => {
           for (const load of loads) if (load.isError) void load.refetch();

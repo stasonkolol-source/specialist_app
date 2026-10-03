@@ -83,12 +83,12 @@ export function useLeaveReview(dealId: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (body: ReviewIn) => reviewsLeaveReview(dealId, body),
-    onSuccess: () =>
-      Promise.all([
-        client.invalidateQueries({ queryKey: dealCardQueryKey(dealId) }),
-        client.invalidateQueries({ queryKey: DEAL_HISTORY_KEY }),
-        client.invalidateQueries({ queryKey: MY_REVIEWS_KEY }),
-      ]),
+    // «Спасибо» — сразу по ответу сервера; сделка и списки перечитываются в фоне
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: dealCardQueryKey(dealId) });
+      void client.invalidateQueries({ queryKey: DEAL_HISTORY_KEY });
+      void client.invalidateQueries({ queryKey: MY_REVIEWS_KEY });
+    },
   });
 }
 
@@ -98,6 +98,6 @@ export function useReplyToReview() {
   return useMutation({
     mutationFn: ({ reviewId, body }: { reviewId: string; body: ReplyIn }) =>
       reviewsReplyToReview(reviewId, body),
-    onSuccess: () => client.invalidateQueries({ queryKey: MY_REVIEWS_KEY }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: MY_REVIEWS_KEY }),
   });
 }
