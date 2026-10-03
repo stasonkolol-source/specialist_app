@@ -13,6 +13,7 @@ const LOCALES = [
     locale: 'ru',
     telegram: 'ru',
     tab: 'Заявки',
+    mine: 'Мои заявки',
     offer: 'Предложение',
     confirm: 'Выбрать этого исполнителя?',
     status: 'Статус',
@@ -21,6 +22,7 @@ const LOCALES = [
     locale: 'sr-Latn',
     telegram: 'sr',
     tab: 'Zahtevi',
+    mine: 'Moji zahtevi',
     offer: 'Ponuda',
     confirm: 'Izabrati ovog izvođača?',
     status: 'Status',
@@ -44,7 +46,9 @@ for (const theme of THEMES) {
         watch.problems.length = 0;
       };
 
+      // вкладка открывает «Ленту», свои заявки — сегментом «Мои заявки»
       await openTab(page, l.tab);
+      await page.getByRole('link', { name: l.mine }).click();
       await page.getByRole('link', { name: /Повесить люстру/ }).click();
       await page.getByRole('link', { name: /^Алексей Морозов/ }).click();
       await expect(page.getByRole('heading', { name: 'Алексей Морозов', level: 1 })).toBeVisible();
