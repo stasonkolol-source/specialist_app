@@ -84,12 +84,15 @@ def test_invalid_vectors_are_not_parsed(param: str) -> None:
     assert parse_start_param(param) is None
 
 
-@pytest.mark.parametrize("event", ["pull_request", "push"])
-def test_ci_backend_runs_on_golden_changes(event: str) -> None:
-    """Правка golden.json или TS-кодека без backend/ всё равно запускает эти тесты в CI."""
+def test_ci_backend_runs_on_golden_changes() -> None:
+    """Правка golden.json или TS-кодека без backend/ всё равно запускает эти тесты в CI.
+
+    main проверяется ночным прогоном без фильтра путей, поэтому фильтр нужен только у PR.
+    """
     workflow = yaml.safe_load(CI_BACKEND_PATH.read_text(encoding="utf-8"))
     triggers = workflow[True]  # PyYAML (YAML 1.1) читает ключ `on` как True
-    assert "packages/links/**" in triggers[event]["paths"]
+    assert "packages/links/**" in triggers["pull_request"]["paths"]
+    assert "schedule" in triggers
 
 
 # --- base62 -------------------------------------------------------------------------------
