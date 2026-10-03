@@ -1,15 +1,18 @@
-"""Репозиторий сделок (ADR-0020 §5): переходы статусов — в `deals.status_history` при каждом
-сохранении. Второй выбор того же отклика упирается в `uq_deals_response_id`."""
+"""Репозитории сделок и споров (ADR-0020 §5): переходы статусов сделки — в
+`deals.status_history` при каждом сохранении. Второй выбор того же отклика упирается в
+`uq_deals_response_id`."""
 
-from sqlalchemy import or_, select
+from sqlalchemy import ColumnElement, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.deals.domain.deal import CANCELLABLE, Deal, DealTerms
-from app.modules.deals.errors import DealNotFoundError
-from app.modules.deals.infrastructure.models import DealRow, StatusHistoryRow
+from app.modules.deals.domain.dispute import ACTIVE as ACTIVE_DISPUTES
+from app.modules.deals.domain.dispute import Dispute, DisputeId
+from app.modules.deals.errors import DealNotFoundError, DisputeNotFoundError
+from app.modules.deals.infrastructure.models import DealRow, DisputeRow, StatusHistoryRow
 from app.platform.db.port import UnitOfWork
 from app.platform.db.versioning import check_loaded_version
-from app.platform.kernel.ids import CategoryId, DealId, UserId
+from app.platform.kernel.ids import CategoryId, DealId, MediaId, UserId
 
 
 class SqlDealRepository:
@@ -138,3 +141,108 @@ def _apply(deal: Deal, row: DealRow) -> None:
     row.reminded_at = deal.reminded_at
     row.completion_prompted_at = deal.completion_prompted_at
     row.updated_at = deal.updated_at
+
+
+class SqlDisputeRepository:
+    """Споры (6.1c): один идущий на сделку держит `uq_disputes_deal_id_active`, а use case
+    берёт спор после блокировки строки сделки — второй запрос ждёт и видит `disputed`."""
+
+    def __init__(self, session: AsyncSession, uow: UnitOfWork) -> None:
+        self._session, self._uow = session, uow
+
+    async def add(self, dispute: Dispute) -> None:
+        self._uow.require_active()
+        row = DisputeRow(id=dispute.id, version=dispute.version, created_at=dispute.created_at)
+        _apply_dispute(dispute, row)
+        self._session.add(row)
+        await self._session.flush()
+        self._uow.track(dispute)
+
+    async def active_for_update(self, deal_id: DealId) -> Dispute:
+        dispute = await self._locked(
+            DisputeRow.deal_id == deal_id,
+            DisputeRow.status.in_([status.value for status in ACTIVE_DISPUTES]),
+        )
+        if dispute is None:
+            raise DisputeNotFoundError(deal_id=deal_id)
+        return dispute
+
+    async def get_for_update(self, dispute_id: DisputeId) -> Dispute:
+        dispute = await self._locked(DisputeRow.id == dispute_id)
+        if dispute is None:
+            raise DisputeNotFoundError(dispute_id=dispute_id)
+        return dispute
+
+    async def save(self, dispute: Dispute) -> None:
+        self._uow.require_active()
+        row = await self._session.get(DisputeRow, dispute.id)
+        if row is None:
+            raise DisputeNotFoundError(dispute_id=dispute.id)
+        check_loaded_version(entity="dispute", loaded=row.version, expected=dispute.version)
+        _apply_dispute(dispute, row)
+        row.version = dispute.version + 1
+        await self._session.flush()
+        dispute.mark_persisted(version=row.version)
+        self._uow.track(dispute)
+
+    async def _locked(self, *conditions: ColumnElement[bool]) -> Dispute | None:
+        self._uow.require_active()
+        stmt = (
+            select(DisputeRow)
+            .where(*conditions)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        row = (await self._session.execute(stmt)).scalar_one_or_none()
+        if row is None:
+            return None
+        dispute = _dispute(row)
+        self._uow.track(dispute)
+        return dispute
+
+
+def _dispute(row: DisputeRow) -> Dispute:
+    return Dispute(
+        id=DisputeId(row.id),
+        deal_id=DealId(row.deal_id),
+        opened_by=UserId(row.opened_by),
+        respondent_id=UserId(row.respondent_id),
+        kind=row.kind,
+        description=row.description,
+        media_ids=tuple(MediaId(media_id) for media_id in row.media_ids),
+        respond_by=row.respond_by,
+        status=row.status,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+        response=row.response,
+        response_media_ids=tuple(MediaId(media_id) for media_id in row.response_media_ids),
+        responded_at=row.responded_at,
+        unanswered_at=row.unanswered_at,
+        withdrawn_at=row.withdrawn_at,
+        outcome=row.outcome,
+        reason_code=row.reason_code,
+        resolved_by=UserId(row.resolved_by) if row.resolved_by is not None else None,
+        resolved_at=row.resolved_at,
+        version=row.version,
+    )
+
+
+def _apply_dispute(dispute: Dispute, row: DisputeRow) -> None:
+    row.deal_id = dispute.deal_id
+    row.opened_by = dispute.opened_by
+    row.respondent_id = dispute.respondent_id
+    row.kind = dispute.kind
+    row.description = dispute.description
+    row.media_ids = list(dispute.media_ids)
+    row.respond_by = dispute.respond_by
+    row.status = dispute.status
+    row.response = dispute.response
+    row.response_media_ids = list(dispute.response_media_ids)
+    row.responded_at = dispute.responded_at
+    row.unanswered_at = dispute.unanswered_at
+    row.withdrawn_at = dispute.withdrawn_at
+    row.outcome = dispute.outcome
+    row.reason_code = dispute.reason_code
+    row.resolved_by = dispute.resolved_by
+    row.resolved_at = dispute.resolved_at
+    row.updated_at = dispute.updated_at

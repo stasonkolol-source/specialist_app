@@ -82,7 +82,8 @@ VARIANT_SIDES: Mapping[str, int] = MappingProxyType(
 
 PUBLIC_PURPOSES = frozenset({MediaPurpose.AVATAR, MediaPurpose.PORTFOLIO, MediaPurpose.JOB})
 """Что показывают всем: аватар, портфолио, фото заявки — варианты в публичном бакете media.
-Сообщения, отзывы и документы (v1) — в private."""
+Доказательства спора (6.1c), сообщения, отзывы и документы (v1) — в private: presigned GET на
+5 минут только тому, кому файл показывают."""
 
 
 def variant_bucket(purpose: MediaPurpose) -> str:

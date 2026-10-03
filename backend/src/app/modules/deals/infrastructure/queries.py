@@ -1,12 +1,13 @@
-"""Чтение сделок (S25, S26, списки; ADR-0020 §5): без блокировок, вне UoW."""
+"""Чтение сделок и споров (S25, S26, S52, списки; ADR-0020 §5): без блокировок, вне UoW; legal
+hold споров — в транзакции вызывающего (очистка media, удаление аккаунта)."""
 
 from collections.abc import Collection, Sequence
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, RowMapping, and_, func, or_, select, tuple_
+from sqlalchemy import ColumnElement, RowMapping, and_, func, or_, select, tuple_, union
 
-from app.modules.deals.application.dto import DealView
+from app.modules.deals.application.dto import DealView, DisputeView
 from app.modules.deals.application.ports import DealSweep
 from app.modules.deals.domain.deal import (
     AUTO_COMPLETE_AFTER,
@@ -17,9 +18,11 @@ from app.modules.deals.domain.deal import (
     DealRole,
     DealStatus,
 )
-from app.modules.deals.infrastructure.models import DealRow
+from app.modules.deals.domain.dispute import ACTIVE as ACTIVE_DISPUTES
+from app.modules.deals.domain.dispute import DisputeId, DisputeStatus
+from app.modules.deals.infrastructure.models import DealRow, DisputeRow
 from app.platform.db.query import SqlQuery, decode_cursor, encode_cursor
-from app.platform.kernel.ids import CategoryId, DealId, UserId
+from app.platform.kernel.ids import CategoryId, DealId, MediaId, UserId
 from app.platform.kernel.pagination import Page, PageRequest
 
 _D = DealRow
@@ -133,4 +136,87 @@ def _view(row: RowMapping) -> DealView:
         version=row["version"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+    )
+
+
+_P = DisputeRow
+_ACTIVE_DISPUTE = [status.value for status in ACTIVE_DISPUTES]
+
+
+class SqlDisputeQueries(SqlQuery):
+    async def view(self, dispute_id: DisputeId) -> DisputeView | None:
+        row = await self._fetch_one(select(DisputeRow.__table__).where(_P.id == dispute_id))
+        return _dispute_view(row) if row is not None else None
+
+    async def latest(self, deal_id: DealId) -> DisputeView | None:
+        row = await self._fetch_one(
+            select(DisputeRow.__table__)
+            .where(_P.deal_id == deal_id)
+            .order_by(_P.created_at.desc(), _P.id.desc())
+            .limit(1)
+        )
+        return _dispute_view(row) if row is not None else None
+
+    async def unanswered_due(self, now: datetime, *, limit: int) -> list[DisputeId]:
+        rows = await self._fetch(
+            select(_P.id)
+            .where(_P.status == DisputeStatus.OPEN.value, _P.respond_by <= now)
+            .order_by(_P.respond_by, _P.id)
+            .limit(limit)
+        )
+        return [DisputeId(row["id"]) for row in rows]
+
+    async def disputing(self, user_ids: Collection[UserId]) -> frozenset[UserId]:
+        wanted = list(set(user_ids))
+        if not wanted:
+            return frozenset()
+        active = _P.status.in_(_ACTIVE_DISPUTE)
+        opened = select(_P.opened_by.label("user_id")).where(active, _P.opened_by.in_(wanted))
+        answering = select(_P.respondent_id.label("user_id")).where(
+            active, _P.respondent_id.in_(wanted)
+        )
+        rows = await self._fetch(union(opened, answering))
+        return frozenset(UserId(row["user_id"]) for row in rows)
+
+    async def evidence_held(self, media_ids: Collection[MediaId]) -> frozenset[MediaId]:
+        wanted = set(media_ids)
+        if not wanted:
+            return frozenset()
+        ids = list(wanted)
+        active = _P.status.in_(_ACTIVE_DISPUTE)
+        rows = await self._fetch(
+            select(_P.media_ids, _P.response_media_ids).where(
+                active, or_(_P.media_ids.overlap(ids), _P.response_media_ids.overlap(ids))
+            )
+        )
+        held = {
+            MediaId(media_id)
+            for row in rows
+            for media_id in (*row["media_ids"], *row["response_media_ids"])
+            if media_id in wanted
+        }
+        return frozenset(held)
+
+
+def _dispute_view(row: RowMapping) -> DisputeView:
+    return DisputeView(
+        id=DisputeId(row["id"]),
+        deal_id=DealId(row["deal_id"]),
+        opened_by=UserId(row["opened_by"]),
+        respondent_id=UserId(row["respondent_id"]),
+        kind=row["kind"],
+        description=row["description"],
+        media_ids=tuple(MediaId(media_id) for media_id in row["media_ids"]),
+        respond_by=row["respond_by"],
+        status=row["status"],
+        response=row["response"],
+        response_media_ids=tuple(MediaId(media_id) for media_id in row["response_media_ids"]),
+        responded_at=row["responded_at"],
+        unanswered_at=row["unanswered_at"],
+        withdrawn_at=row["withdrawn_at"],
+        outcome=row["outcome"],
+        reason_code=row["reason_code"],
+        resolved_by=UserId(row["resolved_by"]) if row["resolved_by"] is not None else None,
+        resolved_at=row["resolved_at"],
+        created_at=row["created_at"],
     )

@@ -1,8 +1,10 @@
-"""ORM-модели deals (ARCHITECTURE §7.3, миграции deals_0001–0002): сделки и история их статусов.
+"""ORM-модели deals (ARCHITECTURE §7.3, миграции deals_0001–0003): сделки, история их статусов и
+споры (6.1c).
 
 FK на identity.users, specialists.profiles и catalog.categories объявлены только в миграции:
 MetaData модуля не знает чужих таблиц (modules/README.md). Ссылки вверх по DAG — `job_id`,
-`response_id`, `conversation_id` — без FK. Споры — шаг 6.1c.
+`response_id`, `conversation_id` — без FK; кейс модерации спора moderation находит сам (кейс
+объекта `dispute`).
 """
 
 from datetime import datetime
@@ -17,9 +19,11 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    Uuid,
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.modules.deals.domain.deal import (
@@ -29,6 +33,13 @@ from app.modules.deals.domain.deal import (
     DealOrigin,
     DealPriceType,
     DealStatus,
+)
+from app.modules.deals.domain.dispute import (
+    MAX_REASON_CODE,
+    MAX_TEXT,
+    DisputeKind,
+    DisputeOutcome,
+    DisputeStatus,
 )
 from app.platform.db.base import (
     ModelBase,
@@ -126,3 +137,68 @@ class StatusHistoryRow(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     __table_args__ = (Index("ix_status_history_deal_id", "deal_id"),)
+
+
+ACTIVE_DISPUTE = "status IN ('open', 'answered', 'no_response')"
+"""Идущий спор (domain/dispute.py ACTIVE): предикат частичных индексов."""
+
+
+class DisputeRow(UuidPkMixin, TimestampsMixin, VersionMixin, Base):
+    """Спор по сделке (domain/dispute.py); `created_at` — когда открыт. Доказательства — id
+    файлов media `dispute` (приватный бакет) у каждой стороны."""
+
+    __tablename__ = "disputes"
+
+    deal_id: Mapped[UUID] = mapped_column(ForeignKey("deals.id"))
+    opened_by: Mapped[UUID]
+    """identity.users: FK в миграции deals_0003."""
+    respondent_id: Mapped[UUID]
+    """identity.users: FK в миграции."""
+    kind: Mapped[DisputeKind] = mapped_column(str_enum(DisputeKind, "kind"))
+    description: Mapped[str] = mapped_column(Text)
+    media_ids: Mapped[list[UUID]] = mapped_column(ARRAY(Uuid), server_default=text("'{}'"))
+    respond_by: Mapped[datetime]
+    status: Mapped[DisputeStatus] = mapped_column(
+        str_enum(DisputeStatus, "status"), server_default=DisputeStatus.OPEN.value
+    )
+    response: Mapped[str | None] = mapped_column(Text)
+    response_media_ids: Mapped[list[UUID]] = mapped_column(ARRAY(Uuid), server_default=text("'{}'"))
+    responded_at: Mapped[datetime | None]
+    unanswered_at: Mapped[datetime | None]
+    withdrawn_at: Mapped[datetime | None]
+    outcome: Mapped[DisputeOutcome | None] = mapped_column(str_enum(DisputeOutcome, "outcome"))
+    reason_code: Mapped[str | None] = mapped_column(String(MAX_REASON_CODE))
+    resolved_by: Mapped[UUID | None]
+    """Модератор (identity.users): FK в миграции."""
+    resolved_at: Mapped[datetime | None]
+
+    __table_args__ = (
+        CheckConstraint(
+            f"char_length(description) BETWEEN 1 AND {MAX_TEXT}", name="description_length"
+        ),
+        CheckConstraint(f"char_length(response) <= {MAX_TEXT}", name="response_length"),
+        CheckConstraint("opened_by <> respondent_id", name="two_parties"),
+        CheckConstraint(
+            "(status = 'resolved') = (outcome IS NOT NULL AND resolved_at IS NOT NULL)",
+            name="resolved_with_outcome",
+        ),
+        # один идущий спор на сделку: следующий — после отзыва или решения
+        Index(
+            "uq_disputes_deal_id_active",
+            "deal_id",
+            unique=True,
+            postgresql_where=text(ACTIVE_DISPUTE),
+        ),
+        Index("ix_disputes_deal_id_created_at", "deal_id", "created_at"),
+        # проход `deals.dispute_response_sla`: ждут ответа — по сроку
+        Index(
+            "ix_disputes_open_respond_by", "respond_by", postgresql_where=text("status = 'open'")
+        ),
+        # legal hold удаления аккаунта: стороны идущих споров
+        Index("ix_disputes_opened_by_active", "opened_by", postgresql_where=text(ACTIVE_DISPUTE)),
+        Index(
+            "ix_disputes_respondent_id_active",
+            "respondent_id",
+            postgresql_where=text(ACTIVE_DISPUTE),
+        ),
+    )

@@ -3,9 +3,21 @@
 from collections.abc import Collection
 from uuid import UUID
 
-from app.modules.deals.api import AgreedDealIn, DealBrief, DealSummary, ProposedDealIn
-from app.modules.deals.application.dto import DealView
-from app.modules.deals.application.ports import DealQueries, DealRepository
+from app.modules.deals.api import (
+    AgreedDealIn,
+    DealBrief,
+    DealSummary,
+    DisputeSummary,
+    ProposedDealIn,
+    SettleDisputeIn,
+)
+from app.modules.deals.application.dto import DealView, DisputeView
+from app.modules.deals.application.ports import (
+    DealQueries,
+    DealRepository,
+    DisputeQueries,
+    DisputeRepository,
+)
 from app.modules.deals.domain.deal import (
     PROPOSAL_TTL,
     Deal,
@@ -14,18 +26,31 @@ from app.modules.deals.domain.deal import (
     DealStatus,
     DealTerms,
 )
-from app.modules.deals.errors import DealNotFoundError, InvalidDealError
+from app.modules.deals.domain.dispute import Dispute, DisputeId, DisputeOutcome
+from app.modules.deals.errors import (
+    DealNotFoundError,
+    DisputeNotFoundError,
+    InvalidDealError,
+    InvalidDisputeError,
+)
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
-from app.platform.kernel.ids import DealId, UserId, new_id
+from app.platform.kernel.ids import DealId, MediaId, UserId, new_id
 from app.platform.kernel.pagination import Page, PageRequest
 
 
 class DealsFacade:
     def __init__(
-        self, uow: UnitOfWork, deals: DealRepository, queries: DealQueries, clock: Clock
+        self,
+        uow: UnitOfWork,
+        deals: DealRepository,
+        queries: DealQueries,
+        disputes: DisputeRepository,
+        dispute_queries: DisputeQueries,
+        clock: Clock,
     ) -> None:
         self._uow, self._deals, self._queries, self._clock = uow, deals, queries, clock
+        self._disputes, self._dispute_queries = disputes, dispute_queries
 
     async def deal_brief(self, deal_id: DealId) -> DealBrief | None:
         deal = await self._queries.view(deal_id)
@@ -53,6 +78,46 @@ class DealsFacade:
             if role is not None:
                 items.append(_summary(deal, role))
         return Page(items=tuple(items), next_cursor=found.next_cursor)
+
+    async def deal_dispute(self, deal_id: DealId, viewer_id: UserId) -> DisputeSummary | None:
+        deal = await self._queries.view(deal_id)
+        if deal is None or deal.role_of(viewer_id) is None:
+            raise DealNotFoundError(deal_id=deal_id)
+        dispute = await self._dispute_queries.latest(deal_id)
+        return dispute_summary(dispute) if dispute is not None else None
+
+    async def dispute(self, dispute_id: UUID) -> DisputeSummary | None:
+        dispute = await self._dispute_queries.view(DisputeId(dispute_id))
+        return dispute_summary(dispute) if dispute is not None else None
+
+    async def settle_dispute(self, data: SettleDisputeIn) -> DisputeSummary:
+        self._uow.require_active()  # транзакция модерации: решение по кейсу и сделка вместе
+        try:
+            outcome = DisputeOutcome(data.outcome)
+        except ValueError:
+            raise InvalidDisputeError(field="outcome", reason="unknown") from None
+        found = await self._dispute_queries.view(DisputeId(data.dispute_id))
+        if found is None:
+            raise DisputeNotFoundError(dispute_id=data.dispute_id)
+        # порядок блокировок — сделка, затем спор: как у сторон (ответ, отзыв)
+        deal = await self._deals.get_for_update(found.deal_id)
+        dispute = await self._disputes.get_for_update(found.id)
+        dispute.resolve(
+            deal=deal,
+            outcome=outcome,
+            reason_code=data.reason_code,
+            moderator_id=data.moderator_id,
+            now=self._clock.now(),
+        )
+        await self._disputes.save(dispute)
+        await self._deals.save(deal)
+        return dispute_summary(dispute)
+
+    async def disputing(self, user_ids: Collection[UserId]) -> frozenset[UserId]:
+        return await self._dispute_queries.disputing(user_ids)
+
+    async def dispute_evidence_held(self, media_ids: Collection[MediaId]) -> frozenset[MediaId]:
+        return await self._dispute_queries.evidence_held(media_ids)
 
     async def create_agreed(self, data: AgreedDealIn) -> DealId:
         self._uow.require_active()  # транзакция jobs: отклик выбран и сделка создана вместе
@@ -103,6 +168,31 @@ def _price_type(value: str) -> DealPriceType:
         return DealPriceType(value)
     except ValueError:
         raise InvalidDealError(field="price_type", reason="unknown") from None
+
+
+def dispute_summary(dispute: DisputeView | Dispute) -> DisputeSummary:
+    """Спор строками перечислений — из чтения или из агрегата после решения."""
+    return DisputeSummary(
+        id=dispute.id,
+        deal_id=dispute.deal_id,
+        status=dispute.status.value,
+        kind=dispute.kind.value,
+        opened_by=dispute.opened_by,
+        respondent_id=dispute.respondent_id,
+        description=dispute.description,
+        media_ids=dispute.media_ids,
+        respond_by=dispute.respond_by,
+        response=dispute.response,
+        response_media_ids=dispute.response_media_ids,
+        responded_at=dispute.responded_at,
+        unanswered_at=dispute.unanswered_at,
+        withdrawn_at=dispute.withdrawn_at,
+        outcome=dispute.outcome.value if dispute.outcome is not None else None,
+        reason_code=dispute.reason_code,
+        resolved_by=dispute.resolved_by,
+        resolved_at=dispute.resolved_at,
+        created_at=dispute.created_at,
+    )
 
 
 def _brief(deal: DealView) -> DealBrief:

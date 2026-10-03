@@ -1,9 +1,9 @@
 """Что и сколько можно загружать (ARCHITECTURE §10.1, ADR-0007): назначение, тип, размер.
 
-MVP принимает аватар, портфолио и фото к заявке; сообщения, отзывы и документы
-верификации — v1 (их назначения уже в схеме, но загрузка закрыта). Тип — по MIME из
-allow-list; заголовок клиента здесь только заявка: настоящий тип по magic bytes проверяет
-обработка (2.2). Сколько файлов в портфолио или заявке — правило привязки (2.8a, 5.1),
+MVP принимает аватар, портфолио, фото к заявке и фото-доказательства спора (6.1c); сообщения,
+отзывы и документы верификации — v1 (их назначения уже в схеме, но загрузка закрыта). Тип —
+по MIME из allow-list; заголовок клиента здесь только заявка: настоящий тип по magic bytes
+проверяет обработка (2.2). Сколько файлов в портфолио или заявке — правило привязки (2.8a, 5.1),
 а не загрузки.
 """
 
@@ -33,6 +33,8 @@ class MediaPurpose(StrEnum):
     MESSAGE = "message"
     REVIEW = "review"
     VERIFICATION = "verification"
+    DISPUTE = "dispute"
+    """Фото-доказательства спора (6.1c): видят стороны сделки и модератор — приватный бакет."""
 
 
 IMAGE_TYPES: Final = frozenset(
@@ -58,10 +60,13 @@ MAX_BYTES: Final[dict[tuple[MediaPurpose, MediaKind], int]] = {
     (MediaPurpose.PORTFOLIO, MediaKind.IMAGE): 15 * MB,
     (MediaPurpose.PORTFOLIO, MediaKind.VIDEO): 200 * MB,
     (MediaPurpose.JOB, MediaKind.IMAGE): 15 * MB,
+    (MediaPurpose.DISPUTE, MediaKind.IMAGE): 15 * MB,
 }
 """Лимит исходника по назначению и типу (§10.1). Пары нет — такой файл сюда не грузят."""
 
-MVP_PURPOSES: Final = frozenset({MediaPurpose.AVATAR, MediaPurpose.PORTFOLIO, MediaPurpose.JOB})
+MVP_PURPOSES: Final = frozenset(
+    {MediaPurpose.AVATAR, MediaPurpose.PORTFOLIO, MediaPurpose.JOB, MediaPurpose.DISPUTE}
+)
 
 MULTIPART_THRESHOLD: Final = 50 * MB
 """Видео больше 50 MB грузится частями (ADR-0007): обрыв сети не начинает загрузку заново."""
