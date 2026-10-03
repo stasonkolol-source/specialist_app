@@ -1,18 +1,23 @@
 // Запуск без ожидания React (S01, DEVELOPMENT_PLAN 4.8 — холодный старт < 2,5 с): сразу после
 // сборки, параллельно со входом, — client-config (его ждёт StartupGate), справочники Главной и
 // чанк экрана запуска. Как только вход решил город, — данные Главной (warm.ts, своим чанком).
-// Ключи и свежесть — из фабрик @sosed/hooks: те же, что у хуков экранов, запрос не задвоится.
+// Ключи и свежесть — из фабрик @sosed/hooks: те же, что у хуков экранов, запрос не задвоится. Конфиг
+// и справочники прошлого запуска (persist.ts) поднимаются раньше запросов: экран рисуется по ним, а
+// запросы освежают их в фоне.
 import { categoriesQueryOptions, citiesQueryOptions, clientConfigQueryOptions } from '@sosed/hooks';
 import { currentLocale } from '@sosed/i18n';
 
 import type { Assembled } from './bootstrap.ts';
 import { launchHref, launchTarget } from './launch.ts';
+import { persistPublicQueries, restorePublicQueries } from './persist.ts';
 
 const HOME = '/';
 
 export function startLaunch(app: Assembled): void {
   const { queryClient, router, i18n, deepLink } = app;
   const locale = currentLocale(i18n);
+  restorePublicQueries(queryClient, app.version);
+  persistPublicQueries(queryClient, app.version);
   // вход — сразу: экран запуска S01 (LaunchGate) дождётся того же итога
   const launched = app.launch();
   void queryClient.prefetchQuery(clientConfigQueryOptions());

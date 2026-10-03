@@ -32,7 +32,11 @@ function launch(path: string, startParam?: string) {
   return app;
 }
 
-afterEach(() => setSession(null));
+afterEach(() => {
+  setSession(null);
+  // справочники запуска сохраняются между запусками (persist.ts): каждый тест — первый запуск
+  localStorage.clear();
+});
 
 describe('launch before the first frame', () => {
   it('requests client-config and home dictionaries right away, home data after sign-in', async () => {
