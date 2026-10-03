@@ -36,6 +36,36 @@ afterEach(() => {
   server.events.removeAllListeners();
 });
 
+describe('S08–S11 profile visibility', () => {
+  it.each([
+    ['', '', 'Электрик · мелкий ремонт · люстры'],
+    ['/services', '', 'Алексей Морозов · 9 услуг'],
+    ['/services', '/services', 'Алексей Морозов · 9 услуг'],
+    ['/portfolio', '/portfolio', '1 / 18'],
+    ['/reviews', '', 'Алексей Морозов · Электрика'],
+    ['/reviews', '/reviews', 'Алексей Морозов · Электрика'],
+  ])('hides cached content on %s after %s returns 404', async (page, endpoint, content) => {
+    const { app, telegram } = startApp(`${PROFILE}${page}`);
+    expect(await screen.findByText(content)).toBeTruthy();
+
+    server.use(
+      http.get(`*/api/v1${PROFILE}${endpoint}`, () =>
+        HttpResponse.json(
+          { type: 'x', title: 'Not found', status: 404, code: 'profile_not_found' },
+          { status: 404 },
+        ),
+      ),
+    );
+    await act(async () => {
+      await app.queryClient.refetchQueries({ queryKey: [`/api/v1${PROFILE}${endpoint}`] });
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Профиль недоступен' })).toBeTruthy();
+    expect(screen.queryByText(content)).toBeNull();
+    if (page === '') expect(mainButton(telegram)?.is_visible).toBe(false);
+  });
+});
+
 describe('S08 profile', () => {
   it('shows the card from one BFF request: header, badges, memo, prices, works, about', async () => {
     const requests = recordRequests();

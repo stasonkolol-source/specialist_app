@@ -174,6 +174,37 @@ describe('S36 price item', () => {
     expect(writes(backend)[0]?.body).toEqual({ price_min: 250_000, clear: ['description'] });
   });
 
+  it.each([200_050, 201, 29])('сохраняет цену %i пара при правке названия', async (amount) => {
+    const service = item('1', 'Выезд и диагностика', 0, {
+      price_min: { amount, currency: 'RSD' },
+    });
+    const backend = withBackend([service]);
+    const { telegram } = startApp(`/cabinet/prices/${service.id}`);
+
+    fireEvent.change(await name(), { target: { value: 'Диагностика на дому' } });
+    await pressMainButton(telegram);
+
+    await waitFor(() => expect(writes(backend)).toHaveLength(1));
+    expect(writes(backend)[0]?.body).toEqual({ title: 'Диагностика на дому' });
+    expect(backend.services[0]?.price_min?.amount).toBe(amount);
+  });
+
+  it('сохраняет дробную цену, введённую с десятичной запятой', async () => {
+    const backend = withBackend();
+    const { telegram } = startApp(`/cabinet/prices/${PRICE_LIST[0]?.id}`);
+
+    await name();
+    const price = screen.getByRole<HTMLInputElement>('textbox', { name: 'Цена в динарах' });
+    for (const value of ['2', '2,', '2,0', '2,01']) {
+      fireEvent.change(price, { target: { value } });
+      expect(price.value).toBe(value);
+    }
+    await pressMainButton(telegram);
+
+    await waitFor(() => expect(writes(backend)).toHaveLength(1));
+    expect(writes(backend)[0]?.body).toEqual({ price_min: 201 });
+  });
+
   it('deletes an item after confirmation', async () => {
     const backend = withBackend();
     const { app } = startApp(`/cabinet/prices/${PRICE_LIST[0]?.id}`, { popupAnswer: 'ok' });

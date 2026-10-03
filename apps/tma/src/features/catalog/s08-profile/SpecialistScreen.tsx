@@ -64,11 +64,10 @@ export function SpecialistScreen() {
     else void router.navigate({ to: '/', replace: true });
   });
 
+  if (isUnavailable(card.error)) return <Unavailable />;
   if (card.data) return <Profile card={card.data} />;
   if (card.isError) {
-    return isUnavailable(card.error) ? (
-      <Unavailable />
-    ) : (
+    return (
       <section className="flex flex-col px-4 pt-3 pb-6">
         <LoadError
           error={card.error}

@@ -39,6 +39,7 @@ export function ReviewsScreen() {
     else void router.navigate({ to: CARD_PATHS.profile, params: { profileId }, replace: true });
   });
 
+  if ([card, reviews].some((load) => isUnavailable(load.error))) return <Unavailable />;
   const first = reviews.data?.pages[0];
   if (card.data && first) {
     return (
@@ -59,9 +60,7 @@ export function ReviewsScreen() {
   }
   const failed = [card, reviews].find((load) => load.isError);
   if (failed) {
-    return isUnavailable(failed.error) ? (
-      <Unavailable />
-    ) : (
+    return (
       <section className="flex flex-col px-4 pt-3 pb-6">
         <LoadError
           error={failed.error}
