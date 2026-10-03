@@ -2,7 +2,8 @@
 // «3 отклика — выберите исполнителя» и «2 новых», чипы; своя заявка — статус, район, бюджет,
 // просмотры, места, отклики карточками («Откликнулся первым», «Подработка», рейтинг), закрыть с
 // причиной, пригласить специалиста; ссылка на свою заявку ведёт владельца на S23; вкладка
-// «Заявки» клиенту открывает «Мои заявки»; на Главной — «Мои активные заявки». «Изменить» —
+// «Заявки» и клиенту открывает «Ленту», «Мои заявки» — сегментом; на Главной — «Мои активные
+// заявки». «Изменить» —
 // мастер с полями заявки и сохранение с If-Match; чужая правка между ними — «откройте заново».
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
@@ -74,12 +75,15 @@ describe('S22 my jobs', () => {
     expect(screen.getByText('Приём откликов')).toBeTruthy();
   });
 
-  it('opens for a client from the jobs tab', async () => {
+  it('is a segment of the jobs tab: the tab itself opens the feed, also for a client', async () => {
     withMine();
     const { app } = startApp('/');
     const tabs = await screen.findByRole('navigation', { name: 'Разделы' });
 
     await click(within(tabs).getByRole('link', { name: 'Заявки' }));
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs'));
+    const segments = await screen.findByRole('navigation', { name: 'Раздел заявок' });
+    await click(within(segments).getByRole('link', { name: 'Мои заявки' }));
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs/mine'));
   });

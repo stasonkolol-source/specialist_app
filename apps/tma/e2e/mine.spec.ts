@@ -1,5 +1,5 @@
-// Свои заявки клиента S22 и S23 (DEVELOPMENT_PLAN 5.6) на фейке backend: вкладка «Заявки» клиенту
-// открывает «Мои заявки» — люстра с «3 отклика — выберите исполнителя», уборка ждёт откликов,
+// Свои заявки клиента S22 и S23 (DEVELOPMENT_PLAN 5.6) на фейке backend: сегмент «Мои заявки»
+// вкладки «Заявки» — люстра с «3 отклика — выберите исполнителя», уборка ждёт откликов,
 // закрытая — в архиве, как на артборде; своя заявка — статус, места, отклики карточками.
 // Скриншоты × тема × язык, axe-core. Имена скриншотов начинаются с кода артборда: make
 // design-compare кладёт их рядом с эталоном.
@@ -47,7 +47,9 @@ for (const theme of THEMES) {
         watch.problems.length = 0;
       };
 
+      // вкладка открывает «Ленту» и клиенту; «Мои заявки» — сегментом
       await openTab(page, l.tab);
+      await page.getByRole('link', { name: l.mine }).click();
       await expect(page.getByRole('heading', { name: l.mine, level: 1 })).toBeVisible();
       await expect(page.getByText(l.waiting)).toBeVisible();
       await snap(`S22-my-jobs-${theme}-${l.locale}.png`);
