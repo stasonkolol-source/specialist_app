@@ -532,15 +532,15 @@ describe('creating actions require S02c', () => {
         problem(403, 'consent_required', { documents: ['terms', 'privacy', 'age_18'] }),
       ),
     );
-    const { app } = startApp('/profile');
-    expect(await screen.findByRole('heading', { name: ME.display_name })).toBeTruthy();
+    const { app } = startApp('/settings');
+    const language = await screen.findByRole('radio', { name: 'Srpski (latinica)' });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('radio', { name: 'Srpski (latinica)' }));
+      fireEvent.click(language);
     });
 
     expect(await screen.findByRole('heading', { name: 'Правила площадки' })).toBeTruthy();
-    expect(app.router.state.location.search).toEqual({ next: '/profile' });
+    expect(app.router.state.location.search).toEqual({ next: '/settings' });
   });
 });
 

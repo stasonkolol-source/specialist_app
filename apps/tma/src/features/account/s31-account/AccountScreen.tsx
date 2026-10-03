@@ -1,18 +1,13 @@
 // S31 Профиль (DEVELOPMENT_PLAN 2.9): имя и город из GET /me, вход в кабинет специалиста, меню.
 // Без профиля исполнителя — «Стать специалистом» и «Найти подработку» (мастер S32a–c с отмеченным
 // типом); с профилем — карточка со статусом: черновик продолжает мастер с нужного шага, остальное
-// ведёт в кабинет S33 (2.10). «Моя активность»: «Избранное» ведёт в S12 (4.6), «Уведомления» — в
-// S42; число справа — непрочитанные (первая страница ленты S42). Язык интерфейса — ui_locale из GET /me, пишется через PATCH /me
-// (строкой «Язык» в S43 станет с шага 4.9). Без сети — S49a «Нет соединения» вместо ошибки.
-// «Удалить аккаунт» ведёт в S45 (2.12a; с 4.9 — из настроек S43); пока удаление запланировано,
-// сверху — дата и «Отменить».
+// ведёт в кабинет S33 (2.10). «Моя активность»: «Сделки и отзывы» S28, «Избранное» S12 (4.6),
+// «Уведомления» S42 — число справа — непрочитанные (первая страница ленты S42). «Приложение»:
+// «Язык» с текущим языком и «Настройки» ведут в S43 (4.9) — язык, город, уведомления, удаление
+// аккаунта. «Поддержка»: «Помощь» S47 и «Правила площадки» S48. Без сети — S49a «Нет соединения»
+// вместо ошибки. Пока удаление аккаунта запланировано (S45), сверху — дата и «Отменить».
 import type { MeOut, ProfileKind } from '@sosed/api-client';
-import {
-  ApiError,
-  getIdentityGetMeQueryKey,
-  useIdentityGetMe,
-  useIdentityUpdateMe,
-} from '@sosed/api-client';
+import { ApiError, useIdentityGetMe } from '@sosed/api-client';
 import type { BecomeStep, ProfileState } from '@sosed/hooks';
 import {
   becomeStep,
@@ -24,8 +19,7 @@ import {
   useMyProfile,
   useNotificationFeed,
 } from '@sosed/hooks';
-import type { Locale } from '@sosed/i18n';
-import { LOCALES, LOCALE_NAMES, isLocale, useFormat, useLocale, useTranslation } from '@sosed/i18n';
+import { LOCALE_LABELS, useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { usePlatform } from '@sosed/platform';
 import type { AvatarPalette, BadgeTone, IconName } from '@sosed/ui-web';
 import {
@@ -38,7 +32,6 @@ import {
   Group,
   Heading,
   Icon,
-  Option,
   Row,
   RowIcon,
   SectionTitle,
@@ -47,10 +40,9 @@ import {
   SkeletonText,
   Text,
 } from '@sosed/ui-web';
-import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import type { MouseEvent, ReactNode } from 'react';
-import { useEffect, useId } from 'react';
+import { useId } from 'react';
 
 import { ACCOUNT_PATHS, HISTORY_PATH } from '../paths.ts';
 
@@ -59,6 +51,8 @@ const LEGAL_PATH = '/legal/$document';
 const RULES_HREF = '/legal/terms';
 /** S42, уведомления (маршрут routes/notifications.tsx). */
 const NOTIFICATIONS_PATH = '/notifications';
+/** S47, помощь (маршрут features/service/s47-help). */
+const HELP_PATH = '/help';
 /** S12, избранное (маршрут features/catalog). */
 const FAVORITES_PATH = '/favorites';
 /** Кабинет специалиста S33 (маршрут features/specialist). */
@@ -108,7 +102,6 @@ export function AccountScreen() {
         <Offline saved onRetry={retry} retrying={me.isFetching} />
         <Saved at={me.dataUpdatedAt}>
           <AccountHeader me={me.data} />
-          <Language me={me.data} />
         </Saved>
       </>
     );
@@ -135,9 +128,8 @@ export function AccountScreen() {
       {top}
       {account && <Specialist />}
       {!signedOut && <Activity />}
-      {account && me.data && <Language me={me.data} />}
+      {!signedOut && <AppSettings />}
       <Support />
-      {account && <DeleteAccount />}
     </section>
   );
 }
@@ -215,7 +207,7 @@ function Specialist() {
   );
 }
 
-/** «Моя активность»: сделки и отзывы S28, избранное S12, уведомления S42, настройки S43. */
+/** «Моя активность»: сделки и отзывы S28, избранное S12, уведомления S42. */
 function Activity() {
   const { t } = useTranslation();
   const { t: ts } = useTranslation('account');
@@ -260,22 +252,53 @@ function Activity() {
           href={router.history.createHref(NOTIFICATIONS_PATH)}
           onClick={open(NOTIFICATIONS_PATH)}
         />
-        <Row
-          icon="settings"
-          title={t('settings.title')}
-          chevron
-          href={router.history.createHref(ACCOUNT_PATHS.settings)}
-          onClick={open(ACCOUNT_PATHS.settings)}
-        />
       </Group>
     </nav>
   );
 }
 
+/** «Приложение»: язык с текущим выбором и остальные настройки — оба ведут в S43. */
+function AppSettings() {
+  const { t } = useTranslation();
+  const { t: ts } = useTranslation('account');
+  const router = useRouter();
+  const locale = useLocale();
+  const open = (event: MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    void router.navigate({ to: ACCOUNT_PATHS.settings });
+  };
+  const href = router.history.createHref(ACCOUNT_PATHS.settings);
+  return (
+    <nav aria-label={ts('settings.app')}>
+      <Group>
+        <Row
+          icon="languages"
+          title={t('settings.language')}
+          trailing={
+            <Text as="span" secondary>
+              <span lang={locale}>{LOCALE_LABELS[locale].name}</span>
+            </Text>
+          }
+          chevron
+          href={href}
+          onClick={open}
+        />
+        <Row icon="settings" title={t('settings.title')} chevron href={href} onClick={open} />
+      </Group>
+    </nav>
+  );
+}
+
+/** «Поддержка»: помощь S47 и правила площадки S48. */
 function Support() {
   const { t } = useTranslation();
+  const { t: ts } = useTranslation('account');
   const router = useRouter();
-  const open = (event: MouseEvent<HTMLElement>) => {
+  const openHelp = (event: MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    void router.navigate({ to: HELP_PATH });
+  };
+  const openRules = (event: MouseEvent<HTMLElement>) => {
     event.preventDefault();
     void router.navigate({ to: LEGAL_PATH, params: { document: 'terms' } });
   };
@@ -283,11 +306,18 @@ function Support() {
     <nav aria-label={t('profile.support')}>
       <Group>
         <Row
+          icon="help"
+          title={ts('help.title')}
+          chevron
+          href={router.history.createHref(HELP_PATH)}
+          onClick={openHelp}
+        />
+        <Row
           icon="file"
           title={t('profile.rules')}
           chevron
           href={router.history.createHref(RULES_HREF)}
-          onClick={open}
+          onClick={openRules}
         />
       </Group>
     </nav>
@@ -318,27 +348,6 @@ function DeletionScheduled({ at }: { at: Date }) {
         </button>
       </span>
     </Banner>
-  );
-}
-
-/** «Удалить аккаунт» — S45 с последствиями и подтверждением. */
-function DeleteAccount() {
-  const { t } = useTranslation('account');
-  const router = useRouter();
-  const open = (event: MouseEvent<HTMLElement>) => {
-    event.preventDefault();
-    void router.navigate({ to: ACCOUNT_PATHS.delete });
-  };
-  return (
-    <Group>
-      <Row
-        icon="trash"
-        title={t('deletion.row')}
-        chevron
-        href={router.history.createHref(ACCOUNT_PATHS.delete)}
-        onClick={open}
-      />
-    </Group>
   );
 }
 
@@ -418,67 +427,6 @@ function AccountHeader({ me }: { me: MeOut }) {
           </Text>
         )}
       </div>
-    </div>
-  );
-}
-
-function Language({ me }: { me: MeOut }) {
-  const { t, i18n } = useTranslation();
-  const locale = useLocale();
-  const queryClient = useQueryClient();
-  // Выбор хранится на сервере (ui_locale), интерфейс следует за ним. en в MVP не выбирается —
-  // тогда отмечен текущий язык, и его выбор тоже сохраняется
-  const saved = isLocale(me.ui_locale) ? me.ui_locale : null;
-  useEffect(() => {
-    if (saved && saved !== locale) void i18n.changeLanguage(saved);
-  }, [i18n, locale, saved]);
-
-  // If-Match не отправляем: mutator отдаёт только тело ответа, ETag из GET /me до экрана не доходит
-  const update = useIdentityUpdateMe({
-    mutation: {
-      // ответ PATCH — тот же MeOut: кладём в кэш раньше смены языка, иначе эффект выше вернёт
-      // старый язык из /me
-      onSuccess: async (next) => {
-        queryClient.setQueryData(getIdentityGetMeQueryKey(), next);
-        if (isLocale(next.ui_locale)) await i18n.changeLanguage(next.ui_locale);
-      },
-      // запрос мог дойти до сервера без ответа — перечитываем /me, но не ждём: иначе мутация
-      // остаётся pending до конца перечитывания, без ошибки и с отброшенными нажатиями
-      onError: () => {
-        void queryClient.invalidateQueries({ queryKey: getIdentityGetMeQueryKey() });
-      },
-    },
-  });
-  const selected = update.isPending ? update.variables.data.ui_locale : (saved ?? locale);
-
-  const choose = (next: Locale) => {
-    if (update.isPending || next === saved) return;
-    update.mutate({ data: { ui_locale: next } });
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <SectionTitle>{t('profile.language')}</SectionTitle>
-      <div
-        role="radiogroup"
-        aria-label={t('profile.language')}
-        aria-busy={update.isPending}
-        className="flex flex-col gap-2"
-      >
-        {LOCALES.map((option) => (
-          <Option
-            key={option}
-            title={<span lang={option}>{LOCALE_NAMES[option]}</span>}
-            checked={option === selected}
-            onChange={() => choose(option)}
-          />
-        ))}
-      </div>
-      {update.isError && (
-        <Banner tone="danger" role="alert">
-          {t('profile.languageError')}
-        </Banner>
-      )}
     </div>
   );
 }
