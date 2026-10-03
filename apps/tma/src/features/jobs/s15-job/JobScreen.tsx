@@ -263,6 +263,8 @@ function Photos({ job }: { job: JobOut }) {
           placeholder={photo.placeholder}
           alt={t('job.photo', { number: index + 1, total })}
           sizes={total === 1 ? '100vw' : '50vw'}
+          // первое фото — вверху экрана: грузится сразу и раньше остальных
+          priority={index === 0}
           className={total === 1 ? 'h-45 w-full' : 'h-25 w-full'}
         />
       ))}

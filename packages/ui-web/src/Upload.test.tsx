@@ -184,6 +184,36 @@ describe('Photo с сервера', () => {
     expect(screen.getByRole('img', { name: 'Кухня' }).getAttribute('sizes')).toBe('auto, 100vw');
   });
 
+  it('фото по одной ссылке (заявки) — тоже с превью, лениво и не в главном потоке', () => {
+    const { container } = render(
+      <Photo
+        alt="Кухня"
+        src="https://cdn.test/j/1/thumb.webp"
+        placeholder="XRgODZpwd4dxiIiHiHiIh3iACPeI"
+        className="size-14"
+      />,
+    );
+    const img = screen.getByRole('img', { name: 'Кухня' });
+
+    expect((container.firstElementChild as HTMLElement).style.backgroundImage).toContain(
+      'data:image/png',
+    );
+    expect(img.getAttribute('src')).toBe('https://cdn.test/j/1/thumb.webp');
+    expect(img.getAttribute('srcset')).toBeNull();
+    expect(img.getAttribute('loading')).toBe('lazy');
+    expect(img.getAttribute('decoding')).toBe('async');
+    fireEvent.error(img);
+    expect(screen.getByRole('img', { name: 'Кухня' }).className).toContain('ph-stripes');
+  });
+
+  it('главное фото экрана грузится сразу и первым', () => {
+    render(<Photo alt="Кухня" variants={variants} priority />);
+    const img = screen.getByRole('img', { name: 'Кухня' });
+
+    expect(img.getAttribute('loading')).toBe('eager');
+    expect(img.getAttribute('fetchpriority')).toBe('high');
+  });
+
   it('битый хэш не мешает показать фото', () => {
     const { container } = render(<Photo alt="Кухня" variants={variants} placeholder="%%%" />);
 

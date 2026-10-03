@@ -84,6 +84,16 @@ export function WorksScreen() {
   );
 }
 
+/** Фото в кэш браузера тем же выбором варианта, что у Photo во всю ширину (`sizes="100vw"`). */
+function preloadPhoto(variants: readonly { url: string; width: number }[]) {
+  if (variants.length === 0) return;
+  const image = new Image();
+  image.decoding = 'async';
+  // sizes — до srcset: иначе браузер успел бы выбрать вариант без него
+  image.sizes = '100vw';
+  image.srcset = variants.map((variant) => `${variant.url} ${variant.width}w`).join(', ');
+}
+
 /** Просмотрщик до ответа: «Закрыть» уже работает, кадр и превью — скелетоном (фон экрана тёмный,
  *  фигуры — цвета поверхности). */
 function Loading({ onClose }: { onClose: () => void }) {
@@ -156,6 +166,13 @@ function Viewer({
     (dx < 0 ? next : previous)?.();
   };
 
+  // соседние работы — заранее: листание не ждёт сети
+  useEffect(() => {
+    for (const near of [items[index - 1], items[index + 1]]) {
+      if (near && near.kind !== 'video') preloadPhoto(cardVariants(near.photo));
+    }
+  }, [index, items]);
+
   const poster = largestVariant(work.photo);
   return (
     <>
@@ -189,6 +206,7 @@ function Viewer({
               sizes="100vw"
               alt={title}
               fit="contain"
+              priority
               className="aspect-5/6 w-full"
             />
           )}

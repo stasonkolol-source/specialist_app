@@ -184,6 +184,7 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
             size="lg"
             src={avatarSrc(card.avatar, AVATAR_LG)}
             placeholder={card.avatar?.placeholder}
+            priority
           />
           <div className="flex min-w-0 grow flex-col gap-1">
             <Heading variant="h2" as="h1" className={favorite && 'pr-8'}>
