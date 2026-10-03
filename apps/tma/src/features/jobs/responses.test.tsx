@@ -5,6 +5,7 @@
 // третий — «удалите один», удаление и новый шаблон.
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { HttpResponse, http } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
@@ -295,6 +296,61 @@ const cardTitles = () =>
   screen.getAllByRole('article').map((card) => card.querySelector('[id]')?.textContent);
 
 describe('S57 templates', () => {
+  it.each([false, true])(
+    'retries after a lost create response, changing the key only for an edited form (edited: %s)',
+    async (edited) => {
+      const backend = withJobs();
+      const attempts: { key: string | null; body: string }[] = [];
+      server.use(
+        http.post('*/api/v1/me/response-templates', async ({ request }) => {
+          const key = request.headers.get('Idempotency-Key');
+          const body = await request.text();
+          const previous = attempts.find((attempt) => attempt.key === key);
+          attempts.push({ key, body });
+          // Сервер сохраняет успешный ответ; тот же ключ с другим телом даёт 422.
+          if (previous && previous.body !== body) {
+            return HttpResponse.json(
+              problem(422, 'idempotency_key_reused').body as Record<string, unknown>,
+              { status: 422 },
+            );
+          }
+          const reply = backend.templated('POST', '/me/response-templates', JSON.parse(body), key);
+          if (attempts.length === 1) return HttpResponse.error();
+          return HttpResponse.json(reply?.body as Record<string, unknown>, {
+            status: reply?.status,
+          });
+        }),
+      );
+      const { telegram } = startApp('/jobs/responses/templates');
+      await waitFor(() => expect(mainButton(telegram)?.text).toBe('Новый шаблон'));
+      await pressMainButton(telegram);
+      const sheet = screen.getByRole('dialog', { name: 'Новый шаблон' });
+      await type(within(sheet).getByRole('textbox', { name: 'Название' }), 'По фото');
+      await type(
+        within(sheet).getByRole('textbox', { name: 'Сообщение клиенту' }),
+        'Пришлите фото — назову точную цену.',
+      );
+      await click(within(sheet).getByRole('radio', { name: 'Договорная' }));
+      await pressMainButton(telegram);
+
+      expect(await screen.findByText('Не получилось сохранить шаблон. Повторите')).toBeTruthy();
+      expect(backend.templates).toHaveLength(1);
+      if (edited) {
+        await type(within(sheet).getByRole('textbox', { name: 'Название' }), 'По описанию');
+      }
+      await pressMainButton(telegram);
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      expect(attempts).toHaveLength(2);
+      expect(attempts[0]?.key).toBeTruthy();
+      expect(attempts[0]?.key === attempts[1]?.key).toBe(!edited);
+      expect(backend.templates).toHaveLength(edited ? 2 : 1);
+      expect(
+        await screen.findByRole('article', { name: edited ? 'По описанию' : 'По фото' }),
+      ).toBeTruthy();
+    },
+  );
+
   it('lists templates, makes one primary and refuses a third', async () => {
     const backend = withJobs((it) => {
       it.templates = templatesFixture();
