@@ -20,8 +20,10 @@ class SqlServiceRepository:
         self._session, self._uow = session, uow
 
     async def list_for_update(self, profile_id: UUID) -> list[Service]:
-        """Весь прайс профиля под блокировкой строк (порядок, лимит) — по позиции."""
+        """Весь прайс по позиции; блокировка профиля защищает порядок и лимит от вставок."""
         self._uow.require_active()
+        key = func.hashtextextended(f"pricing.services:{profile_id}", 0)
+        await self._session.execute(select(func.pg_advisory_xact_lock(key)))
         stmt = (
             select(ServiceRow)
             .where(ServiceRow.profile_id == profile_id, ServiceRow.deleted_at.is_(None))
