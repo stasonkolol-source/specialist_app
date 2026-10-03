@@ -35,3 +35,11 @@ class InvalidDecisionError(DomainValidationError):
     """Решение без машинного кода причины или с неверным кодом."""
 
     code = "invalid_decision"
+
+
+class CaseKindError(ConflictError):
+    """Кейс такого вида так не решить: спор по сделке (`dispute`) решается с исходом сделки —
+    `cli dispute-resolve`, а не `moderation-decide`."""
+
+    code = "case_kind_conflict"
+    public_params = ("entity_type",)

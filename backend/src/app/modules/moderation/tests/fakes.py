@@ -8,6 +8,14 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.deals.api import (
+    AgreedDealIn,
+    DealBrief,
+    DealSummary,
+    DisputeSummary,
+    ProposedDealIn,
+    SettleDisputeIn,
+)
 from app.modules.identity.api import Action, RestrictionIn, TelegramUserView, UserSummary
 from app.modules.moderation.application.ports import ModerationTarget, TargetContent
 from app.modules.moderation.domain.cases import EntityType
@@ -20,8 +28,9 @@ from app.platform.ai.port import (
     PolicyVerdict,
     Unavailable,
 )
-from app.platform.kernel.ids import CaseId, RestrictionId, UserId, new_id
+from app.platform.kernel.ids import CaseId, DealId, MediaId, RestrictionId, UserId, new_id
 from app.platform.kernel.localized import Locale
+from app.platform.kernel.pagination import Page, PageRequest
 from app.platform.kernel.principal import Role
 
 START = datetime(2026, 10, 1, 8, 0, tzinfo=UTC)  # 10:00 в Белграде
@@ -101,6 +110,51 @@ class FakeIdentity:
     async def hidden_from_search(
         self, user_ids: Collection[UserId]
     ) -> dict[UserId, datetime | None]:
+        raise NotImplementedError
+
+
+@dataclass
+class FakeDeals:
+    """Фасад deals для legal hold: стороны и доказательства идущих споров (6.1c). Сам спор
+    проверяют API-тесты tests/integration/test_disputes.py на настоящем модуле."""
+
+    disputing_users: set[UserId] = field(default_factory=set)
+    evidence: set[MediaId] = field(default_factory=set)
+
+    async def disputing(self, user_ids: Collection[UserId]) -> frozenset[UserId]:
+        return frozenset(self.disputing_users & set(user_ids))
+
+    async def dispute_evidence_held(self, media_ids: Collection[MediaId]) -> frozenset[MediaId]:
+        return frozenset(self.evidence & set(media_ids))
+
+    async def create_agreed(self, data: AgreedDealIn) -> DealId:
+        raise NotImplementedError
+
+    async def propose(self, data: ProposedDealIn) -> DealId:
+        raise NotImplementedError
+
+    async def deal_brief(self, deal_id: DealId) -> DealBrief | None:
+        raise NotImplementedError
+
+    async def deal_briefs(self, deal_ids: Collection[DealId]) -> dict[DealId, DealBrief]:
+        raise NotImplementedError
+
+    async def deal_for_response(self, response_id: UUID) -> DealBrief | None:
+        raise NotImplementedError
+
+    async def deal_for(self, deal_id: DealId, viewer_id: UserId) -> DealSummary:
+        raise NotImplementedError
+
+    async def my_deals(self, viewer_id: UserId, page: PageRequest) -> Page[DealSummary]:
+        raise NotImplementedError
+
+    async def deal_dispute(self, deal_id: DealId, viewer_id: UserId) -> DisputeSummary | None:
+        raise NotImplementedError
+
+    async def dispute(self, dispute_id: UUID) -> DisputeSummary | None:
+        raise NotImplementedError
+
+    async def settle_dispute(self, data: SettleDisputeIn) -> DisputeSummary:
         raise NotImplementedError
 
 

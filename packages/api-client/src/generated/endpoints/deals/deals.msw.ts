@@ -16,8 +16,11 @@ import {
   DealPriceType,
   DealRole,
   DealStatus,
+  DisputeKind,
+  DisputeOutcome,
+  DisputeStatus,
 } from '../../model';
-import type { DealOut, DealsPageOut } from '../../model';
+import type { DealOut, DealsPageOut, DisputeOut } from '../../model';
 
 export const getDealsListMyDealsResponseMock = (
   overrideResponse: Partial<Extract<DealsPageOut, object>> = {},
@@ -337,6 +340,240 @@ export const getDealsCancelDealResponseMock = (
   ...overrideResponse,
 });
 
+export const getDealsOpenDisputeResponseMock = (
+  overrideResponse: Partial<Extract<DisputeOut, object>> = {},
+): DisputeOut => ({
+  id: faker.string.uuid(),
+  deal_id: faker.string.uuid(),
+  deal_status: faker.helpers.arrayElement(Object.values(DealStatus)),
+  status: faker.helpers.arrayElement(Object.values(DisputeStatus)),
+  kind: faker.helpers.arrayElement(Object.values(DisputeKind)),
+  opened_by_me: faker.datatype.boolean(),
+  description: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  photos: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      id: faker.string.uuid(),
+      placeholder: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        }),
+      ),
+    }),
+  ),
+  respond_by: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  response: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  response_photos: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1,
+  ).map(() => ({
+    id: faker.string.uuid(),
+    placeholder: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        width: faker.number.int(),
+        height: faker.number.int(),
+      }),
+    ),
+  })),
+  responded_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  unanswered_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  withdrawn_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  outcome: faker.helpers.arrayElement([
+    faker.helpers.arrayElement(Object.values(DisputeOutcome)),
+    null,
+  ]),
+  reason_code: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  resolved_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  ...overrideResponse,
+});
+
+export const getDealsRespondDisputeResponseMock = (
+  overrideResponse: Partial<Extract<DisputeOut, object>> = {},
+): DisputeOut => ({
+  id: faker.string.uuid(),
+  deal_id: faker.string.uuid(),
+  deal_status: faker.helpers.arrayElement(Object.values(DealStatus)),
+  status: faker.helpers.arrayElement(Object.values(DisputeStatus)),
+  kind: faker.helpers.arrayElement(Object.values(DisputeKind)),
+  opened_by_me: faker.datatype.boolean(),
+  description: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  photos: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      id: faker.string.uuid(),
+      placeholder: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        }),
+      ),
+    }),
+  ),
+  respond_by: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  response: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  response_photos: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1,
+  ).map(() => ({
+    id: faker.string.uuid(),
+    placeholder: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        width: faker.number.int(),
+        height: faker.number.int(),
+      }),
+    ),
+  })),
+  responded_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  unanswered_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  withdrawn_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  outcome: faker.helpers.arrayElement([
+    faker.helpers.arrayElement(Object.values(DisputeOutcome)),
+    null,
+  ]),
+  reason_code: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  resolved_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  ...overrideResponse,
+});
+
+export const getDealsWithdrawDisputeResponseMock = (
+  overrideResponse: Partial<Extract<DisputeOut, object>> = {},
+): DisputeOut => ({
+  id: faker.string.uuid(),
+  deal_id: faker.string.uuid(),
+  deal_status: faker.helpers.arrayElement(Object.values(DealStatus)),
+  status: faker.helpers.arrayElement(Object.values(DisputeStatus)),
+  kind: faker.helpers.arrayElement(Object.values(DisputeKind)),
+  opened_by_me: faker.datatype.boolean(),
+  description: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  photos: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      id: faker.string.uuid(),
+      placeholder: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        }),
+      ),
+    }),
+  ),
+  respond_by: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  response: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  response_photos: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1,
+  ).map(() => ({
+    id: faker.string.uuid(),
+    placeholder: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    variants: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        width: faker.number.int(),
+        height: faker.number.int(),
+      }),
+    ),
+  })),
+  responded_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  unanswered_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  withdrawn_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  outcome: faker.helpers.arrayElement([
+    faker.helpers.arrayElement(Object.values(DisputeOutcome)),
+    null,
+  ]),
+  reason_code: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  resolved_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  ...overrideResponse,
+});
+
 export const getDealsListMyDealsMockHandler = (
   overrideResponse?:
     | DealsPageOut
@@ -469,6 +706,72 @@ export const getDealsCancelDealMockHandler = (
     options,
   );
 };
+
+export const getDealsOpenDisputeMockHandler = (
+  overrideResponse?:
+    | DisputeOut
+    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<DisputeOut> | DisputeOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/api/v1/deals/:dealId/dispute',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getDealsOpenDisputeResponseMock(),
+        { status: 201 },
+      );
+    },
+    options,
+  );
+};
+
+export const getDealsRespondDisputeMockHandler = (
+  overrideResponse?:
+    | DisputeOut
+    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<DisputeOut> | DisputeOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/api/v1/deals/:dealId/dispute/respond',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getDealsRespondDisputeResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getDealsWithdrawDisputeMockHandler = (
+  overrideResponse?:
+    | DisputeOut
+    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<DisputeOut> | DisputeOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/api/v1/deals/:dealId/dispute/withdraw',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getDealsWithdrawDisputeResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getDealsMock = () => [
   getDealsListMyDealsMockHandler(),
   getDealsGetDealMockHandler(),
@@ -476,4 +779,7 @@ export const getDealsMock = () => [
   getDealsDeclineDealMockHandler(),
   getDealsCompleteDealMockHandler(),
   getDealsCancelDealMockHandler(),
+  getDealsOpenDisputeMockHandler(),
+  getDealsRespondDisputeMockHandler(),
+  getDealsWithdrawDisputeMockHandler(),
 ];

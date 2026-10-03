@@ -618,6 +618,18 @@ msgstr "Sa dogovorom u ovom statusu to nije moguće."
 msgid "errors.invalid_deal"
 msgstr "Proverite dogovor: nešto nije dobro popunjeno."
 
+msgid "errors.dispute_not_found"
+msgstr "Spor nije pronađen."
+
+msgid "errors.dispute_state_conflict"
+msgstr "Sa sporom to sada nije moguće: već je rešen ili povučen, ili je odgovor već dat."
+
+msgid "errors.invalid_dispute"
+msgstr "Proverite spor: nešto nije dobro popunjeno."
+
+msgid "errors.case_kind_conflict"
+msgstr "Spor o dogovoru se rešava sa ishodom dogovora — komandom dispute-resolve."
+
 # Обавештења (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
 msgid "errors.notification_group_mandatory"
 msgstr "Službena obaveštenja ne mogu da se isključe: tiču se odluka moderacije i ograničenja naloga."
@@ -675,6 +687,12 @@ msgstr "Fotografija nije objavljena"
 
 msgid "notifications.moderation_decision.title.other"
 msgstr "Sadržaj nije prošao proveru"
+
+msgid "notifications.moderation_decision.title.dispute"
+msgstr "Odluka o sporu: prekršaj"
+
+msgid "notifications.moderation_decision.body_dispute"
+msgstr "Podrška je razmotrila spor o dogovoru i utvrdila prekršaj: {reason}."
 
 msgid "notifications.moderation_decision.body"
 msgstr "Razlog: {reason}. Ispravite i pošaljite ponovo."
@@ -936,6 +954,75 @@ msgstr "Da, sve je u redu"
 
 msgid "notifications.deal_completion_prompt.problem"
 msgstr "Postoji problem"
+
+msgid "notifications.dispute_opened.title"
+msgstr "Problem sa dogovorom"
+
+msgid "notifications.dispute_opened.body_client"
+msgstr "Naručilac je prijavio problem sa dogovorom „{title}“: {kind}."
+
+msgid "notifications.dispute_opened.body_performer"
+msgstr "Izvođač je prijavio problem sa dogovorom „{title}“: {kind}."
+
+msgid "notifications.dispute_opened.deadline"
+msgstr "Odgovorite do {when} — u suprotnom će podrška odlučiti bez vašeg odgovora."
+
+msgid "notifications.dispute_opened.button"
+msgstr "Odgovori"
+
+msgid "notifications.dispute_kind.no_show"
+msgstr "nije došao"
+
+msgid "notifications.dispute_kind.quality"
+msgstr "uradio je loše ili pogrešno"
+
+msgid "notifications.dispute_kind.prepayment_taken"
+msgstr "uzeo je avans ili traži više"
+
+msgid "notifications.dispute_kind.damage"
+msgstr "šteta na imovini"
+
+msgid "notifications.dispute_kind.safety"
+msgstr "šteta, grubost ili pretnje"
+
+msgid "notifications.dispute_kind.other"
+msgstr "drugo"
+
+msgid "notifications.dispute_resolved.title"
+msgstr "Odluka o sporu"
+
+msgid "notifications.dispute_resolved.body_completed"
+msgstr "Podrška je razmotrila spor o dogovoru „{title}“ i završila dogovor. Razlog: {reason}."
+
+msgid "notifications.dispute_resolved.body_cancelled"
+msgstr "Podrška je razmotrila spor o dogovoru „{title}“ i otkazala dogovor. Razlog: {reason}."
+
+msgid "notifications.dispute_resolved.button"
+msgstr "Pogledaj odluku"
+
+msgid "notifications.dispute_reason.work_done"
+msgstr "posao je urađen"
+
+msgid "notifications.dispute_reason.not_done"
+msgstr "posao nije urađen"
+
+msgid "notifications.dispute_reason.no_show"
+msgstr "sastanak se nije održao"
+
+msgid "notifications.dispute_reason.poor_quality"
+msgstr "posao je urađen sa nedostacima"
+
+msgid "notifications.dispute_reason.prepayment_scam"
+msgstr "prekršena su pravila o plaćanju"
+
+msgid "notifications.dispute_reason.no_response"
+msgstr "druga strana nije odgovorila na spor"
+
+msgid "notifications.dispute_reason.mutual"
+msgstr "strane su se međusobno dogovorile"
+
+msgid "notifications.dispute_reason.other"
+msgstr "odluka na osnovu materijala spora"
 
 msgid "notifications.job.extend"
 msgstr "Produži"

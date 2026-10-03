@@ -645,6 +645,70 @@ def moderation_decide(
         raise typer.Exit(code=1)
 
 
+class DisputeOutcome(StrEnum):
+    """Исход сделки по спору (6.1c)."""
+
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+@app.command("dispute-show")
+def dispute_show(
+    case: Annotated[str, typer.Argument(help="id кейса спора из moderation-queue (dispute/…)")],
+    by: Annotated[int, typer.Option("--by", help="Telegram id модератора (staff-grant)")],
+) -> None:
+    """Спор по сделке (DEVELOPMENT_PLAN 6.1c): стороны, что случилось, ответ, сроки и ссылки на
+    фото-доказательства на 5 минут. Просмотр пишется в журнал аудита."""
+    outcome = asyncio.run(_moderation(lambda c: _dispute_show(c, case_ref=case, by_telegram_id=by)))
+    for line in outcome.lines:
+        typer.echo(line, err=not outcome.ok)
+    if not outcome.ok:
+        raise typer.Exit(code=1)
+
+
+@app.command("dispute-resolve")
+def dispute_resolve(
+    case: Annotated[str, typer.Argument(help="id кейса спора из moderation-queue (dispute/…)")],
+    outcome: Annotated[
+        DisputeOutcome,
+        typer.Argument(help="completed — работа выполнена, cancelled — сделка отменена"),
+    ],
+    by: Annotated[int, typer.Option("--by", help="Telegram id модератора (staff-grant)")],
+    reason: Annotated[
+        str,
+        typer.Option(
+            "--reason",
+            help="Код причины: work_done, not_done, no_show, poor_quality, prepayment_scam,"
+            " no_response, mutual, other",
+        ),
+    ],
+    severity: Annotated[
+        SeverityOption | None,
+        typer.Option("--severity", help="Санкция второй стороне (о ком спор) по лестнице"),
+    ] = None,
+    note: Annotated[str | None, typer.Option("--note", help="Заметка для журнала")] = None,
+) -> None:
+    """Решение по спору (DEVELOPMENT_PLAN 6.1c): сделка завершена или отменена, сторонам —
+    решение с причиной; --severity — санкция второй стороне."""
+    result = asyncio.run(
+        _moderation(
+            lambda c: _dispute_resolve(
+                c,
+                case_ref=case,
+                outcome=outcome.value,
+                by_telegram_id=by,
+                reason=reason,
+                severity=severity.value if severity else None,
+                note=note,
+            )
+        )
+    )
+    for line in result.lines:
+        typer.echo(line, err=not result.ok)
+    if not result.ok:
+        raise typer.Exit(code=1)
+
+
 async def _moderation(
     run: Callable[[AsyncContainer], Awaitable[CliOutcome]],
 ) -> CliOutcome:
@@ -667,6 +731,18 @@ async def _decide(container: AsyncContainer, **kwargs: Any) -> CliOutcome:
     from app.entrypoints._moderation_cli import moderation_decide as run_decide
 
     return await run_decide(container, **kwargs)
+
+
+async def _dispute_show(container: AsyncContainer, **kwargs: Any) -> CliOutcome:
+    from app.entrypoints._moderation_cli import dispute_show as run_show
+
+    return await run_show(container, **kwargs)
+
+
+async def _dispute_resolve(container: AsyncContainer, **kwargs: Any) -> CliOutcome:
+    from app.entrypoints._moderation_cli import dispute_resolve as run_resolve
+
+    return await run_resolve(container, **kwargs)
 
 
 @app.command("notify-test")

@@ -25,9 +25,11 @@ from app.modules.notifications.domain.settings import NotificationSettings
 from app.platform.contracts.events.deals import (
     DealCancelled,
     DealCompletionDue,
+    DealDisputed,
     DealMarkedDone,
     DealProposed,
     DealReminderDue,
+    DisputeResolved,
 )
 from app.platform.contracts.events.identity import BotStarted, UserDeleted, UserRestricted
 from app.platform.contracts.events.jobs import (
@@ -295,6 +297,17 @@ NOTIFY_DEAL_MARKED: Final = TaskRef(
 )
 """Подписчик DealMarkedDone: второй стороне — «Работа выполнена?» сразу (B2, 7.3): «исполнитель
 (клиент) отметил работу выполненной. Всё в порядке?»."""
+
+NOTIFY_DISPUTE_OPENED: Final = TaskRef(
+    "notifications.notify_dispute_opened", DealDisputed, queue="notifications"
+)
+"""Подписчик DealDisputed: второй стороне — «сообщил о проблеме», 48 ч на ответ и «Ответить»
+(S52, 6.1c), пока спор ждёт ответа."""
+NOTIFY_DISPUTE_RESOLVED: Final = TaskRef(
+    "notifications.notify_dispute_resolved", DisputeResolved, queue="notifications"
+)
+"""Подписчик DisputeResolved: обеим сторонам — решение поддержки по спору и причина (statement
+of reasons, 6.1c)."""
 
 NOTIFY_REVIEW_REQUEST: Final = TaskRef(
     "notifications.notify_review_request", ReviewRequested, queue="notifications"

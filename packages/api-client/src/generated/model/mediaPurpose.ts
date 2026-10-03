@@ -14,4 +14,5 @@ export const MediaPurpose = {
   message: 'message',
   review: 'review',
   verification: 'verification',
+  dispute: 'dispute',
 } as const;

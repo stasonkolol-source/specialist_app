@@ -556,6 +556,7 @@ export const ViewsGetDealCardResponse = zod.object({
       'other',
       'expired',
       'account_deleted',
+      'dispute',
     ]),
     zod.null(),
   ]),
@@ -584,6 +585,69 @@ export const ViewsGetDealCardResponse = zod.object({
     .describe(
       'Клиент может оставить отзыв до этого времени (14 дней после завершения); null — нельзя или уже оставлен',
     ),
+  dispute: zod
+    .union([
+      zod
+        .object({
+          id: zod.uuid(),
+          deal_id: zod.uuid(),
+          deal_status: zod.enum(['proposed', 'agreed', 'completed', 'cancelled', 'disputed']),
+          status: zod
+            .enum(['open', 'answered', 'no_response', 'resolved', 'withdrawn'])
+            .describe(
+              'open — ждём ответа, answered, no_response — 48 ч без ответа, resolved, withdrawn',
+            ),
+          kind: zod.enum(['no_show', 'quality', 'prepayment_taken', 'damage', 'safety', 'other']),
+          opened_by_me: zod.boolean(),
+          description: zod.string(),
+          photos: zod.array(
+            zod.object({
+              id: zod.uuid(),
+              placeholder: zod.union([zod.string(), zod.null()]),
+              variants: zod
+                .array(
+                  zod.object({
+                    name: zod.string().describe('thumb 320 · md 800 · lg 1600'),
+                    url: zod.string(),
+                    width: zod.int(),
+                    height: zod.int(),
+                  }),
+                )
+                .describe('presigned GET на 5 минут; до обработки — []'),
+            }),
+          ),
+          respond_by: zod.iso.datetime({ offset: true }),
+          response: zod.union([zod.string(), zod.null()]),
+          response_photos: zod.array(
+            zod.object({
+              id: zod.uuid(),
+              placeholder: zod.union([zod.string(), zod.null()]),
+              variants: zod
+                .array(
+                  zod.object({
+                    name: zod.string().describe('thumb 320 · md 800 · lg 1600'),
+                    url: zod.string(),
+                    width: zod.int(),
+                    height: zod.int(),
+                  }),
+                )
+                .describe('presigned GET на 5 минут; до обработки — []'),
+            }),
+          ),
+          responded_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+          unanswered_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+          withdrawn_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+          outcome: zod.union([zod.enum(['completed', 'cancelled']), zod.null()]),
+          reason_code: zod.union([zod.string(), zod.null()]),
+          resolved_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+          created_at: zod.iso.datetime({ offset: true }),
+        })
+        .describe(
+          'Спор по сделке стороне (S52): та же форма, что ответ `POST /deals/{id}/dispute…`.',
+        ),
+      zod.null(),
+    ])
+    .describe('Последний спор по сделке (S52): идущий, решённый или отозванный'),
 });
 
 /**
@@ -642,6 +706,7 @@ export const ViewsListDealHistoryResponse = zod.object({
           'other',
           'expired',
           'account_deleted',
+          'dispute',
         ]),
         zod.null(),
       ]),

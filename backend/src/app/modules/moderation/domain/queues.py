@@ -21,3 +21,9 @@ PRIORITY: Final = (Queue.SAFETY, Queue.FRAUD, Queue.PREMOD, Queue.APPEALS)
 
 def stricter(a: Queue, b: Queue) -> Queue:
     return a if PRIORITY.index(a) <= PRIORITY.index(b) else b
+
+
+def dispute_queue(kind: str) -> Queue:
+    """Очередь спора (6.1c): «ущерб, грубость или угрозы» — безопасность P0, остальные — P1
+    (в MVP туда же, где мошенничество и заявления третьих лиц)."""
+    return Queue.SAFETY if kind == "safety" else Queue.FRAUD

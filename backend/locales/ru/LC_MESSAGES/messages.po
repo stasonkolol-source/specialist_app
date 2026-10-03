@@ -617,6 +617,18 @@ msgstr "Со сделкой в этом статусе так нельзя."
 msgid "errors.invalid_deal"
 msgstr "Проверьте сделку: что-то заполнено не так."
 
+msgid "errors.dispute_not_found"
+msgstr "Спор не найден."
+
+msgid "errors.dispute_state_conflict"
+msgstr "Со спором так сейчас нельзя: он уже решён или отозван, либо ответ уже дан."
+
+msgid "errors.invalid_dispute"
+msgstr "Проверьте спор: что-то заполнено не так."
+
+msgid "errors.case_kind_conflict"
+msgstr "Спор по сделке решается с исходом сделки — командой dispute-resolve."
+
 # Уведомления (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
 msgid "errors.notification_group_mandatory"
 msgstr "Служебные уведомления нельзя выключить: они о решениях модерации и ограничениях аккаунта."
@@ -674,6 +686,12 @@ msgstr "Фото не опубликовано"
 
 msgid "notifications.moderation_decision.title.other"
 msgstr "Материал не прошёл проверку"
+
+msgid "notifications.moderation_decision.title.dispute"
+msgstr "Решение по спору: нарушение"
+
+msgid "notifications.moderation_decision.body_dispute"
+msgstr "Поддержка рассмотрела спор по сделке и нашла нарушение: {reason}."
 
 msgid "notifications.moderation_decision.body"
 msgstr "Причина: {reason}. Исправьте и отправьте снова."
@@ -935,6 +953,75 @@ msgstr "Да, всё хорошо"
 
 msgid "notifications.deal_completion_prompt.problem"
 msgstr "Есть проблема"
+
+msgid "notifications.dispute_opened.title"
+msgstr "Проблема со сделкой"
+
+msgid "notifications.dispute_opened.body_client"
+msgstr "Клиент сообщил о проблеме со сделкой «{title}»: {kind}."
+
+msgid "notifications.dispute_opened.body_performer"
+msgstr "Исполнитель сообщил о проблеме со сделкой «{title}»: {kind}."
+
+msgid "notifications.dispute_opened.deadline"
+msgstr "Ответьте до {when} — иначе поддержка решит без вашего ответа."
+
+msgid "notifications.dispute_opened.button"
+msgstr "Ответить"
+
+msgid "notifications.dispute_kind.no_show"
+msgstr "не пришёл"
+
+msgid "notifications.dispute_kind.quality"
+msgstr "сделал плохо или не то"
+
+msgid "notifications.dispute_kind.prepayment_taken"
+msgstr "взял предоплату или просит больше"
+
+msgid "notifications.dispute_kind.damage"
+msgstr "ущерб имуществу"
+
+msgid "notifications.dispute_kind.safety"
+msgstr "ущерб, грубость или угрозы"
+
+msgid "notifications.dispute_kind.other"
+msgstr "другое"
+
+msgid "notifications.dispute_resolved.title"
+msgstr "Решение по спору"
+
+msgid "notifications.dispute_resolved.body_completed"
+msgstr "Поддержка рассмотрела спор по сделке «{title}» и завершила сделку. Причина: {reason}."
+
+msgid "notifications.dispute_resolved.body_cancelled"
+msgstr "Поддержка рассмотрела спор по сделке «{title}» и отменила сделку. Причина: {reason}."
+
+msgid "notifications.dispute_resolved.button"
+msgstr "Посмотреть решение"
+
+msgid "notifications.dispute_reason.work_done"
+msgstr "работа выполнена"
+
+msgid "notifications.dispute_reason.not_done"
+msgstr "работа не выполнена"
+
+msgid "notifications.dispute_reason.no_show"
+msgstr "встреча не состоялась"
+
+msgid "notifications.dispute_reason.poor_quality"
+msgstr "работа выполнена с недостатками"
+
+msgid "notifications.dispute_reason.prepayment_scam"
+msgstr "нарушены правила об оплате"
+
+msgid "notifications.dispute_reason.no_response"
+msgstr "вторая сторона не ответила на спор"
+
+msgid "notifications.dispute_reason.mutual"
+msgstr "стороны договорились между собой"
+
+msgid "notifications.dispute_reason.other"
+msgstr "решение по материалам спора"
 
 msgid "notifications.job.extend"
 msgstr "Продлить"

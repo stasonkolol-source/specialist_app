@@ -57,3 +57,12 @@ def add_working_time(
                 return (local + remaining).astimezone(UTC)
             remaining -= closes - local
         local = datetime.combine(local.date() + timedelta(days=1), WORKDAY_START, tzinfo=tz)
+
+
+def dispute_due_at(queue: Queue, opened_at: datetime, respond_by: datetime) -> datetime:
+    """Срок кейса спора: P0 — сразу по SLA (угрозы не ждут); P1 — SLA с конца 48 ч на ответ:
+    решать раньше, чем ответит вторая сторона, модератору нечего. Ответ раньше срока
+    приближает его (Case.add_trigger)."""
+    if queue is Queue.SAFETY:
+        return due_at(queue, opened_at)
+    return due_at(queue, max(opened_at, respond_by))

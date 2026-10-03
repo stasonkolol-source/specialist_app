@@ -13,6 +13,12 @@ from app.modules.moderation.domain.risk import RiskSignal
 from app.modules.moderation.domain.rules import ContentRule, RuleSet
 from app.modules.moderation.domain.sanctions import Sanction
 from app.platform.ai.port import ContentKind
+from app.platform.contracts.events.deals import (
+    DealDisputed,
+    DisputeAnswered,
+    DisputeUnanswered,
+    DisputeWithdrawn,
+)
 from app.platform.contracts.events.identity import UserRegistered
 from app.platform.contracts.events.moderation import ModerationRequested
 from app.platform.kernel.ids import CaseId, MediaId, UserId
@@ -153,3 +159,12 @@ AUTO_CHECK: Final = TaskRef("moderation.auto_check", ModerationRequested)
 
 RECORD_REREGISTRATION: Final = TaskRef("moderation.record_reregistration", UserRegistered)
 """Подписчик UserRegistered: повторная регистрация после удаления — сигнал риска (2.12)."""
+
+OPEN_DISPUTE_CASE: Final = TaskRef("moderation.open_dispute_case", DealDisputed)
+"""Спор открыт (6.1c): кейс `dispute` в очереди P1 (угрозы — P0)."""
+NOTE_DISPUTE_ANSWER: Final = TaskRef("moderation.note_dispute_answer", DisputeAnswered)
+"""Вторая сторона ответила: повод «answered» и её фото — в кейс."""
+NOTE_DISPUTE_UNANSWERED: Final = TaskRef("moderation.note_dispute_unanswered", DisputeUnanswered)
+"""48 ч без ответа: пометка «нет ответа» в кейсе."""
+CLOSE_DISPUTE_CASE: Final = TaskRef("moderation.close_dispute_case", DisputeWithdrawn)
+"""Спор отозван: кейс закрыт без решения."""

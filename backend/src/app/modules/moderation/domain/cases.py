@@ -10,6 +10,10 @@
 `approved` — нарушения нет; `rejected` — нарушение: контент скрыт, санкция — по лестнице
 (domain/sanctions.py). Решение пишет машинный код причины и версию политики модерации и
 публикует ModerationDecisionMade — statement of reasons для автора. Итог апелляции — 2.5b.
+
+Спор по сделке (6.1c) — кейс объекта `dispute`: `subject_id` — вторая сторона, о ней спор.
+Модератор решает его с исходом сделки (ResolveDispute), а отзыв спора закрывает кейс без
+решения (`withdraw`).
 """
 
 import re
@@ -45,6 +49,8 @@ class EntityType(StrEnum):
     """Ответ исполнителя на отзыв (7.2): проверяется отдельно, нарушение скрывает только его."""
     MESSAGE = "message"
     MEDIA = "media"
+    DISPUTE = "dispute"
+    """Спор по сделке (6.1c): `entity_id` — id спора в deals."""
 
 
 class CaseTrigger(StrEnum):
@@ -53,6 +59,13 @@ class CaseTrigger(StrEnum):
     REPORT = "report"
     AUTO_FLAG = "auto_flag"
     APPEAL = "appeal"
+    DISPUTE = "dispute"
+    """Сторона сделки открыла спор (6.1c); ответ второй стороны и «нет ответа» — тоже поводы
+    этого типа (`details.event`)."""
+
+
+WITHDRAWN: Final = "dispute_withdrawn"
+"""Код причины закрытия кейса, когда спор отозван: решать нечего."""
 
 
 class CaseStatus(StrEnum):
@@ -111,7 +124,9 @@ class Case(AggregateRoot):
         details: Mapping[str, object] | None = None,
         media_ids: Iterable[MediaId] = (),
         appeal_of: CaseId | None = None,
+        due: datetime | None = None,
     ) -> Case:
+        """`due` — свой срок вместо SLA очереди: спор ждёт ответа второй стороны 48 ч."""
         return cls(
             id=CaseId(new_id()),
             queue=queue,
@@ -121,7 +136,7 @@ class Case(AggregateRoot):
             trigger=trigger,
             status=CaseStatus.PENDING,
             opened_at=now,
-            due_at=due_at(queue, now),
+            due_at=due if due is not None else due_at(queue, now),
             evidence=[_evidence(trigger, now, details)],
             media_ids=tuple(dict.fromkeys(media_ids)),
             appeal_of=appeal_of,
@@ -151,6 +166,19 @@ class Case(AggregateRoot):
         self.due_at = min(self.due_at, due_at(queue, now))
         self.evidence.append(_evidence(trigger, now, details))
         self.media_ids = tuple(dict.fromkeys((*self.media_ids, *media_ids)))
+
+    def has_event(self, event: str) -> bool:
+        """Повод с `details.event` уже записан: повтор задачи не дублирует пометку."""
+        return any(entry.get("event") == event for entry in self.evidence)
+
+    def withdraw(self, *, policy_version: str, now: datetime) -> None:
+        """Повод отпал (спор отозван открывшим): кейс закрыт как «нарушения нет», без statement
+        of reasons — решать нечего. Из любого открытого статуса, даже взятый модератором."""
+        self._ensure_open()
+        self.status = CaseStatus.APPROVED
+        self.reason_code = WITHDRAWN
+        self.policy_version = policy_version
+        self.decided_at = now
 
     def take(self, moderator: UserId) -> None:
         """Модератор взял кейс в работу; повтор тем же модератором ничего не меняет."""

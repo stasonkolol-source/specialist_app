@@ -6,12 +6,14 @@ const START_PARAM_RE = /^[A-Za-z0-9_-]+$/;
 /** Префикс партнёрской программы Telegram: такие параметры не наши. */
 const TELEGRAM_RESERVED_PREFIX = '_tgr_';
 
-/** Сущности с экраном в Mini App; тип → префикс кода. */
+/** Сущности с экраном в Mini App; тип → префикс кода. `p_` — проблема со сделкой (спор S52, 6.1c):
+ *  id сделки, экран — сразу спор, а не S26. */
 export const ENTITY_PREFIX = {
   job: 'j',
   specialist: 's',
   chat: 'c',
   deal: 'd',
+  dispute: 'p',
 } as const;
 export type EntityType = keyof typeof ENTITY_PREFIX;
 

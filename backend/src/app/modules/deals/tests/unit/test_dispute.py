@@ -72,7 +72,7 @@ def agreed() -> Deal:
 
 
 def opened(deal: Deal, by: UserId = CLIENT) -> Dispute:
-    dispute = Dispute.open(
+    return Dispute.open(
         dispute_id=DisputeId(new_id()),
         deal=deal,
         actor_id=by,
@@ -81,7 +81,11 @@ def opened(deal: Deal, by: UserId = CLIENT) -> Dispute:
         media_ids=(PHOTO, PHOTO),
         now=NOW,
     )
-    return dispute
+
+
+def status_of(dispute: Dispute) -> DisputeStatus:
+    """Статус после действия: mypy не сужает его по прошлому assert."""
+    return dispute.status
 
 
 def test_open_disputes_the_deal_and_gives_48_hours() -> None:
@@ -207,11 +211,11 @@ def test_no_answer_in_48_hours_marks_once_and_late_answer_is_accepted() -> None:
     assert dispute.mark_unanswered(now=NOW + RESPONSE_WINDOW)
     assert not dispute.mark_unanswered(now=NOW + RESPONSE_WINDOW + timedelta(hours=1))
 
-    assert dispute.status is DisputeStatus.NO_RESPONSE
+    assert status_of(dispute) is DisputeStatus.NO_RESPONSE
     [event] = dispute.pull_events()
     assert isinstance(event, DisputeUnanswered)
     dispute.respond(actor_id=PERFORMER, text="Не видел уведомление", media_ids=(), now=NOW)
-    assert dispute.status is DisputeStatus.ANSWERED
+    assert status_of(dispute) is DisputeStatus.ANSWERED
 
 
 def test_answered_dispute_is_not_marked_unanswered() -> None:

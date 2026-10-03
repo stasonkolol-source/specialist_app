@@ -4,6 +4,7 @@
  * Соседи API
  * OpenAPI spec version: 1.0.0
  */
+import type { DealCardDisputeOut } from './dealCardDisputeOut.ts';
 import type { DealCardOutCancelReason } from './dealCardOutCancelReason.ts';
 import type { DealCardOutMyRole } from './dealCardOutMyRole.ts';
 import type { DealCardOutOrigin } from './dealCardOutOrigin.ts';
@@ -53,4 +54,6 @@ export interface DealCardOut {
   my_review: DealReviewOut | null;
   /** Клиент может оставить отзыв до этого времени (14 дней после завершения); null — нельзя или уже оставлен */
   review_until: string | null;
+  /** Последний спор по сделке (S52): идущий, решённый или отозванный */
+  dispute: DealCardDisputeOut | null;
 }

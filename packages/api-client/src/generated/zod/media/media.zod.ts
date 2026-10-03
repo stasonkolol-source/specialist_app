@@ -24,7 +24,7 @@ export const mediaStartUploadBodyMimeTypeMin = 3;
 export const mediaStartUploadBodyMimeTypeMax = 100;
 
 export const MediaStartUploadBody = zod.object({
-  purpose: zod.enum(['avatar', 'portfolio', 'job', 'message', 'review', 'verification']),
+  purpose: zod.enum(['avatar', 'portfolio', 'job', 'message', 'review', 'verification', 'dispute']),
   mime_type: zod.string().min(mediaStartUploadBodyMimeTypeMin).max(mediaStartUploadBodyMimeTypeMax),
   size_bytes: zod.int().min(1),
 });
@@ -100,7 +100,7 @@ export const MediaCompleteUploadBody = zod.object({
 export const MediaCompleteUploadResponse = zod.object({
   id: zod.uuid(),
   kind: zod.enum(['image', 'video', 'document']),
-  purpose: zod.enum(['avatar', 'portfolio', 'job', 'message', 'review', 'verification']),
+  purpose: zod.enum(['avatar', 'portfolio', 'job', 'message', 'review', 'verification', 'dispute']),
   status: zod.enum([
     'pending_upload',
     'uploaded',
@@ -156,7 +156,7 @@ export const MediaGetMediaParams = zod.object({
 export const MediaGetMediaResponse = zod.object({
   id: zod.uuid(),
   kind: zod.enum(['image', 'video', 'document']),
-  purpose: zod.enum(['avatar', 'portfolio', 'job', 'message', 'review', 'verification']),
+  purpose: zod.enum(['avatar', 'portfolio', 'job', 'message', 'review', 'verification', 'dispute']),
   status: zod.enum([
     'pending_upload',
     'uploaded',

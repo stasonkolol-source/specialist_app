@@ -11,6 +11,8 @@
 - Объект кейса (2.6): одобрение публикует его, если он ждал проверки, и снимает заморозку,
   которую поставила автопроверка; отказ скрывает его. Через адаптер цели — фасад модуля.
 - Решение и санкция пишутся в audit_log. Роль модератора проверяет точка входа (2.5b, 2.7).
+- Спор по сделке (6.1c) так не решить: у него обязателен исход сделки — ResolveDispute, который
+  решает кейс тем же CaseDecider в своей транзакции.
 """
 
 from dataclasses import dataclass
@@ -25,7 +27,7 @@ from app.modules.moderation.application.ports import (
     RiskSignals,
     SanctionRepository,
 )
-from app.modules.moderation.domain.cases import Case, CaseTrigger
+from app.modules.moderation.domain.cases import Case, CaseTrigger, EntityType
 from app.modules.moderation.domain.risk import RiskSignal, RiskSignalKind
 from app.modules.moderation.domain.sanctions import (
     EFFECTS,
@@ -34,7 +36,7 @@ from app.modules.moderation.domain.sanctions import (
     Severity,
     next_step,
 )
-from app.modules.moderation.errors import InvalidDecisionError
+from app.modules.moderation.errors import CaseKindError, InvalidDecisionError
 from app.platform.audit.port import ActorKind, AuditEntry, AuditLog
 from app.platform.contracts.events.moderation import ModerationDecision
 from app.platform.db.port import UnitOfWork
@@ -56,66 +58,63 @@ class DecideCaseCommand:
     note: str | None = None
 
 
-class DecideCase:
+class CaseDecider:
+    """Решение по кейсу в транзакции вызывающего: DecideCase и ResolveDispute (6.1c)."""
+
     def __init__(
         self,
-        uow: UnitOfWork,
         cases: CaseRepository,
         sanctions: SanctionRepository,
         signals: RiskSignals,
         identity: IdentityApi,
         targets: ModerationTargets,
-        policy: ModerationPolicy,
         audit: AuditLog,
-        clock: Clock,
     ) -> None:
-        self._uow, self._cases, self._sanctions, self._signals = uow, cases, sanctions, signals
-        self._identity, self._targets, self._policy = identity, targets, policy
-        self._audit, self._clock = audit, clock
+        self._cases, self._sanctions, self._signals = cases, sanctions, signals
+        self._identity, self._targets, self._audit = identity, targets, audit
 
-    async def __call__(self, cmd: DecideCaseCommand) -> CaseDecision:
+    async def decide(
+        self, case: Case, cmd: DecideCaseCommand, *, policy_version: str, now: datetime
+    ) -> CaseDecision:
+        """Кейс уже под блокировкой строки (get_for_update вызывающего)."""
         if cmd.severity is not None and cmd.verdict is not ModerationDecision.REJECTED:
             raise InvalidDecisionError(field="severity")
-        policy_version = await self._policy.version()
-        now = self._clock.now()
         actor = ActorKind.STAFF if cmd.moderator_id is not None else ActorKind.SYSTEM
-        async with self._uow:
-            case = await self._cases.get_for_update(cmd.case_id)
-            step = None
-            if cmd.severity is not None:
-                counted = await self._sanctions.counted(case.subject_id, now)
-                step = next_step(cmd.severity, counted)
-            case.decide(
-                verdict=cmd.verdict,
-                reason_code=cmd.reason_code,
-                policy_version=policy_version,
-                now=now,
-                by=cmd.moderator_id,
-                sanction=step,
-                note=cmd.note,
+        step = None
+        if cmd.severity is not None:
+            counted = await self._sanctions.counted(case.subject_id, now)
+            step = next_step(cmd.severity, counted)
+        case.decide(
+            verdict=cmd.verdict,
+            reason_code=cmd.reason_code,
+            policy_version=policy_version,
+            now=now,
+            by=cmd.moderator_id,
+            sanction=step,
+            note=cmd.note,
+        )
+        await self._cases.save(case)
+        await self._apply_to_target(case, cmd.verdict)
+        restriction_id = None
+        if step is not None:
+            restriction_id = await self._impose(case, step, cmd.moderator_id, now=now)
+        if cmd.verdict is ModerationDecision.REJECTED and case.reported:
+            await self._confirm_report(case, sanctioned=step is not None)
+        await self._audit.record(
+            AuditEntry(
+                action="moderation.case.decided",
+                actor_kind=actor,
+                actor_id=cmd.moderator_id,
+                entity_type="moderation.case",
+                entity_id=case.id,
+                changes={
+                    "status": case.status.value,
+                    "reason_code": case.reason_code,
+                    "policy_version": policy_version,
+                    "sanction": step.value if step is not None else None,
+                },
             )
-            await self._cases.save(case)
-            await self._apply_to_target(case, cmd.verdict)
-            restriction_id = None
-            if step is not None:
-                restriction_id = await self._impose(case, step, cmd.moderator_id, now=now)
-            if cmd.verdict is ModerationDecision.REJECTED and case.reported:
-                await self._confirm_report(case, sanctioned=step is not None)
-            await self._audit.record(
-                AuditEntry(
-                    action="moderation.case.decided",
-                    actor_kind=actor,
-                    actor_id=cmd.moderator_id,
-                    entity_type="moderation.case",
-                    entity_id=case.id,
-                    changes={
-                        "status": case.status.value,
-                        "reason_code": case.reason_code,
-                        "policy_version": policy_version,
-                        "sanction": step.value if step is not None else None,
-                    },
-                )
-            )
+        )
         return CaseDecision(
             case_id=case.id, status=case.status, sanction=step, restriction_id=restriction_id
         )
@@ -192,3 +191,27 @@ class DecideCase:
         )
         if not sanctioned:  # санкция уже опустила уровень доверия
             await self._identity.record_violation(case.subject_id)
+
+
+class DecideCase:
+    def __init__(
+        self,
+        uow: UnitOfWork,
+        cases: CaseRepository,
+        decider: CaseDecider,
+        policy: ModerationPolicy,
+        clock: Clock,
+    ) -> None:
+        self._uow, self._cases, self._decider = uow, cases, decider
+        self._policy, self._clock = policy, clock
+
+    async def __call__(self, cmd: DecideCaseCommand) -> CaseDecision:
+        if cmd.severity is not None and cmd.verdict is not ModerationDecision.REJECTED:
+            raise InvalidDecisionError(field="severity")
+        policy_version = await self._policy.version()
+        now = self._clock.now()
+        async with self._uow:
+            case = await self._cases.get_for_update(cmd.case_id)
+            if case.entity_type is EntityType.DISPUTE:
+                raise CaseKindError(entity_type=case.entity_type.value)
+            return await self._decider.decide(case, cmd, policy_version=policy_version, now=now)

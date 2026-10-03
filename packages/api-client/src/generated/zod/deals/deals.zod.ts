@@ -92,6 +92,7 @@ export const DealsListMyDealsResponse = zod.object({
             'other',
             'expired',
             'account_deleted',
+            'dispute',
           ]),
           zod.null(),
         ]),
@@ -164,6 +165,7 @@ export const DealsGetDealResponse = zod
         'other',
         'expired',
         'account_deleted',
+        'dispute',
       ]),
       zod.null(),
     ]),
@@ -233,6 +235,7 @@ export const DealsConfirmDealResponse = zod
         'other',
         'expired',
         'account_deleted',
+        'dispute',
       ]),
       zod.null(),
     ]),
@@ -302,6 +305,7 @@ export const DealsDeclineDealResponse = zod
         'other',
         'expired',
         'account_deleted',
+        'dispute',
       ]),
       zod.null(),
     ]),
@@ -372,6 +376,7 @@ export const DealsCompleteDealResponse = zod
         'other',
         'expired',
         'account_deleted',
+        'dispute',
       ]),
       zod.null(),
     ]),
@@ -390,7 +395,15 @@ export const DealsCancelDealParams = zod.object({
 
 export const DealsCancelDealBody = zod.object({
   reason: zod
-    .enum(['plans_changed', 'no_agreement', 'no_contact', 'other', 'expired', 'account_deleted'])
+    .enum([
+      'plans_changed',
+      'no_agreement',
+      'no_contact',
+      'other',
+      'expired',
+      'account_deleted',
+      'dispute',
+    ])
     .describe('plans_changed, no_agreement, no_contact или other; остальные ставит система'),
 });
 
@@ -447,6 +460,7 @@ export const DealsCancelDealResponse = zod
         'other',
         'expired',
         'account_deleted',
+        'dispute',
       ]),
       zod.null(),
     ]),
@@ -454,3 +468,276 @@ export const DealsCancelDealResponse = zod
     created_at: zod.iso.datetime({ offset: true }),
   })
   .describe('Сделка стороне (S26): кто я в ней, условия и вехи для таймлайна.');
+
+/**
+ * Спор по идущей сделке (S52): сделка `disputed`, второй стороне 48 ч на ответ. Сделка не
+ * `agreed` — 409 `deal_not_active`; фото не свои или не `dispute` — 404 / 409.
+ * @summary Open Dispute
+ */
+export const DealsOpenDisputeParams = zod.object({
+  deal_id: zod.uuid().describe('id сделки'),
+});
+
+export const dealsOpenDisputeBodyDescriptionMax = 2000;
+
+export const dealsOpenDisputeBodyMediaIdsMax = 6;
+
+export const DealsOpenDisputeBody = zod
+  .object({
+    kind: zod
+      .enum(['no_show', 'quality', 'prepayment_taken', 'damage', 'safety', 'other'])
+      .describe('Что случилось (S52).'),
+    description: zod.string().max(dealsOpenDisputeBodyDescriptionMax),
+    media_ids: zod.array(zod.uuid()).max(dealsOpenDisputeBodyMediaIdsMax).optional(),
+  })
+  .describe('Спор (S52): что случилось, описание и до шести своих фото назначения `dispute`.');
+
+export const DealsOpenDisputeResponse = zod
+  .object({
+    id: zod.uuid(),
+    deal_id: zod.uuid(),
+    deal_status: zod
+      .enum(['proposed', 'agreed', 'completed', 'cancelled', 'disputed'])
+      .describe('Статус сделки после действия'),
+    status: zod
+      .enum(['open', 'answered', 'no_response', 'resolved', 'withdrawn'])
+      .describe('open — ждём ответа, answered, no_response — 48 ч без ответа, resolved, withdrawn'),
+    kind: zod
+      .enum(['no_show', 'quality', 'prepayment_taken', 'damage', 'safety', 'other'])
+      .describe('Что случилось (S52).'),
+    opened_by_me: zod.boolean(),
+    description: zod.string(),
+    photos: zod.array(
+      zod
+        .object({
+          id: zod.uuid(),
+          placeholder: zod.union([zod.string(), zod.null()]),
+          variants: zod.array(
+            zod.object({
+              name: zod.string().describe('thumb, md, lg — по возрастанию ширины'),
+              url: zod.string().describe('presigned GET приватного бакета на 5 минут'),
+              width: zod.int(),
+              height: zod.int(),
+            }),
+          ),
+        })
+        .describe(
+          'Фото-доказательство: варианты — когда обработка закончилась; до этого — только\n`placeholder` (или ничего).',
+        ),
+    ),
+    respond_by: zod.iso
+      .datetime({ offset: true })
+      .describe('До этого вторая сторона отвечает (48 ч)'),
+    response: zod.union([zod.string(), zod.null()]),
+    response_photos: zod.array(
+      zod
+        .object({
+          id: zod.uuid(),
+          placeholder: zod.union([zod.string(), zod.null()]),
+          variants: zod.array(
+            zod.object({
+              name: zod.string().describe('thumb, md, lg — по возрастанию ширины'),
+              url: zod.string().describe('presigned GET приватного бакета на 5 минут'),
+              width: zod.int(),
+              height: zod.int(),
+            }),
+          ),
+        })
+        .describe(
+          'Фото-доказательство: варианты — когда обработка закончилась; до этого — только\n`placeholder` (или ничего).',
+        ),
+    ),
+    responded_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    unanswered_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    withdrawn_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    outcome: zod
+      .union([
+        zod
+          .enum(['completed', 'cancelled'])
+          .describe('Решение модератора — каким становится статус сделки.'),
+        zod.null(),
+      ])
+      .describe('Решение модератора: каким стал статус'),
+    reason_code: zod
+      .union([zod.string(), zod.null()])
+      .describe('Код причины решения: no_show, work_done, …'),
+    resolved_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    created_at: zod.iso.datetime({ offset: true }),
+  })
+  .describe('Спор стороне (S52): что случилось и чьё, срок ответа, ответ, статус и решение.');
+
+/**
+ * Ответ второй стороны — один, пока модератор не решил; иначе 409
+ * `dispute_state_conflict`. Идущего спора нет — 404 `dispute_not_found`.
+ * @summary Respond Dispute
+ */
+export const DealsRespondDisputeParams = zod.object({
+  deal_id: zod.uuid().describe('id сделки'),
+});
+
+export const dealsRespondDisputeBodyTextMax = 2000;
+
+export const dealsRespondDisputeBodyMediaIdsMax = 6;
+
+export const DealsRespondDisputeBody = zod
+  .object({
+    text: zod.string().max(dealsRespondDisputeBodyTextMax),
+    media_ids: zod.array(zod.uuid()).max(dealsRespondDisputeBodyMediaIdsMax).optional(),
+  })
+  .describe('Ответ второй стороны: текст и до шести своих фото назначения `dispute`.');
+
+export const DealsRespondDisputeResponse = zod
+  .object({
+    id: zod.uuid(),
+    deal_id: zod.uuid(),
+    deal_status: zod
+      .enum(['proposed', 'agreed', 'completed', 'cancelled', 'disputed'])
+      .describe('Статус сделки после действия'),
+    status: zod
+      .enum(['open', 'answered', 'no_response', 'resolved', 'withdrawn'])
+      .describe('open — ждём ответа, answered, no_response — 48 ч без ответа, resolved, withdrawn'),
+    kind: zod
+      .enum(['no_show', 'quality', 'prepayment_taken', 'damage', 'safety', 'other'])
+      .describe('Что случилось (S52).'),
+    opened_by_me: zod.boolean(),
+    description: zod.string(),
+    photos: zod.array(
+      zod
+        .object({
+          id: zod.uuid(),
+          placeholder: zod.union([zod.string(), zod.null()]),
+          variants: zod.array(
+            zod.object({
+              name: zod.string().describe('thumb, md, lg — по возрастанию ширины'),
+              url: zod.string().describe('presigned GET приватного бакета на 5 минут'),
+              width: zod.int(),
+              height: zod.int(),
+            }),
+          ),
+        })
+        .describe(
+          'Фото-доказательство: варианты — когда обработка закончилась; до этого — только\n`placeholder` (или ничего).',
+        ),
+    ),
+    respond_by: zod.iso
+      .datetime({ offset: true })
+      .describe('До этого вторая сторона отвечает (48 ч)'),
+    response: zod.union([zod.string(), zod.null()]),
+    response_photos: zod.array(
+      zod
+        .object({
+          id: zod.uuid(),
+          placeholder: zod.union([zod.string(), zod.null()]),
+          variants: zod.array(
+            zod.object({
+              name: zod.string().describe('thumb, md, lg — по возрастанию ширины'),
+              url: zod.string().describe('presigned GET приватного бакета на 5 минут'),
+              width: zod.int(),
+              height: zod.int(),
+            }),
+          ),
+        })
+        .describe(
+          'Фото-доказательство: варианты — когда обработка закончилась; до этого — только\n`placeholder` (или ничего).',
+        ),
+    ),
+    responded_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    unanswered_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    withdrawn_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    outcome: zod
+      .union([
+        zod
+          .enum(['completed', 'cancelled'])
+          .describe('Решение модератора — каким становится статус сделки.'),
+        zod.null(),
+      ])
+      .describe('Решение модератора: каким стал статус'),
+    reason_code: zod
+      .union([zod.string(), zod.null()])
+      .describe('Код причины решения: no_show, work_done, …'),
+    resolved_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    created_at: zod.iso.datetime({ offset: true }),
+  })
+  .describe('Спор стороне (S52): что случилось и чьё, срок ответа, ответ, статус и решение.');
+
+/**
+ * Отозвать свой спор, пока модератор не решил: сделка снова идёт.
+ * @summary Withdraw Dispute
+ */
+export const DealsWithdrawDisputeParams = zod.object({
+  deal_id: zod.uuid().describe('id сделки'),
+});
+
+export const DealsWithdrawDisputeResponse = zod
+  .object({
+    id: zod.uuid(),
+    deal_id: zod.uuid(),
+    deal_status: zod
+      .enum(['proposed', 'agreed', 'completed', 'cancelled', 'disputed'])
+      .describe('Статус сделки после действия'),
+    status: zod
+      .enum(['open', 'answered', 'no_response', 'resolved', 'withdrawn'])
+      .describe('open — ждём ответа, answered, no_response — 48 ч без ответа, resolved, withdrawn'),
+    kind: zod
+      .enum(['no_show', 'quality', 'prepayment_taken', 'damage', 'safety', 'other'])
+      .describe('Что случилось (S52).'),
+    opened_by_me: zod.boolean(),
+    description: zod.string(),
+    photos: zod.array(
+      zod
+        .object({
+          id: zod.uuid(),
+          placeholder: zod.union([zod.string(), zod.null()]),
+          variants: zod.array(
+            zod.object({
+              name: zod.string().describe('thumb, md, lg — по возрастанию ширины'),
+              url: zod.string().describe('presigned GET приватного бакета на 5 минут'),
+              width: zod.int(),
+              height: zod.int(),
+            }),
+          ),
+        })
+        .describe(
+          'Фото-доказательство: варианты — когда обработка закончилась; до этого — только\n`placeholder` (или ничего).',
+        ),
+    ),
+    respond_by: zod.iso
+      .datetime({ offset: true })
+      .describe('До этого вторая сторона отвечает (48 ч)'),
+    response: zod.union([zod.string(), zod.null()]),
+    response_photos: zod.array(
+      zod
+        .object({
+          id: zod.uuid(),
+          placeholder: zod.union([zod.string(), zod.null()]),
+          variants: zod.array(
+            zod.object({
+              name: zod.string().describe('thumb, md, lg — по возрастанию ширины'),
+              url: zod.string().describe('presigned GET приватного бакета на 5 минут'),
+              width: zod.int(),
+              height: zod.int(),
+            }),
+          ),
+        })
+        .describe(
+          'Фото-доказательство: варианты — когда обработка закончилась; до этого — только\n`placeholder` (или ничего).',
+        ),
+    ),
+    responded_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    unanswered_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    withdrawn_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    outcome: zod
+      .union([
+        zod
+          .enum(['completed', 'cancelled'])
+          .describe('Решение модератора — каким становится статус сделки.'),
+        zod.null(),
+      ])
+      .describe('Решение модератора: каким стал статус'),
+    reason_code: zod
+      .union([zod.string(), zod.null()])
+      .describe('Код причины решения: no_show, work_done, …'),
+    resolved_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    created_at: zod.iso.datetime({ offset: true }),
+  })
+  .describe('Спор стороне (S52): что случилось и чьё, срок ответа, ответ, статус и решение.');

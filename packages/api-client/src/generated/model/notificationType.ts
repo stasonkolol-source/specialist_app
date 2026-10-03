@@ -17,6 +17,7 @@ export const NotificationType = {
   dealproposed: 'deal.proposed',
   dealcancelled: 'deal.cancelled',
   disputeopened: 'dispute.opened',
+  disputeresolved: 'dispute.resolved',
   dealreminder: 'deal.reminder',
   dealcompletion_prompt: 'deal.completion_prompt',
   reviewrequest: 'review.request',

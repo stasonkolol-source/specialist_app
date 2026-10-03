@@ -106,11 +106,23 @@ DEAL_ROLES: Final = frozenset({"client", "performer"})
 считаются по своей стороне."""
 DEAL_ORIGINS: Final = frozenset({"job_response", "direct", "chat"})
 """DealOrigin сделки (deals)."""
-DEAL_CANCELLED_BY: Final = frozenset({"client", "performer", "system"})
+DEAL_CANCELLED_BY: Final = frozenset({"client", "performer", "system", "moderator"})
 DEAL_CANCEL_REASONS: Final = frozenset(
-    {"plans_changed", "no_agreement", "no_contact", "other", "expired", "account_deleted"}
+    {
+        "plans_changed",
+        "no_agreement",
+        "no_contact",
+        "other",
+        "expired",
+        "account_deleted",
+        "dispute",
+    }
 )
-"""DealCancelReason сделки (deals): причины стороны и системы."""
+"""DealCancelReason сделки (deals): причины стороны, системы и модератора по спору (6.1c)."""
+DISPUTE_KINDS: Final = frozenset(
+    {"no_show", "quality", "prepayment_taken", "damage", "safety", "other"}
+)
+"""DisputeKind спора (deals, 6.1c): что случилось."""
 CONVERSATION_KINDS: Final = frozenset({"job_response", "direct"})
 """ConversationKind диалога (messaging), который начинают пользователи."""
 CONTACT_TYPES: Final = frozenset({"telegram", "phone"})
@@ -214,7 +226,16 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
             "reason": Choice(DEAL_CANCEL_REASONS),
         },
     ),
-    EventName.DISPUTE_OPENED: EventSpec(step="6.1c", description="Открыт спор"),
+    EventName.DISPUTE_OPENED: EventSpec(
+        step="6.1c",
+        description="Открыт спор по сделке: кто открыл (`role`) и что случилось (`kind`)",
+        properties={
+            "role": Choice(DEAL_ROLES),
+            "kind": Choice(DISPUTE_KINDS),
+            "origin": Choice(DEAL_ORIGINS),
+            "category": Ref(),
+        },
+    ),
     EventName.CONVERSATION_STARTED: EventSpec(
         step="6.3a",
         description="Начат диалог: по отклику или прямым обращением, кто начал (`initiator`)",

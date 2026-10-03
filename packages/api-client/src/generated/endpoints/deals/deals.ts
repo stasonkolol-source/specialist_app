@@ -25,6 +25,9 @@ import type {
   DealOut,
   DealsListMyDealsParams,
   DealsPageOut,
+  DisputeAnswerIn,
+  DisputeIn,
+  DisputeOut,
   ProblemOut,
 } from '../../model';
 
@@ -678,4 +681,305 @@ export const useDealsCancelDeal = <TError = ErrorType<ProblemOut>, TContext = un
   TContext
 > => {
   return useMutation(getDealsCancelDealMutationOptions(options), queryClient);
+};
+export const getDealsOpenDisputeUrl = (dealId: string) => {
+  return `/api/v1/deals/${dealId}/dispute`;
+};
+
+/**
+ * Спор по идущей сделке (S52): сделка `disputed`, второй стороне 48 ч на ответ. Сделка не
+ * `agreed` — 409 `deal_not_active`; фото не свои или не `dispute` — 404 / 409.
+ * @summary Open Dispute
+ */
+export const dealsOpenDispute = async (
+  dealId: string,
+  disputeIn: DisputeIn,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<DisputeOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<DisputeOut>(getDealsOpenDisputeUrl(dealId), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(disputeIn),
+  });
+};
+
+export const getDealsOpenDisputeMutationKey = () => ['dealsOpenDispute'] as const;
+
+export const getDealsOpenDisputeMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dealsOpenDispute>>,
+    TError,
+    DealsOpenDisputeMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof dealsOpenDispute>>,
+  TError,
+  DealsOpenDisputeMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDealsOpenDisputeMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof dealsOpenDispute>>,
+    DealsOpenDisputeMutationVariables
+  > = (props) => {
+    const { dealId, data } = props ?? {};
+
+    return dealsOpenDispute(dealId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DealsOpenDisputeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof dealsOpenDispute>>
+>;
+export type DealsOpenDisputeMutationBody = DisputeIn;
+export type DealsOpenDisputeMutationError = ErrorType<ProblemOut>;
+export type DealsOpenDisputeMutationVariables = { dealId: string; data: DisputeIn };
+
+/**
+ * @summary Open Dispute
+ */
+export const useDealsOpenDispute = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof dealsOpenDispute>>,
+      TError,
+      DealsOpenDisputeMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof dealsOpenDispute>>,
+  TError,
+  DealsOpenDisputeMutationVariables,
+  TContext
+> => {
+  return useMutation(getDealsOpenDisputeMutationOptions(options), queryClient);
+};
+export const getDealsRespondDisputeUrl = (dealId: string) => {
+  return `/api/v1/deals/${dealId}/dispute/respond`;
+};
+
+/**
+ * Ответ второй стороны — один, пока модератор не решил; иначе 409
+ * `dispute_state_conflict`. Идущего спора нет — 404 `dispute_not_found`.
+ * @summary Respond Dispute
+ */
+export const dealsRespondDispute = async (
+  dealId: string,
+  disputeAnswerIn: DisputeAnswerIn,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<DisputeOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<DisputeOut>(getDealsRespondDisputeUrl(dealId), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(disputeAnswerIn),
+  });
+};
+
+export const getDealsRespondDisputeMutationKey = () => ['dealsRespondDispute'] as const;
+
+export const getDealsRespondDisputeMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dealsRespondDispute>>,
+    TError,
+    DealsRespondDisputeMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof dealsRespondDispute>>,
+  TError,
+  DealsRespondDisputeMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDealsRespondDisputeMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof dealsRespondDispute>>,
+    DealsRespondDisputeMutationVariables
+  > = (props) => {
+    const { dealId, data } = props ?? {};
+
+    return dealsRespondDispute(dealId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DealsRespondDisputeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof dealsRespondDispute>>
+>;
+export type DealsRespondDisputeMutationBody = DisputeAnswerIn;
+export type DealsRespondDisputeMutationError = ErrorType<ProblemOut>;
+export type DealsRespondDisputeMutationVariables = { dealId: string; data: DisputeAnswerIn };
+
+/**
+ * @summary Respond Dispute
+ */
+export const useDealsRespondDispute = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof dealsRespondDispute>>,
+      TError,
+      DealsRespondDisputeMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof dealsRespondDispute>>,
+  TError,
+  DealsRespondDisputeMutationVariables,
+  TContext
+> => {
+  return useMutation(getDealsRespondDisputeMutationOptions(options), queryClient);
+};
+export const getDealsWithdrawDisputeUrl = (dealId: string) => {
+  return `/api/v1/deals/${dealId}/dispute/withdraw`;
+};
+
+/**
+ * Отозвать свой спор, пока модератор не решил: сделка снова идёт.
+ * @summary Withdraw Dispute
+ */
+export const dealsWithdrawDispute = async (
+  dealId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<DisputeOut> => {
+  return apiFetch<DisputeOut>(getDealsWithdrawDisputeUrl(dealId), {
+    ...options,
+    method: 'POST',
+  });
+};
+
+export const getDealsWithdrawDisputeMutationKey = () => ['dealsWithdrawDispute'] as const;
+
+export const getDealsWithdrawDisputeMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dealsWithdrawDispute>>,
+    TError,
+    DealsWithdrawDisputeMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof dealsWithdrawDispute>>,
+  TError,
+  DealsWithdrawDisputeMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDealsWithdrawDisputeMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof dealsWithdrawDispute>>,
+    DealsWithdrawDisputeMutationVariables
+  > = (props) => {
+    const { dealId } = props ?? {};
+
+    return dealsWithdrawDispute(dealId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DealsWithdrawDisputeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof dealsWithdrawDispute>>
+>;
+
+export type DealsWithdrawDisputeMutationError = ErrorType<ProblemOut>;
+export type DealsWithdrawDisputeMutationVariables = { dealId: string };
+
+/**
+ * @summary Withdraw Dispute
+ */
+export const useDealsWithdrawDispute = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof dealsWithdrawDispute>>,
+      TError,
+      DealsWithdrawDisputeMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof dealsWithdrawDispute>>,
+  TError,
+  DealsWithdrawDisputeMutationVariables,
+  TContext
+> => {
+  return useMutation(getDealsWithdrawDisputeMutationOptions(options), queryClient);
 };

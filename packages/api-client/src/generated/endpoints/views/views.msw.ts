@@ -505,6 +505,7 @@ export const getViewsGetDealCardResponseMock = (
       'other',
       'expired',
       'account_deleted',
+      'dispute',
     ] as const),
     null,
   ]),
@@ -530,6 +531,104 @@ export const getViewsGetDealCardResponseMock = (
   ]),
   review_until: faker.helpers.arrayElement([
     faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  dispute: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      deal_id: faker.string.uuid(),
+      deal_status: faker.helpers.arrayElement([
+        'proposed',
+        'agreed',
+        'completed',
+        'cancelled',
+        'disputed',
+      ] as const),
+      status: faker.helpers.arrayElement([
+        'open',
+        'answered',
+        'no_response',
+        'resolved',
+        'withdrawn',
+      ] as const),
+      kind: faker.helpers.arrayElement([
+        'no_show',
+        'quality',
+        'prepayment_taken',
+        'damage',
+        'safety',
+        'other',
+      ] as const),
+      opened_by_me: faker.datatype.boolean(),
+      description: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      photos: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          id: faker.string.uuid(),
+          placeholder: faker.helpers.arrayElement([
+            faker.string.alpha({ length: { min: 10, max: 20 } }),
+            null,
+          ]),
+          variants: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => ({
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            width: faker.number.int(),
+            height: faker.number.int(),
+          })),
+        }),
+      ),
+      respond_by: faker.date.past().toISOString().slice(0, 19) + 'Z',
+      response: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      response_photos: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => ({
+        id: faker.string.uuid(),
+        placeholder: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        variants: Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1,
+        ).map(() => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        })),
+      })),
+      responded_at: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + 'Z',
+        null,
+      ]),
+      unanswered_at: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + 'Z',
+        null,
+      ]),
+      withdrawn_at: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + 'Z',
+        null,
+      ]),
+      outcome: faker.helpers.arrayElement([
+        faker.helpers.arrayElement(['completed', 'cancelled'] as const),
+        null,
+      ]),
+      reason_code: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      resolved_at: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + 'Z',
+        null,
+      ]),
+      created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+    },
     null,
   ]),
   ...overrideResponse,
@@ -588,6 +687,7 @@ export const getViewsListDealHistoryResponseMock = (
         'other',
         'expired',
         'account_deleted',
+        'dispute',
       ] as const),
       null,
     ]),
