@@ -9,6 +9,7 @@ from uuid import UUID
 from app.modules.moderation.application.dto import ImportRulesResult, OpenCaseView, QueueSla
 from app.modules.moderation.domain.cases import Case, EntityType
 from app.modules.moderation.domain.pipeline import Route
+from app.modules.moderation.domain.reports import Report, ReportStatus
 from app.modules.moderation.domain.risk import RiskSignal
 from app.modules.moderation.domain.rules import ContentRule, RuleSet
 from app.modules.moderation.domain.sanctions import Sanction
@@ -73,6 +74,54 @@ class SanctionRepository(Protocol):
 class RiskSignals(Protocol):
     async def add(self, signals: Sequence[RiskSignal]) -> int:
         """Записать сигналы; с уже записанным `dedupe_key` — пропустить. Сколько новых."""
+        ...
+
+
+class ReportRepository(Protocol):
+    """Жалобы (4.7) — простая запись: правило «одна открытая жалоба человека на объект» держит
+    частичный уникальный индекс."""
+
+    async def open_of(
+        self, reporter_id: UserId, target_type: EntityType, target_id: UUID
+    ) -> Report | None:
+        """Открытая жалоба этого человека на объект."""
+        ...
+
+    async def add(self, report: Report) -> None:
+        """ReportAlreadyOpenError — параллельный запрос только что записал такую же."""
+        ...
+
+    async def close_for_case(
+        self,
+        case_id: CaseId,
+        *,
+        status: ReportStatus,
+        resolved_by: UserId | None,
+        resolution: str | None,
+        now: datetime,
+    ) -> int:
+        """Решение по кейсу закрывает его открытые жалобы. Сколько закрыто. Нужен активный UoW."""
+        ...
+
+
+class ReportTargets(Protocol):
+    """На кого жалоба: автор объекта, который жалующийся видит (фасады модулей-владельцев)."""
+
+    async def subject(
+        self, target_type: EntityType, target_id: UUID, reporter_id: UserId
+    ) -> UserId | None:
+        """Чей объект; None — объекта нет или жалующийся его не видит (чужая переписка, снятый
+        профиль, удалённый аккаунт)."""
+        ...
+
+    async def counterpart(self, conversation_id: UUID, reporter_id: UserId) -> UserId | None:
+        """Вторая сторона диалога жалующегося; None — диалога нет или он не участник."""
+        ...
+
+
+class ReportQuota(Protocol):
+    async def take(self, reporter_id: UserId) -> None:
+        """Засчитать жалобу; двадцать первая за сутки — ReportsLimitError (429)."""
         ...
 
 

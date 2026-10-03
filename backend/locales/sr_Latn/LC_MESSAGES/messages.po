@@ -615,6 +615,24 @@ msgstr "Previše poruka za sat. Sačekajte malo."
 msgid "errors.conversations_limit"
 msgstr "Previše novih razgovora za sat. Sačekajte malo."
 
+msgid "errors.cannot_block_self"
+msgstr "Ne možete da blokirate sami sebe."
+
+msgid "errors.blocks_full"
+msgstr "Već ste blokirali {limit} osoba — odblokirajte nekoga da biste dodali."
+
+msgid "errors.report_target_not_found"
+msgstr "Prijava nije moguća: objekat je obrisan ili nedostupan."
+
+msgid "errors.invalid_report"
+msgstr "Prijava ne može da se pošalje: izaberite razlog sa liste."
+
+msgid "errors.reports_limit"
+msgstr "Previše prijava za jedan dan. Pokušajte sutra ili pišite podršci."
+
+msgid "errors.report_already_open"
+msgstr "Prijava je već poslata. Pokušajte ponovo."
+
 msgid "errors.cannot_propose"
 msgstr "Ovde ne možete da se dogovorite: u razgovoru o ponudi naručilac bira izvođača na stranici ponuda."
 

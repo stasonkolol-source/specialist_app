@@ -32,6 +32,7 @@ import {
 } from '../features/jobs/index.ts';
 import { MESSAGES_PATHS, chatSearch } from '../features/messages/index.ts';
 import { ONBOARDING_PATHS, onboardingSearch } from '../features/onboarding/index.ts';
+import { SAFETY_PATHS } from '../features/safety/index.ts';
 import { BECOME_PATHS, CABINET_PATHS, becomeSearch } from '../features/specialist/index.ts';
 import { HELP_PATH } from '../features/service/s47-help/paths.ts';
 import { LEGAL_PATH } from '../features/service/s48-legal/paths.ts';
@@ -241,6 +242,14 @@ const settings = createRoute({
   path: ACCOUNT_PATHS.settings,
   beforeLoad: requireUser,
   component: screen(() => import('../features/account/s43-settings/index.ts'), 'SettingsScreen'),
+});
+
+// Заблокированные S44 (4.7): из S43; без входа блокировок нет
+const blocked = createRoute({
+  getParentRoute: () => rootRoute,
+  path: SAFETY_PATHS.blocked,
+  beforeLoad: requireUser,
+  component: screen(() => import('../features/safety/s44-blocked/index.ts'), 'BlockedScreen'),
 });
 
 // S45 удаление аккаунта (2.12a): из S43 и кнопки бота `m_deletion`; без входа удалять нечего
@@ -488,6 +497,7 @@ export const routeTree = rootRoute.addChildren([
   chat,
   profile,
   settings,
+  blocked,
   deleteAccount,
   becomeType,
   becomeAbout,

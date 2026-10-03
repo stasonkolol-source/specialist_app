@@ -359,6 +359,42 @@ export const getIdentityCancelDeletionMockHandler = (
     options,
   );
 };
+
+export const getIdentityBlockUserMockHandler = (
+  overrideResponse?:
+    void | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.put(
+    '*/api/v1/me/blocks/:userId',
+    async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+      if (typeof overrideResponse === 'function') {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
+export const getIdentityUnblockUserMockHandler = (
+  overrideResponse?:
+    void | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    '*/api/v1/me/blocks/:userId',
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === 'function') {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
 export const getIdentityMock = () => [
   getIdentityAuthenticateTelegramMockHandler(),
   getIdentityRefreshSessionMockHandler(),
@@ -369,4 +405,6 @@ export const getIdentityMock = () => [
   getIdentityAcceptConsentsMockHandler(),
   getIdentityRequestDeletionMockHandler(),
   getIdentityCancelDeletionMockHandler(),
+  getIdentityBlockUserMockHandler(),
+  getIdentityUnblockUserMockHandler(),
 ];

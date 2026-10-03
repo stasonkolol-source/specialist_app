@@ -100,8 +100,17 @@ async def list_response_cards(
     locale: FromDishka[Locale],
 ) -> ResponseCardsOut:
     """Отклики на свою заявку для S23: исполнитель с фото, районом и рейтингом, «Откликнулся
-    первым», новые для клиента. Ответ отмечает отклики просмотренными."""
+    первым», новые для клиента. Ответ отмечает отклики просмотренными. Отклики тех, с кем у
+    клиента блокировка (4.7), не показываются: имена и блокировки — одним чтением identity."""
     responses = await jobs.owner_responses(job_id, principal.user_id)
+    users = await identity.users(
+        {response.performer_id for response in responses}, viewer_id=principal.user_id
+    )
+    responses = [
+        response
+        for response in responses
+        if (user := users.get(response.performer_id)) is None or user.block is None
+    ]
     cards = await _visible_cards(
         {r.profile_id for r in responses if r.profile_id is not None}, specialists, identity
     )
@@ -109,7 +118,6 @@ async def list_response_cards(
     avatars = await media.refs(
         [card.avatar_media_id for card in cards.values() if card.avatar_media_id is not None]
     )
-    users = await identity.users({response.performer_id for response in responses})
     areas = await geo.districts(
         {card.primary_area_id for card in cards.values() if card.primary_area_id is not None}
     )

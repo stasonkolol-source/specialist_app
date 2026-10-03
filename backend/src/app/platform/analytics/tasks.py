@@ -7,7 +7,7 @@
 `job_expired` (5.1), `response_submitted` (5.4), `invite_sent` и `direct_request_sent` (5.6),
 `deal_agreed`, `deal_completed` и `deal_cancelled` (6.1a) — по событию на каждую сторону сделки,
 `dispute_opened` (6.1c) — открывшему, `conversation_started` и `message_sent` (6.3a),
-`contact_shared` (6.3b), `review_published` (7.2); остальные события
+`contact_shared` (6.3b), `review_published` (7.2), `report_created` (4.7); остальные события
 подключает шаг своего модуля (таксономия — events.py).
 """
 
@@ -33,6 +33,7 @@ from app.platform.contracts.events.jobs import (
     ResponseSubmitted,
 )
 from app.platform.contracts.events.messaging import ContactShared, ConversationStarted, MessageSent
+from app.platform.contracts.events.moderation import ReportCreated
 from app.platform.contracts.events.notifications import WriteAccessGranted
 from app.platform.contracts.events.reviews import ReviewPublished
 from app.platform.contracts.events.specialists import ProfilePublished, ProfileSubmitted
@@ -62,6 +63,7 @@ CAPTURE_CONVERSATION_STARTED = TaskRef(
 CAPTURE_MESSAGE_SENT = TaskRef("analytics.capture_message_sent", MessageSent)
 CAPTURE_CONTACT_SHARED = TaskRef("analytics.capture_contact_shared", ContactShared)
 CAPTURE_REVIEW_PUBLISHED = TaskRef("analytics.capture_review_published", ReviewPublished)
+CAPTURE_REPORT_CREATED = TaskRef("analytics.capture_report_created", ReportCreated)
 
 
 @subscriber(UserRegistered, CAPTURE_USER_REGISTERED)
@@ -347,3 +349,19 @@ def _deal_sides(
 
 def _side_id(event_id: UUID, role: str) -> UUID:
     return uuid.uuid5(event_id, role)
+
+
+@subscriber(ReportCreated, CAPTURE_REPORT_CREATED)
+async def capture_report_created(event: ReportCreated, analytics: FromDishka[Analytics]) -> None:
+    """Жалоба — от жалующегося: доля подтверждённых жалоб на сделки (метрика trust & safety)."""
+    await analytics.capture(
+        analytics_event(
+            EventName.REPORT_CREATED,
+            user_id=event.reporter_id,
+            occurred_at=event.occurred_at,
+            source_event_id=event.event_id,
+            target=event.target_type,
+            reason=event.reason,
+            queue=event.queue,
+        )
+    )

@@ -17,6 +17,7 @@ export const ViewsGetSpecialistParams = zod.object({
 
 export const ViewsGetSpecialistResponse = zod.object({
   id: zod.uuid(),
+  user_id: zod.uuid().describe('Аккаунт специалиста: «Заблокировать» в меню S08 (4.7)'),
   kind: zod.string().describe('pro | casual'),
   display_name: zod.string(),
   headline: zod.union([zod.string(), zod.null()]),
@@ -332,7 +333,8 @@ export const ViewsListSpecialistReviewsResponse = zod.object({
 
 /**
  * Отклики на свою заявку для S23: исполнитель с фото, районом и рейтингом, «Откликнулся
- * первым», новые для клиента. Ответ отмечает отклики просмотренными.
+ * первым», новые для клиента. Ответ отмечает отклики просмотренными. Отклики тех, с кем у
+ * клиента блокировка (4.7), не показываются: имена и блокировки — одним чтением identity.
  * @summary List Response Cards
  */
 export const ViewsListResponseCardsParams = zod.object({
@@ -727,4 +729,43 @@ export const ViewsListDealHistoryResponse = zod.object({
     }),
   ),
   next_cursor: zod.union([zod.string(), zod.null()]),
+});
+
+/**
+ * Заблокированные S44 (и число на строке S43): недавние первыми.
+ * @summary List Blocks
+ */
+export const ViewsListBlocksResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        user_id: zod.uuid(),
+        display_name: zod.string().describe('Имя и первая буква фамилии: «Олег Р.»'),
+        avatar: zod
+          .union([
+            zod.object({
+              placeholder: zod
+                .union([zod.string(), zod.null()])
+                .describe('ThumbHash (base64) для мгновенного превью'),
+              variants: zod.array(
+                zod.object({
+                  name: zod.string().describe('thumb 320 · md 800 · lg 1600'),
+                  url: zod.string(),
+                  width: zod.int(),
+                  height: zod.int(),
+                }),
+              ),
+              video_url: zod.union([zod.string(), zod.null()]).optional(),
+              duration_ms: zod.union([zod.int(), zod.null()]).optional(),
+            }),
+            zod.null(),
+          ])
+          .describe('Фото опубликованного профиля специалиста'),
+        profile_id: zod
+          .union([zod.uuid(), zod.null()])
+          .describe('Опубликованный профиль: ссылка на S08'),
+        blocked_at: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .describe('Недавние первыми'),
 });

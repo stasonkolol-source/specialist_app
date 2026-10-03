@@ -14,6 +14,7 @@ from uuid import UUID
 
 from app.modules.deals.api import DealsApi, InvalidDealError, ProposedDealIn
 from app.modules.identity.api import Action, IdentityApi
+from app.modules.messaging.application.blocks import ensure_unblocked
 from app.modules.messaging.application.contacts import ACTIVE_DEALS, current_deal
 from app.modules.messaging.application.ports import ConversationRepository, MessageStore
 from app.modules.messaging.domain.conversation import ConversationKind
@@ -60,6 +61,7 @@ class ProposeDeal:
         async with self._uow:
             conversation = await self._conversations.get_for_update(cmd.conversation_id)
             proposer = conversation.ensure_writable(cmd.actor_id)
+            await ensure_unblocked(self._identity, conversation, cmd.actor_id)
             if conversation.kind is not ConversationKind.DIRECT:
                 raise CannotProposeError(reason="choose_response")
             deal = await current_deal(self._deals, conversation)

@@ -26,8 +26,9 @@ export interface StartOptions {
   /** Ответ клиента на requestWriteAccess. */
   writeAccess?: boolean;
   colorScheme?: ColorScheme;
-  /** Кнопка, которую «нажмёт» человек в нативном попапе; null — закрыл попап. */
-  popupAnswer?: string | null;
+  /** Кнопка, которую «нажмёт» человек в нативном попапе; null — закрыл попап. Список — ответы
+   *  попапам по очереди (меню «⋯», затем подтверждение). */
+  popupAnswer?: string | null | readonly (string | null)[];
   /** Что уже лежит в DeviceStorage Telegram. */
   deviceStorage?: Record<string, string>;
 }

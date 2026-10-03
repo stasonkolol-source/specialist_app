@@ -14,6 +14,7 @@ from tests.plugins.identity import insert_user
 from app.modules.moderation.application.content_rules import ContentRulesChecker
 from app.modules.moderation.application.queries import ModerationQueries
 from app.modules.moderation.application.use_cases.auto_check import AutoCheck
+from app.modules.moderation.application.use_cases.create_report import CreateReport
 from app.modules.moderation.application.use_cases.decide_case import CaseDecider, DecideCase
 from app.modules.moderation.application.use_cases.open_case import (
     CaseOpener,
@@ -33,6 +34,7 @@ from app.modules.moderation.infrastructure.cases import (
 )
 from app.modules.moderation.infrastructure.legal_hold import CasesLegalHold
 from app.modules.moderation.infrastructure.queries import SqlCaseQueue, SqlCaseStats
+from app.modules.moderation.infrastructure.reports import SqlReportRepository
 from app.modules.moderation.tests.fakes import (
     START,
     FakeClassifier,
@@ -43,6 +45,8 @@ from app.modules.moderation.tests.fakes import (
     FakeModeration,
     FakeOverflows,
     FakePolicy,
+    FakeReportQuota,
+    FakeReportTargets,
     FakeRuleSource,
     FakeTarget,
     FakeTargets,
@@ -83,6 +87,9 @@ class Moderation:
     classifier: FakeClassifier
     flags: FakeFlags
     metrics: FakeMetrics
+    report: CreateReport
+    report_targets: FakeReportTargets
+    report_quota: FakeReportQuota
     jobs: FakeTarget = field(default_factory=FakeTarget)
     profiles: FakeTarget = field(default_factory=FakeTarget)
 
@@ -135,6 +142,8 @@ def moderation(db_session: AsyncSession, procrastinate_app: procrastinate.App) -
     rules, omni, classifier = FakeRuleSource(), FakeModeration(), FakeClassifier()
     flags, metrics = FakeFlags(), FakeMetrics()
     deals = FakeDeals()
+    reports = SqlReportRepository(db_session, uow)
+    report_targets, report_quota = FakeReportTargets(), FakeReportQuota()
     return Moderation(
         session=db_session,
         clock=clock,
@@ -148,7 +157,13 @@ def moderation(db_session: AsyncSession, procrastinate_app: procrastinate.App) -
             uow,
             cases,
             CaseDecider(
-                cases, SqlSanctionRepository(db_session, uow), signals, identity, targets, audit
+                cases,
+                SqlSanctionRepository(db_session, uow),
+                signals,
+                identity,
+                targets,
+                reports,
+                audit,
             ),
             FakePolicy(),
             clock,
@@ -175,6 +190,9 @@ def moderation(db_session: AsyncSession, procrastinate_app: procrastinate.App) -
         classifier=classifier,
         flags=flags,
         metrics=metrics,
+        report=CreateReport(uow, reports, report_targets, report_quota, opener, clock),
+        report_targets=report_targets,
+        report_quota=report_quota,
         jobs=jobs,
         profiles=profiles,
     )

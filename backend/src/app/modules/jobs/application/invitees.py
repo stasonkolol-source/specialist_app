@@ -1,5 +1,6 @@
 """Кого можно пригласить в заявку или кому отправить прямой запрос (DEVELOPMENT_PLAN 5.6):
-опубликованный профиль, автор не под санкцией и не сам клиент."""
+опубликованный профиль, автор не под санкцией, не сам клиент и без блокировки с клиентом в любую
+сторону (4.7)."""
 
 from collections.abc import Sequence
 from uuid import UUID
@@ -27,8 +28,11 @@ async def invitees(
         if profile.user_id == actor_id:
             raise OwnProfileInviteError(profile_id=profile_id)
         profiles.append(profile)
-    hidden = await identity.hidden_from_search([profile.user_id for profile in profiles])
+    users = [profile.user_id for profile in profiles]
+    hidden = await identity.hidden_from_search(users)
+    blocked = await identity.blocks_with(actor_id, users)
     for profile in profiles:
-        if profile.user_id in hidden:
+        # заблокированного — как скрытого: 404 без подсказки почему
+        if profile.user_id in hidden or profile.user_id in blocked:
             raise InviteeNotFoundError(profile_id=profile.id)
     return profiles

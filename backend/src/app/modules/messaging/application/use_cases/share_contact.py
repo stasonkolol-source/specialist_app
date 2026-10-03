@@ -13,6 +13,7 @@ from uuid import UUID
 
 from app.modules.deals.api import DealsApi
 from app.modules.identity.api import Action, IdentityApi
+from app.modules.messaging.application.blocks import ensure_unblocked
 from app.modules.messaging.application.contacts import OPEN_DEALS, current_deal
 from app.modules.messaging.application.ports import (
     ContactShares,
@@ -67,6 +68,7 @@ class ShareContact:
         async with self._uow:
             conversation = await self._conversations.get_for_update(cmd.conversation_id)
             sharer = conversation.ensure_writable(cmd.actor_id)
+            await ensure_unblocked(self._identity, conversation, cmd.actor_id)
             other = conversation.counterpart(cmd.actor_id)
             deal = await current_deal(self._deals, conversation)
             if deal is None or deal.status not in OPEN_DEALS:

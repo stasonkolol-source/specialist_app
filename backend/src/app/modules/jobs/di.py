@@ -23,6 +23,7 @@ from app.modules.jobs.application.use_cases.browse_jobs import BrowseJobs
 from app.modules.jobs.application.use_cases.close_job import CloseJob
 from app.modules.jobs.application.use_cases.complete_job import CompleteJob
 from app.modules.jobs.application.use_cases.count_job_view import CountJobView
+from app.modules.jobs.application.use_cases.count_jobs import CountJobs
 from app.modules.jobs.application.use_cases.create_job import CreateJob
 from app.modules.jobs.application.use_cases.create_template import CreateTemplate
 from app.modules.jobs.application.use_cases.decline_response import DeclineResponse
@@ -90,6 +91,7 @@ class JobsProvider(Provider):
     expire_jobs = provide(ExpireJobs)
     remind_expiring_jobs = provide(RemindExpiringJobs)
     browse_jobs = provide(BrowseJobs)
+    count_jobs = provide(CountJobs)
     show_job = provide(ShowJob)
     hide_job = provide(HideJob)
     save_job = provide(SaveJob)

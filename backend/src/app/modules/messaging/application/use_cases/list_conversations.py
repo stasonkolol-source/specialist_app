@@ -24,4 +24,5 @@ class ListConversations:
 
     async def __call__(self, cmd: ListConversationsCommand) -> Page[ConversationCard]:
         page = await self._queries.mine(cmd.actor_id, role=cmd.role, page=cmd.page)
-        return Page(items=tuple(await self._cards.of(page.items)), next_cursor=page.next_cursor)
+        cards = await self._cards.of(page.items, cmd.actor_id)
+        return Page(items=tuple(cards), next_cursor=page.next_cursor)

@@ -2,7 +2,9 @@
 по отклику — клиент заявки или исполнитель отклика, первое сообщение — сам отклик; напрямую —
 клиент специалисту из его карточки. Диалог уже есть — тот же (повтор и гонка двух «Написать» под
 замком пары не создадут второй). Новый диалог тратит часовой лимит (§13.3: пять); санкция
-«переписка» или блокировка аккаунта — 403 `restricted`."""
+«переписка» или блокировка аккаунта — 403 `restricted`. Блокировка между сторонами в любую
+сторону (4.7) — 409 `cannot_start_conversation` (`blocked`): уже начатый диалог открывается —
+читать его можно, писать нет."""
 
 from dataclasses import dataclass
 from uuid import UUID
@@ -78,6 +80,8 @@ class StartConversation:
         found = await self._conversations.of_response(response_id)
         if found is not None:
             return StartedConversation(conversation_id=found, created=False)
+        other = response.performer_id if actor_id == response.client_id else response.client_id
+        await self._ensure_unblocked(actor_id, other)
         async with self._uow:
             await self._conversations.lock_pair(response.client_id, response.performer_id)
             found = await self._conversations.of_response(response_id)
@@ -101,6 +105,10 @@ class StartConversation:
             )
             await self._conversations.save(conversation)
         return StartedConversation(conversation_id=conversation.id, created=True)
+
+    async def _ensure_unblocked(self, actor_id: UserId, other_id: UserId) -> None:
+        if await self._identity.blocks_with(actor_id, [other_id]):
+            raise CannotStartConversationError(reason="blocked")
 
     async def _offer(self, conversation: Conversation, response: ChatResponse) -> Message:
         """Первое сообщение — сам отклик: текст (контакты скрыты, пока нет сделки) и цена."""
@@ -134,6 +142,7 @@ class StartConversation:
         found = await self._conversations.direct_of(actor_id, performer_id)
         if found is not None:
             return StartedConversation(conversation_id=found, created=False)
+        await self._ensure_unblocked(actor_id, performer_id)
         async with self._uow:
             await self._conversations.lock_pair(actor_id, performer_id)
             found = await self._conversations.direct_of(actor_id, performer_id)

@@ -614,6 +614,24 @@ msgstr "Слишком много сообщений за час. Подожди
 msgid "errors.conversations_limit"
 msgstr "Слишком много новых диалогов за час. Подождите немного."
 
+msgid "errors.cannot_block_self"
+msgstr "Заблокировать самого себя нельзя."
+
+msgid "errors.blocks_full"
+msgstr "Заблокировано уже {limit} человек — разблокируйте кого-нибудь, чтобы добавить."
+
+msgid "errors.report_target_not_found"
+msgstr "Пожаловаться не получится: объект удалён или недоступен."
+
+msgid "errors.invalid_report"
+msgstr "Жалобу не отправить: выберите причину из списка."
+
+msgid "errors.reports_limit"
+msgstr "Слишком много жалоб за сутки. Попробуйте завтра или напишите в поддержку."
+
+msgid "errors.report_already_open"
+msgstr "Жалоба уже отправлена. Повторите попытку."
+
 msgid "errors.cannot_propose"
 msgstr "Здесь договориться нельзя: в диалоге по отклику клиент выбирает исполнителя на странице откликов."
 

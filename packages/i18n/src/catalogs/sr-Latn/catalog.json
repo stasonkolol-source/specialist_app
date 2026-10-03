@@ -110,7 +110,11 @@
     "proposeJob": "Predloži zahtev",
     "responseMinutes": "Obično odgovori za {count, plural, one {# minut} few {# minuta} other {# minuta}}",
     "responseHours": "Obično odgovori za {count, plural, one {# sat} few {# sata} other {# sati}}",
-    "writeFailed": "Razgovor nije moguće otvoriti. Pokušajte ponovo."
+    "writeFailed": "Razgovor nije moguće otvoriti. Pokušajte ponovo.",
+    "report": "Prijavi profil",
+    "blockConfirm": "Blokirati stručnjaka? Neće moći da vam piše niti da šalje ponude na vaše zahteve, a vi ga nećete videti u pretrazi.",
+    "blocked": "Blokirali ste ovog stručnjaka: ne možete mu pisati, nema ga u pretrazi.",
+    "blockFailed": "Nije uspelo. Pokušajte ponovo."
   },
   "prices": {
     "title": "Cenovnik",
@@ -157,7 +161,8 @@
     "rating": "Ocena {rating} od 5",
     "all": "Svi {count}",
     "reply": "Odgovor stručnjaka",
-    "more": "Prikaži još"
+    "more": "Prikaži još",
+    "actions": "Prijavi utisak: {name}"
   },
   "favorites": {
     "title": "Omiljeni",

@@ -19,6 +19,8 @@ from app.modules.identity.domain.user import UserIntent
 from app.modules.jobs.domain.job import CloseReason, Urgency
 from app.modules.messaging.domain.conversation import ConversationKind, ParticipantRole
 from app.modules.messaging.domain.message import ContactType
+from app.modules.moderation.domain.queues import Queue
+from app.modules.moderation.domain.reports import REASONS, ReportReason, report_queue
 from app.modules.notifications.domain.channel import GrantedVia
 from app.platform.analytics.events import (
     CLOSE_REASONS,
@@ -34,6 +36,9 @@ from app.platform.analytics.events import (
     INTENTS,
     METRICS,
     NORTH_STAR,
+    REPORT_QUEUES,
+    REPORT_REASONS,
+    REPORT_TARGETS,
     URGENCIES,
     WRITE_ACCESS_VIA,
     EventName,
@@ -50,15 +55,17 @@ from app.platform.analytics.tasks import (
     capture_job_invited,
     capture_message_sent,
     capture_onboarding_completed,
+    capture_report_created,
     capture_write_access_granted,
 )
 from app.platform.contracts.events.deals import DealAgreed, DealCancelled
 from app.platform.contracts.events.identity import EntryPoint, OnboardingCompleted
 from app.platform.contracts.events.jobs import JobInvited
 from app.platform.contracts.events.messaging import ContactShared, ConversationStarted, MessageSent
+from app.platform.contracts.events.moderation import ReportCreated
 from app.platform.contracts.events.notifications import WriteAccessGranted
 from app.platform.kernel.errors import ExternalServiceError, RateLimitedError
-from app.platform.kernel.ids import CategoryId, CityId, DealId, UserId, new_id
+from app.platform.kernel.ids import CaseId, CategoryId, CityId, DealId, UserId, new_id
 from app.platform.settings import AnalyticsSettings
 from app.platform.telegram.deeplinks import LinkSource
 
@@ -132,6 +139,7 @@ def test_wired_events_are_those_of_the_finished_steps() -> None:
         EventName.MESSAGE_SENT: "6.3a",
         EventName.CONTACT_SHARED: "6.3b",
         EventName.REVIEW_PUBLISHED: "7.2",
+        EventName.REPORT_CREATED: "4.7",
     }
 
 
@@ -150,6 +158,10 @@ def test_closed_lists_match_the_domain() -> None:
     assert {k.value for k in ConversationKind} - {"support"} == CONVERSATION_KINDS
     assert {r.value for r in ParticipantRole} - {"support"} == DEAL_ROLES
     assert {t.value for t in ContactType} == CONTACT_TYPES
+    assert {r.value for r in ReportReason} == REPORT_REASONS
+    assert {t.value for t in REASONS} == REPORT_TARGETS
+    assert {report_queue(r).value for r in ReportReason} == REPORT_QUEUES
+    assert REPORT_QUEUES.issubset({q.value for q in Queue})
 
 
 def registered(**properties: Any) -> AnalyticsEvent:
@@ -481,6 +493,29 @@ async def test_invites_and_direct_requests_are_captured() -> None:
         ("invite_sent", client),
         ("direct_request_sent", client),
     ]
+
+
+async def test_report_is_captured_from_the_reporter() -> None:
+    """4.7: жалоба — от жалующегося, с типом объекта, причиной и очередью; без текста."""
+    fake = LoggingAnalytics()
+    reporter = UserId(new_id())
+    await capture_report_created(
+        ReportCreated(
+            report_id=new_id(),
+            reporter_id=reporter,
+            target_type="profile",
+            target_id=new_id(),
+            reason="fraud",
+            case_id=CaseId(new_id()),
+            queue="fraud",
+            occurred_at=NOW,
+        ),
+        fake,
+    )
+
+    [event] = fake.captured
+    assert (event.name, event.distinct_id) == ("report_created", reporter)
+    assert event.properties == {"target": "profile", "reason": "fraud", "queue": "fraud"}
 
 
 async def test_chat_events_say_who_and_whether_contacts_were_hidden() -> None:

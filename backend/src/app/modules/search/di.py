@@ -3,9 +3,11 @@
 from dishka import Provider, Scope, provide
 from prometheus_client import CollectorRegistry
 
+from app.modules.identity.api import IdentityApi
 from app.modules.search.api import SearchApi
 from app.modules.search.application.facade import SearchFacade
 from app.modules.search.application.ports import (
+    Blocklist,
     Favorites,
     IndexMetrics,
     PendingProfiles,
@@ -51,6 +53,12 @@ class SearchProvider(Provider):
     flush_index = provide(FlushIndex)
     reconcile_index = provide(ReconcileIndex)
     refresh_response_times = provide(RefreshResponseTimes)
+
+    @provide
+    def blocklist(self, identity: IdentityApi) -> Blocklist:
+        """Блокировки зрителя (4.7) — из фасада identity."""
+        return identity
+
     facade = provide(SearchFacade, provides=SearchApi)
     """Фасад для BFF карточки S08: время ответа."""
     specialist_search = provide(SqlSpecialistSearch, provides=SpecialistSearch)

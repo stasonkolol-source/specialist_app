@@ -1,12 +1,13 @@
 // Отзыв по сделке на S08 и S11 (DEVELOPMENT_PLAN 4.6, 7.3): автор «Ирина С.», месяц и услуга,
-// звёзды, текст, «Сделка в «Соседях»» и ответ специалиста (прошедший проверку). «Пожаловаться» —
-// 4.7.
+// звёзды, текст, «Сделка в «Соседях»» и ответ специалиста (прошедший проверку). На S11 у звёзд —
+// «⋯»: жалоба на отзыв (шторка S46, 4.7); на S08 — без неё, как на артборде.
 import type { CardReviewOut } from '@sosed/api-client';
 import { useFormat, useTranslation } from '@sosed/i18n';
 import {
   Avatar,
   Badge,
   Card,
+  IconButton,
   Skeleton,
   SkeletonCard,
   SkeletonText,
@@ -36,7 +37,14 @@ export function ReviewCardSkeleton() {
   );
 }
 
-export function ReviewCard({ review }: { review: CardReviewOut }) {
+export function ReviewCard({
+  review,
+  onReport,
+}: {
+  review: CardReviewOut;
+  /** «⋯» у звёзд — пожаловаться на отзыв (S11, вошедшему). */
+  onReport?: () => void;
+}) {
   const { t } = useTranslation('catalog');
   const common = useTranslation().t;
   const format = useFormat();
@@ -53,11 +61,22 @@ export function ReviewCard({ review }: { review: CardReviewOut }) {
             </Text>
           </span>
         </span>
-        <Stars
-          value={review.rating}
-          label={t('reviews.rating', { rating: review.rating })}
-          starLabel={(n) => common('rating.star', { count: n })}
-        />
+        <span className="flex items-center gap-1">
+          <Stars
+            value={review.rating}
+            label={t('reviews.rating', { rating: review.rating })}
+            starLabel={(n) => common('rating.star', { count: n })}
+          />
+          {onReport && (
+            <IconButton
+              plain
+              icon="more"
+              label={t('reviews.actions', { name: review.author_name })}
+              className="-my-2 -mr-2"
+              onClick={onReport}
+            />
+          )}
+        </span>
       </div>
       {review.body && (
         <Text variant="sm" className="whitespace-pre-line">

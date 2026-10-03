@@ -11,6 +11,7 @@ import { RouterProvider } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useLayoutEffect } from 'react';
 
+import { ReportHost } from '../features/safety/index.ts';
 import { CHROME } from './chrome.ts';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
 import { LaunchGate } from './LaunchGate.tsx';
@@ -43,6 +44,8 @@ export function App({ platform, i18n, queryClient, router, version, launch, deep
               <StartupGate appVersion={version}>
                 <LaunchGate launch={launch} deepLink={deepLink} router={router}>
                   <RouterProvider router={router} />
+                  {/* шторка жалобы S46 — над любым экраном, своим чанком (4.7) */}
+                  <ReportHost />
                 </LaunchGate>
               </StartupGate>
             </ErrorBoundary>

@@ -551,6 +551,10 @@ export const CATEGORY_COUNTS: CategoryCountsOut = {
 
 /** Карточка S08–S10 — первый специалист выдачи (Алексей Морозов), как на артбордах. */
 export const CARD_PROFILE_ID = '0199cc00-0000-7000-8000-000000000001';
+
+/** Аккаунт специалиста карточки (4.7: «Заблокировать» на S08): у фикстур — тот же id с другим
+ *  префиксом, чтобы фейки находили профиль по аккаунту и обратно. */
+export const userIdOf = (profileId: string) => `01a0e600${profileId.slice(8)}`;
 /** Профиль, который скрыт или снят: BFF отвечает 404. */
 export const HIDDEN_PROFILE_ID = '0199cc00-0000-7000-8000-000000000404';
 
@@ -674,6 +678,7 @@ export function specialistCardFor(
   );
   return {
     id: CARD_PROFILE_ID,
+    user_id: userIdOf(CARD_PROFILE_ID),
     kind: 'pro',
     display_name: 'Алексей Морозов',
     headline: 'Электрик · мелкий ремонт · люстры',
@@ -710,6 +715,7 @@ export function specialistCardFor(
 export function plainCardFor(card: SpecialistCardOut): SpecialistProfileOut {
   return {
     id: card.profile_id,
+    user_id: userIdOf(card.profile_id),
     kind: card.kind,
     display_name: card.display_name,
     headline: card.headline,

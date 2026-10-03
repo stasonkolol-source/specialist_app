@@ -59,3 +59,23 @@ class ModerationDecisionMade(DomainEvent):
     decision_code: str | None = None
     automated: bool = False
     sanction: str | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ReportCreated(DomainEvent):
+    """Пользователь пожаловался (шторка S46, DEVELOPMENT_PLAN 4.7): жалоба стала поводом кейса.
+
+    `target_type` — на что: `profile`, `job`, `review`, `message`, `user` (как
+    `moderation.reports.target_type`); `reason` — причина из списка типа (`fraud`, `offensive`,
+    …); `queue` — очередь кейса (`safety` — P0, `fraud` — P1). Подписчики: аналитика
+    `report_created`; карточка в чате модераторов — с 2.5b. Текста жалобы в событии нет.
+    """
+
+    event_type = "moderation.ReportCreated"
+    report_id: UUID
+    reporter_id: UserId
+    target_type: str
+    target_id: UUID
+    reason: str
+    case_id: CaseId
+    queue: str

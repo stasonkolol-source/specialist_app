@@ -14,8 +14,9 @@ export interface MockOptions {
   colorScheme?: ColorScheme;
   startParam?: string;
   languageCode?: string;
-  /** Ответ на `web_app_open_popup`: id кнопки или `null` (закрыт). */
-  popupAnswer?: string | null;
+  /** Ответ на `web_app_open_popup`: id кнопки или `null` (закрыт). Список — ответы попапам по
+   *  очереди (меню, затем подтверждение), последний — и всем следующим. */
+  popupAnswer?: string | null | readonly (string | null)[];
   writeAccess?: boolean;
   contact?: boolean;
   /** Подписанный ответ `getRequestedContact` после «Поделиться» (S54); по умолчанию — синтетика. */
@@ -91,6 +92,7 @@ export function createMockPlatform(options: MockOptions = {}): {
   } = options;
 
   const calls: MockTelegram['calls'] = [];
+  const popupQueue = Array.isArray(popupAnswer) ? [...(popupAnswer as (string | null)[])] : [];
   const device = new Map<string, string>(Object.entries(deviceStorage));
   const cloud = new Map<string, string>();
   let theme = MOCK_THEMES[colorScheme];
@@ -113,8 +115,13 @@ export function createMockPlatform(options: MockOptions = {}): {
         return reply('safe_area_changed', { top: 47, bottom: 34, left: 0, right: 0 });
       case 'web_app_request_content_safe_area':
         return reply('content_safe_area_changed', { top: 46, bottom: 0, left: 0, right: 0 });
-      case 'web_app_open_popup':
-        return reply('popup_closed', popupAnswer === null ? {} : { button_id: popupAnswer });
+      case 'web_app_open_popup': {
+        const answer =
+          typeof popupAnswer === 'object' && popupAnswer !== null
+            ? ((popupQueue.length > 1 ? popupQueue.shift() : popupQueue[0]) ?? null)
+            : popupAnswer;
+        return reply('popup_closed', answer === null ? {} : { button_id: answer });
+      }
       case 'web_app_request_write_access':
         return reply('write_access_requested', { status: writeAccess ? 'allowed' : 'cancelled' });
       case 'web_app_request_phone':

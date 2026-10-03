@@ -1,4 +1,4 @@
-"""HTTP identity: вход, сессии, свой профиль и согласия (ARCHITECTURE §8.2, §8.5).
+"""HTTP identity: вход, сессии, свой профиль, согласия и блокировки (ARCHITECTURE §8.2, §8.5).
 
 Тонкие обработчики: разобрать запрос, вызвать use case, собрать ответ. initData
 проверяется здесь, на границе: в use case приходит уже проверенный профиль Telegram.
@@ -9,7 +9,7 @@ from typing import Annotated
 from uuid import UUID
 
 from dishka.integrations.fastapi import FromDishka, inject
-from fastapi import APIRouter, Depends, Header, Request, Response, status
+from fastapi import APIRouter, Depends, Header, Path, Request, Response, status
 
 from app.modules.identity.application.access import AccessChecker
 from app.modules.identity.application.dto import TelegramProfile
@@ -21,6 +21,7 @@ from app.modules.identity.application.use_cases.authenticate_telegram import (
     AuthenticateTelegram,
     AuthenticateTelegramCommand,
 )
+from app.modules.identity.application.use_cases.block_user import BlockUser, BlockUserCommand
 from app.modules.identity.application.use_cases.cancel_deletion import (
     CancelDeletion,
     CancelDeletionCommand,
@@ -33,6 +34,10 @@ from app.modules.identity.application.use_cases.refresh_session import (
 from app.modules.identity.application.use_cases.request_deletion import (
     RequestDeletion,
     RequestDeletionCommand,
+)
+from app.modules.identity.application.use_cases.unblock_user import (
+    UnblockUser,
+    UnblockUserCommand,
 )
 from app.modules.identity.application.use_cases.update_privacy import (
     UpdatePrivacy,
@@ -71,6 +76,7 @@ AUTH_PER_TELEGRAM_USER = Rate("auth.telegram_user", "30/hour")
 
 router = APIRouter(tags=["identity"])
 auth_limit = [Depends(RateLimit(AUTH_PER_IP, key=client_ip))]
+BlockedPath = Annotated[UUID, Path(description="id пользователя")]
 
 
 def init_data_of(authorization: str | None) -> str:
@@ -240,6 +246,30 @@ async def cancel_deletion(
 ) -> None:
     """Отменить запрос на удаление; запроса нет — тоже 204."""
     await cancel(CancelDeletionCommand(actor_id=principal.user_id))
+
+
+@router.put(
+    "/me/blocks/{user_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=AUTHENTICATED
+)
+@inject
+async def block_user(
+    user_id: BlockedPath, principal: FromDishka[Principal], block: FromDishka[BlockUser]
+) -> None:
+    """Заблокировать (меню S08 и S30, «Также заблокировать» на S46): переписка, отклики и
+    приглашения между вами запрещены, выдача и лента не показывают вас друг другу. Повтор — без
+    ошибки; себя — 409, неизвестного — 404. Список — GET /me/blocks."""
+    await block(BlockUserCommand(actor_id=principal.user_id, user_id=UserId(user_id)))
+
+
+@router.delete(
+    "/me/blocks/{user_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=AUTHENTICATED
+)
+@inject
+async def unblock_user(
+    user_id: BlockedPath, principal: FromDishka[Principal], unblock: FromDishka[UnblockUser]
+) -> None:
+    """Разблокировать (S44): только свою блокировку; её не было — тоже 204."""
+    await unblock(UnblockUserCommand(actor_id=principal.user_id, user_id=UserId(user_id)))
 
 
 async def _me(access: AccessChecker, user_id: UserId, response: Response) -> MeOut:

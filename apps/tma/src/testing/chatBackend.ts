@@ -4,6 +4,7 @@
 // `client_msg_id` — то же сообщение; до договорённости телефон — «•••»), POST …/read, POST …/deal
 // (сделка `proposed`), POST …/share-contact (после договорённости, 6.5) и GET /me/badges. «Собеседник пишет» — `incoming`; `failNext` — следующая
 // отправка падает ошибкой (ключ не занимается: повтор выполнится заново). Время — от NOW.
+// Блокировки (4.7) — у фейка `safety`: с заблокированным писать нельзя (409 `blocked`).
 import type {
   ContactShareIn,
   ConversationOut,
@@ -17,6 +18,7 @@ import type {
 import type { BackendReply } from './backend.ts';
 import { problem } from './backend.ts';
 import { ME } from './fixtures.ts';
+import type { SafetyBackend } from './safetyBackend.ts';
 
 const NOW = Date.parse('2026-10-02T10:00:00Z');
 const MINUTE_MS = 60_000;
@@ -86,6 +88,8 @@ export class ChatBackend {
   starts: ConversationStartIn[] = [];
   shares: ContactShareIn[] = [];
   jobsBadge = 0;
+  /** Блокировки (4.7): чьи — у фейка жалоб и блокировок. */
+  safety: SafetyBackend | null = null;
 
   /** Три диалога макета S29: в прямом — замаскированный телефон и два непрочитанных. */
   seed(): this {
@@ -175,11 +179,14 @@ export class ChatBackend {
   }
 
   out(dialog: Dialog): ConversationOut {
+    const side = this.safety?.side(dialog.conversation.counterpart_id) ?? null;
     return {
       ...dialog.conversation,
       last_message: dialog.messages.at(-1) ?? null,
       unread: this.unread(dialog),
       last_message_at: dialog.messages.at(-1)?.created_at ?? null,
+      blocked: side !== null,
+      blocked_by_me: side === 'by_me',
     };
   }
 
@@ -282,6 +289,9 @@ export class ChatBackend {
         conversation_status: dialog.conversation.status,
       });
     }
+    if (this.safety?.side(dialog.conversation.counterpart_id)) {
+      return problem(409, 'conversation_closed', { conversation_status: 'blocked' });
+    }
     const repeated = dialog.messages.find(
       (item) => item.mine && input.client_msg_id && item.client_msg_id === input.client_msg_id,
     );
@@ -353,6 +363,8 @@ function conversation(
     response_id: null,
     deal: null,
     last_message_at: null,
+    blocked: false,
+    blocked_by_me: false,
     ...fields,
   };
 }

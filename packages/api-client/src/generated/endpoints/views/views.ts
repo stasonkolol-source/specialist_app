@@ -19,6 +19,7 @@ import type {
 
 import type {
   BadgesOut,
+  BlocksOut,
   CardReviewsOut,
   CardServicesOut,
   CardWorksOut,
@@ -627,7 +628,8 @@ export const getViewsListResponseCardsUrl = (jobId: string) => {
 
 /**
  * Отклики на свою заявку для S23: исполнитель с фото, районом и рейтингом, «Откликнулся
- * первым», новые для клиента. Ответ отмечает отклики просмотренными.
+ * первым», новые для клиента. Ответ отмечает отклики просмотренными. Отклики тех, с кем у
+ * клиента блокировка (4.7), не показываются: имена и блокировки — одним чтением identity.
  * @summary List Response Cards
  */
 export const viewsListResponseCards = async (
@@ -1136,6 +1138,120 @@ export function useViewsListDealHistory<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getViewsListDealHistoryQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getViewsListBlocksUrl = () => {
+  return `/api/v1/me/blocks`;
+};
+
+/**
+ * Заблокированные S44 (и число на строке S43): недавние первыми.
+ * @summary List Blocks
+ */
+export const viewsListBlocks = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<BlocksOut> => {
+  return apiFetch<BlocksOut>(getViewsListBlocksUrl(), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getViewsListBlocksQueryKey = () => {
+  return [`/api/v1/me/blocks`] as const;
+};
+
+export const getViewsListBlocksQueryOptions = <
+  TData = Awaited<ReturnType<typeof viewsListBlocks>>,
+  TError = ErrorType<ProblemOut>,
+>(options?: {
+  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsListBlocks>>, TError, TData>>;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getViewsListBlocksQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof viewsListBlocks>>> = ({ signal }) =>
+    viewsListBlocks({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof viewsListBlocks>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ViewsListBlocksQueryResult = NonNullable<Awaited<ReturnType<typeof viewsListBlocks>>>;
+export type ViewsListBlocksQueryError = ErrorType<ProblemOut>;
+
+export function useViewsListBlocks<
+  TData = Awaited<ReturnType<typeof viewsListBlocks>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsListBlocks>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsListBlocks>>,
+          TError,
+          Awaited<ReturnType<typeof viewsListBlocks>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsListBlocks<
+  TData = Awaited<ReturnType<typeof viewsListBlocks>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsListBlocks>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsListBlocks>>,
+          TError,
+          Awaited<ReturnType<typeof viewsListBlocks>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsListBlocks<
+  TData = Awaited<ReturnType<typeof viewsListBlocks>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsListBlocks>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List Blocks
+ */
+
+export function useViewsListBlocks<
+  TData = Awaited<ReturnType<typeof viewsListBlocks>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof viewsListBlocks>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getViewsListBlocksQueryOptions(options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;

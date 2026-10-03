@@ -7,7 +7,8 @@
   (`restrict`, событие UserRestricted → уведомление `account.restricted`); предупреждение
   ничего не запрещает и лишь опускает уровень доверия (`record_violation`).
 - Кейс с жалобой среди поводов, решённый `rejected`, — подтверждённая жалоба: сигнал риска
-  `report_confirmed` и нарушение для уровня доверия.
+  `report_confirmed` и нарушение для уровня доверия. Решение закрывает жалобы кейса (4.7):
+  нарушение — `resolved`, нет нарушения — `rejected`; ответ жалующемуся — с 2.5b.
 - Объект кейса (2.6): одобрение публикует его, если он ждал проверки, и снимает заморозку,
   которую поставила автопроверка; отказ скрывает его. Через адаптер цели — фасад модуля.
 - Решение и санкция пишутся в audit_log. Роль модератора проверяет точка входа (2.5b, 2.7).
@@ -24,10 +25,12 @@ from app.modules.moderation.application.ports import (
     CaseRepository,
     ModerationPolicy,
     ModerationTargets,
+    ReportRepository,
     RiskSignals,
     SanctionRepository,
 )
 from app.modules.moderation.domain.cases import Case, CaseTrigger, EntityType
+from app.modules.moderation.domain.reports import ReportStatus
 from app.modules.moderation.domain.risk import RiskSignal, RiskSignalKind
 from app.modules.moderation.domain.sanctions import (
     EFFECTS,
@@ -68,10 +71,12 @@ class CaseDecider:
         signals: RiskSignals,
         identity: IdentityApi,
         targets: ModerationTargets,
+        reports: ReportRepository,
         audit: AuditLog,
     ) -> None:
         self._cases, self._sanctions, self._signals = cases, sanctions, signals
         self._identity, self._targets, self._audit = identity, targets, audit
+        self._reports = reports
 
     async def decide(
         self, case: Case, cmd: DecideCaseCommand, *, policy_version: str, now: datetime
@@ -98,8 +103,17 @@ class CaseDecider:
         restriction_id = None
         if step is not None:
             restriction_id = await self._impose(case, step, cmd.moderator_id, now=now)
-        if cmd.verdict is ModerationDecision.REJECTED and case.reported:
-            await self._confirm_report(case, sanctioned=step is not None)
+        if case.reported:
+            violation = cmd.verdict is ModerationDecision.REJECTED
+            if violation:
+                await self._confirm_report(case, sanctioned=step is not None)
+            await self._reports.close_for_case(
+                case.id,
+                status=ReportStatus.RESOLVED if violation else ReportStatus.REJECTED,
+                resolved_by=cmd.moderator_id,
+                resolution=case.reason_code,
+                now=now,
+            )
         await self._audit.record(
             AuditEntry(
                 action="moderation.case.decided",

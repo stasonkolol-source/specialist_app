@@ -33,6 +33,7 @@ import { ChatBackend } from '../src/testing/chatBackend.ts';
 import { FavoritesBackend } from '../src/testing/favoritesBackend.ts';
 import { JobsBackend } from '../src/testing/jobsBackend.ts';
 import { ProfileBackend } from '../src/testing/profileBackend.ts';
+import { SafetyBackend } from '../src/testing/safetyBackend.ts';
 
 /** «Фото работы» для загрузок и CDN: PNG 8×6, мягкий зелёный градиент — одинаковый везде. */
 export const PHOTO_PNG = Buffer.from(
@@ -93,6 +94,9 @@ export interface MockApiOptions {
   /** Переписка `/conversations*` и бейджи таббара `/me/badges` с памятью (6.4); по умолчанию —
    *  диалогов нет. */
   chat?: ChatBackend;
+  /** Жалобы `/reports` и блокировки `/me/blocks*` с памятью (4.7); по умолчанию — никого не
+   *  заблокировали. Переписка спрашивает у него, закрыта ли она блокировкой. */
+  safety?: SafetyBackend;
   /** Задержка каждого ответа API, мс: замер холодного старта (coldstart.spec.ts). */
   delayMs?: number;
   /** Свои ответы по ключу «METHOD /api/v1/…»: проверяются раньше стандартных. */
@@ -134,6 +138,7 @@ export async function mockApi(
     favorites = new FavoritesBackend([], E2E_AVAILABLE_UNTIL),
     jobs = new JobsBackend(),
     chat = new ChatBackend(),
+    safety = new SafetyBackend(),
     delayMs = 0,
     handlers = {},
     sent = sentRequests(),
@@ -151,6 +156,7 @@ export async function mockApi(
   );
   // пользователь с памятью, как на сервере: онбординг меняет его шаг за шагом
   let user = me;
+  chat.safety ??= safety;
   let settings = notificationSettings;
   await page.route('**/api/v1/**', async (route) => {
     if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -209,6 +215,14 @@ export async function mockApi(
         authorized(request),
         request.headers()['if-match'] ?? null,
       );
+      if (reply?.status === 204) return route.fulfill({ status: 204 });
+      if (reply) return route.fulfill(json(reply.body, reply.status));
+    }
+    // жалобы S46 и блокировки S44 (4.7): только вошедшему
+    if (url.pathname.startsWith('/api/v1/me/blocks') || url.pathname === '/api/v1/reports') {
+      if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
+      const body: unknown = request.method() === 'POST' ? request.postDataJSON() : undefined;
+      const reply = safety.handle(request.method(), url.pathname, body);
       if (reply?.status === 204) return route.fulfill({ status: 204 });
       if (reply) return route.fulfill(json(reply.body, reply.status));
     }

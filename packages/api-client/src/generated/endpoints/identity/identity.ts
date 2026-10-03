@@ -929,3 +929,175 @@ export const useIdentityCancelDeletion = <TError = ErrorType<ProblemOut>, TConte
 > => {
   return useMutation(getIdentityCancelDeletionMutationOptions(options), queryClient);
 };
+export const getIdentityBlockUserUrl = (userId: string) => {
+  return `/api/v1/me/blocks/${userId}`;
+};
+
+/**
+ * Заблокировать (меню S08 и S30, «Также заблокировать» на S46): переписка, отклики и
+ * приглашения между вами запрещены, выдача и лента не показывают вас друг другу. Повтор — без
+ * ошибки; себя — 409, неизвестного — 404. Список — GET /me/blocks.
+ * @summary Block User
+ */
+export const identityBlockUser = async (
+  userId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getIdentityBlockUserUrl(userId), {
+    ...options,
+    method: 'PUT',
+  });
+};
+
+export const getIdentityBlockUserMutationKey = () => ['identityBlockUser'] as const;
+
+export const getIdentityBlockUserMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof identityBlockUser>>,
+    TError,
+    IdentityBlockUserMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof identityBlockUser>>,
+  TError,
+  IdentityBlockUserMutationVariables,
+  TContext
+> => {
+  const mutationKey = getIdentityBlockUserMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof identityBlockUser>>,
+    IdentityBlockUserMutationVariables
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return identityBlockUser(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type IdentityBlockUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof identityBlockUser>>
+>;
+
+export type IdentityBlockUserMutationError = ErrorType<ProblemOut>;
+export type IdentityBlockUserMutationVariables = { userId: string };
+
+/**
+ * @summary Block User
+ */
+export const useIdentityBlockUser = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof identityBlockUser>>,
+      TError,
+      IdentityBlockUserMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof identityBlockUser>>,
+  TError,
+  IdentityBlockUserMutationVariables,
+  TContext
+> => {
+  return useMutation(getIdentityBlockUserMutationOptions(options), queryClient);
+};
+export const getIdentityUnblockUserUrl = (userId: string) => {
+  return `/api/v1/me/blocks/${userId}`;
+};
+
+/**
+ * Разблокировать (S44): только свою блокировку; её не было — тоже 204.
+ * @summary Unblock User
+ */
+export const identityUnblockUser = async (
+  userId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getIdentityUnblockUserUrl(userId), {
+    ...options,
+    method: 'DELETE',
+  });
+};
+
+export const getIdentityUnblockUserMutationKey = () => ['identityUnblockUser'] as const;
+
+export const getIdentityUnblockUserMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof identityUnblockUser>>,
+    TError,
+    IdentityUnblockUserMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof identityUnblockUser>>,
+  TError,
+  IdentityUnblockUserMutationVariables,
+  TContext
+> => {
+  const mutationKey = getIdentityUnblockUserMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof identityUnblockUser>>,
+    IdentityUnblockUserMutationVariables
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return identityUnblockUser(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type IdentityUnblockUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof identityUnblockUser>>
+>;
+
+export type IdentityUnblockUserMutationError = ErrorType<ProblemOut>;
+export type IdentityUnblockUserMutationVariables = { userId: string };
+
+/**
+ * @summary Unblock User
+ */
+export const useIdentityUnblockUser = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof identityUnblockUser>>,
+      TError,
+      IdentityUnblockUserMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof identityUnblockUser>>,
+  TError,
+  IdentityUnblockUserMutationVariables,
+  TContext
+> => {
+  return useMutation(getIdentityUnblockUserMutationOptions(options), queryClient);
+};

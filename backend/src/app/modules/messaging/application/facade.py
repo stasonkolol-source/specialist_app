@@ -84,6 +84,18 @@ class MessagingFacade:
     async def unread_total(self, user_id: UserId) -> int:
         return await self._queries.unread_total(user_id)
 
+    async def message_sender(self, message_id: UUID, viewer_id: UserId) -> UserId | None:
+        message = await self._messages.get(message_id)
+        if message is None or message.sender_id is None:
+            return None
+        if await self._queries.view(message.conversation_id, viewer_id) is None:
+            return None  # чужая переписка — как несуществующая
+        return message.sender_id
+
+    async def counterpart(self, conversation_id: UUID, user_id: UserId) -> UserId | None:
+        view = await self._queries.view(conversation_id, user_id)
+        return view.counterpart_id if view is not None else None
+
 
 def _preview(body: str) -> str:
     text = " ".join(body.split())

@@ -46,5 +46,5 @@ class ListMessages:
             direction=cmd.direction,
             limit=cmd.limit,
         )
-        [card] = await self._cards.of([conversation])
+        [card] = await self._cards.of([conversation], cmd.actor_id)
         return ConversationMessages(conversation=card, page=page)

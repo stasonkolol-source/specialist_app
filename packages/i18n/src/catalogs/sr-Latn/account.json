@@ -52,7 +52,8 @@
     "privacyTelegram": "Moj Telegram",
     "privacyTelegramHint": "Sagovornik će videti link na vaš Telegram u dogovoru i u razgovoru kad se dogovorite",
     "privacyPhoneHint": "Telefon možete podeliti u razgovoru dugmetom „Podelite kontakt“ — Telegram će tražiti potvrdu",
-    "saveError": "Čuvanje nije uspelo. Pokušajte ponovo."
+    "saveError": "Čuvanje nije uspelo. Pokušajte ponovo.",
+    "blocked": "Blokirani"
   },
   "deletion": {
     "title": "Brisanje naloga",

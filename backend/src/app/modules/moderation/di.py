@@ -5,7 +5,7 @@ from prometheus_client import CollectorRegistry
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.modules.identity.api import DeletionHold
+from app.modules.identity.api import DeletionHold, IdentityApi
 from app.modules.jobs.api import JobsApi
 from app.modules.media.api import LegalHold
 from app.modules.messaging.api import MessagingApi
@@ -19,6 +19,9 @@ from app.modules.moderation.application.ports import (
     ModerationPolicy,
     ModerationTargets,
     RateLimitOverflows,
+    ReportQuota,
+    ReportRepository,
+    ReportTargets,
     RiskSignals,
     RuleSource,
     RuleWriter,
@@ -27,6 +30,7 @@ from app.modules.moderation.application.ports import (
 )
 from app.modules.moderation.application.queries import ModerationQueries
 from app.modules.moderation.application.use_cases.auto_check import AutoCheck
+from app.modules.moderation.application.use_cases.create_report import CreateReport
 from app.modules.moderation.application.use_cases.decide_case import CaseDecider, DecideCase
 from app.modules.moderation.application.use_cases.import_content_rules import (
     ImportContentRules,
@@ -52,7 +56,9 @@ from app.modules.moderation.infrastructure.deletion_hold import CasesDeletionHol
 from app.modules.moderation.infrastructure.legal_hold import CasesLegalHold
 from app.modules.moderation.infrastructure.metrics import PrometheusAutoCheckMetrics
 from app.modules.moderation.infrastructure.queries import SqlCaseQueue, SqlCaseStats
+from app.modules.moderation.infrastructure.quota import ValkeyReportQuota
 from app.modules.moderation.infrastructure.rate_limits import ValkeyRateLimitOverflows
+from app.modules.moderation.infrastructure.reports import FacadeReportTargets, SqlReportRepository
 from app.modules.moderation.infrastructure.rules import CachedRuleSource, SqlRuleWriter
 from app.modules.moderation.infrastructure.targets import TargetRegistry
 from app.modules.moderation.infrastructure.targets.job import JobTarget
@@ -88,6 +94,22 @@ class ModerationProvider(Provider):
     @provide(scope=Scope.APP)
     def overflows(self, limiter: RateLimiter) -> RateLimitOverflows:
         return ValkeyRateLimitOverflows(limiter)
+
+    @provide(scope=Scope.APP)
+    def report_quota(self, limiter: RateLimiter) -> ReportQuota:
+        return ValkeyReportQuota(limiter)
+
+    @provide
+    def report_targets(
+        self,
+        identity: IdentityApi,
+        specialists: SpecialistsApi,
+        jobs: JobsApi,
+        reviews: ReviewsApi,
+        messaging: MessagingApi,
+    ) -> ReportTargets:
+        """На кого жалоба (4.7): автор объекта — через фасады модулей-владельцев."""
+        return FacadeReportTargets(identity, specialists, jobs, reviews, messaging)
 
     @provide(scope=Scope.APP)
     def policy(self, versions: LegalVersions, library: LegalLibrary) -> ModerationPolicy:
@@ -140,3 +162,5 @@ class ModerationProvider(Provider):
     resolve_dispute = provide(ResolveDispute)
     inspect_dispute = provide(InspectDispute)
     record_rate_limit_signals = provide(RecordRateLimitSignals)
+    reports = provide(SqlReportRepository, provides=ReportRepository)
+    create_report = provide(CreateReport)

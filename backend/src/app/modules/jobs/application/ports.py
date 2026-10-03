@@ -160,9 +160,12 @@ class JobQueries(Protocol):
         """Исполнителя пригласили в заявку: прямой запрос ему виден (5.6)."""
         ...
 
-    async def saved(self, user_id: UserId, *, now: datetime) -> list[FeedItem]:
+    async def saved(
+        self, user_id: UserId, *, now: datetime, hidden_clients: Collection[UserId] = ()
+    ) -> list[FeedItem]:
         """Сохранённые пользователем заявки, которые ещё открыты (опубликованы, публичны, срок
-        не вышел), — новые сохранения первыми; без расстояния."""
+        не вышел), — новые сохранения первыми; без расстояния. Заявок `hidden_clients`
+        (блокировки, 4.7) — нет."""
         ...
 
 

@@ -44,7 +44,9 @@
     "decline": "Отклонить",
     "confirm": "Подтвердить",
     "workDone": "Работа выполнена",
-    "leaveReview": "Оставить отзыв"
+    "leaveReview": "Оставить отзыв",
+    "block": "Заблокировать",
+    "unblock": "Разблокировать"
   },
   "count": {
     "reviews": "{count, plural, one {# отзыв} few {# отзыва} many {# отзывов} other {# отзыва}}",

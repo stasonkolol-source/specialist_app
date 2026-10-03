@@ -92,6 +92,14 @@ class PendingProfiles(Protocol):
     async def count(self) -> int: ...
 
 
+class Blocklist(Protocol):
+    """Блокировки зрителя (фасад identity, 4.7)."""
+
+    async def blocked_ids(self, user_id: UserId) -> frozenset[UserId]:
+        """С кем блокировка в любую сторону: выдача, счётчик и избранное их не показывают."""
+        ...
+
+
 class SpecialistSearch(Protocol):
     """Выдача по read-model (§9.2–9.5). Порт — граница замены: при росте за ним встанет
     поисковый движок, а use case и HTTP не изменятся (ARCHITECTURE §18)."""
@@ -125,8 +133,11 @@ class SpecialistSearch(Protocol):
         """Видимые специалисты города по категориям — с подкатегориями (дерево S04)."""
         ...
 
-    async def listed(self, profile_ids: Collection[UUID]) -> list[SpecialistHit]:
-        """Строки этих профилей, которые видны в каталоге (избранное S12), в любом порядке."""
+    async def listed(
+        self, profile_ids: Collection[UUID], *, hidden_users: Collection[UserId] = ()
+    ) -> list[SpecialistHit]:
+        """Строки этих профилей, которые видны в каталоге (избранное S12), в любом порядке;
+        профили `hidden_users` (блокировки зрителя) — нет."""
         ...
 
 

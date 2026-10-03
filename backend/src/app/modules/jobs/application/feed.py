@@ -2,7 +2,8 @@
 
 Опубликованные публичные заявки города, свежие сверху, keyset по `(published_at, id)`. Фильтры —
 категории (с подкатегориями), районы или радиус от точки, срочность, бюджет «от», язык общения,
-«только с фото». Свои заявки и скрытые («не интересно») зрителю не показываются. Имена категорий
+«только с фото». Свои заявки, скрытые («не интересно») и заявки тех, с кем у зрителя блокировка
+(4.7), ему не показываются. Имена категорий
 и районов клиент берёт из справочников (они у него уже есть): в карточке — только id.
 """
 
@@ -12,7 +13,7 @@ from typing import Final
 
 from app.modules.jobs.domain.job import BudgetType, BudgetUnit, JobId, Urgency
 from app.platform.kernel.geo import GeoPoint
-from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId
+from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, UserId
 
 CARD_PHOTOS: Final = 3
 """Фото в карточке ленты: превью, остальные — на S15."""
@@ -37,6 +38,9 @@ class FeedFilters:
     with_photos: bool = False
     published_after: datetime | None = None
     """«Новые»: опубликованные позже — счётчик на Главной."""
+    hidden_clients: tuple[UserId, ...] = ()
+    """С кем у зрителя блокировка в любую сторону (4.7): их заявок нет. Ставит use case по
+    зрителю, не фильтры шторки."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

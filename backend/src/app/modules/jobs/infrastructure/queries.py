@@ -362,13 +362,17 @@ class SqlJobQueries(SqlQuery):
         )
         return [_owner_response(row) for row in rows]
 
-    async def saved(self, user_id: UserId, *, now: datetime) -> list[FeedItem]:
-        rows = await self._fetch(
+    async def saved(
+        self, user_id: UserId, *, now: datetime, hidden_clients: Collection[UserId] = ()
+    ) -> list[FeedItem]:
+        stmt = (
             select(*_CARD, literal(None).label("distance"))
             .join_from(JobRow, SavedJobRow, and_(_S.job_id == _J.id, _S.user_id == user_id))
             .where(*_open_to_all(now))
-            .order_by(_S.created_at.desc(), _J.id.desc())
         )
+        if hidden_clients:
+            stmt = stmt.where(_J.client_id.not_in(list(hidden_clients)))
+        rows = await self._fetch(stmt.order_by(_S.created_at.desc(), _J.id.desc()))
         return [_feed_item(row) for row in rows]
 
     async def published_and_response(
@@ -531,6 +535,8 @@ def _feed_conditions(
     if viewer_id is not None:
         conditions.append(_J.client_id != viewer_id)
         conditions.append(~exists().where(_H.user_id == viewer_id, _H.job_id == _J.id))
+    if filters.hidden_clients:
+        conditions.append(_J.client_id.not_in(list(filters.hidden_clients)))
     if filters.category_ids:
         wanted = cast(list(filters.category_ids), ARRAY(Integer))
         conditions.append(_J.category_path.overlap(wanted))

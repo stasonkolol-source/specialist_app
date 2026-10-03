@@ -4,7 +4,8 @@
 десять параллельных откликов на пять мест дадут ровно пять. Суточная квота (§13.3) тратится
 последней — после всех проверок заявки, поэтому отказ «мест нет» её не съедает. Отклик от
 профиля специалиста, если он опубликован; иначе — подработка. Текст сразу уходит на проверку:
-клиент видит отклик, когда её пройдёт.
+клиент видит отклик, когда её пройдёт. Заявка того, с кем у исполнителя блокировка в любую
+сторону (4.7), — как невидимая: 404.
 """
 
 from dataclasses import dataclass
@@ -82,7 +83,10 @@ class Respond:
             ):
                 raise TemplateNotFoundError(template_id=cmd.template_id)
             job = await self._jobs.get_for_update(cmd.job_id)
-            if not await visible_to(self._queries, job, cmd.actor_id):
+            if not await visible_to(self._queries, job, cmd.actor_id) or (
+                job.client_id != cmd.actor_id
+                and await self._identity.blocks_with(cmd.actor_id, [job.client_id])
+            ):
                 raise JobNotFoundError(job_id=cmd.job_id)
             response = job.respond(
                 response_id=ResponseId(new_id()),
