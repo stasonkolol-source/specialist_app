@@ -34,13 +34,35 @@ function cspHeaders(mediaOrigins: readonly string[], storageOrigins: readonly st
   };
 }
 
+/** Стенд (`pnpm stand`: vite preview за туннелем): файлы с хешем в имени не меняются — WebView
+ *  берёт их из кэша без запроса, как будет на Cloudflare. index.html перепроверяется. */
+function immutableAssets(): Plugin {
+  return {
+    name: 'sosed-immutable-assets',
+    configurePreviewServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url?.startsWith('/assets/')) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   // .env рядом с конфигом: адрес туннеля для allowedHosts (0.22), CDN медиа, DSN Sentry
   const env = loadEnv(mode, import.meta.dirname, '');
   const mediaOrigins = list(env.VITE_MEDIA_ORIGINS);
   const storageOrigins = list(env.TMA_STORAGE_ORIGINS);
   return {
-    plugins: [react(), tailwindcss(), fontPreload(), cspHeaders(mediaOrigins, storageOrigins)],
+    plugins: [
+      react(),
+      tailwindcss(),
+      fontPreload(),
+      cspHeaders(mediaOrigins, storageOrigins),
+      immutableAssets(),
+    ],
     define: { __APP_VERSION__: JSON.stringify(pkg.version) },
     // manifest — для бюджета первого экрана (scripts/size.ts)
     build: {
@@ -71,6 +93,8 @@ export default defineConfig(({ mode }) => {
     preview: {
       host: '127.0.0.1',
       port: 4173,
+      // стенд открывается в Telegram через quick tunnel (scripts/tunnel.py) — его хост
+      allowedHosts: list(env.TMA_ALLOWED_HOSTS),
       proxy: { '/api': 'http://127.0.0.1:8000' },
       headers: {
         'Content-Security-Policy': contentSecurityPolicy({
