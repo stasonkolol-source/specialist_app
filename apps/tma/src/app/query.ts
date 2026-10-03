@@ -15,12 +15,22 @@ export function shouldRetry(failureCount: number, error: unknown): boolean {
   return failureCount < MAX_RETRIES;
 }
 
+/** Предзагрузка «на всякий случай» (данные Главной после входа, экран по намерению): пока её
+ *  ответ никто не ждёт, ошибка не открывает экраны S49. Экран, который смонтируется, перечитает
+ *  запрос сам — и ошибку покажет как обычно. */
+export const SILENT = { silent: true } as const;
+
 /** `onError` — ошибка любого запроса после повторов: 426, техработы и санкции решают экраны S49. */
 export function createQueryClient(
   onError: (error: unknown) => void = () => undefined,
 ): QueryClient {
   return new QueryClient({
-    queryCache: new QueryCache({ onError }),
+    queryCache: new QueryCache({
+      onError: (error, query) => {
+        if (query.meta?.silent === true && query.getObserversCount() === 0) return;
+        onError(error);
+      },
+    }),
     mutationCache: new MutationCache({ onError }),
     defaultOptions: {
       queries: {

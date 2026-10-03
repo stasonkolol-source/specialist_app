@@ -2,8 +2,8 @@
 // Названия приходят на языке запроса (Accept-Language), поэтому язык — часть ключа: после смены
 // языка без перезагрузки список перечитывается, а до ответа виден прежний (без скелетона).
 import type { CityOut, Locale } from '@sosed/api-client';
-import { getGeoListCitiesQueryKey, useGeoListCities } from '@sosed/api-client';
-import { keepPreviousData } from '@tanstack/react-query';
+import { getGeoListCitiesQueryKey, getGeoListCitiesQueryOptions } from '@sosed/api-client';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 /** Как Cache-Control ответа (max-age=300): справочник меняется редко. */
 export const CITIES_STALE_MS = 5 * 60_000;
@@ -12,14 +12,15 @@ export function citiesQueryKey(locale: Locale) {
   return [...getGeoListCitiesQueryKey(), locale] as const;
 }
 
-export function useCities(locale: Locale) {
-  return useGeoListCities({
-    query: {
-      queryKey: citiesQueryKey(locale),
-      staleTime: CITIES_STALE_MS,
-      placeholderData: keepPreviousData,
-    },
+/** Ключ и свежесть — одни у хука и у предзагрузки при запуске: запрос не задвоится. */
+export function citiesQueryOptions(locale: Locale) {
+  return getGeoListCitiesQueryOptions({
+    query: { queryKey: citiesQueryKey(locale), staleTime: CITIES_STALE_MS },
   });
+}
+
+export function useCities(locale: Locale) {
+  return useQuery({ ...citiesQueryOptions(locale), placeholderData: keepPreviousData });
 }
 
 /** Выбрать можно только активный город; «скоро» виден, но недоступен. */

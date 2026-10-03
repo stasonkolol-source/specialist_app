@@ -16,7 +16,7 @@ import {
   viewsListResponseCards,
 } from '@sosed/api-client';
 import type { QueryClient } from '@tanstack/react-query';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { FEED_KEY } from './feed.ts';
 import { jobQueryKey } from './jobs.ts';
@@ -27,13 +27,18 @@ export const RESPONSES_POLL_MS = 15_000;
 export const myJobsQueryKey = () => getJobsListMyJobsQueryKey();
 export const responseCardsQueryKey = (jobId: string) => getViewsListResponseCardsQueryKey(jobId);
 
-/** Все свои заявки, новые первыми; гостю — нечего запрашивать. */
-export function useMyJobs() {
-  return useQuery({
+/** Запрос своих заявок — один у хука и у предзагрузки Главной после входа. */
+export function myJobsQueryOptions() {
+  return queryOptions({
     queryKey: myJobsQueryKey(),
     queryFn: ({ signal }) => jobsListMyJobs(undefined, { signal }),
     enabled: getSession() !== null,
   });
+}
+
+/** Все свои заявки, новые первыми; гостю — нечего запрашивать. */
+export function useMyJobs() {
+  return useQuery(myJobsQueryOptions());
 }
 
 /** Отклики своей заявки карточками; сервер отмечает их просмотренными — бейдж S22 гаснет. */

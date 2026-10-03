@@ -1,7 +1,8 @@
 // Конфиг клиента (DEVELOPMENT_PLAN 1.1): GET /client-config — минимальные версии, флаги, версии
 // правовых документов. Публичный, с ETag и max-age 60: браузер сам делает условный запрос.
 import type { ClientConfigOut } from '@sosed/api-client';
-import { useSystemGetClientConfig } from '@sosed/api-client';
+import { getSystemGetClientConfigQueryOptions } from '@sosed/api-client';
+import { useQuery } from '@tanstack/react-query';
 
 export const CLIENT_CONFIG_STALE_MS = 60_000;
 
@@ -15,8 +16,13 @@ export const FLAGS = {
 
 export type FlagKey = (typeof FLAGS)[keyof typeof FLAGS];
 
+/** Ключ и свежесть конфига — одни у хука и у предзагрузки при запуске (до первого кадра). */
+export function clientConfigQueryOptions() {
+  return getSystemGetClientConfigQueryOptions({ query: { staleTime: CLIENT_CONFIG_STALE_MS } });
+}
+
 export function useClientConfig() {
-  return useSystemGetClientConfig({ query: { staleTime: CLIENT_CONFIG_STALE_MS } });
+  return useQuery(clientConfigQueryOptions());
 }
 
 /** Флаг включён только явным `true` с сервера: пока конфиг грузится или недоступен — выключен. */

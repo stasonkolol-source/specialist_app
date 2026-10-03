@@ -1,13 +1,10 @@
 // «Ищете подработку? 6 новых задач рядом» на S03 (DEVELOPMENT_PLAN 5.3) — в ленту заявок S13:
 // заявки города за сутки; без новых заявок блока нет. Своим чанком: счётчик и API заявок не нужны
 // до первого кадра Главной (бюджет первого экрана 200 KB gzip).
-import { useJobsCount } from '@sosed/hooks';
+import { NEW_JOBS_HOURS, useJobsCount } from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
 import { Card, Icon, RowIcon, Text } from '@sosed/ui-web';
 import type { MouseEvent } from 'react';
-
-/** «Новых» — опубликованных за сутки. */
-const NEW_JOBS_HOURS = 24;
 
 export function SideJob({
   cityId,

@@ -3,6 +3,7 @@
 export {
   DICTIONARY_STALE_MS,
   categoriesQueryKey,
+  categoriesQueryOptions,
   districtsQueryKey,
   leafCategories,
   selectableDistricts,
@@ -14,6 +15,7 @@ export {
   CLIENT_CONFIG_STALE_MS,
   DEFAULT_MIN_TELEGRAM,
   FLAGS,
+  clientConfigQueryOptions,
   compareVersions,
   requiredUpdate,
   useClientConfig,
@@ -22,6 +24,7 @@ export {
 export {
   CITIES_STALE_MS,
   citiesQueryKey,
+  citiesQueryOptions,
   defaultCity,
   isSelectableCity,
   useCities,
@@ -135,6 +138,7 @@ export {
   SUGGEST_MIN,
   SUGGEST_STALE_MS,
   TODAY_PREVIEW,
+  availableTodayQueryOptions,
   countQuery,
   countsByCategory,
   resultItems,
@@ -202,7 +206,7 @@ export type { PublishJob } from './jobs/jobs.ts';
 export { jobQueryKey, useCreateJob, useJob } from './jobs/jobs.ts';
 export type { FeedPages, FeedQuery } from './jobs/feed.ts';
 export { FEED_PAGE_SIZE, feedQueryKey, jobCards, useHideJob, useJobsFeed } from './jobs/feed.ts';
-export { useJobsCount } from './jobs/count.ts';
+export { NEW_JOBS_HOURS, jobsCountQueryOptions, useJobsCount } from './jobs/count.ts';
 export type { OfferDraft, OfferProblem } from './jobs/offer.ts';
 export {
   RESPONSE_AVAILABILITY_MAX,
@@ -261,6 +265,7 @@ export {
   RESPONSES_POLL_MS,
   jobInvitesQueryKey,
   myJobsQueryKey,
+  myJobsQueryOptions,
   responseCardsQueryKey,
   useCloseJob,
   useExtendJob,

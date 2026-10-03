@@ -60,15 +60,14 @@ const PALETTES: readonly AvatarPalette[] = [1, 4, 2, 3, 5];
 const SUGGEST_DELAY_MS = 250;
 
 /** Необязательный блок своим чанком: не скачался (пропала сеть) — блока нет, а Главная работает.
- *  Иначе ошибка чанка дошла бы до экрана ошибки и закрыла бы всю Главную. */
+ *  Иначе ошибка чанка дошла бы до экрана ошибки и закрыла бы всю Главную. Чанк качается сразу с
+ *  Главной, параллельно с данными блока, а не после них: lazy отдаёт уже начатую загрузку. */
 function optionalChunk<P extends object>(load: () => Promise<ComponentType<P>>) {
-  return lazy(async (): Promise<{ default: ComponentType<P> }> => {
-    try {
-      return { default: await load() };
-    } catch {
-      return { default: () => null };
-    }
-  });
+  const loading: Promise<{ default: ComponentType<P> }> = load().then(
+    (component) => ({ default: component }),
+    () => ({ default: () => null }),
+  );
+  return lazy(() => loading);
 }
 
 const TodayNearby = optionalChunk(() =>

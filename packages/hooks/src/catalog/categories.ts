@@ -4,11 +4,11 @@
 import type { CategoryOut, DistrictOut, Locale } from '@sosed/api-client';
 import {
   getCatalogListCategoriesQueryKey,
+  getCatalogListCategoriesQueryOptions,
   getGeoListDistrictsQueryKey,
-  useCatalogListCategories,
   useGeoListDistricts,
 } from '@sosed/api-client';
-import { keepPreviousData } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 /** Как Cache-Control ответов (max-age=300): справочники меняются редко. */
 export const DICTIONARY_STALE_MS = 5 * 60_000;
@@ -17,15 +17,16 @@ export function categoriesQueryKey(locale: Locale, city?: string) {
   return [...getCatalogListCategoriesQueryKey(city ? { city } : undefined), locale] as const;
 }
 
+/** Ключ и свежесть — одни у хука и у предзагрузки при запуске: запрос не задвоится. */
+export function categoriesQueryOptions(locale: Locale, city?: string) {
+  return getCatalogListCategoriesQueryOptions(city ? { city } : undefined, {
+    query: { queryKey: categoriesQueryKey(locale, city), staleTime: DICTIONARY_STALE_MS },
+  });
+}
+
 /** `city` — slug города: с ним у категорий ориентир цены `price_hint` (S04). */
 export function useCategories(locale: Locale, city?: string) {
-  return useCatalogListCategories(city ? { city } : undefined, {
-    query: {
-      queryKey: categoriesQueryKey(locale, city),
-      staleTime: DICTIONARY_STALE_MS,
-      placeholderData: keepPreviousData,
-    },
-  });
+  return useQuery({ ...categoriesQueryOptions(locale, city), placeholderData: keepPreviousData });
 }
 
 /** Листья дерева в порядке каталога: специалист выбирает конкретные услуги, а не разделы. */
