@@ -208,7 +208,8 @@ test('S02c новая редакция правил: вернувшийся ви
 });
 
 test('S01 deep link на экран следующих шагов открывает главную', async ({ page }) => {
-  const watch = await open(page, 'theme=light&lang=ru&start=d_3Nf1YTX8urRqobGWgo1mmN_rAB12CD', {
+  // `g_` — раздел «Вещи», он после MVP: экрана нет (у `d_` экран S26 есть с 6.2)
+  const watch = await open(page, 'theme=light&lang=ru&start=g_02y9UKmeRG6vSNbdsEYkkR', {
     signedIn: true,
     me: ME,
   });
