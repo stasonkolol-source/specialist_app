@@ -3,6 +3,7 @@
 compose → миграции → сиды → туннели (адреса в .env, menu button) → honcho с Procfile.dev:
 web, bot, worker, worker-media, tma. Ctrl+C или SIGTERM останавливает процессы и туннели.
 `make dev TUNNEL=0` — без туннелей (только локально).
+`make dev TMA=dev` — Mini App из dev-сервера Vite с HMR вместо сборки (Procfile.dev).
 
 Стенд чинит себя сам (quick tunnel живёт, пока жива связь):
 - Cloudflare удаляет quick tunnel, если связь пропала надолго (сон Мака): адрес перестаёт

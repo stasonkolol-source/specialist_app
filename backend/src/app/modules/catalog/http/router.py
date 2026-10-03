@@ -5,9 +5,16 @@ from typing import Annotated
 from dishka.integrations.fastapi import FromDishka, inject
 from fastapi import APIRouter, Query, Request, Response
 
+from app.modules.catalog.application.dto import CategoryView
 from app.modules.catalog.application.ports import CatalogQuery
 from app.modules.catalog.http.schemas import CategoryOut
-from app.platform.http.caching import NOT_MODIFIED, cached_json
+from app.platform.http.caching import (
+    DICTIONARY_SWR,
+    NOT_MODIFIED,
+    EncodedJson,
+    cached_response,
+    encode_json,
+)
 from app.platform.kernel.localized import Locale
 
 router = APIRouter(tags=["catalog"])
@@ -30,7 +37,22 @@ async def list_categories(
 
     Неизвестный город — не ошибка: у категорий просто нет ориентира цены.
     """
-    body = [
-        CategoryOut.of(node, locale, city).model_dump(mode="json") for node in await query.tree()
-    ]
-    return cached_json(request, body, max_age=MAX_AGE_SECONDS, vary="Accept-Language")
+    # тело и ETag — раз на снимок дерева, язык и город с ориентирами; город без ориентиров
+    # даёт то же тело, что и без города, — один ключ (мусорные slug не раздувают память)
+    memo = await query.representations()
+    known = city if city is not None and city in await query.price_hint_cities() else None
+    tree = await query.tree()
+    body = memo.get((locale, known), lambda: _tree(tree, locale, city))
+    return cached_response(
+        request,
+        body,
+        max_age=MAX_AGE_SECONDS,
+        vary="Accept-Language",
+        stale_while_revalidate=DICTIONARY_SWR,
+    )
+
+
+def _tree(tree: list[CategoryView], locale: Locale, city: str | None) -> EncodedJson:
+    return encode_json(
+        [CategoryOut.of(node, locale, city).model_dump(mode="json") for node in tree]
+    )

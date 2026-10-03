@@ -23,6 +23,7 @@ from app.modules.catalog.domain.terms import SearchTerm, dictionary
 from app.modules.catalog.infrastructure.writer import SqlCatalogWriter
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.translit import sr_cyrl_to_latn
+from app.platform.testing.cache import NoSnapshotCache
 from app.platform.testing.clock import FakeClock
 from tests.plugins.database import make_uow
 
@@ -46,7 +47,7 @@ def _spellings(term: SearchTerm) -> set[str]:
 
 async def _import(db_session: AsyncSession, app: procrastinate.App) -> ImportResult:
     uow = make_uow(db_session, app)
-    use_case = ImportCatalog(uow, SqlCatalogWriter(db_session, uow), FakeClock())
+    use_case = ImportCatalog(uow, SqlCatalogWriter(db_session, uow), FakeClock(), NoSnapshotCache())
     return await use_case(ImportCatalogCommand(categories=tuple(load_catalog_seed())))
 
 

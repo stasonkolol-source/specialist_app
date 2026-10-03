@@ -5,7 +5,9 @@ from typing import Protocol
 
 from app.modules.catalog.api import CategorySuggestion, CategorySummary, SearchTerm, TermMatch
 from app.modules.catalog.application.dto import CategorySeed, CategoryView, ImportResult
+from app.platform.cache.memo import Memo
 from app.platform.kernel.ids import CategoryId
+from app.platform.kernel.localized import LocalizedText
 
 
 class CatalogQuery(Protocol):
@@ -17,6 +19,10 @@ class CatalogQuery(Protocol):
 
     async def categories(self, category_ids: Collection[CategoryId]) -> list[CategorySummary]: ...
 
+    async def labels(self, category_ids: Collection[CategoryId]) -> dict[CategoryId, LocalizedText]:
+        """Названия для показа; кого нет — нет и в ответе."""
+        ...
+
     async def search_terms(
         self, category_ids: Collection[CategoryId]
     ) -> dict[CategoryId, tuple[SearchTerm, ...]]: ...
@@ -26,6 +32,21 @@ class CatalogQuery(Protocol):
     async def similar_term(self, text: str) -> TermMatch | None: ...
 
     async def suggest(self, text: str, *, limit: int) -> list[CategorySuggestion]: ...
+
+    async def representations(self) -> Memo:
+        """Ответы справочника (тело и ETag) текущего снимка: строятся раз на снимок."""
+        ...
+
+    async def price_hint_cities(self) -> frozenset[str]:
+        """Города, для которых в дереве есть ориентиры цены (ключ представления дерева)."""
+        ...
+
+
+class TaxonomyCache(Protocol):
+    """Снимок дерева в памяти процесса: импорт в этом процессе сбрасывает его сразу, в
+    остальных он обновится за TTL."""
+
+    def invalidate(self) -> None: ...
 
 
 class CatalogWriter(Protocol):

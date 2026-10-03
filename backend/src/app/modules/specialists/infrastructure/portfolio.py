@@ -73,7 +73,7 @@ class SqlPortfolioRepository:
 class SqlPortfolioQuery(SqlQuery):
     async def of_profile(self, profile_id: UUID) -> list[PortfolioItem]:
         """Работы профиля по порядку — для кабинета S37 (без блокировки)."""
-        rows = (await self._session.execute(_alive(profile_id))).all()
+        rows = (await self._execute(_alive(profile_id))).all()
         items = [_to_domain(item, media) for item, media in rows]
         await self._release()
         return items

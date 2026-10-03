@@ -6,7 +6,18 @@ from datetime import datetime
 from typing import Any, Final
 from uuid import UUID
 
-from sqlalchemy import RowMapping, Select, and_, func, or_, select, true, tuple_
+from sqlalchemy import (
+    ColumnElement,
+    RowMapping,
+    Select,
+    Uuid,
+    and_,
+    func,
+    literal,
+    select,
+    true,
+    tuple_,
+)
 
 from app.modules.messaging.application.dto import ConversationView, MessagesPage, ResponseStat
 from app.modules.messaging.application.ports import Direction
@@ -47,19 +58,7 @@ class SqlConversationQueries(SqlQuery):
         return Page(items=tuple(items), next_cursor=cursor)
 
     async def unread_total(self, user_id: UserId) -> int:
-        row = await self._fetch_one(
-            select(func.count().label("count"))
-            .select_from(MessageRow)
-            .join(
-                ParticipantRow,
-                and_(_P.conversation_id == _M.conversation_id, _P.user_id == user_id),
-            )
-            .where(
-                _M.sender_id != user_id,  # свои и системные (без автора) — не в счёт
-                _M.moderation != MessageModeration.HIDDEN,
-                or_(_P.last_read_message_id.is_(None), _M.id > _P.last_read_message_id),
-            )
-        )
+        row = await self._fetch_one(unread_total_query(user_id))
         return int(row["count"]) if row is not None else 0
 
     async def view(self, conversation_id: UUID, user_id: UserId) -> ConversationView | None:
@@ -162,7 +161,7 @@ class SqlConversationQueries(SqlQuery):
                 _UNREAD.c.conversation_id == _C.id,
                 _UNREAD.c.sender_id != user_id,  # системные (без автора) — не в счёт
                 _UNREAD.c.moderation != MessageModeration.HIDDEN,
-                or_(_P.last_read_message_id.is_(None), _UNREAD.c.id > _P.last_read_message_id),
+                _UNREAD.c.id > _read_up_to(_P.last_read_message_id),
             )
             .scalar_subquery()
         )
@@ -186,6 +185,33 @@ class SqlConversationQueries(SqlQuery):
             .outerjoin(last, true())
             .where(_P.user_id == user_id)
         )
+
+
+def unread_total_query(user_id: UserId) -> Select[int]:
+    """Непрочитанные во всех диалогах пользователя (бейдж «Сообщения»)."""
+    return (
+        select(func.count().label("count"))
+        .select_from(MessageRow)
+        .join(
+            ParticipantRow,
+            and_(_P.conversation_id == _M.conversation_id, _P.user_id == user_id),
+        )
+        .where(
+            _M.sender_id != user_id,  # свои и системные (без автора) — не в счёт
+            _M.moderation != MessageModeration.HIDDEN,
+            _M.id > _read_up_to(_P.last_read_message_id),
+        )
+    )
+
+
+NOTHING_READ: Final = UUID(int=0)
+"""Ни одного прочитанного: меньше любого UUIDv7 сообщения."""
+
+
+def _read_up_to(last_read: ColumnElement[UUID | None]) -> ColumnElement[UUID]:
+    """Граница непрочитанного: `id > coalesce(…)` — диапазон индекса (conversation_id, id);
+    `last_read IS NULL OR id > last_read` планировщик проверял фильтром по всем сообщениям."""
+    return func.coalesce(last_read, literal(NOTHING_READ, Uuid))
 
 
 LAST: Final = "last_"

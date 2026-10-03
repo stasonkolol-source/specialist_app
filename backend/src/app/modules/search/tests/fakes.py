@@ -22,6 +22,7 @@ from app.modules.search.domain.query import RankWeights, SpecialistSort, Stage
 from app.platform.kernel.aggregate import AggregateRoot
 from app.platform.kernel.events import DomainEvent
 from app.platform.kernel.ids import CategoryId, CityId, MediaId, UserId
+from app.platform.kernel.localized import LocalizedText
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,6 +124,9 @@ class FakeCatalog:
         raise NotImplementedError
 
     async def categories(self, category_ids: Collection[CategoryId]) -> list[CategorySummary]:
+        raise NotImplementedError
+
+    async def labels(self, category_ids: Collection[CategoryId]) -> dict[CategoryId, LocalizedText]:
         raise NotImplementedError
 
     async def search_terms(

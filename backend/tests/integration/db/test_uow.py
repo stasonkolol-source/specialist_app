@@ -1,15 +1,21 @@
 """Unit of Work, события и очередь (DEVELOPMENT_PLAN 0.10, ADR-0020 «Что сделать» п. 3)."""
 
 import contextlib
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, cast
 from uuid import UUID
 
 import procrastinate
 import pytest
 from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.exc import DBAPIError
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from app.platform.db.errors import (
     FailedTransactionError,
@@ -32,6 +38,8 @@ from tests.integration.db.sample import (
     WidgetPublished,
     WidgetRow,
 )
+from tests.plugins.containers import PostgresInfo
+from tests.plugins.round_trips import round_trips
 
 pytestmark = pytest.mark.integration
 
@@ -252,3 +260,70 @@ async def test_add_event_without_aggregate_is_dispatched(
         async with sc.uow:
             sc.uow.add_event(WidgetPublished(widget_id=widget_id, owner_id=owner, occurred_at=NOW))
     assert await _tasks(maker, ON_WIDGET_PUBLISHED.name) == [ON_WIDGET_PUBLISHED.name]
+
+
+@pytest.fixture
+async def single(postgres: PostgresInfo, sample_schema: None) -> AsyncIterator[Maker]:
+    """Пул из одного соединения с проверкой при выдаче, как в проде: чтение в AUTOCOMMIT и
+    следующий UoW гарантированно делят одно соединение."""
+    engine = create_async_engine(
+        postgres.dsn("app"), pool_size=1, max_overflow=0, pool_pre_ping=True
+    )
+    try:
+        yield async_sessionmaker(engine, expire_on_commit=False, autoflush=False)
+    finally:
+        await engine.dispose()
+
+
+async def test_standalone_read_goes_without_begin_and_rollback(
+    single: Maker, scope_factory: Build
+) -> None:
+    """Перф: чтение вне UoW — проверка соединения и сам запрос, без BEGIN и ROLLBACK на сервер;
+    чтение в UoW — в его транзакции, как прежде."""
+    owner = UserId(new_id())
+    engine = cast(AsyncEngine, single.kw["bind"])
+    async with single() as s:
+        query = SqlWidgetQuery(s)
+        with round_trips(engine) as trips:
+            await query.list_for_owner(owner, PageRequest())
+            await query.list_for_owner(owner, PageRequest())
+        assert not s.in_transaction()
+        assert (trips.queries, trips.begins, trips.ends) == (2, 0, 0)
+        assert trips.total == 4  # было 8: pre-ping, BEGIN, SELECT, ROLLBACK на каждое чтение
+        sc = scope_factory(s)
+        with round_trips(engine) as trips:
+            async with sc.uow:
+                await query.list_for_owner(owner, PageRequest())
+                await sc.repo.add(make_widget(owner))
+        assert (trips.begins, trips.ends) == (1, 1)
+
+
+async def test_uow_after_autocommit_read_still_rolls_back(
+    single: Maker, scope_factory: Build
+) -> None:
+    """Пул возвращает соединению обычный уровень изоляции: запись UoW после чтения в
+    AUTOCOMMIT на том же соединении откатывается целиком."""
+    owner = UserId(new_id())
+    async with single() as s:
+        await SqlWidgetQuery(s).list_for_owner(owner, PageRequest())
+    async with single() as s:
+        sc = scope_factory(s)
+        with pytest.raises(RuntimeError):
+            async with sc.uow:
+                await sc.repo.add(make_widget(owner))
+                driver = (await s.connection()).sync_connection
+                assert driver is not None
+                assert driver.connection.driver_connection.autocommit is False
+                raise RuntimeError
+        await SqlWidgetQuery(s).list_for_owner(owner, PageRequest())
+    async with single() as s:
+        assert (await SqlWidgetQuery(s).list_for_owner(owner, PageRequest())).items == ()
+
+
+async def test_failed_standalone_read_leaves_the_session_usable(single: Maker) -> None:
+    async with single() as s:
+        query = SqlWidgetQuery(s)
+        with pytest.raises(DBAPIError):
+            await query.boom()
+        assert not s.in_transaction()
+        assert (await query.list_for_owner(UserId(new_id()), PageRequest())).items == ()

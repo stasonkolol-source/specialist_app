@@ -6,7 +6,8 @@
 3. ближайшее слово словаря — «Возможно, вы имели в виду…».
 Нечёткое совпадение — последним: имя мастера или редкое слово прайса FTS находит точнее,
 чем похожая категория. Следующие страницы берутся тем же этапом — он записан в курсоре.
-Пустая выдача с текстом пишется в журнал для словаря; ответ подсказывает, что делать.
+Пустая выдача с текстом пишется в журнал для словаря — после ответа (`record`, фоном в HTTP);
+ответ подсказывает, что делать.
 """
 
 from dataclasses import dataclass, field, replace
@@ -94,11 +95,15 @@ class SearchSpecialists:
             if hits or cursor is not None:
                 return await self._results(cmd, match, suggestion, hits, offset, now)
             suggested = suggestion or suggested
-        if text is not None and cursor is None:
-            await self._record(cmd, text, suggested)
+        zero = _zero_result(cmd, text, suggested) if text is not None and cursor is None else None
         hints = (RELAX_FILTERS, POST_JOB) if cmd.filters.narrowed else (POST_JOB,)
         stage = Stage.BROWSE if text is None else Stage.ANY_WORD
-        return SpecialistResults(page=Page(items=()), stage=stage, hints=hints)
+        return SpecialistResults(page=Page(items=()), stage=stage, hints=hints, zero_result=zero)
+
+    async def record(self, entry: ZeroResult) -> None:
+        """Записать пустую выдачу в журнал запросов (§9.2) — отдельной транзакцией."""
+        async with self._uow:
+            await self._log.record(entry)
 
     async def _results(
         self,
@@ -124,20 +129,19 @@ class SearchSpecialists:
             did_you_mean=suggestion,
         )
 
-    async def _record(
-        self, cmd: SearchSpecialistsCommand, text: QueryText, suggested: str | None
-    ) -> None:
-        filters = cmd.filters
-        entry = ZeroResult(
-            q=text.raw,
-            locale=cmd.locale,
-            city_id=filters.city_id,
-            category_id=filters.category_id,
-            filters=_chosen(filters),
-            did_you_mean=suggested,
-        )
-        async with self._uow:
-            await self._log.record(entry)
+
+def _zero_result(
+    cmd: SearchSpecialistsCommand, text: QueryText, suggested: str | None
+) -> ZeroResult:
+    filters = cmd.filters
+    return ZeroResult(
+        q=text.raw,
+        locale=cmd.locale,
+        city_id=filters.city_id,
+        category_id=filters.category_id,
+        filters=_chosen(filters),
+        did_you_mean=suggested,
+    )
 
 
 def _check(cmd: SearchSpecialistsCommand) -> None:

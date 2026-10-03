@@ -18,6 +18,7 @@ from sqlalchemy import (
     or_,
     select,
     text,
+    true,
     tuple_,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, aggregate_order_by
@@ -370,13 +371,39 @@ class SqlJobQueries(SqlQuery):
         )
         return [_feed_item(row) for row in rows]
 
-    async def count_published(self, client_id: UserId) -> int:
-        row = await self._fetch_one(
-            select(func.count().label("count")).where(
-                _J.client_id == client_id, _J.published_at.is_not(None)
+    async def published_and_response(
+        self, client_id: UserId, job_id: JobId, viewer_id: UserId | None
+    ) -> tuple[int, MyResponseRef | None]:
+        # частичный индекс ix_jobs_client_id_published (jobs_0009)
+        published = (
+            select(func.count())
+            .where(_J.client_id == client_id, _J.published_at.is_not(None))
+            .scalar_subquery()
+            .label("published")
+        )
+        if viewer_id is None:
+            [row] = await self._fetch(select(published))
+            return int(row["published"]), None
+        mine = (
+            select(_R.id, _R.status, _R.review)
+            .where(_R.job_id == job_id, _R.performer_id == viewer_id, _R.deleted_at.is_(None))
+            .subquery("mine")
+        )
+        # строка счётчика есть всегда, отклик — если есть (LEFT JOIN к одной строке)
+        one = select(literal(1).label("one")).subquery("one")
+        [row] = await self._fetch(
+            select(published, mine.c.id, mine.c.status, mine.c.review).select_from(
+                one.outerjoin(mine, true())
             )
         )
-        return int(row["count"]) if row is not None else 0
+        response = None
+        if row["id"] is not None:
+            response = MyResponseRef(
+                id=ResponseId(row["id"]),
+                status=ResponseStatus(row["status"]),
+                review=ResponseReview(row["review"]),
+            )
+        return int(row["published"]), response
 
     async def count_active(self, client_id: UserId) -> int:
         row = await self._fetch_one(

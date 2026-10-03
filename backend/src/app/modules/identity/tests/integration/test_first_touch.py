@@ -55,6 +55,7 @@ class Harness:
             identity.tokens,
             CONFIG,
             identity.clock,
+            identity.access,
         )
         self.register = RegisterTelegramUser(
             uow, users, identity.query, identity.deleted, CONFIG, identity.clock

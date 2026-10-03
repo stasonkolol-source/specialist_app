@@ -3,8 +3,9 @@
     make tunnel     — поднять туннели, прописать адреса, обновить menu button; Ctrl+C — стоп
     make dev        — то же вместе со всеми процессами (scripts/dev.py)
 
-Два туннеля: Mini App (Vite :5173, он же проксирует /api на :8000 — один origin, правило
-Bot API 10.2) и Garage (:59100) — адрес для presigned-ссылок загрузки с телефона (0.24).
+Два туннеля: Mini App (:5173 — собранное приложение в vite preview, с `TMA=dev` — dev-сервер;
+оба проксируют /api на :8000 — один origin, правило Bot API 10.2) и Garage (:59100) — адрес
+для presigned-ссылок загрузки с телефона (0.24).
 Адреса *.trycloudflare.com меняются при каждом запуске, поэтому скрипт каждый раз:
 - пишет TELEGRAM_MINI_APP_URL и S3_PUBLIC_ENDPOINT_URL в backend/.env;
 - пишет TMA_ALLOWED_HOSTS и TMA_HMR_HOST в apps/tma/.env (Vite: хост туннеля и HMR по wss:443),

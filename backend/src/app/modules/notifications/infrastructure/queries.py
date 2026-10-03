@@ -110,7 +110,7 @@ class SqlNotificationQuery(SqlQuery):
     async def settings(self, user_id: UserId) -> NotificationSettings:
         p, s = PreferenceRow.__table__.c, UserSettingsRow.__table__.c
         choices = (
-            await self._session.execute(
+            await self._execute(
                 select(p.event_group, p.channel, p.enabled).where(p.user_id == user_id)
             )
         ).all()

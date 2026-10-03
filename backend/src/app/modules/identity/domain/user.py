@@ -10,7 +10,7 @@ import re
 import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Final
 from uuid import UUID
@@ -35,6 +35,9 @@ from app.platform.kernel.localized import Locale
 MAX_DISPLAY_NAME = 64
 DEFAULT_TIMEZONE = "Europe/Belgrade"
 FALLBACK_DISPLAY_NAME = "Сосед"
+SEEN_EVERY: Final = timedelta(minutes=15)
+"""Время входа и «был в сети» обновляются не чаще: Mini App входит при каждом открытии, и
+запись на каждый запуск меняла бы версию аккаунта (ETag S31) без пользы."""
 DELETED_DISPLAY_NAME = "Удалённый пользователь"
 
 
@@ -211,13 +214,19 @@ class User(VersionedAggregate):
 
     def record_login(
         self, *, provider: AuthProvider, subject: str, profile: Mapping[str, object], now: datetime
-    ) -> None:
-        """Повторный вход: свежий снимок профиля провайдера и время входа."""
+    ) -> bool:
+        """Повторный вход: свежий снимок профиля провайдера и время входа. Снимок пишется, только
+        если изменился, время — не чаще SEEN_EVERY. True — агрегат изменился, его надо сохранить."""
         self.ensure_active()
         identity = self.identity(provider, subject)
-        identity.profile = dict(profile)
+        snapshot = dict(profile)
+        seen = identity.last_login_at
+        if identity.profile == snapshot and seen is not None and now - seen < SEEN_EVERY:
+            return False
+        identity.profile = snapshot
         identity.last_login_at = now
         self.last_seen_at = now
+        return True
 
     def set_privacy(self, *, show_telegram: bool | None = None) -> None:
         """«Показывать после договорённости» (S43): None — не меняется. Телефон — с v1."""

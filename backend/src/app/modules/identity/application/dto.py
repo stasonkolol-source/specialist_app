@@ -5,9 +5,10 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from app.modules.identity.api import Action
-from app.modules.identity.domain.consent import ConsentDocument
+from app.modules.identity.domain.consent import Consent, ConsentDocument
+from app.modules.identity.domain.restriction import Restriction
 from app.modules.identity.domain.session import SessionId
-from app.modules.identity.domain.user import UserIntent
+from app.modules.identity.domain.user import User, UserIntent
 from app.platform.kernel.ids import CityId, UserId
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Role
@@ -56,6 +57,9 @@ class SessionTokens:
 class AuthResult:
     tokens: SessionTokens
     is_new: bool
+    me: MeView
+    """Свой профиль на момент входа: ответ /auth/telegram без чтений после commit."""
+    access: AccessView
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -92,6 +96,43 @@ class MeView:
     """Аккаунт удалится тогда (ждущий запрос на удаление); None — запроса нет."""
     show_telegram: bool = True
     """«Показывать после договорённости»: свой Telegram (S43, 6.5)."""
+
+    @classmethod
+    def of(cls, user: User, *, deletion_scheduled_at: datetime | None) -> MeView:
+        """Из загруженного агрегата: вход уже держит его в своей транзакции."""
+        return cls(
+            id=user.id,
+            display_name=user.display_name,
+            ui_locale=user.ui_locale,
+            trust_level=user.trust_level,
+            phone_verified=user.phone_verified_at is not None,
+            created_at=user.created_at,
+            version=user.version,
+            home_city_id=user.home_city_id,
+            intent=user.intent,
+            deletion_scheduled_at=deletion_scheduled_at,
+            show_telegram=user.privacy.show_telegram,
+        )
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class MeState:
+    """Свой профиль и то, из чего считается AccessView, — одним запросом (GET /me)."""
+
+    me: MeView
+    restrictions: list[Restriction]
+    """Неснятые санкции, которые действуют сейчас или начнутся позже."""
+    consents: list[Consent]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class LoginState:
+    """Что вход дочитывает в своей транзакции одним запросом: роли — в токен, согласия и ждущее
+    удаление — в ответ /auth/telegram."""
+
+    roles: frozenset[Role]
+    consents: list[Consent]
+    deletion_scheduled_at: datetime | None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
