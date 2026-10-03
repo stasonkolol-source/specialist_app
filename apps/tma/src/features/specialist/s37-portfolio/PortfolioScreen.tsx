@@ -55,6 +55,7 @@ export function PortfolioScreen() {
         {t('portfolio.title')}
       </Heading>
       <LoadState
+        shape="portfolio"
         error={failed ? failed.error : null}
         onRetry={() => {
           for (const load of loads) if (load.isError) void load.refetch();

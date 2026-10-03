@@ -41,6 +41,13 @@ export function launchHref(
   return destination === href ? null : destination;
 }
 
+/** Экран запуска, пока вход идёт: пользователь ещё не известен — цель того, кто онбординг прошёл
+ *  (почти каждый запуск). Его чанк и данные грузятся параллельно со входом (app/startup.ts); если
+ *  нужен онбординг, LaunchGate загрузит его шаг сам после входа. */
+export function launchTarget(location: LaunchLocation, deepLink: string | null): string {
+  return launchHref(null, location, deepLink) ?? location.href;
+}
+
 /**
  * Приложение открыли из Telegram (в hash — launch params), а не перезагрузили экран внутри клиента:
  * только тогда действует deep link, иначе перезагрузка снова открыла бы его. В mock-режиме

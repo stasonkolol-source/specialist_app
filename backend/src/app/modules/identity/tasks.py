@@ -54,7 +54,11 @@ async def process_deletions(run: PeriodicRun) -> None:
 async def revoke_restricted_sessions(
     event: UserRestricted, revoke: FromDishka[RevokeRestrictedSessions]
 ) -> None:
-    await revoke(RevokeRestrictedSessionsCommand(user_id=event.user_id, kind=event.kind))
+    await revoke(
+        RevokeRestrictedSessionsCommand(
+            user_id=event.user_id, kind=event.kind, restricted_at=event.occurred_at
+        )
+    )
 
 
 @subscriber(DealCompleted, RECORD_COMPLETED_DEAL)

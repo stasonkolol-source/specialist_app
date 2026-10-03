@@ -30,7 +30,7 @@ class SqlMediaQuery(SqlQuery):
         stmt = select(AssetRow).where(
             AssetRow.id.in_(list(media_ids)), AssetRow.deleted_at.is_(None)
         )
-        rows = (await self._session.scalars(stmt)).all()
+        rows = (await self._execute(stmt)).scalars().all()
         # в домен — до конца транзакции: после rollback строки ORM истекают
         assets = [to_domain(row) for row in rows]
         await self._release()
@@ -40,7 +40,7 @@ class SqlMediaQuery(SqlQuery):
         stmt = select(AssetRow.id).where(
             AssetRow.owner_id == owner_id, AssetRow.deleted_at.is_(None)
         )
-        ids = [MediaId(media_id) for media_id in (await self._session.scalars(stmt)).all()]
+        ids = [MediaId(media_id) for media_id in (await self._execute(stmt)).scalars().all()]
         await self._release()
         return ids
 
@@ -63,7 +63,7 @@ class SqlMediaQuery(SqlQuery):
             .order_by(AssetRow.uploaded_at)
             .limit(limit)
         )
-        assets = [to_domain(row) for row in (await self._session.execute(stmt)).scalars()]
+        assets = [to_domain(row) for row in (await self._execute(stmt)).scalars()]
         await self._release()
         return assets
 
@@ -80,12 +80,12 @@ class SqlMediaQuery(SqlQuery):
             .order_by(AssetRow.deleted_at)
             .limit(limit)
         )
-        assets = [to_domain(row) for row in (await self._session.execute(stmt)).scalars()]
+        assets = [to_domain(row) for row in (await self._execute(stmt)).scalars()]
         await self._release()
         return assets
 
     async def _one(self, stmt: Select[AssetRow]) -> MediaAsset | None:
-        row = (await self._session.execute(stmt)).scalar_one_or_none()
+        row = (await self._execute(stmt)).scalar_one_or_none()
         # в домен — до конца транзакции: после rollback строка ORM истекает
         asset = to_domain(row) if row is not None else None
         await self._release()

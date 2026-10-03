@@ -1,11 +1,13 @@
 // «Мои активные заявки» на S03 (DEVELOPMENT_PLAN 5.6): у клиента есть открытые заявки — до трёх
 // строк с откликами («3 отклика · 2 новых», «Ждём откликов», «На проверке»), нажатие — своя заявка
 // S23. Нет активных — блока нет. Своим чанком: список заявок до первого кадра Главной не нужен.
+// Пока список не пришёл — `pending` (скелетон у клиента: блок над разделами не сдвигает их вниз).
 import type { JobOut } from '@sosed/api-client';
 import { useMyJobs } from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
 import { Group, Heading, Row, RowIcon } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
+import type { ReactNode } from 'react';
 import { useId } from 'react';
 
 import { managedJobPath } from '../shared/paths.ts';
@@ -13,11 +15,13 @@ import { managedJobPath } from '../shared/paths.ts';
 const SHOWN = 3;
 const ACTIVE: ReadonlySet<JobOut['status']> = new Set(['published', 'pending_moderation']);
 
-export function MyActiveJobs() {
+export function MyActiveJobs({ pending = null }: { pending?: ReactNode }) {
   const { t } = useTranslation('catalog');
   const router = useRouter();
   const titleId = useId();
-  const jobs = (useMyJobs().data?.items ?? []).filter((job) => ACTIVE.has(job.status));
+  const query = useMyJobs();
+  const jobs = (query.data?.items ?? []).filter((job) => ACTIVE.has(job.status));
+  if (query.isPending) return pending;
   if (jobs.length === 0) return null;
   const subtitle = (job: JobOut) => {
     if (job.status !== 'published') return t('home.myJobsReview');

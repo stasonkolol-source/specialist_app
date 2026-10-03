@@ -43,6 +43,8 @@ import {
   RowIcon,
   SectionTitle,
   Skeleton,
+  SkeletonCard,
+  SkeletonText,
   Text,
 } from '@sosed/ui-web';
 import { useQueryClient } from '@tanstack/react-query';
@@ -148,7 +150,17 @@ function Specialist() {
   const { t } = useTranslation('specialist');
   const router = useRouter();
   const profile = useMyProfile();
-  if (profile.isPending) return <Skeleton radius="card" className="h-21" />;
+  if (profile.isPending) {
+    return (
+      <SkeletonCard className="min-h-21 flex-row items-center">
+        <Skeleton radius="icon" className="size-11 shrink-0" />
+        <div className="flex min-w-0 grow flex-col">
+          <SkeletonText size="title" className="w-1/2" />
+          <SkeletonText size="cap" className="w-2/3" />
+        </div>
+      </SkeletonCard>
+    );
+  }
   if (profile.isError) return null;
 
   const go = (event: MouseEvent<HTMLElement>, step: BecomeStep, kind?: ProfileKind) => {
@@ -206,7 +218,7 @@ function Specialist() {
 /** «Моя активность»: сделки и отзывы S28, избранное S12, уведомления S42, настройки S43. */
 function Activity() {
   const { t } = useTranslation();
-  const { t: ts } = useTranslation('service');
+  const { t: ts } = useTranslation('account');
   const router = useRouter();
   const feed = useNotificationFeed(useLocale());
   const unread = unreadCount(feed.data);
@@ -284,7 +296,7 @@ function Support() {
 
 /** Удаление запланировано (S45): дата и «Отменить» — передумавшему не нужно искать экран. */
 function DeletionScheduled({ at }: { at: Date }) {
-  const { t } = useTranslation('service');
+  const { t } = useTranslation('account');
   const format = useFormat();
   const platform = usePlatform();
   const cancel = useCancelDeletion();
@@ -311,7 +323,7 @@ function DeletionScheduled({ at }: { at: Date }) {
 
 /** «Удалить аккаунт» — S45 с последствиями и подтверждением. */
 function DeleteAccount() {
-  const { t } = useTranslation('service');
+  const { t } = useTranslation('account');
   const router = useRouter();
   const open = (event: MouseEvent<HTMLElement>) => {
     event.preventDefault();
@@ -477,10 +489,10 @@ function Loading() {
   return (
     <div role="status" className="flex items-center gap-4">
       <span className="sr-only">{t('profile.loading')}</span>
-      <Skeleton round className="size-22" />
+      <Skeleton round screen className="size-22" />
       <div className="flex flex-1 flex-col gap-2">
-        <Skeleton className="h-6 w-2/3" />
-        <Skeleton className="h-4 w-1/2" />
+        <Skeleton screen className="h-6 w-2/3" />
+        <Skeleton screen className="h-4 w-1/2" />
       </div>
     </div>
   );

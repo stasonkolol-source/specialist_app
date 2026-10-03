@@ -6,7 +6,7 @@ import { expect, test } from '@playwright/test';
 
 import { E2E_NOW, ME } from '../src/testing/fixtures.ts';
 import { JobsBackend } from '../src/testing/jobsBackend.ts';
-import { THEMES, expectNoAxeViolations, open, openTab, real } from './support.ts';
+import { THEMES, expectNoAxeViolations, open, openTab, pressTelegram, real } from './support.ts';
 
 const LOCALES = [
   {
@@ -14,7 +14,6 @@ const LOCALES = [
     telegram: 'ru',
     tab: 'Заявки',
     offer: 'Предложение',
-    choose: 'Выбрать исполнителем',
     confirm: 'Выбрать этого исполнителя?',
     status: 'Статус',
   },
@@ -23,7 +22,6 @@ const LOCALES = [
     telegram: 'sr',
     tab: 'Zahtevi',
     offer: 'Ponuda',
-    choose: 'Izaberi izvođača',
     confirm: 'Izabrati ovog izvođača?',
     status: 'Status',
   },
@@ -53,11 +51,12 @@ for (const theme of THEMES) {
       await expect(page.getByRole('region', { name: l.offer })).toBeVisible();
       await snap(`S24-response-${theme}-${l.locale}.png`);
 
-      await page.getByRole('button', { name: l.choose }).click();
+      // «Выбрать исполнителем» — MainButton mock-клиента: нативная, в DOM её нет
+      await pressTelegram(page, 'main_button_pressed');
       await expect(page.getByRole('dialog', { name: l.confirm })).toBeVisible();
       await snap(`S25-confirm-choice-${theme}-${l.locale}.png`);
-      // нижняя кнопка шторки — кнопка оболочки приложения поверх неё, не внутри диалога
-      await page.getByRole('button', { name: l.choose }).click();
+      // подтверждение в шторке — та же MainButton с её текстом
+      await pressTelegram(page, 'main_button_pressed');
       await expect(page.getByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeVisible();
       await expect(page.getByRole('region', { name: l.status })).toBeVisible();
       await snap(`S26-deal-${theme}-${l.locale}.png`);

@@ -60,6 +60,7 @@ export function EditProfileScreen() {
         {t('cabinet.edit.title')}
       </Heading>
       <LoadState
+        shape="edit"
         error={failed ? failed.error : null}
         onRetry={() => {
           if (profile.isError) void profile.refetch();

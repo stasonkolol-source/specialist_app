@@ -36,6 +36,36 @@ afterEach(() => {
   server.events.removeAllListeners();
 });
 
+describe('S08–S11 profile visibility', () => {
+  it.each([
+    ['', '', 'Электрик · мелкий ремонт · люстры'],
+    ['/services', '', 'Алексей Морозов · 9 услуг'],
+    ['/services', '/services', 'Алексей Морозов · 9 услуг'],
+    ['/portfolio', '/portfolio', '1 / 18'],
+    ['/reviews', '', 'Алексей Морозов · Электрика'],
+    ['/reviews', '/reviews', 'Алексей Морозов · Электрика'],
+  ])('hides cached content on %s after %s returns 404', async (page, endpoint, content) => {
+    const { app, telegram } = startApp(`${PROFILE}${page}`);
+    expect(await screen.findByText(content)).toBeTruthy();
+
+    server.use(
+      http.get(`*/api/v1${PROFILE}${endpoint}`, () =>
+        HttpResponse.json(
+          { type: 'x', title: 'Not found', status: 404, code: 'profile_not_found' },
+          { status: 404 },
+        ),
+      ),
+    );
+    await act(async () => {
+      await app.queryClient.refetchQueries({ queryKey: [`/api/v1${PROFILE}${endpoint}`] });
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Профиль недоступен' })).toBeTruthy();
+    expect(screen.queryByText(content)).toBeNull();
+    if (page === '') expect(mainButton(telegram)?.is_visible).toBe(false);
+  });
+});
+
 describe('S08 profile', () => {
   it('shows the card from one BFF request: header, badges, memo, prices, works, about', async () => {
     const requests = recordRequests();
@@ -84,6 +114,25 @@ describe('S08 profile', () => {
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/catalog/results'));
   });
 
+  it('paints the header from the results card while the profile loads', async () => {
+    startApp('/catalog/results');
+    const card = await screen.findByRole('link', { name: /Алексей Морозов/ });
+    // профиль отвечает долго: имя и фото — из карточки выдачи, остальное — скелетоном
+    server.use(
+      http.get(
+        `*/api/v1/specialists/${CARD_PROFILE_ID}`,
+        () => new Promise<never>(() => undefined),
+      ),
+    );
+    await click(card);
+
+    expect(await screen.findByRole('heading', { name: 'Алексей Морозов', level: 1 })).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Алексей Морозов' })).toBeTruthy();
+    // действия — только по полному профилю
+    expect(screen.queryByRole('button', { name: 'Предложить заявку' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /избранное/i })).toBeNull();
+  });
+
   it('opens from an `s_` link; Back leads home', async () => {
     const startParam = encodeStartParam({ type: 'specialist', id: CARD_PROFILE_ID });
     const { app, telegram } = startApp('/', { startParam });
@@ -112,8 +161,9 @@ describe('S09 prices', () => {
     await click(await screen.findByRole('link', { name: 'Весь прайс · 9' }));
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe(`${PROFILE}/services`));
+    // шапка — сразу из профиля S08 в кэше, число услуг — с прайсом
     expect(await screen.findByRole('heading', { name: 'Прайс', level: 1 })).toBeTruthy();
-    expect(screen.getByText('Алексей Морозов · 9 услуг')).toBeTruthy();
+    expect(await screen.findByText('Алексей Морозов · 9 услуг')).toBeTruthy();
     expect(screen.getByText(/^Цены ориентировочные/)).toBeTruthy();
     const groups = screen.getAllByRole('region');
     expect(groups.map((group) => group.textContent)).toEqual([

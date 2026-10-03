@@ -44,8 +44,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** Дольше gcTime React Query по умолчанию: запись кэша без подписчиков уже была бы удалена. */
-const PAST_DEFAULT_GC_MS = 5 * 60_000 + 1;
+/** Дольше gcTime приложения (app/query.ts): запись кэша без подписчиков уже была бы удалена. */
+const PAST_DEFAULT_GC_MS = 30 * 60_000 + 1;
 
 /** Таймеры React Query (сборка мусора) — поддельные; остальное время идёт как обычно. */
 const fakeGcTimers = () =>
@@ -221,6 +221,25 @@ describe('new user: S02a → S02b → S02c → home', () => {
     expect(await screen.findByRole('heading', { name: 'Šta želite?', level: 1 })).toBeTruthy();
     expect(backend.requests.patch).toEqual([{ ui_locale: 'sr-Latn', home_city_id: 1 }]);
     expect(app.i18n.language).toBe('sr-Latn');
+  });
+
+  it('сохраняет выбранный язык при повторном входе во время PATCH /me', async () => {
+    const backend = userBackend(NEW_USER);
+    const { app, telegram } = startApp('/');
+    const latin = await screen.findByRole('radio', { name: 'Srpski · latinica' });
+    await act(async () => {
+      fireEvent.click(latin);
+    });
+    await screen.findByRole('radio', { name: 'Novi Sad' });
+    server.use(http.patch('*/api/v1/me', () => problem(401, 'session_revoked'), { once: true }));
+
+    await pressMainButton(telegram);
+
+    expect(await screen.findByRole('heading', { name: 'Šta želite?', level: 1 })).toBeTruthy();
+    expect(backend.requests.patch).toEqual([{ ui_locale: 'sr-Latn', home_city_id: 1 }]);
+    expect(app.i18n.language).toBe('sr-Latn');
+    expect(document.documentElement.lang).toBe('sr-Latn');
+    expect(backend.user.ui_locale).toBe('sr-Latn');
   });
 
   it('goes back with the Telegram BackButton and keeps the choices', async () => {

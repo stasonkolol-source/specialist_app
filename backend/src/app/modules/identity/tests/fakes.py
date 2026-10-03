@@ -1,5 +1,6 @@
 """Фейки фасадов других модулей для тестов identity (ADR-0020 §11)."""
 
+from collections.abc import Collection
 from dataclasses import dataclass, field
 
 from app.modules.geo.api import CitySummary, DistrictSummary, ResolvedPoint
@@ -35,6 +36,11 @@ class FakeGeo:
 
     async def district(self, district_id: DistrictId) -> DistrictSummary | None:
         return None
+
+    async def districts(
+        self, district_ids: Collection[DistrictId]
+    ) -> dict[DistrictId, DistrictSummary]:
+        return {}
 
     def public_point(self, point: GeoPoint, *, seed: bytes) -> GeoPoint:
         return point

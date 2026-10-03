@@ -17,6 +17,8 @@ import {
 } from '@sosed/api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { OWN_STALE_MS } from '../cache.ts';
+
 export function favoritesQueryKey(locale: Locale) {
   return [...getSearchListFavoritesQueryKey(), locale] as const;
 }
@@ -26,6 +28,7 @@ export function useFavorites(locale: Locale) {
     queryKey: favoritesQueryKey(locale),
     queryFn: ({ signal }) => searchListFavorites({ signal }),
     enabled: getSession() !== null,
+    staleTime: OWN_STALE_MS,
   });
 }
 
@@ -55,10 +58,21 @@ export function useToggleFavorite(locale: Locale) {
       });
       return { before };
     },
-    onError: (_error, _toggle, context) => {
-      client.setQueryData(key, context?.before);
+    onError: (_error, { card }, context) => {
+      if (!context) return;
+      client.setQueryData<FavoritesOut>(key, (old) => {
+        if (!old) return old;
+        // Откатываем только эту карточку: соседние сохранения могли уже завершиться.
+        const items = old.items.filter((item) => item.profile_id !== card.profile_id);
+        const index =
+          context.before?.items.findIndex((item) => item.profile_id === card.profile_id) ?? -1;
+        const previous = context.before?.items[index];
+        if (previous) items.splice(index, 0, previous);
+        return { items };
+      });
     },
-    onSettled: () => client.invalidateQueries({ queryKey: getSearchListFavoritesQueryKey() }),
+    // список уже поправлен оптимистично: сверка с сервером — в фоне
+    onSettled: () => void client.invalidateQueries({ queryKey: getSearchListFavoritesQueryKey() }),
   });
 }
 

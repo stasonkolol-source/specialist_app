@@ -9,10 +9,11 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
+import structlog
 from dishka.integrations.fastapi import FromDishka, inject
-from fastapi import APIRouter, Depends, Path, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Path, Query, Response, status
 
-from app.modules.search.application.dto import SpecialistFilters
+from app.modules.search.application.dto import SpecialistFilters, ZeroResult
 from app.modules.search.application.use_cases.add_favorite import (
     AddFavorite,
     AddFavoriteCommand,
@@ -55,6 +56,7 @@ from app.modules.search.http.schemas import (
 )
 from app.platform.http.pagination import PageParams
 from app.platform.http.ratelimit import GuestOrUserRateLimit
+from app.platform.http.security import AUTHENTICATED
 from app.platform.kernel.errors import DomainValidationError
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId
@@ -73,6 +75,7 @@ METERS_IN_KM = 1000
 MAX_LISTED = 20
 """Районов, языков, форматов в одном фильтре — больше в шторке не выбрать."""
 
+log = structlog.get_logger(__name__)
 router = APIRouter(tags=["search"])
 FavoriteProfile = Annotated[UUID, Path(description="id профиля специалиста")]
 search_limit = [Depends(GuestOrUserRateLimit(guest=SEARCH_GUEST, user=SEARCH_USER))]
@@ -131,6 +134,7 @@ def specialist_filters(
 async def list_specialists(
     *,
     response: Response,
+    background: BackgroundTasks,
     search: FromDishka[SearchSpecialists],
     locale: FromDishka[Locale],
     filters: Annotated[SpecialistFilters, Depends(specialist_filters)],
@@ -149,8 +153,19 @@ async def list_specialists(
             filters=filters, q=q, sort=sort, page=page, locale=locale.value, urgent=urgent
         )
     )
+    if results.zero_result is not None:
+        # журнал пустых выдач — после ответа: клиент не ждёт INSERT и COMMIT
+        background.add_task(_record_zero_result, search, results.zero_result)
     response.headers["Vary"] = "Accept-Language"
     return SpecialistPageOut.from_results(results, locale)
+
+
+async def _record_zero_result(search: SearchSpecialists, entry: ZeroResult) -> None:
+    """Журнал — материал для словаря, не часть ответа: сбой только пишется в лог."""
+    try:
+        await search.record(entry)
+    except Exception as exc:  # noqa: BLE001 — потерянная запись журнала не ошибка запроса
+        log.warning("zero_result_not_logged", error=type(exc).__name__)
 
 
 @router.get("/suggest", response_model=SuggestOut, dependencies=suggest_limit)
@@ -202,7 +217,7 @@ async def count_by_category(
     )
 
 
-@router.get("/me/favorites", response_model=FavoritesOut)
+@router.get("/me/favorites", response_model=FavoritesOut, dependencies=AUTHENTICATED)
 @inject
 async def list_favorites(
     *,
@@ -218,7 +233,11 @@ async def list_favorites(
     return FavoritesOut(items=[SpecialistCardOut.of(card, locale) for card in cards])
 
 
-@router.put("/me/favorites/profile/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.put(
+    "/me/favorites/profile/{profile_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=AUTHENTICATED,
+)
 @inject
 async def add_favorite(
     *, profile_id: FavoriteProfile, principal: FromDishka[Principal], add: FromDishka[AddFavorite]
@@ -232,7 +251,11 @@ async def add_favorite(
     )
 
 
-@router.delete("/me/favorites/profile/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/me/favorites/profile/{profile_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=AUTHENTICATED,
+)
 @inject
 async def remove_favorite(
     *,

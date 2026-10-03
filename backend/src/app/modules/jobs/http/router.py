@@ -36,8 +36,9 @@ from datetime import timedelta
 from typing import Annotated, Final
 from uuid import UUID
 
+import structlog
 from dishka.integrations.fastapi import FromDishka, inject
-from fastapi import APIRouter, Depends, Path, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Path, Query, Response, status
 
 from app.modules.jobs.application.feed import FeedFilters
 from app.modules.jobs.application.photos import LARGE, photos_of
@@ -166,6 +167,7 @@ FEED_GUEST = Rate("jobs.feed_guest", "60/minute")
 FEED_USER = Rate("jobs.feed_user", "120/minute")
 feed_limit = [Depends(GuestOrUserRateLimit(guest=FEED_GUEST, user=FEED_USER))]
 
+log = structlog.get_logger(__name__)
 router = APIRouter(tags=["jobs"])
 creating = idempotent_router()
 JobPath = Annotated[UUID, Path(description="id заявки")]
@@ -370,6 +372,7 @@ async def get_job(
     show: FromDishka[ShowJob],
     count_view: FromDishka[CountJobView],
     response: Response,
+    background: BackgroundTasks,
 ) -> JobOut:
     """Заявка 🔓: опубликованная — всем без точной точки и адреса, своя — владельцу целиком;
     прямой запрос — только приглашённому. Вошедший не владелец — просмотр (раз в сутки)."""
@@ -379,8 +382,19 @@ async def get_job(
     if owner:
         set_etag(response, details.job.version)
     elif viewer_id is not None and details.job.status is JobStatus.PUBLISHED:
-        await count_view(CountJobViewCommand(job_id=JobId(job_id), viewer_id=viewer_id))
+        # счётчик просмотров — после ответа: ответ не ждёт лимитера и UPDATE с COMMIT
+        background.add_task(
+            _count_view, count_view, CountJobViewCommand(job_id=JobId(job_id), viewer_id=viewer_id)
+        )
     return JobOut.of(details, owner=owner)
+
+
+async def _count_view(count_view: CountJobView, command: CountJobViewCommand) -> None:
+    """Просмотр — аналитика S23: ответ уже ушёл, сбой счётчика только пишется в лог."""
+    try:
+        await count_view(command)
+    except Exception as exc:  # noqa: BLE001 — потерянный просмотр не ошибка запроса
+        log.warning("job_view_not_counted", job_id=str(command.job_id), error=type(exc).__name__)
 
 
 @router.post(

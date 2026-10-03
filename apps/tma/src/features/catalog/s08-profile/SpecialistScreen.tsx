@@ -9,10 +9,11 @@
 // отвечает за …» — в «О себе», когда диалогов с ответом за 30 дней набралось пять. Скрыто до своих
 // шагов: «Поделиться» (7.4), «Пожаловаться» и «Заблокировать» (4.7). Гость видит экран без входа,
 // но без сердечка; «Написать» гостю — тоже мастер заявки: диалог начинается после входа.
-import type { CardWorkOut, SpecialistProfileOut } from '@sosed/api-client';
+import type { CardWorkOut, SpecialistCardOut, SpecialistProfileOut } from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
-import { tokens } from '@sosed/design-tokens';
+import { color } from '@sosed/design-tokens';
 import {
+  cachedSpecialistCard,
   cardVariants,
   isUnavailable,
   searchCardOf,
@@ -36,9 +37,13 @@ import {
   Photo,
   Price,
   Row,
+  RowsSkeleton,
   Skeleton,
+  SkeletonCard,
+  SkeletonText,
   Text,
 } from '@sosed/ui-web';
+import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter } from '@tanstack/react-router';
 import type { MouseEvent, ReactNode } from 'react';
 import { useId } from 'react';
@@ -59,16 +64,16 @@ export function SpecialistScreen() {
   const { profileId } = useParams({ strict: false }) as { profileId: string };
   const router = useRouter();
   const card = useSpecialistCard(profileId, useLocale());
+  const queryClient = useQueryClient();
   useBackButton(() => {
     if (router.history.canGoBack()) router.history.back();
     else void router.navigate({ to: '/', replace: true });
   });
 
+  if (isUnavailable(card.error)) return <Unavailable />;
   if (card.data) return <Profile card={card.data} />;
   if (card.isError) {
-    return isUnavailable(card.error) ? (
-      <Unavailable />
-    ) : (
+    return (
       <section className="flex flex-col px-4 pt-3 pb-6">
         <LoadError
           error={card.error}
@@ -78,12 +83,78 @@ export function SpecialistScreen() {
       </section>
     );
   }
+  return <Loading preview={cachedSpecialistCard(queryClient, profileId)} />;
+}
+
+/** Профиль ещё грузится. Открыли из выдачи, «Свободны сегодня» или избранного — шапка из их
+ *  карточки (фото, имя, «коротко о себе», рейтинг, район): то, что человек уже видел. Сердечко,
+ *  «Предложить заявку», «Написать» и остальное — только по полному профилю. */
+function Loading({ preview }: { preview: SpecialistCardOut | undefined }) {
   return (
     <section className="flex flex-col gap-3.5 px-4 pt-3 pb-6" aria-busy="true">
-      <Skeleton className="h-40 w-full" />
-      <Skeleton className="h-16 w-full" />
-      <Skeleton className="h-44 w-full" />
+      {preview ? (
+        <Card as="section">
+          <PreviewHead card={preview} />
+          <Skeleton radius="panel" className="h-11 w-full" />
+        </Card>
+      ) : (
+        <SkeletonCard>
+          <div className="flex items-center gap-4">
+            <Skeleton round className="size-22 shrink-0" />
+            <div className="flex min-w-0 grow flex-col gap-1">
+              <SkeletonText size="h2" className="w-3/5" />
+              <SkeletonText size="sm" className="w-4/5" />
+              <SkeletonText size="cap" className="w-1/2" />
+            </div>
+          </div>
+          <Skeleton radius="panel" className="h-11 w-full" />
+        </SkeletonCard>
+      )}
+      <SkeletonText size="h3" screen className="w-1/3" />
+      <RowsSkeleton rows={3} leading="none" subtitle={false} trailing />
     </section>
+  );
+}
+
+/** Шапка из карточки списка: та же раскладка, что у профиля. */
+function PreviewHead({ card }: { card: SpecialistCardOut }) {
+  const { t } = useTranslation('catalog');
+  const { t: common } = useTranslation();
+  const format = useFormat();
+  return (
+    <div className="flex items-center gap-4">
+      <Avatar
+        name={card.display_name}
+        size="lg"
+        src={card.avatar?.url}
+        placeholder={card.avatar?.placeholder}
+        priority
+      />
+      <div className="flex min-w-0 grow flex-col gap-1">
+        <Heading variant="h2" as="h1">
+          {card.display_name}
+        </Heading>
+        {card.headline && (
+          <Text variant="sm" secondary>
+            {card.headline}
+          </Text>
+        )}
+        <p className="m-0 flex flex-wrap items-center gap-1.5 text-cap text-text2">
+          {card.rating === null || card.is_new ? (
+            <span>{common('rating.new')}</span>
+          ) : (
+            <>
+              <span className="inline-flex items-center gap-0.75 font-semibold text-text">
+                <Icon name="star" size={16} className="text-star" />
+                {format.rating(card.rating)}
+              </span>
+              <span>{t('profile.reviews', { count: card.rating_count })}</span>
+            </>
+          )}
+        </p>
+        {card.district && <p className="m-0 text-cap text-text2">{card.district.name}</p>}
+      </div>
+    </div>
   );
 }
 
@@ -93,7 +164,7 @@ function useWriteButton(profileId: string) {
   const { t: common } = useTranslation();
   const router = useRouter();
   const scheme = useColorScheme();
-  const palette = tokens.color[scheme];
+  const palette = color[scheme];
   const signedIn = getSession() !== null;
   const own = useMyProfile({ enabled: signedIn }).data?.id === profileId;
   const start = useStartConversation();
@@ -171,6 +242,7 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
             size="lg"
             src={avatarSrc(card.avatar, AVATAR_LG)}
             placeholder={card.avatar?.placeholder}
+            priority
           />
           <div className="flex min-w-0 grow flex-col gap-1">
             <Heading variant="h2" as="h1" className={favorite && 'pr-8'}>

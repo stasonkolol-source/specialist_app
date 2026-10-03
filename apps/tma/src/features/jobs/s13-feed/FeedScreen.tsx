@@ -15,7 +15,17 @@ import {
   useJobsFeed,
 } from '@sosed/hooks';
 import { useLocale, useTranslation } from '@sosed/i18n';
-import { Banner, Button, Chip, Chips, EmptyState, Heading, Skeleton } from '@sosed/ui-web';
+import {
+  Banner,
+  Button,
+  Chip,
+  ChipSkeleton,
+  Chips,
+  EmptyState,
+  Heading,
+  JobCardSkeleton,
+  SkeletonText,
+} from '@sosed/ui-web';
 import { useRouter, useSearch } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
@@ -32,6 +42,8 @@ import { JOBS_PATHS } from '../shared/paths.ts';
 import { FeedList } from './FeedList.tsx';
 
 const SKELETON_CARDS = 3;
+/** За сколько пикселей до конца ленты грузить следующую страницу: ~1,5 экрана телефона. */
+const NEXT_PAGE_MARGIN_PX = 1500;
 
 export function FeedScreen() {
   const { t } = useTranslation('jobs');
@@ -42,7 +54,8 @@ export function FeedScreen() {
   const query = city ? toFeedQuery(search, city.id) : null;
   const feed = useJobsFeed(query);
   const count = useJobsCount(query);
-  const tree = useCategories(locale).data ?? [];
+  const categories = useCategories(locale);
+  const tree = categories.data ?? [];
   const districts = selectableDistricts(useDistricts(city?.id ?? null, locale).data ?? [], locale);
   const locate = useLocate();
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -130,7 +143,7 @@ export function FeedScreen() {
     content = (
       <div className="flex flex-col gap-2.5" aria-busy="true">
         {Array.from({ length: SKELETON_CARDS }, (_, card) => (
-          <Skeleton key={card} radius="card" className="h-36 w-full" />
+          <JobCardSkeleton key={card} />
         ))}
       </div>
     );
@@ -152,6 +165,7 @@ export function FeedScreen() {
             key={id}
             id={id}
             tree={tree}
+            pending={categories.isPending}
             onRemove={() => update({ ...search, categories: toggle(search.categories, id) })}
           />
         ))}
@@ -173,6 +187,8 @@ export function FeedScreen() {
           {t('feed.locationError')}
         </Banner>
       )}
+      {/* строка «N заявок» — над лентой: место под неё держим, пока число не пришло */}
+      {!count.data && count.isPending && <SkeletonText size="cap" screen className="w-40" />}
       {count.data && count.data.count > 0 && (
         <p className="m-0 text-cap text-text2" aria-live="polite">
           {filters > 0
@@ -199,14 +215,17 @@ export function FeedScreen() {
 function CategoryChip({
   id,
   tree,
+  pending,
   onRemove,
 }: {
   id: number;
   tree: readonly CategoryOut[];
+  /** Названий ещё нет: место чипа держит скелетон. */
+  pending: boolean;
   onRemove: () => void;
 }) {
   const name = findCategory(tree, id)?.name;
-  if (!name) return null;
+  if (!name) return pending ? <ChipSkeleton className="w-24" /> : null;
   return (
     <Chip selected onClick={onRemove}>
       {name}
@@ -236,7 +255,8 @@ function MoreButton({
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) more();
       },
-      { rootMargin: '400px 0px' },
+      // следующая страница — за полтора экрана до конца: к концу ленты она уже пришла
+      { rootMargin: `${NEXT_PAGE_MARGIN_PX}px 0px` },
     );
     observer.observe(target);
     return () => observer.disconnect();

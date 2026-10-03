@@ -7,8 +7,7 @@ import { useBackButton } from '@sosed/platform';
 import { Navigate, useParams, useRouter } from '@tanstack/react-router';
 
 import { LegalView } from './LegalView.tsx';
-
-export const LEGAL_PATH = '/legal/$document';
+import { LEGAL_PATH } from './paths.ts';
 const FALLBACK_PATH = '/profile';
 
 export function LegalScreen() {

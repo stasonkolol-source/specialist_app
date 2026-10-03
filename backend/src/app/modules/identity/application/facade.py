@@ -109,12 +109,12 @@ class IdentityFacade(IdentityApi):
         if not user_ids:
             return {}
         now = self._clock.now()
-        hidden: dict[UserId, datetime | None] = dict.fromkeys(
-            await self._query.deleted_among(user_ids)
-        )
-        for user_id, restrictions in (await self._query.restrictions_of(user_ids, now)).items():
-            if user_id in hidden:
-                continue
+        # удалённые (и несуществующие) и санкции остальных — одним запросом
+        active = await self._query.active_restrictions(user_ids, now)
+        hidden: dict[UserId, datetime | None] = {
+            user_id: None for user_id in user_ids if user_id not in active
+        }
+        for user_id, restrictions in active.items():
             found = blocking(restrictions, HIDDEN_FROM_OTHERS, now)
             if found is not None:
                 hidden[user_id] = found.ends_at

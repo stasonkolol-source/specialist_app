@@ -49,10 +49,36 @@ export function formatMessage(
   return String(mf.format(values));
 }
 
+// Intl-форматтеры дорогие в создании, а карточки выдачи, ленты и чата форматируют сотни чисел и
+// дат за отрисовку: один форматтер на язык и набор опций на всё приложение. Наборов опций —
+// десяток, кэш не растёт.
+const numberFormats = new Map<string, Intl.NumberFormat>();
+const dateFormats = new Map<string, Intl.DateTimeFormat>();
+
+function numberFormat(locale: string, options: Intl.NumberFormatOptions): Intl.NumberFormat {
+  const key = `${locale}|${JSON.stringify(options)}`;
+  let format = numberFormats.get(key);
+  if (!format) {
+    format = new Intl.NumberFormat(locale, options);
+    numberFormats.set(key, format);
+  }
+  return format;
+}
+
+function dateFormat(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = `${locale}|${JSON.stringify(options)}`;
+  let format = dateFormats.get(key);
+  if (!format) {
+    format = new Intl.DateTimeFormat(locale, options);
+    dateFormats.set(key, format);
+  }
+  return format;
+}
+
 const DAY_MS = 86_400_000;
 
 function dayNumber(date: Date): number {
-  const parts = new Intl.DateTimeFormat('en-CA', {
+  const parts = dateFormat('en-CA', {
     timeZone: TIME_ZONE,
     year: 'numeric',
     month: '2-digit',
@@ -85,25 +111,33 @@ export interface Format {
   relative(date: Date, now?: Date): string;
 }
 
+const formats = new Map<Locale, Format>();
+
+/** Форматтеры языка — один набор на язык: useFormat в каждой карточке получает тот же. */
 export function createFormat(locale: Locale): Format {
+  let format = formats.get(locale);
+  if (!format) {
+    format = buildFormat(locale);
+    formats.set(locale, format);
+  }
+  return format;
+}
+
+function buildFormat(locale: Locale): Format {
   const intl = INTL_LOCALE[locale];
   const t = (key: CommonKey, values?: Record<string, string | number>) =>
     formatMessage(locale, key, values);
 
   const number = (value: number, maxFractionDigits = 0) =>
-    new Intl.NumberFormat(intl, { maximumFractionDigits: maxFractionDigits }).format(value);
+    numberFormat(intl, { maximumFractionDigits: maxFractionDigits }).format(value);
   const rating = (value: number) =>
-    new Intl.NumberFormat(intl, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(
-      value,
-    );
+    numberFormat(intl, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value);
 
   const amount = (para: Para) => {
     const rsd = paraToRsd(para);
     return Number.isInteger(rsd)
       ? number(rsd)
-      : new Intl.NumberFormat(intl, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
-          rsd,
-        );
+      : numberFormat(intl, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(rsd);
   };
   const money = (para: Para) => `${amount(para)}${NBSP}${CURRENCY}`;
   const moneyRange = (min: Para, max: Para) => `${amount(min)}–${amount(max)}${NBSP}${CURRENCY}`;
@@ -136,7 +170,7 @@ export function createFormat(locale: Locale): Format {
   };
 
   const time = (date: Date) =>
-    new Intl.DateTimeFormat(intl, {
+    dateFormat(intl, {
       timeZone: TIME_ZONE,
       hour: '2-digit',
       minute: '2-digit',
@@ -144,10 +178,9 @@ export function createFormat(locale: Locale): Format {
     }).format(date);
 
   const dateOnly = (date: Date, now = new Date()) => {
-    const sameYear =
-      new Intl.DateTimeFormat('en', { timeZone: TIME_ZONE, year: 'numeric' }).format(date) ===
-      new Intl.DateTimeFormat('en', { timeZone: TIME_ZONE, year: 'numeric' }).format(now);
-    return new Intl.DateTimeFormat(intl, {
+    const year = dateFormat('en', { timeZone: TIME_ZONE, year: 'numeric' });
+    const sameYear = year.format(date) === year.format(now);
+    return dateFormat(intl, {
       timeZone: TIME_ZONE,
       day: 'numeric',
       month: 'long',
@@ -157,7 +190,7 @@ export function createFormat(locale: Locale): Format {
 
   // ru Intl дописывает «г.» после года — на макетах его нет («от 26 сентября 2026»)
   const fullDate = (date: Date) =>
-    new Intl.DateTimeFormat(intl, {
+    dateFormat(intl, {
       timeZone: TIME_ZONE,
       day: 'numeric',
       month: 'long',
@@ -185,7 +218,7 @@ export function createFormat(locale: Locale): Format {
   };
 
   const month = (date: Date) => {
-    const name = new Intl.DateTimeFormat(intl, { timeZone: TIME_ZONE, month: 'long' }).format(date);
+    const name = dateFormat(intl, { timeZone: TIME_ZONE, month: 'long' }).format(date);
     return name.charAt(0).toUpperCase() + name.slice(1);
   };
 

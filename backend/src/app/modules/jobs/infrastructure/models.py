@@ -149,6 +149,12 @@ class JobRow(UuidPkMixin, TimestampsMixin, SoftDeleteMixin, VersionMixin, Base):
             postgresql_where=PUBLISHED,
         ),
         Index("ix_jobs_expires_at", "expires_at", postgresql_where=PUBLISHED),
+        # «M заявок» в блоке клиента S15: сколько его заявок когда-либо публиковалось
+        Index(
+            "ix_jobs_client_id_published",
+            "client_id",
+            postgresql_where=text("published_at IS NOT NULL"),
+        ),
         # лента 5.3: радиус от точки зрителя и «категория с подкатегориями» (&&)
         Index(
             "ix_jobs_point_public",

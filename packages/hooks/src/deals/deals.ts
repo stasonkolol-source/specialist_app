@@ -1,7 +1,9 @@
 // Сделки (S24–S26, S53; DEVELOPMENT_PLAN 6.2, 6.5): выбрать отклик исполнителем — сделка создаётся
 // сразу; карточка сделки сторонам (BFF), «Работа выполнена», отмена с причиной, свои сделки;
 // «Договорились» из чата — подтвердить или отклонить. После действия перечитываются сделка,
-// отклики заявки, свои заявки и отклики, а после ответа на предложение — и переписка.
+// отклики заявки, свои заявки и отклики, а после ответа на предложение — и переписка. Ждёт экран
+// только то, что показывает сам (карточку сделки S26); остальное — в фоне. Заявку из ответа
+// сервера (принять, отклонить) кладём в кэш и не перечитываем.
 import type { DealCancelReason, DealsListMyDealsParams } from '@sosed/api-client';
 import {
   dealsCancelDeal,
@@ -47,19 +49,15 @@ export function useMyDeals(params: DealsListMyDealsParams) {
   });
 }
 
-async function refresh(client: QueryClient, jobId: string | null) {
-  await Promise.all([
-    client.invalidateQueries({ queryKey: MY_DEALS_KEY }),
-    client.invalidateQueries({ queryKey: myJobsQueryKey() }),
-    client.invalidateQueries({ queryKey: MY_RESPONSES_KEY }),
-    client.invalidateQueries({ queryKey: FEED_KEY }),
-    ...(jobId
-      ? [
-          client.invalidateQueries({ queryKey: jobQueryKey(jobId) }),
-          client.invalidateQueries({ queryKey: responseCardsQueryKey(jobId) }),
-        ]
-      : []),
-  ]);
+/** Списки после действия — в фоне. `seeded` — заявка уже из ответа сервера: её не перечитываем. */
+function refresh(client: QueryClient, jobId: string | null, seeded = false): void {
+  void client.invalidateQueries({ queryKey: MY_DEALS_KEY });
+  void client.invalidateQueries({ queryKey: myJobsQueryKey() });
+  void client.invalidateQueries({ queryKey: MY_RESPONSES_KEY });
+  void client.invalidateQueries({ queryKey: FEED_KEY });
+  if (!jobId) return;
+  if (!seeded) void client.invalidateQueries({ queryKey: jobQueryKey(jobId) });
+  void client.invalidateQueries({ queryKey: responseCardsQueryKey(jobId) });
 }
 
 export interface DecideResponse {
@@ -72,9 +70,10 @@ export function useAcceptResponse() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({ responseId }: DecideResponse) => jobsAcceptResponse(responseId),
-    onSuccess: async (accepted, { jobId }) => {
+    // сделку S26 открываем по ответу сервера, не дожидаясь перечитывания списков
+    onSuccess: (accepted, { jobId }) => {
       client.setQueryData(jobQueryKey(jobId), accepted.job);
-      await refresh(client, jobId);
+      refresh(client, jobId, true);
     },
   });
 }
@@ -84,9 +83,9 @@ export function useDeclineResponse() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({ responseId }: DecideResponse) => jobsDeclineResponse(responseId),
-    onSuccess: async (job, { jobId }) => {
+    onSuccess: (job, { jobId }) => {
       client.setQueryData(jobQueryKey(jobId), job);
-      await refresh(client, jobId);
+      refresh(client, jobId, true);
     },
   });
 }
@@ -96,11 +95,10 @@ export function useCompleteDeal() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (dealId: string) => dealsCompleteDeal(dealId),
+    // человек остаётся на S26: ждём только её карточку
     onSuccess: async (deal) => {
-      await Promise.all([
-        client.invalidateQueries({ queryKey: dealCardQueryKey(deal.id) }),
-        refresh(client, deal.job_id ?? null),
-      ]);
+      refresh(client, deal.job_id ?? null);
+      await client.invalidateQueries({ queryKey: dealCardQueryKey(deal.id) });
     },
   });
 }
@@ -116,10 +114,8 @@ export function useCancelDeal() {
   return useMutation({
     mutationFn: ({ dealId, reason }: CancelDeal) => dealsCancelDeal(dealId, { reason }),
     onSuccess: async (deal) => {
-      await Promise.all([
-        client.invalidateQueries({ queryKey: dealCardQueryKey(deal.id) }),
-        refresh(client, deal.job_id ?? null),
-      ]);
+      refresh(client, deal.job_id ?? null);
+      await client.invalidateQueries({ queryKey: dealCardQueryKey(deal.id) });
     },
   });
 }
@@ -131,11 +127,9 @@ export function useAnswerProposal() {
     mutationFn: ({ dealId, confirm }: { dealId: string; confirm: boolean }) =>
       confirm ? dealsConfirmDeal(dealId) : dealsDeclineDeal(dealId),
     onSuccess: async (deal) => {
-      await Promise.all([
-        client.invalidateQueries({ queryKey: dealCardQueryKey(deal.id) }),
-        refresh(client, deal.job_id ?? null),
-        refreshInbox(client),
-      ]);
+      refresh(client, deal.job_id ?? null);
+      void refreshInbox(client);
+      await client.invalidateQueries({ queryKey: dealCardQueryKey(deal.id) });
     },
   });
 }

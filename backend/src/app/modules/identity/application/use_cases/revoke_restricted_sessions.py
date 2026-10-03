@@ -6,9 +6,14 @@ Refresh и так не проходит при санкции, но access жи�
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 
-from app.modules.identity.application.ports import SessionRepository, SessionRevocations
-from app.modules.identity.domain.restriction import ACCOUNT_BLOCKING, RestrictionKind
+from app.modules.identity.application.ports import (
+    IdentityQuery,
+    SessionRepository,
+    SessionRevocations,
+)
+from app.modules.identity.domain.restriction import ACCOUNT_BLOCKING, RestrictionKind, blocking
 from app.modules.identity.domain.session import RevokeReason
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
@@ -19,6 +24,7 @@ from app.platform.kernel.ids import UserId
 class RevokeRestrictedSessionsCommand:
     user_id: UserId
     kind: RestrictionKind
+    restricted_at: datetime
 
 
 class RevokeRestrictedSessions:
@@ -28,9 +34,11 @@ class RevokeRestrictedSessions:
         sessions: SessionRepository,
         revocations: SessionRevocations,
         clock: Clock,
+        query: IdentityQuery,
     ) -> None:
         self._uow, self._sessions = uow, sessions
         self._revocations, self._clock = revocations, clock
+        self._query = query
 
     async def __call__(self, cmd: RevokeRestrictedSessionsCommand) -> int:
         """Сколько сессий отозвано; санкции, не блокирующие аккаунт, сессии не трогают."""
@@ -39,6 +47,16 @@ class RevokeRestrictedSessions:
         now = self._clock.now()
         async with self._uow:
             sessions = await self._sessions.active_for_user(cmd.user_id, now)
+            restricted = blocking(
+                await self._query.restrictions(cmd.user_id, now), ACCOUNT_BLOCKING, now
+            )
+            # Задержавшееся событие не отзывает входы после снятия санкции. Пока аккаунт
+            # заблокирован, отзываем все сессии, включая созданные параллельно с санкцией.
+            sessions = [
+                session
+                for session in sessions
+                if session.created_at <= cmd.restricted_at or restricted is not None
+            ]
             for session in sessions:
                 session.revoke(reason=RevokeReason.RESTRICTED, now=now)
                 await self._sessions.save(session)

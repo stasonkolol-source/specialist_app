@@ -130,6 +130,9 @@ class SpecialistResults:
     did_you_mean: str | None = None
     hints: tuple[str, ...] = ()
     """Пустая выдача: `relax_filters`, `post_job` — тексты на клиенте."""
+    zero_result: ZeroResult | None = None
+    """Пустая выдача с текстом — запись для журнала запросов. Пишет её вызывающий после ответа
+    (`SearchSpecialists.record`): клиент не ждёт INSERT и COMMIT."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

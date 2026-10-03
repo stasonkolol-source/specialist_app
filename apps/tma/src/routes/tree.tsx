@@ -33,8 +33,8 @@ import {
 import { MESSAGES_PATHS, chatSearch } from '../features/messages/index.ts';
 import { ONBOARDING_PATHS, onboardingSearch } from '../features/onboarding/index.ts';
 import { BECOME_PATHS, CABINET_PATHS, becomeSearch } from '../features/specialist/index.ts';
-import { LEGAL_PATH, LegalScreen } from '../features/service/s48-legal/index.ts';
-import { RESTRICTED_PATH, RestrictedRoute } from '../features/service/s49-system/index.ts';
+import { LEGAL_PATH } from '../features/service/s48-legal/paths.ts';
+import { RESTRICTED_PATH } from '../features/service/s49-system/index.ts';
 import { AppShell } from '../features/shell/index.ts';
 import type { RouterContext } from './guards.ts';
 import { requireConsent, requireUser } from './guards.ts';
@@ -369,13 +369,13 @@ const onboardingRules = createRoute({
   component: screen(() => import('../features/onboarding/s02c-rules/index.ts'), 'RulesScreen'),
 });
 
-// S48 и S49b — в первом чанке, без lazy: экраны S49 рисуются и без сети (точка сборки
-// импортирует их напрямую), а S49b открывает правила площадки у себя.
-// Документ S48 — в пути, чтобы S02c, S31 и deep link открывали нужный.
+// S48 — своим чанком: документы приходят в client-config, без сети их всё равно не показать, а
+// разбор Markdown первому экрану не нужен. Документ — в пути, чтобы S02c, S31 и deep link
+// открывали нужный.
 const legal = createRoute({
   getParentRoute: () => rootRoute,
   path: LEGAL_PATH,
-  component: LegalScreen,
+  component: screen(() => import('../features/service/s48-legal/index.ts'), 'LegalScreen'),
 });
 
 // Каталог S04–S06 (4.4): открыт и гостю; фильтры и порядок выдачи — в параметрах адреса
@@ -436,11 +436,15 @@ const savedJobs = createRoute({
   component: screen(() => import('../features/jobs/s12-saved-jobs/index.ts'), 'SavedJobsScreen'),
 });
 
-// S49b после действия, отклонённого частичной санкцией
+// S49b после действия, отклонённого частичной санкцией: сервер ответил — сеть есть, экран своим
+// чанком. Экраны S49 без сети (S49a, техработы) остаются в первом (app/StartupGate)
 const restricted = createRoute({
   getParentRoute: () => rootRoute,
   path: RESTRICTED_PATH,
-  component: RestrictedRoute,
+  component: screen(
+    () => import('../features/service/s49-system/RestrictedRoute.tsx'),
+    'RestrictedRoute',
+  ),
 });
 
 export const routeTree = rootRoute.addChildren([

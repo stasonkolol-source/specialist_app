@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 from app.modules.catalog.application.dto import CategorySeed, ImportResult
-from app.modules.catalog.application.ports import CatalogWriter
+from app.modules.catalog.application.ports import CatalogWriter, TaxonomyCache
 from app.platform.contracts.events.catalog import CatalogChanged
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
@@ -16,8 +16,10 @@ class ImportCatalogCommand:
 
 
 class ImportCatalog:
-    def __init__(self, uow: UnitOfWork, writer: CatalogWriter, clock: Clock) -> None:
-        self._uow, self._writer, self._clock = uow, writer, clock
+    def __init__(
+        self, uow: UnitOfWork, writer: CatalogWriter, clock: Clock, cache: TaxonomyCache
+    ) -> None:
+        self._uow, self._writer, self._clock, self._cache = uow, writer, clock, cache
 
     async def __call__(self, cmd: ImportCatalogCommand) -> ImportResult:
         async with self._uow:
@@ -26,4 +28,5 @@ class ImportCatalog:
                 self._uow.add_event(
                     CatalogChanged(category_ids=result.changed, occurred_at=self._clock.now())
                 )
+        self._cache.invalidate()
         return result

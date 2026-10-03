@@ -175,7 +175,7 @@ def identity(
         geo=geo,
         access=access,
         authenticate=AuthenticateTelegram(
-            uow, users, sessions, query, deleted, tokens, CONFIG, clock
+            uow, users, sessions, query, deleted, tokens, CONFIG, clock, access
         ),
         refresh=RefreshSession(
             uow,
@@ -197,7 +197,9 @@ def identity(
             uow, query, users, SqlRestrictionRepository(db_session, uow), access, trust, clock
         ),
         age_trust_levels=AgeTrustLevels(uow, users, trust, clock),
-        revoke_restricted_sessions=RevokeRestrictedSessions(uow, sessions, revocations, clock),
+        revoke_restricted_sessions=RevokeRestrictedSessions(
+            uow, sessions, revocations, clock, query
+        ),
         grant_staff_role=GrantStaffRole(uow, users, SqlRoleRepository(db_session, uow), audit),
         request_deletion=RequestDeletion(uow, users, deletions, clock),
         cancel_deletion=CancelDeletion(uow, deletions, clock),

@@ -257,6 +257,24 @@ describe('S15 job', () => {
     expect(await screen.findByText(/^Лиман, ≈ \d,\d км от вас$/u)).toBeTruthy();
   });
 
+  it('paints the header from the feed card while the job loads, without actions', async () => {
+    withJobs();
+    const { telegram } = startApp('/jobs');
+    const card = await screen.findByRole('link', { name: /Повесить люстру/ });
+    // заявка отвечает долго: название и бюджет — из карточки ленты
+    server.use(
+      http.get(`*/api/v1/jobs/${CHANDELIER.card.id}`, () => new Promise<never>(() => undefined)),
+    );
+    await click(card);
+
+    expect(await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeTruthy();
+    // откликнуться и сохранить — только по полной заявке
+    expect(screen.queryByRole('button', { name: /Сохранить/ })).toBeNull();
+    expect(
+      telegram.callsOf('web_app_setup_main_button').some((params) => params?.is_visible === true),
+    ).toBe(false);
+  });
+
   it('hides the job with «Not interested» and returns to the feed without it', async () => {
     const jobs = withJobs();
     const { app } = startApp('/jobs');

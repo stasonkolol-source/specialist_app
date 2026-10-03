@@ -9,9 +9,10 @@
 // видит экран без входа. MainButton (5.5): «Откликнуться · осталось N мест» — форма S16 (гостю —
 // сначала согласие с правилами), «Вы откликнулись» — «Мои отклики» S17, «Мест нет» — не нажимается;
 // у своей заявки кнопки нет. Скрыто до своих шагов: «Поделиться» (7.4), «Пожаловаться» (S46, 4.7).
-import type { JobOut } from '@sosed/api-client';
+import type { JobCardOut, JobOut } from '@sosed/api-client';
 import { ApiError, getSession } from '@sosed/api-client';
 import {
+  cachedJobCard,
   distanceMeters,
   isUnavailable,
   jobQueryKey,
@@ -41,10 +42,13 @@ import {
   Photo,
   Price,
   Skeleton,
+  SkeletonCard,
+  SkeletonText,
   Text,
 } from '@sosed/ui-web';
 import { Navigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import { useId } from 'react';
 
 import { JobUnavailable } from '../shared/JobUnavailable.tsx';
@@ -67,6 +71,7 @@ export function JobScreen() {
   const jobId = jobIdOf(raw);
   const job = useJob(jobId);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const toFeed = () => {
     if (router.history.canGoBack()) router.history.back();
     else void router.navigate({ to: JOBS_PATHS.feed, replace: true });
@@ -87,7 +92,7 @@ export function JobScreen() {
       </section>
     );
   }
-  if (!job.data) return <Loading />;
+  if (!job.data) return <Loading card={jobId ? cachedJobCard(queryClient, jobId) : undefined} />;
   // своя заявка — экран владельца S23 (5.6): отклики, закрыть, продлить
   if (job.data.viewer_role === 'owner') return <Navigate to={managePath(job.data.id)} replace />;
   return <Job job={job.data} onHidden={toFeed} />;
@@ -96,15 +101,9 @@ export function JobScreen() {
 function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
   const { t } = useTranslation('jobs');
   const { t: common } = useTranslation();
-  const format = useFormat();
-  const locale = useLocale();
   const platform = usePlatform();
   const client = useQueryClient();
-  const whenBadge = useWhenBadge();
-  const budgetText = useBudgetText();
   const hide = useHideJob();
-  const tree = useCategories(locale).data ?? [];
-  const category = findCategory(tree, job.category_id)?.name ?? null;
   const owner = job.viewer_role === 'owner';
   // сохранить и скрыть может только вошедший: гостю кнопок нет
   const performer = !owner && getSession() !== null;
@@ -117,8 +116,6 @@ function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
     : saveError instanceof ApiError && saveError.code === SAVED_FULL
       ? t('job.savedFull', { limit: Number(saveError.problem['limit'] ?? MAX_SAVED) })
       : t('job.saveError');
-  const budget = budgetText(job, { unit: false });
-  const when = whenBadge(job, true);
   const languages = job.languages.filter((code): code is LanguageName =>
     (LANGUAGE_NAMES as readonly string[]).includes(code),
   );
@@ -141,18 +138,11 @@ function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
         </Banner>
       )}
       {job.photos.length > 0 && <Photos job={job} />}
-      <Card as="section">
-        <div className="flex flex-wrap gap-1.5">
-          <Badge tone={when.tone} icon={when.icon}>
-            {when.label}
-          </Badge>
-          {category && <Badge>{category}</Badge>}
-        </div>
-        <div className="flex items-start justify-between gap-2">
-          <Heading variant="h2" as="h1" className="pt-2">
-            {job.title}
-          </Heading>
-          {performer && saved.data && (
+      <Summary
+        job={job}
+        save={
+          performer &&
+          saved.data && (
             <IconButton
               plain
               icon="heart"
@@ -165,32 +155,9 @@ function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
                 toggleSaved.mutate({ card: jobCardOf(job), on: !isSaved });
               }}
             />
-          )}
-        </div>
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="flex min-w-0 items-baseline gap-2">
-            {budget ? (
-              <>
-                <Price large>{budget}</Price>
-                <Text as="span" variant="cap">
-                  {job.budget_unit === 'work'
-                    ? t('job.unitWork')
-                    : common(`unit.${job.budget_unit}`)}
-                </Text>
-              </>
-            ) : (
-              <span className="text-price-lg text-text2">{t('card.negotiable')}</span>
-            )}
-          </span>
-          {job.published_at && (
-            <Text as="span" variant="cap" className="shrink-0">
-              {format.relative(new Date(job.published_at))}
-            </Text>
-          )}
-        </div>
-        <hr className="m-0 h-px border-0 bg-line" />
-        <Slots taken={job.responses_count} total={job.max_responses} />
-      </Card>
+          )
+        }
+      />
       <Card as="section" tight aria-labelledby={descriptionId}>
         <Heading variant="h3" as="h2" id={descriptionId}>
           {t('job.description')}
@@ -244,6 +211,57 @@ function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
   );
 }
 
+/** Сроки и раздел, название, бюджет с единицей, «15 мин назад» и места. `save` — сердечко у
+ *  названия (только у полной заявки). Та же шапка — из карточки ленты, пока заявка грузится. */
+function Summary({ job, save }: { job: JobCardOut | JobOut; save?: ReactNode }) {
+  const { t } = useTranslation('jobs');
+  const { t: common } = useTranslation();
+  const format = useFormat();
+  const whenBadge = useWhenBadge();
+  const budgetText = useBudgetText();
+  const tree = useCategories(useLocale()).data ?? [];
+  const category = findCategory(tree, job.category_id)?.name ?? null;
+  const budget = budgetText(job, { unit: false });
+  const when = whenBadge(job, true);
+  return (
+    <Card as="section">
+      <div className="flex flex-wrap gap-1.5">
+        <Badge tone={when.tone} icon={when.icon}>
+          {when.label}
+        </Badge>
+        {category && <Badge>{category}</Badge>}
+      </div>
+      <div className="flex items-start justify-between gap-2">
+        <Heading variant="h2" as="h1" className="pt-2">
+          {job.title}
+        </Heading>
+        {save}
+      </div>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="flex min-w-0 items-baseline gap-2">
+          {budget ? (
+            <>
+              <Price large>{budget}</Price>
+              <Text as="span" variant="cap">
+                {job.budget_unit === 'work' ? t('job.unitWork') : common(`unit.${job.budget_unit}`)}
+              </Text>
+            </>
+          ) : (
+            <span className="text-price-lg text-text2">{t('card.negotiable')}</span>
+          )}
+        </span>
+        {job.published_at && (
+          <Text as="span" variant="cap" className="shrink-0">
+            {format.relative(new Date(job.published_at))}
+          </Text>
+        )}
+      </div>
+      <hr className="m-0 h-px border-0 bg-line" />
+      <Slots taken={job.responses_count} total={job.max_responses} />
+    </Card>
+  );
+}
+
 /** Фото заявки сеткой в две колонки; одно — на всю ширину. */
 function Photos({ job }: { job: JobOut }) {
   const { t } = useTranslation('jobs');
@@ -261,6 +279,8 @@ function Photos({ job }: { job: JobOut }) {
           placeholder={photo.placeholder}
           alt={t('job.photo', { number: index + 1, total })}
           sizes={total === 1 ? '100vw' : '50vw'}
+          // первое фото — вверху экрана: грузится сразу и раньше остальных
+          priority={index === 0}
           className={total === 1 ? 'h-45 w-full' : 'h-25 w-full'}
         />
       ))}
@@ -387,12 +407,69 @@ function useRespondButton(job: JobOut, owner: boolean) {
   });
 }
 
-function Loading() {
+/** Заявка ещё грузится. Открыли из ленты или сохранённых — шапка из их карточки (то, что человек
+ *  уже видел); описание, место, заказчик, сердечко и MainButton — только по полной заявке. */
+function Loading({ card }: { card: JobCardOut | undefined }) {
   return (
     <section className="flex flex-col gap-3 px-4 pt-3 pb-6" aria-busy="true">
-      <Skeleton radius="card" className="h-44 w-full" />
-      <Skeleton radius="card" className="h-28 w-full" />
-      <Skeleton radius="card" className="h-44 w-full" />
+      {card ? <Preview card={card} /> : <SummarySkeleton />}
+      {/* описание */}
+      <SkeletonCard tight>
+        <SkeletonText size="h3" className="w-1/3" />
+        <div className="flex flex-col">
+          <SkeletonText className="w-full" />
+          <SkeletonText className="w-full" />
+          <SkeletonText className="w-2/3" />
+        </div>
+      </SkeletonCard>
+      {/* где */}
+      <SkeletonCard tight>
+        <SkeletonText size="h3" className="w-1/4" />
+        <SkeletonText size="sm" className="w-1/2" />
+      </SkeletonCard>
     </section>
+  );
+}
+
+/** Шапка из карточки ленты; место под фото — той же сетки, что у полной заявки. */
+function Preview({ card }: { card: JobCardOut }) {
+  const total = card.photos_count;
+  return (
+    <>
+      {total > 0 && (
+        <div className={total === 1 ? 'grid grid-cols-1' : 'grid grid-cols-2 gap-2'}>
+          {Array.from({ length: total }, (_, index) => (
+            <Skeleton
+              key={index}
+              screen
+              radius="panel"
+              className={total === 1 ? 'h-45 w-full' : 'h-25 w-full'}
+            />
+          ))}
+        </div>
+      )}
+      <Summary job={card} />
+    </>
+  );
+}
+
+/** Сроки и раздел, название, бюджет и время, места — без карточки ленты. */
+function SummarySkeleton() {
+  return (
+    <>
+      <SkeletonCard>
+        <div className="flex gap-1.5">
+          <Skeleton className="h-6 w-24" />
+          <Skeleton className="h-6 w-20" />
+        </div>
+        <SkeletonText size="h2" className="w-4/5" />
+        <div className="flex items-center justify-between gap-3">
+          <SkeletonText size="h1" className="w-1/3" />
+          <SkeletonText size="cap" className="w-16" />
+        </div>
+        <hr className="m-0 h-px border-0 bg-line" />
+        <SkeletonText size="cap" className="w-1/2" />
+      </SkeletonCard>
+    </>
   );
 }

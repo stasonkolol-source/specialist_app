@@ -4,12 +4,22 @@
 // «Нужна пауза?» ведёт к паузе профиля в S38 — только если профиль специалиста виден клиентам.
 // Вход — строка «Удалить аккаунт» на S31 (с 4.9 — и из настроек S43).
 import { useIdentityGetMe } from '@sosed/api-client';
-import { tokens } from '@sosed/design-tokens';
+import { color } from '@sosed/design-tokens';
 import { useCancelDeletion, useMyProfile, useRequestDeletion } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
 import { useBackButton, useColorScheme, useMainButton, usePlatform } from '@sosed/platform';
 import type { IconName } from '@sosed/ui-web';
-import { Banner, Button, Checkbox, Heading, Icon, Skeleton, Text } from '@sosed/ui-web';
+import {
+  Banner,
+  Button,
+  Checkbox,
+  Heading,
+  Icon,
+  Skeleton,
+  SkeletonCard,
+  SkeletonText,
+  Text,
+} from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useId, useRef, useState } from 'react';
@@ -25,7 +35,7 @@ const REMOVED = ['profile', 'messages', 'logins', 'reviews'] as const;
 const KEPT = ['deals', 'law', 'hashes'] as const;
 
 export function DeleteAccountScreen() {
-  const { t } = useTranslation('service');
+  const { t } = useTranslation('account');
   const router = useRouter();
   const me = useIdentityGetMe();
   useBackButton(() => {
@@ -42,7 +52,19 @@ export function DeleteAccountScreen() {
       <Heading variant="h2" as="h1">
         {t('deletion.title')}
       </Heading>
-      <Skeleton className="h-40" radius="card" />
+      {/* предупреждение, что сохранится, согласие и действие */}
+      <SkeletonCard>
+        <SkeletonText size="title" className="w-3/5" />
+        <div className="flex flex-col">
+          <SkeletonText size="sm" className="w-full" />
+          <SkeletonText size="sm" className="w-full" />
+          <SkeletonText size="sm" className="w-2/3" />
+        </div>
+        <div className="flex items-center gap-3">
+          <Skeleton className="size-5 shrink-0" />
+          <SkeletonText size="sm" className="w-1/2" />
+        </div>
+      </SkeletonCard>
     </section>
   );
 }
@@ -52,7 +74,7 @@ function useScreenButton(
   props: { text: string; onClick: () => void; loading?: boolean },
   tone: 'danger' | 'accent',
 ) {
-  const palette = tokens.color[useColorScheme()];
+  const palette = color[useColorScheme()];
   return useMainButton({
     ...props,
     color: palette[tone],
@@ -61,7 +83,7 @@ function useScreenButton(
 }
 
 function DeleteForm() {
-  const { t } = useTranslation('service');
+  const { t } = useTranslation('account');
   const router = useRouter();
   const platform = usePlatform();
   const profile = useMyProfile();
@@ -169,7 +191,7 @@ function List({ icon, tone, children }: { icon: IconName; tone: string; children
 
 /** Запрос принят: дата удаления и отмена — MainButton. Отменили — обратно в профиль. */
 function Scheduled({ at }: { at: Date }) {
-  const { t } = useTranslation('service');
+  const { t } = useTranslation('account');
   const format = useFormat();
   const router = useRouter();
   const platform = usePlatform();

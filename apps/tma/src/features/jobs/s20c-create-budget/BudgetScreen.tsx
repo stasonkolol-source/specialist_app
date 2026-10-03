@@ -22,6 +22,7 @@ import { groupDigits } from '../shared/amount.ts';
 import { findCategory } from '../shared/categories.ts';
 import { useJobDraft } from '../shared/draft.ts';
 import { useCreateFlow, useStepButton } from '../shared/flow.ts';
+import { WizardSkeleton } from '../shared/skeletons.tsx';
 import { WizardHeader } from '../shared/WizardHeader.tsx';
 
 const BUDGET_TYPES: readonly BudgetType[] = ['fixed', 'range', 'negotiable'];
@@ -29,7 +30,7 @@ const BUDGET_TYPES: readonly BudgetType[] = ['fixed', 'range', 'negotiable'];
 export function BudgetScreen() {
   const { draft, patch } = useJobDraft();
   const flow = useCreateFlow('budget', draft);
-  if (!draft) return null;
+  if (!draft) return <WizardSkeleton step={3} />;
   return <BudgetForm draft={draft} patch={patch} next={flow.next} />;
 }
 

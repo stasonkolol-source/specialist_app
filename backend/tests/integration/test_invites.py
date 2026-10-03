@@ -32,6 +32,7 @@ from tests.integration.test_responses import API, World
 from tests.plugins.http import HttpApp, http_app
 from tests.plugins.identity import insert_restriction
 from tests.plugins.queue import run_queued
+from tests.plugins.round_trips import round_trips
 
 pytestmark = pytest.mark.integration
 
@@ -287,6 +288,24 @@ async def test_views_count_once_a_day_per_person_and_only_for_the_owner(world: I
     assert (await world.get(job_id, first)).json()["views_count"] is None
     version = await world.scalar("SELECT version FROM jobs.jobs WHERE id = :id", id=job_id)
     assert version == 1  # просмотр не меняет версию заявки (If-Match владельца)
+
+
+async def test_job_card_reads_then_counts_the_view_after_the_answer(world: Invites) -> None:
+    """Перф-аудит: S15 исполнителю — заявка, клиент, «M заявок» вместе с «Вы откликнулись»
+    одним запросом; просмотр (лимитер и UPDATE) пишется уже после ответа."""
+    client = await world.user()
+    job_id = await world.job(client)
+    viewer = await world.user()
+    engine = await world.app.container.get(AsyncEngine)
+    assert (await world.get(job_id, client)).status_code == 200  # кэш client-config прочитан
+
+    with round_trips(engine) as trips:
+        assert (await world.get(job_id, viewer)).status_code == 200
+
+    reads = [sql for sql in trips.statements if sql.lstrip().startswith("SELECT")]
+    assert len(reads) == 3, trips.statements  # было 4
+    assert trips.statements[-1].lstrip().startswith("UPDATE jobs.jobs")
+    assert await world.scalar("SELECT views_count FROM jobs.jobs WHERE id = :id", id=job_id) == 1
 
 
 async def test_bot_template_button_responds_like_the_form(

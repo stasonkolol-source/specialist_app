@@ -225,26 +225,36 @@ export function Toast({
 
 const SKELETON_RADIUS = {
   badge: 'rounded-badge',
+  icon: 'rounded-btn-sm',
   panel: 'rounded-panel',
   card: 'rounded-card',
   round: 'rounded-full',
 } as const;
 
 /** Скелетон .skel: размер задаёт раскладка (h-*, w-*), скругление — `radius` (по умолчанию 8, как
- *  .skel; поле поиска — panel 14, плитки и карточки — card 16, аватар — round). */
+ *  .skel; иконка строки — icon 10, поле поиска — panel 14, плитки и карточки — card 16, аватар —
+ *  round). Цвет .skel — bg2, как фон экрана: на карточке фигура видна, прямо на фоне экрана — нет.
+ *  Там — `screen`: цвет поверхности. Составные скелетоны по форме компонентов — Skeletons.tsx. */
 export function Skeleton({
   className,
   round = false,
   radius = round ? 'round' : 'badge',
+  screen = false,
 }: {
   className?: string;
   round?: boolean;
   radius?: keyof typeof SKELETON_RADIUS;
+  screen?: boolean;
 }) {
   return (
     <span
       aria-hidden="true"
-      className={cx('block bg-bg2 motion-safe:animate-pulse', SKELETON_RADIUS[radius], className)}
+      className={cx(
+        'block motion-safe:animate-pulse',
+        screen ? 'bg-surface' : 'bg-bg2',
+        SKELETON_RADIUS[radius],
+        className,
+      )}
     />
   );
 }

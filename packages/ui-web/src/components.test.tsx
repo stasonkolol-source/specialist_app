@@ -4,6 +4,12 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AvatarStack, Chip, Chips, Price } from './Chips.tsx';
+import {
+  ChatSkeleton,
+  FieldSkeleton,
+  JobCardSkeleton,
+  SpecialistCardSkeleton,
+} from './CardSkeletons.tsx';
 import { Banner, EmptyState, ProgressBar, Skeleton, Stars, Steps, Toast } from './Feedback.tsx';
 import { Checkbox, Option, RadioGroup, Segmented, Switch } from './form/Choice.tsx';
 import { Field, Input, SearchField, Textarea } from './form/Field.tsx';
@@ -11,6 +17,7 @@ import { Badge } from './Badge.tsx';
 import { LinkButton } from './Button.tsx';
 import { FeedRow, Group, Row, RowIcon, Tile, Tiles, UnreadDot } from './Group.tsx';
 import { Photo } from './Photo.tsx';
+import { ChipSkeleton, RowsSkeleton, TileSkeleton } from './Skeletons.tsx';
 import { a11yViolations } from './testing/a11y.ts';
 
 describe('Group и Row', () => {
@@ -430,5 +437,32 @@ describe('Banner, EmptyState, Toast, Skeleton', () => {
     expect(screen.getByRole('status').textContent).toContain('Сохранено');
     expect(container.querySelector('[aria-hidden="true"].rounded-full')).toBeTruthy();
     expect(await a11yViolations(container)).toEqual([]);
+  });
+
+  it('скелетоны видны на фоне экрана: фигуры на поверхности карточки или цвета поверхности', () => {
+    const { container } = render(
+      <>
+        <Skeleton screen className="h-4" />
+        <SpecialistCardSkeleton />
+        <JobCardSkeleton photos />
+        <RowsSkeleton rows={2} leading="icon" trailing />
+        <TileSkeleton />
+        <ChipSkeleton className="w-24" />
+        <FieldSkeleton tall />
+        <ChatSkeleton />
+      </>,
+    );
+    // фон экрана — bg2, как у .skel: голая фигура прямо на нём не видна
+    expect(container.firstElementChild?.className).toContain('bg-surface');
+    for (const shape of container.querySelectorAll('span.bg-bg2')) {
+      expect(shape.closest('.bg-surface, .bg-bg')).toBeTruthy();
+    }
+    // скринридер слышит статус загрузки экрана, а не фигуры
+    for (const element of container.children) {
+      expect(
+        element.getAttribute('aria-hidden') === 'true' ||
+          element.querySelector(':scope > [aria-hidden="true"]') !== null,
+      ).toBe(true);
+    }
   });
 });

@@ -1,6 +1,6 @@
 // Форматтеры во всех трёх локалях. `_` в ожидаемых строках — неразрывный пробел.
 import { BUDGET_BUCKETS, rsdToPara } from '@sosed/domain';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { NBSP, createFormat, formatMessage } from './format.ts';
 import type { Locale } from './locale.ts';
@@ -165,5 +165,27 @@ describe('плюралы', () => {
   it('большие числа в # — с разделителем локали', () => {
     expect(reviews('ru', 1_000)).toBe(nb('1_000 отзывов'));
     expect(reviews('sr-Latn', 1_000)).toBe('1.000 utisaka');
+  });
+});
+
+describe('formatter reuse', () => {
+  it('builds Intl formatters once per locale and options, not on every call', () => {
+    const format = createFormat('ru');
+    expect(createFormat('ru')).toBe(format);
+    const date = new Date('2026-09-27T10:00:00Z');
+    const now = new Date('2026-10-03T10:00:00Z');
+    format.calendar(date, now);
+    format.relative(date, now);
+    format.money(500_000);
+
+    const dates = vi.spyOn(Intl, 'DateTimeFormat');
+    const numbers = vi.spyOn(Intl, 'NumberFormat');
+    format.calendar(date, now);
+    format.relative(date, now);
+    format.money(500_000);
+    expect(dates).not.toHaveBeenCalled();
+    expect(numbers).not.toHaveBeenCalled();
+    dates.mockRestore();
+    numbers.mockRestore();
   });
 });

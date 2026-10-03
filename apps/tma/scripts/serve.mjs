@@ -1,6 +1,7 @@
 // Статический сервер собранного Mini App для Playwright: без зависимостей (работает в Docker-образе),
-// применяет dist/_headers (CSP, как на Cloudflare), сжимает текст gzip (как Cloudflare — иначе
-// замер холодного старта качал бы втрое больше), неизвестный путь без расширения → index.html.
+// применяет dist/_headers по путям, как Cloudflare (CSP — всем, «immutable» — только /assets/*, HTML
+// — no-cache), сжимает текст gzip (как Cloudflare — иначе замер холодного старта качал бы втрое
+// больше), неизвестный путь без расширения → index.html.
 import { createReadStream, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize } from 'node:path';
@@ -17,22 +18,35 @@ const TYPES = {
   '.json': 'application/json',
 };
 
-/** `/*` и строки «  Имя: значение» — подмножество формата _headers, которое пишет сборка. */
+/** Правила _headers: строка пути (`/*`, `/assets/*`, `/`) и под ней строки «  Имя: значение» —
+ *  подмножество формата, которое пишет сборка. */
 function parseHeaders(path) {
+  let text;
   try {
-    return readFileSync(path, 'utf8')
-      .split('\n')
-      .filter((line) => /^\s+\S+:/.test(line))
-      .map((line) => {
-        const [name, ...value] = line.trim().split(':');
-        return [name, value.join(':').trim()];
-      });
+    text = readFileSync(path, 'utf8');
   } catch {
     return [];
   }
+  const rules = [];
+  for (const line of text.split('\n')) {
+    if (/^\S/.test(line)) rules.push({ pattern: line.trim(), headers: [] });
+    else if (/^\s+\S+:/.test(line) && rules.length > 0) {
+      const [name, ...value] = line.trim().split(':');
+      rules.at(-1).headers.push([name, value.join(':').trim()]);
+    }
+  }
+  return rules;
 }
 
-const headers = parseHeaders(join(dir, '_headers'));
+/** `*` в конце — любой хвост пути, иначе — точное совпадение (как splat у Cloudflare). */
+const matches = (pattern, path) =>
+  pattern.endsWith('*') ? path.startsWith(pattern.slice(0, -1)) : path === pattern;
+
+const rules = parseHeaders(join(dir, '_headers'));
+const headersFor = (path) =>
+  Object.fromEntries(
+    rules.filter((rule) => matches(rule.pattern, path)).flatMap((rule) => rule.headers),
+  );
 const COMPRESSIBLE = new Set(['.html', '.js', '.css', '.svg', '.json']);
 
 createServer((req, res) => {
@@ -56,7 +70,7 @@ createServer((req, res) => {
   res.writeHead(200, {
     'content-type': TYPES[extname(file)] ?? 'application/octet-stream',
     ...(gzip ? { 'content-encoding': 'gzip', vary: 'Accept-Encoding' } : {}),
-    ...Object.fromEntries(headers),
+    ...headersFor(path),
   });
   const stream = createReadStream(file);
   (gzip ? stream.pipe(createGzip()) : stream).pipe(res);

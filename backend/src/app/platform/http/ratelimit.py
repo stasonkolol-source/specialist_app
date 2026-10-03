@@ -2,13 +2,14 @@
 
     @router.get("/search", dependencies=[Depends(RateLimit(SEARCH_GUEST))])
 
-Успешный ответ несёт `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`;
+Состояние окна сохраняется в request.state: middleware добавляет `RateLimit-Limit`,
+`RateLimit-Remaining`, `RateLimit-Reset` в успешный ответ, включая готовый Response;
 превышение — RateLimitedError, его отображает interfaces/http/errors.py (429 + Retry-After).
 """
 
 from collections.abc import Callable
 
-from fastapi import Request, Response
+from fastapi import Request
 
 from app.platform.http.security import optional_principal
 from app.platform.kernel.principal import Principal
@@ -45,10 +46,10 @@ class RateLimit:
         self.rate = rate
         self.key = key
 
-    async def __call__(self, request: Request, response: Response) -> None:
+    async def __call__(self, request: Request) -> None:
         limiter = await request.state.dishka_container.get(RateLimiter)
         status = await limiter.hit(self.rate, self.key(request))
-        response.headers.update(rate_limit_headers(status))
+        request.state.rate_limit = status
 
 
 class GuestOrUserRateLimit:
@@ -58,7 +59,7 @@ class GuestOrUserRateLimit:
     def __init__(self, *, guest: Rate, user: Rate) -> None:
         self.guest, self.user = guest, user
 
-    async def __call__(self, request: Request, response: Response) -> None:
+    async def __call__(self, request: Request) -> None:
         principal = await optional_principal(request)
         if principal is None:
             rate, subject = self.guest, client_ip(request)
@@ -66,4 +67,4 @@ class GuestOrUserRateLimit:
             rate, subject = self.user, user_subject(principal.user_id)
         limiter = await request.state.dishka_container.get(RateLimiter)
         status = await limiter.hit(rate, subject)
-        response.headers.update(rate_limit_headers(status))
+        request.state.rate_limit = status

@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 from app.modules.geo.application.dto import CitySeed, ImportResult
-from app.modules.geo.application.ports import GeoWriter
+from app.modules.geo.application.ports import DirectoryCache, GeoWriter
 from app.platform.db.port import UnitOfWork
 
 
@@ -13,9 +13,11 @@ class ImportCityCommand:
 
 
 class ImportCity:
-    def __init__(self, uow: UnitOfWork, writer: GeoWriter) -> None:
-        self._uow, self._writer = uow, writer
+    def __init__(self, uow: UnitOfWork, writer: GeoWriter, cache: DirectoryCache) -> None:
+        self._uow, self._writer, self._cache = uow, writer, cache
 
     async def __call__(self, cmd: ImportCityCommand) -> ImportResult:
         async with self._uow:
-            return await self._writer.upsert_city(cmd.seed)
+            result = await self._writer.upsert_city(cmd.seed)
+        self._cache.invalidate()
+        return result

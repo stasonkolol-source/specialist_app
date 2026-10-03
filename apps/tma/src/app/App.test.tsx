@@ -9,9 +9,9 @@ import {
   getSystemGetClientConfigMockHandler,
 } from '@sosed/api-client/mocks';
 import type { ColorScheme } from '@sosed/platform';
-import { createMockPlatform } from '@sosed/platform';
+import { createMockPlatform } from '@sosed/platform/mock';
 import { createHashHistory, createMemoryHistory } from '@tanstack/react-router';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import type { FunctionComponent } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -434,6 +434,26 @@ describe('render errors and theme (1.5a)', () => {
     });
     expect(await screen.findByRole('heading', { name: 'Сообщения', level: 1 })).toBeTruthy();
     expect(screen.getByRole('navigation', { name: 'Разделы' })).toBeTruthy();
+  });
+
+  it('applies the theme before the first frame and signals ready only after it', async () => {
+    document.documentElement.dataset.theme = 'light';
+    const { platform, telegram } = createMockPlatform({ colorScheme: 'dark' });
+    const app = assemble(platform, {
+      version: '0.1.0',
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+      baseUrl: API_ORIGIN,
+    });
+
+    // до рендера: тема и цвета клиента уже стоят, а ready() нет — Telegram держит свою заглушку
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(telegram.callsOf('web_app_set_background_color').at(-1)).toEqual({
+      color: CHROME.dark.background,
+    });
+    expect(telegram.callsOf('web_app_ready')).toHaveLength(0);
+
+    render(<App {...app} />);
+    await waitFor(() => expect(telegram.callsOf('web_app_ready')).toHaveLength(1));
   });
 
   it('applies the dark theme and Telegram colors before a startup S49 screen', async () => {

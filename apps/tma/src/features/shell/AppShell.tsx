@@ -8,14 +8,17 @@
 import type { MeOut } from '@sosed/api-client';
 import { getIdentityGetMeQueryKey } from '@sosed/api-client';
 import { useBadges } from '@sosed/hooks';
-import { useTranslation } from '@sosed/i18n';
+import { preloadCatalogs, useTranslation } from '@sosed/i18n';
 import { useBottomButtonState, useInsets } from '@sosed/platform';
 import type { TabItem } from '@sosed/ui-web';
 import { Button, TabBar } from '@sosed/ui-web';
+import type { QueryClient } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { Outlet, useRouter, useRouterState } from '@tanstack/react-router';
 import type { MouseEvent } from 'react';
 import { useEffect } from 'react';
+
+import { afterFirstScreen, saveData } from './idle.ts';
 
 /** Высота .tabbar из ui.css (h-21): контент не уходит под таббар. */
 const TABBAR_HEIGHT = 84;
@@ -43,26 +46,36 @@ const DESTINATIONS: ReadonlyMap<string, string> = new Map([
   [CREATE_ID, CREATE_PATH],
 ]);
 
+/** Куда ведёт вкладка: «Заявки» клиента — «Мои заявки». */
+function destinationOf(id: string, queryClient: QueryClient): string {
+  const client = queryClient.getQueryData<MeOut>(getIdentityGetMeQueryKey())?.intent === 'client';
+  return id === 'jobs' && client ? MY_JOBS_PATH : (DESTINATIONS.get(id) ?? '/');
+}
+
 export function AppShell() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const queryClient = useQueryClient();
-  const client = queryClient.getQueryData<MeOut>(getIdentityGetMeQueryKey())?.intent === 'client';
-  const destination = (id: string) =>
-    id === 'jobs' && client ? MY_JOBS_PATH : (DESTINATIONS.get(id) ?? '/');
+  const destination = (id: string) => destinationOf(id, queryClient);
   const main = useBottomButtonState('main');
   const insets = useInsets();
   // «Заявки N» и «Сообщения N»: новые отклики и непрочитанные (6.4); гостю — без запроса
   const badges = useBadges();
 
-  // Экраны вкладок — отдельные чанки: загрузить их сразу после старта, пока есть сеть. Иначе
-  // вкладка, открытая впервые без сети (метро), не откроется совсем
+  // Экраны вкладок — отдельные чанки: загрузить их, пока есть сеть, — иначе вкладка, открытая
+  // впервые без сети (метро), не откроется совсем. И тексты остальных экранов. Но после того, как
+  // первый экран дочитал свои данные: на медленной сети фон не отнимает её у Главной. С Data Saver
+  // — не грузим: экран загрузит своё, когда его откроют
   useEffect(() => {
-    for (const path of [...TABS.map((tab) => tab.path), CREATE_PATH]) {
-      void router.preloadRoute({ to: path });
-    }
-  }, [router]);
+    if (saveData()) return undefined;
+    return afterFirstScreen(queryClient, () => {
+      for (const id of [...TABS.map((tab) => tab.id), CREATE_ID]) {
+        void router.preloadRoute({ to: destinationOf(id, queryClient) });
+      }
+      void preloadCatalogs(i18n);
+    });
+  }, [router, queryClient, i18n]);
 
   const navigate = (id: string, event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();

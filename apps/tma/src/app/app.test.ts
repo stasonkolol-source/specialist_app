@@ -60,6 +60,21 @@ describe('query retries', () => {
     expect(shouldRetry(0, maintenance)).toBe(false);
   });
 
+  it('keeps unused data for 30 minutes and /me fresh for 5', () => {
+    const client = createQueryClient();
+    expect(client.getDefaultOptions().queries?.gcTime).toBe(30 * 60_000);
+    // ленты и свои заявки — 30 с: их меняют чужие действия
+    const staleOf = (queryKey: readonly unknown[]) =>
+      client.defaultQueryOptions({ queryKey }).staleTime;
+    expect(staleOf(['/api/v1/jobs', { city_id: 1 }])).toBe(30_000);
+    expect(staleOf(['/api/v1/me/jobs'])).toBe(30_000);
+    // /me — всю сессию: по нему решает охрана маршрутов
+    expect(client.defaultQueryOptions({ queryKey: ['/api/v1/me'] })).toMatchObject({
+      gcTime: Infinity,
+      staleTime: 5 * 60_000,
+    });
+  });
+
   it('fails offline requests instead of pausing them: the screen shows S49a', () => {
     const defaults = createQueryClient().getDefaultOptions();
     expect(defaults.queries?.networkMode).toBe('always');

@@ -1,7 +1,6 @@
 // Диалоги (DEVELOPMENT_PLAN 6.4): список S29 страницами по курсору, вкладки «Я клиент» и «Я
 // исполнитель» — фильтр роли. «Написать» (S08, S24) начинает диалог или открывает уже начатый.
-// Бейджи таббара — новые отклики и непрочитанные сообщения: при открытии, при возврате в
-// приложение и раз в минуту; гостю — без запросов.
+// Бейджи таббара — в badges.ts: их читает оболочка первого экрана, а этот модуль — нет.
 import type {
   ConversationOut,
   ConversationStartIn,
@@ -10,23 +9,19 @@ import type {
 } from '@sosed/api-client';
 import {
   getMessagingListConversationsQueryKey,
-  getSession,
   getViewsGetBadgesQueryKey,
   messagingListConversations,
   messagingStartConversation,
-  viewsGetBadges,
 } from '@sosed/api-client';
 import type { InfiniteData, QueryClient } from '@tanstack/react-query';
 import {
   keepPreviousData,
   useInfiniteQuery,
   useMutation,
-  useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 
 export const CONVERSATIONS_PAGE_SIZE = 20;
-export const BADGES_POLL_MS = 60_000;
 
 /** Вкладки S29: `null` — «Все». */
 export type ChatRole = Extract<ParticipantRole, 'client' | 'performer'>;
@@ -61,18 +56,8 @@ export function conversationItems(pages: Pick<ConversationPages, 'pages'> | unde
   return pages?.pages.flatMap((page) => page.items) ?? [];
 }
 
-/** Бейджи таббара: «Заявки N» (новые отклики) и «Сообщения N» (непрочитанные). */
-export function useBadges() {
-  return useQuery({
-    queryKey: getViewsGetBadgesQueryKey(),
-    queryFn: ({ signal }) => viewsGetBadges({ signal }),
-    enabled: getSession() !== null,
-    refetchInterval: BADGES_POLL_MS,
-    refetchOnWindowFocus: true,
-  });
-}
-
-/** Прочитали или написали — бейдж и список S29 перечитываются. */
+/** Прочитали или написали — бейдж и список S29 перечитываются. Экран действия их не ждёт:
+ *  вызывающие запускают перечитывание в фоне (`void`). */
 export async function refreshInbox(client: QueryClient) {
   await Promise.all([
     client.invalidateQueries({ queryKey: getViewsGetBadgesQueryKey() }),
@@ -86,7 +71,8 @@ export function useStartConversation() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (target: ConversationStartIn) => messagingStartConversation(target),
-    onSuccess: () => refreshInbox(client),
+    // диалог S30 открывается сразу, бейджи и список S29 — в фоне
+    onSuccess: () => void refreshInbox(client),
   });
 }
 

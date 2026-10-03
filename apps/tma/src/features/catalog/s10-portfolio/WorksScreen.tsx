@@ -42,7 +42,9 @@ export function WorksScreen() {
   useBackButton(close);
 
   let content;
-  if (works.data) {
+  if (isUnavailable(works.error)) {
+    content = <Unavailable />;
+  } else if (works.data) {
     content =
       works.data.items.length === 0 ? (
         <EmptyState as="h2" icon="image" title={t('portfolio.empty')} />
@@ -62,9 +64,7 @@ export function WorksScreen() {
         />
       );
   } else if (works.isError) {
-    content = isUnavailable(works.error) ? (
-      <Unavailable />
-    ) : (
+    content = (
       <LoadError
         error={works.error}
         onRetry={() => void works.refetch()}
@@ -72,7 +72,7 @@ export function WorksScreen() {
       />
     );
   } else {
-    content = <Skeleton className="aspect-5/6 w-full" />;
+    content = <Loading onClose={close} />;
   }
   return (
     <section className="flex flex-col gap-4 pt-1.5 pb-6">
@@ -81,6 +81,37 @@ export function WorksScreen() {
       </Heading>
       {content}
     </section>
+  );
+}
+
+/** Фото в кэш браузера тем же выбором варианта, что у Photo во всю ширину (`sizes="100vw"`). */
+function preloadPhoto(variants: readonly { url: string; width: number }[]) {
+  if (variants.length === 0) return;
+  const image = new Image();
+  image.decoding = 'async';
+  // sizes — до srcset: иначе браузер успел бы выбрать вариант без него
+  image.sizes = '100vw';
+  image.srcset = variants.map((variant) => `${variant.url} ${variant.width}w`).join(', ');
+}
+
+/** Просмотрщик до ответа: «Закрыть» уже работает, кадр и превью — скелетоном (фон экрана тёмный,
+ *  фигуры — цвета поверхности). */
+function Loading({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation('catalog');
+  return (
+    <div aria-busy="true" className="flex flex-col gap-4">
+      <div className="flex items-center justify-between px-2">
+        <IconButton plain icon="x" label={t('portfolio.close')} onClick={onClose} />
+        <Skeleton screen className="h-4 w-12" />
+        <span className="size-11" aria-hidden="true" />
+      </div>
+      <Skeleton screen radius="panel" className="aspect-5/6 w-full" />
+      <div className="flex gap-2 px-4">
+        {[0, 1, 2, 3].map((thumb) => (
+          <Skeleton key={thumb} screen radius="panel" className="size-14" />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -135,6 +166,13 @@ function Viewer({
     (dx < 0 ? next : previous)?.();
   };
 
+  // соседние работы — заранее: листание не ждёт сети
+  useEffect(() => {
+    for (const near of [items[index - 1], items[index + 1]]) {
+      if (near && near.kind !== 'video') preloadPhoto(cardVariants(near.photo));
+    }
+  }, [index, items]);
+
   const poster = largestVariant(work.photo);
   return (
     <>
@@ -168,6 +206,7 @@ function Viewer({
               sizes="100vw"
               alt={title}
               fit="contain"
+              priority
               className="aspect-5/6 w-full"
             />
           )}

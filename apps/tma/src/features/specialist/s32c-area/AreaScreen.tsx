@@ -19,9 +19,8 @@ import {
   specialistsSetMyAreas,
   specialistsSubmitMyProfile,
   specialistsUpdateMyProfile,
-  usePricingListMyServices,
 } from '@sosed/api-client';
-import { selectableDistricts, useCities, useDistricts } from '@sosed/hooks';
+import { selectableDistricts, useCities, useDistricts, useMyServices } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton, usePlatform } from '@sosed/platform';
 import { Chip, Chips, Input, Segmented, Text } from '@sosed/ui-web';
@@ -79,7 +78,7 @@ export function AreaScreen() {
   const flow = useBecomeFlow();
   const { query, draft } = useDraftProfile();
   const districts = useDistricts(draft?.city_id ?? null, locale);
-  const services = usePricingListMyServices({ query: { enabled: draft !== undefined } });
+  const services = useMyServices({ enabled: draft !== undefined });
   const cities = useCities(locale);
   useBackButton(() => flow.back('about'));
 

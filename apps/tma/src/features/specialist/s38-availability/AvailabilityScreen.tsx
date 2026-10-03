@@ -46,6 +46,7 @@ export function AvailabilityScreen() {
         {t('availability.title')}
       </Heading>
       <LoadState
+        shape="availability"
         error={profile.isError ? profile.error : null}
         onRetry={() => void profile.refetch()}
         retrying={profile.isFetching}

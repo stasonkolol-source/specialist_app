@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Final, Protocol
 from uuid import UUID
 
-from app.modules.specialists.api import ProfileForIndex, ProfileRef, PublicProfile
+from app.modules.specialists.api import ProfileForIndex, ProfileRef, PublicCard, PublicProfile
 from app.modules.specialists.application.dto import ProfileView
 from app.modules.specialists.domain.portfolio import PortfolioItem
 from app.modules.specialists.domain.profile import Profile, ProfileId
@@ -52,6 +52,10 @@ class ProfileQuery(Protocol):
 
     async def public(self, profile_id: UUID) -> PublicProfile | None:
         """Опубликованный профиль с опубликованными работами (S08)."""
+        ...
+
+    async def public_cards(self, profile_ids: Collection[UUID]) -> dict[UUID, PublicCard]:
+        """Опубликованные профили карточками — одним запросом на пачку."""
         ...
 
     async def published_ids(self, *, after: UUID | None, limit: int) -> list[UUID]:

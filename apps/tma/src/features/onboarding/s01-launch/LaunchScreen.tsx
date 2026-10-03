@@ -11,10 +11,10 @@ const PAD = { top: 72, side: 24, bottom: 32 };
 const TILES = 6;
 
 export function LaunchScreen({ progress }: { progress: number }) {
-  const { t } = useTranslation('onboarding');
-  const { t: common } = useTranslation();
+  // только общий неймспейс: он в первом чанке, а экран запуска не должен ждать загрузки текстов
+  const { t } = useTranslation();
   const insets = useInsets();
-  const name = common('app.name');
+  const name = t('app.name');
   return (
     <main
       className="mx-auto flex h-dvh max-w-lg flex-col gap-10 overflow-hidden bg-bg"
@@ -33,7 +33,7 @@ export function LaunchScreen({ progress }: { progress: number }) {
           {name.charAt(0)}
         </span>
         <h1 className="m-0 font-display text-h1-xl">{name}</h1>
-        <Text secondary>{common('app.tagline')}</Text>
+        <Text secondary>{t('app.tagline')}</Text>
       </div>
 
       {/* скелетон главной: поиск, плитки категорий, карточка */}
@@ -52,9 +52,9 @@ export function LaunchScreen({ progress }: { progress: number }) {
 
       <div role="status" className="flex shrink-0 flex-col items-center gap-2">
         <div aria-hidden="true" className="w-40">
-          <ProgressBar value={progress} max={1} label={t('launch.signingIn')} />
+          <ProgressBar value={progress} max={1} label={t('app.signingIn')} />
         </div>
-        <Text variant="cap">{t('launch.signingIn')}</Text>
+        <Text variant="cap">{t('app.signingIn')}</Text>
       </div>
     </main>
   );

@@ -3,7 +3,38 @@
 // 4.7.
 import type { CardReviewOut } from '@sosed/api-client';
 import { useFormat, useTranslation } from '@sosed/i18n';
-import { Avatar, Badge, Card, Stars, Text } from '@sosed/ui-web';
+import {
+  Avatar,
+  Badge,
+  Card,
+  Skeleton,
+  SkeletonCard,
+  SkeletonText,
+  Stars,
+  Text,
+} from '@sosed/ui-web';
+
+/** Отзыв, пока не пришёл: автор с месяцем, звёзды и пара строк текста. */
+export function ReviewCardSkeleton() {
+  return (
+    <SkeletonCard tight>
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex grow items-center gap-2.5">
+          <Skeleton round className="size-9 shrink-0" />
+          <span className="flex grow flex-col">
+            <SkeletonText className="w-1/3" />
+            <SkeletonText size="cap" className="w-1/2" />
+          </span>
+        </span>
+        <Skeleton className="h-4 w-20" />
+      </div>
+      <div className="flex flex-col">
+        <SkeletonText size="sm" className="w-full" />
+        <SkeletonText size="sm" className="w-2/3" />
+      </div>
+    </SkeletonCard>
+  );
+}
 
 export function ReviewCard({ review }: { review: CardReviewOut }) {
   const { t } = useTranslation('catalog');

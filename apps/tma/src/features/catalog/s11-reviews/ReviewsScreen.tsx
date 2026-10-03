@@ -14,13 +14,15 @@ import {
   Heading,
   ProgressBar,
   Skeleton,
+  SkeletonCard,
+  SkeletonText,
   Stars,
   Text,
 } from '@sosed/ui-web';
 import { useParams, useRouter } from '@tanstack/react-router';
 
 import { LoadError } from '../shared/LoadError.tsx';
-import { ReviewCard } from '../shared/ReviewCard.tsx';
+import { ReviewCard, ReviewCardSkeleton } from '../shared/ReviewCard.tsx';
 import { Unavailable } from '../shared/Unavailable.tsx';
 import { CARD_PATHS } from '../shared/paths.ts';
 
@@ -39,6 +41,7 @@ export function ReviewsScreen() {
     else void router.navigate({ to: CARD_PATHS.profile, params: { profileId }, replace: true });
   });
 
+  if ([card, reviews].some((load) => isUnavailable(load.error))) return <Unavailable />;
   const first = reviews.data?.pages[0];
   if (card.data && first) {
     return (
@@ -59,9 +62,7 @@ export function ReviewsScreen() {
   }
   const failed = [card, reviews].find((load) => load.isError);
   if (failed) {
-    return isUnavailable(failed.error) ? (
-      <Unavailable />
-    ) : (
+    return (
       <section className="flex flex-col px-4 pt-3 pb-6">
         <LoadError
           error={failed.error}
@@ -73,10 +74,43 @@ export function ReviewsScreen() {
       </section>
     );
   }
+  return <Loading card={card.data} />;
+}
+
+/** Отзывы ещё грузятся: шапка — из профиля S08 в кэше, сводка и отзывы — скелетоном. */
+function Loading({ card }: { card: SpecialistProfileOut | undefined }) {
+  const { t } = useTranslation('catalog');
+  const category = card?.categories[0]?.name;
   return (
     <section className="flex flex-col gap-3 px-4 pt-3 pb-6" aria-busy="true">
-      <Skeleton className="h-12 w-full" />
-      <Skeleton className="h-44 w-full" />
+      <div className="flex flex-col">
+        <Heading variant="h2" as="h1">
+          {t('reviews.title')}
+        </Heading>
+        {card ? (
+          <Text variant="cap">
+            {category ? `${card.display_name} · ${category}` : card.display_name}
+          </Text>
+        ) : (
+          <SkeletonText size="cap" screen className="w-1/2" />
+        )}
+      </div>
+      {/* сводка: средняя оценка со звёздами и распределение оценок */}
+      <SkeletonCard>
+        <div className="flex items-center gap-5">
+          <div className="flex w-20 shrink-0 flex-col gap-1">
+            <SkeletonText size="h1" className="w-12" />
+            <Skeleton className="h-4 w-full" />
+          </div>
+          <div className="flex grow flex-col gap-2">
+            {[0, 1, 2, 3, 4].map((bar) => (
+              <Skeleton key={bar} className="h-2 w-full" />
+            ))}
+          </div>
+        </div>
+      </SkeletonCard>
+      <ReviewCardSkeleton />
+      <ReviewCardSkeleton />
     </section>
   );
 }

@@ -73,11 +73,10 @@ export function useHideJob() {
           : data,
       );
     },
-    onSettled: async () => {
-      await Promise.all([
-        client.invalidateQueries({ queryKey: FEED_KEY }),
-        client.invalidateQueries({ queryKey: COUNT_KEY }),
-      ]);
+    // заявка из ленты уже убрана; S15 уходит назад, не дожидаясь перечитывания ленты и числа
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: FEED_KEY });
+      void client.invalidateQueries({ queryKey: COUNT_KEY });
     },
   });
 }

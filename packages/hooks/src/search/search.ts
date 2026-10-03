@@ -22,7 +22,7 @@ import {
   searchSuggest,
 } from '@sosed/api-client';
 import type { InfiniteData } from '@tanstack/react-query';
-import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, queryOptions, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 export const SEARCH_PAGE_SIZE = 20;
 /** Как Cache-Control ответа (max-age=300): числа в дереве меняются не чаще публикаций. */
@@ -128,8 +128,8 @@ export function useSuggest(text: string, locale: Locale) {
 /** Карточек «Свободны сегодня рядом» на Главной — как на артборде S03. */
 export const TODAY_PREVIEW = 2;
 
-/** «Свободны сегодня рядом»: доступные сегодня в городе; с точкой клиента — ближние первыми. */
-export function useAvailableToday(
+/** Запрос «Свободны сегодня рядом» — один у хука и у предзагрузки Главной после входа. */
+export function availableTodayQueryOptions(
   locale: Locale,
   cityId: number | null,
   point: { lat: number; lon: number } | null,
@@ -141,10 +141,21 @@ export function useAvailableToday(
         ? { city_id: cityId, available_today: true, sort: 'distance', ...point }
         : { city_id: cityId, available_today: true };
   const params = query === null ? null : { ...query, limit: TODAY_PREVIEW };
-  return useQuery({
+  return queryOptions({
     queryKey: [...getSearchListSpecialistsQueryKey(params ?? { city_id: 0 }), locale] as const,
     queryFn: ({ signal }) => searchListSpecialists(required(params), { signal }),
     enabled: params !== null,
+  });
+}
+
+/** «Свободны сегодня рядом»: доступные сегодня в городе; с точкой клиента — ближние первыми. */
+export function useAvailableToday(
+  locale: Locale,
+  cityId: number | null,
+  point: { lat: number; lon: number } | null,
+) {
+  return useQuery({
+    ...availableTodayQueryOptions(locale, cityId, point),
     placeholderData: keepPreviousData,
   });
 }

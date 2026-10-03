@@ -16,7 +16,7 @@ REMOVE_PROFILE_PRICES: Final = TaskRef("pricing.remove_profile_prices", ProfileD
 
 class ServiceRepository(Protocol):
     async def list_for_update(self, profile_id: UUID) -> list[Service]:
-        """Весь прайс профиля под блокировкой строк, по позиции."""
+        """Весь прайс по позиции; параллельные изменения состава и порядка сериализуются."""
         ...
 
     async def get_for_update(self, profile_id: UUID, service_id: ServiceId) -> Service:

@@ -1,15 +1,18 @@
-// Сборка приложения до первого рендера: платформа и ready() как можно раньше, язык из launch
-// params, клиент API, вход по initData в фоне (после входа — язык, сохранённый на сервере),
-// цель deep link запуска (S01). Тот же код собирает приложение в тестах.
+// Сборка приложения до первого рендера: тема клиента Telegram и expand() как можно раньше, язык из
+// launch params, клиент API, вход по initData в фоне (после входа — язык, сохранённый на сервере),
+// цель deep link запуска (S01). ready() — после первого кадра (App.tsx): до него Telegram держит
+// свою заглушку. Тот же код собирает приложение в тестах.
 import { ApiError, configureApiClient, getIdentityGetMeQueryKey } from '@sosed/api-client';
 import { createI18n, currentLocale, isLocale, resolveLocale } from '@sosed/i18n';
 import type { Platform } from '@sosed/platform';
+import { applyTheme } from '@sosed/platform';
 import type { QueryClient } from '@tanstack/react-query';
 import type { RouterHistory } from '@tanstack/react-router';
 
 import { ONBOARDING_PATHS } from '../features/onboarding/index.ts';
 import { RESTRICTED_PATH, reportSystemError } from '../features/service/s49-system/index.ts';
 import { startTarget } from '../routes/startapp.ts';
+import { CHROME } from './chrome.ts';
 import { openedByTelegram } from './launch.ts';
 import { createQueryClient } from './query.ts';
 import { createAppRouter, historyFor } from './router.ts';
@@ -45,8 +48,10 @@ export interface AssembleOptions {
 }
 
 export function assemble(platform: Platform, options: AssembleOptions): Assembled {
-  platform.ready();
   platform.expand();
+  // тема — до первого кадра: эффект useThemeSync срабатывает после отрисовки, и в тёмной теме
+  // первый кадр мелькал бы светлым
+  applyTheme(platform, platform.theme.colorScheme(), CHROME);
   const locale = resolveLocale({
     saved: options.savedLocale,
     telegram: platform.launch.languageCode,
@@ -75,18 +80,18 @@ export function assemble(platform: Platform, options: AssembleOptions): Assemble
     }
     if (reportSystemError(error)) void router.navigate({ to: RESTRICTED_PATH });
   };
+  // свежесть и срок жизни кэша (в том числе /me на всю сессию) — app/query.ts
   const queryClient = createQueryClient(onSystemError);
-  // /me живёт всю сессию: по нему охрана маршрутов (routes/guards.ts) решает онбординг и согласие,
-  // а экраны, которые на него подписаны, открыты не всегда. Со сборкой мусора по умолчанию
-  // (5 минут без подписчиков) S02c после долгого чтения S48 уводил бы на главную, а «+» пускал
-  // без согласия
-  queryClient.setQueryDefaults(getIdentityGetMeQueryKey(), { gcTime: Infinity });
   const router = createAppRouter(options.history ?? historyFor(platform.kind), queryClient);
   // ui_locale — выбор пользователя, на нём же пишет бот: важнее language_code Telegram.
-  // en в MVP не выбирается — тогда остаётся язык из launch params
+  // Применяем при первом входе: повторный вход после 401 не должен сбрасывать выбор на S02a,
+  // который ещё сохраняется. en в MVP не выбирается — тогда остаётся язык из launch params.
+  let localeLoaded = false;
   const auth = createAuth(
     platform,
     ({ ui_locale }) => {
+      if (localeLoaded) return;
+      localeLoaded = true;
       if (isLocale(ui_locale) && ui_locale !== i18n.language) void i18n.changeLanguage(ui_locale);
     },
     onSystemError,

@@ -2,6 +2,7 @@
   "app": {
     "name": "{appName}",
     "tagline": "Мастера рядом, на вашем языке",
+    "signingIn": "Входим через Telegram…",
     "miniApp": "мини-приложение"
   },
   "nav": {

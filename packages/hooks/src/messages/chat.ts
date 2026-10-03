@@ -18,7 +18,13 @@ import {
   messagingSendMessage,
   messagingShareContact,
 } from '@sosed/api-client';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  queryOptions,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { refreshInbox } from './conversations.ts';
@@ -90,14 +96,18 @@ function ordered(messages: ReadonlyMap<string, MessageOut>): MessageOut[] {
   return [...messages.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
-export function useChat(conversationId: string) {
-  const client = useQueryClient();
-  const latest = useQuery({
+/** Последняя страница диалога — у S30 и у предзагрузки по нажатию на диалог в S29. */
+export function chatQueryOptions(conversationId: string) {
+  return queryOptions({
     queryKey: chatQueryKey(conversationId),
     queryFn: ({ signal }) =>
       messagingListMessages(conversationId, { limit: CHAT_PAGE_SIZE }, { signal }),
-    refetchInterval: CHAT_POLL_MS,
   });
+}
+
+export function useChat(conversationId: string) {
+  const client = useQueryClient();
+  const latest = useQuery({ ...chatQueryOptions(conversationId), refetchInterval: CHAT_POLL_MS });
   // курсор «раньше» первого показа: дальше страницы идут от него
   const [anchor, setAnchor] = useState<string | null>(null);
   const earlier = useInfiniteQuery({
@@ -212,11 +222,10 @@ export function useProposeDeal(conversationId: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (terms: DealProposalIn) => messagingProposeDeal(conversationId, terms),
+    // человек остаётся в диалоге: ждём только его (сделка в шапке); бейджи и S29 — в фоне
     onSuccess: async () => {
-      await Promise.all([
-        client.invalidateQueries({ queryKey: chatQueryKey(conversationId) }),
-        refreshInbox(client),
-      ]);
+      void refreshInbox(client);
+      await client.invalidateQueries({ queryKey: chatQueryKey(conversationId) });
     },
   });
 }
@@ -228,10 +237,8 @@ export function useShareContact(conversationId: string) {
   return useMutation({
     mutationFn: (contact: ContactShareIn) => messagingShareContact(conversationId, contact),
     onSuccess: async () => {
-      await Promise.all([
-        client.invalidateQueries({ queryKey: chatQueryKey(conversationId) }),
-        refreshInbox(client),
-      ]);
+      void refreshInbox(client);
+      await client.invalidateQueries({ queryKey: chatQueryKey(conversationId) });
     },
   });
 }

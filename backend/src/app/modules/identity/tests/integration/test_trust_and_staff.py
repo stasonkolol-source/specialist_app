@@ -123,12 +123,16 @@ async def test_ban_revokes_every_session_at_once(identity: Identity) -> None:
 
     assert (
         await identity.revoke_restricted_sessions(
-            RevokeRestrictedSessionsCommand(user_id=user_id, kind=RestrictionKind.LIMITED)
+            RevokeRestrictedSessionsCommand(
+                user_id=user_id, kind=RestrictionKind.LIMITED, restricted_at=identity.clock.now()
+            )
         )
         == 0
     )
     revoked = await identity.revoke_restricted_sessions(
-        RevokeRestrictedSessionsCommand(user_id=user_id, kind=RestrictionKind.BANNED)
+        RevokeRestrictedSessionsCommand(
+            user_id=user_id, kind=RestrictionKind.BANNED, restricted_at=identity.clock.now()
+        )
     )
 
     assert revoked == 1
@@ -143,7 +147,9 @@ async def test_ban_revokes_every_session_at_once(identity: Identity) -> None:
     assert len(identity.revocations.revoked) == 1  # и access-токены — через denylist
     assert (
         await identity.revoke_restricted_sessions(
-            RevokeRestrictedSessionsCommand(user_id=user_id, kind=RestrictionKind.BANNED)
+            RevokeRestrictedSessionsCommand(
+                user_id=user_id, kind=RestrictionKind.BANNED, restricted_at=identity.clock.now()
+            )
         )
         == 0
     )

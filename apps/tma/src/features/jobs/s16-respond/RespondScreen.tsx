@@ -41,7 +41,10 @@ import {
   LinkButton,
   Price,
   Sheet,
+  FieldSkeleton,
   Skeleton,
+  SkeletonCard,
+  SkeletonText,
   Text,
 } from '@sosed/ui-web';
 import { useParams, useRouter } from '@tanstack/react-router';
@@ -147,8 +150,9 @@ function RespondForm({
         attempt.current = { body: json, key: crypto.randomUUID() };
       await send.mutateAsync({ jobId: job.id, body: sent, key: attempt.current.key });
       if (saveTemplate && !full) {
-        // шаблон — дополнение к отклику: не сохранился — отклик всё равно ушёл
-        await createTemplate
+        // шаблон — дополнение к отклику: «Мои отклики» его не ждут, а не сохранился — отклик
+        // всё равно ушёл
+        void createTemplate
           .mutateAsync({
             key: `${attempt.current.key}:template`,
             body: { ...body, title: templateTitleOf(body.message) },
@@ -330,9 +334,19 @@ function Preview({
 function Loading() {
   return (
     <section className="flex flex-col gap-3.5 px-4 pt-3 pb-6" aria-busy="true">
-      <Skeleton radius="card" className="h-28 w-full" />
-      <Skeleton radius="card" className="h-32 w-full" />
-      <Skeleton radius="card" className="h-24 w-full" />
+      {/* заявка: раздел, название и бюджет, место и места */}
+      <SkeletonCard tight>
+        <SkeletonText size="cap" className="w-1/3" />
+        <div className="flex items-start justify-between gap-3">
+          <SkeletonText size="title" className="w-3/5" />
+          <SkeletonText size="title" className="w-20" />
+        </div>
+        <SkeletonText size="cap" className="w-1/2" />
+      </SkeletonCard>
+      {/* сообщение, вид цены и цена */}
+      <FieldSkeleton tall />
+      <Skeleton screen radius="panel" className="h-10 w-full" />
+      <FieldSkeleton />
     </section>
   );
 }

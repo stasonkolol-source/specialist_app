@@ -17,11 +17,13 @@ import {
   Banner,
   Button,
   Chip,
+  ChipSkeleton,
   Chips,
   EmptyState,
   IconButton,
   SearchField,
-  Skeleton,
+  SkeletonText,
+  SpecialistCardSkeleton,
 } from '@sosed/ui-web';
 import { useRouter, useSearch } from '@tanstack/react-router';
 import type { FormEvent } from 'react';
@@ -48,7 +50,8 @@ export function ResultsScreen() {
   const query = city ? toQuery(search, city.id) : null;
   const results = useSpecialistSearch(locale, query);
   const count = useSpecialistCount(query);
-  const categories = useCategories(locale).data ?? [];
+  const categoryTree = useCategories(locale);
+  const categories = categoryTree.data ?? [];
   const locate = useLocate();
   const { control, failure } = useFavoriteToggle();
   const [typed, setTyped] = useState(search.q ?? '');
@@ -161,7 +164,7 @@ export function ResultsScreen() {
     content = (
       <div className="flex flex-col gap-2.5" aria-busy="true">
         {Array.from({ length: SKELETON_CARDS }, (_, card) => (
-          <Skeleton key={card} className="h-28 w-full" />
+          <SpecialistCardSkeleton key={card} />
         ))}
       </div>
     );
@@ -197,10 +200,13 @@ export function ResultsScreen() {
         <Chip icon="sliders" count={filters || undefined} onClick={() => setFiltersOpen(true)}>
           {t('results.filters')}
         </Chip>
-        {category && (
+        {category ? (
           <Chip selected onClick={() => update({ ...search, category: undefined })}>
             {category.name}
           </Chip>
+        ) : (
+          search.category !== undefined &&
+          categoryTree.isPending && <ChipSkeleton className="w-28" />
         )}
         <Chip
           selected={search.today === true}
@@ -222,6 +228,8 @@ export function ResultsScreen() {
           {t('results.locationError')}
         </Banner>
       )}
+      {/* строка «Нашли N» — над выдачей: место под неё держим, пока число не пришло */}
+      {!count.data && count.isPending && <SkeletonText size="cap" screen className="w-40" />}
       {count.data && count.data.count > 0 && (
         <p className="m-0 text-cap text-text2" aria-live="polite">
           {count.data.capped

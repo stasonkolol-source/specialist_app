@@ -3,6 +3,7 @@
 export {
   DICTIONARY_STALE_MS,
   categoriesQueryKey,
+  categoriesQueryOptions,
   districtsQueryKey,
   leafCategories,
   selectableDistricts,
@@ -14,6 +15,7 @@ export {
   CLIENT_CONFIG_STALE_MS,
   DEFAULT_MIN_TELEGRAM,
   FLAGS,
+  clientConfigQueryOptions,
   compareVersions,
   requiredUpdate,
   useClientConfig,
@@ -22,6 +24,7 @@ export {
 export {
   CITIES_STALE_MS,
   citiesQueryKey,
+  citiesQueryOptions,
   defaultCity,
   isSelectableCity,
   useCities,
@@ -41,20 +44,20 @@ export {
   CHAT_POLL_MS,
   MAX_MESSAGE,
   chatQueryKey,
+  chatQueryOptions,
   useChat,
   useProposeDeal,
   useShareContact,
 } from './messages/chat.ts';
+export { BADGES_POLL_MS, useBadges } from './messages/badges.ts';
 export type { ChatRole, ConversationPages, DealState } from './messages/conversations.ts';
 export {
-  BADGES_POLL_MS,
   CONVERSATIONS_KEY,
   CONVERSATIONS_PAGE_SIZE,
   conversationItems,
   conversationsQueryKey,
   dealState,
   refreshInbox,
-  useBadges,
   useConversations,
   useStartConversation,
 } from './messages/conversations.ts';
@@ -112,7 +115,7 @@ export {
   workKindOf,
 } from './specialist/portfolio.ts';
 export type { PricedService, ServiceGroup } from './specialist/prices.ts';
-export { groupServices, moveService, servicePrice } from './specialist/prices.ts';
+export { groupServices, moveService, servicePrice, useMyServices } from './specialist/prices.ts';
 export type { BecomeStep, ProfileState } from './specialist/profile.ts';
 export {
   BECOME_STEPS,
@@ -136,6 +139,7 @@ export {
   SUGGEST_MIN,
   SUGGEST_STALE_MS,
   TODAY_PREVIEW,
+  availableTodayQueryOptions,
   countQuery,
   countsByCategory,
   resultItems,
@@ -148,6 +152,7 @@ export {
   useSuggest,
 } from './search/search.ts';
 export { distanceMeters, nearestDistrict } from './geo/districts.ts';
+export { cachedConversation, cachedJobCard, cachedSpecialistCard } from './previews.ts';
 export type { PriceGroup } from './card/card.ts';
 export {
   CARD_STALE_MS,
@@ -156,6 +161,7 @@ export {
   largestVariant,
   priceGroups,
   specialistCardQueryKey,
+  specialistCardQueryOptions,
   specialistServicesQueryKey,
   useSpecialistCard,
   useSpecialistReviews,
@@ -200,10 +206,10 @@ export {
   whenProblems,
 } from './jobs/draft.ts';
 export type { PublishJob } from './jobs/jobs.ts';
-export { jobQueryKey, useCreateJob, useJob } from './jobs/jobs.ts';
+export { jobQueryKey, jobQueryOptions, useCreateJob, useJob } from './jobs/jobs.ts';
 export type { FeedPages, FeedQuery } from './jobs/feed.ts';
 export { FEED_PAGE_SIZE, feedQueryKey, jobCards, useHideJob, useJobsFeed } from './jobs/feed.ts';
-export { useJobsCount } from './jobs/count.ts';
+export { NEW_JOBS_HOURS, jobsCountQueryOptions, useJobsCount } from './jobs/count.ts';
 export type { OfferDraft, OfferProblem } from './jobs/offer.ts';
 export {
   RESPONSE_AVAILABILITY_MAX,
@@ -262,12 +268,14 @@ export {
   RESPONSES_POLL_MS,
   jobInvitesQueryKey,
   myJobsQueryKey,
+  myJobsQueryOptions,
   responseCardsQueryKey,
   useCloseJob,
   useExtendJob,
   useInviteSpecialists,
   useJobInvites,
   useMyJobs,
+  useOwnJob,
   useResponseCards,
   useUpdateJob,
 } from './jobs/mine.ts';
