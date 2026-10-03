@@ -148,7 +148,7 @@ class FakeDeals:
     async def my_deals(self, viewer_id: UserId, page: PageRequest) -> Page[DealSummary]:
         raise NotImplementedError
 
-    async def deal_dispute(self, deal_id: DealId, viewer_id: UserId) -> DisputeSummary | None:
+    async def deal_card(self, deal_id: DealId, viewer_id: UserId) -> DealSummary:
         raise NotImplementedError
 
     async def dispute(self, dispute_id: UUID) -> DisputeSummary | None:

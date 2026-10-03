@@ -3,7 +3,8 @@
 
 - «Да, выполнено» под «Работа выполнена?» (`deal.completion_prompt`) — тот же CompleteDeal, что
   `POST /deals/{id}/complete` и S26: отметка стороны, вторая — завершает сделку. Повтор нажатия
-  ничего не меняет, а у уже завершённой сделки — «Сделка завершена».
+  ничего не меняет, а у уже завершённой сделки — «Сделка завершена». По сделке открыт спор
+  (6.1c) — отметки нет, «решение примет поддержка»: «Есть проблема» уже нажата.
 - «Подтвердить» и «Отклонить» под «Договорились?» (`deal.proposed`) — те же ConfirmDeal и
   DeclineDeal, что S53. Предложение уже подтвердили, отклонили или оно истекло — «уже
   неактуально», ничего не меняется.
@@ -49,7 +50,12 @@ async def complete(
             CompleteDealCommand(actor_id=principal.user_id, deal_id=DealId(data.id))
         )
     except DealNotActiveError as exc:
-        if exc.params.get("deal_status") != DealStatus.COMPLETED.value:
+        status = exc.params.get("deal_status")
+        if status == DealStatus.DISPUTED.value:
+            await callback.answer()
+            await _replace(callback, html_text(translator, "bot.deals.disputed", locale))
+            return
+        if status != DealStatus.COMPLETED.value:
             raise
         completed = True  # завершилась раньше: второй стороной или через 72 ч
     await callback.answer()

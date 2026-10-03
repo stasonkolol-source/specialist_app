@@ -1,6 +1,7 @@
 """Фасад deals (ADR-0020 §6): команды — в транзакции вызывающего модуля."""
 
 from collections.abc import Collection
+from dataclasses import replace
 from uuid import UUID
 
 from app.modules.deals.api import (
@@ -79,12 +80,16 @@ class DealsFacade:
                 items.append(_summary(deal, role))
         return Page(items=tuple(items), next_cursor=found.next_cursor)
 
-    async def deal_dispute(self, deal_id: DealId, viewer_id: UserId) -> DisputeSummary | None:
-        deal = await self._queries.view(deal_id)
-        if deal is None or deal.role_of(viewer_id) is None:
+    async def deal_card(self, deal_id: DealId, viewer_id: UserId) -> DealSummary:
+        found = await self._queries.view_with_dispute(deal_id)
+        role = found[0].role_of(viewer_id) if found is not None else None
+        if found is None or role is None:
             raise DealNotFoundError(deal_id=deal_id)
-        dispute = await self._dispute_queries.latest(deal_id)
-        return dispute_summary(dispute) if dispute is not None else None
+        deal, dispute = found
+        summary = _summary(deal, role)
+        if dispute is None:
+            return summary
+        return replace(summary, dispute=dispute_summary(dispute))
 
     async def dispute(self, dispute_id: UUID) -> DisputeSummary | None:
         dispute = await self._dispute_queries.view(DisputeId(dispute_id))

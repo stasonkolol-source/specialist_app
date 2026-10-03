@@ -76,6 +76,38 @@ class DealBrief:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class DisputeSummary:
+    """Спор по сделке (6.1c): сторонам — экран S52, модератору — `cli dispute-show`. Значения
+    перечислений — строками: `status` (`open`, `answered`, `no_response`, `resolved`,
+    `withdrawn`), `kind`, `outcome` (`completed` | `cancelled`)."""
+
+    id: UUID
+    deal_id: DealId
+    status: str
+    kind: str
+    opened_by: UserId
+    respondent_id: UserId
+    description: str
+    media_ids: tuple[MediaId, ...]
+    """Фото открывшего: приватный бакет, адреса — сторонам и модератору."""
+    respond_by: datetime
+    response: str | None
+    response_media_ids: tuple[MediaId, ...]
+    responded_at: datetime | None
+    unanswered_at: datetime | None
+    withdrawn_at: datetime | None
+    outcome: str | None
+    reason_code: str | None
+    resolved_by: UserId | None
+    resolved_at: datetime | None
+    created_at: datetime
+
+    @property
+    def is_active(self) -> bool:
+        return self.status in {"open", "answered", "no_response"}
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class DealSummary:
     """Сделка стороне — экран сделки S26 (6.2): условия, стороны и вехи. Значения перечислений —
     строками: `status` (DealStatus), `origin`, `my_role` (`client` | `performer`), цена — пара."""
@@ -108,38 +140,8 @@ class DealSummary:
     """Предложение «Договорились» истечёт тогда (S53); у других статусов — None."""
     category_id: CategoryId | None = None
     """Категория заявки сделки: отзыв по ней считается в среднем категории (7.2)."""
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class DisputeSummary:
-    """Спор по сделке (6.1c): сторонам — экран S52, модератору — `cli dispute-show`. Значения
-    перечислений — строками: `status` (`open`, `answered`, `no_response`, `resolved`,
-    `withdrawn`), `kind`, `outcome` (`completed` | `cancelled`)."""
-
-    id: UUID
-    deal_id: DealId
-    status: str
-    kind: str
-    opened_by: UserId
-    respondent_id: UserId
-    description: str
-    media_ids: tuple[MediaId, ...]
-    """Фото открывшего: приватный бакет, адреса — сторонам и модератору."""
-    respond_by: datetime
-    response: str | None
-    response_media_ids: tuple[MediaId, ...]
-    responded_at: datetime | None
-    unanswered_at: datetime | None
-    withdrawn_at: datetime | None
-    outcome: str | None
-    reason_code: str | None
-    resolved_by: UserId | None
-    resolved_at: datetime | None
-    created_at: datetime
-
-    @property
-    def is_active(self) -> bool:
-        return self.status in {"open", "answered", "no_response"}
+    dispute: DisputeSummary | None = None
+    """Последний спор (6.1c) — только у `deal_card`; другие методы его не читают."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -184,9 +186,9 @@ class DealsApi(Protocol):
         """Свои сделки в обеих ролях, новые первыми (S28 «Сделки и отзывы», 7.3)."""
         ...
 
-    async def deal_dispute(self, deal_id: DealId, viewer_id: UserId) -> DisputeSummary | None:
-        """Последний спор сделки стороне (S26, S52) — идущий, решённый или отозванный; споров не
-        было — None. Не участник или нет сделки — DealNotFoundError (404)."""
+    async def deal_card(self, deal_id: DealId, viewer_id: UserId) -> DealSummary:
+        """Сделка стороне с последним спором (`dispute`: идущий, решённый или отозванный; S26,
+        S52) — одним запросом. Не участник или нет сделки — DealNotFoundError (404)."""
         ...
 
     async def dispute(self, dispute_id: UUID) -> DisputeSummary | None:

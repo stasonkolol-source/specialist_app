@@ -48,6 +48,12 @@ class DealQueries(Protocol):
 
     async def view(self, deal_id: DealId) -> DealView | None: ...
 
+    async def view_with_dispute(
+        self, deal_id: DealId
+    ) -> tuple[DealView, DisputeView | None] | None:
+        """Сделка и её последний спор одним запросом (карточка S26, экран S52)."""
+        ...
+
     async def views(self, deal_ids: Collection[DealId]) -> list[DealView]:
         """Сделки пачкой (статус в списке диалогов S29); каких нет — нет и в ответе."""
         ...
@@ -92,10 +98,6 @@ class DisputeQueries(Protocol):
     транзакции (legal hold читает в транзакции очистки media и удаления аккаунта)."""
 
     async def view(self, dispute_id: DisputeId) -> DisputeView | None: ...
-
-    async def latest(self, deal_id: DealId) -> DisputeView | None:
-        """Последний спор сделки — идущий или решённый, отозванный."""
-        ...
 
     async def unanswered_due(self, now: datetime, *, limit: int) -> list[DisputeId]:
         """Споры, у которых срок ответа вышел, а ответа нет, — давние первыми."""

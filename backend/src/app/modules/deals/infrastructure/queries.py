@@ -1,11 +1,12 @@
 """Чтение сделок и споров (S25, S26, S52, списки; ADR-0020 §5): без блокировок, вне UoW; legal
 hold споров — в транзакции вызывающего (очистка media, удаление аккаунта)."""
 
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, RowMapping, and_, func, or_, select, tuple_, union
+from sqlalchemy import ColumnElement, RowMapping, and_, func, or_, select, true, tuple_, union
 
 from app.modules.deals.application.dto import DealView, DisputeView
 from app.modules.deals.application.ports import DealSweep
@@ -32,6 +33,38 @@ class SqlDealQueries(SqlQuery):
     async def view(self, deal_id: DealId) -> DealView | None:
         row = await self._fetch_one(select(DealRow.__table__).where(_D.id == deal_id))
         return _view(row) if row is not None else None
+
+    async def view_with_dispute(
+        self, deal_id: DealId
+    ) -> tuple[DealView, DisputeView | None] | None:
+        # последний спор — LATERAL в том же запросе: карточка S26 не платит обменом с базой
+        latest = (
+            select(DisputeRow.__table__)
+            .where(DisputeRow.deal_id == _D.id)
+            .order_by(DisputeRow.created_at.desc(), DisputeRow.id.desc())
+            .limit(1)
+            .lateral("dispute")
+        )
+        stmt = (
+            select(
+                DealRow.__table__,
+                *(column.label(f"{DISPUTE_PREFIX}{column.name}") for column in latest.c),
+            )
+            .select_from(DealRow.__table__.outerjoin(latest, true()))
+            .where(_D.id == deal_id)
+        )
+        row = await self._fetch_one(stmt)
+        if row is None:
+            return None
+        dispute = None
+        if row[f"{DISPUTE_PREFIX}id"] is not None:
+            dispute = _dispute_view(
+                {
+                    column.name: row[f"{DISPUTE_PREFIX}{column.name}"]
+                    for column in DisputeRow.__table__.c
+                }
+            )
+        return _view(row), dispute
 
     async def views(self, deal_ids: Collection[DealId]) -> list[DealView]:
         if not deal_ids:
@@ -141,20 +174,13 @@ def _view(row: RowMapping) -> DealView:
 
 _P = DisputeRow
 _ACTIVE_DISPUTE = [status.value for status in ACTIVE_DISPUTES]
+DISPUTE_PREFIX = "dispute_"
+"""Колонки спора рядом с колонками сделки: у обеих таблиц есть `id`, `status`, `created_at`."""
 
 
 class SqlDisputeQueries(SqlQuery):
     async def view(self, dispute_id: DisputeId) -> DisputeView | None:
         row = await self._fetch_one(select(DisputeRow.__table__).where(_P.id == dispute_id))
-        return _dispute_view(row) if row is not None else None
-
-    async def latest(self, deal_id: DealId) -> DisputeView | None:
-        row = await self._fetch_one(
-            select(DisputeRow.__table__)
-            .where(_P.deal_id == deal_id)
-            .order_by(_P.created_at.desc(), _P.id.desc())
-            .limit(1)
-        )
         return _dispute_view(row) if row is not None else None
 
     async def unanswered_due(self, now: datetime, *, limit: int) -> list[DisputeId]:
@@ -198,7 +224,7 @@ class SqlDisputeQueries(SqlQuery):
         return frozenset(held)
 
 
-def _dispute_view(row: RowMapping) -> DisputeView:
+def _dispute_view(row: Mapping[Any, Any]) -> DisputeView:
     return DisputeView(
         id=DisputeId(row["id"]),
         deal_id=DealId(row["deal_id"]),

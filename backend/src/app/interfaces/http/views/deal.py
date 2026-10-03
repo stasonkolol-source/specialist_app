@@ -191,7 +191,7 @@ async def get_deal_card(
 ) -> DealCardOut:
     """Сделка стороне (S26): условия, вторая сторона, место и вехи; чужая — 404."""
     viewer = principal.user_id
-    deal = await deals.deal_for(DealId(deal_id), viewer)
+    deal = await deals.deal_card(DealId(deal_id), viewer)
     job = await jobs.deal_job(deal.job_id, deal.response_id, viewer) if deal.job_id else None
     client = deal.my_role == "client"
     if client:
@@ -214,7 +214,7 @@ async def get_deal_card(
         status=deal.status,
         completed_at=deal.completed_at,
     )
-    dispute = await deals.deal_dispute(deal.id, viewer)
+    dispute = deal.dispute
     return DealCardOut(
         id=deal.id,
         status=cast(DealState, deal.status),

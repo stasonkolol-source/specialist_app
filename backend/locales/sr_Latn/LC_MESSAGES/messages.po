@@ -123,6 +123,9 @@ msgstr "Označeno: posao je završen. Dogovor će se završiti kada potvrdi drug
 msgid "bot.deals.completed"
 msgstr "Dogovor je završen. Hvala!"
 
+msgid "bot.deals.disputed"
+msgstr "Za dogovor je otvoren spor: odluku će doneti podrška. Detalji su u aplikaciji."
+
 msgid "bot.reviews.rated"
 msgstr "Hvala! Vaša ocena: {stars}. Utisak će se pojaviti na kartici izvođača posle provere."
 
