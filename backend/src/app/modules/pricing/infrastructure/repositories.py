@@ -5,12 +5,14 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.pricing.domain.service import Service, ServiceId
-from app.modules.pricing.errors import ServiceNotFoundError
+from app.modules.pricing.errors import InvalidServiceError, ServiceNotFoundError
 from app.modules.pricing.infrastructure.models import ServiceRow
 from app.modules.specialists.api import PriceSummary
+from app.platform.db.constraints import raise_domain_error
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import CategoryId
 
@@ -58,7 +60,7 @@ class SqlServiceRepository:
         row = ServiceRow(id=service.id, created_at=service.created_at)
         _apply(service, row)
         self._session.add(row)
-        await self._session.flush()
+        await self._flush()
         self._uow.track(service)
 
     async def save(self, service: Service) -> None:
@@ -67,8 +69,21 @@ class SqlServiceRepository:
         if row is None:
             raise ServiceNotFoundError(service_id=service.id)
         _apply(service, row)
-        await self._session.flush()
+        await self._flush()
         self._uow.track(service)
+
+    async def _flush(self) -> None:
+        try:
+            await self._session.flush()
+        except IntegrityError as err:
+            raise_domain_error(
+                err,
+                {
+                    "fk_services_category_id_categories": lambda: InvalidServiceError(
+                        field="category_id"
+                    )
+                },
+            )
 
     async def delete(self, service: Service, *, now: datetime) -> None:
         self._uow.require_active()
