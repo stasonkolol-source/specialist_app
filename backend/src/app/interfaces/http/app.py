@@ -18,6 +18,7 @@ from app.interfaces.http.errors import Problems, install_error_handlers
 from app.interfaces.http.middleware import RequestContextMiddleware
 from app.interfaces.http.openapi import API_TITLE, API_VERSION, PROBLEM_RESPONSES, install_openapi
 from app.interfaces.http.operation_ids import operation_id
+from app.interfaces.http.warmup import warm_up_web
 from app.platform.config.cache import ClientConfigCache
 from app.platform.config.port import MAINTENANCE_FLAG
 from app.platform.i18n.translator import Translator
@@ -40,6 +41,7 @@ def create_app(
         # тексты правовых документов проверяются при старте: ошибка в них не выпускает релиз,
         # а не роняет GET /client-config у всех клиентов
         await container.get(LegalLibrary)
+        await warm_up_web(container)  # первый запрос после рестарта не ждёт соединений
         yield
         await container.close()
 
