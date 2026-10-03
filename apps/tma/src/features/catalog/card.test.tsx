@@ -3,6 +3,7 @@
 // просмотрщик работ на тёмном фоне со свайпом и миниатюрами, «Назад» закрывает его целиком.
 import { encodeStartParam } from '@sosed/links';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { HttpResponse, http } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { backButtonVisible, mainButton, pressBackButton, startApp } from '../../testing/app.tsx';
@@ -31,6 +32,36 @@ function recordRequests() {
 
 afterEach(() => {
   server.events.removeAllListeners();
+});
+
+describe('S08–S11 profile visibility', () => {
+  it.each([
+    ['', '', 'Электрик · мелкий ремонт · люстры'],
+    ['/services', '', 'Алексей Морозов · 9 услуг'],
+    ['/services', '/services', 'Алексей Морозов · 9 услуг'],
+    ['/portfolio', '/portfolio', '1 / 18'],
+    ['/reviews', '', 'Алексей Морозов · Электрика'],
+    ['/reviews', '/reviews', 'Алексей Морозов · Электрика'],
+  ])('hides cached content on %s after %s returns 404', async (page, endpoint, content) => {
+    const { app, telegram } = startApp(`${PROFILE}${page}`);
+    expect(await screen.findByText(content)).toBeTruthy();
+
+    server.use(
+      http.get(`*/api/v1${PROFILE}${endpoint}`, () =>
+        HttpResponse.json(
+          { type: 'x', title: 'Not found', status: 404, code: 'profile_not_found' },
+          { status: 404 },
+        ),
+      ),
+    );
+    await act(async () => {
+      await app.queryClient.refetchQueries({ queryKey: [`/api/v1${PROFILE}${endpoint}`] });
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Профиль недоступен' })).toBeTruthy();
+    expect(screen.queryByText(content)).toBeNull();
+    if (page === '') expect(mainButton(telegram)?.is_visible).toBe(false);
+  });
 });
 
 describe('S08 profile', () => {
