@@ -69,11 +69,14 @@ class SqlQuery:
 
     def _standalone(self) -> bool:
         """Чтение само по себе: не в UoW, соединения у сессии ещё нет, и она берёт его из
-        пула движка, а не работает во внешнем соединении."""
+        пула движка, а не работает во внешнем соединении. Несохранённых объектов в сессии нет:
+        autoflush в AUTOCOMMIT записал бы их сразу и навсегда (запись вне UoW и так запрещена)."""
+        session = self._session
         return (
-            not self._session.info.get(UOW_ACTIVE)
-            and not self._session.in_transaction()
-            and isinstance(self._session.bind, AsyncEngine)
+            not session.info.get(UOW_ACTIVE)
+            and not session.in_transaction()
+            and isinstance(session.bind, AsyncEngine)
+            and not (session.new or session.dirty or session.deleted)
         )
 
 
