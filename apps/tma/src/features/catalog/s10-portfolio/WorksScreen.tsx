@@ -42,7 +42,9 @@ export function WorksScreen() {
   useBackButton(close);
 
   let content;
-  if (works.data) {
+  if (isUnavailable(works.error)) {
+    content = <Unavailable />;
+  } else if (works.data) {
     content =
       works.data.items.length === 0 ? (
         <EmptyState as="h2" icon="image" title={t('portfolio.empty')} />
@@ -62,9 +64,7 @@ export function WorksScreen() {
         />
       );
   } else if (works.isError) {
-    content = isUnavailable(works.error) ? (
-      <Unavailable />
-    ) : (
+    content = (
       <LoadError
         error={works.error}
         onRetry={() => void works.refetch()}

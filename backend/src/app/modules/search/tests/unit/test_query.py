@@ -3,6 +3,7 @@
 import base64
 import json
 import math
+import unicodedata
 
 import pytest
 
@@ -40,6 +41,25 @@ def test_query_text_drops_control_and_invisible_characters() -> None:
 
     assert text is not None
     assert text.raw == "elek tri čar stan"
+
+
+@pytest.mark.parametrize(
+    ("q", "words"),
+    [
+        ("čišćenje nameštaja", ("čišćenje", "nameštaja")),
+        ("поправка бојлера", ("поправка", "бојлера")),
+        ("ремонт бойлера", ("ремонт", "бойлера")),
+    ],
+)
+def test_query_text_keeps_decomposed_letters_inside_words(q: str, words: tuple[str, ...]) -> None:
+    text = QueryText.parse(unicodedata.normalize("NFD", q))
+
+    assert text is not None
+    assert text.words == words
+    assert text == QueryText.parse(q)
+    assert text.fts(Stage.ALL_WORDS) == " ".join(words)
+    assert text.fts(Stage.PREFIX) == " ".join(words)
+    assert text.fts(Stage.ANY_WORD) == " or ".join(words)
 
 
 @pytest.mark.parametrize("q", [None, "", "   ", "i za na", "!!!", "\x00\x01"])
