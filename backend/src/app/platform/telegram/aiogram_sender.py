@@ -27,6 +27,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from app.platform.kernel.errors import ExternalServiceError, RateLimitedError
 from app.platform.telegram.port import (
     Button,
+    ButtonLine,
     CallbackButton,
     OutgoingMessage,
     SendLimiter,
@@ -87,10 +88,13 @@ async def _wait(slot: Slot) -> None:
         await asyncio.sleep(slot.wait)
 
 
-def _keyboard(buttons: tuple[Button, ...]) -> InlineKeyboardMarkup | None:
-    if not buttons:
+def _keyboard(lines: tuple[ButtonLine, ...]) -> InlineKeyboardMarkup | None:
+    if not lines:
         return None
-    return InlineKeyboardMarkup(inline_keyboard=[[_button(button)] for button in buttons])
+    rows = [line if isinstance(line, tuple) else (line,) for line in lines]
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[_button(button) for button in row] for row in rows]
+    )
 
 
 def _button(button: Button) -> InlineKeyboardButton:

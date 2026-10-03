@@ -114,6 +114,28 @@ class AuthIdentity:
     last_login_at: datetime | None = None
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Privacy:
+    """Что видно второй стороне после договорённости (S43, DEVELOPMENT_PLAN 6.5)."""
+
+    show_telegram: bool = True
+    """Ссылка на свой Telegram (@username) — в сделке и в чате сразу после договорённости."""
+    show_phone: bool = False
+    """Номер — когда телефон подтверждён (v1); до того номер уходит только из «Поделиться
+    контактом» (S54)."""
+
+    @classmethod
+    def from_mapping(cls, raw: Mapping[str, object]) -> Privacy:
+        telegram, phone = raw.get("show_telegram"), raw.get("show_phone")
+        return cls(
+            show_telegram=telegram if isinstance(telegram, bool) else True,
+            show_phone=phone if isinstance(phone, bool) else False,
+        )
+
+    def to_mapping(self) -> dict[str, bool]:
+        return {"show_telegram": self.show_telegram, "show_phone": self.show_phone}
+
+
 @dataclass(eq=False, kw_only=True)
 class User(VersionedAggregate):
     id: UserId
@@ -133,6 +155,7 @@ class User(VersionedAggregate):
     """Последнее нарушение: санкция модерации или подтверждённая жалоба (2.5a)."""
     last_seen_at: datetime | None = None
     deleted_at: datetime | None = None
+    privacy: Privacy = field(default_factory=Privacy)
     _history: list[StatusChange[UserStatus]] = field(default_factory=list, init=False, repr=False)
 
     @classmethod
@@ -195,6 +218,12 @@ class User(VersionedAggregate):
         identity.profile = dict(profile)
         identity.last_login_at = now
         self.last_seen_at = now
+
+    def set_privacy(self, *, show_telegram: bool | None = None) -> None:
+        """«Показывать после договорённости» (S43): None — не меняется. Телефон — с v1."""
+        self.ensure_active()
+        if show_telegram is not None:
+            self.privacy = Privacy(show_telegram=show_telegram, show_phone=self.privacy.show_phone)
 
     def update_profile(
         self,

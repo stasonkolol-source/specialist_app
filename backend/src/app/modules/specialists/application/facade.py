@@ -41,6 +41,9 @@ class SpecialistsFacade(SpecialistsApi):
             return None
         return ProfileRef(id=view.id, kind=view.kind.value, status=view.status.value)
 
+    async def profiles_of(self, user_ids: Collection[UserId]) -> dict[UserId, ProfileRef]:
+        return await self._query.refs_of_users(user_ids)
+
     async def profiles_for_index(self, profile_ids: Collection[UUID]) -> list[ProfileForIndex]:
         return await self._query.for_index(profile_ids)
 

@@ -1,8 +1,11 @@
-// Карточка специалиста S08–S10 (DEVELOPMENT_PLAN 4.5) на MSW, как BFF: профиль одним запросом,
-// переход из выдачи и по ссылке `s_`, «Профиль недоступен» для скрытого, прайс по группам,
-// просмотрщик работ на тёмном фоне со свайпом и миниатюрами, «Назад» закрывает его целиком.
+// Карточка специалиста S08–S11 (DEVELOPMENT_PLAN 4.5, 7.3) на MSW, как BFF: профиль одним
+// запросом, переход из выдачи и по ссылке `s_`, «Профиль недоступен» для скрытого, прайс по
+// группам, просмотрщик работ на тёмном фоне со свайпом и миниатюрами, «Назад» закрывает его
+// целиком; отзывы S11 с ответом специалиста и «Показать ещё».
+import type { CardReviewOut, CardReviewsOut } from '@sosed/api-client';
 import { encodeStartParam } from '@sosed/links';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { HttpResponse, http } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { backButtonVisible, mainButton, pressBackButton, startApp } from '../../testing/app.tsx';
@@ -33,6 +36,36 @@ afterEach(() => {
   server.events.removeAllListeners();
 });
 
+describe('S08–S11 profile visibility', () => {
+  it.each([
+    ['', '', 'Электрик · мелкий ремонт · люстры'],
+    ['/services', '', 'Алексей Морозов · 9 услуг'],
+    ['/services', '/services', 'Алексей Морозов · 9 услуг'],
+    ['/portfolio', '/portfolio', '1 / 18'],
+    ['/reviews', '', 'Алексей Морозов · Электрика'],
+    ['/reviews', '/reviews', 'Алексей Морозов · Электрика'],
+  ])('hides cached content on %s after %s returns 404', async (page, endpoint, content) => {
+    const { app, telegram } = startApp(`${PROFILE}${page}`);
+    expect(await screen.findByText(content)).toBeTruthy();
+
+    server.use(
+      http.get(`*/api/v1${PROFILE}${endpoint}`, () =>
+        HttpResponse.json(
+          { type: 'x', title: 'Not found', status: 404, code: 'profile_not_found' },
+          { status: 404 },
+        ),
+      ),
+    );
+    await act(async () => {
+      await app.queryClient.refetchQueries({ queryKey: [`/api/v1${PROFILE}${endpoint}`] });
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Профиль недоступен' })).toBeTruthy();
+    expect(screen.queryByText(content)).toBeNull();
+    if (page === '') expect(mainButton(telegram)?.is_visible).toBe(false);
+  });
+});
+
 describe('S08 profile', () => {
   it('shows the card from one BFF request: header, badges, memo, prices, works, about', async () => {
     const requests = recordRequests();
@@ -59,8 +92,10 @@ describe('S08 profile', () => {
     expect(about.getByText(/^Электрик, 12 лет опыта/)).toBeTruthy();
     expect(about.getByText('Русский, сербский')).toBeTruthy();
     expect(about.getByText('Выезд: Лиман, Грбавица, Центр, Нова Детелинара')).toBeTruthy();
+    expect(about.getByText('Обычно отвечает за 15 минут')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Предложить заявку' })).toBeTruthy();
 
-    // «Написать» (5.6) — прямой запрос через мастер заявки
+    // «Написать» (6.4) — диалог со специалистом
     await waitFor(() => expect(mainButton(telegram)?.text).toBe('Написать'));
     expect(requests.paths.filter((path) => path.startsWith('/api/v1/specialists'))).toEqual([
       `/api/v1${PROFILE}`,
@@ -171,5 +206,56 @@ describe('S10 portfolio viewer', () => {
       fireEvent.keyDown(window, { key: 'ArrowRight' });
     });
     expect(await screen.findByText('4 / 18')).toBeTruthy();
+  });
+});
+
+describe('S11 reviews', () => {
+  const review = (n: number, reply: CardReviewOut['reply'] = null): CardReviewOut => ({
+    id: `0199ee00-0000-7000-8000-0000000001${String(n).padStart(2, '0')}`,
+    kind: 'deal',
+    author_name: `Клиент ${n}`,
+    rating: 5,
+    criteria: {},
+    body: `Отзыв номер ${n}`,
+    category: null,
+    published_at: '2026-09-20T12:00:00Z',
+    reply,
+  });
+  const summary: CardReviewsOut['summary'] = {
+    rating: 4.9,
+    count: 21,
+    is_new: false,
+    distribution: [0, 0, 0, 1, 20],
+    criteria: {},
+  };
+
+  it('shows the specialist reply and loads more reviews', async () => {
+    server.use(
+      http.get(/\/api\/v1\/specialists\/[^/]+\/reviews$/, ({ request }) => {
+        const more = new URL(request.url).searchParams.get('cursor') === 'p2';
+        const page: CardReviewsOut = more
+          ? { summary, items: [review(21)], next_cursor: null }
+          : {
+              summary,
+              items: [
+                review(1, { body: 'Спасибо, рад был помочь!', at: '2026-09-21T09:00:00Z' }),
+                review(2),
+              ],
+              next_cursor: 'p2',
+            };
+        return HttpResponse.json(page);
+      }),
+    );
+    startApp(`${PROFILE}/reviews`);
+
+    const first = await screen.findByText('Отзыв номер 1');
+    const card = first.closest('article') as HTMLElement;
+    expect(within(card).getByText('Ответ специалиста')).toBeTruthy();
+    expect(within(card).getByText('Спасибо, рад был помочь!')).toBeTruthy();
+    expect(screen.queryByText('Отзыв номер 21')).toBeNull();
+    await click(screen.getByRole('button', { name: 'Показать ещё' }));
+
+    expect(await screen.findByText('Отзыв номер 21')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Показать ещё' })).toBeNull();
   });
 });

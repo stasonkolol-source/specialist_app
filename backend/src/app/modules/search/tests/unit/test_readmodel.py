@@ -85,9 +85,12 @@ def test_activity_counts_what_the_client_sees() -> None:
     assert (full, empty, half) == (1.0, 0.0, 0.5)
 
 
-def test_base_score_before_reviews_is_activity_share() -> None:
+def test_base_score_mixes_rating_on_the_five_star_scale_trust_and_activity() -> None:
     assert base_score(rating_lower_bound=0.0, trust=0.0, activity=1.0) == pytest.approx(0.05 / 0.45)
-    assert base_score(rating_lower_bound=1.0, trust=1.0, activity=1.0) == pytest.approx(1.0)
+    assert base_score(rating_lower_bound=5.0, trust=1.0, activity=1.0) == pytest.approx(1.0)
+    assert base_score(rating_lower_bound=2.5, trust=0.0, activity=0.0) == pytest.approx(
+        0.25 * 0.5 / 0.45
+    )
 
 
 def test_labels_join_languages_in_order() -> None:

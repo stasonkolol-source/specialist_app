@@ -6,6 +6,7 @@
  */
 import type { Locale } from './locale.ts';
 import type { MeOutConsents } from './meOutConsents.ts';
+import type { PrivacyOut } from './privacyOut.ts';
 import type { UserIntent } from './userIntent.ts';
 
 export interface MeOut {
@@ -23,4 +24,5 @@ export interface MeOut {
   can_respond: boolean;
   can_message: boolean;
   deletion_scheduled_at: string | null;
+  privacy: PrivacyOut;
 }

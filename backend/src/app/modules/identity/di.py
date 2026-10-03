@@ -39,6 +39,7 @@ from app.modules.identity.application.use_cases.reset_onboarding import ResetOnb
 from app.modules.identity.application.use_cases.revoke_restricted_sessions import (
     RevokeRestrictedSessions,
 )
+from app.modules.identity.application.use_cases.update_privacy import UpdatePrivacy
 from app.modules.identity.application.use_cases.update_profile import UpdateProfile
 from app.modules.identity.infrastructure.completed_deals import SqlCompletedDeals
 from app.modules.identity.infrastructure.deletion import (
@@ -106,6 +107,7 @@ class IdentityProvider(Provider):
     refresh_session = provide(RefreshSession)
     logout = provide(Logout)
     update_profile = provide(UpdateProfile)
+    update_privacy = provide(UpdatePrivacy)
     accept_consents = provide(AcceptConsents)
     register_telegram_user = provide(RegisterTelegramUser)
     reset_onboarding = provide(ResetOnboarding)

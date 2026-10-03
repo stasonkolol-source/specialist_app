@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Final, Protocol
 from uuid import UUID
 
-from app.modules.specialists.api import ProfileForIndex, PublicProfile
+from app.modules.specialists.api import ProfileForIndex, ProfileRef, PublicProfile
 from app.modules.specialists.application.dto import ProfileView
 from app.modules.specialists.domain.portfolio import PortfolioItem
 from app.modules.specialists.domain.profile import Profile, ProfileId
@@ -40,6 +40,10 @@ class ProfileRepository(Protocol):
 class ProfileQuery(Protocol):
     async def of_user(self, user_id: UserId) -> ProfileView | None:
         """Свой профиль для кабинета (GET /me/profile)."""
+        ...
+
+    async def refs_of_users(self, user_ids: Collection[UserId]) -> dict[UserId, ProfileRef]:
+        """Профили пользователей пачкой (без удалённых): id, вид и статус."""
         ...
 
     async def for_index(self, profile_ids: Collection[UUID]) -> list[ProfileForIndex]:

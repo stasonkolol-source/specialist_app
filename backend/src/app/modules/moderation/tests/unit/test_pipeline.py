@@ -111,6 +111,40 @@ def test_every_doubt_goes_to_a_queue(checks: dict[str, object], queue: Queue, si
     assert (result.route, result.queue, result.signals) == (Route.REVIEW, queue, (signal,))
 
 
+@pytest.mark.parametrize(
+    ("checks", "flagged"),
+    [
+        ({"rules_": rules(RuleCategory.SPAM, RuleAction.FLAG)}, True),
+        ({"omni": ModerationResult(flagged=True, scores={"hate": 0.9})}, True),
+        ({"policy": verdict(PolicyLabel.SPAM_AD, 0.6)}, True),
+        ({"omni": NO_KEY}, False),
+        ({"policy": verdict(PolicyLabel.OK, 0.6)}, False),
+        ({"policy": verdict(PolicyLabel.CONTACT_LEAK)}, False),
+        ({"rules_": rules(RuleCategory.CONTACTS, RuleAction.FLAG)}, False),
+        (
+            {
+                "rules_": RulesVerdict(
+                    (
+                        RuleMatch(
+                            source=MatchSource.DETECTOR,
+                            category=RuleCategory.SCAM,
+                            action=RuleAction.FLAG,
+                            evidence="prepayment",
+                        ),
+                    )
+                )
+            },
+            False,
+        ),
+    ],
+)
+def test_only_a_violation_hides_visible_content(checks: dict[str, object], flagged: bool) -> None:
+    """Сообщение чата уже видно: прячет его признак нарушения, а не сомнение или детектор."""
+    result = routed(**checks)  # type: ignore[arg-type]
+
+    assert (result.route, result.flagged) == (Route.REVIEW, flagged)
+
+
 def test_strictest_signal_picks_the_queue() -> None:
     result = routed(
         rules_=rules(RuleCategory.SPAM, RuleAction.FLAG),

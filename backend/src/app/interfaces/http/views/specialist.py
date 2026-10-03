@@ -1,12 +1,14 @@
 """BFF карточки специалиста S08–S11 (DEVELOPMENT_PLAN 4.5, 4.6): профиль, прайс, портфолио и
-отзывы — из фасадов specialists, pricing, media, reviews, catalog, geo и identity (ARCHITECTURE
-§5.2 п. 7).
+отзывы — из фасадов specialists, pricing, media, reviews, catalog, geo, identity и search
+(ARCHITECTURE §5.2 п. 7).
 
 Профиль виден, если он опубликован, а автор не удалён и не скрыт санкцией — как в поиске;
 иначе 404, без подсказки почему. Ответ на языке Accept-Language, с ETag: повторный запрос без
 изменений — 304. Фото — готовые варианты; пока файл обрабатывается, его на карточке нет.
-Рейтинг — агрегаты reviews; сами отзывы — с 7.2, «Обычно отвечает за …» — с 6.3b, бейджи — v1:
-пока пусто.
+Рейтинг — агрегаты reviews (байесовское среднее), отзывы — опубликованные по сделкам с ответом
+специалиста, автор — «Имя Ф.» (7.2). «Обычно отвечает за …» — медиана первого ответа
+в диалогах за 30 дней из read-model поиска (6.3b; при пяти и больше диалогах с ответом). Бейджи —
+v1: пока пусто.
 """
 
 from datetime import datetime
@@ -14,7 +16,7 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from dishka.integrations.fastapi import FromDishka, inject
-from fastapi import APIRouter, Depends, Path, Request, Response
+from fastapi import APIRouter, Depends, Path, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from app.modules.catalog.api import CatalogApi
@@ -22,7 +24,8 @@ from app.modules.geo.api import GeoApi
 from app.modules.identity.api import IdentityApi
 from app.modules.media.api import MediaApi, MediaRef
 from app.modules.pricing.api import PricingApi, PublicService
-from app.modules.reviews.api import RatingSummary, ReviewsApi
+from app.modules.reviews.api import PublicReview, RatingSummary, ReviewsApi
+from app.modules.search.api import SearchApi
 from app.modules.specialists.api import PublicProfile, PublicWork, SpecialistsApi
 from app.platform.http.caching import NOT_MODIFIED, cached_json
 from app.platform.http.money import MoneyOut
@@ -32,7 +35,9 @@ from app.platform.kernel.errors import NotFoundError
 from app.platform.kernel.ids import CategoryId, DistrictId, MediaId
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.money import Currency, Money
+from app.platform.kernel.pagination import DEFAULT_LIMIT, MAX_LIMIT, PageRequest
 from app.platform.ratelimit import Rate
+from app.platform.text.names import short_name
 
 PROFILE_GUEST = Rate("views.specialist_guest", "60/minute")
 PROFILE_USER = Rate("views.specialist_user", "120/minute")
@@ -43,6 +48,8 @@ PREVIEW_WORKS = 3
 """«Цены» и «Работы» на S08 — по одному ряду, как на артборде; остальное — S09 и S10."""
 READY = "ready"
 STARS = 5
+LATEST_REVIEWS = 1
+"""Последний отзыв на S08; остальные — S11."""
 
 router = APIRouter(tags=["views"])
 profile_limit = [Depends(GuestOrUserRateLimit(guest=PROFILE_GUEST, user=PROFILE_USER))]
@@ -87,14 +94,21 @@ class CardWorkOut(BaseModel):
     photo: CardPhotoOut
 
 
+class CardReplyOut(BaseModel):
+    body: str
+    at: datetime
+
+
 class CardReviewOut(BaseModel):
     id: UUID
     kind: str = Field(description="deal | pre_platform")
-    author_name: str = Field(description="Имя и первая буква фамилии: «Ирина С.»")
+    author_name: str = Field(description="Имя и первая буква фамилии: «Ирина С.»; удалён — пусто")
     rating: int
+    criteria: dict[str, int] = Field(description="Оценённые критерии: quality, punctuality, …")
     body: str | None
-    category: CardNamedOut | None = Field(description="Услуга сделки: «Сентябрь · люстры»")
+    category: CardNamedOut | None = Field(description="Услуга сделки")
     published_at: datetime
+    reply: CardReplyOut | None = Field(description="Ответ специалиста (прошёл проверку)")
 
 
 class SpecialistProfileOut(BaseModel):
@@ -117,7 +131,10 @@ class SpecialistProfileOut(BaseModel):
     rating_count: int
     is_new: bool
     badges: list[str]
-    response_time_minutes: int | None = Field(description="«Обычно отвечает за …» — с 6.3b")
+    response_time_minutes: int | None = Field(
+        description="«Обычно отвечает за …»: медиана первого ответа в диалогах за 30 дней, в"
+        " минутах; меньше пяти диалогов с ответом — null"
+    )
     services: list[CardServiceOut] = Field(description="Первые позиции прайса (S08)")
     services_count: int
     works: list[CardWorkOut] = Field(description="Превью портфолио (S08)")
@@ -145,7 +162,9 @@ class CardRatingOut(BaseModel):
 
 class CardReviewsOut(BaseModel):
     summary: CardRatingOut
-    items: list[CardReviewOut] = Field(description="Новые сначала — отзывы появятся с 7.2")
+    items: list[CardReviewOut] = Field(
+        description="Опубликованные отзывы по сделкам, новые первыми"
+    )
     next_cursor: str | None
 
 
@@ -244,12 +263,15 @@ async def get_specialist(
     reviews: FromDishka[ReviewsApi],
     catalog: FromDishka[CatalogApi],
     geo: FromDishka[GeoApi],
+    search: FromDishka[SearchApi],
     clock: FromDishka[Clock],
     locale: FromDishka[Locale],
 ) -> Response:
-    """Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио и рейтинг."""
+    """Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио, рейтинг и
+    время ответа."""
     profile = await _visible(profile_id, specialists, identity)
     rating = _rating((await reviews.summaries([profile.id])).get(profile.id))
+    latest = await reviews.reviews_of(profile.id, PageRequest(limit=LATEST_REVIEWS))
     services = await pricing.public_services(profile.id)
     works = await _works(media, profile.works)
     avatars = await media.refs(_avatar_ids(profile))
@@ -276,12 +298,12 @@ async def get_specialist(
         rating_count=rating.count,
         is_new=rating.is_new,
         badges=[],
-        response_time_minutes=None,
+        response_time_minutes=await search.response_time(profile.id),
         services=[_service(service) for service in services[:TOP_SERVICES]],
         services_count=len(services),
         works=works[:PREVIEW_WORKS],
         works_count=len(works),
-        reviews=[],
+        reviews=await _review_cards(latest.items, identity, catalog, locale),
         published_at=profile.published_at,
     )
     return _cached(request, body)
@@ -347,16 +369,65 @@ async def list_specialist_reviews(
     *,
     request: Request,
     profile_id: ProfileId,
+    cursor: Annotated[str | None, Query(max_length=200)] = None,
+    limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
     specialists: FromDishka[SpecialistsApi],
     identity: FromDishka[IdentityApi],
     reviews: FromDishka[ReviewsApi],
+    catalog: FromDishka[CatalogApi],
+    locale: FromDishka[Locale],
 ) -> Response:
-    """Отзывы S11: рейтинг с гистограммой и отзывы по сделкам. Сами отзывы и вкладка «До
-    платформы» (`kind`, курсор) — с 7.2 и 7.6; до того список пуст."""
+    """Отзывы S11: рейтинг с гистограммой и опубликованные отзывы по сделкам с ответами,
+    новые первыми (курсор). Вкладка «До платформы» (`kind`) — 7.6."""
     profile = await _visible(profile_id, specialists, identity)
     summary = (await reviews.summaries([profile.id])).get(profile.id)
-    body = CardReviewsOut(summary=_rating(summary), items=[], next_cursor=None)
+    page = await reviews.reviews_of(profile.id, PageRequest(limit=limit, cursor=cursor))
+    body = CardReviewsOut(
+        summary=_rating(summary),
+        items=await _review_cards(page.items, identity, catalog, locale),
+        next_cursor=page.next_cursor,
+    )
     return _cached(request, body)
+
+
+async def _review_cards(
+    found: tuple[PublicReview, ...],
+    identity: IdentityApi,
+    catalog: CatalogApi,
+    locale: Locale,
+) -> list[CardReviewOut]:
+    """Отзывы карточкой: автор — «Имя Ф.», услуга — название категории сделки."""
+    if not found:
+        return []
+    users = await identity.users({review.author_id for review in found})
+    ids = sorted({CategoryId(r.category_id) for r in found if r.category_id is not None})
+    categories = {c.id: c for c in await _categories(catalog, ids, locale)}
+    cards: list[CardReviewOut] = []
+    for review in found:
+        author = users.get(review.author_id)
+        reply = review.reply
+        cards.append(
+            CardReviewOut(
+                id=review.id,
+                kind=review.kind,
+                author_name=(
+                    short_name(author.display_name)
+                    if author is not None and not author.is_deleted
+                    else ""
+                ),
+                rating=review.rating,
+                criteria=dict(review.criteria),
+                body=review.body,
+                category=(
+                    categories.get(CategoryId(review.category_id))
+                    if review.category_id is not None
+                    else None
+                ),
+                published_at=review.published_at,
+                reply=CardReplyOut(body=reply.body, at=reply.at) if reply is not None else None,
+            )
+        )
+    return cards
 
 
 def _rating(summary: RatingSummary | None) -> CardRatingOut:

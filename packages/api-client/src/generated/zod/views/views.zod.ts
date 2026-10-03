@@ -7,7 +7,8 @@
 import * as zod from 'zod';
 
 /**
- * Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио и рейтинг.
+ * Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио, рейтинг и
+ * время ответа.
  * @summary Get Specialist
  */
 export const ViewsGetSpecialistParams = zod.object({
@@ -83,7 +84,9 @@ export const ViewsGetSpecialistResponse = zod.object({
   badges: zod.array(zod.string()),
   response_time_minutes: zod
     .union([zod.int(), zod.null()])
-    .describe('«Обычно отвечает за …» — с 6.3b'),
+    .describe(
+      '«Обычно отвечает за …»: медиана первого ответа в диалогах за 30 дней, в минутах; меньше пяти диалогов с ответом — null',
+    ),
   services: zod
     .array(
       zod.object({
@@ -142,8 +145,13 @@ export const ViewsGetSpecialistResponse = zod.object({
       zod.object({
         id: zod.uuid(),
         kind: zod.string().describe('deal | pre_platform'),
-        author_name: zod.string().describe('Имя и первая буква фамилии: «Ирина С.»'),
+        author_name: zod
+          .string()
+          .describe('Имя и первая буква фамилии: «Ирина С.»; удалён — пусто'),
         rating: zod.int(),
+        criteria: zod
+          .record(zod.string(), zod.int())
+          .describe('Оценённые критерии: quality, punctuality, …'),
         body: zod.union([zod.string(), zod.null()]),
         category: zod
           .union([
@@ -153,8 +161,17 @@ export const ViewsGetSpecialistResponse = zod.object({
             }),
             zod.null(),
           ])
-          .describe('Услуга сделки: «Сентябрь · люстры»'),
+          .describe('Услуга сделки'),
         published_at: zod.iso.datetime({ offset: true }),
+        reply: zod
+          .union([
+            zod.object({
+              body: zod.string(),
+              at: zod.iso.datetime({ offset: true }),
+            }),
+            zod.null(),
+          ])
+          .describe('Ответ специалиста (прошёл проверку)'),
       }),
     )
     .describe('Последний отзыв (S08) — с 7.2'),
@@ -239,12 +256,28 @@ export const ViewsListSpecialistWorksResponse = zod.object({
 });
 
 /**
- * Отзывы S11: рейтинг с гистограммой и отзывы по сделкам. Сами отзывы и вкладка «До
- * платформы» (`kind`, курсор) — с 7.2 и 7.6; до того список пуст.
+ * Отзывы S11: рейтинг с гистограммой и опубликованные отзывы по сделкам с ответами,
+ * новые первыми (курсор). Вкладка «До платформы» (`kind`) — 7.6.
  * @summary List Specialist Reviews
  */
 export const ViewsListSpecialistReviewsParams = zod.object({
   profile_id: zod.uuid().describe('id профиля специалиста'),
+});
+
+export const viewsListSpecialistReviewsQueryCursorOneMax = 200;
+
+export const viewsListSpecialistReviewsQueryLimitDefault = 20;
+export const viewsListSpecialistReviewsQueryLimitMax = 100;
+
+export const ViewsListSpecialistReviewsQueryParams = zod.object({
+  cursor: zod
+    .union([zod.string().max(viewsListSpecialistReviewsQueryCursorOneMax), zod.null()])
+    .optional(),
+  limit: zod
+    .int()
+    .min(1)
+    .max(viewsListSpecialistReviewsQueryLimitMax)
+    .default(viewsListSpecialistReviewsQueryLimitDefault),
 });
 
 export const ViewsListSpecialistReviewsResponse = zod.object({
@@ -264,8 +297,13 @@ export const ViewsListSpecialistReviewsResponse = zod.object({
       zod.object({
         id: zod.uuid(),
         kind: zod.string().describe('deal | pre_platform'),
-        author_name: zod.string().describe('Имя и первая буква фамилии: «Ирина С.»'),
+        author_name: zod
+          .string()
+          .describe('Имя и первая буква фамилии: «Ирина С.»; удалён — пусто'),
         rating: zod.int(),
+        criteria: zod
+          .record(zod.string(), zod.int())
+          .describe('Оценённые критерии: quality, punctuality, …'),
         body: zod.union([zod.string(), zod.null()]),
         category: zod
           .union([
@@ -275,11 +313,20 @@ export const ViewsListSpecialistReviewsResponse = zod.object({
             }),
             zod.null(),
           ])
-          .describe('Услуга сделки: «Сентябрь · люстры»'),
+          .describe('Услуга сделки'),
         published_at: zod.iso.datetime({ offset: true }),
+        reply: zod
+          .union([
+            zod.object({
+              body: zod.string(),
+              at: zod.iso.datetime({ offset: true }),
+            }),
+            zod.null(),
+          ])
+          .describe('Ответ специалиста (прошёл проверку)'),
       }),
     )
-    .describe('Новые сначала — отзывы появятся с 7.2'),
+    .describe('Опубликованные отзывы по сделкам, новые первыми'),
   next_cursor: zod.union([zod.string(), zod.null()]),
 });
 
@@ -364,4 +411,255 @@ export const ViewsListResponseCardsResponse = zod.object({
       }),
     )
     .describe('По времени отклика'),
+});
+
+/**
+ * Счётчики таббара: новые отклики и непрочитанные сообщения.
+ * @summary Get Badges
+ */
+export const ViewsGetBadgesResponse = zod.object({
+  jobs: zod.int().describe('«Заявки N»: новые отклики на свои открытые заявки'),
+  messages: zod.int().describe('«Сообщения N»: непрочитанные сообщения'),
+});
+
+/**
+ * Сделка стороне (S26): условия, вторая сторона, место и вехи; чужая — 404.
+ * @summary Get Deal Card
+ */
+export const ViewsGetDealCardParams = zod.object({
+  deal_id: zod.uuid().describe('id сделки'),
+});
+
+export const ViewsGetDealCardResponse = zod.object({
+  id: zod.uuid(),
+  status: zod.enum(['proposed', 'agreed', 'completed', 'cancelled', 'disputed']),
+  origin: zod.enum(['job_response', 'direct', 'chat']),
+  my_role: zod.enum(['client', 'performer']),
+  title: zod.string(),
+  price: zod.object({
+    type: zod.union([zod.enum(['fixed', 'from', 'hourly', 'negotiable']), zod.null()]),
+    amount: zod.union([
+      zod.object({
+        amount: zod.int(),
+        currency: zod.enum(['RSD', 'XTR']),
+      }),
+      zod.null(),
+    ]),
+  }),
+  scheduled_at: zod
+    .union([zod.iso.datetime({ offset: true }), zod.null()])
+    .describe('Договорённое время'),
+  preferred_from: zod
+    .union([zod.iso.datetime({ offset: true }), zod.null()])
+    .describe('Окно времени из заявки'),
+  preferred_to: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  urgency: zod
+    .union([zod.string(), zod.null()])
+    .describe('Срочность заявки: asap, today, this_week, flexible'),
+  availability_note: zod.union([zod.string(), zod.null()]).describe('«Когда смогу» из отклика'),
+  budget: zod
+    .union([
+      zod.object({
+        amount: zod.int(),
+        currency: zod.enum(['RSD', 'XTR']),
+      }),
+      zod.null(),
+    ])
+    .describe('Бюджет заявки «от» — для сравнения с ценой'),
+  counterpart: zod.object({
+    role: zod.enum(['client', 'performer']).describe('Кто вторая сторона для меня'),
+    display_name: zod.string().describe('Аккаунт удалён — пусто'),
+    profile_id: zod
+      .union([zod.uuid(), zod.null()])
+      .describe('Профиль специалиста исполнителя (S08)'),
+    avatar: zod.union([
+      zod.object({
+        placeholder: zod
+          .union([zod.string(), zod.null()])
+          .describe('ThumbHash (base64) для мгновенного превью'),
+        variants: zod.array(
+          zod.object({
+            name: zod.string().describe('thumb 320 · md 800 · lg 1600'),
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+          }),
+        ),
+        video_url: zod.union([zod.string(), zod.null()]).optional(),
+        duration_ms: zod.union([zod.int(), zod.null()]).optional(),
+      }),
+      zod.null(),
+    ]),
+    rating: zod
+      .union([zod.number(), zod.null()])
+      .describe('Когда отзывов достаточно; иначе is_new'),
+    rating_count: zod.int(),
+    is_new: zod.boolean().describe('«Новый специалист» — у исполнителя без трёх отзывов'),
+    phone_verified: zod.boolean(),
+    telegram: zod
+      .union([zod.string(), zod.null()])
+      .describe('«@username» после договорённости, если вторая сторона его показывает (S43)'),
+  }),
+  place: zod.object({
+    city: zod.union([
+      zod.object({
+        id: zod.int(),
+        name: zod.string(),
+      }),
+      zod.null(),
+    ]),
+    district: zod.union([
+      zod.object({
+        id: zod.int(),
+        name: zod.string(),
+      }),
+      zod.null(),
+    ]),
+    address: zod
+      .union([zod.string(), zod.null()])
+      .describe('Только владельцу и выбранному исполнителю'),
+    point: zod
+      .union([
+        zod.object({
+          lat: zod.number(),
+          lon: zod.number(),
+        }),
+        zod.null(),
+      ])
+      .describe('Точная точка — тем же'),
+  }),
+  timeline: zod.object({
+    responded_at: zod
+      .union([zod.iso.datetime({ offset: true }), zod.null()])
+      .describe('Отклик на заявку'),
+    agreed_at: zod
+      .union([zod.iso.datetime({ offset: true }), zod.null()])
+      .describe('Выбран исполнителем / договорились'),
+    my_mark_at: zod
+      .union([zod.iso.datetime({ offset: true }), zod.null()])
+      .describe('Я отметил «Работа выполнена»'),
+    other_mark_at: zod
+      .union([zod.iso.datetime({ offset: true }), zod.null()])
+      .describe('Вторая сторона отметила'),
+    completed_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    cancelled_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  }),
+  awaits_my_confirmation: zod.boolean().describe('«Договорились» предложила вторая сторона'),
+  cancelled_by_me: zod
+    .union([zod.boolean(), zod.null()])
+    .describe('Отменил я; None — не отменена или система'),
+  cancel_reason: zod.union([
+    zod.enum([
+      'plans_changed',
+      'no_agreement',
+      'no_contact',
+      'other',
+      'expired',
+      'account_deleted',
+    ]),
+    zod.null(),
+  ]),
+  job_id: zod.union([zod.uuid(), zod.null()]),
+  response_id: zod.union([zod.uuid(), zod.null()]),
+  conversation_id: zod.union([zod.uuid(), zod.null()]),
+  version: zod.int(),
+  proposed_at: zod
+    .union([zod.iso.datetime({ offset: true }), zod.null()])
+    .describe('«Договорились» предложено тогда (S53)'),
+  proposal_expires_at: zod
+    .union([zod.iso.datetime({ offset: true }), zod.null()])
+    .describe('Предложение отменится, если не ответить до этого времени (72 ч)'),
+  my_review: zod
+    .union([
+      zod.object({
+        id: zod.uuid(),
+        status: zod.string().describe('under_review | published | removed'),
+        rating: zod.int(),
+      }),
+      zod.null(),
+    ])
+    .describe('Свой отзыв по сделке (7.2)'),
+  review_until: zod
+    .union([zod.iso.datetime({ offset: true }), zod.null()])
+    .describe(
+      'Клиент может оставить отзыв до этого времени (14 дней после завершения); null — нельзя или уже оставлен',
+    ),
+});
+
+/**
+ * Свои сделки (S28): клиентом и исполнителем, со второй стороной и отзывом.
+ * @summary List Deal History
+ */
+export const viewsListDealHistoryQueryCursorOneMax = 200;
+
+export const viewsListDealHistoryQueryLimitDefault = 20;
+export const viewsListDealHistoryQueryLimitMax = 50;
+
+export const ViewsListDealHistoryQueryParams = zod.object({
+  cursor: zod
+    .union([zod.string().max(viewsListDealHistoryQueryCursorOneMax), zod.null()])
+    .optional(),
+  limit: zod
+    .int()
+    .min(1)
+    .max(viewsListDealHistoryQueryLimitMax)
+    .default(viewsListDealHistoryQueryLimitDefault),
+});
+
+export const ViewsListDealHistoryResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      status: zod.enum(['proposed', 'agreed', 'completed', 'cancelled', 'disputed']),
+      my_role: zod.enum(['client', 'performer']),
+      title: zod.string(),
+      price: zod.object({
+        type: zod.union([zod.enum(['fixed', 'from', 'hourly', 'negotiable']), zod.null()]),
+        amount: zod.union([
+          zod.object({
+            amount: zod.int(),
+            currency: zod.enum(['RSD', 'XTR']),
+          }),
+          zod.null(),
+        ]),
+      }),
+      scheduled_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+      counterpart: zod.object({
+        id: zod.uuid(),
+        role: zod.enum(['client', 'performer']).describe('Кто вторая сторона для меня'),
+        display_name: zod.string().describe('Аккаунт удалён — пусто'),
+      }),
+      completed_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+      cancelled_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+      cancelled_by_me: zod
+        .union([zod.boolean(), zod.null()])
+        .describe('Отменил я; None — не отменена или система'),
+      cancel_reason: zod.union([
+        zod.enum([
+          'plans_changed',
+          'no_agreement',
+          'no_contact',
+          'other',
+          'expired',
+          'account_deleted',
+        ]),
+        zod.null(),
+      ]),
+      created_at: zod.iso.datetime({ offset: true }),
+      my_review: zod
+        .union([
+          zod.object({
+            id: zod.uuid(),
+            status: zod.string().describe('under_review | published | removed'),
+            rating: zod.int(),
+          }),
+          zod.null(),
+        ])
+        .describe('Свой отзыв по сделке'),
+      review_until: zod
+        .union([zod.iso.datetime({ offset: true }), zod.null()])
+        .describe('Клиент может оставить отзыв до этого времени; null — нельзя или уже оставлен'),
+    }),
+  ),
+  next_cursor: zod.union([zod.string(), zod.null()]),
 });

@@ -1,12 +1,15 @@
 """Реализация JobsApi (ADR-0020 §6): заявка и отклик для конвейера модерации, публикация и отказ;
 краткие сведения о сроке, откликах и приглашении — для уведомлений."""
 
+from collections.abc import Collection
 from typing import Final
 from uuid import UUID
 
 from app.modules.catalog.api import CatalogApi
 from app.modules.identity.api import IdentityApi
 from app.modules.jobs.api import (
+    ChatResponse,
+    DealJob,
     InviteNotice,
     JobBrief,
     JobForReview,
@@ -23,7 +26,7 @@ from app.modules.jobs.application.ports import (
     ResponseTemplates,
 )
 from app.modules.jobs.domain.job import MAX_EXTENSIONS, Job, JobId, JobStatus
-from app.modules.jobs.domain.response import ACTIVE, ResponseId, ResponseReview
+from app.modules.jobs.domain.response import ACTIVE, ResponseId, ResponseReview, ResponseStatus
 from app.modules.jobs.errors import JobNotFoundError
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
@@ -105,6 +108,13 @@ class JobsFacade(JobsApi):
             unseen=await self._queries.unseen_responses(JobId(job_id)),
         )
 
+    async def job_titles(self, job_ids: Collection[UUID]) -> dict[UUID, str]:
+        titles = await self._queries.titles([JobId(job_id) for job_id in job_ids])
+        return {UUID(str(job_id)): title for job_id, title in titles.items()}
+
+    async def unseen_responses(self, client_id: UserId) -> int:
+        return await self._queries.unseen_total(client_id)
+
     async def response_job(self, response_id: UUID) -> UUID | None:
         return await self._queries.job_of_response(ResponseId(response_id))
 
@@ -133,6 +143,57 @@ class JobsFacade(JobsApi):
     async def see_responses(self, job_id: UUID) -> None:
         self._uow.require_active()
         await self._seen.mark(JobId(job_id), self._clock.now())
+
+    async def chat_response(self, response_id: UUID) -> ChatResponse | None:
+        job = await self._job_of_response(ResponseId(response_id))
+        response = next((r for r in job.responses if r.id == response_id), None) if job else None
+        if job is None or response is None:
+            return None
+        offer = response.offer
+        return ChatResponse(
+            id=response.id,
+            job_id=job.id,
+            client_id=job.client_id,
+            performer_id=response.performer_id,
+            status=response.status.value,
+            visible_to_client=response.visible_to_client,
+            message=offer.message,
+            price_type=offer.price_type.value,
+            price_amount=offer.price_amount,
+            availability_note=offer.availability_note,
+            created_at=response.created_at,
+        )
+
+    async def deal_job(
+        self, job_id: UUID, response_id: UUID | None, viewer_id: UserId
+    ) -> DealJob | None:
+        job = await self._queries.view(JobId(job_id))
+        if job is None:
+            return None
+        response = None
+        if response_id is not None:
+            found = await self._queries.deal_response(ResponseId(response_id))
+            response = found if found is not None and found.job_id == job.id else None
+        chosen = (
+            response is not None
+            and response.performer_id == viewer_id
+            and response.status is ResponseStatus.ACCEPTED
+        )
+        exact = viewer_id == job.client_id or chosen
+        return DealJob(
+            title=job.title,
+            city_id=job.city_id,
+            district_id=job.district_id,
+            urgency=job.urgency.value,
+            preferred_from=job.preferred_from,
+            preferred_to=job.preferred_to,
+            budget_min=job.budget_min,
+            budget_max=job.budget_max,
+            address=job.address_private if exact else None,
+            point=job.point_exact if exact else None,
+            responded_at=response.created_at if response is not None else None,
+            availability_note=response.availability_note if response is not None else None,
+        )
 
     async def passed_over(self, job_id: UUID) -> list[UserId]:
         return await self._queries.passed_over(JobId(job_id))

@@ -19,7 +19,13 @@ from app.modules.deals.domain.deal import (
     DealTerms,
 )
 from app.modules.deals.errors import DealNotActiveError, DealNotFoundError, InvalidDealError
-from app.platform.contracts.events.deals import DealAgreed, DealCancelled, DealCompleted
+from app.platform.contracts.events.deals import (
+    DealAgreed,
+    DealCancelled,
+    DealCompleted,
+    DealMarkedDone,
+    DealProposed,
+)
 from app.platform.kernel.ids import CategoryId, DealId, UserId, new_id
 
 pytestmark = pytest.mark.unit
@@ -70,6 +76,7 @@ def proposed(by: UserId = PERFORMER) -> Deal:
         terms=terms(),
         now=NOW,
     )
+    deal.pull_events()
     deal.pull_history()
     return deal
 
@@ -113,7 +120,9 @@ def test_both_parties_mark_done_to_complete() -> None:
     assert not deal.complete(actor_id=PERFORMER, now=NOW)
     assert not deal.complete(actor_id=PERFORMER, now=LATER)  # повтор — без изменений
     assert deal.performer_confirmed_at == NOW
-    assert deal.pull_events() == []
+    [marked] = deal.pull_events()  # клиента спросят «Работа выполнена?» сразу (7.3, B2)
+    assert isinstance(marked, DealMarkedDone)
+    assert (marked.deal_id, marked.marked_by, marked.occurred_at) == (deal.id, "performer", NOW)
     assert deal.complete(actor_id=CLIENT, now=LATER)
 
     assert (deal.status, deal.client_confirmed_at, deal.completed_at) == (
@@ -180,6 +189,23 @@ def test_system_cancels_an_agreed_deal() -> None:
     assert change.actor_kind is ActorKind.SYSTEM
 
 
+def test_proposal_is_announced_to_the_other_party() -> None:
+    deal = Deal.propose(
+        deal_id=DealId(new_id()),
+        client_id=CLIENT,
+        performer_id=PERFORMER,
+        proposed_by=PERFORMER,
+        profile_id=None,
+        conversation_id=UUID(int=7),
+        terms=terms(),
+        now=NOW,
+    )
+
+    [event] = deal.pull_events()
+    assert isinstance(event, DealProposed)
+    assert (event.proposed_by, event.conversation_id) == (PERFORMER, UUID(int=7))
+
+
 def test_proposal_waits_for_the_other_party() -> None:
     deal = proposed(by=PERFORMER)
 
@@ -203,6 +229,26 @@ def test_proposal_can_be_declined_by_the_other_party() -> None:
     deal.cancel(actor_id=PERFORMER, reason=DealCancelReason.NO_AGREEMENT, now=LATER)
 
     assert deal.status is DealStatus.CANCELLED
+
+
+def test_only_a_waiting_proposal_can_be_declined() -> None:
+    deal = proposed(by=PERFORMER)
+
+    deal.decline(actor_id=CLIENT, now=LATER)
+
+    assert (deal.status, deal.cancel_reason) == (
+        DealStatus.CANCELLED,
+        DealCancelReason.NO_AGREEMENT,
+    )
+    [event] = deal.pull_events()
+    assert isinstance(event, DealCancelled)
+    assert (event.cancelled_by, event.reason) == ("client", "no_agreement")
+    agreed = proposed(by=PERFORMER)
+    agreed.confirm(actor_id=CLIENT, now=LATER)
+    with pytest.raises(DealNotActiveError):  # идущую сделку — только отменой с причиной
+        agreed.decline(actor_id=CLIENT, now=LATER)
+    with pytest.raises(DealNotFoundError):
+        proposed().decline(actor_id=STRANGER, now=LATER)
 
 
 def test_proposal_needs_a_party() -> None:

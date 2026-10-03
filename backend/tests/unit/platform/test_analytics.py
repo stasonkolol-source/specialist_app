@@ -16,9 +16,13 @@ from app.modules.deals.domain.deal import DealCancelReason, DealOrigin, DealRole
 from app.modules.growth.domain.attribution import AttributionSource
 from app.modules.identity.domain.user import UserIntent
 from app.modules.jobs.domain.job import CloseReason, Urgency
+from app.modules.messaging.domain.conversation import ConversationKind, ParticipantRole
+from app.modules.messaging.domain.message import ContactType
 from app.modules.notifications.domain.channel import GrantedVia
 from app.platform.analytics.events import (
     CLOSE_REASONS,
+    CONTACT_TYPES,
+    CONVERSATION_KINDS,
     DEAL_CANCEL_REASONS,
     DEAL_CANCELLED_BY,
     DEAL_ORIGINS,
@@ -37,15 +41,19 @@ from app.platform.analytics.fake import LoggingAnalytics
 from app.platform.analytics.port import AnalyticsEvent
 from app.platform.analytics.posthog import PostHogAnalytics
 from app.platform.analytics.tasks import (
+    capture_contact_shared,
+    capture_conversation_started,
     capture_deal_agreed,
     capture_deal_cancelled,
     capture_job_invited,
+    capture_message_sent,
     capture_onboarding_completed,
     capture_write_access_granted,
 )
 from app.platform.contracts.events.deals import DealAgreed, DealCancelled
 from app.platform.contracts.events.identity import EntryPoint, OnboardingCompleted
 from app.platform.contracts.events.jobs import JobInvited
+from app.platform.contracts.events.messaging import ContactShared, ConversationStarted, MessageSent
 from app.platform.contracts.events.notifications import WriteAccessGranted
 from app.platform.kernel.errors import ExternalServiceError, RateLimitedError
 from app.platform.kernel.ids import CategoryId, CityId, DealId, UserId, new_id
@@ -117,6 +125,10 @@ def test_wired_events_are_those_of_the_finished_steps() -> None:
         EventName.DEAL_AGREED: "6.1a",
         EventName.DEAL_COMPLETED: "6.1a",
         EventName.DEAL_CANCELLED: "6.1a",
+        EventName.CONVERSATION_STARTED: "6.3a",
+        EventName.MESSAGE_SENT: "6.3a",
+        EventName.CONTACT_SHARED: "6.3b",
+        EventName.REVIEW_PUBLISHED: "7.2",
     }
 
 
@@ -131,6 +143,9 @@ def test_closed_lists_match_the_domain() -> None:
     assert {o.value for o in DealOrigin} == DEAL_ORIGINS
     assert {r.value for r in DealRole} | {"system"} == DEAL_CANCELLED_BY
     assert {r.value for r in DealCancelReason} == DEAL_CANCEL_REASONS
+    assert {k.value for k in ConversationKind} - {"support"} == CONVERSATION_KINDS
+    assert {r.value for r in ParticipantRole} - {"support"} == DEAL_ROLES
+    assert {t.value for t in ContactType} == CONTACT_TYPES
 
 
 def registered(**properties: Any) -> AnalyticsEvent:
@@ -461,4 +476,50 @@ async def test_invites_and_direct_requests_are_captured() -> None:
     assert [(e.name, e.distinct_id) for e in fake.captured] == [
         ("invite_sent", client),
         ("direct_request_sent", client),
+    ]
+
+
+async def test_chat_events_say_who_and_whether_contacts_were_hidden() -> None:
+    """Диалог — кто начал и как; сообщение — чья сторона и скрыты ли контакты. Без текста."""
+    fake = LoggingAnalytics()
+    client, performer = UserId(new_id()), UserId(new_id())
+    conversation_id = new_id()
+    started = ConversationStarted(
+        conversation_id=conversation_id,
+        kind="job_response",
+        initiator_id=performer,
+        client_id=client,
+        performer_id=performer,
+        job_id=new_id(),
+        response_id=new_id(),
+        occurred_at=NOW,
+    )
+    sent = MessageSent(
+        conversation_id=conversation_id,
+        message_id=new_id(),
+        sender_id=client,
+        recipient_id=performer,
+        sender_role="client",
+        masked=True,
+        occurred_at=NOW,
+    )
+
+    shared = ContactShared(
+        conversation_id=conversation_id,
+        deal_id=new_id(),
+        shared_by=performer,
+        shared_with=client,
+        sharer_role="performer",
+        contact_type="phone",
+        occurred_at=NOW,
+    )
+
+    await capture_conversation_started(started, fake)
+    await capture_message_sent(sent, fake)
+    await capture_contact_shared(shared, fake)
+
+    assert [(e.name, e.distinct_id, dict(e.properties)) for e in fake.captured] == [
+        ("conversation_started", performer, {"kind": "job_response", "initiator": "performer"}),
+        ("message_sent", client, {"role": "client", "masked": True}),
+        ("contact_shared", performer, {"contact_type": "phone", "role": "performer"}),
     ]

@@ -30,6 +30,8 @@ from app.platform.contracts.events.deals import (
     DealCancelled,
     DealCompleted,
     DealCompletionDue,
+    DealMarkedDone,
+    DealProposed,
     DealReminderDue,
 )
 from app.platform.kernel.aggregate import VersionedAggregate
@@ -244,7 +246,7 @@ class Deal(VersionedAggregate):
         terms: DealTerms,
         now: datetime,
     ) -> Deal:
-        """«Договорились» в чате одной стороной (6.4): сделка ждёт подтверждения второй."""
+        """«Договорились» в чате одной стороной (6.3b): сделка ждёт подтверждения второй."""
         if proposed_by not in (client_id, performer_id):
             raise InvalidDealError(field="proposed_by", reason="not_a_party")
         deal = cls._new(
@@ -269,6 +271,16 @@ class Deal(VersionedAggregate):
                 actor_kind=ActorKind.USER,
                 reason=None,
                 at=now,
+            )
+        )
+        deal._record(
+            DealProposed(
+                deal_id=deal_id,
+                client_id=client_id,
+                performer_id=performer_id,
+                proposed_by=proposed_by,
+                conversation_id=conversation_id,
+                occurred_at=now,
             )
         )
         return deal
@@ -296,13 +308,24 @@ class Deal(VersionedAggregate):
         role = self._party(actor_id)
         if self.status is not DealStatus.AGREED:
             raise DealNotActiveError(deal_id=self.id, deal_status=self.status.value)
+        marked = False
         if role is DealRole.CLIENT and self.client_confirmed_at is None:
             self.client_confirmed_at = now
-            self.updated_at = now
+            self.updated_at, marked = now, True
         elif role is DealRole.PERFORMER and self.performer_confirmed_at is None:
             self.performer_confirmed_at = now
-            self.updated_at = now
+            self.updated_at, marked = now, True
         if self.client_confirmed_at is None or self.performer_confirmed_at is None:
+            if marked:
+                self._record(
+                    DealMarkedDone(
+                        deal_id=self.id,
+                        client_id=self.client_id,
+                        performer_id=self.performer_id,
+                        marked_by=role.value,
+                        occurred_at=now,
+                    )
+                )
             return False
         self._move(DealStatus.COMPLETED, by=actor_id, kind=ActorKind.USER, now=now)
         self.completed_at = now
@@ -387,6 +410,21 @@ class Deal(VersionedAggregate):
         if self.status not in CANCELLABLE:
             raise DealNotActiveError(deal_id=self.id, deal_status=self.status.value)
         self._cancel(by=actor_id, by_role=role.value, kind=ActorKind.USER, reason=reason, now=now)
+
+    def decline(self, *, actor_id: UserId, now: datetime) -> None:
+        """«Отклонить» предложение «Договорились» (S53, кнопка в боте, 6.3b): только пока оно
+        ждёт ответа — идущую сделку так не отменить (для неё `cancel` с причиной). Предложившая
+        сторона так же отзывает своё."""
+        role = self._party(actor_id)
+        if self.status is not DealStatus.PROPOSED:
+            raise DealNotActiveError(deal_id=self.id, deal_status=self.status.value)
+        self._cancel(
+            by=actor_id,
+            by_role=role.value,
+            kind=ActorKind.USER,
+            reason=DealCancelReason.NO_AGREEMENT,
+            now=now,
+        )
 
     def cancel_by_system(self, *, reason: DealCancelReason, now: datetime) -> bool:
         """Система отменяет: истекло предложение, удалён аккаунт. Уже завершена, отменена или

@@ -111,6 +111,10 @@ DEAL_CANCEL_REASONS: Final = frozenset(
     {"plans_changed", "no_agreement", "no_contact", "other", "expired", "account_deleted"}
 )
 """DealCancelReason сделки (deals): причины стороны и системы."""
+CONVERSATION_KINDS: Final = frozenset({"job_response", "direct"})
+"""ConversationKind диалога (messaging), который начинают пользователи."""
+CONTACT_TYPES: Final = frozenset({"telegram", "phone"})
+"""ContactType (messaging): чем поделились после договорённости."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -211,10 +215,26 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
         },
     ),
     EventName.DISPUTE_OPENED: EventSpec(step="6.1c", description="Открыт спор"),
-    EventName.CONVERSATION_STARTED: EventSpec(step="6.3a", description="Начат диалог"),
-    EventName.MESSAGE_SENT: EventSpec(step="6.3a", description="Сообщение в чате"),
-    EventName.CONTACT_SHARED: EventSpec(step="6.3b", description="Открыт контакт"),
-    EventName.REVIEW_PUBLISHED: EventSpec(step="7.2", description="Опубликован отзыв"),
+    EventName.CONVERSATION_STARTED: EventSpec(
+        step="6.3a",
+        description="Начат диалог: по отклику или прямым обращением, кто начал (`initiator`)",
+        properties={"kind": Choice(CONVERSATION_KINDS), "initiator": Choice(DEAL_ROLES)},
+    ),
+    EventName.MESSAGE_SENT: EventSpec(
+        step="6.3a",
+        description="Сообщение в чате: чья сторона и скрыты ли контакты до договорённости",
+        properties={"role": Choice(DEAL_ROLES), "masked": Flag()},
+    ),
+    EventName.CONTACT_SHARED: EventSpec(
+        step="6.3b",
+        description="Сторона поделилась контактом после договорённости: чем и чья сторона",
+        properties={"contact_type": Choice(CONTACT_TYPES), "role": Choice(DEAL_ROLES)},
+    ),
+    EventName.REVIEW_PUBLISHED: EventSpec(
+        step="7.2",
+        description="Опубликован отзыв по сделке (прошёл проверку): оценка и есть ли текст",
+        properties={"rating": Count(), "has_text": Flag()},
+    ),
     EventName.SHARE_CREATED: EventSpec(step="7.4", description="Поделились ссылкой"),
     EventName.ATTRIBUTION_RECORDED: EventSpec(step="7.4", description="Атрибуция по ссылке"),
     EventName.GOODS_WAITLIST_JOINED: EventSpec(
