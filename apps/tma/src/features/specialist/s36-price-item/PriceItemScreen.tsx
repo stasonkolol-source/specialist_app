@@ -135,8 +135,12 @@ function PriceItemForm({
   );
   const [type, setType] = useState<PriceType>(service?.price_type ?? 'fixed');
   const [amount, setAmount] = useState(
-    service?.price_min ? String(Math.round(service.price_min.amount / PARA_PER_DINAR)) : '',
+    service?.price_min ? String(service.price_min.amount / PARA_PER_DINAR) : '',
   );
+  const [whole, fraction] = amount.split('.');
+  // Запятая — десятичный разделитель ru и sr; сохраняем её и нули во время ввода.
+  const formattedAmount =
+    amount && `${number(Number(whole))}${fraction === undefined ? '' : `,${fraction}`}`;
   const [duration, setDuration] = useState<number | null>(service?.duration_min ?? null);
   const [description, setDescription] = useState(service?.description ?? '');
   // незаполненное подсвечиваем после первого нажатия «Сохранить»
@@ -165,7 +169,7 @@ function PriceItemForm({
 
   const save = useMutation({
     mutationFn: async () => {
-      const para = priced ? Number(amount) * PARA_PER_DINAR : null;
+      const para = priced ? Math.round(Number(amount) * PARA_PER_DINAR) : null;
       if (!service) {
         key.current ??= crypto.randomUUID();
         const created = await pricingAddMyService(
@@ -289,14 +293,19 @@ function PriceItemForm({
         />
         {priced && (
           <Input
-            inputMode="numeric"
-            value={amount && number(Number(amount))}
+            inputMode="decimal"
+            value={formattedAmount}
             suffix="RSD"
             aria-label={t('price.amount')}
             invalid={checked && missing.amount}
-            onChange={(event) =>
-              edit(() => setAmount(event.target.value.replace(/\D/g, '').slice(0, PRICE_DIGITS)))
-            }
+            onChange={(event) => {
+              const [whole = '', fraction] = event.target.value.replace(/[^\d,]/g, '').split(',');
+              edit(() =>
+                setAmount(
+                  `${whole.slice(0, PRICE_DIGITS)}${fraction === undefined ? '' : `.${fraction.slice(0, 2)}`}`,
+                ),
+              );
+            }}
           />
         )}
         {checked && missing.amount && (
