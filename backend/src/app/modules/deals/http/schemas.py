@@ -1,11 +1,12 @@
-"""Схемы HTTP deals (ARCHITECTURE §8.5): сделка стороне и отмена с причиной."""
+"""Схемы HTTP deals (ARCHITECTURE §8.5): сделка стороне, отмена с причиной и спор (6.1c)."""
 
+from collections.abc import Mapping
 from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.modules.deals.application.dto import DealView
+from app.modules.deals.application.dto import DealView, DisputeView
 from app.modules.deals.domain.deal import (
     PARTY_CANCEL_REASONS,
     DealCancelReason,
@@ -14,9 +15,17 @@ from app.modules.deals.domain.deal import (
     DealRole,
     DealStatus,
 )
+from app.modules.deals.domain.dispute import (
+    MAX_PHOTOS,
+    MAX_TEXT,
+    DisputeKind,
+    DisputeOutcome,
+    DisputeStatus,
+)
 from app.modules.deals.errors import InvalidDealError
+from app.modules.media.api import MediaRef
 from app.platform.http.money import MoneyOut
-from app.platform.kernel.ids import UserId
+from app.platform.kernel.ids import MediaId, UserId
 from app.platform.kernel.money import Currency, Money
 
 
@@ -118,3 +127,118 @@ class DealCancelIn(BaseModel):
         if self.reason not in PARTY_CANCEL_REASONS:
             raise InvalidDealError(field="reason", reason="not_allowed")
         return self.reason
+
+
+class DisputeIn(BaseModel):
+    """Спор (S52): что случилось, описание и до шести своих фото назначения `dispute`."""
+
+    kind: DisputeKind
+    description: str = Field(max_length=MAX_TEXT)
+    media_ids: list[UUID] = Field(default_factory=list, max_length=MAX_PHOTOS)
+
+    def photos(self) -> tuple[MediaId, ...]:
+        return tuple(MediaId(media_id) for media_id in self.media_ids)
+
+
+class DisputeAnswerIn(BaseModel):
+    """Ответ второй стороны: текст и до шести своих фото назначения `dispute`."""
+
+    text: str = Field(max_length=MAX_TEXT)
+    media_ids: list[UUID] = Field(default_factory=list, max_length=MAX_PHOTOS)
+
+    def photos(self) -> tuple[MediaId, ...]:
+        return tuple(MediaId(media_id) for media_id in self.media_ids)
+
+
+class DisputeVariantOut(BaseModel):
+    name: str = Field(description="thumb, md, lg — по возрастанию ширины")
+    url: str = Field(description="presigned GET приватного бакета на 5 минут")
+    width: int
+    height: int
+
+
+class DisputePhotoOut(BaseModel):
+    """Фото-доказательство: варианты — когда обработка закончилась; до этого — только
+    `placeholder` (или ничего)."""
+
+    id: UUID
+    placeholder: str | None
+    variants: list[DisputeVariantOut]
+
+
+class DisputeOut(BaseModel):
+    """Спор стороне (S52): что случилось и чьё, срок ответа, ответ, статус и решение."""
+
+    id: UUID
+    deal_id: UUID
+    deal_status: DealStatus = Field(description="Статус сделки после действия")
+    status: DisputeStatus = Field(
+        description="open — ждём ответа, answered, no_response — 48 ч без ответа, resolved,"
+        " withdrawn"
+    )
+    kind: DisputeKind
+    opened_by_me: bool
+    description: str
+    photos: list[DisputePhotoOut]
+    respond_by: datetime = Field(description="До этого вторая сторона отвечает (48 ч)")
+    response: str | None
+    response_photos: list[DisputePhotoOut]
+    responded_at: datetime | None
+    unanswered_at: datetime | None
+    withdrawn_at: datetime | None
+    outcome: DisputeOutcome | None = Field(description="Решение модератора: каким стал статус")
+    reason_code: str | None = Field(description="Код причины решения: no_show, work_done, …")
+    resolved_at: datetime | None
+    created_at: datetime
+
+    @classmethod
+    def of(
+        cls,
+        dispute: DisputeView,
+        viewer_id: UserId,
+        *,
+        deal_status: DealStatus,
+        refs: Mapping[MediaId, MediaRef],
+    ) -> DisputeOut:
+        return cls(
+            id=dispute.id,
+            deal_id=dispute.deal_id,
+            deal_status=deal_status,
+            status=dispute.status,
+            kind=dispute.kind,
+            opened_by_me=dispute.opened_by == viewer_id,
+            description=dispute.description,
+            photos=_photos(dispute.media_ids, refs),
+            respond_by=dispute.respond_by,
+            response=dispute.response,
+            response_photos=_photos(dispute.response_media_ids, refs),
+            responded_at=dispute.responded_at,
+            unanswered_at=dispute.unanswered_at,
+            withdrawn_at=dispute.withdrawn_at,
+            outcome=dispute.outcome,
+            reason_code=dispute.reason_code,
+            resolved_at=dispute.resolved_at,
+            created_at=dispute.created_at,
+        )
+
+
+def _photos(
+    media_ids: tuple[MediaId, ...], refs: Mapping[MediaId, MediaRef]
+) -> list[DisputePhotoOut]:
+    """Фото по порядку; удалённые и сбойные не показываем."""
+    photos = []
+    for media_id in media_ids:
+        ref = refs.get(media_id)
+        if ref is None or ref.broken:
+            continue
+        photos.append(
+            DisputePhotoOut(
+                id=ref.id,
+                placeholder=ref.placeholder,
+                variants=[
+                    DisputeVariantOut(name=v.name, url=v.url, width=v.width, height=v.height)
+                    for v in ref.variants
+                ],
+            )
+        )
+    return photos

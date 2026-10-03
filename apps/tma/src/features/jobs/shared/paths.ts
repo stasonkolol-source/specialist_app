@@ -17,13 +17,22 @@ export const JOBS_PATHS = {
   manage: '/jobs/$jobId/manage',
   response: '/jobs/$jobId/responses/$responseId',
   deal: '/deals/$dealId',
+  dispute: '/deals/$dealId/dispute',
   review: '/deals/$dealId/review',
   history: '/deals',
 } as const;
 
 export type JobsSegment = Exclude<
   keyof typeof JOBS_PATHS,
-  'job' | 'respond' | 'templates' | 'manage' | 'response' | 'deal' | 'review' | 'history'
+  | 'job'
+  | 'respond'
+  | 'templates'
+  | 'manage'
+  | 'response'
+  | 'deal'
+  | 'dispute'
+  | 'review'
+  | 'history'
 >;
 export const JOBS_SEGMENTS: readonly JobsSegment[] = ['feed', 'responses', 'mine'];
 
@@ -49,6 +58,10 @@ export const choicePath = (jobId: string, responseId: string) =>
 
 /** Сделка S26 (6.2): из S25, «Открыть сделку» S23 и S17, уведомлений бота (`d_`). */
 export const dealPath = (dealId: string) => `/deals/${dealId}`;
+
+/** Спор S52 (6.1c): «Есть проблема» S26, «Есть проблема» под «Работа выполнена?» и «Ответить»
+ *  уведомления `dispute.opened` (`p_`). */
+export const disputePath = (dealId: string) => `/deals/${dealId}/dispute`;
 
 export interface HistorySearch {
   /** Вкладка «Отзывы» S28: ссылка `m_reviews` из уведомления о новом отзыве. */

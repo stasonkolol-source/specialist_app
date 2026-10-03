@@ -13,7 +13,16 @@ describe('startTarget', () => {
     expect(startTarget('h')).toBe('/');
     expect(startTarget('h_rAB12CD')).toBe('/');
     // у остальных целей (коды «Вещей», `h`) экрана нет — на главную
-    const ready = new Set(['legal', 'specialist', 'job', 'new_job', 'mine', 'chat', 'deal']);
+    const ready = new Set([
+      'legal',
+      'specialist',
+      'job',
+      'new_job',
+      'mine',
+      'chat',
+      'deal',
+      'dispute',
+    ]);
     for (const { param, link } of golden.valid) {
       if (!ready.has(link.type)) expect(startTarget(param)).toBe('/');
     }
@@ -67,6 +76,14 @@ describe('startTarget', () => {
     expect(deals.length).toBeGreaterThan(0);
     for (const { param, link } of deals) {
       expect(startTarget(param)).toBe(`/deals/${'id' in link ? link.id : ''}`);
+    }
+  });
+
+  it('opens the dispute S52 for `p_` links — «Есть проблема» and dispute notices (6.1c)', () => {
+    const disputes = golden.valid.filter(({ link }) => link.type === 'dispute');
+    expect(disputes.length).toBeGreaterThan(0);
+    for (const { param, link } of disputes) {
+      expect(startTarget(param)).toBe(`/deals/${'id' in link ? link.id : ''}/dispute`);
     }
   });
 

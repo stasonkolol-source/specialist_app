@@ -2348,6 +2348,179 @@
         }
       }
     },
+    "/api/v1/deals/{deal_id}/dispute": {
+      "post": {
+        "tags": [
+          "deals"
+        ],
+        "summary": "Open Dispute",
+        "description": "Спор по идущей сделке (S52): сделка `disputed`, второй стороне 48 ч на ответ. Сделка не\n`agreed` — 409 `deal_not_active`; фото не свои или не `dispute` — 404 / 409.",
+        "operationId": "deals_open_dispute",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "deal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id сделки",
+              "title": "Deal Id"
+            },
+            "description": "id сделки"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisputeIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisputeOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{deal_id}/dispute/respond": {
+      "post": {
+        "tags": [
+          "deals"
+        ],
+        "summary": "Respond Dispute",
+        "description": "Ответ второй стороны — один, пока модератор не решил; иначе 409\n`dispute_state_conflict`. Идущего спора нет — 404 `dispute_not_found`.",
+        "operationId": "deals_respond_dispute",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "deal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id сделки",
+              "title": "Deal Id"
+            },
+            "description": "id сделки"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisputeAnswerIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisputeOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/deals/{deal_id}/dispute/withdraw": {
+      "post": {
+        "tags": [
+          "deals"
+        ],
+        "summary": "Withdraw Dispute",
+        "description": "Отозвать свой спор, пока модератор не решил: сделка снова идёт.",
+        "operationId": "deals_withdraw_dispute",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "deal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id сделки",
+              "title": "Deal Id"
+            },
+            "description": "id сделки"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisputeOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/jobs": {
       "post": {
         "tags": [
@@ -7862,9 +8035,234 @@
           "no_contact",
           "other",
           "expired",
-          "account_deleted"
+          "account_deleted",
+          "dispute"
         ],
         "title": "DealCancelReason"
+      },
+      "DealCardDisputeOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "deal_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Deal Id"
+          },
+          "deal_status": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "agreed",
+              "completed",
+              "cancelled",
+              "disputed"
+            ],
+            "title": "Deal Status"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "answered",
+              "no_response",
+              "resolved",
+              "withdrawn"
+            ],
+            "title": "Status",
+            "description": "open — ждём ответа, answered, no_response — 48 ч без ответа, resolved, withdrawn"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "no_show",
+              "quality",
+              "prepayment_taken",
+              "damage",
+              "safety",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "opened_by_me": {
+            "type": "boolean",
+            "title": "Opened By Me"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "photos": {
+            "items": {
+              "$ref": "#/components/schemas/DealCardDisputePhotoOut"
+            },
+            "type": "array",
+            "title": "Photos"
+          },
+          "respond_by": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Respond By"
+          },
+          "response": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response"
+          },
+          "response_photos": {
+            "items": {
+              "$ref": "#/components/schemas/DealCardDisputePhotoOut"
+            },
+            "type": "array",
+            "title": "Response Photos"
+          },
+          "responded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responded At"
+          },
+          "unanswered_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unanswered At"
+          },
+          "withdrawn_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawn At"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "completed",
+                  "cancelled"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "deal_id",
+          "deal_status",
+          "status",
+          "kind",
+          "opened_by_me",
+          "description",
+          "photos",
+          "respond_by",
+          "response",
+          "response_photos",
+          "responded_at",
+          "unanswered_at",
+          "withdrawn_at",
+          "outcome",
+          "reason_code",
+          "resolved_at",
+          "created_at"
+        ],
+        "title": "DealCardDisputeOut",
+        "description": "Спор по сделке стороне (S52): та же форма, что ответ `POST /deals/{id}/dispute…`."
+      },
+      "DealCardDisputePhotoOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "placeholder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Placeholder"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/CardVariantOut"
+            },
+            "type": "array",
+            "title": "Variants",
+            "description": "presigned GET на 5 минут; до обработки — []"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "placeholder",
+          "variants"
+        ],
+        "title": "DealCardDisputePhotoOut"
       },
       "DealCardOut": {
         "properties": {
@@ -8017,7 +8415,8 @@
                   "no_contact",
                   "other",
                   "expired",
-                  "account_deleted"
+                  "account_deleted",
+                  "dispute"
                 ]
               },
               {
@@ -8115,6 +8514,17 @@
             ],
             "title": "Review Until",
             "description": "Клиент может оставить отзыв до этого времени (14 дней после завершения); null — нельзя или уже оставлен"
+          },
+          "dispute": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DealCardDisputeOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Последний спор по сделке (S52): идущий, решённый или отозванный"
           }
         },
         "type": "object",
@@ -8144,7 +8554,8 @@
           "proposed_at",
           "proposal_expires_at",
           "my_review",
-          "review_until"
+          "review_until",
+          "dispute"
         ],
         "title": "DealCardOut"
       },
@@ -8876,6 +9287,319 @@
         "title": "DeletionOut",
         "description": "Запрос на удаление аккаунта: когда принят и когда исполнится (grace 7 дней)."
       },
+      "DisputeAnswerIn": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Text"
+          },
+          "media_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Media Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "DisputeAnswerIn",
+        "description": "Ответ второй стороны: текст и до шести своих фото назначения `dispute`."
+      },
+      "DisputeIn": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/DisputeKind"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Description"
+          },
+          "media_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Media Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "description"
+        ],
+        "title": "DisputeIn",
+        "description": "Спор (S52): что случилось, описание и до шести своих фото назначения `dispute`."
+      },
+      "DisputeKind": {
+        "type": "string",
+        "enum": [
+          "no_show",
+          "quality",
+          "prepayment_taken",
+          "damage",
+          "safety",
+          "other"
+        ],
+        "title": "DisputeKind",
+        "description": "Что случилось (S52)."
+      },
+      "DisputeOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "deal_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Deal Id"
+          },
+          "deal_status": {
+            "$ref": "#/components/schemas/DealStatus",
+            "description": "Статус сделки после действия"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DisputeStatus",
+            "description": "open — ждём ответа, answered, no_response — 48 ч без ответа, resolved, withdrawn"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/DisputeKind"
+          },
+          "opened_by_me": {
+            "type": "boolean",
+            "title": "Opened By Me"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "photos": {
+            "items": {
+              "$ref": "#/components/schemas/DisputePhotoOut"
+            },
+            "type": "array",
+            "title": "Photos"
+          },
+          "respond_by": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Respond By",
+            "description": "До этого вторая сторона отвечает (48 ч)"
+          },
+          "response": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response"
+          },
+          "response_photos": {
+            "items": {
+              "$ref": "#/components/schemas/DisputePhotoOut"
+            },
+            "type": "array",
+            "title": "Response Photos"
+          },
+          "responded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responded At"
+          },
+          "unanswered_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unanswered At"
+          },
+          "withdrawn_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawn At"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DisputeOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Решение модератора: каким стал статус"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code",
+            "description": "Код причины решения: no_show, work_done, …"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "deal_id",
+          "deal_status",
+          "status",
+          "kind",
+          "opened_by_me",
+          "description",
+          "photos",
+          "respond_by",
+          "response",
+          "response_photos",
+          "responded_at",
+          "unanswered_at",
+          "withdrawn_at",
+          "outcome",
+          "reason_code",
+          "resolved_at",
+          "created_at"
+        ],
+        "title": "DisputeOut",
+        "description": "Спор стороне (S52): что случилось и чьё, срок ответа, ответ, статус и решение."
+      },
+      "DisputeOutcome": {
+        "type": "string",
+        "enum": [
+          "completed",
+          "cancelled"
+        ],
+        "title": "DisputeOutcome",
+        "description": "Решение модератора — каким становится статус сделки."
+      },
+      "DisputePhotoOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "placeholder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Placeholder"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/DisputeVariantOut"
+            },
+            "type": "array",
+            "title": "Variants"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "placeholder",
+          "variants"
+        ],
+        "title": "DisputePhotoOut",
+        "description": "Фото-доказательство: варианты — когда обработка закончилась; до этого — только\n`placeholder` (или ничего)."
+      },
+      "DisputeStatus": {
+        "type": "string",
+        "enum": [
+          "open",
+          "answered",
+          "no_response",
+          "resolved",
+          "withdrawn"
+        ],
+        "title": "DisputeStatus"
+      },
+      "DisputeVariantOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "thumb, md, lg — по возрастанию ширины"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "presigned GET приватного бакета на 5 минут"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "url",
+          "width",
+          "height"
+        ],
+        "title": "DisputeVariantOut"
+      },
       "DistrictKind": {
         "type": "string",
         "enum": [
@@ -9223,7 +9947,8 @@
                   "no_contact",
                   "other",
                   "expired",
-                  "account_deleted"
+                  "account_deleted",
+                  "dispute"
                 ]
               },
               {
@@ -10680,7 +11405,8 @@
           "job",
           "message",
           "review",
-          "verification"
+          "verification",
+          "dispute"
         ],
         "title": "MediaPurpose"
       },
@@ -11483,6 +12209,7 @@
           "deal.proposed",
           "deal.cancelled",
           "dispute.opened",
+          "dispute.resolved",
           "deal.reminder",
           "deal.completion_prompt",
           "review.request",

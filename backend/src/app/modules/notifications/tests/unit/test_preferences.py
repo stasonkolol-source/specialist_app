@@ -128,6 +128,7 @@ def test_catalog_follows_the_architecture() -> None:
         NotificationType.MODERATION_DECISION,
         NotificationType.PROFILE_PUBLISHED,  # тоже решение модерации
         NotificationType.ACCOUNT_RESTRICTED,
+        NotificationType.DISPUTE_RESOLVED,  # решение по спору — statement of reasons (6.1c)
         NotificationType.SYSTEM_TEST,
     }
 

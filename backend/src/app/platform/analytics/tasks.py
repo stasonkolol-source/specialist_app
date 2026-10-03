@@ -6,8 +6,8 @@
 (1.7), `profile_submitted` и `profile_published` (2.8a), `job_published`, `job_closed` и
 `job_expired` (5.1), `response_submitted` (5.4), `invite_sent` и `direct_request_sent` (5.6),
 `deal_agreed`, `deal_completed` и `deal_cancelled` (6.1a) — по событию на каждую сторону сделки,
-`conversation_started` и `message_sent` (6.3a), `contact_shared` (6.3b), `review_published`
-(7.2); остальные события
+`dispute_opened` (6.1c) — открывшему, `conversation_started` и `message_sent` (6.3a),
+`contact_shared` (6.3b), `review_published` (7.2); остальные события
 подключает шаг своего модуля (таксономия — events.py).
 """
 
@@ -18,7 +18,12 @@ from dishka import FromDishka
 
 from app.platform.analytics.events import EventName, analytics_event
 from app.platform.analytics.port import Analytics, AnalyticsEvent
-from app.platform.contracts.events.deals import DealAgreed, DealCancelled, DealCompleted
+from app.platform.contracts.events.deals import (
+    DealAgreed,
+    DealCancelled,
+    DealCompleted,
+    DealDisputed,
+)
 from app.platform.contracts.events.identity import OnboardingCompleted, UserRegistered
 from app.platform.contracts.events.jobs import (
     JobClosed,
@@ -50,6 +55,7 @@ CAPTURE_JOB_INVITED = TaskRef("analytics.capture_job_invited", JobInvited)
 CAPTURE_DEAL_AGREED = TaskRef("analytics.capture_deal_agreed", DealAgreed)
 CAPTURE_DEAL_COMPLETED = TaskRef("analytics.capture_deal_completed", DealCompleted)
 CAPTURE_DEAL_CANCELLED = TaskRef("analytics.capture_deal_cancelled", DealCancelled)
+CAPTURE_DISPUTE_OPENED = TaskRef("analytics.capture_dispute_opened", DealDisputed)
 CAPTURE_CONVERSATION_STARTED = TaskRef(
     "analytics.capture_conversation_started", ConversationStarted
 )
@@ -233,6 +239,24 @@ async def capture_deal_cancelled(event: DealCancelled, analytics: FromDishka[Ana
         EventName.DEAL_CANCELLED, event, by=event.cancelled_by, reason=event.reason
     ):
         await analytics.capture(captured)
+
+
+@subscriber(DealDisputed, CAPTURE_DISPUTE_OPENED)
+async def capture_dispute_opened(event: DealDisputed, analytics: FromDishka[Analytics]) -> None:
+    """Спор — открывшему: доля сделок со спором и что чаще всего случается (6.1c)."""
+    category = {"category": event.category_id} if event.category_id is not None else {}
+    await analytics.capture(
+        analytics_event(
+            EventName.DISPUTE_OPENED,
+            user_id=event.opened_by,
+            occurred_at=event.occurred_at,
+            source_event_id=event.event_id,
+            role="client" if event.opened_by == event.client_id else "performer",
+            kind=event.kind,
+            origin=event.origin,
+            **category,
+        )
+    )
 
 
 @subscriber(ConversationStarted, CAPTURE_CONVERSATION_STARTED)

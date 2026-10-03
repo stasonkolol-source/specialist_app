@@ -6,6 +6,8 @@
   `deals.completion_prompts` (каждые 15 минут) — «Работа выполнена?» после него;
   `deals.expire_proposed` (каждые 15 минут) — «Договорились» без ответа 72 ч;
   `deals.auto_complete` (ежечасно) — одна сторона отметила «выполнено», 72 ч без возражений.
+- `deals.dispute_response_sla` (каждые 30 минут, 6.1c; `disputes.response_sla` §12.3) — вторая
+  сторона не ответила на спор за 48 ч: «нет ответа», модерация помечает кейс.
 """
 
 from dishka import FromDishka
@@ -16,6 +18,10 @@ from app.modules.deals.application.use_cases.cancel_user_deals import (
     CancelUserDealsCommand,
 )
 from app.modules.deals.application.use_cases.sweep_deals import SweepDeals, SweepDealsCommand
+from app.modules.deals.application.use_cases.sweep_disputes import (
+    SweepDisputes,
+    SweepDisputesCommand,
+)
 from app.platform.contracts.events.identity import UserDeleted
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber
 
@@ -43,6 +49,12 @@ async def expire_proposed(run: PeriodicRun) -> None:
 @periodic("deals.auto_complete", cron="27 * * * *")
 async def auto_complete(run: PeriodicRun) -> None:
     await _sweep(run, DealSweep.AUTO_COMPLETE)
+
+
+@periodic("deals.dispute_response_sla", cron="14,44 * * * *")
+async def dispute_response_sla(run: PeriodicRun) -> None:
+    async with run.container() as request:
+        await (await request.get(SweepDisputes))(SweepDisputesCommand())
 
 
 async def _sweep(run: PeriodicRun, sweep: DealSweep) -> None:

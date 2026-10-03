@@ -7,7 +7,10 @@
 - `POST /deals/{id}/decline` — отклонить «Договорились», пока предложение ждёт ответа (S53);
 - `POST /deals/{id}/complete` — «Работа выполнена»: отметили обе — сделка завершена;
 - `POST /deals/{id}/cancel` — отмена с причиной: заявка снова открыта, прежние кандидаты —
-  «просмотрен» (§7.9).
+  «просмотрен» (§7.9);
+- `POST /deals/{id}/dispute` — спор по идущей сделке (S52, 6.1c): кейс модерации, второй стороне
+  48 ч на ответ; `…/dispute/respond` — её ответ, `…/dispute/withdraw` — отзыв спора открывшим.
+  Ответ — спор стороне с фото по presigned GET приватного бакета.
 
 Сделка из отклика создаётся в `POST /responses/{id}/accept` (jobs) — в той же транзакции.
 """
@@ -16,7 +19,7 @@ from typing import Annotated, Final
 from uuid import UUID
 
 from dishka.integrations.fastapi import FromDishka, inject
-from fastapi import APIRouter, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, status
 
 from app.modules.deals.application.use_cases.cancel_deal import CancelDeal, CancelDealCommand
 from app.modules.deals.application.use_cases.complete_deal import (
@@ -29,15 +32,44 @@ from app.modules.deals.application.use_cases.list_my_deals import (
     ListMyDeals,
     ListMyDealsCommand,
 )
+from app.modules.deals.application.use_cases.open_dispute import (
+    OpenDispute,
+    OpenDisputeCommand,
+)
+from app.modules.deals.application.use_cases.respond_dispute import (
+    RespondDispute,
+    RespondDisputeCommand,
+)
 from app.modules.deals.application.use_cases.show_deal import ShowDeal, ShowDealCommand
+from app.modules.deals.application.use_cases.show_dispute import (
+    ShowDispute,
+    ShowDisputeCommand,
+)
+from app.modules.deals.application.use_cases.withdraw_dispute import (
+    WithdrawDispute,
+    WithdrawDisputeCommand,
+)
 from app.modules.deals.domain.deal import DealRole, DealStatus
-from app.modules.deals.http.schemas import DealCancelIn, DealOut, DealsPageOut
+from app.modules.deals.domain.dispute import DisputeId
+from app.modules.deals.http.schemas import (
+    DealCancelIn,
+    DealOut,
+    DealsPageOut,
+    DisputeAnswerIn,
+    DisputeIn,
+    DisputeOut,
+)
+from app.modules.media.api import MediaApi
+from app.platform.http.ratelimit import RateLimit
 from app.platform.http.security import AUTHENTICATED
 from app.platform.kernel.ids import DealId, UserId
 from app.platform.kernel.pagination import DEFAULT_LIMIT, PageRequest
 from app.platform.kernel.principal import Principal
+from app.platform.ratelimit import Rate
 
 MY_DEALS_LIMIT: Final = 50
+DISPUTES_PER_USER = Rate("deals.disputes", "5/day")
+"""Спор будит вторую сторону уведомлением P0: открыть, отозвать и открыть снова — не спам."""
 
 router = APIRouter(tags=["deals"])
 DealPath = Annotated[UUID, Path(description="id сделки")]
@@ -138,6 +170,90 @@ async def cancel_deal(
         )
     )
     return await _shown(show, principal.user_id, DealId(deal_id))
+
+
+@router.post(
+    "/deals/{deal_id:uuid}/dispute",
+    response_model=DisputeOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[*AUTHENTICATED, Depends(RateLimit(DISPUTES_PER_USER))],
+)
+@inject
+async def open_dispute(
+    deal_id: DealPath,
+    body: DisputeIn,
+    principal: FromDishka[Principal],
+    open_: FromDishka[OpenDispute],
+    show: FromDishka[ShowDispute],
+    media: FromDishka[MediaApi],
+) -> DisputeOut:
+    """Спор по идущей сделке (S52): сделка `disputed`, второй стороне 48 ч на ответ. Сделка не
+    `agreed` — 409 `deal_not_active`; фото не свои или не `dispute` — 404 / 409."""
+    dispute_id = await open_(
+        OpenDisputeCommand(
+            actor_id=principal.user_id,
+            deal_id=DealId(deal_id),
+            kind=body.kind,
+            description=body.description,
+            media_ids=body.photos(),
+        )
+    )
+    return await _dispute(show, media, principal.user_id, dispute_id)
+
+
+@router.post(
+    "/deals/{deal_id:uuid}/dispute/respond",
+    response_model=DisputeOut,
+    dependencies=AUTHENTICATED,
+)
+@inject
+async def respond_dispute(
+    deal_id: DealPath,
+    body: DisputeAnswerIn,
+    principal: FromDishka[Principal],
+    respond: FromDishka[RespondDispute],
+    show: FromDishka[ShowDispute],
+    media: FromDishka[MediaApi],
+) -> DisputeOut:
+    """Ответ второй стороны — один, пока модератор не решил; иначе 409
+    `dispute_state_conflict`. Идущего спора нет — 404 `dispute_not_found`."""
+    dispute_id = await respond(
+        RespondDisputeCommand(
+            actor_id=principal.user_id,
+            deal_id=DealId(deal_id),
+            text=body.text,
+            media_ids=body.photos(),
+        )
+    )
+    return await _dispute(show, media, principal.user_id, dispute_id)
+
+
+@router.post(
+    "/deals/{deal_id:uuid}/dispute/withdraw",
+    response_model=DisputeOut,
+    dependencies=AUTHENTICATED,
+)
+@inject
+async def withdraw_dispute(
+    deal_id: DealPath,
+    principal: FromDishka[Principal],
+    withdraw: FromDishka[WithdrawDispute],
+    show: FromDishka[ShowDispute],
+    media: FromDishka[MediaApi],
+) -> DisputeOut:
+    """Отозвать свой спор, пока модератор не решил: сделка снова идёт."""
+    dispute_id = await withdraw(
+        WithdrawDisputeCommand(actor_id=principal.user_id, deal_id=DealId(deal_id))
+    )
+    return await _dispute(show, media, principal.user_id, dispute_id)
+
+
+async def _dispute(
+    show: ShowDispute, media: MediaApi, viewer_id: UserId, dispute_id: DisputeId
+) -> DisputeOut:
+    dispute, deal_status = await show(ShowDisputeCommand(actor_id=viewer_id, dispute_id=dispute_id))
+    refs = await media.refs([*dispute.media_ids, *dispute.response_media_ids])
+    return DisputeOut.of(dispute, viewer_id, deal_status=deal_status, refs=refs)
 
 
 async def _shown(show: ShowDeal, viewer_id: UserId, deal_id: DealId) -> DealOut:

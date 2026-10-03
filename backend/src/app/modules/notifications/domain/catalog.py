@@ -23,6 +23,8 @@ class NotificationType(StrEnum):
     DEAL_PROPOSED = "deal.proposed"
     DEAL_CANCELLED = "deal.cancelled"
     DISPUTE_OPENED = "dispute.opened"
+    DISPUTE_RESOLVED = "dispute.resolved"
+    """Решение модератора по спору обеим сторонам (6.1c): statement of reasons."""
     DEAL_REMINDER = "deal.reminder"
     DEAL_COMPLETION_PROMPT = "deal.completion_prompt"
     REVIEW_REQUEST = "review.request"
@@ -128,6 +130,10 @@ CATALOG: Mapping[NotificationType, TypeSpec] = MappingProxyType(
         ),
         NotificationType.DISPUTE_OPENED: TypeSpec(
             group=EventGroup.DEALS, priority=Priority.P0, channels=BOT_AND_APP
+        ),
+        # решение по спору — решение модерации: служебная группа, не выключается
+        NotificationType.DISPUTE_RESOLVED: TypeSpec(
+            group=EventGroup.ACCOUNT, priority=Priority.P1, channels=BOT_AND_APP
         ),
         NotificationType.DEAL_REMINDER: TypeSpec(
             group=EventGroup.DEALS, priority=Priority.P1, channels=BOT

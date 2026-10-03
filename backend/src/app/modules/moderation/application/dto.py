@@ -1,14 +1,17 @@
 """DTO модуля moderation (ADR-0020 §6)."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
+from app.modules.deals.api import DealBrief, DisputeSummary
+from app.modules.media.api import MediaRef
 from app.modules.moderation.domain.cases import CaseStatus
 from app.modules.moderation.domain.queues import Queue
 from app.modules.moderation.domain.sanctions import SanctionStep
 from app.platform.ai.port import ContentKind
-from app.platform.kernel.ids import CaseId, RestrictionId, UserId
+from app.platform.kernel.ids import CaseId, MediaId, RestrictionId, UserId
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -75,3 +78,17 @@ class OpenCaseView:
     status: CaseStatus
     due_at: datetime
     signals: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DisputeDossier:
+    """Спор модератору (`cli dispute-show`): кейс, спор, сделка и фото обеих сторон."""
+
+    case_id: CaseId
+    case_status: CaseStatus
+    queue: Queue
+    due_at: datetime
+    dispute: DisputeSummary
+    deal: DealBrief | None
+    photos: Mapping[MediaId, MediaRef]
+    """Фото по id: адреса — presigned GET приватного бакета на 5 минут."""

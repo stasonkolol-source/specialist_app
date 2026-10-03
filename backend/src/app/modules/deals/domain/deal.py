@@ -9,7 +9,9 @@
   (`auto_complete`, задача `deals.auto_complete`, 6.1b);
 - `proposed` или `agreed` → `cancelled` — сторона отменяет с причиной, система — предложение без
   ответа 72 ч (`expire_proposal`, 6.1b) и удалённый аккаунт;
-- `agreed` → `disputed` → `completed` / `cancelled` — спор и решение модератора (6.1c).
+- `agreed` → `disputed` → `completed` / `cancelled` — спор и решение модератора (6.1c,
+  domain/dispute.py); `disputed` → `agreed` — открывший отозвал спор. Под спором сделку не
+  завершить и не отменить, сроки 6.1b её не трогают.
 
 Сроки (ARCHITECTURE §12.3, 6.1b): за 2 ч до времени сделки — напоминание сторонам (`remind`),
 через 3 ч после него — «Работа выполнена?» (`prompt_completion`); у сделки без времени вопрос
@@ -96,6 +98,8 @@ class DealCancelReason(StrEnum):
     """Предложение «Договорились» не подтвердили за 72 ч (6.1b)."""
     ACCOUNT_DELETED = "account_deleted"
     """Аккаунт одной из сторон удалён."""
+    DISPUTE = "dispute"
+    """Модератор отменил сделку по итогам спора (6.1c)."""
 
 
 PARTY_CANCEL_REASONS: Final = frozenset(
@@ -117,6 +121,8 @@ class ActorKind(StrEnum):
 
 SYSTEM: Final = "system"
 """Кто отменил, если не сторона: `cancelled_by` события DealCancelled."""
+MODERATOR: Final = "moderator"
+"""Отменил модератор решением по спору (6.1c)."""
 
 ACTIVE: Final = frozenset({DealStatus.PROPOSED, DealStatus.AGREED, DealStatus.DISPUTED})
 """Сделка ещё идёт: в списках «активные», удаление аккаунта её отменяет."""
@@ -125,7 +131,7 @@ CANCELLABLE: Final = frozenset({DealStatus.PROPOSED, DealStatus.AGREED})
 _ALLOWED: Final[dict[DealStatus, frozenset[DealStatus]]] = {
     DealStatus.PROPOSED: frozenset({DealStatus.AGREED, DealStatus.CANCELLED}),
     DealStatus.AGREED: frozenset({DealStatus.COMPLETED, DealStatus.CANCELLED, DealStatus.DISPUTED}),
-    DealStatus.DISPUTED: frozenset({DealStatus.COMPLETED, DealStatus.CANCELLED}),
+    DealStatus.DISPUTED: frozenset({DealStatus.COMPLETED, DealStatus.CANCELLED, DealStatus.AGREED}),
     DealStatus.COMPLETED: frozenset(),
     DealStatus.CANCELLED: frozenset(),
 }
@@ -434,6 +440,48 @@ class Deal(VersionedAggregate):
         self._cancel(by=None, by_role=SYSTEM, kind=ActorKind.SYSTEM, reason=reason, now=now)
         return True
 
+    def open_dispute(self, *, actor_id: UserId, now: datetime) -> None:
+        """Сторона открыла спор (Dispute.open): идущая сделка — `disputed`."""
+        self._party(actor_id)
+        if self.status is not DealStatus.AGREED:
+            raise DealNotActiveError(deal_id=self.id, deal_status=self.status.value)
+        self._move(DealStatus.DISPUTED, by=actor_id, kind=ActorKind.USER, now=now, reason="dispute")
+
+    def resume_after_dispute(self, *, actor_id: UserId, now: datetime) -> None:
+        """Спор отозван: сделка снова идёт — отметки «Работа выполнена» и сроки прежние."""
+        if self.status is not DealStatus.DISPUTED:
+            raise DealNotActiveError(deal_id=self.id, deal_status=self.status.value)
+        self._move(
+            DealStatus.AGREED,
+            by=actor_id,
+            kind=ActorKind.USER,
+            now=now,
+            reason="dispute_withdrawn",
+        )
+
+    def settle_dispute(
+        self, *, target: DealStatus, moderator_id: UserId | None, now: datetime
+    ) -> None:
+        """Решение модератора по спору: `completed` (DealCompleted — заявка завершена, отзыв) или
+        `cancelled` (DealCancelled от модератора — заявка снова открыта)."""
+        if self.status is not DealStatus.DISPUTED:
+            raise DealNotActiveError(deal_id=self.id, deal_status=self.status.value)
+        if target is DealStatus.COMPLETED:
+            self._move(target, by=moderator_id, kind=ActorKind.MODERATOR, now=now, reason="dispute")
+            self.completed_at = now
+            self._record(self._completed_event(now, auto=False))
+            return
+        if target is not DealStatus.CANCELLED:
+            raise InvalidDealError(field="outcome", reason="not_allowed")
+        self._cancel(
+            by=None,
+            by_role=MODERATOR,
+            kind=ActorKind.MODERATOR,
+            reason=DealCancelReason.DISPUTE,
+            now=now,
+            actor_id=moderator_id,
+        )
+
     def pull_history(self) -> list[DealTransition]:
         history, self._history = self._history, []
         return history
@@ -479,8 +527,12 @@ class Deal(VersionedAggregate):
         kind: ActorKind,
         reason: DealCancelReason,
         now: datetime,
+        actor_id: UserId | None = None,
     ) -> None:
-        self._move(DealStatus.CANCELLED, by=by, kind=kind, now=now, reason=reason.value)
+        """`by` — отменившая сторона (`cancelled_by`); модератор — только в истории
+        (`actor_id`): стороне его отмена — не «отменил я» и не «вторая сторона»."""
+        actor = by if actor_id is None else actor_id
+        self._move(DealStatus.CANCELLED, by=actor, kind=kind, now=now, reason=reason.value)
         self.cancelled_at, self.cancelled_by, self.cancel_reason = now, by, reason
         self._record(
             DealCancelled(

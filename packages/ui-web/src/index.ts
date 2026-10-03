@@ -20,6 +20,7 @@ export {
   Checkbox,
   Option,
   RadioGroup,
+  RadioRow,
   Segmented,
   SegmentedNav,
   Switch,

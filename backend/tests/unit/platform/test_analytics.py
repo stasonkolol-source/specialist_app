@@ -12,7 +12,8 @@ import pytest
 from pydantic import SecretStr, ValidationError
 from structlog.testing import capture_logs
 
-from app.modules.deals.domain.deal import DealCancelReason, DealOrigin, DealRole
+from app.modules.deals.domain.deal import MODERATOR, SYSTEM, DealCancelReason, DealOrigin, DealRole
+from app.modules.deals.domain.dispute import DisputeKind
 from app.modules.growth.domain.attribution import AttributionSource
 from app.modules.identity.domain.user import UserIntent
 from app.modules.jobs.domain.job import CloseReason, Urgency
@@ -27,6 +28,7 @@ from app.platform.analytics.events import (
     DEAL_CANCELLED_BY,
     DEAL_ORIGINS,
     DEAL_ROLES,
+    DISPUTE_KINDS,
     ENTRY_POINTS,
     EVENTS,
     INTENTS,
@@ -125,6 +127,7 @@ def test_wired_events_are_those_of_the_finished_steps() -> None:
         EventName.DEAL_AGREED: "6.1a",
         EventName.DEAL_COMPLETED: "6.1a",
         EventName.DEAL_CANCELLED: "6.1a",
+        EventName.DISPUTE_OPENED: "6.1c",
         EventName.CONVERSATION_STARTED: "6.3a",
         EventName.MESSAGE_SENT: "6.3a",
         EventName.CONTACT_SHARED: "6.3b",
@@ -141,8 +144,9 @@ def test_closed_lists_match_the_domain() -> None:
     assert {r.value for r in CloseReason} == CLOSE_REASONS
     assert {r.value for r in DealRole} == DEAL_ROLES
     assert {o.value for o in DealOrigin} == DEAL_ORIGINS
-    assert {r.value for r in DealRole} | {"system"} == DEAL_CANCELLED_BY
+    assert {r.value for r in DealRole} | {SYSTEM, MODERATOR} == DEAL_CANCELLED_BY
     assert {r.value for r in DealCancelReason} == DEAL_CANCEL_REASONS
+    assert {k.value for k in DisputeKind} == DISPUTE_KINDS
     assert {k.value for k in ConversationKind} - {"support"} == CONVERSATION_KINDS
     assert {r.value for r in ParticipantRole} - {"support"} == DEAL_ROLES
     assert {t.value for t in ContactType} == CONTACT_TYPES

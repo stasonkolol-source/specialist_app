@@ -22,3 +22,24 @@ class InvalidDealError(DomainValidationError):
 
     code = "invalid_deal"
     public_params = ("field", "reason")
+
+
+class DisputeNotFoundError(NotFoundError):
+    """Спора по сделке нет (или человек в сделке не участвует)."""
+
+    code = "dispute_not_found"
+
+
+class DisputeStateError(ConflictError):
+    """Действие со спором невозможно: спор уже решён или отозван, ответ уже дан, отвечает только
+    вторая сторона, отзывает только открывший (`reason`)."""
+
+    code = "dispute_state_conflict"
+    public_params = ("dispute_status", "reason")
+
+
+class InvalidDisputeError(DomainValidationError):
+    """Поле спора нарушает правило (`field`, `reason`): пустое или длинное описание, много фото."""
+
+    code = "invalid_dispute"
+    public_params = ("field", "reason")

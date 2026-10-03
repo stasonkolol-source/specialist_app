@@ -14,4 +14,5 @@ export const DealCancelReason = {
   other: 'other',
   expired: 'expired',
   account_deleted: 'account_deleted',
+  dispute: 'dispute',
 } as const;

@@ -257,7 +257,9 @@ async def test_open_case_about_a_user_holds_their_deletion(moderation: Moderatio
     await moderation.decide(DecideCaseCommand(case_id=done, verdict=APPROVED))
 
     async with moderation.uow:
-        held = await CasesDeletionHold(moderation.session).held([accused, cleared, bystander])
+        held = await CasesDeletionHold(moderation.session, moderation.deals).held(
+            [accused, cleared, bystander]
+        )
 
     assert held == {accused}
 

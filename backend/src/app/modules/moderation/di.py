@@ -27,10 +27,11 @@ from app.modules.moderation.application.ports import (
 )
 from app.modules.moderation.application.queries import ModerationQueries
 from app.modules.moderation.application.use_cases.auto_check import AutoCheck
-from app.modules.moderation.application.use_cases.decide_case import DecideCase
+from app.modules.moderation.application.use_cases.decide_case import CaseDecider, DecideCase
 from app.modules.moderation.application.use_cases.import_content_rules import (
     ImportContentRules,
 )
+from app.modules.moderation.application.use_cases.inspect_dispute import InspectDispute
 from app.modules.moderation.application.use_cases.open_case import CaseOpener, OpenCase
 from app.modules.moderation.application.use_cases.record_rate_limit_signals import (
     RecordRateLimitSignals,
@@ -38,7 +39,9 @@ from app.modules.moderation.application.use_cases.record_rate_limit_signals impo
 from app.modules.moderation.application.use_cases.record_reregistration import (
     RecordReregistration,
 )
+from app.modules.moderation.application.use_cases.resolve_dispute import ResolveDispute
 from app.modules.moderation.application.use_cases.take_case import EscalateCase, TakeCase
+from app.modules.moderation.application.use_cases.track_dispute import TrackDispute
 from app.modules.moderation.domain.cases import EntityType
 from app.modules.moderation.infrastructure.cases import (
     SqlCaseRepository,
@@ -131,5 +134,9 @@ class ModerationProvider(Provider):
     open_case = provide(OpenCase)
     take_case = provide(TakeCase)
     escalate_case = provide(EscalateCase)
+    decider = provide(CaseDecider)
     decide_case = provide(DecideCase)
+    track_dispute = provide(TrackDispute)
+    resolve_dispute = provide(ResolveDispute)
+    inspect_dispute = provide(InspectDispute)
     record_rate_limit_signals = provide(RecordRateLimitSignals)

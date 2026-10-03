@@ -1444,20 +1444,33 @@ CREATE TABLE deals.status_history (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE deals.disputes (           -- спор без эскроу: медиация и санкции (ADR-0016)
-  id           uuid PRIMARY KEY DEFAULT uuidv7(),
-  deal_id      uuid NOT NULL REFERENCES deals.deals(id),
-  opened_by    uuid NOT NULL REFERENCES identity.users(id),
-  kind         text NOT NULL CHECK (kind IN ('no_show','quality','prepayment_taken','damage','safety','other')),
-  description  text NOT NULL,
-  evidence     jsonb NOT NULL DEFAULT '[]',   -- media ids, ссылки на сообщения
-  respond_by   timestamptz NOT NULL,          -- вторая сторона отвечает в течение 48 ч
-  status       text NOT NULL DEFAULT 'open' CHECK (status IN ('open','awaiting_response','in_review','resolved')),
-  resolution   text,
-  case_id      uuid,                          -- moderation.cases
-  created_at   timestamptz NOT NULL DEFAULT now(),
-  resolved_at  timestamptz
+CREATE TABLE deals.disputes (           -- спор без эскроу: медиация и санкции (ADR-0016, 6.1c)
+  id            uuid PRIMARY KEY DEFAULT uuidv7(),
+  deal_id       uuid NOT NULL REFERENCES deals.deals(id),
+  opened_by     uuid NOT NULL REFERENCES identity.users(id),
+  respondent_id uuid NOT NULL REFERENCES identity.users(id),   -- вторая сторона: о ней кейс модерации
+  kind          text NOT NULL CHECK (kind IN ('no_show','quality','prepayment_taken','damage','safety','other')),
+  description   text NOT NULL CHECK (char_length(description) BETWEEN 1 AND 2000),
+  media_ids     uuid[] NOT NULL DEFAULT '{}',  -- фото-доказательства открывшего (media `dispute`, приватный бакет)
+  respond_by    timestamptz NOT NULL,          -- вторая сторона отвечает в течение 48 ч
+  status        text NOT NULL DEFAULT 'open'
+                CHECK (status IN ('open','answered','no_response','resolved','withdrawn')),
+  response      text CHECK (char_length(response) <= 2000),
+  response_media_ids uuid[] NOT NULL DEFAULT '{}',
+  responded_at  timestamptz,
+  unanswered_at timestamptz,                   -- `deals.dispute_response_sla`: 48 ч без ответа
+  withdrawn_at  timestamptz,
+  outcome       text CHECK (outcome IN ('completed','cancelled')),   -- решение модератора
+  reason_code   varchar(64),
+  resolved_by   uuid REFERENCES identity.users(id),
+  resolved_at   timestamptz,
+  version       int NOT NULL DEFAULT 1,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now()
 );
+CREATE UNIQUE INDEX ON deals.disputes (deal_id) WHERE status IN ('open','answered','no_response');  -- один идущий спор
+CREATE INDEX ON deals.disputes (respond_by) WHERE status = 'open';                                   -- срок ответа
+-- кейс модерации спора — объект `dispute` в moderation.cases (moderation выше deals по DAG)
 
 CREATE TABLE reviews.reviews (
   id                 uuid PRIMARY KEY DEFAULT uuidv7(),
@@ -2176,6 +2189,7 @@ stateDiagram-v2
     agreed --> disputed: «работа не выполнена» / жалоба
     disputed --> completed: решение модератора
     disputed --> cancelled: решение модератора
+    disputed --> agreed: открывший отозвал спор (6.1c)
     completed --> [*]: запрос отзыва клиенту (v1 — обеим сторонам)
     cancelled --> [*]
 ```
@@ -2211,14 +2225,14 @@ stateDiagram-v2
    - записывает HMAC телефона и Telegram ID в `identity.deleted_identity_hashes` на 12 месяцев.
 
    Повторная регистрация тем же номером или аккаунтом помечается сигналом риска `reregistered_after_deletion`. Данные при этом не восстанавливаются. Это закрывает «отмывание» рейтинга через удаление и новую регистрацию. Судьбу отзывов при удалении обсудить с юристом после MVP (§19.3).
-3. **Legal hold.** Сущности, связанные с открытыми `moderation.cases` и `deals.disputes`, не удаляются до решения. Медиа: `media.purge_deleted` спрашивает порт `media.api.LegalHold` (реализует moderation — файлы-доказательства `cases.media_ids` и кейсы о самом файле; споры — с 6.1c) и откладывает удержанный файл на сутки.
+3. **Legal hold.** Сущности, связанные с открытыми `moderation.cases` и `deals.disputes`, не удаляются до решения. Медиа: `media.purge_deleted` спрашивает порт `media.api.LegalHold` (реализует moderation — файлы-доказательства `cases.media_ids`, кейсы о самом файле и фото идущих споров — через фасад deals, 6.1c) и откладывает удержанный файл на сутки.
 4. Сохраняются только обезличенные сделки для статистики и записи, которые закон требует хранить:
    - бухгалтерские документы по покупкам;
    - журнал акцептов ToS и решения модерации — в пределах срока исковой давности.
 
    Эти записи хранятся с псевдонимизированным `user_id`.
 
-**Как это устроено (2.12a).** identity исполняет запрос одной транзакцией на аккаунт: хэши способов входа, обезличенный `User` (имя «Удалённый пользователь», без способов входа и телефона), отзыв сессий и событие `UserDeleted`. Подписчики удаляют своё сами: specialists — профиль и портфолио (событие `ProfileDeleted`, на него подписан прайс в pricing и read-model поиска), media — все файлы владельца (задачей `media.discard_media`, как удаление владельцем), notifications — ленту, доставки, каналы и настройки, growth — атрибуцию. Legal hold аккаунта — порт `identity.api.DeletionHold`, его реализует moderation (открытые кейсы о пользователе); споры добавит 6.1c. Ключ HMAC — `APP_HASH_KEY`, на stage и проде обязателен.
+**Как это устроено (2.12a).** identity исполняет запрос одной транзакцией на аккаунт: хэши способов входа, обезличенный `User` (имя «Удалённый пользователь», без способов входа и телефона), отзыв сессий и событие `UserDeleted`. Подписчики удаляют своё сами: specialists — профиль и портфолио (событие `ProfileDeleted`, на него подписан прайс в pricing и read-model поиска), media — все файлы владельца (задачей `media.discard_media`, как удаление владельцем), notifications — ленту, доставки, каналы и настройки, growth — атрибуцию. Legal hold аккаунта — порт `identity.api.DeletionHold`, его реализует moderation: открытые кейсы о пользователе и идущие споры, где он сторона — открывшая или вторая (6.1c, фасад deals). Ключ HMAC — `APP_HASH_KEY`, на stage и проде обязателен.
 
 **Матрица сроков хранения** (основания — [research/05 §1.9](research/05-legal-and-payments-serbia.md#19-сроки-хранения)):
 
@@ -2508,7 +2522,8 @@ sequenceDiagram
 | `POST /deals/{id}/confirm`, `/decline` | Вторая сторона подтверждает или отклоняет ждущее предложение (S53, кнопки бота `deal.proposed`); подтверждённую сделку `decline` не отменяет |
 | `GET /me/deal-history?cursor` | BFF S28 «Сделки и отзывы» (`interfaces/http/views/history.py`, 7.3): свои сделки в обеих ролях, новые первыми — вторая сторона (у исполнителя — имя с карточки специалиста), цена, статус, кто отменил, свой отзыв и `review_until` |
 | `GET /deals/{id}/card` | BFF S26 и S53 (`interfaces/http/views/deal.py`, 6.2a и 6.5): условия, вторая сторона (её @username — только после `agreed` и если она его показывает), место, вехи; у ждущего предложения — `proposed_at` и `proposal_expires_at` (72 ч); свой отзыв (`my_review`) и до когда клиент может его оставить (`review_until`, 7.2) |
-| `POST /deals/{id}/complete`, `/cancel`, `/dispute` | Выполнено / отмена с причиной / спор |
+| `POST /deals/{id}/complete`, `/cancel`, `/dispute` | Выполнено / отмена с причиной / спор (S52, 6.1c): что случилось, описание, свои фото `dispute`; ответ — спор стороне (`DisputeOut`, как `dispute` карточки S26) |
+| `POST /deals/{id}/dispute/respond`, `/dispute/withdraw` | Ответ второй стороны (один, и после 48 ч, пока нет решения) и отзыв спора открывшим — сделка снова `agreed` (6.1c) |
 | `POST /deals/{id}/review` | Оставить отзыв (S27): клиент по сделке `completed`, не позже 14 дней, один раз — иначе 409 `review_not_allowed` (`not_completed`, `window_closed`, `not_client`) или `review_exists`; оценка, критерии, текст; виден после автопроверки; фото — v1 |
 | `POST /reviews/{id}/reply` | Публичный ответ того, о ком отзыв: один (409 `reply_exists`), виден после своей проверки |
 | `GET /review-invites/{token}` 🔓, `POST /review-invites/{token}` | Форма «отзыва до платформы» по приглашению (вход через Telegram обязателен, отдельная метка, в рейтинг не входит) |
@@ -2966,9 +2981,10 @@ flowchart LR
 | `message.received` | Участник диалога | Бот (если не в диалоге) + in-app, дебаунс окном 1 мин (6.3b): первое сообщение ставит задачу на конец окна; в конце окна — ничего, если получатель всё прочитал или смотрит диалог (метка присутствия по поллингу S30, 20 с) | P0 | «Ответить» (открывает диалог) |
 | `deal.proposed` | Вторая сторона договорённости | Бот + in-app | P0 | «Подтвердить», «Отклонить»; истекает через 72 ч |
 | `deal.cancelled` | Вторая сторона сделки (отмена системой — обе, кроме удалённого аккаунта) | Бот + in-app | P1 | «Открыть сделку»; кто отменил и причина, клиенту из отклика — «заявка снова открыта, прежние отклики вернулись» |
-| `dispute.opened` | Вторая сторона сделки | Бот + in-app | P0 | «Ответить» (48 ч на ответ) |
+| `dispute.opened` | Вторая сторона сделки | Бот + in-app | P0 | «Ответить» (`p_` → S52; 48 ч на ответ) |
+| `dispute.resolved` | Обе стороны спора | Бот + in-app, служебная группа `account` (не выключается) | P1 | «Посмотреть решение» (`p_` → S52): statement of reasons — сделка завершена или отменена и почему (6.1c) |
 | `deal.reminder` | Обе стороны | Бот | P1 | «Открыть» (за 2 ч до времени) |
-| `deal.completion_prompt` | Стороны, которые ещё не отметили: по сроку (3 ч после времени работы) и сразу, как отметила вторая сторона (`DealMarkedDone`, B2: «Исполнитель отметил работу «…» выполненной. Всё в порядке?») — один раз | Бот | P1 | Одним рядом: «Да, всё хорошо» (callback `dc:<deal>`, бот deals), «Есть проблема» (web_app `d_` → S52) |
+| `deal.completion_prompt` | Стороны, которые ещё не отметили: по сроку (3 ч после времени работы) и сразу, как отметила вторая сторона (`DealMarkedDone`, B2: «Исполнитель отметил работу «…» выполненной. Всё в порядке?») — один раз | Бот | P1 | Одним рядом: «Да, всё хорошо» (callback `dc:<deal>`, бот deals), «Есть проблема» (web_app `p_` → S52) |
 | `review.request` | Клиент (v1 — обе стороны) | Бот | P2 | «Оцените работу» после завершения, напоминание через 24 ч и за 2 дня до конца окна, пока отзыва нет; «1 ★ … 5 ★» одним рядом (callback `rv:<deal>:<оценка>`, бот reviews — отзыв без текста сразу на проверку), «Открыть форму отзыва» — к сделке (`d_` → S27) |
 | `review.published` | Исполнитель | Бот + in-app | P3 | Оценка и начало текста, «Ответить на отзыв» — «Мои отзывы» (`m_reviews`) |
 | `moderation.decision` | Автор контента | Бот + in-app | P1 | «Исправить», «Обжаловать» |
@@ -3002,6 +3018,7 @@ flowchart LR
 | `s_<base62>` | Профиль специалиста (S08) | `s_4bN8wE2rT6yU1iO3pA5sDf` |
 | `c_<base62>` | Диалог (S30) | `c_034W1ovwx2XBd7GhiJ9CHv` |
 | `d_<base62>` | Сделка (S26) | `d_6kL3jH8gF1dS4aZ7xC2vBn` |
+| `p_<base62>` | Проблема со сделкой — спор S52 (id сделки, 6.1c): «Есть проблема» под «Работа выполнена?», кнопки уведомлений о споре; атрибуция — как у сделки | `p_6kL3jH8gF1dS4aZ7xC2vBn` |
 | `h` | Главная (S03) | `h` |
 | `n` | Мастер новой заявки (S20a; команда бота `/new`) | `n` |
 | `m_jobs` | Мои заявки (S22; команда бота `/jobs`) | `m_jobs` |
@@ -3108,7 +3125,7 @@ flowchart LR
 | `deals.auto_complete` | ежечасно | Одна сторона подтвердила, прошло 72 ч → `completed`, запрос отзыва клиенту (v1 — обеим сторонам) |
 | `deals.expire_proposed` | каждые 15 мин | `proposed` старше 72 ч без подтверждения → `cancelled` («истекло»), уведомление инициатору |
 | `deals.reminders` | каждые 15 мин | `deal.reminder` за 2 ч до `scheduled_at` |
-| `disputes.response_sla` | каждые 30 мин | Вторая сторона не ответила за 48 ч → спор уходит модератору с пометкой «нет ответа» |
+| `deals.dispute_response_sla` | каждые 30 мин | Вторая сторона не ответила за 48 ч → спор `no_response`, кейс модерации получает пометку «нет ответа» (6.1c) |
 | `reviews.reminders` | ежечасно | Напоминание об отзыве через 24 ч после завершения и за 2 дня до закрытия окна 14 дней (`reviews.review_requests`) |
 | `reviews.recompute_ratings` | ночью | Пересчёт всех рейтингов: вес отзывов затухает (half-life 12 мес.), меняются средние категорий; изменившийся — `RatingChanged` |
 | `reviews.reveal_expired` | ежечасно (v1) | Double-blind: окно 14 дней закрылось → публикация отзыва, написанного одной стороной |

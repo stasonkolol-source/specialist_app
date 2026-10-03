@@ -1,7 +1,8 @@
 """Кнопки сделки в боте (DEVELOPMENT_PLAN 6.1b, 6.3b; ARCHITECTURE §11.3): «Да, выполнено» под
 «Работа выполнена?» вызывает тот же CompleteDeal, что S26: отметка стороны, вторая отметка
-завершает сделку. «Подтвердить» и «Отклонить» под «Договорились?» — те же ConfirmDeal и
-DeclineDeal, что S53. Повтор нажатия ничего не меняет, чужая сделка — «не найдена»."""
+завершает сделку; по сделке под спором (6.1c) — «решение примет поддержка», без отметки.
+«Подтвердить» и «Отклонить» под «Договорились?» — те же ConfirmDeal и DeclineDeal, что S53.
+Повтор нажатия ничего не меняет, чужая сделка — «не найдена»."""
 
 from collections.abc import AsyncIterator
 from typing import Any
@@ -106,6 +107,28 @@ async def test_yes_marks_then_completes_and_repeats_quietly(harness: BotHarness)
     assert alerts(foreign) == ["Сделка не найдена."]
     row = await sql(harness, "SELECT status FROM deals.deals WHERE id = :id", id=deal_id)
     assert row.status == "completed"
+
+
+async def test_yes_on_a_disputed_deal_leaves_it_to_support(harness: BotHarness) -> None:
+    client, performer = telegram_user(), telegram_user()
+    for telegram_id in (client, performer):
+        await harness.send(telegram_id, "/start")
+    deal_id = await agreed_deal(harness, client, performer)
+    await sql(harness, "UPDATE deals.deals SET status = 'disputed' WHERE id = :id", id=deal_id)
+
+    pressed = await harness.press(
+        performer, encode_callback(CallbackData(CallbackAction.DEAL_COMPLETE, deal_id))
+    )
+
+    assert edits(pressed) == [
+        "По сделке открыт спор: решение примет поддержка. Подробности — в приложении."
+    ]
+    row = await sql(
+        harness,
+        "SELECT status, performer_confirmed_at FROM deals.deals WHERE id = :id",
+        id=deal_id,
+    )
+    assert tuple(row) == ("disputed", None)
 
 
 async def test_confirm_and_decline_answer_the_proposal(harness: BotHarness) -> None:

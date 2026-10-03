@@ -14,7 +14,7 @@ from tests.plugins.identity import insert_user
 from app.modules.moderation.application.content_rules import ContentRulesChecker
 from app.modules.moderation.application.queries import ModerationQueries
 from app.modules.moderation.application.use_cases.auto_check import AutoCheck
-from app.modules.moderation.application.use_cases.decide_case import DecideCase
+from app.modules.moderation.application.use_cases.decide_case import CaseDecider, DecideCase
 from app.modules.moderation.application.use_cases.open_case import (
     CaseOpener,
     OpenCase,
@@ -36,6 +36,7 @@ from app.modules.moderation.infrastructure.queries import SqlCaseQueue, SqlCaseS
 from app.modules.moderation.tests.fakes import (
     START,
     FakeClassifier,
+    FakeDeals,
     FakeFlags,
     FakeIdentity,
     FakeMetrics,
@@ -74,6 +75,7 @@ class Moderation:
     rate_limit_signals: RecordRateLimitSignals
     queries: ModerationQueries
     hold: CasesLegalHold
+    deals: FakeDeals
     cases: SqlCaseRepository
     auto_check: AutoCheck
     rules: FakeRuleSource
@@ -132,6 +134,7 @@ def moderation(db_session: AsyncSession, procrastinate_app: procrastinate.App) -
     targets = FakeTargets({EntityType.JOB: jobs, EntityType.PROFILE: profiles})
     rules, omni, classifier = FakeRuleSource(), FakeModeration(), FakeClassifier()
     flags, metrics = FakeFlags(), FakeMetrics()
+    deals = FakeDeals()
     return Moderation(
         session=db_session,
         clock=clock,
@@ -144,17 +147,16 @@ def moderation(db_session: AsyncSession, procrastinate_app: procrastinate.App) -
         decide=DecideCase(
             uow,
             cases,
-            SqlSanctionRepository(db_session, uow),
-            signals,
-            identity,
-            targets,
+            CaseDecider(
+                cases, SqlSanctionRepository(db_session, uow), signals, identity, targets, audit
+            ),
             FakePolicy(),
-            audit,
             clock,
         ),
         rate_limit_signals=RecordRateLimitSignals(uow, overflows, signals, identity, clock),
         queries=ModerationQueries(SqlCaseStats(db_session), SqlCaseQueue(db_session), clock),
-        hold=CasesLegalHold(db_session),
+        hold=CasesLegalHold(db_session, deals),
+        deals=deals,
         cases=cases,
         auto_check=AutoCheck(
             uow,

@@ -136,6 +136,15 @@ const deal = createRoute({
   component: screen(() => import('../features/jobs/s26-deal/index.ts'), 'DealScreen'),
 });
 
+// Спор S52 (6.1c): «Есть проблема» S26 и по deep link `p_` (бот); открыть спор и ответить —
+// создающие действия: без согласия S02c
+const dispute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.dispute,
+  beforeLoad: requireConsent,
+  component: screen(() => import('../features/jobs/s52-dispute/index.ts'), 'DisputeScreen'),
+});
+
 // Отзыв S27 (7.3): «Оставить отзыв» S26 и S28; создающее действие — без согласия S02c
 const review = createRoute({
   getParentRoute: () => rootRoute,
@@ -467,6 +476,7 @@ export const routeTree = rootRoute.addChildren([
   manage,
   choice,
   deal,
+  dispute,
   review,
   history,
   createWhat,

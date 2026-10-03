@@ -7,9 +7,10 @@ payload: коды превращаются в слова каталога, да�
 заявки (`job.expiring`, `job.expired`) — callback-кнопки «Продлить» и «Закрыть», у приглашения
 (`job.invited`, 5.6) — «Посмотреть заявку» и «Откликнуться: «…»» на каждый шаблон получателя:
 нажатие обрабатывает бот модуля jobs (platform/telegram/callbacks.py). У «Работа выполнена?»
-(`deal.completion_prompt`, 6.1b) — callback «Да, выполнено» (бот deals) и web_app «Нет,
-проблема» к сделке; у «Договорились?» (`deal.proposed`, 6.3b) — callback «Подтвердить» и
-«Отклонить» (бот deals) и web_app «Посмотреть условия».
+(`deal.completion_prompt`, 6.1b) — callback «Да, выполнено» (бот deals) и web_app «Есть
+проблема» сразу на спор S52 (`p_`, 6.1c); у «Договорились?» (`deal.proposed`, 6.3b) — callback
+«Подтвердить» и «Отклонить» (бот deals) и web_app «Посмотреть условия». Спор (6.1c):
+`dispute.opened` — «Ответить» на S52, `dispute.resolved` — «Посмотреть решение».
 
 Шаблоны есть у типов, которые создаёт подписчик (tasks.py): тип без шаблонов — ошибка
 программиста, её ловит тест на каталоги.
@@ -33,6 +34,7 @@ from app.platform.telegram.callbacks import (
     encode_callback,
     ref_arg,
 )
+from app.platform.telegram.deeplinks import LinkType, StartLink, encode_start_param
 from app.platform.telegram.port import AppButton, Button, ButtonLine, CallbackButton
 
 RENDERED = frozenset(
@@ -54,6 +56,8 @@ RENDERED = frozenset(
         NotificationType.DEAL_COMPLETION_PROMPT,
         NotificationType.REVIEW_REQUEST,
         NotificationType.REVIEW_PUBLISHED,
+        NotificationType.DISPUTE_OPENED,
+        NotificationType.DISPUTE_RESOLVED,
     }
 )
 """Типы с шаблонами: остальные получат их вместе со своими подписчиками."""
@@ -84,6 +88,8 @@ BUTTONS: Mapping[NotificationType, str] = MappingProxyType(
         NotificationType.DEAL_CANCELLED: "notifications.deal.open",
         NotificationType.DEAL_REMINDER: "notifications.deal.open",
         NotificationType.REVIEW_PUBLISHED: "notifications.review_published.button",
+        NotificationType.DISPUTE_OPENED: "notifications.dispute_opened.button",
+        NotificationType.DISPUTE_RESOLVED: "notifications.dispute_resolved.button",
     }
 )
 """Подпись кнопки бота; ведёт она по коду deep link уведомления."""
@@ -103,6 +109,10 @@ DEAL_CANCEL_REASONS = frozenset({"plans_changed", "no_agreement", "no_contact", 
 
 PRICE_TYPES = frozenset({"fixed", "from", "hourly"})
 """Цена с суммой (`notifications.price.*`); договорная — без суммы."""
+
+DISPUTE_KINDS = frozenset({"no_show", "quality", "prepayment_taken", "damage", "safety", "other"})
+"""Что случилось (DisputeKind, S52): `notifications.dispute_kind.*`."""
+DISPUTE_OUTCOMES = frozenset({"completed", "cancelled"})
 
 PROHIBITED = frozenset({"drug_courier", "sexual_services", "weapons"})
 """Метки ADR-0016, которые человеку называются одинаково: запрещённые товары и услуги."""
@@ -167,6 +177,10 @@ class GettextNotificationRenderer:
                     performer=params.get("performer", ""),
                 ),
             )
+        if type_ is NotificationType.DISPUTE_OPENED:
+            return self._dispute_opened(params, locale)
+        if type_ is NotificationType.DISPUTE_RESOLVED:
+            return self._dispute_resolved(params, locale)
         if type_ is NotificationType.REVIEW_PUBLISHED:
             title = _short(params.get("title"))
             preview = params.get("preview")
@@ -285,6 +299,51 @@ class GettextNotificationRenderer:
             body = f"{body} {self._t('notifications.deal_cancelled.reopened', locale)}"
         return RenderedText(title=self._t("notifications.deal_cancelled.title", locale), body=body)
 
+    def _dispute_opened(self, params: Mapping[str, str], locale: Locale) -> RenderedText:
+        """«Клиент сообщил о проблеме со сделкой «…»: не пришёл» и срок ответа."""
+        by = "client" if params.get("by") == "client" else "performer"
+        kind = params.get("kind", "other")
+        kind = kind if kind in DISPUTE_KINDS else "other"
+        lines = [
+            self._t(
+                f"notifications.dispute_opened.body_{by}",
+                locale,
+                title=_short(params.get("title")),
+                kind=self._t(f"notifications.dispute_kind.{kind}", locale),
+            )
+        ]
+        if until := params.get("until"):
+            lines.append(
+                self._t(
+                    "notifications.dispute_opened.deadline",
+                    locale,
+                    when=self._datetime(until, locale),
+                )
+            )
+        return RenderedText(
+            title=self._t("notifications.dispute_opened.title", locale), body="\n".join(lines)
+        )
+
+    def _dispute_resolved(self, params: Mapping[str, str], locale: Locale) -> RenderedText:
+        """Statement of reasons: что решила поддержка и почему; незнакомый код причины —
+        общими словами."""
+        outcome = params.get("outcome", "")
+        outcome = outcome if outcome in DISPUTE_OUTCOMES else "cancelled"
+        reason = self._first(
+            locale,
+            f"notifications.dispute_reason.{params.get('reason', 'other')}",
+            "notifications.dispute_reason.other",
+        )
+        return RenderedText(
+            title=self._t("notifications.dispute_resolved.title", locale),
+            body=self._t(
+                f"notifications.dispute_resolved.body_{outcome}",
+                locale,
+                title=_short(params.get("title")),
+                reason=reason,
+            ),
+        )
+
     def _message_received(self, params: Mapping[str, str], locale: Locale) -> RenderedText:
         """«Алексей пишет» и начало сообщения; несколько — ещё и сколько их. Без текста (контакт,
         скрытое модерацией) — только сколько."""
@@ -395,24 +454,29 @@ class GettextNotificationRenderer:
         self, params: Mapping[str, str], link: str | None, locale: Locale
     ) -> tuple[ButtonLine, ...]:
         """Один ряд (B2): «Да, всё хорошо» — отметка в сделке прямо из чата (бот deals); «Есть
-        проблема» — к сделке в Mini App (спор S52 — 6.2)."""
+        проблема» — сразу спор S52 в Mini App (`p_`, 6.1c), без лишнего шага через сделку."""
         buttons: list[Button] = []
         try:
             deal_id = UUID(params.get("deal_id", ""))
         except ValueError:
-            pass
-        else:
+            deal_id = None
+        if deal_id is not None:
             buttons.append(
                 CallbackButton(
                     text=self._t("notifications.deal_completion_prompt.yes", locale),
                     data=encode_callback(CallbackData(CallbackAction.DEAL_COMPLETE, deal_id)),
                 )
             )
-        if link is not None and self._mini_app is not None:
+        problem = (
+            encode_start_param(StartLink(type=LinkType.DISPUTE, id=deal_id))
+            if deal_id is not None
+            else link
+        )
+        if problem is not None and self._mini_app is not None:
             buttons.append(
                 AppButton(
                     text=self._t("notifications.deal_completion_prompt.problem", locale),
-                    url=mini_app_url(self._mini_app, link),
+                    url=mini_app_url(self._mini_app, problem),
                 )
             )
         return (tuple(buttons),) if buttons else ()
@@ -501,7 +565,9 @@ class GettextNotificationRenderer:
             f"notifications.moderation_reason.{code}",
             "notifications.moderation_reason.other",
         )
-        parts = [self._t("notifications.moderation_decision.body", locale, reason=reason)]
+        # спор (6.1c): исправлять нечего — «поддержка нашла нарушение», а не «исправьте»
+        body = "body_dispute" if entity == "dispute" else "body"
+        parts = [self._t(f"notifications.moderation_decision.{body}", locale, reason=reason)]
         if params.get("sanction") == "warning":  # о санкции с ограничением — account.restricted
             parts.append(self._t("notifications.moderation_decision.warning", locale))
         if automated := params.get("automated"):  # в параметрах с 2.5a

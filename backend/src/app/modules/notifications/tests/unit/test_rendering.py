@@ -205,6 +205,8 @@ def test_types_without_templates_are_refused(renderer: GettextNotificationRender
         NotificationType.DEAL_COMPLETION_PROMPT,
         NotificationType.REVIEW_REQUEST,
         NotificationType.REVIEW_PUBLISHED,
+        NotificationType.DISPUTE_OPENED,
+        NotificationType.DISPUTE_RESOLVED,
     }
     with pytest.raises(ValueError, match="no templates"):
         renderer.text(NotificationType.JOB_MATCHED, {}, Locale.RU)
@@ -609,7 +611,8 @@ def test_completion_prompt_has_yes_and_problem_in_one_row(
     assert yes.text == "Да, всё хорошо"
     assert parse_callback(yes.data) == CallbackData(CallbackAction.DEAL_COMPLETE, DEAL_ID)
     assert isinstance(problem, AppButton)
-    assert (problem.text, problem.url) == ("Есть проблема", f"{MINI_APP}?startapp={DEAL_LINK}")
+    # «Есть проблема» — сразу спор S52 (`p_`, 6.1c), не карточка сделки
+    assert (problem.text, problem.url) == ("Есть проблема", f"{MINI_APP}?startapp={DISPUTE_LINK}")
 
 
 @pytest.mark.parametrize(
@@ -710,3 +713,105 @@ def test_review_published_with_text_and_rating_only(renderer: GettextNotificatio
     assert with_text.title == "Новый отзыв: 5 из 5"
     assert with_text.body == "«Всё отлично» — о работе «Повесить люстру»."
     assert bare.body == "Клиент поставил оценку без текста — работа «Повесить люстру»."
+
+
+DISPUTE_LINK = encode_start_param(StartLink(type=LinkType.DISPUTE, id=DEAL_ID))
+
+
+@pytest.mark.parametrize(
+    ("by", "kind", "body"),
+    [
+        ("client", "no_show", "Клиент сообщил о проблеме со сделкой «Люстра»: не пришёл."),
+        (
+            "performer",
+            "prepayment_taken",
+            "Исполнитель сообщил о проблеме со сделкой «Люстра»:"
+            " взял предоплату или просит больше.",
+        ),
+        ("client", "unknown", "Клиент сообщил о проблеме со сделкой «Люстра»: другое."),
+    ],
+)
+def test_dispute_opened_tells_who_what_and_until_when(
+    renderer: GettextNotificationRenderer, by: str, kind: str, body: str
+) -> None:
+    params = {"title": "Люстра", "by": by, "kind": kind, "until": "2026-10-05T17:40:00+00:00"}
+
+    text, [answer] = renderer.telegram(
+        NotificationType.DISPUTE_OPENED, params, DISPUTE_LINK, Locale.RU
+    )
+
+    assert text.startswith("<b>Проблема со сделкой</b>")
+    first, deadline = text.split("\n")[1:]
+    assert first == body
+    assert deadline.startswith("Ответьте до 5 октября 2026")
+    assert "19:40" in deadline  # Белград
+    assert isinstance(answer, AppButton)
+    assert (answer.text, answer.url) == ("Ответить", f"{MINI_APP}?startapp={DISPUTE_LINK}")
+
+
+@pytest.mark.parametrize(
+    ("outcome", "reason", "body"),
+    [
+        (
+            "completed",
+            "work_done",
+            "Поддержка рассмотрела спор по сделке «Люстра» и завершила сделку."
+            " Причина: работа выполнена.",
+        ),
+        (
+            "cancelled",
+            "no_show",
+            "Поддержка рассмотрела спор по сделке «Люстра» и отменила сделку."
+            " Причина: встреча не состоялась.",
+        ),
+        (
+            "cancelled",
+            "something_new",
+            "Поддержка рассмотрела спор по сделке «Люстра» и отменила сделку."
+            " Причина: решение по материалам спора.",
+        ),
+    ],
+)
+def test_dispute_resolved_states_outcome_and_reason(
+    renderer: GettextNotificationRenderer, outcome: str, reason: str, body: str
+) -> None:
+    text = renderer.text(
+        NotificationType.DISPUTE_RESOLVED,
+        {"title": "Люстра", "outcome": outcome, "reason": reason},
+        Locale.RU,
+    )
+
+    assert (text.title, text.body) == ("Решение по спору", body)
+
+
+@pytest.mark.parametrize("locale", SCRIPTS)
+def test_dispute_texts_on_three_scripts(
+    renderer: GettextNotificationRenderer, locale: Locale
+) -> None:
+    cases: list[tuple[NotificationType, dict[str, str]]] = [
+        (
+            NotificationType.DISPUTE_OPENED,
+            {"title": "Люстра", "by": "performer", "kind": kind, "until": "2026-10-05T17:40:00Z"},
+        )
+        for kind in ("no_show", "quality", "prepayment_taken", "damage", "safety", "other")
+    ] + [
+        (
+            NotificationType.DISPUTE_RESOLVED,
+            {"title": "Люстра", "outcome": outcome, "reason": reason},
+        )
+        for outcome in ("completed", "cancelled")
+        for reason in (
+            "work_done",
+            "not_done",
+            "no_show",
+            "poor_quality",
+            "prepayment_scam",
+            "no_response",
+            "mutual",
+            "other",
+        )
+    ]
+    for type_, params in cases:
+        text, buttons = renderer.telegram(type_, params, DISPUTE_LINK, locale)
+        assert "notifications." not in text, (type_, params)
+        assert [b.text for b in flat(buttons) if "notifications." in b.text] == []

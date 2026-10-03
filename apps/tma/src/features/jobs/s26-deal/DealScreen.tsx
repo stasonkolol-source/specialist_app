@@ -7,9 +7,11 @@
 // открыта. Данные — BFF `GET /deals/{id}/card`. «Договорились» из чата (6.5): второй стороне — S53
 // «… предлагает договориться» с условиями, сроком (72 ч) и «Подтвердить» / «Отклонить»,
 // предложившей — «ждём подтверждения». После договорённости — контакты: Telegram второй стороны
-// (если она его показывает) и «Поделиться контактом» — шторка S54 в чате сделки. «Есть проблема» →
-// S52 (спор, 6.1c) — в своём шаге. Завершена (7.3): шаг «Отзыв» в таймлайне, MainButton «Оставить
-// отзыв» (S27) клиенту, пока окно открыто, и статус своего отзыва.
+// (если она его показывает) и «Поделиться контактом» — шторка S54 в чате сделки. SecondaryButton
+// «Есть проблема» → спор S52 (6.1c; старый клиент Telegram — кнопкой в контенте); под спором —
+// «сделка на паузе» и «Спор по сделке», после решения — «Решение по спору». Завершена (7.3): шаг
+// «Отзыв» в таймлайне, MainButton «Оставить отзыв» (S27) клиенту, пока окно открыто, и статус
+// своего отзыва.
 import type { DealCancelReason, DealCardOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import {
@@ -21,7 +23,7 @@ import {
   useStartConversation,
 } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
-import { useBackButton, usePlatform } from '@sosed/platform';
+import { useBackButton, usePlatform, useSecondaryButton } from '@sosed/platform';
 import type { TimelineItem } from '@sosed/ui-web';
 import {
   Avatar,
@@ -50,7 +52,14 @@ import { useId, useState } from 'react';
 import { useStepButton } from '../shared/flow.ts';
 import { useOfferPrice } from '../shared/labels.ts';
 import { LoadError } from '../shared/LoadError.tsx';
-import { JOBS_PATHS, chatPath, jobIdOf, reviewPath, specialistPath } from '../shared/paths.ts';
+import {
+  JOBS_PATHS,
+  chatPath,
+  disputePath,
+  jobIdOf,
+  reviewPath,
+  specialistPath,
+} from '../shared/paths.ts';
 
 /** Статус своего отзыва (7.3): API отдаёт строкой. */
 type ReviewState = 'under_review' | 'published' | 'removed';
@@ -212,6 +221,7 @@ function Deal({ deal }: { deal: DealCardOut }) {
           onClick: () => complete.mutate(deal.id),
         },
   );
+  const problem = useProblemButton(deal, cancelling);
 
   return (
     <section className="flex flex-col gap-3 px-4 pt-3 pb-6">
@@ -224,10 +234,17 @@ function Deal({ deal }: { deal: DealCardOut }) {
         </Banner>
       )}
       <Counterpart deal={deal} />
-      {(agreed || deal.status === 'completed') && <Contacts deal={deal} />}
+      {(agreed || deal.status === 'disputed' || deal.status === 'completed') && (
+        <Contacts deal={deal} />
+      )}
       <Address deal={deal} />
       <Steps deal={deal} />
       <State deal={deal} />
+      {problem.visible && !problem.native && (
+        <Button variant="secondary" full onClick={problem.open}>
+          {problem.text}
+        </Button>
+      )}
       {failed && (
         <ActionError
           error={failed}
@@ -260,6 +277,24 @@ function Deal({ deal }: { deal: DealCardOut }) {
       )}
     </section>
   );
+}
+
+/** SecondaryButton спора S52: «Есть проблема» у идущей сделки, «Спор по сделке» под спором,
+ *  «Решение по спору» после решения. До Bot API 7.10 — кнопкой в контенте (`native: false`). */
+function useProblemButton(deal: DealCardOut, cancelling: boolean) {
+  const { t } = useTranslation('jobs');
+  const router = useRouter();
+  const resolved = deal.dispute?.status === 'resolved';
+  const text =
+    deal.status === 'disputed'
+      ? t('deal.disputeLink')
+      : resolved
+        ? t('deal.disputeResult')
+        : t('deal.problem');
+  const visible = deal.status === 'agreed' || deal.status === 'disputed' || resolved;
+  const open = () => void router.navigate({ to: disputePath(deal.id) });
+  const { native } = useSecondaryButton({ text, visible: visible && !cancelling, onClick: open });
+  return { visible, native, text, open };
 }
 
 /** Название и статус, «сегодня в 19:00 · 3 500 RSD». */
@@ -465,7 +500,11 @@ function Steps({ deal }: { deal: DealCardOut }) {
       key: 'agreed',
       title: t('deal.step.agreed'),
       meta: work,
-      state: done ? 'done' : deal.status === 'agreed' ? 'now' : 'next',
+      state: done
+        ? 'done'
+        : deal.status === 'agreed' || deal.status === 'disputed'
+          ? 'now'
+          : 'next',
     },
     {
       key: 'done',
@@ -521,12 +560,21 @@ function State({ deal }: { deal: DealCardOut }) {
         ? t('deal.cancelledExpired')
         : reason === 'account_deleted'
           ? t('deal.cancelledDeleted')
-          : t(deal.cancelled_by_me ? 'deal.cancelledByMe' : 'deal.cancelledByOther', {
-              reason: t(`deal.reason.${partyReason(reason)}`),
-            });
+          : reason === 'dispute'
+            ? t('deal.cancelledDispute')
+            : t(deal.cancelled_by_me ? 'deal.cancelledByMe' : 'deal.cancelledByOther', {
+                reason: t(`deal.reason.${partyReason(reason)}`),
+              });
     return (
       <Banner tone="info" role="status">
         {text}
+      </Banner>
+    );
+  }
+  if (deal.status === 'disputed') {
+    return (
+      <Banner tone="warn" role="status">
+        {t('deal.disputeOpen')}
       </Banner>
     );
   }

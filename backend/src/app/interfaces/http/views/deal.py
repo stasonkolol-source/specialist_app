@@ -4,9 +4,13 @@
 
 Только сторонам: чужая сделка — 404 `deal_not_found`. Вехи таймлайна — отклик, выбор, отметки
 «Работа выполнена» обеих сторон, завершение или отмена. Отзыв (7.2): свой — статус и оценка;
-клиенту завершённой сделки — до когда его можно оставить.
+клиенту завершённой сделки — до когда его можно оставить. Спор (6.1c, S52): последний спор
+сделки — что случилось и чьё, срок ответа, ответ, решение; фото обеих сторон — presigned GET
+приватного бакета на 5 минут (только сторонам). Форма — как ответ `POST /deals/{id}/dispute…`:
+экран кладёт его в кэш карточки без перечитывания.
 """
 
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Final, Literal, cast
 from uuid import UUID
@@ -18,26 +22,28 @@ from pydantic import BaseModel, Field
 from app.interfaces.http.views.specialist import (
     CardNamedOut,
     CardPhotoOut,
+    CardVariantOut,
     _money,
     _photo,
     _visible_cards,
 )
-from app.modules.deals.api import DealsApi, DealSummary
+from app.modules.deals.api import DealsApi, DealSummary, DisputeSummary
 from app.modules.geo.api import GeoApi
 from app.modules.identity.api import IdentityApi
 from app.modules.jobs.api import DealJob, JobsApi
-from app.modules.media.api import MediaApi
+from app.modules.media.api import MediaApi, MediaRef
 from app.modules.reviews.api import ReviewsApi
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.http.money import MoneyOut
 from app.platform.http.security import AUTHENTICATED
-from app.platform.kernel.ids import CityId, DealId, DistrictId
+from app.platform.kernel.ids import CityId, DealId, DistrictId, MediaId
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Principal
 
 router = APIRouter(tags=["views"])
-OPEN: Final = frozenset({"agreed", "completed"})
-"""Договорились: Telegram второй стороны виден (S43, 6.5)."""
+OPEN: Final = frozenset({"agreed", "disputed", "completed"})
+"""Договорились: Telegram второй стороны виден (S43, 6.5) — и под спором (6.1c): спор открывают
+только по договорённости."""
 DealPath = Annotated[UUID, Path(description="id сделки")]
 
 DealState = Literal["proposed", "agreed", "completed", "cancelled", "disputed"]
@@ -45,8 +51,11 @@ DealOriginKind = Literal["job_response", "direct", "chat"]
 DealSide = Literal["client", "performer"]
 DealPriceKind = Literal["fixed", "from", "hourly", "negotiable"]
 DealCancelCause = Literal[
-    "plans_changed", "no_agreement", "no_contact", "other", "expired", "account_deleted"
+    "plans_changed", "no_agreement", "no_contact", "other", "expired", "account_deleted", "dispute"
 ]
+DisputeState = Literal["open", "answered", "no_response", "resolved", "withdrawn"]
+DisputeCause = Literal["no_show", "quality", "prepayment_taken", "damage", "safety", "other"]
+DisputeVerdict = Literal["completed", "cancelled"]
 
 
 class DealCardPriceOut(BaseModel):
@@ -95,6 +104,40 @@ class DealReviewOut(BaseModel):
     rating: int
 
 
+class DealCardDisputePhotoOut(BaseModel):
+    id: UUID
+    placeholder: str | None
+    variants: list[CardVariantOut] = Field(
+        description="presigned GET на 5 минут; до обработки — []"
+    )
+
+
+class DealCardDisputeOut(BaseModel):
+    """Спор по сделке стороне (S52): та же форма, что ответ `POST /deals/{id}/dispute…`."""
+
+    id: UUID
+    deal_id: UUID
+    deal_status: DealState
+    status: DisputeState = Field(
+        description="open — ждём ответа, answered, no_response — 48 ч без ответа, resolved,"
+        " withdrawn"
+    )
+    kind: DisputeCause
+    opened_by_me: bool
+    description: str
+    photos: list[DealCardDisputePhotoOut]
+    respond_by: datetime
+    response: str | None
+    response_photos: list[DealCardDisputePhotoOut]
+    responded_at: datetime | None
+    unanswered_at: datetime | None
+    withdrawn_at: datetime | None
+    outcome: DisputeVerdict | None
+    reason_code: str | None
+    resolved_at: datetime | None
+    created_at: datetime
+
+
 class DealCardOut(BaseModel):
     id: UUID
     status: DealState
@@ -127,6 +170,9 @@ class DealCardOut(BaseModel):
         description="Клиент может оставить отзыв до этого времени (14 дней после завершения);"
         " null — нельзя или уже оставлен"
     )
+    dispute: DealCardDisputeOut | None = Field(
+        description="Последний спор по сделке (S52): идущий, решённый или отозванный"
+    )
 
 
 @router.get("/deals/{deal_id:uuid}/card", response_model=DealCardOut, dependencies=AUTHENTICATED)
@@ -146,7 +192,7 @@ async def get_deal_card(
 ) -> DealCardOut:
     """Сделка стороне (S26): условия, вторая сторона, место и вехи; чужая — 404."""
     viewer = principal.user_id
-    deal = await deals.deal_for(DealId(deal_id), viewer)
+    deal = await deals.deal_card(DealId(deal_id), viewer)
     job = await jobs.deal_job(deal.job_id, deal.response_id, viewer) if deal.job_id else None
     client = deal.my_role == "client"
     if client:
@@ -169,6 +215,7 @@ async def get_deal_card(
         status=deal.status,
         completed_at=deal.completed_at,
     )
+    dispute = deal.dispute
     return DealCardOut(
         id=deal.id,
         status=cast(DealState, deal.status),
@@ -213,7 +260,53 @@ async def get_deal_card(
             else None
         ),
         review_until=review.open_until,
+        dispute=await _dispute(dispute, deal, viewer, media) if dispute is not None else None,
     )
+
+
+async def _dispute(
+    dispute: DisputeSummary, deal: DealSummary, viewer: UUID, media: MediaApi
+) -> DealCardDisputeOut:
+    """Спор стороне: фото обеих сторон — сторонам сделки (карточку чужой сделки не отдаём)."""
+    refs = await media.refs([*dispute.media_ids, *dispute.response_media_ids])
+    return DealCardDisputeOut(
+        id=dispute.id,
+        deal_id=dispute.deal_id,
+        deal_status=cast(DealState, deal.status),
+        status=cast(DisputeState, dispute.status),
+        kind=cast(DisputeCause, dispute.kind),
+        opened_by_me=dispute.opened_by == viewer,
+        description=dispute.description,
+        photos=_evidence(dispute.media_ids, refs),
+        respond_by=dispute.respond_by,
+        response=dispute.response,
+        response_photos=_evidence(dispute.response_media_ids, refs),
+        responded_at=dispute.responded_at,
+        unanswered_at=dispute.unanswered_at,
+        withdrawn_at=dispute.withdrawn_at,
+        outcome=cast(DisputeVerdict | None, dispute.outcome),
+        reason_code=dispute.reason_code,
+        resolved_at=dispute.resolved_at,
+        created_at=dispute.created_at,
+    )
+
+
+def _evidence(
+    media_ids: tuple[MediaId, ...], refs: Mapping[MediaId, MediaRef]
+) -> list[DealCardDisputePhotoOut]:
+    """Фото по порядку; удалённые и сбойные не показываем, обрабатываемые — без вариантов."""
+    return [
+        DealCardDisputePhotoOut(
+            id=ref.id,
+            placeholder=ref.placeholder,
+            variants=[
+                CardVariantOut(name=v.name, url=v.url, width=v.width, height=v.height)
+                for v in ref.variants
+            ],
+        )
+        for media_id in media_ids
+        if (ref := refs.get(media_id)) is not None and not ref.broken
+    ]
 
 
 async def _performer(

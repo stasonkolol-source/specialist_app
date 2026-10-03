@@ -204,6 +204,7 @@ async def test_platform_periodic_tasks_are_scheduled(container: AsyncContainer) 
         "deals.completion_prompts": "7-59/15 * * * *",
         "deals.expire_proposed": "12-59/15 * * * *",
         "deals.auto_complete": "27 * * * *",
+        "deals.dispute_response_sla": "14,44 * * * *",
         "messaging.purge_messages": "47 3 * * *",
         "reviews.reminders": "17 * * * *",
         "reviews.recompute_ratings": "5 3 * * *",

@@ -6,6 +6,8 @@
 `[A-Za-z0-9_-]`, без партнёрского префикса Telegram `_tgr_`:
 
 - `j_<base62>`, `s_<base62>`, `c_<base62>`, `d_<base62>` — заявка, специалист, диалог, сделка;
+- `p_<base62>` — проблема со сделкой (спор S52, 6.1c): id сделки; «Есть проблема» под «Работа
+  выполнена?» и «Ответить» уведомления `dispute.opened` ведут сразу на S52, а не на S26;
 - `h` — главная;
 - `n` — новая заявка (мастер S20a; `/new` бота);
 - `m_jobs` — свои заявки (S22; `/jobs` бота);
@@ -47,6 +49,8 @@ class LinkType(StrEnum):
     SPECIALIST = "specialist"
     CHAT = "chat"
     DEAL = "deal"
+    DISPUTE = "dispute"
+    """Спор по сделке S52 (6.1c): `id` — id сделки."""
     HOME = "home"
     NEW_JOB = "new_job"
     MINE = "mine"
@@ -87,6 +91,7 @@ ENTITY_PREFIX: Final[Mapping[LinkType, str]] = {
     LinkType.SPECIALIST: "s",
     LinkType.CHAT: "c",
     LinkType.DEAL: "d",
+    LinkType.DISPUTE: "p",
 }
 _ENTITY_BY_PREFIX: Final = {prefix: kind for kind, prefix in ENTITY_PREFIX.items()}
 _HOME: Final = "h"
@@ -99,9 +104,9 @@ _LEGAL: Final = "l"
 class StartLink:
     """Разобранный код startapp.
 
-    Сущность (`job`, `specialist`, `chat`, `deal`) — с `id`; `home` и `new_job` — без полей;
-    `mine` — с `section`; `legal` — с `document`; `reserved` — с `code` и, кроме `gh`, со
-    значением `value`. `ref` — суффикс `_r<code>`.
+    Сущность (`job`, `specialist`, `chat`, `deal`, `dispute`) — с `id`; `home` и `new_job` —
+    без полей; `mine` — с `section`; `legal` — с `document`; `reserved` — с `code` и, кроме
+    `gh`, со значением `value`. `ref` — суффикс `_r<code>`.
     """
 
     type: LinkType
@@ -243,6 +248,7 @@ _SOURCE_BY_TYPE: Final[Mapping[LinkType, LinkSource]] = {
     LinkType.SPECIALIST: LinkSource.SPECIALIST,
     LinkType.CHAT: LinkSource.CHAT,
     LinkType.DEAL: LinkSource.DEAL,
+    LinkType.DISPUTE: LinkSource.DEAL,  # спор — та же сделка: отдельный источник не нужен
     LinkType.HOME: LinkSource.HOME,
     LinkType.NEW_JOB: LinkSource.NEW_JOB,
     LinkType.MINE: LinkSource.MINE,

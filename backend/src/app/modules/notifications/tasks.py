@@ -34,7 +34,12 @@ notifications стоит над контентными модулями (ARCHITE
   предлагает договориться» и кнопка к условиям, пока предложение ждёт (6.3b).
 - `notifications.notify_deal_cancelled` — DealCancelled: второй стороне — кто отменил и почему
   (при отмене системой — обеим, кроме удалённого аккаунта); клиенту из отклика — «заявка снова
-  открыта».
+  открыта». Отмену модератором по спору объясняет `dispute.resolved`.
+- `notifications.notify_dispute_opened` — DealDisputed: второй стороне — «сообщил о проблеме»,
+  что случилось, срок ответа (48 ч) и «Ответить» сразу на S52 (`p_`), пока спор ждёт ответа
+  (6.1c).
+- `notifications.notify_dispute_resolved` — DisputeResolved: обеим сторонам — решение поддержки
+  (сделка завершена или отменена) и причина: statement of reasons (6.1c).
 - `notifications.notify_deal_reminder` — DealReminderDue: обеим сторонам за 2 ч до времени.
 - `notifications.notify_deal_completion` — DealCompletionDue: «Работа выполнена?» с [Да, всё
   хорошо] (кнопку обрабатывает бот deals) и [Есть проблема] тем, кто ещё не отметил.
@@ -69,6 +74,8 @@ from app.modules.notifications.application.ports import (
     NOTIFY_DEAL_MARKED,
     NOTIFY_DEAL_PROPOSED,
     NOTIFY_DEAL_REMINDER,
+    NOTIFY_DISPUTE_OPENED,
+    NOTIFY_DISPUTE_RESOLVED,
     NOTIFY_JOB_EXPIRED,
     NOTIFY_JOB_EXPIRING,
     NOTIFY_JOB_INVITED,
@@ -119,9 +126,11 @@ from app.modules.reviews.api import ReviewsApi
 from app.platform.contracts.events.deals import (
     DealCancelled,
     DealCompletionDue,
+    DealDisputed,
     DealMarkedDone,
     DealProposed,
     DealReminderDue,
+    DisputeResolved,
 )
 from app.platform.contracts.events.identity import (
     BotStarted,
@@ -166,6 +175,8 @@ RESPONSE = "response"
 AGREED, PROPOSED = "agreed", "proposed"
 CLIENT, PERFORMER = "client", "performer"
 """Стороны сделки — как `cancelled_by` в DealCancelled."""
+BY_DISPUTE = "dispute"
+"""Причина отмены модератором по спору: о ней — `dispute.resolved`, а не `deal.cancelled`."""
 
 
 @subscriber(BotStarted, GRANT_WRITE_ACCESS)
@@ -467,7 +478,7 @@ async def notify_deal_cancelled(
     identity: FromDishka[IdentityApi],
 ) -> None:
     deal = await deals.deal_brief(event.deal_id)
-    if deal is None:
+    if deal is None or event.reason == BY_DISPUTE:
         return
     sides = ((CLIENT, event.client_id), (PERFORMER, event.performer_id))
     for role, user_id in sides:
@@ -630,6 +641,73 @@ async def notify_deal_marked(
             link=_deal_link(event.deal_id),
         )
     )
+
+
+@subscriber(DealDisputed, NOTIFY_DISPUTE_OPENED)
+async def notify_dispute_opened(
+    event: DealDisputed,
+    notify: FromDishka[Notify],
+    deals: FromDishka[DealsApi],
+    identity: FromDishka[IdentityApi],
+) -> None:
+    """Второй стороне — кто и о чём сообщил, до какого времени ответить; «Ответить» ведёт сразу
+    на спор S52. Ответили, отозвали или решили, пока задача ждала, — не пишем."""
+    dispute = await deals.dispute(event.dispute_id)
+    deal = await deals.deal_brief(event.deal_id)
+    if dispute is None or deal is None or dispute.status != "open":
+        return
+    user = await identity.get_user(event.respondent_id)
+    if user is None or user.is_deleted:
+        return
+    await notify(
+        NotifyCommand(
+            user_id=event.respondent_id,
+            type=NotificationType.DISPUTE_OPENED,
+            dedupe_key=f"dispute.opened:{event.dispute_id}",
+            params={
+                "title": deal.title,
+                "by": CLIENT if event.opened_by == event.client_id else PERFORMER,
+                "kind": event.kind,
+                "until": dispute.respond_by.isoformat(),
+            },
+            link=_dispute_link(event.deal_id),
+        )
+    )
+
+
+@subscriber(DisputeResolved, NOTIFY_DISPUTE_RESOLVED)
+async def notify_dispute_resolved(
+    event: DisputeResolved,
+    notify: FromDishka[Notify],
+    deals: FromDishka[DealsApi],
+    identity: FromDishka[IdentityApi],
+) -> None:
+    """Обеим сторонам — решение и причина (statement of reasons); удалённому аккаунту — нет."""
+    deal = await deals.deal_brief(event.deal_id)
+    if deal is None:
+        return
+    for user_id in (event.client_id, event.performer_id):
+        user = await identity.get_user(user_id)
+        if user is None or user.is_deleted:
+            continue
+        await notify(
+            NotifyCommand(
+                user_id=user_id,
+                type=NotificationType.DISPUTE_RESOLVED,
+                dedupe_key=f"dispute.resolved:{event.dispute_id}:{user_id}",
+                params={
+                    "title": deal.title,
+                    "outcome": event.outcome,
+                    "reason": event.reason_code,
+                },
+                link=_dispute_link(event.deal_id),
+            )
+        )
+
+
+def _dispute_link(deal_id: DealId) -> str:
+    """Спор S52 сразу, без S26 (`p_`, 6.1c)."""
+    return encode_start_param(StartLink(type=LinkType.DISPUTE, id=deal_id))
 
 
 def _chat_link(conversation_id: UUID) -> str:
