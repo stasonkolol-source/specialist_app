@@ -1,14 +1,16 @@
 """Чтение identity для фасада и use cases (ADR-0020 §5)."""
 
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import RowMapping, func, or_, select
+from sqlalchemy import ColumnElement, RowMapping, func, literal_column, or_, select
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 
 from app.modules.identity.api import TelegramUserView, UserSummary
-from app.modules.identity.application.dto import MeView
-from app.modules.identity.domain.consent import Consent
-from app.modules.identity.domain.restriction import Restriction
+from app.modules.identity.application.dto import LoginState, MeState, MeView
+from app.modules.identity.domain.consent import Consent, ConsentDocument
+from app.modules.identity.domain.restriction import Restriction, RestrictionKind
 from app.modules.identity.domain.user import AuthProvider, Privacy, UserStatus
 from app.modules.identity.infrastructure.models import (
     AuthIdentityRow,
@@ -36,42 +38,40 @@ class SqlIdentityQuery(SqlQuery):
         return {summary.id: summary for summary in map(_summary, rows)}
 
     async def me(self, user_id: UserId) -> MeView | None:
-        u, d = UserRow.__table__.c, DeletionRequestRow.__table__.c
-        # ждущий запрос на удаление: S31 показывает дату и «Отменить»
-        scheduled = (
-            select(d.execute_after)
-            .where(d.user_id == u.id, d.cancelled_at.is_(None), d.completed_at.is_(None))
-            .scalar_subquery()
-        )
+        row = await self._fetch_one(_ME.where(_U.id == user_id, _U.status == UserStatus.ACTIVE))
+        return _me(row) if row is not None else None
+
+    async def me_state(self, user_id: UserId, now: datetime) -> MeState | None:
+        """Профиль, санкции и согласия — одним запросом: GET /me и ответы правок S31 (было три
+        отдельных чтения)."""
         row = await self._fetch_one(
-            select(
-                u.id,
-                u.display_name,
-                u.ui_locale,
-                u.trust_level,
-                u.phone_verified_at,
-                u.created_at,
-                u.version,
-                u.home_city_id,
-                u.intent,
-                u.privacy,
-                scheduled.label("deletion_scheduled_at"),
-            ).where(u.id == user_id, u.status == UserStatus.ACTIVE)
+            _ME.add_columns(
+                _restrictions_json(_U.id, now).label("restrictions"),
+                _consents_json(_U.id).label("consents"),
+            ).where(_U.id == user_id, _U.status == UserStatus.ACTIVE)
         )
         if row is None:
             return None
-        return MeView(
-            id=UserId(row["id"]),
-            display_name=row["display_name"],
-            ui_locale=row["ui_locale"],
-            trust_level=row["trust_level"],
-            phone_verified=row["phone_verified_at"] is not None,
-            created_at=row["created_at"],
-            version=row["version"],
-            home_city_id=CityId(row["home_city_id"]) if row["home_city_id"] is not None else None,
-            intent=row["intent"],
+        return MeState(
+            me=_me(row),
+            restrictions=[_restriction(item) for item in row["restrictions"] or ()],
+            consents=[_consent(item) for item in row["consents"] or ()],
+        )
+
+    async def login_state(self, user_id: UserId) -> LoginState:
+        r = UserRoleRow.__table__.c
+        roles = func.array(select(r.role).where(r.user_id == user_id).scalar_subquery())
+        [row] = await self._fetch(  # SELECT без FROM — ровно одна строка
+            select(
+                roles.label("roles"),
+                _consents_json(user_id).label("consents"),
+                _scheduled(user_id).label("deletion_scheduled_at"),
+            )
+        )
+        return LoginState(
+            roles=frozenset(Role(role) for role in row["roles"] or ()),
+            consents=[_consent(item) for item in row["consents"] or ()],
             deletion_scheduled_at=row["deletion_scheduled_at"],
-            show_telegram=Privacy.from_mapping(row["privacy"] or {}).show_telegram,
         )
 
     async def telegram_contacts(self, user_ids: Collection[UserId]) -> dict[UserId, str]:
@@ -224,4 +224,109 @@ def _summary(row: RowMapping) -> UserSummary:
         phone_verified=row["phone_verified_at"] is not None,
         is_deleted=row["status"] == UserStatus.DELETED,
         created_at=row["created_at"],
+    )
+
+
+def _scheduled(user_id: Any) -> ColumnElement[datetime]:
+    d = DeletionRequestRow.__table__.c
+    return (
+        select(d.execute_after)
+        .where(d.user_id == user_id, d.cancelled_at.is_(None), d.completed_at.is_(None))
+        .scalar_subquery()
+    )
+
+
+def _json_object(**fields: ColumnElement[Any]) -> ColumnElement[Any]:
+    """json_build_object с ключами-литералами: параметр без типа PostgreSQL здесь не примет."""
+    pairs = [part for key, value in fields.items() for part in (literal_column(f"'{key}'"), value)]
+    return func.json_build_object(*pairs)
+
+
+def _restrictions_json(user_id: Any, now: datetime) -> ColumnElement[Any]:
+    """Неснятые санкции, действующие сейчас или позже, — JSON-массивом (как `restrictions`)."""
+    r = RestrictionRow.__table__.c
+    return (
+        select(
+            func.json_agg(
+                aggregate_order_by(
+                    _json_object(
+                        kind=r.kind,
+                        reason_code=r.reason_code,
+                        starts_at=r.starts_at,
+                        ends_at=r.ends_at,
+                    ),
+                    r.starts_at,
+                )
+            )
+        )
+        .where(r.user_id == user_id, r.lifted_at.is_(None))
+        .where(or_(r.ends_at.is_(None), r.ends_at > now))
+        .scalar_subquery()
+    )
+
+
+def _consents_json(user_id: Any) -> ColumnElement[Any]:
+    """Действующие согласия по времени — JSON-массивом (как `consents`)."""
+    c = ConsentRow.__table__.c
+    return (
+        select(
+            func.json_agg(
+                aggregate_order_by(
+                    _json_object(document=c.document, version=c.version, granted_at=c.granted_at),
+                    c.granted_at,
+                )
+            )
+        )
+        .where(c.user_id == user_id, c.withdrawn_at.is_(None))
+        .scalar_subquery()
+    )
+
+
+_ME = select(
+    _U.id,
+    _U.display_name,
+    _U.ui_locale,
+    _U.trust_level,
+    _U.phone_verified_at,
+    _U.created_at,
+    _U.version,
+    _U.home_city_id,
+    _U.intent,
+    _U.privacy,
+    # ждущий запрос на удаление: S31 показывает дату и «Отменить»
+    _scheduled(_U.id).label("deletion_scheduled_at"),
+)
+
+
+def _me(row: RowMapping) -> MeView:
+    return MeView(
+        id=UserId(row["id"]),
+        display_name=row["display_name"],
+        ui_locale=row["ui_locale"],
+        trust_level=row["trust_level"],
+        phone_verified=row["phone_verified_at"] is not None,
+        created_at=row["created_at"],
+        version=row["version"],
+        home_city_id=CityId(row["home_city_id"]) if row["home_city_id"] is not None else None,
+        intent=row["intent"],
+        deletion_scheduled_at=row["deletion_scheduled_at"],
+        show_telegram=Privacy.from_mapping(row["privacy"] or {}).show_telegram,
+    )
+
+
+def _restriction(item: Mapping[str, Any]) -> Restriction:
+    ends_at = item["ends_at"]
+    return Restriction(
+        kind=RestrictionKind(item["kind"]),
+        reason_code=item["reason_code"],
+        starts_at=datetime.fromisoformat(item["starts_at"]),
+        ends_at=datetime.fromisoformat(ends_at) if ends_at is not None else None,
+    )
+
+
+def _consent(item: Mapping[str, Any]) -> Consent:
+    return Consent(
+        document=ConsentDocument(item["document"]),
+        version=item["version"],
+        granted_at=datetime.fromisoformat(item["granted_at"]),
     )

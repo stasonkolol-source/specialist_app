@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Final, Protocol
 
 from app.modules.identity.api import TelegramUserView, UserSummary
-from app.modules.identity.application.dto import MeView
+from app.modules.identity.application.dto import LoginState, MeState, MeView
 from app.modules.identity.domain.consent import Consent, ConsentDocument
 from app.modules.identity.domain.deletion import DeletionRequest, HashKind
 from app.modules.identity.domain.restriction import Restriction, RestrictionSource
@@ -187,6 +187,14 @@ class IdentityQuery(Protocol):
 
     async def me(self, user_id: UserId) -> MeView | None:
         """Свой профиль; удалённого пользователя нет."""
+        ...
+
+    async def me_state(self, user_id: UserId, now: datetime) -> MeState | None:
+        """Свой профиль с санкциями и согласиями — одним запросом; удалённого нет."""
+        ...
+
+    async def login_state(self, user_id: UserId) -> LoginState:
+        """Роли, согласия и ждущее удаление — одним запросом (в транзакции входа)."""
         ...
 
     async def by_telegram(self, telegram_id: int) -> TelegramUserView | None:

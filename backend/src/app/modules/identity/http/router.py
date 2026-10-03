@@ -13,7 +13,6 @@ from fastapi import APIRouter, Depends, Header, Request, Response, status
 
 from app.modules.identity.application.access import AccessChecker
 from app.modules.identity.application.dto import TelegramProfile
-from app.modules.identity.application.ports import IdentityQuery
 from app.modules.identity.application.use_cases.accept_consents import (
     AcceptConsents,
     AcceptConsentsCommand,
@@ -88,8 +87,6 @@ async def authenticate_telegram(
     verifier: FromDishka[InitDataVerifier],
     limiter: FromDishka[RateLimiter],
     authenticate: FromDishka[AuthenticateTelegram],
-    query: FromDishka[IdentityQuery],
-    access: FromDishka[AccessChecker],
     authorization: Annotated[str | None, Header(description="tma <initData>")] = None,
 ) -> AuthOut:
     """Обмен initData Mini App на собственную сессию.
@@ -113,8 +110,12 @@ async def authenticate_telegram(
     result = await authenticate(
         AuthenticateTelegramCommand(profile=profile, start_param=init_data.start_param)
     )
-    me = await _me(query, access, result.tokens.user_id)
-    return AuthOut(**TokensOut.of(result.tokens).model_dump(), is_new=result.is_new, user=me)
+    # профиль — из транзакции входа: после commit база больше не нужна
+    return AuthOut(
+        **TokensOut.of(result.tokens).model_dump(),
+        is_new=result.is_new,
+        user=MeOut.of(result.me, result.access),
+    )
 
 
 @router.post("/auth/refresh", dependencies=auth_limit)
@@ -138,12 +139,11 @@ async def logout(principal: FromDishka[Principal], logout: FromDishka[Logout]) -
 @inject
 async def get_me(
     principal: FromDishka[Principal],
-    query: FromDishka[IdentityQuery],
     access: FromDishka[AccessChecker],
     response: Response,
 ) -> MeOut:
     """Профиль, принятые версии документов и что можно делать (онбординг, S49b)."""
-    return await _me(query, access, principal.user_id, response)
+    return await _me(access, principal.user_id, response)
 
 
 @router.patch("/me/privacy", dependencies=AUTHENTICATED)
@@ -152,13 +152,12 @@ async def update_privacy(
     body: PrivacyIn,
     principal: FromDishka[Principal],
     update: FromDishka[UpdatePrivacy],
-    query: FromDishka[IdentityQuery],
     access: FromDishka[AccessChecker],
     response: Response,
 ) -> MeOut:
     """«Показывать после договорённости» (S43): свой Telegram второй стороне сделки."""
     await update(UpdatePrivacyCommand(actor_id=principal.user_id, show_telegram=body.show_telegram))
-    return await _me(query, access, principal.user_id, response)
+    return await _me(access, principal.user_id, response)
 
 
 @router.patch("/me", dependencies=AUTHENTICATED)
@@ -168,7 +167,6 @@ async def update_me(
     expected_version: IfMatch,
     principal: FromDishka[Principal],
     update: FromDishka[UpdateProfile],
-    query: FromDishka[IdentityQuery],
     access: FromDishka[AccessChecker],
     response: Response,
 ) -> MeOut:
@@ -183,7 +181,7 @@ async def update_me(
             expected_version=expected_version,
         )
     )
-    return await _me(query, access, principal.user_id, response)
+    return await _me(access, principal.user_id, response)
 
 
 @router.post("/me/consents", dependencies=AUTHENTICATED)
@@ -193,7 +191,6 @@ async def accept_consents(
     request: Request,
     principal: FromDishka[Principal],
     accept: FromDishka[AcceptConsents],
-    query: FromDishka[IdentityQuery],
     access: FromDishka[AccessChecker],
     response: Response,
 ) -> MeOut:
@@ -210,7 +207,7 @@ async def accept_consents(
             ip=_ip(request),
         )
     )
-    return await _me(query, access, principal.user_id, response)
+    return await _me(access, principal.user_id, response)
 
 
 _SOURCE = {
@@ -245,18 +242,14 @@ async def cancel_deletion(
     await cancel(CancelDeletionCommand(actor_id=principal.user_id))
 
 
-async def _me(
-    query: IdentityQuery,
-    access: AccessChecker,
-    user_id: UserId,
-    response: Response | None = None,
-) -> MeOut:
-    me = await query.me(user_id)
-    if me is None:
+async def _me(access: AccessChecker, user_id: UserId, response: Response) -> MeOut:
+    """Профиль, санкции и согласия — одним запросом."""
+    found = await access.me(user_id)
+    if found is None:
         raise UserNotFoundError(user_id=user_id)
-    if response is not None:
-        set_etag(response, me.version)
-    return MeOut.of(me, await access.view(user_id))
+    me, view = found
+    set_etag(response, me.version)
+    return MeOut.of(me, view)
 
 
 def _ip(request: Request) -> str | None:

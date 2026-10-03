@@ -13,8 +13,9 @@ import pytest
 from dishka.integrations.fastapi import FromDishka, inject
 from fastapi import status
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from tests.plugins.http import HttpApp, http_app, sample_router
+from tests.plugins.round_trips import round_trips
 
 from app.modules.geo.http.router import router as geo_router
 from app.modules.identity.api import Action, IdentityApi, RestrictionIn, RestrictionKind
@@ -192,6 +193,31 @@ async def test_restricted_user_gets_403_restricted(app: HttpApp, init_data: Init
     )
     me = (await api.get("/api/v1/me", headers=auth)).json()
     assert (me["consent_required"], me["can_post_jobs"], me["can_respond"]) == (False, False, True)
+
+
+async def test_login_and_me_read_profile_once(app: HttpApp, init_data: InitData) -> None:
+    """Перф-аудит: GET /me — один запрос (профиль, санкции, согласия); повторный вход отвечает
+    профилем из своей транзакции, без чтений после commit, и не пишет неизменный профиль."""
+    api = app.client
+    tokens = await login(api, init_data())
+    auth = bearer(tokens)
+    await api.post("/api/v1/me/consents", headers=auth, json=TICK)
+    user_id = str((await api.get("/api/v1/me", headers=auth)).json()["id"])
+    await restrict(app, user_id, RestrictionKind.POSTING_BLOCKED)
+    engine = await app.container.get(AsyncEngine)
+
+    with round_trips(engine) as trips:
+        me = await api.get("/api/v1/me", headers=auth)
+    assert trips.queries == 1
+    assert trips.total == 2  # проверка соединения и запрос; было 12 (3 чтения по 4 обмена)
+    with round_trips(engine) as trips:
+        again = await login(api, init_data())
+    # пользователь (строка и способы входа), санкции, новая сессия, роли и согласия
+    assert trips.queries == 5, trips.statements
+    assert trips.total == 8  # pre-ping, BEGIN, 5 запросов, COMMIT; было 22
+    assert again["user"] == me.json()
+    assert (me.json()["consent_required"], me.json()["can_post_jobs"]) == (False, False)
+    assert set(me.json()["consents"]) == {"terms", "privacy", "age_18"}
 
 
 # --- город и намерение ---------------------------------------------------------------------

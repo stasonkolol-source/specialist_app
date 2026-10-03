@@ -10,8 +10,9 @@ from datetime import datetime
 from typing import Final
 
 from app.modules.identity.api import Action
-from app.modules.identity.application.dto import AccessView
+from app.modules.identity.application.dto import AccessView, MeView
 from app.modules.identity.application.ports import IdentityQuery
+from app.modules.identity.domain.consent import Consent
 from app.modules.identity.domain.policies import (
     accepted_versions,
     missing_consents,
@@ -66,7 +67,19 @@ class AccessChecker:
     async def view(self, user_id: UserId) -> AccessView:
         now = self._clock.now()
         restrictions = await self._query.restrictions(user_id, now)
-        consents = await self._query.consents(user_id)
+        return await self.summary(restrictions, await self._query.consents(user_id))
+
+    async def me(self, user_id: UserId) -> tuple[MeView, AccessView] | None:
+        """Свой профиль и что можно — одним запросом (GET /me и ответы правок S31); удалённого
+        пользователя нет."""
+        state = await self._query.me_state(user_id, self._clock.now())
+        if state is None:
+            return None
+        return state.me, await self.summary(state.restrictions, state.consents)
+
+    async def summary(self, restrictions: list[Restriction], consents: list[Consent]) -> AccessView:
+        """Что можно делать — из уже прочитанных санкций и согласий (вход читает их сам)."""
+        now = self._clock.now()
         missing = missing_consents(consents, required_consents(await self._legal.legal_versions()))
         allowed = frozenset(
             action

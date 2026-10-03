@@ -11,6 +11,7 @@
 """
 
 import re
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
@@ -23,6 +24,7 @@ from app.modules.identity.application.ports import (
     UserRepository,
 )
 from app.modules.identity.domain.deletion import HashKind, identity_hash
+from app.modules.identity.domain.restriction import Restriction
 from app.modules.identity.domain.user import (
     AuthProvider,
     User,
@@ -33,6 +35,15 @@ from app.platform.contracts.events.identity import EntryPoint
 
 START_PARAM_MAX_LENGTH: Final = 64
 _START_PARAM: Final = re.compile(r"[A-Za-z0-9_-]+")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class SignedIn:
+    user: User
+    is_new: bool
+    """Создан сейчас."""
+    restrictions: list[Restriction]
+    """Действующие санкции, по которым проверен вход: у нового аккаунта их нет."""
 
 
 def telegram_start_param(raw: str | None) -> str | None:
@@ -56,8 +67,8 @@ async def sign_in_telegram(
     hash_key: bytes,
     entry_point: EntryPoint,
     start_param: str | None = None,
-) -> tuple[User, bool]:
-    """(пользователь, создан ли сейчас). Нужен активный UoW вызывающего."""
+) -> SignedIn:
+    """Пользователь, создан ли сейчас, и его санкции. Нужен активный UoW вызывающего."""
     subject = str(profile.id)
     user = await users.find_by_identity(AuthProvider.TELEGRAM, subject)
     if user is None:
@@ -75,10 +86,11 @@ async def sign_in_telegram(
             had_sanctions=bool(had_sanctions),
         )
         await users.add(user)
-        return user, True
-    ensure_allowed(await query.restrictions(user.id, now), Action.LOGIN, now)
-    user.record_login(
+        return SignedIn(user=user, is_new=True, restrictions=[])
+    restrictions = await query.restrictions(user.id, now)
+    ensure_allowed(restrictions, Action.LOGIN, now)
+    if user.record_login(
         provider=AuthProvider.TELEGRAM, subject=subject, profile=profile.snapshot(), now=now
-    )
-    await users.save(user)
-    return user, False
+    ):
+        await users.save(user)
+    return SignedIn(user=user, is_new=False, restrictions=restrictions)

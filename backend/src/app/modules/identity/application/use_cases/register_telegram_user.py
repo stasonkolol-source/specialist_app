@@ -55,7 +55,7 @@ class RegisterTelegramUser:
 
         async def attempt() -> tuple[User, bool]:
             async with self._uow:
-                user, is_new = await sign_in_telegram(
+                signed = await sign_in_telegram(
                     self._users,
                     self._query,
                     self._deleted,
@@ -66,8 +66,10 @@ class RegisterTelegramUser:
                     start_param=cmd.start_param,
                 )
                 # состояние агрегата не меняется: факт «написал боту» — событие без агрегата
-                self._uow.add_event(BotStarted(user_id=user.id, occurred_at=cmd.started_at or now))
-            return user, is_new
+                self._uow.add_event(
+                    BotStarted(user_id=signed.user.id, occurred_at=cmd.started_at or now)
+                )
+            return signed.user, signed.is_new
 
         # накопившиеся /start polling отдаёт разом, и aiogram обрабатывает их параллельно:
         # два первых /start создают пользователя одновременно — второй повторяет и входит

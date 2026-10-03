@@ -105,6 +105,7 @@ async def test_registration_event_reaches_subscribers_in_same_transaction(
         identity.tokens,
         CONFIG,
         identity.clock,
+        identity.access,
     )
     result = await authenticate(AuthenticateTelegramCommand(profile=telegram_profile()))
     await authenticate(AuthenticateTelegramCommand(profile=telegram_profile()))
@@ -137,6 +138,22 @@ async def test_second_login_reuses_account_and_updates_profile(identity: Identit
         user = await identity.users.get(first.tokens.user_id)
     assert user.identity(AuthProvider.TELEGRAM, "880000001").profile["username"] == "new"
     assert user.last_seen_at == identity.clock.now()
+
+
+async def test_repeated_login_answers_profile_without_writing(identity: Identity) -> None:
+    """Вход отдаёт профиль и «что можно» из своей транзакции — те же, что прочитал бы GET /me;
+    неизменный снимок через 5 минут не пишется, и версия (ETag S31) не растёт."""
+    first = await login(identity, id=880000011)
+    identity.clock.advance(timedelta(minutes=5))
+    second = await login(identity, id=880000011)
+    user_id = first.tokens.user_id
+
+    assert second.me == await identity.query.me(user_id)
+    assert second.access == await identity.access.view(user_id)
+    assert second.me.version == first.me.version
+    async with identity.uow:
+        user = await identity.users.get(user_id)
+    assert user.version == first.me.version
 
 
 async def test_staff_roles_go_to_access_token(identity: Identity) -> None:
