@@ -41,12 +41,11 @@ export function PricesScreen() {
     else void router.navigate({ to: CARD_PATHS.profile, params: { profileId }, replace: true });
   });
 
+  if ([card, services].some((load) => isUnavailable(load.error))) return <Unavailable />;
   if (card.data && services.data) return <Prices card={card.data} services={services.data} />;
   const failed = [card, services].find((load) => load.isError);
   if (failed) {
-    return isUnavailable(failed.error) ? (
-      <Unavailable />
-    ) : (
+    return (
       <section className="flex flex-col px-4 pt-3 pb-6">
         <LoadError
           error={failed.error}
