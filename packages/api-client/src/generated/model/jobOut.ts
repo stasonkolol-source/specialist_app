@@ -56,6 +56,8 @@ export interface JobOut {
   extensions_count: number;
   /** Просмотры (S23) — владельцу; остальным — null */
   views_count: number | null;
+  /** Скольким подписчикам заявка ушла — сразу или подборкой (S21, 5.7) — владельцу */
+  notified_count: number | null;
   /** Отклики, которых владелец ещё не видел (бейдж S22); остальным — null */
   new_responses: number | null;
   /** Причина отказа модерации — владельцу */

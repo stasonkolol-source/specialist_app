@@ -23,6 +23,10 @@ import type {
 import type {
   AcceptedOut,
   InvitesIn,
+  JobAlertIn,
+  JobAlertOut,
+  JobAlertPatchIn,
+  JobAlertsOut,
   JobCloseIn,
   JobIn,
   JobInvitesOut,
@@ -30,6 +34,7 @@ import type {
   JobResponsesOut,
   JobsCountJobsParams,
   JobsCountOut,
+  JobsCreateJobAlertHeaders,
   JobsCreateJobHeaders,
   JobsCreateResponseTemplateHeaders,
   JobsListJobsParams,
@@ -201,7 +206,8 @@ export const getJobsListJobsUrl = (params: JobsListJobsParams) => {
 };
 
 /**
- * Лента 🔓 (S13): опубликованные заявки города, свежие сверху; свои и скрытые — нет.
+ * Лента 🔓 (S13): опубликованные заявки города, свежие сверху; свои и скрытые — нет;
+ * `feed=alerts` — по моим подпискам.
  * @summary List Jobs
  */
 export const jobsListJobs = async (
@@ -921,6 +927,425 @@ export const useJobsRequestSpecialist = <TError = ErrorType<ProblemOut>, TContex
 > => {
   return useMutation(getJobsRequestSpecialistMutationOptions(options), queryClient);
 };
+export const getJobsListJobAlertsUrl = () => {
+  return `/api/v1/me/job-alerts`;
+};
+
+/**
+ * Мои подписки на заявки (S18): по порядку создания, «N заявок за неделю».
+ * @summary List Job Alerts
+ */
+export const jobsListJobAlerts = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<JobAlertsOut> => {
+  return apiFetch<JobAlertsOut>(getJobsListJobAlertsUrl(), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getJobsListJobAlertsQueryKey = () => {
+  return [`/api/v1/me/job-alerts`] as const;
+};
+
+export const getJobsListJobAlertsQueryOptions = <
+  TData = Awaited<ReturnType<typeof jobsListJobAlerts>>,
+  TError = ErrorType<ProblemOut>,
+>(options?: {
+  query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListJobAlerts>>, TError, TData>>;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getJobsListJobAlertsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof jobsListJobAlerts>>> = ({ signal }) =>
+    jobsListJobAlerts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof jobsListJobAlerts>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type JobsListJobAlertsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof jobsListJobAlerts>>
+>;
+export type JobsListJobAlertsQueryError = ErrorType<ProblemOut>;
+
+export function useJobsListJobAlerts<
+  TData = Awaited<ReturnType<typeof jobsListJobAlerts>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListJobAlerts>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof jobsListJobAlerts>>,
+          TError,
+          Awaited<ReturnType<typeof jobsListJobAlerts>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useJobsListJobAlerts<
+  TData = Awaited<ReturnType<typeof jobsListJobAlerts>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListJobAlerts>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof jobsListJobAlerts>>,
+          TError,
+          Awaited<ReturnType<typeof jobsListJobAlerts>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useJobsListJobAlerts<
+  TData = Awaited<ReturnType<typeof jobsListJobAlerts>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListJobAlerts>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List Job Alerts
+ */
+
+export function useJobsListJobAlerts<
+  TData = Awaited<ReturnType<typeof jobsListJobAlerts>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof jobsListJobAlerts>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getJobsListJobAlertsQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getJobsCreateJobAlertUrl = () => {
+  return `/api/v1/me/job-alerts`;
+};
+
+/**
+ * Новая подписка (S19, «Сохранить как подписку» на S14): до десяти — иначе 409
+ * `job_alerts_full`.
+ * @summary Create Job Alert
+ */
+export const jobsCreateJobAlert = async (
+  jobAlertIn: JobAlertIn,
+  headers: JobsCreateJobAlertHeaders,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<JobAlertOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<JobAlertOut>(getJobsCreateJobAlertUrl(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers, ...getHeaders(options?.headers) },
+    body: JSON.stringify(jobAlertIn),
+  });
+};
+
+export const getJobsCreateJobAlertMutationKey = () => ['jobsCreateJobAlert'] as const;
+
+export const getJobsCreateJobAlertMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof jobsCreateJobAlert>>,
+    TError,
+    JobsCreateJobAlertMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof jobsCreateJobAlert>>,
+  TError,
+  JobsCreateJobAlertMutationVariables,
+  TContext
+> => {
+  const mutationKey = getJobsCreateJobAlertMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof jobsCreateJobAlert>>,
+    JobsCreateJobAlertMutationVariables
+  > = (props) => {
+    const { data, headers } = props ?? {};
+
+    return jobsCreateJobAlert(data, headers, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JobsCreateJobAlertMutationResult = NonNullable<
+  Awaited<ReturnType<typeof jobsCreateJobAlert>>
+>;
+export type JobsCreateJobAlertMutationBody = JobAlertIn;
+export type JobsCreateJobAlertMutationError = ErrorType<ProblemOut>;
+export type JobsCreateJobAlertMutationVariables = {
+  data: JobAlertIn;
+  headers: JobsCreateJobAlertHeaders;
+};
+
+/**
+ * @summary Create Job Alert
+ */
+export const useJobsCreateJobAlert = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof jobsCreateJobAlert>>,
+      TError,
+      JobsCreateJobAlertMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof jobsCreateJobAlert>>,
+  TError,
+  JobsCreateJobAlertMutationVariables,
+  TContext
+> => {
+  return useMutation(getJobsCreateJobAlertMutationOptions(options), queryClient);
+};
+export const getJobsUpdateJobAlertUrl = (alertId: string) => {
+  return `/api/v1/me/job-alerts/${alertId}`;
+};
+
+/**
+ * Правка подписки: условия целиком (S19), режим, переключатель S18.
+ * @summary Update Job Alert
+ */
+export const jobsUpdateJobAlert = async (
+  alertId: string,
+  jobAlertPatchIn: JobAlertPatchIn,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<JobAlertOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<JobAlertOut>(getJobsUpdateJobAlertUrl(alertId), {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(jobAlertPatchIn),
+  });
+};
+
+export const getJobsUpdateJobAlertMutationKey = () => ['jobsUpdateJobAlert'] as const;
+
+export const getJobsUpdateJobAlertMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof jobsUpdateJobAlert>>,
+    TError,
+    JobsUpdateJobAlertMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof jobsUpdateJobAlert>>,
+  TError,
+  JobsUpdateJobAlertMutationVariables,
+  TContext
+> => {
+  const mutationKey = getJobsUpdateJobAlertMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof jobsUpdateJobAlert>>,
+    JobsUpdateJobAlertMutationVariables
+  > = (props) => {
+    const { alertId, data } = props ?? {};
+
+    return jobsUpdateJobAlert(alertId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JobsUpdateJobAlertMutationResult = NonNullable<
+  Awaited<ReturnType<typeof jobsUpdateJobAlert>>
+>;
+export type JobsUpdateJobAlertMutationBody = JobAlertPatchIn;
+export type JobsUpdateJobAlertMutationError = ErrorType<ProblemOut>;
+export type JobsUpdateJobAlertMutationVariables = { alertId: string; data: JobAlertPatchIn };
+
+/**
+ * @summary Update Job Alert
+ */
+export const useJobsUpdateJobAlert = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof jobsUpdateJobAlert>>,
+      TError,
+      JobsUpdateJobAlertMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof jobsUpdateJobAlert>>,
+  TError,
+  JobsUpdateJobAlertMutationVariables,
+  TContext
+> => {
+  return useMutation(getJobsUpdateJobAlertMutationOptions(options), queryClient);
+};
+export const getJobsDeleteJobAlertUrl = (alertId: string) => {
+  return `/api/v1/me/job-alerts/${alertId}`;
+};
+
+/**
+ * Удалить подписку (S18) вместе с ждущими подборками.
+ * @summary Delete Job Alert
+ */
+export const jobsDeleteJobAlert = async (
+  alertId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getJobsDeleteJobAlertUrl(alertId), {
+    ...options,
+    method: 'DELETE',
+  });
+};
+
+export const getJobsDeleteJobAlertMutationKey = () => ['jobsDeleteJobAlert'] as const;
+
+export const getJobsDeleteJobAlertMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof jobsDeleteJobAlert>>,
+    TError,
+    JobsDeleteJobAlertMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof jobsDeleteJobAlert>>,
+  TError,
+  JobsDeleteJobAlertMutationVariables,
+  TContext
+> => {
+  const mutationKey = getJobsDeleteJobAlertMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof jobsDeleteJobAlert>>,
+    JobsDeleteJobAlertMutationVariables
+  > = (props) => {
+    const { alertId } = props ?? {};
+
+    return jobsDeleteJobAlert(alertId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JobsDeleteJobAlertMutationResult = NonNullable<
+  Awaited<ReturnType<typeof jobsDeleteJobAlert>>
+>;
+
+export type JobsDeleteJobAlertMutationError = ErrorType<ProblemOut>;
+export type JobsDeleteJobAlertMutationVariables = { alertId: string };
+
+/**
+ * @summary Delete Job Alert
+ */
+export const useJobsDeleteJobAlert = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof jobsDeleteJobAlert>>,
+      TError,
+      JobsDeleteJobAlertMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof jobsDeleteJobAlert>>,
+  TError,
+  JobsDeleteJobAlertMutationVariables,
+  TContext
+> => {
+  return useMutation(getJobsDeleteJobAlertMutationOptions(options), queryClient);
+};
 export const getJobsCountJobsUrl = (params: JobsCountJobsParams) => {
   const normalizedParams = new URLSearchParams();
 
@@ -947,7 +1372,8 @@ export const getJobsCountJobsUrl = (params: JobsCountJobsParams) => {
 };
 
 /**
- * Сколько заявок с фильтрами 🔓: «Показать N» S14, «N новых задач рядом» на Главной.
+ * Сколько заявок с фильтрами 🔓: «Показать N» S14, «N новых задач рядом» на Главной;
+ * `feed=alerts` — по моим подпискам.
  * @summary Count Jobs
  */
 export const jobsCountJobs = async (

@@ -9,8 +9,8 @@ platform/telegram/callbacks.py; нажатия — те же use cases, что M
 - `/alerts` — подписки строками («сразу», «раз в день», «на паузе до …», «выключена», сколько
   заявок за неделю), «Пауза на сегодня», «Пауза на неделю» или «Снять паузу» для всех и «Настроить
   подписки» (S18, `m_alerts`).
-- `/feed` — последние заявки по подпискам (лента `feed=alerts`) кнопками на каждую (S15) и
-  «Открыть ленту» (S13 «по моим подпискам», `m_feed`).
+- `/feed` — последние заявки по подпискам (лента `feed=alerts` без фото) кнопками на каждую
+  (S15) и «Открыть ленту» (S13 «по моим подпискам», `m_feed`).
 Без аккаунта — «Сначала нажмите /start».
 """
 
@@ -22,9 +22,11 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from dishka.integrations.aiogram import FromDishka, inject
 
 from app.modules.catalog.api import CatalogApi
+from app.modules.identity.api import IdentityApi
 from app.modules.jobs.application.alerts import AlertItem
-from app.modules.jobs.application.feed import FeedFilters, JobCard
-from app.modules.jobs.application.use_cases.browse_jobs import BrowseJobs, BrowseJobsCommand
+from app.modules.jobs.application.blocks import without_blocked
+from app.modules.jobs.application.feed import FeedFilters, FeedItem
+from app.modules.jobs.application.ports import JobQueries
 from app.modules.jobs.application.use_cases.hide_job import HideJob, HideJobCommand
 from app.modules.jobs.application.use_cases.list_alerts import ListAlerts, ListAlertsCommand
 from app.modules.jobs.application.use_cases.pause_alerts import PauseAlerts, PauseAlertsCommand
@@ -174,7 +176,9 @@ async def feed(
     locale: Locale,
     translator: FromDishka[Translator],
     listing: FromDishka[ListAlerts],
-    browse: FromDishka[BrowseJobs],
+    queries: FromDishka[JobQueries],
+    identity: FromDishka[IdentityApi],
+    clock: FromDishka[Clock],
     telegram: FromDishka[TelegramSettings],
     principal: Principal | None = None,
 ) -> None:
@@ -188,12 +192,15 @@ async def feed(
             reply_markup=app_keyboard(telegram, [[setup]]),
         )
         return
-    page = await browse(
-        BrowseJobsCommand(
-            filters=FeedFilters(city_id=None, alerts_of=principal.user_id),
-            viewer_id=principal.user_id,
-            page=PageRequest(limit=FEED_SHOWN),
-        )
+    # лента без фото (BrowseJobs ходит за превью в media): в чат идут только строки и кнопки
+    filters = await without_blocked(
+        identity, FeedFilters(city_id=None, alerts_of=principal.user_id), principal.user_id
+    )
+    page = await queries.feed(
+        filters,
+        viewer_id=principal.user_id,
+        page=PageRequest(limit=FEED_SHOWN),
+        now=clock.now(),
     )
     open_feed = (plain_text(translator, "bot.feed.open", locale), FEED_LINK)
     if not page.items:
@@ -207,19 +214,14 @@ async def feed(
             translator,
             "bot.feed.line",
             locale,
-            title=card.item.title,
-            budget=_budget(card, translator, locale),
+            title=item.title,
+            budget=_budget(item, translator, locale),
         )
-        for card in page.items
+        for item in page.items
     ]
     rows = [
-        [
-            (
-                _short(card.item.title),
-                encode_start_param(StartLink(type=LinkType.JOB, id=card.item.id)),
-            )
-        ]
-        for card in page.items
+        [(_short(item.title), encode_start_param(StartLink(type=LinkType.JOB, id=item.id)))]
+        for item in page.items
     ]
     rows.append([open_feed])
     text = "\n".join([html_text(translator, "bot.feed.header", locale), "", *lines])
@@ -303,8 +305,7 @@ async def _alert_name(
     return plain_text(translator, "bot.alerts.name_more", locale, alert=name, count=more)
 
 
-def _budget(card: JobCard, translator: Translator, locale: Locale) -> str:
-    item = card.item
+def _budget(item: FeedItem, translator: Translator, locale: Locale) -> str:
     if item.budget_type is BudgetType.NEGOTIABLE or item.budget_min is None:
         return plain_text(translator, "bot.feed.negotiable", locale)
     amount = _money(item.budget_max or item.budget_min, locale)

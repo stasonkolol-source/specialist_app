@@ -203,6 +203,9 @@ export const JobsCreateJobResponse = zod.object({
   views_count: zod
     .union([zod.int(), zod.null()])
     .describe('Просмотры (S23) — владельцу; остальным — null'),
+  notified_count: zod
+    .union([zod.int(), zod.null()])
+    .describe('Скольким подписчикам заявка ушла — сразу или подборкой (S21, 5.7) — владельцу'),
   new_responses: zod
     .union([zod.int(), zod.null()])
     .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
@@ -221,7 +224,8 @@ export const JobsCreateJobResponse = zod.object({
 });
 
 /**
- * Лента 🔓 (S13): опубликованные заявки города, свежие сверху; свои и скрытые — нет.
+ * Лента 🔓 (S13): опубликованные заявки города, свежие сверху; свои и скрытые — нет;
+ * `feed=alerts` — по моим подпискам.
  * @summary List Jobs
  */
 export const jobsListJobsQueryCursorOneMax = 512;
@@ -243,6 +247,10 @@ export const jobsListJobsQueryHasPhotosDefault = false;
 export const JobsListJobsQueryParams = zod.object({
   cursor: zod.union([zod.string().max(jobsListJobsQueryCursorOneMax), zod.null()]).optional(),
   limit: zod.int().min(1).max(jobsListJobsQueryLimitMax).default(jobsListJobsQueryLimitDefault),
+  feed: zod
+    .union([zod.literal('alerts'), zod.null()])
+    .optional()
+    .describe('alerts — «по моим подпискам» (5.7): только вошедшему'),
   city_id: zod.int().min(1).describe('Город ленты'),
   category: zod
     .union([zod.array(zod.int()), zod.null()])
@@ -828,6 +836,9 @@ export const JobsRequestSpecialistResponse = zod.object({
   views_count: zod
     .union([zod.int(), zod.null()])
     .describe('Просмотры (S23) — владельцу; остальным — null'),
+  notified_count: zod
+    .union([zod.int(), zod.null()])
+    .describe('Скольким подписчикам заявка ушла — сразу или подборкой (S21, 5.7) — владельцу'),
   new_responses: zod
     .union([zod.int(), zod.null()])
     .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
@@ -846,7 +857,303 @@ export const JobsRequestSpecialistResponse = zod.object({
 });
 
 /**
- * Сколько заявок с фильтрами 🔓: «Показать N» S14, «N новых задач рядом» на Главной.
+ * Мои подписки на заявки (S18): по порядку создания, «N заявок за неделю».
+ * @summary List Job Alerts
+ */
+export const JobsListJobAlertsResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        criteria: zod.object({
+          category_ids: zod.array(zod.int()),
+          city_id: zod.int(),
+          district_ids: zod.array(zod.int()),
+          center: zod.union([
+            zod.object({
+              lat: zod.number(),
+              lon: zod.number(),
+            }),
+            zod.null(),
+          ]),
+          radius_km: zod.union([zod.number(), zod.null()]),
+          min_budget: zod.union([zod.int(), zod.null()]).describe('Пара'),
+          urgencies: zod.array(zod.enum(['asap', 'today', 'this_week', 'flexible'])),
+          languages: zod.array(zod.string()),
+        }),
+        delivery: zod.enum(['instant', 'digest']),
+        is_active: zod.boolean().describe('Переключатель S18'),
+        paused_until: zod
+          .union([zod.iso.datetime({ offset: true }), zod.null()])
+          .describe('Пауза из бота: до этого момента молчит'),
+        week_count: zod.int().describe('Сколько заявок подошло за неделю — «8 заявок за неделю»'),
+        created_at: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .describe('По порядку создания'),
+  limit: zod.int().describe('Сколько подписок можно'),
+});
+
+/**
+ * Новая подписка (S19, «Сохранить как подписку» на S14): до десяти — иначе 409
+ * `job_alerts_full`.
+ * @summary Create Job Alert
+ */
+export const jobsCreateJobAlertHeaderIdempotencyKeyMin = 8;
+export const jobsCreateJobAlertHeaderIdempotencyKeyMax = 255;
+
+export const JobsCreateJobAlertHeader = zod.object({
+  'Idempotency-Key': zod
+    .string()
+    .min(jobsCreateJobAlertHeaderIdempotencyKeyMin)
+    .max(jobsCreateJobAlertHeaderIdempotencyKeyMax)
+    .describe('Ключ операции: повтор с тем же ключом вернёт тот же ответ'),
+});
+
+export const jobsCreateJobAlertBodyCriteriaCategoryIdsMax = 20;
+
+export const jobsCreateJobAlertBodyCriteriaDistrictIdsMax = 30;
+
+export const jobsCreateJobAlertBodyCriteriaCenterOneLatMin = -90;
+export const jobsCreateJobAlertBodyCriteriaCenterOneLatMax = 90;
+
+export const jobsCreateJobAlertBodyCriteriaCenterOneLonMin = -180;
+export const jobsCreateJobAlertBodyCriteriaCenterOneLonMax = 180;
+
+export const jobsCreateJobAlertBodyCriteriaRadiusKmOneMin = 0.5;
+export const jobsCreateJobAlertBodyCriteriaRadiusKmOneMax = 30;
+
+export const jobsCreateJobAlertBodyCriteriaMinBudgetOneMax = 100000000000;
+
+export const jobsCreateJobAlertBodyCriteriaLanguagesMax = 5;
+
+export const jobsCreateJobAlertBodyDeliveryDefault = `instant`;
+
+export const JobsCreateJobAlertBody = zod.object({
+  criteria: zod
+    .object({
+      category_ids: zod
+        .array(zod.int())
+        .min(1)
+        .max(jobsCreateJobAlertBodyCriteriaCategoryIdsMax)
+        .describe('Разделы и услуги каталога: заявки в них и в их подкатегориях'),
+      city_id: zod.int().min(1),
+      district_ids: zod
+        .array(zod.int())
+        .max(jobsCreateJobAlertBodyCriteriaDistrictIdsMax)
+        .optional(),
+      center: zod
+        .union([
+          zod.object({
+            lat: zod
+              .number()
+              .min(jobsCreateJobAlertBodyCriteriaCenterOneLatMin)
+              .max(jobsCreateJobAlertBodyCriteriaCenterOneLatMax),
+            lon: zod
+              .number()
+              .min(jobsCreateJobAlertBodyCriteriaCenterOneLonMin)
+              .max(jobsCreateJobAlertBodyCriteriaCenterOneLonMax),
+          }),
+          zod.null(),
+        ])
+        .optional()
+        .describe('Точка подписчика для радиуса: видна только ему'),
+      radius_km: zod
+        .union([
+          zod
+            .number()
+            .min(jobsCreateJobAlertBodyCriteriaRadiusKmOneMin)
+            .max(jobsCreateJobAlertBodyCriteriaRadiusKmOneMax),
+          zod.null(),
+        ])
+        .optional(),
+      min_budget: zod
+        .union([zod.int().min(1).max(jobsCreateJobAlertBodyCriteriaMinBudgetOneMax), zod.null()])
+        .optional()
+        .describe('Пара: бюджет заявки не меньше'),
+      urgencies: zod
+        .array(zod.enum(['asap', 'today', 'this_week', 'flexible']))
+        .optional()
+        .describe('Пусто — любые'),
+      languages: zod
+        .array(zod.string())
+        .max(jobsCreateJobAlertBodyCriteriaLanguagesMax)
+        .optional()
+        .describe('Пусто — любые'),
+    })
+    .describe(
+      'Условия подписки (S19): районы или точка с радиусом, ни того ни другого — весь город.',
+    ),
+  delivery: zod
+    .enum(['instant', 'digest'])
+    .default(jobsCreateJobAlertBodyDeliveryDefault)
+    .describe('Сразу или подборкой раз в день'),
+});
+
+export const JobsCreateJobAlertResponse = zod.object({
+  id: zod.uuid(),
+  criteria: zod.object({
+    category_ids: zod.array(zod.int()),
+    city_id: zod.int(),
+    district_ids: zod.array(zod.int()),
+    center: zod.union([
+      zod.object({
+        lat: zod.number(),
+        lon: zod.number(),
+      }),
+      zod.null(),
+    ]),
+    radius_km: zod.union([zod.number(), zod.null()]),
+    min_budget: zod.union([zod.int(), zod.null()]).describe('Пара'),
+    urgencies: zod.array(zod.enum(['asap', 'today', 'this_week', 'flexible'])),
+    languages: zod.array(zod.string()),
+  }),
+  delivery: zod.enum(['instant', 'digest']),
+  is_active: zod.boolean().describe('Переключатель S18'),
+  paused_until: zod
+    .union([zod.iso.datetime({ offset: true }), zod.null()])
+    .describe('Пауза из бота: до этого момента молчит'),
+  week_count: zod.int().describe('Сколько заявок подошло за неделю — «8 заявок за неделю»'),
+  created_at: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Правка подписки: условия целиком (S19), режим, переключатель S18.
+ * @summary Update Job Alert
+ */
+export const JobsUpdateJobAlertParams = zod.object({
+  alert_id: zod.uuid().describe('id подписки'),
+});
+
+export const jobsUpdateJobAlertBodyCriteriaOneCategoryIdsMax = 20;
+
+export const jobsUpdateJobAlertBodyCriteriaOneDistrictIdsMax = 30;
+
+export const jobsUpdateJobAlertBodyCriteriaOneCenterOneLatMin = -90;
+export const jobsUpdateJobAlertBodyCriteriaOneCenterOneLatMax = 90;
+
+export const jobsUpdateJobAlertBodyCriteriaOneCenterOneLonMin = -180;
+export const jobsUpdateJobAlertBodyCriteriaOneCenterOneLonMax = 180;
+
+export const jobsUpdateJobAlertBodyCriteriaOneRadiusKmOneMin = 0.5;
+export const jobsUpdateJobAlertBodyCriteriaOneRadiusKmOneMax = 30;
+
+export const jobsUpdateJobAlertBodyCriteriaOneMinBudgetOneMax = 100000000000;
+
+export const jobsUpdateJobAlertBodyCriteriaOneLanguagesMax = 5;
+
+export const JobsUpdateJobAlertBody = zod
+  .object({
+    criteria: zod
+      .union([
+        zod
+          .object({
+            category_ids: zod
+              .array(zod.int())
+              .min(1)
+              .max(jobsUpdateJobAlertBodyCriteriaOneCategoryIdsMax)
+              .describe('Разделы и услуги каталога: заявки в них и в их подкатегориях'),
+            city_id: zod.int().min(1),
+            district_ids: zod
+              .array(zod.int())
+              .max(jobsUpdateJobAlertBodyCriteriaOneDistrictIdsMax)
+              .optional(),
+            center: zod
+              .union([
+                zod.object({
+                  lat: zod
+                    .number()
+                    .min(jobsUpdateJobAlertBodyCriteriaOneCenterOneLatMin)
+                    .max(jobsUpdateJobAlertBodyCriteriaOneCenterOneLatMax),
+                  lon: zod
+                    .number()
+                    .min(jobsUpdateJobAlertBodyCriteriaOneCenterOneLonMin)
+                    .max(jobsUpdateJobAlertBodyCriteriaOneCenterOneLonMax),
+                }),
+                zod.null(),
+              ])
+              .optional()
+              .describe('Точка подписчика для радиуса: видна только ему'),
+            radius_km: zod
+              .union([
+                zod
+                  .number()
+                  .min(jobsUpdateJobAlertBodyCriteriaOneRadiusKmOneMin)
+                  .max(jobsUpdateJobAlertBodyCriteriaOneRadiusKmOneMax),
+                zod.null(),
+              ])
+              .optional(),
+            min_budget: zod
+              .union([
+                zod.int().min(1).max(jobsUpdateJobAlertBodyCriteriaOneMinBudgetOneMax),
+                zod.null(),
+              ])
+              .optional()
+              .describe('Пара: бюджет заявки не меньше'),
+            urgencies: zod
+              .array(zod.enum(['asap', 'today', 'this_week', 'flexible']))
+              .optional()
+              .describe('Пусто — любые'),
+            languages: zod
+              .array(zod.string())
+              .max(jobsUpdateJobAlertBodyCriteriaOneLanguagesMax)
+              .optional()
+              .describe('Пусто — любые'),
+          })
+          .describe(
+            'Условия подписки (S19): районы или точка с радиусом, ни того ни другого — весь город.',
+          ),
+        zod.null(),
+      ])
+      .optional(),
+    delivery: zod.union([zod.enum(['instant', 'digest']), zod.null()]).optional(),
+    is_active: zod
+      .union([zod.boolean(), zod.null()])
+      .optional()
+      .describe('Включить — значит и снять паузу'),
+  })
+  .describe('Правка подписки: условия целиком (S19), режим, переключатель S18 — что прислано.');
+
+export const JobsUpdateJobAlertResponse = zod.object({
+  id: zod.uuid(),
+  criteria: zod.object({
+    category_ids: zod.array(zod.int()),
+    city_id: zod.int(),
+    district_ids: zod.array(zod.int()),
+    center: zod.union([
+      zod.object({
+        lat: zod.number(),
+        lon: zod.number(),
+      }),
+      zod.null(),
+    ]),
+    radius_km: zod.union([zod.number(), zod.null()]),
+    min_budget: zod.union([zod.int(), zod.null()]).describe('Пара'),
+    urgencies: zod.array(zod.enum(['asap', 'today', 'this_week', 'flexible'])),
+    languages: zod.array(zod.string()),
+  }),
+  delivery: zod.enum(['instant', 'digest']),
+  is_active: zod.boolean().describe('Переключатель S18'),
+  paused_until: zod
+    .union([zod.iso.datetime({ offset: true }), zod.null()])
+    .describe('Пауза из бота: до этого момента молчит'),
+  week_count: zod.int().describe('Сколько заявок подошло за неделю — «8 заявок за неделю»'),
+  created_at: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Удалить подписку (S18) вместе с ждущими подборками.
+ * @summary Delete Job Alert
+ */
+export const JobsDeleteJobAlertParams = zod.object({
+  alert_id: zod.uuid().describe('id подписки'),
+});
+
+export const JobsDeleteJobAlertResponse = zod.void();
+
+/**
+ * Сколько заявок с фильтрами 🔓: «Показать N» S14, «N новых задач рядом» на Главной;
+ * `feed=alerts` — по моим подпискам.
  * @summary Count Jobs
  */
 export const jobsCountJobsQueryNewHoursOneMax = 168;
@@ -867,6 +1174,10 @@ export const JobsCountJobsQueryParams = zod.object({
     .union([zod.int().min(1).max(jobsCountJobsQueryNewHoursOneMax), zod.null()])
     .optional()
     .describe('Только опубликованные за часы'),
+  feed: zod
+    .union([zod.literal('alerts'), zod.null()])
+    .optional()
+    .describe('alerts — «по моим подпискам» (5.7): только вошедшему'),
   city_id: zod.int().min(1).describe('Город ленты'),
   category: zod
     .union([zod.array(zod.int()), zod.null()])
@@ -1042,6 +1353,9 @@ export const JobsGetJobResponse = zod.object({
   views_count: zod
     .union([zod.int(), zod.null()])
     .describe('Просмотры (S23) — владельцу; остальным — null'),
+  notified_count: zod
+    .union([zod.int(), zod.null()])
+    .describe('Скольким подписчикам заявка ушла — сразу или подборкой (S21, 5.7) — владельцу'),
   new_responses: zod
     .union([zod.int(), zod.null()])
     .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
@@ -1253,6 +1567,9 @@ export const JobsUpdateJobResponse = zod.object({
   views_count: zod
     .union([zod.int(), zod.null()])
     .describe('Просмотры (S23) — владельцу; остальным — null'),
+  notified_count: zod
+    .union([zod.int(), zod.null()])
+    .describe('Скольким подписчикам заявка ушла — сразу или подборкой (S21, 5.7) — владельцу'),
   new_responses: zod
     .union([zod.int(), zod.null()])
     .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
@@ -1498,6 +1815,9 @@ export const JobsCloseJobResponse = zod.object({
   views_count: zod
     .union([zod.int(), zod.null()])
     .describe('Просмотры (S23) — владельцу; остальным — null'),
+  notified_count: zod
+    .union([zod.int(), zod.null()])
+    .describe('Скольким подписчикам заявка ушла — сразу или подборкой (S21, 5.7) — владельцу'),
   new_responses: zod
     .union([zod.int(), zod.null()])
     .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
@@ -1639,6 +1959,9 @@ export const JobsExtendJobResponse = zod.object({
   views_count: zod
     .union([zod.int(), zod.null()])
     .describe('Просмотры (S23) — владельцу; остальным — null'),
+  notified_count: zod
+    .union([zod.int(), zod.null()])
+    .describe('Скольким подписчикам заявка ушла — сразу или подборкой (S21, 5.7) — владельцу'),
   new_responses: zod
     .union([zod.int(), zod.null()])
     .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
@@ -1801,6 +2124,9 @@ export const JobsListMyJobsResponse = zod.object({
       views_count: zod
         .union([zod.int(), zod.null()])
         .describe('Просмотры (S23) — владельцу; остальным — null'),
+      notified_count: zod
+        .union([zod.int(), zod.null()])
+        .describe('Скольким подписчикам заявка ушла — сразу или подборкой (S21, 5.7) — владельцу'),
       new_responses: zod
         .union([zod.int(), zod.null()])
         .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
@@ -2237,6 +2563,9 @@ export const JobsAcceptResponseResponse = zod
       views_count: zod
         .union([zod.int(), zod.null()])
         .describe('Просмотры (S23) — владельцу; остальным — null'),
+      notified_count: zod
+        .union([zod.int(), zod.null()])
+        .describe('Скольким подписчикам заявка ушла — сразу или подборкой (S21, 5.7) — владельцу'),
       new_responses: zod
         .union([zod.int(), zod.null()])
         .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
@@ -2387,6 +2716,9 @@ export const JobsShortlistResponseResponse = zod.object({
   views_count: zod
     .union([zod.int(), zod.null()])
     .describe('Просмотры (S23) — владельцу; остальным — null'),
+  notified_count: zod
+    .union([zod.int(), zod.null()])
+    .describe('Скольким подписчикам заявка ушла — сразу или подборкой (S21, 5.7) — владельцу'),
   new_responses: zod
     .union([zod.int(), zod.null()])
     .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
@@ -2528,6 +2860,9 @@ export const JobsDeclineResponseResponse = zod.object({
   views_count: zod
     .union([zod.int(), zod.null()])
     .describe('Просмотры (S23) — владельцу; остальным — null'),
+  notified_count: zod
+    .union([zod.int(), zod.null()])
+    .describe('Скольким подписчикам заявка ушла — сразу или подборкой (S21, 5.7) — владельцу'),
   new_responses: zod
     .union([zod.int(), zod.null()])
     .describe('Отклики, которых владелец ещё не видел (бейдж S22); остальным — null'),
