@@ -68,7 +68,8 @@ export function useToggleFavorite(locale: Locale) {
         return { items };
       });
     },
-    onSettled: () => client.invalidateQueries({ queryKey: getSearchListFavoritesQueryKey() }),
+    // список уже поправлен оптимистично: сверка с сервером — в фоне
+    onSettled: () => void client.invalidateQueries({ queryKey: getSearchListFavoritesQueryKey() }),
   });
 }
 

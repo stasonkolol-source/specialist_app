@@ -1,7 +1,8 @@
 // Отклики исполнителя (S15–S17, DEVELOPMENT_PLAN 5.5): отправить с ключом идемпотентности формы —
 // повтор после обрыва сети вернёт тот же отклик; поправить и отозвать, пока клиент не решил. «Мои
 // отклики» — страницы по курсору, чип — группа. После любого изменения (и после ошибки: место могли
-// занять) перечитываются заявка — места и «Вы откликнулись», — лента и «Мои отклики».
+// занять) перечитываются заявка — места и «Вы откликнулись», — лента и «Мои отклики»: в фоне,
+// экран отклика уходит на «Мои отклики» сразу по ответу сервера.
 import type {
   MyResponseOut,
   MyResponsesPageOut,
@@ -72,13 +73,11 @@ export function useMyResponse(responseId: string | null) {
   });
 }
 
-async function refresh(client: QueryClient, jobId: string, response?: MyResponseOut) {
+function refresh(client: QueryClient, jobId: string, response?: MyResponseOut): void {
   if (response) client.setQueryData(getJobsGetResponseQueryKey(response.id), response);
-  await Promise.all([
-    client.invalidateQueries({ queryKey: jobQueryKey(jobId) }),
-    client.invalidateQueries({ queryKey: MY_RESPONSES_KEY }),
-    client.invalidateQueries({ queryKey: FEED_KEY }),
-  ]);
+  void client.invalidateQueries({ queryKey: jobQueryKey(jobId) });
+  void client.invalidateQueries({ queryKey: MY_RESPONSES_KEY });
+  void client.invalidateQueries({ queryKey: FEED_KEY });
 }
 
 export interface SendResponse {

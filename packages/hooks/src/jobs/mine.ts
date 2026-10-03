@@ -1,11 +1,13 @@
 // Свои заявки клиента (S22, S23; DEVELOPMENT_PLAN 5.6): список с числом новых откликов, отклики
 // карточками — опрос раз в 15 секунд, пока экран открыт; закрыть с причиной, продлить, пригласить
-// специалистов. После действия заявка, список и счётчики перечитываются.
-import type { JobCloseInReason, JobIn, JobOut } from '@sosed/api-client';
+// специалистов. После действия заявка из ответа сервера сразу ложится в кэш и в список, а список и
+// лента перечитываются в фоне: экран действия их не ждёт.
+import type { JobCloseInReason, JobIn, JobOut, JobsOut } from '@sosed/api-client';
 import {
   getJobsListJobInvitesQueryKey,
   getJobsListMyJobsQueryKey,
   getSession,
+  getViewsGetBadgesQueryKey,
   getViewsListResponseCardsQueryKey,
   jobsCloseJob,
   jobsExtendJob,
@@ -41,14 +43,22 @@ export function useMyJobs() {
   return useQuery(myJobsQueryOptions());
 }
 
-/** Отклики своей заявки карточками; сервер отмечает их просмотренными — бейдж S22 гаснет. */
+/** Отклики своей заявки карточками; сервер отмечает их просмотренными — бейдж S22 гаснет. Список
+ *  заявок и бейдж «Заявки» перечитываются, только когда в списке у заявки были новые отклики, а не
+ *  на каждый опрос. */
 export function useResponseCards(jobId: string | null) {
   const client = useQueryClient();
   return useQuery({
     queryKey: responseCardsQueryKey(jobId ?? ''),
     queryFn: async ({ signal }) => {
       const cards = await viewsListResponseCards(jobId ?? '', { signal });
-      void client.invalidateQueries({ queryKey: myJobsQueryKey() });
+      const listed = client
+        .getQueryData<JobsOut>(myJobsQueryKey())
+        ?.items.find((job) => job.id === jobId);
+      if ((listed?.new_responses ?? 0) > 0) {
+        void client.invalidateQueries({ queryKey: myJobsQueryKey() });
+        void client.invalidateQueries({ queryKey: getViewsGetBadgesQueryKey() });
+      }
       return cards;
     },
     enabled: jobId !== null,
@@ -56,12 +66,16 @@ export function useResponseCards(jobId: string | null) {
   });
 }
 
-async function refresh(client: QueryClient, job: JobOut) {
+function refresh(client: QueryClient, job: JobOut): void {
   client.setQueryData(jobQueryKey(job.id), job);
-  await Promise.all([
-    client.invalidateQueries({ queryKey: myJobsQueryKey() }),
-    client.invalidateQueries({ queryKey: FEED_KEY }),
-  ]);
+  // «N новых» считает только список: у ответа действия их нет
+  const listed = (item: JobOut) =>
+    item.id === job.id ? { ...job, new_responses: item.new_responses } : item;
+  client.setQueryData<JobsOut>(myJobsQueryKey(), (list) =>
+    list ? { ...list, items: list.items.map(listed) } : list,
+  );
+  void client.invalidateQueries({ queryKey: myJobsQueryKey() });
+  void client.invalidateQueries({ queryKey: FEED_KEY });
 }
 
 export interface CloseJob {

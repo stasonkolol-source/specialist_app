@@ -212,11 +212,10 @@ export function useProposeDeal(conversationId: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (terms: DealProposalIn) => messagingProposeDeal(conversationId, terms),
+    // человек остаётся в диалоге: ждём только его (сделка в шапке); бейджи и S29 — в фоне
     onSuccess: async () => {
-      await Promise.all([
-        client.invalidateQueries({ queryKey: chatQueryKey(conversationId) }),
-        refreshInbox(client),
-      ]);
+      void refreshInbox(client);
+      await client.invalidateQueries({ queryKey: chatQueryKey(conversationId) });
     },
   });
 }
@@ -228,10 +227,8 @@ export function useShareContact(conversationId: string) {
   return useMutation({
     mutationFn: (contact: ContactShareIn) => messagingShareContact(conversationId, contact),
     onSuccess: async () => {
-      await Promise.all([
-        client.invalidateQueries({ queryKey: chatQueryKey(conversationId) }),
-        refreshInbox(client),
-      ]);
+      void refreshInbox(client);
+      await client.invalidateQueries({ queryKey: chatQueryKey(conversationId) });
     },
   });
 }

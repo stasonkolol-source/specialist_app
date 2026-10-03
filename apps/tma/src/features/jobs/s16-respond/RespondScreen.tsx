@@ -150,8 +150,9 @@ function RespondForm({
         attempt.current = { body: json, key: crypto.randomUUID() };
       await send.mutateAsync({ jobId: job.id, body: sent, key: attempt.current.key });
       if (saveTemplate && !full) {
-        // шаблон — дополнение к отклику: не сохранился — отклик всё равно ушёл
-        await createTemplate
+        // шаблон — дополнение к отклику: «Мои отклики» его не ждут, а не сохранился — отклик
+        // всё равно ушёл
+        void createTemplate
           .mutateAsync({
             key: `${attempt.current.key}:template`,
             body: { ...body, title: templateTitleOf(body.message) },

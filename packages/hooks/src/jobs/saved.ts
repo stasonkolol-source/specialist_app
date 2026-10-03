@@ -63,7 +63,8 @@ export function useToggleSavedJob() {
         return { items };
       });
     },
-    onSettled: () => client.invalidateQueries({ queryKey: key }),
+    // список уже поправлен оптимистично: сверка с сервером — в фоне
+    onSettled: () => void client.invalidateQueries({ queryKey: key }),
   });
 }
 
