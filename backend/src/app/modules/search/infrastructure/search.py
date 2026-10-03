@@ -25,7 +25,9 @@ from sqlalchemy import (
     true,
 )
 
+from app.modules.reviews.api import NO_REVIEWS_LOWER_BOUND
 from app.modules.search.application.dto import SpecialistFilters, SpecialistHit, TextMatch
+from app.modules.search.domain.index import RATING_SCALE
 from app.modules.search.domain.query import (
     BADGE_TRUST,
     DISTANCE_SCALE_M,
@@ -47,8 +49,6 @@ AT_CLIENT = "at_client"
 PHONE_VERIFIED = "phone_verified"
 NAME_SIMILARITY = 0.45
 """Сходство имени по триграммам: ниже — «Erik» находился бы по «электрик»."""
-RATING_SCALE = 5.0
-"""Нижняя граница рейтинга хранится по шкале 1–5; в балл — доля от 0 до 1."""
 TS_RANK_NORMALIZATION = 32
 """ts_rank_cd / (ts_rank_cd + 1): значения 0..1 для смешивания с другими сигналами (§9.3)."""
 
@@ -242,7 +242,10 @@ def _profile_filters(filters: SpecialistFilters, now: datetime) -> list[ColumnEl
 def _rank(weights: RankWeights, text: _Text | None, now: datetime) -> ColumnElement[Any]:
     """Балл §9.4, нормированный на сумму участвующих весов: без текста вес текста не в счёт.
     Отзывчивость — с 6.3b: пока сигнала нет, она в балл не входит."""
-    rating = func.coalesce(cast(_SI.rating_lower_bound, Float), 0.0) / RATING_SCALE
+    # без отзывов — априорная граница: ниже профиля с «пятёркой», выше профиля с «единицей»
+    rating = (
+        func.coalesce(cast(_SI.rating_lower_bound, Float), NO_REVIEWS_LOWER_BOUND) / RATING_SCALE
+    )
     trust = sum(
         (
             case((_SI.badges.contains([badge]), share), else_=0.0)

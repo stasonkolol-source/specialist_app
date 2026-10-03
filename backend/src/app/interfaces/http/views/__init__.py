@@ -7,7 +7,16 @@ from fastapi import APIRouter
 
 router = APIRouter()
 
-from app.interfaces.http.views import my_job, specialist  # noqa: E402 — роутеры экранов ниже router
+from app.interfaces.http.views import (  # noqa: E402 — роутеры экранов ниже router
+    badges,
+    deal,
+    history,
+    my_job,
+    specialist,
+)
 
 router.include_router(specialist.router)
 router.include_router(my_job.router)
+router.include_router(badges.router)
+router.include_router(deal.router)
+router.include_router(history.router)

@@ -1,0 +1,106 @@
+{
+  "list": {
+    "title": "Poruke",
+    "tabs": {
+      "all": "Sve",
+      "client": "Ja sam naručilac",
+      "performer": "Ja sam izvođač"
+    },
+    "job": "Zahtev: {title}",
+    "profile": "Iz profila stručnjaka",
+    "you": "Vi: {text}",
+    "unread": "{count, plural, one {# nepročitana} few {# nepročitane} other {# nepročitanih}}",
+    "empty": {
+      "title": "Još nema poruka",
+      "text": "Pišite stručnjaku sa njegove kartice ili odgovorite na ponudu — prepiska će se pojaviti ovde."
+    },
+    "emptyRole": "U ovoj kartici još nema ničega",
+    "hint": "Telefoni i linkovi se vide tek posle dogovora",
+    "deleted": "Nalog je obrisan",
+    "more": "Prikaži još"
+  },
+  "deal": {
+    "none": "Još niste dogovoreni",
+    "proposed": "Čeka potvrdu",
+    "agreed": "Dogovoreno",
+    "completed": "Dogovor je završen",
+    "cancelled": "Dogovor je otkazan",
+    "disputed": "Spor o dogovoru"
+  },
+  "preview": {
+    "offer": "Ponuda: {text}",
+    "contact": "Kontakt",
+    "hidden": "Poruka je skrivena",
+    "erased": "Poruka je obrisana",
+    "dealProposed": "Predlog dogovora",
+    "dealAgreed": "Dogovoreno",
+    "dealCancelled": "Dogovor je otkazan"
+  },
+  "chat": {
+    "agree": "Dogovoreno",
+    "openResponses": "Na ponude",
+    "chooseHint": "Izvođač se bira na stranici ponuda zahteva",
+    "safety": "Ne plaćajte unapred nepoznatim izvođačima. Platite tek kad posao bude završen.",
+    "startedProfile": "Razgovor iz profila stručnjaka · {date}",
+    "startedJob": "Razgovor o zahtevu „{title}“ · {date}",
+    "masked": "Kontakti će se otvoriti posle dogovora — tako je bezbednije",
+    "prepayment": "Traže avans? Ne šaljite novac pre početka posla.",
+    "hidden": "Poruka je skrivena zbog moderacije",
+    "hiddenOwn": "Skriveno od sagovornika: poruka krši pravila",
+    "erased": "Poruka je obrisana",
+    "offer": "Ponuda na zahtev",
+    "offerPrice": "Cena: {price}",
+    "offerWhen": "Kada: {when}",
+    "contact": {
+      "telegram": "Telegram: {value}",
+      "phone": "Telefon: {value}"
+    },
+    "event": {
+      "dealProposedMine": "Predložili ste dogovor — čekamo potvrdu",
+      "dealProposedTheirs": "Sagovornik predlaže dogovor — proverite uslove",
+      "dealAgreed": "Dogovoreno! Sada možete podeliti kontakt",
+      "dealCancelled": "Dogovor je otkazan"
+    },
+    "placeholder": "Poruka",
+    "send": "Pošalji",
+    "sending": "Šalje se…",
+    "failed": "Nije poslato — dodirnite da pokušate ponovo",
+    "earlier": "Prikaži ranije",
+    "closed": "U ovaj razgovor više ne možete pisati",
+    "limit": "Previše poruka za sat. Sačekajte malo.",
+    "unavailableTitle": "Razgovor nije dostupan",
+    "unavailableText": "Možda je link zastareo ili je razgovor obrisan.",
+    "toChats": "Na poruke",
+    "propose": {
+      "title": "Dogovoreno?",
+      "text": "Sagovornik će dobiti uslove i potvrditi ih. Posle toga možete razmeniti kontakte.",
+      "what": "Šta radimo",
+      "price": "Cena, RSD",
+      "pricePlaceholder": "Nije obavezno",
+      "when": "Kada",
+      "submit": "Predloži",
+      "sent": "Uslovi su poslati — čekamo potvrdu"
+    },
+    "shareContact": "Podelite kontakt",
+    "telegram": "Telegram",
+    "dealBar": "Dogovor „{title}“",
+    "dealTerms": "Pogledajte uslove",
+    "dealOpen": "Otvorite dogovor",
+    "share": {
+      "title": "Podelite kontakt",
+      "text": "Izaberite šta šaljete. Kontakt će se pojaviti u vašem razgovoru.",
+      "telegram": "Korisničko ime u Telegram-u",
+      "phone": "Broj telefona",
+      "phoneHint": "Telegram će tražiti da potvrdite slanje",
+      "safety": "Kontakt će videti samo sagovornik. Nikome ne govorite kodove iz SMS poruka i podatke sa kartice.",
+      "submit": "Podeli",
+      "later": "Ne sada",
+      "nothing": "Nema šta da se podeli: u Telegram-u nemate korisničko ime, a ovaj Telegram klijent ne ume da pošalje telefon. Ažurirajte Telegram.",
+      "notSent": "Telefon nije poslat",
+      "failed": "Deljenje kontakta nije uspelo. Pokušajte ponovo."
+    }
+  },
+  "write": {
+    "failed": "Razgovor nije moguće otvoriti. Pokušajte ponovo."
+  }
+}

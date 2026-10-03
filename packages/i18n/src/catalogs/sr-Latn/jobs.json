@@ -270,7 +270,7 @@
       "withdrawn": "Povukli ste ponudu"
     },
     "acceptedTitle": "Izabrani ste",
-    "acceptedText": "dogovorite se u ćaskanju",
+    "acceptedText": "adresa i vreme — u dogovoru",
     "pending": "Na proveri",
     "blocked": "Sakriveno moderacijom",
     "first": "Prva ponuda",
@@ -284,7 +284,8 @@
     "emptyTitle": "Još nema ponuda",
     "emptyText": "Šaljite ponude na zahteve iz lente — ovde ćete videti šta je naručilac odlučio",
     "emptyGroup": "Ovde još nema ničega",
-    "toFeed": "Na lentu zahteva"
+    "toFeed": "Na lentu zahteva",
+    "openDeal": "Otvori dogovor"
   },
   "templates": {
     "title": "Šabloni ponuda",
@@ -381,6 +382,206 @@
     "invited": "Pozvan",
     "inviteNobody": "Odgovarajućih stručnjaka u blizini još nema",
     "inviteLimit": "Pozvano {count} od {limit}",
-    "edit": "Izmeni"
+    "edit": "Izmeni",
+    "chosenTitle": "Izvođač je izabran",
+    "chosenText": "Dogovor je u toku — uslovi, adresa i „Posao je završen“ u kartici dogovora",
+    "openDeal": "Otvori dogovor"
+  },
+  "choice": {
+    "unavailable": "Ponuda nije dostupna",
+    "unavailableText": "Obrisana je ili ju je sakrila moderacija.",
+    "offer": "Ponuda",
+    "price": {
+      "fixed": "Cena za posao",
+      "from": "Cena od",
+      "hourly": "Cena po satu",
+      "negotiable": "Cena"
+    },
+    "when": "Kada može",
+    "budget": "Vaš budžet — {amount}",
+    "decline": "Odbij",
+    "declineError": "Ponuda nije odbijena. Pokušajte ponovo",
+    "choose": "Izaberi izvođača",
+    "profile": "Otvori profil",
+    "state": {
+      "accepted": "Izabrali ste ovog izvođača",
+      "declined": "Odbili ste ovu ponudu",
+      "withdrawn": "Izvođač je povukao ponudu",
+      "not_selected": "Izabran je drugi izvođač"
+    },
+    "openDeal": "Otvori dogovor",
+    "confirmTitle": "Izabrati ovog izvođača?",
+    "changes": "Šta se odmah menja",
+    "changeAddress": "Izvođač će videti tačnu adresu — u kartici dogovora",
+    "changeOthers": "Ostali izvođači će dobiti obaveštenje da je izabran neko drugi",
+    "note": "Ako dogovor propadne, zahtev možete ponovo otvoriti i izabrati među prethodnim ponudama.",
+    "confirm": "Izaberi izvođača",
+    "cancel": "Otkaži",
+    "acceptError": "Izvođač nije izabran. Pokušajte ponovo",
+    "writeError": "Razgovor nije moguće otvoriti. Pokušajte ponovo."
+  },
+  "deal": {
+    "unavailable": "Dogovor nije dostupan",
+    "unavailableText": "Ne postoji ili vi niste njegova strana.",
+    "status": {
+      "proposed": "Čeka potvrdu",
+      "agreed": "Dogovoreno",
+      "completed": "Završen",
+      "cancelled": "Otkazan",
+      "disputed": "Spor"
+    },
+    "role": {
+      "performer": "izvođač",
+      "client": "naručilac"
+    },
+    "noReviews": "Još nema utisaka",
+    "reviews": "{count, plural, one {# utisak} few {# utiska} other {# utisaka}}",
+    "deletedParty": "Nalog je obrisan",
+    "addressHint": "Adresu vidite samo vi i {name}",
+    "addressHintDistrict": "{district} · adresu vidite samo vi i {name}",
+    "noAddress": "Tačna adresa nije navedena u zahtevu",
+    "copy": "Kopiraj adresu",
+    "copied": "Adresa je kopirana",
+    "statusTitle": "Status",
+    "step": {
+      "responded": "Ponuda za zahtev",
+      "chosen": "Izabran izvođač",
+      "agreed": "Dogovoreno",
+      "workAt": "posao {time}",
+      "done": "Posao završen",
+      "review": "Utisak"
+    },
+    "safety": "Ne plaćajte unapred nepoznatim izvođačima. Platite kada posao bude urađen.",
+    "complete": "Posao je završen",
+    "completeError": "Nije označeno. Pokušajte ponovo",
+    "marked": "Označili ste „Posao je završen“. Dogovor će se završiti kada potvrdi druga strana — ili sam za 3 dana.",
+    "otherMarked": "Druga strana je već označila „Posao je završen“. Potvrdite ako je sve urađeno.",
+    "completed": "Dogovor je završen {date}. Hvala!",
+    "cancelledByMe": "Otkazali ste dogovor: {reason}.",
+    "cancelledByOther": "Druga strana je otkazala dogovor: {reason}.",
+    "cancelledExpired": "Predlog je istekao: odgovora nije bilo 3 dana.",
+    "cancelledDeleted": "Dogovor je otkazan: nalog druge strane je obrisan.",
+    "reason": {
+      "plans_changed": "planovi su se promenili",
+      "no_agreement": "nisu se dogovorili o ceni ili vremenu",
+      "no_contact": "nema kontakta",
+      "other": "drugi razlog"
+    },
+    "cancel": "Otkaži dogovor",
+    "cancelHintClient": "Zahtev će se ponovo otvoriti — možete izabrati među prethodnim ponudama",
+    "cancelHintPerformer": "Naručilac će moći da izabere drugog izvođača",
+    "cancelTitle": "Zašto otkazujete?",
+    "cancelError": "Dogovor nije otkazan. Pokušajte ponovo",
+    "proposal": {
+      "title": "{name} predlaže dogovor",
+      "titleNoName": "Predlažu vam dogovor",
+      "text": "Proverite uslove. Posle potvrde nastaće dogovor — i moći ćete da razmenite kontakte.",
+      "what": "Šta",
+      "when": "Kada",
+      "where": "Gde",
+      "addressLater": "tačna adresa — posle potvrde",
+      "price": "Cena",
+      "proposedAt": "predloženo {time}",
+      "expires": "Ako ne odgovorite za 72 sata, dogovor će biti otkazan. Rok — do {date}.",
+      "confirm": "Potvrdi",
+      "decline": "Odbij",
+      "answerError": "Odgovor nije uspeo. Pokušajte ponovo",
+      "waiting": "Čekamo da druga strana potvrdi dogovor. Predlog važi do {date}."
+    },
+    "contacts": {
+      "title": "Kontakti",
+      "telegram": "Telegram: {username}",
+      "share": "Podelite kontakt",
+      "shareHint": "Pošaljite svoj Telegram ili telefon u razgovor o dogovoru",
+      "shareError": "Razgovor nije moguće otvoriti. Pokušajte ponovo"
+    },
+    "leaveReview": "Ostavi utisak",
+    "reviewUntil": "Utisak možete ostaviti do {date}",
+    "myReview": {
+      "under_review": "Vaš utisak je na proveri",
+      "published": "Vaš utisak je objavljen",
+      "removed": "Vaš utisak je uklonjen moderacijom"
+    }
+  },
+  "review": {
+    "title": "Kako je prošlo?",
+    "dealLine": "{title} · {date}",
+    "rating": "Ocena",
+    "star": "{count, plural, one {# zvezdica} few {# zvezdice} other {# zvezdica}}",
+    "grade": {
+      "1": "Loše",
+      "2": "Osrednje",
+      "3": "Solidno",
+      "4": "Dobro",
+      "5": "Odlično"
+    },
+    "liked": "Šta vam se dopalo?",
+    "criteria": {
+      "quality": "Kvalitet",
+      "punctuality": "Tačnost",
+      "communication": "Komunikacija",
+      "price": "Odgovara ceni"
+    },
+    "body": "Utisak",
+    "placeholder": "Opišite posao: šta je dobro urađeno, šta može bolje",
+    "hint": "Pišite o poslu. Telefoni i linkovi u utisku se ne objavljuju.",
+    "photo": "Fotografija",
+    "photoSoon": "Fotografije uz utisak — uskoro",
+    "note": "Utisak će se pojaviti na profilu izvođača posle automatske provere. Posle objave ne može se menjati.",
+    "submit": "Objavi utisak",
+    "sent": "Hvala! Utisak će se pojaviti posle provere.",
+    "failed": "Slanje utiska nije uspelo. Pokušajte ponovo.",
+    "closed": "Rok za utisak je istekao: možete ga ostaviti u roku od 14 dana posle završetka dogovora.",
+    "exists": "Već ste ostavili utisak za ovaj dogovor.",
+    "notCompleted": "Utisak možete ostaviti kada posao bude završen.",
+    "notClient": "Utisak ostavlja klijent: izvođači će moći da ocenjuju klijente kasnije.",
+    "toDeal": "Na dogovor"
+  },
+  "history": {
+    "title": "Dogovori i utisci",
+    "tabs": {
+      "deals": "Dogovori",
+      "reviews": "Utisci"
+    },
+    "active": "Aktivni",
+    "finished": "Završeni",
+    "you": {
+      "client": "Vi ste klijent",
+      "performer": "Vi ste izvođač"
+    },
+    "reviewLeft": "Utisak ostavljen",
+    "reviewNone": "Utiska još nema",
+    "leaveReview": "Ostavi utisak",
+    "cancelledBy": {
+      "me": "otkazali ste vi",
+      "client": "otkazao klijent",
+      "performer": "otkazao izvođač",
+      "system": "otkazan automatski"
+    },
+    "emptyTitle": "Dogovora još nema",
+    "emptyText": "Kada se dogovorite sa izvođačem ili klijentom, dogovor će se pojaviti ovde.",
+    "more": "Prikaži još",
+    "received": "O meni",
+    "written": "Moji",
+    "reviewStatus": {
+      "under_review": "Na proveri",
+      "published": "Objavljen",
+      "removed": "Uklonjen moderacijom"
+    },
+    "reply": "Odgovori",
+    "replyTitle": "Odgovor na utisak",
+    "replyHint": "Odgovor će videti svi. Ne može se menjati.",
+    "replySend": "Pošalji odgovor",
+    "replyFailed": "Slanje odgovora nije uspelo. Pokušajte ponovo.",
+    "yourReply": "Vaš odgovor",
+    "theirReply": "Odgovor izvođača",
+    "replyStatus": {
+      "under_review": "Odgovor je na proveri",
+      "published": "Odgovor je objavljen",
+      "removed": "Odgovor je sakriven moderacijom"
+    },
+    "emptyReceived": "Utisaka o vama još nema",
+    "emptyWritten": "Još niste ostavili utiske",
+    "deleted": "Nalog je obrisan"
   }
 }

@@ -12,6 +12,8 @@
   портят воронки и не наполняют ленты. Обработка фото и проекции (поиск, 4.1) — остаются.
 - Фото работ (`small`) — JPEG-заглушки цвета категории: загрузка и обработка — обычные (кладёт
   сервер, обрабатывает worker-media). Без хранилища (S3 не настроен) — без фото.
+- Отзывы (7.2): по каждой выполненной демо-сделке клиент оставляет отзыв (оценка, иногда без
+  текста); сид сам его одобряет и пересчитывает рейтинг.
 - `lab` — объём лаборатории (research/07 §2.7): 50 000 специалистов, без фото.
 - На проде команда не работает.
 """
@@ -35,6 +37,7 @@ from app.entrypoints._seed_demo_content import (
     OPENERS,
     RESPONSE_MESSAGES,
     RESPONSE_WHEN,
+    REVIEW_TEXTS,
     DemoCategory,
     DemoJob,
     DemoService,
@@ -82,6 +85,15 @@ from app.modules.media.application.use_cases.start_upload import StartUpload, St
 from app.modules.media.domain.policy import MediaPurpose
 from app.modules.pricing.application.use_cases.add_service import AddService, AddServiceCommand
 from app.modules.pricing.domain.service import PriceType
+from app.modules.reviews.api import ReviewsApi
+from app.modules.reviews.application.use_cases.leave_review import (
+    LeaveReview,
+    LeaveReviewCommand,
+)
+from app.modules.reviews.application.use_cases.recompute_rating import (
+    RecomputeRating,
+    RecomputeRatingCommand,
+)
 from app.modules.specialists.api import PriceList, SpecialistsApi
 from app.modules.specialists.application.use_cases.add_portfolio_work import (
     AddPortfolioWork,
@@ -116,7 +128,7 @@ from app.platform.config.port import LegalVersions
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import BUSINESS_TZ, Clock
 from app.platform.kernel.geo import GeoPoint
-from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, UserId
+from app.platform.kernel.ids import CategoryId, CityId, DealId, DistrictId, MediaId, UserId
 from app.platform.kernel.principal import Platform
 from app.platform.settings import Environment, Settings
 from app.platform.storage.port import Bucket, StoragePort
@@ -564,6 +576,36 @@ class DemoSeeder:
             async with self._container() as request:
                 await (await request.get(CompleteDeal))(
                     CompleteDealCommand(actor_id=actor, deal_id=accepted.deal_id)
+                )
+        await self._review(accepted.deal_id, owner.id, client, seed=f"{client.number}:{job_id}")
+
+    async def _review(
+        self, deal_id: DealId, client_id: UserId, client: DemoClient, *, seed: str
+    ) -> None:
+        """Клиент оценивает выполненную сделку (7.2): сид сам одобряет отзыв (без очереди
+        модерации) и пересчитывает рейтинг профиля — карточка и выдача сразу с оценкой."""
+        rng = random.Random(f"{SEED}:review:{seed}")  # noqa: S311 — демо-данные
+        rating = rng.choices((5, 4, 3, 2), weights=(70, 20, 7, 3))[0]
+        body = rng.choice(REVIEW_TEXTS[client.lang][rating]) if rng.random() < 0.8 else None
+        criteria = {
+            name: max(1, min(5, rating + rng.choice((0, 0, 0, -1, 1))))
+            for name in ("quality", "punctuality", "communication", "price")
+            if rng.random() < 0.7
+        }
+        async with self._container() as request:
+            review = await (await request.get(LeaveReview))(
+                LeaveReviewCommand(
+                    actor_id=client_id, deal_id=deal_id, rating=rating, criteria=criteria, body=body
+                )
+            )
+        async with self._container() as request:
+            uow, reviews = await request.get(UnitOfWork), await request.get(ReviewsApi)
+            async with uow:
+                await reviews.approve_review(review.id)
+        if review.subject_profile_id is not None:
+            async with self._container() as request:
+                await (await request.get(RecomputeRating))(
+                    RecomputeRatingCommand(profile_id=review.subject_profile_id)
                 )
 
     async def _profile(

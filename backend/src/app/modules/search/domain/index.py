@@ -26,7 +26,9 @@ WEIGHT_RATING: Final = 0.25
 WEIGHT_TRUST: Final = 0.15
 WEIGHT_ACTIVITY: Final = 0.05
 """Веса базового балла — доли формулы ранжирования §9.4 без текста, отзывчивости и
-расстояния (их добавит выдача 4.2). До отзывов (7.2) и бейджей балл решает активность."""
+расстояния (их добавит выдача 4.2). До бейджей балл решают рейтинг и активность."""
+RATING_SCALE: Final = 5.0
+"""Нижняя граница рейтинга — по шкале 1–5; в балл — доля от 0 до 1."""
 
 
 _DJ: Final = str.maketrans({"đ": "dj", "Đ": "Dj", "ђ": "dj", "Ђ": "Dj"})
@@ -79,6 +81,11 @@ class IndexEntry:
     category_prices: Mapping[CategoryId, int]
     available_until: datetime | None
     activity_score: float
+    rating_bayes: float | None
+    """Показ и фильтр «рейтинг от»; без отзывов по сделкам — None."""
+    rating_lower_bound: float | None
+    """Ранжирование; без отзывов — None (выдача берёт априорную границу)."""
+    rating_count: int
     score: float
     name: str
     document: SearchDocument
@@ -127,9 +134,11 @@ def activity_score(
 
 
 def base_score(*, rating_lower_bound: float, trust: float, activity: float) -> float:
-    """Базовый балл 0–1 для сортировки без текста запроса (keyset в выдаче)."""
+    """Базовый балл 0–1 для сортировки без текста запроса (keyset в выдаче). Нижняя граница
+    рейтинга — по шкале 1–5 (у профиля без отзывов — априорная, reviews 7.2)."""
     total = WEIGHT_RATING + WEIGHT_TRUST + WEIGHT_ACTIVITY
-    raw = WEIGHT_RATING * rating_lower_bound + WEIGHT_TRUST * trust + WEIGHT_ACTIVITY * activity
+    rating = rating_lower_bound / RATING_SCALE
+    raw = WEIGHT_RATING * rating + WEIGHT_TRUST * trust + WEIGHT_ACTIVITY * activity
     return raw / total
 
 

@@ -52,6 +52,13 @@ class FakeIdentity:
             created_at=START,
         )
 
+    async def users(self, user_ids: Collection[UserId]) -> dict[UserId, UserSummary]:
+        found = {user_id: await self.get_user(user_id) for user_id in user_ids}
+        return {user_id: user for user_id, user in found.items() if user is not None}
+
+    async def telegram_contacts(self, user_ids: Collection[UserId]) -> dict[UserId, str]:
+        return {}
+
     async def by_telegram(self, telegram_id: int) -> TelegramUserView | None:
         return None
 
@@ -130,6 +137,7 @@ class FakeTarget(ModerationTarget):
         always_review: bool = False,
         risk_level: int = 0,
         media_ids: tuple[UUID, ...] = (),
+        visible: bool = False,
     ) -> UUID:
         entity_id = new_id()
         self.objects[entity_id] = TargetContent(
@@ -140,6 +148,7 @@ class FakeTarget(ModerationTarget):
             version=1,
             always_review=always_review,
             risk_level=risk_level,
+            visible=visible,
         )
         return entity_id
 

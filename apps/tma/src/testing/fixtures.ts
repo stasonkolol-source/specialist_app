@@ -124,6 +124,7 @@ export const ME: MeOut = {
   can_respond: true,
   can_message: true,
   deletion_scheduled_at: null,
+  privacy: { show_telegram: true },
 };
 
 /** Запрос на удаление аккаунта S45: принят 1 октября, исполнится через 7 дней — 8 октября. */
@@ -633,9 +634,11 @@ export function cardReviewsFor(locale: string | null): CardReviewOut[] {
     kind: 'deal',
     author_name: author,
     rating,
+    criteria: {},
     body,
     category: { id: CATEGORY_IDS[category] ?? 0, name: categoryName(category, locale) },
     published_at: publishedAt,
+    reply: null,
   });
   return [
     review(1, 'Ирина С.', 5, 'chandeliers', '2026-09-24T15:00:00Z', 'Повесил две люстры и заменил розетку. Пришёл вовремя, всё аккуратно, убрал за собой.'),
@@ -691,7 +694,7 @@ export function specialistCardFor(
     rating_count: 37,
     is_new: false,
     badges: ['phone_verified'],
-    response_time_minutes: null,
+    response_time_minutes: 15,
     services: CARD_SERVICES.slice(0, 3),
     services_count: CARD_SERVICES.length,
     works: CARD_WORKS.slice(0, 3),

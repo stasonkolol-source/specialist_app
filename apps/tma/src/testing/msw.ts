@@ -10,6 +10,7 @@ import {
   getIdentityLogoutMockHandler,
   getIdentityRefreshSessionMockHandler,
   getIdentityUpdateMeMockHandler,
+  getIdentityUpdatePrivacyMockHandler,
   getNotificationsGetNotificationSettingsMockHandler,
   getNotificationsGrantTelegramWriteAccessMockHandler,
   getNotificationsListNotificationsMockHandler,
@@ -20,7 +21,7 @@ import {
   getSearchSuggestMockHandler,
   getSystemGetClientConfigMockHandler,
 } from '@sosed/api-client/mocks';
-import type { MeOut, MeUpdateIn, TokensOut } from '@sosed/api-client';
+import type { MeOut, MeUpdateIn, PrivacyIn, TokensOut } from '@sosed/api-client';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 
@@ -42,6 +43,7 @@ import {
   suggestFor,
 } from './fixtures.ts';
 import type { BackendReply } from './backend.ts';
+import { ChatBackend } from './chatBackend.ts';
 import { FavoritesBackend } from './favoritesBackend.ts';
 import { JobsBackend } from './jobsBackend.ts';
 import { ProfileBackend } from './profileBackend.ts';
@@ -63,6 +65,16 @@ export const patchMe = (me: MeOut) =>
     const body = (await request.json()) as MeUpdateIn;
     const fields = Object.fromEntries(Object.entries(body).filter(([, value]) => value != null));
     return { ...me, ...fields } as MeOut;
+  });
+
+/** PATCH /me/privacy (S43, 6.5): «Мой Telegram» — в `privacy` свежего /me. */
+export const patchPrivacy = (me: MeOut) =>
+  getIdentityUpdatePrivacyMockHandler(async ({ request }) => {
+    const body = (await request.json()) as PrivacyIn;
+    return {
+      ...me,
+      privacy: { show_telegram: body.show_telegram ?? me.privacy.show_telegram },
+    };
   });
 
 /** Ответ фейка backend как HTTP: 204 без тела, ошибки — problem+json. */
@@ -141,7 +153,7 @@ export const cardHandlers = [
  *  по фейку backend; по умолчанию — свежий на каждый запрос. Тесты мастера S20, ленты и откликов
  *  ставят свой — с памятью (server.use). */
 const JOBS_API =
-  /\/api\/v1\/(jobs(\/.*)?|me\/favorites\/jobs?(\/[^/]+)?|responses\/.+|me\/responses|me\/jobs|me\/response-templates(\/[^/]+)?|specialists\/[^/]+\/requests)$/;
+  /\/api\/v1\/(jobs(\/.*)?|me\/favorites\/jobs?(\/[^/]+)?|responses\/.+|me\/responses|me\/jobs|me\/response-templates(\/[^/]+)?|specialists\/[^/]+\/requests|me\/deals|deals\/.+|me\/deal-history|me\/reviews|reviews\/[^/]+\/reply)$/;
 
 export const jobsHandlers = (backend: () => JobsBackend) => [
   http.all(JOBS_API, async ({ request }) => {
@@ -161,6 +173,18 @@ export const jobsHandlers = (backend: () => JobsBackend) => [
   }),
 ];
 
+/** Переписка (6.4) и бейджи таббара по фейку backend; по умолчанию — свежий на каждый запрос:
+ *  диалогов нет. Тесты S29 и S30 ставят свой — с памятью (server.use). */
+const CHAT_API = /\/api\/v1\/(conversations(\/.*)?|me\/badges)$/;
+
+export const chatHandlers = (backend: () => ChatBackend) => [
+  http.all(CHAT_API, async ({ request }) => {
+    const body =
+      request.method === 'POST' ? await request.json().catch(() => undefined) : undefined;
+    return respond(backend().handle(request.method, new URL(request.url), body));
+  }),
+];
+
 export const handlers = [
   getSystemGetClientConfigMockHandler(CLIENT_CONFIG),
   getIdentityAuthenticateTelegramMockHandler({ ...TOKENS, is_new: false, user: ME }),
@@ -168,6 +192,7 @@ export const handlers = [
   getIdentityLogoutMockHandler(),
   getIdentityGetMeMockHandler(ME),
   patchMe(ME),
+  patchPrivacy(ME),
   getIdentityAcceptConsentsMockHandler(accepted(ME)),
   getNotificationsGrantTelegramWriteAccessMockHandler(WRITE_ACCESS),
   getNotificationsListNotificationsMockHandler(({ request }) =>
@@ -188,6 +213,7 @@ export const handlers = [
   ...favoritesHandlers(() => new FavoritesBackend()),
   ...profileHandlers(() => new ProfileBackend()),
   ...jobsHandlers(() => new JobsBackend()),
+  ...chatHandlers(() => new ChatBackend()),
 ];
 
 export const server = setupServer(...handlers);

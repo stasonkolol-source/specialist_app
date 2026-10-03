@@ -65,6 +65,9 @@ class SpecialistIndexRow(Base):
     rating_bayes: Mapped[float | None] = mapped_column(Numeric(4, 3))
     rating_lower_bound: Mapped[float | None] = mapped_column(Numeric(4, 3))
     rating_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    response_time_minutes: Mapped[int | None] = mapped_column(Integer)
+    """«Обычно отвечает за …» (6.3b): медиана первого ответа за 30 дней; пишет не индексатор, а
+    `search.response_time_stats` — пересборка строки её не трогает."""
     badges: Mapped[list[str]] = mapped_column(ARRAY(String(32)), server_default=text("'{}'"))
     available_until: Mapped[datetime | None]
     promoted_until: Mapped[datetime | None]

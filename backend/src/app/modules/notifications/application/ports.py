@@ -22,7 +22,13 @@ from app.modules.notifications.domain.notification import (
     NotificationId,
 )
 from app.modules.notifications.domain.settings import NotificationSettings
-from app.platform.contracts.events.deals import DealCancelled, DealCompletionDue, DealReminderDue
+from app.platform.contracts.events.deals import (
+    DealCancelled,
+    DealCompletionDue,
+    DealMarkedDone,
+    DealProposed,
+    DealReminderDue,
+)
 from app.platform.contracts.events.identity import BotStarted, UserDeleted, UserRestricted
 from app.platform.contracts.events.jobs import (
     JobExpired,
@@ -31,13 +37,15 @@ from app.platform.contracts.events.jobs import (
     ResponseAccepted,
     ResponseSubmitted,
 )
+from app.platform.contracts.events.messaging import MessageSent
 from app.platform.contracts.events.moderation import ModerationDecisionMade
+from app.platform.contracts.events.reviews import ReviewPublished, ReviewRequested
 from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.kernel.ids import UserId
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.pagination import Page, PageRequest
 from app.platform.queue.port import TaskRef
-from app.platform.telegram.port import Button
+from app.platform.telegram.port import ButtonLine
 
 
 class ChannelRepository(Protocol):
@@ -162,7 +170,7 @@ class NotificationRenderer(Protocol):
         params: Mapping[str, str],
         link: str | None,
         locale: Locale,
-    ) -> tuple[str, tuple[Button, ...]]:
+    ) -> tuple[str, tuple[ButtonLine, ...]]:
         """HTML сообщения бота и его кнопки: web_app с кодом deep link или callback."""
         ...
 
@@ -224,6 +232,31 @@ NOTIFY_RESPONSES: Final = TaskRef(
 )
 """Конец окна: «Новых откликов: 3» по видимым клиенту и ещё не открытым откликам."""
 
+MESSAGES_DEBOUNCE: Final = timedelta(minutes=1)
+"""Окно дебаунса `message.received` (6.3b): серия сообщений за минуту — одно уведомление."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class MessagesWindow:
+    """Окно сообщений диалога для одного получателя: уведомление — в его конце."""
+
+    conversation_id: UUID
+    recipient_id: UserId
+    since: datetime
+    """Первое сообщение окна: окно — ключ дедупликации уведомления."""
+
+
+SCHEDULE_MESSAGES_NOTICE: Final = TaskRef(
+    "notifications.schedule_messages_notice", MessageSent, queue="notifications"
+)
+"""Подписчик MessageSent: первое сообщение окна ставит уведомление получателю через
+MESSAGES_DEBOUNCE, следующие, пока оно ждёт, — ничего (замок очереди по диалогу и получателю)."""
+NOTIFY_MESSAGES: Final = TaskRef(
+    "notifications.notify_messages", MessagesWindow, queue="notifications"
+)
+"""Конец окна: «Алексей пишет» с началом последнего сообщения, если получатель ещё не прочитал
+и не смотрит диалог прямо сейчас."""
+
 NOTIFY_JOB_INVITED: Final = TaskRef(
     "notifications.notify_job_invited", JobInvited, queue="notifications"
 )
@@ -239,6 +272,10 @@ NOTIFY_PASSED_OVER: Final = TaskRef(
     "notifications.notify_passed_over", ResponseAccepted, queue="notifications"
 )
 """Подписчик ResponseAccepted: остальным откликнувшимся — «Клиент выбрал другого исполнителя»."""
+NOTIFY_DEAL_PROPOSED: Final = TaskRef(
+    "notifications.notify_deal_proposed", DealProposed, queue="notifications"
+)
+"""Подписчик DealProposed: второй стороне — «предлагает договориться», подтвердить за 72 ч."""
 NOTIFY_DEAL_CANCELLED: Final = TaskRef(
     "notifications.notify_deal_cancelled", DealCancelled, queue="notifications"
 )
@@ -251,8 +288,23 @@ NOTIFY_DEAL_REMINDER: Final = TaskRef(
 NOTIFY_DEAL_COMPLETION: Final = TaskRef(
     "notifications.notify_deal_completion", DealCompletionDue, queue="notifications"
 )
-"""Подписчик DealCompletionDue: «Работа выполнена?» с [Да, выполнено] и [Нет, проблема] тем,
+"""Подписчик DealCompletionDue: «Работа выполнена?» с [Да, всё хорошо] и [Есть проблема] тем,
 кто ещё не отметил."""
+NOTIFY_DEAL_MARKED: Final = TaskRef(
+    "notifications.notify_deal_marked", DealMarkedDone, queue="notifications"
+)
+"""Подписчик DealMarkedDone: второй стороне — «Работа выполнена?» сразу (B2, 7.3): «исполнитель
+(клиент) отметил работу выполненной. Всё в порядке?»."""
+
+NOTIFY_REVIEW_REQUEST: Final = TaskRef(
+    "notifications.notify_review_request", ReviewRequested, queue="notifications"
+)
+"""Подписчик ReviewRequested: клиенту — «Как прошла работа?» и «Оставить отзыв» (7.2), пока
+отзыва нет и окно открыто."""
+NOTIFY_REVIEW_PUBLISHED: Final = TaskRef(
+    "notifications.notify_review_published", ReviewPublished, queue="notifications"
+)
+"""Подписчик ReviewPublished: исполнителю — новый отзыв и «Ответить на отзыв» (7.2)."""
 
 FORGET_RECIPIENT: Final = TaskRef("notifications.forget_recipient", UserDeleted)
 """Подписчик UserDeleted: всё о получателе удалённого аккаунта (§7.10)."""

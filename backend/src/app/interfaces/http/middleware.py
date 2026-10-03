@@ -18,9 +18,11 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.interfaces.http.client import ClientInfo, ClientPolicy, format_version, negotiate_locale
 from app.interfaces.http.errors import INTERNAL_ERROR, Problems
+from app.platform.http.ratelimit import rate_limit_headers
 from app.platform.kernel.ids import new_id
 from app.platform.kernel.localized import Locale
 from app.platform.observability.logging import bind_context, clear_context
+from app.platform.ratelimit import RateStatus
 
 log = structlog.get_logger(__name__)
 
@@ -94,7 +96,12 @@ class RequestContextMiddleware:
             if message["type"] == "http.response.start":
                 started = True
                 status = message["status"]
-                MutableHeaders(scope=message)["X-Request-ID"] = request_id
+                response_headers = MutableHeaders(scope=message)
+                response_headers["X-Request-ID"] = request_id
+                rate_status = state.get("rate_limit")
+                if status < 400 and isinstance(rate_status, RateStatus):
+                    for name, value in rate_limit_headers(rate_status).items():
+                        response_headers.setdefault(name, value)
             await send(message)
 
         begin = time.perf_counter()

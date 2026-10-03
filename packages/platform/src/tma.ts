@@ -27,6 +27,9 @@ const post = sdkPostEvent as unknown as (method: string, params?: Payload) => vo
 const listen = on as unknown as (event: string, listener: (payload: Payload) => void) => () => void;
 
 const REQUEST_TIMEOUT_MS = 30_000;
+/** Сколько ждать подписанный контакт после «Поделиться»: как в telegram-web-app.js. */
+const CONTACT_WAIT_MS = 3_000;
+const CONTACT_POLL_STEP_MS = 50;
 const ZERO: Insets = { top: 0, right: 0, bottom: 0, left: 0 };
 
 let reqSeq = 0;
@@ -337,6 +340,18 @@ export function createTmaPlatform(kind: 'tma' | 'mock' = 'tma'): Platform {
       capabilities.requestContact
         ? status('web_app_request_phone', 'phone_requested', 'sent')
         : Promise.resolve(false),
+    shareContact: async () => {
+      if (!capabilities.requestContact) return null;
+      if (!(await status('web_app_request_phone', 'phone_requested', 'sent'))) return null;
+      // контакт доходит до Telegram не сразу: спрашиваем его, пока не придёт (telegram-web-app.js)
+      const deadline = Date.now() + CONTACT_WAIT_MS;
+      for (let delay = 0; Date.now() < deadline; delay += CONTACT_POLL_STEP_MS) {
+        const result = await custom('getRequestedContact', {}).catch(() => null);
+        if (typeof result === 'string' && result !== '') return result;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+      return null;
+    },
     shareMessage: async (id) => {
       if (!capabilities.shareMessage) return false;
       const { event } = await request('web_app_send_prepared_message', { id }, [

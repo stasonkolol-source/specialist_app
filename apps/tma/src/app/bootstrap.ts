@@ -83,10 +83,14 @@ export function assemble(platform: Platform, options: AssembleOptions): Assemble
   queryClient.setQueryDefaults(getIdentityGetMeQueryKey(), { gcTime: Infinity });
   const router = createAppRouter(options.history ?? historyFor(platform.kind), queryClient);
   // ui_locale — выбор пользователя, на нём же пишет бот: важнее language_code Telegram.
-  // en в MVP не выбирается — тогда остаётся язык из launch params
+  // Применяем при первом входе: повторный вход после 401 не должен сбрасывать выбор на S02a,
+  // который ещё сохраняется. en в MVP не выбирается — тогда остаётся язык из launch params.
+  let localeLoaded = false;
   const auth = createAuth(
     platform,
     ({ ui_locale }) => {
+      if (localeLoaded) return;
+      localeLoaded = true;
       if (isLocale(ui_locale) && ui_locale !== i18n.language) void i18n.changeLanguage(ui_locale);
     },
     onSystemError,

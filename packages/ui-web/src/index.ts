@@ -7,6 +7,8 @@ export type { ButtonProps, ButtonVariant, IconButtonProps, LinkButtonProps } fro
 export { Button, IconButton, LinkButton } from './Button.tsx';
 export type { CardProps } from './Card.tsx';
 export { Card } from './Card.tsx';
+export type { BubbleProps, ComposerProps } from './Chat.tsx';
+export { Bubble, ChatList, Composer, MASK, MaskedText, SystemNote } from './Chat.tsx';
 export type { ChipProps } from './Chips.tsx';
 export { AvatarStack, Chip, Chips, Price } from './Chips.tsx';
 export { cx } from './cx.ts';
@@ -39,6 +41,8 @@ export { ICON_NAMES, Icon } from './icon/Icon.tsx';
 export type { Gap } from './layout/Stack.tsx';
 export { HStack, Stack } from './layout/Stack.tsx';
 export type { TabBarProps, TabItem } from './TabBar.tsx';
+export type { TimelineItem, TimelineState } from './Timeline.tsx';
+export { Timeline } from './Timeline.tsx';
 export { TabBar } from './TabBar.tsx';
 export type { VideoPlayerProps } from './VideoPlayer.tsx';
 export { VideoPlayer } from './VideoPlayer.tsx';

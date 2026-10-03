@@ -401,6 +401,91 @@ export const useDealsConfirmDeal = <TError = ErrorType<ProblemOut>, TContext = u
 > => {
   return useMutation(getDealsConfirmDealMutationOptions(options), queryClient);
 };
+export const getDealsDeclineDealUrl = (dealId: string) => {
+  return `/api/v1/deals/${dealId}/decline`;
+};
+
+/**
+ * Отклонить «Договорились» (S53): только пока предложение ждёт ответа, иначе 409.
+ * @summary Decline Deal
+ */
+export const dealsDeclineDeal = async (
+  dealId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<DealOut> => {
+  return apiFetch<DealOut>(getDealsDeclineDealUrl(dealId), {
+    ...options,
+    method: 'POST',
+  });
+};
+
+export const getDealsDeclineDealMutationKey = () => ['dealsDeclineDeal'] as const;
+
+export const getDealsDeclineDealMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dealsDeclineDeal>>,
+    TError,
+    DealsDeclineDealMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof dealsDeclineDeal>>,
+  TError,
+  DealsDeclineDealMutationVariables,
+  TContext
+> => {
+  const mutationKey = getDealsDeclineDealMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof dealsDeclineDeal>>,
+    DealsDeclineDealMutationVariables
+  > = (props) => {
+    const { dealId } = props ?? {};
+
+    return dealsDeclineDeal(dealId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DealsDeclineDealMutationResult = NonNullable<
+  Awaited<ReturnType<typeof dealsDeclineDeal>>
+>;
+
+export type DealsDeclineDealMutationError = ErrorType<ProblemOut>;
+export type DealsDeclineDealMutationVariables = { dealId: string };
+
+/**
+ * @summary Decline Deal
+ */
+export const useDealsDeclineDeal = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof dealsDeclineDeal>>,
+      TError,
+      DealsDeclineDealMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof dealsDeclineDeal>>,
+  TError,
+  DealsDeclineDealMutationVariables,
+  TContext
+> => {
+  return useMutation(getDealsDeclineDealMutationOptions(options), queryClient);
+};
 export const getDealsCompleteDealUrl = (dealId: string) => {
   return `/api/v1/deals/${dealId}/complete`;
 };

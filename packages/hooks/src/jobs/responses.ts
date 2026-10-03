@@ -34,7 +34,7 @@ export const MY_RESPONSES_PAGE_SIZE = 20;
 export type MyResponsesPages = InfiniteData<MyResponsesPageOut, string | null>;
 
 /** «Мои отклики» с любым чипом. */
-const MY_RESPONSES_KEY = getJobsListMyResponsesQueryKey().slice(0, 1);
+export const MY_RESPONSES_KEY = getJobsListMyResponsesQueryKey().slice(0, 1);
 
 export const myResponsesQueryKey = (group: ResponseGroup | null) =>
   getJobsListMyResponsesQueryKey(group ? { status: group } : undefined);

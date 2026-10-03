@@ -2,7 +2,7 @@
 в `jobs.status_history` при каждом сохранении. Отклики читаются вместе с заявкой под её
 блокировкой, пишутся только новые и изменённые; версия заявки растёт и от правки отклика."""
 
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.jobs.domain.job import (
@@ -28,6 +28,11 @@ from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, Use
 class SqlJobRepository:
     def __init__(self, session: AsyncSession, uow: UnitOfWork) -> None:
         self._session, self._uow = session, uow
+
+    async def lock_client(self, client_id: UserId) -> None:
+        self._uow.require_active()
+        key = func.hashtextextended(f"jobs.create:{client_id}", 0)
+        await self._session.execute(select(func.pg_advisory_xact_lock(key)))
 
     async def add(self, job: Job) -> None:
         self._uow.require_active()

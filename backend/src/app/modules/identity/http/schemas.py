@@ -16,6 +16,16 @@ INT4_MAX = 2**31 - 1
 """id справочников geo — int4 identity: больше — не id, а 422 (иначе ошибка БД и 500)."""
 
 
+class PrivacyOut(BaseModel):
+    """«Показывать после договорённости» (S43)."""
+
+    show_telegram: bool = Field(description="Свой Telegram (@username) — в сделке и чате")
+
+
+class PrivacyIn(BaseModel):
+    show_telegram: bool | None = None
+
+
 class MeOut(BaseModel):
     id: UUID
     display_name: str
@@ -34,6 +44,7 @@ class MeOut(BaseModel):
     can_message: bool
     deletion_scheduled_at: datetime | None
     """Аккаунт удалится тогда (запрос S45); None — запроса нет. Отмена — DELETE /me/deletion."""
+    privacy: PrivacyOut
 
     @classmethod
     def of(cls, view: MeView, access: AccessView) -> MeOut:
@@ -52,6 +63,7 @@ class MeOut(BaseModel):
             can_respond=Action.RESPOND in access.allowed,
             can_message=Action.MESSAGE in access.allowed,
             deletion_scheduled_at=view.deletion_scheduled_at,
+            privacy=PrivacyOut(show_telegram=view.show_telegram),
         )
 
 

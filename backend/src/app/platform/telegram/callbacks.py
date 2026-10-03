@@ -32,6 +32,13 @@ class CallbackAction(StrEnum):
     """Откликнуться шаблоном (`job.invited`, 5.6; `job.matched`, 5.7): аргумент — id шаблона."""
     DEAL_COMPLETE = "dc"
     """«Да, выполнено» — кнопка `deal.completion_prompt` (6.1b): отметка стороны в сделке."""
+    DEAL_CONFIRM = "dy"
+    """«Подтвердить» под `deal.proposed` (6.3b): вторая сторона согласна — сделка `agreed`."""
+    DEAL_DECLINE = "dn"
+    """«Отклонить» под `deal.proposed` (6.3b): предложение отменяется, пока ещё ждёт ответа."""
+    REVIEW_RATE = "rv"
+    """Звезда под «Оцените работу» (`review.request`, B2, 7.3): аргумент — оценка 1–5; отзыв без
+    текста сразу уходит на проверку (бот reviews)."""
 
 
 @dataclass(frozen=True, slots=True)
