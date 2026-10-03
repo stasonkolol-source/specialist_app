@@ -346,6 +346,21 @@ class SqlSettingsRepository:
             (row.quiet_enabled, row.quiet_start, row.quiet_end, row.digest_hour) if row else None,
         )
 
+    async def lock(self, user_id: UserId) -> None:
+        self._uow.require_active()
+        # строки ещё нет (настройки по умолчанию) — заводим её с умолчаниями из server_default:
+        # блокировать нечего, а параллельная вставка ждёт первую
+        try:
+            await self._session.execute(
+                insert(UserSettingsRow).values(user_id=user_id).on_conflict_do_nothing()
+            )
+        except IntegrityError as err:
+            raise_domain_error(
+                err, {"fk_user_settings_user_id_users": lambda: UserNotFoundError(user_id=user_id)}
+            )
+        s = UserSettingsRow.__table__.c
+        await self._session.execute(select(s.user_id).where(s.user_id == user_id).with_for_update())
+
     async def save(self, user_id: UserId, settings: NotificationSettings) -> None:
         self._uow.require_active()
         quiet = settings.quiet_hours

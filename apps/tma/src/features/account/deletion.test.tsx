@@ -1,6 +1,6 @@
 // Удаление аккаунта S45 и дата удаления на S31 (DEVELOPMENT_PLAN 2.12a) на /me с памятью:
 // без галочки удалить нельзя, запрос → дата и «Отменить удаление», отмена с S45 и с S31,
-// «Нужна пауза?» — только видимому клиентам специалисту.
+// «Нужна пауза?» — только видимому клиентам специалисту. Вход в S45 — из настроек S43 (4.9).
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -97,10 +97,12 @@ describe('S31 account deletion', () => {
     await waitFor(() => expect(screen.queryByText(SCHEDULED)).toBeNull());
     expect(backend.requests.deletion).toEqual(['cancel']);
   });
+});
 
+describe('S43 account deletion', () => {
   it('leads to S45 from «Удалить аккаунт»', async () => {
     userBackend(ME);
-    const { app } = startApp('/profile');
+    const { app } = startApp('/settings');
 
     await click(await screen.findByRole('link', { name: 'Удалить аккаунт' }));
 

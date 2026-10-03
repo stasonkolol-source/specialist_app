@@ -128,6 +128,11 @@ class SettingsRepository(Protocol):
 
     async def load(self, user_id: UserId) -> NotificationSettings: ...
 
+    async def lock(self, user_id: UserId) -> None:
+        """Настройки пользователя заняты до конца транзакции: переключения из бота идут по
+        одному, и двойное нажатие не теряет второе."""
+        ...
+
     async def save(self, user_id: UserId, settings: NotificationSettings) -> None:
         """Заменить выбор «группа × канал», тихие часы и час дайджеста."""
         ...

@@ -14,4 +14,5 @@ export interface ClientConfigOut {
   flags: ClientConfigOutFlags;
   legal_versions: ClientConfigOutLegalVersions;
   legal_documents: ClientConfigOutLegalDocuments;
+  support_username: string | null;
 }

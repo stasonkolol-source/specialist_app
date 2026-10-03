@@ -35,6 +35,10 @@ export const getSystemGetClientConfigResponseMock = (
       },
     },
   },
+  support_username: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
   ...overrideResponse,
 });
 

@@ -32,6 +32,7 @@ from app.modules.notifications.application.use_cases.schedule_responses_notice i
     ScheduleResponsesNotice,
 )
 from app.modules.notifications.application.use_cases.send_delivery import SendDelivery
+from app.modules.notifications.application.use_cases.toggle_bot_setting import ToggleBotSetting
 from app.modules.notifications.application.use_cases.update_notification_settings import (
     UpdateNotificationSettings,
 )
@@ -67,6 +68,7 @@ class NotificationsProvider(Provider):
     send_delivery = provide(SendDelivery)
     mark_read = provide(MarkNotificationsRead)
     update_settings = provide(UpdateNotificationSettings)
+    toggle_bot_setting = provide(ToggleBotSetting)
     recipients = provide(SqlRecipientData, provides=RecipientData)
     forget_recipient = provide(ForgetRecipient)
 

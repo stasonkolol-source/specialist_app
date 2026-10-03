@@ -21,12 +21,15 @@ export function RowIcon({
   icon,
   palette,
   neutral = false,
+  danger = false,
   large = false,
   xl = false,
 }: {
   icon: IconName;
   palette?: AvatarPalette;
   neutral?: boolean;
+  /** Разрушающее действие («Удалить аккаунт» S43): цвет ошибки. */
+  danger?: boolean;
   large?: boolean;
   xl?: boolean;
 }) {
@@ -36,11 +39,13 @@ export function RowIcon({
       className={cx(
         'flex shrink-0 items-center justify-center',
         xl ? 'size-11 rounded-btn' : large ? 'size-10 rounded-btn' : 'size-9 rounded-btn-sm',
-        neutral
-          ? 'bg-bg2 text-text2'
-          : palette
-            ? PALETTE[palette]
-            : 'bg-accent-soft text-accent-soft-ink',
+        danger
+          ? 'bg-danger-soft text-danger'
+          : neutral
+            ? 'bg-bg2 text-text2'
+            : palette
+              ? PALETTE[palette]
+              : 'bg-accent-soft text-accent-soft-ink',
       )}
     >
       <Icon name={icon} />
@@ -133,6 +138,8 @@ export interface RowProps {
   expanded?: boolean;
   /** Вложенная строка: отступ под иконку родителя (подкатегории S04). */
   inset?: boolean;
+  /** Разрушающее действие цветом ошибки: «Удалить аккаунт» S43. */
+  danger?: boolean;
 }
 
 export function Row({
@@ -146,15 +153,17 @@ export function Row({
   onClick,
   expanded,
   inset = false,
+  danger = false,
 }: RowProps) {
   const classes = cx(
-    'flex min-h-13 w-full items-center gap-3 border-0 border-b border-line bg-transparent py-3 pr-4 text-left text-text last:border-b-0',
+    'flex min-h-13 w-full items-center gap-3 border-0 border-b border-line bg-transparent py-3 pr-4 text-left last:border-b-0',
+    danger ? 'text-danger' : 'text-text',
     inset ? 'pl-16' : 'pl-4',
     (href || onClick) && FOCUS,
   );
   const content = (
     <>
-      {icon ? <RowIcon icon={icon} /> : leading}
+      {icon ? <RowIcon icon={icon} danger={danger} /> : leading}
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="text-body">{title}</span>
         {subtitle && <span className="text-cap text-text2">{subtitle}</span>}

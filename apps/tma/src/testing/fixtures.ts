@@ -191,6 +191,8 @@ export const CLIENT_CONFIG: ClientConfigOut = {
   flags: { 'goods.segment': true, 'platform.maintenance': false },
   legal_versions: { terms: 'draft-1', privacy: 'draft-1' },
   legal_documents: { terms: draftDocument('terms'), privacy: draftDocument('privacy') },
+  // K23, Q25: контакт поддержки не назначен — S43 и S47 показывают «скоро»
+  support_username: null,
 };
 
 /** «Сейчас» демо-данных уведомлений (S42): как в e2e сервиса — 2 октября, 18:07 по Белграду. */

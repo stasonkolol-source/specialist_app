@@ -7554,6 +7554,17 @@
             },
             "type": "object",
             "title": "Legal Documents"
+          },
+          "support_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support Username"
           }
         },
         "type": "object",
@@ -7561,7 +7572,8 @@
           "min_versions",
           "flags",
           "legal_versions",
-          "legal_documents"
+          "legal_documents",
+          "support_username"
         ],
         "title": "ClientConfigOut"
       },

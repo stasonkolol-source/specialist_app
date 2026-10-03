@@ -12,6 +12,7 @@ const CONFIG: ClientConfigOut = {
   flags: { 'goods.segment': true },
   legal_versions: {},
   legal_documents: {},
+  support_username: null,
 };
 
 function wrapper() {

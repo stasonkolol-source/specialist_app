@@ -5,9 +5,10 @@
 // (6.2), `p_` → S52 (6.1c), `c_` → S30 (6.4); коды `g…`
 // раздела «Вещи» — после MVP. Суффикс `_r<code>` — атрибуция: её записывает backend при входе
 // (модуль growth), на выбор экрана он не влияет.
-import type { StartLink } from '@sosed/links';
+import type { MineSection, StartLink } from '@sosed/links';
 import { parseStartParam } from '@sosed/links';
 
+import { ACCOUNT_PATHS } from '../features/account/index.ts';
 import { profilePath } from '../features/catalog/index.ts';
 import {
   CREATE_PATHS,
@@ -19,6 +20,13 @@ import {
 import { chatPath } from '../features/messages/index.ts';
 
 const HOME = '/';
+
+const MINE_TARGETS: Record<MineSection, string> = {
+  jobs: JOBS_PATHS.mine,
+  reviews: `${JOBS_PATHS.history}?tab=reviews`,
+  settings: ACCOUNT_PATHS.settings,
+  deletion: ACCOUNT_PATHS.delete,
+};
 
 /** Вариант ссылки с типом K: у сущностей тип — объединение (`job | specialist | …`), поэтому
  *  `Extract` их не находит — сужаем по каждому варианту. */
@@ -38,9 +46,9 @@ export const START_TARGETS: StartTargets = {
   job: (link) => jobPath(link.id),
   // мастер новой заявки S20a и «Мои заявки» S22: команды бота /new и /jobs (5.6)
   new_job: () => CREATE_PATHS.what,
-  // «Мои заявки» S22 (`m_jobs`) и «Сделки и отзывы» S28 на вкладке «Отзывы» (`m_reviews`, 7.3)
-  mine: (link) =>
-    link.section === 'reviews' ? `${JOBS_PATHS.history}?tab=reviews` : JOBS_PATHS.mine,
+  // «Мои заявки» S22 (`m_jobs`), «Сделки и отзывы» S28 на вкладке «Отзывы» (`m_reviews`, 7.3),
+  // настройки S43 и удаление аккаунта S45 — кнопки `/settings` бота (4.9)
+  mine: (link) => MINE_TARGETS[link.section],
   // диалог S30: кнопка «Ответить» уведомления `message.received` (6.3b, 6.4)
   chat: (link) => chatPath(link.id),
   // сделка S26: кнопки уведомлений о сделке — «Открыть сделку» (6.2)

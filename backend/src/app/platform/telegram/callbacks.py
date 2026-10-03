@@ -18,6 +18,9 @@ from app.platform.telegram.deeplinks import base62_to_uuid, uuid_to_base62
 
 MAX_CALLBACK_DATA: Final = 64
 """Предел Bot API для `callback_data`, байт."""
+LANGUAGE_CALLBACK: Final = "lang:"
+"""Выбор языка `lang:<локаль>`: кнопки /language (identity) и строка языков в /settings
+(notifications, 4.9). Обрабатывает бот identity: меняет `ui_locale` приложения и уведомлений."""
 _ARG: Final = re.compile(r"[A-Za-z0-9_]{1,24}")
 """Код (`found`, `hired_here`) или id в base62."""
 

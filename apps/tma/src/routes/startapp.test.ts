@@ -57,6 +57,12 @@ describe('startTarget', () => {
     expect(startTarget('m_jobs_rAB12CD')).toBe('/jobs/mine');
   });
 
+  it('opens settings S43 and account deletion S45 — buttons of the bot /settings (4.9)', () => {
+    expect(startTarget('m_settings')).toBe('/settings');
+    expect(startTarget('m_deletion')).toBe('/profile/delete');
+    expect(startTarget('m_reviews')).toBe('/deals?tab=reviews');
+  });
+
   it('opens the dialog S30 for `c_` links — «Ответить» of a message notice (6.4)', () => {
     const chats = golden.valid.filter(({ link }) => link.type === 'chat');
     expect(chats.length).toBeGreaterThan(0);

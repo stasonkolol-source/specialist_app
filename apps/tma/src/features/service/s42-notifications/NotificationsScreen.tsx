@@ -3,7 +3,7 @@
 // Нажатие ведёт туда, куда ведёт кнопка в боте (deep link `link`); цели без экрана — на Главную.
 // Бот не может писать (канала нет или его остановили) — баннер «Разрешить боту писать».
 // «Назад» — нативная кнопка Telegram: на предыдущий экран, без истории — в профиль (S31).
-// Настройки уведомлений (S43) — в шаге 4.9, до него шестерёнки в заголовке нет.
+// Шестерёнка в заголовке — настройки уведомлений S43 (4.9).
 import type { NotificationOut, NotificationType } from '@sosed/api-client';
 import {
   ApiError,
@@ -30,6 +30,7 @@ import {
   FeedRow,
   Group,
   Heading,
+  IconButton,
   LinkButton,
   RowIcon,
   RowsSkeleton,
@@ -44,6 +45,8 @@ import { useId } from 'react';
 
 export const NOTIFICATIONS_PATH = '/notifications';
 const FALLBACK_PATH = '/profile';
+/** Настройки S43 (маршрут фичи account). */
+const SETTINGS_PATH = '/settings';
 
 interface Look {
   icon: IconName;
@@ -153,11 +156,24 @@ export function NotificationsScreen({ targetOf }: NotificationsScreenProps) {
         <Heading variant="h2" as="h1">
           {t('notifications.title')}
         </Heading>
-        {unread > 0 && (
-          <LinkButton onClick={() => read.mutate({ all: true })}>
-            {t('notifications.readAll')}
-          </LinkButton>
-        )}
+        <span className="flex items-center gap-1">
+          {unread > 0 && (
+            <LinkButton onClick={() => read.mutate({ all: true })}>
+              {t('notifications.readAll')}
+            </LinkButton>
+          )}
+          {inTelegram && !signedOut && (
+            <IconButton
+              icon="settings"
+              label={t('notifications.settings')}
+              href={router.history.createHref(SETTINGS_PATH)}
+              onClick={(event) => {
+                event.preventDefault();
+                void router.navigate({ to: SETTINGS_PATH });
+              }}
+            />
+          )}
+        </span>
       </div>
       {read.isError && (
         <Banner tone="danger" role="alert">

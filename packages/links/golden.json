@@ -166,6 +166,20 @@
       }
     },
     {
+      "param": "m_settings",
+      "link": {
+        "type": "mine",
+        "section": "settings"
+      }
+    },
+    {
+      "param": "m_deletion",
+      "link": {
+        "type": "mine",
+        "section": "deletion"
+      }
+    },
+    {
       "param": "j_7n42DGM5Tflk9n8mt7Fhc7_rZz9",
       "link": {
         "type": "job",

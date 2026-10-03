@@ -207,6 +207,39 @@ msgstr "Politika privatnosti"
 msgid "bot.commands.language"
 msgstr "Jezik"
 
+msgid "bot.commands.settings"
+msgstr "Podešavanja"
+
+msgid "bot.settings.text"
+msgstr "<b>Podešavanja</b>\nJezik je u prvom redu. Ispod su obaveštenja u ovom ćaskanju: dodirnite da uključite ili isključite. Grad, obaveštenja u aplikaciji i privatnost — dugmetom „Sva podešavanja“."
+
+msgid "bot.settings.start"
+msgstr "Prvo dodirnite /start — tada će se ovde pojaviti podešavanja."
+
+msgid "bot.settings.group.job_matches"
+msgstr "Zahtevi po pretplatama"
+
+msgid "bot.settings.group.responses"
+msgstr "Ponude i izbor"
+
+msgid "bot.settings.group.messages"
+msgstr "Poruke"
+
+msgid "bot.settings.group.deals"
+msgstr "Dogovori, sporovi, utisci"
+
+msgid "bot.settings.group.marketing"
+msgstr "Novosti aplikacije „Sosedi“"
+
+msgid "bot.settings.quiet"
+msgstr "Tihi sati {start}–{end}"
+
+msgid "bot.settings.all"
+msgstr "Sva podešavanja"
+
+msgid "bot.settings.delete"
+msgstr "Obriši nalog"
+
 msgid "bot.profile.name"
 msgstr "Sosedi"
 

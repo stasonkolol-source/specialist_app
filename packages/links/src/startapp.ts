@@ -22,8 +22,9 @@ export const LEGAL_DOCUMENTS = ['terms', 'privacy'] as const;
 export type LegalDocument = (typeof LEGAL_DOCUMENTS)[number];
 
 /** Свои разделы: `m_jobs` — «Мои заявки» S22 (команда бота /jobs), `m_reviews` — «Мои отзывы»
- *  S28 (кнопка «Ответить на отзыв» уведомления `review.published`, 7.2). */
-export const MINE_SECTIONS = ['jobs', 'reviews'] as const;
+ *  S28 (кнопка «Ответить на отзыв» уведомления `review.published`, 7.2), `m_settings` — настройки
+ *  S43 и `m_deletion` — удаление аккаунта S45 (кнопки `/settings` бота, 4.9). */
+export const MINE_SECTIONS = ['jobs', 'reviews', 'settings', 'deletion'] as const;
 export type MineSection = (typeof MINE_SECTIONS)[number];
 
 /** Раздел «Вещи» (после MVP): префиксы зарезервированы, `gh` и `h` — разные типы. */

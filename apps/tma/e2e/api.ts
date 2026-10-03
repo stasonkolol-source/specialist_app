@@ -4,6 +4,7 @@ import type {
   ClientConfigOut,
   MeOut,
   NotificationPageOut,
+  NotificationSettingsIn,
   NotificationSettingsOut,
 } from '@sosed/api-client';
 import type { Page, Request, Route } from '@playwright/test';
@@ -78,7 +79,8 @@ export interface MockApiOptions {
   config?: ClientConfigOut;
   /** GET /me/notifications; по умолчанию — лента фикстур на языке запроса. */
   notifications?: NotificationPageOut;
-  /** GET /me/notification-settings; по умолчанию бот писать не может (баннер S42). */
+  /** GET /me/notification-settings; по умолчанию бот писать не может (баннер S42). PUT (S43)
+   *  заменяет их, как backend. */
   notificationSettings?: NotificationSettingsOut;
   /** Кабинет исполнителя `/me/profile*` и его файлы `/media*` с памятью; по умолчанию — профиля
    *  нет. */
@@ -95,8 +97,8 @@ export interface MockApiOptions {
   delayMs?: number;
   /** Свои ответы по ключу «METHOD /api/v1/…»: проверяются раньше стандартных. */
   handlers?: Record<string, (route: Route) => Promise<void>>;
-  /** Что приложение прислало в PATCH /me, POST /me/consents, POST /me/telegram/write-access и
-   *  POST /me/notifications/read. */
+  /** Что приложение прислало в PATCH /me, POST /me/consents, POST /me/telegram/write-access,
+   *  POST /me/notifications/read и PUT /me/notification-settings. */
   sent?: SentRequests;
 }
 
@@ -105,6 +107,7 @@ export interface SentRequests {
   consents: unknown[];
   writeAccess: number;
   read: unknown[];
+  settings: NotificationSettingsIn[];
 }
 
 export const sentRequests = (): SentRequests => ({
@@ -112,6 +115,7 @@ export const sentRequests = (): SentRequests => ({
   consents: [],
   writeAccess: 0,
   read: [],
+  settings: [],
 });
 
 const authorized = (request: Request) =>
@@ -147,6 +151,7 @@ export async function mockApi(
   );
   // пользователь с памятью, как на сервере: онбординг меняет его шаг за шагом
   let user = me;
+  let settings = notificationSettings;
   await page.route('**/api/v1/**', async (route) => {
     if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
     const request = route.request();
@@ -290,7 +295,22 @@ export async function mockApi(
         return route.fulfill(json({ unread_count: 0 }));
       case 'GET /api/v1/me/notification-settings':
         if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
-        return route.fulfill(json(notificationSettings));
+        return route.fulfill(json(settings));
+      // S43: настройки целиком; группы, которых нет в теле, сервер вернул бы к умолчаниям
+      case 'PUT /api/v1/me/notification-settings': {
+        if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
+        const body = request.postDataJSON() as NotificationSettingsIn;
+        sent.settings.push(body);
+        settings = {
+          ...settings,
+          groups: settings.groups.map((row) => ({
+            ...row,
+            ...body.groups.find((sentRow) => sentRow.group === row.group),
+          })),
+          quiet_hours: { ...settings.quiet_hours, enabled: body.quiet_hours.enabled },
+        };
+        return route.fulfill(json(settings));
+      }
       // по умолчанию backend отверг бы синтетический initData mock-платформы
       case 'POST /api/v1/auth/telegram':
         return route.fulfill(

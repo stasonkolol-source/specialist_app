@@ -31,6 +31,7 @@ from app.platform.kernel.principal import Principal
 from app.platform.observability.logging import bind_context
 from app.platform.settings import TelegramSettings
 from app.platform.telegram.buttons import mini_app_url, open_app_keyboard
+from app.platform.telegram.callbacks import LANGUAGE_CALLBACK
 from app.platform.telegram.texts import html_text, plain_text
 
 LANGUAGES: Final[dict[Locale, str]] = {
@@ -40,7 +41,6 @@ LANGUAGES: Final[dict[Locale, str]] = {
 }
 """Языки на выбор (English — «скоро», как на S02a). Названия — на самих языках и не
 переводятся: sr-Latn каталога — транслит sr-Cyrl, а «ћирилица» транслитом не станет «latinica»."""
-LANGUAGE_CALLBACK: Final = "lang:"
 
 
 @inject

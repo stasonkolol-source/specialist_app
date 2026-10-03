@@ -1,5 +1,5 @@
 // Адреса раздела «Профиль»: S31, удаление аккаунта S45 (DEVELOPMENT_PLAN 2.12a) и настройки S43
-// (раздел приватности — 6.5, остальное — 4.9).
+// (4.9; раздел приватности — 6.5). Помощь S47 — в фиче service.
 export const ACCOUNT_PATHS = {
   home: '/profile',
   delete: '/profile/delete',

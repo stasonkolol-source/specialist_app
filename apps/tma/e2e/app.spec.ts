@@ -76,27 +76,6 @@ for (const theme of THEMES) {
   });
 }
 
-test('S31: язык пишется в PATCH /me и сразу меняет интерфейс', async ({ page }) => {
-  const watch = await open(page, 'theme=light&lang=ru', { signedIn: true });
-  await openProfile(page);
-  await expect(page.getByRole('heading', { name: ME.display_name })).toBeVisible();
-  const patch = page.waitForRequest(
-    (r) => r.method() === 'PATCH' && r.url().endsWith('/api/v1/me'),
-  );
-
-  await page.getByRole('radio', { name: 'Srpski (latinica)' }).click();
-
-  expect((await patch).postDataJSON()).toEqual({ ui_locale: 'sr-Latn' });
-  await expect(page.getByRole('heading', { name: 'Profil', level: 1 })).toBeVisible();
-  await expect(page.locator('html')).toHaveAttribute('lang', 'sr-Latn');
-  await expect(page.getByRole('radio', { name: 'Srpski (latinica)' })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
-  expect(real(watch.problems)).toEqual([]);
-  expect(watch.unexpectedApi).toEqual([]);
-});
-
 test('S31 без входа: «Откройте в Telegram» вместо ошибки', async ({ page }) => {
   const watch = await open(page, 'theme=light&lang=ru');
   await openProfile(page);

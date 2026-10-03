@@ -226,11 +226,15 @@ describe('walking skeleton (0.22)', () => {
 
     expect(await screen.findByRole('heading', { name: ME.display_name })).toBeTruthy();
 
+    // язык — в настройках S43 (4.9): строка «Язык» профиля ведёт туда
     await act(async () => {
-      fireEvent.click(screen.getByRole('radio', { name: 'Srpski (latinica)' }));
+      fireEvent.click(screen.getByRole('link', { name: /^Язык/ }));
+    });
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('radio', { name: 'Srpski (latinica)' }));
     });
 
-    expect(await screen.findByRole('heading', { name: 'Profil', level: 1 })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Podešavanja', level: 1 })).toBeTruthy();
     expect(document.documentElement.lang).toBe('sr-Latn');
   });
 
@@ -328,11 +332,11 @@ describe('S49 system states (1.5a)', () => {
 
   it('switches to maintenance on 503 maintenance from any request', async () => {
     server.use(http.patch('*/api/v1/me', () => problem(503, 'maintenance')));
-    start('/profile');
-    expect(await screen.findByRole('heading', { name: ME.display_name })).toBeTruthy();
+    start('/settings');
+    const language = await screen.findByRole('radio', { name: 'Srpski (latinica)' });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('radio', { name: 'Srpski (latinica)' }));
+      fireEvent.click(language);
     });
 
     expect(await screen.findByRole('heading', { name: 'Технические работы' })).toBeTruthy();
@@ -392,12 +396,12 @@ describe('S49 system states (1.5a)', () => {
         problem(403, 'restricted', { restriction: 'responding_blocked', until: UNTIL }),
       ),
     );
-    const { app, telegram } = start('/profile');
+    const { app, telegram } = start('/settings');
     void app.signIn();
-    expect(await screen.findByRole('heading', { name: ME.display_name })).toBeTruthy();
+    const language = await screen.findByRole('radio', { name: 'Srpski (latinica)' });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('radio', { name: 'Srpski (latinica)' }));
+      fireEvent.click(language);
     });
 
     expect(
@@ -412,8 +416,8 @@ describe('S49 system states (1.5a)', () => {
     await act(async () => {
       telegram.emit('back_button_pressed');
     });
-    expect(await screen.findByRole('heading', { name: ME.display_name })).toBeTruthy();
-    expect(app.router.state.location.pathname).toBe('/profile');
+    expect(await screen.findByRole('heading', { name: 'Настройки', level: 1 })).toBeTruthy();
+    expect(app.router.state.location.pathname).toBe('/settings');
   });
 });
 
