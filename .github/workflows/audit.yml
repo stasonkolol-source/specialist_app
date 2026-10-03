@@ -12,6 +12,10 @@ on:
       - '.github/workflows/audit.yml'
   workflow_dispatch:
 
+concurrency:
+  group: audit-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
