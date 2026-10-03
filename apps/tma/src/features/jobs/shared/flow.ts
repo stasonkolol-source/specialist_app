@@ -2,7 +2,7 @@
 // (мастер открыли ссылкой или после перезапуска на середине) — на шаг раньше или на Главную.
 // Пока в черновике что-то есть, закрытие Mini App спрашивает подтверждение. Правка своей заявки
 // (`?edit=<id>`, 5.6) несёт id через все шаги, а с первого шага «Назад» ведёт на S23.
-import { tokens } from '@sosed/design-tokens';
+import { color } from '@sosed/design-tokens';
 import type { JobDraft } from '@sosed/hooks';
 import type { BottomButtonProps } from '@sosed/platform';
 import {
@@ -57,6 +57,6 @@ export function useStepButton(
   props: Pick<BottomButtonProps, 'text' | 'onClick' | 'loading' | 'visible' | 'enabled'>,
 ) {
   const scheme = useColorScheme();
-  const palette = tokens.color[scheme];
+  const palette = color[scheme];
   return useMainButton({ ...props, color: palette.accent, textColor: palette['accent-ink'] });
 }

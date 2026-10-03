@@ -9,7 +9,7 @@ import {
   getSystemGetClientConfigMockHandler,
 } from '@sosed/api-client/mocks';
 import type { ColorScheme } from '@sosed/platform';
-import { createMockPlatform } from '@sosed/platform';
+import { createMockPlatform } from '@sosed/platform/mock';
 import { createHashHistory, createMemoryHistory } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import source from '../tokens.json' with { type: 'json' };
 import { readFontCss } from '../scripts/fontsource.ts';
 import { renderAll, themeColors } from '../src/render.ts';
-import { tokens } from '../src/index.ts';
+import { color, tokens } from '../src/index.ts';
 
 const files = renderAll(source, readFontCss);
 
@@ -31,5 +31,7 @@ describe('сгенерированные файлы', () => {
   it('TS-экспорт повторяет цвета обеих тем', () => {
     expect(tokens.color.light).toEqual(themeColors(source, 'light'));
     expect(tokens.color.dark).toEqual(themeColors(source, 'dark'));
+    // отдельный экспорт цветов — тот же объект: точка сборки Mini App берёт только его
+    expect(color).toBe(tokens.color);
   });
 });

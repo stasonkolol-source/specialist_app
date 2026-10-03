@@ -4,7 +4,7 @@ import type { MeOut } from '@sosed/api-client';
 import { getIdentityGetMeQueryKey } from '@sosed/api-client';
 import type { OnboardingStep } from '@sosed/hooks';
 import { nextOnboardingStep } from '@sosed/hooks';
-import { tokens } from '@sosed/design-tokens';
+import { color } from '@sosed/design-tokens';
 import type { BottomButtonProps } from '@sosed/platform';
 import { useColorScheme, useMainButton } from '@sosed/platform';
 import { useQueryClient } from '@tanstack/react-query';
@@ -49,6 +49,6 @@ export function useOnboardingFlow() {
 /** MainButton шага в цветах макета (акцент ui.css), а не в цвете кнопки темы Telegram. */
 export function useStepButton(props: Pick<BottomButtonProps, 'text' | 'onClick' | 'loading'>) {
   const scheme = useColorScheme();
-  const palette = tokens.color[scheme];
+  const palette = color[scheme];
   return useMainButton({ ...props, color: palette.accent, textColor: palette['accent-ink'] });
 }

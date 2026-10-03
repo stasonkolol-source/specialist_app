@@ -1,12 +1,10 @@
 // Маршрут `/restricted`: S49b после действия, которое сервер отклонил частичной санкцией
 // (403 `restricted`: нельзя откликаться, публиковать, писать). Открывает его точка сборки;
-// без санкции в сторе (перезагрузка, ссылка) — на главную.
+// без санкции в сторе (перезагрузка, ссылка) — на главную. Экран — своим чанком (routes/tree.tsx).
 import { Navigate, useRouter } from '@tanstack/react-router';
 
 import { RestrictedScreen } from './RestrictedScreen.tsx';
 import { useSystemStore } from './store.ts';
-
-export const RESTRICTED_PATH = '/restricted';
 
 export function RestrictedRoute() {
   const router = useRouter();

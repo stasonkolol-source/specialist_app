@@ -7,8 +7,13 @@ import { useTranslation } from '@sosed/i18n';
 import { useInsets } from '@sosed/platform';
 import { Button, EmptyState } from '@sosed/ui-web';
 import type { ReactNode } from 'react';
+import { Suspense, lazy } from 'react';
 
-import { RestrictedScreen } from './RestrictedScreen.tsx';
+// S49b — только ответом сервера (санкция), сеть в этот момент есть: экран с правилами площадки
+// грузится своим чанком, а не лежит в первом. Нет сети, техработы и ошибка — здесь, без загрузки
+const RestrictedScreen = lazy(() =>
+  import('./RestrictedScreen.tsx').then((module) => ({ default: module.RestrictedScreen })),
+);
 
 export interface SystemScreenProps {
   state: SystemState;
@@ -22,7 +27,9 @@ export function SystemScreen({ state, onRetry, retrying = false }: SystemScreenP
   if (state.kind === 'restricted') {
     return (
       <Frame>
-        <RestrictedScreen state={state} />
+        <Suspense fallback={null}>
+          <RestrictedScreen state={state} />
+        </Suspense>
       </Frame>
     );
   }

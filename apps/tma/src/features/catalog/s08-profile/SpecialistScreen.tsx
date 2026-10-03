@@ -11,7 +11,7 @@
 // но без сердечка; «Написать» гостю — тоже мастер заявки: диалог начинается после входа.
 import type { CardWorkOut, SpecialistProfileOut } from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
-import { tokens } from '@sosed/design-tokens';
+import { color } from '@sosed/design-tokens';
 import {
   cardVariants,
   isUnavailable,
@@ -92,7 +92,7 @@ function useWriteButton(profileId: string) {
   const { t: common } = useTranslation();
   const router = useRouter();
   const scheme = useColorScheme();
-  const palette = tokens.color[scheme];
+  const palette = color[scheme];
   const signedIn = getSession() !== null;
   const own = useMyProfile({ enabled: signedIn }).data?.id === profileId;
   const start = useStartConversation();

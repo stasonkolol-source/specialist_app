@@ -49,6 +49,12 @@ export default defineConfig(({ mode }) => {
       manifest: true,
       // Шрифты — только файлами: data: URI запрещает CSP font-src 'self'
       assetsInlineLimit: (file: string) => (file.endsWith('.woff2') ? false : undefined),
+      // Всё, что вход импортирует статически, — одним чанком: иначе rolldown выносит модули, общие
+      // с ленивыми чанками (i18next, SDK Telegram, хелперы рантайма), в мелкие отдельные. Первый
+      // экран — тот же код, но меньше запросов и лучше сжатие (≈2 KB gzip бюджета)
+      rolldownOptions: {
+        output: { codeSplitting: { groups: [{ name: 'app', tags: ['$initial'] }] } },
+      },
     },
     server: {
       host: '127.0.0.1',

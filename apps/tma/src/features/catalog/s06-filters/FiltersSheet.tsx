@@ -4,7 +4,7 @@
 // счёт ждёт (лимит гостя — 60 запросов в минуту). «Ближе» спрашивает местоположение.
 // Категория выбирается вторым видом шторки; «только проверенные» — с бейджами v1.
 import type { CategoryOut, CityOut } from '@sosed/api-client';
-import { tokens } from '@sosed/design-tokens';
+import { color } from '@sosed/design-tokens';
 import { selectableDistricts, useCategories, useDistricts, useSpecialistCount } from '@sosed/hooks';
 import { useLocale, useTranslation } from '@sosed/i18n';
 import {
@@ -63,7 +63,7 @@ export function FiltersSheet({ search, city, onClose, onApply }: FiltersSheetPro
   const [locationFailed, setLocationFailed] = useState(false);
   const locate = useLocate();
   const scheme = useColorScheme();
-  const palette = tokens.color[scheme];
+  const palette = color[scheme];
   const button = useBottomButtonState('main');
 
   const query = useMemo(() => (city ? toQuery(draft, city.id) : null), [draft, city]);

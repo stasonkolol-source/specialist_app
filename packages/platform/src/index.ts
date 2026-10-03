@@ -16,8 +16,9 @@ export {
   webMediaTransport,
   xhrPut,
 } from './media.ts';
+// mock-клиент Telegram — отдельным входом `@sosed/platform/mock` (тесты, `?platform=mock`): в
+// Telegram первый экран его не качает
 export type { MockOptions, MockTelegram } from './mock.ts';
-export { MOCK_THEMES, MOCK_USER, createMockPlatform } from './mock.ts';
 export type { BottomButtonProps, ChromeColors } from './react.tsx';
 export {
   PlatformProvider,

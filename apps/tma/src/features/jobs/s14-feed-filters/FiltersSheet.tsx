@@ -5,7 +5,7 @@
 // «Радиус от Лимана». «Бюджет от» и «Язык общения» выбираются вторым видом шторки. Скрыто до
 // своего шага: «Сохранить как подписку» (SecondaryButton, 5.7).
 import type { CategoryOut, CityOut } from '@sosed/api-client';
-import { tokens } from '@sosed/design-tokens';
+import { color } from '@sosed/design-tokens';
 import { rsdToPara } from '@sosed/domain';
 import { nearestDistrict, useCategories, useDistricts, useJobsCount } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
@@ -53,7 +53,7 @@ export function FiltersSheet({ search, city, onClose, onApply }: FiltersSheetPro
   const [locationFailed, setLocationFailed] = useState(false);
   const locate = useLocate();
   const scheme = useColorScheme();
-  const palette = tokens.color[scheme];
+  const palette = color[scheme];
   const button = useBottomButtonState('main');
 
   const query = useMemo(() => (city ? toFeedQuery(draft, city.id) : null), [draft, city]);

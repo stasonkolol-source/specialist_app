@@ -4,7 +4,8 @@ import { configureApiClient } from '@sosed/api-client';
 import type { SystemState } from '@sosed/hooks';
 import type { Locale } from '@sosed/i18n';
 import { I18nextProvider, createI18n, currentLocale } from '@sosed/i18n';
-import { PlatformProvider, createMockPlatform } from '@sosed/platform';
+import { PlatformProvider } from '@sosed/platform';
+import { createMockPlatform } from '@sosed/platform/mock';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -45,13 +46,14 @@ const restricted = (restriction: RestrictedState['restriction'], until: Date | n
   }) satisfies RestrictedState;
 
 describe('S49b account restricted', () => {
-  it('shows a partial restriction with its term and what stays available', () => {
+  it('shows a partial restriction with its term and what stays available', async () => {
     const { telegram } = renderWith(
       <SystemScreen state={restricted('responding_blocked', UNTIL)} onRetry={vi.fn()} />,
     );
 
+    // S49b — своим чанком: приходит только ответом сервера
     expect(
-      screen.getByRole('heading', { name: 'Аккаунт ограничен до 3 октября', level: 1 }),
+      await screen.findByRole('heading', { name: 'Аккаунт ограничен до 3 октября', level: 1 }),
     ).toBeTruthy();
     expect(screen.getByRole('alert').textContent).toBe(
       'До 3 октября, 18:00 нельзя откликаться на заявки',
@@ -74,10 +76,10 @@ describe('S49b account restricted', () => {
     expect(mainButtonShown(telegram)).toBe(false);
   });
 
-  it('closes the whole account without the «still available» list', () => {
+  it('closes the whole account without the «still available» list', async () => {
     renderWith(<SystemScreen state={restricted('suspended', UNTIL)} onRetry={vi.fn()} />);
     expect(
-      screen.getByRole('heading', { name: 'Аккаунт приостановлен до 3 октября' }),
+      await screen.findByRole('heading', { name: 'Аккаунт приостановлен до 3 октября' }),
     ).toBeTruthy();
     expect(screen.getByRole('alert').textContent).toBe(
       'До 3 октября, 18:00 нельзя пользоваться аккаунтом',
@@ -96,7 +98,7 @@ describe('S49b account restricted', () => {
     const { telegram } = renderWith(
       <SystemScreen state={restricted('messaging_blocked', null)} onRetry={vi.fn()} />,
     );
-    expect(screen.getByRole('alert').textContent).toBe('Нельзя начинать новые диалоги');
+    expect((await screen.findByRole('alert')).textContent).toBe('Нельзя начинать новые диалоги');
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Правила площадки' }));

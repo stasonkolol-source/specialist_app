@@ -5,7 +5,8 @@ import type { Locale } from '@sosed/i18n';
 import { I18nextProvider, createI18n, currentLocale } from '@sosed/i18n';
 import { encodeStartParam } from '@sosed/links';
 import type { MockOptions } from '@sosed/platform';
-import { PlatformProvider, createMockPlatform } from '@sosed/platform';
+import { PlatformProvider } from '@sosed/platform';
+import { createMockPlatform } from '@sosed/platform/mock';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   RouterProvider,

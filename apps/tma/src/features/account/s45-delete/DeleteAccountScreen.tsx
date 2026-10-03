@@ -4,7 +4,7 @@
 // «Нужна пауза?» ведёт к паузе профиля в S38 — только если профиль специалиста виден клиентам.
 // Вход — строка «Удалить аккаунт» на S31 (с 4.9 — и из настроек S43).
 import { useIdentityGetMe } from '@sosed/api-client';
-import { tokens } from '@sosed/design-tokens';
+import { color } from '@sosed/design-tokens';
 import { useCancelDeletion, useMyProfile, useRequestDeletion } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
 import { useBackButton, useColorScheme, useMainButton, usePlatform } from '@sosed/platform';
@@ -52,7 +52,7 @@ function useScreenButton(
   props: { text: string; onClick: () => void; loading?: boolean },
   tone: 'danger' | 'accent',
 ) {
-  const palette = tokens.color[useColorScheme()];
+  const palette = color[useColorScheme()];
   return useMainButton({
     ...props,
     color: palette[tone],
