@@ -85,7 +85,8 @@ class QueryText:
 
     @classmethod
     def parse(cls, q: str | None) -> QueryText | None:
-        raw = " ".join(readable(q or "").split())[:MAX_QUERY].strip()
+        raw = unicodedata.normalize("NFC", readable(q or ""))
+        raw = " ".join(raw.split())[:MAX_QUERY].strip()
         words = tuple(
             word for word in _WORD.findall(serbian(raw)) if word.lower() not in SERBIAN_STOPWORDS
         )
