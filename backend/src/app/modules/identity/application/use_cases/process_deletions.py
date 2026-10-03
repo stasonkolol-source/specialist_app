@@ -9,7 +9,9 @@
    прайс, файлы, уведомления, атрибуция;
 3. сессии удалены (в них IP и устройство), живые — сначала в denylist Valkey: access-токен
    действует ещё до 15 минут;
-4. запрос исполнен.
+4. блокировки в обе стороны стёрты (4.7): связь «кто кого» — тоже данные о человеке; жалобы
+   остаются в модерации с тем же псевдонимным id (§7.10: решения и жалобы хранятся по закону);
+5. запрос исполнен.
 """
 
 from dataclasses import dataclass
@@ -20,6 +22,7 @@ import structlog
 from app.modules.identity.api import DeletionHold
 from app.modules.identity.application.config import IdentityConfig
 from app.modules.identity.application.ports import (
+    Blocks,
     DeletedIdentities,
     DeletionRepository,
     DueCursor,
@@ -60,13 +63,14 @@ class ProcessDeletions:
         sessions: SessionRepository,
         revocations: SessionRevocations,
         hashes: DeletedIdentities,
+        blocks: Blocks,
         hold: DeletionHold,
         config: IdentityConfig,
         clock: Clock,
     ) -> None:
         self._uow, self._users, self._deletions = uow, users, deletions
         self._sessions, self._revocations, self._hashes = sessions, revocations, hashes
-        self._hold, self._config, self._clock = hold, config, clock
+        self._blocks, self._hold, self._config, self._clock = blocks, hold, config, clock
 
     async def __call__(self, cmd: ProcessDeletionsCommand) -> DeletionsReport:
         now = self._clock.now()
@@ -115,6 +119,7 @@ class ProcessDeletions:
             for session in await self._sessions.active_for_user(user_id, now):
                 await self._revocations.revoke(session.sid)
             await self._sessions.forget_user(user_id)
+            await self._blocks.forget_user(user_id)
             request.complete(now=now)
             await self._deletions.save(request)
         return "deleted"

@@ -49,6 +49,10 @@ class FakeSearch:
     counted_categories: list[tuple[CityId, str]] = field(default_factory=list)
     visible: dict[UUID, SpecialistHit] = field(default_factory=dict)
     """Строки, видимые в каталоге: `listed` (избранное)."""
+    owners: dict[UUID, UserId] = field(default_factory=dict)
+    """Чей профиль — для блокировок в `listed`."""
+    hidden: list[tuple[UserId, ...]] = field(default_factory=list)
+    """`hidden_users` фильтров каждого запроса выдачи и счётчика (блокировки, 4.7)."""
 
     async def search(
         self,
@@ -63,6 +67,7 @@ class FakeSearch:
     ) -> list[SpecialistHit]:
         call = SearchCall(match=match, sort=sort, weights=weights, offset=offset, limit=limit)
         self.calls.append(call)
+        self.hidden.append(filters.hidden_users)
         return self.by_stage.get(call.stage, [])[offset : offset + limit]
 
     async def count(
@@ -75,14 +80,31 @@ class FakeSearch:
     ) -> int:
         stage = match.stage if match is not None else Stage.BROWSE
         self.counted.append(stage)
+        self.hidden.append(filters.hidden_users)
         return min(len(self.by_stage.get(stage, [])), cap)
 
     async def count_by_category(self, city_id: CityId, kind: str) -> dict[CategoryId, int]:
         self.counted_categories.append((city_id, kind))
         return dict(self.categories)
 
-    async def listed(self, profile_ids: Collection[UUID]) -> list[SpecialistHit]:
-        return [self.visible[i] for i in profile_ids if i in self.visible]
+    async def listed(
+        self, profile_ids: Collection[UUID], *, hidden_users: Collection[UserId] = ()
+    ) -> list[SpecialistHit]:
+        return [
+            self.visible[i]
+            for i in profile_ids
+            if i in self.visible and self.owners.get(i) not in hidden_users
+        ]
+
+
+@dataclass
+class FakeBlocks:
+    """Blocklist (фасад identity): с кем у пользователя блокировка в любую сторону."""
+
+    related: dict[UserId, frozenset[UserId]] = field(default_factory=dict)
+
+    async def blocked_ids(self, user_id: UserId) -> frozenset[UserId]:
+        return self.related.get(user_id, frozenset())
 
 
 @dataclass

@@ -20,7 +20,13 @@ from app.modules.search.application.use_cases.remove_favorite import (
 )
 from app.modules.search.domain.favorites import MAX_FAVORITES, FavoriteType
 from app.modules.search.errors import FavoritesFullError
-from app.modules.search.tests.fakes import FakeFavorites, FakeMedia, FakeSearch, FakeUoW
+from app.modules.search.tests.fakes import (
+    FakeBlocks,
+    FakeFavorites,
+    FakeMedia,
+    FakeSearch,
+    FakeUoW,
+)
 from app.modules.search.tests.unit.test_search_specialists import NOW, hit
 from app.platform.kernel.errors import NotFoundError
 from app.platform.kernel.ids import UserId
@@ -36,6 +42,7 @@ class Favorites:
     def __init__(self, visible: int = 3) -> None:
         self.search = FakeSearch(visible={UUID(int=n): hit(n) for n in range(1, visible + 1)})
         self.rows, self.uow = FakeFavorites(), FakeUoW()
+        self.blocks = FakeBlocks()
 
     async def add(self, number: int) -> None:
         use_case = AddFavorite(self.rows, self.search, self.uow)
@@ -50,7 +57,7 @@ class Favorites:
         )
 
     async def shown(self) -> list[str]:
-        listing = ListFavorites(self.rows, self.search, FakeMedia(), FakeClock(NOW))
+        listing = ListFavorites(self.rows, self.search, FakeMedia(), self.blocks, FakeClock(NOW))
         return [card.display_name for card in await listing(ListFavoritesCommand(actor_id=USER))]
 
 
@@ -109,3 +116,18 @@ async def test_deleted_account_loses_its_favorites() -> None:
     await ForgetFavorites(favorites.rows, favorites.uow)(ForgetFavoritesCommand(user_id=USER))
 
     assert favorites.rows.rows == []
+
+
+async def test_blocked_specialist_drops_out_while_the_block_lasts() -> None:
+    """4.7: блокировка в любую сторону убирает специалиста из S12; запись остаётся."""
+    favorites = Favorites()
+    owner = UserId(UUID(int=2002))
+    favorites.search.owners[UUID(int=2)] = owner
+    await favorites.add(1)
+    await favorites.add(2)
+
+    favorites.blocks.related[USER] = frozenset({owner})
+    assert await favorites.shown() == ["Мастер 1"]
+
+    favorites.blocks.related[USER] = frozenset()
+    assert await favorites.shown() == ["Мастер 2", "Мастер 1"]

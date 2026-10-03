@@ -127,6 +127,26 @@ CONVERSATION_KINDS: Final = frozenset({"job_response", "direct"})
 """ConversationKind диалога (messaging), который начинают пользователи."""
 CONTACT_TYPES: Final = frozenset({"telegram", "phone"})
 """ContactType (messaging): чем поделились после договорённости."""
+REPORT_TARGETS: Final = frozenset({"profile", "job", "review", "message", "user"})
+"""На что жалуются (moderation, 4.7): типы объектов шторки S46."""
+REPORT_REASONS: Final = frozenset(
+    {
+        "spam",
+        "fraud",
+        "prohibited",
+        "offensive",
+        "fake_profile",
+        "no_show",
+        "personal_data",
+        "defamation",
+        "copyright",
+        "illegal",
+        "other",
+    }
+)
+"""ReportReason жалобы (moderation, 4.7)."""
+REPORT_QUEUES: Final = frozenset({"safety", "fraud"})
+"""Очередь кейса жалобы: P0 или P1 (§14.2)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -170,7 +190,15 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
     ),
     EventName.PRO_WAITLIST_JOINED: EventSpec(step="2.8a", description="Лист ожидания Pro"),
     EventName.PHONE_VERIFIED: EventSpec(step="2.9", description="Телефон подтверждён"),
-    EventName.REPORT_CREATED: EventSpec(step="4.7", description="Жалоба"),
+    EventName.REPORT_CREATED: EventSpec(
+        step="4.7",
+        description="Жалоба (S46): на что, причина и очередь кейса — от жалующегося",
+        properties={
+            "target": Choice(REPORT_TARGETS),
+            "reason": Choice(REPORT_REASONS),
+            "queue": Choice(REPORT_QUEUES),
+        },
+    ),
     EventName.JOB_PUBLISHED: EventSpec(
         step="5.1",
         description="Заявка опубликована: после проверки или снова — продлением истёкшей",

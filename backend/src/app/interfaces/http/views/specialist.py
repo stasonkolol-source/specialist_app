@@ -114,6 +114,7 @@ class CardReviewOut(BaseModel):
 
 class SpecialistProfileOut(BaseModel):
     id: UUID
+    user_id: UUID = Field(description="Аккаунт специалиста: «Заблокировать» в меню S08 (4.7)")
     kind: str = Field(description="pro | casual")
     display_name: str
     headline: str | None
@@ -311,6 +312,7 @@ async def get_specialist(
     until = profile.available_until
     body = SpecialistProfileOut(
         id=profile.id,
+        user_id=profile.user_id,
         kind=profile.kind,
         display_name=profile.display_name,
         headline=profile.headline,

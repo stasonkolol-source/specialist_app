@@ -12,6 +12,7 @@ import type { RequestHandlerOptions } from 'msw';
 import { Currency } from '../../model';
 import type {
   BadgesOut,
+  BlocksOut,
   CardReviewsOut,
   CardServicesOut,
   CardWorksOut,
@@ -25,6 +26,7 @@ export const getViewsGetSpecialistResponseMock = (
   overrideResponse: Partial<Extract<SpecialistProfileOut, object>> = {},
 ): SpecialistProfileOut => ({
   id: faker.string.uuid(),
+  user_id: faker.string.uuid(),
   kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
   display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   headline: faker.helpers.arrayElement([
@@ -712,6 +714,41 @@ export const getViewsListDealHistoryResponseMock = (
   ...overrideResponse,
 });
 
+export const getViewsListBlocksResponseMock = (
+  overrideResponse: Partial<Extract<BlocksOut, object>> = {},
+): BlocksOut => ({
+  items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    user_id: faker.string.uuid(),
+    display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    avatar: faker.helpers.arrayElement([
+      {
+        placeholder: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        variants: Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1,
+        ).map(() => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        })),
+        video_url: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+      },
+      null,
+    ]),
+    profile_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+    blocked_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  })),
+  ...overrideResponse,
+});
+
 export const getViewsGetSpecialistMockHandler = (
   overrideResponse?:
     | SpecialistProfileOut
@@ -899,6 +936,28 @@ export const getViewsListDealHistoryMockHandler = (
     options,
   );
 };
+
+export const getViewsListBlocksMockHandler = (
+  overrideResponse?:
+    | BlocksOut
+    | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<BlocksOut> | BlocksOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/me/blocks',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getViewsListBlocksResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getViewsMock = () => [
   getViewsGetSpecialistMockHandler(),
   getViewsListSpecialistServicesMockHandler(),
@@ -908,4 +967,5 @@ export const getViewsMock = () => [
   getViewsGetBadgesMockHandler(),
   getViewsGetDealCardMockHandler(),
   getViewsListDealHistoryMockHandler(),
+  getViewsListBlocksMockHandler(),
 ];

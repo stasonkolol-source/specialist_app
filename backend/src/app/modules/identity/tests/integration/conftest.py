@@ -21,6 +21,7 @@ from app.modules.identity.application.trust import TrustRecalculation
 from app.modules.identity.application.use_cases.accept_consents import AcceptConsents
 from app.modules.identity.application.use_cases.age_trust_levels import AgeTrustLevels
 from app.modules.identity.application.use_cases.authenticate_telegram import AuthenticateTelegram
+from app.modules.identity.application.use_cases.block_user import BlockUser
 from app.modules.identity.application.use_cases.cancel_deletion import CancelDeletion
 from app.modules.identity.application.use_cases.grant_staff_role import GrantStaffRole
 from app.modules.identity.application.use_cases.logout import Logout
@@ -30,8 +31,10 @@ from app.modules.identity.application.use_cases.request_deletion import RequestD
 from app.modules.identity.application.use_cases.revoke_restricted_sessions import (
     RevokeRestrictedSessions,
 )
+from app.modules.identity.application.use_cases.unblock_user import UnblockUser
 from app.modules.identity.application.use_cases.update_profile import UpdateProfile
 from app.modules.identity.domain.restriction import RestrictionKind, RestrictionSource
+from app.modules.identity.infrastructure.blocks import SqlBlocks
 from app.modules.identity.infrastructure.deletion import (
     SqlDeletedIdentities,
     SqlDeletionRepository,
@@ -112,6 +115,9 @@ class Identity:
     request_deletion: RequestDeletion
     cancel_deletion: CancelDeletion
     process_deletions: ProcessDeletions
+    blocks: SqlBlocks
+    block_user: BlockUser
+    unblock_user: UnblockUser
 
     async def restrict(
         self, user_id: UserId, kind: RestrictionKind, *, ends_at: datetime | None = None
@@ -159,6 +165,7 @@ def identity(
     access = AccessChecker(query, legal, clock)
     trust = TrustRecalculation(query)
     audit = SqlAuditLog(db_session, uow)
+    blocks = SqlBlocks(db_session, uow)
     return Identity(
         session=db_session,
         clock=clock,
@@ -194,7 +201,14 @@ def identity(
             uow, users, SqlConsentRepository(db_session, uow), legal, clock
         ),
         facade=IdentityFacade(
-            uow, query, users, SqlRestrictionRepository(db_session, uow), access, trust, clock
+            uow,
+            query,
+            users,
+            SqlRestrictionRepository(db_session, uow),
+            access,
+            trust,
+            blocks,
+            clock,
         ),
         age_trust_levels=AgeTrustLevels(uow, users, trust, clock),
         revoke_restricted_sessions=RevokeRestrictedSessions(
@@ -204,8 +218,11 @@ def identity(
         request_deletion=RequestDeletion(uow, users, deletions, clock),
         cancel_deletion=CancelDeletion(uow, deletions, clock),
         process_deletions=ProcessDeletions(
-            uow, users, deletions, sessions, revocations, deleted, hold, CONFIG, clock
+            uow, users, deletions, sessions, revocations, deleted, blocks, hold, CONFIG, clock
         ),
+        blocks=blocks,
+        block_user=BlockUser(uow, blocks, query, clock),
+        unblock_user=UnblockUser(uow, blocks),
     )
 
 

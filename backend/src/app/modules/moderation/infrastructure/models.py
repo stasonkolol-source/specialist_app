@@ -1,4 +1,4 @@
-"""ORM-модели moderation (ARCHITECTURE §7.3, миграции moderation_0001–0002).
+"""ORM-модели moderation (ARCHITECTURE §7.3, миграции moderation_0001–0005).
 
 Словарь контент-правил (2.4); кейсы, ступени санкций, сигналы риска и жалобы (2.5a).
 FK на identity.users и identity.restrictions объявлены только в миграции moderation_0002:
@@ -184,8 +184,12 @@ class RiskSignalRow(Base):
     )
 
 
+OPEN_REPORT = "uq_reports_open"
+"""Одна открытая жалоба человека на объект (moderation_0005): повтор — та же жалоба."""
+
+
 class ReportRow(UuidPkMixin, Base):
-    """Жалоба пользователя (domain/reports.py); приём — 4.7."""
+    """Жалоба пользователя (domain/reports.py); приём — `POST /reports` (4.7)."""
 
     __tablename__ = "reports"
 
@@ -209,7 +213,15 @@ class ReportRow(UuidPkMixin, Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     __table_args__ = (
-        UniqueConstraint("reporter_id", "target_type", "target_id"),
+        Index(
+            OPEN_REPORT,
+            "reporter_id",
+            "target_type",
+            "target_id",
+            unique=True,
+            postgresql_where=text("status = 'open'"),
+        ),
+        Index("ix_reports_case_id", "case_id"),
         Index(
             "ix_reports_due_at_legal_open",
             "due_at",

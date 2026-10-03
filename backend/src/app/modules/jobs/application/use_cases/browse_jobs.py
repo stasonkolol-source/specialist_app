@@ -1,8 +1,10 @@
 """Лента заявок (GET /jobs, S13; DEVELOPMENT_PLAN 5.3): страница карточек с превью фото —
-одним запросом к media на страницу."""
+одним запросом к media на страницу. Заявок тех, с кем у зрителя блокировка, нет (4.7)."""
 
 from dataclasses import dataclass
 
+from app.modules.identity.api import IdentityApi
+from app.modules.jobs.application.blocks import without_blocked
 from app.modules.jobs.application.feed import FeedFilters, JobCard
 from app.modules.jobs.application.photos import THUMB, photos_of
 from app.modules.jobs.application.ports import JobQueries
@@ -20,12 +22,15 @@ class BrowseJobsCommand:
 
 
 class BrowseJobs:
-    def __init__(self, queries: JobQueries, media: MediaApi, clock: Clock) -> None:
-        self._queries, self._media, self._clock = queries, media, clock
+    def __init__(
+        self, queries: JobQueries, media: MediaApi, identity: IdentityApi, clock: Clock
+    ) -> None:
+        self._queries, self._media, self._identity, self._clock = queries, media, identity, clock
 
     async def __call__(self, query: BrowseJobsCommand) -> Page[JobCard]:
+        filters = await without_blocked(self._identity, query.filters, query.viewer_id)
         page = await self._queries.feed(
-            query.filters, viewer_id=query.viewer_id, page=query.page, now=self._clock.now()
+            filters, viewer_id=query.viewer_id, page=query.page, now=self._clock.now()
         )
         wanted = {media_id for item in page.items for media_id in item.media_ids}
         refs = await self._media.refs(wanted) if wanted else {}

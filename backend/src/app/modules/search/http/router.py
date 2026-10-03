@@ -56,7 +56,7 @@ from app.modules.search.http.schemas import (
 )
 from app.platform.http.pagination import PageParams
 from app.platform.http.ratelimit import GuestOrUserRateLimit
-from app.platform.http.security import AUTHENTICATED
+from app.platform.http.security import AUTHENTICATED, optional_principal
 from app.platform.kernel.errors import DomainValidationError
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId
@@ -78,6 +78,7 @@ MAX_LISTED = 20
 log = structlog.get_logger(__name__)
 router = APIRouter(tags=["search"])
 FavoriteProfile = Annotated[UUID, Path(description="id профиля специалиста")]
+Viewer = Annotated[Principal | None, Depends(optional_principal)]
 search_limit = [Depends(GuestOrUserRateLimit(guest=SEARCH_GUEST, user=SEARCH_USER))]
 suggest_limit = [Depends(GuestOrUserRateLimit(guest=SUGGEST_GUEST, user=SUGGEST_USER))]
 
@@ -139,6 +140,7 @@ async def list_specialists(
     locale: FromDishka[Locale],
     filters: Annotated[SpecialistFilters, Depends(specialist_filters)],
     page: PageParams,
+    viewer: Viewer,
     q: Annotated[
         str | None, Query(max_length=2 * MAX_QUERY, description="Текст: ru, sr, en, с опечатками")
     ] = None,
@@ -147,10 +149,17 @@ async def list_specialists(
     ] = SpecialistSort.RELEVANCE,
     urgent: Annotated[bool, Query(description="«Срочно»: доступные сегодня — выше")] = False,
 ) -> SpecialistPageOut:
-    """Выдача специалистов: текст, фильтры, порядок; карточки готовы к показу."""
+    """Выдача специалистов: текст, фильтры, порядок; карточки готовы к показу. Вошедшему — без
+    тех, с кем у него блокировка (4.7)."""
     results = await search(
         SearchSpecialistsCommand(
-            filters=filters, q=q, sort=sort, page=page, locale=locale.value, urgent=urgent
+            filters=filters,
+            q=q,
+            sort=sort,
+            page=page,
+            locale=locale.value,
+            urgent=urgent,
+            viewer_id=viewer.user_id if viewer is not None else None,
         )
     )
     if results.zero_result is not None:
@@ -190,10 +199,15 @@ async def count_specialists(
     *,
     count: FromDishka[CountSpecialists],
     filters: Annotated[SpecialistFilters, Depends(specialist_filters)],
+    viewer: Viewer,
     q: Annotated[str | None, Query(max_length=2 * MAX_QUERY)] = None,
 ) -> SpecialistCountOut:
     """Сколько специалистов покажет выдача с этими фильтрами: «Показать N» в шторке S06."""
-    found = await count(CountSpecialistsCommand(filters=filters, q=q))
+    found = await count(
+        CountSpecialistsCommand(
+            filters=filters, q=q, viewer_id=viewer.user_id if viewer is not None else None
+        )
+    )
     return SpecialistCountOut(count=found.count, capped=found.capped)
 
 

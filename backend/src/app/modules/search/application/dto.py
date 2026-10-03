@@ -8,7 +8,7 @@ from uuid import UUID
 
 from app.modules.search.domain.query import Stage
 from app.platform.kernel.geo import GeoPoint
-from app.platform.kernel.ids import CategoryId, CityId, DistrictId
+from app.platform.kernel.ids import CategoryId, CityId, DistrictId, UserId
 from app.platform.kernel.pagination import Page
 
 PRO = "pro"
@@ -36,6 +36,9 @@ class SpecialistFilters:
     available_today: bool = False
     verified: bool = False
     with_reviews: bool = False
+    hidden_users: tuple[UserId, ...] = ()
+    """С кем у зрителя блокировка в любую сторону (4.7): их профилей в выдаче нет. Ставит use
+    case по зрителю, не шторка."""
 
     @property
     def missing_point(self) -> bool:

@@ -103,3 +103,16 @@ class InvalidRestrictionError(DomainValidationError):
     """Санкция без машинного кода причины или с концом в прошлом."""
 
     code = "invalid_restriction"
+
+
+class CannotBlockSelfError(ConflictError):
+    """Заблокировать самого себя нельзя (S08 своего профиля меню не показывает)."""
+
+    code = "cannot_block_self"
+
+
+class BlocksFullError(ConflictError):
+    """Заблокировано уже максимум пользователей (`limit`): выше — уже не человек, а скрипт."""
+
+    code = "blocks_full"
+    public_params = ("limit",)

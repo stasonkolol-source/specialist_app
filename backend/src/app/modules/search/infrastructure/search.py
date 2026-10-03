@@ -43,7 +43,7 @@ from app.modules.search.infrastructure.models import (
 )
 from app.platform.db.query import SqlQuery
 from app.platform.db.types import GeoPointType
-from app.platform.kernel.ids import CategoryId, CityId
+from app.platform.kernel.ids import CategoryId, CityId, UserId
 
 AT_CLIENT = "at_client"
 PHONE_VERIFIED = "phone_verified"
@@ -119,7 +119,9 @@ class SqlSpecialistSearch(SqlQuery):
         row = await self._fetch_one(select(func.count().label("n")).select_from(matching))
         return int(row["n"]) if row is not None else 0
 
-    async def listed(self, profile_ids: Collection[UUID]) -> list[SpecialistHit]:
+    async def listed(
+        self, profile_ids: Collection[UUID], *, hidden_users: Collection[UserId] = ()
+    ) -> list[SpecialistHit]:
         if not profile_ids:
             return []
         stmt = select(
@@ -132,6 +134,8 @@ class SqlSpecialistSearch(SqlQuery):
             _SI.available_until,
             cast(null(), Float).label("distance_m"),
         ).where(_SI.is_listed, _SI.profile_id.in_(list(profile_ids)))
+        if hidden_users:
+            stmt = stmt.where(_SI.user_id.not_in(list(hidden_users)))
         return [_hit(row) for row in await self._fetch(stmt)]
 
     async def count_by_category(self, city_id: CityId, kind: str) -> dict[CategoryId, int]:
@@ -186,6 +190,8 @@ def _conditions(
         _kind_filter(filters.kind),
         _SI.city_id == filters.city_id,
     ]
+    if filters.hidden_users:
+        found.append(_SI.user_id.not_in(list(filters.hidden_users)))
     if filters.category_id is not None:
         found.append(_SI.category_ids.overlap([filters.category_id]))
     if match is not None and match.category_ids:

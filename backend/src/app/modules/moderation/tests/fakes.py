@@ -16,11 +16,19 @@ from app.modules.deals.api import (
     ProposedDealIn,
     SettleDisputeIn,
 )
-from app.modules.identity.api import Action, RestrictionIn, TelegramUserView, UserSummary
+from app.modules.identity.api import (
+    Action,
+    BlockedUser,
+    BlockSide,
+    RestrictionIn,
+    TelegramUserView,
+    UserSummary,
+)
 from app.modules.moderation.application.ports import ModerationTarget, TargetContent
 from app.modules.moderation.domain.cases import EntityType
 from app.modules.moderation.domain.pipeline import Route
 from app.modules.moderation.domain.rules import ContentRule, RuleSet
+from app.modules.moderation.errors import ReportsLimitError
 from app.platform.ai.port import (
     ContentKind,
     ModerationResult,
@@ -48,7 +56,9 @@ class FakeIdentity:
     violations: list[UserId] = field(default_factory=list)
     lifted: list[CaseId] = field(default_factory=list)
 
-    async def get_user(self, user_id: UserId) -> UserSummary | None:
+    async def get_user(
+        self, user_id: UserId, *, viewer_id: UserId | None = None
+    ) -> UserSummary | None:
         if user_id not in self.known:
             return None
         return UserSummary(
@@ -111,6 +121,17 @@ class FakeIdentity:
         self, user_ids: Collection[UserId]
     ) -> dict[UserId, datetime | None]:
         raise NotImplementedError
+
+    async def blocked_ids(self, user_id: UserId) -> frozenset[UserId]:
+        return frozenset()
+
+    async def blocks_with(
+        self, user_id: UserId, others: Collection[UserId]
+    ) -> dict[UserId, BlockSide]:
+        return {}
+
+    async def blocked_users(self, user_id: UserId) -> list[BlockedUser]:
+        return []
 
 
 @dataclass
@@ -222,6 +243,35 @@ class FakeTargets:
 
     def get(self, entity_type: EntityType) -> ModerationTarget | None:
         return self.targets.get(entity_type)
+
+
+@dataclass
+class FakeReportTargets:
+    """ReportTargets (4.7): чей объект и с кем диалог у жалующегося."""
+
+    authors: dict[UUID, UserId] = field(default_factory=dict)
+    conversations: dict[tuple[UUID, UserId], UserId] = field(default_factory=dict)
+
+    async def subject(
+        self, target_type: EntityType, target_id: UUID, reporter_id: UserId
+    ) -> UserId | None:
+        return self.authors.get(target_id)
+
+    async def counterpart(self, conversation_id: UUID, reporter_id: UserId) -> UserId | None:
+        return self.conversations.get((conversation_id, reporter_id))
+
+
+@dataclass
+class FakeReportQuota:
+    """ReportQuota: `limit` жалоб на человека, дальше — 429, как RateLimiter."""
+
+    limit: int = 20
+    taken: dict[UserId, int] = field(default_factory=dict)
+
+    async def take(self, reporter_id: UserId) -> None:
+        if self.taken.get(reporter_id, 0) >= self.limit:
+            raise ReportsLimitError(retry_after=3600, limit=self.limit)
+        self.taken[reporter_id] = self.taken.get(reporter_id, 0) + 1
 
 
 @dataclass

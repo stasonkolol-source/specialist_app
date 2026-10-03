@@ -1,4 +1,4 @@
-"""ORM-модели identity (ARCHITECTURE §7.3, миграции identity_0001–0005).
+"""ORM-модели identity (ARCHITECTURE §7.3, миграции identity_0001–0006).
 
 FK на таблицы других схем (`users.home_city_id` → geo.cities) объявлен только в миграции:
 MetaData модуля не знает чужих таблиц, а ORM-ForeignKey на них не разрешился бы при
@@ -257,3 +257,19 @@ class CompletedDealRow(Base):
     deal_id: Mapped[UUID] = mapped_column(primary_key=True)
     """deals.deals — модуль выше по DAG: без FK."""
     completed_at: Mapped[datetime]
+
+
+class UserBlockRow(Base):
+    """Блокировка (4.7): `blocker_id` заблокировал `blocked_id`. Ключ — пара: повтор ничего не
+    добавляет; обратный индекс — «кто заблокировал меня» для фильтров выдачи и ленты."""
+
+    __tablename__ = "user_blocks"
+
+    blocker_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    blocked_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_user_blocks_blocked_id", "blocked_id"),
+        CheckConstraint("blocker_id <> blocked_id", name="not_self"),
+    )

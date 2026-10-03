@@ -5,6 +5,7 @@ from app.platform.kernel.errors import (
     ConflictError,
     DomainValidationError,
     NotFoundError,
+    RateLimitedError,
 )
 
 
@@ -43,3 +44,30 @@ class CaseKindError(ConflictError):
 
     code = "case_kind_conflict"
     public_params = ("entity_type",)
+
+
+class ReportTargetNotFoundError(NotFoundError):
+    """Жаловаться не на что: объекта нет, он не виден жалующемуся (чужая переписка, снятый
+    профиль) или аккаунт удалён."""
+
+    code = "report_target_not_found"
+
+
+class InvalidReportError(DomainValidationError):
+    """Жалоба не подходит (`field`, `reason`): причина не для этого типа объекта, жалоба на
+    себя или на свой объект, переписка не с этим человеком."""
+
+    code = "invalid_report"
+    public_params = ("field", "reason")
+
+
+class ReportsLimitError(RateLimitedError):
+    """За сутки отправлено максимум жалоб (§13.3: двадцать)."""
+
+    code = "reports_limit"
+
+
+class ReportAlreadyOpenError(ConcurrentModificationError):
+    """Параллельный запрос только что записал ту же жалобу: команда повторяется и отдаёт её."""
+
+    code = "report_already_open"

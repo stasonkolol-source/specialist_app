@@ -4,7 +4,14 @@ from collections.abc import Collection
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from app.modules.identity.api import Action, RestrictionIn, TelegramUserView, UserSummary
+from app.modules.identity.api import (
+    Action,
+    BlockedUser,
+    BlockSide,
+    RestrictionIn,
+    TelegramUserView,
+    UserSummary,
+)
 from app.platform.kernel.ids import CaseId, RestrictionId, UserId
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Role
@@ -19,7 +26,9 @@ class FakeIdentity:
     locales: dict[UserId, Locale] = field(default_factory=dict)
     deleted: set[UserId] = field(default_factory=set)
 
-    async def get_user(self, user_id: UserId) -> UserSummary | None:
+    async def get_user(
+        self, user_id: UserId, *, viewer_id: UserId | None = None
+    ) -> UserSummary | None:
         if user_id not in self.locales:
             return None
         return UserSummary(
@@ -64,3 +73,14 @@ class FakeIdentity:
         self, user_ids: Collection[UserId]
     ) -> dict[UserId, datetime | None]:
         raise NotImplementedError
+
+    async def blocked_ids(self, user_id: UserId) -> frozenset[UserId]:
+        return frozenset()
+
+    async def blocks_with(
+        self, user_id: UserId, others: Collection[UserId]
+    ) -> dict[UserId, BlockSide]:
+        return {}
+
+    async def blocked_users(self, user_id: UserId) -> list[BlockedUser]:
+        return []

@@ -5,6 +5,8 @@ from datetime import datetime
 
 from app.modules.identity.api import (
     Action,
+    BlockedUser,
+    BlockSide,
     IdentityApi,
     RestrictionIn,
     TelegramUserView,
@@ -12,6 +14,7 @@ from app.modules.identity.api import (
 )
 from app.modules.identity.application.access import AccessChecker
 from app.modules.identity.application.ports import (
+    Blocks,
     IdentityQuery,
     RestrictionRepository,
     UserRepository,
@@ -40,14 +43,17 @@ class IdentityFacade(IdentityApi):
         restrictions: RestrictionRepository,
         access: AccessChecker,
         trust: TrustRecalculation,
+        blocks: Blocks,
         clock: Clock,
     ) -> None:
         self._uow, self._query, self._users = uow, query, users
         self._restrictions, self._access = restrictions, access
-        self._trust, self._clock = trust, clock
+        self._trust, self._blocks, self._clock = trust, blocks, clock
 
-    async def get_user(self, user_id: UserId) -> UserSummary | None:
-        return await self._query.user_summary(user_id)
+    async def get_user(
+        self, user_id: UserId, *, viewer_id: UserId | None = None
+    ) -> UserSummary | None:
+        return await self._query.user_summary(user_id, viewer_id=viewer_id)
 
     async def users(self, user_ids: Collection[UserId]) -> dict[UserId, UserSummary]:
         return await self._query.user_summaries(user_ids)
@@ -119,6 +125,17 @@ class IdentityFacade(IdentityApi):
             if found is not None:
                 hidden[user_id] = found.ends_at
         return hidden
+
+    async def blocked_ids(self, user_id: UserId) -> frozenset[UserId]:
+        return await self._blocks.related(user_id)
+
+    async def blocks_with(
+        self, user_id: UserId, others: Collection[UserId]
+    ) -> dict[UserId, BlockSide]:
+        return await self._blocks.sides(user_id, others)
+
+    async def blocked_users(self, user_id: UserId) -> list[BlockedUser]:
+        return await self._blocks.blocked_users(user_id)
 
     async def record_violation(self, user_id: UserId) -> None:
         self._uow.require_active()

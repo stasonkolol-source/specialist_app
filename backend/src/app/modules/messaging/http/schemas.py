@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.modules.identity.api import BlockSide
 from app.modules.messaging.application.cards import ConversationCard
 from app.modules.messaging.application.dto import MessagesPage
 from app.modules.messaging.domain.conversation import (
@@ -141,6 +142,11 @@ class ConversationOut(BaseModel):
     unread: int
     created_at: datetime
     last_message_at: datetime | None
+    blocked: bool = Field(
+        description="Блокировка между сторонами (4.7): писать, договариваться и делиться"
+        " контактом нельзя, переписка — только для чтения"
+    )
+    blocked_by_me: bool = Field(description="Заблокировал я: в меню S30 — «Разблокировать»")
 
     @classmethod
     def of(cls, card: ConversationCard, viewer_id: UserId) -> ConversationOut:
@@ -166,6 +172,8 @@ class ConversationOut(BaseModel):
             unread=view.unread,
             created_at=view.created_at,
             last_message_at=view.last_message_at,
+            blocked=card.block is not None,
+            blocked_by_me=card.block is BlockSide.BY_ME,
         )
 
 

@@ -12,6 +12,8 @@ import type { CardWorkOut } from './cardWorkOut.ts';
 
 export interface SpecialistProfileOut {
   id: string;
+  /** Аккаунт специалиста: «Заблокировать» в меню S08 (4.7) */
+  user_id: string;
   /** pro | casual */
   kind: string;
   display_name: string;

@@ -16,6 +16,7 @@ from app.modules.search.application.use_cases.search_specialists import (
 )
 from app.modules.search.domain.query import RankWeights, SpecialistSort, Stage
 from app.modules.search.tests.fakes import (
+    FakeBlocks,
     FakeCatalog,
     FakeFlags,
     FakeLog,
@@ -24,7 +25,7 @@ from app.modules.search.tests.fakes import (
     FakeUoW,
 )
 from app.platform.kernel.errors import DomainValidationError
-from app.platform.kernel.ids import CategoryId, CityId, MediaId
+from app.platform.kernel.ids import CategoryId, CityId, MediaId, UserId
 from app.platform.kernel.pagination import PageRequest
 from app.platform.testing.clock import FakeClock
 
@@ -64,8 +65,16 @@ class World:
     def __init__(self) -> None:
         self.search, self.catalog, self.media = FakeSearch(), FakeCatalog(), FakeMedia()
         self.flags, self.log, self.uow = FakeFlags(), FakeLog(), FakeUoW()
+        self.blocks = FakeBlocks()
         self.use_case = SearchSpecialists(
-            self.search, self.catalog, self.media, self.flags, self.log, self.uow, FakeClock(NOW)
+            self.search,
+            self.catalog,
+            self.media,
+            self.flags,
+            self.log,
+            self.uow,
+            self.blocks,
+            FakeClock(NOW),
         )
 
     async def run(
@@ -274,3 +283,16 @@ async def test_card_shows_what_the_client_needs() -> None:
     assert (cards[2].rating, cards[2].is_new, cards[2].available_until) == (None, True, None)
     assert cards[0].district_name == {"ru": "Лиман", "sr-Cyrl": "Лиман"}
     assert world.media.asked == [frozenset({photo})]
+
+
+async def test_signed_in_viewer_does_not_see_blocked_users() -> None:
+    """4.7: с кем у вошедшего блокировка в любую сторону, тех нет в выдаче; гостю — всё."""
+    world = World()
+    viewer, blocked = UserId(UUID(int=901)), UserId(UUID(int=902))
+    world.blocks.related[viewer] = frozenset({blocked})
+    world.search.by_stage[Stage.BROWSE] = [hit(1)]
+
+    await world.run(viewer_id=viewer)
+    await world.run()
+
+    assert world.search.hidden == [(blocked,), ()]

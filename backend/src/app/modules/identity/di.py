@@ -10,6 +10,7 @@ from app.modules.identity.application.config import IdentityConfig
 from app.modules.identity.application.facade import IdentityFacade
 from app.modules.identity.application.ports import (
     AccessTokenIssuer,
+    Blocks,
     CompletedDeals,
     ConsentRepository,
     DeletedIdentities,
@@ -25,6 +26,7 @@ from app.modules.identity.application.trust import TrustRecalculation
 from app.modules.identity.application.use_cases.accept_consents import AcceptConsents
 from app.modules.identity.application.use_cases.age_trust_levels import AgeTrustLevels
 from app.modules.identity.application.use_cases.authenticate_telegram import AuthenticateTelegram
+from app.modules.identity.application.use_cases.block_user import BlockUser
 from app.modules.identity.application.use_cases.cancel_deletion import CancelDeletion
 from app.modules.identity.application.use_cases.grant_staff_role import GrantStaffRole
 from app.modules.identity.application.use_cases.logout import Logout
@@ -39,8 +41,10 @@ from app.modules.identity.application.use_cases.reset_onboarding import ResetOnb
 from app.modules.identity.application.use_cases.revoke_restricted_sessions import (
     RevokeRestrictedSessions,
 )
+from app.modules.identity.application.use_cases.unblock_user import UnblockUser
 from app.modules.identity.application.use_cases.update_privacy import UpdatePrivacy
 from app.modules.identity.application.use_cases.update_profile import UpdateProfile
+from app.modules.identity.infrastructure.blocks import SqlBlocks
 from app.modules.identity.infrastructure.completed_deals import SqlCompletedDeals
 from app.modules.identity.infrastructure.deletion import (
     SqlDeletedIdentities,
@@ -121,3 +125,6 @@ class IdentityProvider(Provider):
     grant_staff_role = provide(GrantStaffRole)
     completed_deals = provide(SqlCompletedDeals, provides=CompletedDeals)
     record_completed_deal = provide(RecordCompletedDeal)
+    blocks = provide(SqlBlocks, provides=Blocks)
+    block_user = provide(BlockUser)
+    unblock_user = provide(UnblockUser)

@@ -35,4 +35,8 @@ export interface ConversationOut {
   unread: number;
   created_at: string;
   last_message_at: string | null;
+  /** Блокировка между сторонами (4.7): писать, договариваться и делиться контактом нельзя, переписка — только для чтения */
+  blocked: boolean;
+  /** Заблокировал я: в меню S30 — «Разблокировать» */
+  blocked_by_me: boolean;
 }

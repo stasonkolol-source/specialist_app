@@ -388,6 +388,92 @@
         ]
       }
     },
+    "/api/v1/me/blocks/{user_id}": {
+      "put": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Block User",
+        "description": "Заблокировать (меню S08 и S30, «Также заблокировать» на S46): переписка, отклики и\nприглашения между вами запрещены, выдача и лента не показывают вас друг другу. Повтор — без\nошибки; себя — 409, неизвестного — 404. Список — GET /me/blocks.",
+        "operationId": "identity_block_user",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id пользователя",
+              "title": "User Id"
+            },
+            "description": "id пользователя"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Unblock User",
+        "description": "Разблокировать (S44): только свою блокировку; её не было — тоже 204.",
+        "operationId": "identity_unblock_user",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "id пользователя",
+              "title": "User Id"
+            },
+            "description": "id пользователя"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/cities": {
       "get": {
         "tags": [
@@ -5145,7 +5231,7 @@
           "search"
         ],
         "summary": "List Specialists",
-        "description": "Выдача специалистов: текст, фильтры, порядок; карточки готовы к показу.",
+        "description": "Выдача специалистов: текст, фильтры, порядок; карточки готовы к показу. Вошедшему — без\nтех, с кем у него блокировка (4.7).",
         "operationId": "search_list_specialists",
         "parameters": [
           {
@@ -6265,6 +6351,63 @@
         ]
       }
     },
+    "/api/v1/reports": {
+      "post": {
+        "tags": [
+          "moderation"
+        ],
+        "summary": "Create Report",
+        "description": "Пожаловаться: кейс модерации об объекте; ответ — жалоба и её очередь (S46 «Готово»).",
+        "operationId": "moderation_create_report",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Та же открытая жалоба: повтор",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/specialists/{profile_id}": {
       "get": {
         "tags": [
@@ -6697,6 +6840,43 @@
         }
       }
     },
+    "/api/v1/me/blocks": {
+      "get": {
+        "tags": [
+          "views"
+        ],
+        "summary": "List Blocks",
+        "description": "Заблокированные S44 (и число на строке S43): недавние первыми.",
+        "operationId": "views_list_blocks",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlocksOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/client-config": {
       "get": {
         "tags": [
@@ -6859,6 +7039,75 @@
           "messages"
         ],
         "title": "BadgesOut"
+      },
+      "BlockedUserOut": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name",
+            "description": "Имя и первая буква фамилии: «Олег Р.»"
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardPhotoOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Фото опубликованного профиля специалиста"
+          },
+          "profile_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Id",
+            "description": "Опубликованный профиль: ссылка на S08"
+          },
+          "blocked_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Blocked At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "display_name",
+          "avatar",
+          "profile_id",
+          "blocked_at"
+        ],
+        "title": "BlockedUserOut"
+      },
+      "BlocksOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BlockedUserOut"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "Недавние первыми"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "BlocksOut"
       },
       "BudgetType": {
         "type": "string",
@@ -7884,6 +8133,16 @@
               }
             ],
             "title": "Last Message At"
+          },
+          "blocked": {
+            "type": "boolean",
+            "title": "Blocked",
+            "description": "Блокировка между сторонами (4.7): писать, договариваться и делиться контактом нельзя, переписка — только для чтения"
+          },
+          "blocked_by_me": {
+            "type": "boolean",
+            "title": "Blocked By Me",
+            "description": "Заблокировал я: в меню S30 — «Разблокировать»"
           }
         },
         "type": "object",
@@ -7903,7 +8162,9 @@
           "last_message",
           "unread",
           "created_at",
-          "last_message_at"
+          "last_message_at",
+          "blocked",
+          "blocked_by_me"
         ],
         "title": "ConversationOut",
         "description": "Диалог глазами участника (S29, шапка S30): вторая сторона, заявка, сделка, последнее\nсообщение, непрочитанные."
@@ -13064,6 +13325,147 @@
         ],
         "title": "ReplyOut"
       },
+      "ReportIn": {
+        "properties": {
+          "target_type": {
+            "type": "string",
+            "enum": [
+              "profile",
+              "job",
+              "review",
+              "message",
+              "user"
+            ],
+            "title": "Target Type",
+            "description": "Профиль специалиста (S08), заявка (S15), отзыв (S11), сообщение или собеседник (меню чата S30)"
+          },
+          "target_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Id"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/ReportReason",
+            "description": "profile: fraud, fake_profile, offensive, prohibited, other; job: fraud, prohibited, spam, offensive, other; review: defamation, offensive, personal_data, spam, other; message: fraud, offensive, spam, personal_data, other; user: fraud, offensive, no_show, spam, fake_profile, other"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment",
+            "description": "Подробности"
+          },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id",
+            "description": "Диалог, где всё случилось (жалоба на собеседника из S30)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_type",
+          "target_id",
+          "reason"
+        ],
+        "title": "ReportIn",
+        "description": "Жалоба: на что, причина из списка своего типа, подробности по желанию."
+      },
+      "ReportOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "target_type": {
+            "type": "string",
+            "enum": [
+              "profile",
+              "job",
+              "review",
+              "message",
+              "user"
+            ],
+            "title": "Target Type"
+          },
+          "target_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Id"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/ReportReason"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReportStatus"
+          },
+          "queue": {
+            "type": "string",
+            "enum": [
+              "safety",
+              "fraud"
+            ],
+            "title": "Queue",
+            "description": "safety — P0, модератор в течение часа; fraud — P1, в течение 2 часов (с 08:00 до 23:00)"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "target_type",
+          "target_id",
+          "reason",
+          "status",
+          "queue",
+          "created_at"
+        ],
+        "title": "ReportOut"
+      },
+      "ReportReason": {
+        "type": "string",
+        "enum": [
+          "spam",
+          "fraud",
+          "prohibited",
+          "offensive",
+          "fake_profile",
+          "no_show",
+          "personal_data",
+          "defamation",
+          "copyright",
+          "illegal",
+          "other"
+        ],
+        "title": "ReportReason"
+      },
+      "ReportStatus": {
+        "type": "string",
+        "enum": [
+          "open",
+          "resolved",
+          "rejected"
+        ],
+        "title": "ReportStatus"
+      },
       "ResolveOut": {
         "properties": {
           "city_id": {
@@ -14658,6 +15060,12 @@
             "format": "uuid",
             "title": "Id"
           },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id",
+            "description": "Аккаунт специалиста: «Заблокировать» в меню S08 (4.7)"
+          },
           "kind": {
             "type": "string",
             "title": "Kind",
@@ -14864,6 +15272,7 @@
         "type": "object",
         "required": [
           "id",
+          "user_id",
           "kind",
           "display_name",
           "headline",

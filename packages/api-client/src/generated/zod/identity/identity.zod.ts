@@ -274,3 +274,25 @@ export const IdentityRequestDeletionResponse = zod
  * @summary Cancel Deletion
  */
 export const IdentityCancelDeletionResponse = zod.void();
+
+/**
+ * Заблокировать (меню S08 и S30, «Также заблокировать» на S46): переписка, отклики и
+ * приглашения между вами запрещены, выдача и лента не показывают вас друг другу. Повтор — без
+ * ошибки; себя — 409, неизвестного — 404. Список — GET /me/blocks.
+ * @summary Block User
+ */
+export const IdentityBlockUserParams = zod.object({
+  user_id: zod.uuid().describe('id пользователя'),
+});
+
+export const IdentityBlockUserResponse = zod.void();
+
+/**
+ * Разблокировать (S44): только свою блокировку; её не было — тоже 204.
+ * @summary Unblock User
+ */
+export const IdentityUnblockUserParams = zod.object({
+  user_id: zod.uuid().describe('id пользователя'),
+});
+
+export const IdentityUnblockUserResponse = zod.void();

@@ -1,13 +1,14 @@
 """Чтение identity для фасада и use cases (ADR-0020 §5)."""
 
 from collections.abc import Collection, Mapping
+from dataclasses import replace
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ColumnElement, RowMapping, and_, func, literal_column, or_, select
+from sqlalchemy import ColumnElement, RowMapping, and_, exists, func, literal_column, or_, select
 from sqlalchemy.dialects.postgresql import aggregate_order_by
 
-from app.modules.identity.api import TelegramUserView, UserSummary
+from app.modules.identity.api import BlockSide, TelegramUserView, UserSummary
 from app.modules.identity.application.dto import LoginState, MeState, MeView
 from app.modules.identity.domain.consent import Consent, ConsentDocument
 from app.modules.identity.domain.restriction import Restriction, RestrictionKind
@@ -18,6 +19,7 @@ from app.modules.identity.infrastructure.models import (
     ConsentRow,
     DeletionRequestRow,
     RestrictionRow,
+    UserBlockRow,
     UserRoleRow,
     UserRow,
 )
@@ -27,9 +29,28 @@ from app.platform.kernel.principal import Role
 
 
 class SqlIdentityQuery(SqlQuery):
-    async def user_summary(self, user_id: UserId) -> UserSummary | None:
-        row = await self._fetch_one(_SUMMARY.where(UserRow.__table__.c.id == user_id))
-        return _summary(row) if row is not None else None
+    async def user_summary(
+        self, user_id: UserId, *, viewer_id: UserId | None = None
+    ) -> UserSummary | None:
+        stmt = _SUMMARY.where(UserRow.__table__.c.id == user_id)
+        if viewer_id is not None:
+            blocks = UserBlockRow.__table__.c
+            stmt = stmt.add_columns(
+                exists()
+                .where(blocks.blocker_id == viewer_id, blocks.blocked_id == _U.id)
+                .label("by_me"),
+                exists()
+                .where(blocks.blocker_id == _U.id, blocks.blocked_id == viewer_id)
+                .label("by_them"),
+            )
+        row = await self._fetch_one(stmt)
+        if row is None:
+            return None
+        summary = _summary(row)
+        if viewer_id is None:
+            return summary
+        block = BlockSide.BY_ME if row["by_me"] else BlockSide.BY_THEM if row["by_them"] else None
+        return replace(summary, block=block)
 
     async def user_summaries(self, user_ids: Collection[UserId]) -> dict[UserId, UserSummary]:
         if not user_ids:

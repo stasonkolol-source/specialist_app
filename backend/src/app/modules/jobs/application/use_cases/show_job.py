@@ -1,7 +1,8 @@
 """Карточка заявки (GET /jobs/{id}; S15 исполнителю и гостю, S23 владельцу): заявка, её фото,
 блок клиента «в «Соседях» N месяцев · M заявок» (пробел §8.5) и свой отклик исполнителя —
 «Вы откликнулись» (5.5). Что из заявки показать — решает HTTP по политике (точка и адрес —
-только владельцу)."""
+только владельцу). Заявка того, с кем у зрителя блокировка в любую сторону, — как несуществующая
+(4.7): её нет и в ленте."""
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -53,9 +54,12 @@ class ShowJob:
         job = await self._queries.view(query.job_id)
         if job is None or not await visible_to(self._queries, job, query.viewer_id):
             raise JobNotFoundError(job_id=query.job_id)
-        refs = await self._media.refs(job.media_ids) if job.media_ids else {}
-        user = await self._identity.get_user(job.client_id)
         performer = query.viewer_id if query.viewer_id != job.client_id else None
+        # клиент и блокировка со зрителем — одним чтением identity
+        user = await self._identity.get_user(job.client_id, viewer_id=performer)
+        if user is not None and user.block is not None:
+            raise JobNotFoundError(job_id=query.job_id)
+        refs = await self._media.refs(job.media_ids) if job.media_ids else {}
         # счётчик заявок клиента и «Вы откликнулись» зрителя — одним запросом
         published, mine = await self._queries.published_and_response(
             job.client_id, query.job_id, performer

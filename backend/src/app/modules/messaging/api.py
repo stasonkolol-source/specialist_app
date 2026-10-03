@@ -71,3 +71,13 @@ class MessagingApi(Protocol):
     async def unread_total(self, user_id: UserId) -> int:
         """Непрочитанные сообщения во всех диалогах — бейдж «Сообщения N» таббара (6.4)."""
         ...
+
+    async def message_sender(self, message_id: UUID, viewer_id: UserId) -> UserId | None:
+        """Автор сообщения, которое видит `viewer_id` — участник его диалога (жалоба, 4.7);
+        системное, чужой диалог или нет такого — None."""
+        ...
+
+    async def counterpart(self, conversation_id: UUID, user_id: UserId) -> UserId | None:
+        """Вторая сторона диалога для участника (жалоба из меню чата S30, 4.7); не участник или
+        нет диалога — None."""
+        ...

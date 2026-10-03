@@ -79,7 +79,8 @@ export const getSearchListSpecialistsUrl = (params: SearchListSpecialistsParams)
 };
 
 /**
- * Выдача специалистов: текст, фильтры, порядок; карточки готовы к показу.
+ * Выдача специалистов: текст, фильтры, порядок; карточки готовы к показу. Вошедшему — без
+ * тех, с кем у него блокировка (4.7).
  * @summary List Specialists
  */
 export const searchListSpecialists = async (

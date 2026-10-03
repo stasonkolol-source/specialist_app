@@ -7,7 +7,7 @@
 Нечёткое совпадение — последним: имя мастера или редкое слово прайса FTS находит точнее,
 чем похожая категория. Следующие страницы берутся тем же этапом — он записан в курсоре.
 Пустая выдача с текстом пишется в журнал для словаря — после ответа (`record`, фоном в HTTP);
-ответ подсказывает, что делать.
+ответ подсказывает, что делать. Вошедшему не показываются те, с кем у него блокировка (4.7).
 """
 
 from dataclasses import dataclass, field, replace
@@ -24,7 +24,7 @@ from app.modules.search.application.dto import (
     TextMatch,
     ZeroResult,
 )
-from app.modules.search.application.ports import QueryLog, SpecialistSearch
+from app.modules.search.application.ports import Blocklist, QueryLog, SpecialistSearch
 from app.modules.search.application.stages import QueryStages
 from app.modules.search.domain.query import (
     MAX_OFFSET,
@@ -39,6 +39,7 @@ from app.platform.config.port import FeatureFlags
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.errors import DomainValidationError
+from app.platform.kernel.ids import UserId
 from app.platform.kernel.pagination import Page, PageRequest
 
 RELAX_FILTERS: Final = "relax_filters"
@@ -56,6 +57,8 @@ class SearchSpecialistsCommand:
     urgent: bool = False
     """«Срочно» (чип S03): доступные сегодня — выше (§9.4). Без него доступность в балл не
     входит: иначе она перебивала бы совпадение с текстом запроса."""
+    viewer_id: UserId | None = None
+    """Вошедший: его блокировок нет в выдаче (4.7)."""
 
 
 class SearchSpecialists:
@@ -67,13 +70,18 @@ class SearchSpecialists:
         flags: FeatureFlags,
         log: QueryLog,
         uow: UnitOfWork,
+        blocks: Blocklist,
         clock: Clock,
     ) -> None:
         self._search, self._stages, self._media = search, QueryStages(catalog), media
         self._flags, self._log, self._uow, self._clock = flags, log, uow, clock
+        self._blocks = blocks
 
     async def __call__(self, cmd: SearchSpecialistsCommand) -> SpecialistResults:
         _check(cmd)
+        if cmd.viewer_id is not None:
+            hidden = await self._blocks.blocked_ids(cmd.viewer_id)
+            cmd = replace(cmd, filters=replace(cmd.filters, hidden_users=tuple(hidden)))
         cursor = PageCursor.decode(cmd.page.cursor) if cmd.page.cursor else None
         offset = cursor.offset if cursor is not None else 0
         weights = RankWeights.from_flag(await self._flags.value(WEIGHTS_FLAG))

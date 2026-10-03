@@ -1,7 +1,8 @@
 """Написать в диалог (POST /conversations/{id}/messages, S30; DEVELOPMENT_PLAN 6.3a): участник
 открытого диалога; до договорённости контакты в тексте скрываются, просьба о предоплате
 отмечается. Повтор с тем же `client_msg_id` — то же сообщение, без второго. Санкция «переписка»
-или блокировка аккаунта — 403 `restricted`. Лимит — по уровню доверия (§13.3: 20 или 100 в час).
+или блокировка аккаунта — 403 `restricted`; блокировка между сторонами (4.7) — 409
+`conversation_closed` (`blocked`). Лимит — по уровню доверия (§13.3: 20 или 100 в час).
 Текст уходит на проверку (ModerationRequested), вторая сторона получит уведомление (MessageSent,
 6.3b)."""
 
@@ -11,6 +12,7 @@ from uuid import UUID
 
 from app.modules.deals.api import DealsApi
 from app.modules.identity.api import Action, IdentityApi
+from app.modules.messaging.application.blocks import ensure_unblocked
 from app.modules.messaging.application.contacts import contacts_locked
 from app.modules.messaging.application.ports import (
     ConversationRepository,
@@ -63,6 +65,7 @@ class SendMessage:
                 if sent is not None:
                     return _same_conversation(sent, conversation.id)
             sender = conversation.ensure_writable(cmd.actor_id)
+            await ensure_unblocked(self._identity, conversation, cmd.actor_id)
             recipient = conversation.counterpart(cmd.actor_id)
             locked = await contacts_locked(self._deals, conversation)
             composed = compose(cmd.body, contacts_locked=locked)

@@ -130,6 +130,12 @@ export const MessagingListConversationsResponse = zod.object({
         unread: zod.int(),
         created_at: zod.iso.datetime({ offset: true }),
         last_message_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+        blocked: zod
+          .boolean()
+          .describe(
+            'Блокировка между сторонами (4.7): писать, договариваться и делиться контактом нельзя, переписка — только для чтения',
+          ),
+        blocked_by_me: zod.boolean().describe('Заблокировал я: в меню S30 — «Разблокировать»'),
       })
       .describe(
         'Диалог глазами участника (S29, шапка S30): вторая сторона, заявка, сделка, последнее\nсообщение, непрочитанные.',
@@ -279,6 +285,12 @@ export const MessagingListMessagesResponse = zod.object({
       unread: zod.int(),
       created_at: zod.iso.datetime({ offset: true }),
       last_message_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+      blocked: zod
+        .boolean()
+        .describe(
+          'Блокировка между сторонами (4.7): писать, договариваться и делиться контактом нельзя, переписка — только для чтения',
+        ),
+      blocked_by_me: zod.boolean().describe('Заблокировал я: в меню S30 — «Разблокировать»'),
     })
     .describe(
       'Диалог глазами участника (S29, шапка S30): вторая сторона, заявка, сделка, последнее\nсообщение, непрочитанные.',

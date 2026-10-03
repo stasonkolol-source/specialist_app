@@ -4,7 +4,7 @@ from collections.abc import Collection, Iterable, Mapping
 from datetime import datetime
 from typing import Final, Protocol
 
-from app.modules.identity.api import TelegramUserView, UserSummary
+from app.modules.identity.api import BlockedUser, BlockSide, TelegramUserView, UserSummary
 from app.modules.identity.application.dto import LoginState, MeState, MeView
 from app.modules.identity.domain.consent import Consent, ConsentDocument
 from app.modules.identity.domain.deletion import DeletionRequest, HashKind
@@ -175,7 +175,11 @@ class RestrictionRepository(Protocol):
 
 
 class IdentityQuery(Protocol):
-    async def user_summary(self, user_id: UserId) -> UserSummary | None: ...
+    async def user_summary(
+        self, user_id: UserId, *, viewer_id: UserId | None = None
+    ) -> UserSummary | None:
+        """С `viewer_id` — и блокировка со зрителем (`block`), тем же запросом."""
+        ...
 
     async def user_summaries(self, user_ids: Collection[UserId]) -> dict[UserId, UserSummary]:
         """Пользователи пачкой; кого нет — нет и в ответе."""
@@ -224,6 +228,40 @@ class IdentityQuery(Protocol):
 
     async def completed_deals(self, user_id: UserId) -> int:
         """Сколько сделок пользователь завершил стороной — уровень доверия 2 (6.1a)."""
+        ...
+
+
+class Blocks(Protocol):
+    """Блокировки между пользователями (4.7, `identity.user_blocks`) — простая запись: правило
+    (не себя, не больше MAX_BLOCKS) проверяет use case."""
+
+    async def add(self, blocker_id: UserId, blocked_id: UserId, *, now: datetime) -> bool:
+        """Заблокировать; уже было — False. Нужен активный UoW."""
+        ...
+
+    async def remove(self, blocker_id: UserId, blocked_id: UserId) -> bool:
+        """Снять свою блокировку; её не было — False. Нужен активный UoW."""
+        ...
+
+    async def count(self, blocker_id: UserId) -> int:
+        """Сколько пользователей заблокировал."""
+        ...
+
+    async def forget_user(self, user_id: UserId) -> int:
+        """Аккаунт удалён: его блокировки в обе стороны стираются (§7.10). Сколько. Нужен
+        активный UoW."""
+        ...
+
+    async def related(self, user_id: UserId) -> frozenset[UserId]:
+        """С кем блокировка в любую сторону."""
+        ...
+
+    async def sides(self, user_id: UserId, others: Collection[UserId]) -> dict[UserId, BlockSide]:
+        """Блокировки с `others` и чья; без блокировки — нет в ответе."""
+        ...
+
+    async def blocked_users(self, user_id: UserId) -> list[BlockedUser]:
+        """Кого заблокировал (неудалённые), недавние первыми."""
         ...
 
 

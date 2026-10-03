@@ -31,8 +31,6 @@
 Лимиты новичка — в use case (§13.3); лента и счётчик — 60 / 120 запросов в минуту.
 """
 
-from dataclasses import replace
-from datetime import timedelta
 from typing import Annotated, Final
 from uuid import UUID
 
@@ -54,6 +52,7 @@ from app.modules.jobs.application.use_cases.count_job_view import (
     CountJobView,
     CountJobViewCommand,
 )
+from app.modules.jobs.application.use_cases.count_jobs import CountJobs, CountJobsCommand
 from app.modules.jobs.application.use_cases.create_job import CreateJob, CreateJobCommand
 from app.modules.jobs.application.use_cases.create_template import (
     CreateTemplate,
@@ -149,7 +148,6 @@ from app.platform.http.concurrency import IfMatch, set_etag
 from app.platform.http.idempotency import idempotent_router
 from app.platform.http.ratelimit import GuestOrUserRateLimit
 from app.platform.http.security import AUTHENTICATED, optional_principal
-from app.platform.kernel.clock import Clock
 from app.platform.kernel.errors import DomainValidationError
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, UserId
@@ -348,20 +346,20 @@ async def list_jobs(
 async def count_jobs(
     filters: Feed,
     viewer: Viewer,
-    queries: FromDishka[JobQueries],
-    clock: FromDishka[Clock],
+    count: FromDishka[CountJobs],
     new_hours: Annotated[
         int | None, Query(ge=1, le=MAX_NEW_HOURS, description="Только опубликованные за часы")
     ] = None,
 ) -> JobsCountOut:
     """Сколько заявок с фильтрами 🔓: «Показать N» S14, «N новых задач рядом» на Главной."""
-    now = clock.now()
-    if new_hours is not None:
-        filters = replace(filters, published_after=now - timedelta(hours=new_hours))
-    count = await queries.feed_count(
-        filters, viewer_id=viewer.user_id if viewer is not None else None, now=now
+    found = await count(
+        CountJobsCommand(
+            filters=filters,
+            viewer_id=viewer.user_id if viewer is not None else None,
+            new_hours=new_hours,
+        )
     )
-    return JobsCountOut(count=count)
+    return JobsCountOut(count=found)
 
 
 @router.get("/jobs/{job_id:uuid}", response_model=JobOut)

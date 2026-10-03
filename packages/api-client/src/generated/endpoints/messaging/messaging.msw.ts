@@ -107,6 +107,8 @@ export const getMessagingListConversationsResponseMock = (
       faker.date.past().toISOString().slice(0, 19) + 'Z',
       null,
     ]),
+    blocked: faker.datatype.boolean(),
+    blocked_by_me: faker.datatype.boolean(),
   })),
   next_cursor: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -205,6 +207,8 @@ export const getMessagingListMessagesResponseMock = (
       faker.date.past().toISOString().slice(0, 19) + 'Z',
       null,
     ]),
+    blocked: faker.datatype.boolean(),
+    blocked_by_me: faker.datatype.boolean(),
   },
   items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     id: faker.string.uuid(),

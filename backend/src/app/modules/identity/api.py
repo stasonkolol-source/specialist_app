@@ -19,6 +19,25 @@ from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Role as Role
 
 
+class BlockSide(StrEnum):
+    """Кто кого заблокировал (DEVELOPMENT_PLAN 4.7): правило блокировки действует в обе стороны,
+    сторона нужна только для «Разблокировать» — снять блокировку может тот, кто её поставил."""
+
+    BY_ME = "by_me"
+    """Я заблокировал (если заблокировали оба — тоже это: свою блокировку можно снять)."""
+    BY_THEM = "by_them"
+    """Меня заблокировали."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BlockedUser:
+    """Кого я заблокировал (S44): имя аккаунта и когда."""
+
+    user_id: UserId
+    display_name: str
+    blocked_at: datetime
+
+
 class Action(StrEnum):
     """Действие, которое проверяет единая точка «можно ли» (санкции и согласия)."""
 
@@ -37,6 +56,8 @@ class UserSummary:
     phone_verified: bool
     is_deleted: bool
     created_at: datetime
+    block: BlockSide | None = None
+    """Блокировка со зрителем — если его передали в `get_user` (4.7)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -63,7 +84,12 @@ class RestrictionIn:
 
 
 class IdentityApi(Protocol):
-    async def get_user(self, user_id: UserId) -> UserSummary | None: ...
+    async def get_user(
+        self, user_id: UserId, *, viewer_id: UserId | None = None
+    ) -> UserSummary | None:
+        """Пользователь; с `viewer_id` — и блокировка между ними тем же запросом (4.7: карточка
+        заявки S15 не тратит на неё отдельное чтение)."""
+        ...
 
     async def users(self, user_ids: Collection[UserId]) -> dict[UserId, UserSummary]:
         """Пользователи пачкой (имена в списке диалогов S29); кого нет — нет и в ответе."""
@@ -126,6 +152,22 @@ class IdentityApi(Protocol):
         """Кого из пользователей не показывать в поиске (4.1): удалённых и тех, на ком
         действует приостановка, бан или теневой бан. Значение — когда человек снова станет
         виден (конец санкции); None — без срока. Остальных в ответе нет."""
+        ...
+
+    async def blocked_ids(self, user_id: UserId) -> frozenset[UserId]:
+        """С кем у пользователя блокировка в любую сторону (4.7): кого он заблокировал и кто
+        заблокировал его. Их не показывают ему выдача, лента и приглашения — и его им."""
+        ...
+
+    async def blocks_with(
+        self, user_id: UserId, others: Collection[UserId]
+    ) -> dict[UserId, BlockSide]:
+        """Блокировки пользователя с `others` (4.7): переписка, отклик, приглашение — запрещены
+        при любой стороне. Без блокировки — нет в ответе."""
+        ...
+
+    async def blocked_users(self, user_id: UserId) -> list[BlockedUser]:
+        """Кого пользователь заблокировал (S44), недавние первыми."""
         ...
 
 

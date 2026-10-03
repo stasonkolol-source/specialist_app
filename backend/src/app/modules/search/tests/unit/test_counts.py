@@ -16,7 +16,7 @@ from app.modules.search.application.use_cases.count_specialists import (
     CountSpecialistsCommand,
 )
 from app.modules.search.domain.query import Stage
-from app.modules.search.tests.fakes import FakeCache, FakeCatalog, FakeSearch
+from app.modules.search.tests.fakes import FakeBlocks, FakeCache, FakeCatalog, FakeSearch
 from app.modules.search.tests.unit.test_search_specialists import CITY, hit
 from app.platform.kernel.errors import DomainValidationError
 from app.platform.kernel.ids import CategoryId
@@ -29,7 +29,7 @@ FILTERS = SpecialistFilters(city_id=CITY)
 
 def counter() -> tuple[FakeSearch, FakeCatalog, CountSpecialists]:
     search, catalog = FakeSearch(), FakeCatalog()
-    return search, catalog, CountSpecialists(search, catalog, FakeClock())
+    return search, catalog, CountSpecialists(search, catalog, FakeBlocks(), FakeClock())
 
 
 async def test_count_is_the_first_stage_that_finds_someone() -> None:
