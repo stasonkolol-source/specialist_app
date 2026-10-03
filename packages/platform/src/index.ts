@@ -22,6 +22,7 @@ export type { MockOptions, MockTelegram } from './mock.ts';
 export type { BottomButtonProps, ChromeColors } from './react.tsx';
 export {
   PlatformProvider,
+  applyTheme,
   useBackButton,
   useBottomButtonState,
   useClosingConfirmation,

@@ -216,8 +216,23 @@ export interface ChromeColors {
   bottomBar: string;
 }
 
+/** `data-theme` на <html> и цвета шапки, фона и нижней панели клиента Telegram. */
+export function applyTheme(
+  platform: Platform,
+  scheme: ColorScheme,
+  chrome?: Record<ColorScheme, ChromeColors>,
+): void {
+  document.documentElement.dataset.theme = scheme;
+  const colors = chrome?.[scheme];
+  if (!colors) return;
+  platform.theme.setHeaderColor(colors.header);
+  platform.theme.setBackgroundColor(colors.background);
+  platform.theme.setBottomBarColor(colors.bottomBar);
+}
+
 /**
- * `data-theme` на <html> по colorScheme Telegram и цвета шапки, фона и нижней панели клиента.
+ * `data-theme` на <html> по colorScheme Telegram и цвета клиента — при смене темы и запросе экрана.
+ * Тему запуска точка сборки ставит сама до первого кадра (`applyTheme`): эффект — уже после него.
  * Пока экран просит свою тему (`useColorSchemeOverride`), — она.
  */
 export function useThemeSync(chrome?: Record<ColorScheme, ChromeColors>): ColorScheme {
@@ -225,14 +240,7 @@ export function useThemeSync(chrome?: Record<ColorScheme, ChromeColors>): ColorS
   const telegram = useColorScheme();
   const requested = useSyncExternalStore(override.subscribe, override.current, override.current);
   const scheme = requested ?? telegram;
-  useEffect(() => {
-    document.documentElement.dataset.theme = scheme;
-    const colors = chrome?.[scheme];
-    if (!colors) return;
-    platform.theme.setHeaderColor(colors.header);
-    platform.theme.setBackgroundColor(colors.background);
-    platform.theme.setBottomBarColor(colors.bottomBar);
-  }, [platform, scheme, chrome]);
+  useEffect(() => applyTheme(platform, scheme, chrome), [platform, scheme, chrome]);
   return scheme;
 }
 
