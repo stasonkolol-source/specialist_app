@@ -81,7 +81,7 @@ export interface NotificationsScreenProps {
 }
 
 export function NotificationsScreen({ targetOf }: NotificationsScreenProps) {
-  const { t } = useTranslation('service');
+  const { t } = useTranslation('account');
   const router = useRouter();
   const platform = usePlatform();
   const locale = useLocale();
@@ -177,7 +177,7 @@ function Day({
   onOpen: (item: NotificationOut, event: MouseEvent<HTMLElement>) => void;
   hrefOf: (item: NotificationOut) => string | undefined;
 }) {
-  const { t } = useTranslation('service');
+  const { t } = useTranslation('account');
   const format = useFormat();
   const titleId = useId();
   const now = new Date();
@@ -240,7 +240,7 @@ function when(
 /** Бот не может писать: канала нет или его остановили — предлагаем разрешить (requestWriteAccess
  *  клиента Telegram, затем POST /me/telegram/write-access). Без поддержки в клиенте — только текст. */
 function BotChannel() {
-  const { t } = useTranslation('service');
+  const { t } = useTranslation('account');
   const platform = usePlatform();
   const queryClient = useQueryClient();
   const settings = useNotificationsGetNotificationSettings();
@@ -280,7 +280,7 @@ function BotChannel() {
 }
 
 function Loading() {
-  const { t } = useTranslation('service');
+  const { t } = useTranslation('account');
   // live region читает содержимое: текст внутри, скелетоны скрыты (aria-hidden)
   return (
     <div role="status" className="flex flex-col gap-2">

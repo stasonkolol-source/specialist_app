@@ -25,7 +25,7 @@ const REMOVED = ['profile', 'messages', 'logins', 'reviews'] as const;
 const KEPT = ['deals', 'law', 'hashes'] as const;
 
 export function DeleteAccountScreen() {
-  const { t } = useTranslation('service');
+  const { t } = useTranslation('account');
   const router = useRouter();
   const me = useIdentityGetMe();
   useBackButton(() => {
@@ -61,7 +61,7 @@ function useScreenButton(
 }
 
 function DeleteForm() {
-  const { t } = useTranslation('service');
+  const { t } = useTranslation('account');
   const router = useRouter();
   const platform = usePlatform();
   const profile = useMyProfile();
@@ -169,7 +169,7 @@ function List({ icon, tone, children }: { icon: IconName; tone: string; children
 
 /** Запрос принят: дата удаления и отмена — MainButton. Отменили — обратно в профиль. */
 function Scheduled({ at }: { at: Date }) {
-  const { t } = useTranslation('service');
+  const { t } = useTranslation('account');
   const format = useFormat();
   const router = useRouter();
   const platform = usePlatform();

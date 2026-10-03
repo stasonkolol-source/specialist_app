@@ -1,5 +1,6 @@
 // Сербские каталоги (кириллица) — отдельный чанк: в первый экран попадает только русский, общий
 // неймспейс сербского и транслитерация. sr-Latn считается из них при загрузке (resources.ts).
+import srCyrlAccount from './catalogs/sr-Cyrl/account.json' with { type: 'json' };
 import srCyrlCatalog from './catalogs/sr-Cyrl/catalog.json' with { type: 'json' };
 import srCyrlCommon from './catalogs/sr-Cyrl/common.json' with { type: 'json' };
 import srCyrlJobs from './catalogs/sr-Cyrl/jobs.json' with { type: 'json' };
@@ -17,4 +18,5 @@ export const SR_CYRL: Messages = {
   catalog: srCyrlCatalog,
   jobs: srCyrlJobs,
   messages: srCyrlMessages,
+  account: srCyrlAccount,
 };

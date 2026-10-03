@@ -45,16 +45,15 @@ export {
   useProposeDeal,
   useShareContact,
 } from './messages/chat.ts';
+export { BADGES_POLL_MS, useBadges } from './messages/badges.ts';
 export type { ChatRole, ConversationPages, DealState } from './messages/conversations.ts';
 export {
-  BADGES_POLL_MS,
   CONVERSATIONS_KEY,
   CONVERSATIONS_PAGE_SIZE,
   conversationItems,
   conversationsQueryKey,
   dealState,
   refreshInbox,
-  useBadges,
   useConversations,
   useStartConversation,
 } from './messages/conversations.ts';

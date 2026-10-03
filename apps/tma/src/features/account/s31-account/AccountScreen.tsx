@@ -206,7 +206,7 @@ function Specialist() {
 /** «Моя активность»: сделки и отзывы S28, избранное S12, уведомления S42, настройки S43. */
 function Activity() {
   const { t } = useTranslation();
-  const { t: ts } = useTranslation('service');
+  const { t: ts } = useTranslation('account');
   const router = useRouter();
   const feed = useNotificationFeed(useLocale());
   const unread = unreadCount(feed.data);
@@ -284,7 +284,7 @@ function Support() {
 
 /** Удаление запланировано (S45): дата и «Отменить» — передумавшему не нужно искать экран. */
 function DeletionScheduled({ at }: { at: Date }) {
-  const { t } = useTranslation('service');
+  const { t } = useTranslation('account');
   const format = useFormat();
   const platform = usePlatform();
   const cancel = useCancelDeletion();
@@ -311,7 +311,7 @@ function DeletionScheduled({ at }: { at: Date }) {
 
 /** «Удалить аккаунт» — S45 с последствиями и подтверждением. */
 function DeleteAccount() {
-  const { t } = useTranslation('service');
+  const { t } = useTranslation('account');
   const router = useRouter();
   const open = (event: MouseEvent<HTMLElement>) => {
     event.preventDefault();

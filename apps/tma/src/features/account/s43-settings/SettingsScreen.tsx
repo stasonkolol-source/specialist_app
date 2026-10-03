@@ -13,7 +13,7 @@ import { useId } from 'react';
 import { ACCOUNT_PATHS } from '../paths.ts';
 
 export function SettingsScreen() {
-  const { t } = useTranslation('service');
+  const { t } = useTranslation('account');
   const router = useRouter();
   useBackButton(() => {
     if (router.history.canGoBack()) router.history.back();
