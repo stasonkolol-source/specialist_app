@@ -333,7 +333,8 @@ export const ViewsListSpecialistReviewsResponse = zod.object({
 
 /**
  * Отклики на свою заявку для S23: исполнитель с фото, районом и рейтингом, «Откликнулся
- * первым», новые для клиента. Ответ отмечает отклики просмотренными.
+ * первым», новые для клиента. Ответ отмечает отклики просмотренными. Отклики тех, с кем у
+ * клиента блокировка (4.7), не показываются: имена и блокировки — одним чтением identity.
  * @summary List Response Cards
  */
 export const ViewsListResponseCardsParams = zod.object({
