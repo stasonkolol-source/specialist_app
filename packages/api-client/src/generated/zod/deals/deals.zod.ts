@@ -242,6 +242,75 @@ export const DealsConfirmDealResponse = zod
   .describe('Сделка стороне (S26): кто я в ней, условия и вехи для таймлайна.');
 
 /**
+ * Отклонить «Договорились» (S53): только пока предложение ждёт ответа, иначе 409.
+ * @summary Decline Deal
+ */
+export const DealsDeclineDealParams = zod.object({
+  deal_id: zod.uuid().describe('id сделки'),
+});
+
+export const DealsDeclineDealResponse = zod
+  .object({
+    id: zod.uuid(),
+    status: zod.enum(['proposed', 'agreed', 'completed', 'cancelled', 'disputed']),
+    origin: zod.enum(['job_response', 'direct', 'chat']),
+    my_role: zod.enum(['client', 'performer']),
+    title: zod.string(),
+    category_id: zod.union([zod.int(), zod.null()]),
+    price: zod
+      .object({
+        type: zod.union([
+          zod
+            .enum(['fixed', 'from', 'hourly', 'negotiable'])
+            .describe('Как понимать цену: значения — как у цены отклика S16.'),
+          zod.null(),
+        ]),
+        amount: zod.union([
+          zod.object({
+            amount: zod.int(),
+            currency: zod.enum(['RSD', 'XTR']),
+          }),
+          zod.null(),
+        ]),
+      })
+      .describe('Договорённая цена: «3 500 RSD», «от 3 500 RSD», «3 500 RSD/час», «Договорная».'),
+    scheduled_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    client_id: zod.uuid(),
+    performer_id: zod.uuid(),
+    profile_id: zod
+      .union([zod.uuid(), zod.null()])
+      .describe('Профиль специалиста исполнителя (S08)'),
+    job_id: zod.union([zod.uuid(), zod.null()]),
+    response_id: zod.union([zod.uuid(), zod.null()]),
+    conversation_id: zod.union([zod.uuid(), zod.null()]),
+    awaits_my_confirmation: zod
+      .boolean()
+      .describe('«Договорились» предложила вторая сторона: подтвердить или отклонить'),
+    i_marked_done: zod.boolean().describe('Я уже отметил «Работа выполнена»'),
+    other_marked_done: zod.boolean().describe('Вторая сторона отметила «Работа выполнена»'),
+    agreed_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    completed_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    cancelled_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    cancelled_by_me: zod
+      .union([zod.boolean(), zod.null()])
+      .describe('Отменил я; None — не отменена или система'),
+    cancel_reason: zod.union([
+      zod.enum([
+        'plans_changed',
+        'no_agreement',
+        'no_contact',
+        'other',
+        'expired',
+        'account_deleted',
+      ]),
+      zod.null(),
+    ]),
+    version: zod.int(),
+    created_at: zod.iso.datetime({ offset: true }),
+  })
+  .describe('Сделка стороне (S26): кто я в ней, условия и вехи для таймлайна.');
+
+/**
  * «Работа выполнена»: отметка стороны, повтор — без изменений; отметили обе —
  * `completed`.
  * @summary Complete Deal

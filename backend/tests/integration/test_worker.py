@@ -197,12 +197,16 @@ async def test_platform_periodic_tasks_are_scheduled(container: AsyncContainer) 
         "moderation.rate_limit_signals": "4,19,34,49 * * * *",
         "specialists.reset_availability": "*/5 * * * *",
         "search.reconcile_index": "23 3 * * *",
+        "search.response_time_stats": "31 * * * *",
         "jobs.expire_jobs": "2-59/5 * * * *",
         "jobs.expiry_reminders": "11,26,41,56 * * * *",
         "deals.reminders": "3-59/15 * * * *",
         "deals.completion_prompts": "7-59/15 * * * *",
         "deals.expire_proposed": "12-59/15 * * * *",
         "deals.auto_complete": "27 * * * *",
+        "messaging.purge_messages": "47 3 * * *",
+        "reviews.reminders": "17 * * * *",
+        "reviews.recompute_ratings": "5 3 * * *",
     }
 
 

@@ -25,6 +25,9 @@ from app.modules.notifications.application.use_cases.mark_notifications_read imp
     MarkNotificationsRead,
 )
 from app.modules.notifications.application.use_cases.notify import Notify
+from app.modules.notifications.application.use_cases.schedule_messages_notice import (
+    ScheduleMessagesNotice,
+)
 from app.modules.notifications.application.use_cases.schedule_responses_notice import (
     ScheduleResponsesNotice,
 )
@@ -60,6 +63,7 @@ class NotificationsProvider(Provider):
     expire_stale_deliveries = provide(ExpireStaleDeliveries)
     notify = provide(Notify)
     schedule_responses_notice = provide(ScheduleResponsesNotice)
+    schedule_messages_notice = provide(ScheduleMessagesNotice)
     send_delivery = provide(SendDelivery)
     mark_read = provide(MarkNotificationsRead)
     update_settings = provide(UpdateNotificationSettings)

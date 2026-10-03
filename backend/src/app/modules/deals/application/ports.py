@@ -1,9 +1,10 @@
 """Порты deals (ADR-0020 §1): репозиторий сделки, чтение для экранов S25, S26 и списков, задачи."""
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import datetime
 from enum import StrEnum
 from typing import Final, Protocol
+from uuid import UUID
 
 from app.modules.deals.application.dto import DealView
 from app.modules.deals.domain.deal import Deal, DealRole, DealStatus
@@ -45,6 +46,10 @@ class DealQueries(Protocol):
 
     async def view(self, deal_id: DealId) -> DealView | None: ...
 
+    async def views(self, deal_ids: Collection[DealId]) -> list[DealView]:
+        """Сделки пачкой (статус в списке диалогов S29); каких нет — нет и в ответе."""
+        ...
+
     async def mine(
         self,
         user_id: UserId,
@@ -55,6 +60,10 @@ class DealQueries(Protocol):
     ) -> Page[DealView]:
         """Сделки, где человек — сторона (`role` — какая; None — любая), новые первыми; пустые
         `statuses` — все."""
+        ...
+
+    async def of_response(self, response_id: UUID) -> DealId | None:
+        """Сделка по отклику (одна на отклик)."""
         ...
 
     async def due(self, sweep: DealSweep, now: datetime, *, limit: int) -> list[DealId]:

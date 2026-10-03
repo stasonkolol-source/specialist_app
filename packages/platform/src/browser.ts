@@ -109,6 +109,7 @@ export function createBrowserPlatform(): Platform {
     setVerticalSwipes: () => {},
     requestWriteAccess: async () => false,
     requestContact: async () => false,
+    shareContact: async () => null,
     shareMessage: async () => false,
     shareLink: async (url, text) => {
       try {

@@ -9,6 +9,7 @@ from app.modules.identity.domain.user import (
     FALLBACK_DISPLAY_NAME,
     MAX_DISPLAY_NAME,
     AuthProvider,
+    Privacy,
     User,
     UserIntent,
     UserStatus,
@@ -201,3 +202,18 @@ def test_update_profile_rejects_invisible_name_and_deleted_user() -> None:
     user.delete(by=None, now=NOW)
     with pytest.raises(AccountDeletedError):
         user.update_profile(display_name="Ana", ui_locale=None, now=NOW)
+
+
+def test_privacy_shows_telegram_by_default_and_keeps_the_phone_hidden() -> None:
+    user = register()
+    assert user.privacy == Privacy(show_telegram=True, show_phone=False)
+    assert Privacy.from_mapping({}) == Privacy()
+    assert Privacy.from_mapping({"show_telegram": "no", "show_phone": 1}) == Privacy()  # мусор
+
+    user.set_privacy(show_telegram=False)
+    user.set_privacy()  # ничего не меняет
+
+    assert user.privacy.to_mapping() == {"show_telegram": False, "show_phone": False}
+    user.delete(by=None, now=NOW)
+    with pytest.raises(AccountDeletedError):
+        user.set_privacy(show_telegram=True)

@@ -1,7 +1,7 @@
 """Порты модуля search (ADR-0020 §3, §5): read-model специалистов, очередь её обновления,
 выдача по ней и избранное."""
 
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Final, Protocol
@@ -25,6 +25,7 @@ from app.platform.contracts.events.identity import (
 )
 from app.platform.contracts.events.media import MediaReady
 from app.platform.contracts.events.pricing import PriceListChanged
+from app.platform.contracts.events.reviews import RatingChanged
 from app.platform.contracts.events.specialists import (
     AvailabilityChanged,
     ProfileDeleted,
@@ -51,6 +52,15 @@ class SpecialistIndex(Protocol):
     async def upsert(self, entries: Sequence[IndexEntry]) -> None: ...
 
     async def delete(self, profile_ids: Collection[UUID]) -> None: ...
+
+    async def set_response_times(self, minutes: Mapping[UserId, int]) -> None:
+        """«Обычно отвечает за …» (6.3b): медиана в минутах по пользователю; у кого её больше
+        нет — NULL. Нужен активный UoW."""
+        ...
+
+    async def response_time(self, profile_id: UUID) -> int | None:
+        """Медиана первого ответа специалиста в минутах; нет строки или мало диалогов — None."""
+        ...
 
     async def ids_of_users(self, user_ids: Collection[UserId]) -> list[UUID]:
         """Строки пользователей (профиль удалён — строка ещё может быть)."""
@@ -188,6 +198,7 @@ ON_USER_RESTRICTED: Final = TaskRef("search.on_user_restricted", UserRestricted)
 ON_USER_LIFTED: Final = TaskRef("search.on_user_restrictions_lifted", UserRestrictionsLifted)
 ON_USER_DELETED: Final = TaskRef("search.on_user_deleted", UserDeleted)
 ON_MEDIA_READY: Final = TaskRef("search.on_media_ready", MediaReady)
+ON_RATING_CHANGED: Final = TaskRef("search.on_rating_changed", RatingChanged)
 """Подписчики событий-источников: каждое отмечает профили к пересборке (MarkProfiles)."""
 
 FORGET_FAVORITES: Final = TaskRef("search.forget_favorites", UserDeleted)

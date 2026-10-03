@@ -26,9 +26,11 @@ import {
   doneSearch,
   editSearch,
   feedSearch,
+  historySearch,
   jobSearch,
   responsesSearch,
 } from '../features/jobs/index.ts';
+import { MESSAGES_PATHS, chatSearch } from '../features/messages/index.ts';
 import { ONBOARDING_PATHS, onboardingSearch } from '../features/onboarding/index.ts';
 import { BECOME_PATHS, CABINET_PATHS, becomeSearch } from '../features/specialist/index.ts';
 import { LEGAL_PATH, LegalScreen } from '../features/service/s48-legal/index.ts';
@@ -119,6 +121,36 @@ const manage = createRoute({
   component: screen(() => import('../features/jobs/s23-manage-job/index.ts'), 'ManageJobScreen'),
 });
 
+// Отклик на свою заявку S24 со шторкой выбора S25 (6.2): из карточки отклика S23
+const choice = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.response,
+  component: screen(() => import('../features/jobs/s24-response/index.ts'), 'ChoiceScreen'),
+});
+
+// Сделка S26 (6.2): из S25, «Открыть сделку» S23 и S17 и по deep link `d_` (уведомления бота)
+const deal = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.deal,
+  component: screen(() => import('../features/jobs/s26-deal/index.ts'), 'DealScreen'),
+});
+
+// Отзыв S27 (7.3): «Оставить отзыв» S26 и S28; создающее действие — без согласия S02c
+const review = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.review,
+  beforeLoad: requireConsent,
+  component: screen(() => import('../features/jobs/s27-review/index.ts'), 'ReviewScreen'),
+});
+
+// «Сделки и отзывы» S28 (7.3): строка S31, ссылка `m_reviews` — вкладка «Отзывы»
+const history = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.history,
+  validateSearch: historySearch,
+  component: screen(() => import('../features/jobs/s28-history/index.ts'), 'HistoryScreen'),
+});
+
 // Отклик S16 (5.5) — из MainButton S15 и «Изменить» S17; создающее действие: без согласия — S02c
 const respond = createRoute({
   getParentRoute: () => rootRoute,
@@ -170,10 +202,20 @@ const createDone = createRoute({
   component: screen(() => import('../features/jobs/s21-published/index.ts'), 'PublishedScreen'),
 });
 
+// Сообщения S29 (6.4) — вкладка таббара; гостю — пустой список
 const messages = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/messages',
+  path: MESSAGES_PATHS.list,
   component: screen(() => import('../features/messages/s29-chats/index.ts'), 'ChatsScreen'),
+});
+
+// Диалог S30 (6.4): из S29, «Написать» на S08 и по deep link `c_`; без входа писать нечем
+const chat = createRoute({
+  getParentRoute: () => rootRoute,
+  path: MESSAGES_PATHS.chat,
+  validateSearch: chatSearch,
+  beforeLoad: requireUser,
+  component: screen(() => import('../features/messages/s30-chat/index.ts'), 'ChatScreen'),
 });
 
 const profile = createRoute({
@@ -183,6 +225,14 @@ const profile = createRoute({
 });
 
 // S45 удаление аккаунта (2.12a): из S31; без входа удалять нечего
+// Настройки S43 (6.5 — раздел приватности, 4.9 — остальное); без входа настраивать нечего
+const settings = createRoute({
+  getParentRoute: () => rootRoute,
+  path: ACCOUNT_PATHS.settings,
+  beforeLoad: requireUser,
+  component: screen(() => import('../features/account/s43-settings/index.ts'), 'SettingsScreen'),
+});
+
 const deleteAccount = createRoute({
   getParentRoute: () => rootRoute,
   path: ACCOUNT_PATHS.delete,
@@ -402,13 +452,19 @@ export const routeTree = rootRoute.addChildren([
   job,
   respond,
   manage,
+  choice,
+  deal,
+  review,
+  history,
   createWhat,
   createWhen,
   createBudget,
   createPreview,
   createDone,
   messages,
+  chat,
   profile,
+  settings,
   deleteAccount,
   becomeType,
   becomeAbout,

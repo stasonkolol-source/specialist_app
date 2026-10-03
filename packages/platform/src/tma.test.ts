@@ -149,6 +149,18 @@ describe('диалоги и запросы', () => {
     expect(await platform.shareMessage('prepared-1')).toBe(true);
   });
 
+  it('shareContact: спрашивает телефон и отдаёт подписанный ответ Telegram', async () => {
+    const { platform, telegram } = createMockPlatform({ contactResponse: 'contact=x&hash=y' });
+    expect(await platform.shareContact()).toBe('contact=x&hash=y');
+    expect(telegram.callsOf('web_app_request_phone')).toHaveLength(1);
+    expect(telegram.callsOf('web_app_invoke_custom_method').map((p) => p?.method)).toContain(
+      'getRequestedContact',
+    );
+
+    expect(await createMockPlatform({ contact: false }).platform.shareContact()).toBeNull();
+    expect(await createMockPlatform({ version: '6.0' }).platform.shareContact()).toBeNull();
+  });
+
   it('старый клиент: метода нет — фолбэк без вызова', async () => {
     const { platform, telegram } = createMockPlatform({ version: '6.0' });
     expect(await platform.requestContact()).toBe(false);

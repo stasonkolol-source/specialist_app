@@ -35,7 +35,7 @@ export interface SpecialistProfileOut {
   rating_count: number;
   is_new: boolean;
   badges: string[];
-  /** «Обычно отвечает за …» — с 6.3b */
+  /** «Обычно отвечает за …»: медиана первого ответа в диалогах за 30 дней, в минутах; меньше пяти диалогов с ответом — null */
   response_time_minutes: number | null;
   /** Первые позиции прайса (S08) */
   services: CardServiceOut[];

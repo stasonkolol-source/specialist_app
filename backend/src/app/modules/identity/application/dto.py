@@ -90,6 +90,8 @@ class MeView:
     intent: UserIntent | None = None
     deletion_scheduled_at: datetime | None = None
     """Аккаунт удалится тогда (ждущий запрос на удаление); None — запроса нет."""
+    show_telegram: bool = True
+    """«Показывать после договорённости»: свой Telegram (S43, 6.5)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

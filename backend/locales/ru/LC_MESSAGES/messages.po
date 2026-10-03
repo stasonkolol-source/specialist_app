@@ -122,6 +122,24 @@ msgstr "Отмечено: работа выполнена. Сделка заве
 msgid "bot.deals.completed"
 msgstr "Сделка завершена. Спасибо!"
 
+msgid "bot.reviews.rated"
+msgstr "Спасибо! Ваша оценка: {stars}. Отзыв появится на карточке исполнителя после проверки."
+
+msgid "bot.reviews.exists"
+msgstr "Вы уже оставили отзыв по этой сделке."
+
+msgid "bot.reviews.closed"
+msgstr "Срок вышел: отзыв можно оставить в течение 14 дней после завершения сделки."
+
+msgid "bot.deals.confirmed"
+msgstr "Договорились! Сделка в силе — в чате теперь можно поделиться контактом."
+
+msgid "bot.deals.declined"
+msgstr "Предложение отклонено."
+
+msgid "bot.deals.proposal_closed"
+msgstr "Предложение уже неактуально: его подтвердили, отклонили или срок истёк."
+
 msgid "bot.help.text"
 msgstr "<b>Как это работает</b>\n• Опишите задачу — мастера рядом откликнутся с ценой. Или выберите специалиста по отзывам.\n• Договаривайтесь в чате «Соседей»: контакты — после договорённости.\n• Оплата — напрямую исполнителю, после работы. «Соседи» деньги не принимают.\n\n<b>Безопасность</b>\n• Не вносите предоплату незнакомым и никому не сообщайте коды из СМС.\n• Подозрительный профиль или сообщение — пожалуйтесь прямо в приложении.\n\n/terms — правила площадки\n/privacy — политика конфиденциальности\n/language — язык"
 
@@ -542,6 +560,54 @@ msgstr "У вас уже {limit} активные заявки. Закройте
 msgid "errors.daily_jobs_limit"
 msgstr "Сегодня создано слишком много заявок. Попробуйте завтра."
 
+msgid "errors.conversation_not_found"
+msgstr "Диалог не найден."
+
+msgid "errors.conversation_closed"
+msgstr "В этот диалог писать уже нельзя."
+
+msgid "errors.cannot_start_conversation"
+msgstr "Начать диалог нельзя: отклик или профиль недоступен."
+
+msgid "errors.invalid_message"
+msgstr "Сообщение не подходит: пустое, длиннее 4000 символов или не из этого диалога."
+
+msgid "errors.messages_limit"
+msgstr "Слишком много сообщений за час. Подождите немного."
+
+msgid "errors.conversations_limit"
+msgstr "Слишком много новых диалогов за час. Подождите немного."
+
+msgid "errors.cannot_propose"
+msgstr "Здесь договориться нельзя: в диалоге по отклику клиент выбирает исполнителя на странице откликов."
+
+msgid "errors.deal_in_progress"
+msgstr "Договорённость уже есть: предложение ждёт ответа или сделка идёт."
+
+msgid "errors.contacts_locked"
+msgstr "Контактами можно поделиться после договорённости."
+
+msgid "errors.invalid_contact"
+msgstr "Не удалось поделиться контактом. Откройте приложение заново и попробуйте ещё раз."
+
+msgid "errors.review_not_found"
+msgstr "Отзыв не найден."
+
+msgid "errors.review_not_allowed"
+msgstr "Отзыв по этой сделке оставить нельзя: он доступен клиенту в течение 14 дней после завершения сделки."
+
+msgid "errors.review_exists"
+msgstr "Вы уже оставили отзыв по этой сделке."
+
+msgid "errors.invalid_review"
+msgstr "Отзыв не принят: оценка от 1 до 5, текст до 2000 знаков."
+
+msgid "errors.not_review_subject"
+msgstr "Ответить на отзыв может только тот, о ком он написан."
+
+msgid "errors.reply_exists"
+msgstr "Вы уже ответили на этот отзыв."
+
 msgid "errors.deal_not_found"
 msgstr "Сделка не найдена."
 
@@ -723,8 +789,62 @@ msgstr "Клиент выбрал другого исполнителя"
 msgid "notifications.response_not_selected.body"
 msgstr "Заявка «{title}». Спасибо за отклик — в ленте есть другие заявки рядом."
 
+msgid "notifications.message_received.title"
+msgstr "{name} пишет"
+
+msgid "notifications.message_received.preview"
+msgstr "«{text}»"
+
+msgid "notifications.message_received.count"
+msgstr "Новых сообщений: {count}."
+
+msgid "notifications.message_received.someone"
+msgstr "Собеседник"
+
+msgid "notifications.message_received.button"
+msgstr "Ответить"
+
 msgid "notifications.deal.open"
 msgstr "Открыть сделку"
+
+msgid "notifications.deal_proposed.title"
+msgstr "Договорились?"
+
+msgid "notifications.deal_proposed.body_client"
+msgstr "Клиент предлагает договориться: «{title}»."
+
+msgid "notifications.deal_proposed.body_performer"
+msgstr "Исполнитель предлагает договориться: «{title}»."
+
+msgid "notifications.deal_proposed.button"
+msgstr "Посмотреть условия"
+
+msgid "notifications.deal_proposed.when"
+msgstr "Когда: {when}."
+
+msgid "notifications.deal_proposed.price"
+msgstr "Цена: {price}."
+
+msgid "notifications.deal_proposed.deadline"
+msgstr "Подтвердите или отклоните в течение 3 дней."
+
+msgid "notifications.deal_proposed.confirm"
+msgstr "Подтвердить"
+
+msgid "notifications.deal_proposed.decline"
+msgstr "Отклонить"
+
+msgid "notifications.price.fixed"
+msgstr "{amount} RSD"
+
+msgid "notifications.price.from"
+msgstr "от {amount} RSD"
+
+msgid "notifications.price.hourly"
+msgstr "{amount} RSD в час"
+
+msgid "notifications.price.negotiable"
+msgstr "договорная"
 
 msgid "notifications.deal_cancelled.title"
 msgstr "Сделка отменена"
@@ -771,11 +891,50 @@ msgstr "Работа выполнена?"
 msgid "notifications.deal_completion_prompt.body"
 msgstr "Сделка «{title}». Отметьте, если всё сделано: когда отметят обе стороны, сделка завершится."
 
+msgid "notifications.deal_completion_prompt.body_marked_performer"
+msgstr "Исполнитель отметил работу «{title}» выполненной. Всё в порядке?"
+
+msgid "notifications.deal_completion_prompt.body_marked_client"
+msgstr "Клиент отметил работу «{title}» выполненной. Всё в порядке?"
+
+msgid "notifications.review_request.title_first"
+msgstr "Оцените работу"
+
+msgid "notifications.review_request.body_first"
+msgstr "«{title}», исполнитель — {performer}. Отзыв появится на карточке исполнителя после проверки."
+
+msgid "notifications.review_request.title_reminder"
+msgstr "Оцените работу"
+
+msgid "notifications.review_request.body_reminder"
+msgstr "Вы ещё не оценили работу «{title}» — исполнитель {performer}. Это займёт минуту."
+
+msgid "notifications.review_request.title_last_call"
+msgstr "Осталось 2 дня, чтобы оставить отзыв"
+
+msgid "notifications.review_request.body_last_call"
+msgstr "Отзыв о работе «{title}» можно оставить ещё 2 дня — исполнитель {performer}."
+
+msgid "notifications.review_request.button"
+msgstr "Открыть форму отзыва"
+
+msgid "notifications.review_published.title"
+msgstr "Новый отзыв: {rating} из 5"
+
+msgid "notifications.review_published.body"
+msgstr "«{text}» — о работе «{title}»."
+
+msgid "notifications.review_published.body_rating"
+msgstr "Клиент поставил оценку без текста — работа «{title}»."
+
+msgid "notifications.review_published.button"
+msgstr "Ответить на отзыв"
+
 msgid "notifications.deal_completion_prompt.yes"
-msgstr "Да, выполнено"
+msgstr "Да, всё хорошо"
 
 msgid "notifications.deal_completion_prompt.problem"
-msgstr "Нет, проблема"
+msgstr "Есть проблема"
 
 msgid "notifications.job.extend"
 msgstr "Продлить"

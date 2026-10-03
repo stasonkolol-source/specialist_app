@@ -6,10 +6,18 @@
 // рейтинг или «Отзывов пока нет», район, цена, сообщение, «Откликнулся первым», «Телефон
 // подтверждён», «Подработка», «Новый»; опрос раз в 15 секунд. «Закрыть заявку» спрашивает
 // причину. «Изменить» — мастер S20a–d с этой заявкой (`?edit=<id>`, сохранение с If-Match).
-// Выбор исполнителя (S24) — 6.2, «Поделиться» — 7.4.
+// Карточка отклика ведёт на S24 — выбрать исполнителя или отклонить (6.2); заявка «в работе» и
+// завершённая — «Исполнитель выбран» и «Открыть сделку» (S26). «Поделиться» — 7.4.
 import type { JobCloseInReason, JobOut, ResponseCardOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
-import { isUnavailable, useCloseJob, useExtendJob, useJob, useResponseCards } from '@sosed/hooks';
+import {
+  isUnavailable,
+  useCloseJob,
+  useExtendJob,
+  useJob,
+  useMyDeals,
+  useResponseCards,
+} from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
 import { useBackButton, useBottomButtonState } from '@sosed/platform';
 import {
@@ -36,7 +44,14 @@ import { JobUnavailable } from '../shared/JobUnavailable.tsx';
 import { useDraftStore } from '../shared/draft.ts';
 import { LoadError } from '../shared/LoadError.tsx';
 import { useBudgetText, useDistrictName, useOfferPrice, useWhenBadge } from '../shared/labels.ts';
-import { CREATE_PATHS, JOBS_PATHS, jobIdOf, jobPath } from '../shared/paths.ts';
+import {
+  CREATE_PATHS,
+  JOBS_PATHS,
+  choicePath,
+  dealPath,
+  jobIdOf,
+  jobPath,
+} from '../shared/paths.ts';
 
 const REASONS: readonly JobCloseInReason[] = [
   'hired_here',
@@ -125,6 +140,7 @@ function Manage({ job }: { job: JobOut }) {
           {t('manage.chooseHint')}
         </Banner>
       )}
+      {(job.status === 'assigned' || job.status === 'completed') && <Chosen job={job} />}
       <section className="flex flex-col gap-2.5" aria-labelledby={responsesId}>
         <div className="flex items-center justify-between gap-3 px-1">
           <Heading variant="h3" as="h2" id={responsesId}>
@@ -149,7 +165,7 @@ function Manage({ job }: { job: JobOut }) {
             {published ? t('manage.noResponsesText') : null}
           </EmptyState>
         ) : (
-          items.map((card) => <ResponseCard key={card.id} card={card} />)
+          items.map((card) => <ResponseCard key={card.id} jobId={job.id} card={card} />)
         )}
       </section>
       {(published ||
@@ -176,6 +192,29 @@ function Manage({ job }: { job: JobOut }) {
       )}
       {inviting && <InviteSheet job={job} onClose={() => setInviting(false)} />}
     </section>
+  );
+}
+
+/** Исполнитель выбран: сделка идёт или завершена — «Открыть сделку» (S26). */
+function Chosen({ job }: { job: JobOut }) {
+  const { t } = useTranslation('jobs');
+  const router = useRouter();
+  const deals = useMyDeals({ role: 'client' });
+  const deal = deals.data?.items.find((item) => item.job_id === job.id);
+  return (
+    <Card tight as="section" aria-label={t('manage.chosenTitle')}>
+      <span className="text-title">{t('manage.chosenTitle')}</span>
+      <Text variant="cap">{t('manage.chosenText')}</Text>
+      {deal && (
+        <Button
+          variant="secondary"
+          full
+          onClick={() => void router.navigate({ to: dealPath(deal.id) })}
+        >
+          {t('manage.openDeal')}
+        </Button>
+      )}
+    </Card>
   );
 }
 
@@ -307,10 +346,12 @@ function Summary({
 }
 
 /** Отклик: исполнитель, цена, сообщение и бейджи. Выбор исполнителя (S24) — 6.2. */
-function ResponseCard({ card }: { card: ResponseCardOut }) {
+function ResponseCard({ jobId, card }: { jobId: string; card: ResponseCardOut }) {
   const { t } = useTranslation('jobs');
   const format = useFormat();
+  const router = useRouter();
   const offerPrice = useOfferPrice();
+  const to = choicePath(jobId, card.id);
   const { performer } = card;
   const name = performer.display_name || '—';
   const avatar =
@@ -325,7 +366,15 @@ function ResponseCard({ card }: { card: ResponseCardOut }) {
     .filter(Boolean)
     .join(' · ');
   return (
-    <Card as="article" tight aria-label={`${name}: ${price}`}>
+    <Card
+      tight
+      aria-label={`${name}: ${price}`}
+      href={router.history.createHref(to)}
+      onClick={(event) => {
+        event.preventDefault();
+        void router.navigate({ to });
+      }}
+    >
       <div className="flex items-start gap-3">
         <Avatar name={name} src={avatar?.url} placeholder={performer.avatar?.placeholder} />
         <div className="flex min-w-0 grow flex-col gap-1">

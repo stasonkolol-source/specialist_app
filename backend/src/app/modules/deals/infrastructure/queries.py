@@ -1,6 +1,6 @@
 """Чтение сделок (S25, S26, списки; ADR-0020 §5): без блокировок, вне UoW."""
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import datetime
 from uuid import UUID
 
@@ -29,6 +29,12 @@ class SqlDealQueries(SqlQuery):
     async def view(self, deal_id: DealId) -> DealView | None:
         row = await self._fetch_one(select(DealRow.__table__).where(_D.id == deal_id))
         return _view(row) if row is not None else None
+
+    async def views(self, deal_ids: Collection[DealId]) -> list[DealView]:
+        if not deal_ids:
+            return []
+        rows = await self._fetch(select(DealRow.__table__).where(_D.id.in_(list(deal_ids))))
+        return [_view(row) for row in rows]
 
     async def mine(
         self,
@@ -59,6 +65,10 @@ class SqlDealQueries(SqlQuery):
         more = len(rows) > page.limit
         cursor = encode_cursor(last.created_at, last.id) if more and last else None
         return Page(items=tuple(items), next_cursor=cursor)
+
+    async def of_response(self, response_id: UUID) -> DealId | None:
+        row = await self._fetch_one(select(_D.id).where(_D.response_id == response_id))
+        return DealId(row["id"]) if row is not None else None
 
     async def due(self, sweep: DealSweep, now: datetime, *, limit: int) -> list[DealId]:
         rows = await self._fetch(

@@ -645,14 +645,48 @@ async def test_deleted_account_templates_are_forgotten(
     world: World, worker: AsyncContainer
 ) -> None:
     performer = await world.user()
-    assert (await world.template(performer, "Могу сегодня")).status_code == 201
-
-    async with worker() as request:
-        await (await request.get(ForgetClientJobs))(ForgetClientJobsCommand(user_id=performer))
-
-    kept = await world.scalar(
-        "SELECT count(*) FROM jobs.response_templates WHERE user_id = :user"
-        " AND (deleted_at IS NULL OR message <> '—' OR title <> '—')",
-        user=performer,
+    stranger = await world.user()
+    foreign = await world.template(stranger, "Чужой шаблон", availability_note="После работы")
+    active = await world.template(performer, "Могу сегодня", availability_note="После работы")
+    deleted = await world.template(performer, "Старый шаблон", availability_note="По вечерам")
+    for reply in (foreign, active, deleted):
+        assert reply.status_code == 201, reply.text
+    deleted_id = UUID(deleted.json()["id"])
+    removed = await world.app.client.delete(
+        f"{API}/me/response-templates/{deleted_id}", headers=world.headers(performer)
     )
-    assert kept == 0
+    assert removed.status_code == 204
+    deleted_at = await world.scalar(
+        "SELECT deleted_at FROM jobs.response_templates WHERE id = :id", id=deleted_id
+    )
+    assert deleted_at is not None
+
+    for _ in range(2):  # повторная доставка UserDeleted тоже не оставляет личных текстов
+        async with worker() as request:
+            await (await request.get(ForgetClientJobs))(ForgetClientJobsCommand(user_id=performer))
+
+        kept = await world.scalar(
+            "SELECT count(*) FROM jobs.response_templates WHERE user_id = :user"
+            " AND (deleted_at IS NULL OR message <> '—' OR title <> '—'"
+            " OR availability_note IS NOT NULL)",
+            user=performer,
+        )
+        assert kept == 0
+        assert await world.templates(performer) == []
+        assert (
+            await world.scalar(
+                "SELECT deleted_at FROM jobs.response_templates WHERE id = :id", id=deleted_id
+            )
+            == deleted_at
+        )
+
+    untouched = await world.scalar(
+        "SELECT count(*) FROM jobs.response_templates WHERE id = :id"
+        " AND deleted_at IS NULL AND title = :title AND message = :message"
+        " AND availability_note = :note",
+        id=UUID(foreign.json()["id"]),
+        title=foreign.json()["title"],
+        message=foreign.json()["message"],
+        note=foreign.json()["availability_note"],
+    )
+    assert untouched == 1

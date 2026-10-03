@@ -1,6 +1,7 @@
-"""«Да, выполнено» в боте (DEVELOPMENT_PLAN 6.1b; ARCHITECTURE §11.3): кнопка вопроса «Работа
-выполнена?» вызывает тот же CompleteDeal, что S26: отметка стороны, вторая отметка завершает
-сделку. Повтор нажатия ничего не меняет, чужая сделка — «не найдена»."""
+"""Кнопки сделки в боте (DEVELOPMENT_PLAN 6.1b, 6.3b; ARCHITECTURE §11.3): «Да, выполнено» под
+«Работа выполнена?» вызывает тот же CompleteDeal, что S26: отметка стороны, вторая отметка
+завершает сделку. «Подтвердить» и «Отклонить» под «Договорились?» — те же ConfirmDeal и
+DeclineDeal, что S53. Повтор нажатия ничего не меняет, чужая сделка — «не найдена»."""
 
 from collections.abc import AsyncIterator
 from typing import Any
@@ -55,6 +56,23 @@ async def agreed_deal(harness: BotHarness, client: int, performer: int) -> UUID:
     return deal_id
 
 
+async def proposed_deal(harness: BotHarness, client: int, performer: int) -> UUID:
+    """«Договорились» исполнителя в чате — строкой: ждёт ответа клиента."""
+    deal_id = new_id()
+    await sql(
+        harness,
+        "INSERT INTO deals.deals (id, client_id, performer_id, origin, title_snapshot, status,"
+        " proposed_by, version) SELECT :id, c.user_id, p.user_id, 'chat', 'Повесить люстру',"
+        " 'proposed', p.user_id, 1 FROM identity.auth_identities c, identity.auth_identities p"
+        " WHERE c.provider = 'telegram' AND c.subject = :client"
+        " AND p.provider = 'telegram' AND p.subject = :performer",
+        id=deal_id,
+        client=str(client),
+        performer=str(performer),
+    )
+    return deal_id
+
+
 def edits(calls: list[TelegramMethod[Any]]) -> list[str | None]:
     return [call.text for call in calls if isinstance(call, EditMessageText)]
 
@@ -88,3 +106,34 @@ async def test_yes_marks_then_completes_and_repeats_quietly(harness: BotHarness)
     assert alerts(foreign) == ["Сделка не найдена."]
     row = await sql(harness, "SELECT status FROM deals.deals WHERE id = :id", id=deal_id)
     assert row.status == "completed"
+
+
+async def test_confirm_and_decline_answer_the_proposal(harness: BotHarness) -> None:
+    client, performer, stranger = telegram_user(), telegram_user(), telegram_user()
+    for telegram_id in (client, performer, stranger):
+        await harness.send(telegram_id, "/start")
+    confirmed_id = await proposed_deal(harness, client, performer)
+    declined_id = await proposed_deal(harness, client, performer)
+
+    def button(action: CallbackAction, deal_id: UUID) -> str:
+        return encode_callback(CallbackData(action, deal_id))
+
+    foreign = await harness.press(stranger, button(CallbackAction.DEAL_CONFIRM, confirmed_id))
+    confirmed = await harness.press(client, button(CallbackAction.DEAL_CONFIRM, confirmed_id))
+    too_late = await harness.press(client, button(CallbackAction.DEAL_DECLINE, confirmed_id))
+    declined = await harness.press(client, button(CallbackAction.DEAL_DECLINE, declined_id))
+    again = await harness.press(client, button(CallbackAction.DEAL_DECLINE, declined_id))
+
+    closed = "Предложение уже неактуально: его подтвердили, отклонили или срок истёк."
+    assert alerts(foreign) == ["Сделка не найдена."]
+    assert edits(confirmed) == [
+        "Договорились! Сделка в силе — в чате теперь можно поделиться контактом."
+    ]
+    assert edits(too_late) == [closed]  # подтверждённую так не отменить
+    assert edits(declined) == ["Предложение отклонено."]
+    assert edits(again) in (["Предложение отклонено."], [])
+    statuses = [
+        (await sql(harness, "SELECT status, cancel_reason FROM deals.deals WHERE id = :id", id=i))
+        for i in (confirmed_id, declined_id)
+    ]
+    assert [tuple(row) for row in statuses] == [("agreed", None), ("cancelled", "no_agreement")]

@@ -41,6 +41,8 @@ class EntityType(StrEnum):
     JOB = "job"
     RESPONSE = "response"
     REVIEW = "review"
+    REVIEW_REPLY = "review_reply"
+    """Ответ исполнителя на отзыв (7.2): проверяется отдельно, нарушение скрывает только его."""
     MESSAGE = "message"
     MEDIA = "media"
 
@@ -145,10 +147,8 @@ class Case(AggregateRoot):
     ) -> None:
         """Ещё один повод по тому же объекту: очередь строже из двух, срок — ближний."""
         self._ensure_open()
-        strict = stricter(queue, self.queue)
-        if strict is not self.queue:
-            self.queue = strict
-            self.due_at = min(self.due_at, due_at(strict, now))
+        self.queue = stricter(queue, self.queue)
+        self.due_at = min(self.due_at, due_at(queue, now))
         self.evidence.append(_evidence(trigger, now, details))
         self.media_ids = tuple(dict.fromkeys((*self.media_ids, *media_ids)))
 

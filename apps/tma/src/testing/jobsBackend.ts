@@ -9,14 +9,23 @@
 // M»; шаблоны /me/response-templates — не больше двух, первый — основной. GET /jobs/{id} отдаёт
 // свой отклик (`my_response`) и место, занятое им. Свои заявки клиента (5.6): GET /me/jobs, отклики
 // карточками GET /jobs/{id}/response-cards (отмечают просмотренными), закрыть, продлить,
-// пригласить. Время публикации — от E2E_NOW: в e2e часы браузера стоят на нём же.
+// пригласить. Выбор исполнителя и сделка (6.2): POST /responses/{id}/accept и /decline, сделки —
+// GET /me/deals, GET /deals/{id}/card, POST /deals/{id}/complete и /cancel, ответ на «Договорились»
+// из чата — /confirm и /decline (S53, 6.5); сторона — клиент или
+// исполнитель (`dealRole`). Время публикации — от E2E_NOW: в e2e часы браузера стоят на нём же.
 import type {
+  DealCardOut,
+  DealCancelIn,
+  DealOut,
+  HistoryDealOut,
   JobCardOut,
   JobClientOut,
   JobIn,
   JobOut,
   JobStatus,
   MyResponseOut,
+  MyReviewOut,
+  ReplyIn,
   ResponseGroup,
   ResponseIn,
   ResponseJobOut,
@@ -26,6 +35,8 @@ import type {
   ResponseTemplateOut,
   ResponseTemplatePatchIn,
   ResponseCardOut,
+  ReviewIn,
+  ReviewOut,
   Urgency,
 } from '@sosed/api-client';
 
@@ -482,6 +493,18 @@ export class JobsBackend {
   readonly invites = new Map<string, string[]>();
   /** Закрытия и продления — что прислал экран. */
   readonly actions: { jobId: string; action: 'close' | 'extend'; reason?: string }[] = [];
+  /** Сделки (6.2): id → карточка S26 глазами `dealRole`. */
+  readonly deals = new Map<string, DealCardOut>();
+  /** Решения по откликам и действия в сделках — что прислал экран. */
+  readonly decisions: { id: string; action: string; reason?: string }[] = [];
+  /** Кто смотрит сделки: клиент (по умолчанию) или выбранный исполнитель. */
+  dealRole: DealCardOut['my_role'] = 'client';
+  /** Отзывы клиента по сделкам (7.3): id сделки → что прислал экран S27. */
+  readonly reviews = new Map<string, ReviewOut>();
+  /** «Обо мне» на S28: полученные отзывы исполнителя. */
+  readonly received: MyReviewOut[] = [];
+  /** Ответы на отзывы — что прислал экран S28. */
+  readonly replies: { reviewId: string; body: string }[] = [];
 
   /** Свои заявки клиента (S22) и отклики люстры (S23), как на артбордах. */
   seedMine(): this {
@@ -519,6 +542,20 @@ export class JobsBackend {
     if (own) {
       return signedIn
         ? this.owner(method, own[1] ?? '', own[2] ?? '', body)
+        : problem(401, 'not_authenticated');
+    }
+    const decide = /^\/responses\/([^/]+)\/(accept|decline|shortlist)$/.exec(path);
+    if (method === 'POST' && decide) {
+      return signedIn
+        ? this.decide(decide[1] ?? '', decide[2] ?? '')
+        : problem(401, 'not_authenticated');
+    }
+    if (path === '/me/deals' || path.startsWith('/deals/')) {
+      return signedIn ? this.dealt(method, path, body) : problem(401, 'not_authenticated');
+    }
+    if (path === '/me/deal-history' || path === '/me/reviews' || path.startsWith('/reviews/')) {
+      return signedIn
+        ? this.reviewed(method, path, url.searchParams, body)
         : problem(401, 'not_authenticated');
     }
     if (path === '/me/responses' || path.startsWith('/responses/')) {
@@ -723,6 +760,177 @@ export class JobsBackend {
         invited_at: now,
       }));
       return { status: 200, body: { items, limit: 10 } };
+    }
+    return null;
+  }
+
+  /** Решение клиента по отклику своей заявки (S24, S25): выбрать — сделка, отклонить. */
+  decide(responseId: string, action: string): BackendReply {
+    const owner = [...this.responseCards.entries()].find(([, cards]) =>
+      cards.some((card) => card.id === responseId),
+    );
+    const job = owner ? this.jobs.get(owner[0]) : undefined;
+    const card = owner?.[1].find((item) => item.id === responseId);
+    if (!owner || !job || !card) return problem(404, 'response_not_found');
+    if (!ACTIVE.has(card.status)) return problem(409, 'response_not_active');
+    if (job.status !== 'published') return problem(409, 'job_not_open');
+    this.decisions.push({ id: responseId, action });
+    const status: ResponseCardOut['status'] =
+      action === 'accept' ? 'accepted' : action === 'decline' ? 'declined' : 'shortlisted';
+    const cards = owner[1].map((item) =>
+      item.id === responseId
+        ? { ...item, status }
+        : action === 'accept' && ACTIVE.has(item.status)
+          ? { ...item, status: 'not_selected' as const }
+          : item,
+    );
+    this.responseCards.set(job.id, cards);
+    if (action !== 'accept') {
+      const changed = {
+        ...job,
+        responses_count: action === 'decline' ? job.responses_count - 1 : job.responses_count,
+      };
+      this.jobs.set(job.id, changed);
+      return { status: 200, body: changed };
+    }
+    const assigned: JobOut = { ...job, status: 'assigned', responses_count: 0 };
+    this.jobs.set(job.id, assigned);
+    const deal = dealCardFixture(job, card, 'client');
+    this.deals.set(deal.id, deal);
+    return { status: 200, body: { deal_id: deal.id, job: assigned } };
+  }
+
+  /** Сделки стороне: списки, карточка S26, «Работа выполнена» и отмена с причиной. */
+  dealt(method: string, path: string, body: unknown): BackendReply | null {
+    const viewer = (deal: DealCardOut): DealCardOut =>
+      deal.my_role === this.dealRole ? deal : asOther(deal);
+    if (method === 'GET' && path === '/me/deals') {
+      const items = [...this.deals.values()].reverse().map((deal) => dealOut(viewer(deal)));
+      return { status: 200, body: { items, next_cursor: null } };
+    }
+    const match = /^\/deals\/([^/]+)\/(card|complete|cancel|confirm|decline|review)$/.exec(path);
+    const found = this.deals.get(match?.[1] ?? '');
+    if (!match) return null;
+    if (!found) return problem(404, 'deal_not_found');
+    const deal = viewer(found);
+    if (method === 'GET' && match[2] === 'card') return { status: 200, body: deal };
+    const now = new Date(E2E_NOW).toISOString();
+    if (method === 'POST' && match[2] === 'review') {
+      // S27: клиент по завершённой сделке, пока окно открыто, один раз
+      if (deal.my_review) return problem(409, 'review_exists');
+      if (deal.review_until === null) return problem(409, 'review_not_allowed');
+      const sent = body as ReviewIn;
+      const review: ReviewOut = {
+        id: `01a0e004-0000-7000-8000-${String(this.reviews.size + 1).padStart(12, '0')}`,
+        deal_id: deal.id,
+        rating: sent.rating,
+        criteria: (sent.criteria ?? {}) as Record<string, number>,
+        body: sent.body ?? null,
+        status: 'under_review',
+        created_at: now,
+        published_at: null,
+        reply: null,
+      };
+      this.reviews.set(deal.id, review);
+      this.deals.set(found.id, {
+        ...found,
+        my_review: { id: review.id, status: review.status, rating: review.rating },
+        review_until: null,
+      });
+      return { status: 201, body: review };
+    }
+    if (method === 'POST' && (match[2] === 'confirm' || match[2] === 'decline')) {
+      // S53: ответ на «Договорились» — только пока предложение ждёт
+      if (deal.status !== 'proposed') return problem(409, 'deal_not_active');
+      this.decisions.push({ id: deal.id, action: match[2] });
+      const answered: DealCardOut =
+        match[2] === 'confirm'
+          ? {
+              ...deal,
+              status: 'agreed',
+              awaits_my_confirmation: false,
+              proposal_expires_at: null,
+              timeline: { ...deal.timeline, agreed_at: now },
+            }
+          : {
+              ...deal,
+              status: 'cancelled',
+              cancel_reason: 'no_agreement',
+              cancelled_by_me: true,
+              awaits_my_confirmation: false,
+              proposal_expires_at: null,
+              timeline: { ...deal.timeline, cancelled_at: now },
+            };
+      this.deals.set(deal.id, answered);
+      return { status: 200, body: dealOut(answered) };
+    }
+    if (deal.status !== 'agreed') return problem(409, 'deal_not_active');
+    let changed: DealCardOut;
+    if (method === 'POST' && match[2] === 'complete') {
+      this.decisions.push({ id: deal.id, action: 'complete' });
+      const both = deal.timeline.other_mark_at !== null;
+      changed = {
+        ...deal,
+        status: both ? 'completed' : 'agreed',
+        timeline: {
+          ...deal.timeline,
+          my_mark_at: deal.timeline.my_mark_at ?? now,
+          completed_at: both ? now : null,
+        },
+      };
+    } else if (method === 'POST' && match[2] === 'cancel') {
+      const reason = (body as DealCancelIn).reason;
+      this.decisions.push({ id: deal.id, action: 'cancel', reason });
+      changed = {
+        ...deal,
+        status: 'cancelled',
+        cancel_reason: reason,
+        cancelled_by_me: true,
+        timeline: { ...deal.timeline, cancelled_at: now },
+      };
+    } else {
+      return null;
+    }
+    this.deals.set(deal.id, changed);
+    return { status: 200, body: dealOut(changed) };
+  }
+
+  /** S28: «Сделки и отзывы», «Мои отзывы» и ответ на отзыв о себе (7.3). */
+  reviewed(
+    method: string,
+    path: string,
+    params: URLSearchParams,
+    body: unknown,
+  ): BackendReply | null {
+    if (method === 'GET' && path === '/me/deal-history') {
+      const items = [...this.deals.values()]
+        .reverse()
+        .map((deal) => historyOut(deal.my_role === this.dealRole ? deal : asOther(deal)));
+      return { status: 200, body: { items, next_cursor: null } };
+    }
+    if (method === 'GET' && path === '/me/reviews') {
+      const items =
+        params.get('direction') === 'written'
+          ? [...this.reviews.values()].map((review) => writtenOut(review, this.deals))
+          : this.received;
+      return { status: 200, body: { items, next_cursor: null } };
+    }
+    const reply = /^\/reviews\/([^/]+)\/reply$/.exec(path);
+    if (method === 'POST' && reply) {
+      const index = this.received.findIndex((review) => review.id === reply[1]);
+      const review = this.received[index];
+      if (!review) return problem(404, 'review_not_found');
+      if (review.reply) return problem(409, 'reply_exists');
+      const text = (body as ReplyIn).body.trim();
+      this.replies.push({ reviewId: review.id, body: text });
+      const now = new Date(E2E_NOW).toISOString();
+      const answered: MyReviewOut = {
+        ...review,
+        reply: { body: text, at: now, status: 'under_review' },
+        can_reply: false,
+      };
+      this.received[index] = answered;
+      return { status: 201, body: answered };
     }
     return null;
   }
@@ -1014,5 +1222,252 @@ export function jobOut(id: string, body: JobIn, status: JobStatus): JobOut {
     expires_at: null,
     closed_at: null,
     close_reason: null,
+  };
+}
+
+/** Сделка из выбранного отклика глазами клиента: исполнитель, район, окно и вехи. */
+export function dealCardFixture(
+  job: JobOut,
+  card: ResponseCardOut,
+  role: DealCardOut['my_role'],
+): DealCardOut {
+  const now = new Date(E2E_NOW).toISOString();
+  const deal: DealCardOut = {
+    id: `0199de00-0000-7000-8000-${card.id.slice(-12)}`,
+    status: 'agreed',
+    origin: 'job_response',
+    my_role: 'client',
+    title: job.title,
+    price: { type: card.price.type, amount: card.price.amount },
+    scheduled_at: job.preferred_from,
+    preferred_from: job.preferred_from,
+    preferred_to: job.preferred_to,
+    urgency: job.urgency,
+    availability_note: card.availability_note,
+    budget: job.budget_min,
+    counterpart: {
+      role: 'performer',
+      display_name: card.performer.display_name,
+      profile_id: card.performer.profile_id,
+      avatar: card.performer.avatar,
+      rating: card.performer.rating,
+      rating_count: card.performer.rating_count,
+      is_new: card.performer.is_new,
+      phone_verified: card.performer.phone_verified,
+      telegram: '@aleksey_m',
+    },
+    place: {
+      city: { id: job.city_id, name: 'Нови-Сад' },
+      district: job.district_id ? { id: job.district_id, name: 'Лиман' } : null,
+      address: 'бул. Цара Лазара, 56, кв. 12',
+      point: POINT,
+    },
+    timeline: {
+      responded_at: card.created_at,
+      agreed_at: now,
+      my_mark_at: null,
+      other_mark_at: null,
+      completed_at: null,
+      cancelled_at: null,
+    },
+    awaits_my_confirmation: false,
+    cancelled_by_me: null,
+    cancel_reason: null,
+    job_id: job.id,
+    response_id: card.id,
+    conversation_id: null,
+    version: 1,
+    proposed_at: null,
+    proposal_expires_at: null,
+    my_review: null,
+    review_until: null,
+  };
+  return role === 'client' ? deal : asOther(deal);
+}
+
+/** Та же сделка глазами второй стороны: роль, контрагент и отметки меняются местами; отзыв пишет
+ *  только клиент. */
+function asOther(deal: DealCardOut): DealCardOut {
+  const performer = deal.my_role === 'client';
+  return {
+    ...deal,
+    my_review: performer ? null : deal.my_review,
+    review_until: performer ? null : deal.review_until,
+    my_role: performer ? 'performer' : 'client',
+    counterpart: performer
+      ? {
+          role: 'client',
+          display_name: 'Елена К.',
+          profile_id: null,
+          avatar: null,
+          rating: null,
+          rating_count: 0,
+          is_new: false,
+          phone_verified: true,
+          telegram: '@elena_k',
+        }
+      : { ...deal.counterpart, role: 'performer' },
+    timeline: {
+      ...deal.timeline,
+      my_mark_at: deal.timeline.other_mark_at,
+      other_mark_at: deal.timeline.my_mark_at,
+    },
+    cancelled_by_me: deal.cancelled_by_me === null ? null : !deal.cancelled_by_me,
+  };
+}
+
+/** `GET /me/deals` и ответы действий: сделка в форме DealOut. */
+function dealOut(deal: DealCardOut): DealOut {
+  return {
+    id: deal.id,
+    status: deal.status,
+    origin: deal.origin,
+    my_role: deal.my_role,
+    title: deal.title,
+    category_id: null,
+    price: deal.price,
+    scheduled_at: deal.scheduled_at,
+    client_id: '0199dd00-0000-7000-8000-00000000c11e',
+    performer_id: '0199dd00-0000-7000-8000-0000000000ff',
+    profile_id: deal.counterpart.profile_id,
+    job_id: deal.job_id,
+    response_id: deal.response_id,
+    conversation_id: deal.conversation_id,
+    awaits_my_confirmation: deal.awaits_my_confirmation,
+    i_marked_done: deal.timeline.my_mark_at !== null,
+    other_marked_done: deal.timeline.other_mark_at !== null,
+    agreed_at: deal.timeline.agreed_at,
+    completed_at: deal.timeline.completed_at,
+    cancelled_at: deal.timeline.cancelled_at,
+    cancelled_by_me: deal.cancelled_by_me,
+    cancel_reason: deal.cancel_reason,
+    version: deal.version,
+    created_at: deal.timeline.agreed_at ?? new Date(E2E_NOW).toISOString(),
+  };
+}
+
+/** «Договорились» из прямого диалога ждёт ответа исполнителя (S53, 6.5): условия, район без
+ *  адреса, срок 72 ч. Смотрит исполнитель — клиент предложил. */
+export function proposedDealFixture(conversationId: string): DealCardOut {
+  const proposedAt = new Date(E2E_NOW);
+  return {
+    id: '0199de00-0000-7000-8000-00000000c0de',
+    status: 'proposed',
+    origin: 'chat',
+    my_role: 'performer',
+    title: 'Повесить люстру',
+    price: { type: 'fixed', amount: { amount: 350_000, currency: 'RSD' } },
+    scheduled_at: new Date(proposedAt.getTime() + 9 * 60 * 60 * 1000).toISOString(),
+    preferred_from: null,
+    preferred_to: null,
+    urgency: null,
+    availability_note: null,
+    budget: null,
+    counterpart: {
+      role: 'client',
+      display_name: 'Елена К.',
+      profile_id: null,
+      avatar: null,
+      rating: null,
+      rating_count: 0,
+      is_new: false,
+      phone_verified: false,
+      telegram: null,
+    },
+    place: { city: { id: 1, name: 'Нови-Сад' }, district: null, address: null, point: null },
+    timeline: {
+      responded_at: null,
+      agreed_at: null,
+      my_mark_at: null,
+      other_mark_at: null,
+      completed_at: null,
+      cancelled_at: null,
+    },
+    awaits_my_confirmation: true,
+    cancelled_by_me: null,
+    cancel_reason: null,
+    job_id: null,
+    response_id: null,
+    conversation_id: conversationId,
+    version: 1,
+    proposed_at: proposedAt.toISOString(),
+    proposal_expires_at: new Date(proposedAt.getTime() + 72 * 60 * 60 * 1000).toISOString(),
+    my_review: null,
+    review_until: null,
+  };
+}
+
+/** Сделка строкой S28 (BFF `GET /me/deal-history`). */
+function historyOut(deal: DealCardOut): HistoryDealOut {
+  return {
+    id: deal.id,
+    status: deal.status,
+    my_role: deal.my_role,
+    title: deal.title,
+    price: deal.price,
+    scheduled_at: deal.scheduled_at,
+    counterpart: {
+      id: '01a0e001-0000-7000-8000-0000000000ff',
+      role: deal.counterpart.role,
+      display_name: deal.counterpart.display_name,
+    },
+    completed_at: deal.timeline.completed_at,
+    cancelled_at: deal.timeline.cancelled_at,
+    cancelled_by_me: deal.cancelled_by_me,
+    cancel_reason: deal.cancel_reason,
+    created_at: deal.timeline.agreed_at ?? new Date(E2E_NOW).toISOString(),
+    my_review: deal.my_review,
+    review_until: deal.review_until,
+  };
+}
+
+/** Свой отзыв в «Моих» S28. */
+function writtenOut(review: ReviewOut, deals: Map<string, DealCardOut>): MyReviewOut {
+  const deal = review.deal_id ? deals.get(review.deal_id) : undefined;
+  return {
+    id: review.id,
+    deal_id: review.deal_id,
+    deal_title: deal?.title ?? null,
+    counterpart_name: deal?.counterpart.display_name ?? null,
+    rating: review.rating,
+    criteria: review.criteria,
+    body: review.body,
+    status: review.status,
+    created_at: review.created_at,
+    published_at: review.published_at,
+    reply: null,
+    can_reply: false,
+  };
+}
+
+/** Завершённая сделка клиента (7.3): обе отметили «Работа выполнена» час назад, отзыв ещё можно
+ *  оставить 14 дней. */
+export function completedDealFixture(job: JobOut, card: ResponseCardOut): DealCardOut {
+  const done = new Date(Date.parse(E2E_NOW) - 60 * 60 * 1000).toISOString();
+  const until = new Date(Date.parse(done) + 14 * 24 * 60 * 60 * 1000).toISOString();
+  const deal = dealCardFixture(job, card, 'client');
+  return {
+    ...deal,
+    status: 'completed',
+    timeline: { ...deal.timeline, my_mark_at: done, other_mark_at: done, completed_at: done },
+    review_until: until,
+  };
+}
+
+/** Полученный отзыв исполнителя (S28 «Обо мне»): опубликован, ответа ещё нет. */
+export function receivedReviewFixture(): MyReviewOut {
+  return {
+    id: '01a0e004-0000-7000-8000-0000000000aa',
+    deal_id: '01a0e003-0000-7000-8000-0000000000aa',
+    deal_title: 'Собрать шкаф PAX',
+    counterpart_name: 'Елена К.',
+    rating: 5,
+    criteria: { quality: 5 },
+    body: 'Всё собрал быстро и аккуратно',
+    status: 'published',
+    created_at: new Date(Date.parse(E2E_NOW) - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    published_at: new Date(Date.parse(E2E_NOW) - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    reply: null,
+    can_reply: true,
   };
 }

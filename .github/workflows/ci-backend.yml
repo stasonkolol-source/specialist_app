@@ -12,16 +12,10 @@ on:
       - "scripts/**"
       - "Makefile"
       - ".github/workflows/ci-backend.yml"
-  push:
-    branches: [main]
-    paths:
-      - "backend/**"
-      - "packages/links/**"
-      - "infra/postgres/**"
-      - "infra/compose/garage.toml"
-      - "scripts/**"
-      - "Makefile"
-      - ".github/workflows/ci-backend.yml"
+  # main проверяется не после каждого вливания (PR уже проверен), а раз в ночь: страховка от
+  # «каждый PR зелёный, а вместе нет» и тёплые кэши main, которые читают PR.
+  schedule:
+    - cron: "43 2 * * *"
   workflow_dispatch:
 
 concurrency:

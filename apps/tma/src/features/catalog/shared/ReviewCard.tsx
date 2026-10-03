@@ -1,5 +1,6 @@
-// Отзыв по сделке на S08 и S11 (DEVELOPMENT_PLAN 4.6): автор «Ирина С.», месяц и услуга, звёзды,
-// текст и «Сделка в «Соседях»». Ответ специалиста — с 7.3, «Пожаловаться» — 4.7.
+// Отзыв по сделке на S08 и S11 (DEVELOPMENT_PLAN 4.6, 7.3): автор «Ирина С.», месяц и услуга,
+// звёзды, текст, «Сделка в «Соседях»» и ответ специалиста (прошедший проверку). «Пожаловаться» —
+// 4.7.
 import type { CardReviewOut } from '@sosed/api-client';
 import { useFormat, useTranslation } from '@sosed/i18n';
 import { Avatar, Badge, Card, Stars, Text } from '@sosed/ui-web';
@@ -38,6 +39,16 @@ export function ReviewCard({ review }: { review: CardReviewOut }) {
             {t('reviews.viaDeal')}
           </Badge>
         </span>
+      )}
+      {review.reply && (
+        <div className="flex flex-col gap-1 rounded-panel bg-bg2 px-3 py-2">
+          <Text as="span" variant="cap">
+            {t('reviews.reply')}
+          </Text>
+          <Text variant="sm" className="whitespace-pre-line">
+            {review.reply.body}
+          </Text>
+        </div>
       )}
     </Card>
   );

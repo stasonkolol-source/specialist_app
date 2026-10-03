@@ -2,7 +2,7 @@
 на клиенте (5.2), `POST /jobs/{id}/submit` из §8.5 не нужен. Сначала санкции и согласия, потом
 справочники и фото, потом лимиты новичка (§13.3): уровни 0–1 — не больше трёх активных и пяти
 новых в сутки, проверенные — двадцать в сутки. Квота тратится последней: отказ по данным её не
-съедает.
+съедает. Проверка активных и создание сериализуются блокировкой клиента в одной транзакции.
 
 Прямой запрос специалисту (POST /specialists/{id}/requests, S08 и S09; 5.6) — та же заявка с
 `visibility = direct` и приглашением этого профиля: её видят только клиент и он, модерация — та
@@ -70,9 +70,6 @@ class CreateJob:
         job_id = JobId(new_id())
         built = await self._builder.build(job_id, cmd.actor_id, cmd.draft)
         trusted = cmd.trust_level >= TRUSTED_LEVEL
-        if not trusted and await self._queries.count_active(cmd.actor_id) >= MAX_ACTIVE:
-            raise ActiveJobsLimitError(retry_after=ACTIVE_RETRY_AFTER, limit=MAX_ACTIVE)
-        await self._quota.take(cmd.actor_id, trusted=trusted)
         now = self._clock.now()
         job = Job.submit(
             job_id=job_id,
@@ -84,6 +81,10 @@ class CreateJob:
             now=now,
         )
         async with self._uow:
+            await self._jobs.lock_client(cmd.actor_id)
+            if not trusted and await self._queries.count_active(cmd.actor_id) >= MAX_ACTIVE:
+                raise ActiveJobsLimitError(retry_after=ACTIVE_RETRY_AFTER, limit=MAX_ACTIVE)
+            await self._quota.take(cmd.actor_id, trusted=trusted)
             await self._jobs.add(job)
             if direct is not None:
                 invite = Invite(

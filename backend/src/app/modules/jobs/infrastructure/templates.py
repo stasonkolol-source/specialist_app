@@ -65,8 +65,13 @@ class SqlResponseTemplates:
         self._uow.require_active()
         await self._session.execute(
             update(ResponseTemplateRow)
-            .where(_T.user_id == user_id, _T.deleted_at.is_(None))
-            .values(deleted_at=func.now(), message="—", title="—", availability_note=None)
+            .where(_T.user_id == user_id)
+            .values(
+                deleted_at=func.coalesce(_T.deleted_at, func.now()),
+                message="—",
+                title="—",
+                availability_note=None,
+            )
             .execution_options(synchronize_session=False)
         )
 

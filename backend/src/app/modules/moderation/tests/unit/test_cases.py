@@ -60,6 +60,30 @@ def test_second_trigger_moves_the_case_to_the_stricter_queue() -> None:
     assert case.reported
 
 
+@pytest.mark.parametrize(
+    ("queue", "delay_minutes", "due_minutes"),
+    [
+        (Queue.SAFETY, 5, 35),
+        (Queue.FRAUD, 5, 35),
+        (Queue.SAFETY, 50, 60),
+        (Queue.FRAUD, 110, 120),
+    ],
+)
+def test_premod_trigger_keeps_stricter_queue_and_nearest_deadline(
+    queue: Queue, delay_minutes: int, due_minutes: int
+) -> None:
+    case = opened(queue, CaseTrigger.REPORT)
+
+    case.add_trigger(
+        queue=Queue.PREMOD,
+        trigger=CaseTrigger.EDIT,
+        now=NOW + timedelta(minutes=delay_minutes),
+    )
+
+    assert case.queue is queue
+    assert case.due_at == NOW + timedelta(minutes=due_minutes)
+
+
 def status(case: Case) -> CaseStatus:
     return case.status  # без сужения типа mypy между переходами
 

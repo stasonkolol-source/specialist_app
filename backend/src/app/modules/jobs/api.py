@@ -3,12 +3,14 @@
 Другие модули импортируют из jobs только этот файл.
 """
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
-from app.platform.kernel.ids import MediaId, UserId
+from app.platform.kernel.geo import GeoPoint
+from app.platform.kernel.ids import CityId, DistrictId, MediaId, UserId
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -81,6 +83,46 @@ class InviteNotice:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class ChatResponse:
+    """Отклик для диалога по нему (6.3a): стороны, состояние и предложение — первое сообщение."""
+
+    id: UUID
+    job_id: UUID
+    client_id: UserId
+    performer_id: UserId
+    status: str
+    """ResponseStatus: `submitted`, `viewed`, …, `withdrawn`."""
+    visible_to_client: bool
+    """Проверка пройдена: клиент видит отклик."""
+    message: str
+    price_type: str
+    price_amount: int | None
+    availability_note: str | None
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DealJob:
+    """Заявка сделки для экрана S26 (6.2): район, окно времени и отклик; точные адрес и точка —
+    только владельцу и выбранному исполнителю."""
+
+    title: str
+    city_id: CityId
+    district_id: DistrictId | None
+    urgency: str
+    preferred_from: datetime | None
+    preferred_to: datetime | None
+    budget_min: int | None
+    budget_max: int | None
+    address: str | None
+    point: GeoPoint | None
+    responded_at: datetime | None
+    """Когда исполнитель откликнулся — первая веха таймлайна."""
+    availability_note: str | None
+    """«Когда смогу» из отклика: время сделки, если в заявке его нет."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class OwnerResponseView:
     """Отклик на заявку для её владельца (S23): только прошедшие проверку."""
 
@@ -123,6 +165,14 @@ class JobsApi(Protocol):
         """Название, статус и непросмотренные отклики заявки; None — нет такой или удалена."""
         ...
 
+    async def job_titles(self, job_ids: Collection[UUID]) -> dict[UUID, str]:
+        """Названия заявок пачкой (контекст диалогов S29); удалённых нет в ответе."""
+        ...
+
+    async def unseen_responses(self, client_id: UserId) -> int:
+        """Новые отклики на открытые заявки клиента — бейдж «Заявки N» таббара (6.4)."""
+        ...
+
     async def response_job(self, response_id: UUID) -> UUID | None:
         """Заявка отклика — куда вести исполнителя из уведомления о его отклике."""
         ...
@@ -135,6 +185,17 @@ class JobsApi(Protocol):
     async def see_responses(self, job_id: UUID) -> None:
         """Владелец открыл отклики — в транзакции вызывающего: дальше «новые» — только те, что
         пройдут проверку позже. Версия заявки не меняется."""
+        ...
+
+    async def chat_response(self, response_id: UUID) -> ChatResponse | None:
+        """Отклик для диалога по нему; удалённый или удалённая заявка — None."""
+        ...
+
+    async def deal_job(
+        self, job_id: UUID, response_id: UUID | None, viewer_id: UserId
+    ) -> DealJob | None:
+        """Заявка сделки для её стороны (S26); удалённая — None. Точный адрес — владельцу и
+        исполнителю, чей отклик выбран."""
         ...
 
     async def passed_over(self, job_id: UUID) -> list[UserId]:
