@@ -135,6 +135,23 @@ describe('Button и IconButton', () => {
     expect(button.className).toContain('text-danger');
     expect(await a11yViolations(container)).toEqual([]);
   });
+
+  it('IconButton с href — ссылка на экран (шестерёнка S42 → S43), переход — onClick', async () => {
+    const onClick = vi.fn((event: MouseEvent<HTMLElement>) => event.preventDefault());
+    const { container } = render(
+      <IconButton
+        icon="settings"
+        label="Настройки уведомлений"
+        href="/settings"
+        onClick={onClick}
+      />,
+    );
+    const link = screen.getByRole('link', { name: 'Настройки уведомлений' });
+    expect(link.getAttribute('href')).toBe('/settings');
+    fireEvent.click(link);
+    expect(onClick).toHaveBeenCalledOnce();
+    expect(await a11yViolations(container)).toEqual([]);
+  });
 });
 
 describe('Badge', () => {

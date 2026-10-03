@@ -109,7 +109,10 @@ export function LinkButton({
   );
 }
 
-export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
+export interface IconButtonProps extends Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  'children' | 'onClick'
+> {
   icon: IconName;
   /** Обязательная подпись: у кнопки нет текста. */
   label: string;
@@ -117,6 +120,9 @@ export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
   plain?: boolean;
   /** .ibtn.on — активное состояние (например, «в избранном»). */
   active?: boolean;
+  /** Переход на экран (шестерёнка S42 → настройки S43) — ссылка; с `onClick` — внутри приложения. */
+  href?: string;
+  onClick?: (event: MouseEvent<HTMLElement>) => void;
 }
 
 export function IconButton({
@@ -124,22 +130,33 @@ export function IconButton({
   label,
   plain = false,
   active = false,
+  href,
+  onClick,
   className,
   type = 'button',
   ...rest
 }: IconButtonProps) {
+  const classes = cx(
+    'inline-flex size-11 shrink-0 items-center justify-center rounded-btn border-0',
+    plain ? 'bg-transparent' : 'bg-bg2',
+    active ? 'text-danger' : 'text-text',
+    FOCUS,
+    className,
+  );
+  if (href) {
+    return (
+      <a href={href} aria-label={label} onClick={onClick} className={classes}>
+        <Icon name={icon} />
+      </a>
+    );
+  }
   return (
     <button
       type={type}
       aria-label={label}
       {...(active ? { 'aria-pressed': true } : {})}
-      className={cx(
-        'inline-flex size-11 shrink-0 items-center justify-center rounded-btn border-0',
-        plain ? 'bg-transparent' : 'bg-bg2',
-        active ? 'text-danger' : 'text-text',
-        FOCUS,
-        className,
-      )}
+      onClick={onClick}
+      className={classes}
       {...rest}
     >
       <Icon name={icon} />

@@ -82,6 +82,7 @@ describe('startupState', () => {
     flags: { 'platform.maintenance': true },
     legal_versions: {},
     legal_documents: {},
+    support_username: null,
   };
 
   it('puts the update before maintenance', () => {
@@ -147,6 +148,7 @@ describe('useLegalDocument', () => {
       flags: {},
       legal_versions: { terms: 'draft-1' },
       legal_documents: { terms: TERMS },
+      support_username: null,
     };
     const fetch = vi.fn(async () => new Response(JSON.stringify(config), { status: 200 }));
     configureApiClient({ fetch });
@@ -169,6 +171,7 @@ describe('useLegalDocument', () => {
       flags: {},
       legal_versions: { privacy: 'draft-9' },
       legal_documents: {},
+      support_username: null,
     };
     configureApiClient({
       fetch: vi.fn(async () => new Response(JSON.stringify(config), { status: 200 })),

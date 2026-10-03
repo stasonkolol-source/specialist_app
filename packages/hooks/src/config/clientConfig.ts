@@ -31,6 +31,13 @@ export function useFlag(key: FlagKey): boolean {
   return data?.flags[key] === true;
 }
 
+/** Аккаунт поддержки ссылкой t.me (K23, Q25) — тот же, что у /help в боте: «Написать в
+ *  поддержку» S47 и экспорт данных S43. `null` — контакт ещё не назначен: кнопки «скоро». */
+export function useSupportLink(): string | null {
+  const { data } = useClientConfig();
+  return data?.support_username ? `https://t.me/${data.support_username}` : null;
+}
+
 export type UpdateNeeded = 'telegram' | 'app' | null;
 
 /** Минимальный Bot API клиента, если сервер не задал `min_versions.telegram`: фолбэки
