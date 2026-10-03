@@ -178,6 +178,7 @@ describe('S52 dispute', () => {
 
     const theirs = await screen.findByRole('region', { name: 'Сообщение второй стороны' });
     expect(within(theirs).getByText(NO_SHOW)).toBeTruthy();
+    expect(screen.getByText('Нужен ваш ответ')).toBeTruthy();
     expect(
       screen.getByText(/^Ответьте до .* — иначе поддержка решит без вашего ответа\.$/),
     ).toBeTruthy();

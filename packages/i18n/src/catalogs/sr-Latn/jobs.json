@@ -530,6 +530,7 @@
     "sendError": "Slanje nije uspelo. Pokušajte ponovo",
     "status": {
       "open": "Čekamo odgovor",
+      "yours": "Potreban je vaš odgovor",
       "answered": "Stigao je odgovor",
       "no_response": "Nema odgovora",
       "resolved": "Odluka je doneta",

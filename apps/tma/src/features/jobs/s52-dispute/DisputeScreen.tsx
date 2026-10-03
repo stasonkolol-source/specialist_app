@@ -126,21 +126,27 @@ export function DisputeScreen() {
   return <Form deal={deal} />;
 }
 
-/** «Проблема со сделкой» и строка сделки: «Повесить люстру · Алексей Морозов · сегодня, 19:00». */
-function Header({ deal, status }: { deal: DealCardOut; status?: DealCardDisputeOut['status'] }) {
+/** «Проблема со сделкой», статус спора и строка сделки: «Повесить люстру · Алексей Морозов ·
+ *  сегодня, 19:00». Второй стороне спор, ждущий ответа, — «Нужен ваш ответ». */
+function Header({ deal, dispute }: { deal: DealCardOut; dispute?: DealCardDisputeOut }) {
   const { t } = useTranslation('jobs');
   const format = useFormat();
   const when = deal.scheduled_at
     ? format.calendar(new Date(deal.scheduled_at))
     : deal.availability_note;
   const line = [deal.title, deal.counterpart.display_name || null, when].filter(Boolean);
+  const yours = dispute?.status === 'open' && !dispute.opened_by_me;
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-start justify-between gap-3">
         <Heading variant="h2" as="h1">
           {t('dispute.title')}
         </Heading>
-        {status && <Badge tone={STATUS_TONE[status]}>{t(`dispute.status.${status}`)}</Badge>}
+        {dispute && (
+          <Badge tone={STATUS_TONE[dispute.status]}>
+            {yours ? t('dispute.status.yours') : t(`dispute.status.${dispute.status}`)}
+          </Badge>
+        )}
       </div>
       <Text variant="cap">{line.join(' · ')}</Text>
     </div>
@@ -239,7 +245,7 @@ function Dispute({
 
   return (
     <section className="flex flex-col gap-3 px-4 pt-4 pb-6">
-      <Header deal={deal} status={dispute.status} />
+      <Header deal={deal} dispute={dispute} />
       <Message
         title={dispute.opened_by_me ? t('dispute.mine') : t('dispute.theirs')}
         kind={dispute.kind}

@@ -1,11 +1,20 @@
 // Выбор исполнителя и сделка S24–S26 (DEVELOPMENT_PLAN 6.2) на фейке backend: своя заявка S23 →
 // отклик Алексея S24 → шторка выбора S25 → сделка S26 («Договорились», исполнитель, адрес,
-// таймлайн, памятка). Скриншоты × тема × язык, axe-core. Имена скриншотов начинаются с кода
-// артборда: make design-compare кладёт их рядом с эталоном.
+// таймлайн, памятка). Спор S52 (6.1c) по ссылке `p_` из бота: форма как на артборде → «Отправить»
+// → «Ждём ответа»; вторая сторона — сообщение, срок и форма ответа. Скриншоты × тема × язык,
+// axe-core. Имена скриншотов начинаются с кода артборда: make design-compare кладёт их рядом с
+// эталоном.
 import { expect, test } from '@playwright/test';
+import { encodeStartParam } from '@sosed/links';
 
 import { E2E_NOW, ME } from '../src/testing/fixtures.ts';
-import { JobsBackend } from '../src/testing/jobsBackend.ts';
+import {
+  JobsBackend,
+  dealCardFixture,
+  myJobsFixture,
+  responseCardsFixture,
+} from '../src/testing/jobsBackend.ts';
+import { ProfileBackend } from '../src/testing/profileBackend.ts';
 import { THEMES, expectNoAxeViolations, open, openTab, pressTelegram, real } from './support.ts';
 
 const LOCALES = [
@@ -64,6 +73,126 @@ for (const theme of THEMES) {
       await expect(page.getByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeVisible();
       await expect(page.getByRole('region', { name: l.status })).toBeVisible();
       await snap(`S26-deal-${theme}-${l.locale}.png`);
+    });
+  }
+}
+
+const DISPUTE_LOCALES = [
+  {
+    locale: 'ru',
+    telegram: 'ru',
+    title: 'Проблема со сделкой',
+    what: 'Что случилось?',
+    noShow: 'Не пришёл',
+    describe: 'Опишите, что произошло',
+    text: 'Договорились на 19:00. В 19:40 мастера всё ещё нет, на сообщения не отвечает.',
+    waiting: 'Ждём ответа',
+    theirs: 'Сообщение второй стороны',
+    answer: 'Ваш ответ',
+  },
+  {
+    locale: 'sr-Latn',
+    telegram: 'sr',
+    title: 'Problem sa dogovorom',
+    what: 'Šta se desilo?',
+    noShow: 'Nije došao',
+    describe: 'Opišite šta se desilo',
+    text: 'Dogovorili smo se za 19:00. U 19:40 majstora još nema i ne odgovara na poruke.',
+    waiting: 'Čekamo odgovor',
+    theirs: 'Poruka druge strane',
+    answer: 'Vaš odgovor',
+  },
+] as const;
+
+/** Идущая сделка клиента с Алексеем (S26) и ссылка `p_` на её спор — как в кнопке бота. */
+function disputeWorld() {
+  const [job] = myJobsFixture();
+  const [card] = responseCardsFixture();
+  if (!job || !card) throw new Error('fixtures');
+  const jobs = new JobsBackend().seedMine();
+  const profile = new ProfileBackend();
+  jobs.media = profile.media;
+  const deal = dealCardFixture(job, card, 'client');
+  jobs.deals.set(deal.id, deal);
+  return { jobs, profile, deal, start: encodeStartParam({ type: 'dispute', id: deal.id }) };
+}
+
+for (const theme of THEMES) {
+  for (const l of DISPUTE_LOCALES) {
+    test(`S52 ${theme} ${l.locale}: спор из бота, форма и «Ждём ответа»`, async ({ page }) => {
+      await page.clock.setFixedTime(new Date(E2E_NOW));
+      const { jobs, profile, deal, start } = disputeWorld();
+      const watch = await open(page, `theme=${theme}&lang=${l.telegram}&start=${start}`, {
+        signedIn: true,
+        me: { ...ME, ui_locale: l.locale },
+        jobs,
+        profile,
+      });
+      const snap = async (name: string) => {
+        expect(real(watch.problems)).toEqual([]);
+        expect(watch.unexpectedApi).toEqual([]);
+        await expect(page).toHaveScreenshot(name, { fullPage: true });
+        await expectNoAxeViolations(page);
+        watch.problems.length = 0;
+      };
+
+      // «Есть проблема» под «Работа выполнена?» — сразу S52, не S26
+      await expect(page.getByRole('heading', { name: l.title, level: 1 })).toBeVisible();
+      const kinds = page.getByRole('radiogroup', { name: l.what });
+      await kinds.getByRole('radio', { name: l.noShow }).click();
+      await page.getByRole('textbox', { name: l.describe }).fill(l.text);
+      await snap(`S52-dispute-${theme}-${l.locale}.png`);
+
+      // «Отправить» — MainButton mock-клиента: спор сразу на экране
+      await pressTelegram(page, 'main_button_pressed');
+      await expect(page.getByText(l.waiting, { exact: true })).toBeVisible();
+      expect(jobs.decisions).toEqual([{ id: deal.id, action: 'dispute', reason: 'no_show' }]);
+      await snap(`S52-dispute-open-${theme}-${l.locale}.png`);
+    });
+
+    test(`S52 ${theme} ${l.locale}: вторая сторона отвечает`, async ({ page }) => {
+      await page.clock.setFixedTime(new Date(E2E_NOW));
+      const { jobs, profile, deal, start } = disputeWorld();
+      jobs.deals.set(deal.id, {
+        ...deal,
+        status: 'disputed',
+        dispute: {
+          id: '0199df00-0000-7000-8000-0000000000d1',
+          deal_id: deal.id,
+          deal_status: 'disputed',
+          status: 'open',
+          kind: 'no_show',
+          opened_by_me: true,
+          description: l.text,
+          photos: [],
+          respond_by: new Date(Date.parse(E2E_NOW) + 48 * 60 * 60 * 1000).toISOString(),
+          response: null,
+          response_photos: [],
+          responded_at: null,
+          unanswered_at: null,
+          withdrawn_at: null,
+          outcome: null,
+          reason_code: null,
+          resolved_at: null,
+          created_at: E2E_NOW,
+        },
+      });
+      jobs.dealRole = 'performer';
+      const watch = await open(page, `theme=${theme}&lang=${l.telegram}&start=${start}`, {
+        signedIn: true,
+        me: { ...ME, ui_locale: l.locale },
+        jobs,
+        profile,
+      });
+
+      await expect(page.getByRole('region', { name: l.theirs })).toBeVisible();
+      await expect(page.getByRole('textbox', { name: l.answer })).toBeVisible();
+      expect(real(watch.problems)).toEqual([]);
+      expect(watch.unexpectedApi).toEqual([]);
+      await expect(page).toHaveScreenshot(`S52-dispute-answer-${theme}-${l.locale}.png`, {
+        fullPage: true,
+      });
+      await expectNoAxeViolations(page);
     });
   }
 }
