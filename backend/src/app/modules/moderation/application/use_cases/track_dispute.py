@@ -95,7 +95,7 @@ class TrackDispute:
                     queue=case.queue,
                     trigger=CaseTrigger.DISPUTE,
                     now=now,
-                    details={"event": step.value},
+                    details={"event": step.value, "signals": [f"dispute:{step.value}"]},
                     media_ids=dispute.response_media_ids if step is DisputeStep.ANSWERED else (),
                 )
                 await self._cases.save(case)
@@ -106,6 +106,8 @@ class TrackDispute:
         queue = dispute_queue(dispute.kind)
         details: dict[str, object] = {
             "event": DisputeStep.OPENED.value,
+            # в `cli moderation-queue` — что случилось, а потом «answered» или «no_response»
+            "signals": [f"dispute:{dispute.kind}"],
             "deal_id": str(dispute.deal_id),
             "kind": dispute.kind,
             "opened_by": str(dispute.opened_by),

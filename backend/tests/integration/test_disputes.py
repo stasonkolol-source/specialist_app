@@ -17,7 +17,12 @@ from dishka import AsyncContainer
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from app.entrypoints._moderation_cli import dispute_resolve, dispute_show, moderation_decide
+from app.entrypoints._moderation_cli import (
+    dispute_resolve,
+    dispute_show,
+    moderation_decide,
+    moderation_queue,
+)
 from app.entrypoints._wiring import make_worker_container, module_routers
 from app.modules.deals.application.use_cases.sweep_disputes import (
     SweepDisputes,
@@ -346,6 +351,10 @@ async def test_no_answer_in_48_hours_marks_the_case(world: World) -> None:
     case = await world.case(opened["id"])
     assert [entry["event"] for entry in case.evidence] == ["opened", "no_response"]
     assert case.status == "pending"
+    queue = await moderation_queue(world.worker, limit=500)
+    [line] = [line for line in queue.lines if str(case.id) in line]
+    assert f"dispute/{opened['id']}" in line
+    assert "dispute:no_show, dispute:no_response" in line
     # поздний ответ модератору тоже пригодится
     late = await world.post(performer, f"/deals/{deal_id}/dispute/respond", {"text": "Болел"})
     assert late.json()["status"] == "answered"
