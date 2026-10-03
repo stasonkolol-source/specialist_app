@@ -252,9 +252,10 @@ def _service(service: PublicService) -> CardServiceOut:
 async def _categories(
     catalog: CatalogApi, ids: list[CategoryId], locale: Locale
 ) -> list[CardNamedOut]:
-    found = {category.id: category for category in await catalog.categories(ids)}
+    """Названия категорий для показа — из снимка таксономии (без запроса в базу)."""
+    found = await catalog.labels(ids) if ids else {}
     return [
-        CardNamedOut(id=category_id, name=found[category_id].name.get(locale))
+        CardNamedOut(id=category_id, name=found[category_id].get(locale))
         for category_id in ids
         if category_id in found
     ]

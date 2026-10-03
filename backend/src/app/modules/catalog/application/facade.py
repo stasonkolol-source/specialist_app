@@ -11,6 +11,7 @@ from app.modules.catalog.api import (
 )
 from app.modules.catalog.application.ports import CatalogQuery
 from app.platform.kernel.ids import CategoryId
+from app.platform.kernel.localized import LocalizedText
 
 
 class CatalogFacade(CatalogApi):
@@ -24,6 +25,9 @@ class CatalogFacade(CatalogApi):
         if not category_ids:
             return []
         return await self._query.categories(category_ids)
+
+    async def labels(self, category_ids: Collection[CategoryId]) -> dict[CategoryId, LocalizedText]:
+        return await self._query.labels(category_ids) if category_ids else {}
 
     async def search_terms(
         self, category_ids: Collection[CategoryId]

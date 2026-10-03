@@ -82,6 +82,12 @@ class CatalogApi(Protocol):
         """Несколько категорий одним запросом (категории профиля); порядок — по path."""
         ...
 
+    async def labels(self, category_ids: Collection[CategoryId]) -> dict[CategoryId, LocalizedText]:
+        """Названия категорий для показа (карточки BFF): из снимка таксономии в памяти процесса,
+        могут отставать от базы на минуту. Для решений (риск, статус, путь) — `categories`.
+        Кого нет — нет и в ответе."""
+        ...
+
     async def search_terms(
         self, category_ids: Collection[CategoryId]
     ) -> dict[CategoryId, tuple[SearchTerm, ...]]:

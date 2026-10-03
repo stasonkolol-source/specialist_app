@@ -1,9 +1,13 @@
-"""Таксономия в памяти процесса (перф-аудит 2026-10): дерево категорий и сводки по id.
+"""Таксономия в памяти процесса (перф-аудит 2026-10): дерево категорий и названия по id.
 
 Дерево отдаёт GET /categories на каждом запуске, а названия категорий нужны карточкам S08, S11 и
 прайсу S09; меняет таксономию только импорт сидов (и админка). Снимок — два запроса — живёт
 минуту (platform/cache/snapshot.py), как словарь модерации: столько же правка доходит до всех
 процессов. Чего нет в снимке (категория добавлена после него), читается из базы.
+
+Категории для решений (`category`, `categories`: риск для модерации, «можно ли заявку», путь в
+заявке и в индексе поиска) читаются из базы, как раньше: переиндексация по CatalogChanged
+не должна взять отстающий снимок.
 
 Распознанный текст запроса (словарь целиком или по началу, ближайшее слово) запоминается в
 снимке: один и тот же запрос выдачи и её счётчика («Показать N») не ходит в словарь дважды, а
@@ -24,6 +28,7 @@ from app.modules.catalog.infrastructure.queries import SqlCatalogQuery
 from app.platform.cache.memo import Memo
 from app.platform.cache.snapshot import SnapshotCache
 from app.platform.kernel.ids import CategoryId
+from app.platform.kernel.localized import LocalizedText
 
 TTL: Final = timedelta(seconds=60)
 MAX_MATCHES: Final = 1024
@@ -31,11 +36,11 @@ MAX_MATCHES: Final = 1024
 
 
 class Taxonomy:
-    """Снимок: публичное дерево, все категории по id и города с ориентирами цены."""
+    """Снимок: публичное дерево, названия всех категорий по id и города с ориентирами цены."""
 
     def __init__(self, tree: Sequence[CategoryView], categories: Sequence[CategorySummary]):
         self.tree = tuple(tree)
-        self.by_id = {category.id: category for category in categories}
+        self.labels = {category.id: category.name for category in categories}
         self.hint_cities = frozenset(_hint_cities(self.tree))
         self.matches: dict[tuple[str, str], TermMatch | None] = {}
 
@@ -58,7 +63,7 @@ class TaxonomySnapshotCache(SnapshotCache[Taxonomy]):
 
 
 class CachedCatalogQuery(CatalogQuery):
-    """CatalogQuery поверх снимка: дерево и категории по id; промах и словарь — запросами."""
+    """CatalogQuery поверх снимка: дерево, названия и распознанный текст; остальное — запросами."""
 
     def __init__(self, cache: TaxonomySnapshotCache, sql: SqlCatalogQuery) -> None:
         self._cache, self._sql = cache, sql
@@ -67,16 +72,18 @@ class CachedCatalogQuery(CatalogQuery):
         return list((await self._cache.get()).data.tree)
 
     async def category(self, category_id: CategoryId) -> CategorySummary | None:
-        found = (await self._cache.get()).data.by_id.get(category_id)
-        return found if found is not None else await self._sql.category(category_id)
+        return await self._sql.category(category_id)
 
     async def categories(self, category_ids: Collection[CategoryId]) -> list[CategorySummary]:
-        known = (await self._cache.get()).data.by_id
-        found = [known[i] for i in dict.fromkeys(category_ids) if i in known]
+        return await self._sql.categories(category_ids)
+
+    async def labels(self, category_ids: Collection[CategoryId]) -> dict[CategoryId, LocalizedText]:
+        known = (await self._cache.get()).data.labels
+        found = {i: known[i] for i in category_ids if i in known}
         missing = [i for i in category_ids if i not in known]
         if missing:
-            found += await self._sql.categories(missing)
-        return sorted(found, key=lambda category: category.path)
+            found |= await self._sql.labels(missing)
+        return found
 
     async def search_terms(
         self, category_ids: Collection[CategoryId]

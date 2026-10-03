@@ -7,6 +7,7 @@ from app.modules.catalog.api import CategorySuggestion, CategorySummary, SearchT
 from app.modules.catalog.application.dto import CategorySeed, CategoryView, ImportResult
 from app.platform.cache.memo import Memo
 from app.platform.kernel.ids import CategoryId
+from app.platform.kernel.localized import LocalizedText
 
 
 class CatalogQuery(Protocol):
@@ -17,6 +18,10 @@ class CatalogQuery(Protocol):
     async def category(self, category_id: CategoryId) -> CategorySummary | None: ...
 
     async def categories(self, category_ids: Collection[CategoryId]) -> list[CategorySummary]: ...
+
+    async def labels(self, category_ids: Collection[CategoryId]) -> dict[CategoryId, LocalizedText]:
+        """Названия для показа; кого нет — нет и в ответе."""
+        ...
 
     async def search_terms(
         self, category_ids: Collection[CategoryId]

@@ -21,7 +21,7 @@ from app.modules.catalog.infrastructure.models import CategoryRow, SearchTermRow
 from app.platform.cache.memo import Memo
 from app.platform.db.query import SqlQuery
 from app.platform.kernel.ids import CategoryId, TagId
-from app.platform.kernel.localized import Locale
+from app.platform.kernel.localized import Locale, LocalizedText
 
 _CATEGORIES = CategoryRow.__table__.c
 _TERMS = SearchTermRow.__table__.c
@@ -94,6 +94,12 @@ class SqlCatalogQuery(SqlQuery):
             .order_by(_CATEGORIES.path)
         )
         return [_summary(row) for row in rows]
+
+    async def labels(self, category_ids: Collection[CategoryId]) -> dict[CategoryId, LocalizedText]:
+        rows = await self._fetch(
+            select(_CATEGORIES.id, _CATEGORIES.name).where(_CATEGORIES.id.in_(list(category_ids)))
+        )
+        return {CategoryId(row["id"]): row["name"] for row in rows}
 
     async def search_terms(
         self, category_ids: Collection[CategoryId]

@@ -427,8 +427,9 @@ async def test_public_tree_hides_inactive_and_forbidden_categories(
 async def test_cached_taxonomy_matches_database_and_sees_new_categories(
     db_session: AsyncSession, db_connection: AsyncConnection, procrastinate_app: procrastinate.App
 ) -> None:
-    """Снимок в памяти процесса отдаёт то же, что база; категория, добавленная после снимка,
-    находится по id запросом, а в дереве появляется после сброса (импорт в процессе)."""
+    """Снимок в памяти процесса отдаёт то же дерево и названия, что база; категория, добавленная
+    после снимка, находится по id запросом, а в дереве появляется после сброса (импорт в
+    процессе). Категории для решений — всегда из базы."""
     await _import(db_session, procrastinate_app, taxonomy())
     maker = async_sessionmaker(bind=db_connection, join_transaction_mode="create_savepoint")
     cache = TaxonomySnapshotCache(maker)
@@ -438,12 +439,13 @@ async def test_cached_taxonomy_matches_database_and_sees_new_categories(
     ids = [(await _summary(db_session, slug)).id for slug in slugs]
 
     assert await cached.tree() == await sql.tree()
-    assert await cached.categories(ids) == await sql.categories(ids)
+    assert await cached.labels(ids) == await sql.labels(ids)
     assert "novi-sad" in await cached.price_hint_cities()
 
     late_seed = a_category("t-late", names("Позже", "Касније"))
     await _import(db_session, procrastinate_app, [*taxonomy(), late_seed])
     late = await _summary(db_session, "t-late")
+    assert await cached.labels([late.id]) == {late.id: late.name}
     assert await cached.category(late.id) == late
     assert _find_or_none(await cached.tree(), "t-late") is None
     cache.invalidate()
