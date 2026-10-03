@@ -1,13 +1,22 @@
 // S11 Отзывы о специалисте (DEVELOPMENT_PLAN 4.6): сводка — средняя оценка, звёзды, сколько
 // отзывов, распределение оценок и средние по критериям; ниже — отзывы по сделкам, новые первыми.
-// Пока отзывов нет — «Отзывов пока нет»: специалист новый (сами отзывы — с 7.2). Вкладка «До
-// платформы» — 7.6, ответы специалиста — 7.3, «Пожаловаться на отзыв» — 4.7, «Как мы проверяем
+// Пока отзывов нет — «Отзывов пока нет»: специалист новый. Ответы специалиста под отзывами и
+// «Показать ещё» — 7.3. Вкладка «До платформы» — 7.6, «Пожаловаться на отзыв» — 4.7, «Как мы проверяем
 // отзывы» (S51) — со своим шагом. Имя и услуга в шапке — из профиля S08 (обычно уже в кэше).
 import type { CardRatingOut, CardReviewOut, SpecialistProfileOut } from '@sosed/api-client';
 import { isUnavailable, useSpecialistCard, useSpecialistReviews } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton } from '@sosed/platform';
-import { Card, EmptyState, Heading, ProgressBar, Skeleton, Stars, Text } from '@sosed/ui-web';
+import {
+  Button,
+  Card,
+  EmptyState,
+  Heading,
+  ProgressBar,
+  Skeleton,
+  Stars,
+  Text,
+} from '@sosed/ui-web';
 import { useParams, useRouter } from '@tanstack/react-router';
 
 import { LoadError } from '../shared/LoadError.tsx';
@@ -30,8 +39,23 @@ export function ReviewsScreen() {
     else void router.navigate({ to: CARD_PATHS.profile, params: { profileId }, replace: true });
   });
 
-  if (card.data && reviews.data) {
-    return <Reviews card={card.data} summary={reviews.data.summary} items={reviews.data.items} />;
+  const first = reviews.data?.pages[0];
+  if (card.data && first) {
+    return (
+      <Reviews
+        card={card.data}
+        summary={first.summary}
+        items={reviews.data?.pages.flatMap((page) => page.items) ?? []}
+        more={
+          reviews.hasNextPage
+            ? {
+                load: () => void reviews.fetchNextPage(),
+                busy: reviews.isFetchingNextPage,
+              }
+            : null
+        }
+      />
+    );
   }
   const failed = [card, reviews].find((load) => load.isError);
   if (failed) {
@@ -61,10 +85,12 @@ function Reviews({
   card,
   summary,
   items,
+  more,
 }: {
   card: SpecialistProfileOut;
   summary: CardRatingOut;
   items: CardReviewOut[];
+  more: { load: () => void; busy: boolean } | null;
 }) {
   const { t } = useTranslation('catalog');
   const category = card.categories[0]?.name;
@@ -89,6 +115,16 @@ function Reviews({
           {items.map((review) => (
             <ReviewCard key={review.id} review={review} />
           ))}
+          {more && (
+            <Button
+              variant="secondary"
+              onClick={more.load}
+              disabled={more.busy}
+              aria-busy={more.busy}
+            >
+              {t('reviews.more')}
+            </Button>
+          )}
         </>
       )}
     </section>

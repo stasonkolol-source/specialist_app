@@ -1,8 +1,11 @@
-// Карточка специалиста S08–S10 (DEVELOPMENT_PLAN 4.5) на MSW, как BFF: профиль одним запросом,
-// переход из выдачи и по ссылке `s_`, «Профиль недоступен» для скрытого, прайс по группам,
-// просмотрщик работ на тёмном фоне со свайпом и миниатюрами, «Назад» закрывает его целиком.
+// Карточка специалиста S08–S11 (DEVELOPMENT_PLAN 4.5, 7.3) на MSW, как BFF: профиль одним
+// запросом, переход из выдачи и по ссылке `s_`, «Профиль недоступен» для скрытого, прайс по
+// группам, просмотрщик работ на тёмном фоне со свайпом и миниатюрами, «Назад» закрывает его
+// целиком; отзывы S11 с ответом специалиста и «Показать ещё».
+import type { CardReviewOut, CardReviewsOut } from '@sosed/api-client';
 import { encodeStartParam } from '@sosed/links';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { HttpResponse, http } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { backButtonVisible, mainButton, pressBackButton, startApp } from '../../testing/app.tsx';
@@ -173,5 +176,56 @@ describe('S10 portfolio viewer', () => {
       fireEvent.keyDown(window, { key: 'ArrowRight' });
     });
     expect(await screen.findByText('4 / 18')).toBeTruthy();
+  });
+});
+
+describe('S11 reviews', () => {
+  const review = (n: number, reply: CardReviewOut['reply'] = null): CardReviewOut => ({
+    id: `0199ee00-0000-7000-8000-0000000001${String(n).padStart(2, '0')}`,
+    kind: 'deal',
+    author_name: `Клиент ${n}`,
+    rating: 5,
+    criteria: {},
+    body: `Отзыв номер ${n}`,
+    category: null,
+    published_at: '2026-09-20T12:00:00Z',
+    reply,
+  });
+  const summary: CardReviewsOut['summary'] = {
+    rating: 4.9,
+    count: 21,
+    is_new: false,
+    distribution: [0, 0, 0, 1, 20],
+    criteria: {},
+  };
+
+  it('shows the specialist reply and loads more reviews', async () => {
+    server.use(
+      http.get(/\/api\/v1\/specialists\/[^/]+\/reviews$/, ({ request }) => {
+        const more = new URL(request.url).searchParams.get('cursor') === 'p2';
+        const page: CardReviewsOut = more
+          ? { summary, items: [review(21)], next_cursor: null }
+          : {
+              summary,
+              items: [
+                review(1, { body: 'Спасибо, рад был помочь!', at: '2026-09-21T09:00:00Z' }),
+                review(2),
+              ],
+              next_cursor: 'p2',
+            };
+        return HttpResponse.json(page);
+      }),
+    );
+    startApp(`${PROFILE}/reviews`);
+
+    const first = await screen.findByText('Отзыв номер 1');
+    const card = first.closest('article') as HTMLElement;
+    expect(within(card).getByText('Ответ специалиста')).toBeTruthy();
+    expect(within(card).getByText('Спасибо, рад был помочь!')).toBeTruthy();
+    expect(screen.queryByText('Отзыв номер 21')).toBeNull();
+    await click(screen.getByRole('button', { name: 'Показать ещё' }));
+
+    expect(await screen.findByText('Отзыв номер 21')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Показать ещё' })).toBeNull();
   });
 });

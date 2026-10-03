@@ -236,6 +236,16 @@ export {
   useWithdrawResponse,
 } from './jobs/responses.ts';
 export type { CancelDeal, DecideResponse } from './deals/deals.ts';
+export type { HistoryPages, MyReviewsPages } from './reviews/reviews.ts';
+export {
+  DEAL_HISTORY_KEY,
+  MY_REVIEWS_KEY,
+  pagedItems,
+  useDealHistory,
+  useLeaveReview,
+  useMyReviews,
+  useReplyToReview,
+} from './reviews/reviews.ts';
 export {
   MY_DEALS_KEY,
   dealCardQueryKey,

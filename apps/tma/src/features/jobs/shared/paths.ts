@@ -17,11 +17,13 @@ export const JOBS_PATHS = {
   manage: '/jobs/$jobId/manage',
   response: '/jobs/$jobId/responses/$responseId',
   deal: '/deals/$dealId',
+  review: '/deals/$dealId/review',
+  history: '/deals',
 } as const;
 
 export type JobsSegment = Exclude<
   keyof typeof JOBS_PATHS,
-  'job' | 'respond' | 'templates' | 'manage' | 'response' | 'deal'
+  'job' | 'respond' | 'templates' | 'manage' | 'response' | 'deal' | 'review' | 'history'
 >;
 export const JOBS_SEGMENTS: readonly JobsSegment[] = ['feed', 'responses', 'mine'];
 
@@ -47,6 +49,18 @@ export const choicePath = (jobId: string, responseId: string) =>
 
 /** Сделка S26 (6.2): из S25, «Открыть сделку» S23 и S17, уведомлений бота (`d_`). */
 export const dealPath = (dealId: string) => `/deals/${dealId}`;
+
+export interface HistorySearch {
+  /** Вкладка «Отзывы» S28: ссылка `m_reviews` из уведомления о новом отзыве. */
+  tab?: 'reviews';
+}
+
+export function historySearch(search: Record<string, unknown>): HistorySearch {
+  return search.tab === 'reviews' ? { tab: 'reviews' } : {};
+}
+
+/** Отзыв S27 (7.3): из S26 и S28 («Оставить отзыв»), из бота — через сделку (`d_`). */
+export const reviewPath = (dealId: string) => `/deals/${dealId}/review`;
 
 /** Диалог S30 (фича messages, 6.4): «Написать» на S24 открывает диалог по отклику. */
 export const chatPath = (conversationId: string) => `/messages/${conversationId}`;

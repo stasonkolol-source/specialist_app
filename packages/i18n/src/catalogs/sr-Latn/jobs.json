@@ -494,6 +494,94 @@
       "share": "Podelite kontakt",
       "shareHint": "Pošaljite svoj Telegram ili telefon u razgovor o dogovoru",
       "shareError": "Razgovor nije moguće otvoriti. Pokušajte ponovo"
+    },
+    "leaveReview": "Ostavi utisak",
+    "reviewUntil": "Utisak možete ostaviti do {date}",
+    "myReview": {
+      "under_review": "Vaš utisak je na proveri",
+      "published": "Vaš utisak je objavljen",
+      "removed": "Vaš utisak je uklonjen moderacijom"
     }
+  },
+  "review": {
+    "title": "Kako je prošlo?",
+    "dealLine": "{title} · {date}",
+    "rating": "Ocena",
+    "star": "{count, plural, one {# zvezdica} few {# zvezdice} other {# zvezdica}}",
+    "grade": {
+      "1": "Loše",
+      "2": "Osrednje",
+      "3": "Solidno",
+      "4": "Dobro",
+      "5": "Odlično"
+    },
+    "liked": "Šta vam se dopalo?",
+    "criteria": {
+      "quality": "Kvalitet",
+      "punctuality": "Tačnost",
+      "communication": "Komunikacija",
+      "price": "Odgovara ceni"
+    },
+    "body": "Utisak",
+    "placeholder": "Opišite posao: šta je dobro urađeno, šta može bolje",
+    "hint": "Pišite o poslu. Telefoni i linkovi u utisku se ne objavljuju.",
+    "photo": "Fotografija",
+    "photoSoon": "Fotografije uz utisak — uskoro",
+    "note": "Utisak će se pojaviti na profilu izvođača posle automatske provere. Posle objave ne može se menjati.",
+    "submit": "Objavi utisak",
+    "sent": "Hvala! Utisak će se pojaviti posle provere.",
+    "failed": "Slanje utiska nije uspelo. Pokušajte ponovo.",
+    "closed": "Rok za utisak je istekao: možete ga ostaviti u roku od 14 dana posle završetka dogovora.",
+    "exists": "Već ste ostavili utisak za ovaj dogovor.",
+    "notCompleted": "Utisak možete ostaviti kada posao bude završen.",
+    "notClient": "Utisak ostavlja klijent: izvođači će moći da ocenjuju klijente kasnije.",
+    "toDeal": "Na dogovor"
+  },
+  "history": {
+    "title": "Dogovori i utisci",
+    "tabs": {
+      "deals": "Dogovori",
+      "reviews": "Utisci"
+    },
+    "active": "Aktivni",
+    "finished": "Završeni",
+    "you": {
+      "client": "Vi ste klijent",
+      "performer": "Vi ste izvođač"
+    },
+    "reviewLeft": "Utisak ostavljen",
+    "reviewNone": "Utiska još nema",
+    "leaveReview": "Ostavi utisak",
+    "cancelledBy": {
+      "me": "otkazali ste vi",
+      "client": "otkazao klijent",
+      "performer": "otkazao izvođač",
+      "system": "otkazan automatski"
+    },
+    "emptyTitle": "Dogovora još nema",
+    "emptyText": "Kada se dogovorite sa izvođačem ili klijentom, dogovor će se pojaviti ovde.",
+    "more": "Prikaži još",
+    "received": "O meni",
+    "written": "Moji",
+    "reviewStatus": {
+      "under_review": "Na proveri",
+      "published": "Objavljen",
+      "removed": "Uklonjen moderacijom"
+    },
+    "reply": "Odgovori",
+    "replyTitle": "Odgovor na utisak",
+    "replyHint": "Odgovor će videti svi. Ne može se menjati.",
+    "replySend": "Pošalji odgovor",
+    "replyFailed": "Slanje odgovora nije uspelo. Pokušajte ponovo.",
+    "yourReply": "Vaš odgovor",
+    "theirReply": "Odgovor izvođača",
+    "replyStatus": {
+      "under_review": "Odgovor je na proveri",
+      "published": "Odgovor je objavljen",
+      "removed": "Odgovor je sakriven moderacijom"
+    },
+    "emptyReceived": "Utisaka o vama još nema",
+    "emptyWritten": "Još niste ostavili utiske",
+    "deleted": "Nalog je obrisan"
   }
 }

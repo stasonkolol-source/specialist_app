@@ -5,3 +5,6 @@ export const ACCOUNT_PATHS = {
   delete: '/profile/delete',
   settings: '/settings',
 } as const;
+
+/** «Сделки и отзывы» S28 (фича jobs, 7.3): строка «Моей активности». */
+export const HISTORY_PATH = '/deals';

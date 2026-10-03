@@ -8,7 +8,8 @@
 // «… предлагает договориться» с условиями, сроком (72 ч) и «Подтвердить» / «Отклонить»,
 // предложившей — «ждём подтверждения». После договорённости — контакты: Telegram второй стороны
 // (если она его показывает) и «Поделиться контактом» — шторка S54 в чате сделки. «Есть проблема» →
-// S52 (спор, 6.1c) и отзыв (7.2) — в своих шагах.
+// S52 (спор, 6.1c) — в своём шаге. Завершена (7.3): шаг «Отзыв» в таймлайне, MainButton «Оставить
+// отзыв» (S27) клиенту, пока окно открыто, и статус своего отзыва.
 import type { DealCancelReason, DealCardOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import {
@@ -47,8 +48,10 @@ import { useId, useState } from 'react';
 import { useStepButton } from '../shared/flow.ts';
 import { useOfferPrice } from '../shared/labels.ts';
 import { LoadError } from '../shared/LoadError.tsx';
-import { JOBS_PATHS, chatPath, jobIdOf, specialistPath } from '../shared/paths.ts';
+import { JOBS_PATHS, chatPath, jobIdOf, reviewPath, specialistPath } from '../shared/paths.ts';
 
+/** Статус своего отзыва (7.3): API отдаёт строкой. */
+type ReviewState = 'under_review' | 'published' | 'removed';
 /** Причины, которые выбирает сторона; `expired` и `account_deleted` ставит система. */
 type PartyReason = Extract<
   DealCancelReason,
@@ -189,13 +192,24 @@ function Deal({ deal }: { deal: DealCardOut }) {
   const [cancelling, setCancelling] = useState(false);
   const agreed = deal.status === 'agreed';
   const client = deal.my_role === 'client';
+  const router = useRouter();
   const failed = complete.error ?? cancel.error;
-  useStepButton({
-    text: t('deal.complete'),
-    visible: agreed && deal.timeline.my_mark_at === null && !cancelling,
-    loading: complete.isPending,
-    onClick: () => complete.mutate(deal.id),
-  });
+  const reviewing = deal.status === 'completed' && deal.review_until !== null;
+  useStepButton(
+    reviewing
+      ? {
+          text: t('deal.leaveReview'),
+          visible: true,
+          loading: false,
+          onClick: () => void router.navigate({ to: reviewPath(deal.id) }),
+        }
+      : {
+          text: t('deal.complete'),
+          visible: agreed && deal.timeline.my_mark_at === null && !cancelling,
+          loading: complete.isPending,
+          onClick: () => complete.mutate(deal.id),
+        },
+  );
 
   return (
     <section className="flex flex-col gap-3 px-4 pt-3 pb-6">
@@ -457,7 +471,11 @@ function Steps({ deal }: { deal: DealCardOut }) {
       meta: timeline.completed_at ? stamp(timeline.completed_at) : undefined,
       state: done ? 'done' : 'next',
     },
-    { key: 'review', title: t('deal.step.review'), state: done ? 'now' : 'next' },
+    {
+      key: 'review',
+      title: t('deal.step.review'),
+      state: deal.my_review ? 'done' : done ? 'now' : 'next',
+    },
   );
   return (
     <Card tight as="section" aria-labelledby={id}>
@@ -475,10 +493,23 @@ function State({ deal }: { deal: DealCardOut }) {
   const format = useFormat();
   const { timeline } = deal;
   if (deal.status === 'completed' && timeline.completed_at) {
+    const review = deal.my_review;
     return (
-      <Banner tone="ok" role="status">
-        {t('deal.completed', { date: format.date(new Date(timeline.completed_at)) })}
-      </Banner>
+      <>
+        <Banner tone="ok" role="status">
+          {t('deal.completed', { date: format.date(new Date(timeline.completed_at)) })}
+        </Banner>
+        {review && (
+          <Banner tone={review.status === 'removed' ? 'warn' : 'info'} icon="star">
+            {t(`deal.myReview.${review.status as ReviewState}`)}
+          </Banner>
+        )}
+        {!review && deal.review_until && (
+          <Banner tone="info" icon="star">
+            {t('deal.reviewUntil', { date: format.date(new Date(deal.review_until)) })}
+          </Banner>
+        )}
+      </>
     );
   }
   if (deal.status === 'cancelled') {

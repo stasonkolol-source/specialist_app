@@ -50,7 +50,7 @@ import { useRouter } from '@tanstack/react-router';
 import type { MouseEvent, ReactNode } from 'react';
 import { useEffect, useId } from 'react';
 
-import { ACCOUNT_PATHS } from '../paths.ts';
+import { ACCOUNT_PATHS, HISTORY_PATH } from '../paths.ts';
 
 /** S48, правила площадки (маршрут features/service/s48-legal). */
 const LEGAL_PATH = '/legal/$document';
@@ -203,7 +203,7 @@ function Specialist() {
   );
 }
 
-/** «Моя активность»: избранное S12 и уведомления S42 (история сделок — с 6.x). */
+/** «Моя активность»: сделки и отзывы S28, избранное S12, уведомления S42, настройки S43. */
 function Activity() {
   const { t } = useTranslation();
   const { t: ts } = useTranslation('service');
@@ -217,6 +217,13 @@ function Activity() {
   return (
     <nav aria-label={t('profile.activity')}>
       <Group>
+        <Row
+          icon="briefcase"
+          title={t('profile.history')}
+          chevron
+          href={router.history.createHref(HISTORY_PATH)}
+          onClick={open(HISTORY_PATH)}
+        />
         <Row
           icon="heart"
           title={t('profile.favorites')}

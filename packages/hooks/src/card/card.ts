@@ -16,10 +16,11 @@ import {
   getViewsListSpecialistServicesQueryKey,
   getViewsListSpecialistWorksQueryKey,
   useViewsGetSpecialist,
-  useViewsListSpecialistReviews,
   useViewsListSpecialistServices,
   useViewsListSpecialistWorks,
+  viewsListSpecialistReviews,
 } from '@sosed/api-client';
+import { useInfiniteQuery } from '@tanstack/react-query';
 
 /** Как Cache-Control ответов (max-age=60). */
 export const CARD_STALE_MS = 60_000;
@@ -58,14 +59,22 @@ export function useSpecialistWorks(profileId: string) {
   });
 }
 
-/** S11: рейтинг с гистограммой и первая страница отзывов; услуги в отзывах — на языке запроса.
- * Следующие страницы (`cursor`) — с экраном S11 в 7.3. */
+export const SPECIALIST_REVIEWS_PAGE = 20;
+
+/** S11: рейтинг с гистограммой (первая страница) и отзывы страницами «Показать ещё»; услуги в
+ * отзывах — на языке запроса. */
 export function useSpecialistReviews(profileId: string, locale: Locale) {
-  return useViewsListSpecialistReviews(profileId, undefined, {
-    query: {
-      queryKey: [...getViewsListSpecialistReviewsQueryKey(profileId), locale] as const,
-      staleTime: CARD_STALE_MS,
-    },
+  return useInfiniteQuery({
+    queryKey: [...getViewsListSpecialistReviewsQueryKey(profileId), locale] as const,
+    queryFn: ({ pageParam, signal }) =>
+      viewsListSpecialistReviews(
+        profileId,
+        { limit: SPECIALIST_REVIEWS_PAGE, ...(pageParam ? { cursor: pageParam } : {}) },
+        { signal },
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.next_cursor ?? null,
+    staleTime: CARD_STALE_MS,
   });
 }
 

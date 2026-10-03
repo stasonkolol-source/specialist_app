@@ -7,6 +7,7 @@ export type {
   CreateSearch,
   DoneSearch,
   EditSearch,
+  HistorySearch,
   JobSearch,
   ResponsesSearch,
 } from './shared/paths.ts';
@@ -18,7 +19,9 @@ export {
   doneSearch,
   editSearch,
   dealPath,
+  historySearch,
   jobPath,
+  reviewPath,
   jobSearch,
   respondPath,
   responsesSearch,

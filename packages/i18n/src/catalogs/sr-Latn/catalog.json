@@ -155,7 +155,9 @@
     "emptyText": "Stručnjak je nov na platformi — utisci će se pojaviti posle prvih poslova",
     "viaDeal": "Posao u aplikaciji „Sosedi“",
     "rating": "Ocena {rating} od 5",
-    "all": "Svi {count}"
+    "all": "Svi {count}",
+    "reply": "Odgovor stručnjaka",
+    "more": "Prikaži još"
   },
   "favorites": {
     "title": "Omiljeni",

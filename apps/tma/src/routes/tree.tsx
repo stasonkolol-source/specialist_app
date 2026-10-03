@@ -26,6 +26,7 @@ import {
   doneSearch,
   editSearch,
   feedSearch,
+  historySearch,
   jobSearch,
   responsesSearch,
 } from '../features/jobs/index.ts';
@@ -132,6 +133,22 @@ const deal = createRoute({
   getParentRoute: () => rootRoute,
   path: JOBS_PATHS.deal,
   component: screen(() => import('../features/jobs/s26-deal/index.ts'), 'DealScreen'),
+});
+
+// Отзыв S27 (7.3): «Оставить отзыв» S26 и S28; создающее действие — без согласия S02c
+const review = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.review,
+  beforeLoad: requireConsent,
+  component: screen(() => import('../features/jobs/s27-review/index.ts'), 'ReviewScreen'),
+});
+
+// «Сделки и отзывы» S28 (7.3): строка S31, ссылка `m_reviews` — вкладка «Отзывы»
+const history = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.history,
+  validateSearch: historySearch,
+  component: screen(() => import('../features/jobs/s28-history/index.ts'), 'HistoryScreen'),
 });
 
 // Отклик S16 (5.5) — из MainButton S15 и «Изменить» S17; создающее действие: без согласия — S02c
@@ -437,6 +454,8 @@ export const routeTree = rootRoute.addChildren([
   manage,
   choice,
   deal,
+  review,
+  history,
   createWhat,
   createWhen,
   createBudget,
