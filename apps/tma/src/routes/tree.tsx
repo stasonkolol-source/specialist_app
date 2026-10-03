@@ -33,6 +33,7 @@ import {
 import { MESSAGES_PATHS, chatSearch } from '../features/messages/index.ts';
 import { ONBOARDING_PATHS, onboardingSearch } from '../features/onboarding/index.ts';
 import { BECOME_PATHS, CABINET_PATHS, becomeSearch } from '../features/specialist/index.ts';
+import { HELP_PATH } from '../features/service/s47-help/paths.ts';
 import { LEGAL_PATH } from '../features/service/s48-legal/paths.ts';
 import { RESTRICTED_PATH } from '../features/service/s49-system/index.ts';
 import { AppShell } from '../features/shell/index.ts';
@@ -224,8 +225,8 @@ const profile = createRoute({
   component: screen(() => import('../features/account/s31-account/index.ts'), 'AccountScreen'),
 });
 
-// S45 удаление аккаунта (2.12a): из S31; без входа удалять нечего
-// Настройки S43 (6.5 — раздел приватности, 4.9 — остальное); без входа настраивать нечего
+// Настройки S43 (4.9; раздел приватности — 6.5): из S31, шестерёнки S42 и кнопки бота
+// `m_settings`; без входа настраивать нечего
 const settings = createRoute({
   getParentRoute: () => rootRoute,
   path: ACCOUNT_PATHS.settings,
@@ -233,6 +234,7 @@ const settings = createRoute({
   component: screen(() => import('../features/account/s43-settings/index.ts'), 'SettingsScreen'),
 });
 
+// S45 удаление аккаунта (2.12a): из S43 и кнопки бота `m_deletion`; без входа удалять нечего
 const deleteAccount = createRoute({
   getParentRoute: () => rootRoute,
   path: ACCOUNT_PATHS.delete,
@@ -369,6 +371,13 @@ const onboardingRules = createRoute({
   component: screen(() => import('../features/onboarding/s02c-rules/index.ts'), 'RulesScreen'),
 });
 
+// Помощь S47 (4.9): из S31; открыта и гостю — вопросы и правила безопасности входа не требуют
+const help = createRoute({
+  getParentRoute: () => rootRoute,
+  path: HELP_PATH,
+  component: screen(() => import('../features/service/s47-help/index.ts'), 'HelpScreen'),
+});
+
 // S48 — своим чанком: документы приходят в client-config, без сети их всё равно не показать, а
 // разбор Markdown первому экрану не нужен. Документ — в пути, чтобы S02c, S31 и deep link
 // открывали нужный.
@@ -493,6 +502,7 @@ export const routeTree = rootRoute.addChildren([
   onboardingLanguage,
   onboardingIntent,
   onboardingRules,
+  help,
   legal,
   restricted,
 ]);

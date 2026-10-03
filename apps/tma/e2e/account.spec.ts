@@ -1,4 +1,4 @@
-// Удаление аккаунта S45 (DEVELOPMENT_PLAN 2.12a): из профиля S31, скриншоты × тема × язык и
+// Удаление аккаунта S45 (DEVELOPMENT_PLAN 2.12a): из настроек S43 (4.9), скриншоты × тема × язык и
 // axe-core — у опубликованного специалиста, как на артборде (с «Нужна пауза?»); запрос и отмена —
 // дата удаления на S31 и «Отменить». Имена скриншотов начинаются с кода артборда:
 // make design-compare кладёт их рядом с эталоном.
@@ -20,6 +20,7 @@ const LOCALES = [
     locale: 'ru',
     telegram: 'ru',
     tab: 'Профиль',
+    settings: 'Настройки',
     row: 'Удалить аккаунт',
     title: 'Удаление аккаунта',
   },
@@ -27,6 +28,7 @@ const LOCALES = [
     locale: 'sr-Latn',
     telegram: 'sr',
     tab: 'Profil',
+    settings: 'Podešavanja',
     row: 'Obriši nalog',
     title: 'Brisanje naloga',
   },
@@ -42,6 +44,7 @@ for (const theme of THEMES) {
         profile,
       });
       await openProfile(page, l.tab);
+      await page.getByRole('link', { name: l.settings, exact: true }).click();
       await page.getByRole('link', { name: l.row }).click();
 
       await expect(page.getByRole('heading', { name: l.title, level: 1 })).toBeVisible();
@@ -58,6 +61,7 @@ for (const theme of THEMES) {
 test('S45 и S31: удаление через 7 дней и отмена из профиля', async ({ page }) => {
   const watch = await open(page, 'theme=light&lang=ru', { signedIn: true });
   await openProfile(page);
+  await page.getByRole('link', { name: 'Настройки', exact: true }).click();
   await page.getByRole('link', { name: 'Удалить аккаунт' }).click();
   await expect(page.getByRole('heading', { name: 'Удаление аккаунта', level: 1 })).toBeVisible();
 
@@ -69,6 +73,9 @@ test('S45 и S31: удаление через 7 дней и отмена из п
   await request;
   await expect(page.getByText('Аккаунт удалится 8 октября')).toBeVisible();
 
+  // назад: S45 → настройки S43 → профиль S31
+  await pressTelegram(page, 'back_button_pressed');
+  await expect(page.getByRole('heading', { name: 'Настройки', level: 1 })).toBeVisible();
   await pressTelegram(page, 'back_button_pressed');
   const banner = page.getByRole('status').filter({ hasText: 'Аккаунт удалится 8 октября' });
   await expect(banner).toBeVisible();

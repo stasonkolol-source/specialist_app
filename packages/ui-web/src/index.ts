@@ -15,7 +15,15 @@ export { cx } from './cx.ts';
 export type { BannerTone, EmptyTone } from './Feedback.tsx';
 export { Banner, EmptyState, ProgressBar, Skeleton, Stars, Steps, Toast } from './Feedback.tsx';
 export type { CheckboxProps, OptionProps, SegmentLink, SegmentedOption } from './form/Choice.tsx';
-export { Checkbox, Option, RadioGroup, Segmented, SegmentedNav, Switch } from './form/Choice.tsx';
+export {
+  CheckButton,
+  Checkbox,
+  Option,
+  RadioGroup,
+  Segmented,
+  SegmentedNav,
+  Switch,
+} from './form/Choice.tsx';
 export type {
   FieldProps,
   InputProps,

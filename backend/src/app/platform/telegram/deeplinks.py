@@ -63,10 +63,13 @@ class LinkDocument(StrEnum):
 
 class LinkSection(StrEnum):
     """Свой раздел ссылки `m_<раздел>`: `jobs` — «Мои заявки» (S22), `reviews` — «Мои отзывы»
-    (S28, 7.3; кнопка «Ответить на отзыв» уведомления `review.published`)."""
+    (S28, 7.3; кнопка «Ответить на отзыв» уведомления `review.published`), `settings` —
+    настройки S43 и `deletion` — удаление аккаунта S45 (кнопки `/settings` бота, 4.9)."""
 
     JOBS = "jobs"
     REVIEWS = "reviews"
+    SETTINGS = "settings"
+    DELETION = "deletion"
 
 
 class ReservedCode(StrEnum):

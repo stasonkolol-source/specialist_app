@@ -203,6 +203,39 @@ msgstr "Политика конфиденциальности"
 msgid "bot.commands.language"
 msgstr "Язык"
 
+msgid "bot.commands.settings"
+msgstr "Настройки"
+
+msgid "bot.settings.text"
+msgstr "<b>Настройки</b>\nЯзык — первой строкой. Ниже — уведомления в этом чате: нажмите, чтобы включить или выключить. Город, уведомления в приложении и приватность — по кнопке «Все настройки»."
+
+msgid "bot.settings.start"
+msgstr "Сначала нажмите /start — тогда здесь появятся настройки."
+
+msgid "bot.settings.group.job_matches"
+msgstr "Заявки по подпискам"
+
+msgid "bot.settings.group.responses"
+msgstr "Отклики и выбор"
+
+msgid "bot.settings.group.messages"
+msgstr "Сообщения"
+
+msgid "bot.settings.group.deals"
+msgstr "Сделки, споры, отзывы"
+
+msgid "bot.settings.group.marketing"
+msgstr "Новости «Соседей»"
+
+msgid "bot.settings.quiet"
+msgstr "Тихие часы {start}–{end}"
+
+msgid "bot.settings.all"
+msgstr "Все настройки"
+
+msgid "bot.settings.delete"
+msgstr "Удалить аккаунт"
+
 msgid "bot.profile.name"
 msgstr "Соседи"
 

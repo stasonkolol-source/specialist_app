@@ -1,16 +1,32 @@
-"""Бот notifications (DEVELOPMENT_PLAN 2.3b, ADR-0011): статус канала следует за человеком.
+"""Бот notifications (DEVELOPMENT_PLAN 2.3b, 4.9, ADR-0011): статус канала и `/settings`.
 
 Остановил бота в личном чате (`my_chat_member` → `kicked`) — канал telegram выключается;
 запустил снова (`member`) — включается, как после /start. Апдейт человека, которого нет
 среди пользователей (ещё не нажал /start), ничего не меняет: канал появится с /start.
+
+`/settings` — язык, уведомления в боте по группам и тихие часы: нажатие на группу или тихие часы
+переключает и перерисовывает кнопки; «Все настройки» — S43, «Удалить аккаунт» — S45. Язык — те же
+кнопки `lang:`, что у /language: их обрабатывает бот identity и отвечает «Готово» на новом языке.
 """
+
+from typing import Final
 
 from aiogram import F, Router
 from aiogram.enums import ChatMemberStatus
-from aiogram.types import ChatMemberUpdated
+from aiogram.exceptions import TelegramBadRequest
+from aiogram.filters import Command
+from aiogram.types import (
+    CallbackQuery,
+    ChatMemberUpdated,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+    WebAppInfo,
+)
 from dishka.integrations.aiogram import FromDishka, inject
 
 from app.modules.identity.api import IdentityApi
+from app.modules.notifications.application.ports import NotificationQuery
 from app.modules.notifications.application.use_cases.block_telegram_channel import (
     BlockTelegramChannel,
     BlockTelegramChannelCommand,
@@ -19,7 +35,46 @@ from app.modules.notifications.application.use_cases.grant_telegram_write_access
     GrantTelegramWriteAccess,
     GrantTelegramWriteAccessCommand,
 )
+from app.modules.notifications.application.use_cases.toggle_bot_setting import (
+    ToggleBotSetting,
+    ToggleBotSettingCommand,
+)
+from app.modules.notifications.domain.catalog import Channel, EventGroup
 from app.modules.notifications.domain.channel import GrantedVia
+from app.modules.notifications.domain.settings import NotificationSettings
+from app.platform.i18n.translator import Translator
+from app.platform.kernel.localized import Locale
+from app.platform.kernel.principal import Principal
+from app.platform.settings import TelegramSettings
+from app.platform.telegram.buttons import mini_app_url
+from app.platform.telegram.callbacks import LANGUAGE_CALLBACK
+from app.platform.telegram.deeplinks import LinkSection, LinkType, StartLink, encode_start_param
+from app.platform.telegram.texts import html_text, plain_text
+
+SETTINGS_CALLBACK: Final = "nset:"
+"""Кнопки /settings: `nset:<группа>` и `nset:quiet`. Рисует и обрабатывает их этот модуль — общий
+кодек (platform/telegram/callbacks.py) не нужен."""
+QUIET: Final = "quiet"
+GROUPS: Final = (
+    EventGroup.JOB_MATCHES,
+    EventGroup.RESPONSES,
+    EventGroup.MESSAGES,
+    EventGroup.DEALS,
+    EventGroup.MARKETING,
+)
+"""Группы в порядке S43; служебная `account` не выключается и здесь не показывается."""
+ALL_SETTINGS: Final = encode_start_param(
+    StartLink(type=LinkType.MINE, section=LinkSection.SETTINGS)
+)
+DELETION: Final = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSection.DELETION))
+LANGUAGE_BUTTONS: Final[dict[Locale, str]] = {
+    Locale.RU: "Русский",
+    Locale.SR_LATN: "Srpski",
+    Locale.SR_CYRL: "Српски",
+}
+"""Языки одной строкой, как на S43: самоназвания не переводятся, письмо видно по буквам."""
+ON: Final = "✅"
+OFF: Final = "▫️"
 
 
 @inject
@@ -45,8 +100,109 @@ async def member_status(
         )
 
 
+@inject
+async def settings_command(
+    message: Message,
+    locale: Locale,
+    translator: FromDishka[Translator],
+    query: FromDishka[NotificationQuery],
+    telegram: FromDishka[TelegramSettings],
+    principal: Principal | None = None,
+) -> None:
+    if principal is None:
+        await message.answer(html_text(translator, "bot.settings.start", locale))
+        return
+    current = await query.settings(principal.user_id)
+    await message.answer(
+        html_text(translator, "bot.settings.text", locale),
+        reply_markup=_keyboard(current, translator, locale, telegram.mini_app_url),
+    )
+
+
+@inject
+async def toggle(
+    callback: CallbackQuery,
+    locale: Locale,
+    translator: FromDishka[Translator],
+    toggle_setting: FromDishka[ToggleBotSetting],
+    telegram: FromDishka[TelegramSettings],
+    principal: Principal | None = None,
+) -> None:
+    value = (callback.data or "").removeprefix(SETTINGS_CALLBACK)
+    group = next((g for g in GROUPS if g.value == value), None)
+    if principal is None or (group is None and value != QUIET):
+        await callback.answer()
+        return
+    changed = await toggle_setting(ToggleBotSettingCommand(user_id=principal.user_id, group=group))
+    await callback.answer()
+    if not isinstance(callback.message, Message):
+        return
+    try:
+        await callback.message.edit_reply_markup(
+            reply_markup=_keyboard(changed, translator, locale, telegram.mini_app_url)
+        )
+    except TelegramBadRequest as exc:  # двойное нажатие: та же клавиатура
+        if "message is not modified" not in exc.message:
+            raise
+
+
+def _keyboard(
+    current: NotificationSettings, translator: Translator, locale: Locale, mini_app: str | None
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text=f"{ON} {name}" if option is locale else name,
+                callback_data=f"{LANGUAGE_CALLBACK}{option}",
+            )
+            for option, name in LANGUAGE_BUTTONS.items()
+        ]
+    ]
+    for group in GROUPS:
+        on = current.preferences.allows(group, Channel.TELEGRAM)
+        name = plain_text(translator, f"bot.settings.group.{group.value}", locale)
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{ON if on else OFF} {name}",
+                    callback_data=f"{SETTINGS_CALLBACK}{group.value}",
+                )
+            ]
+        )
+    quiet = current.quiet_hours
+    window = plain_text(
+        translator,
+        "bot.settings.quiet",
+        locale,
+        start=quiet.start.strftime("%H:%M"),
+        end=quiet.end.strftime("%H:%M"),
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=f"{ON if quiet.enabled else OFF} {window}",
+                callback_data=f"{SETTINGS_CALLBACK}{QUIET}",
+            )
+        ]
+    )
+    if mini_app is not None:
+        for label, link in (("bot.settings.all", ALL_SETTINGS), ("bot.settings.delete", DELETION)):
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=plain_text(translator, label, locale),
+                        web_app=WebAppInfo(url=mini_app_url(mini_app, link)),
+                    )
+                ]
+            )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 def create_router() -> Router:
     """Новый роутер на каждый вызов: роутер aiogram подключается только к одному диспетчеру."""
     router = Router(name="notifications")
-    router.my_chat_member.register(member_status, F.chat.type == "private")
+    private = F.chat.type == "private"
+    router.my_chat_member.register(member_status, private)
+    router.message.register(settings_command, Command("settings"), private)
+    router.callback_query.register(toggle, F.data.startswith(SETTINGS_CALLBACK))
     return router

@@ -18,6 +18,7 @@ const CONFIG: ClientConfigOut = {
   flags: {},
   legal_versions: { terms: 'draft-1' },
   legal_documents: { terms: TERMS },
+  support_username: null,
 };
 
 function wrapper() {

@@ -25,6 +25,7 @@ const LOCALES = [
     offlineText: 'Проверьте интернет и попробуйте ещё раз',
     saved: 'Сохранено в 18:07',
     retry: 'Повторить',
+    settings: 'Настройки',
     otherLanguage: 'Srpski (latinica)',
     restricted: 'Аккаунт ограничен до 3 октября',
     banner: 'До 3 октября, 18:00 нельзя откликаться на заявки',
@@ -49,6 +50,7 @@ const LOCALES = [
     offlineText: 'Proverite internet i pokušajte ponovo',
     saved: 'Sačuvano u 18:07',
     retry: 'Pokušaj ponovo',
+    settings: 'Podešavanja',
     otherLanguage: 'Русский',
     restricted: /^Nalog je ograničen do 3\. oktob\S+$/,
     banner: /^Do 3\. oktob\S+ u 18:00 ne možete da šaljete ponude na zahteve$/,
@@ -155,6 +157,8 @@ for (const theme of THEMES) {
       });
       await openProfile(page, l.profile);
       await expect(page.getByRole('heading', { name: ME.display_name })).toBeVisible();
+      // язык — в настройках S43 (4.9)
+      await page.getByRole('link', { name: l.settings, exact: true }).click();
 
       await page.getByRole('radio', { name: l.otherLanguage }).click();
 

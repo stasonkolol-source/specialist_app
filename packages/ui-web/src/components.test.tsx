@@ -11,7 +11,7 @@ import {
   SpecialistCardSkeleton,
 } from './CardSkeletons.tsx';
 import { Banner, EmptyState, ProgressBar, Skeleton, Stars, Steps, Toast } from './Feedback.tsx';
-import { Checkbox, Option, RadioGroup, Segmented, Switch } from './form/Choice.tsx';
+import { CheckButton, Checkbox, Option, RadioGroup, Segmented, Switch } from './form/Choice.tsx';
 import { Field, Input, SearchField, Textarea } from './form/Field.tsx';
 import { Badge } from './Badge.tsx';
 import { LinkButton } from './Button.tsx';
@@ -266,6 +266,40 @@ describe('Segmented, Option, Switch', () => {
     const option = screen.getByRole('checkbox', { name: 'Только проверенные' });
     fireEvent.click(option);
     expect(option.getAttribute('aria-checked')).toBe('true');
+    expect(await a11yViolations(container)).toEqual([]);
+  });
+});
+
+describe('CheckButton (S43) и Row danger', () => {
+  function Table() {
+    const [bot, setBot] = useState(true);
+    return (
+      <Group>
+        <Row
+          title="Сообщения"
+          trailing={
+            <CheckButton
+              className="w-18"
+              checked={bot}
+              onChange={setBot}
+              label="Сообщения — в боте"
+            />
+          }
+        />
+        <Row icon="trash" title="Удалить аккаунт" danger chevron href="/delete" />
+      </Group>
+    );
+  }
+
+  it('отметка без подписи рядом называется для скринридера и переключается', async () => {
+    const { container } = render(<Table />);
+    const box = screen.getByRole('checkbox', { name: 'Сообщения — в боте' });
+    expect(box.getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(box);
+    expect(box.getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByRole('link', { name: 'Удалить аккаунт' }).className).toContain(
+      'text-danger',
+    );
     expect(await a11yViolations(container)).toEqual([]);
   });
 });

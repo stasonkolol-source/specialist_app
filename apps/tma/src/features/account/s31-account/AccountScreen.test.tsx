@@ -1,7 +1,7 @@
-// S31 (DEVELOPMENT_PLAN 2.9): имя и город из GET /me, вход в кабинет специалиста, язык из
-// ui_locale и его смена через PATCH /me, ошибки API и состояние «вне Telegram». API — MSW из orval
-// с фикстурами SPEC §4, кабинет — фейк backend testing/profileBackend.ts.
-import type { MeUpdateIn } from '@sosed/api-client';
+// S31 (DEVELOPMENT_PLAN 2.9): имя и город из GET /me, вход в кабинет специалиста, строки в
+// настройки S43 и помощь S47 (4.9; смена языка — в тестах S43), ошибки API и состояние «вне
+// Telegram». API — MSW из orval с фикстурами SPEC §4, кабинет — фейк backend
+// testing/profileBackend.ts.
 import { configureApiClient, setSession } from '@sosed/api-client';
 import type { Locale } from '@sosed/i18n';
 import { I18nextProvider, createI18n, currentLocale } from '@sosed/i18n';
@@ -18,7 +18,7 @@ import {
 } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { FIRST_SERVICE, ME, PROFILE_FILLED } from '../../../testing/fixtures.ts';
 import { API_ORIGIN, TOKENS, profileHandlers, server } from '../../../testing/msw.ts';
@@ -66,8 +66,18 @@ function createTestRouter() {
     path: '/cabinet',
     component: () => <h1>S33</h1>,
   });
+  const settings = createRoute({
+    getParentRoute: () => root,
+    path: '/settings',
+    component: () => <h1>S43</h1>,
+  });
+  const help = createRoute({
+    getParentRoute: () => root,
+    path: '/help',
+    component: () => <h1>S47</h1>,
+  });
   return createRouter({
-    routeTree: root.addChildren([profile, legal, notifications, become, cabinet]),
+    routeTree: root.addChildren([profile, legal, notifications, become, cabinet, settings, help]),
     history: createMemoryHistory({ initialEntries: ['/'] }),
   });
 }
@@ -98,8 +108,6 @@ async function renderScreen(options: RenderOptions = {}) {
   );
   return { i18n, router, queryClient };
 }
-
-const checked = (name: string) => screen.getByRole('radio', { name }).getAttribute('aria-checked');
 
 afterEach(() => setSession(null));
 
@@ -209,7 +217,6 @@ describe('S31 profile', () => {
     expect(await screen.findByRole('heading', { name: 'Елена К.', level: 2 })).toBeTruthy();
     expect(await screen.findByText('Нови-Сад')).toBeTruthy();
     expect(auth).toEqual([`Bearer ${TOKENS.access_token}`]);
-    expect(checked('Русский')).toBe('true');
   });
 
   it('announces loading until /me answers', async () => {
@@ -220,150 +227,31 @@ describe('S31 profile', () => {
     expect(screen.queryByRole('status')).toBeNull();
   });
 
-  it('saves the language with PATCH /me and keeps its answer as /me', async () => {
-    let body: unknown = null;
-    let ifMatch: string | null = null;
-    const languages: (string | null)[] = [];
-    server.use(
-      http.get(ME_PATH, ({ request }) => {
-        languages.push(request.headers.get('Accept-Language'));
-        return HttpResponse.json(ME);
-      }),
-      http.patch(ME_PATH, async ({ request }) => {
-        body = await request.json();
-        ifMatch = request.headers.get('If-Match');
-        return HttpResponse.json({ ...ME, ui_locale: 'sr-Latn' });
-      }),
+  it('opens settings S43 from «Язык» with the current language and from «Настройки»', async () => {
+    const { router } = await renderScreen({ locale: 'sr-Latn' });
+    const app = await screen.findByRole('navigation', { name: 'Aplikacija' });
+    const language = within(app).getByRole('link', { name: /^Jezik/ });
+    expect(language.textContent).toBe('JezikSrpski');
+    expect(language.getAttribute('href')).toBe('/settings');
+    expect(within(app).getByRole('link', { name: 'Podešavanja' }).getAttribute('href')).toBe(
+      '/settings',
     );
-    const { i18n } = await renderScreen();
-    await screen.findByRole('heading', { name: 'Елена К.' });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('radio', { name: 'Srpski (latinica)' }));
+      fireEvent.click(language);
     });
 
-    expect(await screen.findByRole('heading', { name: 'Profil', level: 1 })).toBeTruthy();
-    expect(body).toEqual({ ui_locale: 'sr-Latn' });
-    // ETag из GET /me mutator не отдаёт — If-Match пока не отправляем
-    expect(ifMatch).toBeNull();
-    expect(i18n.language).toBe('sr-Latn');
-    expect(checked('Srpski (latinica)')).toBe('true');
-    // ответ PATCH — тот же MeOut: /me не перечитывается
-    await act(async () => undefined);
-    expect(languages).toEqual(['ru']);
+    expect(router.state.location.pathname).toBe('/settings');
+    expect(await screen.findByRole('heading', { name: 'S43' })).toBeTruthy();
   });
 
-  it('follows the language saved on the server and does not save it again', async () => {
-    const patches: MeUpdateIn[] = [];
-    server.use(
-      http.get(ME_PATH, () => HttpResponse.json({ ...ME, ui_locale: 'sr-Cyrl' })),
-      http.patch(ME_PATH, async ({ request }) => {
-        const body = (await request.json()) as MeUpdateIn;
-        patches.push(body);
-        return HttpResponse.json({ ...ME, ...body });
-      }),
-    );
-    // язык Telegram — ru, на сервере выбран sr-Cyrl
-    const { i18n } = await renderScreen({ locale: 'ru' });
-
-    expect(await screen.findByRole('heading', { name: 'Профил', level: 1 })).toBeTruthy();
-    expect(i18n.language).toBe('sr-Cyrl');
-    expect(checked('Српски (ћирилица)')).toBe('true');
-    expect(checked('Русский')).toBe('false');
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('radio', { name: 'Српски (ћирилица)' }));
-    });
-    expect(patches).toEqual([]);
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole('radio', { name: 'Русский' }));
-    });
-    expect(await screen.findByRole('heading', { name: 'Профиль', level: 1 })).toBeTruthy();
-    expect(patches).toEqual([{ ui_locale: 'ru' }]);
-    expect(i18n.language).toBe('ru');
-    expect(checked('Русский')).toBe('true');
-  });
-
-  it('keeps the current language when the server has en, which MVP does not offer', async () => {
-    const patch = vi.fn(() => HttpResponse.json(ME));
-    server.use(
-      http.get(ME_PATH, () => HttpResponse.json({ ...ME, ui_locale: 'en' })),
-      http.patch(ME_PATH, patch),
-    );
-    const { i18n } = await renderScreen({ locale: 'sr-Latn' });
-    await screen.findByRole('heading', { name: 'Елена К.' });
-
-    expect(i18n.language).toBe('sr-Latn');
-    expect(checked('Srpski (latinica)')).toBe('true');
-
-    // на сервере en: выбор отмеченного языка сохраняется
-    await act(async () => {
-      fireEvent.click(screen.getByRole('radio', { name: 'Srpski (latinica)' }));
-    });
-    await waitFor(() => expect(patch).toHaveBeenCalledOnce());
-  });
-
-  it('does not call the API when the saved language is chosen again', async () => {
-    const patch = vi.fn(() => HttpResponse.json(ME));
-    server.use(http.patch(ME_PATH, patch));
+  it('has no language list and no account deletion: both moved to settings S43', async () => {
     await renderScreen();
     await screen.findByRole('heading', { name: 'Елена К.' });
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('radio', { name: 'Русский' }));
-    });
-
-    expect(patch).not.toHaveBeenCalled();
+    expect(screen.queryByRole('radiogroup')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Удалить аккаунт' })).toBeNull();
   });
-
-  // 412 сюда не попадает: If-Match клиент не шлёт, а без него сервер версию не сверяет
-  it.each([
-    ['500', () => problem(500, 'internal_error')],
-    ['a network error', () => HttpResponse.error()],
-  ])(
-    'keeps the language and shows an error at once when PATCH /me fails with %s',
-    async (_, fail) => {
-      // /me после ошибки перечитывается, но ответа нет: экран не должен его ждать
-      let release = () => undefined as void;
-      const hold = new Promise<void>((resolve) => {
-        release = resolve;
-      });
-      onTestFinished(() => release());
-      let gets = 0;
-      const patch = vi.fn(fail);
-      server.use(
-        http.get(ME_PATH, async () => {
-          gets += 1;
-          if (gets > 1) await hold;
-          return HttpResponse.json(ME);
-        }),
-        http.patch(ME_PATH, patch),
-      );
-      const { i18n } = await renderScreen();
-      await screen.findByRole('heading', { name: 'Елена К.' });
-
-      await act(async () => {
-        fireEvent.click(screen.getByRole('radio', { name: 'Српски (ћирилица)' }));
-      });
-
-      await waitFor(() =>
-        expect(screen.getByRole('alert').textContent).toBe(
-          'Не получилось сменить язык. Попробуйте ещё раз',
-        ),
-      );
-      expect(gets).toBe(2);
-      expect(i18n.language).toBe('ru');
-      expect(checked('Русский')).toBe('true');
-      expect(checked('Српски (ћирилица)')).toBe('false');
-
-      // следующий выбор не отбрасывается, пока /me перечитывается
-      await act(async () => {
-        fireEvent.click(screen.getByRole('radio', { name: 'Srpski (latinica)' }));
-      });
-      await waitFor(() => expect(patch).toHaveBeenCalledTimes(2));
-    },
-  );
 
   it('shows an error with retry when GET /me fails', async () => {
     server.use(http.get(ME_PATH, () => problem(500, 'internal_error'), { once: true }));
@@ -409,6 +297,20 @@ describe('S31 profile', () => {
     await renderScreen({ signedIn: false, onReauth });
 
     expect(await screen.findByRole('heading', { name: 'Елена К.' })).toBeTruthy();
+  });
+
+  it('opens help (S47) from the support group', async () => {
+    const { router } = await renderScreen();
+    const support = await screen.findByRole('navigation', { name: 'Поддержка' });
+    const help = within(support).getByRole('link', { name: 'Помощь' });
+    expect(help.getAttribute('href')).toBe('/help');
+
+    await act(async () => {
+      fireEvent.click(help);
+    });
+
+    expect(router.state.location.pathname).toBe('/help');
+    expect(await screen.findByRole('heading', { name: 'S47' })).toBeTruthy();
   });
 
   it('opens the platform rules (S48) from the support group', async () => {

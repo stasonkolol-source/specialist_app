@@ -20,6 +20,7 @@ export {
   requiredUpdate,
   useClientConfig,
   useFlag,
+  useSupportLink,
 } from './config/clientConfig.ts';
 export {
   CITIES_STALE_MS,
@@ -62,6 +63,12 @@ export {
   useStartConversation,
 } from './messages/conversations.ts';
 export type { DayKey, NotificationDay, NotificationFeed } from './notifications/notifications.ts';
+export type { NotificationChannel, SettingsChange } from './notifications/settings.ts';
+export {
+  applyChange,
+  settingsIn,
+  useUpdateNotificationSettings,
+} from './notifications/settings.ts';
 export {
   NOTIFICATIONS_PAGE_SIZE,
   feedItems,

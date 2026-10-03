@@ -222,6 +222,43 @@ function Mark({
   );
 }
 
+/**
+ * Отметка без подписи рядом (.ibtn.plain + .chk): ячейка таблицы «группа × канал» S43. Что она
+ * значит, видно по заголовку колонки — скринридеру это говорит `label`.
+ */
+export function CheckButton({
+  checked,
+  onChange,
+  label,
+  disabled = false,
+  className,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+  disabled?: boolean;
+  /** Ширина колонки: на артборде — 72 px (`w-18`). */
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={cx(
+        'inline-flex h-11 shrink-0 items-center justify-center rounded-btn border-0 bg-transparent p-0 disabled:opacity-55',
+        FOCUS,
+        className,
+      )}
+    >
+      <Mark kind="checkbox" checked={checked} />
+    </button>
+  );
+}
+
 export interface CheckboxProps {
   checked: boolean;
   onChange: (checked: boolean) => void;

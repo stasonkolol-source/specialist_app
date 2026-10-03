@@ -16,10 +16,38 @@
     "emptyTitle": "Još nema obaveštenja",
     "emptyText": "Ovde će se pojaviti ponude, poruke i odluke o vašim zahtevima",
     "loading": "Učitavamo obaveštenja",
-    "unreadCount": "{count, plural, one {# nepročitano} few {# nepročitana} other {# nepročitanih}}"
+    "unreadCount": "{count, plural, one {# nepročitano} few {# nepročitana} other {# nepročitanih}}",
+    "settings": "Podešavanja obaveštenja"
   },
   "settings": {
     "title": "Podešavanja",
+    "app": "Aplikacija",
+    "language": "Jezik interfejsa",
+    "languageSoon": "English — uskoro",
+    "city": "Grad",
+    "cityTitle": "Vaš grad",
+    "cityPilot": "Pilot-grad",
+    "soon": "uskoro",
+    "notifications": "Obaveštenja",
+    "channel": {
+      "telegram": "Bot",
+      "in_app": "Aplikacija"
+    },
+    "group": {
+      "job_matches": "Zahtevi po pretplatama",
+      "responses": "Ponude i izbor",
+      "messages": "Poruke",
+      "deals": "Dogovori, sporovi, utisci",
+      "marketing": "Novosti aplikacije „Sosedi“"
+    },
+    "groupChannel": "{group} — {channel, select, telegram {u botu} other {u aplikaciji}}",
+    "quiet": "Tihi sati {start}–{end}",
+    "quietHint": "Hitno i poruke — odmah",
+    "loading": "Učitavamo podešavanja obaveštenja",
+    "loadError": "Podešavanja obaveštenja nisu učitana",
+    "export": "Izvoz mojih podataka",
+    "exportHint": "Zahtev podršci",
+    "version": "{appName} · verzija {version}",
     "privacyTitle": "Prikaži posle dogovora",
     "privacyTelegram": "Moj Telegram",
     "privacyTelegramHint": "Sagovornik će videti link na vaš Telegram u dogovoru i u razgovoru kad se dogovorite",
@@ -52,5 +80,38 @@
     "cancel": "Otkaži brisanje",
     "cancelShort": "Otkaži",
     "row": "Obriši nalog"
+  },
+  "help": {
+    "title": "Pomoć",
+    "search": "Pretraga pitanja",
+    "safetyTitle": "Bezbedni dogovori",
+    "safety": {
+      "prepay": "Ne uplaćujte avans nepoznatima",
+      "links": "Ne otvarajte linkove „za plaćanje“"
+    },
+    "faqTitle": "Česta pitanja",
+    "faq": {
+      "responses": {
+        "q": "Zašto nema više od 5 ponuda?",
+        "a": "Tako se klijent ne gubi u porukama, a svaki stručnjak ima pravu šansu. Kad se mesta popune, ponuda se više ne može poslati."
+      },
+      "contacts": {
+        "q": "Kada će kontakti biti vidljivi?",
+        "a": "Kad se dogovorite u razgovoru i obe strane potvrde „Dogovoreno“. Dotle se dopisujete u aplikaciji „Sosedi“, a telefoni i linkovi u porukama su sakriveni."
+      },
+      "review": {
+        "q": "Kako da ostavim utisak?",
+        "a": "Kad je posao završen, označite to u dogovoru — bot će vas zamoliti da ocenite stručnjaka. Utisak možete ostaviti i kasnije: „Profil“ → „Dogovori i utisci“."
+      },
+      "price": {
+        "q": "Koliko košta aplikacija „Sosedi“?",
+        "a": "Ništa: zahtevi, ponude i dopisivanje su besplatni. Za posao plaćate stručnjaku direktno, posle posla — aplikacija „Sosedi“ ne prima novac."
+      }
+    },
+    "nothingFound": "Takvog pitanja nema. Pišite podršci — odgovorićemo",
+    "rules": "Pravila platforme",
+    "rulesHint": "i politika privatnosti",
+    "support": "Piši podršci",
+    "supportSoon": "Podrška — uskoro"
   }
 }
