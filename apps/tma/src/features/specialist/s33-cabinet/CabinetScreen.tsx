@@ -4,7 +4,6 @@
 // продолжают мастер S32 с нужного шага (MainButton). Блоки артборда, чьих экранов ещё нет,
 // появятся со своими шагами: «Посмотреть как клиент» — 4.5; «За 30 дней» и «Скоро» — v1.
 import type { HintOut, ProfileOut } from '@sosed/api-client';
-import { usePricingListMyServices } from '@sosed/api-client';
 import { availableUntil, quickHour } from '@sosed/domain';
 import type { ProfileState } from '@sosed/hooks';
 import {
@@ -12,6 +11,7 @@ import {
   profileState,
   useMyPortfolio,
   useMyProfile,
+  useMyServices,
   useSetAvailability,
 } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
@@ -229,7 +229,7 @@ function AvailabilityValue({ profile }: { profile: ProfileOut }) {
 
 /** Сколько позиций в прайсе — справа в строке «Прайс», как на артборде. */
 function PriceCount() {
-  const services = usePricingListMyServices();
+  const services = useMyServices();
   const count = services.data?.items.length;
   if (!count) return null;
   return (

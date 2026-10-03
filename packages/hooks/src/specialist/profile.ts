@@ -9,6 +9,8 @@ import {
 } from '@sosed/api-client';
 import { useQuery } from '@tanstack/react-query';
 
+import { OWN_STALE_MS } from '../cache.ts';
+
 /** Шаги мастера «Стать специалистом»: тип (S32a), о себе (S32b), районы и цены (S32c). */
 export const BECOME_STEPS = ['type', 'about', 'area'] as const;
 export type BecomeStep = (typeof BECOME_STEPS)[number];
@@ -39,6 +41,7 @@ export function useMyProfile({ enabled = true }: { enabled?: boolean } = {}) {
       }
     },
     enabled,
+    staleTime: OWN_STALE_MS,
   });
 }
 

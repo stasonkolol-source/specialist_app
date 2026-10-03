@@ -3,8 +3,17 @@
 // форматирования — своей и в карточке специалиста S08–S09 (4.5). Без DOM: то же понадобится
 // мобильному приложению.
 import type { MoneyOut, ServiceOut } from '@sosed/api-client';
+import { usePricingListMyServices } from '@sosed/api-client';
 import type { Price, PriceUnit } from '@sosed/domain';
 import { SERVICE_PRICE_TYPES, SERVICE_UNITS } from '@sosed/domain';
+
+import { OWN_STALE_MS } from '../cache.ts';
+
+/** Свой прайс (S32c, S33, S35, S36): меняется только своими действиями. `enabled: false` — пока
+ *  профиля нет, прайса тоже нет. */
+export function useMyServices({ enabled = true }: { enabled?: boolean } = {}) {
+  return usePricingListMyServices({ query: { enabled, staleTime: OWN_STALE_MS } });
+}
 
 export interface ServiceGroup {
   /** Категория группы; null — позиции без группы. */

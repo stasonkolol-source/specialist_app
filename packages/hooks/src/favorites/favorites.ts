@@ -17,6 +17,8 @@ import {
 } from '@sosed/api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { OWN_STALE_MS } from '../cache.ts';
+
 export function favoritesQueryKey(locale: Locale) {
   return [...getSearchListFavoritesQueryKey(), locale] as const;
 }
@@ -26,6 +28,7 @@ export function useFavorites(locale: Locale) {
     queryKey: favoritesQueryKey(locale),
     queryFn: ({ signal }) => searchListFavorites({ signal }),
     enabled: getSession() !== null,
+    staleTime: OWN_STALE_MS,
   });
 }
 

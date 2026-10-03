@@ -17,6 +17,8 @@ import {
 } from '@sosed/api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { OWN_STALE_MS } from '../cache.ts';
+
 export const templatesQueryKey = () => getJobsListResponseTemplatesQueryKey();
 
 /** `enabled: false` — гостю шаблонов нет. */
@@ -25,6 +27,7 @@ export function useResponseTemplates(enabled = true) {
     queryKey: templatesQueryKey(),
     queryFn: ({ signal }) => jobsListResponseTemplates({ signal }),
     enabled,
+    staleTime: OWN_STALE_MS,
   });
 }
 

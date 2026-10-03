@@ -114,7 +114,7 @@ export {
   workKindOf,
 } from './specialist/portfolio.ts';
 export type { PricedService, ServiceGroup } from './specialist/prices.ts';
-export { groupServices, moveService, servicePrice } from './specialist/prices.ts';
+export { groupServices, moveService, servicePrice, useMyServices } from './specialist/prices.ts';
 export type { BecomeStep, ProfileState } from './specialist/profile.ts';
 export {
   BECOME_STEPS,

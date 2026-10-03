@@ -4,34 +4,17 @@
 // По умолчанию ('online') React Query молча ставит запрос на паузу — вечный скелетон вместо S49a.
 // Сеть вернулась — устаревшие запросы перечитываются сами (refetchOnReconnect).
 // Свежесть: ленты, выдача, чаты, свои заявки и отклики — 30 с (меняются чужими действиями); своё,
-// что меняется только своими действиями, — 5 минут (OWN); справочники — час (@sosed/hooks).
+// что меняется только своими действиями, — 5 минут (/me здесь, остальное — OWN_STALE_MS в хуках
+// @sosed/hooks: ключи их эндпойнтов первому экрану не нужны); справочники — час (@sosed/hooks).
 // Неиспользуемое живёт 30 минут: «Назад» через долгое время — сразу экран из кэша, а не скелетон.
-import {
-  ApiError,
-  MaintenanceError,
-  getIdentityGetMeQueryKey,
-  getJobsListResponseTemplatesQueryKey,
-  getJobsListSavedJobsQueryKey,
-  getPricingListMyServicesQueryKey,
-  getSearchListFavoritesQueryKey,
-  getSpecialistsGetMyProfileQueryKey,
-} from '@sosed/api-client';
+import { ApiError, MaintenanceError, getIdentityGetMeQueryKey } from '@sosed/api-client';
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 
 const MAX_RETRIES = 2;
 const STALE_MS = 30_000;
 const GC_MS = 30 * 60_000;
-/** Своё, что меняется только своими действиями: их ответы сразу ложатся в кэш. */
-const OWN_STALE_MS = 5 * 60_000;
-/** Избранное (сердечки и S12), сохранённые заявки, свой профиль специалиста и его прайс, шаблоны
- *  откликов. Ключи — префиксы: GET /me/profile/… тоже. */
-const OWN = [
-  getSearchListFavoritesQueryKey(),
-  getJobsListSavedJobsQueryKey(),
-  getSpecialistsGetMyProfileQueryKey(),
-  getPricingListMyServicesQueryKey(),
-  getJobsListResponseTemplatesQueryKey(),
-];
+/** /me меняется только своими действиями и входом: их ответы сразу ложатся в кэш. */
+const ME_STALE_MS = 5 * 60_000;
 
 /** 4xx и техработы не повторяем: ответ не изменится. Сеть и прочие 5xx — до двух повторов. */
 export function shouldRetry(failureCount: number, error: unknown): boolean {
@@ -68,14 +51,13 @@ export function createQueryClient(
       mutations: { retry: false, networkMode: 'always' },
     },
   });
-  for (const queryKey of OWN) client.setQueryDefaults(queryKey, { staleTime: OWN_STALE_MS });
   // /me живёт всю сессию: по нему охрана маршрутов (routes/guards.ts) решает онбординг и согласие,
   // а экраны, которые на него подписаны, открыты не всегда. Со сборкой мусора S02c после долгого
   // чтения S48 уводил бы на главную, а «+» пускал без согласия. Ответ входа и свои правки кладут
   // его в кэш сами — перечитывать при каждом экране незачем
   client.setQueryDefaults(getIdentityGetMeQueryKey(), {
     gcTime: Infinity,
-    staleTime: OWN_STALE_MS,
+    staleTime: ME_STALE_MS,
   });
   return client;
 }
