@@ -237,6 +237,12 @@ def _group(data: Any, category: str, action: str = "flag") -> dict[str, Any]:
             lambda d: d["rules"].append({"category": "spam", "action": "flag", "regex": ["(oops"]}),
             "does not compile",
         ),
+        (  # `re` такое собрал бы, а снимок правил ищет движком RE2: без lookbehind
+            lambda d: d["rules"].append(
+                {"category": "spam", "action": "flag", "regex": [r"(?<!ne )kupim"]}
+            ),
+            "does not compile (RE2): invalid perl operator",
+        ),
         (
             lambda d: d["rules"].append({"category": "spam", "action": "flag", "words": ["pro*"]}),
             "at least 4",
@@ -255,6 +261,7 @@ def _group(data: Any, category: str, action: str = "flag") -> dict[str, Any]:
         "same-skeleton",
         "two-lists",
         "bad-regex",
+        "re2-only",
         "short-stem",
         "bad-category",
         "short-word",
