@@ -208,9 +208,16 @@ async def capture_response_submitted(
     event: ResponseSubmitted, analytics: FromDishka[Analytics]
 ) -> None:
     """Отклик: первый ли на заявку и через сколько минут после публикации — TTFR и response
-    rate (§16.2). Без времени публикации (не должно случаться) — ноль минут."""
+    rate (§16.2), город и категория заявки — разрез по паре, как у `job_published` (6.6). Без
+    времени публикации (не должно случаться) — ноль минут; событие, поставленное до полей
+    города и категории, уходит без них."""
     since = event.published_at or event.occurred_at
     minutes = max(0, int((event.occurred_at - since).total_seconds() // 60))
+    pair: dict[str, int] = {}
+    if event.category_id is not None:
+        pair["category"] = event.category_id
+    if event.city_id is not None:
+        pair["city"] = event.city_id
     await analytics.capture(
         analytics_event(
             EventName.RESPONSE_SUBMITTED,
@@ -219,6 +226,7 @@ async def capture_response_submitted(
             source_event_id=event.event_id,
             is_first=event.is_first,
             minutes_since_published=minutes,
+            **pair,
         )
     )
 
