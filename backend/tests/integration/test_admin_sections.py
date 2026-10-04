@@ -115,13 +115,13 @@ async def test_admin_client_config_is_validated_and_audited(
     assert await audit_count(admin, "platform.client_config.updated", owner.user_id) == 1
 
 
-async def test_admin_founding_goes_through_use_case(admin: Admin) -> None:
+async def test_admin_founding_goes_through_use_case(admin: Admin, geo_seeded: None) -> None:
     owner = await staff(admin, "admin")
     profile_id = new_id()
     async with admin.container() as request:
         session = await request.get(AsyncSession)
         user_id = await insert_user(session, telegram_id=new_telegram_id())
-        await session.execute(
+        inserted = await session.execute(
             text(
                 "INSERT INTO specialists.profiles (id, user_id, kind, status, display_name,"
                 " city_id, created_at, published_at, version) SELECT :id, :user, 'pro',"
@@ -130,6 +130,7 @@ async def test_admin_founding_goes_through_use_case(admin: Admin) -> None:
             ),
             {"id": profile_id, "user": user_id},
         )
+        assert inserted.rowcount == 1  # type: ignore[attr-defined]  # город — из geo_seeded
         await session.commit()
     engine = await admin.engine()
 

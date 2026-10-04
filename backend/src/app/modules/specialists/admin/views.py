@@ -20,9 +20,9 @@ from app.modules.specialists.application.use_cases.mark_founding import (
     SetFoundingCommand,
 )
 from app.modules.specialists.domain.profile import ProfileId
+from app.modules.specialists.errors import ProfileNotFoundError
 from app.modules.specialists.infrastructure.models import ProfileRow
 from app.platform.http.admin import ADMIN, StaffModelView, run_action, staff_id
-from app.platform.kernel.errors import DomainError
 
 
 class ProfileAdmin(StaffModelView, model=ProfileRow):
@@ -89,7 +89,7 @@ class ProfileAdmin(StaffModelView, model=ProfileRow):
                         staff_id=staff_id(request),
                     ),
                 )
-            except ValueError, DomainError:
+            except ProfileNotFoundError:
                 continue  # профиль удалили, пока список был открыт: остальные — как обычно
         return RedirectResponse(request.url_for("admin:list", identity=self.identity), 302)
 
