@@ -1,0 +1,203 @@
+# Стартовые алерты ARCHITECTURE §16.5 (DEVELOPMENT_PLAN 3.3) — правила Prometheus для ruler Grafana
+# Cloud (Mimir). Проверка — make monitoring-rules (promtool check rules + test rules), загрузка —
+# make monitoring-rules APPLY=1 (mimirtool rules sync, K35). Метка env (stage, production) приходит из
+# external_labels Alloy: алерт несёт окружение, куда его слать — политика уведомлений Grafana (K35a).
+#
+# Чего здесь нет и где оно:
+# - бэкап не свежий — Healthchecks (K33): таймер pgBackRest на db-1 пингует проверку после каждого
+#   бэкапа, нет пинга за сутки + grace — алерт оттуда; restore-тест — так же, раз в месяц;
+# - пропуск heartbeat воркера — Healthchecks (ops.heartbeat раз в минуту);
+# - /up API и Mini App снаружи — UptimeRobot (K34);
+# - новые типы ошибок и их частота — Sentry (K20).
+#
+# Счётчики с метками (429, ошибки в логах) появляются с первого события: increase() первое событие
+# не видит, поэтому пороги — от двух-трёх событий за окно, а не «любое».
+groups:
+  - name: sosed-api
+    rules:
+      # p95 > 150 мс ⇔ быстрее 150 мс меньше 95% запросов: граница 0.15 есть в HTTP_BUCKETS backend,
+      # поэтому доля считается точно, без интерполяции histogram_quantile. Маршрут <unmatched>
+      # (сканеры, 404) и админка в SLO API не входят; ночью без трафика алерт молчит (> 0,05 rps).
+      - alert: SosedApiLatencyP95High
+        expr: |
+          (
+            sum by (env) (rate(http_request_duration_seconds_bucket{job="sosed", role="web", le="0.15", route!~"<unmatched>|/admin.*"}[5m]))
+          /
+            sum by (env) (rate(http_request_duration_seconds_count{job="sosed", role="web", route!~"<unmatched>|/admin.*"}[5m]))
+          ) < 0.95
+          and
+          sum by (env) (rate(http_request_duration_seconds_count{job="sosed", role="web", route!~"<unmatched>|/admin.*"}[5m])) > 0.05
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.env }}: p95 API выше 150 мс 15 минут"
+          description: "Быстрее 150 мс — только {{ $value | humanizePercentage }} запросов (SLO §2.4: 95%). Дашборд «API RED» — какой маршрут."
+
+      - alert: SosedApiLatencyP95Critical
+        expr: |
+          (
+            sum by (env) (rate(http_request_duration_seconds_bucket{job="sosed", role="web", le="0.3", route!~"<unmatched>|/admin.*"}[5m]))
+          /
+            sum by (env) (rate(http_request_duration_seconds_count{job="sosed", role="web", route!~"<unmatched>|/admin.*"}[5m]))
+          ) < 0.95
+          and
+          sum by (env) (rate(http_request_duration_seconds_count{job="sosed", role="web", route!~"<unmatched>|/admin.*"}[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.env }}: p95 API выше 300 мс 10 минут"
+          description: "Быстрее 300 мс — только {{ $value | humanizePercentage }} запросов. Дашборды «API RED» и «Хост и PostgreSQL»."
+
+      # Всплеск 5xx: больше 1% ответов (порог Sentry §16.5) и не меньше 5 ошибок за 5 минут
+      - alert: SosedApi5xxSpike
+        expr: |
+          (
+            sum by (env) (rate(http_requests_total{job="sosed", role="web", status_class="5xx"}[5m]))
+          /
+            sum by (env) (rate(http_requests_total{job="sosed", role="web"}[5m]))
+          ) > 0.01
+          and
+          sum by (env) (increase(http_requests_total{job="sosed", role="web", status_class="5xx"}[5m])) >= 5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.env }}: всплеск 5xx в API"
+          description: "5xx — {{ $value | humanizePercentage }} ответов за 5 минут. Подробности — Sentry и Loki {role=\"web\", level=\"error\"}."
+
+  - name: sosed-queues
+    rules:
+      # Лаг очереди — возраст самой старой готовой задачи; ops.queue_lag пишет его раз в минуту
+      - alert: SosedNotificationsQueueLag
+        expr: max by (env) (procrastinate_queue_lag_seconds{job="sosed", queue="notifications"}) > 120
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.env }}: уведомления ждут дольше 2 минут"
+          description: "Самая старая задача очереди notifications ждёт {{ $value | humanizeDuration }}. Жив ли worker, нет ли 429 от Telegram (дашборд «Очереди и Telegram»)."
+
+      - alert: SosedQueueLag
+        expr: max by (env, queue) (procrastinate_queue_lag_seconds{job="sosed", queue!="notifications"}) > 600
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.env }}: очередь {{ $labels.queue }} ждёт дольше 10 минут"
+          description: "Самая старая задача ждёт {{ $value | humanizeDuration }}; застрявший пересчёт поиска виден здесь же (очередь default)."
+
+  - name: sosed-telegram
+    rules:
+      # Лимитер должен держать отправку ниже лимитов Bot API: повторяющиеся 429 — лимитер не справляется
+      # или токеном пользуется кто-то ещё; долгие паузы растут до бана рассылки
+      - alert: SosedTelegramRateLimited
+        expr: sum by (env) (increase(telegram_rate_limited_total{job="sosed"}[10m])) > 5
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.env }}: Telegram отвечает 429"
+          description: "{{ $value | humanize }} ответов 429 за 10 минут (метод — в метке method на дашборде)."
+
+      - alert: SosedTelegramFloodWait
+        expr: sum by (env) (increase(telegram_retry_after_seconds_total{job="sosed"}[10m])) > 120
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.env }}: Telegram останавливает отправку на минуты"
+          description: "Сумма retry_after за 10 минут — {{ $value | humanizeDuration }}: уведомления копятся."
+
+      # Ошибки webhook: исключения хендлеров (bot_handler_failed) и 500 aiohttp пишутся с level=error —
+      # Alloy считает такие строки логов роли bot (config.alloy, loki_process_custom_log_errors_total).
+      # Недоступность bot.<домен> снаружи — UptimeRobot.
+      - alert: SosedBotWebhookErrors
+        expr: sum by (env) (increase(loki_process_custom_log_errors_total{role="bot"}[10m])) >= 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.env }}: ошибки в обработке webhook бота"
+          description: "{{ $value | humanize }} ошибок роли bot за 10 минут — Loki {role=\"bot\", level=\"error\"} и Sentry."
+
+  - name: sosed-host
+    rules:
+      - alert: SosedDiskAlmostFull
+        expr: |
+          1 - node_filesystem_avail_bytes{job="node", mountpoint="/"} / node_filesystem_size_bytes{job="node", mountpoint="/"} > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.env }} {{ $labels.instance }}: диск занят больше чем на 80%"
+          description: "Занято {{ $value | humanizePercentage }}. На db-1 первым делом — WAL (архив pgBackRest не отстаёт?), на app-1 — образы Docker (docker system df)."
+
+      - alert: SosedDiskFull
+        expr: |
+          1 - node_filesystem_avail_bytes{job="node", mountpoint="/"} / node_filesystem_size_bytes{job="node", mountpoint="/"} > 0.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.env }} {{ $labels.instance }}: диск занят больше чем на 90%"
+          description: "Занято {{ $value | humanizePercentage }}: PostgreSQL остановится, когда место кончится."
+
+  - name: sosed-postgres
+    rules:
+      - alert: SosedPostgresDown
+        expr: pg_up{job="postgres"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.env }}: PostgreSQL не отвечает экспортёру"
+          description: "postgres_exporter Alloy не может войти ролью monitoring или БД недоступна."
+
+      # RPO ≤ 5 мин (3.2): archive_timeout = 60 с, а задачи Procrastinate пишут в БД каждую минуту — на
+      # проде сегмент WAL уходит в архив не реже раза в пару минут. На stage архива нет: метрики нет.
+      - alert: SosedWalArchiveLag
+        expr: pg_stat_archiver_last_archive_age{job="postgres", env="production"} > 600
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "production: WAL не уходит в архив больше 10 минут"
+          description: "Последний сегмент заархивирован {{ $value | humanizeDuration }} назад — RPO 5 минут нарушен. pgbackrest check на db-1 (infra/runbooks/restore.md)."
+
+      - alert: SosedWalArchiveFailing
+        expr: increase(pg_stat_archiver_failed_count{job="postgres"}[15m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.env }}: archive_command падает"
+          description: "{{ $value | humanize }} неудачных попыток архивировать WAL за 15 минут; WAL копится на диске db-1."
+
+  - name: sosed-pipeline
+    rules:
+      - alert: SosedScrapeTargetDown
+        expr: up{job=~"sosed|node|postgres"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.env }}: {{ $labels.job }}/{{ $labels.instance }} не отдаёт метрики"
+          description: "Alloy не может прочитать цель 5 минут: процесс без METRICS_PORT, node exporter db-1 или ufw."
+
+      # Сторож: метрик окружения нет совсем — Alloy остановлен, токен отозван или VM недоступна.
+      # absent() не группируется по env, поэтому правило на каждое окружение.
+      - alert: SosedMetricsMissing
+        expr: absent_over_time(up{job="sosed", env="production"}[10m])
+        labels:
+          severity: critical
+          env: production
+        annotations:
+          summary: "production: метрики не приходят 10 минут"
+          description: "Нет ни одного ряда up от ролей: kamal accessory details alloy -d production, логи Alloy."
+
+      - alert: SosedMetricsMissing
+        expr: absent_over_time(up{job="sosed", env="stage"}[30m])
+        labels:
+          severity: warning
+          env: stage
+        annotations:
+          summary: "stage: метрики не приходят 30 минут"
+          description: "Нет ни одного ряда up от ролей stage: kamal accessory details alloy -d stage."

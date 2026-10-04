@@ -89,3 +89,22 @@ accessories:
     options:
       memory: 448m
       cpuset-cpus: "0-2"
+
+  # Alloy (3.3) — только на app-1: он же читает db-1 по приватной сети — PostgreSQL ролью monitoring и
+  # node exporter из пакета ОС (provision.sh, порт 9100 только для подсети prod). На db-1 нет Docker и
+  # секретов Grafana Cloud, а логи PostgreSQL (тексты медленных запросов с литералами) не уходят с VM.
+  # <% if ENV["GRAFANA_CLOUD_PROM_URL"].to_s != "" %>
+  alloy:
+    host: <%= ENV.fetch("PROD_HOST") %>
+    files:
+      - infra/monitoring/alloy/config.alloy:/etc/alloy/config.alloy
+      - infra/monitoring/alloy/db-1.alloy:/etc/alloy/db-1.alloy
+    env:
+      clear:
+        ALLOY_ENV: production
+        ALLOY_HOST: app-1
+        DB_NODE_TARGET: <%= ENV.fetch("PROD_DB_IP") %>:9100
+    options:
+      memory: 384m
+      cpuset-cpus: "0-2"
+  # <% end %>

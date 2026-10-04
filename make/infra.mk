@@ -30,7 +30,8 @@ tf-check: ## Terraform без ключей: fmt и validate всех стеко�
 # Q15) или CI.
 KAMAL_ENV = STAGE_HOST STAGE_DOMAIN STAGE_BOT_USERNAME PROD_HOST PROD_DB_IP PROD_DOMAIN PROD_BOT_USERNAME \
   PROD_MODERATORS_CHAT_ID ADMIN_HOST GHCR_OWNER R2_ACCOUNT_ID SENTRY_DSN APP_RELEASE STAGE_LOADTEST \
-  KAMAL_REGISTRY_USERNAME \
+  KAMAL_REGISTRY_USERNAME GRAFANA_CLOUD_PROM_URL GRAFANA_CLOUD_PROM_USER GRAFANA_CLOUD_LOKI_URL \
+  GRAFANA_CLOUD_LOKI_USER \
   $(shell sed -n 's/^\([A-Z][A-Z0-9_]*\)=\$$\1$$/\1/p' infra/kamal/secrets.stage infra/kamal/secrets.production 2>/dev/null | sort -u)
 
 # ssh — через агент Docker Desktop (ssh-add ~/.ssh/id_ed25519 на Маке); образ backend Kamal не
@@ -61,8 +62,8 @@ db-provision: ## PostgreSQL на db-1 (3.1b): make db-provision ENV=prod — и�
 	@COPYFILE_DISABLE=1 tar --no-xattrs -C infra/postgres -cf - provision.sh bootstrap.sql pgbackrest.conf.tmpl pgbackrest-backup.sh | \
 	  $(PROD_DB_SSH) 'rm -rf /opt/sosed/postgres && mkdir -p /opt/sosed/postgres && tar -xf - -C /opt/sosed/postgres'
 	@{ printf 'DB_LISTEN_IP=%s\nDB_SUBNET=%s\n' "$$PROD_DB_IP" "$(PROD_DB_SUBNET)"; \
-	  for n in APP_DB_PASSWORD MIGRATOR_DB_PASSWORD READONLY_DB_PASSWORD BACKUP_DB_PASSWORD $$(compgen -v PGBACKREST_REPO) \
-	           PGBACKREST_HEALTHCHECK_URL; do \
+	  for n in APP_DB_PASSWORD MIGRATOR_DB_PASSWORD READONLY_DB_PASSWORD BACKUP_DB_PASSWORD MONITORING_DB_PASSWORD \
+	           $$(compgen -v PGBACKREST_REPO) PGBACKREST_HEALTHCHECK_URL; do \
 	    [ -z "$${!n:-}" ] || printf '%s=%s\n' "$$n" "$${!n}"; \
 	  done; } | $(PROD_DB_SSH) 'bash /opt/sosed/postgres/provision.sh'
 

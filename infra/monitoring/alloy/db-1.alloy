@@ -1,0 +1,14 @@
+// Только prod (accessory alloy в deploy.production.yml монтирует этот файл): хост db-1. На db-1 нет
+// Docker и секретов Grafana Cloud — там только node exporter из пакета ОС (infra/postgres/provision.sh),
+// он слушает адрес db-1 в приватной сети, а ufw пускает к нему только подсеть prod. PostgreSQL db-1
+// Alloy app-1 читает сам (prometheus.exporter.postgres в config.alloy, DSN — на db-1).
+prometheus.scrape "db_host" {
+	targets = [{
+		"__address__" = sys.env("DB_NODE_TARGET"),
+		"instance"    = "db-1",
+	}]
+	job_name        = "node"
+	scrape_interval = "60s"
+	scrape_timeout  = "10s"
+	forward_to      = [prometheus.relabel.node.receiver]
+}
