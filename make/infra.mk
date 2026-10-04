@@ -29,7 +29,8 @@ tf-check: ## Terraform без ключей: fmt и validate всех стеко�
 # docker run -e ИМЯ передаёт переменную из окружения как есть, а задаёт их владелец (менеджер паролей,
 # Q15) или CI.
 KAMAL_ENV = STAGE_HOST STAGE_DOMAIN STAGE_BOT_USERNAME PROD_HOST PROD_DB_IP PROD_DOMAIN PROD_BOT_USERNAME \
-  PROD_MODERATORS_CHAT_ID ADMIN_HOST GHCR_OWNER R2_ACCOUNT_ID SENTRY_DSN APP_RELEASE KAMAL_REGISTRY_USERNAME \
+  PROD_MODERATORS_CHAT_ID ADMIN_HOST GHCR_OWNER R2_ACCOUNT_ID SENTRY_DSN APP_RELEASE STAGE_LOADTEST \
+  KAMAL_REGISTRY_USERNAME \
   $(shell sed -n 's/^\([A-Z][A-Z0-9_]*\)=\$$\1$$/\1/p' infra/kamal/secrets.stage infra/kamal/secrets.production 2>/dev/null | sort -u)
 
 # ssh — через агент Docker Desktop (ssh-add ~/.ssh/id_ed25519 на Маке); образ backend Kamal не
