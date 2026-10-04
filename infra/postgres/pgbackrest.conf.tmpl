@@ -1,0 +1,58 @@
+# /etc/pgbackrest/pgbackrest.conf на db-1. Рендерит infra/postgres/provision.sh (3.1b), когда в его
+# stdin пришли ключи репозиториев — секреты production (K36, K37, пароли шифрования — K10a). Без
+# repo2-значений строки repo2-* выбрасываются: Hetzner работает и до Backblaze.
+# Политика — ADR-0015 и DEVELOPMENT_PLAN 3.2: полный бэкап раз в неделю, дифференциальный ежедневно
+# (таймеры и пинги Healthchecks — шаг 3.2), WAL непрерывно (archive-async), aes-256-cbc, два
+# репозитория у разных провайдеров. Комментарии — только отдельными строками: ini pgBackRest не
+# знает комментариев после значения.
+
+[global]
+log-level-console=info
+log-level-file=detail
+start-fast=y
+delta=y
+process-max=2
+compress-type=zst
+archive-async=y
+spool-path=/var/spool/pgbackrest
+# репозитории недоступны дольше, чем помещается в очередь, — WAL отбрасывается, а не забивает диск
+# БД; цепочка PITR рвётся, это ловит алерт «бэкап не свежий» (3.3)
+archive-push-queue-max=4GiB
+
+# repo1 — Hetzner Object Storage в отдельном проекте specialist-backup (K36): например,
+# endpoint nbg1.your-objectstorage.com, region nbg1
+repo1-type=s3
+repo1-s3-endpoint=@PGBACKREST_REPO1_S3_ENDPOINT@
+repo1-s3-region=@PGBACKREST_REPO1_S3_REGION@
+repo1-s3-bucket=@PGBACKREST_REPO1_S3_BUCKET@
+repo1-s3-key=@PGBACKREST_REPO1_S3_KEY@
+repo1-s3-key-secret=@PGBACKREST_REPO1_S3_KEY_SECRET@
+repo1-s3-uri-style=path
+repo1-path=/prod
+repo1-cipher-type=aes-256-cbc
+repo1-cipher-pass=@PGBACKREST_REPO1_CIPHER_PASS@
+# 4 недельных полных; WAL — для трёх последних, то есть PITR не меньше 14 дней
+repo1-retention-full=4
+repo1-retention-archive-type=full
+repo1-retention-archive=3
+
+# repo2 — Backblaze B2, регион EU (K37): S3-совместимый API, например
+# endpoint s3.eu-central-003.backblazeb2.com, region eu-central-003
+repo2-type=s3
+repo2-s3-endpoint=@PGBACKREST_REPO2_S3_ENDPOINT@
+repo2-s3-region=@PGBACKREST_REPO2_S3_REGION@
+repo2-s3-bucket=@PGBACKREST_REPO2_S3_BUCKET@
+repo2-s3-key=@PGBACKREST_REPO2_S3_KEY@
+repo2-s3-key-secret=@PGBACKREST_REPO2_S3_KEY_SECRET@
+repo2-s3-uri-style=path
+repo2-path=/prod
+repo2-cipher-type=aes-256-cbc
+repo2-cipher-pass=@PGBACKREST_REPO2_CIPHER_PASS@
+repo2-retention-full=4
+repo2-retention-archive-type=full
+repo2-retention-archive=3
+
+[specialist]
+pg1-path=/var/lib/postgresql/18/main
+pg1-port=5432
+pg1-socket-path=/var/run/postgresql

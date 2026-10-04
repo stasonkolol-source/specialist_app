@@ -13,7 +13,7 @@ output "stage_ipv6" {
 
 output "r2_buckets" {
   description = "Бакеты R2 stage: S3_BUCKET_INCOMING, S3_BUCKET_MEDIA, S3_BUCKET_PRIVATE."
-  value       = { for key, bucket in cloudflare_r2_bucket.stage : key => bucket.name }
+  value       = one(module.r2[*].names)
 }
 
 output "r2_s3_endpoint" {
