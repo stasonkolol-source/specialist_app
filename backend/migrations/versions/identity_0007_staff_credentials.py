@@ -6,7 +6,7 @@
 повтор того же кода не входит. Таблица новая и пустая.
 
 Ревизия: identity_0007 (2026-10-04 10:00:00.000000+00:00)
-Предыдущая: moderation_0005
+Предыдущая: platform_0005
 
 Правила (DEVELOPMENT_PLAN 0.9, ADR-0005):
 - имя ревизии — <модуль>_NNNN, файл — <модуль>_NNNN_<slug>.py;
@@ -22,7 +22,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "identity_0007"
-down_revision: str | Sequence[str] | None = "specialists_0003"
+down_revision: str | Sequence[str] | None = "platform_0005"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
