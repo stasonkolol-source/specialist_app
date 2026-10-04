@@ -4,6 +4,7 @@ from collections.abc import Collection, Sequence
 from datetime import datetime
 from typing import Protocol
 
+from app.modules.media.api import MediaDuplicate
 from app.modules.media.application.dto import (
     DeleteObjectsPayload,
     DiscardMediaPayload,
@@ -104,6 +105,13 @@ class MediaQuery(Protocol):
 
     async def unhidden(self, deleted_before: datetime, *, limit: int) -> Sequence[MediaAsset]:
         """Удалённые файлы публичных назначений, чьи варианты ещё не спрятаны в private."""
+        ...
+
+    async def duplicates(
+        self, asset: MediaAsset, *, max_distance: int, limit: int
+    ) -> list[MediaDuplicate]:
+        """Готовые файлы того же назначения у других владельцев, чей pHash не дальше
+        `max_distance` бит от pHash `asset`, — ближние первыми."""
         ...
 
 
