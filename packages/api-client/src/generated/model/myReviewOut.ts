@@ -12,8 +12,12 @@ import type { ReplyOut } from './replyOut.ts';
  */
 export interface MyReviewOut {
   id: string;
+  /** deal | pre_platform — «до платформы», без сделки */
+  kind: string;
   deal_id: string | null;
   deal_title: string | null;
+  /** «Что делал мастер» — у отзыва до платформы */
+  work_title: string | null;
   /** Автор (полученные) или тот, о ком отзыв (написанные); удалён — null */
   counterpart_name: string | null;
   rating: number;

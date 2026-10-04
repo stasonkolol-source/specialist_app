@@ -1,5 +1,6 @@
 """Репозиторий отзывов (ADR-0020 §5). Второй отзыв автора по сделке упирается в частичный
-уникальный индекс `uq_reviews_deal_id_author_id` — ReviewExistsError."""
+уникальный индекс `uq_reviews_deal_id_author_id` — ReviewExistsError; второй отзыв до платформы
+того же человека о том же профиле — в `uq_reviews_subject_profile_id_author_id`."""
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -12,7 +13,11 @@ from app.modules.reviews.domain.review import (
     Review,
     ReviewId,
 )
-from app.modules.reviews.errors import ReviewExistsError, ReviewNotFoundError
+from app.modules.reviews.errors import (
+    PrePlatformReviewExistsError,
+    ReviewExistsError,
+    ReviewNotFoundError,
+)
 from app.modules.reviews.infrastructure.models import ReviewRow
 from app.platform.db.constraints import raise_domain_error
 from app.platform.db.port import UnitOfWork
@@ -20,6 +25,7 @@ from app.platform.db.versioning import check_loaded_version
 from app.platform.kernel.ids import CategoryId, DealId, UserId
 
 UNIQUE_REVIEW = "uq_reviews_deal_id_author_id"
+UNIQUE_PRE_PLATFORM = "uq_reviews_subject_profile_id_author_id"
 
 
 class SqlReviewRepository:
@@ -35,7 +41,11 @@ class SqlReviewRepository:
             await self._session.flush()
         except IntegrityError as err:
             raise_domain_error(
-                err, {UNIQUE_REVIEW: lambda: ReviewExistsError(deal_id=review.deal_id)}
+                err,
+                {
+                    UNIQUE_REVIEW: lambda: ReviewExistsError(deal_id=review.deal_id),
+                    UNIQUE_PRE_PLATFORM: lambda: PrePlatformReviewExistsError(),
+                },
             )
         self._uow.track(review)
 
@@ -110,6 +120,7 @@ def _to_domain(row: ReviewRow) -> Review:
         rating=row.rating,
         criteria={Criterion(name): int(value) for name, value in row.criteria.items()},
         body=row.body,
+        work_title=row.work_title,
         status=row.status,
         created_at=row.created_at,
         updated_at=row.updated_at,
@@ -131,6 +142,7 @@ def _apply(review: Review, row: ReviewRow) -> None:
     row.rating = review.rating
     row.criteria = {criterion.value: value for criterion, value in review.criteria.items()}
     row.body = review.body
+    row.work_title = review.work_title
     row.status = review.status
     row.reply_body = review.reply.body if review.reply is not None else None
     row.reply_at = review.reply.at if review.reply is not None else None

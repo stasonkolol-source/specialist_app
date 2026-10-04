@@ -671,6 +671,24 @@ msgstr "Ответить на отзыв может только тот, о ко
 msgid "errors.reply_exists"
 msgstr "Вы уже ответили на этот отзыв."
 
+msgid "errors.review_invite_not_found"
+msgstr "Ссылка на отзыв не действует: её отозвали, срок истёк или по ней уже оставили отзыв."
+
+msgid "errors.review_invites_full"
+msgstr "Приглашений уже 5. Отзовите неиспользованную ссылку, чтобы создать новую."
+
+msgid "errors.review_invite_used"
+msgstr "По этой ссылке уже оставили отзыв — отозвать её нельзя."
+
+msgid "errors.review_invites_unavailable"
+msgstr "Приглашать прошлых клиентов можно после публикации профиля."
+
+msgid "errors.own_profile_review"
+msgstr "Это ваша ссылка: отправьте её прошлому клиенту — отзыв о себе оставить нельзя."
+
+msgid "errors.pre_platform_review_exists"
+msgstr "Вы уже оставили отзыв об этом специалисте."
+
 msgid "errors.deal_not_found"
 msgstr "Сделка не найдена."
 

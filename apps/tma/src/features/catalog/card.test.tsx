@@ -255,7 +255,7 @@ describe('S11 reviews', () => {
       http.get(/\/api\/v1\/specialists\/[^/]+\/reviews$/, ({ request }) => {
         const more = new URL(request.url).searchParams.get('cursor') === 'p2';
         const page: CardReviewsOut = more
-          ? { summary, items: [review(21)], next_cursor: null }
+          ? { summary, items: [review(21)], next_cursor: null, pre_platform_count: 0 }
           : {
               summary,
               items: [
@@ -263,6 +263,7 @@ describe('S11 reviews', () => {
                 review(2),
               ],
               next_cursor: 'p2',
+              pre_platform_count: 0,
             };
         return HttpResponse.json(page);
       }),

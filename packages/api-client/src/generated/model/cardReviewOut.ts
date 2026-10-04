@@ -20,6 +20,8 @@ export interface CardReviewOut {
   body: string | null;
   /** Услуга сделки */
   category: CardNamedOut | null;
+  /** «Что делал мастер» — у отзыва до платформы вместо услуги */
+  work_title?: string | null;
   published_at: string;
   /** Ответ специалиста (прошёл проверку) */
   reply: CardReplyOut | null;

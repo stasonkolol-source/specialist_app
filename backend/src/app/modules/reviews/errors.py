@@ -48,3 +48,43 @@ class ReplyExistsError(ConflictError):
     """На отзыв уже ответили: ответ один и не редактируется."""
 
     code = "reply_exists"
+
+
+class ReviewInviteNotFoundError(NotFoundError):
+    """Ссылки-приглашения нет, её отозвали, она истекла или по ней уже оставили отзыв —
+    одинаково, чтобы по ответу не угадать, что со ссылкой (7.6а)."""
+
+    code = "review_invite_not_found"
+
+
+class ReviewInvitesFullError(ConflictError):
+    """Приглашений на «отзыв до платформы» уже `limit` (5): освобождает место отозванная или
+    истёкшая ссылка."""
+
+    code = "review_invites_full"
+    public_params = ("limit",)
+
+
+class ReviewInviteUsedError(ConflictError):
+    """По ссылке уже оставили отзыв: отозвать её нельзя."""
+
+    code = "review_invite_used"
+
+
+class ReviewInvitesUnavailableError(ConflictError):
+    """Приглашать прошлых клиентов можно, когда профиль специалиста опубликован: иначе ссылку
+    некому открыть."""
+
+    code = "review_invites_unavailable"
+
+
+class OwnProfileReviewError(ConflictError):
+    """Отзыв о себе по своей же ссылке не оставить."""
+
+    code = "own_profile_review"
+
+
+class PrePlatformReviewExistsError(ConflictError):
+    """Этот человек уже оставил «отзыв до платформы» об этом специалисте: один на профиль."""
+
+    code = "pre_platform_review_exists"

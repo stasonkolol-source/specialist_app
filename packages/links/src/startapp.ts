@@ -7,13 +7,15 @@ const START_PARAM_RE = /^[A-Za-z0-9_-]+$/;
 const TELEGRAM_RESERVED_PREFIX = '_tgr_';
 
 /** Сущности с экраном в Mini App; тип → префикс кода. `p_` — проблема со сделкой (спор S52, 6.1c):
- *  id сделки, экран — сразу спор, а не S26. */
+ *  id сделки, экран — сразу спор, а не S26. `ri_` — приглашение на «отзыв до платформы» S56
+ *  (7.6а): id — секрет ссылки (случайный UUIDv4), экран — следующим шагом. */
 export const ENTITY_PREFIX = {
   job: 'j',
   specialist: 's',
   chat: 'c',
   deal: 'd',
   dispute: 'p',
+  review_invite: 'ri',
 } as const;
 export type EntityType = keyof typeof ENTITY_PREFIX;
 
