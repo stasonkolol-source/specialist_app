@@ -362,6 +362,19 @@ def dev_initdata(
     user: dict[str, object] = {"id": user_id, "first_name": first_name, "language_code": language}
     if username:
         user["username"] = username
+    token = TelegramSettings().bot_token.get_secret_value()  # type: ignore[call-arg]  # из .env
+    init_data = _signed_init_data(user, token, start_param=start_param)
+    if url:
+        query = urlencode({"platform": "mock", "lang": language, "initData": init_data})
+        typer.echo(f"http://localhost:5173/?{query}")
+    else:
+        typer.echo(init_data)
+
+
+def _signed_init_data(
+    user: dict[str, object], token: str, *, start_param: str | None = None
+) -> str:
+    """initData, как его передаёт клиент Telegram, с подписью токеном бота."""
     fields = {
         "auth_date": str(int(SystemClock().now().timestamp())),
         "query_id": f"dev{secrets.token_hex(8)}",
@@ -372,13 +385,43 @@ def dev_initdata(
     }
     if start_param:
         fields["start_param"] = start_param
-    token = TelegramSettings().bot_token.get_secret_value()  # type: ignore[call-arg]  # из .env
-    init_data = urlencode(fields | {"hash": sign(fields, token)})
-    if url:
-        query = urlencode({"platform": "mock", "lang": language, "initData": init_data})
-        typer.echo(f"http://localhost:5173/?{query}")
-    else:
-        typer.echo(init_data)
+    return urlencode(fields | {"hash": sign(fields, token)})
+
+
+LOADTEST_ENVS = (Environment.DEV, Environment.STAGE)
+
+
+@app.command("loadtest-initdata")
+def loadtest_initdata(
+    *,
+    count: Annotated[int, typer.Option(min=1, max=50_000, help="Сколько пользователей")] = 100,
+    start: Annotated[int, typer.Option(min=0, help="Номер первого демо-специалиста")] = 0,
+) -> None:
+    """initData демо-специалистов `seed-demo` для нагрузочного прогона k6 (8.3): JSON-массив в
+    stdout, подпись — токеном бота этого окружения, годен час (initdata.py). Только dev и stage.
+
+    Синтетические пользователи — уже засеянные демо-специалисты (`seed-demo --scale lab`): у них
+    приняты согласия и опубликован профиль, поэтому прогон откликается на заявки, ничего не
+    создавая заново. Их Telegram ID длиннее 52 бит — живой человек под ними не войдёт.
+    """
+    if AppSettings().env not in LOADTEST_ENVS:
+        typer.echo("loadtest-initdata works only with APP_ENV=dev or stage", err=True)
+        raise typer.Exit(code=1)
+    from app.entrypoints._seed_demo import plan
+
+    token = TelegramSettings().bot_token.get_secret_value()  # type: ignore[call-arg]  # из окружения
+    batch = []
+    for number in range(start, start + count):
+        demo = plan(number)
+        user: dict[str, object] = {
+            "id": demo.telegram_id,
+            # те же имя и язык, что у сида: вход не переписывает демо-профиль
+            "first_name": demo.first_name,
+            "last_name": f"{demo.last_initial}.",
+            "language_code": demo.lang,
+        }
+        batch.append(_signed_init_data(user, token))
+    typer.echo(json.dumps(batch))
 
 
 @app.command("dev-reset-user")

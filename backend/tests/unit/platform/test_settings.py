@@ -128,3 +128,20 @@ def test_stage_and_production_need_the_hash_key(clean_env: pytest.MonkeyPatch) -
     clean_env.setenv("APP_ENV", "stage")
     with pytest.raises(SettingsError, match="APP_HASH_KEY"):
         Settings(env_file=None)
+
+
+def test_fake_telegram_sender_is_refused_in_production(clean_env: pytest.MonkeyPatch) -> None:
+    """Фейк нагрузочного прогона (8.3) глотает уведомления: на stage можно, на проде — нет."""
+    for name, value in REQUIRED.items():
+        clean_env.setenv(name, value)
+    clean_env.setenv("APP_HASH_KEY", "test-hash-key")
+    clean_env.setenv("TELEGRAM_FAKE_SENDER", "true")
+    clean_env.setenv("APP_ENV", "stage")
+    assert Settings(env_file=None).telegram.fake_sender is True
+    clean_env.setenv("APP_ENV", "production")
+    clean_env.setenv("LEGAL_OPERATOR_NAME", "Оператор")
+    clean_env.setenv("LEGAL_CONTACT_EMAIL", "help@example.test")
+    with pytest.raises(SettingsError, match="TELEGRAM_FAKE_SENDER"):
+        Settings(env_file=None)
+    clean_env.setenv("TELEGRAM_FAKE_SENDER", "false")
+    assert Settings(env_file=None).telegram.fake_sender is False

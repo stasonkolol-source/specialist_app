@@ -9,13 +9,17 @@ import { sosed } from '../eslint.js';
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const fixture = fileURLToPath(new URL('./fixture-app/', import.meta.url));
 
-async function rules(cwd, filePath, code, overrideConfig) {
+async function messages(cwd, filePath, code, overrideConfig) {
   const eslint = new ESLint({
     cwd,
     ...(overrideConfig ? { overrideConfigFile: true, overrideConfig } : {}),
   });
   const [result] = await eslint.lintText(code, { filePath });
-  return result.messages.map((m) => m.ruleId);
+  return result.messages;
+}
+
+async function rules(cwd, filePath, code, overrideConfig) {
+  return (await messages(cwd, filePath, code, overrideConfig)).map((m) => m.ruleId);
 }
 
 describe('apps/tma', () => {
@@ -50,38 +54,61 @@ describe('packages/platform', () => {
 
 describe('границы routes → features → packages', () => {
   const config = sosed({ root: fixture, react: true, appBoundaries: true });
+  const lint = (filePath, code) => rules(fixture, filePath, code, config);
 
   it('фича не импортирует другую фичу', async () => {
     const code = "import { deals } from '../deals/index.ts';\nexport const x = deals;\n";
-    expect(await rules(fixture, 'src/features/jobs/index.ts', code, config)).toContain(
-      'boundaries/dependencies',
-    );
+    const found = await messages(fixture, 'src/features/jobs/index.ts', code, config);
+    expect(found.map((m) => [m.ruleId, m.message])).toContainEqual([
+      'sosed/app-boundaries',
+      'Фича jobs не импортирует фичу deals: общее — в packages/hooks или ui-web',
+    ]);
+  });
+
+  it.each([
+    [
+      'import type',
+      "import type { deals } from '../deals/index.ts';\nexport type D = typeof deals;\n",
+    ],
+    ['export * from', "export * from '../deals/index.ts';\n"],
+    ['import()', "export const load = () => import('../deals/index.ts');\n"],
+  ])('и через %s', async (_, code) => {
+    expect(await lint('src/features/jobs/index.ts', code)).toContain('sosed/app-boundaries');
   });
 
   it('routes импортируют фичи', async () => {
     const code = "import { jobs } from '../features/jobs/index.ts';\nexport const x = jobs;\n";
-    expect(await rules(fixture, 'src/routes/jobs.ts', code, config)).toEqual([]);
+    expect(await lint('src/routes/jobs.ts', code)).toEqual([]);
+  });
+
+  it('app импортирует фичи', async () => {
+    const code = "import { jobs } from '../features/jobs/index.ts';\nexport const x = jobs;\n";
+    expect(await lint('src/app/router.ts', code)).toEqual([]);
+  });
+
+  it('routes не импортируют app', async () => {
+    const code = "import { router } from '../app/router.ts';\nexport const x = router;\n";
+    expect(await lint('src/routes/jobs.ts', code)).toContain('sosed/app-boundaries');
   });
 
   it('экран импортирует модули своей группы фич', async () => {
     const code = "import { jobs } from '../index.ts';\nexport const x = jobs;\n";
-    expect(await rules(fixture, 'src/features/jobs/s22-my-jobs/Screen.ts', code, config)).toEqual(
-      [],
-    );
+    expect(await lint('src/features/jobs/s22-my-jobs/Screen.ts', code)).toEqual([]);
   });
 
   it('импорт каталога без файла запрещён: иначе границы не видны', async () => {
     const code = "import { deals } from '../deals';\nexport const x = deals;\n";
-    expect(await rules(fixture, 'src/features/jobs/index.ts', code, config)).toContain(
-      'no-restricted-imports',
-    );
+    expect(await lint('src/features/jobs/index.ts', code)).toContain('no-restricted-imports');
   });
 
   it('фича не импортирует routes', async () => {
     const code = "import { route } from '../../routes/jobs.ts';\nexport const x = route;\n";
-    expect(await rules(fixture, 'src/features/jobs/index.ts', code, config)).toContain(
-      'boundaries/dependencies',
-    );
+    expect(await lint('src/features/jobs/index.ts', code)).toContain('sosed/app-boundaries');
+  });
+
+  it('файлы вне app, routes и фич (src/testing) не проверяются', async () => {
+    const code = "import { jobs } from '../features/jobs/index.ts';\nexport const x = jobs;\n";
+    expect(await lint('src/testing/render.ts', code)).toEqual([]);
   });
 });
 

@@ -174,7 +174,7 @@ integration); этот чек-лист.
 | ID | Требование | Статус | Доказательство |
 |---|---|---|---|
 | 14.1.1 | Повторяемая сборка | ✅ | образ по digest, `images.yml`, lock-файлы |
-| 14.2.1 | Компоненты обновлены, без известных уязвимостей | ⚠️ | pip-audit: 0; pnpm audit: 1 high — braces GHSA-vfj7-8cjw-p6xm, только линтер (`packages/config` → eslint-plugin-boundaries → micromatch), в бандл не попадает; исправленной версии нет — решение владельца |
+| 14.2.1 | Компоненты обновлены, без известных уязвимостей | ✅ | pip-audit: 0; pnpm audit: 0 (`.github/workflows/audit.yml`, `--audit-level low`) — линтер границ eslint-plugin-boundaries тянул braces с GHSA-vfj7-8cjw-p6xm без исправленной версии, заменён своим правилом `sosed/app-boundaries` (`packages/config/app-boundaries.js`) |
 | 14.2.2 | Лишнее выключено | ✅ | `/api/v1/docs` и `openapi.json` выключены в prod (`be/interfaces/http/app.py`) |
 | 14.3.2 | Отладка выключена в prod | ✅ | без `debug`, без трассировок в ответах |
 | 14.3.3 | Версия сервера не раскрывается | ✅ | `server_header=False` у uvicorn (8.4) |

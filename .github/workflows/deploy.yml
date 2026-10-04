@@ -71,6 +71,8 @@ jobs:
       STAGE_BOT_USERNAME: ${{ vars.STAGE_BOT_USERNAME }}
       R2_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       SENTRY_DSN: ${{ vars.SENTRY_DSN }}
+      # true — только на время нагрузочного прогона 8.3 (docs/loadtest/README.md)
+      STAGE_LOADTEST: ${{ vars.STAGE_LOADTEST }}
       # GHCR — встроенный токен job'а (K16): образ скачивается во время деплоя
       KAMAL_REGISTRY_USERNAME: ${{ github.actor }}
       KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
@@ -114,7 +116,7 @@ jobs:
           esac
           names=$(sed -n 's/^\([A-Z][A-Z0-9_]*\)=\$\1$/\1/p' infra/kamal/secrets.stage)
           pass=()
-          for name in GHCR_OWNER STAGE_HOST STAGE_DOMAIN STAGE_BOT_USERNAME R2_ACCOUNT_ID SENTRY_DSN $names; do
+          for name in GHCR_OWNER STAGE_HOST STAGE_DOMAIN STAGE_BOT_USERNAME R2_ACCOUNT_ID SENTRY_DSN STAGE_LOADTEST $names; do
             pass+=(-e "$name")
           done
           docker run --rm -v "$PWD:/workdir" -w /workdir \
