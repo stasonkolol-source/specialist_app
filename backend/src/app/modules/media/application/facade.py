@@ -125,6 +125,17 @@ class MediaModerator(MediaModeration):
     def __init__(self, assets: MediaRepository, queue: JobQueue) -> None:
         self._assets, self._queue = assets, queue
 
+    async def verdict(self, media_id: MediaId) -> ModerationVerdict | None:
+        try:
+            asset = await self._assets.get_by_id_for_update(media_id)
+        except MediaNotFoundError:
+            return None
+        if asset.status is not MediaStatus.READY:
+            return None
+        if asset.moderation_status is ModerationStatus.PENDING:
+            return None
+        return ModerationVerdict(asset.moderation_status.value)
+
     async def moderate(
         self,
         media_id: MediaId,

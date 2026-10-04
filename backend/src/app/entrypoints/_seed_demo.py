@@ -24,6 +24,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import time
 from typing import Final
+from uuid import UUID
 
 from dishka import AsyncContainer
 from PIL import Image, ImageDraw
@@ -437,7 +438,7 @@ class DemoSeeder:
             )
             await self._profile(request, user_id, demo, world)
             fresh = draft is None
-            added = await self._portfolio(request, user_id, demo) if photos and fresh else 0
+            works = await self._portfolio(request, user_id, demo) if photos and fresh else []
             await (await request.get(SubmitProfile))(SubmitProfileCommand(actor_id=user_id))
             profile = await specialists.profile_of(user_id)
             if profile is None:
@@ -445,8 +446,10 @@ class DemoSeeder:
             uow = await request.get(UnitOfWork)
             async with uow:
                 await specialists.approve_profile(profile.id, version=None)
+                for work_id in works:  # работы ждут проверки (6.7) — сид одобряет и их
+                    await specialists.approve_work(work_id)
             await self._availability(request, user_id, demo)
-        return True, added
+        return True, len(works)
 
     async def _sign_up(
         self,
@@ -668,11 +671,13 @@ class DemoSeeder:
 
     async def _portfolio(
         self, request: AsyncContainer, user_id: UserId, demo: DemoSpecialist
-    ) -> int:
+    ) -> list[UUID]:
+        """Работы из фото-заглушек — их id."""
         storage = await request.get(StoragePort)
         query = await request.get(MediaQuery)
         start, complete = await request.get(StartUpload), await request.get(CompleteUpload)
         add = await request.get(AddPortfolioWork)
+        works: list[UUID] = []
         for index, (category, caption) in enumerate(demo.photos):
             body = placeholder_photo(category.color, demo.number * 10 + index)
             upload = await start(
@@ -691,8 +696,11 @@ class DemoSeeder:
                 Bucket(asset.bucket), asset.object_key, body, content_type="image/jpeg"
             )
             await complete(CompleteUploadCommand(owner_id=user_id, media_id=media_id))
-            await add(AddPortfolioWorkCommand(actor_id=user_id, media_id=media_id, caption=caption))
-        return len(demo.photos)
+            work = await add(
+                AddPortfolioWorkCommand(actor_id=user_id, media_id=media_id, caption=caption)
+            )
+            works.append(work.id)
+        return works
 
     async def _availability(
         self, request: AsyncContainer, user_id: UserId, demo: DemoSpecialist

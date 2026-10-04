@@ -47,6 +47,7 @@ from app.modules.moderation.application.use_cases.decide_case import (
 )
 from app.modules.moderation.application.use_cases.open_case import CaseOpener
 from app.modules.moderation.domain.images import ImageAction
+from app.modules.specialists.api import SpecialistsApi
 from app.platform.ai.port import ModerationResult, Unavailable
 from app.platform.audit.port import AuditLog
 from app.platform.contracts.events.moderation import ModerationDecision
@@ -182,6 +183,7 @@ class World:
                 await request.get(CaseOpener),
                 await request.get(AutoCheckMetrics),
                 await request.get(AuditLog),
+                await request.get(SpecialistsApi),
             )
             return await check(
                 CheckImageCommand(media_id=media_id, owner_id=owner, purpose=purpose)

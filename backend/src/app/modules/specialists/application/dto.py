@@ -5,7 +5,7 @@ from datetime import datetime
 
 from app.modules.media.api import MediaRef
 from app.modules.specialists.domain.completeness import Completeness
-from app.modules.specialists.domain.portfolio import PortfolioItemId, WorkKind
+from app.modules.specialists.domain.portfolio import PortfolioItemId, WorkKind, WorkStatus
 from app.modules.specialists.domain.profile import (
     Language,
     ProfileId,
@@ -63,3 +63,6 @@ class WorkView:
     position: int
     media: MediaRef | None
     """None — файл уже удалён (работу убирают)."""
+    status: WorkStatus
+    """pending — на проверке (видит только владелец), published, rejected — скрыта
+    модератором (план 6.7)."""
