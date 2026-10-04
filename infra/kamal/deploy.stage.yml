@@ -38,7 +38,7 @@ env:
     # (docker_network_cidr). Края Cloudflare — APP_CLOUDFLARE_IPS по умолчанию (settings.py).
     APP_TRUSTED_PROXIES: '["172.30.0.0/24"]'
     # апдейты бота — webhook с secret_token на хост роли bot (0.25e); откат на long polling —
-    # `polling`. bot-setup в контейнере web видит те же значения
+    # `polling` и `proxy: false` у роли bot выше. bot-setup в контейнере web видит те же значения
     TELEGRAM_UPDATES: webhook
     TELEGRAM_WEBHOOK_BASE_URL: https://stage-bot.<%= ENV.fetch("STAGE_DOMAIN") %>
     TELEGRAM_BOT_USERNAME: <%= ENV.fetch("STAGE_BOT_USERNAME") %>

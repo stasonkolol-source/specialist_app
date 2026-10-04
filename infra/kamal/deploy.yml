@@ -39,7 +39,8 @@ servers:
       cpuset-cpus: "0-1"
   # Бот принимает webhook Telegram (0.25e, ADR-0011): у роли свой хост в kamal-proxy — Kamal не
   # даёт двум ролям один хост с TLS. Хост (stage-bot., bot.) и сертификат — в destination, порт,
-  # /up и буферы — от proxy ниже. С TELEGRAM_UPDATES=polling маршрут просто простаивает.
+  # /up и буферы — от proxy ниже. Откат на TELEGRAM_UPDATES=polling — вместе с `proxy: false` у
+  # роли в destination: polling не отвечает на /up, и деплой ждал бы healthcheck до таймаута.
   bot:
     cmd: bot
     proxy:

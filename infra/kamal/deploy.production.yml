@@ -10,7 +10,7 @@
 # Бот на проде — webhook (ADR-0011, 0.25e): апдейты на bot.<домен>/integrations/telegram/webhook —
 # свой хост роли bot в kamal-proxy (Kamal не даёт двум ролям один хост с TLS), skip-правило WAF —
 # infra/terraform/zone, секрет — TELEGRAM_WEBHOOK_SECRET. Откат на long polling —
-# TELEGRAM_UPDATES=polling.
+# TELEGRAM_UPDATES=polling вместе с `proxy: false` у роли bot (polling не отвечает на /up).
 
 # Лимиты под CX33 (4 vCPU, 8 GB, swap 2 GB) без БД на машине: медиа — на своём ядре (ffmpeg не
 # отнимает CPU у API), остальные делят три. cpuset, а не cpus (§16.1).

@@ -174,8 +174,9 @@ class TelegramSettings(_Group):
     updates: UpdatesMode = UpdatesMode.POLLING
     """Приём апдейтов процессом bot. webhook (stage, prod) — aiohttp-сервер на APP_WEB_HOST и
     APP_WEB_PORT за kamal-proxy, адрес — TELEGRAM_WEBHOOK_BASE_URL + /integrations/telegram/webhook;
-    нужен TELEGRAM_WEBHOOK_SECRET. Задаётся явно в Kamal, а не выводится из APP_ENV: откат stage
-    на polling — одна переменная (0.25e)."""
+    нужен TELEGRAM_WEBHOOK_SECRET. Задаётся явно в Kamal, а не выводится из APP_ENV: откат на
+    polling — без смены окружения (в Kamal — вместе с `proxy: false` у роли bot: polling не
+    отвечает на /up, 0.25e)."""
     webhook_base_url: str | None = None
     """Схема и хост, на которые Telegram шлёт webhook, без пути: свой хост процесса bot
     (`https://stage-bot.<домен>`, на проде `https://bot.<домен>`) — kamal-proxy не отдаёт один
