@@ -103,8 +103,12 @@ python3 - "$info" <<'PY'
 import datetime, json, sys
 
 stanza = json.loads(sys.argv[1])[0]
-if not stanza["backup"]:
-    sys.exit("restore-check: FAIL — в репозитории нет бэкапов")
+status = stanza.get("status", {})
+if status.get("code", 0) != 0 or not stanza["backup"]:
+    # ошибки репозитория pgBackRest отдаёт кодом в JSON, а не кодом выхода
+    repos = "; ".join(r.get("message", "") for r in status.get("repo", []))
+    sys.exit(f"restore-check: FAIL — pgbackrest info: {status.get('message', 'нет бэкапов')} {repos}"
+             " (пароль шифрования — копия K10a, ключи, бакет?)")
 last = stanza["backup"][-1]
 stop = datetime.datetime.fromtimestamp(last["timestamp"]["stop"], datetime.timezone.utc)
 print(f"backup_label={last['label']}")
