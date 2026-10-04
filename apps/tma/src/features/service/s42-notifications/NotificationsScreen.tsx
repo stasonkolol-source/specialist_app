@@ -79,6 +79,8 @@ const LOOK: Record<NotificationType, Look> = {
   'profile.stale_reminder': { icon: 'user', palette: 4 },
   'profile.published': { icon: 'shield', palette: 1 },
   'system.test': { icon: 'bell' },
+  // рассылки (2.7b) уходят только в бот; тип — для полноты карты
+  broadcast: { icon: 'bell' },
 };
 
 export interface NotificationsScreenProps {

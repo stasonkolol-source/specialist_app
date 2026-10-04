@@ -13239,7 +13239,8 @@
           "profile.stale_reminder",
           "profile.published",
           "account.restricted",
-          "system.test"
+          "system.test",
+          "broadcast"
         ],
         "title": "NotificationType"
       },
