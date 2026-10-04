@@ -36,12 +36,21 @@ from tests.plugins.bot import MINI_APP, BotHarness, bot_harness
 pytestmark = pytest.mark.integration
 
 
+CREATED_ALERTS: set[UUID] = set()
+"""Подписки, вставленные `alert_of`: база общая на прогон, а подписка на «Мастер на час» в
+Нови-Саде иначе получала бы карточки заявок других тестов (test_job_alerts)."""
+
+
 @pytest.fixture
 async def harness(
     monkeypatch: pytest.MonkeyPatch, geo_seeded: None, catalog_seeded: None
 ) -> AsyncIterator[BotHarness]:
     async with bot_harness(monkeypatch) as harness:
         yield harness
+        await execute(
+            harness, "DELETE FROM jobs.alerts WHERE id = ANY(:ids)", ids=list(CREATED_ALERTS)
+        )
+        CREATED_ALERTS.clear()
 
 
 async def rows(harness: BotHarness, sql: str, **params: object) -> list[Any]:
@@ -79,6 +88,7 @@ async def alert_of(
         paused=datetime.now(UTC) + timedelta(days=1) if paused else None,
         subject=str(telegram_id),
     )
+    CREATED_ALERTS.add(alert_id)
     return alert_id
 
 
