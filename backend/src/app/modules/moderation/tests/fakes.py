@@ -173,6 +173,14 @@ class FakeDeals:
     async def deal_for_response(self, response_id: UUID) -> DealBrief | None:
         raise NotImplementedError
 
+    async def ever_agreed(self, conversation_id: UUID, response_id: UUID | None) -> bool:
+        raise NotImplementedError
+
+    async def agreed_conversations(
+        self, conversations: Mapping[UUID, UUID | None]
+    ) -> frozenset[UUID]:
+        raise NotImplementedError
+
     async def deal_for(self, deal_id: DealId, viewer_id: UserId) -> DealSummary:
         raise NotImplementedError
 
