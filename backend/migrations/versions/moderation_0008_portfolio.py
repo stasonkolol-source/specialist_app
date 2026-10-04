@@ -1,4 +1,4 @@
-"""moderation_0007: цель проверки «работа портфолио» (DEVELOPMENT_PLAN 6.7; ARCHITECTURE §14.1).
+"""moderation_0008: цель проверки «работа портфолио» (DEVELOPMENT_PLAN 6.7; ARCHITECTURE §14.1).
 
 Новая работа портфолио ждёт проверки подписи и фото: кейс о ней — объект `portfolio`.
 `entity_type` кейсов и `target_type` жалоб (тот же перечень в модели) принимают новое значение.
@@ -6,8 +6,8 @@
 VALIDATE, как в moderation_0003. Откат возвращает старые списки; кейсы работ откат не удаляет —
 VALIDATE тогда упадёт (ADR-0005: данные не теряем).
 
-Ревизия: moderation_0007 (2026-10-04 20:00:00.000000+00:00)
-Предыдущая: notifications_0008
+Ревизия: moderation_0008 (2026-10-04 20:00:00.000000+00:00)
+Предыдущая: moderation_0007
 
 Правила (DEVELOPMENT_PLAN 0.9, ADR-0005):
 - имя ревизии — <модуль>_NNNN, файл — <модуль>_NNNN_<slug>.py;
@@ -22,8 +22,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "moderation_0007"
-down_revision: str | Sequence[str] | None = "notifications_0008"
+revision: str = "moderation_0008"
+down_revision: str | Sequence[str] | None = "moderation_0007"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
