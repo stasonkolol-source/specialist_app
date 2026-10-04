@@ -384,7 +384,7 @@ describe('S49 system states (1.5a)', () => {
       await screen.findByRole('heading', { name: 'Аккаунт приостановлен до 3 октября' }),
     ).toBeTruthy();
     expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
-    // «Обжаловать» — MainButton Telegram с шага 2.5b: ни в DOM, ни у клиента
+    // «Обжаловать» (2.5b) — только при частичной санкции: вход закрыт, сессии для запроса нет
     expect(screen.queryByRole('button', { name: 'Обжаловать' })).toBeNull();
     expect(mainButtonShown(telegram)).toBe(false);
   });

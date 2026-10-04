@@ -173,10 +173,14 @@ describe('S49b account restricted', () => {
   });
 
   it('closes the whole account without the «still available» list', async () => {
-    renderWith(<SystemScreen state={restricted('suspended', UNTIL)} onRetry={vi.fn()} />);
+    const { telegram } = renderWith(
+      <SystemScreen state={restricted('suspended', UNTIL)} onRetry={vi.fn()} />,
+    );
     expect(
       await screen.findByRole('heading', { name: 'Аккаунт приостановлен до 3 октября' }),
     ).toBeTruthy();
+    // вход закрыт — сессии для POST /appeals нет: «Обжаловать» не показываем
+    expect(mainButtonShown(telegram)).toBe(false);
     expect(screen.getByRole('alert').textContent).toBe(
       'До 3 октября, 18:00 нельзя пользоваться аккаунтом',
     );
