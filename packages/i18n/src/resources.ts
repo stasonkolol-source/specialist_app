@@ -14,7 +14,8 @@
 // S21; дальше лента, отклики, мои заявки); messages — «Сообщения» SPEC §6 (S29 диалоги, S30 чат);
 // account — экраны из профиля S31: уведомления S42, настройки S43, удаление аккаунта S45 (в service
 // они были в первом экране, а нужны только по переходу); safety — жалоба S46 и блокировки S44 (4.7):
-// шторка открывается с любого экрана, а нужна редко — своим маленьким чанком.
+// шторка открывается с любого экрана, а нужна редко — своим маленьким чанком; web — браузерная
+// оболочка (8.1): страница «Открыть в Telegram» и «Как удалить аккаунт» — только вне Telegram.
 import ruCatalog from './catalogs/ru/catalog.json' with { type: 'json' };
 import ruCommon from './catalogs/ru/common.json' with { type: 'json' };
 import type ruAccount from './catalogs/ru/account.json';
@@ -24,6 +25,7 @@ import type ruOnboarding from './catalogs/ru/onboarding.json';
 import type ruSafety from './catalogs/ru/safety.json';
 import ruService from './catalogs/ru/service.json' with { type: 'json' };
 import type ruSpecialist from './catalogs/ru/specialist.json';
+import type ruWeb from './catalogs/ru/web.json';
 import srCyrlCommon from './catalogs/sr-Cyrl/common.json' with { type: 'json' };
 import type { Catalog } from './catalog.ts';
 import { transliterateCatalog } from './catalog.ts';
@@ -39,6 +41,7 @@ export const NAMESPACES = [
   'messages',
   'account',
   'safety',
+  'web',
 ] as const;
 export type Namespace = (typeof NAMESPACES)[number];
 
@@ -58,6 +61,7 @@ export type Messages = {
   messages: typeof ruMessages;
   account: typeof ruAccount;
   safety: typeof ruSafety;
+  web: typeof ruWeb;
 };
 
 export function isNamespace(value: string): value is Namespace {
@@ -82,6 +86,7 @@ const RU_LATER: Record<Exclude<Namespace, FirstScreen>, () => Promise<Catalog>> 
   messages: () => import('./catalogs/ru/messages.json').then((module) => module.default),
   account: () => import('./catalogs/ru/account.json').then((module) => module.default),
   safety: () => import('./catalogs/ru/safety.json').then((module) => module.default),
+  web: () => import('./catalogs/ru/web.json').then((module) => module.default),
 };
 
 const isFirstScreen = (namespace: Namespace): namespace is FirstScreen =>

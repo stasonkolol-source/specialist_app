@@ -35,6 +35,16 @@ SENSITIVE_KEYS = frozenset(
         "dsn",
         "cookie",
         "set-cookie",
+        # секрет webhook бота и адреса клиента в заголовках событий Sentry (8.4)
+        "x-telegram-bot-api-secret-token",
+        "webhook_secret",
+        "hash_key",
+        "private_key",
+        "client_secret",
+        "cf-connecting-ip",
+        "x-forwarded-for",
+        "x-real-ip",
+        "email",
     }
 )
 

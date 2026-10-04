@@ -1,7 +1,8 @@
 """Реализация JobsApi (ADR-0020 §6): заявка и отклик для конвейера модерации, публикация и отказ;
-краткие сведения о сроке, откликах и приглашении — для уведомлений."""
+краткие сведения о сроке, откликах, приглашении и подписках (карточка B1, подборка) — для
+уведомлений."""
 
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from typing import Final
 from uuid import UUID
 
@@ -10,10 +11,12 @@ from app.modules.identity.api import IdentityApi
 from app.modules.jobs.api import (
     ChatResponse,
     DealJob,
+    DigestLine,
     InviteNotice,
     JobBrief,
     JobForReview,
     JobsApi,
+    MatchNotice,
     OwnerResponseView,
     PublicJob,
     ResponseForReview,
@@ -21,13 +24,15 @@ from app.modules.jobs.api import (
     TemplateRef,
 )
 from app.modules.jobs.application.ports import (
+    JobAlerts,
     JobQueries,
     JobRepository,
     ResponsesSeen,
     ResponseTemplates,
 )
 from app.modules.jobs.application.visibility import visible_to
-from app.modules.jobs.domain.job import MAX_EXTENSIONS, Job, JobId, JobStatus
+from app.modules.jobs.domain.alert import AlertId
+from app.modules.jobs.domain.job import MAX_EXTENSIONS, Job, JobId, JobStatus, Visibility
 from app.modules.jobs.domain.response import ACTIVE, ResponseId, ResponseReview, ResponseStatus
 from app.modules.jobs.errors import JobNotFoundError
 from app.platform.db.port import UnitOfWork
@@ -45,12 +50,14 @@ class JobsFacade(JobsApi):
         queries: JobQueries,
         templates: ResponseTemplates,
         seen: ResponsesSeen,
+        alerts: JobAlerts,
         catalog: CatalogApi,
         identity: IdentityApi,
         clock: Clock,
     ) -> None:
         self._uow, self._jobs, self._queries, self._templates = uow, jobs, queries, templates
-        self._seen, self._catalog, self._identity, self._clock = seen, catalog, identity, clock
+        self._seen, self._alerts = seen, alerts
+        self._catalog, self._identity, self._clock = catalog, identity, clock
 
     async def job_for_review(self, job_id: UUID) -> JobForReview | None:
         async with self._uow:
@@ -224,6 +231,59 @@ class JobsFacade(JobsApi):
             client_name=client.display_name if client and not client.is_deleted else None,
             templates=tuple(TemplateRef(id=item.id, title=item.title) for item in templates),
         )
+
+    async def match_notice(
+        self, job_id: UUID, user_id: UserId, alert_id: UUID
+    ) -> MatchNotice | None:
+        job = await self._queries.view(JobId(job_id))
+        if job is None:
+            return None
+        now = self._clock.now()
+        alert = await self._alerts.get(AlertId(alert_id))
+        opened = await self._queries.still_open([job.id], now)
+        skipped = await self._queries.skipped([job.id], user_id)
+        templates = () if skipped else await self._templates.of_user(user_id)
+        return MatchNotice(
+            title=job.title,
+            open=job.id in opened and job.visibility is Visibility.PUBLIC,
+            budget_type=job.budget_type.value,
+            budget_min=job.budget_min,
+            budget_max=job.budget_max,
+            budget_unit=job.budget_unit.value,
+            district_id=job.district_id,
+            urgency=job.urgency.value,
+            preferred_from=job.preferred_from,
+            preferred_to=job.preferred_to,
+            responses_count=job.responses_count,
+            max_responses=job.max_responses,
+            expires_at=job.expires_at,
+            alert_category_ids=alert.criteria.category_ids if alert is not None else (),
+            alert_receives=(alert is not None and alert.user_id == user_id and alert.receives(now)),
+            skipped=bool(skipped),
+            templates=tuple(TemplateRef(id=item.id, title=item.title) for item in templates),
+        )
+
+    async def digest_lines(
+        self, user_id: UserId, alerts: Mapping[UUID, Collection[UUID]]
+    ) -> list[DigestLine]:
+        now = self._clock.now()
+        mine = {alert.id: alert for alert in await self._alerts.of_user(user_id)}
+        wanted = {JobId(job_id) for job_ids in alerts.values() for job_id in job_ids}
+        opened = await self._queries.still_open(wanted, now)
+        opened -= await self._queries.skipped(opened, user_id)
+        lines = []
+        for alert_id, job_ids in alerts.items():
+            alert = mine.get(AlertId(alert_id))
+            if alert is None or not alert.receives(now):
+                continue
+            lines.append(
+                DigestLine(
+                    alert_id=alert.id,
+                    category_ids=alert.criteria.category_ids,
+                    open_jobs=sum(1 for job_id in set(job_ids) if JobId(job_id) in opened),
+                )
+            )
+        return lines
 
     async def response_for_review(self, response_id: UUID) -> ResponseForReview | None:
         job = await self._job_of_response(ResponseId(response_id))

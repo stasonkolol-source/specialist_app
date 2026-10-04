@@ -300,6 +300,14 @@ async def test_urgent_notification_stays_urgent_until_sent(notifications: Notifi
     assert await notifications.send(SendDeliveryCommand(delivery_id=delivery_id)) == "sent"
 
 
+class WithoutMatchTemplates(GettextNotificationRenderer):
+    """Рендерер, у которого нет шаблонов карточки B1: с 5.7 шаблоны есть у всех типов каталога,
+    а проверка остаётся для следующего нового типа."""
+
+    def renders(self, type_: NotificationType) -> bool:
+        return type_ is not NotificationType.JOB_MATCHED and super().renders(type_)
+
+
 async def test_notify_refuses_a_type_without_templates(notifications: Notifications) -> None:
     user_id = await notifications.user_with_bot()
     production = Notify(
@@ -307,7 +315,7 @@ async def test_notify_refuses_a_type_without_templates(notifications: Notificati
         notifications.notify._notifications,
         notifications.notify._settings,
         notifications.notify._channels,
-        GettextNotificationRenderer(Translator.load(), MINI_APP),
+        WithoutMatchTemplates(Translator.load(), MINI_APP),
         notifications.notify._queue,
         notifications.clock,
     )

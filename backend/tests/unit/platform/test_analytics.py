@@ -17,6 +17,7 @@ from app.modules.deals.domain.dispute import DisputeKind
 from app.modules.growth.api import ShareTarget
 from app.modules.growth.domain.attribution import AttributionSource
 from app.modules.identity.domain.user import UserIntent
+from app.modules.jobs.domain.alert import AlertDelivery
 from app.modules.jobs.domain.job import CloseReason, Urgency
 from app.modules.messaging.domain.conversation import ConversationKind, ParticipantRole
 from app.modules.messaging.domain.message import ContactType
@@ -24,6 +25,7 @@ from app.modules.moderation.domain.queues import Queue
 from app.modules.moderation.domain.reports import REASONS, ReportReason, report_queue
 from app.modules.notifications.domain.channel import GrantedVia
 from app.platform.analytics.events import (
+    ALERT_DELIVERIES,
     CLOSE_REASONS,
     CONTACT_TYPES,
     CONVERSATION_KINDS,
@@ -50,6 +52,8 @@ from app.platform.analytics.fake import LoggingAnalytics
 from app.platform.analytics.port import AnalyticsEvent
 from app.platform.analytics.posthog import PostHogAnalytics
 from app.platform.analytics.tasks import (
+    capture_alert_created,
+    capture_alerts_matched,
     capture_attribution_recorded,
     capture_contact_shared,
     capture_conversation_started,
@@ -65,7 +69,7 @@ from app.platform.analytics.tasks import (
 from app.platform.contracts.events.deals import DealAgreed, DealCancelled
 from app.platform.contracts.events.growth import AttributionRecorded, ShareCreated
 from app.platform.contracts.events.identity import EntryPoint, OnboardingCompleted
-from app.platform.contracts.events.jobs import JobInvited
+from app.platform.contracts.events.jobs import AlertCreated, AlertsMatched, JobInvited
 from app.platform.contracts.events.messaging import ContactShared, ConversationStarted, MessageSent
 from app.platform.contracts.events.moderation import ReportCreated
 from app.platform.contracts.events.notifications import WriteAccessGranted
@@ -147,6 +151,8 @@ def test_wired_events_are_those_of_the_finished_steps() -> None:
         EventName.REPORT_CREATED: "4.7",
         EventName.SHARE_CREATED: "7.4",
         EventName.ATTRIBUTION_RECORDED: "7.4",
+        EventName.ALERT_CREATED: "5.7",
+        EventName.JOB_MATCHED_NOTIFIED: "5.7",
     }
 
 
@@ -170,6 +176,7 @@ def test_closed_lists_match_the_domain() -> None:
     assert {report_queue(r).value for r in ReportReason} == REPORT_QUEUES
     assert REPORT_QUEUES.issubset({q.value for q in Queue})
     assert {t.value for t in ShareTarget} == SHARE_ENTITIES
+    assert {d.value for d in AlertDelivery} == ALERT_DELIVERIES
 
 
 def registered(**properties: Any) -> AnalyticsEvent:
@@ -229,7 +236,7 @@ def test_city_is_a_reference_id_not_text() -> None:
 def test_declared_but_not_wired_event_is_refused() -> None:
     with pytest.raises(ValueError, match="not wired yet"):
         analytics_event(
-            EventName.ALERT_CREATED,
+            EventName.PHONE_VERIFIED,  # подтверждение телефона — v1
             user_id=new_id(),
             occurred_at=NOW,
             source_event_id=new_id(),
@@ -374,7 +381,7 @@ def test_posthog_host_must_be_https() -> None:
         ),
         AnalyticsEvent(name="made_up", distinct_id=new_id(), occurred_at=NOW, event_id=new_id()),
         AnalyticsEvent(
-            name="alert_created", distinct_id=new_id(), occurred_at=NOW, event_id=new_id()
+            name="phone_verified", distinct_id=new_id(), occurred_at=NOW, event_id=new_id()
         ),
     ],
     ids=["pii-property", "unknown-event", "not-wired"],
@@ -501,6 +508,59 @@ async def test_invites_and_direct_requests_are_captured() -> None:
         ("invite_sent", client),
         ("direct_request_sent", client),
     ]
+
+
+async def test_alert_events_carry_no_criteria_values() -> None:
+    """5.7: подписка — какая зона и режим, без точки и районов; совпадения — одно событие на
+    заявку от её автора: скольким подписчикам сразу и подборкой."""
+    fake = LoggingAnalytics()
+    performer, client = UserId(new_id()), UserId(new_id())
+    await capture_alert_created(
+        AlertCreated(
+            alert_id=new_id(),
+            user_id=performer,
+            city_id=CityId(1),
+            delivery="digest",
+            area="radius",
+            categories=2,
+            has_budget=True,
+            urgent_only=False,
+            occurred_at=NOW,
+        ),
+        fake,
+    )
+    await capture_alerts_matched(
+        AlertsMatched(
+            job_id=new_id(),
+            client_id=client,
+            category_id=CategoryId(12),
+            city_id=CityId(1),
+            urgency="asap",
+            instant=7,
+            digest=3,
+            occurred_at=NOW,
+        ),
+        fake,
+    )
+
+    created, matched = fake.captured
+    assert (created.name, created.distinct_id) == ("alert_created", performer)
+    assert created.properties == {
+        "city": 1,
+        "delivery": "digest",
+        "area": "radius",
+        "categories": 2,
+        "has_budget": True,
+        "urgent_only": False,
+    }
+    assert (matched.name, matched.distinct_id) == ("job_matched_notified", client)
+    assert matched.properties == {
+        "category": 12,
+        "city": 1,
+        "urgency": "asap",
+        "instant": 7,
+        "digest": 3,
+    }
 
 
 async def test_report_is_captured_from_the_reporter() -> None:

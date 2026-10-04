@@ -9,6 +9,7 @@ import srCyrlOnboarding from './catalogs/sr-Cyrl/onboarding.json' with { type: '
 import srCyrlSafety from './catalogs/sr-Cyrl/safety.json' with { type: 'json' };
 import srCyrlService from './catalogs/sr-Cyrl/service.json' with { type: 'json' };
 import srCyrlSpecialist from './catalogs/sr-Cyrl/specialist.json' with { type: 'json' };
+import srCyrlWeb from './catalogs/sr-Cyrl/web.json' with { type: 'json' };
 import type { Messages } from './resources.ts';
 
 export const SR_CYRL: Messages = {
@@ -21,4 +22,5 @@ export const SR_CYRL: Messages = {
   messages: srCyrlMessages,
   account: srCyrlAccount,
   safety: srCyrlSafety,
+  web: srCyrlWeb,
 };

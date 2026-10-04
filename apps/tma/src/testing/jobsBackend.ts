@@ -13,8 +13,14 @@
 // GET /me/deals, GET /deals/{id}/card, POST /deals/{id}/complete и /cancel, ответ на «Договорились»
 // из чата — /confirm и /decline (S53, 6.5); спор S52 (6.1c) — POST /deals/{id}/dispute,
 // …/respond и …/withdraw, фото — из MediaBackend (`media`); сторона — клиент или
-// исполнитель (`dealRole`). Время публикации — от E2E_NOW: в e2e часы браузера стоят на нём же.
+// исполнитель (`dealRole`). Подписки на заявки (5.7): /me/job-alerts — список, новая с ключом
+// идемпотентности (не больше десяти), правка, удаление; лента и счётчик с `feed=alerts` — заявки
+// категорий и бюджета включённых подписок. Время публикации — от E2E_NOW: в e2e часы браузера
+// стоят на нём же.
 import type {
+  JobAlertIn,
+  JobAlertOut,
+  JobAlertPatchIn,
   DealCardDisputeOut,
   DealCardDisputePhotoOut,
   DealCardOut,
@@ -58,6 +64,7 @@ const PARA = 100;
 const MAX_RESPONSES = 5;
 const MAX_SAVED = 100;
 const MAX_TEMPLATES = 2;
+const MAX_ALERTS = 10;
 /** Суточная квота откликов новичка (§13.3). */
 const DAILY_RESPONSES = 10;
 const ACTIVE: ReadonlySet<ResponseStatus> = new Set(['submitted', 'viewed', 'shortlisted']);
@@ -346,6 +353,7 @@ export function myJobsFixture(feed: FeedFixture[] = FEED_JOBS): JobOut[] {
       point_exact: found.point,
       address_private: 'Народног фронта 12',
       views_count: 12,
+      notified_count: 7,
       new_responses: 0,
       client: null,
       ...patch,
@@ -465,6 +473,47 @@ export function templatesFixture(): ResponseTemplateOut[] {
 /** Раздел каталога → он и его услуги: id услуг раздела N — N01…N99 (fixtures.CATEGORY_IDS). */
 const withChildren = (id: number) => (job: number) => job === id || Math.floor(job / 100) === id;
 
+/** Подписки как на артборде S18: «Мастер на час» — до 3 км, от 2 000 RSD, по-русски, сразу;
+ *  «Сборка мебели» — весь город, подборкой. */
+export function alertsFixture(): JobAlertOut[] {
+  const criteria = (patch: Partial<JobAlertOut['criteria']>): JobAlertOut['criteria'] => ({
+    category_ids: [],
+    city_id: 1,
+    district_ids: [],
+    center: null,
+    radius_km: null,
+    min_budget: null,
+    urgencies: [],
+    languages: ['ru'],
+    ...patch,
+  });
+  return [
+    {
+      id: '0199dd40-0000-7000-8000-000000000001',
+      criteria: criteria({
+        category_ids: [CATEGORY_IDS['handyman'] ?? 0],
+        center: { lat: 45.2671, lon: 19.8335 },
+        radius_km: 3,
+        min_budget: 2_000 * PARA,
+      }),
+      delivery: 'instant',
+      is_active: true,
+      paused_until: null,
+      week_count: 8,
+      created_at: '2026-09-20T10:00:00Z',
+    },
+    {
+      id: '0199dd40-0000-7000-8000-000000000002',
+      criteria: criteria({ category_ids: [CATEGORY_IDS['furniture-assembly'] ?? 0] }),
+      delivery: 'digest',
+      is_active: true,
+      paused_until: null,
+      week_count: 3,
+      created_at: '2026-09-21T10:00:00Z',
+    },
+  ];
+}
+
 export class JobsBackend {
   /** Принятые POST /jobs и прямые запросы: тело, ключ и кому — все, включая повторы. */
   readonly posts: { body: JobIn; key: string | null; directTo?: string | null }[] = [];
@@ -514,6 +563,15 @@ export class JobsBackend {
   readonly received: MyReviewOut[] = [];
   /** Ответы на отзывы — что прислал экран S28. */
   readonly replies: { reviewId: string; body: string }[] = [];
+  /** Подписки на заявки по порядку создания (S18). */
+  alerts: JobAlertOut[] = [];
+  /** Принятые POST и PATCH /me/job-alerts: тело и ключ — все, включая повторы. */
+  readonly alertWrites: {
+    method: string;
+    body: JobAlertIn | JobAlertPatchIn;
+    key: string | null;
+  }[] = [];
+  private readonly alertsByKey = new Map<string, JobAlertOut>();
 
   /** Свои заявки клиента (S22) и отклики люстры (S23), как на артбордах. */
   seedMine(): this {
@@ -574,6 +632,9 @@ export class JobsBackend {
     }
     if (path.startsWith('/me/response-templates')) {
       return signedIn ? this.templated(method, path, body, key) : problem(401, 'not_authenticated');
+    }
+    if (path.startsWith('/me/job-alerts')) {
+      return signedIn ? this.alerted(method, path, body, key) : problem(401, 'not_authenticated');
     }
     const respond = /^\/jobs\/([^/]+)\/responses$/.exec(path);
     if (method === 'POST' && respond) {
@@ -1134,6 +1195,51 @@ export class JobsBackend {
     return { status: 200, body: list().find((item) => item.id === found.id) };
   }
 
+  /** Подписки, как у сервера: до десяти, новая — с ключом; условия правки — целиком. */
+  alerted(method: string, path: string, body: unknown, key: string | null): BackendReply | null {
+    if (path === '/me/job-alerts') {
+      if (method === 'GET') return { status: 200, body: { items: this.alerts, limit: MAX_ALERTS } };
+      if (method !== 'POST') return null;
+      this.alertWrites.push({ method, body: body as JobAlertIn, key });
+      if (!key) return problem(400, 'idempotency_key_required');
+      const known = this.alertsByKey.get(key);
+      if (known) return { status: 201, body: known };
+      if (this.alerts.length >= MAX_ALERTS) return problem(409, 'job_alerts_full', { limit: MAX_ALERTS });
+      const input = body as JobAlertIn;
+      const created: JobAlertOut = {
+        id: `0199dd41-0000-7000-8000-${String(this.alertsByKey.size + 1).padStart(12, '0')}`,
+        criteria: criteriaOut(input.criteria),
+        delivery: input.delivery ?? 'instant',
+        is_active: true,
+        paused_until: null,
+        week_count: this.matching(alertParams(input.criteria)).length,
+        created_at: new Date(E2E_NOW).toISOString(),
+      };
+      this.alerts = [...this.alerts, created];
+      this.alertsByKey.set(key, created);
+      return { status: 201, body: created };
+    }
+    const id = /^\/me\/job-alerts\/([^/]+)$/.exec(path)?.[1];
+    const found = this.alerts.find((item) => item.id === id);
+    if (!found) return problem(404, 'job_alert_not_found');
+    if (method === 'DELETE') {
+      this.alerts = this.alerts.filter((item) => item.id !== found.id);
+      return { status: 204, body: null };
+    }
+    if (method !== 'PATCH') return null;
+    const patch = body as JobAlertPatchIn;
+    this.alertWrites.push({ method, body: patch, key });
+    const edited: JobAlertOut = {
+      ...found,
+      criteria: patch.criteria ? criteriaOut(patch.criteria) : found.criteria,
+      delivery: patch.delivery ?? found.delivery,
+      is_active: patch.is_active ?? found.is_active,
+      paused_until: patch.is_active ? null : found.paused_until,
+    };
+    this.alerts = this.alerts.map((item) => (item.id === found.id ? edited : item));
+    return { status: 200, body: edited };
+  } // prettier-ignore
+
   feed(params: URLSearchParams): BackendReply {
     this.feedRequests.push(params);
     const found = this.matching(params);
@@ -1201,8 +1307,10 @@ export class JobsBackend {
     const point = params.has('lat') && params.has('lon');
     const radius = params.get('radius_km');
     const budget = params.get('budget_from');
+    const subscribed = params.get('feed') === 'alerts' ? this.alerts.filter((alert) => alert.is_active) : null;
     return this.feedJobs
       .filter((item) => !this.hidden.has(item.card.id))
+      .filter(({ card }) => subscribed === null || subscribed.some((alert) => fits(alert, card)))
       .filter(({ card }) => categories.length === 0 || categories.some((id) => withChildren(id)(card.category_id)))
       .filter(({ card }) => districts.length === 0 || districts.includes(card.district_id ?? 0))
       .filter(({ card }) => urgencies.length === 0 || urgencies.includes(card.urgency))
@@ -1212,6 +1320,38 @@ export class JobsBackend {
       .filter(({ card }) => radius === null || (card.distance_m ?? Infinity) <= Number(radius) * 1000)
       .map(({ card }) => ({ ...card, distance_m: point ? card.distance_m : null }));
   } // prettier-ignore
+}
+
+/** Условия подписки из тела запроса — как их вернёт сервер. */
+function criteriaOut(input: JobAlertIn['criteria']): JobAlertOut['criteria'] {
+  return {
+    category_ids: input.category_ids,
+    city_id: input.city_id,
+    district_ids: input.district_ids ?? [],
+    center: input.center ?? null,
+    radius_km: input.radius_km ?? null,
+    min_budget: input.min_budget ?? null,
+    urgencies: input.urgencies ?? [],
+    languages: input.languages ?? [],
+  };
+}
+
+/** Параметры ленты, которыми фейк считает «N заявок за неделю» новой подписки. */
+function alertParams(input: JobAlertIn['criteria']): URLSearchParams {
+  const params = new URLSearchParams();
+  for (const id of input.category_ids) params.append('category', String(id));
+  if (input.min_budget) params.set('budget_from', String(input.min_budget));
+  return params;
+}
+
+/** Заявка подходит подписке: категория с подкатегориями и бюджет «от» (договорные — да). */
+function fits(alert: JobAlertOut, card: JobCardOut): boolean {
+  const { category_ids: categories, min_budget: budget } = alert.criteria;
+  const amount = (card.budget_max ?? card.budget_min)?.amount ?? null;
+  return (
+    categories.some((id) => withChildren(id)(card.category_id)) &&
+    (budget === null || amount === null || amount >= budget)
+  );
 }
 
 /** Заявка ленты для S15: зритель — не владелец, фото — вариант md. */
@@ -1251,6 +1391,7 @@ function feedJobOut({ card, description, languages, client, point }: FeedFixture
     my_response: null,
     extensions_count: 0,
     views_count: null,
+    notified_count: null,
     new_responses: null,
     moderation_note: null,
     version: 1,
@@ -1300,6 +1441,7 @@ export function jobOut(id: string, body: JobIn, status: JobStatus): JobOut {
     my_response: null,
     extensions_count: 0,
     views_count: 0,
+    notified_count: 0,
     new_responses: 0,
     moderation_note: null,
     version: 1,

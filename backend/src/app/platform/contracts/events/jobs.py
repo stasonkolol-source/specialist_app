@@ -154,3 +154,35 @@ class JobInvited(DomainEvent):
     """Владелец профиля — получатель уведомления."""
     direct: bool
     """Прямой запрос: заявку видит только он."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AlertCreated(DomainEvent):
+    """Исполнитель подписался на новые заявки (S19, 5.7): в аналитику — `alert_created`."""
+
+    event_type = "jobs.AlertCreated"
+    alert_id: UUID
+    user_id: UserId
+    city_id: CityId
+    delivery: str
+    """`instant` или `digest`."""
+    area: str
+    """`city` (весь город), `districts` или `radius`."""
+    categories: int
+    has_budget: bool
+    urgent_only: bool
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AlertsMatched(DomainEvent):
+    """Опубликованная заявка подошла подписчикам (`jobs.match_alerts`, 5.7): скольким — сразу
+    (B1 поставлен) и подборкой. Одно событие на заявку: в аналитику — `job_matched_notified`."""
+
+    event_type = "jobs.AlertsMatched"
+    job_id: UUID
+    client_id: UserId
+    category_id: CategoryId
+    city_id: CityId
+    urgency: str
+    instant: int
+    digest: int

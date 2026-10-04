@@ -1,0 +1,30 @@
+{
+  "link": {
+    "specialist": "Profil stručnjaka",
+    "job": "Zahtev",
+    "app": "„Sosedi“ su u Telegram-u",
+    "text": "Majstori i zahtevi u blizini — u mini-aplikaciji u Telegram-u. Tamo možete da pišete stručnjaku, pošaljete ponudu na zahtev i dobijate odgovore u četu.",
+    "open": "Otvori u Telegram-u",
+    "continue": "Nastavi u pregledaču",
+    "browserOnly": "U pregledaču je moguće samo gledanje: pisanje, ponude i novi zahtevi — u Telegram-u.",
+    "noBot": "Link ka Telegram-u pojaviće se kada bot bude povezan.",
+    "deletion": "Kako obrisati nalog"
+  },
+  "deletion": {
+    "title": "Kako obrisati nalog",
+    "lead": "Nalog u aplikaciji „Sosedi“ vezan je za Telegram, pa se briše u Telegram-u: prijave na sajtu nema.",
+    "appTitle": "U mini-aplikaciji",
+    "app": {
+      "open": "Otvorite aplikaciju „Sosedi“ u Telegram-u.",
+      "settings": "Profil → „Podešavanja“ → „Obriši nalog“.",
+      "confirm": "Potvrdite da razumete posledice i dodirnite „Obriši nalog“."
+    },
+    "botTitle": "Preko bota",
+    "bot": {
+      "command": "Pošaljite botu aplikacije „Sosedi“ komandu /settings.",
+      "button": "Dodirnite „Obriši nalog“ — otvoriće se isti ekran za brisanje."
+    },
+    "support": "Nemate pristup Telegram nalogu? Pišite podršci — obrisaćemo nalog na zahtev.",
+    "open": "Otvori „Sosedi“ u Telegram-u"
+  }
+}

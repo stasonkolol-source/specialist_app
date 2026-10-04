@@ -1,12 +1,19 @@
 """Репозиторий профилей (ADR-0020 §5): профиль с категориями и районами — один агрегат."""
 
+from collections.abc import Collection
 from datetime import datetime
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.specialists.domain.profile import Language, Profile, ProfileId, WorkMode
+from app.modules.specialists.domain.profile import (
+    Language,
+    Profile,
+    ProfileId,
+    ProfileStatus,
+    WorkMode,
+)
 from app.modules.specialists.errors import ProfileExistsError, ProfileNotFoundError
 from app.modules.specialists.infrastructure.models import (
     ProfileCategoryRow,
@@ -68,6 +75,41 @@ class SqlProfileRepository:
             .with_for_update(skip_locked=True)
         )
         return [ProfileId(value) for value in (await self._session.scalars(stmt)).all()]
+
+    async def stale(
+        self, *, updated_before: datetime, reminded_before: datetime, now: datetime, limit: int
+    ) -> list[tuple[ProfileId, UserId]]:
+        self._uow.require_active()
+        p = ProfileRow.__table__.c
+        stmt = (
+            select(p.id, p.user_id)
+            .where(
+                p.status == ProfileStatus.PUBLISHED,
+                p.deleted_at.is_(None),
+                p.updated_at < updated_before,
+                or_(p.available_until.is_(None), p.available_until <= now),
+                or_(p.vacation_until.is_(None), p.vacation_until < now.date()),
+                or_(p.stale_reminded_at.is_(None), p.stale_reminded_at < reminded_before),
+            )
+            .order_by(p.updated_at)
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+        )
+        rows = (await self._session.execute(stmt)).all()
+        return [(ProfileId(row.id), UserId(row.user_id)) for row in rows]
+
+    async def mark_reminded(self, profile_ids: Collection[ProfileId], at: datetime) -> None:
+        self._uow.require_active()
+        if not profile_ids:
+            return
+        p = ProfileRow.__table__.c
+        await self._session.execute(
+            update(ProfileRow)
+            .where(p.id.in_(list(profile_ids)))
+            # updated_at — как было: по нему решается, давно ли профиль не обновлялся
+            .values(stale_reminded_at=at, updated_at=p.updated_at)
+            .execution_options(synchronize_session=False)
+        )
 
     async def _load(self, condition: object) -> Profile | None:
         self._uow.require_active()

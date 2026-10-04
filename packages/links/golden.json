@@ -180,6 +180,34 @@
       }
     },
     {
+      "param": "m_alerts",
+      "link": {
+        "type": "mine",
+        "section": "alerts"
+      }
+    },
+    {
+      "param": "m_feed",
+      "link": {
+        "type": "mine",
+        "section": "feed"
+      }
+    },
+    {
+      "param": "m_availability",
+      "link": {
+        "type": "mine",
+        "section": "availability"
+      }
+    },
+    {
+      "param": "m_profile",
+      "link": {
+        "type": "mine",
+        "section": "profile"
+      }
+    },
+    {
       "param": "j_7n42DGM5Tflk9n8mt7Fhc7_rZz9",
       "link": {
         "type": "job",
@@ -280,7 +308,7 @@
     "m",
     "m_",
     "m_Jobs",
-    "m_feed",
+    "m_wallet",
     "m_jobs_deals",
     "m_rAB12",
     "j_",

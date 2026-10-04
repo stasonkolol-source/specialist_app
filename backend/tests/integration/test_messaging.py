@@ -22,10 +22,6 @@ from app.modules.messaging.application.use_cases.forget_messages import (
     ForgetMessages,
     ForgetMessagesCommand,
 )
-from app.modules.messaging.application.use_cases.purge_messages import (
-    PurgeMessages,
-    PurgeMessagesCommand,
-)
 from app.modules.messaging.infrastructure.queries import unread_total_query
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import new_id
@@ -75,6 +71,7 @@ async def chat(web: HttpApp, storage_settings: Settings) -> AsyncIterator[Chat]:
             )
 
 
+@pytest.mark.authz
 async def test_response_conversation_starts_with_the_offer_once(chat: Chat) -> None:
     client, performer, response_id = await chat.pair()
     stranger = await chat.user()
@@ -173,6 +170,7 @@ async def test_repeated_send_is_one_message(chat: Chat) -> None:
     assert queued == 1  # повтор не ставит событий
 
 
+@pytest.mark.authz
 async def test_stranger_closed_and_restricted_cannot_write(chat: Chat) -> None:
     client, performer, response_id = await chat.pair()
     stranger = await chat.user()
@@ -252,6 +250,7 @@ async def test_unread_count_is_an_index_range(chat: Chat) -> None:
     assert re.search(r"Index Cond: .*\(id > COALESCE\(", plan), plan
 
 
+@pytest.mark.authz
 async def test_unread_until_read(chat: Chat) -> None:
     client, performer, response_id = await chat.pair()
     conversation_id = await chat.start(performer, response_id=response_id)
@@ -412,40 +411,23 @@ async def test_review_text_has_no_contacts(chat: Chat, worker: AsyncContainer) -
     assert (review.sender_id, review.text) == (performer, f"Мой номер {MASK}")
 
 
-async def test_deleted_account_and_retention_erase_the_text(
-    chat: Chat, worker: AsyncContainer
-) -> None:
+async def test_deleted_account_erases_the_text(chat: Chat, worker: AsyncContainer) -> None:
+    """Срок хранения переписки — правило `messaging.conversations` (test_retention.py)."""
     client, performer, response_id = await chat.pair()
     conversation_id = await chat.start(client, response_id=response_id)
     gone = await chat.send(performer, conversation_id, "Буду в 19:00")
     kept = await chat.send(client, conversation_id, "Жду")
-    old = new_id()
-    await chat.execute(
-        "INSERT INTO messaging.messages (id, conversation_id, sender_id, kind, body, created_at)"
-        " VALUES (:id, :conversation, :sender, 'text', 'Давнее', now() - interval '400 days')",
-        id=old,
-        conversation=UUID(conversation_id),
-        sender=client,
-    )
 
     async with worker() as request:
         forgotten = await (await request.get(ForgetMessages))(
             ForgetMessagesCommand(user_id=performer)
         )
-        purged = await (await request.get(PurgeMessages))(PurgeMessagesCommand())
 
     assert forgotten == 2  # отклик и сообщение
-    assert purged >= 1
     rows = {
-        str(row[0]): row[1]
-        for row in [
-            (
-                message_id,
-                await chat.scalar(
-                    "SELECT body FROM messaging.messages WHERE id = :id", id=message_id
-                ),
-            )
-            for message_id in (UUID(gone["id"]), UUID(kept["id"]), old)
-        ]
+        message["id"]: await chat.scalar(
+            "SELECT body FROM messaging.messages WHERE id = :id", id=UUID(message["id"])
+        )
+        for message in (gone, kept)
     }
-    assert rows == {gone["id"]: None, kept["id"]: "Жду", str(old): None}
+    assert rows == {gone["id"]: None, kept["id"]: "Жду"}

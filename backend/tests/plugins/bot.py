@@ -21,6 +21,7 @@ from aiogram.types import (
     ChatMemberBanned,
     ChatMemberMember,
     ChatMemberUpdated,
+    InlineKeyboardMarkup,
     Message,
     Update,
     User,
@@ -103,12 +104,17 @@ class BotHarness:
         await self.dispatcher.feed_update(self.bot, update)
         return self.session.calls[before:]
 
-    async def press(self, telegram_id: int, data: str) -> list[TelegramMethod[Any]]:
-        """Нажатие инлайн-кнопки под сообщением бота: вызовы Bot API в ответ."""
+    async def press(
+        self, telegram_id: int, data: str, *, markup: InlineKeyboardMarkup | None = None
+    ) -> list[TelegramMethod[Any]]:
+        """Нажатие инлайн-кнопки под сообщением бота (с клавиатурой `markup`, если задана):
+        вызовы Bot API в ответ."""
         before = len(self.session.calls)
         chat = Chat(id=telegram_id, type="private")
         user = User(id=telegram_id, is_bot=False, first_name="Ana", language_code="ru")
-        message = Message(message_id=1, date=datetime.now(UTC), chat=chat, text="…")
+        message = Message(
+            message_id=1, date=datetime.now(UTC), chat=chat, text="…", reply_markup=markup
+        )
         callback = CallbackQuery(
             id=str(new_id().int % 2**31),
             from_user=user,

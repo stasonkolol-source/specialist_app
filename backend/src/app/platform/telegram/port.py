@@ -31,7 +31,15 @@ class CallbackButton:
     data: str
 
 
-type Button = AppButton | CallbackButton
+@dataclass(frozen=True, slots=True, kw_only=True)
+class InactiveButton:
+    """Неактивная кнопка (DisabledButton Bot API): ничего не делает — «приём откликов закрыт»
+    под карточкой заявки, которую закрыли (5.7)."""
+
+    text: str
+
+
+type Button = AppButton | CallbackButton | InactiveButton
 type ButtonLine = Button | tuple[Button, ...]
 """Ряд клавиатуры: одна кнопка — во всю ширину, кортеж — кнопки в один ряд («1 ★ … 5 ★»)."""
 
@@ -54,6 +62,14 @@ class SentMessage:
 class TelegramSender(Protocol):
     async def send(self, message: OutgoingMessage) -> SentMessage:
         """Отправить сообщение в чат. Недоступен Bot API — ExternalServiceError (повтор)."""
+        ...
+
+    async def edit_buttons(
+        self, chat_id: int, message_id: int, buttons: tuple[ButtonLine, ...]
+    ) -> None:
+        """Заменить кнопки уже отправленного сообщения (заявку закрыли — карточка B1 гасит
+        кнопки, 5.7). Ошибки — как у `send`; «сообщение не изменилось» (повтор) — не ошибка,
+        сообщения уже нет — TelegramRejectedError."""
         ...
 
 

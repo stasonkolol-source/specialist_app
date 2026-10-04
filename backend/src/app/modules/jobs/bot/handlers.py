@@ -1,5 +1,6 @@
-"""Бот jobs (DEVELOPMENT_PLAN 5.1, 5.6): кнопки уведомлений о сроке заявки — `job.expiring` и
+"""Бот jobs (DEVELOPMENT_PLAN 5.1, 5.6, 5.7): кнопки уведомлений о сроке заявки — `job.expiring` и
 `job.expired` — и приглашения `job.invited` (ARCHITECTURE §11.3), команды `/new` и `/jobs`.
+Карточка B1 и команды `/feed`, `/alerts` — bot/alerts.py (5.7).
 Кнопки уведомлений рисует notifications, данные — общий кодек platform/telegram/callbacks.py.
 
 - «Продлить» — тот же ExtendJob, что `POST /jobs/{id}/extend` и S23: сообщение заменяется
@@ -7,9 +8,10 @@
 - «Закрыть» сначала спрашивает причину кнопками под тем же сообщением: у `job.expiring`
   («исполнитель найден») — где нашёлся, у `job.expired` — все четыре причины; рядом остаётся
   «Продлить», если передумали. Выбор вызывает CloseJob, как S23.
-- «Откликнуться: «Могу сегодня»» — тот же Respond, что S16, с предложением из шаблона: ответ на
-  нажатие «Отклик отправлен…», кнопки шаблонов под сообщением пропадают («Посмотреть заявку»
-  остаётся). Мест нет, уже откликались, лимит дня, шаблон удалён — текстом ошибки.
+- «Откликнуться: «Могу сегодня»» (приглашение) и «Откликнуться шаблоном «…»» (карточка B1) —
+  тот же Respond, что S16, с предложением из шаблона: ответ на нажатие «Отклик отправлен…»,
+  кнопки шаблонов под сообщением пропадают («Посмотреть заявку» остаётся). Мест нет, уже
+  откликались, лимит дня, шаблон удалён — текстом ошибки.
 Владелец — по Telegram: чужая или удалённая заявка — «не найдена» (ErrorMiddleware).
 
 - `/new` — кнопка мастера новой заявки S20a (код `n`): описать задачу и выбрать район удобнее
@@ -29,7 +31,6 @@ from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
-    WebAppInfo,
 )
 from dishka.integrations.aiogram import FromDishka, inject
 
@@ -41,6 +42,8 @@ from app.modules.jobs.application.use_cases.respond_with_template import (
     RespondWithTemplate,
     RespondWithTemplateCommand,
 )
+from app.modules.jobs.bot import alerts
+from app.modules.jobs.bot.keyboards import app_keyboard
 from app.modules.jobs.domain.job import CLOSABLE, MAX_EXTENSIONS, CloseReason, JobId, JobStatus
 from app.modules.jobs.domain.template import TemplateId
 from app.modules.jobs.errors import JobNotFoundError, JobNotOpenError
@@ -49,7 +52,6 @@ from app.platform.i18n.translator import Translator
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Principal
 from app.platform.settings import TelegramSettings
-from app.platform.telegram.buttons import mini_app_url
 from app.platform.telegram.callbacks import (
     CallbackAction,
     CallbackData,
@@ -242,7 +244,7 @@ async def new_job(
     button = (plain_text(translator, "bot.jobs.new.button", locale), NEW_JOB_LINK)
     await message.answer(
         html_text(translator, "bot.jobs.new.text", locale),
-        reply_markup=_app_keyboard(telegram, [[button]]),
+        reply_markup=app_keyboard(telegram, [[button]]),
     )
 
 
@@ -266,7 +268,7 @@ async def my_jobs(
             rows.append([all_jobs])
         await message.answer(
             html_text(translator, "bot.jobs.mine.empty", locale),
-            reply_markup=_app_keyboard(telegram, rows),
+            reply_markup=app_keyboard(telegram, rows),
         )
         return
     shown = jobs[:SHOWN]
@@ -289,7 +291,7 @@ async def my_jobs(
     ]
     rows.append([all_jobs, (plain_text(translator, "bot.jobs.mine.new", locale), NEW_JOB_LINK)])
     text = "\n".join([html_text(translator, "bot.jobs.mine.header", locale), "", *lines])
-    await message.answer(text, reply_markup=_app_keyboard(telegram, rows))
+    await message.answer(text, reply_markup=app_keyboard(telegram, rows))
 
 
 def _state(job: JobView, fresh: int, translator: Translator, locale: Locale) -> str:
@@ -313,24 +315,6 @@ def _button_title(title: str) -> str:
     return title if len(title) <= BUTTON_TITLE else f"{title[: BUTTON_TITLE - 1].rstrip()}…"
 
 
-def _app_keyboard(
-    telegram: TelegramSettings, rows: list[list[tuple[str, str]]]
-) -> InlineKeyboardMarkup | None:
-    """Кнопки web_app (подпись, код deep link экрана); без адреса Mini App — без кнопок."""
-    base = telegram.mini_app_url
-    if not base:
-        return None
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text=label, web_app=WebAppInfo(url=mini_app_url(base, link)))
-                for label, link in row
-            ]
-            for row in rows
-        ]
-    )
-
-
 def create_router() -> Router:
     """Новый роутер на каждый вызов: роутер aiogram подключается только к одному диспетчеру."""
     router = Router(name="jobs")
@@ -340,4 +324,13 @@ def create_router() -> Router:
     router.callback_query.register(extend, F.data.startswith(f"{CallbackAction.JOB_EXTEND}:"))
     router.callback_query.register(close, F.data.startswith(f"{CallbackAction.JOB_CLOSE}:"))
     router.callback_query.register(respond, F.data.startswith(f"{CallbackAction.JOB_RESPOND}:"))
+    # подписки на заявки (5.7): карточка B1 и команды
+    router.message.register(alerts.feed, Command("feed"), private)
+    router.message.register(alerts.my_alerts, Command("alerts"), private)
+    router.callback_query.register(alerts.hide, F.data.startswith(f"{CallbackAction.JOB_HIDE}:"))
+    for action in (CallbackAction.ALERT_PAUSE, CallbackAction.ALERT_RESUME):
+        router.callback_query.register(alerts.pause, F.data.startswith(f"{action}:"))
+    router.callback_query.register(
+        alerts.pause_all, F.data.startswith(f"{CallbackAction.ALERTS_PAUSE}:")
+    )
     return router

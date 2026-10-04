@@ -150,3 +150,24 @@ class OwnProfileInviteError(ConflictError):
     """Свой профиль в свою заявку не приглашают."""
 
     code = "own_profile_invite"
+
+
+class InvalidAlertError(DomainValidationError):
+    """Поле подписки на заявки нарушает правило (`field`, `reason`): категории, район или радиус,
+    бюджет, срочность, язык."""
+
+    code = "invalid_job_alert"
+    public_params = ("field", "reason")
+
+
+class AlertNotFoundError(NotFoundError):
+    """Подписки нет, она удалена или чужая."""
+
+    code = "job_alert_not_found"
+
+
+class AlertsFullError(ConflictError):
+    """У исполнителя уже максимум подписок (десять) — удалите одну, чтобы добавить новую."""
+
+    code = "job_alerts_full"
+    public_params = ("limit",)

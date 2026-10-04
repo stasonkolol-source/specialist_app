@@ -9,17 +9,17 @@ import { useBadges } from '@sosed/hooks';
 import { preloadCatalogs, useTranslation } from '@sosed/i18n';
 import { useBottomButtonState, useInsets } from '@sosed/platform';
 import type { TabItem } from '@sosed/ui-web';
-import { Button, TabBar } from '@sosed/ui-web';
+import { TabBar } from '@sosed/ui-web';
 import { useQueryClient } from '@tanstack/react-query';
 import { Outlet, useRouter, useRouterState } from '@tanstack/react-router';
 import type { MouseEvent } from 'react';
 import { useEffect } from 'react';
 
+import { BUTTON_AREA, ContentMainButton } from './ContentButton.tsx';
 import { afterFirstScreen, saveData } from './idle.ts';
 
 /** Высота .tabbar из ui.css (h-21): контент не уходит под таббар. */
 const TABBAR_HEIGHT = 84;
-const BUTTON_AREA = 76;
 
 export const TABS = [
   { id: 'home', path: '/', icon: 'home', label: 'nav.home' },
@@ -122,17 +122,7 @@ export function AppShell() {
           className="mx-auto max-w-lg"
         />
       )}
-      {contentButton && (
-        // над шторками (Sheet — z-40): нативная MainButton Telegram тоже поверх всего WebView
-        <div
-          className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-lg bg-bg px-4 pt-3"
-          style={{ paddingBottom: insets.bottom + 12 }}
-        >
-          <Button full disabled={!main.enabled} onClick={main.click}>
-            {main.text}
-          </Button>
-        </div>
-      )}
+      {contentButton && <ContentMainButton />}
     </div>
   );
 }

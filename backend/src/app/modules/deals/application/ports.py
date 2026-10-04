@@ -111,6 +111,10 @@ class DisputeQueries(Protocol):
         """Какие файлы — доказательства идущего спора."""
         ...
 
+    async def disputed(self, deal_ids: Collection[DealId]) -> frozenset[DealId]:
+        """У каких сделок идёт спор."""
+        ...
+
 
 CANCEL_USER_DEALS: Final = TaskRef("deals.cancel_user_deals", UserDeleted)
 """Аккаунт удалён — его идущие сделки и предложения отменяются; сделка под спором ждёт решения

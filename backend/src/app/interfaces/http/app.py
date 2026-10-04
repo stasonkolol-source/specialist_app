@@ -18,6 +18,8 @@ from app.interfaces.http.errors import Problems, install_error_handlers
 from app.interfaces.http.middleware import RequestContextMiddleware
 from app.interfaces.http.openapi import API_TITLE, API_VERSION, PROBLEM_RESPONSES, install_openapi
 from app.interfaces.http.operation_ids import operation_id
+from app.interfaces.http.proxy import ClientAddressMiddleware
+from app.interfaces.http.security_headers import SecurityHeadersMiddleware
 from app.interfaces.http.warmup import warm_up_web
 from app.platform.config.cache import ClientConfigCache
 from app.platform.config.port import MAINTENANCE_FLAG
@@ -26,6 +28,7 @@ from app.platform.legal.port import LegalLibrary
 from app.platform.settings import Environment, Settings
 
 API_PREFIX = "/api/v1"
+DOCS_PATH = f"{API_PREFIX}/docs"
 Lifespan = Callable[[FastAPI], AbstractAsyncContextManager[None]]
 
 
@@ -45,7 +48,8 @@ def create_app(
         yield
         await container.close()
 
-    app = _fastapi(public_docs=settings.app.env is not Environment.PRODUCTION, lifespan=lifespan)
+    public_docs = settings.app.env is not Environment.PRODUCTION
+    app = _fastapi(public_docs=public_docs, lifespan=lifespan)
     problems = Problems(
         base_url=settings.app.api_public_url, translator=translator or Translator.load()
     )
@@ -67,6 +71,17 @@ def create_app(
         api_prefix=API_PREFIX,
         maintenance=maintenance,
     )
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        api_prefix=API_PREFIX,
+        docs_path=DOCS_PATH if public_docs else None,
+    )
+    # внешний слой: адрес клиента и схема нужны всем остальным (лимиты, HSTS, журнал согласий)
+    app.add_middleware(
+        ClientAddressMiddleware,
+        trusted_proxies=settings.app.trusted_proxies,
+        cloudflare=settings.app.cloudflare_ips,
+    )
 
     _mount(app, routers)
     setup_dishka(container, app)
@@ -85,7 +100,7 @@ def _fastapi(*, public_docs: bool, lifespan: Lifespan | None = None) -> FastAPI:
         title=API_TITLE,
         version=API_VERSION,
         openapi_url=f"{API_PREFIX}/openapi.json" if public_docs else None,
-        docs_url=f"{API_PREFIX}/docs" if public_docs else None,
+        docs_url=DOCS_PATH if public_docs else None,
         redoc_url=None,
         generate_unique_id_function=operation_id,
         lifespan=lifespan,

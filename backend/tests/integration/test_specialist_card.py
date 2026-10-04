@@ -182,6 +182,7 @@ async def test_reviews_page_and_card_show_the_rating(web: HttpApp) -> None:
     assert (card["rating"], card["rating_count"], card["is_new"]) == (4.9, 37, False)
 
 
+@pytest.mark.authz
 async def test_hidden_profile_is_not_found(web: HttpApp) -> None:
     specialist = await published(web)
 
@@ -192,6 +193,7 @@ async def test_hidden_profile_is_not_found(web: HttpApp) -> None:
         assert (response.status_code, response.json()["code"]) == (404, "not_found"), path
 
 
+@pytest.mark.authz
 async def test_suspended_author_is_not_found(web: HttpApp) -> None:
     specialist = await published(web)
 

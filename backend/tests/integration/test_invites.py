@@ -184,6 +184,7 @@ async def test_invited_specialist_gets_a_notice_with_a_template_button(
     ]
 
 
+@pytest.mark.authz
 async def test_inviting_refuses_strangers_own_hidden_and_too_many(world: Invites) -> None:
     client = await world.user()
     job_id = await world.job(client)
@@ -221,6 +222,7 @@ async def test_inviting_refuses_strangers_own_hidden_and_too_many(world: Invites
     )
 
 
+@pytest.mark.authz
 async def test_direct_request_is_seen_and_answered_only_by_the_specialist(
     world: Invites, worker: AsyncContainer
 ) -> None:
