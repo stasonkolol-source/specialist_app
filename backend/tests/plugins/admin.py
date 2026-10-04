@@ -75,7 +75,9 @@ async def staff(admin: Admin, role: str) -> Staff:
             {"id": user_id, "role": role},
         )
         await session.commit()
-    login = f"{role}-{new_id().hex[:10]}"
+    # хвост UUIDv7 случайный, а начало — время с шагом 256 мс: два сотрудника одной роли подряд
+    # получали один логин (uq_staff_credentials_login)
+    login = f"{role}-{new_id().hex[-10:]}"
     async with admin.container() as request:
         created = await (await request.get(CreateStaffLogin))(
             CreateStaffLoginCommand(telegram_id=telegram_id, login=login, password=PASSWORD)
