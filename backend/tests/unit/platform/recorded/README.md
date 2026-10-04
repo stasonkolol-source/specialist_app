@@ -6,5 +6,7 @@
 `make cli ARGS="ai-smoke --record tests/unit/platform/recorded"`: тесты должны остаться
 зелёными на настоящих ответах.
 
-- `openai_moderation_*.json` — `POST https://api.openai.com/v1/moderations`.
+- `openai_moderation_*.json` — `POST https://api.openai.com/v1/moderations`;
+  `openai_moderation_flagged_image.json` — пример ответа на фото из руководства OpenAI по
+  модерации (6.7): у фото оцениваются только `sexual`, `violence*` и `self-harm*`.
 - `anthropic_*.json` — `POST https://api.anthropic.com/v1/messages` со structured outputs.

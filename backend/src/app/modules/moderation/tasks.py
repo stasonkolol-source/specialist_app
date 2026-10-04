@@ -12,6 +12,8 @@
 - `moderation.post_case_card` — CaseOpened: карточка кейса в чате модераторов (2.5b).
 - `moderation.check_duplicates` — MediaReady: фото портфолио похоже (pHash) на работу другого
   аккаунта — кейс P2 о профиле загрузившего (ADR-0016 L6, план 7.6).
+- `moderation.check_image` — MediaReady: фото профиля, портфолио и заявки — в omni-moderation;
+  флаг — кейс P2, P0 — фото скрыто и кейс P0 (ARCHITECTURE §10.3, план 6.7).
 """
 
 from dishka import FromDishka
@@ -19,6 +21,7 @@ from dishka import FromDishka
 from app.modules.moderation.application.ports import (
     AUTO_CHECK,
     CHECK_DUPLICATES,
+    CHECK_IMAGE,
     CLOSE_DISPUTE_CASE,
     NOTE_DISPUTE_ANSWER,
     NOTE_DISPUTE_UNANSWERED,
@@ -31,6 +34,11 @@ from app.modules.moderation.application.use_cases.check_duplicates import (
     PORTFOLIO,
     CheckDuplicates,
     CheckDuplicatesCommand,
+)
+from app.modules.moderation.application.use_cases.check_image import (
+    IMAGE_PURPOSES,
+    CheckImage,
+    CheckImageCommand,
 )
 from app.modules.moderation.application.use_cases.post_case_card import (
     PostCaseCard,
@@ -126,3 +134,14 @@ async def check_duplicates(event: MediaReady, check: FromDishka[CheckDuplicates]
     """Фото портфолио (у ролика — постер) обработано: нет ли его у других аккаунтов."""
     if event.purpose == PORTFOLIO:
         await check(CheckDuplicatesCommand(media_id=event.media_id, owner_id=event.owner_id))
+
+
+@subscriber(MediaReady, CHECK_IMAGE)
+async def check_image(event: MediaReady, check: FromDishka[CheckImage]) -> None:
+    """Фото, которое видят другие (у ролика — постер), обработано: проверить до показа людям."""
+    if event.purpose in IMAGE_PURPOSES:
+        await check(
+            CheckImageCommand(
+                media_id=event.media_id, owner_id=event.owner_id, purpose=event.purpose
+            )
+        )
