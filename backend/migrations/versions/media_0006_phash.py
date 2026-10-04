@@ -8,7 +8,7 @@ nullable, без значения: добавление не переписыв�
 больше. Уже обработанные фото хэша не получают — сравниваются только новые загрузки.
 
 Ревизия: media_0006 (2026-10-04 14:05:00.000000+00:00)
-Предыдущая: platform_0005
+Предыдущая: identity_0007
 
 Правила (DEVELOPMENT_PLAN 0.9, ADR-0005):
 - имя ревизии — <модуль>_NNNN, файл — <модуль>_NNNN_<slug>.py;
@@ -25,7 +25,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "media_0006"
-down_revision: str | Sequence[str] | None = "platform_0005"
+down_revision: str | Sequence[str] | None = "identity_0007"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
