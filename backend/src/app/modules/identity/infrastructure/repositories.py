@@ -343,6 +343,17 @@ class SqlRestrictionRepository:
         )
         return [UserId(user_id) for user_id in (await self._session.execute(stmt)).scalars()]
 
+    async def lift(self, restriction_id: RestrictionId, *, now: datetime) -> UserId | None:
+        self._uow.require_active()
+        stmt = (
+            update(RestrictionRow)
+            .where(RestrictionRow.id == restriction_id, RestrictionRow.lifted_at.is_(None))
+            .values(lifted_at=now)
+            .returning(RestrictionRow.user_id)
+        )
+        user_id = (await self._session.execute(stmt)).scalar_one_or_none()
+        return None if user_id is None else UserId(user_id)
+
 
 class SqlRoleRepository:
     def __init__(self, session: AsyncSession, uow: UnitOfWork) -> None:

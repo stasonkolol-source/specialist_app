@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.geo.application.dto import CitySeed, DistrictSeed, ImportResult
 from app.modules.geo.domain.place import DistrictKind
-from app.modules.geo.infrastructure.models import CityRow, DistrictRow
+from app.modules.geo.infrastructure.models import IMPORT_LOCK, CityRow, DistrictRow
 from app.platform.db.port import UnitOfWork
 
 
@@ -29,6 +29,8 @@ class SqlGeoWriter:
 
     async def upsert_city(self, seed: CitySeed) -> ImportResult:
         self._uow.require_active()
+        # правка справочника в админке (2.7b) берёт тот же ключ: импорт её не перетрёт
+        await self._session.execute(select(func.pg_advisory_xact_lock(IMPORT_LOCK)))
         counts = {"created": 0, "updated": 0, "unchanged": 0}
         name = seed.name.with_sr_latn()
         city_hash = _hash(

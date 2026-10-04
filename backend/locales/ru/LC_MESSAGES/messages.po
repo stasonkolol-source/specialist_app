@@ -620,6 +620,15 @@ msgstr "Заблокировать самого себя нельзя."
 msgid "errors.blocks_full"
 msgstr "Заблокировано уже {limit} человек — разблокируйте кого-нибудь, чтобы добавить."
 
+msgid "errors.invalid_staff_login"
+msgstr "Логин админки — от 3 до 64 латинских букв, цифр и знаков «.», «_», «-»; пароль — от 12 знаков."
+
+msgid "errors.staff_login_taken"
+msgstr "Этот логин админки уже занят другим сотрудником."
+
+msgid "errors.not_staff"
+msgstr "Вход в админку — только сотрудникам с ролью."
+
 msgid "errors.report_target_not_found"
 msgstr "Пожаловаться не получится: объект удалён или недоступен."
 

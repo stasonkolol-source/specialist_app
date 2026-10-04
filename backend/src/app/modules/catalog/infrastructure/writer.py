@@ -33,6 +33,7 @@ from app.modules.catalog.domain.category import MAX_DEPTH
 from app.modules.catalog.domain.terms import SearchTerm, dictionary
 from app.modules.catalog.errors import CategoryTooDeepError
 from app.modules.catalog.infrastructure.models import (
+    IMPORT_LOCK,
     CategoryRow,
     SearchTermRow,
     TagRow,
@@ -134,6 +135,8 @@ class SqlCatalogWriter:
 
     async def import_taxonomy(self, categories: Sequence[CategorySeed]) -> ImportResult:
         self._uow.require_active()
+        # правка справочника в админке (2.7b) берёт тот же ключ: импорт её не перетрёт
+        await self._session.execute(select(func.pg_advisory_xact_lock(IMPORT_LOCK)))
         planned = list(_plan(categories))
         stored = await self._stored()
         changed = [
