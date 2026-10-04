@@ -345,10 +345,11 @@ class Profile(VersionedAggregate):
                 )
             )
 
-    def mark_founding(self) -> bool:
-        if self.is_founding:
+    def set_founding(self, *, founding: bool) -> bool:
+        """Статус Founding (§15.2): отметить или снять ошибочную отметку. False — уже так."""
+        if self.is_founding is founding:
             return False
-        self.is_founding = True
+        self.is_founding = founding
         return True
 
     def _replace(self, name: str, value: tuple[object, ...], *, now: datetime) -> tuple[str, ...]:

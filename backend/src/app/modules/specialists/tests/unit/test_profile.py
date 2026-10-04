@@ -273,3 +273,16 @@ def test_forgotten_profile_leaves_the_catalog_without_personal_data() -> None:
     assert (profile.display_name, profile.headline, profile.about) == (DELETED_NAME, None, None)
     assert not profile.listed_in_catalog
     assert [type(event) for event in profile.pull_events()] == [ProfileDeleted]
+
+
+def test_founding_is_marked_and_unmarked_without_events() -> None:
+    """Founding (§15.2, 2.7b): флаг без событий; повтор — «уже так», без записи в аудит."""
+    profile = ready()
+    profile.pull_events()
+    assert profile.set_founding(founding=True)
+    assert profile.is_founding
+    assert not profile.set_founding(founding=True)
+    assert profile.set_founding(founding=False)
+    assert not profile.is_founding
+    assert not profile.set_founding(founding=False)
+    assert profile.pull_events() == []
