@@ -1,10 +1,10 @@
 """make secret NAME=… TARGET=… — скрытый ввод секрета владельцем.
 
 В ответ печатается только имя и длина значения, само значение — никогда
-(OWNER_CHECKLIST.md, «Как вписать секрет»). dev, tf-stage, tf-prod — в .env-файл; stage и
-production (0.25c) — в секреты GitHub environment через `gh secret set --env` по решению Q1(б):
-значение уходит в stdin gh, а не в `--body`, которое осталось бы в истории shell и в списке
-процессов.
+(OWNER_CHECKLIST.md, «Как вписать секрет»). dev, tf-stage, tf-prod, tf-zone — в .env-файл;
+stage и production (0.25c) — в секреты GitHub environment через `gh secret set --env` по решению
+Q1(б): значение уходит в stdin gh, а не в `--body`, которое осталось бы в истории shell и в
+списке процессов.
 
 Для тестов: --stdin читает значение из стандартного ввода, --file задаёт файл цели, --gh —
 исполняемый файл вместо gh.
@@ -25,6 +25,7 @@ TARGETS = {
     "dev": ROOT / "backend" / ".env",
     "tf-stage": ROOT / "infra" / "terraform" / "stage" / ".env",
     "tf-prod": ROOT / "infra" / "terraform" / "prod" / ".env",
+    "tf-zone": ROOT / "infra" / "terraform" / "zone" / ".env",
 }
 GITHUB_ENVIRONMENTS = ("stage", "production")
 """Q1(б): секреты stage и prod — в GitHub environments (только main, прочитать обратно нельзя)."""

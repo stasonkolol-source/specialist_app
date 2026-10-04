@@ -1,0 +1,4 @@
+# Образец: cp zone.tfvars.example terraform.tfvars и заполнить. Секретов здесь нет (токен — в .env),
+# terraform.tfvars можно коммитить.
+domain             = "" # Q9, например sosedi-test.com
+cloudflare_zone_id = "" # K11

@@ -2,11 +2,15 @@
 # make pg-smoke: локаль, pg_trgm, PostGIS и параметры ролей (DEVELOPMENT_PLAN 0.3).
 # Stage (0.25c): make pg-smoke ENV=stage и pre-deploy Kamal отдают этот же скрипт bash на сервере
 # (ssh … 'PG_SMOKE_CONTAINER=sosed-postgres bash -s' < scripts/pg_smoke.sh) — БД там accessory Kamal.
+# Prod (3.1b): так же на db-1 через app-1 с PG_SMOKE_LOCAL=1 — PostgreSQL из пакетов, вход peer.
 set -euo pipefail
 
 if [[ -n "${PG_SMOKE_CONTAINER:-}" ]]; then
   # без -i: stdin занят самим скриптом (bash -s)
   RUN=(docker exec "$PG_SMOKE_CONTAINER")
+elif [[ -n "${PG_SMOKE_LOCAL:-}" ]]; then
+  # root на db-1: суперпользователь только через локальный сокет (pg_hba: local postgres peer)
+  RUN=(runuser -u postgres --)
 else
   RUN=(docker compose -p specialist-dev -f infra/compose/docker-compose.dev.yml --env-file infra/compose/.env exec -T postgres)
 fi

@@ -1,0 +1,81 @@
+# Destination production (DEVELOPMENT_PLAN 3.1c, ADR-0015): процессы и Valkey — на app-1 (CX33), БД —
+# PostgreSQL на db-1 в приватной сети (infra/terraform/prod, infra/postgres/provision.sh), поэтому
+# PostgreSQL accessory здесь нет. Релиз — только вручную: deploy-production (.github/workflows/deploy.yml).
+# Из окружения: PROD_HOST — IPv4 app-1 (make tf ENV=prod ARGS='output app_ipv4'), PROD_DB_IP — адрес
+# db-1 в приватной сети (pre-deploy и DSN в secrets.production), PROD_DOMAIN — домен (Q8, Q9),
+# PROD_BOT_USERNAME — prod-бот без @ (K40a), R2_ACCOUNT_ID (K11), SENTRY_DSN (K20),
+# PROD_MODERATORS_CHAT_ID — prod-чат модераторов (K29), ADMIN_HOST — admin.<домен>, только когда
+# Access включён (K31). В CI — Variables environment «production».
+#
+# Бот на проде — webhook (ADR-0011): апдейты на api.<домен>/integrations/telegram/ (skip-правило WAF
+# — infra/terraform/zone), секрет — TELEGRAM_WEBHOOK_SECRET. Режим (TELEGRAM_UPDATES=webhook) и
+# маршрут роли bot в kamal-proxy включаются в deploy.yml вместе со stage, когда код webhook (0.25e)
+# в main; до того bot работает long polling.
+
+# Лимиты под CX33 (4 vCPU, 8 GB, swap 2 GB) без БД на машине: медиа — на своём ядре (ffmpeg не
+# отнимает CPU у API), остальные делят три. cpuset, а не cpus (§16.1).
+servers:
+  web:
+    hosts:
+      - <%= ENV.fetch("PROD_HOST") %>
+    options:
+      memory: 1536m
+      cpuset-cpus: "0-2"
+  bot:
+    hosts:
+      - <%= ENV.fetch("PROD_HOST") %>
+    options:
+      memory: 384m
+      cpuset-cpus: "0-2"
+  worker:
+    hosts:
+      - <%= ENV.fetch("PROD_HOST") %>
+    options:
+      memory: 768m
+      cpuset-cpus: "0-2"
+  worker-media:
+    hosts:
+      - <%= ENV.fetch("PROD_HOST") %>
+    options:
+      memory: 1536m
+      cpuset-cpus: "3"
+
+proxy:
+  # API (и webhook бота); admin.<домен> — только за Access: ADMIN_HOST задаёт деплой (K31)
+  hosts:
+    - api.<%= ENV.fetch("PROD_DOMAIN") %>
+    # <% if ENV["ADMIN_HOST"].to_s != "" %>
+    - <%= ENV["ADMIN_HOST"] %>
+    # <% end %>
+  ssl:
+    certificate_pem: KAMAL_PROXY_SSL_CERT
+    private_key_pem: KAMAL_PROXY_SSL_KEY
+
+env:
+  clear:
+    APP_ENV: production
+    APP_API_PUBLIC_URL: https://api.<%= ENV.fetch("PROD_DOMAIN") %>
+    # web доверяет X-Forwarded-* только kamal-proxy: сеть «kamal» с подсетью из Terraform
+    # (docker_network_cidr). Края Cloudflare — APP_CLOUDFLARE_IPS по умолчанию (settings.py).
+    APP_TRUSTED_PROXIES: '["172.30.0.0/24"]'
+    TELEGRAM_BOT_USERNAME: <%= ENV.fetch("PROD_BOT_USERNAME") %>
+    TELEGRAM_MINI_APP_URL: https://app.<%= ENV.fetch("PROD_DOMAIN") %>
+    TELEGRAM_MODERATORS_CHAT_ID: '<%= ENV.fetch("PROD_MODERATORS_CHAT_ID", "") %>'
+    S3_ENDPOINT_URL: https://<%= ENV.fetch("R2_ACCOUNT_ID") %>.eu.r2.cloudflarestorage.com
+    S3_PUBLIC_ENDPOINT_URL: https://<%= ENV.fetch("R2_ACCOUNT_ID") %>.eu.r2.cloudflarestorage.com
+    S3_PUBLIC_BASE_URL: https://cdn.<%= ENV.fetch("PROD_DOMAIN") %>
+    S3_BUCKET_INCOMING: sosed-prod-incoming
+    S3_BUCKET_MEDIA: sosed-prod-media
+    S3_BUCKET_PRIVATE: sosed-prod-private
+    SENTRY_DSN: '<%= ENV.fetch("SENTRY_DSN", "") %>'
+    # пул на процесс: web, bot, worker и worker-media вместе — до 60 соединений из 100
+    DB_POOL_SIZE: "10"
+    DB_POOL_MAX_OVERFLOW: "5"
+
+accessories:
+  valkey:
+    host: <%= ENV.fetch("PROD_HOST") %>
+    cmd: valkey-server --appendonly yes --maxmemory 384mb --maxmemory-policy noeviction
+    options:
+      memory: 448m
+      cpuset-cpus: "0-2"

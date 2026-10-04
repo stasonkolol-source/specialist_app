@@ -1,8 +1,10 @@
 #!/bin/sh
-# Kamal pre-deploy (DEVELOPMENT_PLAN 0.25c, ARCHITECTURE §16.4): образ новой версии уже скачан на
-# сервер, трафик ещё на старой. Сначала smoke БД (тот же scripts/pg_smoke.sh, что make pg-smoke), затем
-# alembic upgrade head этим образом под ролью migrator. Упал любой шаг — деплой останавливается,
+# Kamal pre-deploy (DEVELOPMENT_PLAN 0.25c, 3.1c, ARCHITECTURE §16.4): образ новой версии уже скачан
+# на сервер, трафик ещё на старой. Сначала smoke БД (тот же scripts/pg_smoke.sh, что make pg-smoke),
+# затем alembic upgrade head этим образом под ролью migrator. Упал любой шаг — деплой останавливается,
 # старая версия продолжает работать (миграции expand/contract совместимы с ней).
+# Stage: БД — accessory sosed-postgres на той же VM. Production: БД на db-1, публичного SSH у неё
+# нет — smoke идёт через app-1 (ProxyCommand: опции командной строки -J к прыжку не применяет).
 #
 # Хук выполняется там же, где kamal: в его Docker-образе (alpine — только sh, поэтому не bash).
 # Секреты Kamal — в окружении хука (run_hook "pre-deploy", secrets: true); на сервер DSN уходят через
@@ -13,10 +15,18 @@ set -eu
 host="${KAMAL_HOSTS%%,*}"
 image="ghcr.io/${GHCR_OWNER:?GHCR_OWNER}/sosed-backend:${KAMAL_VERSION:?KAMAL_VERSION}"
 remote="root@${host}"
+ssh_opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new"
 
-echo "pre-deploy: pg-smoke на ${host}"
-ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$remote" \
-  "PG_SMOKE_CONTAINER=sosed-postgres bash -s" < scripts/pg_smoke.sh
+if [ "${KAMAL_DESTINATION:-}" = production ]; then
+  echo "pre-deploy: pg-smoke на db-1 (${PROD_DB_IP:?PROD_DB_IP}) через ${host}"
+  # shellcheck disable=SC2086 # ssh_opts — несколько опций
+  ssh $ssh_opts -o "ProxyCommand=ssh $ssh_opts -W %h:%p $remote" "root@${PROD_DB_IP}" \
+    "PG_SMOKE_LOCAL=1 bash -s" < scripts/pg_smoke.sh
+else
+  echo "pre-deploy: pg-smoke на ${host}"
+  # shellcheck disable=SC2086
+  ssh $ssh_opts "$remote" "PG_SMOKE_CONTAINER=sosed-postgres bash -s" < scripts/pg_smoke.sh
+fi
 
 echo "pre-deploy: alembic upgrade head (${KAMAL_VERSION})"
 printf 'DB_DSN=%s\nDB_MIGRATOR_DSN=%s\nAPP_ENV=%s\n' "${DB_DSN:?}" "${DB_MIGRATOR_DSN:?}" "${KAMAL_DESTINATION:?}" |

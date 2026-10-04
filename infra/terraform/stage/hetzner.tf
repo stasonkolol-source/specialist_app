@@ -1,35 +1,10 @@
 # 0.25a: одна VM stage (ADR-0015 — всё на одной машине), firewall, SSH-ключи, бэкапы.
 
-locals {
-  # Края Cloudflare (https://www.cloudflare.com/ips/, сверено 2026-10) — тот же список, что
-  # CLOUDFLARE_IPS в backend/src/app/platform/settings.py. 80 и 443 открыты только им: в обход
-  # Cloudflare (WAF, rate limit) до kamal-proxy не достучаться. Список меняется редко; при
-  # изменении — правка здесь и в settings.py (или APP_CLOUDFLARE_IPS без релиза).
-  cloudflare_ips = [
-    "173.245.48.0/20",
-    "103.21.244.0/22",
-    "103.22.200.0/22",
-    "103.31.4.0/22",
-    "141.101.64.0/18",
-    "108.162.192.0/18",
-    "190.93.240.0/20",
-    "188.114.96.0/20",
-    "197.234.240.0/22",
-    "198.41.128.0/17",
-    "162.158.0.0/15",
-    "104.16.0.0/13",
-    "104.24.0.0/14",
-    "172.64.0.0/13",
-    "131.0.72.0/22",
-    "2400:cb00::/32",
-    "2606:4700::/32",
-    "2803:f800::/32",
-    "2405:b500::/32",
-    "2405:8100::/32",
-    "2a06:98c0::/29",
-    "2c0f:f248::/32",
-  ]
+module "edge" {
+  source = "../modules/edge-ips"
+}
 
+locals {
   labels = {
     app = "sosed"
     env = "stage"
@@ -61,7 +36,7 @@ resource "hcloud_firewall" "stage" {
     direction   = "in"
     protocol    = "tcp"
     port        = "443"
-    source_ips  = local.cloudflare_ips
+    source_ips  = module.edge.cloudflare_ips
   }
 
   rule {
@@ -69,7 +44,7 @@ resource "hcloud_firewall" "stage" {
     direction   = "in"
     protocol    = "tcp"
     port        = "80"
-    source_ips  = local.cloudflare_ips
+    source_ips  = module.edge.cloudflare_ips
   }
 
   rule {
