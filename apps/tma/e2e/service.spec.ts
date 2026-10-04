@@ -8,7 +8,15 @@ import { expect, test } from '@playwright/test';
 
 import { CLIENT_CONFIG, ME } from '../src/testing/fixtures.ts';
 import { json, problem } from './api.ts';
-import { THEMES, expectNoAxeViolations, open, openProfile, openTab, real } from './support.ts';
+import {
+  THEMES,
+  expectNoAxeViolations,
+  open,
+  openProfile,
+  openTab,
+  pressTelegram,
+  real,
+} from './support.ts';
 
 const LOCALES = [
   {
@@ -29,6 +37,8 @@ const LOCALES = [
     otherLanguage: 'Srpski (latinica)',
     restricted: 'Аккаунт ограничен до 3 октября',
     banner: 'До 3 октября, 18:00 нельзя откликаться на заявки',
+    reason: 'Просьбы о предоплате — частая уловка мошенников',
+    appealSent: 'Апелляция отправлена. Модератор ответит до 5 октября, 18:07 — ответ придёт в бот.',
     suspended: 'Аккаунт приостановлен до 3 октября',
     suspendedBanner: 'До 3 октября, 18:00 нельзя пользоваться аккаунтом',
     left: 'Остаётся доступно',
@@ -54,6 +64,9 @@ const LOCALES = [
     otherLanguage: 'Русский',
     restricted: /^Nalog je ograničen do 3\. oktob\S+$/,
     banner: /^Do 3\. oktob\S+ u 18:00 ne možete da šaljete ponude na zahteve$/,
+    reason: 'Traženje avansa — česta prevara',
+    appealSent:
+      /^Žalba je poslata\. Moderator će odgovoriti do 5\. oktob\S+ u 18:07 — odgovor stiže u bot\.$/,
     suspended: /^Nalog je suspendovan do 3\. oktob\S+$/,
     suspendedBanner: /^Do 3\. oktob\S+ u 18:00 ne možete da koristite nalog$/,
     left: 'I dalje je dostupno',
@@ -68,6 +81,16 @@ const NOW = new Date('2026-10-02T18:07:00+02:00');
 const LATER = new Date('2026-10-02T18:13:00+02:00');
 /** До 3 октября, 18:00 по Белграду — как на артборде S49b. */
 const UNTIL = '2026-10-03T16:00:00Z';
+
+/** Ответ POST /appeals: 72 часа с подачи (2 октября 18:07). */
+const APPEAL = {
+  id: '0192a000-0000-7000-8000-000000000001',
+  appeal_of: '0192a000-0000-7000-8000-000000000002',
+  status: 'pending',
+  due_at: '2026-10-05T16:07:00Z',
+  created_at: '2026-10-02T16:07:00Z',
+  repeated: false,
+};
 
 /** Обрыв сети: браузер пишет в консоль ошибку загрузки — её вызывает сам сценарий. */
 const OFFLINE_CONSOLE = 'ERR_INTERNET_DISCONNECTED';
@@ -140,10 +163,11 @@ for (const theme of THEMES) {
       await expect(page.getByText(l.saved)).toBeHidden();
     });
 
-    test(`S49b ограничен ${theme} ${l.locale}: действие отклонено частичной санкцией`, async ({
+    test(`S49b ограничен ${theme} ${l.locale}: санкция с причиной, «Обжаловать»`, async ({
       page,
     }) => {
       await page.clock.setFixedTime(NOW);
+      const appeals: unknown[] = [];
       // 403 restricted на мутацию; сейчас единственная — смена языка, с шагов 5.x — отклик
       const watch = await open(page, `theme=${theme}&lang=${l.telegram}`, {
         signedIn: true,
@@ -151,8 +175,16 @@ for (const theme of THEMES) {
         handlers: {
           'PATCH /api/v1/me': (route) =>
             route.fulfill(
-              problem(403, 'restricted', { restriction: 'responding_blocked', until: UNTIL }),
+              problem(403, 'restricted', {
+                restriction: 'responding_blocked',
+                until: UNTIL,
+                reason: 'prepayment_scam',
+              }),
             ),
+          'POST /api/v1/appeals': (route) => {
+            appeals.push(route.request().postDataJSON());
+            return route.fulfill(json(APPEAL, 201));
+          },
         },
       });
       await openProfile(page, l.profile);
@@ -164,13 +196,21 @@ for (const theme of THEMES) {
 
       await expect(page.getByRole('heading', { name: l.restricted, level: 1 })).toBeVisible();
       await expect(page.getByRole('alert')).toHaveText(l.banner);
-      // обжалование — шаг 2.5b: ни кнопки, ни таббара. MainButton mock-клиента нативная и в DOM
-      // её не видно — что Telegram её не показывает, проверяют unit-тесты (SystemScreen, App)
+      await expect(page.getByText(l.reason)).toBeVisible();
+      // «Обжаловать» — MainButton: нативная, в DOM mock-клиента её нет (видимость — unit-тесты)
       await expect(page.getByRole('navigation', { name: /Разделы|Odeljci/ })).toBeHidden();
-      await expect(page.getByRole('button', { name: /Обжаловать|Uloži žalbu/ })).toHaveCount(0);
       expect(real(watch.problems, ['403'])).toEqual([]);
       expect(watch.unexpectedApi).toEqual([]);
       await expect(page).toHaveScreenshot(`S49b-restricted-${theme}-${l.locale}.png`, {
+        fullPage: true,
+      });
+      await expectNoAxeViolations(page);
+
+      await pressTelegram(page, 'main_button_pressed');
+
+      await expect(page.getByRole('status')).toHaveText(l.appealSent);
+      expect(appeals).toEqual([{ restriction: 'responding_blocked' }]);
+      await expect(page).toHaveScreenshot(`S49b-appealed-${theme}-${l.locale}.png`, {
         fullPage: true,
       });
       await expectNoAxeViolations(page);

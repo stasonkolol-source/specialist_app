@@ -5,7 +5,7 @@ Appeals об обжалованном решении; повтор — та же
 """
 
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
@@ -15,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from tests.plugins.http import HttpApp, bearer, http_app
 from tests.plugins.identity import insert_user
 
-from app.entrypoints._wiring import module_routers
 from app.modules.moderation.application.use_cases.decide_case import (
     DecideCase,
     DecideCaseCommand,
@@ -24,6 +23,7 @@ from app.modules.moderation.application.use_cases.open_case import OpenCase, Ope
 from app.modules.moderation.domain.cases import CaseTrigger, EntityType
 from app.modules.moderation.domain.queues import Queue
 from app.modules.moderation.domain.sanctions import Severity
+from app.modules.moderation.http.router import router
 from app.platform.contracts.events.moderation import ModerationDecision
 from app.platform.kernel.ids import CaseId, UserId, new_id
 from app.platform.settings import Settings
@@ -37,6 +37,7 @@ API = "/api/v1"
 class Web:
     app: HttpApp
     settings: Settings
+    users: list[UserId] = field(default_factory=list)
 
     @property
     def container(self) -> AsyncContainer:
@@ -45,13 +46,38 @@ class Web:
 
 @pytest.fixture
 async def web(settings: Settings) -> AsyncIterator[Web]:
-    async with http_app(settings, *module_routers()) as app:
-        yield Web(app, settings)
+    async with http_app(settings, router) as app:
+        web = Web(app, settings)
+        yield web
+        await close_cases(web.container, web.users)
 
 
 async def user(web: Web) -> UserId:
     async with web.container() as request:
-        return await insert_user(await request.get(AsyncSession))
+        user_id = await insert_user(await request.get(AsyncSession))
+    web.users.append(user_id)
+    return user_id
+
+
+async def close_cases(container: AsyncContainer, users: list[UserId]) -> None:
+    """Данные коммитятся: открытые кейсы теста закрываются, чтобы не попасть в очереди других
+    тестов (`open_cases`); его задачи снимаются с очереди."""
+    engine = await container.get(AsyncEngine)
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "UPDATE moderation.cases SET status = 'approved', decided_at = now()"
+                " WHERE subject_id = ANY(:users)"
+                " AND status IN ('pending', 'in_review', 'escalated')"
+            ),
+            {"users": users},
+        )
+        await conn.execute(
+            text(
+                "DELETE FROM procrastinate_jobs WHERE status = 'todo' AND args::text LIKE ANY(:ids)"
+            ),
+            {"ids": [f"%{user_id}%" for user_id in users]},
+        )
 
 
 async def suspended(web: Web, subject: UserId, moderator: UserId) -> CaseId:

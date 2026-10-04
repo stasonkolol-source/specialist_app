@@ -31,6 +31,7 @@ from app.modules.moderation.application.use_cases.post_case_card import (
 )
 from app.modules.moderation.domain.cases import CaseTrigger, EntityType
 from app.modules.moderation.domain.queues import Queue
+from app.modules.moderation.tests.integration.test_appeals import close_cases
 from app.platform.kernel.ids import CaseId, UserId, new_id
 from app.platform.settings import Settings
 from app.platform.telegram.callbacks import CallbackAction, CallbackData, encode_callback
@@ -40,10 +41,16 @@ pytestmark = pytest.mark.integration
 CHAT = -1_001_234_567_890
 
 
+USERS: list[UserId] = []
+"""Пользователи теста: данные коммитятся, в конце их открытые кейсы закрываются."""
+
+
 @pytest.fixture
 async def harness(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[BotHarness]:
     async with bot_harness(monkeypatch, TELEGRAM_MODERATORS_CHAT_ID=str(CHAT)) as harness:
         yield harness
+        await close_cases(harness.container, USERS)
+        USERS.clear()
 
 
 def telegram_user() -> int:
@@ -66,6 +73,7 @@ async def user_of(harness: BotHarness, telegram_id: int) -> UserId:
         " AND subject = :tg",
         tg=str(telegram_id),
     )
+    USERS.append(UserId(found.user_id))
     return UserId(found.user_id)
 
 
