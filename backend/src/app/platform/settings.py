@@ -26,6 +26,10 @@ ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 _TELEGRAM_USERNAME = re.compile(r"[A-Za-z][A-Za-z0-9_]{4,31}")
 """Имя пользователя Telegram: 5–32 символа, начинается с буквы."""
 
+_WEBHOOK_SECRET = re.compile(r"[A-Za-z0-9_-]{32,256}")
+"""secret_token webhook: алфавит и предел 256 — Bot API (setWebhook); от 32 символов — наше
+требование: секрет — единственная защита адреса, его подбирают (`make gen-secret` даёт 64)."""
+
 PRIVATE_NETWORKS: tuple[IPv4Network | IPv6Network, ...] = tuple(
     ip_network(cidr)
     for cidr in (
@@ -78,6 +82,13 @@ class Environment(StrEnum):
     PRODUCTION = "production"
 
 
+class UpdatesMode(StrEnum):
+    """Как бот получает апдейты (ADR-0011): polling — dev; webhook — stage и prod."""
+
+    POLLING = "polling"
+    WEBHOOK = "webhook"
+
+
 class SettingsError(RuntimeError):
     """Настройки неполны или неверны — процесс не должен стартовать."""
 
@@ -105,7 +116,8 @@ class AppSettings(_Group):
     heartbeat_url: str | None = None
     """Ping Healthchecks.io раз в минуту из воркера (K33), без адреса — только лог."""
     web_host: str = "127.0.0.1"
-    """Адрес uvicorn: локально — только loopback; в контейнере — 0.0.0.0 (за kamal-proxy)."""
+    """Адрес HTTP-сервера процесса — uvicorn web или приём webhook бота (TELEGRAM_UPDATES):
+    локально — только loopback; в контейнере — 0.0.0.0 (за kamal-proxy)."""
     web_port: int = Field(default=8000, ge=1, le=65535)
     trusted_proxies: list[IPvAnyNetwork] = Field(default_factory=lambda: list(PRIVATE_NETWORKS))
     """Свои обратные прокси (kamal-proxy в сети Docker, cloudflared на loopback): только от
@@ -158,7 +170,14 @@ class TelegramSettings(_Group):
 
     bot_token: SecretStr
     bot_username: str
+    updates: UpdatesMode = UpdatesMode.POLLING
+    """Приём апдейтов процессом bot. webhook (stage, prod) — aiohttp-сервер на APP_WEB_HOST и
+    APP_WEB_PORT за kamal-proxy, адрес — APP_API_PUBLIC_URL + /integrations/telegram/webhook;
+    нужен TELEGRAM_WEBHOOK_SECRET. Задаётся явно в Kamal, а не выводится из APP_ENV: откат stage
+    на polling — одна переменная (0.25e)."""
     webhook_secret: SecretStr | None = None
+    """secret_token webhook: Telegram присылает его в X-Telegram-Bot-Api-Secret-Token, без него
+    или с чужим — 401. 32–256 символов [A-Za-z0-9_-], на stage и проде — `make gen-secret`."""
     mini_app_url: str | None = None
     use_test_environment: bool = False
     support_username: str | None = None
@@ -184,6 +203,25 @@ class TelegramSettings(_Group):
         if not _TELEGRAM_USERNAME.fullmatch(username):
             raise ValueError("TELEGRAM_SUPPORT_USERNAME: 5–32 символа [A-Za-z0-9_], без @")
         return username
+
+
+def webhook_problems(app: AppSettings, telegram: TelegramSettings) -> list[str]:
+    """Чего не хватает режиму webhook; пусто — всё есть или бот на polling.
+
+    Общая проверка процессов (Settings) и `cli bot-setup`: без секрета aiogram принял бы любой
+    POST, а на http:// Telegram апдейты не шлёт. Формат секрета проверяем только здесь: в dev
+    на polling он не нужен и не должен ронять стенд."""
+    if telegram.updates is not UpdatesMode.WEBHOOK:
+        return []
+    found = []
+    secret = telegram.webhook_secret.get_secret_value() if telegram.webhook_secret else ""
+    if not secret:
+        found.append("не задан TELEGRAM_WEBHOOK_SECRET")
+    elif not _WEBHOOK_SECRET.fullmatch(secret):
+        found.append("TELEGRAM_WEBHOOK_SECRET: нужно 32–256 символов [A-Za-z0-9_-]")
+    if not app.api_public_url.startswith("https://"):
+        found.append("APP_API_PUBLIC_URL: webhook Telegram принимает только https://")
+    return found
 
 
 class JwtSettings(_Group):
@@ -335,6 +373,8 @@ class Settings:
             and self.app.hash_key is None
         ):
             raise SettingsError("Настройки неполны — не заданы: APP_HASH_KEY")
+        if problems := webhook_problems(self.app, self.telegram):
+            raise SettingsError("TELEGRAM_UPDATES=webhook — " + "; ".join(problems))
         if self.app.env is Environment.PRODUCTION and (todo := self.legal.todo_fields()):
             # оператор и почта попадают в политику конфиденциальности: заглушка на проде — нарушение
             raise SettingsError("Настройки неполны — на проде нужны значения: " + ", ".join(todo))
@@ -359,6 +399,7 @@ def describe(settings: Settings) -> dict[str, Any]:
         "release": settings.app.release,
         "db_pool_size": settings.db.pool_size,
         "telegram_bot": settings.telegram.bot_username,
+        "telegram_updates": settings.telegram.updates.value,
         "s3_endpoint": settings.s3.endpoint_url,
         "sentry": settings.sentry.dsn is not None,
         "ai_moderation": settings.ai.openai_api_key is not None,
