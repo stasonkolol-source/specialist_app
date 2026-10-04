@@ -1,0 +1,139 @@
+# promtool test rules (make monitoring-check): пороги стартовых алертов на синтетических рядах.
+rule_files:
+  - ../sosed.yaml
+
+evaluation_interval: 1m
+
+tests:
+  # 10 rps, из них быстрее 150 мс — 9 (90% < 95%), быстрее 300 мс — 10: только warning, через 15 минут
+  - interval: 1m
+    input_series:
+      - series: 'http_request_duration_seconds_bucket{env="production", job="sosed", role="web", route="/api/v1/jobs", method="GET", le="0.15"}'
+        values: "0+540x30"
+      - series: 'http_request_duration_seconds_bucket{env="production", job="sosed", role="web", route="/api/v1/jobs", method="GET", le="0.3"}'
+        values: "0+600x30"
+      - series: 'http_request_duration_seconds_count{env="production", job="sosed", role="web", route="/api/v1/jobs", method="GET"}'
+        values: "0+600x30"
+      # сканер на 404 медленный, но в SLO не входит
+      - series: 'http_request_duration_seconds_bucket{env="production", job="sosed", role="web", route="<unmatched>", method="GET", le="0.15"}'
+        values: "0+0x30"
+      - series: 'http_request_duration_seconds_bucket{env="production", job="sosed", role="web", route="<unmatched>", method="GET", le="0.3"}'
+        values: "0+0x30"
+      - series: 'http_request_duration_seconds_count{env="production", job="sosed", role="web", route="<unmatched>", method="GET"}'
+        values: "0+600x30"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: SosedApiLatencyP95High
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: SosedApiLatencyP95High
+        exp_alerts:
+          - exp_labels:
+              env: production
+              severity: warning
+            exp_annotations:
+              summary: "production: p95 API выше 150 мс 15 минут"
+              description: "Быстрее 150 мс — только 90% запросов (SLO §2.4: 95%). Дашборд «API RED» — какой маршрут."
+      - eval_time: 25m
+        alertname: SosedApiLatencyP95Critical
+        exp_alerts: []
+
+  # 5xx: 2% ответов и десятки ошибок за 5 минут — всплеск; 4xx не в счёт
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{env="production", job="sosed", role="web", route="/api/v1/jobs", method="POST", status_class="2xx"}'
+        values: "0+588x20"
+      - series: 'http_requests_total{env="production", job="sosed", role="web", route="/api/v1/jobs", method="POST", status_class="4xx"}'
+        values: "0+60x20"
+      - series: 'http_requests_total{env="production", job="sosed", role="web", route="/api/v1/jobs", method="POST", status_class="5xx"}'
+        values: "0+13x20"
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: SosedApi5xxSpike
+        exp_alerts:
+          - exp_labels:
+              env: production
+              severity: critical
+
+  # лаг notifications: 3 минуты — critical через минуту; лаг default 3 минуты — не алерт
+  - interval: 1m
+    input_series:
+      - series: 'procrastinate_queue_lag_seconds{env="stage", job="sosed", role="worker", instance="worker", queue="notifications"}'
+        values: "0 0 180 180 180"
+      - series: 'procrastinate_queue_lag_seconds{env="stage", job="sosed", role="worker", instance="worker", queue="default"}'
+        values: "180 180 180 180 180"
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: SosedNotificationsQueueLag
+        exp_alerts:
+          - exp_labels:
+              env: stage
+              severity: critical
+      - eval_time: 4m
+        alertname: SosedQueueLag
+        exp_alerts: []
+
+  # ошибки бота: первая строка (появление счётчика) не видна increase, дальше — три за 10 минут
+  - interval: 1m
+    input_series:
+      - series: 'loki_process_custom_log_errors_total{env="production", role="bot", level="error", job="alloy", instance="app-1"}'
+        values: "1 1 2 3 4 4 4 4 4 4 4"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: SosedBotWebhookErrors
+        exp_alerts:
+          - exp_labels:
+              env: production
+              severity: warning
+
+  # диск db-1 занят на 85%: warning через 10 минут, critical — нет
+  - interval: 1m
+    input_series:
+      - series: 'node_filesystem_avail_bytes{env="production", job="node", instance="db-1", mountpoint="/", fstype="ext4", device="/dev/sda1"}'
+        values: "15x15"
+      - series: 'node_filesystem_size_bytes{env="production", job="node", instance="db-1", mountpoint="/", fstype="ext4", device="/dev/sda1"}'
+        values: "100x15"
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: SosedDiskAlmostFull
+        exp_alerts:
+          - exp_labels:
+              env: production
+              job: node
+              instance: db-1
+              mountpoint: /
+              fstype: ext4
+              device: /dev/sda1
+              severity: warning
+      - eval_time: 12m
+        alertname: SosedDiskFull
+        exp_alerts: []
+
+  # архив WAL на проде отстаёт на 15 минут; на stage метрики нет вовсе
+  - interval: 1m
+    input_series:
+      - series: 'pg_stat_archiver_last_archive_age{env="production", job="postgres", instance="10.20.1.3:5432"}'
+        values: "900x10"
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: SosedWalArchiveLag
+        exp_alerts:
+          - exp_labels:
+              env: production
+              job: postgres
+              instance: "10.20.1.3:5432"
+              severity: critical
+
+  # сторож: метрик production нет 10 минут — alert с env из правила
+  - interval: 1m
+    input_series:
+      - series: 'up{env="stage", job="sosed", role="web", instance="web"}'
+        values: "1x15"
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: SosedMetricsMissing
+        exp_alerts:
+          - exp_labels:
+              env: production
+              job: sosed
+              severity: critical
