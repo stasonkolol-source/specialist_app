@@ -7,10 +7,11 @@
 - Контент-правила: из админки — слова, фразы и домены; регулярки — только из сида (CHECK
   `regex_from_seed`, `re` не ограничивает время перебора), в админке они только для чтения.
   Правка строки сида переводит её в `origin = admin`: следующий `cli seed` её не перезапишет
-  (решение шага 2.7b — правка на реальных примерах без деплоя важнее, чем «сид — источник
-  правды»); чтобы вернуть строку сиду, её удаляют — `cli seed` создаст заново. Запись берёт
-  advisory lock импорта словаря; каждое изменение — в audit_log; снимок правил этого процесса
-  сбрасывается сразу, у остальных (worker) — за TTL снимка (60 с), без перезапуска.
+  (решение шага 2.7b — уточнять правила на реальных примерах без деплоя важнее, чем «сид —
+  источник правды»). Строки не удаляются — выключаются (`is_active`): по ним остаётся история
+  кейсов, где правило сработало. Запись берёт advisory lock импорта словаря; каждое изменение —
+  в audit_log; снимок правил этого процесса сбрасывается сразу, у остальных (worker) — за TTL
+  снимка (60 с), без перезапуска.
 """
 
 from typing import Any, ClassVar, override
@@ -205,7 +206,7 @@ class ContentRuleAdmin(StaffModelView, model=ContentRuleRow):
     roles = ADMIN
     audit_entity = "moderation.content_rule"
     advisory_lock = IMPORT_LOCK
-    can_delete = True
+    can_delete = False
     column_list: ClassVar[Any] = [
         ContentRuleRow.id,
         ContentRuleRow.kind,
@@ -230,10 +231,6 @@ class ContentRuleAdmin(StaffModelView, model=ContentRuleRow):
     @override
     async def check_can_edit(self, request: Request, model: Any) -> bool:
         return model.kind is not RuleKind.REGEX and await super().check_can_edit(request, model)
-
-    @override
-    async def check_can_delete(self, request: Request, model: Any) -> bool:
-        return model.kind is not RuleKind.REGEX and await super().check_can_delete(request, model)
 
     @override
     async def on_model_change(
