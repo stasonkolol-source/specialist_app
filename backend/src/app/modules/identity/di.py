@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from dishka import Provider, Scope, provide
 
-from app.modules.identity.api import IdentityApi
+from app.modules.identity.api import IdentityApi, StaffAuth
 from app.modules.identity.application.access import AccessChecker
 from app.modules.identity.application.config import IdentityConfig
 from app.modules.identity.application.facade import IdentityFacade
@@ -20,15 +20,21 @@ from app.modules.identity.application.ports import (
     RoleRepository,
     SessionRepository,
     SessionRevocations,
+    StaffCredentials,
+    StaffSecrets,
     UserRepository,
 )
+from app.modules.identity.application.staff_auth import StaffAuthService
 from app.modules.identity.application.trust import TrustRecalculation
 from app.modules.identity.application.use_cases.accept_consents import AcceptConsents
 from app.modules.identity.application.use_cases.age_trust_levels import AgeTrustLevels
 from app.modules.identity.application.use_cases.authenticate_telegram import AuthenticateTelegram
 from app.modules.identity.application.use_cases.block_user import BlockUser
 from app.modules.identity.application.use_cases.cancel_deletion import CancelDeletion
+from app.modules.identity.application.use_cases.create_staff_login import CreateStaffLogin
 from app.modules.identity.application.use_cases.grant_staff_role import GrantStaffRole
+from app.modules.identity.application.use_cases.impose_restriction import ImposeRestriction
+from app.modules.identity.application.use_cases.lift_restriction import LiftRestriction
 from app.modules.identity.application.use_cases.logout import Logout
 from app.modules.identity.application.use_cases.process_deletions import ProcessDeletions
 from app.modules.identity.application.use_cases.purge_identity_hashes import PurgeIdentityHashes
@@ -59,6 +65,7 @@ from app.modules.identity.infrastructure.repositories import (
     SqlSessionRepository,
     SqlUserRepository,
 )
+from app.modules.identity.infrastructure.staff import PwdlibStaffSecrets, SqlStaffCredentials
 from app.platform.security.denylist import SessionDenylist
 from app.platform.security.jwt import AccessTokens
 from app.platform.settings import AppSettings, JwtSettings, TelegramSettings
@@ -130,3 +137,9 @@ class IdentityProvider(Provider):
     blocks = provide(SqlBlocks, provides=Blocks)
     block_user = provide(BlockUser)
     unblock_user = provide(UnblockUser)
+    staff_credentials = provide(SqlStaffCredentials, provides=StaffCredentials)
+    staff_secrets = provide(PwdlibStaffSecrets, provides=StaffSecrets, scope=Scope.APP)
+    create_staff_login = provide(CreateStaffLogin)
+    staff_auth = provide(StaffAuthService, provides=StaffAuth)
+    impose_restriction = provide(ImposeRestriction)
+    lift_restriction = provide(LiftRestriction)
