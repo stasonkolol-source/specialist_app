@@ -10,7 +10,9 @@ from app.platform.settings import (
     Environment,
     Settings,
     SettingsError,
+    UpdatesMode,
     env_names,
+    webhook_base_url,
 )
 
 pytestmark = pytest.mark.unit
@@ -167,3 +169,85 @@ def test_release_falls_back_to_the_kamal_image_version(clean_env: pytest.MonkeyP
     assert Settings(env_file=None).app.release == "3f2a9c1"
     clean_env.setenv("APP_RELEASE", "v42")
     assert Settings(env_file=None).app.release == "v42"
+
+
+def test_webhook_mode_needs_a_strong_secret_and_https(clean_env: pytest.MonkeyPatch) -> None:
+    """Без секрета aiogram принял бы любой POST, на http:// Telegram не шлёт апдейты (0.25e)."""
+    for name, value in REQUIRED.items():
+        clean_env.setenv(name, value)
+    assert Settings(env_file=None).telegram.updates is UpdatesMode.POLLING
+    clean_env.setenv("TELEGRAM_UPDATES", "webhook")
+    with pytest.raises(SettingsError, match="не задан TELEGRAM_WEBHOOK_SECRET"):
+        Settings(env_file=None)
+    for weak in ("short-secret", "x" * 31, "x" * 257, "x" * 40 + "!"):
+        clean_env.setenv("TELEGRAM_WEBHOOK_SECRET", weak)
+        with pytest.raises(SettingsError, match="32–256 символов") as exc:
+            Settings(env_file=None)
+        assert weak not in str(exc.value)  # значение секрета в ошибку не попадает
+    clean_env.setenv("TELEGRAM_WEBHOOK_SECRET", "x" * 64)
+    with pytest.raises(SettingsError, match="APP_API_PUBLIC_URL"):
+        Settings(env_file=None)  # по умолчанию http://127.0.0.1:8000
+    clean_env.setenv("APP_API_PUBLIC_URL", "https://stage-api.example.test")
+    assert Settings(env_file=None).telegram.updates is UpdatesMode.WEBHOOK
+
+
+def test_polling_ignores_the_webhook_secret_format(clean_env: pytest.MonkeyPatch) -> None:
+    """В dev секрет не нужен: случайное значение в backend/.env не должно ронять стенд."""
+    for name, value in REQUIRED.items():
+        clean_env.setenv(name, value)
+    clean_env.setenv("TELEGRAM_WEBHOOK_SECRET", "dev")
+    assert Settings(env_file=None).telegram.updates is UpdatesMode.POLLING
+
+
+def test_unknown_updates_mode_is_reported(clean_env: pytest.MonkeyPatch) -> None:
+    for name, value in REQUIRED.items():
+        clean_env.setenv(name, value)
+    clean_env.setenv("TELEGRAM_UPDATES", "push")
+    with pytest.raises(SettingsError, match="TELEGRAM_UPDATES"):
+        Settings(env_file=None)
+
+
+def test_webhook_goes_to_its_own_bot_host(clean_env: pytest.MonkeyPatch) -> None:
+    """kamal-proxy не отдаёт один хост с TLS двум ролям: у бота свой (stage-bot.<домен>)."""
+    for name, value in REQUIRED.items():
+        clean_env.setenv(name, value)
+    clean_env.setenv("TELEGRAM_UPDATES", "webhook")
+    clean_env.setenv("TELEGRAM_WEBHOOK_SECRET", "x" * 64)
+    # API на http (по умолчанию), бот — на своём https-хосте: так можно
+    clean_env.setenv("TELEGRAM_WEBHOOK_BASE_URL", "https://stage-bot.example.test")
+    settings = Settings(env_file=None)
+    assert webhook_base_url(settings.app, settings.telegram) == "https://stage-bot.example.test"
+    for bad, message in (
+        ("http://stage-bot.example.test", "TELEGRAM_WEBHOOK_BASE_URL: webhook Telegram принимает"),
+        ("https://", "TELEGRAM_WEBHOOK_BASE_URL: webhook Telegram принимает"),
+        ("https://stage-bot.example.test/hook", "TELEGRAM_WEBHOOK_BASE_URL: нужны только схема"),
+        ("https://stage-bot.example.test?x=1", "TELEGRAM_WEBHOOK_BASE_URL: нужны только схема"),
+    ):
+        clean_env.setenv("TELEGRAM_WEBHOOK_BASE_URL", bad)
+        with pytest.raises(SettingsError, match=message):
+            Settings(env_file=None)
+    # без своего хоста — адрес API, и проверяется уже он
+    clean_env.delenv("TELEGRAM_WEBHOOK_BASE_URL")
+    clean_env.setenv("APP_API_PUBLIC_URL", "https://stage-api.example.test/api")
+    with pytest.raises(SettingsError, match="APP_API_PUBLIC_URL: нужны только схема"):
+        Settings(env_file=None)
+    clean_env.setenv("APP_API_PUBLIC_URL", "https://stage-api.example.test/")
+    settings = Settings(env_file=None)
+    assert webhook_base_url(settings.app, settings.telegram) == "https://stage-api.example.test/"
+
+
+def test_fake_telegram_sender_is_refused_in_production(clean_env: pytest.MonkeyPatch) -> None:
+    """Фейк нагрузочного прогона (8.3) глотает уведомления: на stage можно, на проде — нет."""
+    for name, value in REQUIRED.items():
+        clean_env.setenv(name, value)
+    clean_env.setenv("APP_HASH_KEY", "test-hash-key")
+    clean_env.setenv("TELEGRAM_FAKE_SENDER", "true")
+    clean_env.setenv("APP_ENV", "stage")
+    assert Settings(env_file=None).telegram.fake_sender is True
+    clean_env.setenv("APP_ENV", "production")
+    clean_env.setenv("LEGAL_OPERATOR_NAME", "Оператор")
+    clean_env.setenv("LEGAL_CONTACT_EMAIL", "help@example.test")
+    with pytest.raises(SettingsError, match="TELEGRAM_FAKE_SENDER"):
+        Settings(env_file=None)
+    clean_env.setenv("TELEGRAM_FAKE_SENDER", "false")
+    assert Settings(env_file=None).telegram.fake_sender is False

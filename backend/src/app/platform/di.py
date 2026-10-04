@@ -85,6 +85,7 @@ from app.platform.settings import (
 from app.platform.storage.port import StoragePort
 from app.platform.storage.s3 import S3Storage
 from app.platform.telegram.aiogram_sender import AiogramTelegramSender
+from app.platform.telegram.fake_sender import FakeTelegramSender
 from app.platform.telegram.limiter import ValkeySendLimiter
 from app.platform.telegram.metrics import FloodWaitMetrics
 from app.platform.telegram.port import PreparedMessages, TelegramSender
@@ -215,9 +216,16 @@ class PlatformProvider(Provider):
         return TelegramMetrics(registry)
 
     @provide(scope=Scope.APP)
-    def telegram_sender(self, bot: Bot, valkey: Redis) -> TelegramSender:
-        """Уведомления бота: Bot API с лимитером в Valkey (25 msg/s, 1 msg/s на чат)."""
-        return AiogramTelegramSender(bot, ValkeySendLimiter(valkey))
+    def telegram_sender(
+        self, bot: Bot, valkey: Redis, settings: TelegramSettings
+    ) -> TelegramSender:
+        """Уведомления бота: Bot API с лимитером в Valkey (25 msg/s, 1 msg/s на чат). Нагрузочный
+        прогон stage (8.3) — фейк с тем же лимитером и латентностью Bot API, наружу ничего."""
+        limiter = ValkeySendLimiter(valkey)
+        if settings.fake_sender:
+            log.warning("telegram_fake_sender", reason="TELEGRAM_FAKE_SENDER: nothing is sent")
+            return FakeTelegramSender(limiter)
+        return AiogramTelegramSender(bot, limiter)
 
     @provide(scope=Scope.APP)
     def prepared_messages(self, bot: Bot, app: AppSettings) -> PreparedMessages:

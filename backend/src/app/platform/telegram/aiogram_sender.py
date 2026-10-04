@@ -1,11 +1,12 @@
 """TelegramSender на aiogram `Bot` как HTTP-клиенте Bot API (шаг 2.3b, ADR-0011).
 
-Перед вызовом — слот лимитера (limiter.py). Слот ближе HORIZON — задача ждёт его здесь же,
-не уходя из очереди; дальше — RateLimitedError, и доставка вернётся ближе к сроку, не
-тратя попытку. Ответы Bot API переводятся в ошибки порта (port.py): 429 — пауза всем
-отправкам и RateLimitedError, 403 и «chat not found» — TelegramBlockedError, прочие 400 —
-TelegramRejectedError, сеть, 5xx и нечитаемый ответ (HTML-страница 502 вместо JSON) —
-ExternalServiceError. Адрес и текст в лог не попадают (ADR-0020 §14).
+Перед вызовом — слот лимитера (limiter.py, `take_slot`). Слот ближе HORIZON — задача ждёт его
+здесь же, не уходя из очереди; дальше — RateLimitedError, и доставка вернётся ближе к сроку, не
+тратя попытку. Тот же `take_slot` — у фейка нагрузочного прогона (fake_sender.py). Ответы Bot
+API переводятся в ошибки порта (port.py): 429 — пауза всем отправкам и RateLimitedError, 403 и
+«chat not found» — TelegramBlockedError, прочие 400 — TelegramRejectedError, сеть, 5xx и
+нечитаемый ответ (HTML-страница 502 вместо JSON) — ExternalServiceError. Адрес и текст в лог не
+попадают (ADR-0020 §14).
 """
 
 import asyncio
@@ -56,7 +57,7 @@ class AiogramTelegramSender:
         self._limiter = limiter
 
     async def send(self, message: OutgoingMessage) -> SentMessage:
-        await self._slot(message.chat_id)
+        await take_slot(self._limiter, message.chat_id)
         sent = await self._call(
             self._bot.send_message(
                 chat_id=message.chat_id, text=message.text, reply_markup=keyboard(message.buttons)
@@ -68,7 +69,7 @@ class AiogramTelegramSender:
         self, chat_id: int, message_id: int, buttons: tuple[ButtonLine, ...]
     ) -> None:
         # правка — тоже вызов Bot API в чат: тот же лимитер, что у отправки
-        await self._slot(chat_id)
+        await take_slot(self._limiter, chat_id)
         try:
             await self._call(
                 self._bot.edit_message_reply_markup(
@@ -78,12 +79,6 @@ class AiogramTelegramSender:
         except TelegramRejectedError as exc:
             if NOT_MODIFIED not in exc.reason.lower():
                 raise
-
-    async def _slot(self, chat_id: int) -> None:
-        slot = await self._limiter.reserve(chat_id, within=HORIZON)
-        await _wait(slot)
-        if slot.bot_pending:  # ждали свой чат: теперь — слот бота
-            await _wait(await self._limiter.reserve_bot(within=HORIZON))
 
     async def _call[T](self, call: Awaitable[T]) -> T:
         """Вызов Bot API; его ответ-ошибка — ошибка порта (port.py)."""
@@ -106,6 +101,14 @@ class AiogramTelegramSender:
             raise ExternalServiceError(service="telegram", reason=type(exc).__name__) from exc
         except AiogramError as exc:  # ответ не JSON: страница прокси вместо Bot API
             raise ExternalServiceError(service="telegram", reason=type(exc).__name__) from exc
+
+
+async def take_slot(limiter: SendLimiter, chat_id: int) -> None:
+    """Дождаться слота лимитера для сообщения в чат (или RateLimitedError — в очередь)."""
+    slot = await limiter.reserve(chat_id, within=HORIZON)
+    await _wait(slot)
+    if slot.bot_pending:  # ждали свой чат: теперь — слот бота
+        await _wait(await limiter.reserve_bot(within=HORIZON))
 
 
 async def _wait(slot: Slot) -> None:

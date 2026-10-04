@@ -37,9 +37,13 @@ from app.platform.settings import (
     Environment,
     Settings,
     TelegramSettings,
+    UpdatesMode,
+    webhook_base_url,
+    webhook_problems,
 )
 
 if TYPE_CHECKING:  # модули грузятся лениво: CLI без БД не должен их импортировать
+    from aiogram import Bot
     from dishka import AsyncContainer
 
     from app.entrypoints._moderation_cli import CliOutcome
@@ -263,9 +267,11 @@ def bot_setup(
         typer.Option(help="Окружение бота; должно совпасть с APP_ENV — защита от чужого .env"),
     ],
 ) -> None:
-    """Профиль бота: имя, описания и меню команд на ru и sr, кнопка меню (DEVELOPMENT_PLAN 1.6).
+    """Профиль бота: имя, описания и меню команд на ru и sr, кнопка меню (DEVELOPMENT_PLAN 1.6),
+    webhook по TELEGRAM_UPDATES (0.25e): webhook — setWebhook с секретом и узким
+    allowed_updates, polling — снять webhook.
 
-    Меняет только то, что отличается: повторный запуск ничего не трогает.
+    Профиль и кнопку меняет только там, где они отличаются: повторный запуск их не трогает.
     """
     asyncio.run(_bot_setup(env))
 
@@ -277,7 +283,8 @@ async def _bot_setup(env: Environment) -> None:
     from app.interfaces.bot.profile import apply_menu_button, apply_profile, bot_profiles
     from app.platform.i18n.translator import Translator
 
-    actual = AppSettings().env
+    app_settings = AppSettings()
+    actual = app_settings.env
     if actual is not env:
         typer.echo(f"bot-setup: --env {env.value}, but APP_ENV={actual.value}", err=True)
         raise typer.Exit(code=1)
@@ -285,6 +292,8 @@ async def _bot_setup(env: Environment) -> None:
     translator = Translator.load()
     profiles = bot_profiles(translator, env)
     problems = [problem for profile in profiles for problem in profile.problems()]
+    # все проверки — до первого вызова Bot API: профиль без webhook хуже отказа целиком
+    problems += webhook_problems(app_settings, telegram)
     if problems:
         typer.echo("bot-setup: " + "; ".join(problems), err=True)
         raise typer.Exit(code=1)
@@ -302,6 +311,7 @@ async def _bot_setup(env: Environment) -> None:
             typer.echo(f"@{me.username}: menu button {state} → {url}")
         else:
             typer.echo(f"@{me.username}: menu button skipped (TELEGRAM_MINI_APP_URL is not https)")
+        typer.echo(f"@{me.username}: {await _apply_updates_mode(bot, app_settings, telegram)}")
     except TelegramRetryAfter as exc:
         typer.echo(
             f"bot-setup: Telegram asks to wait {exc.retry_after} s, run again later", err=True
@@ -309,6 +319,27 @@ async def _bot_setup(env: Environment) -> None:
         raise typer.Exit(code=1) from exc
     finally:
         await bot.session.close()
+
+
+async def _apply_updates_mode(
+    bot: Bot, app_settings: AppSettings, telegram: TelegramSettings
+) -> str:
+    """Webhook по TELEGRAM_UPDATES; строка для вывода — адрес и типы апдейтов, без секрета."""
+    from app.interfaces.bot.app import ALLOWED_UPDATES
+    from app.interfaces.bot.webhook import apply_webhook, remove_webhook, webhook_url
+
+    if telegram.updates is UpdatesMode.POLLING:
+        return "webhook deleted (polling)" if await remove_webhook(bot) else "no webhook (polling)"
+    secret = telegram.webhook_secret.get_secret_value() if telegram.webhook_secret else ""
+    url = webhook_url(webhook_base_url(app_settings, telegram))
+    await apply_webhook(bot, url, secret, ALLOWED_UPDATES)
+    info = await bot.get_webhook_info()
+    # ошибка доставки видна сразу: например, kamal-proxy не ведёт путь на процесс bot
+    last_error = f", last error: {info.last_error_message}" if info.last_error_message else ""
+    return (
+        f"webhook set → {url} [{', '.join(ALLOWED_UPDATES)}],"
+        f" pending {info.pending_update_count}{last_error}"
+    )
 
 
 async def _set_menu_button(url: str | None) -> None:
@@ -358,6 +389,19 @@ def dev_initdata(
     user: dict[str, object] = {"id": user_id, "first_name": first_name, "language_code": language}
     if username:
         user["username"] = username
+    token = TelegramSettings().bot_token.get_secret_value()  # type: ignore[call-arg]  # из .env
+    init_data = _signed_init_data(user, token, start_param=start_param)
+    if url:
+        query = urlencode({"platform": "mock", "lang": language, "initData": init_data})
+        typer.echo(f"http://localhost:5173/?{query}")
+    else:
+        typer.echo(init_data)
+
+
+def _signed_init_data(
+    user: dict[str, object], token: str, *, start_param: str | None = None
+) -> str:
+    """initData, как его передаёт клиент Telegram, с подписью токеном бота."""
     fields = {
         "auth_date": str(int(SystemClock().now().timestamp())),
         "query_id": f"dev{secrets.token_hex(8)}",
@@ -368,13 +412,43 @@ def dev_initdata(
     }
     if start_param:
         fields["start_param"] = start_param
-    token = TelegramSettings().bot_token.get_secret_value()  # type: ignore[call-arg]  # из .env
-    init_data = urlencode(fields | {"hash": sign(fields, token)})
-    if url:
-        query = urlencode({"platform": "mock", "lang": language, "initData": init_data})
-        typer.echo(f"http://localhost:5173/?{query}")
-    else:
-        typer.echo(init_data)
+    return urlencode(fields | {"hash": sign(fields, token)})
+
+
+LOADTEST_ENVS = (Environment.DEV, Environment.STAGE)
+
+
+@app.command("loadtest-initdata")
+def loadtest_initdata(
+    *,
+    count: Annotated[int, typer.Option(min=1, max=50_000, help="Сколько пользователей")] = 100,
+    start: Annotated[int, typer.Option(min=0, help="Номер первого демо-специалиста")] = 0,
+) -> None:
+    """initData демо-специалистов `seed-demo` для нагрузочного прогона k6 (8.3): JSON-массив в
+    stdout, подпись — токеном бота этого окружения, годен час (initdata.py). Только dev и stage.
+
+    Синтетические пользователи — уже засеянные демо-специалисты (`seed-demo --scale lab`): у них
+    приняты согласия и опубликован профиль, поэтому прогон откликается на заявки, ничего не
+    создавая заново. Их Telegram ID длиннее 52 бит — живой человек под ними не войдёт.
+    """
+    if AppSettings().env not in LOADTEST_ENVS:
+        typer.echo("loadtest-initdata works only with APP_ENV=dev or stage", err=True)
+        raise typer.Exit(code=1)
+    from app.entrypoints._seed_demo import plan
+
+    token = TelegramSettings().bot_token.get_secret_value()  # type: ignore[call-arg]  # из окружения
+    batch = []
+    for number in range(start, start + count):
+        demo = plan(number)
+        user: dict[str, object] = {
+            "id": demo.telegram_id,
+            # те же имя и язык, что у сида: вход не переписывает демо-профиль
+            "first_name": demo.first_name,
+            "last_name": f"{demo.last_initial}.",
+            "language_code": demo.lang,
+        }
+        batch.append(_signed_init_data(user, token))
+    typer.echo(json.dumps(batch))
 
 
 @app.command("dev-reset-user")
