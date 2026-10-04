@@ -71,6 +71,7 @@ async def chat(web: HttpApp, storage_settings: Settings) -> AsyncIterator[Chat]:
             )
 
 
+@pytest.mark.authz
 async def test_response_conversation_starts_with_the_offer_once(chat: Chat) -> None:
     client, performer, response_id = await chat.pair()
     stranger = await chat.user()
@@ -169,6 +170,7 @@ async def test_repeated_send_is_one_message(chat: Chat) -> None:
     assert queued == 1  # повтор не ставит событий
 
 
+@pytest.mark.authz
 async def test_stranger_closed_and_restricted_cannot_write(chat: Chat) -> None:
     client, performer, response_id = await chat.pair()
     stranger = await chat.user()
@@ -248,6 +250,7 @@ async def test_unread_count_is_an_index_range(chat: Chat) -> None:
     assert re.search(r"Index Cond: .*\(id > COALESCE\(", plan), plan
 
 
+@pytest.mark.authz
 async def test_unread_until_read(chat: Chat) -> None:
     client, performer, response_id = await chat.pair()
     conversation_id = await chat.start(performer, response_id=response_id)

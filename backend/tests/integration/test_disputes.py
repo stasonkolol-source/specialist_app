@@ -209,6 +209,7 @@ async def world(
             )
 
 
+@pytest.mark.authz
 async def test_dispute_opens_a_p1_case_and_wakes_the_other_party(world: World) -> None:
     client, performer, stranger = await world.user(), await world.user(), await world.user()
     deal_id = await world.deal(client, performer)
@@ -501,3 +502,19 @@ async def test_contacts_stay_open_under_dispute(world: World) -> None:
 
     assert phone.status_code == 201, phone.text
     assert (phone.json()["masked"], phone.json()["body"]) == (False, "Мой номер +381 64 123 4567")
+
+
+@pytest.mark.authz
+async def test_authz_outsider_cannot_answer_or_withdraw_a_dispute(world: World) -> None:
+    """Чужой ресурс (8.4): посторонний не видит спор чужой сделки — 404, спор не меняется."""
+    client, performer, stranger = await world.user(), await world.user(), await world.user()
+    deal_id = await world.deal(client, performer)
+    await world.dispute(performer, deal_id, kind="other")
+
+    answer = await world.post(stranger, f"/deals/{deal_id}/dispute/respond", {"text": "Я"})
+    withdraw = await world.post(stranger, f"/deals/{deal_id}/dispute/withdraw")
+
+    assert (answer.status_code, answer.json()["code"]) == (404, "deal_not_found")
+    assert (withdraw.status_code, withdraw.json()["code"]) == (404, "deal_not_found")
+    card = (await world.get(client, f"/deals/{deal_id}/card")).json()
+    assert card["status"] == "disputed"

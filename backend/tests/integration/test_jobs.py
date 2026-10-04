@@ -181,6 +181,7 @@ def moment(value: str) -> datetime:
     return datetime.fromisoformat(value)
 
 
+@pytest.mark.authz
 async def test_new_job_waits_for_review_and_only_the_owner_sees_it(
     web: HttpApp, storage_settings: Settings, clients: list[Client], body: dict[str, Any]
 ) -> None:
@@ -275,6 +276,7 @@ async def test_job_with_contacts_waits_for_a_moderator_and_goes_back_after_fixes
     assert (fixed.json()["status"], fixed.json()["moderation_note"]) == ("pending_moderation", None)
 
 
+@pytest.mark.authz
 async def test_stale_version_is_refused_and_strangers_cannot_touch_the_job(
     web: HttpApp, storage_settings: Settings, clients: list[Client], body: dict[str, Any]
 ) -> None:

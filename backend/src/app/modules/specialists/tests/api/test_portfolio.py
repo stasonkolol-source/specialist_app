@@ -2,10 +2,12 @@
 подписи, порядок, лимиты, удаление вместе с файлом; фото профиля и замена прежнего."""
 
 import pytest
+from tests.plugins.http import HttpApp
 
 from app.platform.kernel.ids import new_id
+from app.platform.settings import Settings
 
-from .conftest import Cabinet
+from .conftest import Cabinet, cabinet_for
 
 pytestmark = pytest.mark.integration
 
@@ -44,6 +46,25 @@ async def test_works_are_added_captioned_reordered_and_removed(cabinet: Cabinet)
     assert deleted is True
     hints = (await cabinet.get()).json()["completeness"]["hints"]
     assert {"code": "portfolio", "count": 1} in hints
+
+
+@pytest.mark.authz
+async def test_authz_foreign_work_cannot_be_captioned_or_removed(
+    cabinet: Cabinet, web: HttpApp, storage_settings: Settings
+) -> None:
+    """Чужой ресурс (8.4): работа чужого портфолио для другого исполнителя не существует."""
+    assert (await cabinet.create()).status_code == 201
+    work = (await cabinet.portfolio("POST", media_id=await cabinet.media())).json()["id"]
+    stranger = await cabinet_for(web, storage_settings)
+    assert (await stranger.create()).status_code == 201
+
+    captioned = await stranger.portfolio("PATCH", f"/{work}", caption="Чужая подпись")
+    removed = await stranger.portfolio("DELETE", f"/{work}")
+
+    assert captioned.status_code == 404, captioned.text
+    assert removed.status_code == 404, removed.text
+    works = (await cabinet.portfolio("GET")).json()["items"]
+    assert [(w["id"], w["caption"]) for w in works] == [(work, None)]
 
 
 async def test_only_own_portfolio_files_fit_and_limits_hold(cabinet: Cabinet) -> None:
