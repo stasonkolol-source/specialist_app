@@ -630,9 +630,11 @@ make secret NAME=TELEGRAM_BOT_TOKEN TARGET=dev
 
   Только в `production`, для ежемесячного restore-теста (шаг 3.2):
   - `HCLOUD_TOKEN` проекта `specialist-backup` — там restore-тест создаёт временную VM (K36);
-  - S3-ключи обоих репозиториев бэкапов (K36, K37);
-  - пароли шифрования pgBackRest обоих репозиториев (K10a);
-  - ping URL restore-теста (K33).
+  - S3-ключи обоих репозиториев бэкапов (K36, K37): `PGBACKREST_REPO1_S3_KEY`, `PGBACKREST_REPO1_S3_KEY_SECRET`, `PGBACKREST_REPO2_S3_KEY`, `PGBACKREST_REPO2_S3_KEY_SECRET` — их же берёт `db-1`;
+  - пароли шифрования pgBackRest обоих репозиториев (K10a): `RESTORE_TEST_REPO1_CIPHER_PASS` и `RESTORE_TEST_REPO2_CIPHER_PASS` — значения, вставленные из менеджера паролей, а не из буфера генерации: тест проверяет именно копию. Серверу те же пароли приходят из `PGBACKREST_REPO1_CIPHER_PASS` и `PGBACKREST_REPO2_CIPHER_PASS`;
+  - ping URL restore-теста `RESTORE_TEST_HEALTHCHECK_URL` и бэкапов `PGBACKREST_HEALTHCHECK_URL` (K33).
+
+  Порядок — [prod-bootstrap.md](../infra/runbooks/prod-bootstrap.md), раздел 7.
 
   Не секреты (`CLOUDFLARE_ACCOUNT_ID`, DSN Sentry, ключ PostHog, логин реестра) — в Variables того же environment.
 - **Зачем:** CI деплоит stage при merge в `main`, а prod — по ручному запуску.

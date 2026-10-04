@@ -5,7 +5,7 @@ PostgreSQL на `db-1` (3.1b), Cloudflare, деплой, Access и prod-бот (
 `infra/terraform/prod`, `infra/terraform/zone`, `infra/postgres/provision.sh`, `infra/kamal`
 (`deploy.production.yml`), `infra/workers/tma`, `.github/workflows/deploy.yml` (job `production`).
 Пункты K и Q — [OWNER_CHECKLIST](../../docs/OWNER_CHECKLIST.md). Бэкапы pgBackRest и restore-тест —
-шаг 3.2, наблюдаемость — 3.3; без них реальные данные на prod не приходят (ворота 3.4).
+шаг 3.2, раздел 7; наблюдаемость — 3.3; без них реальные данные на prod не приходят (ворота 3.4).
 
 > Прогон «на сухую» — при первом подъёме prod (K38 и далее). Ни одна команда ниже до этого не
 > запускалась против Hetzner и Cloudflare: проверены только `terraform validate`, план без сети,
@@ -92,8 +92,7 @@ PostgreSQL на `db-1` (3.1b), Cloudflare, деплой, Access и prod-бот (
 `PROD_HOST=… PROD_DB_IP=10.20.1.20 make db-provision ENV=prod` и `make pg-smoke ENV=prod`.
 
 WAL до шага 3.2 не архивируется (`archive_command = /bin/true`): реальных данных до ворот 3.4 нет.
-В 3.2 секреты `PGBACKREST_REPO1_*`, `PGBACKREST_REPO2_*` (K36, K37, пароли шифрования — K10a) и тот же
-`db-provision` включают pgBackRest по шаблону `infra/postgres/pgbackrest.conf.tmpl`.
+Бэкапы включает тот же `db-provision`, когда в `production` есть ключи pgBackRest — раздел 7.
 
 ## 3. Cloudflare: зона, DNS, R2, Origin CA (3.1c)
 
@@ -181,6 +180,58 @@ kamal-proxy включаются в `infra/kamal/deploy.yml` вместе со s
    `admin.<домен>`, web получает `APP_ADMIN_SESSION_KEY` и монтирует `/admin` (2.7a).
 4. Учётки персонала: `ssh root@<PROD_HOST> 'docker exec -it $(docker ps -qf label=role=web | head -1) sosed cli staff-create'`
    (пароль и TOTP вводите сами), роли — `sosed cli staff-grant`.
+
+## 7. Бэкапы и restore-тест (3.2)
+
+Нужно: K36 (проект `specialist-backup`: бакет, S3-ключи, токен `restore-test`), K37 (бакет и ключ B2),
+K10a (копии), K33 (ping URL «pgBackRest» и «restore-test»), K19. Что и как устроено —
+[restore.md](restore.md). Stage бэкапов не получает: там тестовые данные.
+
+1. Пароли шифрования — по одному на репозиторий, тем же циклом, что пароли ролей в разделе 2, с
+   именами `PGBACKREST_REPO1_CIPHER_PASS PGBACKREST_REPO2_CIPHER_PASS`. Копия в менеджере паролей —
+   обязательна (K10a): без неё бэкап не расшифровать. После первого бэкапа пароль не менять.
+2. Те же пароли для restore-теста — **из менеджера паролей**, не из буфера генерации: откройте запись,
+   скопируйте значение и вставьте в скрытый запрос
+   ```
+   gh secret set RESTORE_TEST_REPO1_CIPHER_PASS --env production
+   gh secret set RESTORE_TEST_REPO2_CIPHER_PASS --env production
+   ```
+   Зелёный restore-тест с ними — критерий K10a: копия в менеджере верна. Запишите в
+   [restore.md](restore.md) («Где что лежит»), где лежат копии.
+3. S3-ключи (`gh secret set … --env production`, значение — в скрытый запрос):
+   `PGBACKREST_REPO1_S3_KEY`, `PGBACKREST_REPO1_S3_KEY_SECRET` — Hetzner (K36);
+   `PGBACKREST_REPO2_S3_KEY`, `PGBACKREST_REPO2_S3_KEY_SECRET` — B2, keyID и applicationKey (K37).
+4. Variables environment `production`:
+   | Имя | Пример |
+   |---|---|
+   | `PGBACKREST_REPO1_S3_ENDPOINT` | `nbg1.your-objectstorage.com` |
+   | `PGBACKREST_REPO1_S3_REGION` | `nbg1` |
+   | `PGBACKREST_REPO1_S3_BUCKET` | имя бакета из K36 |
+   | `PGBACKREST_REPO2_S3_ENDPOINT` | `s3.eu-central-003.backblazeb2.com` (из настроек бакета B2) |
+   | `PGBACKREST_REPO2_S3_REGION` | `eu-central-003` |
+   | `PGBACKREST_REPO2_S3_BUCKET` | имя бакета из K37 |
+
+   Без `PGBACKREST_REPO2_*` бэкапы идут только в Hetzner; B2 можно добавить позже тем же
+   `db-provision`.
+5. Healthchecks (K33): проверка «pgBackRest» — период 1 день, grace 3 часа; «restore-test» — период
+   31 день, grace 3 дня (запуск ждёт вашего подтверждения). Ping URL — секреты
+   `PGBACKREST_HEALTHCHECK_URL` и `RESTORE_TEST_HEALTHCHECK_URL`.
+6. Токен `restore-test` проекта `specialist-backup` (K36) — секрет `HCLOUD_TOKEN` в `production`.
+   Это не prod-токен (K38): restore-тест создаёт VM только в `specialist-backup`.
+7. Включить: Actions → deploy → Run workflow, `env` = `production`, `action` = `db-provision` →
+   Approve. В логе: стенза `specialist`, `check` зелёный, таймер бэкапов и «первый запущен в фоне».
+   Проверка:
+   ```
+   ssh -J root@<PROD_HOST> root@10.20.1.20 'systemctl list-timers sosed-pgbackrest-backup.timer; sudo -u postgres pgbackrest --stanza=specialist info'
+   ```
+   С этого момента `db-provision` без ключей pgBackRest падает намеренно: иначе он выключил бы архив WAL.
+8. Restore-тест: Variable репозитория `RESTORE_TEST` = `true`, затем после первого бэкапа
+   ```
+   gh workflow run restore-test.yml -f repo=1
+   gh workflow run restore-test.yml -f repo=2
+   ```
+   → Approve. Оба зелёные — числа RPO и RTO из Summary в таблицу [restore.md](restore.md). Дальше тест
+   идёт сам 3-го числа каждого месяца, по очереди по репозиториям.
 
 ## Ключи SSH и доступ к db-1
 
