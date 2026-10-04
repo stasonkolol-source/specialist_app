@@ -43,6 +43,8 @@
     "groupChannel": "{group} — {channel, select, telegram {у боту} other {у апликацији}}",
     "quiet": "Тихи сати {start}–{end}",
     "quietHint": "Хитно и поруке — одмах",
+    "goodsLaunch": "Покретање одељка „Ствари“",
+    "goodsLaunchHint": "Бот ће писати једном, када се одељак отвори",
     "loading": "Учитавамо подешавања обавештења",
     "loadError": "Подешавања обавештења нису учитана",
     "export": "Извоз мојих података",

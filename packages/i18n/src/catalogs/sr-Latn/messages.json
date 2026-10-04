@@ -16,6 +16,7 @@
     },
     "emptyRole": "U ovoj kartici još nema ničega",
     "hint": "Telefoni i linkovi se vide tek posle dogovora",
+    "response": "Ponuda",
     "deleted": "Nalog je obrisan",
     "more": "Prikaži još"
   },
@@ -28,7 +29,6 @@
     "disputed": "Spor o dogovoru"
   },
   "preview": {
-    "offer": "Ponuda: {text}",
     "contact": "Kontakt",
     "hidden": "Poruka je skrivena",
     "erased": "Poruka je obrisana",

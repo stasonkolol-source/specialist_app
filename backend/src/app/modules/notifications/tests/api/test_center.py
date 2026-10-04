@@ -116,6 +116,8 @@ async def test_settings_default_then_saved(app: HttpApp, settings: Settings) -> 
         "in_app": False,
         "mandatory": False,
     }
+    # запуск «Вещей» (S58, 7.5) — только по согласию, как новости
+    assert (groups["goods_launch"]["telegram"], groups["goods_launch"]["in_app"]) == (False, False)
     assert groups["account"]["mandatory"] is True
     assert body["quiet_hours"] == {
         "enabled": True,
