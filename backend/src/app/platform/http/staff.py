@@ -25,11 +25,13 @@
 from collections.abc import Mapping
 from typing import Any, Final
 from urllib.parse import urlsplit
+from uuid import UUID
 
 from fastapi import Depends, Request
 
 from app.platform.http.admin import container_of, staff_id, staff_roles
 from app.platform.kernel.errors import ForbiddenError
+from app.platform.kernel.ids import UserId
 from app.platform.kernel.principal import Role
 from app.platform.ratelimit import Rate, RateLimiter
 from app.platform.security.errors import CsrfRejectedError
@@ -38,6 +40,10 @@ from app.platform.settings import AppSettings, Environment
 SESSION_COOKIE: Final = "sosed_admin"
 SESSION_KEY: Final = "staff"
 """Ключ сессии с id сотрудника."""
+SESSION_EPOCH: Final = "staff_epoch"
+"""Ключ сессии с поколением входа (StaffMember.session_epoch): `cli staff-create` и
+`staff-revoke` его увеличивают — cookie прежнего поколения не действует. Cookie без него
+(выданная до 8.4) тоже: войти заново."""
 SESSION_MAX_AGE: Final = 8 * 3600
 DEV_SESSION_KEY: Final = "sosed-dev-admin-session-key"
 """Ключ cookie без APP_ADMIN_SESSION_KEY — только dev и тесты."""
@@ -66,6 +72,18 @@ def session_secret(app: AppSettings) -> str | None:
     if key is None:
         return None if app.env in PUBLISHED else DEV_SESSION_KEY
     return key.get_secret_value()
+
+
+def session_member(session: Mapping[str, Any]) -> tuple[UserId, int] | None:
+    """Кто в cookie персонала: id сотрудника и поколение входа; None — cookie пустая, чужая или
+    выдана до поколений. Сверяет с БД StaffAuth.member."""
+    raw, epoch = session.get(SESSION_KEY), session.get(SESSION_EPOCH)
+    if not isinstance(raw, str) or type(epoch) is not int:
+        return None
+    try:
+        return UserId(UUID(raw)), epoch
+    except ValueError:
+        return None
 
 
 def staff_subject(request: Request) -> str:

@@ -1,8 +1,8 @@
 """Вход персонала и разделы админки (DEVELOPMENT_PLAN 2.7a–b): SQLAdmin на /admin.
 
 2.7a: без кода TOTP не войти, код второй раз не принимается; moderator не видит разделов admin;
-неудачные входы ограничены лимитом; форма, действие раздела и «Решить кейс» со страницы другого
-поддомена — 403 (CSRF).
+неудачные входы ограничены лимитом; новые пароль и TOTP и `cli staff-revoke` закрывают открытые
+сессии; форма, действие раздела и «Решить кейс» со страницы другого поддомена — 403 (CSRF).
 8.4: секрет TOTP в БД зашифрован, строки до 8.4 и секреты под прежним ключом перешифровываются
 входом и `cli staff-totp-reencrypt`. 2.7b: правка категории (и
 её названия формой LocalizedText) пишет аудит и выпускает CatalogChanged (advisory lock — тот же,
@@ -15,6 +15,7 @@ case, с аудитом. Флаги, client-config, Founding и сиды пов�
 """
 
 import secrets
+from dataclasses import replace
 from uuid import UUID
 
 import pyotp
@@ -23,9 +24,17 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.entrypoints._wiring import make_web_container
+from app.modules.identity.application.use_cases.create_staff_login import (
+    CreateStaffLogin,
+    CreateStaffLoginCommand,
+)
 from app.modules.identity.application.use_cases.reencrypt_staff_totp_secrets import (
     ReencryptStaffTotpSecrets,
     ReencryptStaffTotpSecretsCommand,
+)
+from app.modules.identity.application.use_cases.revoke_staff_sessions import (
+    RevokeStaffSessions,
+    RevokeStaffSessionsCommand,
 )
 from app.modules.identity.di import DEV_TOTP_KEY
 from app.modules.moderation.application.ports import RuleSource
@@ -35,7 +44,7 @@ from app.modules.moderation.domain.queues import Queue
 from app.platform.kernel.ids import new_id
 from app.platform.security.secretbox import key_id
 from app.platform.settings import Settings
-from tests.plugins.admin import Admin, audit_count, login, staff, stored_totp_secret
+from tests.plugins.admin import PASSWORD, Admin, audit_count, login, staff, stored_totp_secret
 from tests.plugins.admin import client_ip as _ip
 from tests.plugins.identity import insert_user, new_telegram_id
 
@@ -426,3 +435,56 @@ async def test_admin_rejects_writes_and_actions_from_other_pages(admin: Admin) -
     assert lifted_at is not None
     assert await audit_count(admin, "identity.restriction.imposed", moderator.user_id) == 1
     assert await audit_count(admin, "identity.restriction.lifted", moderator.user_id) == 1
+
+
+async def test_admin_new_credentials_and_staff_revoke_close_open_sessions(admin: Admin) -> None:
+    """Cookie подписана, но не хранится: `staff-create` заново (пароль и TOTP) и `staff-revoke`
+    дают новое поколение входа — выданные раньше cookie не открывают ни /admin, ни Admin API."""
+    who = await staff(admin, "admin")
+    audit_log = "/admin/api/v1/audit-log"
+    async with admin.client(_ip()) as old:
+        assert await login(old, who) == 302
+        assert (await old.get("/admin/")).status_code == 200
+        assert (await old.get(audit_log)).status_code == 200
+        async with admin.container() as request:
+            renewed = await (await request.get(CreateStaffLogin))(
+                CreateStaffLoginCommand(
+                    telegram_id=who.telegram_id, login=who.login, password=PASSWORD
+                )
+            )
+        assert renewed is not None
+        assert renewed.replaced
+        assert (await old.get("/admin/")).status_code == 302  # на страницу входа
+        assert (await old.get(audit_log)).status_code == 401
+    async with admin.client(_ip()) as client:
+        assert await login(client, replace(who, secret=renewed.totp_secret)) == 302
+        assert (await client.get(audit_log)).status_code == 200
+        async with admin.container() as request:
+            revoked = await (await request.get(RevokeStaffSessions))(
+                RevokeStaffSessionsCommand(telegram_id=who.telegram_id)
+            )
+        assert revoked is not None
+        assert not revoked.login_removed
+        assert (await client.get(audit_log)).status_code == 401
+        assert (await client.get("/admin/")).status_code == 302
+    async with admin.container() as request:
+        removed = await (await request.get(RevokeStaffSessions))(
+            RevokeStaffSessionsCommand(telegram_id=who.telegram_id, remove_login=True)
+        )
+        missing = await (await request.get(RevokeStaffSessions))(
+            RevokeStaffSessionsCommand(telegram_id=who.telegram_id)
+        )
+    assert removed is not None
+    assert removed.login_removed
+    assert missing is None  # входа больше нет
+    async with admin.client(_ip()) as client:
+        assert await login(client, replace(who, secret=renewed.totp_secret)) == 400
+    async with (await admin.engine()).connect() as conn:
+        revocations = await conn.scalar(
+            text(
+                "SELECT count(*) FROM platform.audit_log WHERE action ="
+                " 'identity.staff.sessions_revoked' AND entity_id = :id"
+            ),
+            {"id": who.user_id},
+        )
+    assert revocations == 2

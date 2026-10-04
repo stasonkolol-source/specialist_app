@@ -13,8 +13,9 @@ JSON для персонала рядом с SQLAdmin в процессе web: �
   разведка для атакующего. Swagger и /openapi.json самого API не отдаются.
 - Вход — cookie `sosed_admin` со страницы /admin/login (SessionMiddleware с тем же ключом, сроком
   и флагами, что у SQLAdmin; API cookie только читает). Сотрудник перечитывается на каждый запрос
-  (StaffAuth.member): нет роли или вход удалён — 401 `not_authenticated`. Роль операции, CSRF и
-  лимит — platform/http/staff.py.
+  (StaffAuth.member): нет роли, вход удалён или поколение входа в cookie устарело (`cli
+  staff-create`, `staff-revoke`) — 401 `not_authenticated`. Роль операции, CSRF и лимит —
+  platform/http/staff.py.
 - На stage и проде без APP_ADMIN_SESSION_KEY не монтируется, как и SQLAdmin.
 - Ответы не кэшируются (`Cache-Control: no-store` — в них ПД) и запрещены к исполнению (CSP API).
 """
@@ -58,16 +59,15 @@ from app.platform.http.pagination import PageOut, PageParams
 from app.platform.http.staff import (
     PUBLISHED,
     SESSION_COOKIE,
-    SESSION_KEY,
     SESSION_MAX_AGE,
     csrf_guard,
+    session_member,
     session_secret,
     staff_only,
     staff_rate_limit,
 )
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.errors import NotAuthenticatedError, NotFoundError
-from app.platform.kernel.ids import UserId
 from app.platform.observability.logging import bind_context
 from app.platform.settings import Settings
 
@@ -146,16 +146,11 @@ def _admin_app(routers: Sequence[APIRouter]) -> FastAPI:
 
 
 async def authenticate_staff(request: Request) -> None:
-    """Сотрудник из cookie админки; роли — свежие из identity.user_roles."""
-    raw = request.session.get(SESSION_KEY)
+    """Сотрудник из cookie админки; роли и поколение входа — свежие из identity."""
+    found = session_member(request.session)
     member = None
-    if isinstance(raw, str):
-        try:
-            user_id = UserId(UUID(raw))
-        except ValueError:
-            user_id = None
-        if user_id is not None:
-            member = await (await container_of(request).get(StaffAuth)).member(user_id)
+    if found is not None:
+        member = await (await container_of(request).get(StaffAuth)).member(*found)
     if member is None:
         raise NotAuthenticatedError
     request.state.staff = member

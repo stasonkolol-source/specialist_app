@@ -54,6 +54,9 @@ from app.modules.identity.application.use_cases.reset_onboarding import ResetOnb
 from app.modules.identity.application.use_cases.revoke_restricted_sessions import (
     RevokeRestrictedSessions,
 )
+from app.modules.identity.application.use_cases.revoke_staff_sessions import (
+    RevokeStaffSessions,
+)
 from app.modules.identity.application.use_cases.unblock_user import UnblockUser
 from app.modules.identity.application.use_cases.update_privacy import UpdatePrivacy
 from app.modules.identity.application.use_cases.update_profile import UpdateProfile
@@ -177,6 +180,7 @@ class IdentityProvider(Provider):
     staff_secrets = provide(PwdlibStaffSecrets, provides=StaffSecrets, scope=Scope.APP)
     create_staff_login = provide(CreateStaffLogin)
     reencrypt_staff_totp_secrets = provide(ReencryptStaffTotpSecrets)
+    revoke_staff_sessions = provide(RevokeStaffSessions)
     staff_auth = provide(StaffAuthService, provides=StaffAuth)
     impose_restriction = provide(ImposeRestriction)
     lift_restriction = provide(LiftRestriction)

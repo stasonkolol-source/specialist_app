@@ -1,6 +1,6 @@
 """Обновление пары токенов по refresh с ротацией и детектором кражи (ADR-0009)."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from uuid import UUID
 
 from app.modules.identity.application.config import IdentityConfig
@@ -27,7 +27,7 @@ from app.platform.security.refresh import RefreshToken
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class RefreshSessionCommand:
-    refresh_token: str
+    refresh_token: str = field(repr=False)
 
 
 class RefreshSession:

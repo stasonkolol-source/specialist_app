@@ -3,13 +3,13 @@
 - Логин, пароль и код TOTP проверяет identity (`StaffAuth`): без кода входа нет.
 - Неудачные попытки ограничены (Valkey, `limits`): с одного адреса и на один логин; сверх лимита
   — 429 даже с верными данными, пока окно не пройдёт. Удачный вход счётчики не сбрасывает.
-- Сессия — подписанная cookie (`SessionMiddleware`, APP_ADMIN_SESSION_KEY) с id сотрудника и
-  сроком 8 часов; роли перечитываются на каждый запрос: снятая роль закрывает админку сразу. Та же
-  cookie открывает Admin API `/admin/api/v1` (параметры — platform/http/staff.py).
+- Сессия — подписанная cookie (`SessionMiddleware`, APP_ADMIN_SESSION_KEY) с id сотрудника,
+  поколением входа и сроком 8 часов; роли и поколение перечитываются на каждый запрос: снятая
+  роль, новые пароль и TOTP (`cli staff-create`) или `cli staff-revoke` закрывают админку сразу.
+  Та же cookie открывает Admin API `/admin/api/v1` (параметры — platform/http/staff.py).
 """
 
 from typing import Final
-from uuid import UUID
 
 import structlog
 from sqladmin.authentication import AuthenticationBackend
@@ -18,9 +18,14 @@ from starlette.responses import PlainTextResponse, Response
 
 from app.modules.identity.api import StaffAuth
 from app.platform.http.admin import container_of
-from app.platform.http.staff import SESSION_COOKIE, SESSION_KEY, SESSION_MAX_AGE
+from app.platform.http.staff import (
+    SESSION_COOKIE,
+    SESSION_EPOCH,
+    SESSION_KEY,
+    SESSION_MAX_AGE,
+    session_member,
+)
 from app.platform.kernel.errors import RateLimitedError
-from app.platform.kernel.ids import UserId
 from app.platform.ratelimit import Rate, RateLimiter
 
 log = structlog.get_logger(__name__)
@@ -68,6 +73,7 @@ class StaffAuthBackend(AuthenticationBackend):
             return False
         request.session.clear()
         request.session[SESSION_KEY] = str(member.user_id)
+        request.session[SESSION_EPOCH] = member.session_epoch
         return True
 
     async def logout(self, request: Request) -> Response | bool:
@@ -75,15 +81,12 @@ class StaffAuthBackend(AuthenticationBackend):
         return True
 
     async def authenticate(self, request: Request) -> Response | bool:
-        raw = request.session.get(SESSION_KEY)
-        if not isinstance(raw, str):
+        if SESSION_KEY not in request.session:
             return False
-        try:
-            user_id = UserId(UUID(raw))
-        except ValueError:
-            request.session.clear()
-            return False
-        member = await (await container_of(request).get(StaffAuth)).member(user_id)
+        found = session_member(request.session)
+        member = None
+        if found is not None:
+            member = await (await container_of(request).get(StaffAuth)).member(*found)
         if member is None:
             request.session.clear()
             return False

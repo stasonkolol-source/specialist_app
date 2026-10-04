@@ -10,7 +10,7 @@ import pyotp
 from pwdlib import PasswordHash
 from pwdlib.exceptions import PwdlibError
 from pwdlib.hashers.argon2 import Argon2Hasher
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -56,7 +56,12 @@ class SqlStaffCredentials:
             .values(user_id=credential.user_id, **values)
             .on_conflict_do_update(
                 index_elements=[StaffCredentialRow.user_id],
-                set_={**values, "updated_at": func.now()},
+                # новые пароль и TOTP — новое поколение: сессии с прежними закрываются
+                set_={
+                    **values,
+                    "session_epoch": StaffCredentialRow.session_epoch + 1,
+                    "updated_at": func.now(),
+                },
             )
         )
         try:
@@ -65,6 +70,22 @@ class SqlStaffCredentials:
         except IntegrityError as err:
             raise_domain_error(err, {"uq_staff_credentials_login": StaffLoginTakenError})
         return existed
+
+    async def revoke_sessions(self, user_id: UserId, *, remove_login: bool) -> bool:
+        self._uow.require_active()
+        condition = StaffCredentialRow.user_id == user_id
+        if remove_login:
+            removed = await self._session.execute(
+                delete(StaffCredentialRow).where(condition).returning(StaffCredentialRow.user_id)
+            )
+            return removed.first() is not None
+        bumped = await self._session.execute(
+            update(StaffCredentialRow)
+            .where(condition)
+            .values(session_epoch=StaffCredentialRow.session_epoch + 1)
+            .returning(StaffCredentialRow.user_id)
+        )
+        return bumped.first() is not None
 
     async def use_step(self, user_id: UserId, step: int) -> None:
         self._uow.require_active()
@@ -106,6 +127,7 @@ class SqlStaffCredentials:
             password_hash=row.password_hash,
             encrypted_totp_secret=row.totp_secret,
             totp_last_step=row.totp_last_step,
+            session_epoch=row.session_epoch,
         )
 
 

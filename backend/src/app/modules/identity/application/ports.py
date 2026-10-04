@@ -138,11 +138,15 @@ class StaffCredential:
 
     user_id: UserId
     login: str
-    password_hash: str
+    password_hash: str = field(repr=False)
+    """Хэш argon2: в repr (логи, трейсы ошибок) его нет — как и секрета TOTP."""
     encrypted_totp_secret: str = field(repr=False)
     """Секрет TOTP, как он лежит в БД: зашифрован (`TotpSecretCipher`, 8.4). В строках до 8.4 —
     открытый base32, их перешифровывают удачный вход и `cli staff-totp-reencrypt`."""
     totp_last_step: int | None
+    session_epoch: int = 0
+    """Поколение сессий админки: его кладёт в cookie вход, а `staff-create` и `staff-revoke`
+    увеличивают — cookie прежнего поколения больше не открывает админку и Admin API."""
 
 
 class StaffCredentials(Protocol):
@@ -158,8 +162,14 @@ class StaffCredentials(Protocol):
         ...
 
     async def save(self, credential: StaffCredential) -> bool:
-        """Создать или заменить вход сотрудника; True — заменён. Нужен активный UoW.
-        StaffLoginTakenError — логин занят другим сотрудником."""
+        """Создать или заменить вход сотрудника; True — заменён: поколение сессий +1 (вошедшие
+        с прежним паролем выходят). Нужен активный UoW. StaffLoginTakenError — логин занят другим
+        сотрудником."""
+        ...
+
+    async def revoke_sessions(self, user_id: UserId, *, remove_login: bool) -> bool:
+        """Закрыть все сессии сотрудника: поколение +1, а с `remove_login` — удалить и сам вход.
+        False — входа нет. Нужен активный UoW."""
         ...
 
     async def use_step(self, user_id: UserId, step: int) -> None:
