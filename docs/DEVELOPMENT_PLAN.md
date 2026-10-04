@@ -814,6 +814,7 @@ gantt
 - **Инфраструктура.** `infra/terraform/stage`: hcloud — CX23 (размер — переменная `stage_server_type`, её использует 8.3), firewall, SSH-ключи, бэкапы VM; cloud-init с Docker. Токены — в `infra/terraform/stage/.env` (`make secret … TARGET=tf-stage`).
 - **Готово, когда.** Повторный `terraform plan` без изменений; SSH по ключу работает.
 - **Проверка.** `terraform -chdir=infra/terraform/stage plan`; `ssh stage true`.
+- **Подготовлено (2026-10-04).** Без ключей, ничего не создано: `infra/terraform/stage` (Terraform 1.16, hcloud 1.69, cloudflare 5.26, lock-файл) — CX23 в `nbg1` с бэкапами, firewall (80/443 только с краёв Cloudflare — тот же список, что в settings.py; 22 — по ключу отовсюду, Q13), cloud-init: Docker, сеть `kamal` с подсетью `172.30.0.0/24`, SSH без паролей, swap. State локальный (Q14), токены — `.env` (`make secret … TARGET=tf-stage`, видны в `make secrets-check`). `make tf ENV=stage ARGS=…` и `make tf-check` — в образе `hashicorp/terraform`; `validate` и план без сети и без токена Cloudflare зелёные. Порядок — [stage-bootstrap.md](../infra/runbooks/stage-bootstrap.md).
 
 **0.25b. Cloudflare: DNS, R2, WAF.**
 - **Зависит от.** 0.25a
@@ -821,6 +822,7 @@ gantt
 - **Инфраструктура.** Terraform cloudflare: DNS по плоской схеме `stage-app`, `stage-api`, `stage-cdn`, `stage-admin`; бакеты R2 stage с CORS и lifecycle; WAF-исключение для webhook; SSL Full (strict).
 - **Готово, когда.** Повторный `terraform plan` без изменений; записи DNS резолвятся; бакеты R2 stage созданы с CORS и lifecycle (presign на R2 проверяется в 0.25c, когда ключи лежат в секретах stage).
 - **Проверка.** `terraform -chdir=infra/terraform/stage plan`; `dig +short stage-api.<domain>`.
+- **Подготовлено (2026-10-04).** Тот же стек, флаг `cloudflare_enabled`: DNS `stage-api`, `stage-admin` (не обслуживается до K31), `stage-cdn` (R2 custom domain), `stage-app` — домен Worker'а после первого `wrangler deploy` (`mini_app_worker_deployed`); бакеты `sosed-stage-*` в EU с CORS (origin `stage-app`, `ETag`) и lifecycle (incoming — 2 дня, multipart — сутки); skip-правило WAF для `/integrations/telegram/` с адресов Bot API; Full (strict), Always HTTPS, TLS ≥ 1.2; сертификат Origin CA для kamal-proxy. Настройки зоны и ruleset фазы WAF общие для зоны — в 3.1a переезд в общий стек.
 
 **0.25c. Деплой backend и БД (Kamal).**
 - **Зависит от.** 0.25b
@@ -830,6 +832,7 @@ gantt
 - **Результат.** API stage отвечает; миграции и smoke БД проходят в pre-deploy.
 - **Готово, когда.** `kamal deploy -d stage` проходит; `/up` отвечает; `kamal accessory details postgres -d stage` показывает работающую БД; smoke `show_trgm('тест')` и список расширений совпадают с dev; presign на R2 stage работает; `make secrets-check` показывает все секреты stage заданными; `kamal rollback` проверен.
 - **Проверка.** `make kamal ARGS='deploy -d stage'`; `curl -s https://stage-api.<domain>/up`; `make kamal ARGS='accessory details postgres -d stage'`; `make pg-smoke ENV=stage`.
+- **Подготовлено (2026-10-04).** `infra/kamal` (Kamal 2.12, `kamal config -d stage` на фиктивных значениях проходит): web за kamal-proxy (`/up`, сертификат Origin CA, `APP_TRUSTED_PROXIES` = сеть `kamal`), bot (пока polling), worker, worker-media; лимиты под CX23 через `cpuset`; accessories `sosed-postgres` (наш образ, `bootstrap.sql` при первом initdb, порт не публикуется) и Valkey. Секреты по умолчанию Q1(б): `infra/kamal/secrets.stage` — только имена, значения — environment `stage`. Pre-deploy: `pg_smoke.sh` на сервере и `alembic upgrade head` новым образом; `make pg-smoke ENV=stage`; образ backend с меткой `service=sosed`. `.github/workflows/deploy.yml` выключен до `STAGE_DEPLOY = true`. Не сделано: цели `make secret TARGET=stage|production`, `make gen-secret`, `make gen-age` — в runbook временные команды `openssl rand | gh secret set`.
 
 **0.25d. Mini App на Workers и прокси `/api`.**
 - **Зависит от.** 0.25c
@@ -837,6 +840,7 @@ gantt
 - **Mini App.** Сборка и `wrangler deploy` на Workers Static Assets (`stage-app.<domain>`). `/api/*` на том же origin: Worker с `run_worker_first` для `/api/*` проксирует запросы на `stage-api.<domain>` по TLS; остальное отдаёт статика. `index.html` — no-cache, хэшированные ассеты — immutable. Деплой — в `deploy.yml` после Kamal.
 - **Готово, когда.** `https://stage-app.<domain>` открывается; `https://stage-app.<domain>/api/v1/client-config` (с 1.1; до него — `/api/v1/nope` с problem+json) отвечает через прокси.
 - **Проверка.** `curl -si https://stage-app.<domain>/api/v1/nope`.
+- **Подготовлено (2026-10-04).** `infra/workers/tma`: `wrangler.jsonc` (Worker `sosed-tma-stage`, статика из `apps/tma/dist` с `_headers`, SPA fallback, `run_worker_first` для `/api/*`) и `worker.js` — прокси на `API_ORIGIN` (`--var` при деплое). wrangler не в package.json: `npx wrangler@4.147.0`; деплой — job «Mini App» в `deploy.yml` после Kamal, `VITE_*` — из Variables `stage`.
 
 **0.25e. Stage-бот и webhook.**
 - **Зависит от.** 0.22, 0.25d
@@ -845,6 +849,7 @@ gantt
 - **Результат.** Stage-бот открывает Mini App на `https://stage-app.<domain>` со входом.
 - **Готово, когда.** Вход в stage-боте работает; запрос без `secret_token` отклоняется.
 - **Проверка.** Вход через stage-бота на телефоне; `curl -s -X POST https://stage-api.<domain>/<webhook-path>` без заголовка → 401.
+- **Подготовлено (2026-10-04).** Край готов (skip-правило WAF, `TELEGRAM_WEBHOOK_SECRET` в секретах stage), профиль и кнопка меню — существующим `cli bot-setup --env stage` в контейнере web (команда в runbook). Webhook-режима бота (`setWebhook` с `secret_token` и `allowed_updates`, приём апдейтов) в коде ещё нет — до него stage-бот работает polling.
 
 ### 0.26. Спайк: бенчмарки на целевой VM и проверка R2
 

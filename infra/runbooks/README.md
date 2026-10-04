@@ -5,6 +5,7 @@
 
 | Runbook | Когда | Прогон «на сухую» |
 |---|---|---|
+| [stage-bootstrap.md](stage-bootstrap.md) | Подъём stage с нуля: Hetzner, Cloudflare, Kamal, Workers, бот (0.25a–e) | при первом подъёме stage |
 | [restore.md](restore.md) | Потеря или порча данных БД, проверка бэкапов | после 3.2 (restore-test) |
 | [release-rollback.md](release-rollback.md) | Релиз сломал прод | после прод-контура 3.1 |
 | [secrets-rotation.md](secrets-rotation.md) | Плановая ротация, утечка ключа, K43 перед запуском | при K43 |
