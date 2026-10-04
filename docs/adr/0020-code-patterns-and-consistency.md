@@ -800,7 +800,8 @@ export default [
       ] }],
       'no-restricted-globals': ['error', { name: 'fetch', message: 'API — только хуки packages/api-client' }],
       'i18next/no-literal-string': 'error',
-      // границы routes → features → packages: eslint-plugin-boundaries
+      // границы routes → features → packages: своё правило sosed/app-boundaries
+      // (packages/config/app-boundaries.js; eslint-plugin-boundaries тянул уязвимый braces)
   } },
   { files: ['packages/platform/**'],            // единственное место, где разрешён @tma.js
     rules: { 'no-restricted-imports': ['error', { patterns: [apiOnly] }] } },
