@@ -17,16 +17,17 @@ describe('браузер', () => {
     expect(clicks).toEqual([1]);
   });
 
-  it('«Назад» — история браузера', () => {
+  it('«Назад» — в контенте: историю браузера не трогает', () => {
     const platform = createBrowserPlatform();
     const push = vi.spyOn(window.history, 'pushState');
     const clicks: number[] = [];
     platform.backButton.onClick(() => clicks.push(1));
     platform.backButton.setVisible(true);
-    platform.backButton.setVisible(true);
-    expect(push).toHaveBeenCalledTimes(1);
+    expect(platform.backButton.native).toBe(false);
+    expect(push).not.toHaveBeenCalled();
+    // «назад» браузера ведёт роутер по истории, а не обработчик экрана
     window.dispatchEvent(new PopStateEvent('popstate'));
-    expect(clicks).toEqual([1]);
+    expect(clicks).toEqual([]);
   });
 
   it('хранилище — localStorage с префиксом', async () => {
