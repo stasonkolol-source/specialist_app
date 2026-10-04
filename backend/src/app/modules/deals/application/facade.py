@@ -64,6 +64,15 @@ class DealsFacade:
         deal_id = await self._queries.of_response(response_id)
         return await self.deal_brief(deal_id) if deal_id is not None else None
 
+    async def ever_agreed_pair(self, client_id: UserId, performer_id: UserId) -> bool:
+        pair = (client_id, performer_id)
+        return pair in await self._queries.agreed_pairs([pair])
+
+    async def agreed_pairs(
+        self, pairs: Collection[tuple[UserId, UserId]]
+    ) -> frozenset[tuple[UserId, UserId]]:
+        return await self._queries.agreed_pairs(pairs)
+
     async def deal_for(self, deal_id: DealId, viewer_id: UserId) -> DealSummary:
         deal = await self._queries.view(deal_id)
         role = deal.role_of(viewer_id) if deal is not None else None

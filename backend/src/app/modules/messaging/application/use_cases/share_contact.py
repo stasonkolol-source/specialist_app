@@ -1,11 +1,17 @@
 """«Поделиться контактом» (POST /conversations/{id}/share-contact, S54; DEVELOPMENT_PLAN 6.3b;
 ADR-0010): после договорённости каждая сторона явным действием отдаёт свой контакт — username
-Telegram или телефон. Это и есть double opt-in: до сделки `agreed` — 409 `contacts_locked`.
+Telegram или телефон. Это и есть double opt-in: пока эта пара ни разу не договорилась — 409
+`contacts_locked`; договорилась однажды (в любом диалоге) — делиться можно и при новом
+предложении, и после отмены (решение владельца 2026-10-04). Раскрытие пишется по сделке диалога
+(`contact_shares`): в диалоге, где сделки ещё нет, делиться не по чему — тоже 409, хотя номера в
+сообщениях там уже не скрыты и Telegram виден.
 
 Контакт берём только из подписанного Telegram: username — из initData Mini App, телефон — из
 ответа `requestContact`. Оба должны принадлежать тому, кто делится (Telegram id совпадает).
 Контакт уходит второй стороне сообщением в диалоге (MessageSent — уведомление, как о любом
-сообщении); повтор того же контакта по той же сделке — то же сообщение.
+сообщении); повтор того же контакта по той же сделке — то же сообщение. Сделка — текущая сделка
+диалога, даже если она только предложена: тот же контакт при новой сделке — новое сообщение внизу
+ленты, а не прежнее где-то выше.
 """
 
 from dataclasses import dataclass
@@ -14,7 +20,7 @@ from uuid import UUID
 from app.modules.deals.api import DealsApi
 from app.modules.identity.api import Action, IdentityApi
 from app.modules.messaging.application.blocks import ensure_unblocked
-from app.modules.messaging.application.contacts import OPEN_DEALS, current_deal
+from app.modules.messaging.application.contacts import contacts_open, current_deal
 from app.modules.messaging.application.ports import (
     ContactShares,
     ContactVerifier,
@@ -71,7 +77,7 @@ class ShareContact:
             await ensure_unblocked(self._identity, conversation, cmd.actor_id)
             other = conversation.counterpart(cmd.actor_id)
             deal = await current_deal(self._deals, conversation)
-            if deal is None or deal.status not in OPEN_DEALS:
+            if deal is None or not await contacts_open(self._deals, conversation, deal):
                 raise ContactsLockedError(conversation_id=conversation.id)
             shared = await self._shares.message_of(deal.id, cmd.actor_id, cmd.contact_type)
             if shared is not None:

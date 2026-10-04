@@ -1,8 +1,10 @@
 """Договорённость и контакты в переписке (DEVELOPMENT_PLAN 6.3b) через API: «Договорились» в прямом
 диалоге — сделка `proposed`, вторая сторона подтверждает, лента диалога это показывает, контакты
 открываются; в диалоге по отклику договорённость — выбор отклика; поделиться контактом — только
-после договорённости и только своим (подпись Telegram). Подписчики выполняются из очереди.
-Данные коммитятся.
+после договорённости и только своим (подпись Telegram). Пара договорилась однажды — контакты
+открыты при новом предложении, после отмены и в новом диалоге этой пары («Заказать снова»;
+ADR-0010, 2026-10-04); отклонённое предложение их не открывает. Подписчики выполняются из
+очереди. Данные коммитятся.
 """
 
 import json
@@ -32,6 +34,7 @@ from tests.plugins.chat import Chat
 from tests.plugins.http import HttpApp, http_app
 from tests.plugins.identity import new_telegram_id
 from tests.plugins.queue import run_queued
+from tests.plugins.round_trips import round_trips
 from tests.plugins.search import Specialist
 
 pytestmark = pytest.mark.integration
@@ -379,3 +382,148 @@ async def test_contact_is_shared_after_the_deal_and_only_ones_own(
         },
     ) == (422, "no_username")
     assert await refused(performer, {"contact_type": "telegram"}) == (422, "missing")
+
+
+async def complete(chat: Chat, deal_id: str, *users: UserId) -> None:
+    """«Работа выполнена» от обеих сторон: сделка `completed`."""
+    for user in users:
+        done = await chat.post(user, f"/deals/{deal_id}/complete")
+        assert done.status_code == 200, done.text
+
+
+async def test_contacts_stay_open_once_the_pair_has_agreed(chat: Chat) -> None:
+    """Пара договорилась однажды — контакты открыты и при «Договориться снова» (ADR-0010, решение
+    владельца 2026-10-04): новая сделка `proposed` не прячет номера и не закрывает «Поделиться
+    контактом»; контакт по новой сделке — новое сообщение."""
+    direct = Direct(chat)
+    client, performer, conversation_id = await direct.start()
+    path = f"/conversations/{conversation_id}/share-contact"
+    telegram = {"contact_type": "telegram", "init_data": init_data(chat.settings, direct.client_tg)}
+    first = (await propose(chat, client, conversation_id)).json()["deal_id"]
+    assert (await chat.post(performer, f"/deals/{first}/confirm")).status_code == 200
+    before = await chat.post(client, path, telegram)
+    assert before.status_code == 201, before.text
+    await complete(chat, first, client, performer)
+
+    again = await propose(chat, client, conversation_id, title="Повесить вторую люстру")
+    assert again.status_code == 201, again.text
+
+    header = (await chat.messages(performer, conversation_id))["conversation"]
+    assert (header["deal"]["id"], header["deal"]["status"]) == (again.json()["deal_id"], "proposed")
+    assert header["contacts_open"] is True
+    opened = await chat.send(performer, conversation_id, PHONE)
+    assert (opened["masked"], opened["body"]) == (False, PHONE)
+    shared = await chat.post(client, path, telegram)
+    assert shared.status_code == 201, shared.text
+    assert shared.json()["id"] != before.json()["id"]
+    # стороны снова договорились — контакты по-прежнему открыты, повтор — то же сообщение
+    assert (await chat.post(performer, f"/deals/{again.json()['deal_id']}/confirm")).is_success
+    repeated = await chat.post(client, path, telegram)
+    assert (repeated.status_code, repeated.json()["id"]) == (200, shared.json()["id"])
+
+
+async def test_declined_proposal_does_not_open_contacts(chat: Chat) -> None:
+    """Предложение, которое отклонили, контактов не открывало: номера скрыты, делиться — 409."""
+    direct = Direct(chat)
+    client, performer, conversation_id = await direct.start()
+    proposal = (await propose(chat, performer, conversation_id)).json()["deal_id"]
+    assert (await chat.post(client, f"/deals/{proposal}/decline")).status_code == 200
+
+    header = (await chat.messages(client, conversation_id))["conversation"]
+    assert (header["deal"]["status"], header["contacts_open"]) == ("cancelled", False)
+    masked = await chat.send(performer, conversation_id, PHONE)
+    assert (masked["masked"], masked["body"]) == (True, f"Мой номер {MASK}")
+    locked = await chat.post(
+        client,
+        f"/conversations/{conversation_id}/share-contact",
+        {"contact_type": "telegram", "init_data": init_data(chat.settings, direct.client_tg)},
+    )
+    assert (locked.status_code, locked.json()["code"]) == (409, "contacts_locked")
+
+
+async def test_response_chat_keeps_contacts_after_the_deal_is_cancelled(chat: Chat) -> None:
+    """Диалог по отклику: сделка отклика была `agreed` — после отмены контакты открыты, хотя
+    сделку с диалогом ещё не связал подписчик DealAgreed (очередь не идёт): пара договаривалась."""
+    client, performer, response_id = await chat.pair()
+    conversation_id = await chat.start(performer, response_id=response_id)
+    accepted = await chat.post(client, f"/responses/{response_id}/accept")
+    assert accepted.status_code == 200, accepted.text
+    cancelled = await chat.post(
+        client, f"/deals/{accepted.json()['deal_id']}/cancel", {"reason": "plans_changed"}
+    )
+    assert cancelled.status_code == 200, cancelled.text
+
+    header = (await chat.messages(performer, conversation_id))["conversation"]
+    assert (header["deal"], header["contacts_open"]) == (None, True)
+    opened = await chat.send(performer, conversation_id, PHONE)
+    assert (opened["masked"], opened["body"]) == (False, PHONE)
+
+
+async def test_conversation_list_tells_open_contacts_in_one_query(chat: Chat, web: HttpApp) -> None:
+    """Список S29: `contacts_open` у каждого диалога, а «договаривалась ли пара» — одним
+    запросом на страницу (без N+1), и для прямых диалогов, и для диалогов по отклику."""
+    client = await chat.user()
+
+    async def direct_with_new_specialist() -> tuple[UserId, str]:
+        specialist = Specialist(chat.app.container)
+        await specialist.publish()
+        chat.users.append(specialist.user_id)
+        conversation_id = await chat.start(client, profile_id=str(specialist.profile_id))
+        return UserId(specialist.user_id), conversation_id
+
+    again_with, again = await direct_with_new_specialist()
+    first = (await propose(chat, client, again)).json()["deal_id"]
+    assert (await chat.post(again_with, f"/deals/{first}/confirm")).status_code == 200
+    await complete(chat, first, client, again_with)
+    assert (await propose(chat, client, again)).status_code == 201
+    declined_with, declined = await direct_with_new_specialist()
+    proposal = (await propose(chat, client, declined)).json()["deal_id"]
+    assert (await chat.post(declined_with, f"/deals/{proposal}/decline")).status_code == 200
+    job_id = await chat.job(client)
+    chosen_response = await chat.response(await chat.user(), job_id)
+    waiting_response = await chat.response(await chat.user(), job_id)
+    chosen = await chat.start(client, response_id=chosen_response)
+    waiting = await chat.start(client, response_id=waiting_response)
+    assert (await chat.post(client, f"/responses/{chosen_response}/accept")).status_code == 200
+
+    engine = await web.container.get(AsyncEngine)
+    with round_trips(engine) as trips:
+        reply = await chat.get(client, "/conversations")
+    assert reply.status_code == 200, reply.text
+    assert {item["id"]: item["contacts_open"] for item in reply.json()["items"]} == {
+        again: True,
+        declined: False,
+        chosen: True,
+        waiting: False,
+    }
+    reads = [statement for statement in trips.statements if "deals.deals" in statement]
+    assert len(reads) == 2, reads  # сделки страницы и «договаривались ли» — по запросу на всё
+
+
+async def test_order_again_opens_a_direct_chat_with_open_contacts(chat: Chat) -> None:
+    """«Заказать снова» (6.2): клиент выбрал отклик мастера, сделка завершена; новый прямой
+    диалог с ним же — сразу с открытыми контактами, без новой договорённости: пара уже
+    договаривалась (ADR-0010, 2026-10-04). Диалог с другим мастером — по-прежнему с маской."""
+    specialist = Specialist(chat.app.container)
+    await specialist.publish()
+    chat.users.append(specialist.user_id)
+    performer = UserId(specialist.user_id)
+    client = await chat.user()
+    response_id = await chat.response(performer, await chat.job(client))
+    accepted = await chat.post(client, f"/responses/{response_id}/accept")
+    assert accepted.status_code == 200, accepted.text
+    await complete(chat, accepted.json()["deal_id"], client, performer)
+
+    again = await chat.start(client, profile_id=str(specialist.profile_id))
+
+    header = (await chat.messages(client, again))["conversation"]
+    assert (header["kind"], header["deal"], header["contacts_open"]) == ("direct", None, True)
+    opened = await chat.send(performer, again, PHONE)
+    assert (opened["masked"], opened["body"]) == (False, PHONE)
+    other = Specialist(chat.app.container)
+    await other.publish()
+    chat.users.append(other.user_id)
+    elsewhere = await chat.start(client, profile_id=str(other.profile_id))
+    assert (await chat.messages(client, elsewhere))["conversation"]["contacts_open"] is False
+    masked = await chat.send(UserId(other.user_id), elsewhere, PHONE)
+    assert (masked["masked"], masked["body"]) == (True, f"Мой номер {MASK}")

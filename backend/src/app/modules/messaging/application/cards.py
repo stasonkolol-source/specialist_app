@@ -2,10 +2,11 @@
 сторона (имя, ссылка на карточку специалиста), о какой заявке речь и что со сделкой. Данные
 других модулей — из их фасадов, пачкой на страницу: запросов столько же, сколько модулей, а не
 диалогов. Блокировка со второй стороной (4.7) — в карточке: писать нельзя, а «Разблокировать» —
-тому, кто заблокировал.
+тому, кто заблокировал. Открыты ли контакты — по тому же правилу, что маскирует сообщения и
+пускает «Поделиться контактом» (contacts.py): клиент не вычисляет его по статусу сделки сам.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
 from uuid import UUID
@@ -35,7 +36,9 @@ class ConversationCard:
     deal: DealBrief | None
     """Сделка диалога: «Ещё не договорились», «Предложено», «Договорились»."""
     counterpart_telegram: str | None = None
-    """«@username» второй стороны — когда договорились и она показывает Telegram (S43, 6.5)."""
+    """«@username» второй стороны — когда контакты открыты и она показывает Telegram (S43, 6.5)."""
+    contacts_open: bool = False
+    """Эта пара уже договаривалась — здесь или в другом диалоге (ADR-0010, решение 2026-10-04)."""
     block: BlockSide | None = None
     """Блокировка со второй стороной (4.7): переписка закрыта, пока она есть."""
 
@@ -65,14 +68,14 @@ class ConversationCards:
         deals = await self._deals.deal_briefs(
             {DealId(v.deal_id) for v in views if v.deal_id is not None}
         )
-        agreed = {
-            v.counterpart_id
-            for v in views
-            if v.deal_id is not None
-            and (deal := deals.get(DealId(v.deal_id))) is not None
-            and deal.status in OPEN_DEALS
-        }
-        telegram = await self._identity.telegram_contacts(agreed) if agreed else {}
+        opened = await self._contacts_open(views, viewer_id, deals)
+        telegram = (
+            await self._identity.telegram_contacts(
+                {v.counterpart_id for v in views if v.id in opened}
+            )
+            if opened
+            else {}
+        )
         cards = []
         for view in views:
             user = users.get(view.counterpart_id)
@@ -88,8 +91,36 @@ class ConversationCards:
                     counterpart_profile_id=public.id if public is not None else None,
                     job_title=titles.get(view.job_id) if view.job_id is not None else None,
                     deal=deals.get(DealId(view.deal_id)) if view.deal_id is not None else None,
-                    counterpart_telegram=telegram.get(view.counterpart_id),
+                    # Telegram — там же, где контакты открыты: то же правило, что у маски
+                    counterpart_telegram=(
+                        telegram.get(view.counterpart_id) if view.id in opened else None
+                    ),
+                    contacts_open=view.id in opened,
                     block=blocks.get(view.counterpart_id),
                 )
             )
         return cards
+
+    async def _contacts_open(
+        self,
+        views: Sequence[ConversationView],
+        viewer_id: UserId,
+        deals: Mapping[DealId, DealBrief],
+    ) -> frozenset[UUID]:
+        """Диалоги страницы с открытыми контактами — правило contacts.py пачкой: сделка диалога
+        договорена, под спором или завершена, а у остальных — договаривалась ли пара хоть раз
+        (одним запросом на страницу)."""
+        settled: set[UUID] = set()
+        pairs: dict[UUID, tuple[UserId, UserId]] = {}
+        for view in views:
+            deal = deals.get(DealId(view.deal_id)) if view.deal_id is not None else None
+            if deal is not None and deal.status in OPEN_DEALS:
+                settled.add(view.id)
+            elif view.my_role is ParticipantRole.CLIENT:
+                pairs[view.id] = (viewer_id, view.counterpart_id)
+            else:
+                pairs[view.id] = (view.counterpart_id, viewer_id)
+        if pairs:
+            agreed = await self._deals.agreed_pairs(set(pairs.values()))
+            settled |= {conversation for conversation, pair in pairs.items() if pair in agreed}
+        return frozenset(settled)

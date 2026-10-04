@@ -3,9 +3,11 @@
 // /conversations/{id}/messages (последние, `direction=older` — раньше), POST …/messages (повтор
 // `client_msg_id` — то же сообщение; до договорённости телефон — «•••»), POST …/read, POST …/deal
 // (сделка `proposed`; пока идёт прежняя — 409 `deal_in_progress`, после завершения или отмены —
-// снова можно), POST …/share-contact (после договорённости, 6.5) и GET /me/badges. «Собеседник
-// пишет» — `incoming`; `pastDeal` — сделка диалога позади; `failNext` — следующая отправка падает
-// ошибкой (ключ не занимается: повтор выполнится заново). Время — от NOW.
+// снова можно), POST …/share-contact (после договорённости, 6.5) и GET /me/badges. Контакты открыты,
+// как у сервера (`contacts_open`): сделка диалога договорена, под спором или завершена — или эта пара
+// (я и собеседник) уже договаривалась, в любом диалоге (ADR-0010, 2026-10-04). «Собеседник пишет» — `incoming`;
+// `pastDeal` — договорённость диалога позади; `failNext` — следующая отправка падает ошибкой (ключ
+// не занимается: повтор выполнится заново). Время — от NOW.
 // Блокировки (4.7) — у фейка `safety`: с заблокированным писать нельзя (409 `blocked`).
 import type {
   ContactShareIn,
@@ -26,7 +28,8 @@ const NOW = Date.parse('2026-10-02T10:00:00Z');
 const MINUTE_MS = 60_000;
 const MASK = '•••';
 const PHONE = /\+?\d[\d\s()-]{6,}\d/g;
-const AGREED: ReadonlySet<string> = new Set(['agreed', 'completed']);
+/** Договорились: контакты открыты (как OPEN_DEALS сервера). */
+const OPEN: ReadonlySet<string> = new Set(['agreed', 'disputed', 'completed']);
 /** Договорённость идёт: второе «Договорились» — 409 (как ACTIVE_DEALS сервера). */
 const ACTIVE: ReadonlySet<string> = new Set(['proposed', 'agreed', 'disputed']);
 /** Прошлая сделка `pastDeal`. */
@@ -45,10 +48,17 @@ const DMITRY = '01a0e001-0000-7000-8000-000000000003';
 const JOB_ID = '01a0e002-0000-7000-8000-000000000001';
 
 interface Dialog {
-  conversation: Omit<ConversationOut, 'last_message' | 'unread'>;
+  conversation: Omit<ConversationOut, 'last_message' | 'unread' | 'contacts_open'>;
   messages: MessageOut[];
   /** Прочитано мной до этого id. */
   readUpTo: string | null;
+  /** В этом диалоге уже договаривались: контакты пары открыты при любой следующей сделке. */
+  agreedBefore?: boolean;
+}
+
+/** Договорились в этом диалоге — сейчас или раньше. */
+function agreedHere(dialog: Dialog): boolean {
+  return OPEN.has(dialog.conversation.deal?.status ?? '') || dialog.agreedBefore === true;
 }
 
 let sequence = 0;
@@ -165,8 +175,8 @@ export class ChatBackend {
     return this;
   }
 
-  /** Сделка диалога позади: «Договорились» в ленте; завершена — контакты открыты, и вторая
-   *  сторона показывает Telegram (кнопка в шапке, 6.5). */
+  /** Договорились, и сделка позади — завершена или отменена: «Договорились» в ленте, контакты
+   *  открыты и дальше, вторая сторона показывает Telegram (6.5). */
   pastDeal(conversationId: string, status: 'completed' | 'cancelled'): this {
     const dialog = this.dialogs.get(conversationId);
     if (!dialog) throw new Error(`unknown conversation ${conversationId}`);
@@ -174,8 +184,9 @@ export class ChatBackend {
     dialog.conversation = {
       ...dialog.conversation,
       deal: { id: PAST_DEAL_ID, status, title },
-      counterpart_telegram: status === 'completed' ? '@aleksey_m' : null,
+      counterpart_telegram: '@aleksey_m',
     };
+    dialog.agreedBefore = true;
     dialog.messages.push(
       message(null, null, NOW - 10 * MINUTE_MS, {
         kind: 'system',
@@ -194,6 +205,15 @@ export class ChatBackend {
     return item;
   }
 
+  /** Открыты ли контакты — правило сервера (messaging/application/contacts.py): эта пара
+   *  договаривалась в этом диалоге или в любом другом. */
+  contactsOpen(dialog: Dialog): boolean {
+    const other = dialog.conversation.counterpart_id;
+    return [...this.dialogs.values()].some(
+      (item) => item.conversation.counterpart_id === other && agreedHere(item),
+    );
+  }
+
   unread(dialog: Dialog): number {
     return dialog.messages.filter(
       (item) =>
@@ -208,6 +228,7 @@ export class ChatBackend {
     const side = this.safety?.side(dialog.conversation.counterpart_id) ?? null;
     return {
       ...dialog.conversation,
+      contacts_open: this.contactsOpen(dialog),
       last_message: dialog.messages.at(-1) ?? null,
       unread: this.unread(dialog),
       last_message_at: dialog.messages.at(-1)?.created_at ?? null,
@@ -327,8 +348,7 @@ export class ChatBackend {
     );
     if (repeated) return { status: 201, body: repeated };
     this.sent.push(input);
-    const open = AGREED.has(dialog.conversation.deal?.status ?? '');
-    const masked = open ? input.body : input.body.replace(PHONE, MASK);
+    const masked = this.contactsOpen(dialog) ? input.body : input.body.replace(PHONE, MASK);
     const item = message(ME.id, masked, Date.now(), {
       masked: masked !== input.body,
       client_msg_id: input.client_msg_id ?? null,
@@ -337,9 +357,9 @@ export class ChatBackend {
     return { status: 201, body: item };
   }
 
-  /** «Поделиться контактом» (S54): только после договорённости; контакт — сообщением. */
+  /** «Поделиться контактом» (S54): после договорённости и по сделке диалога; контакт — сообщением. */
   private shareContact(dialog: Dialog, input: ContactShareIn): BackendReply {
-    if (!AGREED.has(dialog.conversation.deal?.status ?? '')) {
+    if (!dialog.conversation.deal || !this.contactsOpen(dialog)) {
       return problem(409, 'contacts_locked');
     }
     this.shares.push(input);
@@ -383,9 +403,9 @@ export class ChatBackend {
 
 function conversation(
   id: string,
-  fields: Partial<Omit<ConversationOut, 'last_message' | 'unread'>> &
+  fields: Partial<Omit<ConversationOut, 'last_message' | 'unread' | 'contacts_open'>> &
     Pick<ConversationOut, 'kind' | 'my_role' | 'counterpart_id' | 'created_at'>,
-): Omit<ConversationOut, 'last_message' | 'unread'> {
+): Omit<ConversationOut, 'last_message' | 'unread' | 'contacts_open'> {
   return {
     id,
     status: 'open',

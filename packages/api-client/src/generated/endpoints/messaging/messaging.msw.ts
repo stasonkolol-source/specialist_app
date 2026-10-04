@@ -43,6 +43,7 @@ export const getMessagingListConversationsResponseMock = (
       faker.string.alpha({ length: { min: 10, max: 20 } }),
       null,
     ]),
+    contacts_open: faker.datatype.boolean(),
     job_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
     job_title: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -143,6 +144,7 @@ export const getMessagingListMessagesResponseMock = (
       faker.string.alpha({ length: { min: 10, max: 20 } }),
       null,
     ]),
+    contacts_open: faker.datatype.boolean(),
     job_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
     job_title: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),

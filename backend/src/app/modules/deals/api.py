@@ -178,6 +178,20 @@ class DealsApi(Protocol):
         `agreed` (6.3a)."""
         ...
 
+    async def ever_agreed_pair(self, client_id: UserId, performer_id: UserId) -> bool:
+        """Договаривались ли эти двое хоть раз (ADR-0010, решение владельца 2026-10-04): любая
+        их сделка — в любом диалоге, по отклику или из чата, в любой роли — дошла до `agreed` и
+        потом могла завершиться, отмениться или уйти в спор. Предложение, которое отклонили или
+        которое истекло, не в счёт. Переписка так держит контакты пары открытыми."""
+        ...
+
+    async def agreed_pairs(
+        self, pairs: Collection[tuple[UserId, UserId]]
+    ) -> frozenset[tuple[UserId, UserId]]:
+        """`ever_agreed_pair` пачкой (список диалогов S29): пары (клиент, исполнитель); в ответе —
+        те из них, что договаривались. Один запрос по индексу на страницу."""
+        ...
+
     async def deal_for(self, deal_id: DealId, viewer_id: UserId) -> DealSummary:
         """Сделка стороне; не участник или нет такой — DealNotFoundError (404)."""
         ...

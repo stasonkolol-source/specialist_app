@@ -106,6 +106,25 @@ class SqlDealQueries(SqlQuery):
         row = await self._fetch_one(select(_D.id).where(_D.response_id == response_id))
         return DealId(row["id"]) if row is not None else None
 
+    async def agreed_pairs(
+        self, pairs: Collection[tuple[UserId, UserId]]
+    ) -> frozenset[tuple[UserId, UserId]]:
+        if not pairs:
+            return frozenset()
+        # пара — двое в любой роли: клиент мог и сам выполнять работу для исполнителя
+        both = {(a, b) for pair in pairs for (a, b) in (pair, pair[::-1])}
+        rows = await self._fetch(
+            select(_D.client_id, _D.performer_id)
+            .where(_D.agreed_at.is_not(None), tuple_(_D.client_id, _D.performer_id).in_(both))
+            .distinct()
+        )
+        agreed = {(row["client_id"], row["performer_id"]) for row in rows}
+        return frozenset(
+            (client, performer)
+            for client, performer in pairs
+            if (client, performer) in agreed or (performer, client) in agreed
+        )
+
     async def due(self, sweep: DealSweep, now: datetime, *, limit: int) -> list[DealId]:
         rows = await self._fetch(
             select(_D.id).where(_due(sweep, now)).order_by(_D.created_at, _D.id).limit(limit)

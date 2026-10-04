@@ -74,6 +74,13 @@ class DealQueries(Protocol):
         """Сделка по отклику (одна на отклик)."""
         ...
 
+    async def agreed_pairs(
+        self, pairs: Collection[tuple[UserId, UserId]]
+    ) -> frozenset[tuple[UserId, UserId]]:
+        """Пары (клиент, исполнитель), у которых хоть одна сделка — в любой роли — дошла до
+        `agreed`: `agreed_at` ставится тогда и потом не стирается."""
+        ...
+
     async def due(self, sweep: DealSweep, now: datetime, *, limit: int) -> list[DealId]:
         """Сделки, которым пора в этот проход, — давние первыми."""
         ...

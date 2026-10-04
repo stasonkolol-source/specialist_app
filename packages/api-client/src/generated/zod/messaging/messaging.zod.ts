@@ -48,6 +48,11 @@ export const MessagingListConversationsResponse = zod.object({
         counterpart_telegram: zod
           .union([zod.string(), zod.null()])
           .describe('«@username» второй стороны после договорённости, если она его показывает'),
+        contacts_open: zod
+          .boolean()
+          .describe(
+            'Контакты открыты: эта пара уже договаривалась — в этом диалоге или в другом (новое предложение, отмена и новый диалог их снова не закрывают). Телефоны в новых сообщениях не скрываются; «Поделиться контактом» — когда в диалоге есть сделка',
+          ),
         job_id: zod.union([zod.uuid(), zod.null()]),
         job_title: zod
           .union([zod.string(), zod.null()])
@@ -203,6 +208,11 @@ export const MessagingListMessagesResponse = zod.object({
       counterpart_telegram: zod
         .union([zod.string(), zod.null()])
         .describe('«@username» второй стороны после договорённости, если она его показывает'),
+      contacts_open: zod
+        .boolean()
+        .describe(
+          'Контакты открыты: эта пара уже договаривалась — в этом диалоге или в другом (новое предложение, отмена и новый диалог их снова не закрывают). Телефоны в новых сообщениях не скрываются; «Поделиться контактом» — когда в диалоге есть сделка',
+        ),
       job_id: zod.union([zod.uuid(), zod.null()]),
       job_title: zod
         .union([zod.string(), zod.null()])
