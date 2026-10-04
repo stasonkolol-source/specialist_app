@@ -15,9 +15,17 @@ from app.modules.moderation.application.dto import (
     StaffReportView,
 )
 from app.modules.moderation.application.use_cases.resolve_dispute import DisputeResolution
+from app.modules.moderation.application.use_cases.try_content_rule import RuleTrial
 from app.modules.moderation.domain.cases import MAX_REASON_CODE, CaseStatus, CaseTrigger, EntityType
 from app.modules.moderation.domain.queues import Queue
 from app.modules.moderation.domain.reports import ReportReason, ReportStatus
+from app.modules.moderation.domain.rules import (
+    MAX_PATTERN,
+    RuleAction,
+    RuleCategory,
+    RuleKind,
+    RuleLanguage,
+)
 from app.modules.moderation.domain.sanctions import SanctionStep, Severity
 from app.platform.kernel.ids import MediaId
 
@@ -289,4 +297,116 @@ class ReportOut(BaseModel):
             resolved_by=report.resolved_by,
             resolved_at=report.resolved_at,
             created_at=report.created_at,
+        )
+
+
+class ContentRuleOut(BaseModel):
+    id: int
+    kind: RuleKind
+    pattern: str
+    lang: RuleLanguage | None
+    action: RuleAction
+    category: RuleCategory
+    is_active: bool
+    origin: Literal["seed", "admin"] = Field(
+        description="seed — строку ведёт `cli seed`, admin — админка (сид её не трогает)"
+    )
+
+    @classmethod
+    def of(cls, row: Any) -> ContentRuleOut:
+        return cls(
+            id=row["id"],
+            kind=row["kind"],
+            pattern=row["pattern"],
+            lang=row["lang"],
+            action=row["action"],
+            category=row["category"],
+            is_active=row["is_active"],
+            origin=getattr(row["origin"], "value", row["origin"]),
+        )
+
+
+class ContentRuleIn(BaseModel):
+    """Правило: регулярка — по скелету текста (латиница в нижнем регистре, без двойных букв), в
+    синтаксисе RE2 — без lookaround и обратных ссылок."""
+
+    kind: RuleKind
+    pattern: str = Field(min_length=1, max_length=MAX_PATTERN)
+    lang: RuleLanguage | None = None
+    action: RuleAction
+    category: RuleCategory
+    is_active: bool = True
+
+
+class ContentRulePatchIn(BaseModel):
+    kind: RuleKind | None = None
+    pattern: str | None = Field(default=None, min_length=1, max_length=MAX_PATTERN)
+    lang: RuleLanguage | None = None
+    action: RuleAction | None = None
+    category: RuleCategory | None = None
+    is_active: bool | None = None
+
+
+class ContentRuleTrialIn(BaseModel):
+    rule_id: int | None = Field(
+        default=None, description="Правимая строка: её прежний вариант уходит из «после»"
+    )
+    kind: RuleKind
+    pattern: str = Field(min_length=1, max_length=MAX_PATTERN)
+    action: RuleAction
+    category: RuleCategory
+    sample: str = Field(default="", max_length=4000, description="Текст для пробы")
+
+
+class RuleMatchOut(BaseModel):
+    source: str
+    category: str
+    action: str
+    evidence: str
+    rule_id: int | None
+
+
+class ExampleChangeOut(BaseModel):
+    text: str
+    expected: str
+    before: str
+    after: str
+
+
+class ContentRuleTrialOut(BaseModel):
+    error: str | None = Field(description="Почему правило не примут; null — примут")
+    skeleton: str
+    hit: bool
+    matches: list[RuleMatchOut]
+    changes: list[ExampleChangeOut] = Field(
+        description="Примеры набора, у которых вердикт поменяется"
+    )
+    examples: int
+
+    @classmethod
+    def of(cls, trial: RuleTrial) -> ContentRuleTrialOut:
+        return cls(
+            error=trial.error,
+            skeleton=trial.skeleton,
+            hit=trial.hit,
+            matches=[
+                RuleMatchOut(
+                    source=match.source.value,
+                    category=match.category.value,
+                    action=match.action.value,
+                    evidence=match.evidence,
+                    rule_id=match.rule_id,
+                )
+                for match in trial.matches
+            ],
+            changes=[
+                ExampleChangeOut(
+                    text=change.text,
+                    expected=change.expected,
+                    before=change.before,
+                    after=change.after,
+                )
+                for change in trial.changes
+            ],
+            examples=trial.examples,
         )

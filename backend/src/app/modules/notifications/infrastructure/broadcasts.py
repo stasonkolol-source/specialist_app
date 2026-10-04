@@ -5,12 +5,18 @@
 """
 
 from collections.abc import Collection
+from datetime import datetime
+from uuid import UUID
 
-from sqlalchemy import and_, case, exists, func, select
+from sqlalchemy import RowMapping, and_, case, exists, func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity.api import IdentityApi
-from app.modules.notifications.application.dto import BroadcastContent, BroadcastStats
+from app.modules.notifications.application.dto import (
+    BroadcastContent,
+    BroadcastStats,
+    BroadcastSummary,
+)
 from app.modules.notifications.domain.broadcast import (
     Broadcast,
     BroadcastId,
@@ -32,10 +38,11 @@ from app.modules.notifications.infrastructure.models import (
 )
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.db.port import UnitOfWork
-from app.platform.db.query import SqlQuery
+from app.platform.db.query import SqlQuery, decode_cursor, encode_cursor
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.ids import CityId, UserId
 from app.platform.kernel.localized import LocalizedText
+from app.platform.kernel.pagination import Page, PageRequest
 
 
 class SqlBroadcastRepository:
@@ -108,6 +115,27 @@ class SqlBroadcastQuery(SqlQuery):
     def __init__(self, session: AsyncSession, clock: Clock) -> None:
         super().__init__(session)
         self._clock = clock
+
+    async def recent(self, page: PageRequest) -> Page[BroadcastSummary]:
+        b = BroadcastRow.__table__.c
+        stmt = (
+            select(BroadcastRow.__table__)
+            .order_by(b.created_at.desc(), b.id.desc())
+            .limit(page.limit + 1)
+        )
+        if page.cursor is not None:
+            at, last = decode_cursor(page.cursor, (datetime, UUID))
+            stmt = stmt.where(tuple_(b.created_at, b.id) < (at, last))
+        rows = await self._fetch(stmt)
+        items = tuple(_summary(row) for row in rows[: page.limit])
+        if len(rows) <= page.limit:
+            return Page(items=items)
+        return Page(items=items, next_cursor=encode_cursor(items[-1].created_at, items[-1].id))
+
+    async def summary(self, broadcast_id: BroadcastId) -> BroadcastSummary | None:
+        b = BroadcastRow.__table__.c
+        row = await self._fetch_one(select(BroadcastRow.__table__).where(b.id == broadcast_id))
+        return _summary(row) if row is not None else None
 
     async def content(self, broadcast_id: BroadcastId) -> BroadcastContent | None:
         b = BroadcastRow.__table__.c
@@ -207,3 +235,20 @@ class FacadeAudienceSource:
                 city_id=profile.city_id if profile is not None else user.home_city_id,
             )
         return found
+
+
+def _summary(row: RowMapping) -> BroadcastSummary:
+    return BroadcastSummary(
+        id=row["id"],
+        status=str(getattr(row["status"], "value", row["status"])),
+        group=str(getattr(row["event_group"], "value", row["event_group"])),
+        audience=str(getattr(row["audience"], "value", row["audience"])),
+        city_id=row["city_id"],
+        text=dict(row["text"]),
+        link=row["link"],
+        action=str(getattr(row["action"], "value", row["action"])) if row["action"] else None,
+        created_by=UserId(row["created_by"]),
+        created_at=row["created_at"],
+        starts_at=row["starts_at"],
+        finished_at=row["finished_at"],
+    )

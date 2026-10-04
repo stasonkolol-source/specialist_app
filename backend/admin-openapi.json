@@ -185,6 +185,1017 @@
         ]
       }
     },
+    "/cities": {
+      "get": {
+        "tags": [
+          "geo"
+        ],
+        "summary": "List Cities",
+        "operationId": "geo_list_cities",
+        "parameters": [
+          {
+            "name": "is_active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Is Active"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOut_CityOut_"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/cities/{city_id}": {
+      "patch": {
+        "tags": [
+          "geo"
+        ],
+        "summary": "Update City",
+        "description": "Запустить или выключить город, порядок, название — аудит и сброс снимка справочника.",
+        "operationId": "geo_update_city",
+        "parameters": [
+          {
+            "name": "city_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "City Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CityPatchIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CityOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/districts": {
+      "get": {
+        "tags": [
+          "geo"
+        ],
+        "summary": "List Districts",
+        "operationId": "geo_list_districts",
+        "parameters": [
+          {
+            "name": "city_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "City Id"
+            }
+          },
+          {
+            "name": "is_active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Is Active"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOut_DistrictOut_"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/districts/{district_id}": {
+      "patch": {
+        "tags": [
+          "geo"
+        ],
+        "summary": "Update District",
+        "operationId": "geo_update_district",
+        "parameters": [
+          {
+            "name": "district_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "District Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DistrictPatchIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DistrictOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/categories": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "List Categories",
+        "operationId": "catalog_list_categories",
+        "parameters": [
+          {
+            "name": "parent_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Parent Id"
+            }
+          },
+          {
+            "name": "is_active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Is Active"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOut_CategoryOut_"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/categories/{category_id}": {
+      "patch": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Update Category",
+        "description": "Правка категории: аудит, CatalogChanged и сброс снимка таксономии — как в SQLAdmin.",
+        "operationId": "catalog_update_category",
+        "parameters": [
+          {
+            "name": "category_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Category Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryPatchIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/tags": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "List Tags",
+        "operationId": "catalog_list_tags",
+        "parameters": [
+          {
+            "name": "category_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category Id"
+            }
+          },
+          {
+            "name": "is_active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Is Active"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOut_TagOut_"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/tags/{tag_id}": {
+      "patch": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Update Tag",
+        "description": "Включить или выключить тег, поправить название; CatalogChanged — по его категории.",
+        "operationId": "catalog_update_tag",
+        "parameters": [
+          {
+            "name": "tag_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tag Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TagPatchIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/search-terms": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "List Search Terms",
+        "description": "Словарь поиска — только чтение: его заменяет сид целиком при изменении категории.",
+        "operationId": "catalog_list_search_terms",
+        "parameters": [
+          {
+            "name": "category_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category Id"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOut_SearchTermOut_"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/broadcasts": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "List Broadcasts",
+        "description": "Рассылки, новые первыми.",
+        "operationId": "notifications_list_broadcasts",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOut_BroadcastOut_"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      },
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Create Broadcast",
+        "description": "Черновик рассылки; ответ — карточка с предпросмотром.",
+        "operationId": "notifications_create_broadcast",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BroadcastIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BroadcastCardOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/broadcasts/{broadcast_id}": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Get Broadcast",
+        "description": "Тексты, предпросмотр на трёх языках (тем же рендерером, что у получателей) и счётчики.",
+        "operationId": "notifications_get_broadcast",
+        "parameters": [
+          {
+            "name": "broadcast_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Broadcast Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BroadcastCardOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/broadcasts/{broadcast_id}/test": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Test Broadcast",
+        "description": "Тест себе в бот на выбранном языке: мимо группы и тихих часов, в счётчики не входит.",
+        "operationId": "notifications_test_broadcast",
+        "parameters": [
+          {
+            "name": "broadcast_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Broadcast Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BroadcastTestIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/broadcasts/{broadcast_id}/start": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Start Broadcast",
+        "description": "Старт сейчас (sending) или ко времени (scheduled).",
+        "operationId": "notifications_start_broadcast",
+        "parameters": [
+          {
+            "name": "broadcast_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Broadcast Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BroadcastStartIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BroadcastStartedOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/broadcasts/{broadcast_id}/cancel": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Cancel Broadcast",
+        "description": "Отмена: ждущие доставки гасятся в той же транзакции, следующая пачка видит отмену.",
+        "operationId": "notifications_cancel_broadcast",
+        "parameters": [
+          {
+            "name": "broadcast_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Broadcast Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BroadcastCancelledOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
     "/cases": {
       "get": {
         "tags": [
@@ -880,6 +1891,267 @@
         ]
       }
     },
+    "/content-rules": {
+      "get": {
+        "tags": [
+          "moderation"
+        ],
+        "summary": "List Content Rules",
+        "description": "Словарь правил: слова, регулярки по скелету, домены; `origin` — кто ведёт строку.",
+        "operationId": "moderation_list_content_rules",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/RuleKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "is_active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Is Active"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOut_ContentRuleOut_"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      },
+      "post": {
+        "tags": [
+          "moderation"
+        ],
+        "summary": "Create Content Rule",
+        "description": "Новое правило: та же проверка, что у сида; 422 invalid_admin_change — с причиной.",
+        "operationId": "moderation_create_content_rule",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentRuleIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentRuleOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/content-rules/{rule_id}": {
+      "patch": {
+        "tags": [
+          "moderation"
+        ],
+        "summary": "Update Content Rule",
+        "description": "Правка или выключение (`is_active: false`) правила; строка сида переходит к админке.",
+        "operationId": "moderation_update_content_rule",
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Rule Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentRulePatchIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentRuleOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/content-rules/trial": {
+      "post": {
+        "tags": [
+          "moderation"
+        ],
+        "summary": "Try Content Rule",
+        "description": "Проба до записи (ничего не пишет): итог проверки, срабатывание на тексте и примеры набора\nrule_examples.yaml, у которых поменяется вердикт; `rule_id` — правка этой строки.",
+        "operationId": "moderation_try_content_rule",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentRuleTrialIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentRuleTrialOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
     "/audit-log": {
       "get": {
         "tags": [
@@ -1050,6 +2322,252 @@
           "admin"
         ]
       }
+    },
+    "/feature-flags": {
+      "get": {
+        "tags": [
+          "config"
+        ],
+        "summary": "List Feature Flags",
+        "description": "Флаги по ключу. Новые флаги заводит миграция: их имена знает код.",
+        "operationId": "platform_list_feature_flags",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOut_FeatureFlagOut_"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/feature-flags/{key}": {
+      "patch": {
+        "tags": [
+          "config"
+        ],
+        "summary": "Update Feature Flag",
+        "description": "Включить или выключить флаг (только `enabled`); аудит `platform.feature_flag.updated`.",
+        "operationId": "platform_update_feature_flag",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeatureFlagPatchIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureFlagOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/client-config": {
+      "get": {
+        "tags": [
+          "config"
+        ],
+        "summary": "List Client Config",
+        "description": "Строки client-config в БД; значения окружения меняются деплоем и здесь не видны.",
+        "operationId": "platform_list_client_config",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOut_ClientConfigOut_"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    },
+    "/client-config/{key}": {
+      "put": {
+        "tags": [
+          "config"
+        ],
+        "summary": "Update Client Config",
+        "description": "Заменить значение строки с той же проверкой, что раздел SQLAdmin (422 с причиной); аудит\n`platform.client_config.updated`. Этот процесс видит правку сразу, остальные — за TTL кэша\n(30 с), Mini App — после max-age GET /client-config (60 с).",
+        "operationId": "platform_update_client_config",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientConfigIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientConfigOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
     }
   },
   "components": {
@@ -1103,6 +2621,17 @@
           "completed_deals"
         ],
         "title": "ActivityOut"
+      },
+      "Audience": {
+        "type": "string",
+        "enum": [
+          "all",
+          "specialists",
+          "clients",
+          "founding"
+        ],
+        "title": "Audience",
+        "description": "Кому из тех, кто разрешил боту писать и включил группу рассылки."
       },
       "AuditRecordOut": {
         "properties": {
@@ -1195,6 +2724,263 @@
           "created_at"
         ],
         "title": "AuditRecordOut"
+      },
+      "BroadcastCancelledOut": {
+        "properties": {
+          "suppressed": {
+            "type": "integer",
+            "title": "Suppressed",
+            "description": "Сколько ждавших доставок погашено"
+          }
+        },
+        "type": "object",
+        "required": [
+          "suppressed"
+        ],
+        "title": "BroadcastCancelledOut"
+      },
+      "BroadcastCardOut": {
+        "properties": {
+          "broadcast": {
+            "$ref": "#/components/schemas/BroadcastOut"
+          },
+          "previews": {
+            "items": {
+              "$ref": "#/components/schemas/PreviewOut"
+            },
+            "type": "array",
+            "title": "Previews"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/StatsOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "broadcast",
+          "previews",
+          "stats"
+        ],
+        "title": "BroadcastCardOut"
+      },
+      "BroadcastIn": {
+        "properties": {
+          "text": {
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 3500
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Locale"
+            },
+            "type": "object",
+            "title": "Text"
+          },
+          "group": {
+            "type": "string",
+            "enum": [
+              "marketing",
+              "goods_launch"
+            ],
+            "title": "Group",
+            "description": "Группа согласия S43: служебная рассылкам недоступна",
+            "default": "marketing"
+          },
+          "audience": {
+            "$ref": "#/components/schemas/Audience",
+            "default": "all"
+          },
+          "city_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City Id"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link",
+            "description": "Код deep link кнопки «Открыть «Соседи»»"
+          },
+          "pro_waitlist": {
+            "type": "boolean",
+            "title": "Pro Waitlist",
+            "description": "Кнопка «Хочу узнать первым»",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "BroadcastIn",
+        "description": "Черновик: текст на русском и сербском (второй алфавит — по цепочке §7.4), без разметки."
+      },
+      "BroadcastOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "draft → scheduled | sending → done | cancelled"
+          },
+          "group": {
+            "type": "string",
+            "title": "Group"
+          },
+          "audience": {
+            "type": "string",
+            "title": "Audience"
+          },
+          "city_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City Id"
+          },
+          "text": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Text"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "created_by": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "starts_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "group",
+          "audience",
+          "city_id",
+          "text",
+          "link",
+          "action",
+          "created_by",
+          "created_at",
+          "starts_at",
+          "finished_at"
+        ],
+        "title": "BroadcastOut"
+      },
+      "BroadcastStartIn": {
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At",
+            "description": "Не раньше; null или прошлое — сейчас"
+          }
+        },
+        "type": "object",
+        "title": "BroadcastStartIn"
+      },
+      "BroadcastStartedOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "BroadcastStartedOut"
+      },
+      "BroadcastTestIn": {
+        "properties": {
+          "locale": {
+            "$ref": "#/components/schemas/Locale",
+            "default": "ru"
+          }
+        },
+        "type": "object",
+        "title": "BroadcastTestIn"
       },
       "CaseOut": {
         "properties": {
@@ -1381,6 +3167,598 @@
           "dispute"
         ],
         "title": "CaseTrigger"
+      },
+      "CategoryOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Name"
+          },
+          "name_origin": {
+            "type": "string",
+            "title": "Name Origin",
+            "description": "seed — название ведёт сид, admin — админка"
+          },
+          "depth": {
+            "type": "integer",
+            "title": "Depth"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "jobs_enabled": {
+            "type": "boolean",
+            "title": "Jobs Enabled"
+          },
+          "max_responses": {
+            "type": "integer",
+            "title": "Max Responses"
+          },
+          "risk_level": {
+            "type": "integer",
+            "title": "Risk Level"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "parent_id",
+          "slug",
+          "name",
+          "name_origin",
+          "depth",
+          "icon",
+          "sort_order",
+          "is_active",
+          "jobs_enabled",
+          "max_responses",
+          "risk_level"
+        ],
+        "title": "CategoryOut"
+      },
+      "CategoryPatchIn": {
+        "properties": {
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "jobs_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jobs Enabled"
+          },
+          "max_responses": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Responses"
+          },
+          "risk_level": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Level"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "propertyNames": {
+                  "$ref": "#/components/schemas/Locale"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Локали поверх текущего названия; ru и sr-Cyrl обязательны, пустая sr-Latn — транслит sr-Cyrl"
+          }
+        },
+        "type": "object",
+        "title": "CategoryPatchIn",
+        "description": "Поля, которые сид не задаёт или задаёт только новой строке (как форма SQLAdmin)."
+      },
+      "CityOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Name"
+          },
+          "name_origin": {
+            "type": "string",
+            "title": "Name Origin"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "description": "Город запущен: виден в онбординге и поиске"
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "name_origin",
+          "is_active",
+          "sort_order"
+        ],
+        "title": "CityOut"
+      },
+      "CityPatchIn": {
+        "properties": {
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "propertyNames": {
+                  "$ref": "#/components/schemas/Locale"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "title": "CityPatchIn"
+      },
+      "ClientConfigIn": {
+        "properties": {
+          "value": {
+            "title": "Value",
+            "description": "min_versions: {\"tma\": \"1.2.0\"}; legal_versions: {\"terms\": \"…\", \"privacy\": \"…\"} — версии, чей текст уже лежит в content/legal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "title": "ClientConfigIn"
+      },
+      "ClientConfigOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "value": {
+            "title": "Value"
+          },
+          "editable": {
+            "type": "boolean",
+            "title": "Editable",
+            "description": "min_versions и legal_versions; остальное — чтение"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "value",
+          "editable",
+          "updated_at",
+          "updated_by"
+        ],
+        "title": "ClientConfigOut"
+      },
+      "ContentRuleIn": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/RuleKind"
+          },
+          "pattern": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Pattern"
+          },
+          "lang": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuleLanguage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "action": {
+            "$ref": "#/components/schemas/RuleAction"
+          },
+          "category": {
+            "$ref": "#/components/schemas/RuleCategory"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "pattern",
+          "action",
+          "category"
+        ],
+        "title": "ContentRuleIn",
+        "description": "Правило: регулярка — по скелету текста (латиница в нижнем регистре, без двойных букв), в\nсинтаксисе RE2 — без lookaround и обратных ссылок."
+      },
+      "ContentRuleOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/RuleKind"
+          },
+          "pattern": {
+            "type": "string",
+            "title": "Pattern"
+          },
+          "lang": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuleLanguage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "action": {
+            "$ref": "#/components/schemas/RuleAction"
+          },
+          "category": {
+            "$ref": "#/components/schemas/RuleCategory"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "seed",
+              "admin"
+            ],
+            "title": "Origin",
+            "description": "seed — строку ведёт `cli seed`, admin — админка (сид её не трогает)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "pattern",
+          "lang",
+          "action",
+          "category",
+          "is_active",
+          "origin"
+        ],
+        "title": "ContentRuleOut"
+      },
+      "ContentRulePatchIn": {
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuleKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pattern": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pattern"
+          },
+          "lang": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuleLanguage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuleAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "category": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuleCategory"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "title": "ContentRulePatchIn"
+      },
+      "ContentRuleTrialIn": {
+        "properties": {
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id",
+            "description": "Правимая строка: её прежний вариант уходит из «после»"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/RuleKind"
+          },
+          "pattern": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Pattern"
+          },
+          "action": {
+            "$ref": "#/components/schemas/RuleAction"
+          },
+          "category": {
+            "$ref": "#/components/schemas/RuleCategory"
+          },
+          "sample": {
+            "type": "string",
+            "maxLength": 4000,
+            "title": "Sample",
+            "description": "Текст для пробы",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "pattern",
+          "action",
+          "category"
+        ],
+        "title": "ContentRuleTrialIn"
+      },
+      "ContentRuleTrialOut": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "Почему правило не примут; null — примут"
+          },
+          "skeleton": {
+            "type": "string",
+            "title": "Skeleton"
+          },
+          "hit": {
+            "type": "boolean",
+            "title": "Hit"
+          },
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/RuleMatchOut"
+            },
+            "type": "array",
+            "title": "Matches"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ExampleChangeOut"
+            },
+            "type": "array",
+            "title": "Changes",
+            "description": "Примеры набора, у которых вердикт поменяется"
+          },
+          "examples": {
+            "type": "integer",
+            "title": "Examples"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error",
+          "skeleton",
+          "hit",
+          "matches",
+          "changes",
+          "examples"
+        ],
+        "title": "ContentRuleTrialOut"
       },
       "DealOut": {
         "properties": {
@@ -1746,6 +4124,99 @@
         ],
         "title": "DisputeResolutionOut"
       },
+      "DistrictOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "city_id": {
+            "type": "integer",
+            "title": "City Id"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Name"
+          },
+          "name_origin": {
+            "type": "string",
+            "title": "Name Origin"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "city_id",
+          "parent_id",
+          "kind",
+          "slug",
+          "name",
+          "name_origin",
+          "is_active"
+        ],
+        "title": "DistrictOut"
+      },
+      "DistrictPatchIn": {
+        "properties": {
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "propertyNames": {
+                  "$ref": "#/components/schemas/Locale"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "title": "DistrictPatchIn"
+      },
       "EntityType": {
         "type": "string",
         "enum": [
@@ -1818,6 +4289,106 @@
         ],
         "title": "EvidencePhotoOut"
       },
+      "ExampleChangeOut": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "expected": {
+            "type": "string",
+            "title": "Expected"
+          },
+          "before": {
+            "type": "string",
+            "title": "Before"
+          },
+          "after": {
+            "type": "string",
+            "title": "After"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "expected",
+          "before",
+          "after"
+        ],
+        "title": "ExampleChangeOut"
+      },
+      "FeatureFlagOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "public": {
+            "type": "boolean",
+            "title": "Public",
+            "description": "Виден в GET /client-config (Mini App)"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "value": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value",
+            "description": "Параметр флага: меняется вместе с кодом, здесь — чтение"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "enabled",
+          "public",
+          "description",
+          "value",
+          "updated_at",
+          "updated_by"
+        ],
+        "title": "FeatureFlagOut"
+      },
+      "FeatureFlagPatchIn": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "FeatureFlagPatchIn"
+      },
       "FieldErrorOut": {
         "properties": {
           "field": {
@@ -1878,6 +4449,33 @@
         ],
         "title": "PageOut[AuditRecordOut]"
       },
+      "PageOut_BroadcastOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BroadcastOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PageOut[BroadcastOut]"
+      },
       "PageOut_CaseOut_": {
         "properties": {
           "items": {
@@ -1905,6 +4503,168 @@
         ],
         "title": "PageOut[CaseOut]"
       },
+      "PageOut_CategoryOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PageOut[CategoryOut]"
+      },
+      "PageOut_CityOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CityOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PageOut[CityOut]"
+      },
+      "PageOut_ClientConfigOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClientConfigOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PageOut[ClientConfigOut]"
+      },
+      "PageOut_ContentRuleOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContentRuleOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PageOut[ContentRuleOut]"
+      },
+      "PageOut_DistrictOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DistrictOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PageOut[DistrictOut]"
+      },
+      "PageOut_FeatureFlagOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FeatureFlagOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PageOut[FeatureFlagOut]"
+      },
       "PageOut_ReportOut_": {
         "properties": {
           "items": {
@@ -1931,6 +4691,60 @@
           "items"
         ],
         "title": "PageOut[ReportOut]"
+      },
+      "PageOut_SearchTermOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SearchTermOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PageOut[SearchTermOut]"
+      },
+      "PageOut_TagOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TagOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PageOut[TagOut]"
       },
       "PersonalDataOut": {
         "properties": {
@@ -2021,6 +4835,32 @@
           "height"
         ],
         "title": "PhotoVariantOut"
+      },
+      "PreviewOut": {
+        "properties": {
+          "locale": {
+            "type": "string",
+            "title": "Locale"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "buttons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Buttons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "locale",
+          "text",
+          "buttons"
+        ],
+        "title": "PreviewOut"
       },
       "ProblemOut": {
         "properties": {
@@ -2543,6 +5383,89 @@
         "title": "Role",
         "description": "Роли персонала. У обычных пользователей ролей нет."
       },
+      "RuleAction": {
+        "type": "string",
+        "enum": [
+          "flag",
+          "shadow",
+          "block"
+        ],
+        "title": "RuleAction"
+      },
+      "RuleCategory": {
+        "type": "string",
+        "enum": [
+          "drugs",
+          "weapons",
+          "escort",
+          "scam",
+          "mule",
+          "contacts",
+          "spam",
+          "vacancy"
+        ],
+        "title": "RuleCategory",
+        "description": "Что нарушено; близко к меткам классификатора ADR-0016."
+      },
+      "RuleKind": {
+        "type": "string",
+        "enum": [
+          "word",
+          "regex",
+          "domain"
+        ],
+        "title": "RuleKind"
+      },
+      "RuleLanguage": {
+        "type": "string",
+        "enum": [
+          "ru",
+          "sr",
+          "uk",
+          "en"
+        ],
+        "title": "RuleLanguage"
+      },
+      "RuleMatchOut": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "evidence": {
+            "type": "string",
+            "title": "Evidence"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "category",
+          "action",
+          "evidence",
+          "rule_id"
+        ],
+        "title": "RuleMatchOut"
+      },
       "SanctionStep": {
         "type": "string",
         "enum": [
@@ -2554,6 +5477,51 @@
         ],
         "title": "SanctionStep"
       },
+      "SearchTermOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "term": {
+            "type": "string",
+            "title": "Term"
+          },
+          "lang": {
+            "type": "string",
+            "title": "Lang"
+          },
+          "category_id": {
+            "type": "integer",
+            "title": "Category Id"
+          },
+          "tag_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tag Id"
+          },
+          "weight": {
+            "type": "number",
+            "title": "Weight"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "term",
+          "lang",
+          "category_id",
+          "tag_id",
+          "weight"
+        ],
+        "title": "SearchTermOut"
+      },
       "Severity": {
         "type": "string",
         "enum": [
@@ -2562,6 +5530,121 @@
           "critical"
         ],
         "title": "Severity"
+      },
+      "StatsOut": {
+        "properties": {
+          "recipients": {
+            "type": "integer",
+            "title": "Recipients"
+          },
+          "queued": {
+            "type": "integer",
+            "title": "Queued"
+          },
+          "deferred": {
+            "type": "integer",
+            "title": "Deferred",
+            "description": "Из ждущих — до конца тихих часов или паузы лимитера"
+          },
+          "sent": {
+            "type": "integer",
+            "title": "Sent"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recipients",
+          "queued",
+          "deferred",
+          "sent",
+          "failed",
+          "skipped"
+        ],
+        "title": "StatsOut"
+      },
+      "TagOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "category_id": {
+            "type": "integer",
+            "title": "Category Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Name"
+          },
+          "name_origin": {
+            "type": "string",
+            "title": "Name Origin"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "category_id",
+          "slug",
+          "name",
+          "name_origin",
+          "is_active"
+        ],
+        "title": "TagOut"
+      },
+      "TagPatchIn": {
+        "properties": {
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "propertyNames": {
+                  "$ref": "#/components/schemas/Locale"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "title": "TagPatchIn"
       },
       "UserCardOut": {
         "properties": {

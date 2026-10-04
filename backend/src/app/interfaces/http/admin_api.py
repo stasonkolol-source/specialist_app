@@ -1,8 +1,10 @@
 """Admin API `/admin/api/v1` (DEVELOPMENT_PLAN 2.7b; ARCHITECTURE §8.5, §13.2; ADR-0009, ADR-0020).
 
-JSON для персонала рядом с SQLAdmin в процессе web: кейсы и жалобы (moderation), карточка
-пользователя и санкции (identity), журнал аудита (здесь). Решения — те же use cases, что у
-SQLAdmin и `cli`; роутеры — `modules/<m>/admin/router.py`, их собирает композиционный корень.
+JSON для персонала рядом с SQLAdmin в процессе web: кейсы, жалобы и контент-правила
+(moderation), карточка пользователя и санкции (identity), справочники (catalog, geo), рассылки
+(notifications); журнал аудита, feature flags и client-config — здесь. Решения — те же use cases,
+что у SQLAdmin и `cli`, правка справочников — те же разделы SQLAdmin через `apply_change`;
+роутеры — `modules/<m>/admin/router.py`, их собирает композиционный корень.
 
 - Отдельное приложение FastAPI, смонтированное раньше SQLAdmin (иначе путь поглотил бы `/admin`):
   свои обработчики ошибок — тот же problem+json (ADR-0020 §9) — и своя схема:
@@ -25,7 +27,8 @@ from uuid import UUID
 import structlog
 from dishka.integrations.fastapi import FromDishka, inject
 from fastapi import APIRouter, Depends, FastAPI, Query, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.datastructures import MutableHeaders
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -42,7 +45,15 @@ from app.interfaces.http.operation_ids import admin_operation_id
 from app.interfaces.http.security_headers import API_CSP
 from app.modules.identity.api import StaffAuth
 from app.platform.audit.port import AuditFilter, AuditReader, AuditRecord
-from app.platform.http.admin import ADMIN, container_of
+from app.platform.http.admin import (
+    ADMIN,
+    AdminRows,
+    apply_change,
+    as_row,
+    container_of,
+    table_of,
+)
+from app.platform.http.admin_config import EDITABLE_CONFIG, ClientConfigAdmin, FeatureFlagAdmin
 from app.platform.http.pagination import PageOut, PageParams
 from app.platform.http.staff import (
     PUBLISHED,
@@ -55,7 +66,7 @@ from app.platform.http.staff import (
     staff_rate_limit,
 )
 from app.platform.i18n.translator import Translator
-from app.platform.kernel.errors import NotAuthenticatedError
+from app.platform.kernel.errors import NotAuthenticatedError, NotFoundError
 from app.platform.kernel.ids import UserId
 from app.platform.observability.logging import bind_context
 from app.platform.settings import Settings
@@ -128,7 +139,7 @@ def _admin_app(routers: Sequence[APIRouter]) -> FastAPI:
         ],
         responses=PROBLEM_RESPONSES,
     )
-    for router in (*routers, audit_router):
+    for router in (*routers, audit_router, config_router):
         root.include_router(router)
     api.include_router(root)
     return api
@@ -234,3 +245,95 @@ async def list_audit_log(
         page,
     )
     return PageOut.of(found, AuditRecordOut.of)
+
+
+# --- feature flags и client-config (platform/http/admin_config.py) ----------------------------
+
+config_router = APIRouter(tags=["config"])
+
+
+class FeatureFlagOut(BaseModel):
+    key: str
+    enabled: bool
+    public: bool = Field(description="Виден в GET /client-config (Mini App)")
+    description: str
+    value: Any | None = Field(description="Параметр флага: меняется вместе с кодом, здесь — чтение")
+    updated_at: datetime
+    updated_by: UUID | None
+
+    @classmethod
+    def of(cls, row: Any) -> FeatureFlagOut:
+        return cls(**{key: row[key] for key in cls.model_fields})
+
+
+class FeatureFlagPatchIn(BaseModel):
+    enabled: bool
+
+
+class ClientConfigOut(BaseModel):
+    key: str
+    value: Any
+    editable: bool = Field(description="min_versions и legal_versions; остальное — чтение")
+    updated_at: datetime
+    updated_by: UUID | None
+
+    @classmethod
+    def of(cls, row: Any) -> ClientConfigOut:
+        return cls(
+            key=row["key"],
+            value=row["value"],
+            editable=row["key"] in EDITABLE_CONFIG,
+            updated_at=row["updated_at"],
+            updated_by=row["updated_by"],
+        )
+
+
+class ClientConfigIn(BaseModel):
+    value: Any = Field(
+        description='min_versions: {"tma": "1.2.0"}; legal_versions: {"terms": "…", "privacy":'
+        ' "…"} — версии, чей текст уже лежит в content/legal'
+    )
+
+
+@config_router.get("/feature-flags", response_model=PageOut[FeatureFlagOut], **staff_only(ADMIN))
+@inject
+async def list_feature_flags(
+    page: PageParams, session: FromDishka[AsyncSession]
+) -> PageOut[FeatureFlagOut]:
+    """Флаги по ключу. Новые флаги заводит миграция: их имена знает код."""
+    found = await AdminRows(session).page(table_of(FeatureFlagAdmin), page, key="key", key_type=str)
+    return PageOut.of(found, FeatureFlagOut.of)
+
+
+@config_router.patch("/feature-flags/{key}", response_model=FeatureFlagOut, **staff_only(ADMIN))
+async def update_feature_flag(
+    key: str, body: FeatureFlagPatchIn, request: Request
+) -> FeatureFlagOut:
+    """Включить или выключить флаг (только `enabled`); аудит `platform.feature_flag.updated`."""
+    model = await apply_change(request, FeatureFlagAdmin(), key, {"enabled": body.enabled})
+    if model is None:
+        raise NotFoundError(flag=key)
+    return FeatureFlagOut.of(as_row(model))
+
+
+@config_router.get("/client-config", response_model=PageOut[ClientConfigOut], **staff_only(ADMIN))
+@inject
+async def list_client_config(
+    page: PageParams, session: FromDishka[AsyncSession]
+) -> PageOut[ClientConfigOut]:
+    """Строки client-config в БД; значения окружения меняются деплоем и здесь не видны."""
+    found = await AdminRows(session).page(
+        table_of(ClientConfigAdmin), page, key="key", key_type=str
+    )
+    return PageOut.of(found, ClientConfigOut.of)
+
+
+@config_router.put("/client-config/{key}", response_model=ClientConfigOut, **staff_only(ADMIN))
+async def update_client_config(key: str, body: ClientConfigIn, request: Request) -> ClientConfigOut:
+    """Заменить значение строки с той же проверкой, что раздел SQLAdmin (422 с причиной); аудит
+    `platform.client_config.updated`. Этот процесс видит правку сразу, остальные — за TTL кэша
+    (30 с), Mini App — после max-age GET /client-config (60 с)."""
+    model = await apply_change(request, ClientConfigAdmin(), key, {"value": body.value})
+    if model is None:
+        raise NotFoundError(config=key)
+    return ClientConfigOut.of(as_row(model))
