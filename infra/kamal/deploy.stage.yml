@@ -40,8 +40,42 @@ env:
     S3_BUCKET_PRIVATE: sosed-stage-private
     SENTRY_DSN: '<%= ENV.fetch("SENTRY_DSN", "") %>'
 
+# PostgreSQL на stage — accessory на той же VM (ADR-0015); на prod БД живёт на db-1, поэтому
+# accessory описан здесь, а не в deploy.yml.
 accessories:
   postgres:
     host: <%= ENV.fetch("STAGE_HOST") %>
+    # наш образ из images.yml: PostgreSQL 18 + PostGIS, initdb с builtin C.UTF-8 (ADR-0005)
+    image: ghcr.io/<%= ENV.fetch("GHCR_OWNER") %>/sosed-postgres:18.6-3.6
+    cmd: >-
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c work_mem=8MB
+      -c random_page_cost=1.1
+      -c jit=off
+      -c max_connections=100
+      -c log_min_duration_statement=500
+    # Первый старт на пустом томе: initdb, затем infra/postgres/bootstrap.sql из образа
+    # (/docker-entrypoint-initdb.d) — роли, их параметры и расширения, как в dev.
+    env:
+      clear:
+        POSTGRES_USER: postgres
+        POSTGRES_DB: specialist
+      secret:
+        - POSTGRES_PASSWORD:POSTGRES_SUPERUSER_PASSWORD
+        - APP_DB_PASSWORD
+        - MIGRATOR_DB_PASSWORD
+        - READONLY_DB_PASSWORD
+        - BACKUP_DB_PASSWORD
+    directories:
+      - postgres-data:/var/lib/postgresql
+    options:
+      memory: 1g
+      shm-size: 256m
+      cpuset-cpus: "0-1"
+
   valkey:
     host: <%= ENV.fetch("STAGE_HOST") %>
