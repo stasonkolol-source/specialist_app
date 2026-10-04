@@ -10,7 +10,8 @@
 // сначала согласие с правилами), «Вы откликнулись» — «Мои отклики» S17, «Мест нет» — не нажимается;
 // у своей заявки кнопки нет. «Пожаловаться» рядом с «Не интересно» — шторка S46 (4.7; пока она
 // открыта, MainButton спрятана). Заявку того, с кем блокировка, сервер не отдаёт — «Заявка
-// недоступна». Скрыто до своего шага: «Поделиться» (7.4).
+// недоступна». «Поделиться» (7.4) — рядом с сердечком, всем, пока заявку видит гость: карточка в
+// выбор чата Telegram или ссылка.
 import type { JobCardOut, JobOut } from '@sosed/api-client';
 import { ApiError, getSession } from '@sosed/api-client';
 import {
@@ -62,6 +63,7 @@ import { useStepButton } from '../shared/flow.ts';
 import { useBudgetText, useMemberFor, useWhenBadge } from '../shared/labels.ts';
 import type { JobSearch } from '../shared/paths.ts';
 import { JOBS_PATHS, jobIdOf, managePath, respondPath } from '../shared/paths.ts';
+import { shareable, useJobShare } from '../shared/share.tsx';
 
 const LANGUAGE_NAMES = ['ru', 'sr', 'en'] as const;
 type LanguageName = (typeof LANGUAGE_NAMES)[number];
@@ -126,6 +128,7 @@ function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
   const descriptionId = useId();
   const whereId = useId();
   const reporting = useReportTarget() !== null;
+  const sharing = useJobShare(job.id);
   // своя заявка или открыта шторка жалобы: кнопки Telegram нет
   useRespondButton(job, owner || reporting);
 
@@ -147,21 +150,30 @@ function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
       <Summary
         job={job}
         save={
-          performer &&
-          saved.data && (
-            <IconButton
-              plain
-              icon="heart"
-              label={isSaved ? t('job.unsave') : t('job.save')}
-              active={isSaved}
-              aria-pressed={isSaved}
-              className="-mt-1 -mr-2"
-              onClick={() => {
-                platform.haptics.selection();
-                toggleSaved.mutate({ card: jobCardOf(job), on: !isSaved });
-              }}
-            />
-          )
+          <span className="-mt-1 -mr-2 flex">
+            {performer && saved.data && (
+              <IconButton
+                plain
+                icon="heart"
+                label={isSaved ? t('job.unsave') : t('job.save')}
+                active={isSaved}
+                aria-pressed={isSaved}
+                onClick={() => {
+                  platform.haptics.selection();
+                  toggleSaved.mutate({ card: jobCardOf(job), on: !isSaved });
+                }}
+              />
+            )}
+            {shareable(job) && (
+              <IconButton
+                plain
+                icon="share"
+                label={common('share.job')}
+                aria-busy={sharing.pending || undefined}
+                onClick={sharing.share}
+              />
+            )}
+          </span>
         }
       />
       <Card as="section" tight aria-labelledby={descriptionId}>
@@ -221,6 +233,7 @@ function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
           </div>
         </>
       )}
+      {sharing.notice}
     </section>
   );
 }

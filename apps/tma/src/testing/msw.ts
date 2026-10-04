@@ -38,6 +38,7 @@ import {
   citiesFor,
   districtsFor,
   notificationsFor,
+  shareReply,
   searchFound,
   searchPage,
   suggestFor,
@@ -199,6 +200,11 @@ export const safetyHandlers = (backend: () => SafetyBackend) => [
 ];
 
 export const handlers = [
+  // «Поделиться» (7.4): вошедшему — с кодом `_r` и карточкой
+  http.post('*/api/v1/share', async ({ request }) => {
+    const body: unknown = await request.json().catch(() => undefined);
+    return respond(shareReply(body, request.headers.has('Authorization')));
+  }),
   getSystemGetClientConfigMockHandler(CLIENT_CONFIG),
   getIdentityAuthenticateTelegramMockHandler({ ...TOKENS, is_new: false, user: ME }),
   getIdentityRefreshSessionMockHandler(TOKENS),

@@ -227,5 +227,17 @@
     "activity": "Moja aktivnost",
     "favorites": "Omiljeni",
     "history": "Dogovori i utisci"
+  },
+  "share": {
+    "profile": "Podeli profil",
+    "work": "Podeli rad",
+    "job": "Podeli zahtev",
+    "copied": "Link je kopiran",
+    "failed": "Deljenje nije uspelo. Pokušajte ponovo",
+    "toChat": "Podeli u čet",
+    "toChatHint": "Ponudu možete poslati direktno iz Telegram-a",
+    "link": "Link ka zahtevu",
+    "copy": "Kopiraj link",
+    "send": "Pošalji u Telegram čet"
   }
 }
