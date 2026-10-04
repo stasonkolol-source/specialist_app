@@ -53,6 +53,7 @@ async def call(app: HttpApp, settings: Settings, who: UserId, method: str, path:
     return await app.client.request(method, f"{API}{path}", headers=bearer(settings, who))
 
 
+@pytest.mark.authz
 async def test_deal_card_for_both_sides(web: HttpApp, storage_settings: Settings) -> None:
     client, performer, stranger = (
         await user(web, "Елена К."),

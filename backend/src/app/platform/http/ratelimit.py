@@ -19,7 +19,7 @@ UNKNOWN_IP = "unknown"
 
 
 def client_ip(request: Request) -> str:
-    """Адрес клиента. За kamal-proxy его подставляет uvicorn из X-Forwarded-For."""
+    """Адрес клиента. За Cloudflare и kamal-proxy его выбирает ClientAddressMiddleware (8.4)."""
     return f"ip:{request.client.host if request.client else UNKNOWN_IP}"
 
 

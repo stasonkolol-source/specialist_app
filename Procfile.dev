@@ -1,5 +1,5 @@
 # make dev (scripts/dev.py): процессы dev-стенда, DEVELOPMENT_PLAN 0.22.
-web: cd backend && env -u VIRTUAL_ENV uv run uvicorn app.entrypoints.web:create --factory --reload --host 127.0.0.1 --port 8000 --no-access-log
+web: cd backend && env -u VIRTUAL_ENV uv run uvicorn app.entrypoints.web:create --factory --reload --host 127.0.0.1 --port 8000 --no-access-log --no-proxy-headers --no-server-header
 bot: cd backend && env -u VIRTUAL_ENV uv run python -m app.entrypoints.bot
 worker: cd backend && env -u VIRTUAL_ENV uv run python -m app.entrypoints.worker --role worker
 worker-media: cd backend && env -u VIRTUAL_ENV uv run python -m app.entrypoints.worker --role worker-media

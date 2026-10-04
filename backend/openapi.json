@@ -6648,6 +6648,63 @@
         ]
       }
     },
+    "/api/v1/appeals": {
+      "post": {
+        "tags": [
+          "moderation"
+        ],
+        "summary": "File Appeal",
+        "description": "Обжаловать решение модерации: апелляцию рассмотрит человек за 72 часа (S49b).",
+        "operationId": "moderation_file_appeal",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppealIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppealOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Решение уже обжаловано: та же апелляция",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppealOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/specialists/{profile_id}": {
       "get": {
         "tags": [
@@ -7180,6 +7237,99 @@
           "digest"
         ],
         "title": "AlertDelivery"
+      },
+      "AppealIn": {
+        "properties": {
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id",
+            "description": "Решение модерации (кнопка «Обжаловать» уведомления)"
+          },
+          "restriction": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "limited",
+                  "posting_blocked",
+                  "responding_blocked",
+                  "messaging_blocked",
+                  "suspended",
+                  "banned"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restriction",
+            "description": "Вид санкции из 403 `restricted` (экран S49b)"
+          }
+        },
+        "type": "object",
+        "title": "AppealIn",
+        "description": "Что обжаловать: решение (`case_id`) или санкцию с экрана S49b (`restriction`); без обоих —\nпоследнюю санкцию."
+      },
+      "AppealOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "appeal_of": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Appeal Of",
+            "description": "Обжалованное решение"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_review",
+              "escalated",
+              "approved",
+              "rejected"
+            ],
+            "title": "Status",
+            "description": "approved — апелляция удовлетворена (санкция снята), rejected — решение осталось в силе; остальные — на рассмотрении"
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Due At",
+            "description": "Срок ответа: 72 часа с подачи"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "repeated": {
+            "type": "boolean",
+            "title": "Repeated",
+            "description": "true — решение уже обжаловали раньше: это та же апелляция (ответ 200)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "appeal_of",
+          "status",
+          "due_at",
+          "created_at",
+          "repeated"
+        ],
+        "title": "AppealOut"
       },
       "AuthOut": {
         "properties": {
@@ -13338,6 +13488,17 @@
               }
             ],
             "title": "Until"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
           },
           "platform": {
             "anyOf": [

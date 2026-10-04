@@ -1,18 +1,22 @@
 """Кейсы, ступени санкций и сигналы риска в PostgreSQL (DEVELOPMENT_PLAN 2.5a)."""
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.moderation.domain.cases import OPEN, Case, EntityType
 from app.modules.moderation.domain.risk import RiskSignal
-from app.modules.moderation.domain.sanctions import COUNTED, Sanction
-from app.modules.moderation.errors import CaseAlreadyOpenError, CaseNotFoundError
+from app.modules.moderation.domain.sanctions import COUNTED, Sanction, SanctionStep
+from app.modules.moderation.errors import (
+    AppealAlreadyFiledError,
+    CaseAlreadyOpenError,
+    CaseNotFoundError,
+)
 from app.modules.moderation.infrastructure.models import CaseRow, RiskSignalRow, SanctionRow
 from app.platform.db.constraints import raise_domain_error
 from app.platform.db.port import UnitOfWork
@@ -34,7 +38,15 @@ class SqlCaseRepository:
             CaseRow.entity_type == entity_type,
             CaseRow.entity_id == entity_id,
             CaseRow.status.in_(OPEN),
+            CaseRow.appeal_of.is_(None),
         )
+
+    async def appeal_for(self, case_id: CaseId) -> Case | None:
+        return await self._locked(CaseRow.appeal_of == case_id)
+
+    async def get(self, case_id: CaseId) -> Case | None:
+        row = await self._session.get(CaseRow, case_id, populate_existing=True)
+        return _to_domain(row) if row is not None else None
 
     async def add(self, case: Case) -> None:
         self._uow.require_active()
@@ -44,7 +56,13 @@ class SqlCaseRepository:
         try:
             await self._session.flush()
         except IntegrityError as err:
-            raise_domain_error(err, {"uq_cases_entity_open": CaseAlreadyOpenError})
+            raise_domain_error(
+                err,
+                {
+                    "uq_cases_entity_open": CaseAlreadyOpenError,
+                    "uq_cases_appeal_of": AppealAlreadyFiledError,
+                },
+            )
         self._uow.track(case)
 
     async def save(self, case: Case) -> None:
@@ -84,6 +102,30 @@ class SqlSanctionRepository:
             SanctionRow.expires_at > now,
         )
         return int((await self._session.execute(stmt)).scalar_one())
+
+    async def latest_case(self, user_id: UserId, steps: Collection[SanctionStep]) -> CaseId | None:
+        stmt = (
+            select(SanctionRow.case_id)
+            .where(
+                SanctionRow.user_id == user_id,
+                SanctionRow.step.in_(steps),
+                SanctionRow.revoked_at.is_(None),
+            )
+            .order_by(SanctionRow.created_at.desc())
+            .limit(1)
+        )
+        found = (await self._session.execute(stmt)).scalar_one_or_none()
+        return CaseId(found) if found is not None else None
+
+    async def revoke_for_case(self, case_id: CaseId, now: datetime) -> int:
+        self._uow.require_active()
+        stmt = (
+            update(SanctionRow)
+            .where(SanctionRow.case_id == case_id, SanctionRow.revoked_at.is_(None))
+            .values(revoked_at=now)
+        )
+        result = await self._session.execute(stmt)
+        return int(result.rowcount or 0)  # type: ignore[attr-defined]  # CursorResult
 
     async def add(self, sanction: Sanction) -> None:
         self._uow.require_active()

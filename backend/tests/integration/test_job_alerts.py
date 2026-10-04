@@ -136,6 +136,7 @@ async def world(web: HttpApp, storage_settings: Settings) -> AsyncIterator[Alert
     await created.execute("DELETE FROM jobs.alerts WHERE user_id = ANY(:ids)", ids=created.users)
 
 
+@pytest.mark.authz
 async def test_alert_crud_limit_and_week_count(world: Alerts) -> None:
     ids = await world.ids()
     ana = await world.user("Ana")
@@ -179,6 +180,13 @@ async def test_alert_crud_limit_and_week_count(world: Alerts) -> None:
     assert radius.json()["criteria"]["min_budget"] is None  # условия — целиком
 
     stranger = await world.user()
+    # чужой ресурс (8.4): чужую подписку не изменить и не удалить
+    foreign_patch = await world.app.client.patch(
+        f"{API}/me/job-alerts/{body['id']}",
+        json={"is_active": True},
+        headers=world.headers(stranger),
+    )
+    assert (foreign_patch.status_code, foreign_patch.json()["code"]) == (404, "job_alert_not_found")
     foreign = await world.app.client.delete(
         f"{API}/me/job-alerts/{body['id']}", headers=world.headers(stranger)
     )

@@ -19,6 +19,7 @@ export interface ProblemOut {
   trace_id: string | null;
   restriction?: string | null;
   until?: string | null;
+  reason?: string | null;
   platform?: string | null;
   min_version?: string | null;
   documents?: string[] | null;

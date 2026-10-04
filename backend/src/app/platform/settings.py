@@ -13,10 +13,11 @@ import os
 import re
 from datetime import date
 from enum import StrEnum
+from ipaddress import IPv4Network, IPv6Network, ip_network
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field, SecretStr, ValidationError, field_validator
+from pydantic import Field, IPvAnyNetwork, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
@@ -24,6 +25,50 @@ ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
 _TELEGRAM_USERNAME = re.compile(r"[A-Za-z][A-Za-z0-9_]{4,31}")
 """Имя пользователя Telegram: 5–32 символа, начинается с буквы."""
+
+PRIVATE_NETWORKS: tuple[IPv4Network | IPv6Network, ...] = tuple(
+    ip_network(cidr)
+    for cidr in (
+        "127.0.0.0/8",
+        "::1/128",
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "fc00::/7",
+    )
+)
+"""Loopback и частные сети: сеть контейнеров Kamal и private network Hetzner. Снаружи из них
+не подключиться — web не опубликован, наружу смотрит только kamal-proxy."""
+
+CLOUDFLARE_IPS: tuple[IPv4Network | IPv6Network, ...] = tuple(
+    ip_network(cidr)
+    for cidr in (
+        "173.245.48.0/20",
+        "103.21.244.0/22",
+        "103.22.200.0/22",
+        "103.31.4.0/22",
+        "141.101.64.0/18",
+        "108.162.192.0/18",
+        "190.93.240.0/20",
+        "188.114.96.0/20",
+        "197.234.240.0/22",
+        "198.41.128.0/17",
+        "162.158.0.0/15",
+        "104.16.0.0/13",
+        "104.24.0.0/14",
+        "172.64.0.0/13",
+        "131.0.72.0/22",
+        "2400:cb00::/32",
+        "2606:4700::/32",
+        "2803:f800::/32",
+        "2405:b500::/32",
+        "2405:8100::/32",
+        "2a06:98c0::/29",
+        "2c0f:f248::/32",
+    )
+)
+"""Диапазоны края Cloudflare (cloudflare.com/ips-v4, ips-v6, сверено 2026-10). Меняются
+редко; новые — через APP_CLOUDFLARE_IPS без релиза. Тот же список — в firewall origin (8.4)."""
 
 
 class Environment(StrEnum):
@@ -62,6 +107,13 @@ class AppSettings(_Group):
     web_host: str = "127.0.0.1"
     """Адрес uvicorn: локально — только loopback; в контейнере — 0.0.0.0 (за kamal-proxy)."""
     web_port: int = Field(default=8000, ge=1, le=65535)
+    trusted_proxies: list[IPvAnyNetwork] = Field(default_factory=lambda: list(PRIVATE_NETWORKS))
+    """Свои обратные прокси (kamal-proxy в сети Docker, cloudflared на loopback): только от
+    них web принимает X-Forwarded-For и X-Forwarded-Proto (ARCHITECTURE §13.3, шаг 8.4).
+    JSON-список CIDR; по умолчанию — loopback и частные сети."""
+    cloudflare_ips: list[IPvAnyNetwork] = Field(default_factory=lambda: list(CLOUDFLARE_IPS))
+    """Адреса края Cloudflare (https://www.cloudflare.com/ips/): если к нашему прокси
+    подключился край, адрес клиента берётся из CF-Connecting-IP. JSON-список CIDR."""
     api_public_url: str = "http://127.0.0.1:8000"
     """Публичный адрес API: из него строится `type` ошибок RFC 9457."""
     min_client_versions: dict[str, str] = Field(default_factory=dict)
@@ -112,8 +164,16 @@ class TelegramSettings(_Group):
     support_username: str | None = None
     """Аккаунт поддержки для /help (K23, Q25), без `@`; пусто — «контакт появится скоро»."""
     moderators_chat_id: int | None = None
-    """Закрытый чат модераторов с ботом (K29, 2.5b): сюда же — алерт падения response rate@4h
-    (6.6). Пусто — алерт только в лог и Sentry."""
+    """Закрытый чат модераторов (K29, 2.5b): туда бот присылает карточки кейсов и алерт падения
+    response rate@4h (6.6). Id группы — отрицательный (`-100…`); пусто — карточек нет, кейсы решают
+    командами `cli`, алерт уходит в лог и Sentry."""
+
+    @field_validator("moderators_chat_id", mode="before")
+    @classmethod
+    def _moderators_chat_id(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     @field_validator("support_username")
     @classmethod

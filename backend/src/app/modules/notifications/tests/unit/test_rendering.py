@@ -160,6 +160,29 @@ def test_bot_message_is_escaped_html_with_a_mini_app_button(
     assert parse_start_param("l_terms") is not None
 
 
+def test_appeal_outcome_on_three_scripts(renderer: GettextNotificationRenderer) -> None:
+    """Итог апелляции (2.5b) — тот же тип `moderation.decision`: санкция снята или решение в
+    силе с причиной; кнопка — открыть приложение, а не «Исправить»."""
+    granted = {"entity_type": "appeal", "appeal": "granted", "decision_code": "other"}
+    denied = {"entity_type": "appeal", "appeal": "denied", "decision_code": "decision_upheld"}
+
+    assert full_text(renderer, DECISION, granted, Locale.RU) == (
+        "Апелляция удовлетворена\n"
+        "Модератор пересмотрел решение: ограничение снято. Спасибо, что написали."
+    )
+    assert full_text(renderer, DECISION, denied, Locale.RU) == (
+        "Решение осталось в силе\n"
+        "Модератор пересмотрел решение и оставил его: нарушение подтвердилось. Это окончательный"
+        " ответ."
+    )
+    assert full_text(renderer, DECISION, denied, Locale.SR_LATN).startswith(
+        "Odluka ostaje na snazi\n"
+    )
+    _, [button] = renderer.telegram(DECISION, granted, "home", Locale.RU)
+    assert isinstance(button, AppButton)
+    assert button.text == "Открыть «Соседи»"
+
+
 def test_text_is_escaped_so_only_the_title_is_markup() -> None:
     translator = Translator(
         {

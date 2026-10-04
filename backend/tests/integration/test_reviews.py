@@ -215,6 +215,7 @@ async def test_window_closes_fourteen_days_after_completion(chat: Chat) -> None:
     assert (await card(chat, client, deal_id))["review_until"] is None
 
 
+@pytest.mark.authz
 async def test_specialist_replies_once_and_the_reply_shows_after_its_check(
     chat: Chat, worker: AsyncContainer
 ) -> None:

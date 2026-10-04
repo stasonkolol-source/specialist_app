@@ -68,6 +68,7 @@ markers = [
     "unit: чистые тесты без I/O",
     "integration: тесты на настоящем PostgreSQL / Valkey / Garage (testcontainers)",
     "bench: бенчмарки, вручную",
+    "authz: «чужой ресурс» — другой пользователь получает 404/403 (8.4, `pytest -m authz`)",
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"

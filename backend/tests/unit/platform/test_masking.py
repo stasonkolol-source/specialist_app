@@ -8,6 +8,7 @@ import structlog
 
 from app.platform.observability.logging import configure_logging
 from app.platform.observability.masking import MASK, mask_string, mask_value
+from app.platform.observability.sentry import _scrub
 from app.platform.settings import AppSettings
 
 pytestmark = pytest.mark.unit
@@ -100,3 +101,27 @@ def test_ai_sdk_loggers_never_log_request_bodies() -> None:
         for name in ("anthropic", "httpx2"):
             logging.getLogger(name).setLevel(logging.NOTSET)
         logging.getLogger().setLevel(logging.WARNING)
+
+
+def test_sentry_event_hides_secrets_and_client_addresses() -> None:
+    # событие Sentry с заголовками запроса: секрет webhook бота, initData, адреса клиента (8.4)
+    event = {
+        "request": {
+            "url": "https://api.example.test/api/v1/auth/telegram",
+            "headers": {
+                "Authorization": "tma query_id=AAH&user=%7B%7D&auth_date=1727400000&hash=ab12",
+                "X-Telegram-Bot-Api-Secret-Token": "webhook-secret-value",
+                "CF-Connecting-IP": "93.87.12.34",
+                "X-Forwarded-For": "93.87.12.34, 162.158.90.17",
+                "X-Request-ID": "req-1",
+            },
+            "data": {"refresh_token": "r1", "text": "мой номер +381641234567"},
+        },
+        "extra": {"email": "a@example.test", "webhook_secret": "s"},
+    }
+    scrubbed = _scrub(event, None)
+    dumped = json.dumps(scrubbed, ensure_ascii=False)
+    for secret in ("webhook-secret-value", "93.87.12.34", "hash=ab12", "r1", "+381641234567"):
+        assert secret not in dumped
+    assert "a@example.test" not in dumped
+    assert scrubbed["request"]["headers"]["X-Request-ID"] == "req-1"

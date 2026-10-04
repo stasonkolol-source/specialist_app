@@ -11,6 +11,8 @@ notifications стоит над контентными модулями (ARCHITE
 - `notifications.notify_moderation_decision` — ModerationDecisionMade: автору — отказ
   (statement of reasons: причина, предупреждение, автоматически ли) и кнопка «Исправить» к
   его контенту; одобрение без уведомления.
+- `notifications.notify_appeal_decided` — AppealDecided: итог апелляции тем же типом
+  `moderation.decision` — санкция снята или решение осталось в силе и почему (2.5b).
 - `notifications.notify_job_expiring` — JobExpiring: «Заявка закроется через 2 ч» с кнопками
   «Продлить» и «Закрыть: исполнитель найден»; позже срока заявки в бот не уходит.
 - `notifications.notify_job_expired` — JobExpired: «Срок заявки вышел», «Продлить» и
@@ -81,6 +83,7 @@ from app.modules.notifications.application.ports import (
     FORGET_RECIPIENT,
     GRANT_WRITE_ACCESS,
     NOTIFY_ACCOUNT_RESTRICTED,
+    NOTIFY_APPEAL_DECIDED,
     NOTIFY_DEAL_CANCELLED,
     NOTIFY_DEAL_COMPLETION,
     NOTIFY_DEAL_MARKED,
@@ -173,7 +176,11 @@ from app.platform.contracts.events.jobs import (
     ResponseSubmitted,
 )
 from app.platform.contracts.events.messaging import MessageSent
-from app.platform.contracts.events.moderation import ModerationDecision, ModerationDecisionMade
+from app.platform.contracts.events.moderation import (
+    AppealDecided,
+    ModerationDecision,
+    ModerationDecisionMade,
+)
 from app.platform.contracts.events.reviews import ReviewPublished, ReviewRequested
 from app.platform.contracts.events.specialists import ProfilePublished, ProfileStale
 from app.platform.contracts.notices import (
@@ -272,6 +279,24 @@ async def notify_moderation_decision(
                 **({"sanction": event.sanction} if event.sanction else {}),
             },
             link=link,
+        )
+    )
+
+
+@subscriber(AppealDecided, NOTIFY_APPEAL_DECIDED)
+async def notify_appeal_decided(event: AppealDecided, notify: FromDishka[Notify]) -> None:
+    await notify(
+        NotifyCommand(
+            user_id=event.user_id,
+            type=NotificationType.MODERATION_DECISION,
+            dedupe_key=f"moderation.decision:{event.case_id}",
+            params={
+                "entity_type": "appeal",
+                "appeal": "granted" if event.granted else "denied",
+                "decision_code": event.decision_code or "other",
+                "automated": "false",
+            },
+            link=HOME_LINK,
         )
     )
 

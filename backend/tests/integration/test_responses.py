@@ -240,6 +240,7 @@ async def auto_check(worker: AsyncContainer, performer: UserId, response_id: str
     return routing
 
 
+@pytest.mark.authz
 async def test_clean_response_is_shown_to_the_owner_after_the_check(
     world: World, worker: AsyncContainer
 ) -> None:
@@ -305,6 +306,7 @@ async def test_response_with_contacts_waits_for_a_moderator(
     assert await world.owner_list(client, job_id) == []
 
 
+@pytest.mark.authz
 async def test_responding_refuses_own_full_closed_and_repeated(world: World) -> None:
     client, performer = await world.user(), await world.user()
     job_id = await world.job(client, max_responses=1)
@@ -351,6 +353,7 @@ async def test_ten_parallel_responses_take_exactly_five_places(world: World) -> 
     assert stored == 5
 
 
+@pytest.mark.authz
 async def test_revising_and_withdrawing_bump_the_job_version(world: World) -> None:
     client, performer = await world.user(), await world.user()
     job_id = await world.job(client)
@@ -525,6 +528,7 @@ async def test_three_responses_in_a_window_make_one_notice(
     assert notices[0][1].startswith("j_")
 
 
+@pytest.mark.authz
 async def test_templates_are_two_at_most_and_the_first_is_primary(world: World) -> None:
     performer, stranger = await world.user(), await world.user()
     first = await world.template(performer, "Могу сегодня")
