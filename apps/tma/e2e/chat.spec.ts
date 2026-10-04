@@ -4,8 +4,10 @@
 // контакта с подсказкой «контакты откроются после договорённости», «Договорились» в шапке; тёмная
 // тема — эталон D30. S53 — исполнитель по ссылке `d_` из бота видит «… предлагает договориться»,
 // условия и срок 72 ч и подтверждает. S54 — после договорённости шторка «Поделиться контактом»
-// в шапке диалога. S24 — SecondaryButton «Написать» открывает диалог по отклику. Скриншоты × тема
-// × язык, axe-core; имена скриншотов начинаются с кода артборда.
+// в шапке диалога. S30 после завершённой сделки — «Договориться снова» в шапке (условия — из
+// прошлой сделки), «Прошлая сделка» и «Поделиться контактом» в полосе сделки. S24 —
+// SecondaryButton «Написать» открывает диалог по отклику. Скриншоты × тема × язык, axe-core; имена
+// скриншотов начинаются с кода артборда.
 import { encodeStartParam } from '@sosed/links';
 import { expect, test } from '@playwright/test';
 
@@ -33,6 +35,10 @@ const LOCALES = [
     expires: /^Если не ответить за 72 часа, договорённость отменится/,
     share: 'Поделиться контактом',
     username: 'Имя пользователя Telegram',
+    again: 'Договориться снова',
+    past: 'Прошлая сделка «Повесить люстру»',
+    terms: 'Договорились?',
+    what: 'Что делаем',
   },
   {
     locale: 'sr-Latn',
@@ -47,6 +53,10 @@ const LOCALES = [
     expires: /^Ako ne odgovorite za 72 sata, dogovor će biti otkazan/,
     share: 'Podelite kontakt',
     username: 'Korisničko ime u Telegram-u',
+    again: 'Novi dogovor',
+    past: 'Prethodni dogovor „Повесить люстру“',
+    terms: 'Dogovoreno?',
+    what: 'Šta radimo',
   },
 ] as const;
 
@@ -149,6 +159,47 @@ for (const theme of THEMES) {
       // шторка закреплена на экране: снимок экрана, как артборд 390×844, а не всей страницы
       await expect(page).toHaveScreenshot(`S54-share-contact-${theme}-${l.locale}.png`);
       await expectNoAxeViolations(page, { include: '[role="dialog"]' });
+    });
+  }
+}
+
+for (const theme of THEMES) {
+  for (const l of LOCALES) {
+    test(`S30 ${theme} ${l.locale}: после завершённой сделки — договориться снова`, async ({
+      page,
+    }) => {
+      await page.clock.setFixedTime(new Date(E2E_NOW));
+      const chat = new ChatBackend().seed().pastDeal(CONVERSATION_IDS.direct, 'completed');
+      const start = encodeStartParam({ type: 'chat', id: CONVERSATION_IDS.direct });
+      const watch = await open(page, `theme=${theme}&lang=${l.telegram}&start=${start}`, {
+        signedIn: true,
+        me: { ...ME, ui_locale: l.locale },
+        chat,
+      });
+
+      // шапка при 360 px: имя, «Договориться снова» и «⋯»; Telegram второй стороны и «Поделиться
+      // контактом» — в полосе прошлой сделки. <header> внутри main — не landmark: ищем по заголовку
+      const header = page
+        .locator('header')
+        .filter({ has: page.getByRole('heading', { name: 'Алексей Морозов', level: 1 }) });
+      await expect(header.getByRole('button', { name: l.again })).toBeVisible();
+      await expect(header.getByRole('button', { name: l.share })).toHaveCount(0);
+      await expect(page.getByText(l.past)).toBeVisible();
+      await expect(page.getByRole('main').getByRole('button', { name: l.share })).toBeVisible();
+      await expect(header.getByRole('button', { name: /Telegram/ })).toHaveCount(0);
+      await expect(
+        page.getByRole('main').getByRole('button', { name: 'Telegram: @aleksey_m' }),
+      ).toBeVisible();
+      await expect(page.getByText(l.masked)).toBeInViewport();
+      expect(real(watch.problems)).toEqual([]);
+      expect(watch.unexpectedApi).toEqual([]);
+      await expect(page).toHaveScreenshot(`S30-chat-again-${theme}-${l.locale}.png`);
+      await expectNoAxeViolations(page);
+
+      // та же шторка условий: «что делаем» — из прошлой сделки
+      await header.getByRole('button', { name: l.again }).click();
+      const sheet = page.getByRole('dialog', { name: l.terms });
+      await expect(sheet.getByRole('textbox', { name: l.what })).toHaveValue('Повесить люстру');
     });
   }
 }
