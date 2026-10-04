@@ -4,8 +4,8 @@
 // `client_msg_id` — то же сообщение; до договорённости телефон — «•••»), POST …/read, POST …/deal
 // (сделка `proposed`; пока идёт прежняя — 409 `deal_in_progress`, после завершения или отмены —
 // снова можно), POST …/share-contact (после договорённости, 6.5) и GET /me/badges. Контакты открыты,
-// как у сервера (`contacts_open`): сделка диалога договорена, под спором или завершена — или стороны
-// уже договаривались в этом диалоге (ADR-0010, 2026-10-04). «Собеседник пишет» — `incoming`;
+// как у сервера (`contacts_open`): сделка диалога договорена, под спором или завершена — или эта пара
+// (я и собеседник) уже договаривалась, в любом диалоге (ADR-0010, 2026-10-04). «Собеседник пишет» — `incoming`;
 // `pastDeal` — договорённость диалога позади; `failNext` — следующая отправка падает ошибкой (ключ
 // не занимается: повтор выполнится заново). Время — от NOW.
 // Блокировки (4.7) — у фейка `safety`: с заблокированным писать нельзя (409 `blocked`).
@@ -52,12 +52,12 @@ interface Dialog {
   messages: MessageOut[];
   /** Прочитано мной до этого id. */
   readUpTo: string | null;
-  /** Стороны уже договаривались в этом диалоге: контакты открыты при любой следующей сделке. */
+  /** В этом диалоге уже договаривались: контакты пары открыты при любой следующей сделке. */
   agreedBefore?: boolean;
 }
 
-/** Открыты ли контакты диалога — правило сервера (messaging/application/contacts.py). */
-function contactsOpen(dialog: Dialog): boolean {
+/** Договорились в этом диалоге — сейчас или раньше. */
+function agreedHere(dialog: Dialog): boolean {
   return OPEN.has(dialog.conversation.deal?.status ?? '') || dialog.agreedBefore === true;
 }
 
@@ -205,6 +205,15 @@ export class ChatBackend {
     return item;
   }
 
+  /** Открыты ли контакты — правило сервера (messaging/application/contacts.py): эта пара
+   *  договаривалась в этом диалоге или в любом другом. */
+  contactsOpen(dialog: Dialog): boolean {
+    const other = dialog.conversation.counterpart_id;
+    return [...this.dialogs.values()].some(
+      (item) => item.conversation.counterpart_id === other && agreedHere(item),
+    );
+  }
+
   unread(dialog: Dialog): number {
     return dialog.messages.filter(
       (item) =>
@@ -219,7 +228,7 @@ export class ChatBackend {
     const side = this.safety?.side(dialog.conversation.counterpart_id) ?? null;
     return {
       ...dialog.conversation,
-      contacts_open: contactsOpen(dialog),
+      contacts_open: this.contactsOpen(dialog),
       last_message: dialog.messages.at(-1) ?? null,
       unread: this.unread(dialog),
       last_message_at: dialog.messages.at(-1)?.created_at ?? null,
@@ -339,7 +348,7 @@ export class ChatBackend {
     );
     if (repeated) return { status: 201, body: repeated };
     this.sent.push(input);
-    const masked = contactsOpen(dialog) ? input.body : input.body.replace(PHONE, MASK);
+    const masked = this.contactsOpen(dialog) ? input.body : input.body.replace(PHONE, MASK);
     const item = message(ME.id, masked, Date.now(), {
       masked: masked !== input.body,
       client_msg_id: input.client_msg_id ?? null,
@@ -348,9 +357,11 @@ export class ChatBackend {
     return { status: 201, body: item };
   }
 
-  /** «Поделиться контактом» (S54): только после договорённости; контакт — сообщением. */
+  /** «Поделиться контактом» (S54): после договорённости и по сделке диалога; контакт — сообщением. */
   private shareContact(dialog: Dialog, input: ContactShareIn): BackendReply {
-    if (!contactsOpen(dialog)) return problem(409, 'contacts_locked');
+    if (!dialog.conversation.deal || !this.contactsOpen(dialog)) {
+      return problem(409, 'contacts_locked');
+    }
     this.shares.push(input);
     const value = input.contact_type === 'telegram' ? '@elena_k' : '+381641234567';
     const item = message(ME.id, null, Date.now(), {

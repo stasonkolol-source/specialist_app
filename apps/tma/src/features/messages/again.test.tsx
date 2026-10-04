@@ -3,9 +3,9 @@
 // отменена в прямом диалоге — «Договориться снова» (шторка условий, «что делаем» — из прошлой
 // сделки), а «Поделиться контактом», пока контакты открыты, — в полосе «Прошлая сделка». Клиенту
 // в диалоге по отклику после завершённой — «Заказать снова»: прямой диалог с этим специалистом.
-// Контакты открыты по `contacts_open` сервера: договорились однажды — открыты и пока новое
-// предложение ждёт ответа, и после отмены (ADR-0010, 2026-10-04); отклонённое предложение их не
-// открывало.
+// Контакты открыты по `contacts_open` сервера: пара договорилась однажды — открыты и пока новое
+// предложение ждёт ответа, и после отмены, и в другом диалоге с тем же мастером (ADR-0010,
+// 2026-10-04); отклонённое предложение их не открывало.
 import type { ConversationDealOut } from '@sosed/api-client';
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
@@ -141,6 +141,25 @@ describe('S30 header by the deal', () => {
     expect(within(header).queryByRole('button', { name: /Telegram/ })).toBeNull();
     expect(screen.getByRole('button', { name: 'Telegram: @aleksey_m' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Поделиться контактом' })).toBeTruthy();
+  });
+
+  it('shows the Telegram of a specialist they already agreed with in a new chat', async () => {
+    const chat = withChats();
+    const direct = chat.dialogs.get(CONVERSATION_IDS.direct);
+    const job = chat.dialogs.get(CONVERSATION_IDS.job);
+    if (!direct || !job) throw new Error('fixtures');
+    // тот же мастер: по отклику договорились, прямой диалог с ним — без сделки
+    job.conversation = { ...job.conversation, counterpart_id: direct.conversation.counterpart_id };
+    chat.pastDeal(CONVERSATION_IDS.job, 'completed');
+    direct.conversation = { ...direct.conversation, counterpart_telegram: '@aleksey_m' };
+    startApp(`/messages/${CONVERSATION_IDS.direct}`);
+
+    const header = await directHeader();
+    expect(within(header).getByText('Ещё не договорились')).toBeTruthy();
+    expect(within(header).getByRole('button', { name: 'Договорились' })).toBeTruthy();
+    expect(within(header).getByRole('button', { name: 'Telegram: @aleksey_m' })).toBeTruthy();
+    // делиться пока не по чему: сделки в этом диалоге нет
+    expect(screen.queryByRole('button', { name: 'Поделиться контактом' })).toBeNull();
   });
 
   it('agrees again after a declined proposal with the contacts still closed', async () => {
