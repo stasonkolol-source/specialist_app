@@ -6,7 +6,13 @@ from datetime import datetime
 from typing import Final, Protocol
 
 from app.modules.identity.api import BlockedUser, BlockSide, TelegramUserView, UserSummary
-from app.modules.identity.application.dto import LoginState, MeState, MeView
+from app.modules.identity.application.dto import (
+    LoginState,
+    MeState,
+    MeView,
+    PersonalData,
+    StaffUserCard,
+)
 from app.modules.identity.domain.consent import Consent, ConsentDocument
 from app.modules.identity.domain.deletion import DeletionRequest, HashKind
 from app.modules.identity.domain.restriction import Restriction, RestrictionSource
@@ -235,9 +241,11 @@ class RestrictionRepository(Protocol):
         санкцию). Нужен активный UoW."""
         ...
 
-    async def lift(self, restriction_id: RestrictionId, *, now: datetime) -> UserId | None:
-        """Снять одну неснятую санкцию (админка, 2.7b): чья она; None — нет такой или уже
-        снята. Нужен активный UoW."""
+    async def lift(
+        self, restriction_id: RestrictionId, *, now: datetime, user_id: UserId | None = None
+    ) -> UserId | None:
+        """Снять одну неснятую санкцию (админка, 2.7b): чья она; None — нет такой, уже снята
+        или (с `user_id`) не этого пользователя. Нужен активный UoW."""
         ...
 
 
@@ -297,6 +305,14 @@ class IdentityQuery(Protocol):
 
     async def completed_deals(self, user_id: UserId) -> int:
         """Сколько сделок пользователь завершил стороной — уровень доверия 2 (6.1a)."""
+        ...
+
+    async def staff_card(self, user_id: UserId, now: datetime) -> StaffUserCard | None:
+        """Карточка персоналу (Admin API) без ПД, и удалённого тоже; None — нет такого."""
+        ...
+
+    async def personal_data(self, user_id: UserId) -> PersonalData | None:
+        """ПД для карточки персонала: читать только вместе с записью о просмотре в аудит."""
         ...
 
 

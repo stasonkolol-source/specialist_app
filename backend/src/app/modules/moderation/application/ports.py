@@ -6,7 +6,15 @@ from datetime import date, datetime, timedelta
 from typing import Final, Protocol
 from uuid import UUID
 
-from app.modules.moderation.application.dto import ImportRulesResult, OpenCaseView, QueueSla
+from app.modules.moderation.application.dto import (
+    CaseFilter,
+    ImportRulesResult,
+    OpenCaseView,
+    QueueSla,
+    ReportFilter,
+    StaffCaseView,
+    StaffReportView,
+)
 from app.modules.moderation.domain.cases import Case, EntityType
 from app.modules.moderation.domain.pipeline import Route
 from app.modules.moderation.domain.reports import Report, ReportStatus
@@ -24,6 +32,7 @@ from app.platform.contracts.events.identity import UserRegistered
 from app.platform.contracts.events.media import MediaReady
 from app.platform.contracts.events.moderation import CaseOpened, ModerationRequested
 from app.platform.kernel.ids import CaseId, MediaId, UserId
+from app.platform.kernel.pagination import Page, PageRequest
 from app.platform.queue.port import TaskRef
 
 
@@ -244,6 +253,22 @@ class CaseQueue(Protocol):
     async def open_cases(self, *, limit: int) -> list[OpenCaseView]:
         """Открытые кейсы по сроку: сначала те, у которых срок ближе."""
         ...
+
+
+class StaffCaseQuery(Protocol):
+    """Кейсы и жалобы для Admin API (2.7b): только чтение, keyset-курсоры."""
+
+    async def cases(self, query: CaseFilter, page: PageRequest) -> Page[StaffCaseView]:
+        """InvalidCursorError — курсор битый или от другого порядка."""
+        ...
+
+    async def case(self, case_id: CaseId) -> StaffCaseView | None: ...
+
+    async def reports(self, query: ReportFilter, page: PageRequest) -> Page[StaffReportView]:
+        """Новые первыми. InvalidCursorError — курсор битый."""
+        ...
+
+    async def report(self, report_id: UUID) -> StaffReportView | None: ...
 
 
 AUTO_CHECK: Final = TaskRef("moderation.auto_check", ModerationRequested)

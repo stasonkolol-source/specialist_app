@@ -60,16 +60,20 @@ PROBLEM_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 
-def install_openapi(app: FastAPI) -> None:
-    """Схема приложения: `default`-ответы переводятся на application/problem+json."""
+def install_openapi(
+    app: FastAPI, *, title: str = API_TITLE, servers: list[dict[str, str]] | None = None
+) -> None:
+    """Схема приложения: `default`-ответы переводятся на application/problem+json. `title` и
+    `servers` — у схемы Admin API (admin-openapi.json, её пути — от `/admin/api/v1`)."""
 
     def openapi() -> dict[str, Any]:
         if app.openapi_schema is None:
             spec = get_openapi(
-                title=API_TITLE,
+                title=title,
                 version=API_VERSION,
                 openapi_version=app.openapi_version,
                 routes=app.routes,
+                servers=servers,
             )
             app.openapi_schema = _problem_json(spec)
         return app.openapi_schema

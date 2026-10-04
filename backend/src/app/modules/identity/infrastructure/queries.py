@@ -18,7 +18,14 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import aggregate_order_by
 
 from app.modules.identity.api import BlockSide, TelegramUserView, UserSummary
-from app.modules.identity.application.dto import LoginState, MeState, MeView
+from app.modules.identity.application.dto import (
+    LoginState,
+    MeState,
+    MeView,
+    PersonalData,
+    RestrictionRecord,
+    StaffUserCard,
+)
 from app.modules.identity.domain.consent import Consent, ConsentDocument
 from app.modules.identity.domain.restriction import Restriction, RestrictionKind
 from app.modules.identity.domain.user import AuthProvider, Privacy, UserStatus
@@ -28,12 +35,13 @@ from app.modules.identity.infrastructure.models import (
     ConsentRow,
     DeletionRequestRow,
     RestrictionRow,
+    SessionRow,
     UserBlockRow,
     UserRoleRow,
     UserRow,
 )
 from app.platform.db.query import SqlQuery
-from app.platform.kernel.ids import CityId, UserId
+from app.platform.kernel.ids import CaseId, CityId, RestrictionId, UserId
 from app.platform.kernel.principal import Role
 
 
@@ -174,6 +182,107 @@ class SqlIdentityQuery(SqlQuery):
             select(func.count().label("count")).where(CompletedDealRow.user_id == user_id)
         )
         return int(row["count"]) if row is not None else 0
+
+    async def staff_card(self, user_id: UserId, now: datetime) -> StaffUserCard | None:
+        u, i = UserRow.__table__.c, AuthIdentityRow.__table__.c
+        s, d = SessionRow.__table__.c, CompletedDealRow.__table__.c
+        row = await self._fetch_one(
+            select(
+                u.id,
+                u.status,
+                u.trust_level,
+                u.ui_locale,
+                u.home_city_id,
+                u.intent,
+                u.phone_verified_at,
+                u.created_at,
+                u.last_seen_at,
+                u.deleted_at,
+                u.trust_penalty_at,
+                select(func.max(i.last_login_at))
+                .where(i.user_id == u.id)
+                .scalar_subquery()
+                .label("last_login_at"),
+                select(func.count())
+                .where(s.user_id == u.id, s.revoked_at.is_(None), s.expires_at > now)
+                .scalar_subquery()
+                .label("active_sessions"),
+                select(func.count()).where(d.user_id == u.id).scalar_subquery().label("deals"),
+            ).where(u.id == user_id)
+        )
+        if row is None:
+            return None
+        r = RestrictionRow.__table__.c
+        restrictions = await self._fetch(
+            select(
+                r.id,
+                r.kind,
+                r.reason_code,
+                r.source,
+                r.case_id,
+                r.starts_at,
+                r.ends_at,
+                r.lifted_at,
+                r.created_by,
+            )
+            .where(r.user_id == user_id)
+            .order_by(r.starts_at.desc(), r.id.desc())
+        )
+        return StaffUserCard(
+            id=UserId(row["id"]),
+            status=row["status"],
+            trust_level=row["trust_level"],
+            ui_locale=row["ui_locale"],
+            home_city_id=CityId(row["home_city_id"]) if row["home_city_id"] is not None else None,
+            intent=row["intent"],
+            phone_verified=row["phone_verified_at"] is not None,
+            roles=await self.roles(user_id),
+            created_at=row["created_at"],
+            last_seen_at=row["last_seen_at"],
+            last_login_at=row["last_login_at"],
+            deleted_at=row["deleted_at"],
+            trust_penalty_at=row["trust_penalty_at"],
+            completed_deals=int(row["deals"] or 0),
+            active_sessions=int(row["active_sessions"] or 0),
+            restrictions=tuple(
+                RestrictionRecord(
+                    id=RestrictionId(item["id"]),
+                    kind=item["kind"],
+                    reason_code=item["reason_code"],
+                    source=item["source"],
+                    case_id=CaseId(item["case_id"]) if item["case_id"] is not None else None,
+                    starts_at=item["starts_at"],
+                    ends_at=item["ends_at"],
+                    lifted_at=item["lifted_at"],
+                    created_by=UserId(item["created_by"]) if item["created_by"] else None,
+                )
+                for item in restrictions
+            ),
+        )
+
+    async def personal_data(self, user_id: UserId) -> PersonalData | None:
+        u, i = UserRow.__table__.c, AuthIdentityRow.__table__.c
+        row = await self._fetch_one(select(u.display_name, u.phone_e164).where(u.id == user_id))
+        if row is None:
+            return None
+        telegram = await self._fetch_one(
+            select(i.subject, i.profile)
+            .where(i.user_id == user_id, i.provider == AuthProvider.TELEGRAM)
+            .order_by(i.created_at)
+            .limit(1)
+        )
+        profile: Mapping[str, Any] = (telegram["profile"] or {}) if telegram is not None else {}
+        name = " ".join(
+            str(part) for part in (profile.get("first_name"), profile.get("last_name")) if part
+        )
+        username = profile.get("username")
+        return PersonalData(
+            display_name=row["display_name"],
+            phone_e164=row["phone_e164"],
+            telegram_id=int(telegram["subject"]) if telegram is not None else None,
+            telegram_username=str(username) if username else None,
+            telegram_name=name or None,
+        )
 
     async def active_restrictions(
         self, user_ids: Collection[UserId], now: datetime

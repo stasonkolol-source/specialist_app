@@ -343,7 +343,9 @@ class SqlRestrictionRepository:
         )
         return [UserId(user_id) for user_id in (await self._session.execute(stmt)).scalars()]
 
-    async def lift(self, restriction_id: RestrictionId, *, now: datetime) -> UserId | None:
+    async def lift(
+        self, restriction_id: RestrictionId, *, now: datetime, user_id: UserId | None = None
+    ) -> UserId | None:
         self._uow.require_active()
         stmt = (
             update(RestrictionRow)
@@ -351,8 +353,10 @@ class SqlRestrictionRepository:
             .values(lifted_at=now)
             .returning(RestrictionRow.user_id)
         )
-        user_id = (await self._session.execute(stmt)).scalar_one_or_none()
-        return None if user_id is None else UserId(user_id)
+        if user_id is not None:
+            stmt = stmt.where(RestrictionRow.user_id == user_id)
+        owner = (await self._session.execute(stmt)).scalar_one_or_none()
+        return None if owner is None else UserId(owner)
 
 
 class SqlRoleRepository:

@@ -7,8 +7,9 @@ from uuid import UUID
 
 from app.modules.deals.api import DealBrief, DisputeSummary
 from app.modules.media.api import MediaRef
-from app.modules.moderation.domain.cases import CaseStatus
+from app.modules.moderation.domain.cases import CaseStatus, CaseTrigger, EntityType
 from app.modules.moderation.domain.queues import Queue
+from app.modules.moderation.domain.reports import ReportReason, ReportStatus
 from app.modules.moderation.domain.sanctions import SanctionStep
 from app.platform.ai.port import ContentKind
 from app.platform.kernel.ids import CaseId, MediaId, RestrictionId, UserId
@@ -92,3 +93,69 @@ class DisputeDossier:
     deal: DealBrief | None
     photos: Mapping[MediaId, MediaRef]
     """Фото по id: адреса — presigned GET приватного бакета на 5 минут."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CaseFilter:
+    """Очередь кейсов в Admin API (2.7b): пустые фильтры — без ограничения."""
+
+    queues: tuple[Queue, ...] = ()
+    statuses: tuple[CaseStatus, ...] = ()
+    entity_type: EntityType | None = None
+    subject_id: UserId | None = None
+    """Кейсы о пользователе — история модерации в его карточке."""
+    assigned_to: UserId | None = None
+    recent_first: bool = False
+    """False — по сроку (SLA: ближний первым), True — новые первыми (история)."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StaffCaseView:
+    """Кейс персоналу (Admin API): поводы и доказательства как есть, кто взял и кто решил."""
+
+    id: CaseId
+    queue: Queue
+    entity_type: EntityType
+    entity_id: UUID
+    subject_id: UserId
+    trigger: CaseTrigger
+    status: CaseStatus
+    opened_at: datetime
+    due_at: datetime
+    evidence: tuple[Mapping[str, object], ...]
+    media_ids: tuple[MediaId, ...]
+    appeal_of: CaseId | None
+    assigned_to: UserId | None
+    decided_by: UserId | None
+    reason_code: str | None
+    policy_version: str | None
+    decided_at: datetime | None
+    notes: str | None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ReportFilter:
+    statuses: tuple[ReportStatus, ...] = ()
+    target_type: EntityType | None = None
+    target_id: UUID | None = None
+    case_id: CaseId | None = None
+    reporter_id: UserId | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StaffReportView:
+    """Жалоба персоналу (Admin API), новые первыми."""
+
+    id: UUID
+    reporter_id: UserId
+    target_type: EntityType
+    target_id: UUID
+    reason: ReportReason
+    comment: str | None
+    is_legal_notice: bool
+    case_id: CaseId | None
+    status: ReportStatus
+    resolution: str | None
+    resolved_by: UserId | None
+    resolved_at: datetime | None
+    created_at: datetime
