@@ -1,0 +1,4 @@
+# initData пользователей прогона (годен час) и итоги прогонов — не в git
+.users.json
+results/*
+!results/.gitkeep

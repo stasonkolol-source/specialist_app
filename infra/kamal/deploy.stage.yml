@@ -39,6 +39,11 @@ env:
     S3_BUCKET_MEDIA: sosed-stage-media
     S3_BUCKET_PRIVATE: sosed-stage-private
     SENTRY_DSN: '<%= ENV.fetch("SENTRY_DSN", "") %>'
+    # Нагрузочный прогон 8.3 (docs/loadtest/README.md): Variable STAGE_LOADTEST=true только на время
+    # прогона — уведомления идут в фейковый отправитель (тот же лимитер, наружу ничего), access-токен
+    # живёт час (k6 не обновляет токены пула). На проде TELEGRAM_FAKE_SENDER процесс не запустит.
+    TELEGRAM_FAKE_SENDER: '<%= ENV.fetch("STAGE_LOADTEST", "") == "true" %>'
+    JWT_ACCESS_TTL_SECONDS: '<%= ENV.fetch("STAGE_LOADTEST", "") == "true" ? 3600 : 900 %>'
 
 accessories:
   postgres:

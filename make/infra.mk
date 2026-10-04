@@ -24,7 +24,7 @@ tf-check: ## Terraform без ключей и сети: fmt и validate всех
 # Переменные, которые Kamal берёт из окружения: несекретные (адрес VM, домен, владелец образов) и
 # имена секретов stage из infra/kamal/secrets.stage. Значения в команду не попадают: docker run -e ИМЯ
 # передаёт переменную из окружения как есть, а задаёт их владелец (менеджер паролей, Q15) или CI.
-KAMAL_ENV = STAGE_HOST STAGE_DOMAIN GHCR_OWNER R2_ACCOUNT_ID STAGE_BOT_USERNAME SENTRY_DSN APP_RELEASE \
+KAMAL_ENV = STAGE_HOST STAGE_DOMAIN GHCR_OWNER R2_ACCOUNT_ID STAGE_BOT_USERNAME SENTRY_DSN APP_RELEASE STAGE_LOADTEST \
   KAMAL_REGISTRY_USERNAME $(shell sed -n 's/^\([A-Z][A-Z0-9_]*\)=\$$\1$$/\1/p' infra/kamal/secrets.stage 2>/dev/null)
 
 # ssh — через агент Docker Desktop (ssh-add ~/.ssh/id_ed25519 на Маке); образ backend Kamal не
