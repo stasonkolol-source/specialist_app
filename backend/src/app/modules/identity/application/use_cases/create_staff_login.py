@@ -2,7 +2,7 @@
 
 Пароль (вводится в терминале) и новый секрет TOTP — сотруднику с ролью из `identity.user_roles`
 (`cli staff-grant`); повторный вызов заменяет и пароль, и TOTP. Секрет показывается один раз, в
-логи и аудит не попадает. Сам вход — application/staff_auth.py.
+логи и аудит не попадает, в БД ложится зашифрованным (8.4). Сам вход — application/staff_auth.py.
 """
 
 import re
@@ -15,6 +15,7 @@ from app.modules.identity.application.ports import (
     StaffCredential,
     StaffCredentials,
     StaffSecrets,
+    TotpSecretCipher,
     UserRepository,
 )
 from app.modules.identity.domain.user import AuthProvider, UserStatus
@@ -42,10 +43,12 @@ class CreateStaffLogin:
         query: IdentityQuery,
         credentials: StaffCredentials,
         secrets: StaffSecrets,
+        cipher: TotpSecretCipher,
         audit: AuditLog,
     ) -> None:
         self._uow, self._users, self._query = uow, users, query
-        self._credentials, self._secrets, self._audit = credentials, secrets, audit
+        self._credentials, self._secrets, self._cipher = credentials, secrets, cipher
+        self._audit = audit
 
     async def __call__(self, cmd: CreateStaffLoginCommand) -> StaffCredentialsSet | None:
         """None — такого пользователя нет (не открывал бот или Mini App) или он удалён."""
@@ -65,7 +68,7 @@ class CreateStaffLogin:
                     user_id=user.id,
                     login=login,
                     password_hash=password_hash,
-                    totp_secret=secret,
+                    encrypted_totp_secret=self._cipher.encrypt(secret, user.id),
                     totp_last_step=None,
                 )
             )

@@ -37,6 +37,7 @@ from app.platform.settings import (
     AppSettings,
     Environment,
     Settings,
+    SettingsError,
     TelegramSettings,
     UpdatesMode,
     webhook_base_url,
@@ -55,6 +56,7 @@ if TYPE_CHECKING:  # модули грузятся лениво: CLI без БД
         OnboardingReset,
         StaffCredentialsSet,
         StaffRoleGranted,
+        StaffTotpReencrypted,
     )
     from app.modules.search.application.dto import ZeroResultStat
     from app.modules.specialists.application.use_cases.mark_founding import FoundingMarked
@@ -545,7 +547,8 @@ def staff_create(
 
     Сначала роль — `staff-grant`. Пароль (от 12 знаков) вводится здесь же дважды и не
     показывается; секрет TOTP печатается один раз — добавьте его в приложение-аутентификатор
-    (Google Authenticator, 1Password, Aegis). Повторный вызов заменяет пароль и TOTP.
+    (Google Authenticator, 1Password, Aegis). Повторный вызов заменяет пароль и TOTP. В БД секрет
+    ложится зашифрованным ключом APP_TOTP_KEY (8.4); на stage и проде без ключа — отказ.
     """
     import getpass
 
@@ -588,7 +591,10 @@ async def _staff_create(telegram_id: int, login: str, password: str) -> StaffCre
     container = make_worker_container(Settings())
     try:
         async with container() as request:
-            create = await request.get(CreateStaffLogin)
+            try:
+                create = await request.get(CreateStaffLogin)
+            except SettingsError as err:  # stage или прод без APP_TOTP_KEY (identity/di.py)
+                raise _StaffCreateRefusedError(str(err)) from None
             try:
                 return await create(
                     CreateStaffLoginCommand(telegram_id=telegram_id, login=login, password=password)
@@ -601,6 +607,50 @@ async def _staff_create(telegram_id: int, login: str, password: str) -> StaffCre
                 raise _StaffCreateRefusedError("no staff role (run staff-grant first)") from None
             except StaffLoginTakenError:
                 raise _StaffCreateRefusedError("login is taken by another staff member") from None
+    finally:
+        await container.close()
+
+
+@app.command("staff-totp-reencrypt")
+def staff_totp_reencrypt() -> None:
+    """Перешифровать секреты TOTP персонала текущим APP_TOTP_KEY (8.4).
+
+    После смены ключа (прежний — в APP_TOTP_KEY_PREVIOUS; infra/runbooks/secrets-rotation.md) и
+    для строк до 8.4, где секрет лежит открытым. Повторный запуск ничего не меняет; секреты не
+    печатаются. Код выхода 1 — есть секреты, которые не расшифровать: их сотрудникам — заново
+    `staff-create`, а прежний ключ убирать только после этого.
+    """
+    try:
+        result = asyncio.run(_staff_totp_reencrypt())
+    except SettingsError as err:
+        typer.echo(f"staff-totp-reencrypt: {err}", err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(
+        f"staff TOTP secrets: {result.reencrypted} re-encrypted,"
+        f" {result.current} already under the current key"
+    )
+    if result.undecryptable:
+        users = ", ".join(str(user_id) for user_id in result.undecryptable)
+        typer.echo(
+            f"staff-totp-reencrypt: cannot decrypt for users {users}"
+            " (wrong or missing APP_TOTP_KEY_PREVIOUS?); run staff-create for them",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
+async def _staff_totp_reencrypt() -> StaffTotpReencrypted:
+    from app.entrypoints._wiring import make_worker_container
+    from app.modules.identity.application.use_cases.reencrypt_staff_totp_secrets import (
+        ReencryptStaffTotpSecrets,
+        ReencryptStaffTotpSecretsCommand,
+    )
+
+    container = make_worker_container(Settings())
+    try:
+        async with container() as request:
+            reencrypt = await request.get(ReencryptStaffTotpSecrets)
+            return await reencrypt(ReencryptStaffTotpSecretsCommand())
     finally:
         await container.close()
 

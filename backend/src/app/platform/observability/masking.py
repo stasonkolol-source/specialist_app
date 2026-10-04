@@ -39,6 +39,9 @@ SENSITIVE_KEYS = frozenset(
         "x-telegram-bot-api-secret-token",
         "webhook_secret",
         "hash_key",
+        # секрет TOTP персонала и ключ его шифрования (8.4)
+        "totp_secret",
+        "totp_key",
         "private_key",
         "client_secret",
         "cf-connecting-ip",

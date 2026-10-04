@@ -149,7 +149,8 @@ class AccessView:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class StaffCredentialsSet:
-    """Итог `cli staff-create`: секрет TOTP показывается один раз и нигде не хранится, кроме БД."""
+    """Итог `cli staff-create`: секрет TOTP показывается один раз и нигде не хранится, кроме БД
+    (там — зашифрованным, 8.4)."""
 
     user_id: UserId
     login: str
@@ -157,3 +158,16 @@ class StaffCredentialsSet:
     totp_uri: str
     replaced: bool
     """True — у сотрудника уже был вход: пароль и TOTP заменены."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StaffTotpReencrypted:
+    """Итог `cli staff-totp-reencrypt` (8.4): сколько секретов перешифровано текущим ключом."""
+
+    reencrypted: int
+    """Были под прежним ключом или открытыми (строки до 8.4)."""
+    current: int
+    """Уже под текущим ключом — не тронуты."""
+    undecryptable: tuple[UserId, ...]
+    """Не расшифровать ни текущим, ни прежним ключом: строки не тронуты, сотруднику — заново
+    `cli staff-create`."""
