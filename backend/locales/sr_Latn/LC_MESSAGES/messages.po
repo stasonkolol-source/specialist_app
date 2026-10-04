@@ -45,6 +45,15 @@ msgstr "Gotovo: dostupni ste danas do {time}."
 msgid "bot.available.done_off"
 msgstr "Gotovo: „dostupan danas“ je isključeno."
 
+msgid "bot.pro_waitlist.joined"
+msgstr "Gotovo! Javićemo vam prvi kada stignu nove mogućnosti za izvođače."
+
+msgid "bot.pro_waitlist.already"
+msgstr "Već ste na listi: javićemo vam prvi."
+
+msgid "bot.pro_waitlist.no_profile"
+msgstr "Prvo napravite profil izvođača u aplikaciji."
+
 msgid "bot.available.no_profile"
 msgstr "„Dostupan danas“ je za objavljen profil stručnjaka. Profil možete napraviti ili proveriti u aplikaciji."
 
@@ -715,6 +724,12 @@ msgstr "Spor o dogovoru se rešava sa ishodom dogovora — komandom dispute-reso
 msgid "errors.notification_group_mandatory"
 msgstr "Službena obaveštenja ne mogu da se isključe: tiču se odluka moderacije i ograničenja naloga."
 
+msgid "errors.broadcast_state"
+msgstr "Obaveštenje u ovom statusu ne može tako da se promeni."
+
+msgid "errors.broadcast_not_found"
+msgstr "Obaveštenje nije pronađeno."
+
 msgid "notifications.account_restricted.title.restricted"
 msgstr "Nalog je ograničen"
 
@@ -1122,6 +1137,15 @@ msgstr "Bot aplikacije „Sosedi“ može da vam piše: ovde stižu ponude, poru
 
 msgid "notifications.system_test.button"
 msgstr "Otvori „Sosedi“"
+
+msgid "notifications.broadcast.title"
+msgstr "Novosti aplikacije „Sosedi“"
+
+msgid "notifications.broadcast.open"
+msgstr "Otvori „Sosedi“"
+
+msgid "notifications.broadcast.pro_waitlist"
+msgstr "Želim da saznam prvi"
 
 msgid "share.specialist.text"
 msgstr "<b>{name}</b> — stručnjak u aplikaciji „Sosedi“"

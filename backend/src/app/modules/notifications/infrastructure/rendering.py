@@ -27,12 +27,13 @@ from datetime import datetime
 from types import MappingProxyType
 from uuid import UUID
 
-from app.modules.notifications.application.dto import RenderedText
+from app.modules.notifications.application.dto import BroadcastContent, RenderedText
+from app.modules.notifications.domain.broadcast import BroadcastAction
 from app.modules.notifications.domain.catalog import NotificationType
 from app.platform.i18n.dates import long_datetime, short_date, short_time
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.clock import BUSINESS_TZ, Clock, SystemClock
-from app.platform.kernel.localized import Locale
+from app.platform.kernel.localized import Locale, LocalizedText
 from app.platform.telegram.buttons import mini_app_url
 from app.platform.telegram.callbacks import (
     CallbackAction,
@@ -78,6 +79,7 @@ RENDERED = frozenset(
         NotificationType.JOB_MATCHED,
         NotificationType.JOB_DIGEST,
         NotificationType.PROFILE_STALE_REMINDER,
+        NotificationType.BROADCAST,
     }
 )
 """Типы с шаблонами: остальные получат их вместе со своими подписчиками."""
@@ -263,6 +265,8 @@ class GettextNotificationRenderer:
                 title=self._t("notifications.profile_stale_reminder.title", locale),
                 body=self._t("notifications.profile_stale_reminder.body", locale),
             )
+        if type_ is NotificationType.BROADCAST:  # текст — у рассылки (broadcast()), в центре её нет
+            return RenderedText(title=self._t("notifications.broadcast.title", locale), body="")
         raise ValueError(f"no templates for notification type {type_}")
 
     def telegram(
@@ -295,6 +299,21 @@ class GettextNotificationRenderer:
             return message, ()
         button = AppButton(text=self._t(label, locale), url=mini_app_url(self._mini_app, link))
         return message, (button,)
+
+    def broadcast(
+        self, content: BroadcastContent, locale: Locale
+    ) -> tuple[str, tuple[ButtonLine, ...]]:
+        """Текст рассылки на языке читателя (цепочка §7.4) — экранирован целиком: разметки из
+        админки в сообщении нет, и неверный HTML не сорвёт рассылку ответом 400."""
+        message = _escape(LocalizedText.from_mapping(content.text).get(locale))
+        if content.action == BroadcastAction.PRO_WAITLIST.value:
+            data = encode_callback(CallbackData(CallbackAction.PRO_WAITLIST, content.id))
+            label = self._t("notifications.broadcast.pro_waitlist", locale)
+            return message, (CallbackButton(text=label, data=data),)
+        if content.link is None or self._mini_app is None:
+            return message, ()
+        url = mini_app_url(self._mini_app, content.link)
+        return message, (AppButton(text=self._t("notifications.broadcast.open", locale), url=url),)
 
     def retired_buttons(
         self,

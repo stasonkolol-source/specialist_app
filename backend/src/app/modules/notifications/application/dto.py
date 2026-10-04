@@ -121,3 +121,33 @@ class SettingsView:
     settings: NotificationSettings
     telegram: ChannelView | None
     """Канал бота; None — пользователь ещё не разрешил боту писать."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BroadcastStats:
+    """Ход рассылки по доставкам её уведомлений (2.7b)."""
+
+    recipients: int = 0
+    """Получателей разобрано: у каждого — уведомление рассылки."""
+    queued: int = 0
+    """Ждут отправки (в том числе конца тихих часов — `deferred`)."""
+    deferred: int = 0
+    """Из ждущих — с отложенным сроком: тихие часы получателя или пауза лимитера."""
+    sent: int = 0
+    failed: int = 0
+    """Bot API отказал: бот заблокирован, чата нет, сообщение отвергнуто или зависло."""
+    skipped: int = 0
+    """Не отправлено по настройкам: группу выключили, бот недоступен, аккаунт удалён,
+    рассылку отменили (доставка `suppressed` или её не было)."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BroadcastContent:
+    """Что отправить получателю рассылки: текст на его языке собирает рендерер."""
+
+    id: UUID
+    status: str
+    text: Mapping[str, str]
+    """Тексты по кодам локалей (LocalizedText.to_mapping)."""
+    link: str | None
+    action: str | None

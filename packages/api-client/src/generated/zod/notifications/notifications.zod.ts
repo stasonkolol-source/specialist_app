@@ -71,6 +71,7 @@ export const NotificationsListNotificationsResponse = zod.object({
           'profile.published',
           'account.restricted',
           'system.test',
+          'broadcast',
         ]),
         title: zod.string(),
         body: zod.string(),

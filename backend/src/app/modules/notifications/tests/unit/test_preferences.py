@@ -136,4 +136,5 @@ def test_catalog_follows_the_architecture() -> None:
 
 
 def test_urgent_types_are_taken_from_the_queue_first() -> None:
-    assert [p.job_priority for p in Priority] == [3, 2, 1, 0]  # P0 — первым
+    # P0 — первым; рассылки (P4) — ниже задач-подписчиков с приоритетом по умолчанию 0 (2.7b)
+    assert [p.job_priority for p in Priority] == [3, 2, 1, 0, -1]

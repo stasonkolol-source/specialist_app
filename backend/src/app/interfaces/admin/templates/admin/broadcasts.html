@@ -1,0 +1,82 @@
+{% extends "sqladmin/layout.html" %}
+{# Рассылки (2.7b): черновик, предпросмотр, тест себе, старт и отмена — use cases notifications, каждое действие в audit_log #}
+{% block content %}
+<div class="card mb-3">
+  <div class="card-header"><h3 class="card-title">Рассылки</h3></div>
+  <div class="card-body">
+    {% if error %}<div class="alert alert-danger">Ошибка: {{ error }}</div>{% endif %}
+    {% if done %}<div class="alert alert-success">{{ done }}</div>{% endif %}
+    {% if selected %}
+    <h4>Рассылка {{ selected.id }} — {{ selected.status }}</h4>
+    {% if stats %}
+    <p>Получателей: {{ stats.recipients }} · ждут: {{ stats.queued }} (из них до конца тихих часов: {{ stats.deferred }}) · отправлено: {{ stats.sent }} · ошибок: {{ stats.failed }} · пропущено по настройкам: {{ stats.skipped }}</p>
+    {% endif %}
+    {% for preview in previews %}
+    <div class="mb-2"><b>{{ preview.locale }}</b>
+      <pre style="white-space: pre-wrap">{{ preview.text }}</pre>
+      {% for label in preview.buttons %}<span class="badge bg-secondary">{{ label }}</span>{% endfor %}
+    </div>
+    {% endfor %}
+    <form method="POST" class="mb-2">
+      <input type="hidden" name="id" value="{{ selected.id }}">
+      <input type="hidden" name="action" value="test">
+      <div class="input-group">
+        <select name="locale" class="form-select">{% for locale in locales %}<option value="{{ locale }}">{{ locale }}</option>{% endfor %}</select>
+        <button class="btn btn-secondary" type="submit">Отправить тест себе</button>
+      </div>
+    </form>
+    {% if selected.status == 'draft' %}
+    <form method="POST" class="mb-2">
+      <input type="hidden" name="id" value="{{ selected.id }}">
+      <input type="hidden" name="action" value="start">
+      <label class="form-label" for="at">Начать (время Белграда; пусто — сейчас)</label>
+      <div class="input-group">
+        <input id="at" name="at" type="datetime-local" class="form-control">
+        <button class="btn btn-primary" type="submit">Начать рассылку</button>
+      </div>
+    </form>
+    {% endif %}
+    {% if selected.status in ('draft', 'scheduled', 'sending') %}
+    <form method="POST">
+      <input type="hidden" name="id" value="{{ selected.id }}">
+      <input type="hidden" name="action" value="cancel">
+      <button class="btn btn-danger" type="submit">Отменить</button>
+    </form>
+    {% endif %}
+    {% endif %}
+  </div>
+</div>
+<div class="card mb-3">
+  <div class="card-header"><h3 class="card-title">Новая рассылка</h3></div>
+  <div class="card-body">
+    <form method="POST">
+      <input type="hidden" name="action" value="create">
+      {% for locale in locales %}
+      <div class="mb-3"><label class="form-label" for="text_{{ locale }}">Текст ({{ locale }})</label>
+        <textarea id="text_{{ locale }}" name="text_{{ locale }}" class="form-control" rows="4"></textarea></div>
+      {% endfor %}
+      <div class="mb-3"><label class="form-label" for="group">Группа согласия (S43)</label>
+        <select id="group" name="group" class="form-select">{% for group in groups %}<option value="{{ group }}">{{ group }}</option>{% endfor %}</select></div>
+      <div class="mb-3"><label class="form-label" for="audience">Аудитория</label>
+        <select id="audience" name="audience" class="form-select">{% for audience in audiences %}<option value="{{ audience }}">{{ audience }}</option>{% endfor %}</select></div>
+      <div class="mb-3"><label class="form-label" for="city_id">ID города (пусто — все)</label>
+        <input id="city_id" name="city_id" class="form-control"></div>
+      <div class="mb-3"><label class="form-label" for="link">Кнопка «Открыть»: код deep link (startapp)</label>
+        <input id="link" name="link" class="form-control"></div>
+      <div class="form-check mb-3"><input id="waitlist" name="waitlist" type="checkbox" class="form-check-input" value="1">
+        <label class="form-check-label" for="waitlist">Кнопка «Хочу узнать первым» (лист ожидания Pro) вместо ссылки</label></div>
+      <button type="submit" class="btn btn-primary">Создать черновик</button>
+    </form>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><h3 class="card-title">Последние</h3></div>
+  <div class="card-body">
+    <ul>
+      {% for row in recent %}
+      <li><a href="?id={{ row.id }}">{{ row.created_at.strftime('%Y-%m-%d %H:%M') }}</a> — {{ row.status.value }}, {{ row.event_group.value }}, {{ row.audience.value }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}
