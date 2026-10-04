@@ -1,7 +1,9 @@
 // Фильтры ленты S13–S14 (DEVELOPMENT_PLAN 5.3) — в параметрах адреса, как у выдачи S05
 // (ADR-0020 §13): переживают «Назад» и открытую заявку, а экран ничего не хранит сам. Здесь же —
 // перевод в запрос `GET /jobs`: «когда нужно» становится набором срочностей, бюджет — пара,
-// радиус — только с точкой (без неё сервер ответил бы 422). Точка — с точностью ~100 м.
+// радиус — только с точкой (без неё сервер ответил бы 422). Точка — с точностью ~100 м. «По моим
+// подпискам» (5.7) — режим ленты `feed=alerts`, а не фильтр: число на чипе «Фильтры» он не меняет
+// и «Сбросить фильтры» его не снимает.
 import { rsdToPara } from '@sosed/domain';
 import type { FeedQuery } from '@sosed/hooks';
 
@@ -35,6 +37,8 @@ export interface FeedSearch {
   /** Бюджет «от», RSD — как выбирает человек; в API уходит в пара. */
   budget?: number;
   langs?: FeedLanguage[];
+  /** «По моим подпискам»: заявки, подходящие включённым подпискам (только вошедшему). */
+  alerts?: true;
 }
 
 function integer(value: unknown, min: number, max: number): number | undefined {
@@ -82,6 +86,7 @@ export function feedSearch(search: Record<string, unknown>): FeedSearch {
     photos: flag(search.photos),
     budget: integer(search.budget, 1, MAX_BUDGET_RSD),
     langs: listOf(search.langs, (item) => (oneOf(FEED_LANGUAGES, item) ? item : undefined)),
+    alerts: flag(search.alerts),
   };
   return Object.fromEntries(
     Object.entries(result).filter(([, value]) => value !== undefined),
@@ -89,7 +94,7 @@ export function feedSearch(search: Record<string, unknown>): FeedSearch {
 }
 
 /** Срочности для «когда нужно»: «срочные» — только asap, «сегодня» — ещё и today. */
-function urgencies(search: FeedSearch): FeedQuery['urgency'] {
+export function urgencies(search: FeedSearch): FeedQuery['urgency'] {
   if (search.urgent) return ['asap'];
   if (search.when === 'today') return ['asap', 'today'];
   if (search.when === 'week') return ['asap', 'today', 'this_week'];
@@ -109,6 +114,7 @@ export function toFeedQuery(search: FeedSearch, cityId: number): FeedQuery {
     budget_from: search.budget !== undefined ? rsdToPara(search.budget) : undefined,
     lang: search.langs,
     has_photos: search.photos,
+    feed: search.alerts ? 'alerts' : undefined,
   };
 }
 
@@ -125,11 +131,14 @@ export function activeFilters(search: FeedSearch): number {
   ].filter(Boolean).length;
 }
 
-/** «Сбросить»: точка остаётся — второй раз местоположение не спрашиваем. */
+/** «Сбросить»: точка остаётся — второй раз местоположение не спрашиваем; режим «по моим
+ *  подпискам» — тоже: это не фильтр. */
 export function withoutFilters(search: FeedSearch): FeedSearch {
-  return search.lat !== undefined && search.lon !== undefined
-    ? { lat: search.lat, lon: search.lon }
-    : {};
+  const point =
+    search.lat !== undefined && search.lon !== undefined
+      ? { lat: search.lat, lon: search.lon }
+      : {};
+  return search.alerts ? { ...point, alerts: true } : point;
 }
 
 export function toggle<T>(list: readonly T[] | undefined, value: T): T[] | undefined {

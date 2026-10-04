@@ -2,9 +2,10 @@
 // (MainButton) применяет их к адресу ленты, «Назад» и крестик закрывают шторку без изменений. N
 // считает сервер теми же фильтрами, что и ленту; пока человек нажимает чипы, счёт ждёт (лимит
 // гостя — 60 запросов в минуту). Радиус спрашивает местоположение и подписан ближайшим районом:
-// «Радиус от Лимана». «Бюджет от» и «Язык общения» выбираются вторым видом шторки. Скрыто до
-// своего шага: «Сохранить как подписку» (SecondaryButton, 5.7).
+// «Радиус от Лимана». «Бюджет от» и «Язык общения» выбираются вторым видом шторки. Вошедшему —
+// SecondaryButton «Сохранить как подписку» (5.7): форма подписки S19 с фильтрами шторки.
 import type { CategoryOut, CityOut } from '@sosed/api-client';
+import { getSession } from '@sosed/api-client';
 import { color } from '@sosed/design-tokens';
 import { rsdToPara } from '@sosed/domain';
 import { nearestDistrict, useCategories, useDistricts, useJobsCount } from '@sosed/hooks';
@@ -14,11 +15,25 @@ import {
   useBottomButtonState,
   useColorScheme,
   useMainButton,
+  useSecondaryButton,
 } from '@sosed/platform';
-import { Banner, Chip, Chips, Group, Icon, LinkButton, Row, Segmented, Sheet } from '@sosed/ui-web';
+import {
+  Banner,
+  Button,
+  Chip,
+  Chips,
+  Group,
+  Icon,
+  LinkButton,
+  Row,
+  Segmented,
+  Sheet,
+} from '@sosed/ui-web';
+import { useRouter } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useId, useMemo, useState } from 'react';
 
+import { feedPrefill } from '../shared/alerts.ts';
 import { findCategory } from '../shared/categories.ts';
 import { useDebounced } from '../shared/debounce.ts';
 import type { FeedSearch, FeedWhen } from '../shared/feed.ts';
@@ -31,6 +46,7 @@ import {
   withoutFilters,
 } from '../shared/feed.ts';
 import { useLocate } from '../shared/location.ts';
+import { JOBS_PATHS } from '../shared/paths.ts';
 
 const COUNT_DELAY_MS = 400;
 /** Место под кнопку «Показать N» в браузере: AppShell рисует её поверх шторки. */
@@ -73,6 +89,19 @@ export function FiltersSheet({ search, city, onClose, onApply }: FiltersSheetPro
     textColor: palette['accent-ink'],
   });
   useBackButton(() => (view === 'filters' ? onClose() : setView('filters')));
+  const router = useRouter();
+  const signedIn = getSession() !== null;
+  const saveAlert = () =>
+    void router.navigate({
+      to: JOBS_PATHS.newAlert,
+      search: { ...feedPrefill(draft), from: 'feed' },
+    });
+  const secondary = useSecondaryButton({
+    text: t('filters.saveAlert'),
+    onClick: saveAlert,
+    visible: signedIn && view === 'filters',
+    position: 'bottom',
+  });
 
   const set = (patch: Partial<FeedSearch>) => setDraft((current) => ({ ...current, ...patch }));
   const pickRadius = async (km: number) => {
@@ -203,6 +232,11 @@ export function FiltersSheet({ search, city, onClose, onApply }: FiltersSheetPro
             {t('filters.reset')}
           </LinkButton>
         </div>
+        {signedIn && !secondary.native && (
+          <Button variant="secondary" icon="bell" full onClick={saveAlert}>
+            {t('filters.saveAlert')}
+          </Button>
+        )}
         {!button.native && <div className={BUTTON_SPACE} aria-hidden="true" />}
       </>
     );

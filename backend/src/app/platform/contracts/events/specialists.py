@@ -71,3 +71,14 @@ class ProfileDeleted(DomainEvent):
     event_type = "specialists.ProfileDeleted"
     profile_id: UUID
     user_id: UserId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ProfileStale(DomainEvent):
+    """Профиль давно не обновлялся и «доступен сегодня» не включался
+    (`specialists.stale_profile_reminders`, 5.7): специалисту — мягкое напоминание
+    `profile.stale_reminder`, не чаще раза в 2 недели."""
+
+    event_type = "specialists.ProfileStale"
+    profile_id: UUID
+    user_id: UserId

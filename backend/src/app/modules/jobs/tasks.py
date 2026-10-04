@@ -9,6 +9,10 @@
 - `jobs.complete_job` — DealCompleted сделки из отклика: заявка завершена (6.1a).
 - `jobs.expire_jobs` — каждые 5 минут: опубликованные со сроком в прошлом — «истекла».
 - `jobs.expiry_reminders` — каждые 15 минут: «Заявка закроется через 2 ч».
+- `jobs.match_alerts` — JobPublished первой публикации публичной заявки: подписчикам — карточка
+  B1 (`notifications.notify_job_matched` по имени задачи) или место в подборке (5.7, §9.6).
+- `jobs.alert_digests` — ежечасно: подборки «раз в день» тем, чей час дайджеста пришёл (5.7).
+- `jobs.forget_alerts` — UserDeleted: подписки и совпадения удалённого аккаунта (§7.10).
 """
 
 from dishka import FromDishka
@@ -16,7 +20,9 @@ from dishka import FromDishka
 from app.modules.jobs.application.ports import (
     ANNOUNCE_DIRECT_REQUEST,
     COMPLETE_JOB,
+    FORGET_ALERTS,
     FORGET_CLIENT_JOBS,
+    MATCH_ALERTS,
     REOPEN_JOB,
     WITHDRAW_PERFORMER_RESPONSES,
 )
@@ -26,15 +32,27 @@ from app.modules.jobs.application.use_cases.announce_direct_request import (
 )
 from app.modules.jobs.application.use_cases.complete_job import CompleteJob, CompleteJobCommand
 from app.modules.jobs.application.use_cases.expire_jobs import ExpireJobs, ExpireJobsCommand
+from app.modules.jobs.application.use_cases.forget_alerts import (
+    ForgetAlerts,
+    ForgetAlertsCommand,
+)
 from app.modules.jobs.application.use_cases.forget_client_jobs import (
     ForgetClientJobs,
     ForgetClientJobsCommand,
+)
+from app.modules.jobs.application.use_cases.match_alerts import (
+    MatchAlerts,
+    MatchAlertsCommand,
 )
 from app.modules.jobs.application.use_cases.remind_expiring_jobs import (
     RemindExpiringJobs,
     RemindExpiringJobsCommand,
 )
 from app.modules.jobs.application.use_cases.reopen_job import ReopenJob, ReopenJobCommand
+from app.modules.jobs.application.use_cases.send_alert_digests import (
+    SendAlertDigests,
+    SendAlertDigestsCommand,
+)
 from app.modules.jobs.application.use_cases.withdraw_performer_responses import (
     WithdrawPerformerResponses,
     WithdrawPerformerResponsesCommand,
@@ -65,6 +83,18 @@ async def announce_direct_request(
 ) -> None:
     if event.direct and not event.republished:
         await announce(AnnounceDirectRequestCommand(job_id=JobId(event.job_id)))
+
+
+@subscriber(JobPublished, MATCH_ALERTS)
+async def match_alerts(event: JobPublished, match: FromDishka[MatchAlerts]) -> None:
+    if event.direct or event.republished:  # прямой запрос — приглашённым; повтор — не новость
+        return
+    await match(MatchAlertsCommand(job_id=JobId(event.job_id)))
+
+
+@subscriber(UserDeleted, FORGET_ALERTS)
+async def forget_alerts(event: UserDeleted, forget: FromDishka[ForgetAlerts]) -> None:
+    await forget(ForgetAlertsCommand(user_id=event.user_id))
 
 
 @subscriber(DealCancelled, REOPEN_JOB)
@@ -99,3 +129,10 @@ async def expire_jobs(run: PeriodicRun) -> None:
 async def expiry_reminders(run: PeriodicRun) -> None:
     async with run.container() as request:
         await (await request.get(RemindExpiringJobs))(RemindExpiringJobsCommand())
+
+
+@periodic("jobs.alert_digests", cron="1 * * * *")
+async def alert_digests(run: PeriodicRun) -> None:
+    """Ежечасно (§12.3: «ежечасно и в 09:00» — час дайджеста у каждого свой, по умолчанию 9)."""
+    async with run.container() as request:
+        await (await request.get(SendAlertDigests))(SendAlertDigestsCommand())

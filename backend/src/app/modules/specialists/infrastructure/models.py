@@ -76,6 +76,8 @@ class ProfileRow(UuidPkMixin, TimestampsMixin, SoftDeleteMixin, VersionMixin, Ba
     travel_radius_km: Mapped[int | None] = mapped_column(SmallInteger)
     work_modes: Mapped[list[str]] = mapped_column(ARRAY(String(16)), server_default=text("'{}'"))
     available_until: Mapped[datetime | None]
+    stale_reminded_at: Mapped[datetime | None]
+    """Последнее «профиль давно не обновлялся» (specialists_0003, 5.7): не чаще раза в 2 недели."""
     vacation_until: Mapped[date | None]
     trader_status: Mapped[str | None] = mapped_column(String(16))
     """v1 (ADR-0018): декларация trader / non_trader."""

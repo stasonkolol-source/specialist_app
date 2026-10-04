@@ -1,10 +1,11 @@
-"""ORM-модели jobs (ARCHITECTURE §7.3, миграции jobs_0001–0006): заявки, их фото, история
-статусов, скрытые и сохранённые исполнителями заявки, отклики и шаблоны откликов.
+"""ORM-модели jobs (ARCHITECTURE §7.3, миграции jobs_0001–0010): заявки, их фото, история
+статусов, скрытые и сохранённые исполнителями заявки, отклики, шаблоны откликов, приглашения,
+подписки на новые заявки и совпадения заявок с подписками (5.7).
 
 FK на identity.users, catalog.categories, geo.cities, geo.districts, media.assets и
 specialists.profiles объявлены только в миграции: MetaData модуля не знает чужих таблиц
-(modules/README.md). Приглашения и подписки — в своих шагах (5.6, 5.7); `tag_ids`,
-`verified_only`, `views_count` и `search_vector` — задел ленты и поиска заявок (5.3).
+(modules/README.md). `tag_ids`, `verified_only` и `search_vector` — задел ленты и поиска
+заявок (5.3).
 """
 
 from datetime import datetime
@@ -27,6 +28,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.modules.jobs.domain.alert import MAX_RADIUS_M, MIN_RADIUS_M, AlertDelivery
 from app.modules.jobs.domain.job import (
     MAX_DESCRIPTION,
     MAX_TITLE,
@@ -113,6 +115,9 @@ class JobRow(UuidPkMixin, TimestampsMixin, SoftDeleteMixin, VersionMixin, Base):
     responses_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     extensions_count: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
     views_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    notified_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    """Скольким подписчикам заявка подошла (jobs_0010): сразу или в подборке — «уведомили N
+    исполнителей» владельцу (S21, S23)."""
     responses_seen_at: Mapped[datetime | None]
     """Клиент открыл отклики на S23 (jobs_0008): позже прошедшие проверку — «новые»."""
     search_vector: Mapped[str | None] = mapped_column(TSVECTOR)
@@ -149,6 +154,13 @@ class JobRow(UuidPkMixin, TimestampsMixin, SoftDeleteMixin, VersionMixin, Base):
             postgresql_where=PUBLISHED,
         ),
         Index("ix_jobs_expires_at", "expires_at", postgresql_where=PUBLISHED),
+        # «N заявок за неделю» подписки S18 (5.7): опубликованные за неделю, и уже закрытые
+        Index(
+            "ix_jobs_city_id_published_at_any",
+            "city_id",
+            "published_at",
+            postgresql_where=text("published_at IS NOT NULL"),
+        ),
         # «M заявок» в блоке клиента S15: сколько его заявок когда-либо публиковалось
         Index(
             "ix_jobs_client_id_published",
@@ -323,5 +335,83 @@ class ResponseTemplateRow(TimestampsMixin, SoftDeleteMixin, Base):
             "user_id",
             "position",
             postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+
+class AlertRow(TimestampsMixin, Base):
+    """Подписка на новые заявки (S18, S19; ARCHITECTURE §7.3, миграция jobs_0010). Простая
+    запись: удаляется сразу, истории нет."""
+
+    __tablename__ = "alerts"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    user_id: Mapped[UUID]
+    """identity.users: FK в миграции."""
+    category_ids: Mapped[list[int]] = mapped_column(ARRAY(Integer))
+    """Выбранные узлы каталога: заявка подходит, если её путь (`category_path`) их задевает."""
+    city_id: Mapped[int] = mapped_column(Integer)
+    """geo.cities: FK в миграции."""
+    district_ids: Mapped[list[int]] = mapped_column(ARRAY(Integer), server_default=text("'{}'"))
+    """Пусто и нет точки — весь город."""
+    center: Mapped[GeoPoint | None] = mapped_column(GeoPointType)
+    """Точка подписчика для радиуса — только ему: наружу не отдаётся."""
+    radius_m: Mapped[int | None] = mapped_column(Integer)
+    min_budget: Mapped[int | None] = mapped_column(BigInteger)
+    """Пара."""
+    urgencies: Mapped[list[str]] = mapped_column(ARRAY(String(16)), server_default=text("'{}'"))
+    languages: Mapped[list[str]] = mapped_column(ARRAY(String(8)), server_default=text("'{}'"))
+    delivery: Mapped[AlertDelivery] = mapped_column(
+        str_enum(AlertDelivery, "delivery"), server_default=AlertDelivery.INSTANT.value
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    paused_until: Mapped[datetime | None]
+
+    __table_args__ = (
+        CheckConstraint(f"radius_m BETWEEN {MIN_RADIUS_M} AND {MAX_RADIUS_M}", name="radius_range"),
+        CheckConstraint("(center IS NULL) = (radius_m IS NULL)", name="radius_with_center"),
+        CheckConstraint(
+            "cardinality(district_ids) = 0 OR center IS NULL", name="districts_or_radius"
+        ),
+        CheckConstraint("cardinality(category_ids) > 0", name="has_categories"),
+        Index("ix_alerts_user_id", "user_id"),
+        # матчинг §9.6: категории по GIN, круг — по GiST центра с потолком радиуса
+        Index(
+            "ix_alerts_category_ids",
+            "category_ids",
+            postgresql_using="gin",
+            postgresql_where=text("is_active"),
+        ),
+        Index(
+            "ix_alerts_center",
+            "center",
+            postgresql_using="gist",
+            postgresql_where=text("is_active AND center IS NOT NULL"),
+        ),
+    )
+
+
+class AlertMatchRow(Base):
+    """Заявка подошла подписчику (миграция jobs_0010): одна строка на пару «заявка — человек».
+    Сразу (`instant`) — B1 уже поставлен, подборкой (`digest`) — ждёт `jobs.alert_digests`.
+    Строки за последние сутки — лимит частоты B1; старше месяца удаляются."""
+
+    __tablename__ = "alert_matches"
+
+    job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id"), primary_key=True)
+    user_id: Mapped[UUID] = mapped_column(primary_key=True)
+    """identity.users: FK в миграции."""
+    alert_id: Mapped[UUID] = mapped_column(ForeignKey("alerts.id", ondelete="CASCADE"))
+    delivery: Mapped[AlertDelivery] = mapped_column(str_enum(AlertDelivery, "delivery"))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    digested_at: Mapped[datetime | None]
+
+    __table_args__ = (
+        Index("ix_alert_matches_user_id_created_at", "user_id", "created_at"),
+        Index("ix_alert_matches_alert_id", "alert_id"),
+        Index(
+            "ix_alert_matches_pending",
+            "user_id",
+            postgresql_where=text("delivery = 'digest' AND digested_at IS NULL"),
         ),
     )

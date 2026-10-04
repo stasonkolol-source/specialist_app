@@ -9,6 +9,7 @@ export type NotificationType = (typeof NotificationType)[keyof typeof Notificati
 
 export const NotificationType = {
   jobmatched: 'job.matched',
+  jobdigest: 'job.digest',
   responsereceived: 'response.received',
   responseaccepted: 'response.accepted',
   responsenot_selected: 'response.not_selected',
