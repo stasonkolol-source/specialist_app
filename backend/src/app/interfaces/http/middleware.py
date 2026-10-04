@@ -1,5 +1,5 @@
 """Контекст запроса (ARCHITECTURE §8.1): X-Request-ID, traceparent, Accept-Language, X-Client,
-техработы (флаг `platform.maintenance`).
+техработы (флаг `platform.maintenance`), RED-метрики API (DEVELOPMENT_PLAN 3.3).
 
 Чистый ASGI, без BaseHTTPMiddleware: контекст structlog живёт в contextvars задачи
 запроса и не теряется. Middleware внешнее для обработчиков ошибок FastAPI, поэтому
@@ -22,6 +22,7 @@ from app.platform.http.ratelimit import rate_limit_headers
 from app.platform.kernel.ids import new_id
 from app.platform.kernel.localized import Locale
 from app.platform.observability.logging import bind_context, clear_context
+from app.platform.observability.metrics import HttpMetrics
 from app.platform.ratelimit import RateStatus
 
 log = structlog.get_logger(__name__)
@@ -29,7 +30,10 @@ log = structlog.get_logger(__name__)
 _REQUEST_ID = re.compile(r"[A-Za-z0-9._-]{1,64}")
 _TRACEPARENT = re.compile(r"[0-9a-f]{2}-(?P<trace_id>[0-9a-f]{32})-[0-9a-f]{16}-[0-9a-f]{2}")
 QUIET_PATHS = frozenset({"/up"})
-"""Без access-лога: healthcheck прокси дёргает их каждые несколько секунд."""
+"""Без access-лога и метрик: healthcheck прокси дёргает их каждые несколько секунд."""
+UNMATCHED_ROUTE = "<unmatched>"
+"""Метка маршрута, если роутер его не нашёл (404, отказ до роутера: 400, 426, 503 техработ):
+сырой путь в метку не идёт — в нём id, а у сканеров — что угодно."""
 
 INVALID_CLIENT_HEADER = "invalid_client_header"
 CLIENT_UPGRADE_REQUIRED = "client_upgrade_required"
@@ -45,6 +49,20 @@ def request_id_from(header: str | None) -> str:
     if header and _REQUEST_ID.fullmatch(header):
         return header
     return new_id().hex
+
+
+def route_template(scope: Scope, api_prefix: str) -> str:
+    """Шаблон пути найденного маршрута (`/api/v1/jobs/{job_id}`): роутер кладёт маршрут в scope.
+
+    FastAPI 0.141 не склеивает вложенные роутеры: у маршрута модуля путь без префикса
+    include_router (`/jobs/{job_id}`) — префикс API добавляем сами, метка от версии не зависит.
+    """
+    path = getattr(scope.get("route"), "path", None)
+    if not isinstance(path, str):
+        return UNMATCHED_ROUTE
+    if scope["path"].startswith(api_prefix) and not path.startswith(api_prefix):
+        return api_prefix + path
+    return path
 
 
 def trace_id_from(header: str | None) -> str:
@@ -65,12 +83,14 @@ class RequestContextMiddleware:
         clients: Callable[[], Awaitable[ClientPolicy]],
         api_prefix: str,
         maintenance: Callable[[], Awaitable[bool]] | None = None,
+        metrics: Callable[[], Awaitable[HttpMetrics]] | None = None,
     ) -> None:
         self.app = app
         self.problems = problems
         self.clients = clients
         self.api_prefix = api_prefix
         self.maintenance = maintenance
+        self.metrics = metrics
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -124,13 +144,21 @@ class RequestContextMiddleware:
             await response(scope, receive, send_with_id)
         finally:
             if scope["path"] not in QUIET_PATHS:
+                elapsed = time.perf_counter() - begin
                 log.info(
                     "http_request",
                     method=scope["method"],
                     path=scope["path"],
                     status=status,
-                    duration_ms=round((time.perf_counter() - begin) * 1000, 1),
+                    duration_ms=round(elapsed * 1000, 1),
                 )
+                if self.metrics is not None:
+                    (await self.metrics()).observe(
+                        method=scope["method"],
+                        route=route_template(scope, self.api_prefix),
+                        status=status,
+                        seconds=elapsed,
+                    )
             clear_context()
 
     async def _check_client(

@@ -11,6 +11,7 @@ import signal
 import structlog
 from aiogram import Bot, Dispatcher
 from aiohttp import web
+from prometheus_client import CollectorRegistry
 from redis.asyncio import Redis
 
 from app.entrypoints._wiring import make_bot_container, module_bot_routers
@@ -18,6 +19,7 @@ from app.interfaces.bot.app import ALLOWED_UPDATES, create_dispatcher
 from app.interfaces.bot.webhook import apply_webhook, create_webhook_app, webhook_url
 from app.platform.i18n.translator import Translator
 from app.platform.observability.logging import configure_logging
+from app.platform.observability.metrics import metrics_server
 from app.platform.observability.sentry import init_sentry
 from app.platform.settings import Settings, UpdatesMode, describe, webhook_base_url
 
@@ -27,20 +29,22 @@ log = structlog.get_logger(__name__)
 async def run() -> None:
     settings = Settings()
     configure_logging(settings.app)
-    init_sentry(settings)
+    init_sentry(settings, process="bot")
     container = make_bot_container(settings, Translator.load())
     try:
         bot = await container.get(Bot)
         dispatcher = create_dispatcher(container, await container.get(Redis), module_bot_routers())
         me = await bot.get_me()
         log.info("bot_started", username=me.username, **describe(settings))
-        if settings.telegram.updates is UpdatesMode.WEBHOOK:
-            await serve_webhook(settings, bot, dispatcher)
-            return
-        await bot.delete_webhook(drop_pending_updates=False)
-        await dispatcher.start_polling(
-            bot, allowed_updates=list(ALLOWED_UPDATES), handle_signals=True
-        )
+        # метрики (429 Bot API) — в обоих режимах; порт METRICS_PORT не совпадает с портом webhook
+        with metrics_server(settings.metrics, await container.get(CollectorRegistry)):
+            if settings.telegram.updates is UpdatesMode.WEBHOOK:
+                await serve_webhook(settings, bot, dispatcher)
+                return
+            await bot.delete_webhook(drop_pending_updates=False)
+            await dispatcher.start_polling(
+                bot, allowed_updates=list(ALLOWED_UPDATES), handle_signals=True
+            )
     finally:
         await container.close()
 

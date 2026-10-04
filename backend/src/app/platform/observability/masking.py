@@ -69,6 +69,9 @@ _PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"(?<![\w.:-])\d{9,15}(?![\w.:-])"), "[digits]"),
     # Пароль в DSN: scheme://user:password@host
     (re.compile(r"(\w+://[^:/\s]+):[^@\s]+@"), r"\1:[masked]@"),
+    # Ping URL Healthchecks.io (K33): uuid или ключ проекта в пути — по нему любой отметит
+    # проверку. httpx пишет адрес запроса в INFO-лог, Sentry — в breadcrumbs
+    (re.compile(r"(https?://(?:hc-ping\.com|healthchecks\.io/ping))/[^\s\"'<>]+"), r"\1/[masked]"),
 )
 
 

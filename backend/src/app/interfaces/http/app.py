@@ -11,6 +11,7 @@ from typing import Any
 from dishka import AsyncContainer
 from dishka.integrations.fastapi import setup_dishka
 from fastapi import APIRouter, FastAPI
+from prometheus_client import CollectorRegistry
 
 from app.interfaces.http import client_config, system, views
 from app.interfaces.http.client import ClientPolicy
@@ -25,6 +26,7 @@ from app.platform.config.cache import ClientConfigCache
 from app.platform.config.port import MAINTENANCE_FLAG
 from app.platform.i18n.translator import Translator
 from app.platform.legal.port import LegalLibrary
+from app.platform.observability.metrics import HttpMetrics, metrics_server
 from app.platform.settings import Environment, Settings
 
 API_PREFIX = "/api/v1"
@@ -45,7 +47,9 @@ def create_app(
         # а не роняет GET /client-config у всех клиентов
         await container.get(LegalLibrary)
         await warm_up_web(container)  # первый запрос после рестарта не ждёт соединений
-        yield
+        # метрики — на своём внутреннем порту, не на порту API (3.3)
+        with metrics_server(settings.metrics, await container.get(CollectorRegistry)):
+            yield
         await container.close()
 
     public_docs = settings.app.env is not Environment.PRODUCTION
@@ -64,12 +68,16 @@ def create_app(
         """Техработы: публичный флаг `platform.maintenance` правит админка, без деплоя."""
         return await (await container.get(ClientConfigCache)).is_enabled(MAINTENANCE_FLAG)
 
+    async def http_metrics() -> HttpMetrics:
+        return await container.get(HttpMetrics)
+
     app.add_middleware(
         RequestContextMiddleware,
         problems=problems,
         clients=client_policy,
         api_prefix=API_PREFIX,
         maintenance=maintenance,
+        metrics=http_metrics,
     )
     app.add_middleware(
         SecurityHeadersMiddleware,

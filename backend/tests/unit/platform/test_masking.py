@@ -28,6 +28,12 @@ BOT_TOKEN = "8123456789:AAE" + "x" * 32
         ("jwt eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiIxMjMifQ.c2lnbmF0dXJlX3Bhcnq", "eyJhbGciOiJFZERTQSJ9"),
         ("query_id=AAH&user=%7B%22id%22%3A1%7D&auth_date=1727400000&hash=deadbeef", "deadbeef"),
         ("postgresql+psycopg://app:S3cr3t-pass@127.0.0.1:55442/specialist", "S3cr3t-pass"),
+        # ping URL Healthchecks (3.3): httpx пишет адрес запроса в INFO-лог
+        (
+            'HTTP Request: GET https://hc-ping.com/0f5d7c2e-1b2a-4c3d-9e8f-0123456789ab "200 OK"',
+            "0f5d7c2e-1b2a",
+        ),
+        ("ping https://hc-ping.com/pingKey123/sosed-worker failed", "pingKey123"),
     ],
 )
 def test_sensitive_fragments_are_masked(raw: str, secret_part: str) -> None:
