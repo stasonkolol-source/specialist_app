@@ -151,6 +151,21 @@ def test_check_is_linear_on_long_whitespace(text: str) -> None:
     assert time.perf_counter() - started < 3.0  # линейно — сотые доли секунды
 
 
+def test_regex_runs_on_re2_in_linear_time() -> None:
+    # вложенных групп нет — эвристика не ловит, а `re` перебирал бы это полиномом пятой степени
+    rules = RuleSet([rule(r"\w*\w*\w*\w*\w*x", REGEX, category=RuleCategory.SPAM)])
+    started = time.perf_counter()
+
+    assert rules.check("ab" * 9_999).action is None
+    assert time.perf_counter() - started < 1.0  # RE2: доли миллисекунды
+    assert rules.check("abx").action is FLAG
+
+
+def test_regex_error_explains_what_re2_does_not_support() -> None:
+    with pytest.raises(InvalidRuleError, match=r"\(RE2\): invalid perl operator: \(\?<"):
+        compile_rule(rule(r"(?<=ne )kupim", REGEX))
+
+
 def test_verdict_takes_the_strictest_action_and_keeps_every_match() -> None:
     rules = RuleSet(
         [
@@ -193,7 +208,12 @@ def test_inactive_rules_are_skipped_and_broken_ones_do_not_stop_the_rest() -> No
         (rule(" "), "1–200"),
         (rule("x" * (MAX_PATTERN + 1)), "1–200"),
         (rule("x*", REGEX), "empty text"),
-        (rule("a{4294967296}", REGEX), "does not compile"),  # OverflowError, а не re.error
+        (rule(r"\b", REGEX), "empty text"),  # на пустом тексте молчит, но совпал бы везде
+        (rule(r"kupim|\b", REGEX), "empty text"),
+        (rule("(unclosed", REGEX), "does not compile"),
+        (rule("a{1001}", REGEX), "does not compile"),  # предел повтора RE2 — 1000
+        (rule(r"(?<!ne )kupim", REGEX), "does not compile"),  # lookbehind в RE2 нет
+        (rule(r"(da) \1", REGEX), "does not compile"),  # обратных ссылок тоже
         (rule(r"(\w+\s?)+kupim", REGEX), "nested quantifiers"),
         (rule(r"(\d+)+ din", REGEX), "nested quantifiers"),
         (rule(r"((a+)b)+", REGEX), "nested quantifiers"),

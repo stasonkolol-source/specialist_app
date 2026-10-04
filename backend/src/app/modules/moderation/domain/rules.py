@@ -7,7 +7,11 @@ ADR-0016 §3, DEVELOPMENT_PLAN 2.4).
   «predoplata» и «ПРЕДОПЛАААТА» — одно слово. `*` в конце — любое окончание («закладчик*»:
   «закладчика», «закладчики»), иначе слово целиком; фраза — слова подряд.
 - `regex` — регулярное выражение по скелету: латиница ASCII в нижнем регистре, слова через
-  пробел, без двойных букв. Для шаблонов, которые не выразить словами.
+  пробел, без двойных букв. Для шаблонов, которые не выразить словами. Движок — RE2 (google-re2):
+  время поиска линейно от длины текста при любом шаблоне, поэтому регулярки заводит и админка
+  (2.7b); синтаксис RE2 — без lookaround и обратных ссылок. Слова движок `re` собирает из
+  экранированного текста (там нужен lookbehind, которого в RE2 нет) — перебору в них взяться
+  неоткуда.
 - `domain` — домен ссылки или почты: `bit.ly` ловит `https://bit.ly/x`, `sub.bit.ly` и
   «bit [.] ly».
 
@@ -27,6 +31,9 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Protocol
+
+import re2
 
 from app.platform.text.contact_masking import find_prepayment, scan_contacts
 from app.platform.text.normalize import skeleton
@@ -82,10 +89,29 @@ _DOMAIN = re.compile(r"^[^\W_](?:[\w\-]*[^\W_])?(?:\.[^\W_](?:[\w\-]*[^\W_])?)+$
 _DOUBLE_LETTER = re.compile(r"([a-z])\1", re.IGNORECASE)
 _ESCAPE = re.compile(r"\\.")
 """`\bb…` — это \b и b, а не двойная b."""
+_RE2 = re2.Options()
+_RE2.case_sensitive = False
+_RE2.never_capture = True  # нужен только факт совпадения: без групп RE2 обходится проходом DFA
+_RE2.log_errors = False  # ошибку шаблона показывает InvalidRuleError, а не stderr процесса
+_EMPTY_PROBES = ("", "a", "1 a")
+"""Шаблон, который совпадает с пустой строкой хоть где-то («x*», «\\b»), сработал бы почти на
+любом тексте: проверяем пустое совпадение на пустом тексте и на границах слов."""
 
 
 class InvalidRuleError(ValueError):
     """Правило не компилируется: ошибка словаря, а не пользователя."""
+
+
+class Found(Protocol):
+    def start(self) -> int: ...
+
+    def end(self) -> int: ...
+
+
+class Matcher(Protocol):
+    """Собранное правило: `re.Pattern` у слов, RE2 у регулярок — поиску всё равно какой."""
+
+    def search(self, text: str, /) -> Found | None: ...
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -123,19 +149,47 @@ class RulesVerdict:
     def categories(self) -> frozenset[RuleCategory]:
         return frozenset(m.category for m in self.matches)
 
+    @property
+    def outcome(self) -> str:
+        """Итог как в rule_examples.yaml: «flag ['drugs']», «pass []»."""
+        return outcome(self.action, self.categories)
+
     def extended(self, matches: Iterable[RuleMatch]) -> RulesVerdict:
         return RulesVerdict((*self.matches, *matches))
+
+
+SILENT = "pass"
+"""Итог примера, на котором правила молчат (rule_examples.yaml)."""
+
+
+def outcome(action: RuleAction | None, categories: Iterable[RuleCategory]) -> str:
+    return f"{action.value if action is not None else SILENT} {sorted(c.value for c in categories)}"
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RuleExample:
+    """Пример набора seeds/moderation/rule_examples.yaml: текст и что должны сказать правила."""
+
+    text: str
+    action: RuleAction | None
+    """None — правила молчат («pass»)."""
+    categories: frozenset[RuleCategory] = frozenset()
+
+    @property
+    def outcome(self) -> str:
+        return outcome(self.action, self.categories)
 
 
 @dataclass(frozen=True, slots=True)
 class _Compiled:
     rule: ContentRule
-    regex: re.Pattern[str] | None
+    regex: Matcher | None
     """По скелету текста; у domain — None."""
 
 
-def compile_rule(rule: ContentRule) -> re.Pattern[str] | None:
-    """Проверить правило и собрать регулярное выражение по скелету (у domain — None)."""
+def compile_rule(rule: ContentRule) -> Matcher | None:
+    """Проверить правило и собрать поиск по скелету (у domain — None). Одна проверка на всех:
+    `cli seeds-validate` для сида, админка для правки (2.7b) и снимок правил процесса."""
     pattern = rule.pattern
     if not pattern.strip() or len(pattern) > MAX_PATTERN:
         raise InvalidRuleError(f"pattern must be 1–{MAX_PATTERN} characters")
@@ -164,12 +218,12 @@ def _word(pattern: str) -> re.Pattern[str]:
     return re.compile(rf"(?<![a-z0-9]){re.escape(words)}{ending}(?![a-z0-9])")
 
 
-def _regex(pattern: str) -> re.Pattern[str]:
+def _regex(pattern: str) -> Matcher:
     try:
-        regex = re.compile(pattern, re.IGNORECASE)
-    except (re.error, OverflowError, RecursionError, ValueError) as exc:  # «a{4294967296}»
-        raise InvalidRuleError(f"regex does not compile: {exc}") from exc
-    if regex.search("") is not None:
+        regex: Matcher = re2.compile(pattern, _RE2)
+    except (re2.error, ValueError) as exc:  # ValueError — суррогат, которого нет в UTF-8
+        raise InvalidRuleError(f"regex does not compile (RE2): {_reason(exc)}") from exc
+    if any(_empty_match(regex, probe) for probe in _EMPTY_PROBES):
         raise InvalidRuleError("regex matches an empty text")
     if _DOUBLE_LETTER.search(_ESCAPE.sub(" ", pattern)):
         raise InvalidRuleError("regex works on the skeleton: no double letters (ss → s)")
@@ -178,13 +232,26 @@ def _regex(pattern: str) -> re.Pattern[str]:
     return regex
 
 
+def _empty_match(regex: Matcher, probe: str) -> bool:
+    found = regex.search(probe)
+    return found is not None and found.start() == found.end()
+
+
+def _reason(exc: Exception) -> str:
+    """Текст ошибки RE2 приходит байтами: «missing ): (unclosed»."""
+    reason = exc.args[0] if exc.args else exc
+    return reason.decode(errors="replace") if isinstance(reason, bytes) else str(reason)
+
+
 _QUANTIFIER = frozenset("+*{")
 
 
 def nested_quantifier(pattern: str) -> bool:
     """Группа с повтором внутри, которую повторяют целиком: «(\\w+\\s?)+», «(a*)*», «(x+){2,}».
-    На совпадении, которое почти удалось, стандартный `re` перебирает варианты экспоненциально:
-    одна такая строка словаря повесила бы проверку текста любого пользователя."""
+    Стандартный `re` перебирал бы такие варианты экспоненциально; RE2 линеен и с ними, но
+    проверка остаётся (DEVELOPMENT_PLAN 2.7b — та же проверка, что в seeds-validate): вложенный
+    счётчик раздувает программу RE2 («(a{30}){30}» — 900 копий), а «(\\w+\\s?)+» на скелете,
+    где слова и так разделены одним пробелом, почти всегда ошибка автора."""
     groups: list[bool] = []  # у каждой открытой группы — есть ли повтор внутри
     closed_repeating = False  # группа только что закрылась и внутри был повтор
     index = 0
@@ -231,6 +298,8 @@ class RuleSet:
                 rejected.append((rule, str(exc)))
         self._text = tuple(c for c in compiled if c.regex is not None)
         self._domains = tuple(c.rule for c in compiled if c.rule.kind is RuleKind.DOMAIN)
+        self.rules: tuple[ContentRule, ...] = tuple(c.rule for c in compiled)
+        """Собранные правила — для прогона правки по набору примеров (админка, 2.7b)."""
         self.rejected: tuple[tuple[ContentRule, str], ...] = tuple(rejected)
 
     def __len__(self) -> int:
