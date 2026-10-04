@@ -1,0 +1,2699 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Соседи Admin API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/admin/api/v1"
+    }
+  ],
+  "paths": {
+    "/users/{user_id}": {
+      "get": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Get User",
+        "description": "Карточка пользователя; `case_id` — по какому кейсу смотрят ПД (пишется в аудит).",
+        "operationId": "identity_get_user",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "case_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserCardOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin",
+          "moderator",
+          "support"
+        ]
+      }
+    },
+    "/users/{user_id}/restrictions": {
+      "post": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Impose Restriction",
+        "description": "Наложить санкцию: действует сразу; 422 invalid_restriction — код причины не машинный.",
+        "operationId": "identity_impose_restriction",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestrictionIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestrictionCreatedOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin",
+          "moderator"
+        ]
+      }
+    },
+    "/users/{user_id}/restrictions/{restriction_id}/lift": {
+      "post": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Lift Restriction",
+        "description": "Снять санкцию пользователя; уже снятая или чужая — 404 restriction_not_found.",
+        "operationId": "identity_lift_restriction",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "restriction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Restriction Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin",
+          "moderator"
+        ]
+      }
+    },
+    "/cases": {
+      "get": {
+        "tags": [
+          "moderation"
+        ],
+        "summary": "List Cases",
+        "description": "Очередь модерации с фильтрами.",
+        "operationId": "moderation_list_cases",
+        "parameters": [
+          {
+            "name": "queue",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Queue"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Очередь — приоритет: safety — P0, fraud — P1, premod — P2",
+              "title": "Queue"
+            },
+            "description": "Очередь — приоритет: safety — P0, fraud — P1, premod — P2"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CaseStatus"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "entity_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/EntityType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Type"
+            }
+          },
+          {
+            "name": "subject_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Кейсы о пользователе: история его модерации",
+              "title": "Subject Id"
+            },
+            "description": "Кейсы о пользователе: история его модерации"
+          },
+          {
+            "name": "assigned_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Assigned To"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "due",
+                "recent"
+              ],
+              "type": "string",
+              "description": "due — ближний срок первым (очередь), recent — новые первыми",
+              "default": "due",
+              "title": "Order"
+            },
+            "description": "due — ближний срок первым (очередь), recent — новые первыми"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOut_CaseOut_"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin",
+          "moderator"
+        ]
+      }
+    },
+    "/cases/{case_id}": {
+      "get": {
+        "tags": [
+          "moderation"
+        ],
+        "summary": "Get Case",
+        "description": "Кейс с поводами; фото спора — `GET /cases/{case_id}/dispute` (с записью в аудит).",
+        "operationId": "moderation_get_case",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin",
+          "moderator"
+        ]
+      }
+    },
+    "/cases/{case_id}/take": {
+      "post": {
+        "tags": [
+          "moderation"
+        ],
+        "summary": "Take Case",
+        "description": "Взять кейс в работу; повтор тем же сотрудником ничего не меняет, чужой — 409 case_taken.",
+        "operationId": "moderation_take_case",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin",
+          "moderator"
+        ]
+      }
+    },
+    "/cases/{case_id}/escalate": {
+      "post": {
+        "tags": [
+          "moderation"
+        ],
+        "summary": "Escalate Case",
+        "description": "Отдать старшему: кейс снова свободен, его берёт администратор.",
+        "operationId": "moderation_escalate_case",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EscalateIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin",
+          "moderator"
+        ]
+      }
+    },
+    "/cases/{case_id}/decide": {
+      "post": {
+        "tags": [
+          "moderation"
+        ],
+        "summary": "Decide Case",
+        "description": "Решение по кейсу: statement of reasons автору, санкция по лестнице (DecideCase). Спор так\nне решить — 409 case_kind_conflict, для него `resolve-dispute`.",
+        "operationId": "moderation_decide_case",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin",
+          "moderator"
+        ]
+      }
+    },
+    "/cases/{case_id}/dispute": {
+      "get": {
+        "tags": [
+          "moderation"
+        ],
+        "summary": "Inspect Dispute",
+        "description": "Спор и фото обеих сторон (ссылки на 5 минут); каждый просмотр — в журнале аудита.",
+        "operationId": "moderation_inspect_dispute",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisputeDossierOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin",
+          "moderator"
+        ]
+      }
+    },
+    "/cases/{case_id}/resolve-dispute": {
+      "post": {
+        "tags": [
+          "moderation"
+        ],
+        "summary": "Resolve Dispute",
+        "description": "Решение по спору: исход сделки, решение по кейсу и санкция — одной транзакцией.",
+        "operationId": "moderation_resolve_dispute",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveDisputeIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisputeResolutionOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin",
+          "moderator"
+        ]
+      }
+    },
+    "/reports": {
+      "get": {
+        "tags": [
+          "moderation"
+        ],
+        "summary": "List Reports",
+        "description": "Жалобы, новые первыми.",
+        "operationId": "moderation_list_reports",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReportStatus"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "target_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/EntityType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Type"
+            }
+          },
+          {
+            "name": "target_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Id"
+            }
+          },
+          {
+            "name": "case_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Case Id"
+            }
+          },
+          {
+            "name": "reporter_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reporter Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOut_ReportOut_"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin",
+          "moderator"
+        ]
+      }
+    },
+    "/reports/{report_id}": {
+      "get": {
+        "tags": [
+          "moderation"
+        ],
+        "summary": "Get Report",
+        "operationId": "moderation_get_report",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin",
+          "moderator"
+        ]
+      }
+    },
+    "/audit-log": {
+      "get": {
+        "tags": [
+          "audit"
+        ],
+        "summary": "List Audit Log",
+        "description": "Журнал действий, новые первыми (только admin).",
+        "operationId": "platform_list_audit_log",
+        "parameters": [
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Действие или его начало до точки: `moderation.case` — все с кейсами",
+              "title": "Action"
+            },
+            "description": "Действие или его начало до точки: `moderation.case` — все с кейсами"
+          },
+          {
+            "name": "actor_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor Id"
+            }
+          },
+          {
+            "name": "entity_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Type"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Id"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOut_AuditRecordOut_"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "x-staff-roles": [
+          "admin"
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ActivityOut": {
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "active_sessions": {
+            "type": "integer",
+            "title": "Active Sessions"
+          },
+          "completed_deals": {
+            "type": "integer",
+            "title": "Completed Deals"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created_at",
+          "last_seen_at",
+          "last_login_at",
+          "active_sessions",
+          "completed_deals"
+        ],
+        "title": "ActivityOut"
+      },
+      "AuditRecordOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "actor_kind": {
+            "type": "string",
+            "title": "Actor Kind"
+          },
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "entity_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Type"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "changes": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changes"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "action",
+          "actor_kind",
+          "actor_id",
+          "entity_type",
+          "entity_id",
+          "changes",
+          "ip",
+          "created_at"
+        ],
+        "title": "AuditRecordOut"
+      },
+      "CaseOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "queue": {
+            "$ref": "#/components/schemas/Queue",
+            "description": "Очередь — она же приоритет: safety — P0, fraud — P1, premod — P2, appeals — апелляции"
+          },
+          "entity_type": {
+            "$ref": "#/components/schemas/EntityType"
+          },
+          "entity_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Entity Id"
+          },
+          "subject_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Subject Id",
+            "description": "Чей контент или аккаунт: ему — решение и санкция"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/CaseTrigger"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CaseStatus"
+          },
+          "opened_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Opened At"
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Due At"
+          },
+          "evidence": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Evidence",
+            "description": "Поводы по порядку: правила, жалобы, …"
+          },
+          "media_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Media Ids"
+          },
+          "appeal_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Appeal Of"
+          },
+          "assigned_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned To"
+          },
+          "decided_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "policy_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Version"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "queue",
+          "entity_type",
+          "entity_id",
+          "subject_id",
+          "trigger",
+          "status",
+          "opened_at",
+          "due_at",
+          "evidence",
+          "media_ids",
+          "appeal_of",
+          "assigned_to",
+          "decided_by",
+          "reason_code",
+          "policy_version",
+          "decided_at",
+          "notes"
+        ],
+        "title": "CaseOut"
+      },
+      "CaseStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "in_review",
+          "escalated",
+          "approved",
+          "rejected"
+        ],
+        "title": "CaseStatus"
+      },
+      "CaseTrigger": {
+        "type": "string",
+        "enum": [
+          "new_content",
+          "edit",
+          "report",
+          "auto_flag",
+          "appeal",
+          "dispute"
+        ],
+        "title": "CaseTrigger"
+      },
+      "DealOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "client_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Client Id"
+          },
+          "performer_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Performer Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled At"
+          },
+          "agreed_price": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agreed Price"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "client_id",
+          "performer_id",
+          "title",
+          "status",
+          "scheduled_at",
+          "agreed_price"
+        ],
+        "title": "DealOut"
+      },
+      "DecideIn": {
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "rejected"
+            ],
+            "title": "Verdict",
+            "description": "approved — нарушения нет, rejected — нарушение (контент скрывается)"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code",
+            "description": "Машинный код причины (`prepayment_scam`, …); при rejected обязателен"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Severity"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Тяжесть для лестницы санкций; null — без санкции"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verdict"
+        ],
+        "title": "DecideIn",
+        "description": "Решение по обычному кейсу (DecideCase); спор — `resolve-dispute`."
+      },
+      "DecisionOut": {
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Case Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CaseStatus"
+          },
+          "sanction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SanctionStep"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "restriction_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restriction Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "case_id",
+          "status",
+          "sanction",
+          "restriction_id"
+        ],
+        "title": "DecisionOut"
+      },
+      "DisputeDossierOut": {
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Case Id"
+          },
+          "case_status": {
+            "$ref": "#/components/schemas/CaseStatus"
+          },
+          "queue": {
+            "$ref": "#/components/schemas/Queue"
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Due At"
+          },
+          "dispute": {
+            "$ref": "#/components/schemas/DisputeOut"
+          },
+          "deal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DealOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "photos": {
+            "items": {
+              "$ref": "#/components/schemas/EvidencePhotoOut"
+            },
+            "type": "array",
+            "title": "Photos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "case_id",
+          "case_status",
+          "queue",
+          "due_at",
+          "dispute",
+          "deal",
+          "photos"
+        ],
+        "title": "DisputeDossierOut",
+        "description": "Спор модератору: каждый запрос пишет `moderation.dispute.evidence_viewed` в аудит."
+      },
+      "DisputeOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "deal_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Deal Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "opened_by": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Opened By"
+          },
+          "respondent_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Respondent Id"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "respond_by": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Respond By"
+          },
+          "response": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response"
+          },
+          "responded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responded At"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "deal_id",
+          "status",
+          "kind",
+          "opened_by",
+          "respondent_id",
+          "description",
+          "respond_by",
+          "response",
+          "responded_at",
+          "outcome",
+          "reason_code",
+          "created_at"
+        ],
+        "title": "DisputeOut"
+      },
+      "DisputeResolutionOut": {
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Case Id"
+          },
+          "dispute_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Dispute Id"
+          },
+          "deal_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Deal Id"
+          },
+          "outcome": {
+            "type": "string",
+            "title": "Outcome"
+          },
+          "case_status": {
+            "$ref": "#/components/schemas/CaseStatus"
+          },
+          "sanction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SanctionStep"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "case_id",
+          "dispute_id",
+          "deal_id",
+          "outcome",
+          "case_status",
+          "sanction"
+        ],
+        "title": "DisputeResolutionOut"
+      },
+      "EntityType": {
+        "type": "string",
+        "enum": [
+          "user",
+          "profile",
+          "job",
+          "response",
+          "review",
+          "review_reply",
+          "message",
+          "media",
+          "dispute"
+        ],
+        "title": "EntityType",
+        "description": "Что проверяем (как `ModerationDecisionMade.entity_type` и цели жалоб)."
+      },
+      "EscalateIn": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note",
+            "description": "Что смутило"
+          }
+        },
+        "type": "object",
+        "title": "EscalateIn"
+      },
+      "EvidencePhotoOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "opener",
+              "respondent"
+            ],
+            "title": "Side"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/PhotoVariantOut"
+            },
+            "type": "array",
+            "title": "Variants"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "side",
+          "status",
+          "variants"
+        ],
+        "title": "EvidencePhotoOut"
+      },
+      "FieldErrorOut": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "field",
+          "code",
+          "message"
+        ],
+        "title": "FieldErrorOut"
+      },
+      "Locale": {
+        "type": "string",
+        "enum": [
+          "ru",
+          "sr-Latn",
+          "sr-Cyrl",
+          "en"
+        ],
+        "title": "Locale"
+      },
+      "PageOut_AuditRecordOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditRecordOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PageOut[AuditRecordOut]"
+      },
+      "PageOut_CaseOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CaseOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PageOut[CaseOut]"
+      },
+      "PageOut_ReportOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReportOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PageOut[ReportOut]"
+      },
+      "PersonalDataOut": {
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "phone_e164": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone E164"
+          },
+          "telegram_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telegram Id"
+          },
+          "telegram_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telegram Username"
+          },
+          "telegram_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telegram Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "display_name",
+          "phone_e164",
+          "telegram_id",
+          "telegram_username",
+          "telegram_name"
+        ],
+        "title": "PersonalDataOut"
+      },
+      "PhotoVariantOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "presigned GET приватного бакета на 5 минут"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "url",
+          "width",
+          "height"
+        ],
+        "title": "PhotoVariantOut"
+      },
+      "ProblemOut": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "status": {
+            "type": "integer",
+            "title": "Status"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FieldErrorOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errors"
+          },
+          "trace_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trace Id"
+          },
+          "restriction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restriction"
+          },
+          "until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Until"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform"
+          },
+          "min_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Version"
+          },
+          "documents": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documents"
+          },
+          "document": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code",
+          "trace_id"
+        ],
+        "title": "ProblemOut",
+        "description": "Ошибка RFC 9457. Клиент ветвится по `code`, текст для человека — `detail`."
+      },
+      "Queue": {
+        "type": "string",
+        "enum": [
+          "safety",
+          "fraud",
+          "premod",
+          "appeals"
+        ],
+        "title": "Queue"
+      },
+      "ReportOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "reporter_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reporter Id"
+          },
+          "target_type": {
+            "$ref": "#/components/schemas/EntityType"
+          },
+          "target_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Target Id"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/ReportReason"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "is_legal_notice": {
+            "type": "boolean",
+            "title": "Is Legal Notice"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReportStatus"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution"
+          },
+          "resolved_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved By"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "reporter_id",
+          "target_type",
+          "target_id",
+          "reason",
+          "comment",
+          "is_legal_notice",
+          "case_id",
+          "status",
+          "resolution",
+          "resolved_by",
+          "resolved_at",
+          "created_at"
+        ],
+        "title": "ReportOut"
+      },
+      "ReportReason": {
+        "type": "string",
+        "enum": [
+          "spam",
+          "fraud",
+          "prohibited",
+          "offensive",
+          "fake_profile",
+          "no_show",
+          "personal_data",
+          "defamation",
+          "copyright",
+          "illegal",
+          "other"
+        ],
+        "title": "ReportReason"
+      },
+      "ReportStatus": {
+        "type": "string",
+        "enum": [
+          "open",
+          "resolved",
+          "rejected"
+        ],
+        "title": "ReportStatus"
+      },
+      "ResolveDisputeIn": {
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "cancelled"
+            ],
+            "title": "Outcome",
+            "description": "completed — работа выполнена, cancelled — сделка отменена модератором"
+          },
+          "reason_code": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Reason Code",
+            "description": "`work_done`, `no_show`, `poor_quality`, `prepayment_scam`, …"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Severity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "outcome",
+          "reason_code"
+        ],
+        "title": "ResolveDisputeIn",
+        "description": "Решение по спору (ResolveDispute): исход сделки и, если нужно, санкция второй стороне."
+      },
+      "RestrictionCreatedOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "RestrictionCreatedOut"
+      },
+      "RestrictionIn": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/RestrictionKind"
+          },
+          "reason_code": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Reason Code",
+            "description": "Машинный код причины: `spam`, `prepayment_scam`"
+          },
+          "ends_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends At",
+            "description": "null — бессрочно"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "reason_code"
+        ],
+        "title": "RestrictionIn",
+        "description": "Санкция от имени сотрудника — тем же путём, что решение модерации (UserRestricted)."
+      },
+      "RestrictionKind": {
+        "type": "string",
+        "enum": [
+          "limited",
+          "posting_blocked",
+          "responding_blocked",
+          "messaging_blocked",
+          "shadow_banned",
+          "suspended",
+          "banned"
+        ],
+        "title": "RestrictionKind",
+        "description": "Вид санкции в identity.restrictions (ADR-0009, ADR-0016)."
+      },
+      "RestrictionOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/RestrictionKind"
+          },
+          "reason_code": {
+            "type": "string",
+            "title": "Reason Code"
+          },
+          "source": {
+            "$ref": "#/components/schemas/RestrictionSource"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Starts At"
+          },
+          "ends_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends At"
+          },
+          "lifted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifted At"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "reason_code",
+          "source",
+          "case_id",
+          "starts_at",
+          "ends_at",
+          "lifted_at",
+          "created_by"
+        ],
+        "title": "RestrictionOut"
+      },
+      "RestrictionSource": {
+        "type": "string",
+        "enum": [
+          "moderation",
+          "system"
+        ],
+        "title": "RestrictionSource"
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "admin",
+          "moderator",
+          "support"
+        ],
+        "title": "Role",
+        "description": "Роли персонала. У обычных пользователей ролей нет."
+      },
+      "SanctionStep": {
+        "type": "string",
+        "enum": [
+          "warning",
+          "strike_1",
+          "strike_2",
+          "ban",
+          "suspension"
+        ],
+        "title": "SanctionStep"
+      },
+      "Severity": {
+        "type": "string",
+        "enum": [
+          "minor",
+          "serious",
+          "critical"
+        ],
+        "title": "Severity"
+      },
+      "UserCardOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/UserStatus"
+          },
+          "trust_level": {
+            "type": "integer",
+            "title": "Trust Level"
+          },
+          "ui_locale": {
+            "$ref": "#/components/schemas/Locale"
+          },
+          "home_city_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home City Id"
+          },
+          "intent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserIntent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "phone_verified": {
+            "type": "boolean",
+            "title": "Phone Verified"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/Role"
+            },
+            "type": "array",
+            "title": "Roles"
+          },
+          "trust_penalty_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trust Penalty At"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "activity": {
+            "$ref": "#/components/schemas/ActivityOut"
+          },
+          "restrictions": {
+            "items": {
+              "$ref": "#/components/schemas/RestrictionOut"
+            },
+            "type": "array",
+            "title": "Restrictions",
+            "description": "Новые первыми, со снятыми"
+          },
+          "personal_data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonalDataOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "trust_level",
+          "ui_locale",
+          "home_city_id",
+          "intent",
+          "phone_verified",
+          "roles",
+          "trust_penalty_at",
+          "deleted_at",
+          "activity",
+          "restrictions",
+          "personal_data"
+        ],
+        "title": "UserCardOut",
+        "description": "Карточка пользователя. `personal_data` — только support и admin (у moderator — null); каждый\nтакой ответ пишет `identity.user.pii_viewed` в журнал аудита. История модерации —\n`GET /cases?subject_id=` и `GET /reports?reporter_id=`."
+      },
+      "UserIntent": {
+        "type": "string",
+        "enum": [
+          "client",
+          "pro",
+          "casual"
+        ],
+        "title": "UserIntent",
+        "description": "«Что вы хотите?» в онбординге S02b: стартовый экран и подсказки, не права."
+      },
+      "UserStatus": {
+        "type": "string",
+        "enum": [
+          "active",
+          "deleted"
+        ],
+        "title": "UserStatus"
+      }
+    }
+  }
+}

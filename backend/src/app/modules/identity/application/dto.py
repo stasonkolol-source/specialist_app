@@ -6,10 +6,10 @@ from datetime import datetime
 
 from app.modules.identity.api import Action
 from app.modules.identity.domain.consent import Consent, ConsentDocument
-from app.modules.identity.domain.restriction import Restriction
+from app.modules.identity.domain.restriction import Restriction, RestrictionKind, RestrictionSource
 from app.modules.identity.domain.session import SessionId
-from app.modules.identity.domain.user import User, UserIntent
-from app.platform.kernel.ids import CityId, UserId
+from app.modules.identity.domain.user import User, UserIntent, UserStatus
+from app.platform.kernel.ids import CaseId, CityId, RestrictionId, UserId
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Role
 
@@ -157,3 +157,56 @@ class StaffCredentialsSet:
     totp_uri: str
     replaced: bool
     """True — у сотрудника уже был вход: пароль и TOTP заменены."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RestrictionRecord:
+    """Санкция в карточке пользователя для персонала (Admin API, 2.7b): и снятые — для истории."""
+
+    id: RestrictionId
+    kind: RestrictionKind
+    reason_code: str
+    source: RestrictionSource
+    case_id: CaseId | None
+    starts_at: datetime
+    ends_at: datetime | None
+    lifted_at: datetime | None
+    created_by: UserId | None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StaffUserCard:
+    """Карточка пользователя персоналу без ПД: статус, доверие, активность, роли, санкции."""
+
+    id: UserId
+    status: UserStatus
+    trust_level: int
+    ui_locale: Locale
+    home_city_id: CityId | None
+    intent: UserIntent | None
+    phone_verified: bool
+    roles: frozenset[Role]
+    created_at: datetime
+    last_seen_at: datetime | None
+    last_login_at: datetime | None
+    deleted_at: datetime | None
+    trust_penalty_at: datetime | None
+    completed_deals: int
+    active_sessions: int
+    restrictions: tuple[RestrictionRecord, ...]
+    """Новые первыми, вместе со снятыми и истёкшими."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PersonalData:
+    """ПД пользователя — только support и admin, каждый просмотр — в audit_log (§13.2, §13.4)."""
+
+    display_name: str
+    phone_e164: str | None
+    telegram_id: int | None
+    telegram_username: str | None
+    telegram_name: str | None
+    """Имя и фамилия из профиля Telegram на момент последнего входа."""
+
+    FIELDS = ("display_name", "phone_e164", "telegram_id", "telegram_username", "telegram_name")
+    """Что попадает в `changes.fields` записи аудита о просмотре."""

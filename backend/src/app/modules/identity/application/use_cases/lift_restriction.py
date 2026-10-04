@@ -1,7 +1,7 @@
 """Снять санкцию из админки (DEVELOPMENT_PLAN 2.7b; ADR-0020 §1): use case, а не правка строки.
 
 Событие UserRestrictionsLifted (поиск вернёт профиль в выдачу), запись в audit_log от имени
-сотрудника. Уже снятая или несуществующая санкция — False.
+сотрудника. Уже снятая, несуществующая или (с `user_id`) чужая санкция — False.
 """
 
 from dataclasses import dataclass
@@ -18,6 +18,8 @@ from app.platform.kernel.ids import RestrictionId, UserId
 class LiftRestrictionCommand:
     restriction_id: RestrictionId
     staff_id: UserId
+    user_id: UserId | None = None
+    """Чья санкция (Admin API `/users/{id}/…`): чужую не снимает; None — SQLAdmin, по id."""
 
 
 class LiftRestriction:
@@ -30,7 +32,9 @@ class LiftRestriction:
         """False — санкции нет или она уже снята."""
         now = self._clock.now()
         async with self._uow:
-            user_id = await self._restrictions.lift(cmd.restriction_id, now=now)
+            user_id = await self._restrictions.lift(
+                cmd.restriction_id, now=now, user_id=cmd.user_id
+            )
             if user_id is None:
                 return False
             self._uow.add_event(UserRestrictionsLifted(user_id=user_id, occurred_at=now))

@@ -61,6 +61,12 @@ class InvalidReportError(DomainValidationError):
     public_params = ("field", "reason")
 
 
+class ReportNotFoundError(NotFoundError):
+    """Жалобы с таким id нет (Admin API)."""
+
+    code = "report_not_found"
+
+
 class ReportsLimitError(RateLimitedError):
     """За сутки отправлено максимум жалоб (§13.3: двадцать)."""
 

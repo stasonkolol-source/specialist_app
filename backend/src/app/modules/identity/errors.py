@@ -105,6 +105,12 @@ class InvalidRestrictionError(DomainValidationError):
     code = "invalid_restriction"
 
 
+class RestrictionNotFoundError(NotFoundError):
+    """Снимать нечего: у этого пользователя нет такой неснятой санкции (Admin API, 2.7b)."""
+
+    code = "restriction_not_found"
+
+
 class CannotBlockSelfError(ConflictError):
     """Заблокировать самого себя нельзя (S08 своего профиля меню не показывает)."""
 
