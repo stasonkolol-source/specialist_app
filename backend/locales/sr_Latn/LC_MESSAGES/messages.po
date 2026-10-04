@@ -1096,6 +1096,130 @@ msgstr "Bot aplikacije „Sosedi“ može da vam piše: ovde stižu ponude, poru
 msgid "notifications.system_test.button"
 msgstr "Otvori „Sosedi“"
 
+# Апелляции и чат модераторов (DEVELOPMENT_PLAN 2.5b)
+msgid "errors.appeal_target_not_found"
+msgstr "Nema šta da se ospori: nije pronađena odluka moderacije o vama."
+
+msgid "errors.appeal_window_closed"
+msgstr "Odluka se može osporiti u roku od 6 meseci — taj rok je prošao."
+
+msgid "errors.appeal_already_filed"
+msgstr "Žalba je već poslata. Osvežite ekran."
+
+msgid "notifications.appeal_decided.title.granted"
+msgstr "Žalba je usvojena"
+
+msgid "notifications.appeal_decided.body.granted"
+msgstr "Moderator je preispitao odluku: ograničenje je uklonjeno. Hvala što ste pisali."
+
+msgid "notifications.appeal_decided.title.denied"
+msgstr "Odluka ostaje na snazi"
+
+msgid "notifications.appeal_decided.body.denied"
+msgstr "Moderator je preispitao odluku i zadržao je: {reason}. Ovo je konačan odgovor."
+
+msgid "notifications.appeal_decided.button"
+msgstr "Otvori aplikaciju „Sosedi“"
+
+msgid "notifications.appeal_reason.decision_upheld"
+msgstr "kršenje je potvrđeno"
+
+msgid "notifications.appeal_reason.other"
+msgstr "kršenje pravila platforme je potvrđeno"
+
+msgid "bot.moderation.queue.safety"
+msgstr "P0 · Bezbednost"
+
+msgid "bot.moderation.queue.fraud"
+msgstr "P1 · Prevara"
+
+msgid "bot.moderation.queue.premod"
+msgstr "P2 · Premoderacija"
+
+msgid "bot.moderation.queue.appeals"
+msgstr "Žalba"
+
+msgid "bot.moderation.card.title"
+msgstr "<b>{queue}</b> · slučaj"
+
+msgid "bot.moderation.card.entity"
+msgstr "Objekat: {entity}"
+
+msgid "bot.moderation.card.subject"
+msgstr "Korisnik:"
+
+msgid "bot.moderation.card.trigger"
+msgstr "Povod: {trigger}"
+
+msgid "bot.moderation.card.signals"
+msgstr "Signali: {signals}"
+
+msgid "bot.moderation.card.appeal"
+msgstr "Osporava se odluka (razlog: {reason}):"
+
+msgid "bot.moderation.card.photos"
+msgstr "Fotografije-dokazi: {count}. Pregled — komandom:"
+
+msgid "bot.moderation.card.due"
+msgstr "Rok: do {due}"
+
+msgid "bot.moderation.button.approve"
+msgstr "Odobri"
+
+msgid "bot.moderation.button.reject"
+msgstr "Odbij uz razlog"
+
+msgid "bot.moderation.button.escalate"
+msgstr "Eskaliraj"
+
+msgid "bot.moderation.button.dispute_done"
+msgstr "Urađeno"
+
+msgid "bot.moderation.button.dispute_cancel"
+msgstr "Otkaži uz razlog"
+
+msgid "bot.moderation.button.back"
+msgstr "« Nazad"
+
+msgid "bot.moderation.severity.none"
+msgstr "Bez sankcije"
+
+msgid "bot.moderation.severity.minor"
+msgstr "Lakše — po lestvici"
+
+msgid "bot.moderation.severity.serious"
+msgstr "Ozbiljno — suspenzija"
+
+msgid "bot.moderation.severity.critical"
+msgstr "Kritično — zabrana"
+
+msgid "bot.moderation.decided.approved"
+msgstr "✅ Odobreno — {who}"
+
+msgid "bot.moderation.decided.rejected"
+msgstr "⛔ Kršenje: {reason}, sankcija: {sanction} — {who}"
+
+msgid "bot.moderation.decided.dispute_completed"
+msgstr "✅ Spor rešen: posao je obavljen — {who}"
+
+msgid "bot.moderation.decided.dispute_cancelled"
+msgstr "⛔ Spor rešen: dogovor je otkazan ({reason}), sankcija: {sanction} — {who}"
+
+msgid "bot.moderation.decided.appeal_granted"
+msgstr "✅ Žalba usvojena, sankcija uklonjena — {who}"
+
+msgid "bot.moderation.decided.appeal_denied"
+msgstr "⛔ Žalba odbijena ({reason}) — {who}"
+
+msgid "bot.moderation.decided.escalated"
+msgstr "⬆️ Eskalirano — {who}"
+
+msgid "bot.moderation.not_moderator"
+msgstr "Slučajeve mogu da rešavaju samo moderatori. Ulogu dodeljuje administrator."
+
+msgid "bot.moderation.done"
+msgstr "Gotovo"
+
 msgid "errors.invalid_job_alert"
 msgstr "Proverite pretplatu: kategorije, kvart ili poluprečnik, budžet."
 
