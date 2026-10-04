@@ -1,0 +1,53 @@
+#cloud-config
+# Первая загрузка db-1 (3.1a): пакеты PostgreSQL 18 + PostGIS и pgBackRest из PGDG (ADR-0015), ufw,
+# SSH только по ключу. Кластер здесь НЕ создаётся: postgresql-common не заводит «main» с локалью
+# системы, а initdb с builtin C.UTF-8, bootstrap.sql с паролями ролей и pg_hba делает
+# infra/postgres/provision.sh (make db-provision ENV=prod, 3.1b) — идемпотентно и без секретов в
+# user_data (её видно в консоли Hetzner и в state). Действует только при создании VM.
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - ufw
+  - unattended-upgrades
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/10-sosed.conf
+    permissions: "0644"
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin prohibit-password
+  # кластер создаёт provision.sh, а не установка пакета
+  - path: /etc/postgresql-common/createcluster.d/00-sosed.conf
+    permissions: "0644"
+    content: |
+      create_main_cluster = false
+  # PostgreSQL слушает адрес приватной сети: bind проходит, даже если интерфейс поднимется
+  # позже postgres (иначе после перезагрузки БД доступна только локально)
+  - path: /etc/sysctl.d/90-sosed.conf
+    permissions: "0644"
+    content: |
+      net.ipv4.ip_nonlocal_bind = 1
+      vm.swappiness = 1
+
+runcmd:
+  - systemctl reload ssh
+  - sysctl --system
+  - fallocate -l 1G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+  - echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  # Firewall Hetzner приватную сеть не фильтрует: из неё — только SSH (через app-1) и PostgreSQL
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow from ${subnet_ip_range} to any port 22 proto tcp
+  - ufw allow from ${subnet_ip_range} to any port 5432 proto tcp
+  - ufw --force enable
+  # PGDG (apt.postgresql.org): PostgreSQL 18, PostGIS 3 и pgBackRest одной версии с образом dev.
+  # unattended-upgrades их не трогает (не Ubuntu-origin): обновление БД — осознанно, по runbook.
+  - install -d /usr/share/postgresql-common/pgdg
+  - curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+  - echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo "$VERSION_CODENAME")-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+  - apt-get update
+  - apt-get install -y postgresql-18 postgresql-18-postgis-3 postgresql-18-postgis-3-scripts pgbackrest

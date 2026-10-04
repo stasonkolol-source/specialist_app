@@ -14,10 +14,14 @@ from envfile import ROOT, read
 PAIRS = (
     (ROOT / "backend" / ".env.example", ROOT / "backend" / ".env"),
     (ROOT / "infra" / "compose" / ".env.example", ROOT / "infra" / "compose" / ".env"),
-    # токены Terraform stage (0.25a–b): make secret … TARGET=tf-stage
-    (
-        ROOT / "infra" / "terraform" / "stage" / ".env.example",
-        ROOT / "infra" / "terraform" / "stage" / ".env",
+    # токены Terraform: stage (0.25a–b), prod (3.1a, 3.1c) и общий стек зоны Cloudflare (3.1a) —
+    # make secret … TARGET=tf-stage|tf-prod|tf-zone
+    *(
+        (
+            ROOT / "infra" / "terraform" / stack / ".env.example",
+            ROOT / "infra" / "terraform" / stack / ".env",
+        )
+        for stack in ("stage", "prod", "zone")
     ),
 )
 
