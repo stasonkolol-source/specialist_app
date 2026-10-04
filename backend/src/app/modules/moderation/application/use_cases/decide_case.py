@@ -251,6 +251,7 @@ class DecideCase:
         now = self._clock.now()
         async with self._uow:
             case = await self._cases.get_for_update(cmd.case_id)
-            if case.entity_type is EntityType.DISPUTE:
+            if case.entity_type is EntityType.DISPUTE and not case.is_appeal:
+                # апелляцию на решение по спору решают как любую: сделку она не трогает
                 raise CaseKindError(entity_type=case.entity_type.value)
             return await self._decider.decide(case, cmd, policy_version=policy_version, now=now)
