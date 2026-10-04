@@ -36,6 +36,8 @@ dist/
 # Local artefacts
 test-results/
 playwright-report/
+# Отчёты make lighthouse (8.2)
+/.lighthouse/
 
 # Unrelated local files in the project root (Q2 — leave untouched, keep out of git): PyCharm template, blog draft
 /blog2.html

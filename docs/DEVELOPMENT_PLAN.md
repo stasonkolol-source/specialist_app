@@ -211,7 +211,7 @@
 | `make i18n-check`, `make audit` | Каталоги переводов; pip-audit, pnpm audit, gitleaks | 0.17 и 1.2, 0.23 |
 | `make new-module NAME=…` | Новый модуль по шаблону copier | 0.15c |
 | `make check` | Проверки Definition of Done, состав — таблица выше | 0.2 |
-| `make bench-search`, `make lighthouse URL=…` | Сиды масштаба лаборатории и p95 поиска; холодный старт Mini App с мобильным троттлингом | 4.2, 4.8 |
+| `make bench-search`, `make lighthouse URL=…` | Сиды масштаба лаборатории и p95 поиска; Lighthouse в Docker с мобильным профилем (Moto G Power, медленный 4G): FCP, LCP, TBT, CLS и вес страницы, отчёты HTML и JSON в `.lighthouse/`, LCP больше 2,5 с — ошибка | 4.2; `lighthouse` — 8.2 (в 4.8 холодный старт меряет `make coldstart`) |
 | `make bench-vm`, `make loadtest ENV=local\|stage [SCENARIO=…]`, `make loadtest-users ENV=…` | Бенчмарки лаборатории на VM; нагрузочный прогон k6 в Docker (локально — только smoke) и initData его пользователей | 0.26, 8.3 |
 
 ### Локальные порты и имена
@@ -1836,6 +1836,7 @@ gantt
 - **Готово, когда.** Блокеров нет; регрессионные скриншоты всех MVP-экранов в светлой и тёмной темах, ru и sr-Latn, зелёные; sr-Cyrl вычитан носителем.
 - **Проверка.** `make e2e`; `pnpm -F tma size`; `make lighthouse URL=https://stage-app.<domain>`; чек-лист матрицы.
 - **Ссылки.** [§19.1][a191], [ADR-0012][adr12], [research/04][r04].
+- **Подготовлено (2026-10-04).** `make lighthouse URL=…` (`scripts/lighthouse.py`): Lighthouse 13.5 в Docker — CLI закреплённой версии ставит npx в образ Playwright, закреплённый для e2e (Chromium оттуда же; кэш пакета — том `sosed-lighthouse-npm`), новых npm-зависимостей в репозитории нет. Мобильный профиль Lighthouse по умолчанию: экран Moto G Power 412×823, медленный 4G (RTT 150 мс, 1,6 Мбит/с) и процессор ×4 (simulate), только производительность. Отчёты HTML и JSON — в `.lighthouse/` (не в git); печатает оценку, FCP, LCP, TBT, CLS и вес страницы; LCP больше 2,5 с — код выхода 1. Стенд на Маке — `URL=http://host.docker.internal:5173`: vite preview пускает только localhost и IP, поэтому скрипт подставляет IP хоста Docker. Первый прогон на стенде (2026-10-04): вне Telegram открывается браузерная оболочка (экран «„Соседи“ живут в Telegram»), не S03 — оценка 84, FCP 2,49 с, LCP 4,02 с, TBT 25 мс, CLS 0, 382 KiB в 63 запросах: LCP выше бюджета. Холодный старт S03 по-прежнему меряет `make coldstart` (Playwright, тот же троттлинг, другая модель сети: 2,2 с); решающий замер Lighthouse — на stage за Cloudflare (0.25d), когда он поднят.
 
 ### 8.3. Нагрузочный прогон
 
