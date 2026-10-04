@@ -77,6 +77,8 @@ class ProcessedImage:
     height: int
     placeholder: str
     sha256: bytes
+    phash: int
+    """pHash кадра (64 бита без знака): поиск дубликатов портфолио у других аккаунтов."""
     variants: tuple[ImageVariant, ...]
 
 
