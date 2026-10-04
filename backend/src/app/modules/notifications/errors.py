@@ -1,6 +1,6 @@
 """Ошибки модуля notifications со стабильными code (ADR-0020 §9)."""
 
-from app.platform.kernel.errors import ConflictError, DomainValidationError
+from app.platform.kernel.errors import ConflictError, DomainValidationError, NotFoundError
 
 
 class TelegramNotLinkedError(ConflictError):
@@ -15,3 +15,15 @@ class MandatoryGroupError(DomainValidationError):
 
     code = "notification_group_mandatory"
     public_params = ("group",)
+
+
+class BroadcastStateError(ConflictError):
+    """Действие не подходит рассылке в этом статусе: начать можно только черновик, отменить —
+    до завершения."""
+
+    code = "broadcast_state"
+    public_params = ("broadcast_status", "action")
+
+
+class BroadcastNotFoundError(NotFoundError):
+    code = "broadcast_not_found"

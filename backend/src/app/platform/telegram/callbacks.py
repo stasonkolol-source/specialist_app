@@ -63,6 +63,9 @@ class CallbackAction(StrEnum):
     """«Эскалировать»: кейс — старшему."""
     CASE_BACK = "mb"
     """«Назад»: снова кнопки карточки."""
+    PRO_WAITLIST = "pw"
+    """«Хочу узнать первым» под рассылкой (2.7b, Q24): id — рассылка, нажатие — лист ожидания
+    Pro в профиле исполнителя (бот specialists)."""
 
 
 @dataclass(frozen=True, slots=True)

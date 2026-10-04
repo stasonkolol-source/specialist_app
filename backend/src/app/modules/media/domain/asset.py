@@ -33,7 +33,9 @@ class MediaStatus(StrEnum):
 
 
 class ModerationStatus(StrEnum):
-    """Итог модерации файла (шаг 2.2 и 2.6); до обработки — `pending`."""
+    """Итог проверки фото (6.7): автопроверка omni-moderation по MediaReady или решение
+    модератора; до проверки — `pending`. `flagged` — ждёт модератора, фото видно; `rejected` —
+    скрыто: API его не показывает, варианты лежат в private."""
 
     PENDING = "pending"
     APPROVED = "approved"
@@ -154,6 +156,8 @@ class MediaAsset(AggregateRoot):
     uploaded_at: datetime | None = None
     failure_reason: FailureReason | None = None
     moderation_status: ModerationStatus = ModerationStatus.PENDING
+    moderation_labels: Mapping[str, float] = field(default_factory=dict)
+    """Категории omni-moderation от порога проверки и их оценки — для модератора."""
     width: int | None = None
     height: int | None = None
     duration_ms: int | None = None
@@ -276,11 +280,50 @@ class MediaAsset(AggregateRoot):
         self.status = MediaStatus.PROCESSING
         self.reject(FailureReason.UNREADABLE, now=now)
 
+    @property
+    def blocked(self) -> bool:
+        """Отклонён модерацией: показать нечего, как при отказе обработки."""
+        return self.moderation_status is ModerationStatus.REJECTED
+
+    @property
+    def needs_hiding(self) -> bool:
+        """Варианты должны лежать в private: файл удалён или отклонён модерацией."""
+        return self.status is MediaStatus.DELETED or self.blocked
+
+    def moderate(
+        self,
+        verdict: ModerationStatus,
+        *,
+        labels: Mapping[str, float] | None = None,
+        auto: bool = False,
+    ) -> bool:
+        """Итог проверки фото. `auto` — автопроверка: только у ещё не проверенного (повтор
+        задачи и решение модератора раньше неё не перезаписываются); иначе — решение
+        модератора, оно окончательное. Только у готового файла: удалённый и так скрыт.
+        True — итог записан."""
+        if verdict is ModerationStatus.PENDING:
+            raise MediaStateError(media_status=verdict.value)
+        if self.status is not MediaStatus.READY:
+            return False
+        if auto and self.moderation_status is not ModerationStatus.PENDING:
+            return False
+        self.moderation_status = verdict
+        if labels is not None:
+            self.moderation_labels = dict(labels)
+        return True
+
     def hide(self, *, now: datetime) -> None:
-        """Варианты удалённого файла перенесены в private (media.hide_variants)."""
-        if self.status is not MediaStatus.DELETED:
+        """Варианты удалённого или отклонённого модерацией файла перенесены в private
+        (media.hide_variants)."""
+        if not self.needs_hiding:
             raise MediaStateError(media_status=self.status.value)
         self.hidden_at = now
+
+    def show(self) -> None:
+        """Отказ модерации снят: варианты вернулись в публичный бакет (media.restore_variants)."""
+        if self.needs_hiding:
+            raise MediaStateError(media_status=self.moderation_status.value)
+        self.hidden_at = None
 
     def ready(
         self,

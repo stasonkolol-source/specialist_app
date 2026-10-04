@@ -41,6 +41,9 @@ class NotificationType(StrEnum):
     ACCOUNT_RESTRICTED = "account.restricted"
     SYSTEM_TEST = "system.test"
     """Проверка канала (`cli notify-test`): бот может писать человеку."""
+    BROADCAST = "broadcast"
+    """Рассылка из админки (2.7b): текст — у рассылки (`notifications.broadcasts`), группа
+    согласия — у рассылки (`params.group`: новости или запуск «Вещей»)."""
 
 
 class EventGroup(StrEnum):
@@ -66,6 +69,10 @@ class EventGroup(StrEnum):
 MANDATORY_GROUPS = frozenset({EventGroup.ACCOUNT})
 OPT_IN_GROUPS = frozenset({EventGroup.MARKETING, EventGroup.GOODS_LAUNCH})
 """Выключены, пока человек сам не включит."""
+BROADCAST_GROUPS = OPT_IN_GROUPS
+"""Группы рассылок из админки (2.7b): объявления — только тем, кто согласился их получать
+(«Новости «Соседей»», «Запуск раздела «Вещи»»). Служебная группа рассылкам недоступна: её не
+выключить, а S43 обещает, что новости приходят только по согласию."""
 
 
 class Priority(IntEnum):
@@ -75,11 +82,15 @@ class Priority(IntEnum):
     P1 = 1
     P2 = 2
     P3 = 3
+    P4 = 4
+    """Рассылки (2.7b): после всего остального, в том числе после задач-подписчиков."""
 
     @property
     def job_priority(self) -> int:
-        """Приоритет задачи отправки в очереди: там раньше берутся большие."""
-        return len(Priority) - 1 - self.value
+        """Приоритет задачи отправки в очереди: там раньше берутся большие. P3 — 0, как у
+        задач-подписчиков (приоритет по умолчанию); P4 — ниже нуля: тысячи задач рассылки не
+        встают в очередь впереди подписчика, который создаст сообщение чата или отклик."""
+        return Priority.P3.value - self.value
 
 
 class Channel(StrEnum):
@@ -177,6 +188,10 @@ CATALOG: Mapping[NotificationType, TypeSpec] = MappingProxyType(
         ),
         NotificationType.SYSTEM_TEST: TypeSpec(
             group=EventGroup.ACCOUNT, priority=Priority.P0, channels=BOT, quiet_exempt=True
+        ),
+        # группа здесь — умолчание: у каждой рассылки своя (`params.group`, BROADCAST_GROUPS)
+        NotificationType.BROADCAST: TypeSpec(
+            group=EventGroup.MARKETING, priority=Priority.P4, channels=BOT
         ),
     }
 )

@@ -29,7 +29,11 @@ DELETE_OBJECTS = TaskRef("media.delete_objects", DeleteObjectsPayload)
 
 
 HIDE_VARIANTS = TaskRef("media.hide_variants", HideVariantsPayload)
-"""Снять удалённый файл с публикации: варианты — в приватный бакет до очистки (§10.5)."""
+"""Снять удалённый или отклонённый модерацией файл с публикации: варианты — в приватный
+бакет (§10.5)."""
+
+RESTORE_VARIANTS = TaskRef("media.restore_variants", HideVariantsPayload)
+"""Модератор снял отказ (6.7): варианты — обратно в публичный бакет."""
 
 FORGET_OWNER = TaskRef("media.forget_owner", UserDeleted)
 """Подписчик UserDeleted: все файлы удалённого аккаунта — на удаление (§7.10)."""
@@ -104,7 +108,8 @@ class MediaQuery(Protocol):
         ...
 
     async def unhidden(self, deleted_before: datetime, *, limit: int) -> Sequence[MediaAsset]:
-        """Удалённые файлы публичных назначений, чьи варианты ещё не спрятаны в private."""
+        """Удалённые и отклонённые модерацией файлы публичных назначений, чьи варианты ещё не
+        спрятаны в private."""
         ...
 
     async def duplicates(

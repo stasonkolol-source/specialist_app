@@ -194,7 +194,9 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
         description="Профиль в каталоге: одобрен модерацией или возвращён владельцем",
         properties={"approved": Flag()},
     ),
-    EventName.PRO_WAITLIST_JOINED: EventSpec(step="2.8a", description="Лист ожидания Pro"),
+    EventName.PRO_WAITLIST_JOINED: EventSpec(
+        step="2.7b", description="Лист ожидания Pro: «Хочу узнать первым» в рассылке (Q24)"
+    ),
     EventName.PHONE_VERIFIED: EventSpec(step="2.9", description="Телефон подтверждён"),
     EventName.REPORT_CREATED: EventSpec(
         step="4.7",
@@ -227,8 +229,14 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
     ),
     EventName.RESPONSE_SUBMITTED: EventSpec(
         step="5.4",
-        description="Отклик на заявку: первый ли и через сколько минут после публикации (TTFR)",
-        properties={"is_first": Flag(), "minutes_since_published": Count()},
+        description="Отклик на заявку: первый ли и через сколько минут после публикации (TTFR); "
+        "город и категория заявки — как у `job_published`",
+        properties={
+            "is_first": Flag(),
+            "minutes_since_published": Count(),
+            "category": Ref(),
+            "city": Ref(),
+        },
     ),
     EventName.INVITE_SENT: EventSpec(step="5.6", description="Приглашение в заявку", properties={}),
     EventName.DIRECT_REQUEST_SENT: EventSpec(

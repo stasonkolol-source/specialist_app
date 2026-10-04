@@ -189,6 +189,7 @@ def _to_domain(
         work_modes=tuple(WorkMode(v) for v in row.work_modes),
         listed_in_catalog=row.listed_in_catalog,
         is_founding=row.is_founding,
+        pro_waitlist_at=row.pro_waitlist_at,
         available_until=row.available_until,
         vacation_until=row.vacation_until,
         rejection_reason=row.rejection_reason,
@@ -216,6 +217,7 @@ def _apply(profile: Profile, row: ProfileRow) -> None:
     row.work_modes = [mode.value for mode in profile.work_modes]
     row.listed_in_catalog = profile.listed_in_catalog
     row.is_founding = profile.is_founding
+    row.pro_waitlist_at = profile.pro_waitlist_at
     row.available_until = profile.available_until
     row.vacation_until = profile.vacation_until
     row.rejection_reason = profile.rejection_reason

@@ -28,6 +28,7 @@ from app.modules.catalog.admin.views import VIEWS as CATALOG_VIEWS
 from app.modules.geo.admin.views import VIEWS as GEO_VIEWS
 from app.modules.identity.admin.views import VIEWS as IDENTITY_VIEWS
 from app.modules.moderation.admin.views import VIEWS as MODERATION_VIEWS
+from app.modules.notifications.admin.views import VIEWS as NOTIFICATIONS_VIEWS
 from app.modules.specialists.admin.views import VIEWS as SPECIALISTS_VIEWS
 from app.platform.http.admin import LOCKS_INFO, AdminSession
 from app.platform.settings import Environment, Settings
@@ -46,6 +47,7 @@ VIEWS: Final[Sequence[type[ModelView | BaseView]]] = (
     *SPECIALISTS_VIEWS,
     *CATALOG_VIEWS,
     *GEO_VIEWS,
+    *NOTIFICATIONS_VIEWS,
     *PLATFORM_VIEWS,
 )
 

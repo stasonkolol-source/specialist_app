@@ -23,6 +23,10 @@
 
 Доставка at-least-once: если воркер упадёт между отправкой и записью итога, сообщение
 уйдёт ещё раз — Bot API ключа идемпотентности не знает.
+
+Рассылка (`broadcast`, 2.7b): текст и кнопка — у рассылки, группа согласия — в `params.group`
+(новости или запуск «Вещей»); рассылку отменили — `suppressed` (`cancelled`). Тест рассылки
+себе (`params.locale`) — на выбранном языке.
 """
 
 from dataclasses import dataclass
@@ -30,22 +34,26 @@ from datetime import datetime, timedelta
 from uuid import UUID
 
 from app.modules.identity.api import IdentityApi
-from app.modules.notifications.application.dto import DeliveryTarget
+from app.modules.notifications.application.dto import BroadcastContent, DeliveryTarget
 from app.modules.notifications.application.ports import (
     SEND_DELIVERY,
+    BroadcastQuery,
     ChannelRepository,
     NotificationQuery,
     NotificationRenderer,
     NotificationRepository,
     SendDeliveryPayload,
 )
-from app.modules.notifications.domain.catalog import CATALOG, Channel
+from app.modules.notifications.domain.broadcast import BroadcastId, BroadcastStatus
+from app.modules.notifications.domain.catalog import CATALOG, Channel, EventGroup, NotificationType
 from app.modules.notifications.domain.notification import DeliveryId, DeliveryStatus
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.errors import ExternalServiceError, RateLimitedError
+from app.platform.kernel.localized import Locale
 from app.platform.queue.port import JobQueue
 from app.platform.telegram.port import (
+    ButtonLine,
     OutgoingMessage,
     TelegramBlockedError,
     TelegramRejectedError,
@@ -58,6 +66,8 @@ MAX_ATTEMPTS = 5
 """Неудач сети и 5xx до `failed`: меньше, чем повторов задачи (JitteredRetry)."""
 LATE = "late"
 """Причина `suppressed`: к моменту отправки сообщение уже неправда (`valid_until`)."""
+CANCELLED = "cancelled"
+"""Причина `suppressed`: рассылку отменили (2.7b)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -77,11 +87,13 @@ class SendDelivery:
         sender: TelegramSender,
         queue: JobQueue,
         clock: Clock,
+        broadcasts: BroadcastQuery,
     ) -> None:
         self._uow, self._notifications, self._query = uow, notifications, query
         self._channels = channels
         self._identity, self._renderer, self._sender = identity, renderer, sender
         self._queue, self._clock = queue, clock
+        self._broadcasts = broadcasts
 
     async def __call__(self, cmd: SendDeliveryCommand) -> DeliveryStatus | None:
         """Итог доставки; None — отправлять нечего или ещё рано."""
@@ -98,8 +110,19 @@ class SendDelivery:
         user = await self._identity.get_user(target.user_id)
         if not target.writable or user is None or user.is_deleted:
             return await self._settle(target.id, DeliveryStatus.SUPPRESSED, now)
+        broadcast = None
+        group = spec.group
+        if target.type is NotificationType.BROADCAST:
+            broadcast = await self._broadcasts.content(
+                BroadcastId(UUID(target.params["broadcast"]))
+            )
+            if broadcast is None or broadcast.status == BroadcastStatus.CANCELLED:
+                return await self._settle(
+                    target.id, DeliveryStatus.SUPPRESSED, now, error=CANCELLED
+                )
+            group = EventGroup(target.params.get("group", spec.group))
         settings = await self._query.settings(target.user_id)
-        if not settings.preferences.allows(spec.group, Channel.TELEGRAM):
+        if not settings.preferences.allows(group, Channel.TELEGRAM):
             return await self._settle(target.id, DeliveryStatus.SUPPRESSED, now)
         if not (spec.quiet_exempt or target.urgent):
             release = settings.quiet_hours.release_at(now)
@@ -108,9 +131,7 @@ class SendDelivery:
                     return await self._settle(target.id, DeliveryStatus.SUPPRESSED, now, error=LATE)
                 await self._postpone(target.id, release, spec.priority.job_priority)
                 return None
-        text, buttons = self._renderer.telegram(
-            target.type, target.params, target.link, user.ui_locale
-        )
+        text, buttons = self._render(target, broadcast, user.ui_locale)
         message = OutgoingMessage(chat_id=target.chat_id, text=text, buttons=buttons)
         attempted = self._clock.now()
         try:
@@ -135,6 +156,14 @@ class SendDelivery:
             self._clock.now(),
             provider_message_id=str(sent.message_id),
         )
+
+    def _render(
+        self, target: DeliveryTarget, broadcast: BroadcastContent | None, locale: Locale
+    ) -> tuple[str, tuple[ButtonLine, ...]]:
+        if broadcast is None:
+            return self._renderer.telegram(target.type, target.params, target.link, locale)
+        chosen = target.params.get("locale")  # тест рассылки — на выбранном языке
+        return self._renderer.broadcast(broadcast, Locale(chosen) if chosen else locale)
 
     async def _postpone(
         self, delivery_id: DeliveryId, not_before: datetime, priority: int = 0

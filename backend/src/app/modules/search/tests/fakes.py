@@ -1,7 +1,7 @@
 """Фейки портов и фасадов для тестов search (ADR-0020 §11)."""
 
 import json
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from types import TracebackType
@@ -9,7 +9,7 @@ from typing import Self
 from uuid import UUID
 
 from app.modules.catalog.api import CategorySuggestion, CategorySummary, SearchTerm, TermMatch
-from app.modules.media.api import MediaDuplicate, MediaRef
+from app.modules.media.api import ImageForCheck, MediaDuplicate, MediaRef, ModerationVerdict
 from app.modules.search.application.dto import (
     SpecialistFilters,
     SpecialistHit,
@@ -182,6 +182,19 @@ class FakeMedia:
         return {media_id: self.files[media_id] for media_id in media_ids if media_id in self.files}
 
     async def duplicates(self, media_id: MediaId) -> list[MediaDuplicate]:
+        raise NotImplementedError
+
+    async def image_for_check(self, media_id: MediaId) -> ImageForCheck | None:
+        raise NotImplementedError
+
+    async def moderate(
+        self,
+        media_id: MediaId,
+        verdict: ModerationVerdict,
+        *,
+        labels: Mapping[str, float] | None = None,
+        auto: bool = False,
+    ) -> bool:
         raise NotImplementedError
 
     async def discard(self, owner_id: UserId, media_id: MediaId) -> None:

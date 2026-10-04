@@ -25,13 +25,13 @@ from app.modules.jobs.errors import (
     ResponseNotActiveError,
     ResponseNotFoundError,
 )
-from app.modules.jobs.tests.builders import CLIENT, NOW, published, submitted
+from app.modules.jobs.tests.builders import CLIENT, ELECTRICAL, NOW, published, submitted
 from app.platform.contracts.events.jobs import (
     ResponseSubmitted,
     ResponseUpdated,
     ResponseWithdrawn,
 )
-from app.platform.kernel.ids import UserId, new_id
+from app.platform.kernel.ids import CityId, UserId, new_id
 
 pytestmark = pytest.mark.unit
 
@@ -67,8 +67,10 @@ def test_response_takes_a_place_and_waits_for_the_check() -> None:
     events = job.pull_events()
     assert [type(e) for e in events] == [ResponseSubmitted, ResponseSubmitted]
     assert [e.is_first for e in events if isinstance(e, ResponseSubmitted)] == [True, False]
+    # город и категория — как в JobPublished: разрез откликов в аналитике (6.6)
     assert all(
-        e.published_at == NOW and e.client_id == CLIENT
+        (e.published_at, e.client_id, e.category_id, e.city_id)
+        == (NOW, CLIENT, ELECTRICAL, CityId(1))
         for e in events
         if isinstance(e, ResponseSubmitted)
     )

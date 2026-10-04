@@ -2,7 +2,8 @@
 
 Пока файл обрабатывается, владелец видит оригинал по presigned GET на 5 минут. Готовый
 файл — варианты: публичные адреса CDN с неизменяемыми ключами, а где CDN нет (dev,
-тесты) — presigned GET бакета media на час.
+тесты) — presigned GET бакета media на час. Отклонённый модерацией (6.7) — без вариантов:
+показать нечего никому, итог — в `moderation_status`.
 """
 
 from app.modules.media.application.config import VARIANT_URL_TTL, MediaConfig
@@ -40,7 +41,7 @@ class MediaQueries:
             preview = await self._storage.presign_get(Bucket(asset.bucket), asset.object_key)
         variants: list[VariantView] = []
         video = None
-        if asset.status is MediaStatus.READY:
+        if asset.status is MediaStatus.READY and not asset.blocked:
             for name, variant in sorted(asset.variants.items(), key=lambda item: item[1].width):
                 view = VariantView(
                     name=name,

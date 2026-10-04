@@ -9,8 +9,8 @@
 `dispute_opened` (6.1c) — открывшему, `conversation_started` и `message_sent` (6.3a),
 `contact_shared` (6.3b), `review_published` (7.2), `report_created` (4.7), `alert_created` и
 `job_matched_notified` (5.7), `share_created` и `attribution_recorded` (7.4),
-`goods_waitlist_joined` (7.5); остальные события подключает шаг своего модуля (таксономия —
-events.py).
+`goods_waitlist_joined` (7.5), `pro_waitlist_joined` (2.7b, Q24); остальные события подключает
+шаг своего модуля (таксономия — events.py).
 """
 
 import uuid
@@ -41,7 +41,11 @@ from app.platform.contracts.events.messaging import ContactShared, ConversationS
 from app.platform.contracts.events.moderation import ReportCreated
 from app.platform.contracts.events.notifications import GoodsWaitlistJoined, WriteAccessGranted
 from app.platform.contracts.events.reviews import ReviewPublished
-from app.platform.contracts.events.specialists import ProfilePublished, ProfileSubmitted
+from app.platform.contracts.events.specialists import (
+    ProfilePublished,
+    ProfileSubmitted,
+    ProWaitlistJoined,
+)
 from app.platform.queue.port import TaskRef
 from app.platform.queue.tasks import subscriber
 from app.platform.telegram.deeplinks import link_source, parse_start_param
@@ -78,6 +82,7 @@ CAPTURE_ALERTS_MATCHED = TaskRef("analytics.capture_alerts_matched", AlertsMatch
 CAPTURE_GOODS_WAITLIST_JOINED = TaskRef(
     "analytics.capture_goods_waitlist_joined", GoodsWaitlistJoined
 )
+CAPTURE_PRO_WAITLIST_JOINED = TaskRef("analytics.capture_pro_waitlist_joined", ProWaitlistJoined)
 
 
 @subscriber(UserRegistered, CAPTURE_USER_REGISTERED)
@@ -208,9 +213,16 @@ async def capture_response_submitted(
     event: ResponseSubmitted, analytics: FromDishka[Analytics]
 ) -> None:
     """Отклик: первый ли на заявку и через сколько минут после публикации — TTFR и response
-    rate (§16.2). Без времени публикации (не должно случаться) — ноль минут."""
+    rate (§16.2), город и категория заявки — разрез по паре, как у `job_published` (6.6). Без
+    времени публикации (не должно случаться) — ноль минут; событие, поставленное до полей
+    города и категории, уходит без них."""
     since = event.published_at or event.occurred_at
     minutes = max(0, int((event.occurred_at - since).total_seconds() // 60))
+    pair: dict[str, int] = {}
+    if event.category_id is not None:
+        pair["category"] = event.category_id
+    if event.city_id is not None:
+        pair["city"] = event.city_id
     await analytics.capture(
         analytics_event(
             EventName.RESPONSE_SUBMITTED,
@@ -219,6 +231,7 @@ async def capture_response_submitted(
             source_event_id=event.event_id,
             is_first=event.is_first,
             minutes_since_published=minutes,
+            **pair,
         )
     )
 
@@ -460,5 +473,20 @@ async def capture_goods_waitlist_joined(
             occurred_at=event.occurred_at,
             source_event_id=event.event_id,
             bot_writable=event.bot_writable,
+        )
+    )
+
+
+@subscriber(ProWaitlistJoined, CAPTURE_PRO_WAITLIST_JOINED)
+async def capture_pro_waitlist_joined(
+    event: ProWaitlistJoined, analytics: FromDishka[Analytics]
+) -> None:
+    """Лист ожидания Pro (Q24): «Хочу узнать первым» в рассылке founding-специалистам (2.7b)."""
+    await analytics.capture(
+        analytics_event(
+            EventName.PRO_WAITLIST_JOINED,
+            user_id=event.user_id,
+            occurred_at=event.occurred_at,
+            source_event_id=event.event_id,
         )
     )

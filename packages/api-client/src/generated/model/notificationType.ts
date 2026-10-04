@@ -30,4 +30,5 @@ export const NotificationType = {
   profilepublished: 'profile.published',
   accountrestricted: 'account.restricted',
   systemtest: 'system.test',
+  broadcast: 'broadcast',
 } as const;

@@ -40,9 +40,9 @@ class SqlProfileQuery(SqlQuery):
             return {}
         p = ProfileRow.__table__.c
         rows = await self._fetch(
-            select(p.id, p.user_id, p.kind, p.status, p.display_name).where(
-                p.user_id.in_(list(user_ids)), p.deleted_at.is_(None)
-            )
+            select(
+                p.id, p.user_id, p.kind, p.status, p.display_name, p.is_founding, p.city_id
+            ).where(p.user_id.in_(list(user_ids)), p.deleted_at.is_(None))
         )
         return {
             UserId(row["user_id"]): ProfileRef(
@@ -50,6 +50,8 @@ class SqlProfileQuery(SqlQuery):
                 kind=str(row["kind"]),
                 status=str(row["status"]),
                 display_name=row["display_name"],
+                is_founding=row["is_founding"],
+                city_id=CityId(row["city_id"]),
             )
             for row in rows
         }

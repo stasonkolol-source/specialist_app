@@ -93,6 +93,10 @@ class ResponseSubmitted(DomainEvent):
     """Первый отклик на заявку — «Откликнулся первым» и время до первого отклика (TTFR)."""
     published_at: datetime | None
     """Когда заявку опубликовали: время от публикации до отклика — в аналитику."""
+    category_id: CategoryId | None = None
+    city_id: CityId | None = None
+    """Услуга и город заявки, как в JobPublished: метрики откликов в аналитике — по паре «город ×
+    категория» (6.6). None — у события, поставленного в очередь до этих полей."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

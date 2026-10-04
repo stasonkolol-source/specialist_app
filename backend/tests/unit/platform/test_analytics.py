@@ -3,13 +3,13 @@
 
 import json
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import httpx
 import pytest
-from pydantic import SecretStr, ValidationError
+from pydantic import SecretStr, TypeAdapter, ValidationError
 from structlog.testing import capture_logs
 
 from app.modules.deals.domain.deal import MODERATOR, SYSTEM, DealCancelReason, DealOrigin, DealRole
@@ -64,13 +64,19 @@ from app.platform.analytics.tasks import (
     capture_message_sent,
     capture_onboarding_completed,
     capture_report_created,
+    capture_response_submitted,
     capture_share_created,
     capture_write_access_granted,
 )
 from app.platform.contracts.events.deals import DealAgreed, DealCancelled
 from app.platform.contracts.events.growth import AttributionRecorded, ShareCreated
 from app.platform.contracts.events.identity import EntryPoint, OnboardingCompleted
-from app.platform.contracts.events.jobs import AlertCreated, AlertsMatched, JobInvited
+from app.platform.contracts.events.jobs import (
+    AlertCreated,
+    AlertsMatched,
+    JobInvited,
+    ResponseSubmitted,
+)
 from app.platform.contracts.events.messaging import ContactShared, ConversationStarted, MessageSent
 from app.platform.contracts.events.moderation import ReportCreated
 from app.platform.contracts.events.notifications import GoodsWaitlistJoined, WriteAccessGranted
@@ -489,6 +495,40 @@ async def test_deal_events_go_to_both_sides_once() -> None:
     ]
     assert events[0].event_id != events[1].event_id
     assert [events[0].event_id, events[1].event_id] == [events[2].event_id, events[3].event_id]
+
+
+async def test_response_carries_the_pair_of_its_job() -> None:
+    """Отклик (5.4) — первый ли и минуты от публикации; город и категория заявки (6.6), как у
+    job_published: доли откликов на дашборде — по паре. Задача, поставленная в очередь до этих
+    полей, разбирается и уходит без пары."""
+    fake = LoggingAnalytics()
+    performer = UserId(new_id())
+    response = ResponseSubmitted(
+        job_id=new_id(),
+        response_id=new_id(),
+        performer_id=performer,
+        client_id=UserId(new_id()),
+        is_first=True,
+        published_at=NOW - timedelta(minutes=42, seconds=30),
+        category_id=CategoryId(5),
+        city_id=CityId(1),
+        occurred_at=NOW,
+    )
+    adapter = TypeAdapter(ResponseSubmitted)
+    queued_before = adapter.dump_python(response, mode="json")
+    del queued_before["category_id"], queued_before["city_id"]
+
+    await capture_response_submitted(response, fake)
+    await capture_response_submitted(adapter.validate_python(queued_before), fake)
+
+    assert [(e.name, e.distinct_id, dict(e.properties)) for e in fake.captured] == [
+        (
+            "response_submitted",
+            performer,
+            {"is_first": True, "minutes_since_published": 42, "category": 5, "city": 1},
+        ),
+        ("response_submitted", performer, {"is_first": True, "minutes_since_published": 42}),
+    ]
 
 
 async def test_invites_and_direct_requests_are_captured() -> None:

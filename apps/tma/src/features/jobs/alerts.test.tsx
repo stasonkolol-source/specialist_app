@@ -105,10 +105,14 @@ describe('S18 alerts', () => {
     await click(
       screen.getByRole('switch', { name: 'Присылать заявки по подписке «Мастер на час»' }),
     );
-    expect(
-      screen.getByRole('switch', { name: 'Присылать заявки по подписке «Мастер на час»' })
-        .ariaChecked,
-    ).toBe('false');
+    // оптимистично, до ответа сервера; onMutate асинхронный (отмена запросов) — под нагрузкой CI
+    // переключатель меняется на такт позже клика
+    await waitFor(() =>
+      expect(
+        screen.getByRole('switch', { name: 'Присылать заявки по подписке «Мастер на час»' })
+          .ariaChecked,
+      ).toBe('false'),
+    );
     await waitFor(() =>
       expect(jobs.alertWrites.at(-1)).toMatchObject({
         method: 'PATCH',

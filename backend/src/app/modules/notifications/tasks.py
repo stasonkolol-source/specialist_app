@@ -64,6 +64,10 @@ notifications стоит над контентными модулями (ARCHITE
 - `notifications.forget_recipient` — UserDeleted: лента, каналы и настройки удалённого
   аккаунта удалены (§7.10).
 - `notifications.send` — отправить доставку в бот (очередь `notifications`).
+- `notifications.fan_out_broadcast` — рассылка из админки (2.7b): пачка получателей — их
+  уведомления, доставки и задачи отправки с приоритетом P4; полная пачка ставит следующую.
+- `notifications.finish_broadcast` — аудитория разобрана: рассылка завершается, когда не
+  останется ждущих доставок (проверка раз в минуту).
 - `notifications.expire_stale` — раз в час: доставки, зависшие в `queued` дольше суток после
   срока, становятся `failed` (`stale`).
 """
@@ -80,6 +84,8 @@ from app.modules.identity.api import IdentityApi
 from app.modules.jobs.api import InviteNotice, JobBrief, JobsApi, MatchNotice
 from app.modules.messaging.api import MessagingApi
 from app.modules.notifications.application.ports import (
+    FAN_OUT_BROADCAST,
+    FINISH_BROADCAST,
     FORGET_RECIPIENT,
     GRANT_WRITE_ACCESS,
     NOTIFY_ACCOUNT_RESTRICTED,
@@ -110,6 +116,7 @@ from app.modules.notifications.application.ports import (
     SCHEDULE_MESSAGES_NOTICE,
     SCHEDULE_RESPONSES_NOTICE,
     SEND_DELIVERY,
+    BroadcastPayload,
     MessagesWindow,
     ResponsesWindow,
     RetireCardPayload,
@@ -118,6 +125,14 @@ from app.modules.notifications.application.ports import (
 from app.modules.notifications.application.use_cases.expire_stale_deliveries import (
     ExpireStaleDeliveries,
     ExpireStaleDeliveriesCommand,
+)
+from app.modules.notifications.application.use_cases.fan_out_broadcast import (
+    FanOutBroadcast,
+    FanOutBroadcastCommand,
+)
+from app.modules.notifications.application.use_cases.finish_broadcast import (
+    FinishBroadcast,
+    FinishBroadcastCommand,
 )
 from app.modules.notifications.application.use_cases.forget_recipient import (
     ForgetRecipient,
@@ -148,6 +163,7 @@ from app.modules.notifications.application.use_cases.send_delivery import (
     SendDelivery,
     SendDeliveryCommand,
 )
+from app.modules.notifications.domain.broadcast import BroadcastId
 from app.modules.notifications.domain.catalog import NotificationType
 from app.modules.notifications.domain.channel import GrantedVia
 from app.modules.notifications.domain.notification import DeliveryId
@@ -952,6 +968,18 @@ async def expire_stale(run: PeriodicRun) -> None:
 @task(SEND_DELIVERY)
 async def send(payload: SendDeliveryPayload, deliver: FromDishka[SendDelivery]) -> None:
     await deliver(SendDeliveryCommand(delivery_id=DeliveryId(payload.delivery_id)))
+
+
+@task(FAN_OUT_BROADCAST)
+async def fan_out_broadcast(
+    payload: BroadcastPayload, fan_out: FromDishka[FanOutBroadcast]
+) -> None:
+    await fan_out(FanOutBroadcastCommand(broadcast_id=BroadcastId(payload.broadcast_id)))
+
+
+@task(FINISH_BROADCAST)
+async def finish_broadcast(payload: BroadcastPayload, finish: FromDishka[FinishBroadcast]) -> None:
+    await finish(FinishBroadcastCommand(broadcast_id=BroadcastId(payload.broadcast_id)))
 
 
 @subscriber(UserDeleted, FORGET_RECIPIENT)

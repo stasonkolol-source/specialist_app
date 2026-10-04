@@ -3,6 +3,9 @@
 Кнопки — варианты S38, ещё не прошедшие сегодня по Белграду, и «Выключить», если включено;
 нажатие вызывает тот же SetAvailability, что и Mini App. Профиля нет — кнопка в Mini App: профиль
 создаётся там (S32). Команды нет в меню бота: меню общее, а эта — только для специалистов.
+
+«Хочу узнать первым» под рассылкой (callback `pw:<рассылка>`, 2.7b, Q24) — лист ожидания Pro:
+JoinProWaitlist; ответ — всплывающая подсказка, кнопка под сообщением убирается.
 """
 
 from datetime import datetime, time
@@ -15,6 +18,10 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from dishka.integrations.aiogram import FromDishka, inject
 
 from app.modules.specialists.application.ports import ProfileQuery
+from app.modules.specialists.application.use_cases.join_pro_waitlist import (
+    JoinProWaitlist,
+    JoinProWaitlistCommand,
+)
 from app.modules.specialists.application.use_cases.set_availability import (
     SetAvailability,
     SetAvailabilityCommand,
@@ -26,6 +33,7 @@ from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Principal
 from app.platform.settings import TelegramSettings
 from app.platform.telegram.buttons import mini_app_url, open_app_keyboard
+from app.platform.telegram.callbacks import CallbackAction, parse_callback
 from app.platform.telegram.texts import html_text, plain_text
 
 HOURS: Final = (18, 20, 22)
@@ -119,10 +127,35 @@ async def choose(
                 raise
 
 
+@inject
+async def join_waitlist(
+    callback: CallbackQuery,
+    locale: Locale,
+    translator: FromDishka[Translator],
+    join: FromDishka[JoinProWaitlist],
+    principal: Principal | None = None,
+) -> None:
+    data = parse_callback(callback.data)
+    if principal is None or data is None or data.action is not CallbackAction.PRO_WAITLIST:
+        await callback.answer()
+        return
+    outcome = await join(JoinProWaitlistCommand(user_id=principal.user_id, broadcast_id=data.id))
+    await callback.answer(plain_text(translator, f"bot.pro_waitlist.{outcome.value}", locale))
+    if isinstance(callback.message, Message):
+        try:
+            await callback.message.edit_reply_markup(reply_markup=None)
+        except TelegramBadRequest as exc:  # двойное нажатие: кнопки уже нет
+            if "message is not modified" not in exc.message:
+                raise
+
+
 def create_router() -> Router:
     """Новый роутер на каждый вызов: роутер aiogram подключается только к одному диспетчеру."""
     router = Router(name="specialists")
     private = F.chat.type == "private"
     router.message.register(available, Command("available"), private)
     router.callback_query.register(choose, F.data.startswith(AVAILABLE_CALLBACK))
+    router.callback_query.register(
+        join_waitlist, F.data.startswith(f"{CallbackAction.PRO_WAITLIST.value}:")
+    )
     return router

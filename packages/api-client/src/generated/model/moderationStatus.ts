@@ -6,7 +6,9 @@
  */
 
 /**
- * Итог модерации файла (шаг 2.2 и 2.6); до обработки — `pending`.
+ * Итог проверки фото (6.7): автопроверка omni-moderation по MediaReady или решение
+ * модератора; до проверки — `pending`. `flagged` — ждёт модератора, фото видно; `rejected` —
+ * скрыто: API его не показывает, варианты лежат в private.
  */
 export type ModerationStatus = (typeof ModerationStatus)[keyof typeof ModerationStatus];
 

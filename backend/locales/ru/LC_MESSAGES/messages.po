@@ -44,6 +44,15 @@ msgstr "Готово: вы доступны сегодня до {time}."
 msgid "bot.available.done_off"
 msgstr "Готово: «доступен сегодня» выключено."
 
+msgid "bot.pro_waitlist.joined"
+msgstr "Готово! Напишем вам первым, когда появятся новые возможности для исполнителей."
+
+msgid "bot.pro_waitlist.already"
+msgstr "Вы уже в списке: напишем первым."
+
+msgid "bot.pro_waitlist.no_profile"
+msgstr "Сначала создайте профиль исполнителя в приложении."
+
 msgid "bot.available.no_profile"
 msgstr "«Доступен сегодня» — для опубликованного профиля специалиста. Создать или проверить профиль можно в приложении."
 
@@ -714,6 +723,12 @@ msgstr "Спор по сделке решается с исходом сделк
 msgid "errors.notification_group_mandatory"
 msgstr "Служебные уведомления нельзя выключить: они о решениях модерации и ограничениях аккаунта."
 
+msgid "errors.broadcast_state"
+msgstr "Рассылку в этом статусе так изменить нельзя."
+
+msgid "errors.broadcast_not_found"
+msgstr "Рассылка не найдена."
+
 msgid "notifications.account_restricted.title.restricted"
 msgstr "Аккаунт ограничен"
 
@@ -1121,6 +1136,15 @@ msgstr "Бот «Соседей» может вам писать: сюда пр�
 
 msgid "notifications.system_test.button"
 msgstr "Открыть «Соседи»"
+
+msgid "notifications.broadcast.title"
+msgstr "Новости «Соседей»"
+
+msgid "notifications.broadcast.open"
+msgstr "Открыть «Соседи»"
+
+msgid "notifications.broadcast.pro_waitlist"
+msgstr "Хочу узнать первым"
 
 msgid "share.specialist.text"
 msgstr "<b>{name}</b> — специалист в «Соседях»"

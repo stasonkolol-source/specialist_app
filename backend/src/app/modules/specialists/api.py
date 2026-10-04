@@ -118,6 +118,10 @@ class ProfileRef:
     status: str
     display_name: str | None = None
     """Имя на карточке: в переписке у специалиста — оно, а не имя аккаунта."""
+    is_founding: bool = False
+    """Founding (§15.2): аудитория рассылки «Founding-специалистам» (2.7b, Q24)."""
+    city_id: CityId | None = None
+    """Город профиля: аудитория рассылки по городу (2.7b)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
