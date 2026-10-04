@@ -34,6 +34,7 @@ from app.modules.specialists.api import SpecialistsApi
 from app.platform.ai.port import Moderation
 from app.platform.audit.port import AuditEntry, AuditLog
 from app.platform.db.port import UnitOfWork
+from app.platform.kernel.errors import ExternalServiceError
 from app.platform.kernel.ids import CaseId, MediaId, UserId, new_id
 from app.platform.queue.port import JobQueue
 from app.platform.testing.clock import FakeClock
@@ -197,4 +198,47 @@ async def test_photo_that_was_never_checked_goes_to_a_moderator_like_unavailable
 
     # итог уже есть (проверка всё же прошла или модератор решил) — второй кейс не открывается
     assert await check.give_up(cmd) is None
+    assert len(opener.opened) == 1
+
+
+class Unreadable(Media):
+    """Вариант фото не читается (хранилище отказало) — проверять нечего."""
+
+    async def image_for_check(self, media_id: MediaId) -> ImageForCheck | None:
+        return None
+
+
+class StorageDown(Media):
+    async def image_for_check(self, media_id: MediaId) -> ImageForCheck | None:
+        raise ExternalServiceError(service="storage", reason="ConnectTimeoutError")
+
+
+async def test_old_photo_that_still_cannot_be_read_goes_to_a_moderator() -> None:
+    media = Unreadable()
+    check, opener, _ = check_image(media)
+    cmd = CheckImageCommand(media_id=MediaId(new_id()), owner_id=OWNER, purpose="avatar")
+
+    assert await check.recheck(cmd, may_give_up=True) is UNCHECKED
+    assert [case.details["signals"] for case in opener.opened] == [["image:unchecked"]]
+
+
+async def test_fresh_photo_that_cannot_be_read_waits_for_the_next_round() -> None:
+    media = Unreadable()
+    check, opener, _ = check_image(media)
+    cmd = CheckImageCommand(media_id=MediaId(new_id()), owner_id=OWNER, purpose="avatar")
+
+    assert await check.recheck(cmd, may_give_up=False) is None
+    assert (opener.opened, media.verdicts) == ([], [])
+
+
+async def test_storage_outage_is_retried_and_only_an_old_photo_is_given_up() -> None:
+    media = StorageDown()
+    check, opener, _ = check_image(media)
+    cmd = CheckImageCommand(media_id=MediaId(new_id()), owner_id=OWNER, purpose="job")
+
+    with pytest.raises(ExternalServiceError):
+        await check.recheck(cmd, may_give_up=False)  # задача повторится
+    assert opener.opened == []
+
+    assert await check.recheck(cmd, may_give_up=True) is UNCHECKED
     assert len(opener.opened) == 1

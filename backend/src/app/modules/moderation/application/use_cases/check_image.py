@@ -47,6 +47,7 @@ from app.platform.ai.prompt import image_data_url
 from app.platform.audit.port import ActorKind, AuditEntry, AuditLog
 from app.platform.db.port import UnitOfWork
 from app.platform.db.retry import retry_on_conflict
+from app.platform.kernel.errors import ExternalServiceError
 from app.platform.kernel.ids import CaseId, MediaId, UserId
 
 log = structlog.get_logger(__name__)
@@ -97,6 +98,22 @@ class CheckImage:
             return None
         result = await self._moderation.check_image(image_data_url(image.body, image.content_type))
         return await self._record(cmd, judge_image(result))
+
+    async def recheck(self, cmd: CheckImageCommand, *, may_give_up: bool) -> ImageVerdict | None:
+        """Перепроверка (`moderation.recheck_image`). Сначала — обычная проверка: фото, загруженные
+        до модерации фото, и сорвавшиеся проверки просто проверяются снова, а не уходят
+        модератору. Модератору (P2, `give_up`) — только фото, ждущее итога дольше
+        `GIVE_UP_AFTER` (`may_give_up`), которое проверить так и не вышло: вариант не читается
+        (`image_for_check` — None) или хранилище недоступно."""
+        try:
+            verdict = await self(cmd)
+        except ExternalServiceError:
+            if not may_give_up:
+                raise
+            verdict = None
+        if verdict is None and may_give_up:
+            return await self.give_up(cmd)
+        return verdict
 
     async def give_up(self, cmd: CheckImageCommand) -> ImageVerdict | None:
         """Проверка так и не состоялась (`moderation.recheck_images`): фото — модератору (P2),
