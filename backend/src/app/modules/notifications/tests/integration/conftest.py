@@ -46,7 +46,7 @@ from app.modules.notifications.infrastructure.repositories import (
     SqlSettingsRepository,
 )
 from app.modules.notifications.tests.fakes import FakeIdentity
-from app.platform.contracts.events.notifications import WriteAccessGranted
+from app.platform.contracts.events.notifications import GoodsWaitlistJoined, WriteAccessGranted
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.ids import UserId, new_id
 from app.platform.kernel.localized import Locale
@@ -59,6 +59,8 @@ from app.platform.testing.telegram import RecordingTelegramSender
 
 ON_WRITE_ACCESS = TaskRef("test.write_access_granted", WriteAccessGranted)
 """Подписка теста: WriteAccessGranted видно в procrastinate_jobs."""
+ON_GOODS_WAITLIST = TaskRef("test.goods_waitlist_joined", GoodsWaitlistJoined)
+"""Подписка теста: GoodsWaitlistJoined (S58, 7.5) видно в procrastinate_jobs."""
 
 MINI_APP = "https://app.test/"
 
@@ -156,6 +158,11 @@ class Notifications:
         tasks = await queued_tasks(self.session, ON_WRITE_ACCESS.name)
         return [t.payload for t in tasks if t.payload.get("user_id") == str(user_id)]
 
+    async def waitlisted(self, user_id: UserId) -> list[dict[str, object]]:
+        """GoodsWaitlistJoined пользователя, поставленные в очередь (payload события)."""
+        tasks = await queued_tasks(self.session, ON_GOODS_WAITLIST.name)
+        return [t.payload for t in tasks if t.payload.get("user_id") == str(user_id)]
+
     async def block_bot(self, user_id: UserId, at: datetime) -> None:
         """Пользователь заблокировал бота (403 — шаг 2.3b): канал выключен."""
         await self.session.execute(
@@ -176,6 +183,7 @@ def notifications(db_session: AsyncSession, procrastinate_app: procrastinate.App
     sender = RecordingTelegramSender()
     events = EventRegistry()
     events.subscribe(WriteAccessGranted, ON_WRITE_ACCESS)
+    events.subscribe(GoodsWaitlistJoined, ON_GOODS_WAITLIST)
     uow = make_uow(db_session, procrastinate_app, events)
     queue = ProcrastinateJobQueue(db_session, procrastinate_app)
     channels = SqlChannelRepository(db_session, uow)
@@ -198,7 +206,7 @@ def notifications(db_session: AsyncSession, procrastinate_app: procrastinate.App
         ),
         queries=NotificationQueries(query, renderer),
         mark_read=MarkNotificationsRead(uow, repository, query, clock),
-        update_settings=UpdateNotificationSettings(uow, settings, query),
+        update_settings=UpdateNotificationSettings(uow, settings, query, clock),
         block=BlockTelegramChannel(uow, channels),
         expire=ExpireStaleDeliveries(uow, repository, clock),
     )

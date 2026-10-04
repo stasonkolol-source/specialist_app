@@ -313,7 +313,9 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
     EventName.SHARE_CREATED: EventSpec(step="7.4", description="Поделились ссылкой"),
     EventName.ATTRIBUTION_RECORDED: EventSpec(step="7.4", description="Атрибуция по ссылке"),
     EventName.GOODS_WAITLIST_JOINED: EventSpec(
-        step="7.5", description="«Сообщить о запуске» на S58"
+        step="7.5",
+        description="«Сообщить о запуске» на S58: может ли бот написать сейчас",
+        properties={"bot_writable": Flag()},
     ),
 }
 

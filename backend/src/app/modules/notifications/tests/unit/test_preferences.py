@@ -77,12 +77,14 @@ def test_empty_window_is_invalid() -> None:
         QuietHours(start=time(8, 0), end=time(8, 0))
 
 
-def test_everything_is_on_by_default_except_news() -> None:
+def test_everything_is_on_by_default_except_opt_in_groups() -> None:
     preferences = Preferences()
+    # новости и запуск «Вещей» — только по согласию: кнопка S58 или отметка S43
+    opt_in = {EventGroup.MARKETING, EventGroup.GOODS_LAUNCH}
 
     for group in EventGroup:
         for channel in Channel:
-            assert preferences.allows(group, channel) is (group is not EventGroup.MARKETING)
+            assert preferences.allows(group, channel) is (group not in opt_in)
 
 
 def test_service_notifications_cannot_be_turned_off() -> None:
