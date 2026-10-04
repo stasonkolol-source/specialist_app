@@ -87,7 +87,9 @@ multipart — сутки), `stage-cdn.` → бакет media. В стеке зо
 WAF для webhook Telegram (`/integrations/telegram/` на `stage-bot.` и `bot.` с адресов Bot API),
 запрет `/admin` на хостах API, SSL Full (strict), HTTPS always, TLS ≥ 1.2. `stage-admin.` ничего не
 отдаёт до Access (K31, 2.7b): kamal-proxy этот хост не обслуживает, а web без
-`APP_ADMIN_SESSION_KEY` не монтирует `/admin`.
+`APP_ADMIN_SESSION_KEY` не монтирует `/admin`. Когда stage-админку откроют за Access, вместе с ключом
+сессии заводится `APP_TOTP_KEY` (`make gen-secret`, как на проде — `prod-bootstrap.md`, раздел 4):
+с ключом сессии, но без ключа шифрования секретов TOTP персонала (8.4) процессы не стартуют.
 
 ## 3. Backend и БД через Kamal (0.25c)
 

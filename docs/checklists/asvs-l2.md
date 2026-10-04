@@ -41,7 +41,7 @@ integration); этот чек-лист.
 | 2.2.1 | Защита от перебора и автоматизации | ✅ | `POST /auth/*` — 10/мин на IP и 30/ч на пользователя (§13.3); IP — по [ClientAddressMiddleware](../../backend/src/app/interfaces/http/proxy.py), подделка X-Forwarded-For больше не обходит лимит (8.4) |
 | 2.2.2 | Слабые аутентификаторы только как второй фактор | N/A | SMS/e-mail для входа не используются |
 | 2.5.x | Восстановление учётной записи | N/A | доступ = Telegram-аккаунт; без своих учётных данных |
-| 2.8.x | TOTP персонала | ⏳ | вход персонала argon2 + TOTP — 2.7a; админка за Cloudflare Access — 2.7b, 3.1c |
+| 2.8.x | TOTP персонала | ⚠️ | вход персонала argon2 + TOTP (pyotp, RFC 6238, ±1 шаг; код одного шага второй раз не входит — `totp_last_step`) — 2.7a; 2.8.2: секрет в БД зашифрован AES-256-GCM ключом `APP_TOTP_KEY` (8.4, см. V6), ключ — секрет окружения (GitHub environment → Kamal), не HSM; админка за Cloudflare Access — 2.7b, 3.1c |
 | 2.9.1 | Криптографическая проверка аутентификатора | ✅ | `be/platform/security/initdata.py`: HMAC-SHA256, constant-time, `auth_date` ≤ 1 ч; тесты `tests/unit/platform/security/test_initdata.py` |
 | 2.10.1 | Нет зашитых секретов сервисов | ✅ | `SecretStr` в настройках; gitleaks в CI (`ci-backend.yml`) и pre-commit |
 | 2.10.4 | Секреты не в исходниках | ✅ | `.env` вне git, `backend/.env.example` без значений (тест полноты) |
@@ -91,10 +91,12 @@ integration); этот чек-лист.
 
 | ID | Требование | Статус | Доказательство |
 |---|---|---|---|
-| 6.2.1 | Модули падают безопасно | ✅ | `cryptography`, ошибки → 401 без деталей |
-| 6.2.2 | Проверенные алгоритмы | ✅ | Ed25519, HMAC-SHA256, SHA-256; хэши удалённых — HMAC с `APP_HASH_KEY` |
+| 6.2.1 | Модули падают безопасно | ✅ | `cryptography`, ошибки → 401 без деталей; секрет TOTP, который не расшифровать (чужой ключ, подмена, порча), — отказ во входе без подробностей (`be/platform/security/secretbox.py`, 8.4) |
+| 6.2.2 | Проверенные алгоритмы | ✅ | Ed25519, HMAC-SHA256, SHA-256, AES-256-GCM; хэши удалённых — HMAC с `APP_HASH_KEY` |
+| 6.2.3 | Режим, nonce и связанные данные | ✅ | AES-256-GCM: nonce 96 бит случайный на каждую запись, AAD — версия формата, id ключа и id сотрудника (шифротекст из чужой строки не расшифруется); тесты `tests/unit/platform/security/test_secretbox.py` (8.4) |
+| 6.2.x | Секреты в БД под ключом приложения | ✅ | секрет TOTP персонала — `v1:<kid>:…` под `APP_TOTP_KEY` (`be/modules/identity/infrastructure/staff.py`); ротация — `APP_TOTP_KEY_PREVIOUS` и `cli staff-totp-reencrypt` ([secrets-rotation.md](../../infra/runbooks/secrets-rotation.md), раздел 1.1); строки до 8.4 перешифровывает вход или та же команда; тесты `test_totp_cipher.py`, `tests/integration/test_admin_auth.py` (8.4) |
 | 6.3.1 | Криптостойкий ГСЧ | ✅ | `secrets`, UUIDv7 (`be/platform/kernel/ids.py`) |
-| 6.4.1 | Секреты в хранилище секретов | ⚠️ | dev — `.env` вне git; stage/prod — SOPS + Kamal (3.1b–3.1c) |
+| 6.4.1 | Секреты в хранилище секретов | ⚠️ | dev — `.env` вне git; stage/prod — SOPS + Kamal (3.1b–3.1c); на stage и проде с админкой процессы без `APP_TOTP_KEY` не стартуют, ключа разработки там нет (8.4) |
 | 6.4.2 | Ключи не раскрываются приложению сверх нужного | ✅ | процесс получает только свои переменные (Kamal roles) — проверить в 3.1c |
 
 ## V7. Ошибки и журналы

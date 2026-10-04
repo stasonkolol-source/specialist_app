@@ -3,6 +3,8 @@
 Вход — логин, пароль (argon2) и код TOTP (±30 с); код одного шага второй раз не принимается.
 Без роли, с удалённым аккаунтом или без верного кода — отказ без причины. Успешный вход пишется
 в audit_log; лимит неудачных попыток — у входного адаптера (interfaces/admin/auth.py).
+Секрет TOTP в БД зашифрован (8.4): не расшифровать — входа нет; секрет под прежним ключом или
+открытый (строка до 8.4) удачный вход перешифровывает текущим ключом.
 """
 
 import structlog
@@ -13,6 +15,7 @@ from app.modules.identity.application.ports import (
     StaffCredential,
     StaffCredentials,
     StaffSecrets,
+    TotpSecretCipher,
 )
 from app.platform.audit.port import ActorKind, AuditEntry, AuditLog
 from app.platform.db.port import UnitOfWork
@@ -31,11 +34,12 @@ class StaffAuthService:
         query: IdentityQuery,
         credentials: StaffCredentials,
         secrets: StaffSecrets,
+        cipher: TotpSecretCipher,
         audit: AuditLog,
         clock: Clock,
     ) -> None:
         self._uow, self._query = uow, query
-        self._credentials, self._secrets = credentials, secrets
+        self._credentials, self._secrets, self._cipher = credentials, secrets, cipher
         self._audit, self._clock = audit, clock
 
     async def authenticate(
@@ -48,13 +52,23 @@ class StaffAuthService:
                 return None
             if not self._secrets.verify_password(password, found.password_hash):
                 return None
-            step = self._secrets.totp_step(found.totp_secret, code.strip(), self._clock.now())
+            totp = self._cipher.decrypt(found.encrypted_totp_secret, found.user_id)
+            if totp is None:
+                # ключ не тот (ротация без APP_TOTP_KEY_PREVIOUS) или строка испорчена — без
+                # секрета и шифротекста в логе; сотруднику — заново `cli staff-create`
+                log.warning("staff_totp_undecryptable", user_id=str(found.user_id))
+                return None
+            step = self._secrets.totp_step(totp.value, code.strip(), self._clock.now())
             if step is None or (found.totp_last_step is not None and step <= found.totp_last_step):
                 return None
             member = await self._member(found)
             if member is None:
                 return None
             await self._credentials.use_step(found.user_id, step)
+            if totp.stale:
+                await self._credentials.replace_totp_secret(
+                    found.user_id, self._cipher.encrypt(totp.value, found.user_id)
+                )
             await self._audit.record(
                 AuditEntry(
                     action="identity.staff.login",
