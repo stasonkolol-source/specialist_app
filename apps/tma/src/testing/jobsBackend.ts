@@ -514,6 +514,12 @@ export function alertsFixture(): JobAlertOut[] {
   ];
 }
 
+/** Id n-й заявки, созданной через фейк, — в форме UUID, как у сервера: по нему её находят `/share`
+ *  (7.4) и разбор ссылок. */
+export function createdJobId(n: number): string {
+  return `0199dd60-0000-7000-8000-${String(n).padStart(12, '0')}`;
+}
+
 export class JobsBackend {
   /** Принятые POST /jobs и прямые запросы: тело, ключ и кому — все, включая повторы. */
   readonly posts: { body: JobIn; key: string | null; directTo?: string | null }[] = [];
@@ -704,7 +710,7 @@ export class JobsBackend {
     if (!key) return problem(400, 'idempotency_key_required');
     const known = this.byKey.get(key);
     if (known) return { status: 201, body: known };
-    const created = jobOut(`job-${this.jobs.size + 1}`, body, this.status);
+    const created = jobOut(createdJobId(this.jobs.size + 1), body, this.status);
     const job: JobOut = directTo ? { ...created, visibility: 'direct' } : created;
     this.jobs.set(job.id, job);
     this.byKey.set(key, job);
