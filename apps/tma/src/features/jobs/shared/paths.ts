@@ -26,6 +26,7 @@ export const JOBS_PATHS = {
   dispute: '/deals/$dealId/dispute',
   review: '/deals/$dealId/review',
   history: '/deals',
+  inviteReview: '/review-invites/$token',
 } as const;
 
 export type JobsSegment = Exclude<
@@ -42,6 +43,7 @@ export type JobsSegment = Exclude<
   | 'dispute'
   | 'review'
   | 'history'
+  | 'inviteReview'
 >;
 export const JOBS_SEGMENTS: readonly JobsSegment[] = ['feed', 'responses', 'mine'];
 
@@ -73,6 +75,9 @@ export const choicePath = (jobId: string, responseId: string) =>
 
 /** Сделка S26 (6.2): из S25, «Открыть сделку» S23 и S17, уведомлений бота (`d_`). */
 export const dealPath = (dealId: string) => `/deals/${dealId}`;
+
+/** «Отзыв до платформы» S56 (7.6а): форма по ссылке-приглашению специалиста (`ri_`). */
+export const inviteReviewPath = (token: string) => `/review-invites/${token}`;
 
 /** Спор S52 (6.1c): «Есть проблема» S26, «Есть проблема» под «Работа выполнена?» и «Ответить»
  *  уведомления `dispute.opened` (`p_`). */

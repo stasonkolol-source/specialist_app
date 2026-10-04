@@ -658,8 +658,36 @@ export function cardReviewsFor(locale: string | null): CardReviewOut[] {
   ];
 } // prettier-ignore
 
-/** GET /specialists/{id}/reviews артборда S11: 37 отзывов, 35 — на пять звёзд. */
-export function cardRatingFor(locale: string | null): CardReviewsOut {
+/** Отзывы вкладки «До платформы · 2» артборда S11 (7.6а): по приглашениям S55 — Ксения Д. и Олег
+ *  Р.; вместо услуги — «что делал мастер», текст пишет клиент. */
+export function prePlatformReviews(): CardReviewOut[] {
+  const review = (
+    n: number,
+    author: string,
+    workTitle: string,
+    publishedAt: string,
+    body: string,
+  ): CardReviewOut => ({
+    id: `0199ee00-0000-7000-8000-00000000010${n}`,
+    kind: 'pre_platform',
+    author_name: author,
+    rating: 5,
+    criteria: {},
+    body,
+    category: null,
+    work_title: workTitle,
+    published_at: publishedAt,
+    reply: null,
+  });
+  return [
+    review(1, 'Ксения Д.', 'Проводка в ванной и светильники', '2026-09-30T10:00:00Z', 'Поменял проводку в ванной и повесил светильники. Всё сделал за день, объяснил, что и зачем.'),
+    review(2, 'Олег Р.', 'Розетки на кухне', '2026-09-21T16:00:00Z', 'Перенёс розетки на кухне под новый гарнитур, аккуратно и без пыли.'),
+  ];
+} // prettier-ignore
+
+/** GET /specialists/{id}/reviews артборда S11: 37 отзывов, 35 — на пять звёзд; вкладка «До
+ *  платформы» (`kind=pre_platform`, 7.6а) — два отзыва по приглашениям, сводка та же. */
+export function cardRatingFor(locale: string | null, kind: string | null = null): CardReviewsOut {
   return {
     summary: {
       rating: 4.9,
@@ -668,9 +696,9 @@ export function cardRatingFor(locale: string | null): CardReviewsOut {
       distribution: [0, 0, 1, 1, 35],
       criteria: { quality: 4.9, punctuality: 4.8, communication: 5.0, price: 4.8 },
     },
-    items: cardReviewsFor(locale),
+    items: kind === 'pre_platform' ? prePlatformReviews() : cardReviewsFor(locale),
     next_cursor: null,
-    // «До платформы · 2» артборда S11 (вкладка — 7.6а)
+    // «До платформы · 2» артборда S11
     pre_platform_count: 2,
   };
 }
@@ -784,6 +812,7 @@ export function cardReply(
   pathname: string,
   locale: string | null,
   availableUntil?: string,
+  params?: URLSearchParams,
 ): { status: number; body: unknown } | null {
   const [, id = '', page] = PROFILE_PATH.exec(pathname) ?? [];
   if (!isUuid(id)) return null;
@@ -807,7 +836,10 @@ export function cardReply(
       next_cursor: null,
       pre_platform_count: 0,
     };
-    return { status: 200, body: full ? cardRatingFor(locale) : empty };
+    return {
+      status: 200,
+      body: full ? cardRatingFor(locale, params?.get('kind') ?? null) : empty,
+    };
   }
   const card = full ? specialistCardFor(locale, availableUntil) : plainCardFor(search!);
   return { status: 200, body: card };

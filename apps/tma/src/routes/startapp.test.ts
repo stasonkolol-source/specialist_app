@@ -22,6 +22,7 @@ describe('startTarget', () => {
       'chat',
       'deal',
       'dispute',
+      'review_invite',
     ]);
     for (const { param, link } of golden.valid) {
       if (!ready.has(link.type)) expect(startTarget(param)).toBe('/');
@@ -91,6 +92,14 @@ describe('startTarget', () => {
     expect(disputes.length).toBeGreaterThan(0);
     for (const { param, link } of disputes) {
       expect(startTarget(param)).toBe(`/deals/${'id' in link ? link.id : ''}/dispute`);
+    }
+  });
+
+  it("opens the invite review S56 for `ri_` links — the specialist's invite (7.6а)", () => {
+    const invites = golden.valid.filter(({ link }) => link.type === 'review_invite');
+    expect(invites.length).toBeGreaterThan(0);
+    for (const { param, link } of invites) {
+      expect(startTarget(param)).toBe(`/review-invites/${'id' in link ? link.id : ''}`);
     }
   });
 
