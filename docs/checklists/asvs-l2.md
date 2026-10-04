@@ -56,10 +56,12 @@ integration); этот чек-лист.
 | 3.2.3 | Токены в браузере — безопасно | ✅ | Mini App хранит токены только в памяти (`packages/api-client/src/mutator.ts`); localStorage — только публичные справочники (`apps/tma/src/app/persist.ts`) |
 | 3.3.1 | Выход и истечение делают токен недействительным | ✅ | отзыв сессии + denylist `sid` в Valkey (`be/platform/security/denylist.py`); access 15 мин |
 | 3.3.2 | Повторная аутентификация по времени | ✅ | refresh Mini App 7 дней, мобильный — 30 (JWT_REFRESH_TTL_*) |
+| 3.3.3 | Смена пароля завершает сессии | ✅ | персонал: cookie `sosed_admin` несёт поколение входа (`staff_credentials.session_epoch`), `cli staff-create` (новые пароль и TOTP) и `cli staff-revoke` его увеличивают — прежние cookie не открывают ни `/admin`, ни Admin API (`be/modules/identity/application/staff_auth.py`; `tests/integration/test_admin_auth.py`); у пользователей паролей нет |
 | 3.3.4 | Пользователь видит и завершает сессии | ⏳ | список устройств — v1; бан/удаление отзывают все сессии |
 | 3.5.1 | Отзыв OAuth/refresh | ✅ | ротация refresh с детектором повторного использования (`identity/domain/session.py`, аудит `auth.refresh.reused`) |
 | 3.5.3 | Подпись токенов проверяется, алгоритм фиксирован | ✅ | EdDSA (Ed25519) с `kid`, `be/platform/security/jwt.py`; тесты `test_jwt.py` |
-| 3.4.x, 3.6.x | Cookies, федеративный выход | N/A | cookies не используются; IdP один — Telegram |
+| 3.4.x | Cookies | ✅ | API пользователей cookies не использует; персонал — подписанная `sosed_admin`: HttpOnly, SameSite=Strict, Secure на stage и проде, 8 ч (`be/platform/http/staff.py`) |
+| 3.6.x | Федеративный выход | N/A | IdP один — Telegram |
 
 ## V4. Контроль доступа
 
@@ -70,7 +72,7 @@ integration); этот чек-лист.
 | 4.1.3 | Минимальные привилегии | ✅ | роли персонала только в admin API (§13.2) |
 | 4.1.5 | Отказ — безопасно | ✅ | чужой ресурс → 404 (не раскрываем существование); RFC 9457 без деталей |
 | 4.2.1 | IDOR | ✅ | [отчёт покрытия](#отчёт-покрытия-тестов-прав): 57 операций с id классифицированы, у 42 владельческих и 4 смешанных — тест «чужой ресурс» |
-| 4.2.2 | CSRF | ✅ | только Bearer в заголовке, cookies нет — CSRF неприменим; CORS не включён (тот же origin) |
+| 4.2.2 | CSRF | ✅ | API пользователей: только Bearer в заголовке, cookies нет — CSRF неприменим; CORS не включён (тот же origin). Админка (cookie SameSite=Strict несёт и страница поддомена): Admin API — `X-Requested-With: sosed-admin` на запись, Fetch Metadata и Origin на запись и на GET с побочным действием (ПД, доказательства спора); SQLAdmin — те же Fetch Metadata и Origin на формы, действия разделов и «Решить кейс» (`be/platform/http/staff.py`, `be/interfaces/admin/app.py`; тесты `test_admin_api.py`, `test_admin_auth.py`) |
 | 4.3.1 | MFA для админки | ⏳ | TOTP персонала — 2.7a, Cloudflare Access — 2.7b, 3.1c |
 | 4.3.3 | Доступ персонала к ПД журналируется | ✅ | `platform.audit_log` (`be/platform/audit/`), выгрузка — `privacy.user_data.exported` |
 
