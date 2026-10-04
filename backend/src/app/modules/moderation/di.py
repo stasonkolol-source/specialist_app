@@ -31,6 +31,7 @@ from app.modules.moderation.application.ports import (
 )
 from app.modules.moderation.application.queries import ModerationQueries
 from app.modules.moderation.application.use_cases.auto_check import AutoCheck
+from app.modules.moderation.application.use_cases.check_duplicates import CheckDuplicates
 from app.modules.moderation.application.use_cases.create_report import CreateReport
 from app.modules.moderation.application.use_cases.decide_case import CaseDecider, DecideCase
 from app.modules.moderation.application.use_cases.file_appeal import FileAppeal
@@ -157,6 +158,7 @@ class ModerationProvider(Provider):
     case_queue = provide(SqlCaseQueue, provides=CaseQueue)
     opener = provide(CaseOpener)
     auto_check = provide(AutoCheck)
+    check_duplicates = provide(CheckDuplicates)
     legal_hold = provide(CasesLegalHold, provides=LegalHold)
     deletion_hold = provide(CasesDeletionHold, provides=DeletionHold)
     retention_hold = provide(CasesRetentionHold, provides=RetentionHold)

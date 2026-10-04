@@ -9,7 +9,7 @@ from typing import Self
 from uuid import UUID
 
 from app.modules.catalog.api import CategorySuggestion, CategorySummary, SearchTerm, TermMatch
-from app.modules.media.api import MediaRef
+from app.modules.media.api import MediaDuplicate, MediaRef
 from app.modules.search.application.dto import (
     SpecialistFilters,
     SpecialistHit,
@@ -180,6 +180,9 @@ class FakeMedia:
     async def refs(self, media_ids: Collection[MediaId]) -> dict[MediaId, MediaRef]:
         self.asked.append(frozenset(media_ids))
         return {media_id: self.files[media_id] for media_id in media_ids if media_id in self.files}
+
+    async def duplicates(self, media_id: MediaId) -> list[MediaDuplicate]:
+        raise NotImplementedError
 
     async def discard(self, owner_id: UserId, media_id: MediaId) -> None:
         raise NotImplementedError

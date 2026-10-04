@@ -2,6 +2,8 @@
 
 Фото — WebP-варианты без метаданных; ролик — MP4 H.264 720p без метаданных, а из его кадра
 тот же конвейер фото делает постер (варианты thumb/md/lg и ThumbHash). Документы — v1.
+У фото портфолио (и постера ролика) сохраняется pHash: по событию MediaReady модерация ищет
+такие же фото у других аккаунтов (ADR-0016 L6).
 
 `uploaded → processing → ready / rejected`. Оригинал читается из incoming ровно в той
 версии, что сверили при complete (If-Match по ETag): подменённый потом файл — `rejected`
@@ -88,6 +90,8 @@ class Outcome:
     duration_ms: int | None
     placeholder: str
     sha256: bytes
+    phash: int
+    """pHash фото, у ролика — постера."""
     images: tuple[ImageVariant, ...]
     video: bytes | None = None
 
@@ -161,6 +165,7 @@ class ProcessMedia:
                 duration_ms=processed.duration_ms,
                 placeholder=processed.placeholder,
                 sha256=processed.sha256,
+                phash=processed.phash,
                 variants=variants,
                 now=self._clock.now(),
             )
@@ -192,6 +197,7 @@ class ProcessMedia:
                 duration_ms=video.duration_ms,
                 placeholder=poster.placeholder,
                 sha256=video.sha256,
+                phash=poster.phash,
                 images=poster.variants,
                 video=video.video,
             )
@@ -202,6 +208,7 @@ class ProcessMedia:
             duration_ms=None,
             placeholder=image.placeholder,
             sha256=image.sha256,
+            phash=image.phash,
             images=image.variants,
         )
 

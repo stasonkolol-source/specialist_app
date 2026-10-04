@@ -5,6 +5,7 @@ from uuid import UUID
 
 from app.modules.catalog.api import CatalogApi
 from app.modules.specialists.api import (
+    PortfolioWorkRef,
     ProfileForIndex,
     ProfileForReview,
     ProfileRef,
@@ -12,12 +13,16 @@ from app.modules.specialists.api import (
     PublicProfile,
     SpecialistsApi,
 )
-from app.modules.specialists.application.ports import ProfileQuery, ProfileRepository
+from app.modules.specialists.application.ports import (
+    PortfolioQuery,
+    ProfileQuery,
+    ProfileRepository,
+)
 from app.modules.specialists.domain.profile import ProfileId, ProfileStatus
 from app.modules.specialists.errors import ProfileNotFoundError
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
-from app.platform.kernel.ids import UserId
+from app.platform.kernel.ids import MediaId, UserId
 
 REVIEWABLE = frozenset(
     {ProfileStatus.PENDING_REVIEW, ProfileStatus.PUBLISHED, ProfileStatus.HIDDEN}
@@ -30,11 +35,12 @@ class SpecialistsFacade(SpecialistsApi):
         uow: UnitOfWork,
         profiles: ProfileRepository,
         query: ProfileQuery,
+        portfolio: PortfolioQuery,
         catalog: CatalogApi,
         clock: Clock,
     ) -> None:
         self._uow, self._profiles, self._query = uow, profiles, query
-        self._catalog, self._clock = catalog, clock
+        self._portfolio, self._catalog, self._clock = portfolio, catalog, clock
 
     async def profile_of(self, user_id: UserId) -> ProfileRef | None:
         view = await self._query.of_user(user_id)
@@ -56,6 +62,16 @@ class SpecialistsFacade(SpecialistsApi):
 
     async def published_profile_ids(self, *, after: UUID | None, limit: int) -> list[UUID]:
         return await self._query.published_ids(after=after, limit=limit)
+
+    async def works_by_media(
+        self, media_ids: Collection[MediaId]
+    ) -> dict[MediaId, PortfolioWorkRef]:
+        return {
+            item.media_id: PortfolioWorkRef(
+                id=item.id, profile_id=item.profile_id, status=item.status.value
+            )
+            for item in await self._portfolio.by_media(media_ids)
+        }
 
     async def profile_for_review(self, profile_id: UUID) -> ProfileForReview | None:
         async with self._uow:
