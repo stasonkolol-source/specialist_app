@@ -1757,6 +1757,7 @@
           "review_reply",
           "message",
           "media",
+          "portfolio",
           "dispute"
         ],
         "title": "EntityType",
