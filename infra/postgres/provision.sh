@@ -27,7 +27,7 @@ fail() {
 ROLE_VARS="APP_DB_PASSWORD MIGRATOR_DB_PASSWORD READONLY_DB_PASSWORD BACKUP_DB_PASSWORD"
 REPO_VARS="PGBACKREST_REPO1_S3_ENDPOINT PGBACKREST_REPO1_S3_REGION PGBACKREST_REPO1_S3_BUCKET PGBACKREST_REPO1_S3_KEY PGBACKREST_REPO1_S3_KEY_SECRET PGBACKREST_REPO1_CIPHER_PASS"
 REPO_VARS+=" PGBACKREST_REPO2_S3_ENDPOINT PGBACKREST_REPO2_S3_REGION PGBACKREST_REPO2_S3_BUCKET PGBACKREST_REPO2_S3_KEY PGBACKREST_REPO2_S3_KEY_SECRET PGBACKREST_REPO2_CIPHER_PASS"
-ALLOWED=" $ROLE_VARS $REPO_VARS DB_LISTEN_IP DB_SUBNET "
+ALLOWED=" $ROLE_VARS $REPO_VARS MONITORING_DB_PASSWORD DB_LISTEN_IP DB_SUBNET "
 while IFS= read -r line || [[ -n "$line" ]]; do
   [[ -z "$line" || "$line" == \#* ]] && continue
   key=${line%%=*}
@@ -39,6 +39,9 @@ for name in $ROLE_VARS; do
   # пароли входят в DSN приложения: только [A-Za-z0-9_-] (make gen-secret, openssl rand -hex)
   [[ "${!name:-}" =~ ^[A-Za-z0-9_-]{24,}$ ]] || fail "$name: пусто или не [A-Za-z0-9_-]{24,}"
 done
+# роль monitoring (postgres_exporter в Alloy на app-1, 3.3) — по желанию: без пароля войти ею нельзя
+[[ -z "${MONITORING_DB_PASSWORD:-}" || "$MONITORING_DB_PASSWORD" =~ ^[A-Za-z0-9_-]{24,}$ ]] ||
+  fail "MONITORING_DB_PASSWORD: не [A-Za-z0-9_-]{24,}"
 [[ "${DB_LISTEN_IP:-}" =~ ^[0-9.]+$ ]] || fail "DB_LISTEN_IP — адрес db-1 в приватной сети"
 [[ "${DB_SUBNET:-}" =~ ^[0-9.]+/[0-9]+$ ]] || fail "DB_SUBNET — подсеть prod (CIDR)"
 
@@ -117,7 +120,7 @@ install_file "$CONF_DIR/pg_hba.conf" 0640 postgres:postgres <<EOF
 # db-1 через runuser, pgBackRest); роли приложения — только из приватной сети prod и только по TLS.
 # TYPE  DATABASE    USER                          ADDRESS       METHOD
 local   all         postgres                                    peer
-hostssl $DB  app,migrator,readonly,backup  $DB_SUBNET  scram-sha-256
+hostssl $DB  app,migrator,readonly,backup,monitoring  $DB_SUBNET  scram-sha-256
 EOF
 
 # --- pgBackRest: конфиг из шаблона, когда в stdin пришли ключи репозиториев (K36, K37; 3.2) ---
@@ -146,6 +149,25 @@ if [[ "$changed" == 1 ]]; then
   fi
 fi
 
+# --- node exporter (3.3): метрики хоста db-1 для Alloy на app-1 ---
+# Пакет ОС, а не контейнер: Docker на db-1 не ставим. Слушает только адрес приватной сети, ufw пускает
+# к порту только подсеть prod; коллекторы — те, ряды которых Alloy оставляет (infra/monitoring/alloy).
+if ! dpkg -s prometheus-node-exporter >/dev/null 2>&1; then
+  log "установка prometheus-node-exporter"
+  apt-get update -q >/dev/null
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends prometheus-node-exporter >/dev/null
+fi
+pg_changed=$changed # флаг перезапуска PostgreSQL выше уже отработал; здесь он — про node exporter
+changed=0
+install_file /etc/default/prometheus-node-exporter 0644 root:root <<EOF
+# Управляется infra/postgres/provision.sh (3.3) — ручные правки перезапишутся.
+ARGS="--web.listen-address=$DB_LISTEN_IP:9100 --collector.disable-defaults --collector.cpu --collector.diskstats --collector.filesystem --collector.loadavg --collector.meminfo --collector.pressure --collector.time"
+EOF
+[[ "$changed" == 0 ]] || systemctl restart prometheus-node-exporter
+changed=$pg_changed
+systemctl enable --quiet --now prometheus-node-exporter
+ufw allow from "$DB_SUBNET" to any port 9100 proto tcp >/dev/null
+
 # --- база и bootstrap.sql (роли, их параметры, расширения — тот же файл, что в dev и на stage) ---
 if [[ "$(psql_su -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '$DB'")" != 1 ]]; then
   log "createdb $DB"
@@ -158,6 +180,7 @@ fi
   printf "\\\\set migrator_password '%s'\n" "$MIGRATOR_DB_PASSWORD"
   printf "\\\\set readonly_password '%s'\n" "$READONLY_DB_PASSWORD"
   printf "\\\\set backup_password '%s'\n" "$BACKUP_DB_PASSWORD"
+  printf "\\\\set monitoring_password '%s'\n" "${MONITORING_DB_PASSWORD:-}"
   printf '\\i %s\n' "$HERE/bootstrap.sql"
 } | psql_su -d postgres
 log "bootstrap.sql применён"

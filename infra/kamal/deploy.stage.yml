@@ -86,6 +86,7 @@ accessories:
         - MIGRATOR_DB_PASSWORD
         - READONLY_DB_PASSWORD
         - BACKUP_DB_PASSWORD
+        - MONITORING_DB_PASSWORD
     directories:
       - postgres-data:/var/lib/postgresql
     options:
@@ -95,3 +96,17 @@ accessories:
 
   valkey:
     host: <%= ENV.fetch("STAGE_HOST") %>
+
+  # Alloy (3.3) — на той же VM; PostgreSQL — accessory sosed-postgres в сети kamal. Память — из запаса
+  # CX23 (сумма лимитов с ним — 3,6 из 4 GB, плюс swap).
+  # <% if ENV["GRAFANA_CLOUD_PROM_URL"].to_s != "" %>
+  alloy:
+    host: <%= ENV.fetch("STAGE_HOST") %>
+    env:
+      clear:
+        ALLOY_ENV: stage
+        ALLOY_HOST: stage
+    options:
+      memory: 256m
+      cpuset-cpus: "0-1"
+  # <% end %>
