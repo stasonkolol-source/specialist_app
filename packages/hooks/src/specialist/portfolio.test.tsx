@@ -10,6 +10,8 @@ import type { MediaTransport } from '../media/upload.ts';
 import {
   broken,
   fitFiles,
+  hiddenByModerator,
+  onReview,
   portfolioRoom,
   processing,
   usePortfolioUploads,
@@ -63,6 +65,7 @@ const work = (id: string, overrides: Partial<WorkOut> = {}): WorkOut => ({
   caption: null,
   position: 0,
   media: mediaRef({ id: `media-${id}` }),
+  status: 'published',
   ...overrides,
 });
 
@@ -75,6 +78,13 @@ describe('work state', () => {
     expect(broken(at('rejected'))).toBe(true);
     expect(broken(at('ready'))).toBe(false);
     expect(broken({ media: null })).toBe(false);
+  });
+
+  it('tells a work on review from a published or hidden one', () => {
+    expect(onReview({ status: 'pending' })).toBe(true);
+    expect(onReview({ status: 'published' })).toBe(false);
+    expect(hiddenByModerator({ status: 'rejected' })).toBe(true);
+    expect(hiddenByModerator({ status: 'pending' })).toBe(false);
   });
 });
 

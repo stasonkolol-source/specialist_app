@@ -1,6 +1,6 @@
 // Портфолио S37, работа и фото профиля S34 (DEVELOPMENT_PLAN 2.11) на фейках backend кабинета и
 // media: работы по порядку, загрузка и прикрепление, лимиты, файл без обработки, подпись и место,
-// удаление, фото профиля и строка «Портфолио» кабинета.
+// удаление, фото профиля и строка «Портфолио» кабинета; состояния модерации работы (6.7).
 import type { WorkOut } from '@sosed/api-client';
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
@@ -78,7 +78,8 @@ describe('S37 portfolio', () => {
     const attached = writes(backend).map((entry) => entry.request);
     expect(attached).toEqual(['POST /me/profile/portfolio', 'POST /me/profile/portfolio']);
     expect(backend.works.map((work) => work.media?.status)).toEqual(['ready', 'ready', 'ready']);
-    expect(screen.getByRole('link', { name: 'Работа 3' })).toBeTruthy();
+    // новая работа ждёт модерации (6.7): бейдж «На проверке»
+    expect(screen.getByRole('link', { name: 'Работа 3, На проверке' })).toBeTruthy();
     expect(screen.queryByRole('status')).toBeNull();
   });
 
@@ -131,6 +132,30 @@ describe('S37 portfolio', () => {
     await waitFor(() => expect(screen.getByText('1 работа')).toBeTruthy());
     expect(writes(backend)).toEqual([
       { request: `DELETE /me/profile/portfolio/${first.id}`, body: undefined },
+    ]);
+  });
+
+  it('marks a work on review and offers to remove one hidden by the moderator', async () => {
+    const [first, second, third] = PORTFOLIO;
+    if (!first || !second || !third) throw new Error('fixture');
+    const backend = withBackend([
+      { ...first, status: 'pending' },
+      { ...second, position: 1, status: 'rejected' },
+      { ...third, position: 2 },
+    ]);
+    startApp('/cabinet/portfolio');
+
+    const pending = await screen.findByRole('link', { name: 'Люстра, Лиман, На проверке' });
+    expect(within(pending).getByText('На проверке')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Щиток' })).toBeTruthy(); // опубликованная — без бейджа
+    expect(screen.getAllByText('На проверке')).toHaveLength(1);
+    const hidden = await screen.findByRole('alert');
+    expect(within(hidden).getByText('Скрыто модератором')).toBeTruthy();
+    await click(within(hidden).getByRole('button', { name: 'Убрать' }));
+
+    await waitFor(() => expect(screen.getByText('2 работы')).toBeTruthy());
+    expect(writes(backend)).toEqual([
+      { request: `DELETE /me/profile/portfolio/${second.id}`, body: undefined },
     ]);
   });
 });
