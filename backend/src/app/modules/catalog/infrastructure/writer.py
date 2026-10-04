@@ -9,11 +9,16 @@
 - Итоговую глубину импорт проверяет до записи — вместе с категориями, которых нет в сиде:
   перенос предка может опустить их ниже MAX_DEPTH, и ошибка называет такую категорию.
 - Словарь категории принадлежит сидам: при изменении категории её строки search_terms
-  заменяются целиком, а теги, которых больше нет в сиде, выключаются (`is_active`).
+  заменяются целиком, а теги, которых больше нет в сиде, выключаются (`is_active`) — после
+  записи всех категорий, чтобы тег, перенесённый сидом в другую категорию, остался как был.
+  Включён ли тег, сид задаёт только при вставке: выключенный админкой тег правка сида не
+  включает, а тег, который вернулся в сид, включает админка.
 - Категорий, которых нет в сиде, импорт не трогает: выключает их админка (2.7b).
 - Настройки модерации: `is_active` сид задаёт только при вставке (по умолчанию из БД),
   `risk_level` при обновлении только повышает. Выключенная или запрещённая админкой
   категория такой и остаётся после любой правки сида; снижает риск только админка.
+- Порядок и иконку категории (`sort_order`, `icon`) сид тоже задаёт только при вставке:
+  дальше их ведёт админка (2.7b), и правка категории в сиде их не возвращает.
 - `jobs_enabled` и `max_responses` сиды не задают: при вставке — значения по умолчанию
   из БД, дальше их меняет админка.
 - Название категории или тега, поправленное в админке (`name_origin = admin`, 2.7b), импорт
@@ -183,6 +188,9 @@ class SqlCatalogWriter:
             else:
                 counts.updated += 1
             counts.changed.append(CategoryId(category_id))
+        await self._deactivate_dropped_tags(
+            counts.changed, sorted({slug for p in planned for slug, _ in p.tags})
+        )
         return ImportResult(
             created=counts.created,
             updated=counts.updated,
@@ -215,13 +223,16 @@ class SqlCatalogWriter:
         values = {
             "parent_id": parent_id,
             "name": planned.name,
-            "icon": seed.icon,
-            "sort_order": seed.sort_order,
             "price_hint": seed.price_hints,
             "seed_hash": planned.seed_hash,
         }
+        # icon и sort_order — только в новую строку: у существующей их ведёт админка
         row = pg_insert(CategoryRow).values(
-            slug=seed.slug, risk_level=int(seed.risk_level), **values
+            slug=seed.slug,
+            risk_level=int(seed.risk_level),
+            icon=seed.icon,
+            sort_order=seed.sort_order,
+            **values,
         )
         upsert = row.on_conflict_do_update(
             index_elements=["slug"],
@@ -242,28 +253,36 @@ class SqlCatalogWriter:
         tags: Sequence[tuple[str, LocalizedText]],
         terms: Sequence[SearchTerm],
     ) -> None:
-        """Теги категории и её словарь — ровно как в сиде."""
+        """Теги категории и её словарь — как в сиде; включён ли тег, решает админка."""
         rows = [self._term_row(category_id, None, term) for term in terms]
-        tag_ids: list[int] = []
         for slug, tag_name in tags:
-            values = {"category_id": category_id, "name": tag_name, "is_active": True}
-            row = pg_insert(TagRow).values(slug=slug, **values)
+            values = {"category_id": category_id, "name": tag_name}
+            row = pg_insert(TagRow).values(slug=slug, is_active=True, **values)
             upsert = row.on_conflict_do_update(
                 index_elements=["slug"],
                 set_={**values, "name": _seed_name(TagRow, row.excluded.name)},
             ).returning(TagRow.id)
             tag_id = int((await self._session.execute(upsert)).scalar_one())
-            tag_ids.append(tag_id)
             rows += [self._term_row(category_id, tag_id, term) for term in dictionary(tag_name)]
-        await self._session.execute(
-            update(TagRow)
-            .where(TagRow.category_id == category_id, TagRow.id.not_in(tag_ids), TagRow.is_active)
-            .values(is_active=False)
-        )
         await self._session.execute(
             delete(SearchTermRow).where(SearchTermRow.category_id == category_id)
         )
         await self._session.execute(insert(SearchTermRow), rows)
+
+    async def _deactivate_dropped_tags(
+        self, category_ids: Sequence[int], seed_tags: Sequence[str]
+    ) -> None:
+        """Теги изменённых категорий, которых нет в сиде, выключаются (их термины уже удалены)."""
+        if category_ids:
+            await self._session.execute(
+                update(TagRow)
+                .where(
+                    TagRow.category_id.in_(category_ids),
+                    TagRow.slug.not_in(seed_tags),
+                    TagRow.is_active,
+                )
+                .values(is_active=False)
+            )
 
     @staticmethod
     def _term_row(category_id: int, tag_id: int | None, term: SearchTerm) -> dict[str, object]:
