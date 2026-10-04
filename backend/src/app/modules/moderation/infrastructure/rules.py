@@ -26,8 +26,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.moderation.application.dto import ImportRulesResult
-from app.modules.moderation.domain.rules import ContentRule, RuleSet
+from app.modules.moderation.domain.rules import ContentRule, RegexEngine, RuleSet
 from app.modules.moderation.infrastructure.models import IMPORT_LOCK, ContentRuleRow, RuleOrigin
+from app.modules.moderation.infrastructure.regex import RE2
 from app.platform.db.port import UnitOfWork
 
 log = structlog.get_logger(__name__)
@@ -92,11 +93,13 @@ class CachedRuleSource:
         self,
         maker: async_sessionmaker[AsyncSession],
         *,
+        engine: RegexEngine = RE2,
         ttl: timedelta = TTL,
         monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         self._maker, self._ttl, self._monotonic = maker, ttl.total_seconds(), monotonic
-        self._snapshot = RuleSet()
+        self._engine = engine
+        self._snapshot = RuleSet((), engine)
         self._expires = 0.0
         self._rejected: frozenset[int | None] = frozenset()
         self._loaded = False
@@ -127,15 +130,18 @@ class CachedRuleSource:
             return
         try:
             ruleset = RuleSet(
-                ContentRule(
-                    id=row.id,
-                    pattern=row.pattern,
-                    kind=row.kind,
-                    lang=row.lang,
-                    action=row.action,
-                    category=row.category,
-                )
-                for row in rows
+                (
+                    ContentRule(
+                        id=row.id,
+                        pattern=row.pattern,
+                        kind=row.kind,
+                        lang=row.lang,
+                        action=row.action,
+                        category=row.category,
+                    )
+                    for row in rows
+                ),
+                self._engine,
             )
         except Exception:  # словарь, который не собрался, не должен выключить все проверки
             log.exception("content_rules_build_failed")

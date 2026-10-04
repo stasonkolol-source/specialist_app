@@ -46,6 +46,7 @@ from app.modules.moderation.domain.cases import EntityType
 from app.modules.moderation.domain.rules import (
     ContentRule,
     InvalidRuleError,
+    RegexEngine,
     RuleAction,
     RuleCategory,
     RuleKind,
@@ -254,8 +255,9 @@ class ContentRuleAdmin(StaffModelView, model=ContentRuleRow):
         self, data: dict[str, Any], model: Any, is_created: bool, request: Request
     ) -> None:
         rule = _form_rule(data, model)
+        engine = await container_of(request).get(RegexEngine)
         try:
-            compile_rule(rule)  # та же проверка, что у сида в `cli seeds-validate`
+            compile_rule(rule, engine)  # та же проверка, что у сида в `cli seeds-validate`
         except InvalidRuleError as error:
             raise ValueError(f"Правило не принято: {error}") from None
         data["pattern"] = rule.pattern  # SQLAdmin пишет в строку поля формы после этого шага

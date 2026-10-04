@@ -18,6 +18,7 @@ from app.modules.moderation.domain.rules import (
     ContentRule,
     InvalidRuleError,
     MatchSource,
+    RegexEngine,
     RuleMatch,
     RuleSet,
     compile_rule,
@@ -58,18 +59,18 @@ class RuleTrial:
 
 
 class TryContentRule:
-    def __init__(self, rules: RuleSource, examples: RuleExamples) -> None:
-        self._rules, self._examples = rules, examples
+    def __init__(self, rules: RuleSource, examples: RuleExamples, engine: RegexEngine) -> None:
+        self._rules, self._examples, self._engine = rules, examples, engine
 
     async def __call__(self, cmd: TryContentRuleCommand) -> RuleTrial:
         candidate = replace(cmd.rule, active=True)
         try:
-            compile_rule(candidate)
+            compile_rule(candidate, self._engine)
         except InvalidRuleError as exc:
             return RuleTrial(error=str(exc))
         before = await self._rules.current()
         kept = [r for r in before.rules if candidate.id is None or r.id != candidate.id]
-        after = RuleSet([*kept, candidate])
+        after = RuleSet([*kept, candidate], self._engine)
         changes: list[ExampleChange] = []
         examples = self._examples.load()
         for example in examples:
@@ -83,7 +84,7 @@ class TryContentRule:
         trial = RuleTrial(changes=tuple(changes), examples=len(examples))
         if not cmd.sample.strip():
             return trial
-        own = RuleSet([candidate]).check(cmd.sample).matches
+        own = RuleSet([candidate], self._engine).check(cmd.sample).matches
         return replace(
             trial,
             skeleton=skeleton(cmd.sample[:MAX_TEXT]),

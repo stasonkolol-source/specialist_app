@@ -54,6 +54,7 @@ from app.modules.moderation.application.use_cases.take_case import EscalateCase,
 from app.modules.moderation.application.use_cases.track_dispute import TrackDispute
 from app.modules.moderation.application.use_cases.try_content_rule import TryContentRule
 from app.modules.moderation.domain.cases import EntityType
+from app.modules.moderation.domain.rules import RegexEngine
 from app.modules.moderation.infrastructure.cases import (
     SqlCaseRepository,
     SqlRiskSignals,
@@ -66,6 +67,7 @@ from app.modules.moderation.infrastructure.metrics import PrometheusAutoCheckMet
 from app.modules.moderation.infrastructure.queries import SqlCaseQueue, SqlCaseStats
 from app.modules.moderation.infrastructure.quota import ValkeyReportQuota
 from app.modules.moderation.infrastructure.rate_limits import ValkeyRateLimitOverflows
+from app.modules.moderation.infrastructure.regex import RE2
 from app.modules.moderation.infrastructure.reports import FacadeReportTargets, SqlReportRepository
 from app.modules.moderation.infrastructure.retention_hold import CasesRetentionHold
 from app.modules.moderation.infrastructure.rule_examples import YamlRuleExamples
@@ -98,9 +100,16 @@ class ModerationProvider(Provider):
     import_content_rules = provide(ImportContentRules)
 
     @provide(scope=Scope.APP)
-    def rule_source(self, maker: async_sessionmaker[AsyncSession]) -> RuleSource:
+    def regex_engine(self) -> RegexEngine:
+        """Регулярки правил — RE2: линейное время при любом шаблоне (2.7b)."""
+        return RE2
+
+    @provide(scope=Scope.APP)
+    def rule_source(
+        self, maker: async_sessionmaker[AsyncSession], engine: RegexEngine
+    ) -> RuleSource:
         """Снимок словаря — один на процесс, обновляется раз в TTL."""
-        return CachedRuleSource(maker)
+        return CachedRuleSource(maker, engine=engine)
 
     try_content_rule = provide(TryContentRule)
 

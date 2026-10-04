@@ -17,6 +17,7 @@ from app.modules.moderation.domain.rules import (
     RuleExample,
     RuleKind,
 )
+from app.modules.moderation.infrastructure.regex import RE2
 from app.modules.moderation.infrastructure.rule_examples import YamlRuleExamples
 from app.modules.moderation.tests.fakes import FakeRuleSource
 
@@ -43,7 +44,7 @@ def regex(pattern: str, rule_id: int | None = None) -> ContentRule:
 
 
 async def test_rule_that_seeds_validate_rejects_is_not_tried() -> None:
-    trial = await TryContentRule(FakeRuleSource([ZARADA]), StaticExamples())(
+    trial = await TryContentRule(FakeRuleSource([ZARADA]), StaticExamples(), RE2)(
         TryContentRuleCommand(rule=regex(r"(?<!ne )kupim"), sample="kupim")
     )
 
@@ -53,7 +54,7 @@ async def test_rule_that_seeds_validate_rejects_is_not_tried() -> None:
 
 
 async def test_new_rule_shows_examples_whose_verdict_changes() -> None:
-    trial = await TryContentRule(FakeRuleSource([ZARADA]), StaticExamples())(
+    trial = await TryContentRule(FakeRuleSource([ZARADA]), StaticExamples(), RE2)(
         TryContentRuleCommand(rule=regex(r"\bbicikl\w*"))
     )
 
@@ -65,7 +66,7 @@ async def test_new_rule_shows_examples_whose_verdict_changes() -> None:
 
 
 async def test_edited_rule_replaces_its_previous_version() -> None:
-    use_case = TryContentRule(FakeRuleSource([ZARADA]), StaticExamples())
+    use_case = TryContentRule(FakeRuleSource([ZARADA]), StaticExamples(), RE2)
 
     same = await use_case(TryContentRuleCommand(rule=regex(r"\bbrz\w* zarad\w*", rule_id=7)))
     lost = await use_case(TryContentRuleCommand(rule=regex(r"\bspora zarada", rule_id=7)))
@@ -81,7 +82,7 @@ async def test_edited_rule_replaces_its_previous_version() -> None:
 
 
 async def test_sample_text_shows_skeleton_and_what_fired() -> None:
-    trial = await TryContentRule(FakeRuleSource([ZARADA]), StaticExamples())(
+    trial = await TryContentRule(FakeRuleSource([ZARADA]), StaticExamples(), RE2)(
         TryContentRuleCommand(
             rule=regex(r"\bzarabot\w* (?:ot|do) \d+"), sample="Заработок ОТ 3000!"
         )

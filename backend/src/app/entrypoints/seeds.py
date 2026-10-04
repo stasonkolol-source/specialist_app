@@ -56,6 +56,7 @@ from app.modules.moderation.domain.rules import (
     RuleSet,
     compile_rule,
 )
+from app.modules.moderation.infrastructure.regex import RE2
 from app.modules.moderation.infrastructure.rule_examples import ExamplesFile
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.localized import Locale, LocalizedText
@@ -431,7 +432,7 @@ def check_content_rules(path: Path, report: Report) -> list[ContentRule]:
     seen: dict[tuple[RuleKind, str], int] = {}
     for index, rule in enumerate(rules):
         try:
-            compile_rule(rule)
+            compile_rule(rule, RE2)
         except InvalidRuleError as exc:
             report.errors.append(f"{path.name}: {rule.kind.value} {rule.pattern!r}: {exc}")
             continue
@@ -476,7 +477,7 @@ def check_rule_examples(path: Path, rules: list[ContentRule], report: Report) ->
     except ValidationError as exc:
         report.errors.extend(_pydantic_errors(path, exc))
         return
-    ruleset = RuleSet(rules)
+    ruleset = RuleSet(rules, RE2)
     for example in examples.examples:
         verdict = ruleset.check(example.text)
         action = verdict.action.value if verdict.action is not None else "pass"

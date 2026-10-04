@@ -7,11 +7,11 @@ ADR-0016 §3, DEVELOPMENT_PLAN 2.4).
   «predoplata» и «ПРЕДОПЛАААТА» — одно слово. `*` в конце — любое окончание («закладчик*»:
   «закладчика», «закладчики»), иначе слово целиком; фраза — слова подряд.
 - `regex` — регулярное выражение по скелету: латиница ASCII в нижнем регистре, слова через
-  пробел, без двойных букв. Для шаблонов, которые не выразить словами. Движок — RE2 (google-re2):
-  время поиска линейно от длины текста при любом шаблоне, поэтому регулярки заводит и админка
-  (2.7b); синтаксис RE2 — без lookaround и обратных ссылок. Слова движок `re` собирает из
-  экранированного текста (там нужен lookbehind, которого в RE2 нет) — перебору в них взяться
-  неоткуда.
+  пробел, без двойных букв. Для шаблонов, которые не выразить словами. Движок — порт
+  `RegexEngine`, реализация — RE2 (moderation/infrastructure/regex.py): время поиска линейно от
+  длины текста при любом шаблоне, поэтому регулярки заводит и админка (2.7b); синтаксис RE2 — без
+  lookaround и обратных ссылок. Слова собирает стандартный `re` из экранированного текста (там
+  нужен lookbehind, которого в RE2 нет) — перебору в них взяться неоткуда.
 - `domain` — домен ссылки или почты: `bit.ly` ловит `https://bit.ly/x`, `sub.bit.ly` и
   «bit [.] ly».
 
@@ -32,8 +32,6 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
-
-import re2
 
 from app.platform.text.contact_masking import find_prepayment, scan_contacts
 from app.platform.text.normalize import skeleton
@@ -89,10 +87,6 @@ _DOMAIN = re.compile(r"^[^\W_](?:[\w\-]*[^\W_])?(?:\.[^\W_](?:[\w\-]*[^\W_])?)+$
 _DOUBLE_LETTER = re.compile(r"([a-z])\1", re.IGNORECASE)
 _ESCAPE = re.compile(r"\\.")
 """`\bb…` — это \b и b, а не двойная b."""
-_RE2 = re2.Options()
-_RE2.case_sensitive = False
-_RE2.never_capture = True  # нужен только факт совпадения: без групп RE2 обходится проходом DFA
-_RE2.log_errors = False  # ошибку шаблона показывает InvalidRuleError, а не stderr процесса
 _EMPTY_PROBES = ("", "a", "1 a")
 """Шаблон, который совпадает с пустой строкой хоть где-то («x*», «\\b»), сработал бы почти на
 любом тексте: проверяем пустое совпадение на пустом тексте и на границах слов."""
@@ -109,9 +103,18 @@ class Found(Protocol):
 
 
 class Matcher(Protocol):
-    """Собранное правило: `re.Pattern` у слов, RE2 у регулярок — поиску всё равно какой."""
+    """Собранное правило: `re.Pattern` у слов, движок `RegexEngine` у регулярок."""
 
     def search(self, text: str, /) -> Found | None: ...
+
+
+class RegexEngine(Protocol):
+    """Движок регулярок правил (порт домена; реализация — RE2, moderation/infrastructure/regex.py).
+    Домену важно одно: поиск линеен при любом шаблоне — шаблоны пишут люди, и админка тоже."""
+
+    def compile(self, pattern: str) -> Matcher:
+        """Собрать шаблон без учёта регистра; не собирается — InvalidRuleError с причиной."""
+        ...
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -187,7 +190,7 @@ class _Compiled:
     """По скелету текста; у domain — None."""
 
 
-def compile_rule(rule: ContentRule) -> Matcher | None:
+def compile_rule(rule: ContentRule, engine: RegexEngine) -> Matcher | None:
     """Проверить правило и собрать поиск по скелету (у domain — None). Одна проверка на всех:
     `cli seeds-validate` для сида, админка для правки (2.7b) и снимок правил процесса."""
     pattern = rule.pattern
@@ -197,7 +200,7 @@ def compile_rule(rule: ContentRule) -> Matcher | None:
         case RuleKind.WORD:
             return _word(pattern)
         case RuleKind.REGEX:
-            return _regex(pattern)
+            return _regex(pattern, engine)
         case RuleKind.DOMAIN:
             if pattern != pattern.strip().casefold() or not _DOMAIN.match(pattern):
                 raise InvalidRuleError("domain must look like example.com, in lower case")
@@ -218,11 +221,8 @@ def _word(pattern: str) -> re.Pattern[str]:
     return re.compile(rf"(?<![a-z0-9]){re.escape(words)}{ending}(?![a-z0-9])")
 
 
-def _regex(pattern: str) -> Matcher:
-    try:
-        regex: Matcher = re2.compile(pattern, _RE2)
-    except (re2.error, ValueError) as exc:  # ValueError — суррогат, которого нет в UTF-8
-        raise InvalidRuleError(f"regex does not compile (RE2): {_reason(exc)}") from exc
+def _regex(pattern: str, engine: RegexEngine) -> Matcher:
+    regex = engine.compile(pattern)
     if any(_empty_match(regex, probe) for probe in _EMPTY_PROBES):
         raise InvalidRuleError("regex matches an empty text")
     if _DOUBLE_LETTER.search(_ESCAPE.sub(" ", pattern)):
@@ -235,12 +235,6 @@ def _regex(pattern: str) -> Matcher:
 def _empty_match(regex: Matcher, probe: str) -> bool:
     found = regex.search(probe)
     return found is not None and found.start() == found.end()
-
-
-def _reason(exc: Exception) -> str:
-    """Текст ошибки RE2 приходит байтами: «missing ): (unclosed»."""
-    reason = exc.args[0] if exc.args else exc
-    return reason.decode(errors="replace") if isinstance(reason, bytes) else str(reason)
 
 
 _QUANTIFIER = frozenset("+*{")
@@ -283,17 +277,18 @@ def nested_quantifier(pattern: str) -> bool:
 
 
 class RuleSet:
-    """Действующие правила, собранные для проверки. Правило с ошибкой не роняет остальные:
-    оно в `rejected` с причиной (словарь правят люди, опечатка в regex возможна)."""
+    """Действующие правила, собранные для проверки (регулярки — движком `engine`). Правило с
+    ошибкой не роняет остальные: оно в `rejected` с причиной (словарь правят люди, опечатка в
+    regex возможна)."""
 
-    def __init__(self, rules: Iterable[ContentRule] = ()) -> None:
+    def __init__(self, rules: Iterable[ContentRule], engine: RegexEngine) -> None:
         compiled: list[_Compiled] = []
         rejected: list[tuple[ContentRule, str]] = []
         for rule in rules:
             if not rule.active:
                 continue
             try:
-                compiled.append(_Compiled(rule, compile_rule(rule)))
+                compiled.append(_Compiled(rule, compile_rule(rule, engine)))
             except InvalidRuleError as exc:
                 rejected.append((rule, str(exc)))
         self._text = tuple(c for c in compiled if c.regex is not None)

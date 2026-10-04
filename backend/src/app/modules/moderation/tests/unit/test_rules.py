@@ -18,6 +18,7 @@ from app.modules.moderation.domain.rules import (
     compile_rule,
     nested_quantifier,
 )
+from app.modules.moderation.infrastructure.regex import RE2
 
 pytestmark = pytest.mark.unit
 
@@ -55,23 +56,23 @@ def evidence(rules: RuleSet, text: str) -> list[str]:
     ],
 )
 def test_word_with_star_survives_disguises(text: str) -> None:
-    assert evidence(RuleSet([rule("закладчик*", action=BLOCK)]), text) == ["закладчик*"]
+    assert evidence(RuleSet([rule("закладчик*", action=BLOCK)], RE2), text) == ["закладчик*"]
 
 
 @pytest.mark.parametrize("text", ["надзакладчик", "закладка фундамента", "zakladi"])
 def test_word_does_not_match_inside_other_words(text: str) -> None:
-    assert evidence(RuleSet([rule("закладчик*")]), text) == []
+    assert evidence(RuleSet([rule("закладчик*")], RE2), text) == []
 
 
 def test_word_without_star_is_the_whole_word() -> None:
-    rules = RuleSet([rule("droga"), rule("drogu")])
+    rules = RuleSet([rule("droga"), rule("drogu")], RE2)
 
     assert evidence(rules, "Prodajem drogu") == ["drogu"]
     assert evidence(rules, "Kupila sam boju u drogeriji") == []
 
 
 def test_phrase_matches_words_in_a_row_in_any_script() -> None:
-    rules = RuleSet([rule("масажа са срећним крајем", category=RuleCategory.ESCORT)])
+    rules = RuleSet([rule("масажа са срећним крајем", category=RuleCategory.ESCORT)], RE2)
 
     assert evidence(rules, "Masaža sa srećnim krajem!") == ["масажа са срећним крајем"]
     assert evidence(rules, "Masaža, sa srećnim krajem") == ["масажа са срећним крајем"]
@@ -79,7 +80,7 @@ def test_phrase_matches_words_in_a_row_in_any_script() -> None:
 
 
 def test_regex_works_on_the_skeleton() -> None:
-    rules = RuleSet([rule(r"\bzarabot\w* (?:ot|do) \d+", REGEX, category=RuleCategory.SPAM)])
+    rules = RuleSet([rule(r"\bzarabot\w* (?:ot|do) \d+", REGEX, category=RuleCategory.SPAM)], RE2)
 
     assert rules.check("Заработок ОТ 3000 в день").action is FLAG
     assert rules.check("Zarabotak do 100 evra").action is FLAG
@@ -87,7 +88,7 @@ def test_regex_works_on_the_skeleton() -> None:
 
 
 def test_regex_may_start_with_word_boundary_before_a_letter() -> None:
-    assert compile_rule(rule(r"\bbanka\b", REGEX)) is not None
+    assert compile_rule(rule(r"\bbanka\b", REGEX), RE2) is not None
 
 
 @pytest.mark.parametrize(
@@ -109,13 +110,13 @@ def test_single_level_repetition_is_fine(pattern: str) -> None:
     ],
 )
 def test_domain_matches_links_and_subdomains(text: str, hit: bool) -> None:
-    rules = RuleSet([rule("bit.ly", DOMAIN, category=RuleCategory.SPAM)])
+    rules = RuleSet([rule("bit.ly", DOMAIN, category=RuleCategory.SPAM)], RE2)
 
     assert ("bit.ly" in evidence(rules, text)) is hit
 
 
 def test_invisible_characters_accents_and_lookalikes_do_not_hide_a_word() -> None:
-    rules = RuleSet([rule("закладчик*", action=BLOCK), rule("kokain*")])
+    rules = RuleSet([rule("закладчик*", action=BLOCK), rule("kokain*")], RE2)
 
     assert rules.check("Ищем закла\u200bдчиков").action is BLOCK  # zero-width
     assert rules.check("Ищем закла\u00adдчиков").action is BLOCK  # мягкий перенос
@@ -125,7 +126,7 @@ def test_invisible_characters_accents_and_lookalikes_do_not_hide_a_word() -> Non
 
 
 def test_detectors_work_without_any_rule() -> None:
-    verdict = RuleSet().check("Nudim avans 50%, zovi +381 64 123 4567 ili piši na @ivan_ns")
+    verdict = RuleSet((), RE2).check("Nudim avans 50%, zovi +381 64 123 4567 ili piši na @ivan_ns")
 
     assert verdict.action is FLAG
     assert verdict.categories == {RuleCategory.CONTACTS, RuleCategory.SCAM}
@@ -144,16 +145,16 @@ def test_detectors_work_without_any_rule() -> None:
     ids=["before-at", "after-at", "before-dot", "hidden-dots"],
 )
 def test_check_is_linear_on_long_whitespace(text: str) -> None:
-    rules = RuleSet([rule("bit.ly", DOMAIN, category=RuleCategory.SPAM), rule("kokain*")])
+    rules = RuleSet([rule("bit.ly", DOMAIN, category=RuleCategory.SPAM), rule("kokain*")], RE2)
     started = time.perf_counter()
     rules.check(text)
-    RuleSet().check(text)
+    RuleSet((), RE2).check(text)
     assert time.perf_counter() - started < 3.0  # линейно — сотые доли секунды
 
 
 def test_regex_runs_on_re2_in_linear_time() -> None:
     # вложенных групп нет — эвристика не ловит, а `re` перебирал бы это полиномом пятой степени
-    rules = RuleSet([rule(r"\w*\w*\w*\w*\w*x", REGEX, category=RuleCategory.SPAM)])
+    rules = RuleSet([rule(r"\w*\w*\w*\w*\w*x", REGEX, category=RuleCategory.SPAM)], RE2)
     started = time.perf_counter()
 
     assert rules.check("ab" * 9_999).action is None
@@ -163,7 +164,7 @@ def test_regex_runs_on_re2_in_linear_time() -> None:
 
 def test_regex_error_explains_what_re2_does_not_support() -> None:
     with pytest.raises(InvalidRuleError, match=r"\(RE2\): invalid perl operator: \(\?<"):
-        compile_rule(rule(r"(?<=ne )kupim", REGEX))
+        compile_rule(rule(r"(?<=ne )kupim", REGEX), RE2)
 
 
 def test_verdict_takes_the_strictest_action_and_keeps_every_match() -> None:
@@ -172,7 +173,8 @@ def test_verdict_takes_the_strictest_action_and_keeps_every_match() -> None:
             rule("kokain*", rule_id=1),
             rule("kladmen*", action=BLOCK, rule_id=2),
             rule("spam farma", action=SHADOW, category=RuleCategory.SPAM, rule_id=3),
-        ]
+        ],
+        RE2,
     )
 
     verdict = rules.check("Kokain, kladmeni i spam farma")
@@ -189,7 +191,8 @@ def test_inactive_rules_are_skipped_and_broken_ones_do_not_stop_the_rest() -> No
             rule("kokain*", active=False),
             rule("(unclosed", REGEX, rule_id=7),
             rule("heroin*"),
-        ]
+        ],
+        RE2,
     )
 
     assert evidence(rules, "kokain i heroin") == ["heroin*"]
@@ -225,4 +228,4 @@ def test_inactive_rules_are_skipped_and_broken_ones_do_not_stop_the_rest() -> No
 )
 def test_bad_rules_are_rejected(bad: ContentRule, reason: str) -> None:
     with pytest.raises(InvalidRuleError, match=reason):
-        compile_rule(bad)
+        compile_rule(bad, RE2)
