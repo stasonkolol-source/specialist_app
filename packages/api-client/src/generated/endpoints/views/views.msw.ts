@@ -19,8 +19,55 @@ import type {
   DealCardOut,
   HistoryPageOut,
   ResponseCardsOut,
+  ReviewInviteFormOut,
   SpecialistProfileOut,
 } from '../../model';
+
+export const getViewsGetReviewInviteResponseMock = (
+  overrideResponse: Partial<Extract<ReviewInviteFormOut, object>> = {},
+): ReviewInviteFormOut => ({
+  specialist: {
+    profile_id: faker.string.uuid(),
+    display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    first_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    avatar: faker.helpers.arrayElement([
+      {
+        placeholder: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        variants: Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1,
+        ).map(() => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          width: faker.number.int(),
+          height: faker.number.int(),
+        })),
+        video_url: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        duration_ms: faker.helpers.arrayElement([faker.number.int(), null]),
+      },
+      null,
+    ]),
+    headline: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    categories: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        id: faker.number.int(),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      }),
+    ),
+  },
+  expires_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  is_own: faker.datatype.boolean(),
+  ...overrideResponse,
+});
 
 export const getViewsGetSpecialistResponseMock = (
   overrideResponse: Partial<Extract<SpecialistProfileOut, object>> = {},
@@ -167,6 +214,10 @@ export const getViewsGetSpecialistResponseMock = (
         { id: faker.number.int(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
         null,
       ]),
+      work_title: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
       published_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
       reply: faker.helpers.arrayElement([
         {
@@ -274,6 +325,10 @@ export const getViewsListSpecialistReviewsResponseMock = (
       { id: faker.number.int(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
       null,
     ]),
+    work_title: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
     published_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
     reply: faker.helpers.arrayElement([
       {
@@ -287,6 +342,7 @@ export const getViewsListSpecialistReviewsResponseMock = (
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
   ]),
+  pre_platform_count: faker.number.int(),
   ...overrideResponse,
 });
 
@@ -749,6 +805,30 @@ export const getViewsListBlocksResponseMock = (
   ...overrideResponse,
 });
 
+export const getViewsGetReviewInviteMockHandler = (
+  overrideResponse?:
+    | ReviewInviteFormOut
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<ReviewInviteFormOut> | ReviewInviteFormOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/review-invites/:token',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getViewsGetReviewInviteResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getViewsGetSpecialistMockHandler = (
   overrideResponse?:
     | SpecialistProfileOut
@@ -959,6 +1039,7 @@ export const getViewsListBlocksMockHandler = (
   );
 };
 export const getViewsMock = () => [
+  getViewsGetReviewInviteMockHandler(),
   getViewsGetSpecialistMockHandler(),
   getViewsListSpecialistServicesMockHandler(),
   getViewsListSpecialistWorksMockHandler(),

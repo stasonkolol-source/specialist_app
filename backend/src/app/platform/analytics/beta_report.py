@@ -5,8 +5,8 @@
 который её подключит; тест сверяет оба списка с METRICS.
 """
 
-from collections.abc import Mapping
-from datetime import timedelta
+from collections.abc import Mapping, Sequence
+from datetime import date, timedelta
 from typing import Final
 
 from app.platform.analytics.liquidity import Liquidity, LiquidityReport, Ratio
@@ -99,8 +99,74 @@ def render(report: LiquidityReport, *, week: int) -> str:
         lines += [f"  {line}" for line in _liquidity_lines(pair.metrics)]
     lines += ["", "Не в отчёте (шаг, который подключит)"]
     lines += [f"  {name}: {step}" for name, step in PENDING.items()]
-    lines.append("  Дашборд PostHog по тем же метрикам — после K32.")
+    lines.append("  Динамика по событиям — дашборд PostHog (`cli posthog-dashboard`, K32).")
     return "\n".join(lines)
+
+
+WEEK_COLUMNS: Final = (
+    "Неделя",
+    "Заявки",
+    "RR@1h ≥ 80%",
+    "≥ 1 за 1 ч и ≥ 3 за 24 ч ≥ 80%",
+    "Fill rate@7d ≥ 40%",
+    "TTFR < 30 мин",
+    "Откликались из профилей ≥ 30%",
+    "Repeat 60 дней ≥ 25%",
+    "Review rate ≥ 30%",
+    "RR@4h ≥ 70%",
+    "Win rate ≥ 15%",
+    "Сделок завершено",
+)
+"""Колонки сводки 7.7: ворота открытия категории и монетизации (PRODUCT «Ворота и go / no-go»)
+— порог в заголовке колонки."""
+
+
+def render_weeks(reports: Sequence[tuple[int, LiquidityReport]], *, beta_start: date) -> str:
+    """Сводка беты для итогов 7.7: строка — неделя, колонки — метрики ворот с порогами.
+    Markdown-таблица — вставляется в docs/checklists/beta-results.md как есть."""
+    if not reports:
+        return f"Бета ещё не началась: неделя 1 — с {beta_start:%d.%m.%Y}, недель для сводки нет."
+    as_of = reports[-1][1].as_of.astimezone(BUSINESS_TZ)
+    rows = [WEEK_COLUMNS, tuple("---" for _ in WEEK_COLUMNS)]
+    for week, report in reports:
+        o = report.overall
+        start = report.window.start.astimezone(BUSINESS_TZ)
+        end = (report.window.end - timedelta(days=1)).astimezone(BUSINESS_TZ)
+        rows.append(
+            (
+                f"{week}: {start:%d.%m}–{end:%d.%m}",
+                str(o.jobs),
+                _cell(o.rr_1h),
+                _cell(o.first_hour_three_a_day),
+                _cell(o.fill_7d),
+                _minutes(o.ttfr_minutes),
+                _cell(report.active_profiles),
+                _cell(report.repeat_60d),
+                _cell(report.review_rate),
+                _cell(o.rr_4h),
+                _percent(o.win_rate),
+                str(o.deals_completed),
+            )
+        )
+    return "\n".join(
+        [
+            f"Итоги беты «Соседи»: недели 1–{reports[-1][0]}, данные на {as_of:%d.%m.%Y %H:%M} "
+            "(Белград)",
+            "Доли — по заявкам, у которых окно уже закрылось (сколько из скольких); repeat rate "
+            "недели появляется через 60 дней, доли текущей недели неполные.",
+            "",
+            *("| " + " | ".join(row) + " |" for row in rows),
+            "",
+            "Ворота открытия категории (PRODUCT, п. 1) — все условия: ≥ 1 отклик за 1 ч и ≥ 3 за "
+            "24 ч, fill rate, TTFR, доля откликавшихся, repeat rate и review rate. Монетизация "
+            "(п. 2) — 4 недели подряд RR@4h ≥ 70%, fill rate ≥ 35% и win rate ≥ 15%. Нижний "
+            "порог пересмотра (п. 3): RR@1h < 60%, fill rate < 25% или repeat rate < 10%.",
+        ]
+    )
+
+
+def _cell(ratio: Ratio) -> str:
+    return f"{_percent(ratio.value)} ({ratio.hits}/{ratio.total})"
 
 
 def _liquidity_lines(m: Liquidity) -> list[str]:

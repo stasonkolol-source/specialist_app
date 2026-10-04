@@ -447,3 +447,157 @@ def test_domains_of_links_and_emails(text: str, expected: tuple[str, ...]) -> No
 def test_luhn() -> None:
     assert luhn_valid("4111111111111111")
     assert not luhn_valid("4111111111111112")
+
+
+# --- калибровка 6.7: известные пробелы до примеров K28 -----------------------------------------
+# Каждый случай — истинное срабатывание или истинное молчание; xfail — пробел, который не закрыть
+# без потерь в соседних случаях: его решаем на реальных примерах K28.
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # зона-слово без пути — адрес в конце текста и перед знаком препинания
+        ("Sajt: majstor.me", [(LINK, "majstor.me")]),
+        ("Pogledajte majstor.me, tu je sve", [(LINK, "majstor.me")]),
+        # обычная зона в любом регистре: с прописной её пишут и сайты, и автозамена
+        ("Moj sajt je Majstor.Rs", [(LINK, "Majstor.Rs")]),
+        ("pišite na ivan@gmail.Com", [(EMAIL, "ivan@gmail.Com")]),
+        # страницы «все мои контакты» — ссылка и без пути
+        ("Sve je na linktr.ee/ivan_majstor", [(LINK, "linktr.ee/ivan_majstor")]),
+        ("Moji kontakti: Linktr.ee", [(LINK, "Linktr.ee")]),
+        ("taplink.cc/ivan", [(LINK, "taplink.cc/ivan")]),
+        # сотни и 10–19 словами, вперемешку с цифрами: 064 123 45 67, 064 623 45 67, 8 916 …
+        (
+            "nula šezdeset četiri sto dvadeset tri 45 67",
+            [(PHONE, "nula šezdeset četiri sto dvadeset tri 45 67")],
+        ),
+        (
+            "nula šezdeset četiri šest stotina dvadeset tri 45 67",
+            [(PHONE, "nula šezdeset četiri šest stotina dvadeset tri 45 67")],
+        ),
+        (
+            "нула шездесет четири сто двадесет три 45 67",
+            [(PHONE, "нула шездесет четири сто двадесет три 45 67")],
+        ),
+        (
+            "ноль шестьдесят четыре сто двадцать три сорок пять шестьдесят семь",
+            [(PHONE, "ноль шестьдесят четыре сто двадцать три сорок пять шестьдесят семь")],
+        ),
+        ("0 шестьсот сорок один 23 45 67", [(PHONE, "0 шестьсот сорок один 23 45 67")]),
+        ("8 девятьсот шестнадцать 123 45 67", [(PHONE, "8 девятьсот шестнадцать 123 45 67")]),
+        # «što» перед номером словами — не сотня: ноль в сотню не входит, номер цел
+        (
+            "Što nula šest četiri jedan dva tri četiri pet šest sedam",
+            [(PHONE, "nula šest četiri jedan dva tri četiri pet šest sedam")],
+        ),
+        pytest.param(
+            "Pogledaj majstor.me i javi se",
+            [(LINK, "majstor.me")],
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="зона-слово посреди фразы — как «posao.to je sve»: решать на K28",
+            ),
+        ),
+        pytest.param(
+            "Majstor.Me",
+            [(LINK, "Majstor.Me")],
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="зона-слово с прописной — как «posao.To je sve», «televizor.TV»: K28",
+            ),
+        ),
+        pytest.param(
+            "nula šezdeset četiri sto dvadeset tri četiri hiljade petsto šezdeset sedam",
+            [(PHONE, "nula šezdeset četiri sto dvadeset tri četiri hiljade petsto šezdeset sedam")],
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="тысячи словами не разбираем: «četiri hiljade» в ценах чаще, чем в номерах",
+            ),
+        ),
+    ],
+)
+def test_calibration_contacts_are_found(text: str, expected: list[tuple[ContactKind, str]]) -> None:
+    assert found(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # перечни часов и пунктов: каждое число на единицу больше предыдущего
+        "Termini 08 09 10 11 12 h",
+        "Stavke: 01 02 03 04 05",
+        # после «00» идёт код страны, а он с нуля не начинается
+        "Nalog 0000123456",
+        # зона-слово посреди английской фразы и «at» без скобок перед ней
+        "noon.to be honest",
+        "See you at noon.to be honest",
+        # «Info» с прописной — начало фразы после точки без пробела
+        "Cena po dogovoru.Info na licu mesta",
+        # сотни словами без номера рядом — просто числа
+        "Imam sto dvadeset kvadrata",
+        "Шестьсот сорок рублей за час",
+        pytest.param(
+            "Nalog 0012345678",
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="«00» и код страны: номер документа не отличить от международного — K28",
+            ),
+        ),
+    ],
+)
+def test_calibration_ordinary_text_is_left_alone(text: str) -> None:
+    assert found(text) == []
+
+
+@pytest.mark.parametrize(
+    ("text", "asks"),
+    [
+        # сумма перед «на карту» — перевод вперёд (ru, sr латиницей и кириллицей)
+        ("Скиньте 5000 на карту, и я выезжаю", True),
+        ("1500 din na karticu pa dolazim", True),
+        ("1500 дин на картицу па долазим", True),
+        # сумма перед «заранее», «unapred», «унапред», в том числе процент и «тысяч»
+        ("2000 заранее, остальное после работы", True),
+        ("3000 dinara unapred", True),
+        ("3000 динара унапред", True),
+        ("50% unapred, ostatak posle", True),
+        ("5 тысяч рублей заранее", True),
+        # на карту после работы — оплата по факту
+        ("5000 на карту после работы", False),
+        ("1500 din na karticu nakon završetka", False),
+        # сроки и часы «заранее» — не сумма
+        ("Предупредите за 2 дня заранее", False),
+        ("Javite se 24h unapred", False),
+        ("Zakažite termin 2 dana unapred", False),
+        # отрицание действует и на сумму
+        ("Не нужно 5000 заранее", False),
+        pytest.param(
+            "Скидка 500 на карту лояльности",
+            False,
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="сумма перед «на карту» без глагола и срока — просьба вперёд чаще: K28",
+            ),
+        ),
+    ],
+)
+def test_calibration_prepayment_sums(text: str, asks: bool) -> None:
+    assert find_prepayment(text) is asks
+
+
+def test_calibration_domains_fold_case_and_bio_hosts() -> None:
+    assert find_domains("Sajt: Majstor.Rs i linktr.ee/ivan") == ("majstor.rs", "linktr.ee")
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["šest stotina " * 1_500, "шестьсот сорок " * 1_300, "majstor.me " * 1_800, "08 09 " * 3_300],
+    ids=lambda text: text[:12],
+)
+def test_calibration_adversarial_input_is_linear(text: str) -> None:
+    started = time.perf_counter()
+    mask_contacts(text)
+    find_domains(text)
+    find_prepayment(text + " 5 tysjac rublej" * 1_000)
+    assert time.perf_counter() - started < 3.0

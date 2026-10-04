@@ -33,6 +33,10 @@ MESSAGING = "tests/integration/test_messaging.py"
 CHAT_DEALS = "tests/integration/test_chat_deals.py"
 MEDIA = "src/app/modules/media/tests/api/test_uploads.py"
 STRANGERS = "test_authz_strangers_cannot_touch_responses_deals_and_invites"
+REVIEW_INVITES = (
+    "tests/integration/test_review_invites.py"
+    "::test_authz_strangers_cannot_revoke_and_nobody_reviews_himself_or_twice"
+)
 
 INVENTORY: dict[tuple[str, str], tuple[Scope, str]] = {
     # сделки и споры
@@ -69,6 +73,10 @@ INVENTORY: dict[tuple[str, str], tuple[Scope, str]] = {
         "tests/integration/test_reviews.py"
         "::test_specialist_replies_once_and_the_reply_shows_after_its_check",
     ),
+    # «отзывы до платформы»: ссылка — секрет; чужая, отозванная, истёкшая и использованная — 404
+    ("DELETE", "/me/profile/review-invites/{token}"): ("owner", REVIEW_INVITES),
+    ("GET", "/review-invites/{token}"): ("mixed", REVIEW_INVITES),
+    ("POST", "/review-invites/{token}"): ("mixed", REVIEW_INVITES),
     # заявки
     ("GET", "/jobs/{job_id}"): (
         "mixed",

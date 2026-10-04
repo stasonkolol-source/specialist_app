@@ -12,10 +12,14 @@ import type { ReviewOutCriteria } from './reviewOutCriteria.ts';
  */
 export interface ReviewOut {
   id: string;
+  /** deal | pre_platform — «до платформы», в рейтинг не входит */
+  kind: string;
   deal_id: string | null;
   rating: number;
   criteria: ReviewOutCriteria;
   body: string | null;
+  /** «Что делал мастер» — у отзыва до платформы */
+  work_title: string | null;
   /** under_review | published | removed */
   status: string;
   created_at: string;

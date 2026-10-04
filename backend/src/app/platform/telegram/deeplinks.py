@@ -8,6 +8,8 @@
 - `j_<base62>`, `s_<base62>`, `c_<base62>`, `d_<base62>` — заявка, специалист, диалог, сделка;
 - `p_<base62>` — проблема со сделкой (спор S52, 6.1c): id сделки; «Есть проблема» под «Работа
   выполнена?» и «Ответить» уведомления `dispute.opened` ведут сразу на S52, а не на S26;
+- `ri_<base62>` — приглашение на «отзыв до платформы» (S56, 7.6а): секрет ссылки — случайный
+  UUIDv4 из `reviews.review_invites`;
 - `h` — главная;
 - `n` — новая заявка (мастер S20a; `/new` бота);
 - `m_jobs` — свои заявки (S22; `/jobs` бота); `m_alerts` — подписки на заявки (S18), `m_feed` —
@@ -54,6 +56,8 @@ class LinkType(StrEnum):
     DEAL = "deal"
     DISPUTE = "dispute"
     """Спор по сделке S52 (6.1c): `id` — id сделки."""
+    REVIEW_INVITE = "review_invite"
+    """«Отзыв до платформы» S56 (7.6а): `id` — секрет ссылки-приглашения."""
     HOME = "home"
     NEW_JOB = "new_job"
     MINE = "mine"
@@ -101,6 +105,7 @@ ENTITY_PREFIX: Final[Mapping[LinkType, str]] = {
     LinkType.CHAT: "c",
     LinkType.DEAL: "d",
     LinkType.DISPUTE: "p",
+    LinkType.REVIEW_INVITE: "ri",
 }
 _ENTITY_BY_PREFIX: Final = {prefix: kind for kind, prefix in ENTITY_PREFIX.items()}
 _HOME: Final = "h"
@@ -113,9 +118,9 @@ _LEGAL: Final = "l"
 class StartLink:
     """Разобранный код startapp.
 
-    Сущность (`job`, `specialist`, `chat`, `deal`, `dispute`) — с `id`; `home` и `new_job` —
-    без полей; `mine` — с `section`; `legal` — с `document`; `reserved` — с `code` и, кроме
-    `gh`, со значением `value`. `ref` — суффикс `_r<code>`.
+    Сущность (`job`, `specialist`, `chat`, `deal`, `dispute`, `review_invite`) — с `id`; `home`
+    и `new_job` — без полей; `mine` — с `section`; `legal` — с `document`; `reserved` — с `code`
+    и, кроме `gh`, со значением `value`. `ref` — суффикс `_r<code>`.
     """
 
     type: LinkType
@@ -202,6 +207,11 @@ def encode_start_param(link: StartLink) -> str:
     return code
 
 
+def startapp_url(bot_username: str, start_param: str) -> str:
+    """`https://t.me/<bot>?startapp=<код>`: открывает Mini App на экране кода (§11.4)."""
+    return f"https://t.me/{bot_username}?startapp={start_param}"
+
+
 def parse_start_param(value: str | None) -> StartLink | None:
     """Разбор кода; None — неизвестный или битый код (приложение открывает главную)."""
     if not value or not is_valid_start_param(value):
@@ -258,6 +268,9 @@ _SOURCE_BY_TYPE: Final[Mapping[LinkType, LinkSource]] = {
     LinkType.CHAT: LinkSource.CHAT,
     LinkType.DEAL: LinkSource.DEAL,
     LinkType.DISPUTE: LinkSource.DEAL,  # спор — та же сделка: отдельный источник не нужен
+    # приглашение на отзыв шлёт специалист: пришедший по нему — от специалиста (без нового
+    # значения в CHECK growth.attributions.source)
+    LinkType.REVIEW_INVITE: LinkSource.SPECIALIST,
     LinkType.HOME: LinkSource.HOME,
     LinkType.NEW_JOB: LinkSource.NEW_JOB,
     LinkType.MINE: LinkSource.MINE,

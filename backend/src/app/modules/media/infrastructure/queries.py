@@ -7,12 +7,13 @@
 from collections.abc import Collection, Sequence
 from datetime import datetime
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 
+from app.modules.media.api import MediaDuplicate
 from app.modules.media.domain.asset import PUBLIC_PURPOSES, MediaAsset, MediaStatus
 from app.modules.media.domain.policy import MediaKind
 from app.modules.media.infrastructure.models import AssetRow
-from app.modules.media.infrastructure.repositories import to_domain, visible_to
+from app.modules.media.infrastructure.repositories import phash_bits, to_domain, visible_to
 from app.platform.db.query import SqlQuery
 from app.platform.kernel.ids import MediaId, UserId
 
@@ -83,6 +84,35 @@ class SqlMediaQuery(SqlQuery):
         assets = [to_domain(row) for row in (await self._execute(stmt)).scalars()]
         await self._release()
         return assets
+
+    async def duplicates(
+        self, asset: MediaAsset, *, max_distance: int, limit: int
+    ) -> list[MediaDuplicate]:
+        """Расстояние Хэмминга в PostgreSQL — `bit_count(phash # :phash)`. Без индекса: на
+        объёмах MVP (десятки тысяч фото портфолио) полный проход по готовым файлам назначения —
+        миллисекунды; индекс по частям хэша (multi-index hashing) — когда фото станет на
+        порядки больше (media_0006)."""
+        if asset.phash is None:
+            return []
+        distance = func.bit_count(AssetRow.phash.bitwise_xor(phash_bits(asset.phash)))
+        stmt = (
+            select(AssetRow.id, AssetRow.owner_id, distance)
+            .where(
+                AssetRow.purpose == asset.purpose,
+                AssetRow.status == MediaStatus.READY,
+                AssetRow.owner_id != asset.owner_id,
+                AssetRow.phash.is_not(None),
+                distance <= max_distance,
+            )
+            .order_by(distance, AssetRow.id)
+            .limit(limit)
+        )
+        found = [
+            MediaDuplicate(media_id=MediaId(media_id), owner_id=UserId(owner_id), distance=bits)
+            for media_id, owner_id, bits in (await self._execute(stmt)).all()
+        ]
+        await self._release()
+        return found
 
     async def _one(self, stmt: Select[AssetRow]) -> MediaAsset | None:
         row = (await self._execute(stmt)).scalar_one_or_none()

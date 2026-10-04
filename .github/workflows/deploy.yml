@@ -296,6 +296,8 @@ jobs:
           PGBACKREST_REPO2_S3_KEY: ${{ secrets.PGBACKREST_REPO2_S3_KEY }}
           PGBACKREST_REPO2_S3_KEY_SECRET: ${{ secrets.PGBACKREST_REPO2_S3_KEY_SECRET }}
           PGBACKREST_REPO2_CIPHER_PASS: ${{ secrets.PGBACKREST_REPO2_CIPHER_PASS }}
+          # ping URL бэкапов pgBackRest (K33): таймер на db-1 отмечает каждый запуск
+          PGBACKREST_HEALTHCHECK_URL: ${{ secrets.PGBACKREST_HEALTHCHECK_URL }}
         run: |
           make db-provision ENV=prod
           make pg-smoke ENV=prod

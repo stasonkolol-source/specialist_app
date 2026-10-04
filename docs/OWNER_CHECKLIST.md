@@ -631,9 +631,11 @@ make secret NAME=TELEGRAM_BOT_TOKEN TARGET=dev
 
   Только в `production`, для ежемесячного restore-теста (шаг 3.2):
   - `HCLOUD_TOKEN` проекта `specialist-backup` — там restore-тест создаёт временную VM (K36);
-  - S3-ключи обоих репозиториев бэкапов (K36, K37);
-  - пароли шифрования pgBackRest обоих репозиториев (K10a);
-  - ping URL restore-теста (K33).
+  - S3-ключи обоих репозиториев бэкапов (K36, K37): `PGBACKREST_REPO1_S3_KEY`, `PGBACKREST_REPO1_S3_KEY_SECRET`, `PGBACKREST_REPO2_S3_KEY`, `PGBACKREST_REPO2_S3_KEY_SECRET` — их же берёт `db-1`;
+  - пароли шифрования pgBackRest обоих репозиториев (K10a): `RESTORE_TEST_REPO1_CIPHER_PASS` и `RESTORE_TEST_REPO2_CIPHER_PASS` — значения, вставленные из менеджера паролей, а не из буфера генерации: тест проверяет именно копию. Серверу те же пароли приходят из `PGBACKREST_REPO1_CIPHER_PASS` и `PGBACKREST_REPO2_CIPHER_PASS`;
+  - ping URL restore-теста `RESTORE_TEST_HEALTHCHECK_URL` и бэкапов `PGBACKREST_HEALTHCHECK_URL` (K33).
+
+  Порядок — [prod-bootstrap.md](../infra/runbooks/prod-bootstrap.md), раздел 7.
 
   Не секреты (`CLOUDFLARE_ACCOUNT_ID`, DSN Sentry, ключ PostHog, логин реестра) — в Variables того же environment.
 - **Зачем:** CI деплоит stage при merge в `main`, а prod — по ручному запуску.
@@ -827,6 +829,11 @@ make secret NAME=TELEGRAM_BOT_TOKEN TARGET=dev
 - **Как:** eu.posthog.com → Sign up → 2FA → создать проект → Project settings → скопировать Project API key (`phc_…`) и host.
 - **Прислать:** key и host. Их можно прислать в чат: это ключ приёма событий, а не доступ к данным.
 - **Куда:** `backend/.env` (dev), Variables environments `stage` и `production`. В `apps/tma/.env.local` — только когда появится клиентский SDK (в MVP события отправляет сервер, шаг 1.7).
+- **K32a. Ключ для дашборда ликвидности (шаг 6.6).** Дашборд описан в коде, и создаёт его команда — для этого нужен второй ключ, личный (personal API key): Project API key (`phc_…`) только принимает события.
+  1. eu.posthog.com → аватар → Account settings → Personal API keys → Create personal API key → имя `sosedi-dashboard`, доступ — только к проекту «Соседей», scope: `dashboard` — read и write, `insight` — read и write → скопировать (показывается один раз) → в менеджер паролей.
+  2. Project settings → скопировать Project ID (число).
+  3. В `backend/.env` своего Мака: `ANALYTICS_POSTHOG_PERSONAL_API_KEY=<ключ>` и `ANALYTICS_POSTHOG_PROJECT_ID=<id>`. В чат ключ **не присылать**: он открывает данные проекта. На серверы он не нужен.
+  4. `make cli ARGS='posthog-dashboard'` — план, ничего не меняет; `make cli ARGS='posthog-dashboard --apply'` — создать дашборд «Ликвидность «Соседи» — production». Для событий stage — `--environment stage`. Повторный запуск обновляет дашборд, а не создаёт копию.
 - **Стоимость:** в документах не указана.
 
 ### K33. Healthchecks.io

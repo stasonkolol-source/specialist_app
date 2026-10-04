@@ -7,10 +7,11 @@ from typing import Final, Protocol
 from uuid import UUID
 
 from app.modules.reviews.api import MyReview, PublicReview, RatingSummary
-from app.modules.reviews.application.dto import ReviewsDirection, UserReview
+from app.modules.reviews.application.dto import InviteListing, ReviewsDirection, UserReview
+from app.modules.reviews.domain.invite import ReviewInvite
 from app.modules.reviews.domain.rating import CategoryStats, Rated, Rating
 from app.modules.reviews.domain.request import RequestStage
-from app.modules.reviews.domain.review import Review, ReviewId
+from app.modules.reviews.domain.review import Review, ReviewId, ReviewKind
 from app.platform.contracts.events.deals import DealCompleted
 from app.platform.contracts.events.identity import UserDeleted
 from app.platform.contracts.events.reviews import ReviewPublished, ReviewRemoved
@@ -105,9 +106,44 @@ class RatingStore(Protocol):
         ...
 
 
+class ReviewInvites(Protocol):
+    """Ссылки-приглашения на «отзыв до платформы» (7.6а)."""
+
+    async def lock(self, profile_id: UUID) -> None:
+        """Advisory lock профиля до конца транзакции: лимит пяти мест не обойти параллельно."""
+        ...
+
+    async def of_profile(self, profile_id: UUID) -> list[ReviewInvite]: ...
+
+    async def add(self, invite: ReviewInvite) -> None: ...
+
+    async def find_for_update(self, token: UUID) -> ReviewInvite | None:
+        """Ссылка под блокировкой строки: по ней пишут отзыв или её отзывают."""
+        ...
+
+    async def find(self, token: UUID) -> ReviewInvite | None: ...
+
+    async def mark_used(self, invite: ReviewInvite) -> None: ...
+
+    async def remove(self, token: UUID) -> None:
+        """Отозвать: строки больше нет — ссылка для всех «не найдена»."""
+        ...
+
+    async def listing(self, profile_id: UUID) -> list[InviteListing]:
+        """Приглашения профиля для S55, новые первыми, со статусом отзыва по ним."""
+        ...
+
+
 class ReviewQueries(Protocol):
-    async def public_of(self, profile_id: UUID, page: PageRequest) -> Page[PublicReview]:
-        """Опубликованные отзывы профиля, новые первыми; ответ — только прошедший проверку."""
+    async def public_of(
+        self, profile_id: UUID, page: PageRequest, kind: ReviewKind
+    ) -> Page[PublicReview]:
+        """Опубликованные отзывы профиля этого вида, новые первыми; ответ — только прошедший
+        проверку."""
+        ...
+
+    async def count_of(self, profile_id: UUID, kind: ReviewKind) -> int:
+        """Сколько опубликованных отзывов этого вида у профиля."""
         ...
 
     async def public(self, review_id: UUID) -> PublicReview | None:

@@ -1,0 +1,227 @@
+# Restore-тест бэкапов prod (DEVELOPMENT_PLAN 3.2, ADR-0015, ARCHITECTURE §13.5, §16.4): раз в месяц
+# бэкап pgBackRest восстанавливается на временную VM в проекте Hetzner specialist-backup (K36), затем
+# smoke: postgis_full_version(), scripts/pg_smoke.sh, число строк ключевых таблиц, ревизия миграций.
+# VM удаляется всегда: шагом с if: always() и подметанием забытых VM по метке purpose=restore-test.
+# RPO: перед восстановлением на db-1 пишется строка-маркер (make rpo-mark ENV=prod), PITR идёт на её
+# момент T — маркер на месте, отставание архива WAL ≤ 5 мин. RTO — от создания VM до зелёного smoke,
+# ≤ 2 ч. Итоги — в Summary запуска и в Healthchecks (K33), числа — в infra/runbooks/restore.md.
+# Выключен, пока нет переменной репозитория RESTORE_TEST = 'true' (prod-bootstrap.md, «Бэкапы»).
+# Секреты — environment production (K19): job получает их только из main и после подтверждения
+# required reviewers, запуск по расписанию — тоже. Пароли шифрования — свои секреты
+# RESTORE_TEST_REPO*_CIPHER_PASS, вставленные из менеджера паролей (K10a): тест проверяет именно копию.
+name: restore-test
+
+on:
+  schedule:
+    # 3-го числа в 05:23 UTC: после ночного бэкапа (01:30–02:00 UTC)
+    - cron: '23 5 3 * *'
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: 'репозиторий: 1 — Hetzner Object Storage, 2 — Backblaze B2, auto — по чётности месяца'
+        type: choice
+        options: [auto, '1', '2']
+        default: auto
+      rpo:
+        description: 'RPO: маркер на db-1 и PITR на его момент (выключено — последний бэкап и весь архив WAL)'
+        type: boolean
+        default: true
+
+concurrency:
+  group: restore-test
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  restore:
+    name: restore (temporary VM)
+    if: vars.RESTORE_TEST == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    # RTO ≤ 2 ч и запас на удаление VM
+    timeout-minutes: 150
+    environment: production
+    env:
+      # VM как db-1; Variables environment «production» могут поменять тип и регион
+      SERVER_TYPE: ${{ vars.RESTORE_TEST_SERVER_TYPE || 'cx33' }}
+      LOCATION: ${{ vars.RESTORE_TEST_LOCATION || 'nbg1' }}
+      RUN: ${{ github.run_id }}
+      SSH_OPTS: -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      # секретов здесь нет: только «задан или нет»
+      - name: start
+        id: start
+        env:
+          INPUT_REPO: ${{ inputs.repo }}
+          HAVE_HCLOUD: ${{ secrets.HCLOUD_TOKEN != '' }}
+          HAVE_REPO1: ${{ vars.PGBACKREST_REPO1_S3_BUCKET != '' && secrets.PGBACKREST_REPO1_S3_KEY != '' && secrets.RESTORE_TEST_REPO1_CIPHER_PASS != '' }}
+          HAVE_REPO2: ${{ vars.PGBACKREST_REPO2_S3_BUCKET != '' && secrets.PGBACKREST_REPO2_S3_KEY != '' && secrets.RESTORE_TEST_REPO2_CIPHER_PASS != '' }}
+        run: |
+          repo=${INPUT_REPO:-auto}
+          if [ "$repo" = auto ]; then
+            # repo1 в нечётные месяцы, repo2 в чётные: за два месяца проверены оба провайдера
+            repo=$(( $(date -u +%-m) % 2 == 1 ? 1 : 2 ))
+            if [ "$repo" = 2 ] && [ "$HAVE_REPO2" != true ]; then repo=1; fi
+          fi
+          have=HAVE_REPO$repo
+          [ "$HAVE_HCLOUD" = true ] || { echo "::error::нет секрета HCLOUD_TOKEN (проект specialist-backup, K36)"; exit 1; }
+          [ "${!have}" = true ] || { echo "::error::repo$repo: нужны Variable PGBACKREST_REPO${repo}_S3_BUCKET и секреты PGBACKREST_REPO${repo}_S3_KEY, RESTORE_TEST_REPO${repo}_CIPHER_PASS"; exit 1; }
+          echo "repo=$repo" >> "$GITHUB_OUTPUT"
+          echo "проверяем repo$repo"
+
+      - name: Healthchecks /start
+        env:
+          HC_URL: ${{ secrets.RESTORE_TEST_HEALTHCHECK_URL }}
+        run: |
+          [ -z "$HC_URL" ] || curl -fsS -m 10 --retry 3 -o /dev/null "$HC_URL/start" || true
+
+      - name: sweep stale VMs
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: infra/postgres/restore-vm.sh sweep
+
+      # RPO: маркер на db-1 тем же make, что у владельца; заодно версии пакетов db-1 для VM
+      - name: RPO marker on db-1
+        id: rpo
+        if: (github.event_name == 'schedule' || inputs.rpo) && vars.PROD_HOST != '' && vars.PROD_DB_IP != ''
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          PROD_HOST: ${{ vars.PROD_HOST }}
+          PROD_DB_IP: ${{ vars.PROD_DB_IP }}
+        run: |
+          eval "$(ssh-agent -s)" > /dev/null
+          ssh-add -q - <<< "$DEPLOY_SSH_KEY"
+          make -s rpo-mark ENV=prod > "$RUNNER_TEMP/rpo.out"
+          ssh-agent -k > /dev/null
+          grep -E '^[a-z_]+=' "$RUNNER_TEMP/rpo.out" | tee -a "$GITHUB_OUTPUT"
+
+      - name: create VM
+        id: vm
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: |
+          # RTO считается отсюда: при аварии всё начинается с новой VM
+          echo "STARTED=$(date +%s)" >> "$GITHUB_ENV"
+          ssh-keygen -q -t ed25519 -N '' -C "restore-test-$RUN" -f "$RUNNER_TEMP/vm_key"
+          infra/postgres/restore-vm.sh create "$RUN" "restore-test-$RUN-$GITHUB_RUN_ATTEMPT" "$RUNNER_TEMP/vm_key.pub" |
+            tee -a "$GITHUB_OUTPUT"
+
+      - name: wait for SSH
+        env:
+          VM_IP: ${{ steps.vm.outputs.vm_ip }}
+        run: |
+          for _ in $(seq 60); do
+            # shellcheck disable=SC2086 # SSH_OPTS — список опций
+            if ssh $SSH_OPTS -o UserKnownHostsFile="$RUNNER_TEMP/known_hosts" -i "$RUNNER_TEMP/vm_key" \
+              "root@$VM_IP" true 2> /dev/null; then exit 0; fi
+            sleep 5
+          done
+          echo "::error::SSH на VM не ответил за 5 минут"; exit 1
+
+      # значения — строками на stdin restore-check.sh (как у provision.sh), не в argv и не на диске
+      - name: restore and smoke
+        id: restore
+        env:
+          VM_IP: ${{ steps.vm.outputs.vm_ip }}
+          REPO: ${{ steps.start.outputs.repo }}
+          REPO1_S3_ENDPOINT: ${{ vars.PGBACKREST_REPO1_S3_ENDPOINT }}
+          REPO1_S3_REGION: ${{ vars.PGBACKREST_REPO1_S3_REGION }}
+          REPO1_S3_BUCKET: ${{ vars.PGBACKREST_REPO1_S3_BUCKET }}
+          REPO1_S3_KEY: ${{ secrets.PGBACKREST_REPO1_S3_KEY }}
+          REPO1_S3_KEY_SECRET: ${{ secrets.PGBACKREST_REPO1_S3_KEY_SECRET }}
+          REPO1_CIPHER_PASS: ${{ secrets.RESTORE_TEST_REPO1_CIPHER_PASS }}
+          REPO2_S3_ENDPOINT: ${{ vars.PGBACKREST_REPO2_S3_ENDPOINT }}
+          REPO2_S3_REGION: ${{ vars.PGBACKREST_REPO2_S3_REGION }}
+          REPO2_S3_BUCKET: ${{ vars.PGBACKREST_REPO2_S3_BUCKET }}
+          REPO2_S3_KEY: ${{ secrets.PGBACKREST_REPO2_S3_KEY }}
+          REPO2_S3_KEY_SECRET: ${{ secrets.PGBACKREST_REPO2_S3_KEY_SECRET }}
+          REPO2_CIPHER_PASS: ${{ secrets.RESTORE_TEST_REPO2_CIPHER_PASS }}
+          RPO_TARGET: ${{ steps.rpo.outputs.rpo_target }}
+          RPO_TAG: ${{ steps.rpo.outputs.rpo_tag }}
+          PG_PACKAGES: ${{ steps.rpo.outputs.pg_packages }}
+        run: |
+          # shellcheck disable=SC2086 # SSH_OPTS — список опций
+          vm() { ssh $SSH_OPTS -o UserKnownHostsFile="$RUNNER_TEMP/known_hosts" -i "$RUNNER_TEMP/vm_key" "root@$VM_IP" "$@"; }
+          tar -cf - infra/postgres/restore-check.sh scripts/pg_smoke.sh |
+            vm 'mkdir -p /opt/sosed && tar -xf - -C /opt/sosed'
+          {
+            for f in S3_ENDPOINT S3_REGION S3_BUCKET S3_KEY S3_KEY_SECRET CIPHER_PASS; do
+              n=REPO${REPO}_$f
+              printf 'REPO_%s=%s\n' "$f" "${!n}"
+            done
+            printf 'RPO_TARGET=%s\nRPO_TAG=%s\nPG_PACKAGES=%s\n' "$RPO_TARGET" "$RPO_TAG" "$PG_PACKAGES"
+          } | vm 'bash /opt/sosed/infra/postgres/restore-check.sh' > "$RUNNER_TEMP/restore.out"
+          echo "smoke_finished=$(date +%s)" >> "$GITHUB_OUTPUT"
+          grep -E '^[a-z_0-9]+=' "$RUNNER_TEMP/restore.out" | tee -a "$GITHUB_OUTPUT"
+          grep '^::' "$RUNNER_TEMP/restore.out" || true
+
+      - name: verdict (RPO, RTO)
+        env:
+          REPO: ${{ steps.start.outputs.repo }}
+          SMOKE_FINISHED: ${{ steps.restore.outputs.smoke_finished }}
+          RESTORE_SECONDS: ${{ steps.restore.outputs.restore_seconds }}
+          BACKUP: ${{ steps.restore.outputs.backup_label }} (${{ steps.restore.outputs.backup_type }}, ${{ steps.restore.outputs.backup_stop }}, ${{ steps.restore.outputs.backup_made_by }})
+          LAST_REPLAYED: ${{ steps.restore.outputs.last_replayed_xact }}
+          POSTGIS: ${{ steps.restore.outputs.postgis_full_version }}
+          ALEMBIC: ${{ steps.restore.outputs.alembic_revision }}
+          ROWS: >-
+            users ${{ steps.restore.outputs.rows_identity_users || '—' }},
+            profiles ${{ steps.restore.outputs.rows_specialists_profiles || '—' }},
+            jobs ${{ steps.restore.outputs.rows_jobs_jobs || '—' }},
+            responses ${{ steps.restore.outputs.rows_jobs_responses || '—' }},
+            messages ${{ steps.restore.outputs.rows_messaging_messages || '—' }},
+            audit_log ${{ steps.restore.outputs.rows_platform_audit_log || '—' }}
+          PACKAGES: ${{ steps.restore.outputs.vm_packages }}
+          PACKAGES_MATCH: ${{ steps.restore.outputs.packages_match }}
+          RPO_TARGET: ${{ steps.rpo.outputs.rpo_target }}
+          RPO_LAG: ${{ steps.rpo.outputs.rpo_lag_seconds }}
+          RPO_LAG_OK: ${{ steps.rpo.outputs.rpo_lag_ok }}
+          RPO_MARKER: ${{ steps.restore.outputs.rpo_marker }}
+          RPO_MARKER_OK: ${{ steps.restore.outputs.rpo_marker_ok }}
+          HC_URL: ${{ secrets.RESTORE_TEST_HEALTHCHECK_URL }}
+        run: |
+          rto=$(( SMOKE_FINISHED - STARTED ))
+          ok=true
+          [ "$rto" -le 7200 ] || ok=false
+          if [ -n "$RPO_TARGET" ]; then
+            if [ "$RPO_LAG_OK" != true ] || [ "$RPO_MARKER_OK" != true ]; then ok=false; fi
+            rpo="отставание архива WAL $RPO_LAG с (норма ≤ 300); PITR на $RPO_TARGET — $RPO_MARKER"
+          else
+            rpo="не проверялся (нет PROD_HOST/PROD_DB_IP или rpo = false); восстановлен весь архив, последняя транзакция $LAST_REPLAYED"
+          fi
+          echo "RTO: $(( rto / 60 )) мин $(( rto % 60 )) с; RPO: $rpo"
+          {
+            echo "## Restore-тест: $([ "$ok" = true ] && echo 'зелёный' || echo 'КРАСНЫЙ')"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Репозиторий | repo$REPO |"
+            echo "| Бэкап | $BACKUP |"
+            echo "| RTO (создание VM → smoke) | $(( rto / 60 )) мин $(( rto % 60 )) с, из них restore и WAL — $RESTORE_SECONDS с (норма ≤ 120 мин) |"
+            echo "| RPO | $rpo |"
+            echo "| postgis_full_version() | \`$POSTGIS\` |"
+            echo "| Ревизия миграций | $ALEMBIC |"
+            echo "| Строк | $ROWS |"
+            echo "| Пакеты VM | $PACKAGES (как на db-1: ${PACKAGES_MATCH:-не сверялись}) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$ok" = true ] || { echo "::error::RPO или RTO вне нормы — см. Summary"; exit 1; }
+          [ -z "$HC_URL" ] || curl -fsS -m 10 --retry 3 -o /dev/null --data-raw "RTO ${rto}s; RPO: $rpo" "$HC_URL" || true
+
+      - name: delete VM
+        if: always() && steps.start.outcome == 'success'
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: |
+          infra/postgres/restore-vm.sh delete "$RUN"
+          infra/postgres/restore-vm.sh sweep
+
+      - name: Healthchecks /fail
+        if: failure() || cancelled()
+        env:
+          HC_URL: ${{ secrets.RESTORE_TEST_HEALTHCHECK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -z "$HC_URL" ] || curl -fsS -m 10 --retry 3 -o /dev/null --data-raw "$RUN_URL" "$HC_URL/fail" || true

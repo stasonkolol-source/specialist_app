@@ -21,10 +21,14 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  InviteReviewIn,
   MyReviewsPageOut,
   ProblemOut,
   ReplyIn,
   ReviewIn,
+  ReviewInviteIn,
+  ReviewInviteOut,
+  ReviewInvitesOut,
   ReviewOut,
   ReviewsListMyReviewsParams,
 } from '../../model';
@@ -408,3 +412,431 @@ export function useReviewsListMyReviews<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+export const getReviewsListReviewInvitesUrl = () => {
+  return `/api/v1/me/profile/review-invites`;
+};
+
+/**
+ * Приглашения S55: статус каждого, кто оставил отзыв, сколько мест из пяти занято.
+ * @summary List Review Invites
+ */
+export const reviewsListReviewInvites = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ReviewInvitesOut> => {
+  return apiFetch<ReviewInvitesOut>(getReviewsListReviewInvitesUrl(), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getReviewsListReviewInvitesQueryKey = () => {
+  return [`/api/v1/me/profile/review-invites`] as const;
+};
+
+export const getReviewsListReviewInvitesQueryOptions = <
+  TData = Awaited<ReturnType<typeof reviewsListReviewInvites>>,
+  TError = ErrorType<ProblemOut>,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<Awaited<ReturnType<typeof reviewsListReviewInvites>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getReviewsListReviewInvitesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof reviewsListReviewInvites>>> = ({
+    signal,
+  }) => reviewsListReviewInvites({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof reviewsListReviewInvites>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type ReviewsListReviewInvitesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof reviewsListReviewInvites>>
+>;
+export type ReviewsListReviewInvitesQueryError = ErrorType<ProblemOut>;
+
+export function useReviewsListReviewInvites<
+  TData = Awaited<ReturnType<typeof reviewsListReviewInvites>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof reviewsListReviewInvites>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof reviewsListReviewInvites>>,
+          TError,
+          Awaited<ReturnType<typeof reviewsListReviewInvites>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useReviewsListReviewInvites<
+  TData = Awaited<ReturnType<typeof reviewsListReviewInvites>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof reviewsListReviewInvites>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof reviewsListReviewInvites>>,
+          TError,
+          Awaited<ReturnType<typeof reviewsListReviewInvites>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useReviewsListReviewInvites<
+  TData = Awaited<ReturnType<typeof reviewsListReviewInvites>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof reviewsListReviewInvites>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List Review Invites
+ */
+
+export function useReviewsListReviewInvites<
+  TData = Awaited<ReturnType<typeof reviewsListReviewInvites>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof reviewsListReviewInvites>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getReviewsListReviewInvitesQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getReviewsCreateReviewInviteUrl = () => {
+  return `/api/v1/me/profile/review-invites`;
+};
+
+/**
+ * Ссылка-приглашение прошлому клиенту на «отзыв до платформы» (S55): одна ссылка — один
+ * клиент, 30 дней, не больше пяти занятых мест.
+ * @summary Create Review Invite
+ */
+export const reviewsCreateReviewInvite = async (
+  reviewInviteIn: ReviewInviteIn,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ReviewInviteOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<ReviewInviteOut>(getReviewsCreateReviewInviteUrl(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(reviewInviteIn),
+  });
+};
+
+export const getReviewsCreateReviewInviteMutationKey = () => ['reviewsCreateReviewInvite'] as const;
+
+export const getReviewsCreateReviewInviteMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reviewsCreateReviewInvite>>,
+    TError,
+    ReviewsCreateReviewInviteMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reviewsCreateReviewInvite>>,
+  TError,
+  ReviewsCreateReviewInviteMutationVariables,
+  TContext
+> => {
+  const mutationKey = getReviewsCreateReviewInviteMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reviewsCreateReviewInvite>>,
+    ReviewsCreateReviewInviteMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return reviewsCreateReviewInvite(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReviewsCreateReviewInviteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reviewsCreateReviewInvite>>
+>;
+export type ReviewsCreateReviewInviteMutationBody = ReviewInviteIn;
+export type ReviewsCreateReviewInviteMutationError = ErrorType<ProblemOut>;
+export type ReviewsCreateReviewInviteMutationVariables = { data: ReviewInviteIn };
+
+/**
+ * @summary Create Review Invite
+ */
+export const useReviewsCreateReviewInvite = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof reviewsCreateReviewInvite>>,
+      TError,
+      ReviewsCreateReviewInviteMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof reviewsCreateReviewInvite>>,
+  TError,
+  ReviewsCreateReviewInviteMutationVariables,
+  TContext
+> => {
+  return useMutation(getReviewsCreateReviewInviteMutationOptions(options), queryClient);
+};
+export const getReviewsRevokeReviewInviteUrl = (token: string) => {
+  return `/api/v1/me/profile/review-invites/${token}`;
+};
+
+/**
+ * Отозвать свою неиспользованную ссылку: она перестаёт открываться, место освобождается.
+ * @summary Revoke Review Invite
+ */
+export const reviewsRevokeReviewInvite = async (
+  token: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getReviewsRevokeReviewInviteUrl(token), {
+    ...options,
+    method: 'DELETE',
+  });
+};
+
+export const getReviewsRevokeReviewInviteMutationKey = () => ['reviewsRevokeReviewInvite'] as const;
+
+export const getReviewsRevokeReviewInviteMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reviewsRevokeReviewInvite>>,
+    TError,
+    ReviewsRevokeReviewInviteMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reviewsRevokeReviewInvite>>,
+  TError,
+  ReviewsRevokeReviewInviteMutationVariables,
+  TContext
+> => {
+  const mutationKey = getReviewsRevokeReviewInviteMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reviewsRevokeReviewInvite>>,
+    ReviewsRevokeReviewInviteMutationVariables
+  > = (props) => {
+    const { token } = props ?? {};
+
+    return reviewsRevokeReviewInvite(token, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReviewsRevokeReviewInviteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reviewsRevokeReviewInvite>>
+>;
+
+export type ReviewsRevokeReviewInviteMutationError = ErrorType<ProblemOut>;
+export type ReviewsRevokeReviewInviteMutationVariables = { token: string };
+
+/**
+ * @summary Revoke Review Invite
+ */
+export const useReviewsRevokeReviewInvite = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof reviewsRevokeReviewInvite>>,
+      TError,
+      ReviewsRevokeReviewInviteMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof reviewsRevokeReviewInvite>>,
+  TError,
+  ReviewsRevokeReviewInviteMutationVariables,
+  TContext
+> => {
+  return useMutation(getReviewsRevokeReviewInviteMutationOptions(options), queryClient);
+};
+export const getReviewsLeaveInviteReviewUrl = (token: string) => {
+  return `/api/v1/review-invites/${token}`;
+};
+
+/**
+ * «Отзыв до платформы» по приглашению (S56): ждёт модератора, на карточке — с отдельной
+ * меткой, в рейтинг не входит.
+ * @summary Leave Invite Review
+ */
+export const reviewsLeaveInviteReview = async (
+  token: string,
+  inviteReviewIn: InviteReviewIn,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ReviewOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<ReviewOut>(getReviewsLeaveInviteReviewUrl(token), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(inviteReviewIn),
+  });
+};
+
+export const getReviewsLeaveInviteReviewMutationKey = () => ['reviewsLeaveInviteReview'] as const;
+
+export const getReviewsLeaveInviteReviewMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reviewsLeaveInviteReview>>,
+    TError,
+    ReviewsLeaveInviteReviewMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reviewsLeaveInviteReview>>,
+  TError,
+  ReviewsLeaveInviteReviewMutationVariables,
+  TContext
+> => {
+  const mutationKey = getReviewsLeaveInviteReviewMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reviewsLeaveInviteReview>>,
+    ReviewsLeaveInviteReviewMutationVariables
+  > = (props) => {
+    const { token, data } = props ?? {};
+
+    return reviewsLeaveInviteReview(token, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReviewsLeaveInviteReviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reviewsLeaveInviteReview>>
+>;
+export type ReviewsLeaveInviteReviewMutationBody = InviteReviewIn;
+export type ReviewsLeaveInviteReviewMutationError = ErrorType<ProblemOut>;
+export type ReviewsLeaveInviteReviewMutationVariables = { token: string; data: InviteReviewIn };
+
+/**
+ * @summary Leave Invite Review
+ */
+export const useReviewsLeaveInviteReview = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof reviewsLeaveInviteReview>>,
+      TError,
+      ReviewsLeaveInviteReviewMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof reviewsLeaveInviteReview>>,
+  TError,
+  ReviewsLeaveInviteReviewMutationVariables,
+  TContext
+> => {
+  return useMutation(getReviewsLeaveInviteReviewMutationOptions(options), queryClient);
+};
