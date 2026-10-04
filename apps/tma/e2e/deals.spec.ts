@@ -1,15 +1,18 @@
 // Выбор исполнителя и сделка S24–S26 (DEVELOPMENT_PLAN 6.2) на фейке backend: своя заявка S23 →
 // отклик Алексея S24 → шторка выбора S25 → сделка S26 («Договорились», исполнитель, адрес,
-// таймлайн, памятка). Спор S52 (6.1c) по ссылке `p_` из бота: форма как на артборде → «Отправить»
-// → «Ждём ответа»; вторая сторона — сообщение, срок и форма ответа. Скриншоты × тема × язык,
-// axe-core. Имена скриншотов начинаются с кода артборда: make design-compare кладёт их рядом с
-// эталоном.
+// таймлайн, памятка). Завершённая сделка S26 по ссылке `d_` — «Заказать снова»: прямой диалог
+// с Алексеем, где можно договориться. Спор S52 (6.1c) по ссылке `p_` из бота: форма как на
+// артборде → «Отправить» → «Ждём ответа»; вторая сторона — сообщение, срок и форма ответа.
+// Скриншоты × тема × язык, axe-core. Имена скриншотов начинаются с кода артборда: make
+// design-compare кладёт их рядом с эталоном.
 import { expect, test } from '@playwright/test';
 import { encodeStartParam } from '@sosed/links';
 
+import { ChatBackend } from '../src/testing/chatBackend.ts';
 import { E2E_NOW, ME } from '../src/testing/fixtures.ts';
 import {
   JobsBackend,
+  completedDealFixture,
   dealCardFixture,
   myJobsFixture,
   responseCardsFixture,
@@ -26,6 +29,8 @@ const LOCALES = [
     offer: 'Предложение',
     confirm: 'Выбрать этого исполнителя?',
     status: 'Статус',
+    orderAgain: 'Заказать снова',
+    agree: 'Договорились',
   },
   {
     locale: 'sr-Latn',
@@ -35,6 +40,8 @@ const LOCALES = [
     offer: 'Ponuda',
     confirm: 'Izabrati ovog izvođača?',
     status: 'Status',
+    orderAgain: 'Naručite ponovo',
+    agree: 'Dogovoreno',
   },
 ] as const;
 
@@ -73,6 +80,42 @@ for (const theme of THEMES) {
       await expect(page.getByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeVisible();
       await expect(page.getByRole('region', { name: l.status })).toBeVisible();
       await snap(`S26-deal-${theme}-${l.locale}.png`);
+    });
+  }
+}
+
+for (const theme of THEMES) {
+  for (const l of LOCALES) {
+    test(`S26 ${theme} ${l.locale}: завершённая сделка — заказать снова`, async ({ page }) => {
+      await page.clock.setFixedTime(new Date(E2E_NOW));
+      const [job] = myJobsFixture();
+      const [card] = responseCardsFixture();
+      if (!job || !card) throw new Error('fixtures');
+      const jobs = new JobsBackend().seedMine();
+      const deal = completedDealFixture(job, card);
+      jobs.deals.set(deal.id, deal);
+      const chat = new ChatBackend().seed();
+      const start = encodeStartParam({ type: 'deal', id: deal.id });
+      const watch = await open(page, `theme=${theme}&lang=${l.telegram}&start=${start}`, {
+        signedIn: true,
+        me: { ...ME, ui_locale: l.locale },
+        jobs,
+        chat,
+      });
+
+      await expect(page.getByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeVisible();
+      await expect(page.getByRole('button', { name: l.orderAgain })).toBeVisible();
+      expect(real(watch.problems)).toEqual([]);
+      expect(watch.unexpectedApi).toEqual([]);
+      await expect(page).toHaveScreenshot(`S26-deal-completed-${theme}-${l.locale}.png`, {
+        fullPage: true,
+      });
+      await expectNoAxeViolations(page);
+
+      // прямой диалог с Алексеем: в шапке — «Договорились»
+      await page.getByRole('button', { name: l.orderAgain }).click();
+      await expect(page.getByRole('main').getByRole('button', { name: l.agree })).toBeVisible();
+      expect(chat.starts).toEqual([{ profile_id: card.performer.profile_id }]);
     });
   }
 }

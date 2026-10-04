@@ -507,6 +507,8 @@
       "shareError": "Razgovor nije moguće otvoriti. Pokušajte ponovo"
     },
     "leaveReview": "Ostavi utisak",
+    "orderAgain": "Naručite ponovo",
+    "orderAgainError": "Razgovor nije moguće otvoriti. Pokušajte ponovo",
     "reviewUntil": "Utisak možete ostaviti do {date}",
     "myReview": {
       "under_review": "Vaš utisak je na proveri",

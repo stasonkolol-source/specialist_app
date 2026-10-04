@@ -4,7 +4,8 @@
 // ведёт на S26: статус, вторая сторона, адрес, таймлайн и памятка. «Работа выполнена» — отметка
 // стороны, вторая завершает сделку; отмена — причиной из шторки. Ссылка `d_` открывает сделку,
 // S23 «в работе» и S17 выбранного — «Открыть сделку». SecondaryButton «Написать» на S24 начинает
-// диалог по отклику (6.4).
+// диалог по отклику (6.4). Завершённая сделка клиента — «Заказать снова»: прямой диалог с этим
+// специалистом.
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -13,6 +14,7 @@ import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
 import { E2E_NOW } from '../../testing/fixtures.ts';
 import {
   JobsBackend,
+  completedDealFixture,
   dealCardFixture,
   myJobsFixture,
   responseCardsFixture,
@@ -202,5 +204,47 @@ describe('S26 deal', () => {
     await click(await screen.findByRole('button', { name: 'Открыть сделку' }));
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe(`/deals/${deal.id}`));
+  });
+});
+
+describe('S26 order again', () => {
+  /** Завершённая сделка с Алексеем: отзыв ещё можно оставить. */
+  function withCompleted(backend: JobsBackend) {
+    if (!CHANDELIER || !ALEKSEY) throw new Error('fixtures');
+    const deal = completedDealFixture(CHANDELIER, ALEKSEY);
+    backend.deals.set(deal.id, deal);
+    return deal;
+  }
+
+  it('opens the direct chat with the specialist from the completed deal', async () => {
+    const deal = withCompleted(withMine());
+    const chat = new ChatBackend();
+    server.use(...chatHandlers(() => chat));
+    const { app } = startApp(`/deals/${deal.id}`);
+
+    await click(await screen.findByRole('button', { name: 'Заказать снова' }));
+
+    await waitFor(() =>
+      expect(chat.starts).toEqual([{ profile_id: ALEKSEY?.performer.profile_id }]),
+    );
+    await waitFor(() => expect(app.router.state.location.pathname).toMatch(/^\/messages\/.+$/));
+  });
+
+  it('is not offered before the deal is completed', async () => {
+    const deal = withDeal(withMine());
+    startApp(`/deals/${deal.id}`);
+
+    await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 });
+    expect(screen.queryByRole('button', { name: 'Заказать снова' })).toBeNull();
+  });
+
+  it('is not offered to the performer', async () => {
+    const backend = withMine();
+    const deal = withCompleted(backend);
+    backend.dealRole = 'performer';
+    startApp(`/deals/${deal.id}`);
+
+    expect(await screen.findByText('Елена К.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Заказать снова' })).toBeNull();
   });
 });

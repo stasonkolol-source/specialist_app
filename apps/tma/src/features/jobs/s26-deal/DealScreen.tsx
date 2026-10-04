@@ -11,7 +11,8 @@
 // «Есть проблема» → спор S52 (6.1c; старый клиент Telegram — кнопкой в контенте); под спором —
 // «сделка на паузе» и «Спор по сделке», после решения — «Решение по спору». Завершена (7.3): шаг
 // «Отзыв» в таймлайне, MainButton «Оставить отзыв» (S27) клиенту, пока окно открыто, и статус
-// своего отзыва.
+// своего отзыва; клиенту — «Заказать снова»: прямой диалог с этим специалистом, где в шапке
+// «Договориться снова» (S30).
 import type { DealCancelReason, DealCardOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import {
@@ -289,6 +290,9 @@ function Deal({ deal }: { deal: DealCardOut }) {
       <Address deal={deal} />
       <Steps deal={deal} />
       <State deal={deal} />
+      {deal.status === 'completed' && client && deal.counterpart.profile_id && (
+        <OrderAgain profileId={deal.counterpart.profile_id} />
+      )}
       {problem.visible && !problem.native && (
         <Button variant="secondary" full onClick={problem.open}>
           {problem.text}
@@ -470,6 +474,33 @@ function Contacts({ deal }: { deal: DealCardOut }) {
       </Group>
       {start.error && <ActionError error={start.error} fallback={t('deal.contacts.shareError')} />}
     </section>
+  );
+}
+
+/** «Заказать снова» клиенту завершённой сделки: прямой диалог с этим специалистом (уже начатый —
+ *  тот же), как «Написать» на S08; договариваются там — «Договориться снова» в шапке S30. */
+function OrderAgain({ profileId }: { profileId: string }) {
+  const { t } = useTranslation('jobs');
+  const router = useRouter();
+  const start = useStartConversation();
+  const order = () =>
+    start.mutate(
+      { profile_id: profileId },
+      { onSuccess: (started) => void router.navigate({ to: chatPath(started.id) }) },
+    );
+  return (
+    <>
+      <Button
+        variant="secondary"
+        full
+        disabled={start.isPending}
+        aria-busy={start.isPending}
+        onClick={order}
+      >
+        {t('deal.orderAgain')}
+      </Button>
+      {start.error && <ActionError error={start.error} fallback={t('deal.orderAgainError')} />}
+    </>
   );
 }
 
