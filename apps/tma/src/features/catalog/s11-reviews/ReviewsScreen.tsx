@@ -1,10 +1,16 @@
 // S11 Отзывы о специалисте (DEVELOPMENT_PLAN 4.6): сводка — средняя оценка, звёзды, сколько
-// отзывов, распределение оценок и средние по критериям; ниже — отзывы по сделкам, новые первыми.
-// Пока отзывов нет — «Отзывов пока нет»: специалист новый. Ответы специалиста под отзывами и
-// «Показать ещё» — 7.3. «⋯» у отзыва — жалоба на него (шторка S46, 4.7; вошедшему). Вкладка «До
-// платформы» — 7.6, «Как мы проверяем отзывы» (S51) — со своим шагом. Имя и услуга в шапке — из
-// профиля S08 (обычно уже в кэше).
-import type { CardRatingOut, CardReviewOut, SpecialistProfileOut } from '@sosed/api-client';
+// отзывов, распределение оценок и средние по критериям; ниже — вкладки «По сделкам · 37» и «До
+// платформы · 2» (7.6а: отзывы по приглашениям S55 с пометкой, в рейтинг не входят) и отзывы
+// вкладки, новые первыми. Совсем нет отзывов — «Отзывов пока нет»: специалист новый; пустая
+// вкладка — своё объяснение. Ответы специалиста под отзывами и «Показать ещё» — 7.3. «⋯» у отзыва —
+// жалоба на него (шторка S46, 4.7; вошедшему). «Как мы проверяем отзывы» (S51) — со своим шагом.
+// Имя и услуга в шапке — из профиля S08 (обычно уже в кэше).
+import type {
+  CardRatingOut,
+  CardReviewOut,
+  SpecialistProfileOut,
+  ViewsListSpecialistReviewsKind,
+} from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
 import { isUnavailable, openReport, useSpecialistCard, useSpecialistReviews } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
@@ -15,6 +21,7 @@ import {
   EmptyState,
   Heading,
   ProgressBar,
+  Segmented,
   Skeleton,
   SkeletonCard,
   SkeletonText,
@@ -22,6 +29,7 @@ import {
   Text,
 } from '@sosed/ui-web';
 import { useParams, useRouter } from '@tanstack/react-router';
+import { useState } from 'react';
 
 import { LoadError } from '../shared/LoadError.tsx';
 import { ReviewCard, ReviewCardSkeleton } from '../shared/ReviewCard.tsx';
@@ -37,7 +45,8 @@ export function ReviewsScreen() {
   const router = useRouter();
   const locale = useLocale();
   const card = useSpecialistCard(profileId, locale);
-  const reviews = useSpecialistReviews(profileId, locale);
+  const [kind, setKind] = useState<ViewsListSpecialistReviewsKind>('deal');
+  const reviews = useSpecialistReviews(profileId, locale, kind);
   useBackButton(() => {
     if (router.history.canGoBack()) router.history.back();
     else void router.navigate({ to: CARD_PATHS.profile, params: { profileId }, replace: true });
@@ -50,6 +59,11 @@ export function ReviewsScreen() {
       <Reviews
         card={card.data}
         summary={first.summary}
+        prePlatform={first.pre_platform_count}
+        kind={kind}
+        onKind={setKind}
+        // вкладку сменили, её отзывы ещё грузятся: на экране — сводка прежнего ответа
+        switching={reviews.isPlaceholderData}
         items={reviews.data?.pages.flatMap((page) => page.items) ?? []}
         more={
           reviews.hasNextPage
@@ -120,11 +134,20 @@ function Loading({ card }: { card: SpecialistProfileOut | undefined }) {
 function Reviews({
   card,
   summary,
+  prePlatform,
+  kind,
+  onKind,
+  switching,
   items,
   more,
 }: {
   card: SpecialistProfileOut;
   summary: CardRatingOut;
+  /** «До платформы · N»: опубликованные отзывы по приглашениям. */
+  prePlatform: number;
+  kind: ViewsListSpecialistReviewsKind;
+  onKind: (kind: ViewsListSpecialistReviewsKind) => void;
+  switching: boolean;
   items: CardReviewOut[];
   more: { load: () => void; busy: boolean } | null;
 }) {
@@ -132,6 +155,38 @@ function Reviews({
   const category = card.categories[0]?.name;
   // пожаловаться может только вошедший: гостю «⋯» нет
   const signedIn = getSession() !== null;
+  let list;
+  if (switching) {
+    list = (
+      <div aria-busy="true" className="flex flex-col gap-3">
+        <ReviewCardSkeleton />
+        <ReviewCardSkeleton />
+      </div>
+    );
+  } else if (items.length === 0) {
+    list =
+      kind === 'pre_platform' ? (
+        <EmptyState as="h2" icon="star" tone="neutral" title={t('reviews.prePlatformEmptyTitle')}>
+          {t('reviews.prePlatformEmptyText')}
+        </EmptyState>
+      ) : (
+        <EmptyState as="h2" icon="star" title={t('reviews.dealsEmptyTitle')}>
+          {t('reviews.emptyText')}
+        </EmptyState>
+      );
+  } else {
+    list = items.map((review) => (
+      <ReviewCard
+        key={review.id}
+        review={review}
+        onReport={
+          signedIn
+            ? () => openReport({ type: 'review', id: review.id, name: review.author_name })
+            : undefined
+        }
+      />
+    ));
+  }
   return (
     <section className="flex flex-col gap-3 px-4 pt-3 pb-6">
       <div className="flex flex-col">
@@ -142,26 +197,28 @@ function Reviews({
           {category ? `${card.display_name} · ${category}` : card.display_name}
         </Text>
       </div>
-      {summary.count === 0 ? (
+      {summary.count === 0 && prePlatform === 0 ? (
         <EmptyState as="h2" icon="star" title={t('reviews.emptyTitle')}>
           {t('reviews.emptyText')}
         </EmptyState>
       ) : (
         <>
-          <Summary summary={summary} />
+          {summary.count > 0 && <Summary summary={summary} />}
+          <Segmented
+            label={t('reviews.tabs')}
+            value={kind}
+            onChange={onKind}
+            options={[
+              { value: 'deal', label: t('reviews.tabDeals', { count: summary.count }) },
+              {
+                value: 'pre_platform',
+                label: t('reviews.tabPrePlatform', { count: prePlatform }),
+              },
+            ]}
+          />
           <Text variant="cap">{t('reviews.policy')}</Text>
-          {items.map((review) => (
-            <ReviewCard
-              key={review.id}
-              review={review}
-              onReport={
-                signedIn
-                  ? () => openReport({ type: 'review', id: review.id, name: review.author_name })
-                  : undefined
-              }
-            />
-          ))}
-          {more && (
+          {list}
+          {more && !switching && (
             <Button
               variant="secondary"
               onClick={more.load}

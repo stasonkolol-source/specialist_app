@@ -1,17 +1,20 @@
 // S33 Кабинет специалиста (DEVELOPMENT_PLAN 2.10): статус профиля, полнота с первой подсказкой,
 // «Доступен сегодня до …» (переключатель: включает «до 20:00» или ближайший вариант, подробно — S38)
-// и переходы к правке S34, прайсу S35, портфолио S37 и доступности S38. Черновик и «нужны правки»
-// продолжают мастер S32 с нужного шага (MainButton). Блоки артборда, чьих экранов ещё нет,
-// появятся со своими шагами: «Посмотреть как клиент» — 4.5; «За 30 дней» и «Скоро» — v1.
+// и переходы к правке S34, прайсу S35, портфолио S37, доступности S38 и «Отзывам до платформы» S55
+// (7.6а, «2 из 5» — занятые места). Черновик и «нужны правки» продолжают мастер S32 с нужного шага
+// (MainButton). Блоки артборда, чьих экранов ещё нет, появятся со своими шагами: «Посмотреть как
+// клиент» — 4.5; «За 30 дней» и «Скоро» — v1.
 import type { HintOut, ProfileOut } from '@sosed/api-client';
 import { availableUntil, quickHour } from '@sosed/domain';
 import type { ProfileState } from '@sosed/hooks';
 import {
+  REVIEW_INVITES_LIMIT,
   becomeStep,
   profileState,
   useMyPortfolio,
   useMyProfile,
   useMyServices,
+  useReviewInvites,
   useSetAvailability,
 } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
@@ -84,7 +87,10 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
   });
 
   const open =
-    (to: (typeof CABINET_PATHS)['profile' | 'availability' | 'prices' | 'portfolio']) =>
+    (
+      to: (typeof CABINET_PATHS)[
+        'profile' | 'availability' | 'prices' | 'portfolio' | 'reviewInvites'],
+    ) =>
     (event: MouseEvent<HTMLElement>) => {
       event.preventDefault();
       void router.navigate({ to });
@@ -148,6 +154,16 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
               chevron
               href={router.history.createHref(CABINET_PATHS.availability)}
               onClick={open(CABINET_PATHS.availability)}
+            />
+          )}
+          {visible && (
+            <Row
+              icon="users"
+              title={t('cabinet.invites')}
+              trailing={<InviteCount />}
+              chevron
+              href={router.history.createHref(CABINET_PATHS.reviewInvites)}
+              onClick={open(CABINET_PATHS.reviewInvites)}
             />
           )}
         </Group>
@@ -235,6 +251,19 @@ function PriceCount() {
   return (
     <Text as="span" variant="sm" secondary>
       {count}
+    </Text>
+  );
+}
+
+/** Сколько мест под приглашения на «отзыв до платформы» занято — «2 из 5», как на артборде. */
+function InviteCount() {
+  const { t } = useTranslation('specialist');
+  const invites = useReviewInvites();
+  const taken = invites.data?.taken;
+  if (!taken) return null;
+  return (
+    <Text as="span" variant="sm" secondary>
+      {t('cabinet.invitesValue', { taken, limit: invites.data?.limit ?? REVIEW_INVITES_LIMIT })}
     </Text>
   );
 }

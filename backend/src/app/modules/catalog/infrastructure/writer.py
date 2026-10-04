@@ -16,6 +16,9 @@
   категория такой и остаётся после любой правки сида; снижает риск только админка.
 - `jobs_enabled` и `max_responses` сиды не задают: при вставке — значения по умолчанию
   из БД, дальше их меняет админка.
+- Название категории или тега, поправленное в админке (`name_origin = admin`, 2.7b), импорт
+  оставляет как есть. Словарь поиска по-прежнему строится из названия и синонимов сида:
+  прежнее название остаётся поисковым термином, новое ищется, когда его добавят в сид синонимом.
 """
 
 import hashlib
@@ -23,7 +26,7 @@ import json
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 
-from sqlalchemy import delete, func, insert, select, update
+from sqlalchemy import case, delete, func, insert, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,6 +44,7 @@ from app.modules.catalog.infrastructure.models import (
 )
 from app.platform.db.constraints import ConstraintErrors, raise_domain_error
 from app.platform.db.port import UnitOfWork
+from app.platform.db.types import NameOrigin
 from app.platform.kernel.ids import CategoryId
 from app.platform.kernel.localized import LocalizedText
 
@@ -115,6 +119,11 @@ def _plan(seeds: Sequence[CategorySeed], ancestors: tuple[str, ...] = ()) -> Ite
             seed_hash=seed_hash,
         )
         yield from _plan(seed.children, (*ancestors, seed.slug))
+
+
+def _seed_name(row: type[CategoryRow] | type[TagRow], proposed: object) -> object:
+    """Название из сида, если его не поправили в админке (`name_origin = admin`)."""
+    return case((row.name_origin == NameOrigin.ADMIN, row.name), else_=proposed)
 
 
 def _too_deep(parents: Mapping[str, str | None]) -> str | None:
@@ -218,6 +227,7 @@ class SqlCatalogWriter:
             index_elements=["slug"],
             set_={
                 **values,
+                "name": _seed_name(CategoryRow, row.excluded.name),
                 "risk_level": func.greatest(CategoryRow.risk_level, row.excluded.risk_level),
             },
         ).returning(CategoryRow.id)
@@ -237,16 +247,12 @@ class SqlCatalogWriter:
         tag_ids: list[int] = []
         for slug, tag_name in tags:
             values = {"category_id": category_id, "name": tag_name, "is_active": True}
-            tag_id = int(
-                (
-                    await self._session.execute(
-                        pg_insert(TagRow)
-                        .values(slug=slug, **values)
-                        .on_conflict_do_update(index_elements=["slug"], set_=values)
-                        .returning(TagRow.id)
-                    )
-                ).scalar_one()
-            )
+            row = pg_insert(TagRow).values(slug=slug, **values)
+            upsert = row.on_conflict_do_update(
+                index_elements=["slug"],
+                set_={**values, "name": _seed_name(TagRow, row.excluded.name)},
+            ).returning(TagRow.id)
+            tag_id = int((await self._session.execute(upsert)).scalar_one())
             tag_ids.append(tag_id)
             rows += [self._term_row(category_id, tag_id, term) for term in dictionary(tag_name)]
         await self._session.execute(

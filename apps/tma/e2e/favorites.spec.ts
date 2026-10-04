@@ -1,5 +1,6 @@
 // Отзывы S11 и избранное S12 (DEVELOPMENT_PLAN 4.6): профиль S08 → «Все 37» → сводка рейтинга и
-// отзывы, на третий — ответ специалиста (7.3), как на артборде; вошедший: профиль S31 → «Избранное» → три мастера, как на артборде, сердечко убирает
+// отзывы, на третий — ответ специалиста (7.3), как на артборде; вкладка «До платформы · 2» —
+// отзывы по приглашениям с пометкой (7.6а); вошедший: профиль S31 → «Избранное» → три мастера, как на артборде, сердечко убирает
 // из списка. Скриншоты × тема × язык, axe-core; часы браузера — E2E_NOW: «Сегодня до 20:00».
 import { encodeStartParam } from '@sosed/links';
 import { expect, test } from '@playwright/test';
@@ -21,6 +22,7 @@ const LOCALES = [
     all: 'Все 37',
     reviews: 'Отзывы',
     reply: 'Ответ специалиста',
+    prePlatform: 'До платформы · 2',
     favorites: 'Избранное',
     profile: 'Профиль',
     remove: 'Убрать из избранного: Ольга Власова',
@@ -31,6 +33,7 @@ const LOCALES = [
     all: 'Svi 37',
     reviews: 'Utisci',
     reply: 'Odgovor stručnjaka',
+    prePlatform: 'Pre platforme · 2',
     favorites: 'Omiljeni',
     profile: 'Profil',
     remove: 'Ukloni iz omiljenih: Ольга Власова',
@@ -54,6 +57,17 @@ for (const theme of THEMES) {
       expect(real(watch.problems)).toEqual([]);
       expect(watch.unexpectedApi).toEqual([]);
       await expect(page).toHaveScreenshot(`S11-reviews-${theme}-${l.locale}.png`, {
+        fullPage: true,
+      });
+      await expectNoAxeViolations(page);
+      watch.problems.length = 0;
+
+      // вкладка «До платформы»: отзывы по приглашениям S55, в рейтинг не входят (7.6а)
+      await page.getByRole('radio', { name: l.prePlatform }).click();
+      await expect(page.getByRole('article')).toHaveCount(2);
+      expect(real(watch.problems)).toEqual([]);
+      expect(watch.unexpectedApi).toEqual([]);
+      await expect(page).toHaveScreenshot(`S11-reviews-pre-platform-${theme}-${l.locale}.png`, {
         fullPage: true,
       });
       await expectNoAxeViolations(page);

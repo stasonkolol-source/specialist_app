@@ -155,6 +155,13 @@
       "price": "Cena"
     },
     "policy": "Ocena se računa samo po poslovima u aplikaciji „Sosedi“: utisci „pre platforme“ ne ulaze u nju.",
+    "tabs": "Koji utisci da se prikažu",
+    "tabDeals": "Po dogovorima · {count}",
+    "tabPrePlatform": "Pre platforme · {count}",
+    "prePlatform": "Pre platforme — nije potvrđen dogovorom",
+    "dealsEmptyTitle": "Utisaka po dogovorima još nema",
+    "prePlatformEmptyTitle": "Nema utisaka pre platforme",
+    "prePlatformEmptyText": "Stručnjak može da zamoli pređašnje klijente da opišu njegov rad",
     "emptyTitle": "Utisaka još nema",
     "emptyText": "Stručnjak je nov na platformi — utisci će se pojaviti posle prvih poslova",
     "viaDeal": "Posao u aplikaciji „Sosedi“",

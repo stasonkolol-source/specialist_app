@@ -33,6 +33,16 @@ def str_enum[E: StrEnum](enum_cls: type[E], name: str) -> Enum:
     )
 
 
+class NameOrigin(StrEnum):
+    """Кто ведёт название строки справочника (`name_origin`, DEVELOPMENT_PLAN 2.7b)."""
+
+    SEED = "seed"
+    """Название из сида: `cli seed` его переписывает, когда меняется сама запись сида."""
+    ADMIN = "admin"
+    """Название поправили в админке: импорт оставляет его как есть (как `origin = admin` у
+    контент-правил), остальные поля строки сид по-прежнему обновляет."""
+
+
 def rsd_only(currency_column: str) -> CheckConstraint:
     """Цены, бюджеты и отклики — только RSD (ст. 34 Zakon o deviznom poslovanju)."""
     return CheckConstraint(

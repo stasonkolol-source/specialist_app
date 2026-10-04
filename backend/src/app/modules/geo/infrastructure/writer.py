@@ -1,9 +1,13 @@
-"""Импорт сидов geo: upsert по slug, неизменённые записи не трогаются (seed_hash)."""
+"""Импорт сидов geo: upsert по slug, неизменённые записи не трогаются (seed_hash).
+
+Название, поправленное в админке (`name_origin = admin`, 2.7b), импорт оставляет как есть;
+центр, границы и остальное по-прежнему ведёт сид.
+"""
 
 import hashlib
 import json
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +15,7 @@ from app.modules.geo.application.dto import CitySeed, DistrictSeed, ImportResult
 from app.modules.geo.domain.place import DistrictKind
 from app.modules.geo.infrastructure.models import IMPORT_LOCK, CityRow, DistrictRow
 from app.platform.db.port import UnitOfWork
+from app.platform.db.types import NameOrigin
 
 
 def _hash(payload: object) -> str:
@@ -108,12 +113,13 @@ class SqlGeoWriter:
         if existing is not None and existing.seed_hash == values["seed_hash"]:
             counts["unchanged"] += 1
             return int(existing.id)
-        statement = (
-            insert(row)
-            .values(**keys, **values)
-            .on_conflict_do_update(index_elements=list(keys), set_=values)
-            .returning(row.id)
+        proposed = insert(row).values(**keys, **values)
+        name = case(
+            (table.c.name_origin == NameOrigin.ADMIN, table.c.name), else_=proposed.excluded.name
         )
+        statement = proposed.on_conflict_do_update(
+            index_elements=list(keys), set_={**values, "name": name}
+        ).returning(row.id)
         new_id = (await self._session.execute(statement)).scalar_one()
         counts["updated" if existing is not None else "created"] += 1
         return int(new_id)

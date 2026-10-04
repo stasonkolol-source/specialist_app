@@ -1,9 +1,10 @@
 """Админка `/admin` в процессе web (DEVELOPMENT_PLAN 2.7a–b; ADR-0009, ADR-0020 §1).
 
 SQLAdmin монтируется в приложение FastAPI рядом с `/api/v1`; разделы — `admin/views.py`
-модулей (ORM-классы своего модуля, решения по агрегатам — через use case) и журнал аудита
-платформы. Вход — interfaces/admin/auth.py. На stage и проде без APP_ADMIN_SESSION_KEY админка
-не монтируется: её публикуют только за Cloudflare Access (K31, шаги 0.25 и 3.1).
+модулей (ORM-классы своего модуля, решения по агрегатам — через use case) и разделы платформы:
+feature flags, client-config, журнал аудита (interfaces/admin/views.py). Вход —
+interfaces/admin/auth.py. На stage и проде без APP_ADMIN_SESSION_KEY админка не монтируется: её
+публикуют только за Cloudflare Access (K31, шаги 0.25 и 3.1).
 
 Сессии SQLAdmin берут движок процесса из DI при первом запросе (`_BindEngine`): фабрика
 приложения синхронна, а движок — ресурс APP-скоупа контейнера.
@@ -22,11 +23,12 @@ from starlette.requests import Request
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.interfaces.admin.auth import StaffAuthBackend
-from app.interfaces.admin.views import AuditLogAdmin
+from app.interfaces.admin.views import VIEWS as PLATFORM_VIEWS
 from app.modules.catalog.admin.views import VIEWS as CATALOG_VIEWS
 from app.modules.geo.admin.views import VIEWS as GEO_VIEWS
 from app.modules.identity.admin.views import VIEWS as IDENTITY_VIEWS
 from app.modules.moderation.admin.views import VIEWS as MODERATION_VIEWS
+from app.modules.specialists.admin.views import VIEWS as SPECIALISTS_VIEWS
 from app.platform.http.admin import LOCKS_INFO, AdminSession
 from app.platform.settings import Environment, Settings
 
@@ -41,9 +43,10 @@ PUBLISHED: Final = (Environment.STAGE, Environment.PRODUCTION)
 VIEWS: Final[Sequence[type[ModelView | BaseView]]] = (
     *MODERATION_VIEWS,
     *IDENTITY_VIEWS,
+    *SPECIALISTS_VIEWS,
     *CATALOG_VIEWS,
     *GEO_VIEWS,
-    AuditLogAdmin,
+    *PLATFORM_VIEWS,
 )
 
 

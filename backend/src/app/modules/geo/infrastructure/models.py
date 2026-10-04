@@ -3,6 +3,7 @@
 Точки — geography(Point, 4326): расстояния в метрах. Границы — geometry(MultiPolygon, 4326)
 под GiST: `ST_Covers` по индексу (ADR-0005). GiST объявлены явно (spatial_index=False,
 спайк 0.6). `seed_hash` — хэш исходных данных сида: повторный `cli seed` ничего не меняет.
+`name_origin = admin` — название поправили в админке (2.7b, geo_0002): импорт его не переписывает.
 """
 
 from typing import Any
@@ -23,7 +24,13 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.modules.geo.domain.place import DistrictKind
 from app.platform.db.base import ModelBase, module_metadata
-from app.platform.db.types import GeoPointType, LocalizedTextType, localized_text_check, str_enum
+from app.platform.db.types import (
+    GeoPointType,
+    LocalizedTextType,
+    NameOrigin,
+    localized_text_check,
+    str_enum,
+)
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.localized import LocalizedText
 
@@ -57,6 +64,9 @@ class CityRow(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     sort_order: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     seed_hash: Mapped[str | None] = mapped_column(String(64))
+    name_origin: Mapped[NameOrigin] = mapped_column(
+        str_enum(NameOrigin, "name_origin"), server_default=NameOrigin.SEED.value
+    )
 
     __table_args__ = (
         localized_text_check("name"),
@@ -80,6 +90,9 @@ class DistrictRow(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     source: Mapped[str] = mapped_column(String(64))
     seed_hash: Mapped[str | None] = mapped_column(String(64))
+    name_origin: Mapped[NameOrigin] = mapped_column(
+        str_enum(NameOrigin, "name_origin"), server_default=NameOrigin.SEED.value
+    )
 
     __table_args__ = (
         Index("uq_districts_city_id_slug", "city_id", "slug", unique=True),

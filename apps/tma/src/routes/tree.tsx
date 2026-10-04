@@ -182,6 +182,18 @@ const review = createRoute({
   component: screen(() => import('../features/jobs/s27-review/index.ts'), 'ReviewScreen'),
 });
 
+// «Отзыв до платформы» S56 (7.6а): по ссылке-приглашению специалиста `ri_` (routes/startapp.ts);
+// отзыв — создающее действие: без согласия S02c, гостю экран сам скажет открыть в Telegram
+const inviteReview = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.inviteReview,
+  beforeLoad: requireConsent,
+  component: screen(
+    () => import('../features/jobs/s56-invite-review/index.ts'),
+    'InviteReviewScreen',
+  ),
+});
+
 // «Сделки и отзывы» S28 (7.3): строка S31, ссылка `m_reviews` — вкладка «Отзывы»
 const history = createRoute({
   getParentRoute: () => rootRoute,
@@ -374,6 +386,17 @@ const cabinetWork = createRoute({
   component: screen(() => import('../features/specialist/s37-work/index.ts'), 'WorkScreen'),
 });
 
+// «Отзывы до платформы» S55 (7.6а): строка кабинета S33; ссылка-приглашение — создающее действие
+const cabinetReviewInvites = createRoute({
+  getParentRoute: () => rootRoute,
+  path: CABINET_PATHS.reviewInvites,
+  beforeLoad: requireConsent,
+  component: screen(
+    () => import('../features/specialist/s55-review-invites/index.ts'),
+    'ReviewInvitesScreen',
+  ),
+});
+
 const cabinetProfile = createRoute({
   getParentRoute: () => rootRoute,
   path: CABINET_PATHS.profile,
@@ -538,6 +561,7 @@ export const routeTree = rootRoute.addChildren([
   deal,
   dispute,
   review,
+  inviteReview,
   history,
   createWhat,
   createWhen,
@@ -561,6 +585,7 @@ export const routeTree = rootRoute.addChildren([
   cabinetPrice,
   cabinetPortfolio,
   cabinetWork,
+  cabinetReviewInvites,
   notifications,
   catalog,
   catalogResults,
