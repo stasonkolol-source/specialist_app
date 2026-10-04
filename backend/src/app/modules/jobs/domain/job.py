@@ -519,6 +519,8 @@ class Job(VersionedAggregate):
                 client_id=self.client_id,
                 is_first=first,
                 published_at=self.published_at,
+                category_id=self.content.category_id,
+                city_id=self.content.place.city_id,
                 occurred_at=now,
             )
         )

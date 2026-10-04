@@ -5,10 +5,13 @@
 окном по каждой заявке; здесь — динамика и разрез. Доли по формуле считаются по неделе события:
 отклик в понедельник на заявку из воскресенья попадёт в другую неделю, чем заявка.
 
-Разрез — только где его несут свойства событий: у `job_published` есть город и категория, у
-сделок — только категория, у отклика — ни того, ни другого (`is_first`,
-`minutes_since_published`), поэтому метрики откликов — без разреза. Город и категория — id
-справочников `geo.cities` и `catalog.categories`; названия — в `cli beta-report`.
+Разрез — только где его несут свойства событий: у `job_published` и `response_submitted` есть
+город и категория заявки — доли откликов, TTFR и supply/demand считаются по паре «город ×
+категория» (формула — внутри каждой пары); у сделок — только категория, поэтому win rate,
+completion и review rate — по категориям. Weekly active specialists — по городам: цель PRODUCT
+задана на пилотную зону. Город и категория — id справочников `geo.cities` и
+`catalog.categories`; категория — выбранная в заявке (любой уровень каталога), а `cli
+beta-report` сводит её к корневой и показывает названия.
 
 Метрики, которых по событиям не посчитать, перечислены в текстовой плитке. Каждый запрос
 фильтрует свойство `environment`: stage и prod могут жить в одном проекте PostHog.
@@ -111,6 +114,7 @@ _PAIR: Final = {
     "breakdown": "concat(toString(properties.city), ' × ', toString(properties.category))",
 }
 _CATEGORY: Final = {"breakdown_type": "event", "breakdown": "category"}
+_CITY: Final = {"breakdown_type": "event", "breakdown": "city"}
 
 
 def _first_response_within(minutes: int, *extra: dict[str, Any]) -> dict[str, Any]:
@@ -213,10 +217,10 @@ def _insights(env: str) -> tuple[InsightSpec, ...]:
         InsightSpec(
             key="response_rate_1h",
             metric="Response rate@1h",
-            name="Response rate@1h (заявки 08:00–22:00)",
-            description="Первые отклики за ≤ 60 мин / заявки недели — только опубликованные с "
-            "08:00 до 22:00 по Белграду. Цель MVP ≥ 80% (v1 ≥ 85%); нижний порог пересмотра — "
-            "60%." + note,
+            name="Response rate@1h (заявки 08:00–22:00): город × категория",
+            description="Первые отклики за ≤ 60 мин / заявки недели в паре «город × категория» "
+            "— только опубликованные с 08:00 до 22:00 по Белграду. Цель MVP ≥ 80% (v1 ≥ 85%); "
+            "нижний порог пересмотра — 60%." + note,
             query=_trends(
                 env,
                 [
@@ -224,6 +228,7 @@ def _insights(env: str) -> tuple[InsightSpec, ...]:
                     _event(e.JOB_PUBLISHED, _daytime("timestamp")),
                 ],
                 formula="A / B",
+                breakdown=_PAIR,
                 axis=rate,
                 goals=(("Цель MVP 80%", 0.8), ("Порог пересмотра 60%", 0.6)),
             ),
@@ -231,14 +236,15 @@ def _insights(env: str) -> tuple[InsightSpec, ...]:
         InsightSpec(
             key="response_rate_4h",
             metric="Response rate@4h",
-            name="Response rate@4h",
-            description="Первые отклики за ≤ 4 ч / заявки недели. Цель MVP ≥ 70% (v1 ≥ 85%); "
-            "ворота монетизации — 4 недели подряд ≥ 70%; ниже порога — алерт в чат "
-            "модераторов." + note,
+            name="Response rate@4h: город × категория",
+            description="Первые отклики за ≤ 4 ч / заявки недели в паре «город × категория». "
+            "Цель MVP ≥ 70% (v1 ≥ 85%); ворота монетизации пары — 4 недели подряд ≥ 70%; ниже "
+            "порога — алерт в чат модераторов." + note,
             query=_trends(
                 env,
                 [_first_response_within(240), jobs],
                 formula="A / B",
+                breakdown=_PAIR,
                 axis=rate,
                 goals=(("Цель MVP 70%", 0.7),),
             ),
@@ -246,13 +252,14 @@ def _insights(env: str) -> tuple[InsightSpec, ...]:
         InsightSpec(
             key="response_rate_24h",
             metric="Response rate@24h",
-            name="Response rate@24h",
-            description="Первые отклики за ≤ 24 ч / заявки недели. Цель MVP ≥ 85% (v1 ≥ 95%)."
-            + note,
+            name="Response rate@24h: город × категория",
+            description="Первые отклики за ≤ 24 ч / заявки недели в паре «город × категория». "
+            "Цель MVP ≥ 85% (v1 ≥ 95%)." + note,
             query=_trends(
                 env,
                 [_first_response_within(24 * 60), jobs],
                 formula="A / B",
+                breakdown=_PAIR,
                 axis=rate,
                 goals=(("Цель MVP 85%", 0.85),),
             ),
@@ -260,9 +267,10 @@ def _insights(env: str) -> tuple[InsightSpec, ...]:
         InsightSpec(
             key="ttfr",
             metric="TTFR",
-            name="TTFR — медиана минут до первого отклика",
-            description="Медиана minutes_since_published у первых откликов недели. Цель MVP ≤ "
-            "60 мин, ворота открытия категории — < 30 мин (v1 ≤ 20 мин).",
+            name="TTFR: город × категория",
+            description="Медиана minutes_since_published у первых откликов недели — минуты до "
+            "первого отклика в паре «город × категория». Цель MVP ≤ 60 мин, ворота открытия "
+            "категории — < 30 мин (v1 ≤ 20 мин).",
             query=_trends(
                 env,
                 [
@@ -273,6 +281,7 @@ def _insights(env: str) -> tuple[InsightSpec, ...]:
                         math_property="minutes_since_published",
                     )
                 ],
+                breakdown=_PAIR,
                 goals=(("Цель MVP 60 мин", 60), ("Ворота 30 мин", 30)),
             ),
         ),
@@ -307,13 +316,15 @@ def _insights(env: str) -> tuple[InsightSpec, ...]:
             key="win_rate",
             metric="Win rate отклика",
             name="Win rate откликов (общая доля)",
-            description="Договорились по отклику (копия исполнителя) / отклики недели. Цель — "
-            "медиана по исполнителям ≥ 10% (ворота монетизации ≥ 15%); медиана — в cli "
+            description="Договорились по отклику (копия исполнителя) / отклики недели, по "
+            "категориям: у сделки нет города, поэтому пары здесь нет. Цель — медиана по "
+            "исполнителям ≥ 10% (ворота монетизации ≥ 15%); медиана по паре — в cli "
             "beta-report.",
             query=_trends(
                 env,
                 [_event(e.DEAL_AGREED, performer, by_response), _event(e.RESPONSE_SUBMITTED)],
                 formula="A / B",
+                breakdown=_CATEGORY,
                 axis=rate,
                 goals=(("Цель MVP 10%", 0.10), ("Монетизация 15%", 0.15)),
             ),
@@ -321,12 +332,14 @@ def _insights(env: str) -> tuple[InsightSpec, ...]:
         InsightSpec(
             key="supply_demand",
             metric="Supply/demand",
-            name="Supply/demand: откликавшиеся на заявку",
-            description="Исполнители с откликом за неделю / заявки недели. Цель 3–10.",
+            name="Supply/demand: город × категория",
+            description="Исполнители с откликом за неделю / заявки недели в паре «город × "
+            "категория» — откликавшиеся на заявку. Цель 3–10.",
             query=_trends(
                 env,
                 [_event(e.RESPONSE_SUBMITTED, math="dau"), jobs],
                 formula="A / B",
+                breakdown=_PAIR,
                 goals=(("3", 3), ("10", 10)),
             ),
         ),
@@ -334,11 +347,13 @@ def _insights(env: str) -> tuple[InsightSpec, ...]:
             key="weekly_active_specialists",
             metric="Weekly active specialists",
             name="Weekly active specialists",
-            description="Исполнители с ≥ 1 откликом за неделю. Цель MVP 80–150 на пилотную зону "
-            "(v1 ×3).",
+            description="Исполнители с ≥ 1 откликом за неделю, по городам заявок: цель задана на "
+            "зону — MVP 80–150 на пилотную зону (v1 ×3). Откликавшиеся по паре — числитель "
+            "supply/demand.",
             query=_trends(
                 env,
                 [_event(e.RESPONSE_SUBMITTED, math="dau")],
+                breakdown=_CITY,
                 goals=(("Цель MVP 80", 80),),
             ),
         ),
