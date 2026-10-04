@@ -254,7 +254,7 @@ class ContentRuleAdmin(StaffModelView, model=ContentRuleRow):
     async def on_model_change(
         self, data: dict[str, Any], model: Any, is_created: bool, request: Request
     ) -> None:
-        rule = _form_rule(data, model)
+        rule = form_rule(data, model)
         engine = await container_of(request).get(RegexEngine)
         try:
             compile_rule(rule, engine)  # та же проверка, что у сида в `cli seeds-validate`
@@ -268,7 +268,7 @@ class ContentRuleAdmin(StaffModelView, model=ContentRuleRow):
         (await container_of(request).get(RuleSource)).invalidate()
 
 
-def _form_rule(data: Any, model: Any = None) -> ContentRule:
+def form_rule(data: Any, model: Any = None) -> ContentRule:
     """Правило из полей формы; у правки — недостающее из строки."""
 
     def field(name: str) -> str:
@@ -316,7 +316,7 @@ class ContentRuleTrialView(BaseView):
             context["form"] = await self._stored(raw) or context["form"]
         if request.method == "POST":
             try:
-                rule = _form_rule(source)
+                rule = form_rule(source)
             except ValueError as error:
                 context["error"] = str(error) or "не хватает полей правила"
             else:

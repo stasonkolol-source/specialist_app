@@ -275,6 +275,9 @@ msgstr "Жалоба не найдена."
 msgid "errors.restriction_not_found"
 msgstr "У пользователя нет такой действующей санкции."
 
+msgid "errors.invalid_admin_change"
+msgstr "Правка не принята: {reason}"
+
 msgid "errors.restricted"
 msgstr "Это действие для вас сейчас ограничено."
 
