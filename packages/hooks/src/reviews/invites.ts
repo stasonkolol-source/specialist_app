@@ -36,7 +36,8 @@ export function useReviewInvites({ enabled = true }: { enabled?: boolean } = {})
   });
 }
 
-/** «Создать ссылку»: новая — первой в списке и занимает место сразу, список перечитывается. */
+/** «Создать ссылку»: новая — первой в списке и занимает место сразу, список перечитывается. Отказ
+ *  (мест нет, профиль сняли с публикации) — тоже: список на экране мог устареть. */
 export function useCreateReviewInvite() {
   const client = useQueryClient();
   return useMutation({
@@ -47,14 +48,17 @@ export function useCreateReviewInvite() {
       );
       void client.invalidateQueries({ queryKey: reviewInvitesQueryKey() });
     },
+    onError: () => void client.invalidateQueries({ queryKey: reviewInvitesQueryKey() }),
   });
 }
 
-/** «Отозвать» неиспользованную ссылку: она перестаёт открываться, место освобождается. */
+/** «Отозвать» неиспользованную ссылку: она перестаёт открываться, место освобождается. Отказ
+ *  (по ссылке как раз оставили отзыв) — список перечитывается со свежим статусом. */
 export function useRevokeReviewInvite() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (token: string) => reviewsRevokeReviewInvite(token),
+    onError: () => void client.invalidateQueries({ queryKey: reviewInvitesQueryKey() }),
     onSuccess: (_, token) => {
       client.setQueryData<ReviewInvitesOut>(reviewInvitesQueryKey(), (list) =>
         list
