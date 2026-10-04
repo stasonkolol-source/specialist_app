@@ -58,6 +58,7 @@ interface Look {
  *  жёлтые, решения модерации — зелёные, служебное — серое (как на макете S42). */
 const LOOK: Record<NotificationType, Look> = {
   'job.matched': { icon: 'jobs', palette: 3 },
+  'job.digest': { icon: 'jobs', palette: 3 },
   'job.invited': { icon: 'send', palette: 2 },
   'job.expiring': { icon: 'clock', palette: 3 },
   'job.expired': { icon: 'clock', neutral: true },

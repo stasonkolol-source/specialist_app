@@ -128,7 +128,6 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
   const writable = conversation.status === 'open' && block.state === null;
   const name = conversation.counterpart_name ?? t('list.deleted');
 
-  const bottom = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   useEffect(() => {
     const onScroll = () => {
@@ -140,7 +139,8 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
   }, []);
   const count = chat.entries.length;
   useLayoutEffect(() => {
-    if (count > 0 && stick.current) bottom.current?.scrollIntoView?.({ block: 'end' });
+    // к концу документа, а не к последнему сообщению: иначе его закрывает прилипший композер
+    if (count > 0 && stick.current) window.scrollTo(0, document.documentElement.scrollHeight);
   }, [count]);
 
   const send = (text: string) => {
@@ -194,7 +194,6 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
             />
           ))}
           {proposed && <SystemNote icon="check">{t('chat.propose.sent')}</SystemNote>}
-          <div ref={bottom} />
         </ChatList>
       </div>
       <SendError error={chat.sendError} />
@@ -345,7 +344,8 @@ function Header({
     <>
       <Avatar name={name} size="sm" palette={paletteFor(conversation.counterpart_id)} />
       <span className="flex min-w-0 flex-col">
-        <span className="truncate font-semibold">{name}</span>
+        {/* имя собеседника — заголовок экрана: размер и вес — как у строки рядом */}
+        <h1 className="m-0 truncate text-[1em] font-semibold">{name}</h1>
         <span className="text-cap text-text2">{t(`deal.${state}`)}</span>
       </span>
     </>
@@ -603,7 +603,8 @@ function Loading({ conversation }: { conversation: ConversationOut | undefined }
           <>
             <Avatar name={name} size="sm" palette={paletteFor(conversation.counterpart_id)} />
             <span className="flex min-w-0 flex-col">
-              <span className="truncate font-semibold">{name}</span>
+              {/* имя собеседника — заголовок экрана: размер и вес — как у строки рядом */}
+              <h1 className="m-0 truncate text-[1em] font-semibold">{name}</h1>
               <span className="text-cap text-text2">{t(`deal.${dealState(conversation)}`)}</span>
             </span>
           </>

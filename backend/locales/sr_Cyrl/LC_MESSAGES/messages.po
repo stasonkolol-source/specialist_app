@@ -183,7 +183,7 @@ msgid "bot.language.need_start"
 msgstr "Прво притисните /start."
 
 msgid "bot.fallback"
-msgstr "Разумем команде:\n/app — отвори апликацију\n/new — нови захтев\n/jobs — моји захтеви\n/help — помоћ и подршка\n/language — језик"
+msgstr "Разумем команде:\n/app — отвори апликацију\n/new — нови захтев\n/jobs — моји захтеви\n/feed — захтеви по претплатама\n/alerts — претплате на захтеве\n/help — помоћ и подршка\n/language — језик"
 
 msgid "bot.commands.app"
 msgstr "Отвори апликацију"
@@ -1218,3 +1218,201 @@ msgstr "Случајеве могу да решавају само модера�
 
 msgid "bot.moderation.done"
 msgstr "Готово"
+
+msgid "errors.invalid_job_alert"
+msgstr "Проверите претплату: категорије, кварт или полупречник, буџет."
+
+msgid "errors.job_alert_not_found"
+msgstr "Претплата није пронађена: обрисана је."
+
+msgid "errors.job_alerts_full"
+msgstr "Већ имате највише претплата ({limit}) — обришите једну да бисте додали нову."
+
+msgid "bot.commands.feed"
+msgstr "Захтеви по претплатама"
+
+msgid "bot.commands.alerts"
+msgstr "Претплате на захтеве"
+
+msgid "bot.alerts.hidden"
+msgstr "Сакривено: овај захтев се више неће појављивати у вашој ленти."
+
+msgid "bot.alerts.inactive"
+msgstr "Претплата је искључена — укључите је у претплатама."
+
+msgid "bot.alerts.paused_one"
+msgstr "Претплата „{alert}“ је паузирана до {until}."
+
+msgid "bot.alerts.resumed_one"
+msgstr "Претплата „{alert}“ поново шаље захтеве."
+
+msgid "bot.alerts.paused_today"
+msgstr "Претплате су паузиране до краја дана."
+
+msgid "bot.alerts.paused_week"
+msgstr "Претплате су паузиране на недељу дана."
+
+msgid "bot.alerts.resumed"
+msgstr "Пауза је скинута — захтеви ће поново стизати."
+
+msgid "bot.alerts.header"
+msgstr "<b>Претплате на захтеве</b>"
+
+msgid "bot.alerts.line"
+msgstr "• <b>{alert}</b> — {state} · за недељу: {count}"
+
+msgid "bot.alerts.state.instant"
+msgstr "одмах"
+
+msgid "bot.alerts.state.digest"
+msgstr "једном дневно"
+
+msgid "bot.alerts.state.paused"
+msgstr "пауза до {until}"
+
+msgid "bot.alerts.state.off"
+msgstr "искључена"
+
+msgid "bot.alerts.name_more"
+msgstr "{alert} и још {count}"
+
+msgid "bot.alerts.empty"
+msgstr "<b>Још немате претплате</b>\nПодесите претплату — нови захтеви за ваше услуге стизаће овде одмах или у прегледу једном дневно."
+
+msgid "bot.alerts.setup"
+msgstr "Подеси претплате"
+
+msgid "bot.alerts.pause_today"
+msgstr "Пауза за данас"
+
+msgid "bot.alerts.pause_week"
+msgstr "Пауза на недељу"
+
+msgid "bot.alerts.resume"
+msgstr "Скини паузу"
+
+msgid "bot.alerts.pause"
+msgstr "Паузирај претплату"
+
+msgid "bot.alerts.unpause"
+msgstr "Скини паузу"
+
+msgid "bot.feed.header"
+msgstr "<b>Захтеви по претплатама</b>"
+
+msgid "bot.feed.line"
+msgstr "• <b>{title}</b> — {budget}"
+
+msgid "bot.feed.negotiable"
+msgstr "по договору"
+
+msgid "bot.feed.fixed"
+msgstr "{amount} RSD"
+
+msgid "bot.feed.up_to"
+msgstr "до {amount} RSD"
+
+msgid "bot.feed.no_alerts"
+msgstr "<b>Још немате претплате</b>\nПодесите претплату — овде ће се појавити одговарајући захтеви."
+
+msgid "bot.feed.empty"
+msgstr "Тренутно нема отворених захтева по вашим претплатама — јавићемо чим стигну."
+
+msgid "bot.feed.open"
+msgstr "Отвори ленту"
+
+msgid "notifications.job_matched.title"
+msgstr "Нови захтев у близини"
+
+msgid "notifications.job_matched.title_alert"
+msgstr "Нови захтев по претплати"
+
+msgid "notifications.job_matched.slots"
+msgstr "Понуда {count} од {max}"
+
+msgid "notifications.job_matched.alert"
+msgstr "претплата „{alert}“"
+
+msgid "notifications.job_matched.alert_more"
+msgstr "претплата „{alert}“ и још {count}"
+
+msgid "notifications.job_matched.negotiable"
+msgstr "По договору"
+
+msgid "notifications.job_matched.range"
+msgstr "{min}–{max} RSD"
+
+msgid "notifications.job_matched.unit.hour"
+msgstr "по сату"
+
+msgid "notifications.job_matched.unit.m2"
+msgstr "по м²"
+
+msgid "notifications.job_matched.unit.visit"
+msgstr "по доласку"
+
+msgid "notifications.job_matched.unit.item"
+msgstr "по комаду"
+
+msgid "notifications.job_matched.unit.lesson"
+msgstr "по часу"
+
+msgid "notifications.job_matched.urgency.asap"
+msgstr "хитно"
+
+msgid "notifications.job_matched.urgency.today"
+msgstr "данас"
+
+msgid "notifications.job_matched.urgency.this_week"
+msgstr "ове недеље"
+
+msgid "notifications.job_matched.urgency.flexible"
+msgstr "кад вам одговара"
+
+msgid "notifications.job_matched.today"
+msgstr "данас"
+
+msgid "notifications.job_matched.tomorrow"
+msgstr "сутра"
+
+msgid "notifications.job_matched.open"
+msgstr "Отвори захтев"
+
+msgid "notifications.job_matched.template"
+msgstr "Понуда шаблоном „{title}“"
+
+msgid "notifications.job_matched.hide"
+msgstr "Није занимљиво"
+
+msgid "notifications.job_matched.pause"
+msgstr "Паузирај претплату"
+
+msgid "notifications.job_matched.closed"
+msgstr "Пријем понуда је затворен"
+
+msgid "notifications.job_digest.title"
+msgstr "Преглед захтева"
+
+msgid "notifications.job_digest.body_one"
+msgstr "Нови захтеви по претплати „{alert}“: {count}."
+
+msgid "notifications.job_digest.body_many"
+msgstr "Нови захтеви по претплатама: {count}."
+
+msgid "notifications.job_digest.line"
+msgstr "• „{alert}“ — {count}"
+
+msgid "notifications.job_digest.button"
+msgstr "Отвори ленту"
+
+msgid "notifications.profile_stale_reminder.title"
+msgstr "Клијенти траже стручњаке"
+
+msgid "notifications.profile_stale_reminder.body"
+msgstr "Профил дуго није ажуриран. Укључите „Доступни сте данас“ — клијенти ће видети да сте спремни да преузмете захтев — или ажурирајте профил."
+
+msgid "notifications.profile_stale_reminder.available"
+msgstr "Укључи „Доступни сте данас“"
+
+msgid "notifications.profile_stale_reminder.profile"
+msgstr "Ажурирај профил"

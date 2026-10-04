@@ -287,6 +287,16 @@ export {
   useResponseCards,
   useUpdateJob,
 } from './jobs/mine.ts';
+export type { CreateAlert, UpdateAlert } from './jobs/alerts.ts';
+export {
+  ALERTS_MAX,
+  alertsQueryKey,
+  receives,
+  useCreateAlert,
+  useDeleteAlert,
+  useJobAlerts,
+  useUpdateAlert,
+} from './jobs/alerts.ts';
 export type { CreateTemplate, UpdateTemplate } from './jobs/templates.ts';
 export {
   templatesQueryKey,

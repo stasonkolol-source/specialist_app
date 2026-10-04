@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "stand": "vite build && vite preview --port 5173 --strictPort",
-    "e2e:build": "vite build",
+    "e2e:build": "VITE_TELEGRAM_BOT=sosed_e2e_bot vite build",
     "e2e": "playwright test",
     "size": "node scripts/size.ts",
     "typecheck": "tsc --noEmit",

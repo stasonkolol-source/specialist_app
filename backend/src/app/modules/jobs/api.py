@@ -3,14 +3,14 @@
 Другие модули импортируют из jobs только этот файл.
 """
 
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
 from app.platform.kernel.geo import GeoPoint
-from app.platform.kernel.ids import CityId, DistrictId, MediaId, UserId
+from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, UserId
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -141,6 +141,54 @@ class OwnerResponseView:
     created_at: datetime
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class MatchNotice:
+    """Заявка по подписке для карточки B1 получателю (`job.matched`, 5.7). Карточку шлём, только
+    пока заявка открыта, подписка присылает заявки, а получатель её не скрыл и не откликнулся."""
+
+    title: str
+    open: bool
+    """Опубликована, срок не вышел, места есть."""
+    budget_type: str
+    budget_min: int | None
+    budget_max: int | None
+    budget_unit: str
+    district_id: DistrictId | None
+    urgency: str
+    preferred_from: datetime | None
+    preferred_to: datetime | None
+    responses_count: int
+    max_responses: int
+    expires_at: datetime | None
+    alert_category_ids: tuple[CategoryId, ...]
+    """Категории подписки: по первой — её название в карточке («подписка «Мастер на час»»)."""
+    alert_receives: bool
+    """Подписка ещё есть, включена и не на паузе."""
+    skipped: bool
+    """Получатель уже откликнулся или скрыл заявку («не интересно»)."""
+    templates: tuple[TemplateRef, ...]
+    """Шаблоны получателя по порядку — кнопки «Откликнуться шаблоном»."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DigestLine:
+    """Подписка в подборке: сколько её заявок ещё открыто."""
+
+    alert_id: UUID
+    category_ids: tuple[CategoryId, ...]
+    open_jobs: int
+
+
+class DigestSchedule(Protocol):
+    """Когда кому подборка заявок по подпискам (5.7): час дайджеста — в настройках уведомлений
+    получателя. Реализует модуль выше по DAG (notifications): jobs о нём не знает, связывает
+    dishka — как identity.api.DeletionHold."""
+
+    async def due(self, user_ids: Collection[UserId], at: datetime) -> frozenset[UserId]:
+        """Кому подборка положена в час `at` (по Белграду)."""
+        ...
+
+
 class JobsApi(Protocol):
     async def job_for_review(self, job_id: UUID) -> JobForReview | None:
         """Заявка на проверке или опубликованная (выборочная проверка после публикации);
@@ -207,6 +255,20 @@ class JobsApi(Protocol):
         удалена."""
         ...
 
+    async def match_notice(
+        self, job_id: UUID, user_id: UserId, alert_id: UUID
+    ) -> MatchNotice | None:
+        """Заявка, подписка и шаблоны получателя для карточки B1; None — заявки нет или она
+        удалена."""
+        ...
+
+    async def digest_lines(
+        self, user_id: UserId, alerts: Mapping[UUID, Collection[UUID]]
+    ) -> list[DigestLine]:
+        """Подборка получателя: по каждой его подписке — сколько заявок из `alerts` ещё открыто
+        (не скрыты им и без его отклика); подписки нет или она не присылает — нет в ответе."""
+        ...
+
     async def response_for_review(self, response_id: UUID) -> ResponseForReview | None:
         """Отклик, ждущий проверки; None — нет такого, удалён или проверять нечего."""
         ...
@@ -218,4 +280,17 @@ class JobsApi(Protocol):
 
     async def reject_response(self, response_id: UUID, *, reason_code: str) -> None:
         """Нарушение — в транзакции вызывающего: отклик скрыт, его место освобождается."""
+        ...
+
+
+class JobReferences(Protocol):
+    """Заявки, на которые ещё ссылается модуль выше по DAG (переписка по отклику держит FK на
+    заявку и отклик): срок хранения удаляет заявку только после них (2.12b).
+
+    Реализует messaging: jobs о нём не знает, связывает dishka — как media.api.LegalHold.
+    """
+
+    async def referenced(self, ids: Collection[UUID]) -> frozenset[UUID]:
+        """На какие из заявок и откликов (id вперемешку) ещё ссылаются. Читает в транзакции
+        вызывающего."""
         ...

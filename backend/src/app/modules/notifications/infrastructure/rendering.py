@@ -10,7 +10,12 @@ payload: коды превращаются в слова каталога, да�
 (`deal.completion_prompt`, 6.1b) — callback «Да, выполнено» (бот deals) и web_app «Есть
 проблема» сразу на спор S52 (`p_`, 6.1c); у «Договорились?» (`deal.proposed`, 6.3b) — callback
 «Подтвердить» и «Отклонить» (бот deals) и web_app «Посмотреть условия». Спор (6.1c):
-`dispute.opened` — «Ответить» на S52, `dispute.resolved` — «Посмотреть решение».
+`dispute.opened` — «Ответить» на S52, `dispute.resolved` — «Посмотреть решение». Подписки на
+заявки (5.7): `job.matched` — карточка B1 (название жирным, бюджет, район и расстояние, когда,
+места и подписка) с «Открыть заявку», «Откликнуться шаблоном «…»» на каждый шаблон получателя,
+«Не интересно» и «Пауза подписки» (их обрабатывает бот jobs); закрытой заявке кнопки гасятся
+(`retired_buttons`). `job.digest` — подборка по подпискам с «Открыть ленту»,
+`profile.stale_reminder` — «Включить «Доступен сегодня»» (S38) и «Обновить профиль» (S33).
 
 Шаблоны есть у типов, которые создаёт подписчик (tasks.py): тип без шаблонов — ошибка
 программиста, её ловит тест на каталоги.
@@ -24,8 +29,9 @@ from uuid import UUID
 
 from app.modules.notifications.application.dto import RenderedText
 from app.modules.notifications.domain.catalog import NotificationType
-from app.platform.i18n.dates import long_datetime
+from app.platform.i18n.dates import long_datetime, short_date, short_time
 from app.platform.i18n.translator import Translator
+from app.platform.kernel.clock import BUSINESS_TZ, Clock, SystemClock
 from app.platform.kernel.localized import Locale
 from app.platform.telegram.buttons import mini_app_url
 from app.platform.telegram.callbacks import (
@@ -34,8 +40,19 @@ from app.platform.telegram.callbacks import (
     encode_callback,
     ref_arg,
 )
-from app.platform.telegram.deeplinks import LinkType, StartLink, encode_start_param
-from app.platform.telegram.port import AppButton, Button, ButtonLine, CallbackButton
+from app.platform.telegram.deeplinks import (
+    LinkSection,
+    LinkType,
+    StartLink,
+    encode_start_param,
+)
+from app.platform.telegram.port import (
+    AppButton,
+    Button,
+    ButtonLine,
+    CallbackButton,
+    InactiveButton,
+)
 
 RENDERED = frozenset(
     {
@@ -58,6 +75,9 @@ RENDERED = frozenset(
         NotificationType.REVIEW_PUBLISHED,
         NotificationType.DISPUTE_OPENED,
         NotificationType.DISPUTE_RESOLVED,
+        NotificationType.JOB_MATCHED,
+        NotificationType.JOB_DIGEST,
+        NotificationType.PROFILE_STALE_REMINDER,
     }
 )
 """Типы с шаблонами: остальные получат их вместе со своими подписчиками."""
@@ -90,6 +110,7 @@ BUTTONS: Mapping[NotificationType, str] = MappingProxyType(
         NotificationType.REVIEW_PUBLISHED: "notifications.review_published.button",
         NotificationType.DISPUTE_OPENED: "notifications.dispute_opened.button",
         NotificationType.DISPUTE_RESOLVED: "notifications.dispute_resolved.button",
+        NotificationType.JOB_DIGEST: "notifications.job_digest.button",
     }
 )
 """Подпись кнопки бота; ведёт она по коду deep link уведомления."""
@@ -115,14 +136,30 @@ DISPUTE_KINDS = frozenset({"no_show", "quality", "prepayment_taken", "damage", "
 DISPUTE_OUTCOMES = frozenset({"completed", "cancelled"})
 
 PROHIBITED = frozenset({"drug_courier", "sexual_services", "weapons"})
+
+BUDGET_UNITS = frozenset({"hour", "m2", "visit", "item", "lesson"})
+"""Единица бюджета заявки с подписью «в час», «за м²»…; `work` — за всю работу, без подписи."""
+URGENCIES = frozenset({"asap", "today", "this_week", "flexible"})
+DIGEST_LINES = 10
+"""Подписок в подборке строками: больше у человека и не бывает (MAX_ALERTS)."""
+AVAILABILITY_LINK = encode_start_param(
+    StartLink(type=LinkType.MINE, section=LinkSection.AVAILABILITY)
+)
+CABINET_LINK = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSection.PROFILE))
+KM = 1000
 """Метки ADR-0016, которые человеку называются одинаково: запрещённые товары и услуги."""
 
 
 class GettextNotificationRenderer:
-    def __init__(self, translator: Translator, mini_app: str | None) -> None:
+    def __init__(
+        self, translator: Translator, mini_app: str | None, clock: Clock | None = None
+    ) -> None:
         self._translator = translator
         self._mini_app = mini_app
         """Адрес Mini App (TELEGRAM_MINI_APP_URL); нет — сообщения без кнопок."""
+        self._clock = clock or SystemClock()
+        """«Сегодня» и «завтра» в карточке B1 — от момента показа: доставку могли отложить на
+        конец тихих часов."""
 
     def renders(self, type_: NotificationType) -> bool:
         return type_ in RENDERED
@@ -214,6 +251,18 @@ class GettextNotificationRenderer:
                 title=self._t("notifications.system_test.title", locale),
                 body=self._t("notifications.system_test.body", locale),
             )
+        if type_ is NotificationType.JOB_MATCHED:
+            headline, *lines = self._match_lines(params, locale)
+            return RenderedText(
+                title=self._match_title(params, locale), body="\n".join([headline, *lines])
+            )
+        if type_ is NotificationType.JOB_DIGEST:
+            return self._digest(params, locale)
+        if type_ is NotificationType.PROFILE_STALE_REMINDER:
+            return RenderedText(
+                title=self._t("notifications.profile_stale_reminder.title", locale),
+                body=self._t("notifications.profile_stale_reminder.body", locale),
+            )
         raise ValueError(f"no templates for notification type {type_}")
 
     def telegram(
@@ -223,8 +272,12 @@ class GettextNotificationRenderer:
         link: str | None,
         locale: Locale,
     ) -> tuple[str, tuple[ButtonLine, ...]]:
+        if type_ is NotificationType.JOB_MATCHED:
+            return self._match_card(params, locale), self._match_buttons(params, link, locale)
         text = self.text(type_, params, locale)
         message = f"<b>{_escape(text.title)}</b>\n{_escape(text.body)}"
+        if type_ is NotificationType.PROFILE_STALE_REMINDER:
+            return message, self._stale_buttons(locale)
         if type_ in JOB_TERM:
             return message, self._job_buttons(type_, params, locale)
         if type_ is NotificationType.JOB_INVITED:
@@ -242,6 +295,215 @@ class GettextNotificationRenderer:
             return message, ()
         button = AppButton(text=self._t(label, locale), url=mini_app_url(self._mini_app, link))
         return message, (button,)
+
+    def retired_buttons(
+        self,
+        type_: NotificationType,  # noqa: ARG002 — гаснут пока только карточки B1
+        params: Mapping[str, str],  # noqa: ARG002
+        link: str | None,
+        locale: Locale,
+    ) -> tuple[ButtonLine, ...]:
+        """Кнопки карточки B1, когда заявка больше не принимает отклики: «Открыть заявку»
+        остаётся, вместо остальных — неактивная «Приём откликов закрыт». Других карточек с
+        гаснущими кнопками пока нет: тип и параметры — на вырост."""
+        closed = InactiveButton(text=self._t("notifications.job_matched.closed", locale))
+        if link is None or self._mini_app is None:
+            return (closed,)
+        open_job = AppButton(
+            text=self._t("notifications.job_matched.open", locale),
+            url=mini_app_url(self._mini_app, link),
+        )
+        return open_job, closed
+
+    def _match_title(self, params: Mapping[str, str], locale: Locale) -> str:
+        """«Новая заявка рядом» — у подписки с радиусом; у районов и всего города — «по
+        подписке»."""
+        near = params.get("distance_m", "").isdigit()
+        return self._t(f"notifications.job_matched.{'title' if near else 'title_alert'}", locale)
+
+    def _match_lines(self, params: Mapping[str, str], locale: Locale) -> list[str]:
+        """Строки карточки B1 простым текстом: «Повесить люстру · 5 000 RSD», «Лиман, ≈ 1,2 км ·
+        сегодня 18:00–21:00», «Откликов 3 из 5 · подписка «Мастер на час»»."""
+        headline = " · ".join(
+            part for part in (_short(params.get("title")), self._budget(params, locale)) if part
+        )
+        where = ", ".join(part for part in (params.get("district"), self._distance(params)) if part)
+        place = " · ".join(part for part in (where, self._when(params, locale)) if part)
+        slots = self._t(
+            "notifications.job_matched.slots",
+            locale,
+            count=params.get("responses", "0"),
+            max=params.get("max_responses", "5"),
+        )
+        alert = params.get("alert")
+        if alert:
+            more = params.get("alert_more", "0")
+            key = "alert_more" if more not in {"", "0"} else "alert"
+            slots += " · " + self._t(
+                f"notifications.job_matched.{key}", locale, alert=alert, count=more
+            )
+        return [headline, *([place] if place else []), slots]
+
+    def _match_card(self, params: Mapping[str, str], locale: Locale) -> str:
+        """HTML карточки B1: заголовок и название заявки жирным, остальное — как в тексте."""
+        title = _short(params.get("title"))
+        _, *lines = self._match_lines(params, locale)
+        budget = self._budget(params, locale)
+        headline = f"<b>{_escape(title)}</b>" + (f" · {_escape(budget)}" if budget else "")
+        body = "\n".join([headline, *(_escape(line) for line in lines)])
+        return f"<b>{_escape(self._match_title(params, locale))}</b>\n{body}"
+
+    def _budget(self, params: Mapping[str, str], locale: Locale) -> str:
+        """«5 000 RSD», «3 000–5 000 RSD в час», «Договорная»."""
+        kind = params.get("budget_type")
+        low, high = params.get("budget_min", ""), params.get("budget_max", "")
+        if kind == "negotiable" or not low.isdigit():
+            return self._t("notifications.job_matched.negotiable", locale)
+        amount = _money(int(low), locale)
+        if kind == "range" and high.isdigit():
+            text = self._t(
+                "notifications.job_matched.range",
+                locale,
+                min=amount,
+                max=_money(int(high), locale),
+            )
+        else:
+            text = self._t("notifications.price.fixed", locale, amount=amount)
+        unit = params.get("budget_unit")
+        if unit in BUDGET_UNITS:
+            text = f"{text} {self._t(f'notifications.job_matched.unit.{unit}', locale)}"
+        return text
+
+    @staticmethod
+    def _distance(params: Mapping[str, str]) -> str | None:
+        """«≈ 1,2 км» или «≈ 800 м»: расстояние уже округлено до 100 м."""
+        meters = params.get("distance_m", "")
+        if not meters.isdigit():
+            return None
+        value = int(meters)
+        if value < KM:
+            return f"≈\u00a0{value}\u00a0м"
+        km = f"{value / KM:.1f}".rstrip("0").rstrip(".").replace(".", ",")
+        return f"≈\u00a0{km}\u00a0км"
+
+    def _when(self, params: Mapping[str, str], locale: Locale) -> str | None:
+        """Когда нужно: «сегодня 18:00–21:00», «завтра 10:00», «12 окт.», иначе по срочности —
+        «срочно», «на этой неделе»."""
+        start = params.get("from")
+        if start:
+            begin = datetime.fromisoformat(start)
+            day = self._day(begin, locale)
+            end = params.get("to")
+            hours = short_time(begin)
+            if end:
+                hours = f"{hours}–{short_time(datetime.fromisoformat(end))}"
+            return f"{day} {hours}"
+        urgency = params.get("urgency")
+        if urgency in URGENCIES:
+            return self._t(f"notifications.job_matched.urgency.{urgency}", locale)
+        return None
+
+    def _day(self, moment: datetime, locale: Locale) -> str:
+        today = self._clock.now().astimezone(BUSINESS_TZ).date()
+        day = moment.astimezone(BUSINESS_TZ).date()
+        if day == today:
+            return self._t("notifications.job_matched.today", locale)
+        if (day - today).days == 1:
+            return self._t("notifications.job_matched.tomorrow", locale)
+        return short_date(moment, locale)
+
+    def _match_buttons(
+        self, params: Mapping[str, str], link: str | None, locale: Locale
+    ) -> tuple[ButtonLine, ...]:
+        """B1: «Открыть заявку» (S15), «Откликнуться шаблоном «…»» на каждый шаблон получателя
+        (тот же отклик, что S16), одним рядом — «Не интересно» и «Пауза подписки»."""
+        lines: list[ButtonLine] = []
+        if link is not None and self._mini_app is not None:
+            lines.append(
+                AppButton(
+                    text=self._t("notifications.job_matched.open", locale),
+                    url=mini_app_url(self._mini_app, link),
+                )
+            )
+        try:
+            job_id = UUID(params.get("job_id", ""))
+        except ValueError:
+            return tuple(lines)
+        for index in range(TEMPLATE_BUTTONS):
+            try:
+                template_id = UUID(params.get(f"template_{index}", ""))
+            except ValueError:
+                continue
+            lines.append(
+                CallbackButton(
+                    text=self._t(
+                        "notifications.job_matched.template",
+                        locale,
+                        title=params.get(f"template_{index}_title", ""),
+                    ),
+                    data=encode_callback(
+                        CallbackData(CallbackAction.JOB_RESPOND, job_id, ref_arg(template_id))
+                    ),
+                )
+            )
+        row: list[Button] = [
+            CallbackButton(
+                text=self._t("notifications.job_matched.hide", locale),
+                data=encode_callback(CallbackData(CallbackAction.JOB_HIDE, job_id)),
+            )
+        ]
+        try:
+            alert_id = UUID(params.get("alert_id", ""))
+        except ValueError:
+            pass
+        else:
+            row.append(
+                CallbackButton(
+                    text=self._t("notifications.job_matched.pause", locale),
+                    data=encode_callback(CallbackData(CallbackAction.ALERT_PAUSE, alert_id)),
+                )
+            )
+        lines.append(tuple(row))
+        return tuple(lines)
+
+    def _digest(self, params: Mapping[str, str], locale: Locale) -> RenderedText:
+        """Подборка: одна подписка — одной фразой, несколько — итог и строка на каждую."""
+        lines = [
+            (params[f"alert_{index}"], params.get(f"alert_{index}_count", "0"))
+            for index in range(DIGEST_LINES)
+            if params.get(f"alert_{index}")
+        ]
+        title = self._t("notifications.job_digest.title", locale)
+        if len(lines) == 1:
+            (alert, count), *_ = lines
+            body = self._t("notifications.job_digest.body_one", locale, alert=alert, count=count)
+            return RenderedText(title=title, body=body)
+        total = sum(int(count) for _, count in lines if count.isdigit())
+        body = "\n".join(
+            [
+                self._t("notifications.job_digest.body_many", locale, count=total),
+                *(
+                    self._t("notifications.job_digest.line", locale, alert=alert, count=count)
+                    for alert, count in lines
+                ),
+            ]
+        )
+        return RenderedText(title=title, body=body)
+
+    def _stale_buttons(self, locale: Locale) -> tuple[ButtonLine, ...]:
+        """«Включить «Доступен сегодня»» (S38) и «Обновить профиль» (кабинет S33)."""
+        if self._mini_app is None:
+            return ()
+        return (
+            AppButton(
+                text=self._t("notifications.profile_stale_reminder.available", locale),
+                url=mini_app_url(self._mini_app, AVAILABILITY_LINK),
+            ),
+            AppButton(
+                text=self._t("notifications.profile_stale_reminder.profile", locale),
+                url=mini_app_url(self._mini_app, CABINET_LINK),
+            ),
+        )
 
     def _job_term(
         self, type_: NotificationType, params: Mapping[str, str], locale: Locale

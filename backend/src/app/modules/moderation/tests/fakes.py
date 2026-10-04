@@ -124,6 +124,9 @@ class FakeIdentity:
     ) -> dict[UserId, datetime | None]:
         raise NotImplementedError
 
+    async def barred(self, user_ids: Collection[UserId], action: Action) -> frozenset[UserId]:
+        return frozenset()
+
     async def blocked_ids(self, user_id: UserId) -> frozenset[UserId]:
         return frozenset()
 
@@ -143,12 +146,16 @@ class FakeDeals:
 
     disputing_users: set[UserId] = field(default_factory=set)
     evidence: set[MediaId] = field(default_factory=set)
+    disputed: set[DealId] = field(default_factory=set)
 
     async def disputing(self, user_ids: Collection[UserId]) -> frozenset[UserId]:
         return frozenset(self.disputing_users & set(user_ids))
 
     async def dispute_evidence_held(self, media_ids: Collection[MediaId]) -> frozenset[MediaId]:
         return frozenset(self.evidence & set(media_ids))
+
+    async def disputed_deals(self, deal_ids: Collection[DealId]) -> frozenset[DealId]:
+        return frozenset(self.disputed & set(deal_ids))
 
     async def create_agreed(self, data: AgreedDealIn) -> DealId:
         raise NotImplementedError

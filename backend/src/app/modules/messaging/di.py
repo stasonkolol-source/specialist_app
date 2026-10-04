@@ -2,6 +2,7 @@
 
 from dishka import Provider, Scope, provide
 
+from app.modules.jobs.api import JobReferences
 from app.modules.messaging.api import MessagingApi
 from app.modules.messaging.application.cards import ConversationCards
 from app.modules.messaging.application.facade import MessagingFacade
@@ -10,6 +11,7 @@ from app.modules.messaging.application.ports import (
     ContactVerifier,
     ConversationQueries,
     ConversationRepository,
+    ConversationRetention,
     MessageQuota,
     MessageStore,
     Presence,
@@ -18,7 +20,9 @@ from app.modules.messaging.application.use_cases.forget_messages import ForgetMe
 from app.modules.messaging.application.use_cases.list_conversations import ListConversations
 from app.modules.messaging.application.use_cases.list_messages import ListMessages
 from app.modules.messaging.application.use_cases.propose_deal import ProposeDeal
-from app.modules.messaging.application.use_cases.purge_messages import PurgeMessages
+from app.modules.messaging.application.use_cases.purge_inactive_conversations import (
+    PurgeInactiveConversations,
+)
 from app.modules.messaging.application.use_cases.read_conversation import ReadConversation
 from app.modules.messaging.application.use_cases.record_deal_event import RecordDealEvent
 from app.modules.messaging.application.use_cases.send_message import SendMessage
@@ -32,6 +36,10 @@ from app.modules.messaging.infrastructure.repositories import (
     SqlContactShares,
     SqlConversationRepository,
     SqlMessageStore,
+)
+from app.modules.messaging.infrastructure.retention import (
+    SqlConversationRetention,
+    SqlJobReferences,
 )
 
 
@@ -59,4 +67,6 @@ class MessagingProvider(Provider):
     share_contact = provide(ShareContact)
     record_deal_event = provide(RecordDealEvent)
     forget_messages = provide(ForgetMessages)
-    purge_messages = provide(PurgeMessages)
+    purge_inactive_conversations = provide(PurgeInactiveConversations)
+    retention = provide(SqlConversationRetention, provides=ConversationRetention)
+    job_references = provide(SqlJobReferences, provides=JobReferences)

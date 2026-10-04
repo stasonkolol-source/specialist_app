@@ -22,6 +22,7 @@ import {
   CREATE_PATHS,
   JOBS_PATHS,
   SAVED_PATHS,
+  alertFormSearch,
   createSearch,
   doneSearch,
   editSearch,
@@ -37,7 +38,8 @@ import { BECOME_PATHS, CABINET_PATHS, becomeSearch } from '../features/specialis
 import { HELP_PATH } from '../features/service/s47-help/paths.ts';
 import { LEGAL_PATH } from '../features/service/s48-legal/paths.ts';
 import { RESTRICTED_PATH } from '../features/service/s49-system/index.ts';
-import { AppShell } from '../features/shell/index.ts';
+import { WEB_PATHS } from '../features/shell/web/paths.ts';
+import { RootShell } from './shell.tsx';
 import type { RouterContext } from './guards.ts';
 import { requireConsent, requireUser } from './guards.ts';
 
@@ -61,7 +63,8 @@ function screen<K extends string>(
 }
 
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
-  component: AppShell,
+  // вне Telegram — браузерная оболочка (8.1, routes/shell.tsx)
+  component: RootShell,
   // Неизвестный путь (устаревшая ссылка, опечатка) — на главную, а не пустой экран
   notFoundComponent: () => <Navigate to="/" replace />,
 });
@@ -98,6 +101,31 @@ const templates = createRoute({
   path: JOBS_PATHS.templates,
   beforeLoad: requireConsent,
   component: screen(() => import('../features/jobs/s57-templates/index.ts'), 'TemplatesScreen'),
+});
+
+// Подписки на заявки S18 (5.7): колокольчик ленты S13, кнопки бота (`m_alerts`); без входа
+// подписок нет. Форма S19 — новая (из S18 и шторки фильтров S14 с её фильтрами) и правка; подписка
+// — создающее действие: без согласия S02c
+const alerts = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.alerts,
+  beforeLoad: requireUser,
+  component: screen(() => import('../features/jobs/s18-alerts/index.ts'), 'AlertsScreen'),
+});
+
+const newAlert = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.newAlert,
+  validateSearch: alertFormSearch,
+  beforeLoad: requireConsent,
+  component: screen(() => import('../features/jobs/s19-alert-form/index.ts'), 'AlertFormScreen'),
+});
+
+const editAlert = createRoute({
+  getParentRoute: () => rootRoute,
+  path: JOBS_PATHS.alert,
+  beforeLoad: requireConsent,
+  component: screen(() => import('../features/jobs/s19-alert-form/index.ts'), 'AlertFormScreen'),
 });
 
 const myJobs = createRoute({
@@ -474,11 +502,34 @@ const restricted = createRoute({
   ),
 });
 
+// Браузерная оболочка (8.1): веб-ссылки `/s/<id>` и `/j/<id>` — «Открыть в Telegram» или гостевой
+// просмотр S08 и S15 (в Telegram — сразу экран); «Как удалить аккаунт» — для Google Play, без входа
+const webSpecialist = createRoute({
+  getParentRoute: () => rootRoute,
+  path: WEB_PATHS.specialist,
+  component: screen(() => import('../features/shell/web/index.ts'), 'SpecialistLinkScreen'),
+});
+
+const webJob = createRoute({
+  getParentRoute: () => rootRoute,
+  path: WEB_PATHS.job,
+  component: screen(() => import('../features/shell/web/index.ts'), 'JobLinkScreen'),
+});
+
+const webDeletion = createRoute({
+  getParentRoute: () => rootRoute,
+  path: WEB_PATHS.deletion,
+  component: screen(() => import('../features/shell/web/index.ts'), 'DeletionScreen'),
+});
+
 export const routeTree = rootRoute.addChildren([
   home,
   jobs,
   myResponses,
   templates,
+  alerts,
+  newAlert,
+  editAlert,
   myJobs,
   job,
   respond,
@@ -525,4 +576,7 @@ export const routeTree = rootRoute.addChildren([
   help,
   legal,
   restricted,
+  webSpecialist,
+  webJob,
+  webDeletion,
 ]);

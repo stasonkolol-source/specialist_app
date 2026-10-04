@@ -31,6 +31,7 @@ from app.modules.identity.application.use_cases.cancel_deletion import CancelDel
 from app.modules.identity.application.use_cases.grant_staff_role import GrantStaffRole
 from app.modules.identity.application.use_cases.logout import Logout
 from app.modules.identity.application.use_cases.process_deletions import ProcessDeletions
+from app.modules.identity.application.use_cases.purge_identity_hashes import PurgeIdentityHashes
 from app.modules.identity.application.use_cases.record_completed_deal import RecordCompletedDeal
 from app.modules.identity.application.use_cases.refresh_session import RefreshSession
 from app.modules.identity.application.use_cases.register_telegram_user import (
@@ -122,6 +123,7 @@ class IdentityProvider(Provider):
     request_deletion = provide(RequestDeletion)
     cancel_deletion = provide(CancelDeletion)
     process_deletions = provide(ProcessDeletions)
+    purge_identity_hashes = provide(PurgeIdentityHashes)
     grant_staff_role = provide(GrantStaffRole)
     completed_deals = provide(SqlCompletedDeals, provides=CompletedDeals)
     record_completed_deal = provide(RecordCompletedDeal)

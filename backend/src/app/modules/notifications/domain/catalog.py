@@ -15,6 +15,9 @@ from types import MappingProxyType
 
 class NotificationType(StrEnum):
     JOB_MATCHED = "job.matched"
+    """Новая заявка по подписке — карточка B1 (5.7)."""
+    JOB_DIGEST = "job.digest"
+    """Подборка заявок по подпискам «раз в день» (5.7)."""
     RESPONSE_RECEIVED = "response.received"
     RESPONSE_ACCEPTED = "response.accepted"
     RESPONSE_NOT_SELECTED = "response.not_selected"
@@ -100,6 +103,9 @@ CATALOG: Mapping[NotificationType, TypeSpec] = MappingProxyType(
     {
         NotificationType.JOB_MATCHED: TypeSpec(
             group=EventGroup.JOB_MATCHES, priority=Priority.P2, channels=BOT
+        ),
+        NotificationType.JOB_DIGEST: TypeSpec(
+            group=EventGroup.JOB_MATCHES, priority=Priority.P3, channels=BOT
         ),
         NotificationType.RESPONSE_RECEIVED: TypeSpec(
             group=EventGroup.RESPONSES, priority=Priority.P1, channels=BOT_AND_APP

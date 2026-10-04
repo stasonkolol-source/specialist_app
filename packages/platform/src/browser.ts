@@ -1,11 +1,12 @@
-// Браузер (веб-оболочка и разработка без Telegram): кнопки рисуются в контенте, «назад» — история браузера,
-// «поделиться» — navigator.share или копирование, хранилище — localStorage.
+// Браузер (веб-оболочка 8.1 и разработка без Telegram): MainButton и «назад» рисуются в контенте —
+// оболочка приложения (useBottomButtonState, useBackButtonState); «назад» самого браузера — обычная
+// история, за ней следует роутер. «Поделиться» — navigator.share или копирование, хранилище —
+// localStorage.
 import { Listeners, createBottomButton } from './button.ts';
 import type { ColorScheme, Insets, KeyValueStorage, Platform } from './types.ts';
 import { capabilitiesFor } from './version.ts';
 
 const ZERO: Insets = { top: 0, right: 0, bottom: 0, left: 0 };
-const BACK_STATE = { sosedBack: true };
 
 function localStorageKV(prefix: string): KeyValueStorage {
   const key = (k: string) => `${prefix}${k}`;
@@ -43,12 +44,6 @@ export function createBrowserPlatform(): Platform {
   const viewportListeners = new Listeners();
   window.addEventListener('resize', () => viewportListeners.emit());
 
-  const backClicks = new Listeners();
-  let backVisible = false;
-  window.addEventListener('popstate', () => {
-    if (backVisible) backClicks.emit();
-  });
-
   const params = new URLSearchParams(window.location.search);
 
   return {
@@ -78,14 +73,12 @@ export function createBrowserPlatform(): Platform {
       contentSafeArea: () => ZERO,
       onChange: (listener) => viewportListeners.add(listener),
     },
+    // своя кнопка «назад» — в контенте (её нажатие обрабатывает стек «назад» в react.tsx). Пустая
+    // запись в истории, чтобы «назад» браузера попадал в приложение, ломала историю роутера
     backButton: {
       native: false,
-      setVisible(visible) {
-        // «назад» браузера должен попасть в приложение, а не уйти со страницы
-        if (visible && !backVisible) window.history.pushState(BACK_STATE, '');
-        backVisible = visible;
-      },
-      onClick: (listener) => backClicks.add(listener),
+      setVisible: () => {},
+      onClick: () => () => {},
     },
     mainButton: createBottomButton(false),
     secondaryButton: createBottomButton(false),

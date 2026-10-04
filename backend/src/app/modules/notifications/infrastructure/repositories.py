@@ -305,6 +305,21 @@ class SqlNotificationRepository:
         )
         return (await self._session.execute(stmt)).first() is not None
 
+    async def suppress_queued(self, dedupe_prefix: str, *, error: str, now: datetime) -> int:
+        self._uow.require_active()
+        n = NotificationRow.__table__.c
+        mine = select(n.id).where(n.dedupe_key.startswith(dedupe_prefix, autoescape=True))
+        stmt = (
+            update(DeliveryRow)
+            .where(
+                DeliveryRow.notification_id.in_(mine),
+                DeliveryRow.status == DeliveryStatus.QUEUED,
+            )
+            .values(status=DeliveryStatus.SUPPRESSED, error=error, updated_at=now)
+            .returning(DeliveryRow.id)
+        )
+        return len((await self._session.execute(stmt)).all())
+
     async def mark_read(
         self, user_id: UserId, ids: Collection[NotificationId] | None, *, now: datetime
     ) -> int:

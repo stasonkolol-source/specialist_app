@@ -6,6 +6,7 @@
  */
 
 export * from './acceptedOut.ts';
+export * from './alertDelivery.ts';
 export * from './appealIn.ts';
 export * from './appealInRestriction.ts';
 export * from './appealOut.ts';
@@ -124,6 +125,12 @@ export * from './identityAuthenticateTelegramHeaders.ts';
 export * from './identityUpdateMeHeaders.ts';
 export * from './imageVariantName.ts';
 export * from './invitesIn.ts';
+export * from './jobAlertCriteriaIn.ts';
+export * from './jobAlertCriteriaOut.ts';
+export * from './jobAlertIn.ts';
+export * from './jobAlertOut.ts';
+export * from './jobAlertPatchIn.ts';
+export * from './jobAlertsOut.ts';
 export * from './jobCardOut.ts';
 export * from './jobClientOut.ts';
 export * from './jobCloseIn.ts';
@@ -140,6 +147,7 @@ export * from './jobResponseOut.ts';
 export * from './jobResponsesOut.ts';
 export * from './jobsCountJobsParams.ts';
 export * from './jobsCountOut.ts';
+export * from './jobsCreateJobAlertHeaders.ts';
 export * from './jobsCreateJobHeaders.ts';
 export * from './jobsCreateResponseTemplateHeaders.ts';
 export * from './jobsListJobsParams.ts';

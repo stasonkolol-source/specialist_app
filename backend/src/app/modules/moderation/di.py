@@ -63,6 +63,7 @@ from app.modules.moderation.infrastructure.queries import SqlCaseQueue, SqlCaseS
 from app.modules.moderation.infrastructure.quota import ValkeyReportQuota
 from app.modules.moderation.infrastructure.rate_limits import ValkeyRateLimitOverflows
 from app.modules.moderation.infrastructure.reports import FacadeReportTargets, SqlReportRepository
+from app.modules.moderation.infrastructure.retention_hold import CasesRetentionHold
 from app.modules.moderation.infrastructure.rules import CachedRuleSource, SqlRuleWriter
 from app.modules.moderation.infrastructure.targets import TargetRegistry
 from app.modules.moderation.infrastructure.targets.job import JobTarget
@@ -76,6 +77,7 @@ from app.modules.specialists.api import SpecialistsApi
 from app.platform.config.port import LegalVersions
 from app.platform.i18n.translator import Translator
 from app.platform.legal.port import LegalLibrary
+from app.platform.privacy.port import RetentionHold
 from app.platform.ratelimit import RateLimiter
 from app.platform.settings import TelegramSettings
 from app.platform.telegram.port import TelegramSender
@@ -157,6 +159,7 @@ class ModerationProvider(Provider):
     auto_check = provide(AutoCheck)
     legal_hold = provide(CasesLegalHold, provides=LegalHold)
     deletion_hold = provide(CasesDeletionHold, provides=DeletionHold)
+    retention_hold = provide(CasesRetentionHold, provides=RetentionHold)
     record_reregistration = provide(RecordReregistration)
     """media.purge_deleted не стирает доказательства открытых кейсов (ADR-0016 §6)."""
     queries = provide(ModerationQueries)

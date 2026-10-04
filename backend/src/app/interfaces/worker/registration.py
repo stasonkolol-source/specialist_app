@@ -7,6 +7,7 @@ entrypoints/_wiring.build_event_registry — тоже из tasks.py модуле
 
 import procrastinate
 
+import app.platform.privacy.sweep  # регистрирует platform.retention_sweep (2.12b)
 import app.platform.queue.periodic  # noqa: F401 — регистрирует периодические задачи платформы
 from app.platform.queue.tasks import TASKS, TaskRegistry, register_tasks
 

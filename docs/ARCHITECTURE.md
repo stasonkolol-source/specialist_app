@@ -2258,6 +2258,8 @@ stateDiagram-v2
 
 Матрицу исполняет ночная задача `platform.retention_sweep` ([§12.3](#123-периодические-задачи)). Она пропускает сущности под legal hold.
 
+**Как это устроено (2.12b).** Модуль объявляет правило хранения и раздел выгрузки в своём `privacy.py` (реестр `platform/privacy/registry.py`). `platform.retention_sweep` проходит правила, модули выше по DAG — первыми: переписка освобождает заявку в ту же ночь. Правила MVP: `identity.deleted_identity_hashes` (12 мес.), `jobs.jobs_and_responses` (24 мес. после закрытия; отклонённые модерацией — 6 мес.), `messaging.conversations` (диалог целиком через 12 мес. после последнего сообщения). Legal hold — порт `platform/privacy/port.RetentionHold`, его реализует moderation: открытые кейсы о заявке, отклике, сообщении и идущие споры по сделке (фасад deals). Заявку, на которую ссылается диалог, удаляют после него (`jobs.api.JobReferences`, реализует messaging). Удалённые медиа и выполненные задачи очереди удаляют `media.purge_deleted` и `procrastinate.remove_old_jobs`. Выгрузка по запросу (§13.4) — `cli export-user-data`: JSON с разделами модулей, ссылки на файлы на 24 часа, запись `privacy.user_data.exported` в `audit_log`; порядок работы поддержки — `infra/runbooks/data-export.md` и `infra/runbooks/deletion-request.md`.
+
 **Аудит:**
 - `platform.audit_log` (append-only) фиксирует:
   - действия модераторов и администраторов;
@@ -3145,7 +3147,7 @@ flowchart LR
 | `identity.process_deletions` | ежечасно | Удаление аккаунтов после grace-периода ([§7.10](#710-soft-delete-ретеншн-и-аудит)) |
 | `moderation.legal_notice_sla` | каждые 30 мин (v1, [ADR-0018](adr/0018-mvp-scope-anonymous-no-payments.md)) | Эскалация жалоб по ст. 20 ZET, у которых скоро истекает срок 2 рабочих дня |
 | `moderation.purge_verification_docs` | ночью (v1) | Удаление документов после `purge_after` |
-| `platform.retention_sweep` | ночью | Исполнение матрицы сроков хранения [§7.10](#710-soft-delete-ретеншн-и-аудит): заявки и отклики — 24 мес, переписка — 12 мес, отклонённый контент — 6 мес, хэши удалённых аккаунтов — 12 мес. Пропускает сущности под legal hold |
+| `platform.retention_sweep` | ночью (03:37 UTC) | Исполнение матрицы сроков хранения [§7.10](#710-soft-delete-ретеншн-и-аудит): заявки и отклики — 24 мес, переписка — 12 мес, отклонённый контент — 6 мес, хэши удалённых аккаунтов — 12 мес. Пропускает сущности под legal hold |
 | `platform.idempotency_cleanup` | ежечасно | Ключи старше 24 ч |
 | `procrastinate.retry_stalled_jobs` | каждые 5 мин | Возврат задач, зависших после падения воркера |
 | `procrastinate.remove_old_jobs` | ночью | Ретеншн выполненных задач (7 дней) |

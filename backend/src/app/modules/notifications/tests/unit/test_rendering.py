@@ -209,30 +209,10 @@ def test_without_mini_app_address_there_are_no_buttons() -> None:
     assert buttons == ()
 
 
-def test_types_without_templates_are_refused(renderer: GettextNotificationRenderer) -> None:
-    assert set(RENDERED) == {
-        RESTRICTED,
-        DECISION,
-        NotificationType.SYSTEM_TEST,
-        NotificationType.PROFILE_PUBLISHED,
-        NotificationType.JOB_EXPIRING,
-        NotificationType.JOB_EXPIRED,
-        NotificationType.RESPONSE_RECEIVED,
-        NotificationType.JOB_INVITED,
-        NotificationType.RESPONSE_ACCEPTED,
-        NotificationType.RESPONSE_NOT_SELECTED,
-        NotificationType.MESSAGE_RECEIVED,
-        NotificationType.DEAL_PROPOSED,
-        NotificationType.DEAL_CANCELLED,
-        NotificationType.DEAL_REMINDER,
-        NotificationType.DEAL_COMPLETION_PROMPT,
-        NotificationType.REVIEW_REQUEST,
-        NotificationType.REVIEW_PUBLISHED,
-        NotificationType.DISPUTE_OPENED,
-        NotificationType.DISPUTE_RESOLVED,
-    }
-    with pytest.raises(ValueError, match="no templates"):
-        renderer.text(NotificationType.JOB_MATCHED, {}, Locale.RU)
+def test_every_catalog_type_has_templates() -> None:
+    """С подписками (5.7) шаблоны есть у всех типов каталога: Notify не создаст уведомление без
+    текста (renders), а новый тип получит шаблоны вместе со своим подписчиком."""
+    assert set(RENDERED) == set(NotificationType)
 
 
 @pytest.mark.parametrize("locale", SCRIPTS)

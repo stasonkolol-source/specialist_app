@@ -9,6 +9,7 @@ ExternalServiceError. Адрес и текст в лог не попадают (
 """
 
 import asyncio
+from collections.abc import Awaitable
 from math import ceil
 
 import structlog
@@ -22,13 +23,14 @@ from aiogram.exceptions import (
     TelegramRetryAfter,
     TelegramServerError,
 )
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from aiogram.types import DisabledButton, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 from app.platform.kernel.errors import ExternalServiceError, RateLimitedError
 from app.platform.telegram.port import (
     Button,
     ButtonLine,
     CallbackButton,
+    InactiveButton,
     OutgoingMessage,
     SendLimiter,
     SentMessage,
@@ -42,6 +44,8 @@ log = structlog.get_logger(__name__)
 HORIZON = 3.0
 """Сколько секунд задача ждёт свой слот на месте: дольше — вернуться к сроку в очередь."""
 GONE_CHAT = "chat not found"
+NOT_MODIFIED = "message is not modified"
+"""400 на правку кнопок, которые уже такие: повтор задачи — не ошибка."""
 """400 о чате, которого нет (пользователь удалил аккаунт Telegram): писать туда некуда."""
 REASON_LENGTH = 200
 
@@ -52,14 +56,39 @@ class AiogramTelegramSender:
         self._limiter = limiter
 
     async def send(self, message: OutgoingMessage) -> SentMessage:
-        slot = await self._limiter.reserve(message.chat_id, within=HORIZON)
+        await self._slot(message.chat_id)
+        sent = await self._call(
+            self._bot.send_message(
+                chat_id=message.chat_id, text=message.text, reply_markup=keyboard(message.buttons)
+            )
+        )
+        return SentMessage(message_id=sent.message_id)
+
+    async def edit_buttons(
+        self, chat_id: int, message_id: int, buttons: tuple[ButtonLine, ...]
+    ) -> None:
+        # правка — тоже вызов Bot API в чат: тот же лимитер, что у отправки
+        await self._slot(chat_id)
+        try:
+            await self._call(
+                self._bot.edit_message_reply_markup(
+                    chat_id=chat_id, message_id=message_id, reply_markup=keyboard(buttons)
+                )
+            )
+        except TelegramRejectedError as exc:
+            if NOT_MODIFIED not in exc.reason.lower():
+                raise
+
+    async def _slot(self, chat_id: int) -> None:
+        slot = await self._limiter.reserve(chat_id, within=HORIZON)
         await _wait(slot)
         if slot.bot_pending:  # ждали свой чат: теперь — слот бота
             await _wait(await self._limiter.reserve_bot(within=HORIZON))
+
+    async def _call[T](self, call: Awaitable[T]) -> T:
+        """Вызов Bot API; его ответ-ошибка — ошибка порта (port.py)."""
         try:
-            sent = await self._bot.send_message(
-                chat_id=message.chat_id, text=message.text, reply_markup=keyboard(message.buttons)
-            )
+            return await call
         except TelegramRetryAfter as exc:
             await self._limiter.pause(exc.retry_after)
             log.warning("telegram_flood_wait", retry_after=exc.retry_after)
@@ -77,7 +106,6 @@ class AiogramTelegramSender:
             raise ExternalServiceError(service="telegram", reason=type(exc).__name__) from exc
         except AiogramError as exc:  # ответ не JSON: страница прокси вместо Bot API
             raise ExternalServiceError(service="telegram", reason=type(exc).__name__) from exc
-        return SentMessage(message_id=sent.message_id)
 
 
 async def _wait(slot: Slot) -> None:
@@ -101,4 +129,6 @@ def keyboard(lines: tuple[ButtonLine, ...]) -> InlineKeyboardMarkup | None:
 def _button(button: Button) -> InlineKeyboardButton:
     if isinstance(button, CallbackButton):
         return InlineKeyboardButton(text=button.text, callback_data=button.data)
+    if isinstance(button, InactiveButton):
+        return InlineKeyboardButton(text=button.text, disabled=DisabledButton())
     return InlineKeyboardButton(text=button.text, web_app=WebAppInfo(url=button.url))

@@ -10,7 +10,10 @@
   выполнена?» и «Ответить» уведомления `dispute.opened` ведут сразу на S52, а не на S26;
 - `h` — главная;
 - `n` — новая заявка (мастер S20a; `/new` бота);
-- `m_jobs` — свои заявки (S22; `/jobs` бота);
+- `m_jobs` — свои заявки (S22; `/jobs` бота); `m_alerts` — подписки на заявки (S18), `m_feed` —
+  лента «по моим подпискам» (S13), `m_availability` — «доступен сегодня» (S38), `m_profile` —
+  кабинет специалиста (S33): кнопки `job.matched`, `job.digest`, `profile.stale_reminder`, `/feed`
+  и `/alerts` бота (5.7);
 - `l_terms`, `l_privacy` — правила площадки и политика конфиденциальности (S48; `/terms` и
   `/privacy` бота);
 - `g_`, `gu_`, `gh`, `gs_`, `gc_` — зарезервированы под раздел «Вещи» (после MVP);
@@ -68,12 +71,18 @@ class LinkDocument(StrEnum):
 class LinkSection(StrEnum):
     """Свой раздел ссылки `m_<раздел>`: `jobs` — «Мои заявки» (S22), `reviews` — «Мои отзывы»
     (S28, 7.3; кнопка «Ответить на отзыв» уведомления `review.published`), `settings` —
-    настройки S43 и `deletion` — удаление аккаунта S45 (кнопки `/settings` бота, 4.9)."""
+    настройки S43 и `deletion` — удаление аккаунта S45 (кнопки `/settings` бота, 4.9); `alerts` —
+    подписки на заявки S18, `feed` — лента «по моим подпискам» S13, `availability` — «доступен
+    сегодня» S38, `profile` — кабинет специалиста S33 (5.7)."""
 
     JOBS = "jobs"
     REVIEWS = "reviews"
     SETTINGS = "settings"
     DELETION = "deletion"
+    ALERTS = "alerts"
+    FEED = "feed"
+    AVAILABILITY = "availability"
+    PROFILE = "profile"
 
 
 class ReservedCode(StrEnum):
