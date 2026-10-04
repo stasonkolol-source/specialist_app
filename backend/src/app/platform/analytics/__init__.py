@@ -3,9 +3,11 @@
 - port.py — порт Analytics и событие AnalyticsEvent;
 - events.py — таксономия: какие события есть, их свойства и какие метрики PRODUCT из них
   считаются (у каждой метрики — шаг-источник);
-- posthog.py — адаптер PostHog EU, fake.py — фейк для dev и тестов (события в лог);
+- posthog.py — адаптер PostHog EU, fake.py — фейк для dev и тестов (события в лог); оба молчат
+  об удалённых аккаунтах (deleted.py);
+- posthog_persons.py — удаление персоны и её событий в PostHog по UserDeleted (2.12b);
 - tasks.py — задачи-подписчики доменных событий: событие уходит только после commit
-  (задача ставится в той же транзакции) и не уходит при rollback.
+  (задача ставится в той же транзакции) и не уходит при rollback; `forget_person` — UserDeleted;
 - liquidity.py, beta_report.py, alerts.py — метрики ворот беты SQL под ролью readonly
   (`cli beta-report`) и алерт response rate@4h (6.6);
 - dashboard.py — дашборд ликвидности PostHog как код, posthog_dashboard.py — его применение
