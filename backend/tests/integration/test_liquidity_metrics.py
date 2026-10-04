@@ -234,13 +234,14 @@ async def test_week_report_has_known_answer(data: Data) -> None:
         subject=p1,
         at=at(7, 9),
     )
-    for reason in ("fraud", "spam"):
+    # одна открытая жалоба на пару «кто — на кого» (uq_reports_open): вторая — на другого
+    for reason, target in (("fraud", p4), ("spam", p3)):
         await data.run(
             "INSERT INTO moderation.reports (id, reporter_id, target_type, target_id, reason,"
             " created_at) VALUES (:id, :reporter, 'user', :target, :reason, :at)",
             id=new_id(),
             reporter=c1,
-            target=p4,
+            target=target,
             reason=reason,
             at=at(5, 9),
         )
