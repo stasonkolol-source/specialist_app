@@ -44,6 +44,7 @@ from app.modules.moderation.application.use_cases.import_content_rules import (
 from app.modules.moderation.application.use_cases.inspect_dispute import InspectDispute
 from app.modules.moderation.application.use_cases.open_case import CaseOpener, OpenCase
 from app.modules.moderation.application.use_cases.post_case_card import PostCaseCard
+from app.modules.moderation.application.use_cases.recheck_images import RecheckImages
 from app.modules.moderation.application.use_cases.record_rate_limit_signals import (
     RecordRateLimitSignals,
 )
@@ -193,6 +194,7 @@ class ModerationProvider(Provider):
     auto_check = provide(AutoCheck)
     check_duplicates = provide(CheckDuplicates)
     check_image = provide(CheckImage)
+    recheck_images = provide(RecheckImages)
     legal_hold = provide(CasesLegalHold, provides=LegalHold)
     deletion_hold = provide(CasesDeletionHold, provides=DeletionHold)
     retention_hold = provide(CasesRetentionHold, provides=RetentionHold)

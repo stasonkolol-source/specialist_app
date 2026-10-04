@@ -9,7 +9,13 @@ from typing import Self
 from uuid import UUID
 
 from app.modules.catalog.api import CategorySuggestion, CategorySummary, SearchTerm, TermMatch
-from app.modules.media.api import ImageForCheck, MediaDuplicate, MediaRef, ModerationVerdict
+from app.modules.media.api import (
+    ImageForCheck,
+    MediaDuplicate,
+    MediaRef,
+    ModerationVerdict,
+    UncheckedImage,
+)
 from app.modules.search.application.dto import (
     SpecialistFilters,
     SpecialistHit,
@@ -185,6 +191,11 @@ class FakeMedia:
         raise NotImplementedError
 
     async def image_for_check(self, media_id: MediaId) -> ImageForCheck | None:
+        raise NotImplementedError
+
+    async def unchecked_images(
+        self, *, processed_before: datetime, purposes: Collection[str], limit: int
+    ) -> list[UncheckedImage]:
         raise NotImplementedError
 
     async def moderate(

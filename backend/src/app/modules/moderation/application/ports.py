@@ -11,6 +11,7 @@ from app.modules.moderation.application.dto import (
     ImportRulesResult,
     OpenCaseView,
     QueueSla,
+    RecheckImagePayload,
     ReportFilter,
     StaffCaseView,
     StaffReportView,
@@ -295,3 +296,5 @@ CHECK_DUPLICATES: Final = TaskRef("moderation.check_duplicates", MediaReady)
 """Фото портфолио обработано (7.6): такое же у других аккаунтов — кейс P2 (ADR-0016 L6)."""
 CHECK_IMAGE: Final = TaskRef("moderation.check_image", MediaReady)
 """Фото обработано (6.7): omni-moderation; флаг — кейс P2, P0 — скрыть фото и кейс P0."""
+RECHECK_IMAGE: Final = TaskRef("moderation.recheck_image", RecheckImagePayload)
+"""Фото так и осталось без итога проверки: проверить снова или отдать модератору (6.7)."""

@@ -16,7 +16,7 @@ from app.modules.media.domain.asset import (
     MediaStatus,
     ModerationStatus,
 )
-from app.modules.media.domain.policy import MediaKind
+from app.modules.media.domain.policy import MediaKind, MediaPurpose
 from app.modules.media.infrastructure.models import AssetRow
 from app.modules.media.infrastructure.repositories import phash_bits, to_domain, visible_to
 from app.platform.db.query import SqlQuery
@@ -97,6 +97,27 @@ class SqlMediaQuery(SqlQuery):
                 ),
             )
             .order_by(func.coalesce(AssetRow.deleted_at, AssetRow.processed_at))
+            .limit(limit)
+        )
+        assets = [to_domain(row) for row in (await self._execute(stmt)).scalars()]
+        await self._release()
+        return assets
+
+    async def unchecked(
+        self, processed_before: datetime, *, purposes: Collection[MediaPurpose], limit: int
+    ) -> Sequence[MediaAsset]:
+        """Без индекса, как `duplicates`: на объёмах MVP проход по готовым файлам — миллисекунды
+        раз в 10 минут; частичный индекс по `processed_at` — если файлов станет на порядки
+        больше."""
+        stmt = (
+            select(AssetRow)
+            .where(
+                AssetRow.status == MediaStatus.READY,
+                AssetRow.moderation_status == ModerationStatus.PENDING,
+                AssetRow.purpose.in_(list(purposes)),
+                AssetRow.processed_at < processed_before,
+            )
+            .order_by(AssetRow.processed_at)
             .limit(limit)
         )
         assets = [to_domain(row) for row in (await self._execute(stmt)).scalars()]

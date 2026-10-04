@@ -196,6 +196,7 @@ async def test_platform_periodic_tasks_are_scheduled(container: AsyncContainer) 
         "identity.trust_aging": "41 2 * * *",
         "identity.process_deletions": "17 * * * *",
         "moderation.rate_limit_signals": "4,19,34,49 * * * *",
+        "moderation.recheck_images": "8-59/10 * * * *",
         "specialists.reset_availability": "*/5 * * * *",
         "specialists.stale_profile_reminders": "5 9,10 * * *",
         "search.reconcile_index": "23 3 * * *",

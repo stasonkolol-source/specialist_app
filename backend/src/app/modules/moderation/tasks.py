@@ -14,10 +14,13 @@
   аккаунта — кейс P2 о профиле загрузившего (ADR-0016 L6, план 7.6).
 - `moderation.check_image` — MediaReady: фото профиля, портфолио и заявки — в omni-moderation;
   флаг — кейс P2, P0 — фото скрыто и кейс P0 (ARCHITECTURE §10.3, план 6.7).
+- `moderation.recheck_images` — раз в 10 минут: фото, так и не получившие итог проверки, —
+  `moderation.recheck_image` (проверить снова, а через час — модератору, P2).
 """
 
 from dishka import FromDishka
 
+from app.modules.moderation.application.dto import RecheckImagePayload
 from app.modules.moderation.application.ports import (
     AUTO_CHECK,
     CHECK_DUPLICATES,
@@ -27,6 +30,7 @@ from app.modules.moderation.application.ports import (
     NOTE_DISPUTE_UNANSWERED,
     OPEN_DISPUTE_CASE,
     POST_CASE_CARD,
+    RECHECK_IMAGE,
     RECORD_REREGISTRATION,
 )
 from app.modules.moderation.application.use_cases.auto_check import AutoCheck, AutoCheckCommand
@@ -43,6 +47,10 @@ from app.modules.moderation.application.use_cases.check_image import (
 from app.modules.moderation.application.use_cases.post_case_card import (
     PostCaseCard,
     PostCaseCardCommand,
+)
+from app.modules.moderation.application.use_cases.recheck_images import (
+    RecheckImages,
+    RecheckImagesCommand,
 )
 from app.modules.moderation.application.use_cases.record_rate_limit_signals import (
     RecordRateLimitSignals,
@@ -67,7 +75,7 @@ from app.platform.contracts.events.deals import (
 from app.platform.contracts.events.identity import UserRegistered
 from app.platform.contracts.events.media import MediaReady
 from app.platform.contracts.events.moderation import CaseOpened, ModerationRequested
-from app.platform.queue.tasks import PeriodicRun, periodic, subscriber
+from app.platform.queue.tasks import PeriodicRun, periodic, subscriber, task
 
 
 @subscriber(ModerationRequested, AUTO_CHECK)
@@ -145,3 +153,18 @@ async def check_image(event: MediaReady, check: FromDishka[CheckImage]) -> None:
                 media_id=event.media_id, owner_id=event.owner_id, purpose=event.purpose
             )
         )
+
+
+@task(RECHECK_IMAGE)
+async def recheck_image(payload: RecheckImagePayload, check: FromDishka[CheckImage]) -> None:
+    command = CheckImageCommand(
+        media_id=payload.media_id, owner_id=payload.owner_id, purpose=payload.purpose
+    )
+    await (check.give_up(command) if payload.give_up else check(command))
+
+
+@periodic("moderation.recheck_images", cron="8-59/10 * * * *")
+async def recheck_images(run: PeriodicRun) -> None:
+    async with run.container() as request:
+        recheck = await request.get(RecheckImages)
+        await recheck(RecheckImagesCommand())

@@ -46,6 +46,10 @@ from app.modules.moderation.application.use_cases.decide_case import (
     DecideCaseCommand,
 )
 from app.modules.moderation.application.use_cases.open_case import CaseOpener
+from app.modules.moderation.application.use_cases.recheck_images import (
+    RecheckImages,
+    RecheckImagesCommand,
+)
 from app.modules.moderation.domain.images import ImageAction
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.ai.port import ModerationResult, Unavailable
@@ -172,9 +176,16 @@ class World:
         return owner, media_id
 
     async def check(
-        self, owner: UserId, media_id: MediaId, provider: Provider, purpose: str = "portfolio"
+        self,
+        owner: UserId,
+        media_id: MediaId,
+        provider: Provider,
+        purpose: str = "portfolio",
+        *,
+        give_up: bool = False,
     ) -> Any:
-        """Подписчик MediaReady `moderation.check_image` — с фейком провайдера и памятью."""
+        """Подписчик MediaReady `moderation.check_image` — с фейком провайдера и памятью;
+        `give_up` — отказ от проверки (`moderation.recheck_image`, фото ждёт итога час)."""
         async with self.container() as request:
             check = CheckImage(
                 await request.get(UnitOfWork),
@@ -185,9 +196,8 @@ class World:
                 await request.get(AuditLog),
                 await request.get(SpecialistsApi),
             )
-            return await check(
-                CheckImageCommand(media_id=media_id, owner_id=owner, purpose=purpose)
-            )
+            command = CheckImageCommand(media_id=media_id, owner_id=owner, purpose=purpose)
+            return await (check.give_up(command) if give_up else check(command))
 
     async def facade(self, request: AsyncContainer) -> MediaFacade:
         return MediaFacade(
@@ -242,6 +252,20 @@ class World:
                 {"id": media_id},
             )
             return [dict(row._mapping) for row in rows]
+
+    async def rechecks(self, media_id: MediaId) -> list[str]:
+        """Поставленные `moderation.recheck_image` этого фото: `give_up` каждой."""
+        engine = await self.container.get(AsyncEngine)
+        async with engine.connect() as conn:
+            rows = await conn.execute(
+                text(
+                    "SELECT args->'payload'->>'give_up' FROM procrastinate_jobs"
+                    " WHERE task_name = 'moderation.recheck_image' AND status = 'todo'"
+                    " AND args->'payload'->>'media_id' = :id"
+                ),
+                {"id": str(media_id)},
+            )
+            return [row[0] for row in rows]
 
     async def shown(self, media_id: MediaId) -> tuple[str, int]:
         """Как фото видят другие модули (карточка S08/S10, кабинет S37): статус и варианты."""
@@ -347,3 +371,35 @@ async def test_clean_photo_is_approved_without_case(worker: AsyncContainer) -> N
     assert (asset["moderation_status"], asset["moderation_labels"]) == ("approved", {})
     assert await world.cases(media_id) == []
     assert await world.shown(media_id) == ("ready", 3)
+
+
+async def test_photo_left_without_a_verdict_is_checked_again_then_given_to_a_moderator(
+    worker: AsyncContainer,
+) -> None:
+    """Задача проверки по MediaReady упала после всех повторов: фото осталось `pending`."""
+    world = World(worker)
+    owner, stale = await world.photo()
+    _, forgotten = await world.photo()
+    for media_id, age in ((stale, "20 minutes"), (forgotten, "2 hours")):
+        await world.execute(
+            "UPDATE media.assets SET processed_at = now() - CAST(:age AS interval) WHERE id = :id",
+            id=media_id,
+            age=age,
+        )
+
+    async with worker() as request:
+        recheck = await request.get(RecheckImages)
+        assert await recheck(RecheckImagesCommand()) >= 2
+
+    assert await world.rechecks(stale) == ["false"]
+    assert await world.rechecks(forgotten) == ["true"]
+    # повтор проверки — как подписчик MediaReady
+    assert (await world.check(owner, stale, Provider(CLEAN))).action is ImageAction.CLEAN
+    assert (await world.asset(stale))["moderation_status"] == "approved"
+    # час без итога — модератору (P2), как при недоступной проверке; фото видно
+    assert (await world.check(owner, forgotten, Provider(CLEAN), give_up=True)) is not None
+    assert (await world.asset(forgotten))["moderation_status"] == "flagged"
+    [case] = await world.cases(forgotten)
+    assert (case["queue"], case["status"]) == ("premod", "pending")
+    assert case["evidence"][0]["signals"] == ["image:unchecked"]
+    assert await world.shown(forgotten) == ("ready", 3)
