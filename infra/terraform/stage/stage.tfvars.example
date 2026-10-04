@@ -1,0 +1,21 @@
+# Образец: cp stage.tfvars.example terraform.tfvars и заполнить. Секретов здесь нет (токены — в .env),
+# terraform.tfvars можно коммитить.
+
+# 0.25a — Hetzner
+stage_server_type = "cx23"
+location          = "nbg1" # Q12
+ssh_public_keys = {
+  owner  = "ssh-ed25519 AAAA… owner"        # K15: cat ~/.ssh/id_ed25519.pub
+  deploy = "ssh-ed25519 AAAA… deploy-stage" # K15: публичная часть deploy-ключа stage (make gen-secret)
+}
+# Q13: по умолчанию 22-й порт открыт всем, вход только по ключу
+# ssh_allowed_cidrs = ["0.0.0.0/0", "::/0"]
+
+# 0.25b — Cloudflare (после K11, K12, K13)
+cloudflare_enabled    = false
+domain                = "" # Q9, например sosedi-test.com
+cloudflare_account_id = "" # K11
+cloudflare_zone_id    = "" # K11
+
+# 0.25d — после первого wrangler deploy Worker'а sosed-tma-stage
+mini_app_worker_deployed = false

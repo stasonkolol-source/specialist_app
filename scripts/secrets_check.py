@@ -14,6 +14,11 @@ from envfile import ROOT, read
 PAIRS = (
     (ROOT / "backend" / ".env.example", ROOT / "backend" / ".env"),
     (ROOT / "infra" / "compose" / ".env.example", ROOT / "infra" / "compose" / ".env"),
+    # токены Terraform stage (0.25a–b): make secret … TARGET=tf-stage
+    (
+        ROOT / "infra" / "terraform" / "stage" / ".env.example",
+        ROOT / "infra" / "terraform" / "stage" / ".env",
+    ),
 )
 
 
