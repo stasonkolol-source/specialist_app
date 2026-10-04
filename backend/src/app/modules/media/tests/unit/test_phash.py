@@ -39,7 +39,7 @@ def encoded(image: Image.Image, fmt: str = "JPEG", **save: object) -> bytes:
 
 
 def reopened(image: Image.Image, **save: object) -> Image.Image:
-    return Image.open(io.BytesIO(encoded(image, **save)))
+    return Image.open(io.BytesIO(encoded(image, "JPEG", **save)))
 
 
 def test_copy_reencoded_resized_or_retouched_stays_within_the_threshold() -> None:
