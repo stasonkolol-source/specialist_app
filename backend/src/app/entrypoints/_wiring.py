@@ -65,7 +65,7 @@ def _module_packages() -> list[str]:
     return [provider.__module__.rsplit(".", 1)[0] for provider in MODULE_PROVIDERS]
 
 
-PLATFORM_TASKS: tuple[str, ...] = ("app.platform.analytics.tasks",)
+PLATFORM_TASKS: tuple[str, ...] = ("app.platform.analytics.tasks", "app.platform.analytics.alerts")
 """Задачи-подписчики платформы: подписываются на события так же, как задачи модулей."""
 
 
