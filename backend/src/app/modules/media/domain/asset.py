@@ -90,6 +90,17 @@ def variant_bucket(purpose: MediaPurpose) -> str:
     return MEDIA_BUCKET if purpose in PUBLIC_PURPOSES else PRIVATE_BUCKET
 
 
+PHASH_PURPOSES = frozenset({MediaPurpose.PORTFOLIO})
+"""Чьи фото получают pHash (у ролика — постер): дубликаты ищут в портфолио других аккаунтов —
+признак фейкового портфолио (ADR-0016 L6, §10.3). Аватар, фото заявок и доказательства спора
+ни с чем не сравниваются — хэш им не нужен; объявления «Вещей» добавятся сюда после MVP."""
+
+DUPLICATE_DISTANCE = 8
+"""Расстояние Хэмминга между pHash, до которого фото — копия **[Допущение]**: пересжатие,
+уменьшение, яркость и надпись поверх дают 0–2 бита, обрезка на 3 % — около 6, на 8 % — около
+10; разные фото — около 32 (меньше 20 на синтетике не встречалось). Калибруется на бете."""
+
+
 PURGE_AFTER = timedelta(days=30)
 """Объекты удалённого пользователем файла живут ещё 30 дней (§10.5)."""
 HOLD_RECHECK = timedelta(days=1)
@@ -150,6 +161,8 @@ class MediaAsset(AggregateRoot):
     placeholder: str | None = None
     """ThumbHash в base64: превью, пока грузится вариант."""
     sha256: bytes | None = None
+    phash: int | None = None
+    """pHash фото или постера ролика (64 бита без знака) — только у PHASH_PURPOSES."""
     variants: Mapping[str, Variant] = field(default_factory=dict)
     processed_at: datetime | None = None
     attempts: int = 0
@@ -279,12 +292,15 @@ class MediaAsset(AggregateRoot):
         variants: Mapping[str, Variant],
         now: datetime,
         duration_ms: int | None = None,
+        phash: int | None = None,
     ) -> None:
-        """Варианты без метаданных лежат в бакете назначения: файл можно показывать."""
+        """Варианты без метаданных лежат в бакете назначения: файл можно показывать. pHash
+        сохраняется только у назначений, где ищут дубликаты (PHASH_PURPOSES)."""
         self._ensure_processing()
         self.status = MediaStatus.READY
         self.width, self.height, self.duration_ms = width, height, duration_ms
         self.placeholder, self.sha256 = placeholder, sha256
+        self.phash = phash if self.purpose in PHASH_PURPOSES else None
         self.variants = dict(variants)
         self.processed_at = now
         self._record(

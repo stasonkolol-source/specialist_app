@@ -670,6 +670,8 @@ export function cardRatingFor(locale: string | null): CardReviewsOut {
     },
     items: cardReviewsFor(locale),
     next_cursor: null,
+    // «До платформы · 2» артборда S11 (вкладка — 7.6а)
+    pre_platform_count: 2,
   };
 }
 
@@ -803,6 +805,7 @@ export function cardReply(
       },
       items: [],
       next_cursor: null,
+      pre_platform_count: 0,
     };
     return { status: 200, body: full ? cardRatingFor(locale) : empty };
   }

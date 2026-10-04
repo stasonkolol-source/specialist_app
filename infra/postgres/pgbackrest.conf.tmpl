@@ -2,9 +2,9 @@
 # stdin пришли ключи репозиториев — секреты production (K36, K37, пароли шифрования — K10a). Без
 # repo2-значений строки repo2-* выбрасываются: Hetzner работает и до Backblaze.
 # Политика — ADR-0015 и DEVELOPMENT_PLAN 3.2: полный бэкап раз в неделю, дифференциальный ежедневно
-# (таймеры и пинги Healthchecks — шаг 3.2), WAL непрерывно (archive-async), aes-256-cbc, два
-# репозитория у разных провайдеров. Комментарии — только отдельными строками: ini pgBackRest не
-# знает комментариев после значения.
+# (таймер sosed-pgbackrest-backup из provision.sh, pgbackrest-backup.sh), WAL непрерывно
+# (archive-async), aes-256-cbc, два репозитория у разных провайдеров. Комментарии — только
+# отдельными строками: ini pgBackRest не знает комментариев после значения.
 
 [global]
 log-level-console=info

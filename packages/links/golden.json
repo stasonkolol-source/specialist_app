@@ -285,6 +285,13 @@
         "id": "0192f5a8-7c3e-7b21-9d4f-3a6b8c1e2f47",
         "ref": "AB12CD"
       }
+    },
+    {
+      "param": "ri_02y9UKmeRG6vSNbdsEYkkR",
+      "link": {
+        "type": "review_invite",
+        "id": "0192f5a8-7c3e-7b21-9d4f-3a6b8c1e2f47"
+      }
     }
   ],
   "invalid": [
@@ -329,6 +336,10 @@
     "gh_1",
     "gs_",
     "gc_a_b",
-    "s_02yBkPi1NksSnHWzckDH0V_rAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    "s_02yBkPi1NksSnHWzckDH0V_rAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "ri",
+    "ri_",
+    "ri_1Xh3kQ9vB7mZ2pR4sT8dL",
+    "RI_02y9UKmeRG6vSNbdsEYkkR"
   ]
 }

@@ -902,10 +902,12 @@ export class JobsBackend {
       const sent = body as ReviewIn;
       const review: ReviewOut = {
         id: `01a0e004-0000-7000-8000-${String(this.reviews.size + 1).padStart(12, '0')}`,
+        kind: 'deal',
         deal_id: deal.id,
         rating: sent.rating,
         criteria: (sent.criteria ?? {}) as Record<string, number>,
         body: sent.body ?? null,
+        work_title: null,
         status: 'under_review',
         created_at: now,
         published_at: null,
@@ -1668,8 +1670,10 @@ function writtenOut(review: ReviewOut, deals: Map<string, DealCardOut>): MyRevie
   const deal = review.deal_id ? deals.get(review.deal_id) : undefined;
   return {
     id: review.id,
+    kind: review.kind,
     deal_id: review.deal_id,
     deal_title: deal?.title ?? null,
+    work_title: review.work_title,
     counterpart_name: deal?.counterpart.display_name ?? null,
     rating: review.rating,
     criteria: review.criteria,
@@ -1700,8 +1704,10 @@ export function completedDealFixture(job: JobOut, card: ResponseCardOut): DealCa
 export function receivedReviewFixture(): MyReviewOut {
   return {
     id: '01a0e004-0000-7000-8000-0000000000aa',
+    kind: 'deal',
     deal_id: '01a0e003-0000-7000-8000-0000000000aa',
     deal_title: 'Собрать шкаф PAX',
+    work_title: null,
     counterpart_name: 'Елена К.',
     rating: 5,
     criteria: { quality: 5 },

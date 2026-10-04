@@ -9,6 +9,11 @@
 - исполнитель один раз отвечает публично; ответ проходит ту же проверку (цель `review_reply`)
   и виден после неё;
 - удаление аккаунта автора стирает его отзывы, удаление аккаунта исполнителя — его ответы.
+
+«Отзыв до платформы» (7.6а, ADR-0016) — по приглашению специалиста (domain/invite.py), без
+сделки: оценка, «что делал мастер» и текст, критериев нет. Модератор проверяет его всегда, на
+карточке он с отдельной меткой и в рейтинг, review rate и уровень доверия не входит: события
+ReviewPublished и ReviewRemoved — только у отзывов по сделкам.
 """
 
 from dataclasses import dataclass, field
@@ -20,6 +25,7 @@ from uuid import UUID
 from app.modules.reviews.errors import (
     InvalidReviewError,
     NotReviewSubjectError,
+    OwnProfileReviewError,
     ReplyExistsError,
     ReviewNotAllowedError,
     ReviewNotFoundError,
@@ -34,6 +40,8 @@ REVIEW_WINDOW: Final = timedelta(days=14)
 """Отзыв — не позже 14 дней после завершения сделки (§7.9)."""
 MAX_BODY: Final = 2000
 MAX_REPLY: Final = 2000
+MAX_WORK_TITLE: Final = 120
+"""«Что делал мастер» в отзыве до платформы (S56): вместо названия сделки."""
 STARS: Final = 5
 COMPLETED = "completed"
 """DealStatus сделки, по которой можно оставить отзыв."""
@@ -114,6 +122,8 @@ class Review(VersionedAggregate):
     body: str | None
     status: ReviewStatus
     created_at: datetime
+    work_title: str | None = None
+    """«Что делал мастер» — только у отзыва до платформы."""
     updated_at: datetime
     published_at: datetime | None = None
     reply: Reply | None = None
@@ -156,6 +166,45 @@ class Review(VersionedAggregate):
             version=1,
         )
 
+    @classmethod
+    def pre_platform(
+        cls,
+        *,
+        review_id: ReviewId,
+        author_id: UserId,
+        subject_user_id: UserId,
+        subject_profile_id: UUID,
+        rating: int,
+        work_title: str | None,
+        body: str | None,
+        now: datetime,
+    ) -> Review:
+        """Отзыв прошлого клиента по приглашению специалиста: ждёт модератора."""
+        if author_id == subject_user_id:
+            raise OwnProfileReviewError()
+        return cls(
+            id=review_id,
+            kind=ReviewKind.PRE_PLATFORM,
+            deal_id=None,
+            author_id=author_id,
+            subject_user_id=subject_user_id,
+            subject_profile_id=subject_profile_id,
+            category_id=None,
+            direction=ReviewDirection.CLIENT_TO_PERFORMER,
+            rating=_stars(rating, "rating"),
+            work_title=_text(work_title, field="work_title", limit=MAX_WORK_TITLE),
+            body=_text(body, field="body", limit=MAX_BODY),
+            status=ReviewStatus.UNDER_REVIEW,
+            created_at=now,
+            updated_at=now,
+            version=1,
+        )
+
+    @property
+    def rated(self) -> bool:
+        """Входит в рейтинг: только отзыв по сделке (ADR-0016)."""
+        return self.kind is ReviewKind.DEAL
+
     @property
     def awaits_check(self) -> bool:
         """Ждёт автопроверки или модератора."""
@@ -172,6 +221,8 @@ class Review(VersionedAggregate):
             return False
         self.status = ReviewStatus.PUBLISHED
         self.published_at = self.updated_at = now
+        if not self.rated:
+            return True  # до платформы: ни рейтинга, ни review rate, ни уведомления
         self._record(
             ReviewPublished(
                 review_id=self.id,
@@ -193,7 +244,7 @@ class Review(VersionedAggregate):
         was_visible = self.visible
         self.status = ReviewStatus.REMOVED
         self.updated_at = now
-        if was_visible:
+        if was_visible and self.rated:
             self._record(
                 ReviewRemoved(
                     review_id=self.id,
@@ -210,7 +261,7 @@ class Review(VersionedAggregate):
         if self.deleted_at is not None:
             return
         self.remove(reason=RemovalReason.AUTHOR_DELETED, now=now)
-        self.body = None
+        self.body = self.work_title = None
         self.criteria = {}
         self.deleted_at = self.updated_at = now
 

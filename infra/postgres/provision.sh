@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # PostgreSQL на db-1 (DEVELOPMENT_PLAN 3.1b, ADR-0015): кластер с builtin C.UTF-8, тот же
 # bootstrap.sql, что в dev-образе и на stage (роли с параметрами, расширения), pg_hba только из
-# приватной сети с TLS, настройки под память VM; pgBackRest — когда пришли ключи репозиториев (3.2).
+# приватной сети с TLS, настройки под память VM; pgBackRest — когда пришли ключи репозиториев (3.2):
+# конфиг, стенза, архив WAL и таймер бэкапов sosed-pgbackrest-backup.timer.
 #
 # Запускает make db-provision ENV=prod (или job db-provision в deploy-production): файлы каталога
 # infra/postgres лежат рядом в /opt/sosed/postgres, значения приходят строками ИМЯ=значение на stdin —
@@ -27,7 +28,7 @@ fail() {
 ROLE_VARS="APP_DB_PASSWORD MIGRATOR_DB_PASSWORD READONLY_DB_PASSWORD BACKUP_DB_PASSWORD"
 REPO_VARS="PGBACKREST_REPO1_S3_ENDPOINT PGBACKREST_REPO1_S3_REGION PGBACKREST_REPO1_S3_BUCKET PGBACKREST_REPO1_S3_KEY PGBACKREST_REPO1_S3_KEY_SECRET PGBACKREST_REPO1_CIPHER_PASS"
 REPO_VARS+=" PGBACKREST_REPO2_S3_ENDPOINT PGBACKREST_REPO2_S3_REGION PGBACKREST_REPO2_S3_BUCKET PGBACKREST_REPO2_S3_KEY PGBACKREST_REPO2_S3_KEY_SECRET PGBACKREST_REPO2_CIPHER_PASS"
-ALLOWED=" $ROLE_VARS $REPO_VARS DB_LISTEN_IP DB_SUBNET "
+ALLOWED=" $ROLE_VARS $REPO_VARS PGBACKREST_HEALTHCHECK_URL DB_LISTEN_IP DB_SUBNET "
 while IFS= read -r line || [[ -n "$line" ]]; do
   [[ -z "$line" || "$line" == \#* ]] && continue
   key=${line%%=*}
@@ -41,6 +42,13 @@ for name in $ROLE_VARS; do
 done
 [[ "${DB_LISTEN_IP:-}" =~ ^[0-9.]+$ ]] || fail "DB_LISTEN_IP — адрес db-1 в приватной сети"
 [[ "${DB_SUBNET:-}" =~ ^[0-9.]+/[0-9]+$ ]] || fail "DB_SUBNET — подсеть prod (CIDR)"
+[[ -z "${PGBACKREST_HEALTHCHECK_URL:-}" || "$PGBACKREST_HEALTHCHECK_URL" =~ ^https://[A-Za-z0-9./_-]+$ ]] ||
+  fail "PGBACKREST_HEALTHCHECK_URL — ping URL Healthchecks вида https://hc-ping.com/<uuid> (K33)"
+# Бэкапы уже включены, а ключей нет (забыли передать): без этой проверки archive_command вернулся бы в
+# /bin/true и молча порвал цепочку PITR. Выключают бэкапы только вручную, по runbook.
+if [[ -z "${PGBACKREST_REPO1_S3_KEY:-}" ]] && grep -qs '^repo1-type=' /etc/pgbackrest/pgbackrest.conf; then
+  fail "на db-1 бэкапы pgBackRest включены, а ключей PGBACKREST_REPO1_* в stdin нет — передайте их (prod-bootstrap.md, «Бэкапы»)"
+fi
 
 command -v pg_createcluster >/dev/null && [[ -x /usr/lib/postgresql/$PG_MAJOR/bin/postgres ]] ||
   fail "нет пакетов PostgreSQL $PG_MAJOR: cloud-init ещё не закончил? (cloud-init status --wait)"
@@ -167,5 +175,63 @@ if [[ -n "${PGBACKREST_REPO1_S3_KEY:-}" ]]; then
   runuser -u postgres -- pgbackrest --stanza="$STANZA" stanza-create
   runuser -u postgres -- pgbackrest --stanza="$STANZA" check
   log "pgBackRest: стенза $STANZA, архив WAL работает"
+
+  # --- расписание бэкапов (3.2): таймер systemd, полный по воскресеньям, иначе diff ---
+  changed=0 # перезапуск PostgreSQL выше уже решён; дальше флаг — про юниты
+  install_file /usr/local/sbin/sosed-pgbackrest-backup 0755 root:root < "$HERE/pgbackrest-backup.sh"
+  # ping URL — секрет (по нему можно отметить проверку и скрыть сбой, K33): только root, systemd
+  # читает файл до смены пользователя; в юнитах и журнале адреса нет
+  install -d -m 0750 -o root -g root /etc/sosed
+  install_file /etc/sosed/pgbackrest-backup.env 0600 root:root <<< "HEALTHCHECK_URL=${PGBACKREST_HEALTHCHECK_URL:-}"
+  install_file /etc/systemd/system/sosed-pgbackrest-backup.service 0644 root:root <<EOF
+# Управляется infra/postgres/provision.sh (3.2) — ручные правки перезапишутся.
+[Unit]
+Description=pgBackRest: бэкап стензы $STANZA (полный по воскресеньям, иначе diff)
+After=network-online.target postgresql@$PG_MAJOR-$CLUSTER.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=postgres
+Group=postgres
+EnvironmentFile=/etc/sosed/pgbackrest-backup.env
+ExecStart=/usr/local/sbin/sosed-pgbackrest-backup auto
+# бэкап уступает БД процессор и диск
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+TimeoutStartSec=6h
+EOF
+  install_file /etc/systemd/system/sosed-pgbackrest-backup.timer 0644 root:root <<EOF
+# Управляется infra/postgres/provision.sh (3.2) — ручные правки перезапишутся.
+[Unit]
+Description=pgBackRest: ежедневный бэкап стензы $STANZA
+
+[Timer]
+# ночью по Белграду, до platform.retention_sweep (03:37 UTC); разброс до 30 минут — не в одну
+# секунду с чужими ночными заданиями; пропущенный запуск (VM была выключена) — сразу после загрузки
+OnCalendar=*-*-* 01:30:00 UTC
+RandomizedDelaySec=30min
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+  [[ "$changed" == 0 ]] || systemctl daemon-reload
+  systemctl enable --quiet sosed-pgbackrest-backup.timer
+  if [[ "$changed" == 1 ]]; then
+    systemctl restart sosed-pgbackrest-backup.timer # новое расписание — сразу, без перезагрузки
+  else
+    systemctl start sosed-pgbackrest-backup.timer
+  fi
+  [[ -n "${PGBACKREST_HEALTHCHECK_URL:-}" ]] || log "PGBACKREST_HEALTHCHECK_URL нет — бэкапы идут без пингов Healthchecks"
+  # первый бэкап — сразу, а не следующей ночью: до него восстанавливать нечего
+  info=$(runuser -u postgres -- pgbackrest --stanza="$STANZA" --output=json info)
+  if [[ "$info" == *'"backup":[]'* ]]; then
+    systemctl start --no-block sosed-pgbackrest-backup.service
+    log "бэкапов ещё нет — первый запущен в фоне: journalctl -u sosed-pgbackrest-backup -f"
+  fi
+  log "таймер бэкапов: $(systemctl show -P NextElapseUSecRealtime sosed-pgbackrest-backup.timer)"
 fi
 log "OK ($(runuser -u postgres -- psql -X -Atc 'SHOW server_version' -d postgres), $(pgbackrest version 2>/dev/null || echo 'pgbackrest ?'))"

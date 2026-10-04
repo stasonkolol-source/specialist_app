@@ -15,9 +15,10 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.platform.analytics.alerts import check_response_rate, send_alert
-from app.platform.analytics.beta_report import render
+from app.platform.analytics.beta_report import render, render_weeks
 from app.platform.analytics.liquidity import (
     Ratio,
+    beta_weeks,
     liquidity_report,
     reporting_connection,
     week_window,
@@ -316,6 +317,24 @@ async def test_week_report_has_known_answer(data: Data) -> None:
     assert "Response rate@4h: 80% (4/5)" in text_report
     assert "Нови-Сад × " in text_report
     assert "Доля KYC: v1" in text_report
+
+
+async def test_all_weeks_from_first_to_current(data: Data) -> None:
+    """`cli beta-report --week all` (7.7): недели 1…текущая, у каждой — свои заявки и отклики."""
+    client, performer = await data.user(), await data.user()
+    first = await data.job(client, at(3, 9))  # неделя 1: отклик через 20 минут
+    await data.response(first, performer, minutes(20))
+    await data.job(client, at(10, 9))  # неделя 2: без откликов
+
+    reports = await beta_weeks(data.conn, BETA_START, as_of=at(18, 12))  # среда недели 3
+
+    assert [week for week, _ in reports] == [1, 2, 3]
+    assert [r.overall.rr_1h for _, r in reports] == [Ratio(1, 1), Ratio(0, 1), Ratio(0, 0)]
+    assert reports[0][1].overall.ttfr_minutes == pytest.approx(20.0)
+    table = render_weeks(reports, beta_start=BETA_START).splitlines()
+    assert any(line.startswith("| 1: 02.03–08.03 | 1 | 100% (1/1) |") for line in table)
+    assert any(line.startswith("| 2: 09.03–15.03 | 1 | 0% (0/1) |") for line in table)
+    assert any(line.startswith("| 3: 16.03–22.03 | 0 | — (0/0) |") for line in table)
 
 
 async def test_response_rate_alert_fires_on_drop(data: Data) -> None:

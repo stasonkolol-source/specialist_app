@@ -145,6 +145,25 @@ examples:
   - text: Bez avansa, nažalost, ne dolazim
     action: flag
     categories: [scam]
+  # калибровка 6.7: зона-слово в конце, зона с прописной, link in bio, сотни словами, сумма вперёд
+  - text: "Sajt: majstor.me"
+    action: flag
+    categories: [contacts]
+  - text: Pišite na ivan@gmail.Com ili Majstor.Rs
+    action: flag
+    categories: [contacts]
+  - text: Svi kontakti na linktr.ee/ivan_majstor
+    action: flag
+    categories: [contacts]
+  - text: Zovite nula šezdeset četiri sto dvadeset tri 45 67
+    action: flag
+    categories: [contacts]
+  - text: Скиньте 5000 на карту, и я выезжаю
+    action: flag
+    categories: [scam]
+  - text: 3000 динара унапред, остало после
+    action: flag
+    categories: [scam]
   # --- молчат: обычные заявки и отклики ------------------------------------------------------
   - text: Закладка фундамента под дом 10х12, нужна бригада
     action: pass
@@ -235,4 +254,15 @@ examples:
   - text: "Slobodni termini: 09.30 10.30 11.30 12.30"
     action: pass
   - text: "Свободные окна: 09:00 10:00 11:00 12:00"
+    action: pass
+  # калибровка 6.7: перечни, номер документа, «noon.to», карта после работы
+  - text: Termini 08 09 10 11 12 h
+    action: pass
+  - text: "Stavke: 01 02 03 04 05"
+    action: pass
+  - text: Nalog 0000123456
+    action: pass
+  - text: See you at noon.to be honest
+    action: pass
+  - text: 5000 на карту после работы
     action: pass

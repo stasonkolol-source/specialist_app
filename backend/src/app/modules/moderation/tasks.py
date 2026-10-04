@@ -10,12 +10,15 @@
   (DisputeUnanswered) — поводы «ответ» и «нет ответа», `moderation.close_dispute_case`
   (DisputeWithdrawn) — кейс закрыт без решения.
 - `moderation.post_case_card` — CaseOpened: карточка кейса в чате модераторов (2.5b).
+- `moderation.check_duplicates` — MediaReady: фото портфолио похоже (pHash) на работу другого
+  аккаунта — кейс P2 о профиле загрузившего (ADR-0016 L6, план 7.6).
 """
 
 from dishka import FromDishka
 
 from app.modules.moderation.application.ports import (
     AUTO_CHECK,
+    CHECK_DUPLICATES,
     CLOSE_DISPUTE_CASE,
     NOTE_DISPUTE_ANSWER,
     NOTE_DISPUTE_UNANSWERED,
@@ -24,6 +27,11 @@ from app.modules.moderation.application.ports import (
     RECORD_REREGISTRATION,
 )
 from app.modules.moderation.application.use_cases.auto_check import AutoCheck, AutoCheckCommand
+from app.modules.moderation.application.use_cases.check_duplicates import (
+    PORTFOLIO,
+    CheckDuplicates,
+    CheckDuplicatesCommand,
+)
 from app.modules.moderation.application.use_cases.post_case_card import (
     PostCaseCard,
     PostCaseCardCommand,
@@ -49,6 +57,7 @@ from app.platform.contracts.events.deals import (
     DisputeWithdrawn,
 )
 from app.platform.contracts.events.identity import UserRegistered
+from app.platform.contracts.events.media import MediaReady
 from app.platform.contracts.events.moderation import CaseOpened, ModerationRequested
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber
 
@@ -110,3 +119,10 @@ async def rate_limit_signals(run: PeriodicRun) -> None:
 @subscriber(CaseOpened, POST_CASE_CARD)
 async def post_case_card(event: CaseOpened, post: FromDishka[PostCaseCard]) -> None:
     await post(PostCaseCardCommand(case_id=event.case_id))
+
+
+@subscriber(MediaReady, CHECK_DUPLICATES)
+async def check_duplicates(event: MediaReady, check: FromDishka[CheckDuplicates]) -> None:
+    """Фото портфолио (у ролика — постер) обработано: нет ли его у других аккаунтов."""
+    if event.purpose == PORTFOLIO:
+        await check(CheckDuplicatesCommand(media_id=event.media_id, owner_id=event.owner_id))
