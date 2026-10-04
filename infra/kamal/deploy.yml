@@ -37,10 +37,16 @@ servers:
     options:
       memory: 640m
       cpuset-cpus: "0-1"
-  # Пока бот принимает апдейты long polling (backend/src/app/entrypoints/bot.py): webhook с
-  # secret_token — шаг 0.25e; тогда роль получит proxy с path_prefix /integrations/telegram/.
+  # Бот принимает webhook Telegram (0.25e, ADR-0011): у роли свой хост в kamal-proxy — Kamal не
+  # даёт двум ролям один хост с TLS. Хост (stage-bot., bot.) и сертификат — в destination, порт,
+  # /up и буферы — от proxy ниже. Откат на TELEGRAM_UPDATES=polling — вместе с `proxy: false` у
+  # роли в destination: polling не отвечает на /up, и деплой ждал бы healthcheck до таймаута.
   bot:
     cmd: bot
+    proxy:
+      app_port: 8000
+      healthcheck:
+        path: /up
     options:
       memory: 256m
       cpuset-cpus: "0-1"
@@ -55,8 +61,8 @@ servers:
       memory: 768m
       cpuset-cpus: "1"
 
-# kamal-proxy перед web: TLS сертификатом Origin CA (Full strict), переключение без простоя.
-# Хост и сертификат — в destination.
+# kamal-proxy перед web и bot: TLS сертификатом Origin CA (Full strict), переключение без простоя.
+# Хосты и сертификат — в destination.
 proxy:
   app_port: 8000
   forward_headers: true
