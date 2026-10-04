@@ -280,6 +280,51 @@ describe('S11 reviews', () => {
     expect(await screen.findByText('Отзыв номер 21')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Показать ещё' })).toBeNull();
   });
+
+  it('switches to the «До платформы» tab: invite reviews with their label (7.6а)', async () => {
+    const kinds: (string | null)[] = [];
+    server.events.on('request:start', ({ request }) => {
+      const url = new URL(request.url);
+      if (url.pathname.endsWith('/reviews')) kinds.push(url.searchParams.get('kind'));
+    });
+    startApp(`${PROFILE}/reviews`);
+
+    const tabs = await screen.findByRole('radiogroup', { name: 'Какие отзывы показать' });
+    const deals = within(tabs).getByRole('radio', { name: 'По сделкам · 37' });
+    expect(deals.getAttribute('aria-checked')).toBe('true');
+    expect(await screen.findByText('Ирина С.')).toBeTruthy();
+    expect(screen.getAllByText('Сделка в «Соседях»')).toHaveLength(3);
+    await click(within(tabs).getByRole('radio', { name: 'До платформы · 2' }));
+
+    const ksenia = (await screen.findByText('Ксения Д.')).closest('article') as HTMLElement;
+    // вместо услуги — «что делал мастер»; метка вместо «Сделка в «Соседях»»
+    expect(within(ksenia).getByText('Сентябрь · Проводка в ванной и светильники')).toBeTruthy();
+    expect(within(ksenia).getByText('До платформы — не подтверждён сделкой')).toBeTruthy();
+    expect(screen.queryByText('Ирина С.')).toBeNull();
+    expect(screen.queryByText('Сделка в «Соседях»')).toBeNull();
+    // сводка рейтинга — по сделкам, она остаётся
+    expect(screen.getAllByText('4,9').length).toBeGreaterThan(0);
+    expect(kinds).toEqual(['deal', 'pre_platform']);
+  });
+
+  it('explains an empty «До платформы» tab', async () => {
+    server.use(
+      http.get(/\/api\/v1\/specialists\/[^/]+\/reviews$/, ({ request }) => {
+        const pre = new URL(request.url).searchParams.get('kind') === 'pre_platform';
+        return HttpResponse.json({
+          summary,
+          items: pre ? [] : [review(1)],
+          next_cursor: null,
+          pre_platform_count: 0,
+        } satisfies CardReviewsOut);
+      }),
+    );
+    startApp(`${PROFILE}/reviews`);
+
+    await click(await screen.findByRole('radio', { name: 'До платформы · 0' }));
+
+    expect(await screen.findByRole('heading', { name: 'Отзывов до платформы нет' })).toBeTruthy();
+  });
 });
 
 describe('S08 share (7.4)', () => {

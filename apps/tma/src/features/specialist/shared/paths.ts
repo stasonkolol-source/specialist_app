@@ -13,7 +13,7 @@ export const BECOME_PATHS = {
 export const ACCOUNT_PATH = '/profile';
 
 /** Кабинет S33, правка профиля S34, прайс S35–S36, портфолио S37 и работа, доступность S38
- *  (DEVELOPMENT_PLAN 2.10–2.11). */
+ *  (DEVELOPMENT_PLAN 2.10–2.11), приглашения на «отзыв до платформы» S55 (7.6а). */
 export const CABINET_PATHS = {
   home: '/cabinet',
   profile: '/cabinet/profile',
@@ -23,6 +23,7 @@ export const CABINET_PATHS = {
   price: '/cabinet/prices/$serviceId',
   portfolio: '/cabinet/portfolio',
   work: '/cabinet/portfolio/$itemId',
+  reviewInvites: '/cabinet/review-invites',
 } as const;
 
 export interface BecomeSearch {

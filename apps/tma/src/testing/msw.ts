@@ -46,6 +46,7 @@ import {
 import type { BackendReply } from './backend.ts';
 import { ChatBackend } from './chatBackend.ts';
 import { FavoritesBackend } from './favoritesBackend.ts';
+import { InvitesBackend } from './invitesBackend.ts';
 import { JobsBackend } from './jobsBackend.ts';
 import { ProfileBackend } from './profileBackend.ts';
 import { SafetyBackend } from './safetyBackend.ts';
@@ -105,6 +106,25 @@ export const profileHandlers = (backend: () => ProfileBackend) => [
   }),
 ];
 
+/** Форма «отзыва до платформы» S56 и отзыв по ссылке (7.6а) по фейку backend; по умолчанию —
+ *  свежий на каждый запрос: ссылок нет (404). Тесты S56 ставят свой — с памятью (server.use).
+ *  Приглашения специалиста S55 — у фейка кабинета (profileHandlers). */
+export const invitesHandlers = (backend: () => InvitesBackend) => [
+  http.all(/\/api\/v1\/review-invites\/[^/]+$/, async ({ request }) => {
+    const body =
+      request.method === 'POST' ? await request.json().catch(() => undefined) : undefined;
+    return respond(
+      backend().handlePublic(
+        request.method,
+        new URL(request.url).pathname,
+        body,
+        request.headers.has('Authorization'),
+        request.headers.get('Accept-Language'),
+      ),
+    );
+  }),
+];
+
 /** Каталог S04–S06 (4.4): выдача, «Показать N» и числа дерева — из фикстур, как у backend. */
 export const searchHandlers = [
   getSearchListSpecialistsMockHandler(({ request }) =>
@@ -144,11 +164,17 @@ export const favoritesHandlers = (backend: () => FavoritesBackend) => [
 /** Карточка S08–S10 (4.5). После searchHandlers: путь `/specialists/:id` иначе перехватил бы
  *  `/specialists/count` и `/specialists/by-category`. */
 export const cardHandlers = [
-  http.get(/\/api\/v1\/specialists\/[^/]+(\/services|\/portfolio|\/reviews)?$/, ({ request }) =>
-    respond(
-      cardReply(new URL(request.url).pathname, request.headers.get('Accept-Language')) ?? null,
-    ),
-  ),
+  http.get(/\/api\/v1\/specialists\/[^/]+(\/services|\/portfolio|\/reviews)?$/, ({ request }) => {
+    const url = new URL(request.url);
+    return respond(
+      cardReply(
+        url.pathname,
+        request.headers.get('Accept-Language'),
+        undefined,
+        url.searchParams,
+      ) ?? null,
+    );
+  }),
 ];
 
 /** Заявки: создание (5.2), лента, «не интересно» и сохранённые (5.3), отклики и шаблоны (5.5),
@@ -231,6 +257,7 @@ export const handlers = [
   ...cardHandlers,
   ...favoritesHandlers(() => new FavoritesBackend()),
   ...profileHandlers(() => new ProfileBackend()),
+  ...invitesHandlers(() => new InvitesBackend()),
   ...jobsHandlers(() => new JobsBackend()),
   ...chatHandlers(() => new ChatBackend()),
   ...safetyHandlers(() => new SafetyBackend()),

@@ -23,6 +23,7 @@ export {
   dealPath,
   disputePath,
   historySearch,
+  inviteReviewPath,
   jobIdOf,
   jobPath,
   reviewPath,

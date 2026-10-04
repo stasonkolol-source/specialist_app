@@ -1,7 +1,8 @@
 // Кабинет исполнителя в памяти — как backend 2.8a–2.11: профиль, «чего не хватает», прайс,
 // портфолио и фото профиля. Один и тот же для MSW в Vitest (testing/msw.ts) и page.route в e2e
 // (e2e/api.ts): мастер S32a–c проходит по нему от «профиля нет» до «на проверке». Файлы работ и
-// фото — из MediaBackend: что загружено и как обработано.
+// фото — из MediaBackend: что загружено и как обработано; приглашения на «отзыв до платформы» S55
+// (7.6а) — из InvitesBackend.
 import type {
   CompletenessOut,
   HintOut,
@@ -20,6 +21,7 @@ import type {
 import type { BackendReply } from './backend.ts';
 import { problem } from './backend.ts';
 import { PROFILE_DRAFT } from './fixtures.ts';
+import { InvitesBackend } from './invitesBackend.ts';
 import { MediaBackend } from './mediaBackend.ts';
 
 /** Лимиты портфолио — LIMITS backend: 60 фото и 6 роликов. */
@@ -33,6 +35,8 @@ export interface ProfileBackendOptions {
   works?: readonly WorkOut[];
   /** Файлы: загрузки S37 и S34 и их обработка. */
   media?: MediaBackend;
+  /** Приглашения на «отзыв до платформы» S55 и форма S56 по ним (7.6а). */
+  invites?: InvitesBackend;
 }
 
 export class ProfileBackend {
@@ -40,16 +44,22 @@ export class ProfileBackend {
   services: ServiceOut[];
   works: WorkOut[];
   readonly media: MediaBackend;
+  readonly invites: InvitesBackend;
   readonly log: BackendLog = [];
 
   constructor(
     profile: ProfileOut | null = null,
     services: ServiceOut[] = [],
-    { works = [], media = new MediaBackend() }: ProfileBackendOptions = {},
+    {
+      works = [],
+      media = new MediaBackend(),
+      invites = new InvitesBackend(),
+    }: ProfileBackendOptions = {},
   ) {
     this.services = [...services];
     this.works = [...works];
     this.media = media;
+    this.invites = invites;
     this.profile = profile && this.refresh(profile);
   }
 
@@ -64,6 +74,9 @@ export class ProfileBackend {
 
   private route(request: string, body: unknown): BackendReply | null {
     if (request === 'POST /me/profile') return this.create(body as ProfileCreateIn);
+    // приглашения S55: список есть и без профиля (пустой), ссылку — только у опубликованного
+    const invites = this.invites.handleMine(request, body, this.profile?.status === 'published');
+    if (invites) return invites;
     if (request === 'GET /me/profile/services') return this.ok({ items: this.services });
     const profile = this.profile;
     if (!profile) return problem(404, 'profile_not_found');
