@@ -80,10 +80,14 @@ class PortfolioItem(AggregateRoot):
     def pending(self) -> bool:
         return self.status is WorkStatus.PENDING
 
-    def approve(self) -> bool:
-        """Проверка пройдена: ждавшая проверки — опубликована; скрытая автопроверкой (P0) —
-        возвращена решением модератора. False — уже опубликована."""
+    def approve(self, *, auto: bool = False) -> bool:
+        """Проверка пройдена: ждавшая проверки — опубликована; скрытая (P0 или модератором) —
+        возвращена, но только решением модератора. `auto` — итог автопроверки: модератор мог
+        скрыть работу, пока она шла, и опоздавший итог его решение не отменяет (как версия у
+        профиля). False — уже опубликована или скрыта, а это автопроверка."""
         if self.status is WorkStatus.PUBLISHED:
+            return False
+        if auto and self.status is WorkStatus.REJECTED:
             return False
         self.status = WorkStatus.PUBLISHED
         return True

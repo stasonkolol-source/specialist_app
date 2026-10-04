@@ -214,9 +214,13 @@ class ModerationTarget(Protocol):
         """Что проверять; None — объекта нет или он уже не ждёт проверки."""
         ...
 
-    async def publish(self, entity_id: UUID, *, version: int | None = None) -> None:
+    async def publish(
+        self, entity_id: UUID, *, version: int | None = None, auto: bool = False
+    ) -> None:
         """Проверка пройдена: «на проверке» → «опубликован»; в другом статусе или другой
-        версии — ничего (автор успел изменить или снять объект)."""
+        версии — ничего (автор успел изменить или снять объект). `auto` — итог автопроверки:
+        скрытое модератором, пока она шла, не возвращает — это делает только его решение
+        (`decide_case`, без `auto`); у объектов с версией это отсекает и `version`."""
         ...
 
     async def hide(self, entity_id: UUID, *, reason_code: str) -> None:
