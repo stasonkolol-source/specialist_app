@@ -51,8 +51,10 @@ def resolve_client(
 ) -> str | None:
     """Адрес клиента по правилам модуля; None — адреса нет (соединение без адреса)."""
     peer_ip = parse_ip(peer)
-    if peer_ip is None or not _within(peer_ip, trusted_proxies):
+    if peer_ip is None:
         return peer
+    if not _within(peer_ip, trusted_proxies):
+        return str(peer_ip)  # ::ffff:1.2.3.4 и 1.2.3.4 — один клиент и один счётчик лимита
     hop = _first_untrusted_hop(headers, peer_ip, trusted_proxies)
     if _within(hop, cloudflare):
         connecting = parse_ip(headers.get("cf-connecting-ip"))

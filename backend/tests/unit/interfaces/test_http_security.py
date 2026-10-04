@@ -90,6 +90,7 @@ def _resolve(peer: str, headers: dict[str, str]) -> str | None:
             "2a02:1::5",
         ),
         ("::ffff:172.18.0.2", {"x-forwarded-for": VISITOR}, VISITOR),
+        (f"::ffff:{VISITOR}", {"x-forwarded-for": SPOOFED}, VISITOR),
     ],
 )
 def test_client_address_ignores_what_the_client_wrote(
