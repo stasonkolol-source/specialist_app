@@ -7,10 +7,10 @@
 # PROD_MODERATORS_CHAT_ID — prod-чат модераторов (K29), ADMIN_HOST — admin.<домен>, только когда
 # Access включён (K31). В CI — Variables environment «production».
 #
-# Бот на проде — webhook (ADR-0011): апдейты на api.<домен>/integrations/telegram/ (skip-правило WAF
-# — infra/terraform/zone), секрет — TELEGRAM_WEBHOOK_SECRET. Режим (TELEGRAM_UPDATES=webhook) и
-# маршрут роли bot в kamal-proxy включаются в deploy.yml вместе со stage, когда код webhook (0.25e)
-# в main; до того bot работает long polling.
+# Бот на проде — webhook (ADR-0011, 0.25e): апдейты на bot.<домен>/integrations/telegram/webhook —
+# свой хост роли bot в kamal-proxy (Kamal не даёт двум ролям один хост с TLS), skip-правило WAF —
+# infra/terraform/zone, секрет — TELEGRAM_WEBHOOK_SECRET. Откат на long polling —
+# TELEGRAM_UPDATES=polling.
 
 # Лимиты под CX33 (4 vCPU, 8 GB, swap 2 GB) без БД на машине: медиа — на своём ядре (ffmpeg не
 # отнимает CPU у API), остальные делят три. cpuset, а не cpus (§16.1).
@@ -24,6 +24,13 @@ servers:
   bot:
     hosts:
       - <%= ENV.fetch("PROD_HOST") %>
+    # ключ — hosts, как у proxy ниже: Kamal не принимает host и hosts в одном (слитом) proxy
+    proxy:
+      hosts:
+        - bot.<%= ENV.fetch("PROD_DOMAIN") %>
+      ssl:
+        certificate_pem: KAMAL_PROXY_SSL_CERT
+        private_key_pem: KAMAL_PROXY_SSL_KEY
     options:
       memory: 384m
       cpuset-cpus: "0-2"
@@ -41,7 +48,7 @@ servers:
       cpuset-cpus: "3"
 
 proxy:
-  # API (и webhook бота); admin.<домен> — только за Access: ADMIN_HOST задаёт деплой (K31)
+  # API (web); бот — свой хост выше; admin.<домен> — только за Access: ADMIN_HOST задаёт деплой (K31)
   hosts:
     - api.<%= ENV.fetch("PROD_DOMAIN") %>
     # <% if ENV["ADMIN_HOST"].to_s != "" %>
@@ -58,6 +65,9 @@ env:
     # web доверяет X-Forwarded-* только kamal-proxy: сеть «kamal» с подсетью из Terraform
     # (docker_network_cidr). Края Cloudflare — APP_CLOUDFLARE_IPS по умолчанию (settings.py).
     APP_TRUSTED_PROXIES: '["172.30.0.0/24"]'
+    # апдейты бота — webhook с secret_token на хост роли bot (0.25e)
+    TELEGRAM_UPDATES: webhook
+    TELEGRAM_WEBHOOK_BASE_URL: https://bot.<%= ENV.fetch("PROD_DOMAIN") %>
     TELEGRAM_BOT_USERNAME: <%= ENV.fetch("PROD_BOT_USERNAME") %>
     TELEGRAM_MINI_APP_URL: https://app.<%= ENV.fetch("PROD_DOMAIN") %>
     TELEGRAM_MODERATORS_CHAT_ID: '<%= ENV.fetch("PROD_MODERATORS_CHAT_ID", "") %>'

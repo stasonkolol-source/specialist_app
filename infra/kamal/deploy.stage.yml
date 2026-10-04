@@ -9,6 +9,13 @@ servers:
   bot:
     hosts:
       - <%= ENV.fetch("STAGE_HOST") %>
+    # webhook Telegram на своём хосте (тот же сертификат Origin CA, Terraform stage); ключ — host,
+    # как у proxy ниже: Kamal не принимает host и hosts в одном (слитом) proxy
+    proxy:
+      host: stage-bot.<%= ENV.fetch("STAGE_DOMAIN") %>
+      ssl:
+        certificate_pem: KAMAL_PROXY_SSL_CERT
+        private_key_pem: KAMAL_PROXY_SSL_KEY
   worker:
     hosts:
       - <%= ENV.fetch("STAGE_HOST") %>
@@ -17,7 +24,7 @@ servers:
       - <%= ENV.fetch("STAGE_HOST") %>
 
 proxy:
-  # только API; stage-admin. kamal-proxy не обслуживает до Access (K31, 2.7b)
+  # API (web); бот — свой хост выше; stage-admin. kamal-proxy не обслуживает до Access (K31, 2.7b)
   host: stage-api.<%= ENV.fetch("STAGE_DOMAIN") %>
   ssl:
     certificate_pem: KAMAL_PROXY_SSL_CERT
@@ -30,8 +37,10 @@ env:
     # web доверяет X-Forwarded-* только kamal-proxy: сеть «kamal» с подсетью из Terraform
     # (docker_network_cidr). Края Cloudflare — APP_CLOUDFLARE_IPS по умолчанию (settings.py).
     APP_TRUSTED_PROXIES: '["172.30.0.0/24"]'
-    # апдейты бота — webhook с secret_token (0.25e); откат на long polling — `polling`
+    # апдейты бота — webhook с secret_token на хост роли bot (0.25e); откат на long polling —
+    # `polling`. bot-setup в контейнере web видит те же значения
     TELEGRAM_UPDATES: webhook
+    TELEGRAM_WEBHOOK_BASE_URL: https://stage-bot.<%= ENV.fetch("STAGE_DOMAIN") %>
     TELEGRAM_BOT_USERNAME: <%= ENV.fetch("STAGE_BOT_USERNAME") %>
     TELEGRAM_MINI_APP_URL: https://stage-app.<%= ENV.fetch("STAGE_DOMAIN") %>
     S3_ENDPOINT_URL: https://<%= ENV.fetch("R2_ACCOUNT_ID") %>.eu.r2.cloudflarestorage.com
