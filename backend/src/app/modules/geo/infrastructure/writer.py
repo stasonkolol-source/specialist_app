@@ -1,7 +1,9 @@
 """Импорт сидов geo: upsert по slug, неизменённые записи не трогаются (seed_hash).
 
 Название, поправленное в админке (`name_origin = admin`, 2.7b), импорт оставляет как есть;
-центр, границы и остальное по-прежнему ведёт сид.
+центр, границы и остальное по-прежнему ведёт сид. Включён ли город и его место в списке
+(`is_active`, `sort_order`) сид задаёт только при вставке: дальше их ведёт админка (запуск
+города), и правка записи города в сиде их не возвращает. `is_active` района сид не задаёт вовсе.
 """
 
 import hashlib
@@ -55,11 +57,10 @@ class SqlGeoWriter:
                 "name": name,
                 "center": seed.center,
                 "boundary": _geometry(seed.boundary_wkt),
-                "is_active": seed.active,
-                "sort_order": seed.sort_order,
                 "seed_hash": city_hash,
             },
             counts,
+            inserted_only={"is_active": seed.active, "sort_order": seed.sort_order},
         )
         ids: dict[str, int] = {}
         ordered = sorted(seed.districts, key=lambda d: d.kind is not DistrictKind.MUNICIPALITY)
@@ -101,7 +102,10 @@ class SqlGeoWriter:
         keys: dict[str, object],
         values: dict[str, object],
         counts: dict[str, int],
+        *,
+        inserted_only: dict[str, object] | None = None,
     ) -> int:
+        """`inserted_only` — значения новой строки, которые у существующей ведёт админка."""
         table = row.__table__
         existing = (
             await self._session.execute(
@@ -113,7 +117,7 @@ class SqlGeoWriter:
         if existing is not None and existing.seed_hash == values["seed_hash"]:
             counts["unchanged"] += 1
             return int(existing.id)
-        proposed = insert(row).values(**keys, **values)
+        proposed = insert(row).values(**keys, **values, **(inserted_only or {}))
         name = case(
             (table.c.name_origin == NameOrigin.ADMIN, table.c.name), else_=proposed.excluded.name
         )

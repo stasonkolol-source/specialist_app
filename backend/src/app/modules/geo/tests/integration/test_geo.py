@@ -3,6 +3,7 @@
 import procrastinate
 import pytest
 from shapely.geometry import MultiPolygon, box
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.plugins.database import make_uow
 
@@ -121,7 +122,11 @@ async def test_far_points_and_inactive_cities_are_outside(
 ) -> None:
     await _import(db_session, procrastinate_app, a_city())
     assert await SqlGeoQuery(db_session).resolve(GeoPoint(lat=1.0, lon=1.0)) is None
-    await _import(db_session, procrastinate_app, a_city(active=False))
+    # город выключает админка (2.7b): `active` из сида задаёт только новую строку
+    await db_session.execute(
+        text("UPDATE geo.cities SET is_active = false WHERE slug = 'test-city'")
+    )
+    await db_session.commit()  # правка админки — своя транзакция (здесь — savepoint теста)
     assert await SqlGeoQuery(db_session).resolve(GeoPoint(lat=0.005, lon=0.005)) is None
 
 
