@@ -117,7 +117,9 @@ async def test_appeal_opens_an_appeals_case_once(web: Web) -> None:
     assert first.status_code == 201, first.text
     body = first.json()
     assert (body["appeal_of"], body["status"]) == (str(decision), "pending")
+    assert body["repeated"] is False
     assert (again.status_code, again.json()["id"]) == (200, body["id"])  # «уже обжаловано»
+    assert again.json()["repeated"] is True
     assert (other.status_code, other.json()["code"]) == (404, "appeal_target_not_found")
     assert (foreign.status_code, foreign.json()["code"]) == (404, "appeal_target_not_found")
     case = await row(

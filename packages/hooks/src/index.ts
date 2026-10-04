@@ -318,6 +318,7 @@ export {
   REPORT_REASONS,
   allowedReason,
   reportQueue,
+  useAppeal,
   useReport,
 } from './safety/reports.ts';
 export type { ReportTarget } from './safety/reportRequest.ts';

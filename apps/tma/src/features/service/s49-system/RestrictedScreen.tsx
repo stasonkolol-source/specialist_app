@@ -1,10 +1,16 @@
-// S49b «Аккаунт ограничен» (DEVELOPMENT_PLAN 1.5a): вид санкции и срок — из ответа 403
-// `restricted`. Кнопку «Обжаловать» (MainButton макета) и блок «Решение модератора» включает
-// шаг 2.5b: до него у клиента нет ни апелляций, ни причины решения. Правила площадки
-// открываются здесь же (S48): экран работает и поверх всего приложения, где роутера нет.
+// S49b «Аккаунт ограничен» (DEVELOPMENT_PLAN 1.5a, 2.5b): вид санкции, срок и причина — из ответа
+// 403 `restricted`. «Обжаловать» — MainButton макета: `POST /appeals` с видом санкции, сервер
+// находит её решение; после — «Апелляция отправлена» со сроком ответа (72 ч) или «уже
+// обжаловано» с итогом, кнопка уходит. Правила площадки открываются здесь же (S48): экран
+// работает и поверх всего приложения, где роутера нет. «Как принято решение» макета — нет:
+// в ответе 403 этого признака нет (модератор или автопроверка), а гадать не будем.
+import type { AppealOut } from '@sosed/api-client';
+import { ApiError } from '@sosed/api-client';
+import { color } from '@sosed/design-tokens';
 import type { LegalDocumentKey } from '@sosed/hooks';
+import { useAppeal } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
-import { useBackButton } from '@sosed/platform';
+import { useBackButton, useColorScheme, useMainButton } from '@sosed/platform';
 import { Banner, Card, Group, Heading, Icon, Row, SectionTitle, Text } from '@sosed/ui-web';
 import { useId, useState } from 'react';
 
@@ -30,6 +36,7 @@ function Restriction({ state, onRules }: { state: RestrictedState; onRules: () =
   const { t } = useTranslation('service');
   const format = useFormat();
   const leftId = useId();
+  const appeal = useAppealButton(state);
   const kind = state.restriction ?? 'other';
   const action = t('restricted.action', { kind });
   const until = state.until;
@@ -54,6 +61,17 @@ function Restriction({ state, onRules }: { state: RestrictedState; onRules: () =
       <Banner tone="danger" icon="ban" role="alert">
         {banner}
       </Banner>
+      {state.reason && (
+        <section
+          aria-label={t('restricted.decision')}
+          className="flex flex-col gap-1 overflow-hidden rounded-card bg-surface px-4 py-3"
+        >
+          <Text variant="cap" secondary>
+            {t('restricted.reasonLabel')}
+          </Text>
+          <Text>{t('restricted.reason', { code: state.reason })}</Text>
+        </section>
+      )}
       {/* Санкция на весь аккаунт закрывает и переписку, и настройки: списка «доступно» нет */}
       {!state.blocking && (
         <section className="flex flex-col gap-2" aria-labelledby={leftId}>
@@ -70,12 +88,62 @@ function Restriction({ state, onRules }: { state: RestrictedState; onRules: () =
           </Card>
         </section>
       )}
-      <Text variant="cap" className="px-1">
-        {t('restricted.appeal')}
-      </Text>
+      {appeal.filed ? (
+        <AppealFiled filed={appeal.filed} />
+      ) : (
+        <Text variant="cap" className="px-1">
+          {t('restricted.appeal')}
+        </Text>
+      )}
+      {appeal.failed && (
+        <Banner tone="danger" role="alert">
+          {appeal.detail ?? t('restricted.appealError')}
+        </Banner>
+      )}
       <Group>
         <Row icon="file" title={t('legal.title.terms')} chevron onClick={onRules} />
       </Group>
     </section>
   );
+}
+
+/** MainButton «Обжаловать»: пока апелляции нет; ответ сервера — состояние под баннером. */
+function useAppealButton(state: RestrictedState) {
+  const { t } = useTranslation('service');
+  const palette = color[useColorScheme()];
+  const appeal = useAppeal();
+  const filed = appeal.data ?? null;
+  useMainButton({
+    text: t('restricted.appealButton'),
+    visible: filed === null,
+    enabled: !appeal.isPending,
+    loading: appeal.isPending,
+    color: palette.accent,
+    textColor: palette['accent-ink'],
+    onClick: () => appeal.mutate(state.restriction ? { restriction: state.restriction } : {}),
+  });
+  return { filed, failed: appeal.isError, detail: problemDetail(appeal.error) };
+}
+
+/** «Апелляция отправлена» со сроком ответа или «уже обжаловано» с итогом. */
+function AppealFiled({ filed }: { filed: AppealOut }) {
+  const { t } = useTranslation('service');
+  const format = useFormat();
+  const due = new Date(filed.due_at);
+  const when = { date: format.date(due), time: format.time(due) };
+  return (
+    <Banner tone="ok" role="status">
+      {filed.repeated
+        ? t('restricted.appealRepeated', { status: filed.status, ...when })
+        : t('restricted.appealSent', when)}
+    </Banner>
+  );
+}
+
+/** Нечего обжаловать или срок прошёл — текст сервера; остальное — общий текст экрана. */
+function problemDetail(error: unknown): string | null {
+  if (error instanceof ApiError && (error.status === 404 || error.status === 409)) {
+    return error.problem.detail ?? null;
+  }
+  return null;
 }

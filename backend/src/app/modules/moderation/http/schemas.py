@@ -85,6 +85,9 @@ class AppealOut(BaseModel):
     )
     due_at: datetime = Field(description="Срок ответа: 72 часа с подачи")
     created_at: datetime
+    repeated: bool = Field(
+        description="true — решение уже обжаловали раньше: это та же апелляция (ответ 200)"
+    )
 
     @classmethod
     def of(cls, filed: FiledAppeal) -> AppealOut:
@@ -97,4 +100,5 @@ class AppealOut(BaseModel):
             status=appeal.status.value,
             due_at=appeal.due_at,
             created_at=appeal.opened_at,
+            repeated=not filed.created,
         )
