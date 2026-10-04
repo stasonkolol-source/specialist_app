@@ -63,8 +63,10 @@ client_config = Table(
     Column("key", String(64), primary_key=True),
     Column("value", JSONB, nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("updated_by", Uuid),
 )
-"""Конфигурация клиентов (GET /client-config): min_versions, legal_versions, … — правит админка."""
+"""Конфигурация клиентов (GET /client-config): min_versions, legal_versions, … — правит админка.
+`updated_by` — сотрудник, менявший последним (platform_0006); NULL — миграция или SQL."""
 
 feature_flags = Table(
     "feature_flags",
@@ -75,5 +77,7 @@ feature_flags = Table(
     Column("public", Boolean, nullable=False, server_default=text("false")),
     Column("description", Text, nullable=False, server_default=""),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("updated_by", Uuid),
 )
-"""Флаги `<модуль>.<флаг>`; public — уходят клиенту в client-config, остальные — только backend."""
+"""Флаги `<модуль>.<флаг>`; public — уходят клиенту в client-config, остальные — только backend.
+`updated_by` — сотрудник, переключавший последним (platform_0006); NULL — миграция или SQL."""

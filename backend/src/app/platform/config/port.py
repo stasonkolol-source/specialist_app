@@ -9,6 +9,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Final, Protocol
 
+CLIENT_CONFIG_MAX_AGE: Final = 60
+"""max-age ответа GET /client-config, секунды: столько Mini App не перечитывает конфигурацию."""
 MAINTENANCE_FLAG: Final = "platform.maintenance"
 """Техработы: публичный флаг. Включён — API отвечает 503 `maintenance`, Mini App показывает S49."""
 

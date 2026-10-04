@@ -6,6 +6,8 @@
 - `search_terms`: `norm` — генерируемая колонка `platform.search_norm(term)`, один ключ
   для ru, sr-Latn, sr-Cyrl и en; btree для префикса и GiST trgm для опечаток (§9.1, §9.7).
 - `seed_hash` — хэш данных сида: повторный `cli seed` ничего не меняет.
+- `name_origin = admin` — название поправили в админке (2.7b, catalog_0002): импорт его не
+  переписывает, остальное в строке ведёт сид.
 """
 
 from collections.abc import Mapping
@@ -34,7 +36,7 @@ from sqlalchemy.types import TypeDecorator
 from app.modules.catalog.api import RiskLevel
 from app.modules.catalog.domain.category import MAX_DEPTH, PriceHint, PriceUnit
 from app.platform.db.base import ModelBase, module_metadata
-from app.platform.db.types import LocalizedTextType, localized_text_check, str_enum
+from app.platform.db.types import LocalizedTextType, NameOrigin, localized_text_check, str_enum
 from app.platform.kernel.localized import Locale, LocalizedText
 from app.platform.kernel.money import Money
 
@@ -106,6 +108,9 @@ class CategoryRow(Base):
     )
     risk_level: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
     seed_hash: Mapped[str | None] = mapped_column(String(64))
+    name_origin: Mapped[NameOrigin] = mapped_column(
+        str_enum(NameOrigin, "name_origin"), server_default=NameOrigin.SEED.value
+    )
 
     __table_args__ = (
         localized_text_check("name"),
@@ -130,6 +135,9 @@ class TagRow(Base):
     slug: Mapped[str] = mapped_column(String(64), unique=True)
     name: Mapped[LocalizedText] = mapped_column(LocalizedTextType)
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    name_origin: Mapped[NameOrigin] = mapped_column(
+        str_enum(NameOrigin, "name_origin"), server_default=NameOrigin.SEED.value
+    )
 
     __table_args__ = (
         localized_text_check("name"),

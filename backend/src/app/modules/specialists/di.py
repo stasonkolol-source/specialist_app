@@ -20,7 +20,10 @@ from app.modules.specialists.application.use_cases.create_profile import CreateP
 from app.modules.specialists.application.use_cases.edit_profile import EditProfile
 from app.modules.specialists.application.use_cases.forget_profile import ForgetProfile
 from app.modules.specialists.application.use_cases.hide_profile import HideProfile
-from app.modules.specialists.application.use_cases.mark_founding import MarkFounding
+from app.modules.specialists.application.use_cases.mark_founding import (
+    MarkFounding,
+    SetFounding,
+)
 from app.modules.specialists.application.use_cases.remind_stale_profiles import (
     RemindStaleProfiles,
 )
@@ -76,3 +79,4 @@ class SpecialistsProvider(Provider):
     remove_portfolio_work = provide(RemovePortfolioWork)
     set_profile_avatar = provide(SetProfileAvatar)
     mark_founding = provide(MarkFounding)
+    set_founding = provide(SetFounding)

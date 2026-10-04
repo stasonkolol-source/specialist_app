@@ -1,115 +1,31 @@
 """Вход персонала и разделы админки (DEVELOPMENT_PLAN 2.7a–b): SQLAdmin на /admin.
 
 2.7a: без кода TOTP не войти, код второй раз не принимается; moderator не видит разделов admin;
-неудачные входы ограничены лимитом. 2.7b: правка категории пишет аудит и выпускает CatalogChanged
-(advisory lock — тот же, что у импорта); новое стоп-слово действует без перезапуска; регулярку из
-админки не завести; решение по кейсу — через use case, с аудитом.
+неудачные входы ограничены лимитом. 2.7b: правка категории (и её названия формой LocalizedText)
+пишет аудит и выпускает CatalogChanged (advisory lock — тот же, что у импорта); новое стоп-слово
+действует без перезапуска; регулярку из админки не завести; решение по кейсу — через use case, с
+аудитом. Флаги, client-config, Founding и сиды поверх правки — test_admin_sections.py.
 
 Данные коммитятся: у каждого теста свои пользователи, логины и адрес клиента (лимиты в Valkey).
 """
 
-from collections.abc import AsyncIterator
-from dataclasses import dataclass
 from uuid import UUID
 
-import httpx
 import pyotp
 import pytest
-from dishka import AsyncContainer
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from app.entrypoints._wiring import make_web_container
-from app.interfaces.admin.app import mount_admin
-from app.interfaces.http.app import create_app
-from app.modules.identity.application.use_cases.create_staff_login import (
-    CreateStaffLogin,
-    CreateStaffLoginCommand,
-)
 from app.modules.moderation.application.ports import RuleSource
 from app.modules.moderation.application.use_cases.open_case import OpenCase, OpenCaseCommand
 from app.modules.moderation.domain.cases import CaseTrigger, EntityType
 from app.modules.moderation.domain.queues import Queue
-from app.platform.kernel.ids import UserId, new_id
-from app.platform.settings import Settings
+from app.platform.kernel.ids import new_id
+from tests.plugins.admin import Admin, audit_count, login, staff
+from tests.plugins.admin import client_ip as _ip
 from tests.plugins.identity import insert_user, new_telegram_id
 
 pytestmark = pytest.mark.integration
-
-PASSWORD = "correct horse battery"  # noqa: S105 — пароль тестового сотрудника
-
-
-@dataclass
-class Admin:
-    container: AsyncContainer
-    settings: Settings
-
-    def client(self, ip: str) -> httpx.AsyncClient:
-        app = create_app(self.container, self.settings, [])
-        mount_admin(app, self.settings)
-        transport = httpx.ASGITransport(app=app, raise_app_exceptions=True, client=(ip, 50000))
-        return httpx.AsyncClient(transport=transport, base_url="http://test")
-
-
-@dataclass
-class Staff:
-    user_id: UserId
-    login: str
-    secret: str
-
-
-@pytest.fixture
-async def admin(settings: Settings) -> AsyncIterator[Admin]:
-    container = make_web_container(settings)
-    try:
-        yield Admin(container=container, settings=settings)
-    finally:
-        await container.close()
-
-
-def _ip() -> str:
-    raw = new_id().int
-    return f"10.{raw % 250}.{(raw >> 8) % 250}.{(raw >> 16) % 250 + 1}"
-
-
-async def staff(admin: Admin, role: str) -> Staff:
-    telegram_id = new_telegram_id()
-    async with admin.container() as request:
-        session = await request.get(AsyncSession)
-        user_id = await insert_user(session, telegram_id=telegram_id)
-        await session.execute(
-            text("INSERT INTO identity.user_roles (user_id, role) VALUES (:id, :role)"),
-            {"id": user_id, "role": role},
-        )
-        await session.commit()
-    login = f"{role}-{new_id().hex[:10]}"
-    async with admin.container() as request:
-        created = await (await request.get(CreateStaffLogin))(
-            CreateStaffLoginCommand(telegram_id=telegram_id, login=login, password=PASSWORD)
-        )
-    assert created is not None
-    assert created.totp_uri.startswith("otpauth://totp/")
-    return Staff(user_id=user_id, login=login, secret=created.totp_secret)
-
-
-async def login(client: httpx.AsyncClient, who: Staff, *, code: str | None = None) -> int:
-    form = {"username": who.login, "password": PASSWORD}
-    form["otp"] = pyotp.TOTP(who.secret).now() if code is None else code
-    return (await client.post("/admin/login", data=form)).status_code
-
-
-async def audit_count(admin: Admin, action: str, actor: UserId) -> int:
-    async with admin.container() as request:
-        engine = await request.get(AsyncEngine)
-    async with engine.connect() as conn:
-        found = await conn.scalar(
-            text(
-                "SELECT count(*) FROM platform.audit_log WHERE action = :action"
-                " AND actor_id = :actor"
-            ),
-            {"action": action, "actor": actor},
-        )
-    return int(found or 0)
 
 
 async def test_admin_auth_requires_totp_and_rejects_replay(admin: Admin) -> None:
@@ -172,15 +88,29 @@ async def test_admin_category_edit_is_audited_and_emits_catalog_changed(admin: A
         )
     async with admin.client(_ip()) as client:
         assert await login(client, owner) == 302
+        form = await client.get(f"/admin/category-row/edit/{category_id}")
+        assert 'value="Тест"' in form.text  # название развёрнуто в поля локалей
         edited = await client.post(
             f"/admin/category-row/edit/{category_id}",
-            data={"jobs_enabled": "y", "max_responses": "3", "risk_level": "1", "sort_order": "0"},
+            data={
+                "jobs_enabled": "y",
+                "max_responses": "3",
+                "risk_level": "1",
+                "sort_order": "0",
+                "name_ru": "Тест правка",
+                "name_sr_cyrl": "Тест",
+                "name_sr_latn": "",
+                "name_en": "",
+            },
         )
         assert edited.status_code == 302, edited.text[:500]
     async with engine.begin() as conn:
         row = (
             await conn.execute(
-                text("SELECT is_active, max_responses FROM catalog.categories WHERE id = :id"),
+                text(
+                    "SELECT is_active, max_responses, name, name_origin FROM catalog.categories"
+                    " WHERE id = :id"
+                ),
                 {"id": category_id},
             )
         ).one()
@@ -198,6 +128,9 @@ async def test_admin_category_edit_is_audited_and_emits_catalog_changed(admin: A
             text("DELETE FROM catalog.categories WHERE id = :id"), {"id": category_id}
         )
     assert (row.is_active, row.max_responses) == (False, 3)
+    # пустая латиница — транслит кириллицы; название теперь ведёт админка
+    assert row.name == {"ru": "Тест правка", "sr-Cyrl": "Тест", "sr-Latn": "Test"}
+    assert row.name_origin == "admin"
     assert jobs == 1
     assert await audit_count(admin, "catalog.category.updated", owner.user_id) == 1
 
