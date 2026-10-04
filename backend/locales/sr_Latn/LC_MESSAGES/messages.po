@@ -1095,3 +1095,15 @@ msgstr "Bot aplikacije „Sosedi“ može da vam piše: ovde stižu ponude, poru
 
 msgid "notifications.system_test.button"
 msgstr "Otvori „Sosedi“"
+
+msgid "share.specialist.text"
+msgstr "<b>{name}</b> — stručnjak u aplikaciji „Sosedi“"
+
+msgid "share.specialist.button"
+msgstr "Otvori profil"
+
+msgid "share.job.text"
+msgstr "<b>{title}</b> — zahtev u aplikaciji „Sosedi“"
+
+msgid "share.job.button"
+msgstr "Otvori zahtev"

@@ -52,6 +52,17 @@ class ResponseForReview:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class PublicJob:
+    """Заявка, которую видит любой (гость S15): ей можно поделиться (7.4). Без точки, адреса и
+    описания — карточка для чата показывает только название и место."""
+
+    client_id: UserId
+    title: str
+    city_id: CityId
+    district_id: DistrictId | None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ResponsesNotice:
     """Отклики на заявку для уведомления клиенту `response.received` (5.4)."""
 
@@ -159,6 +170,11 @@ class JobsApi(Protocol):
 
     async def job_brief(self, job_id: UUID) -> JobBrief | None:
         """Название, статус и срок заявки; None — нет такой или удалена."""
+        ...
+
+    async def public_job(self, job_id: UUID) -> PublicJob | None:
+        """Заявка, которую видит гость: опубликованная, не прямой запрос, не удалённая. Иначе
+        None (поделиться нельзя)."""
         ...
 
     async def responses_notice(self, job_id: UUID) -> ResponsesNotice | None:

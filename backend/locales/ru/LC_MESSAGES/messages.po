@@ -1094,3 +1094,15 @@ msgstr "Бот «Соседей» может вам писать: сюда пр�
 
 msgid "notifications.system_test.button"
 msgstr "Открыть «Соседи»"
+
+msgid "share.specialist.text"
+msgstr "<b>{name}</b> — специалист в «Соседях»"
+
+msgid "share.specialist.button"
+msgstr "Открыть профиль"
+
+msgid "share.job.text"
+msgstr "<b>{title}</b> — заявка в «Соседях»"
+
+msgid "share.job.button"
+msgstr "Открыть заявку"

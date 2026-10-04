@@ -1094,3 +1094,15 @@ msgstr "Бот апликације „Соседи“ може да вам пи
 
 msgid "notifications.system_test.button"
 msgstr "Отвори „Соседи“"
+
+msgid "share.specialist.text"
+msgstr "<b>{name}</b> — стручњак у апликацији „Соседи“"
+
+msgid "share.specialist.button"
+msgstr "Отвори профил"
+
+msgid "share.job.text"
+msgstr "<b>{title}</b> — захтев у апликацији „Соседи“"
+
+msgid "share.job.button"
+msgstr "Отвори захтев"

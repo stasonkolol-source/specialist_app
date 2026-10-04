@@ -96,3 +96,26 @@ class SendLimiter(Protocol):
     async def pause(self, seconds: float) -> None:
         """Telegram ответил 429: всем отправкам бота — пауза."""
         ...
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ShareCard:
+    """Карточка для чата (шаринг 7.4): сообщение с кнопкой-ссылкой `t.me/<bot>?startapp=<код>`.
+
+    Кнопка — url, а не web_app: в группах и каналах web_app-кнопки Telegram не пускает, а ссылка
+    startapp открывает Mini App на экране кода у любого получателя."""
+
+    title: str
+    """Заголовок результата в окне выбора чата (в самом сообщении его нет)."""
+    description: str | None
+    text: str
+    """HTML сообщения: шаблон доверенный, параметры экранированы (texts.py)."""
+    button_text: str
+    url: str
+
+
+class PreparedMessages(Protocol):
+    async def prepare(self, telegram_user_id: int, card: ShareCard) -> str | None:
+        """`savePreparedInlineMessage`: id для `WebApp.shareMessage`. Bot API не принял карточку
+        или недоступен — None: клиент делится ссылкой (`t.me/share/url` или копирование)."""
+        ...

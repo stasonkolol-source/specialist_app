@@ -7,8 +7,9 @@
 `job_expired` (5.1), `response_submitted` (5.4), `invite_sent` и `direct_request_sent` (5.6),
 `deal_agreed`, `deal_completed` и `deal_cancelled` (6.1a) — по событию на каждую сторону сделки,
 `dispute_opened` (6.1c) — открывшему, `conversation_started` и `message_sent` (6.3a),
-`contact_shared` (6.3b), `review_published` (7.2), `report_created` (4.7); остальные события
-подключает шаг своего модуля (таксономия — events.py).
+`contact_shared` (6.3b), `review_published` (7.2), `report_created` (4.7), `share_created` и
+`attribution_recorded` (7.4); остальные события подключает шаг своего модуля (таксономия —
+events.py).
 """
 
 import uuid
@@ -24,6 +25,7 @@ from app.platform.contracts.events.deals import (
     DealCompleted,
     DealDisputed,
 )
+from app.platform.contracts.events.growth import AttributionRecorded, ShareCreated
 from app.platform.contracts.events.identity import OnboardingCompleted, UserRegistered
 from app.platform.contracts.events.jobs import (
     JobClosed,
@@ -64,6 +66,10 @@ CAPTURE_MESSAGE_SENT = TaskRef("analytics.capture_message_sent", MessageSent)
 CAPTURE_CONTACT_SHARED = TaskRef("analytics.capture_contact_shared", ContactShared)
 CAPTURE_REVIEW_PUBLISHED = TaskRef("analytics.capture_review_published", ReviewPublished)
 CAPTURE_REPORT_CREATED = TaskRef("analytics.capture_report_created", ReportCreated)
+CAPTURE_SHARE_CREATED = TaskRef("analytics.capture_share_created", ShareCreated)
+CAPTURE_ATTRIBUTION_RECORDED = TaskRef(
+    "analytics.capture_attribution_recorded", AttributionRecorded
+)
 
 
 @subscriber(UserRegistered, CAPTURE_USER_REGISTERED)
@@ -363,5 +369,35 @@ async def capture_report_created(event: ReportCreated, analytics: FromDishka[Ana
             target=event.target_type,
             reason=event.reason,
             queue=event.queue,
+        )
+    )
+
+
+@subscriber(ShareCreated, CAPTURE_SHARE_CREATED)
+async def capture_share_created(event: ShareCreated, analytics: FromDishka[Analytics]) -> None:
+    await analytics.capture(
+        analytics_event(
+            EventName.SHARE_CREATED,
+            user_id=event.sharer_id,
+            occurred_at=event.occurred_at,
+            source_event_id=event.event_id,
+            entity=event.entity_type,
+            prepared=event.prepared,
+        )
+    )
+
+
+@subscriber(AttributionRecorded, CAPTURE_ATTRIBUTION_RECORDED)
+async def capture_attribution_recorded(
+    event: AttributionRecorded, analytics: FromDishka[Analytics]
+) -> None:
+    await analytics.capture(
+        analytics_event(
+            EventName.ATTRIBUTION_RECORDED,
+            user_id=event.user_id,
+            occurred_at=event.occurred_at,
+            source_event_id=event.event_id,
+            source=event.source,
+            has_referral=event.has_referral,
         )
     )
