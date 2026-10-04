@@ -32,9 +32,16 @@ from app.platform.ai.stubs import (
     StubModeration,
     StubPolicyClassifier,
 )
+from app.platform.analytics.deleted import SqlDeletedUsers
 from app.platform.analytics.fake import LoggingAnalytics
-from app.platform.analytics.port import Analytics
+from app.platform.analytics.port import Analytics, PersonDeletion
 from app.platform.analytics.posthog import PostHogAnalytics
+from app.platform.analytics.posthog_dashboard import client_for
+from app.platform.analytics.posthog_persons import (
+    MISSING_KEYS,
+    NoPersonDeletion,
+    PostHogPersons,
+)
 from app.platform.audit.port import AuditLog
 from app.platform.audit.sql import SqlAuditLog
 from app.platform.cache.port import JsonCache
@@ -243,13 +250,18 @@ class PlatformProvider(Provider):
 
     @provide(scope=Scope.APP)
     async def analytics(
-        self, settings: AnalyticsSettings, app: AppSettings
+        self,
+        settings: AnalyticsSettings,
+        app: AppSettings,
+        maker: async_sessionmaker[AsyncSession],
     ) -> AsyncIterator[Analytics]:
-        """PostHog EU, если есть ключ (K32); без ключа — события в лог (dev, тесты)."""
+        """PostHog EU, если есть ключ (K32); без ключа — события в лог (dev, тесты). События
+        удалённых аккаунтов не уходят ни туда, ни туда (2.12b)."""
+        deleted = SqlDeletedUsers(maker)
         if settings.posthog_api_key is None:
             if app.env in {Environment.STAGE, Environment.PRODUCTION}:
                 log.warning("analytics_disabled", reason="ANALYTICS_POSTHOG_API_KEY is not set")
-            yield LoggingAnalytics()
+            yield LoggingAnalytics(deleted=deleted)
             return
         async with httpx.AsyncClient(timeout=ANALYTICS_TIMEOUT) as client:
             yield PostHogAnalytics(
@@ -257,7 +269,28 @@ class PlatformProvider(Provider):
                 api_key=settings.posthog_api_key,
                 host=settings.posthog_host,
                 environment=app.env.value,
+                deleted=deleted,
             )
+
+    @provide(scope=Scope.APP)
+    async def person_deletion(
+        self, settings: AnalyticsSettings, app: AppSettings
+    ) -> AsyncIterator[PersonDeletion]:
+        """Удаление персоны в PostHog по UserDeleted (2.12b): personal API key со scope
+        `person:write` и id проекта (K32a) — только когда события в PostHog уходят (ключ проекта
+        K32). Без них — no-op с предупреждением на каждое удаление, а на stage и prod ещё и при
+        старте: события есть, удалять нечем."""
+        key, project = settings.posthog_personal_api_key, settings.posthog_project_id
+        if settings.posthog_api_key is None:
+            yield NoPersonDeletion(capturing=False)  # события в PostHog не уходят — удалять нечего
+            return
+        if key is None or project is None:
+            if app.env in {Environment.STAGE, Environment.PRODUCTION}:
+                log.warning("analytics_person_deletion_disabled", reason=MISSING_KEYS)
+            yield NoPersonDeletion(capturing=True)
+            return
+        async with client_for(settings.posthog_host, project, key.get_secret_value()) as client:
+            yield PostHogPersons(client)
 
     @provide(scope=Scope.APP)
     async def moderation(self, settings: AiSettings, app: AppSettings) -> AsyncIterator[Moderation]:
