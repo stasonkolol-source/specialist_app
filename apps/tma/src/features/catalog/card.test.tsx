@@ -1,7 +1,8 @@
 // Карточка специалиста S08–S11 (DEVELOPMENT_PLAN 4.5, 7.3) на MSW, как BFF: профиль одним
 // запросом, переход из выдачи и по ссылке `s_`, «Профиль недоступен» для скрытого, прайс по
 // группам, просмотрщик работ на тёмном фоне со свайпом и миниатюрами, «Назад» закрывает его
-// целиком; отзывы S11 с ответом специалиста и «Показать ещё».
+// целиком; отзывы S11 с ответом специалиста и «Показать ещё»; «Поделиться» (7.4) — карточка в
+// выбор чата или ссылка.
 import type { CardReviewOut, CardReviewsOut } from '@sosed/api-client';
 import { encodeStartParam } from '@sosed/links';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
@@ -277,5 +278,42 @@ describe('S11 reviews', () => {
 
     expect(await screen.findByText('Отзыв номер 21')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Показать ещё' })).toBeNull();
+  });
+});
+
+describe('S08 share (7.4)', () => {
+  it('sends the prepared card to the chat picker; without a card — t.me/share/url', async () => {
+    const bodies: unknown[] = [];
+    let prepared: string | null = 'prepared-1';
+    server.use(
+      http.post('*/api/v1/share', async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json({
+          url: 'https://t.me/sosed_test_bot?startapp=s_4bN8wE2rT6yU1iO3pA5sDf',
+          start_param: 's_4bN8wE2rT6yU1iO3pA5sDf',
+          text: 'Алексей Морозов',
+          prepared_message_id: prepared,
+        });
+      }),
+    );
+    const { telegram } = startApp(PROFILE);
+
+    await click(await screen.findByRole('button', { name: 'Поделиться профилем' }));
+    await waitFor(() =>
+      expect(telegram.callsOf('web_app_send_prepared_message')).toEqual([{ id: 'prepared-1' }]),
+    );
+    expect(bodies).toEqual([{ entity_type: 'specialist', entity_id: CARD_PROFILE_ID }]);
+    // окно выбора чата ещё открыто, пока Telegram не ответил: второе нажатие до ответа — пропуск
+    const button = screen.getByRole('button', { name: 'Поделиться профилем' });
+    await waitFor(() => expect(button.getAttribute('aria-busy')).toBeNull());
+
+    prepared = null;
+    await click(button);
+    await waitFor(() =>
+      expect(String(telegram.callsOf('web_app_open_tg_link').at(-1)?.path_full)).toMatch(
+        /^\/share\/url\?url=https%3A%2F%2Ft\.me%2Fsosed_test_bot/,
+      ),
+    );
+    expect(telegram.callsOf('web_app_send_prepared_message')).toHaveLength(1);
   });
 });

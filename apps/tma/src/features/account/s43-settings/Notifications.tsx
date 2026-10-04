@@ -3,7 +3,9 @@
 // санкции) выключить нельзя — её здесь нет, как на артборде. Нажатие видно сразу, сохранение —
 // PUT /me/notification-settings по одному запросу за раз (useUpdateNotificationSettings); ошибка
 // возвращает отметку и показывает «Не удалось сохранить». Время тихих часов — по Белграду, в MVP
-// не меняется: здесь только включить или выключить.
+// не меняется: здесь только включить или выключить. «Запуск раздела «Вещи»» (`goods_launch`, 7.5) —
+// не отметки по каналам, а один переключатель: подписывает кнопка S58, здесь — отписка. Строка
+// видна подписанным и не пропадает, пока человек на экране: выключил по ошибке — включит обратно.
 import type { EventGroup, GroupSettingOut, NotificationSettingsOut } from '@sosed/api-client';
 import { useNotificationsGetNotificationSettings } from '@sosed/api-client';
 import type { NotificationChannel } from '@sosed/hooks';
@@ -20,15 +22,16 @@ import {
   SkeletonText,
   Switch,
 } from '@sosed/ui-web';
-import { useId } from 'react';
+import { useId, useState } from 'react';
 
 const CHANNELS: readonly NotificationChannel[] = ['telegram', 'in_app'];
 
-/** Группы с подписями на S43; служебная `account` не выключается и не показывается. */
-type Editable = Exclude<EventGroup, 'account'>;
+/** Группы с отметками на S43; служебная `account` не выключается и не показывается, у
+ *  `goods_launch` — свой переключатель. */
+type Editable = Exclude<EventGroup, 'account' | 'goods_launch'>;
 
 const isEditable = (row: GroupSettingOut): row is GroupSettingOut & { group: Editable } =>
-  !row.mandatory && row.group !== 'account';
+  !row.mandatory && row.group !== 'account' && row.group !== 'goods_launch';
 
 /** «22:00:00» → «22:00»: время тихих часов приходит с секундами. */
 const hhmm = (time: string) => time.slice(0, 5);
@@ -88,7 +91,12 @@ function Table({
 }) {
   const { t } = useTranslation('account');
   const quietId = useId();
+  const goodsId = useId();
   const quiet = settings.quiet_hours;
+  const goods = settings.groups.find((row) => row.group === 'goods_launch');
+  const waiting = goods !== undefined && (goods.telegram || goods.in_app);
+  const [goodsShown, setGoodsShown] = useState(waiting);
+  if (waiting && !goodsShown) setGoodsShown(true);
   return (
     <Group>
       {settings.groups.filter(isEditable).map((row) => {
@@ -113,6 +121,20 @@ function Table({
           </div>
         );
       })}
+      {goodsShown && (
+        <div className="flex min-h-13 items-center gap-3 border-b border-line px-4 py-3">
+          <RowIcon icon="bag" />
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span id={goodsId}>{t('settings.goodsLaunch')}</span>
+            <span className="text-cap text-text2">{t('settings.goodsLaunchHint')}</span>
+          </span>
+          <Switch
+            checked={waiting}
+            label={t('settings.goodsLaunch')}
+            onChange={(on) => onChange({ group: 'goods_launch', on })}
+          />
+        </div>
+      )}
       <div className="flex min-h-13 items-center gap-3 px-4 py-3">
         <RowIcon icon="clock" />
         <span className="flex min-w-0 flex-1 flex-col">

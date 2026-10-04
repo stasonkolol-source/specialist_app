@@ -24,6 +24,19 @@ class AttributionRepository(Protocol):
         ...
 
 
+class ReferralCodes(Protocol):
+    """Код приглашения пользователя (`growth.referral_codes`): один на аккаунт, навсегда."""
+
+    async def code_of(self, owner_id: UserId) -> str:
+        """Код владельца; нет — создать. UserNotFoundError — пользователя нет. Активный UoW."""
+        ...
+
+    async def forget(self, owner_id: UserId) -> None:
+        """Удалить код (аккаунт удалён, §7.10): старые ссылки больше никого не приписывают.
+        Активный UoW."""
+        ...
+
+
 RECORD_ATTRIBUTION: Final = TaskRef("growth.record_attribution", UserRegistered)
 """Подписчик UserRegistered: первое касание нового пользователя."""
 

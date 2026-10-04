@@ -43,6 +43,8 @@
     "groupChannel": "{group} — {channel, select, telegram {u botu} other {u aplikaciji}}",
     "quiet": "Tihi sati {start}–{end}",
     "quietHint": "Hitno i poruke — odmah",
+    "goodsLaunch": "Pokretanje odeljka „Stvari“",
+    "goodsLaunchHint": "Bot će pisati jednom, kada se odeljak otvori",
     "loading": "Učitavamo podešavanja obaveštenja",
     "loadError": "Podešavanja obaveštenja nisu učitana",
     "export": "Izvoz mojih podataka",

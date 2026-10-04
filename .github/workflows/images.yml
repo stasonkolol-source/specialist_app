@@ -47,9 +47,11 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/sosed-backend:${{ github.sha }}
             ${{ env.REGISTRY }}/sosed-backend:main
+          # service — метка, без которой Kamal не примет образ, собранный не им (infra/kamal, 0.25c)
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
+            service=sosed
           cache-from: type=gha,scope=backend-image
           cache-to: type=gha,scope=backend-image,mode=max
 

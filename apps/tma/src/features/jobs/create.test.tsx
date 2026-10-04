@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
 import { problem } from '../../testing/backend.ts';
 import { CARD_PROFILE_ID, CATEGORY_IDS, DISTRICT_IDS } from '../../testing/fixtures.ts';
-import { JobsBackend } from '../../testing/jobsBackend.ts';
+import { JobsBackend, createdJobId } from '../../testing/jobsBackend.ts';
 import { jobsHandlers, server } from '../../testing/msw.ts';
 import { useDraftStore } from './shared/draft.ts';
 
@@ -282,7 +282,7 @@ describe('S21 invite specialists', () => {
     if (!invite) throw new Error('no specialists to invite');
     await click(invite);
 
-    await waitFor(() => expect(jobs.invites.get('job-1')).toHaveLength(1));
+    await waitFor(() => expect(jobs.invites.get(createdJobId(1))).toHaveLength(1));
     expect(await screen.findByText('Приглашён')).toBeTruthy();
   });
 });

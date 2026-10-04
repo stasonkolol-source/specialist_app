@@ -1,7 +1,8 @@
 """Первое касание нового пользователя (ARCHITECTURE §11.4, DEVELOPMENT_PLAN 1.4b).
 
 Вызывает подписчик `UserRegistered`: код deep link регистрации разбирается кодеком и
-записывается один раз. Повтор задачи и любое следующее касание запись не меняют.
+записывается один раз. Повтор задачи и любое следующее касание запись не меняют. Записали —
+событие AttributionRecorded (аналитика `attribution_recorded`, 7.4) в той же транзакции.
 """
 
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ import structlog
 
 from app.modules.growth.application.ports import AttributionRepository
 from app.modules.growth.domain.attribution import FirstTouch
+from app.platform.contracts.events.growth import AttributionRecorded
 from app.platform.contracts.events.identity import EntryPoint
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import UserId
@@ -38,6 +40,15 @@ class RecordAttribution:
             recorded = await self._attributions.record_first_touch(
                 cmd.user_id, touch, at=cmd.touched_at
             )
+            if recorded:
+                self._uow.add_event(
+                    AttributionRecorded(
+                        user_id=cmd.user_id,
+                        source=touch.source.value,
+                        has_referral=touch.referral_code is not None,
+                        occurred_at=cmd.touched_at,
+                    )
+                )
         if recorded:
             log.info(
                 "attribution_recorded",

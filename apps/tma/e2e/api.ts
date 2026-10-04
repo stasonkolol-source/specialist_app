@@ -25,6 +25,7 @@ import {
   citiesFor,
   districtsFor,
   notificationsFor,
+  shareReply,
   searchFound,
   searchPage,
   suggestFor,
@@ -224,6 +225,11 @@ export async function mockApi(
       if (reply?.status === 204) return route.fulfill({ status: 204 });
       if (reply) return route.fulfill(json(reply.body, reply.status));
     }
+    // «Поделиться» (7.4): вошедшему — с кодом `_r` и карточкой, гостю — ссылка
+    if (url.pathname === '/api/v1/share' && request.method() === 'POST') {
+      const reply = shareReply(request.postDataJSON(), authorized(request));
+      return route.fulfill(json(reply.body, reply.status));
+    }
     // жалобы S46 и блокировки S44 (4.7): только вошедшему
     if (url.pathname.startsWith('/api/v1/me/blocks') || url.pathname === '/api/v1/reports') {
       if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
@@ -302,6 +308,8 @@ export async function mockApi(
       case 'POST /api/v1/me/telegram/write-access':
         if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
         sent.writeAccess += 1;
+        // как backend: разрешение видно и в настройках уведомлений (S58 «Готово!», 7.5)
+        settings = { ...settings, telegram: WRITE_ACCESS };
         return route.fulfill(json(WRITE_ACCESS));
       // S42 и счётчик непрочитанных на S31: тексты — на языке запроса, как у backend
       case 'GET /api/v1/me/notifications':

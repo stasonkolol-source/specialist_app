@@ -1,0 +1,49 @@
+# Destination stage (DEVELOPMENT_PLAN 0.25c): одна VM CX23 из infra/terraform/stage.
+# Из окружения: STAGE_HOST — IPv4 VM (make tf ENV=stage ARGS='output stage_ipv4'), STAGE_DOMAIN —
+# домен (Q9), STAGE_BOT_USERNAME — stage-бот без @ (K17), R2_ACCOUNT_ID — Account ID Cloudflare
+# (K11), SENTRY_DSN — DSN backend (K20, не секрет). В CI — Variables environment «stage».
+servers:
+  web:
+    hosts:
+      - <%= ENV.fetch("STAGE_HOST") %>
+  bot:
+    hosts:
+      - <%= ENV.fetch("STAGE_HOST") %>
+  worker:
+    hosts:
+      - <%= ENV.fetch("STAGE_HOST") %>
+  worker-media:
+    hosts:
+      - <%= ENV.fetch("STAGE_HOST") %>
+
+proxy:
+  # только API; stage-admin. kamal-proxy не обслуживает до Access (K31, 2.7b)
+  host: stage-api.<%= ENV.fetch("STAGE_DOMAIN") %>
+  ssl:
+    certificate_pem: KAMAL_PROXY_SSL_CERT
+    private_key_pem: KAMAL_PROXY_SSL_KEY
+
+env:
+  clear:
+    APP_ENV: stage
+    APP_API_PUBLIC_URL: https://stage-api.<%= ENV.fetch("STAGE_DOMAIN") %>
+    # web доверяет X-Forwarded-* только kamal-proxy: сеть «kamal» с подсетью из Terraform
+    # (docker_network_cidr). Края Cloudflare — APP_CLOUDFLARE_IPS по умолчанию (settings.py).
+    APP_TRUSTED_PROXIES: '["172.30.0.0/24"]'
+    # апдейты бота — webhook с secret_token (0.25e); откат на long polling — `polling`
+    TELEGRAM_UPDATES: webhook
+    TELEGRAM_BOT_USERNAME: <%= ENV.fetch("STAGE_BOT_USERNAME") %>
+    TELEGRAM_MINI_APP_URL: https://stage-app.<%= ENV.fetch("STAGE_DOMAIN") %>
+    S3_ENDPOINT_URL: https://<%= ENV.fetch("R2_ACCOUNT_ID") %>.eu.r2.cloudflarestorage.com
+    S3_PUBLIC_ENDPOINT_URL: https://<%= ENV.fetch("R2_ACCOUNT_ID") %>.eu.r2.cloudflarestorage.com
+    S3_PUBLIC_BASE_URL: https://stage-cdn.<%= ENV.fetch("STAGE_DOMAIN") %>
+    S3_BUCKET_INCOMING: sosed-stage-incoming
+    S3_BUCKET_MEDIA: sosed-stage-media
+    S3_BUCKET_PRIVATE: sosed-stage-private
+    SENTRY_DSN: '<%= ENV.fetch("SENTRY_DSN", "") %>'
+
+accessories:
+  postgres:
+    host: <%= ENV.fetch("STAGE_HOST") %>
+  valkey:
+    host: <%= ENV.fetch("STAGE_HOST") %>

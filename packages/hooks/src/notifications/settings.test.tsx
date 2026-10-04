@@ -75,6 +75,18 @@ describe('applyChange and settingsIn', () => {
     expect(applyChange(SETTINGS, { quiet: false }).quiet_hours.enabled).toBe(false);
   });
 
+  it('turns a whole group on or off when no channel is given (S58, 7.5)', () => {
+    const next = applyChange(SETTINGS, { group: 'marketing', on: true });
+    expect(next.groups[1]).toEqual({
+      group: 'marketing',
+      telegram: true,
+      in_app: true,
+      mandatory: false,
+    });
+    expect(applyChange(next, { group: 'marketing', on: false })).toEqual(SETTINGS);
+    expect(applyChange(SETTINGS, { group: 'account', on: false })).toEqual(SETTINGS);
+  });
+
   it('sends everything visible except the service group', () => {
     expect(settingsIn(SETTINGS)).toEqual({
       groups: [
