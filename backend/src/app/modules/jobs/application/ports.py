@@ -26,7 +26,7 @@ from app.modules.jobs.domain.template import ResponseTemplate, TemplateId
 from app.platform.contracts.events.deals import DealCancelled, DealCompleted
 from app.platform.contracts.events.identity import UserDeleted
 from app.platform.contracts.events.jobs import JobPublished
-from app.platform.kernel.ids import UserId
+from app.platform.kernel.ids import MediaId, UserId
 from app.platform.kernel.pagination import Page, PageRequest
 from app.platform.queue.port import TaskRef
 
@@ -52,6 +52,33 @@ class JobRepository(Protocol):
 
     async def forget_private(self, client_id: UserId) -> None:
         """Стереть точную точку и адрес во всех заявках клиента, удалённых тоже (§7.10)."""
+        ...
+
+
+class JobRetention(Protocol):
+    """Сроки хранения заявок (2.12b, §7.10): кандидаты и физическое удаление с откликами."""
+
+    async def expired(
+        self,
+        *,
+        closed_before: datetime,
+        rejected_before: datetime,
+        after: JobId | None,
+        limit: int,
+    ) -> list[JobId]:
+        """Закрытые до `closed_before` и отклонённые модерацией до `rejected_before`, по id."""
+        ...
+
+    async def responses(self, job_ids: Collection[JobId]) -> dict[ResponseId, JobId]:
+        """Отклики заявок: legal hold спрашивается и по ним."""
+        ...
+
+    async def photos(self, job_ids: Collection[JobId]) -> list[tuple[UserId, MediaId]]:
+        """Фото заявок с владельцем: удалить вместе с заявкой."""
+        ...
+
+    async def purge(self, job_ids: Collection[JobId]) -> None:
+        """Удалить заявки с откликами, фото, историей, приглашениями, скрытыми и сохранёнными."""
         ...
 
 

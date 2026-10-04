@@ -281,3 +281,16 @@ class JobsApi(Protocol):
     async def reject_response(self, response_id: UUID, *, reason_code: str) -> None:
         """Нарушение — в транзакции вызывающего: отклик скрыт, его место освобождается."""
         ...
+
+
+class JobReferences(Protocol):
+    """Заявки, на которые ещё ссылается модуль выше по DAG (переписка по отклику держит FK на
+    заявку и отклик): срок хранения удаляет заявку только после них (2.12b).
+
+    Реализует messaging: jobs о нём не знает, связывает dishka — как media.api.LegalHold.
+    """
+
+    async def referenced(self, ids: Collection[UUID]) -> frozenset[UUID]:
+        """На какие из заявок и откликов (id вперемешку) ещё ссылаются. Читает в транзакции
+        вызывающего."""
+        ...

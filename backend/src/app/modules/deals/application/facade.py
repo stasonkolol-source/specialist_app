@@ -124,6 +124,9 @@ class DealsFacade:
     async def dispute_evidence_held(self, media_ids: Collection[MediaId]) -> frozenset[MediaId]:
         return await self._dispute_queries.evidence_held(media_ids)
 
+    async def disputed_deals(self, deal_ids: Collection[DealId]) -> frozenset[DealId]:
+        return await self._dispute_queries.disputed(deal_ids)
+
     async def create_agreed(self, data: AgreedDealIn) -> DealId:
         self._uow.require_active()  # транзакция jobs: отклик выбран и сделка создана вместе
         price_type = _price_type(data.price_type)
