@@ -93,7 +93,12 @@ def api(monkeypatch: pytest.MonkeyPatch) -> FakeBotApi:
         "TELEGRAM_MINI_APP_URL": "https://stage-app.example.test",
     }.items():
         monkeypatch.setenv(name, value)
-    for name in ("TELEGRAM_UPDATES", "TELEGRAM_WEBHOOK_SECRET", "APP_API_PUBLIC_URL"):
+    for name in (
+        "TELEGRAM_UPDATES",
+        "TELEGRAM_WEBHOOK_SECRET",
+        "TELEGRAM_WEBHOOK_BASE_URL",
+        "APP_API_PUBLIC_URL",
+    ):
         monkeypatch.delenv(name, raising=False)
     return fake
 
@@ -104,6 +109,8 @@ def stage_webhook(api: FakeBotApi, monkeypatch: pytest.MonkeyPatch) -> FakeBotAp
     monkeypatch.setenv("TELEGRAM_UPDATES", "webhook")
     monkeypatch.setenv("TELEGRAM_WEBHOOK_SECRET", SECRET)
     monkeypatch.setenv("APP_API_PUBLIC_URL", "https://stage-api.example.test")
+    # свой хост бота: kamal-proxy не отдаёт stage-api с TLS второй роли
+    monkeypatch.setenv("TELEGRAM_WEBHOOK_BASE_URL", "https://stage-bot.example.test")
     return api
 
 
@@ -112,17 +119,29 @@ def test_webhook_mode_sets_the_webhook_with_the_secret(stage_webhook: FakeBotApi
 
     assert result.exit_code == 0, result.output
     [call] = stage_webhook.sent(SetWebhook)
-    assert call.url == "https://stage-api.example.test/integrations/telegram/webhook"
+    assert call.url == "https://stage-bot.example.test/integrations/telegram/webhook"
     assert call.secret_token == SECRET
     assert call.allowed_updates == list(ALLOWED_UPDATES)
     assert call.drop_pending_updates is False
     assert stage_webhook.sent(DeleteWebhook) == []
     assert (
-        "@sosed_stage_bot: webhook set → https://stage-api.example.test/integrations/telegram/"
+        "@sosed_stage_bot: webhook set → https://stage-bot.example.test/integrations/telegram/"
         "webhook [message, callback_query, my_chat_member], pending 3"
     ) in result.output
     assert "menu button set → https://stage-app.example.test" in result.output
     assert SECRET not in result.output
+
+
+def test_without_a_bot_host_the_webhook_goes_to_the_api_address(
+    stage_webhook: FakeBotApi, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("TELEGRAM_WEBHOOK_BASE_URL")
+
+    result = CliRunner().invoke(cli.app, ["bot-setup", "--env", "stage"])
+
+    assert result.exit_code == 0, result.output
+    [call] = stage_webhook.sent(SetWebhook)
+    assert call.url == "https://stage-api.example.test/integrations/telegram/webhook"
 
 
 def test_rerun_sets_the_webhook_again(stage_webhook: FakeBotApi) -> None:
@@ -162,7 +181,8 @@ def test_polling_mode_without_a_webhook_changes_nothing(
     [
         ("TELEGRAM_WEBHOOK_SECRET", None, "не задан TELEGRAM_WEBHOOK_SECRET"),
         ("TELEGRAM_WEBHOOK_SECRET", "short", "TELEGRAM_WEBHOOK_SECRET: нужно 32–256"),
-        ("APP_API_PUBLIC_URL", "http://stage-api.example.test", "APP_API_PUBLIC_URL"),
+        ("TELEGRAM_WEBHOOK_BASE_URL", "http://stage-bot.example.test", "только https://"),
+        ("TELEGRAM_WEBHOOK_BASE_URL", "https://stage-bot.example.test/bot", "без пути"),
     ],
 )
 def test_webhook_mode_refuses_before_any_bot_api_call(

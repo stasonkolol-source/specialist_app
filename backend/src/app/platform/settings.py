@@ -16,6 +16,7 @@ from enum import StrEnum
 from ipaddress import IPv4Network, IPv6Network, ip_network
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from pydantic import Field, IPvAnyNetwork, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -172,9 +173,13 @@ class TelegramSettings(_Group):
     bot_username: str
     updates: UpdatesMode = UpdatesMode.POLLING
     """Приём апдейтов процессом bot. webhook (stage, prod) — aiohttp-сервер на APP_WEB_HOST и
-    APP_WEB_PORT за kamal-proxy, адрес — APP_API_PUBLIC_URL + /integrations/telegram/webhook;
+    APP_WEB_PORT за kamal-proxy, адрес — TELEGRAM_WEBHOOK_BASE_URL + /integrations/telegram/webhook;
     нужен TELEGRAM_WEBHOOK_SECRET. Задаётся явно в Kamal, а не выводится из APP_ENV: откат stage
     на polling — одна переменная (0.25e)."""
+    webhook_base_url: str | None = None
+    """Схема и хост, на которые Telegram шлёт webhook, без пути: свой хост процесса bot
+    (`https://stage-bot.<домен>`, на проде `https://bot.<домен>`) — kamal-proxy не отдаёт один
+    хост с TLS двум ролям. Пусто — APP_API_PUBLIC_URL (bot и web за одним адресом)."""
     webhook_secret: SecretStr | None = None
     """secret_token webhook: Telegram присылает его в X-Telegram-Bot-Api-Secret-Token, без него
     или с чужим — 401. 32–256 символов [A-Za-z0-9_-], на stage и проде — `make gen-secret`."""
@@ -205,12 +210,17 @@ class TelegramSettings(_Group):
         return username
 
 
+def webhook_base_url(app: AppSettings, telegram: TelegramSettings) -> str:
+    """Адрес процесса bot для Telegram: TELEGRAM_WEBHOOK_BASE_URL, без него — APP_API_PUBLIC_URL."""
+    return telegram.webhook_base_url or app.api_public_url
+
+
 def webhook_problems(app: AppSettings, telegram: TelegramSettings) -> list[str]:
     """Чего не хватает режиму webhook; пусто — всё есть или бот на polling.
 
     Общая проверка процессов (Settings) и `cli bot-setup`: без секрета aiogram принял бы любой
-    POST, а на http:// Telegram апдейты не шлёт. Формат секрета проверяем только здесь: в dev
-    на polling он не нужен и не должен ронять стенд."""
+    POST, а на http:// Telegram апдейты не шлёт. Формат секрета и адреса проверяем только здесь:
+    в dev на polling они не нужны и не должны ронять стенд."""
     if telegram.updates is not UpdatesMode.WEBHOOK:
         return []
     found = []
@@ -219,8 +229,13 @@ def webhook_problems(app: AppSettings, telegram: TelegramSettings) -> list[str]:
         found.append("не задан TELEGRAM_WEBHOOK_SECRET")
     elif not _WEBHOOK_SECRET.fullmatch(secret):
         found.append("TELEGRAM_WEBHOOK_SECRET: нужно 32–256 символов [A-Za-z0-9_-]")
-    if not app.api_public_url.startswith("https://"):
-        found.append("APP_API_PUBLIC_URL: webhook Telegram принимает только https://")
+    name = "TELEGRAM_WEBHOOK_BASE_URL" if telegram.webhook_base_url else "APP_API_PUBLIC_URL"
+    base = urlsplit(webhook_base_url(app, telegram))
+    if base.scheme != "https" or not base.hostname:
+        found.append(f"{name}: webhook Telegram принимает только https://")
+    elif base.path.strip("/") or base.query or base.fragment:
+        # kamal-proxy ведёт на bot весь хост: с путём апдейты ушли бы мимо обработчика (404)
+        found.append(f"{name}: нужны только схема и хост, без пути")
     return found
 
 

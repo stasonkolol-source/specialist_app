@@ -19,7 +19,7 @@ from app.interfaces.bot.webhook import apply_webhook, create_webhook_app, webhoo
 from app.platform.i18n.translator import Translator
 from app.platform.observability.logging import configure_logging
 from app.platform.observability.sentry import init_sentry
-from app.platform.settings import Settings, UpdatesMode, describe
+from app.platform.settings import Settings, UpdatesMode, describe, webhook_base_url
 
 log = structlog.get_logger(__name__)
 
@@ -50,7 +50,7 @@ async def serve_webhook(settings: Settings, bot: Bot, dispatcher: Dispatcher) ->
     дорабатываются, новые kamal-proxy уже шлёт в новый контейнер."""
     secret = settings.telegram.webhook_secret
     token = secret.get_secret_value() if secret else ""  # пустой отвергнет SecretTokenHandler
-    url = webhook_url(settings.app.api_public_url)
+    url = webhook_url(webhook_base_url(settings.app, settings.telegram))
 
     async def set_webhook(bot: Bot) -> None:
         # Каждый старт (деплой) выставляет webhook заново: «webhook выставит деплой» (K17),

@@ -38,6 +38,7 @@ from app.platform.settings import (
     Settings,
     TelegramSettings,
     UpdatesMode,
+    webhook_base_url,
     webhook_problems,
 )
 
@@ -330,7 +331,7 @@ async def _apply_updates_mode(
     if telegram.updates is UpdatesMode.POLLING:
         return "webhook deleted (polling)" if await remove_webhook(bot) else "no webhook (polling)"
     secret = telegram.webhook_secret.get_secret_value() if telegram.webhook_secret else ""
-    url = webhook_url(app_settings.api_public_url)
+    url = webhook_url(webhook_base_url(app_settings, telegram))
     await apply_webhook(bot, url, secret, ALLOWED_UPDATES)
     info = await bot.get_webhook_info()
     # ошибка доставки видна сразу: например, kamal-proxy не ведёт путь на процесс bot

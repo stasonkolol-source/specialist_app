@@ -106,9 +106,9 @@ def test_handler_refuses_to_run_without_a_secret() -> None:
 
 
 def test_webhook_url_is_under_the_waf_exception() -> None:
-    url = webhook_url("https://stage-api.example.test/")
+    url = webhook_url("https://stage-bot.example.test/")
 
-    assert url == "https://stage-api.example.test/integrations/telegram/webhook"
+    assert url == "https://stage-bot.example.test/integrations/telegram/webhook"
     assert WEBHOOK_PATH.startswith("/integrations/telegram/")  # skip-правило WAF stage (0.25b)
 
 

@@ -1,10 +1,12 @@
 """Приём апдейтов через webhook (ADR-0011, DEVELOPMENT_PLAN 0.25e): процесс bot поднимает
 aiohttp-сервер aiogram за kamal-proxy, web апдейтов не видит — всплеск в боте не тормозит API.
 
-- Путь `/integrations/telegram/webhook` (ARCHITECTURE §8.5) — под skip-правилом WAF Cloudflare
-  для `/integrations/telegram/`. Защищает не адрес, а секрет: Telegram присылает `secret_token`
-  в заголовке X-Telegram-Bot-Api-Secret-Token; без него или с чужим — 401, апдейт в диспетчер не
-  попадает. Сравнение — за постоянное время (`secrets.compare_digest` в aiogram).
+- Путь `/integrations/telegram/webhook` (ARCHITECTURE §8.5) на своём хосте процесса bot
+  (TELEGRAM_WEBHOOK_BASE_URL: kamal-proxy не отдаёт один хост с TLS двум ролям) — под
+  skip-правилом WAF Cloudflare для `/integrations/telegram/`. Защищает не адрес, а секрет:
+  Telegram присылает `secret_token` в заголовке X-Telegram-Bot-Api-Secret-Token; без него или с
+  чужим — 401, апдейт в диспетчер не попадает. Сравнение — за постоянное время
+  (`secrets.compare_digest` в aiogram).
 - Апдейт обрабатывается до ответа (`handle_in_background=False`): Telegram держит не больше
   MAX_CONNECTIONS запросов разом — это и есть предел нагрузки на пул БД; исключение мимо
   ErrorMiddleware даёт 500, и Telegram повторит апдейт (at-least-once, хендлеры идемпотентны —
@@ -30,9 +32,9 @@ MAX_CONNECTIONS: Final = 10
 процесса — DB_POOL_SIZE = 10. Лишние апдейты ждут у Telegram, а не в очереди пула."""
 
 
-def webhook_url(api_public_url: str) -> str:
-    """Адрес webhook: публичный адрес API (APP_API_PUBLIC_URL) + WEBHOOK_PATH."""
-    return api_public_url.rstrip("/") + WEBHOOK_PATH
+def webhook_url(base_url: str) -> str:
+    """Адрес webhook: адрес процесса bot (settings.webhook_base_url) + WEBHOOK_PATH."""
+    return base_url.rstrip("/") + WEBHOOK_PATH
 
 
 class SecretTokenHandler(SimpleRequestHandler):

@@ -12,6 +12,7 @@ from app.platform.settings import (
     SettingsError,
     UpdatesMode,
     env_names,
+    webhook_base_url,
 )
 
 pytestmark = pytest.mark.unit
@@ -165,3 +166,32 @@ def test_unknown_updates_mode_is_reported(clean_env: pytest.MonkeyPatch) -> None
     clean_env.setenv("TELEGRAM_UPDATES", "push")
     with pytest.raises(SettingsError, match="TELEGRAM_UPDATES"):
         Settings(env_file=None)
+
+
+def test_webhook_goes_to_its_own_bot_host(clean_env: pytest.MonkeyPatch) -> None:
+    """kamal-proxy не отдаёт один хост с TLS двум ролям: у бота свой (stage-bot.<домен>)."""
+    for name, value in REQUIRED.items():
+        clean_env.setenv(name, value)
+    clean_env.setenv("TELEGRAM_UPDATES", "webhook")
+    clean_env.setenv("TELEGRAM_WEBHOOK_SECRET", "x" * 64)
+    # API на http (по умолчанию), бот — на своём https-хосте: так можно
+    clean_env.setenv("TELEGRAM_WEBHOOK_BASE_URL", "https://stage-bot.example.test")
+    settings = Settings(env_file=None)
+    assert webhook_base_url(settings.app, settings.telegram) == "https://stage-bot.example.test"
+    for bad, message in (
+        ("http://stage-bot.example.test", "TELEGRAM_WEBHOOK_BASE_URL: webhook Telegram принимает"),
+        ("https://", "TELEGRAM_WEBHOOK_BASE_URL: webhook Telegram принимает"),
+        ("https://stage-bot.example.test/hook", "TELEGRAM_WEBHOOK_BASE_URL: нужны только схема"),
+        ("https://stage-bot.example.test?x=1", "TELEGRAM_WEBHOOK_BASE_URL: нужны только схема"),
+    ):
+        clean_env.setenv("TELEGRAM_WEBHOOK_BASE_URL", bad)
+        with pytest.raises(SettingsError, match=message):
+            Settings(env_file=None)
+    # без своего хоста — адрес API, и проверяется уже он
+    clean_env.delenv("TELEGRAM_WEBHOOK_BASE_URL")
+    clean_env.setenv("APP_API_PUBLIC_URL", "https://stage-api.example.test/api")
+    with pytest.raises(SettingsError, match="APP_API_PUBLIC_URL: нужны только схема"):
+        Settings(env_file=None)
+    clean_env.setenv("APP_API_PUBLIC_URL", "https://stage-api.example.test/")
+    settings = Settings(env_file=None)
+    assert webhook_base_url(settings.app, settings.telegram) == "https://stage-api.example.test/"
