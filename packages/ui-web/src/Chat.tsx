@@ -56,7 +56,8 @@ export function Bubble({ side, children, time, status, failed = false, onRetry }
   const footer = (
     <>
       {time && (
-        <span className="mt-0.5 block text-right text-[11px] leading-[14px] opacity-80">
+        // opacity-80 давала 3,98:1 на акценте светлой темы — меньше AA 4,5:1 (axe на S30)
+        <span className="mt-0.5 block text-right text-[11px] leading-[14px] opacity-90">
           {time}
         </span>
       )}
