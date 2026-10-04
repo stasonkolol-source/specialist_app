@@ -52,6 +52,11 @@ servers:
       cpuset-cpus: "0-1"
   worker:
     cmd: worker
+    # ping URL Healthchecks (K33) — только воркеру: ops.heartbeat раз в минуту; секрет, потому что по
+    # ссылке любой отметит проверку и скроет сбой. Kamal объединяет его с секретами env ниже.
+    env:
+      secret:
+        - HEALTHCHECKS_WORKER_PING_URL
     options:
       memory: 512m
       cpuset-cpus: "0-1"
@@ -85,6 +90,10 @@ env:
     APP_RELEASE: <%= ENV.fetch("APP_RELEASE", "manual") %>
     VALKEY_URL: redis://sosed-valkey:6379/0
     S3_REGION: auto
+    # Метрики Prometheus каждой роли (3.3): свой порт процесса, не порт API. Порт не публикуется —
+    # его читает только accessory alloy в сети kamal (infra/monitoring/alloy/config.alloy, тот же 9091).
+    METRICS_HOST: 0.0.0.0
+    METRICS_PORT: "9091"
   # Имена — те же, что в backend/.env.example; значения — infra/kamal/secrets.<destination>.
   # APP_ADMIN_SESSION_KEY — только при ADMIN_HOST: без ключа web не монтирует /admin (2.7a), а
   # ADMIN_HOST деплой задаёт, только когда хост админки закрыт Cloudflare Access (K31; 2.7b, 3.1c).
@@ -116,3 +125,40 @@ accessories:
     options:
       memory: 192m
       cpuset-cpus: "0-1"
+
+  # Grafana Alloy (3.3, infra/monitoring/alloy): метрики ролей, хоста и PostgreSQL и логи ролей → Grafana
+  # Cloud (K35). Хост, память и prod-only файлы — в destination. Пока нет адресов Grafana Cloud
+  # (Variables GRAFANA_CLOUD_*), accessory нет вовсе: без них Alloy не стартует, и `accessory boot all`
+  # упал бы. Обновление образа или конфига — kamal accessory reboot alloy.
+  # <% if ENV["GRAFANA_CLOUD_PROM_URL"].to_s != "" %>
+  alloy:
+    image: grafana/alloy:v1.20.1@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f
+    # UI Alloy — только внутри контейнера; отчёт об используемых компонентах в Grafana Labs выключен
+    cmd: >-
+      run --server.http.listen-addr=127.0.0.1:12345 --storage.path=/var/lib/alloy/data
+      --disable-reporting /etc/alloy
+    files:
+      - infra/monitoring/alloy/config.alloy:/etc/alloy/config.alloy
+    directories:
+      # WAL remote_write: короткий обрыв связи с Grafana Cloud не теряет метрики
+      - alloy-data:/var/lib/alloy/data
+    volumes:
+      # Сокет Docker — discovery ролей и их логи. Это права root на VM: поэтому образ закреплён по
+      # digest, порты не публикуются, а логи accessories и kamal-proxy Alloy не читает (config.alloy).
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # встроенный node exporter: хост — только на чтение
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+    env:
+      clear:
+        # адреса и user id стека — не секрет (K35); один стек на stage и prod, различает метка env
+        GRAFANA_CLOUD_PROM_URL: <%= ENV["GRAFANA_CLOUD_PROM_URL"] %>
+        GRAFANA_CLOUD_PROM_USER: '<%= ENV.fetch("GRAFANA_CLOUD_PROM_USER", "") %>'
+        GRAFANA_CLOUD_LOKI_URL: '<%= ENV.fetch("GRAFANA_CLOUD_LOKI_URL", "") %>'
+        GRAFANA_CLOUD_LOKI_USER: '<%= ENV.fetch("GRAFANA_CLOUD_LOKI_USER", "") %>'
+      # токен access policy с metrics:write и logs:write; DSN роли monitoring (только pg_monitor)
+      secret:
+        - GRAFANA_CLOUD_TOKEN
+        - PG_MONITOR_DSN
+  # <% end %>

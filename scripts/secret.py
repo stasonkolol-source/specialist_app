@@ -1,7 +1,7 @@
 """make secret NAME=… TARGET=… — скрытый ввод секрета владельцем.
 
 В ответ печатается только имя и длина значения, само значение — никогда
-(OWNER_CHECKLIST.md, «Как вписать секрет»). dev, tf-stage, tf-prod, tf-zone — в .env-файл;
+(OWNER_CHECKLIST.md, «Как вписать секрет»). dev, tf-*, monitoring — в .env-файл;
 stage и production (0.25c) — в секреты GitHub environment через `gh secret set --env` по решению
 Q1(б): значение уходит в stdin gh, а не в `--body`, которое осталось бы в истории shell и в
 списке процессов.
@@ -26,6 +26,9 @@ TARGETS = {
     "tf-stage": ROOT / "infra" / "terraform" / "stage" / ".env",
     "tf-prod": ROOT / "infra" / "terraform" / "prod" / ".env",
     "tf-zone": ROOT / "infra" / "terraform" / "zone" / ".env",
+    "tf-monitoring": ROOT / "infra" / "terraform" / "monitoring" / ".env",
+    # «как код» наблюдаемости (3.3, K35): правила и дашборды Grafana Cloud — make monitoring-*
+    "monitoring": ROOT / "infra" / "monitoring" / ".env",
 }
 GITHUB_ENVIRONMENTS = ("stage", "production")
 """Q1(б): секреты stage и prod — в GitHub environments (только main, прочитать обратно нельзя)."""

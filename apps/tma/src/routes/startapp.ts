@@ -3,7 +3,7 @@
 // неизвестный код ведут на главную (до 4.8 — заглушка). Шаг экрана-цели добавляет в START_TARGETS
 // свою строку: `s_` → S08 (4.5), `j_` → S15 (5.3), `n` → S20a и `m_jobs` → S22 (5.6), `d_` → S26
 // (6.2), `p_` → S52 (6.1c), `c_` → S30 (6.4), `m_alerts`, `m_feed`, `m_availability`, `m_profile`
-// (5.7); коды `g…`
+// (5.7), `ri_` → S56 (7.6а); коды `g…`
 // раздела «Вещи» — после MVP. Суффикс `_r<code>` — атрибуция: её записывает backend при входе
 // (модуль growth), на выбор экрана он не влияет.
 import type { MineSection, StartLink } from '@sosed/links';
@@ -17,6 +17,7 @@ import {
   JOBS_PATHS,
   dealPath,
   disputePath,
+  inviteReviewPath,
   jobPath,
 } from '../features/jobs/index.ts';
 import { chatPath } from '../features/messages/index.ts';
@@ -64,6 +65,8 @@ export const START_TARGETS: StartTargets = {
   // спор S52 сразу, без S26: «Есть проблема» под «Работа выполнена?», «Ответить» и «Посмотреть
   // решение» уведомлений о споре (6.1c)
   dispute: (link) => disputePath(link.id),
+  // «отзыв до платформы» S56: ссылка-приглашение специалиста прошлому клиенту (S55, 7.6а)
+  review_invite: (link) => inviteReviewPath(link.id),
 };
 
 /** Адрес для кода `startapp`; `null` — приложение открыли без deep link. */

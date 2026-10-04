@@ -14,15 +14,17 @@ from envfile import ROOT, read
 PAIRS = (
     (ROOT / "backend" / ".env.example", ROOT / "backend" / ".env"),
     (ROOT / "infra" / "compose" / ".env.example", ROOT / "infra" / "compose" / ".env"),
-    # токены Terraform: stage (0.25a–b), prod (3.1a, 3.1c) и общий стек зоны Cloudflare (3.1a) —
-    # make secret … TARGET=tf-stage|tf-prod|tf-zone
+    # токены Terraform: stage (0.25a–b), prod (3.1a, 3.1c), общий стек зоны Cloudflare (3.1a) и
+    # UptimeRobot (3.3) — make secret … TARGET=tf-stage|tf-prod|tf-zone|tf-monitoring
     *(
         (
             ROOT / "infra" / "terraform" / stack / ".env.example",
             ROOT / "infra" / "terraform" / stack / ".env",
         )
-        for stack in ("stage", "prod", "zone")
+        for stack in ("stage", "prod", "zone", "monitoring")
     ),
+    # алерты и дашборды Grafana Cloud как код (3.3) — make secret … TARGET=monitoring
+    (ROOT / "infra" / "monitoring" / ".env.example", ROOT / "infra" / "monitoring" / ".env"),
 )
 
 

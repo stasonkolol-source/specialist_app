@@ -160,7 +160,9 @@
       "areasSummary": "{names} i još {count}",
       "postModeration": "Izmene će se pojaviti u profilu nakon automatske provere",
       "save": "Sačuvaj"
-    }
+    },
+    "invites": "Utisci pre platforme",
+    "invitesValue": "{taken} od {limit}"
   },
   "availability": {
     "title": "Dostupnost",
@@ -265,5 +267,56 @@
   },
   "uploads": {
     "leave": "Fajlovi se još otpremaju. Izaći i prekinuti otpremanje?"
+  },
+  "invites": {
+    "title": "Utisci pre platforme",
+    "lead": "Zamolite pređašnje klijente da opišu vaš rad — novi profil će dobiti prve utiske.",
+    "rules": "Pravila pozivnica",
+    "limitTitle": "Najviše {limit} pozivnica.",
+    "limitText": "Jedan link — jedan pređašnji klijent.",
+    "tabTitle": "Posebna kartica.",
+    "tabText": "Utisci su označeni „Pre platforme — nije potvrđen dogovorom“ i ne ulaze u ocenu.",
+    "moderationTitle": "Provera moderatora.",
+    "moderationText": "Utisak će se pojaviti na profilu posle provere.",
+    "list": "Pozivnice",
+    "taken": "{taken} od {limit} · preostalo {left}",
+    "takenLabel": "Iskorišćene pozivnice",
+    "empty": "Pozivnica još nema — napravite prvi link i pošaljite ga pređašnjem klijentu.",
+    "status": {
+      "waiting": "Čeka utisak",
+      "expired": "Istekao",
+      "under_review": "Na proveri",
+      "published": "Objavljen",
+      "removed": "Uklonjen"
+    },
+    "unnamed": "Link bez imena",
+    "sent": "Link poslat {when}",
+    "expiredAt": "Link je istekao {when}",
+    "received": "Utisak primljen {when}",
+    "rated": "Ocena {rating} · {when}",
+    "removedAt": "Moderator je uklonio utisak",
+    "revoke": "Povuci",
+    "revokeLabel": "Povuci link: {name}",
+    "copy": "Kopiraj link",
+    "copyLabel": "Kopiraj link: {name}",
+    "send": "Pošalji u Telegram",
+    "create": "Napravi link",
+    "newTitle": "Novi link",
+    "name": "Kome",
+    "nameHint": "Nije obavezno. Ime vidite samo vi — da ne pomešate linkove.",
+    "namePlaceholder": "Na primer, Andrej V.",
+    "readyTitle": "Link je spreman",
+    "readyText": "Pošaljite ga pređašnjem klijentu. Link važi 30 dana i otvara formular za utisak.",
+    "link": "Link pozivnice",
+    "shareText": "Molim vas, ostavite utisak o mom radu — trajaće par minuta",
+    "done": "Gotovo",
+    "revokeTitle": "Povući link?",
+    "revokeText": "Link više neće raditi, a mesto će se osloboditi za novu pozivnicu.",
+    "keep": "Zadrži",
+    "close": "Zatvori",
+    "full": "Svih {limit} mesta je zauzeto. Mesto će se osloboditi kada link istekne ili povučete neiskorišćeni.",
+    "unavailableTitle": "Profil još nije objavljen",
+    "unavailable": "Pređašnje klijente možete pozvati kada je profil objavljen: inače link nema ko da otvori.",
+    "failed": "Nije uspelo. Pokušajte ponovo"
   }
 }

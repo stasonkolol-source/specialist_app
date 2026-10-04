@@ -7,6 +7,7 @@ set -euo pipefail
 : "${MIGRATOR_DB_PASSWORD:?MIGRATOR_DB_PASSWORD is required}"
 : "${READONLY_DB_PASSWORD:?READONLY_DB_PASSWORD is required}"
 : "${BACKUP_DB_PASSWORD:?BACKUP_DB_PASSWORD is required}"
+# MONITORING_DB_PASSWORD — по желанию: роль monitoring нужна только Alloy на stage (3.3)
 
 psql --username "${POSTGRES_USER}" --dbname postgres \
     -v ON_ERROR_STOP=1 \
@@ -15,4 +16,5 @@ psql --username "${POSTGRES_USER}" --dbname postgres \
     -v migrator_password="${MIGRATOR_DB_PASSWORD}" \
     -v readonly_password="${READONLY_DB_PASSWORD}" \
     -v backup_password="${BACKUP_DB_PASSWORD}" \
+    -v monitoring_password="${MONITORING_DB_PASSWORD:-}" \
     -f /opt/specialist/bootstrap.sql

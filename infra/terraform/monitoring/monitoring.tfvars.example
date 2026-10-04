@@ -1,0 +1,6 @@
+# Образец: cp monitoring.tfvars.example monitoring.auto.tfvars и заполнить. Ключ API — в .env; e-mail —
+# личные данные владельца, поэтому файл *.auto.tfvars: Terraform читает его сам, а git — нет (.gitignore).
+domain        = "" # Q9, например sosedi-test.com
+alert_email   = "" # K35a
+stage_enabled = true
+prod_enabled  = false # true — после первого релиза на прод (3.1c)

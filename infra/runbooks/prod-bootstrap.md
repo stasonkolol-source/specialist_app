@@ -5,7 +5,7 @@ PostgreSQL на `db-1` (3.1b), Cloudflare, деплой, Access и prod-бот (
 `infra/terraform/prod`, `infra/terraform/zone`, `infra/postgres/provision.sh`, `infra/kamal`
 (`deploy.production.yml`), `infra/workers/tma`, `.github/workflows/deploy.yml` (job `production`).
 Пункты K и Q — [OWNER_CHECKLIST](../../docs/OWNER_CHECKLIST.md). Бэкапы pgBackRest и restore-тест —
-шаг 3.2, раздел 7; наблюдаемость — 3.3; без них реальные данные на prod не приходят (ворота 3.4).
+шаг 3.2, раздел 7; наблюдаемость — 3.3, раздел 8; без них реальные данные на prod не приходят (ворота 3.4).
 
 > Прогон «на сухую» — при первом подъёме prod (K38 и далее). Ни одна команда ниже до этого не
 > запускалась против Hetzner и Cloudflare: проверены только `terraform validate`, план без сети,
@@ -241,6 +241,75 @@ K10a (копии), K33 (ping URL «pgBackRest» и «restore-test»), K19. Чт�
    ```
    → Approve. Оба зелёные — числа RPO и RTO из Summary в таблицу [restore.md](restore.md). Дальше тест
    идёт сам 3-го числа каждого месяца, по очереди по репозиториям.
+
+## 8. Наблюдаемость (3.3)
+
+Нужно: K35 (Grafana Cloud), K33 (Healthchecks), K34 (UptimeRobot), K35a (канал алертов), K20 (Sentry).
+Как устроено: `infra/monitoring/alloy` — Grafana Alloy (accessory `alloy` только на `app-1`: метрики
+ролей с порта 9091, хост, PostgreSQL db-1 ролью `monitoring` по приватной сети, node exporter db-1, логи
+ролей в Loki с маскированием); `infra/monitoring/rules` — алерты; `infra/monitoring/dashboards` —
+дашборды; `infra/terraform/monitoring` — UptimeRobot. Бюджет Grafana Cloud Free — 10k активных рядов
+на оба окружения: ряды экспортёров проходят по спискам «оставить» в `config.alloy`.
+
+1. Grafana Cloud (K35). Variables репозитория (стек один на stage и prod, окружение — метка `env`):
+   `GRAFANA_CLOUD_PROM_URL` (адрес remote_write, `https://prometheus-….grafana.net/api/prom/push`),
+   `GRAFANA_CLOUD_PROM_USER`, `GRAFANA_CLOUD_LOKI_URL` (`https://logs-….grafana.net/loki/api/v1/push`),
+   `GRAFANA_CLOUD_LOKI_USER`. Секрет — токен access policy с `metrics:write` и `logs:write`:
+   `make secret NAME=GRAFANA_CLOUD_TOKEN TARGET=production`. Пока `GRAFANA_CLOUD_PROM_URL` пуст,
+   accessory `alloy` в конфиге Kamal нет вовсе.
+2. Роль `monitoring` (только `pg_monitor`, данных таблиц не видит):
+   `make gen-secret NAME=MONITORING_DB_PASSWORD ENV=production`, затем `db-provision` (раздел 2):
+   роль получит пароль, `pg_hba` пустит её из подсети prod, на `db-1` встанет `prometheus-node-exporter`
+   из пакетов Ubuntu (слушает только адрес приватной сети, порт 9100 ufw открывает только подсети).
+3. Heartbeat воркера (K33): в Healthchecks проверка «worker prod» — Simple, период 1 минута, grace
+   5 минут; ping URL — `make secret NAME=HEALTHCHECKS_WORKER_PING_URL TARGET=production` (только роль
+   `worker`). Проверки «pgBackRest» и «restore-test» — раздел 7. Integrations — e-mail (K35a), по желанию
+   Telegram alert-бот.
+4. Actions → deploy → `env` = `production`, `action` = `accessories` → Approve: Kamal пропускает
+   работающий Valkey и поднимает `alloy`; затем `deploy` — роли получат `METRICS_PORT` и ping URL.
+   Новая версия конфига или образа Alloy — `make kamal ARGS='accessory reboot alloy -d production'`.
+   Проверка: `ssh root@<PROD_HOST> 'docker logs --tail 30 sosed-alloy'` — без `error`; через пару
+   минут в Grafana → Explore → Prometheus: `up{env="production"}` — роли (`job="sosed"`), `node`
+   (`app-1`, `db-1`) и `postgres`, у всех 1.
+5. Алерты и дашборды как код — ключи в `infra/monitoring/.env` (`make secret NAME=… TARGET=monitoring`):
+   `MIMIR_ADDRESS` (адрес Prometheus стека без пути, `https://prometheus-….grafana.net`),
+   `MIMIR_TENANT_ID` (user id Prometheus), `MIMIR_API_KEY` (отдельный токен access policy с
+   `rules:read` и `rules:write` — у серверов его нет), `GRAFANA_URL` (`https://<стек>.grafana.net`),
+   `GRAFANA_SA_TOKEN` (service account с ролью Editor, K35 шаг 3). Затем
+   ```
+   make monitoring-check                  # без ключей: alloy validate, promtool check и test
+   make monitoring-rules                  # diff: что изменится в ruler
+   make monitoring-rules APPLY=1          # mimirtool rules sync, пространство имён sosed
+   make monitoring-dashboards APPLY=1     # папка «Соседи»: API RED, очереди и Telegram, хост и PostgreSQL
+   ```
+   Правки в UI перезаписываются следующим запуском: источник — файлы в git.
+6. Канал алертов (K35a). Алерты правил ruler приходят в Alertmanager стека: Alerting → Contact points →
+   в списке Alertmanager — тот, что указан у правил `sosed` (Alerting → Alert rules) → контакт e-mail
+   владельца (по умолчанию), по желанию Telegram alert-бот; Notification policies: по умолчанию — этот
+   контакт, `env=stage` — тот же контакт с `repeat_interval` 12 h (или mute timing, если stage выключен).
+7. UptimeRobot (K34): `make secret NAME=UPTIMEROBOT_API_KEY TARGET=tf-monitoring`,
+   `cp infra/terraform/monitoring/monitoring.tfvars.example infra/terraform/monitoring/monitoring.auto.tfvars`
+   (домен, e-mail для алертов; файл в git не попадает), `prod_enabled = true` после первого релиза, затем
+   `make tf ENV=monitoring ARGS='init'`, `ARGS='plan'`, `ARGS='apply'`. Мониторы: `api.` и `bot.` `/up`,
+   Mini App `app.`, раз в 5 минут; то же для stage. Копию `terraform.tfstate` — в менеджер паролей.
+8. Тестовый алерт доходит:
+   - Grafana: Contact points → контакт → Test — письмо пришло;
+   - Healthchecks: на stage `make kamal ARGS='app stop --roles=worker -d stage'` — через ≈ 6 минут
+     письмо «worker stage is DOWN», затем `make kamal ARGS='app start --roles=worker -d stage'` (Проверка 3.3);
+   - ruler целиком: `make kamal ARGS='accessory stop alloy -d stage'` — через 30 минут
+     `SosedMetricsMissing` (env=stage) в почте, затем `accessory start alloy -d stage`;
+   - UptimeRobot: монитор → Pause/Resume не шлёт алерт — проверять остановкой `bot` на stage
+     (`app stop --roles=bot`, через 5–10 минут письмо о мониторе «stage: бот /up», затем `app start`).
+9. Loki без ПД — выборочно раз в релиз и в 8.2: Explore → Loki за сутки
+   ```
+   {env="production"} |~ "\\+381|\\+7[0-9]|@[A-Za-z0-9-]+\\.[a-z]|eyJ[A-Za-z0-9_-]{8,}\\.|user=%7B|query_id="
+   ```
+   — пусто (маскирование первого рубежа — `platform/observability/masking.py`, второго — `config.alloy`);
+   и 50 строк `{env="production", role="web"}` глазами: нет имён, телефонов, адресов и текстов
+   сообщений. Логи PostgreSQL (тексты медленных запросов с литералами) и kamal-proxy (IP и User-Agent)
+   в Loki не уходят вовсе. Дату и итог — в «Сделано» шага 3.3.
+10. Рядов не больше бюджета: Grafana Cloud → Usage → Metrics — активных рядов на оба окружения
+    ≈ 3–5k при 10k бесплатных. Рост — сначала `topk(10, count by (__name__) ({__name__=~".+"}))`.
 
 ## Ключи SSH и доступ к db-1
 

@@ -73,6 +73,11 @@ jobs:
       SENTRY_DSN: ${{ vars.SENTRY_DSN }}
       # true — только на время нагрузочного прогона 8.3 (docs/loadtest/README.md)
       STAGE_LOADTEST: ${{ vars.STAGE_LOADTEST }}
+      # Grafana Cloud (K35, 3.3): адреса и user id — Variables; без GRAFANA_CLOUD_PROM_URL accessory alloy нет
+      GRAFANA_CLOUD_PROM_URL: ${{ vars.GRAFANA_CLOUD_PROM_URL }}
+      GRAFANA_CLOUD_PROM_USER: ${{ vars.GRAFANA_CLOUD_PROM_USER }}
+      GRAFANA_CLOUD_LOKI_URL: ${{ vars.GRAFANA_CLOUD_LOKI_URL }}
+      GRAFANA_CLOUD_LOKI_USER: ${{ vars.GRAFANA_CLOUD_LOKI_USER }}
       # GHCR — встроенный токен job'а (K16): образ скачивается во время деплоя
       KAMAL_REGISTRY_USERNAME: ${{ github.actor }}
       KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
@@ -84,6 +89,7 @@ jobs:
       MIGRATOR_DB_PASSWORD: ${{ secrets.MIGRATOR_DB_PASSWORD }}
       READONLY_DB_PASSWORD: ${{ secrets.READONLY_DB_PASSWORD }}
       BACKUP_DB_PASSWORD: ${{ secrets.BACKUP_DB_PASSWORD }}
+      MONITORING_DB_PASSWORD: ${{ secrets.MONITORING_DB_PASSWORD }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
       JWT_KEYS: ${{ secrets.JWT_KEYS }}
@@ -92,6 +98,9 @@ jobs:
       S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
       AI_OPENAI_API_KEY: ${{ secrets.AI_OPENAI_API_KEY }}
       AI_ANTHROPIC_API_KEY: ${{ secrets.AI_ANTHROPIC_API_KEY }}
+      # наблюдаемость (3.3): heartbeat воркера (K33) и токен записи в Grafana Cloud (K35)
+      HEALTHCHECKS_WORKER_PING_URL: ${{ secrets.HEALTHCHECKS_WORKER_PING_URL }}
+      GRAFANA_CLOUD_TOKEN: ${{ secrets.GRAFANA_CLOUD_TOKEN }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -116,7 +125,8 @@ jobs:
           esac
           names=$(sed -n 's/^\([A-Z][A-Z0-9_]*\)=\$\1$/\1/p' infra/kamal/secrets.stage)
           pass=()
-          for name in GHCR_OWNER STAGE_HOST STAGE_DOMAIN STAGE_BOT_USERNAME R2_ACCOUNT_ID SENTRY_DSN STAGE_LOADTEST $names; do
+          for name in GHCR_OWNER STAGE_HOST STAGE_DOMAIN STAGE_BOT_USERNAME R2_ACCOUNT_ID SENTRY_DSN STAGE_LOADTEST \
+                      GRAFANA_CLOUD_PROM_URL GRAFANA_CLOUD_PROM_USER GRAFANA_CLOUD_LOKI_URL GRAFANA_CLOUD_LOKI_USER $names; do
             pass+=(-e "$name")
           done
           docker run --rm -v "$PWD:/workdir" -w /workdir \
@@ -208,6 +218,11 @@ jobs:
       ADMIN_HOST: ${{ vars.PROD_ADMIN_PUBLISHED == 'true' && format('admin.{0}', vars.PROD_DOMAIN) || '' }}
       R2_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       SENTRY_DSN: ${{ vars.SENTRY_DSN }}
+      # Grafana Cloud (K35, 3.3): адреса и user id — Variables; без GRAFANA_CLOUD_PROM_URL accessory alloy нет
+      GRAFANA_CLOUD_PROM_URL: ${{ vars.GRAFANA_CLOUD_PROM_URL }}
+      GRAFANA_CLOUD_PROM_USER: ${{ vars.GRAFANA_CLOUD_PROM_USER }}
+      GRAFANA_CLOUD_LOKI_URL: ${{ vars.GRAFANA_CLOUD_LOKI_URL }}
+      GRAFANA_CLOUD_LOKI_USER: ${{ vars.GRAFANA_CLOUD_LOKI_USER }}
       KAMAL_REGISTRY_USERNAME: ${{ github.actor }}
       KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
       # секреты — те же имена, что в infra/kamal/secrets.production
@@ -217,6 +232,7 @@ jobs:
       MIGRATOR_DB_PASSWORD: ${{ secrets.MIGRATOR_DB_PASSWORD }}
       READONLY_DB_PASSWORD: ${{ secrets.READONLY_DB_PASSWORD }}
       BACKUP_DB_PASSWORD: ${{ secrets.BACKUP_DB_PASSWORD }}
+      MONITORING_DB_PASSWORD: ${{ secrets.MONITORING_DB_PASSWORD }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
       JWT_KEYS: ${{ secrets.JWT_KEYS }}
@@ -226,6 +242,9 @@ jobs:
       S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
       AI_OPENAI_API_KEY: ${{ secrets.AI_OPENAI_API_KEY }}
       AI_ANTHROPIC_API_KEY: ${{ secrets.AI_ANTHROPIC_API_KEY }}
+      # наблюдаемость (3.3): heartbeat воркера (K33) и токен записи в Grafana Cloud (K35)
+      HEALTHCHECKS_WORKER_PING_URL: ${{ secrets.HEALTHCHECKS_WORKER_PING_URL }}
+      GRAFANA_CLOUD_TOKEN: ${{ secrets.GRAFANA_CLOUD_TOKEN }}
     steps:
       - name: inputs
         env:
@@ -294,7 +313,8 @@ jobs:
           names=$(sed -n 's/^\([A-Z][A-Z0-9_]*\)=\$\1$/\1/p' infra/kamal/secrets.production)
           pass=()
           for name in GHCR_OWNER PROD_HOST PROD_DB_IP PROD_DOMAIN PROD_BOT_USERNAME PROD_MODERATORS_CHAT_ID \
-                      ADMIN_HOST R2_ACCOUNT_ID SENTRY_DSN $names; do
+                      ADMIN_HOST R2_ACCOUNT_ID SENTRY_DSN GRAFANA_CLOUD_PROM_URL GRAFANA_CLOUD_PROM_USER \
+                      GRAFANA_CLOUD_LOKI_URL GRAFANA_CLOUD_LOKI_USER $names; do
             pass+=(-e "$name")
           done
           docker run --rm -v "$PWD:/workdir" -w /workdir \

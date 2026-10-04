@@ -1,6 +1,8 @@
 // Отзыв по сделке на S08 и S11 (DEVELOPMENT_PLAN 4.6, 7.3): автор «Ирина С.», месяц и услуга,
 // звёзды, текст, «Сделка в «Соседях»» и ответ специалиста (прошедший проверку). На S11 у звёзд —
-// «⋯»: жалоба на отзыв (шторка S46, 4.7); на S08 — без неё, как на артборде.
+// «⋯»: жалоба на отзыв (шторка S46, 4.7); на S08 — без неё, как на артборде. Отзыв до платформы
+// (вкладка S11, 7.6а): вместо услуги — «что делал мастер», метка «До платформы — не подтверждён
+// сделкой» вместо «Сделка в «Соседях»».
 import type { CardReviewOut } from '@sosed/api-client';
 import { useFormat, useTranslation } from '@sosed/i18n';
 import {
@@ -49,6 +51,7 @@ export function ReviewCard({
   const common = useTranslation().t;
   const format = useFormat();
   const month = format.month(new Date(review.published_at));
+  const what = review.category?.name ?? review.work_title ?? null;
   return (
     <Card as="article" tight>
       <div className="flex items-center justify-between gap-3">
@@ -57,7 +60,7 @@ export function ReviewCard({
           <span className="flex flex-col">
             <span className="font-semibold">{review.author_name}</span>
             <Text as="span" variant="cap">
-              {review.category ? `${month} · ${review.category.name}` : month}
+              {what ? `${month} · ${what}` : month}
             </Text>
           </span>
         </span>
@@ -87,6 +90,13 @@ export function ReviewCard({
         <span className="self-start">
           <Badge tone="ok" icon="check">
             {t('reviews.viaDeal')}
+          </Badge>
+        </span>
+      )}
+      {review.kind === 'pre_platform' && (
+        <span className="self-start">
+          <Badge tone="mute" icon="clock">
+            {t('reviews.prePlatform')}
           </Badge>
         </span>
       )}

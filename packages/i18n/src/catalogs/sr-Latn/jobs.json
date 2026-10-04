@@ -622,6 +622,28 @@
     "notClient": "Utisak ostavlja klijent: izvođači će moći da ocenjuju klijente kasnije.",
     "toDeal": "Na dogovor"
   },
+  "inviteReview": {
+    "title": "Utisak o ranijem poslu",
+    "lead": "{name} vas moli da opišete posao urađen za vas pre aplikacije „Sosedi“.",
+    "work": "Šta je majstor radio",
+    "workPlaceholder": "Na primer, instalacija u kupatilu",
+    "placeholder": "Opišite šta je urađeno i kako je prošlo",
+    "confirm": "Potvrđujem: {name} je zaista radio/la ovaj posao za mene",
+    "confirmMissing": "Označite da je ovaj majstor radio posao za vas",
+    "note": "Posle provere moderatora utisak će se pojaviti na profilu sa oznakom „Pre platforme — nije potvrđen dogovorom“. Ne ulazi u ocenu.",
+    "submit": "Pošalji utisak",
+    "sent": "Hvala! Utisak će se pojaviti posle provere",
+    "sentText": "Moderator će proveriti utisak i on će se pojaviti na profilu sa oznakom „Pre platforme“. Ne ulazi u ocenu.",
+    "home": "Na početnu",
+    "invalid": "Link nije važeći",
+    "invalidText": "Povučen je, istekao je ili je po njemu već ostavljen utisak. Zamolite stručnjaka da pošalje novi.",
+    "own": "Ovo je vaš link",
+    "ownText": "Pošaljite ga pređašnjem klijentu: utisak o sebi ne možete ostaviti.",
+    "exists": "Već ste ostavili utisak",
+    "existsText": "O jednom stručnjaku možete ostaviti jedan utisak pre platforme.",
+    "signedOut": "Otvorite link u Telegram-u",
+    "signedOutText": "Utisak se ostavlja u mini-aplikaciji u Telegram-u. Ako je već otvorena — zatvorite je i otvorite ponovo"
+  },
   "history": {
     "title": "Dogovori i utisci",
     "tabs": {

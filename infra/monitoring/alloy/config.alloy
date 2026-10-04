@@ -1,0 +1,335 @@
+// Grafana Alloy на stage и prod (DEVELOPMENT_PLAN 3.3, ARCHITECTURE §16.5): метрики и логи → Grafana
+// Cloud (K35). Accessory Kamal `alloy` (infra/kamal/deploy*.yml) на VM приложения; один файл на оба
+// окружения — различия в переменных окружения accessory. Цели только prod (node exporter db-1) — в
+// db-1.alloy: Alloy читает весь каталог /etc/alloy, а этот файл монтируется только на проде.
+//
+// Бюджет Grafana Cloud Free — 10k активных рядов на оба окружения и 1 точка в минуту на ряд:
+// scrape раз в 60 с, ряды экспортёров проходят только по спискам «оставить» ниже.
+
+logging {
+	level  = "warn"
+	format = "json"
+}
+
+// --- метрики приложения: роли Kamal (метка service=sosed), порт METRICS_PORT в сети kamal ---
+// Accessories (postgres, valkey, alloy) Kamal помечает service=sosed-<имя>, kamal-proxy — без метки:
+// в выборку они не попадают.
+discovery.docker "app" {
+	host             = "unix:///var/run/docker.sock"
+	refresh_interval = "30s"
+
+	filter {
+		name   = "label"
+		values = ["service=sosed"]
+	}
+}
+
+discovery.relabel "app" {
+	targets = discovery.docker.app.targets
+
+	// Alloy и роли — в одной сети Docker «kamal»; цели других сетей недостижимы
+	rule {
+		source_labels = ["__meta_docker_network_name"]
+		regex         = "kamal"
+		action        = "keep"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_role"]
+		target_label  = "role"
+	}
+
+	// 9091 — METRICS_PORT из env.clear deploy.yml; порт API (8000) метрик не отдаёт
+	rule {
+		source_labels = ["__meta_docker_network_ip"]
+		target_label  = "__address__"
+		replacement   = "$1:9091"
+	}
+
+	// instance — роль, а не адрес: адрес контейнера меняется при каждом деплое, и с ним менялись бы
+	// все ряды (лишние активные ряды на 20 минут после каждого релиза). Одна VM — один контейнер роли.
+	rule {
+		source_labels = ["role"]
+		target_label  = "instance"
+	}
+}
+
+prometheus.scrape "app" {
+	targets         = discovery.relabel.app.output
+	job_name        = "sosed"
+	scrape_interval = "60s"
+	scrape_timeout  = "10s"
+	forward_to      = [prometheus.relabel.app.receiver]
+}
+
+// Ряды приложения нужны все (RED API, очереди, 429 Telegram, лаг поиска, модерация) — они и есть
+// главное. Ряды *_created backend уже не отдаёт; служебные ряды scrape (scrape_*) не нужны.
+prometheus.relabel "app" {
+	forward_to = [prometheus.remote_write.cloud.receiver]
+
+	rule {
+		source_labels = ["__name__"]
+		regex         = "scrape_.+"
+		action        = "drop"
+	}
+}
+
+// --- хост VM: встроенный node exporter вместо отдельного контейнера ---
+// Корень, /proc и /sys хоста смонтированы в контейнер только на чтение (accessory alloy). Сетевые
+// интерфейсы контейнер видит свои, а не хоста, — их метрики выключены.
+prometheus.exporter.unix "host" {
+	procfs_path    = "/host/proc"
+	sysfs_path     = "/host/sys"
+	rootfs_path    = "/host/root"
+	set_collectors = ["cpu", "diskstats", "filesystem", "loadavg", "meminfo", "pressure", "time"]
+
+	filesystem {
+		fs_types_exclude     = "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tmpfs|tracefs)$"
+		mount_points_exclude = "^/(dev|proc|run|sys|var/lib/docker/.+|snap/.+)($|/)"
+	}
+
+	disk {
+		device_include = "^(sd[a-z]+|vd[a-z]+|nvme[0-9]+n[0-9]+)$"
+	}
+}
+
+// instance — имя VM (ALLOY_HOST: stage, app-1), а не hostname контейнера Alloy: он меняется с ним
+discovery.relabel "host" {
+	targets = prometheus.exporter.unix.host.targets
+
+	rule {
+		target_label = "instance"
+		replacement  = sys.env("ALLOY_HOST")
+	}
+}
+
+prometheus.scrape "host" {
+	targets         = discovery.relabel.host.output
+	job_name        = "node"
+	scrape_interval = "60s"
+	forward_to      = [prometheus.relabel.node.receiver]
+}
+
+// Общий для app-1 и db-1 (db-1.alloy) список рядов хоста: диск (алерт > 80%), память, CPU, PSI.
+prometheus.relabel "node" {
+	forward_to = [prometheus.remote_write.cloud.receiver]
+
+	rule {
+		source_labels = ["__name__"]
+		regex         = "up|node_cpu_seconds_total|node_load(1|5|15)|node_memory_(MemTotal|MemAvailable|SwapTotal|SwapFree)_bytes|node_filesystem_(size|avail)_bytes|node_filesystem_readonly|node_disk_(io_time_seconds|read_bytes|written_bytes)_total|node_pressure_(cpu|memory|io)_waiting_seconds_total|node_boot_time_seconds|node_time_seconds"
+		action        = "keep"
+	}
+
+	// режимы CPU кроме idle, iowait, system и user — шум
+	rule {
+		source_labels = ["__name__", "mode"]
+		regex         = "node_cpu_seconds_total;(guest|guest_nice|irq|nice|softirq|steal)"
+		action        = "drop"
+	}
+}
+
+// --- PostgreSQL: postgres_exporter под ролью monitoring (только pg_monitor, без доступа к данным) ---
+// stage — accessory sosed-postgres в сети kamal; prod — db-1 по приватной сети (sslmode=require).
+// DSN — секрет PG_MONITOR_DSN (infra/kamal/secrets.<destination>).
+prometheus.exporter.postgres "db" {
+	data_source_names        = [sys.env("PG_MONITOR_DSN")]
+	disable_settings_metrics = true
+	// stat_user_tables и statio_user_tables — десятки рядов на каждую таблицу: не по бюджету
+	enabled_collectors = ["database", "locks", "replication", "stat_bgwriter", "stat_database", "stat_statements", "wal"]
+
+	// топ запросов pg_stat_statements без текста: текст запроса может содержать литералы (ПД)
+	stat_statements {
+		include_query = false
+		limit         = 20
+	}
+}
+
+prometheus.scrape "db" {
+	targets         = prometheus.exporter.postgres.db.targets
+	job_name        = "postgres"
+	scrape_interval = "60s"
+	scrape_timeout  = "20s"
+	forward_to      = [prometheus.relabel.db.receiver]
+}
+
+prometheus.relabel "db" {
+	forward_to = [prometheus.remote_write.cloud.receiver]
+
+	// pg_stat_archiver_* — отставание архива WAL (RPO, 3.2); pg_stat_statements_* — топ-20 запросов
+	rule {
+		source_labels = ["__name__"]
+		regex         = "up|pg_up|pg_postmaster_start_time_seconds|pg_database_size_bytes|pg_stat_database_(numbackends|xact_commit|xact_rollback|deadlocks|blks_hit|blks_read|temp_bytes|conflicts)|pg_locks_count|pg_stat_activity_count|pg_stat_activity_max_tx_duration|pg_stat_archiver_(archived_count|failed_count|last_archive_age)|pg_stat_statements_(calls|seconds)_total|pg_wal_size_bytes|pg_replication_lag_seconds|pg_stat_bgwriter_buffers_.+_total"
+		action        = "keep"
+	}
+
+	// только база приложения: template0/1 и postgres дали бы втрое больше рядов
+	rule {
+		source_labels = ["datname"]
+		regex         = "(|specialist)"
+		action        = "keep"
+	}
+}
+
+// --- логи ролей → Loki: метки role и env, маскирование ПД вторым рубежом ---
+// Логи accessories (PostgreSQL пишет текст медленных запросов с литералами) и kamal-proxy (IP и
+// User-Agent клиентов) в Loki не идут: выборка та же, что у метрик, — только service=sosed.
+discovery.relabel "logs" {
+	targets = []
+
+	rule {
+		source_labels = ["__meta_docker_network_name"]
+		regex         = "kamal"
+		action        = "keep"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_role"]
+		target_label  = "role"
+	}
+}
+
+loki.source.docker "app" {
+	host          = "unix:///var/run/docker.sock"
+	targets       = discovery.docker.app.targets
+	relabel_rules = discovery.relabel.logs.rules
+	forward_to    = [loki.process.app.receiver]
+}
+
+loki.process "app" {
+	forward_to = [loki.write.cloud.receiver]
+
+	// structlog JSON (APP_LOG_JSON): уровень — в метку (пять значений); остальное остаётся в строке
+	stage.json {
+		expressions = {
+			level = "level",
+		}
+	}
+
+	stage.labels {
+		values = {
+			level = "",
+		}
+	}
+
+	stage.drop {
+		source              = "level"
+		value               = "debug"
+		drop_counter_reason = "debug"
+	}
+
+	// Второй рубеж для ПД (первый — platform/observability/masking.py): дешёвые регулярные выражения
+	// по строке целиком, по одному на вид. Заменяется только захваченная группа.
+	// JWT (access-токены)
+	stage.replace {
+		expression = "(eyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,})"
+		replace    = "***"
+	}
+
+	// токен Bot API: <id бота>:<35 символов>
+	stage.replace {
+		expression = "([0-9]{8,10}:[A-Za-z0-9_-]{35})"
+		replace    = "***"
+	}
+
+	// initData Telegram: user=…, hash=…, signature=… (в том числе URL-кодированные)
+	stage.replace {
+		expression = "(?:user|hash|signature)(?:=|%3D)([^&\"\\s]+)"
+		replace    = "***"
+	}
+
+	// телефоны в международном формате (+381…, +7…) и сербские мобильные 06x
+	stage.replace {
+		expression = "(\\+[0-9][0-9 ()-]{7,}[0-9]|\\b06[0-9][ /-]?[0-9]{3}[ -]?[0-9]{3,4}\\b)"
+		replace    = "***"
+	}
+
+	// e-mail и ping URL Healthchecks (по ссылке можно отметить проверку и скрыть сбой)
+	stage.replace {
+		expression = "([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}|hc-ping\\.com/[A-Za-z0-9/_-]+)"
+		replace    = "***"
+	}
+
+	// Шторм логов не съедает 50 GB месяца: не больше 50 строк в секунду на роль, лишнее отбрасывается
+	stage.limit {
+		rate          = 50
+		burst         = 1000
+		by_label_name = "role"
+		drop          = true
+	}
+
+	// Ошибки по ролям — счётчиком для алертов (rules/sosed.yaml: ошибки webhook — role="bot"):
+	// Alloy отдаёт его в своём реестре, ниже он уходит в remote_write вместе с прочими метриками.
+	stage.match {
+		selector = "{level=~\"error|critical\"}"
+
+		stage.metrics {
+			metric.counter {
+				name              = "log_errors_total"
+				description       = "Log lines at level error or critical"
+				match_all         = true
+				action            = "inc"
+				max_idle_duration = "24h"
+			}
+		}
+	}
+}
+
+loki.write "cloud" {
+	external_labels = {
+		env = sys.env("ALLOY_ENV"),
+	}
+
+	endpoint {
+		url = sys.env("GRAFANA_CLOUD_LOKI_URL")
+
+		basic_auth {
+			username = sys.env("GRAFANA_CLOUD_LOKI_USER")
+			password = sys.env("GRAFANA_CLOUD_TOKEN")
+		}
+	}
+}
+
+// --- собственные метрики Alloy: только счётчик ошибок из логов (остальное — сотни рядов) ---
+prometheus.exporter.self "alloy" { }
+
+prometheus.scrape "alloy" {
+	targets         = prometheus.exporter.self.alloy.targets
+	job_name        = "alloy"
+	scrape_interval = "60s"
+	forward_to      = [prometheus.relabel.alloy.receiver]
+}
+
+prometheus.relabel "alloy" {
+	forward_to = [prometheus.remote_write.cloud.receiver]
+
+	rule {
+		source_labels = ["__name__"]
+		regex         = "loki_process_custom_log_errors_total"
+		action        = "keep"
+	}
+
+	rule {
+		regex  = "component_id|component_path"
+		action = "labeldrop"
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = sys.env("ALLOY_HOST")
+	}
+}
+
+prometheus.remote_write "cloud" {
+	external_labels = {
+		env = sys.env("ALLOY_ENV"),
+	}
+
+	endpoint {
+		url = sys.env("GRAFANA_CLOUD_PROM_URL")
+
+		basic_auth {
+			username = sys.env("GRAFANA_CLOUD_PROM_USER")
+			password = sys.env("GRAFANA_CLOUD_TOKEN")
+		}
+	}
+}

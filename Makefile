@@ -92,7 +92,7 @@ pg-smoke: ## Smoke БД: локаль, pg_trgm, PostGIS, роли (ENV=stage —
 	else scripts/pg_smoke.sh; fi
 
 secret: ## Скрытый ввод секрета: make secret NAME=TELEGRAM_BOT_TOKEN TARGET=dev
-	@test -n "$(NAME)" && test -n "$(TARGET)" || (echo "usage: make secret NAME=… TARGET=dev|tf-stage|tf-prod|stage|production"; exit 2)
+	@test -n "$(NAME)" && test -n "$(TARGET)" || (echo "usage: make secret NAME=… TARGET=dev|tf-stage|tf-prod|tf-zone|tf-monitoring|monitoring|stage|production"; exit 2)
 	@python3 scripts/secret.py "$(NAME)" "$(TARGET)"
 
 secrets-check: ## Какие переменные заданы или пусты — без значений
@@ -109,6 +109,7 @@ pg-bootstrap: ## Повторно применить infra/postgres/bootstrap.sq
 	$(COMPOSE) exec -T postgres psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
 	  -v dbname=specialist -v app_password="$$APP_DB_PASSWORD" -v migrator_password="$$MIGRATOR_DB_PASSWORD" \
 	  -v readonly_password="$$READONLY_DB_PASSWORD" -v backup_password="$$BACKUP_DB_PASSWORD" \
+	  -v monitoring_password="$${MONITORING_DB_PASSWORD:-}" \
 	  -q -f /opt/specialist/bootstrap.sql && echo "pg-bootstrap: OK"
 
 migrate: ## alembic upgrade head на dev-БД (роль migrator)

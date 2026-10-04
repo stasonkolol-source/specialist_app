@@ -186,6 +186,30 @@ long polling — в `deploy.stage.yml` `TELEGRAM_UPDATES: polling` и `proxy: fa
 не отвечает на `/up`, и kamal-proxy не дождался бы healthcheck), затем деплой: процесс сам снимет
 webhook.
 
+## 6. Наблюдаемость (3.3)
+
+Нужно: K35 (Grafana Cloud), K33 (Healthchecks); по желанию K34 (UptimeRobot). То же, что на prod
+([prod-bootstrap.md](prod-bootstrap.md), раздел 8), но Alloy — на той же VM, PostgreSQL — accessory
+`sosed-postgres` в сети `kamal`, а алерты stage идут с меткой `env=stage`.
+
+1. Variables репозитория `GRAFANA_CLOUD_*` и секрет `GRAFANA_CLOUD_TOKEN` (`TARGET=stage`) — как в
+   prod-bootstrap.md, раздел 8, шаг 1.
+2. `make gen-secret NAME=MONITORING_DB_PASSWORD ENV=stage`. Новый stage (пустой том) получит роль в
+   initdb. Существующей БД роль даёт сам `bootstrap.sql`: пересоздать accessory с новым секретом и
+   применить его заново (идемпотентно; PostgreSQL перезапустится — на stage это секунды):
+   ```
+   make kamal ARGS='accessory reboot postgres -d stage'
+   ssh root@<STAGE_HOST> 'docker exec sosed-postgres bash /docker-entrypoint-initdb.d/10-bootstrap.sh'
+   ```
+   (`make kamal` берёт значения из окружения — как при подъёме stage, раздел 3.)
+3. Healthchecks: проверка «worker stage» — период 1 минута, grace 5 минут;
+   `make secret NAME=HEALTHCHECKS_WORKER_PING_URL TARGET=stage`.
+4. Actions → deploy → `env` = `stage`, `action` = `accessories` (поднимет `alloy`), затем `deploy`.
+   Проверка: `ssh root@<STAGE_HOST> 'docker logs --tail 30 sosed-alloy'` без `error`; в Grafana →
+   Explore: `up{env="stage"}` — роли, `node` (`stage`) и `postgres`, у всех 1.
+5. Алерты, дашборды, UptimeRobot и проверки «тестовый алерт доходит» и «Loki без ПД» — шаги 5–9
+   раздела 8 prod-bootstrap.md (`stage_enabled = true` в `monitoring.auto.tfvars`).
+
 ## Ключи SSH
 
 Terraform кладёт ключи на VM только при создании (`ignore_changes`). Новый ключ на живую VM —

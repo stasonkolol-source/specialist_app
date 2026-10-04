@@ -8,6 +8,7 @@ import type {
   CardServiceOut,
   CardServicesOut,
   Locale,
+  ViewsListSpecialistReviewsKind,
 } from '@sosed/api-client';
 import {
   ApiError,
@@ -20,7 +21,7 @@ import {
   useViewsListSpecialistWorks,
   viewsListSpecialistReviews,
 } from '@sosed/api-client';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 /** Как Cache-Control ответов (max-age=60). */
 export const CARD_STALE_MS = 60_000;
@@ -65,19 +66,26 @@ export function useSpecialistWorks(profileId: string) {
 
 export const SPECIALIST_REVIEWS_PAGE = 20;
 
-/** S11: рейтинг с гистограммой (первая страница) и отзывы страницами «Показать ещё»; услуги в
- * отзывах — на языке запроса. */
-export function useSpecialistReviews(profileId: string, locale: Locale) {
+/** S11: рейтинг с гистограммой (первая страница) и отзывы вкладки страницами «Показать ещё»;
+ * услуги в отзывах — на языке запроса. Вкладки (7.6а): `deal` — по сделкам, `pre_platform` — «До
+ * платформы»; сводка и `pre_platform_count` приходят в обеих, поэтому при смене вкладки прежний
+ * ответ остаётся на экране, пока не придёт новый (у отзывов прежней вкладки — `isPlaceholderData`). */
+export function useSpecialistReviews(
+  profileId: string,
+  locale: Locale,
+  kind: ViewsListSpecialistReviewsKind = 'deal',
+) {
   return useInfiniteQuery({
-    queryKey: [...getViewsListSpecialistReviewsQueryKey(profileId), locale] as const,
+    queryKey: [...getViewsListSpecialistReviewsQueryKey(profileId, { kind }), locale] as const,
     queryFn: ({ pageParam, signal }) =>
       viewsListSpecialistReviews(
         profileId,
-        { limit: SPECIALIST_REVIEWS_PAGE, ...(pageParam ? { cursor: pageParam } : {}) },
+        { kind, limit: SPECIALIST_REVIEWS_PAGE, ...(pageParam ? { cursor: pageParam } : {}) },
         { signal },
       ),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.next_cursor ?? null,
+    placeholderData: keepPreviousData,
     staleTime: CARD_STALE_MS,
   });
 }

@@ -2,13 +2,14 @@
 -- Один файл для dev (initdb), stage (accessory Kamal) и prod (провижининг db-1).
 -- Идемпотентен: повторный запуск ничего не ломает.
 --
--- Переменные psql (-v): dbname, app_password, migrator_password, readonly_password, backup_password.
+-- Переменные psql (-v): dbname, app_password, migrator_password, readonly_password, backup_password,
+-- monitoring_password (может быть пустым).
 -- FTS-конфигурации, коллации и функции поиска создаёт миграция platform_0001 (шаг 0.9).
 \set ON_ERROR_STOP on
 
 -- Роли
 SELECT format('CREATE ROLE %I LOGIN', r)
-FROM (VALUES ('app'), ('migrator'), ('readonly'), ('backup')) AS v(r)
+FROM (VALUES ('app'), ('migrator'), ('readonly'), ('backup'), ('monitoring')) AS v(r)
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r)
 \gexec
 
@@ -42,10 +43,21 @@ ALTER ROLE readonly SET statement_timeout = '30s';
 GRANT pg_read_all_data TO backup;
 GRANT pg_monitor TO backup;
 
+-- monitoring: postgres_exporter в Grafana Alloy (3.3) — только статистика (pg_monitor), данных таблиц
+-- не видит, в отличие от backup. Пароль — только если задан: без него роль есть, но войти ею нельзя
+-- (dev и тесты, окружение без Grafana Cloud).
+GRANT pg_monitor TO monitoring;
+ALTER ROLE monitoring SET default_transaction_read_only = on;
+ALTER ROLE monitoring SET statement_timeout = '10s';
+ALTER ROLE monitoring CONNECTION LIMIT 3;
+SELECT format('ALTER ROLE monitoring PASSWORD %L', :'monitoring_password')
+WHERE :'monitoring_password' <> ''
+\gexec
+
 -- База принадлежит migrator: он создаёт схемы модулей миграциями.
 ALTER DATABASE :"dbname" OWNER TO migrator;
 REVOKE ALL ON DATABASE :"dbname" FROM PUBLIC;
-GRANT CONNECT ON DATABASE :"dbname" TO app, readonly, backup;
+GRANT CONNECT ON DATABASE :"dbname" TO app, readonly, backup, monitoring;
 
 \connect :"dbname"
 
@@ -59,7 +71,7 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 
 -- public: только для объектов расширений, создавать в нём нельзя никому, кроме суперпользователя.
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
-GRANT USAGE ON SCHEMA public TO app, readonly, migrator;
+GRANT USAGE ON SCHEMA public TO app, readonly, migrator, monitoring;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO app, readonly;
 
 -- Права по умолчанию на объекты, которые migrator создаст миграциями.
