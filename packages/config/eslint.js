@@ -1,12 +1,18 @@
 // Общий ESLint (flat config) по ADR-0020 §13.
 // Использование в пакете: `export default sosed({ react: true, i18n: true })`.
 import js from '@eslint/js';
-import boundaries from 'eslint-plugin-boundaries';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+import { appBoundaries as appBoundariesRule } from './app-boundaries.js';
 import { noJsxLiteral } from './no-jsx-literal.js';
+
+// Свои правила — один объект плагина: flat config не даёт привязать ключ `sosed` к разным объектам,
+// а блоки i18n и границ в apps/tma включены вместе
+const sosedPlugin = {
+  rules: { 'no-jsx-literal': noJsxLiteral, 'app-boundaries': appBoundariesRule },
+};
 
 const apiOnly = {
   group: ['axios', 'ky', 'ofetch', 'node-fetch', 'undici'],
@@ -16,7 +22,7 @@ const tmaOnly = {
   group: ['@tma.js/*'],
   message: 'Telegram — только через packages/platform',
 };
-// Импорт каталога без index.ts eslint-plugin-boundaries не разрешает и молча пропускает —
+// Импорт каталога (`../deals`) sosed/app-boundaries не относит ни к одной фиче и пропускает —
 // через него обходились бы границы routes → features. Поэтому путь — всегда до файла.
 const explicitFile = {
   regex: '^\\.{1,2}/(?:(?!\\.(?:ts|tsx|js|mjs|css|json)$).)*$',
@@ -29,7 +35,8 @@ const explicitFile = {
  * @param {boolean} [options.i18n] — литералы в JSX запрещены (только t())
  * @param {boolean} [options.allowTma] — только для packages/platform
  * @param {string[]} [options.allowFetchIn] — файлы, где разрешён fetch (mutator api-client)
- * @param {boolean} [options.appBoundaries] — границы routes → features → packages (apps/tma)
+ * @param {boolean} [options.appBoundaries] — границы routes → features → packages (apps/tma),
+ *   правило sosed/app-boundaries
  * @param {string} [options.root] — каталог пакета (import.meta.dirname): typescript-eslint ищет tsconfig
  *   от него, иначе в одном процессе с несколькими пакетами (IDE, тесты) не может выбрать корень
  */
@@ -87,53 +94,15 @@ export function sosed({
   if (i18n) {
     configs.push({
       files: ['**/*.tsx'],
-      plugins: { sosed: { rules: { 'no-jsx-literal': noJsxLiteral } } },
+      plugins: { sosed: sosedPlugin },
       rules: { 'sosed/no-jsx-literal': 'error' },
     });
   }
   if (appBoundaries) {
     configs.push({
       files: ['src/**/*.{ts,tsx}'],
-      plugins: { boundaries },
-      settings: {
-        'boundaries/elements': [
-          { type: 'app', pattern: 'src/app/**' },
-          { type: 'routes', pattern: 'src/routes/**' },
-          { type: 'feature', pattern: 'src/features/*/**', capture: ['feature'] },
-        ],
-      },
-      rules: {
-        'boundaries/dependencies': [
-          'error',
-          {
-            default: 'disallow',
-            policies: [
-              {
-                from: { element: { type: 'app' } },
-                allow: [{ to: { element: { type: ['app', 'routes', 'feature'] } } }],
-              },
-              {
-                from: { element: { type: 'routes' } },
-                allow: [{ to: { element: { type: ['routes', 'feature'] } } }],
-              },
-              // фичи не импортируют друг друга: общее — в packages/hooks или ui-web
-              {
-                from: { element: { type: 'feature' } },
-                allow: [
-                  {
-                    to: {
-                      element: {
-                        type: 'feature',
-                        captured: { feature: '{{ from.element.captured.feature }}' },
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
+      plugins: { sosed: sosedPlugin },
+      rules: { 'sosed/app-boundaries': ['error', root ? { root } : {}] },
     });
   }
   // Тесты, конфиги и скрипты сборки: литералы и fetch допустимы

@@ -1,0 +1,24 @@
+{% extends "sqladmin/layout.html" %}
+{# Санкция из админки (2.7b): use case ImposeRestriction, запись в audit_log #}
+{% block content %}
+<div class="card">
+  <div class="card-header"><h3 class="card-title">Наложить санкцию</h3></div>
+  <div class="card-body">
+    {% if error %}<div class="alert alert-danger">Не наложена: {{ error }}</div>{% endif %}
+    {% if done %}<div class="alert alert-success">Санкция {{ done }} наложена.</div>{% endif %}
+    <form method="POST">
+      <div class="mb-3"><label class="form-label" for="user_id">ID пользователя</label>
+        <input id="user_id" name="user_id" class="form-control" value="{{ form.user_id if form else '' }}" required></div>
+      <div class="mb-3"><label class="form-label" for="kind">Вид</label>
+        <select id="kind" name="kind" class="form-select">
+          {% for kind in kinds %}<option value="{{ kind }}">{{ kind }}</option>{% endfor %}
+        </select></div>
+      <div class="mb-3"><label class="form-label" for="reason_code">Код причины (латиницей: spam, prepayment_fraud)</label>
+        <input id="reason_code" name="reason_code" class="form-control" required></div>
+      <div class="mb-3"><label class="form-label" for="ends_at">До (пусто — бессрочно; время Белграда)</label>
+        <input id="ends_at" name="ends_at" type="datetime-local" class="form-control"></div>
+      <button type="submit" class="btn btn-danger">Наложить</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
