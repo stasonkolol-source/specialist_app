@@ -63,6 +63,7 @@ async def fresh(world: Invites, client: UserId, job_id: UUID) -> int | None:
     return value
 
 
+@pytest.mark.authz
 async def test_new_responses_become_seen_on_the_response_cards(world: Invites) -> None:
     client = await world.user("Елена К.")
     job_id = await world.job(client)

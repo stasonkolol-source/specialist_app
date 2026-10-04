@@ -234,6 +234,7 @@ async def test_declined_proposal_lets_them_agree_again(chat: Chat, worker: Async
     assert second.json()["deal_id"] != first
 
 
+@pytest.mark.authz
 async def test_proposal_terms_are_checked(chat: Chat) -> None:
     client, _, conversation_id = await Direct(chat).start()
     path = f"/conversations/{conversation_id}/deal"
@@ -294,6 +295,7 @@ async def test_response_conversation_agrees_by_choosing_the_response(
     ]
 
 
+@pytest.mark.authz
 async def test_contact_is_shared_after_the_deal_and_only_ones_own(
     chat: Chat, worker: AsyncContainer
 ) -> None:
@@ -308,6 +310,13 @@ async def test_contact_is_shared_after_the_deal_and_only_ones_own(
 
     deal_id = (await propose(chat, client, conversation_id)).json()["deal_id"]
     assert (await chat.post(performer, f"/deals/{deal_id}/confirm")).status_code == 200
+    # чужой ресурс (8.4): посторонний со своим Telegram в чужой диалог контакт не пришлёт
+    stranger_tg = new_telegram_id()
+    stranger = await chat.user(telegram_id=stranger_tg)
+    foreign = await chat.post(
+        stranger, path, {"contact_type": "telegram", "init_data": init_data(settings, stranger_tg)}
+    )
+    assert (foreign.status_code, foreign.json()["code"]) == (404, "conversation_not_found")
     shared = await chat.post(client, path, telegram)
     again = await chat.post(client, path, telegram)
     phone = await chat.post(
