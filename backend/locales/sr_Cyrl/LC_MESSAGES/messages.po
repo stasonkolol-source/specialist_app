@@ -1095,6 +1095,18 @@ msgstr "Бот апликације „Соседи“ може да вам пи
 msgid "notifications.system_test.button"
 msgstr "Отвори „Соседи“"
 
+msgid "share.specialist.text"
+msgstr "<b>{name}</b> — стручњак у апликацији „Соседи“"
+
+msgid "share.specialist.button"
+msgstr "Отвори профил"
+
+msgid "share.job.text"
+msgstr "<b>{title}</b> — захтев у апликацији „Соседи“"
+
+msgid "share.job.button"
+msgstr "Отвори захтев"
+
 # Апелляции и чат модераторов (DEVELOPMENT_PLAN 2.5b)
 msgid "errors.appeal_target_not_found"
 msgstr "Нема шта да се оспори: није пронађена одлука модерације о вама."

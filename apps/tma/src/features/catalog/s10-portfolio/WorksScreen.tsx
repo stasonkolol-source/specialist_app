@@ -2,8 +2,9 @@
 // приложение, и шапка Telegram. Листают свайпом, стрелками на фото и с клавиатуры; внизу —
 // миниатюры по четыре и «+N» к следующим. Открытая работа — в адресе (`?work=`), листание
 // заменяет запись истории: «Назад» и «×» закрывают просмотр, а не листают назад. Вертикальные
-// свайпы Telegram выключены: жест листания не сворачивает Mini App. «Поделиться» — с шагом 7.4,
-// MainButton «Написать …» — 5.6 и 6.4.
+// свайпы Telegram выключены: жест листания не сворачивает Mini App. «Поделиться» (7.4) — справа от
+// счётчика: ссылка на профиль специалиста (у работы своего кода deep link нет). MainButton
+// «Написать …» — 5.6 и 6.4.
 import type { CardWorkOut } from '@sosed/api-client';
 import { cardVariants, isUnavailable, largestVariant, useSpecialistWorks } from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
@@ -17,6 +18,7 @@ import { LoadError } from '../shared/LoadError.tsx';
 import { Unavailable } from '../shared/Unavailable.tsx';
 import type { PortfolioSearch } from '../shared/paths.ts';
 import { CARD_PATHS } from '../shared/paths.ts';
+import { useProfileShare } from '../shared/share.tsx';
 
 /** Миниатюр в ряду; дальше — «+N». */
 const THUMBS = 4;
@@ -30,6 +32,7 @@ export function WorksScreen() {
   const router = useRouter();
   const platform = usePlatform();
   const works = useSpecialistWorks(profileId);
+  const sharing = useProfileShare(profileId);
   useColorSchemeOverride('dark');
   useEffect(() => {
     platform.setVerticalSwipes(false);
@@ -61,6 +64,8 @@ export function WorksScreen() {
             })
           }
           onClose={close}
+          onShare={sharing.share}
+          sharing={sharing.pending}
         />
       );
   } else if (works.isError) {
@@ -80,6 +85,7 @@ export function WorksScreen() {
         {t('portfolio.title')}
       </Heading>
       {content}
+      {sharing.notice}
     </section>
   );
 }
@@ -120,13 +126,18 @@ function Viewer({
   current,
   onOpen,
   onClose,
+  onShare,
+  sharing,
 }: {
   items: CardWorkOut[];
   current: string | undefined;
   onOpen: (workId: string) => void;
   onClose: () => void;
+  onShare: () => void;
+  sharing: boolean;
 }) {
   const { t } = useTranslation('catalog');
+  const common = useTranslation().t;
   // неизвестная работа (удалили, пока открывали ссылку) — первая
   const index = Math.max(
     0,
@@ -181,8 +192,13 @@ function Viewer({
         <span className="font-semibold tabular-nums" aria-live="polite">
           {t('portfolio.position', { number: index + 1, count })}
         </span>
-        {/* место кнопки «Поделиться» (7.4): счётчик по центру, как на артборде */}
-        <span className="size-11" aria-hidden="true" />
+        <IconButton
+          plain
+          icon="share"
+          label={common('share.work')}
+          aria-busy={sharing || undefined}
+          onClick={onShare}
+        />
       </div>
       <figure className="m-0 flex flex-col gap-4">
         <div

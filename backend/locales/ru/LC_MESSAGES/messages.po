@@ -1095,6 +1095,18 @@ msgstr "Бот «Соседей» может вам писать: сюда пр�
 msgid "notifications.system_test.button"
 msgstr "Открыть «Соседи»"
 
+msgid "share.specialist.text"
+msgstr "<b>{name}</b> — специалист в «Соседях»"
+
+msgid "share.specialist.button"
+msgstr "Открыть профиль"
+
+msgid "share.job.text"
+msgstr "<b>{title}</b> — заявка в «Соседях»"
+
+msgid "share.job.button"
+msgstr "Открыть заявку"
+
 # Апелляции и чат модераторов (DEVELOPMENT_PLAN 2.5b)
 msgid "errors.appeal_target_not_found"
 msgstr "Обжаловать нечего: решения модерации о вас не нашлось."

@@ -7,7 +7,8 @@
 // подтверждён», «Подработка», «Новый»; опрос раз в 15 секунд. «Закрыть заявку» спрашивает
 // причину. «Изменить» — мастер S20a–d с этой заявкой (`?edit=<id>`, сохранение с If-Match).
 // Карточка отклика ведёт на S24 — выбрать исполнителя или отклонить (6.2); заявка «в работе» и
-// завершённая — «Исполнитель выбран» и «Открыть сделку» (S26). «Поделиться» — 7.4. Из «Моих
+// завершённая — «Исполнитель выбран» и «Открыть сделку» (S26). «Поделиться» (7.4) — у
+// опубликованной заявки не прямым запросом: карточка в выбор чата Telegram или ссылка. Из «Моих
 // заявок» S22 экран рисуется сразу — заявкой из списка, отклики грузятся вместе с ней.
 import type { JobCloseInReason, JobOut, ResponseCardOut } from '@sosed/api-client';
 import { ApiError, getSession } from '@sosed/api-client';
@@ -45,6 +46,7 @@ import { JobUnavailable } from '../shared/JobUnavailable.tsx';
 import { useDraftStore } from '../shared/draft.ts';
 import { LoadError } from '../shared/LoadError.tsx';
 import { useBudgetText, useDistrictName, useOfferPrice, useWhenBadge } from '../shared/labels.ts';
+import { shareable, useJobShare } from '../shared/share.tsx';
 import { JobSummarySkeleton, OfferCardSkeleton } from '../shared/skeletons.tsx';
 import {
   CREATE_PATHS,
@@ -111,6 +113,7 @@ function Manage({ job }: { job: JobOut }) {
   const extend = useExtendJob();
   const [closing, setClosing] = useState(false);
   const [inviting, setInviting] = useState(false);
+  const sharing = useJobShare(job.id);
   const published = job.status === 'published';
   const items = cards.data?.items ?? [];
   const failed = close.error ?? extend.error;
@@ -126,6 +129,8 @@ function Manage({ job }: { job: JobOut }) {
           void router.navigate({ to: CREATE_PATHS.what, search: { edit: job.id } });
         }}
         onInvite={() => setInviting(true)}
+        onShare={shareable(job) ? sharing.share : undefined}
+        sharing={sharing.pending}
         onExtend={() => extend.mutate(job.id)}
         extending={extend.isPending}
       />
@@ -196,6 +201,7 @@ function Manage({ job }: { job: JobOut }) {
         />
       )}
       {inviting && <InviteSheet job={job} onClose={() => setInviting(false)} />}
+      {sharing.notice}
     </section>
   );
 }
@@ -228,12 +234,17 @@ function Summary({
   job,
   onEdit,
   onInvite,
+  onShare,
+  sharing,
   onExtend,
   extending,
 }: {
   job: JobOut;
   onEdit: () => void;
   onInvite: () => void;
+  /** Нет — заявкой делиться нельзя (не опубликована или прямой запрос). */
+  onShare: (() => void) | undefined;
+  sharing: boolean;
   onExtend: () => void;
   extending: boolean;
 }) {
@@ -326,6 +337,11 @@ function Summary({
         {published && (
           <Button variant="outline" icon="users" onClick={onInvite}>
             {t('manage.invite')}
+          </Button>
+        )}
+        {onShare && (
+          <Button variant="outline" icon="share" aria-busy={sharing} onClick={onShare}>
+            {common('action.share')}
           </Button>
         )}
         {canExtend && (
