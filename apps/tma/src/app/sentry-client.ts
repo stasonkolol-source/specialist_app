@@ -10,9 +10,19 @@ const LAUNCH_DATA = /(tgWebAppData|initData)(=|%3D)[^&#\s]*/gi;
 /** Сама строка initData (`query_id=…&user=…&auth_date=…&hash=…`) — как в backend masking.py. */
 const RAW_INIT_DATA =
   /(?:query_id|user|auth_date|signature|hash|chat_instance)=[^&\s]+(?:&[^&\s]+)*/g;
+/** Токен ссылки-приглашения на «отзыв до платформы» (S56) — секрет на предъявителя на 30 дней:
+ *  маршрут `#/review-invites/<uuid>`, запрос `/api/v1/review-invites/<uuid>` (и закодированный
+ *  `%2F`) и код startapp `ri_<base62>` из hash запуска — как в backend masking.py. Без lookbehind:
+ *  его не понимают старые WebView iOS, а ошибка в регулярке сломала бы весь чанк Sentry. */
+const INVITE_PATH = /(review-invites(?:\/|%2F))[^/?#&\s"'<>%]+/gi;
+const INVITE_START = /(^|[^0-9A-Za-z]|%3D)ri_[0-9A-Za-z]{22}(?![0-9A-Za-z])/gi;
 
 export function scrubText(text: string): string {
-  return text.replace(LAUNCH_DATA, '$1$2[Filtered]').replace(RAW_INIT_DATA, '[init-data]');
+  return text
+    .replace(LAUNCH_DATA, '$1$2[Filtered]')
+    .replace(RAW_INIT_DATA, '[init-data]')
+    .replace(INVITE_PATH, '$1[Filtered]')
+    .replace(INVITE_START, '$1ri_[Filtered]');
 }
 
 /** Крошки с адресом: navigation (from, to), xhr и fetch (url), console (message). Аргументы console

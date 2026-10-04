@@ -10,6 +10,9 @@ const INIT_DATA =
   '%26hash%3Dc501b71e775f74ce10e377dea85a7ea2';
 const LAUNCH = `#tgWebAppData=${INIT_DATA}&tgWebAppVersion=7.10&tgWebAppPlatform=ios`;
 const SECRETS = ['AAHdF6IQ', '279058397', 'Vladislav', '1662771648', 'c501b71e'];
+// приглашение на отзыв (S56): uuid ссылки и тот же id в коде startapp `ri_<base62>`
+const INVITE = '4b7f0f1e-9c3a-4d2b-8e6f-1a2b3c4d5e6f';
+const INVITE_CODE = 'ri_0123456789ABCDEFGHIJkl';
 
 describe('Sentry: initData never leaves the client', () => {
   afterEach(async () => {
@@ -64,5 +67,49 @@ describe('Sentry: initData never leaves the client', () => {
     expect(all).toContain('"release":"dev"');
     expect(all).toContain('"environment":"dev"');
     for (const secret of SECRETS) expect(all).not.toContain(secret);
+  });
+
+  it('hides review-invite tokens: route, API path, encoded address, startapp code', () => {
+    expect(scrubText(`https://app.example/#/review-invites/${INVITE}`)).toBe(
+      'https://app.example/#/review-invites/[Filtered]',
+    );
+    expect(scrubText(`GET https://api.example/api/v1/review-invites/${INVITE}?x=1`)).toBe(
+      'GET https://api.example/api/v1/review-invites/[Filtered]?x=1',
+    );
+    expect(scrubText(`/?next=${encodeURIComponent(`/review-invites/${INVITE}`)}`)).toBe(
+      '/?next=%2Freview-invites%2F[Filtered]',
+    );
+    expect(scrubText(`#tgWebAppStartParam=${INVITE_CODE}_rAB&tgWebAppVersion=7.10`)).toBe(
+      '#tgWebAppStartParam=ri_[Filtered]_rAB&tgWebAppVersion=7.10',
+    );
+    expect(scrubText(`?startapp%3D${INVITE_CODE}`)).toBe('?startapp%3Dri_[Filtered]');
+    // список своих приглашений и прочие адреса — как были
+    expect(scrubText('https://app.example/#/cabinet/review-invites')).toBe(
+      'https://app.example/#/cabinet/review-invites',
+    );
+    expect(scrubText('trip_0123456789ABCDEFGHIJkl')).toBe('trip_0123456789ABCDEFGHIJkl');
+  });
+
+  it('sends no review-invite token in breadcrumbs, request url or errors', async () => {
+    const sent: string[] = [];
+    history.replaceState(null, '', '/#/');
+    init({
+      ...sentryOptions('https://publickey@o4500.ingest.de.sentry.io/4501'),
+      transport: (options) =>
+        createTransport(options, (request) => {
+          const body = request.body;
+          sent.push(typeof body === 'string' ? body : new TextDecoder().decode(body));
+          return Promise.resolve({ statusCode: 200 });
+        }),
+    });
+    // форма S56 по ссылке: крошка navigation, адрес страницы и текст ошибки с путём API
+    history.replaceState(null, '', `/#/review-invites/${INVITE}`);
+    captureException(new Error(`GET /api/v1/review-invites/${INVITE} failed: 500`));
+    await flush(2000);
+
+    const all = sent.join('\n');
+    expect(all).toContain('"type":"event"');
+    expect(all).toContain('review-invites/[Filtered]');
+    expect(all).not.toContain(INVITE);
   });
 });
