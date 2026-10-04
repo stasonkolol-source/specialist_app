@@ -13,7 +13,7 @@ from fastapi import Request, Response
 from starlette.datastructures import Headers
 
 from app.interfaces.http.proxy import resolve_client
-from app.interfaces.http.security_headers import API_CSP
+from app.interfaces.http.security_headers import API_CSP, FRAME_CSP
 from app.platform.settings import CLOUDFLARE_IPS, PRIVATE_NETWORKS, Settings
 from tests.plugins.http import http_client, sample_router
 
@@ -167,13 +167,15 @@ async def test_api_responses_carry_security_headers(client: httpx.AsyncClient) -
         assert response.headers["x-content-type-options"] == "nosniff"
         assert response.headers["x-frame-options"] == "DENY"
         assert response.headers["referrer-policy"] == "no-referrer"
-        assert response.headers["content-security-policy"] == API_CSP
+    assert (await client.get("/api/v1/nope")).headers["content-security-policy"] == API_CSP
+    # вне API (healthcheck, будущий SQLAdmin) — свои страницы, только запрет фреймов
+    assert (await client.get("/up")).headers["content-security-policy"] == FRAME_CSP
 
 
 async def test_swagger_ui_keeps_its_scripts_but_not_frames(client: httpx.AsyncClient) -> None:
     response = await client.get("/api/v1/docs")
     assert response.status_code == 200
-    assert response.headers["content-security-policy"] == "frame-ancestors 'none'"
+    assert response.headers["content-security-policy"] == FRAME_CSP
 
 
 async def test_personal_responses_are_not_stored(client: httpx.AsyncClient) -> None:

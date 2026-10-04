@@ -71,7 +71,11 @@ def create_app(
         api_prefix=API_PREFIX,
         maintenance=maintenance,
     )
-    app.add_middleware(SecurityHeadersMiddleware, docs_path=DOCS_PATH if public_docs else None)
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        api_prefix=API_PREFIX,
+        docs_path=DOCS_PATH if public_docs else None,
+    )
     # внешний слой: адрес клиента и схема нужны всем остальным (лимиты, HSTS, журнал согласий)
     app.add_middleware(
         ClientAddressMiddleware,
