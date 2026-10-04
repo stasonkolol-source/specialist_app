@@ -45,6 +45,11 @@ def _broadcast(**overrides: object) -> Broadcast:
     return Broadcast(**fields)  # type: ignore[arg-type]
 
 
+def _status(broadcast: Broadcast) -> BroadcastStatus:
+    """Статус после перехода: mypy сужает атрибут по прошлому assert."""
+    return broadcast.status
+
+
 def _segment(
     *, specialist: bool = False, founding: bool = False, city: CityId | None = NOVI_SAD
 ) -> Segment:
@@ -97,14 +102,14 @@ def test_broadcast_needs_russian_and_serbian_and_one_button() -> None:
 def test_state_machine_draft_scheduled_sending_done() -> None:
     broadcast = _broadcast()
     broadcast.start(NOW, NOW + timedelta(hours=2))
-    assert broadcast.status is BroadcastStatus.SCHEDULED
+    assert _status(broadcast) is BroadcastStatus.SCHEDULED
     with pytest.raises(BroadcastStateError):
         broadcast.start(NOW)  # второй старт
     assert broadcast.begin()
-    assert broadcast.status is BroadcastStatus.SENDING
+    assert _status(broadcast) is BroadcastStatus.SENDING
     broadcast.advance(UserId(new_id()))
     assert broadcast.finish(NOW)
-    assert broadcast.status is BroadcastStatus.DONE
+    assert _status(broadcast) is BroadcastStatus.DONE
     assert not broadcast.finish(NOW)
     with pytest.raises(BroadcastStateError):
         broadcast.cancel(NOW)  # завершённую не отменить
@@ -113,10 +118,10 @@ def test_state_machine_draft_scheduled_sending_done() -> None:
 def test_start_in_the_past_is_now_and_cancel_stops_fan_out() -> None:
     broadcast = _broadcast()
     broadcast.start(NOW, NOW - timedelta(minutes=5))
-    assert broadcast.status is BroadcastStatus.SENDING
+    assert _status(broadcast) is BroadcastStatus.SENDING
     assert broadcast.starts_at == NOW
     broadcast.cancel(NOW)
-    assert broadcast.status is BroadcastStatus.CANCELLED
+    assert _status(broadcast) is BroadcastStatus.CANCELLED
     assert not broadcast.begin()  # задача разбора аудитории после отмены ничего не ставит
     with pytest.raises(BroadcastStateError):
         broadcast.advance(UserId(new_id()))
