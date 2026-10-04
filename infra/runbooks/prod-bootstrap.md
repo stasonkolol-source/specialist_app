@@ -132,8 +132,10 @@ WAL до шага 3.2 не архивируется (`archive_command = /bin/tru
    тем же секретом `SENTRY_AUTH_TOKEN` и Variables `SENTRY_ORG`, `TMA_SENTRY_PROJECT` уровня
    репозитория, что и stage (`stage-bootstrap.md`, раздел 3); релиз — `VERSION` деплоя, как у backend.
 2. Случайные секреты — как в разделе 2, тем же циклом `make gen-secret` с именами
-   `APP_HASH_KEY TELEGRAM_WEBHOOK_SECRET APP_ADMIN_SESSION_KEY`. `APP_HASH_KEY` после первого запуска
-   не менять.
+   `APP_HASH_KEY TELEGRAM_WEBHOOK_SECRET APP_ADMIN_SESSION_KEY APP_TOTP_KEY`. `APP_HASH_KEY` после
+   первого запуска не менять. `APP_TOTP_KEY` шифрует секреты TOTP персонала в БД (8.4): менять — только
+   по [secrets-rotation.md](secrets-rotation.md) через `APP_TOTP_KEY_PREVIOUS`, иначе всем сотрудникам
+   заново `cli staff-create`; `APP_TOTP_KEY_PREVIOUS` не заводить — он нужен только на время ротации.
 3. Ключи JWT — через образ, во временный файл (как на stage):
    ```
    t=$(mktemp -d) && docker run --rm -v "$t:/out" ghcr.io/<владелец>/sosed-backend:main cli jwt-keys --env-file /out/jwt.env \
@@ -183,8 +185,10 @@ WAL до шага 3.2 не архивируется (`archive_command = /bin/tru
 2. Проверка: `curl -si https://admin.<домен>/admin | grep -i '^location'` — редирект на
    `<team>.cloudflareaccess.com`. `https://api.<домен>/admin` — 403 (правило стека зоны).
 3. Variable `production` `PROD_ADMIN_PUBLISHED` = `true` и релиз (`deploy`). Перед выкаткой job сам
-   проверяет редирект Access; без него релиз останавливается. kamal-proxy начинает обслуживать
-   `admin.<домен>`, web получает `APP_ADMIN_SESSION_KEY` и монтирует `/admin` (2.7a).
+   проверяет редирект Access; без него релиз останавливается — как и без секретов
+   `APP_ADMIN_SESSION_KEY` и `APP_TOTP_KEY` (раздел 4). kamal-proxy начинает обслуживать
+   `admin.<домен>`, процессы получают оба ключа, web монтирует `/admin` (2.7a); секреты TOTP
+   персонала ложатся в БД зашифрованными (8.4).
 4. Учётки персонала: `ssh root@<PROD_HOST> 'docker exec -it $(docker ps -qf label=role=web | head -1) sosed cli staff-create'`
    (пароль и TOTP вводите сами), роли — `sosed cli staff-grant`.
 
