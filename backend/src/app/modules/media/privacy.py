@@ -28,33 +28,39 @@ ORIGINAL_STATUSES: Final = frozenset({MediaStatus.UPLOADED, MediaStatus.PROCESSI
 async def media_links(container: AsyncContainer, user_id: UUID) -> Mapping[str, Any]:
     async with container() as request:
         session = await request.get(AsyncSession)
-        storage = await request.get(StoragePort)
-        rows = await session.execute(
-            select(
-                AssetRow.id,
-                AssetRow.purpose,
-                AssetRow.status,
-                AssetRow.bucket,
-                AssetRow.object_key,
-                AssetRow.variants,
-            )
-            .where(AssetRow.owner_id == user_id, AssetRow.deleted_at.is_(None))
-            .order_by(AssetRow.created_at)
-        )
-        links: list[dict[str, Any]] = []
-        for row in rows:
-            urls: dict[str, str] = {}
-            if row.status == MediaStatus.READY:
-                bucket = Bucket(variant_bucket(MediaPurpose(row.purpose)))
-                for name, variant in sorted(row.variants.items()):
-                    urls[name] = await storage.presign_get(
-                        bucket, variant["key"], ttl=EXPORT_LINK_TTL
-                    )
-            elif row.status in ORIGINAL_STATUSES:
-                urls["original"] = await storage.presign_get(
-                    Bucket(row.bucket), row.object_key, ttl=EXPORT_LINK_TTL
+        rows = (
+            await session.execute(
+                select(
+                    AssetRow.id,
+                    AssetRow.purpose,
+                    AssetRow.status,
+                    AssetRow.bucket,
+                    AssetRow.object_key,
+                    AssetRow.variants,
                 )
-            if urls:
+                .where(
+                    AssetRow.owner_id == user_id,
+                    AssetRow.deleted_at.is_(None),
+                    AssetRow.status.in_({MediaStatus.READY, *ORIGINAL_STATUSES}),
+                )
+                .order_by(AssetRow.created_at)
+            )
+        ).all()
+        links: list[dict[str, Any]] = []
+        if rows:  # без файлов хранилище не нужно: выгрузка работает и без ключей S3
+            storage = await request.get(StoragePort)
+            for row in rows:
+                urls: dict[str, str] = {}
+                if row.status == MediaStatus.READY:
+                    bucket = Bucket(variant_bucket(MediaPurpose(row.purpose)))
+                    for name, variant in sorted(row.variants.items()):
+                        urls[name] = await storage.presign_get(
+                            bucket, variant["key"], ttl=EXPORT_LINK_TTL
+                        )
+                else:
+                    urls["original"] = await storage.presign_get(
+                        Bucket(row.bucket), row.object_key, ttl=EXPORT_LINK_TTL
+                    )
                 links.append({"media_id": row.id, "purpose": row.purpose, "urls": urls})
     return {"links": links, "links_valid_hours": EXPORT_LINK_TTL // timedelta(hours=1)}
 

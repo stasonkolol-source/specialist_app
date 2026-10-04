@@ -1,8 +1,10 @@
 """Ночная `platform.retention_sweep` (ARCHITECTURE §7.10, §12.3; DEVELOPMENT_PLAN 2.12b).
 
-Проходит правила модулей из реестра по очереди. Правило удаляет своё короткими транзакциями и
-само пропускает сущности под legal hold (порт RetentionHold). Сбой одного правила не мешает
-остальным: ошибка — в Sentry и лог, следующий проход повторит.
+Проходит правила модулей из реестра по очереди: сначала модули выше по DAG — переписка
+освобождает заявки, на которые ссылается, в ту же ночь (реестр заполняется в порядке
+MODULE_PROVIDERS, снизу вверх). Правило удаляет своё короткими транзакциями и само пропускает
+сущности под legal hold (порт RetentionHold). Сбой одного правила не мешает остальным: ошибка —
+в Sentry и лог, следующий проход повторит.
 """
 
 from datetime import datetime
@@ -23,7 +25,7 @@ async def sweep(
 ) -> dict[str, int]:
     """Исполнить все правила на момент `now`: сколько удалено по каждому (сбой — -1)."""
     report: dict[str, int] = {}
-    for rule in registry.rules.values():
+    for rule in reversed(registry.rules.values()):
         try:
             report[rule.name] = await rule.handler(RetentionRun(container=container, now=now))
         except Exception:

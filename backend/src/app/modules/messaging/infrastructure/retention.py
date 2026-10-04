@@ -47,7 +47,7 @@ class SqlConversationRetention:
                 MessageRow.conversation_id.in_(conversation_ids)
             )
         )
-        return dict(rows.tuples().all())
+        return dict(rows.all())
 
     async def attachments(self, conversation_ids: Collection[UUID]) -> list[tuple[UserId, MediaId]]:
         if not conversation_ids:
