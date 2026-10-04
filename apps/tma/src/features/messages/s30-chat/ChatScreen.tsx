@@ -9,11 +9,13 @@
 // «повторить». Лента опрашивается раз в 4 с (ETag), пока экран открыт; новое — прочитано.
 // Закрытый диалог — без композера. После договорённости в шапке — «Поделиться контактом» (шторка
 // S54, 6.5; из сделки S26 — сразу открытой, `?share`) и Telegram второй стороны, если она его
-// показывает. Сделка завершена или отменена — можно снова: в прямом диалоге «Договориться снова»
-// (та же шторка условий, «что делаем» — из прошлой сделки), клиенту в диалоге по отклику после
-// завершённой — «Заказать снова» (прямой диалог с этим специалистом, как «Написать» на S08). Полоса
-// сделки тогда — «Прошлая сделка», а контакты, пока открыты, — второй строкой в ней: Telegram
-// второй стороны и «Поделиться контактом». В шапке при 360 px рядом с «… снова» им нет места, а
+// показывает. Открыты ли контакты, решает сервер (`contacts_open`): договорились в диалоге однажды —
+// открыты и дальше (ADR-0010, решение владельца 2026-10-04). Сделка завершена или отменена — можно
+// снова: в прямом диалоге «Договориться снова» (та же шторка условий, «что делаем» — из прошлой
+// сделки), клиенту в диалоге по отклику после завершённой — «Заказать снова» (прямой диалог с этим
+// специалистом, как «Написать» на S08). Полоса сделки тогда — «Прошлая сделка», а контакты, пока
+// открыты, — второй строкой в ней: Telegram второй стороны и «Поделиться контактом»; там же они,
+// пока новое предложение ждёт ответа. В шапке при 360 px рядом с «… снова» им нет места, а
 // попап «⋯» Telegram — не больше трёх кнопок. «⋯» в шапке (4.7) — попап Telegram: «Пожаловаться»
 // (шторка S46 на собеседника с этим диалогом) и «Заблокировать» с подтверждением или
 // «Разблокировать». Блокировка в любую сторону — переписка только для чтения: вместо композера «Вы
@@ -134,13 +136,14 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
   const router = useRouter();
   const [proposing, setProposing] = useState(false);
   const { share: shareAsked } = useSearch({ strict: false }) as { share?: true };
-  const contactsOpen = ['agreed', 'completed'].includes(dealState(conversation));
+  const contactsOpen = conversation.contacts_open;
   const [sharing, setSharing] = useState(Boolean(shareAsked) && contactsOpen);
   const [proposed, setProposed] = useState(false);
   const block = useBlockState(conversation);
   const writable = conversation.status === 'open' && block.state === null;
   const name = conversation.counterpart_name ?? t('list.deleted');
   const again = writable ? againOf(conversation) : null;
+  const inBar = writable && contactsOpen && contactsInBar(conversation, again);
   const reorder = useStartConversation();
   const orderAgain = () => {
     const profileId = conversation.counterpart_profile_id;
@@ -179,16 +182,14 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
         name={name}
         writable={writable}
         again={again}
+        barContacts={inBar}
         ordering={reorder.isPending}
         onPropose={() => setProposing(true)}
         onOrder={orderAgain}
         onShare={() => setSharing(true)}
         onMenu={() => void block.menu(name)}
       />
-      <DealBar
-        conversation={conversation}
-        onShare={again && contactsOpen ? () => setSharing(true) : undefined}
-      />
+      <DealBar conversation={conversation} onShare={inBar ? () => setSharing(true) : undefined} />
       <div className="flex flex-1 flex-col justify-end">
         <ChatList label={t('list.title')} className="pb-4">
           <Banner tone="warn" icon="alert">
@@ -344,8 +345,16 @@ function againOf(conversation: ConversationOut): Again {
   return client && state === 'completed' && conversation.counterpart_profile_id ? 'order' : null;
 }
 
+/** Открытые контакты — второй строкой полосы сделки, а не в шапке: там «… снова», или своей кнопки
+ *  у них нет — новое предложение ждёт ответа, прошлую сделку отменили (договорились же раньше). */
+function contactsInBar(conversation: ConversationOut, again: Again): boolean {
+  const state = dealState(conversation);
+  return again !== null || state === 'proposed' || state === 'cancelled';
+}
+
 /** Сделка диалога ссылкой на S26; второй стороне ждущего предложения там — S53 (6.5). Завершённая
- *  — «Прошлая сделка». `onShare` — в шапке «… снова»: контакты второй строкой здесь. */
+ *  — «Прошлая сделка», отменённая — тоже, но только с открытыми контактами. `onShare` — контакты
+ *  второй строкой здесь (`contactsInBar`). */
 function DealBar({
   conversation,
   onShare,
@@ -358,7 +367,7 @@ function DealBar({
   const platform = usePlatform();
   const state = dealState(conversation);
   const deal = conversation.deal;
-  if (!deal || state === 'none' || state === 'cancelled') return null;
+  if (!deal || state === 'none' || (state === 'cancelled' && !onShare)) return null;
   const path = dealPath(deal.id);
   const open = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
@@ -368,7 +377,9 @@ function DealBar({
   return (
     <div className="px-4 pt-3">
       <Banner tone={state === 'proposed' ? 'warn' : 'info'} icon="briefcase">
-        {t(state === 'completed' ? 'chat.dealBarPast' : 'chat.dealBar', { title: deal.title })}{' '}
+        {t(state === 'completed' || state === 'cancelled' ? 'chat.dealBarPast' : 'chat.dealBar', {
+          title: deal.title,
+        })}{' '}
         <a href={router.history.createHref(path)} onClick={open}>
           {state === 'proposed' ? t('chat.dealTerms') : t('chat.dealOpen')}
         </a>
@@ -419,6 +430,7 @@ function Header({
   name,
   writable,
   again,
+  barContacts,
   ordering,
   onPropose,
   onOrder,
@@ -431,6 +443,8 @@ function Header({
   writable: boolean;
   /** Сделка позади: «Договориться снова» или «Заказать снова» вместо «Поделиться контактом». */
   again: Again;
+  /** Контакты — в полосе сделки: Telegram второй стороны в шапке не дублируем. */
+  barContacts: boolean;
   /** «Заказать снова» открывает прямой диалог: ждём ответа сервера. */
   ordering: boolean;
   onPropose: () => void;
@@ -456,8 +470,8 @@ function Header({
       </span>
     </>
   );
-  // «… снова» в шапке — Telegram второй стороны в полосе прошлой сделки: вместе не помещаются
-  const telegram = again ? null : conversation.counterpart_telegram;
+  // «… снова» в шапке — Telegram второй стороны в полосе сделки: вместе не помещаются
+  const telegram = barContacts ? null : conversation.counterpart_telegram;
   const toProfile = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     if (profileId) void router.navigate({ to: profilePath(profileId) });
@@ -476,7 +490,7 @@ function Header({
         {t('chat.orderAgain')}
       </Button>
     );
-  } else if (open && (state === 'agreed' || state === 'completed')) {
+  } else if (open && conversation.contacts_open && (state === 'agreed' || state === 'completed')) {
     // вторичной, как кнопка сделки в шапке артборда S54
     action = (
       <Button size="sm" variant="secondary" onClick={onShare}>

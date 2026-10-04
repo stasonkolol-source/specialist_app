@@ -26,6 +26,8 @@ export interface ConversationOut {
   counterpart_profile_id: string | null;
   /** «@username» второй стороны после договорённости, если она его показывает */
   counterpart_telegram: string | null;
+  /** Контакты открыты: стороны договорились в этом диалоге — сейчас или раньше (новое предложение и отмена их снова не закрывают). Телефоны в новых сообщениях не скрываются, «Поделиться контактом» доступно */
+  contacts_open: boolean;
   job_id: string | null;
   /** Заявка диалога по отклику: «Заявка: …» */
   job_title: string | null;
