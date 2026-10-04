@@ -40,7 +40,7 @@ import {
   Toast,
 } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { LoadState } from '../shared/LoadState.tsx';
 import { SaveError } from '../shared/SaveError.tsx';
@@ -134,6 +134,9 @@ function Invites({
   const revoke = useRevokeReviewInvite();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [name, setName] = useState('');
+  // MainButton зовёт обработчик последнего рендера: нажатие сразу после ввода, до рендера, видело бы
+  // прежнее имя — поэтому «Кому» читаем из ref, который обновляется в самом onChange
+  const nameRef = useRef('');
   const [notice, setNotice] = useState<'copied' | 'failed' | null>(null);
   const listId = useId();
   useEffect(() => {
@@ -165,9 +168,10 @@ function Invites({
   const submit = () => {
     if (create.isPending) return;
     create.mutate(
-      { client_name: name.trim() || null },
+      { client_name: nameRef.current.trim() || null },
       {
         onSuccess: (invite) => {
+          nameRef.current = '';
           setName('');
           setDialog({ kind: 'ready', invite });
         },
@@ -258,7 +262,10 @@ function Invites({
               value={name}
               maxLength={INVITE_NAME_MAX}
               placeholder={t('invites.namePlaceholder')}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) => {
+                nameRef.current = event.target.value;
+                setName(event.target.value);
+              }}
             />
           </Field>
           {create.isError && <SaveError error={create.error} />}
