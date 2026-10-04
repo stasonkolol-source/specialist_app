@@ -194,11 +194,36 @@ def test_queries_use_real_event_properties() -> None:
             # воронка берёт разрез с первого шага, тренд — с каждой серии
             series = nodes(insight) if source["kind"] == "TrendsQuery" else [source["series"][0]]
             needed = (
-                {"category", "city"} if breakdown["breakdown_type"] == "hogql" else {"category"}
+                {"category", "city"}
+                if breakdown["breakdown_type"] == "hogql"
+                else {breakdown["breakdown"]}
             )
             for node in series:
                 props = EVENTS[EventName(node["event"])].properties or {}
                 assert needed <= props.keys(), (insight.key, node["event"])
+
+
+def test_response_tiles_are_split_as_far_as_events_allow() -> None:
+    """Отклик несёт город и категорию заявки: доли откликов, TTFR и supply/demand — по паре;
+    у сделки города нет — win rate по категориям; weekly active — по городам (цель — на зону)."""
+    split = {
+        insight.key: source["breakdownFilter"]
+        for insight in SPEC.insights
+        if "breakdownFilter" in (source := insight.query["source"])
+    }
+
+    pair = {key for key, breakdown in split.items() if breakdown["breakdown_type"] == "hogql"}
+    assert pair == {
+        "jobs",
+        "response_rate_1h",
+        "response_rate_4h",
+        "response_rate_24h",
+        "ttfr",
+        "fill_rate_7d",
+        "supply_demand",
+    }
+    assert split["win_rate"] == {"breakdown_type": "event", "breakdown": "category"}
+    assert split["weekly_active_specialists"] == {"breakdown_type": "event", "breakdown": "city"}
 
 
 def test_api_host_is_not_the_capture_host() -> None:
@@ -252,7 +277,7 @@ async def test_apply_updates_only_what_differs_and_removes_obsolete() -> None:
     await run(fake, apply=True)
     [dashboard_id] = fake.dashboards
     by_name = {i["name"]: i for i in fake.insights.values()}
-    renamed = by_name["TTFR — медиана минут до первого отклика"]
+    renamed = by_name["TTFR: город × категория"]
     renamed["name"] = "TTFR (старое имя)"
     renamed["query"]["source"]["interval"] = "day"
     detached = by_name["Review rate"]
@@ -275,14 +300,14 @@ async def test_apply_updates_only_what_differs_and_removes_obsolete() -> None:
         if r.method == "PATCH"
     }
     assert patches[str(renamed["id"])].keys() == {"name", "query"}
-    assert renamed["name"] == "TTFR — медиана минут до первого отклика"
+    assert renamed["name"] == "TTFR: город × категория"
     assert renamed["query"]["source"]["interval"] == "week"
     assert patches[str(detached["id"])] == {"dashboards": [7, dashboard_id]}
     assert patches["9999"] == {"deleted": True}
     assert fake.texts[text_id]["body"] == SPEC.text
     assert len(fake.insights) == 15  # копий нет: удалённая плитка помечена, а не стёрта
     assert "  удалить: плитка «Старая плитка»" in lines
-    assert "  обновить: плитка «TTFR — медиана минут до первого отклика» (name, query)" in lines
+    assert "  обновить: плитка «TTFR: город × категория» (name, query)" in lines
 
 
 async def test_api_error_stops_with_status_and_detail() -> None:
