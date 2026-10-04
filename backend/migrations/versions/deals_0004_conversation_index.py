@@ -4,8 +4,8 @@
 `conversation_id` и `agreed_at`. Раньше по `conversation_id` не искали — индекса не было. Частичный
 (`conversation_id IS NOT NULL`): у сделок по отклику диалог не записан. Индекс — CONCURRENTLY.
 
-Ревизия: deals_0004 (2026-10-04 20:00:00.000000+00:00)
-Предыдущая: identity_0008
+Ревизия: deals_0004 (2026-10-04 21:00:00.000000+00:00)
+Предыдущая: moderation_0009
 
 Правила (DEVELOPMENT_PLAN 0.9, ADR-0005):
 - имя ревизии — <модуль>_NNNN, файл — <модуль>_NNNN_<slug>.py;
@@ -21,7 +21,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "deals_0004"
-down_revision: str | Sequence[str] | None = "identity_0008"
+down_revision: str | Sequence[str] | None = "moderation_0009"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
