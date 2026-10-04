@@ -1,20 +1,34 @@
-"""Admin API moderation (DEVELOPMENT_PLAN 2.7b; ARCHITECTURE §8.5, §14; ADR-0020 §1): кейсы, жалобы.
+"""Admin API moderation (DEVELOPMENT_PLAN 2.7b; ARCHITECTURE §8.5, §14; ADR-0020 §1): кейсы, жалобы,
+контент-правила.
 
 Только moderator и admin. Действия — те же use cases, что у SQLAdmin, чата модераторов и `cli`,
 от имени вошедшего сотрудника: взять (TakeCase), эскалировать (EscalateCase), решить (DecideCase),
 решить спор с исходом сделки (ResolveDispute). Доказательства спора — InspectDispute: каждый
 просмотр пишется в audit_log (`moderation.dispute.evidence_viewed`), как `cli dispute-show`.
+Контент-правила (часть 2) — только admin, тем же путём, что раздел SQLAdmin (`apply_change` с
+хуками `ContentRuleAdmin`): проверка `compile_rule` с движком RE2 (та же, что у сида в
+`cli seeds-validate`), регистр регулярки сохраняется, слова и домены — в нижнем регистре, правка
+строки сида переводит её в `origin = admin`, строки не удаляются, а выключаются; аудит
+`moderation.content_rule.created|updated` и сброс снимка правил (этот процесс — сразу, worker — за
+60 с). Проба до записи — TryContentRule, как страница «Проверить правило».
 Сборка, вход, CSRF и лимит — interfaces/http/admin_api.py.
 """
 
+from dataclasses import replace
 from typing import Annotated, Literal
 from uuid import UUID
 
 from dishka.integrations.fastapi import FromDishka, inject
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Query, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.moderation.admin.schemas import (
     CaseOut,
+    ContentRuleIn,
+    ContentRuleOut,
+    ContentRulePatchIn,
+    ContentRuleTrialIn,
+    ContentRuleTrialOut,
     DecideIn,
     DecisionOut,
     DisputeDossierOut,
@@ -23,6 +37,7 @@ from app.modules.moderation.admin.schemas import (
     ReportOut,
     ResolveDisputeIn,
 )
+from app.modules.moderation.admin.views import ContentRuleAdmin, form_rule
 from app.modules.moderation.application.dto import CaseFilter, ReportFilter
 from app.modules.moderation.application.queries import StaffQueries
 from app.modules.moderation.application.use_cases.decide_case import (
@@ -43,13 +58,28 @@ from app.modules.moderation.application.use_cases.take_case import (
     TakeCase,
     TakeCaseCommand,
 )
+from app.modules.moderation.application.use_cases.try_content_rule import (
+    TryContentRule,
+    TryContentRuleCommand,
+)
 from app.modules.moderation.domain.cases import CaseStatus, EntityType
 from app.modules.moderation.domain.queues import Queue
 from app.modules.moderation.domain.reports import ReportStatus
+from app.modules.moderation.domain.rules import RuleKind
 from app.platform.contracts.events.moderation import ModerationDecision
-from app.platform.http.admin import MODERATION, staff_id
+from app.platform.http.admin import (
+    ADMIN,
+    MODERATION,
+    AdminRows,
+    InvalidAdminChangeError,
+    apply_change,
+    as_row,
+    staff_id,
+    table_of,
+)
 from app.platform.http.pagination import PageOut, PageParams
 from app.platform.http.staff import staff_only
+from app.platform.kernel.errors import NotFoundError
 from app.platform.kernel.ids import CaseId, UserId
 
 router = APIRouter(tags=["moderation"])
@@ -207,3 +237,66 @@ async def list_reports(
 @inject
 async def get_report(report_id: UUID, queries: FromDishka[StaffQueries]) -> ReportOut:
     return ReportOut.of(await queries.report(report_id))
+
+
+@router.get("/content-rules", response_model=PageOut[ContentRuleOut], **staff_only(ADMIN))
+@inject
+async def list_content_rules(
+    page: PageParams,
+    session: FromDishka[AsyncSession],
+    kind: RuleKind | None = None,
+    is_active: Annotated[bool | None, Query()] = None,
+    q: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
+) -> PageOut[ContentRuleOut]:
+    """Словарь правил: слова, регулярки по скелету, домены; `origin` — кто ведёт строку."""
+    table = table_of(ContentRuleAdmin)
+    where = []
+    if kind is not None:
+        where.append(table.c.kind == kind.value)
+    if is_active is not None:
+        where.append(table.c.is_active.is_(is_active))
+    if q:
+        where.append(table.c.pattern.icontains(q, autoescape=True))
+    return PageOut.of(await AdminRows(session).page(table, page, *where), ContentRuleOut.of)
+
+
+@router.post(
+    "/content-rules",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ContentRuleOut,
+    **staff_only(ADMIN),
+)
+async def create_content_rule(body: ContentRuleIn, request: Request) -> ContentRuleOut:
+    """Новое правило: та же проверка, что у сида; 422 invalid_admin_change — с причиной."""
+    model = await apply_change(request, ContentRuleAdmin(), None, body.model_dump())
+    return ContentRuleOut.of(as_row(model))
+
+
+@router.patch("/content-rules/{rule_id}", response_model=ContentRuleOut, **staff_only(ADMIN))
+async def update_content_rule(
+    rule_id: int, body: ContentRulePatchIn, request: Request
+) -> ContentRuleOut:
+    """Правка или выключение (`is_active: false`) правила; строка сида переходит к админке."""
+    model = await apply_change(
+        request, ContentRuleAdmin(), rule_id, body.model_dump(exclude_unset=True)
+    )
+    if model is None:
+        raise NotFoundError(rule_id=rule_id)
+    return ContentRuleOut.of(as_row(model))
+
+
+@router.post("/content-rules/trial", response_model=ContentRuleTrialOut, **staff_only(ADMIN))
+@inject
+async def try_content_rule(
+    body: ContentRuleTrialIn, trial: FromDishka[TryContentRule]
+) -> ContentRuleTrialOut:
+    """Проба до записи (ничего не пишет): итог проверки, срабатывание на тексте и примеры набора
+    rule_examples.yaml, у которых поменяется вердикт; `rule_id` — правка этой строки."""
+    try:
+        rule = form_rule(body.model_dump(exclude={"rule_id", "sample"}))
+    except ValueError as error:
+        raise InvalidAdminChangeError(reason=str(error)) from None
+    result = await trial(
+        TryContentRuleCommand(rule=replace(rule, id=body.rule_id), sample=body.sample)
+    )
+    return ContentRuleTrialOut.of(result)

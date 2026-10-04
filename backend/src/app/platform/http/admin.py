@@ -14,6 +14,9 @@
   (`run_action`).
 - Названия справочников (LocalizedText) правит форма `LocalizedNameForm`: поле на каждую локаль;
   правка ставит `name_origin = admin`, и `cli seed` такое название больше не переписывает.
+- Admin API (2.7b) правит те же строки через `apply_change`: проверки и побочные эффекты — того же
+  раздела (его `on_model_change`, аудит, события, сброс снимка), но правка, аудит и события —
+  одной транзакцией UoW, а не вслед за commit SQLAdmin. Чтение строк разделов — `AdminRows`.
 """
 
 from collections.abc import Awaitable, Callable, Iterable, Mapping
@@ -25,7 +28,9 @@ from uuid import UUID
 
 from dishka import AsyncContainer
 from sqladmin import ModelView
-from sqlalchemy import event, func, inspect, select
+from sqlalchemy import ColumnElement, RowMapping, Table, event, func, inspect, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, UOWTransaction
 from starlette.requests import Request
 from wtforms import Form, StringField
@@ -33,12 +38,14 @@ from wtforms.validators import DataRequired, Length
 
 from app.platform.audit.port import ActorKind, AuditEntry, AuditLog
 from app.platform.db.port import UnitOfWork
+from app.platform.db.query import SqlQuery, decode_cursor, encode_cursor
 from app.platform.db.types import NameOrigin
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.errors import DomainValidationError
 from app.platform.kernel.events import DomainEvent
 from app.platform.kernel.ids import UserId
 from app.platform.kernel.localized import Locale, LocalizedText
+from app.platform.kernel.pagination import Page, PageRequest
 from app.platform.kernel.principal import Role
 
 MODERATION: Final = frozenset({Role.MODERATOR, Role.ADMIN})
@@ -207,6 +214,7 @@ async def run_action[T](
 
 NAME_LOCALES: Final = (Locale.RU, Locale.SR_CYRL, Locale.SR_LATN, Locale.EN)
 """Поля формы названия по порядку; ru и sr-Cyrl обязательны (CHECK `name_required_locales`)."""
+REQUIRED_NAME_LOCALES: Final = (Locale.RU, Locale.SR_CYRL)
 
 
 def _name_field(locale: Locale) -> str:
@@ -261,6 +269,130 @@ class LocalizedNameForm(StaffModelView):
             data["name"] = name
             model.name_origin = NameOrigin.ADMIN
         await super().on_model_change(data, model, is_created, request)
+
+
+class InvalidAdminChangeError(DomainValidationError):
+    """Правку не приняли проверки раздела — те же, что у формы SQLAdmin (`reason` — почему)."""
+
+    code = "invalid_admin_change"
+    public_params = ("reason",)
+
+
+async def apply_change(
+    request: Request,
+    view: StaffModelView,
+    pk: object | None,
+    patch: Mapping[str, Any],
+    *,
+    name: Mapping[Locale, str] | None = None,
+) -> Any:
+    """Правка строки раздела из Admin API тем же путём, что форма SQLAdmin (ADR-0020 §1, §4).
+
+    Данные — как у формы правки: поля `form_columns` раздела с текущими значениями, поверх —
+    `patch`; у раздела с названием — поля локалей (`name` поверх текущего). Дальше — хуки раздела
+    (`on_model_change`: название и `name_origin`, проверка правила, кто менял), advisory lock
+    импорта, аудит `<audit_entity>.created|updated` и события раздела — одной транзакцией с правкой;
+    после commit — сброс снимка (`after_change`). `pk` None — новая строка. Строки нет — None;
+    отказ проверки — InvalidAdminChangeError (422).
+    """
+    container = container_of(request)
+    uow = await container.get(UnitOfWork)
+    session = await container.get(AsyncSession)
+    audit = await container.get(AuditLog)
+    clock = await container.get(Clock)
+    created = pk is None
+    model_cls: Any = view.model
+    async with uow:
+        if view.advisory_lock is not None:  # тот же замок, что у импорта `cli seed`
+            await session.execute(select(func.pg_advisory_xact_lock(view.advisory_lock)))
+        model = model_cls() if created else await session.get(model_cls, pk, with_for_update=True)
+        if model is None:
+            return None
+        data: dict[str, Any] = {} if created else _form_values(view, model)
+        data.update(patch)
+        if isinstance(view, LocalizedNameForm):
+            current = {} if created else dict(model.name.values)
+            merged = {**current, **(name or {})}
+            if not all(merged.get(loc, "").strip() for loc in REQUIRED_NAME_LOCALES):
+                # у формы SQLAdmin это DataRequired полей ru и sr-Cyrl
+                raise InvalidAdminChangeError(reason="Название: ru и sr-Cyrl обязательны")
+            data.update({_name_field(loc): merged.get(loc, "") for loc in NAME_LOCALES})
+        try:
+            await view.on_model_change(data, model, created, request)
+        except ValueError as error:
+            raise InvalidAdminChangeError(reason=str(error)) from None
+        for key, value in data.items():
+            setattr(model, key, value)
+        if created:
+            session.add(model)
+        try:
+            await session.flush()
+        except IntegrityError:
+            raise InvalidAdminChangeError(
+                reason="ограничение базы: такая запись уже есть или ссылка неверна"
+            ) from None
+        await session.refresh(model)  # значения от базы (updated_at, умолчания) — до ответа
+        await audit.record(
+            AuditEntry(
+                action=f"{view.audit_entity}.{'created' if created else 'updated'}",
+                actor_kind=ActorKind.STAFF,
+                actor_id=staff_id(request),
+                entity_type=view.audit_entity,
+                entity_id=_uuid(model),
+                changes={"id": _plain(_pk(model)), **jsonable(data)},
+                ip=request.client.host if request.client else None,
+            )
+        )
+        for item in view.change_events(model, clock.now()):
+            uow.add_event(item)
+    await view.after_change(model, request)
+    return model
+
+
+def as_row(model: Any) -> dict[str, Any]:
+    """Строка ORM — словарём колонок, как у `AdminRows` (схемы ответа строят одно и то же)."""
+    return {attr.key: getattr(model, attr.key) for attr in inspect(model).mapper.column_attrs}
+
+
+def table_of(view: type[StaffModelView] | StaffModelView) -> Table:
+    """Таблица раздела: роутеры Admin API модуля не импортируют ORM-модели (ADR-0020 §1)."""
+    table: Table = view.model.__table__  # type: ignore[attr-defined]
+    return table
+
+
+def _form_values(view: StaffModelView, model: Any) -> dict[str, Any]:
+    """Текущие значения полей формы правки раздела (`form_columns`)."""
+    columns: Iterable[Any] = view.form_columns or ()
+    keys = [column if isinstance(column, str) else column.key for column in columns]
+    return {key: getattr(model, key) for key in keys}
+
+
+class AdminRows(SqlQuery):
+    """Строки разделов для Admin API: keyset по первичному ключу, фильтры — условиями Core."""
+
+    async def page(
+        self,
+        table: Table,
+        page: PageRequest,
+        *where: ColumnElement[bool],
+        key: str = "id",
+        key_type: type = int,
+        columns: Iterable[str] = (),
+    ) -> Page[RowMapping]:
+        """`columns` — только эти колонки (без границ районов и городов); пусто — все."""
+        column = table.c[key]
+        chosen = [table.c[name] for name in columns] or list(table.c)
+        stmt = select(*chosen).where(*where).order_by(column).limit(page.limit + 1)
+        if page.cursor is not None:
+            (last,) = decode_cursor(page.cursor, (key_type,))
+            stmt = stmt.where(column > last)
+        rows = await self._fetch(stmt)
+        items = tuple(rows[: page.limit])
+        more = len(rows) > page.limit
+        return Page(items=items, next_cursor=encode_cursor(items[-1][key]) if more else None)
+
+    async def one(self, table: Table, value: object, *, key: str = "id") -> RowMapping | None:
+        return await self._fetch_one(select(table).where(table.c[key] == value))
 
 
 class AdminSession(Session):

@@ -267,6 +267,10 @@ ADMIN_API = "tests/integration/test_admin_api.py"
 ROLES_TEST = f"{ADMIN_API}::test_authz_admin_api_needs_a_staff_session_and_the_right_role"
 CASES_TEST = f"{ADMIN_API}::test_authz_cases_are_taken_decided_and_escalated_through_use_cases"
 MODERATION = ("admin", "moderator")
+SECTIONS_TEST = (
+    "tests/integration/test_admin_api_sections.py"
+    "::test_authz_reference_data_rules_broadcasts_and_config_are_admin_only"
+)
 
 STAFF_INVENTORY: dict[tuple[str, str], tuple[tuple[str, ...], str]] = {
     ("GET", "/cases"): (MODERATION, ROLES_TEST),
@@ -294,6 +298,35 @@ STAFF_INVENTORY: dict[tuple[str, str], tuple[tuple[str, ...], str]] = {
         f"{ADMIN_API}::test_authz_restrictions_are_imposed_and_lifted_through_use_cases",
     ),
     ("GET", "/audit-log"): (("admin",), ROLES_TEST),
+    # часть 2: справочники, контент-правила, рассылки, флаги и client-config — только admin
+    **dict.fromkeys(
+        (
+            ("GET", "/categories"),
+            ("PATCH", "/categories/{category_id}"),
+            ("GET", "/tags"),
+            ("PATCH", "/tags/{tag_id}"),
+            ("GET", "/search-terms"),
+            ("GET", "/cities"),
+            ("PATCH", "/cities/{city_id}"),
+            ("GET", "/districts"),
+            ("PATCH", "/districts/{district_id}"),
+            ("GET", "/content-rules"),
+            ("POST", "/content-rules"),
+            ("PATCH", "/content-rules/{rule_id}"),
+            ("POST", "/content-rules/trial"),
+            ("GET", "/broadcasts"),
+            ("POST", "/broadcasts"),
+            ("GET", "/broadcasts/{broadcast_id}"),
+            ("POST", "/broadcasts/{broadcast_id}/test"),
+            ("POST", "/broadcasts/{broadcast_id}/start"),
+            ("POST", "/broadcasts/{broadcast_id}/cancel"),
+            ("GET", "/feature-flags"),
+            ("PATCH", "/feature-flags/{key}"),
+            ("GET", "/client-config"),
+            ("PUT", "/client-config/{key}"),
+        ),
+        (("admin",), SECTIONS_TEST),
+    ),
 }
 
 

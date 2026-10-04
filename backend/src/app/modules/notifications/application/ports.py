@@ -9,6 +9,7 @@ from uuid import UUID
 from app.modules.notifications.application.dto import (
     BroadcastContent,
     BroadcastStats,
+    BroadcastSummary,
     ChannelView,
     DeliveryTarget,
     NewNotification,
@@ -243,6 +244,12 @@ class BroadcastQuery(Protocol):
     async def pending(self, broadcast_id: BroadcastId) -> int:
         """Сколько доставок рассылки ещё ждут отправки."""
         ...
+
+    async def recent(self, page: PageRequest) -> Page[BroadcastSummary]:
+        """Рассылки, новые первыми (Admin API). InvalidCursorError — курсор битый."""
+        ...
+
+    async def summary(self, broadcast_id: BroadcastId) -> BroadcastSummary | None: ...
 
 
 class AudienceSource(Protocol):

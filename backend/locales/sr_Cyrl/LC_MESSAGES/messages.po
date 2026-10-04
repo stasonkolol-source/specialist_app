@@ -275,6 +275,9 @@ msgstr "Пријава није пронађена."
 msgid "errors.restriction_not_found"
 msgstr "Корисник нема такву активну санкцију."
 
+msgid "errors.invalid_admin_change"
+msgstr "Измена није прихваћена: {reason}"
+
 msgid "errors.restricted"
 msgstr "Ова радња вам је тренутно ограничена."
 

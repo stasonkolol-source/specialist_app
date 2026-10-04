@@ -124,6 +124,24 @@ class SettingsView:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class BroadcastSummary:
+    """Рассылка в списке Admin API (2.7b): что, кому и когда."""
+
+    id: UUID
+    status: str
+    group: str
+    audience: str
+    city_id: int | None
+    text: Mapping[str, str]
+    link: str | None
+    action: str | None
+    created_by: UserId
+    created_at: datetime
+    starts_at: datetime | None
+    finished_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class BroadcastStats:
     """Ход рассылки по доставкам её уведомлений (2.7b)."""
 
