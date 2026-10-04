@@ -9,8 +9,10 @@ ADR-0016 §3–4; DEVELOPMENT_PLAN 6.7).
 - BLOCK — `rejected`: API фото больше не показывает, варианты уходят в приватный бакет; кейс P0
   (safety, ≤ 1 ч). Аккаунт не замораживается — санкцию ставит модератор.
 Проверка, которая не состоялась (нет ключа на stage и проде, сбой, открытый предохранитель), —
-тоже P2: без проверки фото не считается чистым (ADR-0016). Второго проверяющего нет (Q20: по
-умолчанию «пока без него»).
+тоже P2: без проверки фото не считается чистым (ADR-0016). Задача упала после всех повторов
+или не прочитала вариант — фото осталось бы `pending`: `moderation.recheck_images` раз в 10
+минут ставит проверку снова, а через час без итога отдаёт фото модератору (P2). Второго
+проверяющего нет (Q20: по умолчанию «пока без него»).
 
 Кейс — об объекте `media` (адаптер цели targets/media.py): одобрение возвращает фото, отказ
 скрывает его; файл — доказательство под legal hold, пока кейс открыт. Работа портфолио ждёт
@@ -32,7 +34,12 @@ from app.modules.media.api import MediaApi, ModerationVerdict
 from app.modules.moderation.application.ports import AutoCheckMetrics
 from app.modules.moderation.application.use_cases.open_case import CaseOpener, OpenCaseCommand
 from app.modules.moderation.domain.cases import CaseTrigger, EntityType
-from app.modules.moderation.domain.images import ImageAction, ImageVerdict, judge_image
+from app.modules.moderation.domain.images import (
+    UNCHECKED,
+    ImageAction,
+    ImageVerdict,
+    judge_image,
+)
 from app.modules.moderation.domain.pipeline import Route
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.ai.port import Moderation
@@ -89,7 +96,15 @@ class CheckImage:
         if image is None:
             return None
         result = await self._moderation.check_image(image_data_url(image.body, image.content_type))
-        verdict = judge_image(result)
+        return await self._record(cmd, judge_image(result))
+
+    async def give_up(self, cmd: CheckImageCommand) -> ImageVerdict | None:
+        """Проверка так и не состоялась (`moderation.recheck_images`): фото — модератору (P2),
+        как при Unavailable. Без хранилища и провайдера: сбоят, скорее всего, они. None — итог
+        уже записан или файл удалён."""
+        return await self._record(cmd, UNCHECKED)
+
+    async def _record(self, cmd: CheckImageCommand, verdict: ImageVerdict) -> ImageVerdict | None:
         recorded, case_id = await retry_on_conflict(lambda: self._apply(cmd, verdict))
         if not recorded:
             return None

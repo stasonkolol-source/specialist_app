@@ -11,6 +11,9 @@ distinct_id (внутренний UUID, как у capture) PostHog находи�
 Повтор безопасен: персоны нет (`persons_found` 0 — удалена раньше или событий не было) — готово;
 повторную постановку удаления событий PostHog не дублирует. Ошибки — как у capture (posthog.py):
 5xx, 408 и сеть — ExternalServiceError, 429 — RateLimitedError с Retry-After, задача повторит.
+202 с непустым `deletion_errors` — PostHog не удалил часть (персону или постановку событий):
+это не «готово», а ExternalServiceError — повтор. Повторы задачи ограничены (tasks.py,
+FORGET_RETRY), после них она падает в failed с ERROR-логом Procrastinate — Sentry.
 Остальное (ключ без scope — 401/403, неверный id проекта — 404) повтором не лечится, но и молча
 считать персону удалённой нельзя: PostHogPersonsError — Sentry, задача упадёт и останется в
 очереди failed; после исправления ключа её перезапускают (runbook deletion-request.md).
@@ -58,9 +61,21 @@ class PostHogPersons:
             raise ExternalServiceError(service="posthog", status=response.status_code)
         if not response.is_success:
             raise PostHogPersonsError(f"posthog bulk_delete: HTTP {response.status_code}")
-        found = _persons_found(response)
+        payload = _payload(response)
+        found = payload.get("persons_found")
+        errors = payload.get("deletion_errors")
+        if isinstance(errors, list) and errors:
+            # содержимое ошибок не пишем: в нём бывают distinct_id и данные персоны
+            log.warning(
+                "analytics_person_deletion_incomplete", user_id=str(user_id), errors=len(errors)
+            )
+            raise ExternalServiceError(service="posthog", reason="deletion_errors")
         # id — внутренний UUID, тот же, что в логах задач; по нему поддержка находит запись
-        log.info("analytics_person_forgotten", user_id=str(user_id), persons_found=found)
+        log.info(
+            "analytics_person_forgotten",
+            user_id=str(user_id),
+            persons_found=found if isinstance(found, int) else None,
+        )
 
 
 class NoPersonDeletion:
@@ -82,10 +97,9 @@ class NoPersonDeletion:
             log.info("analytics_person_not_forgotten", user_id=str(user_id), reason="no_posthog")
 
 
-def _persons_found(response: httpx.Response) -> int | None:
+def _payload(response: httpx.Response) -> dict[str, object]:
     try:
         payload = response.json()
     except ValueError:
-        return None
-    found = payload.get("persons_found") if isinstance(payload, dict) else None
-    return found if isinstance(found, int) else None
+        return {}
+    return payload if isinstance(payload, dict) else {}

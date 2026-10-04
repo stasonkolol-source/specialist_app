@@ -16,6 +16,17 @@ from app.platform.kernel.ids import CaseId, MediaId, RestrictionId, UserId
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class RecheckImagePayload:
+    """Фото без итога проверки (`moderation.recheck_image`): проверить снова или, если ждёт
+    слишком долго (`give_up`), отдать модератору."""
+
+    media_id: MediaId
+    owner_id: UserId
+    purpose: str
+    give_up: bool = False
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ContentCheck:
     """Текст на проверку правилами: заявка, отклик, сообщение, профиль или отзыв."""
 

@@ -56,6 +56,7 @@ if TYPE_CHECKING:  # модули грузятся лениво: CLI без БД
         OnboardingReset,
         StaffCredentialsSet,
         StaffRoleGranted,
+        StaffSessionsRevoked,
         StaffTotpReencrypted,
     )
     from app.modules.search.application.dto import ZeroResultStat
@@ -560,8 +561,9 @@ def staff_create(
 
     Сначала роль — `staff-grant`. Пароль (от 12 знаков) вводится здесь же дважды и не
     показывается; секрет TOTP печатается один раз — добавьте его в приложение-аутентификатор
-    (Google Authenticator, 1Password, Aegis). Повторный вызов заменяет пароль и TOTP. В БД секрет
-    ложится зашифрованным ключом APP_TOTP_KEY (8.4); на stage и проде без ключа — отказ.
+    (Google Authenticator, 1Password, Aegis). Повторный вызов заменяет пароль и TOTP и закрывает
+    открытые сессии сотрудника. В БД секрет ложится зашифрованным ключом APP_TOTP_KEY (8.4); на
+    stage и проде без ключа — отказ.
     """
     import getpass
 
@@ -620,6 +622,46 @@ async def _staff_create(telegram_id: int, login: str, password: str) -> StaffCre
                 raise _StaffCreateRefusedError("no staff role (run staff-grant first)") from None
             except StaffLoginTakenError:
                 raise _StaffCreateRefusedError("login is taken by another staff member") from None
+    finally:
+        await container.close()
+
+
+@app.command("staff-revoke")
+def staff_revoke(
+    *,
+    tg_id: Annotated[int, typer.Option("--tg-id", help="Telegram id сотрудника")],
+    remove_login: Annotated[
+        bool,
+        typer.Option("--remove-login", help="Удалить и вход: войти снова — после staff-create"),
+    ] = False,
+) -> None:
+    """Закрыть все сессии админки сотрудника (украденный ноутбук, уход из команды).
+
+    Cookie сотрудника перестаёт открывать /admin и Admin API со следующего запроса; пароль и TOTP
+    остаются, если не указан `--remove-login`. Роли не снимаются. Действие — в audit_log.
+    """
+    result = asyncio.run(_staff_revoke(tg_id, remove_login=remove_login))
+    if result is None:
+        typer.echo("staff-revoke: no such Telegram user or no admin login", err=True)
+        raise typer.Exit(code=1)
+    removed = ", login removed" if result.login_removed else ""
+    typer.echo(f"user {result.user_id}: admin sessions revoked{removed}")
+
+
+async def _staff_revoke(telegram_id: int, *, remove_login: bool) -> StaffSessionsRevoked | None:
+    from app.entrypoints._wiring import make_worker_container
+    from app.modules.identity.application.use_cases.revoke_staff_sessions import (
+        RevokeStaffSessions,
+        RevokeStaffSessionsCommand,
+    )
+
+    container = make_worker_container(Settings())
+    try:
+        async with container() as request:
+            revoke = await request.get(RevokeStaffSessions)
+            return await revoke(
+                RevokeStaffSessionsCommand(telegram_id=telegram_id, remove_login=remove_login)
+            )
     finally:
         await container.close()
 

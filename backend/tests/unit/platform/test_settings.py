@@ -292,6 +292,37 @@ def test_fake_telegram_sender_is_refused_in_production(clean_env: pytest.MonkeyP
     assert Settings(env_file=None).telegram.fake_sender is False
 
 
+def test_production_refuses_posthog_without_deletion_keys(clean_env: pytest.MonkeyPatch) -> None:
+    """События уходят в PostHog, а удалить персону по UserDeleted нечем (2.12b, K32a): удаление
+    аккаунта молча не дошло бы до PostHog — prod не стартует, stage — предупреждение (di.py)."""
+    for name, value in REQUIRED.items():
+        clean_env.setenv(name, value)
+    clean_env.setenv("APP_HASH_KEY", "test-hash-key")
+    clean_env.setenv("LEGAL_OPERATOR_NAME", "Оператор")
+    clean_env.setenv("LEGAL_CONTACT_EMAIL", "help@example.test")
+    clean_env.setenv("APP_ENV", "production")
+    assert Settings(env_file=None).analytics.deletion_gaps() == []  # PostHog выключен
+    clean_env.setenv("ANALYTICS_POSTHOG_API_KEY", "phc_test")
+    clean_env.setenv("APP_ENV", "stage")
+    assert Settings(env_file=None).analytics.deletion_gaps() == [
+        "ANALYTICS_POSTHOG_PERSONAL_API_KEY",
+        "ANALYTICS_POSTHOG_PROJECT_ID",
+    ]
+    clean_env.setenv("APP_ENV", "production")
+    with pytest.raises(
+        SettingsError,
+        match=r"ANALYTICS_POSTHOG_API_KEY на проде нужны: "
+        r"ANALYTICS_POSTHOG_PERSONAL_API_KEY, ANALYTICS_POSTHOG_PROJECT_ID$",
+    ):
+        Settings(env_file=None)
+    clean_env.setenv("ANALYTICS_POSTHOG_PERSONAL_API_KEY", "phx_test")
+    with pytest.raises(SettingsError, match=r"нужны: ANALYTICS_POSTHOG_PROJECT_ID$") as caught:
+        Settings(env_file=None)
+    assert "phx_test" not in str(caught.value)
+    clean_env.setenv("ANALYTICS_POSTHOG_PROJECT_ID", "4242")
+    assert Settings(env_file=None).analytics.posthog_project_id == 4242
+
+
 def test_describe_shows_which_processors_are_on_without_secrets(
     clean_env: pytest.MonkeyPatch,
 ) -> None:

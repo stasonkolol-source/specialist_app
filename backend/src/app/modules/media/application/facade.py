@@ -2,7 +2,10 @@
 модерация фото (6.7)."""
 
 from collections.abc import Collection, Mapping
+from datetime import datetime
 from typing import Final
+
+import structlog
 
 from app.modules.media.api import (
     ImageForCheck,
@@ -12,6 +15,7 @@ from app.modules.media.api import (
     MediaRef,
     MediaVariantRef,
     ModerationVerdict,
+    UncheckedImage,
 )
 from app.modules.media.application.dto import DiscardMediaPayload, HideVariantsPayload, MediaView
 from app.modules.media.application.ports import (
@@ -35,6 +39,8 @@ from app.modules.media.errors import MediaNotFoundError, MediaStateError
 from app.platform.kernel.ids import MediaId, UserId
 from app.platform.queue.port import JobQueue
 from app.platform.storage.port import Bucket, StoragePort, StorageRejectedError
+
+log = structlog.get_logger(__name__)
 
 ATTACHABLE = frozenset({MediaStatus.UPLOADED, MediaStatus.PROCESSING, MediaStatus.READY})
 """Прикрепить можно загруженный файл — даже пока он обрабатывается: экран ждёт вариантов."""
@@ -95,9 +101,28 @@ class MediaFacade(MediaApi):
         bucket = PRIVATE_BUCKET if asset.hidden_at is not None else variant_bucket(asset.purpose)
         try:
             body = await self._storage.get(Bucket(bucket), variant.key, max_bytes=CHECK_MAX_BYTES)
-        except StorageRejectedError:  # вариант пропал (файл удаляют) — проверять нечего
+        except StorageRejectedError as exc:  # вариант пропал (файл удаляют) — проверять нечего
+            # файл не удалён, а варианта нет: повтор проверки (moderation.recheck_images) и
+            # потом модератор; в журнал — только id и код хранилища
+            log.warning("media_check_variant_unreadable", media_id=str(media_id), code=exc.code)
             return None
         return ImageForCheck(body=body, content_type="image/webp")
+
+    async def unchecked_images(
+        self, *, processed_before: datetime, purposes: Collection[str], limit: int
+    ) -> list[UncheckedImage]:
+        assets = await self._query.unchecked(
+            processed_before, purposes=[MediaPurpose(p) for p in purposes], limit=limit
+        )
+        return [
+            UncheckedImage(
+                media_id=asset.id,
+                owner_id=asset.owner_id,
+                purpose=asset.purpose.value,
+                processed_at=asset.processed_at or processed_before,
+            )
+            for asset in assets
+        ]
 
     async def moderate(
         self,
@@ -167,9 +192,9 @@ async def record_verdict(
         return False
     await assets.save(asset)
     payload = HideVariantsPayload(media_id=asset.id, keys=asset.variant_keys())
-    if asset.blocked and asset.hidden_at is None:
+    if asset.blocked:  # и при `hidden_at`: возврат мог успеть скопировать варианты в media
         await queue.enqueue(HIDE_VARIANTS, payload, dedup_key=str(asset.id))
-    elif not asset.blocked and asset.hidden_at is not None:
+    elif asset.hidden_at is not None:
         await queue.enqueue(RESTORE_VARIANTS, payload, dedup_key=str(asset.id))
     return True
 

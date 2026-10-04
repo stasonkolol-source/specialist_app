@@ -6,7 +6,9 @@
 #
 # Запускает .github/workflows/restore-test.yml от root на VM в проекте specialist-backup. Значения —
 # строками ИМЯ=значение на stdin, как у provision.sh: не в argv и не в файлах workflow. Stdout — строки
-# КЛЮЧ=значение для Summary запуска, ход работы — stderr.
+# КЛЮЧ=значение: workflow кладёт их только в тело пинга Healthchecks (строки таблиц, размер базы, число
+# бэкапов — данные prod), в Summary — лишь итог и тайминги. Ход работы — stderr, это публичный лог
+# Actions: чисел о данных туда не писать.
 #
 # Проверяемый репозиторий на VM всегда repo1: номер — только имя опции в конфиге, в самом репозитории
 # его нет. Восстановленный кластер WAL не архивирует (--archive-mode=off и archive_mode = off в
@@ -58,7 +60,7 @@ read -ra wanted <<< "${PG_PACKAGES:-$PACKAGES}"
 if ! "${apt[@]}" install "${wanted[@]}" > /dev/null; then
   [[ -n "${PG_PACKAGES:-}" ]] || fail "apt-get install $PACKAGES"
   # версии db-1 из PGDG уже убрали: восстанавливаем свежими той же major-версии и отмечаем это
-  echo "::warning::версий db-1 ($PG_PACKAGES) в PGDG нет — ставлю текущие"
+  echo "::warning::версий db-1 в PGDG нет — ставлю текущие (какие — в пинге Healthchecks)"
   read -ra wanted <<< "$PACKAGES"
   "${apt[@]}" install "${wanted[@]}" > /dev/null
 fi
@@ -71,12 +73,14 @@ if [[ -n "${PG_PACKAGES:-}" ]]; then
 fi
 
 # --- pgBackRest: только проверяемый репозиторий ---
+# в консоль (публичный лог Actions) — только предупреждения: на info pgBackRest печатает размер
+# восстановленной базы, число файлов, бакет и endpoint
 install -d -m 0750 -o postgres -g postgres /var/spool/pgbackrest /var/log/pgbackrest
 install -d -m 0755 /etc/pgbackrest
 install -m 0640 -o root -g postgres /dev/null "$CONF"
 cat > "$CONF" <<EOF
 [global]
-log-level-console=info
+log-level-console=warn
 log-level-file=off
 process-max=4
 repo1-type=s3

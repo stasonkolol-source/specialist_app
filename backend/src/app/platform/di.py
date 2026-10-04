@@ -278,8 +278,8 @@ class PlatformProvider(Provider):
     ) -> AsyncIterator[PersonDeletion]:
         """Удаление персоны в PostHog по UserDeleted (2.12b): personal API key со scope
         `person:write` и id проекта (K32a) — только когда события в PostHog уходят (ключ проекта
-        K32). Без них — no-op с предупреждением на каждое удаление, а на stage и prod ещё и при
-        старте: события есть, удалять нечем."""
+        K32). Без них — no-op с предупреждением на каждое удаление, а на stage ещё и при старте:
+        события есть, удалять нечем. Prod без них не стартует (Settings, deletion_gaps)."""
         key, project = settings.posthog_personal_api_key, settings.posthog_project_id
         if settings.posthog_api_key is None:
             yield NoPersonDeletion(capturing=False)  # события в PostHog не уходят — удалять нечего

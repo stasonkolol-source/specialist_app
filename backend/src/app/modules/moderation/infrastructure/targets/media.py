@@ -27,6 +27,7 @@ class MediaTarget(ModerationTarget):
         entity_id: UUID,
         *,
         version: int | None = None,  # noqa: ARG002 — у файла версий нет
+        auto: bool = False,  # noqa: ARG002 — фото автопроверка одобряет сама (check_image)
     ) -> None:
         if await self._media.moderate(MediaId(entity_id), ModerationVerdict.APPROVED):
             await self._specialists.recheck_works(MediaId(entity_id))

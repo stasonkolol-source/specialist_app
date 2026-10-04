@@ -1,11 +1,15 @@
-"""Пароль и TOTP персонала (2.7a): argon2 и RFC 6238 с допуском в один шаг."""
+"""Пароль и TOTP персонала (2.7a): argon2 и RFC 6238 с допуском в один шаг; секреты — не в repr."""
 
 from datetime import UTC, datetime, timedelta
 
 import pyotp
 import pytest
 
+from app.modules.identity.application.dto import StaffCredentialsSet
+from app.modules.identity.application.ports import StaffCredential
+from app.modules.identity.application.use_cases.create_staff_login import CreateStaffLoginCommand
 from app.modules.identity.infrastructure.staff import TOTP_STEP, PwdlibStaffSecrets
+from app.platform.kernel.ids import UserId, new_id
 
 pytestmark = pytest.mark.unit
 
@@ -33,3 +37,32 @@ def test_totp_code_maps_to_its_step_within_one_step() -> None:
     assert secrets.totp_step(secret, "", NOW) is None
     assert secrets.totp_step(secret, "12345a", NOW) is None
     assert secrets.totp_uri(secret, "ana").startswith("otpauth://totp/")
+
+
+def test_secrets_stay_out_of_repr() -> None:
+    """Хэш пароля, секрет TOTP и токены не попадают в repr: в логи и трейсы ошибок."""
+    secrets = PwdlibStaffSecrets()
+    password = "correct horse battery"  # noqa: S105 — пароль теста
+    hashed = secrets.hash_password(password)
+    secret = secrets.new_totp_secret()
+    user_id = UserId(new_id())
+    credential = StaffCredential(
+        user_id=user_id,
+        login="ana",
+        password_hash=hashed,
+        encrypted_totp_secret=f"v1:00000000:{secret}",
+        totp_last_step=None,
+    )
+    created = StaffCredentialsSet(
+        user_id=user_id,
+        login="ana",
+        totp_secret=secret,
+        totp_uri=secrets.totp_uri(secret, "ana"),
+        replaced=False,
+    )
+    command = CreateStaffLoginCommand(telegram_id=1, login="ana", password=password)
+    for shown in (repr(credential), repr(created), repr(command)):
+        assert hashed not in shown
+        assert secret not in shown
+        assert password not in shown
+        assert "ana" in shown  # остальные поля — на месте

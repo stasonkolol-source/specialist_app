@@ -62,7 +62,17 @@ class RuleOrigin(StrEnum):
     SEED = "seed"
     """Из seeds/moderation/content_rules.yaml: `cli seed` создаёт, меняет и выключает."""
     ADMIN = "admin"
-    """Завела админка (2.7b): сид такие строки не трогает."""
+    """Завела или поправила админка (2.7b): сид такие строки не трогает."""
+
+
+MAX_SEED_KEY = MAX_PATTERN + 16
+"""`<kind>:<pattern>` правила сида."""
+
+
+def seed_key(kind: RuleKind, pattern: str) -> str:
+    """Чьё правило сида в строке — как оно записано в файле: правка шаблона в админке его не
+    меняет, и `cli seed` узнаёт строку по нему (а не по нынешним kind и pattern)."""
+    return f"{kind.value}:{pattern}"
 
 
 class ContentRuleRow(TimestampsMixin, Base):
@@ -80,9 +90,14 @@ class ContentRuleRow(TimestampsMixin, Base):
     origin: Mapped[RuleOrigin] = mapped_column(
         str_enum(RuleOrigin, "origin"), server_default=RuleOrigin.ADMIN.value
     )
+    seed_key: Mapped[str | None] = mapped_column(String(MAX_SEED_KEY))
+    """Из какого правила сида строка (`seed_key()`); у правил, заведённых админкой, — NULL."""
 
     # регулярки заводит и админка: RE2 линеен при любом шаблоне (CHECK снят в moderation_0007)
-    __table_args__ = (UniqueConstraint("kind", "pattern"),)
+    __table_args__ = (
+        UniqueConstraint("kind", "pattern"),
+        Index("uq_content_rules_seed_key", "seed_key", unique=True),
+    )
 
 
 OPEN_CASE = "status IN ('pending', 'in_review', 'escalated')"

@@ -15,7 +15,18 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.catalog.admin.views import CategoryAdmin, SearchTermAdmin, TagAdmin
-from app.platform.http.admin import ADMIN, AdminRows, apply_change, as_row, table_of
+from app.platform.http.admin import (
+    ADMIN,
+    INT4_MAX,
+    INT4_MIN,
+    SMALLINT_MAX,
+    AdminRows,
+    RowIdPath,
+    RowIdQuery,
+    apply_change,
+    as_row,
+    table_of,
+)
 from app.platform.http.pagination import PageOut, PageParams
 from app.platform.http.staff import staff_only
 from app.platform.kernel.errors import NotFoundError
@@ -51,9 +62,9 @@ class CategoryPatchIn(BaseModel):
 
     is_active: Annotated[bool | None, Query()] = None
     jobs_enabled: bool | None = None
-    max_responses: int | None = Field(default=None, ge=0)
-    risk_level: int | None = Field(default=None, ge=0)
-    sort_order: int | None = None
+    max_responses: int | None = Field(default=None, ge=0, le=SMALLINT_MAX)
+    risk_level: int | None = Field(default=None, ge=0, le=SMALLINT_MAX)
+    sort_order: int | None = Field(default=None, ge=INT4_MIN, le=INT4_MAX)
     icon: str | None = Field(default=None, max_length=32)
     name: NameIn | None = Field(
         default=None,
@@ -98,7 +109,7 @@ class SearchTermOut(BaseModel):
 async def list_categories(
     page: PageParams,
     session: FromDishka[AsyncSession],
-    parent_id: int | None = None,
+    parent_id: RowIdQuery = None,
     is_active: Annotated[bool | None, Query()] = None,
 ) -> PageOut[CategoryOut]:
     table = table_of(CategoryAdmin)
@@ -112,7 +123,9 @@ async def list_categories(
 
 
 @router.patch("/categories/{category_id}", response_model=CategoryOut, **staff_only(ADMIN))
-async def update_category(category_id: int, body: CategoryPatchIn, request: Request) -> CategoryOut:
+async def update_category(
+    category_id: RowIdPath, body: CategoryPatchIn, request: Request
+) -> CategoryOut:
     """Правка категории: аудит, CatalogChanged и сброс снимка таксономии — как в SQLAdmin."""
     model = await apply_change(
         request,
@@ -131,7 +144,7 @@ async def update_category(category_id: int, body: CategoryPatchIn, request: Requ
 async def list_tags(
     page: PageParams,
     session: FromDishka[AsyncSession],
-    category_id: int | None = None,
+    category_id: RowIdQuery = None,
     is_active: Annotated[bool | None, Query()] = None,
 ) -> PageOut[TagOut]:
     table = table_of(TagAdmin)
@@ -144,7 +157,7 @@ async def list_tags(
 
 
 @router.patch("/tags/{tag_id}", response_model=TagOut, **staff_only(ADMIN))
-async def update_tag(tag_id: int, body: TagPatchIn, request: Request) -> TagOut:
+async def update_tag(tag_id: RowIdPath, body: TagPatchIn, request: Request) -> TagOut:
     """Включить или выключить тег, поправить название; CatalogChanged — по его категории."""
     model = await apply_change(
         request,
@@ -163,7 +176,7 @@ async def update_tag(tag_id: int, body: TagPatchIn, request: Request) -> TagOut:
 async def list_search_terms(
     page: PageParams,
     session: FromDishka[AsyncSession],
-    category_id: int | None = None,
+    category_id: RowIdQuery = None,
     q: Annotated[str | None, Query(min_length=1, max_length=120)] = None,
 ) -> PageOut[SearchTermOut]:
     """Словарь поиска — только чтение: его заменяет сид целиком при изменении категории."""

@@ -27,6 +27,7 @@ from app.modules.moderation.domain.rules import (
     RuleLanguage,
 )
 from app.modules.moderation.domain.sanctions import SanctionStep, Severity
+from app.platform.http.admin import INT4_MAX, INT4_MIN
 from app.platform.kernel.ids import MediaId
 
 MAX_NOTE = 2000
@@ -349,7 +350,10 @@ class ContentRulePatchIn(BaseModel):
 
 class ContentRuleTrialIn(BaseModel):
     rule_id: int | None = Field(
-        default=None, description="Правимая строка: её прежний вариант уходит из «после»"
+        default=None,
+        ge=INT4_MIN,
+        le=INT4_MAX,
+        description="Правимая строка: её прежний вариант уходит из «после»",
     )
     kind: RuleKind
     pattern: str = Field(min_length=1, max_length=MAX_PATTERN)

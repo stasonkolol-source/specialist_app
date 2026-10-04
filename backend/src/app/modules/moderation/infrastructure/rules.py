@@ -1,11 +1,14 @@
 """Словарь контент-правил в БД: импорт из сидов и снимок для проверки (DEVELOPMENT_PLAN 2.4).
 
 Импорт (`cli seed`, seeds/moderation/content_rules.yaml) идемпотентен:
-- правило определяет пара (kind, pattern); новое — вставляется с `origin = seed`;
+- правило определяет пара (kind, pattern) в файле; строка помнит её в `seed_key` (moderation_0009)
+  и узнаётся по ней, даже если шаблон потом поправили в админке; новое — вставляется с
+  `origin = seed`;
 - строки сида файл задаёт целиком, включая `is_active`: правка файла меняет язык, действие
   и категорию, а правило, которого больше нет в файле, выключается (строка остаётся для
   истории кейсов, где оно сработало);
-- строки админки (`origin = admin`, 2.7b) сид не трогает, даже если в файле то же правило;
+- строки админки (`origin = admin`, 2.7b) сид не трогает: ни поправленную строку сида (исходное
+  правило заново не вставляется), ни правило, которое админка завела с тем же kind и pattern;
 - два импорта одновременно (два деплоя) не мешают друг другу: advisory lock транзакции.
 
 Снимок (`CachedRuleSource`) живёт в процессе, как ClientConfigCache: правка словаря доходит
@@ -27,7 +30,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.moderation.application.dto import ImportRulesResult
 from app.modules.moderation.domain.rules import ContentRule, RegexEngine, RuleSet
-from app.modules.moderation.infrastructure.models import IMPORT_LOCK, ContentRuleRow, RuleOrigin
+from app.modules.moderation.infrastructure.models import (
+    IMPORT_LOCK,
+    ContentRuleRow,
+    RuleOrigin,
+    seed_key,
+)
 from app.modules.moderation.infrastructure.regex import RE2
 from app.platform.db.port import UnitOfWork
 
@@ -46,13 +54,19 @@ class SqlRuleWriter:
     async def import_seed(self, rules: Sequence[ContentRule]) -> ImportRulesResult:
         self._uow.require_active()  # advisory lock транзакции — только внутри UoW
         await self._session.execute(select(func.pg_advisory_xact_lock(IMPORT_LOCK)))
-        stored = {
-            (row.kind, row.pattern): row
-            for row in (await self._session.scalars(select(ContentRuleRow))).all()
-        }
+        rows = (await self._session.scalars(select(ContentRuleRow))).all()
+        by_key = {row.seed_key: row for row in rows if row.seed_key is not None}
+        by_pair = {(row.kind, row.pattern): row for row in rows}
         created = updated = unchanged = skipped = deactivated = 0
         for rule in rules:
-            row = stored.pop((rule.kind, rule.pattern), None)
+            key = seed_key(rule.kind, rule.pattern)
+            row = by_key.pop(key, None)
+            if row is None:
+                # та же пара без ключа: правило, заведённое админкой (его сид не трогает), или
+                # строка сида, которой ключ ещё не поставили, — ставим
+                row = by_pair.get((rule.kind, rule.pattern))
+                if row is not None and row.origin is RuleOrigin.SEED and row.seed_key is None:
+                    row.seed_key = key
             wanted = (rule.lang, rule.action, rule.category, rule.active)
             if row is None:
                 self._session.add(
@@ -64,6 +78,7 @@ class SqlRuleWriter:
                         category=rule.category,
                         is_active=rule.active,
                         origin=RuleOrigin.SEED,
+                        seed_key=key,
                     )
                 )
                 created += 1
@@ -74,7 +89,7 @@ class SqlRuleWriter:
             else:
                 row.lang, row.action, row.category, row.is_active = wanted
                 updated += 1
-        for row in stored.values():  # правила сида, которых больше нет в файле
+        for row in by_key.values():  # правила сида, которых больше нет в файле
             if row.origin is RuleOrigin.SEED and row.is_active:
                 row.is_active = False
                 deactivated += 1

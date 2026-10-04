@@ -23,13 +23,14 @@ from collections.abc import Awaitable, Callable, Iterable, Mapping
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any, ClassVar, Final, override
+from typing import Annotated, Any, ClassVar, Final, override
 from uuid import UUID
 
 from dishka import AsyncContainer
+from fastapi import Path, Query
 from sqladmin import ModelView
 from sqlalchemy import ColumnElement, RowMapping, Table, event, func, inspect, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, UOWTransaction
 from starlette.requests import Request
@@ -57,6 +58,16 @@ ADMIN: Final = frozenset({Role.ADMIN})
 
 LOCKS_INFO: Final = "admin_locks"
 """Ключ `Session.info`: класс ORM → ключ advisory lock его импорта."""
+
+INT4_MIN: Final = -(2**31)
+"""Границы колонок integer и smallint для схем Admin API: число за ними — 422 до запроса, а не
+DataError из базы (500). Ноль и отрицательный id в границах: такой строки просто нет — 404."""
+INT4_MAX: Final = 2**31 - 1
+SMALLINT_MAX: Final = 2**15 - 1
+RowIdPath = Annotated[int, Path(ge=INT4_MIN, le=INT4_MAX)]
+"""id строки справочника (integer) в пути Admin API."""
+RowIdQuery = Annotated[int | None, Query(ge=INT4_MIN, le=INT4_MAX)]
+"""id строки справочника (integer) в фильтре списка."""
 
 
 def staff_roles(request: Request) -> frozenset[Role]:
@@ -293,7 +304,7 @@ async def apply_change(
     (`on_model_change`: название и `name_origin`, проверка правила, кто менял), advisory lock
     импорта, аудит `<audit_entity>.created|updated` и события раздела — одной транзакцией с правкой;
     после commit — сброс снимка (`after_change`). `pk` None — новая строка. Строки нет — None;
-    отказ проверки — InvalidAdminChangeError (422).
+    отказ проверки, ограничения или типа колонки — InvalidAdminChangeError (422).
     """
     container = container_of(request)
     uow = await container.get(UnitOfWork)
@@ -331,6 +342,8 @@ async def apply_change(
             raise InvalidAdminChangeError(
                 reason="ограничение базы: такая запись уже есть или ссылка неверна"
             ) from None
+        except DataError:  # число вне типа колонки: схемы ловят раньше, здесь — страховка
+            raise InvalidAdminChangeError(reason="значение не подходит к типу поля") from None
         await session.refresh(model)  # значения от базы (updated_at, умолчания) — до ответа
         await audit.record(
             AuditEntry(

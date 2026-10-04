@@ -1,7 +1,7 @@
 """Результаты и входные данные use cases identity (ADR-0020 §3)."""
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from app.modules.identity.api import Action
@@ -47,9 +47,9 @@ class SessionTokens:
 
     user_id: UserId
     session_id: SessionId
-    access_token: str
+    access_token: str = field(repr=False)
     access_expires_at: datetime
-    refresh_token: str
+    refresh_token: str = field(repr=False)
     refresh_expires_at: datetime
 
 
@@ -150,14 +150,23 @@ class AccessView:
 @dataclass(frozen=True, slots=True, kw_only=True)
 class StaffCredentialsSet:
     """Итог `cli staff-create`: секрет TOTP показывается один раз и нигде не хранится, кроме БД
-    (там — зашифрованным, 8.4)."""
+    (там — зашифрованным, 8.4); в repr (логи, трейсы ошибок) его нет."""
 
     user_id: UserId
     login: str
-    totp_secret: str
-    totp_uri: str
+    totp_secret: str = field(repr=False)
+    totp_uri: str = field(repr=False)
+    """otpauth:// — в нём тот же секрет."""
     replaced: bool
-    """True — у сотрудника уже был вход: пароль и TOTP заменены."""
+    """True — у сотрудника уже был вход: пароль и TOTP заменены, его сессии закрыты."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StaffSessionsRevoked:
+    """Итог `cli staff-revoke`: сессии админки сотрудника закрыты."""
+
+    user_id: UserId
+    login_removed: bool
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

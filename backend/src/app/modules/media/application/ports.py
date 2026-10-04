@@ -13,7 +13,7 @@ from app.modules.media.application.dto import (
     ProcessedVideo,
 )
 from app.modules.media.domain.asset import FailureReason, MediaAsset
-from app.modules.media.domain.policy import MediaKind
+from app.modules.media.domain.policy import MediaKind, MediaPurpose
 from app.platform.contracts.events.identity import UserDeleted
 from app.platform.contracts.events.media import MediaUploaded
 from app.platform.kernel.ids import MediaId, UserId
@@ -110,6 +110,13 @@ class MediaQuery(Protocol):
     async def unhidden(self, deleted_before: datetime, *, limit: int) -> Sequence[MediaAsset]:
         """Удалённые и отклонённые модерацией файлы публичных назначений, чьи варианты ещё не
         спрятаны в private."""
+        ...
+
+    async def unchecked(
+        self, processed_before: datetime, *, purposes: Collection[MediaPurpose], limit: int
+    ) -> Sequence[MediaAsset]:
+        """Готовые файлы этих назначений, обработанные раньше `processed_before` и всё ещё без
+        итога проверки фото (6.7), — старые первыми."""
         ...
 
     async def duplicates(

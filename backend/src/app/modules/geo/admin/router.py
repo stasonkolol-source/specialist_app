@@ -15,7 +15,17 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.geo.admin.views import CityAdmin, DistrictAdmin
-from app.platform.http.admin import ADMIN, AdminRows, apply_change, as_row, table_of
+from app.platform.http.admin import (
+    ADMIN,
+    INT4_MAX,
+    INT4_MIN,
+    AdminRows,
+    RowIdPath,
+    RowIdQuery,
+    apply_change,
+    as_row,
+    table_of,
+)
 from app.platform.http.pagination import PageOut, PageParams
 from app.platform.http.staff import staff_only
 from app.platform.kernel.errors import NotFoundError
@@ -52,7 +62,7 @@ class CityOut(BaseModel):
 
 class CityPatchIn(BaseModel):
     is_active: Annotated[bool | None, Query()] = None
-    sort_order: int | None = None
+    sort_order: int | None = Field(default=None, ge=INT4_MIN, le=INT4_MAX)
     name: NameIn | None = None
 
 
@@ -90,7 +100,7 @@ async def list_cities(
 
 
 @router.patch("/cities/{city_id}", response_model=CityOut, **staff_only(ADMIN))
-async def update_city(city_id: int, body: CityPatchIn, request: Request) -> CityOut:
+async def update_city(city_id: RowIdPath, body: CityPatchIn, request: Request) -> CityOut:
     """Запустить или выключить город, порядок, название — аудит и сброс снимка справочника."""
     model = await apply_change(
         request,
@@ -109,7 +119,7 @@ async def update_city(city_id: int, body: CityPatchIn, request: Request) -> City
 async def list_districts(
     page: PageParams,
     session: FromDishka[AsyncSession],
-    city_id: int | None = None,
+    city_id: RowIdQuery = None,
     is_active: Annotated[bool | None, Query()] = None,
 ) -> PageOut[DistrictOut]:
     table = table_of(DistrictAdmin)
@@ -123,7 +133,9 @@ async def list_districts(
 
 
 @router.patch("/districts/{district_id}", response_model=DistrictOut, **staff_only(ADMIN))
-async def update_district(district_id: int, body: DistrictPatchIn, request: Request) -> DistrictOut:
+async def update_district(
+    district_id: RowIdPath, body: DistrictPatchIn, request: Request
+) -> DistrictOut:
     model = await apply_change(
         request,
         DistrictAdmin(),

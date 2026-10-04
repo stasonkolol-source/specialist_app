@@ -1,12 +1,13 @@
 """Вход персонала в админку: `cli staff-create` (DEVELOPMENT_PLAN 2.7a; ADR-0009, §13.2).
 
 Пароль (вводится в терминале) и новый секрет TOTP — сотруднику с ролью из `identity.user_roles`
-(`cli staff-grant`); повторный вызов заменяет и пароль, и TOTP. Секрет показывается один раз, в
-логи и аудит не попадает, в БД ложится зашифрованным (8.4). Сам вход — application/staff_auth.py.
+(`cli staff-grant`); повторный вызов заменяет и пароль, и TOTP и закрывает открытые сессии
+админки (новое поколение входа, `session_epoch`). Секрет показывается один раз, в логи и аудит не
+попадает, в БД ложится зашифрованным (8.4). Сам вход — application/staff_auth.py.
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Final
 
 from app.modules.identity.application.dto import StaffCredentialsSet
@@ -32,7 +33,7 @@ class CreateStaffLoginCommand:
     telegram_id: int
     """Кто: сотрудник по Telegram id (в логи не пишется)."""
     login: str
-    password: str
+    password: str = field(repr=False)
 
 
 class CreateStaffLogin:

@@ -56,10 +56,12 @@ integration); этот чек-лист.
 | 3.2.3 | Токены в браузере — безопасно | ✅ | Mini App хранит токены только в памяти (`packages/api-client/src/mutator.ts`); localStorage — только публичные справочники (`apps/tma/src/app/persist.ts`) |
 | 3.3.1 | Выход и истечение делают токен недействительным | ✅ | отзыв сессии + denylist `sid` в Valkey (`be/platform/security/denylist.py`); access 15 мин |
 | 3.3.2 | Повторная аутентификация по времени | ✅ | refresh Mini App 7 дней, мобильный — 30 (JWT_REFRESH_TTL_*) |
+| 3.3.3 | Смена пароля завершает сессии | ✅ | персонал: cookie `sosed_admin` несёт поколение входа (`staff_credentials.session_epoch`), `cli staff-create` (новые пароль и TOTP) и `cli staff-revoke` его увеличивают — прежние cookie не открывают ни `/admin`, ни Admin API (`be/modules/identity/application/staff_auth.py`; `tests/integration/test_admin_auth.py`); у пользователей паролей нет |
 | 3.3.4 | Пользователь видит и завершает сессии | ⏳ | список устройств — v1; бан/удаление отзывают все сессии |
 | 3.5.1 | Отзыв OAuth/refresh | ✅ | ротация refresh с детектором повторного использования (`identity/domain/session.py`, аудит `auth.refresh.reused`) |
 | 3.5.3 | Подпись токенов проверяется, алгоритм фиксирован | ✅ | EdDSA (Ed25519) с `kid`, `be/platform/security/jwt.py`; тесты `test_jwt.py` |
-| 3.4.x, 3.6.x | Cookies, федеративный выход | N/A | cookies не используются; IdP один — Telegram |
+| 3.4.x | Cookies | ✅ | API пользователей cookies не использует; персонал — подписанная `sosed_admin`: HttpOnly, SameSite=Strict, Secure на stage и проде, 8 ч (`be/platform/http/staff.py`) |
+| 3.6.x | Федеративный выход | N/A | IdP один — Telegram |
 
 ## V4. Контроль доступа
 
@@ -70,7 +72,7 @@ integration); этот чек-лист.
 | 4.1.3 | Минимальные привилегии | ✅ | роли персонала только в admin API (§13.2) |
 | 4.1.5 | Отказ — безопасно | ✅ | чужой ресурс → 404 (не раскрываем существование); RFC 9457 без деталей |
 | 4.2.1 | IDOR | ✅ | [отчёт покрытия](#отчёт-покрытия-тестов-прав): 57 операций с id классифицированы, у 42 владельческих и 4 смешанных — тест «чужой ресурс» |
-| 4.2.2 | CSRF | ✅ | только Bearer в заголовке, cookies нет — CSRF неприменим; CORS не включён (тот же origin) |
+| 4.2.2 | CSRF | ✅ | API пользователей: только Bearer в заголовке, cookies нет — CSRF неприменим; CORS не включён (тот же origin). Админка (cookie SameSite=Strict несёт и страница поддомена): Admin API — `X-Requested-With: sosed-admin` на запись, Fetch Metadata и Origin на запись и на GET с побочным действием (ПД, доказательства спора); SQLAdmin — те же Fetch Metadata и Origin на формы, действия разделов и «Решить кейс» (`be/platform/http/staff.py`, `be/interfaces/admin/app.py`; тесты `test_admin_api.py`, `test_admin_auth.py`) |
 | 4.3.1 | MFA для админки | ⏳ | TOTP персонала — 2.7a, Cloudflare Access — 2.7b, 3.1c |
 | 4.3.3 | Доступ персонала к ПД журналируется | ✅ | `platform.audit_log` (`be/platform/audit/`), выгрузка — `privacy.user_data.exported` |
 
@@ -103,8 +105,8 @@ integration); этот чек-лист.
 
 | ID | Требование | Статус | Доказательство |
 |---|---|---|---|
-| 7.1.1 | Нет учётных данных и токенов в логах | ✅ | процессор маскирования `be/platform/observability/masking.py` — в structlog, stdlib-логах и Sentry; тесты `tests/unit/platform/test_masking.py` (токены бота, JWT, Bearer, initData, секрет webhook) |
-| 7.1.2 | Нет ПД в логах | ✅ | ключи `phone`, `text`, `email`, адреса клиента, `init_data` скрываются целиком, телефоны и длинные цифры — по шаблону; access-лог без query string; SDK AI не ниже INFO; выборочная ревизия вызовов `log.*` (8.4) — ПД не логируется |
+| 7.1.1 | Нет учётных данных и токенов в логах | ✅ | процессор маскирования `be/platform/observability/masking.py` — в structlog, stdlib-логах и Sentry; тесты `tests/unit/platform/test_masking.py` (токены бота, в том числе в адресе Bot API `…/bot<токен>/…`, JWT, Bearer, initData, секрет webhook, токен приглашения на отзыв); Sentry не собирает переменные кадров и тела запросов (`include_local_variables=False`, `max_request_body_size="never"`), `_scrub` выбрасывает их ещё раз — тест через реальный SDK в `tests/unit/platform/test_observability.py` (8.4) |
+| 7.1.2 | Нет ПД в логах | ✅ | ключи `phone`, `text`, `email`, адреса клиента, `init_data` скрываются целиком, телефоны и длинные цифры — по шаблону; access-лог без query string; SDK AI не ниже INFO; выборочная ревизия вызовов `log.*` (8.4) — ПД не логируется; в Sentry нет сырого апдейта Telegram и текстов исходящих сообщений (тело запроса и переменные кадров не отправляются); restore-тест публикует в логе Actions только итог и тайминги, строки таблиц и размер базы — в пинг Healthchecks |
 | 7.1.3 | События безопасности журналируются | ✅ | access-лог со статусом (401/403/429) и `request_id`; `auth.refresh.reused` и действия персонала — `platform.audit_log` |
 | 7.1.4 | Контекст для расследования | ✅ | `request_id`, `trace_id`, `user_id` (внутренний UUID) |
 | 7.3.1 | Защита от инъекций в логи | ✅ | JSON-рендерер; X-Request-ID только `[A-Za-z0-9._-]{1,64}` (`be/interfaces/http/middleware.py`) |
@@ -119,7 +121,7 @@ integration); этот чек-лист.
 | 8.2.1 | Заголовки против кэширования ПД | ✅ | ответ на запрос с Authorization без своей политики — `Cache-Control: no-store` (с ETag — `private, no-cache`), `be/interfaces/http/security_headers.py` (8.4) |
 | 8.2.2 | В хранилище браузера нет ПД | ✅ | см. 3.2.3; черновик заявки — DeviceStorage Telegram на устройстве пользователя |
 | 8.3.1 | ПД в теле или заголовках, не в query | ✅ | initData и токены — заголовки; id в путях — UUIDv7 |
-| 8.3.2 | Удаление и экспорт данных | ✅ | `POST /me/deletion` (2.12a), выгрузка — [data-export.md](../../infra/runbooks/data-export.md), [deletion-request.md](../../infra/runbooks/deletion-request.md) |
+| 8.3.2 | Удаление и экспорт данных | ✅ | `POST /me/deletion` (2.12a), выгрузка — [data-export.md](../../infra/runbooks/data-export.md), [deletion-request.md](../../infra/runbooks/deletion-request.md); персона PostHog — сразу и вторым проходом через сутки, 202 с `deletion_errors` — повтор, prod без ключа удаления не стартует (2.12b) |
 | 8.3.4 | Чувствительные данные определены | ✅ | ARCHITECTURE §13.4; адрес и телефон скрыты до выбора (`tests/integration/test_contacts_privacy.py`) |
 | 8.3.5 | Доступ к ПД журналируется | ✅ | `platform.audit_log` |
 | 8.3.8 | Сроки хранения исполняются | ✅ | `platform.retention_sweep` (2.12b), матрица §7.10 |

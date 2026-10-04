@@ -4,7 +4,8 @@
 Только moderator и admin. Действия — те же use cases, что у SQLAdmin, чата модераторов и `cli`,
 от имени вошедшего сотрудника: взять (TakeCase), эскалировать (EscalateCase), решить (DecideCase),
 решить спор с исходом сделки (ResolveDispute). Доказательства спора — InspectDispute: каждый
-просмотр пишется в audit_log (`moderation.dispute.evidence_viewed`), как `cli dispute-show`.
+просмотр пишется в audit_log (`moderation.dispute.evidence_viewed`), как `cli dispute-show`; со
+страницы другого поддомена — 403 `csrf_rejected` (просмотр пишет аудит и блокирует кейс).
 Контент-правила (часть 2) — только admin, тем же путём, что раздел SQLAdmin (`apply_change` с
 хуками `ContentRuleAdmin`): проверка `compile_rule` с движком RE2 (та же, что у сида в
 `cli seeds-validate`), регистр регулярки сохраняется, слова и домены — в нижнем регистре, правка
@@ -72,6 +73,7 @@ from app.platform.http.admin import (
     MODERATION,
     AdminRows,
     InvalidAdminChangeError,
+    RowIdPath,
     apply_change,
     as_row,
     staff_id,
@@ -173,7 +175,11 @@ async def decide_case(
     return DecisionOut.of(decision)
 
 
-@router.get("/cases/{case_id}/dispute", response_model=DisputeDossierOut, **staff_only(MODERATION))
+@router.get(
+    "/cases/{case_id}/dispute",
+    response_model=DisputeDossierOut,
+    **staff_only(MODERATION, side_effects=True),
+)
 @inject
 async def inspect_dispute(
     case_id: UUID, request: Request, inspect: FromDishka[InspectDispute]
@@ -274,7 +280,7 @@ async def create_content_rule(body: ContentRuleIn, request: Request) -> ContentR
 
 @router.patch("/content-rules/{rule_id}", response_model=ContentRuleOut, **staff_only(ADMIN))
 async def update_content_rule(
-    rule_id: int, body: ContentRulePatchIn, request: Request
+    rule_id: RowIdPath, body: ContentRulePatchIn, request: Request
 ) -> ContentRuleOut:
     """Правка или выключение (`is_active: false`) правила; строка сида переходит к админке."""
     model = await apply_change(
