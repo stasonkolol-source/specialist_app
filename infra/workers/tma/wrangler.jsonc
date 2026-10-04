@@ -1,0 +1,23 @@
+// Worker Mini App (DEVELOPMENT_PLAN 0.25d). wrangler не в package.json (lock и audit не трогаем):
+//   pnpm -F tma build && npx wrangler@4.147.0 deploy --config infra/workers/tma/wrangler.jsonc \
+//     --env stage --var API_ORIGIN:https://stage-api.<домен>
+// Домен stage-app.<домен> привязывает Terraform (cloudflare_workers_custom_domain, K12): маршрутов
+// здесь нет, поэтому токену CI ci-wrangler хватает прав Workers Scripts.
+{
+  "name": "sosed-tma",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "../../../apps/tma/dist",
+    "binding": "ASSETS",
+    // глубокие ссылки SPA (/s/<id>, /j/<id>) отдают index.html
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"],
+  },
+  "observability": { "enabled": true },
+  "env": {
+    "stage": { "name": "sosed-tma-stage" },
+  },
+}

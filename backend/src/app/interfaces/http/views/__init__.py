@@ -13,6 +13,7 @@ from app.interfaces.http.views import (  # noqa: E402 — роутеры экр�
     deal,
     history,
     my_job,
+    share,
     specialist,
 )
 
@@ -22,3 +23,4 @@ router.include_router(badges.router)
 router.include_router(deal.router)
 router.include_router(history.router)
 router.include_router(blocks.router)
+router.include_router(share.router)

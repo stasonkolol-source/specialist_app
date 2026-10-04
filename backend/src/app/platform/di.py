@@ -78,7 +78,8 @@ from app.platform.storage.port import StoragePort
 from app.platform.storage.s3 import S3Storage
 from app.platform.telegram.aiogram_sender import AiogramTelegramSender
 from app.platform.telegram.limiter import ValkeySendLimiter
-from app.platform.telegram.port import TelegramSender
+from app.platform.telegram.port import PreparedMessages, TelegramSender
+from app.platform.telegram.prepared import AiogramPreparedMessages, NoPreparedMessages
 from app.platform.telegram.texts import BOT_DEFAULTS
 
 log = structlog.get_logger(__name__)
@@ -189,6 +190,13 @@ class PlatformProvider(Provider):
     def telegram_sender(self, bot: Bot, valkey: Redis) -> TelegramSender:
         """Уведомления бота: Bot API с лимитером в Valkey (25 msg/s, 1 msg/s на чат)."""
         return AiogramTelegramSender(bot, ValkeySendLimiter(valkey))
+
+    @provide(scope=Scope.APP)
+    def prepared_messages(self, bot: Bot, app: AppSettings) -> PreparedMessages:
+        """Карточки для shareMessage (7.4). В тестах Bot API не зовём: клиент делится ссылкой."""
+        if app.env is Environment.TEST:
+            return NoPreparedMessages()
+        return AiogramPreparedMessages(bot)
 
     @provide(scope=Scope.APP)
     def storage(self, settings: S3Settings, clock: Clock) -> Iterator[StoragePort]:

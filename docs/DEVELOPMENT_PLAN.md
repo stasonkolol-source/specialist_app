@@ -394,12 +394,12 @@ gantt
 | 6.3b | Переписка: «Договорились», контакты, уведомления | 2.3b, 6.3a | — | на проверке |
 | 6.4 | Mini App: S29, S30 | 4.7, 6.2, 6.3b | — | на проверке |
 | 6.5 | Mini App: S53, S54, приватность | 4.9, 6.4 | — | на проверке |
-| 6.6 | Дашборд ликвидности и метрики ворот | 0.25e, 1.7, 5.7, 6.1b | K32 | ожидает |
+| 6.6 | Дашборд ликвидности и метрики ворот | 0.25e, 1.7, 5.7, 6.1b | K32 | в работе |
 | 6.7 | Ворота закрытой беты | 2.10, 3.4, 4.8, 4.9, 5.5, 5.7, 6.5, 6.6 ‖ запасная ветка: 6.2 вместо 6.5 | K22, K25, K26, K28, K29, K40a, K41, K42, Q26, Q27 | ожидает |
 | 7.1 | Старт закрытой беты | 6.7 | — | ожидает |
 | 7.2 | Отзывы: backend | 4.6, 6.1b | — | на проверке |
 | 7.3 | Mini App: S27, S28, S11 с ответами, B2 | 6.2, 7.2 | — | на проверке |
-| 7.4 | Шаринг карточек | 1.6, 4.5, 5.3, 5.6, 6.2, 6.4 | K5 (inline mode, если нужен) | ожидает |
+| 7.4 | Шаринг карточек | 1.6, 4.5, 5.3, 5.6, 6.2, 6.4 | K5 (inline mode, если нужен) | на проверке |
 | 7.5 | Задел «Вещи»: S58 и сегмент на Главной | 1.7, 4.8, 4.9, 5.2 | Q23, Q26 | ожидает |
 | 7.6 | Should-пункты по решению владельца | 2.2a, 7.3 | Q22 | ожидает |
 | 7.7 | Итоги беты | 7.1 | Q27 (№ 15) | ожидает |
@@ -814,6 +814,7 @@ gantt
 - **Инфраструктура.** `infra/terraform/stage`: hcloud — CX23 (размер — переменная `stage_server_type`, её использует 8.3), firewall, SSH-ключи, бэкапы VM; cloud-init с Docker. Токены — в `infra/terraform/stage/.env` (`make secret … TARGET=tf-stage`).
 - **Готово, когда.** Повторный `terraform plan` без изменений; SSH по ключу работает.
 - **Проверка.** `terraform -chdir=infra/terraform/stage plan`; `ssh stage true`.
+- **Подготовлено (2026-10-04).** Без ключей, ничего не создано: `infra/terraform/stage` (Terraform 1.16, hcloud 1.69, cloudflare 5.26, lock-файл) — CX23 в `nbg1` с бэкапами, firewall (80/443 только с краёв Cloudflare — тот же список, что в settings.py; 22 — по ключу отовсюду, Q13), cloud-init: Docker, сеть `kamal` с подсетью `172.30.0.0/24`, SSH без паролей, swap. State локальный (Q14), токены — `.env` (`make secret … TARGET=tf-stage`, видны в `make secrets-check`). `make tf ENV=stage ARGS=…` и `make tf-check` — в образе `hashicorp/terraform`; `validate` и план без сети и без токена Cloudflare зелёные. Порядок — [stage-bootstrap.md](../infra/runbooks/stage-bootstrap.md).
 
 **0.25b. Cloudflare: DNS, R2, WAF.**
 - **Зависит от.** 0.25a
@@ -821,6 +822,7 @@ gantt
 - **Инфраструктура.** Terraform cloudflare: DNS по плоской схеме `stage-app`, `stage-api`, `stage-cdn`, `stage-admin`; бакеты R2 stage с CORS и lifecycle; WAF-исключение для webhook; SSL Full (strict).
 - **Готово, когда.** Повторный `terraform plan` без изменений; записи DNS резолвятся; бакеты R2 stage созданы с CORS и lifecycle (presign на R2 проверяется в 0.25c, когда ключи лежат в секретах stage).
 - **Проверка.** `terraform -chdir=infra/terraform/stage plan`; `dig +short stage-api.<domain>`.
+- **Подготовлено (2026-10-04).** Тот же стек, флаг `cloudflare_enabled`: DNS `stage-api`, `stage-admin` (не обслуживается до K31), `stage-cdn` (R2 custom domain), `stage-app` — домен Worker'а после первого `wrangler deploy` (`mini_app_worker_deployed`); бакеты `sosed-stage-*` в EU с CORS (origin `stage-app`, `ETag`) и lifecycle (incoming — 2 дня, multipart — сутки); skip-правило WAF для `/integrations/telegram/` с адресов Bot API; Full (strict), Always HTTPS, TLS ≥ 1.2; сертификат Origin CA для kamal-proxy. Настройки зоны и ruleset фазы WAF общие для зоны — в 3.1a переезд в общий стек.
 
 **0.25c. Деплой backend и БД (Kamal).**
 - **Зависит от.** 0.25b
@@ -830,6 +832,7 @@ gantt
 - **Результат.** API stage отвечает; миграции и smoke БД проходят в pre-deploy.
 - **Готово, когда.** `kamal deploy -d stage` проходит; `/up` отвечает; `kamal accessory details postgres -d stage` показывает работающую БД; smoke `show_trgm('тест')` и список расширений совпадают с dev; presign на R2 stage работает; `make secrets-check` показывает все секреты stage заданными; `kamal rollback` проверен.
 - **Проверка.** `make kamal ARGS='deploy -d stage'`; `curl -s https://stage-api.<domain>/up`; `make kamal ARGS='accessory details postgres -d stage'`; `make pg-smoke ENV=stage`.
+- **Подготовлено (2026-10-04).** `infra/kamal` (Kamal 2.12, `kamal config -d stage` на фиктивных значениях проходит): web за kamal-proxy (`/up`, сертификат Origin CA, `APP_TRUSTED_PROXIES` = сеть `kamal`), bot (пока polling), worker, worker-media; лимиты под CX23 через `cpuset`; accessories `sosed-postgres` (наш образ, `bootstrap.sql` при первом initdb, порт не публикуется) и Valkey. Секреты по умолчанию Q1(б): `infra/kamal/secrets.stage` — только имена, значения — environment `stage`. Pre-deploy: `pg_smoke.sh` на сервере и `alembic upgrade head` новым образом; `make pg-smoke ENV=stage`; образ backend с меткой `service=sosed`. `.github/workflows/deploy.yml` выключен до `STAGE_DEPLOY = true`. Не сделано: цели `make secret TARGET=stage|production`, `make gen-secret`, `make gen-age` — в runbook временные команды `openssl rand | gh secret set`.
 
 **0.25d. Mini App на Workers и прокси `/api`.**
 - **Зависит от.** 0.25c
@@ -837,6 +840,7 @@ gantt
 - **Mini App.** Сборка и `wrangler deploy` на Workers Static Assets (`stage-app.<domain>`). `/api/*` на том же origin: Worker с `run_worker_first` для `/api/*` проксирует запросы на `stage-api.<domain>` по TLS; остальное отдаёт статика. `index.html` — no-cache, хэшированные ассеты — immutable. Деплой — в `deploy.yml` после Kamal.
 - **Готово, когда.** `https://stage-app.<domain>` открывается; `https://stage-app.<domain>/api/v1/client-config` (с 1.1; до него — `/api/v1/nope` с problem+json) отвечает через прокси.
 - **Проверка.** `curl -si https://stage-app.<domain>/api/v1/nope`.
+- **Подготовлено (2026-10-04).** `infra/workers/tma`: `wrangler.jsonc` (Worker `sosed-tma-stage`, статика из `apps/tma/dist` с `_headers`, SPA fallback, `run_worker_first` для `/api/*`) и `worker.js` — прокси на `API_ORIGIN` (`--var` при деплое). wrangler не в package.json: `npx wrangler@4.147.0`; деплой — job «Mini App» в `deploy.yml` после Kamal, `VITE_*` — из Variables `stage`.
 
 **0.25e. Stage-бот и webhook.**
 - **Зависит от.** 0.22, 0.25d
@@ -845,6 +849,7 @@ gantt
 - **Результат.** Stage-бот открывает Mini App на `https://stage-app.<domain>` со входом.
 - **Готово, когда.** Вход в stage-боте работает; запрос без `secret_token` отклоняется.
 - **Проверка.** Вход через stage-бота на телефоне; `curl -s -X POST https://stage-api.<domain>/<webhook-path>` без заголовка → 401.
+- **Подготовлено (2026-10-04).** Край готов (skip-правило WAF, `TELEGRAM_WEBHOOK_SECRET` в секретах stage), профиль и кнопка меню — существующим `cli bot-setup --env stage` в контейнере web (команда в runbook). Webhook-режима бота (`setWebhook` с `secret_token` и `allowed_updates`, приём апдейтов) в коде ещё нет — до него stage-бот работает polling.
 
 ### 0.26. Спайк: бенчмарки на целевой VM и проверка R2
 
@@ -1666,6 +1671,7 @@ gantt
 - **Результат.** Дашборд ликвидности на событиях stage (и prod — с 3.4).
 - **Готово, когда.** Каждая метрика таблицы [PRODUCT: метрики][p-metrics] либо на дашборде, либо помечена шагом, который её подключит; расчёт проверен тестом на сидах `seed-demo` с известным ответом; алерт срабатывает на тестовом падении.
 - **Проверка.** `uv run pytest -k "analytics or metrics"`; `cli beta-report --week 0`; дашборд PostHog.
+- **Сделано (2026-10-04, первая часть: SQL-метрики, отчёт и алерт; дашборд PostHog ждёт K32).** Отчётный слой `platform/analytics/liquidity.py` — только чтение, SQL по схемам модулей без их импортов: роль `readonly` при `DB_READONLY_DSN` (dev-скрипт `make secrets-dev` его пишет), иначе роль app в транзакции READ ONLY с таймаутом 30 с; один снимок REPEATABLE READ на отчёт. Всё «на момент»: доля по окну (1 ч, 4 ч, 24 ч, 7 и 60 дней) — только по заявкам, у которых окно закрылось; отклики, сделки и решения позже момента отчёта не видны. По паре «город × категория» (город заявки, корневая категория) и итогом: response rate@1h (заявки 08:00–22:00 по Белграду), @4h, @24h; ≥ 1 отклик за 1 ч и ≥ 3 за 24 ч (дневные заявки); медиана TTFR; глубина (медиана откликов за 24 ч); fill rate@7d; completion rate (договорённые в неделе → выполнены); медианный win rate; активные исполнители и supply/demand; North Star — завершённые сделки. В заявки входят публичные и не снятые модерацией, в отклики — кроме скрытых модерацией; сделки без заявки — только в итог. Итогом: доля активных среди опубликованных профилей; opt-in — живой канал Telegram на конец недели; repeat rate 60 дней (клиенты с первой заявкой в неделе: вторая заявка или прямой заказ); K-фактор — новые по ссылкам карточек и «Разместить заявку» и рефералы на активного (до 7.4 — по атрибуции); review rate; жалобы «мошенничество» на 1 000 договорённых сделок; SLA модерации по очередям (решено в срок среди кейсов с известным исходом); концентрация — доля выборов у топ-10% боровшихся за заказы. Не в отчёте, с шагом: 6-месячное удержание — 7.7, точность автомодерации — 7.1 (аудит в админке), KYC, GMV, Pro, ARPPU — v1; тест сверяет список с METRICS. `cli beta-report --week <N>` — текст с русскими подписями и целями PRODUCT; неделя 1 — с понедельника `ANALYTICS_BETA_START` (по умолчанию 2027-01-25), неделя 0 — перед стартом, `--start` переопределяет. Алерт: periodic `analytics.response_rate_alert` (07:05 UTC) — response rate@4h за 7 дней ниже `ANALYTICS_RESPONSE_RATE_ALERT_THRESHOLD` (0,70) при ≥ `…_MIN_JOBS` (10) заявок, итог или пара — сообщение в чат модераторов `TELEGRAM_MODERATORS_CHAT_ID` (2.5b, K29), без него — лог и Sentry. Тесты: `tests/integration/test_liquidity_metrics.py` — известный ответ на своих данных (сиды `seed-demo` случайны) и срабатывание алерта на падении; `tests/unit/platform/test_liquidity.py`. Осталось: дашборд PostHog (K32), `--week all` для 7.7.
 - **Ссылки.** [§15.1][a151], [§16.5][a165], [PRODUCT: метрики][p-metrics], [ADR-0019][adr19].
 
 ### 6.7. Ворота закрытой беты
@@ -1740,6 +1746,7 @@ gantt
 - **Результат.** Карточка специалиста уходит в чат, нажатие открывает S08 у другого пользователя.
 - **Готово, когда.** Сквозной e2e: каждый golden-вектор открывает свой экран; атрибуция записывается; сценарий пройден на двух аккаунтах.
 - **Проверка.** `pnpm -F links test`; `make e2e GREP="deeplinks|share"`; ручной сценарий.
+- **Сделано (2026-10-04).** Backend: BFF `POST /share {entity_type, entity_id}` (`interfaces/http/views/share.py`) — делиться можно только публичным: опубликованным профилем, чей автор не скрыт санкцией (как S08), и заявкой, которую видит гость (опубликована, не прямой запрос, не удалена; фасад `JobsApi.public_job`), иначе 404; лимит 10 / 30 в минуту гостю и вошедшему. Ответ — `url` `https://t.me/<bot>?startapp=s_…|j_…`, `start_param`, подпись `text` и `prepared_message_id`. Модуль growth: коды приглашения `growth.referral_codes` (growth_0004) — один на аккаунт, создаётся при первом шаринге, суффикс `_r<код>` в ссылке вошедшего (у гостя — без), удаление аккаунта стирает код; первое касание по такой ссылке записывает код в `attributions.referral_code`. Карточка для `shareMessage` — порт `PreparedMessages` (platform/telegram): `savePreparedInlineMessage` с текстом «Имя — специалист в «Соседях»» и «коротко о себе» и районом или «Название — заявка в «Соседях»» и районом, кнопка-ссылка «Открыть профиль» / «Открыть заявку» (url, а не web_app — работает в группах и каналах); без адреса, точки и контактов; таймаут 5 с, любая ошибка — без карточки, клиент делится ссылкой; inline mode не нужен (K5, проверено в 1.6). Аналитика: `share_created` (entity, prepared) и `attribution_recorded` (source, has_referral) — событиями ShareCreated и AttributionRecorded после commit; K-фактор — из них и `user_registered`. Mini App: `useShare` (@sosed/hooks) — POST /share по нажатию, карточка в выбор чата или ссылка (`t.me/share/url`; в браузере — `navigator.share` или копирование с тостом «Ссылка скопирована»); закрытое окно выбора чата ссылкой не дублируется. S08 — значок рядом с сердечком (всем), S10 — справа от счётчика (ссылка на профиль: у работы своего кода нет), S15 — рядом с сердечком, S23 — «Поделиться» в действиях, S21 — «Поделиться в чат»: ссылка в поле, «Скопировать» и «Отправить в чат Telegram». Заявкой — только опубликованной не прямым запросом. Тесты: unit кодека ссылки и аналитики, интеграционные growth (код один, `_r`, карточка, без карточки, гость, атрибуция и стирание кода) и `POST /share` (профиль, заявка, гость, 404 прямому запросу, истёкшей и неизвестному), Vitest `useShare` и S08, e2e `share.spec` (S08 и S15 уходят в чат, ссылка с кодом открывает экран у другого) и `deeplink-s`, `deeplink-j`; разбор каждого golden-вектора в экран — `routes/startapp.test.ts`. Первый экран — 196,1 KB из 200. Отличия: превью карточки — текст без фото (фото из R2 в карточке — после проверки на stage-боте); ручной сценарий на двух аккаунтах — за владельцем.
 - **Ссылки.** [§8.5][a85], [§11.4][a114], [ADR-0011][adr11], [research/02][r02].
 
 ### 7.5. Задел «Вещи»: S58 и сегмент на Главной

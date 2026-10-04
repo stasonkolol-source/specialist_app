@@ -40,6 +40,8 @@ def main() -> int:
     backend_new = {
         "DB_DSN": dsn("app", "APP_DB_PASSWORD"),
         "DB_MIGRATOR_DSN": dsn("migrator", "MIGRATOR_DB_PASSWORD"),
+        # отчёты ликвидности (6.6) — под ролью readonly, как на stage и проде
+        "DB_READONLY_DSN": dsn("readonly", "READONLY_DB_PASSWORD"),
         "VALKEY_URL": "redis://127.0.0.1:56379/0",
         "APP_ENV": "dev",
         "APP_LOG_JSON": "false",

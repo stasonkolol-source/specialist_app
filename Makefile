@@ -83,8 +83,11 @@ psql: ## psql под ролью app
 	@set -a; . infra/compose/.env; set +a; \
 	$(COMPOSE) exec -e PGPASSWORD="$$APP_DB_PASSWORD" postgres psql -h 127.0.0.1 -U app -d specialist
 
-pg-smoke: ## Smoke БД: локаль, pg_trgm, PostGIS, роли
-	@scripts/pg_smoke.sh
+pg-smoke: ## Smoke БД: локаль, pg_trgm, PostGIS, роли (ENV=stage — accessory на VM stage, STAGE_HOST)
+	@if [ "$(ENV)" = stage ]; then \
+	  ssh -o BatchMode=yes "root@$${STAGE_HOST:?STAGE_HOST — IPv4 VM stage}" \
+	    'PG_SMOKE_CONTAINER=sosed-postgres bash -s' < scripts/pg_smoke.sh; \
+	else scripts/pg_smoke.sh; fi
 
 secret: ## Скрытый ввод секрета: make secret NAME=TELEGRAM_BOT_TOKEN TARGET=dev
 	@test -n "$(NAME)" && test -n "$(TARGET)" || (echo "usage: make secret NAME=… TARGET=dev|tf-stage|tf-prod"; exit 2)

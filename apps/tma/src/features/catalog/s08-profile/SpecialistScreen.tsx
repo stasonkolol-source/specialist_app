@@ -10,9 +10,10 @@
 // «Пожаловаться на профиль» (шторка S46; пока она открыта, MainButton спрятана) и «Заблокировать»
 // с подтверждением: заблокированному не написать и не предложить заявку — вместо кнопок памятка и
 // «Разблокировать». Меню «⋯» артборда — часть шапки Telegram, своих пунктов в нём у Mini App нет:
-// действия — строками, как «Пожаловаться на профиль» на артборде. Скрыто до своего шага:
-// «Поделиться» (7.4). Гость видит экран без входа, но без сердечка, жалобы и блокировки; «Написать»
-// гостю — тоже мастер заявки: диалог начинается после входа.
+// действия — строками, как «Пожаловаться на профиль» на артборде. «Поделиться» (7.4) — рядом с
+// сердечком, всем: карточка в выбор чата Telegram или ссылка (у гостя — без кода приглашения).
+// Гость видит экран без входа, но без сердечка, жалобы и блокировки; «Написать» гостю — тоже
+// мастер заявки: диалог начинается после входа.
 import type { CardWorkOut, SpecialistCardOut, SpecialistProfileOut } from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
 import { color } from '@sosed/design-tokens';
@@ -63,6 +64,7 @@ import { ReviewCard } from '../shared/ReviewCard.tsx';
 import { Unavailable } from '../shared/Unavailable.tsx';
 import { avatarSrc, knownLanguages, place, priceAmount, sentence } from '../shared/card.ts';
 import { useFavoriteToggle } from '../shared/favorite.ts';
+import { useProfileShare } from '../shared/share.tsx';
 import { CARD_PATHS, CREATE_JOB_PATH, chatPath } from '../shared/paths.ts';
 
 const PHONE_VERIFIED = 'phone_verified';
@@ -210,6 +212,7 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
   const aboutId = useId();
   const { control, failure } = useFavoriteToggle();
   const favorite = control(searchCardOf(card), false);
+  const sharing = useProfileShare(card.id);
   const blocks = useBlocks();
   const blocked = blockedIds(blocks.data).has(card.user_id);
   const reporting = useReportTarget() !== null;
@@ -239,17 +242,25 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
   return (
     <section className="flex flex-col gap-3.5 px-4 pt-3 pb-6">
       <Card as="section" className="relative">
-        {favorite && (
+        <div className="absolute top-1 right-1 flex">
           <IconButton
             plain
-            icon="heart"
-            label={favorite.label}
-            active={favorite.active}
-            aria-pressed={favorite.active}
-            onClick={favorite.onToggle}
-            className="absolute top-1 right-1"
+            icon="share"
+            label={common('share.profile')}
+            aria-busy={sharing.pending || undefined}
+            onClick={sharing.share}
           />
-        )}
+          {favorite && (
+            <IconButton
+              plain
+              icon="heart"
+              label={favorite.label}
+              active={favorite.active}
+              aria-pressed={favorite.active}
+              onClick={favorite.onToggle}
+            />
+          )}
+        </div>
         <div className="flex items-center gap-4">
           <Avatar
             name={card.display_name}
@@ -259,7 +270,7 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
             priority
           />
           <div className="flex min-w-0 grow flex-col gap-1">
-            <Heading variant="h2" as="h1" className={favorite && 'pr-8'}>
+            <Heading variant="h2" as="h1" className={favorite ? 'pr-16' : 'pr-8'}>
               {card.display_name}
             </Heading>
             {card.headline && (
@@ -324,6 +335,7 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
           {failure}
         </Banner>
       )}
+      {sharing.notice}
       <Banner tone="warn">{t('profile.prepayment')}</Banner>
       {card.services_count > 0 && (
         <section aria-labelledby={pricesId} className="flex flex-col gap-2">
