@@ -8,6 +8,7 @@ from app.modules.media.api import (
     ImageForCheck,
     MediaApi,
     MediaDuplicate,
+    MediaModeration,
     MediaRef,
     MediaVariantRef,
     ModerationVerdict,
@@ -106,19 +107,9 @@ class MediaFacade(MediaApi):
         labels: Mapping[str, float] | None = None,
         auto: bool = False,
     ) -> bool:
-        try:
-            asset = await self._assets.get_by_id_for_update(media_id)
-        except MediaNotFoundError:
-            return False
-        if not asset.moderate(ModerationStatus(verdict.value), labels=labels, auto=auto):
-            return False
-        await self._assets.save(asset)
-        payload = HideVariantsPayload(media_id=asset.id, keys=asset.variant_keys())
-        if asset.blocked and asset.hidden_at is None:
-            await self._queue.enqueue(HIDE_VARIANTS, payload, dedup_key=str(asset.id))
-        elif not asset.blocked and asset.hidden_at is not None:
-            await self._queue.enqueue(RESTORE_VARIANTS, payload, dedup_key=str(asset.id))
-        return True
+        return await record_verdict(
+            self._assets, self._queue, media_id, verdict, labels=labels, auto=auto
+        )
 
     async def discard(self, owner_id: UserId, media_id: MediaId) -> None:
         await self._queue.enqueue(
@@ -126,6 +117,50 @@ class MediaFacade(MediaApi):
             DiscardMediaPayload(user_id=owner_id, media_id=media_id),
             dedup_key=str(media_id),
         )
+
+
+class MediaModerator(MediaModeration):
+    """Решения по фото без хранилища (порт `MediaModeration`): адаптер цели «фото» модерации."""
+
+    def __init__(self, assets: MediaRepository, queue: JobQueue) -> None:
+        self._assets, self._queue = assets, queue
+
+    async def moderate(
+        self,
+        media_id: MediaId,
+        verdict: ModerationVerdict,
+        *,
+        labels: Mapping[str, float] | None = None,
+        auto: bool = False,
+    ) -> bool:
+        return await record_verdict(
+            self._assets, self._queue, media_id, verdict, labels=labels, auto=auto
+        )
+
+
+async def record_verdict(
+    assets: MediaRepository,
+    queue: JobQueue,
+    media_id: MediaId,
+    verdict: ModerationVerdict,
+    *,
+    labels: Mapping[str, float] | None,
+    auto: bool,
+) -> bool:
+    """Итог проверки фото — в транзакции вызывающего (`MediaApi.moderate`)."""
+    try:
+        asset = await assets.get_by_id_for_update(media_id)
+    except MediaNotFoundError:
+        return False
+    if not asset.moderate(ModerationStatus(verdict.value), labels=labels, auto=auto):
+        return False
+    await assets.save(asset)
+    payload = HideVariantsPayload(media_id=asset.id, keys=asset.variant_keys())
+    if asset.blocked and asset.hidden_at is None:
+        await queue.enqueue(HIDE_VARIANTS, payload, dedup_key=str(asset.id))
+    elif not asset.blocked and asset.hidden_at is not None:
+        await queue.enqueue(RESTORE_VARIANTS, payload, dedup_key=str(asset.id))
+    return True
 
 
 def _ref(view: MediaView) -> MediaRef:

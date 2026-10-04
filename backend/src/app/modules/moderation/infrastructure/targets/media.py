@@ -8,13 +8,13 @@
 
 from uuid import UUID
 
-from app.modules.media.api import MediaApi, ModerationVerdict
+from app.modules.media.api import MediaModeration, ModerationVerdict
 from app.modules.moderation.application.ports import ModerationTarget, TargetContent
 from app.platform.kernel.ids import MediaId
 
 
 class MediaTarget(ModerationTarget):
-    def __init__(self, media: MediaApi) -> None:
+    def __init__(self, media: MediaModeration) -> None:
         self._media = media
 
     async def content(self, entity_id: UUID) -> TargetContent | None:  # noqa: ARG002

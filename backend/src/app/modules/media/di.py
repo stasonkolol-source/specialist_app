@@ -2,9 +2,9 @@
 
 from dishka import Provider, Scope, provide
 
-from app.modules.media.api import MediaApi
+from app.modules.media.api import MediaApi, MediaModeration
 from app.modules.media.application.config import MediaConfig
-from app.modules.media.application.facade import MediaFacade
+from app.modules.media.application.facade import MediaFacade, MediaModerator
 from app.modules.media.application.ports import (
     ImageProcessor,
     MediaQuery,
@@ -58,6 +58,7 @@ class MediaProvider(Provider):
     quota = provide(ValkeyUploadQuota, provides=UploadQuota)
     queries = provide(MediaQueries)
     facade = provide(MediaFacade, provides=MediaApi)
+    moderator = provide(MediaModerator, provides=MediaModeration)
     start_upload = provide(StartUpload)
     sign_upload_parts = provide(SignUploadParts)
     complete_upload = provide(CompleteUpload)

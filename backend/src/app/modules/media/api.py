@@ -76,6 +76,22 @@ class MediaDuplicate:
     обрезанная копия."""
 
 
+class MediaModeration(Protocol):
+    """Итог проверки фото (6.7) без хранилища: решение модератора работает в любом процессе —
+    и в боте, где S3 может быть не настроен (чат модераторов, 2.5b)."""
+
+    async def moderate(
+        self,
+        media_id: MediaId,
+        verdict: ModerationVerdict,
+        *,
+        labels: Mapping[str, float] | None = None,
+        auto: bool = False,
+    ) -> bool:
+        """Как `MediaApi.moderate`."""
+        ...
+
+
 class MediaApi(Protocol):
     """Файлы для модулей выше по DAG: проверить перед прикреплением, показать, убрать."""
 

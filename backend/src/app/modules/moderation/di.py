@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.identity.api import DeletionHold, IdentityApi
 from app.modules.jobs.api import JobsApi
-from app.modules.media.api import LegalHold, MediaApi
+from app.modules.media.api import LegalHold, MediaModeration
 from app.modules.messaging.api import MessagingApi
 from app.modules.moderation.application.content_rules import ContentRulesChecker
 from app.modules.moderation.application.policy import PublishedModerationPolicy
@@ -134,7 +134,7 @@ class ModerationProvider(Provider):
         jobs: JobsApi,
         messaging: MessagingApi,
         reviews: ReviewsApi,
-        media: MediaApi,
+        media: MediaModeration,
     ) -> ModerationTargets:
         """Адаптеры целей: контентные модули добавляют свои в своих шагах."""
         return TargetRegistry(
