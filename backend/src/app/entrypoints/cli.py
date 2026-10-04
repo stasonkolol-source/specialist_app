@@ -8,6 +8,7 @@ import json
 import secrets
 import tomllib
 from collections.abc import Awaitable, Callable
+from datetime import date
 from enum import StrEnum
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
@@ -513,6 +514,42 @@ def export_user_data(
     output.write_text(text, encoding="utf-8")
     sections = ", ".join(outcome["sections"])
     typer.echo(f"{output}: user {outcome['user_id']}, sections: {sections}")
+
+
+@app.command("beta-report")
+def beta_report(
+    week: Annotated[
+        int, typer.Option("--week", min=0, help="Неделя беты: 1 — первая, 0 — неделя до старта")
+    ],
+    *,
+    start: Annotated[
+        str | None,
+        typer.Option(help="Понедельник недели 1, ГГГГ-ММ-ДД; по умолчанию ANALYTICS_BETA_START"),
+    ] = None,
+) -> None:
+    """Еженедельный отчёт беты (DEVELOPMENT_PLAN 6.6, 7.1): ликвидность по парам «город ×
+    категория», стороны, доверие и SLA модерации — на текущий момент, под ролью readonly."""
+    try:
+        beta_start = date.fromisoformat(start) if start else None
+    except ValueError:
+        typer.echo(f"beta-report: --start {start}: нужна дата ГГГГ-ММ-ДД", err=True)
+        raise typer.Exit(code=2) from None
+    typer.echo(asyncio.run(_beta_report(week, beta_start)))
+
+
+async def _beta_report(week: int, beta_start: date | None) -> str:
+    from app.platform.analytics.beta_report import render
+    from app.platform.analytics.liquidity import (
+        liquidity_report,
+        reporting_connection,
+        week_window,
+    )
+
+    settings = Settings()
+    window = week_window(beta_start or settings.analytics.beta_start, week)
+    async with reporting_connection(settings.db) as conn:
+        report = await liquidity_report(conn, window, as_of=SystemClock().now())
+    return render(report, week=week)
 
 
 class DemoScale(StrEnum):
