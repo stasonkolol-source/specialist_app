@@ -7,24 +7,29 @@ Shared kernel: чистые функции без БД. Им пользуютс�
 Что находит:
 - телефоны: +381…, 00381…, 06x…, 381…, 380…, российские 8 9xx… и 7 9xx… — через пробелы,
   дефисы, точки, скобки, «*», «|», «:», невидимые символы; цифры словами на ru, uk, sr (обе
-  письменности) и en («ноль шесть четыре», «nula šest»), «О» вместо нуля, полноширинные,
-  надстрочные и «цифры в кружках». Телефон находится и внутри ряда чисел («Cena 3000 064 123
-  4567», «7 064 123 4567»);
+  письменности) и en («ноль шесть четыре», «nula šest»), в том числе десятки, 10–19 и сотни
+  («сто двадцать три», «šest stotina dvadeset»), «О» вместо нуля, полноширинные, надстрочные
+  и «цифры в кружках». Телефон находится и внутри ряда чисел («Cena 3000 064 123 4567», «7 064
+  123 4567»). Тысячи словами («četiri hiljade petsto…») не разбираем;
 - номера карт: 13–19 цифр, первая — как у платёжных систем (2–6, 9), контрольная сумма Луна;
 - счета сербских банков: 3-13-2 цифры с контрольным числом по модулю 97;
-- ссылки: http(s), www, домены с распространёнными зонами, t.me, wa.me, viber — и точки,
-  спрятанные как «[.]», «(.)», «[dot]», « dot », « точка »;
+- ссылки: http(s), www, домены с распространёнными зонами, t.me, wa.me, viber, страницы «все
+  мои контакты» (linktr.ee, taplink.cc …) — и точки, спрятанные как «[.]», «(.)», «[dot]»,
+  « dot », « точка »;
 - e-mail (в том числе «(at)», « собака », «ivan@gmail» без зоны у известных сервисов),
   @username Telegram (и «tg @ ivan», «tg: ivan_master» после названия мессенджера);
 - IBAN (по модулю 97).
 Предоплату (`find_prepayment`) не маскируют: это сигнал для правил, а не контакт.
 
 Даты («12.10.2026»), время в диапазонах и после предлогов («08.00-16.00», «с 9:00»), цены
-(«1 000 000 RSD», «1000, 1200, 1800 din», «2000 2500 3000 3500»), размеры («0 60 120 180»)
-телефоном, картой и счётом не считаются. «posao.To je sve» и «posao.to je sve» — не ссылки:
-зона домена пишется строчными (или весь адрес — прописными), а зоны, которые совпадают с
-обычными словами (.to, .si, .de, .me …), считаются ссылкой только с путём («majstor.me/x»).
-«I'm @ home» — не @username.
+(«1 000 000 RSD», «1000, 1200, 1800 din», «2000 2500 3000 3500»), размеры («0 60 120 180»),
+перечни («Termini 08 09 10 11 12 h», «Stavke: 01 02 03 04 05») и номера документов с «000»
+(«Nalog 0000123456») телефоном, картой и счётом не считаются. «posao.To je sve» и «posao.to
+je sve» — не ссылки: зона-слово (.to, .si, .de, .me …) — ссылка только строчными и только с
+путём («majstor.me/x») или в конце текста и перед знаком препинания («Sajt: majstor.me»);
+посреди фразы («pogledaj majstor.me i javi se») её не отличить от конца предложения без
+пробела. Остальные зоны — в любом регистре («Majstor.Rs», «ivan@gmail.Com»), кроме «Info».
+«I'm @ home» и «see you at noon.to be honest» — не контакты.
 
 Позиции находок — в исходном тексте. Поиск идёт по свёрнутому тексту: невидимые символы и
 надстрочные знаки удалены, буква с разложенной диакритикой собрана, каждый символ — в форме
@@ -39,6 +44,7 @@ from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import lru_cache
+from itertools import pairwise
 
 from app.platform.text.normalize import clauses, skeleton
 
@@ -92,6 +98,40 @@ _TENS = {
     "seventy": "7", "eighty": "8", "ninety": "9",
 }  # fmt: skip
 """Десятки словами: «шестьдесят четыре» — 64, «шестьдесят» перед не-единицей — 60."""
+_TEENS = {
+    "десять": "10", "одиннадцать": "11", "двенадцать": "12", "тринадцать": "13",
+    "четырнадцать": "14", "пятнадцать": "15", "шестнадцать": "16", "семнадцать": "17",
+    "восемнадцать": "18", "девятнадцать": "19",
+    "одинадцять": "11", "дванадцять": "12", "тринадцять": "13", "чотирнадцять": "14",
+    "п'ятнадцять": "15", "шістнадцять": "16", "сімнадцять": "17", "вісімнадцять": "18",
+    "дев'ятнадцять": "19",
+    "десет": "10", "једанаест": "11", "дванаест": "12", "тринаест": "13", "четрнаест": "14",
+    "петнаест": "15", "шеснаест": "16", "седамнаест": "17", "осамнаест": "18",
+    "деветнаест": "19",
+    "deset": "10", "jedanaest": "11", "dvanaest": "12", "trinaest": "13", "četrnaest": "14",
+    "cetrnaest": "14", "petnaest": "15", "šesnaest": "16", "sesnaest": "16",
+    "sedamnaest": "17", "osamnaest": "18", "devetnaest": "19",
+    "ten": "10", "eleven": "11", "twelve": "12", "thirteen": "13", "fourteen": "14",
+    "fifteen": "15", "sixteen": "16", "seventeen": "17", "eighteen": "18", "nineteen": "19",
+}  # fmt: skip
+"""От 10 до 19 словами — две цифры сразу: «сто двенадцать» — 112."""
+_HUNDREDS = {
+    "сто": "1", "двести": "2", "триста": "3", "четыреста": "4", "пятьсот": "5",
+    "шестьсот": "6", "семьсот": "7", "восемьсот": "8", "девятьсот": "9",
+    "двісті": "2", "чотириста": "4", "п'ятсот": "5", "шістсот": "6", "сімсот": "7",
+    "вісімсот": "8", "дев'ятсот": "9",
+    "двеста": "2", "двјеста": "2", "четиристо": "4", "петсто": "5", "шестсто": "6",
+    "седамсто": "7", "осамсто": "8", "деветсто": "9",
+    "sto": "1", "dvesta": "2", "dvjesta": "2", "trista": "3", "četiristo": "4",
+    "cetiristo": "4", "petsto": "5", "šeststo": "6", "seststo": "6", "sedamsto": "7",
+    "osamsto": "8", "devetsto": "9",
+}  # fmt: skip
+"""Сотни словами: «шестьсот сорок один» — 641, «шестьсот» перед не-числом — 600. «sto» — это и
+сербское «što»: ноль после сотни поэтому в неё не входит («Što nula šest četiri…» — номер)."""
+_HUNDRED = frozenset({"stotina", "stotine", "стотина", "стотине", "hundred", "hundreds"})
+"""Сотня после единицы словом: «šest stotina» — 600, «six hundred forty» — 640."""
+MIN_COUNTING = 4
+"""Столько чисел подряд, каждое на единицу больше предыдущего, — перечень, а не номер."""
 _DIGIT_LOOKALIKES = str.maketrans({"o": "0", "о": "0", "l": "1", "і": "1", "|": "1"})
 _TOKEN = re.compile(r"[^\W_]+(?:['’][^\W_]+)*", re.UNICODE)
 _SEPARATOR_CHARS = r"\s\-.()/_·–—*|:'’‐‑‒―−•∙⋅~"
@@ -122,19 +162,36 @@ _DOT = rf"(?:\.|{_HIDDEN_DOT})"
 """Точка домена: обычная — без пробелов вокруг (иначе конец фразы «…me. Me» стал бы
 доменом), спрятанная — «[.]», «(.)», «[dot]», « dot », « точка »."""
 _TLDS = (
-    "rs", "срб", "com", "net", "org", "ru", "рф", "ua", "info", "biz", "eu", "ba", "hr", "mk",
-    "xyz",
+    "rs", "срб", "com", "net", "org", "ru", "рф", "ua", "biz", "eu", "ba", "hr", "mk", "xyz",
 )  # fmt: skip
-"""Зоны, которые не спутать с обычным словом."""
+"""Зоны, которые не спутать с обычным словом, — в любом регистре: «Majstor.Rs», «gmail.Com»."""
+_LOWER_TLDS = ("info",)
+"""«Info» с прописной — частое начало фразы после точки без пробела («dogovoru.Info na
+064…»): эта зона — только строчными."""
 _WORD_TLDS = (
     "me", "io", "app", "si", "de", "at", "ch", "uk", "us", "co", "site", "online", "shop",
     "store", "link", "ly", "gl", "gg", "to", "tv", "top", "pro", "club", "live", "page", "dev",
 )  # fmt: skip
-"""Зоны-слова и частые сокращения («sam.si li tu», «posao.to je sve»): ссылка — только с путём."""
-_TLD = "(?-i:" + "|".join(_TLDS) + ")"
+"""Зоны-слова и частые сокращения («sam.si li tu», «posao.to je sve»): ссылка — с путём или в
+конце текста и перед знаком препинания («Sajt: majstor.me», «majstor.me, zovite»)."""
+_BIO_HOSTS = (
+    "linktr.ee", "taplink.cc", "taplink.ws", "taplink.at", "lnk.bio", "beacons.ai", "carrd.co",
+    "hipolink.me", "mssg.me",
+)  # fmt: skip
+"""Страницы «все мои контакты» (link in bio): ссылка и без пути, в любом месте текста. Их зоны
+(.ee, .cc, .ai, .bio) целиком в списки выше не входят: «bio» — сербское слово («posao.bio je
+težak»), остальные в пилотной зоне редки — решать на примерах K28."""
+_TLD = "(?:(?i:" + "|".join(_TLDS) + ")|(?-i:" + "|".join(_LOWER_TLDS) + "))"
 _WORD_TLD = "(?-i:" + "|".join(_WORD_TLDS) + ")"
-_TLD_UPPER = "(?-i:" + "|".join(tld.upper() for tld in (*_TLDS, *_WORD_TLDS) if tld.isascii()) + ")"
+_TLD_UPPER = (
+    "(?-i:"
+    + "|".join(tld.upper() for tld in (*_TLDS, *_LOWER_TLDS, *_WORD_TLDS) if tld.isascii())
+    + ")"
+)
 _ANY_TLD = f"(?:{_TLD}|{_WORD_TLD})"
+_TEXT_END = r"(?=[ \t]{0,3}(?:[\n\r,;:!?)\]»\"'…]|\.(?!\w)|$))"
+"""Конец текста, строки или знак препинания после адреса: «posao.to je sve» — фраза идёт
+дальше, «Sajt: majstor.me» и «majstor.me, zovite» — адрес."""
 _LABEL = r"[\w\-]++"
 _LABELS = 8
 """Частей домена до зоны — не больше 8 (a.b.majstor.co.rs — четыре): иначе на «x[.]x[.]…»
@@ -143,31 +200,43 @@ _START = r"(?<![\w\-.])"
 """Совпадение начинается только в начале цепочки «слово-слово.слово»: без этого поиск на
 «a-a-a-…» перебирал бы цепочку с каждой буквы (квадратичное время)."""
 _HOST = rf"{_START}{_LABEL}(?:{_DOT}{_LABEL}){{0,{_LABELS}}}{_DOT}"
+_BIO_HOST = "|".join(
+    rf"{re.escape(label)}{_DOT}{re.escape(zone)}"
+    for label, zone in (host.split(".") for host in _BIO_HOSTS)
+)
 _LINK = re.compile(
     rf"https?://\S+|www{_DOT}\S+"
     rf"|\b(?:t|wa|telegram)(?:\s{{0,3}}\.\s{{0,3}}|{_HIDDEN_DOT})me\s{{0,3}}/\s{{0,3}}[\w+]+"
     rf"|viber://\S+"
+    rf"|{_START}(?:{_BIO_HOST})(?![\w\-])(?:/\S*)?"
     rf"|{_HOST}{_TLD}(?![\w\-])(?:/\S*)?"
     rf"|{_HOST}{_WORD_TLD}/\S+"
+    rf"|{_HOST}{_WORD_TLD}{_TEXT_END}"
     rf"|{_START}(?-i:[A-Z0-9\-]++(?:\.[A-Z0-9\-]++){{0,{_LABELS}}}\.){_TLD_UPPER}"
     rf"(?![\w\-])(?:/\S*)?",
     re.IGNORECASE | re.UNICODE,
 )
 _AT_SIGN = r"\s{0,3}@\s{0,3}"
-_AT_WORD = r"(?:\s{0,3}[\[(]\s{0,3}(?:at|собака)\s{0,3}[\])]\s{0,3}|\s{1,3}(?:собака|at)\s{1,3})"
+_AT_BRACKETS = r"\s{0,3}[\[(]\s{0,3}(?:at|собака)\s{0,3}[\])]\s{0,3}"
+_AT_BARE = r"\s{1,3}(?:собака|at)\s{1,3}"
+_AT_WORD = rf"(?:{_AT_BRACKETS}|{_AT_BARE})"
 _LOCAL = r"(?:[\w.+\-]|\[\.\]|\(\.\))++"
 """Имя почты, в том числе с точкой в скобках: «ivan[.]petrov@gmail.com»."""
 """Пробелы вокруг «@», «(at)» и спрятанной точки — не больше трёх: иначе находка тянулась бы
 через тысячи пробелов, а разбор её фрагмента занимал бы квадратичное время."""
 _AT = rf"(?:{_AT_SIGN}|{_AT_WORD})"
+_DOMAIN_PART = rf"{_LABEL}(?:{_DOT}{_LABEL}){{0,{_LABELS}}}{_DOT}"
 _EMAIL = re.compile(
     rf"(?<![\w.+\-])(?<!\[\.\])(?<!\(\.\)){_LOCAL}"
-    rf"(?:{_AT_SIGN}{_LABEL}(?:{_DOT}{_LABEL}){{0,{_LABELS}}}{_DOT}(?-i:[a-zа-я]{{2,}}|[A-Z]{{2,}})"
-    rf"|{_AT_WORD}{_LABEL}(?:{_DOT}{_LABEL}){{0,{_LABELS}}}{_DOT}{_ANY_TLD})(?![\w\-])",
+    rf"(?:{_AT_SIGN}{_DOMAIN_PART}(?:{_TLD}(?![\w\-])|(?-i:[a-zа-я]{{2,}}|[A-Z]{{2,}}))"
+    rf"|{_AT_BRACKETS}{_DOMAIN_PART}{_ANY_TLD}"
+    rf"|{_AT_BARE}{_DOMAIN_PART}{_TLD})(?![\w\-])",
     re.IGNORECASE | re.UNICODE,
 )
 """Адрес со словом вместо «@» («ivan собака mail точка ru») — только с известной зоной:
-«Есть собака лабрадор.Нужен выгул» — не почта."""
+«Есть собака лабрадор.Нужен выгул» — не почта. Слово без скобок («ivan at gmail dot com») — и
+зона не слово: «see you at noon.to be honest» — не почта. Зона из списка — в любом регистре
+(«ivan@gmail.Com»), любая другая — строчными или прописными: «I'm @ home.Please» — не почта."""
 _HANDLE = r"[A-Za-z](?:[A-Za-z0-9_]|\.(?=[A-Za-z0-9_])){3,31}"
 """Ник: латиница, цифры, «_» и точка внутри (Instagram: «ivan.master»)."""
 _USERNAME = re.compile(rf"(?<![\w.])@{_HANDLE}\b")
@@ -214,16 +283,27 @@ _TIME_UNIT = re.compile(
 
 _PRONOUN = r"(?:(?:mne|nam|mi|meni|nama|me|us|to|ti|vam|vama|tebe)\s+)?"
 """«Переведите мне на карту», «уплатите нам унапред»: местоимение между глаголом и целью."""
+_CURRENCY = (
+    r"(?:din\w*|rsd|e|eur\w*|evr\w*|r|rub\w*|grn|griv\w*|hrn|usd|dolar\w*|k|tys\w*|tis\w*"
+    r"|hiljad\w*)"
+)
+_SUM = rf"\d+(?:k|e|r|eur|din|rsd|rub)?(?:\s+{_CURRENCY}){{0,2}}"
+"""Сумма в скелете: «5000», «50e», «2к», «3000 dinara», «5 тысяч рублей»; «50%» — это «50».
+Единицы времени — не валюта: «2 дня заранее», «24h unapred» — не предоплата."""
+_AFTER_THE_JOB = r"(?:\s+\w+){0,2}?\s+(?:posle|poslije|pisl\w*|nakon|after|po\s+(?:faktu|zavrs\w*))"
+"""«5000 на карту после работы», «na karticu nakon završetka» — оплата по факту, а не вперёд."""
 _PREPAYMENT = re.compile(
     r"\b(?:"
     # ru / uk / sr: предоплата, аванс, залог, завдаток, капара, «оплата заранее»,
-    # «переведите на карту»
+    # «переведите на карту», сумма перед «на карту» и «заранее»
     r"pred?oplat\w*|peredoplat\w*|avans\w*"
     r"|(?<!stradatelnyj )(?<!dejstvitelnyj )zalog(?:a|u|om|e)?\b(?! uspeh)"
     r"|zavdat(?:ok|ku|kom|ka)|kapar(?:a|e|u|om)|depozit\w*|predujam\w*"
     rf"|(?:oplat|uplat|plat|plac)\w*\s+{_PRONOUN}(?:zarane|vpered|unapred|unaprijed)"
     r"|(?:zarane|vpered|unapred|unaprijed)\s+(?:oplat|uplat|plat|plac)\w*"
     rf"|(?:perevedi\w*|skin\w*|kin(?:te|i|u)?)\s+{_PRONOUN}(?:na\s+)?(?:kart|sc[eo]t)\w*"
+    rf"|{_SUM}\s+(?:zarane|vpered|unapred|unaprijed)"
+    rf"|{_SUM}\s+na\s+(?:kartu|kartku|karticu|kartocku)\b(?!{_AFTER_THE_JOB})"
     # en
     r"|prepay\w*|pre\s?pay\w*|upfront|advance\s+payment|pay\s+(?:in\s+)?advance|deposit\w*"
     r")\b"
@@ -566,51 +646,98 @@ class _Piece:
     """Число словами («ноль», «шестьдесят четыре»), а не цифрами."""
 
 
+@dataclass(frozen=True, slots=True)
+class _Open:
+    """Число словами, которое ещё может продолжиться: «шестьсот» ждёт десятки и единицу,
+    «шестьдесят» — единицу. `places` — сколько младших цифр ещё не названо."""
+
+    piece: _Piece
+    places: int
+
+    def closed(self) -> _Piece:
+        """Число как есть, недостающие цифры — нули: «шестьсот» — 600, «шестьдесят» — 60."""
+        digits = self.piece.digits + "0" * self.places
+        return _Piece(digits, self.piece.start, self.piece.end, spelled=True, word=True)
+
+    def taking(self, word: str, piece: _Piece) -> _Open | None:
+        """Число вместе со следующим словом («шестьсот» + «сорок», «шестьдесят» + «четыре»)
+        или None, если слово его не продолжает."""
+        if self.places == 2 and word in _TENS:
+            return self._with(piece.digits, piece.end, places=1)
+        if self.places == 2 and word in _TEENS:
+            return self._with(piece.digits, piece.end, places=0)
+        if word in _UNITS and (self.places == 1 or piece.digits != "0"):
+            return self._with("0" * (self.places - 1) + piece.digits, piece.end, places=0)
+        return None
+
+    def _with(self, digits: str, end: int, *, places: int) -> _Open:
+        merged = _Piece(self.piece.digits + digits, self.piece.start, end, spelled=True, word=True)
+        return _Open(merged, places)
+
+
 def _digit_runs(text: str) -> list[Finding]:
     """Телефоны, карты и счета: цифры (и цифры словами), идущие подряд через разделители. Даты
     и время заменяются пробелами той же длины: позиции остальных находок не сдвигаются."""
     text = _blank_times(_DATE.sub(_blank_date, text))
     findings: list[Finding] = []
     run: list[_Piece] = []
-    tens: _Piece | None = None  # «шестьдесят» ждёт единицу
+    number: _Open | None = None  # «шестьсот», «шестьдесят» ждут продолжения
     previous_end = 0
     for token, token_start, token_end in _subtokens(text):
-        piece = _piece(token, token_start, token_end)
+        word = token.casefold()
         gap = text[previous_end:token_start]
-        last = tens or (run[-1] if run else None)
+        if word in _HUNDRED and number is None and _unit_before(run, gap):
+            unit = run.pop()  # «šest stotina»: единица перед «сотней» — число сотен
+            hundreds = _Piece(unit.digits, unit.start, token_end, spelled=True, word=True)
+            number = _Open(hundreds, places=2)
+            previous_end = token_end
+            continue
+        piece = _piece(token, token_start, token_end)
+        last = number.piece if number is not None else (run[-1] if run else None)
         spelled = last is not None and piece is not None and (last.spelled or piece.spelled)
         separator = _SPELLED_SEPARATOR if spelled else _SEPARATOR
         joined = last is not None and separator.fullmatch(gap) is not None
         if piece is None or not joined:
-            if tens is not None:
-                run.append(_Piece(tens.digits + "0", tens.start, tens.end, spelled=True, word=True))
-                tens = None
+            if number is not None:
+                run.append(number.closed())
+                number = None
             findings.extend(_classify(text, run))
             run = []
         if piece is None:
             previous_end = token_end
             continue
-        if tens is not None:
-            if len(piece.digits) == 1 and _is_unit_word(token):
-                run.append(
-                    _Piece(
-                        tens.digits + piece.digits, tens.start, piece.end, spelled=True, word=True
-                    )
-                )
-                tens = None
+        if number is not None:
+            longer = number.taking(word, piece)
+            if longer is not None:
+                number = longer if longer.places else None
+                if not longer.places:
+                    run.append(longer.closed())
                 previous_end = token_end
                 continue
-            run.append(_Piece(tens.digits + "0", tens.start, tens.end, spelled=True, word=True))
-            tens = None
-        if token.casefold() in _TENS:
-            tens = piece
+            run.append(number.closed())
+            number = None
+        if word in _HUNDREDS:
+            number = _Open(piece, places=2)
+        elif word in _TENS:
+            number = _Open(piece, places=1)
         else:
             run.append(piece)
         previous_end = token_end
-    if tens is not None:
-        run.append(_Piece(tens.digits + "0", tens.start, tens.end, spelled=True, word=True))
+    if number is not None:
+        run.append(number.closed())
     findings.extend(_classify(text, run))
     return findings
+
+
+def _unit_before(run: Sequence[_Piece], gap: str) -> bool:
+    """Перед «stotina», «hundred» вплотную стоит единица словом: «šest stotina», «six hundred»."""
+    return (
+        bool(run)
+        and run[-1].word
+        and len(run[-1].digits) == 1
+        and run[-1].digits != "0"
+        and _SPELLED_SEPARATOR.fullmatch(gap) is not None
+    )
 
 
 _LOOKALIKE_DIGITS = frozenset("oOоОlLіІ|")
@@ -673,18 +800,15 @@ def _piece(token: str, start: int, end: int) -> _Piece | None:
     word = token.casefold()
     if word in _UNITS:
         return _Piece(_UNITS[word], start, end, spelled=True, word=True)
-    if word in _TENS:
-        return _Piece(_TENS[word], start, end, spelled=True, word=True)
+    for words in (_TENS, _TEENS, _HUNDREDS):
+        if word in words:
+            return _Piece(words[word], start, end, spelled=True, word=True)
     if any(char.isdigit() for char in word):
         digits = word.translate(_DIGIT_LOOKALIKES).replace("'", "").replace("’", "")
         if digits and all(char.isdecimal() for char in digits):  # «²» и «⑴» — не цифры номера
             ascii_digits = "".join(str(unicodedata.decimal(c)) for c in digits)
             return _Piece(ascii_digits, start, end, spelled=len(ascii_digits) == 1)
     return None
-
-
-def _is_unit_word(token: str) -> bool:
-    return token.casefold() in _UNITS
 
 
 def _classify(text: str, run: list[_Piece]) -> list[Finding]:
@@ -760,8 +884,11 @@ def _card(digits: str, run: Sequence[_Piece]) -> bool:
 def _phone(digits: str, run: Sequence[_Piece], *, plus: bool) -> bool:
     if plus:
         return 8 <= len(digits) <= MAX_PHONE_DIGITS
+    if _counting(run):
+        return False
     if digits.startswith("00"):
-        return 10 <= len(digits) <= MAX_PHONE_DIGITS
+        # «Nalog 0000123456»: после «00» идёт код страны, а он с нуля не начинается
+        return 10 <= len(digits) <= MAX_PHONE_DIGITS and digits[2] != "0"
     if digits.startswith("0"):
         # «0 60 120 180» — размеры: одиночный ноль, дальше только круглые числа
         lone_zero = (
@@ -776,3 +903,14 @@ def _phone(digits: str, run: Sequence[_Piece], *, plus: bool) -> bool:
         return 11 <= len(digits) <= 12
     # Россия и Казахстан без «+»: 8 999 123-45-67, 7 999 123 45 67 (мобильные и города)
     return len(digits) == 11 and digits[0] in "78" and digits[1] in "3489"
+
+
+def _counting(run: Sequence[_Piece]) -> bool:
+    """«Termini 08 09 10 11 12 h», «Stavke: 01 02 03 04 05» — перечень часов или пунктов, а не
+    номер: каждое число на единицу больше предыдущего. Номер так не пишут: «06 07 08 09 10» как
+    телефон — потеря, на которую идём."""
+    return (
+        len(run) >= MIN_COUNTING
+        and all(len(piece.digits) <= 2 for piece in run)
+        and all(int(b.digits) == int(a.digits) + 1 for a, b in pairwise(run))
+    )
