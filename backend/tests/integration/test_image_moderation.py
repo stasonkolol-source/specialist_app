@@ -330,7 +330,8 @@ async def test_p0_photo_is_hidden_at_once_and_moderator_can_restore_it(
     assert (await world.asset(media_id))["moderation_status"] == "approved"
     assert await world.run_media_task("media.restore_variants", media_id) == 1
     assert world.storage.keys(Bucket.MEDIA, media_id) == public
-    assert world.storage.keys(Bucket.PRIVATE, media_id) == set()
+    # копия в private остаётся: встречное скрытие не сотрёт единственную (стирает очистка)
+    assert world.storage.keys(Bucket.PRIVATE, media_id) == public
     assert (await world.asset(media_id))["hidden_at"] is None
     assert await world.shown(media_id) == ("ready", 3)
 

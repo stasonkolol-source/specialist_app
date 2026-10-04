@@ -167,9 +167,9 @@ async def record_verdict(
         return False
     await assets.save(asset)
     payload = HideVariantsPayload(media_id=asset.id, keys=asset.variant_keys())
-    if asset.blocked and asset.hidden_at is None:
+    if asset.blocked:  # и при `hidden_at`: возврат мог успеть скопировать варианты в media
         await queue.enqueue(HIDE_VARIANTS, payload, dedup_key=str(asset.id))
-    elif not asset.blocked and asset.hidden_at is not None:
+    elif asset.hidden_at is not None:
         await queue.enqueue(RESTORE_VARIANTS, payload, dedup_key=str(asset.id))
     return True
 

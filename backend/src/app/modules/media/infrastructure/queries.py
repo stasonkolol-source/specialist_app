@@ -75,7 +75,9 @@ class SqlMediaQuery(SqlQuery):
 
     async def unhidden(self, deleted_before: datetime, *, limit: int) -> Sequence[MediaAsset]:
         """Удалённые раньше `deleted_before` и отклонённые модерацией (6.7) файлы, обработанные
-        раньше него: у отклонённого нет `deleted_at`, а свежий отказ прячет задача решения."""
+        раньше него: у отклонённого нет `deleted_at`, а свежий отказ прячет задача решения.
+        Варианты, которые могут быть в media, — это файлы без `hidden_at`: возврат снимает
+        отметку, если файл снова надо прятать (`MediaAsset.expose`)."""
         stmt = (
             select(AssetRow)
             .where(
