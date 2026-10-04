@@ -4,6 +4,12 @@ from collections.abc import Collection, Sequence
 from datetime import datetime
 from typing import Final, Protocol
 
+from app.modules.jobs.application.alerts import (
+    AlertCandidate,
+    AlertMatch,
+    PendingDigest,
+    RecentCards,
+)
 from app.modules.jobs.application.dto import DealResponse, JobView, MyResponseRef
 from app.modules.jobs.application.feed import FeedFilters, FeedItem
 from app.modules.jobs.application.responses import (
@@ -12,6 +18,7 @@ from app.modules.jobs.application.responses import (
     ResponseGroup,
     TodayQuota,
 )
+from app.modules.jobs.domain.alert import AlertId, JobAlert
 from app.modules.jobs.domain.invite import Invite
 from app.modules.jobs.domain.job import Job, JobId, JobStatus
 from app.modules.jobs.domain.response import ResponseId
@@ -160,12 +167,93 @@ class JobQueries(Protocol):
         """Исполнителя пригласили в заявку: прямой запрос ему виден (5.6)."""
         ...
 
+    async def still_open(self, job_ids: Collection[JobId], now: datetime) -> set[JobId]:
+        """Какие из заявок ещё принимают отклики: опубликованы, срок не вышел, места есть."""
+        ...
+
+    async def skipped(self, job_ids: Collection[JobId], user_id: UserId) -> set[JobId]:
+        """На какие из заявок человек уже откликнулся или скрыл их («не интересно»)."""
+        ...
+
+    async def alert_counts(
+        self, user_id: UserId, *, since: datetime, hidden_clients: Collection[UserId] = ()
+    ) -> dict[AlertId, int]:
+        """Сколько публичных заявок, опубликованных после `since`, подходит каждой подписке
+        пользователя — «N заявок за неделю» на S18. Свои и заявки `hidden_clients` не считаются."""
+        ...
+
     async def saved(
         self, user_id: UserId, *, now: datetime, hidden_clients: Collection[UserId] = ()
     ) -> list[FeedItem]:
         """Сохранённые пользователем заявки, которые ещё открыты (опубликованы, публичны, срок
         не вышел), — новые сохранения первыми; без расстояния. Заявок `hidden_clients`
         (блокировки, 4.7) — нет."""
+        ...
+
+
+class JobAlerts(Protocol):
+    """Подписки исполнителя на новые заявки (S18, S19) — простая запись (ADR-0020 §5)."""
+
+    async def lock(self, user_id: UserId) -> None:
+        """Сериализовать правку подписок пользователя до конца транзакции (активный UoW): две
+        «Новая подписка» разом не превысят предела."""
+        ...
+
+    async def of_user(self, user_id: UserId) -> list[JobAlert]:
+        """Подписки пользователя по порядку создания."""
+        ...
+
+    async def get(self, alert_id: AlertId) -> JobAlert | None: ...
+
+    async def add(self, alert: JobAlert) -> None: ...
+
+    async def save(self, alert: JobAlert) -> None: ...
+
+    async def delete(self, alert_id: AlertId) -> None:
+        """Удалить подписку и её ждущие подборки (активный UoW)."""
+        ...
+
+    async def forget(self, user_id: UserId) -> None:
+        """Удалить подписки и совпадения пользователя — удаление аккаунта (§7.10)."""
+        ...
+
+
+class AlertMatches(Protocol):
+    """Совпадения заявок с подписками (`jobs.alert_matches`): матчинг §9.6, лимит частоты,
+    подборки. Запись — в активном UoW."""
+
+    async def candidates(self, job_id: JobId, now: datetime) -> list[AlertCandidate]:
+        """Подписки, которым подходит заявка (SQL §9.6), по порядку создания: включённые и не
+        на паузе; подписки автора заявки — нет."""
+        ...
+
+    async def recent_cards(
+        self, user_ids: Collection[UserId], now: datetime
+    ) -> dict[UserId, RecentCards]:
+        """Карточки B1 за час и за сутки — лимит частоты; без карточек — нет в ответе."""
+        ...
+
+    async def record(
+        self, job_id: JobId, matches: Collection[AlertMatch], now: datetime
+    ) -> list[AlertMatch]:
+        """Записать совпадения; уже записанные пары «заявка — человек» (повтор задачи)
+        пропускаются: в ответе — только новые."""
+        ...
+
+    async def add_notified(self, job_id: JobId, count: int) -> None:
+        """`notified_count` заявки растёт — мимо её версии (If-Match владельца не ломается)."""
+        ...
+
+    async def pending_digests(self, *, limit: int) -> list[PendingDigest]:
+        """Совпадения «подборкой», ещё не ушедшие, — старые первыми."""
+        ...
+
+    async def mark_digested(self, user_ids: Collection[UserId], at: datetime) -> None:
+        """Подборки этих людей ушли: их ждущие совпадения отмечены."""
+        ...
+
+    async def purge(self, before: datetime) -> int:
+        """Удалить совпадения старше `before` (лимиты частоты их уже не считают)."""
         ...
 
 
@@ -283,3 +371,7 @@ REOPEN_JOB: Final = TaskRef("jobs.reopen_job", DealCancelled)
 """Сделку по отклику отменили — заявка снова открыта, прежние кандидаты ждут решения (6.1a)."""
 COMPLETE_JOB: Final = TaskRef("jobs.complete_job", DealCompleted)
 """Сделка по отклику завершена — заявка завершена (6.1a)."""
+MATCH_ALERTS: Final = TaskRef("jobs.match_alerts", JobPublished)
+"""Заявка опубликована впервые — подписчикам B1 или подборка (5.7, §9.6)."""
+FORGET_ALERTS: Final = TaskRef("jobs.forget_alerts", UserDeleted)
+"""Аккаунт удалён — его подписки и совпадения удаляются (§7.10)."""

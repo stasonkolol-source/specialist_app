@@ -10,6 +10,7 @@ import { HttpResponse, http } from 'msw';
 import type { RequestHandlerOptions } from 'msw';
 
 import {
+  AlertDelivery,
   BudgetType,
   BudgetUnit,
   CloseReason,
@@ -23,6 +24,8 @@ import {
 } from '../../model';
 import type {
   AcceptedOut,
+  JobAlertOut,
+  JobAlertsOut,
   JobInvitesOut,
   JobOut,
   JobResponsesOut,
@@ -124,6 +127,7 @@ export const getJobsCreateJobResponseMock = (
   ]),
   extensions_count: faker.number.int(),
   views_count: faker.helpers.arrayElement([faker.number.int(), null]),
+  notified_count: faker.helpers.arrayElement([faker.number.int(), null]),
   new_responses: faker.helpers.arrayElement([faker.number.int(), null]),
   moderation_note: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -431,6 +435,7 @@ export const getJobsRequestSpecialistResponseMock = (
   ]),
   extensions_count: faker.number.int(),
   views_count: faker.helpers.arrayElement([faker.number.int(), null]),
+  notified_count: faker.helpers.arrayElement([faker.number.int(), null]),
   new_responses: faker.helpers.arrayElement([faker.number.int(), null]),
   moderation_note: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -451,6 +456,126 @@ export const getJobsRequestSpecialistResponseMock = (
     faker.helpers.arrayElement(Object.values(CloseReason)),
     null,
   ]),
+  ...overrideResponse,
+});
+
+export const getJobsListJobAlertsResponseMock = (
+  overrideResponse: Partial<Extract<JobAlertsOut, object>> = {},
+): JobAlertsOut => ({
+  items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    id: faker.string.uuid(),
+    criteria: {
+      category_ids: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => faker.number.int()),
+      city_id: faker.number.int(),
+      district_ids: Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => faker.number.int()),
+      center: faker.helpers.arrayElement([
+        {
+          lat: faker.number.float({ fractionDigits: 2 }),
+          lon: faker.number.float({ fractionDigits: 2 }),
+        },
+        null,
+      ]),
+      radius_km: faker.helpers.arrayElement([faker.number.float({ fractionDigits: 2 }), null]),
+      min_budget: faker.helpers.arrayElement([faker.number.int(), null]),
+      urgencies: faker.helpers.arrayElements(Object.values(Urgency)),
+      languages: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
+    },
+    delivery: faker.helpers.arrayElement(Object.values(AlertDelivery)),
+    is_active: faker.datatype.boolean(),
+    paused_until: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + 'Z',
+      null,
+    ]),
+    week_count: faker.number.int(),
+    created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  })),
+  limit: faker.number.int(),
+  ...overrideResponse,
+});
+
+export const getJobsCreateJobAlertResponseMock = (
+  overrideResponse: Partial<Extract<JobAlertOut, object>> = {},
+): JobAlertOut => ({
+  id: faker.string.uuid(),
+  criteria: {
+    category_ids: Array.from(
+      { length: faker.number.int({ min: 1, max: 10 }) },
+      (_, i) => i + 1,
+    ).map(() => faker.number.int()),
+    city_id: faker.number.int(),
+    district_ids: Array.from(
+      { length: faker.number.int({ min: 1, max: 10 }) },
+      (_, i) => i + 1,
+    ).map(() => faker.number.int()),
+    center: faker.helpers.arrayElement([
+      {
+        lat: faker.number.float({ fractionDigits: 2 }),
+        lon: faker.number.float({ fractionDigits: 2 }),
+      },
+      null,
+    ]),
+    radius_km: faker.helpers.arrayElement([faker.number.float({ fractionDigits: 2 }), null]),
+    min_budget: faker.helpers.arrayElement([faker.number.int(), null]),
+    urgencies: faker.helpers.arrayElements(Object.values(Urgency)),
+    languages: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+  },
+  delivery: faker.helpers.arrayElement(Object.values(AlertDelivery)),
+  is_active: faker.datatype.boolean(),
+  paused_until: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  week_count: faker.number.int(),
+  created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  ...overrideResponse,
+});
+
+export const getJobsUpdateJobAlertResponseMock = (
+  overrideResponse: Partial<Extract<JobAlertOut, object>> = {},
+): JobAlertOut => ({
+  id: faker.string.uuid(),
+  criteria: {
+    category_ids: Array.from(
+      { length: faker.number.int({ min: 1, max: 10 }) },
+      (_, i) => i + 1,
+    ).map(() => faker.number.int()),
+    city_id: faker.number.int(),
+    district_ids: Array.from(
+      { length: faker.number.int({ min: 1, max: 10 }) },
+      (_, i) => i + 1,
+    ).map(() => faker.number.int()),
+    center: faker.helpers.arrayElement([
+      {
+        lat: faker.number.float({ fractionDigits: 2 }),
+        lon: faker.number.float({ fractionDigits: 2 }),
+      },
+      null,
+    ]),
+    radius_km: faker.helpers.arrayElement([faker.number.float({ fractionDigits: 2 }), null]),
+    min_budget: faker.helpers.arrayElement([faker.number.int(), null]),
+    urgencies: faker.helpers.arrayElements(Object.values(Urgency)),
+    languages: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+  },
+  delivery: faker.helpers.arrayElement(Object.values(AlertDelivery)),
+  is_active: faker.datatype.boolean(),
+  paused_until: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  week_count: faker.number.int(),
+  created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
   ...overrideResponse,
 });
 
@@ -546,6 +671,7 @@ export const getJobsGetJobResponseMock = (
   ]),
   extensions_count: faker.number.int(),
   views_count: faker.helpers.arrayElement([faker.number.int(), null]),
+  notified_count: faker.helpers.arrayElement([faker.number.int(), null]),
   new_responses: faker.helpers.arrayElement([faker.number.int(), null]),
   moderation_note: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -657,6 +783,7 @@ export const getJobsUpdateJobResponseMock = (
   ]),
   extensions_count: faker.number.int(),
   views_count: faker.helpers.arrayElement([faker.number.int(), null]),
+  notified_count: faker.helpers.arrayElement([faker.number.int(), null]),
   new_responses: faker.helpers.arrayElement([faker.number.int(), null]),
   moderation_note: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -816,6 +943,7 @@ export const getJobsCloseJobResponseMock = (
   ]),
   extensions_count: faker.number.int(),
   views_count: faker.helpers.arrayElement([faker.number.int(), null]),
+  notified_count: faker.helpers.arrayElement([faker.number.int(), null]),
   new_responses: faker.helpers.arrayElement([faker.number.int(), null]),
   moderation_note: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -927,6 +1055,7 @@ export const getJobsExtendJobResponseMock = (
   ]),
   extensions_count: faker.number.int(),
   views_count: faker.helpers.arrayElement([faker.number.int(), null]),
+  notified_count: faker.helpers.arrayElement([faker.number.int(), null]),
   new_responses: faker.helpers.arrayElement([faker.number.int(), null]),
   moderation_note: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1039,6 +1168,7 @@ export const getJobsListMyJobsResponseMock = (
     ]),
     extensions_count: faker.number.int(),
     views_count: faker.helpers.arrayElement([faker.number.int(), null]),
+    notified_count: faker.helpers.arrayElement([faker.number.int(), null]),
     new_responses: faker.helpers.arrayElement([faker.number.int(), null]),
     moderation_note: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1339,6 +1469,7 @@ export const getJobsAcceptResponseResponseMock = (
     ]),
     extensions_count: faker.number.int(),
     views_count: faker.helpers.arrayElement([faker.number.int(), null]),
+    notified_count: faker.helpers.arrayElement([faker.number.int(), null]),
     new_responses: faker.helpers.arrayElement([faker.number.int(), null]),
     moderation_note: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1454,6 +1585,7 @@ export const getJobsShortlistResponseResponseMock = (
   ]),
   extensions_count: faker.number.int(),
   views_count: faker.helpers.arrayElement([faker.number.int(), null]),
+  notified_count: faker.helpers.arrayElement([faker.number.int(), null]),
   new_responses: faker.helpers.arrayElement([faker.number.int(), null]),
   moderation_note: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1565,6 +1697,7 @@ export const getJobsDeclineResponseResponseMock = (
   ]),
   extensions_count: faker.number.int(),
   views_count: faker.helpers.arrayElement([faker.number.int(), null]),
+  notified_count: faker.helpers.arrayElement([faker.number.int(), null]),
   new_responses: faker.helpers.arrayElement([faker.number.int(), null]),
   moderation_note: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1871,6 +2004,96 @@ export const getJobsRequestSpecialistMockHandler = (
           : getJobsRequestSpecialistResponseMock(),
         { status: 201 },
       );
+    },
+    options,
+  );
+};
+
+export const getJobsListJobAlertsMockHandler = (
+  overrideResponse?:
+    | JobAlertsOut
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<JobAlertsOut> | JobAlertsOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/me/job-alerts',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getJobsListJobAlertsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getJobsCreateJobAlertMockHandler = (
+  overrideResponse?:
+    | JobAlertOut
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<JobAlertOut> | JobAlertOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/api/v1/me/job-alerts',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getJobsCreateJobAlertResponseMock(),
+        { status: 201 },
+      );
+    },
+    options,
+  );
+};
+
+export const getJobsUpdateJobAlertMockHandler = (
+  overrideResponse?:
+    | JobAlertOut
+    | ((
+        info: Parameters<Parameters<typeof http.patch>[1]>[0],
+      ) => Promise<JobAlertOut> | JobAlertOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.patch(
+    '*/api/v1/me/job-alerts/:alertId',
+    async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getJobsUpdateJobAlertResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getJobsDeleteJobAlertMockHandler = (
+  overrideResponse?:
+    void | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    '*/api/v1/me/job-alerts/:alertId',
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === 'function') {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
     },
     options,
   );
@@ -2360,6 +2583,10 @@ export const getJobsMock = () => [
   getJobsCreateResponseTemplateMockHandler(),
   getJobsListResponseTemplatesMockHandler(),
   getJobsRequestSpecialistMockHandler(),
+  getJobsListJobAlertsMockHandler(),
+  getJobsCreateJobAlertMockHandler(),
+  getJobsUpdateJobAlertMockHandler(),
+  getJobsDeleteJobAlertMockHandler(),
   getJobsCountJobsMockHandler(),
   getJobsGetJobMockHandler(),
   getJobsUpdateJobMockHandler(),

@@ -49,6 +49,16 @@ notifications стоит над контентными модулями (ARCHITE
   «Оставить отзыв» (после завершения, через сутки, за 2 дня до конца окна; 7.2).
 - `notifications.notify_review_published` — ReviewPublished: исполнителю — новый отзыв и
   «Ответить на отзыв» (7.2).
+- `notifications.notify_job_matched` — ставит `jobs.match_alerts` по имени задачи (5.7):
+  исполнителю — карточка B1 новой заявки по подписке, если заявка ещё открыта, подписка
+  присылает, а сам он заявку не скрыл и на неё не откликнулся.
+- `notifications.notify_job_digest` — ставит `jobs.alert_digests` (5.7): подборка заявок по
+  подпискам «раз в день» — сколько ещё открыто по каждой и «Открыть ленту».
+- `notifications.notify_profile_stale` — ProfileStale: специалисту — «Включить «Доступен
+  сегодня»» и «Обновить профиль» (5.7).
+- `notifications.retire_closed_cards`, `…_expired_cards`, `…_assigned_cards` — JobClosed,
+  JobExpired, ResponseAccepted: карточки B1 заявки гасят кнопки (`notifications.retire_card` на
+  каждую), ждущие утра — не уходят (5.7).
 - `notifications.forget_recipient` — UserDeleted: лента, каналы и настройки удалённого
   аккаунта удалены (§7.10).
 - `notifications.send` — отправить доставку в бот (очередь `notifications`).
@@ -61,9 +71,11 @@ from uuid import UUID
 
 from dishka import FromDishka
 
+from app.modules.catalog.api import CatalogApi
 from app.modules.deals.api import DealNotFoundError, DealsApi
+from app.modules.geo.api import GeoApi
 from app.modules.identity.api import IdentityApi
-from app.modules.jobs.api import InviteNotice, JobBrief, JobsApi
+from app.modules.jobs.api import InviteNotice, JobBrief, JobsApi, MatchNotice
 from app.modules.messaging.api import MessagingApi
 from app.modules.notifications.application.ports import (
     FORGET_RECIPIENT,
@@ -83,15 +95,21 @@ from app.modules.notifications.application.ports import (
     NOTIFY_MODERATION_DECISION,
     NOTIFY_PASSED_OVER,
     NOTIFY_PROFILE_PUBLISHED,
+    NOTIFY_PROFILE_STALE,
     NOTIFY_RESPONSE_ACCEPTED,
     NOTIFY_RESPONSES,
     NOTIFY_REVIEW_PUBLISHED,
     NOTIFY_REVIEW_REQUEST,
+    RETIRE_ASSIGNED_CARDS,
+    RETIRE_CARD,
+    RETIRE_CLOSED_CARDS,
+    RETIRE_EXPIRED_CARDS,
     SCHEDULE_MESSAGES_NOTICE,
     SCHEDULE_RESPONSES_NOTICE,
     SEND_DELIVERY,
     MessagesWindow,
     ResponsesWindow,
+    RetireCardPayload,
     SendDeliveryPayload,
 )
 from app.modules.notifications.application.use_cases.expire_stale_deliveries import (
@@ -107,6 +125,14 @@ from app.modules.notifications.application.use_cases.grant_telegram_write_access
     GrantTelegramWriteAccessCommand,
 )
 from app.modules.notifications.application.use_cases.notify import Notify, NotifyCommand
+from app.modules.notifications.application.use_cases.retire_card import (
+    RetireCard,
+    RetireCardCommand,
+)
+from app.modules.notifications.application.use_cases.retire_job_cards import (
+    RetireJobCards,
+    RetireJobCardsCommand,
+)
 from app.modules.notifications.application.use_cases.schedule_messages_notice import (
     ScheduleMessagesNotice,
     ScheduleMessagesNoticeCommand,
@@ -139,6 +165,7 @@ from app.platform.contracts.events.identity import (
     UserRestricted,
 )
 from app.platform.contracts.events.jobs import (
+    JobClosed,
     JobExpired,
     JobExpiring,
     JobInvited,
@@ -148,8 +175,15 @@ from app.platform.contracts.events.jobs import (
 from app.platform.contracts.events.messaging import MessageSent
 from app.platform.contracts.events.moderation import ModerationDecision, ModerationDecisionMade
 from app.platform.contracts.events.reviews import ReviewPublished, ReviewRequested
-from app.platform.contracts.events.specialists import ProfilePublished
-from app.platform.kernel.ids import DealId, UserId
+from app.platform.contracts.events.specialists import ProfilePublished, ProfileStale
+from app.platform.contracts.notices import (
+    NOTIFY_JOB_DIGEST,
+    NOTIFY_JOB_MATCHED,
+    JobDigestNotice,
+    JobMatchNotice,
+)
+from app.platform.kernel.ids import CategoryId, DealId, UserId
+from app.platform.kernel.localized import Locale
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber, task
 from app.platform.telegram.deeplinks import (
     LinkDocument,
@@ -165,7 +199,14 @@ TEMPLATE_BUTTONS: Final = 2
 REVIEW_PREVIEW_CHARS: Final = 100
 """Начало отзыва в уведомлении исполнителю — как превью сообщения (6.3b)."""
 
+DIGEST_LINES: Final = 10
+"""Подписок строками в подборке (их не больше десяти)."""
+
 RULES_LINK = encode_start_param(StartLink(type=LinkType.LEGAL, document=LinkDocument.TERMS))
+FEED_LINK = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSection.FEED))
+AVAILABILITY_LINK = encode_start_param(
+    StartLink(type=LinkType.MINE, section=LinkSection.AVAILABILITY)
+)
 REVIEWS_LINK = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSection.REVIEWS))
 HOME_LINK = encode_start_param(StartLink(type=LinkType.HOME))
 FIX_LINKS = {"job": LinkType.JOB, "profile": LinkType.SPECIALIST}
@@ -393,6 +434,152 @@ def _invite_params(event: JobInvited, notice: InviteNotice) -> dict[str, str]:
         params[f"template_{index}"] = str(template.id)
         params[f"template_{index}_title"] = template.title
     return params
+
+
+@task(NOTIFY_JOB_MATCHED)
+async def notify_job_matched(
+    notice: JobMatchNotice,
+    notify: FromDishka[Notify],
+    jobs: FromDishka[JobsApi],
+    identity: FromDishka[IdentityApi],
+    catalog: FromDishka[CatalogApi],
+    geo: FromDishka[GeoApi],
+) -> None:
+    match = await jobs.match_notice(notice.job_id, notice.user_id, notice.alert_id)
+    if match is None or not match.open or not match.alert_receives or match.skipped:
+        return  # пока задача ждала: заявку закрыли или места кончились, подписку выключили,
+        # человек сам скрыл заявку или откликнулся
+    user = await identity.get_user(notice.user_id)
+    if user is None or user.is_deleted:
+        return
+    locale = user.ui_locale
+    params = _match_params(notice, match)
+    alert, more = await _alert_name(catalog, match.alert_category_ids, locale)
+    if alert:
+        params |= {"alert": alert, "alert_more": str(more)}
+    if match.district_id is not None:
+        district = (await geo.districts([match.district_id])).get(match.district_id)
+        if district is not None:
+            params["district"] = district.name.get(locale)
+    await notify(
+        NotifyCommand(
+            user_id=notice.user_id,
+            type=NotificationType.JOB_MATCHED,
+            dedupe_key=f"job.matched:{notice.job_id}:{notice.user_id}",
+            params=params,
+            link=_job_link(notice.job_id),
+            urgent=match.urgency == "asap",
+            valid_until=match.expires_at,
+        )
+    )
+
+
+def _match_params(notice: JobMatchNotice, match: MatchNotice) -> dict[str, str]:
+    """Машинные значения карточки B1; названия района и подписки — на языке получателя."""
+    params = {
+        "job_id": str(notice.job_id),
+        "alert_id": str(notice.alert_id),
+        "title": match.title,
+        "budget_type": match.budget_type,
+        "budget_unit": match.budget_unit,
+        "urgency": match.urgency,
+        "responses": str(match.responses_count),
+        "max_responses": str(match.max_responses),
+    }
+    optional = {
+        "budget_min": match.budget_min,
+        "budget_max": match.budget_max,
+        "distance_m": notice.distance_m,
+        "from": match.preferred_from.isoformat() if match.preferred_from else None,
+        "to": match.preferred_to.isoformat() if match.preferred_to else None,
+    }
+    params |= {key: str(value) for key, value in optional.items() if value is not None}
+    for index, template in enumerate(match.templates[:TEMPLATE_BUTTONS]):
+        params[f"template_{index}"] = str(template.id)
+        params[f"template_{index}_title"] = template.title
+    return params
+
+
+async def _alert_name(
+    catalog: CatalogApi, category_ids: tuple[CategoryId, ...], locale: Locale
+) -> tuple[str | None, int]:
+    """Подписка называется по первой своей категории («Мастер на час») и «ещё N»."""
+    if not category_ids:
+        return None, 0
+    labels = await catalog.labels(category_ids[:1])
+    first = labels.get(category_ids[0])
+    return (first.get(locale) if first is not None else None), len(category_ids) - 1
+
+
+@task(NOTIFY_JOB_DIGEST)
+async def notify_job_digest(
+    notice: JobDigestNotice,
+    notify: FromDishka[Notify],
+    jobs: FromDishka[JobsApi],
+    identity: FromDishka[IdentityApi],
+    catalog: FromDishka[CatalogApi],
+) -> None:
+    lines = [
+        line
+        for line in await jobs.digest_lines(
+            notice.user_id, {item.alert_id: item.job_ids for item in notice.alerts}
+        )
+        if line.open_jobs > 0
+    ]
+    if not lines:
+        return  # все заявки подборки уже закрыты, скрыты или с откликом
+    user = await identity.get_user(notice.user_id)
+    if user is None or user.is_deleted:
+        return
+    params: dict[str, str] = {}
+    for index, line in enumerate(lines[:DIGEST_LINES]):
+        name, more = await _alert_name(catalog, line.category_ids, user.ui_locale)
+        params[f"alert_{index}"] = f"{name} +{more}" if name and more else name or "—"
+        params[f"alert_{index}_count"] = str(line.open_jobs)
+    await notify(
+        NotifyCommand(
+            user_id=notice.user_id,
+            type=NotificationType.JOB_DIGEST,
+            dedupe_key=f"job.digest:{notice.user_id}:{notice.key}",
+            params=params,
+            link=FEED_LINK,
+        )
+    )
+
+
+@subscriber(ProfileStale, NOTIFY_PROFILE_STALE)
+async def notify_profile_stale(event: ProfileStale, notify: FromDishka[Notify]) -> None:
+    await notify(
+        NotifyCommand(
+            user_id=event.user_id,
+            type=NotificationType.PROFILE_STALE_REMINDER,
+            dedupe_key=f"profile.stale_reminder:{event.event_id}",
+            params={},
+            link=AVAILABILITY_LINK,
+        )
+    )
+
+
+@subscriber(JobClosed, RETIRE_CLOSED_CARDS)
+async def retire_closed_cards(event: JobClosed, retire: FromDishka[RetireJobCards]) -> None:
+    await retire(RetireJobCardsCommand(job_id=event.job_id))
+
+
+@subscriber(JobExpired, RETIRE_EXPIRED_CARDS)
+async def retire_expired_cards(event: JobExpired, retire: FromDishka[RetireJobCards]) -> None:
+    await retire(RetireJobCardsCommand(job_id=event.job_id))
+
+
+@subscriber(ResponseAccepted, RETIRE_ASSIGNED_CARDS)
+async def retire_assigned_cards(
+    event: ResponseAccepted, retire: FromDishka[RetireJobCards]
+) -> None:
+    await retire(RetireJobCardsCommand(job_id=event.job_id))
+
+
+@task(RETIRE_CARD)
+async def retire_card(payload: RetireCardPayload, retire: FromDishka[RetireCard]) -> None:
+    await retire(RetireCardCommand(delivery_id=DeliveryId(payload.delivery_id)))
 
 
 @subscriber(ResponseAccepted, NOTIFY_RESPONSE_ACCEPTED)

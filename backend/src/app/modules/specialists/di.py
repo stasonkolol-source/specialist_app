@@ -21,6 +21,9 @@ from app.modules.specialists.application.use_cases.edit_profile import EditProfi
 from app.modules.specialists.application.use_cases.forget_profile import ForgetProfile
 from app.modules.specialists.application.use_cases.hide_profile import HideProfile
 from app.modules.specialists.application.use_cases.mark_founding import MarkFounding
+from app.modules.specialists.application.use_cases.remind_stale_profiles import (
+    RemindStaleProfiles,
+)
 from app.modules.specialists.application.use_cases.remove_portfolio_work import (
     RemovePortfolioWork,
 )
@@ -62,6 +65,7 @@ class SpecialistsProvider(Provider):
     become_pro = provide(BecomePro)
     set_availability = provide(SetAvailability)
     reset_availability = provide(ResetAvailability)
+    remind_stale_profiles = provide(RemindStaleProfiles)
     forget_profile = provide(ForgetProfile)
     portfolio = provide(SqlPortfolioRepository, provides=PortfolioRepository)
     portfolio_query = provide(SqlPortfolioQuery, provides=PortfolioQuery)

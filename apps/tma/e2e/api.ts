@@ -89,7 +89,7 @@ export interface MockApiOptions {
   /** Избранное `/me/favorites*` с памятью (4.6); по умолчанию — пусто. */
   favorites?: FavoritesBackend;
   /** Заявки `/jobs*` с памятью: создание (5.2), лента, счётчик и «не интересно» (5.3), отклики
-   *  и шаблоны откликов (5.5). */
+   *  и шаблоны откликов (5.5), подписки на заявки (5.7). */
   jobs?: JobsBackend;
   /** Переписка `/conversations*` и бейджи таббара `/me/badges` с памятью (6.4); по умолчанию —
    *  диалогов нет. */
@@ -191,7 +191,8 @@ export async function mockApi(
       if (reply) return route.fulfill(json(reply.body, reply.status));
     }
     // заявки: создание с ключом идемпотентности и созданная заявка для S21 (5.2); лента, счётчик
-    // и «не интересно» (5.3) — лента открыта и гостю; отклики и шаблоны откликов (5.5)
+    // и «не интересно» (5.3) — лента открыта и гостю; отклики и шаблоны откликов (5.5), подписки
+    // на заявки (5.7)
     if (
       url.pathname === '/api/v1/jobs' ||
       url.pathname.startsWith('/api/v1/jobs/') ||
@@ -202,7 +203,8 @@ export async function mockApi(
       url.pathname === '/api/v1/me/deals' ||
       url.pathname.startsWith('/api/v1/deals/') ||
       /^\/api\/v1\/specialists\/[^/]+\/requests$/.test(url.pathname) ||
-      url.pathname.startsWith('/api/v1/me/response-templates')
+      url.pathname.startsWith('/api/v1/me/response-templates') ||
+      url.pathname.startsWith('/api/v1/me/job-alerts')
     ) {
       const body: unknown = ['POST', 'PATCH'].includes(request.method())
         ? request.postDataJSON()

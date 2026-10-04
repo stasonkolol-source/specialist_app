@@ -183,7 +183,7 @@ msgid "bot.language.need_start"
 msgstr "Сначала нажмите /start."
 
 msgid "bot.fallback"
-msgstr "Я понимаю команды:\n/app — открыть приложение\n/new — новая заявка\n/jobs — мои заявки\n/help — помощь и поддержка\n/language — язык"
+msgstr "Я понимаю команды:\n/app — открыть приложение\n/new — новая заявка\n/jobs — мои заявки\n/feed — заявки по подпискам\n/alerts — подписки на заявки\n/help — помощь и поддержка\n/language — язык"
 
 msgid "bot.commands.app"
 msgstr "Открыть приложение"
@@ -1094,3 +1094,201 @@ msgstr "Бот «Соседей» может вам писать: сюда пр�
 
 msgid "notifications.system_test.button"
 msgstr "Открыть «Соседи»"
+
+msgid "errors.invalid_job_alert"
+msgstr "Проверьте подписку: категории, район или радиус, бюджет."
+
+msgid "errors.job_alert_not_found"
+msgstr "Подписка не найдена: её удалили."
+
+msgid "errors.job_alerts_full"
+msgstr "Подписок уже максимум ({limit}) — удалите одну, чтобы добавить новую."
+
+msgid "bot.commands.feed"
+msgstr "Заявки по подпискам"
+
+msgid "bot.commands.alerts"
+msgstr "Подписки на заявки"
+
+msgid "bot.alerts.hidden"
+msgstr "Скрыли: эта заявка больше не появится в вашей ленте."
+
+msgid "bot.alerts.inactive"
+msgstr "Подписка выключена — включите её в подписках."
+
+msgid "bot.alerts.paused_one"
+msgstr "Подписка «{alert}» на паузе до {until}."
+
+msgid "bot.alerts.resumed_one"
+msgstr "Подписка «{alert}» снова присылает заявки."
+
+msgid "bot.alerts.paused_today"
+msgstr "Подписки на паузе до конца дня."
+
+msgid "bot.alerts.paused_week"
+msgstr "Подписки на паузе на неделю."
+
+msgid "bot.alerts.resumed"
+msgstr "Пауза снята — заявки снова будут приходить."
+
+msgid "bot.alerts.header"
+msgstr "<b>Подписки на заявки</b>"
+
+msgid "bot.alerts.line"
+msgstr "• <b>{alert}</b> — {state} · за неделю: {count}"
+
+msgid "bot.alerts.state.instant"
+msgstr "сразу"
+
+msgid "bot.alerts.state.digest"
+msgstr "раз в день"
+
+msgid "bot.alerts.state.paused"
+msgstr "на паузе до {until}"
+
+msgid "bot.alerts.state.off"
+msgstr "выключена"
+
+msgid "bot.alerts.name_more"
+msgstr "{alert} и ещё {count}"
+
+msgid "bot.alerts.empty"
+msgstr "<b>Подписок пока нет</b>\nНастройте подписку — новые заявки по вашим услугам будут приходить сюда сразу или подборкой раз в день."
+
+msgid "bot.alerts.setup"
+msgstr "Настроить подписки"
+
+msgid "bot.alerts.pause_today"
+msgstr "Пауза на сегодня"
+
+msgid "bot.alerts.pause_week"
+msgstr "Пауза на неделю"
+
+msgid "bot.alerts.resume"
+msgstr "Снять паузу"
+
+msgid "bot.alerts.pause"
+msgstr "Пауза подписки"
+
+msgid "bot.alerts.unpause"
+msgstr "Снять паузу"
+
+msgid "bot.feed.header"
+msgstr "<b>Заявки по подпискам</b>"
+
+msgid "bot.feed.line"
+msgstr "• <b>{title}</b> — {budget}"
+
+msgid "bot.feed.negotiable"
+msgstr "договорная"
+
+msgid "bot.feed.fixed"
+msgstr "{amount} RSD"
+
+msgid "bot.feed.up_to"
+msgstr "до {amount} RSD"
+
+msgid "bot.feed.no_alerts"
+msgstr "<b>Подписок пока нет</b>\nНастройте подписку — и здесь появятся подходящие заявки."
+
+msgid "bot.feed.empty"
+msgstr "Открытых заявок по вашим подпискам сейчас нет — пришлём, как появятся."
+
+msgid "bot.feed.open"
+msgstr "Открыть ленту"
+
+msgid "notifications.job_matched.title"
+msgstr "Новая заявка рядом"
+
+msgid "notifications.job_matched.title_alert"
+msgstr "Новая заявка по подписке"
+
+msgid "notifications.job_matched.slots"
+msgstr "Откликов {count} из {max}"
+
+msgid "notifications.job_matched.alert"
+msgstr "подписка «{alert}»"
+
+msgid "notifications.job_matched.alert_more"
+msgstr "подписка «{alert}» и ещё {count}"
+
+msgid "notifications.job_matched.negotiable"
+msgstr "Договорная"
+
+msgid "notifications.job_matched.range"
+msgstr "{min}–{max} RSD"
+
+msgid "notifications.job_matched.unit.hour"
+msgstr "в час"
+
+msgid "notifications.job_matched.unit.m2"
+msgstr "за м²"
+
+msgid "notifications.job_matched.unit.visit"
+msgstr "за выезд"
+
+msgid "notifications.job_matched.unit.item"
+msgstr "за штуку"
+
+msgid "notifications.job_matched.unit.lesson"
+msgstr "за урок"
+
+msgid "notifications.job_matched.urgency.asap"
+msgstr "срочно"
+
+msgid "notifications.job_matched.urgency.today"
+msgstr "сегодня"
+
+msgid "notifications.job_matched.urgency.this_week"
+msgstr "на этой неделе"
+
+msgid "notifications.job_matched.urgency.flexible"
+msgstr "когда удобно"
+
+msgid "notifications.job_matched.today"
+msgstr "сегодня"
+
+msgid "notifications.job_matched.tomorrow"
+msgstr "завтра"
+
+msgid "notifications.job_matched.open"
+msgstr "Открыть заявку"
+
+msgid "notifications.job_matched.template"
+msgstr "Откликнуться шаблоном «{title}»"
+
+msgid "notifications.job_matched.hide"
+msgstr "Не интересно"
+
+msgid "notifications.job_matched.pause"
+msgstr "Пауза подписки"
+
+msgid "notifications.job_matched.closed"
+msgstr "Приём откликов закрыт"
+
+msgid "notifications.job_digest.title"
+msgstr "Подборка заявок"
+
+msgid "notifications.job_digest.body_one"
+msgstr "Новые заявки по подписке «{alert}»: {count}."
+
+msgid "notifications.job_digest.body_many"
+msgstr "Новые заявки по подпискам: {count}."
+
+msgid "notifications.job_digest.line"
+msgstr "• «{alert}» — {count}"
+
+msgid "notifications.job_digest.button"
+msgstr "Открыть ленту"
+
+msgid "notifications.profile_stale_reminder.title"
+msgstr "Клиенты ищут специалистов"
+
+msgid "notifications.profile_stale_reminder.body"
+msgstr "Профиль давно не обновлялся. Включите «Доступен сегодня» — клиенты увидят, что вы готовы взять заявку, — или обновите профиль."
+
+msgid "notifications.profile_stale_reminder.available"
+msgstr "Включить «Доступен сегодня»"
+
+msgid "notifications.profile_stale_reminder.profile"
+msgstr "Обновить профиль"

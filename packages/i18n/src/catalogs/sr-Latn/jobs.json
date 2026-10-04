@@ -119,7 +119,8 @@
     "toJob": "Na zahtev",
     "titleDirect": "Zahtev je poslat",
     "textDirectPending": "Izvođač će ga dobiti posle provere zahteva — obično za minut.",
-    "textDirectPublished": "Izvođač je obavešten i može da pošalje ponudu."
+    "textDirectPublished": "Izvođač je obavešten i može da pošalje ponudu.",
+    "notified": "{count, plural, one {Obavestili smo # stručnjaka} few {Obavestili smo # stručnjaka} other {Obavestili smo # stručnjaka}} u blizini koji su pretplaćeni na ovu kategoriju."
   },
   "segments": {
     "label": "Odeljak zahteva",
@@ -143,7 +144,15 @@
     "emptyFilteredText": "Povećajte radijus ili uklonite neke filtere",
     "resetFilters": "Poništi filtere",
     "more": "Prikaži još",
-    "moreError": "Nismo uspeli da učitamo još zahteva. Pokušajte ponovo."
+    "moreError": "Nismo uspeli da učitamo još zahteva. Pokušajte ponovo.",
+    "alertsLink": "Pretplate na nove zahteve",
+    "alertsChip": "Po mojim pretplatama",
+    "countAlerts": "{count, plural, one {# zahtev} few {# zahteva} other {# zahteva}} po pretplatama · najnoviji prvi",
+    "alertsEmptyTitle": "Još nema zahteva po pretplatama",
+    "alertsEmptyText": "Novi zahtevi po vašim pretplatama pojaviće se ovde i stići u bot",
+    "noAlertsTitle": "Još nemate pretplate",
+    "noAlertsText": "Pretplatite se na svoje usluge i kvart — odgovarajući zahtevi će se sakupiti ovde",
+    "alertsSetup": "Podesi pretplate"
   },
   "card": {
     "negotiable": "Po dogovoru",
@@ -170,7 +179,8 @@
     "budgetFrom": "od {amount}",
     "language": "Jezik sporazumevanja",
     "any": "Bilo koji",
-    "reset": "Poništi"
+    "reset": "Poništi",
+    "saveAlert": "Sačuvaj kao pretplatu"
   },
   "job": {
     "ownerPublished": "Ovo je vaš zahtev — ovako ga vide izvođači",
@@ -658,5 +668,61 @@
     "emptyReceived": "Utisaka o vama još nema",
     "emptyWritten": "Još niste ostavili utiske",
     "deleted": "Nalog je obrisan"
+  },
+  "alerts": {
+    "title": "Pretplate na zahteve",
+    "lead": "Novi zahtevi po pretplatama stižu u ćaskanje sa botom",
+    "toggle": "Šalji zahteve po pretplati „{title}“",
+    "more": "{title} i još {count}",
+    "city": "Ceo grad",
+    "radius": "Do {km} km",
+    "radiusFrom": "Do {km} km · {place}",
+    "budgetFrom": "od {amount}",
+    "anyBudget": "bilo koji budžet",
+    "anyLanguage": "bilo koji jezik",
+    "urgentOnly": "samo hitni",
+    "instant": "Šalji odmah",
+    "digest": "U pregledu jednom dnevno, u {time}",
+    "paused": "Pauzirano do {date}",
+    "off": "Isključena — zahtevi ne stižu",
+    "week": "{count, plural, one {# zahtev} few {# zahteva} other {# zahteva}} za nedelju",
+    "edit": "Izmeni",
+    "delete": "Obriši",
+    "deleteConfirm": "Obrisati pretplatu „{title}“?",
+    "quiet": "Tihi sati {from}–{to}: noću stižu samo hitni zahtevi.",
+    "quietLink": "Izmeni",
+    "new": "Nova pretplata",
+    "emptyTitle": "Još nemate pretplate",
+    "emptyText": "Pretplatite se na svoje usluge i kvart — novi zahtevi stići će u bot odmah ili u pregledu jednom dnevno",
+    "full": "Već imate {limit} pretplata — obrišite jednu da biste dodali novu",
+    "error": "Pretplata nije sačuvana. Pokušajte ponovo",
+    "botTitle": "Slati nove zahteve u bot?",
+    "botText": "Bez dozvole bot ne može da piše — zahtevi po pretplatama neće stići.",
+    "botAllow": "Šalji u Telegram",
+    "botOn": "Novi zahtevi stižu u Telegram",
+    "botDenied": "Dozvola nije data — zahtevi po pretplatama biće samo u lenti.",
+    "form": {
+      "titleNew": "Nova pretplata",
+      "titleEdit": "Pretplata",
+      "lead": "Odgovarajući zahtevi stići će u ćaskanje sa botom",
+      "categories": "Kategorije",
+      "missingCategories": "Izaberite bar jednu kategoriju",
+      "area": "Gde",
+      "city": "Ceo grad",
+      "radius": "Radijus",
+      "radiusFrom": "Radijus od vas · {place}",
+      "budget": "Budžet od",
+      "budgetPlaceholder": "Bilo koji",
+      "delivery": "Kada slati",
+      "instant": "Odmah",
+      "digest": "Jednom dnevno",
+      "urgentOnly": "Samo hitni",
+      "language": "Jezik sporazumevanja",
+      "anyLanguage": "Bilo koji",
+      "quiet": "Tihi sati {from}–{to}",
+      "quietHint": "Hitni zahtevi stići će i noću",
+      "save": "Sačuvaj pretplatu",
+      "missing": "Pretplata nije pronađena — možda je već obrisana."
+    }
   }
 }

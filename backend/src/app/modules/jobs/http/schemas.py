@@ -1,5 +1,5 @@
-"""Схемы HTTP jobs (ARCHITECTURE §8.5): заявка на входе и на выходе, карточка ленты, отклики и
-шаблоны откликов.
+"""Схемы HTTP jobs (ARCHITECTURE §8.5): заявка на входе и на выходе, карточка ленты, отклики,
+шаблоны откликов и подписки на новые заявки (5.7).
 
 Суммы — в пара (1 RSD = 100 пара), наружу — `MoneyOut`. Точная точка и адрес — только
 владельцу (`viewer_role: owner`); гость и исполнитель видят район и смещённую точку (§7.6).
@@ -14,6 +14,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.modules.jobs.application.alerts import AlertItem
 from app.modules.jobs.application.content import JobDraft
 from app.modules.jobs.application.dto import MyResponseRef
 from app.modules.jobs.application.feed import JobCard, Photo
@@ -26,6 +27,16 @@ from app.modules.jobs.application.responses import (
 )
 from app.modules.jobs.application.use_cases.list_job_responses import JobResponse
 from app.modules.jobs.application.use_cases.show_job import JobClient, JobDetails
+from app.modules.jobs.domain.alert import (
+    MAX_ALERT_CATEGORIES,
+    MAX_ALERT_DISTRICTS,
+    MAX_ALERT_LANGUAGES,
+    MAX_ALERTS,
+    MAX_RADIUS_M,
+    MIN_RADIUS_M,
+    AlertCriteria,
+    AlertDelivery,
+)
 from app.modules.jobs.domain.invite import MAX_INVITES, Invite
 from app.modules.jobs.domain.job import (
     MAX_ADDRESS,
@@ -195,6 +206,9 @@ class JobOut(BaseModel):
     )
     extensions_count: int = Field(description="Сколько раз продлевали: не больше трёх")
     views_count: int | None = Field(description="Просмотры (S23) — владельцу; остальным — null")
+    notified_count: int | None = Field(
+        description="Скольким подписчикам заявка ушла — сразу или подборкой (S21, 5.7) — владельцу"
+    )
     new_responses: int | None = Field(
         description="Отклики, которых владелец ещё не видел (бейдж S22); остальным — null"
     )
@@ -241,6 +255,7 @@ class JobOut(BaseModel):
             my_response=MyResponseRefOut.of(details.my_response) if details.my_response else None,
             extensions_count=job.extensions_count,
             views_count=job.views_count if owner else None,
+            notified_count=job.notified_count if owner else None,
             new_responses=details.new_responses if owner else None,
             moderation_note=job.moderation_note if owner else None,
             version=job.version,
@@ -634,3 +649,116 @@ class AcceptedOut(BaseModel):
 
     deal_id: UUID
     job: JobOut
+
+
+M_IN_KM = 1000
+
+
+class JobAlertCriteriaIn(BaseModel):
+    """Условия подписки (S19): районы или точка с радиусом, ни того ни другого — весь город."""
+
+    category_ids: list[int] = Field(
+        min_length=1,
+        max_length=MAX_ALERT_CATEGORIES,
+        description="Разделы и услуги каталога: заявки в них и в их подкатегориях",
+    )
+    city_id: int = Field(ge=1)
+    district_ids: list[int] = Field(default_factory=list, max_length=MAX_ALERT_DISTRICTS)
+    center: JobPointIn | None = Field(
+        default=None, description="Точка подписчика для радиуса: видна только ему"
+    )
+    radius_km: float | None = Field(
+        default=None, ge=MIN_RADIUS_M / M_IN_KM, le=MAX_RADIUS_M / M_IN_KM
+    )
+    min_budget: int | None = Field(
+        default=None, ge=1, le=MAX_BUDGET, description="Пара: бюджет заявки не меньше"
+    )
+    urgencies: list[Urgency] = Field(default_factory=list, description="Пусто — любые")
+    languages: list[str] = Field(
+        default_factory=list, max_length=MAX_ALERT_LANGUAGES, description="Пусто — любые"
+    )
+
+    def criteria(self) -> AlertCriteria:
+        center = self.center
+        return AlertCriteria(
+            category_ids=tuple(CategoryId(item) for item in self.category_ids),
+            city_id=CityId(self.city_id),
+            district_ids=tuple(DistrictId(item) for item in self.district_ids),
+            center=GeoPoint(lat=center.lat, lon=center.lon) if center is not None else None,
+            radius_m=round(self.radius_km * M_IN_KM) if self.radius_km is not None else None,
+            min_budget=self.min_budget,
+            urgencies=tuple(self.urgencies),
+            languages=tuple(self.languages),
+        )
+
+
+class JobAlertIn(BaseModel):
+    criteria: JobAlertCriteriaIn
+    delivery: AlertDelivery = Field(
+        default=AlertDelivery.INSTANT, description="Сразу или подборкой раз в день"
+    )
+
+
+class JobAlertPatchIn(BaseModel):
+    """Правка подписки: условия целиком (S19), режим, переключатель S18 — что прислано."""
+
+    criteria: JobAlertCriteriaIn | None = None
+    delivery: AlertDelivery | None = None
+    is_active: bool | None = Field(default=None, description="Включить — значит и снять паузу")
+
+
+class JobAlertCriteriaOut(BaseModel):
+    category_ids: list[int]
+    city_id: int
+    district_ids: list[int]
+    center: JobPointOut | None
+    radius_km: float | None
+    min_budget: int | None = Field(description="Пара")
+    urgencies: list[Urgency]
+    languages: list[str]
+
+    @classmethod
+    def of(cls, criteria: AlertCriteria) -> JobAlertCriteriaOut:
+        center = criteria.center
+        return cls(
+            category_ids=list(criteria.category_ids),
+            city_id=criteria.city_id,
+            district_ids=list(criteria.district_ids),
+            center=JobPointOut(lat=center.lat, lon=center.lon) if center is not None else None,
+            radius_km=criteria.radius_m / M_IN_KM if criteria.radius_m is not None else None,
+            min_budget=criteria.min_budget,
+            urgencies=list(criteria.urgencies),
+            languages=list(criteria.languages),
+        )
+
+
+class JobAlertOut(BaseModel):
+    id: UUID
+    criteria: JobAlertCriteriaOut
+    delivery: AlertDelivery
+    is_active: bool = Field(description="Переключатель S18")
+    paused_until: datetime | None = Field(description="Пауза из бота: до этого момента молчит")
+    week_count: int = Field(description="Сколько заявок подошло за неделю — «8 заявок за неделю»")
+    created_at: datetime
+
+    @classmethod
+    def of(cls, item: AlertItem) -> JobAlertOut:
+        alert = item.alert
+        return cls(
+            id=alert.id,
+            criteria=JobAlertCriteriaOut.of(alert.criteria),
+            delivery=alert.delivery,
+            is_active=alert.is_active,
+            paused_until=alert.paused_until,
+            week_count=item.week_count,
+            created_at=alert.created_at,
+        )
+
+
+class JobAlertsOut(BaseModel):
+    items: list[JobAlertOut] = Field(description="По порядку создания")
+    limit: int = Field(description="Сколько подписок можно")
+
+    @classmethod
+    def of(cls, items: list[AlertItem]) -> JobAlertsOut:
+        return cls(items=[JobAlertOut.of(item) for item in items], limit=MAX_ALERTS)
