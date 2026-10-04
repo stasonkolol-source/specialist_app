@@ -11,7 +11,12 @@
   нарушение — `resolved`, нет нарушения — `rejected`; ответ жалующемуся — с 2.5b.
 - Объект кейса (2.6): одобрение публикует его, если он ждал проверки, и снимает заморозку,
   которую поставила автопроверка; отказ скрывает его. Через адаптер цели — фасад модуля.
-- Решение и санкция пишутся в audit_log. Роль модератора проверяет точка входа (2.5b, 2.7).
+- Апелляция (2.5b): `approved` — удовлетворена: санкции обжалованного решения сняты (фасад
+  identity `lift_case_restrictions`, событие UserRestrictionsLifted), его ступени лестницы
+  отменены и больше не считаются; `rejected` — решение остаётся в силе. Санкции за апелляцию
+  нет; автору — итог (AppealDecided → `moderation.decision`). Объект не трогается.
+- Решение и санкция пишутся в audit_log. Роль модератора проверяет точка входа (`cli`, чат
+  модераторов 2.5b, админка 2.7).
 - Спор по сделке (6.1c) так не решить: у него обязателен исход сделки — ResolveDispute, который
   решает кейс тем же CaseDecider в своей транзакции.
 """
@@ -29,7 +34,7 @@ from app.modules.moderation.application.ports import (
     RiskSignals,
     SanctionRepository,
 )
-from app.modules.moderation.domain.cases import Case, CaseTrigger, EntityType
+from app.modules.moderation.domain.cases import Case, EntityType
 from app.modules.moderation.domain.reports import ReportStatus
 from app.modules.moderation.domain.risk import RiskSignal, RiskSignalKind
 from app.modules.moderation.domain.sanctions import (
@@ -82,7 +87,9 @@ class CaseDecider:
         self, case: Case, cmd: DecideCaseCommand, *, policy_version: str, now: datetime
     ) -> CaseDecision:
         """Кейс уже под блокировкой строки (get_for_update вызывающего)."""
-        if cmd.severity is not None and cmd.verdict is not ModerationDecision.REJECTED:
+        if cmd.severity is not None and (
+            cmd.verdict is not ModerationDecision.REJECTED or case.is_appeal
+        ):
             raise InvalidDecisionError(field="severity")
         actor = ActorKind.STAFF if cmd.moderator_id is not None else ActorKind.SYSTEM
         step = None
@@ -100,6 +107,8 @@ class CaseDecider:
         )
         await self._cases.save(case)
         await self._apply_to_target(case, cmd.verdict)
+        if case.appeal_of is not None and cmd.verdict is ModerationDecision.APPROVED:
+            await self._grant_appeal(case.appeal_of, cmd.moderator_id, now=now)
         restriction_id = None
         if step is not None:
             restriction_id = await self._impose(case, step, cmd.moderator_id, now=now)
@@ -134,8 +143,8 @@ class CaseDecider:
         )
 
     async def _apply_to_target(self, case: Case, verdict: ModerationDecision) -> None:
-        if case.trigger is CaseTrigger.APPEAL:
-            return  # итог апелляции — 2.5b
+        if case.is_appeal:
+            return  # апелляция пересматривает решение, а не объект
         if verdict is ModerationDecision.APPROVED:
             await self._identity.lift_case_restrictions(case.id)  # заморозка автопроверки
         target = self._targets.get(case.entity_type)
@@ -145,6 +154,22 @@ class CaseDecider:
             await target.publish(case.entity_id)
         else:
             await target.hide(case.entity_id, reason_code=case.reason_code or "other")
+
+    async def _grant_appeal(
+        self, decision_id: CaseId, moderator_id: UserId | None, *, now: datetime
+    ) -> None:
+        lifted = await self._identity.lift_case_restrictions(decision_id)
+        revoked = await self._sanctions.revoke_for_case(decision_id, now)
+        await self._audit.record(
+            AuditEntry(
+                action="moderation.appeal.granted",
+                actor_kind=ActorKind.STAFF if moderator_id is not None else ActorKind.SYSTEM,
+                actor_id=moderator_id,
+                entity_type="moderation.case",
+                entity_id=decision_id,
+                changes={"restrictions_lifted": lifted, "sanctions_revoked": revoked},
+            )
+        )
 
     async def _impose(
         self, case: Case, step: SanctionStep, moderator_id: UserId | None, *, now: datetime
@@ -226,6 +251,7 @@ class DecideCase:
         now = self._clock.now()
         async with self._uow:
             case = await self._cases.get_for_update(cmd.case_id)
-            if case.entity_type is EntityType.DISPUTE:
+            if case.entity_type is EntityType.DISPUTE and not case.is_appeal:
+                # апелляцию на решение по спору решают как любую: сделку она не трогает
                 raise CaseKindError(entity_type=case.entity_type.value)
             return await self._decider.decide(case, cmd, policy_version=policy_version, now=now)

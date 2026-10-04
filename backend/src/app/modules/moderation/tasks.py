@@ -9,6 +9,7 @@
   `moderation.note_dispute_answer` (DisputeAnswered) и `moderation.note_dispute_unanswered`
   (DisputeUnanswered) — поводы «ответ» и «нет ответа», `moderation.close_dispute_case`
   (DisputeWithdrawn) — кейс закрыт без решения.
+- `moderation.post_case_card` — CaseOpened: карточка кейса в чате модераторов (2.5b).
 """
 
 from dishka import FromDishka
@@ -19,9 +20,14 @@ from app.modules.moderation.application.ports import (
     NOTE_DISPUTE_ANSWER,
     NOTE_DISPUTE_UNANSWERED,
     OPEN_DISPUTE_CASE,
+    POST_CASE_CARD,
     RECORD_REREGISTRATION,
 )
 from app.modules.moderation.application.use_cases.auto_check import AutoCheck, AutoCheckCommand
+from app.modules.moderation.application.use_cases.post_case_card import (
+    PostCaseCard,
+    PostCaseCardCommand,
+)
 from app.modules.moderation.application.use_cases.record_rate_limit_signals import (
     RecordRateLimitSignals,
     RecordRateLimitSignalsCommand,
@@ -43,7 +49,7 @@ from app.platform.contracts.events.deals import (
     DisputeWithdrawn,
 )
 from app.platform.contracts.events.identity import UserRegistered
-from app.platform.contracts.events.moderation import ModerationRequested
+from app.platform.contracts.events.moderation import CaseOpened, ModerationRequested
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber
 
 
@@ -99,3 +105,8 @@ async def rate_limit_signals(run: PeriodicRun) -> None:
     async with run.container() as request:
         record = await request.get(RecordRateLimitSignals)
         await record(RecordRateLimitSignalsCommand())
+
+
+@subscriber(CaseOpened, POST_CASE_CARD)
+async def post_case_card(event: CaseOpened, post: FromDishka[PostCaseCard]) -> None:
+    await post(PostCaseCardCommand(case_id=event.case_id))

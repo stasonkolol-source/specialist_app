@@ -25,11 +25,14 @@ export class RestrictedError extends ApiError {
   override readonly name = 'RestrictedError';
   readonly restriction: string;
   readonly until: Date | null;
+  /** Машинный код причины санкции (`prepayment_scam`, …) — строка «Причина» на S49b. */
+  readonly reason: string | null;
 
   constructor(problem: ProblemOut) {
     super(problem);
     this.restriction = problem.restriction ?? 'restricted';
     this.until = problem.until ? new Date(problem.until) : null;
+    this.reason = problem.reason ?? null;
   }
 }
 

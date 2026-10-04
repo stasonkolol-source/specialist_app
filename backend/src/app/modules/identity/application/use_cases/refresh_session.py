@@ -87,7 +87,9 @@ class RefreshSession:
             elif restriction is not None:
                 session.revoke(reason=RevokeReason.RESTRICTED, now=now)
                 refused = RestrictedError(
-                    restriction=restriction.kind.value, until=restriction.ends_at
+                    restriction=restriction.kind.value,
+                    until=restriction.ends_at,
+                    reason=restriction.reason_code,
                 )
             await self._sessions.save(session)
             if refused is not None:

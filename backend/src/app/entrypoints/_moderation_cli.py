@@ -1,6 +1,7 @@
-"""`cli moderation-queue`, `cli moderation-decide`, `cli dispute-show` и `cli dispute-resolve`:
-кейсы модерации до чата модераторов (2.5b) и админки (2.7b) — решение владельца 2026-10-01:
-сначала ядро продукта.
+"""`cli moderation-queue`, `cli moderation-decide`, `cli dispute-show`, `cli dispute-resolve` и
+`cli moderation-demo`: кейсы модерации командами — рядом с кнопками чата модераторов (2.5b) и до
+админки (2.7b). `moderation-demo` открывает демо-кейс об аккаунте: карточка в чате модераторов
+(worker), решение кнопкой доходит до пользователя уведомлением.
 
 Решает тот, у кого есть роль модератора или администратора (`cli staff-grant`): кто — по
 Telegram id из `--by`, решение записывается от его имени, как из чата модераторов. Спор по
@@ -94,6 +95,39 @@ async def moderation_decide(
     return CliOutcome(
         ok=True, lines=(f"case {decision.case_id}: {decision.status.value}{sanction}",)
     )
+
+
+async def moderation_demo(container: AsyncContainer, *, telegram_id: int) -> CliOutcome:
+    from app.modules.identity.api import IdentityApi
+    from app.modules.moderation.application.ports import ModeratorsChat
+    from app.modules.moderation.application.use_cases.open_case import (
+        OpenCase,
+        OpenCaseCommand,
+    )
+    from app.modules.moderation.domain.cases import CaseTrigger, EntityType
+    from app.modules.moderation.domain.queues import Queue
+
+    async with container() as request:
+        user = await (await request.get(IdentityApi)).by_telegram(telegram_id)
+        if user is None:
+            return CliOutcome(ok=False, lines=("moderation-demo: no such Telegram user",))
+        chat = await request.get(ModeratorsChat)
+        case_id = await (await request.get(OpenCase))(
+            OpenCaseCommand(
+                queue=Queue.FRAUD,
+                entity_type=EntityType.USER,
+                entity_id=user.id,
+                subject_id=user.id,
+                trigger=CaseTrigger.AUTO_FLAG,
+                details={"demo": True, "signals": ["demo"]},
+            )
+        )
+    where = (
+        "card goes to the moderators' chat (worker)"
+        if chat.enabled
+        else "TELEGRAM_MODERATORS_CHAT_ID is empty: no card, decide with moderation-decide"
+    )
+    return CliOutcome(ok=True, lines=(f"case {case_id}: user/{user.id}, fraud; {where}",))
 
 
 async def _moderator(

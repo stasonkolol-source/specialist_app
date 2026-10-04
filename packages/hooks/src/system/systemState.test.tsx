@@ -47,13 +47,16 @@ describe('systemStateOf', () => {
   it('tells partial restrictions from account-blocking ones', () => {
     const until = '2026-10-03T16:00:00Z';
     const posting = systemStateOf(
-      new RestrictedError(problem(403, 'restricted', { restriction: 'posting_blocked', until })),
+      new RestrictedError(
+        problem(403, 'restricted', { restriction: 'posting_blocked', until, reason: 'spam_ad' }),
+      ),
     );
     expect(posting).toEqual({
       kind: 'restricted',
       restriction: 'posting_blocked',
       until: new Date(until),
       blocking: false,
+      reason: 'spam_ad', // строка «Причина» на S49b (2.5b)
     });
     expect(isAppWide(posting)).toBe(false);
     const banned = systemStateOf(
