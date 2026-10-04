@@ -1,13 +1,15 @@
 // S29 Сообщения (DEVELOPMENT_PLAN 6.4): вкладка таббара. Сегменты «Все / Я клиент / Я
 // исполнитель»; строка диалога — инициалы и имя второй стороны, время последнего сообщения,
-// контекст («Заявка: …» или «Из профиля специалиста», что со сделкой), последнее сообщение («Вы:
-// …») и число непрочитанных. Внизу — памятка «телефоны и ссылки видны после договорённости».
+// контекст («Заявка: …» или «Из профиля специалиста») с плашкой «что со сделкой» или «Отклик»,
+// последнее сообщение («Вы: …», скрытый сервером контакт — плашкой «•••») и под временем — число
+// непрочитанных, как на артборде. Внизу — памятка «телефоны и ссылки видны после договорённости».
 // Нажатие — диалог S30. Гостю — пустой список: писать можно после входа.
 import type { ConversationOut } from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
-import type { ChatRole } from '@sosed/hooks';
+import type { ChatRole, DealState } from '@sosed/hooks';
 import { conversationItems, dealState, useConversations } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
+import type { BadgeTone } from '@sosed/ui-web';
 import {
   Avatar,
   Badge,
@@ -16,6 +18,7 @@ import {
   FeedRow,
   Group,
   Heading,
+  MaskedText,
   Segmented,
   Skeleton,
   Text,
@@ -31,6 +34,14 @@ import { usePreview } from '../shared/preview.ts';
 
 type Tab = 'all' | ChatRole;
 const TABS: readonly Tab[] = ['all', 'client', 'performer'];
+/** Плашка сделки в строке диалога — тоном, как статус на S26. */
+const DEAL_TONE: Record<Exclude<DealState, 'none'>, BadgeTone> = {
+  proposed: 'info',
+  agreed: 'ok',
+  completed: 'ok',
+  cancelled: 'mute',
+  disputed: 'urgent',
+};
 
 export function ChatsScreen() {
   const { t } = useTranslation('messages');
@@ -116,6 +127,14 @@ function ConversationRow({ conversation }: { conversation: ConversationOut }) {
   const context = conversation.job_title
     ? t('list.job', { title: conversation.job_title })
     : t('list.profile');
+  // плашка: что со сделкой, а в диалоге по отклику без сделки — «Отклик» (сообщение отклика тогда
+  // без приписки «Отклик:»)
+  const badge =
+    state !== 'none' ? (
+      <Badge tone={DEAL_TONE[state]}>{t(`deal.${state}`)}</Badge>
+    ) : conversation.kind === 'job_response' ? (
+      <Badge tone="info">{t('list.response')}</Badge>
+    ) : null;
   const path = chatPath(conversation.id);
   const open = (event: MouseEvent<HTMLElement>) => {
     event.preventDefault();
@@ -127,23 +146,24 @@ function ConversationRow({ conversation }: { conversation: ConversationOut }) {
       onClick={open}
       leading={<Avatar name={name} size="md" palette={paletteFor(conversation.counterpart_id)} />}
       title={name}
-      meta={
-        <>
-          <time dateTime={at.toISOString()}>{today ? format.time(at) : format.date(at)}</time>
-          {conversation.unread > 0 && (
-            <Badge tone="ok" className="min-w-6 justify-center">
-              <span aria-hidden="true">{conversation.unread}</span>
-              <span className="sr-only">{t('list.unread', { count: conversation.unread })}</span>
-            </Badge>
-          )}
-        </>
-      }
+      meta={<time dateTime={at.toISOString()}>{today ? format.time(at) : format.date(at)}</time>}
     >
-      <span className="flex flex-wrap items-center gap-x-2">
-        <span>{context}</span>
-        {state !== 'none' && <span className="font-semibold text-text">{t(`deal.${state}`)}</span>}
+      <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+        <span className="text-cap">{context}</span>
+        {badge}
       </span>
-      <span className="line-clamp-2 block text-text">{preview(conversation.last_message)}</span>
+      {/* непрочитанные — под временем, в строке последнего сообщения, как на артборде */}
+      <span className="mt-0.5 flex items-center justify-between gap-3">
+        <span className="line-clamp-2 min-w-0 text-text">
+          <MaskedText text={preview(conversation.last_message)} />
+        </span>
+        {conversation.unread > 0 && (
+          <span className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-accent px-1.5 text-badge text-accent-ink">
+            <span aria-hidden="true">{conversation.unread}</span>
+            <span className="sr-only">{t('list.unread', { count: conversation.unread })}</span>
+          </span>
+        )}
+      </span>
     </FeedRow>
   );
 }

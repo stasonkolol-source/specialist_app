@@ -1,5 +1,6 @@
-// Последнее сообщение строкой списка S29: своё — «Вы: …», отклик — «Отклик: …», контакт, скрытое и
-// удалённое — словами, что со сделкой — словами системного события.
+// Последнее сообщение строкой списка S29: своё — «Вы: …», контакт, скрытое и удалённое — словами,
+// что со сделкой — словами системного события. Отклик — текстом: что это отклик, говорит плашка
+// «Отклик» строки.
 import type { MessageOut } from '@sosed/api-client';
 import { useTranslation } from '@sosed/i18n';
 
@@ -21,7 +22,6 @@ export function usePreview() {
     if (message.kind === 'contact_share') text = t('preview.contact');
     else if (message.hidden && !message.mine) text = t('preview.hidden');
     else if (message.body === null) text = t('preview.erased');
-    else if (message.kind === 'offer') text = t('preview.offer', { text: message.body });
     else text = message.body;
     return message.mine ? t('list.you', { text }) : text;
   };
