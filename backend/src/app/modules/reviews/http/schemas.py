@@ -44,9 +44,7 @@ class InviteReviewIn(BaseModel):
         default=None, max_length=MAX_WORK_TITLE, description="«Что делал мастер», до 120"
     )
     body: str | None = Field(default=None, max_length=MAX_BODY, description="Текст, до 2000")
-    confirmed: Literal[True] = Field(
-        description="Галочка «Подтверждаю…» — только true"
-    )
+    confirmed: Literal[True] = Field(description="Галочка «Подтверждаю…» — только true")
 
 
 class ReviewInviteIn(BaseModel):

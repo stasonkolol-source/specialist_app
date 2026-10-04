@@ -33,6 +33,7 @@ from app.platform.security.jwt import JwtKeys, SigningKey
 from app.platform.settings import (
     ENV_FILE,
     AiSettings,
+    AnalyticsSettings,
     AppSettings,
     Environment,
     Settings,
@@ -50,7 +51,11 @@ if TYPE_CHECKING:  # модули грузятся лениво: CLI без БД
     from app.entrypoints._notify_test import NotifyTestOutcome
     from app.entrypoints._search_cli import ReindexReport
     from app.entrypoints._seed_demo import SeedReport
-    from app.modules.identity.application.dto import OnboardingReset, StaffRoleGranted
+    from app.modules.identity.application.dto import (
+        OnboardingReset,
+        StaffCredentialsSet,
+        StaffRoleGranted,
+    )
     from app.modules.search.application.dto import ZeroResultStat
     from app.modules.specialists.application.use_cases.mark_founding import FoundingMarked
 
@@ -531,6 +536,75 @@ async def _staff_grant(telegram_id: int, role: str) -> StaffRoleGranted | None:
         await container.close()
 
 
+@app.command("staff-create")
+def staff_create(
+    tg_id: Annotated[int, typer.Option("--tg-id", help="Telegram id сотрудника")],
+    login: Annotated[str, typer.Option("--login", help="Логин админки: a-z, 0-9, «.», «_», «-»")],
+) -> None:
+    """Вход в админку /admin (DEVELOPMENT_PLAN 2.7a): пароль и TOTP сотруднику с ролью.
+
+    Сначала роль — `staff-grant`. Пароль (от 12 знаков) вводится здесь же дважды и не
+    показывается; секрет TOTP печатается один раз — добавьте его в приложение-аутентификатор
+    (Google Authenticator, 1Password, Aegis). Повторный вызов заменяет пароль и TOTP.
+    """
+    import getpass
+
+    password = getpass.getpass("Password (12+ chars): ")
+    if password != getpass.getpass("Repeat password: "):
+        typer.echo("staff-create: passwords do not match", err=True)
+        raise typer.Exit(code=1)
+    try:
+        result = asyncio.run(_staff_create(tg_id, login, password))
+    except _StaffCreateRefusedError as refused:
+        typer.echo(f"staff-create: {refused}", err=True)
+        raise typer.Exit(code=1) from None
+    if result is None:
+        typer.echo("staff-create: no such Telegram user (open the bot or Mini App once)", err=True)
+        raise typer.Exit(code=1)
+    state = "replaced" if result.replaced else "created"
+    typer.echo(f"user {result.user_id}: admin login {result.login!r} {state}")
+    typer.echo("TOTP secret (shown once, add it to your authenticator app now):")
+    typer.echo(f"  {result.totp_secret}")
+    typer.echo(f"  {result.totp_uri}")
+
+
+class _StaffCreateRefusedError(Exception):
+    pass
+
+
+async def _staff_create(telegram_id: int, login: str, password: str) -> StaffCredentialsSet | None:
+    from app.entrypoints._wiring import make_worker_container
+    from app.modules.identity.application.use_cases.create_staff_login import (
+        MIN_PASSWORD,
+        CreateStaffLogin,
+        CreateStaffLoginCommand,
+    )
+    from app.modules.identity.errors import (
+        InvalidStaffLoginError,
+        NotStaffError,
+        StaffLoginTakenError,
+    )
+
+    container = make_worker_container(Settings())
+    try:
+        async with container() as request:
+            create = await request.get(CreateStaffLogin)
+            try:
+                return await create(
+                    CreateStaffLoginCommand(telegram_id=telegram_id, login=login, password=password)
+                )
+            except InvalidStaffLoginError:
+                raise _StaffCreateRefusedError(
+                    f"login: 3-64 of a-z 0-9 . _ -; password: {MIN_PASSWORD}+ chars"
+                ) from None
+            except NotStaffError:
+                raise _StaffCreateRefusedError("no staff role (run staff-grant first)") from None
+            except StaffLoginTakenError:
+                raise _StaffCreateRefusedError("login is taken by another staff member") from None
+    finally:
+        await container.close()
+
+
 @app.command("founding-mark")
 def founding_mark(
     tg_id: Annotated[int, typer.Option("--tg-id", help="Telegram id специалиста")],
@@ -593,7 +667,12 @@ def export_user_data(
 @app.command("beta-report")
 def beta_report(
     week: Annotated[
-        int, typer.Option("--week", min=0, help="Неделя беты: 1 — первая, 0 — неделя до старта")
+        str,
+        typer.Option(
+            "--week",
+            help="Неделя беты: 1 — первая, 0 — неделя до старта; all — сводка недель с первой "
+            "по текущую (итоги беты, 7.7)",
+        ),
     ],
     *,
     start: Annotated[
@@ -602,28 +681,65 @@ def beta_report(
     ] = None,
 ) -> None:
     """Еженедельный отчёт беты (DEVELOPMENT_PLAN 6.6, 7.1): ликвидность по парам «город ×
-    категория», стороны, доверие и SLA модерации — на текущий момент, под ролью readonly."""
+    категория», стороны, доверие и SLA модерации — на текущий момент, под ролью readonly.
+    `--week all` — таблица метрик ворот по всем неделям (7.7)."""
     try:
         beta_start = date.fromisoformat(start) if start else None
     except ValueError:
         typer.echo(f"beta-report: --start {start}: нужна дата ГГГГ-ММ-ДД", err=True)
         raise typer.Exit(code=2) from None
-    typer.echo(asyncio.run(_beta_report(week, beta_start)))
+    if week != "all" and not week.isdigit():
+        typer.echo(f"beta-report: --week {week}: нужен номер недели (0, 1, …) или all", err=True)
+        raise typer.Exit(code=2)
+    typer.echo(asyncio.run(_beta_report(None if week == "all" else int(week), beta_start)))
 
 
-async def _beta_report(week: int, beta_start: date | None) -> str:
-    from app.platform.analytics.beta_report import render
+async def _beta_report(week: int | None, beta_start: date | None) -> str:
+    from app.platform.analytics.beta_report import render, render_weeks
     from app.platform.analytics.liquidity import (
+        beta_weeks,
         liquidity_report,
         reporting_connection,
         week_window,
     )
 
     settings = Settings()
-    window = week_window(beta_start or settings.analytics.beta_start, week)
+    first = beta_start or settings.analytics.beta_start
+    now = SystemClock().now()
     async with reporting_connection(settings.db) as conn:
-        report = await liquidity_report(conn, window, as_of=SystemClock().now())
-    return render(report, week=week)
+        if week is not None:
+            report = await liquidity_report(conn, week_window(first, week), as_of=now)
+            return render(report, week=week)
+        reports = await beta_weeks(conn, first, as_of=now)
+    return render_weeks(reports, beta_start=first)
+
+
+@app.command("posthog-dashboard")
+def posthog_dashboard(
+    *,
+    apply: Annotated[
+        bool, typer.Option("--apply", help="Создать или обновить дашборд; без флага — план")
+    ] = False,
+    environment: Annotated[
+        Environment,
+        typer.Option(help="Чьи события показывает дашборд (свойство environment)"),
+    ] = Environment.PRODUCTION,
+) -> None:
+    """Дашборд ликвидности в PostHog как код (DEVELOPMENT_PLAN 6.6, K32).
+
+    Без --apply — план: что будет создано, обновлено или удалено (только чтение). С --apply —
+    дашборд и плитки по platform/analytics/dashboard.py; повтор копий не плодит. Нужны
+    ANALYTICS_POSTHOG_PERSONAL_API_KEY и ANALYTICS_POSTHOG_PROJECT_ID (K32).
+    """
+    from app.entrypoints._posthog_dashboard import run_posthog_dashboard
+
+    outcome = asyncio.run(
+        run_posthog_dashboard(AnalyticsSettings(), environment=environment.value, apply=apply)
+    )
+    for line in outcome.lines:
+        typer.echo(line, err=outcome.failed)
+    if outcome.failed:
+        raise typer.Exit(code=1)
 
 
 class DemoScale(StrEnum):
@@ -683,6 +799,29 @@ def reindex(
     typer.echo(
         f"reindex: {report.published} published, {report.indexed_before} rows before;"
         f" {report.rebuilt} rebuilt, {report.removed} removed"
+    )
+
+
+@app.command("sentry-test")
+def sentry_test() -> None:
+    """Отправить в Sentry тестовую ошибку и показать id события (DEVELOPMENT_PLAN 3.3).
+
+    На stage и проде — через `kamal app exec`: окружение и релиз те же, что у процессов.
+    Без SENTRY_DSN ничего не отправляет: сообщение и код выхода 1.
+    """
+    from app.platform.observability.sentry import init_sentry, send_test_event
+
+    settings = Settings()
+    if not init_sentry(settings, process="cli"):
+        typer.echo("SENTRY_DSN не задан: Sentry выключен, событие не отправлено.", err=True)
+        raise typer.Exit(code=1)
+    event_id = send_test_event()
+    if event_id is None:  # before_send или sample_rate отбросили событие
+        typer.echo("Sentry не принял событие: проверьте настройки SDK.", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(
+        f"Тестовое событие отправлено в Sentry: {event_id}"
+        f" (окружение {settings.app.env.value}, релиз {settings.app.release})"
     )
 
 

@@ -121,6 +121,16 @@ class ProfileRef:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class PortfolioWorkRef:
+    """Работа портфолио с этим файлом — для кейса о дубликате фото (7.6, ADR-0016 L6)."""
+
+    id: UUID
+    profile_id: UUID
+    status: str
+    """pending | published | rejected."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class PriceSummary:
     """Прайс профиля для полноты в кабинете (S33): видимые позиции и сколько из них без
     описания."""
@@ -183,4 +193,11 @@ class SpecialistsApi(Protocol):
 
     async def published_profile_ids(self, *, after: UUID | None, limit: int) -> list[UUID]:
         """Опубликованные профили по id после `after` — сверка индекса поиска."""
+        ...
+
+    async def works_by_media(
+        self, media_ids: Collection[MediaId]
+    ) -> dict[MediaId, PortfolioWorkRef]:
+        """Неудалённые работы портфолио с этими файлами — пачкой; файла не в портфолио (ещё не
+        прикреплён или работу убрали) в ответе нет."""
         ...

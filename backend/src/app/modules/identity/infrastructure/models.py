@@ -1,4 +1,4 @@
-"""ORM-модели identity (ARCHITECTURE §7.3, миграции identity_0001–0006).
+"""ORM-модели identity (ARCHITECTURE §7.3, миграции identity_0001–0007).
 
 FK на таблицы других схем (`users.home_city_id` → geo.cities) объявлен только в миграции:
 MetaData модуля не знает чужих таблиц, а ORM-ForeignKey на них не разрешился бы при
@@ -272,4 +272,24 @@ class UserBlockRow(Base):
     __table_args__ = (
         Index("ix_user_blocks_blocked_id", "blocked_id"),
         CheckConstraint("blocker_id <> blocked_id", name="not_self"),
+    )
+
+
+class StaffCredentialRow(TimestampsMixin, Base):
+    """Вход персонала в админку (2.7a): логин, хэш argon2 и секрет TOTP. Роли — user_roles.
+
+    `totp_last_step` — шаг TOTP (30 с) последнего входа: тот же код второй раз не принимается.
+    """
+
+    __tablename__ = "staff_credentials"
+
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    login: Mapped[str] = mapped_column(String(64))
+    password_hash: Mapped[str] = mapped_column(String(255))
+    totp_secret: Mapped[str] = mapped_column(String(64))
+    totp_last_step: Mapped[int | None] = mapped_column(BigInteger)
+
+    __table_args__ = (
+        Index("uq_staff_credentials_login", text("lower(login)"), unique=True),
+        CheckConstraint("login ~ '^[a-z0-9._-]{3,64}$'", name="login_format"),
     )

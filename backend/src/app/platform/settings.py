@@ -18,10 +18,19 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from pydantic import Field, IPvAnyNetwork, SecretStr, ValidationError, field_validator
+from pydantic import (
+    AliasChoices,
+    Field,
+    IPvAnyNetwork,
+    SecretStr,
+    ValidationError,
+    field_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
+KAMAL_VERSION = "KAMAL_VERSION"
+"""Версия образа: Kamal передаёт её каждому контейнеру приложения (kamal/commands/app.rb)."""
 
 
 _TELEGRAM_USERNAME = re.compile(r"[A-Za-z][A-Za-z0-9_]{4,31}")
@@ -113,9 +122,9 @@ class AppSettings(_Group):
     транслитом. Код продукта остаётся specialist_app."""
     log_level: str = "INFO"
     log_json: bool = True
-    release: str = "dev"
-    heartbeat_url: str | None = None
-    """Ping Healthchecks.io раз в минуту из воркера (K33), без адреса — только лог."""
+    release: str = Field(default_factory=lambda: os.environ.get(KAMAL_VERSION) or "dev")
+    """Релиз в логах и Sentry: APP_RELEASE, иначе версия образа, которую Kamal кладёт
+    в контейнер (KAMAL_VERSION), иначе dev."""
     web_host: str = "127.0.0.1"
     """Адрес HTTP-сервера процесса — uvicorn web или приём webhook бота (TELEGRAM_UPDATES):
     локально — только loopback; в контейнере — 0.0.0.0 (за kamal-proxy)."""
@@ -135,6 +144,10 @@ class AppSettings(_Group):
     """Ключ HMAC для хэшей способов входа удалённых аккаунтов (антифрод 12 месяцев, §7.10).
     Постоянный: смена ключа «забудет» все хэши. На stage и проде обязателен; в dev и тестах без
     него — фиксированный ключ разработки."""
+    admin_session_key: SecretStr | None = None
+    """Ключ подписи cookie сессии админки /admin (2.7a). Без него на stage и проде админка не
+    монтируется (публикация — только за Cloudflare Access, K31); в dev и тестах — ключ
+    разработки. Смена ключа завершает все сессии персонала."""
 
     @field_validator("min_client_versions")
     @classmethod
@@ -277,6 +290,32 @@ class SentrySettings(_Group):
     traces_sample_rate: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
+class MetricsSettings(_Group):
+    """Экспорт метрик Prometheus (DEVELOPMENT_PLAN 3.3): отдельный порт процесса, а не API.
+
+    kamal-proxy ведёт только на порт web (APP_WEB_PORT), поэтому этот порт виден лишь в сети
+    Docker — его читает Grafana Alloy. Без порта метрики живут в процессе (dev, тесты)."""
+
+    model_config = SettingsConfigDict(env_prefix="METRICS_")
+
+    port: int | None = Field(default=None, ge=1, le=65535)
+    host: str = "127.0.0.1"
+    """Локально — только loopback; в контейнере — 0.0.0.0 (порт не публикуется наружу)."""
+
+
+class HealthchecksSettings(_Group):
+    """Healthchecks.io (K33): «пульс» воркера раз в минуту, задача `ops.heartbeat`."""
+
+    model_config = SettingsConfigDict(env_prefix="HEALTHCHECKS_", populate_by_name=True)
+
+    worker_ping_url: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("HEALTHCHECKS_WORKER_PING_URL", "APP_HEARTBEAT_URL"),
+    )
+    """Ping URL проверки воркера; без адреса — только запись в лог. Секрет: по ссылке любой
+    отметит проверку и скроет сбой. APP_HEARTBEAT_URL — прежнее имя (до 3.3)."""
+
+
 class AiSettings(_Group):
     """AI-проверки контента (ADR-0016 §3). Без ключа — заглушки (platform/ai/stubs.py):
     в dev и тестах конвейер работает, на stage/prod без ключей всё идёт в ручную очередь."""
@@ -297,6 +336,12 @@ class AnalyticsSettings(_Group):
 
     posthog_api_key: SecretStr | None = None
     posthog_host: str = "https://eu.i.posthog.com"
+    posthog_personal_api_key: SecretStr | None = None
+    """Personal API key PostHog (K32) со scope dashboard и insight на чтение и запись — только
+    для `cli posthog-dashboard` с машины владельца. На серверы не выкатывается: в отличие от
+    ключа проекта (`phc_…`) он открывает данные."""
+    posthog_project_id: int | None = Field(default=None, ge=1)
+    """Id проекта PostHog (Project settings → Project ID) для `cli posthog-dashboard`."""
     beta_start: date = date(2027, 1, 25)
     """Понедельник первой недели закрытой беты (ориентир плана 6.7): `cli beta-report --week 1`
     — неделя с этого дня, `--week 0` — неделя перед стартом."""
@@ -345,6 +390,8 @@ GROUPS: tuple[type[_Group], ...] = (
     JwtSettings,
     S3Settings,
     SentrySettings,
+    MetricsSettings,
+    HealthchecksSettings,
     AiSettings,
     AnalyticsSettings,
     LegalSettings,
@@ -384,6 +431,8 @@ class Settings:
         self.jwt = _as(values, JwtSettings)
         self.s3 = _as(values, S3Settings)
         self.sentry = _as(values, SentrySettings)
+        self.metrics = _as(values, MetricsSettings)
+        self.healthchecks = _as(values, HealthchecksSettings)
         self.ai = _as(values, AiSettings)
         self.analytics = _as(values, AnalyticsSettings)
         self.legal = _as(values, LegalSettings)
@@ -427,6 +476,8 @@ def describe(settings: Settings) -> dict[str, Any]:
         "telegram_fake_sender": settings.telegram.fake_sender,
         "s3_endpoint": settings.s3.endpoint_url,
         "sentry": settings.sentry.dsn is not None,
+        "metrics_port": settings.metrics.port,
+        "heartbeat": settings.healthchecks.worker_ping_url is not None,
         "ai_moderation": settings.ai.openai_api_key is not None,
         "ai_classifier": settings.ai.anthropic_api_key is not None,
     }

@@ -12,11 +12,12 @@ from app.platform.kernel.clock import Clock
 from app.platform.observability.metrics import QueueMetrics
 from app.platform.queue.lag import LAG_ALERT_SECONDS, queue_lags
 from app.platform.queue.tasks import QUEUES, PeriodicRun, periodic
-from app.platform.settings import AppSettings
+from app.platform.settings import HealthchecksSettings
 
 log = structlog.get_logger(__name__)
 
 IDEMPOTENCY_TTL = timedelta(hours=24)
+HEARTBEAT_TIMEOUT = httpx.Timeout(5.0)
 JOB_RETENTION_HOURS = 7 * 24
 """Выполненные задачи храним 7 дней (ARCHITECTURE §7.10)."""
 
@@ -42,15 +43,22 @@ async def remove_old_jobs(run: PeriodicRun) -> None:
 
 @periodic("ops.heartbeat", cron="* * * * *")
 async def heartbeat(run: PeriodicRun) -> None:
-    """Раз в минуту: запись в лог и, если задан адрес (K33), ping Healthchecks.io."""
+    """Раз в минуту: запись в лог и, если задан адрес (K33), ping Healthchecks.io.
+
+    Задача идёт в очереди default, как и остальные периодические: пинга нет — значит, воркер
+    стоит или пул default забит, и Healthchecks пришлёт алерт о пропуске (3.3).
+    """
     log.info("ops_heartbeat")
-    settings = await run.container.get(AppSettings)
-    if settings.heartbeat_url:
-        async with httpx.AsyncClient(timeout=5) as client:
-            try:
-                await client.get(settings.heartbeat_url)
-            except httpx.HTTPError as exc:
-                log.warning("heartbeat_ping_failed", error=type(exc).__name__)
+    url = (await run.container.get(HealthchecksSettings)).worker_ping_url
+    if url is None:
+        return
+    async with httpx.AsyncClient(timeout=HEARTBEAT_TIMEOUT) as client:
+        try:
+            response = await client.get(url.get_secret_value())
+            response.raise_for_status()  # 404 — неверный адрес: проверка молчала бы до алерта
+        except httpx.HTTPError as exc:
+            # адрес в лог не пишем: по нему любой отметит проверку (masking.py — страховка)
+            log.warning("heartbeat_ping_failed", error=type(exc).__name__)
 
 
 @periodic("ops.queue_lag", cron="* * * * *")

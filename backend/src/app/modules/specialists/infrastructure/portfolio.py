@@ -1,7 +1,7 @@
 """Портфолио в PostgreSQL (ADR-0020 §5): работа — строка portfolio_items и её файл в
 portfolio_media (в MVP — один)."""
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from uuid import UUID
 
 from sqlalchemy import Select, select
@@ -74,6 +74,22 @@ class SqlPortfolioQuery(SqlQuery):
     async def of_profile(self, profile_id: UUID) -> list[PortfolioItem]:
         """Работы профиля по порядку — для кабинета S37 (без блокировки)."""
         rows = (await self._execute(_alive(profile_id))).all()
+        items = [_to_domain(item, media) for item, media in rows]
+        await self._release()
+        return items
+
+    async def by_media(self, media_ids: Collection[MediaId]) -> list[PortfolioItem]:
+        if not media_ids:
+            return []
+        stmt = (
+            select(*_ROWS)
+            .join(PortfolioMediaRow, PortfolioMediaRow.item_id == PortfolioItemRow.id)
+            .where(
+                PortfolioMediaRow.media_id.in_(list(media_ids)),
+                PortfolioItemRow.deleted_at.is_(None),
+            )
+        )
+        rows = (await self._execute(stmt)).all()
         items = [_to_domain(item, media) for item, media in rows]
         await self._release()
         return items

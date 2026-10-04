@@ -19,7 +19,9 @@ imaging <каталог>` с таймаутом и лимитами CPU и па�
   и цветовых преобразований: полноразмерных копий нет;
 - поворот по EXIF, цвета — в sRGB по встроенному ICC (битый профиль — как есть), 16-битный
   серый — в 8 бит, палитра — в RGB до уменьшения (иначе Pillow уменьшает её без сглаживания);
-- варианты WebP 320/800/1600 без метаданных (EXIF с GPS, XMP, ICC), ThumbHash.
+- варианты WebP 320/800/1600 без метаданных (EXIF с GPS, XMP, ICC), ThumbHash и pHash
+  (infrastructure/phash.py) — по уже повёрнутому кадру: снимок с EXIF-поворотом и тот же снимок,
+  повёрнутый на деле, получают один хэш.
 """
 
 import asyncio
@@ -43,6 +45,7 @@ from PIL.JpegImagePlugin import JpegImageFile
 from app.modules.media.application.dto import ImageVariant, ProcessedImage
 from app.modules.media.application.ports import ProcessingCrashedError, UnprocessableMediaError
 from app.modules.media.domain.asset import VARIANT_SIDES, FailureReason
+from app.modules.media.infrastructure.phash import BITS, perceptual_hash
 from app.modules.media.infrastructure.processes import child_environment
 from app.modules.media.infrastructure.thumbhash import MAX_SIDE as HASH_SIDE
 from app.modules.media.infrastructure.thumbhash import rgba_to_thumbhash
@@ -119,6 +122,7 @@ def _result(workdir: Path) -> ProcessedImage:
                 height=int(answer["height"]),
                 placeholder=str(answer["placeholder"]),
                 sha256=bytes.fromhex(answer["sha256"]),
+                phash=_phash(answer["phash"]),
                 variants=tuple(_variant(item, workdir) for item in answer["variants"]),
             )
         else:
@@ -126,6 +130,16 @@ def _result(workdir: Path) -> ProcessedImage:
     except (ValueError, KeyError, TypeError, OSError) as exc:
         raise ProcessingCrashedError(f"bad answer of image process: {exc!r}") from exc
     raise UnprocessableMediaError(reason)
+
+
+def _phash(value: object) -> int:
+    """pHash из ответа процесса: ровно 64 бита в шестнадцатеричной записи."""
+    if not isinstance(value, str) or len(value) != BITS // 4:
+        raise ValueError(f"bad phash {value!r}")
+    phash = int(value, 16)
+    if not 0 <= phash < 1 << BITS:
+        raise ValueError(f"bad phash {value!r}")
+    return phash
 
 
 def _variant(item: dict[str, Any], workdir: Path) -> ImageVariant:
@@ -165,6 +179,7 @@ def main(argv: Sequence[str]) -> int:
             "height": result.height,
             "placeholder": result.placeholder,
             "sha256": result.sha256.hex(),
+            "phash": f"{result.phash:0{BITS // 4}x}",
             "variants": [
                 {"name": v.name, "width": v.width, "height": v.height} for v in result.variants
             ],
@@ -194,7 +209,7 @@ def _configure() -> None:
 
 
 def process_image(data: bytes) -> ProcessedImage:
-    """Варианты без метаданных и плейсхолдер. Файл не подходит — UnprocessableMediaError;
+    """Варианты без метаданных, плейсхолдер и pHash. Файл не подходит — UnprocessableMediaError;
     ошибка после декодирования — наша, она уходит как есть."""
     _configure()
     try:
@@ -212,6 +227,7 @@ def process_image(data: bytes) -> ProcessedImage:
         height=largest.height,
         placeholder=placeholder_of(image),
         sha256=hashlib.sha256(data).digest(),
+        phash=perceptual_hash(image),
         variants=variants,
     )
 
