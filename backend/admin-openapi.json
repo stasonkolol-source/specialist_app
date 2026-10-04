@@ -282,6 +282,8 @@
             "required": true,
             "schema": {
               "type": "integer",
+              "maximum": 2147483647,
+              "minimum": -2147483648,
               "title": "City Id"
             }
           }
@@ -338,7 +340,9 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "integer"
+                  "type": "integer",
+                  "maximum": 2147483647,
+                  "minimum": -2147483648
                 },
                 {
                   "type": "null"
@@ -435,6 +439,8 @@
             "required": true,
             "schema": {
               "type": "integer",
+              "maximum": 2147483647,
+              "minimum": -2147483648,
               "title": "District Id"
             }
           }
@@ -491,7 +497,9 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "integer"
+                  "type": "integer",
+                  "maximum": 2147483647,
+                  "minimum": -2147483648
                 },
                 {
                   "type": "null"
@@ -589,6 +597,8 @@
             "required": true,
             "schema": {
               "type": "integer",
+              "maximum": 2147483647,
+              "minimum": -2147483648,
               "title": "Category Id"
             }
           }
@@ -645,7 +655,9 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "integer"
+                  "type": "integer",
+                  "maximum": 2147483647,
+                  "minimum": -2147483648
                 },
                 {
                   "type": "null"
@@ -743,6 +755,8 @@
             "required": true,
             "schema": {
               "type": "integer",
+              "maximum": 2147483647,
+              "minimum": -2147483648,
               "title": "Tag Id"
             }
           }
@@ -800,7 +814,9 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "integer"
+                  "type": "integer",
+                  "maximum": 2147483647,
+                  "minimum": -2147483648
                 },
                 {
                   "type": "null"
@@ -2066,6 +2082,8 @@
             "required": true,
             "schema": {
               "type": "integer",
+              "maximum": 2147483647,
+              "minimum": -2147483648,
               "title": "Rule Id"
             }
           }
@@ -2793,7 +2811,9 @@
           "city_id": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "integer",
+                "maximum": 2147483647.0,
+                "minimum": -2147483648.0
               },
               {
                 "type": "null"
@@ -3282,6 +3302,7 @@
             "anyOf": [
               {
                 "type": "integer",
+                "maximum": 32767.0,
                 "minimum": 0.0
               },
               {
@@ -3294,6 +3315,7 @@
             "anyOf": [
               {
                 "type": "integer",
+                "maximum": 32767.0,
                 "minimum": 0.0
               },
               {
@@ -3305,7 +3327,9 @@
           "sort_order": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "integer",
+                "maximum": 2147483647.0,
+                "minimum": -2147483648.0
               },
               {
                 "type": "null"
@@ -3407,7 +3431,9 @@
           "sort_order": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "integer",
+                "maximum": 2147483647.0,
+                "minimum": -2147483648.0
               },
               {
                 "type": "null"
@@ -3666,7 +3692,9 @@
           "rule_id": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "integer",
+                "maximum": 2147483647.0,
+                "minimum": -2147483648.0
               },
               {
                 "type": "null"

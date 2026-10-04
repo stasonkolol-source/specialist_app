@@ -73,6 +73,7 @@ from app.platform.http.admin import (
     MODERATION,
     AdminRows,
     InvalidAdminChangeError,
+    RowIdPath,
     apply_change,
     as_row,
     staff_id,
@@ -279,7 +280,7 @@ async def create_content_rule(body: ContentRuleIn, request: Request) -> ContentR
 
 @router.patch("/content-rules/{rule_id}", response_model=ContentRuleOut, **staff_only(ADMIN))
 async def update_content_rule(
-    rule_id: int, body: ContentRulePatchIn, request: Request
+    rule_id: RowIdPath, body: ContentRulePatchIn, request: Request
 ) -> ContentRuleOut:
     """Правка или выключение (`is_active: false`) правила; строка сида переходит к админке."""
     model = await apply_change(

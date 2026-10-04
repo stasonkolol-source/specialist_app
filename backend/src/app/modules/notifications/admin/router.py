@@ -36,7 +36,7 @@ from app.modules.notifications.application.use_cases.start_broadcast import (
 from app.modules.notifications.domain.broadcast import Audience, BroadcastAction, BroadcastId
 from app.modules.notifications.domain.catalog import EventGroup
 from app.modules.notifications.errors import BroadcastNotFoundError
-from app.platform.http.admin import ADMIN, staff_id
+from app.platform.http.admin import ADMIN, INT4_MAX, INT4_MIN, staff_id
 from app.platform.http.pagination import PageOut, PageParams
 from app.platform.http.staff import staff_only
 from app.platform.kernel.ids import CityId
@@ -122,7 +122,7 @@ class BroadcastIn(BaseModel):
         default="marketing", description="Группа согласия S43: служебная рассылкам недоступна"
     )
     audience: Audience = Audience.ALL
-    city_id: int | None = None
+    city_id: int | None = Field(default=None, ge=INT4_MIN, le=INT4_MAX)
     link: str | None = Field(
         default=None, max_length=64, description="Код deep link кнопки «Открыть «Соседи»»"
     )
