@@ -4,7 +4,9 @@ SQLAdmin монтируется в приложение FastAPI рядом с `/
 модулей (ORM-классы своего модуля, решения по агрегатам — через use case) и разделы платформы:
 feature flags, client-config, журнал аудита (interfaces/admin/views.py). Вход —
 interfaces/admin/auth.py. На stage и проде без APP_ADMIN_SESSION_KEY админка не монтируется: её
-публикуют только за Cloudflare Access (K31, шаги 0.25 и 3.1).
+публикуют только за Cloudflare Access (K31, шаги 0.25 и 3.1). JSON-API для тех же разделов —
+Admin API `/admin/api/v1` (interfaces/http/admin_api.py): монтируется раньше SQLAdmin, с той же
+cookie персонала.
 
 Сессии SQLAdmin берут движок процесса из DI при первом запросе (`_BindEngine`): фабрика
 приложения синхронна, а движок — ресурс APP-скоупа контейнера.
@@ -31,15 +33,13 @@ from app.modules.moderation.admin.views import VIEWS as MODERATION_VIEWS
 from app.modules.notifications.admin.views import VIEWS as NOTIFICATIONS_VIEWS
 from app.modules.specialists.admin.views import VIEWS as SPECIALISTS_VIEWS
 from app.platform.http.admin import LOCKS_INFO, AdminSession
-from app.platform.settings import Environment, Settings
+from app.platform.http.staff import PUBLISHED, session_secret
+from app.platform.settings import Settings
 
 log = structlog.get_logger(__name__)
 
 BASE_URL: Final = "/admin"
 TEMPLATES: Final = Path(__file__).parent / "templates"
-DEV_SESSION_KEY: Final = "sosed-dev-admin-session-key"
-"""Ключ cookie без APP_ADMIN_SESSION_KEY — только dev и тесты."""
-PUBLISHED: Final = (Environment.STAGE, Environment.PRODUCTION)
 
 VIEWS: Final[Sequence[type[ModelView | BaseView]]] = (
     *MODERATION_VIEWS,
@@ -54,11 +54,10 @@ VIEWS: Final[Sequence[type[ModelView | BaseView]]] = (
 
 def mount_admin(app: FastAPI, settings: Settings) -> Admin | None:
     """SQLAdmin на `/admin`; None — админка выключена (stage или прод без ключа сессии)."""
-    key = settings.app.admin_session_key
-    if key is None and settings.app.env in PUBLISHED:
+    secret = session_secret(settings.app)
+    if secret is None:
         log.warning("admin_disabled", reason="APP_ADMIN_SESSION_KEY is not set")
         return None
-    secret = key.get_secret_value() if key is not None else DEV_SESSION_KEY
     maker = async_sessionmaker(
         class_=AsyncSession, sync_session_class=AdminSession, expire_on_commit=False
     )

@@ -9,6 +9,8 @@ import re
 from fastapi.routing import APIRoute
 
 _MODULE_ROUTER = re.compile(r"app\.modules\.(?P<module>[a-z_]+)\.http(?:\.|$)")
+_MODULE_ADMIN_ROUTER = re.compile(r"app\.modules\.(?P<module>[a-z_]+)\.admin(?:\.|$)")
+ADMIN_API_MODULE = "app.interfaces.http.admin_api"
 
 
 def operation_id(route: APIRoute) -> str:
@@ -29,3 +31,17 @@ def _owner(module: str) -> str | None:
     if module.startswith("app.interfaces.http."):
         return "system"
     return None
+
+
+def admin_operation_id(route: APIRoute) -> str:
+    """operationId Admin API (admin-openapi.json, 2.7b): обработчики — в `modules/<m>/admin` или в
+    сборке Admin API (журнал аудита платформы — `platform_<функция>`)."""
+    module = route.endpoint.__module__
+    if match := _MODULE_ADMIN_ROUTER.match(module):
+        return f"{match['module']}_{route.name}"
+    if module == ADMIN_API_MODULE:
+        return f"platform_{route.name}"
+    raise ValueError(
+        f"admin route {route.path}: handler {module}.{route.name} must live in"
+        " app/modules/<module>/admin or app/interfaces/http/admin_api.py"
+    )

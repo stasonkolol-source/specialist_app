@@ -141,7 +141,7 @@ seed-demo: ## Демо-специалисты для dev и stage (2.8c): SCALE=
 seeds-validate: ## Сиды: гео, таксономия, запросы (0.27), словарь модерации и его примеры (2.4)
 	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli seeds-validate
 
-openapi: ## Контракт: backend/openapi.json из кода и перегенерация api-client
+openapi: ## Контракты: backend/openapi.json и admin-openapi.json из кода, перегенерация api-client
 	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli openapi
 	@if grep -q '"generate"' packages/api-client/package.json 2>/dev/null; then $(PNPM) -F api-client generate; fi
 
