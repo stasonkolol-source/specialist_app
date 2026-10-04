@@ -1,8 +1,10 @@
 """Вход персонала и разделы админки (DEVELOPMENT_PLAN 2.7a–b): SQLAdmin на /admin.
 
 2.7a: без кода TOTP не войти, код второй раз не принимается; moderator не видит разделов admin;
-неудачные входы ограничены лимитом. 2.7b: правка категории (и её названия формой LocalizedText)
-пишет аудит и выпускает CatalogChanged (advisory lock — тот же, что у импорта); новое стоп-слово
+неудачные входы ограничены лимитом. 8.4: секрет TOTP в БД зашифрован, строки до 8.4 и секреты под
+прежним ключом перешифровываются входом и `cli staff-totp-reencrypt`. 2.7b: правка категории (и
+её названия формой LocalizedText) пишет аудит и выпускает CatalogChanged (advisory lock — тот же,
+что у импорта); новое стоп-слово
 и регулярка действуют без перезапуска, регулярку проверяет то же, что сид в seeds-validate (RE2),
 страница «Проверить правило» показывает пробу и прогон по набору; решение по кейсу — через use
 case, с аудитом. Флаги, client-config, Founding и сиды поверх правки — test_admin_sections.py.
@@ -10,6 +12,7 @@ case, с аудитом. Флаги, client-config, Founding и сиды пов�
 Данные коммитятся: у каждого теста свои пользователи, логины и адрес клиента (лимиты в Valkey).
 """
 
+import secrets
 from uuid import UUID
 
 import pyotp
@@ -17,12 +20,20 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from app.entrypoints._wiring import make_web_container
+from app.modules.identity.application.use_cases.reencrypt_staff_totp_secrets import (
+    ReencryptStaffTotpSecrets,
+    ReencryptStaffTotpSecretsCommand,
+)
+from app.modules.identity.di import DEV_TOTP_KEY
 from app.modules.moderation.application.ports import RuleSource
 from app.modules.moderation.application.use_cases.open_case import OpenCase, OpenCaseCommand
 from app.modules.moderation.domain.cases import CaseTrigger, EntityType
 from app.modules.moderation.domain.queues import Queue
 from app.platform.kernel.ids import new_id
-from tests.plugins.admin import Admin, audit_count, login, staff
+from app.platform.security.secretbox import key_id
+from app.platform.settings import Settings
+from tests.plugins.admin import Admin, audit_count, login, staff, stored_totp_secret
 from tests.plugins.admin import client_ip as _ip
 from tests.plugins.identity import insert_user, new_telegram_id
 
@@ -41,6 +52,65 @@ async def test_admin_auth_requires_totp_and_rejects_replay(admin: Admin) -> None
     async with admin.client(_ip()) as other:
         assert await login(other, who, code=code) == 400  # тот же код второй раз не входит
     assert await audit_count(admin, "identity.staff.login", who.user_id) == 1
+
+
+async def test_admin_auth_totp_secret_is_encrypted_and_legacy_rows_reencrypt_on_login(
+    admin: Admin,
+) -> None:
+    who = await staff(admin, "admin")
+    stored = await stored_totp_secret(admin, who.user_id)
+    assert stored.startswith(f"v1:{key_id(DEV_TOTP_KEY)}:")
+    assert who.secret not in stored
+    # строка до 8.4: секрет открытым base32 — вход работает и перешифровывает её
+    legacy = await staff(admin, "support")
+    async with (await admin.engine()).begin() as conn:
+        await conn.execute(
+            text("UPDATE identity.staff_credentials SET totp_secret = :plain WHERE user_id = :id"),
+            {"plain": legacy.secret, "id": legacy.user_id},
+        )
+    async with admin.client(_ip()) as client:
+        assert await login(client, legacy) == 302
+    reencrypted = await stored_totp_secret(admin, legacy.user_id)
+    assert reencrypted.startswith(f"v1:{key_id(DEV_TOTP_KEY)}:")
+    assert legacy.secret not in reencrypted
+
+
+async def test_admin_auth_totp_key_rotation(admin: Admin, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Новый APP_TOTP_KEY, прежний — в APP_TOTP_KEY_PREVIOUS (secrets-rotation.md): вход и
+    `cli staff-totp-reencrypt` перешифровывают новым; чужой ключ — входа нет."""
+    on_login = await staff(admin, "admin")
+    by_command = await staff(admin, "support")
+    lost = await staff(admin, "moderator")
+    async with (await admin.engine()).begin() as conn:
+        await conn.execute(
+            text("UPDATE identity.staff_credentials SET totp_secret = :bad WHERE user_id = :id"),
+            {"bad": "v1:00000000:" + "A" * 80, "id": lost.user_id},  # ключ, которого у нас нет
+        )
+    new_key = secrets.token_bytes(32)
+    monkeypatch.setenv("APP_TOTP_KEY", new_key.hex())
+    monkeypatch.setenv("APP_TOTP_KEY_PREVIOUS", DEV_TOTP_KEY.hex())
+    settings = Settings(env_file=None)
+    rotated = Admin(container=make_web_container(settings), settings=settings)
+    try:
+        async with rotated.client(_ip()) as client:
+            assert await login(client, on_login) == 302
+            assert await login(client, lost) == 400  # не расшифровать — входа нет
+        assert (await stored_totp_secret(admin, on_login.user_id)).startswith(
+            f"v1:{key_id(new_key)}:"
+        )
+        async with rotated.container() as request:
+            reencrypt = await request.get(ReencryptStaffTotpSecrets)
+            first = await reencrypt(ReencryptStaffTotpSecretsCommand())
+            again = await reencrypt(ReencryptStaffTotpSecretsCommand())
+    finally:
+        await rotated.container.close()
+    assert (await stored_totp_secret(admin, by_command.user_id)).startswith(
+        f"v1:{key_id(new_key)}:"
+    )
+    assert first.reencrypted >= 1
+    assert lost.user_id in first.undecryptable
+    assert again.reencrypted == 0  # повтор ничего не меняет
+    assert again.undecryptable == first.undecryptable
 
 
 async def test_admin_auth_moderator_does_not_see_admin_sections(admin: Admin) -> None:

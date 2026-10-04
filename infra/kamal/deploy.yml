@@ -97,6 +97,8 @@ env:
   # Имена — те же, что в backend/.env.example; значения — infra/kamal/secrets.<destination>.
   # APP_ADMIN_SESSION_KEY — только при ADMIN_HOST: без ключа web не монтирует /admin (2.7a), а
   # ADMIN_HOST деплой задаёт, только когда хост админки закрыт Cloudflare Access (K31; 2.7b, 3.1c).
+  # С ним же — APP_TOTP_KEY (шифрование секретов TOTP персонала, 8.4: с ключом сессии и без него
+  # процессы не стартуют) и APP_TOTP_KEY_PREVIOUS (пустой, кроме ротации — secrets-rotation.md).
   secret:
     - DB_DSN
     - DB_MIGRATOR_DSN
@@ -111,6 +113,8 @@ env:
     # условие ERB — в комментариях YAML: файл остаётся валидным YAML и до подстановки (check-yaml)
     # <% if ENV["ADMIN_HOST"].to_s != "" %>
     - APP_ADMIN_SESSION_KEY
+    - APP_TOTP_KEY
+    - APP_TOTP_KEY_PREVIOUS
     # <% end %>
 
 # Accessories живут дольше релизов: deploy их не трогает, обновление — kamal accessory reboot.

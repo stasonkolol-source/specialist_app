@@ -1,7 +1,7 @@
 """Порты модуля identity (ADR-0020 §3, §5)."""
 
 from collections.abc import Collection, Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Final, Protocol
 
@@ -139,7 +139,9 @@ class StaffCredential:
     user_id: UserId
     login: str
     password_hash: str
-    totp_secret: str
+    encrypted_totp_secret: str = field(repr=False)
+    """Секрет TOTP, как он лежит в БД: зашифрован (`TotpSecretCipher`, 8.4). В строках до 8.4 —
+    открытый base32, их перешифровывают удачный вход и `cli staff-totp-reencrypt`."""
     totp_last_step: int | None
 
 
@@ -164,6 +166,15 @@ class StaffCredentials(Protocol):
         """Запомнить шаг принятого кода TOTP. Нужен активный UoW."""
         ...
 
+    async def replace_totp_secret(self, user_id: UserId, encrypted_totp_secret: str) -> None:
+        """Записать тот же секрет TOTP, перешифрованный текущим ключом. Нужен активный UoW."""
+        ...
+
+    async def encrypted_totp_secrets(self) -> dict[UserId, str]:
+        """Секреты TOTP всех входов персонала (и удалённых аккаунтов) как в БД; строки
+        заблокированы до конца транзакции. Нужен активный UoW."""
+        ...
+
 
 class StaffSecrets(Protocol):
     """Пароли и TOTP персонала (argon2, RFC 6238) — библиотеки в инфраструктуре."""
@@ -186,6 +197,29 @@ class StaffSecrets(Protocol):
 
     def totp_step(self, secret: str, code: str, now: datetime) -> int | None:
         """Шаг (30 с), которому соответствует код, с допуском ±1 шаг; не подходит — None."""
+        ...
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class TotpSecret:
+    """Расшифрованный секрет TOTP сотрудника."""
+
+    value: str = field(repr=False)
+    stale: bool
+    """Зашифрован прежним ключом (APP_TOTP_KEY_PREVIOUS) или лежит открытым (строки до 8.4):
+    перешифровать текущим ключом."""
+
+
+class TotpSecretCipher(Protocol):
+    """Секреты TOTP персонала в БД — только зашифрованными (8.4; ASVS V6): ключ приложения
+    APP_TOTP_KEY. Ни секрет, ни шифротекст не пишутся в логи и аудит."""
+
+    def encrypt(self, secret: str, user_id: UserId) -> str:
+        """Зашифровать текущим ключом; шифротекст привязан к сотруднику."""
+        ...
+
+    def decrypt(self, stored: str, user_id: UserId) -> TotpSecret | None:
+        """None — не расшифровать (чужой ключ, подмена, порча): входа нет (fail closed)."""
         ...
 
 
