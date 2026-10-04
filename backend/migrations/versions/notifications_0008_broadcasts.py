@@ -8,7 +8,7 @@ DROP → ADD … NOT VALID → VALIDATE после commit, как в notificatio
 CONCURRENTLY. Downgrade удаляет уведомления рассылок.
 
 Ревизия: notifications_0008 (2026-10-04 18:00:00.000000+00:00)
-Предыдущая: identity_0007
+Предыдущая: reviews_0004
 
 Правила (DEVELOPMENT_PLAN 0.9, ADR-0005):
 - имя ревизии — <модуль>_NNNN, файл — <модуль>_NNNN_<slug>.py;
@@ -25,7 +25,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "notifications_0008"
-down_revision: str | Sequence[str] | None = "identity_0007"
+down_revision: str | Sequence[str] | None = "reviews_0004"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
