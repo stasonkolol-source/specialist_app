@@ -1,14 +1,16 @@
 // S21 «Заявка опубликована» (DEVELOPMENT_PLAN 5.2): итог публикации — опубликована сразу или на
 // проверке (обычно минуты). Если боту нельзя писать — контекстный запрос «Сообщать об откликах?»
 // (shared/BotChannel.tsx). MainButton «К заявке» — своя заявка S23 (5.6). Опубликованной сразу —
-// «Пригласите специалистов» из каталога (5.6); прямой запрос — «Запрос отправлен». «Поделиться в
-// чат» — 7.4. Подписчикам заявка уходит сразу после публикации (5.7): пока число уведомлённых не
-// пришло, экран перечитывает заявку пару раз и показывает «Уведомили N исполнителей рядом».
+// «Пригласите специалистов» из каталога (5.6); прямой запрос — «Запрос отправлен». Подписчикам
+// заявка уходит сразу после публикации (5.7): пока число уведомлённых не пришло, экран перечитывает
+// заявку пару раз и показывает «Уведомили N исполнителей рядом». «Поделиться в чат» (7.4) — у
+// опубликованной не прямым запросом: ссылка в поле с «Скопировать» и «Отправить в чат Telegram» —
+// карточка в выбор чата или ссылка.
 import type { JobOut } from '@sosed/api-client';
-import { useJob } from '@sosed/hooks';
+import { shareVia, useJob, useShareLink } from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
-import { useBackButton } from '@sosed/platform';
-import { EmptyState, Heading, Icon, Text } from '@sosed/ui-web';
+import { useBackButton, usePlatform } from '@sosed/platform';
+import { Button, Card, EmptyState, Heading, Icon, IconButton, Input, Text } from '@sosed/ui-web';
 import { useRouter, useSearch } from '@tanstack/react-router';
 import { useEffect, useId } from 'react';
 
@@ -16,6 +18,7 @@ import { BotChannel } from '../shared/BotChannel.tsx';
 import { InviteList } from '../shared/InviteList.tsx';
 import { useStepButton } from '../shared/flow.ts';
 import { CREATE_PATHS, HOME_PATH, managePath } from '../shared/paths.ts';
+import { shareable, useJobShare } from '../shared/share.tsx';
 
 /** Подписчиков считает задача после публикации: через пару секунд число уже есть. */
 const NOTIFIED_RETRY_MS = [2_000, 6_000];
@@ -52,6 +55,53 @@ export function PublishedScreen() {
   }
   if (!job.data) return null;
   return <Published job={job.data} />;
+}
+
+/** «Поделиться в чат»: ссылка на заявку (у вошедшего — с его кодом) и отправка в чат Telegram. */
+function ShareToChat({ jobId }: { jobId: string }) {
+  const { t } = useTranslation();
+  const platform = usePlatform();
+  const titleId = useId();
+  const link = useShareLink({ type: 'job', id: jobId });
+  const sharing = useJobShare(jobId);
+  if (link.isError) return null;
+  const out = link.data;
+  return (
+    <Card as="section" aria-labelledby={titleId}>
+      <div className="flex flex-col gap-1">
+        <Heading variant="h3" as="h2" id={titleId}>
+          {t('share.toChat')}
+        </Heading>
+        <Text variant="cap">{t('share.toChatHint')}</Text>
+      </div>
+      <Input
+        icon="link"
+        readOnly
+        value={out ? out.url.replace(/^https:\/\//, '') : ''}
+        aria-label={t('share.link')}
+        aria-busy={!out || undefined}
+        suffix={
+          <IconButton
+            plain
+            icon="copy"
+            label={t('share.copy')}
+            className="-mr-3"
+            onClick={() => out && sharing.copy(out.url)}
+          />
+        }
+      />
+      <Button
+        variant="secondary"
+        icon="send"
+        full
+        disabled={!out}
+        onClick={() => out && void shareVia(platform, out)}
+      >
+        {t('share.send')}
+      </Button>
+      {sharing.notice}
+    </Card>
+  );
 }
 
 function Published({ job }: { job: JobOut }) {
@@ -96,6 +146,7 @@ function Published({ job }: { job: JobOut }) {
           denied: t('published.notifyDenied'),
         }}
       />
+      {shareable(job) && <ShareToChat jobId={job.id} />}
       {published && !direct && (
         <section aria-labelledby={inviteId} className="flex flex-col gap-2">
           <div className="flex flex-col gap-1 px-1">

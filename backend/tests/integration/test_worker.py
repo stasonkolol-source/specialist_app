@@ -210,6 +210,7 @@ async def test_platform_periodic_tasks_are_scheduled(container: AsyncContainer) 
         "deals.dispute_response_sla": "14,44 * * * *",
         "reviews.reminders": "17 * * * *",
         "reviews.recompute_ratings": "5 3 * * *",
+        "analytics.response_rate_alert": "5 7 * * *",
     }
 
 

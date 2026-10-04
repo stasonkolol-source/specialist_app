@@ -333,3 +333,5 @@ export {
 } from './safety/reports.ts';
 export type { ReportTarget } from './safety/reportRequest.ts';
 export { closeReport, openReport, useReportTarget } from './safety/reportRequest.ts';
+export type { ShareChannel, ShareOutcome, ShareTargetRef } from './share/share.ts';
+export { COPIED_TOAST_MS, shareVia, useShare, useShareLink } from './share/share.ts';

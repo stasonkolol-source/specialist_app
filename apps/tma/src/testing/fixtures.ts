@@ -20,6 +20,8 @@ import type {
   NotificationType,
   ProfileOut,
   ServiceOut,
+  ShareIn,
+  ShareOut,
   SpecialistCardOut,
   SpecialistPageOut,
   SpecialistProfileOut,
@@ -830,4 +832,32 @@ export function suggestFor(q: string, locale: string | null): SuggestOut {
       fuzzy: false,
     }));
   return { items };
+}
+
+/** Код приглашения вошедшего в ссылках «Поделиться» (7.4). */
+export const SHARE_REF = 'E2Eref01';
+export const SHARE_BOT = 'sosed_rs_bot';
+
+/** POST /share (7.4): ссылка `t.me/<bot>?startapp=s_…|j_…` — у вошедшего с кодом `_r` и
+ *  карточкой для shareMessage, у гостя — без. Неизвестный тип — 422, не UUID — 404. */
+export function shareReply(body: unknown, signedIn: boolean): { status: number; body: unknown } {
+  const { entity_type: type, entity_id: id } = (body ?? {}) as Partial<ShareIn>;
+  if (type !== 'specialist' && type !== 'job') {
+    return { status: 422, body: { status: 422, code: 'validation_error', title: 'Invalid' } };
+  }
+  if (!id || !isUuid(id)) {
+    return { status: 404, body: { status: 404, code: 'not_found', title: 'Not found' } };
+  }
+  const start = encodeStartParam({
+    type,
+    id,
+    ...(signedIn ? { ref: SHARE_REF } : {}),
+  });
+  const out: ShareOut = {
+    url: `https://t.me/${SHARE_BOT}?startapp=${start}`,
+    start_param: start,
+    text: type === 'job' ? 'Заявка' : 'Специалист',
+    prepared_message_id: signedIn ? `prepared-${type}` : null,
+  };
+  return { status: 200, body: out };
 }

@@ -14,6 +14,7 @@ from structlog.testing import capture_logs
 
 from app.modules.deals.domain.deal import MODERATOR, SYSTEM, DealCancelReason, DealOrigin, DealRole
 from app.modules.deals.domain.dispute import DisputeKind
+from app.modules.growth.api import ShareTarget
 from app.modules.growth.domain.attribution import AttributionSource
 from app.modules.identity.domain.user import UserIntent
 from app.modules.jobs.domain.alert import AlertDelivery
@@ -41,6 +42,7 @@ from app.platform.analytics.events import (
     REPORT_QUEUES,
     REPORT_REASONS,
     REPORT_TARGETS,
+    SHARE_ENTITIES,
     URGENCIES,
     WRITE_ACCESS_VIA,
     EventName,
@@ -52,6 +54,7 @@ from app.platform.analytics.posthog import PostHogAnalytics
 from app.platform.analytics.tasks import (
     capture_alert_created,
     capture_alerts_matched,
+    capture_attribution_recorded,
     capture_contact_shared,
     capture_conversation_started,
     capture_deal_agreed,
@@ -61,9 +64,11 @@ from app.platform.analytics.tasks import (
     capture_message_sent,
     capture_onboarding_completed,
     capture_report_created,
+    capture_share_created,
     capture_write_access_granted,
 )
 from app.platform.contracts.events.deals import DealAgreed, DealCancelled
+from app.platform.contracts.events.growth import AttributionRecorded, ShareCreated
 from app.platform.contracts.events.identity import EntryPoint, OnboardingCompleted
 from app.platform.contracts.events.jobs import AlertCreated, AlertsMatched, JobInvited
 from app.platform.contracts.events.messaging import ContactShared, ConversationStarted, MessageSent
@@ -145,6 +150,8 @@ def test_wired_events_are_those_of_the_finished_steps() -> None:
         EventName.CONTACT_SHARED: "6.3b",
         EventName.REVIEW_PUBLISHED: "7.2",
         EventName.REPORT_CREATED: "4.7",
+        EventName.SHARE_CREATED: "7.4",
+        EventName.ATTRIBUTION_RECORDED: "7.4",
         EventName.ALERT_CREATED: "5.7",
         EventName.JOB_MATCHED_NOTIFIED: "5.7",
         EventName.GOODS_WAITLIST_JOINED: "7.5",
@@ -170,6 +177,7 @@ def test_closed_lists_match_the_domain() -> None:
     assert {t.value for t in REASONS} == REPORT_TARGETS
     assert {report_queue(r).value for r in ReportReason} == REPORT_QUEUES
     assert REPORT_QUEUES.issubset({q.value for q in Queue})
+    assert {t.value for t in ShareTarget} == SHARE_ENTITIES
     assert {d.value for d in AlertDelivery} == ALERT_DELIVERIES
 
 
@@ -230,7 +238,7 @@ def test_city_is_a_reference_id_not_text() -> None:
 def test_declared_but_not_wired_event_is_refused() -> None:
     with pytest.raises(ValueError, match="not wired yet"):
         analytics_event(
-            EventName.SHARE_CREATED,
+            EventName.PHONE_VERIFIED,  # подтверждение телефона — v1
             user_id=new_id(),
             occurred_at=NOW,
             source_event_id=new_id(),
@@ -375,7 +383,7 @@ def test_posthog_host_must_be_https() -> None:
         ),
         AnalyticsEvent(name="made_up", distinct_id=new_id(), occurred_at=NOW, event_id=new_id()),
         AnalyticsEvent(
-            name="share_created", distinct_id=new_id(), occurred_at=NOW, event_id=new_id()
+            name="phone_verified", distinct_id=new_id(), occurred_at=NOW, event_id=new_id()
         ),
     ],
     ids=["pii-property", "unknown-event", "not-wired"],
@@ -581,6 +589,28 @@ async def test_report_is_captured_from_the_reporter() -> None:
     [event] = fake.captured
     assert (event.name, event.distinct_id) == ("report_created", reporter)
     assert event.properties == {"target": "profile", "reason": "fraud", "queue": "fraud"}
+
+
+async def test_share_and_attribution_feed_the_share_k_factor() -> None:
+    """7.4: ссылка — от того, кто делится (на что и готова ли карточка); первое касание — от
+    нового пользователя (тип ссылки и был ли код `_r`). Без id сущностей и кодов."""
+    fake = LoggingAnalytics()
+    sharer, newcomer = UserId(new_id()), UserId(new_id())
+    await capture_share_created(
+        ShareCreated(sharer_id=sharer, entity_type="job", prepared=True, occurred_at=NOW), fake
+    )
+    await capture_attribution_recorded(
+        AttributionRecorded(
+            user_id=newcomer, source="specialist", has_referral=True, occurred_at=NOW
+        ),
+        fake,
+    )
+
+    shared, attributed = fake.captured
+    assert (shared.name, shared.distinct_id) == ("share_created", sharer)
+    assert shared.properties == {"entity": "job", "prepared": True}
+    assert (attributed.name, attributed.distinct_id) == ("attribution_recorded", newcomer)
+    assert attributed.properties == {"source": "specialist", "has_referral": True}
 
 
 async def test_chat_events_say_who_and_whether_contacts_were_hidden() -> None:

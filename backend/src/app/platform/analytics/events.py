@@ -147,6 +147,8 @@ REPORT_REASONS: Final = frozenset(
 """ReportReason жалобы (moderation, 4.7)."""
 REPORT_QUEUES: Final = frozenset({"safety", "fraud"})
 """Очередь кейса жалобы: P0 или P1 (§14.2)."""
+SHARE_ENTITIES: Final = frozenset({"specialist", "job"})
+"""ShareTarget growth (7.4): чем делятся — карточкой специалиста или заявкой."""
 ALERT_DELIVERIES: Final = frozenset({"instant", "digest"})
 """AlertDelivery подписки (jobs, 5.7): сразу или подборкой."""
 ALERT_AREAS: Final = frozenset({"city", "districts", "radius"})
@@ -310,8 +312,20 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
         description="Опубликован отзыв по сделке (прошёл проверку): оценка и есть ли текст",
         properties={"rating": Count(), "has_text": Flag()},
     ),
-    EventName.SHARE_CREATED: EventSpec(step="7.4", description="Поделились ссылкой"),
-    EventName.ATTRIBUTION_RECORDED: EventSpec(step="7.4", description="Атрибуция по ссылке"),
+    EventName.SHARE_CREATED: EventSpec(
+        step="7.4",
+        description="«Поделиться»: вошедший взял ссылку со своим кодом `_r` — на что и готова ли "
+        "карточка для shareMessage",
+        properties={"entity": Choice(SHARE_ENTITIES), "prepared": Flag()},
+    ),
+    EventName.ATTRIBUTION_RECORDED: EventSpec(
+        step="7.4",
+        description="Первое касание нового пользователя: тип ссылки и был ли код `_r`",
+        properties={
+            "source": Choice(frozenset(s.value for s in LinkSource)),
+            "has_referral": Flag(),
+        },
+    ),
     EventName.GOODS_WAITLIST_JOINED: EventSpec(
         step="7.5",
         description="«Сообщить о запуске» на S58: может ли бот написать сейчас",
