@@ -217,7 +217,7 @@
 
 ## Как вписать секрет
 
-`make secrets-dev` появится в шаге 0.3. `make secret` (цели `dev`, `tf-stage`, `tf-prod`) и `make secrets-check` — в шаге 0.4. Цели `stage` и `production`, `make gen-secret` и `make gen-age` — в шаге 0.25c, по решению Q1. Раньше секреты не нужны.
+`make secrets-dev` появится в шаге 0.3. `make secret` (цели `dev`, `tf-stage`, `tf-prod`) и `make secrets-check` — в шаге 0.4. Цели `stage` и `production` и `make gen-secret` готовы с шага 0.25c по варианту Q1(б) — в GitHub environment через `gh` (нужен `gh auth login`, K3); `make gen-age` — только если в Q1 выберете SOPS. Раньше секреты не нужны.
 
 **1. Откройте Терминал.** Нажмите ⌘ + пробел, наберите «Терминал» (или Terminal) и нажмите Enter. Это отдельное окно, не чат с ассистентом: ассистент не видит, что вы в нём вводите. Команды из этого раздела не набирайте в чате через `!`, иначе вывод попадёт в историю.
 
@@ -231,7 +231,7 @@ make secret NAME=TELEGRAM_BOT_TOKEN TARGET=dev
 
 - `TARGET=dev` — в `backend/.env`;
 - `TARGET=tf-stage` или `tf-prod` — в `infra/terraform/stage/.env` или `infra/terraform/prod/.env`;
-- `TARGET=stage` или `production` — в GitHub environment (через `gh secret set --env`) или в SOPS-файл, в зависимости от решения Q1.
+- `TARGET=stage` или `production` — в GitHub environment (через `gh secret set --env`, значение уходит через stdin) или, при Q1(а), в SOPS-файл.
 
 Скрипт попросит вставить значение. Вставьте его через ⌘V. **Символы при вводе не отображаются, так и должно быть.** Нажмите Enter. Скрипт ответит, например, «TELEGRAM_BOT_TOKEN записан в backend/.env (46 символов)» и больше ничего не напечатает. Если длина не та, что вы ожидали, повторите команду.
 
