@@ -40,9 +40,10 @@ def main() -> None:
         port=app.web_port,
         access_log=False,  # access-лог пишет RequestContextMiddleware в формате structlog
         log_config=None,
-        proxy_headers=True,
-        # X-Forwarded-For принимаем от kamal-proxy в сети контейнеров; локально — только loopback
-        forwarded_allow_ips="*" if app.web_host == "0.0.0.0" else "127.0.0.1",  # noqa: S104
+        # Адрес клиента и схему из X-Forwarded-* выбирает ClientAddressMiddleware (8.4): uvicorn
+        # с forwarded_allow_ips="*" брал левый адрес цепочки, а его подставляет сам клиент.
+        proxy_headers=False,
+        server_header=False,  # версия сервера наружу не нужна (ASVS V14.3.3)
     )
 
 

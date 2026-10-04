@@ -164,7 +164,7 @@ dev-bot: ## Бот в режиме polling (dev)
 
 dev-web: ## API на 127.0.0.1:8000 с автоперезагрузкой (/up, /api/v1/docs)
 	@cd $(BACKEND) && $(UV) run uvicorn app.entrypoints.web:create --factory --reload \
-	  --host 127.0.0.1 --port 8000 --no-access-log
+	  --host 127.0.0.1 --port 8000 --no-access-log --no-proxy-headers --no-server-header
 
 dev-worker: ## Воркер задач на dev-стенде (очереди default и notifications; ROLE=worker-media — media)
 	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.worker --role $(or $(ROLE),worker)
