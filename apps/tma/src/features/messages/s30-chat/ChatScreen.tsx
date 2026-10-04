@@ -346,7 +346,8 @@ function Header({
       <span className="flex min-w-0 flex-col">
         {/* имя собеседника — заголовок экрана: размер и вес — как у строки рядом */}
         <h1 className="m-0 truncate text-[1em] font-semibold">{name}</h1>
-        <span className="text-cap text-text2">{t(`deal.${state}`)}</span>
+        {/* одной строкой, как на артборде: «⋯» справа не переносит «Ещё не договорились» */}
+        <span className="truncate text-cap text-text2">{t(`deal.${state}`)}</span>
       </span>
     </>
   );
@@ -358,8 +359,9 @@ function Header({
 
   let action: ReactNode = null;
   if (open && (state === 'agreed' || state === 'completed')) {
+    // вторичной, как кнопка сделки в шапке артборда S54
     action = (
-      <Button size="sm" onClick={onShare}>
+      <Button size="sm" variant="secondary" onClick={onShare}>
         {t('chat.shareContact')}
       </Button>
     );
@@ -391,7 +393,7 @@ function Header({
   return (
     <header
       aria-label={name}
-      className="sticky top-0 z-10 flex items-center gap-2.5 border-0 border-b border-solid border-line bg-bg px-4 py-2.5"
+      className="sticky top-0 z-10 flex items-center gap-2 border-0 border-b border-solid border-line bg-bg px-4 py-2.5"
     >
       {profileId ? (
         <a
@@ -417,7 +419,15 @@ function Header({
       )}
       {action}
       {conversation.counterpart_name !== null && (
-        <IconButton plain icon="more" label={t('chat.menu')} className="-mr-2" onClick={onMenu} />
+        // на артборде «⋯» — в шапке Telegram, здесь — в своей: прозрачные поля кнопки заходят в
+        // отступы, чтобы имени и статусу осталось место (зона нажатия — те же 44 × 44)
+        <IconButton
+          plain
+          icon="more"
+          label={t('chat.menu')}
+          className="-mr-3 -ml-2"
+          onClick={onMenu}
+        />
       )}
     </header>
   );

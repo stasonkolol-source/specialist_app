@@ -1604,7 +1604,12 @@ export function proposedDealFixture(conversationId: string): DealCardOut {
       phone_verified: false,
       telegram: null,
     },
-    place: { city: { id: 1, name: 'Нови-Сад' }, district: null, address: null, point: null },
+    place: {
+      city: { id: 1, name: 'Нови-Сад' },
+      district: { id: DISTRICT_IDS.Лиман, name: 'Лиман' },
+      address: null,
+      point: null,
+    },
     timeline: {
       responded_at: null,
       agreed_at: null,
