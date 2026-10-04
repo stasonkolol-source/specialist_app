@@ -1,4 +1,5 @@
-"""Реализация SpecialistsApi (ADR-0020 §6): проверка профиля для модерации, профили для поиска."""
+"""Реализация SpecialistsApi (ADR-0020 §6): проверка профиля и работ портфолио для модерации,
+профили для поиска."""
 
 from collections.abc import Collection
 from uuid import UUID
@@ -12,12 +13,16 @@ from app.modules.specialists.api import (
     PublicCard,
     PublicProfile,
     SpecialistsApi,
+    WorkForReview,
 )
 from app.modules.specialists.application.ports import (
     PortfolioQuery,
+    PortfolioRepository,
     ProfileQuery,
     ProfileRepository,
 )
+from app.modules.specialists.application.profiles import request_work_review
+from app.modules.specialists.domain.portfolio import WorkStatus
 from app.modules.specialists.domain.profile import ProfileId, ProfileStatus
 from app.modules.specialists.errors import ProfileNotFoundError
 from app.platform.db.port import UnitOfWork
@@ -36,11 +41,13 @@ class SpecialistsFacade(SpecialistsApi):
         profiles: ProfileRepository,
         query: ProfileQuery,
         portfolio: PortfolioQuery,
+        works: PortfolioRepository,
         catalog: CatalogApi,
         clock: Clock,
     ) -> None:
         self._uow, self._profiles, self._query = uow, profiles, query
-        self._portfolio, self._catalog, self._clock = portfolio, catalog, clock
+        self._portfolio, self._works = portfolio, works
+        self._catalog, self._clock = catalog, clock
 
     async def profile_of(self, user_id: UserId) -> ProfileRef | None:
         view = await self._query.of_user(user_id)
@@ -110,3 +117,50 @@ class SpecialistsFacade(SpecialistsApi):
             return
         profile.reject(reason_code=reason_code, now=self._clock.now())
         await self._profiles.save(profile)
+
+    async def work_for_review(self, work_id: UUID) -> WorkForReview | None:
+        item = await self._portfolio.get(work_id)
+        if item is None or item.status is WorkStatus.REJECTED:
+            return None
+        found = await self._query.for_index([item.profile_id])
+        if not found:
+            return None
+        profile = found[0]
+        categories = await self._catalog.categories(profile.category_ids)
+        return WorkForReview(
+            user_id=profile.user_id,
+            caption=item.caption,
+            media_id=item.media_id,
+            pending=item.pending,
+            new_profile=profile.published_at is None,
+            risk_level=max((int(c.risk_level) for c in categories), default=0),
+        )
+
+    async def approve_work(self, work_id: UUID) -> None:
+        self._uow.require_active()
+        item = await self._works.get_for_update(work_id)
+        if item is not None and item.approve():
+            await self._works.save(item)
+
+    async def reject_work(self, work_id: UUID) -> None:
+        self._uow.require_active()
+        item = await self._works.get_for_update(work_id)
+        if item is not None and item.reject():
+            await self._works.save(item)
+
+    async def recheck_works(self, media_id: MediaId) -> int:
+        self._uow.require_active()
+        waiting = [item for item in await self._portfolio.by_media([media_id]) if item.pending]
+        if not waiting:
+            return 0
+        owners = {
+            profile.id: profile.user_id
+            for profile in await self._query.for_index({item.profile_id for item in waiting})
+        }
+        now = self._clock.now()
+        requested = 0
+        for item in waiting:
+            if (owner := owners.get(item.profile_id)) is not None:
+                request_work_review(self._uow, item, owner, now=now)
+                requested += 1
+        return requested

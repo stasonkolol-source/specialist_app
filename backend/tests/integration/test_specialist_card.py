@@ -11,6 +11,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.modules.identity.api import RestrictionKind
+from app.modules.specialists.api import SpecialistsApi
 from app.modules.specialists.application.use_cases.add_portfolio_work import (
     AddPortfolioWork,
     AddPortfolioWorkCommand,
@@ -19,6 +20,7 @@ from app.modules.specialists.application.use_cases.hide_profile import (
     HideProfile,
     HideProfileCommand,
 )
+from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import MediaId, new_id
 from app.platform.settings import Settings
 from tests.plugins.http import HttpApp, http_app
@@ -61,16 +63,27 @@ async def photo(specialist: Specialist, status: str = "ready") -> MediaId:
 
 
 async def published(app: HttpApp) -> Specialist:
+    """Опубликованный профиль: работа с готовым файлом и работа, чей файл обрабатывается, —
+    обе прошли модерацию (6.7); третья ещё на проверке — клиенту её не видно."""
     specialist = Specialist(app.container)
     await specialist.publish()
-    for caption, status in (("Люстра в гостиной", "ready"), (None, "processing")):
+    for caption, status, approved in (
+        ("Люстра в гостиной", "ready", True),
+        (None, "processing", True),
+        ("На проверке", "ready", False),
+    ):
         media_id = await photo(specialist, status)
-        await specialist.call(
+        work = await specialist.call(
             AddPortfolioWork,
             AddPortfolioWorkCommand(
                 actor_id=specialist.user_id, media_id=media_id, caption=caption
             ),
         )
+        if approved:
+            async with app.container() as request:
+                uow, specialists = await request.get(UnitOfWork), await request.get(SpecialistsApi)
+                async with uow:
+                    await specialists.approve_work(work.id)
     return specialist
 
 
@@ -91,7 +104,7 @@ async def test_card_comes_in_one_request_with_etag(web: HttpApp) -> None:
     assert card["city"]["name"] == "Нови-Сад"
     assert card["district"] == card["areas"][0]
     assert (card["services_count"], card["services"][0]["title"]) == (1, "Montaža lustera")
-    # обрабатываемый файл клиенту не виден
+    # обрабатываемый файл и работа на проверке клиенту не видны
     assert (card["works_count"], card["works"][0]["caption"]) == (1, "Люстра в гостиной")
     assert card["works"][0]["photo"]["variants"][0]["name"] == "thumb"
     assert response.headers["vary"] == "Accept-Language"

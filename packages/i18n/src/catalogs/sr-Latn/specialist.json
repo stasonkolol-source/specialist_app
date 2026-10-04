@@ -242,7 +242,9 @@
     "work": "Rad {number}",
     "video": "Video: {title}",
     "loading": "Učitavamo portfolio",
-    "empty": "Dodajte fotografije radova — klijenti biraju očima"
+    "empty": "Dodajte fotografije radova — klijenti biraju očima",
+    "review": "Na proveri",
+    "hidden": "Sakrio moderator"
   },
   "work": {
     "title": "Rad",
@@ -255,7 +257,9 @@
     "place": "{place, number} od {count, number}",
     "delete": "Ukloni iz portfolija",
     "deleteConfirm": "Ukloniti rad iz portfolija?",
-    "save": "Sačuvaj"
+    "save": "Sačuvaj",
+    "review": "Rad je na proveri — klijenti će ga videti posle provere",
+    "hidden": "Rad je sakrio moderator — klijenti ga ne vide. Razlog je u obaveštenju"
   },
   "avatar": {
     "label": "Fotografija profila",

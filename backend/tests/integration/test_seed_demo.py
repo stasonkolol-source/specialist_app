@@ -157,7 +157,7 @@ async def test_portfolio_photos_go_through_storage(
         "SELECT count(*) FROM specialists.portfolio_items i JOIN media.assets m ON m.id ="
         " (SELECT media_id FROM specialists.portfolio_media WHERE item_id = i.id LIMIT 1)"
         f" WHERE i.deleted_at IS NULL AND i.profile_id IN (SELECT p.id {DEMO_PROFILES})"
-        " AND m.status = 'uploaded'",
+        " AND m.status = 'uploaded' AND i.status = 'published'",  # сид одобряет и работы (6.7)
         **numbers(scale),
     )
     assert works == report.photos

@@ -1,12 +1,31 @@
 // Работа портфолио (DEVELOPMENT_PLAN 2.11, из S37): фото или ролик крупно, подпись, место в
 // портфолио («Раньше» / «Позже» вместо перетаскивания с артборда S37) и «Убрать из портфолио»
 // после подтверждения. «Сохранить» (MainButton) — PATCH подписи и PUT порядка, только изменённое.
+// Работа на проверке (6.7) — баннер «клиенты увидят её после проверки»; скрытая модератором —
+// баннер с причиной в уведомлении. Новая подпись снова уходит на проверку.
 import type { PortfolioOut, WorkOut } from '@sosed/api-client';
 import { specialistsCaptionMyWork, specialistsReorderMyPortfolio } from '@sosed/api-client';
-import { processing, useMyPortfolio, useMyProfile } from '@sosed/hooks';
+import {
+  hiddenByModerator,
+  onReview,
+  processing,
+  useMyPortfolio,
+  useMyProfile,
+} from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
 import { useBackButton, usePlatform } from '@sosed/platform';
-import { Button, Field, Heading, Icon, Input, Photo, Text, VideoPlayer, cx } from '@sosed/ui-web';
+import {
+  Banner,
+  Button,
+  Field,
+  Heading,
+  Icon,
+  Input,
+  Photo,
+  Text,
+  VideoPlayer,
+  cx,
+} from '@sosed/ui-web';
 import { useMutation } from '@tanstack/react-query';
 import { useParams, useRouter } from '@tanstack/react-router';
 import { useEffect, useId, useState } from 'react';
@@ -135,6 +154,8 @@ function WorkForm({
         {t('work.title')}
       </Heading>
       <WorkMedia work={work} title={title} />
+      {onReview(work) && <Banner tone="info">{t('work.review')}</Banner>}
+      {hiddenByModerator(work) && <Banner tone="danger">{t('work.hidden')}</Banner>}
       <Field
         label={t('work.caption')}
         hint={t('work.captionHint', { count: caption.length, max: MAX_CAPTION })}

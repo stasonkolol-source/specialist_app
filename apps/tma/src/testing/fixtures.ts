@@ -441,6 +441,7 @@ function work(n: number, caption: string | null, kind: WorkKind = 'image'): Work
       video_url: kind === 'video' ? `/cdn/${id}/video.mp4` : null,
       duration_ms: kind === 'video' ? 42_000 : null,
     },
+    status: 'published',
   };
 }
 

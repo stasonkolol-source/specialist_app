@@ -4,12 +4,16 @@
 // место и удаление на экране работы: перетаскивание с артборда в WebView Telegram спорит со
 // свайпом закрытия. Лимиты — 60 фото и 6 роликов (из ответа сервера): лишние файлы не грузятся,
 // баннер говорит, сколько. Файл, не прошедший обработку, — плитка «Не подходит» с «Убрать».
-// Альбомы — v1.
+// Модерация (6.7): новая работа — с бейджем «На проверке», пока не проверены подпись и фото
+// (клиенты её не видят); скрытая модератором — плитка «Скрыто модератором» с «Убрать». На артборде
+// S37 этих состояний нет — нейтральный бейдж дизайн-системы. Альбомы — v1.
 import type { PortfolioOut, WorkOut } from '@sosed/api-client';
 import type { UploadItem } from '@sosed/hooks';
 import {
   PORTFOLIO_ACCEPT,
   broken,
+  hiddenByModerator,
+  onReview,
   portfolioRoom,
   processing,
   useMyPortfolio,
@@ -18,7 +22,7 @@ import {
 } from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
 import { useBackButton, usePlatform } from '@sosed/platform';
-import { AddTile, Banner, Heading, Photo, Text, UploadTile, cx } from '@sosed/ui-web';
+import { AddTile, Badge, Banner, Heading, Photo, Text, UploadTile, cx } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 import type { MouseEvent } from 'react';
 import { useEffect, useState } from 'react';
@@ -196,11 +200,11 @@ function WorkTile({
   const { t: common } = useTranslation();
   const router = useRouter();
   const title = work.caption ?? t('portfolio.work', { number });
-  if (broken(work)) {
+  if (broken(work) || hiddenByModerator(work)) {
     return (
       <UploadTile
         state="failed"
-        label={common('photo.rejected')}
+        label={broken(work) ? common('photo.rejected') : t('portfolio.hidden')}
         retryLabel={common('action.retry')}
         onRemove={onRemove}
         removeLabel={common('photo.remove')}
@@ -209,7 +213,9 @@ function WorkTile({
     );
   }
   const waiting = processing(work);
+  const review = onReview(work);
   const video = work.kind === 'video';
+  const label = video ? t('portfolio.video', { title }) : title;
   const open = (event: MouseEvent<HTMLElement>) => {
     event.preventDefault();
     void router.navigate({ to: CABINET_PATHS.work, params: { itemId: work.id } });
@@ -218,9 +224,9 @@ function WorkTile({
     <a
       href={router.history.createHref(`${CABINET_PATHS.portfolio}/${work.id}`)}
       onClick={open}
-      aria-label={video ? t('portfolio.video', { title }) : title}
+      aria-label={review ? `${label}, ${t('portfolio.review')}` : label}
       className={cx(
-        'block rounded-photo outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+        'relative block rounded-photo outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         TILE,
       )}
     >
@@ -233,6 +239,11 @@ function WorkTile({
         video={video}
         className="size-full"
       />
+      {review && (
+        <Badge className="absolute bottom-1.5 left-1.5 max-w-[calc(100%-0.75rem)]">
+          {t('portfolio.review')}
+        </Badge>
+      )}
     </a>
   );
 }

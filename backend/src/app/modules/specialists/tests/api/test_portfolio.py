@@ -24,12 +24,19 @@ async def test_works_are_added_captioned_reordered_and_removed(cabinet: Cabinet)
     first = added[0].json()
     assert (first["kind"], first["position"], first["media"]["status"]) == ("image", 0, "ready")
     assert first["media"]["variants"][0]["name"] == "thumb"
+    assert first["status"] == "pending"  # новая работа ждёт проверки подписи и фото (6.7)
     # тот же файл второй раз — та же работа, а не копия
     again = await cabinet.portfolio("POST", media_id=photos[0])
     assert again.json()["id"] == first["id"]
 
     captioned = await cabinet.portfolio("PATCH", f"/{first['id']}", caption="  Люстра,   Лиман ")
     assert captioned.json()["caption"] == "Люстра, Лиман"
+    checks = await cabinet.scalar(
+        "SELECT count(*) FROM procrastinate_jobs WHERE task_name = 'moderation.auto_check'"
+        " AND args->'payload'->>'entity_id' = :id",
+        id=first["id"],
+    )
+    assert checks == 2  # новая работа и новая подпись — в конвейер модерации
     ids = [r.json()["id"] for r in added]
     reordered = await cabinet.portfolio("PUT", "/order", item_ids=list(reversed(ids)))
     assert [w["id"] for w in reordered.json()["items"]] == list(reversed(ids))

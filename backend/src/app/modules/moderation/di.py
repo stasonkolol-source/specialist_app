@@ -81,6 +81,7 @@ from app.modules.moderation.infrastructure.targets import TargetRegistry
 from app.modules.moderation.infrastructure.targets.job import JobTarget
 from app.modules.moderation.infrastructure.targets.media import MediaTarget
 from app.modules.moderation.infrastructure.targets.message import MessageTarget
+from app.modules.moderation.infrastructure.targets.portfolio import PortfolioTarget
 from app.modules.moderation.infrastructure.targets.profile import ProfileTarget
 from app.modules.moderation.infrastructure.targets.response import ResponseTarget
 from app.modules.moderation.infrastructure.targets.review import ReviewReplyTarget, ReviewTarget
@@ -88,6 +89,7 @@ from app.modules.moderation.infrastructure.velocity import ValkeyVelocityCounter
 from app.modules.reviews.api import ReviewsApi
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.config.port import LegalVersions
+from app.platform.db.port import UnitOfWork
 from app.platform.i18n.translator import Translator
 from app.platform.legal.port import LegalLibrary
 from app.platform.privacy.port import RetentionHold
@@ -159,11 +161,13 @@ class ModerationProvider(Provider):
         messaging: MessagingApi,
         reviews: ReviewsApi,
         media: MediaModeration,
+        uow: UnitOfWork,
     ) -> ModerationTargets:
         """Адаптеры целей: контентные модули добавляют свои в своих шагах."""
         return TargetRegistry(
             {
-                EntityType.MEDIA: MediaTarget(media),
+                EntityType.MEDIA: MediaTarget(media, specialists),
+                EntityType.PORTFOLIO: PortfolioTarget(uow, specialists, media),
                 EntityType.PROFILE: ProfileTarget(specialists),
                 EntityType.JOB: JobTarget(jobs),
                 EntityType.RESPONSE: ResponseTarget(jobs),

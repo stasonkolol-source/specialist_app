@@ -322,3 +322,4 @@ export * from './workIn.ts';
 export * from './workKind.ts';
 export * from './workMode.ts';
 export * from './workOut.ts';
+export * from './workStatus.ts';
