@@ -28,9 +28,10 @@ from app.modules.moderation.application.ports import (
     RuleSource,
     RuleWriter,
     SanctionRepository,
+    StaffCaseQuery,
     VelocityCounter,
 )
-from app.modules.moderation.application.queries import ModerationQueries
+from app.modules.moderation.application.queries import ModerationQueries, StaffQueries
 from app.modules.moderation.application.use_cases.auto_check import AutoCheck
 from app.modules.moderation.application.use_cases.check_duplicates import CheckDuplicates
 from app.modules.moderation.application.use_cases.check_image import CheckImage
@@ -64,7 +65,11 @@ from app.modules.moderation.infrastructure.chat import TelegramModeratorsChat
 from app.modules.moderation.infrastructure.deletion_hold import CasesDeletionHold
 from app.modules.moderation.infrastructure.legal_hold import CasesLegalHold
 from app.modules.moderation.infrastructure.metrics import PrometheusAutoCheckMetrics
-from app.modules.moderation.infrastructure.queries import SqlCaseQueue, SqlCaseStats
+from app.modules.moderation.infrastructure.queries import (
+    SqlCaseQueue,
+    SqlCaseStats,
+    SqlStaffCaseQuery,
+)
 from app.modules.moderation.infrastructure.quota import ValkeyReportQuota
 from app.modules.moderation.infrastructure.rate_limits import ValkeyRateLimitOverflows
 from app.modules.moderation.infrastructure.regex import RE2
@@ -183,6 +188,7 @@ class ModerationProvider(Provider):
     signals = provide(SqlRiskSignals, provides=RiskSignals)
     stats = provide(SqlCaseStats, provides=CaseStats)
     case_queue = provide(SqlCaseQueue, provides=CaseQueue)
+    staff_cases = provide(SqlStaffCaseQuery, provides=StaffCaseQuery)
     opener = provide(CaseOpener)
     auto_check = provide(AutoCheck)
     check_duplicates = provide(CheckDuplicates)
@@ -193,6 +199,7 @@ class ModerationProvider(Provider):
     record_reregistration = provide(RecordReregistration)
     """media.purge_deleted не стирает доказательства открытых кейсов (ADR-0016 §6)."""
     queries = provide(ModerationQueries)
+    staff_queries = provide(StaffQueries)
     open_case = provide(OpenCase)
     take_case = provide(TakeCase)
     escalate_case = provide(EscalateCase)

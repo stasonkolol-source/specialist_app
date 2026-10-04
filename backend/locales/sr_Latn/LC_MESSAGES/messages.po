@@ -267,6 +267,18 @@ msgstr "Potrebno je da se prijavite."
 msgid "errors.forbidden"
 msgstr "Nemate pravo na ovu radnju."
 
+msgid "errors.csrf_rejected"
+msgstr "Zahtev je odbijen: pošaljite ga sa stranice administracije."
+
+msgid "errors.report_not_found"
+msgstr "Prijava nije pronađena."
+
+msgid "errors.restriction_not_found"
+msgstr "Korisnik nema takvu aktivnu sankciju."
+
+msgid "errors.invalid_admin_change"
+msgstr "Izmena nije prihvaćena: {reason}"
+
 msgid "errors.restricted"
 msgstr "Ova radnja vam je trenutno ograničena."
 

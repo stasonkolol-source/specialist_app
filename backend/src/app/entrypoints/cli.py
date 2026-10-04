@@ -106,28 +106,41 @@ def jwt_keys(
 
 
 OPENAPI_FILE = ENV_FILE.parent / "openapi.json"
+ADMIN_OPENAPI_FILE = ENV_FILE.parent / "admin-openapi.json"
 
 
 @app.command()
 def openapi(
     *,
-    check: Annotated[bool, typer.Option("--check", help="Только сверить файл с кодом")] = False,
+    check: Annotated[bool, typer.Option("--check", help="Только сверить файлы с кодом")] = False,
     output: Annotated[Path, typer.Option(help="Файл схемы")] = OPENAPI_FILE,
+    admin_output: Annotated[Path, typer.Option(help="Файл схемы Admin API")] = ADMIN_OPENAPI_FILE,
 ) -> None:
-    """Выгрузить контракт OpenAPI 3.1 в backend/openapi.json (DEVELOPMENT_PLAN 0.20)."""
-    from app.entrypoints._wiring import module_routers
+    """Выгрузить контракты OpenAPI 3.1: публичный API — backend/openapi.json (DEVELOPMENT_PLAN
+    0.20), Admin API — backend/admin-openapi.json (2.7b: в публичную схему и api-client Mini App
+    операции персонала не попадают)."""
+    from app.entrypoints._wiring import module_admin_routers, module_routers
+    from app.interfaces.http.admin_api import admin_openapi_spec
     from app.interfaces.http.app import openapi_spec
 
-    text = json.dumps(openapi_spec(module_routers()), indent=2, ensure_ascii=False) + "\n"
-    current = output.read_text(encoding="utf-8") if output.exists() else ""
-    if check:
-        if current != text:
-            typer.echo(f"{output.name} is out of date: run `make openapi`", err=True)
-            raise typer.Exit(code=1)
-        typer.echo(f"{output.name}: up to date")
-        return
-    output.write_text(text, encoding="utf-8")
-    typer.echo(f"{output.name}: {'unchanged' if current == text else 'written'}")
+    stale = False
+    for spec, target in (
+        (openapi_spec(module_routers()), output),
+        (admin_openapi_spec(module_admin_routers()), admin_output),
+    ):
+        text = json.dumps(spec, indent=2, ensure_ascii=False) + "\n"
+        current = target.read_text(encoding="utf-8") if target.exists() else ""
+        if check:
+            if current != text:
+                typer.echo(f"{target.name} is out of date: run `make openapi`", err=True)
+                stale = True
+            else:
+                typer.echo(f"{target.name}: up to date")
+            continue
+        target.write_text(text, encoding="utf-8")
+        typer.echo(f"{target.name}: {'unchanged' if current == text else 'written'}")
+    if stale:
+        raise typer.Exit(code=1)
 
 
 i18n = typer.Typer(help="Каталоги gettext backend (ADR-0013).", no_args_is_help=True)

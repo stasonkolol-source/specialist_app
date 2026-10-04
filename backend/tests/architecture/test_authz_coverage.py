@@ -10,6 +10,10 @@
 
 Новая операция с `{id}` в пути без строки здесь роняет тест: права решаются явно.
 Прогон всех тестов прав: `uv run pytest -m authz` (они integration — нужен Docker).
+
+Admin API (`admin-openapi.json`, 2.7b) — отдельный перечень `STAFF_INVENTORY`: в нём КАЖДАЯ
+операция (не только с id), её роли — те же, что `x-staff-roles` в схеме (их ставит
+`staff_only`), и тест `authz` с отказом чужой роли.
 """
 
 import json
@@ -257,3 +261,100 @@ def test_owner_operations_have_a_marked_foreign_resource_test(
     match = re.search(rf"((?:^@.*\n)*)^(?:async )?def {name}\(", source, re.M)
     assert match is not None, f"{operation}: нет теста {reference}"
     assert "@pytest.mark.authz" in match[1], f"{operation}: {name} без @pytest.mark.authz"
+
+
+ADMIN_API = "tests/integration/test_admin_api.py"
+ROLES_TEST = f"{ADMIN_API}::test_authz_admin_api_needs_a_staff_session_and_the_right_role"
+CASES_TEST = f"{ADMIN_API}::test_authz_cases_are_taken_decided_and_escalated_through_use_cases"
+MODERATION = ("admin", "moderator")
+SECTIONS_TEST = (
+    "tests/integration/test_admin_api_sections.py"
+    "::test_authz_reference_data_rules_broadcasts_and_config_are_admin_only"
+)
+
+STAFF_INVENTORY: dict[tuple[str, str], tuple[tuple[str, ...], str]] = {
+    ("GET", "/cases"): (MODERATION, ROLES_TEST),
+    ("GET", "/cases/{case_id}"): (MODERATION, CASES_TEST),
+    ("POST", "/cases/{case_id}/take"): (
+        MODERATION,
+        f"{ADMIN_API}::test_authz_admin_api_rejects_cross_site_writes",
+    ),
+    ("POST", "/cases/{case_id}/escalate"): (MODERATION, CASES_TEST),
+    ("POST", "/cases/{case_id}/decide"): (MODERATION, CASES_TEST),
+    ("GET", "/cases/{case_id}/dispute"): (MODERATION, CASES_TEST),
+    ("POST", "/cases/{case_id}/resolve-dispute"): (MODERATION, CASES_TEST),
+    ("GET", "/reports"): (MODERATION, ROLES_TEST),
+    ("GET", "/reports/{report_id}"): (
+        MODERATION,
+        f"{ADMIN_API}::test_authz_reports_are_listed_and_read",
+    ),
+    ("GET", "/users/{user_id}"): (
+        ("admin", "moderator", "support"),
+        f"{ADMIN_API}::test_authz_personal_data_only_for_support_and_admin_and_every_view_is_audited",
+    ),
+    ("POST", "/users/{user_id}/restrictions"): (MODERATION, ROLES_TEST),
+    ("POST", "/users/{user_id}/restrictions/{restriction_id}/lift"): (
+        MODERATION,
+        f"{ADMIN_API}::test_authz_restrictions_are_imposed_and_lifted_through_use_cases",
+    ),
+    ("GET", "/audit-log"): (("admin",), ROLES_TEST),
+    # часть 2: справочники, контент-правила, рассылки, флаги и client-config — только admin
+    **dict.fromkeys(
+        (
+            ("GET", "/categories"),
+            ("PATCH", "/categories/{category_id}"),
+            ("GET", "/tags"),
+            ("PATCH", "/tags/{tag_id}"),
+            ("GET", "/search-terms"),
+            ("GET", "/cities"),
+            ("PATCH", "/cities/{city_id}"),
+            ("GET", "/districts"),
+            ("PATCH", "/districts/{district_id}"),
+            ("GET", "/content-rules"),
+            ("POST", "/content-rules"),
+            ("PATCH", "/content-rules/{rule_id}"),
+            ("POST", "/content-rules/trial"),
+            ("GET", "/broadcasts"),
+            ("POST", "/broadcasts"),
+            ("GET", "/broadcasts/{broadcast_id}"),
+            ("POST", "/broadcasts/{broadcast_id}/test"),
+            ("POST", "/broadcasts/{broadcast_id}/start"),
+            ("POST", "/broadcasts/{broadcast_id}/cancel"),
+            ("GET", "/feature-flags"),
+            ("PATCH", "/feature-flags/{key}"),
+            ("GET", "/client-config"),
+            ("PUT", "/client-config/{key}"),
+        ),
+        (("admin",), SECTIONS_TEST),
+    ),
+}
+
+
+def _staff_operations() -> dict[tuple[str, str], tuple[str, ...]]:
+    spec = json.loads((BACKEND / "admin-openapi.json").read_text(encoding="utf-8"))
+    return {
+        (method.upper(), path): tuple(operation.get("x-staff-roles", ()))
+        for path, item in spec["paths"].items()
+        for method, operation in item.items()
+        if method in {"get", "post", "put", "patch", "delete"}
+    }
+
+
+def test_every_admin_operation_is_classified_with_its_roles() -> None:
+    operations = _staff_operations()
+    assert operations.keys() - STAFF_INVENTORY.keys() == set(), "новая операция Admin API"
+    assert STAFF_INVENTORY.keys() - operations.keys() == set(), "операции больше нет"
+    assert {op: roles for op, roles in operations.items() if not roles} == {}, "без staff_only"
+    assert {
+        op: (roles, STAFF_INVENTORY[op][0])
+        for op, roles in operations.items()
+        if roles != STAFF_INVENTORY[op][0]
+    } == {}, "роли в коде и здесь расходятся"
+
+
+@pytest.mark.parametrize(
+    ("operation", "reference"),
+    [(f"{method} {path}", ref) for (method, path), (_, ref) in STAFF_INVENTORY.items()],
+)
+def test_admin_operations_have_a_marked_role_test(operation: str, reference: str) -> None:
+    test_owner_operations_have_a_marked_foreign_resource_test(operation, reference)

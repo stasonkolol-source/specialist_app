@@ -2,7 +2,8 @@
 
 Только чтение строк; санкцию накладывают и снимают use cases (ADR-0020 §1) — действие раздела
 «Снять» и страница «Наложить санкцию». Персональные данные (имя, телефон) раздел не показывает:
-их просмотр с записью в audit_log — вместе с карточкой пользователя Admin API (2.7b, вторая часть).
+их видят support и admin в карточке Admin API `GET /admin/api/v1/users/{id}`, и каждый просмотр
+пишется в audit_log (`identity.user.pii_viewed`, modules/identity/admin/router.py).
 """
 
 from datetime import datetime

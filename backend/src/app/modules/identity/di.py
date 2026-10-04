@@ -36,6 +36,7 @@ from app.modules.identity.application.use_cases.cancel_deletion import CancelDel
 from app.modules.identity.application.use_cases.create_staff_login import CreateStaffLogin
 from app.modules.identity.application.use_cases.grant_staff_role import GrantStaffRole
 from app.modules.identity.application.use_cases.impose_restriction import ImposeRestriction
+from app.modules.identity.application.use_cases.inspect_user import InspectUser
 from app.modules.identity.application.use_cases.lift_restriction import LiftRestriction
 from app.modules.identity.application.use_cases.logout import Logout
 from app.modules.identity.application.use_cases.process_deletions import ProcessDeletions
@@ -179,3 +180,4 @@ class IdentityProvider(Provider):
     staff_auth = provide(StaffAuthService, provides=StaffAuth)
     impose_restriction = provide(ImposeRestriction)
     lift_restriction = provide(LiftRestriction)
+    inspect_user = provide(InspectUser)

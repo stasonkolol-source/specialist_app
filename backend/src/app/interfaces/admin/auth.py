@@ -4,7 +4,8 @@
 - Неудачные попытки ограничены (Valkey, `limits`): с одного адреса и на один логин; сверх лимита
   — 429 даже с верными данными, пока окно не пройдёт. Удачный вход счётчики не сбрасывает.
 - Сессия — подписанная cookie (`SessionMiddleware`, APP_ADMIN_SESSION_KEY) с id сотрудника и
-  сроком 8 часов; роли перечитываются на каждый запрос: снятая роль закрывает админку сразу.
+  сроком 8 часов; роли перечитываются на каждый запрос: снятая роль закрывает админку сразу. Та же
+  cookie открывает Admin API `/admin/api/v1` (параметры — platform/http/staff.py).
 """
 
 from typing import Final
@@ -17,6 +18,7 @@ from starlette.responses import PlainTextResponse, Response
 
 from app.modules.identity.api import StaffAuth
 from app.platform.http.admin import container_of
+from app.platform.http.staff import SESSION_COOKIE, SESSION_KEY, SESSION_MAX_AGE
 from app.platform.kernel.errors import RateLimitedError
 from app.platform.kernel.ids import UserId
 from app.platform.ratelimit import Rate, RateLimiter
@@ -25,15 +27,13 @@ log = structlog.get_logger(__name__)
 
 LOGIN_FAILURES_IP: Final = Rate("admin.login.ip", "10/15minutes")
 LOGIN_FAILURES_ACCOUNT: Final = Rate("admin.login.account", "5/15minutes")
-SESSION_KEY: Final = "staff"
-SESSION_MAX_AGE: Final = 8 * 3600
 
 
 class StaffAuthBackend(AuthenticationBackend):
     def __init__(self, secret_key: str, *, https_only: bool) -> None:
         super().__init__(
             secret_key=secret_key,
-            session_cookie="sosed_admin",
+            session_cookie=SESSION_COOKIE,
             max_age=SESSION_MAX_AGE,
             same_site="strict",
             https_only=https_only,

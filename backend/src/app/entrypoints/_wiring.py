@@ -91,6 +91,18 @@ def module_routers() -> list[APIRouter]:
     return routers
 
 
+def module_admin_routers() -> list[APIRouter]:
+    """Роутеры Admin API модулей (2.7b): `router` из modules/<m>/admin/router.py, у кого он есть."""
+    routers: list[APIRouter] = []
+    for package in _module_packages():
+        if importlib.util.find_spec(f"{package}.admin") is None:
+            continue
+        if importlib.util.find_spec(f"{package}.admin.router") is None:
+            continue
+        routers.append(importlib.import_module(f"{package}.admin.router").router)
+    return routers
+
+
 def module_bot_routers() -> list[AiogramRouter]:
     """Роутеры бота модулей: `create_router()` из modules/<m>/bot/handlers.py, у кого он есть."""
     routers: list[AiogramRouter] = []

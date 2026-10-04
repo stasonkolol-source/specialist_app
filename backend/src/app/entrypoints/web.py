@@ -12,8 +12,9 @@ import structlog
 import uvicorn
 from fastapi import FastAPI
 
-from app.entrypoints._wiring import make_web_container, module_routers
+from app.entrypoints._wiring import make_web_container, module_admin_routers, module_routers
 from app.interfaces.admin.app import mount_admin
+from app.interfaces.http.admin_api import mount_admin_api
 from app.interfaces.http.app import create_app
 from app.platform.i18n.translator import Translator
 from app.platform.observability.logging import configure_logging
@@ -31,6 +32,8 @@ def create() -> FastAPI:
     translator = Translator.load()
     container = make_web_container(settings, translator)
     app = create_app(container, settings, module_routers(), translator=translator)
+    # /admin/api/v1 — Admin API (2.7b): раньше SQLAdmin, иначе путь поглотит монтирование /admin
+    mount_admin_api(app, settings, module_admin_routers(), translator=translator)
     mount_admin(app, settings)  # /admin — SQLAdmin, вход персонала (2.7a)
     log.info("web_started", **describe(settings))
     return app

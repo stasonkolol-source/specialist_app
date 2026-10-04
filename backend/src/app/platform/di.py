@@ -42,8 +42,8 @@ from app.platform.analytics.posthog_persons import (
     NoPersonDeletion,
     PostHogPersons,
 )
-from app.platform.audit.port import AuditLog
-from app.platform.audit.sql import SqlAuditLog
+from app.platform.audit.port import AuditLog, AuditReader
+from app.platform.audit.sql import SqlAuditLog, SqlAuditReader
 from app.platform.cache.port import JsonCache
 from app.platform.cache.valkey import ValkeyJsonCache
 from app.platform.config.cache import ClientConfigCache
@@ -407,6 +407,7 @@ class PlatformProvider(Provider):
 
     uow = provide(SqlAlchemyUnitOfWork, scope=Scope.REQUEST, provides=UnitOfWork)
     audit_log = provide(SqlAuditLog, scope=Scope.REQUEST, provides=AuditLog)
+    audit_reader = provide(SqlAuditReader, scope=Scope.REQUEST, provides=AuditReader)
     idempotency = provide(SqlIdempotencyStore, scope=Scope.REQUEST, provides=IdempotencyStore)
 
 

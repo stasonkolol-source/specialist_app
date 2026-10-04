@@ -2621,6 +2621,8 @@ sequenceDiagram
 | `/audit-log` | Журнал действий |
 | `/feature-flags`, `/client-config` | Флаги и конфигурация клиентов |
 
+Admin API — отдельное приложение FastAPI в процессе `web` (монтируется раньше SQLAdmin) со своей схемой `backend/admin-openapi.json`: в публичную `openapi.json` и api-client Mini App операции персонала не входят. Вход — cookie персонала `sosed_admin` со страницы входа SQLAdmin (argon2 + TOTP, [ADR-0009](adr/0009-authentication-and-identity.md)), роли перечитываются на каждый запрос. Меняющий запрос — только с заголовком `X-Requested-With: sosed-admin` и с того же origin: SameSite=Strict не закрывает соседние поддомены того же сайта (CSRF). Роли: moderator — кейсы, жалобы и санкции; support — карточка пользователя с ПД; admin — всё. ПД в карточке — только support и admin, каждый просмотр — `identity.user.pii_viewed` в `platform.audit_log`. Готово (2.7b): все ресурсы таблицы, кроме `/verification-requests` (KYC, v1). Справочники, контент-правила, флаги и client-config правятся тем же разделом SQLAdmin (`apply_change`: поля формы, проверки, аудит, события, сброс снимка) — одной транзакцией.
+
 ### 8.6. Пример: карточка специалиста в выдаче
 
 ```json

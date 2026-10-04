@@ -1,4 +1,5 @@
-"""Админка в тестах (DEVELOPMENT_PLAN 2.7a–b): приложение с SQLAdmin, сотрудник с ролью и вход.
+"""Админка в тестах (DEVELOPMENT_PLAN 2.7a–b): приложение с SQLAdmin и Admin API, сотрудник с
+ролью и вход.
 
 Данные коммитятся: у каждого теста свои пользователи, логины и адрес клиента (лимиты в Valkey).
 """
@@ -13,8 +14,9 @@ from dishka import AsyncContainer
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from app.entrypoints._wiring import make_web_container
+from app.entrypoints._wiring import make_web_container, module_admin_routers
 from app.interfaces.admin.app import mount_admin
+from app.interfaces.http.admin_api import mount_admin_api
 from app.interfaces.http.app import create_app
 from app.modules.identity.application.use_cases.create_staff_login import (
     CreateStaffLogin,
@@ -34,6 +36,7 @@ class Admin:
 
     def client(self, ip: str) -> httpx.AsyncClient:
         app = create_app(self.container, self.settings, [])
+        mount_admin_api(app, self.settings, module_admin_routers())  # раньше /admin, как в web
         mount_admin(app, self.settings)
         transport = httpx.ASGITransport(app=app, raise_app_exceptions=True, client=(ip, 50000))
         return httpx.AsyncClient(transport=transport, base_url="http://test")
@@ -56,6 +59,17 @@ async def admin(settings: Settings) -> AsyncIterator[Admin]:
     container = make_web_container(settings)
     try:
         yield Admin(container=container, settings=settings)
+    finally:
+        await container.close()
+
+
+@pytest.fixture
+async def admin_with_storage(storage_settings: Settings) -> AsyncIterator[Admin]:
+    """Админка с настройками S3 (без хранилища): разделам со спорами нужен фасад media —
+    ссылки на фото доказательств."""
+    container = make_web_container(storage_settings)
+    try:
+        yield Admin(container=container, settings=storage_settings)
     finally:
         await container.close()
 
