@@ -87,7 +87,8 @@ class Moderation(Protocol):
     async def check_text(self, text: str) -> ModerationResult | Unavailable: ...
 
     async def check_image(self, url: str) -> ModerationResult | Unavailable:
-        """Изображение по адресу (presigned GET варианта `md`)."""
+        """Изображение: `data:` URL варианта `md` (prompt.image_data_url, 6.7) — или адрес,
+        который провайдер может скачать."""
         ...
 
 

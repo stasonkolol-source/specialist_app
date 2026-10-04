@@ -258,3 +258,5 @@ POST_CASE_CARD: Final = TaskRef("moderation.post_case_card", CaseOpened)
 """Новый кейс (2.5b): карточка в чате модераторов."""
 CHECK_DUPLICATES: Final = TaskRef("moderation.check_duplicates", MediaReady)
 """Фото портфолио обработано (7.6): такое же у других аккаунтов — кейс P2 (ADR-0016 L6)."""
+CHECK_IMAGE: Final = TaskRef("moderation.check_image", MediaReady)
+"""Фото обработано (6.7): omni-moderation; флаг — кейс P2, P0 — скрыть фото и кейс P0."""

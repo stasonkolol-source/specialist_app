@@ -31,7 +31,7 @@ from app.platform.ai.port import (
     Unavailable,
     UnavailableReason,
 )
-from app.platform.ai.prompt import GAP
+from app.platform.ai.prompt import GAP, image_data_url
 from app.platform.ai.stubs import (
     NoModeration,
     NoPolicyClassifier,
@@ -141,6 +141,24 @@ async def test_openai_image_is_sent_as_image_url() -> None:
     assert calls.bodies[0]["input"] == [
         {"type": "image_url", "image_url": {"url": "https://media.example.test/md/abc.webp?sig=1"}}
     ]
+
+
+async def test_openai_flagged_image_by_data_url() -> None:
+    """6.7: фото уходит самим файлом (`data:` URL варианта md), ответ — оценки категорий фото."""
+    adapter, calls, text_breaker, image_breaker = openai(
+        openai_ok("openai_moderation_flagged_image.json")
+    )
+    [raw] = recorded("openai_moderation_flagged_image.json")["results"]
+    url = image_data_url(b"RIFF\x00\x00\x00\x00WEBPVP8 ", "image/webp")
+
+    result = await adapter.check_image(url)
+
+    assert url.startswith("data:image/webp;base64,UklGR")
+    assert calls.bodies[0]["input"] == [{"type": "image_url", "image_url": {"url": url}}]
+    assert result == ModerationResult(flagged=True, scores=raw["category_scores"])
+    assert result.scores["violence"] > 0.85
+    assert not text_breaker.open
+    assert not image_breaker.open
 
 
 @pytest.mark.parametrize(

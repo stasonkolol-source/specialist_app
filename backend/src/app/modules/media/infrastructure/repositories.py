@@ -130,6 +130,7 @@ def to_domain(row: AssetRow) -> MediaAsset:
         uploaded_at=row.uploaded_at,
         failure_reason=row.failure_reason,
         moderation_status=row.moderation_status,
+        moderation_labels={str(k): float(v) for k, v in row.moderation_labels.items()},
         width=row.width,
         height=row.height,
         duration_ms=row.duration_ms,
@@ -161,6 +162,7 @@ def _apply(asset: MediaAsset, row: AssetRow) -> None:
     row.size_bytes = asset.size_bytes
     row.etag = asset.etag
     row.moderation_status = asset.moderation_status
+    row.moderation_labels = dict(asset.moderation_labels)
     row.failure_reason = asset.failure_reason
     row.created_at = asset.created_at
     row.uploaded_at = asset.uploaded_at

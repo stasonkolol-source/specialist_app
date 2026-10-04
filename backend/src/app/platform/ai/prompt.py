@@ -8,8 +8,13 @@
 - Контакты маскируются по всему тексту (не длиннее MAX_TEXT, как у правил модерации) и только
   потом текст обрезается: обрезка до маскирования могла бы оставить кусок контакта на границе.
 - Длинный текст — начало и конец с «[…]» между ними: мошенничество в хвосте тоже видно.
+
+Изображение уходит самим файлом — `data:` URL варианта без EXIF (`image_data_url`), а не
+ссылкой: провайдеру не нужен доступ к нашему хранилищу (dev — Garage на localhost, скрытое
+фото — в приватном бакете), а в его журналах не остаётся ссылки на фото.
 """
 
+import base64
 import unicodedata
 
 from app.platform.text.contact_masking import mask_contacts
@@ -31,3 +36,8 @@ def provider_text(text: str, limit: int) -> str:
         return masked
     tail = limit // 4
     return masked[: limit - tail - len(GAP)] + GAP + masked[-tail:]
+
+
+def image_data_url(body: bytes, content_type: str) -> str:
+    """Фото для провайдера: `data:<тип>;base64,…` (omni-moderation принимает его вместо адреса)."""
+    return f"data:{content_type};base64,{base64.b64encode(body).decode('ascii')}"

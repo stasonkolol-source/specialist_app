@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.identity.api import DeletionHold, IdentityApi
 from app.modules.jobs.api import JobsApi
-from app.modules.media.api import LegalHold
+from app.modules.media.api import LegalHold, MediaModeration
 from app.modules.messaging.api import MessagingApi
 from app.modules.moderation.application.content_rules import ContentRulesChecker
 from app.modules.moderation.application.policy import PublishedModerationPolicy
@@ -32,6 +32,7 @@ from app.modules.moderation.application.ports import (
 from app.modules.moderation.application.queries import ModerationQueries
 from app.modules.moderation.application.use_cases.auto_check import AutoCheck
 from app.modules.moderation.application.use_cases.check_duplicates import CheckDuplicates
+from app.modules.moderation.application.use_cases.check_image import CheckImage
 from app.modules.moderation.application.use_cases.create_report import CreateReport
 from app.modules.moderation.application.use_cases.decide_case import CaseDecider, DecideCase
 from app.modules.moderation.application.use_cases.file_appeal import FileAppeal
@@ -68,6 +69,7 @@ from app.modules.moderation.infrastructure.retention_hold import CasesRetentionH
 from app.modules.moderation.infrastructure.rules import CachedRuleSource, SqlRuleWriter
 from app.modules.moderation.infrastructure.targets import TargetRegistry
 from app.modules.moderation.infrastructure.targets.job import JobTarget
+from app.modules.moderation.infrastructure.targets.media import MediaTarget
 from app.modules.moderation.infrastructure.targets.message import MessageTarget
 from app.modules.moderation.infrastructure.targets.profile import ProfileTarget
 from app.modules.moderation.infrastructure.targets.response import ResponseTarget
@@ -132,10 +134,12 @@ class ModerationProvider(Provider):
         jobs: JobsApi,
         messaging: MessagingApi,
         reviews: ReviewsApi,
+        media: MediaModeration,
     ) -> ModerationTargets:
         """Адаптеры целей: контентные модули добавляют свои в своих шагах."""
         return TargetRegistry(
             {
+                EntityType.MEDIA: MediaTarget(media),
                 EntityType.PROFILE: ProfileTarget(specialists),
                 EntityType.JOB: JobTarget(jobs),
                 EntityType.RESPONSE: ResponseTarget(jobs),
@@ -159,6 +163,7 @@ class ModerationProvider(Provider):
     opener = provide(CaseOpener)
     auto_check = provide(AutoCheck)
     check_duplicates = provide(CheckDuplicates)
+    check_image = provide(CheckImage)
     legal_hold = provide(CasesLegalHold, provides=LegalHold)
     deletion_hold = provide(CasesDeletionHold, provides=DeletionHold)
     retention_hold = provide(CasesRetentionHold, provides=RetentionHold)

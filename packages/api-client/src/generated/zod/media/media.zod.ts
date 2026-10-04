@@ -114,7 +114,9 @@ export const MediaCompleteUploadResponse = zod.object({
   size_bytes: zod.int(),
   moderation_status: zod
     .enum(['pending', 'approved', 'flagged', 'rejected'])
-    .describe('Итог модерации файла (шаг 2.2 и 2.6); до обработки — `pending`.'),
+    .describe(
+      'Итог проверки фото (6.7): автопроверка omni-moderation по MediaReady или решение\nмодератора; до проверки — `pending`. `flagged` — ждёт модератора, фото видно; `rejected` —\nскрыто: API его не показывает, варианты лежат в private.',
+    ),
   created_at: zod.iso.datetime({ offset: true }),
   uploaded_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   preview_url: zod.union([zod.string(), zod.null()]),
@@ -170,7 +172,9 @@ export const MediaGetMediaResponse = zod.object({
   size_bytes: zod.int(),
   moderation_status: zod
     .enum(['pending', 'approved', 'flagged', 'rejected'])
-    .describe('Итог модерации файла (шаг 2.2 и 2.6); до обработки — `pending`.'),
+    .describe(
+      'Итог проверки фото (6.7): автопроверка omni-moderation по MediaReady или решение\nмодератора; до проверки — `pending`. `flagged` — ждёт модератора, фото видно; `rejected` —\nскрыто: API его не показывает, варианты лежат в private.',
+    ),
   created_at: zod.iso.datetime({ offset: true }),
   uploaded_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
   preview_url: zod.union([zod.string(), zod.null()]),

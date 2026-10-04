@@ -8,6 +8,7 @@ from app.modules.media.domain.asset import (
     FailureReason,
     MediaAsset,
     MediaStatus,
+    ModerationStatus,
     Variant,
     variant_key,
 )
@@ -210,7 +211,7 @@ def test_giving_up_rejects_the_file_as_unreadable() -> None:
     assert isinstance(event, MediaRejected)
 
 
-def test_only_deleted_files_are_hidden() -> None:
+def test_only_deleted_or_moderation_rejected_files_are_hidden() -> None:
     a = uploaded()
     with pytest.raises(MediaStateError):
         a.hide(now=NOW)
@@ -219,3 +220,46 @@ def test_only_deleted_files_are_hidden() -> None:
     a.hide(now=NOW)
 
     assert a.hidden_at == NOW
+
+
+def ready() -> MediaAsset:
+    a = uploaded()
+    a.start_processing()
+    a.ready(width=640, height=480, placeholder="h", sha256=b"s" * 32, variants=variants(a), now=NOW)
+    a.pull_events()
+    return a
+
+
+def test_auto_check_records_only_the_first_verdict() -> None:
+    """6.7: повтор задачи и опоздавшая автопроверка не перезаписывают итог."""
+    a = ready()
+
+    assert a.moderate(ModerationStatus.FLAGGED, labels={"violence": 0.86}, auto=True) is True
+    assert (a.moderation_status, a.moderation_labels) == (
+        ModerationStatus.FLAGGED,
+        {"violence": 0.86},
+    )
+    assert a.moderate(ModerationStatus.APPROVED, auto=True) is False
+    assert a.moderation_status is ModerationStatus.FLAGGED
+
+
+def test_moderator_decision_hides_and_restores_the_photo() -> None:
+    a = ready()
+    a.moderate(ModerationStatus.REJECTED, auto=True)
+    assert (a.blocked, a.needs_hiding) == (True, True)
+    a.hide(now=NOW)
+    with pytest.raises(MediaStateError):
+        a.show()  # пока отклонён — не вернуть
+
+    assert a.moderate(ModerationStatus.APPROVED) is True  # модератор снял отказ
+    a.show()
+
+    assert (a.blocked, a.needs_hiding, a.hidden_at) == (False, False, None)
+
+
+def test_only_ready_files_get_a_verdict() -> None:
+    a = uploaded()
+    assert a.moderate(ModerationStatus.REJECTED, auto=True) is False
+    assert a.moderation_status is ModerationStatus.PENDING
+    with pytest.raises(MediaStateError):
+        ready().moderate(ModerationStatus.PENDING)

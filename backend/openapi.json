@@ -13132,7 +13132,7 @@
           "rejected"
         ],
         "title": "ModerationStatus",
-        "description": "Итог модерации файла (шаг 2.2 и 2.6); до обработки — `pending`."
+        "description": "Итог проверки фото (6.7): автопроверка omni-moderation по MediaReady или решение\nмодератора; до проверки — `pending`. `flagged` — ждёт модератора, фото видно; `rejected` —\nскрыто: API его не показывает, варианты лежат в private."
       },
       "MoneyOut": {
         "properties": {
