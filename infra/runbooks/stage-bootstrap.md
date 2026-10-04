@@ -96,7 +96,9 @@ GHCR своим `GITHUB_TOKEN`), K17 (токен бота — для старт�
 желанию).
 
 1. Variables environment `stage`: `STAGE_BOT_USERNAME` (без @), `SENTRY_DSN` (backend),
-   `TMA_SENTRY_DSN` (Mini App) — DSN можно оставить пустыми.
+   `TMA_SENTRY_DSN` (Mini App) — DSN можно оставить пустыми. Source maps Mini App в Sentry (K20, по
+   желанию): секрет репозитория `SENTRY_AUTH_TOKEN` (organization token) и Variables репозитория
+   `SENTRY_ORG`, `TMA_SENTRY_PROJECT`; без них шаг деплоя «Sentry source maps» пропускается с notice.
 2. Секреты environment `stage` (имена — `infra/kamal/secrets.stage`). Случайные значения — в своём
    Терминале командой `make gen-secret`: значение (32 байта в hex) показывается один раз и уже лежит
    в буфере обмена — вставьте его в менеджер паролей (K10a) и нажмите Enter; скрипт передаст его в
