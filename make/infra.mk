@@ -2,7 +2,7 @@
 # Terraform и Kamal — только в официальных образах закреплённых версий: ставить их на Мак не нужно,
 # у владельца и в CI одна и та же версия. Порядок действий — infra/runbooks/stage-bootstrap.md и
 # prod-bootstrap.md.
-.PHONY: tf tf-check kamal db-provision
+.PHONY: tf tf-check kamal db-provision rpo-mark
 
 TF_IMAGE ?= hashicorp/terraform:1.16.5@sha256:c7926feace05d0f7e73542842bf3945924e955a1f782cf000ccbb8d18fa42d77
 KAMAL_IMAGE ?= ghcr.io/basecamp/kamal:v2.12.0@sha256:7b5be276aa17bbe122887f6a1ff12865f4848111989699b9786083be95d98415
@@ -53,13 +53,22 @@ PROD_DB_SSH = ssh $(PROD_SSH_OPTS) \
 PROD_DB_SUBNET ?= 10.20.1.0/24
 
 # Файлы infra/postgres — архивом в /opt/sosed/postgres, значения — строками на stdin provision.sh (не
-# в argv): пароли ролей и, с 3.2, ключи репозиториев pgBackRest (PGBACKREST_REPO1_*, PGBACKREST_REPO2_*).
+# в argv): пароли ролей и, с 3.2, ключи репозиториев pgBackRest (PGBACKREST_REPO1_*, PGBACKREST_REPO2_*)
+# и ping URL бэкапов в Healthchecks (PGBACKREST_HEALTHCHECK_URL).
 # Значения задаёт CI (environment production) или владелец из менеджера паролей (Q15).
 db-provision: ## PostgreSQL на db-1 (3.1b): make db-provision ENV=prod — идемпотентно; пароли ролей и PROD_* — из окружения
 	@test "$(ENV)" = prod || (echo "usage: make db-provision ENV=prod"; exit 2)
-	@COPYFILE_DISABLE=1 tar --no-xattrs -C infra/postgres -cf - provision.sh bootstrap.sql pgbackrest.conf.tmpl | \
+	@COPYFILE_DISABLE=1 tar --no-xattrs -C infra/postgres -cf - provision.sh bootstrap.sql pgbackrest.conf.tmpl pgbackrest-backup.sh | \
 	  $(PROD_DB_SSH) 'rm -rf /opt/sosed/postgres && mkdir -p /opt/sosed/postgres && tar -xf - -C /opt/sosed/postgres'
 	@{ printf 'DB_LISTEN_IP=%s\nDB_SUBNET=%s\n' "$$PROD_DB_IP" "$(PROD_DB_SUBNET)"; \
-	  for n in APP_DB_PASSWORD MIGRATOR_DB_PASSWORD READONLY_DB_PASSWORD BACKUP_DB_PASSWORD $$(compgen -v PGBACKREST_REPO); do \
+	  for n in APP_DB_PASSWORD MIGRATOR_DB_PASSWORD READONLY_DB_PASSWORD BACKUP_DB_PASSWORD $$(compgen -v PGBACKREST_REPO) \
+	           PGBACKREST_HEALTHCHECK_URL; do \
 	    [ -z "$${!n:-}" ] || printf '%s=%s\n' "$$n" "$${!n}"; \
 	  done; } | $(PROD_DB_SSH) 'bash /opt/sosed/postgres/provision.sh'
+
+# RPO (3.2): строка-маркер на db-1 и ожидание, пока WAL с ней уйдёт в архив pgBackRest. Печатает
+# момент T для PITR и отставание архива (≤ 5 мин) строками КЛЮЧ=значение; restore-test.yml делает то
+# же перед восстановлением и проверяет маркер на временной VM (infra/runbooks/restore.md, «RPO и RTO»).
+rpo-mark: ## RPO на prod (3.2): make rpo-mark ENV=prod — маркер на db-1, T для PITR и отставание архива WAL
+	@test "$(ENV)" = prod || (echo "usage: make rpo-mark ENV=prod"; exit 2)
+	@$(PROD_DB_SSH) 'bash -s' < infra/postgres/rpo-mark.sh
