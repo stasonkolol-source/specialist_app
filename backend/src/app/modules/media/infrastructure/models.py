@@ -2,7 +2,7 @@
 
 FK `assets.owner_id` → identity.users объявлен только в миграции: MetaData модуля не знает
 чужих таблиц (modules/README.md). Поля обработки (варианты, размеры, sha256, placeholder,
-модерация) заполняет шаг 2.2 — схема сразу полная, по DDL архитектуры.
+модерация) заполняет шаг 2.2 — схема сразу полная, по DDL архитектуры; `phash` — шаг 7.6.
 """
 
 from datetime import datetime
@@ -10,7 +10,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import BigInteger, Index, Integer, LargeBinary, String, Text, text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import BIT, JSONB, BitString
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.modules.media.domain.asset import FailureReason, MediaStatus, ModerationStatus
@@ -52,6 +52,8 @@ class AssetRow(UuidPkMixin, Base):
     height: Mapped[int | None] = mapped_column(Integer)
     duration_ms: Mapped[int | None] = mapped_column(Integer)
     sha256: Mapped[bytes | None] = mapped_column(LargeBinary(32))
+    phash: Mapped[BitString | None] = mapped_column(BIT(64))
+    """pHash фото портфолио или постера ролика (media_0006): дубликаты — `bit_count(a # b)`."""
     variants: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
     placeholder: Mapped[str | None] = mapped_column(Text)
     moderation_status: Mapped[ModerationStatus] = mapped_column(

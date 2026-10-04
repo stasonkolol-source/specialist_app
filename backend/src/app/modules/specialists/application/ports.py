@@ -10,7 +10,7 @@ from app.modules.specialists.application.dto import ProfileView
 from app.modules.specialists.domain.portfolio import PortfolioItem
 from app.modules.specialists.domain.profile import Profile, ProfileId
 from app.platform.contracts.events.identity import UserDeleted
-from app.platform.kernel.ids import UserId
+from app.platform.kernel.ids import MediaId, UserId
 from app.platform.queue.port import TaskRef
 
 FORGET_PROFILE: Final = TaskRef("specialists.forget_profile", UserDeleted)
@@ -88,4 +88,8 @@ class PortfolioRepository(Protocol):
 class PortfolioQuery(Protocol):
     async def of_profile(self, profile_id: UUID) -> list[PortfolioItem]:
         """Работы профиля по порядку, без блокировки: S37 и полнота профиля."""
+        ...
+
+    async def by_media(self, media_ids: Collection[MediaId]) -> list[PortfolioItem]:
+        """Неудалённые работы с этими файлами — для модерации (дубликаты фото, 7.6)."""
         ...

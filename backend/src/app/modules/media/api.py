@@ -44,6 +44,17 @@ class MediaRef:
         return self.status in {"failed", "rejected"}
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class MediaDuplicate:
+    """Похожий файл другого владельца — по pHash (ADR-0016 L6): признак чужого фото."""
+
+    media_id: MediaId
+    owner_id: UserId
+    distance: int
+    """Сколько бит pHash различаются: 0 — тот же кадр, до 8 — пересжатая или чуть
+    обрезанная копия."""
+
+
 class MediaApi(Protocol):
     """Файлы для модулей выше по DAG: проверить перед прикреплением, показать, убрать."""
 
@@ -55,6 +66,12 @@ class MediaApi(Protocol):
 
     async def refs(self, media_ids: Collection[MediaId]) -> dict[MediaId, MediaRef]:
         """Как показать файлы; удалённых и несуществующих в ответе нет."""
+        ...
+
+    async def duplicates(self, media_id: MediaId) -> list[MediaDuplicate]:
+        """Готовые файлы того же назначения у других владельцев с почти тем же pHash — ближние
+        первыми, не больше пяти. Файл не готов, удалён или его назначению хэш не нужен (не
+        портфолио) — пусто. Файлы того же владельца не в счёт: свой кадр дважды — не обман."""
         ...
 
     async def discard(self, owner_id: UserId, media_id: MediaId) -> None:

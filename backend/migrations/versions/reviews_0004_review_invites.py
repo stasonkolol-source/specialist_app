@@ -9,7 +9,7 @@ uuid (случайный v4: ссылка `ri_<base62>` тем же кодеко
 с отдельной проверкой, индекс — CONCURRENTLY: долгих блокировок нет.
 
 Ревизия: reviews_0004 (2026-10-04 12:00:00.000000+00:00)
-Предыдущая: platform_0005
+Предыдущая: media_0006
 
 Правила (DEVELOPMENT_PLAN 0.9, ADR-0005):
 - имя ревизии — <модуль>_NNNN, файл — <модуль>_NNNN_<slug>.py;
@@ -25,7 +25,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "reviews_0004"
-down_revision: str | Sequence[str] | None = "platform_0005"
+down_revision: str | Sequence[str] | None = "media_0006"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

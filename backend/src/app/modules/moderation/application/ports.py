@@ -21,6 +21,7 @@ from app.platform.contracts.events.deals import (
     DisputeWithdrawn,
 )
 from app.platform.contracts.events.identity import UserRegistered
+from app.platform.contracts.events.media import MediaReady
 from app.platform.contracts.events.moderation import CaseOpened, ModerationRequested
 from app.platform.kernel.ids import CaseId, MediaId, UserId
 from app.platform.queue.port import TaskRef
@@ -255,3 +256,5 @@ CLOSE_DISPUTE_CASE: Final = TaskRef("moderation.close_dispute_case", DisputeWith
 """Спор отозван: кейс закрыт без решения."""
 POST_CASE_CARD: Final = TaskRef("moderation.post_case_card", CaseOpened)
 """Новый кейс (2.5b): карточка в чате модераторов."""
+CHECK_DUPLICATES: Final = TaskRef("moderation.check_duplicates", MediaReady)
+"""Фото портфолио обработано (7.6): такое же у других аккаунтов — кейс P2 (ADR-0016 L6)."""
