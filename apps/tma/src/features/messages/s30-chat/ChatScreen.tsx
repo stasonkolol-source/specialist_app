@@ -9,10 +9,15 @@
 // «повторить». Лента опрашивается раз в 4 с (ETag), пока экран открыт; новое — прочитано.
 // Закрытый диалог — без композера. После договорённости в шапке — «Поделиться контактом» (шторка
 // S54, 6.5; из сделки S26 — сразу открытой, `?share`) и Telegram второй стороны, если она его
-// показывает. «⋯» в шапке (4.7) — попап Telegram: «Пожаловаться» (шторка S46 на собеседника с
-// этим диалогом) и «Заблокировать» с подтверждением или «Разблокировать». Блокировка в любую
-// сторону — переписка только для чтения: вместо композера «Вы заблокировали собеседника» с
-// «Разблокировать» или «Собеседник недоступен».
+// показывает. Сделка завершена или отменена — можно снова: в прямом диалоге «Договориться снова»
+// (та же шторка условий, «что делаем» — из прошлой сделки), клиенту в диалоге по отклику после
+// завершённой — «Заказать снова» (прямой диалог с этим специалистом, как «Написать» на S08). Полоса
+// сделки тогда — «Прошлая сделка», а контакты, пока открыты, — второй строкой в ней: Telegram
+// второй стороны и «Поделиться контактом». В шапке при 360 px рядом с «… снова» им нет места, а
+// попап «⋯» Telegram — не больше трёх кнопок. «⋯» в шапке (4.7) — попап Telegram: «Пожаловаться»
+// (шторка S46 на собеседника с этим диалогом) и «Заблокировать» с подтверждением или
+// «Разблокировать». Блокировка в любую сторону — переписка только для чтения: вместо композера «Вы
+// заблокировали собеседника» с «Разблокировать» или «Собеседник недоступен».
 import type { ConversationOut, MessageOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import type { ChatEntry } from '@sosed/hooks';
@@ -25,6 +30,7 @@ import {
   openReport,
   useBlocks,
   useChat,
+  useStartConversation,
   useToggleBlock,
 } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
@@ -51,7 +57,13 @@ import type { MouseEvent, ReactNode } from 'react';
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { LoadError } from '../shared/LoadError.tsx';
-import { MESSAGES_PATHS, dealPath, managedJobPath, profilePath } from '../shared/paths.ts';
+import {
+  MESSAGES_PATHS,
+  chatPath,
+  dealPath,
+  managedJobPath,
+  profilePath,
+} from '../shared/paths.ts';
 import { ProposeSheet } from './ProposeSheet.tsx';
 import { ShareContactSheet } from './ShareContactSheet.tsx';
 
@@ -119,6 +131,7 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
   const { t: common } = useTranslation();
   const format = useFormat();
   const insets = useInsets();
+  const router = useRouter();
   const [proposing, setProposing] = useState(false);
   const { share: shareAsked } = useSearch({ strict: false }) as { share?: true };
   const contactsOpen = ['agreed', 'completed'].includes(dealState(conversation));
@@ -127,6 +140,16 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
   const block = useBlockState(conversation);
   const writable = conversation.status === 'open' && block.state === null;
   const name = conversation.counterpart_name ?? t('list.deleted');
+  const again = writable ? againOf(conversation) : null;
+  const reorder = useStartConversation();
+  const orderAgain = () => {
+    const profileId = conversation.counterpart_profile_id;
+    if (!profileId) return;
+    reorder.mutate(
+      { profile_id: profileId },
+      { onSuccess: (started) => void router.navigate({ to: chatPath(started.id) }) },
+    );
+  };
 
   const stick = useRef(true);
   useEffect(() => {
@@ -155,11 +178,17 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
         conversation={conversation}
         name={name}
         writable={writable}
+        again={again}
+        ordering={reorder.isPending}
         onPropose={() => setProposing(true)}
+        onOrder={orderAgain}
         onShare={() => setSharing(true)}
         onMenu={() => void block.menu(name)}
       />
-      <DealBar conversation={conversation} />
+      <DealBar
+        conversation={conversation}
+        onShare={again && contactsOpen ? () => setSharing(true) : undefined}
+      />
       <div className="flex flex-1 flex-col justify-end">
         <ChatList label={t('list.title')} className="pb-4">
           <Banner tone="warn" icon="alert">
@@ -204,6 +233,13 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
           </Banner>
         </div>
       )}
+      {reorder.isError && (
+        <div className="px-4 pt-2">
+          <Banner tone="danger" role="alert">
+            {t('chat.orderAgainFailed')}
+          </Banner>
+        </div>
+      )}
       {writable ? (
         <DraftComposer onSend={send} bottomInset={insets.bottom} />
       ) : (
@@ -233,6 +269,7 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
       <ProposeSheet
         open={proposing}
         conversationId={conversation.id}
+        initialTitle={again === 'propose' ? conversation.deal?.title : undefined}
         onClose={() => setProposing(false)}
         onProposed={() => {
           setProposing(false);
@@ -293,10 +330,32 @@ function useBlockState(conversation: ConversationOut) {
   return { state, menu, unblock, busy: toggle.isPending, failed: toggle.isError };
 }
 
-/** Сделка диалога ссылкой на S26; второй стороне ждущего предложения там — S53 (6.5). */
-function DealBar({ conversation }: { conversation: ConversationOut }) {
+/** Что можно снова, когда сделка позади: в прямом диалоге — новые условия той же шторкой (сервер
+ *  разрешает после завершения или отмены), клиенту в диалоге по отклику после завершённой — прямой
+ *  диалог с этим специалистом (здесь сервер ответит `cannot_propose`). После отмены по отклику —
+ *  по-прежнему «К откликам»: заявка снова открыта. Исполнителю по отклику — ничего нового. */
+type Again = 'propose' | 'order' | null;
+
+function againOf(conversation: ConversationOut): Again {
+  const state = dealState(conversation);
+  if (state !== 'completed' && state !== 'cancelled') return null;
+  if (conversation.kind === 'direct') return 'propose';
+  const client = conversation.my_role === 'client';
+  return client && state === 'completed' && conversation.counterpart_profile_id ? 'order' : null;
+}
+
+/** Сделка диалога ссылкой на S26; второй стороне ждущего предложения там — S53 (6.5). Завершённая
+ *  — «Прошлая сделка». `onShare` — в шапке «… снова»: контакты второй строкой здесь. */
+function DealBar({
+  conversation,
+  onShare,
+}: {
+  conversation: ConversationOut;
+  onShare?: (() => void) | undefined;
+}) {
   const { t } = useTranslation('messages');
   const router = useRouter();
+  const platform = usePlatform();
   const state = dealState(conversation);
   const deal = conversation.deal;
   if (!deal || state === 'none' || state === 'cancelled') return null;
@@ -305,23 +364,64 @@ function DealBar({ conversation }: { conversation: ConversationOut }) {
     event.preventDefault();
     void router.navigate({ to: path });
   };
+  const telegram = conversation.counterpart_telegram;
   return (
     <div className="px-4 pt-3">
       <Banner tone={state === 'proposed' ? 'warn' : 'info'} icon="briefcase">
-        {t('chat.dealBar', { title: deal.title })}{' '}
+        {t(state === 'completed' ? 'chat.dealBarPast' : 'chat.dealBar', { title: deal.title })}{' '}
         <a href={router.history.createHref(path)} onClick={open}>
           {state === 'proposed' ? t('chat.dealTerms') : t('chat.dealOpen')}
         </a>
+        {onShare && (
+          <span className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+            {telegram && (
+              <BarButton
+                label={`${t('chat.telegram')}: ${telegram}`}
+                onClick={() => platform.openTelegramLink(telegramLink(telegram))}
+              >
+                {t('chat.telegram')}
+              </BarButton>
+            )}
+            <BarButton onClick={onShare}>{t('chat.shareContact')}</BarButton>
+          </span>
+        )}
       </Banner>
     </div>
   );
 }
 
+/** Действие в полосе сделки — как её ссылки: шторку или Telegram открывает кнопка, а не переход. */
+function BarButton({
+  label,
+  onClick,
+  children,
+}: {
+  label?: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      className="cursor-pointer border-0 bg-transparent p-0 font-semibold text-inherit underline"
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+const telegramLink = (username: string) => `https://t.me/${username.replace(/^@/, '')}`;
+
 function Header({
   conversation,
   name,
   writable,
+  again,
+  ordering,
   onPropose,
+  onOrder,
   onShare,
   onMenu,
 }: {
@@ -329,7 +429,12 @@ function Header({
   name: string;
   /** Открыт и без блокировки: договариваться и делиться контактом можно. */
   writable: boolean;
+  /** Сделка позади: «Договориться снова» или «Заказать снова» вместо «Поделиться контактом». */
+  again: Again;
+  /** «Заказать снова» открывает прямой диалог: ждём ответа сервера. */
+  ordering: boolean;
   onPropose: () => void;
+  onOrder: () => void;
   onShare: () => void;
   onMenu: () => void;
 }) {
@@ -351,14 +456,27 @@ function Header({
       </span>
     </>
   );
-  const telegram = conversation.counterpart_telegram;
+  // «… снова» в шапке — Telegram второй стороны в полосе прошлой сделки: вместе не помещаются
+  const telegram = again ? null : conversation.counterpart_telegram;
   const toProfile = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     if (profileId) void router.navigate({ to: profilePath(profileId) });
   };
 
   let action: ReactNode = null;
-  if (open && (state === 'agreed' || state === 'completed')) {
+  if (again === 'propose') {
+    action = (
+      <Button size="sm" onClick={onPropose}>
+        {t('chat.agreeAgain')}
+      </Button>
+    );
+  } else if (again === 'order') {
+    action = (
+      <Button size="sm" onClick={onOrder} disabled={ordering} aria-busy={ordering}>
+        {t('chat.orderAgain')}
+      </Button>
+    );
+  } else if (open && (state === 'agreed' || state === 'completed')) {
     // вторичной, как кнопка сделки в шапке артборда S54
     action = (
       <Button size="sm" variant="secondary" onClick={onShare}>
@@ -412,7 +530,7 @@ function Header({
           variant="secondary"
           icon="send"
           aria-label={`${t('chat.telegram')}: ${telegram}`}
-          onClick={() => platform.openTelegramLink(`https://t.me/${telegram.replace(/^@/, '')}`)}
+          onClick={() => platform.openTelegramLink(telegramLink(telegram))}
         >
           {t('chat.telegram')}
         </Button>

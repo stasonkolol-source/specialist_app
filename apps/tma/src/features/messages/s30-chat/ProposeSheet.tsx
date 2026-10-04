@@ -1,7 +1,8 @@
 // «Договорились?» (S30, прямой диалог; DEVELOPMENT_PLAN 6.4): что делаем, цена и когда — вторая
 // сторона увидит их на S53 и подтвердит за 72 ч. Цена и время необязательны; время — не в прошлом
 // (сервер ответит 422 текстом ошибки). Кнопка «Предложить» — в шторке: MainButton Telegram под
-// шторкой не видна.
+// шторкой не видна. «Договориться снова» после прошлой сделки — «что делаем» уже из неё (тот же
+// маникюр — без набора), цена и время — новые.
 import type { DealProposalIn } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import { useProposeDeal } from '@sosed/hooks';
@@ -16,18 +17,23 @@ const MAX_TITLE = 120;
 export function ProposeSheet({
   open,
   conversationId,
+  initialTitle,
   onClose,
   onProposed,
 }: {
   open: boolean;
   conversationId: string;
+  /** «Что делаем» прошлой сделки — пока человек не поправил поле сам. */
+  initialTitle?: string | undefined;
   onClose: () => void;
   onProposed: () => void;
 }) {
   const { t } = useTranslation('messages');
   const { t: common } = useTranslation();
   const propose = useProposeDeal(conversationId);
-  const [title, setTitle] = useState('');
+  // null — поле не трогали: в нём «что делаем» прошлой сделки (или пусто)
+  const [typed, setTyped] = useState<string | null>(null);
+  const title = typed ?? initialTitle ?? '';
   const [price, setPrice] = useState('');
   const [when, setWhen] = useState('');
   const amount = Number(price.replace(/\s/g, ''));
@@ -45,7 +51,7 @@ export function ProposeSheet({
     if (when !== '') terms.scheduled_at = new Date(when).toISOString();
     propose.mutate(terms, {
       onSuccess: () => {
-        setTitle('');
+        setTyped(null);
         setPrice('');
         setWhen('');
         onProposed();
@@ -80,7 +86,7 @@ export function ProposeSheet({
             <Input
               value={title}
               maxLength={MAX_TITLE}
-              onChange={(event) => setTitle(event.target.value)}
+              onChange={(event) => setTyped(event.target.value)}
               autoComplete="off"
             />
           </Field>

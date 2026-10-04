@@ -2,8 +2,10 @@
 // роли, свежие первыми), POST /conversations (начатый диалог — тот же, 200), GET
 // /conversations/{id}/messages (последние, `direction=older` — раньше), POST …/messages (повтор
 // `client_msg_id` — то же сообщение; до договорённости телефон — «•••»), POST …/read, POST …/deal
-// (сделка `proposed`), POST …/share-contact (после договорённости, 6.5) и GET /me/badges. «Собеседник пишет» — `incoming`; `failNext` — следующая
-// отправка падает ошибкой (ключ не занимается: повтор выполнится заново). Время — от NOW.
+// (сделка `proposed`; пока идёт прежняя — 409 `deal_in_progress`, после завершения или отмены —
+// снова можно), POST …/share-contact (после договорённости, 6.5) и GET /me/badges. «Собеседник
+// пишет» — `incoming`; `pastDeal` — сделка диалога позади; `failNext` — следующая отправка падает
+// ошибкой (ключ не занимается: повтор выполнится заново). Время — от NOW.
 // Блокировки (4.7) — у фейка `safety`: с заблокированным писать нельзя (409 `blocked`).
 import type {
   ContactShareIn,
@@ -25,6 +27,10 @@ const MINUTE_MS = 60_000;
 const MASK = '•••';
 const PHONE = /\+?\d[\d\s()-]{6,}\d/g;
 const AGREED: ReadonlySet<string> = new Set(['agreed', 'completed']);
+/** Договорённость идёт: второе «Договорились» — 409 (как ACTIVE_DEALS сервера). */
+const ACTIVE: ReadonlySet<string> = new Set(['proposed', 'agreed', 'disputed']);
+/** Прошлая сделка `pastDeal`. */
+export const PAST_DEAL_ID = '01a0e003-0000-7000-8000-000000000002';
 
 /** Диалоги макета S29: прямой со специалистом, по отклику на заявку клиента и свой отклик. */
 export const CONVERSATION_IDS = {
@@ -159,6 +165,26 @@ export class ChatBackend {
     return this;
   }
 
+  /** Сделка диалога позади: «Договорились» в ленте; завершена — контакты открыты, и вторая
+   *  сторона показывает Telegram (кнопка в шапке, 6.5). */
+  pastDeal(conversationId: string, status: 'completed' | 'cancelled'): this {
+    const dialog = this.dialogs.get(conversationId);
+    if (!dialog) throw new Error(`unknown conversation ${conversationId}`);
+    const title = dialog.conversation.job_title ?? 'Повесить люстру';
+    dialog.conversation = {
+      ...dialog.conversation,
+      deal: { id: PAST_DEAL_ID, status, title },
+      counterpart_telegram: status === 'completed' ? '@aleksey_m' : null,
+    };
+    dialog.messages.push(
+      message(null, null, NOW - 10 * MINUTE_MS, {
+        kind: 'system',
+        event: { type: 'deal_agreed', deal_id: PAST_DEAL_ID, by: null, reason: null },
+      }),
+    );
+    return this;
+  }
+
   /** Собеседник пишет: сообщение появится при следующем опросе S30. */
   incoming(conversationId: string, body: string, at = Date.now()): MessageOut {
     const dialog = this.dialogs.get(conversationId);
@@ -231,9 +257,13 @@ export class ChatBackend {
 
   private start(target: ConversationStartIn): BackendReply {
     this.starts.push(target);
+    // по профилю — прямой диалог с этим специалистом, как `direct_of` сервера: диалог по отклику
+    // с ним же — другой
     const found = [...this.dialogs.values()].find(
       (dialog) =>
-        target.profile_id && dialog.conversation.counterpart_profile_id === target.profile_id,
+        target.profile_id &&
+        dialog.conversation.kind === 'direct' &&
+        dialog.conversation.counterpart_profile_id === target.profile_id,
     );
     if (found) return { status: 200, body: { id: found.conversation.id, created: false } };
     const id = nextId(Date.now());
@@ -325,6 +355,10 @@ export class ChatBackend {
   private propose(dialog: Dialog, terms: DealProposalIn): BackendReply {
     if (dialog.conversation.kind !== 'direct') {
       return problem(409, 'cannot_propose', { reason: 'choose_response' });
+    }
+    const current = dialog.conversation.deal;
+    if (current && ACTIVE.has(current.status)) {
+      return problem(409, 'deal_in_progress', { deal_id: current.id });
     }
     this.proposals.push(terms);
     const dealId = nextId(Date.now());

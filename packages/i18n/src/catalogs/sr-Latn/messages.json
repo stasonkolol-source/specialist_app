@@ -38,6 +38,9 @@
   },
   "chat": {
     "agree": "Dogovoreno",
+    "agreeAgain": "Novi dogovor",
+    "orderAgain": "Naručite ponovo",
+    "orderAgainFailed": "Razgovor nije moguće otvoriti. Pokušajte ponovo",
     "openResponses": "Na ponude",
     "chooseHint": "Izvođač se bira na stranici ponuda zahteva",
     "safety": "Ne plaćajte unapred nepoznatim izvođačima. Platite tek kad posao bude završen.",
@@ -84,6 +87,7 @@
     "shareContact": "Podelite kontakt",
     "telegram": "Telegram",
     "dealBar": "Dogovor „{title}“",
+    "dealBarPast": "Prethodni dogovor „{title}“",
     "dealTerms": "Pogledajte uslove",
     "dealOpen": "Otvorite dogovor",
     "share": {
