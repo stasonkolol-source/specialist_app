@@ -303,9 +303,12 @@ describe('S08 share (7.4)', () => {
       expect(telegram.callsOf('web_app_send_prepared_message')).toEqual([{ id: 'prepared-1' }]),
     );
     expect(bodies).toEqual([{ entity_type: 'specialist', entity_id: CARD_PROFILE_ID }]);
+    // окно выбора чата ещё открыто, пока Telegram не ответил: второе нажатие до ответа — пропуск
+    const button = screen.getByRole('button', { name: 'Поделиться профилем' });
+    await waitFor(() => expect(button.getAttribute('aria-busy')).toBeNull());
 
     prepared = null;
-    await click(screen.getByRole('button', { name: 'Поделиться профилем' }));
+    await click(button);
     await waitFor(() =>
       expect(String(telegram.callsOf('web_app_open_tg_link').at(-1)?.path_full)).toMatch(
         /^\/share\/url\?url=https%3A%2F%2Ft\.me%2Fsosed_test_bot/,
