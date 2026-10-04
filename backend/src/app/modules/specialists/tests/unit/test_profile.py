@@ -280,9 +280,10 @@ def test_founding_is_marked_and_unmarked_without_events() -> None:
     profile = ready()
     profile.pull_events()
     assert profile.set_founding(founding=True)
-    assert profile.is_founding
+    marked = profile.is_founding
     assert not profile.set_founding(founding=True)
     assert profile.set_founding(founding=False)
-    assert not profile.is_founding
+    # флаг — в кортеже, а не assert на атрибуте: mypy сузил бы его до True, и дальше — «мёртвый код»
+    assert (marked, profile.is_founding) == (True, False)
     assert not profile.set_founding(founding=False)
     assert profile.pull_events() == []
