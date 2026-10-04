@@ -1,7 +1,7 @@
 // S43 Настройки (DEVELOPMENT_PLAN 4.9) в приложении целиком на mock-платформе и MSW: язык (PATCH
 // /me, без перезагрузки; тесты перенесены с S31), город в шторке, уведомления «группа × канал» и
-// тихие часы (PUT /me/notification-settings, нажатие видно сразу), экспорт данных через поддержку
-// и «скоро» без контакта, версия приложения.
+// тихие часы (PUT /me/notification-settings, нажатие видно сразу), переключатель «Запуск раздела
+// «Вещи»» у подписанных (7.5), экспорт данных через поддержку и «скоро» без контакта, версия.
 import type {
   CityOut,
   MeUpdateIn,
@@ -37,8 +37,8 @@ const checked = (role: 'radio' | 'checkbox' | 'switch', name: string) =>
   screen.getByRole(role, { name }).getAttribute('aria-checked');
 
 /** Настройки уведомлений с памятью: PUT заменяет их, как backend; `fail` — ответ ошибкой. */
-function notificationBackend({ fail = false } = {}) {
-  let settings = NOTIFICATION_SETTINGS;
+function notificationBackend({ fail = false, initial = NOTIFICATION_SETTINGS } = {}) {
+  let settings = initial;
   const puts: NotificationSettingsIn[] = [];
   server.use(
     http.get(SETTINGS_PATH, () => HttpResponse.json(settings)),
@@ -239,6 +239,7 @@ describe('S43 notifications', () => {
         { group: 'messages', telegram: false, in_app: true },
         { group: 'deals', telegram: true, in_app: true },
         { group: 'marketing', telegram: false, in_app: false },
+        { group: 'goods_launch', telegram: false, in_app: false },
       ],
       quiet_hours: { enabled: true, start: '22:00:00', end: '08:00:00' },
       digest_hour: 9,
@@ -268,6 +269,42 @@ describe('S43 notifications', () => {
       ),
     );
     expect(checked('checkbox', 'Новости «Соседей» — в приложении')).toBe('false');
+  });
+
+  it('has no «Вещи» launch switch for those who did not subscribe on S58', async () => {
+    userBackend(ME);
+    notificationBackend();
+    startApp('/settings');
+
+    await screen.findByRole('checkbox', { name: 'Сообщения — в боте' });
+    expect(screen.queryByRole('switch', { name: 'Запуск раздела «Вещи»' })).toBeNull();
+  });
+
+  it('unsubscribes from the «Вещи» launch with one switch and keeps the row', async () => {
+    userBackend(ME);
+    const backend = notificationBackend({
+      initial: {
+        ...NOTIFICATION_SETTINGS,
+        groups: NOTIFICATION_SETTINGS.groups.map((row) =>
+          row.group === 'goods_launch' ? { ...row, telegram: true, in_app: true } : row,
+        ),
+      },
+    });
+    startApp('/settings');
+    const launch = await screen.findByRole('switch', { name: 'Запуск раздела «Вещи»' });
+    expect(launch.getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByText('Бот напишет один раз, когда раздел откроется')).toBeTruthy();
+
+    await click(launch);
+
+    await waitFor(() => expect(backend.puts).toHaveLength(1));
+    expect(backend.puts[0]?.groups).toContainEqual({
+      group: 'goods_launch',
+      telegram: false,
+      in_app: false,
+    });
+    // выключил по ошибке — включит обратно: строка не пропадает
+    expect(checked('switch', 'Запуск раздела «Вещи»')).toBe('false');
   });
 });
 

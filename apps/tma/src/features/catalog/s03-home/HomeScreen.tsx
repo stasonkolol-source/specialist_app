@@ -2,8 +2,9 @@
 // фиче catalog (фичи не импортируют друг друга). Чип города: нажатие спрашивает местоположение у
 // Telegram — «Нови-Сад · Лиман», и «Свободны сегодня рядом» — ближние первыми. Строка поиска с
 // подсказками `/suggest` (с задержкой): подсказка ведёт в выдачу категории, Enter — в выдачу по
-// тексту. Плитки разделов — в выдачу раздела, «Все услуги» — в S04. Переключатель «Услуги / Вещи»
-// — по флагу goods.segment (client-config, ADR-0019): «Вещи» в MVP — заглушка S58.
+// тексту. Плитки разделов — в выдачу раздела, «Все услуги» — в S04. Переключатель «Услуги / Вещи
+// · скоро» — по флагу goods.segment (client-config, ADR-0019; Q26: в бете выключен, включает
+// админка без релиза): «Вещи» в MVP — S58 с подпиской на запуск (7.5), своим чанком (GoodsSoon.tsx).
 // «Не хотите искать сами?» ведёт в мастер заявки S20a (5.2), «Ищете подработку?» — в ленту заявок
 // S13 (5.3): число заявок за сутки, без новых блока нет. «Мои активные заявки» (5.6) — у клиента с
 // открытыми заявками, сразу под поиском. «Свободны сегодня рядом», «Ищете подработку?» и «Мои
@@ -23,12 +24,12 @@ import {
 import { useLocale, useTranslation } from '@sosed/i18n';
 import type { AvatarPalette, IconName } from '@sosed/ui-web';
 import {
+  Badge,
   Banner,
   Button,
   Card,
   Chip,
   ChipSkeleton,
-  EmptyState,
   Group,
   Heading,
   ICON_NAMES,
@@ -54,6 +55,7 @@ import type { ClientPoint } from '../shared/location.ts';
 import { useLocate } from '../shared/location.ts';
 import type { ResultsSearch } from '../shared/paths.ts';
 import { CATALOG_PATHS, CREATE_JOB_PATH, JOBS_FEED_PATH } from '../shared/paths.ts';
+import { GoodsIntro } from './GoodsIntro.tsx';
 
 type Segment = 'services' | 'goods';
 
@@ -82,6 +84,13 @@ const SideJob = optionalChunk(() => import('./SideJob.tsx').then((module) => mod
 const MyActiveJobs = optionalChunk(() =>
   import('./MyActiveJobs.tsx').then((module) => module.MyActiveJobs),
 );
+// S58 качается, только когда выбрали «Вещи»; не скачался — остаётся шапка «Вещи — скоро»
+const GoodsSoon = lazy(() =>
+  import('./GoodsSoon.tsx').then(
+    (module) => ({ default: module.GoodsSoon }),
+    () => ({ default: GoodsIntro }),
+  ),
+);
 
 const iconOf = (name: string | null): IconName =>
   (ICON_NAMES as readonly string[]).includes(name ?? '') ? (name as IconName) : 'grid';
@@ -100,14 +109,25 @@ export function HomeScreen() {
           onChange={setSegment}
           options={[
             { value: 'services', label: t('home.services') },
-            { value: 'goods', label: t('home.goods') },
+            {
+              value: 'goods',
+              icon: 'bag',
+              label: (
+                <>
+                  {t('home.goods')}
+                  <Badge tone="info" className="h-5 px-1.5 text-[11px]">
+                    {t('home.soon')}
+                  </Badge>
+                </>
+              ),
+            },
           ]}
         />
       )}
       {showGoods ? (
-        <EmptyState as="h1" icon="bag" title={t('goods.soonTitle')}>
-          {t('goods.soonText')}
-        </EmptyState>
+        <Suspense fallback={<GoodsIntro />}>
+          <GoodsSoon />
+        </Suspense>
       ) : (
         <Services />
       )}

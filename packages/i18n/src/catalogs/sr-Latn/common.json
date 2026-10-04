@@ -210,7 +210,8 @@
   "home": {
     "segment": "Odeljak",
     "services": "Usluge",
-    "goods": "Stvari"
+    "goods": "Stvari",
+    "soon": "uskoro"
   },
   "goods": {
     "soonTitle": "Stvari — uskoro",

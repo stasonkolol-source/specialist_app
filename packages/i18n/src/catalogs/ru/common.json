@@ -210,7 +210,8 @@
   "home": {
     "segment": "Раздел",
     "services": "Услуги",
-    "goods": "Вещи"
+    "goods": "Вещи",
+    "soon": "скоро"
   },
   "goods": {
     "soonTitle": "Вещи — скоро",

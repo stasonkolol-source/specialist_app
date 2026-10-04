@@ -298,6 +298,8 @@ export async function mockApi(
       case 'POST /api/v1/me/telegram/write-access':
         if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
         sent.writeAccess += 1;
+        // как backend: разрешение видно и в настройках уведомлений (S58 «Готово!», 7.5)
+        settings = { ...settings, telegram: WRITE_ACCESS };
         return route.fulfill(json(WRITE_ACCESS));
       // S42 и счётчик непрочитанных на S31: тексты — на языке запроса, как у backend
       case 'GET /api/v1/me/notifications':
