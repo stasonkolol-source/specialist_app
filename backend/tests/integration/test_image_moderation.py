@@ -185,7 +185,7 @@ class World:
         give_up: bool = False,
     ) -> Any:
         """Подписчик MediaReady `moderation.check_image` — с фейком провайдера и памятью;
-        `give_up` — отказ от проверки (`moderation.recheck_image`, фото ждёт итога час)."""
+        `give_up` — перепроверка фото, ждущего итога дольше часа (`moderation.recheck_image`)."""
         async with self.container() as request:
             check = CheckImage(
                 await request.get(UnitOfWork),
@@ -197,7 +197,7 @@ class World:
                 await request.get(SpecialistsApi),
             )
             command = CheckImageCommand(media_id=media_id, owner_id=owner, purpose=purpose)
-            return await (check.give_up(command) if give_up else check(command))
+            return await (check.recheck(command, may_give_up=True) if give_up else check(command))
 
     async def facade(self, request: AsyncContainer) -> MediaFacade:
         return MediaFacade(
@@ -396,10 +396,11 @@ async def test_photo_left_without_a_verdict_is_checked_again_then_given_to_a_mod
     # повтор проверки — как подписчик MediaReady
     assert (await world.check(owner, stale, Provider(CLEAN))).action is ImageAction.CLEAN
     assert (await world.asset(stale))["moderation_status"] == "approved"
-    # час без итога — модератору (P2), как при недоступной проверке; фото видно
-    assert (await world.check(owner, forgotten, Provider(CLEAN), give_up=True)) is not None
-    assert (await world.asset(forgotten))["moderation_status"] == "flagged"
-    [case] = await world.cases(forgotten)
-    assert (case["queue"], case["status"]) == ("premod", "pending")
-    assert case["evidence"][0]["signals"] == ["image:unchecked"]
+    # час без итога, но проверить можно (например, фото загружено до модерации фото) — обычная
+    # проверка, а не модератор; модератору — только то, что проверить так и не вышло (юнит-тесты)
+    assert (await world.check(owner, forgotten, Provider(CLEAN), give_up=True)).action is (
+        ImageAction.CLEAN
+    )
+    assert (await world.asset(forgotten))["moderation_status"] == "approved"
+    assert await world.cases(forgotten) == []
     assert await world.shown(forgotten) == ("ready", 3)
