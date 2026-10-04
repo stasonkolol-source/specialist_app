@@ -192,6 +192,11 @@ async def test_admin_category_edit_is_audited_and_emits_catalog_changed(admin: A
             ),
             {"id": category_id},
         )
+    # база общая на прогон: лишний раздел сбил бы счёт сидов в test_catalog_seeds
+    async with engine.begin() as conn:
+        await conn.execute(
+            text("DELETE FROM catalog.categories WHERE id = :id"), {"id": category_id}
+        )
     assert (row.is_active, row.max_responses) == (False, 3)
     assert jobs == 1
     assert await audit_count(admin, "catalog.category.updated", owner.user_id) == 1
@@ -220,7 +225,15 @@ async def test_admin_stop_word_works_without_restart(admin: Admin) -> None:
             data={"kind": "regex", "pattern": "a+b", "action": "flag", "category": "scam"},
         )
         assert regex.status_code == 400  # регулярки — только из сида
-    assert (await rules.current()).check(f"prodajem {word} jeftino").action is not None
+    found = (await rules.current()).check(f"prodajem {word} jeftino").action
+    # база общая на прогон: лишнее правило сбило бы счёт сидов в test_moderation_seeds
+    engine = await admin.container.get(AsyncEngine)
+    async with engine.begin() as conn:
+        await conn.execute(
+            text("DELETE FROM moderation.content_rules WHERE pattern = :word"), {"word": word}
+        )
+    rules.invalidate()
+    assert found is not None
     assert await audit_count(admin, "moderation.content_rule.created", owner.user_id) == 1
 
 
