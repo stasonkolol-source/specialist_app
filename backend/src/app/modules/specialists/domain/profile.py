@@ -30,6 +30,7 @@ from app.platform.contracts.events.specialists import (
     ProfilePublished,
     ProfileSubmitted,
     ProfileUpdated,
+    ProWaitlistJoined,
 )
 from app.platform.kernel.aggregate import VersionedAggregate
 from app.platform.kernel.clock import BUSINESS_TZ
@@ -106,6 +107,8 @@ class Profile(VersionedAggregate):
     work_modes: tuple[WorkMode, ...] = ()
     listed_in_catalog: bool = True
     is_founding: bool = False
+    pro_waitlist_at: datetime | None = None
+    """Лист ожидания Pro (Q24): когда нажал «Хочу узнать первым» в рассылке (2.7b)."""
     available_until: datetime | None = None
     vacation_until: date | None = None
     rejection_reason: str | None = None
@@ -349,6 +352,18 @@ class Profile(VersionedAggregate):
         if self.is_founding:
             return False
         self.is_founding = True
+        return True
+
+    def join_pro_waitlist(self, *, now: datetime, broadcast_id: UUID | None = None) -> bool:
+        """Встать в лист ожидания Pro; False — уже в нём (повторное нажатие)."""
+        if self.pro_waitlist_at is not None:
+            return False
+        self.pro_waitlist_at = now
+        self._record(
+            ProWaitlistJoined(
+                profile_id=self.id, user_id=self.user_id, broadcast_id=broadcast_id, occurred_at=now
+            )
+        )
         return True
 
     def _replace(self, name: str, value: tuple[object, ...], *, now: datetime) -> tuple[str, ...]:

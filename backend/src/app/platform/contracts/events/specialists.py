@@ -82,3 +82,15 @@ class ProfileStale(DomainEvent):
     event_type = "specialists.ProfileStale"
     profile_id: UUID
     user_id: UserId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ProWaitlistJoined(DomainEvent):
+    """Исполнитель встал в лист ожидания Pro (Q24): кнопка «Хочу узнать первым» в рассылке
+    (2.7b). Только первый раз — повтор ничего не публикует."""
+
+    event_type = "specialists.ProWaitlistJoined"
+    profile_id: UUID
+    user_id: UserId
+    broadcast_id: UUID | None = None
+    """Рассылка, из которой пришло нажатие."""

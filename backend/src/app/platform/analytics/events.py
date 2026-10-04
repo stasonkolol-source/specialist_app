@@ -194,7 +194,9 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
         description="Профиль в каталоге: одобрен модерацией или возвращён владельцем",
         properties={"approved": Flag()},
     ),
-    EventName.PRO_WAITLIST_JOINED: EventSpec(step="2.8a", description="Лист ожидания Pro"),
+    EventName.PRO_WAITLIST_JOINED: EventSpec(
+        step="2.7b", description="Лист ожидания Pro: «Хочу узнать первым» в рассылке (Q24)"
+    ),
     EventName.PHONE_VERIFIED: EventSpec(step="2.9", description="Телефон подтверждён"),
     EventName.REPORT_CREATED: EventSpec(
         step="4.7",
