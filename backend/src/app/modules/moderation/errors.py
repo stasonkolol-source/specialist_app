@@ -71,3 +71,22 @@ class ReportAlreadyOpenError(ConcurrentModificationError):
     """Параллельный запрос только что записал ту же жалобу: команда повторяется и отдаёт её."""
 
     code = "report_already_open"
+
+
+class AppealTargetNotFoundError(NotFoundError):
+    """Обжаловать нечего: решения нет, оно не о вас, нарушения не нашли или это апелляция."""
+
+    code = "appeal_target_not_found"
+
+
+class AppealWindowClosedError(ConflictError):
+    """Шесть месяцев с решения прошли: апелляцию уже не подать (§14.4)."""
+
+    code = "appeal_window_closed"
+
+
+class AppealAlreadyFiledError(ConcurrentModificationError):
+    """Параллельный запрос только что подал апелляцию на то же решение: команда повторяется
+    и отдаёт её."""
+
+    code = "appeal_already_filed"

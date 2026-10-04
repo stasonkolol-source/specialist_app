@@ -1,0 +1,40 @@
+#!/bin/sh
+# Kamal pre-deploy (DEVELOPMENT_PLAN 0.25c, 3.1c, ARCHITECTURE §16.4): образ новой версии уже скачан
+# на сервер, трафик ещё на старой. Сначала smoke БД (тот же scripts/pg_smoke.sh, что make pg-smoke),
+# затем alembic upgrade head этим образом под ролью migrator. Упал любой шаг — деплой останавливается,
+# старая версия продолжает работать (миграции expand/contract совместимы с ней).
+# Stage: БД — accessory sosed-postgres на той же VM. Production: БД на db-1, публичного SSH у неё
+# нет — smoke идёт через app-1 (ProxyCommand: опции командной строки -J к прыжку не применяет).
+#
+# Хук выполняется там же, где kamal: в его Docker-образе (alpine — только sh, поэтому не bash).
+# Секреты Kamal — в окружении хука (run_hook "pre-deploy", secrets: true); на сервер DSN уходят через
+# stdin ssh, не в командную строку. app exec Kamal здесь не годится: он берёт env-файл роли с
+# сервера, а его пишет только boot — уже после этого хука (на первом деплое файла ещё нет).
+set -eu
+
+host="${KAMAL_HOSTS%%,*}"
+image="ghcr.io/${GHCR_OWNER:?GHCR_OWNER}/sosed-backend:${KAMAL_VERSION:?KAMAL_VERSION}"
+remote="root@${host}"
+ssh_opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+
+if [ "${KAMAL_DESTINATION:-}" = production ]; then
+  echo "pre-deploy: pg-smoke на db-1 (${PROD_DB_IP:?PROD_DB_IP}) через ${host}"
+  # shellcheck disable=SC2086 # ssh_opts — несколько опций
+  ssh $ssh_opts -o "ProxyCommand=ssh $ssh_opts -W %h:%p $remote" "root@${PROD_DB_IP}" \
+    "PG_SMOKE_LOCAL=1 bash -s" < scripts/pg_smoke.sh
+else
+  echo "pre-deploy: pg-smoke на ${host}"
+  # shellcheck disable=SC2086
+  ssh $ssh_opts "$remote" "PG_SMOKE_CONTAINER=sosed-postgres bash -s" < scripts/pg_smoke.sh
+fi
+
+echo "pre-deploy: alembic upgrade head (${KAMAL_VERSION})"
+printf 'DB_DSN=%s\nDB_MIGRATOR_DSN=%s\nAPP_ENV=%s\n' "${DB_DSN:?}" "${DB_MIGRATOR_DSN:?}" "${KAMAL_DESTINATION:?}" |
+  ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$remote" "
+    set -eu
+    env_file=\$(mktemp)
+    trap 'rm -f \"\$env_file\"' EXIT
+    cat > \"\$env_file\"
+    docker run --rm --network kamal --env-file \"\$env_file\" '${image}' migrate
+  "
+echo "pre-deploy: OK"

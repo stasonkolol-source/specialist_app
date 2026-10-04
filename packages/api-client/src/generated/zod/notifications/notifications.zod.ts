@@ -119,7 +119,15 @@ export const NotificationsGetNotificationSettingsResponse = zod.object({
   groups: zod.array(
     zod.object({
       group: zod
-        .enum(['job_matches', 'responses', 'messages', 'deals', 'marketing', 'account'])
+        .enum([
+          'job_matches',
+          'responses',
+          'messages',
+          'deals',
+          'marketing',
+          'goods_launch',
+          'account',
+        ])
         .describe('Строка настроек уведомлений S43.'),
       telegram: zod.boolean(),
       in_app: zod.boolean(),
@@ -156,7 +164,7 @@ export const NotificationsGetNotificationSettingsResponse = zod.object({
  * группу выключить нельзя — 422 `notification_group_mandatory`.
  * @summary Update Notification Settings
  */
-export const notificationsUpdateNotificationSettingsBodyGroupsMax = 6;
+export const notificationsUpdateNotificationSettingsBodyGroupsMax = 7;
 
 export const notificationsUpdateNotificationSettingsBodyQuietHoursStartDefault = `22:00:00`;
 export const notificationsUpdateNotificationSettingsBodyQuietHoursEndDefault = `08:00:00`;
@@ -170,7 +178,15 @@ export const NotificationsUpdateNotificationSettingsBody = zod
       .array(
         zod.object({
           group: zod
-            .enum(['job_matches', 'responses', 'messages', 'deals', 'marketing', 'account'])
+            .enum([
+              'job_matches',
+              'responses',
+              'messages',
+              'deals',
+              'marketing',
+              'goods_launch',
+              'account',
+            ])
             .describe('Строка настроек уведомлений S43.'),
           telegram: zod.boolean(),
           in_app: zod.boolean(),
@@ -200,7 +216,15 @@ export const NotificationsUpdateNotificationSettingsResponse = zod.object({
   groups: zod.array(
     zod.object({
       group: zod
-        .enum(['job_matches', 'responses', 'messages', 'deals', 'marketing', 'account'])
+        .enum([
+          'job_matches',
+          'responses',
+          'messages',
+          'deals',
+          'marketing',
+          'goods_launch',
+          'account',
+        ])
         .describe('Строка настроек уведомлений S43.'),
       telegram: zod.boolean(),
       in_app: zod.boolean(),

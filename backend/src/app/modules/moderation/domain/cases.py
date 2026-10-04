@@ -9,7 +9,12 @@
     pending → approved | rejected        (автопроверка решает сама, 2.6)
 `approved` — нарушения нет; `rejected` — нарушение: контент скрыт, санкция — по лестнице
 (domain/sanctions.py). Решение пишет машинный код причины и версию политики модерации и
-публикует ModerationDecisionMade — statement of reasons для автора. Итог апелляции — 2.5b.
+публикует ModerationDecisionMade — statement of reasons для автора. Новый кейс публикует
+CaseOpened — карточка в чате модераторов (2.5b).
+
+Апелляция (2.5b, domain/appeals.py) — кейс очереди Appeals с `appeal_of` — обжалованным
+решением, об объекте того же решения: `approved` — апелляция удовлетворена (санкцию снимают),
+`rejected` — решение остаётся в силе. Итог — AppealDecided, а не ModerationDecisionMade.
 
 Спор по сделке (6.1c) — кейс объекта `dispute`: `subject_id` — вторая сторона, о ней спор.
 Модератор решает его с исходом сделки (ResolveDispute), а отзыв спора закрывает кейс без
@@ -28,7 +33,12 @@ from app.modules.moderation.domain.queues import Queue, stricter
 from app.modules.moderation.domain.sanctions import SanctionStep
 from app.modules.moderation.domain.sla import due_at
 from app.modules.moderation.errors import CaseStateError, CaseTakenError, InvalidDecisionError
-from app.platform.contracts.events.moderation import ModerationDecision, ModerationDecisionMade
+from app.platform.contracts.events.moderation import (
+    AppealDecided,
+    CaseOpened,
+    ModerationDecision,
+    ModerationDecisionMade,
+)
 from app.platform.kernel.aggregate import AggregateRoot
 from app.platform.kernel.ids import CaseId, MediaId, UserId, new_id
 
@@ -127,7 +137,7 @@ class Case(AggregateRoot):
         due: datetime | None = None,
     ) -> Case:
         """`due` — свой срок вместо SLA очереди: спор ждёт ответа второй стороны 48 ч."""
-        return cls(
+        case = cls(
             id=CaseId(new_id()),
             queue=queue,
             entity_type=entity_type,
@@ -141,6 +151,20 @@ class Case(AggregateRoot):
             media_ids=tuple(dict.fromkeys(media_ids)),
             appeal_of=appeal_of,
         )
+        case._record(
+            CaseOpened(
+                case_id=case.id,
+                queue=queue.value,
+                entity_type=entity_type.value,
+                trigger=trigger.value,
+                occurred_at=now,
+            )
+        )
+        return case
+
+    @property
+    def is_appeal(self) -> bool:
+        return self.appeal_of is not None
 
     @property
     def is_open(self) -> bool:
@@ -234,8 +258,18 @@ class Case(AggregateRoot):
         self.decided_at = now
         if note:
             self.notes = f"{self.notes}\n{note}" if self.notes else note
-        if self.trigger is CaseTrigger.APPEAL:
-            return  # итог апелляции и его уведомление — 2.5b
+        if self.appeal_of is not None:
+            self._record(
+                AppealDecided(
+                    case_id=self.id,
+                    appeal_of=self.appeal_of,
+                    user_id=self.subject_id,
+                    granted=verdict is ModerationDecision.APPROVED,
+                    decision_code=reason_code,
+                    occurred_at=now,
+                )
+            )
+            return
         self._record(
             ModerationDecisionMade(
                 case_id=self.id,

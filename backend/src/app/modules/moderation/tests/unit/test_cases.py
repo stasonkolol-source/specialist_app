@@ -9,8 +9,13 @@ from app.modules.moderation.domain.cases import Case, CaseStatus, CaseTrigger, E
 from app.modules.moderation.domain.queues import Queue
 from app.modules.moderation.domain.sanctions import SanctionStep
 from app.modules.moderation.errors import CaseStateError, CaseTakenError, InvalidDecisionError
-from app.platform.contracts.events.moderation import ModerationDecision, ModerationDecisionMade
-from app.platform.kernel.ids import MediaId, UserId, new_id
+from app.platform.contracts.events.moderation import (
+    AppealDecided,
+    CaseOpened,
+    ModerationDecision,
+    ModerationDecisionMade,
+)
+from app.platform.kernel.ids import CaseId, MediaId, UserId, new_id
 
 pytestmark = pytest.mark.unit
 
@@ -19,8 +24,12 @@ AUTHOR, ANA, MARKO = UserId(new_id()), UserId(new_id()), UserId(new_id())
 APPROVED, REJECTED = ModerationDecision.APPROVED, ModerationDecision.REJECTED
 
 
-def opened(queue: Queue = Queue.PREMOD, trigger: CaseTrigger = CaseTrigger.AUTO_FLAG) -> Case:
-    return Case.open(
+def opened(
+    queue: Queue = Queue.PREMOD,
+    trigger: CaseTrigger = CaseTrigger.AUTO_FLAG,
+    appeal_of: CaseId | None = None,
+) -> Case:
+    case = Case.open(
         queue=queue,
         entity_type=EntityType.JOB,
         entity_id=new_id(),
@@ -28,6 +37,30 @@ def opened(queue: Queue = Queue.PREMOD, trigger: CaseTrigger = CaseTrigger.AUTO_
         trigger=trigger,
         now=NOW,
         details={"labels": ["contact_leak"]},
+        appeal_of=appeal_of,
+    )
+    case.pull_events()  # CaseOpened — свой тест
+    return case
+
+
+def test_new_case_is_announced_for_the_moderators_chat() -> None:
+    case = Case.open(
+        queue=Queue.FRAUD,
+        entity_type=EntityType.USER,
+        entity_id=AUTHOR,
+        subject_id=AUTHOR,
+        trigger=CaseTrigger.REPORT,
+        now=NOW,
+    )
+
+    [event] = case.pull_events()
+    assert event == CaseOpened(
+        case_id=case.id,
+        queue="fraud",
+        entity_type="user",
+        trigger="report",
+        occurred_at=NOW,
+        event_id=event.event_id,
     )
 
 
@@ -200,9 +233,29 @@ def test_decided_case_is_closed() -> None:
 
 
 def test_appeal_outcome_is_not_a_new_rejection_notice() -> None:
-    case = opened(Queue.APPEALS, CaseTrigger.APPEAL)
+    decision = CaseId(new_id())
+    case = opened(Queue.APPEALS, CaseTrigger.APPEAL, appeal_of=decision)
 
     case.decide(verdict=REJECTED, reason_code="spam_ad", policy_version="v", now=NOW, by=ANA)
 
-    assert case.pull_events() == []  # итог апелляции — 2.5b
+    [event] = case.pull_events()  # итог апелляции, а не новый отказ
+    assert event == AppealDecided(
+        case_id=case.id,
+        appeal_of=decision,
+        user_id=AUTHOR,
+        granted=False,
+        decision_code="spam_ad",
+        occurred_at=NOW,
+        event_id=event.event_id,
+    )
     assert case.due_at == NOW + timedelta(hours=72)
+
+
+def test_granted_appeal_is_announced() -> None:
+    case = opened(Queue.APPEALS, CaseTrigger.APPEAL, appeal_of=CaseId(new_id()))
+
+    case.decide(verdict=APPROVED, reason_code=None, policy_version="v", now=NOW, by=ANA)
+
+    [event] = case.pull_events()
+    assert isinstance(event, AppealDecided)
+    assert event.granted

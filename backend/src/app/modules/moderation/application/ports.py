@@ -1,6 +1,6 @@
 """Порты модуля moderation (ADR-0020 §3, §5)."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Final, Protocol
@@ -12,7 +12,7 @@ from app.modules.moderation.domain.pipeline import Route
 from app.modules.moderation.domain.reports import Report, ReportStatus
 from app.modules.moderation.domain.risk import RiskSignal
 from app.modules.moderation.domain.rules import ContentRule, RuleSet
-from app.modules.moderation.domain.sanctions import Sanction
+from app.modules.moderation.domain.sanctions import Sanction, SanctionStep
 from app.platform.ai.port import ContentKind
 from app.platform.contracts.events.deals import (
     DealDisputed,
@@ -21,7 +21,7 @@ from app.platform.contracts.events.deals import (
     DisputeWithdrawn,
 )
 from app.platform.contracts.events.identity import UserRegistered
-from app.platform.contracts.events.moderation import ModerationRequested
+from app.platform.contracts.events.moderation import CaseOpened, ModerationRequested
 from app.platform.kernel.ids import CaseId, MediaId, UserId
 from app.platform.queue.port import TaskRef
 
@@ -58,11 +58,20 @@ class CaseRepository(Protocol):
         ...
 
     async def open_for_entity(self, entity_type: EntityType, entity_id: UUID) -> Case | None:
-        """Открытый кейс объекта под блокировкой строки."""
+        """Открытый кейс объекта под блокировкой строки (апелляции — не в счёт)."""
+        ...
+
+    async def appeal_for(self, case_id: CaseId) -> Case | None:
+        """Апелляция на решение (в любом статусе) под блокировкой строки."""
+        ...
+
+    async def get(self, case_id: CaseId) -> Case | None:
+        """Кейс без блокировки: показать (карточка в чате модераторов)."""
         ...
 
     async def add(self, case: Case) -> None:
-        """CaseAlreadyOpenError — параллельный запрос только что открыл кейс того же объекта."""
+        """CaseAlreadyOpenError — параллельный запрос только что открыл кейс того же объекта;
+        AppealAlreadyFiledError — апелляцию на то же решение."""
         ...
 
     async def save(self, case: Case) -> None: ...
@@ -71,6 +80,15 @@ class CaseRepository(Protocol):
 class SanctionRepository(Protocol):
     async def counted(self, user_id: UserId, now: datetime) -> int:
         """Несгоревшие и неотменённые предупреждения и страйки 1–2 пользователя."""
+        ...
+
+    async def latest_case(self, user_id: UserId, steps: Collection[SanctionStep]) -> CaseId | None:
+        """Кейс последней неотменённой санкции пользователя из этих ступеней."""
+        ...
+
+    async def revoke_for_case(self, case_id: CaseId, now: datetime) -> int:
+        """Апелляция удовлетворена: ступени по кейсу отменены, в лестнице не считаются.
+        Сколько отменено. Нужен активный UoW."""
         ...
 
     async def add(self, sanction: Sanction) -> None: ...
@@ -202,6 +220,19 @@ class AutoCheckMetrics(Protocol):
         ...
 
 
+class ModeratorsChat(Protocol):
+    """Чат модераторов (2.5b, infrastructure/chat.py): карточка кейса с кнопками решения."""
+
+    @property
+    def enabled(self) -> bool:
+        """Чат задан (`TELEGRAM_MODERATORS_CHAT_ID`, K29); нет — кейсы решают командами `cli`."""
+        ...
+
+    async def post(self, case: Case) -> None:
+        """Прислать карточку. Bot API недоступен — ExternalServiceError (повтор задачи)."""
+        ...
+
+
 class CaseQueue(Protocol):
     async def open_cases(self, *, limit: int) -> list[OpenCaseView]:
         """Открытые кейсы по сроку: сначала те, у которых срок ближе."""
@@ -222,3 +253,5 @@ NOTE_DISPUTE_UNANSWERED: Final = TaskRef("moderation.note_dispute_unanswered", D
 """48 ч без ответа: пометка «нет ответа» в кейсе."""
 CLOSE_DISPUTE_CASE: Final = TaskRef("moderation.close_dispute_case", DisputeWithdrawn)
 """Спор отозван: кейс закрыт без решения."""
+POST_CASE_CARD: Final = TaskRef("moderation.post_case_card", CaseOpened)
+"""Новый кейс (2.5b): карточка в чате модераторов."""

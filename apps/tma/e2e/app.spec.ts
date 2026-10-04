@@ -103,12 +103,6 @@ test('таббар переключает разделы', async ({ page }) => {
   }
 });
 
-test('«Вещи» на главной — заглушка S58', async ({ page }) => {
-  await open(page, 'theme=light&lang=ru');
-  await page.getByRole('radio', { name: 'Вещи' }).click();
-  await expect(page.getByRole('heading', { name: 'Вещи — скоро' })).toBeVisible();
-});
-
 test('sr-Cyrl: smoke — выбранный язык остаётся кириллицей', async ({ page }) => {
   const watch = await open(page, 'theme=light&lang=sr&locale=sr-Cyrl');
   await expect(page.locator('html')).toHaveAttribute('lang', 'sr-Cyrl');

@@ -4,7 +4,7 @@
 from dataclasses import dataclass, field
 
 from app.platform.kernel.errors import ExternalServiceError
-from app.platform.telegram.port import ButtonLine, OutgoingMessage, SentMessage
+from app.platform.telegram.port import ButtonLine, OutgoingMessage, SentMessage, ShareCard
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -39,3 +39,17 @@ class RecordingTelegramSender:
         if self.failing:
             raise ExternalServiceError(service="telegram")
         self.edited.append(EditedButtons(chat_id=chat_id, message_id=message_id, buttons=buttons))
+
+
+@dataclass
+class RecordingPreparedMessages:
+    """Карточки шаринга (7.4): запоминает, что готовили; `failing` — Bot API не принял."""
+
+    prepared: list[tuple[int, ShareCard]] = field(default_factory=list)
+    failing: bool = False
+
+    async def prepare(self, telegram_user_id: int, card: ShareCard) -> str | None:
+        if self.failing:
+            return None
+        self.prepared.append((telegram_user_id, card))
+        return f"prepared-{len(self.prepared)}"

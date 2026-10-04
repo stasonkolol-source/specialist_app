@@ -40,6 +40,8 @@ class ProblemOut(BaseModel):
     """403 `restricted`: вид санкции."""
     until: datetime | None = None
     """403 `restricted`: до когда; null — бессрочно."""
+    reason: str | None = None
+    """403 `restricted`: машинный код причины санкции (`prepayment_scam`, …) — экран S49b."""
     platform: str | None = None
     """426: платформа клиента из X-Client."""
     min_version: str | None = None

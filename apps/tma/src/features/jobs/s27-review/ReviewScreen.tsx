@@ -119,7 +119,10 @@ function Form({ deal, onSent }: { deal: DealCardOut; onSent: () => void }) {
 
   return (
     <section className="flex flex-col gap-4 px-4 pt-3 pb-6">
-      <Heading variant="h1">{t('review.title')}</Heading>
+      {/* заголовок внутреннего экрана — .h2, как на артборде, а не крупный .h1 раздела */}
+      <Heading variant="h2" as="h1">
+        {t('review.title')}
+      </Heading>
       <Card tight>
         <div className="flex items-center gap-3">
           <Avatar name={name} />

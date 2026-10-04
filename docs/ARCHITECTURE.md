@@ -1622,9 +1622,9 @@ CREATE TABLE notifications.channels (          -- куда доставлять
   UNIQUE (kind, address)
 );
 
-CREATE TABLE notifications.preferences (      -- только отличия от умолчаний (всё включено, кроме marketing)
+CREATE TABLE notifications.preferences (      -- только отличия от умолчаний (всё включено, кроме marketing и goods_launch)
   user_id     uuid NOT NULL REFERENCES identity.users(id),
-  event_group text NOT NULL,          -- job_matches / responses / messages / deals / marketing (account — не выключается)
+  event_group text NOT NULL,          -- job_matches / responses / messages / deals / marketing / goods_launch (account — не выключается)
   channel     text NOT NULL,          -- telegram / in_app (push — этап 2)
   enabled     boolean NOT NULL,
   updated_at  timestamptz NOT NULL DEFAULT now(),
@@ -1723,7 +1723,8 @@ CREATE TABLE moderation.cases (         -- единица работы моде�
   CHECK ((status IN ('approved','rejected')) = (decided_at IS NOT NULL)),
   CHECK (status <> 'rejected' OR reason_code IS NOT NULL)
 );
-CREATE UNIQUE INDEX ON moderation.cases (entity_type, entity_id) WHERE status IN ('pending','in_review','escalated');
+CREATE UNIQUE INDEX ON moderation.cases (entity_type, entity_id) WHERE status IN ('pending','in_review','escalated') AND appeal_of IS NULL;  -- апелляция (2.5b) — не в счёт
+CREATE UNIQUE INDEX ON moderation.cases (appeal_of) WHERE appeal_of IS NOT NULL;  -- апелляция на решение одна (2.5b)
 CREATE INDEX ON moderation.cases (queue, due_at) WHERE status IN ('pending','in_review','escalated');
 CREATE INDEX ON moderation.cases USING gin (media_ids) WHERE status IN ('pending','in_review','escalated');
 
@@ -2961,7 +2962,7 @@ flowchart LR
 
 - **Идемпотентность.** Уникальный `dedupe_key` (например, `response.received:{job_id}:{начало окна}`) и `UNIQUE (notification_id, channel_id)` в доставках.
 - **Как устроено (шаг 2.3a).** Подписчик события (очередь `notifications`) вызывает один use case `Notify`: в одной транзакции — уведомление, доставка в личный чат с ботом (если тип ходит в бот, группа включена и боту можно писать) и задача `notifications.send`, поставленная на `not_before` (`JobQueue.enqueue(…, not_before=…)`). Текст не хранится: `payload` — машинные параметры и код deep link, а текст собирается по шаблонам gettext на языке читателя — при показе в центре и при отправке. При отправке настройки проверяются заново: группу выключили за ночь — `suppressed`, тихие часы продлили — доставка ждёт их нового конца (срочное — нет). Отправка at-least-once: упади воркер между отправкой и записью итога, сообщение уйдёт ещё раз. Удалённому пользователю и в выключенный канал — `suppressed`.
-- **Группы S43** («группа × канал»: бот, приложение): `job_matches` — «Заявки по подпискам», `responses` — «Отклики и выбор», `messages`, `deals` — «Сделки, споры, отзывы», `marketing` — «Новости «Соседей»» (только по согласию, по умолчанию выключена). Служебная `account` — решения модерации и санкции — не выключается: без неё человек не узнает, почему контент не виден или действие запрещено. Теневой бан пользователю не сообщается.
+- **Группы S43** («группа × канал»: бот, приложение): `job_matches` — «Заявки по подпискам», `responses` — «Отклики и выбор», `messages`, `deals` — «Сделки, споры, отзывы», `marketing` — «Новости «Соседей»» (только по согласию, по умолчанию выключена), `goods_launch` — «Запуск раздела «Вещи»» (только по согласию: включает «Сообщить о запуске» на S58, на S43 — один переключатель у подписанных, 7.5). Служебная `account` — решения модерации и санкции — не выключается: без неё человек не узнает, почему контент не виден или действие запрещено. Теневой бан пользователю не сообщается.
 - **Дебаунс.** Несколько откликов на одну заявку за 5 минут собираются в одно сообщение (5.4): первый отклик ставит задачу на конец окна, следующие, пока она ждёт, ничего не ставят — замок очереди Procrastinate по заявке. Если сообщения в чате пришли, пока получатель активен в этом диалоге Mini App (heartbeat), уведомление не отправляется.
 - **Тихие часы** 22:00–08:00 (Europe/Belgrade, настраиваются в `notifications.user_settings`) действуют для всего, кроме сообщений чата, выбора исполнителя, `deal.proposed` и заявок со срочностью `asap`.
 - **Приоритеты** (при перегрузке первые идут раньше):
@@ -3214,7 +3215,7 @@ flowchart LR
 
 ### 13.3. Rate limiting
 
-Счётчики — sliding window в Valkey (`limits`). Грубые IP-лимиты стоят ещё на краю, в Cloudflare. Стартовые значения:
+Счётчики — sliding window в Valkey (`limits`). Грубые IP-лимиты стоят ещё на краю, в Cloudflare. Адрес клиента для лимитов по IP приложение берёт не из левой записи X-Forwarded-For (её пишет сам клиент): заголовки X-Forwarded-* принимаются только от своих прокси (kamal-proxy), цепочка читается справа налево, а `CF-Connecting-IP` — только если к прокси подключился край Cloudflare (`interfaces/http/proxy.py`, шаг 8.4). Стартовые значения:
 
 | Действие | Лимит |
 |---|---|
@@ -3304,7 +3305,7 @@ flowchart TB
 
 Сценарий «срочно вечером» не ждёт модератора. LLM-классификатор — Must в MVP: на нём держится модерация по риску.
 
-**Как устроено (шаг 2.6).** Контентный модуль в транзакции, где объект стал «на проверке», публикует событие `ModerationRequested` (тип и id объекта, автор, правка ли); подписчик `moderation.auto_check` читает текст и файлы через адаптер цели (`moderation/infrastructure/targets/<тип>.py` — фасад модуля-владельца: `content`, `publish`, `hide`) и решает маршрут (`moderation/domain/pipeline.py`). Сообщение чата видно сразу (6.3a): адаптер отдаёт его как уже видимое (`TargetContent.visible`), и очередь скрывает его только при признаке нарушения (`Routing.flagged`: слово словаря, velocity, omni, метка классификатора, кроме `contact_leak`); недоступный AI, сомнение классификатора и детекторы контактов и предоплаты открывают кейс, не пряча сообщение — контакты в переписке закрывает маскирование, о предоплате предупреждает памятка. Внешние вызовы — до транзакции; публикация или скрытие, кейс и заморозка аккаунта при P0 — в одной. Решение модератора действует на объект через тот же адаптер: одобрение публикует (и снимает заморозку автопроверки), отказ скрывает. До чата модераторов (2.5b) и админки (2.7b) кейсы смотрят и решают командами `cli moderation-queue` и `cli moderation-decide` (решает только роль moderator или admin).
+**Как устроено (шаг 2.6).** Контентный модуль в транзакции, где объект стал «на проверке», публикует событие `ModerationRequested` (тип и id объекта, автор, правка ли); подписчик `moderation.auto_check` читает текст и файлы через адаптер цели (`moderation/infrastructure/targets/<тип>.py` — фасад модуля-владельца: `content`, `publish`, `hide`) и решает маршрут (`moderation/domain/pipeline.py`). Сообщение чата видно сразу (6.3a): адаптер отдаёт его как уже видимое (`TargetContent.visible`), и очередь скрывает его только при признаке нарушения (`Routing.flagged`: слово словаря, velocity, omni, метка классификатора, кроме `contact_leak`); недоступный AI, сомнение классификатора и детекторы контактов и предоплаты открывают кейс, не пряча сообщение — контакты в переписке закрывает маскирование, о предоплате предупреждает памятка. Внешние вызовы — до транзакции; публикация или скрытие, кейс и заморозка аккаунта при P0 — в одной. Решение модератора действует на объект через тот же адаптер: одобрение публикует (и снимает заморозку автопроверки), отказ скрывает. Кейсы решают кнопками карточки в чате модераторов (2.5b: `TELEGRAM_MODERATORS_CHAT_ID`, карточка — по событию `CaseOpened`, кнопка проверяет роль и вызывает тот же use case) и командами `cli moderation-queue`, `cli moderation-decide`, `cli dispute-resolve` (решает только роль moderator или admin); админка — 2.7b.
 
 **Жёсткие правила (шаг 2.4).** Словарь `moderation.content_rules` загружается из `backend/seeds/moderation/content_rules.yaml` (`cli seed`) и сравнивается со **скелетом** текста (`platform/text/normalize.py`): регистр, письменность (кириллица и латиница), «цифры вместо букв», повторы, «п.р.е.д», невидимые символы, ударения, буквы-двойники других алфавитов и русский транслит сводятся к одной форме, поэтому сербское слово в словаре пишется один раз. Детектор контактов и предоплаты (`platform/text/contact_masking.py`) работает всегда, без словаря. Velocity — один текст от нескольких аккаунтов или повтор автора (отпечаток — скелет без контактов, счётчики в Valkey, fail open). Набор примеров `seeds/moderation/rule_examples.yaml` проверяет `cli seeds-validate`. Во внешний AI уходит текст без контактов, имени и id автора.
 

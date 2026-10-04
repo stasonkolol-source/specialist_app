@@ -12,7 +12,7 @@ import type {
   UseMutationResult,
 } from '@tanstack/react-query';
 
-import type { ProblemOut, ReportIn, ReportOut } from '../../model';
+import type { AppealIn, AppealOut, ProblemOut, ReportIn, ReportOut } from '../../model';
 
 import { apiFetch } from '../../../mutator.ts';
 import type { ErrorType } from '../../../mutator.ts';
@@ -124,4 +124,110 @@ export const useModerationCreateReport = <TError = ErrorType<ProblemOut>, TConte
   TContext
 > => {
   return useMutation(getModerationCreateReportMutationOptions(options), queryClient);
+};
+export const getModerationFileAppealUrl = () => {
+  return `/api/v1/appeals`;
+};
+
+/**
+ * Обжаловать решение модерации: апелляцию рассмотрит человек за 72 часа (S49b).
+ * @summary File Appeal
+ */
+export const moderationFileAppeal = async (
+  appealIn: AppealIn,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<AppealOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<AppealOut>(getModerationFileAppealUrl(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(appealIn),
+  });
+};
+
+export const getModerationFileAppealMutationKey = () => ['moderationFileAppeal'] as const;
+
+export const getModerationFileAppealMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof moderationFileAppeal>>,
+    TError,
+    ModerationFileAppealMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof moderationFileAppeal>>,
+  TError,
+  ModerationFileAppealMutationVariables,
+  TContext
+> => {
+  const mutationKey = getModerationFileAppealMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof moderationFileAppeal>>,
+    ModerationFileAppealMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return moderationFileAppeal(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ModerationFileAppealMutationResult = NonNullable<
+  Awaited<ReturnType<typeof moderationFileAppeal>>
+>;
+export type ModerationFileAppealMutationBody = AppealIn;
+export type ModerationFileAppealMutationError = ErrorType<ProblemOut>;
+export type ModerationFileAppealMutationVariables = { data: AppealIn };
+
+/**
+ * @summary File Appeal
+ */
+export const useModerationFileAppeal = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof moderationFileAppeal>>,
+      TError,
+      ModerationFileAppealMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof moderationFileAppeal>>,
+  TError,
+  ModerationFileAppealMutationVariables,
+  TContext
+> => {
+  return useMutation(getModerationFileAppealMutationOptions(options), queryClient);
 };

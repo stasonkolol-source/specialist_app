@@ -106,7 +106,8 @@ async def test_client_config_serves_flags_with_etag(settings: Settings) -> None:
         response = await client.get("/api/v1/client-config")
         assert response.status_code == 200
         body = response.json()
-        assert body["flags"]["goods.segment"] is True
+        # Q26: сегмент «Вещи» в бете выключен (platform_0005), включает админка
+        assert body["flags"]["goods.segment"] is False
         assert set(body) == {
             "min_versions",
             "flags",

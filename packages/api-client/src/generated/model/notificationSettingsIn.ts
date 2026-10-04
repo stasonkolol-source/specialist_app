@@ -11,7 +11,7 @@ import type { QuietHoursIn } from './quietHoursIn.ts';
  * Настройки целиком: группы, которых нет в списке, возвращаются к умолчаниям.
  */
 export interface NotificationSettingsIn {
-  /** @maxItems 6 */
+  /** @maxItems 7 */
   groups: GroupSettingIn[];
   quiet_hours: QuietHoursIn;
   /**

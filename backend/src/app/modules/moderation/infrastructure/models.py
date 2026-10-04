@@ -121,13 +121,21 @@ class CaseRow(TimestampsMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
 
     __table_args__ = (
-        # один открытый кейс на объект: второй повод дописывается в него
+        # один открытый кейс на объект: второй повод дописывается в него; апелляция (2.5b) —
+        # отдельно, по объекту может идти и новый кейс
         Index(
             "uq_cases_entity_open",
             "entity_type",
             "entity_id",
             unique=True,
-            postgresql_where=text(OPEN_CASE),
+            postgresql_where=text(f"{OPEN_CASE} AND appeal_of IS NULL"),
+        ),
+        # апелляция на решение — одна: итог окончательный
+        Index(
+            "uq_cases_appeal_of",
+            "appeal_of",
+            unique=True,
+            postgresql_where=text("appeal_of IS NOT NULL"),
         ),
         Index("ix_cases_queue_due_at_open", "queue", "due_at", postgresql_where=text(OPEN_CASE)),
         # legal hold: файлы открытых кейсов (media.purge_deleted)

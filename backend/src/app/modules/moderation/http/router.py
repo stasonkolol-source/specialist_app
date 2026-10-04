@@ -5,8 +5,13 @@
   запрещённое — P0); повтор, пока кейс открыт, — та же жалоба (200), новая — 201. Двадцать
   первая за сутки — 429 `reports_limit`.
 
-Кейсы решают командами `cli moderation-queue` и `cli moderation-decide` (решение владельца
-2026-10-01: чат модераторов 2.5b и админка 2.7b — до беты).
+- `POST /appeals` — обжаловать решение (S49b «Обжаловать», 2.5b): кейс в очереди Appeals
+  (≤ 72 ч). Апелляция на решение одна: новая — 201, повтор — та же (200, «уже обжаловано»).
+  Нечего обжаловать — 404 `appeal_target_not_found`, прошло шесть месяцев — 409
+  `appeal_window_closed`.
+
+Кейсы решают кнопками карточки в чате модераторов (2.5b) и командами `cli moderation-decide`,
+`cli dispute-resolve`; админка — 2.7b.
 """
 
 from dishka.integrations.fastapi import FromDishka, inject
@@ -16,9 +21,15 @@ from app.modules.moderation.application.use_cases.create_report import (
     CreateReport,
     CreateReportCommand,
 )
+from app.modules.moderation.application.use_cases.file_appeal import (
+    FileAppeal,
+    FileAppealCommand,
+)
 from app.modules.moderation.domain.cases import EntityType
-from app.modules.moderation.http.schemas import ReportIn, ReportOut
+from app.modules.moderation.http.schemas import AppealIn, AppealOut, ReportIn, ReportOut
+from app.platform.contracts.events.identity import RestrictionKind
 from app.platform.http.security import AUTHENTICATED
+from app.platform.kernel.ids import CaseId
 from app.platform.kernel.principal import Principal
 
 router = APIRouter(tags=["moderation"])
@@ -52,3 +63,30 @@ async def create_report(
     if not filed.created:
         response.status_code = status.HTTP_200_OK
     return ReportOut.of(filed)
+
+
+@router.post(
+    "/appeals",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AppealOut,
+    responses={200: {"description": "Решение уже обжаловано: та же апелляция", "model": AppealOut}},
+    dependencies=AUTHENTICATED,
+)
+@inject
+async def file_appeal(
+    body: AppealIn,
+    response: Response,
+    principal: FromDishka[Principal],
+    file: FromDishka[FileAppeal],
+) -> AppealOut:
+    """Обжаловать решение модерации: апелляцию рассмотрит человек за 72 часа (S49b)."""
+    filed = await file(
+        FileAppealCommand(
+            user_id=principal.user_id,
+            case_id=CaseId(body.case_id) if body.case_id is not None else None,
+            restriction=RestrictionKind(body.restriction) if body.restriction else None,
+        )
+    )
+    if not filed.created:
+        response.status_code = status.HTTP_200_OK
+    return AppealOut.of(filed)

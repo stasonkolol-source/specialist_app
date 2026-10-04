@@ -24,7 +24,7 @@ import {
 } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
 import { useBackButton, usePlatform, useSecondaryButton } from '@sosed/platform';
-import type { TimelineItem } from '@sosed/ui-web';
+import type { IconName, TimelineItem } from '@sosed/ui-web';
 import {
   Avatar,
   Badge,
@@ -36,15 +36,16 @@ import {
   Heading,
   Icon,
   IconButton,
-  LinkButton,
   Price,
   Row,
+  RowIcon,
   Sheet,
   Skeleton,
   SkeletonCard,
   SkeletonText,
   Text,
   Timeline,
+  cx,
 } from '@sosed/ui-web';
 import { useParams, useRouter } from '@tanstack/react-router';
 import { useId, useState } from 'react';
@@ -106,7 +107,9 @@ export function DealScreen() {
   return <Deal deal={card.data} />;
 }
 
-/** S53: вторая сторона предложила «Договорились» — условия, срок и ответ. */
+/** S53: вторая сторона предложила «Договорились» — значок, условия строками с иконками, срок и
+ *  ответ: MainButton «Подтвердить», SecondaryButton «Отклонить» под ней, как на артборде (до Bot
+ *  API 7.10 — кнопкой в контенте). */
 function Proposal({ deal }: { deal: DealCardOut }) {
   const { t } = useTranslation('jobs');
   const format = useFormat();
@@ -136,40 +139,63 @@ function Proposal({ deal }: { deal: DealCardOut }) {
         },
       },
     );
+  const { native } = useSecondaryButton({
+    text: t('deal.proposal.decline'),
+    enabled: !answer.isPending,
+    onClick: decline,
+    position: 'bottom',
+  });
   return (
-    <section className="flex flex-col gap-3 px-4 pt-3 pb-6">
-      <Heading variant="h2" as="h1">
-        {name ? t('deal.proposal.title', { name }) : t('deal.proposal.titleNoName')}
-      </Heading>
-      <Text variant="sm" secondary>
-        {t('deal.proposal.text')}
-      </Text>
-      <Card tight as="section" aria-label={deal.title}>
-        <dl className="m-0 flex flex-col gap-2">
-          <Term label={t('deal.proposal.what')}>{deal.title}</Term>
-          {when && <Term label={t('deal.proposal.when')}>{when}</Term>}
-          {district && (
-            <Term label={t('deal.proposal.where')}>
-              <span className="flex flex-col items-end">
-                <span>{district}</span>
-                <span className="text-cap font-normal text-text2">
-                  {t('deal.proposal.addressLater')}
-                </span>
-              </span>
+    <section className="flex flex-col gap-4 px-4 pt-5 pb-6">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <span
+          aria-hidden="true"
+          className="flex size-18 items-center justify-center rounded-full bg-accent-soft text-accent-soft-ink"
+        >
+          <Icon name="check-circle" size={32} />
+        </span>
+        <Heading variant="h2" as="h1">
+          {name ? t('deal.proposal.title', { name }) : t('deal.proposal.titleNoName')}
+        </Heading>
+        <Text secondary>{t('deal.proposal.text')}</Text>
+      </div>
+      <section aria-label={deal.title}>
+        <Group>
+          <Term icon="wrench" label={t('deal.proposal.what')}>
+            {deal.title}
+          </Term>
+          {when && (
+            <Term icon="calendar" label={t('deal.proposal.when')}>
+              {when}
             </Term>
           )}
-          <Term label={t('deal.proposal.price')}>
+          {district && (
+            <Term
+              icon="pin"
+              label={t('deal.proposal.where')}
+              note={t('deal.proposal.addressLater')}
+              narrowNote
+            >
+              {district}
+            </Term>
+          )}
+          <Term
+            icon="wallet"
+            label={t('deal.proposal.price')}
+            note={
+              deal.proposed_at
+                ? t('deal.proposal.proposedAt', {
+                    time: format.calendar(new Date(deal.proposed_at)),
+                  })
+                : undefined
+            }
+          >
             <Price>{price}</Price>
           </Term>
-        </dl>
-        {deal.proposed_at && (
-          <Text variant="cap" secondary>
-            {t('deal.proposal.proposedAt', { time: format.calendar(new Date(deal.proposed_at)) })}
-          </Text>
-        )}
-      </Card>
+        </Group>
+      </section>
       {deal.proposal_expires_at && (
-        <Banner tone="info">
+        <Banner tone="info" icon="clock">
           {t('deal.proposal.expires', {
             date: format.calendar(new Date(deal.proposal_expires_at)),
           })}
@@ -178,19 +204,42 @@ function Proposal({ deal }: { deal: DealCardOut }) {
       {answer.error && (
         <ActionError error={answer.error} fallback={t('deal.proposal.answerError')} />
       )}
-      <LinkButton danger disabled={answer.isPending} onClick={decline}>
-        {t('deal.proposal.decline')}
-      </LinkButton>
+      {!native && (
+        <Button variant="secondary" full disabled={answer.isPending} onClick={decline}>
+          {t('deal.proposal.decline')}
+        </Button>
+      )}
     </section>
   );
 }
 
-/** Строка условий: подпись слева, значение справа. */
-function Term({ label, children }: { label: string; children: React.ReactNode }) {
+/** Строка условий (.row): иконка, подпись над значением, справа — пояснение мелко. */
+function Term({
+  icon,
+  label,
+  note,
+  narrowNote = false,
+  children,
+}: {
+  icon: IconName;
+  label: string;
+  note?: string;
+  /** Длинное пояснение — колонкой до 140 px, как «точный адрес — после подтверждения». */
+  narrowNote?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-text2">{label}</dt>
-      <dd className="m-0 text-right font-semibold">{children}</dd>
+    <div className="flex items-center gap-3 border-0 border-b border-solid border-line px-4 py-3 last:border-b-0">
+      <RowIcon icon={icon} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="text-cap text-text2">{label}</span>
+        <span className="font-semibold">{children}</span>
+      </div>
+      {note && (
+        <span className={cx('text-right text-cap text-text2', narrowNote && 'max-w-35')}>
+          {note}
+        </span>
+      )}
     </div>
   );
 }

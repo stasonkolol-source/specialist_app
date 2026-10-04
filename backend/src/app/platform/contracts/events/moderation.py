@@ -79,3 +79,37 @@ class ReportCreated(DomainEvent):
     reason: str
     case_id: CaseId
     queue: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CaseOpened(DomainEvent):
+    """Открыт кейс модерации (DEVELOPMENT_PLAN 2.5b): автопроверка, жалоба, спор или апелляция.
+
+    Подписчик — `moderation.post_case_card`: карточка кейса в чате модераторов. Второй повод
+    по объекту дописывается в открытый кейс и события не публикует. `queue` — `safety`,
+    `fraud`, `premod`, `appeals`; `entity_type` — как `moderation.cases.entity_type`;
+    `trigger` — первый повод (`report`, `dispute`, `appeal`, …).
+    """
+
+    event_type = "moderation.CaseOpened"
+    case_id: CaseId
+    queue: str
+    entity_type: str
+    trigger: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AppealDecided(DomainEvent):
+    """Модератор решил апелляцию (POST /appeals, DEVELOPMENT_PLAN 2.5b; ARCHITECTURE §14.4).
+
+    `granted` — апелляция удовлетворена: санкция по обжалованному решению снята; иначе решение
+    остаётся в силе, `decision_code` — почему. Подписчик — уведомление `moderation.decision`
+    автору апелляции (statement of reasons).
+    """
+
+    event_type = "moderation.AppealDecided"
+    case_id: CaseId
+    appeal_of: CaseId
+    user_id: UserId
+    granted: bool
+    decision_code: str | None = None

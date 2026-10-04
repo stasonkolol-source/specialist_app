@@ -7,6 +7,10 @@
 
 export * from './acceptedOut.ts';
 export * from './alertDelivery.ts';
+export * from './appealIn.ts';
+export * from './appealInRestriction.ts';
+export * from './appealOut.ts';
+export * from './appealOutStatus.ts';
 export * from './authOut.ts';
 export * from './availabilityIn.ts';
 export * from './avatarIn.ts';
@@ -266,6 +270,9 @@ export * from './servicesOrderIn.ts';
 export * from './servicesOut.ts';
 export * from './serviceUpdateIn.ts';
 export * from './serviceUpdateInClearItem.ts';
+export * from './shareIn.ts';
+export * from './shareOut.ts';
+export * from './shareTarget.ts';
 export * from './signedPartOut.ts';
 export * from './signedPartOutHeaders.ts';
 export * from './specialistCardOut.ts';

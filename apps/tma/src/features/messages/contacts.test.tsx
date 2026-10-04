@@ -1,7 +1,7 @@
 // Договорённость и контакты (DEVELOPMENT_PLAN 6.5) на фейках backend: S53 — «… предлагает
 // договориться», условия, срок, «Подтвердить» и «Отклонить»; в сделке после договорённости —
 // Telegram второй стороны и «Поделиться контактом» (в чат сделки, шторка открыта); S54 в чате —
-// Telegram или телефон из подписанного ответа Telegram; S43 — «Мой Telegram».
+// галочками Telegram и/или телефон из подписанного ответа Telegram; S43 — «Мой Telegram».
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -56,6 +56,8 @@ describe('S53 proposal', () => {
     ).toBeTruthy();
     const terms = screen.getByRole('region', { name: 'Повесить люстру' });
     expect(within(terms).getByText('Что')).toBeTruthy();
+    // район, а не город, — как на артборде
+    expect(within(terms).getByText('Лиман')).toBeTruthy();
     expect(within(terms).getByText(/3\s500\sRSD/u)).toBeTruthy();
     expect(screen.getByText(/Если не ответить за 72 часа, договорённость отменится/)).toBeTruthy();
 
@@ -76,9 +78,20 @@ describe('S53 proposal', () => {
     const deal = proposedDealFixture(CONVERSATION_IDS.direct);
     jobs.deals.set(deal.id, deal);
     jobs.dealRole = 'performer';
-    startApp(`/deals/${deal.id}`);
+    const { telegram } = startApp(`/deals/${deal.id}`);
 
-    await click(await screen.findByRole('button', { name: 'Отклонить' }));
+    // «Отклонить» — SecondaryButton под MainButton, как на артборде: нативная, в DOM её нет
+    await waitFor(() =>
+      expect(telegram.callsOf('web_app_setup_secondary_button').at(-1)).toMatchObject({
+        is_visible: true,
+        text: 'Отклонить',
+        position: 'bottom',
+      }),
+    );
+    expect(screen.queryByRole('button', { name: 'Отклонить' })).toBeNull();
+    await act(async () => {
+      telegram.emit('secondary_button_pressed');
+    });
 
     await waitFor(() => expect(jobs.decisions).toEqual([{ id: deal.id, action: 'decline' }]));
     expect(await screen.findByText('Отменена')).toBeTruthy();
@@ -157,15 +170,39 @@ describe('contacts after the deal', () => {
     expect(chat.shares[0]?.init_data).toContain('elena_k');
     expect(await screen.findByText('Telegram: @elena_k')).toBeTruthy();
 
+    // галочки, как на артборде: телефон вместо Telegram
     await click(within(header).getByRole('button', { name: 'Поделиться контактом' }));
     sheet = await screen.findByRole('dialog', { name: 'Поделиться контактом' });
-    await click(within(sheet).getByRole('radio', { name: 'Номер телефона' }));
+    await click(within(sheet).getByRole('checkbox', { name: 'Имя пользователя Telegram' }));
+    await click(within(sheet).getByRole('checkbox', { name: 'Номер телефона' }));
     await click(within(sheet).getByRole('button', { name: 'Поделиться' }));
 
     await waitFor(() => expect(chat.shares[1]?.contact_type).toBe('phone'));
+    expect(chat.shares).toHaveLength(2);
     expect(chat.shares[1]?.contact).toContain('hash=');
     expect(telegram.callsOf('web_app_request_phone')).toHaveLength(1);
     expect(await screen.findByText('Телефон: +381641234567')).toBeTruthy();
+  });
+
+  it('shares both contacts at once', async () => {
+    const chat = withChats();
+    const { telegram } = startApp(`/messages/${CONVERSATION_IDS.performer}`);
+
+    const header = await screen.findByRole('banner', { name: 'Дмитрий Соколов' });
+    await click(within(header).getByRole('button', { name: 'Поделиться контактом' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Поделиться контактом' });
+    const username = within(sheet).getByRole('checkbox', { name: 'Имя пользователя Telegram' });
+    expect(username.getAttribute('aria-checked')).toBe('true');
+    await click(within(sheet).getByRole('checkbox', { name: 'Номер телефона' }));
+    await click(within(sheet).getByRole('button', { name: 'Поделиться' }));
+
+    await waitFor(() =>
+      expect(chat.shares.map((s) => s.contact_type)).toEqual(['telegram', 'phone']),
+    );
+    expect(telegram.callsOf('web_app_request_phone')).toHaveLength(1);
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Поделиться контактом' })).toBeNull(),
+    );
   });
 
   it('opens the share sheet at once when asked from the deal', async () => {

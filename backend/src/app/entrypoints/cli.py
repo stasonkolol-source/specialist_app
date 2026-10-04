@@ -8,6 +8,7 @@ import json
 import secrets
 import tomllib
 from collections.abc import Awaitable, Callable
+from datetime import date
 from enum import StrEnum
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
@@ -588,6 +589,42 @@ def export_user_data(
     typer.echo(f"{output}: user {outcome['user_id']}, sections: {sections}")
 
 
+@app.command("beta-report")
+def beta_report(
+    week: Annotated[
+        int, typer.Option("--week", min=0, help="Неделя беты: 1 — первая, 0 — неделя до старта")
+    ],
+    *,
+    start: Annotated[
+        str | None,
+        typer.Option(help="Понедельник недели 1, ГГГГ-ММ-ДД; по умолчанию ANALYTICS_BETA_START"),
+    ] = None,
+) -> None:
+    """Еженедельный отчёт беты (DEVELOPMENT_PLAN 6.6, 7.1): ликвидность по парам «город ×
+    категория», стороны, доверие и SLA модерации — на текущий момент, под ролью readonly."""
+    try:
+        beta_start = date.fromisoformat(start) if start else None
+    except ValueError:
+        typer.echo(f"beta-report: --start {start}: нужна дата ГГГГ-ММ-ДД", err=True)
+        raise typer.Exit(code=2) from None
+    typer.echo(asyncio.run(_beta_report(week, beta_start)))
+
+
+async def _beta_report(week: int, beta_start: date | None) -> str:
+    from app.platform.analytics.beta_report import render
+    from app.platform.analytics.liquidity import (
+        liquidity_report,
+        reporting_connection,
+        week_window,
+    )
+
+    settings = Settings()
+    window = week_window(beta_start or settings.analytics.beta_start, week)
+    async with reporting_connection(settings.db) as conn:
+        report = await liquidity_report(conn, window, as_of=SystemClock().now())
+    return render(report, week=week)
+
+
 class DemoScale(StrEnum):
     SMALL = "small"
     LAB = "lab"
@@ -707,7 +744,7 @@ class SeverityOption(StrEnum):
 def moderation_queue(
     limit: Annotated[int, typer.Option("--limit", min=1, max=500, help="Сколько кейсов")] = 30,
 ) -> None:
-    """Открытые кейсы модерации по сроку (до чата модераторов 2.5b и админки 2.7b)."""
+    """Открытые кейсы модерации по сроку (решают и кнопками в чате модераторов, 2.5b)."""
     outcome = asyncio.run(_moderation(lambda c: _queue(c, limit)))
     for line in outcome.lines:
         typer.echo(line)
@@ -811,6 +848,22 @@ def dispute_resolve(
         raise typer.Exit(code=1)
 
 
+@app.command("moderation-demo")
+def moderation_demo(
+    tg_id: Annotated[
+        int, typer.Option("--tg-id", help="Telegram id пользователя, о ком кейс (ему — решение)")
+    ],
+) -> None:
+    """Демо-кейс для проверки чата модераторов (DEVELOPMENT_PLAN 2.5b): кейс P1 об аккаунте;
+    worker пришлёт карточку в чат TELEGRAM_MODERATORS_CHAT_ID, решение кнопкой дойдёт до
+    пользователя уведомлением."""
+    outcome = asyncio.run(_moderation(lambda c: _demo(c, telegram_id=tg_id)))
+    for line in outcome.lines:
+        typer.echo(line, err=not outcome.ok)
+    if not outcome.ok:
+        raise typer.Exit(code=1)
+
+
 async def _moderation(
     run: Callable[[AsyncContainer], Awaitable[CliOutcome]],
 ) -> CliOutcome:
@@ -845,6 +898,12 @@ async def _dispute_resolve(container: AsyncContainer, **kwargs: Any) -> CliOutco
     from app.entrypoints._moderation_cli import dispute_resolve as run_resolve
 
     return await run_resolve(container, **kwargs)
+
+
+async def _demo(container: AsyncContainer, **kwargs: Any) -> CliOutcome:
+    from app.entrypoints._moderation_cli import moderation_demo as run_demo
+
+    return await run_demo(container, **kwargs)
 
 
 @app.command("notify-test")

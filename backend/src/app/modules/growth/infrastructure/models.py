@@ -36,3 +36,14 @@ class AttributionRow(Base):
     referral_code: Mapped[str | None] = mapped_column(String(64))
     entry_point: Mapped[EntryPoint | None] = mapped_column(str_enum(EntryPoint, "entry_point"))
     first_seen_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class ReferralCodeRow(Base):
+    """Код приглашения (7.4): суффикс `_r<code>` в ссылках «Поделиться» владельца."""
+
+    __tablename__ = "referral_codes"
+
+    code: Mapped[str] = mapped_column(String(16), primary_key=True)
+    owner_id: Mapped[UUID] = mapped_column(unique=True)
+    """identity.users: FK fk_referral_codes_owner_id_users — в миграции growth_0004."""
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

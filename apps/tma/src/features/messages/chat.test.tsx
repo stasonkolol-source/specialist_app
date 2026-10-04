@@ -47,7 +47,9 @@ describe('S29 chats', () => {
     expect(within(direct).getByText('2 непрочитанных')).toBeTruthy();
     const job = screen.getByRole('link', { name: /Никола Петрович/ });
     expect(within(job).getByText('Заявка: Повесить люстру')).toBeTruthy();
-    expect(within(job).getByText('Отклик: Mogu danas posle 18h')).toBeTruthy();
+    // отклик — плашкой рядом с заявкой, текст отклика — без приписки
+    expect(within(job).getByText('Отклик')).toBeTruthy();
+    expect(within(job).getByText('Mogu danas posle 18h')).toBeTruthy();
     const mine = screen.getByRole('link', { name: /Дмитрий Соколов/ });
     expect(within(mine).getByText('Договорились')).toBeTruthy();
     expect(within(mine).getByText('Вы: Спасибо, тогда до четверга!')).toBeTruthy();

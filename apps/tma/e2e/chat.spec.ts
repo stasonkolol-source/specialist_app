@@ -141,7 +141,8 @@ for (const theme of THEMES) {
       // «Поделиться контактом» — в шапке диалога после договорённости
       await page.getByRole('main').getByRole('button', { name: l.share }).click();
       const sheet = page.getByRole('dialog', { name: l.share });
-      await expect(sheet.getByRole('radio', { name: new RegExp(l.username) })).toBeVisible();
+      // варианты — галочками, как на артборде: первый отмечен
+      await expect(sheet.getByRole('checkbox', { name: new RegExp(l.username) })).toBeChecked();
       await expect(sheet.getByText('@elena_k')).toBeVisible();
       expect(real(watch.problems)).toEqual([]);
       expect(watch.unexpectedApi).toEqual([]);

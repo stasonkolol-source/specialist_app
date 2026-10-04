@@ -1,8 +1,8 @@
 // Жалобы (S46, DEVELOPMENT_PLAN 4.7): причины по типу объекта — как у сервера (moderation
 // domain/reports.py), очередь по причине — для подписи «модератор рассмотрит в течение …».
 // Повтор жалобы на тот же объект, пока кейс открыт, сервер отдаёт той же жалобой (200).
-import type { ReportIn, ReportInTargetType, ReportReason } from '@sosed/api-client';
-import { moderationCreateReport } from '@sosed/api-client';
+import type { AppealIn, ReportIn, ReportInTargetType, ReportReason } from '@sosed/api-client';
+import { moderationCreateReport, moderationFileAppeal } from '@sosed/api-client';
 import { useMutation } from '@tanstack/react-query';
 
 export type ReportTargetType = ReportInTargetType;
@@ -32,4 +32,9 @@ export const MAX_REPORT_COMMENT = 1000;
 
 export function useReport() {
   return useMutation({ mutationFn: (report: ReportIn) => moderationCreateReport(report) });
+}
+
+/** «Обжаловать» на S49b (2.5b): апелляция на решение санкции; повтор — та же (`repeated`). */
+export function useAppeal() {
+  return useMutation({ mutationFn: (appeal: AppealIn) => moderationFileAppeal(appeal) });
 }

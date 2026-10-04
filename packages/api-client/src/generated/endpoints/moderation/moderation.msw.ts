@@ -10,7 +10,7 @@ import { HttpResponse, http } from 'msw';
 import type { RequestHandlerOptions } from 'msw';
 
 import { ReportReason, ReportStatus } from '../../model';
-import type { ReportOut } from '../../model';
+import type { AppealOut, ReportOut } from '../../model';
 
 export const getModerationCreateReportResponseMock = (
   overrideResponse: Partial<Extract<ReportOut, object>> = {},
@@ -50,6 +50,42 @@ export const getModerationCreateReportResponseMock = (
     },
   ]);
 
+export const getModerationFileAppealResponseMock = (
+  overrideResponse: Partial<Extract<AppealOut, object>> = {},
+): AppealOut =>
+  faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      appeal_of: faker.string.uuid(),
+      status: faker.helpers.arrayElement([
+        'pending',
+        'in_review',
+        'escalated',
+        'approved',
+        'rejected',
+      ] as const),
+      due_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+      created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+      repeated: faker.datatype.boolean(),
+      ...overrideResponse,
+    },
+    {
+      id: faker.string.uuid(),
+      appeal_of: faker.string.uuid(),
+      status: faker.helpers.arrayElement([
+        'pending',
+        'in_review',
+        'escalated',
+        'approved',
+        'rejected',
+      ] as const),
+      due_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+      created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+      repeated: faker.datatype.boolean(),
+      ...overrideResponse,
+    },
+  ]);
+
 export const getModerationCreateReportMockHandler = (
   overrideResponse?:
     | ReportOut
@@ -71,4 +107,29 @@ export const getModerationCreateReportMockHandler = (
     options,
   );
 };
-export const getModerationMock = () => [getModerationCreateReportMockHandler()];
+
+export const getModerationFileAppealMockHandler = (
+  overrideResponse?:
+    | AppealOut
+    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<AppealOut> | AppealOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/api/v1/appeals',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getModerationFileAppealResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+export const getModerationMock = () => [
+  getModerationCreateReportMockHandler(),
+  getModerationFileAppealMockHandler(),
+];

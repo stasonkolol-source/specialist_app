@@ -8,7 +8,8 @@
 `deal_agreed`, `deal_completed` и `deal_cancelled` (6.1a) — по событию на каждую сторону сделки,
 `dispute_opened` (6.1c) — открывшему, `conversation_started` и `message_sent` (6.3a),
 `contact_shared` (6.3b), `review_published` (7.2), `report_created` (4.7), `alert_created` и
-`job_matched_notified` (5.7); остальные события подключает шаг своего модуля (таксономия —
+`job_matched_notified` (5.7), `share_created` и `attribution_recorded` (7.4),
+`goods_waitlist_joined` (7.5); остальные события подключает шаг своего модуля (таксономия —
 events.py).
 """
 
@@ -25,6 +26,7 @@ from app.platform.contracts.events.deals import (
     DealCompleted,
     DealDisputed,
 )
+from app.platform.contracts.events.growth import AttributionRecorded, ShareCreated
 from app.platform.contracts.events.identity import OnboardingCompleted, UserRegistered
 from app.platform.contracts.events.jobs import (
     AlertCreated,
@@ -37,7 +39,7 @@ from app.platform.contracts.events.jobs import (
 )
 from app.platform.contracts.events.messaging import ContactShared, ConversationStarted, MessageSent
 from app.platform.contracts.events.moderation import ReportCreated
-from app.platform.contracts.events.notifications import WriteAccessGranted
+from app.platform.contracts.events.notifications import GoodsWaitlistJoined, WriteAccessGranted
 from app.platform.contracts.events.reviews import ReviewPublished
 from app.platform.contracts.events.specialists import ProfilePublished, ProfileSubmitted
 from app.platform.queue.port import TaskRef
@@ -67,8 +69,15 @@ CAPTURE_MESSAGE_SENT = TaskRef("analytics.capture_message_sent", MessageSent)
 CAPTURE_CONTACT_SHARED = TaskRef("analytics.capture_contact_shared", ContactShared)
 CAPTURE_REVIEW_PUBLISHED = TaskRef("analytics.capture_review_published", ReviewPublished)
 CAPTURE_REPORT_CREATED = TaskRef("analytics.capture_report_created", ReportCreated)
+CAPTURE_SHARE_CREATED = TaskRef("analytics.capture_share_created", ShareCreated)
+CAPTURE_ATTRIBUTION_RECORDED = TaskRef(
+    "analytics.capture_attribution_recorded", AttributionRecorded
+)
 CAPTURE_ALERT_CREATED = TaskRef("analytics.capture_alert_created", AlertCreated)
 CAPTURE_ALERTS_MATCHED = TaskRef("analytics.capture_alerts_matched", AlertsMatched)
+CAPTURE_GOODS_WAITLIST_JOINED = TaskRef(
+    "analytics.capture_goods_waitlist_joined", GoodsWaitlistJoined
+)
 
 
 @subscriber(UserRegistered, CAPTURE_USER_REGISTERED)
@@ -372,6 +381,36 @@ async def capture_report_created(event: ReportCreated, analytics: FromDishka[Ana
     )
 
 
+@subscriber(ShareCreated, CAPTURE_SHARE_CREATED)
+async def capture_share_created(event: ShareCreated, analytics: FromDishka[Analytics]) -> None:
+    await analytics.capture(
+        analytics_event(
+            EventName.SHARE_CREATED,
+            user_id=event.sharer_id,
+            occurred_at=event.occurred_at,
+            source_event_id=event.event_id,
+            entity=event.entity_type,
+            prepared=event.prepared,
+        )
+    )
+
+
+@subscriber(AttributionRecorded, CAPTURE_ATTRIBUTION_RECORDED)
+async def capture_attribution_recorded(
+    event: AttributionRecorded, analytics: FromDishka[Analytics]
+) -> None:
+    await analytics.capture(
+        analytics_event(
+            EventName.ATTRIBUTION_RECORDED,
+            user_id=event.user_id,
+            occurred_at=event.occurred_at,
+            source_event_id=event.event_id,
+            source=event.source,
+            has_referral=event.has_referral,
+        )
+    )
+
+
 @subscriber(AlertCreated, CAPTURE_ALERT_CREATED)
 async def capture_alert_created(event: AlertCreated, analytics: FromDishka[Analytics]) -> None:
     await analytics.capture(
@@ -405,5 +444,21 @@ async def capture_alerts_matched(event: AlertsMatched, analytics: FromDishka[Ana
             urgency=event.urgency,
             instant=event.instant,
             digest=event.digest,
+        )
+    )
+
+
+@subscriber(GoodsWaitlistJoined, CAPTURE_GOODS_WAITLIST_JOINED)
+async def capture_goods_waitlist_joined(
+    event: GoodsWaitlistJoined, analytics: FromDishka[Analytics]
+) -> None:
+    """Лист ожидания «Вещей» (S58): сигнал спроса к точке решения 1 (ADR-0019)."""
+    await analytics.capture(
+        analytics_event(
+            EventName.GOODS_WAITLIST_JOINED,
+            user_id=event.user_id,
+            occurred_at=event.occurred_at,
+            source_event_id=event.event_id,
+            bot_writable=event.bot_writable,
         )
     )

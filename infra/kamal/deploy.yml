@@ -1,0 +1,112 @@
+# Kamal 2.12 (DEVELOPMENT_PLAN 0.25c, 3.1c, ADR-0015): процессы backend из одного образа, accessory
+# Valkey. Окружение — destination: deploy.stage.yml (там же PostgreSQL accessory — БД stage живёт на
+# той же VM) и deploy.production.yml (БД — на db-1, не в Docker).
+# Образ собирает images.yml по merge в main, Kamal его только скачивает: deploy --skip-push.
+# Запуск — CI (.github/workflows/deploy.yml) или make kamal ARGS='… -d stage'. ERB читает из
+# окружения несекретное: GHCR_OWNER (владелец образов в GHCR), STAGE_HOST, STAGE_DOMAIN и др.
+service: sosed
+image: <%= ENV.fetch("GHCR_OWNER") %>/sosed-backend
+require_destination: true
+minimum_version: 2.12.0
+hooks_path: infra/kamal/hooks
+# секреты — infra/kamal/secrets.<destination>: в git только имена, значения — из окружения (Q1)
+secrets_path: infra/kamal/secrets # gitleaks:allow (путь к файлу, не значение)
+retain_containers: 3
+deploy_timeout: 60
+drain_timeout: 30
+
+registry:
+  server: ghcr.io
+  username:
+    - KAMAL_REGISTRY_USERNAME
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+builder:
+  arch: amd64
+
+ssh:
+  user: root
+
+# Роли — аргумент точки входа образа (backend/docker-entrypoint.sh). Лимиты — под одну VM CX23
+# (2 vCPU, 4 GB, swap 2 GB): БД 1 GB, web 640 MB, медиа 768 MB на одном ядре (ffmpeg не съедает
+# CPU у API), бот и воркер — остальное. cpuset, а не cpus: CFS-квота искажает замеры 0.26 (§16.1).
+servers:
+  web:
+    cmd: web
+    options:
+      memory: 640m
+      cpuset-cpus: "0-1"
+  # Пока бот принимает апдейты long polling (backend/src/app/entrypoints/bot.py): webhook с
+  # secret_token — шаг 0.25e; тогда роль получит proxy с path_prefix /integrations/telegram/.
+  bot:
+    cmd: bot
+    options:
+      memory: 256m
+      cpuset-cpus: "0-1"
+  worker:
+    cmd: worker
+    options:
+      memory: 512m
+      cpuset-cpus: "0-1"
+  worker-media:
+    cmd: worker-media
+    options:
+      memory: 768m
+      cpuset-cpus: "1"
+
+# kamal-proxy перед web: TLS сертификатом Origin CA (Full strict), переключение без простоя.
+# Хост и сертификат — в destination.
+proxy:
+  app_port: 8000
+  forward_headers: true
+  response_timeout: 30
+  healthcheck:
+    path: /up
+    interval: 2
+    timeout: 3
+  buffering:
+    requests: true
+    responses: false
+    # файлы идут в R2 по presigned-ссылкам мимо API, большие тела API не нужны
+    max_request_body: 10_000_000
+
+env:
+  clear:
+    APP_LOG_JSON: "true"
+    APP_WEB_HOST: 0.0.0.0
+    APP_WEB_PORT: "8000"
+    APP_RELEASE: <%= ENV.fetch("APP_RELEASE", "manual") %>
+    VALKEY_URL: redis://sosed-valkey:6379/0
+    S3_REGION: auto
+  # Имена — те же, что в backend/.env.example; значения — infra/kamal/secrets.<destination>.
+  # APP_ADMIN_SESSION_KEY — только при ADMIN_HOST: без ключа web не монтирует /admin (2.7a), а
+  # ADMIN_HOST деплой задаёт, только когда хост админки закрыт Cloudflare Access (K31; 2.7b, 3.1c).
+  secret:
+    - DB_DSN
+    - DB_MIGRATOR_DSN
+    - TELEGRAM_BOT_TOKEN
+    - TELEGRAM_WEBHOOK_SECRET
+    - JWT_KEYS
+    - APP_HASH_KEY
+    - S3_ACCESS_KEY_ID
+    - S3_SECRET_ACCESS_KEY
+    - AI_OPENAI_API_KEY
+    - AI_ANTHROPIC_API_KEY
+    # условие ERB — в комментариях YAML: файл остаётся валидным YAML и до подстановки (check-yaml)
+    # <% if ENV["ADMIN_HOST"].to_s != "" %>
+    - APP_ADMIN_SESSION_KEY
+    # <% end %>
+
+# Accessories живут дольше релизов: deploy их не трогает, обновление — kamal accessory reboot.
+# Порты не публикуются: Valkey (и PostgreSQL stage — deploy.stage.yml) виден только в сети Docker
+# «kamal» по имени контейнера.
+accessories:
+  valkey:
+    image: valkey/valkey:9.1@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd
+    cmd: valkey-server --appendonly yes --maxmemory 160mb --maxmemory-policy noeviction
+    directories:
+      - valkey-data:/data
+    options:
+      memory: 192m
+      cpuset-cpus: "0-1"

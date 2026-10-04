@@ -18,6 +18,7 @@ from app.modules.jobs.api import (
     JobsApi,
     MatchNotice,
     OwnerResponseView,
+    PublicJob,
     ResponseForReview,
     ResponsesNotice,
     TemplateRef,
@@ -29,6 +30,7 @@ from app.modules.jobs.application.ports import (
     ResponsesSeen,
     ResponseTemplates,
 )
+from app.modules.jobs.application.visibility import visible_to
 from app.modules.jobs.domain.alert import AlertId
 from app.modules.jobs.domain.job import MAX_EXTENSIONS, Job, JobId, JobStatus, Visibility
 from app.modules.jobs.domain.response import ACTIVE, ResponseId, ResponseReview, ResponseStatus
@@ -102,6 +104,17 @@ class JobsFacade(JobsApi):
             status=job.status.value,
             expires_at=job.expires_at,
             can_extend=job.extensions_count < MAX_EXTENSIONS,
+        )
+
+    async def public_job(self, job_id: UUID) -> PublicJob | None:
+        job = await self._queries.view(JobId(job_id))
+        if job is None or not await visible_to(self._queries, job, None):
+            return None
+        return PublicJob(
+            client_id=job.client_id,
+            title=job.title,
+            city_id=job.city_id,
+            district_id=job.district_id,
         )
 
     async def responses_notice(self, job_id: UUID) -> ResponsesNotice | None:

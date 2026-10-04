@@ -12,6 +12,7 @@ from uuid import UUID
 import pytest
 
 from app.modules.jobs.api import JobsApi
+from app.modules.notifications.application.dto import SettingsView
 from app.modules.notifications.application.use_cases.mark_notifications_read import (
     MarkNotificationsReadCommand,
 )
@@ -530,6 +531,56 @@ async def test_preferences_cannot_turn_off_service_notifications(
                 digest_hour=9,
             )
         )
+
+
+def goods_launch(
+    *, on: bool, channels: tuple[Channel, ...] = tuple(Channel)
+) -> dict[tuple[EventGroup, Channel], bool]:
+    return {(EventGroup.GOODS_LAUNCH, channel): on for channel in channels}
+
+
+async def save_choices(
+    notifications: Notifications,
+    user_id: UserId,
+    choices: dict[tuple[EventGroup, Channel], bool],
+) -> SettingsView:
+    return await notifications.update_settings(
+        UpdateNotificationSettingsCommand(
+            user_id=user_id, choices=choices, quiet_hours=QuietHours(), digest_hour=9
+        )
+    )
+
+
+async def test_goods_launch_opt_in_joins_the_waitlist_once(notifications: Notifications) -> None:
+    """S58 «Сообщить о запуске» (7.5): включение группы — одно событие для аналитики, повтор и
+    сохранение S43 без изменений — ни одного; после отписки новое включение — снова событие."""
+    user_id = await notifications.user_with_bot()
+
+    view = await save_choices(notifications, user_id, goods_launch(on=True))
+    await save_choices(
+        notifications, user_id, goods_launch(on=True) | {(EventGroup.DEALS, Channel.IN_APP): False}
+    )
+
+    assert view.settings.preferences.allows(EventGroup.GOODS_LAUNCH, Channel.TELEGRAM)
+    joined = await notifications.waitlisted(user_id)
+    assert [(e["user_id"], e["bot_writable"]) for e in joined] == [(str(user_id), True)]
+
+    await save_choices(notifications, user_id, goods_launch(on=False))  # переключатель S43
+    settings = (await notifications.queries.settings(user_id)).settings
+    assert not settings.preferences.allows(EventGroup.GOODS_LAUNCH, Channel.IN_APP)
+    await save_choices(notifications, user_id, goods_launch(on=True, channels=(Channel.IN_APP,)))
+
+    assert len(await notifications.waitlisted(user_id)) == 2
+
+
+async def test_goods_waitlist_says_whether_the_bot_can_write(
+    notifications: Notifications,
+) -> None:
+    user_id, _chat_id = await notifications.user_with_chat()  # боту писать ещё нельзя
+
+    await save_choices(notifications, user_id, goods_launch(on=True))
+
+    assert [e["bot_writable"] for e in await notifications.waitlisted(user_id)] == [False]
 
 
 async def test_notify_on_restriction_except_a_shadow_ban(notifications: Notifications) -> None:

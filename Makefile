@@ -83,8 +83,13 @@ psql: ## psql под ролью app
 	@set -a; . infra/compose/.env; set +a; \
 	$(COMPOSE) exec -e PGPASSWORD="$$APP_DB_PASSWORD" postgres psql -h 127.0.0.1 -U app -d specialist
 
-pg-smoke: ## Smoke БД: локаль, pg_trgm, PostGIS, роли
-	@scripts/pg_smoke.sh
+pg-smoke: ## Smoke БД: локаль, pg_trgm, PostGIS, роли (ENV=stage — accessory на VM stage; ENV=prod — db-1 через app-1)
+	@if [ "$(ENV)" = stage ]; then \
+	  ssh -o BatchMode=yes "root@$${STAGE_HOST:?STAGE_HOST — IPv4 VM stage}" \
+	    'PG_SMOKE_CONTAINER=sosed-postgres bash -s' < scripts/pg_smoke.sh; \
+	elif [ "$(ENV)" = prod ]; then \
+	  $(PROD_DB_SSH) 'PG_SMOKE_LOCAL=1 bash -s' < scripts/pg_smoke.sh; \
+	else scripts/pg_smoke.sh; fi
 
 secret: ## Скрытый ввод секрета: make secret NAME=TELEGRAM_BOT_TOKEN TARGET=dev
 	@test -n "$(NAME)" && test -n "$(TARGET)" || (echo "usage: make secret NAME=… TARGET=dev|tf-stage|tf-prod"; exit 2)
@@ -164,7 +169,7 @@ dev-bot: ## Бот в режиме polling (dev)
 
 dev-web: ## API на 127.0.0.1:8000 с автоперезагрузкой (/up, /api/v1/docs)
 	@cd $(BACKEND) && $(UV) run uvicorn app.entrypoints.web:create --factory --reload \
-	  --host 127.0.0.1 --port 8000 --no-access-log
+	  --host 127.0.0.1 --port 8000 --no-access-log --no-proxy-headers --no-server-header
 
 dev-worker: ## Воркер задач на dev-стенде (очереди default и notifications; ROLE=worker-media — media)
 	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.worker --role $(or $(ROLE),worker)

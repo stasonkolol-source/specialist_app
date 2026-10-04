@@ -1,0 +1,328 @@
+# Деплой (DEVELOPMENT_PLAN 0.25c–0.25d, 3.1c, ARCHITECTURE §16.4).
+# Stage: merge в main → образ (images.yml) → kamal deploy -d stage → wrangler deploy Mini App. Пока
+# stage не заведён, ничего не делает: job'ы ждут переменную репозитория STAGE_DEPLOY = 'true'
+# (infra/runbooks/stage-bootstrap.md).
+# Production: только вручную — Run workflow с env = production из main; job объявляет environment
+# «production», и GitHub ждёт подтверждения required reviewers (Q5: репозиторий публичный —
+# правила environments доступны). Выключен, пока нет PROD_DEPLOY = 'true' (prod-bootstrap.md).
+# Секреты и переменные — environment своего окружения (Q1(б)): job получает их, только если запущен
+# из main.
+name: deploy
+
+on:
+  # backend и Mini App: после сборки образов этого коммита (правки backend/ и infra/postgres/)
+  workflow_run:
+    workflows: [images]
+    types: [completed]
+    branches: [main]
+  # только Mini App: правки фронтенда без backend
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
+      - 'infra/workers/**'
+  workflow_dispatch:
+    inputs:
+      env:
+        description: 'окружение: production — только вручную и с подтверждением'
+        type: choice
+        options: [stage, production]
+        default: stage
+      action:
+        description: 'deploy — выкатить; accessories — первый запуск accessories (stage: PostgreSQL и Valkey, prod: Valkey); rollback — kamal rollback; db-provision — PostgreSQL на db-1 (только production)'
+        type: choice
+        options: [deploy, accessories, rollback, db-provision]
+        default: deploy
+      version:
+        description: 'sha образа: для rollback обязателен, для deploy — по умолчанию текущий main'
+        required: false
+
+concurrency:
+  group: deploy-${{ inputs.env || 'stage' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  KAMAL_IMAGE: ghcr.io/basecamp/kamal:v2.12.0@sha256:7b5be276aa17bbe122887f6a1ff12865f4848111989699b9786083be95d98415
+  WRANGLER: wrangler@4.147.0
+
+jobs:
+  backend:
+    name: backend (kamal)
+    if: >-
+      vars.STAGE_DEPLOY == 'true' && (
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        (github.event_name == 'workflow_dispatch' && inputs.env == 'stage'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: stage
+    env:
+      VERSION: ${{ inputs.version || github.event.workflow_run.head_sha || github.sha }}
+      ACTION: ${{ inputs.action || 'deploy' }}
+      # несекретное — Variables environment «stage»
+      GHCR_OWNER: ${{ github.repository_owner }}
+      STAGE_HOST: ${{ vars.STAGE_HOST }}
+      STAGE_DOMAIN: ${{ vars.STAGE_DOMAIN }}
+      STAGE_BOT_USERNAME: ${{ vars.STAGE_BOT_USERNAME }}
+      R2_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      SENTRY_DSN: ${{ vars.SENTRY_DSN }}
+      # GHCR — встроенный токен job'а (K16): образ скачивается во время деплоя
+      KAMAL_REGISTRY_USERNAME: ${{ github.actor }}
+      KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      # секреты — те же имена, что в infra/kamal/secrets.stage
+      KAMAL_PROXY_SSL_CERT: ${{ secrets.KAMAL_PROXY_SSL_CERT }}
+      KAMAL_PROXY_SSL_KEY: ${{ secrets.KAMAL_PROXY_SSL_KEY }}
+      POSTGRES_SUPERUSER_PASSWORD: ${{ secrets.POSTGRES_SUPERUSER_PASSWORD }}
+      APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
+      MIGRATOR_DB_PASSWORD: ${{ secrets.MIGRATOR_DB_PASSWORD }}
+      READONLY_DB_PASSWORD: ${{ secrets.READONLY_DB_PASSWORD }}
+      BACKUP_DB_PASSWORD: ${{ secrets.BACKUP_DB_PASSWORD }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+      JWT_KEYS: ${{ secrets.JWT_KEYS }}
+      APP_HASH_KEY: ${{ secrets.APP_HASH_KEY }}
+      S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+      AI_OPENAI_API_KEY: ${{ secrets.AI_OPENAI_API_KEY }}
+      AI_ANTHROPIC_API_KEY: ${{ secrets.AI_ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      # deploy-ключ stage (K15) — только в агенте, на диск не пишется
+      - name: ssh agent
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          echo "SSH_AUTH_SOCK=$RUNNER_TEMP/ssh-agent.sock" >> "$GITHUB_ENV"
+          ssh-agent -a "$RUNNER_TEMP/ssh-agent.sock" > /dev/null
+          SSH_AUTH_SOCK="$RUNNER_TEMP/ssh-agent.sock" ssh-add - <<< "$DEPLOY_SSH_KEY"
+
+      - name: kamal ${{ env.ACTION }}
+        run: |
+          case "$ACTION" in
+            deploy) args=(deploy --skip-push --version "$VERSION") ;;
+            accessories) args=(accessory boot all) ;;
+            rollback) args=(rollback "$VERSION") ;;
+            *) echo "::error::$ACTION — только для production"; exit 1 ;;
+          esac
+          names=$(sed -n 's/^\([A-Z][A-Z0-9_]*\)=\$\1$/\1/p' infra/kamal/secrets.stage)
+          pass=()
+          for name in GHCR_OWNER STAGE_HOST STAGE_DOMAIN STAGE_BOT_USERNAME R2_ACCOUNT_ID SENTRY_DSN $names; do
+            pass+=(-e "$name")
+          done
+          docker run --rm -v "$PWD:/workdir" -w /workdir \
+            -v "$SSH_AUTH_SOCK:/ssh-agent" -e SSH_AUTH_SOCK=/ssh-agent \
+            -e APP_RELEASE="$VERSION" "${pass[@]}" \
+            "$KAMAL_IMAGE" "${args[@]}" -d stage -c infra/kamal/deploy.yml
+
+  mini-app:
+    name: Mini App (wrangler)
+    needs: backend
+    # после backend, если он был; правка только фронтенда — без него
+    if: >-
+      vars.STAGE_DEPLOY == 'true' && !cancelled() &&
+      (needs.backend.result == 'success' || needs.backend.result == 'skipped') && (
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        github.event_name == 'push' ||
+        (github.event_name == 'workflow_dispatch' && inputs.env == 'stage' && inputs.action == 'deploy'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: stage
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 2
+
+      # push затронул и backend: Mini App выкатит запуск после images, вместе с новым API
+      - name: backend in this push?
+        id: guard
+        if: github.event_name == 'push'
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BEFORE"
+          if git diff --name-only "$BEFORE" HEAD | grep -qE '^(backend/|infra/postgres/|\.github/workflows/images\.yml)'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v7.0.0
+        if: steps.guard.outputs.skip != 'true'
+        with:
+          node-version: 24
+
+      - name: build (VITE_* — Variables environment «stage»)
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          VITE_MEDIA_ORIGINS: https://stage-cdn.${{ vars.STAGE_DOMAIN }}
+          TMA_STORAGE_ORIGINS: https://${{ vars.CLOUDFLARE_ACCOUNT_ID }}.eu.r2.cloudflarestorage.com
+          VITE_SENTRY_DSN: ${{ vars.TMA_SENTRY_DSN }}
+          VITE_TELEGRAM_BOT: ${{ vars.STAGE_BOT_USERNAME }}
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm -F tma build
+
+      # карты исходников и manifest Vite наружу не отдаём
+      - name: wrangler deploy
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          API_ORIGIN: https://stage-api.${{ vars.STAGE_DOMAIN }}
+        run: |
+          printf '.vite\n*.map\n' > apps/tma/dist/.assetsignore
+          npx --yes "$WRANGLER" deploy --config infra/workers/tma/wrangler.jsonc --env stage \
+            --var "API_ORIGIN:$API_ORIGIN"
+
+  # Production (3.1c): один job на релиз — одно подтверждение required reviewers. Backend (Kamal) и
+  # следом Mini App того же sha; db-provision — PostgreSQL на db-1 (3.1b), тем же make, что у владельца.
+  production:
+    name: production (kamal + wrangler)
+    if: >-
+      vars.PROD_DEPLOY == 'true' && github.event_name == 'workflow_dispatch' &&
+      inputs.env == 'production' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment: production
+    env:
+      VERSION: ${{ inputs.version || github.sha }}
+      ACTION: ${{ inputs.action }}
+      # несекретное — Variables environment «production»
+      GHCR_OWNER: ${{ github.repository_owner }}
+      PROD_HOST: ${{ vars.PROD_HOST }}
+      PROD_DB_IP: ${{ vars.PROD_DB_IP }}
+      PROD_DOMAIN: ${{ vars.PROD_DOMAIN }}
+      PROD_BOT_USERNAME: ${{ vars.PROD_BOT_USERNAME }}
+      PROD_MODERATORS_CHAT_ID: ${{ vars.PROD_MODERATORS_CHAT_ID }}
+      # админка публикуется только за Access (K31): переменная PROD_ADMIN_PUBLISHED = 'true'
+      ADMIN_HOST: ${{ vars.PROD_ADMIN_PUBLISHED == 'true' && format('admin.{0}', vars.PROD_DOMAIN) || '' }}
+      R2_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      SENTRY_DSN: ${{ vars.SENTRY_DSN }}
+      KAMAL_REGISTRY_USERNAME: ${{ github.actor }}
+      KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      # секреты — те же имена, что в infra/kamal/secrets.production
+      KAMAL_PROXY_SSL_CERT: ${{ secrets.KAMAL_PROXY_SSL_CERT }}
+      KAMAL_PROXY_SSL_KEY: ${{ secrets.KAMAL_PROXY_SSL_KEY }}
+      APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
+      MIGRATOR_DB_PASSWORD: ${{ secrets.MIGRATOR_DB_PASSWORD }}
+      READONLY_DB_PASSWORD: ${{ secrets.READONLY_DB_PASSWORD }}
+      BACKUP_DB_PASSWORD: ${{ secrets.BACKUP_DB_PASSWORD }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+      JWT_KEYS: ${{ secrets.JWT_KEYS }}
+      APP_HASH_KEY: ${{ secrets.APP_HASH_KEY }}
+      APP_ADMIN_SESSION_KEY: ${{ secrets.APP_ADMIN_SESSION_KEY }}
+      S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+      AI_OPENAI_API_KEY: ${{ secrets.AI_OPENAI_API_KEY }}
+      AI_ANTHROPIC_API_KEY: ${{ secrets.AI_ANTHROPIC_API_KEY }}
+    steps:
+      - name: inputs
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$ACTION" = rollback ] && [ -z "$INPUT_VERSION" ]; then
+            echo "::error::rollback: укажите version — sha прошлого релиза"; exit 1
+          fi
+          for name in PROD_HOST PROD_DB_IP PROD_DOMAIN PROD_BOT_USERNAME; do
+            [ -n "${!name}" ] || { echo "::error::нет переменной $name в environment production"; exit 1; }
+          done
+
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ env.VERSION }}
+
+      # админка без Access не выкатывается: неавторизованный запрос должен уходить на вход Access
+      - name: admin behind Access
+        if: env.ADMIN_HOST != '' && env.ACTION == 'deploy'
+        run: |
+          location=$(curl -s -o /dev/null -w '%{redirect_url}' "https://$ADMIN_HOST/admin")
+          case "$location" in
+            https://*.cloudflareaccess.com/*) echo "Access: OK" ;;
+            *) echo "::error::$ADMIN_HOST не закрыт Cloudflare Access (access_enabled в infra/terraform/prod)"; exit 1 ;;
+          esac
+
+      # deploy-ключ prod (K15) — только в агенте, на диск не пишется; тот же ключ пускает на db-1
+      - name: ssh agent
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          echo "SSH_AUTH_SOCK=$RUNNER_TEMP/ssh-agent.sock" >> "$GITHUB_ENV"
+          ssh-agent -a "$RUNNER_TEMP/ssh-agent.sock" > /dev/null
+          SSH_AUTH_SOCK="$RUNNER_TEMP/ssh-agent.sock" ssh-add - <<< "$DEPLOY_SSH_KEY"
+
+      - name: db-provision
+        if: env.ACTION == 'db-provision'
+        env:
+          # с шага 3.2: ключи репозиториев pgBackRest (K36, K37) и пароли шифрования (K10a)
+          PGBACKREST_REPO1_S3_ENDPOINT: ${{ vars.PGBACKREST_REPO1_S3_ENDPOINT }}
+          PGBACKREST_REPO1_S3_REGION: ${{ vars.PGBACKREST_REPO1_S3_REGION }}
+          PGBACKREST_REPO1_S3_BUCKET: ${{ vars.PGBACKREST_REPO1_S3_BUCKET }}
+          PGBACKREST_REPO1_S3_KEY: ${{ secrets.PGBACKREST_REPO1_S3_KEY }}
+          PGBACKREST_REPO1_S3_KEY_SECRET: ${{ secrets.PGBACKREST_REPO1_S3_KEY_SECRET }}
+          PGBACKREST_REPO1_CIPHER_PASS: ${{ secrets.PGBACKREST_REPO1_CIPHER_PASS }}
+          PGBACKREST_REPO2_S3_ENDPOINT: ${{ vars.PGBACKREST_REPO2_S3_ENDPOINT }}
+          PGBACKREST_REPO2_S3_REGION: ${{ vars.PGBACKREST_REPO2_S3_REGION }}
+          PGBACKREST_REPO2_S3_BUCKET: ${{ vars.PGBACKREST_REPO2_S3_BUCKET }}
+          PGBACKREST_REPO2_S3_KEY: ${{ secrets.PGBACKREST_REPO2_S3_KEY }}
+          PGBACKREST_REPO2_S3_KEY_SECRET: ${{ secrets.PGBACKREST_REPO2_S3_KEY_SECRET }}
+          PGBACKREST_REPO2_CIPHER_PASS: ${{ secrets.PGBACKREST_REPO2_CIPHER_PASS }}
+        run: |
+          make db-provision ENV=prod
+          make pg-smoke ENV=prod
+
+      - name: kamal ${{ env.ACTION }}
+        if: env.ACTION != 'db-provision'
+        run: |
+          case "$ACTION" in
+            deploy) args=(deploy --skip-push --version "$VERSION") ;;
+            accessories) args=(accessory boot all) ;;
+            rollback) args=(rollback "$VERSION") ;;
+          esac
+          names=$(sed -n 's/^\([A-Z][A-Z0-9_]*\)=\$\1$/\1/p' infra/kamal/secrets.production)
+          pass=()
+          for name in GHCR_OWNER PROD_HOST PROD_DB_IP PROD_DOMAIN PROD_BOT_USERNAME PROD_MODERATORS_CHAT_ID \
+                      ADMIN_HOST R2_ACCOUNT_ID SENTRY_DSN $names; do
+            pass+=(-e "$name")
+          done
+          docker run --rm -v "$PWD:/workdir" -w /workdir \
+            -v "$SSH_AUTH_SOCK:/ssh-agent" -e SSH_AUTH_SOCK=/ssh-agent \
+            -e APP_RELEASE="$VERSION" "${pass[@]}" \
+            "$KAMAL_IMAGE" "${args[@]}" -d production -c infra/kamal/deploy.yml
+
+      # Mini App того же sha — после backend: новый фронт не приходит раньше своего API
+      - uses: actions/setup-node@v7.0.0
+        if: env.ACTION == 'deploy'
+        with:
+          node-version: 24
+
+      - name: Mini App build (VITE_* — Variables environment «production»)
+        if: env.ACTION == 'deploy'
+        env:
+          VITE_MEDIA_ORIGINS: https://cdn.${{ vars.PROD_DOMAIN }}
+          TMA_STORAGE_ORIGINS: https://${{ vars.CLOUDFLARE_ACCOUNT_ID }}.eu.r2.cloudflarestorage.com
+          VITE_SENTRY_DSN: ${{ vars.TMA_SENTRY_DSN }}
+          VITE_TELEGRAM_BOT: ${{ vars.PROD_BOT_USERNAME }}
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm -F tma build
+
+      - name: wrangler deploy
+        if: env.ACTION == 'deploy'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          API_ORIGIN: https://api.${{ vars.PROD_DOMAIN }}
+        run: |
+          printf '.vite\n*.map\n' > apps/tma/dist/.assetsignore
+          npx --yes "$WRANGLER" deploy --config infra/workers/tma/wrangler.jsonc --env production \
+            --var "API_ORIGIN:$API_ORIGIN"

@@ -1,4 +1,4 @@
-"""make secret NAME=… TARGET=dev|tf-stage|tf-prod — скрытый ввод секрета владельцем.
+"""make secret NAME=… TARGET=dev|tf-stage|tf-prod|tf-zone — скрытый ввод секрета владельцем.
 
 В ответ печатается только имя и длина значения, само значение — никогда
 (OWNER_CHECKLIST.md, «Как вписать секрет»). Цели stage и production добавляет шаг 0.25c.
@@ -20,6 +20,7 @@ TARGETS = {
     "dev": ROOT / "backend" / ".env",
     "tf-stage": ROOT / "infra" / "terraform" / "stage" / ".env",
     "tf-prod": ROOT / "infra" / "terraform" / "prod" / ".env",
+    "tf-zone": ROOT / "infra" / "terraform" / "zone" / ".env",
 }
 NAME_RE = re.compile(r"^[A-Z][A-Z0-9_]{1,63}$")
 

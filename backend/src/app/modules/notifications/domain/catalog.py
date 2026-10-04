@@ -55,12 +55,16 @@ class EventGroup(StrEnum):
     """«Сделки, споры, отзывы»."""
     MARKETING = "marketing"
     """«Новости «Соседей»»: только по согласию (opt-in)."""
+    GOODS_LAUNCH = "goods_launch"
+    """«Запуск раздела «Вещи»»: один раз, когда раздел откроется (S58, DEVELOPMENT_PLAN 7.5).
+    Только по согласию: подписывает кнопка «Сообщить о запуске», снимает переключатель S43.
+    Типа уведомления пока нет — его добавит модуль goods (ADR-0019)."""
     ACCOUNT = "account"
     """Служебные: решения модерации и санкции. Не выключаются."""
 
 
 MANDATORY_GROUPS = frozenset({EventGroup.ACCOUNT})
-OPT_IN_GROUPS = frozenset({EventGroup.MARKETING})
+OPT_IN_GROUPS = frozenset({EventGroup.MARKETING, EventGroup.GOODS_LAUNCH})
 """Выключены, пока человек сам не включит."""
 
 

@@ -114,6 +114,7 @@ async def test_complete_before_the_file_arrives_is_a_conflict(media: Media) -> N
     assert (early.status_code, early.json()["code"]) == (409, "media_upload_incomplete")
 
 
+@pytest.mark.authz
 async def test_foreign_media_is_not_found(media: Media) -> None:
     plan = (await media.start()).json()
     stranger = await media.other_user()

@@ -32,14 +32,24 @@ function cspHeaders(mediaOrigins: readonly string[], storageOrigins: readonly st
       const csp = contentSecurityPolicy({ dev: false, mediaOrigins, storageOrigins });
       const rules: [string, string][] = [
         ['/*', `Content-Security-Policy: ${csp}`],
+        // 8.4: тип не угадывается, адрес страницы (с параметрами запуска) не уходит на чужие
+        // сайты целиком, камера и микрофон страницей не запрашиваются (фото — через файл)
+        ['/*', 'X-Content-Type-Options: nosniff'],
+        ['/*', 'Referrer-Policy: strict-origin-when-cross-origin'],
+        ['/*', 'Permissions-Policy: camera=(), microphone=(), payment=(), usb=()'],
         ['/assets/*', `Cache-Control: ${IMMUTABLE}`],
         ['/', 'Cache-Control: no-cache'],
         ['/index.html', 'Cache-Control: no-cache'],
       ];
+      // один блок на путь: заголовки одного пути — строками под ним, в порядке правил
+      const byPath = new Map<string, string[]>();
+      for (const [path, header] of rules) byPath.set(path, [...(byPath.get(path) ?? []), header]);
       this.emitFile({
         type: 'asset',
         fileName: '_headers',
-        source: rules.map(([path, header]) => `${path}\n  ${header}\n`).join(''),
+        source: [...byPath]
+          .map(([path, headers]) => `${path}\n${headers.map((h) => `  ${h}\n`).join('')}`)
+          .join(''),
       });
     },
   };

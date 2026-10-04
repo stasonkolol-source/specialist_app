@@ -99,6 +99,32 @@ async def test_add_change_reorder_and_remove(client: Client) -> None:
     assert (await client.call("DELETE", f"/me/profile/services/{second}")).status_code == 404
 
 
+@pytest.mark.authz
+async def test_authz_foreign_service_cannot_be_changed_or_removed(
+    client: Client, web: HttpApp, storage_settings: Settings
+) -> None:
+    """Чужой ресурс (8.4): у другого исполнителя (со своим профилем) чужой позиции нет."""
+    await client.post("/me/profile", kind="pro", city_id=await city(client))
+    created = await client.post(
+        "/me/profile/services", title="Замена розетки", price_type="fixed", price_min=150_000
+    )
+    service = created.json()["id"]
+    async with web.container() as request:
+        session = await request.get(AsyncSession)
+        other_id = await insert_user(session)
+        await accept_rules(session, other_id)
+    stranger = Client(web, bearer(storage_settings, other_id))
+    await stranger.post("/me/profile", kind="pro", city_id=await city(stranger))
+
+    changed = await stranger.call("PATCH", f"/me/profile/services/{service}", is_active=False)
+    removed = await stranger.call("DELETE", f"/me/profile/services/{service}")
+
+    assert changed.status_code == 404, changed.text
+    assert removed.status_code == 404, removed.text
+    listed = await client.call("GET", "/me/profile/services")
+    assert [(i["id"], i["is_active"]) for i in listed.json()["items"]] == [(service, True)]
+
+
 async def test_prices_are_validated(client: Client) -> None:
     await client.post("/me/profile", kind="pro", city_id=await city(client))
 
