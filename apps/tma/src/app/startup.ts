@@ -33,7 +33,8 @@ export function startLaunch(app: Assembled): void {
     .preloadRoute({ href } as Parameters<typeof router.preloadRoute>[0])
     .catch(() => undefined);
   void launched.then((result) => {
-    if (result.kind === 'failed') return;
+    // вне Telegram Главной нет (8.1): вместо неё — «Открыть в Telegram», её данные не нужны
+    if (result.kind === 'failed' || app.platform.kind === 'browser') return;
     const user = result.kind === 'signed-in' ? result.user : null;
     // первый экран — Главная (не онбординг и не deep link): её данные — вместе с её чанком
     if ((launchHref(user, location, deepLink) ?? location.href) !== HOME) return;
