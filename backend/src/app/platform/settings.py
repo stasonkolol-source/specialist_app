@@ -337,11 +337,14 @@ class AnalyticsSettings(_Group):
     posthog_api_key: SecretStr | None = None
     posthog_host: str = "https://eu.i.posthog.com"
     posthog_personal_api_key: SecretStr | None = None
-    """Personal API key PostHog (K32) со scope dashboard и insight на чтение и запись — только
-    для `cli posthog-dashboard` с машины владельца. На серверы не выкатывается: в отличие от
-    ключа проекта (`phc_…`) он открывает данные."""
+    """Personal API key PostHog (K32a). На Маке владельца — scope dashboard и insight на чтение
+    и запись для `cli posthog-dashboard`. На stage и prod — отдельный ключ только со scope
+    `person:write`: воркер удаляет персону по UserDeleted (2.12b); без него при включённом
+    PostHog удаление — no-op с предупреждением. Ключ проекта (`phc_…`) только принимает события,
+    personal key открывает данные — в чат его не присылают."""
     posthog_project_id: int | None = Field(default=None, ge=1)
-    """Id проекта PostHog (Project settings → Project ID) для `cli posthog-dashboard`."""
+    """Id проекта PostHog (Project settings → Project ID): `cli posthog-dashboard` и удаление
+    персоны по UserDeleted."""
     beta_start: date = date(2027, 1, 25)
     """Понедельник первой недели закрытой беты (ориентир плана 6.7): `cli beta-report --week 1`
     — неделя с этого дня, `--week 0` — неделя перед стартом."""
@@ -466,7 +469,10 @@ def env_names(group: type[_Group]) -> list[str]:
 
 
 def describe(settings: Settings) -> dict[str, Any]:
-    """Сводка настроек без секретов — для логов старта."""
+    """Сводка настроек без секретов — для логов старта.
+
+    Флаги внешних сервисов (sentry, heartbeat, ai_*, posthog) — то, по чему на воротах 3.4 и 8.4
+    сверяют политику конфиденциальности с включёнными обработчиками (ARCHITECTURE §13.6)."""
     return {
         "env": settings.app.env.value,
         "release": settings.app.release,
@@ -480,4 +486,5 @@ def describe(settings: Settings) -> dict[str, Any]:
         "heartbeat": settings.healthchecks.worker_ping_url is not None,
         "ai_moderation": settings.ai.openai_api_key is not None,
         "ai_classifier": settings.ai.anthropic_api_key is not None,
+        "posthog": settings.analytics.posthog_api_key is not None,
     }

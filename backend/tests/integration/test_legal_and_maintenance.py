@@ -14,6 +14,10 @@ from tests.plugins.http import http_client
 
 pytestmark = pytest.mark.integration
 
+EDITION_DATES = {"terms": "2026-09-27", "privacy": "2026-10-04"}
+"""Даты редакций draft-1 из front matter backend/content/legal. Политику сверили с кодом
+2026-10-04 (DEVELOPMENT_PLAN 3.4, 8.4): черновик правится на месте, дата — вместе с текстом."""
+
 
 @pytest.fixture
 async def config_db(migrator_engine: AsyncEngine) -> AsyncIterator[AsyncEngine]:
@@ -48,7 +52,7 @@ async def test_client_config_carries_texts_of_current_versions(settings: Setting
         assert set(documents) == {"terms", "privacy"}
         for key, document in documents.items():
             assert document["version"] == body["legal_versions"][key]
-            assert document["published_on"] == "2026-09-27"
+            assert document["published_on"] == EDITION_DATES[key]
             # перевода ещё нет (K41): язык запроса ответ не меняет, ru — всегда
             assert set(document["texts"]) == {"ru"}
         terms = documents["terms"]["texts"]["ru"]

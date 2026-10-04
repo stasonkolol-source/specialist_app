@@ -11,6 +11,7 @@ from app.platform.settings import (
     Settings,
     SettingsError,
     UpdatesMode,
+    describe,
     env_names,
     webhook_base_url,
 )
@@ -251,3 +252,28 @@ def test_fake_telegram_sender_is_refused_in_production(clean_env: pytest.MonkeyP
         Settings(env_file=None)
     clean_env.setenv("TELEGRAM_FAKE_SENDER", "false")
     assert Settings(env_file=None).telegram.fake_sender is False
+
+
+def test_describe_shows_which_processors_are_on_without_secrets(
+    clean_env: pytest.MonkeyPatch,
+) -> None:
+    """Лог старта — по нему на воротах 3.4 и 8.4 политику сверяют с включёнными обработчиками."""
+    for name, value in REQUIRED.items():
+        clean_env.setenv(name, value)
+    clean_env.delenv("APP_HEARTBEAT_URL", raising=False)  # прежнее имя ping URL (до 3.3)
+    off = describe(Settings(env_file=None))
+    processors = ("sentry", "heartbeat", "ai_moderation", "ai_classifier", "posthog")
+    assert {key: off[key] for key in processors} == dict.fromkeys(processors, False)
+    secrets = {
+        "SENTRY_DSN": "https://key@o1.ingest.de.sentry.io/2",
+        "HEALTHCHECKS_WORKER_PING_URL": "https://hc-ping.com/check-uuid",
+        "AI_OPENAI_API_KEY": "sk-openai-secret",
+        "AI_ANTHROPIC_API_KEY": "sk-ant-secret",
+        "ANALYTICS_POSTHOG_API_KEY": "phc_posthog_secret",
+    }
+    for name, value in secrets.items():
+        clean_env.setenv(name, value)
+    on = describe(Settings(env_file=None))
+    assert {key: on[key] for key in processors} == dict.fromkeys(processors, True)
+    for value in (*secrets.values(), REQUIRED["TELEGRAM_BOT_TOKEN"], REQUIRED["DB_DSN"]):
+        assert value not in repr(on)
