@@ -1,6 +1,6 @@
 """Словарь контент-правил в PostgreSQL (DEVELOPMENT_PLAN 2.4): импорт сида идемпотентен,
-строки админки он не трогает; снимок для проверки читает только действующие правила и
-переживает сбой БД."""
+строки админки он не трогает (и поправленную в админке строку сида узнаёт по `seed_key`); снимок
+для проверки читает только действующие правила и переживает сбой БД."""
 
 import asyncio
 from dataclasses import replace
@@ -91,6 +91,48 @@ async def test_seed_import_is_idempotent_and_owns_only_its_rows(
     }
     back = await run_import(db_session, procrastinate_app, stricter, KLADMEN, SHORTENER)
     assert counts(back) == (0, 1, 1, 0, 1)  # вернулся в файл — снова включён
+
+
+async def test_seed_import_keeps_a_rule_edited_in_admin_and_does_not_resurrect_it(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App
+) -> None:
+    """Строку сида узнают по `seed_key`: шаблон, поправленный в админке, не возвращает исходное
+    правило; строка сида без ключа (до moderation_0009) получает его, а не дубль."""
+    await run_import(db_session, procrastinate_app, KOKAIN, KLADMEN)
+    await db_session.execute(
+        text(
+            "UPDATE moderation.content_rules SET pattern = 'kokaini*', origin = 'admin'"
+            " WHERE pattern = 'kokain*'"
+        )
+    )  # правка в админке: шаблон и владелец
+    await db_session.execute(
+        text(
+            "INSERT INTO moderation.content_rules (pattern, kind, action, category, origin)"
+            " VALUES ('bit.ly', 'domain', 'flag', 'spam', 'seed')"
+        )
+    )  # строка сида без ключа
+    await db_session.commit()
+
+    again = await run_import(db_session, procrastinate_app, KOKAIN, KLADMEN, SHORTENER)
+    stricter = await run_import(
+        db_session, procrastinate_app, replace(KOKAIN, action=RuleAction.BLOCK), KLADMEN, SHORTENER
+    )
+
+    assert counts(again) == (0, 0, 2, 0, 1)
+    assert counts(stricter) == (0, 0, 2, 0, 1)  # правку файла строка админки не принимает
+    assert await stored(db_session) == {
+        "kokaini*": ("flag", True, "admin"),  # исходного «kokain*» нет — не воскрес
+        "кладмен*": ("block", True, "seed"),
+        "bit.ly": ("flag", True, "seed"),
+    }
+    keys = await db_session.execute(
+        text("SELECT pattern, seed_key FROM moderation.content_rules ORDER BY pattern")
+    )
+    assert {row.pattern: row.seed_key for row in keys} == {
+        "bit.ly": "domain:bit.ly",
+        "kokaini*": "word:kokain*",  # ключ — правило сида, как оно записано в файле
+        "кладмен*": "word:кладмен*",
+    }
 
 
 def source(connection: AsyncConnection, ttl: timedelta, clock: list[float]) -> CachedRuleSource:

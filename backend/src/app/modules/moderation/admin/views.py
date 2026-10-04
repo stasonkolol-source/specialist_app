@@ -10,11 +10,12 @@
   совпадение, двойные буквы, вложенные квантификаторы); страница «Проверить правило» до записи
   показывает итог этой проверки, пробу на тексте и примеры набора rule_examples.yaml, у которых
   поменяется вердикт. Правка строки сида переводит её в `origin = admin`: следующий `cli seed` её
-  не перезапишет (решение шага 2.7b — уточнять правила на реальных примерах без деплоя важнее,
-  чем «сид — источник правды»). Строки не удаляются — выключаются (`is_active`): по ним остаётся
-  история кейсов, где правило сработало. Запись берёт advisory lock импорта словаря; каждое
-  изменение — в audit_log; снимок правил этого процесса сбрасывается сразу, у остальных
-  (worker) — за TTL снимка (60 с), без перезапуска.
+  не перезапишет и исходное правило заново не вставит — строку он узнаёт по `seed_key`, а не по
+  шаблону (решение шага 2.7b — уточнять правила на реальных примерах без деплоя важнее, чем «сид
+  — источник правды»); «Сохранить» без изменений строку сиду оставляет. Строки не удаляются —
+  выключаются (`is_active`): по ним остаётся история кейсов, где правило сработало. Запись берёт
+  advisory lock импорта словаря; каждое изменение — в audit_log; снимок правил этого процесса
+  сбрасывается сразу, у остальных (worker) — за TTL снимка (60 с), без перезапуска.
 """
 
 from dataclasses import replace
@@ -261,11 +262,24 @@ class ContentRuleAdmin(StaffModelView, model=ContentRuleRow):
         except InvalidRuleError as error:
             raise ValueError(f"Правило не принято: {error}") from None
         data["pattern"] = rule.pattern  # SQLAdmin пишет в строку поля формы после этого шага
-        model.origin = RuleOrigin.ADMIN  # строку сида дальше ведёт админка
+        if is_created or _changes_row(data, model):
+            model.origin = RuleOrigin.ADMIN  # строку сида дальше ведёт админка
 
     @override
     async def after_change(self, model: Any, request: Request) -> None:
         (await container_of(request).get(RuleSource)).invalidate()
+
+
+def _changes_row(data: dict[str, Any], model: Any) -> bool:
+    """Форма что-то меняет в строке: «Сохранить» без правок строку сида админке не передаёт — её
+    по-прежнему ведёт `cli seed`."""
+    return any(_value(value) != _value(getattr(model, key)) for key, value in data.items())
+
+
+def _value(value: object) -> object:
+    """Значение поля формы или колонки для сравнения: перечисление — строкой, пусто — None."""
+    plain = getattr(value, "value", value)
+    return None if plain == "" else plain
 
 
 def form_rule(data: Any, model: Any = None) -> ContentRule:

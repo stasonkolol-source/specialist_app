@@ -303,6 +303,37 @@ async def test_authz_content_rules_are_checked_like_the_seed_and_tried_first(
     assert await audit_count(admin, "moderation.content_rule.updated", owner.user_id) == 1
 
 
+async def test_admin_api_content_rule_saved_unchanged_stays_with_the_seed(admin: Admin) -> None:
+    """«Сохранить» без правок строку сида админке не передаёт (её и дальше ведёт `cli seed`), а
+    настоящая правка — передаёт; ключ сида при этом остаётся, исходное правило не вернётся."""
+    owner = await staff(admin, "admin")
+    word = f"seedword{new_id().hex[:6]}"
+    rule_id = (
+        await _one(
+            admin,
+            "INSERT INTO moderation.content_rules (pattern, kind, action, category, origin,"
+            " seed_key) VALUES (:word, 'word', 'flag', 'spam', 'seed', :key) RETURNING id",
+            word=word,
+            key=f"word:{word}",
+        )
+    )[0]
+    try:
+        async with _signed_in(admin, owner) as client:
+            path = f"{API}/content-rules/{rule_id}"
+            same = await client.patch(path, json={"pattern": word.upper()}, headers=WRITE)
+            assert same.status_code == 200, same.text
+            assert same.json()["origin"] == "seed"  # слово и так в нижнем регистре
+            assert (await client.patch(path, json={}, headers=WRITE)).json()["origin"] == "seed"
+            edited = await client.patch(path, json={"pattern": f"{word}x"}, headers=WRITE)
+            assert edited.json()["origin"] == "admin"
+        row = await _one(
+            admin, "SELECT seed_key FROM moderation.content_rules WHERE id = :id", id=rule_id
+        )
+        assert row.seed_key == f"word:{word}"
+    finally:
+        await _execute(admin, "DELETE FROM moderation.content_rules WHERE id = :id", id=rule_id)
+
+
 @pytest.mark.authz
 async def test_authz_broadcasts_go_through_the_notifications_use_cases(admin: Admin) -> None:
     owner = await staff(admin, "admin")
