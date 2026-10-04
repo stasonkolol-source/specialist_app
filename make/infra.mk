@@ -52,13 +52,15 @@ PROD_DB_SSH = ssh $(PROD_SSH_OPTS) \
 PROD_DB_SUBNET ?= 10.20.1.0/24
 
 # Файлы infra/postgres — архивом в /opt/sosed/postgres, значения — строками на stdin provision.sh (не
-# в argv): пароли ролей и, с 3.2, ключи репозиториев pgBackRest (PGBACKREST_REPO1_*, PGBACKREST_REPO2_*).
+# в argv): пароли ролей и, с 3.2, ключи репозиториев pgBackRest (PGBACKREST_REPO1_*, PGBACKREST_REPO2_*)
+# и ping URL бэкапов в Healthchecks (PGBACKREST_HEALTHCHECK_URL).
 # Значения задаёт CI (environment production) или владелец из менеджера паролей (Q15).
 db-provision: ## PostgreSQL на db-1 (3.1b): make db-provision ENV=prod — идемпотентно; пароли ролей и PROD_* — из окружения
 	@test "$(ENV)" = prod || (echo "usage: make db-provision ENV=prod"; exit 2)
-	@COPYFILE_DISABLE=1 tar --no-xattrs -C infra/postgres -cf - provision.sh bootstrap.sql pgbackrest.conf.tmpl | \
+	@COPYFILE_DISABLE=1 tar --no-xattrs -C infra/postgres -cf - provision.sh bootstrap.sql pgbackrest.conf.tmpl pgbackrest-backup.sh | \
 	  $(PROD_DB_SSH) 'rm -rf /opt/sosed/postgres && mkdir -p /opt/sosed/postgres && tar -xf - -C /opt/sosed/postgres'
 	@{ printf 'DB_LISTEN_IP=%s\nDB_SUBNET=%s\n' "$$PROD_DB_IP" "$(PROD_DB_SUBNET)"; \
-	  for n in APP_DB_PASSWORD MIGRATOR_DB_PASSWORD READONLY_DB_PASSWORD BACKUP_DB_PASSWORD $$(compgen -v PGBACKREST_REPO); do \
+	  for n in APP_DB_PASSWORD MIGRATOR_DB_PASSWORD READONLY_DB_PASSWORD BACKUP_DB_PASSWORD $$(compgen -v PGBACKREST_REPO) \
+	           PGBACKREST_HEALTHCHECK_URL; do \
 	    [ -z "$${!n:-}" ] || printf '%s=%s\n' "$$n" "$${!n}"; \
 	  done; } | $(PROD_DB_SSH) 'bash /opt/sosed/postgres/provision.sh'
