@@ -1294,6 +1294,12 @@ msgstr "Случајеве могу да решавају само модера�
 msgid "bot.moderation.done"
 msgstr "Готово"
 
+msgid "bot.moderation.chat.candidate"
+msgstr "ИД ове групе: <code>{chat_id}</code>\nДа би ова група постала група модератора: <code>TELEGRAM_MODERATORS_CHAT_ID={chat_id}</code> у backend/.env (dev) или <code>PROD_MODERATORS_CHAT_ID</code> у Variables окружења production (prod), затим поновно покретање."
+
+msgid "bot.moderation.chat.configured"
+msgstr "Ово је група модератора, картице случајева стижу овде."
+
 msgid "errors.invalid_job_alert"
 msgstr "Проверите претплату: категорије, кварт или полупречник, буџет."
 
@@ -1308,6 +1314,9 @@ msgstr "Захтеви по претплатама"
 
 msgid "bot.commands.alerts"
 msgstr "Претплате на захтеве"
+
+msgid "bot.commands.chatid"
+msgstr "ИД ове групе — за особље"
 
 msgid "bot.alerts.hidden"
 msgstr "Сакривено: овај захтев се више неће појављивати у вашој ленти."
