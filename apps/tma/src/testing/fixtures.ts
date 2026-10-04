@@ -627,7 +627,8 @@ export const CARD_WORKS: CardWorkOut[] = [
   };
 }); // prettier-ignore
 
-/** Отзывы артборда S11 (ответ специалиста — 7.3): услуги — категории каталога на языке запроса. */
+/** Отзывы артборда S11: услуги — категории каталога на языке запроса; на третий ответил
+ *  специалист (7.3), как на артборде. */
 export function cardReviewsFor(locale: string | null): CardReviewOut[] {
   const review = (
     n: number,
@@ -636,6 +637,7 @@ export function cardReviewsFor(locale: string | null): CardReviewOut[] {
     category: string,
     publishedAt: string,
     body: string,
+    reply: CardReviewOut['reply'] = null,
   ): CardReviewOut => ({
     id: `0199ee00-0000-7000-8000-00000000000${n}`,
     kind: 'deal',
@@ -645,12 +647,12 @@ export function cardReviewsFor(locale: string | null): CardReviewOut[] {
     body,
     category: { id: CATEGORY_IDS[category] ?? 0, name: categoryName(category, locale) },
     published_at: publishedAt,
-    reply: null,
+    reply,
   });
   return [
     review(1, 'Ирина С.', 5, 'chandeliers', '2026-09-24T15:00:00Z', 'Повесил две люстры и заменил розетку. Пришёл вовремя, всё аккуратно, убрал за собой.'),
     review(2, 'Павел Н.', 5, 'electrical', '2026-08-28T12:00:00Z', 'Быстро нашёл, почему выбивает автомат, и заменил его. Всё объяснил по-русски.'),
-    review(3, 'Светлана Б.', 4, 'chandeliers', '2026-08-12T09:00:00Z', 'Люстру повесил хорошо, но опоздал на полчаса — правда, предупредил заранее.'),
+    review(3, 'Светлана Б.', 4, 'chandeliers', '2026-08-12T09:00:00Z', 'Люстру повесил хорошо, но опоздал на полчаса — правда, предупредил заранее.', { body: 'Спасибо! Застрял в пробке на мосту — в следующий раз выеду раньше.', at: '2026-08-12T18:00:00Z' }),
   ];
 } // prettier-ignore
 

@@ -3214,7 +3214,7 @@ flowchart LR
 
 ### 13.3. Rate limiting
 
-Счётчики — sliding window в Valkey (`limits`). Грубые IP-лимиты стоят ещё на краю, в Cloudflare. Стартовые значения:
+Счётчики — sliding window в Valkey (`limits`). Грубые IP-лимиты стоят ещё на краю, в Cloudflare. Адрес клиента для лимитов по IP приложение берёт не из левой записи X-Forwarded-For (её пишет сам клиент): заголовки X-Forwarded-* принимаются только от своих прокси (kamal-proxy), цепочка читается справа налево, а `CF-Connecting-IP` — только если к прокси подключился край Cloudflare (`interfaces/http/proxy.py`, шаг 8.4). Стартовые значения:
 
 | Действие | Лимит |
 |---|---|

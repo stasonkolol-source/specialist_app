@@ -187,6 +187,7 @@ async def world(web: HttpApp, storage_settings: Settings) -> AsyncIterator[World
             )
 
 
+@pytest.mark.authz
 async def test_accept_creates_an_agreed_deal_and_assigns_the_job(world: World) -> None:
     client, chosen, other, stranger = (
         await world.user(),
@@ -318,6 +319,7 @@ async def test_cancelled_deal_reopens_the_job(world: World, worker: AsyncContain
     assert (await world.post(client, f"/responses/{other_response}/accept")).status_code == 200
 
 
+@pytest.mark.authz
 async def test_cancel_reason_is_chosen_by_a_party(world: World) -> None:
     client, performer = await world.user(), await world.user()
     job_id = await world.job(client)
@@ -332,6 +334,7 @@ async def test_cancel_reason_is_chosen_by_a_party(world: World) -> None:
     assert stranger.status_code == 404
 
 
+@pytest.mark.authz
 async def test_shortlist_and_decline(world: World) -> None:
     client, first, second = await world.user(), await world.user(), await world.user()
     job_id = await world.job(client)
@@ -369,6 +372,47 @@ async def test_proposal_is_confirmed_by_the_other_party(world: World) -> None:
     assert awaiting["awaits_my_confirmation"] is True
     assert confirmed.status_code == 200, confirmed.text
     assert confirmed.json()["status"] == "agreed"
+
+
+@pytest.mark.authz
+async def test_authz_strangers_cannot_touch_responses_deals_and_invites(world: World) -> None:
+    """Чужой ресурс (8.4): отклик правит только исполнитель, решает только клиент; сделку
+    подтверждают, отклоняют, завершают и оценивают только стороны; приглашения видит владелец."""
+    client, performer, stranger = await world.user(), await world.user(), await world.user()
+    job_id = await world.job(client)
+    response_id = await world.response(performer, job_id)
+    before = await world.statuses(job_id)
+    offer = {
+        "message": "Чужая правка отклика, так нельзя",
+        "price_type": "fixed",
+        "price_amount": 1,
+        "availability_note": "Никогда",
+    }
+    for intruder in (stranger, client):
+        revise = await world.app.client.patch(
+            f"{API}/responses/{response_id}", json=offer, headers=world.headers(intruder)
+        )
+        assert revise.status_code == 404, revise.text
+    for action in ("accept", "shortlist"):
+        for intruder in (stranger, performer):
+            reply = await world.post(intruder, f"/responses/{response_id}/{action}")
+            assert reply.status_code == 404, (action, reply.text)
+    invites = await world.get(stranger, f"/jobs/{job_id}/invites")
+    assert invites.status_code == 404
+    assert await world.statuses(job_id) == before
+
+    deal_id = await world.accepted(client, response_id)
+    for action in ("confirm", "decline", "complete"):
+        reply = await world.post(stranger, f"/deals/{deal_id}/{action}")
+        assert (reply.status_code, reply.json()["code"]) == (404, "deal_not_found"), action
+    review = await world.post(stranger, f"/deals/{deal_id}/review", {"rating": 1})
+    assert (review.status_code, review.json()["code"]) == (404, "deal_not_found")
+    deal = (await world.get(client, f"/deals/{deal_id}")).json()
+    assert (deal["status"], deal["i_marked_done"], deal["other_marked_done"]) == (
+        "agreed",
+        False,
+        False,
+    )
 
 
 async def test_my_deals_by_role_and_status(world: World) -> None:
