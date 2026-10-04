@@ -17,7 +17,16 @@ LOCATION=${LOCATION:-nbg1}
 : "${HCLOUD_TOKEN:?HCLOUD_TOKEN — токен проекта specialist-backup (K36, K19)}"
 
 say() { echo "restore-vm: $*" >&2; }
-api() { curl -sS --fail-with-body -m 30 -H "Authorization: Bearer $HCLOUD_TOKEN" "$@"; }
+api() { # ответ — в stdout; ошибку API (тип сервера, лимит проекта…) — в лог, а не в переменную
+  local body rc
+  if body=$(curl -sS --fail-with-body -m 30 -H "Authorization: Bearer $HCLOUD_TOKEN" "$@"); then
+    printf '%s\n' "$body"
+  else
+    rc=$?
+    say "API Hetzner: ${body:0:500}"
+    return "$rc"
+  fi
+}
 
 list() { # list <servers|ssh_keys> <label_selector> <старше, с> — строки «id имя»
   api -G "$API/$1" --data-urlencode "label_selector=$2" --data-urlencode per_page=50 |
