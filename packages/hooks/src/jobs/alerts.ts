@@ -67,7 +67,8 @@ function refresh(client: QueryClient) {
 export function useCreateAlert() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ body, key }: CreateAlert) => jobsCreateJobAlert(body, { 'Idempotency-Key': key }),
+    mutationFn: ({ body, key }: CreateAlert) =>
+      jobsCreateJobAlert(body, { 'Idempotency-Key': key }),
     onSuccess: (alert) => setItems(client, (items) => placed(items, alert)),
     onSettled: () => refresh(client),
   });
@@ -112,7 +113,5 @@ export function useDeleteAlert() {
 
 /** Присылает ли подписка заявки сейчас: включена и не на паузе из бота. */
 export function receives(alert: JobAlertOut, now: Date = new Date()): boolean {
-  return (
-    alert.is_active && (alert.paused_until === null || new Date(alert.paused_until) <= now)
-  );
+  return alert.is_active && (alert.paused_until === null || new Date(alert.paused_until) <= now);
 }

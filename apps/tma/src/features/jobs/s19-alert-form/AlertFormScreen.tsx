@@ -131,7 +131,8 @@ function Form({
       } else {
         const body = { criteria, delivery: form.delivery };
         const json = JSON.stringify(body);
-        if (attempt.current?.body !== json) attempt.current = { body: json, key: crypto.randomUUID() };
+        if (attempt.current?.body !== json)
+          attempt.current = { body: json, key: crypto.randomUUID() };
         await create.mutateAsync({ body, key: attempt.current.key });
       }
       leave();
@@ -274,9 +275,9 @@ function Categories({
         ))}
       </Chips>
       {missing && (
-        <Text variant="cap" className="text-danger" role="alert">
+        <p role="alert" className="m-0 text-cap text-danger">
           {t('alerts.form.missingCategories')}
-        </Text>
+        </p>
       )}
     </Section>
   );
@@ -307,9 +308,7 @@ function Area({
       : '';
   return (
     <Section
-      title={
-        near ? t('alerts.form.radiusFrom', { place: near.name }) : t('alerts.form.radius')
-      }
+      title={near ? t('alerts.form.radiusFrom', { place: near.name }) : t('alerts.form.radius')}
     >
       <Chips wrap>
         <Chip selected={form.area === 'city'} onClick={onCity}>
@@ -337,7 +336,10 @@ function QuietRow() {
   const change = useUpdateNotificationSettings();
   const quiet = settings.data?.quiet_hours;
   if (!quiet) return null;
-  const label = t('alerts.form.quiet', { from: quiet.start.slice(0, 5), to: quiet.end.slice(0, 5) });
+  const label = t('alerts.form.quiet', {
+    from: quiet.start.slice(0, 5),
+    to: quiet.end.slice(0, 5),
+  });
   return (
     <Row
       leading={<Icon name="bell" className="shrink-0" />}

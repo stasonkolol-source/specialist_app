@@ -566,8 +566,11 @@ export class JobsBackend {
   /** Подписки на заявки по порядку создания (S18). */
   alerts: JobAlertOut[] = [];
   /** Принятые POST и PATCH /me/job-alerts: тело и ключ — все, включая повторы. */
-  readonly alertWrites: { method: string; body: JobAlertIn | JobAlertPatchIn; key: string | null }[] =
-    [];
+  readonly alertWrites: {
+    method: string;
+    body: JobAlertIn | JobAlertPatchIn;
+    key: string | null;
+  }[] = [];
   private readonly alertsByKey = new Map<string, JobAlertOut>();
 
   /** Свои заявки клиента (S22) и отклики люстры (S23), как на артбордах. */

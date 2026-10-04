@@ -32,9 +32,7 @@ export function PublishedScreen() {
     (job.data.notified_count ?? 0) === 0;
   useEffect(() => {
     if (!counting) return undefined;
-    const timers = NOTIFIED_RETRY_MS.map((delay) =>
-      window.setTimeout(() => void refetch(), delay),
-    );
+    const timers = NOTIFIED_RETRY_MS.map((delay) => window.setTimeout(() => void refetch(), delay));
     return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, [counting, refetch]);
   const toJob = () =>

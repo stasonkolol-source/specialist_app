@@ -57,7 +57,8 @@ export function AlertsScreen() {
   const settings = useNotificationsGetNotificationSettings();
   const tree = useCategories(locale).data ?? [];
   const items = alerts.data?.items ?? [];
-  const cityId = items.find((item) => item.criteria.center)?.criteria.city_id ?? null;
+  // районы города подписок: подпись радиуса («До 3 км · Лиман») и названия районов
+  const cityId = items[0]?.criteria.city_id ?? null;
   const districts = useDistricts(cityId, locale).data ?? [];
   const [fullShown, setFullShown] = useState(false);
   useBackButton(() => {
@@ -223,9 +224,7 @@ function AlertCard({
         <Switch
           checked={on}
           label={t('alerts.toggle', { title })}
-          onChange={(checked) =>
-            update.mutate({ alertId: alert.id, body: { is_active: checked } })
-          }
+          onChange={(checked) => update.mutate({ alertId: alert.id, body: { is_active: checked } })}
         />
       </div>
       <div className="flex flex-col gap-1">
@@ -243,9 +242,9 @@ function AlertCard({
         )}
       </div>
       {failed && (
-        <Text variant="cap" className="text-danger" role="alert">
+        <p role="alert" className="m-0 text-cap text-danger">
           {t('alerts.error')}
-        </Text>
+        </p>
       )}
       <div className="border-t border-line" aria-hidden="true" />
       <div className="flex flex-wrap items-center justify-between gap-2">

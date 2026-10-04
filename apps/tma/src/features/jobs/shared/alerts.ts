@@ -44,7 +44,9 @@ function parentOf(tree: readonly CategoryOut[], id: number): CategoryOut | null 
 
 function iconOf(node: Pick<CategoryOut, 'icon'> | null): IconName {
   const name = node?.icon;
-  return name && (ICON_NAMES as readonly string[]).includes(name) ? (name as IconName) : FALLBACK_ICON;
+  return name && (ICON_NAMES as readonly string[]).includes(name)
+    ? (name as IconName)
+    : FALLBACK_ICON;
 }
 
 /** «Мастер на час» и «Мелкий ремонт, Электрика, Сантехника»; услуга — «Люстры» и «Мастер на час». */
@@ -90,8 +92,7 @@ export function formOf(alert: JobAlertOut): AlertForm {
     km: criteria.radius_km ?? NEAR_KM,
     point: criteria.center ? { lat: criteria.center.lat, lon: criteria.center.lon } : null,
     districts: [...criteria.district_ids],
-    budget:
-      criteria.min_budget !== null ? groupDigits(String(paraToRsd(criteria.min_budget))) : '',
+    budget: criteria.min_budget !== null ? groupDigits(String(paraToRsd(criteria.min_budget))) : '',
     delivery: alert.delivery,
     urgencies: [...criteria.urgencies],
     langs: [...criteria.languages],
@@ -101,7 +102,9 @@ export function formOf(alert: JobAlertOut): AlertForm {
 /** Форма новой подписки — из фильтров ленты S14 (или пустая). */
 export function formFromFeed(search: FeedSearch): AlertForm {
   const point =
-    search.lat !== undefined && search.lon !== undefined ? { lat: search.lat, lon: search.lon } : null;
+    search.lat !== undefined && search.lon !== undefined
+      ? { lat: search.lat, lon: search.lon }
+      : null;
   return {
     categories: [...(search.categories ?? [])],
     area: point && search.near !== undefined ? 'radius' : 'city',

@@ -100,7 +100,7 @@ export function FiltersSheet({ search, city, onClose, onApply }: FiltersSheetPro
     text: t('filters.saveAlert'),
     onClick: saveAlert,
     visible: signedIn && view === 'filters',
-    position: 'top',
+    position: 'bottom',
   });
 
   const set = (patch: Partial<FeedSearch>) => setDraft((current) => ({ ...current, ...patch }));

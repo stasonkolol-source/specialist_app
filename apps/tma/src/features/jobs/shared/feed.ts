@@ -135,7 +135,9 @@ export function activeFilters(search: FeedSearch): number {
  *  подпискам» — тоже: это не фильтр. */
 export function withoutFilters(search: FeedSearch): FeedSearch {
   const point =
-    search.lat !== undefined && search.lon !== undefined ? { lat: search.lat, lon: search.lon } : {};
+    search.lat !== undefined && search.lon !== undefined
+      ? { lat: search.lat, lon: search.lon }
+      : {};
   return search.alerts ? { ...point, alerts: true } : point;
 }
 
