@@ -34,10 +34,7 @@ function start(platform: Platform) {
   void app
     .launch()
     .finally(() =>
-      afterFirstScreen(
-        app.queryClient,
-        () => void initSentry(import.meta.env.VITE_SENTRY_DSN, __APP_VERSION__),
-      ),
+      afterFirstScreen(app.queryClient, () => void initSentry(import.meta.env.VITE_SENTRY_DSN)),
     );
 
   const root = document.getElementById('root');
