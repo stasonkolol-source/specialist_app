@@ -105,7 +105,8 @@ async def test_card_comes_in_one_request_with_etag(web: HttpApp) -> None:
 async def test_card_reads_do_not_grow_with_the_profile(web: HttpApp) -> None:
     """Перф-аудит: карточка S08 — восемь запросов при любом числе районов и работ (было 16 и
     по запросу на район): фото и работы — одним, справочники — из снимка в памяти процесса.
-    Прайс S09 и отзывы S11 проверяют видимость без описаний и портфолио."""
+    Прайс S09 и отзывы S11 проверяют видимость без описаний и портфолио; отзывам S11 — ещё
+    число «До платформы · N» для второй вкладки (7.6а)."""
     specialist = await published(web)
     await get(web, str(specialist.profile_id))  # снимки справочников прочитаны
     engine = await web.container.get(AsyncEngine)
@@ -120,7 +121,7 @@ async def test_card_reads_do_not_grow_with_the_profile(web: HttpApp) -> None:
     assert card.queries == 8, card.statements
     assert (card.begins, card.ends) == (0, 0)
     assert services.queries == 3, services.statements
-    assert reviews.queries == 4, reviews.statements
+    assert reviews.queries == 5, reviews.statements
 
 
 async def test_names_follow_the_language(web: HttpApp) -> None:
@@ -159,6 +160,7 @@ async def test_reviews_page_and_card_show_the_rating(web: HttpApp) -> None:
         },
         "items": [],
         "next_cursor": None,
+        "pre_platform_count": 0,
     }
     # агрегат пересчитывают отзывы по сделкам (7.2) — здесь строкой; показ — байесовское среднее
     await specialist.execute(

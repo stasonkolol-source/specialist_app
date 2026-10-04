@@ -662,6 +662,24 @@ msgstr "На утисак може одговорити само онај о к�
 msgid "errors.reply_exists"
 msgstr "Већ сте одговорили на овај утисак."
 
+msgid "errors.review_invite_not_found"
+msgstr "Линк за утисак више не важи: опозван је, истекао је или је утисак већ остављен."
+
+msgid "errors.review_invites_full"
+msgstr "Већ имате 5 позивница. Опозовите некоришћени линк да бисте направили нови."
+
+msgid "errors.review_invite_used"
+msgstr "Преко овог линка је већ остављен утисак — не може се опозвати."
+
+msgid "errors.review_invites_unavailable"
+msgstr "Бивше клијенте можете позвати након објаве профила."
+
+msgid "errors.own_profile_review"
+msgstr "Ово је ваш линк: пошаљите га бившем клијенту — утисак о себи не можете оставити."
+
+msgid "errors.pre_platform_review_exists"
+msgstr "Већ сте оставили утисак о овом стручњаку."
+
 msgid "errors.deal_not_found"
 msgstr "Договор није пронађен."
 
