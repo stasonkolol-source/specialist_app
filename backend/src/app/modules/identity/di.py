@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from dishka import Provider, Scope, provide
 
-from app.modules.identity.api import IdentityApi
+from app.modules.identity.api import IdentityApi, StaffAuth
 from app.modules.identity.application.access import AccessChecker
 from app.modules.identity.application.config import IdentityConfig
 from app.modules.identity.application.facade import IdentityFacade
@@ -20,6 +20,8 @@ from app.modules.identity.application.ports import (
     RoleRepository,
     SessionRepository,
     SessionRevocations,
+    StaffCredentials,
+    StaffSecrets,
     UserRepository,
 )
 from app.modules.identity.application.trust import TrustRecalculation
@@ -41,6 +43,14 @@ from app.modules.identity.application.use_cases.reset_onboarding import ResetOnb
 from app.modules.identity.application.use_cases.revoke_restricted_sessions import (
     RevokeRestrictedSessions,
 )
+from app.modules.identity.application.use_cases.staff_login import (
+    CreateStaffLogin,
+    StaffAuthService,
+)
+from app.modules.identity.application.use_cases.staff_restrictions import (
+    ImposeRestriction,
+    LiftRestriction,
+)
 from app.modules.identity.application.use_cases.unblock_user import UnblockUser
 from app.modules.identity.application.use_cases.update_privacy import UpdatePrivacy
 from app.modules.identity.application.use_cases.update_profile import UpdateProfile
@@ -58,6 +68,7 @@ from app.modules.identity.infrastructure.repositories import (
     SqlSessionRepository,
     SqlUserRepository,
 )
+from app.modules.identity.infrastructure.staff import PwdlibStaffSecrets, SqlStaffCredentials
 from app.platform.security.denylist import SessionDenylist
 from app.platform.security.jwt import AccessTokens
 from app.platform.settings import AppSettings, JwtSettings, TelegramSettings
@@ -128,3 +139,9 @@ class IdentityProvider(Provider):
     blocks = provide(SqlBlocks, provides=Blocks)
     block_user = provide(BlockUser)
     unblock_user = provide(UnblockUser)
+    staff_credentials = provide(SqlStaffCredentials, provides=StaffCredentials)
+    staff_secrets = provide(PwdlibStaffSecrets, provides=StaffSecrets, scope=Scope.APP)
+    create_staff_login = provide(CreateStaffLogin)
+    staff_auth = provide(StaffAuthService, provides=StaffAuth)
+    impose_restriction = provide(ImposeRestriction)
+    lift_restriction = provide(LiftRestriction)

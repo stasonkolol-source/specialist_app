@@ -1,0 +1,57 @@
+{% extends "sqladmin/layout.html" %}
+{# Решение по кейсу (2.7b): DecideCase, у спора — ResolveDispute; просмотр спора — в audit_log #}
+{% block content %}
+<div class="card">
+  <div class="card-header"><h3 class="card-title">Решить кейс</h3></div>
+  <div class="card-body">
+    {% if error %}<div class="alert alert-danger">Не решён: {{ error }}</div>{% endif %}
+    {% if done %}<div class="alert alert-success">Кейс {{ case_id }}: {{ done }}</div>{% endif %}
+    <form method="GET" class="mb-4">
+      <label class="form-label" for="case_lookup">ID кейса</label>
+      <div class="input-group">
+        <input id="case_lookup" name="case_id" class="form-control" value="{{ case_id }}">
+        <button class="btn btn-secondary" type="submit">Открыть</button>
+      </div>
+    </form>
+    {% if dossier %}
+    <h4>Спор: {{ dossier.dispute.kind }} ({{ dossier.dispute.status }})</h4>
+    <p>Сделка: {{ dossier.deal.title if dossier.deal else '—' }}; открыл {{ dossier.dispute.opened_by }}, вторая сторона {{ dossier.dispute.respondent_id }}</p>
+    <p><b>Описание:</b> {{ dossier.dispute.description }}</p>
+    <p><b>Ответ:</b> {{ dossier.dispute.response or '—' }}</p>
+    <ul>
+      {% for media_id, ref in dossier.photos.items() %}
+      <li>{% if ref.variants %}<a href="{{ ref.variants[-1].url }}" target="_blank" rel="noopener noreferrer">{{ media_id }}</a> (ссылка на 5 минут){% else %}{{ media_id }} — {{ ref.status }}{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if kind %}
+    <form method="POST">
+      <input type="hidden" name="case_id" value="{{ case_id }}">
+      {% if kind == 'dispute' %}
+      <div class="mb-3"><label class="form-label" for="outcome">Исход сделки</label>
+        <select id="outcome" name="outcome" class="form-select">
+          <option value="completed">completed — работа выполнена</option>
+          <option value="cancelled">cancelled — отменить сделку</option>
+        </select></div>
+      {% else %}
+      <div class="mb-3"><label class="form-label" for="verdict">Решение</label>
+        <select id="verdict" name="verdict" class="form-select">
+          <option value="approved">approved — нарушения нет</option>
+          <option value="rejected">rejected — нарушение</option>
+        </select></div>
+      {% endif %}
+      <div class="mb-3"><label class="form-label" for="reason_code">Код причины</label>
+        <input id="reason_code" name="reason_code" class="form-control"></div>
+      <div class="mb-3"><label class="form-label" for="severity">Тяжесть (санкция по лестнице)</label>
+        <select id="severity" name="severity" class="form-select">
+          <option value="">—</option>
+          {% for severity in severities %}<option value="{{ severity }}">{{ severity }}</option>{% endfor %}
+        </select></div>
+      <div class="mb-3"><label class="form-label" for="note">Заметка</label>
+        <textarea id="note" name="note" class="form-control"></textarea></div>
+      <button type="submit" class="btn btn-primary">Решить</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

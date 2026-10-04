@@ -32,6 +32,11 @@ class RuleSource(Protocol):
         снимок (до первой загрузки — пустой: работают только детекторы platform/text)."""
         ...
 
+    def invalidate(self) -> None:
+        """Правка словаря в админке (2.7b): этот процесс перечитает его на следующей проверке,
+        остальные — за TTL снимка, без перезапуска."""
+        ...
+
 
 class RuleWriter(Protocol):
     async def import_seed(self, rules: Sequence[ContentRule]) -> ImportRulesResult:

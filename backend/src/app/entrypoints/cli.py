@@ -45,7 +45,11 @@ if TYPE_CHECKING:  # модули грузятся лениво: CLI без БД
     from app.entrypoints._notify_test import NotifyTestOutcome
     from app.entrypoints._search_cli import ReindexReport
     from app.entrypoints._seed_demo import SeedReport
-    from app.modules.identity.application.dto import OnboardingReset, StaffRoleGranted
+    from app.modules.identity.application.dto import (
+        OnboardingReset,
+        StaffCredentialsSet,
+        StaffRoleGranted,
+    )
     from app.modules.search.application.dto import ZeroResultStat
     from app.modules.specialists.application.use_cases.mark_founding import FoundingMarked
 
@@ -452,6 +456,75 @@ async def _staff_grant(telegram_id: int, role: str) -> StaffRoleGranted | None:
         async with container() as request:
             grant = await request.get(GrantStaffRole)
             return await grant(GrantStaffRoleCommand(telegram_id=telegram_id, role=Role(role)))
+    finally:
+        await container.close()
+
+
+@app.command("staff-create")
+def staff_create(
+    tg_id: Annotated[int, typer.Option("--tg-id", help="Telegram id сотрудника")],
+    login: Annotated[str, typer.Option("--login", help="Логин админки: a-z, 0-9, «.», «_», «-»")],
+) -> None:
+    """Вход в админку /admin (DEVELOPMENT_PLAN 2.7a): пароль и TOTP сотруднику с ролью.
+
+    Сначала роль — `staff-grant`. Пароль (от 12 знаков) вводится здесь же дважды и не
+    показывается; секрет TOTP печатается один раз — добавьте его в приложение-аутентификатор
+    (Google Authenticator, 1Password, Aegis). Повторный вызов заменяет пароль и TOTP.
+    """
+    import getpass
+
+    password = getpass.getpass("Password (12+ chars): ")
+    if password != getpass.getpass("Repeat password: "):
+        typer.echo("staff-create: passwords do not match", err=True)
+        raise typer.Exit(code=1)
+    try:
+        result = asyncio.run(_staff_create(tg_id, login, password))
+    except _StaffCreateRefusedError as refused:
+        typer.echo(f"staff-create: {refused}", err=True)
+        raise typer.Exit(code=1) from None
+    if result is None:
+        typer.echo("staff-create: no such Telegram user (open the bot or Mini App once)", err=True)
+        raise typer.Exit(code=1)
+    state = "replaced" if result.replaced else "created"
+    typer.echo(f"user {result.user_id}: admin login {result.login!r} {state}")
+    typer.echo("TOTP secret (shown once, add it to your authenticator app now):")
+    typer.echo(f"  {result.totp_secret}")
+    typer.echo(f"  {result.totp_uri}")
+
+
+class _StaffCreateRefusedError(Exception):
+    pass
+
+
+async def _staff_create(telegram_id: int, login: str, password: str) -> StaffCredentialsSet | None:
+    from app.entrypoints._wiring import make_worker_container
+    from app.modules.identity.application.use_cases.staff_login import (
+        MIN_PASSWORD,
+        CreateStaffLogin,
+        CreateStaffLoginCommand,
+    )
+    from app.modules.identity.errors import (
+        InvalidStaffLoginError,
+        NotStaffError,
+        StaffLoginTakenError,
+    )
+
+    container = make_worker_container(Settings())
+    try:
+        async with container() as request:
+            create = await request.get(CreateStaffLogin)
+            try:
+                return await create(
+                    CreateStaffLoginCommand(telegram_id=telegram_id, login=login, password=password)
+                )
+            except InvalidStaffLoginError:
+                raise _StaffCreateRefusedError(
+                    f"login: 3-64 of a-z 0-9 . _ -; password: {MIN_PASSWORD}+ chars"
+                ) from None
+            except NotStaffError:
+                raise _StaffCreateRefusedError("no staff role (run staff-grant first)") from None
+            except StaffLoginTakenError:
+                raise _StaffCreateRefusedError("login is taken by another staff member") from None
     finally:
         await container.close()
 

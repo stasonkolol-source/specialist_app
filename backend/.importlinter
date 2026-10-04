@@ -77,6 +77,7 @@ modules =
     app.interfaces.http
     app.interfaces.bot
     app.interfaces.worker
+    app.interfaces.admin
 
 [importlinter:contract:only-api-identity]
 name = Снаружи модуля identity виден только api (ADR-0002)

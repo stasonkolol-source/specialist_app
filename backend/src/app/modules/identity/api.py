@@ -185,3 +185,29 @@ class DeletionHold(Protocol):
     async def held(self, user_ids: Collection[UserId]) -> frozenset[UserId]:
         """Кого из пользователей удалять пока нельзя. Читает в транзакции вызывающего."""
         ...
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StaffMember:
+    """Сотрудник в админке (2.7a): кто вошёл и с какими ролями (`identity.user_roles`)."""
+
+    user_id: UserId
+    login: str
+    roles: frozenset[Role]
+
+
+class StaffAuth(Protocol):
+    """Вход персонала в админку (ADR-0009): пароль argon2 и код TOTP. Лимит неудачных попыток —
+    у входного адаптера (interfaces/admin)."""
+
+    async def authenticate(
+        self, login: str, password: str, code: str, *, ip: str | None = None
+    ) -> StaffMember | None:
+        """Сотрудник — пароль и код TOTP верны, роль есть, аккаунт не удалён; иначе None (без
+        причины: подбор не узнаёт, что именно не подошло). Вход пишется в audit_log."""
+        ...
+
+    async def member(self, user_id: UserId) -> StaffMember | None:
+        """Сотрудник по id из сессии админки: роли перечитываются на каждый запрос, снятая роль
+        или удалённый вход закрывают админку сразу."""
+        ...

@@ -29,6 +29,10 @@ dependencies = [
     "pillow~=12.3",
     "pillow-heif~=1.8",
     "anthropic>=1,<2",
+    "sqladmin~=0.32",
+    "pwdlib[argon2]~=0.3",
+    "pyotp~=2.9",
+    "itsdangerous~=2.2",
 ]
 
 [dependency-groups]

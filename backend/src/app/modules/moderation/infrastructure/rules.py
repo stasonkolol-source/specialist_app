@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.moderation.application.dto import ImportRulesResult
 from app.modules.moderation.domain.rules import ContentRule, RuleSet
-from app.modules.moderation.infrastructure.models import ContentRuleRow, RuleOrigin
+from app.modules.moderation.infrastructure.models import IMPORT_LOCK, ContentRuleRow, RuleOrigin
 from app.platform.db.port import UnitOfWork
 
 log = structlog.get_logger(__name__)
@@ -36,8 +36,6 @@ TTL = timedelta(seconds=60)
 RETRY = timedelta(seconds=5)
 REFRESH_TIMEOUT = timedelta(seconds=5)
 """Чтение словаря из БД: дольше — остаётся прошлый снимок (соединение пула может ждать 30 с)."""
-IMPORT_LOCK = 0x6D6F645F72756C65
-"""pg_advisory_xact_lock импорта словаря: «mod_rule» в hex."""
 
 
 class SqlRuleWriter:

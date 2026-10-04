@@ -53,6 +53,11 @@ class Base(ModelBase):
     metadata = metadata
 
 
+IMPORT_LOCK = 0x6D6F645F72756C65
+"""pg_advisory_xact_lock словаря контент-правил: «mod_rule» в hex. Берут импорт `cli seed`
+(infrastructure/rules.py) и правка в админке (admin/views.py), чтобы не перетереть друг друга."""
+
+
 class RuleOrigin(StrEnum):
     SEED = "seed"
     """Из seeds/moderation/content_rules.yaml: `cli seed` создаёт, меняет и выключает."""
