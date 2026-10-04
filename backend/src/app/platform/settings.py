@@ -16,15 +16,29 @@ from enum import StrEnum
 from ipaddress import IPv4Network, IPv6Network, ip_network
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
-from pydantic import Field, IPvAnyNetwork, SecretStr, ValidationError, field_validator
+from pydantic import (
+    AliasChoices,
+    Field,
+    IPvAnyNetwork,
+    SecretStr,
+    ValidationError,
+    field_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
+KAMAL_VERSION = "KAMAL_VERSION"
+"""Версия образа: Kamal передаёт её каждому контейнеру приложения (kamal/commands/app.rb)."""
 
 
 _TELEGRAM_USERNAME = re.compile(r"[A-Za-z][A-Za-z0-9_]{4,31}")
 """Имя пользователя Telegram: 5–32 символа, начинается с буквы."""
+
+_WEBHOOK_SECRET = re.compile(r"[A-Za-z0-9_-]{32,256}")
+"""secret_token webhook: алфавит и предел 256 — Bot API (setWebhook); от 32 символов — наше
+требование: секрет — единственная защита адреса, его подбирают (`make gen-secret` даёт 64)."""
 
 PRIVATE_NETWORKS: tuple[IPv4Network | IPv6Network, ...] = tuple(
     ip_network(cidr)
@@ -78,6 +92,13 @@ class Environment(StrEnum):
     PRODUCTION = "production"
 
 
+class UpdatesMode(StrEnum):
+    """Как бот получает апдейты (ADR-0011): polling — dev; webhook — stage и prod."""
+
+    POLLING = "polling"
+    WEBHOOK = "webhook"
+
+
 class SettingsError(RuntimeError):
     """Настройки неполны или неверны — процесс не должен стартовать."""
 
@@ -101,11 +122,12 @@ class AppSettings(_Group):
     транслитом. Код продукта остаётся specialist_app."""
     log_level: str = "INFO"
     log_json: bool = True
-    release: str = "dev"
-    heartbeat_url: str | None = None
-    """Ping Healthchecks.io раз в минуту из воркера (K33), без адреса — только лог."""
+    release: str = Field(default_factory=lambda: os.environ.get(KAMAL_VERSION) or "dev")
+    """Релиз в логах и Sentry: APP_RELEASE, иначе версия образа, которую Kamal кладёт
+    в контейнер (KAMAL_VERSION), иначе dev."""
     web_host: str = "127.0.0.1"
-    """Адрес uvicorn: локально — только loopback; в контейнере — 0.0.0.0 (за kamal-proxy)."""
+    """Адрес HTTP-сервера процесса — uvicorn web или приём webhook бота (TELEGRAM_UPDATES):
+    локально — только loopback; в контейнере — 0.0.0.0 (за kamal-proxy)."""
     web_port: int = Field(default=8000, ge=1, le=65535)
     trusted_proxies: list[IPvAnyNetwork] = Field(default_factory=lambda: list(PRIVATE_NETWORKS))
     """Свои обратные прокси (kamal-proxy в сети Docker, cloudflared на loopback): только от
@@ -122,6 +144,10 @@ class AppSettings(_Group):
     """Ключ HMAC для хэшей способов входа удалённых аккаунтов (антифрод 12 месяцев, §7.10).
     Постоянный: смена ключа «забудет» все хэши. На stage и проде обязателен; в dev и тестах без
     него — фиксированный ключ разработки."""
+    admin_session_key: SecretStr | None = None
+    """Ключ подписи cookie сессии админки /admin (2.7a). Без него на stage и проде админка не
+    монтируется (публикация — только за Cloudflare Access, K31); в dev и тестах — ключ
+    разработки. Смена ключа завершает все сессии персонала."""
 
     @field_validator("min_client_versions")
     @classmethod
@@ -158,7 +184,19 @@ class TelegramSettings(_Group):
 
     bot_token: SecretStr
     bot_username: str
+    updates: UpdatesMode = UpdatesMode.POLLING
+    """Приём апдейтов процессом bot. webhook (stage, prod) — aiohttp-сервер на APP_WEB_HOST и
+    APP_WEB_PORT за kamal-proxy, адрес — TELEGRAM_WEBHOOK_BASE_URL + /integrations/telegram/webhook;
+    нужен TELEGRAM_WEBHOOK_SECRET. Задаётся явно в Kamal, а не выводится из APP_ENV: откат на
+    polling — без смены окружения (в Kamal — вместе с `proxy: false` у роли bot: polling не
+    отвечает на /up, 0.25e)."""
+    webhook_base_url: str | None = None
+    """Схема и хост, на которые Telegram шлёт webhook, без пути: свой хост процесса bot
+    (`https://stage-bot.<домен>`, на проде `https://bot.<домен>`) — kamal-proxy не отдаёт один
+    хост с TLS двум ролям. Пусто — APP_API_PUBLIC_URL (bot и web за одним адресом)."""
     webhook_secret: SecretStr | None = None
+    """secret_token webhook: Telegram присылает его в X-Telegram-Bot-Api-Secret-Token, без него
+    или с чужим — 401. 32–256 символов [A-Za-z0-9_-], на stage и проде — `make gen-secret`."""
     mini_app_url: str | None = None
     use_test_environment: bool = False
     support_username: str | None = None
@@ -187,6 +225,35 @@ class TelegramSettings(_Group):
         if not _TELEGRAM_USERNAME.fullmatch(username):
             raise ValueError("TELEGRAM_SUPPORT_USERNAME: 5–32 символа [A-Za-z0-9_], без @")
         return username
+
+
+def webhook_base_url(app: AppSettings, telegram: TelegramSettings) -> str:
+    """Адрес процесса bot для Telegram: TELEGRAM_WEBHOOK_BASE_URL, без него — APP_API_PUBLIC_URL."""
+    return telegram.webhook_base_url or app.api_public_url
+
+
+def webhook_problems(app: AppSettings, telegram: TelegramSettings) -> list[str]:
+    """Чего не хватает режиму webhook; пусто — всё есть или бот на polling.
+
+    Общая проверка процессов (Settings) и `cli bot-setup`: без секрета aiogram принял бы любой
+    POST, а на http:// Telegram апдейты не шлёт. Формат секрета и адреса проверяем только здесь:
+    в dev на polling они не нужны и не должны ронять стенд."""
+    if telegram.updates is not UpdatesMode.WEBHOOK:
+        return []
+    found = []
+    secret = telegram.webhook_secret.get_secret_value() if telegram.webhook_secret else ""
+    if not secret:
+        found.append("не задан TELEGRAM_WEBHOOK_SECRET")
+    elif not _WEBHOOK_SECRET.fullmatch(secret):
+        found.append("TELEGRAM_WEBHOOK_SECRET: нужно 32–256 символов [A-Za-z0-9_-]")
+    name = "TELEGRAM_WEBHOOK_BASE_URL" if telegram.webhook_base_url else "APP_API_PUBLIC_URL"
+    base = urlsplit(webhook_base_url(app, telegram))
+    if base.scheme != "https" or not base.hostname:
+        found.append(f"{name}: webhook Telegram принимает только https://")
+    elif base.path.strip("/") or base.query or base.fragment:
+        # kamal-proxy ведёт на bot весь хост: с путём апдейты ушли бы мимо обработчика (404)
+        found.append(f"{name}: нужны только схема и хост, без пути")
+    return found
 
 
 class JwtSettings(_Group):
@@ -221,6 +288,32 @@ class SentrySettings(_Group):
 
     dsn: SecretStr | None = None
     traces_sample_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class MetricsSettings(_Group):
+    """Экспорт метрик Prometheus (DEVELOPMENT_PLAN 3.3): отдельный порт процесса, а не API.
+
+    kamal-proxy ведёт только на порт web (APP_WEB_PORT), поэтому этот порт виден лишь в сети
+    Docker — его читает Grafana Alloy. Без порта метрики живут в процессе (dev, тесты)."""
+
+    model_config = SettingsConfigDict(env_prefix="METRICS_")
+
+    port: int | None = Field(default=None, ge=1, le=65535)
+    host: str = "127.0.0.1"
+    """Локально — только loopback; в контейнере — 0.0.0.0 (порт не публикуется наружу)."""
+
+
+class HealthchecksSettings(_Group):
+    """Healthchecks.io (K33): «пульс» воркера раз в минуту, задача `ops.heartbeat`."""
+
+    model_config = SettingsConfigDict(env_prefix="HEALTHCHECKS_", populate_by_name=True)
+
+    worker_ping_url: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("HEALTHCHECKS_WORKER_PING_URL", "APP_HEARTBEAT_URL"),
+    )
+    """Ping URL проверки воркера; без адреса — только запись в лог. Секрет: по ссылке любой
+    отметит проверку и скроет сбой. APP_HEARTBEAT_URL — прежнее имя (до 3.3)."""
 
 
 class AiSettings(_Group):
@@ -297,6 +390,8 @@ GROUPS: tuple[type[_Group], ...] = (
     JwtSettings,
     S3Settings,
     SentrySettings,
+    MetricsSettings,
+    HealthchecksSettings,
     AiSettings,
     AnalyticsSettings,
     LegalSettings,
@@ -336,6 +431,8 @@ class Settings:
         self.jwt = _as(values, JwtSettings)
         self.s3 = _as(values, S3Settings)
         self.sentry = _as(values, SentrySettings)
+        self.metrics = _as(values, MetricsSettings)
+        self.healthchecks = _as(values, HealthchecksSettings)
         self.ai = _as(values, AiSettings)
         self.analytics = _as(values, AnalyticsSettings)
         self.legal = _as(values, LegalSettings)
@@ -344,6 +441,8 @@ class Settings:
             and self.app.hash_key is None
         ):
             raise SettingsError("Настройки неполны — не заданы: APP_HASH_KEY")
+        if problems := webhook_problems(self.app, self.telegram):
+            raise SettingsError("TELEGRAM_UPDATES=webhook — " + "; ".join(problems))
         if self.app.env is Environment.PRODUCTION and (todo := self.legal.todo_fields()):
             # оператор и почта попадают в политику конфиденциальности: заглушка на проде — нарушение
             raise SettingsError("Настройки неполны — на проде нужны значения: " + ", ".join(todo))
@@ -373,9 +472,12 @@ def describe(settings: Settings) -> dict[str, Any]:
         "release": settings.app.release,
         "db_pool_size": settings.db.pool_size,
         "telegram_bot": settings.telegram.bot_username,
+        "telegram_updates": settings.telegram.updates.value,
         "telegram_fake_sender": settings.telegram.fake_sender,
         "s3_endpoint": settings.s3.endpoint_url,
         "sentry": settings.sentry.dsn is not None,
+        "metrics_port": settings.metrics.port,
+        "heartbeat": settings.healthchecks.worker_ping_url is not None,
         "ai_moderation": settings.ai.openai_api_key is not None,
         "ai_classifier": settings.ai.anthropic_api_key is not None,
     }

@@ -116,3 +116,22 @@ class BlocksFullError(ConflictError):
 
     code = "blocks_full"
     public_params = ("limit",)
+
+
+class StaffLoginTakenError(ConflictError):
+    """Логин админки уже у другого сотрудника (`cli staff-create`)."""
+
+    code = "staff_login_taken"
+
+
+class InvalidStaffLoginError(DomainValidationError):
+    """Логин админки: 3–64 знака, латиница в нижнем регистре, цифры, «.», «_», «-»; пароль — от
+    12 знаков (`cli staff-create`)."""
+
+    code = "invalid_staff_login"
+
+
+class NotStaffError(ConflictError):
+    """Вход в админку — только сотруднику с ролью (`cli staff-grant`)."""
+
+    code = "not_staff"

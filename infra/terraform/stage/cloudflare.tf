@@ -11,6 +11,7 @@ locals {
 
   host_app   = "stage-app.${var.domain}"
   host_api   = "stage-api.${var.domain}"
+  host_bot   = "stage-bot.${var.domain}"
   host_cdn   = "stage-cdn.${var.domain}"
   host_admin = "stage-admin.${var.domain}"
 
@@ -27,7 +28,7 @@ check "cloudflare_inputs" {
 
 # --- DNS ---
 
-# API и webhook: через прокси Cloudflare на VM (kamal-proxy, сертификат Origin CA)
+# API: через прокси Cloudflare на VM (kamal-proxy, сертификат Origin CA)
 resource "cloudflare_dns_record" "api_a" {
   count   = local.cf
   zone_id = var.cloudflare_zone_id
@@ -36,7 +37,7 @@ resource "cloudflare_dns_record" "api_a" {
   content = hcloud_server.stage.ipv4_address
   proxied = true
   ttl     = 1
-  comment = "stage: API и webhook бота (kamal-proxy)"
+  comment = "stage: API (kamal-proxy)"
 }
 
 resource "cloudflare_dns_record" "api_aaaa" {
@@ -47,7 +48,31 @@ resource "cloudflare_dns_record" "api_aaaa" {
   content = hcloud_server.stage.ipv6_address
   proxied = true
   ttl     = 1
-  comment = "stage: API и webhook бота (kamal-proxy)"
+  comment = "stage: API (kamal-proxy)"
+}
+
+# Webhook бота (0.25e): свой хост роли bot в kamal-proxy — Kamal не даёт двум ролям один хост с
+# TLS. Skip-правило WAF для /integrations/telegram/ с адресов Bot API — в infra/terraform/zone.
+resource "cloudflare_dns_record" "bot_a" {
+  count   = local.cf
+  zone_id = var.cloudflare_zone_id
+  name    = local.host_bot
+  type    = "A"
+  content = hcloud_server.stage.ipv4_address
+  proxied = true
+  ttl     = 1
+  comment = "stage: webhook бота (kamal-proxy, роль bot)"
+}
+
+resource "cloudflare_dns_record" "bot_aaaa" {
+  count   = local.cf
+  zone_id = var.cloudflare_zone_id
+  name    = local.host_bot
+  type    = "AAAA"
+  content = hcloud_server.stage.ipv6_address
+  proxied = true
+  ttl     = 1
+  comment = "stage: webhook бота (kamal-proxy, роль bot)"
 }
 
 # Админка: запись есть, но kamal-proxy этот хост не обслуживает, а web без APP_ADMIN_SESSION_KEY
@@ -110,7 +135,7 @@ resource "tls_cert_request" "origin" {
 resource "cloudflare_origin_ca_certificate" "origin" {
   count              = local.cf
   csr                = tls_cert_request.origin[0].cert_request_pem
-  hostnames          = [local.host_api, local.host_admin]
+  hostnames          = [local.host_api, local.host_bot, local.host_admin]
   request_type       = "origin-ecc"
   requested_validity = 5475
 }

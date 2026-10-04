@@ -30,6 +30,10 @@ from app.platform.kernel.localized import LocalizedText
 SCHEMA = "geo"
 metadata = module_metadata(SCHEMA)
 
+IMPORT_LOCK = 0x67656F5F63697479
+"""pg_advisory_xact_lock справочника городов и районов: «geo_city» в hex. Берут импорт `cli seed`
+(writer.py) и правка в админке (admin/views.py, 2.7b)."""
+
 BOUNDARY = Geometry(geometry_type="MULTIPOLYGON", srid=4326, spatial_index=False)
 
 

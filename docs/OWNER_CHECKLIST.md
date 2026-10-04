@@ -217,7 +217,7 @@
 
 ## Как вписать секрет
 
-`make secrets-dev` появится в шаге 0.3. `make secret` (цели `dev`, `tf-stage`, `tf-prod`) и `make secrets-check` — в шаге 0.4. Цели `stage` и `production`, `make gen-secret` и `make gen-age` — в шаге 0.25c, по решению Q1. Раньше секреты не нужны.
+`make secrets-dev` появится в шаге 0.3. `make secret` (цели `dev`, `tf-stage`, `tf-prod`) и `make secrets-check` — в шаге 0.4. Цели `stage` и `production` и `make gen-secret` готовы с шага 0.25c по варианту Q1(б) — в GitHub environment через `gh` (нужен `gh auth login`, K3); `make gen-age` — только если в Q1 выберете SOPS. Раньше секреты не нужны.
 
 **1. Откройте Терминал.** Нажмите ⌘ + пробел, наберите «Терминал» (или Terminal) и нажмите Enter. Это отдельное окно, не чат с ассистентом: ассистент не видит, что вы в нём вводите. Команды из этого раздела не набирайте в чате через `!`, иначе вывод попадёт в историю.
 
@@ -231,7 +231,7 @@ make secret NAME=TELEGRAM_BOT_TOKEN TARGET=dev
 
 - `TARGET=dev` — в `backend/.env`;
 - `TARGET=tf-stage` или `tf-prod` — в `infra/terraform/stage/.env` или `infra/terraform/prod/.env`;
-- `TARGET=stage` или `production` — в GitHub environment (через `gh secret set --env`) или в SOPS-файл, в зависимости от решения Q1.
+- `TARGET=stage` или `production` — в GitHub environment (через `gh secret set --env`, значение уходит через stdin) или, при Q1(а), в SOPS-файл.
 
 Скрипт попросит вставить значение. Вставьте его через ⌘V. **Символы при вводе не отображаются, так и должно быть.** Нажмите Enter. Скрипт ответит, например, «TELEGRAM_BOT_TOKEN записан в backend/.env (46 символов)» и больше ничего не напечатает. Если длина не та, что вы ожидали, повторите команду.
 
@@ -474,7 +474,8 @@ make secret NAME=TELEGRAM_BOT_TOKEN TARGET=dev
 - **Что:** домен, аккаунт Cloudflare на плане Free, зона домена в Cloudflare, Account ID.
 - **Зачем:** схема хостов (ADR-0015):
   - `app.<domain>` — Mini App, `/api` на том же origin;
-  - `api.<domain>` — webhook Telegram;
+  - `api.<domain>` — API;
+  - `bot.<domain>` — webhook Telegram (свой хост процесса бота, 0.25e);
   - `cdn.<domain>` — медиа из R2;
   - `admin.<domain>` — SQLAdmin за Cloudflare Access;
   - для stage — плоская схема `stage-app.` и т. д. (решение Q10).
@@ -630,9 +631,11 @@ make secret NAME=TELEGRAM_BOT_TOKEN TARGET=dev
 
   Только в `production`, для ежемесячного restore-теста (шаг 3.2):
   - `HCLOUD_TOKEN` проекта `specialist-backup` — там restore-тест создаёт временную VM (K36);
-  - S3-ключи обоих репозиториев бэкапов (K36, K37);
-  - пароли шифрования pgBackRest обоих репозиториев (K10a);
-  - ping URL restore-теста (K33).
+  - S3-ключи обоих репозиториев бэкапов (K36, K37): `PGBACKREST_REPO1_S3_KEY`, `PGBACKREST_REPO1_S3_KEY_SECRET`, `PGBACKREST_REPO2_S3_KEY`, `PGBACKREST_REPO2_S3_KEY_SECRET` — их же берёт `db-1`;
+  - пароли шифрования pgBackRest обоих репозиториев (K10a): `RESTORE_TEST_REPO1_CIPHER_PASS` и `RESTORE_TEST_REPO2_CIPHER_PASS` — значения, вставленные из менеджера паролей, а не из буфера генерации: тест проверяет именно копию. Серверу те же пароли приходят из `PGBACKREST_REPO1_CIPHER_PASS` и `PGBACKREST_REPO2_CIPHER_PASS`;
+  - ping URL restore-теста `RESTORE_TEST_HEALTHCHECK_URL` и бэкапов `PGBACKREST_HEALTHCHECK_URL` (K33).
+
+  Порядок — [prod-bootstrap.md](../infra/runbooks/prod-bootstrap.md), раздел 7.
 
   Не секреты (`CLOUDFLARE_ACCOUNT_ID`, DSN Sentry, ключ PostHog, логин реестра) — в Variables того же environment.
 - **Зачем:** CI деплоит stage при merge в `main`, а prod — по ручному запуску.
@@ -1040,7 +1043,7 @@ make secret NAME=TELEGRAM_BOT_TOKEN TARGET=dev
 | Q7 | Способ HTTPS для Mini App в dev | **Сейчас quick tunnel `cloudflared` (для загрузок в 0.24 — второй quick tunnel на Garage), после домена — именованный туннель** (`dev-app.`, `dev-s3.`); запасной путь — тестовая среда **Ответ владельца 2026-09-27: подтверждён вариант по умолчанию.** | 0.22; именованный туннель — 0.28 | После домена — да |
 | Q8 | **Название продукта** | Нейтральное двуязычное имя (§19.1: риск «русского» бренда). PRODUCT.md и ARCHITECTURE.md уже записывают «Соседи» (Sosedi) решением от 2026-09-27; в шаге 3.1c его нужно подтвердить как окончательное или назвать другое. Проверить, свободны ли домен и @username | Блокер шага 3.1c (≈ 2026-12-07). Крайний срок — ≈ 2026-12-28 (за 4 недели до беты), тогда 3.1c и онбординг founding-специалистов сдвигаются. Желательно к 0.25b ради домена, иначе — технический домен | Это и есть название |
 | Q9 | Домен и регистратор | Регистратор в документах не выбран. Вариант: Cloudflare Registrar — по себестоимости, без смены NS, но поддерживает не все зоны (национальные вроде `.rs`, скорее всего, нет). Зона DNS — Cloudflare. Не `.ru`. Пока нет названия, можно взять технический домен под dev и stage (наше предложение) | Начать в 0.1; нужен к 0.25b (раньше — к 0.28 для именованного dev-туннеля) | **Да** |
-| Q10 | Поддомены stage и dev | **Плоская схема**: `stage-app.`, `stage-api.`, `stage-cdn.`, `stage-admin.`, `dev-app.`, `dev-s3.` — бесплатный Universal SSL покрывает только один уровень поддоменов | 0.25b; `dev-` — 0.28 | **Да** (через домен) |
+| Q10 | Поддомены stage и dev | **Плоская схема**: `stage-app.`, `stage-api.`, `stage-bot.`, `stage-cdn.`, `stage-admin.`, `dev-app.`, `dev-s3.` — бесплатный Universal SSL покрывает только один уровень поддоменов | 0.25b; `dev-` — 0.28 | **Да** (через домен) |
 | Q11 | В какой среде Telegram живёт stage-бот | **Основная среда**: тестировщики заходят обычными аккаунтами. ADR-0015 и §16.2 ставят stage в тестовую среду ради тестовых Stars, но Stars появятся только в v1 | 0.25e (до K17) | — |
 | Q12 | Регион Hetzner | nbg1 или fsn1: задержка из Белграда ≈ 32 и ≈ 33 мс, разница в пределах шума. Наше предложение по умолчанию — **nbg1** | 0.25a (до K14) | — |
 | Q13 | Доступ по SSH к серверам | IP allowlist (деплой из CI тогда не пройдёт); Tailscale (нужен аккаунт и auth key); 22-й порт открыт только по ключу. Решение за вами | 0.25a, до Terraform | — |

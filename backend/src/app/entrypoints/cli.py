@@ -38,16 +38,24 @@ from app.platform.settings import (
     Environment,
     Settings,
     TelegramSettings,
+    UpdatesMode,
+    webhook_base_url,
+    webhook_problems,
 )
 
 if TYPE_CHECKING:  # модули грузятся лениво: CLI без БД не должен их импортировать
+    from aiogram import Bot
     from dishka import AsyncContainer
 
     from app.entrypoints._moderation_cli import CliOutcome
     from app.entrypoints._notify_test import NotifyTestOutcome
     from app.entrypoints._search_cli import ReindexReport
     from app.entrypoints._seed_demo import SeedReport
-    from app.modules.identity.application.dto import OnboardingReset, StaffRoleGranted
+    from app.modules.identity.application.dto import (
+        OnboardingReset,
+        StaffCredentialsSet,
+        StaffRoleGranted,
+    )
     from app.modules.search.application.dto import ZeroResultStat
     from app.modules.specialists.application.use_cases.mark_founding import FoundingMarked
 
@@ -264,9 +272,11 @@ def bot_setup(
         typer.Option(help="Окружение бота; должно совпасть с APP_ENV — защита от чужого .env"),
     ],
 ) -> None:
-    """Профиль бота: имя, описания и меню команд на ru и sr, кнопка меню (DEVELOPMENT_PLAN 1.6).
+    """Профиль бота: имя, описания и меню команд на ru и sr, кнопка меню (DEVELOPMENT_PLAN 1.6),
+    webhook по TELEGRAM_UPDATES (0.25e): webhook — setWebhook с секретом и узким
+    allowed_updates, polling — снять webhook.
 
-    Меняет только то, что отличается: повторный запуск ничего не трогает.
+    Профиль и кнопку меняет только там, где они отличаются: повторный запуск их не трогает.
     """
     asyncio.run(_bot_setup(env))
 
@@ -278,7 +288,8 @@ async def _bot_setup(env: Environment) -> None:
     from app.interfaces.bot.profile import apply_menu_button, apply_profile, bot_profiles
     from app.platform.i18n.translator import Translator
 
-    actual = AppSettings().env
+    app_settings = AppSettings()
+    actual = app_settings.env
     if actual is not env:
         typer.echo(f"bot-setup: --env {env.value}, but APP_ENV={actual.value}", err=True)
         raise typer.Exit(code=1)
@@ -286,6 +297,8 @@ async def _bot_setup(env: Environment) -> None:
     translator = Translator.load()
     profiles = bot_profiles(translator, env)
     problems = [problem for profile in profiles for problem in profile.problems()]
+    # все проверки — до первого вызова Bot API: профиль без webhook хуже отказа целиком
+    problems += webhook_problems(app_settings, telegram)
     if problems:
         typer.echo("bot-setup: " + "; ".join(problems), err=True)
         raise typer.Exit(code=1)
@@ -303,6 +316,7 @@ async def _bot_setup(env: Environment) -> None:
             typer.echo(f"@{me.username}: menu button {state} → {url}")
         else:
             typer.echo(f"@{me.username}: menu button skipped (TELEGRAM_MINI_APP_URL is not https)")
+        typer.echo(f"@{me.username}: {await _apply_updates_mode(bot, app_settings, telegram)}")
     except TelegramRetryAfter as exc:
         typer.echo(
             f"bot-setup: Telegram asks to wait {exc.retry_after} s, run again later", err=True
@@ -310,6 +324,27 @@ async def _bot_setup(env: Environment) -> None:
         raise typer.Exit(code=1) from exc
     finally:
         await bot.session.close()
+
+
+async def _apply_updates_mode(
+    bot: Bot, app_settings: AppSettings, telegram: TelegramSettings
+) -> str:
+    """Webhook по TELEGRAM_UPDATES; строка для вывода — адрес и типы апдейтов, без секрета."""
+    from app.interfaces.bot.app import ALLOWED_UPDATES
+    from app.interfaces.bot.webhook import apply_webhook, remove_webhook, webhook_url
+
+    if telegram.updates is UpdatesMode.POLLING:
+        return "webhook deleted (polling)" if await remove_webhook(bot) else "no webhook (polling)"
+    secret = telegram.webhook_secret.get_secret_value() if telegram.webhook_secret else ""
+    url = webhook_url(webhook_base_url(app_settings, telegram))
+    await apply_webhook(bot, url, secret, ALLOWED_UPDATES)
+    info = await bot.get_webhook_info()
+    # ошибка доставки видна сразу: например, kamal-proxy не ведёт путь на процесс bot
+    last_error = f", last error: {info.last_error_message}" if info.last_error_message else ""
+    return (
+        f"webhook set → {url} [{', '.join(ALLOWED_UPDATES)}],"
+        f" pending {info.pending_update_count}{last_error}"
+    )
 
 
 async def _set_menu_button(url: str | None) -> None:
@@ -497,6 +532,75 @@ async def _staff_grant(telegram_id: int, role: str) -> StaffRoleGranted | None:
         async with container() as request:
             grant = await request.get(GrantStaffRole)
             return await grant(GrantStaffRoleCommand(telegram_id=telegram_id, role=Role(role)))
+    finally:
+        await container.close()
+
+
+@app.command("staff-create")
+def staff_create(
+    tg_id: Annotated[int, typer.Option("--tg-id", help="Telegram id сотрудника")],
+    login: Annotated[str, typer.Option("--login", help="Логин админки: a-z, 0-9, «.», «_», «-»")],
+) -> None:
+    """Вход в админку /admin (DEVELOPMENT_PLAN 2.7a): пароль и TOTP сотруднику с ролью.
+
+    Сначала роль — `staff-grant`. Пароль (от 12 знаков) вводится здесь же дважды и не
+    показывается; секрет TOTP печатается один раз — добавьте его в приложение-аутентификатор
+    (Google Authenticator, 1Password, Aegis). Повторный вызов заменяет пароль и TOTP.
+    """
+    import getpass
+
+    password = getpass.getpass("Password (12+ chars): ")
+    if password != getpass.getpass("Repeat password: "):
+        typer.echo("staff-create: passwords do not match", err=True)
+        raise typer.Exit(code=1)
+    try:
+        result = asyncio.run(_staff_create(tg_id, login, password))
+    except _StaffCreateRefusedError as refused:
+        typer.echo(f"staff-create: {refused}", err=True)
+        raise typer.Exit(code=1) from None
+    if result is None:
+        typer.echo("staff-create: no such Telegram user (open the bot or Mini App once)", err=True)
+        raise typer.Exit(code=1)
+    state = "replaced" if result.replaced else "created"
+    typer.echo(f"user {result.user_id}: admin login {result.login!r} {state}")
+    typer.echo("TOTP secret (shown once, add it to your authenticator app now):")
+    typer.echo(f"  {result.totp_secret}")
+    typer.echo(f"  {result.totp_uri}")
+
+
+class _StaffCreateRefusedError(Exception):
+    pass
+
+
+async def _staff_create(telegram_id: int, login: str, password: str) -> StaffCredentialsSet | None:
+    from app.entrypoints._wiring import make_worker_container
+    from app.modules.identity.application.use_cases.create_staff_login import (
+        MIN_PASSWORD,
+        CreateStaffLogin,
+        CreateStaffLoginCommand,
+    )
+    from app.modules.identity.errors import (
+        InvalidStaffLoginError,
+        NotStaffError,
+        StaffLoginTakenError,
+    )
+
+    container = make_worker_container(Settings())
+    try:
+        async with container() as request:
+            create = await request.get(CreateStaffLogin)
+            try:
+                return await create(
+                    CreateStaffLoginCommand(telegram_id=telegram_id, login=login, password=password)
+                )
+            except InvalidStaffLoginError:
+                raise _StaffCreateRefusedError(
+                    f"login: 3-64 of a-z 0-9 . _ -; password: {MIN_PASSWORD}+ chars"
+                ) from None
+            except NotStaffError:
+                raise _StaffCreateRefusedError("no staff role (run staff-grant first)") from None
+            except StaffLoginTakenError:
+                raise _StaffCreateRefusedError("login is taken by another staff member") from None
     finally:
         await container.close()
 
@@ -695,6 +799,29 @@ def reindex(
     typer.echo(
         f"reindex: {report.published} published, {report.indexed_before} rows before;"
         f" {report.rebuilt} rebuilt, {report.removed} removed"
+    )
+
+
+@app.command("sentry-test")
+def sentry_test() -> None:
+    """Отправить в Sentry тестовую ошибку и показать id события (DEVELOPMENT_PLAN 3.3).
+
+    На stage и проде — через `kamal app exec`: окружение и релиз те же, что у процессов.
+    Без SENTRY_DSN ничего не отправляет: сообщение и код выхода 1.
+    """
+    from app.platform.observability.sentry import init_sentry, send_test_event
+
+    settings = Settings()
+    if not init_sentry(settings, process="cli"):
+        typer.echo("SENTRY_DSN не задан: Sentry выключен, событие не отправлено.", err=True)
+        raise typer.Exit(code=1)
+    event_id = send_test_event()
+    if event_id is None:  # before_send или sample_rate отбросили событие
+        typer.echo("Sentry не принял событие: проверьте настройки SDK.", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(
+        f"Тестовое событие отправлено в Sentry: {event_id}"
+        f" (окружение {settings.app.env.value}, релиз {settings.app.release})"
     )
 
 

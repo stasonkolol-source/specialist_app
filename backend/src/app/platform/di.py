@@ -52,7 +52,13 @@ from app.platform.idempotency.sql import SqlIdempotencyStore
 from app.platform.kernel.clock import Clock, SystemClock
 from app.platform.legal.files import FileLegalLibrary, placeholders
 from app.platform.legal.port import LegalLibrary
-from app.platform.observability.metrics import QueueMetrics, make_queue_metrics, make_registry
+from app.platform.observability.metrics import (
+    HttpMetrics,
+    QueueMetrics,
+    TelegramMetrics,
+    make_queue_metrics,
+    make_registry,
+)
 from app.platform.queue.dispatcher import EventDispatcher, EventRegistry
 from app.platform.queue.port import JobQueue
 from app.platform.queue.procrastinate_queue import ProcrastinateJobQueue
@@ -66,8 +72,10 @@ from app.platform.settings import (
     AppSettings,
     DbSettings,
     Environment,
+    HealthchecksSettings,
     JwtSettings,
     LegalSettings,
+    MetricsSettings,
     S3Settings,
     SentrySettings,
     Settings,
@@ -79,6 +87,7 @@ from app.platform.storage.s3 import S3Storage
 from app.platform.telegram.aiogram_sender import AiogramTelegramSender
 from app.platform.telegram.fake_sender import FakeTelegramSender
 from app.platform.telegram.limiter import ValkeySendLimiter
+from app.platform.telegram.metrics import FloodWaitMetrics
 from app.platform.telegram.port import PreparedMessages, TelegramSender
 from app.platform.telegram.prepared import AiogramPreparedMessages, NoPreparedMessages
 from app.platform.telegram.texts import BOT_DEFAULTS
@@ -130,6 +139,14 @@ class PlatformProvider(Provider):
         return s.sentry
 
     @provide(scope=Scope.APP)
+    def metrics_settings(self, s: Settings) -> MetricsSettings:
+        return s.metrics
+
+    @provide(scope=Scope.APP)
+    def healthchecks_settings(self, s: Settings) -> HealthchecksSettings:
+        return s.healthchecks
+
+    @provide(scope=Scope.APP)
     def ai_settings(self, s: Settings) -> AiSettings:
         return s.ai
 
@@ -171,21 +188,32 @@ class PlatformProvider(Provider):
     clock = provide(SystemClock, scope=Scope.APP, provides=Clock)
 
     @provide(scope=Scope.APP)
-    async def telegram_bot(self, settings: TelegramSettings) -> AsyncIterator[Bot]:
+    async def telegram_bot(
+        self, settings: TelegramSettings, metrics: TelegramMetrics
+    ) -> AsyncIterator[Bot]:
         """Клиент Bot API окружения: один на процесс, сессия закрывается при остановке."""
         # тексты бота — HTML (platform/telegram/texts.py): <b>, переносы; параметры экранированы
         bot = Bot(settings.bot_token.get_secret_value(), default=BOT_DEFAULTS)
+        bot.session.middleware(FloodWaitMetrics(metrics))  # 429 любого вызова — в метрику (3.3)
         yield bot
         await bot.session.close()
 
     @provide(scope=Scope.APP)
     def metrics_registry(self) -> CollectorRegistry:
-        """Реестр метрик процесса; экспорт наружу — шаг 3.3."""
+        """Реестр метрик процесса; наружу — `metrics_server` на METRICS_PORT (3.3)."""
         return make_registry()
 
     @provide(scope=Scope.APP)
     def queue_metrics(self, registry: CollectorRegistry) -> QueueMetrics:
         return make_queue_metrics(registry)
+
+    @provide(scope=Scope.APP)
+    def http_metrics(self, registry: CollectorRegistry) -> HttpMetrics:
+        return HttpMetrics(registry)
+
+    @provide(scope=Scope.APP)
+    def telegram_metrics(self, registry: CollectorRegistry) -> TelegramMetrics:
+        return TelegramMetrics(registry)
 
     @provide(scope=Scope.APP)
     def telegram_sender(

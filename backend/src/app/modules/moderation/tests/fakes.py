@@ -309,6 +309,9 @@ class FakeRuleSource:
     async def current(self) -> RuleSet:
         return RuleSet(self.rules)
 
+    def invalidate(self) -> None:
+        pass
+
 
 class NoVelocity:
     async def add(self, key: str, member: str, *, window: timedelta) -> int | None:

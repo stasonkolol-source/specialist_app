@@ -76,14 +76,18 @@ K13 (включить R2), Q9 (домен; хватит технического
    make tf ENV=stage ARGS='output -raw origin_private_key_pem' < /dev/null | gh secret set KAMAL_PROXY_SSL_KEY --env stage
    ```
 5. Variables environment `stage`: `STAGE_DOMAIN` (домен), `CLOUDFLARE_ACCOUNT_ID`.
-6. Проверка: `dig +short stage-api.<домен>` — адреса Cloudflare, не VM; повторный `plan` — «No changes».
+6. Проверка: `dig +short stage-api.<домен>` и `dig +short stage-bot.<домен>` — адреса Cloudflare,
+   не VM; повторный `plan` — «No changes».
 
-Создаётся: A/AAAA `stage-api.` и A `stage-admin.` (прокси Cloudflare на VM), бакеты
-`sosed-stage-incoming|media|private` в EU (CORS для `https://stage-app.<домен>`, `ETag` наружу;
-incoming живёт 2 дня, незавершённые multipart — сутки), `stage-cdn.` → бакет media, skip-правило WAF
-для webhook Telegram (`/integrations/telegram/` с адресов Bot API) и запрет `/admin` на хостах API,
-SSL Full (strict), HTTPS always, TLS ≥ 1.2 — последние два пункта в стеке зоны `infra/terraform/zone`. `stage-admin.` ничего не отдаёт до Access (K31, 2.7b): kamal-proxy этот хост не
-обслуживает, а web без `APP_ADMIN_SESSION_KEY` не монтирует `/admin`.
+Создаётся: A/AAAA `stage-api.` (API) и `stage-bot.` (webhook бота: у роли `bot` свой хост в
+kamal-proxy — Kamal не даёт двум ролям один хост с TLS), A `stage-admin.` — всё через прокси
+Cloudflare на VM, все три имени — в сертификате Origin CA; бакеты `sosed-stage-incoming|media|private`
+в EU (CORS для `https://stage-app.<домен>`, `ETag` наружу; incoming живёт 2 дня, незавершённые
+multipart — сутки), `stage-cdn.` → бакет media. В стеке зоны `infra/terraform/zone`: skip-правило
+WAF для webhook Telegram (`/integrations/telegram/` на `stage-bot.` и `bot.` с адресов Bot API),
+запрет `/admin` на хостах API, SSL Full (strict), HTTPS always, TLS ≥ 1.2. `stage-admin.` ничего не
+отдаёт до Access (K31, 2.7b): kamal-proxy этот хост не обслуживает, а web без
+`APP_ADMIN_SESSION_KEY` не монтирует `/admin`.
 
 ## 3. Backend и БД через Kamal (0.25c)
 
@@ -94,17 +98,20 @@ GHCR своим `GITHUB_TOKEN`), K17 (токен бота — для старт�
 1. Variables environment `stage`: `STAGE_BOT_USERNAME` (без @), `SENTRY_DSN` (backend),
    `TMA_SENTRY_DSN` (Mini App) — DSN можно оставить пустыми.
 2. Секреты environment `stage` (имена — `infra/kamal/secrets.stage`). Случайные значения — в своём
-   Терминале, без вывода на экран: значение уходит в буфер обмена (вставить в менеджер паролей) и в
-   GitHub. `make gen-secret` (0.25c) пока не написан — до него так:
+   Терминале командой `make gen-secret`: значение (32 байта в hex) показывается один раз и уже лежит
+   в буфере обмена — вставьте его в менеджер паролей (K10a) и нажмите Enter; скрипт передаст его в
+   GitHub (`gh secret set --env stage`, через stdin) и сотрёт экран и буфер. Ctrl+C до Enter — в
+   GitHub ничего не уходит.
    ```
    for n in POSTGRES_SUPERUSER_PASSWORD APP_DB_PASSWORD MIGRATOR_DB_PASSWORD READONLY_DB_PASSWORD \
             BACKUP_DB_PASSWORD APP_HASH_KEY TELEGRAM_WEBHOOK_SECRET; do
-     v=$(openssl rand -hex 32); printf %s "$v" | pbcopy; printf %s "$v" | gh secret set "$n" --env stage
-     printf '%s: вставьте из буфера в менеджер паролей и нажмите Enter ' "$n"; read -r _
-   done; unset v; printf x | pbcopy
+     make gen-secret NAME=$n ENV=stage || break
+   done
    ```
    Пароли — только hex: они входят в DSN (`postgresql+psycopg://app:<пароль>@sosed-postgres/…`).
    `APP_HASH_KEY` после первого запуска не менять (хэши удалённых аккаунтов «забудутся»).
+   `TELEGRAM_WEBHOOK_SECRET` — `secret_token` webhook бота (шаг 5). Своё значение (например, из
+   менеджера паролей после пересоздания environment) — `make secret NAME=… TARGET=stage`.
 3. Ключи JWT (формат `cli jwt-keys`) — через образ, во временный файл:
    ```
    t=$(mktemp -d) && docker run --rm -v "$t:/out" ghcr.io/<владелец>/sosed-backend:main cli jwt-keys --env-file /out/jwt.env \
@@ -157,15 +164,27 @@ ARGS='… -d stage'` — для команд, которым секреты не
 Нужно: K17 (бот «Соседи stage», Main Mini App на `https://stage-app.<домен>`), Q11 (по умолчанию —
 основная среда Telegram).
 
-Сейчас процесс `bot` на stage принимает апдейты long polling: webhook-режима (`setWebhook` с
-`secret_token` и узким `allowed_updates`, приём на `/integrations/telegram/webhook`) в коде ещё нет —
-это часть 0.25e. Край к нему готов: skip-правило WAF и `TELEGRAM_WEBHOOK_SECRET` в секретах.
+Процесс `bot` принимает апдейты webhook (`TELEGRAM_UPDATES: webhook` в `infra/kamal/deploy.stage.yml`)
+на своём хосте: `https://stage-bot.<домен>/integrations/telegram/webhook` (`TELEGRAM_WEBHOOK_BASE_URL`).
+Запись и сертификат — Terraform stage (шаг 2), skip-правило WAF — стек зоны, маршрут — роль `bot` в
+kamal-proxy. Webhook с `secret_token` = `TELEGRAM_WEBHOOK_SECRET` (шаг 3) и узким `allowed_updates`
+процесс выставляет сам при каждом старте, то есть при каждом деплое; запрос без секрета или с чужим
+получает 401 и не обрабатывается.
 
-Профиль бота и кнопка меню — существующей командой, в контейнере web на VM:
+Профиль бота, кнопка меню и тот же webhook — с очередью и последней ошибкой доставки из
+`getWebhookInfo` — командой в контейнере web на VM:
 ```
 ssh root@<STAGE_HOST> 'docker exec $(docker ps -qf label=role=web | head -1) sosed cli bot-setup --env stage'
 ```
-Проверка: вход в Mini App из stage-бота на телефоне.
+Проверка:
+```
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://stage-bot.<домен>/integrations/telegram/webhook   # 401
+```
+и вход в Mini App из stage-бота на телефоне. `last error` в выводе `bot-setup` — смотреть логи роли:
+`ssh root@<STAGE_HOST> 'docker logs --tail 50 $(docker ps -qf label=role=bot | head -1)'`. Откат на
+long polling — в `deploy.stage.yml` `TELEGRAM_UPDATES: polling` и `proxy: false` у роли `bot` (polling
+не отвечает на `/up`, и kamal-proxy не дождался бы healthcheck), затем деплой: процесс сам снимет
+webhook.
 
 ## Ключи SSH
 
