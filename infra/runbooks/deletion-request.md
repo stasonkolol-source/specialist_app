@@ -43,8 +43,13 @@
 `platform.retention_sweep` по срокам хранения: 24 месяца после закрытия заявки и 12 месяцев
 после последнего сообщения (§7.10).
 
-PostHog: удаление персоны по `UserDeleted` появится вместе с аналитикой на проде (K32). До
-этого прод не шлёт событий в PostHog — удалять там нечего.
+PostHog — автоматически: по `UserDeleted` задача `analytics.forget_person` удаляет персону с
+тем же id и её события (запрос `persons/bulk_delete` с `delete_events`). Персону PostHog
+удаляет за минуты, события — своей задачей, пакетом раз в неделю. Событий об удалённом
+аккаунте после этого не уходит: аналитика проверяет `deleted_at`. Удалению нужен personal API
+key со scope `person:write` и id проекта на сервере (K32a); без них в логе воркера —
+`analytics_person_not_forgotten`, при старте — `analytics_person_deletion_disabled`. Пока
+PostHog на проде выключен (нет `ANALYTICS_POSTHOG_API_KEY`), удалять там нечего.
 
 ## 4. Проверить и закрыть
 
@@ -54,6 +59,19 @@ PostHog: удаление персоны по `UserDeleted` появится в�
 SELECT status FROM identity.users WHERE id = '<user_id>';                        -- deleted
 SELECT completed_at FROM identity.deletion_requests WHERE user_id = '<user_id>'; -- не NULL
 ```
+
+PostHog включён — в логах воркера за день удаления: `analytics_person_forgotten` с этим
+`user_id` (`persons_found` 0 — событий о нём в PostHog не было). Задача упала с
+`PostHogPersonsError` (ключ без `person:write` или неверный проект) — исправить ключ (K32a) и
+перезапустить её: упавшие задачи очередь хранит, повтор безопасен.
+
+```sql
+SELECT id FROM procrastinate_jobs
+ WHERE task_name = 'analytics.forget_person' AND status = 'failed'
+   AND args -> 'payload' ->> 'user_id' = '<user_id>';
+```
+
+Перезапуск — `retry <id>` в `procrastinate shell` (разработчик).
 
 Сообщить пользователю, что аккаунт удалён, и закрыть обращение с датой ответа. Если перед
 удалением пользователь просит копию данных — [data-export.md](data-export.md).
