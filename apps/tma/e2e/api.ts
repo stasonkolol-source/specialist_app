@@ -85,7 +85,7 @@ export interface MockApiOptions {
    *  заменяет их, как backend. */
   notificationSettings?: NotificationSettingsOut;
   /** Кабинет исполнителя `/me/profile*` и его файлы `/media*` с памятью; по умолчанию — профиля
-   *  нет. */
+   *  нет. Его приглашения на «отзыв до платформы» отвечают и на форму S56 `/review-invites/*`. */
   profile?: ProfileBackend;
   /** Избранное `/me/favorites*` с памятью (4.6); по умолчанию — пусто. */
   favorites?: FavoritesBackend;
@@ -225,6 +225,19 @@ export async function mockApi(
       if (reply?.status === 204) return route.fulfill({ status: 204 });
       if (reply) return route.fulfill(json(reply.body, reply.status));
     }
+    // форма «отзыва до платформы» S56 по ссылке `ri_` и отзыв по ней (7.6а): форму видит и гость,
+    // отправить — только вошедший; приглашения — у фейка кабинета (S55)
+    if (url.pathname.startsWith('/api/v1/review-invites/')) {
+      const body: unknown = request.method() === 'POST' ? request.postDataJSON() : undefined;
+      const reply = profile.invites.handlePublic(
+        request.method(),
+        url.pathname,
+        body,
+        authorized(request),
+        language,
+      );
+      if (reply) return route.fulfill(json(reply.body, reply.status));
+    }
     // «Поделиться» (7.4): вошедшему — с кодом `_r` и карточкой, гостю — ссылка
     if (url.pathname === '/api/v1/share' && request.method() === 'POST') {
       const reply = shareReply(request.postDataJSON(), authorized(request));
@@ -248,7 +261,9 @@ export async function mockApi(
     }
     // карточка специалиста S08–S10 (4.5): «Сегодня до 20:00» — как в выдаче (часы E2E_NOW)
     const card =
-      request.method() === 'GET' ? cardReply(url.pathname, language, E2E_AVAILABLE_UNTIL) : null;
+      request.method() === 'GET'
+        ? cardReply(url.pathname, language, E2E_AVAILABLE_UNTIL, url.searchParams)
+        : null;
     if (card) return route.fulfill(json(card.body, card.status));
     // районы города: /cities/{id}/districts — названия на языке запроса
     if (/^GET \/api\/v1\/cities\/\d+\/districts$/.test(key)) {
