@@ -1,10 +1,13 @@
 // Адреса вкладки «Заявки»: лента S13 и сегменты «Мои отклики» (5.5) и «Мои заявки» (5.6), заявка
-// S15 (DEVELOPMENT_PLAN 5.3), отклик на неё S16 и шаблоны откликов S57 (5.5); мастер «Создать
-// заявку» S20a–d и итог S21 (5.2). Вход в мастер —
+// S15 (DEVELOPMENT_PLAN 5.3), отклик на неё S16 и шаблоны откликов S57 (5.5), подписки на заявки
+// S18 и форма подписки S19 (5.7); мастер «Создать заявку» S20a–d и итог S21 (5.2). Вход в мастер —
 // «Создать заявку» таббара, CTA Главной и пустой выдачи, «Заказать эту услугу» на S09: они
 // передают категорию и название (`?category=&title=`) — новый черновик начинается с них.
 import type { ResponseGroup } from '@sosed/api-client';
 import { isUuid } from '@sosed/links';
+
+import type { FeedSearch } from './feed.ts';
+import { feedSearch } from './feed.ts';
 
 /** Сегменты вкладки: у каждого свой адрес — таббар виден на всех трёх (AppShell). */
 export const JOBS_PATHS = {
@@ -14,6 +17,9 @@ export const JOBS_PATHS = {
   job: '/jobs/$jobId',
   respond: '/jobs/$jobId/respond',
   templates: '/jobs/responses/templates',
+  alerts: '/jobs/alerts',
+  newAlert: '/jobs/alerts/new',
+  alert: '/jobs/alerts/$alertId',
   manage: '/jobs/$jobId/manage',
   response: '/jobs/$jobId/responses/$responseId',
   deal: '/deals/$dealId',
@@ -27,6 +33,9 @@ export type JobsSegment = Exclude<
   | 'job'
   | 'respond'
   | 'templates'
+  | 'alerts'
+  | 'newAlert'
+  | 'alert'
   | 'manage'
   | 'response'
   | 'deal'
@@ -43,8 +52,14 @@ export type SavedSegment = keyof typeof SAVED_PATHS;
 /** Профиль S31 (фича account): «Назад» из S12 без истории. */
 export const ACCOUNT_PATH = '/profile';
 
+/** Настройки уведомлений S43 (фича account): «Изменить» тихие часы с S18. */
+export const SETTINGS_PATH = '/settings';
+
 /** Заявка S15: deep link `j_` (routes/startapp.ts) ведёт сюда же. */
 export const jobPath = (jobId: string) => `/jobs/${jobId}`;
+
+/** Подписка S19 — правка своей; новая — JOBS_PATHS.newAlert. */
+export const alertPath = (alertId: string) => `/jobs/alerts/${alertId}`;
 
 /** Отклик S16 на заявку; свой отклик там же правится. */
 export const respondPath = (jobId: string) => `/jobs/${jobId}/respond`;
@@ -174,6 +189,20 @@ export function responsesSearch(search: Record<string, unknown>): ResponsesSearc
   const status = GROUPS.find((group) => group === search.status);
   if (status) result.status = status;
   if (search.sent === true || search.sent === 'true' || search.sent === 1) result.sent = true;
+  return result;
+}
+
+export interface AlertFormSearch extends FeedSearch {
+  /** Открыта из шторки фильтров S14: после сохранения — к списку подписок S18, а не назад. */
+  from?: 'feed';
+}
+
+/** validateSearch S19: фильтры ленты для новой подписки (S14) и откуда пришли. */
+export function alertFormSearch(search: Record<string, unknown>): AlertFormSearch {
+  const result: AlertFormSearch = feedSearch(search);
+  delete result.alerts;
+  delete result.photos;
+  if (search.from === 'feed') result.from = 'feed';
   return result;
 }
 

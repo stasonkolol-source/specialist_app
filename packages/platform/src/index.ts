@@ -24,6 +24,7 @@ export {
   PlatformProvider,
   applyTheme,
   useBackButton,
+  useBackButtonState,
   useBottomButtonState,
   useClosingConfirmation,
   useColorScheme,

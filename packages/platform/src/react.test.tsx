@@ -2,10 +2,12 @@ import { act, render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 
+import { createBrowserPlatform } from './browser.ts';
 import { createMockPlatform } from './mock.ts';
 import {
   PlatformProvider,
   useBackButton,
+  useBackButtonState,
   useBottomButtonState,
   useClosingConfirmation,
   useColorSchemeOverride,
@@ -83,6 +85,29 @@ describe('useBackButton', () => {
     expect(events).toEqual(['sheet', 'screen']);
     view.unmount();
     expect(telegram.callsOf('web_app_setup_back_button').at(-1)).toEqual({ is_visible: false });
+  });
+
+  it('в браузере — кнопка в контенте: видна с обработчиком, нажатие — верхнему', () => {
+    const { wrap } = setup();
+    const events: string[] = [];
+    function Back() {
+      const back = useBackButtonState();
+      return back.visible && !back.native ? (
+        <button type="button" onClick={back.click}>
+          Назад
+        </button>
+      ) : null;
+    }
+    function Screen({ open }: { open: boolean }) {
+      useBackButton(open ? () => events.push('screen') : null);
+      return <Back />;
+    }
+    const browser = createBrowserPlatform();
+    const view = render(wrap(<Screen open={false} />, browser));
+    expect(view.queryByRole('button', { name: 'Назад' })).toBeNull();
+    view.rerender(wrap(<Screen open />, browser));
+    act(() => view.getByRole('button', { name: 'Назад' }).click());
+    expect(events).toEqual(['screen']);
   });
 
   it('null — кнопки нет', () => {

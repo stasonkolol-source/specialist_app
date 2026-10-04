@@ -33,6 +33,7 @@ from app.platform.contracts.events.deals import (
 )
 from app.platform.contracts.events.identity import BotStarted, UserDeleted, UserRestricted
 from app.platform.contracts.events.jobs import (
+    JobClosed,
     JobExpired,
     JobExpiring,
     JobInvited,
@@ -42,7 +43,7 @@ from app.platform.contracts.events.jobs import (
 from app.platform.contracts.events.messaging import MessageSent
 from app.platform.contracts.events.moderation import ModerationDecisionMade
 from app.platform.contracts.events.reviews import ReviewPublished, ReviewRequested
-from app.platform.contracts.events.specialists import ProfilePublished
+from app.platform.contracts.events.specialists import ProfilePublished, ProfileStale
 from app.platform.kernel.ids import UserId
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.pagination import Page, PageRequest
@@ -122,6 +123,11 @@ class NotificationRepository(Protocol):
         """Отметить прочитанными свои уведомления центра (None — все); сколько отмечено."""
         ...
 
+    async def suppress_queued(self, dedupe_prefix: str, *, error: str, now: datetime) -> int:
+        """Доставки `queued` уведомлений с ключом на `dedupe_prefix` → `suppressed` (карточки
+        закрытой заявки, которые ждали конца тихих часов); сколько."""
+        ...
+
 
 class SettingsRepository(Protocol):
     """Настройки уведомлений — простая запись. Нужен активный UoW."""
@@ -157,6 +163,15 @@ class NotificationQuery(Protocol):
 
     async def telegram_channel(self, user_id: UserId) -> ChannelView | None: ...
 
+    async def sent_with_prefix(self, dedupe_prefix: str) -> list[DeliveryId]:
+        """Отправленные в бот доставки уведомлений с ключом на `dedupe_prefix` (карточки B1
+        заявки: `job.matched:<заявка>:`) — у них есть id сообщения для правки кнопок."""
+        ...
+
+    async def digest_hours(self, user_ids: Collection[UserId]) -> dict[UserId, int]:
+        """Час дайджеста тех, кто его менял; остальных нет в ответе (умолчание — 09:00)."""
+        ...
+
 
 class NotificationRenderer(Protocol):
     """Текст уведомления по шаблонам gettext на языке читателя (ADR-0013)."""
@@ -179,6 +194,17 @@ class NotificationRenderer(Protocol):
         locale: Locale,
     ) -> tuple[str, tuple[ButtonLine, ...]]:
         """HTML сообщения бота и его кнопки: web_app с кодом deep link или callback."""
+        ...
+
+    def retired_buttons(
+        self,
+        type_: NotificationType,
+        params: Mapping[str, str],
+        link: str | None,
+        locale: Locale,
+    ) -> tuple[ButtonLine, ...]:
+        """Кнопки уже отправленной карточки, когда её действия больше не работают (заявку
+        закрыли, 5.7)."""
         ...
 
 
@@ -323,6 +349,33 @@ NOTIFY_REVIEW_PUBLISHED: Final = TaskRef(
     "notifications.notify_review_published", ReviewPublished, queue="notifications"
 )
 """Подписчик ReviewPublished: исполнителю — новый отзыв и «Ответить на отзыв» (7.2)."""
+
+NOTIFY_PROFILE_STALE: Final = TaskRef(
+    "notifications.notify_profile_stale", ProfileStale, queue="notifications"
+)
+"""Подписчик ProfileStale (5.7): специалисту — «Включить «Доступен сегодня»» или «Обновить
+профиль», не чаще раза в 2 недели (решает specialists)."""
+
+RETIRE_CLOSED_CARDS: Final = TaskRef(
+    "notifications.retire_closed_cards", JobClosed, queue="notifications"
+)
+RETIRE_EXPIRED_CARDS: Final = TaskRef(
+    "notifications.retire_expired_cards", JobExpired, queue="notifications"
+)
+RETIRE_ASSIGNED_CARDS: Final = TaskRef(
+    "notifications.retire_assigned_cards", ResponseAccepted, queue="notifications"
+)
+"""Заявка закрыта, истекла или клиент выбрал исполнителя (5.7): карточки B1 гасят кнопки, ждущие
+тихих часов — не уходят."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RetireCardPayload:
+    delivery_id: UUID
+
+
+RETIRE_CARD: Final = TaskRef("notifications.retire_card", RetireCardPayload, queue="notifications")
+"""Одна карточка B1: правка кнопок — вызов Bot API под лимитером, как отправка."""
 
 FORGET_RECIPIENT: Final = TaskRef("notifications.forget_recipient", UserDeleted)
 """Подписчик UserDeleted: всё о получателе удалённого аккаунта (§7.10)."""

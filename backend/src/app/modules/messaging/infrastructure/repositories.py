@@ -6,7 +6,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import and_, func, select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -207,22 +207,6 @@ class SqlMessageStore:
         result = await self._session.execute(
             update(MessageRow)
             .where(MessageRow.sender_id == user_id, MessageRow.deleted_at.is_(None))
-            .values(body=None, payload={}, deleted_at=now)
-            .execution_options(synchronize_session=False)
-        )
-        return int(result.rowcount)  # type: ignore[attr-defined]  # CursorResult у DML
-
-    async def purge(self, before: datetime, *, now: datetime, limit: int) -> int:
-        self._uow.require_active()
-        old = (
-            select(MessageRow.id)
-            .where(and_(MessageRow.created_at < before, MessageRow.deleted_at.is_(None)))
-            .limit(limit)
-            .scalar_subquery()
-        )
-        result = await self._session.execute(
-            update(MessageRow)
-            .where(MessageRow.id.in_(old))
             .values(body=None, payload={}, deleted_at=now)
             .execution_options(synchronize_session=False)
         )

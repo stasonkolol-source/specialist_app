@@ -57,6 +57,13 @@ describe('startTarget', () => {
     expect(startTarget('m_jobs_rAB12CD')).toBe('/jobs/mine');
   });
 
+  it('opens alerts S18, the feed by alerts, S38 and the cabinet — bot /alerts, /feed, B1 (5.7)', () => {
+    expect(startTarget('m_alerts')).toBe('/jobs/alerts');
+    expect(startTarget('m_feed_rAB12CD')).toBe('/jobs?alerts=true');
+    expect(startTarget('m_availability')).toBe('/cabinet/availability');
+    expect(startTarget('m_profile')).toBe('/cabinet');
+  });
+
   it('opens settings S43 and account deletion S45 — buttons of the bot /settings (4.9)', () => {
     expect(startTarget('m_settings')).toBe('/settings');
     expect(startTarget('m_deletion')).toBe('/profile/delete');

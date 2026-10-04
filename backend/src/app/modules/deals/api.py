@@ -210,3 +210,8 @@ class DealsApi(Protocol):
         """Какие файлы — доказательства идущего спора: `media.purge_deleted` их не стирает.
         Читает в транзакции вызывающего."""
         ...
+
+    async def disputed_deals(self, deal_ids: Collection[DealId]) -> frozenset[DealId]:
+        """У каких сделок идёт спор: переписку по ним срок хранения не удаляет (legal hold,
+        §7.10). Читает в транзакции вызывающего."""
+        ...

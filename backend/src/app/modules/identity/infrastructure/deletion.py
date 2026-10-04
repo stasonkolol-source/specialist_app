@@ -4,7 +4,7 @@
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 
-from sqlalchemy import select, tuple_
+from sqlalchemy import delete, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -123,6 +123,19 @@ class SqlDeletedIdentities:
             DeletedIdentityHashRow.hash == digest, DeletedIdentityHashRow.purge_after > now
         )
         return (await self._session.execute(stmt)).scalar_one_or_none()
+
+    async def purge(self, now: datetime, *, limit: int) -> int:
+        due = (
+            select(DeletedIdentityHashRow.hash)
+            .where(DeletedIdentityHashRow.purge_after <= now)
+            .limit(limit)
+        )
+        result = await self._session.execute(
+            delete(DeletedIdentityHashRow)
+            .where(DeletedIdentityHashRow.hash.in_(due.scalar_subquery()))
+            .returning(DeletedIdentityHashRow.hash)
+        )
+        return len(result.all())
 
 
 def _to_domain(row: DeletionRequestRow) -> DeletionRequest:

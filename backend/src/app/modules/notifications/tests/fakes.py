@@ -76,6 +76,9 @@ class FakeIdentity:
     ) -> dict[UserId, datetime | None]:
         raise NotImplementedError
 
+    async def barred(self, user_ids: Collection[UserId], action: Action) -> frozenset[UserId]:
+        return frozenset()
+
     async def blocked_ids(self, user_id: UserId) -> frozenset[UserId]:
         return frozenset()
 

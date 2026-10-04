@@ -1,5 +1,6 @@
 """Порты messaging (ADR-0020 §1): диалоги, сообщения, чтение для экранов, лимиты, задачи."""
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Final, Literal, Protocol
@@ -10,7 +11,7 @@ from app.modules.messaging.domain.conversation import Conversation, ParticipantR
 from app.modules.messaging.domain.message import ContactType, Message
 from app.platform.contracts.events.deals import DealAgreed, DealCancelled
 from app.platform.contracts.events.identity import UserDeleted
-from app.platform.kernel.ids import UserId
+from app.platform.kernel.ids import MediaId, UserId
 from app.platform.kernel.pagination import Page, PageRequest
 from app.platform.queue.port import TaskRef
 
@@ -66,8 +67,28 @@ class MessageStore(Protocol):
         """Аккаунт удалён: текст его сообщений стирается (§7.10)."""
         ...
 
-    async def purge(self, before: datetime, *, now: datetime, limit: int) -> int:
-        """Правило хранения: текст сообщений старше срока стирается порциями."""
+
+class ConversationRetention(Protocol):
+    """Срок хранения переписки (2.12b, §7.10): кандидаты и физическое удаление диалога."""
+
+    async def inactive(self, before: datetime, *, after: UUID | None, limit: int) -> list[UUID]:
+        """Диалоги без сообщений с `before` (у пустого — с создания), по id."""
+        ...
+
+    async def deals(self, conversation_ids: Collection[UUID]) -> dict[UUID, UUID]:
+        """Сделки диалогов (диалог → сделка): спор держит переписку."""
+        ...
+
+    async def messages(self, conversation_ids: Collection[UUID]) -> dict[UUID, UUID]:
+        """Сообщения диалогов (сообщение → диалог): кейс о сообщении держит переписку."""
+        ...
+
+    async def attachments(self, conversation_ids: Collection[UUID]) -> list[tuple[UserId, MediaId]]:
+        """Файлы сообщений с отправителем: удалить вместе с диалогом."""
+        ...
+
+    async def purge(self, conversation_ids: Collection[UUID]) -> None:
+        """Удалить диалоги с участниками, сообщениями и записями об обмене контактами."""
         ...
 
 

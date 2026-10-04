@@ -150,11 +150,11 @@ export const cardHandlers = [
   ),
 ];
 
-/** Заявки: создание (5.2), лента, «не интересно» и сохранённые (5.3), отклики и шаблоны (5.5)
- *  по фейку backend; по умолчанию — свежий на каждый запрос. Тесты мастера S20, ленты и откликов
+/** Заявки: создание (5.2), лента, «не интересно» и сохранённые (5.3), отклики и шаблоны (5.5),
+ *  подписки на заявки (5.7) по фейку backend; по умолчанию — свежий на каждый запрос. Тесты мастера S20, ленты и откликов
  *  ставят свой — с памятью (server.use). */
 const JOBS_API =
-  /\/api\/v1\/(jobs(\/.*)?|me\/favorites\/jobs?(\/[^/]+)?|responses\/.+|me\/responses|me\/jobs|me\/response-templates(\/[^/]+)?|specialists\/[^/]+\/requests|me\/deals|deals\/.+|me\/deal-history|me\/reviews|reviews\/[^/]+\/reply)$/;
+  /\/api\/v1\/(jobs(\/.*)?|me\/favorites\/jobs?(\/[^/]+)?|responses\/.+|me\/responses|me\/jobs|me\/response-templates(\/[^/]+)?|me\/job-alerts(\/[^/]+)?|specialists\/[^/]+\/requests|me\/deals|deals\/.+|me\/deal-history|me\/reviews|reviews\/[^/]+\/reply)$/;
 
 export const jobsHandlers = (backend: () => JobsBackend) => [
   http.all(JOBS_API, async ({ request }) => {
