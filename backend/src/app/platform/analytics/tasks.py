@@ -11,6 +11,9 @@
 `job_matched_notified` (5.7), `share_created` и `attribution_recorded` (7.4),
 `goods_waitlist_joined` (7.5), `pro_waitlist_joined` (2.7b, Q24); остальные события подключает
 шаг своего модуля (таксономия — events.py).
+
+`forget_person` — UserDeleted: персона удалённого аккаунта и её события удаляются в PostHog
+(2.12b, posthog_persons.py); новые события о нём адаптер уже не отправляет (deleted.py).
 """
 
 import uuid
@@ -19,7 +22,7 @@ from uuid import UUID
 from dishka import FromDishka
 
 from app.platform.analytics.events import EventName, analytics_event
-from app.platform.analytics.port import Analytics, AnalyticsEvent
+from app.platform.analytics.port import Analytics, AnalyticsEvent, PersonDeletion
 from app.platform.contracts.events.deals import (
     DealAgreed,
     DealCancelled,
@@ -27,7 +30,11 @@ from app.platform.contracts.events.deals import (
     DealDisputed,
 )
 from app.platform.contracts.events.growth import AttributionRecorded, ShareCreated
-from app.platform.contracts.events.identity import OnboardingCompleted, UserRegistered
+from app.platform.contracts.events.identity import (
+    OnboardingCompleted,
+    UserDeleted,
+    UserRegistered,
+)
 from app.platform.contracts.events.jobs import (
     AlertCreated,
     AlertsMatched,
@@ -83,6 +90,15 @@ CAPTURE_GOODS_WAITLIST_JOINED = TaskRef(
     "analytics.capture_goods_waitlist_joined", GoodsWaitlistJoined
 )
 CAPTURE_PRO_WAITLIST_JOINED = TaskRef("analytics.capture_pro_waitlist_joined", ProWaitlistJoined)
+FORGET_PERSON = TaskRef("analytics.forget_person", UserDeleted)
+
+
+@subscriber(UserDeleted, FORGET_PERSON)
+async def forget_person(event: UserDeleted, persons: FromDishka[PersonDeletion]) -> None:
+    """Аккаунт удалён (§7.10): персона и события в PostHog — по тому же distinct_id, что у
+    capture (внутренний UUID). Временная ошибка PostHog — повтор задачи; повтор после успеха
+    безопасен — персоны уже нет."""
+    await persons.forget(event.user_id)
 
 
 @subscriber(UserRegistered, CAPTURE_USER_REGISTERED)

@@ -4,7 +4,7 @@
 приходят только события без персональных данных.
 """
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol
@@ -28,4 +28,18 @@ class AnalyticsEvent:
 class Analytics(Protocol):
     async def capture(self, event: AnalyticsEvent) -> None:
         """Отправить событие. Временная ошибка сервиса — ExternalServiceError (повтор задачи)."""
+        ...
+
+
+class DeletedUsers(Protocol):
+    async def deleted(self, user_ids: Collection[UUID]) -> frozenset[UUID]:
+        """Какие из пользователей удалены (UserDeleted, 2.12b): их событий в аналитику больше
+        не шлём — иначе PostHog заново заведёт персону, которую удалил `forget_person`."""
+        ...
+
+
+class PersonDeletion(Protocol):
+    async def forget(self, user_id: UUID) -> None:
+        """Удалить персону и её события в аналитике (2.12b). Временная ошибка сервиса —
+        ExternalServiceError или RateLimitedError (повтор задачи); персоны нет — не ошибка."""
         ...

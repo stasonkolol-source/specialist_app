@@ -461,7 +461,7 @@ describe('deep links (startapp)', () => {
     await pressMainButton(telegram);
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/legal/privacy'));
-    await screen.findByText('Редакция draft-1 от 27 сентября 2026');
+    await screen.findByText('Редакция draft-1 от 4 октября 2026');
     await pressBackButton(telegram);
 
     expect(await screen.findByRole('heading', { name: NEW_USER.display_name })).toBeTruthy();
