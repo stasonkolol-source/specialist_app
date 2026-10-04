@@ -1,8 +1,9 @@
-"""deals_0004: сделки диалога — по индексу (контакты остаются открытыми, ADR-0010, 2026-10-04).
+"""deals_0004: договаривалась ли пара — по индексу (контакты пары открыты, ADR-0010, 2026-10-04).
 
-Переписка спрашивает, договаривались ли стороны в диалоге хоть раз: сделка с этим
-`conversation_id` и `agreed_at`. Раньше по `conversation_id` не искали — индекса не было. Частичный
-(`conversation_id IS NOT NULL`): у сделок по отклику диалог не записан. Индекс — CONCURRENTLY.
+Переписка спрашивает, договаривались ли клиент и исполнитель диалога хоть раз — в любом диалоге
+и в любой роли: сделка этой пары с `agreed_at` (ставится при `agreed` и не стирается). Индекс
+(client_id, performer_id) частичный — только договорённые сделки; предложения, которые
+отклонили или которые истекли, в него не попадают. Индекс — CONCURRENTLY.
 
 Ревизия: deals_0004 (2026-10-04 21:00:00.000000+00:00)
 Предыдущая: moderation_0009
@@ -26,7 +27,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 SCHEMA = "deals"
-INDEX = "ix_deals_conversation_id"
+INDEX = "ix_deals_ever_agreed_client_id_performer_id"
 
 
 def upgrade() -> None:
@@ -34,10 +35,10 @@ def upgrade() -> None:
         op.create_index(
             INDEX,
             "deals",
-            ["conversation_id"],
+            ["client_id", "performer_id"],
             unique=False,
             schema=SCHEMA,
-            postgresql_where=sa.text("conversation_id IS NOT NULL"),
+            postgresql_where=sa.text("agreed_at IS NOT NULL"),
             postgresql_concurrently=True,
             if_not_exists=True,
         )

@@ -115,11 +115,12 @@ class DealRow(UuidPkMixin, TimestampsMixin, VersionMixin, Base):
         Index("ix_deals_client_id_created_at", "client_id", "created_at"),
         Index("ix_deals_performer_id_created_at", "performer_id", "created_at"),
         Index("ix_deals_job_id", "job_id", postgresql_where=text("job_id IS NOT NULL")),
-        # сделки диалога: договаривались ли в нём — открыты ли контакты (ADR-0010, deals_0004)
+        # договаривалась ли пара хоть раз — открыты ли её контакты (ADR-0010, deals_0004)
         Index(
-            "ix_deals_conversation_id",
-            "conversation_id",
-            postgresql_where=text("conversation_id IS NOT NULL"),
+            "ix_deals_ever_agreed_client_id_performer_id",
+            "client_id",
+            "performer_id",
+            postgresql_where=text("agreed_at IS NOT NULL"),
         ),
         # проходы периодических задач сроков (6.1b)
         Index("ix_deals_agreed_scheduled_at", "scheduled_at", postgresql_where=AGREED),

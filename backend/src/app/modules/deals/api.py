@@ -3,7 +3,7 @@
 Другие модули импортируют из deals только этот файл.
 """
 
-from collections.abc import Collection, Mapping
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
@@ -178,18 +178,18 @@ class DealsApi(Protocol):
         `agreed` (6.3a)."""
         ...
 
-    async def ever_agreed(self, conversation_id: UUID, response_id: UUID | None) -> bool:
-        """Договаривались ли стороны в диалоге хоть раз (ADR-0010, решение 2026-10-04): сделка
-        «Договорились» этого диалога или сделка его отклика дошла до `agreed` — и потом могла
-        завершиться, отмениться или уйти в спор. Предложение, которое отклонили или которое
-        истекло, не в счёт. Переписка так держит контакты открытыми при новом предложении."""
+    async def ever_agreed_pair(self, client_id: UserId, performer_id: UserId) -> bool:
+        """Договаривались ли эти двое хоть раз (ADR-0010, решение владельца 2026-10-04): любая
+        их сделка — в любом диалоге, по отклику или из чата, в любой роли — дошла до `agreed` и
+        потом могла завершиться, отмениться или уйти в спор. Предложение, которое отклонили или
+        которое истекло, не в счёт. Переписка так держит контакты пары открытыми."""
         ...
 
-    async def agreed_conversations(
-        self, conversations: Mapping[UUID, UUID | None]
-    ) -> frozenset[UUID]:
-        """`ever_agreed` пачкой (список диалогов S29): id диалога → его отклик (None — прямой
-        диалог); в ответе — диалоги, где договаривались. Один запрос по индексам на страницу."""
+    async def agreed_pairs(
+        self, pairs: Collection[tuple[UserId, UserId]]
+    ) -> frozenset[tuple[UserId, UserId]]:
+        """`ever_agreed_pair` пачкой (список диалогов S29): пары (клиент, исполнитель); в ответе —
+        те из них, что договаривались. Один запрос по индексу на страницу."""
         ...
 
     async def deal_for(self, deal_id: DealId, viewer_id: UserId) -> DealSummary:

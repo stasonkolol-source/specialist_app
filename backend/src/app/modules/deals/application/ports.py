@@ -1,7 +1,7 @@
 """Порты deals (ADR-0020 §1): репозитории сделки и спора, чтение для экранов S25, S26, S52 и
 списков, задачи."""
 
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Collection, Sequence
 from datetime import datetime
 from enum import StrEnum
 from typing import Final, Protocol
@@ -74,11 +74,11 @@ class DealQueries(Protocol):
         """Сделка по отклику (одна на отклик)."""
         ...
 
-    async def agreed_conversations(
-        self, conversations: Mapping[UUID, UUID | None]
-    ) -> frozenset[UUID]:
-        """Диалоги (id → отклик диалога), где сделка по `conversation_id` или по отклику хоть раз
-        дошла до `agreed`: `agreed_at` ставится тогда и потом не стирается."""
+    async def agreed_pairs(
+        self, pairs: Collection[tuple[UserId, UserId]]
+    ) -> frozenset[tuple[UserId, UserId]]:
+        """Пары (клиент, исполнитель), у которых хоть одна сделка — в любой роли — дошла до
+        `agreed`: `agreed_at` ставится тогда и потом не стирается."""
         ...
 
     async def due(self, sweep: DealSweep, now: datetime, *, limit: int) -> list[DealId]:

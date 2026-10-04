@@ -1,6 +1,6 @@
 """Фасад deals (ADR-0020 §6): команды — в транзакции вызывающего модуля."""
 
-from collections.abc import Collection, Mapping
+from collections.abc import Collection
 from dataclasses import replace
 from uuid import UUID
 
@@ -64,13 +64,14 @@ class DealsFacade:
         deal_id = await self._queries.of_response(response_id)
         return await self.deal_brief(deal_id) if deal_id is not None else None
 
-    async def ever_agreed(self, conversation_id: UUID, response_id: UUID | None) -> bool:
-        return conversation_id in await self.agreed_conversations({conversation_id: response_id})
+    async def ever_agreed_pair(self, client_id: UserId, performer_id: UserId) -> bool:
+        pair = (client_id, performer_id)
+        return pair in await self._queries.agreed_pairs([pair])
 
-    async def agreed_conversations(
-        self, conversations: Mapping[UUID, UUID | None]
-    ) -> frozenset[UUID]:
-        return await self._queries.agreed_conversations(conversations)
+    async def agreed_pairs(
+        self, pairs: Collection[tuple[UserId, UserId]]
+    ) -> frozenset[tuple[UserId, UserId]]:
+        return await self._queries.agreed_pairs(pairs)
 
     async def deal_for(self, deal_id: DealId, viewer_id: UserId) -> DealSummary:
         deal = await self._queries.view(deal_id)
