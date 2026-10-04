@@ -6,8 +6,17 @@
 (interfaces/bot/middlewares.py, platform/queue/tasks.py), а ERROR-логи библиотек
 (Procrastinate о проваленной задаче, aiogram о сбое polling) — интеграция logging.
 Всё проходит `_scrub`: маскирование ПД и секретов во всём событии.
+
+Значений локальных переменных кадров и тел запросов в событиях нет (8.4): по имени поля их не
+замаскировать. В кадрах aiogram — адрес Bot API с токеном бота (`make_request`), методы с текстом
+исходящего сообщения (`SendMessage(text=…)`) и секретом webhook (`SetWebhook(secret_token=…)`),
+в кадрах входа персонала — секреты учётной записи; тело запроса — сырой апдейт Telegram в режиме
+webhook (имя, username, текст сообщения) и свободный текст форм API. SDK их не собирает
+(`include_local_variables`, `max_request_body_size`), `_scrub` выбрасывает их ещё раз — на случай
+интеграции или кода, который положит их в событие сам.
 """
 
+from collections.abc import Iterator
 from typing import Any
 
 import sentry_sdk
@@ -22,8 +31,27 @@ class SentryTestError(RuntimeError):
     """Тестовая ошибка `cli sentry-test`: проверка, что события доходят до Sentry (3.3)."""
 
 
+def _frames(event: dict[str, Any]) -> Iterator[dict[str, Any]]:
+    """Кадры всех стеков события: свой (`attach_stacktrace`), исключений и потоков."""
+    stacktraces = [event.get("stacktrace")]
+    for key in ("exception", "threads"):
+        values = event.get(key)
+        if isinstance(values, dict):
+            stacktraces += [
+                v.get("stacktrace") for v in values.get("values") or () if isinstance(v, dict)
+            ]
+    for stacktrace in stacktraces:
+        if isinstance(stacktrace, dict):
+            yield from (f for f in stacktrace.get("frames") or () if isinstance(f, dict))
+
+
 def _scrub(event: Any, _hint: Any) -> Any:
-    """Маскировать ПД и секреты во всём событии перед отправкой."""
+    """Выбросить переменные кадров и тело запроса, замаскировать ПД и секреты в остальном."""
+    if isinstance(event, dict):
+        for frame in _frames(event):
+            frame.pop("vars", None)
+        if isinstance(request := event.get("request"), dict):
+            request.pop("data", None)
     return mask_value(None, event)
 
 
@@ -37,6 +65,9 @@ def init_sentry(settings: Settings, *, process: str) -> bool:
         release=settings.app.release,
         traces_sample_rate=settings.sentry.traces_sample_rate,
         send_default_pii=False,
+        # переменные кадров и тела запросов — не собирать вовсе (docstring модуля)
+        include_local_variables=False,
+        max_request_body_size="never",
         before_send=_scrub,
         before_send_transaction=_scrub,
     )

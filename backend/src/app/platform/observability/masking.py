@@ -49,8 +49,10 @@ SENSITIVE_KEYS = frozenset(
 )
 
 _PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
-    # Токен бота Telegram: 123456789:AA… (35 символов после двоеточия)
-    (re.compile(r"\b\d{5,16}:[A-Za-z0-9_-]{35}\b"), "[bot-token]"),
+    # Токен бота Telegram: 123456789:AA… (35 символов после двоеточия), в том числе в адресе
+    # Bot API `…/bot<токен>/sendMessage` (спаны aiohttp, крошки): перед цифрами там буква, и
+    # граница слова \b не срабатывала
+    (re.compile(r"(?<!\d)\d{5,16}:[A-Za-z0-9_-]{35}(?![\w-])"), "[bot-token]"),
     # JWT: три base64url-части через точку
     (re.compile(r"\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}"), "[jwt]"),
     # Authorization: Bearer …
@@ -72,6 +74,11 @@ _PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     # Ping URL Healthchecks.io (K33): uuid или ключ проекта в пути — по нему любой отметит
     # проверку. httpx пишет адрес запроса в INFO-лог, Sentry — в breadcrumbs
     (re.compile(r"(https?://(?:hc-ping\.com|healthchecks\.io/ping))/[^\s\"'<>]+"), r"\1/[masked]"),
+    # Ссылка-приглашение на «отзыв до платформы» (S56, 7.6а): токен — секрет на предъявителя на
+    # 30 дней. Путь `/api/v1/review-invites/<uuid>` (и отзыв `/me/profile/review-invites/<uuid>`)
+    # попадает в request.url событий Sentry и в логи; тот же токен — код startapp `ri_<base62>`
+    (re.compile(r"(?i)(review-invites(?:/|%2F))[^/?#&\s\"'<>%]+"), r"\1[Filtered]"),
+    (re.compile(r"(?<![A-Za-z0-9])ri_[0-9A-Za-z]{22}(?![0-9A-Za-z])"), "ri_[Filtered]"),
 )
 
 

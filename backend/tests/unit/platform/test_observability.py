@@ -4,6 +4,7 @@
 MockTransport httpx. Сервер метрик слушает свободный порт loopback.
 """
 
+import json
 import socket
 import urllib.error
 import urllib.request
@@ -47,6 +48,15 @@ pytestmark = pytest.mark.unit
 
 BOT_TOKEN = "8123456789:AAE" + "x" * 32
 PING_URL = "https://hc-ping.com/0f5d7c2e-1b2a-4c3d-9e8f-123456789abc"
+# Значения, которые в Sentry уйти не должны (8.4). Константы, а не литералы рядом с кадрами:
+# строки исходника вокруг кадра (context_line) Sentry шлёт, и литерал в тесте был бы «утечкой»
+OUTGOING_TEXT = "Новый отклик от Ивана на заявку «Ремонт»"
+WEBHOOK_SECRET = "wh" * 20
+INVITE_LINK_ID = "4b7f0f1e-9c3a-4d2b-8e6f-1a2b3c4d5e6f"
+UPDATE_BODY = json.dumps(
+    {"update_id": 1, "message": {"from": {"username": "ivanp"}, "text": OUTGOING_TEXT}},
+    ensure_ascii=False,
+)
 
 
 # --- экспорт метрик -------------------------------------------------------------------------
@@ -220,6 +230,78 @@ async def test_task_error_reaches_sentry_masked(
     (event,) = sentry_events.events
     assert "+381641234567" not in str(event)
     assert event["tags"]["process"] == "worker"
+
+
+def _bot_api_call() -> None:
+    """Как AiohttpSession.make_request aiogram: в локальных переменных — адрес Bot API с токеном
+    и метод с текстом сообщения и секретом webhook."""
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    method = SendMessage(chat_id=279058397, text=OUTGOING_TEXT)
+    webhook = {"secret_token": WEBHOOK_SECRET}
+    _alive = (url, method, webhook)  # живы в кадре к моменту ошибки
+    raise RuntimeError("Telegram server says - Forbidden: bot was blocked by the user")
+
+
+async def test_sentry_events_carry_no_frame_vars_bodies_or_bearer_secrets(
+    offline_settings: Settings, monkeypatch: pytest.MonkeyPatch, sentry_events: MemoryTransport
+) -> None:
+    """Реальный SDK: в событии нет значений переменных кадров (токен бота, текст исходящего
+    сообщения, секрет webhook), тела запроса (сырой апдейт Telegram) и токена приглашения."""
+    assert sentry.init_sentry(_with_dsn(offline_settings, monkeypatch), process="bot")
+
+    try:
+        _bot_api_call()
+    except RuntimeError:
+        sentry_sdk.capture_exception()
+    # так request кладут интеграции aiohttp (webhook) и Starlette (API)
+    sentry_sdk.capture_event(
+        {
+            "message": "request failed",
+            "request": {
+                "method": "POST",
+                "url": f"https://api.example.test/api/v1/review-invites/{INVITE_LINK_ID}",
+                "data": UPDATE_BODY,
+            },
+        }
+    )
+    sentry_sdk.flush()
+
+    error, failed_request = sentry_events.events
+    dumped = json.dumps(sentry_events.events, ensure_ascii=False)
+    for secret in (BOT_TOKEN, OUTGOING_TEXT, WEBHOOK_SECRET, INVITE_LINK_ID, "ivanp"):
+        assert secret not in dumped
+    frames = error["exception"]["values"][0]["stacktrace"]["frames"]
+    assert [f["function"] for f in frames][-1] == "_bot_api_call"
+    assert all("vars" not in frame for frame in frames)
+    assert failed_request["request"] == {
+        "method": "POST",
+        "url": "https://api.example.test/api/v1/review-invites/[Filtered]",
+    }
+
+
+async def test_sentry_transactions_hide_the_bot_token_in_spans(
+    offline_settings: Settings, monkeypatch: pytest.MonkeyPatch, sentry_events: MemoryTransport
+) -> None:
+    """Спан клиента aiohttp — `POST https://api.telegram.org/bot<токен>/…` в description и url:
+    before_send_transaction маскирует и его."""
+    monkeypatch.setenv("SENTRY_TRACES_SAMPLE_RATE", "1.0")
+    assert sentry.init_sentry(_with_dsn(offline_settings, monkeypatch), process="bot")
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+
+    with (
+        sentry_sdk.start_transaction(op="bot.update", name="telegram update"),
+        sentry_sdk.start_span(op="http.client", name=f"POST {url}") as span,
+    ):
+        span.set_data("url", url)
+    sentry_sdk.flush()
+
+    (transaction,) = [
+        t for envelope in sentry_events.envelopes if (t := envelope.get_transaction_event())
+    ]
+    assert BOT_TOKEN not in json.dumps(transaction)
+    (sent,) = transaction["spans"]
+    assert sent["description"] == "POST https://api.telegram.org/bot[bot-token]/sendMessage"
+    assert sent["data"]["url"] == "https://api.telegram.org/bot[bot-token]/sendMessage"
 
 
 def test_cli_sentry_test_sends_an_event_and_prints_its_id(
