@@ -1,4 +1,5 @@
-"""ORM-модели notifications (ARCHITECTURE §7.3, миграции notifications_0001–0002).
+"""ORM-модели notifications (ARCHITECTURE §7.3, миграции notifications_0001–0002, рассылки —
+notifications_0008).
 
 FK `user_id` → identity.users объявлены только в миграциях: MetaData модуля не знает
 чужих таблиц (modules/README.md, migrations/env.py).
@@ -13,6 +14,7 @@ from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
     Index,
+    Integer,
     SmallInteger,
     String,
     Time,
@@ -23,6 +25,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.modules.notifications.domain.broadcast import Audience, BroadcastAction, BroadcastStatus
 from app.modules.notifications.domain.catalog import Channel, EventGroup, NotificationType
 from app.modules.notifications.domain.channel import ChannelKind, GrantedVia
 from app.modules.notifications.domain.notification import DeliveryStatus
@@ -113,13 +116,20 @@ class NotificationRow(UuidPkMixin, Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     __table_args__ = (
-        CheckConstraint("priority BETWEEN 0 AND 3", name="priority"),
+        CheckConstraint("priority BETWEEN 0 AND 4", name="priority"),
         # лента S42 по курсору: id — UUIDv7, растёт со временем
         Index("ix_notifications_user_id_id", "user_id", "id", postgresql_where=text("in_app")),
         Index(
             "ix_notifications_unread",
             "user_id",
             postgresql_where=text("in_app AND read_at IS NULL"),
+        ),
+        # счётчики и отмена рассылки — по префиксу ключа `broadcast:<id>:` (LIKE 'p%')
+        Index(
+            "ix_notifications_broadcast",
+            "dedupe_key",
+            postgresql_ops={"dedupe_key": "text_pattern_ops"},
+            postgresql_where=text("type = 'broadcast'"),
         ),
     )
 
@@ -142,4 +152,34 @@ class DeliveryRow(UuidPkMixin, TimestampsMixin, Base):
     __table_args__ = (
         UniqueConstraint("notification_id", "channel_id"),
         Index("ix_deliveries_not_before", "not_before", postgresql_where=text("status = 'queued'")),
+    )
+
+
+class BroadcastRow(UuidPkMixin, TimestampsMixin, Base):
+    """Рассылка из админки (2.7b): текст, кнопка, аудитория и ход разбора получателей."""
+
+    __tablename__ = "broadcasts"
+
+    status: Mapped[BroadcastStatus] = mapped_column(str_enum(BroadcastStatus, "status"))
+    event_group: Mapped[EventGroup] = mapped_column(str_enum(EventGroup, "event_group"))
+    """Группа согласия S43: только opt-in (`marketing`, `goods_launch`)."""
+    audience: Mapped[Audience] = mapped_column(str_enum(Audience, "audience"))
+    city_id: Mapped[int | None] = mapped_column(Integer)
+    """geo.cities; FK не нужен: город только сужает выборку."""
+    text: Mapped[dict[str, str]] = mapped_column(JSONB)
+    """Тексты по кодам локалей (LocalizedText)."""
+    link: Mapped[str | None] = mapped_column(String(64))
+    """Код deep link кнопки «Открыть» (§11.4)."""
+    action: Mapped[BroadcastAction | None] = mapped_column(str_enum(BroadcastAction, "action"))
+    created_by: Mapped[UUID]
+    """Сотрудник (identity.users): FK fk_broadcasts_created_by_users — в миграции."""
+    starts_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]
+    cursor: Mapped[UUID | None]
+    """Последний разобранный получатель: следующая пачка — после него."""
+
+    __table_args__ = (
+        CheckConstraint("event_group IN ('marketing', 'goods_launch')", name="opt_in_group"),
+        CheckConstraint("link IS NULL OR action IS NULL", name="one_button"),
+        Index("ix_broadcasts_created_at", "created_at"),
     )

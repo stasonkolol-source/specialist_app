@@ -38,6 +38,7 @@ from app.modules.notifications.application.use_cases.update_notification_setting
 )
 from app.modules.notifications.domain.catalog import NotificationType
 from app.modules.notifications.domain.channel import GrantedVia
+from app.modules.notifications.infrastructure.broadcasts import SqlBroadcastQuery
 from app.modules.notifications.infrastructure.queries import SqlNotificationQuery
 from app.modules.notifications.infrastructure.rendering import GettextNotificationRenderer
 from app.modules.notifications.infrastructure.repositories import (
@@ -202,7 +203,16 @@ def notifications(db_session: AsyncSession, procrastinate_app: procrastinate.App
             uow, repository, settings, channels, AnyTypeRenderer(translator, MINI_APP), queue, clock
         ),
         send=SendDelivery(
-            uow, repository, channels, query, identity, renderer, sender, queue, clock
+            uow,
+            repository,
+            channels,
+            query,
+            identity,
+            renderer,
+            sender,
+            queue,
+            clock,
+            SqlBroadcastQuery(db_session, clock),
         ),
         queries=NotificationQueries(query, renderer),
         mark_read=MarkNotificationsRead(uow, repository, query, clock),

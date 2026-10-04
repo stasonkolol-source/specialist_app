@@ -226,6 +226,7 @@ _SUMMARY = select(
     _U.phone_verified_at,
     _U.status,
     _U.created_at,
+    _U.home_city_id,
 )
 
 
@@ -254,6 +255,7 @@ def _summary(row: RowMapping, viewer_id: UserId | None = None) -> UserSummary:
         is_deleted=row["status"] == UserStatus.DELETED,
         created_at=row["created_at"],
         block=block,
+        home_city_id=CityId(row["home_city_id"]) if row["home_city_id"] is not None else None,
     )
 
 

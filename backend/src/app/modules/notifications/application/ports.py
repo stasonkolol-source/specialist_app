@@ -7,6 +7,8 @@ from typing import Final, Protocol
 from uuid import UUID
 
 from app.modules.notifications.application.dto import (
+    BroadcastContent,
+    BroadcastStats,
     ChannelView,
     DeliveryTarget,
     NewNotification,
@@ -14,7 +16,8 @@ from app.modules.notifications.application.dto import (
     RenderedText,
     TelegramTarget,
 )
-from app.modules.notifications.domain.catalog import NotificationType
+from app.modules.notifications.domain.broadcast import Broadcast, BroadcastId, Segment
+from app.modules.notifications.domain.catalog import EventGroup, NotificationType
 from app.modules.notifications.domain.channel import GrantedVia
 from app.modules.notifications.domain.notification import (
     DeliveryId,
@@ -207,6 +210,56 @@ class NotificationRenderer(Protocol):
         закрыли, 5.7)."""
         ...
 
+    def broadcast(
+        self, content: BroadcastContent, locale: Locale
+    ) -> tuple[str, tuple[ButtonLine, ...]]:
+        """Сообщение рассылки (2.7b): текст админки на языке читателя — простым текстом, без
+        разметки; кнопка «Открыть» с кодом deep link или «Хочу узнать первым» (Q24)."""
+        ...
+
+
+class BroadcastRepository(Protocol):
+    """Рассылки — агрегат с версией (2.7b). Нужен активный UoW."""
+
+    async def add(self, broadcast: Broadcast) -> None: ...
+
+    async def get_for_update(self, broadcast_id: BroadcastId) -> Broadcast:
+        """Строка рассылки заблокирована до конца транзакции: отмена и пачка разбора аудитории
+        идут по одной. Нет такой — BroadcastNotFoundError."""
+        ...
+
+    async def save(self, broadcast: Broadcast) -> None: ...
+
+
+class BroadcastQuery(Protocol):
+    """Чтение рассылок без блокировок (ADR-0020 §4)."""
+
+    async def content(self, broadcast_id: BroadcastId) -> BroadcastContent | None: ...
+
+    async def stats(self, broadcast_id: BroadcastId) -> BroadcastStats:
+        """Счётчики по доставкам уведомлений рассылки (ключ `broadcast:<id>:`)."""
+        ...
+
+    async def pending(self, broadcast_id: BroadcastId) -> int:
+        """Сколько доставок рассылки ещё ждут отправки."""
+        ...
+
+
+class AudienceSource(Protocol):
+    """Кандидаты в получатели рассылки (2.7b): у кого боту можно писать и группа включена."""
+
+    async def candidates(
+        self, group: EventGroup, *, after: UserId | None, limit: int
+    ) -> list[UserId]:
+        """До `limit` пользователей по возрастанию id после `after`: канал telegram доступен,
+        группа включена в боте (opt-in — только явным выбором)."""
+        ...
+
+    async def segments(self, user_ids: Collection[UserId]) -> dict[UserId, Segment]:
+        """Профиль исполнителя и город кандидатов (фасады identity и specialists); удалённых
+        аккаунтов нет в ответе."""
+        ...
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class SendDeliveryPayload:
@@ -379,6 +432,24 @@ class RetireCardPayload:
 
 RETIRE_CARD: Final = TaskRef("notifications.retire_card", RetireCardPayload, queue="notifications")
 """Одна карточка B1: правка кнопок — вызов Bot API под лимитером, как отправка."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BroadcastPayload:
+    broadcast_id: UUID
+
+
+FAN_OUT_BROADCAST: Final = TaskRef(
+    "notifications.fan_out_broadcast", BroadcastPayload, queue="notifications"
+)
+"""Пачка получателей рассылки: уведомления, доставки и задачи отправки; следующая пачка —
+следующей задачей. Приоритет — как у отправки рассылки (P4)."""
+FINISH_BROADCAST: Final = TaskRef(
+    "notifications.finish_broadcast", BroadcastPayload, queue="notifications"
+)
+"""Аудитория разобрана: рассылка завершается, когда не останется ждущих доставок (проверка
+раз в BROADCAST_POLL)."""
+BROADCAST_POLL: Final = timedelta(minutes=1)
 
 FORGET_RECIPIENT: Final = TaskRef("notifications.forget_recipient", UserDeleted)
 """Подписчик UserDeleted: всё о получателе удалённого аккаунта (§7.10)."""

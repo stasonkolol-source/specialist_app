@@ -4,6 +4,9 @@ from dishka import Provider, Scope, provide
 
 from app.modules.jobs.api import DigestSchedule
 from app.modules.notifications.application.ports import (
+    AudienceSource,
+    BroadcastQuery,
+    BroadcastRepository,
     ChannelRepository,
     NotificationQuery,
     NotificationRenderer,
@@ -15,9 +18,13 @@ from app.modules.notifications.application.queries import NotificationQueries
 from app.modules.notifications.application.use_cases.block_telegram_channel import (
     BlockTelegramChannel,
 )
+from app.modules.notifications.application.use_cases.cancel_broadcast import CancelBroadcast
+from app.modules.notifications.application.use_cases.create_broadcast import CreateBroadcast
 from app.modules.notifications.application.use_cases.expire_stale_deliveries import (
     ExpireStaleDeliveries,
 )
+from app.modules.notifications.application.use_cases.fan_out_broadcast import FanOutBroadcast
+from app.modules.notifications.application.use_cases.finish_broadcast import FinishBroadcast
 from app.modules.notifications.application.use_cases.forget_recipient import ForgetRecipient
 from app.modules.notifications.application.use_cases.grant_telegram_write_access import (
     GrantTelegramWriteAccess,
@@ -34,10 +41,19 @@ from app.modules.notifications.application.use_cases.schedule_messages_notice im
 from app.modules.notifications.application.use_cases.schedule_responses_notice import (
     ScheduleResponsesNotice,
 )
+from app.modules.notifications.application.use_cases.send_broadcast_test import (
+    SendBroadcastTest,
+)
 from app.modules.notifications.application.use_cases.send_delivery import SendDelivery
+from app.modules.notifications.application.use_cases.start_broadcast import StartBroadcast
 from app.modules.notifications.application.use_cases.toggle_bot_setting import ToggleBotSetting
 from app.modules.notifications.application.use_cases.update_notification_settings import (
     UpdateNotificationSettings,
+)
+from app.modules.notifications.infrastructure.broadcasts import (
+    FacadeAudienceSource,
+    SqlBroadcastQuery,
+    SqlBroadcastRepository,
 )
 from app.modules.notifications.infrastructure.digest_schedule import SettingsDigestSchedule
 from app.modules.notifications.infrastructure.queries import SqlNotificationQuery
@@ -79,6 +95,17 @@ class NotificationsProvider(Provider):
     retire_card = provide(RetireCard)
     digest_schedule = provide(SettingsDigestSchedule, provides=DigestSchedule)
     """Когда кому подборка заявок по подпискам (jobs.alert_digests, 5.7)."""
+
+    # рассылки из админки (2.7b)
+    broadcasts = provide(SqlBroadcastRepository, provides=BroadcastRepository)
+    broadcast_query = provide(SqlBroadcastQuery, provides=BroadcastQuery)
+    audience = provide(FacadeAudienceSource, provides=AudienceSource)
+    create_broadcast = provide(CreateBroadcast)
+    start_broadcast = provide(StartBroadcast)
+    cancel_broadcast = provide(CancelBroadcast)
+    send_broadcast_test = provide(SendBroadcastTest)
+    fan_out_broadcast = provide(FanOutBroadcast)
+    finish_broadcast = provide(FinishBroadcast)
 
     @provide(scope=Scope.APP)
     def renderer(self, translator: Translator, telegram: TelegramSettings) -> NotificationRenderer:

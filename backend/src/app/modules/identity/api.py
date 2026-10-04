@@ -14,7 +14,7 @@ from app.modules.identity.errors import ConsentRequiredError as ConsentRequiredE
 from app.modules.identity.errors import InvalidRestrictionError as InvalidRestrictionError
 from app.modules.identity.errors import UserNotFoundError as UserNotFoundError
 from app.platform.contracts.events.identity import RestrictionKind as RestrictionKind
-from app.platform.kernel.ids import CaseId, RestrictionId, UserId
+from app.platform.kernel.ids import CaseId, CityId, RestrictionId, UserId
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Role as Role
 
@@ -58,6 +58,8 @@ class UserSummary:
     created_at: datetime
     block: BlockSide | None = None
     """Блокировка со зрителем — если его передали в `get_user` (4.7)."""
+    home_city_id: CityId | None = None
+    """Домашний город (S43, онбординг): аудитория рассылки по городу (2.7b)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
