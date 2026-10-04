@@ -24,6 +24,7 @@ from app.modules.moderation.application.ports import (
     ReportRepository,
     ReportTargets,
     RiskSignals,
+    RuleExamples,
     RuleSource,
     RuleWriter,
     SanctionRepository,
@@ -51,7 +52,9 @@ from app.modules.moderation.application.use_cases.record_reregistration import (
 from app.modules.moderation.application.use_cases.resolve_dispute import ResolveDispute
 from app.modules.moderation.application.use_cases.take_case import EscalateCase, TakeCase
 from app.modules.moderation.application.use_cases.track_dispute import TrackDispute
+from app.modules.moderation.application.use_cases.try_content_rule import TryContentRule
 from app.modules.moderation.domain.cases import EntityType
+from app.modules.moderation.domain.rules import RegexEngine
 from app.modules.moderation.infrastructure.cases import (
     SqlCaseRepository,
     SqlRiskSignals,
@@ -64,13 +67,16 @@ from app.modules.moderation.infrastructure.metrics import PrometheusAutoCheckMet
 from app.modules.moderation.infrastructure.queries import SqlCaseQueue, SqlCaseStats
 from app.modules.moderation.infrastructure.quota import ValkeyReportQuota
 from app.modules.moderation.infrastructure.rate_limits import ValkeyRateLimitOverflows
+from app.modules.moderation.infrastructure.regex import RE2
 from app.modules.moderation.infrastructure.reports import FacadeReportTargets, SqlReportRepository
 from app.modules.moderation.infrastructure.retention_hold import CasesRetentionHold
+from app.modules.moderation.infrastructure.rule_examples import YamlRuleExamples
 from app.modules.moderation.infrastructure.rules import CachedRuleSource, SqlRuleWriter
 from app.modules.moderation.infrastructure.targets import TargetRegistry
 from app.modules.moderation.infrastructure.targets.job import JobTarget
 from app.modules.moderation.infrastructure.targets.media import MediaTarget
 from app.modules.moderation.infrastructure.targets.message import MessageTarget
+from app.modules.moderation.infrastructure.targets.portfolio import PortfolioTarget
 from app.modules.moderation.infrastructure.targets.profile import ProfileTarget
 from app.modules.moderation.infrastructure.targets.response import ResponseTarget
 from app.modules.moderation.infrastructure.targets.review import ReviewReplyTarget, ReviewTarget
@@ -78,6 +84,7 @@ from app.modules.moderation.infrastructure.velocity import ValkeyVelocityCounter
 from app.modules.reviews.api import ReviewsApi
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.config.port import LegalVersions
+from app.platform.db.port import UnitOfWork
 from app.platform.i18n.translator import Translator
 from app.platform.legal.port import LegalLibrary
 from app.platform.privacy.port import RetentionHold
@@ -95,9 +102,23 @@ class ModerationProvider(Provider):
     import_content_rules = provide(ImportContentRules)
 
     @provide(scope=Scope.APP)
-    def rule_source(self, maker: async_sessionmaker[AsyncSession]) -> RuleSource:
+    def regex_engine(self) -> RegexEngine:
+        """Регулярки правил — RE2: линейное время при любом шаблоне (2.7b)."""
+        return RE2
+
+    @provide(scope=Scope.APP)
+    def rule_source(
+        self, maker: async_sessionmaker[AsyncSession], engine: RegexEngine
+    ) -> RuleSource:
         """Снимок словаря — один на процесс, обновляется раз в TTL."""
-        return CachedRuleSource(maker)
+        return CachedRuleSource(maker, engine=engine)
+
+    try_content_rule = provide(TryContentRule)
+
+    @provide(scope=Scope.APP)
+    def rule_examples(self) -> RuleExamples:
+        """Набор примеров seeds/moderation/rule_examples.yaml — из файла образа, раз на процесс."""
+        return YamlRuleExamples()
 
     @provide(scope=Scope.APP)
     def velocity(self, valkey: Redis) -> VelocityCounter:
@@ -135,11 +156,13 @@ class ModerationProvider(Provider):
         messaging: MessagingApi,
         reviews: ReviewsApi,
         media: MediaModeration,
+        uow: UnitOfWork,
     ) -> ModerationTargets:
         """Адаптеры целей: контентные модули добавляют свои в своих шагах."""
         return TargetRegistry(
             {
-                EntityType.MEDIA: MediaTarget(media),
+                EntityType.MEDIA: MediaTarget(media, specialists),
+                EntityType.PORTFOLIO: PortfolioTarget(uow, specialists, media),
                 EntityType.PROFILE: ProfileTarget(specialists),
                 EntityType.JOB: JobTarget(jobs),
                 EntityType.RESPONSE: ResponseTarget(jobs),

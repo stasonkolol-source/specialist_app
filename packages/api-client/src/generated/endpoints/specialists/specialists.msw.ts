@@ -9,7 +9,7 @@ import { faker } from '@faker-js/faker';
 import { HttpResponse, http } from 'msw';
 import type { RequestHandlerOptions } from 'msw';
 
-import { Language, ProfileKind, ProfileStatus, WorkKind, WorkMode } from '../../model';
+import { Language, ProfileKind, ProfileStatus, WorkKind, WorkMode, WorkStatus } from '../../model';
 import type { PortfolioOut, ProfileOut, WorkOut } from '../../model';
 
 export const getSpecialistsGetMyProfileResponseMock = (
@@ -277,6 +277,7 @@ export const getSpecialistsGetMyPortfolioResponseMock = (
       },
       null,
     ]),
+    status: faker.helpers.arrayElement(Object.values(WorkStatus)),
   })),
   limits: { image: faker.number.int(), video: faker.number.int() },
   ...overrideResponse,
@@ -314,6 +315,7 @@ export const getSpecialistsAddMyWorkResponseMock = (
     },
     null,
   ]),
+  status: faker.helpers.arrayElement(Object.values(WorkStatus)),
   ...overrideResponse,
 });
 
@@ -354,6 +356,7 @@ export const getSpecialistsReorderMyPortfolioResponseMock = (
       },
       null,
     ]),
+    status: faker.helpers.arrayElement(Object.values(WorkStatus)),
   })),
   limits: { image: faker.number.int(), video: faker.number.int() },
   ...overrideResponse,
@@ -391,6 +394,7 @@ export const getSpecialistsCaptionMyWorkResponseMock = (
     },
     null,
   ]),
+  status: faker.helpers.arrayElement(Object.values(WorkStatus)),
   ...overrideResponse,
 });
 

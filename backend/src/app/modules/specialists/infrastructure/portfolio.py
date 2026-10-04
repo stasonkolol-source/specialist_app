@@ -48,6 +48,20 @@ class SqlPortfolioRepository:
             self._uow.track(item)
         return items
 
+    async def get_for_update(self, item_id: UUID) -> PortfolioItem | None:
+        self._uow.require_active()
+        stmt = (
+            _one(item_id)
+            .with_for_update(of=PortfolioItemRow)
+            .execution_options(populate_existing=True)
+        )
+        row = (await self._session.execute(stmt)).first()
+        if row is None:
+            return None
+        item = _to_domain(*row)
+        self._uow.track(item)
+        return item
+
     async def add(self, item: PortfolioItem) -> None:
         self._uow.require_active()
         row = PortfolioItemRow(id=item.id, created_at=item.created_at)
@@ -93,6 +107,20 @@ class SqlPortfolioQuery(SqlQuery):
         items = [_to_domain(item, media) for item, media in rows]
         await self._release()
         return items
+
+    async def get(self, item_id: UUID) -> PortfolioItem | None:
+        row = (await self._execute(_one(item_id))).first()
+        item = _to_domain(*row) if row is not None else None
+        await self._release()
+        return item
+
+
+def _one(item_id: UUID) -> Select[PortfolioItemRow, PortfolioMediaRow]:
+    return (
+        select(*_ROWS)
+        .join(PortfolioMediaRow, PortfolioMediaRow.item_id == PortfolioItemRow.id)
+        .where(PortfolioItemRow.id == item_id, PortfolioItemRow.deleted_at.is_(None))
+    )
 
 
 def _to_domain(item: PortfolioItemRow, media: PortfolioMediaRow) -> PortfolioItem:

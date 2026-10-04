@@ -10,7 +10,7 @@ from typing import Any, cast
 import procrastinate
 import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession, async_sessionmaker
 from structlog.testing import capture_logs
 from tests.plugins.database import make_uow
@@ -276,12 +276,22 @@ async def test_an_empty_dictionary_is_reported(db_connection: AsyncConnection) -
     assert [entry["event"] for entry in logs] == ["content_rules_empty"]
 
 
-async def test_regex_rules_come_only_from_the_reviewed_seed(db_session: AsyncSession) -> None:
-    # стандартный re перебирает неудачную регулярку экспоненциально: из админки — нельзя
-    with pytest.raises(IntegrityError, match="ck_content_rules_regex_from_seed"):
-        await db_session.execute(
-            text(
-                "INSERT INTO moderation.content_rules (pattern, kind, action, category)"
-                " VALUES ('(\\w+\\s?)+kupim', 'regex', 'flag', 'spam')"
-            )
-        )
+async def test_admin_regex_rules_are_stored_and_searched_by_re2(
+    db_session: AsyncSession, db_connection: AsyncConnection
+) -> None:
+    # moderation_0007 снял CHECK regex_from_seed: RE2 линеен при любом шаблоне, поэтому
+    # регулярку заводит и админка (её проверяет та же compile_rule, что сид в seeds-validate)
+    pattern = r"\bkupim\w* (?:dolar|evr)\w*"
+    await db_session.execute(
+        text(
+            "INSERT INTO moderation.content_rules (pattern, kind, action, category)"
+            " VALUES (:pattern, 'regex', 'flag', 'spam')"
+        ),
+        {"pattern": pattern},
+    )  # origin по умолчанию — admin
+    await db_session.commit()
+
+    snapshot = await source(db_connection, timedelta(seconds=60), [0.0]).current()
+
+    assert [m.evidence for m in snapshot.check("Kupim EVRE po dobrom kursu").matches] == [pattern]
+    assert snapshot.rejected == ()

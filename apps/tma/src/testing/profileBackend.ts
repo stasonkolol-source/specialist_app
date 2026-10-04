@@ -202,6 +202,7 @@ export class ProfileBackend {
       caption: body.caption ?? null,
       position: this.works.length,
       media,
+      status: 'pending', // новая работа ждёт модерации (6.7)
     };
     this.works.push(work);
     this.profile = this.refresh(profile);

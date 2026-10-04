@@ -13,7 +13,10 @@ ADR-0016 §3–4; DEVELOPMENT_PLAN 6.7).
 умолчанию «пока без него»).
 
 Кейс — об объекте `media` (адаптер цели targets/media.py): одобрение возвращает фото, отказ
-скрывает его; файл — доказательство под legal hold, пока кейс открыт. Вызов провайдера — до
+скрывает его; файл — доказательство под legal hold, пока кейс открыт. Работа портфолио ждёт
+итога фото (адаптер `portfolio`): чистое фото в той же транзакции снова отправляет ждущие работы
+с ним на автопроверку подписи (`SpecialistsApi.recheck_works`); на флаге — ждут модератора,
+при P0 фото скрыто, и в кабинете работа — «Не подходит». Вызов провайдера — до
 транзакции; итог у файла, кейс и запись в audit_log — в одной. Повтор задачи после commit
 провайдера не зовёт: файл уже проверен (`image_for_check` — None), решение модератора
 автопроверка не перезаписывает. Стоимость — один вызов на фото, omni-moderation бесплатен. В
@@ -31,6 +34,7 @@ from app.modules.moderation.application.use_cases.open_case import CaseOpener, O
 from app.modules.moderation.domain.cases import CaseTrigger, EntityType
 from app.modules.moderation.domain.images import ImageAction, ImageVerdict, judge_image
 from app.modules.moderation.domain.pipeline import Route
+from app.modules.specialists.api import SpecialistsApi
 from app.platform.ai.port import Moderation
 from app.platform.ai.prompt import image_data_url
 from app.platform.audit.port import ActorKind, AuditEntry, AuditLog
@@ -40,7 +44,8 @@ from app.platform.kernel.ids import CaseId, MediaId, UserId
 
 log = structlog.get_logger(__name__)
 
-IMAGE_PURPOSES: Final = frozenset({"avatar", "portfolio", "job"})
+PORTFOLIO_PURPOSE: Final = "portfolio"
+IMAGE_PURPOSES: Final = frozenset({"avatar", PORTFOLIO_PURPOSE, "job"})
 """Чьи фото проверяются (`MediaReady.purpose`): все, что видят другие люди. Доказательства спора
 смотрит модератор в кейсе P1 (6.1c), сообщения и отзывы с фото — v1."""
 
@@ -72,9 +77,11 @@ class CheckImage:
         opener: CaseOpener,
         metrics: AutoCheckMetrics,
         audit: AuditLog,
+        specialists: SpecialistsApi,
     ) -> None:
         self._uow, self._media, self._moderation = uow, media, moderation
         self._opener, self._metrics, self._audit = opener, metrics, audit
+        self._specialists = specialists
 
     async def __call__(self, cmd: CheckImageCommand) -> ImageVerdict | None:
         """Вердикт; None — проверять нечего (не готово, удалено, уже проверено)."""
@@ -105,6 +112,8 @@ class CheckImage:
             )
             if not recorded:  # удалили, пока проверяли, или итог уже записан
                 return False, None
+            if verdict.action is ImageAction.CLEAN and cmd.purpose == PORTFOLIO_PURPOSE:
+                await self._specialists.recheck_works(cmd.media_id)
             case_id = None
             if verdict.queue is not None:
                 case_id = await self._opener.open(

@@ -1,6 +1,7 @@
 """Свой профиль для кабинета: запрос плюс прайс — «чего не хватает» как при отправке, полнота
 профиля (S33) и фото профиля. Работы и фото, чей файл не прошёл обработку, в полноту не идут:
-показать их клиенту нечем."""
+показать их клиенту нечем; скрытые модератором работы — тоже. Работа на проверке (6.7) идёт:
+полнота — подсказка владельцу, а проверка обычно занимает секунды."""
 
 from dataclasses import replace
 
@@ -9,6 +10,7 @@ from app.modules.specialists.api import PriceList
 from app.modules.specialists.application.dto import CabinetView
 from app.modules.specialists.application.ports import PortfolioQuery, ProfileQuery
 from app.modules.specialists.domain.completeness import completeness
+from app.modules.specialists.domain.portfolio import WorkStatus
 from app.modules.specialists.domain.profile import ProfileKind
 from app.platform.kernel.ids import UserId
 
@@ -30,7 +32,11 @@ class ProfileViews:
         prices = await self._prices.summary(view.id)
         if view.kind is ProfileKind.PRO and prices.items == 0:
             view = replace(view, missing=(*view.missing, "services"))
-        works = await self._portfolio.of_profile(view.id)
+        works = [
+            work
+            for work in await self._portfolio.of_profile(view.id)
+            if work.status is not WorkStatus.REJECTED
+        ]
         wanted = [work.media_id for work in works]
         if view.avatar_media_id is not None:
             wanted.append(view.avatar_media_id)

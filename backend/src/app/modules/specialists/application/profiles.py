@@ -7,6 +7,7 @@ from app.modules.catalog.api import CatalogApi, RiskLevel
 from app.modules.geo.api import GeoApi
 from app.modules.specialists.api import PriceList
 from app.modules.specialists.application.ports import ProfileRepository
+from app.modules.specialists.domain.portfolio import PortfolioItem, WorkStatus
 from app.modules.specialists.domain.profile import Profile, ProfileKind, ProfileStatus
 from app.modules.specialists.errors import (
     CategoryNotAllowedError,
@@ -21,6 +22,8 @@ from app.platform.kernel.ids import CategoryId, CityId, DistrictId, UserId
 
 PROFILE = "profile"
 """Тип объекта в модерации (`moderation.cases.entity_type`)."""
+PORTFOLIO_WORK = "portfolio"
+"""Тип работы портфолио в модерации (`moderation.cases.entity_type`, план 6.7)."""
 
 
 async def own_profile(
@@ -41,6 +44,24 @@ def request_review(uow: UnitOfWork, profile: Profile, *, edit: bool, now: dateti
             entity_id=profile.id,
             author_id=profile.user_id,
             edit=edit,
+            occurred_at=now,
+        )
+    )
+
+
+def request_work_review(
+    uow: UnitOfWork, item: PortfolioItem, author_id: UserId, *, now: datetime
+) -> None:
+    """Работа ждёт проверки (план 6.7): новая — до публикации (подпись и фото), правка подписи
+    опубликованной — пост-модерация. Скрытую модератором не проверяем: её не видно."""
+    if item.status is WorkStatus.REJECTED:
+        return
+    uow.add_event(
+        ModerationRequested(
+            entity_type=PORTFOLIO_WORK,
+            entity_id=item.id,
+            author_id=author_id,
+            edit=item.status is WorkStatus.PUBLISHED,
             occurred_at=now,
         )
     )

@@ -17244,6 +17244,10 @@
                 "type": "null"
               }
             ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/WorkStatus",
+            "description": "pending — на проверке: видит только владелец; published — в карточке; rejected — скрыта модератором"
           }
         },
         "type": "object",
@@ -17252,9 +17256,19 @@
           "kind",
           "caption",
           "position",
-          "media"
+          "media",
+          "status"
         ],
         "title": "WorkOut"
+      },
+      "WorkStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "published",
+          "rejected"
+        ],
+        "title": "WorkStatus"
       }
     },
     "securitySchemes": {

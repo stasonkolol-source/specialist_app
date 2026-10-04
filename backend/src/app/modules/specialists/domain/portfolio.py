@@ -2,9 +2,12 @@
 ролик с подписью, по порядку.
 
 В MVP работа — один файл (`portfolio_media` готова и к альбомам). Лимит — на профиль: до 60
-фото и 6 роликов (ролик до 60 секунд проверяет media). Модерации картинок пока нет — она
-придёт с шагом 6.7 вместе с адаптером `portfolio`: тогда новые работы начнут со статуса
-`pending`, а пока сразу `published`.
+фото и 6 роликов (ролик до 60 секунд проверяет media).
+
+Модерация (DEVELOPMENT_PLAN 6.7, адаптер цели `portfolio`): новая работа — `pending`, её видит
+только владелец (S37 «На проверке»); подпись проверяет конвейер текста, файл — проверка фото.
+Решение публикует (`published` — работу видят S08 и S10) или скрывает (`rejected` — «Скрыто
+модератором»). Правка подписи опубликованной работы — пост-модерация: работа остаётся видна.
 """
 
 from collections.abc import Mapping
@@ -69,9 +72,28 @@ class PortfolioItem(AggregateRoot):
             kind=kind,
             caption=_caption(caption),
             position=position,
-            status=WorkStatus.PUBLISHED,
+            status=WorkStatus.PENDING,
             created_at=now,
         )
+
+    @property
+    def pending(self) -> bool:
+        return self.status is WorkStatus.PENDING
+
+    def approve(self) -> bool:
+        """Проверка пройдена: ждавшая проверки — опубликована; скрытая автопроверкой (P0) —
+        возвращена решением модератора. False — уже опубликована."""
+        if self.status is WorkStatus.PUBLISHED:
+            return False
+        self.status = WorkStatus.PUBLISHED
+        return True
+
+    def reject(self) -> bool:
+        """Нарушение: работа скрыта модератором (или автопроверкой при P0). False — уже."""
+        if self.status is WorkStatus.REJECTED:
+            return False
+        self.status = WorkStatus.REJECTED
+        return True
 
     def recaption(self, caption: str | None) -> bool:
         """Новая подпись; пустая — без подписи. False — та же."""
