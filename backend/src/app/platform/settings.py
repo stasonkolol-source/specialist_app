@@ -243,6 +243,12 @@ class AnalyticsSettings(_Group):
 
     posthog_api_key: SecretStr | None = None
     posthog_host: str = "https://eu.i.posthog.com"
+    posthog_personal_api_key: SecretStr | None = None
+    """Personal API key PostHog (K32) со scope dashboard и insight на чтение и запись — только
+    для `cli posthog-dashboard` с машины владельца. На серверы не выкатывается: в отличие от
+    ключа проекта (`phc_…`) он открывает данные."""
+    posthog_project_id: int | None = Field(default=None, ge=1)
+    """Id проекта PostHog (Project settings → Project ID) для `cli posthog-dashboard`."""
     beta_start: date = date(2027, 1, 25)
     """Понедельник первой недели закрытой беты (ориентир плана 6.7): `cli beta-report --week 1`
     — неделя с этого дня, `--week 0` — неделя перед стартом."""

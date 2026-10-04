@@ -33,6 +33,7 @@ from app.platform.security.jwt import JwtKeys, SigningKey
 from app.platform.settings import (
     ENV_FILE,
     AiSettings,
+    AnalyticsSettings,
     AppSettings,
     Environment,
     Settings,
@@ -607,6 +608,34 @@ async def _beta_report(week: int | None, beta_start: date | None) -> str:
             return render(report, week=week)
         reports = await beta_weeks(conn, first, as_of=now)
     return render_weeks(reports, beta_start=first)
+
+
+@app.command("posthog-dashboard")
+def posthog_dashboard(
+    *,
+    apply: Annotated[
+        bool, typer.Option("--apply", help="Создать или обновить дашборд; без флага — план")
+    ] = False,
+    environment: Annotated[
+        Environment,
+        typer.Option(help="Чьи события показывает дашборд (свойство environment)"),
+    ] = Environment.PRODUCTION,
+) -> None:
+    """Дашборд ликвидности в PostHog как код (DEVELOPMENT_PLAN 6.6, K32).
+
+    Без --apply — план: что будет создано, обновлено или удалено (только чтение). С --apply —
+    дашборд и плитки по platform/analytics/dashboard.py; повтор копий не плодит. Нужны
+    ANALYTICS_POSTHOG_PERSONAL_API_KEY и ANALYTICS_POSTHOG_PROJECT_ID (K32).
+    """
+    from app.entrypoints._posthog_dashboard import run_posthog_dashboard
+
+    outcome = asyncio.run(
+        run_posthog_dashboard(AnalyticsSettings(), environment=environment.value, apply=apply)
+    )
+    for line in outcome.lines:
+        typer.echo(line, err=outcome.failed)
+    if outcome.failed:
+        raise typer.Exit(code=1)
 
 
 class DemoScale(StrEnum):

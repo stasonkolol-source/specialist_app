@@ -99,7 +99,7 @@ def render(report: LiquidityReport, *, week: int) -> str:
         lines += [f"  {line}" for line in _liquidity_lines(pair.metrics)]
     lines += ["", "Не в отчёте (шаг, который подключит)"]
     lines += [f"  {name}: {step}" for name, step in PENDING.items()]
-    lines.append("  Дашборд PostHog по тем же метрикам — после K32.")
+    lines.append("  Динамика по событиям — дашборд PostHog (`cli posthog-dashboard`, K32).")
     return "\n".join(lines)
 
 
