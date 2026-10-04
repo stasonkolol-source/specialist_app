@@ -1,9 +1,14 @@
 """Сделка диалога и открыты ли контакты (ADR-0010, ARCHITECTURE §11.5).
 
 Сделка диалога — «Договорились» в нём (6.3b) или выбор отклика, по которому он начат. Контакты
-открыты, только когда стороны договорились — сделка `agreed`, под спором (`disputed`: спор
-открывают только по договорённости, и сторонам нужно договориться, 6.1c) или уже `completed`. До
-этого телефоны, ссылки и @username в сообщениях скрываются, а «Поделиться контактом» — 409.
+открыты, когда стороны договорились — сделка `agreed`, под спором (`disputed`: спор открывают
+только по договорённости, и сторонам нужно договориться, 6.1c) или уже `completed`. До этого
+телефоны, ссылки и @username в сообщениях скрываются, а «Поделиться контактом» — 409.
+
+Договорились однажды — контакты в этом диалоге открыты и дальше (решение владельца 2026-10-04):
+новое предложение «Договориться снова» ждёт ответа, его отклонили или прошлую сделку отменили —
+стороны друг друга уже знают, прятать номера снова незачем. В счёт — только сделка, дошедшая до
+`agreed`: предложение, которое отклонили или которое истекло, контактов не открывало.
 """
 
 from typing import Final
@@ -26,6 +31,19 @@ async def current_deal(deals: DealsApi, conversation: Conversation) -> DealBrief
     return None
 
 
+async def contacts_open(
+    deals: DealsApi, conversation: Conversation, deal: DealBrief | None
+) -> bool:
+    """Открыты ли контакты при сделке диалога `deal` (её даёт `current_deal`). Сделки нет —
+    договариваться ещё не о чем: каждое «Договорились» становится сделкой диалога, а сделка по
+    отклику одна, — базу не спрашиваем."""
+    if deal is None:
+        return False
+    if deal.status in OPEN_DEALS:
+        return True
+    return await deals.ever_agreed(conversation.id, conversation.response_id)
+
+
 async def contacts_locked(deals: DealsApi, conversation: Conversation) -> bool:
     deal = await current_deal(deals, conversation)
-    return deal is None or deal.status not in OPEN_DEALS
+    return not await contacts_open(deals, conversation, deal)

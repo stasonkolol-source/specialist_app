@@ -1,8 +1,8 @@
 """Контакты после договорённости и приватность (DEVELOPMENT_PLAN 6.5) через API: «Показывать после
 договорённости» (`PATCH /me/privacy`, по умолчанию Telegram виден); до договорённости Telegram
-второй стороны не виден ни в чате, ни в сделке, после — виден, если она его показывает;
-выключенная настройка его скрывает. У предложения «Договорились» — когда предложено и когда
-истечёт (S53). Данные коммитятся.
+второй стороны не виден ни в чате, ни в сделке, после — виден, если она его показывает, и в
+диалоге остаётся, пока стороны договариваются снова; выключенная настройка его скрывает. У
+предложения «Договорились» — когда предложено и когда истечёт (S53). Данные коммитятся.
 """
 
 from collections.abc import AsyncIterator
@@ -112,3 +112,34 @@ async def test_telegram_shows_after_the_deal_unless_hidden(chat: Chat) -> None:
     listed = await chat.get(specialist.user_id, "/conversations")
     [item] = [i for i in listed.json()["items"] if i["id"] == conversation_id]
     assert item["counterpart_telegram"] is None
+
+
+async def test_telegram_stays_while_they_agree_again(chat: Chat) -> None:
+    """Договорились однажды — Telegram второй стороны в шапке S30 и при новом предложении
+    (ADR-0010, решение 2026-10-04). В другом диалоге с ней же, где не договаривались, его нет."""
+    specialist = Specialist(chat.app.container)
+    await specialist.publish()
+    chat.users.append(specialist.user_id)
+    performer = UserId(specialist.user_id)
+    client = await chat.user()
+    await with_username(chat, performer, "majstor_pera")
+    conversation_id = await chat.start(client, profile_id=str(specialist.profile_id))
+    path = f"/conversations/{conversation_id}/deal"
+    first = (await chat.post(client, path, {"title": "Повесить люстру"})).json()["deal_id"]
+    assert (await chat.post(performer, f"/deals/{first}/confirm")).status_code == 200
+    for user in (client, performer):
+        assert (await chat.post(user, f"/deals/{first}/complete")).status_code == 200
+
+    again = await chat.post(client, path, {"title": "Повесить вторую люстру"})
+    assert again.status_code == 201, again.text
+
+    opened = await header(chat, client, conversation_id)
+    assert (opened["deal"]["status"], opened["contacts_open"]) == ("proposed", True)
+    assert opened["counterpart_telegram"] == "@majstor_pera"
+    # отклик того же мастера на заявку клиента — другой диалог: там ещё не договаривались
+    response_id = await chat.response(performer, await chat.job(client))
+    other = await chat.start(client, response_id=response_id)
+    listed = (await chat.get(client, "/conversations")).json()["items"]
+    shown = {item["id"]: (item["contacts_open"], item["counterpart_telegram"]) for item in listed}
+    assert shown[conversation_id] == (True, "@majstor_pera")
+    assert shown[other] == (False, None)

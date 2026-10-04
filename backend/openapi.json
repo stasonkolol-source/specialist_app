@@ -8762,6 +8762,11 @@
             "title": "Counterpart Telegram",
             "description": "«@username» второй стороны после договорённости, если она его показывает"
           },
+          "contacts_open": {
+            "type": "boolean",
+            "title": "Contacts Open",
+            "description": "Контакты открыты: стороны договорились в этом диалоге — сейчас или раньше (новое предложение и отмена их снова не закрывают). Телефоны в новых сообщениях не скрываются, «Поделиться контактом» доступно"
+          },
           "job_id": {
             "anyOf": [
               {
@@ -8860,6 +8865,7 @@
           "counterpart_name",
           "counterpart_profile_id",
           "counterpart_telegram",
+          "contacts_open",
           "job_id",
           "job_title",
           "response_id",

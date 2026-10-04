@@ -134,6 +134,11 @@ class ConversationOut(BaseModel):
     counterpart_telegram: str | None = Field(
         description="«@username» второй стороны после договорённости, если она его показывает"
     )
+    contacts_open: bool = Field(
+        description="Контакты открыты: стороны договорились в этом диалоге — сейчас или раньше"
+        " (новое предложение и отмена их снова не закрывают). Телефоны в новых сообщениях не"
+        " скрываются, «Поделиться контактом» доступно"
+    )
     job_id: UUID | None
     job_title: str | None = Field(description="Заявка диалога по отклику: «Заявка: …»")
     response_id: UUID | None
@@ -160,6 +165,7 @@ class ConversationOut(BaseModel):
             counterpart_name=card.counterpart_name,
             counterpart_profile_id=card.counterpart_profile_id,
             counterpart_telegram=card.counterpart_telegram,
+            contacts_open=card.contacts_open,
             job_id=view.job_id,
             job_title=card.job_title,
             response_id=view.response_id,
