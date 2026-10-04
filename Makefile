@@ -12,7 +12,7 @@ EXTRA_CHECKS :=
 COMPOSE := docker compose -p specialist-dev -f infra/compose/docker-compose.dev.yml --env-file infra/compose/.env
 
 .PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker dev-worker-media new-module new-use-case openapi contract i18n-check-backend seeds-validate seed seed-demo dev dev-bg dev-restart dev-stop tunnel dev-bot audit image \
-	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check test-int migrate migrate-roundtrip pg-bootstrap
+	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check gen-secret gen-age test-int migrate migrate-roundtrip pg-bootstrap
 
 help: ## Show available targets
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-20s %s\n", $$1, $$2}'
@@ -87,11 +87,17 @@ pg-smoke: ## Smoke БД: локаль, pg_trgm, PostGIS, роли
 	@scripts/pg_smoke.sh
 
 secret: ## Скрытый ввод секрета: make secret NAME=TELEGRAM_BOT_TOKEN TARGET=dev
-	@test -n "$(NAME)" && test -n "$(TARGET)" || (echo "usage: make secret NAME=… TARGET=dev|tf-stage|tf-prod"; exit 2)
+	@test -n "$(NAME)" && test -n "$(TARGET)" || (echo "usage: make secret NAME=… TARGET=dev|tf-stage|tf-prod|stage|production"; exit 2)
 	@python3 scripts/secret.py "$(NAME)" "$(TARGET)"
 
 secrets-check: ## Какие переменные заданы или пусты — без значений
 	@python3 scripts/secrets_check.py
+
+gen-secret: ## Случайный секрет stage/prod: make gen-secret NAME=APP_DB_PASSWORD ENV=stage (без NAME — только печать)
+	@python3 scripts/gen_secret.py $(NAME) $(ENV)
+
+gen-age: ## age-ключ SOPS — только при Q1(а); по умолчанию Q1(б), секреты в GitHub environments
+	@echo "gen-age: Q1 = (б) — секреты stage и prod в GitHub environments, SOPS и age-ключ не нужны (OWNER_CHECKLIST, K18)"; exit 2
 
 pg-bootstrap: ## Повторно применить infra/postgres/bootstrap.sql к dev-БД (идемпотентно)
 	@set -a; . infra/compose/.env; set +a; \
