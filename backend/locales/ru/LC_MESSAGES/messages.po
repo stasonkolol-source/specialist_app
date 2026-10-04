@@ -1107,6 +1107,130 @@ msgstr "<b>{title}</b> — заявка в «Соседях»"
 msgid "share.job.button"
 msgstr "Открыть заявку"
 
+# Апелляции и чат модераторов (DEVELOPMENT_PLAN 2.5b)
+msgid "errors.appeal_target_not_found"
+msgstr "Обжаловать нечего: решения модерации о вас не нашлось."
+
+msgid "errors.appeal_window_closed"
+msgstr "Обжаловать решение можно в течение 6 месяцев — этот срок прошёл."
+
+msgid "errors.appeal_already_filed"
+msgstr "Апелляция уже отправлена. Обновите экран."
+
+msgid "notifications.appeal_decided.title.granted"
+msgstr "Апелляция удовлетворена"
+
+msgid "notifications.appeal_decided.body.granted"
+msgstr "Модератор пересмотрел решение: ограничение снято. Спасибо, что написали."
+
+msgid "notifications.appeal_decided.title.denied"
+msgstr "Решение осталось в силе"
+
+msgid "notifications.appeal_decided.body.denied"
+msgstr "Модератор пересмотрел решение и оставил его: {reason}. Это окончательный ответ."
+
+msgid "notifications.appeal_decided.button"
+msgstr "Открыть «Соседи»"
+
+msgid "notifications.appeal_reason.decision_upheld"
+msgstr "нарушение подтвердилось"
+
+msgid "notifications.appeal_reason.other"
+msgstr "нарушение правил площадки подтвердилось"
+
+msgid "bot.moderation.queue.safety"
+msgstr "P0 · Безопасность"
+
+msgid "bot.moderation.queue.fraud"
+msgstr "P1 · Мошенничество"
+
+msgid "bot.moderation.queue.premod"
+msgstr "P2 · Премодерация"
+
+msgid "bot.moderation.queue.appeals"
+msgstr "Апелляция"
+
+msgid "bot.moderation.card.title"
+msgstr "<b>{queue}</b> · кейс"
+
+msgid "bot.moderation.card.entity"
+msgstr "Объект: {entity}"
+
+msgid "bot.moderation.card.subject"
+msgstr "Пользователь:"
+
+msgid "bot.moderation.card.trigger"
+msgstr "Повод: {trigger}"
+
+msgid "bot.moderation.card.signals"
+msgstr "Сигналы: {signals}"
+
+msgid "bot.moderation.card.appeal"
+msgstr "Обжалуют решение (причина: {reason}):"
+
+msgid "bot.moderation.card.photos"
+msgstr "Фото-доказательства: {count}. Посмотреть — командой:"
+
+msgid "bot.moderation.card.due"
+msgstr "Срок: до {due}"
+
+msgid "bot.moderation.button.approve"
+msgstr "Одобрить"
+
+msgid "bot.moderation.button.reject"
+msgstr "Отклонить с причиной"
+
+msgid "bot.moderation.button.escalate"
+msgstr "Эскалировать"
+
+msgid "bot.moderation.button.dispute_done"
+msgstr "Выполнено"
+
+msgid "bot.moderation.button.dispute_cancel"
+msgstr "Отменить с причиной"
+
+msgid "bot.moderation.button.back"
+msgstr "« Назад"
+
+msgid "bot.moderation.severity.none"
+msgstr "Без санкции"
+
+msgid "bot.moderation.severity.minor"
+msgstr "Лёгкое — по лестнице"
+
+msgid "bot.moderation.severity.serious"
+msgstr "Серьёзное — приостановка"
+
+msgid "bot.moderation.severity.critical"
+msgstr "Критическое — бан"
+
+msgid "bot.moderation.decided.approved"
+msgstr "✅ Одобрено — {who}"
+
+msgid "bot.moderation.decided.rejected"
+msgstr "⛔ Нарушение: {reason}, санкция: {sanction} — {who}"
+
+msgid "bot.moderation.decided.dispute_completed"
+msgstr "✅ Спор решён: работа выполнена — {who}"
+
+msgid "bot.moderation.decided.dispute_cancelled"
+msgstr "⛔ Спор решён: сделка отменена ({reason}), санкция: {sanction} — {who}"
+
+msgid "bot.moderation.decided.appeal_granted"
+msgstr "✅ Апелляция удовлетворена, санкция снята — {who}"
+
+msgid "bot.moderation.decided.appeal_denied"
+msgstr "⛔ Апелляция отклонена ({reason}) — {who}"
+
+msgid "bot.moderation.decided.escalated"
+msgstr "⬆️ Эскалировано — {who}"
+
+msgid "bot.moderation.not_moderator"
+msgstr "Решать кейсы могут только модераторы. Роль выдаёт администратор."
+
+msgid "bot.moderation.done"
+msgstr "Готово"
+
 msgid "errors.invalid_job_alert"
 msgstr "Проверьте подписку: категории, район или радиус, бюджет."
 

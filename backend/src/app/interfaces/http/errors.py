@@ -160,8 +160,9 @@ def install_error_handlers(app: FastAPI, problems: Problems) -> None:
         match exc:
             case NotAuthenticatedError():
                 headers["WWW-Authenticate"] = "Bearer"
-            case RestrictedError(restriction=restriction, until=until):
+            case RestrictedError(restriction=restriction, until=until, reason=reason):
                 extensions["restriction"] = restriction
+                extensions["reason"] = reason
                 extensions["until"] = (
                     until.astimezone(UTC).isoformat().replace("+00:00", "Z") if until else None
                 )

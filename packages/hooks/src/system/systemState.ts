@@ -39,8 +39,15 @@ export type SystemState =
   | { kind: 'maintenance' }
   /** Обновить Telegram (Bot API ниже минимума) или перезагрузить бандл Mini App (426). */
   | { kind: 'update'; target: 'telegram' | 'app' }
-  /** S49b: 403 `restricted`. `restriction: null` — вид санкции клиенту неизвестен. */
-  | { kind: 'restricted'; restriction: Restriction | null; until: Date | null; blocking: boolean }
+  /** S49b: 403 `restricted`. `restriction: null` — вид санкции клиенту неизвестен; `reason` —
+   *  машинный код причины (2.5b), его нет у старых ответов. */
+  | {
+      kind: 'restricted';
+      restriction: Restriction | null;
+      until: Date | null;
+      blocking: boolean;
+      reason?: string | null;
+    }
   /** Прочее: «Что-то пошло не так» с повтором. */
   | { kind: 'error'; traceId: string | null };
 
@@ -56,6 +63,7 @@ export function systemStateOf(error: unknown): SystemState {
       restriction,
       until: error.until,
       blocking: restriction !== null && ACCOUNT_BLOCKING.includes(restriction),
+      reason: error.reason,
     };
   }
   return { kind: 'error', traceId: error instanceof ApiError ? error.traceId : null };

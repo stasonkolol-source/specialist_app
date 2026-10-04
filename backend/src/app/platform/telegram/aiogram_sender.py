@@ -59,7 +59,7 @@ class AiogramTelegramSender:
         await self._slot(message.chat_id)
         sent = await self._call(
             self._bot.send_message(
-                chat_id=message.chat_id, text=message.text, reply_markup=_keyboard(message.buttons)
+                chat_id=message.chat_id, text=message.text, reply_markup=keyboard(message.buttons)
             )
         )
         return SentMessage(message_id=sent.message_id)
@@ -72,7 +72,7 @@ class AiogramTelegramSender:
         try:
             await self._call(
                 self._bot.edit_message_reply_markup(
-                    chat_id=chat_id, message_id=message_id, reply_markup=_keyboard(buttons)
+                    chat_id=chat_id, message_id=message_id, reply_markup=keyboard(buttons)
                 )
             )
         except TelegramRejectedError as exc:
@@ -116,7 +116,8 @@ async def _wait(slot: Slot) -> None:
         await asyncio.sleep(slot.wait)
 
 
-def _keyboard(lines: tuple[ButtonLine, ...]) -> InlineKeyboardMarkup | None:
+def keyboard(lines: tuple[ButtonLine, ...]) -> InlineKeyboardMarkup | None:
+    """Ряды кнопок порта — клавиатура aiogram (и для правки сообщения ботом модуля)."""
     if not lines:
         return None
     rows = [line if isinstance(line, tuple) else (line,) for line in lines]

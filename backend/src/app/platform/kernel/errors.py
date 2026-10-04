@@ -45,15 +45,19 @@ class ForbiddenError(DomainError):
 class RestrictedError(ForbiddenError):
     """403 `restricted`: действие запрещено санкцией (identity.restrictions).
 
-    `restriction` — вид санкции (`posting_blocked`, …), `until` — до когда; None — бессрочно.
+    `restriction` — вид санкции (`posting_blocked`, …), `until` — до когда; None — бессрочно;
+    `reason` — машинный код причины (экран S49b, 2.5b).
     """
 
     code = "restricted"
 
-    def __init__(self, *, restriction: str, until: datetime | None = None) -> None:
+    def __init__(
+        self, *, restriction: str, until: datetime | None = None, reason: str | None = None
+    ) -> None:
         super().__init__(restriction=restriction, until=until)
         self.restriction = restriction
         self.until = until
+        self.reason = reason
 
 
 class ConflictError(DomainError):

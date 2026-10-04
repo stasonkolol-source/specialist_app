@@ -25,6 +25,13 @@
     "leftDeals": "Prepiska o tekućim dogovorima",
     "leftBrowse": "Pregled zahteva i stručnjaka",
     "leftSettings": "Podešavanja i brisanje naloga",
-    "appeal": "Žalbu na odluku možete da uložite u roku od 6 meseci. Odgovorićemo u roku od 72 sata."
+    "appeal": "Žalbu na odluku možete da uložite u roku od 6 meseci. Odgovorićemo u roku od 72 sata.",
+    "decision": "Odluka moderatora",
+    "reasonLabel": "Razlog",
+    "reason": "{code, select, prepayment_scam {Traženje avansa — česta prevara} off_platform_payment {Plaćanje ili prepiska mimo aplikacije} mule_recruitment {Regrutovanje ljudi za prenos tuđeg novca ili pošiljki} prohibited {Zabranjena roba ili usluge} contact_leak {Kontakti u tekstu pre dogovora} spam_ad {Reklama ili spam} not_a_service_request {Ovo nije zahtev za uslugu} vacancy {Oglasi za posao se ovde ne objavljuju} fraud {Prevara} no_show {Nije došao na dogovoreni sastanak} poor_quality {Posao je loše urađen} other {Kršenje pravila platforme}}",
+    "appealButton": "Uloži žalbu",
+    "appealSent": "Žalba je poslata. Moderator će odgovoriti do {date} u {time} — odgovor stiže u bot.",
+    "appealRepeated": "{status, select, approved {Žalba na odluku je već uložena: usvojena je.} rejected {Žalba na odluku je već uložena: moderator je zadržao odluku.} other {Žalba na odluku je već uložena. Moderator će odgovoriti do {date} u {time}.}}",
+    "appealError": "Slanje žalbe nije uspelo. Pokušajte ponovo."
   }
 }

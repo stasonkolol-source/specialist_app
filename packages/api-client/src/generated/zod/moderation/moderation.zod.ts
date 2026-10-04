@@ -73,3 +73,47 @@ export const ModerationCreateReportResponse = zod.object({
     ),
   created_at: zod.iso.datetime({ offset: true }),
 });
+
+/**
+ * Обжаловать решение модерации: апелляцию рассмотрит человек за 72 часа (S49b).
+ * @summary File Appeal
+ */
+export const ModerationFileAppealBody = zod
+  .object({
+    case_id: zod
+      .union([zod.uuid(), zod.null()])
+      .optional()
+      .describe('Решение модерации (кнопка «Обжаловать» уведомления)'),
+    restriction: zod
+      .union([
+        zod.enum([
+          'limited',
+          'posting_blocked',
+          'responding_blocked',
+          'messaging_blocked',
+          'suspended',
+          'banned',
+        ]),
+        zod.null(),
+      ])
+      .optional()
+      .describe('Вид санкции из 403 `restricted` (экран S49b)'),
+  })
+  .describe(
+    'Что обжаловать: решение (`case_id`) или санкцию с экрана S49b (`restriction`); без обоих —\nпоследнюю санкцию.',
+  );
+
+export const ModerationFileAppealResponse = zod.object({
+  id: zod.uuid(),
+  appeal_of: zod.uuid().describe('Обжалованное решение'),
+  status: zod
+    .enum(['pending', 'in_review', 'escalated', 'approved', 'rejected'])
+    .describe(
+      'approved — апелляция удовлетворена (санкция снята), rejected — решение осталось в силе; остальные — на рассмотрении',
+    ),
+  due_at: zod.iso.datetime({ offset: true }).describe('Срок ответа: 72 часа с подачи'),
+  created_at: zod.iso.datetime({ offset: true }),
+  repeated: zod
+    .boolean()
+    .describe('true — решение уже обжаловали раньше: это та же апелляция (ответ 200)'),
+});

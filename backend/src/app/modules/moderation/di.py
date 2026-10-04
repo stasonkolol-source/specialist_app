@@ -18,6 +18,7 @@ from app.modules.moderation.application.ports import (
     CaseStats,
     ModerationPolicy,
     ModerationTargets,
+    ModeratorsChat,
     RateLimitOverflows,
     ReportQuota,
     ReportRepository,
@@ -32,11 +33,13 @@ from app.modules.moderation.application.queries import ModerationQueries
 from app.modules.moderation.application.use_cases.auto_check import AutoCheck
 from app.modules.moderation.application.use_cases.create_report import CreateReport
 from app.modules.moderation.application.use_cases.decide_case import CaseDecider, DecideCase
+from app.modules.moderation.application.use_cases.file_appeal import FileAppeal
 from app.modules.moderation.application.use_cases.import_content_rules import (
     ImportContentRules,
 )
 from app.modules.moderation.application.use_cases.inspect_dispute import InspectDispute
 from app.modules.moderation.application.use_cases.open_case import CaseOpener, OpenCase
+from app.modules.moderation.application.use_cases.post_case_card import PostCaseCard
 from app.modules.moderation.application.use_cases.record_rate_limit_signals import (
     RecordRateLimitSignals,
 )
@@ -52,6 +55,7 @@ from app.modules.moderation.infrastructure.cases import (
     SqlRiskSignals,
     SqlSanctionRepository,
 )
+from app.modules.moderation.infrastructure.chat import TelegramModeratorsChat
 from app.modules.moderation.infrastructure.deletion_hold import CasesDeletionHold
 from app.modules.moderation.infrastructure.legal_hold import CasesLegalHold
 from app.modules.moderation.infrastructure.metrics import PrometheusAutoCheckMetrics
@@ -71,9 +75,12 @@ from app.modules.moderation.infrastructure.velocity import ValkeyVelocityCounter
 from app.modules.reviews.api import ReviewsApi
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.config.port import LegalVersions
+from app.platform.i18n.translator import Translator
 from app.platform.legal.port import LegalLibrary
 from app.platform.privacy.port import RetentionHold
 from app.platform.ratelimit import RateLimiter
+from app.platform.settings import TelegramSettings
+from app.platform.telegram.port import TelegramSender
 
 
 class ModerationProvider(Provider):
@@ -167,3 +174,12 @@ class ModerationProvider(Provider):
     record_rate_limit_signals = provide(RecordRateLimitSignals)
     reports = provide(SqlReportRepository, provides=ReportRepository)
     create_report = provide(CreateReport)
+    file_appeal = provide(FileAppeal)
+    post_case_card = provide(PostCaseCard)
+
+    @provide(scope=Scope.APP)
+    def moderators_chat(
+        self, sender: TelegramSender, translator: Translator, telegram: TelegramSettings
+    ) -> ModeratorsChat:
+        """Чат модераторов (K29): пусто в настройках — карточек нет."""
+        return TelegramModeratorsChat(sender, translator, telegram.moderators_chat_id)
