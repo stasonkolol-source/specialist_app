@@ -1,0 +1,23 @@
+{% extends "sqladmin/layout.html" %}
+{# Итог GET /client-config (2.7b): откуда каждое значение — правка в админке или деплой #}
+{% block content %}
+<div class="card">
+  <div class="card-header"><h3 class="card-title">Client-config: итог</h3></div>
+  <div class="card-body">
+    <div class="alert alert-info" role="note">{{ propagation }}</div>
+    <table class="table table-vcenter">
+      <thead><tr><th>Ключ</th><th>Значение</th><th>Откуда</th><th></th></tr></thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td><code>{{ row.key }}</code></td>
+          <td><code>{{ row.value | tojson }}</code></td>
+          <td>{{ row.source }}</td>
+          <td>{% if row.edit %}<a href="{{ url_for('admin:list', identity=row.edit) }}">Править</a>{% else %}только чтение{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
