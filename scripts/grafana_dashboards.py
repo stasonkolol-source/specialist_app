@@ -40,7 +40,8 @@ def main(argv: list[str] | None = None) -> int:
 
     dashboards = [json.loads(p.read_text(encoding="utf-8")) for p in args.dashboards]
     for path, dash in zip(args.dashboards, dashboards, strict=True):
-        print(f"{'push' if args.apply else 'dry-run'}: {dash['uid']} «{dash['title']}» → {FOLDER_TITLE} ({path.name})")
+        mode = "push" if args.apply else "dry-run"
+        print(f"{mode}: {dash['uid']} «{dash['title']}» → {FOLDER_TITLE} ({path.name})")
     if not args.apply:
         print("monitoring-dashboards: ничего не отправлено — APPLY=1, чтобы загрузить")
         return 0
@@ -48,7 +49,8 @@ def main(argv: list[str] | None = None) -> int:
     env = read(args.env_file)
     base, token = env.get("GRAFANA_URL", ""), env.get("GRAFANA_SA_TOKEN", "")
     if not base.startswith("https://") or not token:
-        print("monitoring-dashboards: в .env нужны GRAFANA_URL (https://<стек>.grafana.net) и GRAFANA_SA_TOKEN")
+        print("monitoring-dashboards: в .env нужны GRAFANA_URL (https://<стек>.grafana.net)")
+        print("и GRAFANA_SA_TOKEN — make secret NAME=… TARGET=monitoring")
         return 2
     try:
         try:
@@ -56,7 +58,8 @@ def main(argv: list[str] | None = None) -> int:
         except urllib.error.HTTPError as exc:
             if exc.code != 404:
                 raise
-            _request(base, token, "POST", "/api/folders", {"uid": FOLDER_UID, "title": FOLDER_TITLE})
+            folder = {"uid": FOLDER_UID, "title": FOLDER_TITLE}
+            _request(base, token, "POST", "/api/folders", folder)
         for dash in dashboards:
             body = {
                 "dashboard": {**dash, "id": None},
@@ -69,7 +72,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"monitoring-dashboards: {dash['uid']} — OK {url}")
     except urllib.error.HTTPError as exc:
         # тело ответа Grafana — текст ошибки без токена
-        print(f"monitoring-dashboards: HTTP {exc.code} {exc.reason}: {exc.read()[:300].decode(errors='replace')}")
+        detail = exc.read()[:300].decode(errors="replace")
+        print(f"monitoring-dashboards: HTTP {exc.code} {exc.reason}: {detail}")
         return 1
     return 0
 

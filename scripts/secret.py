@@ -27,7 +27,7 @@ TARGETS = {
     "tf-prod": ROOT / "infra" / "terraform" / "prod" / ".env",
     "tf-zone": ROOT / "infra" / "terraform" / "zone" / ".env",
     "tf-monitoring": ROOT / "infra" / "terraform" / "monitoring" / ".env",
-    # ключи «как кода» наблюдаемости (3.3, K35): правила и дашборды Grafana Cloud — make monitoring-*
+    # «как код» наблюдаемости (3.3, K35): правила и дашборды Grafana Cloud — make monitoring-*
     "monitoring": ROOT / "infra" / "monitoring" / ".env",
 }
 GITHUB_ENVIRONMENTS = ("stage", "production")
