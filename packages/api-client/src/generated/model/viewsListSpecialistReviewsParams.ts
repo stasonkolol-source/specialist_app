@@ -4,8 +4,13 @@
  * Соседи API
  * OpenAPI spec version: 1.0.0
  */
+import type { ViewsListSpecialistReviewsKind } from './viewsListSpecialistReviewsKind.ts';
 
 export type ViewsListSpecialistReviewsParams = {
+  /**
+   * Вкладка S11: deal — по сделкам, pre_platform — «До платформы»
+   */
+  kind?: ViewsListSpecialistReviewsKind;
   cursor?: string | null;
   /**
    * @minimum 1

@@ -6,11 +6,11 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import RowMapping, Select, select, tuple_
+from sqlalchemy import RowMapping, Select, func, select, tuple_
 
 from app.modules.reviews.api import MyReview, PublicReview, ReplyView
 from app.modules.reviews.application.dto import ReviewsDirection, UserReview
-from app.modules.reviews.domain.review import ReplyStatus, ReviewStatus
+from app.modules.reviews.domain.review import ReplyStatus, ReviewKind, ReviewStatus
 from app.modules.reviews.infrastructure.models import ReviewRow
 from app.platform.db.query import SqlQuery, decode_cursor, encode_cursor
 from app.platform.kernel.ids import DealId, UserId
@@ -21,9 +21,12 @@ _R = _T.c
 
 
 class SqlReviewQueries(SqlQuery):
-    async def public_of(self, profile_id: UUID, page: PageRequest) -> Page[PublicReview]:
+    async def public_of(
+        self, profile_id: UUID, page: PageRequest, kind: ReviewKind
+    ) -> Page[PublicReview]:
         stmt: Select[Any] = select(_T).where(
             _R.subject_profile_id == profile_id,
+            _R.kind == kind.value,
             _R.status == ReviewStatus.PUBLISHED.value,
             _R.deleted_at.is_(None),
         )
@@ -38,6 +41,17 @@ class SqlReviewQueries(SqlQuery):
         if len(rows) > page.limit and items:
             cursor = encode_cursor(items[-1].published_at, items[-1].id)
         return Page(items=tuple(items), next_cursor=cursor)
+
+    async def count_of(self, profile_id: UUID, kind: ReviewKind) -> int:
+        row = await self._fetch_one(
+            select(func.count().label("count")).where(
+                _R.subject_profile_id == profile_id,
+                _R.kind == kind.value,
+                _R.status == ReviewStatus.PUBLISHED.value,
+                _R.deleted_at.is_(None),
+            )
+        )
+        return int(row["count"]) if row is not None else 0
 
     async def public(self, review_id: UUID) -> PublicReview | None:
         row = await self._fetch_one(
@@ -104,6 +118,7 @@ def _public(row: RowMapping) -> PublicReview:
         category_id=row["category_id"],
         published_at=row["published_at"],
         reply=reply,
+        work_title=row["work_title"],
     )
 
 
@@ -111,6 +126,8 @@ def _user_review(row: RowMapping, direction: ReviewsDirection) -> UserReview:
     received = direction is ReviewsDirection.RECEIVED
     return UserReview(
         id=row["id"],
+        kind=row["kind"],
+        work_title=row["work_title"],
         deal_id=DealId(row["deal_id"]) if row["deal_id"] is not None else None,
         counterpart_id=UserId(row["author_id"] if received else row["subject_user_id"]),
         rating=row["rating"],

@@ -7,6 +7,49 @@
 import * as zod from 'zod';
 
 /**
+ * Форма S56: специалист, который просит отзыв о прошлой работе.
+ * @summary Get Review Invite
+ */
+export const ViewsGetReviewInviteParams = zod.object({
+  token: zod.uuid().describe('Секрет ссылки-приглашения (из ri_<base62>)'),
+});
+
+export const ViewsGetReviewInviteResponse = zod.object({
+  specialist: zod.object({
+    profile_id: zod.uuid(),
+    display_name: zod.string().describe('«Алексей Морозов»'),
+    first_name: zod.string().describe('«Алексей просит оставить отзыв…», «Подтверждаю: Алексей…»'),
+    avatar: zod.union([
+      zod.object({
+        placeholder: zod
+          .union([zod.string(), zod.null()])
+          .describe('ThumbHash (base64) для мгновенного превью'),
+        variants: zod.array(
+          zod.object({
+            name: zod.string().describe('thumb 320 · md 800 · lg 1600'),
+            url: zod.string(),
+            width: zod.int(),
+            height: zod.int(),
+          }),
+        ),
+        video_url: zod.union([zod.string(), zod.null()]).optional(),
+        duration_ms: zod.union([zod.int(), zod.null()]).optional(),
+      }),
+      zod.null(),
+    ]),
+    headline: zod.union([zod.string(), zod.null()]).describe('«Электрик · мелкий ремонт · люстры»'),
+    categories: zod.array(
+      zod.object({
+        id: zod.int(),
+        name: zod.string(),
+      }),
+    ),
+  }),
+  expires_at: zod.iso.datetime({ offset: true }).describe('До когда ссылка действует'),
+  is_own: zod.boolean().describe('Ссылку открыл сам специалист: отзыв о себе не оставить'),
+});
+
+/**
  * Карточка специалиста S08: профиль, первые позиции прайса, превью портфолио, рейтинг и
  * время ответа.
  * @summary Get Specialist
@@ -163,6 +206,10 @@ export const ViewsGetSpecialistResponse = zod.object({
             zod.null(),
           ])
           .describe('Услуга сделки'),
+        work_title: zod
+          .union([zod.string(), zod.null()])
+          .optional()
+          .describe('«Что делал мастер» — у отзыва до платформы вместо услуги'),
         published_at: zod.iso.datetime({ offset: true }),
         reply: zod
           .union([
@@ -257,20 +304,25 @@ export const ViewsListSpecialistWorksResponse = zod.object({
 });
 
 /**
- * Отзывы S11: рейтинг с гистограммой и опубликованные отзывы по сделкам с ответами,
- * новые первыми (курсор). Вкладка «До платформы» (`kind`) — 7.6.
+ * Отзывы S11: рейтинг с гистограммой и опубликованные отзывы вкладки с ответами, новые
+ * первыми (курсор): по сделкам или «До платформы» (`kind`, 7.6а) — те в рейтинг не входят.
  * @summary List Specialist Reviews
  */
 export const ViewsListSpecialistReviewsParams = zod.object({
   profile_id: zod.uuid().describe('id профиля специалиста'),
 });
 
+export const viewsListSpecialistReviewsQueryKindDefault = `deal`;
 export const viewsListSpecialistReviewsQueryCursorOneMax = 200;
 
 export const viewsListSpecialistReviewsQueryLimitDefault = 20;
 export const viewsListSpecialistReviewsQueryLimitMax = 100;
 
 export const ViewsListSpecialistReviewsQueryParams = zod.object({
+  kind: zod
+    .enum(['deal', 'pre_platform'])
+    .default(viewsListSpecialistReviewsQueryKindDefault)
+    .describe('Вкладка S11: deal — по сделкам, pre_platform — «До платформы»'),
   cursor: zod
     .union([zod.string().max(viewsListSpecialistReviewsQueryCursorOneMax), zod.null()])
     .optional(),
@@ -315,6 +367,10 @@ export const ViewsListSpecialistReviewsResponse = zod.object({
             zod.null(),
           ])
           .describe('Услуга сделки'),
+        work_title: zod
+          .union([zod.string(), zod.null()])
+          .optional()
+          .describe('«Что делал мастер» — у отзыва до платформы вместо услуги'),
         published_at: zod.iso.datetime({ offset: true }),
         reply: zod
           .union([
@@ -327,8 +383,13 @@ export const ViewsListSpecialistReviewsResponse = zod.object({
           .describe('Ответ специалиста (прошёл проверку)'),
       }),
     )
-    .describe('Опубликованные отзывы по сделкам, новые первыми'),
+    .describe('Опубликованные отзывы выбранной вкладки (`kind`), новые первыми'),
   next_cursor: zod.union([zod.string(), zod.null()]),
+  pre_platform_count: zod
+    .int()
+    .describe(
+      '«До платформы · 2» — опубликованные отзывы по приглашениям; «По сделкам» — summary.count',
+    ),
 });
 
 /**

@@ -829,6 +829,11 @@ make secret NAME=TELEGRAM_BOT_TOKEN TARGET=dev
 - **Как:** eu.posthog.com → Sign up → 2FA → создать проект → Project settings → скопировать Project API key (`phc_…`) и host.
 - **Прислать:** key и host. Их можно прислать в чат: это ключ приёма событий, а не доступ к данным.
 - **Куда:** `backend/.env` (dev), Variables environments `stage` и `production`. В `apps/tma/.env.local` — только когда появится клиентский SDK (в MVP события отправляет сервер, шаг 1.7).
+- **K32a. Ключ для дашборда ликвидности (шаг 6.6).** Дашборд описан в коде, и создаёт его команда — для этого нужен второй ключ, личный (personal API key): Project API key (`phc_…`) только принимает события.
+  1. eu.posthog.com → аватар → Account settings → Personal API keys → Create personal API key → имя `sosedi-dashboard`, доступ — только к проекту «Соседей», scope: `dashboard` — read и write, `insight` — read и write → скопировать (показывается один раз) → в менеджер паролей.
+  2. Project settings → скопировать Project ID (число).
+  3. В `backend/.env` своего Мака: `ANALYTICS_POSTHOG_PERSONAL_API_KEY=<ключ>` и `ANALYTICS_POSTHOG_PROJECT_ID=<id>`. В чат ключ **не присылать**: он открывает данные проекта. На серверы он не нужен.
+  4. `make cli ARGS='posthog-dashboard'` — план, ничего не меняет; `make cli ARGS='posthog-dashboard --apply'` — создать дашборд «Ликвидность «Соседи» — production». Для событий stage — `--environment stage`. Повторный запуск обновляет дашборд, а не создаёт копию.
 - **Стоимость:** в документах не указана.
 
 ### K33. Healthchecks.io
