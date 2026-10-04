@@ -22,7 +22,7 @@ terraform {
 provider "cloudflare" {}
 
 variable "domain" {
-  description = "Домен в Cloudflare (Q9). Хосты окружений: api., stage-api. (плоская схема, Q10)."
+  description = "Домен в Cloudflare (Q9). Хосты окружений: api., bot., stage-api., stage-bot. (плоская схема, Q10)."
   type        = string
 
   validation {
@@ -41,8 +41,11 @@ module "edge" {
 }
 
 locals {
-  # хосты API окружений: на них приходит webhook и на них же нельзя открывать /admin
+  # хосты API окружений: на них нельзя открывать /admin
   api_hosts = ["stage-api.${var.domain}", "api.${var.domain}"]
+  # хосты процесса bot (0.25e): webhook Telegram приходит только сюда — у роли bot свой хост в
+  # kamal-proxy, Kamal не даёт двум ролям один хост с TLS
+  bot_hosts = ["stage-bot.${var.domain}", "bot.${var.domain}"]
 }
 
 # --- WAF: custom rules зоны (на плане Free — до 5 правил) ---
@@ -58,7 +61,7 @@ resource "cloudflare_ruleset" "zone_custom" {
     {
       ref         = "telegram_webhook_skip"
       description = "webhook Telegram с адресов Bot API — без BIC, security level и managed rules"
-      expression  = "(http.host in {${join(" ", formatlist("\"%s\"", local.api_hosts))}} and starts_with(http.request.uri.path, \"/integrations/telegram/\") and ip.src in {${join(" ", module.edge.telegram_ips)}})"
+      expression  = "(http.host in {${join(" ", formatlist("\"%s\"", local.bot_hosts))}} and starts_with(http.request.uri.path, \"/integrations/telegram/\") and ip.src in {${join(" ", module.edge.telegram_ips)}})"
       action      = "skip"
       action_parameters = {
         phases   = ["http_ratelimit", "http_request_firewall_managed"]
