@@ -841,14 +841,14 @@ make secret NAME=TELEGRAM_BOT_TOKEN TARGET=dev
 - **Зачем:** сигнал, если перестали работать heartbeat воркеров (`ops.heartbeat`), бэкап pgBackRest или ежемесячный restore-тест.
 - **Когда:** шаги 3.2 (pgBackRest, restore-тест) и 3.3 (heartbeat воркеров). Dev-проверку heartbeat можно подключить раньше, в шаге 0.12, по желанию.
 - **Как:** healthchecks.io → Sign up → 2FA → Add Check на каждый процесс: heartbeat воркера, pgBackRest, restore-тест → скопировать Ping URL. В Integrations подключить канал алертов (K35a).
-- **Прислать:** ping URL для dev — можно в чат. Ping URL для stage и prod — `make secret … TARGET=stage|production`: по такой ссылке любой может отметить проверку и скрыть сбой.
+- **Прислать:** ping URL для dev — можно в чат. Ping URL для stage и prod — `make secret … TARGET=stage|production`: по такой ссылке любой может отметить проверку и скрыть сбой. Heartbeat воркера — `HEALTHCHECKS_WORKER_PING_URL` (настройки проверок — `infra/runbooks/prod-bootstrap.md`, раздел 8).
 - **Стоимость:** Hobbyist — бесплатно, 20 проверок.
 
 ### K34. UptimeRobot
 - **Что:** мониторинг доступности `/up` и Mini App.
 - **Когда:** шаг 3.3.
-- **Как:** uptimerobot.com → Sign up → 2FA → Add New Monitor → HTTP(s) → адреса, которые я пришлю. Контакт для алертов — по K35a.
-- **Прислать:** «готово».
+- **Как:** uptimerobot.com → Sign up → 2FA → Integrations & API → Main API Key. Мониторы создаёт Terraform (`infra/terraform/monitoring`, `make tf ENV=monitoring`), контакт для алертов — e-mail аккаунта по K35a.
+- **Прислать:** «готово»; ключ — `make secret NAME=UPTIMEROBOT_API_KEY TARGET=tf-monitoring`.
 - **Стоимость:** Free — 50 мониторов с интервалом 5 минут, коммерческое использование разрешено.
 
 ### K35. Grafana Cloud
@@ -860,7 +860,8 @@ make secret NAME=TELEGRAM_BOT_TOKEN TARGET=dev
   2. Токен для отправки данных с серверов: Administration → Cloud access policies → политика со scope `metrics:write` и `logs:write` → Add token → скопировать. Scope `traces:write` добавим, когда подключим трейсы Tempo (вторым шагом, после MVP).
   3. Токен для дашбордов и алертов как кода: в стеке Grafana → Administration → Users and access → Service accounts → Add service account → роль Editor → Add service account token → скопировать.
   4. На странице стека найти адрес remote_write и user id для Prometheus, адрес и user id для Loki.
-- **Прислать:** адреса и user id — в чат. Оба токена — `make secret … TARGET=production` (токен service account — в `tf-prod`, если дашборды применяет локальный Terraform) и копия в менеджер паролей.
+  5. Ещё одна политика — для алертов как кода: scope `rules:read` и `rules:write` → токен. У серверов его нет: правила загружает `make monitoring-rules` с вашего Мака.
+- **Прислать:** адреса и user id — в чат (Variables репозитория `GRAFANA_CLOUD_PROM_URL`, `GRAFANA_CLOUD_PROM_USER`, `GRAFANA_CLOUD_LOKI_URL`, `GRAFANA_CLOUD_LOKI_USER`). Токен шага 2 — `make secret NAME=GRAFANA_CLOUD_TOKEN TARGET=stage` и `TARGET=production`; токены шагов 3 и 5 — `make secret NAME=GRAFANA_SA_TOKEN TARGET=monitoring` и `NAME=MIMIR_API_KEY TARGET=monitoring` (файл `infra/monitoring/.env`). Всё — с копией в менеджер паролей.
 - **Стоимость:** Free — $0: 10 000 активных серий, 50 GB логов, хранение 14 дней, 3 пользователя.
 
 ### K35a. Канал алертов
