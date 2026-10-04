@@ -54,6 +54,9 @@ tests:
           - exp_labels:
               env: production
               severity: critical
+            exp_annotations:
+              summary: "production: всплеск 5xx в API"
+              description: "5xx — 1.967% ответов за 5 минут. Подробности — Sentry и Loki {role=\"web\", level=\"error\"}."
 
   # лаг notifications: 3 минуты — critical через минуту; лаг default 3 минуты — не алерт
   - interval: 1m
@@ -69,6 +72,9 @@ tests:
           - exp_labels:
               env: stage
               severity: critical
+            exp_annotations:
+              summary: "stage: уведомления ждут дольше 2 минут"
+              description: "Самая старая задача очереди notifications ждёт 3m 0s. Жив ли worker, нет ли 429 от Telegram (дашборд «Очереди и Telegram»)."
       - eval_time: 4m
         alertname: SosedQueueLag
         exp_alerts: []
@@ -85,6 +91,9 @@ tests:
           - exp_labels:
               env: production
               severity: warning
+            exp_annotations:
+              summary: "production: ошибки в обработке webhook бота"
+              description: "3.333 ошибок роли bot за 10 минут — Loki {role=\"bot\", level=\"error\"} и Sentry."
 
   # диск db-1 занят на 85%: warning через 10 минут, critical — нет
   - interval: 1m
@@ -105,6 +114,9 @@ tests:
               fstype: ext4
               device: /dev/sda1
               severity: warning
+            exp_annotations:
+              summary: "production db-1: диск занят больше чем на 80%"
+              description: "Занято 85%. На db-1 первым делом — WAL (архив pgBackRest не отстаёт?), на app-1 — образы Docker (docker system df)."
       - eval_time: 12m
         alertname: SosedDiskFull
         exp_alerts: []
@@ -123,6 +135,9 @@ tests:
               job: postgres
               instance: "10.20.1.3:5432"
               severity: critical
+            exp_annotations:
+              summary: "production: WAL не уходит в архив больше 10 минут"
+              description: "Последний сегмент заархивирован 15m 0s назад — RPO 5 минут нарушен. pgbackrest check на db-1 (infra/runbooks/restore.md)."
 
   # сторож: метрик production нет 10 минут — alert с env из правила
   - interval: 1m
@@ -137,3 +152,6 @@ tests:
               env: production
               job: sosed
               severity: critical
+            exp_annotations:
+              summary: "production: метрики не приходят 10 минут"
+              description: "Нет ни одного ряда up от ролей: kamal accessory details alloy -d production, логи Alloy."
