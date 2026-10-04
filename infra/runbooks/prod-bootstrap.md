@@ -128,7 +128,9 @@ WAL до шага 3.2 не архивируется (`archive_command = /bin/tru
 желанию, обязательно к 3.3), K29 (prod-чат модераторов), K25 и K26 (AI — по желанию).
 
 1. Variables `production`: `PROD_BOT_USERNAME` (без @), `PROD_MODERATORS_CHAT_ID` (K29, `-100…`; пока
-   пусто — кейсы решают командами `cli`), `SENTRY_DSN`, `TMA_SENTRY_DSN`.
+   пусто — кейсы решают командами `cli`), `SENTRY_DSN`, `TMA_SENTRY_DSN`. Source maps Mini App —
+   тем же секретом `SENTRY_AUTH_TOKEN` и Variables `SENTRY_ORG`, `TMA_SENTRY_PROJECT` уровня
+   репозитория, что и stage (`stage-bootstrap.md`, раздел 3); релиз — `VERSION` деплоя, как у backend.
 2. Случайные секреты — как в разделе 2, тем же циклом `make gen-secret` с именами
    `APP_HASH_KEY TELEGRAM_WEBHOOK_SECRET APP_ADMIN_SESSION_KEY`. `APP_HASH_KEY` после первого запуска
    не менять.

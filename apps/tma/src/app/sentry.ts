@@ -1,6 +1,7 @@
 // Sentry фронта: SDK грузится отдельным чанком и только при заданном DSN — бюджет первого экрана.
-export async function initSentry(dsn: string | undefined, release: string): Promise<void> {
+// Настройки и очистка событий — там же, в ленивом чанке (sentry-client.ts).
+export async function initSentry(dsn: string | undefined): Promise<void> {
   if (!dsn) return;
-  const Sentry = await import('@sentry/react');
-  Sentry.init({ dsn, release, sendDefaultPii: false, tracesSampleRate: 0 });
+  const { startSentry } = await import('./sentry-client.ts');
+  startSentry(dsn);
 }

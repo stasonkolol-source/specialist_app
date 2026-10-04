@@ -118,4 +118,6 @@ test('CSP собранного приложения строгая и не ме�
   expect(csp).toContain("script-src 'self';");
   expect(csp).toContain('frame-ancestors https://web.telegram.org');
   expect(csp).not.toContain('unsafe');
+  // e2e:build — без DSN: адрес приёма Sentry в CSP только из DSN, без звёздочек вроде *.sentry.io
+  expect(csp).not.toContain('sentry');
 });

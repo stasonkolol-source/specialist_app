@@ -653,9 +653,9 @@ make secret NAME=TELEGRAM_BOT_TOKEN TARGET=dev
   2. Create project → платформа Python (FastAPI) → имя `backend`.
   3. Ещё один проект: React → `tma`.
   4. Settings → Projects → проект → Client Keys (DSN) → скопировать DSN вида `https://…@…sentry.io/…`. Так для каждого из двух проектов.
-  5. Для source maps (по желанию): Settings → Auth Tokens → создать токен.
-- **Прислать:** оба DSN можно прислать в чат, подписав, какой из них `backend`, а какой `tma`. DSN встраивается в браузерный бандл и доступа к данным не даёт, но в публичные места его не выкладываем. Auth token — `make secret NAME=SENTRY_AUTH_TOKEN …` (секрет уровня репозитория).
-- **Куда:** DSN `backend` — в `backend/.env` (`SENTRY_DSN`), DSN `tma` — в `apps/tma/.env.local` (`VITE_SENTRY_DSN`); для stage и prod — в Variables environment. Окружение (dev, stage, prod) передаётся в SDK параметром `environment`.
+  5. Для source maps Mini App (по желанию; без них стек ошибок в Sentry минифицирован): Settings → Developer Settings → **Organization Tokens** → Create New Token. Права у такого токена фиксированные (`org:ci`: создать релиз и загрузить source maps, событий он не читает), организация и регион EU записаны в нём самом. Личный токен (User Auth Tokens) не нужен.
+- **Прислать:** оба DSN можно прислать в чат, подписав, какой из них `backend`, а какой `tma`. DSN встраивается в браузерный бандл и доступа к данным не даёт, но в публичные места его не выкладываем. Auth token — `make secret NAME=SENTRY_AUTH_TOKEN …` (секрет уровня репозитория); вместе с ним — Variables репозитория `SENTRY_ORG` (slug организации из адреса `https://<slug>.sentry.io`) и `TMA_SENTRY_PROJECT` (`tma`). Пока чего-то из трёх нет, деплой Mini App source maps не загружает и пишет об этом notice.
+- **Куда:** DSN `backend` — в `backend/.env` (`SENTRY_DSN`), DSN `tma` — в `apps/tma/.env.local` (`VITE_SENTRY_DSN`); для stage и prod — в Variables environment. Окружение (`dev`, `stage`, `production`) передаётся в SDK параметром `environment`, релиз — sha деплоя; у Mini App их задаёт сборка (`VITE_SENTRY_ENVIRONMENT`, `VITE_SENTRY_RELEASE` в `deploy.yml`), вписывать ничего не нужно.
 - **Стоимость:**
   - Sentry Developer — $0: 1 пользователь, 5 000 ошибок, хранение 30 дней;
   - Sentry Team — $26 в месяц при оплате за год, если понадобится;

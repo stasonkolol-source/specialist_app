@@ -6,6 +6,7 @@ import type { HtmlTagDescriptor, Plugin } from 'vite';
 import { defineConfig, loadEnv } from 'vite';
 
 import pkg from './package.json' with { type: 'json' };
+import type { CspOptions } from './src/app/csp.ts';
 import { contentSecurityPolicy } from './src/app/csp.ts';
 
 /** Q4 не решён владельцем — умолчание плана: iOS 15+ (Safari 15), Android WebView на Chromium. */
@@ -24,12 +25,12 @@ const IMMUTABLE = 'public, max-age=31536000, immutable';
  *  кэш (ADR-0012): `/assets/*` с хэшем — навсегда, HTML — с проверкой на каждый запуск, иначе
  *  новый деплой ссылался бы на старые чанки. Тот же файл применяет статический сервер e2e —
  *  тесты ловят нарушения CSP. */
-function cspHeaders(mediaOrigins: readonly string[], storageOrigins: readonly string[]): Plugin {
+function cspHeaders(options: Omit<CspOptions, 'dev'>): Plugin {
   return {
     name: 'sosed-csp-headers',
     apply: 'build',
     generateBundle() {
-      const csp = contentSecurityPolicy({ dev: false, mediaOrigins, storageOrigins });
+      const csp = contentSecurityPolicy({ ...options, dev: false });
       const rules: [string, string][] = [
         ['/*', `Content-Security-Policy: ${csp}`],
         // 8.4: тип не угадывается, адрес страницы (с параметрами запуска) не уходит на чужие
@@ -127,13 +128,19 @@ export default defineConfig(({ mode }) => {
   // .env рядом с конфигом: адрес туннеля для allowedHosts (0.22), CDN медиа, DSN Sentry
   const env = loadEnv(mode, import.meta.dirname, '');
   const mediaOrigins = list(env.VITE_MEDIA_ORIGINS);
-  const storageOrigins = list(env.TMA_STORAGE_ORIGINS);
+  // Одни источники CSP для dev-сервера, стенда и _headers сборки (stage, prod, e2e): различается
+  // только dev. DSN Sentry — тот же, что попадёт в бандл: без его адреса приёма CSP режет события
+  const csp = {
+    mediaOrigins,
+    storageOrigins: list(env.TMA_STORAGE_ORIGINS),
+    sentryDsn: env.VITE_SENTRY_DSN,
+  };
   return {
     plugins: [
       react(),
       tailwindcss(),
       fontPreload(),
-      cspHeaders(mediaOrigins, storageOrigins),
+      cspHeaders(csp),
       immutableAssets(),
       firstScreenHints(mediaOrigins),
     ],
@@ -169,13 +176,7 @@ export default defineConfig(({ mode }) => {
         ? { host: env.TMA_HMR_HOST, protocol: 'wss', clientPort: 443 }
         : undefined,
       proxy: { '/api': 'http://127.0.0.1:8000' },
-      headers: {
-        'Content-Security-Policy': contentSecurityPolicy({
-          dev: true,
-          mediaOrigins,
-          storageOrigins,
-        }),
-      },
+      headers: { 'Content-Security-Policy': contentSecurityPolicy({ ...csp, dev: true }) },
     },
     preview: {
       host: '127.0.0.1',
@@ -183,13 +184,7 @@ export default defineConfig(({ mode }) => {
       // стенд открывается в Telegram через quick tunnel (scripts/tunnel.py) — его хост
       allowedHosts: list(env.TMA_ALLOWED_HOSTS),
       proxy: { '/api': 'http://127.0.0.1:8000' },
-      headers: {
-        'Content-Security-Policy': contentSecurityPolicy({
-          dev: false,
-          mediaOrigins,
-          storageOrigins,
-        }),
-      },
+      headers: { 'Content-Security-Policy': contentSecurityPolicy({ ...csp, dev: false }) },
     },
   };
 });
