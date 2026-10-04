@@ -1,8 +1,10 @@
 """Вход персонала и разделы админки (DEVELOPMENT_PLAN 2.7a–b): SQLAdmin на /admin.
 
 2.7a: без кода TOTP не войти, код второй раз не принимается; moderator не видит разделов admin;
-неудачные входы ограничены лимитом. 8.4: секрет TOTP в БД зашифрован, строки до 8.4 и секреты под
-прежним ключом перешифровываются входом и `cli staff-totp-reencrypt`. 2.7b: правка категории (и
+неудачные входы ограничены лимитом; форма, действие раздела и «Решить кейс» со страницы другого
+поддомена — 403 (CSRF).
+8.4: секрет TOTP в БД зашифрован, строки до 8.4 и секреты под прежним ключом перешифровываются
+входом и `cli staff-totp-reencrypt`. 2.7b: правка категории (и
 её названия формой LocalizedText) пишет аудит и выпускает CatalogChanged (advisory lock — тот же,
 что у импорта); новое стоп-слово
 и регулярка действуют без перезапуска, регулярку проверяет то же, что сид в seeds-validate (RE2),
@@ -364,3 +366,63 @@ async def test_admin_case_is_decided_through_use_case(admin: Admin) -> None:
         )
     assert status == "rejected"
     assert UUID(str(decided_by)) == moderator.user_id
+
+
+async def test_admin_rejects_writes_and_actions_from_other_pages(admin: Admin) -> None:
+    """Cookie SameSite=Strict несёт и страница другого поддомена: форма, действие раздела (GET) и
+    «Решить кейс» оттуда — 403. Своя страница, адресная строка и клиент без Fetch Metadata — как
+    раньше; обычные GET-страницы не проверяются."""
+    moderator = await staff(admin, "moderator")
+    async with admin.container() as request:
+        session = await request.get(AsyncSession)
+        user = await insert_user(session, telegram_id=new_telegram_id())
+        await session.commit()
+    engine = await admin.engine()
+    form = {"user_id": str(user), "kind": "posting_blocked", "reason_code": "spam"}
+    sibling = {"Sec-Fetch-Site": "same-site"}  # Mini App или cdn на поддомене того же сайта
+    foreign = {"Sec-Fetch-Site": "cross-site"}
+    evil = {"Origin": "https://evil.example"}
+    own = {"Sec-Fetch-Site": "same-origin", "Origin": "http://test"}
+
+    async def restrictions() -> list[tuple[UUID, object]]:
+        async with engine.connect() as conn:
+            rows = await conn.execute(
+                text("SELECT id, lifted_at FROM identity.restrictions WHERE user_id = :id"),
+                {"id": user},
+            )
+        return [(row.id, row.lifted_at) for row in rows]
+
+    async with admin.client(_ip()) as client:
+        assert await login(client, moderator) == 302
+        for headers in (sibling, foreign, evil):
+            refused = await client.post("/admin/impose-restriction", data=form, headers=headers)
+            assert refused.status_code == 403, headers
+        assert await restrictions() == []
+        assert (await client.get("/admin/", headers=foreign)).status_code == 200  # не запись
+        assert (await client.get("/admin/impose-restriction", headers=sibling)).status_code == 200
+        imposed = await client.post("/admin/impose-restriction", data=form, headers=own)
+        assert imposed.status_code == 200
+        [(restriction, _)] = await restrictions()
+        lift = "/admin/restriction-row/action/lift"
+        pks = {"pks": str(restriction)}
+        for headers in (sibling, foreign, evil):
+            assert (await client.get(lift, params=pks, headers=headers)).status_code == 403
+        dossier = await client.get(
+            "/admin/decide-case", params={"case_id": str(new_id())}, headers=sibling
+        )
+        assert dossier.status_code == 403  # просмотр спора пишет аудит и блокирует кейс
+        assert await restrictions() == [(restriction, None)]
+        typed = {"Sec-Fetch-Site": "none"}  # адресная строка или закладка сотрудника
+        assert (await client.get(lift, params=pks, headers=typed)).status_code == 302
+    [(_, lifted_at)] = await restrictions()
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "DELETE FROM procrastinate_jobs WHERE status = 'todo'"
+                " AND args->'payload'->>'user_id' = :id"
+            ),
+            {"id": str(user)},
+        )
+    assert lifted_at is not None
+    assert await audit_count(admin, "identity.restriction.imposed", moderator.user_id) == 1
+    assert await audit_count(admin, "identity.restriction.lifted", moderator.user_id) == 1

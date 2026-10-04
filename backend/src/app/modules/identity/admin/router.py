@@ -4,6 +4,8 @@
 - `GET /users/{id}` — support, moderator и admin. ПД (имя, телефон, Telegram) — только support и
   admin: каждый такой ответ пишет `identity.user.pii_viewed` в audit_log (InspectUser) и идёт в
   свой лимит просмотров; moderator получает карточку без ПД — для решения по кейсу их хватает.
+  Запрос со страницы другого поддомена (`Sec-Fetch-Site: same-site`) — 403 `csrf_rejected`: чужая
+  страница не потратит лимит и не напишет аудит от имени сотрудника.
 - Санкции — moderator и admin, как в SQLAdmin: наложить (ImposeRestriction через фасад —
   UserRestricted, уровень доверия 0) и снять (LiftRestriction — UserRestrictionsLifted), оба — в
   аудит от имени сотрудника. Чужую санкцию по пути другого пользователя не снять — 404.
@@ -35,7 +37,9 @@ from app.platform.kernel.ids import CaseId, RestrictionId, UserId
 router = APIRouter(tags=["identity"])
 
 
-@router.get("/users/{user_id}", response_model=UserCardOut, **staff_only(SUPPORT))
+@router.get(
+    "/users/{user_id}", response_model=UserCardOut, **staff_only(SUPPORT, side_effects=True)
+)
 @inject
 async def get_user(
     user_id: UUID,
