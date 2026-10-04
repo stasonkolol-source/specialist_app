@@ -8,7 +8,7 @@ import {
 import type { Platform } from '@sosed/platform';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { contentSecurityPolicy } from './csp.ts';
+import { contentSecurityPolicy, sentryIngestOrigin } from './csp.ts';
 import { createQueryClient, shouldRetry } from './query.ts';
 import { createAuth } from './session.ts';
 
@@ -38,6 +38,37 @@ describe('CSP', () => {
     expect(csp).toContain("connect-src 'self' https://s3.example;");
     expect(csp).toContain("img-src 'self' data: blob: https://s3.example;");
     expect(csp).toContain("media-src 'self' blob: https://s3.example;");
+  });
+
+  it('lets Sentry events reach exactly the ingest host of the DSN', () => {
+    const dsn = 'https://publickey@o4500.ingest.de.sentry.io/4501';
+    for (const dev of [false, true]) {
+      const csp = contentSecurityPolicy({ dev, mediaOrigins: [], sentryDsn: dsn });
+      expect(csp).toMatch(
+        /connect-src 'self'( ws: wss:)? https:\/\/o4500\.ingest\.de\.sentry\.io;/,
+      );
+      // ни ключа с проектом, ни звёздочки
+      expect(csp).not.toContain('publickey');
+      expect(csp).not.toContain('4501');
+      expect(csp).not.toContain('*');
+    }
+    // самостоятельный Sentry или GlitchTip: порт — часть origin
+    expect(sentryIngestOrigin('https://k@errors.example:8443/sentry/3')).toBe(
+      'https://errors.example:8443',
+    );
+  });
+
+  it('has no Sentry host without DSN and fails the build on a malformed one', () => {
+    for (const sentryDsn of [undefined, '']) {
+      const csp = contentSecurityPolicy({ dev: false, mediaOrigins: [], sentryDsn });
+      expect(csp).toContain("connect-src 'self';");
+      expect(csp).not.toContain('sentry');
+    }
+    for (const dsn of ['publickey@o4500.ingest.de.sentry.io/4501', 'ftp://publickey@host/1']) {
+      expect(() => sentryIngestOrigin(dsn)).toThrow('VITE_SENTRY_DSN: ожидается https://');
+      // сам DSN в лог сборки не попадает
+      expect(() => sentryIngestOrigin(dsn)).not.toThrow('publickey');
+    }
   });
 });
 
