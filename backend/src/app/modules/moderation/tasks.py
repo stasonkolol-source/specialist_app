@@ -15,7 +15,7 @@
 - `moderation.check_image` — MediaReady: фото профиля, портфолио и заявки — в omni-moderation;
   флаг — кейс P2, P0 — фото скрыто и кейс P0 (ARCHITECTURE §10.3, план 6.7).
 - `moderation.recheck_images` — раз в 10 минут: фото, так и не получившие итог проверки, —
-  `moderation.recheck_image` (проверить снова, а через час — модератору, P2).
+  `moderation.recheck_image` (проверить снова; не вышло дольше часа — модератору, P2).
 """
 
 from dishka import FromDishka
@@ -160,7 +160,7 @@ async def recheck_image(payload: RecheckImagePayload, check: FromDishka[CheckIma
     command = CheckImageCommand(
         media_id=payload.media_id, owner_id=payload.owner_id, purpose=payload.purpose
     )
-    await (check.give_up(command) if payload.give_up else check(command))
+    await check.recheck(command, may_give_up=payload.give_up)
 
 
 @periodic("moderation.recheck_images", cron="8-59/10 * * * *")
