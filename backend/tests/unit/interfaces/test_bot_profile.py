@@ -1,5 +1,6 @@
 """Профиль бота для `cli bot-setup` (DEVELOPMENT_PLAN 1.6): тексты в лимитах Bot API и
-идемпотентное применение — повторный запуск ничего не меняет."""
+идемпотентное применение — повторный запуск ничего не меняет; меню команд — по областям
+(личные чаты и администраторы групп)."""
 
 from dataclasses import dataclass, field
 from typing import Any
@@ -9,6 +10,7 @@ from aiogram.types import BotCommand, MenuButtonWebApp
 
 from app.interfaces.bot.profile import (
     COMMANDS,
+    GROUP_ADMIN_COMMANDS,
     BotProfile,
     apply_menu_button,
     apply_profile,
@@ -33,7 +35,9 @@ def test_profiles_fit_bot_api_limits(translator: Translator, env: Environment) -
     assert [problem for p in profiles for problem in p.problems()] == []
     for profile in profiles:
         assert [c.command for c in profile.commands] == list(COMMANDS)
-        assert not any(c.description.startswith("bot.") for c in profile.commands)
+        assert [c.command for c in profile.group_commands] == list(GROUP_ADMIN_COMMANDS)
+        commands = (*profile.commands, *profile.group_commands)
+        assert not any(c.description.startswith("bot.") for c in commands)
 
 
 def test_name_shows_environment_outside_production(translator: Translator) -> None:
@@ -78,12 +82,13 @@ class Value:
 
 @dataclass
 class FakeBot:
-    """Профиль бота в Telegram: get_* отдают сохранённое, set_* сохраняют и считаются."""
+    """Профиль бота в Telegram: get_* отдают сохранённое, set_* сохраняют и считаются; команды —
+    по области (`scope.type`) и языку."""
 
     names: dict[str | None, str] = field(default_factory=dict)
     descriptions: dict[str | None, str] = field(default_factory=dict)
     shorts: dict[str | None, str] = field(default_factory=dict)
-    commands: dict[str | None, list[BotCommand]] = field(default_factory=dict)
+    commands: dict[tuple[str, str | None], list[BotCommand]] = field(default_factory=dict)
     menu: Any = None
     sets: list[str] = field(default_factory=list)
 
@@ -111,15 +116,15 @@ class FakeBot:
         self.sets.append(f"short:{language_code}")
 
     async def get_my_commands(
-        self, scope: object = None, language_code: str | None = None
+        self, scope: Any, language_code: str | None = None
     ) -> list[BotCommand]:
-        return list(self.commands.get(language_code, []))
+        return list(self.commands.get((scope.type, language_code), []))
 
     async def set_my_commands(
-        self, commands: list[BotCommand], scope: object = None, language_code: str | None = None
+        self, commands: list[BotCommand], scope: Any, language_code: str | None = None
     ) -> None:
-        self.commands[language_code] = commands
-        self.sets.append(f"commands:{language_code}")
+        self.commands[scope.type, language_code] = commands
+        self.sets.append(f"commands:{scope.type}:{language_code}")
 
     async def get_chat_menu_button(self) -> Any:
         return self.menu
@@ -137,9 +142,27 @@ async def test_second_run_changes_nothing(translator: Translator) -> None:
     calls_after_first = len(bot.sets)
     second = [await apply_profile(bot, p) for p in profiles]
 
-    assert first == [["name", "description", "short description", "commands"]] * 3
+    assert first == [["name", "description", "short description", "commands", "group commands"]] * 3
     assert second == [[], [], []]
-    assert len(bot.sets) == calls_after_first == 12
+    assert len(bot.sets) == calls_after_first == 15
+
+
+async def test_chatid_is_only_in_the_group_admins_menu(translator: Translator) -> None:
+    """Команды клиента — в личных чатах; у администраторов групп — только `/chatid` (K29)."""
+    bot: Any = FakeBot()
+    for profile in bot_profiles(translator, Environment.DEV):
+        await apply_profile(bot, profile)
+
+    private = [c.command for c in bot.commands["all_private_chats", "ru"]]
+    admins = bot.commands["all_chat_administrators", "ru"]
+    assert private == list(COMMANDS)
+    assert "chatid" not in private
+    assert [(c.command, c.description) for c in admins] == [
+        ("chatid", "Id этого чата — для персонала")
+    ]
+    assert bot.commands["all_chat_administrators", "sr"][0].description == (
+        "ID ove grupe — za osoblje"
+    )
 
 
 async def test_only_changed_fields_are_set(translator: Translator) -> None:
