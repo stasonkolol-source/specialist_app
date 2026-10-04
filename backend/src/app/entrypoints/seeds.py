@@ -7,9 +7,11 @@
 - `seeds/geo/<город>.geojson` — валидные MultiPolygon в границах Сербии, уникальные slug,
   родитель — municipality, центр внутри своего полигона, CHECK локалей.
 
-- `seeds/moderation/content_rules.yaml` — каждое правило компилируется, нет повторов (в том
-  числе по скелету: «кокаин» и «kokain» — одно слово); `rule_examples.yaml` — набор
-  «текст → действие и категории» проходит на этом словаре вместе с детекторами platform/text.
+- `seeds/moderation/content_rules.yaml` — каждое правило проходит ту же проверку, что правка в
+  админке (`compile_rule`; регулярки — движком RE2: шаблон, который RE2 не собирает, — ошибка),
+  нет повторов (в том числе по скелету: «кокаин» и «kokain» — одно слово); `rule_examples.yaml` —
+  набор «текст → действие и категории» проходит на этом словаре вместе с детекторами
+  platform/text.
 
 Модели здесь — входной формат загрузки в БД (`cli seed`): `load_city_seeds` (1.3a),
 `load_catalog_seed` (1.3b) и `load_content_rules_seed` (2.4) превращают файлы в DTO импорта
@@ -22,7 +24,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 import yaml
 from pydantic import (
@@ -54,6 +56,7 @@ from app.modules.moderation.domain.rules import (
     RuleSet,
     compile_rule,
 )
+from app.modules.moderation.infrastructure.rule_examples import ExamplesFile
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.localized import Locale, LocalizedText
 from app.platform.text.normalize import skeleton
@@ -250,20 +253,6 @@ class ContentRules(BaseModel):
 
     version: str
     rules: list[RuleGroup] = Field(min_length=1)
-
-
-class RuleExample(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    text: str = Field(min_length=1)
-    action: RuleAction | Literal["pass"]
-    categories: list[RuleCategory] = Field(default_factory=list)
-
-
-class RuleExamples(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    examples: list[RuleExample] = Field(min_length=1)
 
 
 @dataclass
@@ -483,7 +472,7 @@ def _check_word_length(path: Path, pattern: str, words: str, report: Report) -> 
 
 def check_rule_examples(path: Path, rules: list[ContentRule], report: Report) -> None:
     try:
-        examples = RuleExamples.model_validate(_load_yaml(path))
+        examples = ExamplesFile.model_validate(_load_yaml(path))
     except ValidationError as exc:
         report.errors.extend(_pydantic_errors(path, exc))
         return

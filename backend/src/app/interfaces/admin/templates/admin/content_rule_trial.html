@@ -1,0 +1,66 @@
+{% extends "sqladmin/layout.html" %}
+{# Проба контент-правила (2.7b): проверка seeds-validate, текст сотрудника, прогон по rule_examples.yaml; ничего не пишет #}
+{% block content %}
+<div class="card">
+  <div class="card-header"><h3 class="card-title">Проверить правило</h3></div>
+  <div class="card-body">
+    <div class="alert alert-info" role="note">Ничего не записывает. Регулярка — по скелету текста (латиница в нижнем регистре, без двойных букв), синтаксис RE2. Чтобы проверить правку строки словаря, укажите её ID: в прогоне она заменит прежний вариант.</div>
+    {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+    <form method="POST" class="mb-4">
+      <div class="row">
+        <div class="col-md-2 mb-3"><label class="form-label" for="rule_id">ID строки (правка)</label>
+          <input id="rule_id" name="rule_id" class="form-control" value="{{ form.rule_id }}"></div>
+        <div class="col-md-2 mb-3"><label class="form-label" for="kind">Вид</label>
+          <select id="kind" name="kind" class="form-select">
+            {% for kind in kinds %}<option value="{{ kind }}"{% if form.kind == kind %} selected{% endif %}>{{ kind }}</option>{% endfor %}
+          </select></div>
+        <div class="col-md-4 mb-3"><label class="form-label" for="pattern">Шаблон</label>
+          <input id="pattern" name="pattern" class="form-control font-monospace" value="{{ form.pattern }}"></div>
+        <div class="col-md-2 mb-3"><label class="form-label" for="action">Действие</label>
+          <select id="action" name="action" class="form-select">
+            {% for action in actions %}<option value="{{ action }}"{% if form.action == action %} selected{% endif %}>{{ action }}</option>{% endfor %}
+          </select></div>
+        <div class="col-md-2 mb-3"><label class="form-label" for="category">Категория</label>
+          <select id="category" name="category" class="form-select">
+            {% for category in categories %}<option value="{{ category }}"{% if form.category == category %} selected{% endif %}>{{ category }}</option>{% endfor %}
+          </select></div>
+      </div>
+      <div class="mb-3"><label class="form-label" for="sample">Текст для пробы (необязательно)</label>
+        <textarea id="sample" name="sample" class="form-control" rows="3">{{ form.sample }}</textarea></div>
+      <button type="submit" class="btn btn-primary">Проверить</button>
+    </form>
+    {% if trial %}
+      {% if trial.error %}
+      <div class="alert alert-danger">Правило не примут: {{ trial.error }}</div>
+      {% else %}
+      <div class="alert alert-success">Правило примут: та же проверка, что у сида в seeds-validate.</div>
+      {% if trial.skeleton %}
+      <h4>Проба на тексте</h4>
+      <p>Скелет текста: <code>{{ trial.skeleton }}</code></p>
+      <p>Это правило {% if trial.hit %}<b>сработало</b>{% else %}не сработало{% endif %}.</p>
+      {% if trial.matches %}
+      <ul>{% for match in trial.matches %}<li>{{ match.action.value }} · {{ match.category.value }} · {{ match.source.value }}: <code>{{ match.evidence }}</code></li>{% endfor %}</ul>
+      {% else %}<p>Все правила вместе с этим молчат.</p>{% endif %}
+      {% endif %}
+      <h4>Набор примеров: вердикт меняется у {{ trial.changes | length }} из {{ trial.examples }}</h4>
+      {% if trial.changes %}
+      <table class="table table-vcenter">
+        <thead><tr><th>Текст</th><th>Ждёт набор</th><th>Сейчас</th><th>С правилом</th></tr></thead>
+        <tbody>
+          {% for change in trial.changes %}
+          <tr{% if change.after != change.expected %} class="table-danger"{% endif %}>
+            <td>{{ change.text }}</td>
+            <td><code>{{ change.expected }}</code></td>
+            <td><code>{{ change.before }}</code></td>
+            <td><code>{{ change.after }}</code></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="text-muted">Красным — примеры, которые с правилом разойдутся с набором: `make seeds-validate` проверяет словарь сида, а не правки в админке, поэтому смотрите сюда перед записью.</p>
+      {% endif %}
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

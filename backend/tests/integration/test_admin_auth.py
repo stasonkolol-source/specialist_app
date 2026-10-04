@@ -3,8 +3,9 @@
 2.7a: без кода TOTP не войти, код второй раз не принимается; moderator не видит разделов admin;
 неудачные входы ограничены лимитом. 2.7b: правка категории (и её названия формой LocalizedText)
 пишет аудит и выпускает CatalogChanged (advisory lock — тот же, что у импорта); новое стоп-слово
-действует без перезапуска; регулярку из админки не завести; решение по кейсу — через use case, с
-аудитом. Флаги, client-config, Founding и сиды поверх правки — test_admin_sections.py.
+и регулярка действуют без перезапуска, регулярку проверяет то же, что сид в seeds-validate (RE2),
+страница «Проверить правило» показывает пробу и прогон по набору; решение по кейсу — через use
+case, с аудитом. Флаги, client-config, Founding и сиды поверх правки — test_admin_sections.py.
 
 Данные коммитятся: у каждого теста свои пользователи, логины и адрес клиента (лимиты в Valkey).
 """
@@ -146,28 +147,100 @@ async def test_admin_stop_word_works_without_restart(admin: Admin) -> None:
             "/admin/content-rule-row/create",
             data={
                 "kind": "word",
-                "pattern": word,
+                "pattern": word.upper(),  # слово хранится в нижнем регистре
                 "action": "flag",
                 "category": "scam",
                 "is_active": "y",
             },
         )
         assert created.status_code == 302, created.text[:500]
-        regex = await client.post(
-            "/admin/content-rule-row/create",
-            data={"kind": "regex", "pattern": "a+b", "action": "flag", "category": "scam"},
-        )
-        assert regex.status_code == 400  # регулярки — только из сида
     found = (await rules.current()).check(f"prodajem {word} jeftino").action
     # база общая на прогон: лишнее правило сбило бы счёт сидов в test_moderation_seeds
     engine = await admin.container.get(AsyncEngine)
     async with engine.begin() as conn:
-        await conn.execute(
-            text("DELETE FROM moderation.content_rules WHERE pattern = :word"), {"word": word}
+        deleted = await conn.scalar(
+            text("DELETE FROM moderation.content_rules WHERE pattern = :word RETURNING id"),
+            {"word": word},
         )
     rules.invalidate()
     assert found is not None
+    assert deleted is not None
     assert await audit_count(admin, "moderation.content_rule.created", owner.user_id) == 1
+
+
+REGEX = r"\bkupuj\w* tajn\S* pozornic\w*"
+"""Регулярка по скелету, которой нет в сиде (строка общей базы удаляется в конце теста); `\\S` —
+проверка, что админка не приводит регулярку к нижнему регистру: с `\\s` она бы не сработала."""
+
+
+async def test_admin_regex_rule_is_checked_like_the_seed_and_works_without_restart(
+    admin: Admin,
+) -> None:
+    owner = await staff(admin, "admin")
+    sample = "Kupujem TAJNE pozornice, javite se"
+    rules = await admin.container.get(RuleSource)
+    assert (await rules.current()).check(sample).action is None
+    async with admin.client(_ip()) as client:
+        assert await login(client, owner) == 302
+        for bad, reason in [
+            (r"(\w+\s?)+kupim", "nested quantifiers"),
+            (r"(?<!ne )kupim", "does not compile (RE2)"),  # `re` собрал бы, RE2 — нет
+            (r"\b", "matches an empty text"),
+            ("massage", "double letters"),  # в скелете двойных букв нет: «massage» — это «masage»
+        ]:
+            rejected = await client.post(
+                "/admin/content-rule-row/create",
+                data={"kind": "regex", "pattern": bad, "action": "flag", "category": "spam"},
+            )
+            assert rejected.status_code == 400, bad
+            assert reason in rejected.text, bad
+        trial = await client.post(
+            "/admin/content-rule-trial",
+            data={
+                "kind": "regex",
+                "pattern": REGEX,
+                "action": "flag",
+                "category": "spam",
+                "sample": sample,
+            },
+        )
+        assert trial.status_code == 200
+        assert "Правило примут" in trial.text, trial.text[-800:]
+        assert "kupujem tajne pozornice" in trial.text  # скелет текста пробы
+        assert "сработало" in trial.text
+        created = await client.post(
+            "/admin/content-rule-row/create",
+            data={
+                "kind": "regex",
+                "pattern": REGEX,
+                "action": "flag",
+                "category": "spam",
+                "is_active": "y",
+            },
+        )
+        assert created.status_code == 302, created.text[:500]
+    verdict = (await rules.current()).check(sample)  # снимок сброшен — без перезапуска
+    engine = await admin.container.get(AsyncEngine)
+    async with engine.begin() as conn:
+        origin = await conn.scalar(
+            text(
+                "DELETE FROM moderation.content_rules WHERE kind = 'regex' AND pattern = :p"
+                " RETURNING origin"
+            ),
+            {"p": REGEX},
+        )
+    rules.invalidate()
+    assert [m.evidence for m in verdict.matches] == [REGEX]
+    assert origin == "admin"  # CHECK regex_from_seed снят (moderation_0007)
+    assert await audit_count(admin, "moderation.content_rule.created", owner.user_id) == 1
+
+
+async def test_admin_rule_trial_is_for_admins_only(admin: Admin) -> None:
+    moderator = await staff(admin, "moderator")
+    async with admin.client(_ip()) as client:
+        assert await login(client, moderator) == 302
+        assert "Проверить правило" not in (await client.get("/admin/")).text
+        assert (await client.get("/admin/content-rule-trial")).status_code == 403
 
 
 async def test_admin_case_is_decided_through_use_case(admin: Admin) -> None:
