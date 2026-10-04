@@ -2,7 +2,7 @@
 # Terraform и Kamal — только в официальных образах закреплённых версий: ставить их на Мак не нужно,
 # у владельца и в CI одна и та же версия. Порядок действий — infra/runbooks/stage-bootstrap.md и
 # prod-bootstrap.md.
-.PHONY: tf tf-check kamal db-provision
+.PHONY: tf tf-check kamal db-provision rpo-mark
 
 TF_IMAGE ?= hashicorp/terraform:1.16.5@sha256:c7926feace05d0f7e73542842bf3945924e955a1f782cf000ccbb8d18fa42d77
 KAMAL_IMAGE ?= ghcr.io/basecamp/kamal:v2.12.0@sha256:7b5be276aa17bbe122887f6a1ff12865f4848111989699b9786083be95d98415
@@ -64,3 +64,10 @@ db-provision: ## PostgreSQL на db-1 (3.1b): make db-provision ENV=prod — и�
 	           PGBACKREST_HEALTHCHECK_URL; do \
 	    [ -z "$${!n:-}" ] || printf '%s=%s\n' "$$n" "$${!n}"; \
 	  done; } | $(PROD_DB_SSH) 'bash /opt/sosed/postgres/provision.sh'
+
+# RPO (3.2): строка-маркер на db-1 и ожидание, пока WAL с ней уйдёт в архив pgBackRest. Печатает
+# момент T для PITR и отставание архива (≤ 5 мин) строками КЛЮЧ=значение; restore-test.yml делает то
+# же перед восстановлением и проверяет маркер на временной VM (infra/runbooks/restore.md, «RPO и RTO»).
+rpo-mark: ## RPO на prod (3.2): make rpo-mark ENV=prod — маркер на db-1, T для PITR и отставание архива WAL
+	@test "$(ENV)" = prod || (echo "usage: make rpo-mark ENV=prod"; exit 2)
+	@$(PROD_DB_SSH) 'bash -s' < infra/postgres/rpo-mark.sh
