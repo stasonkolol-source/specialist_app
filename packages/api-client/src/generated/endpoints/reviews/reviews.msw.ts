@@ -9,18 +9,23 @@ import { faker } from '@faker-js/faker';
 import { HttpResponse, http } from 'msw';
 import type { RequestHandlerOptions } from 'msw';
 
-import type { MyReviewsPageOut, ReviewOut } from '../../model';
+import type { MyReviewsPageOut, ReviewInviteOut, ReviewInvitesOut, ReviewOut } from '../../model';
 
 export const getReviewsLeaveReviewResponseMock = (
   overrideResponse: Partial<Extract<ReviewOut, object>> = {},
 ): ReviewOut => ({
   id: faker.string.uuid(),
+  kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
   deal_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
   rating: faker.number.int(),
   criteria: {
     [faker.string.alphanumeric(5)]: faker.number.int(),
   },
   body: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  work_title: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
   status: faker.string.alpha({ length: { min: 10, max: 20 } }),
   created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
   published_at: faker.helpers.arrayElement([
@@ -42,12 +47,17 @@ export const getReviewsReplyToReviewResponseMock = (
   overrideResponse: Partial<Extract<ReviewOut, object>> = {},
 ): ReviewOut => ({
   id: faker.string.uuid(),
+  kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
   deal_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
   rating: faker.number.int(),
   criteria: {
     [faker.string.alphanumeric(5)]: faker.number.int(),
   },
   body: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  work_title: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
   status: faker.string.alpha({ length: { min: 10, max: 20 } }),
   created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
   published_at: faker.helpers.arrayElement([
@@ -70,8 +80,13 @@ export const getReviewsListMyReviewsResponseMock = (
 ): MyReviewsPageOut => ({
   items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     id: faker.string.uuid(),
+    kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
     deal_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
     deal_title: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    work_title: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
       null,
     ]),
@@ -102,6 +117,94 @@ export const getReviewsListMyReviewsResponseMock = (
   })),
   next_cursor: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  ...overrideResponse,
+});
+
+export const getReviewsListReviewInvitesResponseMock = (
+  overrideResponse: Partial<Extract<ReviewInvitesOut, object>> = {},
+): ReviewInvitesOut => ({
+  items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    token: faker.string.uuid(),
+    url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    start_param: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    client_name: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    reviewer_name: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
+    rating: faker.helpers.arrayElement([faker.number.int(), null]),
+    created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+    expires_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+    used_at: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + 'Z', null]),
+    published_at: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + 'Z',
+      null,
+    ]),
+  })),
+  limit: faker.number.int(),
+  taken: faker.number.int(),
+  ...overrideResponse,
+});
+
+export const getReviewsCreateReviewInviteResponseMock = (
+  overrideResponse: Partial<Extract<ReviewInviteOut, object>> = {},
+): ReviewInviteOut => ({
+  token: faker.string.uuid(),
+  url: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  start_param: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  client_name: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  reviewer_name: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  rating: faker.helpers.arrayElement([faker.number.int(), null]),
+  created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  expires_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  used_at: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + 'Z', null]),
+  published_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  ...overrideResponse,
+});
+
+export const getReviewsLeaveInviteReviewResponseMock = (
+  overrideResponse: Partial<Extract<ReviewOut, object>> = {},
+): ReviewOut => ({
+  id: faker.string.uuid(),
+  kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  deal_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  rating: faker.number.int(),
+  criteria: {
+    [faker.string.alphanumeric(5)]: faker.number.int(),
+  },
+  body: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
+  work_title: faker.helpers.arrayElement([
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+    null,
+  ]),
+  status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  published_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  reply: faker.helpers.arrayElement([
+    {
+      body: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+      status: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
     null,
   ]),
   ...overrideResponse,
@@ -174,8 +277,100 @@ export const getReviewsListMyReviewsMockHandler = (
     options,
   );
 };
+
+export const getReviewsListReviewInvitesMockHandler = (
+  overrideResponse?:
+    | ReviewInvitesOut
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<ReviewInvitesOut> | ReviewInvitesOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/me/profile/review-invites',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getReviewsListReviewInvitesResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getReviewsCreateReviewInviteMockHandler = (
+  overrideResponse?:
+    | ReviewInviteOut
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<ReviewInviteOut> | ReviewInviteOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/api/v1/me/profile/review-invites',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getReviewsCreateReviewInviteResponseMock(),
+        { status: 201 },
+      );
+    },
+    options,
+  );
+};
+
+export const getReviewsRevokeReviewInviteMockHandler = (
+  overrideResponse?:
+    void | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    '*/api/v1/me/profile/review-invites/:token',
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === 'function') {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
+export const getReviewsLeaveInviteReviewMockHandler = (
+  overrideResponse?:
+    | ReviewOut
+    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<ReviewOut> | ReviewOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/api/v1/review-invites/:token',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getReviewsLeaveInviteReviewResponseMock(),
+        { status: 201 },
+      );
+    },
+    options,
+  );
+};
 export const getReviewsMock = () => [
   getReviewsLeaveReviewMockHandler(),
   getReviewsReplyToReviewMockHandler(),
   getReviewsListMyReviewsMockHandler(),
+  getReviewsListReviewInvitesMockHandler(),
+  getReviewsCreateReviewInviteMockHandler(),
+  getReviewsRevokeReviewInviteMockHandler(),
+  getReviewsLeaveInviteReviewMockHandler(),
 ];

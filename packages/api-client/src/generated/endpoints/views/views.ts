@@ -27,6 +27,7 @@ import type {
   HistoryPageOut,
   ProblemOut,
   ResponseCardsOut,
+  ReviewInviteFormOut,
   SpecialistProfileOut,
   ViewsListDealHistoryParams,
   ViewsListSpecialistReviewsParams,
@@ -51,6 +52,143 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getViewsGetReviewInviteUrl = (token: string) => {
+  return `/api/v1/review-invites/${token}`;
+};
+
+/**
+ * Форма S56: специалист, который просит отзыв о прошлой работе.
+ * @summary Get Review Invite
+ */
+export const viewsGetReviewInvite = async (
+  token: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ReviewInviteFormOut> => {
+  return apiFetch<ReviewInviteFormOut>(getViewsGetReviewInviteUrl(token), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getViewsGetReviewInviteQueryKey = (token: string) => {
+  return [`/api/v1/review-invites/${token}`] as const;
+};
+
+export const getViewsGetReviewInviteQueryOptions = <
+  TData = Awaited<ReturnType<typeof viewsGetReviewInvite>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  token: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsGetReviewInvite>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getViewsGetReviewInviteQueryKey(token);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof viewsGetReviewInvite>>> = ({ signal }) =>
+    viewsGetReviewInvite(token, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: token !== null && token !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof viewsGetReviewInvite>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+};
+
+export type ViewsGetReviewInviteQueryResult = NonNullable<
+  Awaited<ReturnType<typeof viewsGetReviewInvite>>
+>;
+export type ViewsGetReviewInviteQueryError = ErrorType<ProblemOut>;
+
+export function useViewsGetReviewInvite<
+  TData = Awaited<ReturnType<typeof viewsGetReviewInvite>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  token: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsGetReviewInvite>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsGetReviewInvite>>,
+          TError,
+          Awaited<ReturnType<typeof viewsGetReviewInvite>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsGetReviewInvite<
+  TData = Awaited<ReturnType<typeof viewsGetReviewInvite>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  token: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsGetReviewInvite>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof viewsGetReviewInvite>>,
+          TError,
+          Awaited<ReturnType<typeof viewsGetReviewInvite>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useViewsGetReviewInvite<
+  TData = Awaited<ReturnType<typeof viewsGetReviewInvite>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  token: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsGetReviewInvite>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get Review Invite
+ */
+
+export function useViewsGetReviewInvite<
+  TData = Awaited<ReturnType<typeof viewsGetReviewInvite>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  token: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof viewsGetReviewInvite>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getViewsGetReviewInviteQueryOptions(token, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
 
 export const getViewsGetSpecialistUrl = (profileId: string) => {
   return `/api/v1/specialists/${profileId}`;
@@ -478,8 +616,8 @@ export const getViewsListSpecialistReviewsUrl = (
 };
 
 /**
- * Отзывы S11: рейтинг с гистограммой и опубликованные отзывы по сделкам с ответами,
- * новые первыми (курсор). Вкладка «До платформы» (`kind`) — 7.6.
+ * Отзывы S11: рейтинг с гистограммой и опубликованные отзывы вкладки с ответами, новые
+ * первыми (курсор): по сделкам или «До платформы» (`kind`, 7.6а) — те в рейтинг не входят.
  * @summary List Specialist Reviews
  */
 export const viewsListSpecialistReviews = async (
