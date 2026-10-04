@@ -340,8 +340,9 @@ class AnalyticsSettings(_Group):
     """Personal API key PostHog (K32a). На Маке владельца — scope dashboard и insight на чтение
     и запись для `cli posthog-dashboard`. На stage и prod — отдельный ключ только со scope
     `person:write`: воркер удаляет персону по UserDeleted (2.12b); без него при включённом
-    PostHog удаление — no-op с предупреждением. Ключ проекта (`phc_…`) только принимает события,
-    personal key открывает данные — в чат его не присылают."""
+    PostHog удаление — no-op с предупреждением, а prod с ключом проекта без него не стартует.
+    Ключ проекта (`phc_…`) только принимает события, personal key открывает данные — в чат его
+    не присылают."""
     posthog_project_id: int | None = Field(default=None, ge=1)
     """Id проекта PostHog (Project settings → Project ID): `cli posthog-dashboard` и удаление
     персоны по UserDeleted."""
@@ -352,6 +353,17 @@ class AnalyticsSettings(_Group):
     """Алерт 6.6: response rate@4h за 7 дней ниже порога. 0,70 — цель MVP из PRODUCT (R06)."""
     response_rate_alert_min_jobs: int = Field(default=10, ge=1)
     """Меньше заявок с созревшим окном — алерт молчит: на трёх заявках доля ничего не значит."""
+
+    def deletion_gaps(self) -> list[str]:
+        """События уходят в PostHog, а для удаления персоны (K32a) нет ключа или id проекта:
+        имена недостающих переменных; PostHog выключен или всё задано — пусто."""
+        if self.posthog_api_key is None:
+            return []
+        missing = {
+            "ANALYTICS_POSTHOG_PERSONAL_API_KEY": self.posthog_personal_api_key,
+            "ANALYTICS_POSTHOG_PROJECT_ID": self.posthog_project_id,
+        }
+        return [name for name, value in missing.items() if value is None]
 
     @field_validator("posthog_host")
     @classmethod
@@ -453,6 +465,13 @@ class Settings:
             # фейк молча глотает уведомления: на проде люди перестали бы их получать
             raise SettingsError(
                 "Неверные настройки — TELEGRAM_FAKE_SENDER только для нагрузочного прогона на stage"
+            )
+        if self.app.env is Environment.PRODUCTION and (gaps := self.analytics.deletion_gaps()):
+            # события уходят в PostHog, а удалить персону по UserDeleted нечем (2.12b, K32a):
+            # удаление аккаунта молча не доходило бы до PostHog. На stage — предупреждение (di.py)
+            raise SettingsError(
+                "Настройки неполны — при ANALYTICS_POSTHOG_API_KEY на проде нужны: "
+                + ", ".join(gaps)
             )
 
 
