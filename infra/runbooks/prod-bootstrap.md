@@ -70,13 +70,14 @@ PostgreSQL на `db-1` (3.1b), Cloudflare, деплой, Access и prod-бот (
 
 Нужно: K19 (секреты `production`), K10a (копии), K18 — только при SOPS (по умолчанию не нужен).
 
-1. Пароли ролей — в своём Терминале, без вывода на экран (`make gen-secret` ещё не написан — до него
-   так). Пароля суперпользователя нет: `postgres` входит только локально на `db-1`.
+1. Пароли ролей — в своём Терминале командой `make gen-secret`: значение показывается один раз и
+   лежит в буфере обмена — вставьте в менеджер паролей (K10a) и нажмите Enter; скрипт передаст его в
+   GitHub (`gh secret set --env production`, через stdin) и сотрёт экран и буфер. Пароля
+   суперпользователя нет: `postgres` входит только локально на `db-1`.
    ```
    for n in APP_DB_PASSWORD MIGRATOR_DB_PASSWORD READONLY_DB_PASSWORD BACKUP_DB_PASSWORD; do
-     v=$(openssl rand -hex 32); printf %s "$v" | pbcopy; printf %s "$v" | gh secret set "$n" --env production
-     printf '%s: вставьте из буфера в менеджер паролей и нажмите Enter ' "$n"; read -r _
-   done; unset v; printf x | pbcopy
+     make gen-secret NAME=$n ENV=production || break
+   done
    ```
 2. Variable репозитория `PROD_DEPLOY` = `true` (Settings → Secrets and variables → Actions →
    Variables). С этого момента job `production` в `.github/workflows/deploy.yml` запускается — только
@@ -104,12 +105,12 @@ WAL до шага 3.2 не архивируется (`archive_command = /bin/tru
    cp infra/terraform/zone/zone.tfvars.example infra/terraform/zone/terraform.tfvars   # domain, cloudflare_zone_id
    make tf ENV=zone ARGS='init' && make tf ENV=zone ARGS='apply'
    ```
-   Это Full (strict), Always HTTPS, TLS ≥ 1.2 и custom rules WAF: skip для webhook Telegram на `api.`
-   и `stage-api.`, запрет `/admin` на хостах API.
+   Это Full (strict), Always HTTPS, TLS ≥ 1.2 и custom rules WAF: skip для webhook Telegram на `bot.`
+   и `stage-bot.` (только с адресов Bot API), запрет `/admin` на хостах API.
 2. `make secret NAME=CLOUDFLARE_API_TOKEN TARGET=tf-prod`; в `infra/terraform/prod/terraform.tfvars`:
    `cloudflare_enabled = true`, `domain`, `cloudflare_account_id`, `cloudflare_zone_id`; затем
    `make tf ENV=prod ARGS='plan'` и `ARGS='apply'`.
-3. Сертификат Origin CA для kamal-proxy (`api.` и `admin.`) — сразу в секреты, минуя экран:
+3. Сертификат Origin CA для kamal-proxy (`api.`, `bot.` и `admin.`) — сразу в секреты, минуя экран:
    ```
    make tf ENV=prod ARGS='output -raw origin_certificate_pem' < /dev/null | gh secret set KAMAL_PROXY_SSL_CERT --env production
    make tf ENV=prod ARGS='output -raw origin_private_key_pem' < /dev/null | gh secret set KAMAL_PROXY_SSL_KEY --env production
@@ -118,7 +119,8 @@ WAL до шага 3.2 не архивируется (`archive_command = /bin/tru
    `sosed-prod-media`, `sosed-prod-private` → `gh secret set S3_ACCESS_KEY_ID --env production` и
    `S3_SECRET_ACCESS_KEY`.
 5. Variables environment `production`: `PROD_DOMAIN`, `CLOUDFLARE_ACCOUNT_ID`.
-6. Проверка: `dig +short api.<домен>` — адреса Cloudflare; повторный `plan` — «No changes».
+6. Проверка: `dig +short api.<домен>` и `dig +short bot.<домен>` — адреса Cloudflare; повторный
+   `plan` — «No changes».
 
 ## 4. Prod-бот и секреты приложения (3.1c)
 
@@ -127,7 +129,7 @@ WAL до шага 3.2 не архивируется (`archive_command = /bin/tru
 
 1. Variables `production`: `PROD_BOT_USERNAME` (без @), `PROD_MODERATORS_CHAT_ID` (K29, `-100…`; пока
    пусто — кейсы решают командами `cli`), `SENTRY_DSN`, `TMA_SENTRY_DSN`.
-2. Случайные секреты — как в разделе 2, тем же циклом с именами
+2. Случайные секреты — как в разделе 2, тем же циклом `make gen-secret` с именами
    `APP_HASH_KEY TELEGRAM_WEBHOOK_SECRET APP_ADMIN_SESSION_KEY`. `APP_HASH_KEY` после первого запуска
    не менять.
 3. Ключи JWT — через образ, во временный файл (как на stage):
@@ -139,10 +141,11 @@ WAL до шага 3.2 не архивируется (`archive_command = /bin/tru
    `ci-wrangler` (K12), по желанию `AI_OPENAI_API_KEY`, `AI_ANTHROPIC_API_KEY`. Без `--body` `gh`
    спросит значение скрыто.
 
-Бот на проде принимает апдейты webhook (ADR-0011): `api.<домен>/integrations/telegram/…` с
-`secret_token` = `TELEGRAM_WEBHOOK_SECRET`. Режим (`TELEGRAM_UPDATES=webhook`) и маршрут роли `bot` в
-kamal-proxy включаются в `infra/kamal/deploy.yml` вместе со stage, когда код webhook (0.25e) в main —
-до этого бот работает long polling.
+Бот на проде принимает апдейты webhook (ADR-0011, 0.25e) на своём хосте:
+`https://bot.<домен>/integrations/telegram/webhook` с `secret_token` = `TELEGRAM_WEBHOOK_SECRET`
+(`TELEGRAM_UPDATES` и `TELEGRAM_WEBHOOK_BASE_URL` — в `infra/kamal/deploy.production.yml`, маршрут —
+роль `bot` в kamal-proxy). Webhook процесс выставляет сам при каждом старте; откат на long polling —
+`TELEGRAM_UPDATES: polling` и `proxy: false` у роли `bot` в `deploy.production.yml`, затем деплой.
 
 ## 5. Первый релиз (3.1c)
 
@@ -154,10 +157,12 @@ kamal-proxy включаются в `infra/kamal/deploy.yml` вместе со s
    `make tf ENV=prod ARGS='apply'`.
 4. Сиды справочников — в контейнере web: `ssh root@<PROD_HOST> 'docker exec $(docker ps -qf label=role=web | head -1) sosed cli seed'`.
    Демо-данных (`seed-demo`) на prod нет.
-5. Профиль бота и кнопка меню: тем же способом `sosed cli bot-setup --env production`.
+5. Профиль бота, кнопка меню и webhook (с очередью и последней ошибкой доставки): тем же способом
+   `sosed cli bot-setup --env production`.
 6. Проверка:
    ```
    curl -s https://api.<домен>/up
+   curl -s -o /dev/null -w '%{http_code}\n' -X POST https://bot.<домен>/integrations/telegram/webhook   # 401
    curl -si https://app.<домен>/api/v1/client-config | head -1
    PROD_HOST=<ip> PROD_DB_IP=10.20.1.20 make pg-smoke ENV=prod
    ```
