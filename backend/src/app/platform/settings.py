@@ -107,6 +107,16 @@ class TelegramSettings(_Group):
     use_test_environment: bool = False
     support_username: str | None = None
     """Аккаунт поддержки для /help (K23, Q25), без `@`; пусто — «контакт появится скоро»."""
+    moderators_chat_id: int | None = None
+    """Закрытый чат модераторов (K29, 2.5b): туда бот присылает карточки кейсов. Id группы —
+    отрицательный (`-100…`); пусто — карточек нет, кейсы решают командами `cli`."""
+
+    @field_validator("moderators_chat_id", mode="before")
+    @classmethod
+    def _moderators_chat_id(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     @field_validator("support_username")
     @classmethod

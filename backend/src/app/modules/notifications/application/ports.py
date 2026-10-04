@@ -40,7 +40,7 @@ from app.platform.contracts.events.jobs import (
     ResponseSubmitted,
 )
 from app.platform.contracts.events.messaging import MessageSent
-from app.platform.contracts.events.moderation import ModerationDecisionMade
+from app.platform.contracts.events.moderation import AppealDecided, ModerationDecisionMade
 from app.platform.contracts.events.reviews import ReviewPublished, ReviewRequested
 from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.kernel.ids import UserId
@@ -209,6 +209,9 @@ NOTIFY_PROFILE_PUBLISHED: Final = TaskRef(
 )
 NOTIFY_MODERATION_DECISION: Final = TaskRef(
     "notifications.notify_moderation_decision", ModerationDecisionMade, queue="notifications"
+)
+NOTIFY_APPEAL_DECIDED: Final = TaskRef(
+    "notifications.notify_appeal_decided", AppealDecided, queue="notifications"
 )
 NOTIFY_JOB_EXPIRING: Final = TaskRef(
     "notifications.notify_job_expiring", JobExpiring, queue="notifications"

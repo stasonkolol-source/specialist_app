@@ -58,7 +58,7 @@ class AiogramTelegramSender:
             await _wait(await self._limiter.reserve_bot(within=HORIZON))
         try:
             sent = await self._bot.send_message(
-                chat_id=message.chat_id, text=message.text, reply_markup=_keyboard(message.buttons)
+                chat_id=message.chat_id, text=message.text, reply_markup=keyboard(message.buttons)
             )
         except TelegramRetryAfter as exc:
             await self._limiter.pause(exc.retry_after)
@@ -88,7 +88,8 @@ async def _wait(slot: Slot) -> None:
         await asyncio.sleep(slot.wait)
 
 
-def _keyboard(lines: tuple[ButtonLine, ...]) -> InlineKeyboardMarkup | None:
+def keyboard(lines: tuple[ButtonLine, ...]) -> InlineKeyboardMarkup | None:
+    """Ряды кнопок порта — клавиатура aiogram (и для правки сообщения ботом модуля)."""
     if not lines:
         return None
     rows = [line if isinstance(line, tuple) else (line,) for line in lines]

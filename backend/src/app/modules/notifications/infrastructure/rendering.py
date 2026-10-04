@@ -236,6 +236,8 @@ class GettextNotificationRenderer:
         if type_ is NotificationType.REVIEW_REQUEST:
             return message, self._review_buttons(params, link, locale)
         label = BUTTONS.get(type_)
+        if params.get("entity_type") == "appeal":  # итог апелляции: исправлять нечего
+            label = "notifications.appeal_decided.button"
         if label is None or link is None or self._mini_app is None:
             return message, ()
         button = AppButton(text=self._t(label, locale), url=mini_app_url(self._mini_app, link))
@@ -557,6 +559,8 @@ class GettextNotificationRenderer:
 
     def _moderation_decision(self, params: Mapping[str, str], locale: Locale) -> RenderedText:
         entity = params.get("entity_type", "")
+        if entity == "appeal":
+            return self._appeal_decided(params, locale)
         code = params.get("decision_code") or "other"
         if code in PROHIBITED:
             code = "prohibited"
@@ -580,6 +584,24 @@ class GettextNotificationRenderer:
                 "notifications.moderation_decision.title.other",
             ),
             body=" ".join(parts),
+        )
+
+    def _appeal_decided(self, params: Mapping[str, str], locale: Locale) -> RenderedText:
+        """Итог апелляции (2.5b): санкция снята — или решение в силе, с причиной."""
+        if params.get("appeal") == "granted":
+            return RenderedText(
+                title=self._t("notifications.appeal_decided.title.granted", locale),
+                body=self._t("notifications.appeal_decided.body.granted", locale),
+            )
+        code = params.get("decision_code") or "other"
+        reason = self._first(
+            locale,
+            f"notifications.appeal_reason.{code}",
+            "notifications.appeal_reason.other",
+        )
+        return RenderedText(
+            title=self._t("notifications.appeal_decided.title.denied", locale),
+            body=self._t("notifications.appeal_decided.body.denied", locale, reason=reason),
         )
 
     def _t(self, key: str, locale: Locale, **params: object) -> str:

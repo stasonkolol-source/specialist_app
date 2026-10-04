@@ -44,7 +44,9 @@ NEEDS_CONSENT: Final = frozenset({Action.POST, Action.RESPOND, Action.MESSAGE})
 def ensure_allowed(restrictions: list[Restriction], action: Action, now: datetime) -> None:
     found = blocking(restrictions, BLOCKED_BY[action], now)
     if found is not None:
-        raise RestrictedError(restriction=found.kind.value, until=found.ends_at)
+        raise RestrictedError(
+            restriction=found.kind.value, until=found.ends_at, reason=found.reason_code
+        )
 
 
 class AccessChecker:
