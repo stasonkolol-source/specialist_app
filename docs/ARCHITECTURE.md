@@ -1497,9 +1497,12 @@ CREATE TABLE reviews.reviews (
   created_at         timestamptz NOT NULL DEFAULT now(),
   updated_at         timestamptz NOT NULL DEFAULT now(),
   deleted_at         timestamptz,
+  work_title         text CHECK (char_length(work_title) <= 120),  -- «что делал мастер»: отзыв до платформы (7.6а)
   CHECK (kind = 'pre_platform' OR deal_id IS NOT NULL)
 );
 CREATE UNIQUE INDEX ON reviews.reviews (deal_id, author_id) WHERE deal_id IS NOT NULL AND deleted_at IS NULL;
+CREATE UNIQUE INDEX ON reviews.reviews (subject_profile_id, author_id)   -- один отзыв до платформы от человека на профиль
+  WHERE kind = 'pre_platform' AND deleted_at IS NULL;
 -- kind='pre_platform': «отзыв до платформы» по приглашению специалиста (≤ 5 на профиль),
 -- отдельная метка и вкладка, в rating_aggregates не входит (ADR-0016)
 CREATE INDEX ON reviews.reviews (subject_profile_id, published_at DESC) WHERE status = 'published';
@@ -1514,15 +1517,19 @@ CREATE TABLE reviews.review_requests (  -- просьба оставить от�
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE reviews.review_invites (   -- приглашение прошлому клиенту на «отзыв до платформы» (Should MVP)
-  token       text PRIMARY KEY,           -- случайный токен ссылки
+CREATE TABLE reviews.review_invites (   -- приглашение прошлому клиенту на «отзыв до платформы» (Should MVP, 7.6а)
+  token       uuid PRIMARY KEY,           -- секрет ссылки ri_<base62>: случайный UUIDv4 (secrets)
   profile_id  uuid NOT NULL REFERENCES specialists.profiles(id),
+  client_name text CHECK (char_length(client_name) <= 60),  -- кому отправлена: заметка для S55
   created_at  timestamptz NOT NULL DEFAULT now(),
   expires_at  timestamptz NOT NULL,       -- 30 дней
   used_by     uuid REFERENCES identity.users(id),
-  used_at     timestamptz
+  used_at     timestamptz,
+  review_id   uuid REFERENCES reviews.reviews(id),  -- отзыв по ссылке: один
+  CHECK ((used_by IS NULL) = (used_at IS NULL) AND (used_by IS NULL) = (review_id IS NULL))
 );
--- не больше 5 использованных приглашений на профиль — проверка в приложении
+-- не больше 5 занятых мест на профиль (ждущие отзыва и использованные) — проверка в приложении
+-- под advisory lock профиля; отозванная ссылка удаляется
 
 CREATE TABLE reviews.rating_aggregates (   -- пересчитывается по событиям; читает search и BFF
   subject_profile_id uuid PRIMARY KEY REFERENCES specialists.profiles(id),
@@ -2461,7 +2468,7 @@ sequenceDiagram
 | `GET /specialists/by-category?city_id=` 🔓 | Видимые специалисты города по категориям (с подкатегориями) — дерево S04; кэш 5 минут |
 | `GET /specialists/{id}` 🔓 | Публичный профиль S08 одним запросом (BFF `interfaces/http/views`): профиль, первые три позиции прайса и три работы, рейтинг, бейджи; ETag, `max-age=60`. Скрытый, снятый санкцией или удалённый профиль — 404 без объяснения, как в поиске |
 | `GET /specialists/{id}/services` 🔓, `GET /specialists/{id}/portfolio` 🔓 | Весь прайс с группами (S09) и все готовые работы (S10) одним ответом: прайс — до 50 позиций, работ — в пределах лимита портфолио |
-| `GET /specialists/{id}/reviews?cursor&limit` 🔓 | Отзывы S11 (BFF): рейтинг с гистограммой и средними по критериям из `reviews.rating_aggregates`; опубликованные отзывы по сделкам с ответами специалиста, новые первыми, автор — «Имя Ф.» (7.2); вкладка «До платформы» (`kind`) — 7.6. Скрытый профиль — 404 |
+| `GET /specialists/{id}/reviews?kind&cursor&limit` 🔓 | Отзывы S11 (BFF): рейтинг с гистограммой и средними по критериям из `reviews.rating_aggregates`; опубликованные отзывы вкладки с ответами специалиста, новые первыми, автор — «Имя Ф.» (7.2): `kind=deal` (по умолчанию) — по сделкам, `kind=pre_platform` — «До платформы» с `work_title` (7.6а); `pre_platform_count` — число для вкладки. Скрытый профиль — 404 |
 | `GET /me/favorites`, `PUT /me/favorites/profile/{id}`, `DELETE /me/favorites/profile/{id}` | Избранное: «мои мастера» S12 — карточки, как в выдаче, только видимые в каталоге, новые первыми; до 100 (`favorites_full`); повтор и удаление отсутствующего — без ошибки |
 | `GET /me/favorites/jobs`, `PUT /me/favorites/job/{id}`, `DELETE /me/favorites/job/{id}` | Сохранённые заявки (5.3): сердечко S15, сегмент «Задачи» S12 — карточки, как в ленте, только открытые (опубликована, публична, срок не вышел), новые сохранения первыми; сохранить можно видимую опубликованную (иначе 404); до 100 (`saved_jobs_full`); повтор и удаление отсутствующего — без ошибки. Модуль `jobs` (`jobs.saved_jobs`): карточка и видимость заявки — у него |
 | `GET /me/saved-searches`, `POST /me/saved-searches`, `DELETE /me/saved-searches/{id}` | v1: сохранённые поиски с уведомлением |
@@ -2482,7 +2489,7 @@ sequenceDiagram
 | `POST /me/profile/portfolio`, `PATCH /me/profile/portfolio/{id}`, `DELETE /me/profile/portfolio/{id}` | Портфолио |
 | `GET /me/profile/stats` | Просмотры, обращения, отклики, конверсия (v1) |
 | `POST /me/profile/declaration` | v1: декларация исполнителя — `trader_status`, право работать в Сербии, налоги |
-| `POST /me/profile/review-invites` | Ссылка-приглашение прошлому клиенту на «отзыв до платформы» (не больше 5 на профиль) |
+| `POST /me/profile/review-invites`, `GET /me/profile/review-invites`, `DELETE /me/profile/review-invites/{token}` | Ссылки-приглашения прошлым клиентам на «отзыв до платформы» (S55, 7.6а): только у опубликованного профиля (409 `review_invites_unavailable`), 30 дней, не больше 5 занятых мест — ждущие отзыва и использованные (409 `review_invites_full`); список — со статусом (`waiting`, `expired`, `under_review`, `published`, `removed`), кто оставил отзыв и `taken` из `limit`; отозвать — только неиспользованную (409 `review_invite_used`), чужую — 404. Ссылка — `t.me/<bot>?startapp=ri_<base62>` |
 
 **media**
 
@@ -2533,7 +2540,7 @@ sequenceDiagram
 | `POST /deals/{id}/dispute/respond`, `/dispute/withdraw` | Ответ второй стороны (один, и после 48 ч, пока нет решения) и отзыв спора открывшим — сделка снова `agreed` (6.1c) |
 | `POST /deals/{id}/review` | Оставить отзыв (S27): клиент по сделке `completed`, не позже 14 дней, один раз — иначе 409 `review_not_allowed` (`not_completed`, `window_closed`, `not_client`) или `review_exists`; оценка, критерии, текст; виден после автопроверки; фото — v1 |
 | `POST /reviews/{id}/reply` | Публичный ответ того, о ком отзыв: один (409 `reply_exists`), виден после своей проверки |
-| `GET /review-invites/{token}` 🔓, `POST /review-invites/{token}` | Форма «отзыва до платформы» по приглашению (вход через Telegram обязателен, отдельная метка, в рейтинг не входит) |
+| `GET /review-invites/{token}` 🔓, `POST /review-invites/{token}` | Форма «отзыва до платформы» по приглашению S56 (7.6а): `GET` — BFF `interfaces/http/views/review_invite.py`: специалист (имя, фото, «коротко о себе», категории) и `is_own`; `POST` — вход через Telegram обязателен: оценка, `work_title`, текст, `confirmed`; ждёт модератора (всегда человек), отдельная метка, в рейтинг не входит. Отозванная, истёкшая, использованная, несуществующая ссылка и профиль вне каталога — одинаковые 404; о себе — 409 `own_profile_review`; второй отзыв о том же специалисте — 409 `pre_platform_review_exists` |
 | `GET /me/reviews?direction=received\|written` | Мои отзывы (S28): полученные — опубликованные, со своим ответом и `can_reply`; написанные — в любом статусе |
 
 **messaging**
