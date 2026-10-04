@@ -265,6 +265,8 @@ jobs:
       JWT_KEYS: ${{ secrets.JWT_KEYS }}
       APP_HASH_KEY: ${{ secrets.APP_HASH_KEY }}
       APP_ADMIN_SESSION_KEY: ${{ secrets.APP_ADMIN_SESSION_KEY }}
+      APP_TOTP_KEY: ${{ secrets.APP_TOTP_KEY }}
+      APP_TOTP_KEY_PREVIOUS: ${{ secrets.APP_TOTP_KEY_PREVIOUS }}
       S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
       S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
       AI_OPENAI_API_KEY: ${{ secrets.AI_OPENAI_API_KEY }}
@@ -283,6 +285,12 @@ jobs:
           for name in PROD_HOST PROD_DB_IP PROD_DOMAIN PROD_BOT_USERNAME; do
             [ -n "${!name}" ] || { echo "::error::нет переменной $name в environment production"; exit 1; }
           done
+          # с админкой без ключа шифрования TOTP (8.4) процессы не стартуют — останавливаемся до kamal
+          if [ -n "$ADMIN_HOST" ]; then
+            for name in APP_ADMIN_SESSION_KEY APP_TOTP_KEY; do
+              [ -n "${!name}" ] || { echo "::error::PROD_ADMIN_PUBLISHED: нет секрета $name в environment production (make gen-secret)"; exit 1; }
+            done
+          fi
 
       - uses: actions/checkout@v7.0.1
         with:

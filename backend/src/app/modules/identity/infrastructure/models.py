@@ -278,7 +278,9 @@ class UserBlockRow(Base):
 class StaffCredentialRow(TimestampsMixin, Base):
     """Вход персонала в админку (2.7a): логин, хэш argon2 и секрет TOTP. Роли — user_roles.
 
-    `totp_last_step` — шаг TOTP (30 с) последнего входа: тот же код второй раз не принимается.
+    `totp_secret` — зашифрован ключом APP_TOTP_KEY (`v1:…`, 8.4); строки до 8.4 — открытый base32
+    до первого входа или `cli staff-totp-reencrypt`. `totp_last_step` — шаг TOTP (30 с)
+    последнего входа: тот же код второй раз не принимается.
     """
 
     __tablename__ = "staff_credentials"
@@ -286,7 +288,7 @@ class StaffCredentialRow(TimestampsMixin, Base):
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
     login: Mapped[str] = mapped_column(String(64))
     password_hash: Mapped[str] = mapped_column(String(255))
-    totp_secret: Mapped[str] = mapped_column(String(64))
+    totp_secret: Mapped[str] = mapped_column(String(255))
     totp_last_step: Mapped[int | None] = mapped_column(BigInteger)
 
     __table_args__ = (

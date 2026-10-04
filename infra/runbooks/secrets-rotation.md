@@ -26,6 +26,7 @@
 | Refresh-сессии | — (БД) | при утечке ключей или токенов — отозвать сессии: `identity.sessions` → `revoked_at = now()` | Mini App перевходит по initData | Пользователь в Mini App этого не заметит: вход по initData автоматический |
 | Пароли ролей БД | `DB_DSN`, `DB_MIGRATOR_DSN` | `ALTER ROLE app PASSWORD …` (значение — из `make gen-secret`, не в историю psql) | `/up`, `alembic current` | Старый пароль перестаёт работать сразу: сначала секреты, затем `ALTER ROLE`, затем boot |
 | Ключ HMAC | `APP_HASH_KEY` | **не ротируется** планово: смена «забудет» хэши удалённых аккаунтов | — | При утечке — новый ключ и принять потерю антифрод-хэшей (12 мес) |
+| Ключ секретов TOTP персонала | `APP_TOTP_KEY`, `APP_TOTP_KEY_PREVIOUS` | раздел 1.1 | вход в админку; повторный `cli staff-totp-reencrypt` — «0 re-encrypted», код 0 | Без прежнего ключа секреты под ним не расшифровать — входа нет, сотрудникам заново `cli staff-create`. Утекли ключ **и** БД (дамп, бэкап) — ротации мало: новые TOTP всем (`staff-create`) |
 | Ключи R2 / S3 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Cloudflare → R2 → API Tokens: новый токен на бакеты окружения, старый удалить | загрузка фото, превью | presigned-ссылки старого ключа умирают (живут 5 мин) |
 | OpenAI / Anthropic | `AI_OPENAI_API_KEY`, `AI_ANTHROPIC_API_KEY` | консоль провайдера → новый ключ в проекте окружения, старый Revoke | `cli ai-smoke` | Лимиты расходов проекта сохраняются |
 | Sentry DSN | `SENTRY_DSN` | Sentry → Client Keys → новый, старый Disable | тестовое событие | — |
@@ -37,6 +38,24 @@
 | age-ключ SOPS | — | новый ключ, `sops updatekeys`, перешифровать файлы, старый удалить | `sops -d` в файл, не в терминал | — |
 
 Переменные — как в `backend/.env.example`; если имя там другое, верно `.env.example`.
+
+### 1.1. Ключ секретов TOTP персонала (`APP_TOTP_KEY`)
+
+Секреты TOTP персонала лежат в `identity.staff_credentials` зашифрованными (AES-256-GCM, 8.4); у
+каждой записи — id ключа. Текущий ключ шифрует, прежний (`APP_TOTP_KEY_PREVIOUS`) только
+расшифровывает, поэтому ротация — без простоя и без новых TOTP:
+
+1. Прежнее значение `APP_TOTP_KEY` — из менеджера паролей (K10a) в `APP_TOTP_KEY_PREVIOUS`:
+   `make secret NAME=APP_TOTP_KEY_PREVIOUS TARGET=production`.
+2. Новое: `make gen-secret NAME=APP_TOTP_KEY ENV=production` и релиз (`deploy`).
+3. Перешифровать все строки сразу, не дожидаясь входа каждого сотрудника (удачный вход
+   перешифровывает и сам):
+   `ssh root@<PROD_HOST> 'docker exec $(docker ps -qf label=role=web | head -1) sosed cli staff-totp-reencrypt'`.
+   Код 1 и список id — их секреты не расшифровать ни одним ключом: этим сотрудникам `cli staff-create`.
+4. Повторный запуск — «0 re-encrypted». Тогда убрать прежний ключ:
+   `gh secret delete APP_TOTP_KEY_PREVIOUS --env production` и следующий релиз.
+
+Та же команда переводит строки до 8.4 (секрет открытым текстом, dev-базы) в шифр текущим ключом.
 
 ## 2. K43 перед публичным запуском
 

@@ -107,6 +107,16 @@ async def login(client: httpx.AsyncClient, who: Staff, *, code: str | None = Non
     return (await client.post("/admin/login", data=form)).status_code
 
 
+async def stored_totp_secret(admin: Admin, user_id: UserId) -> str:
+    """Секрет TOTP сотрудника, как он лежит в БД (8.4: шифротекст `v1:…`)."""
+    async with (await admin.engine()).connect() as conn:
+        stored = await conn.scalar(
+            text("SELECT totp_secret FROM identity.staff_credentials WHERE user_id = :id"),
+            {"id": user_id},
+        )
+    return str(stored)
+
+
 async def audit_count(admin: Admin, action: str, actor: UserId) -> int:
     async with (await admin.engine()).connect() as conn:
         found = await conn.scalar(

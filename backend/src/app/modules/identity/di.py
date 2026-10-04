@@ -1,5 +1,6 @@
 """Сборка модуля identity для dishka (ADR-0020 §7)."""
 
+import hashlib
 from datetime import timedelta
 
 from dishka import Provider, Scope, provide
@@ -22,6 +23,7 @@ from app.modules.identity.application.ports import (
     SessionRevocations,
     StaffCredentials,
     StaffSecrets,
+    TotpSecretCipher,
     UserRepository,
 )
 from app.modules.identity.application.staff_auth import StaffAuthService
@@ -40,6 +42,9 @@ from app.modules.identity.application.use_cases.logout import Logout
 from app.modules.identity.application.use_cases.process_deletions import ProcessDeletions
 from app.modules.identity.application.use_cases.purge_identity_hashes import PurgeIdentityHashes
 from app.modules.identity.application.use_cases.record_completed_deal import RecordCompletedDeal
+from app.modules.identity.application.use_cases.reencrypt_staff_totp_secrets import (
+    ReencryptStaffTotpSecrets,
+)
 from app.modules.identity.application.use_cases.refresh_session import RefreshSession
 from app.modules.identity.application.use_cases.register_telegram_user import (
     RegisterTelegramUser,
@@ -66,10 +71,22 @@ from app.modules.identity.infrastructure.repositories import (
     SqlSessionRepository,
     SqlUserRepository,
 )
-from app.modules.identity.infrastructure.staff import PwdlibStaffSecrets, SqlStaffCredentials
+from app.modules.identity.infrastructure.staff import (
+    AesGcmTotpCipher,
+    PwdlibStaffSecrets,
+    SqlStaffCredentials,
+)
 from app.platform.security.denylist import SessionDenylist
 from app.platform.security.jwt import AccessTokens
-from app.platform.settings import AppSettings, JwtSettings, TelegramSettings
+from app.platform.security.secretbox import SecretBox
+from app.platform.settings import (
+    AppSettings,
+    Environment,
+    JwtSettings,
+    SettingsError,
+    TelegramSettings,
+    key_bytes,
+)
 
 
 def bot_id_of(token: str) -> int | None:
@@ -80,6 +97,20 @@ def bot_id_of(token: str) -> int | None:
 
 DEV_HASH_KEY = b"sosed-dev-hash-key"
 """Ключ HMAC хэшей удалённых аккаунтов без APP_HASH_KEY — только dev и тесты."""
+DEV_TOTP_KEY = hashlib.sha256(b"sosed-dev-totp-key").digest()
+"""Ключ шифрования секретов TOTP персонала без APP_TOTP_KEY — только dev и тесты."""
+
+
+def totp_box(app: AppSettings) -> SecretBox:
+    """Ключи секретов TOTP персонала (8.4): APP_TOTP_KEY и на время ротации APP_TOTP_KEY_PREVIOUS.
+    На stage и проде без ключа входа персонала нет: с включённой админкой не стартует Settings,
+    а `cli staff-create` и `staff-totp-reencrypt` получают отказ здесь."""
+    previous = key_bytes(app.totp_key_previous) if app.totp_key_previous else None
+    if app.totp_key is not None:
+        return SecretBox(key_bytes(app.totp_key), previous)
+    if app.env in (Environment.STAGE, Environment.PRODUCTION):
+        raise SettingsError("Настройки неполны — не задан APP_TOTP_KEY: вход персонала выключен")
+    return SecretBox(DEV_TOTP_KEY, previous)
 
 
 class IdentityProvider(Provider):
@@ -102,6 +133,10 @@ class IdentityProvider(Provider):
     @provide(scope=Scope.APP)
     def issuer(self, tokens: AccessTokens) -> AccessTokenIssuer:
         return tokens
+
+    @provide(scope=Scope.APP)
+    def totp_cipher(self, app: AppSettings) -> TotpSecretCipher:
+        return AesGcmTotpCipher(totp_box(app))
 
     @provide(scope=Scope.APP)
     def revocations(self, denylist: SessionDenylist) -> SessionRevocations:
@@ -141,6 +176,7 @@ class IdentityProvider(Provider):
     staff_credentials = provide(SqlStaffCredentials, provides=StaffCredentials)
     staff_secrets = provide(PwdlibStaffSecrets, provides=StaffSecrets, scope=Scope.APP)
     create_staff_login = provide(CreateStaffLogin)
+    reencrypt_staff_totp_secrets = provide(ReencryptStaffTotpSecrets)
     staff_auth = provide(StaffAuthService, provides=StaffAuth)
     impose_restriction = provide(ImposeRestriction)
     lift_restriction = provide(LiftRestriction)
