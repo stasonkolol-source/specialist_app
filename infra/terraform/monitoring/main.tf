@@ -59,13 +59,13 @@ locals {
   # /up отвечает и web, и bot (kamal-proxy healthcheck); Mini App — статика Workers, её корень
   checks = merge(
     var.prod_enabled ? {
-      "prod-api"     = { name = "prod: API /up", url = "https://api.${var.domain}/up", tags = ["production", "api"] }
-      "prod-bot"     = { name = "prod: бот /up", url = "https://bot.${var.domain}/up", tags = ["production", "bot"] }
+      "prod-api"      = { name = "prod: API /up", url = "https://api.${var.domain}/up", tags = ["production", "api"] }
+      "prod-bot"      = { name = "prod: бот /up", url = "https://bot.${var.domain}/up", tags = ["production", "bot"] }
       "prod-mini-app" = { name = "prod: Mini App", url = "https://app.${var.domain}/", tags = ["production", "mini-app"] }
     } : {},
     var.stage_enabled ? {
-      "stage-api"     = { name = "stage: API /up", url = "https://stage-api.${var.domain}/up", tags = ["stage", "api"] }
-      "stage-bot"     = { name = "stage: бот /up", url = "https://stage-bot.${var.domain}/up", tags = ["stage", "bot"] }
+      "stage-api"      = { name = "stage: API /up", url = "https://stage-api.${var.domain}/up", tags = ["stage", "api"] }
+      "stage-bot"      = { name = "stage: бот /up", url = "https://stage-bot.${var.domain}/up", tags = ["stage", "bot"] }
       "stage-mini-app" = { name = "stage: Mini App", url = "https://stage-app.${var.domain}/", tags = ["stage", "mini-app"] }
     } : {},
   )
