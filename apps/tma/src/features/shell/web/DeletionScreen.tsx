@@ -10,7 +10,7 @@ import { Button, Card, Heading, Icon, NumIcon, Text } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 import { useId } from 'react';
 
-import { telegramLink } from './paths.ts';
+import { telegramLink } from './links.ts';
 
 const DELETION_START = 'm_deletion';
 const APP_STEPS = ['open', 'settings', 'confirm'] as const;

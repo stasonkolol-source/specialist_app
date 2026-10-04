@@ -7,8 +7,8 @@ import { usePlatform } from '@sosed/platform';
 import { Navigate, useParams, useRouter } from '@tanstack/react-router';
 
 import { OpenInTelegram } from './OpenInTelegram.tsx';
-import type { WebEntity } from './paths.ts';
-import { ENTITY_PATHS, entityId, entityStart } from './paths.ts';
+import type { WebEntity } from './links.ts';
+import { ENTITY_PATHS, entityId, entityStart } from './links.ts';
 
 /** Код startapp главной (packages/links). */
 const HOME_START = 'h';

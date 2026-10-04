@@ -1,26 +1,18 @@
 // Что открыто вне Telegram (DEVELOPMENT_PLAN 8.1): гостевой просмотр карточки специалиста S08–S11 и
 // заявки S15, веб-ссылки `/s/…`, `/j/…`, «Как удалить аккаунт» и правовые документы S48. Остальные
 // экраны браузер не показывает (каталог, вход, создание — v1): вместо них — «Открыть в Telegram» с
-// кодом startapp того же экрана (обратное routes/startapp.ts). Оболочка браузера — своим чанком.
+// кодом startapp того же экрана (обратное routes/startapp.ts). Грузится вместе с оболочкой
+// браузера (routes/shell.tsx): в Telegram этот код не качается.
 import type { StartLink } from '@sosed/links';
 import { encodeStartParam, isUuid } from '@sosed/links';
-import { usePlatform } from '@sosed/platform';
 import type { AnyRouteMatch } from '@tanstack/react-router';
-import { lazy, Suspense } from 'react';
 
 import { ACCOUNT_PATHS } from '../features/account/index.ts';
 import { CARD_PATHS } from '../features/catalog/index.ts';
 import { CREATE_PATHS, JOBS_PATHS } from '../features/jobs/index.ts';
 import { MESSAGES_PATHS } from '../features/messages/index.ts';
 import { LEGAL_PATH } from '../features/service/s48-legal/paths.ts';
-import { AppShell } from '../features/shell/index.ts';
 import { WEB_PATHS } from '../features/shell/web/paths.ts';
-
-const BrowserShell = lazy(() =>
-  import('../features/shell/web/BrowserShell.tsx').then((module) => ({
-    default: module.BrowserShell,
-  })),
-);
 
 /** Код startapp главной. */
 const HOME_START = 'h';
@@ -88,15 +80,4 @@ export function browserStart(match: Match | undefined): string | null {
   const build = LINKS.find(([routeId]) => routeId === match.routeId)?.[1];
   const link = build?.(param, (match.search ?? {}) as Record<string, unknown>);
   return link ? encodeStartParam(link) : HOME_START;
-}
-
-/** Корневой экран: в Telegram — оболочка с таббаром, в браузере — своя (чанк грузится только там). */
-export function RootShell() {
-  const platform = usePlatform();
-  if (platform.kind !== 'browser') return <AppShell />;
-  return (
-    <Suspense fallback={null}>
-      <BrowserShell blockedStart={browserStart} />
-    </Suspense>
-  );
 }

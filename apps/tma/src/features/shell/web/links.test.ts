@@ -1,7 +1,7 @@
 import { uuidToBase62 } from '@sosed/links';
 import { describe, expect, it } from 'vitest';
 
-import { entityId, entityStart, telegramLink } from './paths.ts';
+import { entityId, entityStart, telegramLink } from './links.ts';
 
 const ID = '0199cc00-0000-7000-8000-000000000001';
 

@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest';
 
 import { CARD_PATHS } from '../features/catalog/index.ts';
 import { JOBS_PATHS } from '../features/jobs/index.ts';
-import { ENTITY_PATHS } from '../features/shell/web/paths.ts';
-import { BROWSER_ROUTES, browserStart } from './browser.tsx';
+import { ENTITY_PATHS } from '../features/shell/web/links.ts';
+import { BROWSER_ROUTES, browserStart } from './browser.ts';
 import { routeTree } from './tree.tsx';
 
 const ID = '0199cc00-0000-7000-8000-000000000001';

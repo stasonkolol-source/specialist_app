@@ -38,7 +38,7 @@ import { HELP_PATH } from '../features/service/s47-help/paths.ts';
 import { LEGAL_PATH } from '../features/service/s48-legal/paths.ts';
 import { RESTRICTED_PATH } from '../features/service/s49-system/index.ts';
 import { WEB_PATHS } from '../features/shell/web/paths.ts';
-import { RootShell } from './browser.tsx';
+import { RootShell } from './shell.tsx';
 import type { RouterContext } from './guards.ts';
 import { requireConsent, requireUser } from './guards.ts';
 
@@ -62,7 +62,7 @@ function screen<K extends string>(
 }
 
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
-  // вне Telegram — браузерная оболочка (8.1, routes/browser.tsx)
+  // вне Telegram — браузерная оболочка (8.1, routes/shell.tsx)
   component: RootShell,
   // Неизвестный путь (устаревшая ссылка, опечатка) — на главную, а не пустой экран
   notFoundComponent: () => <Navigate to="/" replace />,

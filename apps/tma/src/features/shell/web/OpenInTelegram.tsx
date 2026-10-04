@@ -6,7 +6,8 @@ import { Banner, Button, EmptyState, LinkButton, Text } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 import type { MouseEvent } from 'react';
 
-import { WEB_PATHS, telegramLink } from './paths.ts';
+import { telegramLink } from './links.ts';
+import { WEB_PATHS } from './paths.ts';
 
 export interface OpenInTelegramProps {
   /** Код startapp экрана. */
