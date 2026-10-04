@@ -1,4 +1,4 @@
-// Worker Mini App (DEVELOPMENT_PLAN 0.25d). wrangler не в package.json (lock и audit не трогаем):
+// Worker Mini App (DEVELOPMENT_PLAN 0.25d, 3.1c). wrangler не в package.json (lock и audit не трогаем):
 //   pnpm -F tma build && npx wrangler@4.147.0 deploy --config infra/workers/tma/wrangler.jsonc \
 //     --env stage --var API_ORIGIN:https://stage-api.<домен>
 // Домен stage-app.<домен> привязывает Terraform (cloudflare_workers_custom_domain, K12): маршрутов
@@ -19,5 +19,7 @@
   "observability": { "enabled": true },
   "env": {
     "stage": { "name": "sosed-tma-stage" },
+    // prod (3.1c): app.<домен> → Worker sosed-tma-production, API_ORIGIN — https://api.<домен>
+    "production": { "name": "sosed-tma-production" },
   },
 }

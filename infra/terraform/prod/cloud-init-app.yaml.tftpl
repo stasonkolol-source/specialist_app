@@ -1,0 +1,42 @@
+#cloud-config
+# Первая загрузка app-1 (3.1a): как VM stage, но без БД — она на db-1. Docker из официального
+# репозитория, сеть «kamal» с фиксированной подсетью (её web доверяет как своему прокси —
+# APP_TRUSTED_PROXIES), SSH только по ключу, swap на пики, автообновления безопасности.
+# Действует только при создании VM (ignore_changes в hetzner.tf).
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - unattended-upgrades
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/10-sosed.conf
+    permissions: "0644"
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin prohibit-password
+  - path: /etc/docker/daemon.json
+    permissions: "0644"
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": { "max-size": "20m", "max-file": "5" }
+      }
+
+runcmd:
+  - systemctl reload ssh
+  - fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+  - echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  - sysctl -w vm.swappiness=10 && echo 'vm.swappiness=10' > /etc/sysctl.d/90-sosed.conf
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin
+  - systemctl enable --now docker
+  # Kamal создаёт сеть «kamal» сам, если её нет, — со случайной подсетью; заранее созданную он
+  # принимает как есть
+  - docker network create --subnet ${docker_network_cidr} kamal
