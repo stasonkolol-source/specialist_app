@@ -41,6 +41,10 @@ from app.platform.kernel.money import Money
 SCHEMA = "catalog"
 metadata = module_metadata(SCHEMA)
 
+IMPORT_LOCK = 0x636174616C6F6721
+"""pg_advisory_xact_lock справочника категорий: «catalog!» в hex. Берут импорт `cli seed`
+(writer.py) и правка в админке (admin/views.py, 2.7b), чтобы не перетереть друг друга."""
+
 
 class Base(ModelBase):
     __abstract__ = True

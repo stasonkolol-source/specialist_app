@@ -1,6 +1,7 @@
 """Порты модуля identity (ADR-0020 §3, §5)."""
 
 from collections.abc import Collection, Iterable, Mapping
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Final, Protocol
 
@@ -125,6 +126,63 @@ class RoleRepository(Protocol):
         ...
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StaffCredential:
+    """Вход сотрудника (identity.staff_credentials)."""
+
+    user_id: UserId
+    login: str
+    password_hash: str
+    totp_secret: str
+    totp_last_step: int | None
+
+
+class StaffCredentials(Protocol):
+    """Входы персонала — простая запись (2.7a)."""
+
+    async def by_login(self, login: str) -> StaffCredential | None:
+        """Вход по логину (без учёта регистра), если аккаунт не удалён; строка заблокирована до
+        конца транзакции: два входа с одним кодом TOTP идут по очереди, второй увидит шаг."""
+        ...
+
+    async def by_user(self, user_id: UserId) -> StaffCredential | None:
+        """Вход сотрудника, если аккаунт не удалён."""
+        ...
+
+    async def save(self, credential: StaffCredential) -> bool:
+        """Создать или заменить вход сотрудника; True — заменён. Нужен активный UoW.
+        StaffLoginTakenError — логин занят другим сотрудником."""
+        ...
+
+    async def use_step(self, user_id: UserId, step: int) -> None:
+        """Запомнить шаг принятого кода TOTP. Нужен активный UoW."""
+        ...
+
+
+class StaffSecrets(Protocol):
+    """Пароли и TOTP персонала (argon2, RFC 6238) — библиотеки в инфраструктуре."""
+
+    def hash_password(self, password: str) -> str: ...
+
+    def verify_password(self, password: str, password_hash: str) -> bool:
+        """Проверка с постоянным временем; повреждённый хэш — False."""
+        ...
+
+    def dummy_verify(self) -> None:
+        """Проверка «вхолостую», когда логина нет: время ответа не выдаёт, есть ли логин."""
+        ...
+
+    def new_totp_secret(self) -> str: ...
+
+    def totp_uri(self, secret: str, login: str) -> str:
+        """otpauth:// для приложения-аутентификатора (QR или ввод вручную)."""
+        ...
+
+    def totp_step(self, secret: str, code: str, now: datetime) -> int | None:
+        """Шаг (30 с), которому соответствует код, с допуском ±1 шаг; не подходит — None."""
+        ...
+
+
 class ConsentRepository(Protocol):
     """Журнал согласий — простая запись (ADR-0020 §5): правило одно — без дублей."""
 
@@ -175,6 +233,11 @@ class RestrictionRepository(Protocol):
     async def lift_for_case(self, case_id: CaseId, *, now: datetime) -> list[UserId]:
         """Снять неснятые санкции кейса (`lifted_at`): пользователь каждой снятой (по одному на
         санкцию). Нужен активный UoW."""
+        ...
+
+    async def lift(self, restriction_id: RestrictionId, *, now: datetime) -> UserId | None:
+        """Снять одну неснятую санкцию (админка, 2.7b): чья она; None — нет такой или уже
+        снята. Нужен активный UoW."""
         ...
 
 

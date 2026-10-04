@@ -145,3 +145,15 @@ class AccessView:
     """Нет согласия с действующими версиями правил, 18+ или политики: нужен S02c."""
     allowed: frozenset[Action]
     """Действия, которые не запрещены санкциями и согласиями."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StaffCredentialsSet:
+    """Итог `cli staff-create`: секрет TOTP показывается один раз и нигде не хранится, кроме БД."""
+
+    user_id: UserId
+    login: str
+    totp_secret: str
+    totp_uri: str
+    replaced: bool
+    """True — у сотрудника уже был вход: пароль и TOTP заменены."""
