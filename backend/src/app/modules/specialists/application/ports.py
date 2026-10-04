@@ -36,6 +36,18 @@ class ProfileRepository(Protocol):
         """Профили с истёкшим «доступен сегодня» — пропуская занятые другими (SKIP LOCKED)."""
         ...
 
+    async def stale(
+        self, *, updated_before: datetime, reminded_before: datetime, now: datetime, limit: int
+    ) -> list[tuple[ProfileId, UserId]]:
+        """Опубликованные профили, не менявшиеся с `updated_before` (правка, «доступен
+        сегодня» — любое изменение строки), сейчас не «доступные» и не в отпуске, которым не
+        напоминали после `reminded_before`, — пропуская занятые (SKIP LOCKED)."""
+        ...
+
+    async def mark_reminded(self, profile_ids: Collection[ProfileId], at: datetime) -> None:
+        """Отметить напоминание, не меняя `updated_at` и версию: отметка — не правка профиля."""
+        ...
+
 
 class ProfileQuery(Protocol):
     async def of_user(self, user_id: UserId) -> ProfileView | None:

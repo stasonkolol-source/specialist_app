@@ -1,5 +1,6 @@
 """Чтение notifications без блокировок (ADR-0020 §4, §5): центр, доставки, настройки."""
 
+from collections.abc import Collection
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -10,7 +11,11 @@ from app.modules.notifications.application.dto import (
     NotificationRecord,
 )
 from app.modules.notifications.domain.channel import ChannelKind
-from app.modules.notifications.domain.notification import DeliveryId, NotificationId
+from app.modules.notifications.domain.notification import (
+    DeliveryId,
+    DeliveryStatus,
+    NotificationId,
+)
 from app.modules.notifications.domain.settings import NotificationSettings
 from app.modules.notifications.infrastructure.models import (
     ChannelRow,
@@ -78,6 +83,7 @@ class SqlNotificationQuery(SqlQuery):
                 c.id.label("channel_id"),
                 c.address,
                 c.disabled_at,
+                d.provider_message_id,
             )
             .join_from(DeliveryRow, NotificationRow, d.notification_id == n.id)
             .join(ChannelRow, d.channel_id == c.id)
@@ -98,6 +104,7 @@ class SqlNotificationQuery(SqlQuery):
             link=row["payload"].get("link"),
             urgent=bool(row["payload"].get("urgent", False)),
             valid_until=valid_until_of(row["payload"]),
+            provider_message_id=row["provider_message_id"],
         )
 
     async def deliveries_of(self, notification_id: NotificationId) -> list[DeliveryId]:
@@ -141,3 +148,27 @@ class SqlNotificationQuery(SqlQuery):
             granted_at=row["granted_at"],
             disabled_at=row["disabled_at"],
         )
+
+    async def sent_with_prefix(self, dedupe_prefix: str) -> list[DeliveryId]:
+        d, n = DeliveryRow.__table__.c, NotificationRow.__table__.c
+        # префикс ключа — по уникальному btree dedupe_key (коллация C.UTF-8 — LIKE 'x%' по индексу)
+        rows = await self._fetch(
+            select(d.id)
+            .join_from(DeliveryRow, NotificationRow, d.notification_id == n.id)
+            .where(
+                n.dedupe_key.startswith(dedupe_prefix, autoescape=True),
+                d.status == DeliveryStatus.SENT,
+                d.provider_message_id.is_not(None),
+            )
+            .order_by(d.id)
+        )
+        return [DeliveryId(row["id"]) for row in rows]
+
+    async def digest_hours(self, user_ids: Collection[UserId]) -> dict[UserId, int]:
+        if not user_ids:
+            return {}
+        s = UserSettingsRow.__table__.c
+        rows = await self._fetch(
+            select(s.user_id, s.digest_hour).where(s.user_id.in_(list(user_ids)))
+        )
+        return {UserId(row["user_id"]): int(row["digest_hour"]) for row in rows}

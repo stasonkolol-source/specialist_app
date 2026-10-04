@@ -24,6 +24,9 @@
   специалистов; `POST /specialists/{id}/requests` (Idempotency-Key) — заявка с
   `visibility = direct`, видна только приглашённому. Открытие заявки не владельцем считается
   просмотром (`views_count` — владельцу).
+- Подписки на новые заявки (5.7): `GET`, `POST` (Idempotency-Key), `PATCH` и `DELETE
+  /me/job-alerts` — http/alerts.py; лента и счётчик с `feed=alerts` — только заявки, подходящие
+  включённым подпискам вошедшего (гостю — 401).
 - Выбор исполнителя (6.1a): `POST /responses/{id}/accept` — отклик принят, остальные «не
   выбран», заявка «в работе», в той же транзакции — сделка `agreed` (deals); `…/shortlist` —
   «в избранные»; `…/decline` — отклонить, место освобождается. Только владельцу заявки и только
@@ -31,7 +34,8 @@
 Лимиты новичка — в use case (§13.3); лента и счётчик — 60 / 120 запросов в минуту.
 """
 
-from typing import Annotated, Final
+from dataclasses import replace
+from typing import Annotated, Final, Literal
 from uuid import UUID
 
 import structlog
@@ -118,6 +122,7 @@ from app.modules.jobs.domain.job import CloseReason, JobId, JobStatus, Urgency
 from app.modules.jobs.domain.response import ResponseId
 from app.modules.jobs.domain.template import TemplateId
 from app.modules.jobs.errors import JobNotFoundError, ResponseNotFoundError
+from app.modules.jobs.http.alerts import alerts
 from app.modules.jobs.http.schemas import (
     AcceptedOut,
     InvitesIn,
@@ -148,7 +153,7 @@ from app.platform.http.concurrency import IfMatch, set_etag
 from app.platform.http.idempotency import idempotent_router
 from app.platform.http.ratelimit import GuestOrUserRateLimit
 from app.platform.http.security import AUTHENTICATED, optional_principal
-from app.platform.kernel.errors import DomainValidationError
+from app.platform.kernel.errors import DomainValidationError, NotAuthenticatedError
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, UserId
 from app.platform.kernel.localized import Locale
@@ -276,6 +281,7 @@ async def request_specialist(
 
 
 router.include_router(creating)
+router.include_router(alerts)
 
 
 def feed_filters(
@@ -317,6 +323,21 @@ def feed_filters(
 
 
 Feed = Annotated[FeedFilters, Depends(feed_filters)]
+FeedMode = Annotated[
+    Literal["alerts"] | None,
+    Query(description="alerts — «по моим подпискам» (5.7): только вошедшему"),
+]
+
+
+def _with_mode(
+    filters: FeedFilters, feed: Literal["alerts"] | None, viewer: Principal | None
+) -> FeedFilters:
+    """«По моим подпискам» — заявки, подходящие включённым подпискам зрителя; гостю — 401."""
+    if feed is None:
+        return filters
+    if viewer is None:
+        raise NotAuthenticatedError
+    return replace(filters, alerts_of=viewer.user_id)
 
 
 @router.get("/jobs", response_model=JobsPageOut, dependencies=feed_limit)
@@ -327,11 +348,13 @@ async def list_jobs(
     browse: FromDishka[BrowseJobs],
     cursor: Annotated[str | None, Query(max_length=512)] = None,
     limit: Annotated[int, Query(ge=1, le=FEED_MAX_LIMIT)] = DEFAULT_LIMIT,
+    feed: FeedMode = None,
 ) -> JobsPageOut:
-    """Лента 🔓 (S13): опубликованные заявки города, свежие сверху; свои и скрытые — нет."""
+    """Лента 🔓 (S13): опубликованные заявки города, свежие сверху; свои и скрытые — нет;
+    `feed=alerts` — по моим подпискам."""
     page = await browse(
         BrowseJobsCommand(
-            filters=filters,
+            filters=_with_mode(filters, feed, viewer),
             viewer_id=viewer.user_id if viewer is not None else None,
             page=PageRequest(limit=limit, cursor=cursor),
         )
@@ -350,11 +373,13 @@ async def count_jobs(
     new_hours: Annotated[
         int | None, Query(ge=1, le=MAX_NEW_HOURS, description="Только опубликованные за часы")
     ] = None,
+    feed: FeedMode = None,
 ) -> JobsCountOut:
-    """Сколько заявок с фильтрами 🔓: «Показать N» S14, «N новых задач рядом» на Главной."""
+    """Сколько заявок с фильтрами 🔓: «Показать N» S14, «N новых задач рядом» на Главной;
+    `feed=alerts` — по моим подпискам."""
     found = await count(
         CountJobsCommand(
-            filters=filters,
+            filters=_with_mode(filters, feed, viewer),
             viewer_id=viewer.user_id if viewer is not None else None,
             new_hours=new_hours,
         )

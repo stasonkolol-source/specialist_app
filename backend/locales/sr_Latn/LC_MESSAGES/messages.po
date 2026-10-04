@@ -184,7 +184,7 @@ msgid "bot.language.need_start"
 msgstr "Prvo pritisnite /start."
 
 msgid "bot.fallback"
-msgstr "Razumem komande:\n/app — otvori aplikaciju\n/new — novi zahtev\n/jobs — moji zahtevi\n/help — pomoć i podrška\n/language — jezik"
+msgstr "Razumem komande:\n/app — otvori aplikaciju\n/new — novi zahtev\n/jobs — moji zahtevi\n/feed — zahtevi po pretplatama\n/alerts — pretplate na zahteve\n/help — pomoć i podrška\n/language — jezik"
 
 msgid "bot.commands.app"
 msgstr "Otvori aplikaciju"
@@ -1104,3 +1104,201 @@ msgstr "Bot aplikacije „Sosedi“ može da vam piše: ovde stižu ponude, poru
 
 msgid "notifications.system_test.button"
 msgstr "Otvori „Sosedi“"
+
+msgid "errors.invalid_job_alert"
+msgstr "Proverite pretplatu: kategorije, kvart ili poluprečnik, budžet."
+
+msgid "errors.job_alert_not_found"
+msgstr "Pretplata nije pronađena: obrisana je."
+
+msgid "errors.job_alerts_full"
+msgstr "Već imate najviše pretplata ({limit}) — obrišite jednu da biste dodali novu."
+
+msgid "bot.commands.feed"
+msgstr "Zahtevi po pretplatama"
+
+msgid "bot.commands.alerts"
+msgstr "Pretplate na zahteve"
+
+msgid "bot.alerts.hidden"
+msgstr "Sakriveno: ovaj zahtev se više neće pojavljivati u vašoj lenti."
+
+msgid "bot.alerts.inactive"
+msgstr "Pretplata je isključena — uključite je u pretplatama."
+
+msgid "bot.alerts.paused_one"
+msgstr "Pretplata „{alert}“ je pauzirana do {until}."
+
+msgid "bot.alerts.resumed_one"
+msgstr "Pretplata „{alert}“ ponovo šalje zahteve."
+
+msgid "bot.alerts.paused_today"
+msgstr "Pretplate su pauzirane do kraja dana."
+
+msgid "bot.alerts.paused_week"
+msgstr "Pretplate su pauzirane na nedelju dana."
+
+msgid "bot.alerts.resumed"
+msgstr "Pauza je skinuta — zahtevi će ponovo stizati."
+
+msgid "bot.alerts.header"
+msgstr "<b>Pretplate na zahteve</b>"
+
+msgid "bot.alerts.line"
+msgstr "• <b>{alert}</b> — {state} · za nedelju: {count}"
+
+msgid "bot.alerts.state.instant"
+msgstr "odmah"
+
+msgid "bot.alerts.state.digest"
+msgstr "jednom dnevno"
+
+msgid "bot.alerts.state.paused"
+msgstr "pauza do {until}"
+
+msgid "bot.alerts.state.off"
+msgstr "isključena"
+
+msgid "bot.alerts.name_more"
+msgstr "{alert} i još {count}"
+
+msgid "bot.alerts.empty"
+msgstr "<b>Još nemate pretplate</b>\nPodesite pretplatu — novi zahtevi za vaše usluge stizaće ovde odmah ili u pregledu jednom dnevno."
+
+msgid "bot.alerts.setup"
+msgstr "Podesi pretplate"
+
+msgid "bot.alerts.pause_today"
+msgstr "Pauza za danas"
+
+msgid "bot.alerts.pause_week"
+msgstr "Pauza na nedelju"
+
+msgid "bot.alerts.resume"
+msgstr "Skini pauzu"
+
+msgid "bot.alerts.pause"
+msgstr "Pauziraj pretplatu"
+
+msgid "bot.alerts.unpause"
+msgstr "Skini pauzu"
+
+msgid "bot.feed.header"
+msgstr "<b>Zahtevi po pretplatama</b>"
+
+msgid "bot.feed.line"
+msgstr "• <b>{title}</b> — {budget}"
+
+msgid "bot.feed.negotiable"
+msgstr "po dogovoru"
+
+msgid "bot.feed.fixed"
+msgstr "{amount} RSD"
+
+msgid "bot.feed.up_to"
+msgstr "do {amount} RSD"
+
+msgid "bot.feed.no_alerts"
+msgstr "<b>Još nemate pretplate</b>\nPodesite pretplatu — ovde će se pojaviti odgovarajući zahtevi."
+
+msgid "bot.feed.empty"
+msgstr "Trenutno nema otvorenih zahteva po vašim pretplatama — javićemo čim stignu."
+
+msgid "bot.feed.open"
+msgstr "Otvori lentu"
+
+msgid "notifications.job_matched.title"
+msgstr "Novi zahtev u blizini"
+
+msgid "notifications.job_matched.title_alert"
+msgstr "Novi zahtev po pretplati"
+
+msgid "notifications.job_matched.slots"
+msgstr "Ponuda {count} od {max}"
+
+msgid "notifications.job_matched.alert"
+msgstr "pretplata „{alert}“"
+
+msgid "notifications.job_matched.alert_more"
+msgstr "pretplata „{alert}“ i još {count}"
+
+msgid "notifications.job_matched.negotiable"
+msgstr "Po dogovoru"
+
+msgid "notifications.job_matched.range"
+msgstr "{min}–{max} RSD"
+
+msgid "notifications.job_matched.unit.hour"
+msgstr "po satu"
+
+msgid "notifications.job_matched.unit.m2"
+msgstr "po m²"
+
+msgid "notifications.job_matched.unit.visit"
+msgstr "po dolasku"
+
+msgid "notifications.job_matched.unit.item"
+msgstr "po komadu"
+
+msgid "notifications.job_matched.unit.lesson"
+msgstr "po času"
+
+msgid "notifications.job_matched.urgency.asap"
+msgstr "hitno"
+
+msgid "notifications.job_matched.urgency.today"
+msgstr "danas"
+
+msgid "notifications.job_matched.urgency.this_week"
+msgstr "ove nedelje"
+
+msgid "notifications.job_matched.urgency.flexible"
+msgstr "kad vam odgovara"
+
+msgid "notifications.job_matched.today"
+msgstr "danas"
+
+msgid "notifications.job_matched.tomorrow"
+msgstr "sutra"
+
+msgid "notifications.job_matched.open"
+msgstr "Otvori zahtev"
+
+msgid "notifications.job_matched.template"
+msgstr "Ponuda šablonom „{title}“"
+
+msgid "notifications.job_matched.hide"
+msgstr "Nije zanimljivo"
+
+msgid "notifications.job_matched.pause"
+msgstr "Pauziraj pretplatu"
+
+msgid "notifications.job_matched.closed"
+msgstr "Prijem ponuda je zatvoren"
+
+msgid "notifications.job_digest.title"
+msgstr "Pregled zahteva"
+
+msgid "notifications.job_digest.body_one"
+msgstr "Novi zahtevi po pretplati „{alert}“: {count}."
+
+msgid "notifications.job_digest.body_many"
+msgstr "Novi zahtevi po pretplatama: {count}."
+
+msgid "notifications.job_digest.line"
+msgstr "• „{alert}“ — {count}"
+
+msgid "notifications.job_digest.button"
+msgstr "Otvori lentu"
+
+msgid "notifications.profile_stale_reminder.title"
+msgstr "Klijenti traže stručnjake"
+
+msgid "notifications.profile_stale_reminder.body"
+msgstr "Profil dugo nije ažuriran. Uključite „Dostupni ste danas“ — klijenti će videti da ste spremni da preuzmete zahtev — ili ažurirajte profil."
+
+msgid "notifications.profile_stale_reminder.available"
+msgstr "Uključi „Dostupni ste danas“"
+
+msgid "notifications.profile_stale_reminder.profile"
+msgstr "Ažuriraj profil"

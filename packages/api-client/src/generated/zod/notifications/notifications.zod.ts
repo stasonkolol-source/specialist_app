@@ -50,6 +50,7 @@ export const NotificationsListNotificationsResponse = zod.object({
         id: zod.uuid(),
         type: zod.enum([
           'job.matched',
+          'job.digest',
           'response.received',
           'response.accepted',
           'response.not_selected',

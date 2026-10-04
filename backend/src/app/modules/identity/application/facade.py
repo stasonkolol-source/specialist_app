@@ -12,7 +12,7 @@ from app.modules.identity.api import (
     TelegramUserView,
     UserSummary,
 )
-from app.modules.identity.application.access import AccessChecker
+from app.modules.identity.application.access import BLOCKED_BY, AccessChecker
 from app.modules.identity.application.ports import (
     Blocks,
     IdentityQuery,
@@ -127,6 +127,18 @@ class IdentityFacade(IdentityApi):
             if found is not None:
                 hidden[user_id] = found.ends_at
         return hidden
+
+    async def barred(self, user_ids: Collection[UserId], action: Action) -> frozenset[UserId]:
+        if not user_ids:
+            return frozenset()
+        now = self._clock.now()
+        active = await self._query.active_restrictions(user_ids, now)
+        kinds = BLOCKED_BY[action]
+        return frozenset(
+            user_id
+            for user_id in user_ids
+            if user_id not in active or blocking(active[user_id], kinds, now) is not None
+        )
 
     async def blocked_ids(self, user_id: UserId) -> frozenset[UserId]:
         return await self._blocks.related(user_id)

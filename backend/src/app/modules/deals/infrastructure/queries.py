@@ -223,6 +223,15 @@ class SqlDisputeQueries(SqlQuery):
         }
         return frozenset(held)
 
+    async def disputed(self, deal_ids: Collection[DealId]) -> frozenset[DealId]:
+        wanted = list(set(deal_ids))
+        if not wanted:
+            return frozenset()
+        rows = await self._fetch(
+            select(_P.deal_id).where(_P.status.in_(_ACTIVE_DISPUTE), _P.deal_id.in_(wanted))
+        )
+        return frozenset(DealId(row["deal_id"]) for row in rows)
+
 
 def _dispute_view(row: Mapping[Any, Any]) -> DisputeView:
     return DisputeView(

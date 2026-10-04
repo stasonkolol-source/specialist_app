@@ -559,6 +559,35 @@ async def _founding_mark(telegram_id: int) -> FoundingMarked | None:
         await container.close()
 
 
+@app.command("export-user-data")
+def export_user_data(
+    user: Annotated[str, typer.Argument(help="id пользователя (UUID) или его Telegram id")],
+    *,
+    output: Annotated[Path | None, typer.Option(help="Файл JSON; по умолчанию — в stdout")] = None,
+    note: Annotated[
+        str | None, typer.Option(help="Основание: номер обращения в поддержку — в audit_log")
+    ] = None,
+) -> None:
+    """Выгрузить данные пользователя по запросу (ZZPL, ответ — в 30 дней; DEVELOPMENT_PLAN 2.12b).
+
+    JSON с разделами всех модулей и ссылками на файлы (живут сутки); выгрузка пишется в
+    audit_log. Порядок работы поддержки — infra/runbooks/data-export.md.
+    """
+    from app.entrypoints._export_cli import export_user_data as run_export
+
+    outcome = asyncio.run(run_export(user, note=note))
+    if outcome is None:
+        typer.echo(f"export-user-data: no such user: {user}", err=True)
+        raise typer.Exit(code=1)
+    text = json.dumps(outcome, ensure_ascii=False, indent=2) + "\n"
+    if output is None:
+        typer.echo(text, nl=False)
+        return
+    output.write_text(text, encoding="utf-8")
+    sections = ", ".join(outcome["sections"])
+    typer.echo(f"{output}: user {outcome['user_id']}, sections: {sections}")
+
+
 class DemoScale(StrEnum):
     SMALL = "small"
     LAB = "lab"

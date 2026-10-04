@@ -70,10 +70,12 @@ PLATFORM_TASKS: tuple[str, ...] = ("app.platform.analytics.tasks",)
 
 
 def load_module_tasks() -> None:
-    """Импортировать tasks.py модулей и платформы: @task и @subscriber заполняют TASKS."""
+    """Импортировать tasks.py модулей и платформы: @task и @subscriber заполняют TASKS, а
+    privacy.py модулей — правила хранения и разделы выгрузки (platform/privacy, 2.12b)."""
     for package in _module_packages():
-        if importlib.util.find_spec(f"{package}.tasks") is not None:
-            importlib.import_module(f"{package}.tasks")
+        for part in ("tasks", "privacy"):
+            if importlib.util.find_spec(f"{package}.{part}") is not None:
+                importlib.import_module(f"{package}.{part}")
     for name in PLATFORM_TASKS:
         importlib.import_module(name)
 

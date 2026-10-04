@@ -1,32 +1,40 @@
 // S21 «Заявка опубликована» (DEVELOPMENT_PLAN 5.2): итог публикации — опубликована сразу или на
-// проверке (обычно минуты). Если боту нельзя писать — контекстный запрос «Сообщать об откликах?»:
-// requestWriteAccess клиента Telegram, затем POST /me/telegram/write-access. MainButton «К заявке»
-// — своя заявка S23 (5.6). Опубликованной сразу — «Пригласите специалистов» из каталога (5.6);
-// прямой запрос — «Запрос отправлен». «Поделиться в чат» — 7.4. Число уведомлённых исполнителей
-// появится с подписками (5.7).
+// проверке (обычно минуты). Если боту нельзя писать — контекстный запрос «Сообщать об откликах?»
+// (shared/BotChannel.tsx). MainButton «К заявке» — своя заявка S23 (5.6). Опубликованной сразу —
+// «Пригласите специалистов» из каталога (5.6); прямой запрос — «Запрос отправлен». «Поделиться в
+// чат» — 7.4. Подписчикам заявка уходит сразу после публикации (5.7): пока число уведомлённых не
+// пришло, экран перечитывает заявку пару раз и показывает «Уведомили N исполнителей рядом».
 import type { JobOut } from '@sosed/api-client';
-import {
-  getNotificationsGetNotificationSettingsQueryKey,
-  notificationsGrantTelegramWriteAccess,
-  useNotificationsGetNotificationSettings,
-} from '@sosed/api-client';
 import { useJob } from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
-import { useBackButton, usePlatform } from '@sosed/platform';
-import { Banner, Button, Card, EmptyState, Heading, Icon, Text } from '@sosed/ui-web';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useBackButton } from '@sosed/platform';
+import { EmptyState, Heading, Icon, Text } from '@sosed/ui-web';
 import { useRouter, useSearch } from '@tanstack/react-router';
-import { useId } from 'react';
+import { useEffect, useId } from 'react';
 
+import { BotChannel } from '../shared/BotChannel.tsx';
 import { InviteList } from '../shared/InviteList.tsx';
 import { useStepButton } from '../shared/flow.ts';
 import { CREATE_PATHS, HOME_PATH, managePath } from '../shared/paths.ts';
+
+/** Подписчиков считает задача после публикации: через пару секунд число уже есть. */
+const NOTIFIED_RETRY_MS = [2_000, 6_000];
 
 export function PublishedScreen() {
   const { t } = useTranslation('jobs');
   const router = useRouter();
   const { job: jobId } = useSearch({ from: CREATE_PATHS.done });
   const job = useJob(jobId ?? null);
+  const { refetch } = job;
+  const counting =
+    job.data?.status === 'published' &&
+    job.data.visibility !== 'direct' &&
+    (job.data.notified_count ?? 0) === 0;
+  useEffect(() => {
+    if (!counting) return undefined;
+    const timers = NOTIFIED_RETRY_MS.map((delay) => window.setTimeout(() => void refetch(), delay));
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [counting, refetch]);
   const toJob = () =>
     void router.navigate(
       jobId ? { to: managePath(jobId), replace: true } : { to: HOME_PATH, replace: true },
@@ -51,6 +59,7 @@ function Published({ job }: { job: JobOut }) {
   const published = job.status === 'published';
   const direct = job.visibility === 'direct';
   const inviteId = useId();
+  const notified = job.notified_count ?? 0;
   const title = direct
     ? 'published.titleDirect'
     : published
@@ -72,9 +81,21 @@ function Published({ job }: { job: JobOut }) {
         <Heading variant="h2" as="h1">
           {t(title)}
         </Heading>
-        <Text secondary>{t(text)}</Text>
+        <Text secondary>
+          {published && !direct && notified > 0
+            ? t('published.notified', { count: notified })
+            : t(text)}
+        </Text>
       </div>
-      <BotChannel />
+      <BotChannel
+        texts={{
+          title: t('published.notifyTitle'),
+          text: t('published.notifyText'),
+          allow: t('published.notifyAllow'),
+          on: t('published.notifyOn'),
+          denied: t('published.notifyDenied'),
+        }}
+      />
       {published && !direct && (
         <section aria-labelledby={inviteId} className="flex flex-col gap-2">
           <div className="flex flex-col gap-1 px-1">
@@ -87,57 +108,5 @@ function Published({ job }: { job: JobOut }) {
         </section>
       )}
     </section>
-  );
-}
-
-/** Боту нельзя писать (канала нет или бота остановили) — предложить разрешить. */
-function BotChannel() {
-  const { t } = useTranslation('jobs');
-  const platform = usePlatform();
-  const queryClient = useQueryClient();
-  const settings = useNotificationsGetNotificationSettings();
-  const allow = useMutation({
-    mutationFn: async () => {
-      if (!(await platform.requestWriteAccess().catch(() => false))) throw new Error('declined');
-      return notificationsGrantTelegramWriteAccess();
-    },
-    onSuccess: (telegram) => {
-      queryClient.setQueryData(
-        getNotificationsGetNotificationSettingsQueryKey(),
-        (current: typeof settings.data) => current && { ...current, telegram },
-      );
-    },
-  });
-  const channel = settings.data?.telegram;
-  if (!settings.data || !platform.capabilities.requestWriteAccess) return null;
-  if (channel?.writable) {
-    // разрешили только что — подтверждаем; было разрешено раньше — нечего показывать
-    return allow.isSuccess ? (
-      <Banner tone="ok" icon="bell" role="status">
-        {t('published.notifyOn')}
-      </Banner>
-    ) : null;
-  }
-  return (
-    <Card className="flex flex-col gap-2">
-      <Heading variant="h3" as="h2">
-        {t('published.notifyTitle')}
-      </Heading>
-      <Text secondary>{t('published.notifyText')}</Text>
-      <Button
-        variant="secondary"
-        icon="bell"
-        onClick={() => allow.mutate()}
-        disabled={allow.isPending}
-        aria-busy={allow.isPending}
-      >
-        {t('published.notifyAllow')}
-      </Button>
-      {allow.isError && (
-        <Text variant="cap" className="text-danger">
-          {t('published.notifyDenied')}
-        </Text>
-      )}
-    </Card>
   );
 }

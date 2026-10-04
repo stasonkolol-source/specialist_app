@@ -16,18 +16,17 @@ import type { BottomButtonState, ColorScheme, Platform } from './types.ts';
 /**
  * Обработчики «Назад»: срабатывает самый поздний по порядку рендера (шторка поверх экрана).
  * Эффекты React идут от детей к родителю, поэтому порядок берём из рендера, а не из эффекта.
+ * Кнопка не нативная (браузер, 8.1) — её рисует оболочка по `visible` и нажимает `press`.
  */
 class BackStack {
   private readonly entries: { order: number; run: () => void }[] = [];
+  private readonly listeners = new Set<() => void>();
   private readonly platform: Platform;
   private seq = 0;
 
   constructor(platform: Platform) {
     this.platform = platform;
-    platform.backButton.onClick(() => {
-      const top = [...this.entries].sort((a, b) => b.order - a.order)[0];
-      top?.run();
-    });
+    platform.backButton.onClick(this.press);
   }
 
   nextOrder(): number {
@@ -38,11 +37,28 @@ class BackStack {
   push(order: number, run: () => void): () => void {
     const entry = { order, run };
     this.entries.push(entry);
-    this.platform.backButton.setVisible(true);
+    this.changed();
     return () => {
       this.entries.splice(this.entries.indexOf(entry), 1);
-      this.platform.backButton.setVisible(this.entries.length > 0);
+      this.changed();
     };
+  }
+
+  press = (): void => {
+    const top = [...this.entries].sort((a, b) => b.order - a.order)[0];
+    top?.run();
+  };
+
+  visible = (): boolean => this.entries.length > 0;
+
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  };
+
+  private changed(): void {
+    this.platform.backButton.setVisible(this.entries.length > 0);
+    for (const listener of this.listeners) listener();
   }
 }
 
@@ -185,6 +201,14 @@ export function useBottomButtonState(kind: 'main' | 'secondary'): BottomButtonSt
   const button = usePlatform()[kind === 'main' ? 'mainButton' : 'secondaryButton'];
   const state = useSyncExternalStore(button.subscribe, button.getState, button.getState);
   return { ...state, native: button.native, click: button.click };
+}
+
+/** Кнопка «Назад» для отрисовки в контенте, когда `native: false` (браузер): видна, пока на экране
+ *  есть обработчик «Назад»; нажатие — как нажатие кнопки Telegram. */
+export function useBackButtonState(): { visible: boolean; native: boolean; click: () => void } {
+  const { platform, back } = useCtx();
+  const visible = useSyncExternalStore(back.subscribe, back.visible, back.visible);
+  return { visible, native: platform.backButton.native, click: back.press };
 }
 
 /** «Назад»: пока хук смонтирован с обработчиком, кнопка видна; последняя шторка закрывается первой. */

@@ -9,6 +9,7 @@ containers =
     app.modules.*
 layers =
     di
+    (privacy)
     (http) | (bot) | (admin) | (tasks) | infrastructure
     application
     domain | api

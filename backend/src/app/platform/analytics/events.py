@@ -147,6 +147,10 @@ REPORT_REASONS: Final = frozenset(
 """ReportReason жалобы (moderation, 4.7)."""
 REPORT_QUEUES: Final = frozenset({"safety", "fraud"})
 """Очередь кейса жалобы: P0 или P1 (§14.2)."""
+ALERT_DELIVERIES: Final = frozenset({"instant", "digest"})
+"""AlertDelivery подписки (jobs, 5.7): сразу или подборкой."""
+ALERT_AREAS: Final = frozenset({"city", "districts", "radius"})
+"""Зона подписки: весь город, районы или радиус от точки."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -230,8 +234,30 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
         description="Прямой запрос: опубликован, и специалист о нём узнал",
         properties={},
     ),
-    EventName.ALERT_CREATED: EventSpec(step="5.7", description="Подписка на заявки"),
-    EventName.JOB_MATCHED_NOTIFIED: EventSpec(step="5.7", description="Заявка по подписке"),
+    EventName.ALERT_CREATED: EventSpec(
+        step="5.7",
+        description="Подписка на заявки (S19): как присылать, какая зона, сколько категорий",
+        properties={
+            "city": Ref(),
+            "delivery": Choice(ALERT_DELIVERIES),
+            "area": Choice(ALERT_AREAS),
+            "categories": Count(),
+            "has_budget": Flag(),
+            "urgent_only": Flag(),
+        },
+    ),
+    EventName.JOB_MATCHED_NOTIFIED: EventSpec(
+        step="5.7",
+        description="Заявка подошла подписчикам: скольким — карточкой B1 сразу и подборкой — "
+        "одно событие на заявку от её автора",
+        properties={
+            "category": Ref(),
+            "city": Ref(),
+            "urgency": Choice(URGENCIES),
+            "instant": Count(),
+            "digest": Count(),
+        },
+    ),
     EventName.DEAL_AGREED: EventSpec(
         step="6.1a",
         description="Стороны договорились: выбран отклик или подтверждено «Договорились» — по "
