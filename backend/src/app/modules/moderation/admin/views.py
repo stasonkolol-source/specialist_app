@@ -4,16 +4,20 @@
   обычный кейс решает DecideCase, спор — ResolveDispute с исходом сделки; страница спора
   показывает доказательства через InspectDispute, и каждый просмотр пишется в audit_log, как
   `cli dispute-show`.
-- Контент-правила: из админки — слова, фразы и домены; регулярки — только из сида (CHECK
-  `regex_from_seed`, `re` не ограничивает время перебора), в админке они только для чтения.
-  Правка строки сида переводит её в `origin = admin`: следующий `cli seed` её не перезапишет
-  (решение шага 2.7b — уточнять правила на реальных примерах без деплоя важнее, чем «сид —
-  источник правды»). Строки не удаляются — выключаются (`is_active`): по ним остаётся история
-  кейсов, где правило сработало. Запись берёт advisory lock импорта словаря; каждое изменение —
-  в audit_log; снимок правил этого процесса сбрасывается сразу, у остальных (worker) — за TTL
-  снимка (60 с), без перезапуска.
+- Контент-правила: из админки — слова, фразы, домены и регулярки (движок RE2 линеен при любом
+  шаблоне — CHECK `regex_from_seed` снят миграцией moderation_0007). Правило проходит ту же
+  проверку, что сид в `cli seeds-validate` (`compile_rule`: у регулярки — компиляция RE2, пустое
+  совпадение, двойные буквы, вложенные квантификаторы); страница «Проверить правило» до записи
+  показывает итог этой проверки, пробу на тексте и примеры набора rule_examples.yaml, у которых
+  поменяется вердикт. Правка строки сида переводит её в `origin = admin`: следующий `cli seed` её
+  не перезапишет (решение шага 2.7b — уточнять правила на реальных примерах без деплоя важнее,
+  чем «сид — источник правды»). Строки не удаляются — выключаются (`is_active`): по ним остаётся
+  история кейсов, где правило сработало. Запись берёт advisory lock импорта словаря; каждое
+  изменение — в audit_log; снимок правил этого процесса сбрасывается сразу, у остальных
+  (worker) — за TTL снимка (60 с), без перезапуска.
 """
 
+from dataclasses import replace
 from typing import Any, ClassVar, override
 from uuid import UUID
 
@@ -34,8 +38,20 @@ from app.modules.moderation.application.use_cases.resolve_dispute import (
     ResolveDispute,
     ResolveDisputeCommand,
 )
+from app.modules.moderation.application.use_cases.try_content_rule import (
+    TryContentRule,
+    TryContentRuleCommand,
+)
 from app.modules.moderation.domain.cases import EntityType
-from app.modules.moderation.domain.rules import RuleKind
+from app.modules.moderation.domain.rules import (
+    ContentRule,
+    InvalidRuleError,
+    RegexEngine,
+    RuleAction,
+    RuleCategory,
+    RuleKind,
+    compile_rule,
+)
 from app.modules.moderation.domain.sanctions import Severity
 from app.modules.moderation.infrastructure.models import (
     IMPORT_LOCK,
@@ -207,6 +223,12 @@ class ContentRuleAdmin(StaffModelView, model=ContentRuleRow):
     audit_entity = "moderation.content_rule"
     advisory_lock = IMPORT_LOCK
     can_delete = False
+    help_text = (
+        "Регулярка пишется по скелету текста (латиница в нижнем регистре, без двойных букв) в"
+        " синтаксисе RE2 — без lookaround и обратных ссылок. Перед записью — страница «Проверить"
+        " правило»: та же проверка, что у сида, проба на тексте и примеры набора, у которых"
+        " поменяется вердикт. Правка действует в этом процессе сразу, в worker — за 60 секунд."
+    )
     column_list: ClassVar[Any] = [
         ContentRuleRow.id,
         ContentRuleRow.kind,
@@ -229,20 +251,16 @@ class ContentRuleAdmin(StaffModelView, model=ContentRuleRow):
     ]
 
     @override
-    async def check_can_edit(self, request: Request, model: Any) -> bool:
-        return model.kind is not RuleKind.REGEX and await super().check_can_edit(request, model)
-
-    @override
     async def on_model_change(
         self, data: dict[str, Any], model: Any, is_created: bool, request: Request
     ) -> None:
-        kind = RuleKind(data.get("kind") or model.kind)
-        if kind is RuleKind.REGEX:
-            raise ValueError("Регулярные выражения — только из сида (CHECK regex_from_seed)")
-        pattern = str(data.get("pattern") or model.pattern or "").strip()
-        if not pattern:
-            raise ValueError("Пустое правило")
-        model.pattern = pattern.lower()
+        rule = _form_rule(data, model)
+        engine = await container_of(request).get(RegexEngine)
+        try:
+            compile_rule(rule, engine)  # та же проверка, что у сида в `cli seeds-validate`
+        except InvalidRuleError as error:
+            raise ValueError(f"Правило не принято: {error}") from None
+        data["pattern"] = rule.pattern  # SQLAdmin пишет в строку поля формы после этого шага
         model.origin = RuleOrigin.ADMIN  # строку сида дальше ведёт админка
 
     @override
@@ -250,4 +268,90 @@ class ContentRuleAdmin(StaffModelView, model=ContentRuleRow):
         (await container_of(request).get(RuleSource)).invalidate()
 
 
-VIEWS = (CaseAdmin, ReportAdmin, DecideCaseView, ContentRuleAdmin)
+def _form_rule(data: Any, model: Any = None) -> ContentRule:
+    """Правило из полей формы; у правки — недостающее из строки."""
+
+    def field(name: str) -> str:
+        value = data.get(name) or (getattr(model, name, None) if model is not None else None)
+        return str(getattr(value, "value", value) or "").strip()
+
+    kind = RuleKind(field("kind"))
+    pattern = field("pattern")
+    if not pattern:
+        raise ValueError("Пустое правило")
+    # у регулярки регистр значим («\S» — не «\s»), слова и домены — в нижнем регистре
+    return ContentRule(
+        pattern=pattern if kind is RuleKind.REGEX else pattern.lower(),
+        kind=kind,
+        action=RuleAction(field("action")),
+        category=RuleCategory(field("category")),
+        id=getattr(model, "id", None) if model is not None else None,
+    )
+
+
+class ContentRuleTrialView(BaseView):
+    """Проба правила до записи: проверка seeds-validate, текст и прогон по набору примеров."""
+
+    name = "Проверить правило"
+    icon = "fa-solid fa-vial"
+    category = "Модерация"
+    identity = "content-rule-trial"
+
+    def is_accessible(self, request: Request) -> bool:
+        return bool(staff_roles(request) & ADMIN)
+
+    def is_visible(self, request: Request) -> bool:
+        return self.is_accessible(request)
+
+    @expose("/content-rule-trial", methods=["GET", "POST"])
+    async def trial(self, request: Request) -> Response:
+        source: Any = await request.form() if request.method == "POST" else request.query_params
+        context: dict[str, object] = {
+            "kinds": [kind.value for kind in RuleKind],
+            "actions": [action.value for action in RuleAction],
+            "categories": [category.value for category in RuleCategory],
+            "form": {key: str(source.get(key, "")) for key in _TRIAL_FIELDS},
+        }
+        if request.method == "GET" and (raw := str(source.get("rule_id", "")).strip()):
+            context["form"] = await self._stored(raw) or context["form"]
+        if request.method == "POST":
+            try:
+                rule = _form_rule(source)
+            except ValueError as error:
+                context["error"] = str(error) or "не хватает полей правила"
+            else:
+                rule_id = str(source.get("rule_id", "")).strip()
+                context["trial"] = await run_action(
+                    request,
+                    TryContentRule,
+                    TryContentRuleCommand(
+                        rule=replace(rule, id=int(rule_id) if rule_id.isdigit() else None),
+                        sample=str(source.get("sample", "")),
+                    ),
+                )
+        return await self._admin_ref.templates.TemplateResponse(
+            request, "admin/content_rule_trial.html", context
+        )
+
+    async def _stored(self, raw: str) -> dict[str, str] | None:
+        """Форма пробы по строке словаря: «проверить» правку существующего правила."""
+        if not raw.isdigit():
+            return None
+        async with self._admin_ref.session_maker() as session:
+            row = await session.get(ContentRuleRow, int(raw))
+        if row is None:
+            return None
+        return {
+            "rule_id": str(row.id),
+            "kind": row.kind.value,
+            "pattern": row.pattern,
+            "action": row.action.value,
+            "category": row.category.value,
+            "sample": "",
+        }
+
+
+_TRIAL_FIELDS = ("rule_id", "kind", "pattern", "action", "category", "sample")
+
+
+VIEWS = (CaseAdmin, ReportAdmin, DecideCaseView, ContentRuleAdmin, ContentRuleTrialView)

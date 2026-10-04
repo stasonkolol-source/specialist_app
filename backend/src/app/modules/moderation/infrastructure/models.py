@@ -1,4 +1,4 @@
-"""ORM-модели moderation (ARCHITECTURE §7.3, миграции moderation_0001–0005).
+"""ORM-модели moderation (ARCHITECTURE §7.3, миграции moderation_0001–0007).
 
 Словарь контент-правил (2.4); кейсы, ступени санкций, сигналы риска и жалобы (2.5a).
 FK на identity.users и identity.restrictions объявлены только в миграции moderation_0002:
@@ -81,11 +81,8 @@ class ContentRuleRow(TimestampsMixin, Base):
         str_enum(RuleOrigin, "origin"), server_default=RuleOrigin.ADMIN.value
     )
 
-    __table_args__ = (
-        UniqueConstraint("kind", "pattern"),
-        # регулярки — только из сида, прошедшего ревью (миграция moderation_0001)
-        CheckConstraint("kind <> 'regex' OR origin = 'seed'", name="regex_from_seed"),
-    )
+    # регулярки заводит и админка: RE2 линеен при любом шаблоне (CHECK снят в moderation_0007)
+    __table_args__ = (UniqueConstraint("kind", "pattern"),)
 
 
 OPEN_CASE = "status IN ('pending', 'in_review', 'escalated')"

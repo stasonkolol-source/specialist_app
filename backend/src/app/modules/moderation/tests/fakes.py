@@ -29,6 +29,7 @@ from app.modules.moderation.domain.cases import EntityType
 from app.modules.moderation.domain.pipeline import Route
 from app.modules.moderation.domain.rules import ContentRule, RuleSet
 from app.modules.moderation.errors import ReportsLimitError
+from app.modules.moderation.infrastructure.regex import RE2
 from app.platform.ai.port import (
     ContentKind,
     ModerationResult,
@@ -307,7 +308,7 @@ class FakeRuleSource:
     rules: Sequence[ContentRule] = ()
 
     async def current(self) -> RuleSet:
-        return RuleSet(self.rules)
+        return RuleSet(self.rules, RE2)
 
     def invalidate(self) -> None:
         pass

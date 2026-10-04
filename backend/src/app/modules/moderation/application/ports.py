@@ -11,7 +11,7 @@ from app.modules.moderation.domain.cases import Case, EntityType
 from app.modules.moderation.domain.pipeline import Route
 from app.modules.moderation.domain.reports import Report, ReportStatus
 from app.modules.moderation.domain.risk import RiskSignal
-from app.modules.moderation.domain.rules import ContentRule, RuleSet
+from app.modules.moderation.domain.rules import ContentRule, RuleExample, RuleSet
 from app.modules.moderation.domain.sanctions import Sanction, SanctionStep
 from app.platform.ai.port import ContentKind
 from app.platform.contracts.events.deals import (
@@ -36,6 +36,12 @@ class RuleSource(Protocol):
     def invalidate(self) -> None:
         """Правка словаря в админке (2.7b): этот процесс перечитает его на следующей проверке,
         остальные — за TTL снимка, без перезапуска."""
+        ...
+
+
+class RuleExamples(Protocol):
+    def load(self) -> Sequence[RuleExample]:
+        """Набор seeds/moderation/rule_examples.yaml — им же проверяет словарь seeds-validate."""
         ...
 
 

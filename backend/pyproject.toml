@@ -33,6 +33,7 @@ dependencies = [
     "pwdlib[argon2]~=0.3",
     "pyotp~=2.9",
     "itsdangerous~=2.2",
+    "google-re2~=1.1",
 ]
 
 [dependency-groups]
@@ -118,6 +119,11 @@ warn_unreachable = true
 [[tool.mypy.overrides]]
 # WTForms (зависимость SQLAdmin) без аннотаций и stub-пакета: форма названий в админке (2.7b)
 module = ["wtforms", "wtforms.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# google-re2 без аннотаций и stub-пакета: регулярки контент-правил (domain/rules.py, 2.7b)
+module = ["re2"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

@@ -24,6 +24,7 @@ from app.modules.moderation.application.ports import (
     ReportRepository,
     ReportTargets,
     RiskSignals,
+    RuleExamples,
     RuleSource,
     RuleWriter,
     SanctionRepository,
@@ -51,7 +52,9 @@ from app.modules.moderation.application.use_cases.record_reregistration import (
 from app.modules.moderation.application.use_cases.resolve_dispute import ResolveDispute
 from app.modules.moderation.application.use_cases.take_case import EscalateCase, TakeCase
 from app.modules.moderation.application.use_cases.track_dispute import TrackDispute
+from app.modules.moderation.application.use_cases.try_content_rule import TryContentRule
 from app.modules.moderation.domain.cases import EntityType
+from app.modules.moderation.domain.rules import RegexEngine
 from app.modules.moderation.infrastructure.cases import (
     SqlCaseRepository,
     SqlRiskSignals,
@@ -64,8 +67,10 @@ from app.modules.moderation.infrastructure.metrics import PrometheusAutoCheckMet
 from app.modules.moderation.infrastructure.queries import SqlCaseQueue, SqlCaseStats
 from app.modules.moderation.infrastructure.quota import ValkeyReportQuota
 from app.modules.moderation.infrastructure.rate_limits import ValkeyRateLimitOverflows
+from app.modules.moderation.infrastructure.regex import RE2
 from app.modules.moderation.infrastructure.reports import FacadeReportTargets, SqlReportRepository
 from app.modules.moderation.infrastructure.retention_hold import CasesRetentionHold
+from app.modules.moderation.infrastructure.rule_examples import YamlRuleExamples
 from app.modules.moderation.infrastructure.rules import CachedRuleSource, SqlRuleWriter
 from app.modules.moderation.infrastructure.targets import TargetRegistry
 from app.modules.moderation.infrastructure.targets.job import JobTarget
@@ -97,9 +102,23 @@ class ModerationProvider(Provider):
     import_content_rules = provide(ImportContentRules)
 
     @provide(scope=Scope.APP)
-    def rule_source(self, maker: async_sessionmaker[AsyncSession]) -> RuleSource:
+    def regex_engine(self) -> RegexEngine:
+        """Регулярки правил — RE2: линейное время при любом шаблоне (2.7b)."""
+        return RE2
+
+    @provide(scope=Scope.APP)
+    def rule_source(
+        self, maker: async_sessionmaker[AsyncSession], engine: RegexEngine
+    ) -> RuleSource:
         """Снимок словаря — один на процесс, обновляется раз в TTL."""
-        return CachedRuleSource(maker)
+        return CachedRuleSource(maker, engine=engine)
+
+    try_content_rule = provide(TryContentRule)
+
+    @provide(scope=Scope.APP)
+    def rule_examples(self) -> RuleExamples:
+        """Набор примеров seeds/moderation/rule_examples.yaml — из файла образа, раз на процесс."""
+        return YamlRuleExamples()
 
     @provide(scope=Scope.APP)
     def velocity(self, valkey: Redis) -> VelocityCounter:
