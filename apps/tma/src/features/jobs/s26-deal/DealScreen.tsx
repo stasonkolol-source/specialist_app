@@ -45,6 +45,7 @@ import {
   SkeletonText,
   Text,
   Timeline,
+  cx,
 } from '@sosed/ui-web';
 import { useParams, useRouter } from '@tanstack/react-router';
 import { useId, useState } from 'react';
@@ -173,6 +174,7 @@ function Proposal({ deal }: { deal: DealCardOut }) {
               icon="pin"
               label={t('deal.proposal.where')}
               note={t('deal.proposal.addressLater')}
+              narrowNote
             >
               {district}
             </Term>
@@ -216,11 +218,14 @@ function Term({
   icon,
   label,
   note,
+  narrowNote = false,
   children,
 }: {
   icon: IconName;
   label: string;
   note?: string;
+  /** Длинное пояснение — колонкой до 140 px, как «точный адрес — после подтверждения». */
+  narrowNote?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -230,7 +235,11 @@ function Term({
         <span className="text-cap text-text2">{label}</span>
         <span className="font-semibold">{children}</span>
       </div>
-      {note && <span className="max-w-35 text-right text-cap text-text2">{note}</span>}
+      {note && (
+        <span className={cx('text-right text-cap text-text2', narrowNote && 'max-w-35')}>
+          {note}
+        </span>
+      )}
     </div>
   );
 }

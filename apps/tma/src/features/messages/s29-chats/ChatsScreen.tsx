@@ -148,8 +148,9 @@ function ConversationRow({ conversation }: { conversation: ConversationOut }) {
       title={name}
       meta={<time dateTime={at.toISOString()}>{today ? format.time(at) : format.date(at)}</time>}
     >
-      <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-        <span className="text-cap">{context}</span>
+      {/* длинная заявка переносится сама, плашка остаётся справа от неё, как на артборде */}
+      <span className="flex items-center gap-1.5">
+        <span className="min-w-0 text-cap">{context}</span>
         {badge}
       </span>
       {/* непрочитанные — под временем, в строке последнего сообщения, как на артборде */}
