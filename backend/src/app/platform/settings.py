@@ -167,6 +167,9 @@ class TelegramSettings(_Group):
     """Закрытый чат модераторов (K29, 2.5b): туда бот присылает карточки кейсов и алерт падения
     response rate@4h (6.6). Id группы — отрицательный (`-100…`); пусто — карточек нет, кейсы решают
     командами `cli`, алерт уходит в лог и Sentry."""
+    fake_sender: bool = False
+    """Нагрузочный прогон на stage (8.3): уведомления не уходят в Telegram, а ждут слот того же
+    лимитера и латентность Bot API (platform/telegram/fake_sender.py). На проде запрещён."""
 
     @field_validator("moderators_chat_id", mode="before")
     @classmethod
@@ -338,6 +341,11 @@ class Settings:
         if self.app.env is Environment.PRODUCTION and (todo := self.legal.todo_fields()):
             # оператор и почта попадают в политику конфиденциальности: заглушка на проде — нарушение
             raise SettingsError("Настройки неполны — на проде нужны значения: " + ", ".join(todo))
+        if self.app.env is Environment.PRODUCTION and self.telegram.fake_sender:
+            # фейк молча глотает уведомления: на проде люди перестали бы их получать
+            raise SettingsError(
+                "Неверные настройки — TELEGRAM_FAKE_SENDER только для нагрузочного прогона на stage"
+            )
 
 
 def _as[T: _Group](values: dict[type[_Group], _Group], group: type[T]) -> T:
@@ -359,6 +367,7 @@ def describe(settings: Settings) -> dict[str, Any]:
         "release": settings.app.release,
         "db_pool_size": settings.db.pool_size,
         "telegram_bot": settings.telegram.bot_username,
+        "telegram_fake_sender": settings.telegram.fake_sender,
         "s3_endpoint": settings.s3.endpoint_url,
         "sentry": settings.sentry.dsn is not None,
         "ai_moderation": settings.ai.openai_api_key is not None,
