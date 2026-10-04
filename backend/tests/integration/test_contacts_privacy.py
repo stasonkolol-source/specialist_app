@@ -115,8 +115,9 @@ async def test_telegram_shows_after_the_deal_unless_hidden(chat: Chat) -> None:
 
 
 async def test_telegram_stays_while_they_agree_again(chat: Chat) -> None:
-    """Договорились однажды — Telegram второй стороны в шапке S30 и при новом предложении
-    (ADR-0010, решение 2026-10-04). В другом диалоге с ней же, где не договаривались, его нет."""
+    """Пара договорилась однажды — Telegram второй стороны виден и при новом предложении, и в
+    другом диалоге этой пары (ADR-0010, решение 2026-10-04). Другой клиент того же мастера его
+    не видит."""
     specialist = Specialist(chat.app.container)
     await specialist.publish()
     chat.users.append(specialist.user_id)
@@ -136,10 +137,14 @@ async def test_telegram_stays_while_they_agree_again(chat: Chat) -> None:
     opened = await header(chat, client, conversation_id)
     assert (opened["deal"]["status"], opened["contacts_open"]) == ("proposed", True)
     assert opened["counterpart_telegram"] == "@majstor_pera"
-    # отклик того же мастера на заявку клиента — другой диалог: там ещё не договаривались
+    # отклик того же мастера на новую заявку клиента — другой диалог той же пары: тоже открыт
     response_id = await chat.response(performer, await chat.job(client))
     other = await chat.start(client, response_id=response_id)
     listed = (await chat.get(client, "/conversations")).json()["items"]
     shown = {item["id"]: (item["contacts_open"], item["counterpart_telegram"]) for item in listed}
-    assert shown[conversation_id] == (True, "@majstor_pera")
-    assert shown[other] == (False, None)
+    assert shown[conversation_id] == shown[other] == (True, "@majstor_pera")
+    # другой клиент того же мастера с ним не договаривался: Telegram скрыт
+    newcomer = await chat.user()
+    theirs = await chat.start(newcomer, profile_id=str(specialist.profile_id))
+    seen = await header(chat, newcomer, theirs)
+    assert (seen["contacts_open"], seen["counterpart_telegram"]) == (False, None)

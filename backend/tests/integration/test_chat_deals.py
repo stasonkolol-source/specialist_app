@@ -1,9 +1,10 @@
 """Договорённость и контакты в переписке (DEVELOPMENT_PLAN 6.3b) через API: «Договорились» в прямом
 диалоге — сделка `proposed`, вторая сторона подтверждает, лента диалога это показывает, контакты
 открываются; в диалоге по отклику договорённость — выбор отклика; поделиться контактом — только
-после договорённости и только своим (подпись Telegram). Договорились однажды — контакты открыты
-и при новом предложении, и после отмены (ADR-0010, 2026-10-04); отклонённое предложение их не
-открывает. Подписчики выполняются из очереди. Данные коммитятся.
+после договорённости и только своим (подпись Telegram). Пара договорилась однажды — контакты
+открыты при новом предложении, после отмены и в новом диалоге этой пары («Заказать снова»;
+ADR-0010, 2026-10-04); отклонённое предложение их не открывает. Подписчики выполняются из
+очереди. Данные коммитятся.
 """
 
 import json
@@ -391,7 +392,7 @@ async def complete(chat: Chat, deal_id: str, *users: UserId) -> None:
 
 
 async def test_contacts_stay_open_once_the_pair_has_agreed(chat: Chat) -> None:
-    """Договорились однажды — контакты открыты и при «Договориться снова» (ADR-0010, решение
+    """Пара договорилась однажды — контакты открыты и при «Договориться снова» (ADR-0010, решение
     владельца 2026-10-04): новая сделка `proposed` не прячет номера и не закрывает «Поделиться
     контактом»; контакт по новой сделке — новое сообщение."""
     direct = Direct(chat)
@@ -441,8 +442,8 @@ async def test_declined_proposal_does_not_open_contacts(chat: Chat) -> None:
 
 
 async def test_response_chat_keeps_contacts_after_the_deal_is_cancelled(chat: Chat) -> None:
-    """Диалог по отклику: сделка отклика была `agreed` — после отмены контакты открыты. Сделку
-    с диалогом ещё не связал подписчик DealAgreed (очередь не идёт) — её находят по отклику."""
+    """Диалог по отклику: сделка отклика была `agreed` — после отмены контакты открыты, хотя
+    сделку с диалогом ещё не связал подписчик DealAgreed (очередь не идёт): пара договаривалась."""
     client, performer, response_id = await chat.pair()
     conversation_id = await chat.start(performer, response_id=response_id)
     accepted = await chat.post(client, f"/responses/{response_id}/accept")
@@ -459,9 +460,8 @@ async def test_response_chat_keeps_contacts_after_the_deal_is_cancelled(chat: Ch
 
 
 async def test_conversation_list_tells_open_contacts_in_one_query(chat: Chat, web: HttpApp) -> None:
-    """Список S29: `contacts_open` у каждого диалога, а «договаривались ли раньше» — одним
-    запросом на страницу (без N+1): прямые диалоги — по сделкам диалога, по отклику — по
-    сделке отклика."""
+    """Список S29: `contacts_open` у каждого диалога, а «договаривалась ли пара» — одним
+    запросом на страницу (без N+1), и для прямых диалогов, и для диалогов по отклику."""
     client = await chat.user()
 
     async def direct_with_new_specialist() -> tuple[UserId, str]:
@@ -498,3 +498,32 @@ async def test_conversation_list_tells_open_contacts_in_one_query(chat: Chat, we
     }
     reads = [statement for statement in trips.statements if "deals.deals" in statement]
     assert len(reads) == 2, reads  # сделки страницы и «договаривались ли» — по запросу на всё
+
+
+async def test_order_again_opens_a_direct_chat_with_open_contacts(chat: Chat) -> None:
+    """«Заказать снова» (6.2): клиент выбрал отклик мастера, сделка завершена; новый прямой
+    диалог с ним же — сразу с открытыми контактами, без новой договорённости: пара уже
+    договаривалась (ADR-0010, 2026-10-04). Диалог с другим мастером — по-прежнему с маской."""
+    specialist = Specialist(chat.app.container)
+    await specialist.publish()
+    chat.users.append(specialist.user_id)
+    performer = UserId(specialist.user_id)
+    client = await chat.user()
+    response_id = await chat.response(performer, await chat.job(client))
+    accepted = await chat.post(client, f"/responses/{response_id}/accept")
+    assert accepted.status_code == 200, accepted.text
+    await complete(chat, accepted.json()["deal_id"], client, performer)
+
+    again = await chat.start(client, profile_id=str(specialist.profile_id))
+
+    header = (await chat.messages(client, again))["conversation"]
+    assert (header["kind"], header["deal"], header["contacts_open"]) == ("direct", None, True)
+    opened = await chat.send(performer, again, PHONE)
+    assert (opened["masked"], opened["body"]) == (False, PHONE)
+    other = Specialist(chat.app.container)
+    await other.publish()
+    chat.users.append(other.user_id)
+    elsewhere = await chat.start(client, profile_id=str(other.profile_id))
+    assert (await chat.messages(client, elsewhere))["conversation"]["contacts_open"] is False
+    masked = await chat.send(UserId(other.user_id), elsewhere, PHONE)
+    assert (masked["masked"], masked["body"]) == (True, f"Мой номер {MASK}")
