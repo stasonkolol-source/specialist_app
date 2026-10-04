@@ -11,6 +11,7 @@
 
 import os
 import re
+from datetime import date
 from enum import StrEnum
 from ipaddress import IPv4Network, IPv6Network, ip_network
 from pathlib import Path
@@ -138,6 +139,9 @@ class DbSettings(_Group):
 
     dsn: SecretStr
     migrator_dsn: SecretStr | None = None
+    readonly_dsn: SecretStr | None = None
+    """Роль readonly (ADR-0005) для отчётов ликвидности 6.6: свой statement_timeout 30 с и
+    чтение без права записи на уровне роли. Пусто — основная роль в транзакции READ ONLY."""
     pool_size: int = Field(default=10, ge=1)
     pool_max_overflow: int = Field(default=5, ge=0)
     echo: bool = False
@@ -160,8 +164,9 @@ class TelegramSettings(_Group):
     support_username: str | None = None
     """Аккаунт поддержки для /help (K23, Q25), без `@`; пусто — «контакт появится скоро»."""
     moderators_chat_id: int | None = None
-    """Закрытый чат модераторов (K29, 2.5b): туда бот присылает карточки кейсов. Id группы —
-    отрицательный (`-100…`); пусто — карточек нет, кейсы решают командами `cli`."""
+    """Закрытый чат модераторов (K29, 2.5b): туда бот присылает карточки кейсов и алерт падения
+    response rate@4h (6.6). Id группы — отрицательный (`-100…`); пусто — карточек нет, кейсы решают
+    командами `cli`, алерт уходит в лог и Sentry."""
 
     @field_validator("moderators_chat_id", mode="before")
     @classmethod
@@ -235,6 +240,13 @@ class AnalyticsSettings(_Group):
 
     posthog_api_key: SecretStr | None = None
     posthog_host: str = "https://eu.i.posthog.com"
+    beta_start: date = date(2027, 1, 25)
+    """Понедельник первой недели закрытой беты (ориентир плана 6.7): `cli beta-report --week 1`
+    — неделя с этого дня, `--week 0` — неделя перед стартом."""
+    response_rate_alert_threshold: float = Field(default=0.70, ge=0.0, le=1.0)
+    """Алерт 6.6: response rate@4h за 7 дней ниже порога. 0,70 — цель MVP из PRODUCT (R06)."""
+    response_rate_alert_min_jobs: int = Field(default=10, ge=1)
+    """Меньше заявок с созревшим окном — алерт молчит: на трёх заявках доля ничего не значит."""
 
     @field_validator("posthog_host")
     @classmethod
