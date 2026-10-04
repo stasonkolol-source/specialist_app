@@ -466,7 +466,10 @@ def env_names(group: type[_Group]) -> list[str]:
 
 
 def describe(settings: Settings) -> dict[str, Any]:
-    """Сводка настроек без секретов — для логов старта."""
+    """Сводка настроек без секретов — для логов старта.
+
+    Флаги внешних сервисов (sentry, heartbeat, ai_*, posthog) — то, по чему на воротах 3.4 и 8.4
+    сверяют политику конфиденциальности с включёнными обработчиками (ARCHITECTURE §13.6)."""
     return {
         "env": settings.app.env.value,
         "release": settings.app.release,
@@ -480,4 +483,5 @@ def describe(settings: Settings) -> dict[str, Any]:
         "heartbeat": settings.healthchecks.worker_ping_url is not None,
         "ai_moderation": settings.ai.openai_api_key is not None,
         "ai_classifier": settings.ai.anthropic_api_key is not None,
+        "posthog": settings.analytics.posthog_api_key is not None,
     }
