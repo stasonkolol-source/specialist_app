@@ -10383,6 +10383,7 @@
           "messages",
           "deals",
           "marketing",
+          "goods_launch",
           "account"
         ],
         "title": "EventGroup",
@@ -13156,7 +13157,7 @@
               "$ref": "#/components/schemas/GroupSettingIn"
             },
             "type": "array",
-            "maxItems": 6,
+            "maxItems": 7,
             "title": "Groups"
           },
           "quiet_hours": {

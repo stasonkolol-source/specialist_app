@@ -59,6 +59,7 @@ from app.platform.analytics.tasks import (
     capture_conversation_started,
     capture_deal_agreed,
     capture_deal_cancelled,
+    capture_goods_waitlist_joined,
     capture_job_invited,
     capture_message_sent,
     capture_onboarding_completed,
@@ -72,7 +73,7 @@ from app.platform.contracts.events.identity import EntryPoint, OnboardingComplet
 from app.platform.contracts.events.jobs import AlertCreated, AlertsMatched, JobInvited
 from app.platform.contracts.events.messaging import ContactShared, ConversationStarted, MessageSent
 from app.platform.contracts.events.moderation import ReportCreated
-from app.platform.contracts.events.notifications import WriteAccessGranted
+from app.platform.contracts.events.notifications import GoodsWaitlistJoined, WriteAccessGranted
 from app.platform.kernel.errors import ExternalServiceError, RateLimitedError
 from app.platform.kernel.ids import CaseId, CategoryId, CityId, DealId, UserId, new_id
 from app.platform.settings import AnalyticsSettings
@@ -153,6 +154,7 @@ def test_wired_events_are_those_of_the_finished_steps() -> None:
         EventName.ATTRIBUTION_RECORDED: "7.4",
         EventName.ALERT_CREATED: "5.7",
         EventName.JOB_MATCHED_NOTIFIED: "5.7",
+        EventName.GOODS_WAITLIST_JOINED: "7.5",
     }
 
 
@@ -420,15 +422,18 @@ async def test_onboarding_and_write_access_handlers_send_their_events() -> None:
         user_id=user_id, intent=None, home_city_id=None, occurred_at=NOW
     )
     granted = WriteAccessGranted(user_id=user_id, via="mini_app", occurred_at=NOW)
+    waitlisted = GoodsWaitlistJoined(user_id=user_id, bot_writable=False, occurred_at=NOW)
 
     await capture_onboarding_completed(onboarded, fake)
     await capture_onboarding_completed(no_profile, fake)
     await capture_write_access_granted(granted, fake)
+    await capture_goods_waitlist_joined(waitlisted, fake)
 
     assert [(e.name, dict(e.properties)) for e in fake.captured] == [
         ("onboarding_completed", {"intent": "casual", "city": 7}),
         ("onboarding_completed", {"intent": "unknown"}),
         ("write_access_granted", {"via": "mini_app"}),
+        ("goods_waitlist_joined", {"bot_writable": False}),
     ]
 
 

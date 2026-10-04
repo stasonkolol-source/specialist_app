@@ -166,7 +166,7 @@ describe('client-config at startup', () => {
     start('/');
     const segment = await screen.findByRole('radiogroup', { name: 'Раздел' });
     await act(async () => {
-      fireEvent.click(within(segment).getByRole('radio', { name: 'Вещи' }));
+      fireEvent.click(within(segment).getByRole('radio', { name: /^Вещи/ }));
     });
     expect(screen.getByRole('heading', { name: 'Вещи — скоро' })).toBeTruthy();
   });

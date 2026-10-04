@@ -17,9 +17,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 export type NotificationChannel = 'telegram' | 'in_app';
 
-/** Одно нажатие на S43: отметка «группа × канал» или переключатель тихих часов. */
+/** Одно нажатие: отметка «группа × канал» на S43, группа целиком (без `channel`: «Сообщить о
+ *  запуске» на S58 и переключатель `goods_launch` на S43, 7.5) или переключатель тихих часов. */
 export type SettingsChange =
-  { group: EventGroup; channel: NotificationChannel; on: boolean } | { quiet: boolean };
+  { group: EventGroup; channel?: NotificationChannel; on: boolean } | { quiet: boolean };
 
 const KEY = ['notificationSettings', 'update'] as const;
 
@@ -31,11 +32,13 @@ export function applyChange(
   if ('quiet' in change) {
     return { ...settings, quiet_hours: { ...settings.quiet_hours, enabled: change.quiet } };
   }
+  const { group, channel, on } = change;
   return {
     ...settings,
-    groups: settings.groups.map((row) =>
-      row.group === change.group && !row.mandatory ? { ...row, [change.channel]: change.on } : row,
-    ),
+    groups: settings.groups.map((row) => {
+      if (row.group !== group || row.mandatory) return row;
+      return channel ? { ...row, [channel]: on } : { ...row, telegram: on, in_app: on };
+    }),
   };
 }
 

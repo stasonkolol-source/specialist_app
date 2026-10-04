@@ -248,6 +248,7 @@ export const NOTIFICATION_SETTINGS: NotificationSettingsOut = {
     { group: 'messages', telegram: true, in_app: true, mandatory: false },
     { group: 'deals', telegram: true, in_app: true, mandatory: false },
     { group: 'marketing', telegram: false, in_app: false, mandatory: false },
+    { group: 'goods_launch', telegram: false, in_app: false, mandatory: false },
     { group: 'account', telegram: true, in_app: true, mandatory: true },
   ],
   quiet_hours: { enabled: true, start: '22:00:00', end: '08:00:00', time_zone: 'Europe/Belgrade' },

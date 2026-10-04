@@ -210,7 +210,8 @@
   "home": {
     "segment": "Одељак",
     "services": "Услуге",
-    "goods": "Ствари"
+    "goods": "Ствари",
+    "soon": "ускоро"
   },
   "goods": {
     "soonTitle": "Ствари — ускоро",
