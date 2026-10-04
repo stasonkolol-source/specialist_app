@@ -5,11 +5,16 @@ ARCHITECTURE §10.5; DEVELOPMENT_PLAN 6.7).
 (копия на стороне хранилища, потом удаление): по старой ссылке CDN их больше не открыть, а до
 очистки или решения модератора они лежат в приватном бакете. Берутся все возможные ключи —
 прерванная обработка могла оставить часть. Готово — `hidden_at`; не вышло (права на бакет,
-сбой) — повтор задачи, а после него страховка `media.hide_deleted` ставит её снова.
+сбой) — повтор задачи, а после него страховка `media.hide_deleted` ставит её снова. Скрытие
+решает по состоянию файла, а не по `hidden_at`: перенос идемпотентен, а отметка могла остаться
+от прошлого скрытия, пока возврат копировал варианты обратно.
 
-Модератор снял отказ — варианты возвращаются тем же способом, `hidden_at` очищается. Решение
-могло смениться, пока объекты переносились: тогда задача ставит обратную, и последнее решение
-побеждает.
+Модератор снял отказ — варианты копируются обратно в media, `hidden_at` очищается. Копия в
+private остаётся (её стирает очистка вместе с файлом): если файл удалят или снова отклонят,
+пока идёт возврат, встречное скрытие переносит те же ключи, и удаление из private на возврате
+могло бы стереть единственную копию. Решение могло смениться, пока объекты копировались, или
+прошлая попытка возврата успела часть скопировать: тогда возврат снимает `hidden_at` (файл
+снова виден страховке) и ставит скрытие — последнее решение побеждает.
 """
 
 from dataclasses import dataclass
@@ -58,22 +63,19 @@ class HideVariants:
 
     async def __call__(self, cmd: HideVariantsCommand) -> None:
         asset = await self._query.asset_by_id(cmd.media_id)
-        if (
-            asset is None
-            or not asset.needs_hiding
-            or asset.hidden_at is not None
-            or asset.purged_at is not None
-        ):
+        if asset is None or not asset.needs_hiding or asset.purged_at is not None:
             return
+        # и при `hidden_at`: уже спрятанного в media нет — пропуск, а оставшееся после возврата
+        # уйдёт в private
         if variant_bucket(asset.purpose) == MEDIA_BUCKET:
             await _move(self._storage, asset, source=Bucket.MEDIA, target=Bucket.PRIVATE)
         async with self._uow:
             asset = await self._assets.get_by_id_for_update(cmd.media_id)
-            if asset.needs_hiding and asset.hidden_at is None:
+            if not asset.needs_hiding:  # отказ сняли, пока переносили: вернуть варианты
+                await self._queue_restore(asset)
+            elif asset.hidden_at is None:
                 asset.hide(now=self._clock.now())
                 await self._assets.save(asset)
-            elif not asset.needs_hiding:  # отказ сняли, пока переносили: вернуть варианты
-                await self._queue_restore(asset)
         log.info("media_variants_hidden", media_id=str(cmd.media_id))
 
     async def _queue_restore(self, asset: MediaAsset) -> None:
@@ -85,8 +87,8 @@ class HideVariants:
 
 
 class RestoreVariants:
-    """Отказ модерации снят: варианты — из private обратно в публичный media. Не зависит от
-    `hidden_at`: перенос мог пройти, а отметка — ещё нет; чего нет в private — пропуск."""
+    """Отказ модерации снят: варианты — копией из private обратно в публичный media. Не зависит
+    от `hidden_at`: копия могла пройти, а отметка — ещё нет; чего нет в private — пропуск."""
 
     def __init__(
         self,
@@ -101,22 +103,38 @@ class RestoreVariants:
 
     async def __call__(self, cmd: HideVariantsCommand) -> None:
         asset = await self._query.asset_by_id(cmd.media_id)
-        if asset is None or asset.needs_hiding or asset.status is not MediaStatus.READY:
+        if asset is None:
+            return
+        if asset.needs_hiding:  # прошлая попытка могла успеть скопировать часть: спрятать
+            async with self._uow:
+                await self._hide_again(await self._assets.get_by_id_for_update(cmd.media_id))
+            return
+        if asset.status is not MediaStatus.READY:
             return
         if variant_bucket(asset.purpose) == MEDIA_BUCKET:
-            await _move(self._storage, asset, source=Bucket.PRIVATE, target=Bucket.MEDIA)
+            for key in asset.variant_keys():
+                await self._storage.copy(Bucket.PRIVATE, key, to=Bucket.MEDIA)
         async with self._uow:
             asset = await self._assets.get_by_id_for_update(cmd.media_id)
-            if asset.needs_hiding:  # снова отклонили, пока возвращали: спрятать
-                await self._queue.enqueue(
-                    HIDE_VARIANTS,
-                    HideVariantsPayload(media_id=asset.id, keys=asset.variant_keys()),
-                    dedup_key=str(asset.id),
-                )
+            if asset.needs_hiding:  # удалили или снова отклонили, пока возвращали
+                await self._hide_again(asset)
             elif asset.hidden_at is not None:
                 asset.show()
                 await self._assets.save(asset)
         log.info("media_variants_restored", media_id=str(cmd.media_id))
+
+    async def _hide_again(self, asset: MediaAsset) -> None:
+        """Варианты могут лежать в media: снять отметку и поставить скрытие. Без отметки файл
+        видят и само скрытие, и страховка — даже если эта задача последней не дойдёт до них."""
+        if not asset.needs_hiding:
+            return
+        if asset.expose():
+            await self._assets.save(asset)
+        await self._queue.enqueue(
+            HIDE_VARIANTS,
+            HideVariantsPayload(media_id=asset.id, keys=asset.variant_keys()),
+            dedup_key=str(asset.id),
+        )
 
 
 async def _move(storage: StoragePort, asset: MediaAsset, *, source: Bucket, target: Bucket) -> None:
@@ -131,8 +149,9 @@ class HideDeletedCommand:
 
 
 class HideDeleted:
-    """Страховка (periodic `media.hide_deleted`): удалённые или отклонённые модерацией, но всё
-    ещё публичные файлы."""
+    """Страховка (periodic `media.hide_deleted`): удалённые или отклонённые модерацией файлы,
+    чьи варианты могут быть в публичном media, — без `hidden_at` (её снимает и возврат, если
+    файл снова надо прятать)."""
 
     def __init__(self, uow: UnitOfWork, query: MediaQuery, queue: JobQueue, clock: Clock) -> None:
         self._uow, self._query, self._queue, self._clock = uow, query, queue, clock

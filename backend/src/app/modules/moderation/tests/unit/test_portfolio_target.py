@@ -57,8 +57,8 @@ class Specialists:
     async def work_for_review(self, work_id: UUID) -> WorkForReview | None:
         return self.work
 
-    async def approve_work(self, work_id: UUID) -> None:
-        self.calls.append(("approve", work_id))
+    async def approve_work(self, work_id: UUID, *, auto: bool = False) -> None:
+        self.calls.append(("auto_approve" if auto else "approve", work_id))
 
     async def reject_work(self, work_id: UUID) -> None:
         self.calls.append(("reject", work_id))
@@ -142,5 +142,10 @@ async def test_decisions_publish_or_hide_the_work() -> None:
 
     await adapter.publish(work_id)
     await adapter.hide(work_id, reason_code="contact_leak")
+    await adapter.publish(work_id, auto=True)  # итог автопроверки: скрытую — не возвращает
 
-    assert specialists.calls == [("approve", work_id), ("reject", work_id)]
+    assert specialists.calls == [
+        ("approve", work_id),
+        ("reject", work_id),
+        ("auto_approve", work_id),
+    ]

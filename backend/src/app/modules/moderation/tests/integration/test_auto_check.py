@@ -63,6 +63,7 @@ async def test_clean_text_is_published(moderation: Moderation) -> None:
 
     assert route is Route.PUBLISH
     assert moderation.jobs.published == [(job, 1)]  # версия, которую проверяли
+    assert moderation.jobs.auto_published == [job]
     assert await cases_of(moderation, job) == []
     assert moderation.classifier.calls == 0  # уровень 1 без флагов — без классификатора
     assert moderation.metrics.routes == [(EntityType.JOB, Route.PUBLISH)]
@@ -192,6 +193,7 @@ async def test_moderator_decision_publishes_or_hides(moderation: Moderation) -> 
     )
 
     assert moderation.jobs.published == [(approved, None)]
+    assert moderation.jobs.auto_published == []  # решение модератора, а не автопроверка
     assert moderation.jobs.hidden == [(rejected, "prepayment_scam")]
     assert moderation.identity.lifted == [open_cases[approved]]  # заморозка автопроверки
 

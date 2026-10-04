@@ -78,6 +78,23 @@ def test_rejection_hides_and_moderator_can_return_the_work() -> None:
     assert state(item) is WorkStatus.PUBLISHED
 
 
+def test_late_auto_check_does_not_return_a_work_the_moderator_hid() -> None:
+    """Автопроверка подписи шла, модератор тем временем скрыл работу: её чистый итог опоздал."""
+    item = work()
+    item.reject()
+
+    assert not item.approve(auto=True)
+    assert state(item) is WorkStatus.REJECTED
+    assert item.approve()  # решение модератора — возвращает
+
+
+def test_auto_check_publishes_a_waiting_work() -> None:
+    item = work()
+
+    assert item.approve(auto=True)
+    assert state(item) is WorkStatus.PUBLISHED
+
+
 def test_new_work_and_caption_edit_request_review() -> None:
     uow = Events()
     item = work()

@@ -136,10 +136,10 @@ class SpecialistsFacade(SpecialistsApi):
             risk_level=max((int(c.risk_level) for c in categories), default=0),
         )
 
-    async def approve_work(self, work_id: UUID) -> None:
+    async def approve_work(self, work_id: UUID, *, auto: bool = False) -> None:
         self._uow.require_active()
         item = await self._works.get_for_update(work_id)
-        if item is not None and item.approve():
+        if item is not None and item.approve(auto=auto):
             await self._works.save(item)
 
     async def reject_work(self, work_id: UUID) -> None:

@@ -5,6 +5,7 @@
 
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 
@@ -53,6 +54,16 @@ class ImageForCheck:
 
     body: bytes
     content_type: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class UncheckedImage:
+    """Готовое фото (у ролика — постер), так и не получившее итог проверки (6.7)."""
+
+    media_id: MediaId
+    owner_id: UserId
+    purpose: str
+    processed_at: datetime
 
 
 class ModerationVerdict(StrEnum):
@@ -120,7 +131,16 @@ class MediaApi(Protocol):
 
     async def image_for_check(self, media_id: MediaId) -> ImageForCheck | None:
         """Готовое и ещё не проверенное фото (у ролика — постер) для модерации (6.7). None —
-        проверять нечего: не готово, удалено, уже проверено или вариантов нет."""
+        проверять нечего: не готово, удалено, уже проверено, вариантов нет или вариант не
+        прочитать из хранилища."""
+        ...
+
+    async def unchecked_images(
+        self, *, processed_before: datetime, purposes: Collection[str], limit: int
+    ) -> list[UncheckedImage]:
+        """Готовые фото этих назначений, обработанные раньше `processed_before`, но всё ещё без
+        итога проверки (задача проверки упала или не прочитала вариант), — старые первыми, не
+        больше `limit`."""
         ...
 
     async def moderate(

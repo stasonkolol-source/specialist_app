@@ -211,6 +211,8 @@ class FakeTarget(ModerationTarget):
 
     objects: dict[UUID, TargetContent] = field(default_factory=dict)
     published: list[tuple[UUID, int | None]] = field(default_factory=list)
+    auto_published: list[UUID] = field(default_factory=list)
+    """Что опубликовала автопроверка (`auto`), а не решение модератора."""
     hidden: list[tuple[UUID, str]] = field(default_factory=list)
 
     def add(
@@ -240,8 +242,12 @@ class FakeTarget(ModerationTarget):
     async def content(self, entity_id: UUID) -> TargetContent | None:
         return self.objects.get(entity_id)
 
-    async def publish(self, entity_id: UUID, *, version: int | None = None) -> None:
+    async def publish(
+        self, entity_id: UUID, *, version: int | None = None, auto: bool = False
+    ) -> None:
         self.published.append((entity_id, version))
+        if auto:
+            self.auto_published.append(entity_id)
 
     async def hide(self, entity_id: UUID, *, reason_code: str) -> None:
         self.hidden.append((entity_id, reason_code))

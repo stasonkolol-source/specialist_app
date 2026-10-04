@@ -34,6 +34,7 @@ class ReviewTarget(ModerationTarget):
         entity_id: UUID,
         *,
         version: int | None = None,  # noqa: ARG002 — отзыв не редактируется
+        auto: bool = False,  # noqa: ARG002 — публикуется только ждущий проверки
     ) -> None:
         await self._reviews.approve_review(entity_id)
 
@@ -60,6 +61,7 @@ class ReviewReplyTarget(ModerationTarget):
         entity_id: UUID,
         *,
         version: int | None = None,  # noqa: ARG002 — ответ не редактируется
+        auto: bool = False,  # noqa: ARG002 — публикуется только ждущий проверки
     ) -> None:
         await self._reviews.approve_reply(entity_id)
 

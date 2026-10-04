@@ -173,7 +173,8 @@ class MediaAsset(AggregateRoot):
     """Сколько раз начиналась обработка."""
     deleted_at: datetime | None = None
     hidden_at: datetime | None = None
-    """Варианты удалённого файла перенесены из публичного media в private."""
+    """Варианты удалённого или отклонённого файла перенесены из публичного media в private;
+    пусто — они могут быть в media (не спрятаны или возврат успел их скопировать)."""
     held_until: datetime | None = None
     """Legal hold: очистка не трогает файл до этого времени и потом проверяет снова."""
     purged_at: datetime | None = None
@@ -324,6 +325,15 @@ class MediaAsset(AggregateRoot):
         if self.needs_hiding:
             raise MediaStateError(media_status=self.moderation_status.value)
         self.hidden_at = None
+
+    def expose(self) -> bool:
+        """Возврат вариантов (media.restore_variants) мог успеть скопировать их в публичный
+        media, а файл снова надо прятать — удалили или снова отклонили. Отметка снимается:
+        страховка `media.hide_deleted` видит только файлы без неё. False — отметки не было."""
+        if self.hidden_at is None:
+            return False
+        self.hidden_at = None
+        return True
 
     def ready(
         self,

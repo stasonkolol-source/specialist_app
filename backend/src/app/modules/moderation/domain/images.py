@@ -87,6 +87,13 @@ REASON_CODES: Final[Mapping[str, str]] = MappingProxyType(
 """Категория omni → код причины (как у санкций: латиница, цифры, «_»)."""
 
 
+UNCHECKED: Final = ImageVerdict(
+    action=ImageAction.REVIEW, queue=Queue.PREMOD, signals=("image:unchecked",)
+)
+"""Проверка так и не состоялась (задача падала, вариант не прочитать): как `Unavailable` — без
+проверки фото не считается чистым, решает модератор (P2, ADR-0016)."""
+
+
 def judge_image(result: ModerationResult | Unavailable) -> ImageVerdict:
     """Что делать с фото по ответу omni-moderation."""
     if isinstance(result, Unavailable):
