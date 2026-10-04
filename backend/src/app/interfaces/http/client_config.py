@@ -14,6 +14,7 @@ from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel
 
 from app.platform.config.cache import ClientConfigCache
+from app.platform.config.port import CLIENT_CONFIG_MAX_AGE
 from app.platform.http.caching import NOT_MODIFIED, cached_json
 from app.platform.kernel.localized import Locale
 from app.platform.legal.port import LegalDocument, LegalEdition, LegalLibrary
@@ -22,7 +23,7 @@ from app.platform.settings import AppSettings, TelegramSettings
 log = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["platform"])
-MAX_AGE_SECONDS = 60
+MAX_AGE_SECONDS = CLIENT_CONFIG_MAX_AGE
 
 
 class LegalTextOut(BaseModel):

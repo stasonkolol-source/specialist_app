@@ -21,7 +21,10 @@ from app.modules.specialists.application.use_cases.edit_profile import EditProfi
 from app.modules.specialists.application.use_cases.forget_profile import ForgetProfile
 from app.modules.specialists.application.use_cases.hide_profile import HideProfile
 from app.modules.specialists.application.use_cases.join_pro_waitlist import JoinProWaitlist
-from app.modules.specialists.application.use_cases.mark_founding import MarkFounding
+from app.modules.specialists.application.use_cases.mark_founding import (
+    MarkFounding,
+    SetFounding,
+)
 from app.modules.specialists.application.use_cases.remind_stale_profiles import (
     RemindStaleProfiles,
 )
@@ -78,3 +81,4 @@ class SpecialistsProvider(Provider):
     set_profile_avatar = provide(SetProfileAvatar)
     mark_founding = provide(MarkFounding)
     join_pro_waitlist = provide(JoinProWaitlist)
+    set_founding = provide(SetFounding)

@@ -10,7 +10,10 @@
   `search.reconcile_index`.
 - Запись справочника берёт тот же `pg_advisory_xact_lock`, что импорт `cli seed` (`AdminSession`:
   ключ — у раздела, `advisory_lock`), иначе импорт при деплое и правка перетёрли бы друг друга.
-- Решения по агрегатам (кейс, санкция) — через use case, действием раздела (`run_action`).
+- Решения по агрегатам (кейс, санкция, Founding) — через use case, действием раздела
+  (`run_action`).
+- Названия справочников (LocalizedText) правит форма `LocalizedNameForm`: поле на каждую локаль;
+  правка ставит `name_origin = admin`, и `cli seed` такое название больше не переписывает.
 """
 
 from collections.abc import Awaitable, Callable, Iterable, Mapping
@@ -22,15 +25,20 @@ from uuid import UUID
 
 from dishka import AsyncContainer
 from sqladmin import ModelView
-from sqlalchemy import event, func, select
+from sqlalchemy import event, func, inspect, select
 from sqlalchemy.orm import Session, UOWTransaction
 from starlette.requests import Request
+from wtforms import Form, StringField
+from wtforms.validators import DataRequired, Length
 
 from app.platform.audit.port import ActorKind, AuditEntry, AuditLog
 from app.platform.db.port import UnitOfWork
+from app.platform.db.types import NameOrigin
 from app.platform.kernel.clock import Clock
+from app.platform.kernel.errors import DomainValidationError
 from app.platform.kernel.events import DomainEvent
 from app.platform.kernel.ids import UserId
+from app.platform.kernel.localized import Locale, LocalizedText
 from app.platform.kernel.principal import Role
 
 MODERATION: Final = frozenset({Role.MODERATOR, Role.ADMIN})
@@ -101,6 +109,8 @@ def _plain(value: object) -> object:
             return value
         case Enum():
             return value.value
+        case LocalizedText():
+            return value.to_mapping()
         case Decimal() | UUID():
             return str(value)
         case datetime() | date():
@@ -120,8 +130,12 @@ class StaffModelView(ModelView):
     audit_entity: ClassVar[str] = ""
     """`<модуль>.<объект>` в audit_log: действие — `<модуль>.<объект>.created|updated|deleted`."""
 
+    help_text: ClassVar[str] = ""
+    """Подсказка над таблицей раздела (шаблон admin/list.html)."""
+
     page_size = 50
     can_export = False
+    list_template = "admin/list.html"
 
     @override
     def is_accessible(self, request: Request) -> bool:
@@ -172,7 +186,9 @@ async def _now(request: Request) -> datetime:
 
 
 def _pk(model: Any) -> object:
-    return getattr(model, "id", None)
+    """Первичный ключ строки: id у справочников, `key` у флагов и конфигурации клиентов."""
+    identity = inspect(model).identity
+    return identity[0] if identity else None
 
 
 def _uuid(model: Any) -> UUID | None:
@@ -187,6 +203,64 @@ async def run_action[T](
     handler: Callable[..., Awaitable[T]] = await container_of(request).get(use_case)
     result: T = await handler(command)
     return result
+
+
+NAME_LOCALES: Final = (Locale.RU, Locale.SR_CYRL, Locale.SR_LATN, Locale.EN)
+"""Поля формы названия по порядку; ru и sr-Cyrl обязательны (CHECK `name_required_locales`)."""
+
+
+def _name_field(locale: Locale) -> str:
+    return "name_" + locale.value.lower().replace("-", "_")
+
+
+class LocalizedNameForm(StaffModelView):
+    """Раздел справочника с правкой названия (LocalizedText): поле на каждую локаль.
+
+    Название в строке одно — JSONB `name`; форма разворачивает его в поля ru, sr-Cyrl, sr-Latn и
+    en и собирает обратно. Пустая латиница — транслит кириллицы, как у сидов
+    (`LocalizedText.with_sr_latn`). Изменившееся название ставит `name_origin = admin`: следующий
+    `cli seed` его не перепишет (выбор шага 2.7b — тот же, что у контент-правил).
+    """
+
+    @override
+    async def scaffold_form(self, rules: list[str] | None = None) -> type[Form]:
+        base = await super().scaffold_form(rules)
+        fields: dict[str, object] = {
+            _name_field(Locale.RU): StringField(
+                "Название (ru)", validators=[DataRequired(), Length(max=120)]
+            ),
+            _name_field(Locale.SR_CYRL): StringField(
+                "Назив (sr-Cyrl)", validators=[DataRequired(), Length(max=120)]
+            ),
+            _name_field(Locale.SR_LATN): StringField(
+                "Naziv (sr-Latn) — пусто: транслит из sr-Cyrl", validators=[Length(max=120)]
+            ),
+            _name_field(Locale.EN): StringField("Name (en)", validators=[Length(max=120)]),
+        }
+        return type(f"{base.__name__}Named", (base,), fields)
+
+    @override
+    async def get_form_data_for_edit(self, obj: Any) -> dict[str, Any]:
+        data = await super().get_form_data_for_edit(obj)
+        name: LocalizedText = obj.name
+        data.update({_name_field(loc): name.values.get(loc, "") for loc in NAME_LOCALES})
+        return data
+
+    @override
+    async def on_model_change(
+        self, data: dict[str, Any], model: Any, is_created: bool, request: Request
+    ) -> None:
+        # поля локалей — не колонки: SQLAdmin записал бы их в строку как атрибуты
+        raw = {loc: str(data.pop(_name_field(loc), "") or "") for loc in NAME_LOCALES}
+        try:
+            name = LocalizedText({loc: text for loc, text in raw.items() if text.strip()})
+        except DomainValidationError:
+            raise ValueError("Название не может быть пустым") from None
+        name = name.with_sr_latn()
+        if is_created or name.to_mapping() != model.name.to_mapping():
+            data["name"] = name
+            model.name_origin = NameOrigin.ADMIN
+        await super().on_model_change(data, model, is_created, request)
 
 
 class AdminSession(Session):

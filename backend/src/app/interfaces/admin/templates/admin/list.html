@@ -1,0 +1,6 @@
+{% extends "sqladmin/list.html" %}
+{# Список раздела с подсказкой над таблицей (StaffModelView.help_text, 2.7b) #}
+{% block model_list_table %}
+{% if model_view.help_text %}<div class="alert alert-info m-3" role="note">{{ model_view.help_text }}</div>{% endif %}
+{{ super() }}
+{% endblock %}

@@ -2,9 +2,11 @@
 
 Правятся настройки, которые сид не задаёт или задаёт только при вставке (writer.py):
 включена ли категория и тег, заявки и предел откликов, риск для модерации, порядок и иконка.
-Названия, дерево и словарь поиска принадлежат сидам (`cli seed`; seed_hash не меняется правкой,
-поэтому сид перепишет категорию, только если изменится она сама в сиде) — в админке они только
-для чтения; правка переводов из админки — следующим шагом вместе с формой LocalizedText.
+Названия категорий и тегов правит форма LocalizedText (ru, sr-Cyrl, sr-Latn, en): правка ставит
+`name_origin = admin`, и `cli seed` такое название больше не переписывает. Дерево и словарь
+поиска принадлежат сидам (seed_hash не меняется правкой, поэтому сид перепишет категорию, только
+если изменится она сама в сиде) — в админке они только для чтения; прежнее название остаётся в
+словаре поиска, новое ищется, когда его добавят в сид синонимом.
 
 Каждая правка: тот же advisory lock, что импорт `cli seed`; аудит; CatalogChanged (переиндексация
 поиска); снимок таксономии этого процесса сбрасывается сразу, у остальных — за TTL (60 с).
@@ -24,7 +26,7 @@ from app.modules.catalog.infrastructure.models import (
     TagRow,
 )
 from app.platform.contracts.events.catalog import CatalogChanged
-from app.platform.http.admin import ADMIN, StaffModelView, container_of
+from app.platform.http.admin import ADMIN, LocalizedNameForm, StaffModelView, container_of
 from app.platform.kernel.events import DomainEvent
 from app.platform.kernel.ids import CategoryId
 
@@ -51,7 +53,7 @@ class _CatalogView(StaffModelView):
         (await container_of(request).get(TaxonomyCache)).invalidate()
 
 
-class CategoryAdmin(_CatalogView, model=CategoryRow):
+class CategoryAdmin(LocalizedNameForm, _CatalogView, model=CategoryRow):
     name = "Категория"
     name_plural = "Категории"
     icon = "fa-solid fa-sitemap"
@@ -66,7 +68,9 @@ class CategoryAdmin(_CatalogView, model=CategoryRow):
         CategoryRow.max_responses,
         CategoryRow.risk_level,
         CategoryRow.sort_order,
+        CategoryRow.name_origin,
     ]
+    column_labels: ClassVar[Any] = {CategoryRow.name_origin: "название ведёт"}
     column_searchable_list: ClassVar[Any] = [CategoryRow.slug]
     column_sortable_list: ClassVar[Any] = [CategoryRow.id, CategoryRow.slug, CategoryRow.sort_order]
     form_columns: ClassVar[Any] = [
@@ -82,7 +86,7 @@ class CategoryAdmin(_CatalogView, model=CategoryRow):
         return int(model.id)
 
 
-class TagAdmin(_CatalogView, model=TagRow):
+class TagAdmin(LocalizedNameForm, _CatalogView, model=TagRow):
     name = "Тег"
     name_plural = "Теги"
     icon = "fa-solid fa-tag"
@@ -93,7 +97,9 @@ class TagAdmin(_CatalogView, model=TagRow):
         TagRow.slug,
         TagRow.name,
         TagRow.is_active,
+        TagRow.name_origin,
     ]
+    column_labels: ClassVar[Any] = {TagRow.name_origin: "название ведёт"}
     column_searchable_list: ClassVar[Any] = [TagRow.slug]
     form_columns: ClassVar[Any] = [TagRow.is_active]
 

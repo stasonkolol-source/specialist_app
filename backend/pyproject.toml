@@ -116,6 +116,11 @@ explicit_package_bases = true
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
+# WTForms (зависимость SQLAdmin) без аннотаций и stub-пакета: форма названий в админке (2.7b)
+module = ["wtforms", "wtforms.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = ["app.*.tests.*", "tests.*"]
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
