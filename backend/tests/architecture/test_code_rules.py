@@ -101,6 +101,7 @@ CONCURRENCY_FREE = [
     *_module_parts("bot"),
     *_module_parts("admin"),
     *_module_parts("tasks.py"),
+    *_module_parts("privacy.py"),
     SRC / "interfaces" / "http" / "views",
 ]
 

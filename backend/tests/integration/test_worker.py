@@ -187,6 +187,7 @@ async def test_platform_periodic_tasks_are_scheduled(container: AsyncContainer) 
         "ops.heartbeat": "* * * * *",
         "ops.queue_lag": "* * * * *",
         "platform.idempotency_cleanup": "23 * * * *",
+        "platform.retention_sweep": "37 3 * * *",
         "media.cleanup_orphans": "41 * * * *",
         "media.purge_deleted": "37 * * * *",
         "media.retry_stuck": "*/15 * * * *",
@@ -205,7 +206,6 @@ async def test_platform_periodic_tasks_are_scheduled(container: AsyncContainer) 
         "deals.expire_proposed": "12-59/15 * * * *",
         "deals.auto_complete": "27 * * * *",
         "deals.dispute_response_sla": "14,44 * * * *",
-        "messaging.purge_messages": "47 3 * * *",
         "reviews.reminders": "17 * * * *",
         "reviews.recompute_ratings": "5 3 * * *",
     }

@@ -11,6 +11,7 @@ from app.modules.jobs.application.ports import (
     JobQueries,
     JobQuota,
     JobRepository,
+    JobRetention,
     JobViews,
     ResponseQuota,
     ResponsesSeen,
@@ -40,6 +41,7 @@ from app.modules.jobs.application.use_cases.list_job_responses import ListJobRes
 from app.modules.jobs.application.use_cases.list_my_responses import ListMyResponses
 from app.modules.jobs.application.use_cases.list_saved_jobs import ListSavedJobs
 from app.modules.jobs.application.use_cases.list_templates import ListTemplates
+from app.modules.jobs.application.use_cases.purge_expired_jobs import PurgeExpiredJobs
 from app.modules.jobs.application.use_cases.remind_expiring_jobs import RemindExpiringJobs
 from app.modules.jobs.application.use_cases.reopen_job import ReopenJob
 from app.modules.jobs.application.use_cases.respond import Respond
@@ -59,6 +61,7 @@ from app.modules.jobs.infrastructure.invites import SqlJobInvites
 from app.modules.jobs.infrastructure.queries import SqlJobQueries
 from app.modules.jobs.infrastructure.quota import ValkeyJobQuota, ValkeyResponseQuota
 from app.modules.jobs.infrastructure.repositories import SqlJobRepository
+from app.modules.jobs.infrastructure.retention import SqlJobRetention
 from app.modules.jobs.infrastructure.saved import SqlSavedJobs
 from app.modules.jobs.infrastructure.templates import SqlResponseTemplates
 from app.modules.jobs.infrastructure.views import LimitedJobViews, SqlResponsesSeen
@@ -75,6 +78,7 @@ class JobsProvider(Provider):
     saved = provide(SqlSavedJobs, provides=SavedJobs)
     templates = provide(SqlResponseTemplates, provides=ResponseTemplates)
     invites = provide(SqlJobInvites, provides=JobInvites)
+    retention = provide(SqlJobRetention, provides=JobRetention)
     views = provide(LimitedJobViews, provides=JobViews)
     responses_seen = provide(SqlResponsesSeen, provides=ResponsesSeen)
     quota = provide(ValkeyJobQuota, provides=JobQuota)
@@ -89,6 +93,7 @@ class JobsProvider(Provider):
     delete_job = provide(DeleteJob)
     forget_client_jobs = provide(ForgetClientJobs)
     expire_jobs = provide(ExpireJobs)
+    purge_expired_jobs = provide(PurgeExpiredJobs)
     remind_expiring_jobs = provide(RemindExpiringJobs)
     browse_jobs = provide(BrowseJobs)
     count_jobs = provide(CountJobs)

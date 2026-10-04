@@ -93,6 +93,10 @@ class DeletedIdentities(Protocol):
         """Был ли у удалённого аккаунта с этим хэшем санкции; None — хэша нет или он истёк."""
         ...
 
+    async def purge(self, now: datetime, *, limit: int) -> int:
+        """Удалить до `limit` хэшей, чей срок (12 мес.) прошёл; сколько удалено."""
+        ...
+
 
 class SessionRepository(Protocol):
     async def get_for_update(self, session_id: SessionId) -> Session:

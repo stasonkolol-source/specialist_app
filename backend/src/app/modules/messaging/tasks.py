@@ -2,8 +2,6 @@
 
 - `messaging.forget_messages` — UserDeleted: текст сообщений удалённого аккаунта стирается
   (§7.10, 6.3a).
-- `messaging.purge_messages` — раз в сутки: правило хранения — текст сообщений старше 12 месяцев
-  стирается порциями.
 - `messaging.record_deal_agreed` — DealAgreed: «Договорились» в ленте диалога сделки (или диалога
   по выбранному отклику), контакты в нём открываются (6.3b).
 - `messaging.record_deal_cancelled` — DealCancelled: предложение отклонено, истекло или сделку
@@ -21,10 +19,6 @@ from app.modules.messaging.application.use_cases.forget_messages import (
     ForgetMessages,
     ForgetMessagesCommand,
 )
-from app.modules.messaging.application.use_cases.purge_messages import (
-    PurgeMessages,
-    PurgeMessagesCommand,
-)
 from app.modules.messaging.application.use_cases.record_deal_event import (
     RecordDealEvent,
     RecordDealEventCommand,
@@ -32,18 +26,12 @@ from app.modules.messaging.application.use_cases.record_deal_event import (
 from app.modules.messaging.domain.message import SystemEvent
 from app.platform.contracts.events.deals import DealAgreed, DealCancelled
 from app.platform.contracts.events.identity import UserDeleted
-from app.platform.queue.tasks import PeriodicRun, periodic, subscriber
+from app.platform.queue.tasks import subscriber
 
 
 @subscriber(UserDeleted, FORGET_MESSAGES)
 async def forget_messages(event: UserDeleted, forget: FromDishka[ForgetMessages]) -> None:
     await forget(ForgetMessagesCommand(user_id=event.user_id))
-
-
-@periodic("messaging.purge_messages", cron="47 3 * * *")
-async def purge_messages(run: PeriodicRun) -> None:
-    async with run.container() as request:
-        await (await request.get(PurgeMessages))(PurgeMessagesCommand())
 
 
 @subscriber(DealAgreed, RECORD_DEAL_AGREED)
