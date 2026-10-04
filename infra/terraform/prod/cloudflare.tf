@@ -1,4 +1,4 @@
-# 3.1c: край prod — DNS app., api., cdn., admin. (ADR-0015, доменная схема), бакеты R2 prod (K39),
+# 3.1c: край prod — DNS app., api., bot., cdn., admin. (ADR-0015, доменная схема), бакеты R2 prod (K39),
 # сертификат Origin CA для kamal-proxy, Cloudflare Access перед админкой (K31). Включается флагом
 # cloudflare_enabled, Access — отдельно access_enabled: частичный apply работает на любом шаге.
 # Общее для зоны (Full strict, HTTPS, skip-правило WAF для webhook и запрет /admin на api.) — в
@@ -10,12 +10,15 @@ locals {
 
   host_app   = "app.${var.domain}"
   host_api   = "api.${var.domain}"
+  host_bot   = "bot.${var.domain}"
   host_cdn   = "cdn.${var.domain}"
   host_admin = "admin.${var.domain}"
 
-  # kamal-proxy на app-1 обслуживает API и админку: оба имени — через прокси Cloudflare
+  # kamal-proxy на app-1 обслуживает API, webhook бота (свой хост роли bot: Kamal не даёт двум ролям
+  # один хост с TLS, 0.25e) и админку — все имена через прокси Cloudflare
   app1_hosts = {
-    api   = { host = local.host_api, comment = "prod: API и webhook бота (kamal-proxy)" }
+    api   = { host = local.host_api, comment = "prod: API (kamal-proxy)" }
+    bot   = { host = local.host_bot, comment = "prod: webhook бота (kamal-proxy, роль bot)" }
     admin = { host = local.host_admin, comment = "prod: SQLAdmin — только за Access (K31)" }
   }
 }
@@ -105,7 +108,7 @@ resource "tls_cert_request" "origin" {
 resource "cloudflare_origin_ca_certificate" "origin" {
   count              = local.cf
   csr                = tls_cert_request.origin[0].cert_request_pem
-  hostnames          = [local.host_api, local.host_admin]
+  hostnames          = [local.host_api, local.host_bot, local.host_admin]
   request_type       = "origin-ecc"
   requested_validity = 5475
 }

@@ -2,6 +2,7 @@
 dishka, FSM в Valkey."""
 
 from collections.abc import Sequence
+from typing import Final
 
 from aiogram import Dispatcher, Router
 from aiogram.fsm.storage.base import DefaultKeyBuilder
@@ -12,6 +13,11 @@ from redis.asyncio import Redis
 
 from app.interfaces.bot import commands
 from app.interfaces.bot.middlewares import ErrorMiddleware, UserMiddleware
+
+ALLOWED_UPDATES: Final = ("message", "callback_query", "my_chat_member")
+"""Апдейты, которые бот просит у Telegram (polling и setWebhook): узкий список ADR-0011 — только
+то, на что есть хендлеры. Остальное Telegram не присылает вовсе. Новый тип хендлера (оплата Stars,
+inline-режим — v1) вписывается сюда; расхождение с хендлерами ловит тест."""
 
 
 def create_dispatcher(

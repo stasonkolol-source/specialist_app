@@ -16,6 +16,7 @@ from enum import StrEnum
 from ipaddress import IPv4Network, IPv6Network, ip_network
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from pydantic import Field, IPvAnyNetwork, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -25,6 +26,10 @@ ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
 _TELEGRAM_USERNAME = re.compile(r"[A-Za-z][A-Za-z0-9_]{4,31}")
 """Имя пользователя Telegram: 5–32 символа, начинается с буквы."""
+
+_WEBHOOK_SECRET = re.compile(r"[A-Za-z0-9_-]{32,256}")
+"""secret_token webhook: алфавит и предел 256 — Bot API (setWebhook); от 32 символов — наше
+требование: секрет — единственная защита адреса, его подбирают (`make gen-secret` даёт 64)."""
 
 PRIVATE_NETWORKS: tuple[IPv4Network | IPv6Network, ...] = tuple(
     ip_network(cidr)
@@ -78,6 +83,13 @@ class Environment(StrEnum):
     PRODUCTION = "production"
 
 
+class UpdatesMode(StrEnum):
+    """Как бот получает апдейты (ADR-0011): polling — dev; webhook — stage и prod."""
+
+    POLLING = "polling"
+    WEBHOOK = "webhook"
+
+
 class SettingsError(RuntimeError):
     """Настройки неполны или неверны — процесс не должен стартовать."""
 
@@ -105,7 +117,8 @@ class AppSettings(_Group):
     heartbeat_url: str | None = None
     """Ping Healthchecks.io раз в минуту из воркера (K33), без адреса — только лог."""
     web_host: str = "127.0.0.1"
-    """Адрес uvicorn: локально — только loopback; в контейнере — 0.0.0.0 (за kamal-proxy)."""
+    """Адрес HTTP-сервера процесса — uvicorn web или приём webhook бота (TELEGRAM_UPDATES):
+    локально — только loopback; в контейнере — 0.0.0.0 (за kamal-proxy)."""
     web_port: int = Field(default=8000, ge=1, le=65535)
     trusted_proxies: list[IPvAnyNetwork] = Field(default_factory=lambda: list(PRIVATE_NETWORKS))
     """Свои обратные прокси (kamal-proxy в сети Docker, cloudflared на loopback): только от
@@ -158,7 +171,19 @@ class TelegramSettings(_Group):
 
     bot_token: SecretStr
     bot_username: str
+    updates: UpdatesMode = UpdatesMode.POLLING
+    """Приём апдейтов процессом bot. webhook (stage, prod) — aiohttp-сервер на APP_WEB_HOST и
+    APP_WEB_PORT за kamal-proxy, адрес — TELEGRAM_WEBHOOK_BASE_URL + /integrations/telegram/webhook;
+    нужен TELEGRAM_WEBHOOK_SECRET. Задаётся явно в Kamal, а не выводится из APP_ENV: откат на
+    polling — без смены окружения (в Kamal — вместе с `proxy: false` у роли bot: polling не
+    отвечает на /up, 0.25e)."""
+    webhook_base_url: str | None = None
+    """Схема и хост, на которые Telegram шлёт webhook, без пути: свой хост процесса bot
+    (`https://stage-bot.<домен>`, на проде `https://bot.<домен>`) — kamal-proxy не отдаёт один
+    хост с TLS двум ролям. Пусто — APP_API_PUBLIC_URL (bot и web за одним адресом)."""
     webhook_secret: SecretStr | None = None
+    """secret_token webhook: Telegram присылает его в X-Telegram-Bot-Api-Secret-Token, без него
+    или с чужим — 401. 32–256 символов [A-Za-z0-9_-], на stage и проде — `make gen-secret`."""
     mini_app_url: str | None = None
     use_test_environment: bool = False
     support_username: str | None = None
@@ -167,6 +192,9 @@ class TelegramSettings(_Group):
     """Закрытый чат модераторов (K29, 2.5b): туда бот присылает карточки кейсов и алерт падения
     response rate@4h (6.6). Id группы — отрицательный (`-100…`); пусто — карточек нет, кейсы решают
     командами `cli`, алерт уходит в лог и Sentry."""
+    fake_sender: bool = False
+    """Нагрузочный прогон на stage (8.3): уведомления не уходят в Telegram, а ждут слот того же
+    лимитера и латентность Bot API (platform/telegram/fake_sender.py). На проде запрещён."""
 
     @field_validator("moderators_chat_id", mode="before")
     @classmethod
@@ -184,6 +212,35 @@ class TelegramSettings(_Group):
         if not _TELEGRAM_USERNAME.fullmatch(username):
             raise ValueError("TELEGRAM_SUPPORT_USERNAME: 5–32 символа [A-Za-z0-9_], без @")
         return username
+
+
+def webhook_base_url(app: AppSettings, telegram: TelegramSettings) -> str:
+    """Адрес процесса bot для Telegram: TELEGRAM_WEBHOOK_BASE_URL, без него — APP_API_PUBLIC_URL."""
+    return telegram.webhook_base_url or app.api_public_url
+
+
+def webhook_problems(app: AppSettings, telegram: TelegramSettings) -> list[str]:
+    """Чего не хватает режиму webhook; пусто — всё есть или бот на polling.
+
+    Общая проверка процессов (Settings) и `cli bot-setup`: без секрета aiogram принял бы любой
+    POST, а на http:// Telegram апдейты не шлёт. Формат секрета и адреса проверяем только здесь:
+    в dev на polling они не нужны и не должны ронять стенд."""
+    if telegram.updates is not UpdatesMode.WEBHOOK:
+        return []
+    found = []
+    secret = telegram.webhook_secret.get_secret_value() if telegram.webhook_secret else ""
+    if not secret:
+        found.append("не задан TELEGRAM_WEBHOOK_SECRET")
+    elif not _WEBHOOK_SECRET.fullmatch(secret):
+        found.append("TELEGRAM_WEBHOOK_SECRET: нужно 32–256 символов [A-Za-z0-9_-]")
+    name = "TELEGRAM_WEBHOOK_BASE_URL" if telegram.webhook_base_url else "APP_API_PUBLIC_URL"
+    base = urlsplit(webhook_base_url(app, telegram))
+    if base.scheme != "https" or not base.hostname:
+        found.append(f"{name}: webhook Telegram принимает только https://")
+    elif base.path.strip("/") or base.query or base.fragment:
+        # kamal-proxy ведёт на bot весь хост: с путём апдейты ушли бы мимо обработчика (404)
+        found.append(f"{name}: нужны только схема и хост, без пути")
+    return found
 
 
 class JwtSettings(_Group):
@@ -335,9 +392,16 @@ class Settings:
             and self.app.hash_key is None
         ):
             raise SettingsError("Настройки неполны — не заданы: APP_HASH_KEY")
+        if problems := webhook_problems(self.app, self.telegram):
+            raise SettingsError("TELEGRAM_UPDATES=webhook — " + "; ".join(problems))
         if self.app.env is Environment.PRODUCTION and (todo := self.legal.todo_fields()):
             # оператор и почта попадают в политику конфиденциальности: заглушка на проде — нарушение
             raise SettingsError("Настройки неполны — на проде нужны значения: " + ", ".join(todo))
+        if self.app.env is Environment.PRODUCTION and self.telegram.fake_sender:
+            # фейк молча глотает уведомления: на проде люди перестали бы их получать
+            raise SettingsError(
+                "Неверные настройки — TELEGRAM_FAKE_SENDER только для нагрузочного прогона на stage"
+            )
 
 
 def _as[T: _Group](values: dict[type[_Group], _Group], group: type[T]) -> T:
@@ -359,6 +423,8 @@ def describe(settings: Settings) -> dict[str, Any]:
         "release": settings.app.release,
         "db_pool_size": settings.db.pool_size,
         "telegram_bot": settings.telegram.bot_username,
+        "telegram_updates": settings.telegram.updates.value,
+        "telegram_fake_sender": settings.telegram.fake_sender,
         "s3_endpoint": settings.s3.endpoint_url,
         "sentry": settings.sentry.dsn is not None,
         "ai_moderation": settings.ai.openai_api_key is not None,

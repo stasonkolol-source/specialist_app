@@ -2604,7 +2604,7 @@ sequenceDiagram
 
 | Метод и путь | Назначение |
 |---|---|
-| `POST /integrations/telegram/webhook` | Updates бота; проверка заголовка `X-Telegram-Bot-Api-Secret-Token` |
+| `POST /integrations/telegram/webhook` | Updates бота; принимает процесс `bot` на своём хосте `bot.<domain>` (stage — `stage-bot.`): aiohttp aiogram за kamal-proxy, не `web` — Kamal не даёт двум ролям один хост с TLS; заголовок `X-Telegram-Bot-Api-Secret-Token` сравнивается за постоянное время, без него — 401 (`TELEGRAM_UPDATES=webhook`, `TELEGRAM_WEBHOOK_BASE_URL`, шаг 0.25e) |
 | `POST /integrations/apple/notifications`, `/integrations/google/rtdn`, `/integrations/psp/{name}` | Вебхуки платёжных каналов (этап 2 / v1) |
 
 **Admin API** (`/admin/api/v1`, роли `moderator` / `support` / `admin`, отдельный аудит)
@@ -3191,7 +3191,7 @@ flowchart LR
 |---|---|
 | Подделка личности Telegram (фальшивый `initData`) | Проверка HMAC на сервере, `auth_date` ≤ 1 ч, constant-time сравнение. `initDataUnsafe` не используется, `initData` не логируется |
 | Кража токенов | Короткий access (15 мин); refresh с ротацией и детектом повторного использования; denylist `sid` в Valkey при бане; только HTTPS |
-| Подделка webhook Telegram | `X-Telegram-Bot-Api-Secret-Token`, узкий `allowed_updates`, секретный путь |
+| Подделка webhook Telegram | `X-Telegram-Bot-Api-Secret-Token` (32–256 символов, сравнение за постоянное время), узкий `allowed_updates`. Секрет — в заголовке, а не в пути: путь попадает в логи прокси и Cloudflare, поэтому он постоянный и под skip-правилом WAF |
 | Нарушение авторизации (IDOR) | Проверка владения в каждом application-сервисе (политики модуля); UUIDv7 вместо последовательных id; тесты прав на каждый эндпоинт |
 | Спам и фрод | Rate limiting (§13.3), лимиты для новых аккаунтов, конвейер модерации ([§14](#14-модерация-и-trust--safety)) |
 | Утечка персональных данных | Минимизация, шифрование, журналы доступа, контакты и адрес скрыты до выбора, удаление EXIF |
@@ -3446,7 +3446,7 @@ flowchart LR
 | `imgproxy` (профиль `media`, v1) | `darthsim/imgproxy:v4.0.15` | Ресайз на лету из Garage | 8080 |
 | `mailpit` | — | Не нужен: e-mail не используется | — |
 
-Процессы `web`, `bot`, `worker` в разработке запускаются вне Docker через `uv run` с hot reload. Бот в dev работает в polling-режиме (отдельный тестовый бот). Для проверки Mini App на телефоне используется тестовое окружение Telegram (там допускается HTTP) или туннель `cloudflared`.
+Процессы `web`, `bot`, `worker` в разработке запускаются вне Docker через `uv run` с hot reload. Бот в dev работает в polling-режиме (отдельный тестовый бот); на stage и prod — webhook (`TELEGRAM_UPDATES=webhook`) на своём хосте `stage-bot.` / `bot.`. Для проверки Mini App на телефоне используется тестовое окружение Telegram (там допускается HTTP) или туннель `cloudflared`.
 
 **Правила:**
 - образы закрепляются по digest;
@@ -3467,13 +3467,13 @@ flowchart LR
 flowchart LR
     U["Пользователи<br/>(Telegram, браузер)"] --> CF["Cloudflare<br/>DNS, WAF, CDN, rate limit,<br/>Access для /admin"]
     CF -- "app.domain: статика" --> WS["Workers Static Assets<br/>Mini App"]
-    CF -- "app.domain/api, api.domain" --> KP
+    CF -- "app.domain/api, api.domain, bot.domain" --> KP
     CF -- "cdn.domain" --> R2[("R2: media")]
     TG["Telegram Bot API"] -- webhook --> CF
     subgraph HZ["Hetzner Cloud, private network"]
         subgraph APP["app-1 (CX33)"]
             KP["kamal-proxy<br/>TLS, zero-downtime"] --> WEB["web ×2"]
-            KP --> BOT["bot"]
+            KP -- "bot.domain" --> BOT["bot"]
             WRK["worker"]
             WMD["worker-media"]
             VK[("Valkey")]
