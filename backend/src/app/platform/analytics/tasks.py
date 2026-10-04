@@ -14,9 +14,15 @@
 
 `forget_person` — UserDeleted: персона удалённого аккаунта и её события удаляются в PostHog
 (2.12b, posthog_persons.py); новые события о нём адаптер уже не отправляет (deleted.py).
+`forget_person_again` — второй проход через сутки: событие, отправленное до удаления, PostHog
+мог принять в обработку позже первого прохода (очередь приёма, задача capture на повторе в
+момент commit удаления) — и завести персону заново. Первый проход — сразу, а не через час:
+данные не лежат лишний час, неверный ключ виден в тот же день; позднее событие ловит второй.
 """
 
 import uuid
+from datetime import timedelta
+from typing import Final
 from uuid import UUID
 
 from dishka import FromDishka
@@ -54,7 +60,7 @@ from app.platform.contracts.events.specialists import (
     ProWaitlistJoined,
 )
 from app.platform.queue.port import TaskRef
-from app.platform.queue.tasks import subscriber
+from app.platform.queue.tasks import JitteredRetry, subscriber
 from app.platform.telegram.deeplinks import link_source, parse_start_param
 
 CAPTURE_USER_REGISTERED = TaskRef("analytics.capture_user_registered", UserRegistered)
@@ -90,14 +96,27 @@ CAPTURE_GOODS_WAITLIST_JOINED = TaskRef(
     "analytics.capture_goods_waitlist_joined", GoodsWaitlistJoined
 )
 CAPTURE_PRO_WAITLIST_JOINED = TaskRef("analytics.capture_pro_waitlist_joined", ProWaitlistJoined)
+SECOND_PASS: Final = timedelta(hours=24)
 FORGET_PERSON = TaskRef("analytics.forget_person", UserDeleted)
+FORGET_PERSON_AGAIN = TaskRef("analytics.forget_person_again", UserDeleted, delay=SECOND_PASS)
+FORGET_RETRY: Final = JitteredRetry(max_attempts=8, base_seconds=30.0, cap_seconds=3600.0)
+"""Удаление не срочно по минутам: 7 повторов от 30 с до ~30 мин (около часа, с джиттером) —
+время PostHog разобраться с `deletion_errors` и 5xx. Дальше задача в failed: ERROR-лог
+Procrastinate — Sentry, перезапуск по runbook deletion-request.md."""
 
 
-@subscriber(UserDeleted, FORGET_PERSON)
+@subscriber(UserDeleted, FORGET_PERSON, retry=FORGET_RETRY)
 async def forget_person(event: UserDeleted, persons: FromDishka[PersonDeletion]) -> None:
     """Аккаунт удалён (§7.10): персона и события в PostHog — по тому же distinct_id, что у
     capture (внутренний UUID). Временная ошибка PostHog — повтор задачи; повтор после успеха
     безопасен — персоны уже нет."""
+    await persons.forget(event.user_id)
+
+
+@subscriber(UserDeleted, FORGET_PERSON_AGAIN, retry=FORGET_RETRY)
+async def forget_person_again(event: UserDeleted, persons: FromDishka[PersonDeletion]) -> None:
+    """Второй проход через сутки (SECOND_PASS, docstring модуля): тот же идемпотентный запрос —
+    персоны нет, `persons_found` 0; заведённую поздним событием удаляет с её событиями."""
     await persons.forget(event.user_id)
 
 

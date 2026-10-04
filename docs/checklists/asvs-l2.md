@@ -105,8 +105,8 @@ integration); этот чек-лист.
 
 | ID | Требование | Статус | Доказательство |
 |---|---|---|---|
-| 7.1.1 | Нет учётных данных и токенов в логах | ✅ | процессор маскирования `be/platform/observability/masking.py` — в structlog, stdlib-логах и Sentry; тесты `tests/unit/platform/test_masking.py` (токены бота, JWT, Bearer, initData, секрет webhook) |
-| 7.1.2 | Нет ПД в логах | ✅ | ключи `phone`, `text`, `email`, адреса клиента, `init_data` скрываются целиком, телефоны и длинные цифры — по шаблону; access-лог без query string; SDK AI не ниже INFO; выборочная ревизия вызовов `log.*` (8.4) — ПД не логируется |
+| 7.1.1 | Нет учётных данных и токенов в логах | ✅ | процессор маскирования `be/platform/observability/masking.py` — в structlog, stdlib-логах и Sentry; тесты `tests/unit/platform/test_masking.py` (токены бота, в том числе в адресе Bot API `…/bot<токен>/…`, JWT, Bearer, initData, секрет webhook, токен приглашения на отзыв); Sentry не собирает переменные кадров и тела запросов (`include_local_variables=False`, `max_request_body_size="never"`), `_scrub` выбрасывает их ещё раз — тест через реальный SDK в `tests/unit/platform/test_observability.py` (8.4) |
+| 7.1.2 | Нет ПД в логах | ✅ | ключи `phone`, `text`, `email`, адреса клиента, `init_data` скрываются целиком, телефоны и длинные цифры — по шаблону; access-лог без query string; SDK AI не ниже INFO; выборочная ревизия вызовов `log.*` (8.4) — ПД не логируется; в Sentry нет сырого апдейта Telegram и текстов исходящих сообщений (тело запроса и переменные кадров не отправляются); restore-тест публикует в логе Actions только итог и тайминги, строки таблиц и размер базы — в пинг Healthchecks |
 | 7.1.3 | События безопасности журналируются | ✅ | access-лог со статусом (401/403/429) и `request_id`; `auth.refresh.reused` и действия персонала — `platform.audit_log` |
 | 7.1.4 | Контекст для расследования | ✅ | `request_id`, `trace_id`, `user_id` (внутренний UUID) |
 | 7.3.1 | Защита от инъекций в логи | ✅ | JSON-рендерер; X-Request-ID только `[A-Za-z0-9._-]{1,64}` (`be/interfaces/http/middleware.py`) |
@@ -121,7 +121,7 @@ integration); этот чек-лист.
 | 8.2.1 | Заголовки против кэширования ПД | ✅ | ответ на запрос с Authorization без своей политики — `Cache-Control: no-store` (с ETag — `private, no-cache`), `be/interfaces/http/security_headers.py` (8.4) |
 | 8.2.2 | В хранилище браузера нет ПД | ✅ | см. 3.2.3; черновик заявки — DeviceStorage Telegram на устройстве пользователя |
 | 8.3.1 | ПД в теле или заголовках, не в query | ✅ | initData и токены — заголовки; id в путях — UUIDv7 |
-| 8.3.2 | Удаление и экспорт данных | ✅ | `POST /me/deletion` (2.12a), выгрузка — [data-export.md](../../infra/runbooks/data-export.md), [deletion-request.md](../../infra/runbooks/deletion-request.md) |
+| 8.3.2 | Удаление и экспорт данных | ✅ | `POST /me/deletion` (2.12a), выгрузка — [data-export.md](../../infra/runbooks/data-export.md), [deletion-request.md](../../infra/runbooks/deletion-request.md); персона PostHog — сразу и вторым проходом через сутки, 202 с `deletion_errors` — повтор, prod без ключа удаления не стартует (2.12b) |
 | 8.3.4 | Чувствительные данные определены | ✅ | ARCHITECTURE §13.4; адрес и телефон скрыты до выбора (`tests/integration/test_contacts_privacy.py`) |
 | 8.3.5 | Доступ к ПД журналируется | ✅ | `platform.audit_log` |
 | 8.3.8 | Сроки хранения исполняются | ✅ | `platform.retention_sweep` (2.12b), матрица §7.10 |

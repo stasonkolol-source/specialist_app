@@ -5,7 +5,7 @@ dataclass. Задача ставится в той же транзакции, ч
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Protocol
 
 
@@ -15,6 +15,9 @@ class TaskRef[P]:
     """`<модуль>.<глагол>_<объект>` (ARCHITECTURE §12.3)."""
     payload: type[P]
     queue: str = "default"
+    delay: timedelta | None = None
+    """Только для подписчика события: диспетчер ставит задачу с not_before = occurred_at + delay
+    (повторный проход позже). Прямой `enqueue` задаёт not_before сам."""
 
 
 class JobQueue(Protocol):

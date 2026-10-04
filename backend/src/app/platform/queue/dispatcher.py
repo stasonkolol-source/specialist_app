@@ -51,7 +51,11 @@ class EventDispatcher:
         self._queue = queue
 
     async def enqueue(self, events: Iterable[DomainEvent]) -> None:
-        """По задаче на подписчика; dedup — по паре (задача, event_id)."""
+        """По задаче на подписчика; dedup — по паре (задача, event_id). Подписчик с `delay`
+        стартует не раньше occurred_at + delay."""
         for event in events:
             for task in self._registry.subscribers(event):
-                await self._queue.enqueue(task, event, dedup_key=str(event.event_id))
+                not_before = event.occurred_at + task.delay if task.delay is not None else None
+                await self._queue.enqueue(
+                    task, event, dedup_key=str(event.event_id), not_before=not_before
+                )

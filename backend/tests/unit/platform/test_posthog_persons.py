@@ -3,7 +3,7 @@
 
 import json
 from collections.abc import Collection
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -23,11 +23,19 @@ from app.platform.analytics.posthog_persons import (
     PostHogPersons,
     PostHogPersonsError,
 )
-from app.platform.analytics.tasks import FORGET_PERSON, forget_person
+from app.platform.analytics.tasks import (
+    FORGET_PERSON,
+    FORGET_PERSON_AGAIN,
+    FORGET_RETRY,
+    forget_person,
+    forget_person_again,
+)
 from app.platform.contracts.events.identity import UserDeleted
 from app.platform.di import PlatformProvider
 from app.platform.kernel.errors import ExternalServiceError, RateLimitedError
 from app.platform.kernel.ids import UserId, new_id
+from app.platform.queue.dispatcher import EventDispatcher
+from app.platform.queue.port import TaskRef
 from app.platform.queue.tasks import TASKS
 from app.platform.settings import Settings
 
@@ -42,7 +50,7 @@ def persons(handler: Any) -> PostHogPersons:
     )
 
 
-def bulk_deleted(found: int) -> httpx.Response:
+def bulk_deleted(found: int, errors: list[dict[str, str]] | None = None) -> httpx.Response:
     return httpx.Response(
         202,
         json={
@@ -51,7 +59,7 @@ def bulk_deleted(found: int) -> httpx.Response:
             "persons_queued_for_deletion": found,
             "events_queued_for_deletion": found > 0,
             "recordings_queued_for_deletion": False,
-            "deletion_errors": [],
+            "deletion_errors": errors or [],
         },
     )
 
@@ -94,6 +102,39 @@ async def test_server_errors_are_retried() -> None:
 
     with pytest.raises(ExternalServiceError):
         await persons(offline).forget(new_id())
+
+
+async def test_deletion_errors_in_202_are_retried_not_done() -> None:
+    """PostHog принял запрос (202), но удалил не всё: `deletion_errors` — повтор задачи, а не
+    «готово»; содержимое ошибок (в нём distinct_id) в лог не идёт."""
+    user_id = new_id()
+    errors = [{"distinct_id": str(user_id), "error": "ClickHouse timeout"}]
+
+    with capture_logs() as logs, pytest.raises(ExternalServiceError) as caught:
+        await persons(lambda _: bulk_deleted(found=1, errors=errors)).forget(user_id)
+
+    assert caught.value.params == {"service": "posthog", "reason": "deletion_errors"}
+    assert [(e["event"], e["errors"]) for e in logs] == [
+        ("analytics_person_deletion_incomplete", 1)
+    ]
+    assert "ClickHouse" not in repr(logs)
+
+
+class _Job:
+    def __init__(self, attempts: int) -> None:
+        self.attempts = attempts
+
+
+def test_forget_retries_are_bounded_then_the_task_fails() -> None:
+    """Повторы ограничены: последний запуск — без решения о повторе, задача падает в failed
+    (ERROR-лог Procrastinate → Sentry), а не крутится вечно."""
+    retry = ExternalServiceError(service="posthog", reason="deletion_errors")
+    waits = [
+        FORGET_RETRY.get_retry_decision(exception=retry, job=_Job(n))  # type: ignore[arg-type]
+        for n in range(FORGET_RETRY.max_attempts)
+    ]
+    assert all(w is not None for w in waits[:-1])
+    assert waits[-1] is None
 
 
 async def test_rate_limit_waits_retry_after() -> None:
@@ -160,11 +201,43 @@ class FakePersons:
 async def test_user_deleted_forgets_person() -> None:
     fake = FakePersons()
     user_id = UserId(new_id())
+    event = UserDeleted(user_id=user_id, occurred_at=NOW)
 
-    await forget_person(UserDeleted(user_id=user_id, occurred_at=NOW), fake)
+    await forget_person(event, fake)
+    await forget_person_again(event, fake)
 
-    assert fake.forgotten == [user_id]
+    assert fake.forgotten == [user_id, user_id]
     assert (UserDeleted, FORGET_PERSON) in TASKS.subscriptions
+    assert (UserDeleted, FORGET_PERSON_AGAIN) in TASKS.subscriptions
+
+
+async def test_second_pass_is_scheduled_a_day_after_deletion() -> None:
+    """Событие, принятое PostHog после первого прохода, заводит персону заново: при commit
+    удаления ставятся оба прохода — сразу и через сутки (повтор идемпотентен)."""
+    calls: list[tuple[str, datetime | None]] = []
+
+    class RecordingQueue:
+        async def enqueue(
+            self,
+            task: TaskRef[object],
+            payload: object,
+            *,
+            dedup_key: str | None = None,
+            not_before: datetime | None = None,
+            priority: int = 0,
+        ) -> None:
+            calls.append((task.name, not_before))
+
+    registry = TASKS.event_registry()
+    await EventDispatcher(registry, RecordingQueue()).enqueue(
+        [UserDeleted(user_id=UserId(new_id()), occurred_at=NOW)]
+    )
+
+    forget = dict(c for c in calls if c[0].startswith("analytics."))
+    assert forget == {
+        "analytics.forget_person": None,
+        "analytics.forget_person_again": NOW + timedelta(hours=24),
+    }
 
 
 # --- после удаления события не уходят ------------------------------------------------------

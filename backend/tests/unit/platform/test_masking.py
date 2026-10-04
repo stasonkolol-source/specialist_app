@@ -34,6 +34,12 @@ BOT_TOKEN = "8123456789:AAE" + "x" * 32
             "0f5d7c2e-1b2a",
         ),
         ("ping https://hc-ping.com/pingKey123/sosed-worker failed", "pingKey123"),
+        # токен в адресе Bot API: спаны клиента aiohttp и крошки (8.4)
+        (f"POST https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", BOT_TOKEN),
+        # приглашение на отзыв (7.6а) — секрет на предъявителя: путь API и код startapp
+        ("GET /api/v1/review-invites/4b7f0f1e-9c3a-4d2b-8e6f-1a2b3c4d5e6f", "4b7f0f1e"),
+        ("DELETE /api/v1/me/profile/review-invites/4b7f0f1e-9c3a-4d2b", "4b7f0f1e"),
+        ("tgWebAppStartParam=ri_0123456789ABCDEFGHIJkl_rAB", "0123456789ABCDEFGHIJkl"),
     ],
 )
 def test_sensitive_fragments_are_masked(raw: str, secret_part: str) -> None:
@@ -50,6 +56,8 @@ def test_sensitive_fragments_are_masked(raw: str, secret_part: str) -> None:
         "0199b5c3-1234-7abc-8def-0123456789ab",
         "цена 5 000 RSD, откликов 3 из 5",
         "retry in 12.5s",
+        "GET /api/v1/me/profile/review-invites 200",
+        "/api/v1/review-invites/[Filtered]",
     ],
 )
 def test_harmless_values_are_untouched(safe: str) -> None:
@@ -131,3 +139,32 @@ def test_sentry_event_hides_secrets_and_client_addresses() -> None:
         assert secret not in dumped
     assert "a@example.test" not in dumped
     assert scrubbed["request"]["headers"]["X-Request-ID"] == "req-1"
+
+
+def test_sentry_scrub_drops_frame_vars_and_request_body() -> None:
+    """Страховка поверх init_sentry: переменные кадров (адрес Bot API с токеном, SetWebhook с
+    секретом) и тело запроса выбрасываются, даже если их положила интеграция или свой код."""
+
+    def frame() -> dict[str, object]:
+        return {
+            "function": "make_request",
+            "vars": {
+                "url": f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook",
+                "call": "SetWebhook(url='https://x.test/hook', secret_token='hook-s3cr3t')",
+            },
+        }
+
+    event = {
+        "stacktrace": {"frames": [frame()]},
+        "exception": {"values": [{"type": "RuntimeError", "stacktrace": {"frames": [frame()]}}]},
+        "threads": {"values": [{"id": 1, "stacktrace": {"frames": [frame()]}}]},
+        "request": {
+            "url": "https://api.example.test/api/v1/review-invites/4b7f0f1e-9c3a-4d2b-8e6f-1a2b3c4d5e6f",
+            "data": '{"message": {"text": "мой адрес Нови Сад, ул. Змај Јовина 5"}}',
+        },
+    }
+    dumped = json.dumps(_scrub(event, None), ensure_ascii=False)
+    for secret in ('"vars"', "hook-s3cr3t", BOT_TOKEN, "Змај", "4b7f0f1e"):
+        assert secret not in dumped
+    assert '"function": "make_request"' in dumped
+    assert "/api/v1/review-invites/[Filtered]" in dumped

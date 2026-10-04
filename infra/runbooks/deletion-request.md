@@ -44,10 +44,12 @@
 после последнего сообщения (§7.10).
 
 PostHog — автоматически: по `UserDeleted` задача `analytics.forget_person` удаляет персону с
-тем же id и её события (запрос `persons/bulk_delete` с `delete_events`). Персону PostHog
-удаляет за минуты, события — своей задачей, пакетом раз в неделю. Событий об удалённом
-аккаунте после этого не уходит: аналитика проверяет `deleted_at`. Удалению нужен personal API
-key со scope `person:write` и id проекта на сервере (K32a); без них в логе воркера —
+тем же id и её события (запрос `persons/bulk_delete` с `delete_events`), а через сутки
+`analytics.forget_person_again` повторяет запрос — на случай события, которое PostHog принял
+позже первого прохода. Персону PostHog удаляет за минуты, события — своей задачей, пакетом раз
+в неделю. Событий об удалённом аккаунте после этого не уходит: аналитика проверяет
+`deleted_at`. Удалению нужен personal API key со scope `person:write` и id проекта на сервере
+(K32a); prod с ключом проекта без них не стартует, на stage в логе воркера —
 `analytics_person_not_forgotten`, при старте — `analytics_person_deletion_disabled`. Пока
 PostHog на проде выключен (нет `ANALYTICS_POSTHOG_API_KEY`), удалять там нечего.
 
@@ -60,14 +62,16 @@ SELECT status FROM identity.users WHERE id = '<user_id>';                       
 SELECT completed_at FROM identity.deletion_requests WHERE user_id = '<user_id>'; -- не NULL
 ```
 
-PostHog включён — в логах воркера за день удаления: `analytics_person_forgotten` с этим
-`user_id` (`persons_found` 0 — событий о нём в PostHog не было). Задача упала с
-`PostHogPersonsError` (ключ без `person:write` или неверный проект) — исправить ключ (K32a) и
-перезапустить её: упавшие задачи очередь хранит, повтор безопасен.
+PostHog включён — в логах воркера за день удаления и через сутки: `analytics_person_forgotten`
+с этим `user_id` (`persons_found` 0 — событий о нём в PostHog не было). Задача упала с
+`PostHogPersonsError` (ключ без `person:write` или неверный проект) или после часа повторов
+`analytics_person_deletion_incomplete` (PostHog ответил `deletion_errors`) — исправить ключ
+(K32a) или дождаться PostHog и перезапустить её: упавшие задачи очередь хранит, повтор безопасен.
 
 ```sql
-SELECT id FROM procrastinate_jobs
- WHERE task_name = 'analytics.forget_person' AND status = 'failed'
+SELECT id, task_name FROM procrastinate_jobs
+ WHERE task_name IN ('analytics.forget_person', 'analytics.forget_person_again')
+   AND status = 'failed'
    AND args -> 'payload' ->> 'user_id' = '<user_id>';
 ```
 
