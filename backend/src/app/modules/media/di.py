@@ -17,7 +17,11 @@ from app.modules.media.application.use_cases.cleanup_orphans import CleanupOrpha
 from app.modules.media.application.use_cases.complete_upload import CompleteUpload
 from app.modules.media.application.use_cases.delete_media import DeleteMedia
 from app.modules.media.application.use_cases.forget_owner import ForgetOwner
-from app.modules.media.application.use_cases.hide_variants import HideDeleted, HideVariants
+from app.modules.media.application.use_cases.hide_variants import (
+    HideDeleted,
+    HideVariants,
+    RestoreVariants,
+)
 from app.modules.media.application.use_cases.process_media import ProcessMedia
 from app.modules.media.application.use_cases.purge_deleted import PurgeDeleted
 from app.modules.media.application.use_cases.retry_stuck import RetryStuck
@@ -64,4 +68,5 @@ class MediaProvider(Provider):
     purge_deleted = provide(PurgeDeleted)
     retry_stuck = provide(RetryStuck)
     hide_variants = provide(HideVariants)
+    restore_variants = provide(RestoreVariants)
     hide_deleted = provide(HideDeleted)

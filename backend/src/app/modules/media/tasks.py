@@ -5,7 +5,8 @@
   вариантами (`ready`) или `rejected`.
 - `media.delete_objects` — убрать объекты файла: недогруженную или брошенную загрузку,
   сырой оригинал после обработки, варианты при отказе и очистке; сбой хранилища — повтор.
-- `media.hide_variants` — варианты удалённого файла из публичного media в private.
+- `media.hide_variants` — варианты удалённого или отклонённого модерацией файла из публичного
+  media в private; `media.restore_variants` — обратно, когда модератор снял отказ (6.7).
 - `media.discard_media` — удалить файл, который модуль выше по DAG больше не показывает
   (работа портфолио, прежнее фото профиля): как DELETE /media/{id} владельца.
 - `media.forget_owner` — UserDeleted: все файлы удалённого аккаунта — на удаление (§7.10).
@@ -32,6 +33,7 @@ from app.modules.media.application.ports import (
     FORGET_OWNER,
     HIDE_VARIANTS,
     PROCESS_MEDIA,
+    RESTORE_VARIANTS,
 )
 from app.modules.media.application.use_cases.cleanup_orphans import (
     CleanupOrphans,
@@ -44,6 +46,7 @@ from app.modules.media.application.use_cases.hide_variants import (
     HideDeletedCommand,
     HideVariants,
     HideVariantsCommand,
+    RestoreVariants,
 )
 from app.modules.media.application.use_cases.process_media import (
     ProcessMedia,
@@ -72,6 +75,13 @@ async def process(event: MediaUploaded, process_media: FromDishka[ProcessMedia])
 @task(HIDE_VARIANTS)
 async def hide_variants(payload: HideVariantsPayload, hide: FromDishka[HideVariants]) -> None:
     await hide(HideVariantsCommand(media_id=payload.media_id))
+
+
+@task(RESTORE_VARIANTS)
+async def restore_variants(
+    payload: HideVariantsPayload, restore: FromDishka[RestoreVariants]
+) -> None:
+    await restore(HideVariantsCommand(media_id=payload.media_id))
 
 
 @subscriber(UserDeleted, FORGET_OWNER)

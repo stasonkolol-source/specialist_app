@@ -3,8 +3,9 @@
 Другие модули импортируют из media только этот файл.
 """
 
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Protocol
 
 from app.modules.media.errors import MediaNotFoundError as MediaNotFoundError
@@ -30,11 +31,12 @@ class MediaRef:
     kind: str
     """image | video."""
     status: str
-    """uploaded | processing | ready | failed | rejected."""
+    """uploaded | processing | ready | failed | rejected. Отклонённый модерацией (6.7) — тоже
+    `rejected`: для показа это одно и то же — показать нечего, файл не в счёт."""
     placeholder: str | None
     """ThumbHash (base64) для мгновенного превью."""
     variants: tuple[MediaVariantRef, ...]
-    """WebP-варианты (у ролика — постер), когда файл готов."""
+    """WebP-варианты (у ролика — постер), когда файл готов и не отклонён модерацией."""
     video_url: str | None
     duration_ms: int | None
 
@@ -42,6 +44,25 @@ class MediaRef:
     def broken(self) -> bool:
         """Обработка не прошла (сбой или отказ): показать нечего, файл не в счёт."""
         return self.status in {"failed", "rejected"}
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ImageForCheck:
+    """Фото на проверку модерацией (6.7): вариант `md` — 800 px по длинной стороне (у ролика —
+    постер), уже без EXIF."""
+
+    body: bytes
+    content_type: str
+
+
+class ModerationVerdict(StrEnum):
+    """Итог проверки фото — published language (`media.assets.moderation_status`)."""
+
+    APPROVED = "approved"
+    FLAGGED = "flagged"
+    """Ждёт модератора, фото видно."""
+    REJECTED = "rejected"
+    """Скрыто: не показывается, варианты — в приватном бакете."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -72,6 +93,25 @@ class MediaApi(Protocol):
         """Готовые файлы того же назначения у других владельцев с почти тем же pHash — ближние
         первыми, не больше пяти. Файл не готов, удалён или его назначению хэш не нужен (не
         портфолио) — пусто. Файлы того же владельца не в счёт: свой кадр дважды — не обман."""
+        ...
+
+    async def image_for_check(self, media_id: MediaId) -> ImageForCheck | None:
+        """Готовое и ещё не проверенное фото (у ролика — постер) для модерации (6.7). None —
+        проверять нечего: не готово, удалено, уже проверено или вариантов нет."""
+        ...
+
+    async def moderate(
+        self,
+        media_id: MediaId,
+        verdict: ModerationVerdict,
+        *,
+        labels: Mapping[str, float] | None = None,
+        auto: bool = False,
+    ) -> bool:
+        """Записать итог проверки фото — в транзакции вызывающего. `rejected` прячет варианты
+        (задача `media.hide_variants`), снятый отказ возвращает их (`media.restore_variants`).
+        `auto` — автопроверка: только у ещё не проверенного файла. True — итог записан;
+        False — файла нет, он не готов (удалён) или автопроверка опоздала."""
         ...
 
     async def discard(self, owner_id: UserId, media_id: MediaId) -> None:

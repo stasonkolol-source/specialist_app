@@ -113,7 +113,8 @@ class DeleteObjectsPayload:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class HideVariantsPayload:
-    """Задача `media.hide_variants`: варианты удалённого файла — из media в private."""
+    """Задачи `media.hide_variants` (варианты удалённого или отклонённого файла — из media в
+    private) и `media.restore_variants` (обратно)."""
 
     media_id: MediaId
     keys: tuple[str, ...]

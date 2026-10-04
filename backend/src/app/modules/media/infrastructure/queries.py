@@ -7,10 +7,15 @@
 from collections.abc import Collection, Sequence
 from datetime import datetime
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, and_, func, or_, select
 
 from app.modules.media.api import MediaDuplicate
-from app.modules.media.domain.asset import PUBLIC_PURPOSES, MediaAsset, MediaStatus
+from app.modules.media.domain.asset import (
+    PUBLIC_PURPOSES,
+    MediaAsset,
+    MediaStatus,
+    ModerationStatus,
+)
 from app.modules.media.domain.policy import MediaKind
 from app.modules.media.infrastructure.models import AssetRow
 from app.modules.media.infrastructure.repositories import phash_bits, to_domain, visible_to
@@ -69,16 +74,27 @@ class SqlMediaQuery(SqlQuery):
         return assets
 
     async def unhidden(self, deleted_before: datetime, *, limit: int) -> Sequence[MediaAsset]:
+        """Удалённые раньше `deleted_before` и отклонённые модерацией (6.7) файлы, обработанные
+        раньше него: у отклонённого нет `deleted_at`, а свежий отказ прячет задача решения."""
         stmt = (
             select(AssetRow)
             .where(
-                AssetRow.status == MediaStatus.DELETED,
                 AssetRow.purged_at.is_(None),
                 AssetRow.hidden_at.is_(None),
                 AssetRow.purpose.in_(PUBLIC_PURPOSES),
-                AssetRow.deleted_at < deleted_before,
+                or_(
+                    and_(
+                        AssetRow.status == MediaStatus.DELETED,
+                        AssetRow.deleted_at < deleted_before,
+                    ),
+                    and_(
+                        AssetRow.status == MediaStatus.READY,
+                        AssetRow.moderation_status == ModerationStatus.REJECTED,
+                        AssetRow.processed_at < deleted_before,
+                    ),
+                ),
             )
-            .order_by(AssetRow.deleted_at)
+            .order_by(func.coalesce(AssetRow.deleted_at, AssetRow.processed_at))
             .limit(limit)
         )
         assets = [to_domain(row) for row in (await self._execute(stmt)).scalars()]
