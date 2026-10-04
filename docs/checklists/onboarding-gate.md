@@ -30,7 +30,7 @@ founding-специалистов попадают на прод только п
 | № | Пункт | Как проверить | Статус |
 |---|---|---|---|
 | 2.1 | Тестовая ошибка backend видна в Sentry (K20) | `make kamal ARGS="app exec -d production 'python -m app.entrypoints.cli sentry-test'"` → событие с этим id в Sentry, `environment=production` | ⏳ |
-| 2.2 | Тестовая ошибка Mini App видна в Sentry | Ошибка из Mini App prod — в проекте `tma`. На 2026-10-04 не пройдёт: CSP Mini App (`apps/tma/src/app/csp.ts`, `connect-src`) не пускает адрес приёма Sentry — сначала исправить | ⏳ |
+| 2.2 | Тестовая ошибка Mini App видна в Sentry | Ошибка из Mini App prod — в проекте `tma`, со своим релизом (sha деплоя), окружением `production` и читаемым стеком. CSP пускает адрес приёма из `TMA_SENTRY_DSN` (`connect-src`); initData вычищается до отправки; source maps загружает деплой при `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `TMA_SENTRY_PROJECT` (K20) | ⏳ |
 | 2.3 | Тестовый алерт доходит до канала K35a | [`prod-bootstrap.md`](../../infra/runbooks/prod-bootstrap.md), раздел 8, п. 8: Grafana — Contact point → Test; Healthchecks — остановить worker на stage; UptimeRobot — остановить bot на stage. Письма пришли | ⏳ |
 | 2.4 | Метрики prod доходят до Grafana Cloud (K35) | Explore → `up{env="production"}`: роли, `node` (`app-1`, `db-1`) и `postgres` — у всех 1 (раздел 8, п. 4) | ⏳ |
 | 2.5 | В Loki нет персональных данных | Раздел 8, п. 9: запрос по телефонам, e-mail, JWT и initData за сутки пуст; 50 строк `role="web"` просмотрены глазами | ⏳ |
@@ -52,7 +52,7 @@ founding-специалистов попадают на прод только п
 | 4.4 | Оператор данных и почта в тексте — настоящие | Prod не стартует с заглушкой `[TODO …]` в `LEGAL_OPERATOR_NAME` и `LEGAL_CONTACT_EMAIL`; в разделе 1 политики на S48 — оператор и почта | ⏳ |
 | 4.5 | Удаление аккаунта проверено на тестовом аккаунте в prod | S45 → запрос → через 7 дней аккаунт обезличен ([`deletion-request.md`](../../infra/runbooks/deletion-request.md), раздел 4) | ⏳ |
 | 4.6 | Выгрузка данных проверена на тестовом аккаунте в prod | `cli export-user-data <id>` через `kamal app exec -d production` по [`data-export.md`](../../infra/runbooks/data-export.md): все разделы на месте, запись `privacy.user_data.exported` в `audit_log` | ⏳ |
-| 4.7 | Удаление персоны в PostHog по `UserDeleted` (перенесено из 2.12b до включения K32) | Сделано и проверено на тестовом аккаунте из 4.5 — или PostHog на проде не включён (`posthog: false`), тогда N/A и пункт 5.2 тоже | ⏳ |
+| 4.7 | Удаление персоны в PostHog по `UserDeleted` (2.12b) | В `production` заданы `ANALYTICS_POSTHOG_PERSONAL_API_KEY` (ключ `sosedi-deletion`, scope `person` write) и `ANALYTICS_POSTHOG_PROJECT_ID`; в логе старта воркера нет `analytics_person_deletion_disabled`; у тестового аккаунта из 4.5 в логе воркера — `analytics_person_forgotten` с `persons_found` 1, в PostHog → Persons его нет. PostHog на проде выключен (`posthog: false`) — N/A, и пункт 5.2 тоже | ⏳ |
 
 ## 5. Аналитика
 
