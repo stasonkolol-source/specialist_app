@@ -612,6 +612,29 @@ def reindex(
     )
 
 
+@app.command("sentry-test")
+def sentry_test() -> None:
+    """Отправить в Sentry тестовую ошибку и показать id события (DEVELOPMENT_PLAN 3.3).
+
+    На stage и проде — через `kamal app exec`: окружение и релиз те же, что у процессов.
+    Без SENTRY_DSN ничего не отправляет: сообщение и код выхода 1.
+    """
+    from app.platform.observability.sentry import init_sentry, send_test_event
+
+    settings = Settings()
+    if not init_sentry(settings, process="cli"):
+        typer.echo("SENTRY_DSN не задан: Sentry выключен, событие не отправлено.", err=True)
+        raise typer.Exit(code=1)
+    event_id = send_test_event()
+    if event_id is None:  # before_send или sample_rate отбросили событие
+        typer.echo("Sentry не принял событие: проверьте настройки SDK.", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(
+        f"Тестовое событие отправлено в Sentry: {event_id}"
+        f" (окружение {settings.app.env.value}, релиз {settings.app.release})"
+    )
+
+
 @app.command("query-log-report")
 def query_log_report(
     *,

@@ -128,3 +128,42 @@ def test_stage_and_production_need_the_hash_key(clean_env: pytest.MonkeyPatch) -
     clean_env.setenv("APP_ENV", "stage")
     with pytest.raises(SettingsError, match="APP_HASH_KEY"):
         Settings(env_file=None)
+
+
+def test_metrics_port_is_off_by_default(clean_env: pytest.MonkeyPatch) -> None:
+    """Экспорт метрик (3.3) — только с METRICS_PORT: dev и тесты без него."""
+    for name, value in REQUIRED.items():
+        clean_env.setenv(name, value)
+    assert Settings(env_file=None).metrics.port is None
+    clean_env.setenv("METRICS_PORT", "9091")
+    clean_env.setenv("METRICS_HOST", "0.0.0.0")  # noqa: S104 — так в контейнере
+    metrics = Settings(env_file=None).metrics
+    assert (metrics.host, metrics.port) == ("0.0.0.0", 9091)  # noqa: S104
+
+
+def test_heartbeat_url_is_a_secret_and_keeps_the_old_name(clean_env: pytest.MonkeyPatch) -> None:
+    for name, value in REQUIRED.items():
+        clean_env.setenv(name, value)
+    clean_env.delenv("APP_HEARTBEAT_URL", raising=False)
+    assert Settings(env_file=None).healthchecks.worker_ping_url is None
+    clean_env.setenv("APP_HEARTBEAT_URL", "https://hc-ping.com/old")  # имя до 3.3
+    url = Settings(env_file=None).healthchecks.worker_ping_url
+    assert url is not None
+    assert url.get_secret_value() == "https://hc-ping.com/old"
+    clean_env.setenv("HEALTHCHECKS_WORKER_PING_URL", "https://hc-ping.com/new")
+    settings = Settings(env_file=None)
+    assert settings.healthchecks.worker_ping_url is not None
+    assert settings.healthchecks.worker_ping_url.get_secret_value() == "https://hc-ping.com/new"
+    assert "hc-ping" not in repr(settings.healthchecks)
+
+
+def test_release_falls_back_to_the_kamal_image_version(clean_env: pytest.MonkeyPatch) -> None:
+    """Релиз Sentry (3.3): APP_RELEASE, иначе KAMAL_VERSION из контейнера, иначе dev."""
+    for name, value in REQUIRED.items():
+        clean_env.setenv(name, value)
+    clean_env.delenv("KAMAL_VERSION", raising=False)
+    assert Settings(env_file=None).app.release == "dev"
+    clean_env.setenv("KAMAL_VERSION", "3f2a9c1")
+    assert Settings(env_file=None).app.release == "3f2a9c1"
+    clean_env.setenv("APP_RELEASE", "v42")
+    assert Settings(env_file=None).app.release == "v42"

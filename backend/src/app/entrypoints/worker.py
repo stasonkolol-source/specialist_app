@@ -15,10 +15,12 @@ from dataclasses import dataclass
 import procrastinate
 import structlog
 from procrastinate.worker import Worker
+from prometheus_client import CollectorRegistry
 
 from app.entrypoints._wiring import make_worker_container
 from app.interfaces.worker.registration import register_worker_tasks
 from app.platform.observability.logging import configure_logging
+from app.platform.observability.metrics import metrics_server
 from app.platform.observability.sentry import init_sentry
 from app.platform.queue.tasks import CONTAINER_KEY
 from app.platform.settings import Settings, describe
@@ -41,7 +43,7 @@ log = structlog.get_logger(__name__)
 async def run(role: str) -> None:
     settings = Settings()
     configure_logging(settings.app)
-    init_sentry(settings)
+    init_sentry(settings, process=role)
     pools = ROLES[role]
     container = make_worker_container(settings)
     try:
@@ -69,7 +71,9 @@ async def run(role: str) -> None:
         log.info(
             "worker_started", role=role, queues=[pool.queue for pool in pools], **describe(settings)
         )
-        await asyncio.gather(*(worker.run() for worker in workers))  # type: ignore[no-untyped-call]
+        # лаг очередей и read-model, 429 Telegram — в реестре процесса; наружу — METRICS_PORT
+        with metrics_server(settings.metrics, await container.get(CollectorRegistry)):
+            await asyncio.gather(*(worker.run() for worker in workers))  # type: ignore[no-untyped-call]
     finally:
         await container.close()
 
