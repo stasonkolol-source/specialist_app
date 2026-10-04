@@ -57,6 +57,12 @@ def week_window(beta_start: date, week: int) -> Window:
     return Window(start, datetime.combine(first + timedelta(days=7), time(), tzinfo=BUSINESS_TZ))
 
 
+def current_week(beta_start: date, now: datetime) -> int:
+    """Неделя беты, в которую попадает `now` (по Белграду); до старта — 0."""
+    today = now.astimezone(BUSINESS_TZ).date()
+    return 0 if today < beta_start else (today - beta_start).days // 7 + 1
+
+
 @dataclass(frozen=True, slots=True)
 class Ratio:
     """Доля с числителем и знаменателем: в отчёте видно, на скольких заявках она посчитана."""
@@ -194,6 +200,17 @@ async def liquidity_report(
         moderation_sla=sla,
         concentration=concentration(choices, base=int(side["specialists_base"])),
     )
+
+
+async def beta_weeks(
+    conn: AsyncConnection, beta_start: date, *, as_of: datetime
+) -> list[tuple[int, LiquidityReport]]:
+    """Отчёты недель 1…текущая (`cli beta-report --week all`, итоги беты 7.7) — в одном снимке
+    соединения: недели сравнимы между собой."""
+    return [
+        (week, await liquidity_report(conn, week_window(beta_start, week), as_of=as_of))
+        for week in range(1, current_week(beta_start, as_of) + 1)
+    ]
 
 
 def concentration(choices: Sequence[int], *, base: int) -> float | None:

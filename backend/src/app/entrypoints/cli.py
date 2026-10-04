@@ -33,6 +33,7 @@ from app.platform.security.jwt import JwtKeys, SigningKey
 from app.platform.settings import (
     ENV_FILE,
     AiSettings,
+    AnalyticsSettings,
     AppSettings,
     Environment,
     Settings,
@@ -666,7 +667,12 @@ def export_user_data(
 @app.command("beta-report")
 def beta_report(
     week: Annotated[
-        int, typer.Option("--week", min=0, help="Неделя беты: 1 — первая, 0 — неделя до старта")
+        str,
+        typer.Option(
+            "--week",
+            help="Неделя беты: 1 — первая, 0 — неделя до старта; all — сводка недель с первой "
+            "по текущую (итоги беты, 7.7)",
+        ),
     ],
     *,
     start: Annotated[
@@ -675,28 +681,65 @@ def beta_report(
     ] = None,
 ) -> None:
     """Еженедельный отчёт беты (DEVELOPMENT_PLAN 6.6, 7.1): ликвидность по парам «город ×
-    категория», стороны, доверие и SLA модерации — на текущий момент, под ролью readonly."""
+    категория», стороны, доверие и SLA модерации — на текущий момент, под ролью readonly.
+    `--week all` — таблица метрик ворот по всем неделям (7.7)."""
     try:
         beta_start = date.fromisoformat(start) if start else None
     except ValueError:
         typer.echo(f"beta-report: --start {start}: нужна дата ГГГГ-ММ-ДД", err=True)
         raise typer.Exit(code=2) from None
-    typer.echo(asyncio.run(_beta_report(week, beta_start)))
+    if week != "all" and not week.isdigit():
+        typer.echo(f"beta-report: --week {week}: нужен номер недели (0, 1, …) или all", err=True)
+        raise typer.Exit(code=2)
+    typer.echo(asyncio.run(_beta_report(None if week == "all" else int(week), beta_start)))
 
 
-async def _beta_report(week: int, beta_start: date | None) -> str:
-    from app.platform.analytics.beta_report import render
+async def _beta_report(week: int | None, beta_start: date | None) -> str:
+    from app.platform.analytics.beta_report import render, render_weeks
     from app.platform.analytics.liquidity import (
+        beta_weeks,
         liquidity_report,
         reporting_connection,
         week_window,
     )
 
     settings = Settings()
-    window = week_window(beta_start or settings.analytics.beta_start, week)
+    first = beta_start or settings.analytics.beta_start
+    now = SystemClock().now()
     async with reporting_connection(settings.db) as conn:
-        report = await liquidity_report(conn, window, as_of=SystemClock().now())
-    return render(report, week=week)
+        if week is not None:
+            report = await liquidity_report(conn, week_window(first, week), as_of=now)
+            return render(report, week=week)
+        reports = await beta_weeks(conn, first, as_of=now)
+    return render_weeks(reports, beta_start=first)
+
+
+@app.command("posthog-dashboard")
+def posthog_dashboard(
+    *,
+    apply: Annotated[
+        bool, typer.Option("--apply", help="Создать или обновить дашборд; без флага — план")
+    ] = False,
+    environment: Annotated[
+        Environment,
+        typer.Option(help="Чьи события показывает дашборд (свойство environment)"),
+    ] = Environment.PRODUCTION,
+) -> None:
+    """Дашборд ликвидности в PostHog как код (DEVELOPMENT_PLAN 6.6, K32).
+
+    Без --apply — план: что будет создано, обновлено или удалено (только чтение). С --apply —
+    дашборд и плитки по platform/analytics/dashboard.py; повтор копий не плодит. Нужны
+    ANALYTICS_POSTHOG_PERSONAL_API_KEY и ANALYTICS_POSTHOG_PROJECT_ID (K32).
+    """
+    from app.entrypoints._posthog_dashboard import run_posthog_dashboard
+
+    outcome = asyncio.run(
+        run_posthog_dashboard(AnalyticsSettings(), environment=environment.value, apply=apply)
+    )
+    for line in outcome.lines:
+        typer.echo(line, err=outcome.failed)
+    if outcome.failed:
+        raise typer.Exit(code=1)
 
 
 class DemoScale(StrEnum):
