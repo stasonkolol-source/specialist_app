@@ -69,11 +69,11 @@ export async function expectNoAxeViolations(page: Page, scope: AxeScope = {}) {
   expect(result.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.length})`)).toEqual([]);
 }
 
-/** Кнопка клиента Telegram (MainButton, BackButton) — нативная, в DOM её нет: нажатие — событием
- *  клиента, как его присылает Telegram (`Telegram.WebView.receiveEvent`). */
+/** Кнопка клиента Telegram (MainButton, SecondaryButton, BackButton) — нативная, в DOM её нет:
+ *  нажатие — событием клиента, как его присылает Telegram (`Telegram.WebView.receiveEvent`). */
 export async function pressTelegram(
   page: Page,
-  event: 'main_button_pressed' | 'back_button_pressed',
+  event: 'main_button_pressed' | 'secondary_button_pressed' | 'back_button_pressed',
 ) {
   await page.evaluate((name) => {
     const telegram = (
