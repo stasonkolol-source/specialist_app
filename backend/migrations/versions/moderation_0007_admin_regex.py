@@ -8,7 +8,7 @@
 создастся (ADR-0005: данные не теряем) — такие строки сначала разбирают руками.
 
 Ревизия: moderation_0007 (2026-10-04 18:00:00.000000+00:00)
-Предыдущая: geo_0002
+Предыдущая: notifications_0008
 
 Правила (DEVELOPMENT_PLAN 0.9, ADR-0005):
 - имя ревизии — <модуль>_NNNN, файл — <модуль>_NNNN_<slug>.py;
@@ -23,7 +23,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "moderation_0007"
-down_revision: str | Sequence[str] | None = "geo_0002"
+down_revision: str | Sequence[str] | None = "notifications_0008"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
