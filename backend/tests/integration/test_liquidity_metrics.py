@@ -9,14 +9,23 @@ from typing import Any
 from uuid import UUID
 
 import pytest
+from pydantic import SecretStr
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.platform.analytics.alerts import check_response_rate, send_alert
 from app.platform.analytics.beta_report import render
-from app.platform.analytics.liquidity import Ratio, liquidity_report, week_window
+from app.platform.analytics.liquidity import (
+    Ratio,
+    liquidity_report,
+    reporting_connection,
+    week_window,
+)
 from app.platform.kernel.ids import new_id
+from app.platform.settings import DbSettings
 from app.platform.testing.telegram import RecordingTelegramSender
+from tests.plugins.containers import PostgresInfo
 
 pytestmark = pytest.mark.integration
 
@@ -335,3 +344,15 @@ async def test_response_rate_alert_fires_on_drop(data: Data) -> None:
     # выше порога или мало заявок — тишина
     assert await check_response_rate(data.conn, as_of=as_of, threshold=0.3, min_jobs=10) is None
     assert await check_response_rate(data.conn, as_of=as_of, threshold=0.7, min_jobs=11) is None
+
+
+@pytest.mark.parametrize("role", ["readonly", "app"])
+async def test_report_reads_and_cannot_write(postgres: PostgresInfo, role: str) -> None:
+    """Под ролью readonly (её права на схемы модулей) и под app без DSN readonly — только чтение."""
+    readonly = SecretStr(postgres.dsn("readonly")) if role == "readonly" else None
+    db = DbSettings(dsn=SecretStr(postgres.dsn("app")), readonly_dsn=readonly)
+    async with reporting_connection(db) as conn:
+        report = await liquidity_report(conn, week_window(BETA_START, 1), as_of=AS_OF)
+        assert report.overall.jobs == 0
+        with pytest.raises(DBAPIError, match="read-only"):
+            await conn.execute(text("DELETE FROM jobs.jobs"))
