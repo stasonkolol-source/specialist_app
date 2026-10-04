@@ -681,6 +681,24 @@ msgstr "Na utisak može odgovoriti samo onaj o kome je napisan."
 msgid "errors.reply_exists"
 msgstr "Već ste odgovorili na ovaj utisak."
 
+msgid "errors.review_invite_not_found"
+msgstr "Link za utisak više ne važi: opozvan je, istekao je ili je utisak već ostavljen."
+
+msgid "errors.review_invites_full"
+msgstr "Već imate 5 pozivnica. Opozovite nekorišćeni link da biste napravili novi."
+
+msgid "errors.review_invite_used"
+msgstr "Preko ovog linka je već ostavljen utisak — ne može se opozvati."
+
+msgid "errors.review_invites_unavailable"
+msgstr "Bivše klijente možete pozvati nakon objave profila."
+
+msgid "errors.own_profile_review"
+msgstr "Ovo je vaš link: pošaljite ga bivšem klijentu — utisak o sebi ne možete ostaviti."
+
+msgid "errors.pre_platform_review_exists"
+msgstr "Već ste ostavili utisak o ovom stručnjaku."
+
 msgid "errors.deal_not_found"
 msgstr "Dogovor nije pronađen."
 

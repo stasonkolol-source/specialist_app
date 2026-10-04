@@ -5465,6 +5465,237 @@
         }
       }
     },
+    "/api/v1/me/profile/review-invites": {
+      "get": {
+        "tags": [
+          "reviews"
+        ],
+        "summary": "List Review Invites",
+        "description": "Приглашения S55: статус каждого, кто оставил отзыв, сколько мест из пяти занято.",
+        "operationId": "reviews_list_review_invites",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewInvitesOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "reviews"
+        ],
+        "summary": "Create Review Invite",
+        "description": "Ссылка-приглашение прошлому клиенту на «отзыв до платформы» (S55): одна ссылка — один\nклиент, 30 дней, не больше пяти занятых мест.",
+        "operationId": "reviews_create_review_invite",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewInviteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewInviteOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/profile/review-invites/{token}": {
+      "delete": {
+        "tags": [
+          "reviews"
+        ],
+        "summary": "Revoke Review Invite",
+        "description": "Отозвать свою неиспользованную ссылку: она перестаёт открываться, место освобождается.",
+        "operationId": "reviews_revoke_review_invite",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Секрет ссылки-приглашения",
+              "title": "Token"
+            },
+            "description": "Секрет ссылки-приглашения"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-invites/{token}": {
+      "post": {
+        "tags": [
+          "reviews"
+        ],
+        "summary": "Leave Invite Review",
+        "description": "«Отзыв до платформы» по приглашению (S56): ждёт модератора, на карточке — с отдельной\nметкой, в рейтинг не входит.",
+        "operationId": "reviews_leave_invite_review",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Секрет ссылки-приглашения",
+              "title": "Token"
+            },
+            "description": "Секрет ссылки-приглашения"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteReviewIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "views"
+        ],
+        "summary": "Get Review Invite",
+        "description": "Форма S56: специалист, который просит отзыв о прошлой работе.",
+        "operationId": "views_get_review_invite",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Секрет ссылки-приглашения (из ri_<base62>)",
+              "title": "Token"
+            },
+            "description": "Секрет ссылки-приглашения (из ri_<base62>)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewInviteFormOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/specialists": {
       "get": {
         "tags": [
@@ -6858,7 +7089,7 @@
           "views"
         ],
         "summary": "List Specialist Reviews",
-        "description": "Отзывы S11: рейтинг с гистограммой и опубликованные отзывы по сделкам с ответами,\nновые первыми (курсор). Вкладка «До платформы» (`kind`) — 7.6.",
+        "description": "Отзывы S11: рейтинг с гистограммой и опубликованные отзывы вкладки с ответами, новые\nпервыми (курсор): по сделкам или «До платформы» (`kind`, 7.6а) — те в рейтинг не входят.",
         "operationId": "views_list_specialist_reviews",
         "parameters": [
           {
@@ -6872,6 +7103,22 @@
               "title": "Profile Id"
             },
             "description": "id профиля специалиста"
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "deal",
+                "pre_platform"
+              ],
+              "type": "string",
+              "description": "Вкладка S11: deal — по сделкам, pre_platform — «До платформы»",
+              "default": "deal",
+              "title": "Kind"
+            },
+            "description": "Вкладка S11: deal — по сделкам, pre_platform — «До платформы»"
           },
           {
             "name": "cursor",
@@ -7813,6 +8060,18 @@
             ],
             "description": "Услуга сделки"
           },
+          "work_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Title",
+            "description": "«Что делал мастер» — у отзыва до платформы вместо услуги"
+          },
           "published_at": {
             "type": "string",
             "format": "date-time",
@@ -7855,7 +8114,7 @@
             },
             "type": "array",
             "title": "Items",
-            "description": "Опубликованные отзывы по сделкам, новые первыми"
+            "description": "Опубликованные отзывы выбранной вкладки (`kind`), новые первыми"
           },
           "next_cursor": {
             "anyOf": [
@@ -7867,13 +8126,19 @@
               }
             ],
             "title": "Next Cursor"
+          },
+          "pre_platform_count": {
+            "type": "integer",
+            "title": "Pre Platform Count",
+            "description": "«До платформы · 2» — опубликованные отзывы по приглашениям; «По сделкам» — summary.count"
           }
         },
         "type": "object",
         "required": [
           "summary",
           "items",
-          "next_cursor"
+          "next_cursor",
+          "pre_platform_count"
         ],
         "title": "CardReviewsOut"
       },
@@ -10745,6 +11010,114 @@
         ],
         "title": "ImageVariantName"
       },
+      "InviteReviewIn": {
+        "properties": {
+          "rating": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Rating",
+            "description": "Оценка 1–5"
+          },
+          "work_title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Title",
+            "description": "«Что делал мастер», до 120"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body",
+            "description": "Текст, до 2000"
+          },
+          "confirmed": {
+            "type": "boolean",
+            "const": true,
+            "title": "Confirmed",
+            "description": "Галочка «Подтверждаю…» — только true"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rating",
+          "confirmed"
+        ],
+        "title": "InviteReviewIn",
+        "description": "«Отзыв до платформы» по приглашению (S56): без критериев — их у прошлой работы не было."
+      },
+      "InviteSpecialistOut": {
+        "properties": {
+          "profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Profile Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name",
+            "description": "«Алексей Морозов»"
+          },
+          "first_name": {
+            "type": "string",
+            "title": "First Name",
+            "description": "«Алексей просит оставить отзыв…», «Подтверждаю: Алексей…»"
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardPhotoOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "headline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headline",
+            "description": "«Электрик · мелкий ремонт · люстры»"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/CardNamedOut"
+            },
+            "type": "array",
+            "title": "Categories"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile_id",
+          "display_name",
+          "first_name",
+          "avatar",
+          "headline",
+          "categories"
+        ],
+        "title": "InviteSpecialistOut"
+      },
       "InvitesIn": {
         "properties": {
           "profile_ids": {
@@ -12924,6 +13297,11 @@
             "format": "uuid",
             "title": "Id"
           },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "deal | pre_platform — «до платформы», без сделки"
+          },
           "deal_id": {
             "anyOf": [
               {
@@ -12946,6 +13324,18 @@
               }
             ],
             "title": "Deal Title"
+          },
+          "work_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Title",
+            "description": "«Что делал мастер» — у отзыва до платформы"
           },
           "counterpart_name": {
             "anyOf": [
@@ -13023,8 +13413,10 @@
         "type": "object",
         "required": [
           "id",
+          "kind",
           "deal_id",
           "deal_title",
+          "work_title",
           "counterpart_name",
           "rating",
           "criteria",
@@ -15085,12 +15477,204 @@
         ],
         "title": "ReviewIn"
       },
+      "ReviewInviteFormOut": {
+        "properties": {
+          "specialist": {
+            "$ref": "#/components/schemas/InviteSpecialistOut"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At",
+            "description": "До когда ссылка действует"
+          },
+          "is_own": {
+            "type": "boolean",
+            "title": "Is Own",
+            "description": "Ссылку открыл сам специалист: отзыв о себе не оставить"
+          }
+        },
+        "type": "object",
+        "required": [
+          "specialist",
+          "expires_at",
+          "is_own"
+        ],
+        "title": "ReviewInviteFormOut"
+      },
+      "ReviewInviteIn": {
+        "properties": {
+          "client_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Name",
+            "description": "Кому отправлена ссылка — заметка для себя в списке S55, по желанию"
+          }
+        },
+        "type": "object",
+        "title": "ReviewInviteIn"
+      },
+      "ReviewInviteOut": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Token",
+            "description": "Секрет ссылки: путь /review-invites/{token} и отзыв ссылки"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "https://t.me/<bot>?startapp=ri_<base62>: открывает S56"
+          },
+          "start_param": {
+            "type": "string",
+            "title": "Start Param",
+            "description": "Код startapp: ri_<base62>"
+          },
+          "client_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Name",
+            "description": "Кому отправлена — заметка специалиста"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "waiting — ждём отзыв (можно отозвать), expired — истекла, under_review — на модерации, published — опубликован, removed — снят"
+          },
+          "reviewer_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Name",
+            "description": "Кто оставил отзыв: «Имя Ф.»; ещё никто или аккаунт удалён — null"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating",
+            "description": "Оценка в оставленном отзыве"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "«Ссылка отправлена 2 дня назад»"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used At",
+            "description": "«Отзыв получен вчера»"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At",
+            "description": "«Оценка 5 · 5 дней назад»"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "url",
+          "start_param",
+          "client_name",
+          "status",
+          "reviewer_name",
+          "rating",
+          "created_at",
+          "expires_at",
+          "used_at",
+          "published_at"
+        ],
+        "title": "ReviewInviteOut",
+        "description": "Приглашение в списке S55."
+      },
+      "ReviewInvitesOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewInviteOut"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "Новые первыми; отозванных нет"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit",
+            "description": "Сколько мест всего: 5",
+            "default": 5
+          },
+          "taken": {
+            "type": "integer",
+            "title": "Taken",
+            "description": "Занято мест: ждут отзыва и использованные — «4 из 5»"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "taken"
+        ],
+        "title": "ReviewInvitesOut"
+      },
       "ReviewOut": {
         "properties": {
           "id": {
             "type": "string",
             "format": "uuid",
             "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "deal | pre_platform — «до платформы», в рейтинг не входит"
           },
           "deal_id": {
             "anyOf": [
@@ -15125,6 +15709,18 @@
               }
             ],
             "title": "Body"
+          },
+          "work_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Title",
+            "description": "«Что делал мастер» — у отзыва до платформы"
           },
           "status": {
             "type": "string",
@@ -15162,10 +15758,12 @@
         "type": "object",
         "required": [
           "id",
+          "kind",
           "deal_id",
           "rating",
           "criteria",
           "body",
+          "work_title",
           "status",
           "created_at",
           "published_at",

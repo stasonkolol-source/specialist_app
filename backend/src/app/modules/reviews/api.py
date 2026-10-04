@@ -14,6 +14,9 @@ from app.platform.kernel.pagination import Page, PageRequest
 
 NEW_UNTIL_REVIEWS: Final = 3
 """«Новый специалист» — пока отзывов по сделкам меньше трёх (ARCHITECTURE §9.4)."""
+DEAL: Final = "deal"
+PRE_PLATFORM: Final = "pre_platform"
+"""Вид отзыва (ReviewKind): по сделке или «до платформы» по приглашению (7.6а) — вкладки S11."""
 NO_REVIEWS_LOWER_BOUND: Final = 2.05
 """Нижняя граница рейтинга профиля без отзывов (только априорное распределение): ранжирование
 ставит такой профиль выше профиля с одной «единицей» и ниже профиля с одной «пятёркой».
@@ -63,6 +66,8 @@ class PublicReview:
     category_id: int | None
     published_at: datetime
     reply: ReplyView | None
+    work_title: str | None = None
+    """«Что делал мастер» — у отзыва до платформы вместо услуги сделки."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -102,6 +107,16 @@ class ReviewForCheck:
 
     author_id: UserId
     text: str
+    always_review: bool = False
+    """Отзыв до платформы проверяет человек всегда (ADR-0016: «модерация обязательна»)."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class InviteRef:
+    """Действующая ссылка-приглашение на «отзыв до платформы» (S56): чей профиль."""
+
+    profile_id: UUID
+    expires_at: datetime
 
 
 class ReviewsApi(Protocol):
@@ -109,8 +124,20 @@ class ReviewsApi(Protocol):
         """Рейтинг профилей; профиль без отзывов по сделкам в ответ не попадает."""
         ...
 
-    async def reviews_of(self, profile_id: UUID, page: PageRequest) -> Page[PublicReview]:
-        """Опубликованные отзывы профиля, новые первыми (S11; первый — на S08)."""
+    async def reviews_of(
+        self, profile_id: UUID, page: PageRequest, *, kind: str = DEAL
+    ) -> Page[PublicReview]:
+        """Опубликованные отзывы профиля этого вида, новые первыми (S11; первый по сделке — на
+        S08)."""
+        ...
+
+    async def review_count(self, profile_id: UUID, *, kind: str) -> int:
+        """Сколько опубликованных отзывов этого вида: «До платформы · 2» на S11."""
+        ...
+
+    async def open_invite(self, token: UUID) -> InviteRef | None:
+        """Ссылка-приглашение, по которой ещё можно оставить отзыв; отозванная, истёкшая,
+        использованная и несуществующая — None (одинаково)."""
         ...
 
     async def published_review(self, review_id: UUID) -> PublicReview | None:

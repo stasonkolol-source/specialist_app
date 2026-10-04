@@ -35,10 +35,14 @@ export const ReviewsLeaveReviewBody = zod.object({
 export const ReviewsLeaveReviewResponse = zod
   .object({
     id: zod.uuid(),
+    kind: zod.string().describe('deal | pre_platform — «до платформы», в рейтинг не входит'),
     deal_id: zod.union([zod.uuid(), zod.null()]),
     rating: zod.int(),
     criteria: zod.record(zod.string(), zod.int()),
     body: zod.union([zod.string(), zod.null()]),
+    work_title: zod
+      .union([zod.string(), zod.null()])
+      .describe('«Что делал мастер» — у отзыва до платформы'),
     status: zod.string().describe('under_review | published | removed'),
     created_at: zod.iso.datetime({ offset: true }),
     published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
@@ -70,10 +74,14 @@ export const ReviewsReplyToReviewBody = zod.object({
 export const ReviewsReplyToReviewResponse = zod
   .object({
     id: zod.uuid(),
+    kind: zod.string().describe('deal | pre_platform — «до платформы», в рейтинг не входит'),
     deal_id: zod.union([zod.uuid(), zod.null()]),
     rating: zod.int(),
     criteria: zod.record(zod.string(), zod.int()),
     body: zod.union([zod.string(), zod.null()]),
+    work_title: zod
+      .union([zod.string(), zod.null()])
+      .describe('«Что делал мастер» — у отзыва до платформы'),
     status: zod.string().describe('under_review | published | removed'),
     created_at: zod.iso.datetime({ offset: true }),
     published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
@@ -117,8 +125,12 @@ export const ReviewsListMyReviewsResponse = zod.object({
     zod
       .object({
         id: zod.uuid(),
+        kind: zod.string().describe('deal | pre_platform — «до платформы», без сделки'),
         deal_id: zod.union([zod.uuid(), zod.null()]),
         deal_title: zod.union([zod.string(), zod.null()]),
+        work_title: zod
+          .union([zod.string(), zod.null()])
+          .describe('«Что делал мастер» — у отзыва до платформы'),
         counterpart_name: zod
           .union([zod.string(), zod.null()])
           .describe('Автор (полученные) или тот, о ком отзыв (написанные); удалён — null'),
@@ -144,3 +156,161 @@ export const ReviewsListMyReviewsResponse = zod.object({
   ),
   next_cursor: zod.union([zod.string(), zod.null()]),
 });
+
+/**
+ * Приглашения S55: статус каждого, кто оставил отзыв, сколько мест из пяти занято.
+ * @summary List Review Invites
+ */
+export const reviewsListReviewInvitesResponseLimitDefault = 5;
+
+export const ReviewsListReviewInvitesResponse = zod.object({
+  items: zod
+    .array(
+      zod
+        .object({
+          token: zod.uuid().describe('Секрет ссылки: путь /review-invites/{token} и отзыв ссылки'),
+          url: zod.string().describe('https://t.me/<bot>?startapp=ri_<base62>: открывает S56'),
+          start_param: zod.string().describe('Код startapp: ri_<base62>'),
+          client_name: zod
+            .union([zod.string(), zod.null()])
+            .describe('Кому отправлена — заметка специалиста'),
+          status: zod
+            .string()
+            .describe(
+              'waiting — ждём отзыв (можно отозвать), expired — истекла, under_review — на модерации, published — опубликован, removed — снят',
+            ),
+          reviewer_name: zod
+            .union([zod.string(), zod.null()])
+            .describe('Кто оставил отзыв: «Имя Ф.»; ещё никто или аккаунт удалён — null'),
+          rating: zod.union([zod.int(), zod.null()]).describe('Оценка в оставленном отзыве'),
+          created_at: zod.iso
+            .datetime({ offset: true })
+            .describe('«Ссылка отправлена 2 дня назад»'),
+          expires_at: zod.iso.datetime({ offset: true }),
+          used_at: zod
+            .union([zod.iso.datetime({ offset: true }), zod.null()])
+            .describe('«Отзыв получен вчера»'),
+          published_at: zod
+            .union([zod.iso.datetime({ offset: true }), zod.null()])
+            .describe('«Оценка 5 · 5 дней назад»'),
+        })
+        .describe('Приглашение в списке S55.'),
+    )
+    .describe('Новые первыми; отозванных нет'),
+  limit: zod
+    .int()
+    .default(reviewsListReviewInvitesResponseLimitDefault)
+    .describe('Сколько мест всего: 5'),
+  taken: zod.int().describe('Занято мест: ждут отзыва и использованные — «4 из 5»'),
+});
+
+/**
+ * Ссылка-приглашение прошлому клиенту на «отзыв до платформы» (S55): одна ссылка — один
+ * клиент, 30 дней, не больше пяти занятых мест.
+ * @summary Create Review Invite
+ */
+export const reviewsCreateReviewInviteBodyClientNameOneMax = 60;
+
+export const ReviewsCreateReviewInviteBody = zod.object({
+  client_name: zod
+    .union([zod.string().max(reviewsCreateReviewInviteBodyClientNameOneMax), zod.null()])
+    .optional()
+    .describe('Кому отправлена ссылка — заметка для себя в списке S55, по желанию'),
+});
+
+export const ReviewsCreateReviewInviteResponse = zod
+  .object({
+    token: zod.uuid().describe('Секрет ссылки: путь /review-invites/{token} и отзыв ссылки'),
+    url: zod.string().describe('https://t.me/<bot>?startapp=ri_<base62>: открывает S56'),
+    start_param: zod.string().describe('Код startapp: ri_<base62>'),
+    client_name: zod
+      .union([zod.string(), zod.null()])
+      .describe('Кому отправлена — заметка специалиста'),
+    status: zod
+      .string()
+      .describe(
+        'waiting — ждём отзыв (можно отозвать), expired — истекла, under_review — на модерации, published — опубликован, removed — снят',
+      ),
+    reviewer_name: zod
+      .union([zod.string(), zod.null()])
+      .describe('Кто оставил отзыв: «Имя Ф.»; ещё никто или аккаунт удалён — null'),
+    rating: zod.union([zod.int(), zod.null()]).describe('Оценка в оставленном отзыве'),
+    created_at: zod.iso.datetime({ offset: true }).describe('«Ссылка отправлена 2 дня назад»'),
+    expires_at: zod.iso.datetime({ offset: true }),
+    used_at: zod
+      .union([zod.iso.datetime({ offset: true }), zod.null()])
+      .describe('«Отзыв получен вчера»'),
+    published_at: zod
+      .union([zod.iso.datetime({ offset: true }), zod.null()])
+      .describe('«Оценка 5 · 5 дней назад»'),
+  })
+  .describe('Приглашение в списке S55.');
+
+/**
+ * Отозвать свою неиспользованную ссылку: она перестаёт открываться, место освобождается.
+ * @summary Revoke Review Invite
+ */
+export const ReviewsRevokeReviewInviteParams = zod.object({
+  token: zod.uuid().describe('Секрет ссылки-приглашения'),
+});
+
+export const ReviewsRevokeReviewInviteResponse = zod.void();
+
+/**
+ * «Отзыв до платформы» по приглашению (S56): ждёт модератора, на карточке — с отдельной
+ * меткой, в рейтинг не входит.
+ * @summary Leave Invite Review
+ */
+export const ReviewsLeaveInviteReviewParams = zod.object({
+  token: zod.uuid().describe('Секрет ссылки-приглашения'),
+});
+
+export const reviewsLeaveInviteReviewBodyRatingMax = 5;
+
+export const reviewsLeaveInviteReviewBodyWorkTitleOneMax = 120;
+
+export const reviewsLeaveInviteReviewBodyBodyOneMax = 2000;
+
+export const ReviewsLeaveInviteReviewBody = zod
+  .object({
+    rating: zod.int().min(1).max(reviewsLeaveInviteReviewBodyRatingMax).describe('Оценка 1–5'),
+    work_title: zod
+      .union([zod.string().max(reviewsLeaveInviteReviewBodyWorkTitleOneMax), zod.null()])
+      .optional()
+      .describe('«Что делал мастер», до 120'),
+    body: zod
+      .union([zod.string().max(reviewsLeaveInviteReviewBodyBodyOneMax), zod.null()])
+      .optional()
+      .describe('Текст, до 2000'),
+    confirmed: zod
+      .literal(true)
+      .meta({ title: 'Confirmed', description: 'Галочка «Подтверждаю…» — только true' }),
+  })
+  .describe(
+    '«Отзыв до платформы» по приглашению (S56): без критериев — их у прошлой работы не было.',
+  );
+
+export const ReviewsLeaveInviteReviewResponse = zod
+  .object({
+    id: zod.uuid(),
+    kind: zod.string().describe('deal | pre_platform — «до платформы», в рейтинг не входит'),
+    deal_id: zod.union([zod.uuid(), zod.null()]),
+    rating: zod.int(),
+    criteria: zod.record(zod.string(), zod.int()),
+    body: zod.union([zod.string(), zod.null()]),
+    work_title: zod
+      .union([zod.string(), zod.null()])
+      .describe('«Что делал мастер» — у отзыва до платформы'),
+    status: zod.string().describe('under_review | published | removed'),
+    created_at: zod.iso.datetime({ offset: true }),
+    published_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    reply: zod.union([
+      zod.object({
+        body: zod.string(),
+        at: zod.iso.datetime({ offset: true }),
+        status: zod.string().describe('under_review | published | removed'),
+      }),
+      zod.null(),
+    ]),
+  })
+  .describe('Отзыв автору или тому, о ком он: с ответом в любом статусе.');

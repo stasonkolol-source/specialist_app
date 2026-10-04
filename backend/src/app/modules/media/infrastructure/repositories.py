@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from datetime import datetime
 
 from sqlalchemy import ColumnElement, Select, or_, select
+from sqlalchemy.dialects.postgresql import BitString
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.media.domain.asset import MediaAsset, MediaStatus, Variant
@@ -134,6 +135,7 @@ def to_domain(row: AssetRow) -> MediaAsset:
         duration_ms=row.duration_ms,
         placeholder=row.placeholder,
         sha256=row.sha256,
+        phash=int(row.phash) if row.phash is not None else None,
         variants={
             name: Variant(key=value["key"], width=value["w"], height=value["h"])
             for name, value in row.variants.items()
@@ -167,6 +169,7 @@ def _apply(asset: MediaAsset, row: AssetRow) -> None:
     row.duration_ms = asset.duration_ms
     row.placeholder = asset.placeholder
     row.sha256 = asset.sha256
+    row.phash = phash_bits(asset.phash) if asset.phash is not None else None
     row.variants = {
         name: {"key": v.key, "w": v.width, "h": v.height} for name, v in asset.variants.items()
     }
@@ -176,3 +179,8 @@ def _apply(asset: MediaAsset, row: AssetRow) -> None:
     row.hidden_at = asset.hidden_at
     row.held_until = asset.held_until
     row.purged_at = asset.purged_at
+
+
+def phash_bits(phash: int) -> BitString:
+    """pHash домена (int) — строкой `bit(64)` для PostgreSQL."""
+    return BitString.from_int(phash, 64)

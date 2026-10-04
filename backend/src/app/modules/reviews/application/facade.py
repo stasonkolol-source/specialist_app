@@ -10,14 +10,21 @@ from datetime import datetime
 from uuid import UUID
 
 from app.modules.reviews.api import (
+    DEAL,
     DealRef,
     DealReviewState,
+    InviteRef,
     PublicReview,
     RatingSummary,
     ReviewForCheck,
     ReviewsApi,
 )
-from app.modules.reviews.application.ports import RatingStore, ReviewQueries, ReviewRepository
+from app.modules.reviews.application.ports import (
+    RatingStore,
+    ReviewInvites,
+    ReviewQueries,
+    ReviewRepository,
+)
 from app.modules.reviews.domain.review import (
     COMPLETED,
     REVIEW_WINDOW,
@@ -25,6 +32,7 @@ from app.modules.reviews.domain.review import (
     ReplyStatus,
     Review,
     ReviewId,
+    ReviewKind,
 )
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
@@ -39,16 +47,28 @@ class ReviewsFacade(ReviewsApi):
         reviews: ReviewRepository,
         ratings: RatingStore,
         queries: ReviewQueries,
+        invites: ReviewInvites,
         clock: Clock,
     ) -> None:
         self._uow, self._reviews, self._ratings = uow, reviews, ratings
-        self._queries, self._clock = queries, clock
+        self._queries, self._invites, self._clock = queries, invites, clock
 
     async def summaries(self, profile_ids: Collection[UUID]) -> dict[UUID, RatingSummary]:
         return await self._ratings.summaries(profile_ids)
 
-    async def reviews_of(self, profile_id: UUID, page: PageRequest) -> Page[PublicReview]:
-        return await self._queries.public_of(profile_id, page)
+    async def reviews_of(
+        self, profile_id: UUID, page: PageRequest, *, kind: str = DEAL
+    ) -> Page[PublicReview]:
+        return await self._queries.public_of(profile_id, page, ReviewKind(kind))
+
+    async def review_count(self, profile_id: UUID, *, kind: str) -> int:
+        return await self._queries.count_of(profile_id, ReviewKind(kind))
+
+    async def open_invite(self, token: UUID) -> InviteRef | None:
+        invite = await self._invites.find(token)
+        if invite is None or not invite.usable(self._clock.now()):
+            return None
+        return InviteRef(profile_id=invite.profile_id, expires_at=invite.expires_at)
 
     async def published_review(self, review_id: UUID) -> PublicReview | None:
         return await self._queries.public(review_id)
@@ -84,7 +104,9 @@ class ReviewsFacade(ReviewsApi):
         review = await self._read(review_id)
         if review is None or not review.awaits_check:
             return None
-        return ReviewForCheck(author_id=review.author_id, text=review.body or "")
+        # до платформы: «что делал мастер» проверяется вместе с текстом, и всегда — человеком
+        text = "\n".join(part for part in (review.work_title, review.body) if part)
+        return ReviewForCheck(author_id=review.author_id, text=text, always_review=not review.rated)
 
     async def approve_review(self, review_id: UUID) -> None:
         review = await self._for_update(review_id)

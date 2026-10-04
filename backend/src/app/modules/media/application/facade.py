@@ -2,11 +2,11 @@
 
 from collections.abc import Collection
 
-from app.modules.media.api import MediaApi, MediaRef, MediaVariantRef
+from app.modules.media.api import MediaApi, MediaDuplicate, MediaRef, MediaVariantRef
 from app.modules.media.application.dto import DiscardMediaPayload, MediaView
 from app.modules.media.application.ports import DISCARD_MEDIA, MediaQuery
 from app.modules.media.application.queries import MediaQueries
-from app.modules.media.domain.asset import MediaStatus
+from app.modules.media.domain.asset import DUPLICATE_DISTANCE, MediaStatus
 from app.modules.media.domain.policy import MediaPurpose
 from app.modules.media.errors import MediaNotFoundError, MediaStateError
 from app.platform.kernel.ids import MediaId, UserId
@@ -14,6 +14,8 @@ from app.platform.queue.port import JobQueue
 
 ATTACHABLE = frozenset({MediaStatus.UPLOADED, MediaStatus.PROCESSING, MediaStatus.READY})
 """Прикрепить можно загруженный файл — даже пока он обрабатывается: экран ждёт вариантов."""
+MAX_DUPLICATES = 5
+"""Похожих файлов в ответе: модератору хватит ближних, а массовая копия не раздует кейс."""
 
 
 class MediaFacade(MediaApi):
@@ -31,6 +33,14 @@ class MediaFacade(MediaApi):
     async def refs(self, media_ids: Collection[MediaId]) -> dict[MediaId, MediaRef]:
         assets = await self._query.assets(media_ids)
         return {asset.id: _ref(await self._queries.view(asset)) for asset in assets}
+
+    async def duplicates(self, media_id: MediaId) -> list[MediaDuplicate]:
+        asset = await self._query.asset_by_id(media_id)
+        if asset is None or asset.status is not MediaStatus.READY or asset.phash is None:
+            return []
+        return await self._query.duplicates(
+            asset, max_distance=DUPLICATE_DISTANCE, limit=MAX_DUPLICATES
+        )
 
     async def discard(self, owner_id: UserId, media_id: MediaId) -> None:
         await self._queue.enqueue(

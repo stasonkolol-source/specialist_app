@@ -9,7 +9,9 @@ import type { CardReviewOut } from './cardReviewOut.ts';
 
 export interface CardReviewsOut {
   summary: CardRatingOut;
-  /** Опубликованные отзывы по сделкам, новые первыми */
+  /** Опубликованные отзывы выбранной вкладки (`kind`), новые первыми */
   items: CardReviewOut[];
   next_cursor: string | null;
+  /** «До платформы · 2» — опубликованные отзывы по приглашениям; «По сделкам» — summary.count */
+  pre_platform_count: number;
 }

@@ -6,14 +6,15 @@
 иначе 404, без подсказки почему. Ответ на языке Accept-Language, с ETag: повторный запрос без
 изменений — 304. Фото — готовые варианты; пока файл обрабатывается, его на карточке нет.
 Рейтинг — агрегаты reviews (байесовское среднее), отзывы — опубликованные по сделкам с ответом
-специалиста, автор — «Имя Ф.» (7.2). «Обычно отвечает за …» — медиана первого ответа
+специалиста, автор — «Имя Ф.» (7.2); вкладка «До платформы» S11 — отзывы по приглашениям с
+«что делал мастер», в рейтинг они не входят (7.6а). «Обычно отвечает за …» — медиана первого ответа
 в диалогах за 30 дней из read-model поиска (6.3b; при пяти и больше диалогах с ответом). Бейджи —
 v1: пока пусто.
 """
 
 from collections.abc import Collection, Mapping
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from dishka.integrations.fastapi import FromDishka, inject
@@ -25,7 +26,7 @@ from app.modules.geo.api import GeoApi
 from app.modules.identity.api import IdentityApi
 from app.modules.media.api import MediaApi, MediaRef
 from app.modules.pricing.api import PricingApi, PublicService
-from app.modules.reviews.api import PublicReview, RatingSummary, ReviewsApi
+from app.modules.reviews.api import DEAL, PRE_PLATFORM, PublicReview, RatingSummary, ReviewsApi
 from app.modules.search.api import SearchApi
 from app.modules.specialists.api import PublicCard, PublicProfile, PublicWork, SpecialistsApi
 from app.platform.http.caching import NOT_MODIFIED, cached_json
@@ -108,6 +109,9 @@ class CardReviewOut(BaseModel):
     criteria: dict[str, int] = Field(description="Оценённые критерии: quality, punctuality, …")
     body: str | None
     category: CardNamedOut | None = Field(description="Услуга сделки")
+    work_title: str | None = Field(
+        default=None, description="«Что делал мастер» — у отзыва до платформы вместо услуги"
+    )
     published_at: datetime
     reply: CardReplyOut | None = Field(description="Ответ специалиста (прошёл проверку)")
 
@@ -165,9 +169,13 @@ class CardRatingOut(BaseModel):
 class CardReviewsOut(BaseModel):
     summary: CardRatingOut
     items: list[CardReviewOut] = Field(
-        description="Опубликованные отзывы по сделкам, новые первыми"
+        description="Опубликованные отзывы выбранной вкладки (`kind`), новые первыми"
     )
     next_cursor: str | None
+    pre_platform_count: int = Field(
+        description="«До платформы · 2» — опубликованные отзывы по приглашениям; «По сделкам» —"
+        " summary.count"
+    )
 
 
 async def _visible(
@@ -402,6 +410,10 @@ async def list_specialist_reviews(
     *,
     request: Request,
     profile_id: ProfileId,
+    kind: Annotated[
+        Literal["deal", "pre_platform"],
+        Query(description="Вкладка S11: deal — по сделкам, pre_platform — «До платформы»"),
+    ] = DEAL,
     cursor: Annotated[str | None, Query(max_length=200)] = None,
     limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
     specialists: FromDishka[SpecialistsApi],
@@ -410,15 +422,16 @@ async def list_specialist_reviews(
     catalog: FromDishka[CatalogApi],
     locale: FromDishka[Locale],
 ) -> Response:
-    """Отзывы S11: рейтинг с гистограммой и опубликованные отзывы по сделкам с ответами,
-    новые первыми (курсор). Вкладка «До платформы» (`kind`) — 7.6."""
+    """Отзывы S11: рейтинг с гистограммой и опубликованные отзывы вкладки с ответами, новые
+    первыми (курсор): по сделкам или «До платформы» (`kind`, 7.6а) — те в рейтинг не входят."""
     profile = await _visible_card(profile_id, specialists, identity)
     summary = (await reviews.summaries([profile.id])).get(profile.id)
-    page = await reviews.reviews_of(profile.id, PageRequest(limit=limit, cursor=cursor))
+    page = await reviews.reviews_of(profile.id, PageRequest(limit=limit, cursor=cursor), kind=kind)
     body = CardReviewsOut(
         summary=_rating(summary),
         items=await _review_cards(page.items, identity, catalog, locale),
         next_cursor=page.next_cursor,
+        pre_platform_count=await reviews.review_count(profile.id, kind=PRE_PLATFORM),
     )
     return _cached(request, body)
 
@@ -456,6 +469,7 @@ async def _review_cards(
                     if review.category_id is not None
                     else None
                 ),
+                work_title=review.work_title,
                 published_at=review.published_at,
                 reply=CardReplyOut(body=reply.body, at=reply.at) if reply is not None else None,
             )
