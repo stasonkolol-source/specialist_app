@@ -1,5 +1,8 @@
-"""Входы персонала (2.7a): identity.staff_credentials, argon2 (pwdlib) и TOTP (pyotp, RFC 6238)."""
+"""Входы персонала (2.7a): identity.staff_credentials, argon2 (pwdlib) и TOTP (pyotp, RFC 6238).
 
+Секрет TOTP в БД зашифрован ключом APP_TOTP_KEY (8.4, `AesGcmTotpCipher`)."""
+
+import re
 from datetime import datetime
 from typing import Final
 
@@ -12,18 +15,21 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.identity.application.ports import StaffCredential
+from app.modules.identity.application.ports import StaffCredential, TotpSecret
 from app.modules.identity.domain.user import UserStatus
 from app.modules.identity.errors import StaffLoginTakenError
 from app.modules.identity.infrastructure.models import StaffCredentialRow, UserRow
 from app.platform.db.constraints import raise_domain_error
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import UserId
+from app.platform.security.secretbox import SealedSecretError, SecretBox, is_sealed
 
 ISSUER: Final = "Sosedi admin"
 TOTP_STEP: Final = 30
 TOTP_WINDOW: Final = 1
 """Допуск в шагах по обе стороны: часы телефона могут отставать на полминуты."""
+PLAIN_TOTP_SECRET: Final = re.compile(r"[A-Z2-7]{16,}=*")
+"""Секрет pyotp (base32) открытым текстом — так лежали строки до 8.4."""
 
 
 class SqlStaffCredentials:
@@ -42,7 +48,7 @@ class SqlStaffCredentials:
         values = {
             "login": credential.login,
             "password_hash": credential.password_hash,
-            "totp_secret": credential.totp_secret,
+            "totp_secret": credential.encrypted_totp_secret,
             "totp_last_step": None,
         }
         stmt = (
@@ -68,6 +74,21 @@ class SqlStaffCredentials:
             .values(totp_last_step=step)
         )
 
+    async def replace_totp_secret(self, user_id: UserId, encrypted_totp_secret: str) -> None:
+        self._uow.require_active()
+        await self._session.execute(
+            update(StaffCredentialRow)
+            .where(StaffCredentialRow.user_id == user_id)
+            .values(totp_secret=encrypted_totp_secret)
+        )
+
+    async def encrypted_totp_secrets(self) -> dict[UserId, str]:
+        self._uow.require_active()
+        rows = await self._session.execute(
+            select(StaffCredentialRow.user_id, StaffCredentialRow.totp_secret).with_for_update()
+        )
+        return {UserId(user_id): secret for user_id, secret in rows}
+
     async def _one(self, condition: object, *, lock: bool) -> StaffCredential | None:
         stmt = (
             select(StaffCredentialRow)
@@ -83,7 +104,7 @@ class SqlStaffCredentials:
             user_id=UserId(row.user_id),
             login=row.login,
             password_hash=row.password_hash,
-            totp_secret=row.totp_secret,
+            encrypted_totp_secret=row.totp_secret,
             totp_last_step=row.totp_last_step,
         )
 
@@ -125,3 +146,29 @@ class PwdlibStaffSecrets:
             if pyotp.utils.strings_equal(totp.generate_otp(step), code):
                 return step
         return None
+
+
+class AesGcmTotpCipher:
+    """Секрет TOTP в БД — AES-256-GCM под APP_TOTP_KEY (`SecretBox`); шифротекст привязан к
+    сотруднику: перенесённый в чужую строку не расшифруется. Строка до 8.4 (открытый base32)
+    читается и помечается к перешифровке; всё остальное, что не расшифровать, — отказ."""
+
+    def __init__(self, box: SecretBox) -> None:
+        self._box = box
+
+    def encrypt(self, secret: str, user_id: UserId) -> str:
+        return self._box.seal(secret, context=_context(user_id))
+
+    def decrypt(self, stored: str, user_id: UserId) -> TotpSecret | None:
+        if not is_sealed(stored):
+            plain = PLAIN_TOTP_SECRET.fullmatch(stored) is not None
+            return TotpSecret(value=stored, stale=True) if plain else None
+        try:
+            opened = self._box.open(stored, context=_context(user_id))
+        except SealedSecretError:
+            return None
+        return TotpSecret(value=opened.plaintext, stale=opened.stale)
+
+
+def _context(user_id: UserId) -> str:
+    return f"identity.staff_credentials.totp_secret:{user_id}"

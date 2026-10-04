@@ -1,8 +1,10 @@
 """Настройки процессов (ADR-0020 §10, DEVELOPMENT_PLAN 0.4)."""
 
+import secrets
 from pathlib import Path
 
 import pytest
+from pydantic import SecretStr
 
 from app.platform.settings import (
     GROUPS,
@@ -13,6 +15,7 @@ from app.platform.settings import (
     UpdatesMode,
     describe,
     env_names,
+    key_bytes,
     webhook_base_url,
 )
 
@@ -131,6 +134,41 @@ def test_stage_and_production_need_the_hash_key(clean_env: pytest.MonkeyPatch) -
     clean_env.setenv("APP_ENV", "stage")
     with pytest.raises(SettingsError, match="APP_HASH_KEY"):
         Settings(env_file=None)
+
+
+def test_stage_and_production_with_admin_need_the_totp_key(clean_env: pytest.MonkeyPatch) -> None:
+    """Секреты TOTP персонала (8.4): с включённой админкой без ключа шифрования не стартуем."""
+    for name, value in REQUIRED.items():
+        clean_env.setenv(name, value)
+    clean_env.setenv("APP_HASH_KEY", "test-hash-key")
+    clean_env.setenv("APP_ADMIN_SESSION_KEY", "test-session-key")
+    assert Settings(env_file=None).app.totp_key is None  # dev — ключ разработки
+    clean_env.setenv("APP_ENV", "stage")
+    with pytest.raises(SettingsError, match="APP_TOTP_KEY"):
+        Settings(env_file=None)
+    clean_env.delenv("APP_ADMIN_SESSION_KEY")
+    assert Settings(env_file=None).app.totp_key is None  # админка выключена — входа нет
+    clean_env.setenv("APP_ADMIN_SESSION_KEY", "test-session-key")
+    clean_env.setenv("APP_TOTP_KEY", secrets.token_hex(32))
+    assert Settings(env_file=None).app.totp_key is not None
+
+
+@pytest.mark.parametrize("name", ["APP_TOTP_KEY", "APP_TOTP_KEY_PREVIOUS"])
+@pytest.mark.parametrize("value", ["short-password", "ab" * 31, "z" * 64])
+def test_totp_key_must_be_32_bytes(clean_env: pytest.MonkeyPatch, name: str, value: str) -> None:
+    for required, given in REQUIRED.items():
+        clean_env.setenv(required, given)
+    clean_env.setenv(name, value)
+    with pytest.raises(SettingsError, match=name):
+        Settings(env_file=None)
+
+
+def test_totp_key_is_hex_or_base64url() -> None:
+    """`make gen-secret` даёт hex, `secrets.token_urlsafe(32)` — base64url: оба — 32 байта."""
+    raw = secrets.token_bytes(32)
+    assert key_bytes(SecretStr(raw.hex())) == raw
+    assert key_bytes(SecretStr(secrets.token_urlsafe(32))) != raw
+    assert len(key_bytes(SecretStr(secrets.token_urlsafe(32)))) == 32
 
 
 def test_metrics_port_is_off_by_default(clean_env: pytest.MonkeyPatch) -> None:

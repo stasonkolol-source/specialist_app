@@ -9,6 +9,7 @@
 - Новая настройка появляется в `backend/.env.example` в том же шаге (это проверяет тест).
 """
 
+import base64
 import os
 import re
 from datetime import date
@@ -39,6 +40,22 @@ _TELEGRAM_USERNAME = re.compile(r"[A-Za-z][A-Za-z0-9_]{4,31}")
 _WEBHOOK_SECRET = re.compile(r"[A-Za-z0-9_-]{32,256}")
 """secret_token webhook: алфавит и предел 256 — Bot API (setWebhook); от 32 символов — наше
 требование: секрет — единственная защита адреса, его подбирают (`make gen-secret` даёт 64)."""
+
+_HEX_KEY = re.compile(r"[0-9a-fA-F]{64}")
+_BASE64_KEY = re.compile(r"[A-Za-z0-9_-]{43}=?")
+
+
+def key_bytes(value: SecretStr) -> bytes:
+    """Ключ шифрования из настройки — ровно 32 байта: hex (`make gen-secret`, 64 знака) или
+    base64url (`secrets.token_urlsafe(32)`, 43 знака). Иное — ValueError: пароль ключом не
+    станет."""
+    text = value.get_secret_value().strip()
+    if _HEX_KEY.fullmatch(text):
+        return bytes.fromhex(text)
+    if _BASE64_KEY.fullmatch(text):
+        return base64.urlsafe_b64decode(text.rstrip("=") + "=")
+    raise ValueError("key must be 32 bytes: 64 hex characters (make gen-secret) or base64url")
+
 
 PRIVATE_NETWORKS: tuple[IPv4Network | IPv6Network, ...] = tuple(
     ip_network(cidr)
@@ -148,6 +165,22 @@ class AppSettings(_Group):
     """Ключ подписи cookie сессии админки /admin (2.7a). Без него на stage и проде админка не
     монтируется (публикация — только за Cloudflare Access, K31); в dev и тестах — ключ
     разработки. Смена ключа завершает все сессии персонала."""
+    totp_key: SecretStr | None = None
+    """Ключ шифрования секретов TOTP персонала в БД (8.4): AES-256-GCM, 32 случайных байта — hex
+    (`make gen-secret`) или base64url. На stage и проде с включённой админкой (есть
+    APP_ADMIN_SESSION_KEY) обязателен; в dev и тестах без него — ключ разработки. Смена — только
+    через APP_TOTP_KEY_PREVIOUS (infra/runbooks/secrets-rotation.md), иначе TOTP персонала
+    придётся заводить заново."""
+    totp_key_previous: SecretStr | None = None
+    """Прежний APP_TOTP_KEY на время ротации: им только расшифровываем, удачный вход и
+    `cli staff-totp-reencrypt` перешифровывают текущим. После перешифровки — убрать."""
+
+    @field_validator("totp_key", "totp_key_previous")
+    @classmethod
+    def _key(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None:
+            key_bytes(value)
+        return value
 
     @field_validator("min_client_versions")
     @classmethod
@@ -456,6 +489,17 @@ class Settings:
             and self.app.hash_key is None
         ):
             raise SettingsError("Настройки неполны — не заданы: APP_HASH_KEY")
+        if (
+            self.app.env in (Environment.STAGE, Environment.PRODUCTION)
+            and self.app.admin_session_key is not None
+            and self.app.totp_key is None
+        ):
+            # админка включена, а секреты TOTP персонала зашифровать нечем: ключ разработки на
+            # stage и проде — не ключ (8.4)
+            raise SettingsError(
+                "Настройки неполны — не заданы: APP_TOTP_KEY (админка включена: есть"
+                " APP_ADMIN_SESSION_KEY)"
+            )
         if problems := webhook_problems(self.app, self.telegram):
             raise SettingsError("TELEGRAM_UPDATES=webhook — " + "; ".join(problems))
         if self.app.env is Environment.PRODUCTION and (todo := self.legal.todo_fields()):

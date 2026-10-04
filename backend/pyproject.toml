@@ -19,6 +19,9 @@ dependencies = [
     "redis>=7.4,<8",
     "limits~=5.8",
     "pyjwt[crypto]~=2.15",
+    # AES-256-GCM секретов в БД (8.4) и Ed25519 ключей JWT — напрямую, а не только через extra pyjwt;
+    # без верхней границы: исправления безопасности cryptography выходят новыми мажорами
+    "cryptography>=50",
     "structlog>=25",
     "sentry-sdk>=2",
     "prometheus-client>=0.22",
