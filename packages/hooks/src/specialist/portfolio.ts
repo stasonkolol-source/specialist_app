@@ -46,6 +46,16 @@ export function broken(work: Pick<WorkOut, 'media'>): boolean {
   return work.media?.status === 'failed' || work.media?.status === 'rejected';
 }
 
+/** Работа ждёт модерации подписи и фото (6.7): видна только владельцу. */
+export function onReview(work: Pick<WorkOut, 'status'>): boolean {
+  return work.status === 'pending';
+}
+
+/** Работу скрыл модератор: клиенты её не видят, остаётся убрать. */
+export function hiddenByModerator(work: Pick<WorkOut, 'status'>): boolean {
+  return work.status === 'rejected';
+}
+
 export interface PortfolioRoom {
   image: number;
   video: number;

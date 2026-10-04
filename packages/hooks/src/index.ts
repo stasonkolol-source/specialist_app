@@ -115,6 +115,8 @@ export {
   PORTFOLIO_POLL_MS,
   broken,
   fitFiles,
+  hiddenByModerator,
+  onReview,
   portfolioRoom,
   processing,
   useMyPortfolio,

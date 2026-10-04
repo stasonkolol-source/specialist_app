@@ -1,14 +1,15 @@
 """Работа в портфолио (S37, POST /me/profile/portfolio): загруженный файл пользователя с
 назначением portfolio становится работой в конце списка. Лимит — 60 фото и 6 роликов на
 профиль; профиль блокируется строкой, поэтому параллельные загрузки лимит не обходят. Повтор
-того же файла возвращает ту же работу."""
+того же файла возвращает ту же работу. Новая работа ждёт проверки (план 6.7): её видит только
+владелец, пока модерация не проверит подпись и фото (ModerationRequested в той же транзакции)."""
 
 from collections import Counter
 from dataclasses import dataclass
 
 from app.modules.media.api import MediaApi
 from app.modules.specialists.application.ports import PortfolioRepository, ProfileRepository
-from app.modules.specialists.application.profiles import own_profile
+from app.modules.specialists.application.profiles import own_profile, request_work_review
 from app.modules.specialists.domain.portfolio import PortfolioItem, WorkKind, ensure_room
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
@@ -47,13 +48,15 @@ class AddPortfolioWork:
                 return same
             kind = WorkKind(file.kind)
             ensure_room(kind, Counter(item.kind for item in items))
+            now = self._clock.now()
             item = PortfolioItem.add(
                 profile_id=profile.id,
                 media_id=cmd.media_id,
                 kind=kind,
                 caption=cmd.caption,
                 position=len(items),
-                now=self._clock.now(),
+                now=now,
             )
             await self._portfolio.add(item)
+            request_work_review(self._uow, item, cmd.actor_id, now=now)
         return item

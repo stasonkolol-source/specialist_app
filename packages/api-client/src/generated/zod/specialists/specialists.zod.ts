@@ -284,6 +284,11 @@ export const SpecialistsGetMyPortfolioResponse = zod
             .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
           zod.null(),
         ]),
+        status: zod
+          .enum(['pending', 'published', 'rejected'])
+          .describe(
+            'pending — на проверке: видит только владелец; published — в карточке; rejected — скрыта модератором',
+          ),
       }),
     ),
     limits: zod.object({
@@ -343,6 +348,11 @@ export const SpecialistsAddMyWorkResponse = zod.object({
       .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
     zod.null(),
   ]),
+  status: zod
+    .enum(['pending', 'published', 'rejected'])
+    .describe(
+      'pending — на проверке: видит только владелец; published — в карточке; rejected — скрыта модератором',
+    ),
 });
 
 /**
@@ -384,6 +394,11 @@ export const SpecialistsReorderMyPortfolioResponse = zod
             .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
           zod.null(),
         ]),
+        status: zod
+          .enum(['pending', 'published', 'rejected'])
+          .describe(
+            'pending — на проверке: видит только владелец; published — в карточке; rejected — скрыта модератором',
+          ),
       }),
     ),
     limits: zod.object({
@@ -433,6 +448,11 @@ export const SpecialistsCaptionMyWorkResponse = zod.object({
       .describe('Файл работы или фото профиля: пока он обрабатывается, вариантов нет.'),
     zod.null(),
   ]),
+  status: zod
+    .enum(['pending', 'published', 'rejected'])
+    .describe(
+      'pending — на проверке: видит только владелец; published — в карточке; rejected — скрыта модератором',
+    ),
 });
 
 /**

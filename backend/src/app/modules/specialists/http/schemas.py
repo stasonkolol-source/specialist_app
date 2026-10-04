@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from app.modules.media.api import MediaRef
 from app.modules.specialists.application.dto import CabinetView, WorkView
 from app.modules.specialists.domain.completeness import Completeness
-from app.modules.specialists.domain.portfolio import LIMITS, MAX_CAPTION, WorkKind
+from app.modules.specialists.domain.portfolio import LIMITS, MAX_CAPTION, WorkKind, WorkStatus
 from app.modules.specialists.domain.profile import (
     MAX_ABOUT,
     MAX_AREAS,
@@ -101,6 +101,10 @@ class WorkOut(BaseModel):
     caption: str | None
     position: int
     media: MediaRefOut | None
+    status: WorkStatus = Field(
+        description="pending — на проверке: видит только владелец; published — в карточке; "
+        "rejected — скрыта модератором"
+    )
 
     @classmethod
     def of(cls, work: WorkView) -> WorkOut:
@@ -110,6 +114,7 @@ class WorkOut(BaseModel):
             caption=work.caption,
             position=work.position,
             media=MediaRefOut.of(work.media) if work.media else None,
+            status=work.status,
         )
 
 

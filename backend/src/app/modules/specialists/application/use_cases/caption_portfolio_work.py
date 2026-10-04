@@ -1,12 +1,15 @@
-"""Подпись работы (S37, PATCH /me/profile/portfolio/{id}); пустая — без подписи."""
+"""Подпись работы (S37, PATCH /me/profile/portfolio/{id}); пустая — без подписи. Новая подпись
+уходит на проверку (план 6.7): у ждущей проверки — до публикации, у опубликованной —
+пост-модерация, работа остаётся видна."""
 
 from dataclasses import dataclass
 
 from app.modules.specialists.application.ports import PortfolioRepository, ProfileRepository
-from app.modules.specialists.application.profiles import own_profile
+from app.modules.specialists.application.profiles import own_profile, request_work_review
 from app.modules.specialists.domain.portfolio import PortfolioItem, PortfolioItemId
 from app.modules.specialists.errors import PortfolioItemNotFoundError
 from app.platform.db.port import UnitOfWork
+from app.platform.kernel.clock import Clock
 from app.platform.kernel.ids import UserId
 
 
@@ -19,9 +22,14 @@ class CaptionPortfolioWorkCommand:
 
 class CaptionPortfolioWork:
     def __init__(
-        self, uow: UnitOfWork, profiles: ProfileRepository, portfolio: PortfolioRepository
+        self,
+        uow: UnitOfWork,
+        profiles: ProfileRepository,
+        portfolio: PortfolioRepository,
+        clock: Clock,
     ) -> None:
         self._uow, self._profiles, self._portfolio = uow, profiles, portfolio
+        self._clock = clock
 
     async def __call__(self, cmd: CaptionPortfolioWorkCommand) -> PortfolioItem:
         async with self._uow:
@@ -33,4 +41,5 @@ class CaptionPortfolioWork:
                 raise PortfolioItemNotFoundError(item_id=cmd.item_id)
             if item.recaption(cmd.caption):
                 await self._portfolio.save(item)
+                request_work_review(self._uow, item, cmd.actor_id, now=self._clock.now())
         return item

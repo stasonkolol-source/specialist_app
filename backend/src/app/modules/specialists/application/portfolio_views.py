@@ -24,6 +24,7 @@ class PortfolioViews:
                 caption=item.caption,
                 position=item.position,
                 media=refs.get(item.media_id),
+                status=item.status,
             )
             for item in items
         ]

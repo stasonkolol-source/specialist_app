@@ -59,6 +59,8 @@ class EntityType(StrEnum):
     """Ответ исполнителя на отзыв (7.2): проверяется отдельно, нарушение скрывает только его."""
     MESSAGE = "message"
     MEDIA = "media"
+    PORTFOLIO = "portfolio"
+    """Работа портфолио (6.7): подпись — конвейер текста, фото — `moderation.check_image`."""
     DISPUTE = "dispute"
     """Спор по сделке (6.1c): `entity_id` — id спора в deals."""
 

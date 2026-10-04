@@ -6,6 +6,7 @@
  */
 import type { MediaRefOut } from './mediaRefOut.ts';
 import type { WorkKind } from './workKind.ts';
+import type { WorkStatus } from './workStatus.ts';
 
 export interface WorkOut {
   id: string;
@@ -13,4 +14,6 @@ export interface WorkOut {
   caption: string | null;
   position: number;
   media: MediaRefOut | null;
+  /** pending — на проверке: видит только владелец; published — в карточке; rejected — скрыта модератором */
+  status: WorkStatus;
 }
