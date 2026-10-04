@@ -13,9 +13,11 @@ from sqladmin import BaseView, action, expose
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
 
-from app.modules.identity.application.use_cases.staff_restrictions import (
+from app.modules.identity.application.use_cases.impose_restriction import (
     ImposeRestriction,
     ImposeRestrictionCommand,
+)
+from app.modules.identity.application.use_cases.lift_restriction import (
     LiftRestriction,
     LiftRestrictionCommand,
 )

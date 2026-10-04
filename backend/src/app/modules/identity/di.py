@@ -24,13 +24,17 @@ from app.modules.identity.application.ports import (
     StaffSecrets,
     UserRepository,
 )
+from app.modules.identity.application.staff_auth import StaffAuthService
 from app.modules.identity.application.trust import TrustRecalculation
 from app.modules.identity.application.use_cases.accept_consents import AcceptConsents
 from app.modules.identity.application.use_cases.age_trust_levels import AgeTrustLevels
 from app.modules.identity.application.use_cases.authenticate_telegram import AuthenticateTelegram
 from app.modules.identity.application.use_cases.block_user import BlockUser
 from app.modules.identity.application.use_cases.cancel_deletion import CancelDeletion
+from app.modules.identity.application.use_cases.create_staff_login import CreateStaffLogin
 from app.modules.identity.application.use_cases.grant_staff_role import GrantStaffRole
+from app.modules.identity.application.use_cases.impose_restriction import ImposeRestriction
+from app.modules.identity.application.use_cases.lift_restriction import LiftRestriction
 from app.modules.identity.application.use_cases.logout import Logout
 from app.modules.identity.application.use_cases.process_deletions import ProcessDeletions
 from app.modules.identity.application.use_cases.record_completed_deal import RecordCompletedDeal
@@ -42,14 +46,6 @@ from app.modules.identity.application.use_cases.request_deletion import RequestD
 from app.modules.identity.application.use_cases.reset_onboarding import ResetOnboarding
 from app.modules.identity.application.use_cases.revoke_restricted_sessions import (
     RevokeRestrictedSessions,
-)
-from app.modules.identity.application.use_cases.staff_login import (
-    CreateStaffLogin,
-    StaffAuthService,
-)
-from app.modules.identity.application.use_cases.staff_restrictions import (
-    ImposeRestriction,
-    LiftRestriction,
 )
 from app.modules.identity.application.use_cases.unblock_user import UnblockUser
 from app.modules.identity.application.use_cases.update_privacy import UpdatePrivacy

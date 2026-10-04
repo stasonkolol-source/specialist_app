@@ -621,6 +621,15 @@ msgstr "Ne možete da blokirate sami sebe."
 msgid "errors.blocks_full"
 msgstr "Već ste blokirali {limit} osoba — odblokirajte nekoga da biste dodali."
 
+msgid "errors.invalid_staff_login"
+msgstr "Korisničko ime za admin panel — od 3 do 64 latinična slova, cifre i znakove «.», «_», «-»; lozinka — najmanje 12 znakova."
+
+msgid "errors.staff_login_taken"
+msgstr "Ovo korisničko ime za admin panel već koristi drugi zaposleni."
+
+msgid "errors.not_staff"
+msgstr "Admin panelu pristupaju samo zaposleni sa ulogom."
+
 msgid "errors.report_target_not_found"
 msgstr "Prijava nije moguća: objekat je obrisan ili nedostupan."
 

@@ -498,7 +498,7 @@ class _StaffCreateRefusedError(Exception):
 
 async def _staff_create(telegram_id: int, login: str, password: str) -> StaffCredentialsSet | None:
     from app.entrypoints._wiring import make_worker_container
-    from app.modules.identity.application.use_cases.staff_login import (
+    from app.modules.identity.application.use_cases.create_staff_login import (
         MIN_PASSWORD,
         CreateStaffLogin,
         CreateStaffLoginCommand,
