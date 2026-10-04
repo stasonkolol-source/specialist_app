@@ -14,6 +14,10 @@ export type JobsListJobsParams = {
    */
   limit?: number;
   /**
+   * alerts — «по моим подпискам» (5.7): только вошедшему
+   */
+  feed?: 'alerts' | null;
+  /**
    * Город ленты
    * @minimum 1
    */

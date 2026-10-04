@@ -2,15 +2,17 @@
 // новые сверху. Чипы: «Фильтры N» открывает шторку S14, «До 3 км» спрашивает местоположение,
 // выбранные категории снимаются нажатием, «Сегодня» и «Срочные» — быстрые фильтры. Фильтры — в
 // адресе: переживают «Назад» из заявки. Список виртуальный (FeedList.tsx); следующая страница
-// грузится, когда кнопка «Показать ещё» доезжает до экрана. Скрыто до своих шагов: колокольчик
-// подписок S18 и «По моим подпискам» (5.7).
-// Гость видит ленту без входа.
+// грузится, когда кнопка «Показать ещё» доезжает до экрана. Вошедшему (5.7): колокольчик — подписки
+// S18, чип «По моим подпискам» — заявки, подходящие его включённым подпискам (`feed=alerts`, в
+// адресе — `alerts`); подписок нет — «Настроить подписки». Гость видит ленту без входа.
 import type { CategoryOut } from '@sosed/api-client';
+import { getSession } from '@sosed/api-client';
 import {
   jobCards,
   selectableDistricts,
   useCategories,
   useDistricts,
+  useJobAlerts,
   useJobsCount,
   useJobsFeed,
 } from '@sosed/hooks';
@@ -23,6 +25,7 @@ import {
   Chips,
   EmptyState,
   Heading,
+  IconButton,
   JobCardSkeleton,
   SkeletonText,
 } from '@sosed/ui-web';
@@ -49,7 +52,10 @@ export function FeedScreen() {
   const { t } = useTranslation('jobs');
   const locale = useLocale();
   const router = useRouter();
-  const search: FeedSearch = useSearch({ strict: false });
+  const routed: FeedSearch = useSearch({ strict: false });
+  const signedIn = getSession() !== null;
+  // «по моим подпискам» — только вошедшему: гость по ссылке `m_feed` видит обычную ленту
+  const search: FeedSearch = signedIn ? routed : { ...routed, alerts: undefined };
   const city = useFeedCity();
   const query = city ? toFeedQuery(search, city.id) : null;
   const feed = useJobsFeed(query);
@@ -58,6 +64,8 @@ export function FeedScreen() {
   const tree = categories.data ?? [];
   const districts = selectableDistricts(useDistricts(city?.id ?? null, locale).data ?? [], locale);
   const locate = useLocate();
+  // подписки — только в режиме «по моим подпискам»: пустую ленту объяснить «подписок нет»
+  const alerts = useJobAlerts(signedIn && search.alerts === true);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [locationFailed, setLocationFailed] = useState(false);
 
@@ -86,8 +94,25 @@ export function FeedScreen() {
     id === null ? null : (districts.find((district) => district.id === id)?.name ?? null);
   const categoryName = (id: number) => findCategory(tree, id)?.name ?? null;
 
+  const noAlerts = search.alerts === true && alerts.data?.items.length === 0;
+  const toAlerts = () => void router.navigate({ to: JOBS_PATHS.alerts });
   let content;
-  if (feed.data) {
+  if (feed.data && cards.length === 0 && search.alerts) {
+    content = (
+      <EmptyState
+        as="h2"
+        icon="bell"
+        title={noAlerts ? t('feed.noAlertsTitle') : t('feed.alertsEmptyTitle')}
+        action={
+          <Button variant="secondary" onClick={toAlerts}>
+            {t('feed.alertsSetup')}
+          </Button>
+        }
+      >
+        {noAlerts ? t('feed.noAlertsText') : t('feed.alertsEmptyText')}
+      </EmptyState>
+    );
+  } else if (feed.data) {
     content =
       cards.length === 0 ? (
         <EmptyState
@@ -152,11 +177,23 @@ export function FeedScreen() {
   return (
     <section className="flex flex-col gap-3 px-4 pt-3 pb-6">
       <JobsSegments current="feed" />
-      <Heading variant="h1">{t('feed.title')}</Heading>
+      <div className="flex items-center justify-between gap-3">
+        <Heading variant="h1">{t('feed.title')}</Heading>
+        {signedIn && <IconButton icon="bell" label={t('feed.alertsLink')} onClick={toAlerts} />}
+      </div>
       <Chips label={t('feed.chips')} className="-mx-4 overflow-x-auto px-4">
         <Chip icon="sliders" count={filters || undefined} onClick={() => setFiltersOpen(true)}>
           {t('feed.filters')}
         </Chip>
+        {signedIn && (
+          <Chip
+            icon="bell"
+            selected={search.alerts === true}
+            onClick={() => update({ ...search, alerts: search.alerts ? undefined : true })}
+          >
+            {t('feed.alertsChip')}
+          </Chip>
+        )}
         <Chip selected={search.near !== undefined} onClick={() => void toggleNear()}>
           {t('feed.near', { km: search.near ?? NEAR_KM })}
         </Chip>
@@ -191,9 +228,11 @@ export function FeedScreen() {
       {!count.data && count.isPending && <SkeletonText size="cap" screen className="w-40" />}
       {count.data && count.data.count > 0 && (
         <p className="m-0 text-cap text-text2" aria-live="polite">
-          {filters > 0
-            ? t('feed.countFiltered', { count: count.data.count })
-            : t('feed.count', { count: count.data.count })}
+          {search.alerts
+            ? t('feed.countAlerts', { count: count.data.count })
+            : filters > 0
+              ? t('feed.countFiltered', { count: count.data.count })
+              : t('feed.count', { count: count.data.count })}
         </p>
       )}
       {content}
