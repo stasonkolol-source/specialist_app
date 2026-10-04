@@ -294,7 +294,10 @@ function Summary({ summary }: { summary: CardRatingOut }) {
       {criteria.length > 0 && (
         <>
           <div className="h-px bg-line" aria-hidden="true" />
-          <dl className="m-0 grid grid-cols-4 gap-2">
+          {/* Колонки равные, пока подписи помещаются (ru — как на артборде), но не уже самого
+              длинного слова: «Komunikacija» в sr-Latn на 360 px шире четверти карточки и иначе
+              залезает на «Cena»; такая колонка забирает место у соседних. */}
+          <dl className="m-0 grid grid-cols-[repeat(4,minmax(min-content,1fr))] gap-2">
             {criteria.map((name) => (
               <div key={name} className="flex flex-col-reverse">
                 <dt className="text-cap text-text2">{t(`reviews.criteria.${name}`)}</dt>

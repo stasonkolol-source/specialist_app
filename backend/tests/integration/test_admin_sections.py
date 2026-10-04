@@ -5,14 +5,15 @@
   для чтения на странице итога; moderator разделов платформы не видит.
 - Founding — use case SetFounding от имени сотрудника: отметка и снятие, обе — в аудите.
 - Название, поправленное в админке (`name_origin = admin`), следующий `cli seed` не переписывает,
-  а остальные поля строки сид обновляет.
+  а поля, которые ведёт сид, обновляет. Включён ли город, район и тег, порядок городов и
+  категорий, иконку категории сид задаёт только новой строке: правка записи в сиде их не трогает.
 
 Данные коммитятся (кроме теста сидов — он в транзакции теста): у каждого теста свои ключи, строки
 и сотрудники, общее состояние (флаги, client-config) возвращается как было.
 """
 
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 
 import procrastinate
 import pytest
@@ -163,32 +164,40 @@ async def test_admin_founding_goes_through_use_case(admin: Admin, geo_seeded: No
     assert await audit_count(admin, "specialists.profile.founding_unmarked", owner.user_id) == 1
 
 
-def _category(slug: str, name: str, *, sort_order: int) -> CategorySeed:
+def _category(
+    slug: str,
+    name: str,
+    *,
+    sort_order: int,
+    icon: str | None = None,
+    extra_tags: Sequence[str] = (),
+) -> CategorySeed:
+    """Категория с тегом `<slug>-tag`; `extra_tags` — slug ещё нескольких тегов."""
+    tags = [(f"{slug}-tag", f"{name} тег", f"{name} таг")]
+    tags += [(tag, f"{name} {n}", f"{name} {n}") for n, tag in enumerate(extra_tags, 1)]
     return CategorySeed(
         slug=slug,
         name=LocalizedText({Locale.RU: name, Locale.SR_CYRL: name}),
-        icon=None,
+        icon=icon,
         risk_level=RiskLevel.NORMAL,
         sort_order=sort_order,
         price_hints={},
         synonyms=(),
-        tags=(
-            TagSeed(
-                slug=f"{slug}-tag",
-                name=LocalizedText({Locale.RU: f"{name} тег", Locale.SR_CYRL: f"{name} таг"}),
-            ),
+        tags=tuple(
+            TagSeed(slug=tag, name=LocalizedText({Locale.RU: ru, Locale.SR_CYRL: sr}))
+            for tag, ru, sr in tags
         ),
         children=(),
     )
 
 
-def _city(slug: str, name: str, *, sort_order: int) -> CitySeed:
+def _city(slug: str, name: str, *, sort_order: int, active: bool = False) -> CitySeed:
     center = GeoPoint(lat=45.25, lon=19.84)
     return CitySeed(
         slug=slug,
         name=LocalizedText({Locale.RU: name, Locale.SR_CYRL: name}),
         center=center,
-        active=False,
+        active=active,
         sort_order=sort_order,
         boundary_wkt=None,
         districts=(
@@ -225,7 +234,7 @@ async def test_seed_keeps_names_edited_in_admin(
                 ),
                 {"name": json.dumps(edited), "slug": f"{slug}%"},
             )
-    # сид изменился: новое название и порядок — строка «изменена», импорт её переписывает
+    # сид изменился: новое название — строка «изменена», импорт её переписывает
     async with uow:
         result = await catalog.import_taxonomy([_category(slug, "Сид новый", sort_order=2)])
         await geo.upsert_city(_city(slug, "Сид новый", sort_order=2))
@@ -245,10 +254,6 @@ async def test_seed_keeps_names_edited_in_admin(
     assert {row.kind for row in rows} == {"category", "tag", "city", "district"}
     for row in rows:
         assert (row.name, row.name_origin) == (edited, "admin"), row.kind
-    assert {row.kind: row.sort_order for row in rows if row.kind in {"category", "city"}} == {
-        "category": 2,
-        "city": 2,
-    }
     # строка, название которой ведёт сид, следует за сидом, как раньше
     async with uow:
         await db_session.execute(
@@ -261,3 +266,85 @@ async def test_seed_keeps_names_edited_in_admin(
         text("SELECT name->>'ru' FROM catalog.tags WHERE slug = :tag"), {"tag": f"{slug}-tag"}
     )
     assert tag_name == "Сид третий тег"
+
+
+async def test_seed_keeps_settings_edited_in_admin(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App
+) -> None:
+    slug = f"admin-settings-{new_id().hex[:8]}"
+    moved, dropped = f"{slug}-moved", f"{slug}-dropped"
+    uow = make_uow(db_session, procrastinate_app)
+    catalog, geo = SqlCatalogWriter(db_session, uow), SqlGeoWriter(db_session, uow)
+    async with uow:
+        await catalog.import_taxonomy(
+            [_category(slug, "Сид", sort_order=1, icon="wrench", extra_tags=[moved, dropped])]
+        )
+        await geo.upsert_city(_city(slug, "Сид", sort_order=1, active=True))
+    async with uow:  # как правка формой админки: город, район и тег выключены, порядок и иконка
+        await db_session.execute(
+            text("UPDATE geo.cities SET is_active = false, sort_order = 7 WHERE slug = :slug"),
+            {"slug": slug},
+        )
+        await db_session.execute(
+            text("UPDATE geo.districts SET is_active = false WHERE slug = :district"),
+            {"district": f"{slug}-centar"},
+        )
+        await db_session.execute(
+            text("UPDATE catalog.categories SET sort_order = 7, icon = 'star' WHERE slug = :slug"),
+            {"slug": slug},
+        )
+        await db_session.execute(
+            text("UPDATE catalog.tags SET is_active = false WHERE slug = :tag"),
+            {"tag": f"{slug}-tag"},
+        )
+    # запись в сиде изменилась (название, порядок, иконка); тег `moved` переехал в новую
+    # категорию, тег `dropped` из сида убран; в сиде появился новый город
+    async with uow:
+        result = await catalog.import_taxonomy(
+            [
+                _category(slug, "Сид новый", sort_order=2, icon="hammer"),
+                _category(f"{slug}-b", "Другая", sort_order=3, icon="brush", extra_tags=[moved]),
+            ]
+        )
+        await geo.upsert_city(_city(slug, "Сид новый", sort_order=2, active=True))
+        added = await geo.upsert_city(_city(f"{slug}-new", "Новый", sort_order=3, active=True))
+    assert (result.created, result.updated) == (1, 1)
+    assert (added.created, added.updated) == (2, 0)  # город и его район
+    cities = await db_session.execute(
+        text(
+            "SELECT c.slug, c.name->>'ru' AS name, c.is_active, c.sort_order,"
+            " bool_and(d.is_active) AS districts_active FROM geo.cities c"
+            " JOIN geo.districts d ON d.city_id = c.id WHERE c.slug LIKE :prefix"
+            " GROUP BY c.id ORDER BY c.slug"
+        ),
+        {"prefix": f"{slug}%"},
+    )
+    assert [tuple(row) for row in cities] == [
+        (slug, "Сид новый", False, 7, False),  # название — из сида, остальное — как в админке
+        (f"{slug}-new", "Новый", True, 3, True),  # новый город — как в сиде
+    ]
+    categories = await db_session.execute(
+        text(
+            "SELECT slug, name->>'ru' AS name, sort_order, icon FROM catalog.categories"
+            " WHERE slug LIKE :prefix ORDER BY slug"
+        ),
+        {"prefix": f"{slug}%"},
+    )
+    assert [tuple(row) for row in categories] == [
+        (slug, "Сид новый", 7, "star"),
+        (f"{slug}-b", "Другая", 3, "brush"),
+    ]
+    tags = await db_session.execute(
+        text(
+            "SELECT t.slug, c.slug AS category, t.is_active FROM catalog.tags t"
+            " JOIN catalog.categories c ON c.id = t.category_id WHERE t.slug LIKE :prefix"
+            " ORDER BY t.slug"
+        ),
+        {"prefix": f"{slug}%"},
+    )
+    assert [tuple(row) for row in tags] == [
+        (f"{slug}-b-tag", f"{slug}-b", True),
+        (dropped, slug, False),  # убран из сида — выключен
+        (moved, f"{slug}-b", True),  # перенесён сидом — включён, как был
+        (f"{slug}-tag", slug, False),  # выключен в админке — так и остался
+    ]
