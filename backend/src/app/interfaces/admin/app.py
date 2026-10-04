@@ -10,6 +10,15 @@ cookie персонала.
 
 Сессии SQLAdmin берут движок процесса из DI при первом запросе (`_BindEngine`): фабрика
 приложения синхронна, а движок — ресурс APP-скоупа контейнера.
+
+CSRF (`_OwnPagesOnly`). Cookie `sosed_admin` (SameSite=Strict) несёт и страница другого поддомена
+того же сайта (Mini App, cdn) — platform/http/staff.py. Формы SQLAdmin токена CSRF не знают, а
+действия раздела («Снять» санкцию, «Отметить Founding») SQLAdmin регистрирует как GET — и
+переделать их в POST без своей копии его JS нельзя. Поэтому до SQLAdmin стоит проверка Fetch
+Metadata и Origin, те же правила, что у Admin API (`foreign_request`): меняющий запрос, действие
+раздела (`…/action/…`) и GET-страница с записью (`decide-case`: просмотр доказательств спора пишет
+аудит и блокирует кейс) с чужой страницы — 403. Переход со своей страницы, из адресной строки или
+закладки (`Sec-Fetch-Site: same-origin | none`) проходит, обычные GET-страницы — без проверки.
 """
 
 from collections.abc import Sequence
@@ -20,8 +29,10 @@ import structlog
 from fastapi import FastAPI
 from sqladmin import Admin, BaseView, ModelView
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from starlette.datastructures import Headers
 from starlette.middleware import Middleware
 from starlette.requests import Request
+from starlette.responses import PlainTextResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.interfaces.admin.auth import StaffAuthBackend
@@ -33,13 +44,23 @@ from app.modules.moderation.admin.views import VIEWS as MODERATION_VIEWS
 from app.modules.notifications.admin.views import VIEWS as NOTIFICATIONS_VIEWS
 from app.modules.specialists.admin.views import VIEWS as SPECIALISTS_VIEWS
 from app.platform.http.admin import LOCKS_INFO, AdminSession
-from app.platform.http.staff import PUBLISHED, session_secret
+from app.platform.http.staff import (
+    OWN_OR_TYPED,
+    PUBLISHED,
+    SAFE_METHODS,
+    foreign_request,
+    session_secret,
+)
 from app.platform.settings import Settings
 
 log = structlog.get_logger(__name__)
 
 BASE_URL: Final = "/admin"
 TEMPLATES: Final = Path(__file__).parent / "templates"
+ACTION_PATH: Final = "/action/"
+"""Действие раздела SQLAdmin (`@action`) — GET `/<раздел>/action/<имя>?pks=…`."""
+WRITING_PAGES: Final = ("/decide-case",)
+"""GET-страницы с записью: спор в «Решить кейс» — InspectDispute (аудит, FOR UPDATE кейса)."""
 
 VIEWS: Final[Sequence[type[ModelView | BaseView]]] = (
     *MODERATION_VIEWS,
@@ -68,7 +89,7 @@ def mount_admin(app: FastAPI, settings: Settings) -> Admin | None:
         title="Соседи — админка",
         templates_dir=str(TEMPLATES),
         authentication_backend=StaffAuthBackend(secret, https_only=settings.app.env in PUBLISHED),
-        middlewares=[Middleware(_BindEngine, maker=maker)],
+        middlewares=[Middleware(_OwnPagesOnly), Middleware(_BindEngine, maker=maker)],
     )
     locks: dict[type, int] = {}
     for view in VIEWS:
@@ -92,3 +113,27 @@ class _BindEngine:
             container = Request(scope).state.dishka_container
             self._maker.configure(bind=await container.get(AsyncEngine))
         await self._app(scope, receive, send)
+
+
+class _OwnPagesOnly:
+    """CSRF админки: запрос с записью — только со своей страницы (см. docstring модуля)."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self._app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and _writes(scope):
+            reason = foreign_request(Headers(scope=scope), OWN_OR_TYPED)
+            if reason is not None:
+                log.warning("admin_csrf_rejected", reason=reason, method=scope["method"])
+                response = PlainTextResponse("Cross-site request rejected.", status_code=403)
+                await response(scope, receive, send)
+                return
+        await self._app(scope, receive, send)
+
+
+def _writes(scope: Scope) -> bool:
+    if scope["method"] not in SAFE_METHODS:
+        return True
+    path: str = scope["path"]
+    return ACTION_PATH in path or path.endswith(WRITING_PAGES)

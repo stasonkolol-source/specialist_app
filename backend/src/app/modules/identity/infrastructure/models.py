@@ -280,7 +280,8 @@ class StaffCredentialRow(TimestampsMixin, Base):
 
     `totp_secret` — зашифрован ключом APP_TOTP_KEY (`v1:…`, 8.4); строки до 8.4 — открытый base32
     до первого входа или `cli staff-totp-reencrypt`. `totp_last_step` — шаг TOTP (30 с)
-    последнего входа: тот же код второй раз не принимается.
+    последнего входа: тот же код второй раз не принимается. `session_epoch` — поколение сессий
+    админки (в cookie с входа): `cli staff-create` и `staff-revoke` его увеличивают.
     """
 
     __tablename__ = "staff_credentials"
@@ -290,6 +291,7 @@ class StaffCredentialRow(TimestampsMixin, Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     totp_secret: Mapped[str] = mapped_column(String(255))
     totp_last_step: Mapped[int | None] = mapped_column(BigInteger)
+    session_epoch: Mapped[int] = mapped_column(Integer, server_default=text("0"))
 
     __table_args__ = (
         Index("uq_staff_credentials_login", text("lower(login)"), unique=True),

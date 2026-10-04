@@ -52,6 +52,7 @@ class Staff:
     user_id: UserId
     login: str
     secret: str
+    telegram_id: int
 
 
 @pytest.fixture
@@ -98,7 +99,7 @@ async def staff(admin: Admin, role: str) -> Staff:
         )
     assert created is not None
     assert created.totp_uri.startswith("otpauth://totp/")
-    return Staff(user_id=user_id, login=login, secret=created.totp_secret)
+    return Staff(user_id=user_id, login=login, secret=created.totp_secret, telegram_id=telegram_id)
 
 
 async def login(client: httpx.AsyncClient, who: Staff, *, code: str | None = None) -> int:

@@ -303,6 +303,63 @@ async def test_authz_content_rules_are_checked_like_the_seed_and_tried_first(
     assert await audit_count(admin, "moderation.content_rule.updated", owner.user_id) == 1
 
 
+async def test_admin_api_content_rule_saved_unchanged_stays_with_the_seed(admin: Admin) -> None:
+    """«Сохранить» без правок строку сида админке не передаёт (её и дальше ведёт `cli seed`), а
+    настоящая правка — передаёт; ключ сида при этом остаётся, исходное правило не вернётся."""
+    owner = await staff(admin, "admin")
+    word = f"seedword{new_id().hex[:6]}"
+    rule_id = (
+        await _one(
+            admin,
+            "INSERT INTO moderation.content_rules (pattern, kind, action, category, origin,"
+            " seed_key) VALUES (:word, 'word', 'flag', 'spam', 'seed', :key) RETURNING id",
+            word=word,
+            key=f"word:{word}",
+        )
+    )[0]
+    try:
+        async with _signed_in(admin, owner) as client:
+            path = f"{API}/content-rules/{rule_id}"
+            same = await client.patch(path, json={"pattern": word.upper()}, headers=WRITE)
+            assert same.status_code == 200, same.text
+            assert same.json()["origin"] == "seed"  # слово и так в нижнем регистре
+            assert (await client.patch(path, json={}, headers=WRITE)).json()["origin"] == "seed"
+            edited = await client.patch(path, json={"pattern": f"{word}x"}, headers=WRITE)
+            assert edited.json()["origin"] == "admin"
+        row = await _one(
+            admin, "SELECT seed_key FROM moderation.content_rules WHERE id = :id", id=rule_id
+        )
+        assert row.seed_key == f"word:{word}"
+    finally:
+        await _execute(admin, "DELETE FROM moderation.content_rules WHERE id = :id", id=rule_id)
+
+
+async def test_admin_api_numbers_outside_the_column_type_are_422(admin: Admin) -> None:
+    """Число за границей smallint или integer — 422 до запроса, а не DataError базы (500)."""
+    owner = await staff(admin, "admin")
+    async with _signed_in(admin, owner) as client:
+        for path, body in [
+            ("/categories/1", {"max_responses": 2**15}),
+            ("/categories/1", {"risk_level": 2**15}),
+            ("/categories/1", {"sort_order": 2**31}),
+            ("/cities/1", {"sort_order": -(2**31) - 1}),
+            (f"/categories/{2**31}", {}),
+            (f"/tags/{2**31}", {}),
+            (f"/districts/{2**31}", {}),
+            (f"/content-rules/{2**31}", {"is_active": False}),
+        ]:
+            refused = await client.patch(f"{API}{path}", json=body, headers=WRITE)
+            _problem(refused, 422, "validation_error")
+        listed = await client.get(f"{API}/tags", params={"category_id": 2**31})
+        _problem(listed, 422, "validation_error")
+        broadcast = await client.post(
+            f"{API}/broadcasts",
+            json={"text": {"ru": "Привет", "sr-Cyrl": "Здраво"}, "city_id": 2**31},
+            headers=WRITE,
+        )
+        _problem(broadcast, 422, "validation_error")
+
+
 @pytest.mark.authz
 async def test_authz_broadcasts_go_through_the_notifications_use_cases(admin: Admin) -> None:
     owner = await staff(admin, "admin")

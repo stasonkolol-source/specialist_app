@@ -3,7 +3,8 @@
 
 Вход — cookie со страницы /admin/login, роли перечитываются на каждый запрос; роль не та — 403,
 без входа — 401 (problem+json). Меняющий запрос без `X-Requested-With: sosed-admin` или с чужого
-origin — 403 `csrf_rejected`. ПД в карточке — только support и admin, и каждый просмотр — запись
+origin — 403 `csrf_rejected`, как и GET с побочным действием (просмотр ПД, доказательства спора)
+со страницы другого поддомена. ПД в карточке — только support и admin, и каждый просмотр — запись
 `identity.user.pii_viewed`. Решения и санкции — те же use cases, что у SQLAdmin: аудит от имени
 сотрудника и события (задачи подписчиков в procrastinate_jobs).
 
@@ -145,6 +146,31 @@ async def test_authz_admin_api_rejects_cross_site_writes(admin: Admin) -> None:
         assert taken.json()["status"] == "in_review"
         assert taken.json()["assigned_to"] == str(moderator.user_id)
     assert await audit_count(admin, "moderation.case.taken", moderator.user_id) == 1
+
+
+@pytest.mark.authz
+async def test_authz_reads_with_side_effects_refuse_other_pages(admin: Admin) -> None:
+    """Просмотр ПД (аудит и лимит) и доказательств спора (аудит, блокировка кейса) — GET, но со
+    страницы другого поддомена его не вызвать: Fetch Metadata и Origin — как у записи."""
+    support = await staff(admin, "support")
+    moderator = await staff(admin, "moderator")
+    user = await _user(admin)
+    case_id = await _case(admin, user)
+    sibling = {"Sec-Fetch-Site": "same-site"}  # Mini App или cdn на поддомене того же сайта
+    async with _signed_in(admin, support) as client:
+        card = f"{API}/users/{user}"
+        for headers in (sibling, {"Sec-Fetch-Site": "cross-site"}, {"Origin": "https://evil.ex"}):
+            _problem(await client.get(card, headers=headers), 403, "csrf_rejected")
+        typed = await client.get(card, headers={"Sec-Fetch-Site": "none"})  # адресная строка
+        assert typed.status_code == 200
+        own = await client.get(card, headers={"Sec-Fetch-Site": "same-origin"})
+        assert own.status_code == 200
+    assert await audit_count(admin, "identity.user.pii_viewed", support.user_id) == 2
+    async with _signed_in(admin, moderator) as client:
+        dispute = await client.get(f"{API}/cases/{case_id}/dispute", headers=sibling)
+        _problem(dispute, 403, "csrf_rejected")
+        # чтение без побочных действий проверке не подлежит
+        assert (await client.get(f"{API}/cases/{case_id}", headers=sibling)).status_code == 200
 
 
 @pytest.mark.authz

@@ -1,8 +1,10 @@
 """Вход персонала и разделы админки (DEVELOPMENT_PLAN 2.7a–b): SQLAdmin на /admin.
 
 2.7a: без кода TOTP не войти, код второй раз не принимается; moderator не видит разделов admin;
-неудачные входы ограничены лимитом. 8.4: секрет TOTP в БД зашифрован, строки до 8.4 и секреты под
-прежним ключом перешифровываются входом и `cli staff-totp-reencrypt`. 2.7b: правка категории (и
+неудачные входы ограничены лимитом; новые пароль и TOTP и `cli staff-revoke` закрывают открытые
+сессии; форма, действие раздела и «Решить кейс» со страницы другого поддомена — 403 (CSRF).
+8.4: секрет TOTP в БД зашифрован, строки до 8.4 и секреты под прежним ключом перешифровываются
+входом и `cli staff-totp-reencrypt`. 2.7b: правка категории (и
 её названия формой LocalizedText) пишет аудит и выпускает CatalogChanged (advisory lock — тот же,
 что у импорта); новое стоп-слово
 и регулярка действуют без перезапуска, регулярку проверяет то же, что сид в seeds-validate (RE2),
@@ -13,6 +15,7 @@ case, с аудитом. Флаги, client-config, Founding и сиды пов�
 """
 
 import secrets
+from dataclasses import replace
 from uuid import UUID
 
 import pyotp
@@ -21,9 +24,17 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.entrypoints._wiring import make_web_container
+from app.modules.identity.application.use_cases.create_staff_login import (
+    CreateStaffLogin,
+    CreateStaffLoginCommand,
+)
 from app.modules.identity.application.use_cases.reencrypt_staff_totp_secrets import (
     ReencryptStaffTotpSecrets,
     ReencryptStaffTotpSecretsCommand,
+)
+from app.modules.identity.application.use_cases.revoke_staff_sessions import (
+    RevokeStaffSessions,
+    RevokeStaffSessionsCommand,
 )
 from app.modules.identity.di import DEV_TOTP_KEY
 from app.modules.moderation.application.ports import RuleSource
@@ -33,7 +44,7 @@ from app.modules.moderation.domain.queues import Queue
 from app.platform.kernel.ids import new_id
 from app.platform.security.secretbox import key_id
 from app.platform.settings import Settings
-from tests.plugins.admin import Admin, audit_count, login, staff, stored_totp_secret
+from tests.plugins.admin import PASSWORD, Admin, audit_count, login, staff, stored_totp_secret
 from tests.plugins.admin import client_ip as _ip
 from tests.plugins.identity import insert_user, new_telegram_id
 
@@ -364,3 +375,116 @@ async def test_admin_case_is_decided_through_use_case(admin: Admin) -> None:
         )
     assert status == "rejected"
     assert UUID(str(decided_by)) == moderator.user_id
+
+
+async def test_admin_rejects_writes_and_actions_from_other_pages(admin: Admin) -> None:
+    """Cookie SameSite=Strict несёт и страница другого поддомена: форма, действие раздела (GET) и
+    «Решить кейс» оттуда — 403. Своя страница, адресная строка и клиент без Fetch Metadata — как
+    раньше; обычные GET-страницы не проверяются."""
+    moderator = await staff(admin, "moderator")
+    async with admin.container() as request:
+        session = await request.get(AsyncSession)
+        user = await insert_user(session, telegram_id=new_telegram_id())
+        await session.commit()
+    engine = await admin.engine()
+    form = {"user_id": str(user), "kind": "posting_blocked", "reason_code": "spam"}
+    sibling = {"Sec-Fetch-Site": "same-site"}  # Mini App или cdn на поддомене того же сайта
+    foreign = {"Sec-Fetch-Site": "cross-site"}
+    evil = {"Origin": "https://evil.example"}
+    own = {"Sec-Fetch-Site": "same-origin", "Origin": "http://test"}
+
+    async def restrictions() -> list[tuple[UUID, object]]:
+        async with engine.connect() as conn:
+            rows = await conn.execute(
+                text("SELECT id, lifted_at FROM identity.restrictions WHERE user_id = :id"),
+                {"id": user},
+            )
+        return [(row.id, row.lifted_at) for row in rows]
+
+    async with admin.client(_ip()) as client:
+        assert await login(client, moderator) == 302
+        for headers in (sibling, foreign, evil):
+            refused = await client.post("/admin/impose-restriction", data=form, headers=headers)
+            assert refused.status_code == 403, headers
+        assert await restrictions() == []
+        assert (await client.get("/admin/", headers=foreign)).status_code == 200  # не запись
+        assert (await client.get("/admin/impose-restriction", headers=sibling)).status_code == 200
+        imposed = await client.post("/admin/impose-restriction", data=form, headers=own)
+        assert imposed.status_code == 200
+        [(restriction, _)] = await restrictions()
+        lift = "/admin/restriction-row/action/lift"
+        pks = {"pks": str(restriction)}
+        for headers in (sibling, foreign, evil):
+            assert (await client.get(lift, params=pks, headers=headers)).status_code == 403
+        dossier = await client.get(
+            "/admin/decide-case", params={"case_id": str(new_id())}, headers=sibling
+        )
+        assert dossier.status_code == 403  # просмотр спора пишет аудит и блокирует кейс
+        assert await restrictions() == [(restriction, None)]
+        typed = {"Sec-Fetch-Site": "none"}  # адресная строка или закладка сотрудника
+        assert (await client.get(lift, params=pks, headers=typed)).status_code == 302
+    [(_, lifted_at)] = await restrictions()
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "DELETE FROM procrastinate_jobs WHERE status = 'todo'"
+                " AND args->'payload'->>'user_id' = :id"
+            ),
+            {"id": str(user)},
+        )
+    assert lifted_at is not None
+    assert await audit_count(admin, "identity.restriction.imposed", moderator.user_id) == 1
+    assert await audit_count(admin, "identity.restriction.lifted", moderator.user_id) == 1
+
+
+async def test_admin_new_credentials_and_staff_revoke_close_open_sessions(admin: Admin) -> None:
+    """Cookie подписана, но не хранится: `staff-create` заново (пароль и TOTP) и `staff-revoke`
+    дают новое поколение входа — выданные раньше cookie не открывают ни /admin, ни Admin API."""
+    who = await staff(admin, "admin")
+    audit_log = "/admin/api/v1/audit-log"
+    async with admin.client(_ip()) as old:
+        assert await login(old, who) == 302
+        assert (await old.get("/admin/")).status_code == 200
+        assert (await old.get(audit_log)).status_code == 200
+        async with admin.container() as request:
+            renewed = await (await request.get(CreateStaffLogin))(
+                CreateStaffLoginCommand(
+                    telegram_id=who.telegram_id, login=who.login, password=PASSWORD
+                )
+            )
+        assert renewed is not None
+        assert renewed.replaced
+        assert (await old.get("/admin/")).status_code == 302  # на страницу входа
+        assert (await old.get(audit_log)).status_code == 401
+    async with admin.client(_ip()) as client:
+        assert await login(client, replace(who, secret=renewed.totp_secret)) == 302
+        assert (await client.get(audit_log)).status_code == 200
+        async with admin.container() as request:
+            revoked = await (await request.get(RevokeStaffSessions))(
+                RevokeStaffSessionsCommand(telegram_id=who.telegram_id)
+            )
+        assert revoked is not None
+        assert not revoked.login_removed
+        assert (await client.get(audit_log)).status_code == 401
+        assert (await client.get("/admin/")).status_code == 302
+    async with admin.container() as request:
+        removed = await (await request.get(RevokeStaffSessions))(
+            RevokeStaffSessionsCommand(telegram_id=who.telegram_id, remove_login=True)
+        )
+        missing = await (await request.get(RevokeStaffSessions))(
+            RevokeStaffSessionsCommand(telegram_id=who.telegram_id)
+        )
+    assert removed is not None
+    assert removed.login_removed
+    assert missing is None  # входа больше нет
+    async with admin.client(_ip()) as client:
+        assert await login(client, replace(who, secret=renewed.totp_secret)) == 400
+    async with (await admin.engine()).connect() as conn:
+        revocations = await conn.scalar(
+            text(
+                "SELECT count(*) FROM platform.audit_log WHERE action ="
+                " 'identity.staff.sessions_revoked' AND entity_id = :id"
+            ),
+            {"id": who.user_id},
+        )
+    assert revocations == 2

@@ -4,7 +4,9 @@
 Без роли, с удалённым аккаунтом или без верного кода — отказ без причины. Успешный вход пишется
 в audit_log; лимит неудачных попыток — у входного адаптера (interfaces/admin/auth.py).
 Секрет TOTP в БД зашифрован (8.4): не расшифровать — входа нет; секрет под прежним ключом или
-открытый (строка до 8.4) удачный вход перешифровывает текущим ключом.
+открытый (строка до 8.4) удачный вход перешифровывает текущим ключом. Сессия держит поколение
+входа (`session_epoch`): `cli staff-create` (новые пароль и TOTP) и `cli staff-revoke` его
+увеличивают, и cookie, выданные раньше, больше не действуют (cookie подписана, но не хранится).
 """
 
 import structlog
@@ -82,12 +84,19 @@ class StaffAuthService:
         log.info("staff_login", user_id=str(member.user_id))
         return member
 
-    async def member(self, user_id: UserId) -> StaffMember | None:
+    async def member(self, user_id: UserId, session_epoch: int) -> StaffMember | None:
         found = await self._credentials.by_user(user_id)
-        return None if found is None else await self._member(found)
+        if found is None or found.session_epoch != session_epoch:
+            return None  # пароль и TOTP заменены или сессии отозваны — войти заново
+        return await self._member(found)
 
     async def _member(self, found: StaffCredential) -> StaffMember | None:
         roles = await self._query.roles(found.user_id)
         if not roles:
             return None
-        return StaffMember(user_id=found.user_id, login=found.login, roles=roles)
+        return StaffMember(
+            user_id=found.user_id,
+            login=found.login,
+            roles=roles,
+            session_epoch=found.session_epoch,
+        )

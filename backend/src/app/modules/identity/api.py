@@ -202,6 +202,8 @@ class StaffMember:
     user_id: UserId
     login: str
     roles: frozenset[Role]
+    session_epoch: int
+    """Поколение сессий: вход кладёт его в cookie, `member` сверяет (StaffCredential)."""
 
 
 class StaffAuth(Protocol):
@@ -215,7 +217,8 @@ class StaffAuth(Protocol):
         причины: подбор не узнаёт, что именно не подошло). Вход пишется в audit_log."""
         ...
 
-    async def member(self, user_id: UserId) -> StaffMember | None:
-        """Сотрудник по id из сессии админки: роли перечитываются на каждый запрос, снятая роль
-        или удалённый вход закрывают админку сразу."""
+    async def member(self, user_id: UserId, session_epoch: int) -> StaffMember | None:
+        """Сотрудник по id и поколению из сессии админки: роли перечитываются на каждый запрос,
+        снятая роль, удалённый вход или новое поколение (`staff-create`, `staff-revoke`)
+        закрывают админку сразу."""
         ...
