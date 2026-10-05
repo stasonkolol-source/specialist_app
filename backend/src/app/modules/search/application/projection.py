@@ -159,6 +159,7 @@ class SpecialistProjection:
                 category_price_units(prices.by_category, prices.unit_by_category, paths),
                 avatar,
                 district,
+                rating,
             ),
             source_updated_at=profile.updated_at,
         )
@@ -213,6 +214,7 @@ def _card(
     units: Mapping[CategoryId, str | None],
     avatar: dict[str, Any] | None,
     district: DistrictSummary | None,
+    rating: RatingSummary | None = None,
 ) -> dict[str, Any]:
     """Готовая карточка выдачи S05 без JOIN: время и расстояние выдача берёт из колонок. Единица
     цены «от» — только для показа («от 1 000 RSD/час»), поэтому в карточке, а не колонкой: по всему
@@ -236,7 +238,9 @@ def _card(
         "price_from_unit": prices.price_from_unit,
         "category_price_units": {str(category): unit for category, unit in units.items()},
         "negotiable": prices.price_from is None and bool(prices.titles),
-        "rating": None,
+        # показ — простое среднее звёзд, как на S08 и S11 (UXM-17); байесовское — в колонке для
+        # фильтра и сортировки
+        "rating": rating.mean if rating is not None else None,
         "rating_count": 0,
         "response_time_median": None,
     }

@@ -294,7 +294,7 @@ msgid "errors.validation_failed"
 msgstr "Проверите унете податке."
 
 msgid "errors.rate_limited"
-msgstr "Превише захтева. Покушајте поново за {retry_after} с."
+msgstr "Превише захтева. Покушајте поново {wait}."
 
 msgid "errors.external_service_unavailable"
 msgstr "Сервис је привремено недоступан. Покушајте поново касније."
@@ -566,6 +566,9 @@ msgstr "Проверите понуду: поруку, цену и време."
 msgid "errors.response_not_found"
 msgstr "Понуда није пронађена."
 
+msgid "errors.offer_changed"
+msgstr "Извођач је управо изменио понуду — погледајте нове услове и изаберите поново."
+
 msgid "errors.response_not_active"
 msgstr "Наручилац је већ одлучио о овој понуди — не може се изменити ни повући."
 
@@ -721,6 +724,12 @@ msgstr "Договор није пронађен."
 
 msgid "errors.deal_not_active"
 msgstr "Са договором у овом статусу то није могуће."
+
+msgid "errors.deal_marked_done"
+msgstr "Посао је већ означен као завршен — договор се не може отказати. Ако нешто није у реду, притисните „Постоји проблем“."
+
+msgid "errors.daily_disputes_limit"
+msgstr "Данас сте отворили превише спорова. Покушајте поново {wait}."
 
 msgid "errors.invalid_deal"
 msgstr "Проверите договор: нешто није добро попуњено."
@@ -920,6 +929,12 @@ msgstr "Наручилац је изабрао другог извођача"
 
 msgid "notifications.response_not_selected.body"
 msgstr "Захтев „{title}“. Хвала на понуди — у листи има других захтева у близини."
+
+msgid "notifications.response_job_closed.title"
+msgstr "Захтев је затворен"
+
+msgid "notifications.response_job_closed.body"
+msgstr "Захтев „{title}“ је затворен — наручилац више не бира извођача. Хвала на понуди — у листи има других захтева у близини."
 
 msgid "notifications.message_received.title"
 msgstr "{name} пише"

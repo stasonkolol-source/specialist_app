@@ -32,6 +32,7 @@ import type {
   JobInvitesOut,
   JobOut,
   JobResponsesOut,
+  JobsAcceptResponseHeaders,
   JobsCountJobsParams,
   JobsCountOut,
   JobsCreateJobAlertHeaders,
@@ -2507,7 +2508,8 @@ export const getJobsGetResponseUrl = (responseId: string) => {
 };
 
 /**
- * Свой отклик с заявкой — форма правки S16; чужой — 404.
+ * Отклик с заявкой: исполнителю — свой (форма правки S16), владельцу заявки — видимый ему в
+ * S23; остальным — 404. ETag — редакция предложения: If-Match при выборе исполнителем.
  * @summary Get Response
  */
 export const jobsGetResponse = async (
@@ -2826,16 +2828,40 @@ export const getJobsAcceptResponseUrl = (responseId: string) => {
 
 /**
  * Выбрать исполнителем: создана сделка `agreed`, заявка «в работе», остальные отклики — «не
- * выбран». Заявка не опубликована или отклик уже решён — 409.
+ * выбран». Заявка не опубликована или отклик уже решён — 409. `If-Match: "<revision>"` —
+ * редакция предложения, которую клиент видел (ETag отклика, `revision` в response-cards):
+ * исполнитель успел поправить — 409 `offer_changed` с нынешними `revision`, `price_type` и
+ * `price_amount`. Без заголовка — без сверки.
  * @summary Accept Response
  */
 export const jobsAcceptResponse = async (
   responseId: string,
+  headers?: JobsAcceptResponseHeaders,
   options?: Parameters<typeof apiFetch>[1],
 ): Promise<AcceptedOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
   return apiFetch<AcceptedOut>(getJobsAcceptResponseUrl(responseId), {
     ...options,
     method: 'POST',
+    headers: { ...headers, ...getHeaders(options?.headers) },
   });
 };
 
@@ -2869,9 +2895,9 @@ export const getJobsAcceptResponseMutationOptions = <
     Awaited<ReturnType<typeof jobsAcceptResponse>>,
     JobsAcceptResponseMutationVariables
   > = (props) => {
-    const { responseId } = props ?? {};
+    const { responseId, headers } = props ?? {};
 
-    return jobsAcceptResponse(responseId, requestOptions);
+    return jobsAcceptResponse(responseId, headers, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -2882,7 +2908,10 @@ export type JobsAcceptResponseMutationResult = NonNullable<
 >;
 
 export type JobsAcceptResponseMutationError = ErrorType<ProblemOut>;
-export type JobsAcceptResponseMutationVariables = { responseId: string };
+export type JobsAcceptResponseMutationVariables = {
+  responseId: string;
+  headers?: JobsAcceptResponseHeaders;
+};
 
 /**
  * @summary Accept Response

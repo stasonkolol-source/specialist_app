@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.modules.reviews.api import NO_REVIEWS_LOWER_BOUND as API_NO_REVIEWS_LOWER_BOUND
+from app.modules.reviews.api import RatingSummary
 from app.modules.reviews.domain.rating import (
     NO_REVIEWS_LOWER_BOUND,
     PRIOR_MEAN,
@@ -99,3 +100,23 @@ def test_criteria_average_only_where_rated() -> None:
 
 def test_no_reviews_no_rating() -> None:
     assert rate([], categories={}, now=NOW) is None
+
+
+@pytest.mark.parametrize(
+    ("distribution", "shown"),
+    [
+        ((0, 0, 0, 0, 4), 5.0),
+        ((0, 0, 2, 2, 1), 3.8),
+        ((0, 0, 0, 1, 1), 4.5),
+        ((0, 0, 1, 1, 35), 4.9),
+        ((0, 0, 0, 3, 1), 4.3),  # 4,25 — половина вверх
+        ((0, 0, 0, 0, 0), 0.0),
+    ],
+)
+def test_shown_rating_is_the_plain_mean_of_the_stars(
+    distribution: tuple[int, ...], shown: float
+) -> None:
+    """UXM-17: показывают простое среднее звёзд гистограммы, байесовское — фильтру и сортировке."""
+    summary = RatingSummary(count=sum(distribution), average=4.7, distribution=distribution)
+
+    assert summary.mean == shown

@@ -132,17 +132,88 @@ def test_revised_response_is_checked_again() -> None:
     assert response.visible_to_client
 
 
-def test_blocked_response_is_hidden_and_frees_the_place() -> None:
+def test_blocked_response_is_hidden_and_keeps_its_place() -> None:
+    """MU-10: отказ модерации скрывает отклик до исправления — место за ним, статус прежний."""
     job = published()
     response = respond(job)
 
     assert job.block_response(response.id, now=LATER)
 
-    assert (response.review, response.status) == (ResponseReview.BLOCKED, ResponseStatus.WITHDRAWN)
-    assert job.responses_count == 0
+    assert (response.review, response.status) == (ResponseReview.BLOCKED, ResponseStatus.SUBMITTED)
+    assert not response.visible_to_client
+    assert job.responses_count == 1
     assert not job.block_response(response.id, now=LATER)
     assert not job.clear_response(response.id, revision=None, now=LATER)
     assert not job.clear_response(ResponseId(new_id()), revision=None, now=LATER)
+
+
+def test_rejected_response_is_fixed_and_sent_again_on_its_place() -> None:
+    """MU-10: «Исправьте и отправьте снова» — правка скрытого отклика идёт на проверку заново,
+    второй раз он не считается; новый отклик на ту же заявку по-прежнему нельзя."""
+    job = published()
+    someone = performer()
+    response = respond(job, someone)
+    job.block_response(response.id, now=LATER)
+    job.pull_events()
+
+    job.revise_response(
+        response.id, performer_id=someone, offer=offer("Могу завтра, контакты — в чате."), now=LATER
+    )
+
+    assert (response.review, response.revision, response.status) == (
+        ResponseReview.PENDING,
+        2,
+        ResponseStatus.SUBMITTED,
+    )
+    assert job.responses_count == 1
+    assert [type(e) for e in job.pull_events()] == [ResponseUpdated]
+    assert job.clear_response(response.id, revision=2, now=LATER)
+    assert response.visible_to_client
+    with pytest.raises(AlreadyRespondedError):
+        respond(job, someone)
+
+
+def test_rejected_revision_of_a_seen_response_can_be_fixed_too() -> None:
+    """Вариант MU-10: клиент уже видел чистый отклик, правку с контактами отклонили — отклик
+    скрыт, но не пропал: исполнитель правит снова."""
+    job = published()
+    someone = performer()
+    response = respond(job, someone)
+    job.clear_response(response.id, revision=1, now=LATER)
+    job.revise_response(response.id, performer_id=someone, offer=offer("+381 64 123"), now=LATER)
+    job.block_response(response.id, now=LATER)
+
+    job.revise_response(response.id, performer_id=someone, offer=offer(), now=LATER)
+
+    assert (response.review, response.revision, job.responses_count) == (
+        ResponseReview.PENDING,
+        3,
+        1,
+    )
+
+
+@pytest.mark.parametrize(
+    ("withdrawn", "status"),
+    [(False, ResponseStatus.NOT_SELECTED), (True, ResponseStatus.WITHDRAWN)],
+)
+def test_blocking_frees_the_place_of_an_active_response(
+    withdrawn: bool, status: ResponseStatus
+) -> None:
+    """MU-3: клиент отклик заблокированного не видит и решить по нему не может — место
+    освобождается; заблокированному — «не выбран», заблокировавшему исполнителю — «отозван»."""
+    job = published()
+    someone = performer()
+    response = respond(job, someone)
+    respond(job)
+    job.pull_events()
+
+    assert job.release_blocked_response(someone, withdrawn=withdrawn, now=LATER)
+
+    assert (response.status, response.decided_at, job.responses_count) == (status, LATER, 1)
+    assert job.pull_events() == []  # без события — и без уведомления
+    assert not job.release_blocked_response(someone, withdrawn=withdrawn, now=LATER)
+    assert not job.release_blocked_response(performer(), withdrawn=withdrawn, now=LATER)
+    assert job.responses_count == 1
 
 
 def test_closed_job_does_not_select_active_responses() -> None:

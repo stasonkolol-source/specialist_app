@@ -2154,7 +2154,8 @@ export const JobsListMyJobsResponse = zod.object({
 });
 
 /**
- * Свой отклик с заявкой — форма правки S16; чужой — 404.
+ * Отклик с заявкой: исполнителю — свой (форма правки S16), владельцу заявки — видимый ему в
+ * S23; остальным — 404. ETag — редакция предложения: If-Match при выборе исполнителем.
  * @summary Get Response
  */
 export const JobsGetResponseParams = zod.object({
@@ -2437,11 +2438,18 @@ export const JobsWithdrawResponseResponse = zod
 
 /**
  * Выбрать исполнителем: создана сделка `agreed`, заявка «в работе», остальные отклики — «не
- * выбран». Заявка не опубликована или отклик уже решён — 409.
+ * выбран». Заявка не опубликована или отклик уже решён — 409. `If-Match: "<revision>"` —
+ * редакция предложения, которую клиент видел (ETag отклика, `revision` в response-cards):
+ * исполнитель успел поправить — 409 `offer_changed` с нынешними `revision`, `price_type` и
+ * `price_amount`. Без заголовка — без сверки.
  * @summary Accept Response
  */
 export const JobsAcceptResponseParams = zod.object({
   response_id: zod.uuid().describe('id отклика'),
+});
+
+export const JobsAcceptResponseHeader = zod.object({
+  'If-Match': zod.string().optional(),
 });
 
 export const JobsAcceptResponseResponse = zod

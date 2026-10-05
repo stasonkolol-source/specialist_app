@@ -7,8 +7,9 @@
   второй (`confirm`);
 - `agreed` → `completed` — обе стороны отметили «Работа выполнена» или одна, и 72 ч без возражений
   (`auto_complete`, задача `deals.auto_complete`, 6.1b);
-- `proposed` или `agreed` → `cancelled` — сторона отменяет с причиной, система — предложение без
-  ответа 72 ч (`expire_proposal`, 6.1b) и удалённый аккаунт;
+- `proposed` или `agreed` → `cancelled` — сторона отменяет с причиной (пока никто не отметил
+  «Работа выполнена»), система — предложение без ответа 72 ч (`expire_proposal`, 6.1b) и
+  удалённый аккаунт;
 - `agreed` → `disputed` → `completed` / `cancelled` — спор и решение модератора (6.1c,
   domain/dispute.py); `disputed` → `agreed` — открывший отозвал спор. Под спором сделку не
   завершить и не отменить, сроки 6.1b её не трогают.
@@ -26,7 +27,12 @@ from enum import StrEnum
 from typing import Final
 from uuid import UUID
 
-from app.modules.deals.errors import DealNotActiveError, DealNotFoundError, InvalidDealError
+from app.modules.deals.errors import (
+    DealMarkedDoneError,
+    DealNotActiveError,
+    DealNotFoundError,
+    InvalidDealError,
+)
 from app.platform.contracts.events.deals import (
     DealAgreed,
     DealCancelled,
@@ -409,12 +415,16 @@ class Deal(VersionedAggregate):
 
     def cancel(self, *, actor_id: UserId, reason: DealCancelReason, now: datetime) -> None:
         """Сторона отменяет с причиной: идущую сделку или предложение «Договорились» (своё —
-        отзывает, чужое — отклоняет)."""
+        отзывает, чужое — отклоняет). После отметки «Работа выполнена» любой из сторон — нельзя:
+        иначе отмена стёрла бы отметку, а с ней отзыв и спор (MU-8). Вторая сторона
+        подтверждает выполнение или открывает спор; молчит — через 72 ч сделка завершится."""
         role = self._party(actor_id)
         if reason not in PARTY_CANCEL_REASONS:
             raise InvalidDealError(field="reason", reason="not_allowed")
         if self.status not in CANCELLABLE:
             raise DealNotActiveError(deal_id=self.id, deal_status=self.status.value)
+        if self.client_confirmed_at is not None or self.performer_confirmed_at is not None:
+            raise DealMarkedDoneError(deal_id=self.id)
         self._cancel(by=actor_id, by_role=role.value, kind=ActorKind.USER, reason=reason, now=now)
 
     def decline(self, *, actor_id: UserId, now: datetime) -> None:

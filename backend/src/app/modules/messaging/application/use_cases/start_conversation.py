@@ -3,14 +3,15 @@
 клиент специалисту из его карточки. Диалог уже есть — тот же (повтор и гонка двух «Написать» под
 замком пары не создадут второй). Новый диалог тратит часовой лимит (§13.3: пять); санкция
 «переписка» или блокировка аккаунта — 403 `restricted`. Блокировка между сторонами в любую
-сторону (4.7) — 409 `cannot_start_conversation` (`blocked`): уже начатый диалог открывается —
-читать его можно, писать нет."""
+сторону (4.7) — 409 `cannot_start_conversation`: заблокировавшему — `blocked`, заблокированному —
+как недоступный отклик или профиль (о блокировке не сообщаем, MU-6). Уже начатый диалог
+открывается — читать его можно, писать нет."""
 
 from dataclasses import dataclass
 from uuid import UUID
 
 from app.modules.deals.api import DealsApi
-from app.modules.identity.api import Action, IdentityApi
+from app.modules.identity.api import Action, BlockSide, IdentityApi
 from app.modules.jobs.api import ChatResponse, JobsApi
 from app.modules.messaging.application.contacts import contacts_locked
 from app.modules.messaging.application.ports import (
@@ -81,7 +82,7 @@ class StartConversation:
         if found is not None:
             return StartedConversation(conversation_id=found, created=False)
         other = response.performer_id if actor_id == response.client_id else response.client_id
-        await self._ensure_unblocked(actor_id, other)
+        await self._ensure_unblocked(actor_id, other, hidden="response_unavailable")
         async with self._uow:
             await self._conversations.lock_pair(response.client_id, response.performer_id)
             found = await self._conversations.of_response(response_id)
@@ -98,6 +99,10 @@ class StartConversation:
                 response_id=response_id,
                 now=now,
             )
+            # отклик уже выбран (диалог начали после сделки — «Поделиться контактом» на S26):
+            # сделка — сразу в диалоге, иначе шапка S30 и S29 писали «Сделки пока нет» (UXM-14)
+            if (deal := await self._deals.deal_for_response(response_id)) is not None:
+                conversation.link_deal(deal.id)
             await self._conversations.add(conversation)
             offer = await self._offer(conversation, response)
             conversation.message_posted(
@@ -106,9 +111,14 @@ class StartConversation:
             await self._conversations.save(conversation)
         return StartedConversation(conversation_id=conversation.id, created=True)
 
-    async def _ensure_unblocked(self, actor_id: UserId, other_id: UserId) -> None:
-        if await self._identity.blocks_with(actor_id, [other_id]):
-            raise CannotStartConversationError(reason="blocked")
+    async def _ensure_unblocked(self, actor_id: UserId, other_id: UserId, *, hidden: str) -> None:
+        """Заблокировал сам — `blocked`; заблокировали его — `hidden`, та же причина, что у
+        недоступного отклика или профиля: интерфейс тоже пишет «Собеседник недоступен»."""
+        side = (await self._identity.blocks_with(actor_id, [other_id])).get(other_id)
+        if side is not None:
+            raise CannotStartConversationError(
+                reason="blocked" if side is BlockSide.BY_ME else hidden
+            )
 
     async def _offer(self, conversation: Conversation, response: ChatResponse) -> Message:
         """Первое сообщение — сам отклик: текст (контакты скрыты, пока нет сделки) и цена."""
@@ -142,7 +152,7 @@ class StartConversation:
         found = await self._conversations.direct_of(actor_id, performer_id)
         if found is not None:
             return StartedConversation(conversation_id=found, created=False)
-        await self._ensure_unblocked(actor_id, performer_id)
+        await self._ensure_unblocked(actor_id, performer_id, hidden="profile_unavailable")
         async with self._uow:
             await self._conversations.lock_pair(actor_id, performer_id)
             found = await self._conversations.direct_of(actor_id, performer_id)

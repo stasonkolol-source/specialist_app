@@ -13,6 +13,7 @@ from app.modules.identity.api import BlockSide
 from app.modules.identity.application.ports import Blocks, IdentityQuery
 from app.modules.identity.domain.blocks import MAX_BLOCKS
 from app.modules.identity.errors import BlocksFullError, CannotBlockSelfError, UserNotFoundError
+from app.platform.contracts.events.identity import UserBlocked
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.ids import UserId
@@ -40,4 +41,9 @@ class BlockUser:
                 if sides.get(cmd.user_id) is BlockSide.BY_ME:
                     return
                 raise BlocksFullError(limit=MAX_BLOCKS)
-            await self._blocks.add(cmd.actor_id, cmd.user_id, now=self._clock.now())
+            now = self._clock.now()
+            if await self._blocks.add(cmd.actor_id, cmd.user_id, now=now):
+                # отклики между ними на открытые заявки освобождают места (jobs, MU-3)
+                self._uow.add_event(
+                    UserBlocked(blocker_id=cmd.actor_id, blocked_id=cmd.user_id, occurred_at=now)
+                )

@@ -51,6 +51,15 @@ class JobBrief:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class ClosedNotice:
+    """Клиент закрыл или удалил заявку — исполнителям, чьи отклики ждали решения, «Заявку
+    закрыли» (`response.not_selected` с `reason: job_closed`, MU-11)."""
+
+    title: str
+    performer_ids: tuple[UserId, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ResponseForReview:
     """Отклик для конвейера модерации (адаптер цели `response`, §14.1)."""
 
@@ -167,6 +176,8 @@ class OwnerResponseView:
     is_new: bool
     """Клиент его ещё не видел: прошёл проверку или поправлен после прошлого просмотра."""
     created_at: datetime
+    revision: int = 1
+    """Редакция предложения: S25 передаёт её в If-Match при выборе (ADV-08)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -287,6 +298,11 @@ class JobsApi(Protocol):
 
     async def passed_over(self, job_id: UUID) -> list[UserId]:
         """Исполнители, чьи отклики «не выбран»: клиент выбрал другого (6.1b)."""
+        ...
+
+    async def closed_notice(self, job_id: UUID) -> ClosedNotice | None:
+        """Закрытая (и удалённая) заявка: название и исполнители откликов, которые закрылись
+        вместе с ней; заявка не закрыта — None."""
         ...
 
     async def invite_notice(self, job_id: UUID, performer_id: UserId) -> InviteNotice | None:

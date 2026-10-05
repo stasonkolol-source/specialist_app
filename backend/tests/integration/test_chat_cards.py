@@ -103,6 +103,22 @@ async def test_cards_name_the_counterpart_job_and_deal_by_role(chat: Chat) -> No
     assert gone["counterpart_name"] is None
 
 
+async def test_chat_started_after_the_choice_shows_the_deal(chat: Chat) -> None:
+    """UXM-14: отклик уже выбран, диалог начали потом («Поделиться контактом» на S26) — в шапке
+    S30 и в S29 сделка этого отклика, а не «Сделки пока нет»; у обеих сторон."""
+    client, performer, response_id = await chat.pair()
+    accepted = await chat.post(client, f"/responses/{response_id}/accept")
+    assert accepted.status_code == 200, accepted.text
+    deal_id = accepted.json()["deal_id"]
+
+    conversation = await chat.start(client, response_id=response_id)
+
+    deal = {"id": deal_id, "status": "agreed", "title": "Повесить люстру"}
+    header = (await chat.messages(client, conversation))["conversation"]
+    assert (header["deal"], header["contacts_open"]) == (deal, True)
+    assert (await listed(chat, performer))[conversation]["deal"] == deal
+
+
 async def test_badges_count_new_responses_and_unread_messages(chat: Chat) -> None:
     client = await chat.user()
     job_id = await chat.job(client)

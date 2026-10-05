@@ -8,6 +8,7 @@ from app.modules.deals.application.ports import (
     DealQueries,
     DealRepository,
     DisputeQueries,
+    DisputeQuota,
     DisputeRepository,
 )
 from app.modules.deals.application.use_cases.cancel_deal import CancelDeal
@@ -24,6 +25,7 @@ from app.modules.deals.application.use_cases.sweep_deals import SweepDeals
 from app.modules.deals.application.use_cases.sweep_disputes import SweepDisputes
 from app.modules.deals.application.use_cases.withdraw_dispute import WithdrawDispute
 from app.modules.deals.infrastructure.queries import SqlDealQueries, SqlDisputeQueries
+from app.modules.deals.infrastructure.quota import ValkeyDisputeQuota
 from app.modules.deals.infrastructure.repositories import SqlDealRepository, SqlDisputeRepository
 
 
@@ -46,6 +48,7 @@ class DealsProvider(Provider):
     cancel_user_deals = provide(CancelUserDeals)
     sweep_deals = provide(SweepDeals)
     disputes = provide(SqlDisputeRepository, provides=DisputeRepository)
+    dispute_quota = provide(ValkeyDisputeQuota, provides=DisputeQuota)
     dispute_queries = provide(SqlDisputeQueries, provides=DisputeQueries)
     open_dispute = provide(OpenDispute)
     respond_dispute = provide(RespondDispute)

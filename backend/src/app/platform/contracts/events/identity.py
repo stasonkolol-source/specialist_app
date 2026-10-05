@@ -144,3 +144,17 @@ class UserDeleted(DomainEvent):
 
     event_type = "identity.UserDeleted"
     user_id: UserId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class UserBlocked(DomainEvent):
+    """`blocker_id` заблокировал `blocked_id` (PUT /me/blocks; DEVELOPMENT_PLAN 4.7).
+
+    Блокировка действует в обе стороны: друг друга они больше не видят. Подписчик — jobs:
+    отклики одного на открытые заявки другого перестают занимать места (MU-3). Заблокированному
+    ничего не сообщают. Повтор той же блокировки события не даёт.
+    """
+
+    event_type = "identity.UserBlocked"
+    blocker_id: UserId
+    blocked_id: UserId

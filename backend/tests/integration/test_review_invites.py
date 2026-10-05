@@ -15,6 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.entrypoints._wiring import make_worker_container, module_routers
+from app.modules.identity.api import RestrictionKind
 from app.modules.reviews.api import ReviewsApi
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import UserId, new_id
@@ -153,6 +154,20 @@ async def test_specialist_keeps_five_invites_at_most_and_revokes_an_unused_one(
     refused = await chat.post(nobody, INVITES, {})
     assert error(refused) == (409, "review_invites_unavailable")
     assert (await invites(chat, nobody)) == {"items": [], "limit": 5, "taken": 0}
+
+
+async def test_posting_block_stops_new_invites(chat: Chat) -> None:
+    """SEC-01: под санкцией на публикацию новых ссылок нет — 403 `restricted`, как у правок
+    профиля и прайса; выданные раньше остаются."""
+    specialist, user = await specialist_of(chat)
+    before = await invite(chat, user, client_name="Ана")
+    await specialist.restrict(RestrictionKind.POSTING_BLOCKED, None)
+
+    refused = await chat.post(user, INVITES, {"client_name": "Марко"})
+
+    assert error(refused) == (403, "restricted")
+    assert refused.json()["restriction"] == "posting_blocked"
+    assert [item["token"] for item in (await invites(chat, user))["items"]] == [before["token"]]
 
 
 async def test_past_client_review_is_labelled_moderated_and_outside_the_rating(

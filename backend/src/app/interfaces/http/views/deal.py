@@ -336,7 +336,7 @@ async def _performer(
         display_name=name if alive else "",
         profile_id=profile.id if profile is not None else None,
         avatar=avatar if alive else None,
-        rating=None if rating is None or rating.is_new else round(rating.average, 1),
+        rating=None if rating is None or rating.is_new else rating.mean,
         rating_count=rating.count if rating is not None else 0,
         is_new=rating is None or rating.is_new,
         phone_verified=bool(alive and user is not None and user.phone_verified),
