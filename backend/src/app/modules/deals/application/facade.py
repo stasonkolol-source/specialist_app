@@ -64,6 +64,9 @@ class DealsFacade:
         deal_id = await self._queries.of_response(response_id)
         return await self.deal_brief(deal_id) if deal_id is not None else None
 
+    async def completed_deals(self, user_id: UserId) -> int:
+        return await self._queries.completed_count(user_id)
+
     async def ever_agreed_pair(self, client_id: UserId, performer_id: UserId) -> bool:
         pair = (client_id, performer_id)
         return pair in await self._queries.agreed_pairs([pair])

@@ -109,6 +109,8 @@ class ReviewForCheck:
     text: str
     always_review: bool = False
     """Отзыв до платформы проверяет человек всегда (ADR-0016: «модерация обязательна»)."""
+    rating: int | None = None
+    """Оценка отзыва (у ответа — None): в карточку кейса в чате модераторов (2.5b)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

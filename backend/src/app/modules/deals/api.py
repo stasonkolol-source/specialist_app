@@ -178,6 +178,11 @@ class DealsApi(Protocol):
         `agreed` (6.3a)."""
         ...
 
+    async def completed_deals(self, user_id: UserId) -> int:
+        """Сколько сделок человека в любой роли завершено — контекст карточки кейса в чате
+        модераторов (2.5b)."""
+        ...
+
     async def ever_agreed_pair(self, client_id: UserId, performer_id: UserId) -> bool:
         """Договаривались ли эти двое хоть раз (ADR-0010, решение владельца 2026-10-04): любая
         их сделка — в любом диалоге, по отклику или из чата, в любой роли — дошла до `agreed` и

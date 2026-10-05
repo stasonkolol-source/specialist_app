@@ -106,7 +106,12 @@ class ReviewsFacade(ReviewsApi):
             return None
         # до платформы: «что делал мастер» проверяется вместе с текстом, и всегда — человеком
         text = "\n".join(part for part in (review.work_title, review.body) if part)
-        return ReviewForCheck(author_id=review.author_id, text=text, always_review=not review.rated)
+        return ReviewForCheck(
+            author_id=review.author_id,
+            text=text,
+            always_review=not review.rated,
+            rating=review.rating,
+        )
 
     async def approve_review(self, review_id: UUID) -> None:
         review = await self._for_update(review_id)

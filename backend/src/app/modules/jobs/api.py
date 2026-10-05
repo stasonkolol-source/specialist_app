@@ -24,6 +24,15 @@ class JobForReview:
     media_ids: tuple[MediaId, ...]
     risk_level: int
     """Риск категории: `≥ 1` — заявку проверяет человек (P2)."""
+    title: str = ""
+    description: str = ""
+    """Заголовок и описание по отдельности — для карточки кейса в чате модераторов (2.5b)."""
+    budget_type: str = ""
+    budget_min: int | None = None
+    budget_max: int | None = None
+    budget_unit: str = ""
+    district_id: DistrictId | None = None
+    """Район — как его видят исполнители; адрес и точку модерации не отдаём."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

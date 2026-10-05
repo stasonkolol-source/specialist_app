@@ -41,6 +41,12 @@ class MessagingFacade:
         # разрешены (ADR-0010); проверяется остальной текст
         return MessageForReview(sender_id=message.sender_id, text=mask_contacts(message.body))
 
+    async def message_for_card(self, message_id: UUID) -> MessageForReview | None:
+        message = await self._messages.get(message_id)
+        if message is None or message.sender_id is None or not message.body:
+            return None
+        return MessageForReview(sender_id=message.sender_id, text=mask_contacts(message.body))
+
     async def approve_message(self, message_id: UUID) -> None:
         self._uow.require_active()
         await self._messages.moderate(message_id, hidden=False)
