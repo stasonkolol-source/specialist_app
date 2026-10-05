@@ -2,6 +2,7 @@
 import { dirname, resolve, sep } from 'node:path';
 
 import { fontPreload } from '@sosed/design-tokens/vite';
+import { typograph } from '@sosed/i18n/vite';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import type { HtmlTagDescriptor, Plugin } from 'vite';
@@ -147,6 +148,8 @@ export default defineConfig(({ mode }) => {
   const firstRouteDir = `${dirname(firstRoute)}${sep}`;
   return {
     plugins: [
+      // неразрывные пробелы в каталогах переводов — при сборке, без кода в бандле (GLOSSARY.md)
+      typograph(),
       react(),
       tailwindcss(),
       fontPreload(),

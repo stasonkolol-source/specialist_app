@@ -36,7 +36,8 @@ const LOCALES = [
     day: '2 октября',
     agree: 'Договориться',
     proposal: 'Елена К. предлагает договориться',
-    expires: /^Если не ответить за 72 часа, договорённость отменится/,
+    // getByText(регулярка) сверяет сырой текст, а типограф ставит неразрывные пробелы — пробел как \s
+    expires: /^Если\sне\sответить\sза\s72\sчаса,\sдоговорённость\sотменится/,
     share: 'Поделиться контактом',
     username: 'Имя пользователя Telegram',
     deal: 'Сделка',
@@ -56,7 +57,7 @@ const LOCALES = [
     day: '2. oktobar',
     agree: 'Dogovorite se',
     proposal: 'Елена К. predlaže dogovor',
-    expires: /^Ako ne odgovorite za 72 sata, dogovor će biti otkazan/,
+    expires: /^Ako\sne\sodgovorite\sza\s72\ssata,\sdogovor\sće\sbiti\sotkazan/,
     share: 'Podelite kontakt',
     username: 'Korisničko ime u Telegram-u',
     deal: 'Dogovor',

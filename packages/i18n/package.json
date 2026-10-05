@@ -5,7 +5,8 @@
   "description": "Переводы и форматтеры: ru и sr-Cyrl ведутся руками, sr-Latn генерируется транслитерацией",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./vite": "./src/vite.ts"
   },
   "scripts": {
     "generate": "node scripts/i18n.ts generate",
