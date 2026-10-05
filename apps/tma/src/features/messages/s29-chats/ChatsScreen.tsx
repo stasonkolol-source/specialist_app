@@ -157,7 +157,9 @@ function ConversationRow({ conversation }: { conversation: ConversationOut }) {
       </span>
       {/* непрочитанные — под временем, в строке последнего сообщения, как на артборде */}
       <span className="mt-0.5 flex items-center justify-between gap-3">
-        <span className="line-clamp-2 min-w-0 text-text">
+        {/* длинное слово или ссылка переносится и обрезается «…» на второй строке, а не уходит за
+            край карточки (UXM-18) */}
+        <span className="line-clamp-2 min-w-0 text-text wrap-anywhere">
           <MaskedText
             text={preview(conversation.last_message)}
             label={t('mask.text')}

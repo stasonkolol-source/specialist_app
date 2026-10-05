@@ -84,7 +84,9 @@ export function JobCard({
           </Badge>
         ))}
       </span>
-      {description && <span className="line-clamp-3 text-sm text-text2">{description}</span>}
+      {description && (
+        <span className="line-clamp-3 text-sm text-text2 wrap-anywhere">{description}</span>
+      )}
       {photos.length > 0 && (
         <span className="flex gap-2">
           {photos.map((photo, index) => (
