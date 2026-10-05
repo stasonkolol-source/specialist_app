@@ -109,6 +109,7 @@ export * from './eventGroup.ts';
 export * from './failureReason.ts';
 export * from './favoritesOut.ts';
 export * from './fieldErrorOut.ts';
+export * from './geoLocateDistrictParams.ts';
 export * from './geoResolvePointParams.ts';
 export * from './grantedVia.ts';
 export * from './groupSettingIn.ts';

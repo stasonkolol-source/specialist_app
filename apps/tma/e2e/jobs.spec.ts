@@ -27,6 +27,9 @@ const LOCALES = [
     today: 'Сегодня',
     where: 'Где',
     district: 'Лиман',
+    // типограф ставит неразрывные пробелы: \s, а не пробел
+    locate: /^Определить\sпо\sгеолокации$/,
+    located: /^Район\sопределён:\sЛиман$/,
     address: 'Точный адрес',
     addressText: 'Народног фронта 25, кв. 14',
     budget: 'Сколько готовы заплатить?',
@@ -53,6 +56,8 @@ const LOCALES = [
     today: 'Danas',
     where: 'Gde',
     district: 'Liman',
+    locate: /^Odredi\spo\slokaciji$/,
+    located: /^Deo\sgrada\sje\sodređen:\sLiman$/,
     address: 'Tačna adresa',
     addressText: 'Narodnog fronta 25, stan 14',
     budget: 'Koliko ste spremni da platite?',
@@ -84,12 +89,18 @@ async function fillWhat(page: Page, texts: Texts) {
   await page.getByRole('textbox', { name: texts.details }).fill(texts.detailsText);
 }
 
-async function fillWhen(page: Page, texts: Texts) {
+/** `locate` — район «Определить по геолокации» (точка mock-клиента — в Лимане), иначе из списка. */
+async function fillWhen(page: Page, texts: Texts, { locate = false } = {}) {
   await page.getByRole('radio', { name: texts.today }).click();
   await page.getByRole('button', { name: '18–21' }).click();
-  await page.getByRole('button', { name: texts.where }).click();
-  await page.getByRole('dialog').getByRole('button', { name: texts.district }).click();
-  await expect(page.getByRole('dialog')).toBeHidden();
+  if (locate) {
+    await page.getByRole('button', { name: texts.locate }).click();
+    await expect(page.getByText(texts.located)).toBeVisible();
+  } else {
+    await page.getByRole('button', { name: texts.where }).click();
+    await page.getByRole('dialog').getByRole('button', { name: texts.district }).click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+  }
   await page.getByRole('textbox', { name: texts.address }).fill(texts.addressText);
 }
 
@@ -121,7 +132,7 @@ for (const theme of THEMES) {
       await pressTelegram(page, 'main_button_pressed');
 
       await expect(page.getByRole('heading', { name: texts.when })).toBeVisible();
-      await fillWhen(page, texts);
+      await fillWhen(page, texts, { locate: true });
       await snap(`S20b-create-when-where-${theme}-${texts.locale}.png`);
       await pressTelegram(page, 'main_button_pressed');
 

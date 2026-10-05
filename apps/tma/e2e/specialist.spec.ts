@@ -30,9 +30,7 @@ const LOCALES = [
     aboutField: 'О себе',
     serbian: 'Сербский',
     area: 'Где и почём работаете',
-    districts: ['Лиман', 'Грбавица', 'Центр', 'Нова Детелинара'],
-    moreDistricts: 'Ещё 4 района',
-    collapse: 'Свернуть',
+    wholeCity: /^Весь\sНови-Сад/,
     service: 'Первая позиция прайса',
     price: 'Цена в динарах',
     review: 'На проверке',
@@ -49,9 +47,7 @@ const LOCALES = [
     aboutField: 'O sebi',
     serbian: 'Srpski',
     area: 'Gde i po kojoj ceni radite',
-    districts: ['Liman', 'Grbavica', 'Centar', 'Nova Detelinara'],
-    moreDistricts: 'Još 4 dela grada',
-    collapse: 'Skupi',
+    wholeCity: /^Ceo\sNovi\sSad/,
     service: 'Prva stavka cenovnika',
     price: 'Cena u dinarima',
     review: 'Na proveri',
@@ -105,15 +101,14 @@ for (const theme of THEMES) {
       await snap(`S32b-become-about-${theme}-${l.locale}.png`);
       await main(page);
 
-      // S32c: районы, «Выезжаю» и «до 5 км» по умолчанию, первая позиция прайса
+      // S32c: «Весь Нови-Сад», «Выезжаю» и «до 5 км» по умолчанию, первая позиция прайса.
+      // Районы прокликивать не нужно (решение владельца 2026-10-05): уходят все районы города
       const service = page.getByRole('textbox', { name: l.service });
       await expect(service).toBeVisible();
-      // как на артборде: четыре района отмечены и стоят первыми, остальные — под «Ещё 4 района»
-      await page.getByRole('button', { name: l.moreDistricts }).click();
-      for (const name of l.districts) {
-        await page.getByRole('button', { name, exact: true }).click();
-      }
-      await page.getByRole('button', { name: l.collapse }).click();
+      await expect(page.getByRole('checkbox', { name: l.wholeCity })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
       await service.fill('Выезд и диагностика');
       await page.getByRole('textbox', { name: l.price }).fill('2000');
       await expect(page.getByRole('heading', { name: l.area, level: 1 })).toBeVisible();
@@ -123,6 +118,7 @@ for (const theme of THEMES) {
       // S31: карточка кабинета со статусом «На проверке»
       await expect(page.getByText(l.review, { exact: true })).toBeVisible();
       expect(profile.profile?.status).toBe('pending_review');
+      expect(profile.profile?.district_ids).toHaveLength(8);
       expect(profile.services).toHaveLength(1);
       await snap(`S31-account-review-${theme}-${l.locale}.png`);
     });

@@ -28,6 +28,8 @@ const LOCALES = [
     published: 'Профиль опубликован и виден в поиске',
     row: 'Профиль',
     edit: 'Редактирование профиля',
+    areas: /^Лиман,\sГрбавица,\sЦентр\sи\sещё\s1$/,
+    wholeCity: /^Весь\sНови-Сад/,
     availability: /Доступность/,
     availabilityTitle: 'Доступность',
     today: 'Доступен сегодня',
@@ -41,6 +43,8 @@ const LOCALES = [
     published: 'Profil je objavljen i vidljiv u pretrazi',
     row: 'Profil',
     edit: 'Izmena profila',
+    areas: /^Liman,\sGrbavica,\sCentar\si\sjoš\s1$/,
+    wholeCity: /^Ceo\sNovi\sSad/,
     availability: /Dostupnost/,
     availabilityTitle: 'Dostupnost',
     today: 'Dostupan danas',
@@ -87,6 +91,12 @@ for (const theme of THEMES) {
 
       await page.getByRole('link', { name: l.row, exact: true }).click();
       await expect(page.getByRole('heading', { name: l.edit, level: 1 })).toBeVisible();
+      // районы раскрыты: сверху «Весь Нови-Сад» (у профиля отмечены не все — выключен), под ним список
+      await page.getByRole('button', { name: l.areas }).click();
+      await expect(page.getByRole('checkbox', { name: l.wholeCity })).toHaveAttribute(
+        'aria-checked',
+        'false',
+      );
       await snap(`S34-edit-profile-${theme}-${l.locale}.png`);
     });
   }

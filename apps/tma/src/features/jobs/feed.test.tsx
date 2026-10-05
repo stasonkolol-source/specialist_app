@@ -110,8 +110,8 @@ describe('S13 feed', () => {
       expect(app.router.state.location.search).toMatchObject({
         urgent: true,
         near: 3,
-        lat: 45.267,
-        lon: 19.834,
+        lat: 45.24,
+        lon: 19.835,
       }),
     );
     await screen.findByText('Центр, ≈ 2 км');

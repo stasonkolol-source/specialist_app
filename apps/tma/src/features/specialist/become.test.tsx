@@ -74,6 +74,11 @@ describe('S32a–c become a specialist', () => {
       languages: ['ru'],
     });
     expect(screen.getByRole('heading', { name: 'Районы · Нови-Сад' })).toBeTruthy();
+    // выезжающему без районов «Весь Нови-Сад» включён сразу; выключаем — список, как раньше
+    const whole = screen.getByRole('checkbox', { name: 'Весь Нови-Сад' });
+    expect(whole.getAttribute('aria-checked')).toBe('true');
+    expect(screen.queryByRole('button', { name: 'Лиман' })).toBeNull();
+    await click(whole);
     await click(screen.getByRole('button', { name: 'Лиман' }));
     type('Первая позиция прайса', 'Выезд и диагностика');
     fireEvent.change(screen.getByRole('textbox', { name: 'Цена в динарах' }), {
@@ -214,11 +219,33 @@ describe('S32a–c become a specialist', () => {
     expect(writes(backend)).toEqual(['PATCH /me/profile', 'POST /me/profile/submit']);
   });
 
+  it('sends every district of the city with «Весь Нови-Сад», on by default', async () => {
+    const backend = withBackend(
+      new ProfileBackend({ ...PROFILE_FILLED, district_ids: [] }, [FIRST_SERVICE]),
+    );
+    const { app, telegram } = startApp('/become/area');
+
+    await area();
+    expect(
+      screen.getByRole('checkbox', { name: 'Весь Нови-Сад' }).getAttribute('aria-checked'),
+    ).toBe('true');
+    expect(screen.getByText('Выезжаю во все районы')).toBeTruthy();
+    await pressMainButton(telegram);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/profile'));
+    expect(writes(backend)).toEqual(['PUT /me/profile/areas', 'POST /me/profile/submit']);
+    expect(backend.profile?.district_ids.toSorted()).toEqual(
+      Object.values(DISTRICT_IDS).toSorted(),
+    );
+  });
+
   it('requires districts to travel and a price for a specialist', async () => {
     const backend = withBackend(new ProfileBackend({ ...PROFILE_FILLED, district_ids: [] }));
     const { telegram } = startApp('/become/area');
 
     await area();
+    // «Весь Нови-Сад» выключен — районы снова нужно отметить
+    await click(screen.getByRole('checkbox', { name: 'Весь Нови-Сад' }));
     await pressMainButton(telegram);
 
     expect(await screen.findByText('Отметьте районы, куда выезжаете')).toBeTruthy();

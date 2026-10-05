@@ -145,6 +145,46 @@ describe('S34 edit profile', () => {
     ]);
   });
 
+  it('turns «Весь Нови-Сад» on: every district of the city is saved', async () => {
+    const backend = withBackend(new ProfileBackend(PUBLISHED, [FIRST_SERVICE]));
+    const { app, telegram } = startApp('/cabinet/profile');
+
+    await name();
+    await click(screen.getByRole('button', { name: 'Лиман, Грбавица, Центр и ещё 1' }));
+    const whole = screen.getByRole('checkbox', { name: 'Весь Нови-Сад' });
+    expect(whole.getAttribute('aria-checked')).toBe('false');
+    await click(whole);
+    // список свёрнут, поле говорит «весь город»
+    expect(screen.queryByRole('button', { name: 'Адице' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Весь Нови-Сад' })).toBeTruthy();
+    await pressMainButton(telegram);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/cabinet'));
+    expect(writes(backend).map((entry) => entry.request)).toEqual(['PUT /me/profile/areas']);
+    expect(backend.profile?.district_ids.toSorted()).toEqual(
+      Object.values(DISTRICT_IDS).toSorted(),
+    );
+  });
+
+  it('shows «Весь Нови-Сад» when every district is chosen; off — the list as before', async () => {
+    const all = Object.values(DISTRICT_IDS);
+    const backend = withBackend(
+      new ProfileBackend({ ...PUBLISHED, district_ids: all }, [FIRST_SERVICE]),
+    );
+    const { app, telegram } = startApp('/cabinet/profile');
+
+    await name();
+    await click(screen.getByRole('button', { name: 'Весь Нови-Сад' }));
+    const whole = screen.getByRole('checkbox', { name: 'Весь Нови-Сад' });
+    expect(whole.getAttribute('aria-checked')).toBe('true');
+    await click(whole);
+    await click(screen.getByRole('button', { name: 'Лиман' }));
+    await pressMainButton(telegram);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/cabinet'));
+    expect(backend.profile?.district_ids).toEqual(all.filter((id) => id !== DISTRICT_IDS['Лиман']));
+  });
+
   it('keeps the name and the headline required', async () => {
     const backend = withBackend(new ProfileBackend(PROFILE_DRAFT));
     const { telegram } = startApp('/cabinet/profile');

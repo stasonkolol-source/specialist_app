@@ -21,6 +21,8 @@ export interface MockOptions {
   contact?: boolean;
   /** Подписанный ответ `getRequestedContact` после «Поделиться» (S54); по умолчанию — синтетика. */
   contactResponse?: string;
+  /** Ответ LocationManager; по умолчанию — точка в Лимане 3 (её район знает и backend, и
+   *  фикстуры e2e), `null` — геолокации нет или в ней отказали. */
   location?: { latitude: number; longitude: number } | null;
   /** Настоящий initData вместо синтетического: вход на dev-стенде из браузера
    *  (`cli dev-initdata`). По умолчанию — подпись `mock`, её backend не примет. */
@@ -52,6 +54,9 @@ export const MOCK_THEMES: Record<ColorScheme, Payload> = {
     button_text_color: '#06281d',
   },
 };
+
+/** Лиман 3, Нови-Сад: точка mock-клиента по умолчанию (тест API geo — та же). */
+export const MOCK_LOCATION = { latitude: 45.2397, longitude: 19.835 };
 
 export const MOCK_USER = {
   id: 100_000_001,
@@ -86,7 +91,7 @@ export function createMockPlatform(options: MockOptions = {}): {
     writeAccess = true,
     contact = true,
     contactResponse = 'contact=%7B%22user_id%22%3A1%2C%22phone_number%22%3A%22381641234567%22%7D&auth_date=1&hash=mock',
-    location = { latitude: 45.2671, longitude: 19.8335 },
+    location = MOCK_LOCATION,
     initData: rawInitData,
     deviceStorage = {},
   } = options;
