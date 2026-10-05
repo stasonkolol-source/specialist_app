@@ -155,7 +155,7 @@
       "title": "Izmena profila",
       "name": "Ime",
       "nameMissing": "Unesite ime",
-      "aboutHint": "{count, number} od {max, number} · bez telefona i linkova",
+      "aboutHint": "{count, number} od {max, number}. Bez telefona i linkova",
       "areas": "Delovi grada u koje dolazite",
       "areasNone": "Nisu izabrani",
       "areasSummary": "{names} i još {count}",
@@ -187,12 +187,7 @@
     "full": "U cenovniku je {max} stavki — više ne može",
     "hidden": "Skrivena",
     "type": {
-      "fixed": "fiksno",
-      "from": "od",
-      "range": "od i do",
-      "hourly": "po satu",
-      "per_unit": "po jedinici",
-      "negotiable": "po dogovoru"
+      "per_unit": "po jedinici"
     },
     "actions": "Radnje: {title}",
     "up": "Gore",
@@ -268,7 +263,7 @@
     "own": "Vaša fotografija",
     "change": "Promeni fotografiju",
     "uploading": "Otpremamo fotografiju — {percent}%",
-    "failed": "Fotografija nije otpremljena — pokušajte ponovo"
+    "failed": "Otpremanje fotografije nije uspelo. Pokušajte ponovo."
   },
   "uploads": {
     "leave": "Fajlovi se još otpremaju. Izaći i prekinuti otpremanje?"
