@@ -24,6 +24,7 @@ from app.modules.search.domain.index import (
     SearchDocument,
     activity_score,
     base_score,
+    category_price_units,
     category_prices,
     serbian,
     with_ancestors,
@@ -152,7 +153,13 @@ class SpecialistProjection:
             ),
             name=profile.display_name,
             document=_document(profile, own, context.terms, prices),
-            card=_card(profile, prices, avatar, district),
+            card=_card(
+                profile,
+                prices,
+                category_price_units(prices.by_category, prices.unit_by_category, paths),
+                avatar,
+                district,
+            ),
             source_updated_at=profile.updated_at,
         )
 
@@ -203,10 +210,13 @@ def _avatar(ref: MediaRef | None) -> dict[str, Any] | None:
 def _card(
     profile: ProfileForIndex,
     prices: SearchPrices,
+    units: Mapping[CategoryId, str | None],
     avatar: dict[str, Any] | None,
     district: DistrictSummary | None,
 ) -> dict[str, Any]:
-    """Готовая карточка выдачи S05 без JOIN: время и расстояние выдача берёт из колонок."""
+    """Готовая карточка выдачи S05 без JOIN: время и расстояние выдача берёт из колонок. Единица
+    цены «от» — только для показа («от 1 000 RSD/час»), поэтому в карточке, а не колонкой: по всему
+    прайсу и по каждой категории с ценой (выдача в категории показывает её цену)."""
     return {
         "display_name": profile.display_name,
         "headline": profile.headline,
@@ -223,6 +233,8 @@ def _card(
         "languages": list(profile.languages),
         "category_ids": list(profile.category_ids),
         "price_from": prices.price_from,
+        "price_from_unit": prices.price_from_unit,
+        "category_price_units": {str(category): unit for category, unit in units.items()},
         "negotiable": prices.price_from is None and bool(prices.titles),
         "rating": None,
         "rating_count": 0,

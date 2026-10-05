@@ -53,6 +53,10 @@ export const getSearchListSpecialistsResponseMock = (
       (_, i) => i + 1,
     ).map(() => faker.number.int()),
     price_from: faker.helpers.arrayElement([faker.number.int(), null]),
+    price_from_unit: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
     negotiable: faker.datatype.boolean(),
     rating: faker.helpers.arrayElement([faker.number.float({ fractionDigits: 2 }), null]),
     rating_count: faker.number.int(),
@@ -155,6 +159,10 @@ export const getSearchListFavoritesResponseMock = (
       (_, i) => i + 1,
     ).map(() => faker.number.int()),
     price_from: faker.helpers.arrayElement([faker.number.int(), null]),
+    price_from_unit: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      null,
+    ]),
     negotiable: faker.datatype.boolean(),
     rating: faker.helpers.arrayElement([faker.number.float({ fractionDigits: 2 }), null]),
     rating_count: faker.number.int(),

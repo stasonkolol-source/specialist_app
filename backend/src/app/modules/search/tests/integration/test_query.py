@@ -211,6 +211,34 @@ async def test_query_price_in_a_category_uses_its_own_price(index: Index) -> Non
     assert (hit.profile_id, hit.price_from) == (fair, 200_000)
 
 
+async def test_query_price_unit_is_the_unit_of_that_price(index: Index) -> None:
+    units = {str(ELECTRIC): "hour", str(PLUMBING): "visit"}
+    card = {"display_name": "A", "kind": "pro", "price_from_unit": "visit"}
+    priced, old = await index.add(
+        entry(
+            "A",
+            price_from=100_000,
+            category_prices={ELECTRIC: 300_000, PLUMBING: 100_000},
+            card=card | {"category_price_units": units},
+        ),
+        entry("Old", price_from=50_000),  # строка до единиц: единицы нет до пересборки
+    )
+
+    def unit_of(hits: list[SpecialistHit], profile_id: UUID) -> tuple[int | None, str | None]:
+        [hit] = [hit for hit in hits if hit.profile_id == profile_id]
+        return hit.price_from, hit.price_from_unit
+
+    everywhere = await index.hits()
+    assert unit_of(everywhere, priced) == (100_000, "visit")
+    assert unit_of(everywhere, old) == (50_000, None)
+    # в категории с ценой — её цена и единица; без цены в категории — по всему прайсу
+    assert unit_of(await index.hits(category_id=ELECTRIC), priced) == (300_000, "hour")
+    assert unit_of(await index.hits(category_id=REPAIR), priced) == (100_000, "visit")
+    # избранное S12 — цена по всему прайсу
+    listed = await SqlSpecialistSearch(index.session).listed([priced])
+    assert unit_of(listed, priced) == (100_000, "visit")
+
+
 async def test_query_profile_filters(index: Index) -> None:
     serbian_speaker, available, reviewed, verified, remote = await index.add(
         entry("Sr", languages=("sr",)),

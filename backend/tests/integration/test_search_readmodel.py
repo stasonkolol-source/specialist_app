@@ -97,6 +97,9 @@ async def test_published_profile_gets_a_ready_row(specialist: Specialist) -> Non
         id=specialist.profile_id,
     )
     assert prices == {str(category): PRICE for category in path}
+    # «от …» без единицы (за работу): та же позиция по всему прайсу и в каждой категории с ценой
+    assert card["price_from_unit"] is None
+    assert card["category_price_units"] == {str(category): None for category in path}
     # название категории и словарь на любом языке и алфавите (§9.3)
     for query in ("электрик", "električar", "elektricar", "електричар", "electrician", "розетка"):
         assert await specialist.matches(query), query

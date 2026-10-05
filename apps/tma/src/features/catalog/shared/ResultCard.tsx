@@ -2,6 +2,7 @@
 // `SpecialistCard` — рейтинг, район с расстоянием, языки, «Сегодня до …», «Телефон подтверждён»,
 // цена «от»; нажатие ведёт в профиль S08, сердечко — в избранное.
 import type { SpecialistCardOut } from '@sosed/api-client';
+import { SERVICE_UNITS } from '@sosed/domain';
 import { useFormat, useTranslation } from '@sosed/i18n';
 import type { SpecialistBadge } from '@sosed/ui-web';
 import { SpecialistCard } from '@sosed/ui-web';
@@ -43,9 +44,11 @@ export function ResultCard({
   if (card.badges.includes(PHONE_VERIFIED)) {
     badges.push({ label: t('results.phoneVerified'), tone: 'info', icon: 'shield' });
   }
+  // единица — у той же позиции, что цена «от»: «от 1 000 RSD/час»; незнакомая — без единицы
+  const unit = SERVICE_UNITS.find((known) => known === card.price_from_unit) ?? null;
   const price =
     card.price_from !== null
-      ? format.price({ type: 'from', min: card.price_from })
+      ? format.price({ type: 'from', min: card.price_from, unit })
       : card.negotiable
         ? common('price.negotiable')
         : null;

@@ -33,7 +33,7 @@ export interface SpecialistCardProps {
   /** Через точку после рейтинга: «Лиман, ≈ 1,5 км», «ru, sr». */
   meta: readonly string[];
   badges?: readonly SpecialistBadge[];
-  /** «от 2 000 RSD». */
+  /** «от 2 000 RSD», «от 1 000 RSD/час», «от 2 000 RSD за выезд». */
   price?: string | null;
   /** Профиль S08; без него карточка не ссылка (до 4.5 профиля ещё нет). */
   href?: string;
@@ -105,7 +105,7 @@ export function SpecialistCard({
       {(badges.length > 0 || price) && (
         <div
           className={cx(
-            'flex items-end gap-2',
+            'flex flex-wrap items-end gap-2',
             badges.length > 0 ? 'justify-between' : 'justify-end',
           )}
         >
@@ -118,7 +118,8 @@ export function SpecialistCard({
               ))}
             </span>
           )}
-          {price && <Price>{price}</Price>}
+          {/* цена с единицей длиннее: не помещается рядом с бейджами — строкой ниже, справа */}
+          {price && <Price className="ml-auto">{price}</Price>}
         </div>
       )}
     </article>
