@@ -8,7 +8,6 @@ import { paraToRsd, rsdToPara } from '@sosed/domain';
 import type { IconName } from '@sosed/ui-web';
 import { ICON_NAMES } from '@sosed/ui-web';
 
-import { groupDigits } from './amount.ts';
 import type { FeedLanguage, FeedSearch } from './feed.ts';
 import { FEED_LANGUAGES, NEAR_KM, urgencies } from './feed.ts';
 
@@ -92,7 +91,8 @@ export function formOf(alert: JobAlertOut): AlertForm {
     km: criteria.radius_km ?? NEAR_KM,
     point: criteria.center ? { lat: criteria.center.lat, lon: criteria.center.lon } : null,
     districts: [...criteria.district_ids],
-    budget: criteria.min_budget !== null ? groupDigits(String(paraToRsd(criteria.min_budget))) : '',
+    // разряды языка ставит поле (moneyInput)
+    budget: criteria.min_budget !== null ? String(paraToRsd(criteria.min_budget)) : '',
     delivery: alert.delivery,
     urgencies: [...criteria.urgencies],
     langs: [...criteria.languages],
@@ -111,7 +111,7 @@ export function formFromFeed(search: FeedSearch): AlertForm {
     km: search.near ?? NEAR_KM,
     point,
     districts: [],
-    budget: search.budget !== undefined ? groupDigits(String(search.budget)) : '',
+    budget: search.budget !== undefined ? String(search.budget) : '',
     delivery: 'instant',
     urgencies: urgencies(search) ?? [],
     langs: [...(search.langs ?? [])],

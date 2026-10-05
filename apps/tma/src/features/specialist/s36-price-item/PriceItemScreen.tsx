@@ -19,7 +19,7 @@ import {
   pricingRemoveMyService,
 } from '@sosed/api-client';
 import { myProfileQueryKey, useCategories, useMyProfile, useMyServices } from '@sosed/hooks';
-import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
+import { moneyInput, moneyPara, useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton, usePlatform } from '@sosed/platform';
 import { Button, Field, Heading, Icon, Input, Segmented, Textarea, cx } from '@sosed/ui-web';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -36,8 +36,6 @@ import { DURATIONS, categoryNames } from '../shared/prices.ts';
 /** MAX_TITLE и MAX_DESCRIPTION позиции (backend pricing/domain/service.py). */
 const MAX_TITLE = 120;
 const MAX_DESCRIPTION = 1000;
-/** Цена — до 999 999 999 RSD (MAX_PRICE прайса — миллиард). */
-const PRICE_DIGITS = 9;
 const PARA_PER_DINAR = 100;
 /** Типы цены артборда S36. */
 const TYPES: readonly PriceType[] = ['fixed', 'from', 'hourly'];
@@ -123,6 +121,7 @@ function PriceItemForm({
 }) {
   const { t } = useTranslation('specialist');
   const { number } = useFormat();
+  const locale = useLocale();
   const platform = usePlatform();
   const queryClient = useQueryClient();
   const groupId = useId();
@@ -133,13 +132,20 @@ function PriceItemForm({
     service ? service.category_id : (profile.category_ids[0] ?? null),
   );
   const [type, setType] = useState<PriceType>(service?.price_type ?? 'fixed');
-  const [amount, setAmount] = useState(
-    service?.price_min ? String(service.price_min.amount / PARA_PER_DINAR) : '',
-  );
-  const [whole, fraction] = amount.split('.');
-  // Запятая — десятичный разделитель ru и sr; сохраняем её и нули во время ввода.
-  const formattedAmount =
-    amount && `${number(Number(whole))}${fraction === undefined ? '' : `,${fraction}`}`;
+  // текст поля — с разрядами языка и запятой (moneyInput); цену храним до пара: уже сохранённую
+  // с парами не округляем
+  const [initialAmount] = useState(() => {
+    const para = service?.price_min?.amount;
+    if (!para) return '';
+    const fraction = String(para % PARA_PER_DINAR).padStart(2, '0');
+    return moneyInput(
+      `${Math.trunc(para / PARA_PER_DINAR)},${fraction}`.replace(/,00$/, ''),
+      locale,
+      2,
+    );
+  });
+  const [amount, setAmount] = useState(initialAmount);
+  const amountPara = moneyPara(amount, locale);
   const [duration, setDuration] = useState<number | null>(service?.duration_min ?? null);
   const [description, setDescription] = useState(service?.description ?? '');
   // незаполненное подсвечиваем после первого нажатия «Сохранить»
@@ -147,7 +153,7 @@ function PriceItemForm({
   // Idempotency-Key новой позиции: повтор после потерянного ответа не добавит вторую
   const key = useRef<string | null>(null);
   const priced = type !== 'negotiable';
-  const missing = { title: title.trim() === '', amount: priced && !(Number(amount) > 0) };
+  const missing = { title: title.trim() === '', amount: priced && amountPara === null };
   // группы — категории профиля; позиция с чужой категорией (из API) её не теряет
   const groups = [
     ...new Set([...profile.category_ids, ...(categoryId === null ? [] : [categoryId])]),
@@ -168,7 +174,7 @@ function PriceItemForm({
 
   const save = useMutation({
     mutationFn: async () => {
-      const para = priced ? Math.round(Number(amount) * PARA_PER_DINAR) : null;
+      const para = priced ? amountPara : null;
       if (!service) {
         key.current ??= crypto.randomUUID();
         const created = await pricingAddMyService(
@@ -293,17 +299,14 @@ function PriceItemForm({
         {priced && (
           <Input
             inputMode="decimal"
-            value={formattedAmount}
+            value={moneyInput(amount, locale, 2)}
             suffix="RSD"
             aria-label={t('price.amount')}
             invalid={checked && missing.amount}
             onChange={(event) => {
-              const [whole = '', fraction] = event.target.value.replace(/[^\d,]/g, '').split(',');
-              edit(() =>
-                setAmount(
-                  `${whole.slice(0, PRICE_DIGITS)}${fraction === undefined ? '' : `.${fraction.slice(0, 2)}`}`,
-                ),
-              );
+              // «1500.00» и «1.500,00» — 1 500, а не 150 000 (ADV-10)
+              const text = moneyInput(event.target.value, locale, 2);
+              edit(() => setAmount(text));
             }}
           />
         )}

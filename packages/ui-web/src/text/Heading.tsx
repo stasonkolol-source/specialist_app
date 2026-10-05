@@ -1,7 +1,7 @@
 // Типошкала ui.css: .h1 (Unbounded), .h1.xl, .h2, .h3, .sec-t, .cap, .sm, .t2.
 import type { ReactNode } from 'react';
 
-import { cx } from '../cx.ts';
+import { colourOr, cx } from '../cx.ts';
 
 export type HeadingVariant = 'h1' | 'h1-xl' | 'h2' | 'h3';
 
@@ -51,7 +51,12 @@ export function SectionTitle({
   return (
     <Tag
       id={id}
-      className={cx('m-0 text-section uppercase text-text2', inset && 'px-4', className)}
+      className={cx(
+        'm-0 text-section uppercase',
+        colourOr('text-text2', className),
+        inset && 'px-4',
+        className,
+      )}
     >
       {children}
     </Tag>
@@ -63,7 +68,7 @@ export type TextVariant = 'body' | 'sm' | 'cap' | 'title';
 const TEXT: Record<TextVariant, string> = {
   body: 'text-body',
   sm: 'text-sm',
-  cap: 'text-cap text-text2',
+  cap: 'text-cap',
   title: 'text-title',
 };
 
@@ -82,6 +87,7 @@ export function Text({
   /** .b — полужирный. */
   bold?: boolean;
   as?: 'p' | 'span' | 'div';
+  /** Свой цвет (text-danger у ошибки) заменяет серый подписи и `secondary`. */
   className?: string;
 }) {
   return (
@@ -89,7 +95,7 @@ export function Text({
       className={cx(
         'm-0',
         TEXT[variant],
-        secondary && 'text-text2',
+        (secondary || variant === 'cap') && colourOr('text-text2', className),
         bold && 'font-semibold',
         className,
       )}

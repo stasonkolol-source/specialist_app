@@ -134,11 +134,20 @@ describe('даты в Europe/Belgrade', () => {
   });
 
   it('месяц отзыва — с заглавной: «Сентябрь · люстры» на S11', () => {
-    expect(ru.month(new Date('2026-09-27T10:00:00Z'))).toBe('Сентябрь');
-    expect(lat.month(new Date('2026-09-27T10:00:00Z'))).toBe('Septembar');
-    expect(cyr.month(new Date('2026-09-27T10:00:00Z'))).toBe('Септембар');
+    expect(ru.month(new Date('2026-09-27T10:00:00Z'), now)).toBe('Сентябрь');
+    expect(lat.month(new Date('2026-09-27T10:00:00Z'), now)).toBe('Septembar');
+    expect(cyr.month(new Date('2026-09-27T10:00:00Z'), now)).toBe('Септембар');
     // 23:30 UTC 30.09 — уже октябрь в Белграде
-    expect(ru.month(new Date('2026-09-30T23:30:00Z'))).toBe('Октябрь');
+    expect(ru.month(new Date('2026-09-30T23:30:00Z'), now)).toBe('Октябрь');
+  });
+
+  it('месяц отзыва прошлого года — с годом (SMOKE-1)', () => {
+    const lastOctober = new Date('2025-10-27T10:00:00Z');
+    expect(ru.month(lastOctober, now)).toBe('Октябрь 2025');
+    expect(lat.month(lastOctober, now)).toBe('Oktobar 2025.');
+    expect(cyr.month(lastOctober, now)).toBe('Октобар 2025.');
+    // 23:30 UTC 31.12.2025 — уже январь 2026 в Белграде: год тот же, что сейчас
+    expect(ru.month(new Date('2025-12-31T23:30:00Z'), now)).toBe('Январь');
   });
 
   it('«сегодня в 19:00»', () => {

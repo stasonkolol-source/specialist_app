@@ -178,7 +178,7 @@ function PriceList({
                   <a
                     href={router.history.createHref(`${CABINET_PATHS.prices}/${service.id}`)}
                     onClick={open(service)}
-                    className="flex min-w-0 flex-1 flex-col text-text outline-none focus-visible:outline-2 focus-visible:outline-accent"
+                    className="flex min-w-0 flex-1 flex-col text-text outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent"
                   >
                     <span className="text-body">{service.title}</span>
                     <ServiceNote service={service} />

@@ -106,6 +106,30 @@ test('таббар переключает разделы', async ({ page }) => {
   }
 });
 
+// UXM-7: outline-none + focus-visible:outline-2 в Tailwind 4 не рисовали кольцо (стиль none).
+// Проверяем вычисленный стиль, а не классы: Tab по Главной — у каждого элемента видно кольцо
+test('фокус с клавиатуры виден: Tab по Главной рисует кольцо', async ({ page }, testInfo) => {
+  // клавиатура — Telegram Desktop и Web; Tab в мобильном WebKit ходит только по полям
+  test.skip(testInfo.project.name !== 'desktop', 'клавиатура — на десктопе');
+  await open(page, 'theme=light&lang=ru');
+  await expect(page.getByRole('heading', { name: 'Найдём мастера рядом' })).toBeVisible();
+  const rings: string[] = [];
+  for (let step = 0; step < 8; step += 1) {
+    await page.keyboard.press('Tab');
+    // у поля поиска кольцо — на рамке (focus-within:ring), сам input без обводки
+    const ring = await page.evaluate(() => {
+      const element = document.activeElement;
+      if (!element || !['A', 'BUTTON'].includes(element.tagName)) return null;
+      const style = getComputedStyle(element);
+      return `${element.tagName} ${style.outlineStyle} ${style.outlineWidth}`;
+    });
+    if (ring) rings.push(ring);
+  }
+  expect(rings.length).toBeGreaterThanOrEqual(4);
+  // сломанная обводка — «none 0px»; auto — системное кольцо элементов без своего
+  for (const ring of rings) expect(ring).toMatch(/^(A|BUTTON) (solid|auto) [1-9]/);
+});
+
 test('sr-Cyrl: smoke — выбранный язык остаётся кириллицей', async ({ page }) => {
   const watch = await open(page, 'theme=light&lang=sr&locale=sr-Cyrl');
   await expect(page.locator('html')).toHaveAttribute('lang', 'sr-Cyrl');

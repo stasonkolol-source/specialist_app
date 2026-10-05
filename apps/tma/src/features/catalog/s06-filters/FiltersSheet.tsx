@@ -6,7 +6,7 @@
 import type { CategoryOut, CityOut } from '@sosed/api-client';
 import { color } from '@sosed/design-tokens';
 import { selectableDistricts, useCategories, useDistricts, useSpecialistCount } from '@sosed/hooks';
-import { useLocale, useTranslation } from '@sosed/i18n';
+import { moneyInput, moneyValue, useLocale, useTranslation } from '@sosed/i18n';
 import {
   useBackButton,
   useBottomButtonState,
@@ -57,6 +57,7 @@ function toggle<T>(list: readonly T[] | undefined, value: T): T[] | undefined {
 
 export function FiltersSheet({ search, city, onClose, onApply }: FiltersSheetProps) {
   const { t } = useTranslation('catalog');
+  const locale = useLocale();
   const [draft, setDraft] = useState<ResultsSearch>(search);
   const [view, setView] = useState<'filters' | 'category'>('filters');
   const [allDistricts, setAllDistricts] = useState(false);
@@ -143,11 +144,11 @@ export function FiltersSheet({ search, city, onClose, onApply }: FiltersSheetPro
             <Input
               inputMode="numeric"
               suffix="RSD"
-              value={draft.price === undefined ? '' : String(draft.price)}
-              onChange={(event) => {
-                const digits = event.target.value.replace(/\D/g, '');
-                set({ price: digits ? Number(digits) : undefined });
-              }}
+              value={draft.price === undefined ? '' : moneyInput(String(draft.price), locale)}
+              // «1.500,00» — 1 500, а не 150 000 (ADV-10); разряды — как в ценах языка
+              onChange={(event) =>
+                set({ price: moneyValue(event.target.value, locale) ?? undefined })
+              }
             />
           </Field>
           <Section title={t('filters.language')}>

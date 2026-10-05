@@ -258,7 +258,7 @@ function EditForm({
           className={cx(
             'flex h-12 w-full items-center gap-2 rounded-field border bg-surface px-3.5 text-left text-input text-text',
             checked && missing.areas ? 'border-danger' : 'border-field',
-            'outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+            'outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-accent',
           )}
         >
           <span className="min-w-0 flex-1 truncate">{summary}</span>

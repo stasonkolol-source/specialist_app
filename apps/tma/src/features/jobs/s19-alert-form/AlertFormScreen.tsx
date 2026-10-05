@@ -19,7 +19,7 @@ import {
   useUpdateAlert,
   useUpdateNotificationSettings,
 } from '@sosed/hooks';
-import { useLocale, useTranslation } from '@sosed/i18n';
+import { moneyInput, useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton } from '@sosed/platform';
 import {
   Banner,
@@ -44,7 +44,6 @@ import { useId, useRef, useState } from 'react';
 
 import type { AlertForm } from '../shared/alerts.ts';
 import { criteriaIn, formFromFeed, formOf, isFeedLanguage, urgentOnly } from '../shared/alerts.ts';
-import { groupDigits } from '../shared/amount.ts';
 import { findCategory } from '../shared/categories.ts';
 import { useFeedCity } from '../shared/city.ts';
 import { FEED_LANGUAGES, RADII, toggle } from '../shared/feed.ts';
@@ -96,6 +95,7 @@ function Form({
   fromFeed: boolean;
 }) {
   const { t } = useTranslation('jobs');
+  const locale = useLocale();
   const router = useRouter();
   const feedCity = useFeedCity();
   const cityId = alert?.criteria.city_id ?? feedCity?.id ?? null;
@@ -192,9 +192,9 @@ function Form({
         <Input
           inputMode="numeric"
           suffix="RSD"
-          value={form.budget}
+          value={moneyInput(form.budget, locale)}
           placeholder={t('alerts.form.budgetPlaceholder')}
-          onChange={(event) => set({ budget: groupDigits(event.target.value) })}
+          onChange={(event) => set({ budget: moneyInput(event.target.value, locale) })}
         />
       </Field>
       <Section title={t('alerts.form.delivery')}>

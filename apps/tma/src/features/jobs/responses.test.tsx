@@ -9,7 +9,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { HttpResponse, http } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
+import { mainButton, pressBackButton, pressMainButton, startApp } from '../../testing/app.tsx';
 import { problem } from '../../testing/backend.ts';
 import { E2E_NOW } from '../../testing/fixtures.ts';
 import type { FeedFixture } from '../../testing/jobsBackend.ts';
@@ -170,6 +170,55 @@ describe('S16 respond', () => {
     });
     // название — первая фраза после приветствия
     expect(backend.templates[0]?.title).toBe('Перевезу аккуратно, есть помощник');
+  });
+
+  // ADV-10: поле выбрасывало всё, кроме цифр, — «1.500,00» становилось 150 000 RSD
+  it('reads a pasted price with kopecks as whole dinars, not ×100', async () => {
+    const backend = withJobs();
+    const { telegram } = startApp(`/jobs/${MOVING.card.id}/respond`);
+    const message = await screen.findByRole('textbox', { name: 'Сообщение клиенту' });
+    await type(message, 'Добрый день! Перевезу аккуратно, есть помощник.');
+    const price = screen.getByRole<HTMLInputElement>('textbox', { name: 'Цена, RSD' });
+    await type(price, '1.500,00');
+    expect(price.value).toMatch(/^1\s500,$/u);
+    await type(price, '1500.00');
+    expect(price.value).toMatch(/^1\s500,$/u);
+    await pressMainButton(telegram);
+
+    await waitFor(() => expect(backend.responsePosts).toHaveLength(1));
+    expect(backend.responsePosts[0]?.body).toMatchObject({ price_amount: 150_000 });
+  });
+
+  // UXM-10: «Назад» молча стирал набранный отклик
+  it('asks before Back discards a typed offer and keeps it when the person stays', async () => {
+    withJobs();
+    const path = `/jobs/${MOVING.card.id}/respond`;
+    const { app, telegram } = startApp(path, { popupAnswer: null });
+    const message = await screen.findByRole('textbox', { name: 'Сообщение клиенту' });
+    await type(message, 'Добрый день! Перевезу аккуратно.');
+
+    await pressBackButton(telegram);
+
+    await waitFor(() =>
+      expect(telegram.callsOf('web_app_open_popup').at(-1)?.message).toMatch(
+        /^Уйти\sс\sэкрана\?\sНабранный\sотклик\sне\sсохранится\.$/u,
+      ),
+    );
+    expect(app.router.state.location.pathname).toBe(path);
+    expect(
+      (screen.getByRole('textbox', { name: 'Сообщение клиенту' }) as HTMLTextAreaElement).value,
+    ).toBe('Добрый день! Перевезу аккуратно.');
+  });
+
+  it('leaves an untouched form without asking', async () => {
+    withJobs();
+    const { app, telegram } = startApp(`/jobs/${MOVING.card.id}/respond`, { popupAnswer: null });
+    await screen.findByRole('textbox', { name: 'Сообщение клиенту' });
+
+    await pressBackButton(telegram);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe(`/jobs/${MOVING.card.id}`));
+    expect(telegram.callsOf('web_app_open_popup')).toHaveLength(0);
   });
 
   it('shows the server text when the job is already full', async () => {

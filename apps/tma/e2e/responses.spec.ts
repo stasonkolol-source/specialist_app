@@ -40,7 +40,7 @@ const LOCALES = [
     job: 'Повесить люстру',
     caption: 'Ponuda za zahtev',
     sent: 'Ponuda je poslata — klijent će je videti posle provere',
-    waiting: 'Čeka odluku naručioca',
+    waiting: 'Čeka odluku klijenta',
     templates: 'Šabloni ponuda',
     primary: 'Glavni',
   },
@@ -80,6 +80,15 @@ for (const theme of THEMES) {
       await expect(page.getByText(l.caption)).toBeVisible();
       await expect(page.getByRole('heading', { name: l.job, level: 1 })).toBeVisible();
       await snap(page, watch, `S16-respond-${theme}-${l.locale}.png`);
+      // UXM-8: подпись сегмента «Цена» не шире сегмента (на 360 px — «Договорная», «Po dogovoru»)
+      const clipped = await page
+        .getByRole('radio')
+        .evaluateAll((radios) =>
+          radios
+            .filter((radio) => radio.scrollWidth > radio.clientWidth)
+            .map((radio) => radio.textContent),
+        );
+      expect(clipped).toEqual([]);
 
       await pressTelegram(page, 'main_button_pressed');
       await expect(page.getByText(l.sent)).toBeVisible();

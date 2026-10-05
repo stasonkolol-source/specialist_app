@@ -49,7 +49,7 @@ export function BrowserShell({ blockedStart }: BrowserShellProps) {
               <button
                 type="button"
                 onClick={back.click}
-                className="inline-flex min-h-11 items-center gap-1 rounded-btn border-0 bg-transparent pr-3 pl-1 text-body font-semibold text-accent outline-none focus-visible:outline-2 focus-visible:outline-accent"
+                className="inline-flex min-h-11 items-center gap-1 rounded-btn border-0 bg-transparent pr-3 pl-1 text-body font-semibold text-accent outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent"
               >
                 <Icon name="chev-left" />
                 {t('action.back')}
