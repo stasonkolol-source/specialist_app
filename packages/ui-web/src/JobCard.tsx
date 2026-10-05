@@ -67,8 +67,10 @@ export function JobCard({
 }: JobCardProps) {
   const content = (
     <>
-      <span className="flex items-start justify-between gap-3">
-        <Title className="m-0 text-title">{title}</Title>
+      {/* заголовку — не меньше 60 % строки: широкий бюджет («8 000–12 000 RSD») уходит под него,
+          а не сжимает длинный заголовок в колонку в 6–8 строк (UXM-16); узкий стоит справа, как был */}
+      <span className="flex flex-wrap items-start justify-between gap-x-3 gap-y-0.5">
+        <Title className="m-0 min-w-0 flex-[1_1_60%] text-title">{title}</Title>
         {negotiable ? (
           <span className="shrink-0 font-semibold whitespace-nowrap text-text2">{budget}</span>
         ) : (
@@ -82,7 +84,9 @@ export function JobCard({
           </Badge>
         ))}
       </span>
-      {description && <span className="line-clamp-3 text-sm text-text2">{description}</span>}
+      {description && (
+        <span className="line-clamp-3 text-sm text-text2 wrap-anywhere">{description}</span>
+      )}
       {photos.length > 0 && (
         <span className="flex gap-2">
           {photos.map((photo, index) => (
