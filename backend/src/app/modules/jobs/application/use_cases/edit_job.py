@@ -1,6 +1,7 @@
 """Правка заявки владельцем (PATCH /jobs/{id}, If-Match → 412): то же, что при создании, целиком.
 Отклонённая после правки — снова на проверку; существенная правка опубликованной (текст, услуга,
-бюджет, фото) — тоже (§7.9). Чужая — 404."""
+бюджет, фото) — тоже (§7.9). Чужая — 404. If-Match сверяет редакцию содержимого (`Job.revision`):
+автопубликация после прошлой правки её не меняет, и следующая правка не получает ложный 412."""
 
 from dataclasses import dataclass
 
@@ -41,7 +42,7 @@ class EditJob:
         async with self._uow:
             job = await self._jobs.get_for_update(cmd.job_id)
             ensure_owner(job, cmd.actor_id)
-            job.ensure_version(cmd.expected_version)
+            job.ensure_revision(cmd.expected_version)
             review = job.edit(built.content, now=self._clock.now())
             await self._jobs.save(job)
             if review:

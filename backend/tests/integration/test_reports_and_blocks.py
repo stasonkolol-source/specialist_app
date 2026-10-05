@@ -257,6 +257,44 @@ async def test_report_becomes_a_case_and_a_repeat_is_the_same_report(chat: Chat)
     assert (await chat.app.client.post(f"{API}/reports", json=target)).status_code == 401
 
 
+@pytest.mark.authz
+async def test_jobs_the_reporter_cannot_open_are_not_found(chat: Chat) -> None:
+    """ADV-09: на заявку, которую жалующийся не может открыть (прямой запрос другому, чужая
+    закрытая), — тот же 404, что на чтение и на несуществующую; видимую — жалоба принимается,
+    в том числе приглашённым на прямой запрос."""
+    client, stranger = await chat.user(), await chat.user()
+    invitee = Specialist(chat.app.container)
+    await invitee.publish()
+    chat.users.append(invitee.user_id)
+    direct, closed, public = await chat.job(client), await chat.job(client), await chat.job(client)
+    await chat.execute("UPDATE jobs.jobs SET visibility = 'direct' WHERE id = :id", id=direct)
+    await chat.execute(
+        "INSERT INTO jobs.invites (job_id, profile_id, performer_id)"
+        " VALUES (:job, :profile, :user)",
+        job=direct,
+        profile=invitee.profile_id,
+        user=invitee.user_id,
+    )
+    await chat.execute(
+        "UPDATE jobs.jobs SET status = 'closed', closed_at = now(), close_reason = 'not_needed'"
+        " WHERE id = :id",
+        id=closed,
+    )
+
+    for hidden in (direct, closed, new_id()):
+        read = await chat.get(stranger, f"/jobs/{hidden}")
+        filed = await report(chat, stranger, target_type="job", target_id=str(hidden))
+        assert (read.status_code, filed.status_code) == (404, 404), hidden
+        assert filed.json()["code"] == "report_target_not_found"
+    assert (
+        await chat.rows("SELECT 1 FROM moderation.reports WHERE reporter_id = :id", id=stranger)
+        == []
+    )
+    for reporter, target in ((stranger, public), (invitee.user_id, direct)):
+        filed = await report(chat, reporter, target_type="job", target_id=str(target))
+        assert filed.status_code == 201, filed.text
+
+
 async def test_report_from_a_chat_and_the_twenty_first_a_day(chat: Chat) -> None:
     client, performer, response_id = await chat.pair()
     conversation = await chat.start(client, response_id=response_id)

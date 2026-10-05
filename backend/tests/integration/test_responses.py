@@ -38,6 +38,7 @@ from app.modules.moderation.application.use_cases.decide_case import (
 )
 from app.modules.moderation.domain.cases import EntityType
 from app.modules.moderation.domain.pipeline import Route, Routing
+from app.modules.moderation.errors import CaseSupersededError
 from app.platform.contracts.events.moderation import ModerationDecision
 from app.platform.kernel.ids import UserId, new_id
 from app.platform.ratelimit import Rate
@@ -304,6 +305,45 @@ async def test_response_with_contacts_waits_for_a_moderator(
     assert (blocked["review"], blocked["status"]) == ("blocked", "withdrawn")
     assert await world.job_row(job_id) == (3, 0)  # место освободилось
     assert await world.owner_list(client, job_id) == []
+
+
+async def test_moderator_clears_only_the_offer_the_card_showed(
+    world: World, worker: AsyncContainer
+) -> None:
+    """ADV-11: отклик с телефоном ждёт модератора; исполнитель меняет текст после карточки.
+    Одобрение прежней карточки ничего не показывает клиенту — кейс устарел; новый кейс о правке
+    одобряют — клиент видит ровно её."""
+    client, performer = await world.user(), await world.user()
+    job_id = await world.job(client)
+    leaking = unique("Здравствуйте! Звоните: +381 64 123 4567, приеду сегодня.")
+    response = await world.responded(performer, job_id, message=leaking)
+    assert (await auto_check(worker, performer, response["id"])).route is Route.REVIEW
+    pending = "SELECT id FROM moderation.cases WHERE entity_id = :id AND status = 'pending'"
+    stale_case = await world.scalar(pending, id=UUID(response["id"]))
+    swapped = unique("Пишите в телеграм @qa_contact_test, так быстрее.")
+
+    revised = await world.app.client.patch(
+        f"{API}/responses/{response['id']}",
+        json={"message": swapped, "price_type": "negotiable"},
+        headers=world.headers(performer),
+    )
+    assert revised.status_code == 200, revised.text
+    await auto_check(worker, performer, response["id"])
+    with pytest.raises(CaseSupersededError):
+        async with worker() as request:
+            await (await request.get(DecideCase))(
+                DecideCaseCommand(case_id=stale_case, verdict=ModerationDecision.APPROVED)
+            )
+
+    assert await world.owner_list(client, job_id) == []
+    fresh_case = await world.scalar(pending, id=UUID(response["id"]))
+    assert fresh_case not in (None, stale_case)
+    async with worker() as request:
+        await (await request.get(DecideCase))(
+            DecideCaseCommand(case_id=fresh_case, verdict=ModerationDecision.APPROVED)
+        )
+    [listed] = await world.owner_list(client, job_id)
+    assert (listed["id"], listed["message"]) == (response["id"], swapped)
 
 
 @pytest.mark.authz

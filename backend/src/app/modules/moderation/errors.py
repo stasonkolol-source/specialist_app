@@ -32,6 +32,13 @@ class CaseTakenError(ConflictError):
     code = "case_taken"
 
 
+class CaseSupersededError(ConflictError):
+    """Объект изменили после карточки: кейс закрыт как устаревший, решать — новый кейс с новой
+    версией (ADV-11). Решение по устаревшему ничего не публикует и не скрывает."""
+
+    code = "case_superseded"
+
+
 class InvalidDecisionError(DomainValidationError):
     """Решение без машинного кода причины или с неверным кодом."""
 

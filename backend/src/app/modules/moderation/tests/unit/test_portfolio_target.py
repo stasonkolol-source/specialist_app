@@ -53,12 +53,16 @@ class Specialists:
     def __init__(self, work: WorkForReview | None) -> None:
         self.work = work
         self.calls: list[tuple[str, UUID]] = []
+        self.versions: list[int | None] = []
 
     async def work_for_review(self, work_id: UUID) -> WorkForReview | None:
         return self.work
 
-    async def approve_work(self, work_id: UUID, *, auto: bool = False) -> None:
+    async def approve_work(
+        self, work_id: UUID, *, version: int | None = None, auto: bool = False
+    ) -> None:
         self.calls.append(("auto_approve" if auto else "approve", work_id))
+        self.versions.append(version)
 
     async def reject_work(self, work_id: UUID) -> None:
         self.calls.append(("reject", work_id))
@@ -71,6 +75,7 @@ def review(
         user_id=OWNER,
         caption=caption,
         media_id=MEDIA,
+        revision=3,
         pending=pending,
         new_profile=new_profile,
         risk_level=1,
@@ -97,7 +102,16 @@ async def test_caption_is_checked_once_the_photo_is_approved() -> None:
     assert content is not None
     assert (content.author_id, content.kind, content.text) == (OWNER, ContentKind.PROFILE, "Люстра")
     assert (content.media_ids, content.always_review, content.risk_level) == ((MEDIA,), False, 1)
+    assert content.version == 3  # редакция подписи: кейс помнит её (ADV-11)
     assert uow.opened == 1  # итог фото — под блокировкой строки, в своей транзакции
+
+
+async def test_approval_publishes_only_the_reviewed_caption() -> None:
+    adapter, specialists, _ = target(review(), ModerationVerdict.APPROVED)
+
+    await adapter.publish(new_id(), version=3)
+
+    assert specialists.versions == [3]  # подпись правили после карточки — фасад не опубликует
 
 
 @pytest.mark.parametrize(

@@ -5,8 +5,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from app.modules.catalog.api import CatalogApi
+from app.modules.identity.api import Action, IdentityApi
 from app.modules.specialists.application.ports import ProfileRepository
-from app.modules.specialists.application.profiles import allowed_categories, own_profile
+from app.modules.specialists.application.profiles import (
+    allowed_categories,
+    own_profile,
+    review_change,
+)
 from app.modules.specialists.domain.profile import Profile
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
@@ -22,14 +27,24 @@ class SetProfileCategoriesCommand:
 
 class SetProfileCategories:
     def __init__(
-        self, uow: UnitOfWork, profiles: ProfileRepository, catalog: CatalogApi, clock: Clock
+        self,
+        uow: UnitOfWork,
+        profiles: ProfileRepository,
+        catalog: CatalogApi,
+        clock: Clock,
+        identity: IdentityApi,
     ) -> None:
         self._uow, self._profiles, self._catalog, self._clock = uow, profiles, catalog, clock
+        self._identity = identity
 
     async def __call__(self, cmd: SetProfileCategoriesCommand) -> Profile:
+        # санкция на публикацию и галочка S02c — как у создания профиля (SEC-01)
+        await self._identity.ensure_allowed(cmd.actor_id, Action.POST)
         ids = await allowed_categories(self._catalog, cmd.category_ids)
+        now = self._clock.now()
         async with self._uow:
             profile = await own_profile(self._profiles, cmd.actor_id, cmd.expected_version)
-            profile.set_categories(ids, now=self._clock.now())
+            changed = profile.set_categories(ids, now=now)
             await self._profiles.save(profile)
+            review_change(self._uow, profile, ("category_ids",) if changed else (), now=now)
         return profile

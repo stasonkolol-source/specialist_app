@@ -4,6 +4,7 @@
 
 from dataclasses import dataclass
 
+from app.modules.identity.api import Action, IdentityApi
 from app.modules.specialists.application.ports import PortfolioRepository, ProfileRepository
 from app.modules.specialists.application.profiles import own_profile, request_work_review
 from app.modules.specialists.domain.portfolio import PortfolioItem, PortfolioItemId
@@ -27,11 +28,15 @@ class CaptionPortfolioWork:
         profiles: ProfileRepository,
         portfolio: PortfolioRepository,
         clock: Clock,
+        identity: IdentityApi,
     ) -> None:
         self._uow, self._profiles, self._portfolio = uow, profiles, portfolio
         self._clock = clock
+        self._identity = identity
 
     async def __call__(self, cmd: CaptionPortfolioWorkCommand) -> PortfolioItem:
+        # санкция на публикацию и галочка S02c — как у создания профиля (SEC-01)
+        await self._identity.ensure_allowed(cmd.actor_id, Action.POST)
         async with self._uow:
             profile = await own_profile(self._profiles, cmd.actor_id)
             profile.ensure_editable()

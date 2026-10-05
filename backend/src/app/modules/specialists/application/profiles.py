@@ -73,6 +73,17 @@ def needs_post_moderation(profile: Profile, changed: Iterable[str]) -> bool:
     return text_changed and profile.status in (ProfileStatus.PUBLISHED, ProfileStatus.HIDDEN)
 
 
+def review_change(
+    uow: UnitOfWork, profile: Profile, changed: Iterable[str], *, now: datetime
+) -> None:
+    """Правку видит модерация. Ждущий первой проверки — любая правка: карточка кейса показывает
+    прежнюю редакцию, и одобрить её нельзя — модерация закроет кейс как устаревший и откроет
+    новый с новой (ADV-11). Опубликованный или скрытый — правка текста: пост-модерация."""
+    changed = tuple(changed)
+    if changed and (profile.first_review or needs_post_moderation(profile, changed)):
+        request_review(uow, profile, edit=True, now=now)
+
+
 async def allowed_categories(catalog: CatalogApi, ids: Iterable[CategoryId]) -> list[CategoryId]:
     wanted = list(dict.fromkeys(ids))
     found = {summary.id: summary for summary in await catalog.categories(wanted)}

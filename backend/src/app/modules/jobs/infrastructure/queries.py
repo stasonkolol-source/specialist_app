@@ -692,7 +692,7 @@ def _view(row: RowMapping) -> JobView:
         notified_count=row["notified_count"],
         responses_seen_at=row["responses_seen_at"],
         moderation_note=row["moderation_note"],
-        version=row["version"],
+        version=row["revision"],
         created_at=row["created_at"],
         published_at=row["published_at"],
         expires_at=row["expires_at"],

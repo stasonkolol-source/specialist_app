@@ -81,6 +81,16 @@ class SqlReportRepository:
         )
         return len(result.all())
 
+    async def move_to_case(self, case_id: CaseId, successor_id: CaseId) -> int:
+        self._uow.require_active()
+        result = await self._session.execute(
+            update(ReportRow)
+            .where(_R.case_id == case_id, _R.status == ReportStatus.OPEN)
+            .values(case_id=successor_id)
+            .returning(_R.id)
+        )
+        return len(result.all())
+
 
 def _to_domain(row: ReportRow) -> Report:
     return Report(
@@ -98,7 +108,8 @@ def _to_domain(row: ReportRow) -> Report:
 
 class FacadeReportTargets:
     """Автор объекта, который видит жалующийся: опубликованный профиль (автор не скрыт
-    санкцией), заявка, опубликованный отзыв, сообщение его переписки, неудалённый аккаунт."""
+    санкцией), заявка, которую он может открыть, опубликованный отзыв, сообщение его переписки,
+    неудалённый аккаунт."""
 
     def __init__(
         self,
@@ -121,8 +132,8 @@ class FacadeReportTargets:
                     return None
                 return card.user_id
             case EntityType.JOB:
-                job = await self._jobs.job_brief(target_id)
-                return job.client_id if job is not None else None
+                # видимость — как у GET /jobs/{id}: чужой прямой запрос и закрытая — 404
+                return await self._jobs.visible_author(target_id, reporter_id)
             case EntityType.REVIEW:
                 review = await self._reviews.published_review(target_id)
                 return review.author_id if review is not None else None

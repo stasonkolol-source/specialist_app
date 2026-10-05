@@ -104,6 +104,7 @@ class ProfileForReview:
     text: str
     """Имя, «коротко о себе» и «о себе» — одним текстом."""
     version: int
+    """Редакция профиля (`Profile.revision`): решение модератора действует только на неё."""
     first_review: bool
     """Новый профиль или переход в «Специалист»: проверяет человек (P2, §14.1)."""
     risk_level: int
@@ -133,6 +134,8 @@ class WorkForReview:
     user_id: UserId
     caption: str | None
     media_id: MediaId
+    revision: int
+    """Редакция подписи: решение модератора действует только на неё (ADV-11)."""
     pending: bool
     """Ждёт проверки (новая); False — опубликована, проверяется правка подписи."""
     new_profile: bool
@@ -229,10 +232,13 @@ class SpecialistsApi(Protocol):
         удалена, скрыта модератором или профиля больше нет."""
         ...
 
-    async def approve_work(self, work_id: UUID, *, auto: bool = False) -> None:
+    async def approve_work(
+        self, work_id: UUID, *, version: int | None = None, auto: bool = False
+    ) -> None:
         """Проверка пройдена — в транзакции вызывающего: работа опубликована (скрытая при P0 —
         возвращена решением модератора); удалённая — ничего. `auto` — итог автопроверки: только
-        ждущую проверки, скрытую модератором, пока проверка шла, — нет."""
+        ждущую проверки, скрытую модератором, пока проверка шла, — нет. `version` — редакция
+        подписи, которую проверяли: другая (исполнитель успел поправить) — ничего."""
         ...
 
     async def reject_work(self, work_id: UUID) -> None:

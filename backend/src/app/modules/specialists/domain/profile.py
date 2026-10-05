@@ -121,6 +121,10 @@ class Profile(VersionedAggregate):
     """Фото профиля (S34): файл media с назначением avatar; None — инициалы."""
     deleted_at: datetime | None = None
     """Удалён вместе с аккаунтом (`forget`): репозиторий удалённых не загружает."""
+    revision: int = 1
+    """Редакция того, что пишет и выбирает исполнитель (тексты, услуги, районы, фото, тип):
+    растёт только с его правкой. Модератор решает о редакции, которую видел (ADV-11);
+    «доступен сегодня», пауза и отметки системы её не меняют, в отличие от `version`."""
 
     @classmethod
     def create(
@@ -157,6 +161,8 @@ class Profile(VersionedAggregate):
         changed = tuple(name for name, value in values.items() if getattr(self, name) != value)
         for name in changed:
             setattr(self, name, values[name])
+        if changed:
+            self.revision += 1
         if changed and self.status is not ProfileStatus.DRAFT:
             self._record(
                 ProfileUpdated(
@@ -210,10 +216,11 @@ class Profile(VersionedAggregate):
         )
 
     def approve(self, *, now: datetime, version: int | None = None) -> bool:
-        """Модерация одобрила: опубликовать. False — нечего (не ждёт проверки, другая версия)."""
+        """Модерация одобрила: опубликовать. `version` — редакция, которую проверяли. False —
+        нечего (не ждёт проверки, другая редакция: исполнитель успел поправить)."""
         if self.status is not ProfileStatus.PENDING_REVIEW:
             return False
-        if version is not None and version != self.version:
+        if version is not None and version != self.revision:
             return False
         self.status = ProfileStatus.PUBLISHED
         self.published_at = now
@@ -281,6 +288,7 @@ class Profile(VersionedAggregate):
         if self.status is not ProfileStatus.DRAFT:
             raise ProfileStateError(profile_status=self.status.value)
         self.kind = kind
+        self.revision += 1
         self.listed_in_catalog = kind is ProfileKind.PRO
         return True
 
@@ -291,6 +299,7 @@ class Profile(VersionedAggregate):
         if media_id == self.avatar_media_id:
             return False
         self.avatar_media_id = media_id
+        self.revision += 1
         if self.status is not ProfileStatus.DRAFT:
             self._record(
                 ProfileUpdated(
@@ -372,6 +381,7 @@ class Profile(VersionedAggregate):
         if getattr(self, name) == value:
             return ()
         setattr(self, name, value)
+        self.revision += 1
         if self.status is not ProfileStatus.DRAFT:
             self._record(
                 ProfileUpdated(

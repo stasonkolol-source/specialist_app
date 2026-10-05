@@ -330,3 +330,72 @@ async def test_bot_added_by_staff_tells_the_chat_id(harness: BotHarness) -> None
     assert sent(by_stranger) == []
     assert migrated.chat_id == GROUP - 2
     assert f"TELEGRAM_MODERATORS_CHAT_ID={GROUP - 2}" in migrated.text
+
+
+async def open_version(harness: BotHarness, subject: UserId, version: int) -> CaseId:
+    """Кейс о версии объекта: новая версия заменяет открытый кейс прежней (ADV-11)."""
+    async with harness.container() as request:
+        return await (await request.get(OpenCase))(
+            OpenCaseCommand(
+                queue=Queue.PREMOD,
+                entity_type=EntityType.USER,
+                entity_id=subject,
+                subject_id=subject,
+                trigger=CaseTrigger.NEW_CONTENT if version == 1 else CaseTrigger.EDIT,
+                details={"signals": ["demo"]},
+                entity_version=version,
+            )
+        )
+
+
+async def post_card(harness: BotHarness, case_id: CaseId) -> list[TelegramMethod[Any]]:
+    before = len(harness.session.calls)
+    async with harness.container() as request:
+        assert await (await request.get(PostCaseCard))(PostCaseCardCommand(case_id=case_id))
+    return harness.session.calls[before:]
+
+
+def labels(markup: Any) -> list[str]:
+    return [button.text for row in markup.inline_keyboard for button in row]
+
+
+async def test_stale_card_is_refused_and_loses_its_buttons(harness: BotHarness) -> None:
+    """ADV-11: объект изменили после карточки — новая карточка о новой версии, у прежней кнопки
+    гаснут; нажатие на прежнюю ничего не решает и отвечает, где смотреть."""
+    mod = await moderator(harness)
+    subject = await user_of(harness, telegram_user())
+    seen = await open_version(harness, subject, 1)
+    [card] = [c for c in await post_card(harness, seen) if isinstance(c, SendMessage)]
+
+    successor = await open_version(harness, subject, 2)
+    posted = await post_card(harness, successor)
+
+    [retired] = [c for c in posted if isinstance(c, EditMessageReplyMarkup)]
+    stored = await sql(
+        harness, "SELECT card_message_id FROM moderation.cases WHERE id = :id", id=seen
+    )
+    assert (retired.chat_id, retired.message_id) == (CHAT, stored.card_message_id)
+    assert labels(retired.reply_markup) == [
+        "Версия изменилась — смотрите новую карточку",
+        "Открыть в админке",
+    ]
+    [fresh] = [c for c in posted if isinstance(c, SendMessage)]
+    assert f"Кейс <code>{successor}</code>" in fresh.text
+    assert f"Кейс <code>{seen}</code>" in card.text
+
+    pressed = await harness.press(mod, press(CallbackAction.CASE_APPROVE, seen))
+
+    assert alerts(pressed) == ["Версия изменилась — смотрите новую карточку"]
+    assert edits(pressed) == []  # итога «Одобрено» нет
+    [markup] = [c for c in pressed if isinstance(c, EditMessageReplyMarkup)]
+    assert labels(markup.reply_markup)[0] == "Версия изменилась — смотрите новую карточку"
+    row = await case_row(harness, seen)
+    assert (row.status, row.reason_code, row.decided_by) == ("approved", "superseded", None)
+    assert (await case_row(harness, successor)).status == "pending"
+    notice = await sql(
+        harness,
+        "SELECT count(*) AS n FROM procrastinate_jobs WHERE task_name ="
+        " 'notifications.notify_moderation_decision' AND args->'payload'->>'author_id' = :user",
+        user=str(subject),
+    )
+    assert notice.n == 0  # устаревший кейс решения не принимал
