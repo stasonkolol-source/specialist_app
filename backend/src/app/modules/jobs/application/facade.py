@@ -85,13 +85,15 @@ class JobsFacade(JobsApi):
             district_id=content.place.district_id,
         )
 
-    async def approve_job(self, job_id: UUID, *, version: int | None) -> None:
+    async def approve_job(
+        self, job_id: UUID, *, version: int | None, reviewed: bool = False
+    ) -> None:
         self._uow.require_active()
         try:
             job = await self._jobs.get_for_update(JobId(job_id))
         except JobNotFoundError:
             return
-        if job.approve(version=version, now=self._clock.now()):
+        if job.approve(version=version, now=self._clock.now(), reviewed=reviewed):
             await self._jobs.save(job)
 
     async def reject_job(self, job_id: UUID, *, reason_code: str) -> None:

@@ -19,6 +19,10 @@ deals) и web_app «Посмотреть условия». Спор (6.1c): `dis
 подпискам с «Открыть ленту», `profile.stale_reminder` — «Включить «Доступен сегодня»» (S38) и
 «Обновить профиль» (S33).
 
+У срока заявки, кроме callback-кнопок, — «Открыть заявку»; у «Выбрали другого» и «Заявка закрыта
+без выбора» — «Мои отклики» (S17), у «Заявка опубликована» — «Открыть заявку»: каждая кнопка ведёт
+к объекту, о котором текст (UX-аудит №11). Слова статусов — словарь packages/i18n/GLOSSARY.md.
+
 Шаблоны есть у типов, которые создаёт подписчик (tasks.py): тип без шаблонов — ошибка
 программиста, её ловит тест на каталоги.
 """
@@ -64,15 +68,18 @@ RENDERED = frozenset(
         NotificationType.MODERATION_DECISION,
         NotificationType.SYSTEM_TEST,
         NotificationType.PROFILE_PUBLISHED,
+        NotificationType.JOB_PUBLISHED,
         NotificationType.JOB_EXPIRING,
         NotificationType.JOB_EXPIRED,
         NotificationType.RESPONSE_RECEIVED,
         NotificationType.JOB_INVITED,
         NotificationType.RESPONSE_ACCEPTED,
         NotificationType.RESPONSE_NOT_SELECTED,
+        NotificationType.RESPONSE_DECLINED,
         NotificationType.MESSAGE_RECEIVED,
         NotificationType.DEAL_PROPOSED,
         NotificationType.DEAL_CANCELLED,
+        NotificationType.DEAL_COMPLETED,
         NotificationType.DEAL_REMINDER,
         NotificationType.DEAL_COMPLETION_PROMPT,
         NotificationType.REVIEW_REQUEST,
@@ -107,8 +114,10 @@ BUTTONS: Mapping[NotificationType, str] = MappingProxyType(
         NotificationType.MODERATION_DECISION: "notifications.moderation_decision.button",
         NotificationType.SYSTEM_TEST: "notifications.system_test.button",
         NotificationType.PROFILE_PUBLISHED: "notifications.profile_published.button",
+        NotificationType.JOB_PUBLISHED: "notifications.job_matched.open",
         NotificationType.RESPONSE_RECEIVED: "notifications.response_received.button",
         NotificationType.RESPONSE_ACCEPTED: "notifications.deal.open",
+        NotificationType.RESPONSE_NOT_SELECTED: "notifications.my_responses.button",
         NotificationType.MESSAGE_RECEIVED: "notifications.message_received.button",
         NotificationType.DEAL_CANCELLED: "notifications.deal.open",
         NotificationType.DEAL_REMINDER: "notifications.deal.open",
@@ -124,7 +133,9 @@ TITLED: Mapping[NotificationType, str] = MappingProxyType(
     {
         NotificationType.RESPONSE_ACCEPTED: "response_accepted",
         NotificationType.RESPONSE_NOT_SELECTED: "response_not_selected",
+        NotificationType.RESPONSE_DECLINED: "response_declined",
         NotificationType.DEAL_COMPLETION_PROMPT: "deal_completion_prompt",
+        NotificationType.JOB_PUBLISHED: "job_published",
     }
 )
 """Шаблоны «заголовок + текст с названием»: `notifications.<ключ>.title` и `.body`."""
@@ -132,6 +143,8 @@ TITLED: Mapping[NotificationType, str] = MappingProxyType(
 JOB_CLOSED = "job_closed"
 """`reason` у `response.not_selected`: заявку закрыли — свой заголовок и текст, без «выбрал
 другого» (`notifications.response_job_closed.*`)."""
+COMPLETED_BY = frozenset({"client", "auto"})
+"""Как завершилась сделка (`by` у `deal.completed`): клиент подтвердил или прошло 3 дня."""
 
 DEAL_CANCEL_REASONS = frozenset({"plans_changed", "no_agreement", "no_contact", "other"})
 """Причины, которые выбирает сторона (`deal_cancel_reason.*`); `expired` и `account_deleted` —
@@ -198,6 +211,16 @@ class GettextNotificationRenderer:
             )
         if type_ is NotificationType.DEAL_COMPLETION_PROMPT and params.get("by") in SIDES:
             return self._marked_done(params["by"], params, locale)
+        if type_ is NotificationType.DEAL_COMPLETED:
+            by = params.get("by", "client")
+            return RenderedText(
+                title=self._t("notifications.deal_completed.title", locale),
+                body=self._t(
+                    f"notifications.deal_completed.body_{by if by in COMPLETED_BY else 'client'}",
+                    locale,
+                    title=_short(params.get("title")),
+                ),
+            )
         if type_ is NotificationType.REVIEW_REQUEST:
             stage = params.get("stage", "first")
             stage = stage if stage in REVIEW_STAGES else "first"
@@ -282,7 +305,7 @@ class GettextNotificationRenderer:
         if type_ is NotificationType.PROFILE_STALE_REMINDER:
             return message, self._stale_buttons(locale)
         if type_ in JOB_TERM:
-            return message, self._job_buttons(type_, params, locale)
+            return message, self._job_buttons(type_, params, link, locale)
         if type_ is NotificationType.JOB_INVITED:
             return message, self._invite_buttons(params, link, locale)
         if type_ is NotificationType.DEAL_COMPLETION_PROMPT:
@@ -511,12 +534,26 @@ class GettextNotificationRenderer:
         )
 
     def _job_buttons(
-        self, type_: NotificationType, params: Mapping[str, str], locale: Locale
+        self,
+        type_: NotificationType,
+        params: Mapping[str, str],
+        link: str | None,
+        locale: Locale,
     ) -> tuple[ButtonLine, ...]:
+        """«Продлить» (если ещё можно), «Закрыть» — callback бота jobs, и «Открыть заявку» (S23):
+        решить, продлевать ли, проще, глядя на отклики."""
+        opened: list[Button] = []
+        if link is not None and self._mini_app is not None:
+            opened.append(
+                AppButton(
+                    text=self._t("notifications.job_matched.open", locale),
+                    url=mini_app_url(self._mini_app, link),
+                )
+            )
         try:
             job_id = UUID(params.get("job_id", ""))
         except ValueError:
-            return ()
+            return tuple(opened)
         buttons: list[Button] = []
         if params.get("can_extend") == "true":
             buttons.append(
@@ -536,7 +573,7 @@ class GettextNotificationRenderer:
                 ),
             )
         )
-        return tuple(buttons)
+        return (*buttons, *opened)
 
     def _marked_done(self, by: str, params: Mapping[str, str], locale: Locale) -> RenderedText:
         """B2 после отметки второй стороны: «Алексей: работа «…» выполнена. Всё в порядке?» — имя

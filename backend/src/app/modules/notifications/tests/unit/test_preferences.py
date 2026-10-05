@@ -129,9 +129,15 @@ def test_catalog_follows_the_architecture() -> None:
     assert {t for t, spec in CATALOG.items() if spec.group in MANDATORY_GROUPS} == {
         NotificationType.MODERATION_DECISION,
         NotificationType.PROFILE_PUBLISHED,  # тоже решение модерации
+        NotificationType.JOB_PUBLISHED,  # и это: заявку опубликовал модератор
         NotificationType.ACCOUNT_RESTRICTED,
         NotificationType.DISPUTE_RESOLVED,  # решение по спору — statement of reasons (6.1c)
         NotificationType.SYSTEM_TEST,
+    }
+    # исходы для исполнителя — только в центре S42, в бот не пишем (UX-аудит №11)
+    assert {t for t, spec in CATALOG.items() if Channel.TELEGRAM not in spec.channels} == {
+        NotificationType.RESPONSE_DECLINED,
+        NotificationType.DEAL_COMPLETED,
     }
 
 

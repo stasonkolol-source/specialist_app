@@ -36,8 +36,10 @@ from app.platform.ai.stubs import NoModeration, NoPolicyClassifier
 from app.platform.contracts.events.moderation import ModerationDecision
 from app.platform.kernel.ids import UserId, new_id
 from app.platform.settings import Settings
+from app.platform.telegram.deeplinks import LinkType, StartLink, encode_start_param
 from tests.plugins.http import HttpApp, bearer, http_app
 from tests.plugins.identity import accept_rules, insert_user
+from tests.plugins.queue import run_queued
 
 pytestmark = pytest.mark.integration
 
@@ -81,6 +83,12 @@ async def worker_without_ai(storage_settings: Settings) -> AsyncIterator[AsyncCo
         yield container
     finally:
         await container.close()
+
+
+async def rows(container: AsyncContainer, sql: str, **params: object) -> list[Any]:
+    engine = await container.get(AsyncEngine)
+    async with engine.connect() as conn:
+        return list((await conn.execute(text(sql), params)).all())
 
 
 async def scalar(container: AsyncContainer, sql: str, **params: object) -> Any:
@@ -387,6 +395,34 @@ async def decide(worker: AsyncContainer, case_id: Any) -> None:
         await (await request.get(DecideCase))(
             DecideCaseCommand(case_id=case_id, verdict=ModerationDecision.APPROVED)
         )
+
+
+async def test_client_hears_only_about_a_publication_after_manual_review(
+    web: HttpApp,
+    worker: AsyncContainer,
+    storage_settings: Settings,
+    clients: list[Client],
+    body: dict[str, Any],
+) -> None:
+    """UX-аудит №11 (G-A): заявку с телефоном опубликовал модератор — клиенту «Заявка
+    опубликована» с кнопкой к ней; чистую публикует автопроверка за миллисекунды — S21 видит это
+    сам, и в бот ничего не уходит."""
+    me = await new_client(web, storage_settings, clients)
+    await published(worker, me, body)  # чистая: автопроверка
+    leaking = await me.created(body | {"description": "Люстра. Звоните: +381 64 123 4567"})
+    assert (await auto_check(worker, me, leaking["id"])).queue is Queue.PREMOD
+
+    await decide(worker, await case_of(web.container, leaking["id"]))
+
+    task = "notifications.notify_job_published"
+    assert await run_queued(worker, task, user_id=me.user_id, by="client_id") == 2  # обе
+    notices = await rows(
+        web.container,
+        "SELECT type, payload FROM notifications.notifications WHERE user_id = :user",
+        user=me.user_id,
+    )
+    link = encode_start_param(StartLink(type=LinkType.JOB, id=UUID(leaking["id"])))
+    assert [(row.type, row.payload["link"]) for row in notices] == [("job.published", link)]
 
 
 @pytest.mark.parametrize("checked", [True, False], ids=["edit_checked", "decision_first"])
