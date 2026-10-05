@@ -21,7 +21,7 @@ from app.modules.reviews.domain.review import (
     Review,
     ReviewStatus,
 )
-from app.platform.http.fields import CleanText
+from app.platform.http.fields import CleanText, OptionalCleanText
 from app.platform.kernel.ids import DealId, UserId
 from app.platform.text.names import short_name
 
@@ -34,22 +34,22 @@ class ReviewIn(BaseModel):
         default_factory=dict,
         description="По желанию: качество, пунктуальность, общение, соответствие цене — 1–5",
     )
-    body: CleanText | None = Field(default=None, max_length=MAX_BODY, description="Текст, до 2000")
+    body: OptionalCleanText = Field(default=None, max_length=MAX_BODY, description="Текст, до 2000")
 
 
 class InviteReviewIn(BaseModel):
     """«Отзыв до платформы» по приглашению (S56): без критериев — их у прошлой работы не было."""
 
     rating: Stars = Field(description="Оценка 1–5")
-    work_title: CleanText | None = Field(
+    work_title: OptionalCleanText = Field(
         default=None, max_length=MAX_WORK_TITLE, description="«Что делал мастер», до 120"
     )
-    body: CleanText | None = Field(default=None, max_length=MAX_BODY, description="Текст, до 2000")
+    body: OptionalCleanText = Field(default=None, max_length=MAX_BODY, description="Текст, до 2000")
     confirmed: Literal[True] = Field(description="Галочка «Подтверждаю…» — только true")
 
 
 class ReviewInviteIn(BaseModel):
-    client_name: CleanText | None = Field(
+    client_name: OptionalCleanText = Field(
         default=None,
         max_length=MAX_CLIENT_NAME,
         description="Кому отправлена ссылка — заметка для себя в списке S55, по желанию",

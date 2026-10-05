@@ -28,5 +28,9 @@ def _clean(value: object) -> object:
     return clean_text(value) if isinstance(value, str) else value
 
 
-CleanText = Annotated[str, BeforeValidator(_clean)]
+_CLEAN = BeforeValidator(_clean)
+CleanText = Annotated[str, _CLEAN]
 """Свободный текст с клиента: заголовок, сообщение, отзыв, подпись, комментарий."""
+OptionalCleanText = Annotated[str | None, _CLEAN]
+"""То же, необязательное. Не `OptionalCleanText`: тогда `min_length` и `max_length` поля pydantic
+проверяет отдельным шагом с другим кодом ошибки (`too_long` вместо `string_too_long`)."""

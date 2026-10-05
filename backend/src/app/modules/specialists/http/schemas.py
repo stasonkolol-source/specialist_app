@@ -21,14 +21,14 @@ from app.modules.specialists.domain.profile import (
     ProfileStatus,
     WorkMode,
 )
-from app.platform.http.fields import INT4_MAX, CategoryIdIn, CleanText, DistrictIdIn
+from app.platform.http.fields import INT4_MAX, CategoryIdIn, DistrictIdIn, OptionalCleanText
 
 
 class ProfileCreateIn(BaseModel):
     kind: ProfileKind
     city_id: int = Field(ge=1, le=INT4_MAX)
     """Город из онбординга (GET /me)."""
-    display_name: CleanText | None = Field(default=None, max_length=MAX_NAME)
+    display_name: OptionalCleanText = Field(default=None, max_length=MAX_NAME)
     """Пусто — имя из Telegram."""
 
 
@@ -39,9 +39,9 @@ class ProfileUpdateIn(BaseModel):
     kind: ProfileKind | None = None
     """Только у черновика (иначе 409 `profile_state_conflict`); «Подработка → Специалист» у
     проверенного профиля — POST /me/profile/become-pro."""
-    display_name: CleanText | None = Field(default=None, max_length=MAX_NAME)
-    headline: CleanText | None = Field(default=None, max_length=MAX_HEADLINE)
-    about: CleanText | None = Field(default=None, max_length=MAX_ABOUT)
+    display_name: OptionalCleanText = Field(default=None, max_length=MAX_NAME)
+    headline: OptionalCleanText = Field(default=None, max_length=MAX_HEADLINE)
+    about: OptionalCleanText = Field(default=None, max_length=MAX_ABOUT)
     languages: list[Language] | None = Field(default=None, max_length=len(Language))
     travel_radius_km: Literal[3, 5, 10] | None = None
     work_modes: list[WorkMode] | None = Field(default=None, max_length=len(WorkMode))
@@ -136,11 +136,11 @@ class PortfolioOut(BaseModel):
 class WorkIn(BaseModel):
     media_id: UUID
     """Загруженный файл с назначением portfolio (POST /media/uploads)."""
-    caption: CleanText | None = Field(default=None, max_length=MAX_CAPTION)
+    caption: OptionalCleanText = Field(default=None, max_length=MAX_CAPTION)
 
 
 class WorkCaptionIn(BaseModel):
-    caption: CleanText | None = Field(max_length=MAX_CAPTION)
+    caption: OptionalCleanText = Field(max_length=MAX_CAPTION)
     """Пустая или null — без подписи."""
 
 

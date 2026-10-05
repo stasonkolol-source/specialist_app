@@ -64,7 +64,13 @@ from app.modules.jobs.domain.response import (
 )
 from app.modules.jobs.domain.template import MAX_TEMPLATE_TITLE, MAX_TEMPLATES, ResponseTemplate
 from app.modules.jobs.errors import InvalidResponseError, InvalidTemplateError
-from app.platform.http.fields import CategoryIdIn, CityIdIn, CleanText, DistrictIdIn
+from app.platform.http.fields import (
+    CategoryIdIn,
+    CityIdIn,
+    CleanText,
+    DistrictIdIn,
+    OptionalCleanText,
+)
 from app.platform.http.money import MoneyOut
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId
@@ -101,7 +107,7 @@ class JobIn(BaseModel):
     point: JobPointIn | None = Field(
         default=None, description="Точная точка: видит только выбранный исполнитель"
     )
-    address_private: CleanText | None = Field(
+    address_private: OptionalCleanText = Field(
         default=None, max_length=MAX_ADDRESS, description="Подъезд и этаж — тоже только ему"
     )
     preferred_from: datetime | None = None
@@ -353,7 +359,7 @@ class ResponseOfferIn(BaseModel):
     price_amount: int | None = Field(
         default=None, ge=1, le=MAX_PRICE, description="Пара; у договорной — нет"
     )
-    availability_note: CleanText | None = Field(
+    availability_note: OptionalCleanText = Field(
         default=None, max_length=MAX_AVAILABILITY, description="«Сегодня, 19:00»"
     )
 
@@ -555,11 +561,11 @@ class ResponseTemplatePatchIn(BaseModel):
     вместе (без `price_amount` — суммы нет). `primary: true` — «Сделать основным»: шаблон
     становится первым."""
 
-    title: CleanText | None = Field(default=None, min_length=1, max_length=MAX_TEMPLATE_TITLE)
-    message: CleanText | None = Field(default=None, min_length=1, max_length=MAX_MESSAGE)
+    title: OptionalCleanText = Field(default=None, min_length=1, max_length=MAX_TEMPLATE_TITLE)
+    message: OptionalCleanText = Field(default=None, min_length=1, max_length=MAX_MESSAGE)
     price_type: ResponsePriceType | None = None
     price_amount: int | None = Field(default=None, ge=1, le=MAX_PRICE)
-    availability_note: CleanText | None = Field(default=None, max_length=MAX_AVAILABILITY)
+    availability_note: OptionalCleanText = Field(default=None, max_length=MAX_AVAILABILITY)
     primary: bool = False
 
     @model_validator(mode="after")

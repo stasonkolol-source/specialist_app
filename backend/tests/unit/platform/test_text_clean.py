@@ -3,7 +3,7 @@
 обрезает и пустой текст отклоняет домен своим кодом, как раньше."""
 
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from app.modules.deals.http.schemas import DisputeAnswerIn, DisputeIn
 from app.modules.identity.http.schemas import MeUpdateIn
@@ -101,6 +101,24 @@ def test_nul_is_stripped_from_every_text_the_finding_listed() -> None:
     assert ReplyIn.model_validate({"body": nul}).body == "[QA] ab"
     assert DisputeIn.model_validate({"kind": "other", "description": nul}).description == "[QA] ab"
     assert DisputeAnswerIn.model_validate({"text": nul}).text == "[QA] ab"
+
+
+@pytest.mark.parametrize(
+    ("model", "body", "code"),
+    [
+        (MeUpdateIn, {"display_name": ""}, "string_too_short"),
+        (MeUpdateIn, {"display_name": "x" * 65}, "string_too_long"),
+        (MessageIn, {"body": ""}, "string_too_short"),
+        (ReplyIn, {"body": "x" * 2001}, "string_too_long"),
+    ],
+)
+def test_length_errors_keep_their_codes(
+    model: type[BaseModel], body: dict[str, str], code: str
+) -> None:
+    """Очистка не меняет коды ошибок длины: клиент и тексты ошибок их знают."""
+    with pytest.raises(ValidationError) as error:
+        model.model_validate(body)
+    assert error.value.errors()[0]["type"] == code
 
 
 def test_job_languages_are_the_supported_codes() -> None:

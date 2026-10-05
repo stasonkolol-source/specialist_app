@@ -2,8 +2,10 @@
 
 - Каждое целое число на входе (путь, запрос, тело) — с верхней границей или из перечня: иначе
   2^31 в id справочника доходит до базы, и вместо 422 — 500 `integer out of range`.
-- Каждая свободная строка тела Mini App — `CleanText`: NUL и невидимые символы вычищаются до
-  проверок длины. Исключения — подписанные и служебные значения, их менять нельзя.
+- Каждая свободная строка тела Mini App — `CleanText` (`OptionalCleanText`): NUL и невидимые
+  символы вычищаются до проверок длины. Исключения — подписанные и служебные значения, их
+  менять нельзя. `CleanText | None` нельзя: длину поля pydantic тогда проверяет с другим
+  кодом ошибки, и клиенту приходит `too_long` вместо `string_too_long`.
 """
 
 from collections.abc import Iterator
@@ -114,3 +116,18 @@ def test_free_text_in_request_bodies_is_cleaned() -> None:
         and not all(_strings(field.annotation, CLEAN in field.metadata))
     ]
     assert sorted(raw) == []
+
+
+def test_optional_clean_text_keeps_pydantic_error_codes() -> None:
+    """`CleanText | None` — объединение с очисткой внутри: так длину проверяет не строка."""
+    wrapped = [
+        f"{model.__name__}.{name}"
+        for model in _body_models()
+        for name, field in model.model_fields.items()
+        if get_origin(field.annotation) in (Union, UnionType)
+        and any(
+            get_origin(arg) is Annotated and CLEAN in get_args(arg)[1:]
+            for arg in get_args(field.annotation)
+        )
+    ]
+    assert sorted(wrapped) == []

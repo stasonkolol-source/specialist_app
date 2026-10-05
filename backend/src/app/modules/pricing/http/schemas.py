@@ -14,7 +14,7 @@ from app.modules.pricing.domain.service import (
     PriceType,
     Service,
 )
-from app.platform.http.fields import INT4_MAX, CleanText
+from app.platform.http.fields import INT4_MAX, CleanText, OptionalCleanText
 from app.platform.http.money import MoneyOut
 from app.platform.kernel.money import Currency, Money
 
@@ -26,9 +26,9 @@ class ServiceIn(BaseModel):
     """Пара (1 RSD = 100 пара); у договорной не нужна."""
     price_max: int | None = Field(default=None, ge=0, le=MAX_PRICE)
     """Только у диапазона."""
-    description: CleanText | None = Field(default=None, max_length=MAX_DESCRIPTION)
+    description: OptionalCleanText = Field(default=None, max_length=MAX_DESCRIPTION)
     category_id: int | None = Field(default=None, ge=1, le=INT4_MAX)
-    unit: CleanText | None = Field(default=None, max_length=MAX_UNIT)
+    unit: OptionalCleanText = Field(default=None, max_length=MAX_UNIT)
     duration_min: int | None = Field(default=None, ge=1, le=MAX_DURATION_MIN)
 
 
@@ -36,13 +36,13 @@ CLEARABLE = Literal["description", "category_id", "price_max", "unit", "duration
 
 
 class ServiceUpdateIn(BaseModel):
-    title: CleanText | None = Field(default=None, min_length=1, max_length=MAX_TITLE)
+    title: OptionalCleanText = Field(default=None, min_length=1, max_length=MAX_TITLE)
     price_type: PriceType | None = None
     price_min: int | None = Field(default=None, ge=0, le=MAX_PRICE)
     price_max: int | None = Field(default=None, ge=0, le=MAX_PRICE)
-    description: CleanText | None = Field(default=None, max_length=MAX_DESCRIPTION)
+    description: OptionalCleanText = Field(default=None, max_length=MAX_DESCRIPTION)
     category_id: int | None = Field(default=None, ge=1, le=INT4_MAX)
-    unit: CleanText | None = Field(default=None, max_length=MAX_UNIT)
+    unit: OptionalCleanText = Field(default=None, max_length=MAX_UNIT)
     duration_min: int | None = Field(default=None, ge=1, le=MAX_DURATION_MIN)
     is_active: bool | None = None
     """false — «Скрыта»: в профиле позиция не показывается."""

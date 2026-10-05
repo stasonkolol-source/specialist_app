@@ -23,7 +23,7 @@ from app.modules.messaging.domain.message import (
     MessageModeration,
     SystemEvent,
 )
-from app.platform.http.fields import BIGINT_MAX, CleanText
+from app.platform.http.fields import BIGINT_MAX, CleanText, OptionalCleanText
 from app.platform.kernel.ids import UserId
 
 
@@ -227,7 +227,7 @@ class ConversationStartOut(BaseModel):
 
 class MessageIn(BaseModel):
     body: CleanText = Field(min_length=1, max_length=MAX_BODY)
-    client_msg_id: CleanText | None = Field(
+    client_msg_id: OptionalCleanText = Field(
         default=None, max_length=MAX_CLIENT_ID, description="Повтор с тем же — то же сообщение"
     )
 
