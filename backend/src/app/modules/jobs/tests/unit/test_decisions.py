@@ -18,6 +18,7 @@ from app.modules.jobs.domain.response import (
 from app.modules.jobs.errors import (
     JobFullError,
     JobNotOpenError,
+    OfferChangedError,
     ResponseNotActiveError,
     ResponseNotFoundError,
 )
@@ -192,3 +193,31 @@ def test_assigned_job_is_not_closed_or_deleted_by_the_client() -> None:
     job.delete(now=LATER, by_system=True)  # аккаунт удалён — закрывается и она
 
     assert job.status is JobStatus.CLOSED
+
+
+def test_accept_refuses_an_offer_the_client_did_not_see() -> None:
+    """ADV-08: исполнитель поправил цену, пока клиент держал S25 открытым, — выбор с прежней
+    редакцией (If-Match) — 409 с нынешней ценой; заявка не меняется. С нынешней — выбран."""
+    job = published()
+    response = respond(job)
+    seen = response.revision
+    job.revise_response(
+        response.id,
+        performer_id=response.performer_id,
+        offer=Offer(message="Дороже", price_type=ResponsePriceType.FIXED, price_amount=99_999_900),
+        now=LATER,
+    )
+    assert job.clear_response(response.id, revision=None, now=LATER)
+
+    with pytest.raises(OfferChangedError) as changed:
+        job.accept_response(response.id, client_id=CLIENT, now=LATER, revision=seen)
+
+    assert changed.value.params == {
+        "response_id": response.id,
+        "revision": seen + 1,
+        "price_type": "fixed",
+        "price_amount": 99_999_900,
+    }
+    assert (job.status, response.status) == (JobStatus.PUBLISHED, ResponseStatus.SUBMITTED)
+    job.accept_response(response.id, client_id=CLIENT, now=LATER, revision=seen + 1)
+    assert response.status is ResponseStatus.ACCEPTED

@@ -175,6 +175,8 @@ class OwnerResponseView:
     is_new: bool
     """Клиент его ещё не видел: прошёл проверку или поправлен после прошлого просмотра."""
     created_at: datetime
+    revision: int = 1
+    """Редакция предложения: S25 передаёт её в If-Match при выборе (ADV-08)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

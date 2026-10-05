@@ -322,6 +322,20 @@ class SqlJobQueries(SqlQuery):
         )
         return _my_response(row) if row is not None else None
 
+    async def owner_response(self, client_id: UserId, response_id: ResponseId) -> MyResponse | None:
+        row = await self._fetch_one(
+            select(*_RESPONSE, _IS_FIRST, *_RESPONSE_JOB)
+            .join_from(ResponseRow, JobRow, _J.id == _R.job_id)
+            .where(
+                _R.id == response_id,
+                _J.client_id == client_id,
+                _R.review == ResponseReview.CLEAR.value,
+                _R.deleted_at.is_(None),
+                _J.deleted_at.is_(None),
+            )
+        )
+        return _my_response(row) if row is not None else None
+
     async def my_response_counts(self, performer_id: UserId) -> dict[ResponseGroup, int]:
         rows = await self._fetch(
             select(_R.status, func.count().label("count"))
@@ -507,6 +521,7 @@ _RESPONSE = (
     _R.profile_id,
     _R.status,
     _R.review,
+    _R.revision,
     _R.message,
     _R.price_type,
     _R.price_amount,
@@ -548,9 +563,11 @@ def _my_response(row: RowMapping) -> MyResponse:
     district = row["district_id"]
     return MyResponse(
         id=ResponseId(row["id"]),
+        performer_id=UserId(row["performer_id"]),
         status=ResponseStatus(row["status"]),
         review=ResponseReview(row["review"]),
         offer=_offer(row),
+        revision=row["revision"],
         is_first=bool(row["is_first"]),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
@@ -583,6 +600,7 @@ def _owner_response(row: RowMapping) -> OwnerResponse:
         profile_id=row["profile_id"],
         status=ResponseStatus(row["status"]),
         offer=_offer(row),
+        revision=row["revision"],
         is_first=bool(row["is_first"]),
         created_at=row["created_at"],
         updated_at=row["updated_at"],

@@ -459,6 +459,88 @@ async def test_revising_and_withdrawing_bump_the_job_version(world: World) -> No
     assert (peeked.status_code, peeked.json()["code"]) == (404, "response_not_found")
 
 
+@pytest.mark.authz
+async def test_authz_owner_reads_a_response_strangers_do_not(
+    world: World, worker: AsyncContainer
+) -> None:
+    """owner-404: GET /responses/{id} — исполнителю и владельцу заявки (владельцу — видимый ему в
+    S23: после проверки и без блокировки), постороннему — 404. ETag — редакция предложения."""
+    client, performer, stranger = await world.user(), await world.user(), await world.user()
+    job_id = await world.job(client)
+    response = await world.responded(performer, job_id)
+    path = f"{API}/responses/{response['id']}"
+
+    hidden = await world.app.client.get(path, headers=world.headers(client))
+    assert (hidden.status_code, hidden.json()["code"]) == (404, "response_not_found")  # на проверке
+    await auto_check(worker, performer, response["id"])
+
+    owner = await world.app.client.get(path, headers=world.headers(client))
+    mine = await world.app.client.get(path, headers=world.headers(performer))
+    other = await world.app.client.get(path, headers=world.headers(stranger))
+
+    assert (owner.status_code, owner.headers["ETag"]) == (200, '"1"'), owner.text
+    assert (owner.json()["id"], owner.json()["message"]) == (response["id"], response["message"])
+    assert (mine.status_code, mine.headers["ETag"]) == (200, '"1"')
+    assert (other.status_code, other.json()["code"]) == (404, "response_not_found")
+    blocked = await world.app.client.put(
+        f"{API}/me/blocks/{performer}", headers=world.headers(client)
+    )
+    assert blocked.status_code == 204
+    gone = await world.app.client.get(path, headers=world.headers(client))
+    assert (gone.status_code, gone.json()["code"]) == (404, "response_not_found")
+
+
+async def test_accept_with_a_stale_offer_revision_is_refused(
+    world: World, worker: AsyncContainer
+) -> None:
+    """ADV-08: клиент выбирает с If-Match редакции, которую видел на S25; исполнитель успел
+    поднять цену — 409 offer_changed с нынешней ценой и без сделки; с новой редакцией — выбран.
+    Без заголовка — как раньше."""
+    client, performer = await world.user(), await world.user()
+    job_id = await world.job(client)
+    response = await world.responded(performer, job_id)
+    await auto_check(worker, performer, response["id"])
+    [card] = (
+        await world.app.client.get(
+            f"{API}/jobs/{job_id}/response-cards", headers=world.headers(client)
+        )
+    ).json()["items"]
+    assert card["revision"] == 1
+    revised = await world.app.client.patch(
+        f"{API}/responses/{response['id']}",
+        json={
+            "message": unique("Могу сегодня, но дороже."),
+            "price_type": "fixed",
+            "price_amount": 99_999_900,
+        },
+        headers=world.headers(performer),
+    )
+    assert revised.status_code == 200, revised.text
+    await auto_check(worker, performer, response["id"])
+    accept = f"{API}/responses/{response['id']}/accept"
+
+    stale = await world.app.client.post(
+        accept, headers=world.headers(client) | {"If-Match": f'"{card["revision"]}"'}
+    )
+
+    assert stale.status_code == 409, stale.text
+    body = stale.json()
+    assert (body["code"], body["revision"], body["price_type"], body["price_amount"]) == (
+        "offer_changed",
+        2,
+        "fixed",
+        99_999_900,
+    )
+    assert (
+        await world.scalar(
+            "SELECT count(*) FROM deals.deals WHERE response_id = :id", id=UUID(response["id"])
+        )
+        == 0
+    )
+    fresh = await world.app.client.post(accept, headers=world.headers(client) | {"If-Match": '"2"'})
+    assert fresh.status_code == 200, fresh.text
+
+
 async def test_my_responses_have_groups_and_the_daily_quota(world: World) -> None:
     client, performer = await world.user(), await world.user()
     jobs = [await world.job(client) for _ in range(3)]

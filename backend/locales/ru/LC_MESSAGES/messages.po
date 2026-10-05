@@ -563,6 +563,9 @@ msgstr "Проверьте отклик: сообщение, цену и вре�
 msgid "errors.response_not_found"
 msgstr "Отклик не найден."
 
+msgid "errors.offer_changed"
+msgstr "Исполнитель только что изменил предложение — посмотрите новые условия и выберите снова."
+
 msgid "errors.response_not_active"
 msgstr "Клиент уже решил по этому отклику — изменить или отозвать его нельзя."
 

@@ -172,6 +172,7 @@ class JobsFacade(JobsApi):
                 is_first=response.is_first,
                 is_new=response.status in ACTIVE and (seen is None or response.updated_at > seen),
                 created_at=response.created_at,
+                revision=response.revision,
             )
             for response in await self._queries.job_responses(job.id)
         ]

@@ -31,6 +31,7 @@ from app.modules.jobs.errors import (
     JobExtendLimitError,
     JobFullError,
     JobNotOpenError,
+    OfferChangedError,
     OwnJobResponseError,
     ResponseNotActiveError,
     ResponseNotFoundError,
@@ -604,13 +605,28 @@ class Job(VersionedAggregate):
         return True
 
     def accept_response(
-        self, response_id: ResponseId, *, client_id: UserId, now: datetime
+        self,
+        response_id: ResponseId,
+        *,
+        client_id: UserId,
+        now: datetime,
+        revision: int | None = None,
     ) -> Response:
         """Клиент выбрал отклик исполнителем (§7.9): заявка «в работе», остальные активные
         отклики — «не выбран», места свободны. Выбрать можно активный видимый клиенту отклик
         опубликованной заявки; сделку создаёт use case через фасад deals в той же транзакции и
-        сам записывает событие ResponseAccepted — в нём id сделки."""
+        сам записывает событие ResponseAccepted — в нём id сделки. `revision` — редакция
+        предложения, которую клиент видел (If-Match): исполнитель успел поправить — 409
+        `offer_changed` с нынешней ценой, а не сделка по цене, которую клиент не видел (ADV-08).
+        Без неё — как раньше."""
         response = self._client_response(response_id, client_id)
+        if revision is not None and revision != response.revision:
+            raise OfferChangedError(
+                response_id=response.id,
+                revision=response.revision,
+                price_type=response.offer.price_type.value,
+                price_amount=response.offer.price_amount,
+            )
         if self.status is not JobStatus.PUBLISHED:
             raise JobNotOpenError(job_id=self.id, job_status=self.status.value)
         if not response.is_active:

@@ -564,6 +564,9 @@ msgstr "Proverite ponudu: poruku, cenu i vreme."
 msgid "errors.response_not_found"
 msgstr "Ponuda nije pronađena."
 
+msgid "errors.offer_changed"
+msgstr "Izvođač je upravo izmenio ponudu — pogledajte nove uslove i izaberite ponovo."
+
 msgid "errors.response_not_active"
 msgstr "Naručilac je već odlučio o ovoj ponudi — ne može se izmeniti ni povući."
 

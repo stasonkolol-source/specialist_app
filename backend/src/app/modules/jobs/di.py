@@ -62,6 +62,7 @@ from app.modules.jobs.application.use_cases.save_job import SaveJob
 from app.modules.jobs.application.use_cases.send_alert_digests import SendAlertDigests
 from app.modules.jobs.application.use_cases.shortlist_response import ShortlistResponse
 from app.modules.jobs.application.use_cases.show_job import ShowJob
+from app.modules.jobs.application.use_cases.show_response import ShowResponse
 from app.modules.jobs.application.use_cases.unsave_job import UnsaveJob
 from app.modules.jobs.application.use_cases.update_alert import UpdateAlert
 from app.modules.jobs.application.use_cases.update_template import UpdateTemplate
@@ -125,6 +126,7 @@ class JobsProvider(Provider):
     list_job_responses = provide(ListJobResponses)
     withdraw_performer_responses = provide(WithdrawPerformerResponses)
     release_blocked_responses = provide(ReleaseBlockedResponses)
+    show_response = provide(ShowResponse)
     list_templates = provide(ListTemplates)
     create_template = provide(CreateTemplate)
     update_template = provide(UpdateTemplate)

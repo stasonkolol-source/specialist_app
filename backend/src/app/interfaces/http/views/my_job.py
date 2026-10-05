@@ -73,6 +73,10 @@ class ResponseCardOut(BaseModel):
     is_first: bool = Field(description="«Откликнулся первым»")
     is_new: bool = Field(description="Клиент ещё не видел этот отклик")
     created_at: datetime
+    revision: int = Field(
+        description="Редакция предложения: If-Match при выборе (POST /responses/{id}/accept);"
+        " исполнитель успел поправить — 409 offer_changed"
+    )
     performer: ResponsePerformerCardOut
 
 
@@ -142,6 +146,7 @@ async def list_response_cards(
                 is_first=response.is_first,
                 is_new=response.is_new,
                 created_at=response.created_at,
+                revision=response.revision,
                 performer=ResponsePerformerCardOut(
                     display_name=card.display_name if card is not None else name,
                     profile_id=card.id if card is not None else None,

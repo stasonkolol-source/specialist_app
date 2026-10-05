@@ -157,6 +157,11 @@ class JobQueries(Protocol):
         """Отклик исполнителя с заявкой — ответ на отклик, правку и отзыв; чужой — None."""
         ...
 
+    async def owner_response(self, client_id: UserId, response_id: ResponseId) -> MyResponse | None:
+        """Отклик на заявку клиента — тот, что он видит в S23: прошедший проверку, не удалённый,
+        заявка не удалена; иначе None."""
+        ...
+
     async def my_response_counts(self, performer_id: UserId) -> dict[ResponseGroup, int]:
         """Сколько откликов в каждой группе — числа на чипах S17."""
         ...
