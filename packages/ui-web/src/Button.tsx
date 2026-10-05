@@ -39,7 +39,7 @@ export function Button({
 }: ButtonProps) {
   const classes = cx(
     'inline-flex items-center justify-center gap-2 whitespace-nowrap text-button',
-    size === 'md' ? 'h-11 rounded-btn px-4' : 'h-9 rounded-btn-sm px-3 text-sm font-semibold',
+    size === 'md' ? 'h-11 rounded-btn px-4' : 'hit h-9 rounded-btn-sm px-3 text-sm font-semibold',
     VARIANT[variant],
     full && 'w-full',
     'disabled:bg-bg2 disabled:text-text2',
@@ -91,7 +91,7 @@ export function LinkButton({
   ...rest
 }: LinkButtonProps) {
   const classes = cx(
-    'inline-flex min-h-11 items-center border-0 bg-transparent px-2 text-sm font-semibold disabled:text-text2',
+    'hit inline-flex min-h-11 items-center border-0 bg-transparent px-2 text-sm font-semibold disabled:text-text2',
     danger ? 'text-danger' : 'text-accent',
     FOCUS,
     className,

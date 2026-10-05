@@ -277,7 +277,9 @@
     "missingAmount": "Укажите цену",
     "error": "Не получилось отправить отклик. Попробуйте ещё раз.",
     "you": "Вы",
-    "slots": "{count} из {total}"
+    "slots": "{count} из {total}",
+    "quoted": "«{message}»",
+    "leave": "Уйти с экрана? Набранный отклик не сохранится."
   },
   "responses": {
     "templates": "Шаблоны откликов",

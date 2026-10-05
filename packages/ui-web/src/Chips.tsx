@@ -24,7 +24,9 @@ export function Chips({
     <div
       role={label ? 'group' : undefined}
       aria-label={label}
-      className={cx('flex gap-2', wrap ? 'flex-wrap' : 'overflow-x-auto', className)}
+      // ряд с прокруткой: зона нажатия чипа (hit, +2 px сверху и снизу) — внутри отступа ряда,
+      // иначе ряд прокручивался бы и по вертикали
+      className={cx('flex gap-2', wrap ? 'flex-wrap' : '-my-0.5 overflow-x-auto py-0.5', className)}
     >
       {children}
     </div>
@@ -60,7 +62,7 @@ export function Chip({
   href,
 }: ChipProps) {
   const classes = cx(
-    'inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-chip border px-3.5 text-sm font-medium disabled:opacity-55',
+    'hit inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-chip border px-3.5 text-sm font-medium disabled:opacity-55',
     selected
       ? 'border-text bg-text text-bg'
       : accent

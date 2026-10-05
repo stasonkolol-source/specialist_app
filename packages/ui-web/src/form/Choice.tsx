@@ -14,12 +14,15 @@ export interface SegmentedOption<T extends string> {
   icon?: IconName;
 }
 
-// Дорожка — полупрозрачная поверх фона: видна и на экране bg2 (S11, S12, S36), и в шторке, и в карточке
-const SEGMENTS = 'grid auto-cols-fr grid-flow-col gap-0.75 rounded-btn bg-seg-track p-0.75';
+// Дорожка — полупрозрачная поверх фона: видна и на экране bg2 (S11, S12, S36), и в шторке, и в карточке.
+// Колонки равные, но не уже своей подписи (1fr = minmax(auto, 1fr), а не auto-cols-fr с minmax(0)):
+// длинная подпись («Договорная», «Po dogovoru» из четырёх на 360 px) берёт ширину у коротких, а не
+// упирается в край (UXM-8); поля px-2 — воздух у края сегмента
+const SEGMENTS = 'grid auto-cols-[1fr] grid-flow-col gap-0.75 rounded-btn bg-seg-track p-0.75';
 
 const segment = (on: boolean) =>
   cx(
-    'flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-seg-item border-0 text-sm font-semibold',
+    'hit flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-seg-item border-0 px-2 text-sm font-semibold',
     on ? 'bg-seg-on text-text shadow-seg' : 'bg-transparent text-text2',
     FOCUS,
   );
@@ -304,7 +307,7 @@ export function Checkbox({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cx(
-        'flex w-full items-start gap-3 border-0 text-left text-body text-text disabled:opacity-55',
+        'hit flex w-full items-start gap-3 border-0 text-left text-body text-text disabled:opacity-55',
         FOCUS,
         className,
       )}
@@ -420,7 +423,7 @@ export function Switch({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cx(
-        'relative h-7.75 w-12.75 shrink-0 rounded-full border-0 p-0 disabled:opacity-50',
+        'hit h-7.75 w-12.75 shrink-0 rounded-full border-0 p-0 disabled:opacity-50',
         checked ? 'bg-accent' : 'bg-field',
         FOCUS,
       )}

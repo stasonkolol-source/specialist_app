@@ -2,7 +2,7 @@
 // статус и полнота, продолжение черновика, правка только изменённого, районы, проверки полей.
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
 import {
@@ -47,6 +47,25 @@ describe('S33 cabinet', () => {
 
     await click(screen.getByRole('link', { name: 'Профиль' }));
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/cabinet/profile'));
+  });
+
+  // SMOKE-4: модератор одобрил, пока Mini App открыта, — S33 не держит «На проверке» до перезапуска
+  it('re-reads a profile on review until the moderator decides', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const backend = withBackend(
+        new ProfileBackend({ ...PROFILE_FILLED, status: 'pending_review' }, [FIRST_SERVICE]),
+      );
+      startApp('/cabinet');
+      expect(await screen.findByText('Профиль на проверке, обычно до 30 минут')).toBeTruthy();
+
+      if (backend.profile) backend.profile = { ...backend.profile, status: 'published' };
+      await act(() => vi.advanceTimersByTimeAsync(5_000));
+
+      expect(await screen.findByText('Профиль опубликован и виден в поиске')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('continues a draft in the wizard with the MainButton', async () => {

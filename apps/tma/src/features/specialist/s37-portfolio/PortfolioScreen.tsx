@@ -226,7 +226,7 @@ function WorkTile({
       onClick={open}
       aria-label={review ? `${label}, ${t('portfolio.review')}` : label}
       className={cx(
-        'relative block rounded-photo outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+        'relative block rounded-photo outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-accent',
         TILE,
       )}
     >

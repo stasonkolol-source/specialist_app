@@ -561,7 +561,7 @@ function WorkTile({
       href={href}
       onClick={onClick}
       aria-label={video ? t('profile.video', { title }) : title}
-      className="block rounded-photo outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      className="block rounded-photo outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
       <Photo
         variants={cardVariants(work.photo)}
