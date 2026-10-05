@@ -867,6 +867,9 @@ msgstr "Модератор проверил ваш профиль — тепер
 msgid "notifications.profile_published.button"
 msgstr "Открыть профиль"
 
+msgid "notifications.profile_published.alerts"
+msgstr "Подписаться на заявки"
+
 msgid "notifications.response_received.title"
 msgstr "Новые отклики"
 

@@ -235,10 +235,12 @@ AVAILABILITY_LINK = encode_start_param(
 )
 REVIEWS_LINK = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSection.REVIEWS))
 HOME_LINK = encode_start_param(StartLink(type=LinkType.HOME))
-FIX_LINKS = {"job": LinkType.JOB, "profile": LinkType.SPECIALIST}
-"""Куда ведёт «Исправить»: к заявке или профилю; отклик — к его заявке; остальное — на
-Главную (экраны — позже)."""
+CABINET_LINK = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSection.PROFILE))
+FIX_LINKS = {"job": LinkType.JOB}
+"""Куда ведёт «Исправить»: к заявке; профиль — в кабинет S33 с причиной (публичная карточка
+черновика недоступна, UX №7); отклик — к его заявке; остальное — на Главную (экраны — позже)."""
 RESPONSE = "response"
+PROFILE = "profile"
 JOB_CLOSED = "job_closed"
 """`reason` у `response.not_selected`: отклик не выбран, потому что клиент закрыл заявку."""
 AGREED, PROPOSED = "agreed", "proposed"
@@ -286,6 +288,8 @@ async def notify_moderation_decision(
         return
     kind = FIX_LINKS.get(event.entity_type)
     link = encode_start_param(StartLink(type=kind, id=event.entity_id)) if kind else HOME_LINK
+    if event.entity_type == PROFILE:
+        link = CABINET_LINK
     if event.entity_type == RESPONSE and (job_id := await jobs.response_job(event.entity_id)):
         link = _job_link(job_id)
     await notify(

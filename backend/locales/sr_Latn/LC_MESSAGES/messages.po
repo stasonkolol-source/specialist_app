@@ -868,6 +868,9 @@ msgstr "Moderator je proverio vaš profil — sada ga klijenti vide u katalogu."
 msgid "notifications.profile_published.button"
 msgstr "Otvori profil"
 
+msgid "notifications.profile_published.alerts"
+msgstr "Pretplati se na zahteve"
+
 msgid "notifications.response_received.title"
 msgstr "Nove ponude"
 

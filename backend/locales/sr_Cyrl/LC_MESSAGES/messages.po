@@ -867,6 +867,9 @@ msgstr "Модератор је проверио ваш профил — сад�
 msgid "notifications.profile_published.button"
 msgstr "Отвори профил"
 
+msgid "notifications.profile_published.alerts"
+msgstr "Претплати се на захтеве"
+
 msgid "notifications.response_received.title"
 msgstr "Нове понуде"
 

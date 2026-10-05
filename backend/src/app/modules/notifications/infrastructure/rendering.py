@@ -149,6 +149,7 @@ AVAILABILITY_LINK = encode_start_param(
     StartLink(type=LinkType.MINE, section=LinkSection.AVAILABILITY)
 )
 CABINET_LINK = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSection.PROFILE))
+ALERTS_LINK = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSection.ALERTS))
 KM = 1000
 """Метки ADR-0016, которые человеку называются одинаково: запрещённые товары и услуги."""
 
@@ -281,6 +282,8 @@ class GettextNotificationRenderer:
         message = f"<b>{_escape(text.title)}</b>\n{_escape(text.body)}"
         if type_ is NotificationType.PROFILE_STALE_REMINDER:
             return message, self._stale_buttons(locale)
+        if type_ is NotificationType.PROFILE_PUBLISHED:
+            return message, self._published_buttons(link, locale)
         if type_ in JOB_TERM:
             return message, self._job_buttons(type_, params, locale)
         if type_ is NotificationType.JOB_INVITED:
@@ -499,6 +502,27 @@ class GettextNotificationRenderer:
                 url=mini_app_url(self._mini_app, CABINET_LINK),
             ),
         )
+
+    def _published_buttons(self, link: str | None, locale: Locale) -> tuple[ButtonLine, ...]:
+        """«Открыть профиль» и «Подписаться на заявки» (S18): заявки приводит подписка, а новый
+        специалист о ней не знает (UX №9)."""
+        if self._mini_app is None:
+            return ()
+        buttons: list[Button] = []
+        if link is not None:
+            buttons.append(
+                AppButton(
+                    text=self._t("notifications.profile_published.button", locale),
+                    url=mini_app_url(self._mini_app, link),
+                )
+            )
+        buttons.append(
+            AppButton(
+                text=self._t("notifications.profile_published.alerts", locale),
+                url=mini_app_url(self._mini_app, ALERTS_LINK),
+            )
+        )
+        return tuple(buttons)
 
     def _job_term(
         self, type_: NotificationType, params: Mapping[str, str], locale: Locale

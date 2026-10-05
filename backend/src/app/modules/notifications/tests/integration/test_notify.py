@@ -660,6 +660,9 @@ async def test_notify_author_about_a_rejection_only(notifications: Notifications
     await notify_moderation_decision(
         decided(ModerationDecision.REJECTED, "response", response_id), notifications.notify, jobs
     )
+    await notify_moderation_decision(
+        decided(ModerationDecision.REJECTED, "profile", new_id()), notifications.notify, jobs
+    )
 
     rows = await notifications.notifications(user_id)
     payloads = [cast(dict[str, Any], r["payload"]) for r in rows]
@@ -667,4 +670,6 @@ async def test_notify_author_about_a_rejection_only(notifications: Notifications
         ("job", f"j_{uuid_to_base62(job_id)}"),  # «Исправить» ведёт к заявке
         ("review", "h"),  # экрана отзыва пока нет — на Главную
         ("response", f"j_{uuid_to_base62(response_job)}"),  # отклик — к его заявке
+        # профиль — в кабинет S33 с причиной, а не на публичную карточку черновика (UX №7)
+        ("profile", "m_profile"),
     ]
