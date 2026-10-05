@@ -65,7 +65,7 @@ function EntityLink({ type }: { type: WebEntity }) {
 function SpecialistLink({ id }: { id: string }) {
   const card = useSpecialistCard(id, useLocale());
   return (
-    <LinkPage type="specialist" id={id} failed={card.isError}>
+    <LinkPage type="specialist" id={id} failed={!card.data && card.isError}>
       {card.data ? <SpecialistPreview card={card.data} /> : <PreviewSkeleton avatar />}
     </LinkPage>
   );
@@ -74,13 +74,14 @@ function SpecialistLink({ id }: { id: string }) {
 function JobLink({ id }: { id: string }) {
   const job = useJob(id);
   return (
-    <LinkPage type="job" id={id} failed={job.isError}>
+    <LinkPage type="job" id={id} failed={!job.data && job.isError}>
       {job.data ? <JobPreview job={job.data} /> : <PreviewSkeleton avatar={false} />}
     </LinkPage>
   );
 }
 
-/** Страница ссылки: превью (или общий вариант, если данных не будет), фраза и две кнопки. */
+/** Страница ссылки: превью (или общий вариант, если данных не будет — профиль скрыт, заявки нет,
+ *  запрос упал), фраза и две кнопки. Упавшее фоновое обновление превью не прячет. */
 function LinkPage({
   type,
   id,
