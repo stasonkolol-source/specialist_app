@@ -83,7 +83,7 @@ export function SpecialistCard({
     </>
   );
   return (
-    <article className="relative flex flex-col gap-2 rounded-card bg-surface p-4 text-text">
+    <article className="relative flex flex-col gap-2 rounded-card bg-surface p-4 text-text press-card">
       {href ? (
         <a href={href} onClick={onOpen} className={head}>
           {content}

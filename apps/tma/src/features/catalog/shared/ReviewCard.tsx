@@ -101,7 +101,7 @@ export function ReviewCard({
         </span>
       )}
       {review.reply && (
-        <div className="flex flex-col gap-1 rounded-panel bg-bg2 px-3 py-2">
+        <div className="flex flex-col gap-1 rounded-field bg-bg2 px-3 py-2">
           <Text as="span" variant="cap">
             {t('reviews.reply')}
           </Text>

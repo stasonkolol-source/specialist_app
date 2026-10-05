@@ -8,10 +8,11 @@
 // Открывается из ленты и по ссылке `startapp=j_…`; гость
 // видит экран без входа. MainButton (5.5): «Откликнуться · осталось N мест» — форма S16 (гостю —
 // сначала согласие с правилами), «Вы откликнулись» — «Мои отклики» S17, «Мест нет» — не нажимается;
-// у своей заявки кнопки нет. «Пожаловаться» рядом с «Не интересно» — шторка S46 (4.7; пока она
-// открыта, MainButton спрятана). Заявку того, с кем блокировка, сервер не отдаёт — «Заявка
-// недоступна». «Поделиться» (7.4) — рядом с сердечком, всем, пока заявку видит гость: карточка в
-// выбор чата Telegram или ссылка.
+// у своей заявки кнопки нет. Гость в браузере вместо неё видит «Откликнуться в Telegram» — ссылку
+// на эту же заявку в Mini App (telegram.ts). «Пожаловаться» рядом с «Не интересно» — шторка S46
+// (4.7; пока она открыта, MainButton спрятана). Заявку того, с кем блокировка, сервер не отдаёт —
+// «Заявка недоступна». «Поделиться» (7.4) — рядом с сердечком, всем, пока заявку видит гость:
+// карточка в выбор чата Telegram или ссылка.
 import type { JobCardOut, JobOut } from '@sosed/api-client';
 import { ApiError, getSession } from '@sosed/api-client';
 import {
@@ -64,6 +65,7 @@ import { useBudgetText, useMemberFor, useWhenBadge } from '../shared/labels.ts';
 import type { JobSearch } from '../shared/paths.ts';
 import { JOBS_PATHS, jobIdOf, managePath, respondPath } from '../shared/paths.ts';
 import { shareable, useJobShare } from '../shared/share.tsx';
+import { respondInTelegramLink } from './telegram.ts';
 
 const LANGUAGE_NAMES = ['ru', 'sr', 'en'] as const;
 type LanguageName = (typeof LANGUAGE_NAMES)[number];
@@ -129,11 +131,18 @@ function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
   const whereId = useId();
   const reporting = useReportTarget() !== null;
   const sharing = useJobShare(job.id);
-  // своя заявка или открыта шторка жалобы: кнопки Telegram нет
-  useRespondButton(job, owner || reporting);
+  // браузер (только гость): откликнуться можно лишь в Telegram — кнопка сразу ведёт туда
+  const telegram =
+    platform.kind === 'browser' &&
+    job.status === 'published' &&
+    job.responses_count < job.max_responses
+      ? respondInTelegramLink(job.id)
+      : null;
+  // своя заявка, открыта шторка жалобы или ссылка в Telegram вместо формы: кнопки Telegram нет
+  useRespondButton(job, owner || reporting || telegram !== null);
 
   return (
-    <section className="flex flex-col gap-3 px-4 pt-3 pb-6">
+    <section className={`flex flex-col gap-3 px-4 pt-3 ${telegram ? 'pb-25' : 'pb-6'}`}>
       {owner && (
         <Banner tone="info" icon="eye">
           {job.status === 'published'
@@ -234,7 +243,21 @@ function Job({ job, onHidden }: { job: JobOut; onHidden: () => void }) {
         </>
       )}
       {sharing.notice}
+      {telegram && <RespondInTelegram href={telegram} />}
     </section>
+  );
+}
+
+/** Кнопка отклика гостя в браузере — на месте MainButton в контенте (ContentMainButton оболочки:
+ *  внизу экрана, 76 px; отступ под неё — `pb-25` экрана), но ссылкой в Telegram с иконкой. */
+function RespondInTelegram({ href }: { href: string }) {
+  const { t } = useTranslation('jobs');
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-lg bg-bg px-4 py-3">
+      <Button full icon="send" href={href}>
+        {t('job.respondInTelegram')}
+      </Button>
+    </div>
   );
 }
 
@@ -470,7 +493,7 @@ function Preview({ card }: { card: JobCardOut }) {
             <Skeleton
               key={index}
               screen
-              radius="panel"
+              radius="field"
               className={total === 1 ? 'h-45 w-full' : 'h-25 w-full'}
             />
           ))}

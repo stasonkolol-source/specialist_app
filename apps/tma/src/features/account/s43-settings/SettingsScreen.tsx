@@ -76,7 +76,7 @@ function ProfileLoading() {
       <span className="sr-only">{t('settings.loading')}</span>
       <div aria-hidden="true" className="flex flex-col gap-2">
         <SkeletonText size="cap" screen className="mx-4 w-32" />
-        <Skeleton screen radius="panel" className="h-11.5" />
+        <Skeleton screen radius="field" className="h-11.5" />
         <SkeletonText size="cap" screen className="mx-4 w-28" />
       </div>
       <Group>
