@@ -49,3 +49,8 @@ playwright-report/
 /.claude/worktrees/
 # Логи quick tunnel cloudflared (make tunnel / make dev)
 /.tunnel-logs/
+# Карта dev-стенда (make map-assets, scripts/map/README.md): тайлы пересобираются, в git их нет;
+# .map-build-* и .map-old-* — каталоги на время сборки
+/apps/tma/public/map/
+.map-build-*/
+.map-old-*/
