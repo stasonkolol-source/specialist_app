@@ -277,7 +277,7 @@ describe('S48 legal documents (1.5a)', () => {
     const { app, telegram } = start('/legal/terms');
 
     expect(await screen.findByRole('heading', { name: 'Правила площадки', level: 1 })).toBeTruthy();
-    expect(await screen.findByText('Редакция draft-1 от 27 сентября 2026')).toBeTruthy();
+    expect(await screen.findByText('Редакция от 27 сентября 2026')).toBeTruthy();
     expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
     expect(telegram.callsOf('web_app_setup_back_button').at(-1)).toMatchObject({
       is_visible: true,
