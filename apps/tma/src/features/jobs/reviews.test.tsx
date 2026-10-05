@@ -58,6 +58,9 @@ describe('S26 and S27 review', () => {
 
     expect(await screen.findByRole('heading', { name: 'Как всё прошло?', level: 1 })).toBeTruthy();
     expect(screen.getByText('Алексей Морозов')).toBeTruthy();
+    // фото к отзыву — v1: строка «скоро», без плитки, похожей на загрузку
+    expect(screen.getByText('Фото к отзыву — скоро')).toBeTruthy();
+    expect(screen.queryByText('Фото')).toBeNull();
     await waitFor(() => expect(mainButton(telegram)?.is_active).toBe(false));
     await click(screen.getByRole('radio', { name: '4 звезды' }));
     expect(screen.getByText('Хорошо')).toBeTruthy();
@@ -132,6 +135,8 @@ describe('S28 deals and reviews', () => {
       name: 'Повесить люстру',
     });
     expect(within(card).getByText('Отзыва пока нет')).toBeTruthy();
+    // имя и дата — отдельными частями строки: при переносе «·» не повисает после имени
+    expect(within(card).getByText('Алексей Морозов')).toBeTruthy();
     await click(within(card).getByRole('button', { name: 'Оставить отзыв' }));
 
     await waitFor(() =>
