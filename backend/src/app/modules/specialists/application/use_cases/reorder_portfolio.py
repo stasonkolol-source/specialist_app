@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from app.modules.identity.api import Action, IdentityApi
 from app.modules.specialists.application.ports import PortfolioRepository, ProfileRepository
 from app.modules.specialists.application.profiles import own_profile
 from app.modules.specialists.domain.portfolio import PortfolioItem, PortfolioItemId
@@ -19,11 +20,18 @@ class ReorderPortfolioCommand:
 
 class ReorderPortfolio:
     def __init__(
-        self, uow: UnitOfWork, profiles: ProfileRepository, portfolio: PortfolioRepository
+        self,
+        uow: UnitOfWork,
+        profiles: ProfileRepository,
+        portfolio: PortfolioRepository,
+        identity: IdentityApi,
     ) -> None:
         self._uow, self._profiles, self._portfolio = uow, profiles, portfolio
+        self._identity = identity
 
     async def __call__(self, cmd: ReorderPortfolioCommand) -> list[PortfolioItem]:
+        # санкция на публикацию и галочка S02c — как у создания профиля (SEC-01)
+        await self._identity.ensure_allowed(cmd.actor_id, Action.POST)
         async with self._uow:
             profile = await own_profile(self._profiles, cmd.actor_id)
             profile.ensure_editable()
