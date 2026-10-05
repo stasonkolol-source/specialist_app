@@ -214,6 +214,33 @@ webhook.
 5. Алерты, дашборды, UptimeRobot и проверки «тестовый алерт доходит» и «Loki без ПД» — шаги 5–9
    раздела 8 prod-bootstrap.md (`stage_enabled = true` в `monitoring.auto.tfvars`).
 
+## 7. Карта выбора точки (Q28)
+
+Нужно: раздел 2 (бакет `sosed-stage-media` и домен `stage-cdn.`), K13 (S3-ключи R2 stage), Docker и
+git на Маке. Тайлы Нови-Сада, шрифты и спрайт лежат в бакете media под `map/<версия>/` и отдаются
+с `stage-cdn.` — с HTTP Range, которого требует PMTiles (статика Workers его не умеет). Подробно —
+[scripts/map/README.md](../../scripts/map/README.md). Пока Variable нет, Mini App собирается без
+карты (список районов).
+
+1. Загрузка — в своём Терминале; ключи K13 из менеджера паролей вводятся скрыто и живут только в
+   этом окне:
+   ```
+   read -rs S3_ACCESS_KEY_ID && read -rs S3_SECRET_ACCESS_KEY && export S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY
+   R2_ACCOUNT_ID=<Account ID> make map-upload ENV=stage
+   ```
+   Команда соберёт ассеты, если их ещё нет (`make map-assets`, ~1 минута), и напечатает версию.
+   Повтор безопасен: одинаковые файлы пропускаются, другое содержимое под той же версией не
+   перезаписывается.
+2. Проверка (ждём `206`, `content-range: bytes 0-99/…` и `access-control-allow-origin` с адресом
+   Mini App):
+   ```
+   curl -sI -r 0-99 -H 'Origin: https://stage-app.<домен>' https://stage-cdn.<домен>/map/<версия>/novi-sad.pmtiles
+   ```
+3. Variable environment `stage` `MAP_ASSETS_VERSION` = версия из вывода (например `20260811`), затем
+   deploy (`env` = `stage`, `deploy`) или любой merge фронтенда: сборка получит
+   `VITE_MAP_ASSETS_URL=https://stage-cdn.<домен>/map/<версия>`, а CSP — этот origin в `connect-src`.
+4. Новая карта — новая версия: `scripts/map/README.md`, «Новая сборка Protomaps».
+
 ## Ключи SSH
 
 Terraform кладёт ключи на VM только при создании (`ignore_changes`). Новый ключ на живую VM —
