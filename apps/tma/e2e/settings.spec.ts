@@ -108,7 +108,8 @@ test('S43: зона нажатия переключателей — не мен�
   const switches = page.getByRole('switch');
   await expect(switches.first()).toBeVisible();
   for (const control of await switches.all()) {
-    await control.scrollIntoViewIfNeeded();
+    // по центру экрана: точки над и под переключателем — в пределах окна, не под таббаром
+    await control.evaluate((element) => element.scrollIntoView({ block: 'center' }));
     const box = await control.boundingBox();
     if (!box) throw new Error('нет переключателя');
     expect(box.height).toBeLessThan(44);
