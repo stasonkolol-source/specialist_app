@@ -3,7 +3,7 @@
 // Имена скриншотов начинаются с кода артборда — make design-compare кладёт их рядом с эталоном.
 import { expect, test } from '@playwright/test';
 
-import { ME } from '../src/testing/fixtures.ts';
+import { E2E_NOW, ME } from '../src/testing/fixtures.ts';
 import { THEMES, expectNoAxeViolations, open, openProfile, real } from './support.ts';
 
 const LOCALES = [
@@ -30,6 +30,9 @@ const LOCALES = [
 for (const theme of THEMES) {
   for (const { locale, telegram, home, today, sideJob, goods } of LOCALES) {
     test(`S03 главная ${theme} ${locale}`, async ({ page }) => {
+      // часы браузера — E2E_NOW, как в каталоге: «Сегодня до 20:00» у «Свободны сегодня рядом» по
+      // настоящим часам пропадало после 20:00 по Белграду, и снимок S03 падал по вечерам
+      await page.clock.setFixedTime(new Date(E2E_NOW));
       const watch = await open(page, `theme=${theme}&lang=${telegram}`);
 
       await expect(page.getByRole('heading', { name: home })).toBeVisible();
