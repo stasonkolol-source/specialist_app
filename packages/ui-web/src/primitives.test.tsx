@@ -129,10 +129,19 @@ describe('Button и IconButton', () => {
   });
 
   it('IconButton — подпись обязательна, активное состояние', async () => {
-    const { container } = render(<IconButton icon="heart" label="В избранное" active />);
+    const { container } = render(
+      <>
+        <IconButton icon="heart" label="В избранное" active />
+        <IconButton icon="heart" label="Сохранить" />
+      </>,
+    );
     const button = screen.getByRole('button', { name: 'В избранное' });
     expect(button.getAttribute('aria-pressed')).toBe('true');
     expect(button.className).toContain('text-danger');
+    // состояние не только цветом: сердце залито, у выключенной кнопки — контур
+    expect(button.querySelector('svg')?.getAttribute('class')).toContain('fill-current');
+    const off = screen.getByRole('button', { name: 'Сохранить' });
+    expect(off.querySelector('svg')?.getAttribute('class')).toContain('fill-none');
     expect(await a11yViolations(container)).toEqual([]);
   });
 

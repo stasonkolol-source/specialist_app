@@ -176,6 +176,17 @@ export const ICONS = {
       ]
     ]
   },
+  "star-outline": {
+    "fill": false,
+    "shapes": [
+      [
+        "path",
+        {
+          "d": "m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"
+        }
+      ]
+    ]
+  },
   "shield": {
     "fill": false,
     "shapes": [

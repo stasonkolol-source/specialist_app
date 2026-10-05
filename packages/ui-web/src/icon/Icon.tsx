@@ -24,10 +24,13 @@ export interface IconProps {
   size?: IconSize;
   /** Подпись для скринридера — только если иконка несёт смысл без текста рядом. */
   label?: string;
+  /** Контур с заливкой тем же цветом: включённое состояние («в избранном» — сердце залито), чтобы
+   *  оно читалось не только цветом. */
+  filled?: boolean;
   className?: string;
 }
 
-export function Icon({ name, size = 20, label, className }: IconProps) {
+export function Icon({ name, size = 20, label, filled = false, className }: IconProps) {
   const icon = ICONS[name];
   const fill = icon.fill;
   return (
@@ -36,7 +39,9 @@ export function Icon({ name, size = 20, label, className }: IconProps) {
       className={cx(
         SIZE[size],
         'shrink-0',
-        fill ? 'fill-current stroke-none' : 'fill-none stroke-current',
+        fill
+          ? 'fill-current stroke-none'
+          : cx(filled ? 'fill-current' : 'fill-none', 'stroke-current'),
         className,
       )}
       strokeWidth={fill ? undefined : 1.8}

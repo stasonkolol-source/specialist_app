@@ -218,6 +218,8 @@ describe('Field, Input, Textarea, SearchField', () => {
     );
     const budget = screen.getByLabelText('Бюджет');
     expect(budget.getAttribute('aria-describedby')).toBeTruthy();
+    // подсказка серая, как .hint: не спорит с введённым текстом и подписью поля
+    expect(screen.getByText('Можно изменить позже').className).toContain('text-text2');
     expect(screen.getByText('RSD')).toBeTruthy();
     const description = screen.getByLabelText('Что нужно сделать');
     expect(description.getAttribute('aria-invalid')).toBe('true');
@@ -399,6 +401,17 @@ describe('RadioGroup, Option (онбординг S02a–b), Checkbox', () => {
     expect(await a11yViolations(container)).toEqual([]);
   });
 
+  it('с описанием заголовок варианта жирный (S20b «Срочно»), без описания — обычный', () => {
+    render(
+      <RadioGroup label="Когда">
+        <Option title="Срочно" description="в течение 2 часов" checked onChange={() => {}} />
+        <Option title="Русский" checked={false} onChange={() => {}} />
+      </RadioGroup>,
+    );
+    expect(screen.getByText('Срочно').className).toContain('font-semibold');
+    expect(screen.getByText('Русский').className).not.toContain('font-semibold');
+  });
+
   it('отметка слева или справа, крупная карточка с плиткой', () => {
     render(
       <RadioGroup label="Цель">
@@ -483,6 +496,17 @@ describe('Steps, ProgressBar, Stars', () => {
     expect(screen.getByRole('img', { name: '4 из 5' }).querySelectorAll('.text-star')).toHaveLength(
       4,
     );
+    // пустая звезда для показа — цвет рамки поля: «4» и «5» различимы
+    expect(
+      screen.getByRole('img', { name: '4 из 5' }).querySelectorAll('.text-field'),
+    ).toHaveLength(1);
+    // при выставлении оценки пустые — контур цвета text2, выбранные — залитые
+    const empty = screen.getByRole('radio', { name: '4 из 5' });
+    expect(empty.className).toContain('text-text2');
+    expect(empty.querySelector('svg')?.getAttribute('class')).toContain('fill-none');
+    const chosen = screen.getByRole('radio', { name: '3 из 5' });
+    expect(chosen.className).toContain('text-star');
+    expect(chosen.querySelector('svg')?.getAttribute('class')).toContain('fill-current');
     expect(await a11yViolations(container)).toEqual([]);
   });
 });

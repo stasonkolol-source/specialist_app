@@ -118,7 +118,7 @@ export interface IconButtonProps extends Omit<
   label: string;
   /** .ibtn.plain — без подложки. */
   plain?: boolean;
-  /** .ibtn.on — активное состояние (например, «в избранном»). */
+  /** .ibtn.on — активное состояние (например, «в избранном»): цвет ошибки и залитая иконка. */
   active?: boolean;
   /** Переход на экран (шестерёнка S42 → настройки S43) — ссылка; с `onClick` — внутри приложения. */
   href?: string;
@@ -159,7 +159,7 @@ export function IconButton({
       className={classes}
       {...rest}
     >
-      <Icon name={icon} />
+      <Icon name={icon} filled={active} />
     </button>
   );
 }

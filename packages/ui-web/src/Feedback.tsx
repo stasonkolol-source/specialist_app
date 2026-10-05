@@ -60,7 +60,9 @@ export function ProgressBar({
   );
 }
 
-/** Оценка звёздами .stars: без onChange — только показ. */
+/** Оценка звёздами .stars: без onChange — только показ. Пустая звезда для показа — цвет рамки поля
+ *  (3,2:1: «4» и «5» различимы), при выставлении оценки — контур цвета text2: пять звёзд видны до
+ *  первого нажатия (с цветом line их было почти не видно, 1,14:1). */
 export function Stars({
   value,
   onChange,
@@ -78,7 +80,7 @@ export function Stars({
     return (
       <div role="img" aria-label={label} className="flex gap-1">
         {stars.map((n) => (
-          <Icon key={n} name="star" size={16} className={n <= value ? 'text-star' : 'text-line'} />
+          <Icon key={n} name="star" size={16} className={n <= value ? 'text-star' : 'text-field'} />
         ))}
       </div>
     );
@@ -95,11 +97,11 @@ export function Stars({
           onClick={() => onChange(n)}
           className={cx(
             'flex size-12 items-center justify-center border-0 bg-transparent p-0',
-            n <= value ? 'text-star' : 'text-line',
+            n <= value ? 'text-star' : 'text-text2',
             FOCUS,
           )}
         >
-          <Icon name="star" size={36} />
+          <Icon name={n <= value ? 'star' : 'star-outline'} size={36} />
         </button>
       ))}
     </div>

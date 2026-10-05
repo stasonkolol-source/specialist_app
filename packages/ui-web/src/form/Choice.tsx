@@ -170,7 +170,11 @@ export function Option({
       {control === 'start' && mark}
       {leading ?? (icon && <Icon name={icon} className="text-text2" />)}
       <span className={cx('flex min-w-0 flex-1 flex-col', large && 'gap-1')}>
-        <span id={`${id}-t`} className={large ? 'text-h3' : 'text-body'}>
+        {/* с описанием заголовок жирный (.b на артбордах S20b, S54): описание — второй уровень */}
+        <span
+          id={`${id}-t`}
+          className={large ? 'text-h3' : cx('text-body', Boolean(description) && 'font-semibold')}
+        >
           {title}
         </span>
         {description && (
