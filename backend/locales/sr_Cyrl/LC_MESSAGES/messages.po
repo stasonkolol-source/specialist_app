@@ -294,7 +294,7 @@ msgid "errors.validation_failed"
 msgstr "Проверите унете податке."
 
 msgid "errors.rate_limited"
-msgstr "Превише захтева. Покушајте поново за {retry_after} с."
+msgstr "Превише захтева. Покушајте поново {wait}."
 
 msgid "errors.external_service_unavailable"
 msgstr "Сервис је привремено недоступан. Покушајте поново касније."
@@ -721,6 +721,9 @@ msgstr "Са договором у овом статусу то није мог�
 
 msgid "errors.deal_marked_done"
 msgstr "Посао је већ означен као завршен — договор се не може отказати. Ако нешто није у реду, притисните „Постоји проблем“."
+
+msgid "errors.daily_disputes_limit"
+msgstr "Данас сте отворили превише спорова. Покушајте поново {wait}."
 
 msgid "errors.invalid_deal"
 msgstr "Проверите договор: нешто није добро попуњено."

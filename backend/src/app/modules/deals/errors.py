@@ -1,6 +1,11 @@
 """Ошибки модуля deals со стабильными code (ADR-0020 §9)."""
 
-from app.platform.kernel.errors import ConflictError, DomainValidationError, NotFoundError
+from app.platform.kernel.errors import (
+    ConflictError,
+    DomainValidationError,
+    NotFoundError,
+    RateLimitedError,
+)
 
 
 class DealNotFoundError(NotFoundError):
@@ -50,3 +55,10 @@ class InvalidDisputeError(DomainValidationError):
 
     code = "invalid_dispute"
     public_params = ("field", "reason")
+
+
+class DailyDisputesLimitError(RateLimitedError):
+    """За сутки открыто пять споров (§13.3): шестой — 429 с Retry-After. Отказы 404 и 409 лимит
+    не тратят (MU-9)."""
+
+    code = "daily_disputes_limit"

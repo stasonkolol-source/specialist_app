@@ -294,7 +294,7 @@ msgid "errors.validation_failed"
 msgstr "Проверьте введённые данные."
 
 msgid "errors.rate_limited"
-msgstr "Слишком часто. Повторите через {retry_after} с."
+msgstr "Слишком часто. Повторите {wait}."
 
 msgid "errors.external_service_unavailable"
 msgstr "Сервис временно недоступен. Повторите позже."
@@ -721,6 +721,9 @@ msgstr "Со сделкой в этом статусе так нельзя."
 
 msgid "errors.deal_marked_done"
 msgstr "Работа уже отмечена выполненной — отменить сделку нельзя. Если что-то пошло не так, нажмите «Есть проблема»."
+
+msgid "errors.daily_disputes_limit"
+msgstr "Сегодня вы открыли слишком много споров. Попробуйте {wait}."
 
 msgid "errors.invalid_deal"
 msgstr "Проверьте сделку: что-то заполнено не так."
