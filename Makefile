@@ -11,7 +11,7 @@ EXTRA_CHECKS :=
 
 COMPOSE := docker compose -p specialist-dev -f infra/compose/docker-compose.dev.yml --env-file infra/compose/.env
 
-.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker dev-worker-media new-module new-use-case openapi contract i18n-check-backend seeds-validate seed seed-demo dev dev-bg dev-restart dev-stop tunnel dev-bot audit image \
+.PHONY: help doctor plan-check check cli lint typecheck imports test gitleaks dev-web dev-worker dev-worker-media new-module new-use-case openapi contract i18n-check-backend seeds-validate seed seed-demo demo-media dev dev-bg dev-restart dev-stop tunnel dev-bot audit image \
 	pg-image up down ps logs psql pg-smoke secrets-dev garage-init secret secrets-check gen-secret gen-age test-int migrate migrate-roundtrip pg-bootstrap
 
 help: ## Show available targets
@@ -138,6 +138,9 @@ seed: ## Загрузить сиды в dev-БД идемпотентно: ге�
 seed-demo: ## Демо-люди для dev и stage (2.8c): SCALE=small | lab, DEMO_LANG=ru | sr | mixed, REPLACE=1 — заменить прежних (dev)
 	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli seed-demo --scale $(or $(SCALE),small) \
 		--lang $(or $(DEMO_LANG),ru) $(if $(REPLACE),--replace)
+
+demo-media: ## Настоящие фото и аватары для seed-demo в backend/.cache/demo-media (не в git; scripts/demo-media)
+	@python3 scripts/demo-media/fetch.py
 
 seeds-validate: ## Сиды: гео, таксономия, запросы (0.27), словарь модерации и его примеры (2.4)
 	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli seeds-validate

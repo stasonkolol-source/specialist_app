@@ -35,6 +35,8 @@ dist/
 
 # Local artefacts
 test-results/
+# Фото и аватары seed-demo (make demo-media): чужие файлы под своими лицензиями, в git — только манифест
+/backend/.cache/
 playwright-report/
 # Отчёты make lighthouse (8.2)
 /.lighthouse/
