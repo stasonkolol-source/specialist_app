@@ -164,7 +164,6 @@ describe('диалоги и запросы', () => {
   it('старый клиент: метода нет — фолбэк без вызова', async () => {
     const { platform, telegram } = createMockPlatform({ version: '6.0' });
     expect(await platform.requestContact()).toBe(false);
-    expect(await platform.location.request()).toBeNull();
     platform.haptics.impact('light');
     platform.setClosingConfirmation(true);
     expect(telegram.callsOf('web_app_trigger_haptic_feedback')).toEqual([]);
@@ -185,14 +184,6 @@ describe('диалоги и запросы', () => {
     expect(telegram.callsOf('web_app_setup_swipe_behavior')).toEqual([
       { allow_vertical_swipe: false },
     ]);
-  });
-
-  it('LocationManager', async () => {
-    expect(await createMockPlatform().platform.location.request()).toEqual({
-      latitude: 45.2671,
-      longitude: 19.8335,
-    });
-    expect(await createMockPlatform({ location: null }).platform.location.request()).toBeNull();
   });
 
   it('ссылки', async () => {

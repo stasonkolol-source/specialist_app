@@ -9,13 +9,14 @@ import {
 } from '@tma.js/sdk-react';
 
 import { Listeners, createBottomButton } from './button.ts';
+import { browserLocation } from './location.ts';
 import type {
   BottomButtonState,
   ColorScheme,
-  Coordinates,
   Insets,
   KeyValueStorage,
   LaunchInfo,
+  LocationPoint,
   Platform,
 } from './types.ts';
 import { capabilitiesFor, isVersionAtLeast } from './version.ts';
@@ -375,27 +376,25 @@ export function createTmaPlatform(kind: 'tma' | 'mock' = 'tma'): Platform {
       cloud,
     },
     location: {
-      request: async (): Promise<Coordinates | null> => {
-        if (!capabilities.location) return null;
-        const checked = await request('web_app_check_location', undefined, ['location_checked']);
-        if (checked.payload.available !== true) return null;
-        const { payload } = await request('web_app_request_location', undefined, [
-          'location_requested',
-        ]);
-        if (
-          payload.available !== true ||
-          typeof payload.latitude !== 'number' ||
-          typeof payload.longitude !== 'number'
-        ) {
-          return null;
+      get: async (): Promise<LocationPoint | null> => {
+        // до LocationManager (Bot API 8.0) — геолокация WebView, как в браузере
+        if (!capabilities.location) return browserLocation();
+        try {
+          // check — есть ли геолокация у устройства; request в первый раз спрашивает разрешение,
+          // после отказа отвечает available: false сразу
+          const checked = await request('web_app_check_location', undefined, ['location_checked']);
+          if (checked.payload.available !== true) return null;
+          const { payload } = await request('web_app_request_location', undefined, [
+            'location_requested',
+          ]);
+          return payload.available === true &&
+            typeof payload.latitude === 'number' &&
+            typeof payload.longitude === 'number'
+            ? { lat: payload.latitude, lon: payload.longitude }
+            : null;
+        } catch {
+          return null; // клиент не ответил за REQUEST_TIMEOUT_MS
         }
-        return {
-          latitude: payload.latitude,
-          longitude: payload.longitude,
-          ...(typeof payload.horizontal_accuracy === 'number'
-            ? { accuracy: payload.horizontal_accuracy }
-            : {}),
-        };
       },
     },
   };

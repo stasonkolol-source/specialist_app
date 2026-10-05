@@ -75,10 +75,10 @@ export interface KeyValueStorage {
   remove(key: string): Promise<void>;
 }
 
-export interface Coordinates {
-  latitude: number;
-  longitude: number;
-  accuracy?: number;
+/** Точка устройства, WGS 84. */
+export interface LocationPoint {
+  lat: number;
+  lon: number;
 }
 
 export type ShareResult = 'shared' | 'copied' | 'failed';
@@ -160,6 +160,9 @@ export interface Platform {
     cloud: KeyValueStorage;
   };
   location: {
-    request(): Promise<Coordinates | null>;
+    /** Где сейчас устройство. Telegram — LocationManager (Bot API 8.0+): в первый раз клиент
+     *  спросит разрешение; старый клиент и браузер — navigator.geolocation (до 10 с, без высокой
+     *  точности). Отказ, нет геолокации или ответа — `null`: метод не бросает. */
+    get(): Promise<LocationPoint | null>;
   };
 }

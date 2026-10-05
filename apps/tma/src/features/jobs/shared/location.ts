@@ -14,12 +14,9 @@ export interface ViewerPoint {
 export function useLocate(): () => Promise<ViewerPoint | null> {
   const platform = usePlatform();
   return useCallback(async () => {
-    const found = await platform.location.request().catch(() => null);
+    const found = await platform.location.get();
     return found
-      ? {
-          lat: Number(found.latitude.toFixed(DIGITS)),
-          lon: Number(found.longitude.toFixed(DIGITS)),
-        }
+      ? { lat: Number(found.lat.toFixed(DIGITS)), lon: Number(found.lon.toFixed(DIGITS)) }
       : null;
   }, [platform]);
 }

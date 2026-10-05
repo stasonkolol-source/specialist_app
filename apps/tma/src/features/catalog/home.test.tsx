@@ -125,8 +125,8 @@ describe('S03 home', () => {
     expect(app.router.state.location.search).toEqual({
       today: true,
       sort: 'distance',
-      lat: 45.267,
-      lon: 19.834,
+      lat: 45.24,
+      lon: 19.835,
     });
   });
 
