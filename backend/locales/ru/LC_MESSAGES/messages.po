@@ -1315,6 +1315,12 @@ msgstr "Решать кейсы могут только модераторы. Р
 msgid "bot.moderation.done"
 msgstr "Готово"
 
+msgid "bot.moderation.chat.candidate"
+msgstr "Id этого чата: <code>{chat_id}</code>\nЧтобы этот чат стал чатом модераторов: <code>TELEGRAM_MODERATORS_CHAT_ID={chat_id}</code> в backend/.env (dev) или <code>PROD_MODERATORS_CHAT_ID</code> в Variables окружения production (prod), затем перезапуск."
+
+msgid "bot.moderation.chat.configured"
+msgstr "Это чат модераторов, карточки кейсов приходят сюда."
+
 msgid "errors.invalid_job_alert"
 msgstr "Проверьте подписку: категории, район или радиус, бюджет."
 
@@ -1329,6 +1335,9 @@ msgstr "Заявки по подпискам"
 
 msgid "bot.commands.alerts"
 msgstr "Подписки на заявки"
+
+msgid "bot.commands.chatid"
+msgstr "Id этого чата — для персонала"
 
 msgid "bot.alerts.hidden"
 msgstr "Скрыли: эта заявка больше не появится в вашей ленте."
