@@ -501,6 +501,9 @@ msgstr "Случај је већ решен или то са њим сада н�
 msgid "errors.case_taken"
 msgstr "Случај већ решава други модератор."
 
+msgid "errors.case_superseded"
+msgstr "Објекат је измењен после картице: верзија се променила — погледајте нову картицу."
+
 msgid "errors.invalid_decision"
 msgstr "Одлука није потпуна: потребан је разлог, а санкција — само уз одбијање."
 
@@ -1797,6 +1800,9 @@ msgstr "Случајеве могу да решавају само модера�
 
 msgid "bot.moderation.done"
 msgstr "Готово"
+
+msgid "bot.moderation.superseded"
+msgstr "Верзија се променила — погледајте нову картицу"
 
 msgid "bot.moderation.chat.candidate"
 msgstr "ИД ове групе: <code>{chat_id}</code>\nДа би ова група постала група модератора: <code>TELEGRAM_MODERATORS_CHAT_ID={chat_id}</code> у backend/.env (dev) или <code>PROD_MODERATORS_CHAT_ID</code> у Variables окружења production (prod), затим поновно покретање."

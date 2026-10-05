@@ -1,8 +1,10 @@
 // Черновик мастера S20a–d в памяти и в хранилище платформы (DeviceStorage Telegram, в браузере —
 // localStorage): шаги правят один черновик, запись — с задержкой ввода, при входе в мастер он
 // поднимается из хранилища — так «черновик сохраняется сам» и переживает закрытие Mini App. После
-// публикации стирается. Правка своей заявки (`?edit=<id>`, S23 «Изменить», 5.6) — тот же мастер с
-// черновиком из заявки: он живёт только в памяти и не трогает черновик новой заявки.
+// публикации стирается. Ключ публикации — один на тело заявки: сервер ответил, что ключ потрачен
+// на другое тело (черновик поправили после публикации, которая выглядела неудачной), — черновик
+// получает новый (`rekey`). Правка своей заявки (`?edit=<id>`, S23 «Изменить», 5.6) — тот же
+// мастер с черновиком из заявки: он живёт только в памяти и не трогает черновик новой заявки.
 import type { JobOut } from '@sosed/api-client';
 import type { DraftLanguage, JobDraft } from '@sosed/hooks';
 import { DRAFT_STORAGE_KEY, draftOfJob, newDraft, parseDraft, useJob } from '@sosed/hooks';
@@ -23,6 +25,8 @@ export interface Editing {
   jobId: string;
   /** Версия заявки, с которой начали правку: If-Match сохранения. */
   version: number;
+  /** Заявка, с которой начали правку: версия ушла вперёд — по ней видно, правили ли её где-то ещё. */
+  base: JobOut;
 }
 
 interface DraftState {
@@ -33,6 +37,8 @@ interface DraftState {
   editing: Editing | null;
   start: (storage: KeyValueStorage, draft: JobDraft) => void;
   patch: (patch: Partial<JobDraft>) => void;
+  /** Новый ключ публикации: старый уже потрачен на другое тело. */
+  rekey: () => string;
   /** Опубликовано: черновик больше не нужен. */
   clear: () => Promise<void>;
   /** «Изменить» на S23: черновик — из заявки. */
@@ -60,6 +66,11 @@ export const useDraftStore = create<DraftState>((set, get) => ({
       void storage?.set(DRAFT_STORAGE_KEY, JSON.stringify(next)).catch(() => undefined);
     }, SAVE_DELAY_MS);
   },
+  rekey: () => {
+    const key = crypto.randomUUID();
+    get().patch({ key });
+    return key;
+  },
   clear: async () => {
     if (timer) clearTimeout(timer);
     timer = null;
@@ -70,7 +81,10 @@ export const useDraftStore = create<DraftState>((set, get) => ({
   edit: (job) => {
     if (timer) clearTimeout(timer);
     timer = null;
-    set({ draft: draftOfJob(job, new Date()), editing: { jobId: job.id, version: job.version } });
+    set({
+      draft: draftOfJob(job, new Date()),
+      editing: { jobId: job.id, version: job.version, base: job },
+    });
   },
   endEdit: () => set({ draft: null, editing: null }),
 }));

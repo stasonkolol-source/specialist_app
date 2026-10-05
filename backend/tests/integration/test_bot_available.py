@@ -7,12 +7,13 @@ import pytest
 from aiogram.methods import EditMessageText, SendMessage
 from aiogram.types import InlineKeyboardMarkup
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.platform.kernel.clock import BUSINESS_TZ, Clock
-from app.platform.kernel.ids import new_id
+from app.platform.kernel.ids import UserId, new_id
 from app.platform.settings import Settings
 from tests.plugins.bot import BotHarness, bot_harness
+from tests.plugins.identity import accept_rules
 
 pytestmark = pytest.mark.integration
 
@@ -31,9 +32,23 @@ def telegram_user() -> int:
 
 
 async def publish_profile(harness: BotHarness, telegram_id: int) -> None:
-    """Опубликованный профиль пользователя — SQL-вставкой: модерация этому тесту не нужна."""
+    """Опубликованный профиль пользователя — SQL-вставкой: модерация этому тесту не нужна.
+    Правила приняты, как у любого, кто создал профиль: «доступен сегодня» без галочки S02c и
+    при санкции на публикацию недоступен (SEC-01)."""
     async with harness.container() as request:
         engine = await request.get(AsyncEngine)
+    async with engine.begin() as conn:
+        user_id: UserId = (
+            await conn.execute(
+                text(
+                    "SELECT user_id FROM identity.auth_identities"
+                    " WHERE provider = 'telegram' AND subject = :subject"
+                ),
+                {"subject": str(telegram_id)},
+            )
+        ).scalar_one()
+    async with harness.container() as request:
+        await accept_rules(await request.get(AsyncSession), user_id)
     async with engine.begin() as conn:
         await conn.execute(
             text(

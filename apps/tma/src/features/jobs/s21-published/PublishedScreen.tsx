@@ -5,9 +5,12 @@
 // заявка уходит сразу после публикации (5.7): пока число уведомлённых не пришло, экран перечитывает
 // заявку пару раз и показывает «Уведомили N исполнителей рядом». «Поделиться в чат» (7.4) — у
 // опубликованной не прямым запросом: ссылка в поле с «Скопировать» и «Отправить в чат Telegram» —
-// карточка в выбор чата или ссылка.
+// карточка в выбор чата или ссылка. Ответ публикации — всегда «на проверке», а автопроверка
+// публикует чистую заявку за доли секунды: пока заявка на проверке, экран перечитывает её и сам
+// переходит в «опубликована» с приглашением специалистов. S21 заменил запись мастера в истории:
+// «Назад» — туда, откуда мастер открыли, без истории — «Мои заявки».
 import type { JobOut } from '@sosed/api-client';
-import { shareVia, useJob, useShareLink } from '@sosed/hooks';
+import { shareVia, useJobUntilReviewed, useShareLink } from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
 import { useBackButton, usePlatform } from '@sosed/platform';
 import { Button, Card, EmptyState, Heading, Icon, IconButton, Input, Text } from '@sosed/ui-web';
@@ -17,7 +20,7 @@ import { useEffect, useId } from 'react';
 import { BotChannel } from '../shared/BotChannel.tsx';
 import { InviteList } from '../shared/InviteList.tsx';
 import { useStepButton } from '../shared/flow.ts';
-import { CREATE_PATHS, HOME_PATH, managePath } from '../shared/paths.ts';
+import { CREATE_PATHS, HOME_PATH, JOBS_PATHS, managePath } from '../shared/paths.ts';
 import { shareable, useJobShare } from '../shared/share.tsx';
 
 /** Подписчиков считает задача после публикации: через пару секунд число уже есть. */
@@ -27,7 +30,7 @@ export function PublishedScreen() {
   const { t } = useTranslation('jobs');
   const router = useRouter();
   const { job: jobId } = useSearch({ from: CREATE_PATHS.done });
-  const job = useJob(jobId ?? null);
+  const job = useJobUntilReviewed(jobId ?? null);
   const { refetch } = job;
   const counting =
     job.data?.status === 'published' &&
@@ -42,8 +45,11 @@ export function PublishedScreen() {
     void router.navigate(
       jobId ? { to: managePath(jobId), replace: true } : { to: HOME_PATH, replace: true },
     );
-  // «Назад» в мастер не ведёт: черновика больше нет, заявка уже создана
-  useBackButton(null);
+  // «Назад» в мастер не ведёт: черновика больше нет, заявка уже создана, а его шаги S21 заменил
+  useBackButton(() => {
+    if (router.history.canGoBack()) router.history.back();
+    else void router.navigate({ to: JOBS_PATHS.mine, replace: true });
+  });
   useStepButton({ text: t('published.toJob'), onClick: toJob });
 
   if (!jobId || job.isError) {

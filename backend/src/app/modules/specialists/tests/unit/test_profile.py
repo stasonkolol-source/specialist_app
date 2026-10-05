@@ -27,7 +27,7 @@ from app.platform.contracts.events.specialists import (
     ProfileSubmitted,
     ProfileUpdated,
 )
-from app.platform.kernel.ids import CategoryId, CityId, DistrictId, UserId, new_id
+from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, UserId, new_id
 
 pytestmark = pytest.mark.unit
 
@@ -84,14 +84,35 @@ def test_submit_review_and_publish() -> None:
     profile.submit(now=NOW)
     assert profile.status is ProfileStatus.PENDING_REVIEW
     assert profile.first_review
-    assert not profile.approve(now=NOW, version=profile.version + 1)  # другая версия — ничего
-    assert profile.approve(now=NOW, version=profile.version)
+    # версия решения — редакция содержимого: правка после карточки — другая, ничего (ADV-11)
+    assert not profile.approve(now=NOW, version=profile.revision + 1)
+    assert profile.approve(now=NOW, version=profile.revision)
 
     assert (profile.status, profile.published_at) == (ProfileStatus.PUBLISHED, NOW)
     submitted, published = profile.pull_events()
     assert isinstance(submitted, ProfileSubmitted)
     assert isinstance(published, ProfilePublished)
     assert published.approved
+
+
+def test_revision_grows_only_with_the_authors_content() -> None:
+    """Редакция — версия, о которой решает модератор (ADV-11): растёт с правкой текста, услуг,
+    районов, фото и типа; «доступен сегодня» и пауза её не меняют."""
+    profile = ready()
+    profile.submit(now=NOW)
+    start = profile.revision
+
+    profile.edit(now=NOW, headline="Электрик, 10 лет опыта")  # то же — не правка
+    assert profile.revision == start
+    profile.edit(now=NOW, headline="Электрик и сантехник")
+    profile.set_categories([CATEGORY, CategoryId(CATEGORY + 1)], now=NOW)
+    profile.set_avatar(MediaId(new_id()), now=NOW)
+    assert profile.revision == start + 3
+
+    profile.approve(now=NOW, version=profile.revision)
+    profile.set_availability(time(23, 0), now=NOW)
+    profile.hide(now=NOW)
+    assert profile.revision == start + 3
 
 
 def test_rejection_sends_back_for_fixes_or_suspends_the_published() -> None:

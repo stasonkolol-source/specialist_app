@@ -73,7 +73,7 @@ class JobsFacade(JobsApi):
         return JobForReview(
             client_id=job.client_id,
             text=f"{content.title}\n\n{content.description}".strip(),
-            version=job.version,
+            version=job.revision,
             media_ids=content.media_ids,
             risk_level=int(category.risk_level) if category is not None else 0,
             title=content.title,
@@ -114,6 +114,12 @@ class JobsFacade(JobsApi):
             expires_at=job.expires_at,
             can_extend=job.extensions_count < MAX_EXTENSIONS,
         )
+
+    async def visible_author(self, job_id: UUID, viewer_id: UserId) -> UserId | None:
+        job = await self._queries.view(JobId(job_id))
+        if job is None or not await visible_to(self._queries, job, viewer_id):
+            return None
+        return job.client_id
 
     async def public_job(self, job_id: UUID) -> PublicJob | None:
         job = await self._queries.view(JobId(job_id))

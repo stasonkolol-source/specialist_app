@@ -86,7 +86,8 @@ export function DealScreen() {
   const { dealId: raw = '' } = useParams({ strict: false });
   const dealId = jobIdOf(raw);
   const router = useRouter();
-  const card = useDealCard(dealId);
+  // ждём вторую сторону: её отметки, отмена и спор — без перехода (MU-4)
+  const card = useDealCard(dealId, { live: true });
   useBackButton(() => {
     if (router.history.canGoBack()) router.history.back();
     else void router.navigate({ to: JOBS_PATHS.mine, replace: true });
@@ -127,20 +128,19 @@ function Proposal({ deal }: { deal: DealCardOut }) {
       ? t('card.negotiable')
       : offerPrice({ type: deal.price.type, amount: deal.price.amount });
   const district = deal.place.district?.name ?? deal.place.city?.name ?? null;
+  // Promise в кнопках: пока ответ уходит, второе нажатие (двойной тап) не уходит (MU-5)
   useStepButton({
     text: t('deal.proposal.confirm'),
     loading: answer.isPending,
-    onClick: () => answer.mutate({ dealId: deal.id, confirm: true }),
+    onClick: () => answer.mutateAsync({ dealId: deal.id, confirm: true }).catch(() => undefined),
   });
   const decline = () =>
-    answer.mutate(
-      { dealId: deal.id, confirm: false },
-      {
-        onSuccess: () => {
-          if (router.history.canGoBack()) router.history.back();
-        },
-      },
-    );
+    answer
+      .mutateAsync({ dealId: deal.id, confirm: false })
+      .then(() => {
+        if (router.history.canGoBack()) router.history.back();
+      })
+      .catch(() => undefined); // ошибка — баннером
   const { native } = useSecondaryButton({
     text: t('deal.proposal.decline'),
     enabled: !answer.isPending,
@@ -274,7 +274,8 @@ function Deal({ deal }: { deal: DealCardOut }) {
           text: t('deal.complete'),
           visible: agreed && deal.timeline.my_mark_at === null && !cancelling,
           loading: complete.isPending,
-          onClick: () => complete.mutate(deal.id),
+          // Promise: пока отметка уходит, второе нажатие не уходит (MU-5); ошибка — баннером
+          onClick: () => complete.mutateAsync(deal.id).catch(() => undefined),
         },
   );
   const problem = useProblemButton(deal, cancelling);

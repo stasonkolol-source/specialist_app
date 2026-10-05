@@ -501,6 +501,9 @@ msgstr "Кейс уже решён или сейчас так с ним сдел
 msgid "errors.case_taken"
 msgstr "Кейс уже разбирает другой модератор."
 
+msgid "errors.case_superseded"
+msgstr "Объект изменили после карточки: версия изменилась — смотрите новую карточку."
+
 msgid "errors.invalid_decision"
 msgstr "Решение неполное: нужна причина, а санкция — только при отказе."
 
@@ -1797,6 +1800,9 @@ msgstr "Решать кейсы могут только модераторы. Р
 
 msgid "bot.moderation.done"
 msgstr "Готово"
+
+msgid "bot.moderation.superseded"
+msgstr "Версия изменилась — смотрите новую карточку"
 
 msgid "bot.moderation.chat.candidate"
 msgstr "Id этого чата: <code>{chat_id}</code>\nЧтобы этот чат стал чатом модераторов: <code>TELEGRAM_MODERATORS_CHAT_ID={chat_id}</code> в backend/.env (dev) или <code>PROD_MODERATORS_CHAT_ID</code> в Variables окружения production (prod), затем перезапуск."

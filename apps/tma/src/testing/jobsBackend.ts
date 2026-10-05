@@ -1,6 +1,8 @@
 // Фейк backend заявок. Создание (5.2): POST /jobs запоминает тело и Idempotency-Key и, как сервер,
-// на повтор с тем же ключом отвечает той же заявкой; `failNext` — ответ на следующий POST ошибкой
-// (ключ не занимается: повтор выполнится заново). Лента (5.3): GET /jobs — заявки J1–J6 SPEC §4
+// на повтор с тем же ключом отвечает той же заявкой, а тот же ключ с другим телом — 422
+// `idempotency_key_reused`; `failNext` — ответ на следующий POST ошибкой (ключ не занимается:
+// повтор выполнится заново). `autoModerate` — автопроверка, как у сервера: ответ POST и PATCH —
+// «на проверке», а сохранённая заявка уже опубликована следующей версией. Лента (5.3): GET /jobs — заявки J1–J6 SPEC §4
 // (J1–J3 — как на артборде S13) с фильтрами и курсором, GET /jobs/count — их число, POST
 // /jobs/{id}/hide — «не подходит»; GET /jobs/{id} — созданная заявка (владельцу) или заявка ленты.
 // Сохранённые заявки (S12, S15): GET /me/favorites/jobs, PUT и DELETE /me/favorites/job/{id}.
@@ -532,8 +534,12 @@ export class JobsBackend {
   /** Параметры каждого GET /jobs — что прислал экран. */
   readonly feedRequests: URLSearchParams[] = [];
   private readonly byKey = new Map<string, JobOut>();
+  /** Тело первого запроса с ключом: другое тело с тем же ключом сервер отклоняет. */
+  private readonly bodyByKey = new Map<string, string>();
   /** Статус новой заявки: на проверке или сразу опубликована. */
   status: JobStatus = 'pending_moderation';
+  /** Автопроверка сразу после ответа: заявка «на проверке» тут же опубликована, версия +1. */
+  autoModerate = false;
   failNext: BackendReply | null = null;
   /** Ответ на следующий POST /jobs/{id}/hide ошибкой. */
   failNextHide: BackendReply | null = null;
@@ -688,7 +694,7 @@ export class JobsBackend {
       });
     }
     const edited: JobOut = {
-      ...jobOut(id, body, job.status),
+      ...jobOut(id, body, this.autoModerate ? 'pending_moderation' : job.status),
       viewer_role: 'owner',
       responses_count: job.responses_count,
       views_count: job.views_count,
@@ -696,8 +702,23 @@ export class JobsBackend {
       published_at: job.published_at,
       version: job.version + 1,
     };
-    this.jobs.set(id, edited);
+    this.jobs.set(id, this.moderated(edited));
     return { status: 200, body: edited };
+  }
+
+  /** Что лежит после ответа: с автопроверкой заявка на проверке уже опубликована (версия +1). */
+  private moderated(job: JobOut): JobOut {
+    if (!this.autoModerate || job.status !== 'pending_moderation') return job;
+    return { ...job, status: 'published', version: job.version + 1, published_at: NOW };
+  }
+
+  /** Автопроверка или модератор поменяли заявку: статус, служебные поля и версия +1. */
+  touch(id: string, patch: Partial<JobOut>): JobOut {
+    const job = this.jobs.get(id);
+    if (!job) throw new Error(`no job ${id}`);
+    const touched = { ...job, ...patch, version: job.version + 1 };
+    this.jobs.set(id, touched);
+    return touched;
   }
 
   /** Новая заявка; `directTo` — прямой запрос этому профилю (5.6): `visibility = direct`. */
@@ -710,11 +731,17 @@ export class JobsBackend {
     }
     if (!key) return problem(400, 'idempotency_key_required');
     const known = this.byKey.get(key);
+    if (known && this.bodyByKey.get(key) !== JSON.stringify(body)) {
+      return problem(422, 'idempotency_key_reused', {
+        detail: 'Этот Idempotency-Key уже использован с другими данными.',
+      });
+    }
     if (known) return { status: 201, body: known };
     const created = jobOut(createdJobId(this.jobs.size + 1), body, this.status);
     const job: JobOut = directTo ? { ...created, visibility: 'direct' } : created;
-    this.jobs.set(job.id, job);
+    this.jobs.set(job.id, this.moderated(job));
     this.byKey.set(key, job);
+    this.bodyByKey.set(key, JSON.stringify(body));
     return { status: 201, body: job };
   }
 

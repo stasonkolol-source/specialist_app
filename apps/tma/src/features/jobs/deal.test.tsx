@@ -7,10 +7,12 @@
 // диалог по отклику (6.4). Завершённая сделка клиента — «Заказать снова»: прямой диалог с этим
 // специалистом.
 import { setSession } from '@sosed/api-client';
+import { RESPONSES_POLL_MS } from '@sosed/hooks';
+import type { MockTelegram } from '@sosed/platform';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
+import { mainButton, pressBackButton, pressMainButton, startApp } from '../../testing/app.tsx';
 import { E2E_NOW } from '../../testing/fixtures.ts';
 import {
   JobsBackend,
@@ -63,6 +65,25 @@ const click = (element: HTMLElement) =>
     fireEvent.click(element);
   });
 
+const secondaryButton = (telegram: MockTelegram) =>
+  telegram.callsOf('web_app_setup_secondary_button').at(-1);
+
+/** S24 → шторка S25: MainButton «Выбрать исполнителем» экрана открывает подтверждение. */
+async function openConfirm(telegram: MockTelegram) {
+  await waitFor(() =>
+    expect(mainButton(telegram)).toMatchObject({ is_visible: true, text: 'Выбрать исполнителем' }),
+  );
+  await pressMainButton(telegram);
+  return screen.findByRole('dialog', { name: 'Выбрать этого исполнителя?' });
+}
+
+/** Двойной тап: два нажатия клиента в одном тике — до перерисовки экрана. */
+const doubleTap = (telegram: MockTelegram) =>
+  act(async () => {
+    telegram.emit('main_button_pressed');
+    telegram.emit('main_button_pressed');
+  });
+
 describe('S24 response and S25 choice', () => {
   it('leads from a response card to the offer and chooses the performer', async () => {
     const backend = withMine();
@@ -92,12 +113,61 @@ describe('S24 response and S25 choice', () => {
         'Остальные откликнувшиеся получат уведомление, что выбран другой исполнитель',
       ),
     ).toBeTruthy();
+    // подтверждение — нативной MainButton шторки: видна и активна, «Написать» экрана спрятана (MU-2)
+    expect(mainButton(telegram)).toMatchObject({
+      is_visible: true,
+      is_active: true,
+      text: 'Выбрать исполнителем',
+    });
+    expect(secondaryButton(telegram)?.is_visible).toBe(false);
     await pressMainButton(telegram);
 
     await waitFor(() => expect(app.router.state.location.pathname).toMatch(/^\/deals\//));
     expect(backend.decisions).toEqual([{ id: ALEKSEY?.id, action: 'accept' }]);
     expect(await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeTruthy();
     expect(screen.getAllByText('Договорились')).toHaveLength(2); // статус и шаг таймлайна
+  });
+
+  it('gives the screen its buttons back when the confirmation is closed', async () => {
+    const backend = withMine();
+    const { telegram } = startApp(CHOICE);
+    await waitFor(() => expect(secondaryButton(telegram)?.is_visible).toBe(true));
+    await openConfirm(telegram);
+
+    await pressBackButton(telegram);
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Выбрать этого исполнителя?' })).toBeNull(),
+    );
+    expect(mainButton(telegram)).toMatchObject({ is_visible: true, text: 'Выбрать исполнителем' });
+    expect(secondaryButton(telegram)).toMatchObject({ is_visible: true, text: 'Написать' });
+    expect(backend.decisions).toEqual([]);
+  });
+
+  it('chooses once on a double tap and opens the deal (MU-5)', async () => {
+    const backend = withMine();
+    const { app, telegram } = startApp(CHOICE);
+    await openConfirm(telegram);
+
+    await doubleTap(telegram);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toMatch(/^\/deals\//));
+    expect(backend.decisions).toEqual([{ id: ALEKSEY?.id, action: 'accept' }]);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('treats a repeated choice the server already made as success (MU-5)', async () => {
+    const backend = withMine();
+    const { app, telegram } = startApp(CHOICE);
+    const sheet = await openConfirm(telegram);
+    // первый запрос дошёл, ответ потерялся: сервер уже выбрал этот отклик, повтор — 409
+    backend.decide(ALEKSEY?.id ?? '', 'accept');
+    const deal = [...backend.deals.values()][0];
+
+    await pressMainButton(telegram);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe(`/deals/${deal?.id}`));
+    expect(within(sheet).queryByRole('alert')).toBeNull();
   });
 
   it('writes to the performer from the response with the secondary button', async () => {
@@ -191,6 +261,58 @@ describe('S26 deal', () => {
     expect(await screen.findByText(/^Вы отметили «Работа выполнена»/)).toBeTruthy();
     expect(backend.decisions).toEqual([{ id: deal.id, action: 'complete' }]);
     await waitFor(() => expect(mainButton(telegram)?.is_visible).toBe(false));
+  });
+
+  it('waits for the other side: polls the deal and offers the review (MU-4)', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'], now: new Date(E2E_NOW) });
+    const backend = withMine();
+    const deal = withDeal(backend);
+    const { telegram } = startApp(`/deals/${deal.id}`);
+    await waitFor(() => expect(mainButton(telegram)?.text).toBe('Работа выполнена'));
+    await pressMainButton(telegram);
+    expect(await screen.findByText(/^Вы отметили «Работа выполнена»/)).toBeTruthy();
+
+    // исполнитель тоже отметил — сделка завершена; экран узнаёт об этом без перехода
+    if (!CHANDELIER || !ALEKSEY) throw new Error('fixtures');
+    backend.deals.set(deal.id, { ...completedDealFixture(CHANDELIER, ALEKSEY), id: deal.id });
+    await act(async () => {
+      vi.advanceTimersByTime(RESPONSES_POLL_MS);
+    });
+
+    expect(await screen.findByText('Выполнена')).toBeTruthy();
+    await waitFor(() =>
+      expect(mainButton(telegram)).toMatchObject({ is_visible: true, text: 'Оставить отзыв' }),
+    );
+    expect(secondaryButton(telegram)?.is_visible).toBe(false);
+  });
+
+  it('rereads the deal when the Mini App is back on screen (MU-4)', async () => {
+    const backend = withMine();
+    const deal = withDeal(backend);
+    startApp(`/deals/${deal.id}`);
+    expect(await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeTruthy();
+
+    backend.deals.set(deal.id, {
+      ...deal,
+      timeline: { ...deal.timeline, other_mark_at: deal.timeline.agreed_at },
+    });
+    await act(async () => {
+      window.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    expect(await screen.findByText(/Вторая сторона уже отметила/)).toBeTruthy();
+  });
+
+  it('marks the work done once on a double tap (MU-5)', async () => {
+    const backend = withMine();
+    const deal = withDeal(backend);
+    const { telegram } = startApp(`/deals/${deal.id}`);
+    await waitFor(() => expect(mainButton(telegram)?.text).toBe('Работа выполнена'));
+
+    await doubleTap(telegram);
+
+    expect(await screen.findByText(/^Вы отметили «Работа выполнена»/)).toBeTruthy();
+    expect(backend.decisions).toEqual([{ id: deal.id, action: 'complete' }]);
   });
 
   it('cancels with a reason', async () => {

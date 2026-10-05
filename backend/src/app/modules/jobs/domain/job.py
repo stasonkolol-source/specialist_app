@@ -50,6 +50,7 @@ from app.platform.contracts.events.jobs import (
 )
 from app.platform.kernel.aggregate import StatusChange, VersionedAggregate
 from app.platform.kernel.clock import BUSINESS_TZ
+from app.platform.kernel.errors import StaleVersionError
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, UserId
 
@@ -297,6 +298,10 @@ class Job(VersionedAggregate):
     deleted_at: datetime | None = None
     selected_response_id: ResponseId | None = None
     """Выбранный клиентом отклик, пока по нему идёт сделка (6.1a)."""
+    revision: int = 1
+    """Редакция того, что пишет клиент (`content`): растёт только с его правкой. По ней ETag и
+    If-Match правки и решение модератора. `version` растёт с любой записью строки (автопроверка,
+    модератор, отклики): по ней правка сразу после автопубликации ловила ложный 412 (ADV-07)."""
     responses: list[Response] = field(default_factory=list)
     """Отклики, кроме удалённых: репозиторий загружает их вместе с заявкой."""
     _history: list[tuple[StatusChange[JobStatus], ActorKind]] = field(
@@ -341,12 +346,18 @@ class Job(VersionedAggregate):
     def can_extend(self) -> bool:
         return self.extensions_count < MAX_EXTENSIONS
 
+    def ensure_revision(self, expected: int | None) -> None:
+        """If-Match правки: сверяется редакция содержимого, а не версия строки — переходы
+        статуса, которых клиент не делал, его правку не отменяют. None — версию не передали."""
+        if expected is not None and expected != self.revision:
+            raise StaleVersionError(expected=expected, actual=self.revision)
+
     def approve(self, *, version: int | None, now: datetime) -> bool:
-        """Модерация пропустила: «на проверке» → «опубликована», срок — по срочности. Другая
-        версия (клиент успел поправить) или статус — ничего, False."""
+        """Модерация пропустила: «на проверке» → «опубликована», срок — по срочности. `version` —
+        редакция, которую проверяли; другая (клиент успел поправить) или статус — ничего, False."""
         if self.status is not JobStatus.PENDING_MODERATION or self.deleted_at is not None:
             return False
-        if version is not None and version != self.version:
+        if version is not None and version != self.revision:
             return False
         first = self.published_at is None
         self._move(JobStatus.PUBLISHED, by=None, kind=ActorKind.MODERATOR, now=now)
@@ -383,6 +394,8 @@ class Job(VersionedAggregate):
             self.status in {JobStatus.PUBLISHED, JobStatus.EXPIRED}
             and content.substantive_change(self.content)
         )
+        if content != self.content:
+            self.revision += 1
         self.content = content
         self.updated_at = now
         if review:

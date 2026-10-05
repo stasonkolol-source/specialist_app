@@ -6,8 +6,9 @@
 автопроверка фото и решение модератора по кейсу фото). Итог фото читается под блокировкой строки
 файла: запись итога параллельно не проскочит между чтением и запросом повторной проверки.
 Портфолио нового профиля (ещё не опубликованного) всегда проверяет человек (`always_review`,
-§14.1, ADR-0016); правка подписи опубликованной работы — пост-модерация. Версий у работы нет:
-автопроверка публикует только ждущую проверки работу (`auto`), а скрытую модератором, пока она
+§14.1, ADR-0016); правка подписи опубликованной работы — пост-модерация. Версия — редакция
+подписи: публикуется только та, что проверяли (правка после карточки — новый кейс, ADV-11).
+Автопроверка публикует только ждущую проверки работу (`auto`), а скрытую модератором, пока она
 шла, возвращает только решение модератора. Риск — самый строгий из
 категорий профиля, как у профиля. Хранилище не нужно: решение модератора работает и в боте.
 """
@@ -41,20 +42,17 @@ class PortfolioTarget(ModerationTarget):
             kind=ContentKind.PROFILE,  # подпись — часть профиля исполнителя
             text=work.caption or "",
             media_ids=(work.media_id,),
+            version=work.revision,
             always_review=work.pending and work.new_profile,
             risk_level=work.risk_level,
         )
 
     async def publish(
-        self,
-        entity_id: UUID,
-        *,
-        version: int | None = None,  # noqa: ARG002 — у работы версий нет
-        auto: bool = False,
+        self, entity_id: UUID, *, version: int | None = None, auto: bool = False
     ) -> None:
-        # без версии опоздавшую автопроверку отсекает `auto`: скрытую модератором работу
-        # возвращает только его решение
-        await self._specialists.approve_work(entity_id, auto=auto)
+        # опоздавшую автопроверку отсекает `auto`: скрытую модератором работу возвращает только
+        # его решение; `version` — подпись, которую проверяли
+        await self._specialists.approve_work(entity_id, version=version, auto=auto)
 
     async def hide(self, entity_id: UUID, *, reason_code: str) -> None:  # noqa: ARG002
         await self._specialists.reject_work(entity_id)

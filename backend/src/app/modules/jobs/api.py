@@ -21,6 +21,7 @@ class JobForReview:
     text: str
     """Заголовок и описание — то, что увидят исполнители."""
     version: int
+    """Редакция содержимого: решение модератора действует только на неё (ADV-11)."""
     media_ids: tuple[MediaId, ...]
     risk_level: int
     """Риск категории: `≥ 1` — заявку проверяет человек (P2)."""
@@ -245,6 +246,12 @@ class JobsApi(Protocol):
 
     async def job_brief(self, job_id: UUID) -> JobBrief | None:
         """Название, статус и срок заявки; None — нет такой или удалена."""
+        ...
+
+    async def visible_author(self, job_id: UUID, viewer_id: UserId) -> UserId | None:
+        """Автор заявки, которую видит `viewer_id` — по тому же правилу, что GET /jobs/{id}:
+        на что жаловаться. None — нет такой, удалена или не видна ему (прямой запрос другому,
+        чужая закрытая): жалоба не подтверждает, что заявка есть (QA ADV-09)."""
         ...
 
     async def public_job(self, job_id: UUID) -> PublicJob | None:

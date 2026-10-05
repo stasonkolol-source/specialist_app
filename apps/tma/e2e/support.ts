@@ -69,18 +69,62 @@ export async function expectNoAxeViolations(page: Page, scope: AxeScope = {}) {
   expect(result.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.length})`)).toEqual([]);
 }
 
+type TelegramPress = 'main_button_pressed' | 'secondary_button_pressed' | 'back_button_pressed';
+
+const SETUP: Record<TelegramPress, string> = {
+  main_button_pressed: 'web_app_setup_main_button',
+  secondary_button_pressed: 'web_app_setup_secondary_button',
+  back_button_pressed: 'web_app_setup_back_button',
+};
+
+/** Последнее состояние нативной кнопки, как его получил клиент Telegram (`window.sosedTelegram`
+ *  mock-платформы): `is_visible`, `is_active`, `is_progress_visible`, `text`. */
+export function telegramButton(page: Page, event: TelegramPress) {
+  return page.evaluate(
+    (method) =>
+      (window.sosedTelegram?.callsOf(method).at(-1) ?? null) as Record<string, unknown> | null,
+    SETUP[event],
+  );
+}
+
 /** Кнопка клиента Telegram (MainButton, SecondaryButton, BackButton) — нативная, в DOM её нет:
- *  нажатие — событием клиента, как его присылает Telegram (`Telegram.WebView.receiveEvent`). */
+ *  нажатие — событием клиента, как его присылает Telegram (`Telegram.WebView.receiveEvent`). Как
+ *  настоящий клиент, жмём только показанную кнопку: видимую, активную и без прогресса, с текстом
+ *  `text`, если он задан, — иначе тест падает (QA MU-2: шторка S25 прятала «Выбрать», а прежний
+ *  помощник жал и скрытую). Кнопку ставит эффект экрана — ждём её, как Playwright ждёт элемент.
+ *  `taps: 2` — двойной тап: два события в одном тике, пока экран не успел перерисоваться. */
 export async function pressTelegram(
   page: Page,
-  event: 'main_button_pressed' | 'secondary_button_pressed' | 'back_button_pressed',
+  event: TelegramPress,
+  { text, taps = 1 }: { text?: string | RegExp; taps?: 1 | 2 } = {},
 ) {
-  await page.evaluate((name) => {
-    const telegram = (
-      window as unknown as { Telegram: { WebView: { receiveEvent(e: string, d: unknown): void } } }
-    ).Telegram;
-    telegram.WebView.receiveEvent(name, {});
-  }, event);
+  const shown =
+    event === 'back_button_pressed'
+      ? { is_visible: true }
+      : {
+          is_visible: true,
+          is_active: true,
+          is_progress_visible: false,
+          ...(text === undefined
+            ? {}
+            : { text: typeof text === 'string' ? text : expect.stringMatching(text) }),
+        };
+  await expect
+    .poll(() => telegramButton(page, event), {
+      message: `${event}: the native button must be shown to be pressed${text ? ` (${String(text)})` : ''}`,
+    })
+    .toMatchObject(shown);
+  await page.evaluate(
+    ([name, count]) => {
+      const telegram = (
+        window as unknown as {
+          Telegram: { WebView: { receiveEvent(e: string, d: unknown): void } };
+        }
+      ).Telegram;
+      for (let i = 0; i < count; i += 1) telegram.WebView.receiveEvent(name, {});
+    },
+    [event, taps] as const,
+  );
 }
 
 /** Перейти на вкладку таббара по её подписи. */

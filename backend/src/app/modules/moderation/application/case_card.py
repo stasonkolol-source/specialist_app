@@ -56,7 +56,7 @@ from app.platform.kernel.clock import BUSINESS_TZ
 from app.platform.kernel.ids import CaseId
 from app.platform.kernel.localized import Locale
 from app.platform.telegram.callbacks import CallbackAction, CallbackData, encode_callback
-from app.platform.telegram.port import ButtonLine, CallbackButton, LinkButton
+from app.platform.telegram.port import ButtonLine, CallbackButton, InactiveButton, LinkButton
 from app.platform.text.contact_masking import find_contacts, mask_contacts
 
 MODERATORS_LOCALE: Final = Locale.RU
@@ -203,6 +203,15 @@ def admin_buttons(
         return ()
     label = plain_text(translator, "bot.moderation.button.admin", MODERATORS_LOCALE)
     return (LinkButton(text=label, url=admin_case_url(admin_url, case_id)),)
+
+
+def superseded_buttons(
+    case_id: CaseId, translator: Translator, admin_url: str | None
+) -> tuple[ButtonLine, ...]:
+    """Под карточкой устаревшего кейса (объект изменили после неё, ADV-11) кнопок решения нет:
+    неактивная строка «Версия изменилась — смотрите новую карточку» и «Открыть в админке»."""
+    label = plain_text(translator, "bot.moderation.superseded", MODERATORS_LOCALE)
+    return (InactiveButton(text=label), *admin_buttons(case_id, translator, admin_url))
 
 
 def admin_case_url(admin_url: str, case_id: CaseId) -> str:
