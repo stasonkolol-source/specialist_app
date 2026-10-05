@@ -10,7 +10,7 @@
 Откат не нужен: отвязать отзывы значило бы снова спрятать рейтинг — downgrade ничего не делает.
 
 Ревизия: reviews_0005 (2026-10-05 21:00:00.000000+00:00)
-Предыдущая: platform_0007
+Предыдущая: moderation_0010
 
 Правила (DEVELOPMENT_PLAN 0.9, ADR-0005):
 - имя ревизии — <модуль>_NNNN, файл — <модуль>_NNNN_<slug>.py;
@@ -25,7 +25,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "reviews_0005"
-down_revision: str | Sequence[str] | None = "platform_0007"
+down_revision: str | Sequence[str] | None = "moderation_0010"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
