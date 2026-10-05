@@ -26,7 +26,8 @@ export function Badge({
   children: ReactNode;
   tone?: BadgeTone;
   icon?: IconName;
-  /** .dot — точка-индикатор («Сегодня до 20:00» в карточке S05). */
+  /** .dot — точка-индикатор («Сегодня до 20:00» в карточке S05): цветом текста бейджа — зелёная
+   *  точка в синем бейдже читалась бы как другое состояние. */
   dot?: boolean;
   className?: string;
 }) {
@@ -38,7 +39,7 @@ export function Badge({
         className,
       )}
     >
-      {dot && <span className="size-2 shrink-0 rounded-full bg-accent" aria-hidden="true" />}
+      {dot && <span className="size-2 shrink-0 rounded-full bg-current" aria-hidden="true" />}
       {icon && <Icon name={icon} size={16} />}
       {children}
     </span>

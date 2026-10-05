@@ -9,7 +9,9 @@ import { Avatar, initials, paletteFor } from './Avatar.tsx';
 import { Badge } from './Badge.tsx';
 import { Button, IconButton } from './Button.tsx';
 import { Card } from './Card.tsx';
-import { ICON_NAMES, Icon } from './icon/Icon.tsx';
+import tokens from '@sosed/design-tokens/tokens.json' with { type: 'json' };
+
+import { ICON_NAMES, ICON_STROKE, Icon } from './icon/Icon.tsx';
 import { HStack, Stack } from './layout/Stack.tsx';
 import { TabBar } from './TabBar.tsx';
 import { a11yViolations } from './testing/a11y.ts';
@@ -19,6 +21,19 @@ describe('Icon', () => {
   it('иконки SPEC §3 — актуальны (pnpm -F ui-web icons)', () => {
     expect(readFileSync(OUT_PATH, 'utf8')).toBe(renderIcons(readFileSync(SPEC_PATH, 'utf8')));
     expect(ICON_NAMES.length).toBeGreaterThanOrEqual(60);
+  });
+
+  it('штрих по размеру — как в токенах: на экране линии одной толщины', () => {
+    expect(ICON_STROKE).toEqual(tokens.icon.strokes);
+    const { container } = render(
+      <>
+        <Icon name="check" size={16} />
+        <Icon name="search" size={32} />
+      </>,
+    );
+    const [small, large] = container.querySelectorAll('svg');
+    expect(small?.getAttribute('stroke-width')).toBe('2.2');
+    expect(large?.getAttribute('stroke-width')).toBe('1.4');
   });
 
   it('декоративная — aria-hidden, штрих 1.8; с подписью — role=img', async () => {
@@ -129,10 +144,19 @@ describe('Button и IconButton', () => {
   });
 
   it('IconButton — подпись обязательна, активное состояние', async () => {
-    const { container } = render(<IconButton icon="heart" label="В избранное" active />);
+    const { container } = render(
+      <>
+        <IconButton icon="heart" label="В избранное" active />
+        <IconButton icon="heart" label="Сохранить" />
+      </>,
+    );
     const button = screen.getByRole('button', { name: 'В избранное' });
     expect(button.getAttribute('aria-pressed')).toBe('true');
     expect(button.className).toContain('text-danger');
+    // состояние не только цветом: сердце залито, у выключенной кнопки — контур
+    expect(button.querySelector('svg')?.getAttribute('class')).toContain('fill-current');
+    const off = screen.getByRole('button', { name: 'Сохранить' });
+    expect(off.querySelector('svg')?.getAttribute('class')).toContain('fill-none');
     expect(await a11yViolations(container)).toEqual([]);
   });
 
@@ -163,9 +187,15 @@ describe('Badge', () => {
         </Badge>
         <Badge tone="urgent">Срочно</Badge>
         <Badge tone="pro">Pro</Badge>
+        <Badge tone="info" dot>
+          Приём откликов
+        </Badge>
       </>,
     );
     expect(screen.getByText('Срочно').className).toContain('bg-urgent-soft');
+    // точка — цветом текста бейджа: в синем бейдже не зелёная
+    const dot = screen.getByText('Приём откликов').querySelector('[aria-hidden="true"]');
+    expect(dot?.className).toContain('bg-current');
     expect(await a11yViolations(container)).toEqual([]);
   });
 });

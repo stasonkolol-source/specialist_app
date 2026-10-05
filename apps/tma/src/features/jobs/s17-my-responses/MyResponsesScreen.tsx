@@ -200,7 +200,7 @@ function ResponseCardSkeleton() {
         <SkeletonText size="title" className="w-20" />
       </div>
       <SkeletonText size="cap" className="w-1/2" />
-      <Skeleton radius="panel" className="mt-1 h-9 w-32" />
+      <Skeleton radius="icon" className="mt-1 h-9 w-32" />
     </SkeletonCard>
   );
 }

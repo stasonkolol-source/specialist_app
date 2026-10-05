@@ -17,19 +17,31 @@ export interface SheetProps {
   onClose: () => void;
   /** Подпись кнопки-крестика: у неё нет текста. */
   closeLabel: string;
+  /** false — без крестика: у шторки уже есть своя отмена («Отмена» S25, «Не сейчас» S54), второй
+   *  выход только спорил бы с ней. Escape и тап по затемнению закрывают по-прежнему. */
+  closeButton?: boolean;
   children: ReactNode;
   /** Кнопки внизу шторки (в браузере — вместо MainButton Telegram). */
   footer?: ReactNode;
 }
 
-export function Sheet({ open, title, onClose, closeLabel, children, footer }: SheetProps) {
+export function Sheet({
+  open,
+  title,
+  onClose,
+  closeLabel,
+  closeButton = true,
+  children,
+  footer,
+}: SheetProps) {
   const titleId = useId();
   const dialog = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!open) return undefined;
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dialog.current?.focus();
+    // шторка ещё въезжает снизу: фокус без прокрутки к ней
+    dialog.current?.focus({ preventScroll: true });
     return () => opener?.focus();
   }, [open]);
 
@@ -63,7 +75,8 @@ export function Sheet({ open, title, onClose, closeLabel, children, footer }: Sh
     // шторка — flex-элемент у нижнего края: длинное содержимое сжимает её до отступа сверху
     // (затемнение остаётся видно) и прокручивается внутри
     <div className="fixed inset-0 z-40 flex flex-col justify-end">
-      <div className="absolute inset-0 bg-scrim" aria-hidden="true" onClick={onClose} />
+      {/* появление: затемнение проявляется, шторка въезжает снизу; без анимации при reduced motion */}
+      <div className="enter-fade absolute inset-0 bg-scrim" aria-hidden="true" onClick={onClose} />
       <section
         ref={dialog}
         role="dialog"
@@ -72,14 +85,15 @@ export function Sheet({ open, title, onClose, closeLabel, children, footer }: Sh
         tabIndex={-1}
         onKeyDown={onKeyDown}
         // *:shrink-0 — в колонке с прокруткой flex сжал бы группы (overflow-hidden) вместо прокрутки
-        className="relative mt-12 flex min-h-0 flex-col gap-4 overflow-y-auto rounded-t-sheet bg-bg px-4 pt-2 pb-8 outline-none *:shrink-0"
+        className="relative mt-12 flex min-h-0 flex-col gap-4 overflow-y-auto rounded-t-sheet bg-bg px-4 pt-2 pb-8 outline-none *:shrink-0 enter-sheet"
       >
         <div className="mx-auto h-1.25 w-9 shrink-0 rounded-full bg-line" aria-hidden="true" />
-        <div className="flex items-center justify-between gap-2">
+        {/* высота строки — как с крестиком (44): без него заголовок не прыгает */}
+        <div className="flex min-h-11 items-center justify-between gap-2">
           <Heading variant="h2" as="h2" id={titleId}>
             {title}
           </Heading>
-          <IconButton icon="x" label={closeLabel} onClick={onClose} />
+          {closeButton && <IconButton icon="x" label={closeLabel} onClick={onClose} />}
         </div>
         {children}
         {footer}

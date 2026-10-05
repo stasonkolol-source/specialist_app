@@ -45,7 +45,7 @@ export function JobCardSkeleton({ photos = false }: { photos?: boolean }) {
       {photos && (
         <div className="flex gap-2">
           {[0, 1, 2].map((photo) => (
-            <Skeleton key={photo} radius="panel" className="size-14" />
+            <Skeleton key={photo} radius="field" className="size-14" />
           ))}
         </div>
       )}

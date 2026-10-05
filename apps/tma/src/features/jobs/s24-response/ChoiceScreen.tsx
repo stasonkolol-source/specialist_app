@@ -380,6 +380,7 @@ function ConfirmSheet({
       title={t('choice.confirmTitle')}
       onClose={onClose}
       closeLabel={common('action.close')}
+      closeButton={false}
     >
       <div className="flex items-center gap-3">
         <Avatar name={name} src={avatar?.url} placeholder={performer.avatar?.placeholder} />
@@ -472,7 +473,7 @@ function Loading() {
           <SkeletonText size="sm" className="w-3/4" />
         </div>
       </SkeletonCard>
-      <Skeleton radius="panel" screen className="h-11 w-full" />
+      <Skeleton radius="field" screen className="h-11 w-full" />
     </section>
   );
 }

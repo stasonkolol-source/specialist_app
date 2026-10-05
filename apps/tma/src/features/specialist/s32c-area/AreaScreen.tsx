@@ -337,7 +337,7 @@ function AreaForm({
             {t('become.area.servicePriceError')}
           </p>
         )}
-        <p id={serviceHintId} className="m-0 text-cap">
+        <p id={serviceHintId} className="m-0 text-cap text-text2">
           {pro ? t('become.area.priceHint') : t('become.area.priceOptional')}
         </p>
       </div>
