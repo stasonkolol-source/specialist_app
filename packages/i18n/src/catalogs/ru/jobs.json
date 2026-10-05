@@ -699,7 +699,7 @@
     "more": "{title} и ещё {count}",
     "city": "Весь город",
     "radius": "До {km} км",
-    "radiusFrom": "До {km} км · {place}",
+    "radiusFrom": "{place}, до {km} км",
     "budgetFrom": "от {amount}",
     "anyBudget": "любой бюджет",
     "anyLanguage": "любой язык",

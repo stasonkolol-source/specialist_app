@@ -699,7 +699,7 @@
     "more": "{title} и још {count}",
     "city": "Цео град",
     "radius": "До {km} км",
-    "radiusFrom": "До {km} км · {place}",
+    "radiusFrom": "{place}, до {km} км",
     "budgetFrom": "од {amount}",
     "anyBudget": "било који буџет",
     "anyLanguage": "било који језик",

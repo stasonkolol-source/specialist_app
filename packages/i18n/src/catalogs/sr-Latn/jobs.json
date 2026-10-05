@@ -699,7 +699,7 @@
     "more": "{title} i još {count}",
     "city": "Ceo grad",
     "radius": "Do {km} km",
-    "radiusFrom": "Do {km} km · {place}",
+    "radiusFrom": "{place}, do {km} km",
     "budgetFrom": "od {amount}",
     "anyBudget": "bilo koji budžet",
     "anyLanguage": "bilo koji jezik",
