@@ -12,11 +12,11 @@ from uuid import UUID
 
 import httpx
 import pytest
-from dishka import AsyncContainer
+from dishka import AsyncContainer, Provider, Scope, provide
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from app.entrypoints._wiring import make_worker_container, module_routers
+from app.entrypoints._wiring import make_container, make_worker_container, module_routers
 from app.entrypoints.seeds import load_city_seeds
 from app.modules.jobs.application.use_cases.forget_client_jobs import (
     ForgetClientJobs,
@@ -30,6 +30,8 @@ from app.modules.moderation.application.use_cases.decide_case import (
 from app.modules.moderation.domain.cases import EntityType
 from app.modules.moderation.domain.pipeline import Route, Routing
 from app.modules.moderation.domain.queues import Queue
+from app.platform.ai.port import Moderation, PolicyClassifier
+from app.platform.ai.stubs import NoModeration, NoPolicyClassifier
 from app.platform.contracts.events.moderation import ModerationDecision
 from app.platform.kernel.ids import UserId, new_id
 from app.platform.settings import Settings
@@ -55,6 +57,26 @@ async def web(
 async def worker(storage_settings: Settings) -> AsyncIterator[AsyncContainer]:
     container = make_worker_container(storage_settings)
     try:
+        yield container
+    finally:
+        await container.close()
+
+
+class NoAiKeys(Provider):
+    """Stage и прод без ключей AI (K25, K26 — после MVP): те адаптеры, что выбирает
+    `platform/di.py::_stubs_allowed` вне dev и тестов."""
+
+    scope = Scope.APP
+    moderation = provide(NoModeration, provides=Moderation)
+    classifier = provide(NoPolicyClassifier, provides=PolicyClassifier)
+
+
+@pytest.fixture
+async def worker_without_ai(storage_settings: Settings) -> AsyncIterator[AsyncContainer]:
+    container = make_container(storage_settings, NoAiKeys())
+    try:
+        assert isinstance(await container.get(Moderation), NoModeration)
+        assert isinstance(await container.get(PolicyClassifier), NoPolicyClassifier)
         yield container
     finally:
         await container.close()
@@ -274,6 +296,27 @@ async def test_job_with_contacts_waits_for_a_moderator_and_goes_back_after_fixes
 
     assert fixed.status_code == 200, fixed.text
     assert (fixed.json()["status"], fixed.json()["moderation_note"]) == ("pending_moderation", None)
+
+
+async def test_without_ai_keys_clean_job_is_published_at_once(
+    web: HttpApp,
+    worker_without_ai: AsyncContainer,
+    storage_settings: Settings,
+    clients: list[Client],
+    body: dict[str, Any],
+) -> None:
+    """Ворота беты 2.2 (ключи AI — после MVP): чистую заявку новичка стоп-правила публикуют
+    сразу, заявка с телефоном ждёт модератора, как и с ключами."""
+    me = await new_client(web, storage_settings, clients)
+
+    job_id = await published(worker_without_ai, me, body)
+    phone = {"description": f"{body['description']} Звоните: +381 64 123 4567"}
+    leaking = await me.created(body | phone)
+    routing = await auto_check(worker_without_ai, me, leaking["id"])
+
+    assert (await me.get(job_id)).json()["status"] == "published"
+    assert (routing.route, routing.queue) == (Route.REVIEW, Queue.PREMOD)
+    assert not any("no_key" in signal for signal in routing.signals)
 
 
 @pytest.mark.authz
