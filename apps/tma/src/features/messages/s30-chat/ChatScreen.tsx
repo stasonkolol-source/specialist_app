@@ -1,9 +1,16 @@
 // S30 Диалог (DEVELOPMENT_PLAN 6.4; ARCHITECTURE §11.5, §11.6): шапка — инициалы, имя второй
-// стороны (у специалиста — ссылка на его карточку S08) и что со сделкой. Под шапкой — полоса
-// сделки диалога (ссылкой на S26) или, если сделки нет, а контакты пары открыты, — полоса «вы уже
-// договаривались». Есть полоса — все действия второй строкой в ней, нет — одно в шапке справа: в
-// прямом диалоге «Договориться» (шторка условий, вторая сторона подтвердит, S53), клиенту в
-// диалоге по отклику — «К откликам» (исполнителя выбирают на S23–S25). Так имя и что со сделкой не
+// стороны (у специалиста — ссылка на его карточку S08), что со сделкой и справа одно главное
+// действие, коротко: шапка не прокручивается, а диалог открывается в конце переписки. Без сделки —
+// «Договориться» (шторка условий, вторая сторона подтвердит, S53); клиенту в диалоге по отклику,
+// пока исполнитель не выбран, — «К откликам» (выбирают на S23–S25); сделка предложена, идёт или
+// под спором — «Сделка» (S26, как на артборде S54); сделка позади — в прямом диалоге снова
+// «Договориться» (та же шторка, «что делаем» — из прошлой сделки), клиенту по отклику после
+// завершённой — «Заказать снова» (прямой диалог с этим специалистом, как «Написать» на S08). Под
+// шапкой — полоса сделки диалога (позади — «Прошлая сделка») или, если сделки нет, а контакты
+// пары открыты, — «Вы уже договаривались»; второй строкой в ней — Telegram второй стороны и
+// «Поделиться контактом» (шторка S54, 6.5; из сделки S26 — сразу открытой, `?share`). Открыты ли
+// контакты, решает сервер (`contacts_open`): эта пара уже договаривалась — в этом диалоге или в
+// другом — значит, открыты (ADR-0010, решение владельца 2026-10-04). Имя и что со сделкой не
 // обрезаются и при 360 px, а попап «⋯» Telegram — не больше трёх кнопок. Сверху ленты — памятка
 // «не вносите предоплату» и с чего начат диалог; над первым сообщением каждого дня — подпись дня
 // («Сегодня», «Вчера», «2 октября»). Сообщения: свои справа, чужие слева; телефон или ссылка до
@@ -11,17 +18,10 @@
 // просьба о предоплате — памятка; скрытое модерацией — словами (автор видит своё и что оно
 // скрыто); отклик — карточкой с ценой; контакт — ссылкой; что со сделкой — системной строкой.
 // Отправка сразу в ленте, неотправленное — «повторить». Лента опрашивается раз в 4 с (ETag), пока
-// экран открыт; новое — прочитано. Закрытый диалог — без композера. После договорённости —
-// «Поделиться контактом» (шторка S54, 6.5; из сделки S26 — сразу открытой, `?share`) и Telegram
-// второй стороны, если она его показывает. Открыты ли контакты, решает сервер (`contacts_open`):
-// эта пара уже договаривалась — в этом диалоге или в другом — значит, открыты (ADR-0010, решение
-// владельца 2026-10-04). Сделка завершена или отменена — можно снова: в прямом диалоге
-// «Договориться снова» (та же шторка условий, «что делаем» — из прошлой сделки), клиенту в диалоге
-// по отклику после завершённой — «Заказать снова» (прямой диалог с этим специалистом, как
-// «Написать» на S08); полоса тогда — «Прошлая сделка». «⋯» в шапке (4.7) — попап Telegram:
-// «Пожаловаться» (шторка S46 на собеседника с этим диалогом) и «Заблокировать» с подтверждением
-// или «Разблокировать». Блокировка в любую сторону — переписка только для чтения: вместо
-// композера «Вы заблокировали собеседника» с «Разблокировать» или «Собеседник недоступен».
+// экран открыт; новое — прочитано. Закрытый диалог — без композера. «⋯» в шапке (4.7) — попап
+// Telegram: «Пожаловаться» (шторка S46 на собеседника с этим диалогом) и «Заблокировать» с
+// подтверждением или «Разблокировать». Блокировка в любую сторону — переписка только для чтения:
+// вместо композера «Вы заблокировали собеседника» с «Разблокировать» или «Собеседник недоступен».
 import type { ConversationOut, MessageOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import type { ChatEntry } from '@sosed/hooks';
@@ -196,7 +196,12 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
         onMenu={() => void block.menu(name)}
       />
       {actions.bar && (
-        <DealBar conversation={conversation} withDeal={actions.withDeal} actions={actions.inBar} />
+        <DealBar
+          conversation={conversation}
+          withDeal={actions.withDeal}
+          link={actions.dealLink}
+          actions={actions.inBar}
+        />
       )}
       <div className="flex flex-1 flex-col justify-end">
         <ChatList label={t('list.title')} className="pb-4">
@@ -357,7 +362,7 @@ function againOf(conversation: ConversationOut): Again {
   return client && state === 'completed' && conversation.counterpart_profile_id ? 'order' : null;
 }
 
-/** Действие диалога: в шапке — кнопкой, в полосе под ней — текстовой кнопкой второй строки. */
+/** Действие диалога: главное — кнопкой в шапке, остальные — текстом второй строкой полосы. */
 interface Action {
   key: string;
   label: string;
@@ -366,14 +371,19 @@ interface Action {
   title?: string;
   /** Ждём ответа сервера: «Заказать снова» открывает диалог. */
   busy?: boolean;
-  /** В шапке — вторичной: «К откликам» уводит на другой экран, а не договаривается. */
+  /** Вторичной: «К откликам» и «Сделка» уводят на другой экран, а не договариваются. */
   secondary?: boolean;
 }
 
-/** Что можно сделать в диалоге и где. Полоса под шапкой — сделка диалога (`withDeal`) или
- *  открытые контакты без сделки (пара договаривалась в другом диалоге). Есть полоса — все действия
- *  второй строкой в ней, нет — главное справа в шапке: рядом с кнопкой в шапке обрезались имя и
- *  что со сделкой («Алексей М…», «Сделка заве…» при 375 px). */
+/** Что можно сделать в диалоге и где. Главное — всегда кнопкой в шапке: она не прокручивается, а
+ *  диалог открывается в конце переписки, и полоса под шапкой уходит вверх («заказать снова» было
+ *  не найти). Подпись — короткая, чтобы имя и что со сделкой помещались и при 360 px:
+ *  «Договориться» — без сделки, а после завершённой или отменённой в прямом диалоге — снова (что
+ *  сделка позади, говорит строка под именем); «К откликам» — клиенту по отклику, пока исполнитель
+ *  не выбран; «Заказать снова» — ему же после завершённой; «Сделка» (S26, как в шапке артборда
+ *  S54) — пока сделка предложена, идёт или под спором, и когда снова отсюда нельзя. Полоса под
+ *  шапкой — сделка диалога (`withDeal`) или открытые контакты без сделки (пара договаривалась в
+ *  другом диалоге); второй строкой в ней — Telegram и «Поделиться контактом», без повтора шапки. */
 function useActions(
   conversation: ConversationOut,
   writable: boolean,
@@ -386,27 +396,38 @@ function useActions(
   const state = dealState(conversation);
   const withDeal = dealInBar(conversation, writable);
   const telegram = conversation.counterpart_telegram;
-  const bar = withDeal || Boolean(telegram);
+  const deal = conversation.deal;
 
   let main: Action | null = null;
-  if (again === 'propose') {
-    // без полосы — после отклонённого предложения: договориться ещё не удалось, «снова» лишнее
-    main = { key: 'agree', label: t(bar ? 'chat.agreeAgain' : 'chat.agree'), onClick: on.propose };
+  if (again === 'propose' || (writable && conversation.kind === 'direct' && state === 'none')) {
+    main = { key: 'agree', label: t('chat.agree'), onClick: on.propose };
   } else if (again === 'order') {
     main = { key: 'order', label: t('chat.orderAgain'), onClick: on.order, busy: on.ordering };
-  } else if (writable && (state === 'none' || state === 'cancelled')) {
-    if (conversation.kind === 'direct') {
-      main = { key: 'agree', label: t('chat.agree'), onClick: on.propose };
-    } else if (conversation.my_role === 'client' && conversation.job_id) {
-      // клиенту по отклику исполнителя выбирают на S23–S25: условия здесь сервер не примет
-      const path = managedJobPath(conversation.job_id);
-      main = {
-        key: 'responses',
-        label: t('chat.openResponses'),
-        onClick: () => void router.navigate({ to: path }),
-        secondary: true,
-      };
-    }
+  } else if (
+    writable &&
+    conversation.kind === 'job_response' &&
+    conversation.my_role === 'client' &&
+    conversation.job_id &&
+    (state === 'none' || state === 'cancelled')
+  ) {
+    // исполнителя выбирают на S23–S25: условия здесь сервер не примет; после отмены заявка
+    // снова открыта
+    const path = managedJobPath(conversation.job_id);
+    main = {
+      key: 'responses',
+      label: t('chat.openResponses'),
+      onClick: () => void router.navigate({ to: path }),
+      secondary: true,
+    };
+  } else if (withDeal && deal) {
+    // второй стороне ждущего предложения там — S53 (6.5)
+    const path = dealPath(deal.id);
+    main = {
+      key: 'deal',
+      label: t('chat.deal'),
+      onClick: () => void router.navigate({ to: path }),
+      secondary: true,
+    };
   }
   const more: Action[] = [];
   if (telegram) {
@@ -422,10 +443,12 @@ function useActions(
     more.push({ key: 'share', label: t('chat.shareContact'), onClick: on.share });
   }
   return {
-    bar,
+    header: main,
+    bar: withDeal || Boolean(telegram),
     withDeal,
-    header: bar ? null : main,
-    inBar: bar ? [...(main ? [main] : []), ...more] : [],
+    // «Сделка» в шапке — ссылка на неё в полосе не повторяется
+    dealLink: main?.key !== 'deal',
+    inBar: more,
   };
 }
 
@@ -437,16 +460,18 @@ function dealInBar(conversation: ConversationOut, writable: boolean): boolean {
   return state !== 'cancelled' || (writable && conversation.contacts_open);
 }
 
-/** Полоса под шапкой: сделка диалога ссылкой на S26 (второй стороне ждущего предложения там —
- *  S53; завершённая и отменённая — «Прошлая сделка») или, без неё, «вы уже договаривались —
- *  контакты открыты». Второй строкой — действия диалога (`useActions`). */
+/** Полоса под шапкой: сделка диалога (завершённая и отменённая — «Прошлая сделка»), ссылкой на
+ *  S26, если в шапке не «Сделка», или, без сделки, «вы уже договаривались — контакты открыты».
+ *  Второй строкой — Telegram и «Поделиться контактом» (`useActions`). */
 function DealBar({
   conversation,
   withDeal,
+  link,
   actions,
 }: {
   conversation: ConversationOut;
   withDeal: boolean;
+  link: boolean;
   actions: readonly Action[];
 }) {
   const { t } = useTranslation('messages');
@@ -465,16 +490,21 @@ function DealBar({
             {t(
               state === 'completed' || state === 'cancelled' ? 'chat.dealBarPast' : 'chat.dealBar',
               { title: deal.title },
-            )}{' '}
-            <a
-              href={router.history.createHref(dealPath(deal.id))}
-              onClick={(event: MouseEvent<HTMLAnchorElement>) => {
-                event.preventDefault();
-                void router.navigate({ to: dealPath(deal.id) });
-              }}
-            >
-              {state === 'proposed' ? t('chat.dealTerms') : t('chat.dealOpen')}
-            </a>
+            )}
+            {link && (
+              <>
+                {' '}
+                <a
+                  href={router.history.createHref(dealPath(deal.id))}
+                  onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+                    event.preventDefault();
+                    void router.navigate({ to: dealPath(deal.id) });
+                  }}
+                >
+                  {t('chat.dealOpen')}
+                </a>
+              </>
+            )}
           </>
         ) : (
           t('chat.contactsOpen')
@@ -492,16 +522,14 @@ function DealBar({
   );
 }
 
-/** Действие в полосе — текстом, как её ссылки: шторку, Telegram или другой диалог открывает
- *  кнопка, а не переход. */
+/** Действие в полосе — текстом, как её ссылки: шторку или Telegram открывает кнопка, а не
+ *  переход. */
 function BarButton({ action }: { action: Action }) {
   return (
     <button
       type="button"
       aria-label={action.title}
-      disabled={action.busy}
-      aria-busy={action.busy}
-      className="inline-flex min-h-11 cursor-pointer items-center border-0 bg-transparent p-0 font-semibold text-inherit underline disabled:cursor-default disabled:opacity-60"
+      className="inline-flex min-h-11 cursor-pointer items-center border-0 bg-transparent p-0 font-semibold text-inherit underline"
       onClick={action.onClick}
     >
       {action.label}
@@ -519,7 +547,7 @@ function Header({
 }: {
   conversation: ConversationOut;
   name: string;
-  /** Одно действие справа — когда под шапкой нет полосы (`useActions`). */
+  /** Главное действие диалога (`useActions`): шапка не прокручивается — оно всегда на виду. */
   action: Action | null;
   onMenu: () => void;
 }) {
@@ -532,7 +560,8 @@ function Header({
       <Avatar name={name} size="sm" palette={paletteFor(conversation.counterpart_id)} />
       <span className="flex min-w-0 flex-col">
         {/* имя собеседника — заголовок экрана: размер и вес — как у строки рядом; обрезается
-            только очень длинное — «Алексей Морозов» с «Dogovorite se» помещается и при 360 px */}
+            только очень длинное — «Алексей Морозов» с «Dogovorite se» и «Никола Петрович» с
+            «Naruči ponovo» помещаются и при 360 px */}
         <h1 className="m-0 truncate text-[1em] font-semibold">{name}</h1>
         {/* что со сделкой не обрезается: длинное («Договорённость отменена» рядом с кнопкой)
             переносится второй строкой */}

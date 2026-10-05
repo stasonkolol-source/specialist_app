@@ -42,7 +42,6 @@
   },
   "chat": {
     "agree": "Договориться",
-    "agreeAgain": "Договориться снова",
     "orderAgain": "Заказать снова",
     "orderAgainFailed": "Не получилось открыть диалог. Повторите",
     "openResponses": "К откликам",
@@ -90,10 +89,10 @@
     },
     "shareContact": "Поделиться контактом",
     "telegram": "Telegram",
+    "deal": "Сделка",
     "contactsOpen": "Вы уже договаривались — контакты открыты",
     "dealBar": "Сделка «{title}»",
     "dealBarPast": "Прошлая сделка «{title}»",
-    "dealTerms": "Посмотреть условия",
     "dealOpen": "Открыть сделку",
     "share": {
       "title": "Поделиться контактом",

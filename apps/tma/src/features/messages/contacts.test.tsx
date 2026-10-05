@@ -1,7 +1,8 @@
 // Договорённость и контакты (DEVELOPMENT_PLAN 6.5) на фейках backend: S53 — «… предлагает
-// договориться», условия, срок, «Подтвердить» и «Отклонить»; в сделке после договорённости —
-// Telegram второй стороны и «Поделиться контактом» (в чат сделки, шторка открыта); S54 в чате —
-// галочками Telegram и/или телефон из подписанного ответа Telegram; S43 — «Мой Telegram».
+// договориться», условия, срок, «Подтвердить» и «Отклонить»; из чата — «Сделка» в шапке; в сделке
+// после договорённости — Telegram второй стороны и «Поделиться контактом» (в чат сделки, шторка
+// открыта); S54 в чате — галочками Telegram и/или телефон из подписанного ответа Telegram; S43 —
+// «Мой Telegram».
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -105,7 +106,9 @@ describe('S53 from the chat', () => {
     const { app } = startApp(`/messages/${CONVERSATION_IDS.performer}`);
 
     expect(await screen.findByText(/Сделка «Собрать шкаф PAX»/)).toBeTruthy();
-    await click(screen.getByRole('link', { name: 'Открыть сделку' }));
+    // «Сделка» в шапке, как на артборде S54: она не прокручивается вместе с перепиской
+    const header = screen.getByRole('banner', { name: 'Дмитрий Соколов' });
+    await click(within(header).getByRole('button', { name: 'Сделка' }));
 
     await waitFor(() =>
       expect(app.router.state.location.pathname).toBe(
@@ -119,7 +122,7 @@ describe('S53 from the chat', () => {
     startApp(`/messages/${CONVERSATION_IDS.direct}`);
 
     const header = await screen.findByRole('banner', { name: 'Алексей Морозов' });
-    expect(screen.queryByRole('link', { name: 'Посмотреть условия' })).toBeNull();
+    expect(within(header).queryByRole('button', { name: 'Сделка' })).toBeNull();
     await click(within(header).getByRole('button', { name: 'Договориться' }));
     const sheet = await screen.findByRole('dialog', { name: 'Договорились?' });
     fireEvent.change(within(sheet).getByRole('textbox', { name: 'Что делаем' }), {
@@ -127,7 +130,9 @@ describe('S53 from the chat', () => {
     });
     await click(within(sheet).getByRole('button', { name: 'Предложить' }));
 
-    expect(await screen.findByRole('link', { name: 'Посмотреть условия' })).toBeTruthy();
+    // условия — на S53 второй стороны и на S26 у предложившего: «Сделка» вместо «Договориться»
+    expect(await within(header).findByRole('button', { name: 'Сделка' })).toBeTruthy();
+    expect(within(header).queryByRole('button', { name: 'Договориться' })).toBeNull();
   });
 });
 

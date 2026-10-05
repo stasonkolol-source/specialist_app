@@ -42,8 +42,7 @@
   },
   "chat": {
     "agree": "Dogovorite se",
-    "agreeAgain": "Novi dogovor",
-    "orderAgain": "Naručite ponovo",
+    "orderAgain": "Naruči ponovo",
     "orderAgainFailed": "Razgovor nije moguće otvoriti. Pokušajte ponovo",
     "openResponses": "Na ponude",
     "chooseHint": "Izvođač se bira na stranici ponuda zahteva",
@@ -90,10 +89,10 @@
     },
     "shareContact": "Podelite kontakt",
     "telegram": "Telegram",
+    "deal": "Dogovor",
     "contactsOpen": "Već ste se dogovorili — kontakti su otvoreni",
     "dealBar": "Dogovor „{title}“",
     "dealBarPast": "Prethodni dogovor „{title}“",
-    "dealTerms": "Pogledajte uslove",
     "dealOpen": "Otvorite dogovor",
     "share": {
       "title": "Podelite kontakt",
