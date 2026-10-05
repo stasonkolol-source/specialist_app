@@ -1,6 +1,6 @@
 // sr-Latn в приложении считается из sr-Cyrl при загрузке — и совпадает с файлами `pnpm -F i18n
-// generate`, которые видят ревью и i18n-check. Сербский — отдельным чанком, русский первого экрана
-// — сразу, остальной русский — своими чанками.
+// generate`, которые видят ревью и i18n-check. Русский первого экрана и общий сербский — сразу,
+// остальное — своими чанками по неймспейсу.
 import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
@@ -24,6 +24,16 @@ describe('first screen', () => {
     expect(Object.keys(EAGER['sr-Cyrl'])).toEqual(['common']);
     expect(EAGER['sr-Latn'].common).toEqual(generated('common'));
   });
+
+  it.each(NAMESPACES.filter((ns) => ns !== 'common'))(
+    'Serbian %s comes later from its own file, not with all the others',
+    async (namespace) => {
+      const file: unknown = JSON.parse(
+        readFileSync(new URL(`./catalogs/sr-Cyrl/${namespace}.json`, import.meta.url), 'utf8'),
+      );
+      expect(await loadNamespace('sr-Cyrl', namespace)).toEqual(file);
+    },
+  );
 
   it.each(NAMESPACES.filter((ns) => !(FIRST_SCREEN as readonly string[]).includes(ns)))(
     'Russian %s comes later from its own file',
