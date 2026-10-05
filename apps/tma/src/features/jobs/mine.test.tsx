@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
 import { E2E_NOW } from '../../testing/fixtures.ts';
-import { JobsBackend, myJobsFixture } from '../../testing/jobsBackend.ts';
+import { JobsBackend, myJobsFixture, responseCardsFixture } from '../../testing/jobsBackend.ts';
 import { jobsHandlers, server } from '../../testing/msw.ts';
 import { useDraftStore } from './shared/draft.ts';
 
@@ -101,16 +101,41 @@ describe('S23 manage job', () => {
     expect(screen.getByText('12 просмотров')).toBeTruthy();
     expect(screen.getByText('3 из 5')).toBeTruthy();
     const first = await screen.findByRole('link', { name: /^Алексей Морозов/ });
-    expect(within(first).getByText('4,9 · 37 отзывов · Лиман')).toBeTruthy();
+    // рейтинг со звездой: число, отзывы рядом без «·», район
+    expect(within(first).getByText('4,9')).toBeTruthy();
+    expect(within(first).getByText('37 отзывов')).toBeTruthy();
+    expect(within(first).getByText('Лиман')).toBeTruthy();
     expect(within(first).getByText('Откликнулся первым')).toBeTruthy();
     expect(within(first).getByText('Телефон подтверждён')).toBeTruthy();
-    expect(within(first).getByText('Новый')).toBeTruthy();
+    // непросмотренный отклик — точкой у имени, не бейджем «Новый» рядом с 37 отзывами
+    expect(within(first).getByRole('img', { name: 'Новый отклик' })).toBeTruthy();
+    expect(within(first).queryByText('Новый')).toBeNull();
     const casual = screen.getByRole('link', { name: /^Иван Гаврилов/ });
-    expect(within(casual).getByText('Отзывов пока нет')).toBeTruthy();
+    expect(within(casual).getByText('Новый специалист')).toBeTruthy();
     expect(within(casual).getByText('Подработка')).toBeTruthy();
+    const seen = screen.getByRole('link', { name: /^Никола Петрович/ });
+    expect(within(seen).queryByRole('img', { name: 'Новый отклик' })).toBeNull();
     expect(
       screen.getByText('Выберите исполнителя — только ему откроется точный адрес.'),
     ).toBeTruthy();
+    // «Поднять» — v1: кнопки с меткой версии нет
+    expect(screen.queryByRole('button', { name: /Поднять/ })).toBeNull();
+  });
+
+  it('keeps at most two badges on a response card', async () => {
+    const backend = withMine();
+    const [, ivan] = responseCardsFixture();
+    if (!ivan || !CHANDELIER) throw new Error('fixtures');
+    // подработка, откликнулся первым и с телефоном — «Откликнулся первым» уступает фактам
+    backend.responseCards.set(CHANDELIER.id, [
+      { ...ivan, is_first: true, performer: { ...ivan.performer, phone_verified: true } },
+    ]);
+    startApp(MANAGE);
+
+    const card = await screen.findByRole('link', { name: /^Иван Гаврилов/ });
+    expect(within(card).getByText('Подработка')).toBeTruthy();
+    expect(within(card).getByText('Телефон подтверждён')).toBeTruthy();
+    expect(within(card).queryByText('Откликнулся первым')).toBeNull();
   });
 
   it('closes the job with a reason', async () => {
