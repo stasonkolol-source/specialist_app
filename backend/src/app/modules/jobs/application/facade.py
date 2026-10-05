@@ -114,6 +114,12 @@ class JobsFacade(JobsApi):
             can_extend=job.extensions_count < MAX_EXTENSIONS,
         )
 
+    async def visible_author(self, job_id: UUID, viewer_id: UserId) -> UserId | None:
+        job = await self._queries.view(JobId(job_id))
+        if job is None or not await visible_to(self._queries, job, viewer_id):
+            return None
+        return job.client_id
+
     async def public_job(self, job_id: UUID) -> PublicJob | None:
         job = await self._queries.view(JobId(job_id))
         if job is None or not await visible_to(self._queries, job, None):
