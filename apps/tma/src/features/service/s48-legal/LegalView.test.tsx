@@ -58,7 +58,7 @@ describe('S48 legal documents', () => {
     const { container } = renderView('terms');
 
     expect(await screen.findByRole('heading', { name: 'Правила площадки', level: 1 })).toBeTruthy();
-    expect(await screen.findByText('Редакция draft-1 от 27 сентября 2026')).toBeTruthy();
+    expect(await screen.findByText('Редакция от 27 сентября 2026')).toBeTruthy();
     const sections = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
     expect(sections[0]).toBe('Кто может пользоваться');
     expect(sections.at(-1)).toBe('Контакты');
@@ -107,7 +107,8 @@ describe('S48 legal documents', () => {
     expect(
       await screen.findByRole('heading', { name: 'Pravila platforme', level: 1 }),
     ).toBeTruthy();
-    expect(await screen.findByText('Verzija draft-1 od 27. septembar 2026.')).toBeTruthy();
+    // после «od» месяц — в родительном падеже; номер версии на экран не выводим
+    expect(await screen.findByText('Verzija od 27. septembra 2026.')).toBeTruthy();
     expect(
       screen.getByText('Prevod na srpski još nije gotov — prikazujemo tekst na ruskom'),
     ).toBeTruthy();
@@ -157,7 +158,7 @@ describe('S48 legal documents', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
     });
 
-    expect(await screen.findByText('Редакция draft-1 от 27 сентября 2026')).toBeTruthy();
+    expect(await screen.findByText('Редакция от 27 сентября 2026')).toBeTruthy();
   });
 
   it('announces loading until client-config answers', async () => {

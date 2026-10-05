@@ -266,7 +266,7 @@ describe('S49b account restricted', () => {
     });
 
     expect(screen.getByRole('heading', { name: 'Правила площадки', level: 1 })).toBeTruthy();
-    expect(await screen.findByText('Редакция draft-1 от 27 сентября 2026')).toBeTruthy();
+    expect(await screen.findByText('Редакция от 27 сентября 2026')).toBeTruthy();
     expect(telegram.callsOf('web_app_setup_back_button').at(-1)).toMatchObject({
       is_visible: true,
     });

@@ -26,7 +26,7 @@ const LOCALES = [
     home: 'Главная',
     homeTitle: 'Найдём мастера рядом',
     rules: 'Правила площадки',
-    edition: 'Редакция draft-1 от 27 сентября 2026',
+    edition: 'Редакция от 27 сентября 2026',
     privacyTab: 'Конфиденциальность',
     privacy: 'Политика конфиденциальности',
     offline: 'Нет соединения',
@@ -53,8 +53,8 @@ const LOCALES = [
     home: 'Početna',
     homeTitle: 'Pronaći ćemo majstora u blizini',
     rules: 'Pravila platforme',
-    // месяц — как у Intl браузера (в образе Playwright): падеж здесь не проверяем
-    edition: /^Verzija draft-1 od 27\. septemb\S+ 2026\.?$/,
+    // после «od» месяц — в родительном падеже (Intl даёт именительный, склоняет format.ts)
+    edition: /^Verzija od 27\. septembra 2026\.?$/,
     privacyTab: 'Privatnost',
     privacy: 'Politika privatnosti',
     offline: 'Nema veze',
