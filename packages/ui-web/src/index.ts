@@ -55,6 +55,8 @@ export {
   JobCardSkeleton,
   SpecialistCardSkeleton,
 } from './CardSkeletons.tsx';
+export type { RatingProps } from './Rating.tsx';
+export { MetaLine, Rating } from './Rating.tsx';
 export type { SheetProps } from './Sheet.tsx';
 export { Sheet } from './Sheet.tsx';
 export type { SpecialistBadge, SpecialistCardProps } from './SpecialistCard.tsx';
