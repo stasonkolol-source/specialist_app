@@ -219,9 +219,7 @@ describe('S43 notifications', () => {
     ]);
     expect(checked('checkbox', 'Новости «Соседей» — в боте')).toBe('false');
     expect(checked('switch', 'Тихие часы 22:00–08:00')).toBe('true');
-    expect(
-      within(section).getByText('Ночью придут только сообщения и срочные заявки'),
-    ).toBeTruthy();
+    expect(within(section).getByText('Ночью — только срочное')).toBeTruthy();
   });
 
   it('shows a tap at once and saves the whole settings', async () => {
