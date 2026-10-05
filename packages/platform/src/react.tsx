@@ -62,6 +62,124 @@ class BackStack {
   }
 }
 
+type ButtonKind = 'mainButton' | 'secondaryButton';
+
+interface BarEntry {
+  readonly kind: ButtonKind;
+  readonly order: number;
+  state: BottomButtonState;
+  /** Обработчик вернул Promise и он ещё не завершился: повторное нажатие — мимо. */
+  busy: boolean;
+  readonly press: () => unknown;
+}
+
+export interface BarHandle {
+  update(state: BottomButtonState): void;
+  remove(): void;
+}
+
+const BUTTON_KEYS = [
+  'text',
+  'visible',
+  'enabled',
+  'loading',
+  'color',
+  'textColor',
+  'shine',
+  'position',
+] as const satisfies readonly (keyof BottomButtonState)[];
+
+const isThenable = (value: unknown): value is PromiseLike<unknown> =>
+  typeof (value as PromiseLike<unknown> | null)?.then === 'function';
+
+/**
+ * Нижняя панель Telegram (MainButton и SecondaryButton) — у неё один владелец: верхний по порядку
+ * рендера экран или шторка, как у «Назад» (QA MU-2: экран S24 последним эффектом прятал MainButton
+ * шторки S25, а его «Написать» оставалась на месте подтверждения). Шторка с MainButton забирает
+ * панель целиком: SecondaryButton экрана под ней прячется; шторка закрылась — у экрана его кнопки,
+ * как были. SecondaryButton принадлежит тому, кто вызвал хук MainButton перед ней (тот же экран
+ * или шторка), поэтому её хук — после хука MainButton. Нажатие получает только видимая, активная и
+ * не занятая кнопка владельца; если обработчик вернул Promise — до его завершения кнопка с
+ * прогрессом, а повторные нажатия (двойной тап до перерисовки экрана, MU-5) не доходят.
+ */
+class BottomBar {
+  private readonly entries = new Set<BarEntry>();
+  private readonly platform: Platform;
+  private seq = 0;
+
+  constructor(platform: Platform) {
+    this.platform = platform;
+    platform.mainButton.onClick(() => this.press('mainButton'));
+    platform.secondaryButton.onClick(() => this.press('secondaryButton'));
+  }
+
+  nextOrder(): number {
+    this.seq += 1;
+    return this.seq;
+  }
+
+  add(kind: ButtonKind, order: number, state: BottomButtonState, press: () => unknown): BarHandle {
+    const entry: BarEntry = { kind, order, state, busy: false, press };
+    this.entries.add(entry);
+    this.apply();
+    return {
+      update: (next) => {
+        entry.state = next;
+        this.apply();
+      },
+      remove: () => {
+        this.entries.delete(entry);
+        this.apply();
+      },
+    };
+  }
+
+  private top(kind: ButtonKind): BarEntry | undefined {
+    let top: BarEntry | undefined;
+    for (const entry of this.entries) {
+      if (entry.kind === kind && (!top || entry.order > top.order)) top = entry;
+    }
+    return top;
+  }
+
+  /** Чья кнопка видна: MainButton — верхнего владельца, SecondaryButton — только его же. */
+  private owner(kind: ButtonKind): BarEntry | undefined {
+    const main = this.top('mainButton');
+    if (kind === 'mainButton') return main;
+    const secondary = this.top('secondaryButton');
+    return secondary && (!main || secondary.order > main.order) ? secondary : undefined;
+  }
+
+  private apply(): void {
+    for (const kind of ['mainButton', 'secondaryButton'] as const) {
+      const entry = this.owner(kind);
+      const button = this.platform[kind];
+      const next: Partial<BottomButtonState> = entry
+        ? { ...entry.state, loading: entry.state.loading || entry.busy }
+        : { visible: false, loading: false };
+      const current = button.getState();
+      // клиенту — только изменения: владельцы перерисовываются чаще, чем меняется панель
+      if (BUTTON_KEYS.some((key) => key in next && next[key] !== current[key])) button.set(next);
+    }
+  }
+
+  private press(kind: ButtonKind): void {
+    const entry = this.owner(kind);
+    if (!entry || entry.busy) return;
+    const { visible, enabled, loading } = entry.state;
+    if (!visible || !enabled || loading) return;
+    const result = entry.press();
+    if (!isThenable(result)) return;
+    entry.busy = true;
+    this.apply();
+    const release = () => {
+      entry.busy = false;
+      this.apply();
+    };
+    result.then(release, release);
+  }
+}
+
 /** Подтверждение закрытия включено, пока есть хотя бы один потребитель. */
 class ClosingGate {
   private count = 0;
@@ -110,6 +228,7 @@ class SchemeOverride {
 interface PlatformContextValue {
   platform: Platform;
   back: BackStack;
+  bar: BottomBar;
   closing: ClosingGate;
   scheme: SchemeOverride;
 }
@@ -127,6 +246,7 @@ export function PlatformProvider({
     () => ({
       platform,
       back: new BackStack(platform),
+      bar: new BottomBar(platform),
       closing: new ClosingGate(platform),
       scheme: new SchemeOverride(),
     }),
@@ -156,7 +276,8 @@ export function usePlatform(): Platform {
 
 export interface BottomButtonProps {
   text: string;
-  onClick: () => void;
+  /** Вернул Promise — пока он не завершился, кнопка с прогрессом и нажатия не доходят. */
+  onClick: () => unknown;
   visible?: boolean;
   enabled?: boolean;
   loading?: boolean;
@@ -166,29 +287,39 @@ export interface BottomButtonProps {
   position?: BottomButtonState['position'];
 }
 
-function useBottomButton(
-  kind: 'mainButton' | 'secondaryButton',
-  props: BottomButtonProps,
-): { native: boolean } {
-  const button = usePlatform()[kind];
+function useBottomButton(kind: ButtonKind, props: BottomButtonProps): { native: boolean } {
+  const { platform, bar } = useCtx();
+  const [order] = useState(() => bar.nextOrder());
   const onClick = useLatest(props.onClick);
   const { text, visible = true, enabled = true, loading = false } = props;
   const { color, textColor, shine, position } = props;
+  const state = useMemo<BottomButtonState>(
+    () => ({ text, visible, enabled, loading, color, textColor, shine, position }),
+    [text, visible, enabled, loading, color, textColor, shine, position],
+  );
+  const latest = useLatest(state);
+  const handle = useRef<BarHandle | null>(null);
 
-  useEffect(() => button.onClick(() => onClick.current()), [button, onClick]);
   useEffect(() => {
-    button.set({ text, visible, enabled, loading, color, textColor, shine, position });
-  }, [button, text, visible, enabled, loading, color, textColor, shine, position]);
-  useEffect(() => () => button.set({ visible: false, loading: false }), [button]);
-  return { native: button.native };
+    const registered = bar.add(kind, order, latest.current, () => onClick.current());
+    handle.current = registered;
+    return () => {
+      handle.current = null;
+      registered.remove();
+    };
+  }, [bar, kind, order, latest, onClick]);
+  useEffect(() => handle.current?.update(state), [state]);
+  return { native: platform[kind].native };
 }
 
-/** MainButton Telegram; в браузере — состояние для кнопки в контенте. */
+/** MainButton Telegram; в браузере — состояние для кнопки в контенте. Над экраном — у шторки:
+ *  панель у верхнего владельца (BottomBar). */
 export function useMainButton(props: BottomButtonProps): { native: boolean } {
   return useBottomButton('mainButton', props);
 }
 
-/** SecondaryButton; до Bot API 7.10 `native: false` — экран рисует кнопку в контенте. */
+/** SecondaryButton; до Bot API 7.10 `native: false` — экран рисует кнопку в контенте. Хук —
+ *  после хука MainButton того же экрана или шторки: видна, пока панель у них. */
 export function useSecondaryButton(props: BottomButtonProps): { native: boolean } {
   return useBottomButton('secondaryButton', props);
 }
