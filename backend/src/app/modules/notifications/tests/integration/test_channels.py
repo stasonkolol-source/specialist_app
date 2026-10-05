@@ -67,8 +67,10 @@ async def test_permission_enables_blocked_channel_again(notifications: Notificat
     user_id, _ = await notifications.user_with_chat()
     await notifications.grant(granted(user_id, GrantedVia.BOT_START))
     await notifications.session.execute(
-        text("UPDATE notifications.channels SET disabled_at = now() WHERE user_id = :user_id"),
-        {"user_id": user_id},
+        # время — по часам теста, а не now() базы: часы теста стоят на 5 октября 2026, 09:00 UTC, и
+        # с реальным now() позже них «выключено» оказывалось позже «включено» — тест падал по часам
+        text("UPDATE notifications.channels SET disabled_at = :at WHERE user_id = :user_id"),
+        {"user_id": user_id, "at": notifications.clock.now()},
     )
     await notifications.session.commit()
     notifications.clock.advance(timedelta(days=1))
@@ -92,10 +94,13 @@ async def test_write_access_is_announced_only_when_it_becomes_possible(
     await notifications.grant(granted(user_id, GrantedVia.MINI_APP))
     await notifications.grant(granted(user_id, GrantedVia.BOT_START))  # повтор: уже можно
     await notifications.session.execute(
-        text("UPDATE notifications.channels SET disabled_at = now() WHERE user_id = :user_id"),
-        {"user_id": user_id},
+        # время — по часам теста, а не now() базы: часы теста стоят на 5 октября 2026, 09:00 UTC, и
+        # с реальным now() позже них «выключено» оказывалось позже «включено» — тест падал по часам
+        text("UPDATE notifications.channels SET disabled_at = :at WHERE user_id = :user_id"),
+        {"user_id": user_id, "at": notifications.clock.now()},
     )
     await notifications.session.commit()
+    notifications.clock.advance(timedelta(minutes=1))
     await notifications.grant(granted(user_id, GrantedVia.BOT_START))  # включился снова
 
     announced = await notifications.announced(user_id)
