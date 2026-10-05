@@ -278,7 +278,8 @@
     "error": "Slanje ponude nije uspelo. Pokušajte ponovo.",
     "you": "Vi",
     "slots": "{count} od {total}",
-    "quoted": "„{message}“"
+    "quoted": "„{message}“",
+    "leave": "Napustiti ekran? Uneta ponuda se neće sačuvati."
   },
   "responses": {
     "templates": "Šabloni ponuda",
