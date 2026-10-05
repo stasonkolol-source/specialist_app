@@ -1,10 +1,12 @@
 // Свои заявки клиента S22 и S23 (DEVELOPMENT_PLAN 5.6) на фейке backend: сегмент «Мои заявки»
 // вкладки «Заявки» — люстра с «3 отклика — выберите исполнителя», уборка ждёт откликов,
-// закрытая — в архиве, как на артборде; своя заявка — статус, места, отклики карточками.
+// закрытая — в архиве, как на артборде; своя заявка — статус, места, отклики карточками. Два новых
+// отклика люстры — и счётчиком на вкладке «Заявки» и сегменте «Мои заявки» (OWN-3).
 // Скриншоты × тема × язык, axe-core. Имена скриншотов начинаются с кода артборда: make
 // design-compare кладёт их рядом с эталоном.
 import { expect, test } from '@playwright/test';
 
+import { ChatBackend } from '../src/testing/chatBackend.ts';
 import { E2E_NOW, ME } from '../src/testing/fixtures.ts';
 import { JobsBackend } from '../src/testing/jobsBackend.ts';
 import { THEMES, expectNoAxeViolations, open, openTab, real } from './support.ts';
@@ -36,6 +38,7 @@ for (const theme of THEMES) {
         signedIn: true,
         me: { ...ME, ui_locale: l.locale },
         jobs: new JobsBackend().seedMine(),
+        chat: Object.assign(new ChatBackend(), { jobsBadge: 2 }),
       });
       const snap = async (name: string) => {
         expect(real(watch.problems)).toEqual([]);
