@@ -152,6 +152,28 @@ async def test_held_accounts_do_not_block_the_rest_of_the_queue(identity: Identi
     assert (await load(identity, users[2])).status is UserStatus.DELETED
 
 
+async def test_expedite_deletes_only_listed_accounts_right_away(identity: Identity) -> None:
+    # dev `seed-demo --replace`: запрос демо-человека исполняется сразу, чужие — по очереди
+    overdue = await sign_in(identity, 811000200)
+    await request(identity, overdue)
+    identity.clock.advance(WEEK)
+    listed, waiting = await sign_in(identity, 811000201), await sign_in(identity, 811000202)
+    for user_id in (listed, waiting):
+        await request(identity, user_id)
+    held = await sign_in(identity, 811000203)
+    await request(identity, held)
+    identity.hold.users.add(held)
+
+    nobody = await identity.process_deletions(ProcessDeletionsCommand(expedite=()))
+    report = await identity.process_deletions(ProcessDeletionsCommand(expedite=(listed, held)))
+
+    assert (nobody.deleted, nobody.held) == (0, 0)  # пустой список — не вся очередь
+    assert (report.deleted, report.held) == (1, 1)
+    assert (await load(identity, listed)).status is UserStatus.DELETED
+    for user_id in (overdue, waiting, held):  # срок у overdue прошёл, но его нет в списке
+        assert (await load(identity, user_id)).status is UserStatus.ACTIVE
+
+
 async def test_same_telegram_registers_anew_and_is_flagged(
     identity: Identity, events: EventRegistry
 ) -> None:

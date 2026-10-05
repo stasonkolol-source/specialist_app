@@ -4,7 +4,7 @@
 // таймлайн «Отклик на заявку → Выбран исполнителем → Договорились (работа …) → Работа выполнена →
 // Отзыв»; памятка о предоплате клиенту. MainButton «Работа выполнена» — отметка стороны, вторая
 // завершает сделку (или сама через 3 дня); «Отменить сделку» спрашивает причину — заявка снова
-// открыта. Данные — BFF `GET /deals/{id}/card`. «Договорились» из чата (6.5): второй стороне — S53
+// открыта. Данные — BFF `GET /deals/{id}/card`. «Договориться» из чата (6.5): второй стороне — S53
 // «… предлагает договориться» с условиями, сроком (72 ч) и «Подтвердить» / «Отклонить»,
 // предложившей — «ждём подтверждения». После договорённости — контакты: Telegram второй стороны
 // (если она его показывает) и «Поделиться контактом» — шторка S54 в чате сделки. SecondaryButton
@@ -12,7 +12,7 @@
 // «сделка на паузе» и «Спор по сделке», после решения — «Решение по спору». Завершена (7.3): шаг
 // «Отзыв» в таймлайне, MainButton «Оставить отзыв» (S27) клиенту, пока окно открыто, и статус
 // своего отзыва; клиенту — «Заказать снова»: прямой диалог с этим специалистом, где в шапке
-// «Договориться снова» (S30).
+// «Договориться» (S30).
 import type { DealCancelReason, DealCardOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import {
@@ -109,7 +109,7 @@ export function DealScreen() {
   return <Deal deal={card.data} />;
 }
 
-/** S53: вторая сторона предложила «Договорились» — значок, условия строками с иконками, срок и
+/** S53: вторая сторона предложила договориться — значок, условия строками с иконками, срок и
  *  ответ: MainButton «Подтвердить», SecondaryButton «Отклонить» под ней, как на артборде (до Bot
  *  API 7.10 — кнопкой в контенте). */
 function Proposal({ deal }: { deal: DealCardOut }) {
@@ -199,7 +199,7 @@ function Proposal({ deal }: { deal: DealCardOut }) {
       {deal.proposal_expires_at && (
         <Banner tone="info" icon="clock">
           {t('deal.proposal.expires', {
-            date: format.calendar(new Date(deal.proposal_expires_at)),
+            date: format.calendarGenitive(new Date(deal.proposal_expires_at)),
           })}
         </Banner>
       )}
@@ -285,7 +285,7 @@ function Deal({ deal }: { deal: DealCardOut }) {
       {deal.status === 'proposed' && deal.proposal_expires_at && (
         <Banner tone="info">
           {t('deal.proposal.waiting', {
-            date: format.calendar(new Date(deal.proposal_expires_at)),
+            date: format.calendarGenitive(new Date(deal.proposal_expires_at)),
           })}
         </Banner>
       )}
@@ -485,7 +485,7 @@ function Contacts({ deal }: { deal: DealCardOut }) {
 }
 
 /** «Заказать снова» клиенту завершённой сделки: прямой диалог с этим специалистом (уже начатый —
- *  тот же), как «Написать» на S08; договариваются там — «Договориться снова» в шапке S30. */
+ *  тот же), как «Написать» на S08; договариваются там — «Договориться» в шапке S30. */
 function OrderAgain({ profileId }: { profileId: string }) {
   const { t } = useTranslation('jobs');
   const router = useRouter();
@@ -634,7 +634,7 @@ function State({ deal }: { deal: DealCardOut }) {
         )}
         {!review && deal.review_until && (
           <Banner tone="info" icon="star">
-            {t('deal.reviewUntil', { date: format.date(new Date(deal.review_until)) })}
+            {t('deal.reviewUntil', { date: format.dateGenitive(new Date(deal.review_until)) })}
           </Banner>
         )}
       </>
