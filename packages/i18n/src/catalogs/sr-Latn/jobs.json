@@ -249,7 +249,7 @@
   "respond": {
     "caption": "Ponuda za zahtev",
     "editCaption": "Izmena ponude",
-    "message": "Poruka naručiocu",
+    "message": "Poruka klijentu",
     "messagePlaceholder": "Kada možete, šta ćete poneti, da li ste već radili takve poslove",
     "myTemplates": "Moji šabloni",
     "insertTemplate": "Ubaci šablon",
@@ -262,7 +262,7 @@
     },
     "amount": "Cena, RSD",
     "currency": "RSD",
-    "negotiableHint": "Cenu dogovorite sa naručiocem u ćaskanju",
+    "negotiableHint": "Cenu dogovorite sa klijentom u razgovoru",
     "when": "Kada mogu",
     "whenPlaceholder": "Na primer: danas, 19:00",
     "contacts": "Kontakti postaju vidljivi posle dogovora",
@@ -273,11 +273,12 @@
     "previewNote": "Klijent će videti ponudu posle provere teksta — obično to traje nekoliko minuta",
     "send": "Pošalji ponudu",
     "save": "Sačuvaj izmene",
-    "missingMessage": "Napišite poruku naručiocu",
+    "missingMessage": "Napišite poruku klijentu",
     "missingAmount": "Unesite cenu",
     "error": "Slanje ponude nije uspelo. Pokušajte ponovo.",
     "you": "Vi",
-    "slots": "{count} od {total}"
+    "slots": "{count} od {total}",
+    "quoted": "„{message}“"
   },
   "responses": {
     "templates": "Šabloni ponuda",
@@ -292,7 +293,7 @@
     "today": "Danas poslato ponuda: {used} od {limit} — ograničenje prema nivou poverenja",
     "sent": "Ponuda je poslata — klijent će je videti posle provere",
     "state": {
-      "submitted": "Čeka odluku naručioca",
+      "submitted": "Čeka odluku klijenta",
       "viewed": "Klijent je pogledao",
       "shortlisted": "Klijent je označio vašu ponudu",
       "declined": "Klijent je odbio ponudu",

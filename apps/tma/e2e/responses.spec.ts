@@ -40,7 +40,7 @@ const LOCALES = [
     job: 'Повесить люстру',
     caption: 'Ponuda za zahtev',
     sent: 'Ponuda je poslata — klijent će je videti posle provere',
-    waiting: 'Čeka odluku naručioca',
+    waiting: 'Čeka odluku klijenta',
     templates: 'Šabloni ponuda',
     primary: 'Glavni',
   },
