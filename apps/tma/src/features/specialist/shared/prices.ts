@@ -21,11 +21,13 @@ export function categoryNames(tree: readonly CategoryOut[]): Map<number, string>
   return names;
 }
 
-/** Сумма позиции в колонке цены: «2 000 RSD», «от 1 500 RSD», «1 000–4 000 RSD»; единица — в
- *  подписи под названием («за час»), как на артборде S35. */
+/** Сумма позиции в колонке цены: «2 000 RSD», «от 1 500 RSD», «1 000–4 000 RSD»; единица — под
+ *  суммой («за час», S35), поэтому в самой сумме её нет. */
 export function priceAmount(format: Format, service: ServiceOut, negotiable: string): string {
   const price = servicePrice(service);
   if (price.type === 'negotiable') return negotiable;
-  if (price.type === 'from' || price.type === 'range') return format.price(price);
+  if (price.type === 'from' || price.type === 'range') {
+    return format.price({ ...price, unit: null });
+  }
   return format.money(price.min ?? 0);
 }

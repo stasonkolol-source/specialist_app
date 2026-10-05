@@ -1,7 +1,8 @@
 // Браузерная оболочка (DEVELOPMENT_PLAN 8.1): тот же SPA без Telegram (platform=browser) — без
 // `?platform=mock`. Веб-ссылка `/s/<id>` → «Открыть в Telegram» (t.me бота с кодом startapp) или
-// «Продолжить в браузере» → S08 гостем со своей шапкой «Назад» и MainButton в контенте; `/j/<id>` →
-// S15; экраны, которых в браузере нет, — «Открыть в Telegram»; «Как удалить аккаунт» без входа.
+// «Продолжить в браузере» → S08 гостем со своей шапкой «Назад» и одной кнопкой — «Написать в
+// Telegram» сразу на этот профиль; `/j/<id>` → S15; экраны, которых в браузере нет, — «Открыть в
+// Telegram»; «Как удалить аккаунт» без входа.
 // Заголовки собранного приложения: frame-ancestors с web.telegram.org, без X-Frame-Options.
 // Проекты — desktop и мобильный chromium; скриншоты × тема × язык (язык — из браузера), axe-core.
 import { uuidToBase62 } from '@sosed/links';
@@ -27,7 +28,8 @@ const LOCALES = [
     app: '«Соседи» живут в Telegram',
     open: 'Открыть в Telegram',
     next: 'Продолжить в браузере',
-    write: 'Написать',
+    write: 'Написать в Telegram',
+    propose: 'Предложить заявку',
     back: 'Назад',
     deletion: 'Как удалить аккаунт',
   },
@@ -38,7 +40,8 @@ const LOCALES = [
     app: '„Sosedi“ su u Telegram-u',
     open: 'Otvori u Telegram-u',
     next: 'Nastavi u pregledaču',
-    write: 'Napiši poruku',
+    write: 'Napiši poruku u Telegram-u',
+    propose: 'Predloži zahtev',
     back: 'Nazad',
     deletion: 'Kako obrisati nalog',
   },
@@ -97,8 +100,12 @@ for (const theme of THEMES) {
         await page.getByRole('button', { name: l.next }).click();
         await expect(page.getByRole('heading', { name: NAME, level: 1 })).toBeVisible();
         await expect(page).toHaveURL(`/specialists/${CARD_PROFILE_ID}`);
-        // MainButton — в контенте; таббара в браузере нет
-        await expect(page.getByRole('button', { name: l.write })).toBeVisible();
+        // одна кнопка гостя — ссылка в Telegram сразу на этот профиль; таббара в браузере нет
+        await expect(page.getByRole('link', { name: l.write })).toHaveAttribute(
+          'href',
+          `https://t.me/${BOT}?startapp=s_${PROFILE}`,
+        );
+        await expect(page.getByRole('button', { name: l.propose })).toHaveCount(0);
         await expect(page.getByRole('navigation')).toHaveCount(0);
         await snap(`browser-S08-${theme}-${l.locale}.png`);
 

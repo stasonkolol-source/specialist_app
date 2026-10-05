@@ -52,6 +52,7 @@ def hit(number: int, **fields: Any) -> SpecialistHit:
         "profile_id": UUID(int=number),
         "card": card,
         "price_from": 150_000,
+        "price_from_unit": None,
         "rating_bayes": None,
         "rating_count": 0,
         "badges": (),

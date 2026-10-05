@@ -5,7 +5,7 @@ import { checkContrast } from '../src/contrast.ts';
 const results = checkContrast(source);
 for (const r of results) {
   const mark = r.ok ? 'ok  ' : 'FAIL';
-  const pair = `${r.fg} / ${r.bg}`.padEnd(34);
+  const pair = `${r.fg} / ${[...(r.over ?? []), r.bg].join('+')}`.padEnd(34);
   console.log(`${mark} ${r.theme.padEnd(5)} ${pair} ${r.ratio.toFixed(2).padStart(5)} ≥ ${r.min}  ${r.use}`);
 }
 

@@ -1,7 +1,9 @@
 // S44 Заблокированные (DEVELOPMENT_PLAN 4.7): кого я заблокировал — «Олег Р.» и с какого дня, у
 // специалиста — его фото; «Разблокировать» убирает строку сразу (ошибка возвращает её), выдача,
 // ленты и переписка перечитываются в фоне. Памятка: угрожает или просит предоплату — не только
-// заблокировать, но и пожаловаться; и где блокируют — внизу профиля S08 и в меню «⋯» чата S30.
+// заблокировать, но и пожаловаться; и где жалуются и блокируют — внизу профиля S08 и в меню «⋯»
+// чата S30. Пустой список: вступление «Они не могут…» не к кому отнести, а пустое состояние
+// говорит то же — вступления нет. Сербская дата после «Od» — в родительном падеже.
 // Вход — строка «Заблокированные» на S43; список тот же, что у меню S08 и S30 (GET /me/blocks).
 import type { BlockedUserOut, CardPhotoOut } from '@sosed/api-client';
 import { useBlocks, useToggleBlock } from '@sosed/hooks';
@@ -45,9 +47,11 @@ export function BlockedScreen() {
         <Heading variant="h2" as="h1">
           {t('blocked.title')}
         </Heading>
-        <Text variant="sm" secondary>
-          {t('blocked.intro')}
-        </Text>
+        {items?.length !== 0 && (
+          <Text variant="sm" secondary>
+            {t('blocked.intro')}
+          </Text>
+        )}
       </div>
       {items === undefined ? (
         <div role="status">
@@ -114,7 +118,7 @@ function BlockedRow({
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-body font-semibold">{user.display_name}</span>
         <span className="text-cap text-text2">
-          {t('blocked.since', { date: format.date(new Date(user.blocked_at)) })}
+          {t('blocked.since', { date: format.dateGenitive(new Date(user.blocked_at)) })}
         </span>
       </span>
       <Button

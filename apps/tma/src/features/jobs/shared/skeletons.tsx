@@ -18,8 +18,8 @@ export function JobSummarySkeleton() {
       </div>
       <SkeletonText size="sm" className="w-2/3" />
       <div className="grid grid-cols-2 gap-2">
-        <Skeleton radius="panel" className="h-11" />
-        <Skeleton radius="panel" className="h-11" />
+        <Skeleton radius="field" className="h-11" />
+        <Skeleton radius="field" className="h-11" />
       </div>
     </SkeletonCard>
   );
@@ -71,7 +71,7 @@ export function WizardSkeleton({ step }: { step: 1 | 2 | 3 | 4 }) {
           <SkeletonText size="h2" className="w-4/5" />
           <div className="flex gap-2">
             {[0, 1, 2].map((photo) => (
-              <Skeleton key={photo} radius="panel" className="size-18" />
+              <Skeleton key={photo} radius="field" className="size-18" />
             ))}
           </div>
           <SkeletonText size="sm" className="w-full" />
@@ -81,12 +81,12 @@ export function WizardSkeleton({ step }: { step: 1 | 2 | 3 | 4 }) {
       ) : (
         <>
           <FieldSkeleton tall={step === 1} />
-          {step === 3 && <Skeleton screen radius="panel" className="h-10 w-full" />}
+          {step === 3 && <Skeleton screen radius="field" className="h-10 w-full" />}
           <FieldSkeleton tall={step === 2} />
           {step === 1 && (
             <div className="flex gap-2">
               {[0, 1, 2].map((tile) => (
-                <Skeleton key={tile} screen radius="panel" className="size-18" />
+                <Skeleton key={tile} screen radius="field" className="size-18" />
               ))}
             </div>
           )}

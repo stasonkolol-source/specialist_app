@@ -118,6 +118,8 @@
     "unavailableText": "Специалист скрыл профиль или его больше нет",
     "toCatalog": "Найти другого специалиста",
     "proposeJob": "Предложить заявку",
+    "writeInTelegram": "Написать в Telegram",
+    "casual": "Подработка",
     "responseMinutes": "Обычно отвечает за {count, plural, one {# минуту} few {# минуты} many {# минут} other {# минуты}}",
     "responseHours": "Обычно отвечает за {count, plural, one {# час} few {# часа} many {# часов} other {# часа}}",
     "writeFailed": "Не удалось открыть диалог. Попробуйте ещё раз.",

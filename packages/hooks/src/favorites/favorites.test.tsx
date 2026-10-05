@@ -18,6 +18,7 @@ const card = (id: string): SpecialistCardOut => ({
   languages: [],
   category_ids: [],
   price_from: null,
+  price_from_unit: null,
   negotiable: false,
   rating: null,
   rating_count: 0,

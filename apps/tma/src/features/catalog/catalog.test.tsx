@@ -68,8 +68,10 @@ describe('S05 results', () => {
     expect(card.getByText('рус., серб.')).toBeTruthy();
     expect(card.getByText(/^Сегодня до /)).toBeTruthy();
     expect(card.getByText('Телефон подтверждён')).toBeTruthy();
-    expect(card.getByText(/^от 2\s000\sRSD$/u)).toBeTruthy();
+    // цена «от» — с единицей той же позиции (price_from_unit)
+    expect(card.getByText(/^от 2\s000\sRSD за выезд$/u)).toBeTruthy();
     const olga = (await screen.findByText('Ольга Власова')).closest('article') as HTMLElement;
+    expect(within(olga).getByText(/^от 1\s000\sRSD\/час$/u)).toBeTruthy();
     expect(within(olga).getByText('рус., укр.')).toBeTruthy();
     // подработка — бейдж у имени, «Новый специалист» — текстом в строке рейтинга
     const newcomer = (await screen.findByText('Иван Гаврилов')).closest('article') as HTMLElement;

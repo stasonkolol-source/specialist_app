@@ -1,14 +1,16 @@
 // Каталоги по локалям и неймспейсам. ru и sr-Cyrl ведутся руками; sr-Latn — транслитерация sr-Cyrl
 // при загрузке: та же функция, что у `pnpm -F i18n generate`, а файлы sr-Latn в каталогах — для
-// ревью и i18n-check. В первом экране (бюджет 200 KB gzip) — русские неймспейсы Главной и
-// системных состояний (FIRST_SCREEN; русский — язык по умолчанию и запасной) и общий неймспейс
-// сербского: его читают форматтеры. Остальной русский — своими маленькими чанками, остальной
-// сербский — одним (serbian.ts). До первого кадра приложение ждёт только FIRST_SCREEN своего языка
-// (instance.ts); экран с другим неймспейсом ждёт его сам (Suspense), а после первого кадра все
-// неймспейсы догружаются в простое.
+// ревью и i18n-check. В первом экране (бюджет 200 KB gzip) — русские общий неймспейс и Главной
+// (FIRST_SCREEN; русский — язык по умолчанию и запасной) и общий неймспейс сербского: его читают
+// форматтеры. Остальной русский — своими маленькими чанками, остальной сербский — одним
+// (serbian.ts). До первого кадра приложение ждёт только FIRST_SCREEN своего языка (instance.ts);
+// экран с другим неймспейсом ждёт его сам (Suspense), а после первого кадра все неймспейсы
+// догружаются в простое.
 // Неймспейсы — по группам экранов; новые добавляются сюда, в NAMESPACES и в serbian.ts.
-// common — общие слова и экраны-заготовки; service — «Сервис» SPEC §6 (S48 правила, S49 системные
-// состояния); onboarding — «Вход» SPEC §6 (S01 запуск, S02a–c онбординг); specialist — «Кабинет
+// common — общие слова, экраны-заготовки и системные состояния S49a (нет сети, техработы,
+// обновление, ошибка); service — «Сервис» SPEC §6: правила S48 и санкция S49b — экраны своими
+// чанками, S49b приходит только ответом сервера, когда сеть есть, — и тексты своим чанком;
+// onboarding — «Вход» SPEC §6 (S01 запуск, S02a–c онбординг); specialist — «Кабинет
 // специалиста» SPEC §6 (S32a–c «Стать специалистом», вход в кабинет на S31); catalog — «Каталог»
 // SPEC §6 (S04–S06, карточка S08–S11, избранное S12); jobs — «Заявки» SPEC §6 (создание S20a–d,
 // S21; дальше лента, отклики, мои заявки); messages — «Сообщения» SPEC §6 (S29 диалоги, S30 чат);
@@ -23,7 +25,7 @@ import type ruJobs from './catalogs/ru/jobs.json';
 import type ruMessages from './catalogs/ru/messages.json';
 import type ruOnboarding from './catalogs/ru/onboarding.json';
 import type ruSafety from './catalogs/ru/safety.json';
-import ruService from './catalogs/ru/service.json' with { type: 'json' };
+import type ruService from './catalogs/ru/service.json';
 import type ruSpecialist from './catalogs/ru/specialist.json';
 import type ruWeb from './catalogs/ru/web.json';
 import srCyrlCommon from './catalogs/sr-Cyrl/common.json' with { type: 'json' };
@@ -45,9 +47,9 @@ export const NAMESPACES = [
 ] as const;
 export type Namespace = (typeof NAMESPACES)[number];
 
-/** Неймспейсы до первого кадра: Главная (catalog) и системные состояния (service) — без сети
- *  S49a «Нет соединения» должен показаться, а догрузить каталог будет нельзя. */
-export const FIRST_SCREEN = ['common', 'service', 'catalog'] as const satisfies Namespace[];
+/** Неймспейсы до первого кадра: Главная (catalog) и общий (common, в нём и S49a) — без сети
+ *  «Нет соединения» должен показаться, а догрузить каталог будет нельзя. */
+export const FIRST_SCREEN = ['common', 'catalog'] as const satisfies Namespace[];
 type FirstScreen = (typeof FIRST_SCREEN)[number];
 
 /** Форма каталогов — по ru: ключи остальных локалей сверяет i18n-check. */
@@ -74,12 +76,12 @@ function latin<T extends Catalog>(catalog: T): T {
 
 const RU: Pick<Messages, FirstScreen> = {
   common: ruCommon,
-  service: ruService,
   catalog: ruCatalog,
 };
 
 /** Остальной русский — каждый неймспейс своим чанком. */
 const RU_LATER: Record<Exclude<Namespace, FirstScreen>, () => Promise<Catalog>> = {
+  service: () => import('./catalogs/ru/service.json').then((module) => module.default),
   onboarding: () => import('./catalogs/ru/onboarding.json').then((module) => module.default),
   specialist: () => import('./catalogs/ru/specialist.json').then((module) => module.default),
   jobs: () => import('./catalogs/ru/jobs.json').then((module) => module.default),

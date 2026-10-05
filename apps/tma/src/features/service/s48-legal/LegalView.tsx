@@ -1,7 +1,9 @@
 // S48 Правовые документы (DEVELOPMENT_PLAN 1.5a): правила площадки и политика конфиденциальности
-// действующей версии из client-config. Шапка — заголовок, «Редакция <версия> от <даты>» и
-// переключатель документов; текст — пронумерованные разделы, как пункты правил на макете.
-// Markdown разбирается в элементы React: HTML из текста не исполняется.
+// действующей версии из client-config. Шапка — заголовок, «Редакция от <даты>» и переключатель
+// документов; текст — пронумерованные разделы, как пункты правил на макете. Номер версии остаётся
+// в данных (согласия, client-config) — человеку он ничего не говорит. Текст документа — основным
+// размером (SPEC §5: 15/22), вступление — 14/20, заголовки разделов — 16/22: правила читают, а не
+// пробегают как сноску. Markdown разбирается в элементы React: HTML из текста не исполняется.
 import type { LegalDocumentKey } from '@sosed/hooks';
 import { LEGAL_DOCUMENTS, systemStateOf, useLegalDocument } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
@@ -42,10 +44,7 @@ export function LegalView({ document, onDocumentChange }: LegalViewProps) {
         <Heading variant="h2">{t(`legal.title.${document}`)}</Heading>
         {edition && (
           <Text variant="cap">
-            {t('legal.edition', {
-              version: edition.version,
-              date: format.fullDate(new Date(edition.published_on)),
-            })}
+            {t('legal.edition', { date: format.fullDateGenitive(new Date(edition.published_on)) })}
           </Text>
         )}
       </div>
@@ -94,19 +93,20 @@ function Sections({ body, lang }: { body: string; lang: string | undefined }) {
   return (
     <Card className="gap-3.5">
       {intro.length > 0 && (
-        <MarkdownBlocks blocks={intro} className="text-cap text-text2" lang={lang} />
+        <MarkdownBlocks blocks={intro} className="text-sm text-text2" lang={lang} />
       )}
       <ol lang={lang} className="m-0 flex list-none flex-col gap-3.5 p-0">
         {sections.map((section, i) => (
           <li key={i} className="flex items-start gap-3">
             <NumIcon>{section.number ?? <Icon name="info" size={16} />}</NumIcon>
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <h2 className="m-0 text-body font-semibold">{inline(section.title)}</h2>
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <h2 className="m-0 text-title">{inline(section.title)}</h2>
+              {/* абзацы — через 8 px, пункты списка — через 4 px (MarkdownBlocks) */}
               {section.blocks.length > 0 && (
                 <MarkdownBlocks
                   blocks={section.blocks}
                   headingLevel={3}
-                  className="text-cap text-text2"
+                  className="text-body text-text"
                 />
               )}
             </div>
@@ -160,7 +160,7 @@ function LoadError({
     <EmptyState
       as="h2"
       size="h2"
-      tone={offline ? 'neutral' : 'accent'}
+      tone="neutral"
       icon={offline ? 'wifi-off' : 'alert'}
       title={offline ? t('offline.title') : t('error.title')}
       className="px-6 pt-2"

@@ -4,14 +4,15 @@
 // заменяет запись истории: «Назад» и «×» закрывают просмотр, а не листают назад. Вертикальные
 // свайпы Telegram выключены: жест листания не сворачивает Mini App. «Поделиться» (7.4) — справа от
 // счётчика: ссылка на профиль специалиста (у работы своего кода deep link нет). MainButton
-// «Написать …» — 5.6 и 6.4.
+// «Написать …» — 5.6 и 6.4. Кадр не выше экрана за вычетом шапки, подписи и миниатюр (FRAME): на
+// 375×667 миниатюры и «+N» видны без прокрутки, на высоких экранах кадр по-прежнему 5:6.
 import type { CardWorkOut } from '@sosed/api-client';
 import { cardVariants, isUnavailable, largestVariant, useSpecialistWorks } from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
-import { useBackButton, useColorSchemeOverride, usePlatform } from '@sosed/platform';
+import { useBackButton, useColorSchemeOverride, useInsets, usePlatform } from '@sosed/platform';
 import { EmptyState, Heading, IconButton, Photo, Skeleton, VideoPlayer, cx } from '@sosed/ui-web';
 import { useParams, useRouter, useSearch } from '@tanstack/react-router';
-import type { PointerEvent } from 'react';
+import type { CSSProperties, PointerEvent } from 'react';
 import { useEffect, useEffectEvent, useRef } from 'react';
 
 import { LoadError } from '../shared/LoadError.tsx';
@@ -24,6 +25,10 @@ import { useProfileShare } from '../shared/share.tsx';
 const THUMBS = 4;
 /** Свайп короче — не листание (дрогнул палец). */
 const SWIPE_PX = 48;
+/** Кадр работы: 5:6 во всю ширину, но не выше экрана без верхнего отступа Telegram (`--tg-top`) и
+ *  232 px — панель 44, зазоры 3×16, подпись 22, миниатюры 56, низ 24 и запас. `fit="contain"` —
+ *  фото в укороченном кадре остаётся целым. */
+const FRAME = 'aspect-5/6 w-full max-h-[calc(100dvh-var(--tg-top,0px)-232px)]';
 
 export function WorksScreen() {
   const { t } = useTranslation('catalog');
@@ -31,6 +36,8 @@ export function WorksScreen() {
   const search: PortfolioSearch = useSearch({ strict: false });
   const router = useRouter();
   const platform = usePlatform();
+  // верхний отступ оболочки (полноэкранный Telegram: safe area и его кнопки) — для высоты кадра
+  const top = useInsets().top;
   const works = useSpecialistWorks(profileId);
   const sharing = useProfileShare(profileId);
   useColorSchemeOverride('dark');
@@ -80,7 +87,10 @@ export function WorksScreen() {
     content = <Loading onClose={close} />;
   }
   return (
-    <section className="flex flex-col gap-4 pt-1.5 pb-6">
+    <section
+      className="flex flex-col gap-4 pt-1.5 pb-6"
+      style={{ '--tg-top': `${top}px` } as CSSProperties}
+    >
       <Heading variant="h2" as="h1" className="sr-only">
         {t('portfolio.title')}
       </Heading>
@@ -111,10 +121,10 @@ function Loading({ onClose }: { onClose: () => void }) {
         <Skeleton screen className="h-4 w-12" />
         <span className="size-11" aria-hidden="true" />
       </div>
-      <Skeleton screen radius="panel" className="aspect-5/6 w-full" />
+      <Skeleton screen radius="field" className={FRAME} />
       <div className="flex gap-2 px-4">
         {[0, 1, 2, 3].map((thumb) => (
-          <Skeleton key={thumb} screen radius="panel" className="size-14" />
+          <Skeleton key={thumb} screen radius="field" className="size-14" />
         ))}
       </div>
     </div>
@@ -213,7 +223,7 @@ function Viewer({
               src={work.photo.video_url}
               poster={poster?.url}
               label={t('profile.video', { title })}
-              className="aspect-5/6"
+              className={FRAME}
             />
           ) : (
             <Photo
@@ -223,7 +233,7 @@ function Viewer({
               alt={title}
               fit="contain"
               priority
-              className="aspect-5/6 w-full"
+              className={FRAME}
             />
           )}
           {previous && (

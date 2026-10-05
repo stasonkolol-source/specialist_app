@@ -1,7 +1,9 @@
 // S49 поверх всего приложения (DEVELOPMENT_PLAN 1.5a): нет сети при старте (S49a), ошибка,
 // техработы, «обновите Telegram» / новая версия Mini App и санкция на весь аккаунт (S49b).
 // Навигации нет: в шапке Telegram — «Закрыть». Состояния экрана (нет сети на вкладке) рисует
-// сам экран тем же EmptyState.
+// сам экран тем же EmptyState. Ошибка, техработы и «обновите Telegram» — нейтральные, как
+// LoadError экранов: зелёный — бренд и успех, а не предупреждение. Зелёной остаётся «Вышла новая
+// версия» — новость, а не сбой.
 import type { SystemState } from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
 import { useInsets } from '@sosed/platform';
@@ -77,13 +79,20 @@ function Notice({
       );
     case 'maintenance':
       return (
-        <EmptyState as="h1" size="h2" icon="settings" title={t('maintenance.title')} action={retry}>
+        <EmptyState
+          as="h1"
+          size="h2"
+          tone="neutral"
+          icon="settings"
+          title={t('maintenance.title')}
+          action={retry}
+        >
           {t('maintenance.text')}
         </EmptyState>
       );
     case 'update':
       return state.target === 'telegram' ? (
-        <EmptyState as="h1" size="h2" icon="alert" title={t('update.telegramTitle')}>
+        <EmptyState as="h1" size="h2" tone="neutral" icon="alert" title={t('update.telegramTitle')}>
           {t('update.telegramText')}
         </EmptyState>
       ) : (
@@ -99,7 +108,14 @@ function Notice({
       );
     case 'error':
       return (
-        <EmptyState as="h1" size="h2" icon="alert" title={t('error.title')} action={retry}>
+        <EmptyState
+          as="h1"
+          size="h2"
+          tone="neutral"
+          icon="alert"
+          title={t('error.title')}
+          action={retry}
+        >
           {t('error.text')}
         </EmptyState>
       );

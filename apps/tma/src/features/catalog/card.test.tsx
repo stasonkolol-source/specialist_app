@@ -4,14 +4,20 @@
 // целиком; отзывы S11 с ответом специалиста и «Показать ещё»; «Поделиться» (7.4) — карточка в
 // выбор чата или ссылка.
 import type { CardReviewOut, CardReviewsOut } from '@sosed/api-client';
-import { encodeStartParam } from '@sosed/links';
+import { encodeStartParam, uuidToBase62 } from '@sosed/links';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { backButtonVisible, mainButton, pressBackButton, startApp } from '../../testing/app.tsx';
-import { CARD_PROFILE_ID, CARD_WORKS, HIDDEN_PROFILE_ID } from '../../testing/fixtures.ts';
+import {
+  CARD_PROFILE_ID,
+  CARD_WORKS,
+  HIDDEN_PROFILE_ID,
+  specialistCardFor,
+} from '../../testing/fixtures.ts';
 import { server } from '../../testing/msw.ts';
+import { writeInTelegramLink } from './s08-profile/telegram.ts';
 
 const PROFILE = `/specialists/${CARD_PROFILE_ID}`;
 
@@ -19,6 +25,12 @@ const click = (element: HTMLElement) =>
   act(async () => {
     fireEvent.click(element);
   });
+
+/** Шапка профиля S08 — карточка с именем. */
+async function profileHeader() {
+  const name = await screen.findByRole('heading', { name: 'Алексей Морозов', level: 1 });
+  return within(name.closest('section') as HTMLElement);
+}
 
 /** Пути запросов к API за время теста. */
 function recordRequests() {
@@ -84,6 +96,9 @@ describe('S08 profile', () => {
     const prices = within(screen.getByRole('region', { name: 'Цены' }));
     expect(prices.getByText('Установка люстры')).toBeTruthy();
     expect(prices.getByText(/^от 2\s500\sRSD$/u)).toBeTruthy();
+    // единица — под суммой: «2 000 RSD / за визит», «от 2 500 RSD / за штуку»
+    expect(prices.getByText('за визит')).toBeTruthy();
+    expect(prices.getAllByText('за штуку')).toHaveLength(2);
     expect(prices.getByRole('link', { name: 'Весь прайс · 9' })).toBeTruthy();
     const works = within(screen.getByRole('region', { name: 'Работы' }));
     expect(works.getByRole('link', { name: 'Все · 18' })).toBeTruthy();
@@ -93,8 +108,14 @@ describe('S08 profile', () => {
     expect(about.getByText(/^Электрик, 12 лет опыта/)).toBeTruthy();
     expect(about.getByText('Русский, сербский')).toBeTruthy();
     expect(about.getByText('Выезд: Лиман, Грбавица, Центр, Нова Детелинара')).toBeTruthy();
-    expect(about.getByText('Обычно отвечает за 15 минут')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Предложить заявку' })).toBeTruthy();
+    // «Обычно отвечает за …» — в шапке под районом, в «О себе» её больше нет
+    const header = await profileHeader();
+    expect(header.getByText('Обычно отвечает за 15 минут')).toBeTruthy();
+    expect(about.queryByText('Обычно отвечает за 15 минут')).toBeNull();
+    // ряд под бейджами, как на артборде: заявка, сердечко и «Поделиться»
+    expect(header.getByRole('button', { name: 'Предложить заявку' })).toBeTruthy();
+    expect(header.getByRole('button', { name: /избранное/i })).toBeTruthy();
+    expect(header.getByRole('button', { name: 'Поделиться профилем' })).toBeTruthy();
 
     // «Написать» (6.4) — диалог со специалистом
     await waitFor(() => expect(mainButton(telegram)?.text).toBe('Написать'));
@@ -102,6 +123,21 @@ describe('S08 profile', () => {
       `/api/v1${PROFILE}`,
     ]);
     requests.stop();
+  });
+
+  it('marks casual work first in the header badges', async () => {
+    server.use(
+      http.get(`*/api/v1${PROFILE}`, () =>
+        HttpResponse.json({ ...specialistCardFor('ru'), kind: 'casual' }),
+      ),
+    );
+    startApp(PROFILE);
+
+    const header = await profileHeader();
+    expect(header.getByText('Подработка')).toBeTruthy();
+    // факты по важности: «Подработка», «Телефон подтверждён», «Сегодня до …»
+    const badges = header.getByText('Подработка').parentElement?.textContent;
+    expect(badges).toMatch(/^ПодработкаТелефон подтверждёнСегодня до /);
   });
 
   it('opens from a card in the results and goes back to them', async () => {
@@ -156,6 +192,16 @@ describe('S08 profile', () => {
   });
 });
 
+describe('S08 in the browser', () => {
+  it('writes in Telegram: the link opens this very profile in the Mini App', () => {
+    expect(writeInTelegramLink(CARD_PROFILE_ID, 'sosed_bot')).toBe(
+      `https://t.me/sosed_bot?startapp=s_${uuidToBase62(CARD_PROFILE_ID)}`,
+    );
+    // без бота сборки ссылки нет — остаётся обычная «Написать»
+    expect(writeInTelegramLink(CARD_PROFILE_ID, null)).toBeNull();
+  });
+});
+
 describe('S09 prices', () => {
   it('groups the whole price list by category with duration, unit and amount', async () => {
     const { app } = startApp(PROFILE);
@@ -173,9 +219,12 @@ describe('S09 prices', () => {
       expect.stringMatching(/^Электрика/),
     ]);
     const first = within(groups[0] as HTMLElement);
-    expect(first.getByText('до 1 часа · за визит')).toBeTruthy();
-    expect(first.getByText('за час')).toBeTruthy();
-    expect(first.getByText('Мелкий ремонт')).toBeTruthy();
+    // слева — длительность и описание, справа — сумма и под ней единица
+    expect(first.getByText('до 1 часа')).toBeTruthy();
+    expect(first.getAllByText('за визит')).toHaveLength(2);
+    expect(first.getByRole('link', { name: /Мастер на час/ }).textContent).toMatch(
+      /^Мастер на часМелкий ремонт2\s000\sRSDза час$/u,
+    );
     expect(within(groups[2] as HTMLElement).getByText(/^от 400\sRSD$/u)).toBeTruthy();
   });
 });
