@@ -13,6 +13,7 @@ import type {
   CityOut,
   ClientConfigOut,
   DistrictOut,
+  LegalDocumentsOut,
   MeOut,
   NotificationOut,
   NotificationPageOut,
@@ -189,14 +190,20 @@ export const WRITE_ACCESS: TelegramChannelOut = {
   granted_at: '2026-09-27T10:13:00Z',
 };
 
-/** Как client-config dev-стенда: черновики draft-1 правил и политики (0.27), флаг техработ выключен. */
+/** Как client-config dev-стенда: черновики draft-1 правил и политики (0.27), флаг техработ выключен.
+ *  Без текстов — Mini App просит конфиг с `?legal_documents=false`, тексты — LEGAL_DOCUMENTS. */
 export const CLIENT_CONFIG: ClientConfigOut = {
   min_versions: { tma: '0.1.0' },
   flags: { 'goods.segment': true, 'platform.maintenance': false },
   legal_versions: { terms: 'draft-1', privacy: 'draft-1' },
-  legal_documents: { terms: draftDocument('terms'), privacy: draftDocument('privacy') },
+  legal_documents: {},
   // K23, Q25: контакт поддержки не назначен — S43 и S47 показывают «скоро»
   support_username: null,
+};
+
+/** GET /legal-documents: тексты черновиков draft-1 из backend/content/legal (S48). */
+export const LEGAL_DOCUMENTS: LegalDocumentsOut = {
+  documents: { terms: draftDocument('terms'), privacy: draftDocument('privacy') },
 };
 
 /** «Сейчас» демо-данных уведомлений (S42): как в e2e сервиса — 2 октября, 18:07 по Белграду. */

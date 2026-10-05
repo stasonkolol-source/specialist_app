@@ -9,6 +9,15 @@ import * as zod from 'zod';
 /**
  * @summary Get Client Config
  */
+export const systemGetClientConfigQueryLegalDocumentsDefault = true;
+
+export const SystemGetClientConfigQueryParams = zod.object({
+  legal_documents: zod
+    .boolean()
+    .default(systemGetClientConfigQueryLegalDocumentsDefault)
+    .describe('false — без текстов правовых документов: их отдаёт GET /legal-documents'),
+});
+
 export const SystemGetClientConfigResponse = zod.object({
   min_versions: zod.record(zod.string(), zod.string()),
   flags: zod.record(zod.string(), zod.boolean()),
@@ -28,4 +37,26 @@ export const SystemGetClientConfigResponse = zod.object({
     }),
   ),
   support_username: zod.union([zod.string(), zod.null()]),
+});
+
+/**
+ * Тексты действующих редакций для S48 — отдельно от client-config: первому запуску не нужны.
+ * Те же версии, что в `legal_versions` client-config, и тот же кэш: ETag, max-age 60.
+ * @summary Get Legal Documents
+ */
+export const SystemGetLegalDocumentsResponse = zod.object({
+  documents: zod.record(
+    zod.string(),
+    zod.object({
+      version: zod.string(),
+      published_on: zod.iso.date(),
+      texts: zod.record(
+        zod.string(),
+        zod.object({
+          title: zod.string(),
+          body: zod.string(),
+        }),
+      ),
+    }),
+  ),
 });
