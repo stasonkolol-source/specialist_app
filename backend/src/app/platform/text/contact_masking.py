@@ -678,8 +678,19 @@ class _Open:
 def _digit_runs(text: str) -> list[Finding]:
     """Телефоны, карты и счета: цифры (и цифры словами), идущие подряд через разделители. Даты
     и время заменяются пробелами той же длины: позиции остальных находок не сдвигаются."""
-    text = _blank_times(_DATE.sub(_blank_date, text))
-    findings: list[Finding] = []
+    text = _numbers_only(text)
+    return [finding for run in _number_runs(text) for finding in _classify(text, run)]
+
+
+def _numbers_only(text: str) -> str:
+    """Даты и время — пробелами той же длины: это не части номера."""
+    return _blank_times(_DATE.sub(_blank_date, text))
+
+
+def _number_runs(text: str) -> list[list[_Piece]]:
+    """Ряды чисел (цифры и цифры словами) через разделители — как их видит поиск номера; даты и
+    время уже заменены пробелами (`_numbers_only`)."""
+    runs: list[list[_Piece]] = []
     run: list[_Piece] = []
     number: _Open | None = None  # «шестьсот», «шестьдесят» ждут продолжения
     previous_end = 0
@@ -701,7 +712,8 @@ def _digit_runs(text: str) -> list[Finding]:
             if number is not None:
                 run.append(number.closed())
                 number = None
-            findings.extend(_classify(text, run))
+            if run:
+                runs.append(run)
             run = []
         if piece is None:
             previous_end = token_end
@@ -725,8 +737,9 @@ def _digit_runs(text: str) -> list[Finding]:
         previous_end = token_end
     if number is not None:
         run.append(number.closed())
-    findings.extend(_classify(text, run))
-    return findings
+    if run:
+        runs.append(run)
+    return runs
 
 
 def _unit_before(run: Sequence[_Piece], gap: str) -> bool:
