@@ -22,6 +22,9 @@
     "title": "Sve usluge",
     "search": "Pronađite uslugu",
     "specialists": "{count, plural, one {# stručnjak} few {# stručnjaka} other {# stručnjaka}}",
+    "more": "{names} i još {count}",
+    "notFound": "Niste našli svoju uslugu?",
+    "notFoundText": "Opišite šta treba uraditi — izabraćemo kategoriju",
     "loadError": "Kategorije nisu učitane"
   },
   "results": {

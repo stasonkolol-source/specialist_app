@@ -35,6 +35,23 @@ describe('S04 categories', () => {
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/catalog/results'));
     expect(app.router.state.location.search).toEqual({ category: CATEGORY_IDS['electrical'] });
   });
+
+  it('lists subcategories as a phrase and offers a job when the service is missing', async () => {
+    const { app } = startApp('/catalog');
+
+    // перечень — с маленькой буквы после первой подкатегории; не поместившиеся — «и ещё N»
+    const handyman = await screen.findByRole('button', { name: /Мастер на час/ });
+    expect(within(handyman).getByText('Электрика, сантехника, сборка мебели и ещё 1')).toBeTruthy();
+    expect(screen.getByText('Маникюр, брови и ресницы, стрижки')).toBeTruthy();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Найти услугу' }), {
+      target: { value: 'Повесить жалюзи' },
+    });
+
+    await click(screen.getByRole('link', { name: /Не нашли свою услугу\?/ }));
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs/new'));
+    expect(app.router.state.location.search).toMatchObject({ title: 'Повесить жалюзи' });
+  });
 });
 
 describe('S05 results', () => {
