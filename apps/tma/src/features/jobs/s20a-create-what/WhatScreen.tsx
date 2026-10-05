@@ -231,12 +231,12 @@ function CategoryField({
   );
 }
 
-/** Незаполненное поле (`data-problem`): фокус на его поле ввода или кнопке, само поле — на экран. */
+/** Незаполненное поле (`data-problem`): фокус на его поле ввода или кнопке — браузер сам
+ *  прокручивает к нему. */
 function focusProblem(form: HTMLElement | null, problem: string) {
   const field = form?.querySelector<HTMLElement>(`[data-problem="${problem}"]`);
   const target = field?.matches('input') ? field : field?.querySelector<HTMLElement>('button');
-  target?.focus({ preventScroll: true });
-  target?.scrollIntoView({ block: 'center' });
+  target?.focus();
 }
 
 /** Шторка выбора: разделы, в разделе — его услуги (заявка — в лист каталога). */
