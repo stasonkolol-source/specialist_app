@@ -224,7 +224,7 @@ async def test_legal_commands_open_the_s48_tab(
 ) -> None:
     reply = await harness.send(telegram_user(), command)
 
-    assert reply.text.startswith(f"<b>{title}</b>\nРедакция draft-1 от ")
+    assert reply.text.startswith(f"<b>{title}</b>\nРедакция 1 от 05.10.2026")
     button = _markup(reply).inline_keyboard[0][0]
     assert button.text == label
     assert button.web_app is not None

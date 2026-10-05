@@ -18,6 +18,7 @@ from app.platform.kernel.clock import SystemClock
 from app.platform.kernel.ids import UserId, new_id
 from app.platform.security.initdata import sign
 from app.platform.settings import Settings
+from app.platform.testing.config import CURRENT_LEGAL_VERSIONS
 
 
 def new_telegram_id() -> int:
@@ -114,8 +115,11 @@ async def insert_restriction(
     return restriction_id
 
 
-async def accept_rules(session: AsyncSession, user_id: UserId, version: str = "draft-1") -> None:
-    """Галочка S02c: правила (с 18+) и политика в версиях client-config (platform_0003)."""
+async def accept_rules(
+    session: AsyncSession, user_id: UserId, version: str = CURRENT_LEGAL_VERSIONS["terms"]
+) -> None:
+    """Галочка S02c: правила (с 18+) и политика в действующих версиях client-config
+    (platform_0007: редакция «1»)."""
     for document in ("terms", "privacy", "age_18"):
         await session.execute(
             text(

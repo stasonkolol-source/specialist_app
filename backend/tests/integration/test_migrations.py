@@ -2,7 +2,7 @@
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncConnection
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 
 from tests.plugins.containers import PostgresInfo, run_alembic
 
@@ -23,6 +23,44 @@ def test_roundtrip_single_head_and_no_drift(fresh_postgres: PostgresInfo) -> Non
     assert "No new upgrade operations detected" in check
     heads = [line for line in _ok(fresh_postgres, "heads").splitlines() if "(head)" in line]
     assert len(heads) == 1, heads
+
+
+async def _legal_versions(engine: AsyncEngine) -> tuple[object, ...]:
+    async with engine.connect() as conn:
+        row = (
+            await conn.execute(
+                text(
+                    "SELECT value, updated_by IS NULL FROM platform.client_config"
+                    " WHERE key = 'legal_versions'"
+                )
+            )
+        ).one()
+    return tuple(row)
+
+
+async def test_legal_edition_roundtrip_keeps_admin_choice(fresh_postgres: PostgresInfo) -> None:
+    """platform_0007 (K22): draft-1 → «1» только у документов, где стоит draft-1 из platform_0003;
+    версию, выбранную в админке, не трогает. Откат возвращает draft-1 только там, где «1»."""
+    _ok(fresh_postgres, "upgrade", "head")
+    _ok(fresh_postgres, "downgrade", "platform_0007-1")
+    engine = create_async_engine(fresh_postgres.dsn("migrator"))
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "UPDATE platform.client_config SET updated_by = gen_random_uuid(),"
+                    """ value = '{"terms": "draft-1", "privacy": "2"}'::jsonb"""
+                    " WHERE key = 'legal_versions'"
+                )
+            )
+        _ok(fresh_postgres, "upgrade", "platform_0007")
+        # значение строки задала миграция — сотрудника в updated_by больше нет
+        assert await _legal_versions(engine) == ({"terms": "1", "privacy": "2"}, True)
+        _ok(fresh_postgres, "downgrade", "platform_0007-1")
+        assert await _legal_versions(engine) == ({"terms": "draft-1", "privacy": "2"}, True)
+    finally:
+        await engine.dispose()
+        _ok(fresh_postgres, "upgrade", "head")
 
 
 async def _scalar(conn: AsyncConnection, sql: str, **params: object) -> object:

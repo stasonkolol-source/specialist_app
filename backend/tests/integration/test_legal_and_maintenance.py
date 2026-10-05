@@ -10,13 +10,14 @@ from app.interfaces.http.middleware import MAINTENANCE_RETRY_AFTER
 from app.platform.config.port import MAINTENANCE_FLAG
 from app.platform.db.platform_tables import client_config, feature_flags
 from app.platform.settings import Settings
+from app.platform.testing.config import CURRENT_LEGAL_VERSIONS
 from tests.plugins.http import http_client
 
 pytestmark = pytest.mark.integration
 
-EDITION_DATES = {"terms": "2026-09-27", "privacy": "2026-10-04"}
-"""Даты редакций draft-1 из front matter backend/content/legal. Политику сверили с кодом
-2026-10-04 (DEVELOPMENT_PLAN 3.4, 8.4): черновик правится на месте, дата — вместе с текстом."""
+EDITION_DATES = {"terms": "2026-10-05", "privacy": "2026-10-05"}
+"""Даты редакции «1» из front matter backend/content/legal: владелец утвердил черновики
+2026-10-05 (K22), миграция platform_0007 включила их в client-config."""
 
 
 @pytest.fixture
@@ -46,7 +47,7 @@ async def test_client_config_carries_texts_of_current_versions(settings: Setting
     async with http_client(settings) as client:
         response = await client.get("/api/v1/client-config", headers={"accept-language": "sr"})
         body = response.json()
-        assert body["legal_versions"] == {"terms": "draft-1", "privacy": "draft-1"}
+        assert body["legal_versions"] == CURRENT_LEGAL_VERSIONS
         assert body["flags"][MAINTENANCE_FLAG] is False
         documents = body["legal_documents"]
         assert set(documents) == {"terms", "privacy"}
