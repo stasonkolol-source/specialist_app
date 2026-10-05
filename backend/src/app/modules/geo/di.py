@@ -7,6 +7,7 @@ from app.modules.geo.api import GeoApi
 from app.modules.geo.application.facade import GeoFacade
 from app.modules.geo.application.ports import DirectoryCache, GeoQuery, GeoWriter
 from app.modules.geo.application.use_cases.import_city import ImportCity
+from app.modules.geo.application.use_cases.locate_district import LocateDistrict
 from app.modules.geo.infrastructure.cache import CachedGeoQuery, GeoDirectoryCache
 from app.modules.geo.infrastructure.queries import SqlGeoQuery
 from app.modules.geo.infrastructure.writer import SqlGeoWriter
@@ -31,3 +32,4 @@ class GeoProvider(Provider):
     writer = provide(SqlGeoWriter, provides=GeoWriter)
     facade = provide(GeoFacade, provides=GeoApi)
     import_city = provide(ImportCity)
+    locate_district = provide(LocateDistrict)

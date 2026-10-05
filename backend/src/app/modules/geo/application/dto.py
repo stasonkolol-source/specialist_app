@@ -29,6 +29,15 @@ class DistrictView:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class LocatedDistrict:
+    """Район города по точке клиента (S20b «Определить по геолокации», булавка на карте)."""
+
+    district: DistrictView
+    exact: bool
+    """True — точка внутри района; False — точка у края города, взят ближайший район."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class DistrictSeed:
     slug: str
     kind: DistrictKind

@@ -13,7 +13,7 @@ from typing import Final
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.geo.api import DistrictSummary, ResolvedPoint
-from app.modules.geo.application.dto import CityView, DistrictView
+from app.modules.geo.application.dto import CityView, DistrictView, LocatedDistrict
 from app.modules.geo.application.ports import GeoQuery
 from app.modules.geo.infrastructure.queries import SqlGeoQuery
 from app.platform.cache.memo import Memo
@@ -90,6 +90,9 @@ class CachedGeoQuery(GeoQuery):
 
     async def resolve(self, point: GeoPoint) -> ResolvedPoint | None:
         return await self._sql.resolve(point)
+
+    async def locate(self, city_id: CityId, point: GeoPoint) -> LocatedDistrict | None:
+        return await self._sql.locate(city_id, point)
 
     async def representations(self) -> Memo:
         return (await self._cache.get()).memo

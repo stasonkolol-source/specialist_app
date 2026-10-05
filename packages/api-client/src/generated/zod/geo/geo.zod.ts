@@ -45,6 +45,38 @@ export const GeoListDistrictsResponseItem = zod.object({
 export const GeoListDistrictsResponse = zod.array(GeoListDistrictsResponseItem);
 
 /**
+ * Район города по точке клиента (S20b «Определить по геолокации», карта): квартал, в
+ * котором точка; у края города (до 3 км) — ближайший; дальше — 404 `outside_city`.
+ * Координаты не сохраняются и не пишутся в лог: в логе только район и исход.
+ * @summary Locate District
+ */
+export const geoLocateDistrictQueryCityIdMax = 2147483647;
+
+export const geoLocateDistrictQueryLatMin = -90;
+export const geoLocateDistrictQueryLatMax = 90;
+
+export const geoLocateDistrictQueryLonMin = -180;
+export const geoLocateDistrictQueryLonMax = 180;
+
+export const GeoLocateDistrictQueryParams = zod.object({
+  city_id: zod.int().min(1).max(geoLocateDistrictQueryCityIdMax),
+  lat: zod.number().min(geoLocateDistrictQueryLatMin).max(geoLocateDistrictQueryLatMax),
+  lon: zod.number().min(geoLocateDistrictQueryLonMin).max(geoLocateDistrictQueryLonMax),
+});
+
+export const GeoLocateDistrictResponse = zod.object({
+  id: zod.int(),
+  slug: zod.string(),
+  name: zod.string(),
+  kind: zod.enum(['municipality', 'neighborhood']),
+  parent_id: zod.union([zod.int(), zod.null()]),
+  center: zod.object({
+    lat: zod.number(),
+    lon: zod.number(),
+  }),
+});
+
+/**
  * Район точки: внутри полигона или ближайший центр района не дальше 15 км.
  * @summary Resolve Point
  */

@@ -11,3 +11,9 @@ class OutsideServiceAreaError(NotFoundError):
     """Точка дальше MAX_NEAREST_KM от любого района активного города."""
 
     code = "outside_service_area"
+
+
+class OutsideCityError(NotFoundError):
+    """Район по точке (S20b, карта): точка не в районе города и дальше NEAR_CITY_KM от него."""
+
+    code = "outside_city"

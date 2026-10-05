@@ -1,11 +1,12 @@
-"""GET /cities, /cities/{id}/districts, /geo/resolve (DEVELOPMENT_PLAN 1.3a)."""
+"""GET /cities, /cities/{id}/districts, /geo/resolve (DEVELOPMENT_PLAN 1.3a) и район по точке
+/geo/districts/locate (S20b «Определить по геолокации», карта)."""
 
 from collections.abc import AsyncIterator
 
 import httpx
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
-from tests.plugins.http import http_app, http_client
+from tests.plugins.http import bearer, http_app, http_client
 from tests.plugins.round_trips import round_trips
 
 from app.modules.geo.http.router import router
@@ -14,6 +15,7 @@ from app.platform.settings import Settings
 pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("geo_seeded")]
 
 LIMAN_3 = {"lat": 45.2397, "lon": 19.8350}
+LOCATE = "/api/v1/geo/districts/locate"
 
 
 @pytest.fixture
@@ -120,3 +122,55 @@ async def test_city_id_out_of_int4_is_validation_error(
 ) -> None:
     response = await api.get(f"/api/v1/cities/{city_id}/districts")
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("point", "slug"),
+    [
+        (LIMAN_3, "liman-3"),
+        # общая вершина Банатича и Ротквари: на границе — меньший из кварталов
+        ({"lat": 45.263537, "lon": 19.830113}, "banatic"),
+        # за городом, ~1,7 км от края: ближайший квартал
+        ({"lat": 45.24, "lon": 19.94}, "petrovaradin"),
+    ],
+)
+async def test_locate_district_by_point(
+    api: httpx.AsyncClient, settings: Settings, point: dict[str, float], slug: str
+) -> None:
+    city_id = await _city_id(api, "novi-sad")
+    response = await api.get(
+        LOCATE,
+        params={"city_id": city_id, **point},
+        headers={**bearer(settings), "accept-language": "ru"},
+    )
+    assert response.status_code == 200
+    assert response.headers["ratelimit-limit"] == "60"
+    district = response.json()
+    assert district["slug"] == slug
+    assert district["kind"] == "neighborhood"
+    # тот же вид, что в списке районов: клиент выбирает район из списка по id
+    listed = await api.get(f"/api/v1/cities/{city_id}/districts", headers={"accept-language": "ru"})
+    assert district in listed.json()
+
+
+async def test_locate_outside_city_and_unknown_city(
+    api: httpx.AsyncClient, settings: Settings
+) -> None:
+    city_id = await _city_id(api, "novi-sad")
+    auth = bearer(settings)
+    for far in ({"lat": 45.33, "lon": 19.9}, {"lat": 44.8125, "lon": 20.4573}):
+        outside = await api.get(LOCATE, params={"city_id": city_id, **far}, headers=auth)
+        assert outside.status_code == 404
+        assert outside.json()["code"] == "outside_city"
+    unknown = await api.get(LOCATE, params={"city_id": 999_999, **LIMAN_3}, headers=auth)
+    assert (unknown.status_code, unknown.json()["code"]) == (404, "city_not_found")
+
+
+async def test_locate_is_for_signed_in_users(api: httpx.AsyncClient, settings: Settings) -> None:
+    city_id = await _city_id(api, "novi-sad")
+    guest = await api.get(LOCATE, params={"city_id": city_id, **LIMAN_3})
+    assert guest.status_code == 401
+    invalid = await api.get(
+        LOCATE, params={"city_id": city_id, "lat": 91, "lon": 19}, headers=bearer(settings)
+    )
+    assert invalid.status_code == 422
