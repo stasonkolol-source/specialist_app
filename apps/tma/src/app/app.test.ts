@@ -71,7 +71,7 @@ describe('CSP', () => {
     }
   });
 
-  it('lets the map run MapLibre blob: workers and read its assets from the CDN', () => {
+  it('lets the map run the MapLibre worker of the build and read its assets from the CDN', () => {
     const csp = contentSecurityPolicy({
       dev: false,
       mediaOrigins: [],
@@ -79,9 +79,10 @@ describe('CSP', () => {
     });
     // Range-запросы PMTiles, глифы и спрайт — fetch: нужен ровно origin CDN, без пути
     expect(csp).toContain("connect-src 'self' https://cdn.example;");
-    expect(csp).toContain("worker-src 'self' blob:;");
+    // воркер — файл сборки на своём origin: blob: не нужен
+    expect(csp).toContain("worker-src 'self';");
     // Safari до 15.5 (цель сборки — safari15) ищет воркеры в child-src
-    expect(csp).toContain("child-src 'self' blob:;");
+    expect(csp).toContain("child-src 'self';");
     // спрайт рисуется из ImageBitmap или blob: — img-src не шире, чем без карты
     expect(csp).toContain("img-src 'self' data: blob:;");
   });
@@ -89,7 +90,7 @@ describe('CSP', () => {
   it('keeps map assets on the own origin in dev and adds nothing without a map', () => {
     const dev = contentSecurityPolicy({ dev: true, mediaOrigins: [], mapAssetsUrl: '/map' });
     expect(dev).toContain("connect-src 'self' ws: wss:;");
-    expect(dev).toContain("worker-src 'self' blob:;");
+    expect(dev).toContain("worker-src 'self';");
     for (const mapAssetsUrl of [undefined, '', '  ']) {
       const csp = contentSecurityPolicy({ dev: false, mediaOrigins: [], mapAssetsUrl });
       expect(csp).toContain("connect-src 'self';");
