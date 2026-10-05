@@ -103,7 +103,7 @@ async def extend(
     job = await queries.view(job_id)
     await callback.answer()
     if job is not None and job.expires_at is not None:
-        until = long_datetime(job.expires_at, locale)
+        until = long_datetime(job.expires_at, locale, genitive=True)
         await _replace(
             callback,
             html_text(translator, "bot.jobs.extended", locale, title=job.title, until=until),

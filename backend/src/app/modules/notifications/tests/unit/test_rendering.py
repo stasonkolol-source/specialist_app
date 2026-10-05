@@ -68,9 +68,28 @@ def test_restriction_until_a_date_on_three_scripts(renderer: GettextNotification
         " Ограничение действует до 12 октября 2026 г., 08:30."
         " Подробности — в правилах площадки."
     )
-    assert "12. октобар 2026. 08:30" in texts[Locale.SR_CYRL]
+    # после «do» сербский месяц — в родительном: «do 12. oktobra», не «do 12. oktobar»
+    assert "до 12. октобра 2026. 08:30." in texts[Locale.SR_CYRL]
     assert texts[Locale.SR_LATN].startswith("Nalog je ograničen\n")
-    assert "12. oktobar 2026. 08:30" in texts[Locale.SR_LATN]
+    assert "do 12. oktobra 2026. 08:30." in texts[Locale.SR_LATN]
+
+
+def test_serbian_deadline_and_reminder_dates_are_genitive(
+    renderer: GettextNotificationRenderer,
+) -> None:
+    dispute = renderer.text(
+        NotificationType.DISPUTE_OPENED,
+        {"title": "Люстра", "by": "performer", "kind": "no_show", "until": "2026-10-07T08:00:00Z"},
+        Locale.SR_LATN,
+    )
+    assert "Odgovorite do 7. oktobra 2026. 10:00 —" in dispute.body
+    # напоминание «„…“ — когда»: дата в значении «когда» — тоже родительный
+    reminder = renderer.text(
+        NotificationType.DEAL_REMINDER,
+        {"title": "Люстра", "at": "2026-10-03T17:00:00+00:00"},
+        Locale.SR_CYRL,
+    )
+    assert reminder.body.endswith("3. октобра 2026. 19:00.")
 
 
 @pytest.mark.parametrize(

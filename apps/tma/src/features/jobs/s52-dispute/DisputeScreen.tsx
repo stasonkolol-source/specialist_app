@@ -404,7 +404,7 @@ function Message({
       )}
       {at && (
         <Text variant="cap" secondary>
-          {t('dispute.sentAt', { date: format.calendar(new Date(at)) })}
+          {t('dispute.sentAt', { date: format.calendarGenitive(new Date(at)) })}
         </Text>
       )}
     </Card>

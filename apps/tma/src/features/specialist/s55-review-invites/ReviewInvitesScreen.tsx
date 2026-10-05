@@ -357,15 +357,18 @@ function InviteRow({
   const status = statusOf(invite.status);
   const name = invite.reviewer_name ?? invite.client_name;
   const label = name ?? t('invites.unnamed');
-  const when = (at: string | null) => format.relative(new Date(at ?? invite.created_at));
+  const moment = (at: string | null) => new Date(at ?? invite.created_at);
+  // после глагола («Link poslat …») сербская дата — в родительном, подпись «· …» — как есть
+  const when = (at: string | null) => format.relativeGenitive(moment(at));
+  const ago = (at: string | null) => format.relative(moment(at));
   const line = {
     waiting: () => t('invites.sent', { when: when(invite.created_at) }),
     expired: () => t('invites.expiredAt', { when: when(invite.expires_at) }),
     under_review: () => t('invites.received', { when: when(invite.used_at) }),
     published: () =>
       invite.rating === null
-        ? when(invite.published_at)
-        : t('invites.rated', { rating: invite.rating, when: when(invite.published_at) }),
+        ? ago(invite.published_at)
+        : t('invites.rated', { rating: invite.rating, when: ago(invite.published_at) }),
     removed: () => t('invites.removedAt'),
   }[status]();
   return (

@@ -350,8 +350,10 @@ class HealthchecksSettings(_Group):
 
 
 class AiSettings(_Group):
-    """AI-проверки контента (ADR-0016 §3). Без ключа — заглушки (platform/ai/stubs.py):
-    в dev и тестах конвейер работает, на stage/prod без ключей всё идёт в ручную очередь."""
+    """AI-проверки контента (ADR-0016 §3). Без ключа — заглушки (platform/ai/stubs.py): в dev
+    и тестах конвейер работает на них, на stage/prod без ключей тексты проверяют только
+    стоп-правила, а каждое фото решает модератор (K25, K26 — после MVP, решение владельца
+    2026-10-05)."""
 
     model_config = SettingsConfigDict(env_prefix="AI_")
 

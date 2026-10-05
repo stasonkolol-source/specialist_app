@@ -872,8 +872,9 @@ class GettextNotificationRenderer:
         return self._translator.text(key, locale) or self._t(fallback, locale)
 
     def _datetime(self, value: str, locale: Locale) -> str:
-        """Дата и время по Белграду в формате языка: «12 октября 2026 г., 08:30»."""
-        return long_datetime(datetime.fromisoformat(value), locale)
+        """Дата и время по Белграду в формате языка: «12 октября 2026 г., 08:30». Во всех шаблонах
+        она после «до» или значит «когда» — сербский месяц в родительном («do 12. oktobra»)."""
+        return long_datetime(datetime.fromisoformat(value), locale, genitive=True)
 
 
 def _escape(text: str) -> str:

@@ -412,8 +412,9 @@ class PlatformProvider(Provider):
 
 
 def _stubs_allowed(app: AppSettings, variable: str) -> bool:
-    """Без ключа AI: в dev и тестах — заглушка, на stage и проде — «проверка недоступна»:
-    контент уходит в ручную очередь, а не публикуется без AI (ADR-0016)."""
+    """Без ключа AI: в dev и тестах — заглушка, на stage и проде — адаптер «ключа нет» (`No*`):
+    тексты решают стоп-правила, фото — модератор (ключи после MVP, решение владельца
+    2026-10-05; platform/ai/stubs.py)."""
     if app.env in {Environment.STAGE, Environment.PRODUCTION}:
         log.warning("ai_check_disabled", reason=f"{variable} is not set")
         return False
