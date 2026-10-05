@@ -17,6 +17,13 @@ class DealNotActiveError(ConflictError):
     public_params = ("deal_status",)
 
 
+class DealMarkedDoneError(ConflictError):
+    """Сторона уже отметила «Работа выполнена»: отменить сделку в одиночку нельзя — вторая
+    сторона подтверждает выполнение, а если что-то не так, открывает спор («Есть проблема»)."""
+
+    code = "deal_marked_done"
+
+
 class InvalidDealError(DomainValidationError):
     """Поле сделки нарушает правило (`field`, `reason`): причина отмены, цена, название."""
 

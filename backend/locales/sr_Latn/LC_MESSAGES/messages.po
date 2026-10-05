@@ -720,6 +720,9 @@ msgstr "Dogovor nije pronađen."
 msgid "errors.deal_not_active"
 msgstr "Sa dogovorom u ovom statusu to nije moguće."
 
+msgid "errors.deal_marked_done"
+msgstr "Posao je već označen kao završen — dogovor se ne može otkazati. Ako nešto nije u redu, pritisnite „Postoji problem“."
+
 msgid "errors.invalid_deal"
 msgstr "Proverite dogovor: nešto nije dobro popunjeno."
 

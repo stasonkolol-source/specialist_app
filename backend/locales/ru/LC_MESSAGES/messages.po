@@ -719,6 +719,9 @@ msgstr "Сделка не найдена."
 msgid "errors.deal_not_active"
 msgstr "Со сделкой в этом статусе так нельзя."
 
+msgid "errors.deal_marked_done"
+msgstr "Работа уже отмечена выполненной — отменить сделку нельзя. Если что-то пошло не так, нажмите «Есть проблема»."
+
 msgid "errors.invalid_deal"
 msgstr "Проверьте сделку: что-то заполнено не так."
 
