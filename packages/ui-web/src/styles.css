@@ -8,9 +8,10 @@
 @source './';
 
 /* Отклик на нажатие — только CSS, вместо системной подсветки WebView: кнопка, чип, плитка, вариант
-   чуть сжимаются (отключённые — нет), карточка-ссылка — меньше (и когда нажата ссылка-шапка внутри,
-   как у SpecialistCard), строка списка подсвечивается фоном bg2 — он виден и на поверхности группы,
-   и на фоне шторки в обеих темах. Движение — только без prefers-reduced-motion */
+   чуть сжимаются (отключённые — нет), карточка-ссылка — меньше, строка списка подсвечивается фоном
+   bg2 — он виден и на поверхности группы, и на фоне шторки в обеих темах. Движение — только без
+   prefers-reduced-motion. :active есть и у предков нажатого, поэтому карточка, которая сама не
+   ссылка (SpecialistCard: ссылка — шапка), сжимается только от своей ссылки, а не от сердечка */
 @utility press {
   @media (prefers-reduced-motion: no-preference) {
     transition: scale 100ms ease-out;
@@ -22,7 +23,7 @@
 @utility press-card {
   @media (prefers-reduced-motion: no-preference) {
     transition: scale 100ms ease-out;
-    &:active,
+    &:is(a, button):active,
     &:has(> a:active) {
       scale: 0.99;
     }
