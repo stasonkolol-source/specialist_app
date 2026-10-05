@@ -3,8 +3,8 @@
     "specialist": "Profil stručnjaka",
     "job": "Zahtev",
     "text": "Majstori i zahtevi u blizini — u mini-aplikaciji u Telegram-u.",
-    "specialistLead": "Majstoru možete da pišete i da se dogovorite u Telegram-u — u mini-aplikaciji „Sosedi“.",
-    "jobLead": "Ponudu i poruku klijentu možete da pošaljete u Telegram-u — u mini-aplikaciji „Sosedi“.",
+    "specialistLead": "Majstoru možete da pišete i da se dogovorite u Telegram-⁠u — u mini-aplikaciji „Sosedi“.",
+    "jobLead": "Ponudu i poruku klijentu možete da pošaljete u Telegram-⁠u — u mini-aplikaciji „Sosedi“.",
     "open": "Otvori u Telegram-u",
     "view": "Pogledaj u pregledaču",
     "noBot": "Link ka Telegram-u pojaviće se kada bot bude povezan."
@@ -26,8 +26,8 @@
     "support": "Nemate pristup Telegram nalogu? Pišite podršci — obrisaćemo nalog na zahtev."
   },
   "landing": {
-    "tagline": "Majstori u blizini, na vašem jeziku. Novi Sad, u Telegram-u.",
-    "closed": "Ova stranica se otvara samo u Telegram-u."
+    "tagline": "Majstori u blizini, na vašem jeziku.\nNovi Sad, u Telegram-⁠u.",
+    "closed": "Ova stranica se otvara samo u Telegram-⁠u."
   },
   "footer": {
     "label": "Dokumenti",

@@ -39,10 +39,11 @@ export function OpenInTelegram({ start, closed = false }: OpenInTelegramProps) {
       )}
       <section className="flex flex-col items-center gap-3 pt-10 pb-8 text-center">
         <BrandHero />
-        <Text secondary className="max-w-80 text-balance">
+        {/* две фразы — двумя строками: слоган S01 и «где» */}
+        <Text secondary className="whitespace-pre-line">
           {t('landing.tagline')}
         </Text>
-        <div className="mt-3 w-full">
+        <div className="w-full pt-3">
           {href ? (
             <Button href={href} full icon="send">
               {t('link.open')}

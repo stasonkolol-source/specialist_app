@@ -39,19 +39,23 @@ export function BrowserShell({ blockedStart }: BrowserShellProps) {
   return (
     <div className="flex min-h-dvh flex-col bg-bg2">
       <header className="sticky top-0 z-30 border-b border-line bg-bg">
-        <div className="mx-auto grid h-13 max-w-lg grid-cols-[1fr_auto_1fr] items-center px-2">
-          {back.visible ? (
-            <button
-              type="button"
-              onClick={back.click}
-              className="inline-flex min-h-11 items-center gap-1 justify-self-start rounded-btn border-0 bg-transparent pr-3 pl-1 text-body font-semibold text-accent outline-none focus-visible:outline-2 focus-visible:outline-accent"
-            >
-              <Icon name="chev-left" />
-              {t('action.back')}
-            </button>
-          ) : (
-            <span />
-          )}
+        {/* сетка 1fr · auto · 1fr — стилем элемента: свой класс лёг бы в общий CSS первого экрана */}
+        <div
+          className="mx-auto grid h-13 max-w-lg items-center px-2"
+          style={{ gridTemplateColumns: '1fr auto 1fr' }}
+        >
+          <div className="flex">
+            {back.visible && (
+              <button
+                type="button"
+                onClick={back.click}
+                className="inline-flex min-h-11 items-center gap-1 rounded-btn border-0 bg-transparent pr-3 pl-1 text-body font-semibold text-accent outline-none focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                <Icon name="chev-left" />
+                {t('action.back')}
+              </button>
+            )}
+          </div>
           <BrandMark />
         </div>
       </header>

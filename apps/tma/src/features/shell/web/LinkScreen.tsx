@@ -40,6 +40,9 @@ const AVATAR_LG = 88;
 /** Фото в превью — не больше трёх, как превью работ на S08. */
 const MAX_PHOTOS = 3;
 
+/** Плитка фото — квадрат на всю ячейку ряда (PhotoRow). */
+const TILE = 'aspect-square w-full';
+
 const lowercased = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 
 export function SpecialistLinkScreen() {
@@ -95,13 +98,7 @@ function LinkPage({
   return (
     <div className="flex flex-1 flex-col gap-4 px-4 pt-3 pb-4">
       {failed ? (
-        <EmptyState
-          icon="send"
-          title={t(`link.${type}`)}
-          as="h1"
-          size="h2"
-          className="px-2 pt-8 pb-2"
-        >
+        <EmptyState icon="send" title={t(`link.${type}`)} as="h1" size="h2">
           {t('link.text')}
         </EmptyState>
       ) : (
@@ -154,7 +151,7 @@ function SpecialistPreview({ card }: { card: SpecialistProfileOut }) {
         </Heading>
         {card.headline && <Text secondary>{card.headline}</Text>}
       </div>
-      <p className="m-0 flex flex-wrap items-center justify-center gap-x-1.5 text-cap text-text2">
+      <p className="m-0 flex flex-wrap items-center justify-center gap-1.5 text-cap text-text2">
         {card.rating !== null && !card.is_new ? (
           <>
             <span className="inline-flex items-center gap-0.75 font-semibold text-text">
@@ -189,7 +186,7 @@ function Works({ works }: { works: readonly CardWorkOut[] }) {
   const { t } = useTranslation('catalog');
   if (works.length === 0) return null;
   return (
-    <div className="grid w-full grid-cols-3 gap-2">
+    <PhotoRow count={works.length}>
       {works.map((work, index) => {
         const title = work.caption ?? t('profile.work', { number: index + 1 });
         return (
@@ -200,11 +197,11 @@ function Works({ works }: { works: readonly CardWorkOut[] }) {
             sizes="33vw"
             alt={work.kind === 'video' ? t('profile.video', { title }) : title}
             video={work.kind === 'video'}
-            className="aspect-square w-full"
+            className={TILE}
           />
         );
       })}
-    </div>
+    </PhotoRow>
   );
 }
 
@@ -245,7 +242,7 @@ function JobPreview({ job }: { job: JobOut }) {
         </Text>
       </div>
       {photos.length > 0 && (
-        <div className="grid w-full grid-cols-3 gap-2">
+        <PhotoRow count={photos.length}>
           {photos.map((photo, index) => (
             <Photo
               key={photo.url}
@@ -253,10 +250,10 @@ function JobPreview({ job }: { job: JobOut }) {
               placeholder={photo.placeholder}
               sizes="33vw"
               alt={t('job.photo', { number: index + 1, total: job.photos.length })}
-              className="aspect-square w-full"
+              className={TILE}
             />
           ))}
-        </div>
+        </PhotoRow>
       )}
     </Card>
   );
@@ -272,11 +269,25 @@ function PreviewSkeleton({ avatar }: { avatar: boolean }) {
         <SkeletonText size="body" className="w-4/5" />
         <SkeletonText size="cap" className="w-1/2" />
       </div>
-      <div className="grid w-full grid-cols-3 gap-2">
+      <PhotoRow count={MAX_PHOTOS}>
         {Array.from({ length: MAX_PHOTOS }, (_, index) => (
-          <Skeleton key={index} radius="panel" className="aspect-square w-full" />
+          <Skeleton key={index} radius="panel" className={TILE} />
         ))}
-      </div>
+      </PhotoRow>
+    </div>
+  );
+}
+
+/** Ряд фото превью: ячейка — треть ряда (два зазора по 8 px); одно-два фото — по центру, а не
+ *  прижаты к левому краю. Ширина ячейки — стилем элемента: свой класс лёг бы в общий CSS первого
+ *  экрана. */
+function PhotoRow({ count, children }: { count: number; children: ReactNode }) {
+  return (
+    <div
+      className="grid w-full justify-center gap-2"
+      style={{ gridTemplateColumns: `repeat(${count}, calc((100% - 1rem) / 3))` }}
+    >
+      {children}
     </div>
   );
 }

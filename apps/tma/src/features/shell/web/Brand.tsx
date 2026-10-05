@@ -3,7 +3,9 @@
 // текст: ни байта картинок. Плашка декоративная — название читается вордмарком рядом.
 import { useTranslation } from '@sosed/i18n';
 
-/** Шапка: плашка 24 × 24 с радиусом 7, «С» Unbounded 600 13 px и «Соседи» Unbounded 600 16/20. */
+/** Шапка: плашка 24 × 24 с радиусом 7, «С» Unbounded 600 13 px и «Соседи» Unbounded 600 16 px.
+ *  Классы — только уже собранные, нестандартное — стилем элемента: CSS у приложения один и входит в
+ *  бюджет первого экрана, а этот код — в чанке оболочки. */
 export function BrandMark() {
   const { t } = useTranslation();
   const name = t('app.name');
@@ -11,11 +13,12 @@ export function BrandMark() {
     <span className="inline-flex items-center gap-2">
       <span
         aria-hidden="true"
-        className="flex size-6 shrink-0 items-center justify-center rounded-[7px] bg-accent font-display text-[13px] leading-none font-semibold text-accent-ink"
+        className="flex size-6 shrink-0 items-center justify-center bg-accent font-display text-cap font-semibold text-accent-ink"
+        style={{ borderRadius: 7 }}
       >
         {name.charAt(0)}
       </span>
-      <span className="font-display text-[16px] leading-5 font-semibold text-text">{name}</span>
+      <span className="font-display text-title text-text">{name}</span>
     </span>
   );
 }

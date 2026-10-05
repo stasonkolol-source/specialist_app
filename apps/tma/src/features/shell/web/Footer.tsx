@@ -21,7 +21,7 @@ export function WebFooter({ deletion = true }: { deletion?: boolean }) {
         event.preventDefault();
         open();
       }}
-      className="inline-flex min-h-11 items-center text-cap text-text2 underline-offset-2 outline-none hover:underline focus-visible:outline-2 focus-visible:outline-accent"
+      className="inline-flex min-h-11 items-center text-cap text-text2 outline-none focus-visible:outline-2 focus-visible:outline-accent"
     >
       {label}
     </a>
