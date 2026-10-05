@@ -25,6 +25,19 @@ describe('Icon', () => {
     expect(ICON_NAMES.length).toBeGreaterThanOrEqual(60);
   });
 
+  // UXM-6: «Бьюти» (sparkles) рисовалась запасной grid, как «Все услуги» рядом
+  it('у каждой иконки каталога (seed taxonomy) есть рисунок', () => {
+    const seed = readFileSync(
+      `${import.meta.dirname}/../../../backend/seeds/catalog/taxonomy.yaml`,
+      'utf8',
+    );
+    const names = [...seed.matchAll(/^\s*icon: ([a-z0-9-]+)\s*$/gm)].map(([, name]) => name);
+    expect(names.length).toBeGreaterThan(10);
+    expect(names.filter((name) => !(ICON_NAMES as readonly string[]).includes(name ?? ''))).toEqual(
+      [],
+    );
+  });
+
   it('штрих по размеру — как в токенах: на экране линии одной толщины', () => {
     expect(ICON_STROKE).toEqual(tokens.icon.strokes);
     const { container } = render(
