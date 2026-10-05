@@ -5,7 +5,7 @@ import { createBrowserPlatform } from '@sosed/platform';
 import { uuidToBase62 } from '@sosed/links';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CARD_PROFILE_ID } from '../testing/fixtures.ts';
 import { API_ORIGIN } from '../testing/msw.ts';
@@ -23,6 +23,10 @@ function start(path: string) {
   return app;
 }
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe('браузерная оболочка', () => {
   it('/s/<id>: «Продолжить в браузере» — S08 гостем, «Назад» — обратно', async () => {
     start(`/s/${uuidToBase62(CARD_PROFILE_ID)}`);
@@ -34,8 +38,11 @@ describe('браузерная оболочка', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Продолжить в браузере' }));
 
     expect(await screen.findByRole('heading', { name: 'Алексей Морозов', level: 1 })).toBeTruthy();
-    // MainButton — в контенте, гостю без сердечка и жалобы
+    // MainButton — в контенте, гостю без сердечка и жалобы; «Предложить заявку» — тот же мастер
+    // заявки, которого в браузере нет: одна кнопка
     expect(screen.getByRole('button', { name: 'Написать' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Предложить заявку' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Поделиться профилем' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /избранное/i })).toBeNull();
     expect(screen.queryByText('Пожаловаться на профиль')).toBeNull();
 
@@ -53,6 +60,19 @@ describe('браузерная оболочка', () => {
     expect(screen.queryByRole('button', { name: 'Продолжить в браузере' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Назад' }));
     expect(await screen.findByRole('heading', { name: 'Алексей Морозов', level: 1 })).toBeTruthy();
+  });
+
+  it('с ботом в сборке «Написать в Telegram» сразу ведёт на этот профиль в Mini App', async () => {
+    vi.stubEnv('VITE_TELEGRAM_BOT', 'sosed_bot');
+    start(`/specialists/${CARD_PROFILE_ID}`);
+
+    expect(await screen.findByRole('heading', { name: 'Алексей Морозов', level: 1 })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Написать в Telegram' }).getAttribute('href')).toBe(
+      `https://t.me/sosed_bot?startapp=s_${uuidToBase62(CARD_PROFILE_ID)}`,
+    );
+    // без промежуточной страницы: ни «Написать», ни «Предложить заявку»
+    expect(screen.queryByRole('button', { name: 'Написать' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Предложить заявку' })).toBeNull();
   });
 
   it('главная и битая ссылка — «Открыть в Telegram»', async () => {
