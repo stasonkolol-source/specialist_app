@@ -12,6 +12,13 @@
 публикует ModerationDecisionMade — statement of reasons для автора. Новый кейс публикует
 CaseOpened — карточка в чате модераторов (2.5b).
 
+Версия (QA ADV-11): кейс помнит версию содержимого, которое показывает его карточка
+(`entity_version` — редакция объекта у заявки, профиля, отклика, работы портфолио), и
+одобрение публикует только её. Автор изменил объект, пока кейс открыт, — кейс устарел
+(`supersede`): закрыт без решения и санкции с причиной `superseded`, его поводы, жалобы и место
+в очереди переходят к новому кейсу о новой версии — с новой карточкой. Решение по устаревшему
+отказывает (CaseSupersededError).
+
 Апелляция (2.5b, domain/appeals.py) — кейс очереди Appeals с `appeal_of` — обжалованным
 решением, об объекте того же решения: `approved` — апелляция удовлетворена (санкцию снимают),
 `rejected` — решение остаётся в силе. Итог — AppealDecided, а не ModerationDecisionMade.
@@ -32,7 +39,12 @@ from uuid import UUID
 from app.modules.moderation.domain.queues import Queue, stricter
 from app.modules.moderation.domain.sanctions import SanctionStep
 from app.modules.moderation.domain.sla import due_at
-from app.modules.moderation.errors import CaseStateError, CaseTakenError, InvalidDecisionError
+from app.modules.moderation.errors import (
+    CaseStateError,
+    CaseSupersededError,
+    CaseTakenError,
+    InvalidDecisionError,
+)
 from app.platform.contracts.events.moderation import (
     AppealDecided,
     CaseOpened,
@@ -78,6 +90,8 @@ class CaseTrigger(StrEnum):
 
 WITHDRAWN: Final = "dispute_withdrawn"
 """Код причины закрытия кейса, когда спор отозван: решать нечего."""
+SUPERSEDED: Final = "superseded"
+"""Код причины закрытия кейса, когда объект изменили после карточки: решают новый кейс."""
 
 
 class CaseStatus(StrEnum):
@@ -122,6 +136,11 @@ class Case(AggregateRoot):
     policy_version: str | None = None
     decided_at: datetime | None = None
     notes: str | None = None
+    entity_version: int | None = None
+    """Версия содержимого, которое показывает карточка: решение действует только на неё. None —
+    у объекта нет версий (сообщение, отзыв, фото) или кейс открыт до версий и жалобой."""
+    card_message_id: int | None = None
+    """Карточка в чате модераторов: устаревший кейс гасит её кнопки."""
 
     @classmethod
     def open(
@@ -137,6 +156,7 @@ class Case(AggregateRoot):
         media_ids: Iterable[MediaId] = (),
         appeal_of: CaseId | None = None,
         due: datetime | None = None,
+        entity_version: int | None = None,
     ) -> Case:
         """`due` — свой срок вместо SLA очереди: спор ждёт ответа второй стороны 48 ч."""
         case = cls(
@@ -152,6 +172,7 @@ class Case(AggregateRoot):
             evidence=[_evidence(trigger, now, details)],
             media_ids=tuple(dict.fromkeys(media_ids)),
             appeal_of=appeal_of,
+            entity_version=entity_version,
         )
         case._record(
             CaseOpened(
@@ -171,6 +192,73 @@ class Case(AggregateRoot):
     @property
     def is_open(self) -> bool:
         return self.status in OPEN
+
+    @property
+    def is_superseded(self) -> bool:
+        """Закрыт без решения: объект изменили после карточки."""
+        return not self.is_open and self.reason_code == SUPERSEDED
+
+    @property
+    def supersedes(self) -> CaseId | None:
+        """Устаревший кейс, вместо которого открыт этот: его карточку гасят."""
+        found = next((entry for entry in reversed(self.evidence) if "supersedes" in entry), None)
+        return CaseId(UUID(str(found["supersedes"]))) if found is not None else None
+
+    def is_stale(self, version: int | None) -> bool:
+        """Объект сейчас в другой версии, чем показывает карточка. Версии нет у объекта (None)
+        — сравнивать нечего; кейс без версии (жалоба, кейс до версий) устаревает с первой
+        версией, которую принесла правка."""
+        return version is not None and version != self.entity_version
+
+    def supersede(
+        self,
+        *,
+        queue: Queue,
+        trigger: CaseTrigger,
+        now: datetime,
+        details: Mapping[str, object] | None = None,
+        media_ids: Iterable[MediaId] = (),
+        entity_version: int | None,
+    ) -> Case:
+        """Объект изменили, пока кейс открыт: решать о прежней версии нельзя. Этот кейс закрыт
+        как устаревший — без решения, statement of reasons и санкции; новый кейс — о новой
+        версии: поводы этого и новый, очередь строже из двух, место в очереди (открыт и срок)
+        прежнее — правками не отодвинуть проверку. Эскалированный остаётся у старшего. Жалобы
+        переносит вызывающий."""
+        self._ensure_open()
+        successor = Case(
+            id=CaseId(new_id()),
+            queue=stricter(queue, self.queue),
+            entity_type=self.entity_type,
+            entity_id=self.entity_id,
+            subject_id=self.subject_id,
+            trigger=self.trigger,
+            status=(
+                CaseStatus.ESCALATED if self.status is CaseStatus.ESCALATED else CaseStatus.PENDING
+            ),
+            opened_at=self.opened_at,
+            due_at=min(self.due_at, due_at(queue, now)),
+            evidence=[
+                *self.evidence,
+                {**_evidence(trigger, now, details), "supersedes": str(self.id)},
+            ],
+            media_ids=tuple(dict.fromkeys((*self.media_ids, *media_ids))),
+            notes=self.notes,
+            entity_version=entity_version,
+        )
+        self.status = CaseStatus.APPROVED
+        self.reason_code = SUPERSEDED
+        self.decided_at = now
+        successor._record(
+            CaseOpened(
+                case_id=successor.id,
+                queue=successor.queue.value,
+                entity_type=successor.entity_type.value,
+                trigger=trigger.value,
+                occurred_at=now,
+            )
+        )
+        return successor
 
     @property
     def reported(self) -> bool:
@@ -287,6 +375,8 @@ class Case(AggregateRoot):
         )
 
     def _ensure_open(self) -> None:
+        if self.is_superseded:
+            raise CaseSupersededError(case_id=self.id)
         if not self.is_open:
             raise CaseStateError(case_id=self.id, status=self.status.value)
 

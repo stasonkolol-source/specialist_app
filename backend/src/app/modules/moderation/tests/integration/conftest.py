@@ -136,13 +136,13 @@ def moderation(db_session: AsyncSession, procrastinate_app: procrastinate.App) -
     audit = SqlAuditLog(db_session, uow)
     identity = FakeIdentity(db_session)
     overflows = FakeOverflows()
-    opener = CaseOpener(cases, audit, clock)
+    reports = SqlReportRepository(db_session, uow)
+    opener = CaseOpener(cases, reports, audit, clock)
     jobs, profiles = FakeTarget(), FakeTarget()
     targets = FakeTargets({EntityType.JOB: jobs, EntityType.PROFILE: profiles})
     rules, omni, classifier = FakeRuleSource(), FakeModeration(), FakeClassifier()
     flags, metrics = FakeFlags(), FakeMetrics()
     deals = FakeDeals()
-    reports = SqlReportRepository(db_session, uow)
     report_targets, report_quota = FakeReportTargets(), FakeReportQuota()
     return Moderation(
         session=db_session,
@@ -165,6 +165,8 @@ def moderation(db_session: AsyncSession, procrastinate_app: procrastinate.App) -
                 reports,
                 audit,
             ),
+            opener,
+            targets,
             FakePolicy(),
             clock,
         ),

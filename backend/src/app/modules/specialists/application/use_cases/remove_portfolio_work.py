@@ -3,6 +3,7 @@
 
 from dataclasses import dataclass
 
+from app.modules.identity.api import Action, IdentityApi
 from app.modules.media.api import MediaApi
 from app.modules.specialists.application.ports import PortfolioRepository, ProfileRepository
 from app.modules.specialists.application.profiles import own_profile
@@ -27,11 +28,15 @@ class RemovePortfolioWork:
         portfolio: PortfolioRepository,
         media: MediaApi,
         clock: Clock,
+        identity: IdentityApi,
     ) -> None:
         self._uow, self._profiles, self._portfolio = uow, profiles, portfolio
         self._media, self._clock = media, clock
+        self._identity = identity
 
     async def __call__(self, cmd: RemovePortfolioWorkCommand) -> None:
+        # санкция на публикацию и галочка S02c — как у создания профиля (SEC-01)
+        await self._identity.ensure_allowed(cmd.actor_id, Action.POST)
         async with self._uow:
             profile = await own_profile(self._profiles, cmd.actor_id)
             items = await self._portfolio.list_for_update(profile.id)

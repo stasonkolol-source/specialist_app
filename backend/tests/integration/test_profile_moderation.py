@@ -20,6 +20,7 @@ from app.modules.moderation.application.use_cases.decide_case import (
 )
 from app.modules.moderation.domain.cases import EntityType
 from app.modules.moderation.domain.pipeline import Route
+from app.modules.moderation.errors import CaseSupersededError
 from app.modules.pricing.application.use_cases.add_service import AddService, AddServiceCommand
 from app.modules.pricing.domain.service import PriceType
 from app.modules.specialists.application.use_cases.create_profile import (
@@ -221,5 +222,72 @@ async def test_rejected_profile_goes_back_for_fixes(container: AsyncContainer) -
         )
         assert (status, reason) == ("draft", "contact_leak")
         assert await jobs(container, "notifications.notify_moderation_decision", user_id) == 1
+    finally:
+        await drop_jobs(container, user_id)
+
+
+async def open_case(container: AsyncContainer, profile_id: UUID) -> Any:
+    return await scalar(
+        container,
+        "SELECT id FROM moderation.cases WHERE entity_id = :id"
+        " AND status IN ('pending', 'in_review', 'escalated')",
+        id=profile_id,
+    )
+
+
+@pytest.mark.parametrize("checked", [True, False], ids=["edit_checked", "decision_first"])
+async def test_first_review_publishes_only_the_profile_the_moderator_saw(
+    container: AsyncContainer, checked: bool
+) -> None:
+    """ADV-11: новый специалист меняет текст после карточки первой проверки. Правка снова
+    просит проверку; «Одобрить» по прежней карточке ничего не публикует (кейс устарел), новый
+    кейс показывает правку, и его одобрение публикует ровно её."""
+    user_id, profile_id = await submitted_profile(container)
+    try:
+        await auto_check(container, user_id, profile_id)
+        stale_case = await open_case(container, profile_id)
+        requested = await jobs(container, "moderation.auto_check", user_id)
+
+        async with container() as request:
+            await (await request.get(EditProfile))(
+                EditProfileCommand(
+                    actor_id=user_id,
+                    headline="ПОДМЕНА после карточки",
+                    about="Пишите @qa_contact_test",
+                )
+            )
+        assert await jobs(container, "moderation.auto_check", user_id) == requested + 1
+        if checked:
+            await auto_check(container, user_id, profile_id)
+        with pytest.raises(CaseSupersededError):
+            async with container() as request:
+                await (await request.get(DecideCase))(
+                    DecideCaseCommand(case_id=stale_case, verdict=ModerationDecision.APPROVED)
+                )
+
+        assert (
+            await scalar(
+                container, "SELECT status FROM specialists.profiles WHERE id = :id", id=profile_id
+            )
+            == "pending_review"
+        )
+        fresh_case = await open_case(container, profile_id)
+        assert fresh_case not in (None, stale_case)
+
+        await decide(container, profile_id, {"verdict": ModerationDecision.APPROVED})
+
+        engine = await container.get(AsyncEngine)
+        async with engine.connect() as conn:
+            status, headline, about = (
+                await conn.execute(
+                    text("SELECT status, headline, about FROM specialists.profiles WHERE id = :id"),
+                    {"id": profile_id},
+                )
+            ).one()
+        assert (status, headline, about) == (
+            "published",
+            "ПОДМЕНА после карточки",
+            "Пишите @qa_contact_test",
+        )
     finally:
         await drop_jobs(container, user_id)

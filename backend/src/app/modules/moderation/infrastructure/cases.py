@@ -192,6 +192,8 @@ def _to_domain(row: CaseRow) -> Case:
         policy_version=row.policy_version,
         decided_at=row.decided_at,
         notes=row.notes,
+        entity_version=row.entity_version,
+        card_message_id=row.card_message_id,
     )
 
 
@@ -212,3 +214,5 @@ def _apply(case: Case, row: CaseRow) -> None:
     row.policy_version = case.policy_version
     row.decided_at = case.decided_at
     row.notes = case.notes
+    row.entity_version = case.entity_version
+    row.card_message_id = case.card_message_id

@@ -8,7 +8,12 @@ import pytest
 from app.modules.moderation.domain.cases import Case, CaseStatus, CaseTrigger, EntityType
 from app.modules.moderation.domain.queues import Queue
 from app.modules.moderation.domain.sanctions import SanctionStep
-from app.modules.moderation.errors import CaseStateError, CaseTakenError, InvalidDecisionError
+from app.modules.moderation.errors import (
+    CaseStateError,
+    CaseSupersededError,
+    CaseTakenError,
+    InvalidDecisionError,
+)
 from app.platform.contracts.events.moderation import (
     AppealDecided,
     CaseOpened,
@@ -259,3 +264,87 @@ def test_granted_appeal_is_announced() -> None:
     [event] = case.pull_events()
     assert isinstance(event, AppealDecided)
     assert event.granted
+
+
+def test_edit_after_the_card_supersedes_the_case_keeping_its_place_in_the_queue() -> None:
+    """ADV-11: карточка показывает версию 1, автор поправил объект — кейс устарел: закрыт без
+    решения и санкции, новый — о версии 2, с поводами прежнего, его временем и сроком."""
+    case = Case.open(
+        queue=Queue.PREMOD,
+        entity_type=EntityType.JOB,
+        entity_id=new_id(),
+        subject_id=AUTHOR,
+        trigger=CaseTrigger.NEW_CONTENT,
+        now=NOW,
+        details={"signals": ["detector:contacts:flag:phone"]},
+        entity_version=1,
+    )
+    case.pull_events()
+    later = NOW + timedelta(hours=1)
+
+    assert not case.is_stale(1)
+    assert not case.is_stale(None)  # у объекта нет версий — сравнивать не с чем
+    assert case.is_stale(2)
+    successor = case.supersede(
+        queue=Queue.PREMOD,
+        trigger=CaseTrigger.EDIT,
+        now=later,
+        details={"signals": ["detector:contacts:flag:username"]},
+        entity_version=2,
+    )
+
+    assert (case.status, case.reason_code, case.decided_at) == (
+        CaseStatus.APPROVED,
+        "superseded",
+        later,
+    )
+    assert case.is_superseded
+    assert case.pull_events() == []  # ни statement of reasons, ни санкции
+    assert (successor.status, successor.entity_version) == (CaseStatus.PENDING, 2)
+    assert (successor.opened_at, successor.due_at) == (case.opened_at, case.due_at)
+    assert [entry["trigger"] for entry in successor.evidence] == ["new_content", "edit"]
+    assert successor.supersedes == case.id
+    [event] = successor.pull_events()
+    assert event == CaseOpened(
+        case_id=successor.id,
+        queue="premod",
+        entity_type="job",
+        trigger="edit",
+        occurred_at=later,
+        event_id=event.event_id,
+    )
+
+
+@pytest.mark.parametrize(
+    "act",
+    [
+        lambda case: case.decide(
+            verdict=APPROVED, reason_code=None, policy_version="1", now=NOW, by=ANA
+        ),
+        lambda case: case.take(ANA),
+        lambda case: case.escalate(ANA),
+    ],
+    ids=["decide", "take", "escalate"],
+)
+def test_superseded_case_refuses_any_decision(act: Callable[[Case], None]) -> None:
+    case = opened()
+    case.supersede(queue=Queue.PREMOD, trigger=CaseTrigger.EDIT, now=NOW, entity_version=2)
+
+    with pytest.raises(CaseSupersededError):
+        act(case)
+    assert case.reason_code == "superseded"
+
+
+def test_escalated_case_stays_with_the_senior_after_an_edit() -> None:
+    case = opened()
+    case.escalate(ANA, note="мошенничество?")
+
+    successor = case.supersede(
+        queue=Queue.FRAUD, trigger=CaseTrigger.EDIT, now=NOW, entity_version=2
+    )
+
+    assert (successor.status, successor.queue, successor.notes) == (
+        CaseStatus.ESCALATED,
+        Queue.FRAUD,
+        "мошенничество?",
+    )

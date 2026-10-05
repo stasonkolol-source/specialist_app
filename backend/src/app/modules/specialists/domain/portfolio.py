@@ -53,6 +53,8 @@ class PortfolioItem(AggregateRoot):
     status: WorkStatus
     created_at: datetime
     deleted_at: datetime | None = None
+    revision: int = 1
+    """Редакция подписи: растёт с правкой. Модератор решает о той, что видел (ADV-11)."""
 
     @classmethod
     def add(
@@ -80,12 +82,15 @@ class PortfolioItem(AggregateRoot):
     def pending(self) -> bool:
         return self.status is WorkStatus.PENDING
 
-    def approve(self, *, auto: bool = False) -> bool:
+    def approve(self, *, version: int | None = None, auto: bool = False) -> bool:
         """Проверка пройдена: ждавшая проверки — опубликована; скрытая (P0 или модератором) —
         возвращена, но только решением модератора. `auto` — итог автопроверки: модератор мог
         скрыть работу, пока она шла, и опоздавший итог его решение не отменяет (как версия у
-        профиля). False — уже опубликована или скрыта, а это автопроверка."""
+        профиля). `version` — редакция подписи, которую проверяли: другая (исполнитель успел
+        поправить) — ничего. False — уже опубликована, скрыта (а это автопроверка) или правлена."""
         if self.status is WorkStatus.PUBLISHED:
+            return False
+        if version is not None and version != self.revision:
             return False
         if auto and self.status is WorkStatus.REJECTED:
             return False
@@ -105,6 +110,7 @@ class PortfolioItem(AggregateRoot):
         if value == self.caption:
             return False
         self.caption = value
+        self.revision += 1
         return True
 
     def remove(self, *, now: datetime) -> None:

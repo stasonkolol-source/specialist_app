@@ -148,6 +148,7 @@ class AutoCheck:
                         trigger=_trigger(cmd, routing),
                         details={"signals": list(routing.signals)},
                         media_ids=content.media_ids,
+                        entity_version=content.version,
                     )
                 )
             if routing.route is Route.BLOCK and case_id is not None:

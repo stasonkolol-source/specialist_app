@@ -197,6 +197,7 @@ def _to_domain(
         published_at=row.published_at,
         reviewed_kind=row.reviewed_kind,
         avatar_media_id=MediaId(row.avatar_media_id) if row.avatar_media_id else None,
+        revision=row.revision,
         version=row.version,
     )
 
@@ -223,6 +224,7 @@ def _apply(profile: Profile, row: ProfileRow) -> None:
     row.rejection_reason = profile.rejection_reason
     row.reviewed_kind = profile.reviewed_kind
     row.avatar_media_id = profile.avatar_media_id
+    row.revision = profile.revision
     row.submitted_at = profile.submitted_at
     row.published_at = profile.published_at
     row.deleted_at = profile.deleted_at
