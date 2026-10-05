@@ -173,9 +173,12 @@ describe('S09 prices', () => {
       expect.stringMatching(/^Электрика/),
     ]);
     const first = within(groups[0] as HTMLElement);
-    expect(first.getByText('до 1 часа · за визит')).toBeTruthy();
-    expect(first.getByText('за час')).toBeTruthy();
-    expect(first.getByText('Мелкий ремонт')).toBeTruthy();
+    // слева — длительность и описание, справа — сумма и под ней единица
+    expect(first.getByText('до 1 часа')).toBeTruthy();
+    expect(first.getAllByText('за визит')).toHaveLength(2);
+    expect(first.getByRole('link', { name: /Мастер на час/ }).textContent).toMatch(
+      /^Мастер на часМелкий ремонт2\s000\sRSDза час$/u,
+    );
     expect(within(groups[2] as HTMLElement).getByText(/^от 400\sRSD$/u)).toBeTruthy();
   });
 });
