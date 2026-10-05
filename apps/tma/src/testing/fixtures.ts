@@ -337,6 +337,26 @@ export function districtsFor(locale: string | null): DistrictOut[] {
   ];
 } // prettier-ignore
 
+/** Нови-Сад для фейка «района по точке»: рамка вокруг города (точка mock-клиента — в Лимане). */
+const NOVI_SAD_BOUNDS = { south: 45.15, north: 45.35, west: 19.6, east: 19.95 };
+
+/** GET /geo/districts/locate (S20b «Определить по геолокации») для фейков Vitest и e2e: точка в
+ *  Нови-Саде — Лиман, за городом — 404 `outside_city`, как у backend. */
+export function locatedDistrict(
+  params: URLSearchParams,
+  locale: string | null,
+): { status: number; body: unknown } {
+  const lat = Number(params.get('lat'));
+  const lon = Number(params.get('lon'));
+  const b = NOVI_SAD_BOUNDS;
+  const district = districtsFor(locale).find((item) => item.id === DISTRICT_IDS['Лиман']);
+  if (!(lat > b.south && lat < b.north && lon > b.west && lon < b.east) || !district) {
+    const code = 'outside_city';
+    return { status: 404, body: { type: 'about:blank', title: code, status: 404, code, trace_id: 'test' } };
+  }
+  return { status: 200, body: district };
+} // prettier-ignore
+
 /** Черновик сразу после S32a: «Специалист» без категорий, текста, формата и прайса. */
 export const PROFILE_DRAFT: ProfileOut = {
   id: '0199bb00-0000-7000-8000-000000000001',

@@ -330,6 +330,11 @@ class IdentityQuery(Protocol):
         """Telegram id активного пользователя (адрес доставки для notifications)."""
         ...
 
+    async def telegram_range(self, first: int, last: int) -> list[UserId]:
+        """Активные пользователи с Telegram id от `first` до `last` включительно — демо-люди
+        `cli seed-demo` (их id длиннее 52 бит настоящих), для `--replace`."""
+        ...
+
     async def roles(self, user_id: UserId) -> frozenset[Role]: ...
 
     async def restrictions(self, user_id: UserId, now: datetime) -> list[Restriction]:

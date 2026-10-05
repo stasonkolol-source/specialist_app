@@ -184,6 +184,9 @@ jobs:
           VITE_TELEGRAM_BOT: ${{ vars.STAGE_BOT_USERNAME }}
           # origin Mini App: og:image в index.html — полным адресом (vite.config.ts)
           TMA_PUBLIC_ORIGIN: https://stage-app.${{ vars.STAGE_DOMAIN }}
+          # карта (Q28): ассеты — в R2 за stage-cdn (make map-upload ENV=stage, stage-bootstrap.md),
+          # версия — Variable MAP_ASSETS_VERSION; пусто — сборка без карты (список районов)
+          VITE_MAP_ASSETS_URL: ${{ vars.MAP_ASSETS_VERSION && format('https://stage-cdn.{0}/map/{1}', vars.STAGE_DOMAIN, vars.MAP_ASSETS_VERSION) || '' }}
         run: |
           corepack enable
           pnpm install --frozen-lockfile
@@ -376,6 +379,8 @@ jobs:
           VITE_SENTRY_ENVIRONMENT: production
           VITE_TELEGRAM_BOT: ${{ vars.PROD_BOT_USERNAME }}
           TMA_PUBLIC_ORIGIN: https://app.${{ vars.PROD_DOMAIN }}
+          # карта (Q28): R2 за cdn. (make map-upload ENV=prod, prod-bootstrap.md); пусто — без карты
+          VITE_MAP_ASSETS_URL: ${{ vars.MAP_ASSETS_VERSION && format('https://cdn.{0}/map/{1}', vars.PROD_DOMAIN, vars.MAP_ASSETS_VERSION) || '' }}
         run: |
           corepack enable
           pnpm install --frozen-lockfile

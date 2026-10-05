@@ -37,6 +37,7 @@ import {
   categoriesFor,
   citiesFor,
   districtsFor,
+  locatedDistrict,
   notificationsFor,
   shareReply,
   searchFound,
@@ -249,6 +250,11 @@ export const handlers = [
   getGeoListCitiesMockHandler(({ request }) => citiesFor(request.headers.get('Accept-Language'))),
   getGeoListDistrictsMockHandler(({ request }) =>
     districtsFor(request.headers.get('Accept-Language')),
+  ),
+  http.get('*/api/v1/geo/districts/locate', ({ request }) =>
+    respond(
+      locatedDistrict(new URL(request.url).searchParams, request.headers.get('Accept-Language')),
+    ),
   ),
   getCatalogListCategoriesMockHandler(({ request }) =>
     categoriesFor(request.headers.get('Accept-Language')),

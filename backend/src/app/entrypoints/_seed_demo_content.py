@@ -2,9 +2,10 @@
 себе, позиции прайса и подписи работ по листьям каталога (seeds/catalog/taxonomy.yaml); заявки
 демо-клиентов — что просят сделать, когда и за сколько.
 
-Половина специалистов пишет по-русски, половина — по-сербски латиницей (research/07 §2.7):
-поиск и выдача проверяются на обоих языках. Цены — в динарах, как их назвал бы мастер в
-Нови-Саде осенью 2026 **[Допущение]**.
+Каждый текст — на двух языках: по-русски и по-сербски латиницей. По умолчанию все демо-люди —
+русскоязычные жители Нови-Сада (`seed-demo --lang ru`); `--lang sr` — все по-сербски, `mixed` —
+половина на половину (research/07 §2.7: поиск и выдача на обоих языках). Цены — в динарах, как
+их назвал бы мастер в Нови-Саде осенью 2026 **[Допущение]**.
 """
 
 from dataclasses import dataclass
@@ -678,8 +679,259 @@ JOBS: Final[tuple[DemoJob, ...]] = (
         1800,
         unit="lesson",
     ),
+    _j(
+        "small-repairs",
+        ("Заменить замок во входной двери", "Zameniti bravu na ulaznim vratima"),
+        (
+            "Ключ проворачивается туго, личинку пора менять. Подскажите, какой замок купить.",
+            "Ključ se teško okreće, uložak treba zameniti. Recite mi koju bravu da kupim.",
+        ),
+        "today",
+        "negotiable",
+    ),
+    _j(
+        "small-repairs",
+        ("Повесить телевизор на стену", "Okačiti televizor na zid"),
+        (
+            "Телевизор 55 дюймов, кронштейн есть. Стена из газобетона, нужно спрятать провода.",
+            "Televizor od 55 inča, nosač imam. Zid je od siporeksa, treba sakriti kablove.",
+        ),
+        "this_week",
+        "fixed",
+        3500,
+    ),
+    _j(
+        "furniture-assembly",
+        ("Собрать кухонный гарнитур", "Sklopiti kuhinjski element"),
+        (
+            "Кухня из IKEA, шесть модулей и столешница. Нужен вырез под мойку и варочную панель.",
+            "Kuhinja iz IKEA, šest elemenata i radna ploča. Treba iseći otvor za sudoperu i ploču.",
+        ),
+        "flexible",
+        "range",
+        12000,
+        18000,
+    ),
+    _j(
+        "plumbing",
+        ("Заменить унитаз", "Zameniti WC šolju"),
+        (
+            "Старый унитаз треснул, новый уже купили. Нужно снять старый и вывезти его.",
+            "Stara šolja je pukla, novu smo kupili. Treba skinuti staru i odneti je.",
+        ),
+        "this_week",
+        "fixed",
+        4000,
+    ),
+    _j(
+        "plumbing",
+        ("Прочистить засор в ванной", "Odgušiti odvod u kupatilu"),
+        (
+            "Вода из ванны уходит очень медленно, химия не помогла.",
+            "Voda iz kade otiče jako sporo, hemija nije pomogla.",
+        ),
+        "asap",
+        "fixed",
+        3000,
+    ),
+    _j(
+        "electrical",
+        ("Добавить две розетки в комнате", "Dodati dve utičnice u sobi"),
+        (
+            "Нужны две розетки у рабочего стола, проводка скрытая, стены кирпичные.",
+            "Trebaju dve utičnice kod radnog stola, instalacija je u zidu, zidovi su od cigle.",
+        ),
+        "this_week",
+        "range",
+        3000,
+        5000,
+    ),
+    _j(
+        "nails",
+        ("Педикюр с покрытием", "Pedikir sa gel lakom"),
+        (
+            "Хочу в пятницу после обеда, можно у мастера на Лимане или рядом.",
+            "Odgovara mi petak posle podne, može kod vas na Limanu ili u blizini.",
+        ),
+        "this_week",
+        "fixed",
+        3000,
+    ),
+    _j(
+        "nails",
+        ("Снять гель-лак и сделать маникюр", "Skinuti gel lak i uraditi manikir"),
+        (
+            "Покрытие не нужно, только аккуратный маникюр. Удобно в выходные.",
+            "Ne treba lak, samo uredan manikir. Odgovara mi vikend.",
+        ),
+        "flexible",
+        "fixed",
+        1500,
+    ),
+    _j(
+        "brows-and-lashes",
+        ("Ламинирование ресниц", "Laminacija trepavica"),
+        (
+            "Делаю впервые, хочу естественный изгиб. Удобно в будни после 17:00.",
+            "Radim prvi put, želim prirodan izgled. Odgovara mi radnim danima posle 17 h.",
+        ),
+        "this_week",
+        "fixed",
+        3500,
+    ),
+    _j(
+        "brows-and-lashes",
+        ("Наращивание ресниц 2D", "Nadogradnja trepavica 2D"),
+        (
+            "Нужен мастер с опытом, можно у вас. Покажите, пожалуйста, свои работы.",
+            "Potreban je iskusan majstor, može kod vas. Molim vas, pokažite svoje radove.",
+        ),
+        "flexible",
+        "range",
+        4000,
+        5000,
+    ),
+    _j(
+        "hair",
+        ("Мужская стрижка на дому", "Muško šišanje kod kuće"),
+        (
+            "Две мужские стрижки: взрослая и детская, мальчику девять лет. Удобно в субботу.",
+            "Dva muška šišanja, za odraslog i za dečaka od devet godina. Odgovara mi subota.",
+        ),
+        "this_week",
+        "fixed",
+        2500,
+    ),
+    _j(
+        "regular-cleaning",
+        ("Уборка после переезда", "Čišćenje posle useljenja"),
+        (
+            "Однокомнатная квартира 40 м², помыть кухню, ванную и полы.",
+            "Garsonjera od 40 m², treba oprati kuhinju, kupatilo i podove.",
+        ),
+        "today",
+        "fixed",
+        4000,
+    ),
+    _j(
+        "deep-cleaning",
+        ("Химчистка дивана и двух кресел", "Dubinsko pranje troseda i dve fotelje"),
+        (
+            "Тканевая обивка, пятна от кофе. Нужно своё оборудование для химчистки.",
+            "Štofani nameštaj, fleke od kafe. Potreban je vaš aparat za dubinsko pranje.",
+        ),
+        "this_week",
+        "range",
+        5000,
+        7000,
+    ),
+    _j(
+        "deep-cleaning",
+        ("Генеральная уборка дома перед продажей", "Generalno čišćenje kuće pre prodaje"),
+        (
+            "Дом 120 м² в Ветернике, два этажа, окна и терраса.",
+            "Kuća od 120 m² na Veterniku, dva sprata, prozori i terasa.",
+        ),
+        "flexible",
+        "negotiable",
+    ),
+    _j(
+        "apartment-move",
+        ("Переезд двухкомнатной квартиры", "Selidba dvosobnog stana"),
+        (
+            "С Грбавицы в Ветерник. Нужны упаковка, грузчики и сборка шкафа на новом месте.",
+            "Sa Grbavice na Veternik. Potrebni su pakovanje, nosači i sklapanje ormara.",
+        ),
+        "this_week",
+        "range",
+        20000,
+        30000,
+    ),
+    _j(
+        "apartment-move",
+        ("Перевезти вещи из квартиры в Белград", "Prevesti stvari iz stana u Beograd"),
+        (
+            "15 коробок и стиральная машина. Нужен фургон с водителем, без грузчиков.",
+            "Petnaest kutija i veš mašina. Potreban je kombi sa vozačem, bez nosača.",
+        ),
+        "flexible",
+        "negotiable",
+    ),
+    _j(
+        "movers",
+        ("Вывезти старую мебель", "Odneti stari nameštaj"),
+        (
+            "Шкаф, диван и два матраса, второй этаж с лифтом.",
+            "Ormar, kauč i dva dušeka, drugi sprat sa liftom.",
+        ),
+        "this_week",
+        "fixed",
+        5000,
+    ),
+    _j(
+        "movers",
+        ("Нужны грузчики на два часа", "Potrebni nosači na dva sata"),
+        (
+            "Разгрузить фургон и занести вещи на пятый этаж, лифт есть.",
+            "Istovariti kombi i uneti stvari na peti sprat, lift postoji.",
+        ),
+        "today",
+        "fixed",
+        1500,
+        unit="hour",
+    ),
+    _j(
+        "serbian-language",
+        ("Сербский для собеседования", "Srpski za razgovor za posao"),
+        (
+            "Через месяц собеседование на сербском, нужна разговорная практика.",
+            "Za mesec dana imam razgovor za posao na srpskom, treba mi konverzacija.",
+        ),
+        "this_week",
+        "fixed",
+        2500,
+        unit="lesson",
+    ),
+    _j(
+        "serbian-language",
+        ("Сербский для ребёнка", "Srpski za dete"),
+        (
+            "Сыну десять лет, пошёл в местную школу. Нужна помощь с домашними заданиями.",
+            "Sin ima deset godina i krenuo je u ovdašnju školu. Treba mu pomoć sa domaćim.",
+        ),
+        "flexible",
+        "range",
+        1500,
+        2000,
+        unit="lesson",
+    ),
+    _j(
+        "foreign-languages",
+        ("Немецкий с нуля", "Nemački od početka"),
+        (
+            "Начинаю с нуля, цель — уровень A2 к весне. Два раза в неделю.",
+            "Počinjem od nule, cilj je nivo A2 do proleća. Dva puta nedeljno.",
+        ),
+        "flexible",
+        "fixed",
+        2000,
+        unit="lesson",
+    ),
+    _j(
+        "foreign-languages",
+        ("Подготовка к IELTS", "Priprema za IELTS"),
+        (
+            "Нужно 6.5, экзамен через два месяца. Больше всего хромают письмо и устная часть.",
+            "Treba mi 6.5, ispit je za dva meseca. Najslabiji su mi pisanje i govor.",
+        ),
+        "this_week",
+        "fixed",
+        2500,
+        unit="lesson",
+    ),
 )
-"""Заявки демо-клиентов: по одной-две на клиента, язык — язык клиента."""
+"""Заявки демо-клиентов: по одной-две на клиента, язык — язык клиента. Их не меньше 40: у 20
+клиентов `small` заявки не повторяются (`client_plan`)."""
 
 FIRST_NAMES: Final[dict[tuple[Lang, bool], tuple[str, ...]]] = {
     ("ru", False): (
@@ -695,6 +947,14 @@ FIRST_NAMES: Final[dict[tuple[Lang, bool], tuple[str, ...]]] = {
         "Павел",
         "Олег",
         "Роман",
+        "Евгений",
+        "Владимир",
+        "Кирилл",
+        "Денис",
+        "Антон",
+        "Григорий",
+        "Илья",
+        "Константин",
     ),
     ("ru", True): (
         "Елена",
@@ -709,6 +969,14 @@ FIRST_NAMES: Final[dict[tuple[Lang, bool], tuple[str, ...]]] = {
         "Светлана",
         "Дарья",
         "Алина",
+        "Ксения",
+        "Виктория",
+        "Полина",
+        "Анастасия",
+        "Марина",
+        "Вера",
+        "Людмила",
+        "София",
     ),
     ("sr", False): (
         "Miloš",
@@ -772,15 +1040,21 @@ CLOSERS: Final[dict[Lang, tuple[str, ...]]] = {
 RESPONSE_MESSAGES: Final[dict[Lang, tuple[str, ...]]] = {
     "ru": (
         "Здравствуйте! Могу приехать сегодня вечером, инструмент свой.",
-        "Добрый день! Делал такое много раз, займёт пару часов.",
+        "Добрый день! Такие работы — мой профиль, займёт пару часов.",
         "Здравствуйте! Могу завтра утром. Цену подтвержу на месте, если всё как на фото.",
-        "Приветствую! Свободен на этой неделе, работаю аккуратно и убираю за собой.",
+        "Приветствую! На этой неделе есть время, работаю аккуратно и убираю за собой.",
+        "Добрый вечер! Живу рядом, могу подъехать и посмотреть уже завтра.",
+        "Здравствуйте! Есть похожие работы в профиле. Если удобно, обсудим детали в чате.",
+        "Здравствуйте! Возьмусь. Напишите, пожалуйста, удобное время.",
     ),
     "sr": (
         "Zdravo! Mogu da dođem večeras, imam svoj alat.",
-        "Dobar dan! Radio sam ovo mnogo puta, trajaće par sati.",
+        "Dobar dan! Ovakve poslove radim često, trajaće par sati.",
         "Zdravo! Mogu sutra ujutru. Cenu potvrđujem na licu mesta.",
-        "Pozdrav! Slobodan sam ove nedelje, radim uredno.",
+        "Pozdrav! Imam vremena ove nedelje, radim uredno.",
+        "Dobro veče! Živim u blizini, mogu da dođem i pogledam već sutra.",
+        "Zdravo! Imam slične radove u profilu. Ako vam odgovara, dogovorimo detalje u četu.",
+        "Zdravo! Prihvatam posao. Napišite mi koje vreme vam odgovara.",
     ),
 }
 """Отклики демо-специалистов (5.4) на языке заявки."""
@@ -792,29 +1066,30 @@ RESPONSE_WHEN: Final[dict[Lang, tuple[str, ...]]] = {
 REVIEW_TEXTS: Final[dict[Lang, dict[int, tuple[str, ...]]]] = {
     "ru": {
         5: (
-            "Пришёл вовремя, всё сделал аккуратно и убрал за собой. Рекомендую!",
-            "Быстро разобрался, в чём дело, и всё объяснил. Буду обращаться ещё.",
-            "Отличная работа: цена как договорились, результат — лучше, чем ожидала.",
+            "Всё вовремя и аккуратно, после работы чисто. Рекомендую!",
+            "Мастер быстро нашёл причину и всё объяснил. Буду обращаться ещё.",
+            "Отличная работа: цена как договорились, результат лучше ожиданий.",
         ),
         4: (
-            "Сделал хорошо, но немного опоздал — правда, предупредил заранее.",
-            "Работой довольна, хотя заняло больше времени, чем обещал.",
+            "Сделано хорошо, но с опозданием — правда, мастер предупредил заранее.",
+            "Результат хороший, хотя заняло больше времени, чем обещали.",
         ),
         3: ("Работа сделана, но пришлось переделывать мелочи. Общение нормальное.",),
-        2: ("Сделал не всё, о чём договаривались, пришлось звать другого мастера.",),
+        2: ("Сделано не всё, о чём договаривались, пришлось звать другого мастера.",),
     },
     "sr": {
         5: (
-            "Došao na vreme, sve uradio uredno i počistio za sobom. Preporučujem!",
-            "Brzo je našao problem i sve objasnio. Zvaću ga ponovo.",
+            "Sve na vreme i uredno, posle posla čisto. Preporučujem!",
+            "Majstor je brzo našao problem i sve objasnio. Zvaću ponovo.",
             "Odličan posao: cena kao što smo se dogovorili, rezultat bolji od očekivanog.",
         ),
         4: (
-            "Dobro urađeno, ali je malo kasnio — doduše, javio se unapred.",
-            "Zadovoljna sam poslom, iako je trajalo duže nego što je rekao.",
+            "Dobro urađeno, uz malo kašnjenja — doduše, majstor se javio unapred.",
+            "Posao je dobar, iako je trajao duže nego što je dogovoreno.",
         ),
-        3: ("Posao je urađen, ali sam morala da tražim sitne popravke. Komunikacija u redu.",),
-        2: ("Nije uradio sve što smo se dogovorili, morala sam da zovem drugog majstora.",),
+        3: ("Posao je urađen, ali su trebale sitne dorade. Komunikacija u redu.",),
+        2: ("Nije urađeno sve što smo se dogovorili, morali smo da zovemo drugog majstora.",),
     },
 }
-"""Отзывы демо-клиентов (7.2) по оценке: у части отзывов текста нет — только оценка."""
+"""Отзывы демо-клиентов (7.2) по оценке: у части отзывов текста нет — только оценка. Отзывы и
+отклики — без рода: мастер бывает и женщиной, клиент — и мужчиной."""

@@ -1,9 +1,11 @@
 // S32c «Где и почём работаете», шаг 3 из 3 (DEVELOPMENT_PLAN 2.9): районы города профиля (PUT
 // /me/profile/areas), формат и радиус выезда (PATCH /me/profile), первая позиция прайса (POST
 // /me/profile/services, а если она уже есть — PATCH) и «Отправить на проверку» (POST
-// /me/profile/submit). Районы нужны, когда специалист выезжает; позиция прайса обязательна
-// «Специалисту» (2.8b), подработке — по желанию. «Подтвердить телефон» с артборда — в v1:
-// на старте — без лишних шагов для пользователя (решение владельца 2026-10-01).
+// /me/profile/submit). Районы нужны, когда специалист выезжает; «Весь Нови-Сад» отмечает их все
+// одним нажатием и у выезжающего без районов включён сразу (решение владельца 2026-10-05).
+// Позиция прайса обязательна «Специалисту» (2.8b), подработке — по желанию. «Подтвердить
+// телефон» с артборда — в v1: на старте — без лишних шагов для пользователя (решение владельца
+// 2026-10-01).
 import type {
   DistrictOut,
   ProfileOut,
@@ -32,14 +34,15 @@ import { SaveError } from '../shared/SaveError.tsx';
 import { WizardHeader } from '../shared/WizardHeader.tsx';
 import { useChipList } from '../shared/chips.ts';
 import { useBecomeFlow, useDraftProfile, useStepButton } from '../shared/flow.ts';
-import { sameList } from '../shared/same.ts';
+import { sameList, sameSet } from '../shared/same.ts';
 import type { Radius } from '../shared/store.ts';
 import { useBecomeStore } from '../shared/store.ts';
+import { WholeCity } from '../shared/WholeCity.tsx';
+import { MAX_AREAS, wholeCityAvailable, wholeCityDefault } from '../shared/wholeCity.ts';
 
 /** Как на артборде: четыре района и «Ещё N районов». */
 const VISIBLE_DISTRICTS = 4;
-/** MAX_AREAS профиля и MAX_TITLE позиции прайса (backend specialists, pricing). */
-const MAX_AREAS = 30;
+/** MAX_TITLE позиции прайса (backend pricing). */
 const MAX_SERVICE_TITLE = 120;
 /** Цена — до 999 999 999 RSD (MAX_PRICE прайса — миллиард). */
 const PRICE_DIGITS = 9;
@@ -135,15 +138,21 @@ function AreaForm({
   // Idempotency-Key первой позиции: повтор после потерянного ответа не добавит вторую
   const key = useRef<string | null>(null);
 
-  const districtIds = input.districtIds ?? profile.district_ids;
   const modes = input.workModes ?? profile.work_modes;
   const format = formatOf(modes);
   const travels = format !== 'at_own_place';
+  // «Весь город»: пока его не трогали — по профилю и формату (shared/wholeCity.ts)
+  const whole =
+    wholeCityAvailable(districts) &&
+    (input.wholeCity ?? wholeCityDefault(districts, profile.district_ids, travels));
+  const picked = input.districtIds ?? profile.district_ids;
+  const districtIds = whole ? districts.map((district) => district.id) : picked;
   const radius =
     input.radius ?? RADII.find((km) => km === profile.travel_radius_km) ?? DEFAULT_RADIUS;
   const title = input.serviceTitle ?? first?.title ?? '';
   const price = input.servicePrice ?? dinars(first);
-  const chips = useChipList(districts, districtIds, VISIBLE_DISTRICTS);
+  // при «весь город» список свёрнут: раскроется — первыми те, что отмечены по отдельности
+  const chips = useChipList(districts, whole ? [] : districtIds, VISIBLE_DISTRICTS);
   const pro = profile.kind === 'pro';
   // позиция прайса нужна «Специалисту», а подработке — если её начали заполнять
   const priced = pro || title.trim() !== '' || price !== '';
@@ -176,7 +185,7 @@ function AreaForm({
 
   const submit = useMutation({
     mutationFn: async () => {
-      if (!sameList(districtIds, profile.district_ids)) {
+      if (!sameSet(districtIds, profile.district_ids)) {
         flow.saved(await specialistsSetMyAreas({ district_ids: districtIds }));
       }
       const patch: ProfileUpdateIn = {};
@@ -215,6 +224,10 @@ function AreaForm({
     }
     platform.haptics.selection();
   };
+  const chooseWholeCity = (next: boolean) => {
+    platform.haptics.selection();
+    input.set({ wholeCity: next });
+  };
   const chooseFormat = (next: Format) => {
     platform.haptics.selection();
     input.set({ workModes: modesOf(next, modes) });
@@ -235,28 +248,33 @@ function AreaForm({
         <h2 id={districtsId} className="m-0 text-sm font-semibold">
           {city ? t('become.area.districts', { city }) : t('become.area.districtsPlain')}
         </h2>
-        <Chips wrap>
-          {chips.visible.map((district) => {
-            const on = districtIds.includes(district.id);
-            return (
-              <Chip
-                key={district.id}
-                selected={on}
-                icon={on ? 'check' : undefined}
-                onClick={() => toggleDistrict(district.id)}
-              >
-                {district.name}
+        {wholeCityAvailable(districts) && (
+          <WholeCity city={city} checked={whole} onChange={chooseWholeCity} />
+        )}
+        {!whole && (
+          <Chips wrap>
+            {chips.visible.map((district) => {
+              const on = districtIds.includes(district.id);
+              return (
+                <Chip
+                  key={district.id}
+                  selected={on}
+                  icon={on ? 'check' : undefined}
+                  onClick={() => toggleDistrict(district.id)}
+                >
+                  {district.name}
+                </Chip>
+              );
+            })}
+            {chips.hidden > 0 && (
+              <Chip expanded={chips.expanded} onClick={chips.toggle}>
+                {chips.expanded
+                  ? t('become.area.lessDistricts')
+                  : t('become.area.moreDistricts', { count: chips.hidden })}
               </Chip>
-            );
-          })}
-          {chips.hidden > 0 && (
-            <Chip expanded={chips.expanded} onClick={chips.toggle}>
-              {chips.expanded
-                ? t('become.area.lessDistricts')
-                : t('become.area.moreDistricts', { count: chips.hidden })}
-            </Chip>
-          )}
-        </Chips>
+            )}
+          </Chips>
+        )}
         {checked && missing.districts && (
           <p role="alert" className="m-0 text-cap text-danger">
             {t('become.missing.area_ids')}

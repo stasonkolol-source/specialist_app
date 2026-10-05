@@ -101,7 +101,8 @@ export interface Format {
   distance(meters: number): string;
   time(date: Date): string;
   date(date: Date, now?: Date): string;
-  /** Дата после предлога: «до 3 октября», «do 3. oktobra» (срок санкции и апелляции, S49b). */
+  /** Дата после предлога или в значении «когда»: «до 3 октября», «закрыта 3 октября»;
+   *  «do 3. oktobra», «zatvoren 3. oktobra» (S49b, S26, S22, S31, S45). Подпись — `date`. */
   dateGenitive(date: Date, now?: Date): string;
   /** Дата с годом всегда: «27 сентября 2026». */
   fullDate(date: Date): string;
@@ -111,10 +112,13 @@ export interface Format {
   month(date: Date): string;
   /** «сегодня в 19:00», «завтра в 10:00», «12 октября в 19:00». */
   calendar(date: Date, now?: Date): string;
-  /** Срок после предлога: «до 12 октября в 19:00», «do 12. oktobra u 19:00» (S26, S52, S18). */
+  /** То же после предлога или глагола: «до 12 октября в 19:00», «do 12. oktobra u 19:00»,
+   *  «poslato 3. oktobra u 10:00» (S26, S52, S53, S18). */
   calendarGenitive(date: Date, now?: Date): string;
   /** «только что», «15 мин назад», «2 ч назад», «вчера», «5 дней назад», дальше — дата. */
   relative(date: Date, now?: Date): string;
+  /** То же после глагола: «отправлена 3 октября», «poslat 3. oktobra» (S23, S55). */
+  relativeGenitive(date: Date, now?: Date): string;
 }
 
 /** Сербский месяц в родительном падеже: «septembar» → «septembra», «mart» → «marta» (и кириллицей).
@@ -194,8 +198,10 @@ function buildFormat(locale: Locale): Format {
       hourCycle: 'h23',
     }).format(date);
 
-  // После предлога («до», «от»; «do», «od») месяц — в родительном падеже. Русский Intl так и пишет
-  // («3 октября»), сербский — в именительном («do 3. oktobar»): склоняем сами.
+  // После предлога («до», «от»; «do», «od») и в значении «когда» после глагола («zatvoren 3.
+  // oktobra») месяц — в родительном падеже. Русский Intl так и пишет («3 октября»), сербский — в
+  // именительном («do 3. oktobar»): склоняем сами. Именительный — только у подписей: день над
+  // перепиской, дата в строке «· …».
   const formatDate = (formatter: Intl.DateTimeFormat, date: Date, genitive: boolean) =>
     genitive && locale !== 'ru'
       ? formatter
@@ -235,7 +241,7 @@ function buildFormat(locale: Locale): Format {
     return t('time.dayAt', { day, time: time(date) });
   };
 
-  const relative = (date: Date, now = new Date()) => {
+  const relative = (date: Date, now = new Date(), genitive = false) => {
     const minutes = Math.floor((now.getTime() - date.getTime()) / 60_000);
     if (minutes < 1) return t('time.justNow');
     if (minutes < 60) return t('time.minutesAgo', { count: minutes });
@@ -243,7 +249,7 @@ function buildFormat(locale: Locale): Format {
     if (days === 0) return t('time.hoursAgo', { count: Math.floor(minutes / 60) });
     if (days === 1) return t('time.yesterday');
     if (days < 7) return t('time.daysAgo', { count: days });
-    return dateOnly(date, now);
+    return dateOnly(date, now, genitive);
   };
 
   const month = (date: Date) => {
@@ -267,6 +273,7 @@ function buildFormat(locale: Locale): Format {
     month,
     calendar: (date, now) => calendar(date, now),
     calendarGenitive: (date, now) => calendar(date, now, true),
-    relative,
+    relative: (date, now) => relative(date, now),
+    relativeGenitive: (date, now) => relative(date, now, true),
   };
 }

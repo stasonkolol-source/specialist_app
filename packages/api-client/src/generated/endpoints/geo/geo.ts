@@ -20,6 +20,7 @@ import type {
 import type {
   CityOut,
   DistrictOut,
+  GeoLocateDistrictParams,
   GeoResolvePointParams,
   ProblemOut,
   ResolveOut,
@@ -275,6 +276,144 @@ export function useGeoListDistricts<
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getGeoListDistrictsQueryOptions(cityId, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getGeoLocateDistrictUrl = (params: GeoLocateDistrictParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/geo/districts/locate?${stringifiedParams}`
+    : `/api/v1/geo/districts/locate`;
+};
+
+/**
+ * Район города по точке клиента (S20b «Определить по геолокации», карта): квартал, в
+ * котором точка; у края города (до 3 км) — ближайший; дальше — 404 `outside_city`.
+ * Координаты не сохраняются и не пишутся в лог: в логе только район и исход.
+ * @summary Locate District
+ */
+export const geoLocateDistrict = async (
+  params: GeoLocateDistrictParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<DistrictOut> => {
+  return apiFetch<DistrictOut>(getGeoLocateDistrictUrl(params), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getGeoLocateDistrictQueryKey = (params?: GeoLocateDistrictParams) => {
+  return [`/api/v1/geo/districts/locate`, ...(params ? [params] : [])] as const;
+};
+
+export const getGeoLocateDistrictQueryOptions = <
+  TData = Awaited<ReturnType<typeof geoLocateDistrict>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: GeoLocateDistrictParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof geoLocateDistrict>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGeoLocateDistrictQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof geoLocateDistrict>>> = ({ signal }) =>
+    geoLocateDistrict(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof geoLocateDistrict>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GeoLocateDistrictQueryResult = NonNullable<
+  Awaited<ReturnType<typeof geoLocateDistrict>>
+>;
+export type GeoLocateDistrictQueryError = ErrorType<ProblemOut>;
+
+export function useGeoLocateDistrict<
+  TData = Awaited<ReturnType<typeof geoLocateDistrict>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: GeoLocateDistrictParams,
+  options: {
+    query: Partial<UseQueryOptions<Awaited<ReturnType<typeof geoLocateDistrict>>, TError, TData>> &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof geoLocateDistrict>>,
+          TError,
+          Awaited<ReturnType<typeof geoLocateDistrict>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGeoLocateDistrict<
+  TData = Awaited<ReturnType<typeof geoLocateDistrict>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: GeoLocateDistrictParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof geoLocateDistrict>>, TError, TData>> &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof geoLocateDistrict>>,
+          TError,
+          Awaited<ReturnType<typeof geoLocateDistrict>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGeoLocateDistrict<
+  TData = Awaited<ReturnType<typeof geoLocateDistrict>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: GeoLocateDistrictParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof geoLocateDistrict>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Locate District
+ */
+
+export function useGeoLocateDistrict<
+  TData = Awaited<ReturnType<typeof geoLocateDistrict>>,
+  TError = ErrorType<ProblemOut>,
+>(
+  params: GeoLocateDistrictParams,
+  options?: {
+    query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof geoLocateDistrict>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGeoLocateDistrictQueryOptions(params, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;

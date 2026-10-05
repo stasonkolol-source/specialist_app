@@ -51,7 +51,7 @@ if TYPE_CHECKING:  # модули грузятся лениво: CLI без БД
     from app.entrypoints._moderation_cli import CliOutcome
     from app.entrypoints._notify_test import NotifyTestOutcome
     from app.entrypoints._search_cli import ReindexReport
-    from app.entrypoints._seed_demo import SeedReport
+    from app.entrypoints._seed_demo import DemoLang, SeedReport
     from app.modules.identity.application.dto import (
         OnboardingReset,
         StaffCredentialsSet,
@@ -439,11 +439,22 @@ def _signed_init_data(
 LOADTEST_ENVS = (Environment.DEV, Environment.STAGE)
 
 
+class DemoLanguage(StrEnum):
+    """Язык демо-людей (`_seed_demo.DemoLang`)."""
+
+    RU = "ru"
+    SR = "sr"
+    MIXED = "mixed"
+
+
 @app.command("loadtest-initdata")
 def loadtest_initdata(
     *,
     count: Annotated[int, typer.Option(min=1, max=50_000, help="Сколько пользователей")] = 100,
     start: Annotated[int, typer.Option(min=0, help="Номер первого демо-специалиста")] = 0,
+    lang: Annotated[
+        DemoLanguage, typer.Option(help="Тот же --lang, что у seed-demo на этом стенде")
+    ] = DemoLanguage.RU,
 ) -> None:
     """initData демо-специалистов `seed-demo` для нагрузочного прогона k6 (8.3): JSON-массив в
     stdout, подпись — токеном бота этого окружения, годен час (initdata.py). Только dev и stage.
@@ -460,7 +471,7 @@ def loadtest_initdata(
     token = TelegramSettings().bot_token.get_secret_value()  # type: ignore[call-arg]  # из окружения
     batch = []
     for number in range(start, start + count):
-        demo = plan(number)
+        demo = plan(number, lang.value)
         user: dict[str, object] = {
             "id": demo.telegram_id,
             # те же имя и язык, что у сида: вход не переписывает демо-профиль
@@ -854,6 +865,7 @@ class DemoScale(StrEnum):
 
 @app.command("seed-demo")
 def seed_demo(
+    *,
     scale: Annotated[
         DemoScale,
         typer.Option(
@@ -863,28 +875,47 @@ def seed_demo(
             )
         ),
     ] = DemoScale.SMALL,
+    lang: Annotated[
+        DemoLanguage,
+        typer.Option(
+            help="ru — все русскоязычные; sr — все по-сербски; mixed — каждый второй по-сербски"
+        ),
+    ] = DemoLanguage.RU,
+    replace: Annotated[
+        bool,
+        typer.Option(
+            "--replace",
+            help=(
+                "Только dev: сначала удалить прежних демо-людей обычным удалением аккаунта"
+                " (сразу, без grace-периода), затем засеять новых"
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Демо-данные для dev и stage (2.8c, 5.1, 6.1a): специалисты — профили, прайс, районы и
     портфолио; клиенты — опубликованные заявки с откликами, часть — со сделкой. Всё через use
-    cases, одобрено сразу. Повторный запуск количества не меняет. На проде не работает."""
+    cases, одобрено сразу. Повторный запуск количества не меняет: прежние демо-люди остаются,
+    пока их не заменит `--replace`. На проде не работает."""
     from app.entrypoints._seed_demo import SeedDemoRefusedError
 
     try:
-        report = asyncio.run(_seed_demo(scale.value))
+        report = asyncio.run(_seed_demo(scale.value, lang.value, replace=replace))
     except SeedDemoRefusedError as exc:
         typer.echo(f"seed-demo: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(
-        f"seed-demo {scale.value}: {report.created} created, {report.skipped} already there,"
-        f" {report.photos} photos, {report.jobs} jobs, {report.responses} responses,"
-        f" {report.deals} deals ({report.completed} completed)"
+        f"seed-demo {scale.value} ({lang.value}): {report.created} created,"
+        f" {report.skipped} already there, {report.photos} photos, {report.jobs} jobs,"
+        f" {report.responses} responses, {report.deals} deals ({report.completed} completed)"
     )
 
 
-async def _seed_demo(scale: str) -> SeedReport:
+async def _seed_demo(scale: str, lang: DemoLang, *, replace: bool) -> SeedReport:
     from app.entrypoints._seed_demo import SCALES, seed_demo
 
-    return await seed_demo(Settings(), SCALES[scale], echo=typer.echo)
+    return await seed_demo(
+        Settings(), SCALES[scale], echo=typer.echo, language=lang, replace_existing=replace
+    )
 
 
 @app.command()

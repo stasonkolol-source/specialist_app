@@ -3,11 +3,13 @@
 from collections.abc import Collection
 from typing import Any
 
-from sqlalchemy import Float, and_, cast, func, literal, select
+from geoalchemy2 import Geography
+from sqlalchemy import ColumnElement, Float, and_, cast, func, literal, select
 from sqlalchemy.engine import RowMapping
+from sqlalchemy.sql.expression import ColumnCollection
 
 from app.modules.geo.api import DistrictSummary, ResolvedPoint
-from app.modules.geo.application.dto import CityView, DistrictView
+from app.modules.geo.application.dto import CityView, DistrictView, LocatedDistrict
 from app.modules.geo.domain.place import CityStatus, DistrictKind
 from app.modules.geo.infrastructure.models import CityRow, DistrictRow
 from app.platform.cache.memo import Memo
@@ -17,10 +19,19 @@ from app.platform.kernel.ids import CityId, DistrictId
 
 MAX_NEAREST_KM = 15.0
 """Точка вне полигонов берёт ближайший центр района не дальше этого расстояния."""
+NEAR_CITY_KM = 3.0
+"""Район по точке (`locate`): точка не в квартале, но не дальше этого от города (окраина, дача за
+границей района, погрешность GPS) — берётся ближайший квартал."""
+SHAPE = Geography(geometry_type="GEOMETRY", srid=4326, spatial_index=False)
 
 
 def _point(point: GeoPoint) -> Any:
     return func.ST_SetSRID(func.ST_MakePoint(point.lon, point.lat), 4326)
+
+
+def _shape(columns: ColumnCollection[str, Any]) -> ColumnElement[Any]:
+    """Район как geography — расстояния в метрах: граница, а без полигона — центр."""
+    return func.coalesce(cast(columns.boundary, SHAPE), cast(columns.center, SHAPE))
 
 
 class SqlGeoQuery(SqlQuery):
@@ -104,6 +115,47 @@ class SqlGeoQuery(SqlQuery):
         if nearest is None:
             return None
         return ResolvedPoint(district=_summary(nearest), exact=False)
+
+    async def locate(self, city_id: CityId, point: GeoPoint) -> LocatedDistrict | None:
+        """Квартал города под точкой — самый мелкий, если их несколько (на общей границе тоже).
+        Иначе, если точка не дальше NEAR_CITY_KM от любого района города (муниципалитет-«весь
+        город» тоже в счёт), — ближайший квартал. Только кварталы: их выбирают в списке районов
+        (S20b, S32c), муниципалитет там не показывается."""
+        d = DistrictRow.__table__.c
+        here = _point(point)
+        quarters = and_(
+            d.city_id == city_id,
+            d.is_active,
+            d.kind == literal(DistrictKind.NEIGHBORHOOD.value),
+        )
+        covering = await self._fetch_one(
+            select(*_DISTRICT)
+            .where(quarters, func.ST_Covers(d.boundary, here))
+            .order_by(func.ST_Area(d.boundary), d.id)
+            .limit(1)
+        )
+        if covering is not None:
+            return LocatedDistrict(district=_district(covering), exact=True)
+        geography = cast(here, SHAPE)
+        near = DistrictRow.__table__.alias("near")
+        near_city = (
+            select(near.c.id)
+            .where(
+                near.c.city_id == city_id,
+                near.c.is_active,
+                func.ST_DWithin(_shape(near.c), geography, NEAR_CITY_KM * 1000),
+            )
+            .exists()
+        )
+        nearest = await self._fetch_one(
+            select(*_DISTRICT)
+            .where(quarters, near_city)
+            .order_by(func.ST_Distance(_shape(d), geography), d.id)
+            .limit(1)
+        )
+        if nearest is None:
+            return None
+        return LocatedDistrict(district=_district(nearest), exact=False)
 
 
 _D = DistrictRow.__table__.c

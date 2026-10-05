@@ -280,7 +280,9 @@ function Summary({
         </Badge>
         {job.published_at && (
           <Text as="span" variant="cap">
-            {t('manage.publishedAgo', { time: format.relative(new Date(job.published_at)) })}
+            {t('manage.publishedAgo', {
+              time: format.relativeGenitive(new Date(job.published_at)),
+            })}
           </Text>
         )}
       </div>

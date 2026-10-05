@@ -202,9 +202,11 @@ describe('S52 dispute', () => {
     await waitFor(() => expect(mainButton(telegram)?.is_visible).toBe(false));
   });
 
-  it('gives the Serbian deadline with the month after «do» in the genitive', async () => {
+  it('gives Serbian dates with the month in the genitive', async () => {
     const { backend, deal } = withDeal({ status: 'disputed' });
-    backend.deals.set(deal.id, { ...deal, dispute: openedDispute(deal.id) });
+    // спор открыт позавчера — дата словами, а не «danas»
+    const opened = openedDispute(deal.id, { created_at: '2026-10-03T08:00:00Z' });
+    backend.deals.set(deal.id, { ...deal, dispute: opened });
     backend.dealRole = 'performer';
     userBackend({ ...ME, ui_locale: 'sr-Latn' });
     startApp(`/deals/${deal.id}/dispute`, { languageCode: 'sr' });
@@ -215,6 +217,7 @@ describe('S52 dispute', () => {
         'Odgovorite do 7. oktobra u 10:00 — u suprotnom će podrška odlučiti bez vašeg odgovora.',
       ),
     ).toBeTruthy();
+    expect(screen.getByText('poslato 3. oktobra u 10:00')).toBeTruthy();
   });
 
   it('withdraws the dispute after a confirmation and the deal goes on', async () => {

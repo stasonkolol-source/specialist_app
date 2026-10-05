@@ -37,6 +37,21 @@ export const getGeoListDistrictsResponseMock = (): DistrictOut[] =>
     },
   }));
 
+export const getGeoLocateDistrictResponseMock = (
+  overrideResponse: Partial<Extract<DistrictOut, object>> = {},
+): DistrictOut => ({
+  id: faker.number.int(),
+  slug: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  kind: faker.helpers.arrayElement(Object.values(DistrictKind)),
+  parent_id: faker.helpers.arrayElement([faker.number.int(), null]),
+  center: {
+    lat: faker.number.float({ fractionDigits: 2 }),
+    lon: faker.number.float({ fractionDigits: 2 }),
+  },
+  ...overrideResponse,
+});
+
 export const getGeoResolvePointResponseMock = (
   overrideResponse: Partial<Extract<ResolveOut, object>> = {},
 ): ResolveOut => ({
@@ -96,6 +111,28 @@ export const getGeoListDistrictsMockHandler = (
   );
 };
 
+export const getGeoLocateDistrictMockHandler = (
+  overrideResponse?:
+    | DistrictOut
+    | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<DistrictOut> | DistrictOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/geo/districts/locate',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGeoLocateDistrictResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getGeoResolvePointMockHandler = (
   overrideResponse?:
     | ResolveOut
@@ -120,5 +157,6 @@ export const getGeoResolvePointMockHandler = (
 export const getGeoMock = () => [
   getGeoListCitiesMockHandler(),
   getGeoListDistrictsMockHandler(),
+  getGeoLocateDistrictMockHandler(),
   getGeoResolvePointMockHandler(),
 ];

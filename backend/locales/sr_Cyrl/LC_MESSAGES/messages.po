@@ -344,6 +344,9 @@ msgstr "Град није пронађен."
 msgid "errors.outside_service_area"
 msgstr "Сервис овде још не ради."
 
+msgid "errors.outside_city"
+msgstr "Ово место је ван града."
+
 msgid "errors.category_too_deep"
 msgstr "Категорије могу имати највише {max_depth} нивоа."
 

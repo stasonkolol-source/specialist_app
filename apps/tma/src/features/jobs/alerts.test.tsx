@@ -189,7 +189,7 @@ describe('S19 alert form', () => {
         city_id: 1,
         district_ids: [],
         // точка — с точностью ~100 м, как у ленты
-        center: { lat: 45.267, lon: 19.834 },
+        center: { lat: 45.24, lon: 19.835 },
         radius_km: 3,
         min_budget: 200_000,
         urgencies: [],

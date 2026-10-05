@@ -3,6 +3,7 @@
 // история, за ней следует роутер. «Поделиться» — navigator.share или копирование, хранилище —
 // localStorage.
 import { Listeners, createBottomButton } from './button.ts';
+import { browserLocation } from './location.ts';
 import type { ColorScheme, Insets, KeyValueStorage, Platform } from './types.ts';
 import { capabilitiesFor } from './version.ts';
 
@@ -123,24 +124,6 @@ export function createBrowserPlatform(): Platform {
       window.open(url, '_blank', 'noopener');
     },
     storage: { device: localStorageKV('sosed:'), cloud: localStorageKV('sosed:cloud:') },
-    location: {
-      request: () =>
-        new Promise((resolve) => {
-          if (!navigator.geolocation) {
-            resolve(null);
-            return;
-          }
-          navigator.geolocation.getCurrentPosition(
-            (pos) =>
-              resolve({
-                latitude: pos.coords.latitude,
-                longitude: pos.coords.longitude,
-                accuracy: pos.coords.accuracy,
-              }),
-            () => resolve(null),
-            { timeout: 15_000 },
-          );
-        }),
-    },
+    location: { get: browserLocation },
   };
 }

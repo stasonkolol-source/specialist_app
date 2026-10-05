@@ -117,6 +117,59 @@ async def test_point_resolves_to_district(
     assert (resolved.district.slug, resolved.exact) == (slug, exact)
 
 
+@pytest.mark.parametrize(
+    ("point", "slug", "exact"),
+    [
+        (GeoPoint(lat=0.025, lon=0.005), "north", True),
+        (GeoPoint(lat=0.005, lon=0.005), "south", True),
+        # в городе, но вне кварталов (только муниципалитет): ближайший квартал, а не «весь город»
+        (GeoPoint(lat=0.012, lon=0.012), "south", False),
+        # за границей города, но ближе NEAR_CITY_KM: ближайший квартал
+        (GeoPoint(lat=0.025, lon=-0.01), "north", False),
+        # у квартала без полигона расстояние — до центра
+        (GeoPoint(lat=0.049, lon=0.049), "no-polygon", False),
+    ],
+)
+async def test_locate_gives_quarter_of_the_city(
+    db_session: AsyncSession,
+    procrastinate_app: procrastinate.App,
+    point: GeoPoint,
+    slug: str,
+    exact: bool,
+) -> None:
+    """Район по точке (S20b, карта): только кварталы города из запроса."""
+    await _import(db_session, procrastinate_app, a_city())
+    query = SqlGeoQuery(db_session)
+    city_id = {c.slug: c.id for c in await query.cities()}["test-city"]
+    located = await query.locate(city_id, point)
+    assert located is not None
+    assert (located.district.slug, located.exact) == (slug, exact)
+    assert located.district.kind is DistrictKind.NEIGHBORHOOD
+
+
+async def test_locate_outside_city_other_city_and_inactive_quarter(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App
+) -> None:
+    await _import(db_session, procrastinate_app, a_city())
+    query = SqlGeoQuery(db_session)
+    city_id = {c.slug: c.id for c in await query.cities()}["test-city"]
+    north = GeoPoint(lat=0.025, lon=0.005)
+    # ~4,7 км от края города и ~9 км от центра квартала без полигона
+    assert await query.locate(city_id, GeoPoint(lat=0.06, lon=-0.03)) is None
+    assert await query.locate(city_id, GeoPoint(lat=1.0, lon=1.0)) is None
+    assert await query.locate(CityId(999_999), north) is None
+    await db_session.execute(
+        text(
+            "UPDATE geo.districts SET is_active = false WHERE slug = 'north'"
+            " AND city_id = (SELECT id FROM geo.cities WHERE slug = 'test-city')"
+        )
+    )
+    await db_session.commit()  # правка админки — своя транзакция (здесь — savepoint теста)
+    located = await query.locate(city_id, north)
+    assert located is not None
+    assert (located.district.slug, located.exact) == ("south", False)
+
+
 async def test_far_points_and_inactive_cities_are_outside(
     db_session: AsyncSession, procrastinate_app: procrastinate.App
 ) -> None:
