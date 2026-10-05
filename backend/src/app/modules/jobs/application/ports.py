@@ -199,7 +199,7 @@ class JobQueries(Protocol):
         ...
 
     async def skipped(self, job_ids: Collection[JobId], user_id: UserId) -> set[JobId]:
-        """На какие из заявок человек уже откликнулся или скрыл их («не интересно»)."""
+        """На какие из заявок человек уже откликнулся или скрыл их («не подходит»)."""
         ...
 
     async def alert_counts(
@@ -285,7 +285,7 @@ class AlertMatches(Protocol):
 
 
 class JobHides(Protocol):
-    """«Не интересно» (S15): заявка пропадает из ленты этого исполнителя."""
+    """«Не подходит» (S15): заявка пропадает из ленты этого исполнителя."""
 
     async def hide(self, user_id: UserId, job_id: JobId) -> None:
         """Повтор ничего не меняет (запись — в активном UoW)."""

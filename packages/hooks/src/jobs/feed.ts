@@ -1,4 +1,4 @@
-// Лента заявок исполнителя (S13–S15, DEVELOPMENT_PLAN 5.3): страницы по курсору; «Не интересно»
+// Лента заявок исполнителя (S13–S15, DEVELOPMENT_PLAN 5.3): страницы по курсору; «Не подходит»
 // убирает заявку из загруженных страниц сразу и перечитывает ленту. Счётчик — в count.ts: его
 // берёт и Главная, которой лента не нужна (бюджет первого экрана).
 import type { JobCardOut, JobsListJobsParams, JobsPageOut } from '@sosed/api-client';
@@ -22,7 +22,7 @@ export const FEED_PAGE_SIZE = 20;
 export type FeedQuery = Omit<JobsListJobsParams, 'limit' | 'cursor'>;
 export type FeedPages = InfiniteData<JobsPageOut, string | null>;
 
-/** Все ленты — с любыми фильтрами: «не интересно» убирает заявку из каждой. */
+/** Все ленты — с любыми фильтрами: «не подходит» убирает заявку из каждой. */
 export const FEED_KEY = getJobsListJobsQueryKey().slice(0, 1);
 /** Все счётчики «N заявок» и «Показать N». */
 const COUNT_KEY = getJobsCountJobsQueryKey().slice(0, 1);
@@ -54,7 +54,7 @@ export function jobCards(feed: Pick<FeedPages, 'pages'> | undefined): JobCardOut
   return feed?.pages.flatMap((page) => page.items) ?? [];
 }
 
-/** «Не интересно» (S15): заявка сразу пропадает из загруженных лент, потом ленты и счётчики
+/** «Не подходит» (S15): заявка сразу пропадает из загруженных лент, потом ленты и счётчики
  *  перечитываются. */
 export function useHideJob() {
   const client = useQueryClient();

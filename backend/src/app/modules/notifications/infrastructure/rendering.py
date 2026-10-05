@@ -402,7 +402,7 @@ class GettextNotificationRenderer:
         self, params: Mapping[str, str], link: str | None, locale: Locale
     ) -> tuple[ButtonLine, ...]:
         """B1: «Открыть заявку» (S15), «Откликнуться шаблоном «…»» на каждый шаблон получателя
-        (тот же отклик, что S16), одним рядом — «Не интересно» и «Пауза подписки»."""
+        (тот же отклик, что S16), одним рядом — «Не подходит» и «Пауза подписки»."""
         lines: list[ButtonLine] = []
         if link is not None and self._mini_app is not None:
             lines.append(

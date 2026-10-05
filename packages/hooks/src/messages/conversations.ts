@@ -76,7 +76,7 @@ export function useStartConversation() {
   });
 }
 
-/** Подпись сделки диалога для S29 и шапки S30: нет сделки — «ещё не договорились». */
+/** Подпись сделки диалога для S29 и шапки S30: нет сделки — «Сделки пока нет». */
 export type DealState = 'none' | 'proposed' | 'agreed' | 'completed' | 'cancelled' | 'disputed';
 
 export function dealState(conversation: Pick<ConversationOut, 'deal'>): DealState {
