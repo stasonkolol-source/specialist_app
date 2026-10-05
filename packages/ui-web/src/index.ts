@@ -7,8 +7,8 @@ export type { ButtonProps, ButtonVariant, IconButtonProps, LinkButtonProps } fro
 export { Button, IconButton, LinkButton } from './Button.tsx';
 export type { CardProps } from './Card.tsx';
 export { Card } from './Card.tsx';
-export type { BubbleProps, ComposerProps } from './Chat.tsx';
-export { Bubble, ChatList, Composer, MASK, MaskedText, SystemNote } from './Chat.tsx';
+export type { BubbleProps, ComposerProps, MaskedTextProps } from './Chat.tsx';
+export { Bubble, ChatList, Composer, DayLabel, MASK, MaskedText, SystemNote } from './Chat.tsx';
 export type { ChipProps } from './Chips.tsx';
 export { AvatarStack, Chip, Chips, Price } from './Chips.tsx';
 export { cx } from './cx.ts';
