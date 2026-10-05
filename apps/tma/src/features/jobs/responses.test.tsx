@@ -4,6 +4,7 @@
 // квота дня, карточки по состояниям, «Отозвать»; шаблоны S57 — основной, «Сделать основным»,
 // третий — «удалите один», удаление и новый шаблон.
 import { setSession } from '@sosed/api-client';
+import { uuidToBase62 } from '@sosed/links';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,10 +16,14 @@ import type { FeedFixture } from '../../testing/jobsBackend.ts';
 import {
   FEED_JOBS,
   JobsBackend,
+  dealCardFixture,
+  myJobsFixture,
   myResponsesFixture,
+  responseCardsFixture,
   templatesFixture,
 } from '../../testing/jobsBackend.ts';
 import { jobsHandlers, server } from '../../testing/msw.ts';
+import { respondInTelegramLink } from './s15-job/telegram.ts';
 
 const job = (title: string) => {
   const found = FEED_JOBS.find((item) => item.card.title === title);
@@ -230,6 +235,16 @@ describe('S16 respond', () => {
   });
 });
 
+describe('S15 in the browser', () => {
+  it('responds in Telegram: the link opens this very job in the Mini App', () => {
+    expect(respondInTelegramLink(MOVING.card.id, 'sosed_bot')).toBe(
+      `https://t.me/sosed_bot?startapp=j_${uuidToBase62(MOVING.card.id)}`,
+    );
+    // без бота сборки ссылки нет — остаётся обычная кнопка
+    expect(respondInTelegramLink(MOVING.card.id, null)).toBeNull();
+  });
+});
+
 describe('S17 my responses', () => {
   it('shows chips with counts, the daily quota and cards by state', async () => {
     withJobs((it) => {
@@ -246,7 +261,8 @@ describe('S17 my responses', () => {
     ).toEqual(['Все 3', 'Активные 1', 'Выбран 1', 'Не выбран 1', 'Архив']);
     expect(screen.getByText('Сегодня откликов: 3 из 10 — лимит по уровню доверия')).toBeTruthy();
     const chosen = screen.getByRole('article', { name: /Повесить люстру.*Вас выбрали/ });
-    expect(within(chosen).getByText('Вас выбрали')).toBeTruthy();
+    expect(within(chosen).getByText('Вас выбрали.')).toBeTruthy();
+    expect(within(chosen).getByText('Адрес и время — в сделке')).toBeTruthy();
     expect(within(chosen).getByText(/^3\s500\sRSD$/u)).toBeTruthy();
     const waiting = screen.getByRole('article', { name: /Собрать шкаф/ });
     expect(within(waiting).getByText('Ждёт решения клиента')).toBeTruthy();
@@ -255,6 +271,64 @@ describe('S17 my responses', () => {
     const other = screen.getByRole('article', { name: /Течёт смеситель/ });
     expect(within(other).getByText('Клиент выбрал другого')).toBeTruthy();
     expect(within(other).queryByRole('button')).toBeNull();
+  });
+
+  it('leads the chosen performer to the deal: «Открыть сделку» is the main button', async () => {
+    const [accepted] = myResponsesFixture();
+    const [chandelier] = myJobsFixture();
+    const [card] = responseCardsFixture();
+    if (!accepted || !chandelier || !card) throw new Error('fixtures');
+    const deal = { ...dealCardFixture(chandelier, card, 'performer'), response_id: accepted.id };
+    const backend = withJobs((it) => {
+      it.responses = myResponsesFixture();
+      it.dealRole = 'performer';
+      it.deals.set(deal.id, deal);
+    });
+    // сделки отвечают, только когда тест отпустит
+    let release: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get('*/api/v1/me/deals', async ({ request }) => {
+        await held;
+        const reply = backend.handle('GET', new URL(request.url), null, null, true);
+        return HttpResponse.json(reply?.body as Record<string, unknown>, {
+          status: reply?.status,
+        });
+      }),
+    );
+    const { app } = startApp('/jobs/responses');
+    const chosen = await screen.findByRole('article', { name: /Повесить люстру.*Вас выбрали/ });
+
+    // сделки ещё грузятся: главная кнопка уже на месте и ждёт, «Открыть заявку» — вторая
+    const toDeal = within(chosen).getByRole('button', { name: 'Открыть сделку' });
+    expect(toDeal).toHaveProperty('disabled', true);
+    expect(toDeal.getAttribute('aria-busy')).toBe('true');
+    expect(within(chosen).getByRole('button', { name: 'Открыть заявку' }).className).toContain(
+      'border-line',
+    );
+
+    release?.();
+    await waitFor(() => expect(toDeal).toHaveProperty('disabled', false));
+    expect(toDeal.getAttribute('aria-busy')).toBe('false');
+    await click(toDeal);
+    await waitFor(() => expect(app.router.state.location.pathname).toBe(`/deals/${deal.id}`));
+  });
+
+  it('makes «Открыть заявку» the main button when no deal is found', async () => {
+    withJobs((it) => {
+      it.responses = myResponsesFixture();
+    });
+    startApp('/jobs/responses');
+    const chosen = await screen.findByRole('article', { name: /Повесить люстру.*Вас выбрали/ });
+
+    await waitFor(() =>
+      expect(within(chosen).queryByRole('button', { name: 'Открыть сделку' })).toBeNull(),
+    );
+    expect(within(chosen).getByRole('button', { name: 'Открыть заявку' }).className).toContain(
+      'bg-accent',
+    );
   });
 
   it('filters by chip and withdraws after confirmation', async () => {
@@ -333,7 +407,9 @@ describe('S57 templates', () => {
       await click(within(sheet).getByRole('radio', { name: 'Договорная' }));
       await pressMainButton(telegram);
 
-      expect(await screen.findByText('Не получилось сохранить шаблон. Повторите')).toBeTruthy();
+      expect(
+        await screen.findByText('Не получилось сохранить шаблон. Попробуйте ещё раз.'),
+      ).toBeTruthy();
       expect(backend.templates).toHaveLength(1);
       if (edited) {
         await type(within(sheet).getByRole('textbox', { name: 'Название' }), 'По описанию');

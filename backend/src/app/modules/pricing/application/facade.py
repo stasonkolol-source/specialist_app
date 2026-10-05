@@ -9,6 +9,9 @@ from app.modules.pricing.application.ports import ServiceRepository
 from app.modules.pricing.domain.service import PriceType, Service
 from app.platform.kernel.ids import CategoryId
 
+HOUR = "hour"
+"""Единица почасовой цены: у такой позиции своей единицы нет, «за час» — сам тип."""
+
 
 class PricingFacade(PricingApi):
     def __init__(self, services: ServiceRepository) -> None:
@@ -25,19 +28,36 @@ class PricingFacade(PricingApi):
 
 
 def _summary(services: Iterable[Service]) -> SearchPrices:
+    """Сводка по позициям в порядке S35: при равных ценах единица — у позиции выше по прайсу."""
     titles: list[str] = []
     lowest: int | None = None
+    lowest_unit: str | None = None
     by_category: dict[CategoryId, int] = {}
+    unit_by_category: dict[CategoryId, str | None] = {}
     for service in services:
         titles.append(service.title)
         price = service.price_min
         if service.price_type is PriceType.NEGOTIABLE or price is None:
             continue
-        lowest = price if lowest is None else min(lowest, price)
-        if service.category_id is not None:
-            known = by_category.get(service.category_id)
-            by_category[service.category_id] = price if known is None else min(known, price)
-    return SearchPrices(titles=tuple(titles), price_from=lowest, by_category=by_category)
+        unit = _unit(service)
+        if lowest is None or price < lowest:
+            lowest, lowest_unit = price, unit
+        category = service.category_id
+        if category is not None:
+            known = by_category.get(category)
+            if known is None or price < known:
+                by_category[category], unit_by_category[category] = price, unit
+    return SearchPrices(
+        titles=tuple(titles),
+        price_from=lowest,
+        price_from_unit=lowest_unit,
+        by_category=by_category,
+        unit_by_category=unit_by_category,
+    )
+
+
+def _unit(service: Service) -> str | None:
+    return HOUR if service.price_type is PriceType.HOURLY else service.unit
 
 
 def _public(service: Service) -> PublicService:

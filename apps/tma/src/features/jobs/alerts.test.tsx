@@ -63,9 +63,9 @@ describe('S18 alerts', () => {
     expect(await listed()).toBeTruthy();
     const handyman = card('Мастер на час');
     expect(within(handyman).getByText('Электрика, Сантехника, Сборка мебели…')).toBeTruthy();
-    expect(
-      await within(handyman).findByText(/^До 3 км · Лиман · от 2\s000\sRSD · русский$/u),
-    ).toBeTruthy();
+    // где и бюджет — одной строкой с одной «·», язык — своей строкой
+    expect(await within(handyman).findByText(/^Лиман, до 3 км · от 2\s000\sRSD$/u)).toBeTruthy();
+    expect(within(handyman).getByText('Русский')).toBeTruthy();
     expect(within(handyman).getByText('Присылать сразу')).toBeTruthy();
     expect(within(handyman).getByText('8 заявок за неделю')).toBeTruthy();
     expect(
@@ -75,7 +75,8 @@ describe('S18 alerts', () => {
 
     const furniture = card('Сборка мебели');
     expect(within(furniture).getByText('Мастер на час')).toBeTruthy();
-    expect(within(furniture).getByText('Весь город · любой бюджет · русский')).toBeTruthy();
+    expect(within(furniture).getByText('Весь город · любой бюджет')).toBeTruthy();
+    expect(within(furniture).getByText('Русский')).toBeTruthy();
     expect(within(furniture).getByText('Подборкой раз в день, в 09:00')).toBeTruthy();
     expect(within(furniture).getByText('3 заявки за неделю')).toBeTruthy();
     expect(
@@ -259,7 +260,7 @@ describe('S14 «Сохранить как подписку» and S13 «По мо
 
     await waitFor(() => expect(app.router.state.location.search).toEqual({ alerts: true }));
     await waitFor(() => expect(jobs.feedRequests.at(-1)?.get('feed')).toBe('alerts'));
-    expect(await screen.findByText(/по подпискам · новые сверху$/)).toBeTruthy();
+    expect(await screen.findByText(/по подпискам, новые сверху$/)).toBeTruthy();
 
     await click(screen.getByRole('button', { name: 'Подписки на новые заявки' }));
     expect(

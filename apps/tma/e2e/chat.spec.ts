@@ -1,13 +1,15 @@
 // Переписка S29–S30 (DEVELOPMENT_PLAN 6.4) и договорённость S53–S54 (6.5) на фейках backend.
-// S29 — три диалога макета: прямой с замаскированным телефоном и двумя непрочитанными, по отклику
-// на заявку и свой отклик с «Договорились». S30 — прямой диалог: памятка о предоплате, маска
-// контакта с подсказкой «контакты откроются после договорённости», «Договорились» в шапке; тёмная
-// тема — эталон D30. S53 — исполнитель по ссылке `d_` из бота видит «… предлагает договориться»,
-// условия и срок 72 ч и подтверждает. S54 — после договорённости шторка «Поделиться контактом»
-// в шапке диалога. S30 после завершённой сделки — «Договориться снова» в шапке (условия — из
-// прошлой сделки), «Прошлая сделка» и «Поделиться контактом» в полосе сделки. S24 —
-// SecondaryButton «Написать» открывает диалог по отклику. Скриншоты × тема × язык, axe-core; имена
-// скриншотов начинаются с кода артборда.
+// S29 — три диалога макета: прямой со скрытым телефоном («контакт скрыт») и двумя непрочитанными,
+// по отклику на заявку и свой отклик с «Договорились»; время — коротко, как в Telegram. S30 —
+// прямой диалог: памятка о предоплате, подпись дня, маска контакта с подсказкой «контакты
+// откроются после договорённости», «Договориться» в шапке; тёмная тема — эталон D30. S53 —
+// исполнитель по ссылке `d_` из бота видит «… предлагает договориться», условия и срок 72 ч и
+// подтверждает. S54 — после договорённости «Сделка» в шапке, как на артборде, и шторка
+// «Поделиться контактом» из полосы сделки под шапкой. S30 после завершённой сделки — снова
+// «Договориться» в шапке (она не прокручивается; условия — из прошлой сделки), в полосе «Прошлая
+// сделка» второй строкой Telegram и «Поделиться контактом». S24 — SecondaryButton «Написать»
+// открывает диалог по отклику. Скриншоты × тема × язык, axe-core; имена скриншотов начинаются с
+// кода артборда.
 import { encodeStartParam } from '@sosed/links';
 import { expect, test } from '@playwright/test';
 
@@ -30,12 +32,15 @@ const LOCALES = [
     safety:
       'Не вносите предоплату незнакомым исполнителям. Платите после того, как работа сделана.',
     masked: 'Контакты откроются после договорённости — так безопаснее',
-    agree: 'Договорились',
+    hidden: 'контакт скрыт',
+    day: '2 октября',
+    agree: 'Договориться',
     proposal: 'Елена К. предлагает договориться',
-    expires: /^Если не ответить за 72 часа, договорённость отменится/,
+    // getByText(регулярка) сверяет сырой текст, а типограф ставит неразрывные пробелы — пробел как \s
+    expires: /^Если\sне\sответить\sза\s72\sчаса,\sдоговорённость\sотменится/,
     share: 'Поделиться контактом',
     username: 'Имя пользователя Telegram',
-    again: 'Договориться снова',
+    deal: 'Сделка',
     past: 'Прошлая сделка «Повесить люстру»',
     terms: 'Договорились?',
     what: 'Что делаем',
@@ -48,12 +53,14 @@ const LOCALES = [
     hint: 'Telefoni i linkovi se vide tek posle dogovora',
     safety: 'Ne plaćajte unapred nepoznatim izvođačima. Platite tek kad posao bude završen.',
     masked: 'Kontakti će se otvoriti posle dogovora — tako je bezbednije',
-    agree: 'Dogovoreno',
+    hidden: 'kontakt sakriven',
+    day: '2. oktobar',
+    agree: 'Dogovorite se',
     proposal: 'Елена К. predlaže dogovor',
-    expires: /^Ako ne odgovorite za 72 sata, dogovor će biti otkazan/,
+    expires: /^Ako\sne\sodgovorite\sza\s72\ssata,\sdogovor\sće\sbiti\sotkazan/,
     share: 'Podelite kontakt',
     username: 'Korisničko ime u Telegram-u',
-    again: 'Novi dogovor',
+    deal: 'Dogovor',
     past: 'Prethodni dogovor „Повесить люстру“',
     terms: 'Dogovoreno?',
     what: 'Šta radimo',
@@ -91,10 +98,13 @@ for (const theme of THEMES) {
       await snap(`S29-chats-${theme}-${l.locale}.png`);
 
       await page.getByRole('link', { name: /Алексей Морозов/ }).click();
-      // шапка диалога: собеседник ссылкой на S08 и «Договорились»
+      // шапка диалога: собеседник ссылкой на S08 и «Договориться» — полосы сделки нет
       await expect(page.getByRole('link', { name: /^Алексей Морозов/ })).toBeVisible();
       await expect(page.getByRole('main').getByRole('button', { name: l.agree })).toBeVisible();
       await expect(page.getByText(l.safety)).toBeVisible();
+      // день — подписью над перепиской; скрытый телефон — словами
+      await expect(page.getByText(l.day, { exact: true })).toBeVisible();
+      await expect(page.getByText(l.hidden, { exact: true })).toBeVisible();
       await expect(page.getByText(l.masked)).toBeVisible();
       // открытый диалог отмечает новое прочитанным: счётчик на вкладке гаснет
       await expect.poll(() => chat.reads.length).toBeGreaterThan(0);
@@ -148,7 +158,11 @@ for (const theme of THEMES) {
         chat: new ChatBackend().seed(),
       });
 
-      // «Поделиться контактом» — в шапке диалога после договорённости
+      // в шапке — «Сделка», как на артборде; «Поделиться контактом» — второй строкой полосы сделки
+      const header = page
+        .locator('header')
+        .filter({ has: page.getByRole('heading', { name: 'Дмитрий Соколов', level: 1 }) });
+      await expect(header.getByRole('button', { name: l.deal })).toBeVisible();
       await page.getByRole('main').getByRole('button', { name: l.share }).click();
       const sheet = page.getByRole('dialog', { name: l.share });
       // варианты — галочками, как на артборде: первый отмечен
@@ -177,12 +191,15 @@ for (const theme of THEMES) {
         chat,
       });
 
-      // шапка при 360 px: имя, «Договориться снова» и «⋯»; Telegram второй стороны и «Поделиться
-      // контактом» — в полосе прошлой сделки. <header> внутри main — не landmark: ищем по заголовку
+      // снова «Договориться» — в шапке: она не прокручивается, а диалог открыт в конце переписки.
+      // Telegram второй стороны и «Поделиться контактом» — второй строкой полосы прошлой сделки.
+      // <header> внутри main — не landmark: ищем по заголовку
       const header = page
         .locator('header')
         .filter({ has: page.getByRole('heading', { name: 'Алексей Морозов', level: 1 }) });
-      await expect(header.getByRole('button', { name: l.again })).toBeVisible();
+      const again = header.getByRole('button', { name: l.agree });
+      await expect(again).toBeInViewport();
+      await expect(page.getByRole('main').getByRole('button', { name: l.agree })).toHaveCount(1);
       await expect(header.getByRole('button', { name: l.share })).toHaveCount(0);
       await expect(page.getByText(l.past)).toBeVisible();
       await expect(page.getByRole('main').getByRole('button', { name: l.share })).toBeVisible();
@@ -197,7 +214,7 @@ for (const theme of THEMES) {
       await expectNoAxeViolations(page);
 
       // та же шторка условий: «что делаем» — из прошлой сделки
-      await header.getByRole('button', { name: l.again }).click();
+      await again.click();
       const sheet = page.getByRole('dialog', { name: l.terms });
       await expect(sheet.getByRole('textbox', { name: l.what })).toHaveValue('Повесить люстру');
     });

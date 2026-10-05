@@ -102,12 +102,30 @@ def category_prices(
     lowest: Mapping[CategoryId, int], paths: Mapping[CategoryId, Sequence[CategoryId]]
 ) -> dict[CategoryId, int]:
     """Цена «от» в каждой категории и её предках: «до N в электрике» видит и «Мастер на час»."""
-    prices: dict[CategoryId, int] = {}
+    return {category: lowest[source] for category, source in _cheapest(lowest, paths).items()}
+
+
+def category_price_units(
+    lowest: Mapping[CategoryId, int],
+    units: Mapping[CategoryId, str | None],
+    paths: Mapping[CategoryId, Sequence[CategoryId]],
+) -> dict[CategoryId, str | None]:
+    """Единица цены `category_prices` в каждой категории и её предках — той группы, что дала цену:
+    в выдаче по «Мелкому ремонту» «от 2 000 RSD/час», а не единица самой дешёвой позиции прайса."""
+    return {category: units.get(source) for category, source in _cheapest(lowest, paths).items()}
+
+
+def _cheapest(
+    lowest: Mapping[CategoryId, int], paths: Mapping[CategoryId, Sequence[CategoryId]]
+) -> dict[CategoryId, CategoryId]:
+    """Категория и каждый её предок → группа прайса с самой низкой ценой; при равных — первая."""
+    found: dict[CategoryId, CategoryId] = {}
     for category_id, price in lowest.items():
         for ancestor in paths.get(category_id, (category_id,)):
-            known = prices.get(ancestor)
-            prices[ancestor] = price if known is None else min(known, price)
-    return prices
+            known = found.get(ancestor)
+            if known is None or price < lowest[known]:
+                found[ancestor] = category_id
+    return found
 
 
 def freshness(updated_at: datetime, now: datetime) -> float:

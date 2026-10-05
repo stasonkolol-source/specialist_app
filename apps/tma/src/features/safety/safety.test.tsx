@@ -73,7 +73,7 @@ describe('S46 report', () => {
     expect(
       done.getByText('Модератор проверит её в течение 2 часов, с 08:00 до 23:00.'),
     ).toBeTruthy();
-    expect(done.getByText(/Вы его заблокировали/)).toBeTruthy();
+    expect(done.getByText(/Этот человек больше не сможет писать вам/)).toBeTruthy();
     expect(safety.reports).toEqual([
       {
         target_type: 'profile',
@@ -276,6 +276,7 @@ describe('S44 blocked', () => {
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/settings/blocked'));
     const list = within(await screen.findByRole('list', { name: 'Заблокированные пользователи' }));
+    expect(screen.getByText(/^Они не могут писать вам/)).toBeTruthy();
     expect(list.getByText('Олег Р.')).toBeTruthy();
     expect(list.getByText('С 14 сентября')).toBeTruthy();
     expect(list.getByText('Марина Т.')).toBeTruthy();
@@ -293,6 +294,15 @@ describe('S44 blocked', () => {
     startApp('/settings/blocked');
 
     expect(await screen.findByRole('heading', { name: 'Вы никого не заблокировали' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Как заблокировать' })).toBeTruthy();
+    // вступление «Они не могут…» не к кому отнести — его нет, пустое состояние говорит то же
+    expect(screen.queryByText(/^Они не могут писать вам/)).toBeNull();
+    expect(
+      screen.getByRole('heading', { name: 'Как пожаловаться или заблокировать' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'В профиле специалиста — строки «Пожаловаться» и «Заблокировать» внизу, в чате — меню «⋯» справа вверху.',
+      ),
+    ).toBeTruthy();
   });
 });

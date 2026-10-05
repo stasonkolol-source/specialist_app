@@ -99,6 +99,7 @@ export function ShareContactSheet({
       title={t('chat.share.title')}
       onClose={onClose}
       closeLabel={common('action.close')}
+      closeButton={false}
       footer={
         <Stack gap={8}>
           <Button

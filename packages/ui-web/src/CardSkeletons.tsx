@@ -5,7 +5,7 @@ import { Skeleton } from './Feedback.tsx';
 import { SkeletonCard, SkeletonText } from './Skeletons.tsx';
 
 /** Карточка специалиста в выдаче (SpecialistCard): аватар, имя, «коротко о себе», рейтинг и район,
- *  бейдж и цена «от». */
+ *  языки, бейдж и цена «от». */
 export function SpecialistCardSkeleton() {
   return (
     <SkeletonCard tight>
@@ -15,6 +15,7 @@ export function SpecialistCardSkeleton() {
           <SkeletonText size="title" className="w-2/5" />
           <SkeletonText size="sm" className="w-4/5" />
           <SkeletonText size="cap" className="w-1/2" />
+          <SkeletonText size="cap" className="w-1/3" />
         </div>
       </div>
       <div className="flex items-end justify-between gap-2">
@@ -25,8 +26,8 @@ export function SpecialistCardSkeleton() {
   );
 }
 
-/** Карточка заявки (JobCard): заголовок и бюджет, бейдж и время, начало описания, место и
- *  полоски мест; `photos` — с превью фото. */
+/** Карточка заявки (JobCard): заголовок и бюджет, бейджи, начало описания, место и время,
+ *  полоски мест своей строкой; `photos` — с превью фото. */
 export function JobCardSkeleton({ photos = false }: { photos?: boolean }) {
   return (
     <SkeletonCard tight>
@@ -34,9 +35,9 @@ export function JobCardSkeleton({ photos = false }: { photos?: boolean }) {
         <SkeletonText size="title" className="w-3/5" />
         <SkeletonText size="title" className="w-20" />
       </div>
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex gap-1.5">
         <Skeleton className="h-6 w-28" />
-        <SkeletonText size="cap" className="w-16" />
+        <Skeleton className="h-6 w-20" />
       </div>
       <div className="flex flex-col">
         <SkeletonText size="sm" className="w-full" />
@@ -45,14 +46,15 @@ export function JobCardSkeleton({ photos = false }: { photos?: boolean }) {
       {photos && (
         <div className="flex gap-2">
           {[0, 1, 2].map((photo) => (
-            <Skeleton key={photo} radius="panel" className="size-14" />
+            <Skeleton key={photo} radius="field" className="size-14" />
           ))}
         </div>
       )}
       <div className="flex items-center justify-between gap-3">
         <SkeletonText size="cap" className="w-2/5" />
-        <SkeletonText size="cap" className="w-24" />
+        <SkeletonText size="cap" className="w-16" />
       </div>
+      <SkeletonText size="cap" className="w-1/2" />
     </SkeletonCard>
   );
 }

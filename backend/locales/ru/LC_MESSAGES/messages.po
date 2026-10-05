@@ -252,10 +252,10 @@ msgid "bot.profile.name"
 msgstr "Соседи"
 
 msgid "bot.profile.description"
-msgstr "«Соседи» — мастера и помощь рядом: ремонт, красота, уборка, переезды, уроки. Опишите задачу — исполнители откликнутся с ценой. Или выберите специалиста по отзывам.\n\nНажмите кнопку ниже, чтобы начать."
+msgstr "«Соседи» — мастера рядом, на вашем языке. Нови-Сад: ремонт, красота, уборка, переезды, уроки. Опишите задачу — исполнители откликнутся с ценой. Или выберите специалиста по отзывам.\n\nНажмите кнопку ниже, чтобы начать."
 
 msgid "bot.profile.short_description"
-msgstr "Мастера и помощь рядом: ремонт, красота, уборка, переезды, уроки."
+msgstr "Мастера рядом, на вашем языке. Нови-Сад: ремонт, красота, уборка, переезды, уроки."
 
 msgid "errors.not_found"
 msgstr "Не найдено."
@@ -1018,10 +1018,16 @@ msgid "notifications.deal_completion_prompt.body"
 msgstr "Сделка «{title}». Отметьте, если всё сделано: когда отметят обе стороны, сделка завершится."
 
 msgid "notifications.deal_completion_prompt.body_marked_performer"
-msgstr "Исполнитель отметил работу «{title}» выполненной. Всё в порядке?"
+msgstr "{name}: работа «{title}» выполнена. Всё в порядке?"
 
 msgid "notifications.deal_completion_prompt.body_marked_client"
-msgstr "Клиент отметил работу «{title}» выполненной. Всё в порядке?"
+msgstr "{name}: работа «{title}» выполнена. Всё в порядке?"
+
+msgid "notifications.deal_completion_prompt.name_performer"
+msgstr "Исполнитель"
+
+msgid "notifications.deal_completion_prompt.name_client"
+msgstr "Клиент"
 
 msgid "notifications.review_request.title_first"
 msgstr "Оцените работу"
@@ -1169,6 +1175,21 @@ msgstr "<b>{title}</b> — заявка в «Соседях»"
 
 msgid "share.job.button"
 msgstr "Открыть заявку"
+
+msgid "share.specialist.rating.one"
+msgstr "★ {rating} — {count} отзыв"
+
+msgid "share.specialist.rating.few"
+msgstr "★ {rating} — {count} отзыва"
+
+msgid "share.specialist.rating.many"
+msgstr "★ {rating} — {count} отзывов"
+
+msgid "share.specialist.new"
+msgstr "Новый специалист"
+
+msgid "share.specialist.phone_verified"
+msgstr "Телефон подтверждён"
 
 # Апелляции и чат модераторов (DEVELOPMENT_PLAN 2.5b)
 msgid "errors.appeal_target_not_found"
@@ -1466,7 +1487,7 @@ msgid "notifications.job_matched.template"
 msgstr "Откликнуться шаблоном «{title}»"
 
 msgid "notifications.job_matched.hide"
-msgstr "Не интересно"
+msgstr "Не подходит"
 
 msgid "notifications.job_matched.pause"
 msgstr "Пауза подписки"

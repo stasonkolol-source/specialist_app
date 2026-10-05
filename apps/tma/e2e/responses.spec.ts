@@ -10,7 +10,10 @@ import { E2E_NOW, ME } from '../src/testing/fixtures.ts';
 import {
   FEED_JOBS,
   JobsBackend,
+  dealCardFixture,
+  myJobsFixture,
   myResponsesFixture,
+  responseCardsFixture,
   templatesFixture,
 } from '../src/testing/jobsBackend.ts';
 import type { Watch } from './support.ts';
@@ -36,7 +39,7 @@ const LOCALES = [
     segment: 'Moje ponude',
     job: 'Повесить люстру',
     caption: 'Ponuda za zahtev',
-    sent: 'Ponuda je poslata — naručilac će je videti posle provere',
+    sent: 'Ponuda je poslata — klijent će je videti posle provere',
     waiting: 'Čeka odluku naručioca',
     templates: 'Šabloni ponuda',
     primary: 'Glavni',
@@ -92,6 +95,15 @@ for (const theme of THEMES) {
       jobs.responses = myResponsesFixture();
       jobs.respondedToday = 3;
       jobs.templates = templatesFixture();
+      // выбранный отклик — со сделкой: главная кнопка карточки «Открыть сделку»
+      const [accepted] = jobs.responses;
+      const [chandelier] = myJobsFixture();
+      const [card] = responseCardsFixture();
+      if (accepted && chandelier && card) {
+        const deal = dealCardFixture(chandelier, card, 'performer');
+        jobs.dealRole = 'performer';
+        jobs.deals.set(deal.id, { ...deal, response_id: accepted.id });
+      }
       const watch = await open(page, `theme=${theme}&lang=${l.telegram}`, {
         signedIn: true,
         me: { ...ME, intent: 'pro', ui_locale: l.locale },

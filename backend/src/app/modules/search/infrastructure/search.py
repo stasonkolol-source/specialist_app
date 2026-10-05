@@ -5,7 +5,7 @@ search). Фильтры §9.5 ложатся на частичные индек�
 SQL; гео — только geography и метры: `ST_DWithin` по geometry(4326) считал бы градусы.
 """
 
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -98,7 +98,7 @@ class SqlSpecialistSearch(SqlQuery):
                 )
             )
         stmt = stmt.order_by(*_order(sort, rank, price, point)).offset(offset).limit(limit)
-        return [_hit(row) for row in await self._fetch(stmt)]
+        return [_hit(row, filters.category_id) for row in await self._fetch(stmt)]
 
     async def count(
         self,
@@ -136,7 +136,7 @@ class SqlSpecialistSearch(SqlQuery):
         ).where(_SI.is_listed, _SI.profile_id.in_(list(profile_ids)))
         if hidden_users:
             stmt = stmt.where(_SI.user_id.not_in(list(hidden_users)))
-        return [_hit(row) for row in await self._fetch(stmt)]
+        return [_hit(row, None) for row in await self._fetch(stmt)]
 
     async def count_by_category(self, city_id: CityId, kind: str) -> dict[CategoryId, int]:
         # category_ids уже несут предков: строка считается и в разделе, и в подкатегории
@@ -291,15 +291,27 @@ def _order(
     return last
 
 
-def _hit(row: Any) -> SpecialistHit:
+def _hit(row: Any, category_id: CategoryId | None) -> SpecialistHit:
     rating = row["rating_bayes"]
     return SpecialistHit(
         profile_id=row["profile_id"],
         card=row["card"],
         price_from=row["price_from"],
+        price_from_unit=_price_unit(row["card"], category_id),
         rating_bayes=float(rating) if rating is not None else None,
         rating_count=row["rating_count"],
         badges=tuple(row["badges"]),
         available_until=row["available_until"],
         distance_m=row["distance_m"],
     )
+
+
+def _price_unit(card: Mapping[str, Any], category_id: CategoryId | None) -> str | None:
+    """Единица той же цены, что `price_from` строки: в категории с ценой — её (у проектора это
+    ключи `category_price_units` — те же категории, что в таблице цен), иначе — по всему прайсу.
+    Строка, собранная до единиц, отдаёт None до пересборки (сверка ночью)."""
+    units: Mapping[str, str | None] = card.get("category_price_units") or {}
+    if category_id is not None and str(category_id) in units:
+        return units[str(category_id)]
+    unit: str | None = card.get("price_from_unit")
+    return unit

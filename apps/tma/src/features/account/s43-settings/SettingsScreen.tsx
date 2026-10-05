@@ -7,7 +7,8 @@
 // Телефоном делятся в чате кнопкой «Поделиться контактом» (S54); переключатель «Мой номер
 // телефона» — с подтверждением номера (v1).
 // «Экспорт моих данных» — запрос в поддержку (runbook 2.12, выгрузку делает `cli export-user-data`):
-// строка открывает чат с аккаунтом поддержки из client-config; пока его нет (K23, Q25) — «скоро».
+// строка открывает чат с аккаунтом поддержки из client-config; пока его нет (K23, Q25) — «скоро»
+// без подписи «Запрос в поддержку»: она обещала бы действие, которое бейдж отменяет.
 // «Заблокированные» (S44, 4.7) — сколько человек заблокировано: список тот же, что у S44.
 import type { MeOut } from '@sosed/api-client';
 import { useIdentityGetMe } from '@sosed/api-client';
@@ -75,7 +76,7 @@ function ProfileLoading() {
       <span className="sr-only">{t('settings.loading')}</span>
       <div aria-hidden="true" className="flex flex-col gap-2">
         <SkeletonText size="cap" screen className="mx-4 w-32" />
-        <Skeleton screen radius="panel" className="h-11.5" />
+        <Skeleton screen radius="field" className="h-11.5" />
         <SkeletonText size="cap" screen className="mx-4 w-28" />
       </div>
       <Group>
@@ -169,7 +170,6 @@ function AccountActions() {
         <Row
           icon="file"
           title={t('settings.export')}
-          subtitle={t('settings.exportHint')}
           trailing={<Badge tone="mute">{t('settings.soon')}</Badge>}
         />
       )}

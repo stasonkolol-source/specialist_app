@@ -3,7 +3,7 @@
 platform/telegram/callbacks.py; нажатия — те же use cases, что Mini App.
 
 - «Откликнуться шаблоном «…»» — handlers.respond (тот же Respond, что S16, как у приглашения).
-- «Не интересно» — тот же HideJob, что S15: заявка пропадает из ленты, у карточки остаётся только
+- «Не подходит» — тот же HideJob, что S15: заявка пропадает из ленты, у карточки остаётся только
   «Открыть заявку».
 - «Пауза подписки» — эта подписка молчит неделю; кнопка становится «Снять паузу».
 - `/alerts` — подписки строками («сразу», «раз в день», «на паузе до …», «выключена», сколько
@@ -324,7 +324,7 @@ def _short(title: str) -> str:
 
 
 async def _keep_app_buttons(callback: CallbackQuery) -> None:
-    """«Не интересно» — у карточки остаются только кнопки в Mini App («Открыть заявку»)."""
+    """«Не подходит» — у карточки остаются только кнопки в Mini App («Открыть заявку»)."""
     message = callback.message
     if not isinstance(message, Message) or message.reply_markup is None:
         return

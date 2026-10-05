@@ -4,7 +4,7 @@
 import { setSession } from '@sosed/api-client';
 import { DRAFT_STORAGE_KEY } from '@sosed/hooks';
 import type { MockTelegram } from '@sosed/platform';
-import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
@@ -52,8 +52,9 @@ const what = () => screen.findByRole('textbox', { name: 'Коротко о за�
 async function fillWhat(telegram: MockTelegram) {
   await what();
   type('Коротко о задаче', 'Люстры');
-  // категория подобрана по тексту (/suggest)
-  await screen.findByRole('button', { name: 'Мастер на час → Люстры и карнизы' });
+  // категория подобрана по тексту (/suggest); чип и есть «Изменить» (jsdom склеивает текст
+  // скрытой подписи без пробела)
+  await screen.findByRole('button', { name: /^Мастер на час → Люстры и карнизы ?Изменить$/ });
   type('Подробности', 'Потолок бетонный, крюк есть.');
   await pressMainButton(telegram);
 }
@@ -76,15 +77,23 @@ describe('S20a–d create a job', () => {
     await fillWhat(telegram);
     await fillWhen(telegram);
     expect(await screen.findByRole('heading', { name: 'Сколько готовы заплатить?' })).toBeTruthy();
+    // одно поле «Язык общения» — без заголовка «Детали» над ним
+    expect(screen.queryByRole('heading', { name: 'Детали' })).toBeNull();
     type('Сумма', '5000');
     expect(screen.getByRole('textbox', { name: 'Сумма' })).toHaveProperty('value', '5 000');
     await pressMainButton(telegram);
 
     expect(await screen.findByRole('heading', { name: 'Проверьте заявку' })).toBeTruthy();
-    expect(screen.getByText(/^5\s000\sRSD$/u)).toBeTruthy();
-    expect(screen.getByText('Сегодня 18–21')).toBeTruthy();
+    // карточка — как в ленте исполнителя: район без города, «только что», мест ещё 0 из 5
+    const card = screen.getByRole('article');
+    expect(within(card).getByRole('heading', { name: 'Люстры', level: 2 })).toBeTruthy();
+    expect(within(card).getByText(/^5\s000\sRSD$/u)).toBeTruthy();
+    expect(within(card).getByText('Сегодня 18–21')).toBeTruthy();
+    expect(within(card).getByText('Люстры и карнизы')).toBeTruthy();
+    expect(within(card).getByText('Лиман')).toBeTruthy();
+    expect(within(card).getByText('только что')).toBeTruthy();
+    expect(within(card).getByText('откликов 0 из 5')).toBeTruthy();
     expect(screen.getByText('— точный адрес: Народног фронта 25, кв. 14')).toBeTruthy();
-    expect(screen.getByText('Лиман, Нови-Сад')).toBeTruthy();
     await pressMainButton(telegram);
 
     expect(await screen.findByRole('heading', { name: 'Заявка на проверке' })).toBeTruthy();
@@ -129,12 +138,12 @@ describe('S20a–d create a job', () => {
     await click(screen.getByRole('button', { name: 'Выбрать' }));
     await click(await screen.findByRole('button', { name: 'Мастер на час' }));
     await click(await screen.findByRole('button', { name: 'Электрика' }));
-    expect(screen.getByText('Заявку увидят мастера этой категории')).toBeTruthy();
+    expect(screen.getByText('Заявку увидят специалисты этой категории')).toBeTruthy();
     await pressMainButton(telegram);
 
     expect(await screen.findByRole('heading', { name: 'Когда и где?' })).toBeTruthy();
     await pressMainButton(telegram);
-    expect(screen.getByText('Выберите, когда нужен мастер')).toBeTruthy();
+    expect(screen.getByText('Выберите, когда нужен исполнитель')).toBeTruthy();
     expect(screen.getByText('Выберите район')).toBeTruthy();
   });
 
@@ -193,8 +202,12 @@ describe('ways into the wizard', () => {
     startApp(`/jobs/new?category=${CATEGORY_IDS['electrical']}&title=${title}`);
 
     expect(await what()).toHaveProperty('value', 'Замена розетки');
-    expect(await screen.findByRole('button', { name: 'Мастер на час → Электрика' })).toBeTruthy();
-    expect(screen.getByText('Заявку увидят мастера этой категории')).toBeTruthy();
+    expect(
+      await screen.findByRole('button', { name: /^Мастер на час → Электрика ?Изменить$/ }),
+    ).toBeTruthy();
+    expect(screen.getByText('Заявку увидят специалисты этой категории')).toBeTruthy();
+    // отдельной ссылки «Изменить» рядом с чипом нет
+    expect(screen.queryByRole('button', { name: 'Изменить' })).toBeNull();
   });
 });
 

@@ -3,7 +3,7 @@
     "title": "Poruke",
     "tabs": {
       "all": "Sve",
-      "client": "Ja sam naručilac",
+      "client": "Ja sam klijent",
       "performer": "Ja sam izvođač"
     },
     "job": "Zahtev: {title}",
@@ -21,7 +21,7 @@
     "more": "Prikaži još"
   },
   "deal": {
-    "none": "Još niste dogovoreni",
+    "none": "Još nema dogovora",
     "proposed": "Čeka potvrdu",
     "agreed": "Dogovoreno",
     "completed": "Dogovor je završen",
@@ -36,16 +36,19 @@
     "dealAgreed": "Dogovoreno",
     "dealCancelled": "Dogovor je otkazan"
   },
+  "mask": {
+    "text": "kontakt sakriven",
+    "label": "Kontakt je sakriven do dogovora"
+  },
   "chat": {
-    "agree": "Dogovoreno",
-    "agreeAgain": "Novi dogovor",
-    "orderAgain": "Naručite ponovo",
-    "orderAgainFailed": "Razgovor nije moguće otvoriti. Pokušajte ponovo",
+    "agree": "Dogovorite se",
+    "orderAgain": "Naruči ponovo",
+    "orderAgainFailed": "Razgovor nije moguće otvoriti. Pokušajte ponovo.",
     "openResponses": "Na ponude",
     "chooseHint": "Izvođač se bira na stranici ponuda zahteva",
     "safety": "Ne plaćajte unapred nepoznatim izvođačima. Platite tek kad posao bude završen.",
-    "startedProfile": "Razgovor iz profila stručnjaka · {date}",
-    "startedJob": "Razgovor o zahtevu „{title}“ · {date}",
+    "startedProfile": "Razgovor iz profila stručnjaka",
+    "startedJob": "Razgovor o zahtevu „{title}“",
     "masked": "Kontakti će se otvoriti posle dogovora — tako je bezbednije",
     "prepayment": "Traže avans? Ne šaljite novac pre početka posla.",
     "hidden": "Poruka je skrivena zbog moderacije",
@@ -86,9 +89,10 @@
     },
     "shareContact": "Podelite kontakt",
     "telegram": "Telegram",
+    "deal": "Dogovor",
+    "contactsOpen": "Već ste se dogovorili — kontakti su otvoreni",
     "dealBar": "Dogovor „{title}“",
     "dealBarPast": "Prethodni dogovor „{title}“",
-    "dealTerms": "Pogledajte uslove",
     "dealOpen": "Otvorite dogovor",
     "share": {
       "title": "Podelite kontakt",
@@ -99,7 +103,7 @@
       "safety": "Kontakt će videti samo sagovornik. Nikome ne govorite kodove iz SMS poruka i podatke sa kartice.",
       "submit": "Podeli",
       "later": "Ne sada",
-      "nothing": "Nema šta da se podeli: u Telegram-u nemate korisničko ime, a ovaj Telegram klijent ne ume da pošalje telefon. Ažurirajte Telegram.",
+      "nothing": "U vašem Telegram-u nema korisničkog imena, a ova verzija Telegram-a ne ume da pošalje broj. Podesite korisničko ime u podešavanjima Telegram-a ili ažurirajte aplikaciju.",
       "notSent": "Telefon nije poslat",
       "failed": "Deljenje kontakta nije uspelo. Pokušajte ponovo."
     },
@@ -107,7 +111,7 @@
     "blockConfirm": "Blokirati sagovornika? Neće moći da vam piše niti da šalje ponude na vaše zahteve.",
     "blockedByMe": "Blokirali ste sagovornika. Prepiska je samo za čitanje.",
     "blockedByThem": "Sagovornik nije dostupan: ne možete mu pisati.",
-    "blockFailed": "Nije uspelo. Pokušajte ponovo."
+    "blockFailed": "Blokiranje nije uspelo. Pokušajte ponovo."
   },
   "write": {
     "failed": "Razgovor nije moguće otvoriti. Pokušajte ponovo."

@@ -182,6 +182,8 @@ jobs:
           VITE_SENTRY_RELEASE: ${{ github.event.workflow_run.head_sha || github.sha }}
           VITE_SENTRY_ENVIRONMENT: stage
           VITE_TELEGRAM_BOT: ${{ vars.STAGE_BOT_USERNAME }}
+          # origin Mini App: og:image в index.html — полным адресом (vite.config.ts)
+          TMA_PUBLIC_ORIGIN: https://stage-app.${{ vars.STAGE_DOMAIN }}
         run: |
           corepack enable
           pnpm install --frozen-lockfile
@@ -373,6 +375,7 @@ jobs:
           VITE_SENTRY_RELEASE: ${{ env.VERSION }}
           VITE_SENTRY_ENVIRONMENT: production
           VITE_TELEGRAM_BOT: ${{ vars.PROD_BOT_USERNAME }}
+          TMA_PUBLIC_ORIGIN: https://app.${{ vars.PROD_DOMAIN }}
         run: |
           corepack enable
           pnpm install --frozen-lockfile

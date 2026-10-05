@@ -619,20 +619,45 @@ def test_completion_prompt_has_yes_and_problem_in_one_row(
 
 
 @pytest.mark.parametrize(
-    ("by", "body"),
+    ("by", "name", "body"),
     [
-        ("performer", "Исполнитель отметил работу «Люстра» выполненной. Всё в порядке?"),
-        ("client", "Клиент отметил работу «Люстра» выполненной. Всё в порядке?"),
+        (
+            "performer",
+            "Алексей Морозов",
+            "Алексей Морозов: работа «Люстра» выполнена. Всё в порядке?",
+        ),
+        ("client", "Ирина", "Ирина: работа «Люстра» выполнена. Всё в порядке?"),
+        # аккаунт удалён или уведомление создано до имени в параметрах — роль вместо имени
+        ("performer", "", "Исполнитель: работа «Люстра» выполнена. Всё в порядке?"),
+        ("client", None, "Клиент: работа «Люстра» выполнена. Всё в порядке?"),
     ],
 )
-def test_completion_prompt_after_the_other_side_marked(
-    renderer: GettextNotificationRenderer, by: str, body: str
+def test_completion_prompt_names_who_marked_it(
+    renderer: GettextNotificationRenderer, by: str, name: str | None, body: str
 ) -> None:
-    text = renderer.text(
-        NotificationType.DEAL_COMPLETION_PROMPT, {"title": "Люстра", "by": by}, Locale.RU
-    )
+    params = {"title": "Люстра", "by": by} | ({"name": name} if name is not None else {})
+
+    text = renderer.text(NotificationType.DEAL_COMPLETION_PROMPT, params, Locale.RU)
 
     assert (text.title, text.body) == ("Работа выполнена?", body)
+
+
+def test_completion_prompt_name_is_text_not_markup(renderer: GettextNotificationRenderer) -> None:
+    params = {
+        "title": "Люстра",
+        "by": "performer",
+        "name": "<b>Ana</b> & Co",
+        "deal_id": str(DEAL_ID),
+    }
+
+    text, _ = renderer.telegram(
+        NotificationType.DEAL_COMPLETION_PROMPT, params, DEAL_LINK, Locale.RU
+    )
+
+    assert text == (
+        "<b>Работа выполнена?</b>\n"
+        "&lt;b&gt;Ana&lt;/b&gt; &amp; Co: работа «Люстра» выполнена. Всё в порядке?"
+    )
 
 
 @pytest.mark.parametrize("locale", SCRIPTS)
@@ -656,6 +681,10 @@ def test_deal_texts_on_three_scripts(renderer: GettextNotificationRenderer, loca
         ),
         (NotificationType.DEAL_REMINDER, {"title": "Люстра", "at": "2026-10-03T17:00:00+00:00"}),
         (NotificationType.DEAL_COMPLETION_PROMPT, {"title": "Люстра", "deal_id": str(DEAL_ID)}),
+        (
+            NotificationType.DEAL_COMPLETION_PROMPT,
+            {"title": "Люстра", "deal_id": str(DEAL_ID), "by": "client", "name": ""},
+        ),
     ]
     for type_, params in cases:
         text, buttons = renderer.telegram(type_, params, DEAL_LINK, locale)

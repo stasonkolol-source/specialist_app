@@ -16202,7 +16202,7 @@
           "text": {
             "type": "string",
             "title": "Text",
-            "description": "Подпись для t.me/share/url и копирования: имя или название"
+            "description": "Подпись для t.me/share/url и копирования: первые две строки карточки — имя и «коротко о себе» или название и бюджет"
           },
           "prepared_message_id": {
             "anyOf": [
@@ -16353,6 +16353,18 @@
             "title": "Price From",
             "description": "Цена «от», пара (1 RSD = 100 пара)"
           },
+          "price_from_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price From Unit",
+            "description": "Единица цены «от»: hour, visit, item, m2, lesson, km…; null — за работу"
+          },
           "negotiable": {
             "type": "boolean",
             "title": "Negotiable",
@@ -16412,6 +16424,7 @@
           "languages",
           "category_ids",
           "price_from",
+          "price_from_unit",
           "negotiable",
           "rating",
           "rating_count",

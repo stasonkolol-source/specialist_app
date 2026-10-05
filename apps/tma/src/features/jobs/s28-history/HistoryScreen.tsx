@@ -18,6 +18,7 @@ import {
   EmptyState,
   Field,
   Heading,
+  MetaLine,
   Price,
   Segmented,
   Sheet,
@@ -153,9 +154,8 @@ function DealItem({ deal }: { deal: HistoryDealOut }) {
         <Avatar name={name} />
         <span className="flex min-w-0 grow flex-col gap-0.5">
           <span className="text-title">{deal.title}</span>
-          <Text as="span" variant="cap">
-            {`${name} · ${format.calendar(new Date(at))}`}
-          </Text>
+          {/* перенос — между именем и датой, без «·» на конце строки */}
+          <MetaLine parts={[name, format.calendar(new Date(at))]} className="text-cap text-text2" />
         </span>
         <Price>{price}</Price>
       </a>
@@ -293,11 +293,13 @@ function ReviewItem({
       <div className="flex items-start justify-between gap-3">
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="text-title">{name}</span>
-          <Text as="span" variant="cap">
-            {[review.deal_title, format.date(new Date(review.published_at ?? review.created_at))]
-              .filter(Boolean)
-              .join(' · ')}
-          </Text>
+          <MetaLine
+            parts={[
+              review.deal_title,
+              format.date(new Date(review.published_at ?? review.created_at)),
+            ]}
+            className="text-cap text-text2"
+          />
         </span>
         <Stars
           value={review.rating}
@@ -318,7 +320,7 @@ function ReviewItem({
         </div>
       )}
       {reply && (
-        <div className="flex flex-col gap-1 rounded-panel bg-bg2 px-3 py-2">
+        <div className="flex flex-col gap-1 rounded-field bg-bg2 px-3 py-2">
           <Text as="span" variant="cap">
             {received
               ? `${t('history.yourReply')} · ${t(`history.replyStatus.${reply.status as ReviewState}`)}`

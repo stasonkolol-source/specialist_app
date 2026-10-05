@@ -9,10 +9,10 @@
     "minutes": "{count} min",
     "botBlocked": "Bot ne može da vam piše — ponude i poruke vidite samo ovde.",
     "allowBot": "Dozvoli botu da piše",
-    "allowBotFailed": "Nije uspelo. Pritisnite „Start“ u ćaskanju sa botom — i obaveštenja će stizati tamo.",
+    "allowBotFailed": "Uključivanje obaveštenja nije uspelo. Pritisnite „Start“ u ćaskanju sa botom — i obaveštenja će stizati tamo.",
     "more": "Prikaži još",
-    "moreError": "Učitavanje nije uspelo — pokušajte ponovo",
-    "readError": "Nije uspelo da se označi kao pročitano — pokušajte ponovo",
+    "moreError": "Učitavanje sledećih obaveštenja nije uspelo. Pokušajte ponovo.",
+    "readError": "Označavanje kao pročitano nije uspelo. Pokušajte ponovo.",
     "emptyTitle": "Još nema obaveštenja",
     "emptyText": "Ovde će se pojaviti ponude, poruke i odluke o vašim zahtevima",
     "loading": "Učitavamo obaveštenja",
@@ -26,7 +26,7 @@
     "languageSoon": "English — uskoro",
     "city": "Grad",
     "cityTitle": "Vaš grad",
-    "cityPilot": "Pilot-grad",
+    "cityPilot": "Već radimo",
     "soon": "uskoro",
     "notifications": "Obaveštenja",
     "channel": {
@@ -42,7 +42,7 @@
     },
     "groupChannel": "{group} — {channel, select, telegram {u botu} other {u aplikaciji}}",
     "quiet": "Tihi sati {start}–{end}",
-    "quietHint": "Hitno i poruke — odmah",
+    "quietHint": "Noću stižu samo poruke i hitni zahtevi",
     "goodsLaunch": "Pokretanje odeljka „Stvari“",
     "goodsLaunchHint": "Bot će pisati jednom, kada se odeljak otvori",
     "loading": "Učitavamo podešavanja obaveštenja",
@@ -108,10 +108,11 @@
       },
       "price": {
         "q": "Koliko košta aplikacija „Sosedi“?",
-        "a": "Ništa: zahtevi, ponude i dopisivanje su besplatni. Za posao plaćate stručnjaku direktno, posle posla — aplikacija „Sosedi“ ne prima novac."
+        "a": "Ništa: zahtevi, ponude i dopisivanje su besplatni. Za posao plaćate izvođaču direktno, kada je urađen. Aplikacija „Sosedi“ ne prima novac."
       }
     },
-    "nothingFound": "Takvog pitanja nema. Pišite podršci — odgovorićemo",
+    "nothingFound": "Ništa nismo našli. Pišite podršci — odgovorićemo.",
+    "nothingFoundNoSupport": "Ništa nismo našli. Pokušajte sa drugom rečju.",
     "rules": "Pravila platforme",
     "rulesHint": "i politika privatnosti",
     "support": "Piši podršci",

@@ -136,7 +136,7 @@ describe('S52 dispute', () => {
       'Не пришёл',
       'Сделал плохо или не то',
       'Взял предоплату или просит больше',
-      'Ущерб, грубость или угрозы',
+      'Грубость или угрозы',
       'Другое',
     ]);
     await waitFor(() => expect(mainButton(telegram)).toMatchObject({ text: 'Отправить' }));
@@ -217,6 +217,22 @@ describe('S52 dispute', () => {
     expect((await screen.findAllByText('Договорились')).length).toBeGreaterThan(0);
   });
 
+  it('keeps the dispute with «Не отзывать»', async () => {
+    const { backend, deal } = withDeal({ status: 'disputed' });
+    backend.deals.set(deal.id, { ...deal, dispute: openedDispute(deal.id) });
+    startApp(`/deals/${deal.id}/dispute`);
+
+    await click(await screen.findByRole('button', { name: /Отозвать спор/ }));
+    const sheet = await screen.findByRole('dialog', { name: 'Отозвать спор?' });
+    // не «Отменить»: рядом с «Отозвать» было непонятно, что отменяется
+    expect(within(sheet).queryByRole('button', { name: 'Отменить' })).toBeNull();
+    await click(within(sheet).getByRole('button', { name: 'Не отзывать' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(backend.decisions).toEqual([]);
+    expect(screen.getByRole('button', { name: /Отозвать спор/ })).toBeTruthy();
+  });
+
   it('shows the decision of support with its reason', async () => {
     const { backend, deal } = withDeal({ status: 'cancelled', cancel_reason: 'dispute' });
     const resolved = openedDispute(deal.id, {
@@ -245,7 +261,10 @@ describe('S52 dispute', () => {
     const { telegram } = startApp(`/deals/${deal.id}/dispute`);
 
     expect(
-      await screen.findByRole('heading', { name: 'Спор открывают по идущей сделке', level: 1 }),
+      await screen.findByRole('heading', {
+        name: 'Спор можно открыть только по текущей сделке',
+        level: 1,
+      }),
     ).toBeTruthy();
     expect(screen.queryByRole('radiogroup')).toBeNull();
     expect(mainButton(telegram)?.is_visible ?? false).toBe(false);

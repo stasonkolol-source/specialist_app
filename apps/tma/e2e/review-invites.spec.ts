@@ -1,7 +1,7 @@
 // «Отзывы до платформы» (DEVELOPMENT_PLAN 7.6а) на фейке backend. S55 — из кабинета S33: правила,
 // «4 из 5 · осталось 1» и приглашения, как на артборде (два опубликованных отзыва, один на
 // модерации, ссылка Андрею ждёт отзыва); MainButton «Создать ссылку» → «Кому» → готовая ссылка.
-// S56 — по ссылке `ri_` из Telegram: кто просит отзыв, пять звёзд «Отлично», «Что делал мастер»,
+// S56 — по ссылке `ri_` из Telegram: кто просит отзыв, пять звёзд «Отлично», «Что делал специалист»,
 // текст и «Подтверждаю…», как на артборде; «Отправить отзыв» — отзыв ждёт модератора. Скриншоты ×
 // тема × язык, axe-core; имена скриншотов начинаются с кода артборда.
 import { encodeStartParam } from '@sosed/links';
@@ -35,7 +35,7 @@ const LOCALES = [
     title: 'Отзыв о прошлой работе',
     stars: '5 звёзд',
     grade: 'Отлично',
-    work: 'Что делал мастер',
+    work: 'Что делал специалист',
     workText: 'Проводка в ванной и светильники',
     body: 'Отзыв',
     text: 'Поменял проводку в ванной и повесил светильники. Всё сделал за день, объяснил, что и зачем.',
@@ -56,7 +56,7 @@ const LOCALES = [
     title: 'Utisak o ranijem poslu',
     stars: '5 zvezdica',
     grade: 'Odlično',
-    work: 'Šta je majstor radio',
+    work: 'Šta je stručnjak radio',
     workText: 'Instalacija u kupatilu i svetiljke',
     body: 'Utisak',
     text: 'Promenio je instalaciju u kupatilu i okačio svetiljke. Sve je uradio za jedan dan.',

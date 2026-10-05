@@ -1,7 +1,7 @@
 // Лента заявок S13–S15 (DEVELOPMENT_PLAN 5.3) на фейке backend: новые сверху со счётчиком,
 // быстрые чипы и шторка фильтров меняют адрес, «Показать N» считает черновик, «Показать ещё»
 // грузит следующую страницу; заявка — места, описание, «Где» с расстоянием от точки ленты, блок
-// заказчика; «Не интересно» убирает её из ленты; сердечко сохраняет её в «Задачи» S12; ссылка `j_`
+// заказчика; «Не подходит» убирает её из ленты; сердечко сохраняет её в «Заявки» S12; ссылка `j_`
 // открывает S15; блок «Ищете подработку?» на Главной. Часы — E2E_NOW (10:00 по Белграду): окно
 // «18–21» ещё сегодня.
 import { setSession } from '@sosed/api-client';
@@ -73,7 +73,7 @@ describe('S13 feed', () => {
       'Помочь с переездом: 1-комн., 3 этаж без лифта',
       'Маникюр с покрытием на дому',
     ]);
-    expect(await screen.findByText('6 заявок · новые сверху')).toBeTruthy();
+    expect(await screen.findByText('6 заявок, новые сверху')).toBeTruthy();
     const leak = screen.getByRole('link', { name: /Течёт смеситель/ });
     expect(within(leak).getByText('Договорная')).toBeTruthy();
     expect(within(leak).getByText('Срочно')).toBeTruthy();
@@ -101,7 +101,7 @@ describe('S13 feed', () => {
     await waitFor(() => expect(app.router.state.location.search).toEqual({ urgent: true }));
     await waitFor(() => expect(titles()).toEqual(['Течёт смеситель на кухне']));
     expect(jobs.feedRequests.at(-1)?.getAll('urgency')).toEqual(['asap']);
-    expect(await screen.findByText('1 заявка по фильтрам · новые сверху')).toBeTruthy();
+    expect(await screen.findByText('1 заявка по фильтрам, новые сверху')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Фильтры\s*1/ })).toBeTruthy();
 
     await click(screen.getByRole('button', { name: 'До 3 км', pressed: false }));
@@ -235,7 +235,7 @@ describe('S15 job', () => {
       await screen.findByRole('img', { name: 'Примерный район на карте: Лиман' }),
     ).toBeTruthy();
     expect(screen.getByText('Точный адрес увидит только выбранный исполнитель')).toBeTruthy();
-    const client = screen.getByRole('region', { name: 'Заказчик' });
+    const client = screen.getByRole('region', { name: 'Клиент' });
     expect(within(client).getByText('Елена К.')).toBeTruthy();
     expect(within(client).getByText('В «Соседях» 3 месяца · 2 заявки')).toBeTruthy();
     expect(within(client).getByText('Телефон подтверждён')).toBeTruthy();
@@ -281,7 +281,7 @@ describe('S15 job', () => {
     await click(await screen.findByRole('link', { name: /Повесить люстру/ }));
     await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 });
 
-    await click(await screen.findByRole('button', { name: 'Не интересно' }));
+    await click(await screen.findByRole('button', { name: 'Не подходит' }));
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs'));
     expect(jobs.hidden).toEqual(new Set([CHANDELIER.card.id]));
@@ -294,10 +294,10 @@ describe('S15 job', () => {
     jobs.failNextHide = problem(500, 'internal_error');
     const { app } = startApp(CHANDELIER_PATH);
 
-    await click(await screen.findByRole('button', { name: 'Не интересно' }));
+    await click(await screen.findByRole('button', { name: 'Не подходит' }));
 
     expect(await screen.findByRole('alert')).toBeTruthy();
-    expect(screen.getByText('Не получилось скрыть заявку. Повторите.')).toBeTruthy();
+    expect(screen.getByText('Не получилось скрыть заявку. Попробуйте ещё раз.')).toBeTruthy();
     expect(app.router.state.location.pathname).toBe(CHANDELIER_PATH);
   });
 
@@ -308,7 +308,7 @@ describe('S15 job', () => {
 
     expect(await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeTruthy();
     expect(await screen.findByText('Елена К.')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Не интересно' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Не подходит' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Сохранить заявку' })).toBeNull();
   });
 
@@ -325,7 +325,7 @@ describe('S15 job', () => {
     });
     expect(await screen.findByRole('heading', { name: 'Повесить люстру', level: 2 })).toBeTruthy();
     const segments = screen.getByRole('navigation', { name: 'Что показать' });
-    expect(within(segments).getByRole('link', { name: 'Задачи · 1' }).ariaCurrent).toBe('page');
+    expect(within(segments).getByRole('link', { name: 'Заявки · 1' }).ariaCurrent).toBe('page');
     expect(within(segments).getByRole('link', { name: 'Мастера · 0' })).toBeTruthy();
   });
 
@@ -404,7 +404,7 @@ describe('S12 saved jobs', () => {
     const { app } = startApp('/favorites');
     const segments = await screen.findByRole('navigation', { name: 'Что показать' });
 
-    await click(await within(segments).findByRole('link', { name: 'Задачи · 0' }));
+    await click(await within(segments).findByRole('link', { name: 'Заявки · 0' }));
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/favorites/jobs'));
     expect(

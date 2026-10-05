@@ -30,7 +30,7 @@ export function Card({
   const classes = cx(
     'm-0 flex list-none flex-col rounded-card bg-surface p-4 text-text',
     tight ? 'gap-2' : 'gap-3',
-    (href || onClick) && cx('cursor-pointer', FOCUS),
+    (href || onClick) && cx('cursor-pointer press-card', FOCUS),
     className,
   );
   if (href) {

@@ -46,7 +46,7 @@ notifications стоит над контентными модулями (ARCHITE
 - `notifications.notify_deal_completion` — DealCompletionDue: «Работа выполнена?» с [Да, всё
   хорошо] (кнопку обрабатывает бот deals) и [Есть проблема] тем, кто ещё не отметил.
 - `notifications.notify_deal_marked` — DealMarkedDone: то же второй стороне сразу после отметки
-  первой: «исполнитель (клиент) отметил работу выполненной. Всё в порядке?» (B2, 7.3).
+  первой: «Алексей: работа «…» выполнена. Всё в порядке?» — имя отметившего (B2, 7.3).
 - `notifications.notify_review_request` — ReviewRequested: клиенту — «Как прошла работа?» и
   «Оставить отзыв» (после завершения, через сутки, за 2 дня до конца окна; 7.2).
 - `notifications.notify_review_published` — ReviewPublished: исполнителю — новый отзыв и
@@ -852,20 +852,31 @@ def _preview(text: str) -> str:
 
 @subscriber(DealMarkedDone, NOTIFY_DEAL_MARKED)
 async def notify_deal_marked(
-    event: DealMarkedDone, notify: FromDishka[Notify], deals: FromDishka[DealsApi]
+    event: DealMarkedDone,
+    notify: FromDishka[Notify],
+    deals: FromDishka[DealsApi],
+    identity: FromDishka[IdentityApi],
 ) -> None:
-    """Второй стороне — «Работа выполнена?» сразу после отметки первой; тот же ключ, что у
-    вопроса по сроку, — второй раз не спросим."""
+    """Второй стороне — «Работа выполнена?» сразу после отметки первой, с именем отметившего;
+    тот же ключ, что у вопроса по сроку, — второй раз не спросим."""
     deal = await deals.deal_brief(event.deal_id)
     if deal is None or deal.status != AGREED:
         return  # уже завершена или отменена
-    other = event.client_id if event.marked_by == PERFORMER else event.performer_id
+    by_performer = event.marked_by == PERFORMER
+    other = event.client_id if by_performer else event.performer_id
+    marker = await identity.get_user(event.performer_id if by_performer else event.client_id)
     await notify(
         NotifyCommand(
             user_id=other,
             type=NotificationType.DEAL_COMPLETION_PROMPT,
             dedupe_key=f"deal.completion_prompt:{event.deal_id}:{other}",
-            params={"title": deal.title, "deal_id": str(event.deal_id), "by": event.marked_by},
+            params={
+                "title": deal.title,
+                "deal_id": str(event.deal_id),
+                "by": event.marked_by,
+                # удалённый аккаунт — без имени: в тексте роль («Исполнитель: работа …»)
+                "name": marker.display_name if marker is not None and not marker.is_deleted else "",
+            },
             link=_deal_link(event.deal_id),
         )
     )

@@ -1,8 +1,10 @@
 // «Как удалить аккаунт» (8.1): статическая страница для Google Play — удаление по веб-ссылке, без
 // входа на сайте. Аккаунт удаляется в Telegram: S45 в Mini App (Профиль → «Настройки» → «Удалить
 // аккаунт») или кнопка «Удалить аккаунт» у /settings бота. Что удалится и что останется — те же
-// строки, что на S45 (неймспейс account), чтобы страница не расходилась с экраном. Кнопка ведёт в
-// Mini App сразу на S45 (`startapp=m_deletion`); без доступа к Telegram — поддержка.
+// строки, что на S45 (неймспейс account), чтобы страница не расходилась с экраном. Кнопка «Открыть в
+// Telegram» (та же подпись, что на остальных страницах) ведёт в Mini App сразу на S45
+// (`startapp=m_deletion`); без доступа к Telegram — поддержка: фраза о ней — только вместе с её
+// кнопкой. Внизу — подвал с документами.
 import { useSupportLink } from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
 import { useBackButton } from '@sosed/platform';
@@ -10,6 +12,7 @@ import { Button, Card, Heading, Icon, NumIcon, Text } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 import { useId } from 'react';
 
+import { WebFooter } from './Footer.tsx';
 import { telegramLink } from './links.ts';
 
 const DELETION_START = 'm_deletion';
@@ -27,7 +30,7 @@ export function DeletionScreen() {
   useBackButton(router.history.canGoBack() ? () => router.history.back() : null);
 
   return (
-    <section className="flex flex-col gap-4 px-4 pt-3 pb-6">
+    <section className="flex flex-1 flex-col gap-4 px-4 pt-3 pb-4">
       <Heading variant="h2" as="h1">
         {t('deletion.title')}
       </Heading>
@@ -54,13 +57,15 @@ export function DeletionScreen() {
         items={KEPT.map((key) => account(`deletion.kept.${key}`))}
         note={account('deletion.keptNote')}
       />
-      <Text variant="sm" secondary>
-        {t('deletion.support')}
-      </Text>
+      {support && (
+        <Text variant="sm" secondary>
+          {t('deletion.support')}
+        </Text>
+      )}
       <div className="flex flex-col gap-3">
         {href && (
           <Button href={href} full icon="send">
-            {t('deletion.open')}
+            {t('link.open')}
           </Button>
         )}
         {support && (
@@ -69,6 +74,7 @@ export function DeletionScreen() {
           </Button>
         )}
       </div>
+      <WebFooter deletion={false} />
     </section>
   );
 }

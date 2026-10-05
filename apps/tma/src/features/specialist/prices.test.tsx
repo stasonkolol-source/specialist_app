@@ -69,17 +69,19 @@ const click = (element: HTMLElement) =>
   });
 
 describe('S35 price list', () => {
-  it('groups items by the profile categories with their price kind and duration', async () => {
+  it('groups items by the profile categories with duration, amount and its unit', async () => {
     withBackend();
     const { app, telegram } = startApp('/cabinet/prices');
 
     const electrical = await screen.findByRole('region', { name: 'Электрика' });
-    expect(screen.getByText('4 позиции · порядок — в меню «…»')).toBeTruthy();
-    expect(within(electrical).getByRole('link', { name: /Мастер на час/ }).textContent).toContain(
-      'за час',
-    );
+    expect(screen.getByText('4 позиции. Порядок — в меню «⋯»')).toBeTruthy();
+    // единица — под суммой, а не подписью слева; «фикс» и «от» в подписи не повторяются
+    const row = (name: RegExp) => within(electrical).getByRole('link', { name }).parentElement;
+    expect(row(/Мастер на час/)?.textContent).toMatch(/^Мастер на час2\s000\sRSDза час/u);
+    expect(row(/Выезд и диагностика/)?.textContent).toMatch(/^Выезд и диагностика2\s000\sRSD$/u);
+    expect(within(electrical).queryByText('фикс')).toBeNull();
     const chandeliers = screen.getByRole('region', { name: 'Люстры и карнизы' });
-    expect(within(chandeliers).getByText('от · 1–2 часа')).toBeTruthy();
+    expect(within(chandeliers).getByText('1–2 часа')).toBeTruthy();
     // разряды и валюта — через неразрывные пробелы Intl
     expect(within(chandeliers).getByText(/^от 2\s500\sRSD$/u)).toBeTruthy();
     expect(within(chandeliers).getByText('Скрыта')).toBeTruthy();

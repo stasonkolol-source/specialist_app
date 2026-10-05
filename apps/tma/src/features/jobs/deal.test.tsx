@@ -71,17 +71,21 @@ describe('S24 response and S25 choice', () => {
     await click(await screen.findByRole('link', { name: /^Алексей Морозов/ }));
     await waitFor(() => expect(app.router.state.location.pathname).toBe(CHOICE));
     expect(await screen.findByRole('heading', { name: 'Алексей Морозов', level: 1 })).toBeTruthy();
-    expect(screen.getByText('4,9 · 37 отзывов · Лиман')).toBeTruthy();
+    expect(screen.getByText('4,9')).toBeTruthy();
+    expect(screen.getByText('37 отзывов')).toBeTruthy();
     const offer = screen.getByRole('region', { name: 'Предложение' });
     expect(within(offer).getByText('Цена за работу')).toBeTruthy();
     expect(within(offer).getByText('сегодня в 19:00')).toBeTruthy();
-    expect(screen.getByText(/^Ваш бюджет — 5\s000\sRSD$/u)).toBeTruthy();
+    // бюджет и «Отклонить» — нижней строкой карточки предложения
+    expect(within(offer).getByText(/^Ваш бюджет — 5\s000\sRSD$/u)).toBeTruthy();
+    expect(within(offer).getByRole('button', { name: 'Отклонить' })).toBeTruthy();
     await waitFor(() => expect(mainButton(telegram)?.text).toBe('Выбрать исполнителем'));
 
     await pressMainButton(telegram);
     const sheet = await screen.findByRole('dialog', { name: 'Выбрать этого исполнителя?' });
+    const changes = within(sheet).getByRole('region', { name: 'Что изменится сразу' });
     expect(
-      within(sheet).getByText('Исполнителю откроется точный адрес — в карточке сделки'),
+      within(changes).getByText('Исполнителю откроется точный адрес — в карточке сделки'),
     ).toBeTruthy();
     expect(
       within(sheet).getByText(
@@ -114,14 +118,29 @@ describe('S24 response and S25 choice', () => {
     await waitFor(() => expect(app.router.state.location.pathname).toMatch(/^\/messages\/.+$/));
   });
 
-  it('declines a response and goes back to the job', async () => {
+  it('declines a response after a confirmation and goes back to the job', async () => {
     const backend = withMine();
-    const { app } = startApp(CHOICE);
+    const { app, telegram } = startApp(CHOICE, { popupAnswer: 'ok' });
 
     await click(await screen.findByRole('button', { name: 'Отклонить' }));
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe(MANAGE));
+    expect(telegram.callsOf('web_app_open_popup').at(-1)?.message).toBe(
+      'Отклонить этот отклик? Место освободится, вернуть отклик не получится.',
+    );
     expect(backend.decisions).toEqual([{ id: ALEKSEY?.id, action: 'decline' }]);
+  });
+
+  it('keeps the response when the decline is not confirmed', async () => {
+    const backend = withMine();
+    const { app, telegram } = startApp(CHOICE, { popupAnswer: 'cancel' });
+
+    await click(await screen.findByRole('button', { name: 'Отклонить' }));
+
+    await waitFor(() => expect(telegram.callsOf('web_app_open_popup')).toHaveLength(1));
+    expect(backend.decisions).toEqual([]);
+    expect(app.router.state.location.pathname).toBe(CHOICE);
+    expect(screen.getByRole('button', { name: 'Отклонить' })).toBeTruthy();
   });
 
   it('shows a decided response in words and the deal of the chosen one', async () => {
@@ -147,9 +166,12 @@ describe('S26 deal', () => {
     expect(await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeTruthy();
     expect(screen.getAllByText('Договорились')).toHaveLength(2); // статус и шаг таймлайна
     expect(screen.getByText('Алексей Морозов')).toBeTruthy();
-    expect(screen.getByText('4,9 · 37 отзывов · исполнитель')).toBeTruthy();
+    const performer = screen.getByRole('link', { name: /^Алексей Морозов/ });
+    expect(within(performer).getByText('4,9')).toBeTruthy();
+    expect(within(performer).getByText('37 отзывов')).toBeTruthy();
+    expect(within(performer).getByText('исполнитель')).toBeTruthy();
     expect(screen.getByText('бул. Цара Лазара, 56, кв. 12')).toBeTruthy();
-    expect(screen.getByText('Лиман · адрес видите только вы и Алексей Морозов')).toBeTruthy();
+    expect(screen.getByText('Лиман. Адрес видите только вы и Алексей Морозов')).toBeTruthy();
     const steps = screen.getByRole('region', { name: 'Статус' });
     expect(within(steps).getByText('Отклик на заявку')).toBeTruthy();
     expect(within(steps).getByText('Выбран исполнителем')).toBeTruthy();

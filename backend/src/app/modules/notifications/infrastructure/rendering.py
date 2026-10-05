@@ -7,15 +7,17 @@ payload: коды превращаются в слова каталога, да�
 заявки (`job.expiring`, `job.expired`) — callback-кнопки «Продлить» и «Закрыть», у приглашения
 (`job.invited`, 5.6) — «Посмотреть заявку» и «Откликнуться: «…»» на каждый шаблон получателя:
 нажатие обрабатывает бот модуля jobs (platform/telegram/callbacks.py). У «Работа выполнена?»
-(`deal.completion_prompt`, 6.1b) — callback «Да, выполнено» (бот deals) и web_app «Есть
-проблема» сразу на спор S52 (`p_`, 6.1c); у «Договорились?» (`deal.proposed`, 6.3b) — callback
-«Подтвердить» и «Отклонить» (бот deals) и web_app «Посмотреть условия». Спор (6.1c):
-`dispute.opened` — «Ответить» на S52, `dispute.resolved` — «Посмотреть решение». Подписки на
-заявки (5.7): `job.matched` — карточка B1 (название жирным, бюджет, район и расстояние, когда,
-места и подписка) с «Открыть заявку», «Откликнуться шаблоном «…»» на каждый шаблон получателя,
-«Не интересно» и «Пауза подписки» (их обрабатывает бот jobs); закрытой заявке кнопки гасятся
-(`retired_buttons`). `job.digest` — подборка по подпискам с «Открыть ленту»,
-`profile.stale_reminder` — «Включить «Доступен сегодня»» (S38) и «Обновить профиль» (S33).
+(`deal.completion_prompt`, 6.1b; после отметки второй стороны — «Алексей: работа «…» выполнена»,
+B2) — callback «Да, выполнено» (бот deals) и web_app «Есть проблема» сразу на спор S52 (`p_`,
+6.1c); у «Договорились?» (`deal.proposed`, 6.3b) — callback «Подтвердить» и «Отклонить» (бот
+deals) и web_app «Посмотреть условия». Спор (6.1c): `dispute.opened` — «Ответить» на S52,
+`dispute.resolved` — «Посмотреть решение». Подписки на заявки (5.7): `job.matched` — карточка B1
+(название жирным, бюджет, район и расстояние, когда, места и подписка) с «Открыть заявку»,
+«Откликнуться шаблоном «…»» на каждый шаблон получателя, «Не подходит» и «Пауза подписки» (их
+обрабатывает бот jobs); закрытой заявке кнопки гасятся (`retired_buttons`). Бюджет и время B1 —
+те же строки, что в карточке «Поделиться» (platform/i18n/jobs.py). `job.digest` — подборка по
+подпискам с «Открыть ленту», `profile.stale_reminder` — «Включить «Доступен сегодня»» (S38) и
+«Обновить профиль» (S33).
 
 Шаблоны есть у типов, которые создаёт подписчик (tasks.py): тип без шаблонов — ошибка
 программиста, её ловит тест на каталоги.
@@ -30,9 +32,10 @@ from uuid import UUID
 from app.modules.notifications.application.dto import BroadcastContent, RenderedText
 from app.modules.notifications.domain.broadcast import BroadcastAction
 from app.modules.notifications.domain.catalog import NotificationType
-from app.platform.i18n.dates import long_datetime, short_date, short_time
+from app.platform.i18n.dates import long_datetime
+from app.platform.i18n.jobs import budget, price, when
 from app.platform.i18n.translator import Translator
-from app.platform.kernel.clock import BUSINESS_TZ, Clock, SystemClock
+from app.platform.kernel.clock import Clock, SystemClock
 from app.platform.kernel.localized import Locale, LocalizedText
 from app.platform.telegram.buttons import mini_app_url
 from app.platform.telegram.callbacks import (
@@ -130,18 +133,12 @@ DEAL_CANCEL_REASONS = frozenset({"plans_changed", "no_agreement", "no_contact", 
 """Причины, которые выбирает сторона (`deal_cancel_reason.*`); `expired` и `account_deleted` —
 свои тексты отмены системой."""
 
-PRICE_TYPES = frozenset({"fixed", "from", "hourly"})
-"""Цена с суммой (`notifications.price.*`); договорная — без суммы."""
-
 DISPUTE_KINDS = frozenset({"no_show", "quality", "prepayment_taken", "damage", "safety", "other"})
 """Что случилось (DisputeKind, S52): `notifications.dispute_kind.*`."""
 DISPUTE_OUTCOMES = frozenset({"completed", "cancelled"})
 
 PROHIBITED = frozenset({"drug_courier", "sexual_services", "weapons"})
 
-BUDGET_UNITS = frozenset({"hour", "m2", "visit", "item", "lesson"})
-"""Единица бюджета заявки с подписью «в час», «за м²»…; `work` — за всю работу, без подписи."""
-URGENCIES = frozenset({"asap", "today", "this_week", "flexible"})
 DIGEST_LINES = 10
 """Подписок в подборке строками: больше у человека и не бывает (MAX_ALERTS)."""
 AVAILABILITY_LINK = encode_start_param(
@@ -196,14 +193,7 @@ class GettextNotificationRenderer:
                 ),
             )
         if type_ is NotificationType.DEAL_COMPLETION_PROMPT and params.get("by") in SIDES:
-            return RenderedText(
-                title=self._t("notifications.deal_completion_prompt.title", locale),
-                body=self._t(
-                    f"notifications.deal_completion_prompt.body_marked_{params['by']}",
-                    locale,
-                    title=_short(params.get("title")),
-                ),
-            )
+            return self._marked_done(params["by"], params, locale)
         if type_ is NotificationType.REVIEW_REQUEST:
             stage = params.get("stage", "first")
             stage = stage if stage in REVIEW_STAGES else "first"
@@ -374,24 +364,14 @@ class GettextNotificationRenderer:
 
     def _budget(self, params: Mapping[str, str], locale: Locale) -> str:
         """«5 000 RSD», «3 000–5 000 RSD в час», «Договорная»."""
-        kind = params.get("budget_type")
-        low, high = params.get("budget_min", ""), params.get("budget_max", "")
-        if kind == "negotiable" or not low.isdigit():
-            return self._t("notifications.job_matched.negotiable", locale)
-        amount = _money(int(low), locale)
-        if kind == "range" and high.isdigit():
-            text = self._t(
-                "notifications.job_matched.range",
-                locale,
-                min=amount,
-                max=_money(int(high), locale),
-            )
-        else:
-            text = self._t("notifications.price.fixed", locale, amount=amount)
-        unit = params.get("budget_unit")
-        if unit in BUDGET_UNITS:
-            text = f"{text} {self._t(f'notifications.job_matched.unit.{unit}', locale)}"
-        return text
+        return budget(
+            self._translator,
+            locale,
+            kind=params.get("budget_type"),
+            low=_amount(params.get("budget_min")),
+            high=_amount(params.get("budget_max")),
+            unit=params.get("budget_unit"),
+        )
 
     @staticmethod
     def _distance(params: Mapping[str, str]) -> str | None:
@@ -408,28 +388,15 @@ class GettextNotificationRenderer:
     def _when(self, params: Mapping[str, str], locale: Locale) -> str | None:
         """Когда нужно: «сегодня 18:00–21:00», «завтра 10:00», «12 окт.», иначе по срочности —
         «срочно», «на этой неделе»."""
-        start = params.get("from")
-        if start:
-            begin = datetime.fromisoformat(start)
-            day = self._day(begin, locale)
-            end = params.get("to")
-            hours = short_time(begin)
-            if end:
-                hours = f"{hours}–{short_time(datetime.fromisoformat(end))}"
-            return f"{day} {hours}"
-        urgency = params.get("urgency")
-        if urgency in URGENCIES:
-            return self._t(f"notifications.job_matched.urgency.{urgency}", locale)
-        return None
-
-    def _day(self, moment: datetime, locale: Locale) -> str:
-        today = self._clock.now().astimezone(BUSINESS_TZ).date()
-        day = moment.astimezone(BUSINESS_TZ).date()
-        if day == today:
-            return self._t("notifications.job_matched.today", locale)
-        if (day - today).days == 1:
-            return self._t("notifications.job_matched.tomorrow", locale)
-        return short_date(moment, locale)
+        start, end = params.get("from"), params.get("to")
+        return when(
+            self._translator,
+            locale,
+            start=datetime.fromisoformat(start) if start else None,
+            end=datetime.fromisoformat(end) if end else None,
+            urgency=params.get("urgency"),
+            now=self._clock.now(),
+        )
 
     def _match_buttons(
         self, params: Mapping[str, str], link: str | None, locale: Locale
@@ -562,6 +529,23 @@ class GettextNotificationRenderer:
         )
         return tuple(buttons)
 
+    def _marked_done(self, by: str, params: Mapping[str, str], locale: Locale) -> RenderedText:
+        """B2 после отметки второй стороны: «Алексей: работа «…» выполнена. Всё в порядке?» — имя
+        того, кто отметил, без согласования по роду. Имени нет (удалён аккаунт, уведомление до
+        имени в параметрах) — роль: «Исполнитель: работа …»."""
+        name = (params.get("name") or "").strip()
+        if not name:
+            name = self._t(f"notifications.deal_completion_prompt.name_{by}", locale)
+        return RenderedText(
+            title=self._t("notifications.deal_completion_prompt.title", locale),
+            body=self._t(
+                f"notifications.deal_completion_prompt.body_marked_{by}",
+                locale,
+                name=_short(name),
+                title=_short(params.get("title")),
+            ),
+        )
+
     def _deal_cancelled(self, params: Mapping[str, str], locale: Locale) -> RenderedText:
         """Кто отменил и почему: «Клиент отменил сделку «…»: планы изменились»; отмена системой —
         своим текстом; клиенту из отклика — «Заявка снова открыта»."""
@@ -664,13 +648,7 @@ class GettextNotificationRenderer:
 
     def _price(self, price_type: str | None, amount: str | None, locale: Locale) -> str | None:
         """Цена сделки словами языка: «3 500 RSD», «от 3 500 RSD», «договорная»."""
-        if price_type == "negotiable":
-            return self._t("notifications.price.negotiable", locale)
-        if price_type not in PRICE_TYPES or amount is None or not amount.isdigit():
-            return None
-        return self._t(
-            f"notifications.price.{price_type}", locale, amount=_money(int(amount), locale)
-        )
+        return price(self._translator, locale, price_type, _amount(amount))
 
     def _proposal_buttons(
         self, params: Mapping[str, str], link: str | None, locale: Locale
@@ -902,13 +880,9 @@ def _escape(text: str) -> str:
     return html.escape(text, quote=False)
 
 
-def _money(amount: int, locale: Locale) -> str:
-    """Сумма в пара — динарами по правилам языка: «3 500» (ru), «3.500» (sr), копейки — после
-    запятой."""
-    whole, cents = divmod(amount, 100)
-    separator = "\u00a0" if locale is Locale.RU else "."
-    text = f"{whole:,}".replace(",", separator)
-    return f"{text},{cents:02d}" if cents else text
+def _amount(value: str | None) -> int | None:
+    """Сумма из параметров (пара строкой); нет или не число — None."""
+    return int(value) if value is not None and value.isdigit() else None
 
 
 def _short(title: str | None) -> str:

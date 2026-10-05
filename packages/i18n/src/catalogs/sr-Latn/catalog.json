@@ -22,6 +22,9 @@
     "title": "Sve usluge",
     "search": "Pronađite uslugu",
     "specialists": "{count, plural, one {# stručnjak} few {# stručnjaka} other {# stručnjaka}}",
+    "more": "{names} i još {count}",
+    "notFound": "Niste našli svoju uslugu?",
+    "notFoundText": "Opišite šta treba uraditi — izabraćemo kategoriju",
     "loadError": "Kategorije nisu učitane"
   },
   "results": {
@@ -40,12 +43,19 @@
     "relaxFilters": "Ublažite filtere — na primer, uklonite deo grada ili cenu",
     "resetFilters": "Poništi filtere",
     "more": "Još stručnjaka",
-    "moreError": "Učitavanje nije uspelo. Pokušajte ponovo",
+    "moreError": "Učitavanje sledećih stručnjaka nije uspelo. Pokušajte ponovo.",
     "loadError": "Stručnjaci nisu učitani",
     "locationError": "Ne znamo gde ste: dozvolite pristup lokaciji u Telegram-u",
     "reviews": "({count})",
     "todayUntil": "Danas do {time}",
     "phoneVerified": "Telefon potvrđen",
+    "casual": "Honorarno",
+    "languages": {
+      "ru": "rus.",
+      "sr": "srp.",
+      "en": "engl.",
+      "uk": "ukr."
+    },
     "postJob": "Napravi zahtev",
     "postJobText": "Opišite zadatak — javiće se izvođači kojih nema u rezultatima."
   },
@@ -108,18 +118,20 @@
     "unavailableText": "Stručnjak je sakrio profil ili ga više nema",
     "toCatalog": "Pronađite drugog stručnjaka",
     "proposeJob": "Predloži zahtev",
+    "writeInTelegram": "Napiši poruku u Telegram-u",
+    "casual": "Honorarno",
     "responseMinutes": "Obično odgovori za {count, plural, one {# minut} few {# minuta} other {# minuta}}",
     "responseHours": "Obično odgovori za {count, plural, one {# sat} few {# sata} other {# sati}}",
     "writeFailed": "Razgovor nije moguće otvoriti. Pokušajte ponovo.",
     "report": "Prijavi profil",
     "blockConfirm": "Blokirati stručnjaka? Neće moći da vam piše niti da šalje ponude na vaše zahteve, a vi ga nećete videti u pretrazi.",
     "blocked": "Blokirali ste ovog stručnjaka: ne možete mu pisati, nema ga u pretrazi.",
-    "blockFailed": "Nije uspelo. Pokušajte ponovo."
+    "blockFailed": "Blokiranje nije uspelo. Pokušajte ponovo."
   },
   "prices": {
     "title": "Cenovnik",
     "summary": "{name} · {count, plural, one {# usluga} few {# usluge} other {# usluga}}",
-    "note": "Cene su orijentacione — tačnu cenu majstor će reći posle pregleda. Dodirnite uslugu da biste predložili zahtev.",
+    "note": "Cene su orijentacione — tačnu cenu stručnjak će reći posle pregleda. Dodirnite uslugu da biste predložili zahtev.",
     "other": "Ostalo",
     "durations": {
       "60": "do 1 sata",
@@ -154,7 +166,7 @@
       "communication": "Komunikacija",
       "price": "Cena"
     },
-    "policy": "Ocena se računa samo po poslovima u aplikaciji „Sosedi“: utisci „pre platforme“ ne ulaze u nju.",
+    "policy": "Ocena se računa samo po dogovorima u aplikaciji „Sosedi“: utisci „pre platforme“ ne ulaze u nju.",
     "tabs": "Koji utisci da se prikažu",
     "tabDeals": "Po dogovorima · {count}",
     "tabPrePlatform": "Pre platforme · {count}",
@@ -163,8 +175,8 @@
     "prePlatformEmptyTitle": "Nema utisaka pre platforme",
     "prePlatformEmptyText": "Stručnjak može da zamoli pređašnje klijente da opišu njegov rad",
     "emptyTitle": "Utisaka još nema",
-    "emptyText": "Stručnjak je nov na platformi — utisci će se pojaviti posle prvih poslova",
-    "viaDeal": "Posao u aplikaciji „Sosedi“",
+    "emptyText": "Stručnjak je nov na platformi — utisci će se pojaviti posle prvih dogovora",
+    "viaDeal": "Dogovor u aplikaciji „Sosedi“",
     "rating": "Ocena {rating} od 5",
     "all": "Svi {count}",
     "reply": "Odgovor stručnjaka",
@@ -180,11 +192,11 @@
     "emptyTitle": "Ovde će biti vaši majstori",
     "emptyText": "Dodirnite srce na kartici stručnjaka — pojaviće se na ovom spisku",
     "find": "Pronađite stručnjaka",
-    "error": "Čuvanje nije uspelo. Pokušajte ponovo",
+    "error": "Čuvanje nije uspelo. Pokušajte ponovo.",
     "full": "U omiljenima već ima {limit} — uklonite nekoga da biste dodali",
     "segments": "Šta prikazati",
     "masters": "Majstori",
-    "jobs": "Zadaci",
+    "jobs": "Zahtevi",
     "withCount": "{label} · {count}"
   },
   "goods": {
@@ -197,7 +209,7 @@
     "notifyHint": "Bot će pisati jednom — kada se odeljak otvori",
     "done": "Gotovo! Bot će pisati kada se odeljak „Stvari“ otvori.",
     "doneInApp": "Gotovo! Javićemo u obaveštenjima aplikacije kada se odeljak „Stvari“ otvori.",
-    "error": "Prijava nije uspela. Pokušajte ponovo",
+    "error": "Prijava nije uspela. Pokušajte ponovo.",
     "movingTitle": "Selite se?",
     "movingText": "Naručite selidbu, čišćenje ili montažu nameštaja već sada"
   }

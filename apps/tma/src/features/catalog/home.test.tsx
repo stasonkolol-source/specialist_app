@@ -43,6 +43,9 @@ describe('S03 home', () => {
     ]);
     const today = within(await screen.findByRole('region', { name: 'Свободны сегодня рядом' }));
     expect(today.getByText('Алексей Морозов')).toBeTruthy();
+    // как на артборде S03: «37 отзывов» словом, а не «(37)» выдачи; языки — словами
+    expect(today.getByText('37 отзывов')).toBeTruthy();
+    expect(today.getByText('рус., серб.')).toBeTruthy();
   });
 
   it('keeps the tile grid while the sections load: no lone «All services»', async () => {
@@ -247,7 +250,7 @@ describe('S58 goods soon', () => {
     await click(await screen.findByRole('button', { name: 'Сообщить о запуске' }));
 
     expect((await screen.findByRole('alert')).textContent).toBe(
-      'Не получилось подписаться. Попробуйте ещё раз',
+      'Не получилось подписаться. Попробуйте ещё раз.',
     );
     expect(screen.getByRole('button', { name: 'Сообщить о запуске' })).toBeTruthy();
   });

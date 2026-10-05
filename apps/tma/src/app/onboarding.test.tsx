@@ -140,7 +140,7 @@ describe('new user: S02a → S02b → S02c → home', () => {
     expect(english.disabled).toBe(true);
     const cities = await screen.findByRole('radiogroup', { name: 'Город' });
     expect(
-      within(cities).getByRole('radio', { name: 'Нови-Сад', description: 'Пилотный город' })
+      within(cities).getByRole('radio', { name: 'Нови-Сад', description: 'Уже работаем' })
         .ariaChecked,
     ).toBe('true');
     expect(
@@ -277,7 +277,7 @@ describe('new user: S02a → S02b → S02c → home', () => {
       fireEvent.click(screen.getByRole('link', { name: 'Читать правила полностью' }));
     });
     expect(
-      await screen.findByText('Редакция draft-1 от 27 сентября 2026', {}, { timeout: 3000 }),
+      await screen.findByText('Редакция от 27 сентября 2026', {}, { timeout: 3000 }),
     ).toBeTruthy();
     expect(mainButton(telegram)).toMatchObject({ is_visible: false });
 
@@ -461,7 +461,7 @@ describe('deep links (startapp)', () => {
     await pressMainButton(telegram);
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/legal/privacy'));
-    await screen.findByText('Редакция draft-1 от 4 октября 2026');
+    await screen.findByText('Редакция от 4 октября 2026');
     await pressBackButton(telegram);
 
     expect(await screen.findByRole('heading', { name: NEW_USER.display_name })).toBeTruthy();
@@ -554,7 +554,7 @@ describe('/me stays cached for the whole session', () => {
       fireEvent.click(screen.getByRole('link', { name: 'Читать правила полностью' }));
     });
     expect(
-      await screen.findByText('Редакция draft-1 от 27 сентября 2026', {}, { timeout: 3000 }),
+      await screen.findByText('Редакция от 27 сентября 2026', {}, { timeout: 3000 }),
     ).toBeTruthy();
 
     act(() => {
@@ -634,7 +634,7 @@ describe('S02 errors', () => {
     expect(await screen.findByRole('status')).toBeTruthy();
     expect(
       await screen.findByText(
-        'Нет соединения. Проверьте интернет и попробуйте ещё раз',
+        'Нет соединения. Проверьте интернет и попробуйте ещё раз.',
         {},
         { timeout: 5000 },
       ),
@@ -661,10 +661,10 @@ describe('S02 errors', () => {
 
     await pressMainButton(telegram);
     expect(
-      await screen.findByText('Нет соединения. Проверьте интернет и попробуйте ещё раз'),
+      await screen.findByText('Нет соединения. Проверьте интернет и попробуйте ещё раз.'),
     ).toBeTruthy();
     await pressMainButton(telegram);
-    expect(await screen.findByText('Не получилось сохранить. Попробуйте ещё раз')).toBeTruthy();
+    expect(await screen.findByText('Не получилось сохранить. Попробуйте ещё раз.')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Язык и город' })).toBeTruthy();
   });
 });

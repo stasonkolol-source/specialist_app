@@ -54,12 +54,19 @@ class ResponseForReview:
 @dataclass(frozen=True, slots=True, kw_only=True)
 class PublicJob:
     """Заявка, которую видит любой (гость S15): ей можно поделиться (7.4). Без точки, адреса и
-    описания — карточка для чата показывает только название и место."""
+    описания — карточка для чата показывает название, бюджет, время и место (как S15)."""
 
     client_id: UserId
     title: str
     city_id: CityId
     district_id: DistrictId | None
+    budget_type: str
+    budget_min: int | None
+    budget_max: int | None
+    budget_unit: str
+    urgency: str
+    preferred_from: datetime | None
+    preferred_to: datetime | None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

@@ -1,6 +1,7 @@
 """POST /share (DEVELOPMENT_PLAN 7.4) через API: ссылка на профиль специалиста и заявку — у
 вошедшего с его кодом `_r`, у гостя без; карточки в тестах нет (Bot API не зовём — клиент
-делится ссылкой). Делиться можно только публичным: неизвестный профиль, прямой запрос и
+делится ссылкой), подпись к ссылке — её первые две строки (сама карточка — в unit-тестах
+test_share_card.py). Делиться можно только публичным: неизвестный профиль, прямой запрос и
 истёкшая заявка — 404. Данные коммитятся."""
 
 from collections.abc import AsyncIterator
@@ -49,12 +50,13 @@ async def test_specialist_and_job_links(chat: Chat) -> None:
     assert (link.type, link.id) == (LinkType.SPECIALIST, specialist.profile_id)
     assert shared["url"] == f"https://t.me/sosed_test_bot?startapp={shared['start_param']}"
     assert shared["prepared_message_id"] is None
-    assert shared["text"]
+    assert shared["text"] == "Marko Petrović — специалист в «Соседях»\nЭлектрик, 10 лет"
     job_link = parse_start_param(posted["start_param"])
     assert job_link is not None
     assert (job_link.type, job_link.id, job_link.ref) == (LinkType.JOB, job_id, link.ref)
     assert link.ref is not None
-    assert posted["text"] == "Повесить люстру"
+    # бюджет и срочность — теми же словами, что карточка B1
+    assert posted["text"] == "Повесить люстру — заявка в «Соседях»\n5\u00a0000 RSD · на этой неделе"
     guest_link = parse_start_param(anonymous["start_param"])
     assert guest_link is not None
     assert (guest_link.type, guest_link.ref) == (LinkType.JOB, None)

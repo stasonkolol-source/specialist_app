@@ -53,8 +53,22 @@ def test_name_shows_environment_outside_production(translator: Translator) -> No
 def test_serbian_profile_is_latin(translator: Translator) -> None:
     sr = bot_profiles(translator, Environment.PRODUCTION)[2]
 
-    assert sr.short_description.startswith("Majstori i pomoć u blizini")
+    assert sr.short_description == (
+        "Majstori u blizini, na vašem jeziku."
+        " Novi Sad: popravke, lepota, čišćenje, selidbe, časovi."
+    )
     assert sr.commands[0].description == "Otvori aplikaciju"
+
+
+def test_short_description_names_the_city_and_language(translator: Translator) -> None:
+    """Короткое описание — в профиле бота и в превью ссылки: город и «на вашем языке» видны до
+    /start; полное описание начинается с той же фразы."""
+    ru = bot_profiles(translator, Environment.PRODUCTION)[0]
+
+    assert ru.short_description == (
+        "Мастера рядом, на вашем языке. Нови-Сад: ремонт, красота, уборка, переезды, уроки."
+    )
+    assert ru.description.startswith("«Соседи» — мастера рядом, на вашем языке. Нови-Сад:")
 
 
 def test_problems_name_the_broken_limit() -> None:

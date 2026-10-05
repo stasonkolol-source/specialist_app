@@ -4,7 +4,8 @@
 // состояние, «На проверке» (клиент ещё не видит), «Первый отклик», места, «Открыть заявку»,
 // «Изменить» (S16) и «Отозвать отклик» с подтверждением; не выбран и отозван — приглушённо, со
 // временем решения. Иконка справа от заголовка — шаблоны S57. Отправленный с S16 — «клиент увидит
-// его после проверки». «Открыть чат» и «Сделка» у выбранного появятся с перепиской и сделкой (6.x).
+// его после проверки». Выбранного ждёт сделка: «Вас выбрали. Адрес и время — в сделке», главная
+// кнопка — «Открыть сделку» (пока сделки грузятся — в загрузке), «Открыть заявку» — вторая.
 import type { MyResponseOut, ResponseGroup, ResponseStatus } from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
 import { myResponseItems, useMyDeals, useMyResponses, useWithdrawResponse } from '@sosed/hooks';
@@ -199,7 +200,7 @@ function ResponseCardSkeleton() {
         <SkeletonText size="title" className="w-20" />
       </div>
       <SkeletonText size="cap" className="w-1/2" />
-      <Skeleton radius="panel" className="mt-1 h-9 w-32" />
+      <Skeleton radius="icon" className="mt-1 h-9 w-32" />
     </SkeletonCard>
   );
 }
@@ -229,6 +230,9 @@ function ResponseCard({
   const decided = response.decided_at ?? response.updated_at;
   const deals = useMyDeals({ role: 'performer' });
   const deal = accepted ? deals.data?.items.find((item) => item.response_id === response.id) : null;
+  // у выбранного главная — сделка: пока список сделок грузится, кнопка ждёт на своём месте; сделки
+  // не нашлось (не загрузилась) — главной становится «Открыть заявку»
+  const dealButton = accepted && (deal !== undefined || deals.isPending);
 
   const confirmWithdraw = async () => {
     if (await platform.confirm(t('responses.withdrawConfirm'))) onWithdraw();
@@ -238,7 +242,7 @@ function ResponseCard({
     <Card as="article" tight aria-label={t('responses.card', { title: job.title, state })}>
       {accepted && (
         <Banner tone="ok">
-          <b>{t('responses.acceptedTitle')}</b> — {t('responses.acceptedText')}
+          <b>{t('responses.acceptedLead')}</b> {t('responses.acceptedText')}
         </Banner>
       )}
       {active && (
@@ -273,17 +277,19 @@ function ResponseCard({
       </div>
       {(active || accepted) && (
         <div className="mt-1 flex flex-wrap items-center gap-2">
-          {deal && (
+          {dealButton && (
             <Button
               size="sm"
               aria-describedby={titleId}
-              onClick={() => void navigate({ to: dealPath(deal.id) })}
+              disabled={!deal}
+              aria-busy={!deal}
+              onClick={() => deal && void navigate({ to: dealPath(deal.id) })}
             >
               {t('responses.openDeal')}
             </Button>
           )}
           <Button
-            variant={accepted && !deal ? 'primary' : 'outline'}
+            variant={accepted && !dealButton ? 'primary' : 'outline'}
             size="sm"
             aria-describedby={titleId}
             onClick={() => void navigate({ to: jobPath(job.id) })}

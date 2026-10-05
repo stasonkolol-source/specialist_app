@@ -1,9 +1,9 @@
 {
   "become": {
-    "step": "Korak {current} od {total} · nacrt se čuva sam",
+    "step": "Korak {current} od {total}. Nacrt se čuva sam",
     "loading": "Učitavamo nacrt",
-    "saveError": "Čuvanje nije uspelo. Proverite i pokušajte ponovo.",
-    "offlineError": "Nema veze — proverite internet i pokušajte ponovo.",
+    "saveError": "Čuvanje nije uspelo. Proverite podatke i pokušajte ponovo.",
+    "offlineError": "Nema veze. Proverite internet i pokušajte ponovo.",
     "missing": {
       "category_ids": "Izaberite bar jednu kategoriju",
       "headline": "Napišite ukratko o sebi",
@@ -37,8 +37,8 @@
       "lessCategories": "Skupi",
       "categoriesLimit": "Možete izabrati do {count, plural, one {# kategorije} few {# kategorije} other {# kategorija}}",
       "headline": "Ukratko o sebi",
-      "headlinePlaceholder": "Na primer: električar · sitne popravke · lusteri",
-      "headlineHint": "Prikazuje se ispod imena · {count} od {max}",
+      "headlinePlaceholder": "Na primer: električar, sitne popravke, lusteri",
+      "headlineHint": "Prikazuje se ispod imena. {count} od {max}",
       "about": "O sebi",
       "aboutPlaceholder": "Iskustvo, alat, gde radite",
       "aboutHint": "Bez telefona i linkova — kontakti se otvaraju nakon dogovora",
@@ -96,7 +96,7 @@
       },
       "pending_review": {
         "label": "Na proveri",
-        "text": "Obično do 30 minuta"
+        "text": "Provera obično traje do 30 minuta"
       },
       "published": {
         "label": "Objavljen",
@@ -116,12 +116,12 @@
     "title": "Kabinet stručnjaka",
     "casualTitle": "Honorarni profil",
     "state": {
-      "published": "Profil je objavljen · vidljiv u pretrazi",
-      "publishedUnlisted": "Profil je objavljen · ne prikazuje se u katalogu",
-      "pending_review": "Profil je na proveri · obično do 30 minuta",
-      "draft": "Nacrt · ostalo je još nekoliko koraka",
-      "rejected": "Potrebne su ispravke · razlog je u obaveštenju",
-      "hidden": "Profil je skriven · klijenti ga ne vide",
+      "published": "Profil je objavljen i vidljiv u pretrazi",
+      "publishedUnlisted": "Profil je objavljen, ali se ne prikazuje u katalogu",
+      "pending_review": "Profil je na proveri, obično do 30 minuta",
+      "draft": "Nacrt, ostalo je još nekoliko koraka",
+      "rejected": "Potrebne su ispravke. Razlog je u obaveštenju",
+      "hidden": "Profil je skriven, klijenti ga ne vide",
       "suspended": "Profil je obustavila moderacija"
     },
     "continue": "Nastavite popunjavanje",
@@ -134,6 +134,7 @@
     "availability": "Dostupnost",
     "availabilityValue": "danas do {time}",
     "availabilityOff": "isključeno",
+    "viewAsClient": "Pogledaj kao klijent",
     "hint": {
       "category_ids": "Izaberite kategorije usluga",
       "headline": "Napišite ukratko o sebi",
@@ -179,7 +180,7 @@
   },
   "prices": {
     "title": "Cenovnik",
-    "count": "{count, plural, one {# stavka} few {# stavke} other {# stavki}} · redosled — u meniju „…“",
+    "count": "{count, plural, one {# stavka} few {# stavke} other {# stavki}}. Redosled — u meniju „⋯“",
     "empty": "Još je prazno. Dodajte usluge sa cenama — klijenti upoređuju stručnjake po cenovniku",
     "noGroup": "Bez grupe",
     "add": "Dodaj stavku",
@@ -263,7 +264,7 @@
   },
   "avatar": {
     "label": "Fotografija profila",
-    "initials": "Za sada — inicijali",
+    "initials": "Bez fotografije klijenti vide inicijale",
     "own": "Vaša fotografija",
     "change": "Promeni fotografiju",
     "uploading": "Otpremamo fotografiju — {percent}%",
@@ -321,6 +322,6 @@
     "full": "Svih {limit} mesta je zauzeto. Mesto će se osloboditi kada link istekne ili povučete neiskorišćeni.",
     "unavailableTitle": "Profil još nije objavljen",
     "unavailable": "Pređašnje klijente možete pozvati kada je profil objavljen: inače link nema ko da otvori.",
-    "failed": "Nije uspelo. Pokušajte ponovo"
+    "failed": "Nije uspelo. Pokušajte ponovo."
   }
 }

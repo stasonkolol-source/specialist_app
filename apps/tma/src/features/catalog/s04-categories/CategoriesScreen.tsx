@@ -1,7 +1,8 @@
 // S04 Категории (DEVELOPMENT_PLAN 4.4): услуги города деревом — раздел раскрывается на месте,
-// услуга ведёт в выдачу S05. Справа — сколько специалистов (с подкатегориями), в подписи —
-// ориентир цены города. Строка поиска — тоже в S05. Гость видит экран без входа.
-// «Не нашли свою услугу?» ведёт в создание заявки — с шагом 5.2.
+// услуга ведёт в выдачу S05. Справа — сколько специалистов (с подкатегориями), в подписи раздела —
+// первые подкатегории перечнем («Электрика, сантехника, сборка мебели и ещё 1»), у услуги —
+// ориентир цены города. Строка поиска — тоже в S05. Гость видит экран без входа. Последняя строка,
+// как на артборде, — «Не нашли свою услугу?»: мастер заявки S20a (5.2) с набранным в поиске текстом.
 import type { CategoryOut } from '@sosed/api-client';
 import { useCategories, useCategoryCounts } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
@@ -14,8 +15,8 @@ import { Fragment, useState } from 'react';
 
 import { LoadError } from '../shared/LoadError.tsx';
 import { useCatalogCity } from '../shared/city.ts';
-import type { ResultsSearch } from '../shared/paths.ts';
-import { CATALOG_PATHS } from '../shared/paths.ts';
+import type { CreateJobSearch, ResultsSearch } from '../shared/paths.ts';
+import { CATALOG_PATHS, CREATE_JOB_PATH } from '../shared/paths.ts';
 
 const HOME_PATH = '/';
 const PALETTES = 5;
@@ -26,6 +27,11 @@ function iconOf(name: string | null): IconName {
   return name !== null && (ICON_NAMES as readonly string[]).includes(name)
     ? (name as IconName)
     : 'grid';
+}
+
+/** «Сантехника» внутри перечня — с маленькой буквы; аббревиатуры («IT-помощь») — как есть. */
+function lowerFirst(name: string): string {
+  return /^\p{Lu}{2}/u.test(name) ? name : name.charAt(0).toLowerCase() + name.slice(1);
 }
 
 export function CategoriesScreen() {
@@ -55,6 +61,21 @@ export function CategoriesScreen() {
     event.preventDefault();
     const q = query.trim();
     if (q) void router.navigate({ to: CATALOG_PATHS.results, search: { q } });
+  };
+  // набранное в поиске — готовое название заявки
+  const createSearch: CreateJobSearch = query.trim() ? { title: query.trim() } : {};
+  const openCreate = (event: MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    void router.navigate({ to: CREATE_JOB_PATH, search: createSearch });
+  };
+  /** Подпись раздела: первые подкатегории перечнем, остальные — «и ещё N». */
+  const preview = (children: readonly CategoryOut[]) => {
+    const names = children
+      .slice(0, PREVIEW_CHILDREN)
+      .map((child, index) => (index === 0 ? child.name : lowerFirst(child.name)))
+      .join(', ');
+    const rest = children.length - PREVIEW_CHILDREN;
+    return rest > 0 ? t('categories.more', { names, count: rest }) : names;
   };
   const hint = (node: CategoryOut) =>
     node.price_hint
@@ -97,10 +118,7 @@ export function CategoriesScreen() {
               <Row
                 leading={leading}
                 title={title}
-                subtitle={node.children
-                  .slice(0, PREVIEW_CHILDREN)
-                  .map((child) => child.name)
-                  .join(', ')}
+                subtitle={preview(node.children)}
                 trailing={counted(node)}
                 expanded={expanded}
                 onClick={() => setOpen(expanded ? null : node.id)}
@@ -153,6 +171,18 @@ export function CategoriesScreen() {
         />
       </form>
       {content}
+      {tree.data && (
+        <Group>
+          <Row
+            icon="plus"
+            title={<span className="font-semibold">{t('categories.notFound')}</span>}
+            subtitle={t('categories.notFoundText')}
+            chevron
+            href={router.buildLocation({ to: CREATE_JOB_PATH, search: createSearch }).href}
+            onClick={openCreate}
+          />
+        </Group>
+      )}
     </section>
   );
 }

@@ -96,7 +96,12 @@ async def test_guest_gets_ready_cards(catalog: Catalog) -> None:
         catalog.specialist(
             "Marko Petrović",
             price_from=150_000,
-            card={"display_name": "Marko Petrović", "kind": "pro", "district": district},
+            card={
+                "display_name": "Marko Petrović",
+                "kind": "pro",
+                "district": district,
+                "price_from_unit": "hour",
+            },
         )
     )
 
@@ -112,6 +117,7 @@ async def test_guest_gets_ready_cards(catalog: Catalog) -> None:
         "Marko Petrović",
         150_000,
     )
+    assert card["price_from_unit"] == "hour"
     assert card["district"] == {"id": 7, "name": "Liman"}
     assert (card["is_new"], card["rating"], card["avatar"], card["distance_m"]) == (
         True,

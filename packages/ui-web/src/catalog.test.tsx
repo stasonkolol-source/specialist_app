@@ -72,10 +72,43 @@ describe('Sheet (S06)', () => {
     }
     expect(onClose).toHaveBeenCalledTimes(3);
   });
+
+  it('без крестика (своя отмена, S25, S54): Escape и затемнение закрывают, строка заголовка той же высоты', () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <Sheet
+        open
+        title="Выбрать исполнителем?"
+        closeLabel="Закрыть"
+        closeButton={false}
+        onClose={onClose}
+      >
+        <button type="button" onClick={onClose}>
+          Отмена
+        </button>
+      </Sheet>,
+    );
+    expect(screen.queryByRole('button', { name: 'Закрыть' })).toBeNull();
+    const heading = screen.getByRole('heading', { name: 'Выбрать исполнителем?' });
+    expect(heading.parentElement?.className).toContain('min-h-11');
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    fireEvent.click(container.querySelector('.bg-scrim') as Element);
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it('появляется плавно только без prefers-reduced-motion', () => {
+    const { container } = render(
+      <Sheet open title="Фильтры" closeLabel="Закрыть" onClose={() => {}}>
+        <p>Цена</p>
+      </Sheet>,
+    );
+    expect(screen.getByRole('dialog').className).toContain('enter-sheet');
+    expect(container.querySelector('.bg-scrim')?.className).toContain('enter-fade');
+  });
 });
 
 describe('SpecialistCard (S05)', () => {
-  it('рейтинг с отзывами, район и языки, бейджи и цена; сердечко — кнопка', async () => {
+  it('рейтинг с отзывами и район через одну «·», языки своей строкой, бейджи и цена; сердечко — кнопка', async () => {
     const onToggle = vi.fn();
     const { container } = render(
       <SpecialistCard
@@ -84,7 +117,8 @@ describe('SpecialistCard (S05)', () => {
         rating="4,9"
         reviews="(37)"
         newLabel="Новый специалист"
-        meta={['Лиман, ≈ 1,5 км', 'ru, sr']}
+        languages="рус., серб."
+        meta={['Лиман, ≈ 1,5 км']}
         badges={[{ label: 'Сегодня до 20:00', tone: 'ok', dot: true }]}
         price="от 2 000 RSD"
         href="#s08"
@@ -94,7 +128,13 @@ describe('SpecialistCard (S05)', () => {
 
     const link = screen.getByRole('link', { name: /Алексей Морозов/ });
     expect(link.getAttribute('href')).toBe('#s08');
-    expect(link.textContent).toContain('4,9(37)·Лиман, ≈ 1,5 км·ru, sr');
+    // точка — перед каждой частью строки рейтинга: первая обрезается, после района точки нет
+    const rating = screen.getByText('(37)').closest('.overflow-hidden') as Element;
+    expect(rating.textContent).toBe('·4,9(37)·Лиман, ≈ 1,5 км');
+    // языки — своей строкой с иконкой, без «·»
+    const languages = screen.getByText('рус., серб.').parentElement as Element;
+    expect(languages.textContent).toBe('рус., серб.');
+    expect(languages.querySelector('svg')).toBeTruthy();
     expect(screen.getByText('Сегодня до 20:00')).toBeTruthy();
     expect(screen.getByText('от 2 000 RSD')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Добавить в избранное' }));
@@ -102,16 +142,35 @@ describe('SpecialistCard (S05)', () => {
     expect(await a11yViolations(container)).toEqual([]);
   });
 
-  it('без отзывов — «Новый специалист», без фото — инициалы', () => {
-    render(<SpecialistCard name="Ana Ilić" newLabel="Новый специалист" meta={[]} href="#s08" />);
+  it('без отзывов — «Новый специалист», без фото — инициалы, без языков — строки нет', () => {
+    const { container } = render(
+      <SpecialistCard name="Ana Ilić" newLabel="Новый специалист" meta={[]} href="#s08" />,
+    );
 
     expect(screen.getByRole('link').textContent).toContain('Новый специалист');
     expect(screen.getByRole('img', { name: 'Ana Ilić' }).textContent).toBe('AI');
+    expect(container.querySelector('svg')).toBeNull();
+  });
+
+  it('подработка — серый бейдж «Подработка» в строке имени', () => {
+    render(
+      <SpecialistCard
+        name="Иван Гаврилов"
+        tag="Подработка"
+        newLabel="Новый специалист"
+        meta={['Лиман']}
+        href="#s08"
+      />,
+    );
+
+    const tag = screen.getByText('Подработка');
+    expect(tag.parentElement?.textContent).toBe('Иван ГавриловПодработка');
+    expect(tag.className).toContain('bg-bg2');
   });
 });
 
 describe('JobCard (S13)', () => {
-  it('заголовок и бюджет, бейджи и время, описание, место и места; ссылка — вся карточка', async () => {
+  it('заголовок и бюджет, бейджи, описание, место и время, места; ссылка — вся карточка', async () => {
     const onOpen = vi.fn((event: { preventDefault: () => void }) => event.preventDefault());
     const { container } = render(
       <JobCard
@@ -140,6 +199,15 @@ describe('JobCard (S13)', () => {
     expect(screen.getByText('Лиман, ≈ 1,2 км')).toBeTruthy();
     expect(screen.getByText('откликов 3 из 5')).toBeTruthy();
     expect(screen.getAllByRole('img', { name: /^Фото \d$/ })).toHaveLength(2);
+    // строки не зависят от длины текстов: бейджам — вся строка, время — в строке места, места —
+    // своей строкой
+    expect(screen.getByText('Сегодня 18–21').parentElement?.textContent).toBe(
+      'Сегодня 18–21Люстры',
+    );
+    expect(screen.getByText('15 мин назад').parentElement?.textContent).toBe(
+      'Лиман, ≈ 1,2 км15 мин назад',
+    );
+    expect(screen.getByText('откликов 3 из 5').parentElement?.textContent).toBe('откликов 3 из 5');
     // полоски мест — декорация: число мест читается подписью
     expect(container.querySelectorAll('[aria-hidden="true"] > i')).toHaveLength(5);
     expect(container.querySelectorAll('[aria-hidden="true"] > i.bg-accent')).toHaveLength(3);

@@ -1,5 +1,8 @@
 // Mini App на Vite 8 + React 19 (DEVELOPMENT_PLAN 0.21a, ADR-0012).
+import { dirname, resolve, sep } from 'node:path';
+
 import { fontPreload } from '@sosed/design-tokens/vite';
+import { typograph } from '@sosed/i18n/vite';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import type { HtmlTagDescriptor, Plugin } from 'vite';
@@ -84,10 +87,16 @@ function firstScreenHints(mediaOrigins: readonly string[]): Plugin {
         const home = [...chunks.values()].find((chunk) =>
           chunk.facadeModuleId?.endsWith(FIRST_ROUTE),
         );
+        // Главная — тоже вход сборки (см. rolldownOptions.input), но в index.html её нет: скрипт
+        // входа страницы и его статические импорты Vite подключает сам
+        const page = [...chunks.values()].find(
+          (chunk) => chunk.isEntry && chunk.facadeModuleId?.endsWith('.html'),
+        );
+        const injected = new Set([page?.fileName, ...(page?.imports ?? [])]);
         const files = new Set<string>();
         const visit = (fileName: string) => {
           const chunk = chunks.get(fileName);
-          if (!chunk || chunk.isEntry || files.has(fileName)) return;
+          if (!chunk || injected.has(fileName) || files.has(fileName)) return;
           files.add(fileName);
           for (const imported of chunk.imports) visit(imported);
         };
@@ -121,6 +130,22 @@ function immutableAssets(): Plugin {
   };
 }
 
+/** og:image в index.html — полным адресом картинки на origin Mini App (`TMA_PUBLIC_ORIGIN` сборки
+ *  stage и prod, deploy.yml): превью ссылок в мессенджерах берут картинку только по полному адресу.
+ *  Без него (dev, e2e) — путь от корня. */
+function ogImageOrigin(origin: string | undefined): Plugin {
+  return {
+    name: 'sosed-og-image-origin',
+    transformIndexHtml: (html) =>
+      origin
+        ? html.replace(
+            'content="/og-image.png"',
+            `content="${origin.replace(/\/$/, '')}/og-image.png"`,
+          )
+        : html,
+  };
+}
+
 /** Экран Главной S03 — тот же, что считает бюджет первого экрана (scripts/size.ts). */
 const FIRST_ROUTE = 'src/features/catalog/s03-home/index.ts';
 
@@ -135,14 +160,19 @@ export default defineConfig(({ mode }) => {
     storageOrigins: list(env.TMA_STORAGE_ORIGINS),
     sentryDsn: env.VITE_SENTRY_DSN,
   };
+  const firstRoute = resolve(import.meta.dirname, FIRST_ROUTE);
+  const firstRouteDir = `${dirname(firstRoute)}${sep}`;
   return {
     plugins: [
+      // неразрывные пробелы в каталогах переводов — при сборке, без кода в бандле (GLOSSARY.md)
+      typograph(),
       react(),
       tailwindcss(),
       fontPreload(),
       cspHeaders(csp),
       immutableAssets(),
       firstScreenHints(mediaOrigins),
+      ogImageOrigin(env.TMA_PUBLIC_ORIGIN),
     ],
     define: { __APP_VERSION__: JSON.stringify(pkg.version) },
     // manifest — для бюджета первого экрана (scripts/size.ts)
@@ -156,12 +186,27 @@ export default defineConfig(({ mode }) => {
       // с ленивыми чанками (i18next, SDK Telegram, хелперы рантайма), в мелкие отдельные. Первый
       // экран — тот же код, но меньше запросов и лучше сжатие. Без рекурсии по зависимостям: иначе
       // в чанк входа попадало и то, что только реэкспортируют пакеты-«бочки» (загрузка медиа,
-      // сроки заявок), — оно нужно лишь ленивым экранам. Вход ничего не импортирует из других
-      // чанков (scripts/size.ts считает его целиком), поэтому круговых зависимостей с ним нет
+      // сроки заявок), — оно нужно лишь ленивым экранам. То же — для статических импортов Главной
+      // S03: она — второй вход сборки (в index.html её нет, грузит маршрут), и rolldown помечает
+      // $initial ровно то, что она использует. Раньше это были 14 мелких чанков (Choice, Group,
+      // Field, хуки поиска…), их и так качал modulepreload вместе со входом: теперь меньше
+      // запросов и на 4,7 KB gzip меньше. Сама Главная — своим чанком, её ленивые блоки — своими.
+      // Вход импортирует только общий для двух входов рантайм rolldown (scripts/size.ts считает
+      // его): круговых зависимостей со входом нет
       rolldownOptions: {
+        input: { index: resolve(import.meta.dirname, 'index.html'), 's03-home': firstRoute },
         output: {
           codeSplitting: {
-            groups: [{ name: 'app', tags: ['$initial'], includeDependenciesRecursively: false }],
+            groups: [
+              {
+                name: 's03-home',
+                tags: ['$initial'],
+                test: (id: string) => id.startsWith(firstRouteDir),
+                includeDependenciesRecursively: false,
+                priority: 1,
+              },
+              { name: 'app', tags: ['$initial'], includeDependenciesRecursively: false },
+            ],
           },
         },
       },
