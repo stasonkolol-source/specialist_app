@@ -378,6 +378,7 @@ export const getViewsListResponseCardsResponseMock = (
     is_first: faker.datatype.boolean(),
     is_new: faker.datatype.boolean(),
     created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+    revision: faker.number.int(),
     performer: {
       display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
       profile_id: faker.helpers.arrayElement([faker.string.uuid(), null]),

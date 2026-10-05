@@ -17,6 +17,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.entrypoints._wiring import make_worker_container, module_routers
 from app.modules.reviews.api import ReviewsApi
+from app.modules.reviews.application.use_cases.attach_profile_reviews import (
+    AttachProfileReviews,
+    AttachProfileReviewsCommand,
+)
 from app.modules.reviews.application.use_cases.forget_user_reviews import (
     ForgetUserReviews,
     ForgetUserReviewsCommand,
@@ -199,6 +203,38 @@ async def test_review_after_the_deal_is_published_rated_and_ranked(
     removed = await card(chat, client, deal_id)
     assert removed["my_review"]["status"] == "removed"
     assert removed["review_until"] is None  # второй отзыв не написать
+
+
+async def test_review_left_before_the_profile_joins_it_when_published(
+    chat: Chat, worker: AsyncContainer
+) -> None:
+    """UXM-12: исполнитель работал, пока профиль ждал проверки, — сделка без профиля, отзыв без
+    профиля, карточка «Новый специалист». Публикация профиля привязывает отзыв и рейтинг."""
+    specialist, client, deal_id = await agreed_deal(chat)
+    performer = UserId(specialist.user_id)
+    # как у сделки, заключённой до публикации профиля: сделка помнит только опубликованный
+    await chat.execute("UPDATE deals.deals SET profile_id = NULL WHERE id = :id", id=deal_id)
+    await complete(chat, deal_id, client, performer)
+    created = await chat.post(client, f"/deals/{deal_id}/review", {"rating": 5})
+    assert created.status_code == 201, created.text
+    await checked(worker, client)
+    orphan = await chat.scalar(
+        "SELECT subject_profile_id FROM reviews.reviews WHERE id = :id", id=created.json()["id"]
+    )
+    assert orphan is None
+    assert (await profile_reviews(chat, client, specialist))["summary"]["count"] == 0
+
+    async with worker() as request:
+        attach = await request.get(AttachProfileReviews)
+        command = AttachProfileReviewsCommand(user_id=performer, profile_id=specialist.profile_id)
+        assert await attach(command) == 1
+        assert await attach(command) == 0  # повтор события ничего не меняет
+
+    listed = await profile_reviews(chat, client, specialist)
+    assert [item["id"] for item in listed["items"]] == [created.json()["id"]]
+    assert (listed["summary"]["count"], listed["summary"]["distribution"]) == (1, [0, 0, 0, 0, 1])
+    s08 = (await chat.get(client, f"/specialists/{specialist.profile_id}")).json()
+    assert s08["rating_count"] == 1
 
 
 async def test_window_closes_fourteen_days_after_completion(chat: Chat) -> None:

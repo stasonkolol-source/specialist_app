@@ -32,6 +32,8 @@ notifications стоит над контентными модулями (ARCHITE
   выбрал вас» и кнопка к сделке (6.1b), если сделка ещё идёт.
 - `notifications.notify_passed_over` — ResponseAccepted: остальным откликнувшимся «Клиент выбрал
   другого исполнителя», пока заявка «в работе».
+- `notifications.notify_job_closed` — JobClosed: исполнителям, чьи отклики ждали решения, «Заявку
+  закрыли» (`response.not_selected` с `reason: job_closed`, MU-11).
 - `notifications.notify_deal_proposed` — DealProposed: второй стороне «Клиент (исполнитель)
   предлагает договориться» и кнопка к условиям, пока предложение ждёт (6.3b).
 - `notifications.notify_deal_cancelled` — DealCancelled: второй стороне — кто отменил и почему
@@ -97,6 +99,7 @@ from app.modules.notifications.application.ports import (
     NOTIFY_DEAL_REMINDER,
     NOTIFY_DISPUTE_OPENED,
     NOTIFY_DISPUTE_RESOLVED,
+    NOTIFY_JOB_CLOSED,
     NOTIFY_JOB_EXPIRED,
     NOTIFY_JOB_EXPIRING,
     NOTIFY_JOB_INVITED,
@@ -236,6 +239,8 @@ FIX_LINKS = {"job": LinkType.JOB, "profile": LinkType.SPECIALIST}
 """Куда ведёт «Исправить»: к заявке или профилю; отклик — к его заявке; остальное — на
 Главную (экраны — позже)."""
 RESPONSE = "response"
+JOB_CLOSED = "job_closed"
+"""`reason` у `response.not_selected`: отклик не выбран, потому что клиент закрыл заявку."""
 AGREED, PROPOSED = "agreed", "proposed"
 CLIENT, PERFORMER = "client", "performer"
 """Стороны сделки — как `cancelled_by` в DealCancelled."""
@@ -655,6 +660,26 @@ async def notify_passed_over(
                 type=NotificationType.RESPONSE_NOT_SELECTED,
                 dedupe_key=f"response.not_selected:{event.response_id}:{performer_id}",
                 params={"title": job.title},
+            )
+        )
+
+
+@subscriber(JobClosed, NOTIFY_JOB_CLOSED)
+async def notify_job_closed(
+    event: JobClosed, notify: FromDishka[Notify], jobs: FromDishka[JobsApi]
+) -> None:
+    """Клиент закрыл или удалил заявку: откликнувшимся — «Заявку закрыли», а не молчание и
+    «Клиент выбрал другого» в «Моих откликах» (MU-11)."""
+    notice = await jobs.closed_notice(event.job_id)
+    if notice is None:
+        return
+    for performer_id in notice.performer_ids:
+        await notify(
+            NotifyCommand(
+                user_id=performer_id,
+                type=NotificationType.RESPONSE_NOT_SELECTED,
+                dedupe_key=f"response.job_closed:{event.job_id}:{performer_id}",
+                params={"title": notice.title, "reason": JOB_CLOSED},
             )
         )
 

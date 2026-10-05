@@ -2,7 +2,9 @@
 уникальный индекс `uq_reviews_deal_id_author_id` — ReviewExistsError; второй отзыв до платформы
 того же человека о том же профиле — в `uq_reviews_subject_profile_id_author_id`."""
 
-from sqlalchemy import select
+from uuid import UUID
+
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,7 +13,9 @@ from app.modules.reviews.domain.review import (
     Reply,
     ReplyStatus,
     Review,
+    ReviewDirection,
     ReviewId,
+    ReviewKind,
 )
 from app.modules.reviews.errors import (
     PrePlatformReviewExistsError,
@@ -93,6 +97,22 @@ class SqlReviewRepository:
             ReviewRow.subject_user_id == user_id, ReviewRow.reply_body.is_not(None)
         )
         return [ReviewId(value) for value in (await self._session.scalars(stmt)).all()]
+
+    async def attach_profile(self, user_id: UserId, profile_id: UUID) -> int:
+        self._uow.require_active()
+        # и стёртые: их строка рейтинг не считает, а после восстановления не нужна вторая правка
+        attached = await self._session.execute(
+            update(ReviewRow)
+            .where(
+                ReviewRow.subject_user_id == user_id,
+                ReviewRow.subject_profile_id.is_(None),
+                ReviewRow.kind == ReviewKind.DEAL.value,
+                ReviewRow.direction == ReviewDirection.CLIENT_TO_PERFORMER.value,
+            )
+            .values(subject_profile_id=profile_id, version=ReviewRow.version + 1)
+            .returning(ReviewRow.id)
+        )
+        return len(attached.all())
 
     async def of_deal(self, deal_id: DealId, author_id: UserId) -> ReviewId | None:
         stmt = select(ReviewRow.id).where(

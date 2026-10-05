@@ -11,6 +11,7 @@ from app.modules.reviews.application.ports import (
     ReviewRepository,
     ReviewRequests,
 )
+from app.modules.reviews.application.use_cases.attach_profile_reviews import AttachProfileReviews
 from app.modules.reviews.application.use_cases.create_review_invite import CreateReviewInvite
 from app.modules.reviews.application.use_cases.forget_user_reviews import ForgetUserReviews
 from app.modules.reviews.application.use_cases.leave_invite_review import LeaveInviteReview
@@ -50,6 +51,7 @@ class ReviewsProvider(Provider):
     open_review_request = provide(OpenReviewRequest)
     remind_reviews = provide(RemindReviews)
     forget_user_reviews = provide(ForgetUserReviews)
+    attach_profile_reviews = provide(AttachProfileReviews)
     create_review_invite = provide(CreateReviewInvite)
     list_review_invites = provide(ListReviewInvites)
     revoke_review_invite = provide(RevokeReviewInvite)

@@ -299,7 +299,8 @@
       "shortlisted": "Klijent je označio vašu ponudu",
       "declined": "Klijent je odbio ponudu",
       "not_selected": "Klijent je izabrao drugog",
-      "withdrawn": "Povukli ste ponudu"
+      "withdrawn": "Povukli ste ponudu",
+      "job_closed": "Zahtev je zatvoren"
     },
     "acceptedTitle": "Izabrani ste",
     "acceptedLead": "Izabrani ste.",

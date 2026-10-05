@@ -455,6 +455,41 @@ def test_passed_over_performer_gets_a_kind_word_without_buttons(
 
 
 @pytest.mark.parametrize(
+    ("locale", "text"),
+    [
+        (
+            Locale.RU,
+            "<b>Заявку закрыли</b>\nЗаявка «Люстра» закрыта — клиент больше не выбирает"
+            " исполнителя. Спасибо за отклик — в ленте есть другие заявки рядом.",
+        ),
+        (
+            Locale.SR_LATN,
+            "<b>Zahtev je zatvoren</b>\nZahtev „Lustra“ je zatvoren — naručilac više ne bira"
+            " izvođača. Hvala na ponudi — u listi ima drugih zahteva u blizini.",
+        ),
+        (
+            Locale.SR_CYRL,
+            "<b>Захтев је затворен</b>\nЗахтев „Люстра“ је затворен — наручилац више не бира"
+            " извођача. Хвала на понуди — у листи има других захтева у близини.",
+        ),
+    ],
+)
+def test_closed_job_is_not_called_another_choice(
+    renderer: GettextNotificationRenderer, locale: Locale, text: str
+) -> None:
+    """MU-11: клиент закрыл или удалил заявку — «Заявку закрыли», не «выбрал другого»."""
+    title = "Lustra" if locale is Locale.SR_LATN else "Люстра"
+    rendered, buttons = renderer.telegram(
+        NotificationType.RESPONSE_NOT_SELECTED,
+        {"title": title, "reason": "job_closed"},
+        None,
+        locale,
+    )
+
+    assert (rendered, buttons) == (text, ())
+
+
+@pytest.mark.parametrize(
     ("params", "body"),
     [
         (

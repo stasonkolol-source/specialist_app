@@ -19,7 +19,7 @@ from typing import Annotated, Final
 from uuid import UUID
 
 from dishka.integrations.fastapi import FromDishka, inject
-from fastapi import APIRouter, Depends, Path, Query, status
+from fastapi import APIRouter, Path, Query, status
 
 from app.modules.deals.application.use_cases.cancel_deal import CancelDeal, CancelDealCommand
 from app.modules.deals.application.use_cases.complete_deal import (
@@ -60,16 +60,12 @@ from app.modules.deals.http.schemas import (
     DisputeOut,
 )
 from app.modules.media.api import MediaApi
-from app.platform.http.ratelimit import RateLimit
 from app.platform.http.security import AUTHENTICATED
 from app.platform.kernel.ids import DealId, UserId
 from app.platform.kernel.pagination import DEFAULT_LIMIT, PageRequest
 from app.platform.kernel.principal import Principal
-from app.platform.ratelimit import Rate
 
 MY_DEALS_LIMIT: Final = 50
-DISPUTES_PER_USER = Rate("deals.disputes", "5/day")
-"""Спор будит вторую сторону уведомлением P0: открыть, отозвать и открыть снова — не спам."""
 
 router = APIRouter(tags=["deals"])
 DealPath = Annotated[UUID, Path(description="id сделки")]
@@ -176,7 +172,7 @@ async def cancel_deal(
     "/deals/{deal_id:uuid}/dispute",
     response_model=DisputeOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[*AUTHENTICATED, Depends(RateLimit(DISPUTES_PER_USER))],
+    dependencies=AUTHENTICATED,
 )
 @inject
 async def open_dispute(

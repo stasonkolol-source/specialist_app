@@ -294,7 +294,7 @@ msgid "errors.validation_failed"
 msgstr "Проверьте введённые данные."
 
 msgid "errors.rate_limited"
-msgstr "Слишком часто. Повторите через {retry_after} с."
+msgstr "Слишком часто. Повторите {wait}."
 
 msgid "errors.external_service_unavailable"
 msgstr "Сервис временно недоступен. Повторите позже."
@@ -566,6 +566,9 @@ msgstr "Проверьте отклик: сообщение, цену и вре�
 msgid "errors.response_not_found"
 msgstr "Отклик не найден."
 
+msgid "errors.offer_changed"
+msgstr "Исполнитель только что изменил предложение — посмотрите новые условия и выберите снова."
+
 msgid "errors.response_not_active"
 msgstr "Клиент уже решил по этому отклику — изменить или отозвать его нельзя."
 
@@ -721,6 +724,12 @@ msgstr "Сделка не найдена."
 
 msgid "errors.deal_not_active"
 msgstr "Со сделкой в этом статусе так нельзя."
+
+msgid "errors.deal_marked_done"
+msgstr "Работа уже отмечена выполненной — отменить сделку нельзя. Если что-то пошло не так, нажмите «Есть проблема»."
+
+msgid "errors.daily_disputes_limit"
+msgstr "Сегодня вы открыли слишком много споров. Попробуйте {wait}."
 
 msgid "errors.invalid_deal"
 msgstr "Проверьте сделку: что-то заполнено не так."
@@ -920,6 +929,12 @@ msgstr "Клиент выбрал другого исполнителя"
 
 msgid "notifications.response_not_selected.body"
 msgstr "Заявка «{title}». Спасибо за отклик — в ленте есть другие заявки рядом."
+
+msgid "notifications.response_job_closed.title"
+msgstr "Заявку закрыли"
+
+msgid "notifications.response_job_closed.body"
+msgstr "Заявка «{title}» закрыта — клиент больше не выбирает исполнителя. Спасибо за отклик — в ленте есть другие заявки рядом."
 
 msgid "notifications.message_received.title"
 msgstr "{name} пишет"

@@ -164,7 +164,7 @@ def _rating(translator: Translator, locale: Locale, summary: RatingSummary | Non
         translator,
         f"share.specialist.rating.{'many' if form == 'other' else form}",
         locale,
-        rating=format_decimal(round(summary.average, 1), format="0.0", locale=cldr),
+        rating=format_decimal(summary.mean, format="0.0", locale=cldr),
         count=format_decimal(summary.count, locale=cldr),
     )
 
