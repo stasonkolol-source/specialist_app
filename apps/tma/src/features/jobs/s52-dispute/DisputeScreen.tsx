@@ -233,7 +233,7 @@ function Dispute({
   const active = dispute.status !== 'resolved';
   const answering =
     !dispute.opened_by_me && (dispute.status === 'open' || dispute.status === 'no_response');
-  const until = format.calendar(new Date(dispute.respond_by));
+  const until = format.calendarGenitive(new Date(dispute.respond_by));
   const name = deal.counterpart.display_name;
   useStepButton({
     text: t('dispute.answer'),

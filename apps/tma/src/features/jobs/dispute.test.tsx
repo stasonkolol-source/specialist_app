@@ -8,8 +8,8 @@ import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
-import { E2E_NOW } from '../../testing/fixtures.ts';
+import { mainButton, pressMainButton, startApp, userBackend } from '../../testing/app.tsx';
+import { E2E_NOW, ME } from '../../testing/fixtures.ts';
 import {
   JobsBackend,
   dealCardFixture,
@@ -200,6 +200,21 @@ describe('S52 dispute', () => {
     ).toBeTruthy();
     expect(backend.decisions).toEqual([{ id: deal.id, action: 'respond' }]);
     await waitFor(() => expect(mainButton(telegram)?.is_visible).toBe(false));
+  });
+
+  it('gives the Serbian deadline with the month after «do» in the genitive', async () => {
+    const { backend, deal } = withDeal({ status: 'disputed' });
+    backend.deals.set(deal.id, { ...deal, dispute: openedDispute(deal.id) });
+    backend.dealRole = 'performer';
+    userBackend({ ...ME, ui_locale: 'sr-Latn' });
+    startApp(`/deals/${deal.id}/dispute`, { languageCode: 'sr' });
+
+    // срок — через 48 ч: Intl даёт «7. oktobar», после «do» нужен родительный падеж
+    expect(
+      await screen.findByText(
+        'Odgovorite do 7. oktobra u 10:00 — u suprotnom će podrška odlučiti bez vašeg odgovora.',
+      ),
+    ).toBeTruthy();
   });
 
   it('withdraws the dispute after a confirmation and the deal goes on', async () => {

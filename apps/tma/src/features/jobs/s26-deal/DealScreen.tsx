@@ -199,7 +199,7 @@ function Proposal({ deal }: { deal: DealCardOut }) {
       {deal.proposal_expires_at && (
         <Banner tone="info" icon="clock">
           {t('deal.proposal.expires', {
-            date: format.calendar(new Date(deal.proposal_expires_at)),
+            date: format.calendarGenitive(new Date(deal.proposal_expires_at)),
           })}
         </Banner>
       )}
@@ -285,7 +285,7 @@ function Deal({ deal }: { deal: DealCardOut }) {
       {deal.status === 'proposed' && deal.proposal_expires_at && (
         <Banner tone="info">
           {t('deal.proposal.waiting', {
-            date: format.calendar(new Date(deal.proposal_expires_at)),
+            date: format.calendarGenitive(new Date(deal.proposal_expires_at)),
           })}
         </Banner>
       )}
@@ -634,7 +634,7 @@ function State({ deal }: { deal: DealCardOut }) {
         )}
         {!review && deal.review_until && (
           <Banner tone="info" icon="star">
-            {t('deal.reviewUntil', { date: format.date(new Date(deal.review_until)) })}
+            {t('deal.reviewUntil', { date: format.dateGenitive(new Date(deal.review_until)) })}
           </Banner>
         )}
       </>
