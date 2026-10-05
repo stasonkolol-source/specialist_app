@@ -147,6 +147,19 @@ describe('даты в Europe/Belgrade', () => {
     expect(ru.calendar(new Date('2026-10-12T16:00:00Z'), now)).toBe(nb('12 октября в_18:00'));
   });
 
+  it('срок после «до» / «do»: сербский месяц в родительном, «сегодня» и «завтра» как были', () => {
+    const later = new Date('2026-10-12T16:00:00Z');
+    expect(lat.calendar(later, now)).toBe(nb('12. oktobar u_18:00'));
+    expect(lat.calendarGenitive(later, now)).toBe(nb('12. oktobra u_18:00'));
+    expect(cyr.calendarGenitive(later, now)).toBe(nb('12. октобра у_18:00'));
+    // русский Intl уже пишет родительный: вывод не меняется
+    expect(ru.calendarGenitive(later, now)).toBe(ru.calendar(later, now));
+    expect(lat.calendarGenitive(new Date('2026-09-28T08:00:00Z'), now)).toBe(nb('sutra u_10:00'));
+    expect(lat.calendarGenitive(new Date('2027-01-05T08:00:00Z'), now)).toBe(
+      nb('5. januara 2027. u_09:00'),
+    );
+  });
+
   it('относительное время, как на макетах', () => {
     const ago = (ms: number) => new Date(now.getTime() - ms);
     const min = 60_000;

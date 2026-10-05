@@ -111,7 +111,7 @@ def _event(message: Message) -> SystemEventOut | None:
 
 
 class ConversationDealOut(BaseModel):
-    """Сделка диалога: шапка S30 «Ещё не договорились», «Ждёт подтверждения», «Договорились»."""
+    """Сделка диалога: шапка S30 «Сделки пока нет», «Ждёт подтверждения», «Договорились»."""
 
     id: UUID
     status: str = Field(description="proposed | agreed | completed | cancelled | disputed")

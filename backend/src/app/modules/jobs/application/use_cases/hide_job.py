@@ -1,4 +1,4 @@
-"""«Не интересно» (POST /jobs/{id}/hide, S15; DEVELOPMENT_PLAN 5.3): опубликованная заявка
+"""«Не подходит» (POST /jobs/{id}/hide, S15; DEVELOPMENT_PLAN 5.3): опубликованная заявка
 пропадает из ленты этого исполнителя. Повтор — без ошибки; невидимая заявка — 404."""
 
 from dataclasses import dataclass
