@@ -1,5 +1,6 @@
 """Фото на проверку модерацией (6.7): вариант не прочитать — проверять нечего, но это видно в
-журнале (только id и код хранилища), а фото подберёт `moderation.recheck_images`."""
+журнале (только id и код хранилища), а фото подберёт `moderation.recheck_images`. Фото для
+карточки кейса в чате модераторов (2.5b) — тот же вариант `md`, кроме скрытого."""
 
 from dataclasses import replace
 from typing import cast
@@ -10,7 +11,7 @@ from structlog.testing import capture_logs
 from app.modules.media.application.facade import MediaFacade
 from app.modules.media.application.ports import MediaQuery, MediaRepository
 from app.modules.media.application.queries import MediaQueries
-from app.modules.media.domain.asset import MediaAsset, MediaStatus, Variant
+from app.modules.media.domain.asset import MediaAsset, MediaStatus, ModerationStatus, Variant
 from app.modules.media.domain.policy import MediaKind, MediaPurpose
 from app.platform.kernel.ids import MediaId, UserId, new_id
 from app.platform.queue.port import JobQueue
@@ -70,3 +71,71 @@ async def test_unreadable_variant_is_logged_by_id_only() -> None:
             "code": "NoSuchKey",
         }
     ]
+
+
+class Stored:
+    """Хранилище с вариантами: что и откуда прочитали."""
+
+    def __init__(self) -> None:
+        self.read: list[tuple[Bucket, str]] = []
+
+    async def get(
+        self, bucket: Bucket, key: str, *, max_bytes: int, etag: str | None = None
+    ) -> bytes:
+        self.read.append((bucket, key))
+        return b"webp"
+
+
+def ready(**changes: object) -> MediaAsset:
+    media_id = MediaId(new_id())
+    asset = MediaAsset.start(
+        media_id=media_id,
+        owner_id=UserId(new_id()),
+        kind=MediaKind.IMAGE,
+        purpose=MediaPurpose.PORTFOLIO,
+        mime_type="image/jpeg",
+        size_bytes=1000,
+        now=FakeClock().now(),
+    )
+    variants = {"md": Variant(key=f"m/{media_id}/md.webp", width=800, height=600)}
+    fields: dict[str, object] = {"status": MediaStatus.READY, "variants": variants, **changes}
+    return replace(asset, **fields)  # type: ignore[arg-type]
+
+
+def facade_for(asset: MediaAsset, storage: object) -> MediaFacade:
+    return MediaFacade(
+        cast(MediaQuery, Query(asset)),
+        cast(MediaQueries, None),
+        cast(JobQueue, None),
+        cast(MediaRepository, None),
+        cast(StoragePort, storage),
+    )
+
+
+async def test_card_photo_is_the_md_variant_even_after_the_check() -> None:
+    """Карточка кейса в чате модераторов (2.5b): фото с флагом проверки — тот же вариант `md`."""
+    asset = ready(moderation_status=ModerationStatus.FLAGGED)
+    storage = Stored()
+
+    image = await facade_for(asset, storage).image_for_card(asset.id)
+
+    assert image is not None
+    assert (image.body, image.content_type) == (b"webp", "image/webp")
+    assert storage.read == [(Bucket("media"), f"m/{asset.id}/md.webp")]
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"moderation_status": ModerationStatus.REJECTED},
+        {"hidden_at": FakeClock().now()},
+        {"status": MediaStatus.PROCESSING},
+    ],
+    ids=["rejected", "hidden", "not_ready"],
+)
+async def test_hidden_or_unready_photo_is_not_sent(changes: dict[str, object]) -> None:
+    asset = ready(**changes)
+    storage = Stored()
+
+    assert await facade_for(asset, storage).image_for_card(asset.id) is None
+    assert storage.read == []  # скрытое (P0) в чат не уходит: не читаем вовсе

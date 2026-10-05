@@ -1237,29 +1237,494 @@ msgstr "P2 · Премодерация"
 msgid "bot.moderation.queue.appeals"
 msgstr "Апелляция"
 
-msgid "bot.moderation.card.title"
-msgstr "<b>{queue}</b> · кейс"
+msgid "bot.moderation.card.header"
+msgstr "<b>{queue}</b> · {event}"
 
-msgid "bot.moderation.card.entity"
-msgstr "Объект: {entity}"
+msgid "bot.moderation.card.who"
+msgstr "👤 <b>{name}</b> · {role}"
 
-msgid "bot.moderation.card.subject"
-msgstr "Пользователь:"
+msgid "bot.moderation.card.who_in"
+msgstr "👤 <b>{name}</b> · {role} · {area}"
 
-msgid "bot.moderation.card.trigger"
-msgstr "Повод: {trigger}"
+msgid "bot.moderation.card.who_deleted"
+msgstr "👤 удалённый пользователь"
 
-msgid "bot.moderation.card.signals"
-msgstr "Сигналы: {signals}"
+msgid "bot.moderation.card.deleted"
+msgstr "удалённый пользователь"
 
-msgid "bot.moderation.card.appeal"
-msgstr "Обжалуют решение (причина: {reason}):"
+msgid "bot.moderation.card.age"
+msgstr "в сервисе {age}"
 
-msgid "bot.moderation.card.photos"
-msgstr "Фото-доказательства: {count}. Посмотреть — командой:"
+msgid "bot.moderation.card.hours"
+msgstr "{count} ч"
+
+msgid "bot.moderation.card.days"
+msgstr "{count} дн."
+
+msgid "bot.moderation.card.trust"
+msgstr "доверие {level}"
+
+msgid "bot.moderation.card.deals"
+msgstr "сделок: {count}"
+
+msgid "bot.moderation.card.complaints"
+msgstr "жалобы: {open} откр. из {total}"
+
+msgid "bot.moderation.card.what"
+msgstr "📄 <b>{object}</b>"
+
+msgid "bot.moderation.card.what_missing"
+msgstr "📄 <b>{object}</b> — уже нет, смотреть в админке"
+
+msgid "bot.moderation.card.field"
+msgstr "<i>{label}:</i> {text}"
+
+msgid "bot.moderation.card.deal"
+msgstr "Сделка «{title}»"
+
+msgid "bot.moderation.card.parties"
+msgstr "открыл спор: {opened} · вторая сторона: {respondent}"
+
+msgid "bot.moderation.card.dispute_photos"
+msgstr "📎 {count} фото — в админке"
+
+msgid "bot.moderation.card.photo_hidden"
+msgstr "🔒 Фото скрыто автоматически — смотреть в админке"
+
+msgid "bot.moderation.card.why"
+msgstr "❓ <b>Почему:</b>"
 
 msgid "bot.moderation.card.due"
-msgstr "Срок: до {due}"
+msgstr "⏰ до {due} ({left})"
+
+msgid "bot.moderation.card.admin_link"
+msgstr "Админка: {url}"
+
+msgid "bot.moderation.card.case"
+msgstr "Кейс <code>{case_id}</code>"
+
+msgid "bot.moderation.left.minutes"
+msgstr "через {count} мин"
+
+msgid "bot.moderation.left.hours"
+msgstr "через {count} ч"
+
+msgid "bot.moderation.left.days"
+msgstr "через {count} дн."
+
+msgid "bot.moderation.left.overdue"
+msgstr "просрочено"
+
+msgid "bot.moderation.event.new"
+msgstr "новое на проверку"
+
+msgid "bot.moderation.event.new.profile"
+msgstr "новый профиль на проверку"
+
+msgid "bot.moderation.event.new.job"
+msgstr "новая заявка на проверку"
+
+msgid "bot.moderation.event.new.response"
+msgstr "новый отклик на проверку"
+
+msgid "bot.moderation.event.new.message"
+msgstr "сообщение в чате на проверку"
+
+msgid "bot.moderation.event.new.review"
+msgstr "новый отзыв на проверку"
+
+msgid "bot.moderation.event.new.review_reply"
+msgstr "ответ на отзыв на проверку"
+
+msgid "bot.moderation.event.new.portfolio"
+msgstr "новая работа портфолио на проверку"
+
+msgid "bot.moderation.event.edit"
+msgstr "правка на проверку"
+
+msgid "bot.moderation.event.report"
+msgstr "жалоба"
+
+msgid "bot.moderation.event.appeal"
+msgstr "пересмотр решения"
+
+msgid "bot.moderation.event.dispute"
+msgstr "спор по сделке"
+
+msgid "bot.moderation.event.photo_hidden"
+msgstr "фото скрыто автоматически"
+
+msgid "bot.moderation.event.photo_unchecked"
+msgstr "проверка фото не состоялась"
+
+msgid "bot.moderation.event.photo_flagged"
+msgstr "фото: флаг автопроверки"
+
+msgid "bot.moderation.event.photo_review"
+msgstr "фото на проверку"
+
+msgid "bot.moderation.event.duplicate"
+msgstr "похожее фото у другого аккаунта"
+
+msgid "bot.moderation.event.blocked"
+msgstr "скрыто автоматически, аккаунт заморожен"
+
+msgid "bot.moderation.event.sample"
+msgstr "выборочная проверка после публикации"
+
+msgid "bot.moderation.event.demo"
+msgstr "демо-кейс"
+
+msgid "bot.moderation.event.auto_flag"
+msgstr "флаг автопроверки"
+
+msgid "bot.moderation.role.client"
+msgstr "клиент"
+
+msgid "bot.moderation.role.pro"
+msgstr "специалист"
+
+msgid "bot.moderation.role.casual"
+msgstr "подработка"
+
+msgid "bot.moderation.role.with_category"
+msgstr "{role}: {category}"
+
+msgid "bot.moderation.reporter.client"
+msgstr "от клиента"
+
+msgid "bot.moderation.reporter.pro"
+msgstr "от специалиста"
+
+msgid "bot.moderation.reporter.casual"
+msgstr "от исполнителя (подработка)"
+
+msgid "bot.moderation.object.profile"
+msgstr "Профиль специалиста"
+
+msgid "bot.moderation.object.job"
+msgstr "Заявка"
+
+msgid "bot.moderation.object.response"
+msgstr "Отклик"
+
+msgid "bot.moderation.object.message"
+msgstr "Сообщение в чате"
+
+msgid "bot.moderation.object.review"
+msgstr "Отзыв"
+
+msgid "bot.moderation.object.review_reply"
+msgstr "Ответ на отзыв"
+
+msgid "bot.moderation.object.portfolio"
+msgstr "Работа в портфолио"
+
+msgid "bot.moderation.object.avatar"
+msgstr "Фото профиля"
+
+msgid "bot.moderation.object.portfolio_photo"
+msgstr "Фото в портфолио"
+
+msgid "bot.moderation.object.job_photo"
+msgstr "Фото заявки"
+
+msgid "bot.moderation.object.photo"
+msgstr "Фото"
+
+msgid "bot.moderation.object.user"
+msgstr "Аккаунт"
+
+msgid "bot.moderation.object.dispute"
+msgstr "Спор по сделке"
+
+msgid "bot.moderation.field.headline"
+msgstr "Коротко о себе"
+
+msgid "bot.moderation.field.about"
+msgstr "О себе"
+
+msgid "bot.moderation.field.title"
+msgstr "Название"
+
+msgid "bot.moderation.field.description"
+msgstr "Описание"
+
+msgid "bot.moderation.field.budget"
+msgstr "Бюджет"
+
+msgid "bot.moderation.field.rating"
+msgstr "Оценка"
+
+msgid "bot.moderation.field.text"
+msgstr "Текст"
+
+msgid "bot.moderation.field.caption"
+msgstr "Подпись"
+
+msgid "bot.moderation.field.message"
+msgstr "Сообщение"
+
+msgid "bot.moderation.field.job"
+msgstr "Заявка"
+
+msgid "bot.moderation.field.availability"
+msgstr "Когда сможет"
+
+msgid "bot.moderation.why.report"
+msgstr "жалоба: {reason}"
+
+msgid "bot.moderation.why.report_by"
+msgstr "жалоба {reporter}: {reason}"
+
+msgid "bot.moderation.why.comment"
+msgstr "— «{comment}»"
+
+msgid "bot.moderation.why.appeal"
+msgstr "обжалуют решение «{reason}»"
+
+msgid "bot.moderation.why.appeal_from"
+msgstr "обжалуют решение «{reason}» от {date}"
+
+msgid "bot.moderation.why.rule"
+msgstr "стоп-правило «{pattern}» ({category})"
+
+msgid "bot.moderation.why.rule_block"
+msgstr "блок-правило «{pattern}» ({category})"
+
+msgid "bot.moderation.why.velocity"
+msgstr "один текст много раз ({evidence})"
+
+msgid "bot.moderation.why.contacts"
+msgstr "контакты в тексте: {kinds}"
+
+msgid "bot.moderation.why.contacts_in"
+msgstr "контакты ({kinds}) в {field}"
+
+msgid "bot.moderation.why.prepayment"
+msgstr "просьба о предоплате"
+
+msgid "bot.moderation.why.omni"
+msgstr "флаг OpenAI omni: {category}"
+
+msgid "bot.moderation.why.omni_unavailable"
+msgstr "автопроверка текста не состоялась"
+
+msgid "bot.moderation.why.classifier"
+msgstr "классификатор: {label} ({confidence})"
+
+msgid "bot.moderation.why.classifier_unsure"
+msgstr "классификатор не уверен ({confidence})"
+
+msgid "bot.moderation.why.classifier_unavailable"
+msgstr "классификатор недоступен"
+
+msgid "bot.moderation.why.always_review"
+msgstr "всегда проверяет человек"
+
+msgid "bot.moderation.why.always_review.profile"
+msgstr "новый профиль — всегда человек"
+
+msgid "bot.moderation.why.always_review.portfolio"
+msgstr "портфолио нового профиля — всегда человек"
+
+msgid "bot.moderation.why.always_review.review"
+msgstr "отзыв до платформы — всегда человек"
+
+msgid "bot.moderation.why.risky_category"
+msgstr "категория с повышенным риском"
+
+msgid "bot.moderation.why.sample"
+msgstr "выборочная проверка после публикации"
+
+msgid "bot.moderation.why.demo"
+msgstr "демо-кейс: проверка чата модераторов"
+
+msgid "bot.moderation.why.image"
+msgstr "фото: {category} {score}"
+
+msgid "bot.moderation.why.image_unchecked"
+msgstr "проверка фото не состоялась"
+
+msgid "bot.moderation.why.image_flagged"
+msgstr "фото: флаг провайдера"
+
+msgid "bot.moderation.why.image_manual"
+msgstr "автопроверки фото нет — смотрит человек"
+
+msgid "bot.moderation.why.duplicate"
+msgstr "похожее фото в портфолио другого аккаунта ({count})"
+
+msgid "bot.moderation.why.dispute"
+msgstr "спор: {kind}"
+
+msgid "bot.moderation.why.dispute_answered"
+msgstr "вторая сторона ответила"
+
+msgid "bot.moderation.why.dispute_no_response"
+msgstr "нет ответа 48 ч"
+
+msgid "bot.moderation.report.spam"
+msgstr "спам"
+
+msgid "bot.moderation.report.fraud"
+msgstr "мошенничество"
+
+msgid "bot.moderation.report.prohibited"
+msgstr "запрещённая услуга"
+
+msgid "bot.moderation.report.offensive"
+msgstr "оскорбления или угрозы"
+
+msgid "bot.moderation.report.fake_profile"
+msgstr "фейковый профиль"
+
+msgid "bot.moderation.report.no_show"
+msgstr "не пришёл"
+
+msgid "bot.moderation.report.personal_data"
+msgstr "личные данные"
+
+msgid "bot.moderation.report.defamation"
+msgstr "клевета"
+
+msgid "bot.moderation.report.copyright"
+msgstr "авторские права"
+
+msgid "bot.moderation.report.illegal"
+msgstr "незаконное"
+
+msgid "bot.moderation.report.other"
+msgstr "другое"
+
+msgid "bot.moderation.reason.prepayment_scam"
+msgstr "предоплата / мошенничество"
+
+msgid "bot.moderation.reason.off_platform_payment"
+msgstr "оплата мимо площадки"
+
+msgid "bot.moderation.reason.contact_leak"
+msgstr "контакты"
+
+msgid "bot.moderation.reason.spam_ad"
+msgstr "спам / реклама"
+
+msgid "bot.moderation.reason.prohibited"
+msgstr "запрещённое"
+
+msgid "bot.moderation.reason.mule_recruitment"
+msgstr "вербовка дропов"
+
+msgid "bot.moderation.reason.not_a_service_request"
+msgstr "не заявка на услугу"
+
+msgid "bot.moderation.reason.vacancy"
+msgstr "вакансия"
+
+msgid "bot.moderation.reason.other"
+msgstr "другое"
+
+msgid "bot.moderation.reason.sexual_content"
+msgstr "откровенное фото"
+
+msgid "bot.moderation.reason.violence"
+msgstr "насилие"
+
+msgid "bot.moderation.reason.self_harm"
+msgstr "самоповреждение"
+
+msgid "bot.moderation.reason.drug_courier"
+msgstr "наркотики, закладки"
+
+msgid "bot.moderation.reason.sexual_services"
+msgstr "сексуальные услуги"
+
+msgid "bot.moderation.reason.weapons"
+msgstr "оружие"
+
+msgid "bot.moderation.reason.ok"
+msgstr "нарушений нет"
+
+msgid "bot.moderation.category.drugs"
+msgstr "наркотики"
+
+msgid "bot.moderation.category.weapons"
+msgstr "оружие"
+
+msgid "bot.moderation.category.escort"
+msgstr "эскорт"
+
+msgid "bot.moderation.category.scam"
+msgstr "мошенничество"
+
+msgid "bot.moderation.category.mule"
+msgstr "дропы"
+
+msgid "bot.moderation.category.contacts"
+msgstr "контакты"
+
+msgid "bot.moderation.category.spam"
+msgstr "спам"
+
+msgid "bot.moderation.category.vacancy"
+msgstr "вакансия"
+
+msgid "bot.moderation.contact.phone"
+msgstr "телефон"
+
+msgid "bot.moderation.contact.card"
+msgstr "номер карты"
+
+msgid "bot.moderation.contact.account"
+msgstr "номер счёта"
+
+msgid "bot.moderation.contact.link"
+msgstr "ссылка"
+
+msgid "bot.moderation.contact.email"
+msgstr "почта"
+
+msgid "bot.moderation.contact.username"
+msgstr "юзернейм"
+
+msgid "bot.moderation.image.sexual"
+msgstr "откровенное"
+
+msgid "bot.moderation.image.violence"
+msgstr "насилие"
+
+msgid "bot.moderation.image.violence_graphic"
+msgstr "кровь и увечья"
+
+msgid "bot.moderation.image.self_harm"
+msgstr "самоповреждение"
+
+msgid "bot.moderation.image.self_harm_intent"
+msgstr "самоповреждение: намерение"
+
+msgid "bot.moderation.image.self_harm_instructions"
+msgstr "самоповреждение: инструкции"
+
+msgid "bot.moderation.dispute.no_show"
+msgstr "не пришёл"
+
+msgid "bot.moderation.dispute.quality"
+msgstr "сделал плохо или не то"
+
+msgid "bot.moderation.dispute.prepayment_taken"
+msgstr "взял предоплату или просит больше"
+
+msgid "bot.moderation.dispute.damage"
+msgstr "ущерб имуществу"
+
+msgid "bot.moderation.dispute.safety"
+msgstr "ущерб, грубость или угрозы"
+
+msgid "bot.moderation.dispute.other"
+msgstr "другое"
+
+msgid "bot.moderation.button.admin"
+msgstr "Открыть в админке"
 
 msgid "bot.moderation.button.approve"
 msgstr "Одобрить"

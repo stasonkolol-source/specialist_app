@@ -1,18 +1,23 @@
 """Сборка модуля moderation для dishka (ADR-0020 §7)."""
 
-from dishka import Provider, Scope, provide
+from dishka import AsyncContainer, Provider, Scope, provide
 from prometheus_client import CollectorRegistry
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.modules.catalog.api import CatalogApi
+from app.modules.deals.api import DealsApi
+from app.modules.geo.api import GeoApi
 from app.modules.identity.api import DeletionHold, IdentityApi
 from app.modules.jobs.api import JobsApi
-from app.modules.media.api import LegalHold, MediaModeration
+from app.modules.media.api import LegalHold, MediaApi, MediaModeration
 from app.modules.messaging.api import MessagingApi
 from app.modules.moderation.application.content_rules import ContentRulesChecker
 from app.modules.moderation.application.policy import PublishedModerationPolicy
 from app.modules.moderation.application.ports import (
     AutoCheckMetrics,
+    CaseContextQuery,
+    CasePhotos,
     CaseQueue,
     CaseRepository,
     CaseStats,
@@ -57,6 +62,11 @@ from app.modules.moderation.application.use_cases.track_dispute import TrackDisp
 from app.modules.moderation.application.use_cases.try_content_rule import TryContentRule
 from app.modules.moderation.domain.cases import EntityType
 from app.modules.moderation.domain.rules import RegexEngine
+from app.modules.moderation.infrastructure.case_context import (
+    FacadeCaseContext,
+    MediaCasePhotos,
+    NoCasePhotos,
+)
 from app.modules.moderation.infrastructure.cases import (
     SqlCaseRepository,
     SqlRiskSignals,
@@ -92,10 +102,11 @@ from app.modules.specialists.api import SpecialistsApi
 from app.platform.config.port import LegalVersions
 from app.platform.db.port import UnitOfWork
 from app.platform.i18n.translator import Translator
+from app.platform.kernel.clock import Clock
 from app.platform.legal.port import LegalLibrary
 from app.platform.privacy.port import RetentionHold
 from app.platform.ratelimit import RateLimiter
-from app.platform.settings import TelegramSettings
+from app.platform.settings import AppSettings, S3Settings, TelegramSettings, admin_base_url
 from app.platform.telegram.port import TelegramSender
 
 
@@ -216,9 +227,48 @@ class ModerationProvider(Provider):
     file_appeal = provide(FileAppeal)
     post_case_card = provide(PostCaseCard)
 
+    @provide
+    async def case_photos(self, s3: S3Settings, request: AsyncContainer) -> CasePhotos:
+        """Фото для карточки кейса — из хранилища media. Без S3 (бот без хранилища, тесты)
+        MediaApi не собрать: карточки уходят текстом, а не падают."""
+        if s3.endpoint_url is None:
+            return NoCasePhotos()
+        return MediaCasePhotos(await request.get(MediaApi))
+
+    @provide
+    def case_contexts(
+        self,
+        session: AsyncSession,
+        identity: IdentityApi,
+        specialists: SpecialistsApi,
+        jobs: JobsApi,
+        messaging: MessagingApi,
+        reviews: ReviewsApi,
+        photos: CasePhotos,
+        deals: DealsApi,
+        catalog: CatalogApi,
+        geo: GeoApi,
+    ) -> CaseContextQuery:
+        """Контекст карточки кейса (2.5b): фасады модулей-владельцев и свои жалобы."""
+        return FacadeCaseContext(
+            session, identity, specialists, jobs, messaging, reviews, photos, deals, catalog, geo
+        )
+
     @provide(scope=Scope.APP)
     def moderators_chat(
-        self, sender: TelegramSender, translator: Translator, telegram: TelegramSettings
+        self,
+        sender: TelegramSender,
+        translator: Translator,
+        telegram: TelegramSettings,
+        app: AppSettings,
+        clock: Clock,
     ) -> ModeratorsChat:
-        """Чат модераторов (K29): пусто в настройках — карточек нет."""
-        return TelegramModeratorsChat(sender, translator, telegram.moderators_chat_id)
+        """Чат модераторов (K29): пусто в настройках — карточек нет. Ссылка «Открыть в
+        админке» — APP_ADMIN_PUBLIC_URL (без него — адрес API + /admin)."""
+        return TelegramModeratorsChat(
+            sender,
+            translator,
+            telegram.moderators_chat_id,
+            clock=clock,
+            admin_url=admin_base_url(app),
+        )

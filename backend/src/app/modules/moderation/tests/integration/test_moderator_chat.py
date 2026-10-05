@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 from aiogram.methods import (
     AnswerCallbackQuery,
+    EditMessageCaption,
     EditMessageReplyMarkup,
     EditMessageText,
     SendMessage,
@@ -46,6 +47,7 @@ CHAT = -1_001_234_567_890
 GROUP = -1_009_876_543_210
 """Группа, которая ещё не чат модераторов (id — как у супергрупп, `-100…`)."""
 SENT_AT = datetime(2026, 10, 4, 9, 0, tzinfo=UTC)
+ADMIN = "https://admin.example.test/admin"
 
 
 USERS: list[UserId] = []
@@ -54,7 +56,9 @@ USERS: list[UserId] = []
 
 @pytest.fixture
 async def harness(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[BotHarness]:
-    async with bot_harness(monkeypatch, TELEGRAM_MODERATORS_CHAT_ID=str(CHAT)) as harness:
+    async with bot_harness(
+        monkeypatch, TELEGRAM_MODERATORS_CHAT_ID=str(CHAT), APP_ADMIN_PUBLIC_URL=ADMIN
+    ) as harness:
         yield harness
         await close_cases(harness.container, USERS)
         USERS.clear()
@@ -140,11 +144,22 @@ async def test_new_case_card_goes_to_the_moderators_chat(harness: BotHarness) ->
     [card] = [c for c in harness.session.calls[before:] if isinstance(c, SendMessage)]
     assert posted
     assert card.chat_id == CHAT
-    assert "P1 · Мошенничество" in card.text
-    assert str(case_id) in card.text
-    assert "demo" in card.text
-    buttons = [b.text for row in card.reply_markup.inline_keyboard for b in row]  # type: ignore[union-attr]
-    assert buttons == ["Одобрить", "Отклонить с причиной", "Эскалировать"]
+    # контекст — настоящие фасады: имя из Telegram, клиент без профиля, жалоб нет
+    assert card.text.startswith("<b>P1 · Мошенничество</b> · демо-кейс")
+    assert "👤 <b>Ana</b> · клиент" in card.text
+    assert "сделок: 0 · жалобы: 0 откр. из 0" in card.text
+    assert "📄 <b>Аккаунт</b>" in card.text
+    assert "демо-кейс: проверка чата модераторов" in card.text
+    assert f"Кейс <code>{case_id}</code>" in card.text
+    assert str(subject) not in card.text  # псевдонимный id пользователя больше не нужен
+    rows = card.reply_markup.inline_keyboard  # type: ignore[union-attr]
+    assert [b.text for row in rows for b in row] == [
+        "Одобрить",
+        "Отклонить с причиной",
+        "Эскалировать",
+        "Открыть в админке",
+    ]
+    assert rows[-1][0].url == f"{ADMIN}/decide-case?case_id={case_id}"
 
 
 async def test_press_without_role_is_answered_and_ignored(harness: BotHarness) -> None:
@@ -203,11 +218,31 @@ async def test_approve_and_escalate(harness: BotHarness) -> None:
     late = await harness.press(mod, press(CallbackAction.CASE_APPROVE, approved))
 
     assert edits(first)[0].endswith("✅ Одобрено — Ana")
+    [decided] = [c for c in first if isinstance(c, EditMessageText)]
+    # кнопки решения убраны, ссылка на кейс в админке осталась
+    assert [b.text for row in decided.reply_markup.inline_keyboard for b in row] == [  # type: ignore[union-attr]
+        "Открыть в админке"
+    ]
     assert edits(second)[0].endswith("⬆️ Эскалировано — Ana")
     assert (await case_row(harness, approved)).status == "approved"
     assert (await case_row(harness, escalated)).status == "escalated"
     assert edits(late) == []  # решённый кейс не решают снова: ответ ошибкой
     assert len(alerts(late)) == 1
+
+
+async def test_photo_card_is_edited_as_a_caption(harness: BotHarness) -> None:
+    """Карточка кейса о фото — подпись к фото: итог дописывается в подпись (editMessageCaption)."""
+    mod = await moderator(harness)
+    case_id = await open_case(harness, await user_of(harness, telegram_user()))
+
+    calls = await harness.press(
+        mod, press(CallbackAction.CASE_APPROVE, case_id), caption="Фото в портфолио"
+    )
+
+    assert edits(calls) == []
+    [caption] = [c for c in calls if isinstance(c, EditMessageCaption)]
+    assert caption.caption == "Фото в портфолио\n\n✅ Одобрено — Ana"
+    assert (await case_row(harness, case_id)).status == "approved"
 
 
 async def test_appeal_card_grants_the_appeal(harness: BotHarness) -> None:

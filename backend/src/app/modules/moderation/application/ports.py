@@ -7,7 +7,9 @@ from typing import Final, Protocol
 from uuid import UUID
 
 from app.modules.moderation.application.dto import (
+    CaseContext,
     CaseFilter,
+    CasePhoto,
     ImportRulesResult,
     OpenCaseView,
     QueueSla,
@@ -249,8 +251,29 @@ class ModeratorsChat(Protocol):
         """Чат задан (`TELEGRAM_MODERATORS_CHAT_ID`, K29); нет — кейсы решают командами `cli`."""
         ...
 
-    async def post(self, case: Case) -> None:
-        """Прислать карточку. Bot API недоступен — ExternalServiceError (повтор задачи)."""
+    async def post(self, case: Case, context: CaseContext) -> None:
+        """Прислать карточку: с фото — подписью к нему. Bot API недоступен —
+        ExternalServiceError (повтор задачи)."""
+        ...
+
+
+class CasePhotos(Protocol):
+    """Фото для карточки кейса (2.5b): вариант media `md` без EXIF. Хранилище — только у
+    процессов с S3; без него карточки уходят текстом (di.py)."""
+
+    async def photo(self, media_id: MediaId) -> CasePhoto | None:
+        """Фото; None — показать нечего: скрыто модерацией, удалено, не готово или хранилище
+        недоступно."""
+        ...
+
+
+class CaseContextQuery(Protocol):
+    """Контекст карточки кейса (2.5b, infrastructure/case_context.py): кто, что и почему —
+    через фасады модулей-владельцев, без их внутренностей."""
+
+    async def context(self, case: Case) -> CaseContext:
+        """Одним вызовом на карточку; пропавшее (удалённый пользователь, снятый объект) — не
+        ошибка, а пометка в контексте."""
         ...
 
 

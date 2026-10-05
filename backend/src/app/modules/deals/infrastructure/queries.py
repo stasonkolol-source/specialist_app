@@ -106,6 +106,15 @@ class SqlDealQueries(SqlQuery):
         row = await self._fetch_one(select(_D.id).where(_D.response_id == response_id))
         return DealId(row["id"]) if row is not None else None
 
+    async def completed_count(self, user_id: UserId) -> int:
+        row = await self._fetch_one(
+            select(func.count().label("n")).where(
+                _D.status == DealStatus.COMPLETED.value,
+                or_(_D.client_id == user_id, _D.performer_id == user_id),
+            )
+        )
+        return int(row["n"]) if row is not None else 0
+
     async def agreed_pairs(
         self, pairs: Collection[tuple[UserId, UserId]]
     ) -> frozenset[tuple[UserId, UserId]]:

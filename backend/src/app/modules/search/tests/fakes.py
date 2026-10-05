@@ -193,6 +193,9 @@ class FakeMedia:
     async def image_for_check(self, media_id: MediaId) -> ImageForCheck | None:
         raise NotImplementedError
 
+    async def image_for_card(self, media_id: MediaId) -> ImageForCheck | None:
+        raise NotImplementedError
+
     async def unchecked_images(
         self, *, processed_before: datetime, purposes: Collection[str], limit: int
     ) -> list[UncheckedImage]:

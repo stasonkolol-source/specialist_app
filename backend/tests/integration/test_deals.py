@@ -20,6 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.entrypoints._wiring import make_worker_container, module_routers
+from app.modules.deals.api import DealsApi
 from app.modules.deals.application.use_cases.cancel_user_deals import (
     CancelUserDeals,
     CancelUserDealsCommand,
@@ -283,6 +284,10 @@ async def test_both_marks_complete_the_deal_and_the_job(
     assert again.json()["status"] == "agreed"
     performer_view = second.json()
     assert (performer_view["status"], performer_view["other_marked_done"]) == ("completed", True)
+    async with worker() as request:  # сделки человека в карточке кейса модераторов (2.5b)
+        deals = await request.get(DealsApi)
+        done = [await deals.completed_deals(user) for user in (client, performer)]
+    assert done == [1, 1]
     assert await run_queued(worker, "jobs.complete_job", user_id=client, by="client_id") == 1
     row = await world.job_row(job_id)
     assert (row.status, row.close_reason) == ("completed", "hired_here")
