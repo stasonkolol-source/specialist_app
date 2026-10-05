@@ -585,10 +585,12 @@ function responseTime(
   return t('profile.responseHours', { count: Math.round(minutes / MINUTES_IN_HOUR) });
 }
 
+/** Строка с иконкой: иконка — у первой строки, как на артборде: длинное «Выезд: …» или сербское
+ *  «Obično odgovori za …» в узкой шапке переносится, а иконка не съезжает в середину. */
 function Meta({ icon, children }: { icon: 'languages' | 'pin' | 'clock'; children: ReactNode }) {
   return (
-    <p className="m-0 flex items-center gap-1.5 text-cap text-text2">
-      <Icon name={icon} size={16} />
+    <p className="m-0 flex items-start gap-1.5 text-cap text-text2">
+      <Icon name={icon} size={16} className="mt-px shrink-0" />
       {children}
     </p>
   );
