@@ -39,7 +39,16 @@ class InactiveButton:
     text: str
 
 
-type Button = AppButton | CallbackButton | InactiveButton
+@dataclass(frozen=True, slots=True, kw_only=True)
+class LinkButton:
+    """Кнопка-ссылка (url): открывает страницу в браузере — «Открыть в админке» под карточкой
+    кейса в чате модераторов (2.5b). В группах web_app-кнопки Telegram не пускает, ссылки — да."""
+
+    text: str
+    url: str
+
+
+type Button = AppButton | CallbackButton | InactiveButton | LinkButton
 type ButtonLine = Button | tuple[Button, ...]
 """Ряд клавиатуры: одна кнопка — во всю ширину, кортеж — кнопки в один ряд («1 ★ … 5 ★»)."""
 
@@ -55,6 +64,19 @@ class OutgoingMessage:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class OutgoingPhoto:
+    """Фото с подписью и кнопками (sendPhoto): карточка кейса о фото в чате модераторов (2.5b)."""
+
+    chat_id: int
+    photo: bytes
+    """Готовый вариант файла (media `md`, без EXIF) — загружается в Bot API, не ссылкой."""
+    filename: str
+    caption: str
+    """HTML, как `OutgoingMessage.text`; Bot API принимает до 1024 символов."""
+    buttons: tuple[ButtonLine, ...] = ()
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class SentMessage:
     message_id: int
 
@@ -62,6 +84,11 @@ class SentMessage:
 class TelegramSender(Protocol):
     async def send(self, message: OutgoingMessage) -> SentMessage:
         """Отправить сообщение в чат. Недоступен Bot API — ExternalServiceError (повтор)."""
+        ...
+
+    async def send_photo(self, message: OutgoingPhoto) -> SentMessage:
+        """Отправить фото с подписью. Ошибки — как у `send`; фото Bot API не принял —
+        TelegramRejectedError."""
         ...
 
     async def edit_buttons(
