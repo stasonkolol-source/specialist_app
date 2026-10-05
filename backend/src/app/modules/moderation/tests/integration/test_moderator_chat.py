@@ -2,10 +2,13 @@
 `TELEGRAM_MODERATORS_CHAT_ID`; кнопку без роли модератора бот отклоняет ответом, кейс не
 меняется; «Одобрить», «Отклонить с причиной» (причина → тяжесть) и «Эскалировать» вызывают
 DecideCase и EscalateCase, карточка дописывает итог и кто решил; апелляция с карточки снимает
-санкцию. Bot API — запись вызовов, БД и Valkey — настоящие.
+санкцию. Id чата модераторов (K29): `/chatid`, `/start@<бот>`, добавление бота в группу и переход
+в супергруппу — ответ только персоналу, настроенный чат бот узнаёт. Bot API — запись вызовов, БД
+и Valkey — настоящие.
 """
 
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -16,6 +19,7 @@ from aiogram.methods import (
     SendMessage,
     TelegramMethod,
 )
+from aiogram.types import Chat, Message
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 from tests.plugins.bot import BotHarness, bot_harness
@@ -39,6 +43,9 @@ from app.platform.telegram.callbacks import CallbackAction, CallbackData, encode
 pytestmark = pytest.mark.integration
 
 CHAT = -1_001_234_567_890
+GROUP = -1_009_876_543_210
+"""Группа, которая ещё не чат модераторов (id — как у супергрупп, `-100…`)."""
+SENT_AT = datetime(2026, 10, 4, 9, 0, tzinfo=UTC)
 
 
 USERS: list[UserId] = []
@@ -220,3 +227,71 @@ async def test_appeal_card_grants_the_appeal(harness: BotHarness) -> None:
         id=decision,
     )
     assert lifted.lifted_at is not None
+
+
+def group(chat_id: int = GROUP) -> Chat:
+    return Chat(id=chat_id, type="supergroup", title="Модерация dev")
+
+
+def in_group(
+    text_value: str | None = None, *, chat_id: int = GROUP, migrate_from_chat_id: int | None = None
+) -> Message:
+    """Сообщение в группе: команда или служебное «группа стала супергруппой»."""
+    return Message(
+        message_id=1,
+        date=SENT_AT,
+        chat=group(chat_id),
+        text=text_value,
+        migrate_from_chat_id=migrate_from_chat_id,
+    )
+
+
+def sent(calls: list[TelegramMethod[Any]]) -> list[SendMessage]:
+    return [call for call in calls if isinstance(call, SendMessage)]
+
+
+async def test_chatid_in_a_group_answers_staff_only(harness: BotHarness) -> None:
+    mod = await moderator(harness)
+    stranger = telegram_user()
+    await user_of(harness, stranger)
+
+    [chatid] = sent(await harness.feed(mod, in_group("/chatid")))
+    [start] = sent(await harness.feed(mod, in_group("/start@sosed_test_bot")))
+    other_bot = await harness.feed(mod, in_group("/chatid@other_bot"))
+    not_staff = await harness.feed(stranger, in_group("/chatid"))
+    unknown = await harness.feed(telegram_user(), in_group("/start@sosed_test_bot"))
+
+    assert chatid.chat_id == GROUP
+    assert f"Id этого чата: <code>{GROUP}</code>" in chatid.text
+    assert f"TELEGRAM_MODERATORS_CHAT_ID={GROUP}" in chatid.text
+    assert start.text == chatid.text
+    # чужому боту, не персоналу и незнакомцу в группе бот не отвечает
+    assert sent(other_bot) == sent(not_staff) == sent(unknown) == []
+
+
+async def test_configured_moderators_chat_is_recognised(harness: BotHarness) -> None:
+    mod = await moderator(harness)
+
+    [reply] = sent(await harness.feed(mod, in_group("/chatid", chat_id=CHAT)))
+
+    assert reply.chat_id == CHAT
+    assert reply.text == "Это чат модераторов, карточки кейсов приходят сюда."
+
+
+async def test_bot_added_by_staff_tells_the_chat_id(harness: BotHarness) -> None:
+    mod = await moderator(harness)
+    stranger = telegram_user()
+    await user_of(harness, stranger)
+
+    [added] = sent(await harness.bot_added(mod, group()))
+    by_stranger = await harness.bot_added(stranger, group(GROUP - 1))
+    # настройки группы превратили её в супергруппу: id сменился — бот присылает новый
+    [migrated] = sent(
+        await harness.feed(mod, in_group(chat_id=GROUP - 2, migrate_from_chat_id=GROUP))
+    )
+
+    assert added.chat_id == GROUP
+    assert f"TELEGRAM_MODERATORS_CHAT_ID={GROUP}" in added.text
+    assert sent(by_stranger) == []
+    assert migrated.chat_id == GROUP - 2
+    assert f"TELEGRAM_MODERATORS_CHAT_ID={GROUP - 2}" in migrated.text

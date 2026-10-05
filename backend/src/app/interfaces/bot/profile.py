@@ -5,6 +5,9 @@
 упираться во flood wait. Языки профиля: по умолчанию и `ru` — русский; `sr` — sr-Latn, как
 бот отвечает клиентам с language_code `sr` (interfaces/bot/middlewares.py). Имя вне прода
 получает окружение: «Соседи dev», «Соседи stage».
+
+Меню команд — по областям видимости: в личных чатах — команды клиента и исполнителя, у
+администраторов групп — только `/chatid` (id чата модераторов, K29).
 """
 
 from collections.abc import Mapping, Sequence
@@ -13,7 +16,13 @@ from typing import Final
 from urllib.parse import urlsplit
 
 from aiogram import Bot
-from aiogram.types import BotCommand, BotCommandScopeAllPrivateChats, MenuButtonWebApp, WebAppInfo
+from aiogram.types import (
+    BotCommand,
+    BotCommandScopeAllChatAdministrators,
+    BotCommandScopeAllPrivateChats,
+    MenuButtonWebApp,
+    WebAppInfo,
+)
 
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.localized import Locale
@@ -39,6 +48,9 @@ COMMANDS: Final = (
     "language",
 )
 """Меню команд по порядку. /start Telegram показывает сам; остальные — в своих шагах."""
+GROUP_ADMIN_COMMANDS: Final = ("chatid",)
+"""Меню у администраторов групп: создатель чата модераторов видит `/chatid` (K29). Отвечает бот
+только персоналу (moderation/bot/handlers.py), остальные команды в группах не работают."""
 
 NAME_LIMIT: Final = 64
 DESCRIPTION_LIMIT: Final = 512
@@ -53,6 +65,8 @@ class BotProfile:
     description: str
     short_description: str
     commands: tuple[BotCommand, ...]
+    group_commands: tuple[BotCommand, ...] = ()
+    """Меню у администраторов групп (BotCommandScopeAllChatAdministrators)."""
 
     def problems(self) -> list[str]:
         """Нарушения лимитов Bot API — до вызова, чтобы не получить 400 на полпути."""
@@ -67,7 +81,7 @@ class BotProfile:
         low, high = COMMAND_DESCRIPTION_LIMITS
         found += [
             f"{where}: /{c.command} description is {len(c.description)} chars"
-            for c in self.commands
+            for c in (*self.commands, *self.group_commands)
             if not low <= len(c.description) <= high
         ]
         return found
@@ -81,16 +95,20 @@ def bot_profiles(translator: Translator, env: Environment) -> list[BotProfile]:
             name=plain_text(translator, "bot.profile.name", locale) + suffix,
             description=plain_text(translator, "bot.profile.description", locale),
             short_description=plain_text(translator, "bot.profile.short_description", locale),
-            commands=tuple(
-                BotCommand(
-                    command=name,
-                    description=plain_text(translator, f"bot.commands.{name}", locale),
-                )
-                for name in COMMANDS
-            ),
+            commands=_commands(translator, locale, COMMANDS),
+            group_commands=_commands(translator, locale, GROUP_ADMIN_COMMANDS),
         )
         for code, locale in PROFILE_LANGUAGES.items()
     ]
+
+
+def _commands(
+    translator: Translator, locale: Locale, names: Sequence[str]
+) -> tuple[BotCommand, ...]:
+    return tuple(
+        BotCommand(command=name, description=plain_text(translator, f"bot.commands.{name}", locale))
+        for name in names
+    )
 
 
 async def apply_profile(bot: Bot, profile: BotProfile) -> list[str]:
@@ -110,12 +128,16 @@ async def apply_profile(bot: Bot, profile: BotProfile) -> list[str]:
             short_description=profile.short_description, language_code=lang
         )
         changed.append("short description")
-    # только личные чаты: в группах (чат модераторов, чат дома) команды бота не работают
-    scope = BotCommandScopeAllPrivateChats()
-    commands = await bot.get_my_commands(scope=scope, language_code=lang)
-    if _pairs(commands) != _pairs(profile.commands):
-        await bot.set_my_commands(list(profile.commands), scope=scope, language_code=lang)
-        changed.append("commands")
+    # команды клиента — только в личных чатах: в группах (чат модераторов, чат дома) они не
+    # работают; у администраторов групп — `/chatid`, чтобы узнать id чата модераторов (K29)
+    for scope, commands, label in (
+        (BotCommandScopeAllPrivateChats(), profile.commands, "commands"),
+        (BotCommandScopeAllChatAdministrators(), profile.group_commands, "group commands"),
+    ):
+        existing = await bot.get_my_commands(scope=scope, language_code=lang)
+        if _pairs(existing) != _pairs(commands):
+            await bot.set_my_commands(list(commands), scope=scope, language_code=lang)
+            changed.append(label)
     return changed
 
 
