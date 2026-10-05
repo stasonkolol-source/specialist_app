@@ -50,7 +50,10 @@ describe('S05 results', () => {
     expect(card.getByText('ru, sr')).toBeTruthy();
     expect(card.getByText(/^Сегодня до /)).toBeTruthy();
     expect(card.getByText('Телефон подтверждён')).toBeTruthy();
-    expect(card.getByText(/^от 2\s000\sRSD$/u)).toBeTruthy();
+    // цена «от» — с единицей той же позиции (price_from_unit)
+    expect(card.getByText(/^от 2\s000\sRSD за выезд$/u)).toBeTruthy();
+    const hourly = (await screen.findByText('Ольга Власова')).closest('article');
+    expect(within(hourly as HTMLElement).getByText(/^от 1\s000\sRSD\/час$/u)).toBeTruthy();
     const newcomer = (await screen.findByText('Иван Гаврилов')).closest('article');
     expect(within(newcomer as HTMLElement).getByText('Новый специалист')).toBeTruthy();
     expect(await screen.findByText('9 специалистов')).toBeTruthy();

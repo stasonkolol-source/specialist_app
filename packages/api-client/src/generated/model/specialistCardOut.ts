@@ -21,6 +21,8 @@ export interface SpecialistCardOut {
   category_ids: number[];
   /** Цена «от», пара (1 RSD = 100 пара) */
   price_from: number | null;
+  /** Единица цены «от»: hour, visit, item, m2, lesson, km…; null — за работу */
+  price_from_unit: string | null;
   /** Цены нет, но прайс есть: «договорная» */
   negotiable: boolean;
   /** Когда отзывов достаточно; иначе is_new */

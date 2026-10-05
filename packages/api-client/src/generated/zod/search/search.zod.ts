@@ -161,6 +161,9 @@ export const SearchListSpecialistsResponse = zod.object({
       languages: zod.array(zod.string()),
       category_ids: zod.array(zod.int()),
       price_from: zod.union([zod.int(), zod.null()]).describe('Цена «от», пара (1 RSD = 100 пара)'),
+      price_from_unit: zod
+        .union([zod.string(), zod.null()])
+        .describe('Единица цены «от»: hour, visit, item, m2, lesson, km…; null — за работу'),
       negotiable: zod.boolean().describe('Цены нет, но прайс есть: «договорная»'),
       rating: zod
         .union([zod.number(), zod.null()])
@@ -370,6 +373,9 @@ export const SearchListFavoritesResponse = zod
         price_from: zod
           .union([zod.int(), zod.null()])
           .describe('Цена «от», пара (1 RSD = 100 пара)'),
+        price_from_unit: zod
+          .union([zod.string(), zod.null()])
+          .describe('Единица цены «от»: hour, visit, item, m2, lesson, km…; null — за работу'),
         negotiable: zod.boolean().describe('Цены нет, но прайс есть: «договорная»'),
         rating: zod
           .union([zod.number(), zod.null()])

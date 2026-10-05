@@ -108,6 +108,8 @@
     "unavailableText": "Стручњак је сакрио профил или га више нема",
     "toCatalog": "Пронађите другог стручњака",
     "proposeJob": "Предложи захтев",
+    "writeInTelegram": "Напиши поруку у Telegram-у",
+    "casual": "Хонорарно",
     "responseMinutes": "Обично одговори за {count, plural, one {# минут} few {# минута} other {# минута}}",
     "responseHours": "Обично одговори за {count, plural, one {# сат} few {# сата} other {# сати}}",
     "writeFailed": "Разговор није могуће отворити. Покушајте поново.",
