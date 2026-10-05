@@ -3,7 +3,8 @@
 исполнитель — профиль specialists, фото media и рейтинг reviews, клиент — имя identity.
 
 Только сторонам: чужая сделка — 404 `deal_not_found`. Вехи таймлайна — отклик, выбор, отметки
-«Работа выполнена» обеих сторон, завершение или отмена. Отзыв (7.2): свой — статус и оценка;
+«Работа выполнена» обеих сторон, завершение или отмена; чат сделки (messaging) и когда пора
+«Работа выполнена» — главной кнопкой S26 (UX_GUIDANCE №2). Отзыв (7.2): свой — статус и оценка;
 клиенту завершённой сделки — до когда его можно оставить. Спор (6.1c, S52): последний спор
 сделки — что случилось и чьё, срок ответа, ответ, решение; фото обеих сторон — presigned GET
 приватного бакета на 5 минут (только сторонам). Форма — как ответ `POST /deals/{id}/dispute…`:
@@ -32,6 +33,7 @@ from app.modules.geo.api import GeoApi
 from app.modules.identity.api import IdentityApi
 from app.modules.jobs.api import DealJob, JobsApi
 from app.modules.media.api import MediaApi, MediaRef
+from app.modules.messaging.api import MessagingApi
 from app.modules.reviews.api import ReviewsApi
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.http.money import MoneyOut
@@ -159,11 +161,17 @@ class DealCardOut(BaseModel):
     cancel_reason: DealCancelCause | None
     job_id: UUID | None
     response_id: UUID | None
-    conversation_id: UUID | None
+    conversation_id: UUID | None = Field(
+        description="Чат сделки — «Написать» (S30): где договорились или по выбранному отклику"
+    )
     version: int
     proposed_at: datetime | None = Field(description="«Договорились» предложено тогда (S53)")
     proposal_expires_at: datetime | None = Field(
         description="Предложение отменится, если не ответить до этого времени (72 ч)"
+    )
+    completion_due_at: datetime | None = Field(
+        description="Идущей сделке: с этого времени «Работа выполнена» — главная кнопка (бот"
+        " спрашивает «Работа выполнена?»); раньше — «Написать»"
     )
     my_review: DealReviewOut | None = Field(description="Свой отзыв по сделке (7.2)")
     review_until: datetime | None = Field(
@@ -188,11 +196,16 @@ async def get_deal_card(
     media: FromDishka[MediaApi],
     reviews: FromDishka[ReviewsApi],
     geo: FromDishka[GeoApi],
+    messaging: FromDishka[MessagingApi],
     locale: FromDishka[Locale],
 ) -> DealCardOut:
     """Сделка стороне (S26): условия, вторая сторона, место и вехи; чужая — 404."""
     viewer = principal.user_id
     deal = await deals.deal_card(DealId(deal_id), viewer)
+    # чат сделки по выбранному отклику знает messaging: сделка из отклика его id не хранит
+    conversation_id = deal.conversation_id or await messaging.deal_conversation(
+        deal.id, deal.response_id
+    )
     job = await jobs.deal_job(deal.job_id, deal.response_id, viewer) if deal.job_id else None
     client = deal.my_role == "client"
     if client:
@@ -243,6 +256,7 @@ async def get_deal_card(
         ),
         proposed_at=deal.created_at if deal.status == "proposed" else None,
         proposal_expires_at=deal.proposal_expires_at,
+        completion_due_at=deal.completion_due_at,
         awaits_my_confirmation=(
             deal.status == "proposed"
             and deal.proposed_by is not None
@@ -252,7 +266,7 @@ async def get_deal_card(
         cancel_reason=cast(DealCancelCause | None, deal.cancel_reason),
         job_id=deal.job_id,
         response_id=deal.response_id,
-        conversation_id=deal.conversation_id,
+        conversation_id=conversation_id,
         version=deal.version,
         my_review=(
             DealReviewOut(id=review.mine.id, status=review.mine.status, rating=review.mine.rating)

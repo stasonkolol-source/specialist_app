@@ -159,6 +159,7 @@ def test_party_cancels_with_a_reason(actor: UserId, role: DealRole) -> None:
     [event] = deal.pull_events()
     assert isinstance(event, DealCancelled)
     assert (event.cancelled_by, event.reason) == (role.value, "plans_changed")
+    assert event.proposal is False  # договорились раньше — отменили сделку
     [change] = deal.pull_history()
     assert (change.from_, change.to, change.reason) == (
         DealStatus.AGREED,
@@ -261,6 +262,10 @@ def test_proposal_can_be_declined_by_the_other_party() -> None:
     deal.cancel(actor_id=PERFORMER, reason=DealCancelReason.NO_AGREEMENT, now=LATER)
 
     assert deal.status is DealStatus.CANCELLED
+    # сделки не было — предложение: «Предложение не принято», кнопка — в чат (№14)
+    [event] = deal.pull_events()
+    assert isinstance(event, DealCancelled)
+    assert (event.proposal, event.conversation_id) == (True, deal.conversation_id)
 
 
 def test_only_a_waiting_proposal_can_be_declined() -> None:

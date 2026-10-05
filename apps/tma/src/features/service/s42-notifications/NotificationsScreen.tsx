@@ -68,6 +68,7 @@ const LOOK: Record<NotificationType, Look> = {
   'response.not_selected': { icon: 'jobs', neutral: true },
   'message.received': { icon: 'chat', palette: 2 },
   'deal.proposed': { icon: 'check-circle' },
+  'deal.agreed': { icon: 'check-circle' },
   'deal.cancelled': { icon: 'x', neutral: true },
   'deal.reminder': { icon: 'calendar' },
   'deal.completion_prompt': { icon: 'check-circle' },

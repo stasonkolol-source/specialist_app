@@ -630,7 +630,9 @@ export const ViewsGetDealCardResponse = zod.object({
   ]),
   job_id: zod.union([zod.uuid(), zod.null()]),
   response_id: zod.union([zod.uuid(), zod.null()]),
-  conversation_id: zod.union([zod.uuid(), zod.null()]),
+  conversation_id: zod
+    .union([zod.uuid(), zod.null()])
+    .describe('Чат сделки — «Написать» (S30): где договорились или по выбранному отклику'),
   version: zod.int(),
   proposed_at: zod
     .union([zod.iso.datetime({ offset: true }), zod.null()])
@@ -638,6 +640,11 @@ export const ViewsGetDealCardResponse = zod.object({
   proposal_expires_at: zod
     .union([zod.iso.datetime({ offset: true }), zod.null()])
     .describe('Предложение отменится, если не ответить до этого времени (72 ч)'),
+  completion_due_at: zod
+    .union([zod.iso.datetime({ offset: true }), zod.null()])
+    .describe(
+      'Идущей сделке: с этого времени «Работа выполнена» — главная кнопка (бот спрашивает «Работа выполнена?»); раньше — «Написать»',
+    ),
   my_review: zod
     .union([
       zod.object({

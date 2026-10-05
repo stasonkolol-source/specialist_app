@@ -1011,6 +1011,27 @@ msgstr "Сделка «{title}» отменена: аккаунт второй �
 msgid "notifications.deal_cancelled.body_other"
 msgstr "Сделка «{title}» отменена."
 
+msgid "notifications.deal_cancelled.title_declined"
+msgstr "Предложение не принято"
+
+msgid "notifications.deal_cancelled.body_declined"
+msgstr "Предложение «{title}» не принято. Обсудите условия в чате и предложите снова."
+
+msgid "notifications.deal_cancelled.title_withdrawn"
+msgstr "Предложение отозвано"
+
+msgid "notifications.deal_cancelled.body_withdrawn"
+msgstr "Собеседник отозвал предложение «{title}»."
+
+msgid "notifications.deal_agreed.title"
+msgstr "Договорились"
+
+msgid "notifications.deal_agreed.body"
+msgstr "Условия «{title}» подтверждены — договорились. Теперь можно обменяться контактами."
+
+msgid "notifications.chat.open"
+msgstr "Открыть чат"
+
 msgid "notifications.deal_cancelled.reopened"
 msgstr "Заявка снова открыта, прежние отклики вернулись."
 

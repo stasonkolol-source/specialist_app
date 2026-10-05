@@ -36,9 +36,13 @@ notifications стоит над контентными модулями (ARCHITE
   закрыли» (`response.not_selected` с `reason: job_closed`, MU-11).
 - `notifications.notify_deal_proposed` — DealProposed: второй стороне «Клиент (исполнитель)
   предлагает договориться» и кнопка к условиям, пока предложение ждёт (6.3b).
+- `notifications.notify_deal_agreed` — DealAgreed «Договориться» из чата: предложившему —
+  «Условия «…» подтверждены — договорились» и «Открыть чат» (UX_GUIDANCE №14).
 - `notifications.notify_deal_cancelled` — DealCancelled: второй стороне — кто отменил и почему
   (при отмене системой — обеим, кроме удалённого аккаунта); клиенту из отклика — «заявка снова
-  открыта». Отмену модератором по спору объясняет `dispute.resolved`.
+  открыта». Отменили предложение «Договориться» (сделки ещё не было) — «Предложение не принято»
+  предложившему или «отозвано» второй стороне и «Открыть чат» (№14). Отмену модератором по
+  спору объясняет `dispute.resolved`.
 - `notifications.notify_dispute_opened` — DealDisputed: второй стороне — «сообщил о проблеме»,
   что случилось, срок ответа (48 ч) и «Ответить» сразу на S52 (`p_`), пока спор ждёт ответа
   (6.1c).
@@ -92,6 +96,7 @@ from app.modules.notifications.application.ports import (
     GRANT_WRITE_ACCESS,
     NOTIFY_ACCOUNT_RESTRICTED,
     NOTIFY_APPEAL_DECIDED,
+    NOTIFY_DEAL_AGREED,
     NOTIFY_DEAL_CANCELLED,
     NOTIFY_DEAL_COMPLETION,
     NOTIFY_DEAL_MARKED,
@@ -172,6 +177,7 @@ from app.modules.notifications.domain.channel import GrantedVia
 from app.modules.notifications.domain.notification import DeliveryId
 from app.modules.reviews.api import ReviewsApi
 from app.platform.contracts.events.deals import (
+    DealAgreed,
     DealCancelled,
     DealCompletionDue,
     DealDisputed,
@@ -242,6 +248,9 @@ RESPONSE = "response"
 JOB_CLOSED = "job_closed"
 """`reason` у `response.not_selected`: отклик не выбран, потому что клиент закрыл заявку."""
 AGREED, PROPOSED = "agreed", "proposed"
+FROM_CHAT = "chat"
+"""DealOrigin «Договориться» из чата: о подтверждении предложившему пишет `deal.agreed`; выбор
+отклика — `response.accepted`."""
 CLIENT, PERFORMER = "client", "performer"
 """Стороны сделки — как `cancelled_by` в DealCancelled."""
 BY_DISPUTE = "dispute"
@@ -723,6 +732,41 @@ async def notify_deal_proposed(
     )
 
 
+@subscriber(DealAgreed, NOTIFY_DEAL_AGREED)
+async def notify_deal_agreed(
+    event: DealAgreed,
+    notify: FromDishka[Notify],
+    deals: FromDishka[DealsApi],
+    identity: FromDishka[IdentityApi],
+) -> None:
+    """Вторая сторона подтвердила «Договориться» (S53): предложившему — «Условия «…»
+    подтверждены» и «Открыть чат»; раньше он узнавал об этом, только открыв чат."""
+    if event.origin != FROM_CHAT:
+        return
+    try:
+        deal = await deals.deal_for(event.deal_id, event.client_id)
+    except DealNotFoundError:
+        return
+    if deal.status != AGREED or deal.proposed_by is None:
+        return  # уже отменили, завершили или под спором — об этом свои уведомления
+    user = await identity.get_user(deal.proposed_by)
+    if user is None or user.is_deleted:
+        return
+    await notify(
+        NotifyCommand(
+            user_id=deal.proposed_by,
+            type=NotificationType.DEAL_AGREED,
+            dedupe_key=f"deal.agreed:{event.deal_id}",
+            params={"title": deal.title},
+            link=(
+                _chat_link(deal.conversation_id)
+                if deal.conversation_id is not None
+                else _deal_link(event.deal_id)
+            ),
+        )
+    )
+
+
 @subscriber(DealCancelled, NOTIFY_DEAL_CANCELLED)
 async def notify_deal_cancelled(
     event: DealCancelled,
@@ -733,6 +777,7 @@ async def notify_deal_cancelled(
     deal = await deals.deal_brief(event.deal_id)
     if deal is None or event.reason == BY_DISPUTE:
         return
+    proposer = await _proposer(event, deals)
     sides = ((CLIENT, event.client_id), (PERFORMER, event.performer_id))
     for role, user_id in sides:
         if role == event.cancelled_by:
@@ -741,20 +786,38 @@ async def notify_deal_cancelled(
         if user is None or user.is_deleted:
             continue
         reopened = role == CLIENT and event.job_id is not None
+        params = {
+            "title": deal.title,
+            "by": event.cancelled_by,
+            "reason": event.reason,
+            "reopened": "true" if reopened else "false",
+        }
+        link = _deal_link(event.deal_id)
+        if proposer is not None:
+            # сделки не было — было предложение: его не приняли или предложивший отозвал (№14)
+            params["proposal"] = "declined" if user_id == proposer else "withdrawn"
+            if event.conversation_id is not None:
+                link = _chat_link(event.conversation_id)
         await notify(
             NotifyCommand(
                 user_id=user_id,
                 type=NotificationType.DEAL_CANCELLED,
                 dedupe_key=f"deal.cancelled:{event.deal_id}:{user_id}",
-                params={
-                    "title": deal.title,
-                    "by": event.cancelled_by,
-                    "reason": event.reason,
-                    "reopened": "true" if reopened else "false",
-                },
-                link=_deal_link(event.deal_id),
+                params=params,
+                link=link,
             )
         )
+
+
+async def _proposer(event: DealCancelled, deals: DealsApi) -> UserId | None:
+    """Кто предлагал «Договориться», если сторона отменила предложение, а не сделку; иначе
+    None (отмена системой — своим текстом: истекло, удалён аккаунт)."""
+    if not event.proposal or event.cancelled_by not in {CLIENT, PERFORMER}:
+        return None
+    try:
+        return (await deals.deal_for(event.deal_id, event.client_id)).proposed_by
+    except DealNotFoundError:
+        return None
 
 
 @subscriber(DealReminderDue, NOTIFY_DEAL_REMINDER)

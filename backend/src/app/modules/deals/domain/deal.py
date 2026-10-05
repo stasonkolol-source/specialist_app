@@ -542,6 +542,7 @@ class Deal(VersionedAggregate):
         """`by` — отменившая сторона (`cancelled_by`); модератор — только в истории
         (`actor_id`): стороне его отмена — не «отменил я» и не «вторая сторона»."""
         actor = by if actor_id is None else actor_id
+        proposal = self.status is DealStatus.PROPOSED  # до подтверждения сделки ещё не было
         self._move(DealStatus.CANCELLED, by=actor, kind=kind, now=now, reason=reason.value)
         self.cancelled_at, self.cancelled_by, self.cancel_reason = now, by, reason
         self._record(
@@ -555,6 +556,8 @@ class Deal(VersionedAggregate):
                 category_id=self.terms.category_id,
                 cancelled_by=by_role,
                 reason=reason.value,
+                proposal=proposal,
+                conversation_id=self.conversation_id,
                 occurred_at=now,
             )
         )

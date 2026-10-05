@@ -1011,6 +1011,27 @@ msgstr "Договор „{title}“ је отказан: налог друге 
 msgid "notifications.deal_cancelled.body_other"
 msgstr "Договор „{title}“ је отказан."
 
+msgid "notifications.deal_cancelled.title_declined"
+msgstr "Предлог није прихваћен"
+
+msgid "notifications.deal_cancelled.body_declined"
+msgstr "Предлог „{title}“ није прихваћен. Договорите услове у разговору и предложите поново."
+
+msgid "notifications.deal_cancelled.title_withdrawn"
+msgstr "Предлог је повучен"
+
+msgid "notifications.deal_cancelled.body_withdrawn"
+msgstr "Саговорник је повукао предлог „{title}“."
+
+msgid "notifications.deal_agreed.title"
+msgstr "Договорено"
+
+msgid "notifications.deal_agreed.body"
+msgstr "Услови „{title}“ су потврђени — договорили сте се. Сада можете да размените контакте."
+
+msgid "notifications.chat.open"
+msgstr "Отвори разговор"
+
 msgid "notifications.deal_cancelled.reopened"
 msgstr "Захтев је поново отворен, претходне понуде су враћене."
 

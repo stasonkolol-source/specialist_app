@@ -6,7 +6,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -139,6 +139,19 @@ class SqlConversationRepository:
 
     async def of_deal(self, deal_id: UUID) -> UUID | None:
         stmt = select(ConversationRow.id).where(ConversationRow.deal_id == deal_id).limit(1)
+        return (await self._session.execute(stmt)).scalar_one_or_none()
+
+    async def for_deal(self, deal_id: UUID, response_id: UUID | None) -> UUID | None:
+        of_deal = ConversationRow.deal_id == deal_id
+        match = (
+            of_deal
+            if response_id is None
+            else or_(of_deal, ConversationRow.response_id == response_id)
+        )
+        # где договорились — первым; диалог отклика без сделки (deal_id NULL) — после
+        stmt = (
+            select(ConversationRow.id).where(match).order_by(of_deal.desc().nulls_last()).limit(1)
+        )
         return (await self._session.execute(stmt)).scalar_one_or_none()
 
 

@@ -16,6 +16,7 @@ export const NotificationType = {
   jobinvited: 'job.invited',
   messagereceived: 'message.received',
   dealproposed: 'deal.proposed',
+  dealagreed: 'deal.agreed',
   dealcancelled: 'deal.cancelled',
   disputeopened: 'dispute.opened',
   disputeresolved: 'dispute.resolved',

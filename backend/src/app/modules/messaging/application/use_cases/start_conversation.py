@@ -104,7 +104,7 @@ class StartConversation:
             if (deal := await self._deals.deal_for_response(response_id)) is not None:
                 conversation.link_deal(deal.id)
             await self._conversations.add(conversation)
-            offer = await self._offer(conversation, response)
+            offer = await post_offer(self._messages, self._deals, conversation, response)
             conversation.message_posted(
                 sender_id=response.performer_id, message_id=offer.id, now=now
             )
@@ -119,28 +119,6 @@ class StartConversation:
             raise CannotStartConversationError(
                 reason="blocked" if side is BlockSide.BY_ME else hidden
             )
-
-    async def _offer(self, conversation: Conversation, response: ChatResponse) -> Message:
-        """Первое сообщение — сам отклик: текст (контакты скрыты, пока нет сделки) и цена."""
-        locked = await contacts_locked(self._deals, conversation)
-        composed = compose(response.message, contacts_locked=locked)
-        payload: dict[str, object] = {
-            **composed.payload,
-            "price_type": response.price_type,
-            "price_amount": response.price_amount,
-            "availability_note": response.availability_note,
-        }
-        return await self._messages.add(
-            Message(
-                id=new_id(),
-                conversation_id=conversation.id,
-                sender_id=response.performer_id,
-                kind=MessageKind.OFFER,
-                body=composed.body,
-                payload=payload,
-                created_at=response.created_at,
-            )
-        )
 
     async def _direct(self, actor_id: UserId, profile_id: UUID) -> StartedConversation:
         profile = await self._specialists.public_profile(profile_id)
@@ -167,3 +145,29 @@ class StartConversation:
             )
             await self._conversations.add(conversation)
         return StartedConversation(conversation_id=conversation.id, created=True)
+
+
+async def post_offer(
+    messages: MessageStore, deals: DealsApi, conversation: Conversation, response: ChatResponse
+) -> Message:
+    """Первое сообщение диалога по отклику — сам отклик: текст (контакты скрыты, пока нет сделки)
+    и цена. Его же пишет диалог, который открывает выбор отклика (RecordDealEvent)."""
+    locked = await contacts_locked(deals, conversation)
+    composed = compose(response.message, contacts_locked=locked)
+    payload: dict[str, object] = {
+        **composed.payload,
+        "price_type": response.price_type,
+        "price_amount": response.price_amount,
+        "availability_note": response.availability_note,
+    }
+    return await messages.add(
+        Message(
+            id=new_id(),
+            conversation_id=conversation.id,
+            sender_id=response.performer_id,
+            kind=MessageKind.OFFER,
+            body=composed.body,
+            payload=payload,
+            created_at=response.created_at,
+        )
+    )

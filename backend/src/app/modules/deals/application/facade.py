@@ -2,6 +2,7 @@
 
 from collections.abc import Collection
 from dataclasses import replace
+from datetime import datetime
 from uuid import UUID
 
 from app.modules.deals.api import (
@@ -20,6 +21,8 @@ from app.modules.deals.application.ports import (
     DisputeRepository,
 )
 from app.modules.deals.domain.deal import (
+    PROMPT_DELAY,
+    PROMPT_WITHOUT_TIME,
     PROPOSAL_TTL,
     Deal,
     DealPriceType,
@@ -258,5 +261,16 @@ def _summary(deal: DealView, role: DealRole) -> DealSummary:
         proposal_expires_at=(
             deal.created_at + PROPOSAL_TTL if deal.status is DealStatus.PROPOSED else None
         ),
+        completion_due_at=_completion_due(deal),
         category_id=deal.category_id,
     )
+
+
+def _completion_due(deal: DealView) -> datetime | None:
+    """Когда бот спросит «Работа выполнена?» (Deal.completion_due_at): с этого часа на S26 это
+    главная кнопка, раньше — «Написать» (UX_GUIDANCE №2). Не идёт — None."""
+    if deal.status is not DealStatus.AGREED:
+        return None
+    if deal.scheduled_at is not None:
+        return deal.scheduled_at + PROMPT_DELAY
+    return deal.agreed_at + PROMPT_WITHOUT_TIME if deal.agreed_at is not None else None
