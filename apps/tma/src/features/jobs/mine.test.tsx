@@ -5,6 +5,7 @@
 // «Заявки» и клиенту открывает «Ленту», «Мои заявки» — сегментом; на Главной — «Мои активные
 // заявки». «Изменить» —
 // мастер с полями заявки и сохранение с If-Match; чужая правка между ними — «откройте заново».
+import type { JobStatus } from '@sosed/api-client';
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { http } from 'msw';
@@ -12,8 +13,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
 import { E2E_NOW } from '../../testing/fixtures.ts';
-import { JobsBackend, myJobsFixture } from '../../testing/jobsBackend.ts';
+import { JobsBackend, myJobsFixture, responseCardsFixture } from '../../testing/jobsBackend.ts';
 import { jobsHandlers, server } from '../../testing/msw.ts';
+import { byAttention } from './s22-my-jobs/order.ts';
 import { useDraftStore } from './shared/draft.ts';
 
 const [CHANDELIER] = myJobsFixture();
@@ -43,15 +45,21 @@ describe('S22 my jobs', () => {
     withMine();
     const { app } = startApp('/jobs/mine');
 
-    expect(await screen.findByRole('heading', { name: 'Активные', level: 2 })).toBeTruthy();
+    const activeTitle = await screen.findByRole('heading', { name: 'Активные', level: 2 });
     const chandelier = screen.getByRole('link', { name: /Повесить люстру/ });
     expect(within(chandelier).getByText('3 отклика — выберите исполнителя')).toBeTruthy();
     expect(within(chandelier).getByText('2 новых')).toBeTruthy();
+    expect(await within(chandelier).findByText('Лиман')).toBeTruthy();
     const cleaning = screen.getByRole('link', { name: /Генеральная уборка/ });
     expect(within(cleaning).getByText('Ждём откликов')).toBeTruthy();
+    // ждёт выбора исполнителя — первой в группе (сервер отдал её второй)
+    const active = activeTitle.closest('section');
+    expect(active && within(active).getAllByRole('link')).toEqual([chandelier, cleaning]);
     expect(screen.getByRole('heading', { name: 'Архив', level: 2 })).toBeTruthy();
     const done = screen.getByRole('link', { name: /Уборка после ремонта/ });
-    expect(within(done).getByText('Закрыта')).toBeTruthy();
+    // статус закрытой — в дате, бейджем не повторяется
+    expect(within(done).getByText('Закрыта 14 сентября')).toBeTruthy();
+    expect(within(done).queryByText('Закрыта')).toBeNull();
 
     const chips = screen.getByRole('group', { name: 'Статус заявок' });
     await click(within(chips).getByRole('button', { name: 'Архив' }));
@@ -89,6 +97,52 @@ describe('S22 my jobs', () => {
   });
 });
 
+describe('S22 order inside a group', () => {
+  const job = (
+    title: string,
+    status: JobStatus,
+    responses: number,
+    fresh: number,
+    publishedHoursAgo: number | null,
+  ) => ({
+    title,
+    status,
+    responses_count: responses,
+    new_responses: fresh,
+    published_at:
+      publishedHoursAgo === null
+        ? null
+        : new Date(Date.parse(E2E_NOW) - publishedHoursAgo * 3_600_000).toISOString(),
+    created_at: new Date(Date.parse(E2E_NOW) - 48 * 3_600_000).toISOString(),
+  });
+
+  it('puts jobs waiting for a choice first, then moderation, then «Ждём откликов»', () => {
+    const jobs = [
+      job('ждём, новая', 'published', 0, 0, 1),
+      job('на проверке', 'pending_moderation', 0, 0, null),
+      job('отклики без новых', 'published', 2, 0, 2),
+      job('ждём, старая', 'published', 0, 0, 5),
+      job('нужно исправить', 'rejected', 0, 0, null),
+      job('новые отклики, старая', 'published', 3, 1, 6),
+      job('новые отклики, новая', 'published', 1, 1, 3),
+    ];
+    expect([...jobs].sort(byAttention).map((item) => item.title)).toEqual([
+      'новые отклики, новая',
+      'новые отклики, старая',
+      'отклики без новых',
+      'на проверке',
+      'нужно исправить',
+      'ждём, новая',
+      'ждём, старая',
+    ]);
+  });
+
+  it('orders other groups by time only, newer first', () => {
+    const jobs = [job('старая', 'closed', 3, 0, 30), job('новая', 'expired', 0, 0, 10)];
+    expect([...jobs].sort(byAttention).map((item) => item.title)).toEqual(['новая', 'старая']);
+  });
+});
+
 describe('S23 manage job', () => {
   it('shows the job, its views, slots and response cards', async () => {
     withMine();
@@ -101,16 +155,43 @@ describe('S23 manage job', () => {
     expect(screen.getByText('12 просмотров')).toBeTruthy();
     expect(screen.getByText('3 из 5')).toBeTruthy();
     const first = await screen.findByRole('link', { name: /^Алексей Морозов/ });
-    expect(within(first).getByText('4,9 · 37 отзывов · Лиман')).toBeTruthy();
+    // рейтинг со звездой: число, отзывы рядом без «·», район
+    expect(within(first).getByText('4,9')).toBeTruthy();
+    expect(within(first).getByText('37 отзывов')).toBeTruthy();
+    expect(within(first).getByText('Лиман')).toBeTruthy();
     expect(within(first).getByText('Откликнулся первым')).toBeTruthy();
     expect(within(first).getByText('Телефон подтверждён')).toBeTruthy();
-    expect(within(first).getByText('Новый')).toBeTruthy();
+    // непросмотренный отклик — точкой у имени, не бейджем «Новый» рядом с 37 отзывами; точка
+    // держится за последнее слово имени, перенос её не отрывает
+    const dot = within(first).getByRole('img', { name: 'Новый отклик' });
+    expect(dot.parentElement?.textContent).toBe('Морозов ');
+    expect(within(first).queryByText('Новый')).toBeNull();
     const casual = screen.getByRole('link', { name: /^Иван Гаврилов/ });
-    expect(within(casual).getByText('Отзывов пока нет')).toBeTruthy();
+    expect(within(casual).getByText('Новый специалист')).toBeTruthy();
     expect(within(casual).getByText('Подработка')).toBeTruthy();
+    const seen = screen.getByRole('link', { name: /^Никола Петрович/ });
+    expect(within(seen).queryByRole('img', { name: 'Новый отклик' })).toBeNull();
     expect(
       screen.getByText('Выберите исполнителя — только ему откроется точный адрес.'),
     ).toBeTruthy();
+    // «Поднять» — v1: кнопки с меткой версии нет
+    expect(screen.queryByRole('button', { name: /Поднять/ })).toBeNull();
+  });
+
+  it('keeps at most two badges on a response card', async () => {
+    const backend = withMine();
+    const [, ivan] = responseCardsFixture();
+    if (!ivan || !CHANDELIER) throw new Error('fixtures');
+    // подработка, откликнулся первым и с телефоном — «Откликнулся первым» уступает фактам
+    backend.responseCards.set(CHANDELIER.id, [
+      { ...ivan, is_first: true, performer: { ...ivan.performer, phone_verified: true } },
+    ]);
+    startApp(MANAGE);
+
+    const card = await screen.findByRole('link', { name: /^Иван Гаврилов/ });
+    expect(within(card).getByText('Подработка')).toBeTruthy();
+    expect(within(card).getByText('Телефон подтверждён')).toBeTruthy();
+    expect(within(card).queryByText('Откликнулся первым')).toBeNull();
   });
 
   it('closes the job with a reason', async () => {

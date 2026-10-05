@@ -1,9 +1,10 @@
 // S24 Отклик глазами клиента и S25 подтверждение выбора (DEVELOPMENT_PLAN 6.2): мини-профиль
-// исполнителя (фото, имя, рейтинг или «Отзывов пока нет», «Телефон подтверждён», «Откликнулся
-// первым»; профиль специалиста — ссылкой на S08), предложение — цена, «Когда сможет» и сообщение,
-// «Ваш бюджет — …». «Отклонить» — место освобождается. MainButton «Выбрать исполнителем» открывает
-// шторку S25: что изменится сразу (адрес исполнителю, уведомление остальным), «если сделка
-// сорвётся — заявка снова откроется»; подтверждение создаёт сделку и ведёт на S26. Решённый
+// исполнителя (фото, имя, рейтинг со звездой или «Новый специалист», «Телефон подтверждён»,
+// «Откликнулся первым»; профиль специалиста — ссылкой на S08), предложение — цена, «Когда сможет»,
+// сообщение и нижней строкой «Ваш бюджет — …» и «Отклонить»: после подтверждения место
+// освобождается. MainButton «Выбрать исполнителем» открывает шторку S25: что изменится сразу
+// (адрес исполнителю, уведомление остальным) плоским списком, «если сделка сорвётся — заявка
+// снова откроется»; подтверждение создаёт сделку и ведёт на S26. Решённый
 // отклик — словами («Вы отклонили…», «Выбран другой исполнитель»), выбранный — «Открыть сделку».
 // SecondaryButton «Написать» (6.4) — диалог по отклику S30 (на клиентах без SecondaryButton —
 // кнопкой в контенте). Отклик берётся из карточек S23 (уже в кэше). Последние отзывы (7.2) — в
@@ -19,8 +20,13 @@ import {
   useResponseCards,
   useStartConversation,
 } from '@sosed/hooks';
-import { useFormat, useTranslation } from '@sosed/i18n';
-import { useBackButton, useBottomButtonState, useSecondaryButton } from '@sosed/platform';
+import { useTranslation } from '@sosed/i18n';
+import {
+  useBackButton,
+  useBottomButtonState,
+  usePlatform,
+  useSecondaryButton,
+} from '@sosed/platform';
 import {
   Avatar,
   Badge,
@@ -45,6 +51,7 @@ import { useStepButton } from '../shared/flow.ts';
 import { JobUnavailable } from '../shared/JobUnavailable.tsx';
 import { useBudgetText, useOfferPrice } from '../shared/labels.ts';
 import { LoadError } from '../shared/LoadError.tsx';
+import { PerformerRating } from '../shared/PerformerRating.tsx';
 import {
   JOBS_PATHS,
   chatPath,
@@ -102,6 +109,7 @@ export function ChoiceScreen() {
 function Choice({ job, card, others }: { job: JobOut; card: ResponseCardOut; others: number }) {
   const { t } = useTranslation('jobs');
   const router = useRouter();
+  const platform = usePlatform();
   const budgetText = useBudgetText();
   const decline = useDeclineResponse();
   const [confirming, setConfirming] = useState(false);
@@ -115,6 +123,14 @@ function Choice({ job, card, others }: { job: JobOut; card: ResponseCardOut; oth
     onClick: () => setConfirming(true),
   });
   const write = useWrite(card);
+  // отказ необратим — сначала нативное подтверждение, как «Отозвать отклик» на S17
+  const reject = async () => {
+    if (!(await platform.confirm(t('choice.declineConfirm')))) return;
+    decline.mutate(
+      { jobId: job.id, responseId: card.id },
+      { onSuccess: () => void router.navigate({ to: managePath(job.id), replace: true }) },
+    );
+  };
 
   return (
     <section className="flex flex-col gap-3.5 px-4 pt-3 pb-6">
@@ -129,12 +145,27 @@ function Choice({ job, card, others }: { job: JobOut; card: ResponseCardOut; oth
             «{card.message}»
           </Text>
         )}
+        {/* нижняя строка карточки, как на артборде: бюджет слева, «Отклонить» справа */}
+        {(budget || open) && (
+          <div className="flex items-center justify-between gap-3">
+            {budget && (
+              <Text as="span" variant="cap">
+                {t('choice.budget', { amount: budget })}
+              </Text>
+            )}
+            {open && (
+              <LinkButton
+                danger
+                className="-mr-2 ml-auto"
+                disabled={decline.isPending}
+                onClick={() => void reject()}
+              >
+                {t('choice.decline')}
+              </LinkButton>
+            )}
+          </div>
+        )}
       </Card>
-      {budget && (
-        <Text variant="cap" className="px-1">
-          {t('choice.budget', { amount: budget })}
-        </Text>
-      )}
       {write.available && !write.native && (
         <Button
           variant="secondary"
@@ -148,24 +179,7 @@ function Choice({ job, card, others }: { job: JobOut; card: ResponseCardOut; oth
       )}
       {write.error && <ActionError error={write.error} fallback={t('choice.writeError')} />}
       {decline.error && <ActionError error={decline.error} fallback={t('choice.declineError')} />}
-      {open ? (
-        <LinkButton
-          danger
-          disabled={decline.isPending}
-          onClick={() =>
-            decline.mutate(
-              { jobId: job.id, responseId: card.id },
-              {
-                onSuccess: () => void router.navigate({ to: managePath(job.id), replace: true }),
-              },
-            )
-          }
-        >
-          {t('choice.decline')}
-        </LinkButton>
-      ) : (
-        <Decided job={job} card={card} />
-      )}
+      {!open && <Decided job={job} card={card} />}
       {confirming && (
         <ConfirmSheet job={job} card={card} others={others} onClose={() => setConfirming(false)} />
       )}
@@ -204,17 +218,11 @@ function useWrite(card: ResponseCardOut) {
 /** Мини-профиль: фото, имя, рейтинг, бейджи; профиль специалиста — ссылкой на S08. */
 function Performer({ card }: { card: ResponseCardOut }) {
   const { t } = useTranslation('jobs');
-  const format = useFormat();
   const router = useRouter();
   const { performer } = card;
   const name = performer.display_name || '—';
   const avatar =
     performer.avatar?.variants.find((v) => v.name === 'thumb') ?? performer.avatar?.variants[0];
-  const rating =
-    performer.rating !== null
-      ? `${format.rating(performer.rating)} · ${t('manage.reviews', { count: performer.rating_count })}`
-      : t('manage.noReviews');
-  const meta = [rating, performer.district?.name ?? null].filter(Boolean).join(' · ');
   const profile = performer.profile_id;
   return (
     <Card
@@ -241,20 +249,26 @@ function Performer({ card }: { card: ResponseCardOut }) {
           <Heading variant="h2" as="h1">
             {name}
           </Heading>
-          <Text as="span" variant="cap">
-            {meta}
-          </Text>
+          {/* «Новый специалист» — в строке рейтинга, отдельным бейджем не повторяем */}
+          <PerformerRating
+            rating={performer.rating}
+            count={performer.rating_count}
+            meta={[performer.district?.name]}
+          />
         </div>
         {profile && <Icon name="chev-right" className="shrink-0 text-text2" />}
       </div>
-      <div className="flex flex-wrap gap-1.5">
-        {performer.phone_verified && <Badge tone="info">{t('manage.phone')}</Badge>}
-        {card.is_first && <Badge tone="ok">{t('manage.first')}</Badge>}
-        {performer.kind !== 'pro' && <Badge>{t('manage.casual')}</Badge>}
-        {performer.kind === 'pro' && performer.is_new && (
-          <Badge tone="info">{t('manage.newSpecialist')}</Badge>
-        )}
-      </div>
+      {(performer.phone_verified || card.is_first || performer.kind !== 'pro') && (
+        <div className="flex flex-wrap gap-1.5">
+          {performer.phone_verified && (
+            <Badge tone="info" icon="shield">
+              {t('manage.phone')}
+            </Badge>
+          )}
+          {card.is_first && <Badge tone="ok">{t('manage.first')}</Badge>}
+          {performer.kind !== 'pro' && <Badge>{t('manage.casual')}</Badge>}
+        </div>
+      )}
     </Card>
   );
 }
@@ -340,6 +354,7 @@ function ConfirmSheet({
   const offerPrice = useOfferPrice();
   const accept = useAcceptResponse();
   const button = useBottomButtonState('main');
+  const changesId = useId();
   useBackButton(onClose);
   const { performer } = card;
   const name = performer.display_name || '—';
@@ -375,8 +390,11 @@ function ConfirmSheet({
           </Text>
         </div>
       </div>
-      <Card tight as="section" aria-label={t('choice.changes')}>
-        <span className="text-title">{t('choice.changes')}</span>
+      {/* плоским списком, как на артборде: карточка в шторке сливается с фоном в светлой теме */}
+      <section className="flex flex-col gap-2.5" aria-labelledby={changesId}>
+        <h3 id={changesId} className="m-0 text-sm font-semibold">
+          {t('choice.changes')}
+        </h3>
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
           <li className="flex items-start gap-2.5">
             <Icon name="pin" size={20} className="shrink-0 text-accent" />
@@ -393,7 +411,7 @@ function ConfirmSheet({
             </li>
           )}
         </ul>
-      </Card>
+      </section>
       <Text variant="cap">{t('choice.note')}</Text>
       {accept.error && <ActionError error={accept.error} fallback={t('choice.acceptError')} />}
       <Button variant="outline" full disabled={accept.isPending} onClick={onClose}>

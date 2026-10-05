@@ -1,5 +1,5 @@
 // S26 Сделка (DEVELOPMENT_PLAN 6.2): название, статус («Договорились», «Выполнена», «Отменена»),
-// время и цена; вторая сторона — фото, имя, рейтинг или «Отзывов пока нет», роль (профиль
+// время и цена; вторая сторона — фото, имя, рейтинг или «Новый специалист», роль (профиль
 // специалиста — ссылкой на S08); адрес — сторонам («адрес видите только вы и …»), копировать;
 // таймлайн «Отклик на заявку → Выбран исполнителем → Договорились (работа …) → Работа выполнена →
 // Отзыв»; памятка о предоплате клиенту. MainButton «Работа выполнена» — отметка стороны, вторая
@@ -54,6 +54,7 @@ import { useId, useState } from 'react';
 import { useStepButton } from '../shared/flow.ts';
 import { useOfferPrice } from '../shared/labels.ts';
 import { LoadError } from '../shared/LoadError.tsx';
+import { PerformerRating } from '../shared/PerformerRating.tsx';
 import {
   JOBS_PATHS,
   chatPath,
@@ -183,7 +184,7 @@ function Proposal({ deal }: { deal: DealCardOut }) {
           <Term
             icon="wallet"
             label={t('deal.proposal.price')}
-            note={
+            detail={
               deal.proposed_at
                 ? t('deal.proposal.proposedAt', {
                     time: format.calendar(new Date(deal.proposed_at)),
@@ -214,17 +215,21 @@ function Proposal({ deal }: { deal: DealCardOut }) {
   );
 }
 
-/** Строка условий (.row): иконка, подпись над значением, справа — пояснение мелко. */
+/** Строка условий (.row): иконка, подпись над значением, справа — пояснение мелко; `detail` —
+ *  второй строкой под значением. */
 function Term({
   icon,
   label,
   note,
+  detail,
   narrowNote = false,
   children,
 }: {
   icon: IconName;
   label: string;
   note?: string;
+  /** Под значением: «предложено сегодня в 10:00» справа наезжало на крупную сумму. */
+  detail?: string;
   /** Длинное пояснение — колонкой до 140 px, как «точный адрес — после подтверждения». */
   narrowNote?: boolean;
   children: React.ReactNode;
@@ -235,6 +240,7 @@ function Term({
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="text-cap text-text2">{label}</span>
         <span className="font-semibold">{children}</span>
+        {detail && <span className="text-cap text-text2">{detail}</span>}
       </div>
       {note && (
         <span className={cx('text-right text-cap text-text2', narrowNote && 'max-w-35')}>
@@ -312,7 +318,8 @@ function Deal({ deal }: { deal: DealCardOut }) {
       {(agreed || deal.status === 'proposed') && (
         <Group>
           <Row
-            title={<span className="text-danger">{t('deal.cancel')}</span>}
+            danger
+            title={t('deal.cancel')}
             subtitle={client ? t('deal.cancelHintClient') : t('deal.cancelHintPerformer')}
             icon="x"
             onClick={() => setCancelling(true)}
@@ -388,19 +395,12 @@ function Header({ deal }: { deal: DealCardOut }) {
 /** Вторая сторона: фото, имя, рейтинг и роль; профиль специалиста — ссылкой на S08. */
 function Counterpart({ deal }: { deal: DealCardOut }) {
   const { t } = useTranslation('jobs');
-  const format = useFormat();
   const router = useRouter();
   const party = deal.counterpart;
   const name = party.display_name || t('deal.deletedParty');
   const avatar =
     party.avatar?.variants.find((v) => v.name === 'thumb') ?? party.avatar?.variants[0];
-  const rating =
-    party.role === 'performer'
-      ? party.rating !== null
-        ? `${format.rating(party.rating)} · ${t('deal.reviews', { count: party.rating_count })}`
-        : t('deal.noReviews')
-      : null;
-  const meta = [rating, t(`deal.role.${party.role}`)].filter(Boolean).join(' · ');
+  const role = t(`deal.role.${party.role}`);
   const profile = party.profile_id;
   return (
     <Card
@@ -420,15 +420,22 @@ function Counterpart({ deal }: { deal: DealCardOut }) {
         <Avatar name={name} src={avatar?.url} placeholder={party.avatar?.placeholder} />
         <div className="flex min-w-0 grow flex-col gap-0.5">
           <span className="text-title">{name}</span>
-          <Text as="span" variant="cap">
-            {meta}
-          </Text>
+          {/* рейтинг — у исполнителя; у клиента — только роль */}
+          {party.role === 'performer' ? (
+            <PerformerRating rating={party.rating} count={party.rating_count} meta={[role]} />
+          ) : (
+            <Text as="span" variant="cap">
+              {role}
+            </Text>
+          )}
         </div>
         {profile && <Icon name="chev-right" className="shrink-0 text-text2" />}
       </div>
       {party.phone_verified && (
         <div className="flex">
-          <Badge tone="info">{t('manage.phone')}</Badge>
+          <Badge tone="info" icon="shield">
+            {t('manage.phone')}
+          </Badge>
         </div>
       )}
     </Card>
