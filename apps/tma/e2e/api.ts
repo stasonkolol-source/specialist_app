@@ -24,6 +24,7 @@ import {
   categoriesFor,
   citiesFor,
   districtsFor,
+  locatedDistrict,
   notificationsFor,
   shareReply,
   searchFound,
@@ -268,6 +269,12 @@ export async function mockApi(
     // районы города: /cities/{id}/districts — названия на языке запроса
     if (/^GET \/api\/v1\/cities\/\d+\/districts$/.test(key)) {
       return route.fulfill(json(districtsFor(language)));
+    }
+    // район по точке (S20b «Определить по геолокации»): только вошедшему, как у backend
+    if (key === 'GET /api/v1/geo/districts/locate') {
+      if (!authorized(request)) return route.fulfill(json(NOT_AUTHENTICATED, 401));
+      const reply = locatedDistrict(url.searchParams, language);
+      return route.fulfill(json(reply.body, reply.status));
     }
     switch (key) {
       case 'GET /api/v1/client-config':

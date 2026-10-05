@@ -31,6 +31,8 @@ export interface StartOptions {
   popupAnswer?: string | null | readonly (string | null)[];
   /** Что уже лежит в DeviceStorage Telegram. */
   deviceStorage?: Record<string, string>;
+  /** Ответ LocationManager: по умолчанию — точка в Лимане, `null` — отказ или нет геолокации. */
+  location?: { latitude: number; longitude: number } | null;
 }
 
 export function startApp(path = '/', options: StartOptions = {}) {
@@ -42,6 +44,7 @@ export function startApp(path = '/', options: StartOptions = {}) {
     colorScheme,
     popupAnswer,
     deviceStorage: options.deviceStorage,
+    location: options.location,
   });
   const app = assemble(platform, {
     version: '0.1.0',

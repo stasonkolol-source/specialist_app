@@ -1,7 +1,8 @@
 // S20b «Когда и где?», шаг 2 из 4 (DEVELOPMENT_PLAN 5.2): когда — срочно, сегодня (с удобным
 // окном), в ближайшие дни или своя дата и время; где — район города (город — из профиля, иначе
 // пилотный) на схеме: исполнители видят только область района, точный адрес — только выбранный, в
-// карточке сделки. Точка на настоящей карте — с картой (Q28).
+// карточке сделки. Район — из списка или «Определить по геолокации» (LocateDistrict): человек не
+// обязан знать, как называется его район. Точка на настоящей карте — с картой (Q28).
 import type { DistrictOut } from '@sosed/api-client';
 import { useIdentityGetMe } from '@sosed/api-client';
 import {
@@ -43,6 +44,7 @@ import { useJobDraft } from '../shared/draft.ts';
 import { useCreateFlow, useStepButton } from '../shared/flow.ts';
 import { WizardSkeleton } from '../shared/skeletons.tsx';
 import { WizardHeader } from '../shared/WizardHeader.tsx';
+import { LocateDistrict } from './LocateDistrict.tsx';
 
 export function WhenScreen() {
   const { draft, patch } = useJobDraft();
@@ -114,18 +116,28 @@ function WhenForm({
           error={checked && problems.includes('date') ? t('create.when.missingDate') : undefined}
         />
       )}
-      <Field
-        label={t('create.when.where')}
-        error={
-          checked && problems.includes('district') ? t('create.when.missingDistrict') : undefined
-        }
-      >
-        <PickerButton icon="pin" onClick={() => setPicking(true)}>
-          {district && city
-            ? `${city.name}, ${district.name}`
-            : (city?.name ?? t('create.when.districtPick'))}
-        </PickerButton>
-      </Field>
+      <div className="flex flex-col">
+        <Field
+          label={t('create.when.where')}
+          error={
+            checked && problems.includes('district') ? t('create.when.missingDistrict') : undefined
+          }
+        >
+          <PickerButton icon="pin" onClick={() => setPicking(true)}>
+            {district && city
+              ? `${city.name}, ${district.name}`
+              : (city?.name ?? t('create.when.districtPick'))}
+          </PickerButton>
+        </Field>
+        {city && districts.length > 0 && (
+          <LocateDistrict
+            cityId={city.id}
+            districts={districts}
+            selected={draft.districtId}
+            onFound={(item) => patch({ districtId: item.id })}
+          />
+        )}
+      </div>
       {district && (
         <MapPreview
           label={district.name}

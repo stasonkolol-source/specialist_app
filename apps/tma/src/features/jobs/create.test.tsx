@@ -184,6 +184,47 @@ describe('S20a–d create a job', () => {
   });
 });
 
+describe('S20b «Определить по геолокации»', () => {
+  /** S20b после S20a: поле «Где» и кнопка под ним. */
+  async function openWhen(options: Parameters<typeof startApp>[1] = {}) {
+    withJobs(new JobsBackend());
+    const { telegram } = startApp('/jobs/new', options);
+    await fillWhat(telegram);
+    expect(await screen.findByRole('heading', { name: 'Когда и где?' })).toBeTruthy();
+    return screen.findByRole('button', { name: 'Определить по геолокации' });
+  }
+
+  it('chooses the district of the device point; the list still changes it', async () => {
+    await click(await openWhen());
+
+    expect(await screen.findByText('Район определён: Лиман')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Где' }).textContent).toBe('Нови-Сад, Лиман');
+    await click(screen.getByRole('button', { name: 'Где' }));
+    await click(await screen.findByRole('button', { name: 'Грбавица' }));
+    expect(screen.getByRole('button', { name: 'Где' }).textContent).toBe('Нови-Сад, Грбавица');
+    expect(screen.queryByText('Район определён: Лиман')).toBeNull();
+  });
+
+  it('asks to choose from the list when location is denied', async () => {
+    await click(await openWhen({ location: null }));
+
+    expect(
+      await screen.findByText('Не получилось определить район — выберите из списка'),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Где' }).textContent).toBe('Нови-Сад');
+  });
+
+  it('asks to choose from the list when the point is outside the city', async () => {
+    // Белград: backend отвечает 404 outside_city
+    await click(await openWhen({ location: { latitude: 44.8125, longitude: 20.4573 } }));
+
+    expect(
+      await screen.findByText('Не получилось определить район — выберите из списка'),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Где' }).textContent).toBe('Нови-Сад');
+  });
+});
+
 describe('ways into the wizard', () => {
   it('opens S20a from «Не хотите искать сами?» on the home screen', async () => {
     withJobs(new JobsBackend());
