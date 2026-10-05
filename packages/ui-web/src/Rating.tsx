@@ -21,7 +21,7 @@ export interface RatingProps {
 
 export function Rating({ value, reviews, newLabel, meta = [], className }: RatingProps) {
   const rating = value ? (
-    <span className="flex flex-wrap items-center gap-x-1.5">
+    <span className="flex flex-wrap items-center gap-1.5">
       <span className="inline-flex items-center gap-0.75 font-semibold text-text">
         <Icon name="star" size={16} className="text-star" />
         {value}
