@@ -8,7 +8,8 @@ const TELEGRAM_RESERVED_PREFIX = '_tgr_';
 
 /** Сущности с экраном в Mini App; тип → префикс кода. `p_` — проблема со сделкой (спор S52, 6.1c):
  *  id сделки, экран — сразу спор, а не S26. `ri_` — приглашение на «отзыв до платформы» S56
- *  (7.6а): id — секрет ссылки (случайный UUIDv4), экран — следующим шагом. */
+ *  (7.6а): id — секрет ссылки (случайный UUIDv4), экран — следующим шагом. `rv_` — форма отзыва
+ *  S27 по сделке: кнопка «Открыть форму отзыва» уведомления `review.request` — сразу форма, без S26. */
 export const ENTITY_PREFIX = {
   job: 'j',
   specialist: 's',
@@ -16,6 +17,7 @@ export const ENTITY_PREFIX = {
   deal: 'd',
   dispute: 'p',
   review_invite: 'ri',
+  review: 'rv',
 } as const;
 export type EntityType = keyof typeof ENTITY_PREFIX;
 
@@ -27,7 +29,9 @@ export type LegalDocument = (typeof LEGAL_DOCUMENTS)[number];
  *  S28 (кнопка «Ответить на отзыв» уведомления `review.published`, 7.2), `m_settings` — настройки
  *  S43 и `m_deletion` — удаление аккаунта S45 (кнопки `/settings` бота, 4.9); `m_alerts` —
  *  подписки S18, `m_feed` — лента «по моим подпискам» S13, `m_availability` — «доступен сегодня»
- *  S38, `m_profile` — кабинет S33 (кнопки уведомлений и команд `/feed`, `/alerts`, 5.7). */
+ *  S38, `m_profile` — кабинет S33 (кнопки уведомлений и команд `/feed`, `/alerts`, 5.7);
+ *  `m_responses` — «Мои отклики» S17 (исходы отклика: выбрали другого, отклонил, закрыта без
+ *  выбора), `m_portfolio` — портфолио S37 (отказ модерации по работе). */
 export const MINE_SECTIONS = [
   'jobs',
   'reviews',
@@ -37,6 +41,8 @@ export const MINE_SECTIONS = [
   'feed',
   'availability',
   'profile',
+  'responses',
+  'portfolio',
 ] as const;
 export type MineSection = (typeof MINE_SECTIONS)[number];
 
