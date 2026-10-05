@@ -407,7 +407,9 @@ describe('S57 templates', () => {
       await click(within(sheet).getByRole('radio', { name: 'Договорная' }));
       await pressMainButton(telegram);
 
-      expect(await screen.findByText('Не получилось сохранить шаблон. Повторите')).toBeTruthy();
+      expect(
+        await screen.findByText('Не получилось сохранить шаблон. Попробуйте ещё раз.'),
+      ).toBeTruthy();
       expect(backend.templates).toHaveLength(1);
       if (edited) {
         await type(within(sheet).getByRole('textbox', { name: 'Название' }), 'По описанию');

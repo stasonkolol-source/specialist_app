@@ -1,5 +1,5 @@
 // «Отзыв до платформы» S56 (DEVELOPMENT_PLAN 7.6а) на фейке backend: по ссылке `ri_` — кто просит
-// отзыв, звёзды с подписью, «Что делал мастер», текст и галочка «Подтверждаю…»; без галочки отзыв
+// отзыв, звёзды с подписью, «Что делал специалист», текст и галочка «Подтверждаю…»; без галочки отзыв
 // не уходит; после отправки — «Спасибо». Недействительная ссылка — нейтральный экран, своя ссылка
 // — объяснение, второй отзыв о том же специалисте — «Вы уже оставили отзыв».
 import { setSession } from '@sosed/api-client';
@@ -48,7 +48,7 @@ describe('S56 invite review', () => {
     );
     await click(screen.getByRole('radio', { name: '5 звёзд' }));
     expect(screen.getByText('Отлично')).toBeTruthy();
-    fireEvent.change(screen.getByRole('textbox', { name: 'Что делал мастер' }), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Что делал специалист' }), {
       target: { value: 'Проводка в ванной и светильники' },
     });
     fireEvent.change(screen.getByRole('textbox', { name: 'Отзыв' }), {
@@ -58,7 +58,9 @@ describe('S56 invite review', () => {
 
     // без галочки «Подтверждаю…» отзыв не уходит
     await pressMainButton(telegram);
-    expect(await screen.findByText('Отметьте, что этот мастер делал для вас работу')).toBeTruthy();
+    expect(
+      await screen.findByText('Отметьте, что этот специалист делал для вас работу'),
+    ).toBeTruthy();
     expect(backend.reviews.size).toBe(0);
     await click(
       screen.getByRole('checkbox', {

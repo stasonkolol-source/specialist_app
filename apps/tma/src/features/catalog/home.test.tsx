@@ -247,7 +247,7 @@ describe('S58 goods soon', () => {
     await click(await screen.findByRole('button', { name: 'Сообщить о запуске' }));
 
     expect((await screen.findByRole('alert')).textContent).toBe(
-      'Не получилось подписаться. Попробуйте ещё раз',
+      'Не получилось подписаться. Попробуйте ещё раз.',
     );
     expect(screen.getByRole('button', { name: 'Сообщить о запуске' })).toBeTruthy();
   });

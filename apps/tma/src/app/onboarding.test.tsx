@@ -140,7 +140,7 @@ describe('new user: S02a → S02b → S02c → home', () => {
     expect(english.disabled).toBe(true);
     const cities = await screen.findByRole('radiogroup', { name: 'Город' });
     expect(
-      within(cities).getByRole('radio', { name: 'Нови-Сад', description: 'Пилотный город' })
+      within(cities).getByRole('radio', { name: 'Нови-Сад', description: 'Уже работаем' })
         .ariaChecked,
     ).toBe('true');
     expect(
@@ -634,7 +634,7 @@ describe('S02 errors', () => {
     expect(await screen.findByRole('status')).toBeTruthy();
     expect(
       await screen.findByText(
-        'Нет соединения. Проверьте интернет и попробуйте ещё раз',
+        'Нет соединения. Проверьте интернет и попробуйте ещё раз.',
         {},
         { timeout: 5000 },
       ),
@@ -661,10 +661,10 @@ describe('S02 errors', () => {
 
     await pressMainButton(telegram);
     expect(
-      await screen.findByText('Нет соединения. Проверьте интернет и попробуйте ещё раз'),
+      await screen.findByText('Нет соединения. Проверьте интернет и попробуйте ещё раз.'),
     ).toBeTruthy();
     await pressMainButton(telegram);
-    expect(await screen.findByText('Не получилось сохранить. Попробуйте ещё раз')).toBeTruthy();
+    expect(await screen.findByText('Не получилось сохранить. Попробуйте ещё раз.')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Язык и город' })).toBeTruthy();
   });
 });

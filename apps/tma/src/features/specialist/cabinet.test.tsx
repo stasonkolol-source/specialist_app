@@ -36,7 +36,7 @@ describe('S33 cabinet', () => {
     withBackend(new ProfileBackend(PUBLISHED, [FIRST_SERVICE]));
     const { app } = startApp('/cabinet');
 
-    expect(await screen.findByText('Профиль опубликован · виден в поиске')).toBeTruthy();
+    expect(await screen.findByText('Профиль опубликован и виден в поиске')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Кабинет специалиста', level: 1 })).toBeTruthy();
     // без работ, фото профиля и описания позиции: 90 из 125 баллов «Специалиста»
     expect(screen.getByText('Профиль заполнен на 72%')).toBeTruthy();
@@ -53,7 +53,7 @@ describe('S33 cabinet', () => {
     withBackend(new ProfileBackend({ ...PROFILE_FILLED, headline: null }, [FIRST_SERVICE]));
     const { app, telegram } = startApp('/cabinet');
 
-    expect(await screen.findByText('Черновик · осталось несколько шагов')).toBeTruthy();
+    expect(await screen.findByText('Черновик, осталось несколько шагов')).toBeTruthy();
     expect(screen.getByText('Напишите коротко о себе')).toBeTruthy();
     await waitFor(() =>
       expect(mainButton(telegram)).toMatchObject({
@@ -69,7 +69,7 @@ describe('S33 cabinet', () => {
   it('has no MainButton for a published profile', async () => {
     withBackend(new ProfileBackend(PUBLISHED, [FIRST_SERVICE]));
     const published = startApp('/cabinet');
-    await screen.findByText('Профиль опубликован · виден в поиске');
+    await screen.findByText('Профиль опубликован и виден в поиске');
     expect(mainButton(published.telegram)?.is_visible).not.toBe(true);
   });
 

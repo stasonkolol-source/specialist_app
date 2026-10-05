@@ -74,7 +74,7 @@ describe('S35 price list', () => {
     const { app, telegram } = startApp('/cabinet/prices');
 
     const electrical = await screen.findByRole('region', { name: 'Электрика' });
-    expect(screen.getByText('4 позиции · порядок — в меню «…»')).toBeTruthy();
+    expect(screen.getByText('4 позиции. Порядок — в меню «⋯»')).toBeTruthy();
     expect(within(electrical).getByRole('link', { name: /Мастер на час/ }).textContent).toContain(
       'за час',
     );

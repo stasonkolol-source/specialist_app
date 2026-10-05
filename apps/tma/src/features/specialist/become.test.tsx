@@ -64,7 +64,7 @@ describe('S32a–c become a specialist', () => {
     expect(backend.profile).toMatchObject({ kind: 'pro', city_id: 1, status: 'draft' });
     await click(screen.getByRole('button', { name: 'Электрика' }));
     type('Коротко о себе', 'Электрик · люстры');
-    expect(screen.getByText('Показывается под именем · 17 из 80')).toBeTruthy();
+    expect(screen.getByText('Показывается под именем. 17 из 80')).toBeTruthy();
     await pressMainButton(telegram);
 
     await area();

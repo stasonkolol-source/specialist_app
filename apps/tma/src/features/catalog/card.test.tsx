@@ -173,7 +173,7 @@ describe('S09 prices', () => {
       expect.stringMatching(/^Электрика/),
     ]);
     const first = within(groups[0] as HTMLElement);
-    expect(first.getByText('до 1 часа · за визит')).toBeTruthy();
+    expect(first.getByText('до 1 часа · за выезд')).toBeTruthy();
     expect(first.getByText('за час')).toBeTruthy();
     expect(first.getByText('Мелкий ремонт')).toBeTruthy();
     expect(within(groups[2] as HTMLElement).getByText(/^от 400\sRSD$/u)).toBeTruthy();

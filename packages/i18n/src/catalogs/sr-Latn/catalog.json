@@ -40,7 +40,7 @@
     "relaxFilters": "Ublažite filtere — na primer, uklonite deo grada ili cenu",
     "resetFilters": "Poništi filtere",
     "more": "Još stručnjaka",
-    "moreError": "Učitavanje nije uspelo. Pokušajte ponovo",
+    "moreError": "Učitavanje sledećih stručnjaka nije uspelo. Pokušajte ponovo.",
     "loadError": "Stručnjaci nisu učitani",
     "locationError": "Ne znamo gde ste: dozvolite pristup lokaciji u Telegram-u",
     "reviews": "({count})",
@@ -114,12 +114,12 @@
     "report": "Prijavi profil",
     "blockConfirm": "Blokirati stručnjaka? Neće moći da vam piše niti da šalje ponude na vaše zahteve, a vi ga nećete videti u pretrazi.",
     "blocked": "Blokirali ste ovog stručnjaka: ne možete mu pisati, nema ga u pretrazi.",
-    "blockFailed": "Nije uspelo. Pokušajte ponovo."
+    "blockFailed": "Blokiranje nije uspelo. Pokušajte ponovo."
   },
   "prices": {
     "title": "Cenovnik",
     "summary": "{name} · {count, plural, one {# usluga} few {# usluge} other {# usluga}}",
-    "note": "Cene su orijentacione — tačnu cenu majstor će reći posle pregleda. Dodirnite uslugu da biste predložili zahtev.",
+    "note": "Cene su orijentacione — tačnu cenu stručnjak će reći posle pregleda. Dodirnite uslugu da biste predložili zahtev.",
     "other": "Ostalo",
     "durations": {
       "60": "do 1 sata",
@@ -180,11 +180,11 @@
     "emptyTitle": "Ovde će biti vaši majstori",
     "emptyText": "Dodirnite srce na kartici stručnjaka — pojaviće se na ovom spisku",
     "find": "Pronađite stručnjaka",
-    "error": "Čuvanje nije uspelo. Pokušajte ponovo",
+    "error": "Čuvanje nije uspelo. Pokušajte ponovo.",
     "full": "U omiljenima već ima {limit} — uklonite nekoga da biste dodali",
     "segments": "Šta prikazati",
     "masters": "Majstori",
-    "jobs": "Zadaci",
+    "jobs": "Zahtevi",
     "withCount": "{label} · {count}"
   },
   "goods": {
@@ -197,7 +197,7 @@
     "notifyHint": "Bot će pisati jednom — kada se odeljak otvori",
     "done": "Gotovo! Bot će pisati kada se odeljak „Stvari“ otvori.",
     "doneInApp": "Gotovo! Javićemo u obaveštenjima aplikacije kada se odeljak „Stvari“ otvori.",
-    "error": "Prijava nije uspela. Pokušajte ponovo",
+    "error": "Prijava nije uspela. Pokušajte ponovo.",
     "movingTitle": "Selite se?",
     "movingText": "Naručite selidbu, čišćenje ili montažu nameštaja već sada"
   }

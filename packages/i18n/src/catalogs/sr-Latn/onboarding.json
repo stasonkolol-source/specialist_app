@@ -7,7 +7,7 @@
   },
   "city": {
     "section": "Grad",
-    "pilot": "Pilot-grad",
+    "pilot": "Već radimo",
     "soon": "uskoro",
     "loading": "Učitavamo gradove",
     "loadError": "Gradovi nisu učitani"
@@ -52,13 +52,13 @@
     "accept": "Imam 18 godina i prihvatam pravila platforme",
     "acceptRequired": "Označite polje: bez toga ne možete da počnete",
     "outdated": "Pravila su ažurirana. Pročitajte novu verziju i potvrdite ponovo",
-    "unavailable": "Pravila nisu učitana. Pokušajte ponovo",
+    "unavailable": "Pravila nisu učitana. Pokušajte ponovo.",
     "notifications": {
       "title": "Obaveštenja od bota",
       "text": "Bot će slati ponude, poruke i nove zahteve po pretplatama. Telegram će jednom tražiti dozvolu."
     },
     "start": "Počni"
   },
-  "saveError": "Čuvanje nije uspelo. Pokušajte ponovo",
-  "offlineError": "Nema veze. Proverite internet i pokušajte ponovo"
+  "saveError": "Čuvanje nije uspelo. Pokušajte ponovo.",
+  "offlineError": "Nema veze. Proverite internet i pokušajte ponovo."
 }

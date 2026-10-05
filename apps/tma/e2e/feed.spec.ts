@@ -1,6 +1,6 @@
 // Лента заявок S13–S15 (DEVELOPMENT_PLAN 5.3) на фейке backend: вкладка «Заявки» → «До 3 км» →
 // шторка S14 с «Мастер на час» → «Показать 3 заявки» → лента S13, как на артборде (тёмная — D13)
-// → заявка S15; сохранённые заявки — сегмент «Задачи» избранного S12. Скриншоты × тема × язык,
+// → заявка S15; сохранённые заявки — сегмент «Заявки» избранного S12. Скриншоты × тема × язык,
 // axe-core. Часы браузера — E2E_NOW (10:00 по Белграду): окно «18–21» ещё сегодня. Ссылка
 // `startapp=j_…` открывает S15 сразу. Имена скриншотов начинаются с кода артборда: make
 // design-compare кладёт их рядом с эталоном.
@@ -30,12 +30,12 @@ const LOCALES = [
     sheet: 'Фильтры',
     handyman: 'Мастер на час',
     radius: 'Радиус от вас · Лиман',
-    found: '3 заявки по фильтрам · новые сверху',
+    found: '3 заявки по фильтрам, новые сверху',
     job: 'Повесить люстру',
     client: 'В «Соседях» 3 месяца · 2 заявки',
     profile: 'Профиль',
     favorites: 'Избранное',
-    savedJobs: 'Задачи · 2',
+    savedJobs: 'Заявки · 2',
   },
   {
     locale: 'sr-Latn',
@@ -47,12 +47,12 @@ const LOCALES = [
     sheet: 'Filteri',
     handyman: 'Majstor na sat',
     radius: 'Radijus od vas · Liman',
-    found: '3 zahteva po filterima · najnoviji prvi',
+    found: '3 zahteva po filterima, najnoviji prvi',
     job: 'Повесить люстру',
     client: 'U aplikaciji „Sosedi“ 3 meseca · 2 zahteva',
     profile: 'Profil',
     favorites: 'Omiljeni',
-    savedJobs: 'Zadaci · 2',
+    savedJobs: 'Zahtevi · 2',
   },
 ] as const;
 
@@ -112,7 +112,7 @@ for (const theme of THEMES) {
 
 for (const theme of THEMES) {
   for (const l of LOCALES) {
-    test(`S12 ${theme} ${l.locale}: сохранённые заявки — сегмент «Задачи»`, async ({ page }) => {
+    test(`S12 ${theme} ${l.locale}: сохранённые заявки — сегмент «Заявки»`, async ({ page }) => {
       await page.clock.setFixedTime(new Date(E2E_NOW));
       const jobs = new JobsBackend();
       jobs.saved = [LEAK, CHANDELIER];

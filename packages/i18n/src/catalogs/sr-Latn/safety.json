@@ -65,7 +65,7 @@
       "safety": "Moderator će je proveriti u roku od sat vremena, od 08:00 do 23:00.",
       "fraud": "Moderator će je proveriti u roku od 2 sata, od 08:00 do 23:00."
     },
-    "doneBlocked": "Blokirali ste ga: neće moći da vam piše niti da šalje ponude na vaše zahteve.",
+    "doneBlocked": "Blokirano. Ova osoba više neće moći da vam piše niti da šalje ponude na vaše zahteve.",
     "blockFailed": "Prijava je poslata, ali blokiranje nije uspelo. Pokušajte ponovo iz menija.",
     "done": "Gotovo"
   },
