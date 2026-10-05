@@ -1170,6 +1170,21 @@ msgstr "<b>{title}</b> — захтев у апликацији „Соседи�
 msgid "share.job.button"
 msgstr "Отвори захтев"
 
+msgid "share.specialist.rating.one"
+msgstr "★ {rating} — {count} утисак"
+
+msgid "share.specialist.rating.few"
+msgstr "★ {rating} — {count} утиска"
+
+msgid "share.specialist.rating.many"
+msgstr "★ {rating} — {count} утисака"
+
+msgid "share.specialist.new"
+msgstr "Нови стручњак"
+
+msgid "share.specialist.phone_verified"
+msgstr "Телефон потврђен"
+
 # Апелляции и чат модераторов (DEVELOPMENT_PLAN 2.5b)
 msgid "errors.appeal_target_not_found"
 msgstr "Нема шта да се оспори: није пронађена одлука модерације о вама."

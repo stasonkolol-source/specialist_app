@@ -20,7 +20,11 @@ export const ViewsCreateShareBody = zod.object({
 export const ViewsCreateShareResponse = zod.object({
   url: zod.string().describe('https://t.me/<bot>?startapp=<код>: открывает S08 или S15'),
   start_param: zod.string().describe('Код startapp: s_… или j_…, у вошедшего — с _r<код>'),
-  text: zod.string().describe('Подпись для t.me/share/url и копирования: имя или название'),
+  text: zod
+    .string()
+    .describe(
+      'Подпись для t.me/share/url и копирования: первые две строки карточки — имя и «коротко о себе» или название и бюджет',
+    ),
   prepared_message_id: zod
     .union([zod.string(), zod.null()])
     .describe('Карточка для WebApp.shareMessage; null — делиться ссылкой'),

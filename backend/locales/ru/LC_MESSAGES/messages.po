@@ -1170,6 +1170,21 @@ msgstr "<b>{title}</b> — заявка в «Соседях»"
 msgid "share.job.button"
 msgstr "Открыть заявку"
 
+msgid "share.specialist.rating.one"
+msgstr "★ {rating} — {count} отзыв"
+
+msgid "share.specialist.rating.few"
+msgstr "★ {rating} — {count} отзыва"
+
+msgid "share.specialist.rating.many"
+msgstr "★ {rating} — {count} отзывов"
+
+msgid "share.specialist.new"
+msgstr "Новый специалист"
+
+msgid "share.specialist.phone_verified"
+msgstr "Телефон подтверждён"
+
 # Апелляции и чат модераторов (DEVELOPMENT_PLAN 2.5b)
 msgid "errors.appeal_target_not_found"
 msgstr "Обжаловать нечего: решения модерации о вас не нашлось."

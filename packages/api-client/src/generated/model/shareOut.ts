@@ -10,7 +10,7 @@ export interface ShareOut {
   url: string;
   /** Код startapp: s_… или j_…, у вошедшего — с _r<код> */
   start_param: string;
-  /** Подпись для t.me/share/url и копирования: имя или название */
+  /** Подпись для t.me/share/url и копирования: первые две строки карточки — имя и «коротко о себе» или название и бюджет */
   text: string;
   /** Карточка для WebApp.shareMessage; null — делиться ссылкой */
   prepared_message_id: string | null;

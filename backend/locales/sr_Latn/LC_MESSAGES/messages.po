@@ -1171,6 +1171,21 @@ msgstr "<b>{title}</b> — zahtev u aplikaciji „Sosedi“"
 msgid "share.job.button"
 msgstr "Otvori zahtev"
 
+msgid "share.specialist.rating.one"
+msgstr "★ {rating} — {count} utisak"
+
+msgid "share.specialist.rating.few"
+msgstr "★ {rating} — {count} utiska"
+
+msgid "share.specialist.rating.many"
+msgstr "★ {rating} — {count} utisaka"
+
+msgid "share.specialist.new"
+msgstr "Novi stručnjak"
+
+msgid "share.specialist.phone_verified"
+msgstr "Telefon potvrđen"
+
 # Апелляции и чат модераторов (DEVELOPMENT_PLAN 2.5b)
 msgid "errors.appeal_target_not_found"
 msgstr "Nema šta da se ospori: nije pronađena odluka moderacije o vama."
