@@ -1,10 +1,12 @@
 // Мастер «Создать заявку» S20a–d и итог S21 (DEVELOPMENT_PLAN 5.2) на фейке backend заявок: путь от
 // пустого черновика до «на проверке», проверки шагов, один POST на черновик (повтор — с тем же
-// ключом), черновик в DeviceStorage переживает перезапуск, запрос «Сообщать об откликах?». S21 сам
-// переходит в «опубликована», когда автопроверка опубликовала заявку; мастер — одна запись истории:
-// «Назад» после публикации не возвращает в его шаги; двойное «Опубликовать», 409 «запрос ещё идёт»
-// и ключ, потраченный на другое тело, — одна заявка без ошибки; подсказка категории для длинного
-// заголовка, ориентир цены с единицей, «Кто что увидит» как на деле.
+// ключом), черновик в DeviceStorage переживает перезапуск. S21 — «что дальше» одной строкой: где
+// ждать откликов, что бот напишет (или «Разрешите боту писать» с запросом), до какого числа открыта
+// заявка, и «Хотите быстрее? Пригласите специалистов»; сам переходит в «опубликована», когда
+// автопроверка опубликовала заявку; мастер — одна запись истории: «Назад» после публикации не
+// возвращает в его шаги; двойное «Опубликовать», 409 «запрос ещё идёт» и ключ, потраченный на
+// другое тело, — одна заявка без ошибки; подсказка категории для длинного заголовка, ориентир цены
+// с единицей, «Кто что увидит» одной строкой, подробности — под «Подробнее».
 import { setSession } from '@sosed/api-client';
 import { getCatalogListCategoriesMockHandler } from '@sosed/api-client/mocks';
 import { DRAFT_STORAGE_KEY } from '@sosed/hooks';
@@ -28,6 +30,7 @@ import {
   categoriesFor,
   suggestFor,
 } from '../../testing/fixtures.ts';
+import { NOTIFICATION_SETTINGS, WRITE_ACCESS } from '../../testing/fixtures.ts';
 import { JobsBackend, createdJobId } from '../../testing/jobsBackend.ts';
 import { jobsHandlers, server } from '../../testing/msw.ts';
 import { useDraftStore } from './shared/draft.ts';
@@ -111,6 +114,10 @@ describe('S20a–d create a job', () => {
     expect(within(card).getByText('Лиман')).toBeTruthy();
     expect(within(card).getByText('только что')).toBeTruthy();
     expect(within(card).getByText('откликов 0 из 5')).toBeTruthy();
+    // кто что увидит — одной строкой, подробности — по «Подробнее»
+    expect(screen.getByText('Адрес и контакты увидит только выбранный исполнитель')).toBeTruthy();
+    expect(screen.queryByText(/^— точный адрес/)).toBeNull();
+    await click(screen.getByRole('button', { name: 'Подробнее' }));
     expect(
       screen.getByText(
         '— точный адрес: Народног фронта 25, кв. 14; после договорённости — и ваш Telegram (его можно скрыть в настройках)',
@@ -119,6 +126,12 @@ describe('S20a–d create a job', () => {
     await pressMainButton(telegram);
 
     expect(await screen.findByRole('heading', { name: 'Заявка на проверке' })).toBeTruthy();
+    // на проверке — сколько обычно ждать; бот писать не может — просим разрешить, без обещаний
+    expect(
+      screen.getByText(
+        /^Обычно это несколько минут\. Разрешите боту писать — иначе об откликах узнаете, только открыв приложение\.$/u,
+      ),
+    ).toBeTruthy();
     expect(app.router.state.location.pathname).toBe('/jobs/new/done');
     expect(jobs.posts).toHaveLength(1);
     expect(jobs.posts[0]?.key).toMatch(/^[0-9a-f-]{36}$/);
@@ -274,11 +287,12 @@ describe('ways into the wizard', () => {
   });
 });
 
-describe('S21 published', () => {
-  it('asks to send responses to Telegram while the bot cannot write', async () => {
-    const jobs = withJobs(new JobsBackend());
-    jobs.status = 'published';
-    const { telegram } = startApp('/jobs/new');
+describe('S21 published (UX_GUIDANCE №3)', () => {
+  /** Опубликована сразу: «Отклики придут сюда…» — 2 октября, открыта неделю. */
+  const PUBLISHED_LINE =
+    /^Отклики придут сюда и в Telegram — бот напишет о первом же\. Заявка открыта до 9 октября\.$/u;
+
+  async function publish(telegram: MockTelegram) {
     await fillWhat(telegram);
     await fillWhen(telegram);
     await screen.findByRole('heading', { name: 'Сколько готовы заплатить?' });
@@ -286,11 +300,46 @@ describe('S21 published', () => {
     await pressMainButton(telegram);
     await screen.findByRole('heading', { name: 'Проверьте заявку' });
     await pressMainButton(telegram);
+  }
+
+  it('says where responses come, that the bot writes and until when the job is open', async () => {
+    const jobs = withJobs(new JobsBackend());
+    jobs.status = 'published';
+    server.use(
+      http.get('*/api/v1/me/notification-settings', () =>
+        HttpResponse.json({ ...NOTIFICATION_SETTINGS, telegram: WRITE_ACCESS }),
+      ),
+    );
+    const { telegram } = startApp('/jobs/new');
+    await publish(telegram);
 
     expect(await screen.findByRole('heading', { name: 'Заявка опубликована' })).toBeTruthy();
+    expect(await screen.findByText(PUBLISHED_LINE)).toBeTruthy();
+    // одно необязательное действие: пригласить; «Поделиться» — на S23
+    expect(
+      await screen.findByRole('heading', { name: 'Хотите быстрее? Пригласите специалистов' }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Поделиться в чат' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Присылать в Telegram' })).toBeNull();
+    expect(screen.queryByText(/провер/)).toBeNull();
+  });
+
+  it('asks to let the bot write instead of promising it, then promises it', async () => {
+    const jobs = withJobs(new JobsBackend());
+    jobs.status = 'published';
+    const { telegram } = startApp('/jobs/new');
+    await publish(telegram);
+
+    expect(await screen.findByRole('heading', { name: 'Заявка опубликована' })).toBeTruthy();
+    expect(
+      await screen.findByText(
+        /^Разрешите боту писать — иначе об откликах узнаете, только открыв приложение\. Заявка открыта до 9 октября\.$/u,
+      ),
+    ).toBeTruthy();
     await click(await screen.findByRole('button', { name: 'Присылать в Telegram' }));
 
-    expect(await screen.findByText('Отклики придут в Telegram')).toBeTruthy();
+    expect(await screen.findByText(PUBLISHED_LINE)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Присылать в Telegram' })).toBeNull();
     expect(telegram.callsOf('web_app_request_write_access')).toHaveLength(1);
   });
 });
@@ -352,7 +401,9 @@ describe('S21 invite specialists', () => {
     await screen.findByRole('heading', { name: 'Проверьте заявку' });
     await pressMainButton(telegram);
 
-    expect(await screen.findByRole('heading', { name: 'Пригласите специалистов' })).toBeTruthy();
+    expect(
+      await screen.findByRole('heading', { name: 'Хотите быстрее? Пригласите специалистов' }),
+    ).toBeTruthy();
     await waitFor(() => expect(mainButton(telegram)?.text).toBe('К заявке'));
     const [invite] = await screen.findAllByRole('button', { name: 'Пригласить' });
     if (!invite) throw new Error('no specialists to invite');
@@ -388,8 +439,11 @@ describe('S21 while the job is on review (SMOKE-2)', () => {
     expect(
       await screen.findByRole('heading', { name: 'Заявка опубликована' }, { timeout: 4_000 }),
     ).toBeTruthy();
-    expect(await screen.findByRole('heading', { name: 'Пригласите специалистов' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Поделиться в чат' })).toBeTruthy();
+    expect(
+      await screen.findByRole('heading', { name: 'Хотите быстрее? Пригласите специалистов' }),
+    ).toBeTruthy();
+    // «Обычно проверка занимает несколько минут…» у опубликованной уже нет
+    expect(screen.queryByText(/несколько минут/)).toBeNull();
   });
 });
 
@@ -568,14 +622,24 @@ describe('S20c reference price (UXM-2)', () => {
   });
 });
 
+/** «Подробнее» под строкой «Адрес и контакты увидит только выбранный исполнитель». */
+async function whoSees() {
+  const more = screen.getByRole('button', { name: 'Подробнее' });
+  expect(more.getAttribute('aria-expanded')).toBe('false');
+  await click(more);
+  expect(screen.getByRole('button', { name: 'Свернуть' }).getAttribute('aria-expanded')).toBe(
+    'true',
+  );
+  return screen.getByRole('region', { name: 'Кто что увидит' });
+}
+
 describe('S20d «Кто что увидит» (MU-7)', () => {
   it('says the chosen performer gets the Telegram after the deal, the phone — nobody', async () => {
     withJobs(new JobsBackend());
     const { telegram } = startApp('/jobs/new');
     await toPreview(telegram);
 
-    const card = screen.getByRole('heading', { name: 'Кто что увидит' }).parentElement;
-    if (!card) throw new Error('no «Кто что увидит»');
+    const card = await whoSees();
     expect(card.textContent).toContain(
       'Только выбранный — точный адрес: Народног фронта 25, кв. 14; после договорённости — и ваш Telegram (его можно скрыть в настройках)',
     );
@@ -590,8 +654,7 @@ describe('S20d «Кто что увидит» (MU-7)', () => {
     expect(await screen.findByText(/^Прямой запрос: Алексей Морозов\./)).toBeTruthy();
     await toPreview(telegram);
 
-    const card = screen.getByRole('heading', { name: 'Кто что увидит' }).parentElement;
-    if (!card) throw new Error('no «Кто что увидит»');
+    const card = await whoSees();
     expect(card.textContent).toContain('Только Алексей Морозов');
     expect(card.textContent).not.toContain('Все исполнители');
     expect(card.textContent).not.toContain('До 5 откликов');

@@ -1,13 +1,18 @@
 // S20d «Проверьте заявку», шаг 4 из 4 (DEVELOPMENT_PLAN 5.2): заявка так, как её увидят
-// исполнители, и «кто что увидит»: точный адрес — только выбранному, Telegram — ему же после
+// исполнители, и одной строкой «Адрес и контакты увидит только выбранный исполнитель»; под
+// «Подробнее» — кто что увидит: точный адрес — только выбранному, Telegram — ему же после
 // договорённости (если не скрыт в настройках), телефон — никому, откликов — не больше пяти; прямой
-// запрос увидит только этот специалист. «Опубликовать» — POST /jobs с ключом черновика: двойное
+// запрос увидит только этот специалист (UX_GUIDANCE §5: подробности — по запросу). «Опубликовать» — POST /jobs с ключом черновика: двойное
 // нажатие и повтор после обрыва сети не создают вторую заявку, второе нажатие до ответа на первое
 // не уходит вовсе. Потом черновик стирается, а человек — на S21. Правка своей заявки (5.6) —
 // «Сохранить изменения»: PATCH с If-Match версии, с которой начали (ложный 412 от автопроверки хук
 // повторяет сам); заявку правда изменили в другом месте — мастер показывает её текущую версию,
 // правку вносят заново; сохранили — обратно на S23.
-import { ApiError, useIdentityGetMe } from '@sosed/api-client';
+import {
+  ApiError,
+  useIdentityGetMe,
+  useNotificationsGetNotificationSettings,
+} from '@sosed/api-client';
 import { DEFAULT_MAX_RESPONSES, jobWhen, rsdToPara, slotOf } from '@sosed/domain';
 import type { JobDraft } from '@sosed/hooks';
 import {
@@ -26,10 +31,10 @@ import {
 } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import type { IconName, JobCardBadge } from '@sosed/ui-web';
-import { Banner, Card, Heading, Icon, JobCard, LinkButton, Text } from '@sosed/ui-web';
+import { Banner, Card, Icon, JobCard, LinkButton, Text } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { useRef } from 'react';
+import { useId, useRef, useState } from 'react';
 
 import { DirectBanner } from '../shared/DirectBanner.tsx';
 import { findCategory } from '../shared/categories.ts';
@@ -65,6 +70,9 @@ function Preview({
   const endEdit = useDraftStore((state) => state.endEdit);
   const publish = useCreateJob();
   const update = useUpdateJob();
+  // может ли бот писать — S21 решает, обещать ли «бот напишет»: спрашиваем заранее, чтобы его
+  // строка не менялась на глазах
+  useNotificationsGetNotificationSettings();
   const mutation = editing ? update : publish;
   // два нажатия до перерисовки (двойной тап) видят isPending ещё ложным: отправка — одна
   const sending = useRef(false);
@@ -219,10 +227,42 @@ function DraftCard({ draft }: { draft: JobDraft }) {
   );
 }
 
-/** Кто что увидит — как устроено на деле: Telegram выбранный видит в сделке и чате после
- *  договорённости, пока он не скрыт в настройках (S43); телефоном делятся только сами (S54).
- *  Прямой запрос (`direct` — имя специалиста) видит и принимает отклик только этот специалист. */
+/** Кто что увидит: одна строка, остальное — под «Подробнее». Как устроено на деле: Telegram
+ *  выбранный видит в сделке и чате после договорённости, пока он не скрыт в настройках (S43);
+ *  телефоном делятся только сами (S54). Прямой запрос (`direct` — имя специалиста) видит и
+ *  принимает отклик только этот специалист. */
 function WhoSees({ draft, direct }: { draft: JobDraft; direct: string | null }) {
+  const { t } = useTranslation('jobs');
+  const [open, setOpen] = useState(false);
+  const detailsId = useId();
+  return (
+    <Card tight className="gap-1">
+      <div className="flex items-start gap-2.5">
+        <Icon name="lock" className="mt-0.5 shrink-0 text-accent" />
+        <Text>{t('create.preview.private')}</Text>
+      </div>
+      {open && <WhoSeesDetails id={detailsId} draft={draft} direct={direct} />}
+      <LinkButton
+        aria-expanded={open}
+        aria-controls={open ? detailsId : undefined}
+        onClick={() => setOpen(!open)}
+        className="-ml-2 self-start"
+      >
+        {t(open ? 'create.preview.less' : 'create.preview.more')}
+      </LinkButton>
+    </Card>
+  );
+}
+
+function WhoSeesDetails({
+  id,
+  draft,
+  direct,
+}: {
+  id: string;
+  draft: JobDraft;
+  direct: string | null;
+}) {
   const { t } = useTranslation('jobs');
   const me = useIdentityGetMe();
   const showTelegram = me.data?.privacy.show_telegram ?? true;
@@ -231,10 +271,12 @@ function WhoSees({ draft, direct }: { draft: JobDraft; direct: string | null }) 
     ? t('create.preview.chosenText', { address })
     : t('create.preview.chosenNoAddress');
   return (
-    <Card className="flex flex-col gap-3">
-      <Heading variant="h3" as="h2">
-        {t('create.preview.whoSees')}
-      </Heading>
+    <div
+      id={id}
+      role="region"
+      aria-label={t('create.preview.whoSees')}
+      className="flex flex-col gap-3 pt-2"
+    >
       <Who
         icon="eye"
         who={
@@ -256,7 +298,7 @@ function WhoSees({ draft, direct }: { draft: JobDraft; direct: string | null }) 
           {t('create.preview.limitText')}
         </Who>
       )}
-    </Card>
+    </div>
   );
 }
 
