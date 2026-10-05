@@ -13,6 +13,7 @@ import { HttpResponse, http } from 'msw';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { CLIENT_CONFIG } from '../../../testing/fixtures.ts';
 import { API_ORIGIN, server } from '../../../testing/msw.ts';
 import type { RestrictedState } from './store.ts';
 import { SystemScreen } from './SystemScreen.tsx';
@@ -185,6 +186,52 @@ describe('S49b account restricted', () => {
       'До 3 октября, 18:00 нельзя пользоваться аккаунтом',
     );
     expect(screen.queryByRole('region', { name: 'Остаётся доступно' })).toBeNull();
+    // контакт поддержки не назначен (K23): канал не обещаем — только срок
+    expect(screen.getByText('Обжаловать решение можно в течение 6 месяцев.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Написать в поддержку' })).toBeNull();
+  });
+
+  it('leads a blocked account to support when the contact is set', async () => {
+    server.use(
+      http.get(`${API_ORIGIN}/api/v1/client-config`, () =>
+        HttpResponse.json({ ...CLIENT_CONFIG, support_username: 'sosedi_support' }),
+      ),
+    );
+    const { telegram } = renderWith(
+      <SystemScreen state={restricted('banned', null)} onRetry={vi.fn()} />,
+    );
+
+    const support = await screen.findByRole('button', { name: 'Написать в поддержку' });
+    expect(
+      screen.getByText('Обжаловать решение можно в течение 6 месяцев — напишите в поддержку.'),
+    ).toBeTruthy();
+    // строка поддержки — над правилами площадки
+    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual([
+      'Написать в поддержку',
+      'Правила площадки',
+    ]);
+    await act(async () => {
+      fireEvent.click(support);
+    });
+    expect(telegram.callsOf('web_app_open_tg_link')).toEqual([{ path_full: '/sosedi_support' }]);
+  });
+
+  it('keeps the MainButton as the appeal path of a partial restriction', async () => {
+    server.use(
+      http.get(`${API_ORIGIN}/api/v1/client-config`, () =>
+        HttpResponse.json({ ...CLIENT_CONFIG, support_username: 'sosedi_support' }),
+      ),
+    );
+    const { telegram } = renderWith(
+      <SystemScreen state={restricted('posting_blocked', null)} onRetry={vi.fn()} />,
+    );
+    await screen.findByRole('alert');
+
+    expect(
+      screen.getByText('Обжаловать решение можно в течение 6 месяцев. Ответим в течение 72 часов.'),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Написать в поддержку' })).toBeNull();
+    expect(mainButtonShown(telegram)).toBe(true);
   });
 
   it('says a ban is permanent and speaks Serbian', async () => {
@@ -192,6 +239,20 @@ describe('S49b account restricted', () => {
     // сербские тексты — отдельным чанком: экран дорисовывается, когда он загрузился
     expect(await screen.findByRole('heading', { name: 'Nalog je blokiran' })).toBeTruthy();
     expect(screen.getByRole('alert').textContent).toBe('Ne možete da koristite nalog');
+  });
+
+  it('puts a Serbian date after «do» in the genitive', async () => {
+    renderWith(
+      <SystemScreen state={restricted('suspended', UNTIL)} onRetry={vi.fn()} />,
+      'sr-Latn',
+    );
+    // Intl даёт «3. oktobar»; после «do» нужен родительный падеж
+    expect(
+      await screen.findByRole('heading', { name: 'Nalog je suspendovan do 3. oktobra' }),
+    ).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toBe(
+      'Do 3. oktobra u 18:00 ne možete da koristite nalog',
+    );
   });
 
   it('opens the platform rules in place and returns with Telegram «Back»', async () => {

@@ -41,6 +41,7 @@ const LOCALES = [
     appealSent: 'Апелляция отправлена. Модератор ответит до 5 октября, 18:07 — ответ придёт в бот.',
     suspended: 'Аккаунт приостановлен до 3 октября',
     suspendedBanner: 'До 3 октября, 18:00 нельзя пользоваться аккаунтом',
+    support: 'Написать в поддержку',
     left: 'Остаётся доступно',
     maintenance: 'Технические работы',
     updateTelegram: 'Обновите Telegram',
@@ -62,13 +63,14 @@ const LOCALES = [
     retry: 'Pokušaj ponovo',
     settings: 'Podešavanja',
     otherLanguage: 'Русский',
-    restricted: /^Nalog je ograničen do 3\. oktob\S+$/,
-    banner: /^Do 3\. oktob\S+ u 18:00 ne možete da šaljete ponude na zahteve$/,
+    restricted: 'Nalog je ograničen do 3. oktobra',
+    banner: 'Do 3. oktobra u 18:00 ne možete da šaljete ponude na zahteve',
     reason: 'Traženje avansa — česta prevara',
     appealSent:
-      /^Žalba je poslata\. Moderator će odgovoriti do 5\. oktob\S+ u 18:07 — odgovor stiže u bot\.$/,
-    suspended: /^Nalog je suspendovan do 3\. oktob\S+$/,
-    suspendedBanner: /^Do 3\. oktob\S+ u 18:00 ne možete da koristite nalog$/,
+      'Žalba je poslata. Moderator će odgovoriti do 5. oktobra u 18:07 — odgovor stiže u bot.',
+    suspended: 'Nalog je suspendovan do 3. oktobra',
+    suspendedBanner: 'Do 3. oktobra u 18:00 ne možete da koristite nalog',
+    support: 'Piši podršci',
     left: 'I dalje je dostupno',
     maintenance: 'Tehnički radovi',
     updateTelegram: 'Ažurirajte Telegram',
@@ -231,6 +233,8 @@ for (const theme of THEMES) {
     }) => {
       await page.clock.setFixedTime(NOW);
       const watch = await open(page, query, {
+        // контакт поддержки задан (Q25): кнопки «Обжаловать» нет, путь — строка поддержки
+        config: { ...CLIENT_CONFIG, support_username: 'sosedi_support' },
         handlers: {
           'POST /api/v1/auth/telegram': (route) =>
             route.fulfill(problem(403, 'restricted', { restriction: 'suspended', until: UNTIL })),
@@ -239,6 +243,7 @@ for (const theme of THEMES) {
 
       await expect(page.getByRole('heading', { name: l.suspended, level: 1 })).toBeVisible();
       await expect(page.getByRole('alert')).toHaveText(l.suspendedBanner);
+      await expect(page.getByRole('button', { name: l.support })).toBeVisible();
       // весь аккаунт закрыт: списка «Остаётся доступно» и таббара нет
       await expect(page.getByText(l.left)).toHaveCount(0);
       await expect(page.getByRole('navigation', { name: /Разделы|Odeljci/ })).toHaveCount(0);

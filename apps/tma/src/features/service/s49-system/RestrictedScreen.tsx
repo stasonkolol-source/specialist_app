@@ -2,16 +2,19 @@
 // 403 `restricted`. «Обжаловать» — MainButton макета: `POST /appeals` с видом санкции, сервер
 // находит её решение; после — «Апелляция отправлена» со сроком ответа (72 ч) или «уже
 // обжаловано» с итогом, кнопка уходит. При приостановке и бане кнопки нет: вход закрыт, сессии
-// для запроса нет — обжалуют через поддержку. Правила площадки открываются здесь же (S48): экран
-// работает и поверх всего приложения, где роутера нет. «Как принято решение» макета — нет:
-// в ответе 403 этого признака нет (модератор или автопроверка), а гадать не будем.
+// для запроса нет — обжалуют через поддержку: строка «Написать в поддержку» открывает её чат из
+// client-config. Пока контакт не назначен (K23), канал не обещаем — только срок обжалования.
+// Сербские даты после «do» — в родительном падеже («do 3. oktobra»). Правила площадки
+// открываются здесь же (S48): экран работает и поверх всего приложения, где роутера нет. «Как
+// принято решение» макета — нет: в ответе 403 этого признака нет (модератор или автопроверка),
+// а гадать не будем.
 import type { AppealOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import { color } from '@sosed/design-tokens';
 import type { LegalDocumentKey } from '@sosed/hooks';
-import { useAppeal } from '@sosed/hooks';
+import { useAppeal, useSupportLink } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
-import { useBackButton, useColorScheme, useMainButton } from '@sosed/platform';
+import { useBackButton, useColorScheme, useMainButton, usePlatform } from '@sosed/platform';
 import { Banner, Card, Group, Heading, Icon, Row, SectionTitle, Text } from '@sosed/ui-web';
 import { useId, useState } from 'react';
 
@@ -38,15 +41,28 @@ function Restriction({ state, onRules }: { state: RestrictedState; onRules: () =
   const format = useFormat();
   const leftId = useId();
   const appeal = useAppealButton(state);
+  const platform = usePlatform();
+  // санкция на весь аккаунт: кнопки «Обжаловать» нет — путь к обжалованию только через поддержку
+  const support = useSupportLink();
+  const supportLink = state.blocking ? support : null;
   const kind = state.restriction ?? 'other';
   const action = t('restricted.action', { kind });
   const until = state.until;
   const title = until
-    ? t('restricted.titleUntil', { kind, date: format.date(until) })
+    ? t('restricted.titleUntil', { kind, date: format.dateGenitive(until) })
     : t('restricted.title', { kind });
   const banner = until
-    ? t('restricted.bannerUntil', { date: format.date(until), time: format.time(until), action })
+    ? t('restricted.bannerUntil', {
+        date: format.dateGenitive(until),
+        time: format.time(until),
+        action,
+      })
     : t('restricted.banner', { action });
+  const appealText = !state.blocking
+    ? t('restricted.appeal')
+    : supportLink
+      ? t('restricted.appealSupport')
+      : t('restricted.appealTerm');
 
   return (
     <section className="flex flex-col gap-4 px-4 pt-4 pb-6">
@@ -93,7 +109,7 @@ function Restriction({ state, onRules }: { state: RestrictedState; onRules: () =
         <AppealFiled filed={appeal.filed} />
       ) : (
         <Text variant="cap" className="px-1">
-          {t('restricted.appeal')}
+          {appealText}
         </Text>
       )}
       {appeal.failed && (
@@ -102,6 +118,14 @@ function Restriction({ state, onRules }: { state: RestrictedState; onRules: () =
         </Banner>
       )}
       <Group>
+        {supportLink && (
+          <Row
+            icon="send"
+            title={t('restricted.support')}
+            chevron
+            onClick={() => platform.openTelegramLink(supportLink)}
+          />
+        )}
         <Row icon="file" title={t('legal.title.terms')} chevron onClick={onRules} />
       </Group>
     </section>
@@ -132,7 +156,7 @@ function AppealFiled({ filed }: { filed: AppealOut }) {
   const { t } = useTranslation('service');
   const format = useFormat();
   const due = new Date(filed.due_at);
-  const when = { date: format.date(due), time: format.time(due) };
+  const when = { date: format.dateGenitive(due), time: format.time(due) };
   return (
     <Banner tone="ok" role="status">
       {filed.repeated
