@@ -272,7 +272,7 @@ function PreviewSkeleton({ avatar }: { avatar: boolean }) {
       </div>
       <PhotoRow count={MAX_PHOTOS}>
         {Array.from({ length: MAX_PHOTOS }, (_, index) => (
-          <Skeleton key={index} radius="panel" className={TILE} />
+          <Skeleton key={index} radius="field" className={TILE} />
         ))}
       </PhotoRow>
     </div>
