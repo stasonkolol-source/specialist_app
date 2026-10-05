@@ -15,6 +15,8 @@ export function colourOr(fallback: string, className: string | undefined): strin
   return !className?.split(/\s+/).some((name) => TEXT_COLOUR.test(name)) && fallback;
 }
 
-/** Видимый фокус с клавиатуры для всех интерактивных элементов. */
+/** Видимый фокус с клавиатуры для всех интерактивных элементов; мышью и пальцем кольца нет
+ *  (:focus-visible). outline-solid обязателен: в Tailwind 4 outline-none ставит
+ *  --tw-outline-style: none, а outline-2 берёт стиль из неё — без него кольцо не рисовалось (UXM-7). */
 export const FOCUS =
-  'outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+  'outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-accent';
