@@ -68,12 +68,20 @@ class JobsFacade(JobsApi):
         if job.status not in REVIEWABLE:
             return None
         category = await self._catalog.category(job.content.category_id)
+        content = job.content
         return JobForReview(
             client_id=job.client_id,
-            text=f"{job.content.title}\n\n{job.content.description}".strip(),
+            text=f"{content.title}\n\n{content.description}".strip(),
             version=job.version,
-            media_ids=job.content.media_ids,
+            media_ids=content.media_ids,
             risk_level=int(category.risk_level) if category is not None else 0,
+            title=content.title,
+            description=content.description,
+            budget_type=content.budget.type.value,
+            budget_min=content.budget.min,
+            budget_max=content.budget.max,
+            budget_unit=content.budget.unit.value,
+            district_id=content.place.district_id,
         )
 
     async def approve_job(self, job_id: UUID, *, version: int | None) -> None:

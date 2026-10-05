@@ -74,6 +74,10 @@ class DealQueries(Protocol):
         """Сделка по отклику (одна на отклик)."""
         ...
 
+    async def completed_count(self, user_id: UserId) -> int:
+        """Сколько сделок человека в любой роли завершено (`completed`)."""
+        ...
+
     async def agreed_pairs(
         self, pairs: Collection[tuple[UserId, UserId]]
     ) -> frozenset[tuple[UserId, UserId]]:

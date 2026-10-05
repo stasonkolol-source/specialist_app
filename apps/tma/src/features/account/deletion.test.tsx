@@ -97,6 +97,14 @@ describe('S31 account deletion', () => {
     await waitFor(() => expect(screen.queryByText(SCHEDULED)).toBeNull());
     expect(backend.requests.deletion).toEqual(['cancel']);
   });
+
+  it('gives the Serbian date in the genitive: «obrisan 8. oktobra»', async () => {
+    userBackend({ ...ME, ui_locale: 'sr-Latn', deletion_scheduled_at: DELETION_EXECUTE_AFTER });
+    startApp('/profile', { languageCode: 'sr' });
+
+    // Intl даёт «8. oktobar»; дата в значении «когда» — в родительном падеже
+    expect(await screen.findByText('Nalog će biti obrisan 8. oktobra')).toBeTruthy();
+  });
 });
 
 describe('S43 account deletion', () => {

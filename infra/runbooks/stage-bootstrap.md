@@ -122,9 +122,9 @@ GHCR своим `GITHUB_TOKEN`), K17 (токен бота — для старт�
      && cut -d= -f2- "$t/jwt.env" | gh secret set JWT_KEYS --env stage && pbcopy < "$t/jwt.env"; rm -rf "$t"
    ```
 4. Внешние ключи: `gh secret set TELEGRAM_BOT_TOKEN --env stage` (K17), `S3_ACCESS_KEY_ID` и
-   `S3_SECRET_ACCESS_KEY` (K13), по желанию `AI_OPENAI_API_KEY`, `AI_ANTHROPIC_API_KEY` (K25, K26;
-   без них всё идёт в ручную очередь). `gh secret set ИМЯ --env stage` без `--body` спросит значение
-   скрыто.
+   `S3_SECRET_ACCESS_KEY` (K13), по желанию `AI_OPENAI_API_KEY`, `AI_ANTHROPIC_API_KEY` (K25, K26 —
+   после MVP; без них тексты проверяют стоп-правила, фото — модератор).
+   `gh secret set ИМЯ --env stage` без `--body` спросит значение скрыто.
 5. Variable репозитория (Settings → Secrets and variables → Actions → Variables) `STAGE_DEPLOY` =
    `true` — с этого момента `.github/workflows/deploy.yml` работает.
 6. Actions → deploy → Run workflow (`env` = `stage`): сначала `accessories` (первый старт PostgreSQL на пустом

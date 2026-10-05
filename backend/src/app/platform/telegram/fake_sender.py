@@ -18,7 +18,13 @@ import random
 from collections.abc import Callable
 
 from app.platform.telegram.aiogram_sender import take_slot
-from app.platform.telegram.port import ButtonLine, OutgoingMessage, SendLimiter, SentMessage
+from app.platform.telegram.port import (
+    ButtonLine,
+    OutgoingMessage,
+    OutgoingPhoto,
+    SendLimiter,
+    SentMessage,
+)
 
 LATENCY_MEDIAN = 0.08
 """Медиана ответа sendMessage из Германии, секунды. [Допущение]: замер на stage (3.3) уточнит."""
@@ -45,6 +51,11 @@ class FakeTelegramSender:
         self._ids = itertools.count(1)
 
     async def send(self, message: OutgoingMessage) -> SentMessage:
+        await take_slot(self._limiter, message.chat_id)
+        await asyncio.sleep(self._latency())
+        return SentMessage(message_id=next(self._ids))
+
+    async def send_photo(self, message: OutgoingPhoto) -> SentMessage:
         await take_slot(self._limiter, message.chat_id)
         await asyncio.sleep(self._latency())
         return SentMessage(message_id=next(self._ids))

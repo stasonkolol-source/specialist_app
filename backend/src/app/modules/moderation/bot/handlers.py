@@ -10,7 +10,9 @@
   `rejected`; у спора «Отменить с причиной» — ResolveDispute `cancelled`; у апелляции — сразу
   решение без санкции: прежнее решение остаётся в силе;
 - «Эскалировать» — EscalateCase: кейс снова свободен, кнопки остаются для старшего.
-Под карточкой — строка итога: что решили и кто (имя модератора в Telegram); кнопки убираются.
+Под карточкой — строка итога: что решили и кто (имя модератора в Telegram); кнопки решения
+убираются, «Открыть в админке» остаётся. Карточка кейса о фото — подпись к фото: её бот правит
+как подпись (editMessageCaption), обычную карточку — как текст.
 Пользователю решение доходит как из `cli`: statement of reasons уведомлением. Кейс уже решён —
 ответ ошибкой (ErrorMiddleware), карточка не меняется.
 
@@ -37,6 +39,7 @@ from app.modules.moderation.application.case_card import (
     DISPUTE_DONE_REASON,
     MODERATORS_LOCALE,
     SEVERITY_CODES,
+    admin_buttons,
     card_buttons,
     html_text,
     outcome_line,
@@ -64,7 +67,7 @@ from app.platform.contracts.events.moderation import ModerationDecision
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.ids import CaseId, UserId
 from app.platform.kernel.principal import Principal, Role
-from app.platform.settings import TelegramSettings
+from app.platform.settings import AppSettings, TelegramSettings, admin_base_url
 from app.platform.telegram.aiogram_sender import keyboard
 from app.platform.telegram.callbacks import CallbackAction, CallbackData, parse_callback
 from app.platform.telegram.port import ButtonLine
@@ -85,6 +88,7 @@ async def approve(
     cases: FromDishka[CaseRepository],
     decide: FromDishka[DecideCase],
     resolve: FromDishka[ResolveDispute],
+    app: FromDishka[AppSettings],
     principal: Principal | None = None,
 ) -> None:
     pressed = await _pressed(callback, translator, identity, cases, principal)
@@ -112,7 +116,8 @@ async def approve(
             if case.is_appeal
             else ("bot.moderation.decided.approved")
         )
-    await _done(callback, translator, outcome_line(translator, key, who=_who(callback)))
+    line = outcome_line(translator, key, who=_who(callback))
+    await _done(callback, translator, line, buttons=_admin(case, translator, app))
 
 
 @inject
@@ -122,6 +127,7 @@ async def reject(
     identity: FromDishka[IdentityApi],
     cases: FromDishka[CaseRepository],
     decide: FromDishka[DecideCase],
+    app: FromDishka[AppSettings],
     principal: Principal | None = None,
 ) -> None:
     pressed = await _pressed(callback, translator, identity, cases, principal)
@@ -150,7 +156,7 @@ async def reject(
     line = outcome_line(
         translator, "bot.moderation.decided.appeal_denied", who=_who(callback), reason=data.arg
     )
-    await _done(callback, translator, line)
+    await _done(callback, translator, line, buttons=_admin(case, translator, app))
 
 
 @inject
@@ -161,6 +167,7 @@ async def sanction(
     cases: FromDishka[CaseRepository],
     decide: FromDishka[DecideCase],
     resolve: FromDishka[ResolveDispute],
+    app: FromDishka[AppSettings],
     principal: Principal | None = None,
 ) -> None:
     pressed = await _pressed(callback, translator, identity, cases, principal)
@@ -197,7 +204,7 @@ async def sanction(
         key, step = "bot.moderation.decided.rejected", decision.sanction
     sanction_text = step.value if step is not None else "—"
     line = outcome_line(translator, key, who=_who(callback), reason=reason, sanction=sanction_text)
-    await _done(callback, translator, line)
+    await _done(callback, translator, line, buttons=_admin(case, translator, app))
 
 
 @inject
@@ -207,6 +214,7 @@ async def escalate(
     identity: FromDishka[IdentityApi],
     cases: FromDishka[CaseRepository],
     escalate_case: FromDishka[EscalateCase],
+    app: FromDishka[AppSettings],
     principal: Principal | None = None,
 ) -> None:
     pressed = await _pressed(callback, translator, identity, cases, principal)
@@ -216,7 +224,8 @@ async def escalate(
     await escalate_case(EscalateCaseCommand(case_id=case.id, moderator_id=moderator))
     line = outcome_line(translator, "bot.moderation.decided.escalated", who=_who(callback))
     # кнопки остаются: решает старший
-    await _done(callback, translator, line, buttons=card_buttons(case, translator))
+    buttons = card_buttons(case, translator, admin_base_url(app))
+    await _done(callback, translator, line, buttons=buttons)
 
 
 @inject
@@ -225,13 +234,14 @@ async def back(
     translator: FromDishka[Translator],
     identity: FromDishka[IdentityApi],
     cases: FromDishka[CaseRepository],
+    app: FromDishka[AppSettings],
     principal: Principal | None = None,
 ) -> None:
     pressed = await _pressed(callback, translator, identity, cases, principal)
     if pressed is None:
         return
     await callback.answer()
-    await _buttons(callback, card_buttons(pressed[1], translator))
+    await _buttons(callback, card_buttons(pressed[1], translator, admin_base_url(app)))
 
 
 @inject
@@ -312,6 +322,11 @@ def _is_dispute(case: Case) -> bool:
     return case.entity_type is EntityType.DISPUTE and not case.is_appeal
 
 
+def _admin(case: Case, translator: Translator, app: AppSettings) -> tuple[ButtonLine, ...]:
+    """Под решённой карточкой — только «Открыть в админке» (история, доказательства)."""
+    return admin_buttons(case.id, translator, admin_base_url(app))
+
+
 def _who(callback: CallbackQuery) -> str:
     """Кто решил: имя модератора в Telegram (чат модераторов — свои люди)."""
     user = callback.from_user
@@ -326,10 +341,15 @@ async def _done(
     buttons: tuple[ButtonLine, ...] = (),
 ) -> None:
     await callback.answer(plain_text(translator, "bot.moderation.done", MODERATORS_LOCALE))
-    if not isinstance(callback.message, Message):
+    message = callback.message
+    if not isinstance(message, Message):
         return
-    text = f"{callback.message.html_text}\n\n{line}"
-    await _edit(callback.message.edit_text(text, reply_markup=keyboard(buttons)))
+    text = f"{message.html_text}\n\n{line}"
+    if message.photo or (message.text is None and message.caption is not None):
+        # карточка кейса о фото — подпись к нему
+        await _edit(message.edit_caption(caption=text, reply_markup=keyboard(buttons)))
+        return
+    await _edit(message.edit_text(text, reply_markup=keyboard(buttons)))
 
 
 async def _buttons(callback: CallbackQuery, buttons: tuple[ButtonLine, ...]) -> None:

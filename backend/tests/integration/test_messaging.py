@@ -382,6 +382,10 @@ async def test_moderation_hides_the_text_from_the_other_side(
         async with uow:
             await messaging.hide_message(UUID(message["id"]))
         assert await messaging.message_for_review(UUID(message["id"])) is None
+        # карточке кейса в чате модераторов (2.5b) скрытый текст нужен — его и проверяют
+        card = await messaging.message_for_card(UUID(message["id"]))
+        assert card is not None
+        assert (card.sender_id, card.text) == (performer, "Пишите сюда")
 
     seen = (await chat.messages(client, conversation_id))["items"][1]
     assert (seen["hidden"], seen["body"]) == (True, None)
@@ -405,10 +409,13 @@ async def test_review_text_has_no_contacts(chat: Chat, worker: AsyncContainer) -
     message = await chat.send(performer, conversation_id, PHONE)
 
     async with worker() as request:
-        review = await (await request.get(MessagingApi)).message_for_review(UUID(message["id"]))
+        messaging = await request.get(MessagingApi)
+        review = await messaging.message_for_review(UUID(message["id"]))
+        card = await messaging.message_for_card(UUID(message["id"]))
 
     assert review is not None
     assert (review.sender_id, review.text) == (performer, f"Мой номер {MASK}")
+    assert card == review  # и в карточку кейса для модераторов — без номера
 
 
 async def test_deleted_account_erases_the_text(chat: Chat, worker: AsyncContainer) -> None:

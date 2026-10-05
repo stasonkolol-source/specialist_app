@@ -62,6 +62,10 @@ env:
   clear:
     APP_ENV: production
     APP_API_PUBLIC_URL: https://api.<%= ENV.fetch("PROD_DOMAIN") %>
+    # ссылка «Открыть в админке» под карточкой кейса в чате модераторов (2.5b) — только с Access
+    # <% if ENV["ADMIN_HOST"].to_s != "" %>
+    APP_ADMIN_PUBLIC_URL: https://<%= ENV["ADMIN_HOST"] %>/admin
+    # <% end %>
     # web доверяет X-Forwarded-* только kamal-proxy: сеть «kamal» с подсетью из Terraform
     # (docker_network_cidr). Края Cloudflare — APP_CLOUDFLARE_IPS по умолчанию (settings.py).
     APP_TRUSTED_PROXIES: '["172.30.0.0/24"]'

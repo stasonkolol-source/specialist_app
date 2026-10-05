@@ -170,3 +170,111 @@ class StaffReportView:
     resolved_by: UserId | None
     resolved_at: datetime | None
     created_at: datetime
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PersonContext:
+    """Человек в карточке кейса (2.5b) — как его видят в приложении: публичное имя, роль и район,
+    без телефона, Telegram и адреса (граница приватности — application/case_card.py)."""
+
+    name: str | None
+    """Публичное имя («Алексей М.»); None — аккаунт удалён или его нет."""
+    role: str = "client"
+    """`client` — профиля нет; иначе вид профиля: `pro` (специалист), `casual` (подработка)."""
+    category: str | None = None
+    """Основная категория специалиста — на языке чата модераторов."""
+    district: str | None = None
+    """Основной район выезда специалиста или район заявки клиента."""
+    joined_at: datetime | None = None
+    trust_level: int | None = None
+    deals_done: int | None = None
+    """Завершённые сделки в любой роли; None — не узнали (deals недоступен)."""
+    complaints_open: int = 0
+    """Открытые жалобы на человека (кейсы о нём)."""
+    complaints_total: int = 0
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ContentField:
+    """Проверяемый текст объекта по полям: подпись — ключ `bot.moderation.field.<name>`."""
+
+    name: str
+    text: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BudgetContext:
+    """Бюджет заявки машинными значениями: словами — platform/i18n/jobs.py."""
+
+    kind: str
+    low: int | None
+    high: int | None
+    unit: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CaseObject:
+    """Объект кейса словами: что это и сам проверяемый текст."""
+
+    kind: str
+    """Ключ `bot.moderation.object.<kind>`: profile, job, response, message, review,
+    review_reply, portfolio, avatar, job_photo, photo, user, dispute."""
+    fields: tuple[ContentField, ...] = ()
+    budget: BudgetContext | None = None
+    rating: int | None = None
+    missing: bool = False
+    """Объекта уже нет (удалён, снят): смотреть в админке."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ReportContext:
+    """Жалоба в кейсе: причина, кто жалуется (роль, не имя) и его текст, если короткий."""
+
+    reason: str
+    reporter_role: str | None
+    """Роль жалующегося, как `PersonContext.role`; None — аккаунта уже нет."""
+    comment: str | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DisputeContext:
+    """Спор (6.1c) без доказательств: они — в админке, просмотр пишется в аудит."""
+
+    kind: str
+    title: str | None
+    opened_by: str | None
+    """Публичное имя открывшего; None — аккаунт удалён."""
+    respondent: str | None
+    answered: bool
+    photos: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AppealContext:
+    """Какое решение обжалуют: код причины и когда решили."""
+
+    reason_code: str | None
+    decided_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CasePhoto:
+    """Фото кейса для чата: вариант media `md` без EXIF."""
+
+    body: bytes
+    content_type: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CaseContext:
+    """Всё, что карточке кейса нужно знать сверх самого кейса (CaseContextQuery) — одним
+    вызовом, терпимо к пропавшим данным."""
+
+    subject: PersonContext
+    object: CaseObject
+    reports: tuple[ReportContext, ...] = ()
+    dispute: DisputeContext | None = None
+    appeal: AppealContext | None = None
+    photo: CasePhoto | None = None
+    photo_hidden: bool = False
+    """Фото скрыто автоматически (P0) или модератором: в чат его не шлём — смотреть в админке."""

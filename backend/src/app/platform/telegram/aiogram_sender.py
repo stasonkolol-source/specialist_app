@@ -24,7 +24,13 @@ from aiogram.exceptions import (
     TelegramRetryAfter,
     TelegramServerError,
 )
-from aiogram.types import DisabledButton, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from aiogram.types import (
+    BufferedInputFile,
+    DisabledButton,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    WebAppInfo,
+)
 
 from app.platform.kernel.errors import ExternalServiceError, RateLimitedError
 from app.platform.telegram.port import (
@@ -32,7 +38,9 @@ from app.platform.telegram.port import (
     ButtonLine,
     CallbackButton,
     InactiveButton,
+    LinkButton,
     OutgoingMessage,
+    OutgoingPhoto,
     SendLimiter,
     SentMessage,
     Slot,
@@ -61,6 +69,18 @@ class AiogramTelegramSender:
         sent = await self._call(
             self._bot.send_message(
                 chat_id=message.chat_id, text=message.text, reply_markup=keyboard(message.buttons)
+            )
+        )
+        return SentMessage(message_id=sent.message_id)
+
+    async def send_photo(self, message: OutgoingPhoto) -> SentMessage:
+        await take_slot(self._limiter, message.chat_id)
+        sent = await self._call(
+            self._bot.send_photo(
+                chat_id=message.chat_id,
+                photo=BufferedInputFile(message.photo, filename=message.filename),
+                caption=message.caption,
+                reply_markup=keyboard(message.buttons),
             )
         )
         return SentMessage(message_id=sent.message_id)
@@ -134,4 +154,6 @@ def _button(button: Button) -> InlineKeyboardButton:
         return InlineKeyboardButton(text=button.text, callback_data=button.data)
     if isinstance(button, InactiveButton):
         return InlineKeyboardButton(text=button.text, disabled=DisabledButton())
+    if isinstance(button, LinkButton):
+        return InlineKeyboardButton(text=button.text, url=button.url)
     return InlineKeyboardButton(text=button.text, web_app=WebAppInfo(url=button.url))

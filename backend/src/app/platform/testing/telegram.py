@@ -4,7 +4,14 @@
 from dataclasses import dataclass, field
 
 from app.platform.kernel.errors import ExternalServiceError
-from app.platform.telegram.port import ButtonLine, OutgoingMessage, SentMessage, ShareCard
+from app.platform.telegram.port import (
+    ButtonLine,
+    OutgoingMessage,
+    OutgoingPhoto,
+    SentMessage,
+    ShareCard,
+    TelegramRejectedError,
+)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -17,11 +24,14 @@ class EditedButtons:
 @dataclass
 class RecordingTelegramSender:
     sent: list[OutgoingMessage] = field(default_factory=list)
+    photos: list[OutgoingPhoto] = field(default_factory=list)
     edited: list[EditedButtons] = field(default_factory=list)
     failing: bool = False
     """Bot API недоступен: send бросает ExternalServiceError."""
     error: Exception | None = None
     """Ответ Bot API ошибкой порта: 429, 403, 400 (port.py)."""
+    photo_rejected: bool = False
+    """Bot API не принял фото (400): send_photo бросает TelegramRejectedError."""
 
     async def send(self, message: OutgoingMessage) -> SentMessage:
         if self.error is not None:
@@ -30,6 +40,16 @@ class RecordingTelegramSender:
             raise ExternalServiceError(service="telegram")
         self.sent.append(message)
         return SentMessage(message_id=1000 + len(self.sent))
+
+    async def send_photo(self, message: OutgoingPhoto) -> SentMessage:
+        if self.error is not None:
+            raise self.error
+        if self.failing:
+            raise ExternalServiceError(service="telegram")
+        if self.photo_rejected:
+            raise TelegramRejectedError("Bad Request: IMAGE_PROCESS_FAILED")
+        self.photos.append(message)
+        return SentMessage(message_id=2000 + len(self.photos))
 
     async def edit_buttons(
         self, chat_id: int, message_id: int, buttons: tuple[ButtonLine, ...]

@@ -106,7 +106,7 @@ async def pause(
     if alert.paused_until is None:
         text = plain_text(translator, "bot.alerts.resumed_one", locale, alert=name)
     else:
-        until = long_datetime(alert.paused_until, locale)
+        until = long_datetime(alert.paused_until, locale, genitive=True)
         text = plain_text(translator, "bot.alerts.paused_one", locale, alert=name, until=until)
     await callback.answer(text)
     await _swap_pause_button(callback, alert, resume=resume, translator=translator, locale=locale)
@@ -287,7 +287,7 @@ def _state(alert: JobAlert, now: datetime, translator: Translator, locale: Local
     if not alert.is_active:
         return plain_text(translator, "bot.alerts.state.off", locale)
     if alert.paused(now) and alert.paused_until is not None:
-        until = long_datetime(alert.paused_until, locale)
+        until = long_datetime(alert.paused_until, locale, genitive=True)
         return plain_text(translator, "bot.alerts.state.paused", locale, until=until)
     return plain_text(translator, f"bot.alerts.state.{alert.delivery.value}", locale)
 

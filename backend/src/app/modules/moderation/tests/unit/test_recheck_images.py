@@ -73,6 +73,9 @@ class Media:
     async def image_for_check(self, media_id: MediaId) -> ImageForCheck | None:
         raise AssertionError("отказ от проверки не читает хранилище")
 
+    async def image_for_card(self, media_id: MediaId) -> ImageForCheck | None:
+        raise NotImplementedError
+
     async def moderate(
         self,
         media_id: MediaId,

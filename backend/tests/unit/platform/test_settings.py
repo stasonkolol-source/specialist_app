@@ -8,11 +8,13 @@ from pydantic import SecretStr
 
 from app.platform.settings import (
     GROUPS,
+    AppSettings,
     DbSettings,
     Environment,
     Settings,
     SettingsError,
     UpdatesMode,
+    admin_base_url,
     describe,
     env_names,
     key_bytes,
@@ -346,3 +348,15 @@ def test_describe_shows_which_processors_are_on_without_secrets(
     assert {key: on[key] for key in processors} == dict.fromkeys(processors, True)
     for value in (*secrets.values(), REQUIRED["TELEGRAM_BOT_TOKEN"], REQUIRED["DB_DSN"]):
         assert value not in repr(on)
+
+
+def test_admin_link_address(clean_env: pytest.MonkeyPatch) -> None:
+    """Ссылка «Открыть в админке» под карточкой кейса (2.5b): в dev — админка того же web, на
+    stage и проде — только явный адрес за Access (`/admin` на хосте API закрыт)."""
+    assert admin_base_url(AppSettings(_env_file=None)) == "http://127.0.0.1:8000/admin"
+    clean_env.setenv("APP_API_PUBLIC_URL", "https://dev.example.test/")
+    assert admin_base_url(AppSettings(_env_file=None)) == "https://dev.example.test/admin"
+    clean_env.setenv("APP_ENV", "production")
+    assert admin_base_url(AppSettings(_env_file=None)) is None
+    clean_env.setenv("APP_ADMIN_PUBLIC_URL", "https://admin.example.test/admin/")
+    assert admin_base_url(AppSettings(_env_file=None)) == "https://admin.example.test/admin"

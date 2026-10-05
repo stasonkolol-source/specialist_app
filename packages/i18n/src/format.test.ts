@@ -174,6 +174,12 @@ describe('даты в Europe/Belgrade', () => {
     expect(lat.relative(ago(15 * min), now)).toBe(nb('pre 15_min'));
     expect(lat.relative(ago(day), now)).toBe('juče');
     expect(cyr.relative(ago(5 * day), now)).toBe('пре 5 дана');
+    // после глагола («Link poslat …») дата старше недели — в родительном, остальное как было
+    expect(lat.relative(ago(10 * day), now)).toBe('17. septembar');
+    expect(lat.relativeGenitive(ago(10 * day), now)).toBe('17. septembra');
+    expect(cyr.relativeGenitive(ago(10 * day), now)).toBe('17. септембра');
+    expect(lat.relativeGenitive(ago(day), now)).toBe('juče');
+    expect(ru.relativeGenitive(ago(10 * day), now)).toBe('17 сентября');
   });
 });
 

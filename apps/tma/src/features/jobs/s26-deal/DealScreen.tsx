@@ -187,7 +187,7 @@ function Proposal({ deal }: { deal: DealCardOut }) {
             detail={
               deal.proposed_at
                 ? t('deal.proposal.proposedAt', {
-                    time: format.calendar(new Date(deal.proposed_at)),
+                    time: format.calendarGenitive(new Date(deal.proposed_at)),
                   })
                 : undefined
             }
@@ -565,7 +565,7 @@ function Steps({ deal }: { deal: DealCardOut }) {
   };
   const done = deal.status === 'completed';
   const work = deal.scheduled_at
-    ? t('deal.step.workAt', { time: format.calendar(new Date(deal.scheduled_at)) })
+    ? t('deal.step.workAt', { time: format.calendarGenitive(new Date(deal.scheduled_at)) })
     : (deal.availability_note ?? undefined);
   const items: TimelineItem[] = [];
   if (timeline.responded_at) {
@@ -625,7 +625,7 @@ function State({ deal }: { deal: DealCardOut }) {
     return (
       <>
         <Banner tone="ok" role="status">
-          {t('deal.completed', { date: format.date(new Date(timeline.completed_at)) })}
+          {t('deal.completed', { date: format.dateGenitive(new Date(timeline.completed_at)) })}
         </Banner>
         {review && (
           <Banner tone={review.status === 'removed' ? 'warn' : 'info'} icon="star">

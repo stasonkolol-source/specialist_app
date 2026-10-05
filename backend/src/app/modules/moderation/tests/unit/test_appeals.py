@@ -1,5 +1,5 @@
-"""Апелляция и карточка кейса (DEVELOPMENT_PLAN 2.5b): что можно обжаловать, текст и кнопки
-карточки в чате модераторов."""
+"""Апелляция и карточка кейса (DEVELOPMENT_PLAN 2.5b): что можно обжаловать, кнопки карточки в
+чате модераторов (текст карточки — test_case_card.py)."""
 
 from datetime import UTC, datetime, timedelta
 
@@ -9,7 +9,6 @@ from app.modules.moderation.application.case_card import (
     CONTENT_REASONS,
     DISPUTE_REASONS,
     card_buttons,
-    card_text,
     reason_buttons,
     severity_buttons,
 )
@@ -115,20 +114,6 @@ def dispute() -> Case:
         details={"signals": ["dispute:no_show"]},
         media_ids=[MediaId(new_id()), MediaId(new_id())],
     )
-
-
-def test_card_is_compact_and_without_contacts(translator: Translator) -> None:
-    case = dispute()
-
-    text = card_text(case, translator)
-
-    assert "P1 · Мошенничество" in text
-    assert str(case.subject_id) in text
-    assert "dispute:no_show" in text
-    assert "Фото-доказательства: 2" in text  # сами фото — командой, не в чате
-    assert f"cli dispute-show {case.id}" in text
-    assert "@" not in text
-    assert "t.me" not in text
 
 
 def labels(lines: tuple[object, ...]) -> list[str]:

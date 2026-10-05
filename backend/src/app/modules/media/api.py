@@ -135,6 +135,12 @@ class MediaApi(Protocol):
         прочитать из хранилища."""
         ...
 
+    async def image_for_card(self, media_id: MediaId) -> ImageForCheck | None:
+        """Фото для карточки кейса в чате модераторов (2.5b): тот же вариант `md` без EXIF (у
+        ролика — постер), уже проверенное или нет. None — показать нечего: не готово, удалено,
+        скрыто модерацией (P0: смотреть в админке) или вариант не прочитать из хранилища."""
+        ...
+
     async def unchecked_images(
         self, *, processed_before: datetime, purposes: Collection[str], limit: int
     ) -> list[UncheckedImage]:

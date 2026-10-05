@@ -85,13 +85,14 @@ describe('S26 and S27 review', () => {
     expect(await screen.findByText('Ваш отзыв на проверке')).toBeTruthy();
   });
 
-  it('speaks Serbian: the month after «do» in the genitive, «Naruči ponovo» as in the chat', async () => {
+  it('speaks Serbian: dates in the genitive, «Naruči ponovo» as in the chat', async () => {
     const { deal } = withCompleted();
     userBackend({ ...ME, ui_locale: 'sr-Latn' });
     startApp(`/deals/${deal.id}`, { languageCode: 'sr' });
 
-    // Intl даёт «19. oktobar»; после «do» нужен родительный падеж
+    // Intl даёт «19. oktobar»; после «do» и в значении «когда» нужен родительный падеж
     expect(await screen.findByText('Utisak možete ostaviti do 19. oktobra')).toBeTruthy();
+    expect(screen.getByText('Dogovor je završen 5. oktobra. Hvala!')).toBeTruthy();
     // «Заказать снова» — как в шапке диалога S30: коротко, на «ты»
     expect(screen.getByRole('button', { name: 'Naruči ponovo' })).toBeTruthy();
   });

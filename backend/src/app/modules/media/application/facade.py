@@ -108,6 +108,28 @@ class MediaFacade(MediaApi):
             return None
         return ImageForCheck(body=body, content_type="image/webp")
 
+    async def image_for_card(self, media_id: MediaId) -> ImageForCheck | None:
+        asset = await self._query.asset_by_id(media_id)
+        if (
+            asset is None
+            or asset.status is not MediaStatus.READY
+            # скрытое (P0, отказ модератора) в чат не уходит: смотреть в админке
+            or asset.hidden_at is not None
+            or asset.moderation_status is ModerationStatus.REJECTED
+        ):
+            return None
+        variant = next((asset.variants[n] for n in CHECK_VARIANTS if n in asset.variants), None)
+        if variant is None:
+            return None
+        try:
+            body = await self._storage.get(
+                Bucket(variant_bucket(asset.purpose)), variant.key, max_bytes=CHECK_MAX_BYTES
+            )
+        except StorageRejectedError as exc:  # вариант пропал: карточка уйдёт текстом
+            log.warning("media_card_variant_unreadable", media_id=str(media_id), code=exc.code)
+            return None
+        return ImageForCheck(body=body, content_type="image/webp")
+
     async def unchecked_images(
         self, *, processed_before: datetime, purposes: Collection[str], limit: int
     ) -> list[UncheckedImage]:

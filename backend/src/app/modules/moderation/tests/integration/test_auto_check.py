@@ -19,6 +19,7 @@ from app.modules.moderation.domain.cases import EntityType
 from app.modules.moderation.domain.pipeline import Route
 from app.modules.moderation.domain.rules import ContentRule, RuleAction, RuleCategory, RuleKind
 from app.platform.ai.port import ContentKind, Unavailable, UnavailableReason
+from app.platform.ai.stubs import NO_KEY
 from app.platform.contracts.events.identity import RestrictionKind
 from app.platform.contracts.events.moderation import ModerationDecision
 from app.platform.kernel.ids import UserId, new_id
@@ -117,8 +118,9 @@ async def test_visible_message_is_hidden_only_for_a_violation(moderation: Modera
     assert moderation.jobs.published == [(clean, 1), (flagged, None)]
 
 
-async def test_ai_unavailable_goes_to_p2(moderation: Moderation) -> None:
-    moderation.omni.result = Unavailable(UnavailableReason.NO_KEY)
+async def test_ai_failure_goes_to_p2(moderation: Moderation) -> None:
+    """С ключом проверку ждали, а она не состоялась (сеть, 5xx), — решает человек."""
+    moderation.omni.result = Unavailable(UnavailableReason.PROVIDER_ERROR)
     author = await moderation.user(trust_level=1)
 
     job, route = await check_job(moderation, author, "Ремонт стиральных машин", edit=True)
@@ -126,7 +128,54 @@ async def test_ai_unavailable_goes_to_p2(moderation: Moderation) -> None:
     assert route is Route.REVIEW
     [(queue, trigger, status, signals)] = await cases_of(moderation, job)
     assert (queue, trigger, status) == ("premod", "edit", "pending")
-    assert signals == ["omni:unavailable:no_key"]
+    assert signals == ["omni:unavailable:provider_error"]
+
+
+async def test_without_ai_keys_text_is_judged_by_stop_rules(moderation: Moderation) -> None:
+    """MVP без ключей AI (K25, K26 — после MVP): адаптеры отвечают «ключа нет», чистая заявка
+    новичка публикуется сразу и без кейса, стоп-слово по-прежнему ведёт к модератору."""
+    moderation.omni.result = NO_KEY
+    moderation.classifier.verdict = NO_KEY
+    moderation.flags.values[SAMPLE_RATE_FLAG] = 0.0  # без выборки: кейс дал бы только сигнал
+    moderation.rules.rules = (EASY_MONEY,)
+    newcomer = await moderation.user()  # уровень 0 — классификатор зовут
+
+    clean, clean_route = await check_job(moderation, newcomer, "Нужно повесить люстру")
+    spam, spam_route = await check_job(moderation, newcomer, "Pasivni prihod od kuće!")
+
+    assert (clean_route, spam_route) == (Route.PUBLISH, Route.REVIEW)
+    assert moderation.jobs.published == [(clean, 1)]
+    assert moderation.classifier.calls == 2
+    assert await cases_of(moderation, clean) == []
+    assert await cases_of(moderation, spam) == [
+        ("premod", "new_content", "pending", ["rule:spam:flag:pasivni prihod"])
+    ]
+
+
+async def test_without_ai_keys_chat_message_opens_no_case(moderation: Moderation) -> None:
+    """Сообщение чата без ключей AI: чистое остаётся видно и кейса не открывает; выборка
+    новичков (страховка) — та же, что с ключами."""
+    moderation.omni.result = NO_KEY
+    moderation.classifier.verdict = NO_KEY
+    moderation.flags.values[SAMPLE_RATE_FLAG] = 0.0
+    newcomer = await moderation.user()
+
+    async def check(text: str) -> UUID:
+        message = moderation.jobs.add(newcomer, text, kind=ContentKind.MESSAGE, visible=True)
+        routing = await moderation.auto_check(
+            AutoCheckCommand(entity_type=EntityType.JOB, entity_id=message, author_id=newcomer)
+        )
+        assert routing is not None
+        assert routing.route is Route.PUBLISH
+        return message
+
+    quiet = await check("Буду в 19:00, захвачу стремянку")
+    moderation.flags.values[SAMPLE_RATE_FLAG] = 1.0
+    sampled = await check("Спасибо, до завтра")
+
+    assert moderation.jobs.hidden == []
+    assert await cases_of(moderation, quiet) == []
+    assert await cases_of(moderation, sampled) == [("premod", "auto_flag", "pending", ["sample"])]
 
 
 async def test_p0_is_hidden_and_the_account_frozen(moderation: Moderation) -> None:
