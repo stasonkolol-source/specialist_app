@@ -2,10 +2,10 @@
 // исправить» с причиной модерации) и когда опубликована, «когда», район («точный адрес откроется
 // выбранному»), бюджет, места «3 из 5 откликов · осталось 2 места», просмотры. «Пригласить» —
 // шторка с подходящими специалистами из каталога (категория и город заявки), «Продлить» — когда
-// срок на исходе или вышел, «Поднять» — v1. Отклики — карточками по времени отклика: фото и имя,
-// рейтинг или «Отзывов пока нет», район, цена, сообщение, «Откликнулся первым», «Телефон
-// подтверждён», «Подработка», «Новый»; опрос раз в 15 секунд. «Закрыть заявку» спрашивает
-// причину. «Изменить» — мастер S20a–d с этой заявкой (`?edit=<id>`, сохранение с If-Match).
+// срок на исходе или вышел, «Поднять» — v1 (до него кнопки нет). Отклики — карточками по времени
+// отклика: фото и имя (непросмотренный — точкой), рейтинг со звездой или «Новый специалист»,
+// район, цена, сообщение и не больше двух бейджей: «Откликнулся первым», «Телефон подтверждён»,
+// «Подработка»; опрос раз в 15 секунд. «Закрыть заявку» спрашивает причину. «Изменить» — мастер S20a–d с этой заявкой (`?edit=<id>`, сохранение с If-Match).
 // Карточка отклика ведёт на S24 — выбрать исполнителя или отклонить (6.2); заявка «в работе» и
 // завершённая — «Исполнитель выбран» и «Открыть сделку» (S26). «Поделиться» (7.4) — у
 // опубликованной заявки не прямым запросом: карточка в выбор чата Telegram или ссылка. Из «Моих
@@ -37,6 +37,7 @@ import {
   Sheet,
   SkeletonText,
   Text,
+  UnreadDot,
 } from '@sosed/ui-web';
 import { Navigate, useParams, useRouter } from '@tanstack/react-router';
 import { useId, useState } from 'react';
@@ -45,6 +46,7 @@ import { InviteList } from '../shared/InviteList.tsx';
 import { JobUnavailable } from '../shared/JobUnavailable.tsx';
 import { useDraftStore } from '../shared/draft.ts';
 import { LoadError } from '../shared/LoadError.tsx';
+import { PerformerRating } from '../shared/PerformerRating.tsx';
 import { useBudgetText, useDistrictName, useOfferPrice, useWhenBadge } from '../shared/labels.ts';
 import { shareable, useJobShare } from '../shared/share.tsx';
 import { JobSummarySkeleton, OfferCardSkeleton } from '../shared/skeletons.tsx';
@@ -184,7 +186,8 @@ function Manage({ job }: { job: JobOut }) {
         job.status === 'expired') && (
         <Group>
           <Row
-            title={<span className="text-danger">{t('manage.close')}</span>}
+            danger
+            title={t('manage.close')}
             subtitle={t('manage.closeHint')}
             icon="x"
             onClick={() => setClosing(true)}
@@ -355,21 +358,16 @@ function Summary({
             {t('manage.extend')}
           </Button>
         )}
-        {published && (
-          <Button variant="outline" icon="zap" disabled>
-            {t('manage.raise')}
-            <Badge>{t('manage.soon')}</Badge>
-          </Button>
-        )}
+        {/* «Поднять» (`manage.raise`) — v1: до него кнопки нет, метка версии в интерфейсе не нужна */}
       </div>
     </Card>
   );
 }
 
-/** Отклик: исполнитель, цена, сообщение и бейджи. Выбор исполнителя (S24) — 6.2. */
+/** Отклик: исполнитель, цена, сообщение и бейджи; непросмотренный — точкой у имени. Выбор
+ *  исполнителя (S24) — 6.2. */
 function ResponseCard({ jobId, card }: { jobId: string; card: ResponseCardOut }) {
   const { t } = useTranslation('jobs');
-  const format = useFormat();
   const router = useRouter();
   const offerPrice = useOfferPrice();
   const to = choicePath(jobId, card.id);
@@ -378,14 +376,9 @@ function ResponseCard({ jobId, card }: { jobId: string; card: ResponseCardOut })
   const avatar =
     performer.avatar?.variants.find((v) => v.name === 'thumb') ?? performer.avatar?.variants[0];
   const price = card.price.type === 'negotiable' ? t('card.negotiable') : offerPrice(card.price);
-  const meta = [
-    performer.rating !== null
-      ? `${format.rating(performer.rating)} · ${t('manage.reviews', { count: performer.rating_count })}`
-      : t('manage.noReviews'),
-    performer.district?.name ?? null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const casual = performer.kind !== 'pro';
+  // не больше двух бейджей в строке: «Откликнулся первым» уступает фактам об исполнителе
+  const first = card.is_first && !(casual && performer.phone_verified);
   return (
     <Card
       tight
@@ -400,12 +393,15 @@ function ResponseCard({ jobId, card }: { jobId: string; card: ResponseCardOut })
         <Avatar name={name} src={avatar?.url} placeholder={performer.avatar?.placeholder} />
         <div className="flex min-w-0 grow flex-col gap-1">
           <div className="flex items-start justify-between gap-2">
-            <span className="text-title">{name}</span>
+            <Name name={name} unread={card.is_new ? t('manage.newResponse') : null} />
             <Price>{price}</Price>
           </div>
-          <Text as="span" variant="cap">
-            {meta}
-          </Text>
+          {/* «Новый специалист» — в строке рейтинга, отдельным бейджем не повторяем */}
+          <PerformerRating
+            rating={performer.rating}
+            count={performer.rating_count}
+            meta={[performer.district?.name]}
+          />
         </div>
       </div>
       <Text variant="sm" className="whitespace-pre-line">
@@ -417,20 +413,35 @@ function ResponseCard({ jobId, card }: { jobId: string; card: ResponseCardOut })
           {card.availability_note}
         </p>
       )}
-      <div className="flex flex-wrap gap-1.5">
-        {card.is_new && (
-          <Badge tone="info" dot>
-            {t('manage.newResponse')}
-          </Badge>
-        )}
-        {card.is_first && <Badge tone="ok">{t('manage.first')}</Badge>}
-        {performer.phone_verified && <Badge tone="info">{t('manage.phone')}</Badge>}
-        {performer.kind !== 'pro' && <Badge>{t('manage.casual')}</Badge>}
-        {performer.kind === 'pro' && performer.is_new && (
-          <Badge tone="info">{t('manage.newSpecialist')}</Badge>
-        )}
-      </div>
+      {(first || performer.phone_verified || casual) && (
+        <div className="flex flex-wrap gap-1.5">
+          {first && <Badge tone="ok">{t('manage.first')}</Badge>}
+          {performer.phone_verified && (
+            <Badge tone="info" icon="shield">
+              {t('manage.phone')}
+            </Badge>
+          )}
+          {casual && <Badge>{t('manage.casual')}</Badge>}
+        </div>
+      )}
     </Card>
+  );
+}
+
+/** Имя исполнителя; непросмотренный отклик — точкой сразу за последним словом: имя не
+ *  переносится из-за точки раньше времени, а при переносе точка уходит вместе с этим словом. */
+function Name({ name, unread }: { name: string; unread: string | null }) {
+  if (!unread) return <span className="text-title">{name}</span>;
+  const last = name.lastIndexOf(' ') + 1;
+  return (
+    <span className="text-title">
+      {name.slice(0, last)}
+      {/* пробел перед точкой (в nowrap не переносится) — отступ и граница слов для скринридера;
+          точка 8 px стоит на базовой линии — её середина на высоте строчных букв */}
+      <span className="whitespace-nowrap">
+        {name.slice(last)} <UnreadDot label={unread} />
+      </span>
+    </span>
   );
 }
 
