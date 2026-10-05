@@ -105,6 +105,34 @@ describe('даты в Europe/Belgrade', () => {
     expect(cyr.fullDate(new Date('2026-09-27T10:00:00Z'))).toBe('27. септембар 2026.');
   });
 
+  it('после предлога сербский месяц — в родительном падеже: «do 3. oktobra»', () => {
+    const until = new Date('2026-10-03T16:00:00Z');
+    expect(ru.dateGenitive(until, now)).toBe('3 октября');
+    expect(lat.dateGenitive(until, now)).toBe('3. oktobra');
+    expect(cyr.dateGenitive(until, now)).toBe('3. октобра');
+    expect(lat.dateGenitive(new Date('2027-01-05T08:00:00Z'), now)).toBe('5. januara 2027.');
+    expect(lat.fullDateGenitive(now)).toBe('27. septembra 2026.');
+    expect(cyr.fullDateGenitive(now)).toBe('27. септембра 2026.');
+    expect(ru.fullDateGenitive(now)).toBe('27 сентября 2026');
+    // беглое «а» у -bar и «+a» у остальных — все двенадцать месяцев
+    const months = Array.from({ length: 12 }, (_, m) => new Date(Date.UTC(2026, m, 15)));
+    expect(months.map((d) => lat.dateGenitive(d, now).replace(/^15\. /, ''))).toEqual([
+      'januara',
+      'februara',
+      'marta',
+      'aprila',
+      'maja',
+      'juna',
+      'jula',
+      'avgusta',
+      'septembra',
+      'oktobra',
+      'novembra',
+      'decembra',
+    ]);
+    expect(cyr.dateGenitive(months[2] ?? now, now)).toBe('15. марта');
+  });
+
   it('месяц отзыва — с заглавной: «Сентябрь · люстры» на S11', () => {
     expect(ru.month(new Date('2026-09-27T10:00:00Z'))).toBe('Сентябрь');
     expect(lat.month(new Date('2026-09-27T10:00:00Z'))).toBe('Septembar');

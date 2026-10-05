@@ -101,14 +101,29 @@ export interface Format {
   distance(meters: number): string;
   time(date: Date): string;
   date(date: Date, now?: Date): string;
-  /** Дата с годом всегда: «27 сентября 2026» (редакция документа, S48). */
+  /** Дата после предлога: «до 3 октября», «do 3. oktobra» (срок санкции и апелляции, S49b). */
+  dateGenitive(date: Date, now?: Date): string;
+  /** Дата с годом всегда: «27 сентября 2026». */
   fullDate(date: Date): string;
+  /** Дата с годом после предлога: «от 27 сентября 2026», «od 27. septembra 2026.» (S48). */
+  fullDateGenitive(date: Date): string;
   /** Месяц отзыва: «Сентябрь», «Septembar». */
   month(date: Date): string;
   /** «сегодня в 19:00», «завтра в 10:00», «12 октября в 19:00». */
   calendar(date: Date, now?: Date): string;
   /** «только что», «15 мин назад», «2 ч назад», «вчера», «5 дней назад», дальше — дата. */
   relative(date: Date, now?: Date): string;
+}
+
+/** Сербский месяц в родительном падеже: «septembar» → «septembra», «mart» → «marta» (и кириллицей).
+ *  У Intl (CLDR) сербские месяцы — в именительном; если когда-нибудь придёт родительный (на «-a»),
+ *  он остаётся как есть. */
+function serbianGenitive(month: string): string {
+  if (/[aа]$/.test(month)) return month;
+  const cyrillic = /[\u0400-\u04ff]/.test(month);
+  // беглое «а»: septembar → septembra, октобар → октобра
+  if (/(bar|бар)$/.test(month)) return `${month.slice(0, -2)}${cyrillic ? 'ра' : 'ra'}`;
+  return `${month}${cyrillic ? 'а' : 'a'}`;
 }
 
 const formats = new Map<Locale, Format>();
@@ -177,27 +192,35 @@ function buildFormat(locale: Locale): Format {
       hourCycle: 'h23',
     }).format(date);
 
-  const dateOnly = (date: Date, now = new Date()) => {
+  // После предлога («до», «от»; «do», «od») месяц — в родительном падеже. Русский Intl так и пишет
+  // («3 октября»), сербский — в именительном («do 3. oktobar»): склоняем сами.
+  const formatDate = (formatter: Intl.DateTimeFormat, date: Date, genitive: boolean) =>
+    genitive && locale !== 'ru'
+      ? formatter
+          .formatToParts(date)
+          .map((part) => (part.type === 'month' ? serbianGenitive(part.value) : part.value))
+          .join('')
+      : formatter.format(date);
+
+  const dateOnly = (date: Date, now = new Date(), genitive = false) => {
     const year = dateFormat('en', { timeZone: TIME_ZONE, year: 'numeric' });
     const sameYear = year.format(date) === year.format(now);
-    return dateFormat(intl, {
+    const formatter = dateFormat(intl, {
       timeZone: TIME_ZONE,
       day: 'numeric',
       month: 'long',
       ...(sameYear ? {} : { year: 'numeric' }),
-    }).format(date);
+    });
+    return formatDate(formatter, date, genitive);
   };
 
   // ru Intl дописывает «г.» после года — на макетах его нет («от 26 сентября 2026»)
-  const fullDate = (date: Date) =>
-    dateFormat(intl, {
-      timeZone: TIME_ZONE,
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })
-      .format(date)
-      .replace(/\s*г\.$/, '');
+  const fullDate = (date: Date, genitive = false) =>
+    formatDate(
+      dateFormat(intl, { timeZone: TIME_ZONE, day: 'numeric', month: 'long', year: 'numeric' }),
+      date,
+      genitive,
+    ).replace(/\s*г\.$/, '');
 
   const calendar = (date: Date, now = new Date()) => {
     const diff = dayNumber(date) - dayNumber(now);
@@ -231,8 +254,10 @@ function buildFormat(locale: Locale): Format {
     budgetBucket,
     distance,
     time,
-    date: dateOnly,
-    fullDate,
+    date: (date, now) => dateOnly(date, now),
+    dateGenitive: (date, now) => dateOnly(date, now, true),
+    fullDate: (date) => fullDate(date),
+    fullDateGenitive: (date) => fullDate(date, true),
     month,
     calendar,
     relative,

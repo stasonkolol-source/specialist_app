@@ -45,7 +45,7 @@ export function Timeline({ items, label }: { items: readonly TimelineItem[]; lab
                 item.state === 'next' && 'border-field bg-surface',
               )}
             >
-              {item.state === 'done' && <Icon name="check" size={16} className="stroke-[2.6]" />}
+              {item.state === 'done' && <Icon name="check" size={16} />}
             </span>
             <span className="flex min-w-0 grow items-start justify-between gap-3 pt-0.5">
               <span

@@ -30,7 +30,7 @@ const LOCALES = [
     confirm: 'Выбрать этого исполнителя?',
     status: 'Статус',
     orderAgain: 'Заказать снова',
-    agree: 'Договорились',
+    agree: 'Договориться',
   },
   {
     locale: 'sr-Latn',
@@ -41,7 +41,7 @@ const LOCALES = [
     confirm: 'Izabrati ovog izvođača?',
     status: 'Status',
     orderAgain: 'Naručite ponovo',
-    agree: 'Dogovoreno',
+    agree: 'Dogovorite se',
   },
 ] as const;
 
@@ -112,7 +112,7 @@ for (const theme of THEMES) {
       });
       await expectNoAxeViolations(page);
 
-      // прямой диалог с Алексеем: в шапке — «Договорились»
+      // прямой диалог с Алексеем: в шапке — «Договориться»
       await page.getByRole('button', { name: l.orderAgain }).click();
       await expect(page.getByRole('main').getByRole('button', { name: l.agree })).toBeVisible();
       expect(chat.starts).toEqual([{ profile_id: card.performer.profile_id }]);

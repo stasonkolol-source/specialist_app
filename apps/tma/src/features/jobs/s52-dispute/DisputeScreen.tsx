@@ -282,7 +282,8 @@ function Dispute({
       {active && dispute.opened_by_me && (
         <Group>
           <Row
-            title={<span className="text-danger">{t('dispute.withdraw')}</span>}
+            danger
+            title={t('dispute.withdraw')}
             subtitle={t('dispute.withdrawHint')}
             icon="x"
             onClick={() => setConfirming(true)}
@@ -545,8 +546,9 @@ function WithdrawSheet({
         <Button variant="danger" full disabled={busy} aria-busy={busy} onClick={onConfirm}>
           {t('dispute.withdrawConfirm')}
         </Button>
+        {/* не «Отменить»: рядом с «Отозвать» непонятно, что отменяется */}
         <Button variant="secondary" full disabled={busy} onClick={onClose}>
-          {common('action.cancel')}
+          {t('dispute.withdrawKeep')}
         </Button>
       </div>
     </Sheet>

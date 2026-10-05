@@ -99,6 +99,7 @@ export function searchCardOf(profile: SpecialistProfileOut): SpecialistCardOut {
     languages: profile.languages,
     category_ids: profile.categories.map((category) => category.id),
     price_from: null,
+    price_from_unit: null,
     negotiable: false,
     rating: profile.rating,
     rating_count: profile.rating_count,

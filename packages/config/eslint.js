@@ -7,11 +7,16 @@ import tseslint from 'typescript-eslint';
 
 import { appBoundaries as appBoundariesRule } from './app-boundaries.js';
 import { noJsxLiteral } from './no-jsx-literal.js';
+import { radiusTokens } from './radius-tokens.js';
 
 // Свои правила — один объект плагина: flat config не даёт привязать ключ `sosed` к разным объектам,
 // а блоки i18n и границ в apps/tma включены вместе
 const sosedPlugin = {
-  rules: { 'no-jsx-literal': noJsxLiteral, 'app-boundaries': appBoundariesRule },
+  rules: {
+    'no-jsx-literal': noJsxLiteral,
+    'app-boundaries': appBoundariesRule,
+    'radius-tokens': radiusTokens,
+  },
 };
 
 const apiOnly = {
@@ -37,6 +42,8 @@ const explicitFile = {
  * @param {string[]} [options.allowFetchIn] — файлы, где разрешён fetch (mutator api-client)
  * @param {boolean} [options.appBoundaries] — границы routes → features → packages (apps/tma),
  *   правило sosed/app-boundaries
+ * @param {string[]} [options.radii] — токены радиусов (ключи radius из design-tokens/tokens.json):
+ *   в классах rounded-* только они, правило sosed/radius-tokens (пакеты с Tailwind)
  * @param {string} [options.root] — каталог пакета (import.meta.dirname): typescript-eslint ищет tsconfig
  *   от него, иначе в одном процессе с несколькими пакетами (IDE, тесты) не может выбрать корень
  */
@@ -47,6 +54,7 @@ export function sosed({
   allowTma = false,
   allowFetchIn = [],
   appBoundaries = false,
+  radii,
 } = {}) {
   const configs = [
     {
@@ -103,6 +111,13 @@ export function sosed({
       files: ['src/**/*.{ts,tsx}'],
       plugins: { sosed: sosedPlugin },
       rules: { 'sosed/app-boundaries': ['error', root ? { root } : {}] },
+    });
+  }
+  if (radii) {
+    configs.push({
+      files: ['**/*.{ts,tsx}'],
+      plugins: { sosed: sosedPlugin },
+      rules: { 'sosed/radius-tokens': ['error', { tokens: radii }] },
     });
   }
   // Тесты, конфиги и скрипты сборки: литералы и fetch допустимы

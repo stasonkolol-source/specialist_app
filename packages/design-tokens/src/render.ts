@@ -26,7 +26,8 @@ export interface TokenSource {
   shadow: Record<string, string>;
   font: Record<string, string>;
   type: Record<string, TypeStyle>;
-  icon: { stroke: number; default: number; sizes: number[] };
+  /** stroke — у 20 px; strokes — по размеру: в единицах viewBox 24, на экране линия везде ≈ 1,5 px. */
+  icon: { stroke: number; strokes: Record<string, number>; default: number; sizes: number[] };
 }
 
 const HEADER = 'Сгенерировано scripts/generate.ts из tokens.json — не править руками';

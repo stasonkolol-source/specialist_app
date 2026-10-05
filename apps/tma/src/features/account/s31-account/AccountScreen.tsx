@@ -221,8 +221,9 @@ function Activity() {
   return (
     <nav aria-label={t('profile.activity')}>
       <Group>
+        {/* история, как на артборде: briefcase уже у «Стать специалистом» */}
         <Row
-          icon="briefcase"
+          icon="history"
           title={t('profile.history')}
           chevron
           href={router.history.createHref(HISTORY_PATH)}

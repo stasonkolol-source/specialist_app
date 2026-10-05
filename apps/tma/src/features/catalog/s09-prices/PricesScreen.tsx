@@ -1,11 +1,11 @@
 // S09 Прайс специалиста (DEVELOPMENT_PLAN 4.5): все видимые позиции по группам — категориям в
-// порядке прайса, без группы — в конце «Другое». Под названием — длительность и единица («до 1
-// часа · за визит») и описание; справа — сумма. Памятка: цены ориентировочные. Имя и фото — из
-// профиля S08 (обычно уже в кэше). Строка — «Заказать эту услугу»: мастер заявки S20a с её
-// категорией и названием, прямым запросом этому специалисту (5.6).
+// порядке прайса, без группы — в конце «Другое». Под названием — длительность («до 1 часа») и
+// описание; справа — сумма и под ней единица («за визит»). Памятка: цены ориентировочные. Имя и
+// фото — из профиля S08 (обычно уже в кэше). Строка — «Заказать эту услугу»: мастер заявки S20a с
+// её категорией и названием, прямым запросом этому специалисту (5.6).
 import type { CardServiceOut, CardServicesOut, SpecialistProfileOut } from '@sosed/api-client';
 import { isUnavailable, priceGroups, useSpecialistCard, useSpecialistServices } from '@sosed/hooks';
-import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
+import { useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton } from '@sosed/platform';
 import {
   Avatar,
@@ -13,7 +13,6 @@ import {
   EmptyState,
   Group,
   Heading,
-  Price,
   Row,
   RowsSkeleton,
   SectionTitle,
@@ -26,8 +25,9 @@ import { useId } from 'react';
 
 import { LoadError } from '../shared/LoadError.tsx';
 import { Unavailable } from '../shared/Unavailable.tsx';
-import { avatarSrc, priceAmount, serviceDuration, serviceUnit } from '../shared/card.ts';
+import { avatarSrc, serviceDuration } from '../shared/card.ts';
 import { CARD_PATHS, CREATE_JOB_PATH } from '../shared/paths.ts';
+import { PriceColumn } from './PriceColumn.tsx';
 
 /** Аватар sm — 36 px. */
 const AVATAR_SM = 36;
@@ -143,7 +143,6 @@ function PriceSection({
   profileId: string;
 }) {
   const id = useId();
-  const format = useFormat();
   const router = useRouter();
   const order = (service: CardServiceOut) => ({
     to: CREATE_JOB_PATH,
@@ -162,7 +161,7 @@ function PriceSection({
             key={service.id}
             title={service.title}
             subtitle={<ServiceNote service={service} />}
-            trailing={<Price>{priceAmount(format, service)}</Price>}
+            trailing={<PriceColumn service={service} />}
             href={router.history.createHref(router.buildLocation(order(service)).href)}
             onClick={(event) => {
               event.preventDefault();
@@ -175,22 +174,15 @@ function PriceSection({
   );
 }
 
-/** «до 1 часа · за визит» и описание позиции под ним. */
+/** Длительность («до 1 часа») и описание позиции под названием; единица — в колонке цены. Ни
+ *  того, ни другого — строка в одну линию. */
 function ServiceNote({ service }: { service: CardServiceOut }) {
   const { t } = useTranslation('catalog');
-  const common = useTranslation().t;
   const duration = serviceDuration(service);
-  const unit = serviceUnit(service);
-  const note = [
-    duration === null ? null : t(`prices.durations.${duration}`),
-    unit === null ? null : common(`unit.${unit}`),
-  ]
-    .filter(Boolean)
-    .join(' · ');
-  if (!note && !service.description) return null;
+  if (duration === null && !service.description) return null;
   return (
     <>
-      {note && <span className="block">{note}</span>}
+      {duration !== null && <span className="block">{t(`prices.durations.${duration}`)}</span>}
       {service.description && (
         <span className="line-clamp-2 block whitespace-pre-line">{service.description}</span>
       )}

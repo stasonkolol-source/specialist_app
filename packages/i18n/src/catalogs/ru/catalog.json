@@ -22,6 +22,9 @@
     "title": "Все услуги",
     "search": "Найти услугу",
     "specialists": "{count, plural, one {# специалист} few {# специалиста} many {# специалистов} other {# специалиста}}",
+    "more": "{names} и ещё {count}",
+    "notFound": "Не нашли свою услугу?",
+    "notFoundText": "Опишите, что нужно сделать, — подберём категорию",
     "loadError": "Не получилось загрузить категории"
   },
   "results": {
@@ -46,6 +49,13 @@
     "reviews": "({count})",
     "todayUntil": "Сегодня до {time}",
     "phoneVerified": "Телефон подтверждён",
+    "casual": "Подработка",
+    "languages": {
+      "ru": "рус.",
+      "sr": "серб.",
+      "en": "англ.",
+      "uk": "укр."
+    },
     "postJob": "Создать заявку",
     "postJobText": "Опишите задачу — откликнутся исполнители, которых нет в выдаче."
   },
@@ -108,6 +118,8 @@
     "unavailableText": "Специалист скрыл профиль или его больше нет",
     "toCatalog": "Найти другого специалиста",
     "proposeJob": "Предложить заявку",
+    "writeInTelegram": "Написать в Telegram",
+    "casual": "Подработка",
     "responseMinutes": "Обычно отвечает за {count, plural, one {# минуту} few {# минуты} many {# минут} other {# минуты}}",
     "responseHours": "Обычно отвечает за {count, plural, one {# час} few {# часа} many {# часов} other {# часа}}",
     "writeFailed": "Не удалось открыть диалог. Попробуйте ещё раз.",

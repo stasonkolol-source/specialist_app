@@ -73,9 +73,11 @@ function useSupportButton() {
 }
 
 /** Поиск, безопасность и вопросы: поиск оставляет вопросы, где есть все слова запроса, и
- *  раскрывает их. Без поиска раскрыт первый вопрос, как на артборде. */
+ *  раскрывает их. Без поиска раскрыт первый вопрос, как на артборде. Ничего не нашлось — зовём в
+ *  поддержку, только если она есть: без контакта MainButton — серая «Поддержка — скоро». */
 function Faq() {
   const { t } = useTranslation('account');
+  const support = useSupportLink();
   const titleId = useId();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState<ReadonlySet<Question>>(() => new Set(['responses']));
@@ -117,7 +119,7 @@ function Faq() {
           </Group>
         ) : (
           <p role="status" className="m-0 px-4 text-sm text-text2">
-            {t('help.nothingFound')}
+            {support ? t('help.nothingFound') : t('help.nothingFoundNoSupport')}
           </p>
         )}
       </section>

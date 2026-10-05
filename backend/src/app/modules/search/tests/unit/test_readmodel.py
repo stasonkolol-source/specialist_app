@@ -8,6 +8,7 @@ from app.modules.search.domain.index import (
     Labels,
     activity_score,
     base_score,
+    category_price_units,
     category_prices,
     freshness,
     serbian,
@@ -51,6 +52,26 @@ def test_lowest_price_reaches_ancestors() -> None:
 
 def test_price_of_unknown_category_stays_on_it() -> None:
     assert category_prices({LAMPS: 100}, {}) == {LAMPS: 100}
+
+
+def test_unit_follows_the_lowest_price_to_ancestors() -> None:
+    paths = {LAMPS: (REPAIR, ELECTRIC, LAMPS), CLEANING: (CLEANING,), ELECTRIC: (REPAIR, ELECTRIC)}
+    lowest = {LAMPS: 300_000, ELECTRIC: 150_000, CLEANING: 90_000}
+
+    units = category_price_units(lowest, {LAMPS: "item", ELECTRIC: "hour"}, paths)
+
+    assert units == {REPAIR: "hour", ELECTRIC: "hour", LAMPS: "item", CLEANING: None}
+    assert units.keys() == category_prices(lowest, paths).keys()
+
+
+def test_equal_prices_keep_the_unit_of_the_first_group() -> None:
+    paths = {LAMPS: (REPAIR, ELECTRIC, LAMPS), ELECTRIC: (REPAIR, ELECTRIC)}
+
+    units = category_price_units(
+        {LAMPS: 100, ELECTRIC: 100}, {LAMPS: "item", ELECTRIC: "hour"}, paths
+    )
+
+    assert units == {REPAIR: "item", ELECTRIC: "item", LAMPS: "item"}
 
 
 @pytest.mark.parametrize(

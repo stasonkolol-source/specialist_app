@@ -1,25 +1,27 @@
 // S30 Диалог (DEVELOPMENT_PLAN 6.4; ARCHITECTURE §11.5, §11.6): шапка — инициалы, имя второй
-// стороны (у специалиста — ссылка на его карточку S08) и что со сделкой; справа «Договорились» —
-// в прямом диалоге шторка условий (вторая сторона подтвердит, S53), клиенту в диалоге по отклику —
-// «К откликам» (исполнителя выбирают на S23–S25). Сверху ленты — памятка «не вносите предоплату» и
-// с чего начат диалог. Сообщения: свои справа, чужие слева; телефон или ссылка до договорённости —
-// «•••» и подсказка «контакты откроются после договорённости»; просьба о предоплате — памятка;
-// скрытое модерацией — словами (автор видит своё и что оно скрыто); отклик — карточкой с ценой;
-// контакт — ссылкой; что со сделкой — системной строкой. Отправка сразу в ленте, неотправленное —
-// «повторить». Лента опрашивается раз в 4 с (ETag), пока экран открыт; новое — прочитано.
-// Закрытый диалог — без композера. После договорённости в шапке — «Поделиться контактом» (шторка
-// S54, 6.5; из сделки S26 — сразу открытой, `?share`) и Telegram второй стороны, если она его
-// показывает. Открыты ли контакты, решает сервер (`contacts_open`): эта пара уже договаривалась — в
-// этом диалоге или в другом — значит, открыты (ADR-0010, решение владельца 2026-10-04). Сделка завершена или отменена — можно
-// снова: в прямом диалоге «Договориться снова» (та же шторка условий, «что делаем» — из прошлой
-// сделки), клиенту в диалоге по отклику после завершённой — «Заказать снова» (прямой диалог с этим
-// специалистом, как «Написать» на S08). Полоса сделки тогда — «Прошлая сделка», а контакты, пока
-// открыты, — второй строкой в ней: Telegram второй стороны и «Поделиться контактом»; там же они,
-// пока новое предложение ждёт ответа. В шапке при 360 px рядом с «… снова» им нет места, а
-// попап «⋯» Telegram — не больше трёх кнопок. «⋯» в шапке (4.7) — попап Telegram: «Пожаловаться»
-// (шторка S46 на собеседника с этим диалогом) и «Заблокировать» с подтверждением или
-// «Разблокировать». Блокировка в любую сторону — переписка только для чтения: вместо композера «Вы
-// заблокировали собеседника» с «Разблокировать» или «Собеседник недоступен».
+// стороны (у специалиста — ссылка на его карточку S08), что со сделкой и справа одно главное
+// действие, коротко: шапка не прокручивается, а диалог открывается в конце переписки. Без сделки —
+// «Договориться» (шторка условий, вторая сторона подтвердит, S53); клиенту в диалоге по отклику,
+// пока исполнитель не выбран, — «К откликам» (выбирают на S23–S25); сделка предложена, идёт или
+// под спором — «Сделка» (S26, как на артборде S54); сделка позади — в прямом диалоге снова
+// «Договориться» (та же шторка, «что делаем» — из прошлой сделки), клиенту по отклику после
+// завершённой — «Заказать снова» (прямой диалог с этим специалистом, как «Написать» на S08). Под
+// шапкой — полоса сделки диалога (позади — «Прошлая сделка») или, если сделки нет, а контакты
+// пары открыты, — «Вы уже договаривались»; второй строкой в ней — Telegram второй стороны и
+// «Поделиться контактом» (шторка S54, 6.5; из сделки S26 — сразу открытой, `?share`). Открыты ли
+// контакты, решает сервер (`contacts_open`): эта пара уже договаривалась — в этом диалоге или в
+// другом — значит, открыты (ADR-0010, решение владельца 2026-10-04). Имя и что со сделкой не
+// обрезаются и при 360 px, а попап «⋯» Telegram — не больше трёх кнопок. Сверху ленты — памятка
+// «не вносите предоплату» и с чего начат диалог; над первым сообщением каждого дня — подпись дня
+// («Сегодня», «Вчера», «2 октября»). Сообщения: свои справа, чужие слева; телефон или ссылка до
+// договорённости — плашка «контакт скрыт» и подсказка «контакты откроются после договорённости»;
+// просьба о предоплате — памятка; скрытое модерацией — словами (автор видит своё и что оно
+// скрыто); отклик — карточкой с ценой; контакт — ссылкой; что со сделкой — системной строкой.
+// Отправка сразу в ленте, неотправленное — «повторить». Лента опрашивается раз в 4 с (ETag), пока
+// экран открыт; новое — прочитано. Закрытый диалог — без композера. «⋯» в шапке (4.7) — попап
+// Telegram: «Пожаловаться» (шторка S46 на собеседника с этим диалогом) и «Заблокировать» с
+// подтверждением или «Разблокировать». Блокировка в любую сторону — переписка только для чтения:
+// вместо композера «Вы заблокировали собеседника» с «Разблокировать» или «Собеседник недоступен».
 import type { ConversationOut, MessageOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import type { ChatEntry } from '@sosed/hooks';
@@ -45,6 +47,7 @@ import {
   ChatList,
   ChatSkeleton,
   Composer,
+  DayLabel,
   EmptyState,
   IconButton,
   MaskedText,
@@ -55,10 +58,11 @@ import {
 } from '@sosed/ui-web';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter, useSearch } from '@tanstack/react-router';
-import type { MouseEvent, ReactNode } from 'react';
+import type { MouseEvent } from 'react';
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { LoadError } from '../shared/LoadError.tsx';
+import { dayKey, useDayLabel } from '../shared/dates.ts';
 import {
   MESSAGES_PATHS,
   chatPath,
@@ -131,7 +135,7 @@ type ChatState = ReturnType<typeof useChat>;
 function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: ChatState }) {
   const { t } = useTranslation('messages');
   const { t: common } = useTranslation();
-  const format = useFormat();
+  const dayLabel = useDayLabel();
   const insets = useInsets();
   const router = useRouter();
   const [proposing, setProposing] = useState(false);
@@ -143,7 +147,6 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
   const writable = conversation.status === 'open' && block.state === null;
   const name = conversation.counterpart_name ?? t('list.deleted');
   const again = writable ? againOf(conversation) : null;
-  const inBar = writable && contactsOpen && contactsInBar(conversation, again);
   const reorder = useStartConversation();
   const orderAgain = () => {
     const profileId = conversation.counterpart_profile_id;
@@ -153,6 +156,12 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
       { onSuccess: (started) => void router.navigate({ to: chatPath(started.id) }) },
     );
   };
+  const actions = useActions(conversation, writable, again, {
+    propose: () => setProposing(true),
+    order: orderAgain,
+    ordering: reorder.isPending,
+    share: () => setSharing(true),
+  });
 
   const stick = useRef(true);
   useEffect(() => {
@@ -174,22 +183,26 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
     chat.send(text);
   };
 
+  // дата начала диалога — подписью дня над строкой «Диалог из профиля…», дальше — над первым
+  // сообщением каждого следующего дня
   const started = new Date(conversation.created_at);
+  const now = new Date();
   return (
     <div className="flex min-h-[calc(100dvh-var(--tg-top,0px))] flex-col">
       <Header
         conversation={conversation}
         name={name}
-        writable={writable}
-        again={again}
-        barContacts={inBar}
-        ordering={reorder.isPending}
-        onPropose={() => setProposing(true)}
-        onOrder={orderAgain}
-        onShare={() => setSharing(true)}
+        action={actions.header}
         onMenu={() => void block.menu(name)}
       />
-      <DealBar conversation={conversation} onShare={inBar ? () => setSharing(true) : undefined} />
+      {actions.bar && (
+        <DealBar
+          conversation={conversation}
+          withDeal={actions.withDeal}
+          link={actions.dealLink}
+          actions={actions.inBar}
+        />
+      )}
       <div className="flex flex-1 flex-col justify-end">
         <ChatList label={t('list.title')} className="pb-4">
           <Banner tone="warn" icon="alert">
@@ -207,22 +220,26 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
               {t('chat.earlier')}
             </Button>
           )}
+          <DayLabel dateTime={dayKey(started)}>{dayLabel(started, now)}</DayLabel>
           <SystemNote>
             {conversation.job_title
-              ? t('chat.startedJob', {
-                  title: conversation.job_title,
-                  date: format.date(started),
-                })
-              : t('chat.startedProfile', { date: format.date(started) })}
+              ? t('chat.startedJob', { title: conversation.job_title })
+              : t('chat.startedProfile')}
           </SystemNote>
-          {chat.entries.map((entry) => (
-            <Entry
-              key={entryKey(entry)}
-              entry={entry}
-              conversation={conversation}
-              onRetry={chat.retry}
-            />
-          ))}
+          {withDays(chat.entries, dayKey(started)).map((row) =>
+            row.type === 'day' ? (
+              <DayLabel key={row.key} dateTime={dayKey(row.date)}>
+                {dayLabel(row.date, now)}
+              </DayLabel>
+            ) : (
+              <Entry
+                key={row.key}
+                entry={row.entry}
+                conversation={conversation}
+                onRetry={chat.retry}
+              />
+            ),
+          )}
           {proposed && <SystemNote icon="check">{t('chat.propose.sent')}</SystemNote>}
         </ChatList>
       </div>
@@ -345,56 +362,159 @@ function againOf(conversation: ConversationOut): Again {
   return client && state === 'completed' && conversation.counterpart_profile_id ? 'order' : null;
 }
 
-/** Открытые контакты — второй строкой полосы сделки, а не в шапке: там «… снова», или своей кнопки
- *  у них нет — новое предложение ждёт ответа, прошлую сделку отменили (договаривались же раньше).
- *  Сделки в диалоге нет — Telegram в шапке рядом с «Договорились», делиться пока не по чему. */
-function contactsInBar(conversation: ConversationOut, again: Again): boolean {
-  const state = dealState(conversation);
-  return again !== null || state === 'proposed' || state === 'cancelled';
+/** Действие диалога: главное — кнопкой в шапке, остальные — текстом второй строкой полосы. */
+interface Action {
+  key: string;
+  label: string;
+  onClick: () => void;
+  /** Подпись для диктора, когда на кнопке не всё: «Telegram: @aleksey_m». */
+  title?: string;
+  /** Ждём ответа сервера: «Заказать снова» открывает диалог. */
+  busy?: boolean;
+  /** Вторичной: «К откликам» и «Сделка» уводят на другой экран, а не договариваются. */
+  secondary?: boolean;
 }
 
-/** Сделка диалога ссылкой на S26; второй стороне ждущего предложения там — S53 (6.5). Завершённая
- *  — «Прошлая сделка», отменённая — тоже, но только с открытыми контактами. `onShare` — контакты
- *  второй строкой здесь (`contactsInBar`). */
-function DealBar({
-  conversation,
-  onShare,
-}: {
-  conversation: ConversationOut;
-  onShare?: (() => void) | undefined;
-}) {
+/** Что можно сделать в диалоге и где. Главное — всегда кнопкой в шапке: она не прокручивается, а
+ *  диалог открывается в конце переписки, и полоса под шапкой уходит вверх («заказать снова» было
+ *  не найти). Подпись — короткая, чтобы имя и что со сделкой помещались и при 360 px:
+ *  «Договориться» — без сделки, а после завершённой или отменённой в прямом диалоге — снова (что
+ *  сделка позади, говорит строка под именем); «К откликам» — клиенту по отклику, пока исполнитель
+ *  не выбран; «Заказать снова» — ему же после завершённой; «Сделка» (S26, как в шапке артборда
+ *  S54) — пока сделка предложена, идёт или под спором, и когда снова отсюда нельзя. Полоса под
+ *  шапкой — сделка диалога (`withDeal`) или открытые контакты без сделки (пара договаривалась в
+ *  другом диалоге); второй строкой в ней — Telegram и «Поделиться контактом», без повтора шапки. */
+function useActions(
+  conversation: ConversationOut,
+  writable: boolean,
+  again: Again,
+  on: { propose: () => void; order: () => void; ordering: boolean; share: () => void },
+) {
   const { t } = useTranslation('messages');
   const router = useRouter();
   const platform = usePlatform();
   const state = dealState(conversation);
-  const deal = conversation.deal;
-  if (!deal || state === 'none' || (state === 'cancelled' && !onShare)) return null;
-  const path = dealPath(deal.id);
-  const open = (event: MouseEvent<HTMLAnchorElement>) => {
-    event.preventDefault();
-    void router.navigate({ to: path });
-  };
+  const withDeal = dealInBar(conversation, writable);
   const telegram = conversation.counterpart_telegram;
+  const deal = conversation.deal;
+
+  let main: Action | null = null;
+  if (again === 'propose' || (writable && conversation.kind === 'direct' && state === 'none')) {
+    main = { key: 'agree', label: t('chat.agree'), onClick: on.propose };
+  } else if (again === 'order') {
+    main = { key: 'order', label: t('chat.orderAgain'), onClick: on.order, busy: on.ordering };
+  } else if (
+    writable &&
+    conversation.kind === 'job_response' &&
+    conversation.my_role === 'client' &&
+    conversation.job_id &&
+    (state === 'none' || state === 'cancelled')
+  ) {
+    // исполнителя выбирают на S23–S25: условия здесь сервер не примет; после отмены заявка
+    // снова открыта
+    const path = managedJobPath(conversation.job_id);
+    main = {
+      key: 'responses',
+      label: t('chat.openResponses'),
+      onClick: () => void router.navigate({ to: path }),
+      secondary: true,
+    };
+  } else if (withDeal && deal) {
+    // второй стороне ждущего предложения там — S53 (6.5)
+    const path = dealPath(deal.id);
+    main = {
+      key: 'deal',
+      label: t('chat.deal'),
+      onClick: () => void router.navigate({ to: path }),
+      secondary: true,
+    };
+  }
+  const more: Action[] = [];
+  if (telegram) {
+    more.push({
+      key: 'telegram',
+      label: t('chat.telegram'),
+      title: `${t('chat.telegram')}: ${telegram}`,
+      onClick: () => platform.openTelegramLink(telegramLink(telegram)),
+    });
+  }
+  // делятся по сделке диалога, пока контакты открыты; под спором — нет. Сделка есть — есть и полоса
+  if (writable && conversation.contacts_open && state !== 'none' && state !== 'disputed') {
+    more.push({ key: 'share', label: t('chat.shareContact'), onClick: on.share });
+  }
+  return {
+    header: main,
+    bar: withDeal || Boolean(telegram),
+    withDeal,
+    // «Сделка» в шапке — ссылка на неё в полосе не повторяется
+    dealLink: main?.key !== 'deal',
+    inBar: more,
+  };
+}
+
+/** Сделка диалога в полосе: предложена, идёт, под спором или позади. Отменённая — только если до
+ *  отмены договорились (контакты открыты): отклонённое предложение полосы не оставляет. */
+function dealInBar(conversation: ConversationOut, writable: boolean): boolean {
+  const state = dealState(conversation);
+  if (!conversation.deal || state === 'none') return false;
+  return state !== 'cancelled' || (writable && conversation.contacts_open);
+}
+
+/** Полоса под шапкой: сделка диалога (завершённая и отменённая — «Прошлая сделка»), ссылкой на
+ *  S26, если в шапке не «Сделка», или, без сделки, «вы уже договаривались — контакты открыты».
+ *  Второй строкой — Telegram и «Поделиться контактом» (`useActions`). */
+function DealBar({
+  conversation,
+  withDeal,
+  link,
+  actions,
+}: {
+  conversation: ConversationOut;
+  withDeal: boolean;
+  link: boolean;
+  actions: readonly Action[];
+}) {
+  const { t } = useTranslation('messages');
+  const router = useRouter();
+  const state = dealState(conversation);
+  const deal = withDeal ? conversation.deal : null;
+  // по краю ленты и аватара в шапке — 12 px
   return (
-    <div className="px-4 pt-3">
-      <Banner tone={state === 'proposed' ? 'warn' : 'info'} icon="briefcase">
-        {t(state === 'completed' || state === 'cancelled' ? 'chat.dealBarPast' : 'chat.dealBar', {
-          title: deal.title,
-        })}{' '}
-        <a href={router.history.createHref(path)} onClick={open}>
-          {state === 'proposed' ? t('chat.dealTerms') : t('chat.dealOpen')}
-        </a>
-        {onShare && (
-          <span className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
-            {telegram && (
-              <BarButton
-                label={`${t('chat.telegram')}: ${telegram}`}
-                onClick={() => platform.openTelegramLink(telegramLink(telegram))}
-              >
-                {t('chat.telegram')}
-              </BarButton>
+    <div className="px-3 pt-3">
+      <Banner
+        tone={deal && state === 'proposed' ? 'warn' : 'info'}
+        icon={deal ? 'briefcase' : 'check-circle'}
+      >
+        {deal ? (
+          <>
+            {t(
+              state === 'completed' || state === 'cancelled' ? 'chat.dealBarPast' : 'chat.dealBar',
+              { title: deal.title },
             )}
-            <BarButton onClick={onShare}>{t('chat.shareContact')}</BarButton>
+            {link && (
+              <>
+                {' '}
+                <a
+                  href={router.history.createHref(dealPath(deal.id))}
+                  onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+                    event.preventDefault();
+                    void router.navigate({ to: dealPath(deal.id) });
+                  }}
+                >
+                  {t('chat.dealOpen')}
+                </a>
+              </>
+            )}
+          </>
+        ) : (
+          t('chat.contactsOpen')
+        )}
+        {actions.length > 0 && (
+          // кнопки по 44 px в высоту: строка заходит в нижний отступ полосы, текст — на месте
+          <span className="-mb-3 flex flex-wrap gap-x-4">
+            {actions.map((action) => (
+              <BarButton key={action.key} action={action} />
+            ))}
           </span>
         )}
       </Banner>
@@ -402,24 +522,17 @@ function DealBar({
   );
 }
 
-/** Действие в полосе сделки — как её ссылки: шторку или Telegram открывает кнопка, а не переход. */
-function BarButton({
-  label,
-  onClick,
-  children,
-}: {
-  label?: string;
-  onClick: () => void;
-  children: ReactNode;
-}) {
+/** Действие в полосе — текстом, как её ссылки: шторку или Telegram открывает кнопка, а не
+ *  переход. */
+function BarButton({ action }: { action: Action }) {
   return (
     <button
       type="button"
-      aria-label={label}
-      className="cursor-pointer border-0 bg-transparent p-0 font-semibold text-inherit underline"
-      onClick={onClick}
+      aria-label={action.title}
+      className="inline-flex min-h-11 cursor-pointer items-center border-0 bg-transparent p-0 font-semibold text-inherit underline"
+      onClick={action.onClick}
     >
-      {children}
+      {action.label}
     </button>
   );
 }
@@ -429,136 +542,77 @@ const telegramLink = (username: string) => `https://t.me/${username.replace(/^@/
 function Header({
   conversation,
   name,
-  writable,
-  again,
-  barContacts,
-  ordering,
-  onPropose,
-  onOrder,
-  onShare,
+  action,
   onMenu,
 }: {
   conversation: ConversationOut;
   name: string;
-  /** Открыт и без блокировки: договариваться и делиться контактом можно. */
-  writable: boolean;
-  /** Сделка позади: «Договориться снова» или «Заказать снова» вместо «Поделиться контактом». */
-  again: Again;
-  /** Контакты — в полосе сделки: Telegram второй стороны в шапке не дублируем. */
-  barContacts: boolean;
-  /** «Заказать снова» открывает прямой диалог: ждём ответа сервера. */
-  ordering: boolean;
-  onPropose: () => void;
-  onOrder: () => void;
-  onShare: () => void;
+  /** Главное действие диалога (`useActions`): шапка не прокручивается — оно всегда на виду. */
+  action: Action | null;
   onMenu: () => void;
 }) {
   const { t } = useTranslation('messages');
   const router = useRouter();
-  const platform = usePlatform();
   const state = dealState(conversation);
-  const settled = state === 'proposed' || state === 'agreed' || state === 'disputed';
-  const open = writable;
   const profileId = conversation.counterpart_profile_id;
   const person = (
     <>
       <Avatar name={name} size="sm" palette={paletteFor(conversation.counterpart_id)} />
       <span className="flex min-w-0 flex-col">
-        {/* имя собеседника — заголовок экрана: размер и вес — как у строки рядом */}
+        {/* имя собеседника — заголовок экрана: размер и вес — как у строки рядом; обрезается
+            только очень длинное — «Алексей Морозов» с «Dogovorite se» и «Никола Петрович» с
+            «Naruči ponovo» помещаются и при 360 px */}
         <h1 className="m-0 truncate text-[1em] font-semibold">{name}</h1>
-        {/* одной строкой, как на артборде: «⋯» справа не переносит «Ещё не договорились» */}
-        <span className="truncate text-cap text-text2">{t(`deal.${state}`)}</span>
+        {/* что со сделкой не обрезается: длинное («Договорённость отменена» рядом с кнопкой)
+            переносится второй строкой */}
+        <span className="text-cap text-text2">{t(`deal.${state}`)}</span>
       </span>
     </>
   );
-  // «… снова» в шапке — Telegram второй стороны в полосе сделки: вместе не помещаются
-  const telegram = barContacts ? null : conversation.counterpart_telegram;
   const toProfile = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     if (profileId) void router.navigate({ to: profilePath(profileId) });
   };
 
-  let action: ReactNode = null;
-  if (again === 'propose') {
-    action = (
-      <Button size="sm" onClick={onPropose}>
-        {t('chat.agreeAgain')}
-      </Button>
-    );
-  } else if (again === 'order') {
-    action = (
-      <Button size="sm" onClick={onOrder} disabled={ordering} aria-busy={ordering}>
-        {t('chat.orderAgain')}
-      </Button>
-    );
-  } else if (open && conversation.contacts_open && (state === 'agreed' || state === 'completed')) {
-    // вторичной, как кнопка сделки в шапке артборда S54
-    action = (
-      <Button size="sm" variant="secondary" onClick={onShare}>
-        {t('chat.shareContact')}
-      </Button>
-    );
-  } else if (open && !settled && conversation.kind === 'direct') {
-    action = (
-      <Button size="sm" onClick={onPropose}>
-        {t('chat.agree')}
-      </Button>
-    );
-  } else if (
-    open &&
-    !settled &&
-    conversation.kind === 'job_response' &&
-    conversation.my_role === 'client' &&
-    conversation.job_id
-  ) {
-    const jobId = conversation.job_id;
-    action = (
-      <Button
-        size="sm"
-        variant="secondary"
-        onClick={() => void router.navigate({ to: managedJobPath(jobId) })}
-      >
-        {t('chat.openResponses')}
-      </Button>
-    );
-  }
-
+  // слева 12 px, как у ленты под шапкой, и промежутки на 2 px уже, чем на артборде: при 360 px
+  // рядом с кнопкой и «⋯» имени нужно 132 px
   return (
     <header
       aria-label={name}
-      className="sticky top-0 z-10 flex items-center gap-2 border-0 border-b border-solid border-line bg-bg px-4 py-2.5"
+      className="sticky top-0 z-10 flex items-center gap-1.5 border-0 border-b border-solid border-line bg-bg py-2.5 pr-4 pl-3"
     >
       {profileId ? (
         <a
           href={router.history.createHref(profilePath(profileId))}
           onClick={toProfile}
-          className="flex min-w-0 flex-1 items-center gap-2.5 text-text"
+          className="flex min-w-0 flex-1 items-center gap-2 text-text"
         >
           {person}
         </a>
       ) : (
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">{person}</div>
+        <div className="flex min-w-0 flex-1 items-center gap-2">{person}</div>
       )}
-      {telegram && (
+      {action && (
         <Button
           size="sm"
-          variant="secondary"
-          icon="send"
-          aria-label={`${t('chat.telegram')}: ${telegram}`}
-          onClick={() => platform.openTelegramLink(telegramLink(telegram))}
+          variant={action.secondary ? 'secondary' : 'primary'}
+          onClick={action.onClick}
+          disabled={action.busy}
+          aria-busy={action.busy}
+          aria-label={action.title}
         >
-          {t('chat.telegram')}
+          {action.label}
         </Button>
       )}
-      {action}
       {conversation.counterpart_name !== null && (
         // на артборде «⋯» — в шапке Telegram, здесь — в своей: прозрачные поля кнопки заходят в
-        // отступы, чтобы имени и статусу осталось место (зона нажатия — те же 44 × 44)
+        // промежуток и в отступ до края экрана, чтобы имени и статусу осталось место (зона нажатия
+        // — те же 44 × 44)
         <IconButton
           plain
           icon="more"
           label={t('chat.menu')}
-          className="-mr-3 -ml-2"
+          className="-mr-4 -ml-1.5"
           onClick={onMenu}
         />
       )}
@@ -655,6 +709,14 @@ function MessageBody({ message }: { message: MessageOut }) {
     );
   }
   if (message.body === null) return <em>{t('chat.erased')}</em>;
+  const text = (
+    <MaskedText
+      text={message.body}
+      label={t('mask.text')}
+      hiddenLabel={t('mask.label')}
+      side={message.mine ? 'out' : 'in'}
+    />
+  );
   if (message.kind === 'offer') {
     const offer = message.offer;
     const amount = offer?.price_amount;
@@ -664,13 +726,13 @@ function MessageBody({ message }: { message: MessageOut }) {
     return (
       <span className="flex flex-col gap-1">
         <span className="text-cap font-semibold opacity-80">{t('chat.offer')}</span>
-        <MaskedText text={message.body} />
+        {text}
         {price && <span className="font-semibold">{t('chat.offerPrice', { price })}</span>}
         {when && <span>{t('chat.offerWhen', { when })}</span>}
       </span>
     );
   }
-  return <MaskedText text={message.body} />;
+  return text;
 }
 
 function SystemEvent({
@@ -732,6 +794,29 @@ function entryKey(entry: ChatEntry): string {
   return entry.type === 'message' ? entry.message.id : `pending:${entry.pending.clientMsgId}`;
 }
 
+type Row =
+  { type: 'day'; key: string; date: Date } | { type: 'entry'; key: string; entry: ChatEntry };
+
+/** Лента с подписями дней: подпись — перед первым сообщением каждого дня после `first` (день, с
+ *  которого начат диалог: его подпись — над строкой «Диалог из профиля…»). Ключ подписи — по её
+ *  сообщению: «Показать раньше» и новые сообщения не перерисовывают остальные. */
+function withDays(entries: readonly ChatEntry[], first: string): Row[] {
+  const rows: Row[] = [];
+  let day = first;
+  for (const entry of entries) {
+    const key = entryKey(entry);
+    const date = new Date(
+      entry.type === 'message' ? entry.message.created_at : entry.pending.createdAt,
+    );
+    if (dayKey(date) !== day) {
+      day = dayKey(date);
+      rows.push({ type: 'day', key: `day:${key}`, date });
+    }
+    rows.push({ type: 'entry', key, entry });
+  }
+  return rows;
+}
+
 /** Диалог до первого ответа — как настоящий: шапка с собеседником, пузыри по низу, поле ввода.
  *  Открыли из списка S29 — собеседник и сделка в шапке из него сразу; кнопки шапки (сделка,
  *  контакты) — только по ответу диалога. */
@@ -741,7 +826,7 @@ function Loading({ conversation }: { conversation: ConversationOut | undefined }
   const name = conversation ? (conversation.counterpart_name ?? t('list.deleted')) : null;
   return (
     <div aria-busy="true" className="flex min-h-[calc(100dvh-var(--tg-top,0px))] flex-col">
-      <div className="flex items-center gap-2.5 border-0 border-b border-solid border-line bg-bg px-4 py-2.5">
+      <div className="flex items-center gap-2 border-0 border-b border-solid border-line bg-bg py-2.5 pr-4 pl-3">
         {conversation && name ? (
           <>
             <Avatar name={name} size="sm" palette={paletteFor(conversation.counterpart_id)} />

@@ -83,6 +83,8 @@ class SpecialistHit:
     card: Mapping[str, Any]
     price_from: int | None
     """Цена «от»: в выбранной категории, если там есть цена; иначе по всему прайсу."""
+    price_from_unit: str | None
+    """Единица этой цены (`hour`, `visit`…); None — за работу целиком или строка ещё без неё."""
     rating_bayes: float | None
     rating_count: int
     badges: tuple[str, ...]
@@ -114,6 +116,7 @@ class SpecialistCard:
     languages: tuple[str, ...]
     category_ids: tuple[CategoryId, ...]
     price_from: int | None
+    price_from_unit: str | None
     negotiable: bool
     rating: float | None
     """Байесовское среднее — только когда отзывов достаточно; иначе «Новый специалист»."""

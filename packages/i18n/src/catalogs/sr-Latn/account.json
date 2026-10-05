@@ -111,7 +111,8 @@
         "a": "Ništa: zahtevi, ponude i dopisivanje su besplatni. Za posao plaćate stručnjaku direktno, posle posla — aplikacija „Sosedi“ ne prima novac."
       }
     },
-    "nothingFound": "Takvog pitanja nema. Pišite podršci — odgovorićemo",
+    "nothingFound": "Ništa nismo našli. Pišite podršci — odgovorićemo.",
+    "nothingFoundNoSupport": "Ništa nismo našli. Pokušajte sa drugom rečju.",
     "rules": "Pravila platforme",
     "rulesHint": "i politika privatnosti",
     "support": "Piši podršci",

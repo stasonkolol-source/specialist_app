@@ -95,16 +95,16 @@ function Shape({ shape }: { shape: LoadShape }) {
         <>
           <SkeletonText size="cap" screen className="w-1/4" />
           <RowsSkeleton rows={4} leading="none" trailing />
-          <Skeleton screen radius="panel" className="h-11 w-full" />
+          <Skeleton screen radius="field" className="h-11 w-full" />
         </>
       );
     case 'portfolio':
       return (
         <>
-          <Skeleton screen radius="panel" className="h-11 w-full" />
+          <Skeleton screen radius="field" className="h-11 w-full" />
           <div className="grid grid-cols-3 gap-2">
             {[0, 1, 2, 3, 4, 5].map((tile) => (
-              <Skeleton key={tile} screen radius="panel" className="aspect-square w-full" />
+              <Skeleton key={tile} screen radius="field" className="aspect-square w-full" />
             ))}
           </div>
         </>

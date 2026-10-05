@@ -66,6 +66,7 @@ export function Chip({
       : accent
         ? 'border-transparent bg-accent-soft text-accent-soft-ink'
         : 'border-line bg-surface text-text',
+    'press',
     FOCUS,
   );
   const content = (

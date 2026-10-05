@@ -1,11 +1,11 @@
 // Браузерная оболочка (DEVELOPMENT_PLAN 8.1): тот же SPA без Telegram (platform=browser) — без
 // `?platform=mock`. Веб-ссылка `/s/<id>` → превью специалиста (имя, рейтинг, работы), «Открыть в
 // Telegram» (t.me бота с кодом startapp) или «Посмотреть в браузере» → S08 гостем со своей шапкой
-// «Назад» и MainButton в контенте; `/j/<id>` → превью заявки и S15; главная и экраны, которых в
-// браузере нет, — лендинг «Открыть в Telegram»; «Как удалить аккаунт» без входа; подвал с
-// документами. Заголовки собранного приложения: frame-ancestors с web.telegram.org, без
-// X-Frame-Options. Проекты — desktop и мобильный chromium; скриншоты × тема × язык (язык — из
-// браузера), axe-core.
+// «Назад» и одной кнопкой — «Написать в Telegram» сразу на этот профиль; `/j/<id>` → превью заявки
+// и S15; главная и экраны, которых в браузере нет, — лендинг «Открыть в Telegram»; «Как удалить
+// аккаунт» без входа; подвал с документами. Заголовки собранного приложения: frame-ancestors с
+// web.telegram.org, без X-Frame-Options. Проекты — desktop и мобильный chromium; скриншоты × тема ×
+// язык (язык — из браузера), axe-core.
 import { uuidToBase62 } from '@sosed/links';
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
@@ -28,7 +28,8 @@ const LOCALES = [
     app: 'Соседи',
     open: 'Открыть в Telegram',
     view: 'Посмотреть в браузере',
-    write: 'Написать',
+    write: 'Написать в Telegram',
+    propose: 'Предложить заявку',
     back: 'Назад',
     deletion: 'Как удалить аккаунт',
     terms: 'Правила площадки',
@@ -40,7 +41,8 @@ const LOCALES = [
     app: 'Sosedi',
     open: 'Otvori u Telegram-u',
     view: 'Pogledaj u pregledaču',
-    write: 'Napiši poruku',
+    write: 'Napiši poruku u Telegram-u',
+    propose: 'Predloži zahtev',
     back: 'Nazad',
     deletion: 'Kako obrisati nalog',
     terms: 'Pravila platforme',
@@ -107,8 +109,12 @@ for (const theme of THEMES) {
         await page.getByRole('button', { name: l.view }).click();
         await expect(page).toHaveURL(`/specialists/${CARD_PROFILE_ID}`);
         await expect(page.getByRole('heading', { name: NAME, level: 1 })).toBeVisible();
-        // MainButton — в контенте; таббара и подвала оболочки на S08 нет
-        await expect(page.getByRole('button', { name: l.write })).toBeVisible();
+        // одна кнопка гостя — ссылка в Telegram сразу на этот профиль; таббара в браузере нет
+        await expect(page.getByRole('link', { name: l.write })).toHaveAttribute(
+          'href',
+          `https://t.me/${BOT}?startapp=s_${PROFILE}`,
+        );
+        await expect(page.getByRole('button', { name: l.propose })).toHaveCount(0);
         await expect(page.getByRole('navigation')).toHaveCount(0);
         await snap(`browser-S08-${theme}-${l.locale}.png`);
 
