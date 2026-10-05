@@ -2,7 +2,9 @@
 // окном), в ближайшие дни или своя дата и время; где — район города (город — из профиля, иначе
 // пилотный) на схеме: исполнители видят только область района, точный адрес — только выбранный, в
 // карточке сделки. Район — из списка или «Определить по геолокации» (LocateDistrict): человек не
-// обязан знать, как называется его район. Точка на настоящей карте — с картой (Q28).
+// обязан знать, как называется его район. «Указать на карте» (Q28) — точка на своей карте
+// Нови-Сада (MapPicker), если карта включена (VITE_MAP_ASSETS_URL): в заявку и тогда уходит только
+// район, точка нигде не хранится.
 import type { DistrictOut } from '@sosed/api-client';
 import { useIdentityGetMe } from '@sosed/api-client';
 import {
@@ -44,7 +46,15 @@ import { useJobDraft } from '../shared/draft.ts';
 import { useCreateFlow, useStepButton } from '../shared/flow.ts';
 import { WizardSkeleton } from '../shared/skeletons.tsx';
 import { WizardHeader } from '../shared/WizardHeader.tsx';
+import type { LocateStatus } from './LocateDistrict.tsx';
 import { LocateDistrict } from './LocateDistrict.tsx';
+import type { MapPick } from './map/config.ts';
+import { MAP_CITY_SLUG, mapAssetsBase } from './map/config.ts';
+import { MapPickerHost } from './map/MapPickerHost.tsx';
+
+/** Карта открывается на районе крупнее, чем на городе: район виден целиком с улицами. */
+const DISTRICT_ZOOM = 14;
+const CITY_ZOOM = 12;
 
 export function WhenScreen() {
   const { draft, patch } = useJobDraft();
@@ -65,22 +75,49 @@ function WhenForm({
   const { t } = useTranslation('jobs');
   const { t: common } = useTranslation();
   const locale = useLocale();
+  const platform = usePlatform();
   const now = new Date();
   const [checked, setChecked] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [located, setLocated] = useState<LocateStatus>({ kind: 'idle' });
+  const [mapping, setMapping] = useState(false);
+  const [mapPick, setMapPick] = useState<MapPick | null>(null);
   const city = useJobCity(draft, patch);
   const districts = selectableDistricts(useDistricts(city?.id ?? null, locale).data ?? [], locale);
   const district = districts.find((item) => item.id === draft.districtId) ?? null;
   const problems = whenProblems(draft, now);
   const whenId = useId();
+  const mapBase = city?.slug === MAP_CITY_SLUG ? mapAssetsBase() : null;
 
-  useStepButton({
-    text: common('action.next'),
-    onClick: () => {
-      setChecked(true);
-      if (problems.length === 0) next();
-    },
-  });
+  const closeMap = () => {
+    setMapping(false);
+    setMapPick(null);
+  };
+  const chooseOnMap = (pick: MapPick) => {
+    platform.haptics.selection();
+    patch({ districtId: pick.district.id });
+    setLocated({ kind: 'found', districtId: pick.district.id });
+    closeMap();
+  };
+
+  // MainButton у шага одна: пока открыта карта, она — «Выбрать» точки под меткой
+  useStepButton(
+    mapping
+      ? {
+          text: t('create.when.map.choose'),
+          enabled: mapPick !== null,
+          onClick: () => {
+            if (mapPick) chooseOnMap(mapPick);
+          },
+        }
+      : {
+          text: common('action.next'),
+          onClick: () => {
+            setChecked(true);
+            if (problems.length === 0) next();
+          },
+        },
+  );
 
   return (
     <section className="flex flex-col gap-4 px-4 pt-3 pb-6">
@@ -134,7 +171,10 @@ function WhenForm({
             cityId={city.id}
             districts={districts}
             selected={draft.districtId}
+            status={located}
+            onStatus={setLocated}
             onFound={(item) => patch({ districtId: item.id })}
+            onOpenMap={mapBase ? () => setMapping(true) : undefined}
           />
         )}
       </div>
@@ -155,6 +195,24 @@ function WhenForm({
           onChange={(event) => patch({ address: event.target.value })}
         />
       </Field>
+      {mapping && city && mapBase && (
+        <MapPickerHost
+          base={mapBase}
+          cityId={city.id}
+          districts={districts}
+          start={
+            district
+              ? { point: district.center, zoom: DISTRICT_ZOOM }
+              : { point: city.center, zoom: CITY_ZOOM }
+          }
+          onPickChange={setMapPick}
+          onCancel={closeMap}
+          onUnavailable={() => {
+            closeMap();
+            setLocated({ kind: 'mapFailed' });
+          }}
+        />
+      )}
       <DistrictPicker
         open={picking}
         districts={districts}

@@ -69,6 +69,29 @@ describe('Sentry: initData never leaves the client', () => {
     for (const secret of SECRETS) expect(all).not.toContain(secret);
   });
 
+  it('hides the point in addresses: locate, radius search, routes, encoded', () => {
+    expect(
+      scrubText(
+        'GET https://api.example/api/v1/geo/districts/locate?city_id=1&lat=45.2551&lon=19.8452',
+      ),
+    ).toBe(
+      'GET https://api.example/api/v1/geo/districts/locate?city_id=1&lat=[Filtered]&lon=[Filtered]',
+    );
+    expect(scrubText('/api/v1/specialists?lat=45.255&lon=19.845&sort=distance')).toBe(
+      '/api/v1/specialists?lat=[Filtered]&lon=[Filtered]&sort=distance',
+    );
+    expect(scrubText('https://app.example/#/jobs/feed?lon=-19.8&lat=45.2')).toBe(
+      'https://app.example/#/jobs/feed?lon=[Filtered]&lat=[Filtered]',
+    );
+    expect(scrubText(`/?next=${encodeURIComponent('/specialists?lat=45.25&lon=19.84')}`)).toBe(
+      '/?next=%2Fspecialists%3Flat%3D[Filtered]%26lon%3D[Filtered]',
+    );
+    // похожие имена параметров не трогаем
+    expect(scrubText('/api/v1/x?flat=3&salon=2&latest=1')).toBe(
+      '/api/v1/x?flat=3&salon=2&latest=1',
+    );
+  });
+
   it('hides review-invite tokens: route, API path, encoded address, startapp code', () => {
     expect(scrubText(`https://app.example/#/review-invites/${INVITE}`)).toBe(
       'https://app.example/#/review-invites/[Filtered]',

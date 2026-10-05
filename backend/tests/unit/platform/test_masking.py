@@ -40,6 +40,11 @@ BOT_TOKEN = "8123456789:AAE" + "x" * 32
         ("GET /api/v1/review-invites/4b7f0f1e-9c3a-4d2b-8e6f-1a2b3c4d5e6f", "4b7f0f1e"),
         ("DELETE /api/v1/me/profile/review-invites/4b7f0f1e-9c3a-4d2b", "4b7f0f1e"),
         ("tgWebAppStartParam=ri_0123456789ABCDEFGHIJkl_rAB", "0123456789ABCDEFGHIJkl"),
+        # точка человека в адресе (S20b, радиус каталога и ленты): access-лог и query_string
+        ('"GET /api/v1/geo/districts/locate?city_id=1&lat=45.2551&lon=19.84 HTTP/1.1"', "45.2551"),
+        ("GET /api/v1/specialists?lat=45.255&lon=19.8452&sort=distance", "19.8452"),
+        ("lat=45.2551&lon=19.8452&radius_km=3", "45.2551"),
+        ("next=%2Fjobs%3Flat%3D45.2551%26lon%3D19.8452", "19.8452"),
     ],
 )
 def test_sensitive_fragments_are_masked(raw: str, secret_part: str) -> None:
@@ -58,6 +63,7 @@ def test_sensitive_fragments_are_masked(raw: str, secret_part: str) -> None:
         "retry in 12.5s",
         "GET /api/v1/me/profile/review-invites 200",
         "/api/v1/review-invites/[Filtered]",
+        "GET /api/v1/x?flat=3&salon=2&latest=1",
     ],
 )
 def test_harmless_values_are_untouched(safe: str) -> None:
@@ -139,6 +145,18 @@ def test_sentry_event_hides_secrets_and_client_addresses() -> None:
         assert secret not in dumped
     assert "a@example.test" not in dumped
     assert scrubbed["request"]["headers"]["X-Request-ID"] == "req-1"
+
+
+def test_sentry_event_hides_point_in_query_string() -> None:
+    # S20b «Определить по геолокации» и карта: FastAPI кладёт строку запроса в query_string
+    event = {
+        "request": {
+            "url": "https://api.example.test/api/v1/geo/districts/locate",
+            "query_string": "city_id=1&lat=45.2551&lon=19.8452",
+        }
+    }
+    scrubbed = _scrub(event, None)
+    assert scrubbed["request"]["query_string"] == "city_id=1&lat=[Filtered]&lon=[Filtered]"
 
 
 def test_sentry_scrub_drops_frame_vars_and_request_body() -> None:
