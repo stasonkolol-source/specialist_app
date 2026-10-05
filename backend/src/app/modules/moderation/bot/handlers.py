@@ -13,13 +13,23 @@
 Под карточкой — строка итога: что решили и кто (имя модератора в Telegram); кнопки убираются.
 Пользователю решение доходит как из `cli`: statement of reasons уведомлением. Кейс уже решён —
 ответ ошибкой (ErrorMiddleware), карточка не меняется.
+
+Id чата модераторов (K29): в группе `/chatid` или `/start@<бот>` от персонала (moderator или
+admin), а также добавление бота в группу персоналом (`my_chat_member`) и переход группы в
+супергруппу (`migrate_from_chat_id`: id меняется) — бот отвечает id чата и куда его прописать;
+если это уже чат модераторов — так и говорит. Остальным в группах бот молчит: его могут добавить
+в любой чат, а id и подсказка нужны только персоналу.
 """
 
 from collections.abc import Awaitable
+from typing import Final
 
+import structlog
 from aiogram import F, Router
+from aiogram.enums import ChatType
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import CallbackQuery, Message
+from aiogram.filters import JOIN_TRANSITION, ChatMemberUpdatedFilter, Command, CommandStart
+from aiogram.types import CallbackQuery, Chat, ChatMemberUpdated, Message
 from dishka.integrations.aiogram import FromDishka, inject
 
 from app.modules.identity.api import IdentityApi
@@ -28,6 +38,7 @@ from app.modules.moderation.application.case_card import (
     MODERATORS_LOCALE,
     SEVERITY_CODES,
     card_buttons,
+    html_text,
     outcome_line,
     plain_text,
     reason_buttons,
@@ -53,11 +64,17 @@ from app.platform.contracts.events.moderation import ModerationDecision
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.ids import CaseId, UserId
 from app.platform.kernel.principal import Principal, Role
+from app.platform.settings import TelegramSettings
 from app.platform.telegram.aiogram_sender import keyboard
 from app.platform.telegram.callbacks import CallbackAction, CallbackData, parse_callback
 from app.platform.telegram.port import ButtonLine
 
+log = structlog.get_logger(__name__)
+
 DECIDERS = frozenset({Role.MODERATOR, Role.ADMIN})
+GROUPS: Final = frozenset({ChatType.GROUP, ChatType.SUPERGROUP})
+CHAT_ID_COMMAND: Final = "chatid"
+"""`/chatid` в группе — id чата для TELEGRAM_MODERATORS_CHAT_ID (K29); в меню — у админов групп."""
 
 
 @inject
@@ -217,6 +234,56 @@ async def back(
     await _buttons(callback, card_buttons(pressed[1], translator))
 
 
+@inject
+async def chat_id(
+    message: Message,
+    translator: FromDishka[Translator],
+    identity: FromDishka[IdentityApi],
+    telegram: FromDishka[TelegramSettings],
+    principal: Principal | None = None,
+) -> None:
+    """`/chatid`, `/start@<бот>` или переход в супергруппу: персоналу — id этого чата."""
+    staff = principal is not None and await _is_staff(identity, principal.user_id)
+    text = _chat_id_text(message.chat, staff=staff, translator=translator, telegram=telegram)
+    if text is not None:
+        await message.answer(text)
+
+
+@inject
+async def added_to_group(
+    update: ChatMemberUpdated,
+    translator: FromDishka[Translator],
+    identity: FromDishka[IdentityApi],
+    telegram: FromDishka[TelegramSettings],
+) -> None:
+    """Бота добавили в группу: добавил персонал — тот же ответ, что на `/chatid` (прослоек
+    пользователя у `my_chat_member` нет — пользователь по Telegram id здесь)."""
+    author = update.from_user
+    user = None if author.is_bot else await identity.by_telegram(author.id)
+    staff = user is not None and await _is_staff(identity, user.id)
+    text = _chat_id_text(update.chat, staff=staff, translator=translator, telegram=telegram)
+    if text is not None:
+        await update.answer(text)
+
+
+async def _is_staff(identity: IdentityApi, user_id: UserId) -> bool:
+    return bool(await identity.roles(user_id) & DECIDERS)
+
+
+def _chat_id_text(
+    chat: Chat, *, staff: bool, translator: Translator, telegram: TelegramSettings
+) -> str | None:
+    """Ответ про id группы; None — не отвечаем: спросил не персонал. Id пишем в лог и тогда —
+    по нему видно, что команда дошла, а роли нет."""
+    if not staff:
+        log.info("moderators_chat_candidate_ignored", chat_id=chat.id)
+        return None
+    configured = chat.id == telegram.moderators_chat_id
+    log.info("moderators_chat_candidate", chat_id=chat.id, title=chat.title, configured=configured)
+    key = "bot.moderation.chat.configured" if configured else "bot.moderation.chat.candidate"
+    return html_text(translator, key, MODERATORS_LOCALE, chat_id=chat.id)
+
+
 async def _pressed(
     callback: CallbackQuery,
     translator: Translator,
@@ -289,4 +356,10 @@ def create_router() -> Router:
         (CallbackAction.CASE_BACK, back),
     ):
         router.callback_query.register(handler, F.data.startswith(f"{action}:"))
+    # id чата модераторов (K29): только группы — личные /start и прочее у других модулей
+    groups = F.chat.type.in_(GROUPS)
+    router.message.register(chat_id, Command(CHAT_ID_COMMAND), groups)
+    router.message.register(chat_id, CommandStart(), groups)
+    router.message.register(chat_id, F.migrate_from_chat_id, groups)
+    router.my_chat_member.register(added_to_group, ChatMemberUpdatedFilter(JOIN_TRANSITION), groups)
     return router
