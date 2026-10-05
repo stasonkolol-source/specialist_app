@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from app.modules.identity.api import Action, IdentityApi
 from app.modules.pricing.application.ports import ServiceRepository
 from app.modules.pricing.application.profile import price_list_changed, profile_id_of
 from app.modules.pricing.domain.service import Service, ServiceId
@@ -27,6 +28,7 @@ class ReorderServices:
         services: ServiceRepository,
         specialists: SpecialistsApi,
         clock: Clock,
+        identity: IdentityApi,
     ) -> None:
         self._uow, self._services, self._specialists, self._clock = (
             uow,
@@ -34,8 +36,11 @@ class ReorderServices:
             specialists,
             clock,
         )
+        self._identity = identity
 
     async def __call__(self, cmd: ReorderServicesCommand) -> list[Service]:
+        # санкция на публикацию и галочка S02c — как у создания профиля (SEC-01)
+        await self._identity.ensure_allowed(cmd.actor_id, Action.POST)
         profile_id = await profile_id_of(self._specialists, cmd.actor_id)
         async with self._uow:
             services = {s.id: s for s in await self._services.list_for_update(profile_id)}

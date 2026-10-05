@@ -53,6 +53,7 @@ class JobView:
     """Клиент последний раз открывал отклики (S23): позже прошедшие проверку — «новые»."""
     moderation_note: str | None
     version: int
+    """Редакция содержимого (`Job.revision`): ETag и If-Match правки, а не версия строки."""
     created_at: datetime
     published_at: datetime | None
     expires_at: datetime | None

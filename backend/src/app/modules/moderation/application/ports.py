@@ -145,6 +145,11 @@ class ReportRepository(Protocol):
         """Решение по кейсу закрывает его открытые жалобы. Сколько закрыто. Нужен активный UoW."""
         ...
 
+    async def move_to_case(self, case_id: CaseId, successor_id: CaseId) -> int:
+        """Кейс устарел (объект изменили): его открытые жалобы решает новый кейс. Сколько
+        перенесено. Нужен активный UoW."""
+        ...
+
 
 class ReportTargets(Protocol):
     """На кого жалоба: автор объекта, который жалующийся видит (фасады модулей-владельцев)."""
@@ -251,9 +256,15 @@ class ModeratorsChat(Protocol):
         """Чат задан (`TELEGRAM_MODERATORS_CHAT_ID`, K29); нет — кейсы решают командами `cli`."""
         ...
 
-    async def post(self, case: Case, context: CaseContext) -> None:
-        """Прислать карточку: с фото — подписью к нему. Bot API недоступен —
-        ExternalServiceError (повтор задачи)."""
+    async def post(self, case: Case, context: CaseContext) -> int | None:
+        """Прислать карточку: с фото — подписью к нему. Id сообщения карточки; None — чата нет.
+        Bot API недоступен — ExternalServiceError (повтор задачи)."""
+        ...
+
+    async def retire(self, case: Case) -> None:
+        """Кейс устарел (объект изменили после карточки): кнопки решения под его карточкой
+        заменить строкой «Версия изменилась — смотрите новую карточку». Сообщения уже нет —
+        ничего."""
         ...
 
 

@@ -4,9 +4,11 @@
 // «когда» и категория, район и время, места «откликов 3 из 5» или «Ждём откликов» своей строкой;
 // есть отклики — «3 отклика — выберите исполнителя» и «2 новых», пока клиент их не открыл; на
 // проверке, нужно исправить — словами, закрытая — «Закрыта 14 сентября». Нажатие — своя заявка S23.
+// Бейдж «Заявки» знает о новом отклике раньше списка (опрос раз в минуту, список — из кэша):
+// список перечитывается, и «N новых» появляется на карточке той заявки.
 import type { JobOut, JobStatus } from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
-import { useCategories, useMyJobs } from '@sosed/hooks';
+import { useBadges, useCategories, useMyJobs } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import {
   Badge,
@@ -27,7 +29,7 @@ import {
   Text,
 } from '@sosed/ui-web';
 import { useNavigate, useRouter } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { JobsSegments } from '../shared/JobsSegments.tsx';
 import { LoadError } from '../shared/LoadError.tsx';
@@ -75,6 +77,16 @@ function MyJobs() {
   const { t } = useTranslation('jobs');
   const jobs = useMyJobs();
   const [group, setGroup] = useState<Group | null>(null);
+  // новых откликов по бейджу больше, чем в списке, — список устарел
+  const badge = useBadges().data?.jobs;
+  const listed = jobs.data?.items.reduce(
+    (sum, job) => sum + (job.status === 'published' ? (job.new_responses ?? 0) : 0),
+    0,
+  );
+  const { refetch } = jobs;
+  useEffect(() => {
+    if (badge !== undefined && listed !== undefined && badge > listed) void refetch();
+  }, [badge, listed, refetch]);
 
   if (jobs.isError) {
     return (

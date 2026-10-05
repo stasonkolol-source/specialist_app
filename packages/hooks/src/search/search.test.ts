@@ -1,8 +1,16 @@
-// Выдача S05 (4.4): страницы подряд, что понял сервер, запрос для «Показать N», числа дерева.
+// Выдача S05 (4.4): страницы подряд, что понял сервер, запрос для «Показать N», числа дерева;
+// запрос подсказок — не длиннее, чем принимает backend.
 import type { SpecialistCardOut, SpecialistPageOut } from '@sosed/api-client';
 import { describe, expect, it } from 'vitest';
 
-import { countQuery, countsByCategory, resultItems, resultSummary } from './search.ts';
+import {
+  SUGGEST_MAX,
+  countQuery,
+  countsByCategory,
+  resultItems,
+  resultSummary,
+  suggestQuery,
+} from './search.ts';
 
 function card(name: string): SpecialistCardOut {
   return {
@@ -68,5 +76,25 @@ describe('выдача', () => {
 
     expect(counts.get(1)).toBe(7);
     expect(counts.get(2)).toBeUndefined();
+  });
+});
+
+describe('suggestQuery', () => {
+  it('keeps a short text, collapsing spaces', () => {
+    expect(suggestQuery('  Собрать   шкаф ')).toBe('Собрать шкаф');
+  });
+
+  it('cuts a long title at a word boundary within the backend limit (UXM-1)', () => {
+    const title = '[QA] Генеральная уборка квартиры после ремонта, окна и балкон, ux4 тест';
+    const q = suggestQuery(title);
+    expect(q.length).toBeLessThanOrEqual(SUGGEST_MAX);
+    expect(title.startsWith(q)).toBe(true);
+    // слово на конце целое: следующий знак заголовка — пробел
+    expect(title.charAt(q.length)).toBe(' ');
+    expect(q).toBe('[QA] Генеральная уборка квартиры после ремонта, окна и балкон,');
+  });
+
+  it('cuts one very long word at the limit', () => {
+    expect(suggestQuery('а'.repeat(100))).toBe('а'.repeat(SUGGEST_MAX));
   });
 });

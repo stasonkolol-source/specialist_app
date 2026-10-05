@@ -120,6 +120,8 @@ class JobRow(UuidPkMixin, TimestampsMixin, SoftDeleteMixin, VersionMixin, Base):
     исполнителей» владельцу (S21, S23)."""
     responses_seen_at: Mapped[datetime | None]
     """Клиент открыл отклики на S23 (jobs_0008): позже прошедшие проверку — «новые»."""
+    revision: Mapped[int] = mapped_column(Integer, server_default=text("1"))
+    """Редакция содержимого (jobs_0011, domain Job.revision): ETag и версия для модерации."""
     search_vector: Mapped[str | None] = mapped_column(TSVECTOR)
     source: Mapped[str] = mapped_column(String(16), server_default=text("'tma'"))
     moderation_note: Mapped[str | None] = mapped_column(String(64))

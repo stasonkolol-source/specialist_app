@@ -115,7 +115,8 @@ async def test_visible_message_is_hidden_only_for_a_violation(moderation: Modera
     await moderation.decide(
         DecideCaseCommand(case_id=cases[flagged], verdict=ModerationDecision.APPROVED)
     )
-    assert moderation.jobs.published == [(clean, 1), (flagged, None)]
+    # одобрение — версии, которую показала карточка кейса (ADV-11)
+    assert moderation.jobs.published == [(clean, 1), (flagged, 1)]
 
 
 async def test_ai_failure_goes_to_p2(moderation: Moderation) -> None:
@@ -241,7 +242,7 @@ async def test_moderator_decision_publishes_or_hides(moderation: Moderation) -> 
         )
     )
 
-    assert moderation.jobs.published == [(approved, None)]
+    assert moderation.jobs.published == [(approved, 1)]  # версия из карточки кейса (ADV-11)
     assert moderation.jobs.auto_published == []  # решение модератора, а не автопроверка
     assert moderation.jobs.hidden == [(rejected, "prepayment_scam")]
     assert moderation.identity.lifted == [open_cases[approved]]  # заморозка автопроверки

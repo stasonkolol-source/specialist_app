@@ -45,6 +45,117 @@ describe('useMainButton', () => {
   });
 });
 
+describe('нижняя панель: один владелец', () => {
+  // S24 → шторка S25 (QA MU-2): экран прятал свою MainButton эффектом уже после эффекта шторки —
+  // клиент получал «скрыта», а «Написать» экрана оставалась на месте подтверждения
+  function setupScreen() {
+    const mock = setup();
+    const clicks: string[] = [];
+    function Sheet() {
+      useMainButton({ text: 'Выбрать', onClick: () => clicks.push('sheet') });
+      return null;
+    }
+    function Screen({ sheet, hide }: { sheet: boolean; hide: boolean }) {
+      useMainButton({
+        text: 'Выбрать исполнителем',
+        visible: !(sheet && hide),
+        onClick: () => clicks.push('screen'),
+      });
+      useSecondaryButton({ text: 'Написать', onClick: () => clicks.push('write') });
+      return sheet ? <Sheet /> : null;
+    }
+    const view = render(mock.wrap(<Screen sheet={false} hide />));
+    const show = (sheet: boolean, hide = true) =>
+      view.rerender(mock.wrap(<Screen {...{ sheet, hide }} />));
+    return { ...mock, clicks, show };
+  }
+
+  it.each([true, false])('шторка забирает обе кнопки, экран прячет свою: %s', (hide) => {
+    const { platform, telegram, clicks, show } = setupScreen();
+    show(true, hide);
+
+    expect(telegram.callsOf('web_app_setup_main_button').at(-1)).toMatchObject({
+      is_visible: true,
+      is_active: true,
+      text: 'Выбрать',
+    });
+    expect(platform.secondaryButton.getState().visible).toBe(false);
+    act(() => telegram.emit('main_button_pressed'));
+    act(() => telegram.emit('secondary_button_pressed'));
+    expect(clicks).toEqual(['sheet']);
+  });
+
+  it('шторка закрылась — у экрана его кнопки, как были', () => {
+    const { telegram, clicks, show } = setupScreen();
+    show(true);
+    show(false);
+
+    expect(telegram.callsOf('web_app_setup_main_button').at(-1)).toMatchObject({
+      is_visible: true,
+      text: 'Выбрать исполнителем',
+    });
+    expect(telegram.callsOf('web_app_setup_secondary_button').at(-1)).toMatchObject({
+      is_visible: true,
+      text: 'Написать',
+    });
+    act(() => telegram.emit('main_button_pressed'));
+    act(() => telegram.emit('secondary_button_pressed'));
+    expect(clicks).toEqual(['screen', 'write']);
+  });
+
+  it('скрытая, неактивная или занятая кнопка нажатий не получает', () => {
+    const { telegram, wrap } = setup();
+    const clicks: number[] = [];
+    function Screen(props: { visible?: boolean; enabled?: boolean; loading?: boolean }) {
+      useMainButton({ text: 'Далее', ...props, onClick: () => clicks.push(1) });
+      return null;
+    }
+    const view = render(wrap(<Screen visible={false} />));
+    act(() => telegram.emit('main_button_pressed'));
+    view.rerender(wrap(<Screen enabled={false} />));
+    act(() => telegram.emit('main_button_pressed'));
+    view.rerender(wrap(<Screen loading />));
+    act(() => telegram.emit('main_button_pressed'));
+    expect(clicks).toEqual([]);
+  });
+
+  it('двойной тап: пока действие идёт, второе нажатие не доходит, кнопка — с прогрессом (MU-5)', async () => {
+    const { telegram, wrap } = setup();
+    let finish = () => {};
+    let calls = 0;
+    function Screen() {
+      useMainButton({
+        text: 'Выбрать',
+        onClick: () => {
+          calls += 1;
+          return new Promise<void>((resolve) => {
+            finish = resolve;
+          });
+        },
+      });
+      return null;
+    }
+    render(wrap(<Screen />));
+
+    act(() => {
+      telegram.emit('main_button_pressed');
+      telegram.emit('main_button_pressed');
+    });
+    expect(calls).toBe(1);
+    expect(telegram.callsOf('web_app_setup_main_button').at(-1)).toMatchObject({
+      is_progress_visible: true,
+    });
+
+    await act(async () => finish());
+    expect(telegram.callsOf('web_app_setup_main_button').at(-1)).toMatchObject({
+      is_visible: true,
+      is_progress_visible: false,
+    });
+    act(() => telegram.emit('main_button_pressed'));
+    expect(calls).toBe(2);
+  });
+});
+
 describe('useSecondaryButton', () => {
   it('до 7.10 — кнопка в контенте', () => {
     const { wrap } = setup('7.0');

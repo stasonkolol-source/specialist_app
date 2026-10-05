@@ -146,6 +146,7 @@ export type { SpecialistQuery, SpecialistResults } from './search/search.ts';
 export {
   CATEGORY_COUNTS_STALE_MS,
   SEARCH_PAGE_SIZE,
+  SUGGEST_MAX,
   SUGGEST_MIN,
   SUGGEST_STALE_MS,
   TODAY_PREVIEW,
@@ -155,6 +156,7 @@ export {
   resultItems,
   resultSummary,
   specialistsQueryKey,
+  suggestQuery,
   useAvailableToday,
   useCategoryCounts,
   useSpecialistCount,
@@ -216,7 +218,16 @@ export {
   whenProblems,
 } from './jobs/draft.ts';
 export type { PublishJob } from './jobs/jobs.ts';
-export { jobQueryKey, jobQueryOptions, useCreateJob, useJob } from './jobs/jobs.ts';
+export {
+  IN_PROGRESS_RETRY_MS,
+  REVIEW_POLL_MS,
+  jobQueryKey,
+  jobQueryOptions,
+  reviewPollMs,
+  useCreateJob,
+  useJob,
+  useJobUntilReviewed,
+} from './jobs/jobs.ts';
 export type { FeedPages, FeedQuery } from './jobs/feed.ts';
 export { FEED_PAGE_SIZE, feedQueryKey, jobCards, useHideJob, useJobsFeed } from './jobs/feed.ts';
 export { NEW_JOBS_HOURS, jobsCountQueryOptions, useJobsCount } from './jobs/count.ts';
@@ -289,10 +300,13 @@ export { useOpenDispute, useRespondDispute, useWithdrawDispute } from './deals/d
 export type { CloseJob, InviteSpecialists, UpdateJob } from './jobs/mine.ts';
 export {
   RESPONSES_POLL_MS,
+  StaleJobError,
   jobInvitesQueryKey,
   myJobsQueryKey,
   myJobsQueryOptions,
+  ownJobPollMs,
   responseCardsQueryKey,
+  sameOwnerFields,
   useCloseJob,
   useExtendJob,
   useInviteSpecialists,

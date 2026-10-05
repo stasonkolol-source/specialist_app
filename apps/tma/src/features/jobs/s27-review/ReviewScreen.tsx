@@ -106,7 +106,11 @@ function Form({ deal, onSent }: { deal: DealCardOut; onSent: () => void }) {
       criteria: Object.fromEntries([...liked].map((criterion) => [criterion, rating])),
       body: body.trim() || null,
     };
-    leave.mutate(review, { onSuccess: onSent });
+    // Promise в MainButton: пока отзыв уходит, второе нажатие (двойной тап) не уходит (MU-5)
+    return leave
+      .mutateAsync(review)
+      .then(onSent)
+      .catch(() => undefined); // ошибка — баннером
   };
   useStepButton({
     text: t('review.submit'),

@@ -85,6 +85,49 @@ describe('S26 and S27 review', () => {
     expect(await screen.findByText('Ваш отзыв на проверке')).toBeTruthy();
   });
 
+  /** S27 с выбранной оценкой: MainButton «Опубликовать отзыв» активна. */
+  async function readyForm(dealId: string) {
+    const { telegram } = startApp(`/deals/${dealId}/review`);
+    await click(await screen.findByRole('radio', { name: '5 звёзд' }));
+    await waitFor(() =>
+      expect(mainButton(telegram)).toMatchObject({ is_visible: true, is_active: true }),
+    );
+    return telegram;
+  }
+
+  it('publishes once on a double tap and thanks (MU-5)', async () => {
+    const { backend, deal } = withCompleted();
+    const telegram = await readyForm(deal.id);
+    const sent = vi.spyOn(backend, 'dealt');
+
+    await act(async () => {
+      telegram.emit('main_button_pressed');
+      telegram.emit('main_button_pressed');
+    });
+
+    expect(await screen.findByText('Спасибо! Отзыв появится после проверки.')).toBeTruthy();
+    const posts = sent.mock.calls.filter(
+      ([method, path]) => method === 'POST' && path.endsWith('/review'),
+    );
+    expect(posts).toHaveLength(1);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('treats a review the server already has as published (MU-5)', async () => {
+    const { backend, deal } = withCompleted();
+    const telegram = await readyForm(deal.id);
+    // первый запрос дошёл, ответ потерялся: повтор — 409 review_exists
+    backend.deals.set(deal.id, {
+      ...deal,
+      my_review: { id: 'r1', status: 'under_review', rating: 5 },
+    });
+
+    await pressMainButton(telegram);
+
+    expect(await screen.findByText('Спасибо! Отзыв появится после проверки.')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('speaks Serbian: dates in the genitive, «Naruči ponovo» as in the chat', async () => {
     const { deal } = withCompleted();
     userBackend({ ...ME, ui_locale: 'sr-Latn' });

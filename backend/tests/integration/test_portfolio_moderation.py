@@ -23,12 +23,18 @@ from app.modules.moderation.application.use_cases.decide_case import (
     DecideCase,
     DecideCaseCommand,
 )
+from app.modules.moderation.errors import CaseSupersededError
 from app.modules.specialists.api import SpecialistsApi
 from app.modules.specialists.application.portfolio_views import PortfolioViews
 from app.modules.specialists.application.use_cases.add_portfolio_work import (
     AddPortfolioWork,
     AddPortfolioWorkCommand,
 )
+from app.modules.specialists.application.use_cases.caption_portfolio_work import (
+    CaptionPortfolioWork,
+    CaptionPortfolioWorkCommand,
+)
+from app.modules.specialists.domain.portfolio import PortfolioItemId
 from app.platform.contracts.events.moderation import ModerationDecision
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import CaseId, MediaId, new_id
@@ -222,3 +228,40 @@ async def test_portfolio_of_a_new_profile_goes_to_a_human(worker: AsyncContainer
     assert (case["queue"], case["status"]) == ("premod", "pending")
     assert case["evidence"][0]["signals"] == ["always_review"]
     assert await owner.statuses() == {work_id: "pending"}
+
+
+async def test_caption_edited_after_the_card_needs_a_new_decision(worker: AsyncContainer) -> None:
+    """ADV-11: подпись с телефоном ждёт модератора; исполнитель меняет её после карточки.
+    Одобрение прежней карточки ничего не публикует — кейс устарел; новый кейс показывает правку,
+    его одобрение публикует работу с ней."""
+    owner = Owner(worker)
+    await owner.ready()
+    work_id, media_id = await owner.work(PHONE)
+    assert await owner.photo_checked(media_id, ModerationVerdict.APPROVED) == 1
+    assert await owner.auto_check() == 2
+    [stale] = await owner.cases(work_id)
+
+    await owner.specialist.call(
+        CaptionPortfolioWork,
+        CaptionPortfolioWorkCommand(
+            actor_id=owner.specialist.user_id,
+            item_id=PortfolioItemId(work_id),
+            caption="Пишите в телеграм @qa_contact_test",
+        ),
+    )
+    assert await owner.auto_check() == 1
+    with pytest.raises(CaseSupersededError):
+        await owner.decide(stale["id"], ModerationDecision.APPROVED)
+
+    assert await owner.statuses() == {work_id: "pending"}
+    old, fresh = sorted(await owner.cases(work_id), key=lambda case: case["status"])
+    assert (old["id"], old["status"], fresh["status"]) == (stale["id"], "approved", "pending")
+
+    await owner.decide(fresh["id"], ModerationDecision.APPROVED)
+
+    assert await owner.statuses() == {work_id: "published"}
+    async with worker() as request:
+        specialists = await request.get(SpecialistsApi)
+        profile = await specialists.public_profile(owner.specialist.profile_id)
+    assert profile is not None
+    assert [work.caption for work in profile.works] == ["Пишите в телеграм @qa_contact_test"]

@@ -4,17 +4,27 @@
 // причиной, пригласить специалиста; ссылка на свою заявку ведёт владельца на S23; вкладка
 // «Заявки» и клиенту открывает «Ленту», «Мои заявки» — сегментом; на Главной — «Мои активные
 // заявки». «Изменить» —
-// мастер с полями заявки и сохранение с If-Match; чужая правка между ними — «откройте заново».
+// мастер с полями заявки и сохранение с If-Match; версию сдвинула автопроверка — правка уходит с
+// новой, саму заявку правили в другом месте — мастер показывает её текущую версию. S23 сам уходит
+// из «на проверке», шапка не отстаёт от откликов; «Назад» после правки — не в шаги мастера; новые
+// отклики видны на сегменте «Мои заявки» и на карточке заявки.
 import type { JobStatus } from '@sosed/api-client';
-import { setSession } from '@sosed/api-client';
+import { getViewsGetBadgesQueryKey, setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { http } from 'msw';
+import { HttpResponse, http } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { mainButton, pressMainButton, startApp, userBackend } from '../../testing/app.tsx';
+import {
+  mainButton,
+  pressBackButton,
+  pressMainButton,
+  startApp,
+  userBackend,
+} from '../../testing/app.tsx';
+import { ChatBackend } from '../../testing/chatBackend.ts';
 import { E2E_NOW, ME } from '../../testing/fixtures.ts';
 import { JobsBackend, myJobsFixture, responseCardsFixture } from '../../testing/jobsBackend.ts';
-import { jobsHandlers, server } from '../../testing/msw.ts';
+import { chatHandlers, jobsHandlers, server } from '../../testing/msw.ts';
 import { byAttention } from './s22-my-jobs/order.ts';
 import { useDraftStore } from './shared/draft.ts';
 
@@ -295,13 +305,76 @@ describe('S23 edit', () => {
     await waitFor(() => expect(useDraftStore.getState().editing).toBeNull());
   });
 
-  it('asks to reopen the job changed elsewhere', async () => {
+  it('saves over a version moved by the auto-check: no false «changed elsewhere» (ADV-07)', async () => {
+    const backend = withMine();
+    const { app, telegram } = startApp(MANAGE);
+    await toPreview(telegram);
+    // пока правку вносили, автопроверка сдвинула версию — поля владельца те же
+    backend.touch(CHANDELIER?.id ?? '', { moderation_note: null });
+
+    await pressMainButton(telegram);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe(MANAGE));
+    expect(backend.updates.map((update) => update.ifMatch)).toEqual(['"1"', '"2"']);
+    expect(screen.queryByText(/изменили в другом месте/)).toBeNull();
+  });
+
+  it('edits twice in a row while the auto-check publishes each edit (ADV-07)', async () => {
+    const backend = withMine();
+    backend.autoModerate = true;
+    const { app, telegram } = startApp(MANAGE);
+
+    await toPreview(telegram);
+    await pressMainButton(telegram);
+    await waitFor(() => expect(app.router.state.location.pathname).toBe(MANAGE));
+    await toPreview(telegram);
+    await pressMainButton(telegram);
+
+    await waitFor(() => expect(backend.updates).toHaveLength(2));
+    await waitFor(() => expect(app.router.state.location.pathname).toBe(MANAGE));
+    expect(screen.queryByRole('alert')).toBeNull();
+    // вторая правка — с версией, которую уже сдвинула автопроверка первой
+    const job = backend.jobs.get(CHANDELIER?.id ?? '');
+    expect(job?.version).toBe(5);
+  });
+
+  it('shows the current version of a job edited elsewhere and saves the edit again', async () => {
+    const backend = withMine();
+    const { app, telegram } = startApp(MANAGE);
+    await toPreview(telegram);
+    // заявку поправили на другом устройстве
+    backend.touch(CHANDELIER?.id ?? '', { title: 'Повесить две люстры' });
+
+    await pressMainButton(telegram);
+
+    expect(
+      await screen.findByText(
+        'Пока вы правили, заявку изменили в другом месте. Показываем её текущую версию — внесите правку ещё раз и сохраните.',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Повесить две люстры', level: 2 })).toBeTruthy();
+    expect(app.router.state.location.pathname).toBe('/jobs/new/preview');
+
+    await pressMainButton(telegram);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe(MANAGE));
+    expect(backend.updates.at(-1)?.ifMatch).toBe('"2"');
+    expect(backend.updates.at(-1)?.body.title).toBe('Повесить две люстры');
+  });
+
+  it('asks to reopen the job when its version keeps moving', async () => {
     const backend = withMine();
     const { app, telegram } = startApp(MANAGE);
     await toPreview(telegram);
     const id = CHANDELIER?.id ?? '';
-    const job = backend.jobs.get(id);
-    if (job) backend.jobs.set(id, { ...job, version: job.version + 1 });
+    // версия уходит вперёд и до сохранения, и на каждое чтение: повторы правки кончаются
+    backend.touch(id, {});
+    server.use(
+      http.get(`*/api/v1/jobs/${id}`, () => {
+        backend.touch(id, {});
+        return HttpResponse.json({ ...backend.jobs.get(id), version: 0 });
+      }),
+    );
 
     await pressMainButton(telegram);
 
@@ -312,5 +385,124 @@ describe('S23 edit', () => {
     ).toBeTruthy();
     await click(screen.getByRole('button', { name: 'Открыть заявку' }));
     await waitFor(() => expect(app.router.state.location.pathname).toBe(MANAGE));
+  });
+
+  it('goes Back from S23 after saving to where S23 was opened, not into the steps', async () => {
+    withMine();
+    const { app, telegram } = startApp('/jobs/mine');
+    await click(await screen.findByRole('link', { name: /Повесить люстру/ }));
+    await waitFor(() => expect(app.router.state.location.pathname).toBe(MANAGE));
+    await toPreview(telegram);
+    await pressMainButton(telegram);
+    await waitFor(() => expect(app.router.state.location.pathname).toBe(MANAGE));
+
+    await pressBackButton(telegram);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs/mine'));
+  });
+});
+
+describe('S23 stays fresh', () => {
+  it('leaves «on review» by itself once the auto-check published the edit (SMOKE-2)', async () => {
+    const backend = withMine();
+    backend.autoModerate = true;
+    const { app, telegram } = startApp(MANAGE);
+    await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 });
+    await click(screen.getByRole('button', { name: 'Изменить' }));
+    for (let step = 0; step < 4; step += 1) await pressMainButton(telegram);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe(MANAGE));
+    expect(await screen.findByText('Приём откликов', undefined, { timeout: 4_000 })).toBeTruthy();
+    expect(screen.queryByText(/^Заявка на проверке/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Пригласить' })).toBeTruthy();
+  });
+
+  it('re-reads the job on open even from a fresh cache', async () => {
+    const backend = withMine();
+    const reads: string[] = [];
+    const id = CHANDELIER?.id ?? '';
+    server.use(
+      http.get(`*/api/v1/jobs/${id}`, () => {
+        reads.push(id);
+        return HttpResponse.json(backend.jobs.get(id));
+      }),
+    );
+    const { app } = startApp(MANAGE);
+    await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 });
+    await waitFor(() => expect(reads).toHaveLength(1));
+    void app.router.navigate({ to: '/jobs/mine' });
+    await screen.findByRole('heading', { name: 'Активные', level: 2 });
+
+    void app.router.navigate({ to: MANAGE });
+
+    await waitFor(() => expect(reads).toHaveLength(2));
+  });
+
+  it('updates the header counters together with the polled responses (SMOKE-5)', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval'], now: new Date(E2E_NOW) });
+    const backend = withMine();
+    startApp(MANAGE);
+    await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 });
+    expect(await screen.findByText('3 из 5')).toBeTruthy();
+    // новый отклик, пока экран открыт: заявка и карточки на сервере уже с ним
+    const id = CHANDELIER?.id ?? '';
+    const [first] = responseCardsFixture();
+    if (!first) throw new Error('fixtures');
+    backend.responseCards.set(id, [
+      ...(backend.responseCards.get(id) ?? []),
+      { ...first, id: '0199dd50-0000-7000-8000-000000000099', is_new: true },
+    ]);
+    backend.touch(id, { responses_count: 4, views_count: 13 });
+
+    await act(() => vi.advanceTimersByTimeAsync(15_000));
+
+    expect(await screen.findByText('4 из 5')).toBeTruthy();
+    expect(screen.getByText('13 просмотров')).toBeTruthy();
+    expect(await screen.findAllByRole('link', { name: /^Алексей Морозов/ })).toHaveLength(2);
+  });
+});
+
+describe('new responses on «Мои заявки» (OWN-3)', () => {
+  it('shows the tab count on the segment and refreshes the job card', async () => {
+    const backend = withMine();
+    const chat = new ChatBackend();
+    server.use(...chatHandlers(() => chat));
+    const id = CHANDELIER?.id ?? '';
+    // список — как до нового отклика: новых нет
+    const job = backend.jobs.get(id);
+    if (job) backend.jobs.set(id, { ...job, new_responses: 0 });
+    const { app } = startApp('/jobs/mine');
+    const chandelier = await screen.findByRole('link', { name: /Повесить люстру/ });
+    expect(within(chandelier).queryByText(/новы/)).toBeNull();
+    const segments = screen.getByRole('navigation', { name: 'Раздел заявок' });
+    expect(within(segments).getByRole('link', { name: 'Мои заявки' })).toBeTruthy();
+
+    // пришёл отклик: бейдж (опрос) знает о нём раньше списка
+    const listed = backend.jobs.get(id);
+    if (listed) backend.jobs.set(id, { ...listed, new_responses: 1 });
+    chat.jobsBadge = 1;
+    await act(async () => {
+      await app.queryClient.refetchQueries({ queryKey: getViewsGetBadgesQueryKey() });
+    });
+
+    expect(
+      await within(segments).findByRole('link', { name: 'Мои заявки, 1 новый отклик' }),
+    ).toBeTruthy();
+    expect(
+      await within(screen.getByRole('link', { name: /Повесить люстру/ })).findByText('1 новый'),
+    ).toBeTruthy();
+  });
+
+  it('shows the count on the segment of the feed too', async () => {
+    withMine();
+    const chat = new ChatBackend();
+    chat.jobsBadge = 2;
+    server.use(...chatHandlers(() => chat));
+    startApp('/jobs');
+
+    const segments = await screen.findByRole('navigation', { name: 'Раздел заявок' });
+    expect(
+      await within(segments).findByRole('link', { name: 'Мои заявки, 2 новых отклика' }),
+    ).toBeTruthy();
   });
 });
