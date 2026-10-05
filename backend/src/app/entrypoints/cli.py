@@ -891,30 +891,50 @@ def seed_demo(
             ),
         ),
     ] = False,
+    media: Annotated[
+        Path | None,
+        typer.Option(
+            help=(
+                "Кэш настоящих фото и аватаров (scripts/demo-media/fetch.py);"
+                " по умолчанию backend/.cache/demo-media, нет кэша — заглушки"
+            )
+        ),
+    ] = None,
 ) -> None:
-    """Демо-данные для dev и stage (2.8c, 5.1, 6.1a): специалисты — профили, прайс, районы и
-    портфолио; клиенты — опубликованные заявки с откликами, часть — со сделкой. Всё через use
-    cases, одобрено сразу. Повторный запуск количества не меняет: прежние демо-люди остаются,
-    пока их не заменит `--replace`. На проде не работает."""
+    """Демо-данные для dev и stage (2.8c, 5.1, 6.1a, 7.2): специалисты — профили, прайс, районы,
+    портфолио, аватары и история сделок с отзывами; клиенты — опубликованные заявки с фото и
+    откликами, часть — со сделкой. Всё через use cases, одобрено сразу. Повторный запуск
+    количества не меняет: прежние демо-люди остаются, пока их не заменит `--replace`. На проде
+    не работает."""
     from app.entrypoints._seed_demo import SeedDemoRefusedError
 
     try:
-        report = asyncio.run(_seed_demo(scale.value, lang.value, replace=replace))
+        report = asyncio.run(_seed_demo(scale.value, lang.value, replace=replace, media=media))
     except SeedDemoRefusedError as exc:
         typer.echo(f"seed-demo: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(
         f"seed-demo {scale.value} ({lang.value}): {report.created} created,"
         f" {report.skipped} already there, {report.photos} photos, {report.jobs} jobs,"
-        f" {report.responses} responses, {report.deals} deals ({report.completed} completed)"
+        f" {report.responses} responses, {report.deals} deals ({report.completed} completed);"
+        f" {report.avatars} avatars, {report.job_photos} job photos, {report.past_deals} past"
+        f" deals, {report.reviews} reviews ({report.replies} replies),"
+        f" {report.pre_platform} pre-platform reviews"
     )
 
 
-async def _seed_demo(scale: str, lang: DemoLang, *, replace: bool) -> SeedReport:
+async def _seed_demo(
+    scale: str, lang: DemoLang, *, replace: bool, media: Path | None = None
+) -> SeedReport:
     from app.entrypoints._seed_demo import SCALES, seed_demo
 
     return await seed_demo(
-        Settings(), SCALES[scale], echo=typer.echo, language=lang, replace_existing=replace
+        Settings(),
+        SCALES[scale],
+        echo=typer.echo,
+        language=lang,
+        replace_existing=replace,
+        media_root=media,
     )
 
 

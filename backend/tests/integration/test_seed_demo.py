@@ -1,13 +1,18 @@
 """`cli seed-demo` на базе (DEVELOPMENT_PLAN 2.8c, 5.1): демо-специалисты и заявки демо-клиентов
 созданы use cases и сразу опубликованы, повторный запуск количества не меняет, автопроверки в
-очереди нет; фото работ — через хранилище (Garage) и обычную загрузку media. `--replace`
-удаляет прежних демо-людей обычным удалением аккаунта и сеет новых, не трогая остальных."""
+очереди нет; фото работ — через хранилище (Garage) и обычную загрузку media, из кэша настоящих
+фото — с аватаром, фото заявки и историей отзывов в прошлом. `--replace` удаляет прежних
+демо-людей обычным удалением аккаунта и сеет новых, не трогая остальных."""
 
+import io
+import json
 import re
 from collections.abc import AsyncIterator
+from pathlib import Path
 from uuid import UUID
 
 import pytest
+from PIL import Image, ImageDraw
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
@@ -153,12 +158,18 @@ def storage_settings_with_garage(
 
 
 async def test_portfolio_photos_go_through_storage(
-    storage_settings_with_garage: Settings, geo_seeded: None, catalog_seeded: None
+    storage_settings_with_garage: Settings,
+    geo_seeded: None,
+    catalog_seeded: None,
+    tmp_path: Path,
 ) -> None:
     start = next(n for n in range(2000, 3000) if len(plan(n).photos) >= 2)
     scale = Scale(1, photos=True, start=start)
 
-    report = await seed_demo(storage_settings_with_garage, scale, echo=lambda _: None)
+    # кэша настоящих фото нет — заглушки
+    report = await seed_demo(
+        storage_settings_with_garage, scale, echo=lambda _: None, media_root=tmp_path
+    )
 
     assert report.photos == len(plan(start).photos)
     works = await scalar(
@@ -298,3 +309,137 @@ async def test_replace_swaps_demo_people_and_keeps_real_users(
         ids=list(old),
     )
     assert (profiles, jobs) == (0, 0)
+
+
+def fake_cache(root: Path, category: str, problem: tuple[str, str] | None) -> Path:
+    """Крошечный кэш, как после scripts/demo-media/fetch.py: два фото работ категории, фото
+    «проблемы» (категория, предмет) к заявке и по аватару на пол."""
+    rows: list[dict[str, object]] = []
+
+    def jpeg(seed: int) -> bytes:
+        image = Image.new("RGB", (800, 600), (200, 180, 150))
+        draw = ImageDraw.Draw(image)
+        for index in range(6):
+            x, y = (seed * 97 + index * 211) % 800, (seed * 53 + index * 157) % 600
+            draw.rectangle((x, y, x + 260, y + 150), fill=(30 * index, 90, 160 - seed))
+        out = io.BytesIO()
+        image.save(out, format="JPEG", quality=90)
+        return out.getvalue()
+
+    entries: list[tuple[str, str, dict[str, object]]] = [
+        (
+            f"{category}-p01",
+            "portfolio",
+            {"category": category, "caption": {"ru": "Работа", "sr": "Rad"}},
+        ),
+        (
+            f"{category}-p02",
+            "portfolio",
+            {"category": category, "caption": {"ru": "Ещё", "sr": "Još"}},
+        ),
+    ]
+    if problem is not None:
+        entries.append(("problem-j01", "job", {"category": problem[0], "subject": problem[1]}))
+    for index, (name, purpose, extra) in enumerate(entries, 1):
+        path = root / purpose / f"{name}.jpg"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(jpeg(index))
+        rows.append(
+            {"id": name, "purpose": purpose, "file": f"{purpose}/{name}.jpg", "mime": "image/jpeg"}
+            | extra
+        )
+    for gender in ("f", "m"):
+        path = root / "avatar" / f"avatar-{gender}-01.png"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (256, 256), (255, 213, 220)).save(path, format="PNG")
+        rows.append(
+            {
+                "id": f"avatar-{gender}-01",
+                "purpose": "avatar",
+                "gender": gender,
+                "file": f"avatar/avatar-{gender}-01.png",
+                "mime": "image/png",
+            }
+        )
+    (root / "index.json").write_text(json.dumps({"version": 1, "files": rows}))
+    return root
+
+
+async def test_real_photos_avatar_and_review_history(
+    storage_settings_with_garage: Settings,
+    geo_seeded: None,
+    catalog_seeded: None,
+    tmp_path: Path,
+) -> None:
+    settings = storage_settings_with_garage
+    start = next(
+        n
+        for n in range(4000, 5000)
+        if plan(n).avatar and plan(n).pre_platform and 3 <= plan(n).reviews <= 5
+    )
+    demo = plan(start)
+    # фото «проблемы» — к заявке живого клиента, если у неё есть предмет на фото
+    problem = next(
+        ((job.category, job.photos) for job in client_plan(start).jobs if job.photos), None
+    )
+    root = fake_cache(tmp_path, demo.categories[0].slug, problem)
+    scale = Scale(1, photos=True, start=start, clients=1, past_clients=3)
+
+    report = await seed_demo(settings, scale, echo=lambda _: None, media_root=root)
+
+    assert (report.created, report.avatars) == (1, 1)
+    assert report.photos == 2  # оба фото кэша — у одного специалиста дубликатов нет
+    assert report.past_deals == demo.reviews
+    assert report.pre_platform == demo.pre_platform
+    profile = {"first": DEMO_TELEGRAM_BASE + start, "last": DEMO_TELEGRAM_BASE + start}
+    with_avatar = await scalar(
+        settings, f"SELECT count(*) {DEMO_PROFILES} AND p.avatar_media_id IS NOT NULL", **profile
+    )
+    assert with_avatar == 1
+    works = await scalar(
+        settings,
+        "SELECT count(*) FROM specialists.portfolio_items i WHERE i.deleted_at IS NULL"
+        f" AND i.status = 'published' AND i.profile_id IN (SELECT p.id {DEMO_PROFILES})",
+        **profile,
+    )
+    assert works == 2
+    about = f"FROM reviews.reviews r WHERE r.subject_profile_id IN (SELECT p.id {DEMO_PROFILES})"
+    deal_reviews = await scalar(
+        settings,
+        f"SELECT count(*) {about} AND r.kind = 'deal' AND r.status = 'published'",
+        **profile,
+    )
+    assert deal_reviews == report.reviews >= demo.reviews
+    # история — в прошлом: на карточке разные месяцы, а не «сегодня» у всех
+    old = await scalar(
+        settings,
+        f"SELECT count(*) {about} AND r.kind = 'deal'"
+        " AND r.published_at < now() - interval '2 days'",
+        **profile,
+    )
+    assert old == demo.reviews
+    replies = await scalar(
+        settings, f"SELECT count(*) {about} AND r.reply_status = 'published'", **profile
+    )
+    assert replies == report.replies
+    before_platform = await scalar(
+        settings,
+        f"SELECT count(*) {about} AND r.kind = 'pre_platform' AND r.status = 'published'",
+        **profile,
+    )
+    assert before_platform == demo.pre_platform
+    rated = await scalar(
+        settings,
+        "SELECT count(*) FROM reviews.rating_aggregates a WHERE a.rating_count >= :count"
+        f" AND a.subject_profile_id IN (SELECT p.id {DEMO_PROFILES})",
+        count=demo.reviews,
+        **profile,
+    )
+    assert rated == 1
+    clients = {"first": DEMO_CLIENT_BASE + start, "last": DEMO_CLIENT_BASE + start}
+    job_photos = await scalar(
+        settings,
+        f"SELECT count(*) FROM jobs.job_media m WHERE m.job_id IN (SELECT j.id {DEMO_JOBS})",
+        **clients,
+    )
+    assert job_photos == report.job_photos
