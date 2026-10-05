@@ -14,7 +14,6 @@
    ссылка (SpecialistCard: ссылка — шапка), сжимается только от своей ссылки, а не от сердечка */
 @utility press {
   @media (prefers-reduced-motion: no-preference) {
-    transition: scale 100ms ease-out;
     &:active:not(:disabled) {
       scale: 0.97;
     }
@@ -22,11 +21,17 @@
 }
 @utility press-card {
   @media (prefers-reduced-motion: no-preference) {
-    transition: scale 100ms ease-out;
     &:is(a, button):active,
     &:has(> a:active) {
       scale: 0.99;
     }
+  }
+}
+/* ход сжатия — одним правилом на обе утилиты: первый экран в бюджете впритык */
+@media (prefers-reduced-motion: no-preference) {
+  .press,
+  .press-card {
+    transition: scale 100ms ease-out;
   }
 }
 @utility press-row {
