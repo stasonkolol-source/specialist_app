@@ -2,7 +2,9 @@
 // раздела, «Все услуги» → S04, подсказки при вводе → выдача категории, Enter → выдача по тексту,
 // «Свободны сегодня рядом» и «Все» с точкой клиента после нажатия на чип; «Вещи» — S58 (7.5):
 // «Сообщить о запуске» сначала просит разрешить боту писать, потом включает группу `goods_launch`.
-import type { NotificationSettingsIn, NotificationSettingsOut } from '@sosed/api-client';
+// Место под «Мои активные заявки» до ответа /me/jobs — только под столько строк, сколько было в
+// прошлый раз: плитки разделов не прыгают ни у клиента без заявок, ни у клиента с ними.
+import type { JobOut, NotificationSettingsIn, NotificationSettingsOut } from '@sosed/api-client';
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
@@ -11,11 +13,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { startApp } from '../../testing/app.tsx';
 import {
   CATEGORY_IDS,
+  ME,
   NOTIFICATION_SETTINGS,
   WRITE_ACCESS,
   categoriesFor,
 } from '../../testing/fixtures.ts';
+import { myJobsFixture } from '../../testing/jobsBackend.ts';
 import { server } from '../../testing/msw.ts';
+import { rememberRows, rememberedRows } from './s03-home/activeJobs.ts';
 
 const HOME = 'Найдём мастера рядом';
 
@@ -46,6 +51,27 @@ describe('S03 home', () => {
     // как на артборде S03: «37 отзывов» словом, а не «(37)» выдачи; языки — словами
     expect(today.getByText('37 отзывов')).toBeTruthy();
     expect(today.getByText('рус., серб.')).toBeTruthy();
+  });
+
+  it('a guest with refused initData signs in once and does not ask /me for the city', async () => {
+    const calls: string[] = [];
+    const refused = (code: string) => HttpResponse.json({ status: 401, code }, { status: 401 });
+    server.use(
+      http.post('*/api/v1/auth/telegram', () => {
+        calls.push('auth');
+        return refused('init_data_expired');
+      }),
+      http.get('*/api/v1/me', () => {
+        calls.push('me');
+        return refused('not_authenticated');
+      }),
+    );
+    startApp('/');
+
+    expect(await screen.findByRole('button', { name: 'Нови-Сад' })).toBeTruthy();
+    expect(await screen.findByRole('region', { name: 'Свободны сегодня рядом' })).toBeTruthy();
+    // гостю /me не нужен, и 401 не запускает второй вход по тому же initData
+    expect(calls).toEqual(['auth']);
   });
 
   it('keeps the tile grid while the sections load: no lone «All services»', async () => {
@@ -175,6 +201,76 @@ function settingsBackend() {
 
 const goodsLaunch = (body: NotificationSettingsIn | undefined) =>
   body?.groups.find((row) => row.group === 'goods_launch');
+
+describe('S03 my active jobs: the place before the list arrives', () => {
+  afterEach(() => rememberRows(ME.id, 0));
+
+  /** /me/jobs отвечает, когда тест разрешит: до этого видно, держит ли Главная место под блок. */
+  function holdMyJobs(items: JobOut[]): () => Promise<void> {
+    let release: () => void = () => undefined;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get('*/api/v1/me/jobs', async () => {
+        await released;
+        return HttpResponse.json({ items });
+      }),
+    );
+    return () =>
+      act(async () => {
+        release();
+      });
+  }
+
+  /** Что прямо над разделами: блок своих заявок, его скелетон или раздел с заголовком и поиском. */
+  const aboveSections = () =>
+    screen.getByRole('region', { name: 'Что нужно сделать?' }).previousElementSibling;
+  /** Строки скелетона — по строке RowsSkeleton (ui-web). */
+  const skeletonRows = (element: Element | null | undefined) =>
+    element?.querySelectorAll('.min-h-13').length ?? 0;
+
+  it('keeps no place for a client without active jobs last time: the tiles do not jump up', async () => {
+    const release = holdMyJobs([]);
+    startApp('/');
+
+    await screen.findByRole('heading', { name: HOME, level: 1 });
+    await waitFor(() => expect(aboveSections()?.querySelector('h1')).toBeTruthy());
+    expect(skeletonRows(aboveSections())).toBe(0);
+
+    await release();
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'Мои активные заявки' })).toBeNull(),
+    );
+    expect(aboveSections()?.querySelector('h1')).toBeTruthy();
+  });
+
+  it('holds as many rows as last time, then remembers the new count for the next launch', async () => {
+    rememberRows(ME.id, 2);
+    const [chandelier] = myJobsFixture();
+    const release = holdMyJobs(chandelier ? [chandelier] : []);
+    startApp('/');
+
+    await screen.findByRole('heading', { name: HOME, level: 1 });
+    expect(aboveSections()?.getAttribute('aria-hidden')).toBe('true');
+    expect(skeletonRows(aboveSections())).toBe(2);
+
+    await release();
+    const block = await screen.findByRole('region', { name: 'Мои активные заявки' });
+    expect(aboveSections()).toBe(block);
+    await waitFor(() => expect(rememberedRows(ME.id)).toBe(1));
+  });
+
+  it('keeps the hint per user: another account on the device holds no place', async () => {
+    rememberRows('someone-else', 3);
+    const release = holdMyJobs([]);
+    startApp('/');
+
+    await screen.findByRole('heading', { name: HOME, level: 1 });
+    expect(skeletonRows(aboveSections())).toBe(0);
+    await release();
+  });
+});
 
 describe('S58 goods soon', () => {
   it('asks the bot permission first, then subscribes to the launch', async () => {

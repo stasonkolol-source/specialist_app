@@ -47,7 +47,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import type { ComponentType, FormEvent, MouseEvent } from 'react';
-import { Suspense, lazy, useId, useState } from 'react';
+import { Suspense, lazy, useEffect, useId, useState } from 'react';
 
 import { useCatalogCityState } from '../shared/city.ts';
 import { useDebounced } from '../shared/debounce.ts';
@@ -55,6 +55,7 @@ import type { ClientPoint } from '../shared/location.ts';
 import { useLocate } from '../shared/location.ts';
 import type { ResultsSearch } from '../shared/paths.ts';
 import { CATALOG_PATHS, CREATE_JOB_PATH, JOBS_FEED_PATH } from '../shared/paths.ts';
+import { rememberedRows } from './activeJobs.ts';
 import { GoodsIntro } from './GoodsIntro.tsx';
 
 type Segment = 'services' | 'goods';
@@ -67,14 +68,34 @@ const PALETTES: readonly AvatarPalette[] = [1, 4, 2, 3, 5];
 const SUGGEST_DELAY_MS = 250;
 
 /** Необязательный блок своим чанком: не скачался (пропала сеть) — блока нет, а Главная работает.
- *  Иначе ошибка чанка дошла бы до экрана ошибки и закрыла бы всю Главную. Чанк качается сразу с
- *  Главной, параллельно с данными блока, а не после них: lazy отдаёт уже начатую загрузку. */
+ *  Иначе ошибка чанка дошла бы до экрана ошибки и закрыла бы всю Главную. Чанки блоков качаются
+ *  все сразу после первого кадра Главной (useFirstFramePainted), параллельно с данными блоков, а не
+ *  после них: lazy отдаёт уже начатую загрузку. До кадра сеть — у шрифтов и данных первого экрана:
+ *  полтора десятка мелких чанков на медленном 4G отодвигали его (LCP). */
 function optionalChunk<P extends object>(load: () => Promise<ComponentType<P>>) {
-  const loading: Promise<{ default: ComponentType<P> }> = load().then(
-    (component) => ({ default: component }),
-    () => ({ default: () => null }),
-  );
-  return lazy(() => loading);
+  let loading: Promise<{ default: ComponentType<P> }> | null = null;
+  const preload = (): Promise<{ default: ComponentType<P> }> =>
+    (loading ??= load().then(
+      (component) => ({ default: component }),
+      () => ({ default: () => null }),
+    ));
+  return Object.assign(lazy(preload), { preload });
+}
+
+/** true — первый кадр экрана нарисован: rAF срабатывает перед кадром, таймер из него — после. */
+function useFirstFramePainted(): boolean {
+  const [painted, setPainted] = useState(false);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const frame = requestAnimationFrame(() => {
+      timer = setTimeout(() => setPainted(true), 0);
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+    };
+  }, []);
+  return painted;
 }
 
 const TodayNearby = optionalChunk(() =>
@@ -142,9 +163,11 @@ function Services() {
   const locale = useLocale();
   const router = useRouter();
   const { city, pending: cityPending } = useCatalogCityState();
-  // клиент с заявками видит их над разделами: место под блок — до ответа, плитки не прыгают вниз
-  const client =
-    useQueryClient().getQueryData<MeOut>(getIdentityGetMeQueryKey())?.intent === 'client';
+  const user = useQueryClient().getQueryData<MeOut>(getIdentityGetMeQueryKey())?.id ?? null;
+  // свои заявки — над разделами. Место под блок до ответа — только если в прошлый раз они были, и
+  // под столько же строк (activeJobs.ts): плитки не прыгают ни вниз, ни вверх
+  const reserved = signedIn && user ? rememberedRows(user) : 0;
+  const reserve = reserved > 0 ? <MyActiveJobsSkeleton rows={reserved} /> : null;
   const locate = useLocate();
   const [point, setPoint] = useState<ClientPoint | null>(null);
   const [locationFailed, setLocationFailed] = useState(false);
@@ -154,6 +177,14 @@ function Services() {
   const today = useAvailableToday(locale, city ? city.id : null, point);
   const cards = today.data?.items ?? [];
   const categoriesId = useId();
+  // необязательные блоки — после первого кадра (optionalChunk); их данные запрошены раньше (warm.ts)
+  const painted = useFirstFramePainted();
+  useEffect(() => {
+    if (!painted) return;
+    void TodayNearby.preload();
+    void SideJob.preload();
+    if (signedIn) void MyActiveJobs.preload();
+  }, [painted, signedIn]);
 
   const results = (search: ResultsSearch) => (event?: MouseEvent<HTMLElement>) => {
     event?.preventDefault();
@@ -192,11 +223,14 @@ function Services() {
           </Banner>
         )}
       </section>
-      {signedIn && (
-        <Suspense fallback={client ? <MyActiveJobsSkeleton /> : null}>
-          <MyActiveJobs pending={client ? <MyActiveJobsSkeleton /> : null} />
-        </Suspense>
-      )}
+      {signedIn &&
+        (painted ? (
+          <Suspense fallback={reserve}>
+            <MyActiveJobs user={user} pending={reserve} />
+          </Suspense>
+        ) : (
+          reserve
+        ))}
       <section aria-labelledby={categoriesId} className="flex flex-col gap-3">
         <Heading variant="h3" as="h2" id={categoriesId}>
           {t('home.whatToDo')}
@@ -204,7 +238,7 @@ function Services() {
         <Sections onOpen={(id) => results({ category: id })} href={href} />
       </section>
       <CreateJob onOpen={() => void router.navigate({ to: CREATE_JOB_PATH })} />
-      {cards.length > 0 && (
+      {painted && cards.length > 0 && (
         <Suspense fallback={null}>
           <TodayNearby
             cards={cards}
@@ -213,7 +247,7 @@ function Services() {
           />
         </Suspense>
       )}
-      {city && (
+      {painted && city && (
         <Suspense fallback={null}>
           <SideJob
             cityId={city.id}
@@ -229,12 +263,12 @@ function Services() {
   );
 }
 
-/** «Мои активные заявки», пока список не пришёл: заголовок и строка. */
-function MyActiveJobsSkeleton() {
+/** «Мои активные заявки», пока список не пришёл: заголовок и строки — сколько было в прошлый раз. */
+function MyActiveJobsSkeleton({ rows }: { rows: number }) {
   return (
     <div aria-hidden="true" className="flex flex-col gap-3">
       <SkeletonText size="h3" screen className="w-2/5" />
-      <RowsSkeleton rows={1} leading="icon" />
+      <RowsSkeleton rows={rows} leading="icon" />
     </div>
   );
 }
