@@ -279,7 +279,8 @@
       "withdrawn": "Povukli ste ponudu"
     },
     "acceptedTitle": "Izabrani ste",
-    "acceptedText": "adresa i vreme — u dogovoru",
+    "acceptedLead": "Izabrani ste.",
+    "acceptedText": "Adresa i vreme — u dogovoru",
     "pending": "Na proveri",
     "blocked": "Sakriveno moderacijom",
     "first": "Prva ponuda",
