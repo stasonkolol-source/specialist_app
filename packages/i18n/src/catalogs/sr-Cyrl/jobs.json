@@ -205,6 +205,7 @@
       "jobs": "{count, plural, one {# захтев} few {# захтева} other {# захтева}}",
       "phoneVerified": "Телефон потврђен"
     },
+    "respondInTelegram": "Пошаљи понуду у Telegram-у",
     "hide": "Није занимљиво",
     "hideError": "Нисмо успели да сакријемо захтев. Покушајте поново.",
     "unavailableTitle": "Захтев није доступан",

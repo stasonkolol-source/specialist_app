@@ -205,6 +205,7 @@
       "jobs": "{count, plural, one {# заявка} few {# заявки} many {# заявок} other {# заявки}}",
       "phoneVerified": "Телефон подтверждён"
     },
+    "respondInTelegram": "Откликнуться в Telegram",
     "hide": "Не интересно",
     "hideError": "Не получилось скрыть заявку. Повторите.",
     "unavailableTitle": "Заявка недоступна",

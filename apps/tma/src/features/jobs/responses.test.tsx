@@ -4,6 +4,7 @@
 // квота дня, карточки по состояниям, «Отозвать»; шаблоны S57 — основной, «Сделать основным»,
 // третий — «удалите один», удаление и новый шаблон.
 import { setSession } from '@sosed/api-client';
+import { uuidToBase62 } from '@sosed/links';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -22,6 +23,7 @@ import {
   templatesFixture,
 } from '../../testing/jobsBackend.ts';
 import { jobsHandlers, server } from '../../testing/msw.ts';
+import { respondInTelegramLink } from './s15-job/telegram.ts';
 
 const job = (title: string) => {
   const found = FEED_JOBS.find((item) => item.card.title === title);
@@ -230,6 +232,16 @@ describe('S16 respond', () => {
     expect(within(dialog).getByText(/Могу сегодня вечером/)).toBeTruthy();
     expect(within(dialog).getByText(/^от 2\s000\sRSD$/u)).toBeTruthy();
     expect(within(dialog).getByText('сегодня')).toBeTruthy();
+  });
+});
+
+describe('S15 in the browser', () => {
+  it('responds in Telegram: the link opens this very job in the Mini App', () => {
+    expect(respondInTelegramLink(MOVING.card.id, 'sosed_bot')).toBe(
+      `https://t.me/sosed_bot?startapp=j_${uuidToBase62(MOVING.card.id)}`,
+    );
+    // без бота сборки ссылки нет — остаётся обычная кнопка
+    expect(respondInTelegramLink(MOVING.card.id, null)).toBeNull();
   });
 });
 
