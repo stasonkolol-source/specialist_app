@@ -99,6 +99,10 @@ class StartConversation:
                 response_id=response_id,
                 now=now,
             )
+            # отклик уже выбран (диалог начали после сделки — «Поделиться контактом» на S26):
+            # сделка — сразу в диалоге, иначе шапка S30 и S29 писали «Сделки пока нет» (UXM-14)
+            if (deal := await self._deals.deal_for_response(response_id)) is not None:
+                conversation.link_deal(deal.id)
             await self._conversations.add(conversation)
             offer = await self._offer(conversation, response)
             conversation.message_posted(
