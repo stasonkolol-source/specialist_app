@@ -22,9 +22,9 @@ import {
   Banner,
   Chip,
   Field,
+  Icon,
   IconButton,
   Input,
-  LinkButton,
   Photo,
   Row,
   Sheet,
@@ -197,23 +197,21 @@ function CategoryField({
       <span id={titleId} className="text-sm font-semibold">
         {t('create.what.category')}
       </span>
-      {label ? (
-        // длинное «Раздел → Услуга» не выталкивает «Изменить» за край — переносит его ниже
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+      <div className="self-start">
+        {label ? (
+          // чип и есть «Изменить»: карандаш справа, отдельной ссылки (она переносилась на свою
+          // строку и повторяла чип) нет; скринридер слышит «… Изменить»
           <Chip accent icon="wrench" onClick={onPick}>
             {label}
+            <span className="sr-only">{` ${t('create.what.change')}`}</span>
+            <Icon name="edit" size={16} />
           </Chip>
-          <LinkButton onClick={onPick} className="-mr-2">
-            {t('create.what.change')}
-          </LinkButton>
-        </div>
-      ) : (
-        <div className="self-start">
+        ) : (
           <Chip icon="grid" onClick={onPick}>
             {t('create.what.pick')}
           </Chip>
-        </div>
-      )}
+        )}
+      </div>
       <Text variant="cap" className={missing ? 'text-danger' : undefined}>
         {label
           ? t(chosen ? 'create.what.chosen' : 'create.what.suggested')
