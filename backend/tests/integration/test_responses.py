@@ -301,9 +301,31 @@ async def test_response_with_contacts_waits_for_a_moderator(
         )
     mine = await world.app.client.get(f"{API}/me/responses", headers=world.headers(performer))
     [blocked] = mine.json()["items"]
-    assert (blocked["review"], blocked["status"]) == ("blocked", "withdrawn")
-    assert await world.job_row(job_id) == (3, 0)  # место освободилось
+    # MU-10: скрыт до исправления — активен, место за ним
+    assert (blocked["review"], blocked["status"]) == ("blocked", "submitted")
+    assert await world.job_row(job_id) == (3, 1)
     assert await world.owner_list(client, job_id) == []
+
+    # «Исправьте и отправьте снова»: правка уходит на проверку и после неё видна клиенту;
+    # второй раз отклик не считается, повторный отклик — по-прежнему 409
+    fixed = await world.app.client.patch(
+        f"{API}/responses/{response['id']}",
+        json={
+            "message": unique("Здравствуйте! Приеду сегодня, контакты — после договорённости."),
+            "price_type": "fixed",
+            "price_amount": 350_000,
+        },
+        headers=world.headers(performer),
+    )
+    assert fixed.status_code == 200, fixed.text
+    assert (fixed.json()["review"], fixed.json()["status"]) == ("pending", "submitted")
+    again = await world.respond(performer, job_id)
+    assert (again.status_code, again.json()["code"]) == (409, "already_responded")
+    routing = await auto_check(worker, performer, response["id"])
+    assert routing.route is Route.PUBLISH
+    [listed] = await world.owner_list(client, job_id)
+    assert listed["id"] == response["id"]
+    assert (await world.job_row(job_id))[1] == 1
 
 
 @pytest.mark.authz

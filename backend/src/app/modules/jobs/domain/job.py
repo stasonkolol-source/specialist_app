@@ -574,13 +574,12 @@ class Job(VersionedAggregate):
         return True
 
     def block_response(self, response_id: ResponseId, *, now: datetime) -> bool:
-        """Модерация скрыла отклик: активный освобождает место. Нет отклика или уже скрыт —
+        """Модерация скрыла отклик до исправления: место за ним остаётся — исполнитель правит
+        и отправляет снова, второй раз отклик не считается (MU-10). Нет отклика или уже скрыт —
         ничего, False."""
         response = self._find_response(response_id)
-        if response is None or response.review is ResponseReview.BLOCKED:
+        if response is None or not response.block(now=now):
             return False
-        if response.block(now=now):
-            self.responses_count = max(0, self.responses_count - 1)
         self.updated_at = now
         return True
 
