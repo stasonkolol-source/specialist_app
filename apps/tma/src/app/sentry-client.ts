@@ -16,13 +16,18 @@ const RAW_INIT_DATA =
  *  его не понимают старые WebView iOS, а ошибка в регулярке сломала бы весь чанк Sentry. */
 const INVITE_PATH = /(review-invites(?:\/|%2F))[^/?#&\s"'<>%]+/gi;
 const INVITE_START = /(^|[^0-9A-Za-z]|%3D)ri_[0-9A-Za-z]{22}(?![0-9A-Za-z])/gi;
+/** Точка человека (`lat`, `lon`) в адресе: GET /geo/districts/locate (S20b — геолокация и карта),
+ *  /specialists и /jobs с радиусом, маршруты каталога и ленты с точкой (крошки navigation), в том
+ *  числе закодированные (`%26lat%3D…`) — как в backend masking.py. Координаты — ПД. */
+const POINT = /(^|[^0-9A-Za-z_]|%26|%3F)(lat|lon)(=|%3D)[^&#\s"'<>%]*/gi;
 
 export function scrubText(text: string): string {
   return text
     .replace(LAUNCH_DATA, '$1$2[Filtered]')
     .replace(RAW_INIT_DATA, '[init-data]')
     .replace(INVITE_PATH, '$1[Filtered]')
-    .replace(INVITE_START, '$1ri_[Filtered]');
+    .replace(INVITE_START, '$1ri_[Filtered]')
+    .replace(POINT, '$1$2$3[Filtered]');
 }
 
 /** Крошки с адресом: navigation (from, to), xhr и fetch (url), console (message). Аргументы console
