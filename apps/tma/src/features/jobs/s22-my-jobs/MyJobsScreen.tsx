@@ -221,7 +221,7 @@ function MyJobCard({ job }: { job: JobOut }) {
           {ended && (
             <Text as="span" variant="cap">
               {t(job.status === 'expired' ? 'mine.expiredOn' : 'mine.closedOn', {
-                date: format.date(new Date(ended)),
+                date: format.dateGenitive(new Date(ended)),
               })}
             </Text>
           )}

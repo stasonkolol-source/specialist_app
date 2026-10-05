@@ -220,7 +220,9 @@ function Scheduled({ at }: { at: Date }) {
         {t('deletion.title')}
       </Heading>
       <Banner tone="danger" role="status">
-        <b className="font-semibold">{t('deletion.scheduled', { date: format.date(at) })}</b>
+        <b className="font-semibold">
+          {t('deletion.scheduled', { date: format.dateGenitive(at) })}
+        </b>
         <br />
         {t('deletion.scheduledText')}
       </Banner>

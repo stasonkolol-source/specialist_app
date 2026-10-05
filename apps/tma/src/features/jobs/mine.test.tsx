@@ -11,8 +11,8 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { http } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
-import { E2E_NOW } from '../../testing/fixtures.ts';
+import { mainButton, pressMainButton, startApp, userBackend } from '../../testing/app.tsx';
+import { E2E_NOW, ME } from '../../testing/fixtures.ts';
 import { JobsBackend, myJobsFixture, responseCardsFixture } from '../../testing/jobsBackend.ts';
 import { jobsHandlers, server } from '../../testing/msw.ts';
 import { byAttention } from './s22-my-jobs/order.ts';
@@ -68,6 +68,15 @@ describe('S22 my jobs', () => {
 
     await click(screen.getByRole('link', { name: /Повесить люстру/ }));
     await waitFor(() => expect(app.router.state.location.pathname).toBe(MANAGE));
+  });
+
+  it('gives the Serbian closing date in the genitive: «Zatvoren 14. septembra»', async () => {
+    withMine();
+    userBackend({ ...ME, ui_locale: 'sr-Latn' });
+    startApp('/jobs/mine', { languageCode: 'sr' });
+
+    // Intl даёт «14. septembar»; дата в значении «когда» — в родительном падеже
+    expect(await screen.findByText('Zatvoren 14. septembra')).toBeTruthy();
   });
 
   it('opens S23 at once from the list while the job itself reloads', async () => {
