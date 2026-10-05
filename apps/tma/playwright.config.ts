@@ -14,7 +14,9 @@ export default defineConfig({
   retries: 0,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.002, animations: 'disabled' } },
-  use: { baseURL: `http://127.0.0.1:${PORT}` },
+  // «Уменьшить движение»: шторка и тост появляются сразу, без въезда. Иначе на медленном раннере CI
+  // тест нажимал в шторке, пока она ещё ехала, фокус прокручивал её, и снимок S14 съезжал (#198)
+  use: { baseURL: `http://127.0.0.1:${PORT}`, reducedMotion: 'reduce' },
   projects: [
     // iPhone 12–15: основной телефон аудитории, WebKit как в Telegram iOS
     {
