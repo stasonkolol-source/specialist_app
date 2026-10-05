@@ -1,10 +1,10 @@
 // S34 Редактирование профиля (DEVELOPMENT_PLAN 2.10–2.11): фото профиля (AvatarField — меняется
-// сразу), имя, «коротко о себе», «о себе», языки и районы выезда → PATCH /me/profile и
-// PUT /me/profile/areas, только изменённое. Правки опубликованного профиля видны сразу, текст
-// уходит на автопроверку.
+// сразу), имя, «коротко о себе», «о себе», языки и районы выезда («Весь Нови-Сад» — все районы
+// одним нажатием, shared/wholeCity.ts) → PATCH /me/profile и PUT /me/profile/areas, только
+// изменённое. Правки опубликованного профиля видны сразу, текст уходит на автопроверку.
 import type { DistrictOut, Language, ProfileOut, ProfileUpdateIn } from '@sosed/api-client';
 import { specialistsSetMyAreas, specialistsUpdateMyProfile } from '@sosed/api-client';
-import { selectableDistricts, useDistricts, useMyProfile } from '@sosed/hooks';
+import { selectableDistricts, useCities, useDistricts, useMyProfile } from '@sosed/hooks';
 import { useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton, usePlatform } from '@sosed/platform';
 import { Chip, Chips, Field, Heading, Icon, Input, Text, Textarea, cx } from '@sosed/ui-web';
@@ -17,14 +17,15 @@ import { SaveError } from '../shared/SaveError.tsx';
 import { useChipList } from '../shared/chips.ts';
 import { useBecomeFlow, useStepButton } from '../shared/flow.ts';
 import { ACCOUNT_PATH, CABINET_PATHS } from '../shared/paths.ts';
-import { sameList } from '../shared/same.ts';
+import { sameList, sameSet } from '../shared/same.ts';
+import { WholeCity } from '../shared/WholeCity.tsx';
+import { MAX_AREAS, wholeCityAvailable, wholeCityDefault } from '../shared/wholeCity.ts';
 import { AvatarField } from './AvatarField.tsx';
 
-/** MAX_NAME, MAX_HEADLINE, MAX_ABOUT, MAX_AREAS профиля (backend specialists/domain/profile.py). */
+/** MAX_NAME, MAX_HEADLINE, MAX_ABOUT профиля (backend specialists/domain/profile.py). */
 const MAX_NAME = 64;
 const MAX_HEADLINE = 80;
 const MAX_ABOUT = 4000;
-const MAX_AREAS = 30;
 const LANGUAGES: readonly Language[] = ['ru', 'sr', 'en', 'uk'];
 /** Районов в свёрнутом поле: «Лиман, Грбавица, Центр и ещё 1». */
 const NAMED_AREAS = 3;
@@ -35,6 +36,8 @@ export function EditProfileScreen() {
   const locale = useLocale();
   const profile = useMyProfile();
   const districts = useDistricts(profile.data?.city_id ?? null, locale);
+  // город — только для подписи «Весь Нови-Сад»: форму не ждёт
+  const cities = useCities(locale);
   const back = () => {
     if (router.history.canGoBack()) router.history.back();
     else void router.navigate({ to: CABINET_PATHS.home, replace: true });
@@ -49,6 +52,7 @@ export function EditProfileScreen() {
       <EditForm
         profile={profile.data}
         districts={selectableDistricts(districts.data, locale)}
+        city={cities.data?.find((city) => city.id === profile.data?.city_id)?.name ?? null}
         onSaved={back}
       />
     );
@@ -75,10 +79,12 @@ export function EditProfileScreen() {
 function EditForm({
   profile,
   districts,
+  city,
   onSaved,
 }: {
   profile: ProfileOut;
   districts: DistrictOut[];
+  city: string | null;
   onSaved: () => void;
 }) {
   const { t } = useTranslation('specialist');
@@ -90,12 +96,16 @@ function EditForm({
   const [headline, setHeadline] = useState(profile.headline ?? '');
   const [about, setAbout] = useState(profile.about ?? '');
   const [languages, setLanguages] = useState<Language[]>(profile.languages);
-  const [districtIds, setDistrictIds] = useState<number[]>(profile.district_ids);
+  const travels = profile.work_modes.includes('at_client');
+  const [picked, setPicked] = useState<number[]>(profile.district_ids);
+  const [whole, setWhole] = useState(() =>
+    wholeCityDefault(districts, profile.district_ids, travels),
+  );
+  const districtIds = whole ? districts.map((district) => district.id) : picked;
   const [areasOpen, setAreasOpen] = useState(false);
   // незаполненное подсвечиваем после первого нажатия «Сохранить»
   const [checked, setChecked] = useState(false);
-  const chips = useChipList(districts, districtIds, districts.length);
-  const travels = profile.work_modes.includes('at_client');
+  const chips = useChipList(districts, picked, districts.length);
   const missing = {
     name: name.trim() === '',
     headline: headline.trim() === '',
@@ -114,7 +124,7 @@ function EditForm({
         saved = await specialistsUpdateMyProfile(patch);
         flow.saved(saved);
       }
-      if (!sameList(districtIds, profile.district_ids)) {
+      if (!sameSet(districtIds, profile.district_ids)) {
         saved = await specialistsSetMyAreas({ district_ids: districtIds });
       }
       return saved;
@@ -145,20 +155,27 @@ function EditForm({
     setLanguages(LANGUAGES.filter((known) => next.includes(known)));
   };
   const toggleDistrict = (id: number) => {
-    if (districtIds.includes(id)) setDistrictIds(districtIds.filter((other) => other !== id));
-    else if (districtIds.length < MAX_AREAS) setDistrictIds([...districtIds, id]);
+    if (picked.includes(id)) setPicked(picked.filter((other) => other !== id));
+    else if (picked.length < MAX_AREAS) setPicked([...picked, id]);
     else {
       platform.haptics.notification('warning');
       return;
     }
     platform.haptics.selection();
   };
+  const chooseWholeCity = (next: boolean) => {
+    platform.haptics.selection();
+    setWhole(next);
+  };
 
   const names = districtIds
     .map((id) => districts.find((district) => district.id === id)?.name)
     .filter((value): value is string => Boolean(value));
-  const summary =
-    names.length === 0
+  const summary = whole
+    ? city
+      ? t('become.area.wholeCity', { city })
+      : t('become.area.wholeCityPlain')
+    : names.length === 0
       ? t('cabinet.edit.areasNone')
       : names.length <= NAMED_AREAS
         ? names.join(', ')
@@ -247,10 +264,13 @@ function EditForm({
           <span className="min-w-0 flex-1 truncate">{summary}</span>
           <Icon name="chev-down" className={cx('text-text2', areasOpen && 'rotate-180')} />
         </button>
-        {areasOpen && (
+        {areasOpen && wholeCityAvailable(districts) && (
+          <WholeCity city={city} checked={whole} onChange={chooseWholeCity} />
+        )}
+        {areasOpen && !whole && (
           <Chips wrap>
             {chips.visible.map((district) => {
-              const on = districtIds.includes(district.id);
+              const on = picked.includes(district.id);
               return (
                 <Chip
                   key={district.id}

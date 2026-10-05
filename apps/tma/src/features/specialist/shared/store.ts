@@ -12,6 +12,8 @@ export interface BecomeDraft {
   about: string | null;
   languages: Language[] | null;
   districtIds: number[] | null;
+  /** «Весь город» над районами S32c (shared/wholeCity.ts). */
+  wholeCity: boolean | null;
   workModes: WorkMode[] | null;
   radius: Radius | null;
   serviceTitle: string | null;
@@ -30,6 +32,7 @@ const INITIAL: BecomeDraft = {
   about: null,
   languages: null,
   districtIds: null,
+  wholeCity: null,
   workModes: null,
   radius: null,
   serviceTitle: null,
