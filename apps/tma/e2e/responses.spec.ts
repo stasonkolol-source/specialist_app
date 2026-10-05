@@ -10,7 +10,10 @@ import { E2E_NOW, ME } from '../src/testing/fixtures.ts';
 import {
   FEED_JOBS,
   JobsBackend,
+  dealCardFixture,
+  myJobsFixture,
   myResponsesFixture,
+  responseCardsFixture,
   templatesFixture,
 } from '../src/testing/jobsBackend.ts';
 import type { Watch } from './support.ts';
@@ -92,6 +95,15 @@ for (const theme of THEMES) {
       jobs.responses = myResponsesFixture();
       jobs.respondedToday = 3;
       jobs.templates = templatesFixture();
+      // выбранный отклик — со сделкой: главная кнопка карточки «Открыть сделку»
+      const [accepted] = jobs.responses;
+      const [chandelier] = myJobsFixture();
+      const [card] = responseCardsFixture();
+      if (accepted && chandelier && card) {
+        const deal = dealCardFixture(chandelier, card, 'performer');
+        jobs.dealRole = 'performer';
+        jobs.deals.set(deal.id, { ...deal, response_id: accepted.id });
+      }
       const watch = await open(page, `theme=${theme}&lang=${l.telegram}`, {
         signedIn: true,
         me: { ...ME, intent: 'pro', ui_locale: l.locale },

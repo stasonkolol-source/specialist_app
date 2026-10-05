@@ -5,17 +5,15 @@
 // заявки (5.6) — «Сохранить изменения»: PATCH с If-Match версии, с которой начали; заявку успели
 // изменить в другом месте (412) — «откройте её заново»; сохранили — обратно на S23.
 import { ApiError } from '@sosed/api-client';
-import { DEFAULT_MAX_RESPONSES, rsdToPara } from '@sosed/domain';
+import { DEFAULT_MAX_RESPONSES, jobWhen, rsdToPara, slotOf } from '@sosed/domain';
 import type { JobDraft } from '@sosed/hooks';
 import {
   amountOf,
   budgetProblems,
-  draftSlot,
   jobInOf,
   selectableDistricts,
   systemStateOf,
   useCategories,
-  useCities,
   useCreateJob,
   useDistricts,
   useUpdateJob,
@@ -23,8 +21,8 @@ import {
   whenProblems,
 } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
-import type { IconName } from '@sosed/ui-web';
-import { Badge, Banner, Card, Heading, Icon, LinkButton, Photo, Text } from '@sosed/ui-web';
+import type { IconName, JobCardBadge } from '@sosed/ui-web';
+import { Banner, Card, Heading, Icon, JobCard, LinkButton, Text } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
@@ -33,6 +31,7 @@ import { findCategory } from '../shared/categories.ts';
 import type { Editing } from '../shared/draft.ts';
 import { useDraftStore, useJobDraft } from '../shared/draft.ts';
 import { useCreateFlow, useStepButton } from '../shared/flow.ts';
+import { useSlots, useWhenBadge } from '../shared/labels.ts';
 import { CREATE_PATHS, managePath } from '../shared/paths.ts';
 import { WizardSkeleton } from '../shared/skeletons.tsx';
 import { WizardHeader } from '../shared/WizardHeader.tsx';
@@ -116,7 +115,7 @@ function Preview({
           {t('create.preview.edit')}
         </LinkButton>
       </div>
-      <JobCard draft={draft} />
+      <DraftCard draft={draft} />
       <WhoSees draft={draft} />
       <div className="flex items-start gap-2 text-text2">
         <Icon name="shield" size={16} className="mt-0.5 shrink-0" />
@@ -135,91 +134,67 @@ function Preview({
   );
 }
 
-/** Карточка заявки, как в ленте исполнителя: заголовок и бюджет, когда, категория, место. */
-function JobCard({ draft }: { draft: JobDraft }) {
+/** В карточке ленты — до трёх превью (JobCardOut.photos), остальные — на экране заявки S15. */
+const FEED_PHOTOS = 3;
+
+/** Заявка карточкой ленты (общий JobCard): так её увидят исполнители сразу после публикации —
+ *  «только что», откликов 0 из 5, место — район без расстояния (у каждого исполнителя оно своё). */
+function DraftCard({ draft }: { draft: JobDraft }) {
   const { t } = useTranslation('jobs');
-  const { t: common } = useTranslation();
   const format = useFormat();
   const locale = useLocale();
+  const whenBadge = useWhenBadge();
+  const slots = useSlots();
   const tree = useCategories(locale).data ?? [];
   const category = draft.categoryId !== null ? findCategory(tree, draft.categoryId) : null;
-  const when = useWhenLabel(draft);
-  const city = useCities(locale).data?.find((item) => item.id === draft.cityId) ?? null;
   const district = selectableDistricts(useDistricts(draft.cityId, locale).data ?? [], locale).find(
     (item) => item.id === draft.districtId,
   );
+  const now = new Date();
+  // «когда» — как сервер сохранит его из черновика (jobInOf): тот же бейдж, что в ленте
+  const when = draft.when
+    ? jobWhen(
+        { choice: draft.when, slot: slotOf(draft.slot), day: draft.day, time: draft.time },
+        now,
+      )
+    : null;
+  const badges: JobCardBadge[] = when
+    ? [
+        whenBadge({
+          urgency: when.urgency,
+          preferred_from: when.preferredFrom?.toISOString() ?? null,
+          preferred_to: when.preferredTo?.toISOString() ?? null,
+        }),
+      ]
+    : [];
+  const categoryName = category?.name ?? draft.categoryName;
+  if (categoryName) badges.push({ label: categoryName, tone: 'mute' });
+  const negotiable = draft.budgetType === 'negotiable';
   const min = amountOf(draft.budgetMin);
-  const max = amountOf(draft.budgetMax);
-  const budget = format.price({
-    type: draft.budgetType,
-    min: min !== null ? rsdToPara(min) : null,
-    max: max !== null ? rsdToPara(max) : null,
-    unit: draft.budgetUnit,
-  });
+  const max = draft.budgetType === 'range' ? amountOf(draft.budgetMax) : null;
   return (
-    <Card className="flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <Heading variant="h3" as="h2">
-          {draft.title.trim()}
-        </Heading>
-        <span className="shrink-0 text-h3">{budget}</span>
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        <Badge tone="info" icon="clock">
-          {when}
-        </Badge>
-        {(category?.name ?? draft.categoryName) && (
-          <Badge>{category?.name ?? draft.categoryName}</Badge>
-        )}
-      </div>
-      {draft.description.trim() && <Text>{draft.description.trim()}</Text>}
-      {draft.photos.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {draft.photos.map((photo, index) => (
-            <Photo
-              key={photo.id}
-              src={photo.thumb ?? undefined}
-              alt={t('create.what.photo', { number: index + 1 })}
-              className="size-14"
-            />
-          ))}
-        </div>
-      )}
-      <div className="flex items-center justify-between gap-3 text-text2">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <Icon name="pin" size={16} className="shrink-0" />
-          <Text as="span" variant="cap">
-            {[district?.name, city?.name].filter(Boolean).join(', ')}
-          </Text>
-        </span>
-        <span className="flex shrink-0 items-center gap-2">
-          <span aria-hidden="true" className="flex gap-1">
-            {Array.from({ length: DEFAULT_MAX_RESPONSES }, (_, index) => (
-              <i key={index} className="h-1 w-3 rounded-full bg-line" />
-            ))}
-          </span>
-          <Text as="span" variant="cap">
-            {common('count.responsesOf', { count: 0, total: DEFAULT_MAX_RESPONSES })}
-          </Text>
-        </span>
-      </div>
-    </Card>
+    <JobCard
+      title={draft.title.trim()}
+      budget={
+        negotiable
+          ? t('card.negotiable')
+          : format.price({
+              type: draft.budgetType,
+              min: min !== null ? rsdToPara(min) : null,
+              max: max !== null ? rsdToPara(max) : null,
+              unit: draft.budgetUnit,
+            })
+      }
+      negotiable={negotiable}
+      badges={badges}
+      time={format.relative(now, now)}
+      description={draft.description.trim() || null}
+      photos={draft.photos.slice(0, FEED_PHOTOS).map((photo) => ({ src: photo.thumb ?? '' }))}
+      photoLabel={(number) => t('card.photo', { number })}
+      place={district?.name ?? null}
+      slots={slots({ max_responses: DEFAULT_MAX_RESPONSES, responses_count: 0 })}
+    />
   );
-}
-
-/** «Сегодня 18–21», «Срочно», «На неделе», «завтра в 10:00». */
-function useWhenLabel(draft: JobDraft): string {
-  const { t } = useTranslation('jobs');
-  const { t: common } = useTranslation();
-  const format = useFormat();
-  const slot = draftSlot(draft);
-  if (slot) return t('create.preview.todaySlot', { from: slot[0], to: slot[1] });
-  const body = jobInOf(draft, new Date());
-  if (draft.when === 'date' && body?.preferred_from) {
-    return format.calendar(new Date(body.preferred_from));
-  }
-  if (draft.when === 'week') return common('urgency.this_week');
-  return common(`urgency.${draft.when === 'asap' ? 'asap' : 'today'}`);
 }
 
 function WhoSees({ draft }: { draft: JobDraft }) {
