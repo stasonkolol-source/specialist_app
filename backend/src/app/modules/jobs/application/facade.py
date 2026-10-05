@@ -115,6 +115,13 @@ class JobsFacade(JobsApi):
             title=job.title,
             city_id=job.city_id,
             district_id=job.district_id,
+            budget_type=job.budget_type.value,
+            budget_min=job.budget_min,
+            budget_max=job.budget_max,
+            budget_unit=job.budget_unit.value,
+            urgency=job.urgency.value,
+            preferred_from=job.preferred_from,
+            preferred_to=job.preferred_to,
         )
 
     async def responses_notice(self, job_id: UUID) -> ResponsesNotice | None:

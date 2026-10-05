@@ -16202,7 +16202,7 @@
           "text": {
             "type": "string",
             "title": "Text",
-            "description": "Подпись для t.me/share/url и копирования: имя или название"
+            "description": "Подпись для t.me/share/url и копирования: первые две строки карточки — имя и «коротко о себе» или название и бюджет"
           },
           "prepared_message_id": {
             "anyOf": [

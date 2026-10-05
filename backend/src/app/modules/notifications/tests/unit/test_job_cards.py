@@ -99,7 +99,7 @@ def test_card_buttons_open_respond_hide_and_pause(renderer: GettextNotificationR
     )
     assert isinstance(hide, CallbackButton)
     assert isinstance(pause, CallbackButton)
-    assert (hide.text, pause.text) == ("Не интересно", "Пауза подписки")
+    assert (hide.text, pause.text) == ("Не подходит", "Пауза подписки")
     hidden, paused = parse_callback(hide.data), parse_callback(pause.data)
     assert hidden is not None
     assert paused is not None
@@ -158,7 +158,7 @@ def test_card_without_templates_still_has_hide_and_pause(
 
     assert [[button.text for button in row] for row in rows(buttons)] == [
         ["Открыть заявку"],
-        ["Не интересно", "Пауза подписки"],
+        ["Не подходит", "Пауза подписки"],
     ]
 
 

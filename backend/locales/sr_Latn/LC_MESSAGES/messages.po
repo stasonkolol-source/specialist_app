@@ -253,10 +253,10 @@ msgid "bot.profile.name"
 msgstr "Sosedi"
 
 msgid "bot.profile.description"
-msgstr "„Sosedi“ — majstori i pomoć u blizini: popravke, lepota, čišćenje, selidbe, časovi. Opišite zadatak — izvođači će se javiti sa cenom. Ili izaberite stručnjaka po utiscima.\n\nPritisnite dugme ispod da počnete."
+msgstr "„Sosedi“ — majstori u blizini, na vašem jeziku. Novi Sad: popravke, lepota, čišćenje, selidbe, časovi. Opišite zadatak — izvođači će se javiti sa cenom. Ili izaberite stručnjaka po utiscima.\n\nPritisnite dugme ispod da počnete."
 
 msgid "bot.profile.short_description"
-msgstr "Majstori i pomoć u blizini: popravke, lepota, čišćenje, selidbe, časovi."
+msgstr "Majstori u blizini, na vašem jeziku. Novi Sad: popravke, lepota, čišćenje, selidbe, časovi."
 
 msgid "errors.not_found"
 msgstr "Nije pronađeno."
@@ -1019,10 +1019,16 @@ msgid "notifications.deal_completion_prompt.body"
 msgstr "Dogovor „{title}“. Označite ako je sve urađeno: kada obe strane potvrde, dogovor se završava."
 
 msgid "notifications.deal_completion_prompt.body_marked_performer"
-msgstr "Izvođač je označio posao „{title}“ kao završen. Da li je sve u redu?"
+msgstr "{name}: posao „{title}“ je završen. Da li je sve u redu?"
 
 msgid "notifications.deal_completion_prompt.body_marked_client"
-msgstr "Klijent je označio posao „{title}“ kao završen. Da li je sve u redu?"
+msgstr "{name}: posao „{title}“ je završen. Da li je sve u redu?"
+
+msgid "notifications.deal_completion_prompt.name_performer"
+msgstr "Izvođač"
+
+msgid "notifications.deal_completion_prompt.name_client"
+msgstr "Klijent"
 
 msgid "notifications.review_request.title_first"
 msgstr "Ocenite posao"
@@ -1170,6 +1176,21 @@ msgstr "<b>{title}</b> — zahtev u aplikaciji „Sosedi“"
 
 msgid "share.job.button"
 msgstr "Otvori zahtev"
+
+msgid "share.specialist.rating.one"
+msgstr "★ {rating} — {count} utisak"
+
+msgid "share.specialist.rating.few"
+msgstr "★ {rating} — {count} utiska"
+
+msgid "share.specialist.rating.many"
+msgstr "★ {rating} — {count} utisaka"
+
+msgid "share.specialist.new"
+msgstr "Novi stručnjak"
+
+msgid "share.specialist.phone_verified"
+msgstr "Telefon potvrđen"
 
 # Апелляции и чат модераторов (DEVELOPMENT_PLAN 2.5b)
 msgid "errors.appeal_target_not_found"
@@ -1458,7 +1479,7 @@ msgid "notifications.job_matched.template"
 msgstr "Ponuda šablonom „{title}“"
 
 msgid "notifications.job_matched.hide"
-msgstr "Nije zanimljivo"
+msgstr "Ne odgovara"
 
 msgid "notifications.job_matched.pause"
 msgstr "Pauziraj pretplatu"
