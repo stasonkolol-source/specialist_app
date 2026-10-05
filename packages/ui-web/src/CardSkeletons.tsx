@@ -25,8 +25,8 @@ export function SpecialistCardSkeleton() {
   );
 }
 
-/** Карточка заявки (JobCard): заголовок и бюджет, бейдж и время, начало описания, место и
- *  полоски мест; `photos` — с превью фото. */
+/** Карточка заявки (JobCard): заголовок и бюджет, бейджи, начало описания, место и время,
+ *  полоски мест своей строкой; `photos` — с превью фото. */
 export function JobCardSkeleton({ photos = false }: { photos?: boolean }) {
   return (
     <SkeletonCard tight>
@@ -34,9 +34,9 @@ export function JobCardSkeleton({ photos = false }: { photos?: boolean }) {
         <SkeletonText size="title" className="w-3/5" />
         <SkeletonText size="title" className="w-20" />
       </div>
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex gap-1.5">
         <Skeleton className="h-6 w-28" />
-        <SkeletonText size="cap" className="w-16" />
+        <Skeleton className="h-6 w-20" />
       </div>
       <div className="flex flex-col">
         <SkeletonText size="sm" className="w-full" />
@@ -51,8 +51,9 @@ export function JobCardSkeleton({ photos = false }: { photos?: boolean }) {
       )}
       <div className="flex items-center justify-between gap-3">
         <SkeletonText size="cap" className="w-2/5" />
-        <SkeletonText size="cap" className="w-24" />
+        <SkeletonText size="cap" className="w-16" />
       </div>
+      <SkeletonText size="cap" className="w-1/2" />
     </SkeletonCard>
   );
 }

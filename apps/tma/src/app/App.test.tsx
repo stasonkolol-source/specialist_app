@@ -389,6 +389,29 @@ describe('S49 system states (1.5a)', () => {
     expect(mainButtonShown(telegram)).toBe(false);
   });
 
+  it('starts loading the S49b texts with the restriction, not after its screen chunk', async () => {
+    server.use(
+      http.post('*/api/v1/auth/telegram', () =>
+        problem(403, 'restricted', { restriction: 'banned', until: null }),
+      ),
+    );
+    // без рендера: неймспейс service не запросят ни экран S49b, ни фоновая догрузка оболочки
+    const app = assemble(createMockPlatform({ languageCode: 'ru' }).platform, {
+      version: '0.1.0',
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+      baseUrl: API_ORIGIN,
+    });
+    const load = vi.spyOn(app.i18n, 'loadNamespaces');
+
+    await app.signIn();
+
+    expect(load).toHaveBeenCalledWith('service');
+    await waitFor(() => expect(app.i18n.hasLoadedNamespace('service')).toBe(true));
+    expect(app.i18n.getFixedT('ru', 'service')('restricted.title', { kind: 'banned' })).toBe(
+      'Аккаунт заблокирован',
+    );
+  });
+
   it('opens S49b when an action is refused by a partial restriction', async () => {
     server.use(
       meWithToken,

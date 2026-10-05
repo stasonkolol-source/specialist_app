@@ -1,5 +1,6 @@
 // Чат по классам design/ui.css (S30, D30): лента .msgs, пузыри .bub in/out со временем .tm,
-// системные строки .sysmsg, скрытый контакт .mask и композер .composer над клавиатурой.
+// системные строки .sysmsg, подписи дней, скрытый контакт .mask и композер .composer над
+// клавиатурой.
 import type { FormEvent, KeyboardEvent, ReactNode } from 'react';
 import { useId, useLayoutEffect, useRef } from 'react';
 
@@ -84,7 +85,8 @@ export function Bubble({ side, children, time, status, failed = false, onRetry }
   );
 }
 
-/** Системная строка по центру ленты (.sysmsg): контекст диалога, что со сделкой, подсказки. */
+/** Системная строка по центру ленты (.sysmsg): контекст диалога, что со сделкой, подсказки.
+ *  Радиус — токеном: стандартные имена Tailwind (rounded-xl) в проекте дают 0. */
 export function SystemNote({ children, icon }: { children: ReactNode; icon?: IconName }) {
   return (
     <p className="m-0 flex max-w-[92%] items-center gap-1.5 self-center rounded-photo bg-surface px-3 py-1.5 text-center text-[13px] leading-[18px] text-text2">
@@ -94,8 +96,29 @@ export function SystemNote({ children, icon }: { children: ReactNode; icon?: Ico
   );
 }
 
-/** Текст с контактами, скрытыми сервером: «•••» — плашкой .mask. */
-export function MaskedText({ text }: { text: string }) {
+/** День над его сообщениями: «Сегодня», «Вчера», «2 октября» — плашкой системной строки, но
+ *  жирнее: это подпись к сообщениям ниже, а не событие. `dateTime` — день, «2026-10-02». */
+export function DayLabel({ children, dateTime }: { children: ReactNode; dateTime: string }) {
+  return (
+    <p className="m-0 self-center rounded-photo bg-surface px-3 py-1.5 text-[13px] leading-[18px] font-semibold text-text2">
+      <time dateTime={dateTime}>{children}</time>
+    </p>
+  );
+}
+
+export interface MaskedTextProps {
+  text: string;
+  /** Слова на плашке вместо «•••»: «контакт скрыт». */
+  label: string;
+  /** Для диктора — полнее: «Контакт скрыт до договорённости». */
+  hiddenLabel: string;
+  /** `out` — в своём пузыре: плашка темнее акцента, текст — цвета пузыря. */
+  side?: 'in' | 'out';
+}
+
+/** Текст с контактами, скрытыми сервером: «•••» — плашкой .mask с замком и словами «контакт
+ *  скрыт». Одни точки читались как «печатает…» или «ещё», а номер целиком сервер не присылает. */
+export function MaskedText({ text, label, hiddenLabel, side = 'in' }: MaskedTextProps) {
   const parts = text.split(MASK);
   return (
     <>
@@ -104,8 +127,23 @@ export function MaskedText({ text }: { text: string }) {
         <span key={index}>
           {part}
           {index < parts.length - 1 && (
-            <span className="inline-block rounded-check bg-[rgb(91_98_112/0.18)] px-1.5 font-semibold tracking-[0.04em]">
-              {MASK}
+            // в своём пузыре — затемнение, а не осветление: белый на светлее акцента — 3,6:1,
+            // меньше AA 4,5:1 (тёмная тема — 6:1). Цвета Tailwind (white/black) в проекте
+            // сброшены — только произвольным значением
+            <span
+              className={cx(
+                'inline-flex items-center gap-1 whitespace-nowrap rounded-check px-1.5 text-[13px] leading-[18px] font-semibold',
+                side === 'out'
+                  ? 'bg-[rgb(0_0_0/0.16)] text-inherit'
+                  : 'bg-[rgb(91_98_112/0.14)] text-text2',
+              )}
+            >
+              <Icon name="lock" size={16} />
+              {/* по базовой линии слов плашки — с текстом сообщения в одну строку, а не по замку */}
+              <span aria-hidden="true" className="self-baseline">
+                {label}
+              </span>
+              <span className="sr-only">{hiddenLabel}</span>
             </span>
           )}
         </span>

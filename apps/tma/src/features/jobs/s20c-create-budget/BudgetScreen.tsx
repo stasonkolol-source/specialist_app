@@ -15,7 +15,7 @@ import {
   useCities,
 } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
-import { Banner, Chip, Chips, Field, Heading, Input, Segmented, Text } from '@sosed/ui-web';
+import { Banner, Chip, Chips, Field, Input, Segmented, Text } from '@sosed/ui-web';
 import { useState } from 'react';
 
 import { groupDigits } from '../shared/amount.ts';
@@ -106,9 +106,7 @@ function BudgetForm({
         </Banner>
       )}
       <PriceHint draft={draft} />
-      <Heading variant="h3" as="h2">
-        {t('create.budget.details')}
-      </Heading>
+      {/* заголовок «Детали» вернётся со вторым полем (v1 — «только с подтверждённым телефоном») */}
       <div className="flex flex-col gap-2">
         <span className="text-sm font-semibold">{t('create.budget.languages')}</span>
         <Chips label={t('create.budget.languages')} wrap>

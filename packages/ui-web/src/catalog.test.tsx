@@ -144,7 +144,7 @@ describe('SpecialistCard (S05)', () => {
 });
 
 describe('JobCard (S13)', () => {
-  it('заголовок и бюджет, бейджи и время, описание, место и места; ссылка — вся карточка', async () => {
+  it('заголовок и бюджет, бейджи, описание, место и время, места; ссылка — вся карточка', async () => {
     const onOpen = vi.fn((event: { preventDefault: () => void }) => event.preventDefault());
     const { container } = render(
       <JobCard
@@ -173,6 +173,15 @@ describe('JobCard (S13)', () => {
     expect(screen.getByText('Лиман, ≈ 1,2 км')).toBeTruthy();
     expect(screen.getByText('откликов 3 из 5')).toBeTruthy();
     expect(screen.getAllByRole('img', { name: /^Фото \d$/ })).toHaveLength(2);
+    // строки не зависят от длины текстов: бейджам — вся строка, время — в строке места, места —
+    // своей строкой
+    expect(screen.getByText('Сегодня 18–21').parentElement?.textContent).toBe(
+      'Сегодня 18–21Люстры',
+    );
+    expect(screen.getByText('15 мин назад').parentElement?.textContent).toBe(
+      'Лиман, ≈ 1,2 км15 мин назад',
+    );
+    expect(screen.getByText('откликов 3 из 5').parentElement?.textContent).toBe('откликов 3 из 5');
     // полоски мест — декорация: число мест читается подписью
     expect(container.querySelectorAll('[aria-hidden="true"] > i')).toHaveLength(5);
     expect(container.querySelectorAll('[aria-hidden="true"] > i.bg-accent')).toHaveLength(3);

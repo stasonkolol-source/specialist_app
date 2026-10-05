@@ -19,7 +19,6 @@ import {
   EmptyState,
   Field,
   Heading,
-  Icon,
   ChipSkeleton,
   FieldSkeleton,
   Skeleton,
@@ -167,18 +166,10 @@ function Form({ deal, onSent }: { deal: DealCardOut; onSent: () => void }) {
           onChange={(event) => setBody(event.target.value)}
         />
       </Field>
-      <div className="flex items-center gap-3">
-        <div
-          aria-hidden="true"
-          className="flex size-18 flex-col items-center justify-center gap-1 rounded-photo border border-dashed border-line text-text2"
-        >
-          <Icon name="camera" />
-          <span className="text-cap">{t('review.photo')}</span>
-        </div>
-        <Text as="span" variant="sm" secondary>
-          {t('review.photoSoon')}
-        </Text>
-      </div>
+      {/* фото к отзыву — v1: строкой, без плитки — пунктир читался как загрузка, но не нажимался */}
+      <Text as="p" variant="cap">
+        {t('review.photoSoon')}
+      </Text>
       <Text as="p" variant="cap">
         {t('review.note')}
       </Text>

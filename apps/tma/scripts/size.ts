@@ -29,7 +29,10 @@ const visit = (key: string) => {
   for (const imported of chunk.imports ?? []) visit(imported);
 };
 
-const entry = Object.keys(manifest).find((key) => manifest[key]?.isEntry);
+// вход страницы — index.html: Главная тоже вход сборки (vite.config.ts), её считаем ниже
+const entry = Object.keys(manifest).find(
+  (key) => manifest[key]?.isEntry && key.endsWith('.html'),
+);
 if (!entry) throw new Error('entry chunk not found: build with build.manifest');
 visit(entry);
 // маршрут переехал, а бюджет молча перестал его считать — так было после 4.8: пусть упадёт
