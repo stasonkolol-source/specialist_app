@@ -10,6 +10,7 @@ from app.modules.catalog.api import CatalogApi
 from app.modules.identity.api import IdentityApi
 from app.modules.jobs.api import (
     ChatResponse,
+    ClosedNotice,
     DealJob,
     DigestLine,
     InviteNotice,
@@ -232,6 +233,13 @@ class JobsFacade(JobsApi):
 
     async def passed_over(self, job_id: UUID) -> list[UserId]:
         return await self._queries.passed_over(JobId(job_id))
+
+    async def closed_notice(self, job_id: UUID) -> ClosedNotice | None:
+        closed = await self._queries.closed_with(JobId(job_id))
+        if closed is None:
+            return None
+        title, performers = closed
+        return ClosedNotice(title=title, performer_ids=tuple(performers))
 
     async def invite_notice(self, job_id: UUID, performer_id: UserId) -> InviteNotice | None:
         job = await self._queries.view(JobId(job_id))

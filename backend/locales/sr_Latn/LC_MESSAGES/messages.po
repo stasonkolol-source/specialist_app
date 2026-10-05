@@ -922,6 +922,12 @@ msgstr "Naručilac je izabrao drugog izvođača"
 msgid "notifications.response_not_selected.body"
 msgstr "Zahtev „{title}“. Hvala na ponudi — u listi ima drugih zahteva u blizini."
 
+msgid "notifications.response_job_closed.title"
+msgstr "Zahtev je zatvoren"
+
+msgid "notifications.response_job_closed.body"
+msgstr "Zahtev „{title}“ je zatvoren — naručilac više ne bira izvođača. Hvala na ponudi — u listi ima drugih zahteva u blizini."
+
 msgid "notifications.message_received.title"
 msgstr "{name} piše"
 

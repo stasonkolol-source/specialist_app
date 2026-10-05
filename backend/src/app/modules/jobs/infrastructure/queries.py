@@ -270,6 +270,26 @@ class SqlJobQueries(SqlQuery):
         )
         return [UserId(row["performer_id"]) for row in rows]
 
+    async def closed_with(self, job_id: JobId) -> tuple[str, list[UserId]] | None:
+        # удалённую заявку тоже: удаление открытой закрывает её отклики (Job.delete)
+        job = await self._fetch_one(
+            select(_J.title, _J.closed_at).where(
+                _J.id == job_id, _J.status == JobStatus.CLOSED.value
+            )
+        )
+        if job is None:
+            return None
+        # закрытие ставит откликам decided_at = closed_at: только они, без давно не выбранных
+        rows = await self._fetch(
+            select(_R.performer_id).where(
+                _R.job_id == job_id,
+                _R.deleted_at.is_(None),
+                _R.status == ResponseStatus.NOT_SELECTED.value,
+                _R.decided_at == job["closed_at"],
+            )
+        )
+        return job["title"], [UserId(row["performer_id"]) for row in rows]
+
     async def is_invited(self, job_id: JobId, performer_id: UserId) -> bool:
         row = await self._fetch_one(
             select(_I.job_id).where(_I.job_id == job_id, _I.performer_id == performer_id).limit(1)

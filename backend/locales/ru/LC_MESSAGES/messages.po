@@ -921,6 +921,12 @@ msgstr "Клиент выбрал другого исполнителя"
 msgid "notifications.response_not_selected.body"
 msgstr "Заявка «{title}». Спасибо за отклик — в ленте есть другие заявки рядом."
 
+msgid "notifications.response_job_closed.title"
+msgstr "Заявку закрыли"
+
+msgid "notifications.response_job_closed.body"
+msgstr "Заявка «{title}» закрыта — клиент больше не выбирает исполнителя. Спасибо за отклик — в ленте есть другие заявки рядом."
+
 msgid "notifications.message_received.title"
 msgstr "{name} пишет"
 

@@ -224,7 +224,12 @@ function ResponseCard({
   const { status, job } = response;
   const active = ACTIVE.has(status);
   const accepted = status === 'accepted';
-  const state = accepted ? t('responses.acceptedTitle') : t(`responses.state.${status}`);
+  // «не выбран» на закрытой заявке — клиент закрыл или удалил её, а не выбрал другого (MU-11)
+  const state = accepted
+    ? t('responses.acceptedTitle')
+    : status === 'not_selected' && job.status === 'closed'
+      ? t('responses.state.job_closed')
+      : t(`responses.state.${status}`);
   const price = offerPrice(response.price);
   const when = response.availability_note;
   const decided = response.decided_at ?? response.updated_at;

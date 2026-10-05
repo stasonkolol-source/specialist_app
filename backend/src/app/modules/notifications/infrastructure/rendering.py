@@ -129,6 +129,10 @@ TITLED: Mapping[NotificationType, str] = MappingProxyType(
 )
 """Шаблоны «заголовок + текст с названием»: `notifications.<ключ>.title` и `.body`."""
 
+JOB_CLOSED = "job_closed"
+"""`reason` у `response.not_selected`: заявку закрыли — свой заголовок и текст, без «выбрал
+другого» (`notifications.response_job_closed.*`)."""
+
 DEAL_CANCEL_REASONS = frozenset({"plans_changed", "no_agreement", "no_contact", "other"})
 """Причины, которые выбирает сторона (`deal_cancel_reason.*`); `expired` и `account_deleted` —
 свои тексты отмены системой."""
@@ -229,6 +233,11 @@ class GettextNotificationRenderer:
             )
         if type_ in TITLED:
             key, title = TITLED[type_], _short(params.get("title"))
+            if (
+                type_ is NotificationType.RESPONSE_NOT_SELECTED
+                and params.get("reason") == JOB_CLOSED
+            ):
+                key = "response_job_closed"  # клиент закрыл или удалил заявку (MU-11)
             return RenderedText(
                 title=self._t(f"notifications.{key}.title", locale),
                 body=self._t(f"notifications.{key}.body", locale, title=title),
