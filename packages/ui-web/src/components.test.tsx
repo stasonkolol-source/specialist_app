@@ -584,16 +584,15 @@ describe('отклик на нажатие (только CSS)', () => {
         <Switch checked onChange={() => {}} label="Уведомления" />
       </>,
     );
-    const press = 'motion-safe:active:not-disabled:scale-[0.97]';
+    const press = 'press';
     expect(screen.getByRole('button', { name: 'Откликнуться' }).className).toContain(press);
     expect(screen.getByRole('link', { name: 'Уборка' }).className).toContain(press);
-    expect(screen.getByRole('link', { name: 'Настройки' }).className).toContain(
-      'active:not-disabled:bg-bg2',
-    );
+    expect(screen.getByRole('link', { name: 'Настройки' }).className).toContain('press-row');
     // статичная строка не нажимается — и не подсвечивается
-    expect(screen.getByText('Версия').closest('div')?.className).not.toContain('active:');
+    expect(screen.getByText('Версия').closest('div')?.className).not.toContain('press');
     const knob = screen.getByRole('switch', { name: 'Уведомления' }).firstElementChild;
     expect(knob?.className).toContain('translate-x-5');
+    expect(knob?.className).toContain('slide');
     expect(knob?.className).not.toContain('left-5.5');
   });
 });

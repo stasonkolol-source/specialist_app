@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import type { AvatarPalette } from './Avatar.tsx';
 import { Avatar } from './Avatar.tsx';
-import { FOCUS, PRESS, cx } from './cx.ts';
+import { FOCUS, cx } from './cx.ts';
 import type { IconName } from './icon/Icon.tsx';
 import { Icon } from './icon/Icon.tsx';
 
@@ -66,7 +66,7 @@ export function Chip({
       : accent
         ? 'border-transparent bg-accent-soft text-accent-soft-ink'
         : 'border-line bg-surface text-text',
-    PRESS,
+    'press',
     FOCUS,
   );
   const content = (

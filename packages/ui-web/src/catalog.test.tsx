@@ -102,10 +102,8 @@ describe('Sheet (S06)', () => {
         <p>Цена</p>
       </Sheet>,
     );
-    expect(screen.getByRole('dialog').className).toContain('motion-safe:animate-sheet-in');
-    expect(container.querySelector('.bg-scrim')?.className).toContain(
-      'motion-safe:animate-fade-in',
-    );
+    expect(screen.getByRole('dialog').className).toContain('enter-sheet');
+    expect(container.querySelector('.bg-scrim')?.className).toContain('enter-fade');
   });
 });
 

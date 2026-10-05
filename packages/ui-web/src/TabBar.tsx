@@ -1,7 +1,7 @@
 // .tabbar / .tab / .tab.on / .cnt / .tab-plus: пять вкладок, центральная «+» создаёт заявку.
 import type { MouseEvent } from 'react';
 
-import { FOCUS, PRESS, cx } from './cx.ts';
+import { FOCUS, cx } from './cx.ts';
 import type { IconName } from './icon/Icon.tsx';
 import { Icon } from './icon/Icon.tsx';
 
@@ -77,7 +77,7 @@ export function TabBar({
         href={plus.href}
         aria-label={plus.label}
         onClick={onNavigate ? (e) => onNavigate(plus.id, e) : undefined}
-        className={cx('flex h-13 items-start justify-center rounded-btn', PRESS, FOCUS)}
+        className={cx('press flex h-13 items-start justify-center rounded-btn', FOCUS)}
       >
         <span className="mt-1 flex h-11 w-14 items-center justify-center rounded-btn bg-accent text-accent-ink">
           <Icon name="plus" size={24} />

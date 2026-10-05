@@ -214,7 +214,7 @@ export function Toast({
       role="status"
       aria-live="polite"
       className={cx(
-        'flex items-center gap-2.5 rounded-card bg-toast px-3.5 py-3 text-sm text-toast-ink shadow-toast motion-safe:animate-toast-in',
+        'flex items-center gap-2.5 rounded-card bg-toast px-3.5 py-3 text-sm text-toast-ink shadow-toast enter-toast',
         position === 'fixed' && 'fixed inset-x-4 bottom-25 z-20',
       )}
     >
