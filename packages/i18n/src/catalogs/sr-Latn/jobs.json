@@ -44,6 +44,18 @@
       "locating": "Određujemo deo grada…",
       "located": "Deo grada je određen: {district}",
       "locateFailed": "Nismo uspeli da odredimo deo grada — izaberite sa liste",
+      "mapOpen": "Označi na mapi",
+      "map": {
+        "title": "Tačka na mapi",
+        "cancel": "Otkaži",
+        "here": "Ovde sam",
+        "hereFailed": "Nismo uspeli da odredimo gde ste. Pronađite mesto na mapi.",
+        "hint": "Pomerajte mapu — oznaka ostaje u centru",
+        "outside": "Van Novog Sada",
+        "failed": "Određivanje dela grada nije uspelo. Pokušajte ponovo.",
+        "unavailable": "Mapa se nije učitala. Izaberite deo grada sa liste.",
+        "choose": "Izaberi"
+      },
       "area": "Izvođači vide samo ovu oblast",
       "address": "Tačna adresa",
       "addressPlaceholder": "Ulica, broj, stan",

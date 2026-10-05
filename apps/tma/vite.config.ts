@@ -177,6 +177,9 @@ export default defineConfig(({ mode }) => {
       ogImageOrigin(env.TMA_PUBLIC_ORIGIN),
     ],
     define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+    // Воркер MapLibre карты S20b (Q28) — модулем: MapLibre 6 сам запускает его с type: 'module'
+    // по адресу из setWorkerUrl (`?worker&url`), со своего origin — без blob:
+    worker: { format: 'es' },
     // manifest — для бюджета первого экрана (scripts/size.ts)
     build: {
       target: BUILD_TARGET,

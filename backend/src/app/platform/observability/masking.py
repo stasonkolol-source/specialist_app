@@ -82,6 +82,13 @@ _PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     # попадает в request.url событий Sentry и в логи; тот же токен — код startapp `ri_<base62>`
     (re.compile(r"(?i)(review-invites(?:/|%2F))[^/?#&\s\"'<>%]+"), r"\1[Filtered]"),
     (re.compile(r"(?<![A-Za-z0-9])ri_[0-9A-Za-z]{22}(?![0-9A-Za-z])"), "ri_[Filtered]"),
+    # Точка человека в строке запроса: `GET /geo/districts/locate?lat=…&lon=…` (S20b — геолокация
+    # и карта), радиус каталога и ленты (`/specialists`, `/jobs`). Попадает в query_string событий
+    # Sentry и в access-логи; координаты — ПД. Закодированный адрес (`%26lat%3D…`) — тоже
+    (
+        re.compile(r"(?i)(^|[^0-9A-Za-z_]|%26|%3F)(lat|lon)(=|%3D)[^&#\s\"'<>%]*"),
+        r"\1\2\3[Filtered]",
+    ),
 )
 
 

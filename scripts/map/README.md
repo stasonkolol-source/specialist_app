@@ -63,12 +63,14 @@ make map-upload ENV=stage  # в R2 stage — infra/runbooks/stage-bootstrap.md, 
   ломается;
 - пустая `VITE_MAP_ASSETS_URL` или ошибка загрузки — карты нет, остаётся список районов.
 
-CSP собирает `apps/tma/src/app/csp.ts` из той же переменной: с картой — `worker-src 'self' blob:`
-и `child-src 'self' blob:` (воркеры MapLibre; `child-src` — для Safari до 15.5 без `worker-src`) и
-origin базы в `connect-src`, если он чужой; `img-src` уже пускает `blob:` и `data:`. Без карты CSP не
-меняется. Сборка e2e — всегда без карты (`e2e:build`). Если UI возьмёт CSP-сборку MapLibre
-(`maplibre-gl-csp.js` и воркер своим файлом через `setWorkerUrl`), `blob:` из обеих директив можно
-убрать.
+CSP собирает `apps/tma/src/app/csp.ts` из той же переменной: с картой — `worker-src 'self'` и
+`child-src 'self'` (воркер MapLibre 6 — файл сборки на своём origin, `setWorkerUrl` в MapPicker:
+blob: ему нужен, только когда воркер на чужом origin; `child-src` — для Safari до 15.5 без
+`worker-src`) и origin базы в `connect-src`, если он чужой; `img-src` уже пускает `blob:` и `data:`.
+Без карты CSP не меняется. Сборка e2e — всегда без карты (`e2e:build`).
+
+Карта в Mini App — «Указать на карте» на S20b (`apps/tma/src/features/jobs/s20b-create-when/map`):
+MapLibre, `pmtiles` и стиль — ленивым чанком, в первый экран не попадают.
 
 ## Новая сборка Protomaps
 

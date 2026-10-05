@@ -12,10 +12,11 @@ export interface CspOptions {
   /** DSN Sentry фронта (VITE_SENTRY_DSN, 3.3): SDK шлёт события на адрес приёма из DSN — в
    *  connect-src ровно его origin. Без DSN SDK не грузится, и адреса в CSP нет. */
   sentryDsn?: string;
-  /** База ассетов карты (VITE_MAP_ASSETS_URL, Q28, scripts/map/README.md). MapLibre запускает
-   *  воркеры из blob: — worker-src (и child-src); тайлы PMTiles (Range), глифы и спрайт — fetch, в
-   *  connect-src origin адреса, если он чужой (stage, prod: CDN R2). Путь от корня (`/map` в dev)
-   *  — свой origin. Пусто — карты нет, и CSP та же, что без неё. */
+  /** База ассетов карты (VITE_MAP_ASSETS_URL, Q28, scripts/map/README.md). Воркер MapLibre — файл
+   *  сборки на своём origin (setWorkerUrl, MapPicker): worker-src (и child-src) — 'self', без blob:;
+   *  тайлы PMTiles (Range), глифы и спрайт — fetch, в connect-src origin адреса, если он чужой
+   *  (stage, prod: CDN R2). Путь от корня (`/map` в dev) — свой origin. Пусто — карты нет, и CSP та
+   *  же, что без неё. */
   mapAssetsUrl?: string;
 }
 
@@ -81,8 +82,9 @@ export function contentSecurityPolicy({
       ...(mapOrigin ? [mapOrigin] : []),
       ...errorReporting,
     ],
-    // воркеры MapLibre — из blob:; Safari до 15.5 не знает worker-src и берёт child-src
-    ...(map ? { 'worker-src': [SELF, 'blob:'], 'child-src': [SELF, 'blob:'] } : {}),
+    // воркер MapLibre — свой файл сборки (MapLibre 6 берёт blob: только для воркера с чужого
+    // origin); Safari до 15.5 не знает worker-src и берёт child-src
+    ...(map ? { 'worker-src': [SELF], 'child-src': [SELF] } : {}),
     'frame-ancestors': FRAME_ANCESTORS,
     'base-uri': [SELF],
     'form-action': [SELF],
