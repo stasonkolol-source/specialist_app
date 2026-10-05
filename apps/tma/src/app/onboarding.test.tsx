@@ -124,7 +124,7 @@ describe('S01 launch', () => {
 });
 
 describe('new user: S02a → S02b → S02c → home', () => {
-  it('walks the whole onboarding and lands on the home stub', async () => {
+  it('walks the whole onboarding as a specialist: S32a with the type, «Back» — home', async () => {
     const backend = userBackend(NEW_USER);
     const { app, telegram } = startApp('/');
 
@@ -186,15 +186,26 @@ describe('new user: S02a → S02b → S02c → home', () => {
     });
     await pressMainButton(telegram);
 
-    // главная (заглушка до 4.8); согласие с версиями из client-config, разрешение писать
+    // «Я специалист» — сразу мастер профиля S32a с отмеченным типом, а не клиентская главная
     expect(
-      await screen.findByRole('heading', { name: 'Найдём мастера рядом', level: 1 }),
+      await screen.findByRole('heading', { name: 'Как вы хотите работать?', level: 1 }),
     ).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /^Специалист/ }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
+    expect(app.router.state.location.pathname).toBe('/become/type');
+    // согласие с версиями из client-config, разрешение писать
     expect(backend.requests.consents).toEqual([
       { terms_version: 'draft-1', privacy_version: 'draft-1' },
     ]);
     expect(telegram.callsOf('web_app_request_write_access')).toHaveLength(1);
     expect(backend.requests.writeAccess).toBe(1);
+
+    // «Назад» с первого шага мастера — на главную (заглушка до 4.8), в онбординг не возвращает
+    await pressBackButton(telegram);
+    expect(
+      await screen.findByRole('heading', { name: 'Найдём мастера рядом', level: 1 }),
+    ).toBeTruthy();
     expect(app.router.state.location.pathname).toBe('/');
     expect(screen.getByRole('navigation', { name: 'Разделы' })).toBeTruthy();
     expect(mainButton(telegram)).toMatchObject({ is_visible: false });

@@ -41,6 +41,8 @@ export function RulesScreen() {
   const checkbox = useRef<HTMLButtonElement>(null);
   const [problem, setProblem] = useState<'outdated' | 'unavailable' | null>(null);
   const canNotify = platform.capabilities.requestWriteAccess;
+  // согласий ещё не было — онбординг нового пользователя, а не новая редакция правил
+  const firstTime = me.data !== undefined && Object.keys(me.data.consents).length === 0;
 
   // Разрешение писать — после согласия: пока клиент Telegram спрашивает, MainButton в ожидании
   const allowNotifications = async () => {
@@ -51,9 +53,10 @@ export function RulesScreen() {
 
   const consents = useIdentityAcceptConsents({
     mutation: {
-      onSuccess: async (me) => {
+      onSuccess: async (next) => {
         await allowNotifications();
-        flow.saved('rules', me);
+        // впервые (согласий не было) специалиста ведём в мастер профиля, вернувшегося — домой
+        flow.saved('rules', next, firstTime);
       },
       onError: (error) => {
         // редакция сменилась, пока экран был открыт: новый текст — и галочка заново
@@ -88,7 +91,6 @@ export function RulesScreen() {
   useStepButton({ text: t('rules.start'), onClick: start, loading: consents.isPending });
   // Открыли шаг сразу при запуске: новому пользователю (согласий ещё не было) «Назад» — на S02b,
   // как S02b ведёт на S02a; после новой редакции правил «Назад» не нужен — в шапке «Закрыть»
-  const firstTime = me.data !== undefined && Object.keys(me.data.consents).length === 0;
   useBackButton(router.history.canGoBack() || firstTime ? () => flow.back('intent') : null);
 
   const openRules = (event: MouseEvent<HTMLAnchorElement>) => {
