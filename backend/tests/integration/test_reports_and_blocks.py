@@ -207,11 +207,16 @@ async def test_blocked_pair_can_read_but_not_write(chat: Chat) -> None:
     await block(chat, specialist.user_id, client)
 
     sent = await chat.post(client, f"/conversations/{conversation}/messages", {"body": "Ау?"})
+    # MU-6: заблокированному — нейтральный «закрыт», заблокировавшему — «заблокирован»
     assert (sent.status_code, sent.json()["code"], sent.json()["conversation_status"]) == (
         409,
         "conversation_closed",
-        "blocked",
+        "closed",
     )
+    own = await chat.post(
+        specialist.user_id, f"/conversations/{conversation}/messages", {"body": "Ау?"}
+    )
+    assert (own.status_code, own.json()["conversation_status"]) == (409, "blocked")
     mine = (await chat.messages(client, conversation))["conversation"]
     theirs = (await chat.messages(specialist.user_id, conversation))["conversation"]
     assert (mine["blocked"], mine["blocked_by_me"]) == (True, False)
@@ -225,6 +230,14 @@ async def test_blocked_pair_can_read_but_not_write(chat: Chat) -> None:
         stranger_chat, "/conversations", {"profile_id": str(specialist.profile_id)}
     )
     assert (fresh.status_code, fresh.json()["reason"]) == (409, "blocked")
+    other_client = await chat.user()
+    await block(chat, specialist.user_id, other_client)
+    hidden = await chat.post(
+        other_client, "/conversations", {"profile_id": str(specialist.profile_id)}
+    )
+    # заблокированному — как недоступный профиль, без слова о блокировке
+    assert (hidden.status_code, hidden.json()["reason"]) == (409, "profile_unavailable")
+    assert "blocked" not in hidden.text
 
     await unblock(chat, specialist.user_id, client)
     await chat.send(client, conversation, "Снова на связи")
