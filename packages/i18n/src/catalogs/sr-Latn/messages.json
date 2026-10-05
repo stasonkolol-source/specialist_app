@@ -21,7 +21,7 @@
     "more": "Prikaži još"
   },
   "deal": {
-    "none": "Još niste dogovoreni",
+    "none": "Još nema dogovora",
     "proposed": "Čeka potvrdu",
     "agreed": "Dogovoreno",
     "completed": "Dogovor je završen",
@@ -36,16 +36,20 @@
     "dealAgreed": "Dogovoreno",
     "dealCancelled": "Dogovor je otkazan"
   },
+  "mask": {
+    "text": "kontakt sakriven",
+    "label": "Kontakt je sakriven do dogovora"
+  },
   "chat": {
-    "agree": "Dogovoreno",
+    "agree": "Dogovorite se",
     "agreeAgain": "Novi dogovor",
     "orderAgain": "Naručite ponovo",
     "orderAgainFailed": "Razgovor nije moguće otvoriti. Pokušajte ponovo",
     "openResponses": "Na ponude",
     "chooseHint": "Izvođač se bira na stranici ponuda zahteva",
     "safety": "Ne plaćajte unapred nepoznatim izvođačima. Platite tek kad posao bude završen.",
-    "startedProfile": "Razgovor iz profila stručnjaka · {date}",
-    "startedJob": "Razgovor o zahtevu „{title}“ · {date}",
+    "startedProfile": "Razgovor iz profila stručnjaka",
+    "startedJob": "Razgovor o zahtevu „{title}“",
     "masked": "Kontakti će se otvoriti posle dogovora — tako je bezbednije",
     "prepayment": "Traže avans? Ne šaljite novac pre početka posla.",
     "hidden": "Poruka je skrivena zbog moderacije",
@@ -86,6 +90,7 @@
     },
     "shareContact": "Podelite kontakt",
     "telegram": "Telegram",
+    "contactsOpen": "Već ste se dogovorili — kontakti su otvoreni",
     "dealBar": "Dogovor „{title}“",
     "dealBarPast": "Prethodni dogovor „{title}“",
     "dealTerms": "Pogledajte uslove",

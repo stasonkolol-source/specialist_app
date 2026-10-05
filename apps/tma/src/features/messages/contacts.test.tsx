@@ -120,7 +120,7 @@ describe('S53 from the chat', () => {
 
     const header = await screen.findByRole('banner', { name: 'Алексей Морозов' });
     expect(screen.queryByRole('link', { name: 'Посмотреть условия' })).toBeNull();
-    await click(within(header).getByRole('button', { name: 'Договорились' }));
+    await click(within(header).getByRole('button', { name: 'Договориться' }));
     const sheet = await screen.findByRole('dialog', { name: 'Договорились?' });
     fireEvent.change(within(sheet).getByRole('textbox', { name: 'Что делаем' }), {
       target: { value: 'Повесить люстру' },
@@ -160,8 +160,10 @@ describe('contacts after the deal', () => {
     const chat = withChats();
     const { telegram } = startApp(`/messages/${CONVERSATION_IDS.performer}`);
 
+    // «Поделиться контактом» — второй строкой полосы сделки, шапка — без кнопок
     const header = await screen.findByRole('banner', { name: 'Дмитрий Соколов' });
-    await click(within(header).getByRole('button', { name: 'Поделиться контактом' }));
+    expect(within(header).queryByRole('button', { name: 'Поделиться контактом' })).toBeNull();
+    await click(screen.getByRole('button', { name: 'Поделиться контактом' }));
     let sheet = await screen.findByRole('dialog', { name: 'Поделиться контактом' });
     expect(within(sheet).getByText('@elena_k')).toBeTruthy();
     await click(within(sheet).getByRole('button', { name: 'Поделиться' }));
@@ -171,7 +173,7 @@ describe('contacts after the deal', () => {
     expect(await screen.findByText('Telegram: @elena_k')).toBeTruthy();
 
     // галочки, как на артборде: телефон вместо Telegram
-    await click(within(header).getByRole('button', { name: 'Поделиться контактом' }));
+    await click(screen.getByRole('button', { name: 'Поделиться контактом' }));
     sheet = await screen.findByRole('dialog', { name: 'Поделиться контактом' });
     await click(within(sheet).getByRole('checkbox', { name: 'Имя пользователя Telegram' }));
     await click(within(sheet).getByRole('checkbox', { name: 'Номер телефона' }));
@@ -188,8 +190,8 @@ describe('contacts after the deal', () => {
     const chat = withChats();
     const { telegram } = startApp(`/messages/${CONVERSATION_IDS.performer}`);
 
-    const header = await screen.findByRole('banner', { name: 'Дмитрий Соколов' });
-    await click(within(header).getByRole('button', { name: 'Поделиться контактом' }));
+    await screen.findByRole('banner', { name: 'Дмитрий Соколов' });
+    await click(screen.getByRole('button', { name: 'Поделиться контактом' }));
     const sheet = await screen.findByRole('dialog', { name: 'Поделиться контактом' });
     const username = within(sheet).getByRole('checkbox', { name: 'Имя пользователя Telegram' });
     expect(username.getAttribute('aria-checked')).toBe('true');
