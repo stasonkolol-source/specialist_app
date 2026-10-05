@@ -2,7 +2,10 @@
 // «Доступен сегодня до …» (переключатель: включает «до 20:00» или ближайший вариант, подробно — S38),
 // у опубликованного профиля — «Посмотреть как клиент» (публичный профиль S08), и переходы к правке
 // S34, прайсу S35, портфолио S37, доступности S38 и «Отзывам до платформы» S55 (7.6а, «2 из 5» —
-// занятые места). Черновик и «нужны правки» продолжают мастер S32 с нужного шага (MainButton).
+// занятые места). Черновик и «нужны правки» продолжают мастер S32 с нужного шага (MainButton);
+// причина отказа — прямо в строке статуса. Сюда же ведёт «Отправить на проверку» (UX №7): срок,
+// «бот напишет» и одно действие на время ожидания — «Добавить фото работ» (S37). Опубликованному,
+// пока нет подписки на заявки или шаблона отклика, — «Первые шаги» (UX №9).
 // Блоки артборда, чьих экранов ещё нет, появятся со своими шагами: «За 30 дней» и «Скоро» — v1.
 import type { HintOut, ProfileOut } from '@sosed/api-client';
 import { availableUntil, quickHour } from '@sosed/domain';
@@ -13,7 +16,9 @@ import {
   profileState,
   useMyPortfolio,
   useMyProfile,
+  useJobAlerts,
   useMyServices,
+  useResponseTemplates,
   useReviewInvites,
   useSetAvailability,
 } from '@sosed/hooks';
@@ -28,13 +33,14 @@ import {
   Icon,
   ProgressBar,
   Row,
+  SectionTitle,
   Switch,
   Text,
   cx,
 } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 import type { MouseEvent } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 
 import { LoadState } from '../shared/LoadState.tsx';
 import { SaveError } from '../shared/SaveError.tsx';
@@ -43,6 +49,28 @@ import { ACCOUNT_PATH, CABINET_PATHS } from '../shared/paths.ts';
 
 /** Публичный профиль S08, как его видят клиенты (маршрут features/catalog). */
 const PUBLIC_PROFILE_PATH = '/specialists/$profileId';
+/** Новая подписка на заявки S19 и шаблоны откликов S57 (маршруты features/jobs). */
+const NEW_ALERT_PATH = '/jobs/alerts/new';
+const TEMPLATES_PATH = '/jobs/responses/templates';
+
+/** Причины отказа модерации, у которых есть свой текст; остальные — «нарушение правил». */
+const REASONS = [
+  'prepayment_scam',
+  'off_platform_payment',
+  'mule_recruitment',
+  'prohibited',
+  'contact_leak',
+  'spam_ad',
+  'vacancy',
+  'other',
+] as const;
+/** Запрещённое называем одним словом, как в уведомлении бота (ADR-0016). */
+const PROHIBITED: ReadonlySet<string> = new Set(['drug_courier', 'sexual_services', 'weapons']);
+
+function reasonOf(code: string | null): (typeof REASONS)[number] {
+  if (code !== null && PROHIBITED.has(code)) return 'prohibited';
+  return REASONS.find((known) => known === code) ?? 'other';
+}
 
 const STATE_ICONS: Record<ProfileState, { icon: IconName; tone: string }> = {
   published: { icon: 'check-circle', tone: 'text-accent' },
@@ -89,15 +117,28 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
   const state = profileState(profile);
   const step = becomeStep(profile);
   const { icon, tone } = STATE_ICONS[state];
-  const stateText =
+  const stateKey =
     state === 'published' && !profile.listed_in_catalog ? 'publishedUnlisted' : state;
+  const stateText =
+    stateKey === 'rejected'
+      ? t('cabinet.state.rejected', {
+          reason: t(`cabinet.reason.${reasonOf(profile.rejection_reason)}`),
+        })
+      : t(`cabinet.state.${stateKey}`);
   const { percent, hints } = profile.completeness;
+  const pending = profile.status === 'pending_review';
 
-  // черновик — дописать в мастере; MainButton — главное действие экрана, как в Telegram
+  // черновик — дописать в мастере; на проверке ждать, но можно добавить фото работ — с ними
+  // выбирают чаще; MainButton — главное действие экрана, как в Telegram
   useStepButton({
-    text: t(state === 'rejected' ? 'cabinet.fix' : 'cabinet.continue'),
-    onClick: () => step && flow.open(step),
-    visible: step !== null,
+    text: t(
+      state === 'rejected' ? 'cabinet.fix' : pending ? 'cabinet.addPhotos' : 'cabinet.continue',
+    ),
+    onClick: () => {
+      if (pending) void router.navigate({ to: CABINET_PATHS.portfolio });
+      else if (step) flow.open(step);
+    },
+    visible: step !== null || pending,
   });
 
   const open =
@@ -120,8 +161,8 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
             {t(profile.kind === 'pro' ? 'cabinet.title' : 'cabinet.casualTitle')}
           </Heading>
           <Text variant="sm" className="flex items-center gap-1.5">
-            <Icon name={icon} size={16} className={tone} />
-            {t(`cabinet.state.${stateText}`)}
+            <Icon name={icon} size={16} className={cx('shrink-0', tone)} />
+            {stateText}
           </Text>
         </div>
         <div className="flex flex-col gap-2">
@@ -152,6 +193,7 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
           </>
         )}
       </Card>
+      {profile.status === 'published' && <FirstSteps />}
       <nav aria-label={t('cabinet.manage')}>
         <Group>
           <Row
@@ -199,6 +241,53 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
           )}
         </Group>
       </nav>
+    </section>
+  );
+}
+
+/** «Первые шаги» опубликованного (UX №9): подписка на заявки и шаблон отклика — то, что приводит
+ *  заявки. Сделанный шаг пропадает, оба сделаны — пропадает блок; пока списки грузятся, блока нет,
+ *  чтобы он не мигал у тех, кому уже не нужен. */
+function FirstSteps() {
+  const { t } = useTranslation('specialist');
+  const router = useRouter();
+  const alerts = useJobAlerts();
+  const templates = useResponseTemplates();
+  const titleId = useId();
+  if (!alerts.data || !templates.data) return null;
+  const needAlerts = alerts.data.items.length === 0;
+  const needTemplate = templates.data.items.length === 0;
+  if (!needAlerts && !needTemplate) return null;
+  const open = (to: typeof NEW_ALERT_PATH | typeof TEMPLATES_PATH) => ({
+    href: router.history.createHref(to),
+    onClick: (event: MouseEvent<HTMLElement>) => {
+      event.preventDefault();
+      void router.navigate({ to });
+    },
+  });
+  return (
+    <section aria-labelledby={titleId} className="flex flex-col gap-2">
+      <SectionTitle id={titleId}>{t('cabinet.steps')}</SectionTitle>
+      <Group>
+        {needAlerts && (
+          <Row
+            icon="bell"
+            title={t('cabinet.stepAlerts')}
+            subtitle={t('cabinet.stepAlertsText')}
+            chevron
+            {...open(NEW_ALERT_PATH)}
+          />
+        )}
+        {needTemplate && (
+          <Row
+            icon="file"
+            title={t('cabinet.stepTemplate')}
+            subtitle={t('cabinet.stepTemplateText')}
+            chevron
+            {...open(TEMPLATES_PATH)}
+          />
+        )}
+      </Group>
     </section>
   );
 }

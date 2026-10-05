@@ -26,6 +26,7 @@ const LOCALES = [
     card: /Кабинет специалиста/,
     title: 'Кабинет специалиста',
     published: 'Профиль опубликован и виден в поиске',
+    steps: 'Первые шаги',
     row: 'Профиль',
     edit: 'Редактирование профиля',
     areas: /^Лиман,\sГрбавица,\sЦентр\sи\sещё\s1$/,
@@ -41,6 +42,7 @@ const LOCALES = [
     card: /Kabinet stručnjaka/,
     title: 'Kabinet stručnjaka',
     published: 'Profil je objavljen i vidljiv u pretrazi',
+    steps: 'Prvi koraci',
     row: 'Profil',
     edit: 'Izmena profila',
     areas: /^Liman,\sGrbavica,\sCentar\si\sjoš\s1$/,
@@ -78,6 +80,8 @@ for (const theme of THEMES) {
 
       await expect(page.getByRole('heading', { name: l.title, level: 1 })).toBeVisible();
       await expect(page.getByText(l.published)).toBeVisible();
+      // подписок и шаблонов ещё нет — «Первые шаги» (UX №9)
+      await expect(page.getByRole('region', { name: l.steps })).toBeVisible();
       await snap(`S33-cabinet-${theme}-${l.locale}.png`);
 
       // S38 как на артборде: «Доступен сегодня» включён, выбрано «до 20:00»

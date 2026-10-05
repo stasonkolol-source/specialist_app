@@ -8,9 +8,9 @@ import type { BottomButtonProps } from '@sosed/platform';
 import { useColorScheme, useMainButton } from '@sosed/platform';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
-import { ACCOUNT_PATH, BECOME_PATHS } from './paths.ts';
+import { ACCOUNT_PATH, BECOME_PATHS, CABINET_PATHS } from './paths.ts';
 import { useBecomeStore } from './store.ts';
 
 export function useBecomeFlow() {
@@ -25,11 +25,12 @@ export function useBecomeFlow() {
   return {
     open,
     saved,
-    /** Отправлено на проверку: несохранённого ввода больше нет, дальше — S31 со статусом. */
+    /** Отправлено на проверку: несохранённого ввода больше нет, дальше — кабинет S33 с итогом:
+     *  сколько ждать, «бот напишет» и что сделать пока (UX №7), а не молча S31. */
     finish(profile: ProfileOut) {
       saved(profile);
       reset();
-      void router.navigate({ to: ACCOUNT_PATH, replace: true });
+      void router.navigate({ to: CABINET_PATHS.home, replace: true });
     },
     /** «Назад» Telegram: на прошлый экран, а без истории — на шаг `fallback` или в S31. */
     back(fallback: BecomeStep | null) {
@@ -43,13 +44,17 @@ export function useBecomeFlow() {
 /**
  * Черновик профиля для шагов мастера. Профиль уже отправлен или опубликован — мастер пройден, в
  * S31. Профиля нет — на первый шаг (S32b–c открыли по ссылке); первому шагу он и не нужен
- * (`allowMissing`).
+ * (`allowMissing`). Решает профиль, с которым шаг открыли: отправленный с этого же шага ведёт в
+ * кабинет `finish`, и переход в S31 его бы перебил.
  */
 export function useDraftProfile({ allowMissing = false }: { allowMissing?: boolean } = {}) {
   const router = useRouter();
   const query = useMyProfile();
   const profile = query.data;
+  const checked = useRef(false);
   useEffect(() => {
+    if (profile === undefined || checked.current) return;
+    checked.current = true;
     if (profile === null && !allowMissing) {
       void router.navigate({ to: BECOME_PATHS.type, replace: true });
     } else if (profile && profile.status !== 'draft') {
