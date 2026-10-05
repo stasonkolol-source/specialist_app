@@ -56,8 +56,11 @@ def test_demo_specialists_look_like_real_ones() -> None:
         assert 1 <= len(demo.district_picks) <= 4
         if demo.kind is ProfileKind.PRO:
             assert demo.services  # «Специалиста» без прайса на проверку не отправить
+            assert 3 <= demo.portfolio <= 8  # настоящих фото из кэша
         else:
             assert not demo.photos
+            assert (demo.portfolio, demo.pre_platform) == (0, 0)
+            assert demo.reviews <= 4
         assert ("at_client" in demo.work_modes) == (demo.travel_radius_km is not None)
 
 
@@ -205,7 +208,7 @@ async def test_production_refuses_demo_data(
 def test_cli_reports_the_counts(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[str, str, bool]] = []
 
-    async def seeded(scale: str, lang: str, *, replace: bool) -> SeedReport:
+    async def seeded(scale: str, lang: str, *, replace: bool, media: object = None) -> SeedReport:
         calls.append((scale, lang, replace))
         return SeedReport(created=58, skipped=2, photos=80, jobs=27)
 
@@ -236,7 +239,7 @@ async def test_replace_is_for_dev_only(
 
 
 def test_cli_reports_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def refuse(scale: str, lang: str, *, replace: bool) -> SeedReport:
+    async def refuse(scale: str, lang: str, *, replace: bool, media: object = None) -> SeedReport:
         raise SeedDemoRefusedError("seed-demo is for dev and stage only")
 
     monkeypatch.setattr(cli, "_seed_demo", refuse)
