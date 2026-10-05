@@ -33,7 +33,7 @@ import {
   UploadTile,
 } from '@sosed/ui-web';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { DirectBanner } from '../shared/DirectBanner.tsx';
 import { categoryPath, findCategory } from '../shared/categories.ts';
@@ -74,6 +74,7 @@ function WhatForm({
   const [picking, setPicking] = useState(false);
   // незаполненное подсвечиваем после первого «Далее»
   const [checked, setChecked] = useState(false);
+  const form = useRef<HTMLElement>(null);
   const photos = usePhotos(draft, patch);
 
   // CTA с категорией и названием: новый черновик начинается с них, начатый — не трогаем
@@ -111,6 +112,9 @@ function WhatForm({
     onClick: () => {
       setChecked(true);
       if (problems.length === 0 && !photos.uploading) next();
+      // «Далее» не молчит: первое незаполненное поле — в фокус и на экран, под ним — красная
+      // подсказка (с открытой клавиатурой категорию ниже заголовка не видно)
+      else if (problems[0]) focusProblem(form.current, problems[0]);
     },
   });
 
@@ -120,7 +124,7 @@ function WhatForm({
   };
 
   return (
-    <section className="flex flex-col gap-4 px-4 pt-3 pb-6">
+    <section ref={form} className="flex flex-col gap-4 px-4 pt-3 pb-6">
       <WizardHeader step={1} title={t('create.what.title')} />
       {draft.direct && (
         <DirectBanner
@@ -144,6 +148,7 @@ function WhatForm({
         }
       >
         <Input
+          data-problem="title"
           value={draft.title}
           maxLength={JOB_TITLE_MAX}
           placeholder={t('create.what.summaryPlaceholder')}
@@ -193,7 +198,12 @@ function CategoryField({
   const { t } = useTranslation('jobs');
   const titleId = useId();
   return (
-    <div className="flex flex-col gap-1.5" role="group" aria-labelledby={titleId}>
+    <div
+      className="flex flex-col gap-1.5"
+      role="group"
+      aria-labelledby={titleId}
+      data-problem="category"
+    >
       <span id={titleId} className="text-sm font-semibold">
         {t('create.what.category')}
       </span>
@@ -219,6 +229,14 @@ function CategoryField({
       </Text>
     </div>
   );
+}
+
+/** Незаполненное поле (`data-problem`): фокус на его поле ввода или кнопке, само поле — на экран. */
+function focusProblem(form: HTMLElement | null, problem: string) {
+  const field = form?.querySelector<HTMLElement>(`[data-problem="${problem}"]`);
+  const target = field?.matches('input') ? field : field?.querySelector<HTMLElement>('button');
+  target?.focus({ preventScroll: true });
+  target?.scrollIntoView({ block: 'center' });
 }
 
 /** Шторка выбора: разделы, в разделе — его услуги (заявка — в лист каталога). */

@@ -9,6 +9,8 @@ import { Avatar, initials, paletteFor } from './Avatar.tsx';
 import { Badge } from './Badge.tsx';
 import { Button, IconButton } from './Button.tsx';
 import { Card } from './Card.tsx';
+import { colourOr } from './cx.ts';
+import { color } from '@sosed/design-tokens';
 import tokens from '@sosed/design-tokens/tokens.json' with { type: 'json' };
 
 import { ICON_NAMES, ICON_STROKE, Icon } from './icon/Icon.tsx';
@@ -80,6 +82,42 @@ describe('Heading, SectionTitle, Text', () => {
     expect(screen.getByRole('heading', { level: 1 }).className).toContain('font-display');
     expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(2);
     expect(await a11yViolations(container)).toEqual([]);
+  });
+
+  // SMOKE-8: при двух цветах побеждал поздний в CSS (.text-text2), ошибка оставалась серой
+  it('свой цвет вызывающего заменяет серый подписи, а не спорит с ним', () => {
+    render(
+      <>
+        <Text variant="cap" className="text-danger">
+          Выберите категорию
+        </Text>
+        <Text variant="cap">Подсказка</Text>
+        <Text secondary className="text-accent">
+          Ссылка
+        </Text>
+        <Text variant="cap" className="hover:text-accent">
+          Наведение
+        </Text>
+        <SectionTitle className="text-danger">Ошибки</SectionTitle>
+      </>,
+    );
+    const classes = (text: string) => screen.getByText(text).className.split(' ');
+    expect(classes('Выберите категорию')).toContain('text-danger');
+    expect(classes('Выберите категорию')).not.toContain('text-text2');
+    expect(classes('Подсказка')).toContain('text-text2');
+    expect(classes('Ссылка')).not.toContain('text-text2');
+    expect(classes('Наведение')).toContain('text-text2');
+    expect(classes('Ошибки')).not.toContain('text-text2');
+  });
+
+  it('цвет — любой токен темы, размер шрифта цветом не считается', () => {
+    for (const name of Object.keys(color.light)) {
+      expect(colourOr('text-text2', `font-semibold text-${name}`)).toBe(false);
+    }
+    for (const size of ['text-cap', 'text-sm', 'text-body', 'text-title', 'text-section']) {
+      expect(colourOr('text-text2', size)).toBe('text-text2');
+    }
+    expect(colourOr('text-text2', undefined)).toBe('text-text2');
   });
 });
 
