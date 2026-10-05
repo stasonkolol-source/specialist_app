@@ -72,6 +72,41 @@ describe('Sheet (S06)', () => {
     }
     expect(onClose).toHaveBeenCalledTimes(3);
   });
+
+  it('без крестика (своя отмена, S25, S54): Escape и затемнение закрывают, строка заголовка той же высоты', () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <Sheet
+        open
+        title="Выбрать исполнителем?"
+        closeLabel="Закрыть"
+        closeButton={false}
+        onClose={onClose}
+      >
+        <button type="button" onClick={onClose}>
+          Отмена
+        </button>
+      </Sheet>,
+    );
+    expect(screen.queryByRole('button', { name: 'Закрыть' })).toBeNull();
+    const heading = screen.getByRole('heading', { name: 'Выбрать исполнителем?' });
+    expect(heading.parentElement?.className).toContain('min-h-11');
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    fireEvent.click(container.querySelector('.bg-scrim') as Element);
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it('появляется плавно только без prefers-reduced-motion', () => {
+    const { container } = render(
+      <Sheet open title="Фильтры" closeLabel="Закрыть" onClose={() => {}}>
+        <p>Цена</p>
+      </Sheet>,
+    );
+    expect(screen.getByRole('dialog').className).toContain('motion-safe:animate-sheet-in');
+    expect(container.querySelector('.bg-scrim')?.className).toContain(
+      'motion-safe:animate-fade-in',
+    );
+  });
 });
 
 describe('SpecialistCard (S05)', () => {

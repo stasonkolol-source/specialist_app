@@ -365,6 +365,7 @@ function ConfirmSheet({
       title={t('choice.confirmTitle')}
       onClose={onClose}
       closeLabel={common('action.close')}
+      closeButton={false}
     >
       <div className="flex items-center gap-3">
         <Avatar name={name} src={avatar?.url} placeholder={performer.avatar?.placeholder} />
