@@ -69,6 +69,28 @@ async def test_client_config_carries_texts_of_current_versions(settings: Setting
         assert again.status_code == 304
 
 
+async def test_first_launch_takes_config_without_texts(settings: Settings) -> None:
+    """Тексты — 99,5 % конфига: первый запуск берёт его без них, S48 — отдельным запросом (O-2)."""
+    async with http_client(settings) as client:
+        full = (await client.get("/api/v1/client-config")).json()
+        slim = await client.get("/api/v1/client-config", params={"legal_documents": "false"})
+        assert slim.status_code == 200
+        body = slim.json()
+        assert body["legal_documents"] == {}
+        assert body["legal_versions"] == full["legal_versions"] == CURRENT_LEGAL_VERSIONS
+        assert len(slim.content) < 1024
+        documents = await client.get("/api/v1/legal-documents", headers={"accept-language": "sr"})
+        assert documents.status_code == 200
+        # те же редакции, что в конфиге, на всех языках, какие есть: без Vary
+        assert documents.json() == {"documents": full["legal_documents"]}
+        assert set(full["legal_documents"]) == {"terms", "privacy"}
+        assert "vary" not in documents.headers
+        again = await client.get(
+            "/api/v1/legal-documents", headers={"if-none-match": documents.headers["etag"]}
+        )
+        assert again.status_code == 304
+
+
 async def test_version_without_text_is_left_out(settings: Settings, config_db: AsyncEngine) -> None:
     """Версию включили в админке раньше, чем выложили текст: не отдаём чужую редакцию."""
     async with config_db.begin() as conn:
@@ -81,6 +103,8 @@ async def test_version_without_text_is_left_out(settings: Settings, config_db: A
         body = (await client.get("/api/v1/client-config")).json()
         assert body["legal_versions"]["terms"] == "draft-9"
         assert set(body["legal_documents"]) == {"privacy"}
+        documents = (await client.get("/api/v1/legal-documents")).json()["documents"]
+        assert set(documents) == {"privacy"}
 
 
 async def test_maintenance_closes_api_but_not_client_config(

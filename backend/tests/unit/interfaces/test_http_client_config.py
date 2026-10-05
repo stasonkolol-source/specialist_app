@@ -67,3 +67,20 @@ async def test_without_database_config_is_served_empty(offline_settings: Setting
             "/api/v1/client-config", headers={"if-none-match": response.headers["etag"]}
         )
         assert cached.status_code == 304
+
+
+async def test_first_launch_takes_config_without_texts(offline_settings: Settings) -> None:
+    """Mini App берёт конфиг без текстов (`?legal_documents=false`), тексты S48 — отдельно и с тем
+    же кэшем; без параметра конфиг — как раньше (выкаченные клиенты)."""
+    async with http_client(offline_settings) as client:
+        slim = await client.get("/api/v1/client-config", params={"legal_documents": "false"})
+        assert slim.status_code == 200
+        assert slim.json()["legal_documents"] == {}
+        documents = await client.get("/api/v1/legal-documents")
+        assert documents.status_code == 200
+        assert documents.json() == {"documents": {}}
+        assert documents.headers["cache-control"] == slim.headers["cache-control"]
+        cached = await client.get(
+            "/api/v1/legal-documents", headers={"if-none-match": documents.headers["etag"]}
+        )
+        assert cached.status_code == 304
