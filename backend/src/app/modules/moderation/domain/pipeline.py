@@ -3,11 +3,16 @@
 Правила → omni-moderation → классификатор (для уровня доверия 0 и при любом флаге).
 - block в правилах — P0: скрыть, заморозить аккаунт, кейс safety;
 - любой сигнал — флаг правил или omni, метка или неуверенность классификатора, проверка
-  не состоялась (AI недоступен), категория с `risk_level ≥ 1`, профиль, который всегда
+  не состоялась (сбой AI), категория с `risk_level ≥ 1`, профиль, который всегда
   проверяет человек, — в очередь: контент ждёт решения; очередь — по самому строгому
   сигналу (P0 safety, P1 fraud, иначе P2 premod); уже видимый объект (сообщение чата) очередь
   скрывает только при признаке нарушения (`flagged`);
 - иначе — публикация; у уровня 0 доля SAMPLE_RATE публикаций — ещё и в P2 после публикации.
+
+Ключа AI нет (K25, K26 — после MVP, решение владельца 2026-10-05) — это не сигнал: текст
+решают стоп-правила, детектор контактов и предоплаты, категория и выборка уровня 0, как
+будто AI ответил «чисто». Иначе модератор ждал бы каждую заявку, отклик и отзыв, а каждое
+сообщение чата открывало бы кейс. Фото без ключа по-прежнему идут к человеку (domain/images.py).
 """
 
 import hashlib
@@ -24,7 +29,18 @@ from app.modules.moderation.domain.rules import (
     RuleCategory,
     RulesVerdict,
 )
-from app.platform.ai.port import ModerationResult, PolicyLabel, PolicyVerdict, Unavailable
+from app.platform.ai.port import (
+    ModerationResult,
+    PolicyLabel,
+    PolicyVerdict,
+    Unavailable,
+    UnavailableReason,
+)
+
+NOT_A_SIGNAL: Final = frozenset({UnavailableReason.NO_KEY})
+"""Почему AI не проверял текст, но к человеку его не отправляем: ключа нет по решению
+владельца (MVP без ключей AI). Сбой провайдера, предохранитель, отказ в запросе и ответ без
+вердикта — по-прежнему в очередь (ADR-0016): там проверку ждали, а она не состоялась."""
 
 CONFIDENT: Final = 0.8
 """Классификатору верим с этой уверенности **[Допущение]**: ниже — решает человек."""
@@ -109,12 +125,12 @@ def route(checks: Checks) -> Routing:
         for match, signal in zip(checks.rules.matches, _rule_signals(checks.rules), strict=True)
     ]
     match checks.omni:
-        case Unavailable(reason=reason):
+        case Unavailable(reason=reason) if reason not in NOT_A_SIGNAL:
             found.append((Queue.PREMOD, f"omni:unavailable:{reason.value}"))
         case ModerationResult(flagged=True, scores=scores):
             found.append((Queue.PREMOD, f"omni:{_top(scores)}"))
     match checks.policy:
-        case Unavailable(reason=reason):
+        case Unavailable(reason=reason) if reason not in NOT_A_SIGNAL:
             found.append((Queue.PREMOD, f"classifier:unavailable:{reason.value}"))
         case PolicyVerdict(label=label, confidence=confidence) if label is not PolicyLabel.OK:
             found.append((_label_queue(label), f"classifier:{label.value}:{confidence:.2f}"))

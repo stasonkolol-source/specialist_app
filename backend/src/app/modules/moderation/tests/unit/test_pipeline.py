@@ -34,6 +34,7 @@ CLEAN_RULES = RulesVerdict()
 CLEAN_OMNI = ModerationResult(flagged=False)
 OK = PolicyVerdict(label=PolicyLabel.OK, confidence=0.95, explanation="")
 NO_KEY = Unavailable(UnavailableReason.NO_KEY)
+FAILED = Unavailable(UnavailableReason.PROVIDER_ERROR)
 
 
 def rules(category: RuleCategory, action: RuleAction, evidence: str = "x") -> RulesVerdict:
@@ -83,8 +84,8 @@ def test_p0_rule_blocks() -> None:
 @pytest.mark.parametrize(
     ("checks", "queue", "signal"),
     [
-        ({"omni": NO_KEY}, Queue.PREMOD, "omni:unavailable:no_key"),  # AI недоступен — к человеку
-        ({"policy": NO_KEY}, Queue.PREMOD, "classifier:unavailable:no_key"),
+        ({"omni": FAILED}, Queue.PREMOD, "omni:unavailable:provider_error"),  # сбой — к человеку
+        ({"policy": FAILED}, Queue.PREMOD, "classifier:unavailable:provider_error"),
         (
             {"omni": ModerationResult(flagged=True, scores={"violence": 0.9, "hate": 0.2})},
             Queue.PREMOD,
@@ -117,7 +118,7 @@ def test_every_doubt_goes_to_a_queue(checks: dict[str, object], queue: Queue, si
         ({"rules_": rules(RuleCategory.SPAM, RuleAction.FLAG)}, True),
         ({"omni": ModerationResult(flagged=True, scores={"hate": 0.9})}, True),
         ({"policy": verdict(PolicyLabel.SPAM_AD, 0.6)}, True),
-        ({"omni": NO_KEY}, False),
+        ({"omni": FAILED}, False),
         ({"policy": verdict(PolicyLabel.OK, 0.6)}, False),
         ({"policy": verdict(PolicyLabel.CONTACT_LEAK)}, False),
         ({"rules_": rules(RuleCategory.CONTACTS, RuleAction.FLAG)}, False),
@@ -143,6 +144,60 @@ def test_only_a_violation_hides_visible_content(checks: dict[str, object], flagg
     result = routed(**checks)  # type: ignore[arg-type]
 
     assert (result.route, result.flagged) == (Route.REVIEW, flagged)
+
+
+# --- MVP без ключей AI (K25, K26 — после MVP, решение владельца 2026-10-05) ---------------
+
+
+def test_without_ai_keys_clean_text_is_published() -> None:
+    """Ключа нет — не сигнал: чистый по правилам текст публикуется сразу, как при «чисто» от AI."""
+    assert routed(omni=NO_KEY, policy=NO_KEY) == Routing(route=Route.PUBLISH)
+    assert routed(omni=NO_KEY, policy=None) == Routing(route=Route.PUBLISH)  # уровень ≥ 1
+
+
+@pytest.mark.parametrize(
+    ("checks", "route_", "queue"),
+    [
+        ({"rules_": rules(RuleCategory.SPAM, RuleAction.FLAG)}, Route.REVIEW, Queue.PREMOD),
+        ({"rules_": rules(RuleCategory.SCAM, RuleAction.FLAG)}, Route.REVIEW, Queue.FRAUD),
+        ({"rules_": rules(RuleCategory.DRUGS, RuleAction.BLOCK)}, Route.BLOCK, Queue.SAFETY),
+        ({"risky_category": True}, Route.REVIEW, Queue.PREMOD),
+        ({"always_review": True}, Route.REVIEW, Queue.PREMOD),
+    ],
+)
+def test_without_ai_keys_rules_still_decide(
+    checks: dict[str, object], route_: Route, queue: Queue
+) -> None:
+    result = routed(omni=NO_KEY, policy=NO_KEY, **checks)  # type: ignore[arg-type]
+
+    assert (result.route, result.queue) == (route_, queue)
+    assert not any("no_key" in signal for signal in result.signals)
+
+
+def test_without_ai_keys_level_zero_sample_stays_the_safety_net() -> None:
+    result = routed(omni=NO_KEY, policy=NO_KEY, sampled=True)
+
+    assert result == Routing(
+        route=Route.PUBLISH, queue=Queue.PREMOD, signals=("sample",), post_review=True
+    )
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        UnavailableReason.PROVIDER_ERROR,
+        UnavailableReason.BREAKER_OPEN,
+        UnavailableReason.REJECTED_INPUT,
+        UnavailableReason.NO_VERDICT,
+    ],
+)
+def test_ai_failure_with_a_key_still_waits_for_a_human(reason: UnavailableReason) -> None:
+    """С ключом проверку ждали, а она не состоялась, — решает человек (ADR-0016)."""
+    for checks in ({"omni": Unavailable(reason)}, {"policy": Unavailable(reason)}):
+        result = routed(**checks)  # type: ignore[arg-type]
+
+        assert (result.route, result.queue, result.flagged) == (Route.REVIEW, Queue.PREMOD, False)
+        assert result.signals[0].endswith(f":unavailable:{reason.value}")
 
 
 def test_strictest_signal_picks_the_queue() -> None:
