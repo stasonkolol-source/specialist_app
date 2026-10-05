@@ -283,17 +283,22 @@ describe('S49b account restricted', () => {
 });
 
 describe('S49 over the whole app', () => {
-  it.each<[SystemState, string, string | null]>([
-    [{ kind: 'offline' }, 'Нет соединения', 'Повторить'],
-    [{ kind: 'maintenance' }, 'Технические работы', 'Повторить'],
-    [{ kind: 'error', traceId: null }, 'Что-то пошло не так', 'Повторить'],
-    [{ kind: 'update', target: 'telegram' }, 'Обновите Telegram', null],
-    [{ kind: 'update', target: 'app' }, 'Вышла новая версия', 'Перезагрузить'],
-  ])('%o → «%s»', async (state, title, action) => {
+  // сбой и ожидание — нейтральной иконкой (зелёный — бренд и успех), новая версия — зелёной
+  it.each<[SystemState, string, string | null, 'neutral' | 'accent']>([
+    [{ kind: 'offline' }, 'Нет соединения', 'Повторить', 'neutral'],
+    [{ kind: 'maintenance' }, 'Технические работы', 'Повторить', 'neutral'],
+    [{ kind: 'error', traceId: null }, 'Что-то пошло не так', 'Повторить', 'neutral'],
+    [{ kind: 'update', target: 'telegram' }, 'Обновите Telegram', null, 'neutral'],
+    [{ kind: 'update', target: 'app' }, 'Вышла новая версия', 'Перезагрузить', 'accent'],
+  ])('%o → «%s»', async (state, title, action, tone) => {
     const onRetry = vi.fn();
-    renderWith(<SystemScreen state={state} onRetry={onRetry} />);
+    const { container } = renderWith(<SystemScreen state={state} onRetry={onRetry} />);
 
     expect(screen.getByRole('heading', { name: title, level: 1 })).toBeTruthy();
+    const icon = container.querySelector('svg')?.closest('span');
+    expect(icon?.classList.contains(tone === 'neutral' ? 'bg-surface' : 'bg-accent-soft')).toBe(
+      true,
+    );
     const buttons = screen.queryAllByRole('button');
     expect(buttons.map((b) => b.textContent)).toEqual(action ? [action] : []);
     if (action === 'Повторить') {

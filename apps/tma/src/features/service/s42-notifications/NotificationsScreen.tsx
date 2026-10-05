@@ -312,7 +312,8 @@ function Loading() {
   );
 }
 
-/** Нет сети — S49a «Нет соединения», иначе общая ошибка; обе с «Повторить». */
+/** Нет сети — S49a «Нет соединения», иначе общая ошибка; обе с «Повторить» и нейтральные, как
+ *  остальные LoadError: зелёный — бренд и успех, не ошибка. */
 function LoadError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   const { t } = useTranslation();
   const offline = systemStateOf(error).kind === 'offline';
@@ -321,7 +322,7 @@ function LoadError({ error, onRetry }: { error: unknown; onRetry: () => void }) 
       <EmptyState
         as="h2"
         icon={offline ? 'wifi-off' : 'alert'}
-        tone={offline ? 'neutral' : 'accent'}
+        tone="neutral"
         title={offline ? t('offline.title') : t('error.title')}
         action={
           <Button variant="secondary" icon="refresh" onClick={onRetry}>

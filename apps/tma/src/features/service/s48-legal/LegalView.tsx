@@ -160,7 +160,7 @@ function LoadError({
     <EmptyState
       as="h2"
       size="h2"
-      tone={offline ? 'neutral' : 'accent'}
+      tone="neutral"
       icon={offline ? 'wifi-off' : 'alert'}
       title={offline ? t('offline.title') : t('error.title')}
       className="px-6 pt-2"
