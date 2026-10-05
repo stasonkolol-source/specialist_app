@@ -1814,7 +1814,7 @@ export const getJobsHideJobUrl = (jobId: string) => {
 };
 
 /**
- * «Не интересно» (S15): заявка пропадает из ленты; повтор — без ошибки.
+ * «Не подходит» (S15): заявка пропадает из ленты; повтор — без ошибки.
  * @summary Hide Job
  */
 export const jobsHideJob = async (

@@ -12,6 +12,9 @@
 4. блокировки в обе стороны стёрты (4.7): связь «кто кого» — тоже данные о человеке; жалобы
    остаются в модерации с тем же псевдонимным id (§7.10: решения и жалобы хранятся по закону);
 5. запрос исполнен.
+
+`expedite` — dev (`cli seed-demo --replace`): исполнить запросы этих пользователей сразу, не
+дожидаясь срока, — и только их; удержание открытым кейсом действует и тут.
 """
 
 from dataclasses import dataclass
@@ -46,6 +49,9 @@ BATCH: Final = 100
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ProcessDeletionsCommand:
     limit: int = BATCH
+    expedite: tuple[UserId, ...] | None = None
+    """Исполнить сейчас, не дожидаясь срока, запросы только этих пользователей (пустой список —
+    ничего); None — очередь запросов, чей срок пришёл."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -73,29 +79,33 @@ class ProcessDeletions:
         self._blocks, self._hold, self._config, self._clock = blocks, hold, config, clock
 
     async def __call__(self, cmd: ProcessDeletionsCommand) -> DeletionsReport:
-        now = self._clock.now()
-        deleted = held = 0
-        cursor: DueCursor | None = None
-        while True:
-            page = await self._deletions.due(now, after=cursor, limit=cmd.limit)
-            for _, user_id in page:
-                outcome = await self._process(user_id)
-                deleted += outcome == "deleted"
-                held += outcome == "held"
-            if len(page) < cmd.limit:
-                break
-            cursor = page[-1]
+        if cmd.expedite is not None:
+            outcomes = [await self._process(user_id, early=True) for user_id in cmd.expedite]
+        else:
+            outcomes = await self._queue(cmd.limit)
+        deleted, held = outcomes.count("deleted"), outcomes.count("held")
         if deleted or held:
             log.info("account_deletions_processed", deleted=deleted, held=held)
         return DeletionsReport(deleted=deleted, held=held)
 
-    async def _process(self, user_id: UserId) -> str:
+    async def _queue(self, limit: int) -> list[str]:
+        now = self._clock.now()
+        outcomes: list[str] = []
+        cursor: DueCursor | None = None
+        while True:
+            page = await self._deletions.due(now, after=cursor, limit=limit)
+            outcomes += [await self._process(user_id) for _, user_id in page]
+            if len(page) < limit:
+                return outcomes
+            cursor = page[-1]
+
+    async def _process(self, user_id: UserId, *, early: bool = False) -> str:
         now = self._clock.now()
         async with self._uow:
             # порядок блокировок — как у RequestDeletion: пользователь, затем запрос
             user = await self._users.get_for_update(user_id)
             request = await self._deletions.active_for_update(user_id)
-            if request is None or not request.due(now):
+            if request is None or not (early or request.due(now)):
                 return "skipped"  # отменили или исполнил параллельный запуск
             if user_id in await self._hold.held([user_id]):
                 return "held"

@@ -212,7 +212,7 @@ class StatusHistoryRow(Base):
 
 
 class HiddenJobRow(Base):
-    """«Не интересно» (S15): заявка скрыта из ленты исполнителя (миграция jobs_0003)."""
+    """«Не подходит» (S15): заявка скрыта из ленты исполнителя (миграция jobs_0003)."""
 
     __tablename__ = "hidden_jobs"
 

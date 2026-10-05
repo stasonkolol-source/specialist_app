@@ -1,4 +1,4 @@
-"""«Не интересно» (S15, DEVELOPMENT_PLAN 5.3): строка на пару «исполнитель — заявка»."""
+"""«Не подходит» (S15, DEVELOPMENT_PLAN 5.3): строка на пару «исполнитель — заявка»."""
 
 from sqlalchemy import delete
 from sqlalchemy.dialects.postgresql import insert

@@ -1,6 +1,6 @@
 // Сколько заявок (DEVELOPMENT_PLAN 5.3): «Показать N» шторки S14 и «N новых задач рядом» на
 // Главной — теми же фильтрами, что лента. Отдельно от ленты: Главной не нужны страницы и «не
-// интересно» (бюджет первого экрана).
+// подходит» (бюджет первого экрана).
 import { getJobsCountJobsQueryKey, jobsCountJobs } from '@sosed/api-client';
 import { keepPreviousData, queryOptions, useQuery } from '@tanstack/react-query';
 

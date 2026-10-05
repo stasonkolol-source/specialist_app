@@ -1347,7 +1347,7 @@ CREATE INDEX alerts_dist_idx ON jobs.alerts USING gin (district_ids) WHERE is_ac
 CREATE INDEX alerts_area_idx ON jobs.alerts USING gist (area) WHERE is_active AND area IS NOT NULL;  -- частичный: NULL раздувают GiST в 10 раз
 CREATE INDEX ON jobs.alerts (user_id);
 
-CREATE TABLE jobs.hidden_jobs (      -- «не интересно» в ленте исполнителя
+CREATE TABLE jobs.hidden_jobs (      -- «не подходит» в ленте исполнителя
   user_id uuid NOT NULL, job_id uuid NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, job_id)
 );
@@ -2514,7 +2514,7 @@ sequenceDiagram
 | `POST /jobs/{id}/close`, `/extend` | Переходы state machine: закрыть с причиной; продлить `published` до истечения или переопубликовать `expired` (не больше 3 раз). Отдельного `submit` нет: заявка создаётся отправленной. Возврат в `published` после отмены сделки происходит автоматически по событию `DealCancelled` |
 | `POST /jobs/{id}/invites`, `GET /jobs/{id}/invites` | Пригласить специалистов из каталога в свою открытую заявку (S21, S23; 5.6): `{profile_ids}`, до 10 на заявку (409 `job_invites_full`), повтор — без дублей; профиль скрыт, удалён или автор под санкцией — 404 `invitee_not_found`, свой — 409 `own_profile_invite`. Новому приглашённому — уведомление `job.invited`. `GET` — кого пригласили, по порядку |
 | `DELETE /jobs/{id}` | Удалить (soft) |
-| `POST /jobs/{id}/hide` | «Не интересно» — скрыть из своей ленты |
+| `POST /jobs/{id}/hide` | «Не подходит» — скрыть из своей ленты |
 | `GET /me/jobs?status=` | Заявки клиента (S22), новые первыми; `new_responses` — отклики, которых он ещё не видел (бейдж), то же поле у `GET /jobs/{id}` владельцу |
 | `POST /jobs/{id}/responses` | Откликнуться (5.4, Idempotency-Key): `{message, price_type, price_amount, availability_note, template_id?}` — из своего шаблона отклик хранит его id (чужой — 404 `response_template_not_found`); профиль — опубликованный профиль специалиста автора, если есть. Пять мест на заявку под блокировкой её строки; 409 `job_not_open`, `own_job`, `already_responded`, `job_full`; суточный лимит по уровню доверия — 429. Текст — на проверку: клиент видит отклик после неё |
 | `GET /me/response-templates`, `POST /me/response-templates` (Idempotency-Key), `PATCH /me/response-templates/{id}`, `DELETE /me/response-templates/{id}` | Шаблоны откликов (5.5): не больше двух, по порядку, первый — основной (S16 подставляет его сразу), `limit` — «1 из 2» на S57; третий — 409 `response_templates_full`; `PATCH` — название, предложение целиком (`message` и `price_type` вместе), `primary: true` — «Сделать основным»; после удаления основным становится следующий. Оба шаблона доступны кнопками прямо в уведомлении бота (отклик в один тап, callback `jr:<job>:<tpl>`, id в base62) |
@@ -2991,7 +2991,7 @@ flowchart LR
 
 | Тип | Кому | Канал | Приоритет | Кнопки |
 |---|---|---|---|---|
-| `job.matched` | Исполнитель с подходящей подпиской | Бот (мгновенно или дайджест) | P2 | «Откликнуться» (deep link `j_…`), до двух кнопок «Откликнуться шаблоном» (callback `jr:<job>:<tpl>`, id в base62), «Не интересно», «Пауза подписки» |
+| `job.matched` | Исполнитель с подходящей подпиской | Бот (мгновенно или дайджест) | P2 | «Откликнуться» (deep link `j_…`), до двух кнопок «Откликнуться шаблоном» (callback `jr:<job>:<tpl>`, id в base62), «Не подходит», «Пауза подписки» |
 | `response.received` | Клиент | Бот + in-app, дебаунс окном 5 мин (5.4): первый отклик ставит задачу на конец окна, остальные, пока она ждёт, — ничего (замок очереди по заявке); в тексте — видимые клиенту и ещё не открытые отклики | P1 | «Посмотреть отклики» |
 | `response.accepted` / `response.not_selected` | Исполнитель | Бот + in-app | P0 / P3 | «Открыть сделку» (адрес — только внутри Mini App, в тексте бота его нет), «Написать» |
 | `job.invited` | Приглашённый специалист | Бот + in-app | P1 | «Посмотреть заявку», «Откликнуться шаблоном» |
@@ -3059,7 +3059,7 @@ flowchart LR
 
 `gh` и `h` — разные типы; юнит-тесты кодека проверяют лимит 64 символа. Суффикс `_r<code>` — атрибуция чатов-партнёров. Веб-путь объявления — `/g/<id>` с Open Graph, он опирается на веб-оболочку v1. Карточка для чата — `savePreparedInlineMessage` + `shareMessage`.
 
-Для веба и будущих universal links используются те же сущности: `https://<domain>/j/<id>`, `/s/<id>`. Страница по такой ссылке предлагает «Открыть в Telegram» или «Продолжить в браузере» и отдаёт Open Graph для превью в Viber и WhatsApp (v1).
+Для веба и будущих universal links используются те же сущности: `https://<domain>/j/<id>`, `/s/<id>`. Страница по такой ссылке предлагает «Открыть в Telegram» или «Посмотреть в браузере» и отдаёт Open Graph для превью в Viber и WhatsApp (v1).
 
 ### 11.5. Переписка (модель чата)
 
