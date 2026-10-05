@@ -265,7 +265,7 @@ describe('S34 profile photo', () => {
     startApp('/cabinet/profile');
 
     const section = await screen.findByRole('region', { name: 'Фото профиля' });
-    expect(within(section).getByText('Пока — инициалы')).toBeTruthy();
+    expect(within(section).getByText('Без фото клиенты видят инициалы')).toBeTruthy();
     await choose([photo('me.jpg')]);
 
     await waitFor(() =>

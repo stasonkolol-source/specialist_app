@@ -55,6 +55,8 @@ describe('S33 cabinet', () => {
 
     expect(await screen.findByText('Черновик · осталось несколько шагов')).toBeTruthy();
     expect(screen.getByText('Напишите коротко о себе')).toBeTruthy();
+    // черновика в каталоге нет — смотреть клиентам нечего
+    expect(screen.queryByRole('button', { name: 'Посмотреть как клиент' })).toBeNull();
     await waitFor(() =>
       expect(mainButton(telegram)).toMatchObject({
         is_visible: true,
@@ -64,6 +66,17 @@ describe('S33 cabinet', () => {
     await pressMainButton(telegram);
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/become/about'));
+  });
+
+  it('shows a published profile as clients see it (S08)', async () => {
+    withBackend(new ProfileBackend(PUBLISHED, [FIRST_SERVICE]));
+    const { app } = startApp('/cabinet');
+
+    await click(await screen.findByRole('button', { name: 'Посмотреть как клиент' }));
+
+    await waitFor(() =>
+      expect(app.router.state.location.pathname).toBe(`/specialists/${PUBLISHED.id}`),
+    );
   });
 
   it('has no MainButton for a published profile', async () => {

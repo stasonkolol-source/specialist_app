@@ -1,8 +1,10 @@
-// Отзыв по сделке на S08 и S11 (DEVELOPMENT_PLAN 4.6, 7.3): автор «Ирина С.», месяц и услуга,
-// звёзды, текст, «Сделка в «Соседях»» и ответ специалиста (прошедший проверку). На S11 у звёзд —
-// «⋯»: жалоба на отзыв (шторка S46, 4.7); на S08 — без неё, как на артборде. Отзыв до платформы
-// (вкладка S11, 7.6а): вместо услуги — «что делал мастер», метка «До платформы — не подтверждён
-// сделкой» вместо «Сделка в «Соседях»».
+// Отзыв по сделке на S08 и S11 (DEVELOPMENT_PLAN 4.6, 7.3): автор «Ирина С.», под именем звёзды с
+// месяцем и услуга своей строкой — справа у имени ничего не теснит подпись, «Сентябрь · Люстры и
+// карнизы» не переносилась; текст, «Сделка в «Соседях»» и ответ специалиста (прошедший проверку).
+// На S11 у имени — «⋯»: жалоба на отзыв (шторка S46, 4.7); на S08 — без неё, как на артборде.
+// Отзыв до платформы (вкладка S11, 7.6а): вместо услуги — «что делал мастер», метка «До платформы —
+// не подтверждён сделкой» вместо «Сделка в «Соседях»». На S11 метку не показываем: о виде отзывов
+// уже говорят вкладка и строка над списком.
 import type { CardReviewOut } from '@sosed/api-client';
 import { useFormat, useTranslation } from '@sosed/i18n';
 import {
@@ -17,19 +19,17 @@ import {
   Text,
 } from '@sosed/ui-web';
 
-/** Отзыв, пока не пришёл: автор с месяцем, звёзды и пара строк текста. */
+/** Отзыв, пока не пришёл: автор, звёзды с месяцем, услуга и пара строк текста. */
 export function ReviewCardSkeleton() {
   return (
     <SkeletonCard tight>
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex grow items-center gap-2.5">
-          <Skeleton round className="size-9 shrink-0" />
-          <span className="flex grow flex-col">
-            <SkeletonText className="w-1/3" />
-            <SkeletonText size="cap" className="w-1/2" />
-          </span>
+      <div className="flex items-start gap-2.5">
+        <Skeleton round className="size-9 shrink-0" />
+        <span className="flex grow flex-col">
+          <SkeletonText size="title" className="w-1/3" />
+          <SkeletonText size="cap" className="w-1/2" />
+          <SkeletonText size="cap" className="w-2/5" />
         </span>
-        <Skeleton className="h-4 w-20" />
       </div>
       <div className="flex flex-col">
         <SkeletonText size="sm" className="w-full" />
@@ -42,10 +42,13 @@ export function ReviewCardSkeleton() {
 export function ReviewCard({
   review,
   onReport,
+  showKind = true,
 }: {
   review: CardReviewOut;
-  /** «⋯» у звёзд — пожаловаться на отзыв (S11, вошедшему). */
+  /** «⋯» у имени — пожаловаться на отзыв (S11, вошедшему). */
   onReport?: () => void;
+  /** Метка вида отзыва: «Сделка в «Соседях»» или «До платформы». На S11 её нет — там вкладки. */
+  showKind?: boolean;
 }) {
   const { t } = useTranslation('catalog');
   const common = useTranslation().t;
@@ -54,30 +57,36 @@ export function ReviewCard({
   const what = review.category?.name ?? review.work_title ?? null;
   return (
     <Card as="article" tight>
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex items-center gap-2.5">
-          <Avatar name={review.author_name} size="sm" />
-          <span className="flex flex-col">
-            <span className="font-semibold">{review.author_name}</span>
-            <Text as="span" variant="cap">
-              {what ? `${month} · ${what}` : month}
-            </Text>
+      <div className="flex items-start gap-2.5">
+        <Avatar name={review.author_name} size="sm" />
+        <span className="flex min-w-0 grow flex-col">
+          <span className="flex items-start justify-between gap-2">
+            <span className="text-title">{review.author_name}</span>
+            {onReport && (
+              <IconButton
+                plain
+                icon="more"
+                label={t('reviews.actions', { name: review.author_name })}
+                className="-my-2.5 -mr-2"
+                onClick={onReport}
+              />
+            )}
           </span>
-        </span>
-        <span className="flex items-center gap-1">
-          <Stars
-            value={review.rating}
-            label={t('reviews.rating', { rating: review.rating })}
-            starLabel={(n) => common('rating.star', { count: n })}
-          />
-          {onReport && (
-            <IconButton
-              plain
-              icon="more"
-              label={t('reviews.actions', { name: review.author_name })}
-              className="-my-2 -mr-2"
-              onClick={onReport}
-            />
+          <span className="flex items-center gap-2 text-cap text-text2">
+            {/* звёзды 14 px: под именем они подпись, а не заголовок */}
+            <span className="[&_svg]:size-3.5">
+              <Stars
+                value={review.rating}
+                label={t('reviews.rating', { rating: review.rating })}
+                starLabel={(n) => common('rating.star', { count: n })}
+              />
+            </span>
+            {month}
+          </span>
+          {what && (
+            <Text as="span" variant="cap" className="truncate">
+              {what}
+            </Text>
           )}
         </span>
       </div>
@@ -86,14 +95,14 @@ export function ReviewCard({
           {review.body}
         </Text>
       )}
-      {review.kind === 'deal' && (
+      {showKind && review.kind === 'deal' && (
         <span className="self-start">
           <Badge tone="ok" icon="check">
             {t('reviews.viaDeal')}
           </Badge>
         </span>
       )}
-      {review.kind === 'pre_platform' && (
+      {showKind && review.kind === 'pre_platform' && (
         <span className="self-start">
           <Badge tone="mute" icon="clock">
             {t('reviews.prePlatform')}

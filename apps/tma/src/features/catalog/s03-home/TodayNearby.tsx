@@ -40,7 +40,7 @@ export function TodayNearby({
           </LinkButton>
         </div>
         {cards.map((card) => (
-          <ResultCard key={card.profile_id} card={card} favorite={control(card)} />
+          <ResultCard key={card.profile_id} card={card} favorite={control(card)} home />
         ))}
       </section>
     </>

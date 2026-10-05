@@ -287,11 +287,13 @@ export function MoreSections() {
               <SpecialistCard
                 key={person.name}
                 name={person.name}
+                tag={card.rating === null ? catalog('results.casual') : null}
                 headline={card.headline}
                 rating={card.rating === null ? null : format.rating(card.rating)}
                 reviews={catalog('results.reviews', { count: 37 })}
                 newLabel={t('rating.new')}
-                meta={[`${card.district}, ${format.distance(card.km)}`, 'ru, sr']}
+                languages={`${catalog('results.languages.ru')}, ${catalog('results.languages.sr')}`}
+                meta={[`${card.district}, ${format.distance(card.km)}`]}
                 badges={
                   index === 0
                     ? [

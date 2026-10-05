@@ -1,9 +1,9 @@
 // S33 Кабинет специалиста (DEVELOPMENT_PLAN 2.10): статус профиля, полнота с первой подсказкой,
-// «Доступен сегодня до …» (переключатель: включает «до 20:00» или ближайший вариант, подробно — S38)
-// и переходы к правке S34, прайсу S35, портфолио S37, доступности S38 и «Отзывам до платформы» S55
-// (7.6а, «2 из 5» — занятые места). Черновик и «нужны правки» продолжают мастер S32 с нужного шага
-// (MainButton). Блоки артборда, чьих экранов ещё нет, появятся со своими шагами: «Посмотреть как
-// клиент» — 4.5; «За 30 дней» и «Скоро» — v1.
+// «Доступен сегодня до …» (переключатель: включает «до 20:00» или ближайший вариант, подробно — S38),
+// у опубликованного профиля — «Посмотреть как клиент» (публичный профиль S08), и переходы к правке
+// S34, прайсу S35, портфолио S37, доступности S38 и «Отзывам до платформы» S55 (7.6а, «2 из 5» —
+// занятые места). Черновик и «нужны правки» продолжают мастер S32 с нужного шага (MainButton).
+// Блоки артборда, чьих экранов ещё нет, появятся со своими шагами: «За 30 дней» и «Скоро» — v1.
 import type { HintOut, ProfileOut } from '@sosed/api-client';
 import { availableUntil, quickHour } from '@sosed/domain';
 import type { ProfileState } from '@sosed/hooks';
@@ -20,7 +20,18 @@ import {
 import { useFormat, useTranslation } from '@sosed/i18n';
 import { useBackButton, usePlatform } from '@sosed/platform';
 import type { IconName } from '@sosed/ui-web';
-import { Card, Group, Heading, Icon, ProgressBar, Row, Switch, Text, cx } from '@sosed/ui-web';
+import {
+  Button,
+  Card,
+  Group,
+  Heading,
+  Icon,
+  ProgressBar,
+  Row,
+  Switch,
+  Text,
+  cx,
+} from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 import type { MouseEvent } from 'react';
 import { useEffect } from 'react';
@@ -29,6 +40,9 @@ import { LoadState } from '../shared/LoadState.tsx';
 import { SaveError } from '../shared/SaveError.tsx';
 import { useBecomeFlow, useStepButton } from '../shared/flow.ts';
 import { ACCOUNT_PATH, CABINET_PATHS } from '../shared/paths.ts';
+
+/** Публичный профиль S08, как его видят клиенты (маршрут features/catalog). */
+const PUBLIC_PROFILE_PATH = '/specialists/$profileId';
 
 const STATE_ICONS: Record<ProfileState, { icon: IconName; tone: string }> = {
   published: { icon: 'check-circle', tone: 'text-accent' },
@@ -119,7 +133,24 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
             {hints[0] ? <HintText hint={hints[0]} /> : t('cabinet.complete')}
           </Text>
         </div>
-        {profile.status === 'published' && <AvailableToday profile={profile} />}
+        {profile.status === 'published' && (
+          <>
+            <AvailableToday profile={profile} />
+            <Button
+              variant="outline"
+              full
+              icon="eye"
+              onClick={() =>
+                void router.navigate({
+                  to: PUBLIC_PROFILE_PATH,
+                  params: { profileId: profile.id },
+                })
+              }
+            >
+              {t('cabinet.viewAsClient')}
+            </Button>
+          </>
+        )}
       </Card>
       <nav aria-label={t('cabinet.manage')}>
         <Group>

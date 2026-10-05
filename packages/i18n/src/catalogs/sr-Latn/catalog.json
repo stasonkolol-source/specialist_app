@@ -22,6 +22,9 @@
     "title": "Sve usluge",
     "search": "Pronađite uslugu",
     "specialists": "{count, plural, one {# stručnjak} few {# stručnjaka} other {# stručnjaka}}",
+    "more": "{names} i još {count}",
+    "notFound": "Niste našli svoju uslugu?",
+    "notFoundText": "Opišite šta treba uraditi — izabraćemo kategoriju",
     "loadError": "Kategorije nisu učitane"
   },
   "results": {
@@ -46,6 +49,13 @@
     "reviews": "({count})",
     "todayUntil": "Danas do {time}",
     "phoneVerified": "Telefon potvrđen",
+    "casual": "Honorarno",
+    "languages": {
+      "ru": "rus.",
+      "sr": "srp.",
+      "en": "engl.",
+      "uk": "ukr."
+    },
     "postJob": "Napravi zahtev",
     "postJobText": "Opišite zadatak — javiće se izvođači kojih nema u rezultatima."
   },
@@ -156,7 +166,7 @@
       "communication": "Komunikacija",
       "price": "Cena"
     },
-    "policy": "Ocena se računa samo po poslovima u aplikaciji „Sosedi“: utisci „pre platforme“ ne ulaze u nju.",
+    "policy": "Ocena se računa samo po dogovorima u aplikaciji „Sosedi“: utisci „pre platforme“ ne ulaze u nju.",
     "tabs": "Koji utisci da se prikažu",
     "tabDeals": "Po dogovorima · {count}",
     "tabPrePlatform": "Pre platforme · {count}",
@@ -165,8 +175,8 @@
     "prePlatformEmptyTitle": "Nema utisaka pre platforme",
     "prePlatformEmptyText": "Stručnjak može da zamoli pređašnje klijente da opišu njegov rad",
     "emptyTitle": "Utisaka još nema",
-    "emptyText": "Stručnjak je nov na platformi — utisci će se pojaviti posle prvih poslova",
-    "viaDeal": "Posao u aplikaciji „Sosedi“",
+    "emptyText": "Stručnjak je nov na platformi — utisci će se pojaviti posle prvih dogovora",
+    "viaDeal": "Dogovor u aplikaciji „Sosedi“",
     "rating": "Ocena {rating} od 5",
     "all": "Svi {count}",
     "reply": "Odgovor stručnjaka",
