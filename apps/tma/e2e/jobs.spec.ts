@@ -173,8 +173,7 @@ test('S20d двойное «Опубликовать» — одна заявка
   await pressTelegram(page, 'main_button_pressed');
   await expect(page.getByRole('heading', { name: texts.preview })).toBeVisible();
 
-  await pressTelegram(page, 'main_button_pressed');
-  await pressTelegram(page, 'main_button_pressed');
+  await pressTelegram(page, 'main_button_pressed', { taps: 2 });
 
   await expect(page.getByRole('heading', { name: texts.pending })).toBeVisible();
   expect(jobs.jobs.size).toBe(1);

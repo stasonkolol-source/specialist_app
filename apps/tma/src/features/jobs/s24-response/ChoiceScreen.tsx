@@ -116,9 +116,10 @@ function Choice({ job, card, others }: { job: JobOut; card: ResponseCardOut; oth
   const open = job.status === 'published' && OPEN.has(card.status);
   const budget = budgetText(job);
   const offerId = useId();
+  // пока открыта шторка S25, нижняя панель у неё (BottomBar): «Написать» экрана прячется сама
   useStepButton({
     text: t('choice.choose'),
-    visible: open && !confirming,
+    visible: open,
     enabled: !decline.isPending,
     onClick: () => setConfirming(true),
   });
@@ -362,17 +363,15 @@ function ConfirmSheet({
     performer.avatar?.variants.find((v) => v.name === 'thumb') ?? performer.avatar?.variants[0];
   const price = card.price.type === 'negotiable' ? t('card.negotiable') : offerPrice(card.price);
   const terms = [price, card.availability_note].filter(Boolean).join(' · ');
+  // Promise в MainButton: пока выбор идёт, второе нажатие (двойной тап) не уходит (MU-5)
   useStepButton({
     text: t('choice.confirm'),
     loading: accept.isPending,
     onClick: () =>
-      accept.mutate(
-        { jobId: job.id, responseId: card.id },
-        {
-          onSuccess: (accepted) =>
-            void router.navigate({ to: dealPath(accepted.deal_id), replace: true }),
-        },
-      ),
+      accept
+        .mutateAsync({ jobId: job.id, responseId: card.id })
+        .then((accepted) => router.navigate({ to: dealPath(accepted.deal_id), replace: true }))
+        .catch(() => undefined), // ошибка — баннером в шторке
   });
   return (
     <Sheet
