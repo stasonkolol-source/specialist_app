@@ -1,7 +1,7 @@
 """Фейки фасадов и портов для тестов moderation (ADR-0020 §11)."""
 
 from collections.abc import Collection, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
@@ -251,6 +251,13 @@ class FakeTarget(ModerationTarget):
             visible=visible,
         )
         return entity_id
+
+    def edit(self, entity_id: UUID, text: str) -> int:
+        """Автор поправил объект: новая редакция. Её номер."""
+        content = self.objects[entity_id]
+        version = (content.version or 0) + 1
+        self.objects[entity_id] = replace(content, text=text, version=version)
+        return version
 
     async def content(self, entity_id: UUID) -> TargetContent | None:
         return self.objects.get(entity_id)

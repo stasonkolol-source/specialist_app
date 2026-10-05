@@ -227,6 +227,7 @@ def _to_domain(row: JobRow, media: tuple[MediaId, ...], responses: list[Response
             ResponseId(row.selected_response_id) if row.selected_response_id is not None else None
         ),
         responses=responses,
+        revision=row.revision,
         version=row.version,
     )
 
@@ -234,6 +235,7 @@ def _to_domain(row: JobRow, media: tuple[MediaId, ...], responses: list[Response
 def _apply(job: Job, row: JobRow) -> None:
     content, place, budget = job.content, job.content.place, job.content.budget
     row.client_id = job.client_id
+    row.revision = job.revision
     row.status = job.status
     row.visibility = job.visibility
     row.title = content.title

@@ -1,4 +1,4 @@
-"""ORM-модели moderation (ARCHITECTURE §7.3, миграции moderation_0001–0007).
+"""ORM-модели moderation (ARCHITECTURE §7.3, миграции moderation_0001–0010).
 
 Словарь контент-правил (2.4); кейсы, ступени санкций, сигналы риска и жалобы (2.5a).
 FK на identity.users и identity.restrictions объявлены только в миграции moderation_0002:
@@ -131,6 +131,10 @@ class CaseRow(TimestampsMixin, Base):
     policy_version: Mapped[str | None] = mapped_column(String(32))
     decided_at: Mapped[datetime | None]
     notes: Mapped[str | None] = mapped_column(Text)
+    entity_version: Mapped[int | None] = mapped_column(Integer)
+    """Версия содержимого, которое показывает карточка (moderation_0010, ADV-11)."""
+    card_message_id: Mapped[int | None] = mapped_column(BigInteger)
+    """Сообщение карточки в чате модераторов: устаревший кейс гасит её кнопки."""
 
     __table_args__ = (
         # один открытый кейс на объект: второй повод дописывается в него; апелляция (2.5b) —

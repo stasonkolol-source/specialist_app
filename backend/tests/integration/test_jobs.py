@@ -30,6 +30,7 @@ from app.modules.moderation.application.use_cases.decide_case import (
 from app.modules.moderation.domain.cases import EntityType
 from app.modules.moderation.domain.pipeline import Route, Routing
 from app.modules.moderation.domain.queues import Queue
+from app.modules.moderation.errors import CaseSupersededError
 from app.platform.ai.port import Moderation, PolicyClassifier
 from app.platform.ai.stubs import NoModeration, NoPolicyClassifier
 from app.platform.contracts.events.moderation import ModerationDecision
@@ -343,6 +344,105 @@ async def test_stale_version_is_refused_and_strangers_cannot_touch_the_job(
     ):
         assert (response.status_code, response.json()["code"]) == (404, "job_not_found")
     assert (await me.get(job_id)).json()["status"] == "pending_moderation"
+
+
+async def test_edits_in_a_row_keep_their_etag_across_auto_moderation(
+    web: HttpApp,
+    worker: AsyncContainer,
+    storage_settings: Settings,
+    clients: list[Client],
+    body: dict[str, Any],
+) -> None:
+    """ADV-07: автопроверка публикует заявку после создания и после правки — ETag клиента от
+    этого не устаревает: и первая правка с ETag ответа на создание, и вторая подряд — 200."""
+    me = await new_client(web, storage_settings, clients)
+    created = await me.create(body)
+    job_id, etag = created.json()["id"], created.headers["ETag"]
+    assert (await auto_check(worker, me, job_id)).route is Route.PUBLISH
+
+    first = await me.edit(job_id, body | {"title": "Повесить две люстры"}, etag)
+    assert first.status_code == 200, first.text
+    assert first.json()["version"] == int(first.headers["ETag"].strip('"'))
+    assert (await auto_check(worker, me, job_id)).route is Route.PUBLISH
+    second = await me.edit(job_id, body | {"title": "Повесить три люстры"}, first.headers["ETag"])
+
+    assert second.status_code == 200, second.text
+    assert (await me.get(job_id)).headers["ETag"] == second.headers["ETag"]
+    assert (await auto_check(worker, me, job_id)).route is Route.PUBLISH
+    published_job = (await me.get(job_id)).json()
+    assert (published_job["status"], published_job["title"]) == ("published", "Повесить три люстры")
+
+
+async def case_of(container: AsyncContainer, job_id: str) -> Any:
+    return await scalar(
+        container,
+        "SELECT id FROM moderation.cases WHERE entity_id = :id"
+        " AND status IN ('pending', 'in_review', 'escalated')",
+        id=UUID(job_id),
+    )
+
+
+async def decide(worker: AsyncContainer, case_id: Any) -> None:
+    async with worker() as request:
+        await (await request.get(DecideCase))(
+            DecideCaseCommand(case_id=case_id, verdict=ModerationDecision.APPROVED)
+        )
+
+
+@pytest.mark.parametrize("checked", [True, False], ids=["edit_checked", "decision_first"])
+async def test_moderator_publishes_only_the_version_the_card_showed(
+    web: HttpApp,
+    worker: AsyncContainer,
+    storage_settings: Settings,
+    clients: list[Client],
+    body: dict[str, Any],
+    checked: bool,
+) -> None:
+    """ADV-11: заявка с телефоном ждёт модератора; клиент меняет текст и бюджет после карточки.
+    «Одобрить» по прежней карточке ничего не публикует — кейс устарел (правку проверила
+    автопроверка или решение её опередило), а новый кейс показывает правку; его одобрение
+    публикует ровно её."""
+    me = await new_client(web, storage_settings, clients)
+    seen = body | {"description": "Люстра на пять рожков. Звоните: +381 64 123 4567"}
+    created = await me.create(seen)
+    job_id = created.json()["id"]
+    assert (await auto_check(worker, me, job_id)).queue is Queue.PREMOD
+    stale_case = await case_of(web.container, job_id)
+    swapped = body | {
+        "title": "ПОДМЕНЁН после карточки",
+        "description": "Пишите в телеграм @qa_contact_test",
+        "budget_min": 9_900_000,
+    }
+
+    edited = await me.edit(job_id, swapped, created.headers["ETag"])
+    assert edited.status_code == 200, edited.text
+    if checked:
+        await auto_check(worker, me, job_id)
+    with pytest.raises(CaseSupersededError):
+        await decide(worker, stale_case)
+
+    assert (await me.get(job_id)).json()["status"] == "pending_moderation"
+    assert (await web.client.get(f"{API}/jobs/{job_id}")).status_code == 404  # гостю не видна
+    stale = await scalar(
+        web.container, "SELECT reason_code FROM moderation.cases WHERE id = :id", id=stale_case
+    )
+    assert stale == "superseded"
+    fresh_case = await case_of(web.container, job_id)
+    assert fresh_case not in (None, stale_case)
+    version = await scalar(
+        web.container, "SELECT entity_version FROM moderation.cases WHERE id = :id", id=fresh_case
+    )
+    assert version == edited.json()["version"]  # новая карточка — о правке
+
+    await decide(worker, fresh_case)
+
+    public = (await web.client.get(f"{API}/jobs/{job_id}")).json()
+    assert (public["status"], public["title"], public["description"]) == (
+        "published",
+        swapped["title"],
+        swapped["description"],
+    )
+    assert public["budget_min"]["amount"] == swapped["budget_min"]
 
 
 async def test_job_is_extended_three_times_at_most(

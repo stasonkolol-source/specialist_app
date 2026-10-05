@@ -6,7 +6,11 @@ from dataclasses import dataclass
 
 from app.modules.catalog.api import CatalogApi
 from app.modules.specialists.application.ports import ProfileRepository
-from app.modules.specialists.application.profiles import allowed_categories, own_profile
+from app.modules.specialists.application.profiles import (
+    allowed_categories,
+    own_profile,
+    review_change,
+)
 from app.modules.specialists.domain.profile import Profile
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
@@ -28,8 +32,10 @@ class SetProfileCategories:
 
     async def __call__(self, cmd: SetProfileCategoriesCommand) -> Profile:
         ids = await allowed_categories(self._catalog, cmd.category_ids)
+        now = self._clock.now()
         async with self._uow:
             profile = await own_profile(self._profiles, cmd.actor_id, cmd.expected_version)
-            profile.set_categories(ids, now=self._clock.now())
+            changed = profile.set_categories(ids, now=now)
             await self._profiles.save(profile)
+            review_change(self._uow, profile, ("category_ids",) if changed else (), now=now)
         return profile

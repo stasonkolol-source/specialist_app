@@ -72,7 +72,7 @@ class JobsFacade(JobsApi):
         return JobForReview(
             client_id=job.client_id,
             text=f"{content.title}\n\n{content.description}".strip(),
-            version=job.version,
+            version=job.revision,
             media_ids=content.media_ids,
             risk_level=int(category.risk_level) if category is not None else 0,
             title=content.title,

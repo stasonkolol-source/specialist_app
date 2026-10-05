@@ -134,6 +134,7 @@ def _to_domain(item: PortfolioItemRow, media: PortfolioMediaRow) -> PortfolioIte
         status=item.status,
         created_at=item.created_at,
         deleted_at=item.deleted_at,
+        revision=item.revision,
     )
 
 
@@ -143,6 +144,7 @@ def _apply(item: PortfolioItem, row: PortfolioItemRow) -> None:
     row.position = item.position
     row.status = item.status
     row.deleted_at = item.deleted_at
+    row.revision = item.revision
 
 
 __all__: Sequence[str] = ("SqlPortfolioQuery", "SqlPortfolioRepository")

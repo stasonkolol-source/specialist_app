@@ -38,6 +38,7 @@ from app.platform.contracts.events.jobs import (
     JobSubmitted,
     JobUpdated,
 )
+from app.platform.kernel.errors import StaleVersionError
 from app.platform.kernel.ids import UserId, new_id
 
 pytestmark = pytest.mark.unit
@@ -77,8 +78,38 @@ def test_moderation_publishes_with_the_lifetime_of_its_urgency() -> None:
 def test_stale_moderation_version_publishes_nothing() -> None:
     job = submitted()
 
-    assert not job.approve(version=job.version + 1, now=NOW)
+    assert not job.approve(version=job.revision + 1, now=NOW)
     assert job.status is JobStatus.PENDING_MODERATION
+
+
+def test_moderator_approves_only_the_revision_the_card_showed() -> None:
+    """ADV-11: клиент поправил заявку после карточки — одобрение прежней редакции ничего не
+    публикует; правленую публикует только решение о ней."""
+    job = submitted()
+    seen = job.revision
+
+    job.edit(content(title="Звоните мне напрямую"), now=NOW)
+
+    assert job.revision == seen + 1
+    assert not job.approve(version=seen, now=NOW)
+    assert job.approve(version=job.revision, now=NOW)
+
+
+def test_if_match_survives_moderation_transitions() -> None:
+    """ADV-07: If-Match сверяет редакцию содержимого — автопубликация и решения модерации её не
+    меняют, повтор той же правки — тоже; ложного 412 после своей же правки нет."""
+    job = submitted()
+    revision = job.revision
+
+    job.approve(version=revision, now=NOW)  # автопроверка опубликовала
+    job.ensure_revision(revision)
+    job.edit(content(), now=NOW)  # то же содержимое — не новая редакция
+    job.ensure_revision(revision)
+    job.edit(content(title="Повесить две люстры"), now=NOW)  # снова на проверку
+    job.approve(version=job.revision, now=NOW)
+    job.ensure_revision(revision + 1)
+    with pytest.raises(StaleVersionError):
+        job.ensure_revision(revision)  # правка из другого места — 412 как раньше
 
 
 @pytest.mark.parametrize(

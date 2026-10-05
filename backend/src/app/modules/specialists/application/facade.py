@@ -95,7 +95,7 @@ class SpecialistsFacade(SpecialistsApi):
         return ProfileForReview(
             user_id=profile.user_id,
             text=text,
-            version=profile.version,
+            version=profile.revision,
             first_review=profile.first_review,
             risk_level=max((int(c.risk_level) for c in categories), default=0),
         )
@@ -131,15 +131,18 @@ class SpecialistsFacade(SpecialistsApi):
             user_id=profile.user_id,
             caption=item.caption,
             media_id=item.media_id,
+            revision=item.revision,
             pending=item.pending,
             new_profile=profile.published_at is None,
             risk_level=max((int(c.risk_level) for c in categories), default=0),
         )
 
-    async def approve_work(self, work_id: UUID, *, auto: bool = False) -> None:
+    async def approve_work(
+        self, work_id: UUID, *, version: int | None = None, auto: bool = False
+    ) -> None:
         self._uow.require_active()
         item = await self._works.get_for_update(work_id)
-        if item is not None and item.approve(auto=auto):
+        if item is not None and item.approve(version=version, auto=auto):
             await self._works.save(item)
 
     async def reject_work(self, work_id: UUID) -> None:

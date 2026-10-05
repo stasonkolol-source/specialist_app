@@ -1,15 +1,12 @@
 """Поля профиля (S32a–c, S34; PATCH /me/profile). Правки опубликованного применяются сразу,
-изменённый текст уходит на пост-модерацию (§7.9). Тип меняется только у черновика."""
+изменённый текст уходит на пост-модерацию (§7.9); правка ждущего первой проверки — снова на
+проверку (ADV-11). Тип меняется только у черновика."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass
 
 from app.modules.specialists.application.ports import ProfileRepository
-from app.modules.specialists.application.profiles import (
-    needs_post_moderation,
-    own_profile,
-    request_review,
-)
+from app.modules.specialists.application.profiles import own_profile, review_change
 from app.modules.specialists.domain.profile import Profile, ProfileKind
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
@@ -50,6 +47,5 @@ class EditProfile:
                 work_modes=cmd.work_modes,
             )
             await self._profiles.save(profile)
-            if needs_post_moderation(profile, changed):
-                request_review(self._uow, profile, edit=True, now=now)
+            review_change(self._uow, profile, changed, now=now)
         return profile

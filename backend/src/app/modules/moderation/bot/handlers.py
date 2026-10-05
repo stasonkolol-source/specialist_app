@@ -14,7 +14,9 @@
 убираются, «Открыть в админке» остаётся. Карточка кейса о фото — подпись к фото: её бот правит
 как подпись (editMessageCaption), обычную карточку — как текст.
 Пользователю решение доходит как из `cli`: statement of reasons уведомлением. Кейс уже решён —
-ответ ошибкой (ErrorMiddleware), карточка не меняется.
+ответ ошибкой (ErrorMiddleware), карточка не меняется. Кейс устарел (объект изменили после
+карточки, ADV-11) — ответ «Версия изменилась — смотрите новую карточку», кнопки решения под
+карточкой гаснут, ничего не публикуется: решают новую карточку с новой версией.
 
 Id чата модераторов (K29): в группе `/chatid` или `/start@<бот>` от персонала (moderator или
 admin), а также добавление бота в группу персоналом (`my_chat_member`) и переход группы в
@@ -47,6 +49,7 @@ from app.modules.moderation.application.case_card import (
     reason_buttons,
     reasons_for,
     severity_buttons,
+    superseded_buttons,
 )
 from app.modules.moderation.application.ports import CaseRepository
 from app.modules.moderation.application.use_cases.decide_case import (
@@ -91,7 +94,7 @@ async def approve(
     app: FromDishka[AppSettings],
     principal: Principal | None = None,
 ) -> None:
-    pressed = await _pressed(callback, translator, identity, cases, principal)
+    pressed = await _pressed(callback, translator, identity, cases, principal, app)
     if pressed is None:
         return
     moderator, case, _ = pressed
@@ -130,7 +133,7 @@ async def reject(
     app: FromDishka[AppSettings],
     principal: Principal | None = None,
 ) -> None:
-    pressed = await _pressed(callback, translator, identity, cases, principal)
+    pressed = await _pressed(callback, translator, identity, cases, principal, app)
     if pressed is None:
         return
     moderator, case, data = pressed
@@ -170,7 +173,7 @@ async def sanction(
     app: FromDishka[AppSettings],
     principal: Principal | None = None,
 ) -> None:
-    pressed = await _pressed(callback, translator, identity, cases, principal)
+    pressed = await _pressed(callback, translator, identity, cases, principal, app)
     if pressed is None:
         return
     moderator, case, data = pressed
@@ -217,7 +220,7 @@ async def escalate(
     app: FromDishka[AppSettings],
     principal: Principal | None = None,
 ) -> None:
-    pressed = await _pressed(callback, translator, identity, cases, principal)
+    pressed = await _pressed(callback, translator, identity, cases, principal, app)
     if pressed is None:
         return
     moderator, case, _ = pressed
@@ -237,7 +240,7 @@ async def back(
     app: FromDishka[AppSettings],
     principal: Principal | None = None,
 ) -> None:
-    pressed = await _pressed(callback, translator, identity, cases, principal)
+    pressed = await _pressed(callback, translator, identity, cases, principal, app)
     if pressed is None:
         return
     await callback.answer()
@@ -300,8 +303,10 @@ async def _pressed(
     identity: IdentityApi,
     cases: CaseRepository,
     principal: Principal | None,
+    app: AppSettings,
 ) -> tuple[UserId, Case, CallbackData] | None:
-    """Модератор, кейс и данные кнопки; None — ответ уже дан: не модератор или нет кейса."""
+    """Модератор, кейс и данные кнопки; None — ответ уже дан: не модератор, нет кейса или кейс
+    устарел (тогда кнопки под карточкой гаснут)."""
     data = parse_callback(callback.data)
     if data is None:
         await callback.answer()
@@ -314,6 +319,11 @@ async def _pressed(
     if case is None:
         text = plain_text(translator, "errors.case_not_found", MODERATORS_LOCALE)
         await callback.answer(text, show_alert=True)
+        return None
+    if case.is_superseded:
+        text = plain_text(translator, "bot.moderation.superseded", MODERATORS_LOCALE)
+        await callback.answer(text, show_alert=True)
+        await _buttons(callback, superseded_buttons(case.id, translator, admin_base_url(app)))
         return None
     return principal.user_id, case, data
 

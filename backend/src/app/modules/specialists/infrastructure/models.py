@@ -95,6 +95,8 @@ class ProfileRow(UuidPkMixin, TimestampsMixin, SoftDeleteMixin, VersionMixin, Ba
     submitted_at: Mapped[datetime | None]
     published_at: Mapped[datetime | None]
     avatar_media_id: Mapped[UUID | None]
+    revision: Mapped[int] = mapped_column(Integer, server_default=text("1"))
+    """Редакция содержимого (specialists_0004, domain Profile.revision): версия для модерации."""
     """Фото профиля — media.assets (назначение avatar): FK в миграции specialists_0002."""
 
     __table_args__ = (
@@ -160,6 +162,8 @@ class PortfolioItemRow(UuidPkMixin, SoftDeleteMixin, Base):
         str_enum(WorkStatus, "status"), server_default=WorkStatus.PENDING.value
     )
     created_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
+    revision: Mapped[int] = mapped_column(Integer, server_default=text("1"))
+    """Редакция подписи (specialists_0004, domain PortfolioItem.revision): версия для модерации."""
 
     __table_args__ = (
         CheckConstraint(f"char_length(title) <= {MAX_CAPTION}", name="title_length"),

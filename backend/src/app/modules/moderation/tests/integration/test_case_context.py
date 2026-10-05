@@ -131,7 +131,7 @@ def post(
     chat = TelegramModeratorsChat(
         sender, Translator.load(), CHAT, clock=moderation.clock, admin_url=ADMIN
     )
-    return PostCaseCard(moderation.cases, contexts, chat)
+    return PostCaseCard(moderation.uow, moderation.cases, contexts, chat)
 
 
 async def stored(moderation: Moderation, case_id: CaseId) -> Case:

@@ -81,6 +81,16 @@ class SqlReportRepository:
         )
         return len(result.all())
 
+    async def move_to_case(self, case_id: CaseId, successor_id: CaseId) -> int:
+        self._uow.require_active()
+        result = await self._session.execute(
+            update(ReportRow)
+            .where(_R.case_id == case_id, _R.status == ReportStatus.OPEN)
+            .values(case_id=successor_id)
+            .returning(_R.id)
+        )
+        return len(result.all())
+
 
 def _to_domain(row: ReportRow) -> Report:
     return Report(
