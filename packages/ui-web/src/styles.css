@@ -61,6 +61,10 @@
   .text-h1-xl {
     text-wrap: wrap;
   }
+  /* в поле ввода pretty перестраивал бы строки на ходу, пока человек печатает */
+  textarea {
+    text-wrap: wrap;
+  }
   .text-h2,
   .text-h3,
   .text-section,
