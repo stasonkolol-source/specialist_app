@@ -3,6 +3,20 @@ export function cx(...classes: (string | false | null | undefined)[]): string {
   return classes.filter(Boolean).join(' ');
 }
 
-/** Видимый фокус с клавиатуры для всех интерактивных элементов. */
+/** Класс цвета текста из токенов темы (theme.css, --color-*): text-danger, text-accent… Размеры
+ *  шрифта (text-cap, text-sm…) сюда не попадают. Варианты (hover:, dark:) — не свой цвет. */
+const TEXT_COLOUR =
+  /^text-(?:bg2?|surface|text2?|line|field|accent(?:-ink|-soft(?:-ink)?)?|urgent(?:-ink|-soft(?:-ink)?)?|info-(?:soft|ink)|danger(?:-ink|-soft)?|star|scrim|seg-(?:track|on)|toast(?:-ink)?|knob|av[1-5](?:-ink)?)$/;
+
+/** Цвет компонента по умолчанию (серый подписи) — только если вызывающий не задал свой. Оба класса
+ *  разом не годятся: у них одна специфичность, и побеждает тот, что позже в собранном CSS, —
+ *  .text-text2 идёт после .text-danger, и ошибка оставалась серой (SMOKE-8). */
+export function colourOr(fallback: string, className: string | undefined): string | false {
+  return !className?.split(/\s+/).some((name) => TEXT_COLOUR.test(name)) && fallback;
+}
+
+/** Видимый фокус с клавиатуры для всех интерактивных элементов; мышью и пальцем кольца нет
+ *  (:focus-visible). outline-solid обязателен: в Tailwind 4 outline-none ставит
+ *  --tw-outline-style: none, а outline-2 берёт стиль из неё — без него кольцо не рисовалось (UXM-7). */
 export const FOCUS =
-  'outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+  'outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-accent';

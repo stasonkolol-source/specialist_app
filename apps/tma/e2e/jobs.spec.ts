@@ -159,6 +159,38 @@ for (const theme of THEMES) {
   }
 }
 
+// SMOKE-8: подпись `Text variant="cap"` с text-danger оставалась серой (.text-text2 позже в CSS),
+// и «Далее» без категории молчал. Цвет — вычисленный в браузере, не класс
+test('S20a, S20b «Далее» с пустым полем: красная подсказка, поле в фокусе', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(E2E_NOW));
+  const texts = LOCALES[0];
+  const watch = await open(page, 'theme=light&lang=ru', {
+    signedIn: true,
+    jobs: new JobsBackend(),
+  });
+  await openWizard(page, texts);
+  // к этому заголовку /suggest категорию не подбирает
+  await page.getByRole('textbox', { name: texts.summary }).fill('Собрать комод');
+  const hint = page.getByText(/^Опишите\sзадачу/);
+  await expect(hint).toHaveCSS('color', 'rgb(91, 98, 112)');
+  await pressTelegram(page, 'main_button_pressed');
+
+  await expect(page.getByRole('heading', { name: texts.what })).toBeVisible();
+  await expect(hint).toHaveCSS('color', 'rgb(198, 40, 40)');
+  await expect(page.getByRole('button', { name: 'Выбрать' })).toBeFocused();
+
+  await page.getByRole('textbox', { name: texts.summary }).fill(texts.suggestQuery);
+  await expect(page.getByRole('button', { name: texts.category })).toBeVisible();
+  await pressTelegram(page, 'main_button_pressed');
+  await expect(page.getByRole('heading', { name: texts.when })).toBeVisible();
+  await pressTelegram(page, 'main_button_pressed');
+  await expect(page.getByText(/^Выберите,\sкогда\sнужен\sисполнитель$/)).toHaveCSS(
+    'color',
+    'rgb(198, 40, 40)',
+  );
+  expect(real(watch.problems)).toEqual([]);
+});
+
 test('S20d двойное «Опубликовать» — одна заявка', async ({ page }) => {
   await page.clock.setFixedTime(new Date(E2E_NOW));
   const jobs = new JobsBackend();

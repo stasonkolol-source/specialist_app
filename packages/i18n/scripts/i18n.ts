@@ -6,6 +6,7 @@ import type { Catalog } from '../src/catalog.ts';
 import {
   ANY_CYRILLIC,
   NON_SERBIAN_CYRILLIC,
+  NON_SERBIAN_STYLE,
   flattenCatalog,
   messageArguments,
   transliterateCatalog,
@@ -45,6 +46,7 @@ export function checkCatalogs(): string[] {
         continue;
       }
       if (NON_SERBIAN_CYRILLIC.test(srMsg)) errors.push(`${where} — в sr-Cyrl русская буква: «${srMsg}»`);
+      if (NON_SERBIAN_STYLE.test(srMsg)) errors.push(`${where} — кавычки или «чет» не по глоссарию: «${srMsg}»`);
       if (ANY_CYRILLIC.test(lat[key] ?? '')) errors.push(`${where} — в sr-Latn осталась кириллица`);
       try {
         const args = [messageArguments(ruMsg, 'ru'), messageArguments(srMsg, 'sr-Cyrl')];

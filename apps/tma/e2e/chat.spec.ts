@@ -221,6 +221,21 @@ for (const theme of THEMES) {
   }
 }
 
+// UXM-18: длинное слово без пробелов в превью уходило за край карточки без «…»
+test('S29: длинное слово в последнем сообщении переносится и не шире превью', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(E2E_NOW));
+  const chat = new ChatBackend().seed();
+  const last = chat.dialogs.get(CONVERSATION_IDS.direct)?.messages.at(-1);
+  if (!last) throw new Error('нет диалога');
+  Object.assign(last, { body: 'ПроверкаДлинногоСловаБезПробелов'.repeat(4), masked: false });
+  await open(page, 'theme=light&lang=ru', { signedIn: true, me: { ...ME, ui_locale: 'ru' }, chat });
+  await openTab(page, 'Сообщения');
+  const preview = page.locator('.line-clamp-2', { hasText: 'ПроверкаДлинного' });
+  await expect(preview).toBeVisible();
+  const overflow = await preview.evaluate((element) => element.scrollWidth - element.clientWidth);
+  expect(overflow).toBe(0);
+});
+
 test('S24: SecondaryButton «Написать» открывает диалог по отклику', async ({ page }) => {
   await page.clock.setFixedTime(new Date(E2E_NOW));
   const chat = new ChatBackend();

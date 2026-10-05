@@ -143,7 +143,7 @@ function Choice({ job, card, others }: { job: JobOut; card: ResponseCardOut; oth
         <Offer card={card} />
         {card.message && (
           <Text variant="sm" className="whitespace-pre-line">
-            «{card.message}»
+            {t('respond.quoted', { message: card.message })}
           </Text>
         )}
         {/* нижняя строка карточки, как на артборде: бюджет слева, «Отклонить» справа */}

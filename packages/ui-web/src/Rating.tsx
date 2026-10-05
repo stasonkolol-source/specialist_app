@@ -4,7 +4,7 @@
 // форматирует экран (@sosed/i18n).
 import type { ReactNode } from 'react';
 
-import { cx } from './cx.ts';
+import { colourOr, cx } from './cx.ts';
 import { Icon } from './icon/Icon.tsx';
 
 export interface RatingProps {
@@ -31,7 +31,12 @@ export function Rating({ value, reviews, newLabel, meta = [], className }: Ratin
   ) : (
     newLabel
   );
-  return <MetaLine parts={[rating, ...meta]} className={cx('text-cap text-text2', className)} />;
+  return (
+    <MetaLine
+      parts={[rating, ...meta]}
+      className={cx('text-cap', colourOr('text-text2', className), className)}
+    />
+  );
 }
 
 /** Части строки через «·», перенос — между частями. Точка не повисает на краю строки: она стоит

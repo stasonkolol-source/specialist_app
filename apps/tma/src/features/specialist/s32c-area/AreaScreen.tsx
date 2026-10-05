@@ -23,7 +23,7 @@ import {
   specialistsUpdateMyProfile,
 } from '@sosed/api-client';
 import { selectableDistricts, useCities, useDistricts, useMyServices } from '@sosed/hooks';
-import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
+import { moneyValue, useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton, usePlatform } from '@sosed/platform';
 import { Chip, Chips, Input, Segmented, Text } from '@sosed/ui-web';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -44,8 +44,6 @@ import { MAX_AREAS, wholeCityAvailable, wholeCityDefault } from '../shared/whole
 const VISIBLE_DISTRICTS = 4;
 /** MAX_TITLE позиции прайса (backend pricing). */
 const MAX_SERVICE_TITLE = 120;
-/** Цена — до 999 999 999 RSD (MAX_PRICE прайса — миллиард). */
-const PRICE_DIGITS = 9;
 const PARA_PER_DINAR = 100;
 const RADII: readonly Radius[] = [3, 5, 10];
 /** Радиус по умолчанию — как на артборде. */
@@ -126,6 +124,7 @@ function AreaForm({
 }) {
   const { t } = useTranslation('specialist');
   const { number } = useFormat();
+  const locale = useLocale();
   const platform = usePlatform();
   const flow = useBecomeFlow();
   const queryClient = useQueryClient();
@@ -339,7 +338,8 @@ function AreaForm({
               aria-describedby={serviceHintId}
               onChange={(event) =>
                 editService({
-                  servicePrice: event.target.value.replace(/\D/g, '').slice(0, PRICE_DIGITS),
+                  // «2.000,00» — 2 000, а не 200 000 (ADV-10)
+                  servicePrice: String(moneyValue(event.target.value, locale) ?? ''),
                 })
               }
             />
