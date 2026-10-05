@@ -7,9 +7,11 @@ import type {
   MyReviewsPageOut,
   ReplyIn,
   ReviewIn,
+  ReviewOut,
   ReviewsDirection,
 } from '@sosed/api-client';
 import {
+  ApiError,
   getReviewsListMyReviewsQueryKey,
   getSession,
   getViewsListDealHistoryQueryKey,
@@ -78,11 +80,20 @@ export function pagedItems<T>(pages: { pages: { items: T[] }[] } | undefined): T
   return pages?.pages.flatMap((page) => page.items) ?? [];
 }
 
-/** S27: отзыв по завершённой сделке — ждёт проверки, потом виден на карточке. */
+/** S27: отзыв по завершённой сделке — ждёт проверки, потом виден на карточке. 409
+ *  `review_exists` — отзыв уже принят (второй запрос двойного тапа, повтор после обрыва): это
+ *  успех, а не ошибка (QA MU-5); ответ тогда — `null`. */
 export function useLeaveReview(dealId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (body: ReviewIn) => reviewsLeaveReview(dealId, body),
+    mutationFn: async (body: ReviewIn): Promise<ReviewOut | null> => {
+      try {
+        return await reviewsLeaveReview(dealId, body);
+      } catch (error) {
+        if (error instanceof ApiError && error.code === 'review_exists') return null;
+        throw error;
+      }
+    },
     // «Спасибо» — сразу по ответу сервера; сделка и списки перечитываются в фоне
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: dealCardQueryKey(dealId) });

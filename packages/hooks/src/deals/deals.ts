@@ -4,8 +4,14 @@
 // отклики заявки, свои заявки и отклики, а после ответа на предложение — и переписка. Ждёт экран
 // только то, что показывает сам (карточку сделки S26); остальное — в фоне. Заявку из ответа
 // сервера (принять, отклонить) кладём в кэш и не перечитываем.
-import type { DealCancelReason, DealsListMyDealsParams } from '@sosed/api-client';
+import type {
+  AcceptedOut,
+  DealCancelReason,
+  DealCardOut,
+  DealsListMyDealsParams,
+} from '@sosed/api-client';
 import {
+  ApiError,
   dealsCancelDeal,
   dealsCompleteDeal,
   dealsConfirmDeal,
@@ -16,6 +22,7 @@ import {
   getViewsGetDealCardQueryKey,
   jobsAcceptResponse,
   jobsDeclineResponse,
+  jobsGetJob,
   viewsGetDealCard,
 } from '@sosed/api-client';
 import type { QueryClient } from '@tanstack/react-query';
@@ -23,7 +30,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { FEED_KEY } from '../jobs/feed.ts';
 import { jobQueryKey } from '../jobs/jobs.ts';
-import { myJobsQueryKey, responseCardsQueryKey } from '../jobs/mine.ts';
+import { RESPONSES_POLL_MS, myJobsQueryKey, responseCardsQueryKey } from '../jobs/mine.ts';
 import { MY_RESPONSES_KEY } from '../jobs/responses.ts';
 import { refreshInbox } from '../messages/conversations.ts';
 
@@ -31,12 +38,22 @@ export const dealCardQueryKey = (dealId: string) => getViewsGetDealCardQueryKey(
 /** Префикс всех списков `GET /me/deals`: после действия перечитываются все. */
 export const MY_DEALS_KEY = getDealsListMyDealsQueryKey().slice(0, 1);
 
-/** Сделка стороне (S26): условия, вторая сторона, место и вехи. */
-export function useDealCard(dealId: string | null) {
+/** Сделка идёт: вторая сторона может подтвердить, отметить «Работа выполнена», отменить или
+ *  ответить на спор. */
+const LIVE_DEAL: ReadonlySet<DealCardOut['status']> = new Set(['proposed', 'agreed', 'disputed']);
+const isLive = (deal: DealCardOut | undefined) => deal !== undefined && LIVE_DEAL.has(deal.status);
+
+/** Сделка стороне (S26): условия, вторая сторона, место и вехи. `live` — экран ждёт вторую
+ *  сторону (QA MU-4): пока сделка идёт, карточка опрашивается в темпе откликов S23 и
+ *  перечитывается, когда Mini App снова на экране (без этого «Договорились» висело и после
+ *  завершения второй стороной). */
+export function useDealCard(dealId: string | null, { live = false }: { live?: boolean } = {}) {
   return useQuery({
     queryKey: dealCardQueryKey(dealId ?? ''),
     queryFn: ({ signal }) => viewsGetDealCard(dealId ?? '', { signal }),
     enabled: dealId !== null,
+    refetchInterval: (query) => (live && isLive(query.state.data) ? RESPONSES_POLL_MS : false),
+    refetchOnWindowFocus: (query) => (live && isLive(query.state.data) ? 'always' : false),
   });
 }
 
@@ -65,17 +82,40 @@ export interface DecideResponse {
   responseId: string;
 }
 
-/** «Выбрать исполнителем» (S25): ответ — id сделки и заявка «в работе». */
+/** «Выбрать исполнителем» (S25): ответ — id сделки и заявка «в работе». Повтор того же выбора
+ *  (второй запрос двойного тапа, повтор после обрыва) сервер отвергает 409 — заявка уже «в
+ *  работе»; если в работе она именно с этим откликом, выбор состоялся: это успех, а не ошибка
+ *  (QA MU-5), сделка — из своих сделок. */
 export function useAcceptResponse() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ responseId }: DecideResponse) => jobsAcceptResponse(responseId),
+    mutationFn: async ({ jobId, responseId }: DecideResponse): Promise<AcceptedOut> => {
+      try {
+        return await jobsAcceptResponse(responseId);
+      } catch (error) {
+        const earlier =
+          error instanceof ApiError && error.status === 409
+            ? await acceptedEarlier(jobId, responseId)
+            : null;
+        if (!earlier) throw error;
+        return earlier;
+      }
+    },
     // сделку S26 открываем по ответу сервера, не дожидаясь перечитывания списков
     onSuccess: (accepted, { jobId }) => {
       client.setQueryData(jobQueryKey(jobId), accepted.job);
       refresh(client, jobId, true);
     },
   });
+}
+
+/** Отклик уже выбран: идущая сделка по нему и заявка. Нет такой сделки — `null`, ошибка в силе. */
+async function acceptedEarlier(jobId: string, responseId: string): Promise<AcceptedOut | null> {
+  const deals = await dealsListMyDeals({ role: 'client' });
+  const deal = deals.items.find(
+    (item) => item.response_id === responseId && item.status !== 'cancelled',
+  );
+  return deal ? { deal_id: deal.id, job: await jobsGetJob(jobId) } : null;
 }
 
 /** «Отклонить» (S24): место на заявке освобождается. */
