@@ -5,10 +5,13 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     ColumnElement,
     RowMapping,
     Select,
     and_,
+    case,
+    cast,
     exists,
     func,
     literal_column,
@@ -154,6 +157,23 @@ class SqlIdentityQuery(SqlQuery):
             .limit(1)
         )
         return int(row["subject"]) if row is not None else None
+
+    async def telegram_range(self, first: int, last: int) -> list[UserId]:
+        u, i = UserRow.__table__.c, AuthIdentityRow.__table__.c
+        # CASE — чтобы CAST не встретил чужой subject (почта, Apple): порядок условий WHERE
+        # PostgreSQL не обещает, а ветки CASE — обещает
+        telegram_id = case((i.subject.regexp_match(r"^[0-9]{1,18}$"), cast(i.subject, BigInteger)))
+        rows = await self._fetch(
+            select(u.id)
+            .join(AuthIdentityRow.__table__, i.user_id == u.id)
+            .where(
+                i.provider == AuthProvider.TELEGRAM,
+                telegram_id.between(first, last),
+                u.status == UserStatus.ACTIVE,
+            )
+            .order_by(telegram_id)
+        )
+        return [UserId(row["id"]) for row in rows]
 
     async def roles(self, user_id: UserId) -> frozenset[Role]:
         r = UserRoleRow.__table__.c
