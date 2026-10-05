@@ -152,7 +152,7 @@ async def list_response_cards(
                         if area is not None
                         else None
                     ),
-                    rating=None if rating is None or rating.is_new else round(rating.average, 1),
+                    rating=None if rating is None or rating.is_new else rating.mean,
                     rating_count=rating.count if rating is not None else 0,
                     is_new=rating is None or rating.is_new,
                     phone_verified=bool(user is not None and user.phone_verified),
