@@ -18,7 +18,15 @@ import {
   responseCardsFixture,
 } from '../src/testing/jobsBackend.ts';
 import { ProfileBackend } from '../src/testing/profileBackend.ts';
-import { THEMES, expectNoAxeViolations, open, openTab, pressTelegram, real } from './support.ts';
+import {
+  THEMES,
+  expectNoAxeViolations,
+  open,
+  openTab,
+  pressTelegram,
+  real,
+  telegramButton,
+} from './support.ts';
 
 const LOCALES = [
   {
@@ -27,6 +35,7 @@ const LOCALES = [
     tab: 'Заявки',
     mine: 'Мои заявки',
     offer: 'Предложение',
+    choose: 'Выбрать исполнителем',
     confirm: 'Выбрать этого исполнителя?',
     status: 'Статус',
     orderAgain: 'Заказать снова',
@@ -38,6 +47,7 @@ const LOCALES = [
     tab: 'Zahtevi',
     mine: 'Moji zahtevi',
     offer: 'Ponuda',
+    choose: 'Izaberi izvođača',
     confirm: 'Izabrati ovog izvođača?',
     status: 'Status',
     orderAgain: 'Naruči ponovo',
@@ -72,11 +82,20 @@ for (const theme of THEMES) {
       await snap(`S24-response-${theme}-${l.locale}.png`);
 
       // «Выбрать исполнителем» — MainButton mock-клиента: нативная, в DOM её нет
-      await pressTelegram(page, 'main_button_pressed');
+      await pressTelegram(page, 'main_button_pressed', { text: l.choose });
       await expect(page.getByRole('dialog', { name: l.confirm })).toBeVisible();
       await snap(`S25-confirm-choice-${theme}-${l.locale}.png`);
-      // подтверждение в шторке — та же MainButton с её текстом
-      await pressTelegram(page, 'main_button_pressed');
+      // подтверждение в шторке — её MainButton (видна и активна), «Написать» экрана спрятана (MU-2)
+      await expect
+        .poll(() => telegramButton(page, 'secondary_button_pressed'))
+        .toMatchObject({
+          is_visible: false,
+        });
+      const accepted = page.waitForResponse(
+        (r) => /\/responses\/[^/]+\/accept$/.test(r.url()) && r.status() === 200,
+      );
+      await pressTelegram(page, 'main_button_pressed', { text: l.choose });
+      await accepted;
       await expect(page.getByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeVisible();
       await expect(page.getByRole('region', { name: l.status })).toBeVisible();
       await snap(`S26-deal-${theme}-${l.locale}.png`);
