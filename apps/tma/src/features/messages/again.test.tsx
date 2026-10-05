@@ -1,11 +1,13 @@
-// Сделка снова (DEVELOPMENT_PLAN 6.4, 6.2) на фейке backend: что в шапке S30 при каждом состоянии
-// сделки. Нет сделки — «Договорились»; предложена, идёт или под спором — как раньше; завершена или
-// отменена в прямом диалоге — «Договориться снова» (шторка условий, «что делаем» — из прошлой
-// сделки), а «Поделиться контактом», пока контакты открыты, — в полосе «Прошлая сделка». Клиенту
-// в диалоге по отклику после завершённой — «Заказать снова»: прямой диалог с этим специалистом.
-// Контакты открыты по `contacts_open` сервера: пара договорилась однажды — открыты и пока новое
-// предложение ждёт ответа, и после отмены, и в другом диалоге с тем же мастером (ADR-0010,
-// 2026-10-04); отклонённое предложение их не открывало.
+// Сделка снова (DEVELOPMENT_PLAN 6.4, 6.2) на фейке backend: что в шапке S30 и в полосе под ней
+// при каждом состоянии сделки. В шапке — всегда одно главное действие, коротко (она не
+// прокручивается): нет сделки — «Договориться»; предложена, идёт или под спором — «Сделка» (S26);
+// завершена или отменена в прямом диалоге — снова «Договориться» (шторка условий, «что делаем» —
+// из прошлой сделки); клиенту в диалоге по отклику после завершённой — «Заказать снова» (прямой
+// диалог с этим специалистом), после отмены — «К откликам». В полосе — сделка и второй строкой
+// Telegram и «Поделиться контактом», без повтора кнопки шапки. Контакты открыты по
+// `contacts_open` сервера: пара договорилась однажды — открыты и пока новое предложение ждёт
+// ответа, и после отмены, и в другом диалоге с тем же мастером (ADR-0010, 2026-10-04);
+// отклонённое предложение их не открывало.
 import type { ConversationDealOut } from '@sosed/api-client';
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
@@ -53,33 +55,43 @@ function withDeal(chat: ChatBackend, id: string, status: ConversationDealOut['st
 /** Шапка прямого диалога с Алексеем. */
 const directHeader = () => screen.findByRole('banner', { name: 'Алексей Морозов' });
 
+/** Подписи кнопок в шапке: «⋯» — без текста, её не считаем. */
+const headerButtons = (header: HTMLElement) =>
+  within(header)
+    .getAllByRole('button')
+    .map((button) => button.textContent)
+    .filter(Boolean);
+
 describe('S30 header by the deal', () => {
   it('offers to agree while there is no deal', async () => {
     withChats();
     startApp(`/messages/${CONVERSATION_IDS.direct}`);
 
     const header = await directHeader();
-    expect(within(header).getByRole('button', { name: 'Договорились' })).toBeTruthy();
-    expect(within(header).queryByRole('button', { name: 'Договориться снова' })).toBeNull();
+    // действие «предложить условия», а не статус «Договорились»
+    expect(headerButtons(header)).toEqual(['Договориться']);
+    expect(within(header).getByText('Сделки пока нет')).toBeTruthy();
   });
 
   it.each([
-    ['proposed', 'Ждёт подтверждения', null],
-    ['agreed', 'Договорились', 'Поделиться контактом'],
-    ['disputed', 'Спор по сделке', null],
-  ] as const)('keeps the %s deal as before', async (status, label, action) => {
+    ['proposed', 'Ждёт подтверждения', []],
+    ['agreed', 'Договорились', ['Поделиться контактом']],
+    ['disputed', 'Спор по сделке', []],
+  ] as const)('leads to the %s deal from the header', async (status, label, actions) => {
     const chat = withChats();
     withDeal(chat, CONVERSATION_IDS.direct, status);
     startApp(`/messages/${CONVERSATION_IDS.direct}`);
 
     const header = await directHeader();
     expect(within(header).getByText(label)).toBeTruthy();
-    const buttons = within(header)
-      .getAllByRole('button')
-      .map((button) => button.textContent)
-      .filter(Boolean);
-    expect(buttons).toEqual(action ? [action] : []);
+    // «Сделка» в шапке, как на артборде S54; в полосе — сделка без ссылки на неё же и контакты
+    expect(headerButtons(header)).toEqual(['Сделка']);
     expect(screen.getByText('Сделка «Повесить люстру»')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Открыть сделку' })).toBeNull();
+    for (const action of actions) expect(screen.getByRole('button', { name: action })).toBeTruthy();
+    expect(screen.queryAllByRole('button', { name: 'Поделиться контактом' })).toHaveLength(
+      actions.length,
+    );
   });
 
   it('agrees again after the completed deal and keeps the contacts at hand', async () => {
@@ -89,9 +101,9 @@ describe('S30 header by the deal', () => {
 
     const header = await directHeader();
     expect(within(header).getByText('Сделка завершена')).toBeTruthy();
-    expect(within(header).queryByRole('button', { name: 'Поделиться контактом' })).toBeNull();
-    // контакты открыты: Telegram второй стороны и «Поделиться контактом» — в полосе прошлой сделки
-    expect(within(header).queryByRole('button', { name: 'Telegram: @aleksey_m' })).toBeNull();
+    // снова договориться — в шапке, она не прокручивается; контакты — второй строкой полосы
+    expect(headerButtons(header)).toEqual(['Договориться']);
+    expect(screen.getAllByRole('button', { name: /Договориться/ })).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Telegram: @aleksey_m' })).toBeTruthy();
     expect(screen.getByText('Прошлая сделка «Повесить люстру»')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Открыть сделку' }).getAttribute('href')).toContain(
@@ -105,7 +117,7 @@ describe('S30 header by the deal', () => {
       ),
     );
 
-    await click(within(header).getByRole('button', { name: 'Договориться снова' }));
+    await click(within(header).getByRole('button', { name: 'Договориться' }));
     const sheet = await screen.findByRole('dialog', { name: 'Договорились?' });
     // тот же маникюр — без набора: «что делаем» из прошлой сделки
     expect(
@@ -114,15 +126,12 @@ describe('S30 header by the deal', () => {
     await click(within(sheet).getByRole('button', { name: 'Предложить' }));
 
     await waitFor(() => expect(chat.proposals).toEqual([{ title: 'Повесить люстру' }]));
-    // в диалоге — новая сделка: ждёт подтверждения второй стороны
-    expect(await screen.findByRole('link', { name: 'Посмотреть условия' })).toBeTruthy();
+    // в диалоге — новая сделка: ждёт подтверждения второй стороны, в шапке — «Сделка»
+    await waitFor(() => expect(headerButtons(header)).toEqual(['Сделка']));
     expect(within(header).getByText('Ждёт подтверждения')).toBeTruthy();
-    expect(within(header).queryByRole('button', { name: 'Договориться снова' })).toBeNull();
     expect(screen.queryByText('Прошлая сделка «Повесить люстру»')).toBeNull();
     // договорились раньше — контакты не закрылись: второй строкой в полосе новой сделки
     expect(screen.getByText('Сделка «Повесить люстру»')).toBeTruthy();
-    expect(within(header).queryByRole('button', { name: /Telegram/ })).toBeNull();
-    expect(within(header).queryByRole('button', { name: 'Поделиться контактом' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Telegram: @aleksey_m' })).toBeTruthy();
     await click(screen.getByRole('button', { name: 'Поделиться контактом' }));
     expect(await screen.findByRole('dialog', { name: 'Поделиться контактом' })).toBeTruthy();
@@ -135,10 +144,9 @@ describe('S30 header by the deal', () => {
 
     const header = await directHeader();
     expect(within(header).getByText('Договорённость отменена')).toBeTruthy();
-    expect(within(header).getByRole('button', { name: 'Договориться снова' })).toBeTruthy();
     // договаривались — контакты открыты: в полосе прошлой сделки, как после завершённой
+    expect(headerButtons(header)).toEqual(['Договориться']);
     expect(screen.getByText('Прошлая сделка «Повесить люстру»')).toBeTruthy();
-    expect(within(header).queryByRole('button', { name: /Telegram/ })).toBeNull();
     expect(screen.getByRole('button', { name: 'Telegram: @aleksey_m' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Поделиться контактом' })).toBeTruthy();
   });
@@ -155,9 +163,13 @@ describe('S30 header by the deal', () => {
     startApp(`/messages/${CONVERSATION_IDS.direct}`);
 
     const header = await directHeader();
-    expect(within(header).getByText('Ещё не договорились')).toBeTruthy();
-    expect(within(header).getByRole('button', { name: 'Договорились' })).toBeTruthy();
-    expect(within(header).getByRole('button', { name: 'Telegram: @aleksey_m' })).toBeTruthy();
+    expect(within(header).getByText('Сделки пока нет')).toBeTruthy();
+    // сделки нет, контакты открыты: «Договориться» — в шапке, Telegram — в полосе «вы уже
+    // договаривались»
+    expect(headerButtons(header)).toEqual(['Договориться']);
+    expect(screen.getByText('Вы уже договаривались — контакты открыты')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Договориться' })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Telegram: @aleksey_m' })).toBeTruthy();
     // делиться пока не по чему: сделки в этом диалоге нет
     expect(screen.queryByRole('button', { name: 'Поделиться контактом' })).toBeNull();
   });
@@ -168,10 +180,16 @@ describe('S30 header by the deal', () => {
     startApp(`/messages/${CONVERSATION_IDS.direct}`);
 
     const header = await directHeader();
-    expect(within(header).getByRole('button', { name: 'Договориться снова' })).toBeTruthy();
-    // не договаривались: делиться нечем, полосы отменённого предложения нет
+    // не договаривались: делиться нечем, полосы отклонённого предложения нет
+    expect(headerButtons(header)).toEqual(['Договориться']);
     expect(screen.queryByRole('button', { name: 'Поделиться контактом' })).toBeNull();
     expect(screen.queryByText(/сделка «Повесить люстру»/i)).toBeNull();
+    // условия — та же шторка, «что делаем» — из отклонённого предложения
+    await click(within(header).getByRole('button', { name: 'Договориться' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Договорились?' });
+    expect(
+      (within(sheet).getByRole('textbox', { name: 'Что делаем' }) as HTMLInputElement).value,
+    ).toBe('Повесить люстру');
   });
 
   it('orders again from the response chat with a completed deal', async () => {
@@ -183,8 +201,8 @@ describe('S30 header by the deal', () => {
     const { app } = startApp(`/messages/${CONVERSATION_IDS.job}`);
 
     const header = await screen.findByRole('banner', { name: 'Никола Петрович' });
-    expect(within(header).queryByRole('button', { name: 'Договориться снова' })).toBeNull();
-    expect(within(header).queryByRole('button', { name: 'К откликам' })).toBeNull();
+    expect(headerButtons(header)).toEqual(['Заказать снова']);
+    expect(screen.queryByRole('button', { name: 'К откликам' })).toBeNull();
     // «Поделиться контактом» — в полосе прошлой сделки
     expect(screen.getByRole('button', { name: 'Поделиться контактом' })).toBeTruthy();
     await click(within(header).getByRole('button', { name: 'Заказать снова' }));
@@ -193,7 +211,7 @@ describe('S30 header by the deal', () => {
     await waitFor(() =>
       expect(app.router.state.location.pathname).toBe(`/messages/${CONVERSATION_IDS.direct}`),
     );
-    expect(within(await directHeader()).getByRole('button', { name: 'Договорились' })).toBeTruthy();
+    expect(headerButtons(await directHeader())).toEqual(['Договориться']);
   });
 
   it('still leads the client to the responses after the cancelled response deal', async () => {
@@ -202,10 +220,9 @@ describe('S30 header by the deal', () => {
     startApp(`/messages/${CONVERSATION_IDS.job}`);
 
     const header = await screen.findByRole('banner', { name: 'Никола Петрович' });
-    expect(within(header).getByRole('button', { name: 'К откликам' })).toBeTruthy();
-    expect(within(header).queryByRole('button', { name: 'Заказать снова' })).toBeNull();
-    // выбор отклика был договорённостью — контакты открыты, в полосе прошлой сделки
-    expect(within(header).queryByRole('button', { name: 'Поделиться контактом' })).toBeNull();
+    // заявка снова открыта — «К откликам»; выбор отклика был договорённостью — контакты открыты
+    expect(headerButtons(header)).toEqual(['К откликам']);
+    expect(screen.queryByRole('button', { name: 'Заказать снова' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Поделиться контактом' })).toBeTruthy();
   });
 
@@ -215,8 +232,11 @@ describe('S30 header by the deal', () => {
     startApp(`/messages/${CONVERSATION_IDS.performer}`);
 
     const header = await screen.findByRole('banner', { name: 'Дмитрий Соколов' });
-    expect(within(header).getByRole('button', { name: 'Поделиться контактом' })).toBeTruthy();
-    expect(within(header).queryByRole('button', { name: 'Заказать снова' })).toBeNull();
+    // исполнителю снова отсюда нечего — «Сделка»; ссылки на неё в полосе нет
+    expect(headerButtons(header)).toEqual(['Сделка']);
     expect(screen.getByText('Прошлая сделка «Повесить люстру»')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Открыть сделку' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Поделиться контактом' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Заказать снова' })).toBeNull();
   });
 });
