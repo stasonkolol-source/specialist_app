@@ -253,10 +253,10 @@ msgid "bot.profile.name"
 msgstr "Sosedi"
 
 msgid "bot.profile.description"
-msgstr "„Sosedi“ — majstori i pomoć u blizini: popravke, lepota, čišćenje, selidbe, časovi. Opišite zadatak — izvođači će se javiti sa cenom. Ili izaberite stručnjaka po utiscima.\n\nPritisnite dugme ispod da počnete."
+msgstr "„Sosedi“ — majstori u blizini, na vašem jeziku. Novi Sad: popravke, lepota, čišćenje, selidbe, časovi. Opišite zadatak — izvođači će se javiti sa cenom. Ili izaberite stručnjaka po utiscima.\n\nPritisnite dugme ispod da počnete."
 
 msgid "bot.profile.short_description"
-msgstr "Majstori i pomoć u blizini: popravke, lepota, čišćenje, selidbe, časovi."
+msgstr "Majstori u blizini, na vašem jeziku. Novi Sad: popravke, lepota, čišćenje, selidbe, časovi."
 
 msgid "errors.not_found"
 msgstr "Nije pronađeno."
