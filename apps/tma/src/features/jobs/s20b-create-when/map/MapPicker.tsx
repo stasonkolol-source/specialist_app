@@ -173,7 +173,11 @@ export function MapPicker({
     instance.on('error', () => {
       if (!loaded) setFailed(true);
     });
-    instance.on('movestart', () => setMoving(true));
+    // «не нашли, где вы» — до первого движения: дальше подсказка — о районе под меткой
+    instance.on('movestart', () => {
+      setMoving(true);
+      setHereFailed(false);
+    });
     instance.on('moveend', () => {
       const { lat, lng } = instance.getCenter();
       setCentre({ lat, lon: lng });
@@ -221,7 +225,7 @@ export function MapPicker({
 
   const headline = failed
     ? t('create.when.map.unavailable')
-    : hereFailed && status.kind !== 'found'
+    : hereFailed
       ? t('create.when.map.hereFailed')
       : status.kind === 'found'
         ? status.district.name

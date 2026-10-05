@@ -190,6 +190,22 @@ describe('S20b map picker', () => {
     expect(map.getZoom()).toBe(15);
   });
 
+  it('«Я здесь» without a device point asks to find the place; moving the map clears it', async () => {
+    const { telegram } = startApp('/jobs/new', { location: null });
+    await fillWhat(telegram);
+    await click(await screen.findByRole('button', { name: 'Указать на карте' }));
+    await waitFor(() => expect(maps).toHaveLength(1));
+    await click(screen.getByRole('button', { name: 'Я здесь' }));
+
+    await waitFor(() =>
+      expect(hint().textContent).toContain(
+        'Не получилось определить, где вы. Найдите место на карте.',
+      ),
+    );
+    act(() => maps[0]?.pan(OUTSIDE.lat, OUTSIDE.lon));
+    await waitFor(() => expect(hint().textContent).toContain('Вне Нови-Сада'));
+  });
+
   it('closes without changes: Telegram «Назад» and «Отмена»', async () => {
     const { telegram, map } = await openMap();
     act(() => map.pan(LIMAN.lat, LIMAN.lon));
