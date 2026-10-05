@@ -2,7 +2,12 @@
 // launch params, клиент API, вход по initData в фоне (после входа — язык, сохранённый на сервере),
 // цель deep link запуска (S01). ready() — после первого кадра (App.tsx): до него Telegram держит
 // свою заглушку. Тот же код собирает приложение в тестах.
-import { ApiError, configureApiClient, getIdentityGetMeQueryKey } from '@sosed/api-client';
+import {
+  ApiError,
+  RestrictedError,
+  configureApiClient,
+  getIdentityGetMeQueryKey,
+} from '@sosed/api-client';
 import { createI18n, currentLocale, isLocale, resolveLocale } from '@sosed/i18n';
 import type { Platform } from '@sosed/platform';
 import { applyTheme } from '@sosed/platform';
@@ -78,6 +83,9 @@ export function assemble(platform: Platform, options: AssembleOptions): Assemble
       void router.navigate({ to: ONBOARDING_PATHS.rules, search: { next } });
       return;
     }
+    // тексты S49b — своим чанком (неймспейс service): качаем вместе с чанком экрана, а не после
+    // него. При санкции на весь аккаунт оболочки нет — и фоновой догрузки текстов тоже
+    if (error instanceof RestrictedError) void i18n.loadNamespaces('service');
     if (reportSystemError(error)) void router.navigate({ to: RESTRICTED_PATH });
   };
   // свежесть и срок жизни кэша (в том числе /me на всю сессию) — app/query.ts
