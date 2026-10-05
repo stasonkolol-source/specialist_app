@@ -1235,29 +1235,488 @@ msgstr "P2 · Premoderacija"
 msgid "bot.moderation.queue.appeals"
 msgstr "Žalba"
 
-msgid "bot.moderation.card.title"
-msgstr "<b>{queue}</b> · slučaj"
+msgid "bot.moderation.card.header"
+msgstr "<b>{queue}</b> · {event}"
 
-msgid "bot.moderation.card.entity"
-msgstr "Objekat: {entity}"
+msgid "bot.moderation.card.who"
+msgstr "👤 <b>{name}</b> · {role}"
 
-msgid "bot.moderation.card.subject"
-msgstr "Korisnik:"
+msgid "bot.moderation.card.who_in"
+msgstr "👤 <b>{name}</b> · {role} · {area}"
 
-msgid "bot.moderation.card.trigger"
-msgstr "Povod: {trigger}"
+msgid "bot.moderation.card.who_deleted"
+msgstr "👤 obrisan korisnik"
 
-msgid "bot.moderation.card.signals"
-msgstr "Signali: {signals}"
+msgid "bot.moderation.card.deleted"
+msgstr "obrisan korisnik"
 
-msgid "bot.moderation.card.appeal"
-msgstr "Osporava se odluka (razlog: {reason}):"
+msgid "bot.moderation.card.age"
+msgstr "na platformi {age}"
 
-msgid "bot.moderation.card.photos"
-msgstr "Fotografije-dokazi: {count}. Pregled — komandom:"
+msgid "bot.moderation.card.hours"
+msgstr "{count} č"
+
+msgid "bot.moderation.card.days"
+msgstr "{count} d."
+
+msgid "bot.moderation.card.trust"
+msgstr "poverenje {level}"
+
+msgid "bot.moderation.card.deals"
+msgstr "dogovora: {count}"
+
+msgid "bot.moderation.card.complaints"
+msgstr "prijave: {open} otv. od {total}"
+
+msgid "bot.moderation.card.what"
+msgstr "📄 <b>{object}</b>"
+
+msgid "bot.moderation.card.what_missing"
+msgstr "📄 <b>{object}</b> — više ne postoji, pogledaj u admin-panelu"
+
+msgid "bot.moderation.card.field"
+msgstr "<i>{label}:</i> {text}"
+
+msgid "bot.moderation.card.deal"
+msgstr "Dogovor „{title}“"
+
+msgid "bot.moderation.card.parties"
+msgstr "spor otvorio: {opened} · druga strana: {respondent}"
+
+msgid "bot.moderation.card.dispute_photos"
+msgstr "📎 {count} foto — u admin-panelu"
+
+msgid "bot.moderation.card.photo_hidden"
+msgstr "🔒 Fotografija je automatski sakrivena — pogledaj u admin-panelu"
+
+msgid "bot.moderation.card.why"
+msgstr "❓ <b>Zašto:</b>"
 
 msgid "bot.moderation.card.due"
-msgstr "Rok: do {due}"
+msgstr "⏰ do {due} ({left})"
+
+msgid "bot.moderation.card.admin_link"
+msgstr "Admin-panel: {url}"
+
+msgid "bot.moderation.card.case"
+msgstr "Slučaj <code>{case_id}</code>"
+
+msgid "bot.moderation.left.minutes"
+msgstr "za {count} min"
+
+msgid "bot.moderation.left.hours"
+msgstr "za {count} č"
+
+msgid "bot.moderation.left.days"
+msgstr "za {count} d."
+
+msgid "bot.moderation.left.overdue"
+msgstr "rok je prošao"
+
+msgid "bot.moderation.event.new"
+msgstr "novo za proveru"
+
+msgid "bot.moderation.event.new.profile"
+msgstr "novi profil za proveru"
+
+msgid "bot.moderation.event.new.job"
+msgstr "novi zahtev za proveru"
+
+msgid "bot.moderation.event.new.response"
+msgstr "nova ponuda za proveru"
+
+msgid "bot.moderation.event.new.message"
+msgstr "poruka u četu za proveru"
+
+msgid "bot.moderation.event.new.review"
+msgstr "novi utisak za proveru"
+
+msgid "bot.moderation.event.new.review_reply"
+msgstr "odgovor na utisak za proveru"
+
+msgid "bot.moderation.event.new.portfolio"
+msgstr "novi rad u portfoliju za proveru"
+
+msgid "bot.moderation.event.edit"
+msgstr "izmena za proveru"
+
+msgid "bot.moderation.event.report"
+msgstr "prijava"
+
+msgid "bot.moderation.event.appeal"
+msgstr "preispitivanje odluke"
+
+msgid "bot.moderation.event.dispute"
+msgstr "spor oko dogovora"
+
+msgid "bot.moderation.event.photo_hidden"
+msgstr "fotografija automatski sakrivena"
+
+msgid "bot.moderation.event.photo_unchecked"
+msgstr "provera fotografije nije obavljena"
+
+msgid "bot.moderation.event.photo_flagged"
+msgstr "fotografija: oznaka automatske provere"
+
+msgid "bot.moderation.event.duplicate"
+msgstr "slična fotografija kod drugog naloga"
+
+msgid "bot.moderation.event.blocked"
+msgstr "automatski sakriveno, nalog zamrznut"
+
+msgid "bot.moderation.event.sample"
+msgstr "nasumična provera posle objave"
+
+msgid "bot.moderation.event.demo"
+msgstr "demo slučaj"
+
+msgid "bot.moderation.event.auto_flag"
+msgstr "oznaka automatske provere"
+
+msgid "bot.moderation.role.client"
+msgstr "klijent"
+
+msgid "bot.moderation.role.pro"
+msgstr "stručnjak"
+
+msgid "bot.moderation.role.casual"
+msgstr "honorarni posao"
+
+msgid "bot.moderation.role.with_category"
+msgstr "{role}: {category}"
+
+msgid "bot.moderation.reporter.client"
+msgstr "od klijenta"
+
+msgid "bot.moderation.reporter.pro"
+msgstr "od stručnjaka"
+
+msgid "bot.moderation.reporter.casual"
+msgstr "od izvođača (honorarni posao)"
+
+msgid "bot.moderation.object.profile"
+msgstr "Profil stručnjaka"
+
+msgid "bot.moderation.object.job"
+msgstr "Zahtev"
+
+msgid "bot.moderation.object.response"
+msgstr "Ponuda"
+
+msgid "bot.moderation.object.message"
+msgstr "Poruka u četu"
+
+msgid "bot.moderation.object.review"
+msgstr "Utisak"
+
+msgid "bot.moderation.object.review_reply"
+msgstr "Odgovor na utisak"
+
+msgid "bot.moderation.object.portfolio"
+msgstr "Rad u portfoliju"
+
+msgid "bot.moderation.object.avatar"
+msgstr "Fotografija profila"
+
+msgid "bot.moderation.object.portfolio_photo"
+msgstr "Fotografija u portfoliju"
+
+msgid "bot.moderation.object.job_photo"
+msgstr "Fotografija zahteva"
+
+msgid "bot.moderation.object.photo"
+msgstr "Fotografija"
+
+msgid "bot.moderation.object.user"
+msgstr "Nalog"
+
+msgid "bot.moderation.object.dispute"
+msgstr "Spor oko dogovora"
+
+msgid "bot.moderation.field.headline"
+msgstr "Ukratko o sebi"
+
+msgid "bot.moderation.field.about"
+msgstr "O sebi"
+
+msgid "bot.moderation.field.title"
+msgstr "Naslov"
+
+msgid "bot.moderation.field.description"
+msgstr "Opis"
+
+msgid "bot.moderation.field.budget"
+msgstr "Budžet"
+
+msgid "bot.moderation.field.rating"
+msgstr "Ocena"
+
+msgid "bot.moderation.field.text"
+msgstr "Tekst"
+
+msgid "bot.moderation.field.caption"
+msgstr "Opis"
+
+msgid "bot.moderation.field.message"
+msgstr "Poruka"
+
+msgid "bot.moderation.field.job"
+msgstr "Zahtev"
+
+msgid "bot.moderation.field.availability"
+msgstr "Kada može"
+
+msgid "bot.moderation.why.report"
+msgstr "prijava: {reason}"
+
+msgid "bot.moderation.why.report_by"
+msgstr "prijava {reporter}: {reason}"
+
+msgid "bot.moderation.why.comment"
+msgstr "— „{comment}“"
+
+msgid "bot.moderation.why.appeal"
+msgstr "osporava se odluka „{reason}“"
+
+msgid "bot.moderation.why.appeal_from"
+msgstr "osporava se odluka „{reason}“ od {date}"
+
+msgid "bot.moderation.why.rule"
+msgstr "pravilo „{pattern}“ ({category})"
+
+msgid "bot.moderation.why.rule_block"
+msgstr "pravilo blokade „{pattern}“ ({category})"
+
+msgid "bot.moderation.why.velocity"
+msgstr "isti tekst više puta ({evidence})"
+
+msgid "bot.moderation.why.contacts"
+msgstr "kontakti u tekstu: {kinds}"
+
+msgid "bot.moderation.why.contacts_in"
+msgstr "kontakti ({kinds}) u {field}"
+
+msgid "bot.moderation.why.prepayment"
+msgstr "traži avansno plaćanje"
+
+msgid "bot.moderation.why.omni"
+msgstr "oznaka OpenAI omni: {category}"
+
+msgid "bot.moderation.why.omni_unavailable"
+msgstr "automatska provera teksta nije obavljena"
+
+msgid "bot.moderation.why.classifier"
+msgstr "klasifikator: {label} ({confidence})"
+
+msgid "bot.moderation.why.classifier_unsure"
+msgstr "klasifikator nije siguran ({confidence})"
+
+msgid "bot.moderation.why.classifier_unavailable"
+msgstr "klasifikator nije dostupan"
+
+msgid "bot.moderation.why.always_review"
+msgstr "uvek proverava čovek"
+
+msgid "bot.moderation.why.always_review.profile"
+msgstr "novi profil — uvek čovek"
+
+msgid "bot.moderation.why.always_review.portfolio"
+msgstr "portfolio novog profila — uvek čovek"
+
+msgid "bot.moderation.why.always_review.review"
+msgstr "utisak pre platforme — uvek čovek"
+
+msgid "bot.moderation.why.risky_category"
+msgstr "kategorija povećanog rizika"
+
+msgid "bot.moderation.why.sample"
+msgstr "nasumična provera posle objave"
+
+msgid "bot.moderation.why.demo"
+msgstr "demo slučaj: provera grupe moderatora"
+
+msgid "bot.moderation.why.image"
+msgstr "fotografija: {category} {score}"
+
+msgid "bot.moderation.why.image_unchecked"
+msgstr "provera fotografije nije obavljena"
+
+msgid "bot.moderation.why.image_flagged"
+msgstr "fotografija: oznaka provajdera"
+
+msgid "bot.moderation.why.duplicate"
+msgstr "slična fotografija u portfoliju drugog naloga ({count})"
+
+msgid "bot.moderation.why.dispute"
+msgstr "spor: {kind}"
+
+msgid "bot.moderation.why.dispute_answered"
+msgstr "druga strana je odgovorila"
+
+msgid "bot.moderation.why.dispute_no_response"
+msgstr "nema odgovora 48 č"
+
+msgid "bot.moderation.report.spam"
+msgstr "spam"
+
+msgid "bot.moderation.report.fraud"
+msgstr "prevara"
+
+msgid "bot.moderation.report.prohibited"
+msgstr "zabranjena usluga"
+
+msgid "bot.moderation.report.offensive"
+msgstr "uvrede ili pretnje"
+
+msgid "bot.moderation.report.fake_profile"
+msgstr "lažni profil"
+
+msgid "bot.moderation.report.no_show"
+msgstr "nije došao"
+
+msgid "bot.moderation.report.personal_data"
+msgstr "lični podaci"
+
+msgid "bot.moderation.report.defamation"
+msgstr "kleveta"
+
+msgid "bot.moderation.report.copyright"
+msgstr "autorska prava"
+
+msgid "bot.moderation.report.illegal"
+msgstr "nezakonit sadržaj"
+
+msgid "bot.moderation.report.other"
+msgstr "drugo"
+
+msgid "bot.moderation.reason.prepayment_scam"
+msgstr "avans / prevara"
+
+msgid "bot.moderation.reason.off_platform_payment"
+msgstr "plaćanje mimo platforme"
+
+msgid "bot.moderation.reason.contact_leak"
+msgstr "kontakti"
+
+msgid "bot.moderation.reason.spam_ad"
+msgstr "spam / reklama"
+
+msgid "bot.moderation.reason.prohibited"
+msgstr "zabranjeno"
+
+msgid "bot.moderation.reason.mule_recruitment"
+msgstr "vrbovanje mula"
+
+msgid "bot.moderation.reason.not_a_service_request"
+msgstr "nije zahtev za uslugu"
+
+msgid "bot.moderation.reason.vacancy"
+msgstr "oglas za posao"
+
+msgid "bot.moderation.reason.other"
+msgstr "drugo"
+
+msgid "bot.moderation.reason.sexual_content"
+msgstr "eksplicitna fotografija"
+
+msgid "bot.moderation.reason.violence"
+msgstr "nasilje"
+
+msgid "bot.moderation.reason.self_harm"
+msgstr "samopovređivanje"
+
+msgid "bot.moderation.reason.drug_courier"
+msgstr "droga"
+
+msgid "bot.moderation.reason.sexual_services"
+msgstr "seksualne usluge"
+
+msgid "bot.moderation.reason.weapons"
+msgstr "oružje"
+
+msgid "bot.moderation.reason.ok"
+msgstr "nema kršenja"
+
+msgid "bot.moderation.category.drugs"
+msgstr "droga"
+
+msgid "bot.moderation.category.weapons"
+msgstr "oružje"
+
+msgid "bot.moderation.category.escort"
+msgstr "eskort"
+
+msgid "bot.moderation.category.scam"
+msgstr "prevara"
+
+msgid "bot.moderation.category.mule"
+msgstr "muli"
+
+msgid "bot.moderation.category.contacts"
+msgstr "kontakti"
+
+msgid "bot.moderation.category.spam"
+msgstr "spam"
+
+msgid "bot.moderation.category.vacancy"
+msgstr "oglas za posao"
+
+msgid "bot.moderation.contact.phone"
+msgstr "telefon"
+
+msgid "bot.moderation.contact.card"
+msgstr "broj kartice"
+
+msgid "bot.moderation.contact.account"
+msgstr "broj računa"
+
+msgid "bot.moderation.contact.link"
+msgstr "link"
+
+msgid "bot.moderation.contact.email"
+msgstr "imejl"
+
+msgid "bot.moderation.contact.username"
+msgstr "korisničko ime"
+
+msgid "bot.moderation.image.sexual"
+msgstr "eksplicitno"
+
+msgid "bot.moderation.image.violence"
+msgstr "nasilje"
+
+msgid "bot.moderation.image.violence_graphic"
+msgstr "krv i povrede"
+
+msgid "bot.moderation.image.self_harm"
+msgstr "samopovređivanje"
+
+msgid "bot.moderation.image.self_harm_intent"
+msgstr "samopovređivanje: namera"
+
+msgid "bot.moderation.image.self_harm_instructions"
+msgstr "samopovređivanje: uputstva"
+
+msgid "bot.moderation.dispute.no_show"
+msgstr "nije došao"
+
+msgid "bot.moderation.dispute.quality"
+msgstr "loše ili pogrešno urađeno"
+
+msgid "bot.moderation.dispute.prepayment_taken"
+msgstr "uzeo avans ili traži više"
+
+msgid "bot.moderation.dispute.damage"
+msgstr "šteta na imovini"
+
+msgid "bot.moderation.dispute.safety"
+msgstr "šteta, grubost ili pretnje"
+
+msgid "bot.moderation.dispute.other"
+msgstr "drugo"
+
+msgid "bot.moderation.button.admin"
+msgstr "Otvori u admin-panelu"
 
 msgid "bot.moderation.button.approve"
 msgstr "Odobri"

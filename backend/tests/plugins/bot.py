@@ -24,6 +24,7 @@ from aiogram.types import (
     ChatMemberUpdated,
     InlineKeyboardMarkup,
     Message,
+    PhotoSize,
     Update,
     User,
 )
@@ -110,16 +111,32 @@ class BotHarness:
         return self.session.calls[before:]
 
     async def press(
-        self, telegram_id: int, data: str, *, markup: InlineKeyboardMarkup | None = None
+        self,
+        telegram_id: int,
+        data: str,
+        *,
+        markup: InlineKeyboardMarkup | None = None,
+        caption: str | None = None,
     ) -> list[TelegramMethod[Any]]:
-        """Нажатие инлайн-кнопки под сообщением бота (с клавиатурой `markup`, если задана):
-        вызовы Bot API в ответ."""
+        """Нажатие инлайн-кнопки под сообщением бота (с клавиатурой `markup`, если задана; с
+        `caption` — под фото с этой подписью): вызовы Bot API в ответ."""
         before = len(self.session.calls)
         chat = Chat(id=telegram_id, type="private")
         user = User(id=telegram_id, is_bot=False, first_name="Ana", language_code="ru")
-        message = Message(
-            message_id=1, date=datetime.now(UTC), chat=chat, text="…", reply_markup=markup
-        )
+        if caption is None:
+            message = Message(
+                message_id=1, date=datetime.now(UTC), chat=chat, text="…", reply_markup=markup
+            )
+        else:
+            photo = PhotoSize(file_id="photo", file_unique_id="photo", width=800, height=600)
+            message = Message(
+                message_id=1,
+                date=datetime.now(UTC),
+                chat=chat,
+                photo=[photo],
+                caption=caption,
+                reply_markup=markup,
+            )
         callback = CallbackQuery(
             id=str(new_id().int % 2**31),
             from_user=user,

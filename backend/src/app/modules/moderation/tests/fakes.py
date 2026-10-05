@@ -148,6 +148,11 @@ class FakeDeals:
     disputing_users: set[UserId] = field(default_factory=set)
     evidence: set[MediaId] = field(default_factory=set)
     disputed: set[DealId] = field(default_factory=set)
+    completed: dict[UserId, int] = field(default_factory=dict)
+    """Завершённые сделки — контекст карточки кейса (2.5b)."""
+
+    async def completed_deals(self, user_id: UserId) -> int:
+        return self.completed.get(user_id, 0)
 
     async def disputing(self, user_ids: Collection[UserId]) -> frozenset[UserId]:
         return frozenset(self.disputing_users & set(user_ids))

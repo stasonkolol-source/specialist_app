@@ -1234,29 +1234,488 @@ msgstr "P2 · Премодерација"
 msgid "bot.moderation.queue.appeals"
 msgstr "Жалба"
 
-msgid "bot.moderation.card.title"
-msgstr "<b>{queue}</b> · случај"
+msgid "bot.moderation.card.header"
+msgstr "<b>{queue}</b> · {event}"
 
-msgid "bot.moderation.card.entity"
-msgstr "Објекат: {entity}"
+msgid "bot.moderation.card.who"
+msgstr "👤 <b>{name}</b> · {role}"
 
-msgid "bot.moderation.card.subject"
-msgstr "Корисник:"
+msgid "bot.moderation.card.who_in"
+msgstr "👤 <b>{name}</b> · {role} · {area}"
 
-msgid "bot.moderation.card.trigger"
-msgstr "Повод: {trigger}"
+msgid "bot.moderation.card.who_deleted"
+msgstr "👤 обрисан корисник"
 
-msgid "bot.moderation.card.signals"
-msgstr "Сигнали: {signals}"
+msgid "bot.moderation.card.deleted"
+msgstr "обрисан корисник"
 
-msgid "bot.moderation.card.appeal"
-msgstr "Оспорава се одлука (разлог: {reason}):"
+msgid "bot.moderation.card.age"
+msgstr "на платформи {age}"
 
-msgid "bot.moderation.card.photos"
-msgstr "Фотографије-докази: {count}. Преглед — командом:"
+msgid "bot.moderation.card.hours"
+msgstr "{count} ч"
+
+msgid "bot.moderation.card.days"
+msgstr "{count} д."
+
+msgid "bot.moderation.card.trust"
+msgstr "поверење {level}"
+
+msgid "bot.moderation.card.deals"
+msgstr "договора: {count}"
+
+msgid "bot.moderation.card.complaints"
+msgstr "пријаве: {open} отв. од {total}"
+
+msgid "bot.moderation.card.what"
+msgstr "📄 <b>{object}</b>"
+
+msgid "bot.moderation.card.what_missing"
+msgstr "📄 <b>{object}</b> — више не постоји, погледај у админ-панелу"
+
+msgid "bot.moderation.card.field"
+msgstr "<i>{label}:</i> {text}"
+
+msgid "bot.moderation.card.deal"
+msgstr "Договор „{title}“"
+
+msgid "bot.moderation.card.parties"
+msgstr "спор отворио: {opened} · друга страна: {respondent}"
+
+msgid "bot.moderation.card.dispute_photos"
+msgstr "📎 {count} фото — у админ-панелу"
+
+msgid "bot.moderation.card.photo_hidden"
+msgstr "🔒 Фотографија је аутоматски сакривена — погледај у админ-панелу"
+
+msgid "bot.moderation.card.why"
+msgstr "❓ <b>Зашто:</b>"
 
 msgid "bot.moderation.card.due"
-msgstr "Рок: до {due}"
+msgstr "⏰ до {due} ({left})"
+
+msgid "bot.moderation.card.admin_link"
+msgstr "Админ-панел: {url}"
+
+msgid "bot.moderation.card.case"
+msgstr "Случај <code>{case_id}</code>"
+
+msgid "bot.moderation.left.minutes"
+msgstr "за {count} мин"
+
+msgid "bot.moderation.left.hours"
+msgstr "за {count} ч"
+
+msgid "bot.moderation.left.days"
+msgstr "за {count} д."
+
+msgid "bot.moderation.left.overdue"
+msgstr "рок је прошао"
+
+msgid "bot.moderation.event.new"
+msgstr "ново за проверу"
+
+msgid "bot.moderation.event.new.profile"
+msgstr "нови профил за проверу"
+
+msgid "bot.moderation.event.new.job"
+msgstr "нови захтев за проверу"
+
+msgid "bot.moderation.event.new.response"
+msgstr "нова понуда за проверу"
+
+msgid "bot.moderation.event.new.message"
+msgstr "порука у чету за проверу"
+
+msgid "bot.moderation.event.new.review"
+msgstr "нови утисак за проверу"
+
+msgid "bot.moderation.event.new.review_reply"
+msgstr "одговор на утисак за проверу"
+
+msgid "bot.moderation.event.new.portfolio"
+msgstr "нови рад у портфолију за проверу"
+
+msgid "bot.moderation.event.edit"
+msgstr "измена за проверу"
+
+msgid "bot.moderation.event.report"
+msgstr "пријава"
+
+msgid "bot.moderation.event.appeal"
+msgstr "преиспитивање одлуке"
+
+msgid "bot.moderation.event.dispute"
+msgstr "спор око договора"
+
+msgid "bot.moderation.event.photo_hidden"
+msgstr "фотографија аутоматски сакривена"
+
+msgid "bot.moderation.event.photo_unchecked"
+msgstr "провера фотографије није обављена"
+
+msgid "bot.moderation.event.photo_flagged"
+msgstr "фотографија: ознака аутоматске провере"
+
+msgid "bot.moderation.event.duplicate"
+msgstr "слична фотографија код другог налога"
+
+msgid "bot.moderation.event.blocked"
+msgstr "аутоматски сакривено, налог замрзнут"
+
+msgid "bot.moderation.event.sample"
+msgstr "насумична провера после објаве"
+
+msgid "bot.moderation.event.demo"
+msgstr "демо случај"
+
+msgid "bot.moderation.event.auto_flag"
+msgstr "ознака аутоматске провере"
+
+msgid "bot.moderation.role.client"
+msgstr "клијент"
+
+msgid "bot.moderation.role.pro"
+msgstr "стручњак"
+
+msgid "bot.moderation.role.casual"
+msgstr "хонорарни посао"
+
+msgid "bot.moderation.role.with_category"
+msgstr "{role}: {category}"
+
+msgid "bot.moderation.reporter.client"
+msgstr "од клијента"
+
+msgid "bot.moderation.reporter.pro"
+msgstr "од стручњака"
+
+msgid "bot.moderation.reporter.casual"
+msgstr "од извођача (хонорарни посао)"
+
+msgid "bot.moderation.object.profile"
+msgstr "Профил стручњака"
+
+msgid "bot.moderation.object.job"
+msgstr "Захтев"
+
+msgid "bot.moderation.object.response"
+msgstr "Понуда"
+
+msgid "bot.moderation.object.message"
+msgstr "Порука у чету"
+
+msgid "bot.moderation.object.review"
+msgstr "Утисак"
+
+msgid "bot.moderation.object.review_reply"
+msgstr "Одговор на утисак"
+
+msgid "bot.moderation.object.portfolio"
+msgstr "Рад у портфолију"
+
+msgid "bot.moderation.object.avatar"
+msgstr "Фотографија профила"
+
+msgid "bot.moderation.object.portfolio_photo"
+msgstr "Фотографија у портфолију"
+
+msgid "bot.moderation.object.job_photo"
+msgstr "Фотографија захтева"
+
+msgid "bot.moderation.object.photo"
+msgstr "Фотографија"
+
+msgid "bot.moderation.object.user"
+msgstr "Налог"
+
+msgid "bot.moderation.object.dispute"
+msgstr "Спор око договора"
+
+msgid "bot.moderation.field.headline"
+msgstr "Укратко о себи"
+
+msgid "bot.moderation.field.about"
+msgstr "О себи"
+
+msgid "bot.moderation.field.title"
+msgstr "Наслов"
+
+msgid "bot.moderation.field.description"
+msgstr "Опис"
+
+msgid "bot.moderation.field.budget"
+msgstr "Буџет"
+
+msgid "bot.moderation.field.rating"
+msgstr "Оцена"
+
+msgid "bot.moderation.field.text"
+msgstr "Текст"
+
+msgid "bot.moderation.field.caption"
+msgstr "Опис"
+
+msgid "bot.moderation.field.message"
+msgstr "Порука"
+
+msgid "bot.moderation.field.job"
+msgstr "Захтев"
+
+msgid "bot.moderation.field.availability"
+msgstr "Када може"
+
+msgid "bot.moderation.why.report"
+msgstr "пријава: {reason}"
+
+msgid "bot.moderation.why.report_by"
+msgstr "пријава {reporter}: {reason}"
+
+msgid "bot.moderation.why.comment"
+msgstr "— „{comment}“"
+
+msgid "bot.moderation.why.appeal"
+msgstr "оспорава се одлука „{reason}“"
+
+msgid "bot.moderation.why.appeal_from"
+msgstr "оспорава се одлука „{reason}“ од {date}"
+
+msgid "bot.moderation.why.rule"
+msgstr "правило „{pattern}“ ({category})"
+
+msgid "bot.moderation.why.rule_block"
+msgstr "правило блокаде „{pattern}“ ({category})"
+
+msgid "bot.moderation.why.velocity"
+msgstr "исти текст више пута ({evidence})"
+
+msgid "bot.moderation.why.contacts"
+msgstr "контакти у тексту: {kinds}"
+
+msgid "bot.moderation.why.contacts_in"
+msgstr "контакти ({kinds}) у {field}"
+
+msgid "bot.moderation.why.prepayment"
+msgstr "тражи авансно плаћање"
+
+msgid "bot.moderation.why.omni"
+msgstr "ознака OpenAI omni: {category}"
+
+msgid "bot.moderation.why.omni_unavailable"
+msgstr "аутоматска провера текста није обављена"
+
+msgid "bot.moderation.why.classifier"
+msgstr "класификатор: {label} ({confidence})"
+
+msgid "bot.moderation.why.classifier_unsure"
+msgstr "класификатор није сигуран ({confidence})"
+
+msgid "bot.moderation.why.classifier_unavailable"
+msgstr "класификатор није доступан"
+
+msgid "bot.moderation.why.always_review"
+msgstr "увек проверава човек"
+
+msgid "bot.moderation.why.always_review.profile"
+msgstr "нови профил — увек човек"
+
+msgid "bot.moderation.why.always_review.portfolio"
+msgstr "портфолио новог профила — увек човек"
+
+msgid "bot.moderation.why.always_review.review"
+msgstr "утисак пре платформе — увек човек"
+
+msgid "bot.moderation.why.risky_category"
+msgstr "категорија повећаног ризика"
+
+msgid "bot.moderation.why.sample"
+msgstr "насумична провера после објаве"
+
+msgid "bot.moderation.why.demo"
+msgstr "демо случај: провера групе модератора"
+
+msgid "bot.moderation.why.image"
+msgstr "фотографија: {category} {score}"
+
+msgid "bot.moderation.why.image_unchecked"
+msgstr "провера фотографије није обављена"
+
+msgid "bot.moderation.why.image_flagged"
+msgstr "фотографија: ознака провајдера"
+
+msgid "bot.moderation.why.duplicate"
+msgstr "слична фотографија у портфолију другог налога ({count})"
+
+msgid "bot.moderation.why.dispute"
+msgstr "спор: {kind}"
+
+msgid "bot.moderation.why.dispute_answered"
+msgstr "друга страна је одговорила"
+
+msgid "bot.moderation.why.dispute_no_response"
+msgstr "нема одговора 48 ч"
+
+msgid "bot.moderation.report.spam"
+msgstr "спам"
+
+msgid "bot.moderation.report.fraud"
+msgstr "превара"
+
+msgid "bot.moderation.report.prohibited"
+msgstr "забрањена услуга"
+
+msgid "bot.moderation.report.offensive"
+msgstr "увреде или претње"
+
+msgid "bot.moderation.report.fake_profile"
+msgstr "лажни профил"
+
+msgid "bot.moderation.report.no_show"
+msgstr "није дошао"
+
+msgid "bot.moderation.report.personal_data"
+msgstr "лични подаци"
+
+msgid "bot.moderation.report.defamation"
+msgstr "клевета"
+
+msgid "bot.moderation.report.copyright"
+msgstr "ауторска права"
+
+msgid "bot.moderation.report.illegal"
+msgstr "незаконит садржај"
+
+msgid "bot.moderation.report.other"
+msgstr "друго"
+
+msgid "bot.moderation.reason.prepayment_scam"
+msgstr "аванс / превара"
+
+msgid "bot.moderation.reason.off_platform_payment"
+msgstr "плаћање мимо платформе"
+
+msgid "bot.moderation.reason.contact_leak"
+msgstr "контакти"
+
+msgid "bot.moderation.reason.spam_ad"
+msgstr "спам / реклама"
+
+msgid "bot.moderation.reason.prohibited"
+msgstr "забрањено"
+
+msgid "bot.moderation.reason.mule_recruitment"
+msgstr "врбовање мула"
+
+msgid "bot.moderation.reason.not_a_service_request"
+msgstr "није захтев за услугу"
+
+msgid "bot.moderation.reason.vacancy"
+msgstr "оглас за посао"
+
+msgid "bot.moderation.reason.other"
+msgstr "друго"
+
+msgid "bot.moderation.reason.sexual_content"
+msgstr "експлицитна фотографија"
+
+msgid "bot.moderation.reason.violence"
+msgstr "насиље"
+
+msgid "bot.moderation.reason.self_harm"
+msgstr "самоповређивање"
+
+msgid "bot.moderation.reason.drug_courier"
+msgstr "дрога"
+
+msgid "bot.moderation.reason.sexual_services"
+msgstr "сексуалне услуге"
+
+msgid "bot.moderation.reason.weapons"
+msgstr "оружје"
+
+msgid "bot.moderation.reason.ok"
+msgstr "нема кршења"
+
+msgid "bot.moderation.category.drugs"
+msgstr "дрога"
+
+msgid "bot.moderation.category.weapons"
+msgstr "оружје"
+
+msgid "bot.moderation.category.escort"
+msgstr "ескорт"
+
+msgid "bot.moderation.category.scam"
+msgstr "превара"
+
+msgid "bot.moderation.category.mule"
+msgstr "мули"
+
+msgid "bot.moderation.category.contacts"
+msgstr "контакти"
+
+msgid "bot.moderation.category.spam"
+msgstr "спам"
+
+msgid "bot.moderation.category.vacancy"
+msgstr "оглас за посао"
+
+msgid "bot.moderation.contact.phone"
+msgstr "телефон"
+
+msgid "bot.moderation.contact.card"
+msgstr "број картице"
+
+msgid "bot.moderation.contact.account"
+msgstr "број рачуна"
+
+msgid "bot.moderation.contact.link"
+msgstr "линк"
+
+msgid "bot.moderation.contact.email"
+msgstr "имејл"
+
+msgid "bot.moderation.contact.username"
+msgstr "корисничко име"
+
+msgid "bot.moderation.image.sexual"
+msgstr "експлицитно"
+
+msgid "bot.moderation.image.violence"
+msgstr "насиље"
+
+msgid "bot.moderation.image.violence_graphic"
+msgstr "крв и повреде"
+
+msgid "bot.moderation.image.self_harm"
+msgstr "самоповређивање"
+
+msgid "bot.moderation.image.self_harm_intent"
+msgstr "самоповређивање: намера"
+
+msgid "bot.moderation.image.self_harm_instructions"
+msgstr "самоповређивање: упутства"
+
+msgid "bot.moderation.dispute.no_show"
+msgstr "није дошао"
+
+msgid "bot.moderation.dispute.quality"
+msgstr "лоше или погрешно урађено"
+
+msgid "bot.moderation.dispute.prepayment_taken"
+msgstr "узео аванс или тражи више"
+
+msgid "bot.moderation.dispute.damage"
+msgstr "штета на имовини"
+
+msgid "bot.moderation.dispute.safety"
+msgstr "штета, грубост или претње"
+
+msgid "bot.moderation.dispute.other"
+msgstr "друго"
+
+msgid "bot.moderation.button.admin"
+msgstr "Отвори у админ-панелу"
 
 msgid "bot.moderation.button.approve"
 msgstr "Одобри"
