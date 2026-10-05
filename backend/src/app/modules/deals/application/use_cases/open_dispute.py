@@ -4,11 +4,18 @@
 
 Фото — свои файлы назначения `dispute` (приватный бакет): чужой или удалённый — 404,
 другое назначение или отказ обработки — 409. Проверка — до транзакции (чтение media).
+
+Лимит — пять открытых споров в сутки: квота берётся последней, когда спор прошёл все проверки,
+так что отказы 404 и 409 её не тратят (MU-9); сверх — 429, спор не создан.
 """
 
 from dataclasses import dataclass
 
-from app.modules.deals.application.ports import DealRepository, DisputeRepository
+from app.modules.deals.application.ports import (
+    DealRepository,
+    DisputeQuota,
+    DisputeRepository,
+)
 from app.modules.deals.domain.dispute import Dispute, DisputeId, DisputeKind
 from app.modules.media.api import MediaApi
 from app.platform.db.port import UnitOfWork
@@ -33,11 +40,12 @@ class OpenDispute:
         uow: UnitOfWork,
         deals: DealRepository,
         disputes: DisputeRepository,
+        quota: DisputeQuota,
         media: MediaApi,
         clock: Clock,
     ) -> None:
         self._uow, self._deals, self._disputes = uow, deals, disputes
-        self._media, self._clock = media, clock
+        self._quota, self._media, self._clock = quota, media, clock
 
     async def __call__(self, cmd: OpenDisputeCommand) -> DisputeId:
         await check_evidence(self._media, cmd.actor_id, cmd.media_ids)
@@ -54,6 +62,7 @@ class OpenDispute:
             )
             await self._disputes.add(dispute)
             await self._deals.save(deal)
+            await self._quota.take(cmd.actor_id)  # сверх лимита — 429 и откат транзакции
         return dispute.id
 
 

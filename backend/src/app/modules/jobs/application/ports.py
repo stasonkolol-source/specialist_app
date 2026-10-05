@@ -24,7 +24,7 @@ from app.modules.jobs.domain.job import Job, JobId, JobStatus
 from app.modules.jobs.domain.response import ResponseId
 from app.modules.jobs.domain.template import ResponseTemplate, TemplateId
 from app.platform.contracts.events.deals import DealCancelled, DealCompleted
-from app.platform.contracts.events.identity import UserDeleted
+from app.platform.contracts.events.identity import UserBlocked, UserDeleted
 from app.platform.contracts.events.jobs import JobPublished
 from app.platform.kernel.ids import MediaId, UserId
 from app.platform.kernel.pagination import Page, PageRequest
@@ -157,6 +157,11 @@ class JobQueries(Protocol):
         """Отклик исполнителя с заявкой — ответ на отклик, правку и отзыв; чужой — None."""
         ...
 
+    async def owner_response(self, client_id: UserId, response_id: ResponseId) -> MyResponse | None:
+        """Отклик на заявку клиента — тот, что он видит в S23: прошедший проверку, не удалённый,
+        заявка не удалена; иначе None."""
+        ...
+
     async def my_response_counts(self, performer_id: UserId) -> dict[ResponseGroup, int]:
         """Сколько откликов в каждой группе — числа на чипах S17."""
         ...
@@ -188,6 +193,11 @@ class JobQueries(Protocol):
 
     async def passed_over(self, job_id: JobId) -> list[UserId]:
         """Исполнители неудалённых откликов «не выбран» — клиент выбрал другого."""
+        ...
+
+    async def closed_with(self, job_id: JobId) -> tuple[str, list[UserId]] | None:
+        """Закрытая заявка, и удалённая тоже: название и исполнители откликов, которые
+        закрылись вместе с ней («не выбран» в момент закрытия). Не закрыта — None."""
         ...
 
     async def is_invited(self, job_id: JobId, performer_id: UserId) -> bool:
@@ -402,3 +412,5 @@ MATCH_ALERTS: Final = TaskRef("jobs.match_alerts", JobPublished)
 """Заявка опубликована впервые — подписчикам B1 или подборка (5.7, §9.6)."""
 FORGET_ALERTS: Final = TaskRef("jobs.forget_alerts", UserDeleted)
 """Аккаунт удалён — его подписки и совпадения удаляются (§7.10)."""
+RELEASE_BLOCKED_RESPONSES: Final = TaskRef("jobs.release_blocked_responses", UserBlocked)
+"""Двое заблокировали друг друга — отклики одного на заявки другого освобождают места (MU-3)."""

@@ -394,6 +394,7 @@ export function responseCardsFixture(): ResponseCardOut[] {
     availability_note: null,
     is_first: false,
     is_new: false,
+    revision: 1,
   };
   const performer = {
     profile_id: null,

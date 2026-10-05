@@ -90,6 +90,12 @@ class DealQueries(Protocol):
         ...
 
 
+class DisputeQuota(Protocol):
+    async def take(self, user_id: UserId) -> None:
+        """Засчитать открытый спор: пять в сутки, сверх — DailyDisputesLimitError (429)."""
+        ...
+
+
 class DisputeRepository(Protocol):
     async def add(self, dispute: Dispute) -> None: ...
 

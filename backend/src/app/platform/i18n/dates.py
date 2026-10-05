@@ -4,10 +4,10 @@
 """
 
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import babel
-from babel.dates import format_date, format_datetime
+from babel.dates import format_date, format_datetime, format_timedelta
 
 from app.platform.i18n.catalogs import CATALOG_NAMES
 from app.platform.kernel.clock import BUSINESS_TZ
@@ -54,3 +54,19 @@ def short_date(moment: datetime, locale: Locale) -> str:
 def short_time(moment: datetime) -> str:
     """«18:00» по Белграду: время одинаковое на всех языках «Соседей»."""
     return moment.astimezone(BUSINESS_TZ).strftime("%H:%M")
+
+
+WAIT_THRESHOLD = 1.5
+"""Единица побольше — только с полутора её штук: «через 24 часа», а не «через 1 день»."""
+
+
+def wait_phrase(seconds: int, locale: Locale) -> str:
+    """«через 24 часа», «за 2 минута» (sr), «za 30 sekundi»: сколько ждать, словами и с предлогом
+    языка (CLDR, babel) — вместо «85153 с.» в тексте 429 (MU-9)."""
+    cldr = babel.Locale.parse(CATALOG_NAMES[locale])
+    return format_timedelta(
+        timedelta(seconds=max(1, seconds)),
+        threshold=WAIT_THRESHOLD,
+        add_direction=True,
+        locale=cldr,
+    )

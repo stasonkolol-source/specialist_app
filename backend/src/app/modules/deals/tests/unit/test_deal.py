@@ -18,7 +18,12 @@ from app.modules.deals.domain.deal import (
     DealStatus,
     DealTerms,
 )
-from app.modules.deals.errors import DealNotActiveError, DealNotFoundError, InvalidDealError
+from app.modules.deals.errors import (
+    DealMarkedDoneError,
+    DealNotActiveError,
+    DealNotFoundError,
+    InvalidDealError,
+)
 from app.platform.contracts.events.deals import (
     DealAgreed,
     DealCancelled,
@@ -174,6 +179,33 @@ def test_cancel_rules() -> None:
     with pytest.raises(DealNotActiveError):
         deal.cancel(actor_id=CLIENT, reason=DealCancelReason.OTHER, now=LATER)
     assert not deal.cancel_by_system(reason=DealCancelReason.ACCOUNT_DELETED, now=LATER)
+
+
+@pytest.mark.parametrize(
+    ("marker", "canceller"),
+    [(CLIENT, PERFORMER), (PERFORMER, CLIENT), (CLIENT, CLIENT), (PERFORMER, PERFORMER)],
+)
+def test_no_party_cancel_after_work_marked_done(marker: UserId, canceller: UserId) -> None:
+    """MU-8: после «Работа выполнена» одной стороны отмена стёрла бы отметку, а с ней отзыв
+    клиента и спор. Остаются подтверждение, спор и автозавершение через 72 ч."""
+    deal = agreed()
+    deal.complete(actor_id=marker, now=NOW)
+    deal.pull_events()
+
+    with pytest.raises(DealMarkedDoneError):
+        deal.cancel(actor_id=canceller, reason=DealCancelReason.PLANS_CHANGED, now=LATER)
+
+    assert (deal.status, deal.cancelled_at, deal.pull_events()) == (DealStatus.AGREED, None, [])
+    deal.open_dispute(actor_id=canceller, now=LATER)  # «Есть проблема» — доступна
+    assert deal.status is DealStatus.DISPUTED
+
+
+def test_marked_deal_still_completes_by_the_other_party() -> None:
+    deal = agreed()
+    deal.complete(actor_id=PERFORMER, now=NOW)
+
+    assert deal.complete(actor_id=CLIENT, now=LATER)
+    assert deal.status is DealStatus.COMPLETED
 
 
 def test_system_cancels_an_agreed_deal() -> None:

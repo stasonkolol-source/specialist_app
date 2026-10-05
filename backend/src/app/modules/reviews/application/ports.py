@@ -15,6 +15,7 @@ from app.modules.reviews.domain.review import Review, ReviewId, ReviewKind
 from app.platform.contracts.events.deals import DealCompleted
 from app.platform.contracts.events.identity import UserDeleted
 from app.platform.contracts.events.reviews import ReviewPublished, ReviewRemoved
+from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.kernel.ids import DealId, UserId
 from app.platform.kernel.pagination import Page, PageRequest
 from app.platform.queue.port import TaskRef
@@ -43,6 +44,11 @@ class ReviewRepository(Protocol):
 
     async def replied_by(self, user_id: UserId) -> list[ReviewId]:
         """Отзывы, на которые человек ответил: удаление аккаунта стирает ответы."""
+        ...
+
+    async def attach_profile(self, user_id: UserId, profile_id: UUID) -> int:
+        """Отзывы сделок о человеке, оставленные, пока у него не было опубликованного профиля
+        (`subject_profile_id` пуст), — к его профилю. Сколько привязано."""
         ...
 
 
@@ -102,7 +108,8 @@ class RatingStore(Protocol):
         ...
 
     async def rated_profiles(self) -> list[UUID]:
-        """Профили со строкой рейтинга: ночной пересчёт (затухание и средние категорий)."""
+        """Профили со строкой рейтинга или с опубликованными отзывами: ночной пересчёт
+        (затухание и средние категорий)."""
         ...
 
 
@@ -169,3 +176,5 @@ OPEN_REQUEST: Final = TaskRef("reviews.open_request", DealCompleted)
 """Сделка завершена — попросить клиента об отзыве (`review.request`)."""
 FORGET_USER: Final = TaskRef("reviews.forget_user", UserDeleted)
 """Аккаунт удалён — его отзывы и ответы стираются, рейтинги пересчитываются."""
+ATTACH_PROFILE: Final = TaskRef("reviews.attach_profile", ProfilePublished)
+"""Профиль опубликован — отзывы сделок, оставленные до него, входят в его рейтинг (UXM-12)."""

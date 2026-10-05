@@ -322,6 +322,19 @@ describe('S17 my responses', () => {
     expect(within(other).queryByRole('button')).toBeNull();
   });
 
+  it('says the job was closed, not that another performer was chosen', async () => {
+    withJobs((it) => {
+      it.responses = myResponsesFixture().map((item) =>
+        item.status === 'not_selected' ? { ...item, job: { ...item.job, status: 'closed' } } : item,
+      );
+    });
+    startApp('/jobs/responses');
+
+    const closed = await screen.findByRole('article', { name: /Течёт смеситель/ });
+    expect(within(closed).getByText('Заявка закрыта')).toBeTruthy();
+    expect(within(closed).queryByText('Клиент выбрал другого')).toBeNull();
+  });
+
   it('leads the chosen performer to the deal: «Открыть сделку» is the main button', async () => {
     const [accepted] = myResponsesFixture();
     const [chandelier] = myJobsFixture();
