@@ -316,6 +316,8 @@ describe('S43 data export and version', () => {
     const exportRow = await screen.findByText('Экспорт моих данных');
     expect(exportRow.closest('button')).toBeNull();
     expect(screen.getByText('скоро')).toBeTruthy();
+    // «Запрос в поддержку» обещал бы действие, которое «скоро» отменяет
+    expect(screen.queryByText('Запрос в поддержку')).toBeNull();
     expect(screen.getByText('Соседи · версия 0.0.0-test')).toBeTruthy();
   });
 
@@ -328,7 +330,9 @@ describe('S43 data export and version', () => {
     );
     const { telegram } = startApp('/settings');
 
-    await click(await screen.findByRole('button', { name: /Экспорт моих данных/ }));
+    const exportRow = await screen.findByRole('button', { name: /Экспорт моих данных/ });
+    expect(exportRow.textContent).toContain('Запрос в поддержку');
+    await click(exportRow);
 
     expect(telegram.callsOf('web_app_open_tg_link')).toEqual([{ path_full: '/sosedi_support' }]);
   });
