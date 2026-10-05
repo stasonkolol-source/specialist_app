@@ -109,13 +109,25 @@ export function useCategoryCounts(cityId: number | null) {
 
 /** Подсказки — с двух букв, как у backend (4.3a). */
 export const SUGGEST_MIN = 2;
+/** Длиннее backend не принимает (`q` до 64 знаков, иначе 422), а подбирает по первым словам. */
+export const SUGGEST_MAX = 64;
 /** Как Cache-Control ответа (max-age=300). */
 export const SUGGEST_STALE_MS = 5 * 60_000;
+
+/** Запрос подсказок из набранного: пробелы схлопнуты, длинный текст (заголовок заявки S20a — до
+ *  120 знаков) — первыми словами в пределах SUGGEST_MAX, без обрезанного слова на конце. */
+export function suggestQuery(text: string): string {
+  const q = text.split(/\s+/).filter(Boolean).join(' ');
+  if (q.length <= SUGGEST_MAX) return q;
+  const cut = q.slice(0, SUGGEST_MAX + 1);
+  const space = cut.lastIndexOf(' ');
+  return (space > 0 ? cut.slice(0, space) : q.slice(0, SUGGEST_MAX)).trim();
+}
 
 /** Подсказки при вводе (`GET /suggest`): названия на языке запроса — язык в ключе. Текст
  *  приходит уже с задержкой (экран ждёт, пока человек перестанет печатать). */
 export function useSuggest(text: string, locale: Locale) {
-  const q = text.trim();
+  const q = suggestQuery(text);
   return useQuery({
     queryKey: [...getSearchSuggestQueryKey({ q }), locale] as const,
     queryFn: ({ signal }) => searchSuggest({ q }, { signal }),
