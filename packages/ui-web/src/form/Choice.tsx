@@ -14,12 +14,13 @@ export interface SegmentedOption<T extends string> {
   icon?: IconName;
 }
 
-const SEGMENTS = 'grid auto-cols-fr grid-flow-col gap-0.75 rounded-btn bg-bg2 p-0.75';
+// Дорожка — полупрозрачная поверх фона: видна и на экране bg2 (S11, S12, S36), и в шторке, и в карточке
+const SEGMENTS = 'grid auto-cols-fr grid-flow-col gap-0.75 rounded-btn bg-seg-track p-0.75';
 
 const segment = (on: boolean) =>
   cx(
     'flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-seg-item border-0 text-sm font-semibold',
-    on ? 'bg-surface text-text shadow-seg' : 'bg-transparent text-text2',
+    on ? 'bg-seg-on text-text shadow-seg' : 'bg-transparent text-text2',
     FOCUS,
   );
 

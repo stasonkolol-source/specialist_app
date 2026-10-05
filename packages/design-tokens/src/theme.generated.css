@@ -23,6 +23,8 @@
   --color-danger-soft: var(--danger-soft);
   --color-star: var(--star);
   --color-scrim: var(--scrim);
+  --color-seg-track: var(--seg-track);
+  --color-seg-on: var(--seg-on);
   --color-toast: var(--toast);
   --color-toast-ink: var(--toast-ink);
   --color-knob: var(--knob);

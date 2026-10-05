@@ -261,6 +261,11 @@ describe('Segmented, Option, Switch', () => {
     const { container } = render(<Demo />);
     const first = screen.getByRole('radio', { name: 'Срочно' });
     expect(first.getAttribute('aria-checked')).toBe('true');
+    // дорожка и выбранный сегмент — свои токены: на экране bg2 дорожка видна
+    expect(screen.getByRole('radiogroup', { name: 'Срочность' }).className).toContain(
+      'bg-seg-track',
+    );
+    expect(first.className).toContain('bg-seg-on');
     fireEvent.keyDown(first, { key: 'ArrowRight' });
     expect(screen.getByRole('radio', { name: 'Сегодня' }).getAttribute('aria-checked')).toBe(
       'true',

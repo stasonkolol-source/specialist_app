@@ -7,6 +7,7 @@
   --info-soft:#E8F0FB; --info-ink:#1B4F9C;
   --danger:#C62828; --danger-soft:#FBE9E9;
   --star:#F59E0B; --scrim:rgba(10,14,18,.48);
+  --seg-track:rgba(17,20,24,.07); --seg-on:#FFFFFF;
   --r-card:16px; --r-field:12px; --r-btn:12px;
   --f-ui:'Onest',system-ui,-apple-system,'Segoe UI',sans-serif;
   --f-display:'Unbounded','Onest',system-ui,sans-serif;
@@ -18,6 +19,7 @@
   --urgent:#FF8A4C; --urgent-ink:#2A1206; --urgent-soft:#3D2418; --urgent-soft-ink:#FFB48A;
   --info-soft:#1C2E45; --info-ink:#9CC3FF; --danger:#FF7A7A; --danger-soft:#3A1F22;
   --star:#FBBF24; --scrim:rgba(0,0,0,.6);
+  --seg-track:rgba(255,255,255,.07); --seg-on:rgba(255,255,255,.14);
 }
 *{box-sizing:border-box}
 button,input,textarea,select{font:inherit;color:inherit}
@@ -160,9 +162,9 @@ textarea.inp{height:auto;min-height:104px;padding:12px 14px;resize:none}
 .inp .sfx{margin-left:auto;color:var(--text2);font-weight:600}
 .hint{font-size:13px;line-height:18px;color:var(--text2)}
 .err{font-size:13px;line-height:18px;color:var(--danger)}
-.seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:3px;padding:3px;border-radius:12px;background:var(--bg2)}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:3px;padding:3px;border-radius:12px;background:var(--seg-track)}
 .seg>*{height:40px;border:0;border-radius:9px;background:transparent;color:var(--text2);font:600 14px/20px var(--f-ui);display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
-.seg>.on{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.seg>.on{background:var(--seg-on);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .opt{min-height:56px;border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:12px 14px;display:flex;align-items:center;gap:12px;width:100%;text-align:left;color:var(--text)}
 .opt.on{border:2px solid var(--accent);padding:11px 13px}
 .radio{width:22px;height:22px;border-radius:50%;border:2px solid var(--field);flex:none}
