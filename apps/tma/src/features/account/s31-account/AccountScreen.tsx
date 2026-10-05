@@ -334,7 +334,9 @@ function DeletionScheduled({ at }: { at: Date }) {
   return (
     <Banner tone="danger" role="status">
       <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="font-semibold">{t('deletion.scheduled', { date: format.date(at) })}</span>
+        <span className="font-semibold">
+          {t('deletion.scheduled', { date: format.dateGenitive(at) })}
+        </span>
         <button
           type="button"
           disabled={cancel.isPending}
