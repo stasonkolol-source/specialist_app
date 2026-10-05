@@ -1,13 +1,17 @@
 // S20d «Проверьте заявку», шаг 4 из 4 (DEVELOPMENT_PLAN 5.2): заявка так, как её увидят
-// исполнители, и «кто что увидит»: точный адрес — только выбранному, телефон — никому, откликов —
-// не больше пяти. «Опубликовать» — POST /jobs с ключом черновика: двойное нажатие и повтор после
-// обрыва сети не создают вторую заявку. Потом черновик стирается, а человек — на S21. Правка своей
-// заявки (5.6) — «Сохранить изменения»: PATCH с If-Match версии, с которой начали; заявку успели
-// изменить в другом месте (412) — «откройте её заново»; сохранили — обратно на S23.
-import { ApiError } from '@sosed/api-client';
+// исполнители, и «кто что увидит»: точный адрес — только выбранному, Telegram — ему же после
+// договорённости (если не скрыт в настройках), телефон — никому, откликов — не больше пяти; прямой
+// запрос увидит только этот специалист. «Опубликовать» — POST /jobs с ключом черновика: двойное
+// нажатие и повтор после обрыва сети не создают вторую заявку, второе нажатие до ответа на первое
+// не уходит вовсе. Потом черновик стирается, а человек — на S21. Правка своей заявки (5.6) —
+// «Сохранить изменения»: PATCH с If-Match версии, с которой начали (ложный 412 от автопроверки хук
+// повторяет сам); заявку правда изменили в другом месте — мастер показывает её текущую версию,
+// правку вносят заново; сохранили — обратно на S23.
+import { ApiError, useIdentityGetMe } from '@sosed/api-client';
 import { DEFAULT_MAX_RESPONSES, jobWhen, rsdToPara, slotOf } from '@sosed/domain';
 import type { JobDraft } from '@sosed/hooks';
 import {
+  StaleJobError,
   amountOf,
   budgetProblems,
   jobInOf,
@@ -25,6 +29,7 @@ import type { IconName, JobCardBadge } from '@sosed/ui-web';
 import { Banner, Card, Heading, Icon, JobCard, LinkButton, Text } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import { useRef } from 'react';
 
 import { DirectBanner } from '../shared/DirectBanner.tsx';
 import { findCategory } from '../shared/categories.ts';
@@ -61,12 +66,17 @@ function Preview({
   const publish = useCreateJob();
   const update = useUpdateJob();
   const mutation = editing ? update : publish;
+  // два нажатия до перерисовки (двойной тап) видят isPending ещё ложным: отправка — одна
+  const sending = useRef(false);
+  const settled = () => {
+    sending.current = false;
+  };
 
   useStepButton({
     text: editing ? t('create.preview.save') : common('action.publish'),
     loading: mutation.isPending,
     onClick: () => {
-      if (mutation.isPending) return;
+      if (sending.current || mutation.isPending) return;
       const now = new Date();
       const body = jobInOf(draft, now);
       if (!body) {
@@ -76,20 +86,31 @@ function Preview({
         else if (budgetProblems(draft).length > 0) open('budget');
         return;
       }
+      sending.current = true;
       if (editing) {
         update.mutate(
-          { jobId: editing.jobId, version: editing.version, body },
+          { jobId: editing.jobId, version: editing.version, body, base: editing.base },
           {
             // правку закрываем, когда мастер уже ушёл с экрана: иначе он начал бы её заново
             // с сохранённой заявкой
             onSuccess: (job) =>
               void router.navigate({ to: managePath(job.id), replace: true }).then(endEdit),
+            // заявку изменили в другом месте: мастер показывает её текущую версию
+            onError: (error) => {
+              if (error instanceof StaleJobError) useDraftStore.getState().edit(error.current);
+            },
+            onSettled: settled,
           },
         );
         return;
       }
       publish.mutate(
-        { body, key: draft.key, directTo: draft.direct?.profileId ?? null },
+        {
+          body,
+          key: draft.key,
+          directTo: draft.direct?.profileId ?? null,
+          rekey: useDraftStore.getState().rekey,
+        },
         {
           // итог S21 — сразу по ответу сервера; черновик стирается, когда мастер уже ушёл с
           // экрана (как у правки): ответа DeviceStorage S20d не ждёт. Повтор с тем же черновиком
@@ -98,6 +119,7 @@ function Preview({
             void router
               .navigate({ to: CREATE_PATHS.done, search: { job: job.id }, replace: true })
               .then(clear),
+          onSettled: settled,
         },
       );
     },
@@ -116,7 +138,7 @@ function Preview({
         </LinkButton>
       </div>
       <DraftCard draft={draft} />
-      <WhoSees draft={draft} />
+      <WhoSees draft={draft} direct={!editing && draft.direct ? draft.direct.name : null} />
       <div className="flex items-start gap-2 text-text2">
         <Icon name="shield" size={16} className="mt-0.5 shrink-0" />
         <Text variant="cap">{t('create.preview.moderation')}</Text>
@@ -197,28 +219,43 @@ function DraftCard({ draft }: { draft: JobDraft }) {
   );
 }
 
-function WhoSees({ draft }: { draft: JobDraft }) {
+/** Кто что увидит — как устроено на деле: Telegram выбранный видит в сделке и чате после
+ *  договорённости, пока он не скрыт в настройках (S43); телефоном делятся только сами (S54).
+ *  Прямой запрос (`direct` — имя специалиста) видит и принимает отклик только этот специалист. */
+function WhoSees({ draft, direct }: { draft: JobDraft; direct: string | null }) {
   const { t } = useTranslation('jobs');
+  const me = useIdentityGetMe();
+  const showTelegram = me.data?.privacy.show_telegram ?? true;
   const address = draft.address.trim();
+  const chosen = address
+    ? t('create.preview.chosenText', { address })
+    : t('create.preview.chosenNoAddress');
   return (
     <Card className="flex flex-col gap-3">
       <Heading variant="h3" as="h2">
         {t('create.preview.whoSees')}
       </Heading>
-      <Who icon="eye" who={t('create.preview.everyone')}>
+      <Who
+        icon="eye"
+        who={
+          direct
+            ? t('create.preview.everyoneDirect', { name: direct })
+            : t('create.preview.everyone')
+        }
+      >
         {t('create.preview.everyoneText')}
       </Who>
       <Who icon="lock" who={t('create.preview.chosen')}>
-        {address
-          ? t('create.preview.chosenText', { address })
-          : t('create.preview.chosenNoAddress')}
+        {showTelegram ? `${chosen}${t('create.preview.chosenTelegram')}` : chosen}
       </Who>
       <Who icon="phone" who={t('create.preview.nobody')}>
-        {t('create.preview.nobodyText')}
+        {t(showTelegram ? 'create.preview.nobodyPhone' : 'create.preview.nobodyText')}
       </Who>
-      <Who icon="users" who={t('create.preview.limit', { count: DEFAULT_MAX_RESPONSES })}>
-        {t('create.preview.limitText')}
-      </Who>
+      {!direct && (
+        <Who icon="users" who={t('create.preview.limit', { count: DEFAULT_MAX_RESPONSES })}>
+          {t('create.preview.limitText')}
+        </Who>
+      )}
     </Card>
   );
 }
@@ -234,10 +271,18 @@ function Who({ icon, who, children }: { icon: IconName; who: string; children: R
   );
 }
 
-/** Нет сети, лимит новичка (429 — текст сервера), прочий отказ — с текстом сервера или общим. */
-/** Правка не сохранилась: заявку уже изменили (412) — открыть её заново; иначе — как публикация. */
+/** Правка не сохранилась: заявку изменили в другом месте — мастер уже показывает её текущую
+ *  версию, правку вносят заново; версия всё уходила вперёд (412) — открыть заявку заново; иначе —
+ *  как публикация. */
 function SaveError({ error, onReopen }: { error: unknown; onReopen: () => void }) {
   const { t } = useTranslation('jobs');
+  if (error instanceof StaleJobError) {
+    return (
+      <Banner tone="info" role="status">
+        {t('create.preview.changed')}
+      </Banner>
+    );
+  }
   if (!(error instanceof ApiError && error.code === 'stale_version')) {
     return <PublishError error={error} />;
   }
@@ -253,11 +298,22 @@ function SaveError({ error, onReopen }: { error: unknown; onReopen: () => void }
   );
 }
 
+/** Ошибки ключа идемпотентности — про заголовок запроса, не для человека. */
+const KEY_ERRORS: ReadonlySet<string> = new Set([
+  'idempotency_key_reused',
+  'idempotency_key_required',
+  'invalid_idempotency_key',
+]);
+
+/** Нет сети, лимит новичка (429 — текст сервера), прочий отказ — с текстом сервера или общим. */
 function PublishError({ error }: { error: unknown }) {
   const { t } = useTranslation('jobs');
   const { t: common } = useTranslation();
   const offline = systemStateOf(error).kind === 'offline';
-  const detail = error instanceof ApiError && error.status < 500 ? error.problem.detail : null;
+  const detail =
+    error instanceof ApiError && error.status < 500 && !KEY_ERRORS.has(error.code)
+      ? error.problem.detail
+      : null;
   return (
     <Banner tone="danger" role="alert" icon={offline ? 'wifi-off' : 'alert'}>
       {offline ? common('offline.textEmpty') : (detail ?? t('create.preview.publishError'))}
