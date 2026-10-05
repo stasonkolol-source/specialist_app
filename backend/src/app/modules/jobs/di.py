@@ -50,6 +50,9 @@ from app.modules.jobs.application.use_cases.list_templates import ListTemplates
 from app.modules.jobs.application.use_cases.match_alerts import MatchAlerts
 from app.modules.jobs.application.use_cases.pause_alerts import PauseAlerts
 from app.modules.jobs.application.use_cases.purge_expired_jobs import PurgeExpiredJobs
+from app.modules.jobs.application.use_cases.release_blocked_responses import (
+    ReleaseBlockedResponses,
+)
 from app.modules.jobs.application.use_cases.remind_expiring_jobs import RemindExpiringJobs
 from app.modules.jobs.application.use_cases.reopen_job import ReopenJob
 from app.modules.jobs.application.use_cases.respond import Respond
@@ -121,6 +124,7 @@ class JobsProvider(Provider):
     list_my_responses = provide(ListMyResponses)
     list_job_responses = provide(ListJobResponses)
     withdraw_performer_responses = provide(WithdrawPerformerResponses)
+    release_blocked_responses = provide(ReleaseBlockedResponses)
     list_templates = provide(ListTemplates)
     create_template = provide(CreateTemplate)
     update_template = provide(UpdateTemplate)

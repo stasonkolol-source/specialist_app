@@ -562,6 +562,26 @@ class Job(VersionedAggregate):
         )
         return response
 
+    def release_blocked_response(
+        self, performer_id: UserId, *, withdrawn: bool, now: datetime
+    ) -> bool:
+        """Клиент и исполнитель заблокировали друг друга (UserBlocked, MU-3): клиент отклик
+        больше не видит и решить по нему не может — активный отклик перестаёт занимать место.
+        Заблокированному исполнителю — «не выбран», без события и уведомления; исполнитель,
+        который заблокировал сам (`withdrawn`), — «отозван». Активного отклика нет — False."""
+        response = next(
+            (r for r in self.responses if r.performer_id == performer_id and r.is_active), None
+        )
+        if response is None:
+            return False
+        if withdrawn:
+            response.withdraw(now=now)
+        else:
+            response.job_closed(now=now)
+        self.responses_count = max(0, self.responses_count - 1)
+        self.updated_at = now
+        return True
+
     def clear_response(
         self, response_id: ResponseId, *, revision: int | None, now: datetime
     ) -> bool:

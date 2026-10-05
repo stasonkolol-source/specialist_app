@@ -192,6 +192,30 @@ def test_rejected_revision_of_a_seen_response_can_be_fixed_too() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("withdrawn", "status"),
+    [(False, ResponseStatus.NOT_SELECTED), (True, ResponseStatus.WITHDRAWN)],
+)
+def test_blocking_frees_the_place_of_an_active_response(
+    withdrawn: bool, status: ResponseStatus
+) -> None:
+    """MU-3: клиент отклик заблокированного не видит и решить по нему не может — место
+    освобождается; заблокированному — «не выбран», заблокировавшему исполнителю — «отозван»."""
+    job = published()
+    someone = performer()
+    response = respond(job, someone)
+    respond(job)
+    job.pull_events()
+
+    assert job.release_blocked_response(someone, withdrawn=withdrawn, now=LATER)
+
+    assert (response.status, response.decided_at, job.responses_count) == (status, LATER, 1)
+    assert job.pull_events() == []  # без события — и без уведомления
+    assert not job.release_blocked_response(someone, withdrawn=withdrawn, now=LATER)
+    assert not job.release_blocked_response(performer(), withdrawn=withdrawn, now=LATER)
+    assert job.responses_count == 1
+
+
 def test_closed_job_does_not_select_active_responses() -> None:
     job = published()
     active = respond(job)

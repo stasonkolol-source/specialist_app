@@ -329,6 +329,46 @@ async def test_response_with_contacts_waits_for_a_moderator(
 
 
 @pytest.mark.authz
+async def test_blocking_frees_the_places_of_responses_between_the_two(
+    world: World, worker: AsyncContainer
+) -> None:
+    """MU-3: клиент заблокировал исполнителя — его отклик больше не занимает место, а ему самому
+    выглядит как «не выбран». Исполнитель заблокировал клиента — его отклик «отозван»."""
+    client, blocked, blocker, other = (
+        await world.user(),
+        await world.user(),
+        await world.user(),
+        await world.user(),
+    )
+    job_id = await world.job(client)
+    for performer in (blocked, blocker, other):
+        await world.responded(performer, job_id)
+    assert (await world.job_row(job_id))[1] == 3
+
+    put = await world.app.client.put(f"{API}/me/blocks/{blocked}", headers=world.headers(client))
+    assert put.status_code == 204, put.text
+    task = "jobs.release_blocked_responses"
+    assert await run_queued(worker, task, user_id=client, by="blocker_id") == 1
+
+    assert (await world.job_row(job_id))[1] == 2
+    mine = await world.app.client.get(f"{API}/me/responses", headers=world.headers(blocked))
+    assert [item["status"] for item in mine.json()["items"]] == ["not_selected"]
+    repeat = await world.app.client.put(f"{API}/me/blocks/{blocked}", headers=world.headers(client))
+    assert repeat.status_code == 204
+    assert await run_queued(worker, task, user_id=client, by="blocker_id") == 0
+
+    put = await world.app.client.put(f"{API}/me/blocks/{client}", headers=world.headers(blocker))
+    assert put.status_code == 204, put.text
+    assert await run_queued(worker, task, user_id=blocker, by="blocker_id") == 1
+
+    assert (await world.job_row(job_id))[1] == 1
+    mine = await world.app.client.get(f"{API}/me/responses", headers=world.headers(blocker))
+    assert [item["status"] for item in mine.json()["items"]] == ["withdrawn"]
+    others = await world.app.client.get(f"{API}/me/responses", headers=world.headers(other))
+    assert [item["status"] for item in others.json()["items"]] == ["submitted"]
+
+
+@pytest.mark.authz
 async def test_responding_refuses_own_full_closed_and_repeated(world: World) -> None:
     client, performer = await world.user(), await world.user()
     job_id = await world.job(client, max_responses=1)

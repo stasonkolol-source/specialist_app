@@ -24,7 +24,7 @@ from app.modules.jobs.domain.job import Job, JobId, JobStatus
 from app.modules.jobs.domain.response import ResponseId
 from app.modules.jobs.domain.template import ResponseTemplate, TemplateId
 from app.platform.contracts.events.deals import DealCancelled, DealCompleted
-from app.platform.contracts.events.identity import UserDeleted
+from app.platform.contracts.events.identity import UserBlocked, UserDeleted
 from app.platform.contracts.events.jobs import JobPublished
 from app.platform.kernel.ids import MediaId, UserId
 from app.platform.kernel.pagination import Page, PageRequest
@@ -402,3 +402,5 @@ MATCH_ALERTS: Final = TaskRef("jobs.match_alerts", JobPublished)
 """Заявка опубликована впервые — подписчикам B1 или подборка (5.7, §9.6)."""
 FORGET_ALERTS: Final = TaskRef("jobs.forget_alerts", UserDeleted)
 """Аккаунт удалён — его подписки и совпадения удаляются (§7.10)."""
+RELEASE_BLOCKED_RESPONSES: Final = TaskRef("jobs.release_blocked_responses", UserBlocked)
+"""Двое заблокировали друг друга — отклики одного на заявки другого освобождают места (MU-3)."""
