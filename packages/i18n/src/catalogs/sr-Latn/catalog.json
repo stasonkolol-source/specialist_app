@@ -46,6 +46,13 @@
     "reviews": "({count})",
     "todayUntil": "Danas do {time}",
     "phoneVerified": "Telefon potvrđen",
+    "casual": "Honorarno",
+    "languages": {
+      "ru": "rus.",
+      "sr": "srp.",
+      "en": "engl.",
+      "uk": "ukr."
+    },
     "postJob": "Napravi zahtev",
     "postJobText": "Opišite zadatak — javiće se izvođači kojih nema u rezultatima."
   },

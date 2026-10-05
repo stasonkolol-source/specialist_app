@@ -47,12 +47,18 @@ describe('S05 results', () => {
     expect(card.getByText('4,9')).toBeTruthy();
     expect(card.getByText('(37)')).toBeTruthy();
     expect(card.getByText(/^Лиман, ≈\s1,5\sкм$/u)).toBeTruthy();
-    expect(card.getByText('ru, sr')).toBeTruthy();
+    // языки словами: код «uk» читается как «Великобритания»
+    expect(card.getByText('рус., серб.')).toBeTruthy();
     expect(card.getByText(/^Сегодня до /)).toBeTruthy();
     expect(card.getByText('Телефон подтверждён')).toBeTruthy();
     expect(card.getByText(/^от 2\s000\sRSD$/u)).toBeTruthy();
-    const newcomer = (await screen.findByText('Иван Гаврилов')).closest('article');
-    expect(within(newcomer as HTMLElement).getByText('Новый специалист')).toBeTruthy();
+    const olga = (await screen.findByText('Ольга Власова')).closest('article') as HTMLElement;
+    expect(within(olga).getByText('рус., укр.')).toBeTruthy();
+    // подработка — бейдж у имени, «Новый специалист» — текстом в строке рейтинга
+    const newcomer = (await screen.findByText('Иван Гаврилов')).closest('article') as HTMLElement;
+    expect(within(newcomer).getByText('Новый специалист')).toBeTruthy();
+    expect(within(newcomer).getByText('Подработка')).toBeTruthy();
+    expect(card.queryByText('Подработка')).toBeNull();
     expect(await screen.findByText('9 специалистов')).toBeTruthy();
   });
 

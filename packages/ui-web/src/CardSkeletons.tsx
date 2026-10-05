@@ -5,7 +5,7 @@ import { Skeleton } from './Feedback.tsx';
 import { SkeletonCard, SkeletonText } from './Skeletons.tsx';
 
 /** Карточка специалиста в выдаче (SpecialistCard): аватар, имя, «коротко о себе», рейтинг и район,
- *  бейдж и цена «от». */
+ *  языки, бейдж и цена «от». */
 export function SpecialistCardSkeleton() {
   return (
     <SkeletonCard tight>
@@ -15,6 +15,7 @@ export function SpecialistCardSkeleton() {
           <SkeletonText size="title" className="w-2/5" />
           <SkeletonText size="sm" className="w-4/5" />
           <SkeletonText size="cap" className="w-1/2" />
+          <SkeletonText size="cap" className="w-1/3" />
         </div>
       </div>
       <div className="flex items-end justify-between gap-2">

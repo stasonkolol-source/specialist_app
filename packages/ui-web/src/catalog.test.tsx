@@ -75,7 +75,7 @@ describe('Sheet (S06)', () => {
 });
 
 describe('SpecialistCard (S05)', () => {
-  it('рейтинг с отзывами, район и языки, бейджи и цена; сердечко — кнопка', async () => {
+  it('рейтинг с отзывами и район через одну «·», языки своей строкой, бейджи и цена; сердечко — кнопка', async () => {
     const onToggle = vi.fn();
     const { container } = render(
       <SpecialistCard
@@ -84,7 +84,8 @@ describe('SpecialistCard (S05)', () => {
         rating="4,9"
         reviews="(37)"
         newLabel="Новый специалист"
-        meta={['Лиман, ≈ 1,5 км', 'ru, sr']}
+        languages="рус., серб."
+        meta={['Лиман, ≈ 1,5 км']}
         badges={[{ label: 'Сегодня до 20:00', tone: 'ok', dot: true }]}
         price="от 2 000 RSD"
         href="#s08"
@@ -94,7 +95,13 @@ describe('SpecialistCard (S05)', () => {
 
     const link = screen.getByRole('link', { name: /Алексей Морозов/ });
     expect(link.getAttribute('href')).toBe('#s08');
-    expect(link.textContent).toContain('4,9(37)·Лиман, ≈ 1,5 км·ru, sr');
+    // точка — перед каждой частью строки рейтинга: первая обрезается, после района точки нет
+    const rating = screen.getByText('(37)').closest('.overflow-hidden') as Element;
+    expect(rating.textContent).toBe('·4,9(37)·Лиман, ≈ 1,5 км');
+    // языки — своей строкой с иконкой, без «·»
+    const languages = screen.getByText('рус., серб.').parentElement as Element;
+    expect(languages.textContent).toBe('рус., серб.');
+    expect(languages.querySelector('svg')).toBeTruthy();
     expect(screen.getByText('Сегодня до 20:00')).toBeTruthy();
     expect(screen.getByText('от 2 000 RSD')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Добавить в избранное' }));
@@ -102,11 +109,30 @@ describe('SpecialistCard (S05)', () => {
     expect(await a11yViolations(container)).toEqual([]);
   });
 
-  it('без отзывов — «Новый специалист», без фото — инициалы', () => {
-    render(<SpecialistCard name="Ana Ilić" newLabel="Новый специалист" meta={[]} href="#s08" />);
+  it('без отзывов — «Новый специалист», без фото — инициалы, без языков — строки нет', () => {
+    const { container } = render(
+      <SpecialistCard name="Ana Ilić" newLabel="Новый специалист" meta={[]} href="#s08" />,
+    );
 
     expect(screen.getByRole('link').textContent).toContain('Новый специалист');
     expect(screen.getByRole('img', { name: 'Ana Ilić' }).textContent).toBe('AI');
+    expect(container.querySelector('svg')).toBeNull();
+  });
+
+  it('подработка — серый бейдж «Подработка» в строке имени', () => {
+    render(
+      <SpecialistCard
+        name="Иван Гаврилов"
+        tag="Подработка"
+        newLabel="Новый специалист"
+        meta={['Лиман']}
+        href="#s08"
+      />,
+    );
+
+    const tag = screen.getByText('Подработка');
+    expect(tag.parentElement?.textContent).toBe('Иван ГавриловПодработка');
+    expect(tag.className).toContain('bg-bg2');
   });
 });
 
