@@ -1,6 +1,7 @@
 """Тексты правовых документов (DEVELOPMENT_PLAN 1.5a): файлы репозитория и правила разбора."""
 
 import shutil
+from collections.abc import Mapping
 from datetime import date
 from pathlib import Path
 
@@ -11,7 +12,7 @@ from app.entrypoints import cli
 from app.platform.kernel.localized import Locale
 from app.platform.legal.files import LEGAL_DIR, FileLegalLibrary, LegalContentError
 from app.platform.legal.port import LegalDocument
-from app.platform.testing.config import DRAFT_LEGAL_VERSIONS
+from app.platform.testing.config import CURRENT_LEGAL_VERSIONS, DRAFT_LEGAL_VERSIONS
 
 pytestmark = pytest.mark.unit
 
@@ -36,12 +37,28 @@ def test_every_document_is_published(library: FileLegalLibrary) -> None:
     assert "legal: OK" in result.output
 
 
-def test_versions_seeded_by_migrations_have_texts(library: FileLegalLibrary) -> None:
-    """client-config из миграций указывает на опубликованные тексты: иначе S48 пуст."""
+@pytest.mark.parametrize("versions", [DRAFT_LEGAL_VERSIONS, CURRENT_LEGAL_VERSIONS])
+def test_versions_set_by_migrations_have_texts(
+    library: FileLegalLibrary, versions: Mapping[str, str]
+) -> None:
+    """client-config из миграций (platform_0003, platform_0007) указывает на опубликованные
+    тексты: иначе S48 пуст."""
     seeded = "".join(p.read_text(encoding="utf-8") for p in MIGRATIONS.glob("platform_*.py"))
-    for document, version in DRAFT_LEGAL_VERSIONS.items():
+    for document, version in versions.items():
         assert f'"{document}": "{version}"' in seeded, document
         assert version in library.versions(LegalDocument(document))
+
+
+def test_edition_1_is_the_approved_draft_word_for_word(library: FileLegalLibrary) -> None:
+    """K22: владелец утвердил черновики как есть (2026-10-05). Редакция «1» отличается от
+    draft-1 только датой и заметками в комментариях; принятую редакцию не правят на месте."""
+    for document in LegalDocument:
+        draft = library.edition(document, "draft-1")
+        approved = library.edition(document, "1")
+        assert draft is not None, document
+        assert approved is not None, document
+        assert approved.texts == draft.texts, document
+        assert approved.published_on == date(2026, 10, 5)
 
 
 @pytest.mark.parametrize("document", list(LegalDocument))
@@ -57,17 +74,18 @@ def test_repository_texts_are_clean(library: FileLegalLibrary, document: LegalDo
         assert not text.body.startswith("#")
         for leftover in ("{{", "}}", "<!--", "-->", "Решение владельца", "\n\n\n"):
             assert leftover not in text.body, leftover
-    privacy = library.edition(LegalDocument.PRIVACY, "draft-1")
+    privacy = library.edition(LegalDocument.PRIVACY, CURRENT_LEGAL_VERSIONS["privacy"])
     assert privacy is not None
     assert "help@example.test" in privacy.texts[Locale.RU].body
 
 
-def test_drafts_have_only_russian_until_translated(library: FileLegalLibrary) -> None:
-    """Сербский перевод — после правок владельца (K22) и вычитки носителем (K41)."""
+def test_texts_have_only_russian_until_translated(library: FileLegalLibrary) -> None:
+    """Сербский перевод и вычитка носителем — K41."""
     for document in LegalDocument:
-        edition = library.edition(document, "draft-1")
-        assert edition is not None
-        assert set(edition.texts) == {Locale.RU}
+        for version in library.versions(document):
+            edition = library.edition(document, version)
+            assert edition is not None
+            assert set(edition.texts) == {Locale.RU}, (document, version)
 
 
 def test_unknown_version_is_none(library: FileLegalLibrary) -> None:

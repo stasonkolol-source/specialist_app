@@ -1598,7 +1598,7 @@ export const JobsDeleteJobParams = zod.object({
 export const JobsDeleteJobResponse = zod.void();
 
 /**
- * «Не интересно» (S15): заявка пропадает из ленты; повтор — без ошибки.
+ * «Не подходит» (S15): заявка пропадает из ленты; повтор — без ошибки.
  * @summary Hide Job
  */
 export const JobsHideJobParams = zod.object({

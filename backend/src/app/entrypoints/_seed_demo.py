@@ -15,6 +15,13 @@
 - Отзывы (7.2): по каждой выполненной демо-сделке клиент оставляет отзыв (оценка, иногда без
   текста); сид сам его одобряет и пересчитывает рейтинг.
 - `lab` — объём лаборатории (research/07 §2.7): 50 000 специалистов, без фото.
+- Язык (`--lang`): по умолчанию все — русскоязычные жители Нови-Сада (`ru`); `sr` — все
+  по-сербски, `mixed` — каждый второй. Имена, тексты, заявки, отклики и отзывы — на языке человека.
+- `--replace` (только dev): сначала удалить прежних демо-людей обоих диапазонов обычным удалением
+  аккаунта (`RequestDeletion` и `ProcessDeletions` сразу, без grace-периода): профиль, прайс,
+  портфолио, заявки, отклики, чаты, сделки и отзывы удаляют подписчики UserDeleted в воркере,
+  как у человека. Новые демо-люди — с теми же Telegram ID: повторная регистрация после удаления
+  не запрещена, а сигнал риска `reregistered_after_deletion` контейнер сида не пишет.
 - На проде команда не работает.
 """
 
@@ -23,7 +30,7 @@ import random
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import time
-from typing import Final
+from typing import Final, Literal
 from uuid import UUID
 
 from dishka import AsyncContainer
@@ -60,10 +67,19 @@ from app.modules.identity.application.use_cases.authenticate_telegram import (
     AuthenticateTelegram,
     AuthenticateTelegramCommand,
 )
+from app.modules.identity.application.use_cases.process_deletions import (
+    ProcessDeletions,
+    ProcessDeletionsCommand,
+)
+from app.modules.identity.application.use_cases.request_deletion import (
+    RequestDeletion,
+    RequestDeletionCommand,
+)
 from app.modules.identity.application.use_cases.update_profile import (
     UpdateProfile,
     UpdateProfileCommand,
 )
+from app.modules.identity.domain.deletion import DeletionSource
 from app.modules.identity.domain.user import UserIntent
 from app.modules.jobs.api import JobsApi
 from app.modules.jobs.application.content import JobDraft
@@ -139,10 +155,15 @@ DEMO_TELEGRAM_BASE: Final = 5_000_000_000_000_000
 бит (< 4,6·10¹⁵): войти под демо-ID из Telegram нельзя, даже на общем stage."""
 DEMO_CLIENT_BASE: Final = DEMO_TELEGRAM_BASE + 100_000_000
 """Telegram ID демо-клиента — база плюс номер: специалистов даже в `lab` меньше ста миллионов."""
+DEMO_IDS: Final = (DEMO_TELEGRAM_BASE, DEMO_CLIENT_BASE + 100_000_000 - 1)
+"""Telegram ID всех демо-людей, первый и последний: специалисты, затем клиенты (`--replace`)."""
 SEED: Final = "sosed-demo-v1"
 CITY: Final = "novi-sad"
 PHOTO_SIZE: Final = (1200, 900)
 AVAILABILITY_HOURS: Final = (18, 20, 22)
+
+DemoLang = Literal["ru", "sr", "mixed"]
+"""Язык демо-людей (`--lang`): все по-русски, все по-сербски или каждый второй."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,10 +216,10 @@ class DemoSpecialist:
         return f"{self.first_name} {self.last_initial}."
 
 
-def plan(number: int) -> DemoSpecialist:
-    """Демо-специалист номер `number`: тот же номер — тот же человек при каждом запуске."""
+def plan(number: int, language: DemoLang = "ru") -> DemoSpecialist:
+    """Демо-специалист номер `number`: тот же номер и язык — тот же человек при каждом запуске."""
     rng = random.Random(f"{SEED}:{number}")  # noqa: S311 — демо-данные, не криптография
-    lang: Lang = "ru" if rng.random() < 0.5 else "sr"
+    lang = _language(rng, language)
     primary = rng.choice(CATEGORIES)
     female = rng.random() < primary.female_share
     group = [c for c in CATEGORIES if c.slug != primary.slug and _root(c) == _root(primary)]
@@ -273,13 +294,17 @@ class DemoClient:
         return DEMO_CLIENT_BASE + self.number
 
 
-def client_plan(number: int, jobs_each: int | None = None) -> DemoClient:
+def client_plan(number: int, jobs_each: int | None = None, language: DemoLang = "ru") -> DemoClient:
     """Демо-клиент номер `number`: одна-две заявки (или `jobs_each`) на своём языке, каждая в
-    своём районе."""
+    своём районе. Заявки — по местам клиента в перемешанном списке (у номера n — места 2n и
+    2n+1): у соседних клиентов они не совпадают, а в `small` не повторяются вовсе."""
     rng = random.Random(f"{SEED}:client:{number}")  # noqa: S311 — демо-данные, не криптография
-    lang: Lang = "ru" if rng.random() < 0.5 else "sr"
+    lang = _language(rng, language)
     female = rng.random() < 0.5
-    jobs = tuple(rng.sample(JOBS, k=jobs_each or rng.choice((1, 1, 2))))
+    slots = max(2, jobs_each or 0)
+    first = number * slots
+    count = jobs_each or rng.choice((1, 1, 2))
+    jobs = tuple(JOBS[JOB_ORDER[(first + index) % len(JOBS)]] for index in range(count))
     return DemoClient(
         number=number,
         lang=lang,
@@ -288,6 +313,21 @@ def client_plan(number: int, jobs_each: int | None = None) -> DemoClient:
         jobs=jobs,
         district_picks=tuple(rng.randrange(1_000_000) for _ in jobs),
     )
+
+
+JOB_ORDER: Final = tuple(
+    random.Random(f"{SEED}:jobs").sample(range(len(JOBS)), len(JOBS))  # noqa: S311 — демо
+)
+"""Заявки в перемешанном порядке: по ним клиенты разбирают свои места (`client_plan`)."""
+
+
+def _language(rng: random.Random, language: DemoLang) -> Lang:
+    """Язык человека. Жребий тянется и при заданном языке: всё, что план вытягивает до
+    языка-зависимых текстов (у специалиста — категории и вид профиля), от `--lang` не зависит."""
+    coin = rng.random()
+    if language == "mixed":
+        return "ru" if coin < 0.5 else "sr"
+    return language
 
 
 def _root(category: DemoCategory) -> str:
@@ -327,11 +367,15 @@ def placeholder_photo(color: tuple[int, int, int], number: int) -> bytes:
 
 
 class SeedDemoRefusedError(RuntimeError):
-    """seed-demo на проде: демо-данные там недопустимы."""
+    """seed-demo на проде (и `--replace` вне dev): демо-данные там недопустимы."""
 
 
 @dataclass(slots=True)
 class SeedReport:
+    removed: int = 0
+    """Прежних демо-людей удалено (`--replace`)."""
+    held: int = 0
+    """Не удалены: о них открыт кейс модерации — удаление ждёт решения, как у людей."""
     created: int = 0
     skipped: int = 0
     photos: int = 0
@@ -357,16 +401,23 @@ class _World:
 
 class DemoSeeder:
     def __init__(
-        self, container: AsyncContainer, *, photos: bool, echo: Callable[[str], None]
+        self,
+        container: AsyncContainer,
+        *,
+        photos: bool,
+        echo: Callable[[str], None],
+        language: DemoLang = "ru",
     ) -> None:
         self._container, self._photos, self._echo = container, photos, echo
+        self._language = language
 
     async def run(self, scale: Scale) -> SeedReport:
         world = await self._world()
         report = SeedReport()
         photos = scale.photos and self._photos
         for done, number in enumerate(range(scale.start, scale.start + scale.specialists), 1):
-            created, added = await self._specialist(plan(number), world, photos=photos)
+            specialist = plan(number, self._language)
+            created, added = await self._specialist(specialist, world, photos=photos)
             report.created += created
             report.skipped += not created
             report.photos += added
@@ -374,7 +425,7 @@ class DemoSeeder:
                 self._echo(f"seed-demo: {done}/{scale.specialists}")
         performers = range(scale.start, scale.start + scale.specialists)
         for number in range(scale.start, scale.start + scale.clients):
-            demo = client_plan(number, scale.jobs_each)
+            demo = client_plan(number, scale.jobs_each, self._language)
             made = await self._client(demo, world)
             report.jobs += len(made)
             for index, (job_id, job) in enumerate(made):
@@ -715,15 +766,59 @@ class DemoSeeder:
         )
 
 
-async def seed_demo(settings: Settings, scale: Scale, *, echo: Callable[[str], None]) -> SeedReport:
-    """Демо-специалисты и клиенты в базу окружения `settings`; на проде — SeedDemoRefusedError."""
+async def remove_demo(container: AsyncContainer) -> tuple[int, int]:
+    """Удалить всех демо-людей (`--replace`) обычным удалением аккаунта, но сразу: запрос, как
+    из S45, и исполнение без grace-периода — только их запросов. (удалено, удержано)."""
+    async with container() as request:
+        users = await (await request.get(IdentityQuery)).telegram_range(*DEMO_IDS)
+    for user_id in users:
+        async with container() as request:
+            await (await request.get(RequestDeletion))(
+                RequestDeletionCommand(actor_id=user_id, source=DeletionSource.SUPPORT)
+            )
+    async with container() as request:
+        report = await (await request.get(ProcessDeletions))(
+            ProcessDeletionsCommand(expedite=tuple(users))
+        )
+    return report.deleted, report.held
+
+
+async def seed_demo(
+    settings: Settings,
+    scale: Scale,
+    *,
+    echo: Callable[[str], None],
+    language: DemoLang = "ru",
+    replace_existing: bool = False,
+) -> SeedReport:
+    """Демо-специалисты и клиенты в базу окружения `settings`; на проде — SeedDemoRefusedError.
+    `replace_existing` (только dev) — сначала удалить прежних демо-людей (`remove_demo`)."""
     if settings.app.env is Environment.PRODUCTION:
         raise SeedDemoRefusedError("seed-demo is for dev and stage only")
+    if replace_existing and settings.app.env is not Environment.DEV:
+        raise SeedDemoRefusedError("seed-demo --replace is for dev only")
     from app.entrypoints._wiring import build_event_registry, make_container
 
-    # «одобрить всё»: профили и заявки одобряет сид, автопроверка с кейсами в очереди не нужна
+    removed = held = 0
+    if replace_existing:
+        # удаление — как у людей: полный реестр, подписчики UserDeleted всех модулей (воркер)
+        container = make_container(settings)
+        try:
+            removed, held = await remove_demo(container)
+        finally:
+            await container.close()
+        echo(
+            f"seed-demo: {removed} demo accounts deleted ({held} held by an open moderation"
+            " case); the worker removes their profiles, jobs, chats and reviews"
+        )
+    # «одобрить всё»: профили и заявки одобряет сид, автопроверка с кейсами в очереди не нужна;
+    # повторная регистрация демо-ID после --replace — не сигнал риска
     registry = build_event_registry().without(
-        "moderation.auto_check", "analytics.", "notifications.", "growth."
+        "moderation.auto_check",
+        "moderation.record_reregistration",
+        "analytics.",
+        "notifications.",
+        "growth.",
     )
     container = make_container(settings, registry=registry)
     try:
@@ -734,9 +829,12 @@ async def seed_demo(settings: Settings, scale: Scale, *, echo: Callable[[str], N
         if scale.clients and not storage:  # заявка проверяет фото через media, а ему нужно S3
             echo("seed-demo: S3 is not configured — demo jobs are skipped")
             scale = replace(scale, clients=0)
-        return await DemoSeeder(container, photos=photos, echo=echo).run(scale)
+        seeder = DemoSeeder(container, photos=photos, echo=echo, language=language)
+        report = await seeder.run(scale)
     finally:
         await container.close()
+    report.removed, report.held = removed, held
+    return report
 
 
 def _offer(job: DemoJob, lang: Lang, rng: random.Random) -> Offer:

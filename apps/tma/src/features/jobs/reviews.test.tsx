@@ -7,8 +7,8 @@ import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
-import { E2E_NOW } from '../../testing/fixtures.ts';
+import { mainButton, pressMainButton, startApp, userBackend } from '../../testing/app.tsx';
+import { E2E_NOW, ME } from '../../testing/fixtures.ts';
 import {
   JobsBackend,
   completedDealFixture,
@@ -83,6 +83,17 @@ describe('S26 and S27 review', () => {
     expect(await screen.findByText('Спасибо! Отзыв появится после проверки.')).toBeTruthy();
     await click(screen.getByRole('button', { name: 'К сделке' }));
     expect(await screen.findByText('Ваш отзыв на проверке')).toBeTruthy();
+  });
+
+  it('speaks Serbian: the month after «do» in the genitive, «Naruči ponovo» as in the chat', async () => {
+    const { deal } = withCompleted();
+    userBackend({ ...ME, ui_locale: 'sr-Latn' });
+    startApp(`/deals/${deal.id}`, { languageCode: 'sr' });
+
+    // Intl даёт «19. oktobar»; после «do» нужен родительный падеж
+    expect(await screen.findByText('Utisak možete ostaviti do 19. oktobra')).toBeTruthy();
+    // «Заказать снова» — как в шапке диалога S30: коротко, на «ты»
+    expect(screen.getByRole('button', { name: 'Naruči ponovo' })).toBeTruthy();
   });
 
   it('explains that the review is already left', async () => {

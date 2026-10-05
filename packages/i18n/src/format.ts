@@ -111,6 +111,8 @@ export interface Format {
   month(date: Date): string;
   /** «сегодня в 19:00», «завтра в 10:00», «12 октября в 19:00». */
   calendar(date: Date, now?: Date): string;
+  /** Срок после предлога: «до 12 октября в 19:00», «do 12. oktobra u 19:00» (S26, S52, S18). */
+  calendarGenitive(date: Date, now?: Date): string;
   /** «только что», «15 мин назад», «2 ч назад», «вчера», «5 дней назад», дальше — дата. */
   relative(date: Date, now?: Date): string;
 }
@@ -222,10 +224,14 @@ function buildFormat(locale: Locale): Format {
       genitive,
     ).replace(/\s*г\.$/, '');
 
-  const calendar = (date: Date, now = new Date()) => {
+  const calendar = (date: Date, now = new Date(), genitive = false) => {
     const diff = dayNumber(date) - dayNumber(now);
     const day =
-      diff === 0 ? t('time.today') : diff === 1 ? t('time.tomorrow') : dateOnly(date, now);
+      diff === 0
+        ? t('time.today')
+        : diff === 1
+          ? t('time.tomorrow')
+          : dateOnly(date, now, genitive);
     return t('time.dayAt', { day, time: time(date) });
   };
 
@@ -259,7 +265,8 @@ function buildFormat(locale: Locale): Format {
     fullDate: (date) => fullDate(date),
     fullDateGenitive: (date) => fullDate(date, true),
     month,
-    calendar,
+    calendar: (date, now) => calendar(date, now),
+    calendarGenitive: (date, now) => calendar(date, now, true),
     relative,
   };
 }

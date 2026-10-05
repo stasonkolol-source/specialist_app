@@ -14,11 +14,12 @@ from typing import Any
 import pytest
 from aiogram import Bot, Dispatcher, Router
 from aiogram.client.session.base import BaseSession
-from aiogram.methods import EditMessageText, SendMessage, TelegramMethod
+from aiogram.methods import EditMessageText, GetMe, SendMessage, TelegramMethod
 from aiogram.types import (
     CallbackQuery,
     Chat,
     ChatMemberBanned,
+    ChatMemberLeft,
     ChatMemberMember,
     ChatMemberUpdated,
     InlineKeyboardMarkup,
@@ -41,6 +42,8 @@ MINI_APP = "https://mini.example.test/"
 class RecordingSession(BaseSession):
     """Сессия Bot API без сети: запоминает методы и отвечает правдоподобно."""
 
+    username: str = "sosed_test_bot"
+    """Имя бота в getMe: команду `/start@<бот>` в группе фильтр сверяет с ним."""
     calls: list[TelegramMethod[Any]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -53,6 +56,8 @@ class RecordingSession(BaseSession):
         timeout: int | None = None,  # noqa: ASYNC109 — сигнатура BaseSession
     ) -> Any:
         self.calls.append(method)
+        if isinstance(method, GetMe):
+            return User(id=bot.id, is_bot=True, first_name="Sosedi", username=self.username)
         if isinstance(method, SendMessage | EditMessageText):
             return Message(
                 message_id=len(self.calls),
@@ -152,6 +157,24 @@ class BotHarness:
         await self.dispatcher.feed_update(self.bot, update)
         return self.session.calls[before:]
 
+    async def bot_added(self, telegram_id: int, chat: Chat) -> list[TelegramMethod[Any]]:
+        """Пользователь добавил бота в группу `chat`: апдейт `my_chat_member` (left → member)."""
+        before = len(self.session.calls)
+        user = User(id=telegram_id, is_bot=False, first_name="Ana", language_code="ru")
+        bot_user = User(id=self.bot.id, is_bot=True, first_name="Sosedi")
+        update = Update(
+            update_id=new_id().int % 2**31,
+            my_chat_member=ChatMemberUpdated(
+                chat=chat,
+                from_user=user,
+                date=datetime.now(UTC),
+                old_chat_member=ChatMemberLeft(user=bot_user),
+                new_chat_member=ChatMemberMember(user=bot_user),
+            ),
+        )
+        await self.dispatcher.feed_update(self.bot, update)
+        return self.session.calls[before:]
+
     async def send_parallel(self, telegram_id: int, text_value: str, times: int) -> list[str]:
         """`times` одинаковых апдейтов разом, как polling отдаёт накопившиеся; тексты ответов."""
         before = len(self.session.calls)
@@ -188,8 +211,9 @@ async def bot_harness(
     monkeypatch.setenv("TELEGRAM_MINI_APP_URL", MINI_APP)
     for name, value in env.items():
         monkeypatch.setenv(name, value)
-    container = make_bot_container(Settings(env_file=None))
-    session = RecordingSession()
+    settings = Settings(env_file=None)
+    container = make_bot_container(settings)
+    session = RecordingSession(username=settings.telegram.bot_username)
     bot = await container.get(Bot)
     bot.session = session
     routers = [*module_bot_routers(), *extra]

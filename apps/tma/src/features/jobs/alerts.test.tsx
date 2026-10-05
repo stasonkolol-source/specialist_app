@@ -8,8 +8,8 @@ import type { MockTelegram } from '@sosed/platform';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
-import { CATEGORY_IDS, E2E_NOW } from '../../testing/fixtures.ts';
+import { mainButton, pressMainButton, startApp, userBackend } from '../../testing/app.tsx';
+import { CATEGORY_IDS, E2E_NOW, ME } from '../../testing/fixtures.ts';
 import { JobsBackend, alertsFixture } from '../../testing/jobsBackend.ts';
 import { jobsHandlers, server } from '../../testing/msw.ts';
 
@@ -132,6 +132,20 @@ describe('S18 alerts', () => {
     startApp('/jobs/alerts');
 
     expect(await screen.findByRole('heading', { name: 'Подписок пока нет' })).toBeTruthy();
+  });
+
+  it('gives the Serbian end of a pause with the month after «do» in the genitive', async () => {
+    const jobs = new JobsBackend();
+    const [handyman, ...rest] = alertsFixture();
+    if (!handyman) throw new Error('fixtures');
+    // «Пауза подписки» из бота (5.7) — на неделю: до 12 октября, 10:00 по Белграду
+    jobs.alerts = [{ ...handyman, paused_until: '2026-10-12T08:00:00Z' }, ...rest];
+    withJobs(jobs);
+    userBackend({ ...ME, ui_locale: 'sr-Latn' });
+    startApp('/jobs/alerts', { languageCode: 'sr' });
+
+    // Intl даёт «12. oktobar»; после «do» нужен родительный падеж
+    expect(await screen.findByText('Pauzirano do 12. oktobra u 10:00')).toBeTruthy();
   });
 });
 

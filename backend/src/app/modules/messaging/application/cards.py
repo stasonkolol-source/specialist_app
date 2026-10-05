@@ -34,7 +34,7 @@ class ConversationCard:
     job_title: str | None
     """Заявка диалога по отклику («Заявка: …» на S29)."""
     deal: DealBrief | None
-    """Сделка диалога: «Ещё не договорились», «Предложено», «Договорились»."""
+    """Сделка диалога: «Сделки пока нет», «Ждёт подтверждения», «Договорились»."""
     counterpart_telegram: str | None = None
     """«@username» второй стороны — когда контакты открыты и она показывает Telegram (S43, 6.5)."""
     contacts_open: bool = False

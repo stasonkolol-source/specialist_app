@@ -144,7 +144,8 @@ async def test_strike_restricts_through_identity_and_lowers_trust(
             " WHERE action = 'moderation.case.decided' AND entity_id = ANY(:ids) ORDER BY id",
             ids=[warned, struck],
         )
-        assert decided == [("draft-1", "warning"), ("draft-1", "strike_1")]
+        # версия политики модерации — последняя опубликованная редакция («1», K22)
+        assert decided == [("1", "warning"), ("1", "strike_1")]
     finally:
         await drop_jobs(container, user_id)
 

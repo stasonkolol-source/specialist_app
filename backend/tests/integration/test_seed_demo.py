@@ -1,6 +1,11 @@
 """`cli seed-demo` на базе (DEVELOPMENT_PLAN 2.8c, 5.1): демо-специалисты и заявки демо-клиентов
 созданы use cases и сразу опубликованы, повторный запуск количества не меняет, автопроверки в
-очереди нет; фото работ — через хранилище (Garage) и обычную загрузку media."""
+очереди нет; фото работ — через хранилище (Garage) и обычную загрузку media. `--replace`
+удаляет прежних демо-людей обычным удалением аккаунта и сеет новых, не трогая остальных."""
+
+import re
+from collections.abc import AsyncIterator
+from uuid import UUID
 
 import pytest
 from sqlalchemy import text
@@ -14,8 +19,12 @@ from app.entrypoints._seed_demo import (
     plan,
     seed_demo,
 )
+from app.entrypoints._wiring import make_container
+from app.platform.kernel.ids import new_id
 from app.platform.settings import Settings
 from tests.plugins.containers import GarageInfo
+from tests.plugins.identity import new_telegram_id
+from tests.plugins.queue import run_queued
 
 pytestmark = pytest.mark.integration
 
@@ -161,3 +170,131 @@ async def test_portfolio_photos_go_through_storage(
         **numbers(scale),
     )
     assert works == report.photos
+
+
+async def rows(settings: Settings, sql: str, **params: object) -> dict[UUID, str]:
+    engine: AsyncEngine = create_async_engine(settings.db.dsn.get_secret_value())
+    try:
+        async with engine.connect() as conn:
+            result = await conn.execute(text(sql), params)
+            return {row[0]: row[1] for row in result}
+    finally:
+        await engine.dispose()
+
+
+DEMO_USERS = (
+    "SELECT u.id, u.display_name FROM identity.users u JOIN identity.auth_identities a"
+    " ON a.user_id = u.id WHERE a.provider = 'telegram' AND u.status = 'active'"
+    " AND CAST(a.subject AS bigint) IN (:s1, :s2, :c1, :c2)"
+)
+
+
+@pytest.fixture
+async def real_user(storage_settings: Settings) -> AsyncIterator[UUID]:
+    """Настоящий пользователь, чей запрос на удаление уже созрел: его исполнит воркер по
+    расписанию, а не сид. База тестов общая — после теста запрос отменён, чтобы не достаться
+    чужому ProcessDeletions."""
+    user_id = new_id()
+    engine: AsyncEngine = create_async_engine(storage_settings.db.dsn.get_secret_value())
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "INSERT INTO identity.users (id, display_name, version) VALUES (:id, 'Ana', 1)"
+                ),
+                {"id": user_id},
+            )
+            await conn.execute(
+                text(
+                    "INSERT INTO identity.auth_identities (id, user_id, provider, subject)"
+                    " VALUES (uuidv7(), :user, 'telegram', :subject)"
+                ),
+                {"user": user_id, "subject": str(new_telegram_id())},
+            )
+            await conn.execute(
+                text(
+                    "INSERT INTO identity.deletion_requests (id, user_id, source, requested_at,"
+                    " execute_after) VALUES (uuidv7(), :user, 'tma', now() - interval '8 days',"
+                    " now() - interval '1 day')"
+                ),
+                {"user": user_id},
+            )
+        yield user_id
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "UPDATE identity.deletion_requests SET cancelled_at = now()"
+                    " WHERE user_id = :user AND completed_at IS NULL"
+                ),
+                {"user": user_id},
+            )
+    finally:
+        await engine.dispose()
+
+
+async def test_replace_swaps_demo_people_and_keeps_real_users(
+    storage_settings: Settings, geo_seeded: None, catalog_seeded: None, real_user: UUID
+) -> None:
+    settings = storage_settings
+    scale = Scale(2, photos=False, start=3000, clients=2)
+    ids = {
+        "s1": DEMO_TELEGRAM_BASE + 3000,
+        "s2": DEMO_TELEGRAM_BASE + 3001,
+        "c1": DEMO_CLIENT_BASE + 3000,
+        "c2": DEMO_CLIENT_BASE + 3001,
+    }
+    await seed_demo(settings, scale, echo=lambda _: None, language="sr")
+    old = await rows(settings, DEMO_USERS, **ids)
+    assert len(old) == 4
+
+    report = await seed_demo(settings, scale, echo=lambda _: None, replace_existing=True)
+
+    assert report.removed >= 4  # и демо-люди других тестов: база тестов общая
+    assert (report.created, report.skipped) == (2, 0)
+    new = await rows(settings, DEMO_USERS, **ids)
+    assert len(new) == 4
+    assert not new.keys() & old.keys()  # те же Telegram ID — новые аккаунты
+    assert all(re.search("[А-яЁё]", name) for name in new.values())  # по умолчанию — по-русски
+    gone = await rows(
+        settings,
+        "SELECT id, status FROM identity.users WHERE id = ANY(:ids)",
+        ids=list(old),
+    )
+    assert set(gone.values()) == {"deleted"}
+    kept = await rows(
+        settings,
+        "SELECT u.id, u.status || ':' || count(a.id) || ':' || count(r.id) FROM identity.users u"
+        " LEFT JOIN identity.auth_identities a ON a.user_id = u.id"
+        " LEFT JOIN identity.deletion_requests r ON r.user_id = u.id AND r.completed_at IS NULL"
+        " WHERE u.id = :id GROUP BY u.id",
+        id=real_user,
+    )
+    assert kept == {real_user: "active:1:1"}
+    # повторная регистрация демо-ID — не сигнал риска: модерации нечего разбирать
+    signals = await scalar(
+        settings,
+        "SELECT count(*) FROM procrastinate_jobs WHERE task_name ="
+        " 'moderation.record_reregistration' AND args->'payload'->>'user_id' = ANY(:ids)",
+        ids=[str(user_id) for user_id in new],
+    )
+    assert signals == 0
+    # остальное удаляют подписчики UserDeleted, как у людей: профиль и заявки прежних
+    container = make_container(settings)
+    try:
+        for user_id in old:
+            await run_queued(container, "specialists.forget_profile", user_id=user_id)
+            await run_queued(container, "jobs.forget_client", user_id=user_id)
+    finally:
+        await container.close()
+    profiles = await scalar(
+        settings,
+        "SELECT count(*) FROM specialists.profiles WHERE user_id = ANY(:ids)"
+        " AND deleted_at IS NULL",
+        ids=list(old),
+    )
+    jobs = await scalar(
+        settings,
+        "SELECT count(*) FROM jobs.jobs WHERE client_id = ANY(:ids) AND status <> 'closed'",
+        ids=list(old),
+    )
+    assert (profiles, jobs) == (0, 0)

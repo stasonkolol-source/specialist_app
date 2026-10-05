@@ -154,11 +154,13 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, import.meta.dirname, '');
   const mediaOrigins = list(env.VITE_MEDIA_ORIGINS);
   // Одни источники CSP для dev-сервера, стенда и _headers сборки (stage, prod, e2e): различается
-  // только dev. DSN Sentry — тот же, что попадёт в бандл: без его адреса приёма CSP режет события
+  // только dev. DSN Sentry — тот же, что попадёт в бандл: без его адреса приёма CSP режет события.
+  // Так же адрес карты: её воркеры и чужой origin ассетов пускаются, только когда карта включена
   const csp = {
     mediaOrigins,
     storageOrigins: list(env.TMA_STORAGE_ORIGINS),
     sentryDsn: env.VITE_SENTRY_DSN,
+    mapAssetsUrl: env.VITE_MAP_ASSETS_URL,
   };
   const firstRoute = resolve(import.meta.dirname, FIRST_ROUTE);
   const firstRouteDir = `${dirname(firstRoute)}${sep}`;

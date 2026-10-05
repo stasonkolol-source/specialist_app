@@ -2,7 +2,7 @@
 
 Создающих эндпоинтов у identity нет, поэтому «можно ли» проверяет тестовый маршрут —
 так же, как будут звать фасад заявки, отклики и сообщения. Версии документов — из
-client-config (миграция platform_0003: draft-1).
+client-config (миграция platform_0007: утверждённая редакция «1»).
 """
 
 from collections.abc import AsyncIterator
@@ -30,7 +30,7 @@ from .conftest import InitData, bearer, login
 
 pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("geo_seeded")]
 
-TICK = {"terms_version": "draft-1", "privacy_version": "draft-1"}
+TICK = {"terms_version": "1", "privacy_version": "1"}
 
 probe = sample_router()
 
@@ -110,7 +110,7 @@ async def test_consent_unlocks_creating_actions(app: HttpApp, init_data: InitDat
     accepted = await api.post("/api/v1/me/consents", headers=auth, json=TICK)
     assert accepted.status_code == 200
     body = accepted.json()
-    assert body["consents"] == {"terms": "draft-1", "privacy": "draft-1", "age_18": "draft-1"}
+    assert body["consents"] == {"terms": "1", "privacy": "1", "age_18": "1"}
     assert (body["consent_required"], body["can_post_jobs"], body["can_respond"]) == (
         False,
         True,
@@ -133,9 +133,9 @@ async def test_repeated_consent_is_idempotent(
     assert (first.status_code, again.status_code) == (200, 200)
     assert again.json() == first.json()
     assert await consent_rows(app, user_id) == [
-        ("age_18", "draft-1", "tma", client_ip),
-        ("privacy", "draft-1", "tma", client_ip),
-        ("terms", "draft-1", "tma", client_ip),
+        ("age_18", "1", "tma", client_ip),
+        ("privacy", "1", "tma", client_ip),
+        ("terms", "1", "tma", client_ip),
     ]
 
 
@@ -143,12 +143,13 @@ async def test_repeated_consent_is_idempotent(
     ("body", "status_code", "problem"),
     [
         (
-            {"terms_version": "draft-0", "privacy_version": "draft-1"},
+            # Mini App со старым client-config: черновик после утверждения редакции «1»
+            {"terms_version": "draft-1", "privacy_version": "1"},
             409,
-            {"code": "legal_version_outdated", "document": "terms", "current": "draft-1"},
+            {"code": "legal_version_outdated", "document": "terms", "current": "1"},
         ),
-        ({"terms_version": "draft-1"}, 422, {"code": "validation_error"}),
-        ({"terms_version": "", "privacy_version": "draft-1"}, 422, {"code": "validation_error"}),
+        ({"terms_version": "1"}, 422, {"code": "validation_error"}),
+        ({"terms_version": "", "privacy_version": "1"}, 422, {"code": "validation_error"}),
     ],
 )
 async def test_consent_with_wrong_versions_is_refused(

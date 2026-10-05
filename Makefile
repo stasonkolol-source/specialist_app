@@ -135,8 +135,9 @@ image: ## Собрать образ backend: specialist/backend:dev (роль �
 seed: ## Загрузить сиды в dev-БД идемпотентно: гео (1.3a), каталог (1.3b), словарь модерации (2.4)
 	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli seed
 
-seed-demo: ## Демо-специалисты для dev и stage (2.8c): SCALE=small (60 с фото) | lab (50 000); повтор не плодит дубли
-	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli seed-demo --scale $(or $(SCALE),small)
+seed-demo: ## Демо-люди для dev и stage (2.8c): SCALE=small | lab, DEMO_LANG=ru | sr | mixed, REPLACE=1 — заменить прежних (dev)
+	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli seed-demo --scale $(or $(SCALE),small) \
+		--lang $(or $(DEMO_LANG),ru) $(if $(REPLACE),--replace)
 
 seeds-validate: ## Сиды: гео, таксономия, запросы (0.27), словарь модерации и его примеры (2.4)
 	@cd $(BACKEND) && $(UV) run python -m app.entrypoints.cli seeds-validate
