@@ -64,8 +64,11 @@ make map-upload ENV=stage  # в R2 stage — infra/runbooks/stage-bootstrap.md, 
 - пустая `VITE_MAP_ASSETS_URL` или ошибка загрузки — карты нет, остаётся список районов.
 
 CSP собирает `apps/tma/src/app/csp.ts` из той же переменной: с картой — `worker-src 'self' blob:`
-(воркеры MapLibre) и origin базы в `connect-src`, если он чужой; `img-src` уже пускает `blob:` и
-`data:`. Без карты CSP не меняется. Сборка e2e — всегда без карты (`e2e:build`).
+и `child-src 'self' blob:` (воркеры MapLibre; `child-src` — для Safari до 15.5 без `worker-src`) и
+origin базы в `connect-src`, если он чужой; `img-src` уже пускает `blob:` и `data:`. Без карты CSP не
+меняется. Сборка e2e — всегда без карты (`e2e:build`). Если UI возьмёт CSP-сборку MapLibre
+(`maplibre-gl-csp.js` и воркер своим файлом через `setWorkerUrl`), `blob:` из обеих директив можно
+убрать.
 
 ## Новая сборка Protomaps
 

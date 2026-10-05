@@ -13,7 +13,7 @@ export interface CspOptions {
    *  connect-src ровно его origin. Без DSN SDK не грузится, и адреса в CSP нет. */
   sentryDsn?: string;
   /** База ассетов карты (VITE_MAP_ASSETS_URL, Q28, scripts/map/README.md). MapLibre запускает
-   *  воркеры из blob: — worker-src; тайлы PMTiles (Range), глифы и спрайт качает fetch — в
+   *  воркеры из blob: — worker-src (и child-src); тайлы PMTiles (Range), глифы и спрайт — fetch, в
    *  connect-src origin адреса, если он чужой (stage, prod: CDN R2). Путь от корня (`/map` в dev)
    *  — свой origin. Пусто — карты нет, и CSP та же, что без неё. */
   mapAssetsUrl?: string;
@@ -81,7 +81,8 @@ export function contentSecurityPolicy({
       ...(mapOrigin ? [mapOrigin] : []),
       ...errorReporting,
     ],
-    ...(map ? { 'worker-src': [SELF, 'blob:'] } : {}),
+    // воркеры MapLibre — из blob:; Safari до 15.5 не знает worker-src и берёт child-src
+    ...(map ? { 'worker-src': [SELF, 'blob:'], 'child-src': [SELF, 'blob:'] } : {}),
     'frame-ancestors': FRAME_ANCESTORS,
     'base-uri': [SELF],
     'form-action': [SELF],

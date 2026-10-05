@@ -80,6 +80,8 @@ describe('CSP', () => {
     // Range-запросы PMTiles, глифы и спрайт — fetch: нужен ровно origin CDN, без пути
     expect(csp).toContain("connect-src 'self' https://cdn.example;");
     expect(csp).toContain("worker-src 'self' blob:;");
+    // Safari до 15.5 (цель сборки — safari15) ищет воркеры в child-src
+    expect(csp).toContain("child-src 'self' blob:;");
     // спрайт рисуется из ImageBitmap или blob: — img-src не шире, чем без карты
     expect(csp).toContain("img-src 'self' data: blob:;");
   });
@@ -92,6 +94,7 @@ describe('CSP', () => {
       const csp = contentSecurityPolicy({ dev: false, mediaOrigins: [], mapAssetsUrl });
       expect(csp).toContain("connect-src 'self';");
       expect(csp).not.toContain('worker-src');
+      expect(csp).not.toContain('child-src');
     }
     expect(mapAssetsOrigin('https://cdn.example:8443/map')).toBe('https://cdn.example:8443');
     // без схемы, чужая схема, protocol-relative — сборка падает, а не режет карту молча
