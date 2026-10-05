@@ -46,7 +46,7 @@ export type JobsCountJobsParams = {
   /**
    * Языки общения: заявки на любом из них
    */
-  lang?: string[] | null;
+  lang?: ('ru' | 'sr' | 'en' | 'uk')[] | null;
   /**
    * Только с фото
    */

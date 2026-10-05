@@ -313,7 +313,7 @@ export const JobsListJobsQueryParams = zod.object({
     .optional()
     .describe('Пара: бюджет не меньше (договорные — нет)'),
   lang: zod
-    .union([zod.array(zod.string()), zod.null()])
+    .union([zod.array(zod.enum(['ru', 'sr', 'en', 'uk'])), zod.null()])
     .optional()
     .describe('Языки общения: заявки на любом из них'),
   has_photos: zod.boolean().default(jobsListJobsQueryHasPhotosDefault).describe('Только с фото'),
@@ -1274,7 +1274,7 @@ export const JobsCountJobsQueryParams = zod.object({
     .optional()
     .describe('Пара: бюджет не меньше (договорные — нет)'),
   lang: zod
-    .union([zod.array(zod.string()), zod.null()])
+    .union([zod.array(zod.enum(['ru', 'sr', 'en', 'uk'])), zod.null()])
     .optional()
     .describe('Языки общения: заявки на любом из них'),
   has_photos: zod.boolean().default(jobsCountJobsQueryHasPhotosDefault).describe('Только с фото'),

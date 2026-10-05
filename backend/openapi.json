@@ -2959,6 +2959,12 @@
                 {
                   "type": "array",
                   "items": {
+                    "enum": [
+                      "ru",
+                      "sr",
+                      "en",
+                      "uk"
+                    ],
                     "type": "string"
                   }
                 },
@@ -3711,6 +3717,12 @@
                 {
                   "type": "array",
                   "items": {
+                    "enum": [
+                      "ru",
+                      "sr",
+                      "en",
+                      "uk"
+                    ],
                     "type": "string"
                   }
                 },
@@ -6003,6 +6015,12 @@
                 {
                   "type": "array",
                   "items": {
+                    "enum": [
+                      "ru",
+                      "sr",
+                      "en",
+                      "uk"
+                    ],
                     "type": "string"
                   },
                   "maxItems": 20
@@ -6389,6 +6407,12 @@
                 {
                   "type": "array",
                   "items": {
+                    "enum": [
+                      "ru",
+                      "sr",
+                      "en",
+                      "uk"
+                    ],
                     "type": "string"
                   },
                   "maxItems": 20

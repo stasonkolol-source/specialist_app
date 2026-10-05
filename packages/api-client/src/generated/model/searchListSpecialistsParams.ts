@@ -52,7 +52,7 @@ export type SearchListSpecialistsParams = {
   /**
    * ru, sr, en, uk
    */
-  languages?: string[] | null;
+  languages?: ('ru' | 'sr' | 'en' | 'uk')[] | null;
   work_modes?: ('at_client' | 'at_own_place' | 'remote')[] | null;
   available_today?: boolean;
   /**

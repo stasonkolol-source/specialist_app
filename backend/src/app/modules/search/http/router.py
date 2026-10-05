@@ -75,6 +75,9 @@ COUNTS_MAX_AGE = 300
 METERS_IN_KM = 1000
 MAX_LISTED = 20
 """Районов, языков, форматов в одном фильтре — больше в шторке не выбрать."""
+SpokenLanguage = Literal["ru", "sr", "en", "uk"]
+"""Языки профиля (specialists `Language`): другой код, в том числе с NUL, — 422, а не 500 из
+базы."""
 
 log = structlog.get_logger(__name__)
 router = APIRouter(tags=["search"])
@@ -102,7 +105,7 @@ def specialist_filters(
     ] = None,
     rating_min: Annotated[float | None, Query(ge=1, le=5)] = None,
     languages: Annotated[
-        list[str] | None, Query(max_length=MAX_LISTED, description="ru, sr, en, uk")
+        list[SpokenLanguage] | None, Query(max_length=MAX_LISTED, description="ru, sr, en, uk")
     ] = None,
     work_modes: Annotated[
         list[Literal["at_client", "at_own_place", "remote"]] | None,

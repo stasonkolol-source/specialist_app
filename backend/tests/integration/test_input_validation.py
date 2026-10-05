@@ -96,6 +96,11 @@ def assert_invalid(response: httpx.Response, code: str = "validation_error") -> 
         "/specialists?city_id=1&price_max=100000000000000000000",
         f"/specialists/count?city_id={INT4_OVER}",
         f"/specialists/by-category?city_id={INT4_OVER}",
+        # NUL и мусор в языковом фильтре — тоже не до базы
+        "/jobs?city_id=1&lang=%00",
+        "/jobs/count?city_id=1&lang=xx-evil",
+        "/specialists?city_id=1&languages=%00",
+        "/specialists/count?city_id=1&languages=xx-evil",
     ],
 )
 async def test_guest_out_of_range_numbers_are_422(web: HttpApp, query: str) -> None:

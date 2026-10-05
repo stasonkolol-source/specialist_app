@@ -116,7 +116,10 @@ export const SearchListSpecialistsQueryParams = zod.object({
     .union([zod.number().min(1).max(searchListSpecialistsQueryRatingMinOneMax), zod.null()])
     .optional(),
   languages: zod
-    .union([zod.array(zod.string()).max(searchListSpecialistsQueryLanguagesOneMax), zod.null()])
+    .union([
+      zod.array(zod.enum(['ru', 'sr', 'en', 'uk'])).max(searchListSpecialistsQueryLanguagesOneMax),
+      zod.null(),
+    ])
     .optional()
     .describe('ru, sr, en, uk'),
   work_modes: zod
@@ -320,7 +323,10 @@ export const SearchCountSpecialistsQueryParams = zod.object({
     .union([zod.number().min(1).max(searchCountSpecialistsQueryRatingMinOneMax), zod.null()])
     .optional(),
   languages: zod
-    .union([zod.array(zod.string()).max(searchCountSpecialistsQueryLanguagesOneMax), zod.null()])
+    .union([
+      zod.array(zod.enum(['ru', 'sr', 'en', 'uk'])).max(searchCountSpecialistsQueryLanguagesOneMax),
+      zod.null(),
+    ])
     .optional()
     .describe('ru, sr, en, uk'),
   work_modes: zod

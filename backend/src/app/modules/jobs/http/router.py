@@ -130,6 +130,7 @@ from app.modules.jobs.http.schemas import (
     JobCloseIn,
     JobIn,
     JobInvitesOut,
+    JobLanguage,
     JobOut,
     JobResponseOut,
     JobResponsesOut,
@@ -306,7 +307,7 @@ def feed_filters(
         Query(ge=1, le=MAX_BUDGET, description="Пара: бюджет не меньше (договорные — нет)"),
     ] = None,
     lang: Annotated[
-        list[str] | None, Query(description="Языки общения: заявки на любом из них")
+        list[JobLanguage] | None, Query(description="Языки общения: заявки на любом из них")
     ] = None,
     has_photos: Annotated[bool, Query(description="Только с фото")] = False,
 ) -> FeedFilters:
