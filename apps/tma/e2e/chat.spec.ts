@@ -4,11 +4,12 @@
 // прямой диалог: памятка о предоплате, подпись дня, маска контакта с подсказкой «контакты
 // откроются после договорённости», «Договориться» в шапке; тёмная тема — эталон D30. S53 —
 // исполнитель по ссылке `d_` из бота видит «… предлагает договориться», условия и срок 72 ч и
-// подтверждает. S54 — после договорённости шторка «Поделиться контактом» из полосы сделки под
-// шапкой. S30 после завершённой сделки — шапка без кнопок, в полосе «Прошлая сделка» второй
-// строкой «Договориться снова» (условия — из прошлой сделки), Telegram и «Поделиться контактом».
-// S24 — SecondaryButton «Написать» открывает диалог по отклику. Скриншоты × тема × язык,
-// axe-core; имена скриншотов начинаются с кода артборда.
+// подтверждает. S54 — после договорённости «Сделка» в шапке, как на артборде, и шторка
+// «Поделиться контактом» из полосы сделки под шапкой. S30 после завершённой сделки — снова
+// «Договориться» в шапке (она не прокручивается; условия — из прошлой сделки), в полосе «Прошлая
+// сделка» второй строкой Telegram и «Поделиться контактом». S24 — SecondaryButton «Написать»
+// открывает диалог по отклику. Скриншоты × тема × язык, axe-core; имена скриншотов начинаются с
+// кода артборда.
 import { encodeStartParam } from '@sosed/links';
 import { expect, test } from '@playwright/test';
 
@@ -38,7 +39,7 @@ const LOCALES = [
     expires: /^Если не ответить за 72 часа, договорённость отменится/,
     share: 'Поделиться контактом',
     username: 'Имя пользователя Telegram',
-    again: 'Договориться снова',
+    deal: 'Сделка',
     past: 'Прошлая сделка «Повесить люстру»',
     terms: 'Договорились?',
     what: 'Что делаем',
@@ -58,7 +59,7 @@ const LOCALES = [
     expires: /^Ako ne odgovorite za 72 sata, dogovor će biti otkazan/,
     share: 'Podelite kontakt',
     username: 'Korisničko ime u Telegram-u',
-    again: 'Novi dogovor',
+    deal: 'Dogovor',
     past: 'Prethodni dogovor „Повесить люстру“',
     terms: 'Dogovoreno?',
     what: 'Šta radimo',
@@ -156,7 +157,11 @@ for (const theme of THEMES) {
         chat: new ChatBackend().seed(),
       });
 
-      // «Поделиться контактом» — после договорённости, второй строкой полосы сделки под шапкой
+      // в шапке — «Сделка», как на артборде; «Поделиться контактом» — второй строкой полосы сделки
+      const header = page
+        .locator('header')
+        .filter({ has: page.getByRole('heading', { name: 'Дмитрий Соколов', level: 1 }) });
+      await expect(header.getByRole('button', { name: l.deal })).toBeVisible();
       await page.getByRole('main').getByRole('button', { name: l.share }).click();
       const sheet = page.getByRole('dialog', { name: l.share });
       // варианты — галочками, как на артборде: первый отмечен
@@ -185,15 +190,15 @@ for (const theme of THEMES) {
         chat,
       });
 
-      // шапка — только имя, что со сделкой и «⋯»: рядом с кнопкой они обрезались при 360 px.
-      // «Договориться снова», Telegram второй стороны и «Поделиться контактом» — второй строкой
-      // полосы прошлой сделки. <header> внутри main — не landmark: ищем по заголовку
+      // снова «Договориться» — в шапке: она не прокручивается, а диалог открыт в конце переписки.
+      // Telegram второй стороны и «Поделиться контактом» — второй строкой полосы прошлой сделки.
+      // <header> внутри main — не landmark: ищем по заголовку
       const header = page
         .locator('header')
         .filter({ has: page.getByRole('heading', { name: 'Алексей Морозов', level: 1 }) });
-      const again = page.getByRole('main').getByRole('button', { name: l.again });
-      await expect(again).toBeVisible();
-      await expect(header.getByRole('button', { name: l.again })).toHaveCount(0);
+      const again = header.getByRole('button', { name: l.agree });
+      await expect(again).toBeInViewport();
+      await expect(page.getByRole('main').getByRole('button', { name: l.agree })).toHaveCount(1);
       await expect(header.getByRole('button', { name: l.share })).toHaveCount(0);
       await expect(page.getByText(l.past)).toBeVisible();
       await expect(page.getByRole('main').getByRole('button', { name: l.share })).toBeVisible();
