@@ -1,8 +1,9 @@
 // S20c «Сколько готовы заплатить?», шаг 3 из 4 (DEVELOPMENT_PLAN 5.2): фикс, диапазон или
 // договорная; сумма в RSD; за работу, час или выезд. Ориентир цены категории для города
-// (`price_hint`, Q22) — справкой; ставка за час ниже минимальной — предупреждение. Язык общения —
-// языки, на которых клиент готов говорить. «Только с подтверждённым телефоном» с артборда — v1:
-// подтверждение телефона перенесено (решение владельца 2026-10-01).
+// (`price_hint`, Q22) — справкой, со своей единицей; ставка за час ниже минимальной —
+// предупреждение. Язык общения — языки, на которых клиент готов говорить. «Только с
+// подтверждённым телефоном» с артборда — v1: подтверждение телефона перенесено (решение владельца
+// 2026-10-01).
 import type { BudgetType } from '@sosed/api-client';
 import { MIN_HOURLY_RSD } from '@sosed/domain';
 import type { DraftLanguage, JobDraft } from '@sosed/hooks';
@@ -181,9 +182,12 @@ function Amounts({
   );
 }
 
-/** Ориентир цены категории в городе заявки — справкой, если он есть. */
+/** Ориентир цены категории в городе заявки — справкой, если он есть. Диапазон — в своей единице
+ *  (за м², час, урок…), как в каталоге S04: без неё «180–450 RSD» за м² читались бы ценой всей
+ *  уборки. */
 function PriceHint({ draft }: { draft: JobDraft }) {
   const { t } = useTranslation('jobs');
+  const { t: common } = useTranslation();
   const format = useFormat();
   const locale = useLocale();
   const city = useCities(locale).data?.find((item) => item.id === draft.cityId);
@@ -196,6 +200,7 @@ function PriceHint({ draft }: { draft: JobDraft }) {
       {t('create.budget.hint', {
         category: category.name,
         range: format.moneyRange(hint.min.amount, hint.max.amount),
+        unit: common(`unit.${hint.unit}`),
       })}
     </Banner>
   );

@@ -1,15 +1,33 @@
 // Мастер «Создать заявку» S20a–d и итог S21 (DEVELOPMENT_PLAN 5.2) на фейке backend заявок: путь от
 // пустого черновика до «на проверке», проверки шагов, один POST на черновик (повтор — с тем же
-// ключом), черновик в DeviceStorage переживает перезапуск, запрос «Сообщать об откликах?».
+// ключом), черновик в DeviceStorage переживает перезапуск, запрос «Сообщать об откликах?». S21 сам
+// переходит в «опубликована», когда автопроверка опубликовала заявку; мастер — одна запись истории:
+// «Назад» после публикации не возвращает в его шаги; двойное «Опубликовать», 409 «запрос ещё идёт»
+// и ключ, потраченный на другое тело, — одна заявка без ошибки; подсказка категории для длинного
+// заголовка, ориентир цены с единицей, «Кто что увидит» как на деле.
 import { setSession } from '@sosed/api-client';
+import { getCatalogListCategoriesMockHandler } from '@sosed/api-client/mocks';
 import { DRAFT_STORAGE_KEY } from '@sosed/hooks';
 import type { MockTelegram } from '@sosed/platform';
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { HttpResponse, http } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
+import {
+  backButtonVisible,
+  mainButton,
+  pressBackButton,
+  pressMainButton,
+  startApp,
+} from '../../testing/app.tsx';
 import { problem } from '../../testing/backend.ts';
-import { CARD_PROFILE_ID, CATEGORY_IDS, DISTRICT_IDS } from '../../testing/fixtures.ts';
+import {
+  CARD_PROFILE_ID,
+  CATEGORY_IDS,
+  DISTRICT_IDS,
+  categoriesFor,
+  suggestFor,
+} from '../../testing/fixtures.ts';
 import { JobsBackend, createdJobId } from '../../testing/jobsBackend.ts';
 import { jobsHandlers, server } from '../../testing/msw.ts';
 import { useDraftStore } from './shared/draft.ts';
@@ -93,7 +111,11 @@ describe('S20a–d create a job', () => {
     expect(within(card).getByText('Лиман')).toBeTruthy();
     expect(within(card).getByText('только что')).toBeTruthy();
     expect(within(card).getByText('откликов 0 из 5')).toBeTruthy();
-    expect(screen.getByText('— точный адрес: Народног фронта 25, кв. 14')).toBeTruthy();
+    expect(
+      screen.getByText(
+        '— точный адрес: Народног фронта 25, кв. 14; после договорённости — и ваш Telegram (его можно скрыть в настройках)',
+      ),
+    ).toBeTruthy();
     await pressMainButton(telegram);
 
     expect(await screen.findByRole('heading', { name: 'Заявка на проверке' })).toBeTruthy();
@@ -338,5 +360,240 @@ describe('S21 invite specialists', () => {
 
     await waitFor(() => expect(jobs.invites.get(createdJobId(1))).toHaveLength(1));
     expect(await screen.findByText('Приглашён')).toBeTruthy();
+  });
+});
+
+/** Шаги S20b–c до «Проверьте заявку»: бюджет — договорной. */
+async function toPreview(telegram: MockTelegram) {
+  await fillWhat(telegram);
+  await fillWhen(telegram);
+  await screen.findByRole('heading', { name: 'Сколько готовы заплатить?' });
+  await click(screen.getByRole('radio', { name: 'Договорная' }));
+  await pressMainButton(telegram);
+  await screen.findByRole('heading', { name: 'Проверьте заявку' });
+}
+
+describe('S21 while the job is on review (SMOKE-2)', () => {
+  it('switches to «published» with invites once the auto-check published the job', async () => {
+    const jobs = withJobs(new JobsBackend());
+    jobs.autoModerate = true;
+    const { telegram } = startApp('/jobs/new');
+    await toPreview(telegram);
+
+    await pressMainButton(telegram);
+
+    // ответ POST — «на проверке»: так экран и открывается
+    expect(await screen.findByRole('heading', { name: 'Заявка на проверке' })).toBeTruthy();
+    // автопроверка уже опубликовала заявку — экран перечитал её сам
+    expect(
+      await screen.findByRole('heading', { name: 'Заявка опубликована' }, { timeout: 4_000 }),
+    ).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Пригласите специалистов' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Поделиться в чат' })).toBeTruthy();
+  });
+});
+
+describe('history after publishing (OWN-2)', () => {
+  /** «Мои заявки» → «+» → мастер до «Проверьте заявку». */
+  async function fromMyJobs() {
+    withJobs(new JobsBackend());
+    const started = startApp('/jobs/mine');
+    await click(await screen.findByRole('button', { name: 'Новая заявка' }));
+    await toPreview(started.telegram);
+    return started;
+  }
+
+  it('walks back through the steps without leaving history entries behind', async () => {
+    const { app, telegram } = await fromMyJobs();
+
+    await pressBackButton(telegram);
+    expect(await screen.findByRole('heading', { name: 'Сколько готовы заплатить?' })).toBeTruthy();
+    await pressBackButton(telegram);
+    expect(await screen.findByRole('heading', { name: 'Когда и где?' })).toBeTruthy();
+    await pressBackButton(telegram);
+    expect(await what()).toBeTruthy();
+    // с первого шага — туда, откуда мастер открыли
+    await pressBackButton(telegram);
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs/mine'));
+  });
+
+  it('leads Back on S21 to where the wizard was opened', async () => {
+    const { app, telegram } = await fromMyJobs();
+    await pressMainButton(telegram);
+    await screen.findByRole('heading', { name: 'Заявка на проверке' });
+    await waitFor(() => expect(backButtonVisible(telegram)).toBe(true));
+
+    await pressBackButton(telegram);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs/mine'));
+    expect(screen.queryByText(/^Шаг \d из 4/)).toBeNull();
+  });
+
+  it('leads Back on S23 opened from S21 to where the wizard was opened', async () => {
+    const { app, telegram } = await fromMyJobs();
+    await pressMainButton(telegram);
+    await screen.findByRole('heading', { name: 'Заявка на проверке' });
+    await waitFor(() => expect(mainButton(telegram)?.text).toBe('К заявке'));
+    await pressMainButton(telegram);
+    await screen.findByRole('heading', { name: 'Люстры', level: 1 });
+
+    await pressBackButton(telegram);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs/mine'));
+    expect(screen.queryByText(/^Шаг \d из 4/)).toBeNull();
+  });
+});
+
+describe('S20d «Опубликовать» pressed twice (MU-1)', () => {
+  it('sends one request for two presses before a re-render', async () => {
+    const jobs = withJobs(new JobsBackend());
+    const { telegram } = startApp('/jobs/new');
+    await toPreview(telegram);
+
+    await act(async () => {
+      telegram.emit('main_button_pressed');
+      telegram.emit('main_button_pressed');
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Заявка на проверке' })).toBeTruthy();
+    expect(jobs.posts).toHaveLength(1);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('waits out «the request is still running» and lands on S21 without an error', async () => {
+    const jobs = withJobs(new JobsBackend());
+    // второй запрос двойного тапа пришёл, пока первый с тем же ключом ещё выполнялся
+    jobs.failNext = problem(409, 'idempotency_in_progress', {
+      detail: 'Запрос уже выполняется. Повторите чуть позже.',
+    });
+    const { telegram } = startApp('/jobs/new');
+    await toPreview(telegram);
+
+    await pressMainButton(telegram);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Заявка на проверке' }, { timeout: 3_000 }),
+    ).toBeTruthy();
+    expect(screen.queryByText('Запрос уже выполняется. Повторите чуть позже.')).toBeNull();
+    expect(jobs.posts.map((post) => post.key)).toEqual([jobs.posts[0]?.key, jobs.posts[0]?.key]);
+    expect(jobs.jobs.size).toBe(1);
+  });
+
+  it('publishes a changed draft with a new key instead of a stuck 422', async () => {
+    const jobs = withJobs(new JobsBackend());
+    const { telegram } = startApp('/jobs/new');
+    await toPreview(telegram);
+    // ключ черновика уже потрачен на прежнее тело: публикация «не удалась», черновик поправили
+    const key = useDraftStore.getState().draft?.key ?? '';
+    const earlier = jobs.create({ ...(jobs.posts[0]?.body ?? {}), title: 'Люстры' } as never, key);
+    expect(earlier.status).toBe(201);
+
+    await pressMainButton(telegram);
+
+    expect(await screen.findByRole('heading', { name: 'Заявка на проверке' })).toBeTruthy();
+    expect(screen.queryByText(/Idempotency-Key/)).toBeNull();
+    const [, reused, fresh] = jobs.posts;
+    expect(reused?.key).toBe(key);
+    expect(fresh?.key).not.toBe(key);
+    expect(fresh?.body).toEqual(reused?.body);
+    expect(jobs.jobs.size).toBe(2);
+  });
+});
+
+describe('S20a category for a long title (UXM-1)', () => {
+  it('asks /suggest with the first words, within what the server accepts', async () => {
+    const asked: string[] = [];
+    server.use(
+      http.get('*/api/v1/suggest', ({ request }) => {
+        const q = new URL(request.url).searchParams.get('q') ?? '';
+        asked.push(q);
+        // как backend: `q` длиннее 64 знаков — 422
+        if (q.length > 64) {
+          return HttpResponse.json(
+            { title: 'validation_error', status: 422, code: 'validation_error', trace_id: null },
+            { status: 422 },
+          );
+        }
+        return HttpResponse.json(suggestFor('Люстры', request.headers.get('Accept-Language')));
+      }),
+    );
+    withJobs(new JobsBackend());
+    startApp('/jobs/new');
+    await what();
+
+    type(
+      'Коротко о задаче',
+      'Люстры в двух комнатах повесить и подключить, потолок бетонный, крюки есть, стремянки нет',
+    );
+
+    expect(
+      await screen.findByRole('button', { name: /^Мастер на час → Люстры и карнизы ?Изменить$/ }),
+    ).toBeTruthy();
+    expect(asked.length).toBeGreaterThan(0);
+    expect(asked.every((q) => q.length <= 64)).toBe(true);
+  });
+});
+
+describe('S20c reference price (UXM-2)', () => {
+  it('names the unit the range is in', async () => {
+    server.use(
+      getCatalogListCategoriesMockHandler(({ request }) =>
+        categoriesFor(request.headers.get('Accept-Language')).map((section) => ({
+          ...section,
+          children: section.children.map((node) =>
+            node.id === CATEGORY_IDS['chandeliers']
+              ? {
+                  ...node,
+                  price_hint: {
+                    min: { amount: 18_000, currency: 'RSD' as const },
+                    max: { amount: 45_000, currency: 'RSD' as const },
+                    unit: 'm2' as const,
+                  },
+                }
+              : node,
+          ),
+        })),
+      ),
+    );
+    withJobs(new JobsBackend());
+    const { telegram } = startApp('/jobs/new');
+    await fillWhat(telegram);
+    await fillWhen(telegram);
+
+    expect(
+      await screen.findByText(
+        /^Обычно «Люстры и карнизы» стоит 180–450\sRSD за м² — это справочный диапазон\.$/u,
+      ),
+    ).toBeTruthy();
+  });
+});
+
+describe('S20d «Кто что увидит» (MU-7)', () => {
+  it('says the chosen performer gets the Telegram after the deal, the phone — nobody', async () => {
+    withJobs(new JobsBackend());
+    const { telegram } = startApp('/jobs/new');
+    await toPreview(telegram);
+
+    const card = screen.getByRole('heading', { name: 'Кто что увидит' }).parentElement;
+    if (!card) throw new Error('no «Кто что увидит»');
+    expect(card.textContent).toContain(
+      'Только выбранный — точный адрес: Народног фронта 25, кв. 14; после договорённости — и ваш Telegram (его можно скрыть в настройках)',
+    );
+    expect(card.textContent).toContain('Никто — ваш телефон, пока вы сами им не поделитесь');
+    expect(card.textContent).toContain('Все исполнители');
+    expect(card.textContent).toContain('До 5 откликов');
+  });
+
+  it('names the specialist of a direct request and drops the five responses', async () => {
+    withJobs(new JobsBackend());
+    const { telegram } = startApp(`/jobs/new?direct=${CARD_PROFILE_ID}`);
+    expect(await screen.findByText(/^Прямой запрос: Алексей Морозов\./)).toBeTruthy();
+    await toPreview(telegram);
+
+    const card = screen.getByRole('heading', { name: 'Кто что увидит' }).parentElement;
+    if (!card) throw new Error('no «Кто что увидит»');
+    expect(card.textContent).toContain('Только Алексей Морозов');
+    expect(card.textContent).not.toContain('Все исполнители');
+    expect(card.textContent).not.toContain('До 5 откликов');
   });
 });

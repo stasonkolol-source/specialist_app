@@ -1,7 +1,9 @@
-// Переходы мастера S20a–d: шаги — по порядку, «Назад» Telegram — на прошлый экран, а без истории
-// (мастер открыли ссылкой или после перезапуска на середине) — на шаг раньше или на Главную.
-// Пока в черновике что-то есть, закрытие Mini App спрашивает подтверждение. Правка своей заявки
-// (`?edit=<id>`, 5.6) несёт id через все шаги, а с первого шага «Назад» ведёт на S23.
+// Переходы мастера S20a–d: весь мастер — одна запись истории, шаги заменяют друг друга. «Назад»
+// Telegram — на шаг раньше, с первого шага — туда, откуда мастер открыли (без истории — «Закрыть»
+// Telegram). Отправленный мастер так не оставляет в истории своих шагов: S21 заменяет его запись, и
+// «Назад» с S21 и S23 ведёт туда, откуда начали, а не в пустые шаги (OWN-2). Пока в черновике
+// что-то есть, закрытие Mini App спрашивает подтверждение. Правка своей заявки (`?edit=<id>`, 5.6)
+// заменяет запись S23 и несёт id через все шаги, а с первого шага «Назад» — снова S23.
 import { color } from '@sosed/design-tokens';
 import type { JobDraft } from '@sosed/hooks';
 import type { BottomButtonProps } from '@sosed/platform';
@@ -25,21 +27,21 @@ export function useCreateFlow(step: CreateStep, draft: JobDraft | null) {
   const previous = index > 0 ? CREATE_STEPS[index - 1] : undefined;
   useClosingConfirmation(draft !== null && touched(draft));
   // первый шаг без истории — «Закрыть» Telegram, как на артборде S20a; правка — к своей заявке
-  const back = router.history.canGoBack()
-    ? () => router.history.back()
-    : previous
-      ? () => void router.navigate({ to: CREATE_PATHS[previous], search, replace: true })
-      : editing
-        ? () => void router.navigate({ to: managePath(editing.jobId), replace: true })
+  const back = previous
+    ? () => void router.navigate({ to: CREATE_PATHS[previous], search, replace: true })
+    : editing
+      ? () => void router.navigate({ to: managePath(editing.jobId), replace: true })
+      : router.history.canGoBack()
+        ? () => router.history.back()
         : null;
   useBackButton(back);
   return {
     next() {
       const following = CREATE_STEPS[index + 1];
-      if (following) void router.navigate({ to: CREATE_PATHS[following], search });
+      if (following) void router.navigate({ to: CREATE_PATHS[following], search, replace: true });
     },
     open(target: CreateStep) {
-      void router.navigate({ to: CREATE_PATHS[target], search });
+      void router.navigate({ to: CREATE_PATHS[target], search, replace: true });
     },
     home() {
       void router.navigate({ to: HOME_PATH, replace: true });
