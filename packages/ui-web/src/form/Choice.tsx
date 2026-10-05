@@ -19,7 +19,7 @@ const SEGMENTS = 'grid auto-cols-fr grid-flow-col gap-0.75 rounded-btn bg-seg-tr
 
 const segment = (on: boolean) =>
   cx(
-    'flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-seg-item border-0 text-sm font-semibold',
+    'hit flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-seg-item border-0 text-sm font-semibold',
     on ? 'bg-seg-on text-text shadow-seg' : 'bg-transparent text-text2',
     FOCUS,
   );
@@ -304,7 +304,7 @@ export function Checkbox({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cx(
-        'flex w-full items-start gap-3 border-0 text-left text-body text-text disabled:opacity-55',
+        'hit flex w-full items-start gap-3 border-0 text-left text-body text-text disabled:opacity-55',
         FOCUS,
         className,
       )}
@@ -420,7 +420,7 @@ export function Switch({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cx(
-        'relative h-7.75 w-12.75 shrink-0 rounded-full border-0 p-0 disabled:opacity-50',
+        'hit h-7.75 w-12.75 shrink-0 rounded-full border-0 p-0 disabled:opacity-50',
         checked ? 'bg-accent' : 'bg-field',
         FOCUS,
       )}

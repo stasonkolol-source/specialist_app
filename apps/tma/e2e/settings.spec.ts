@@ -95,6 +95,33 @@ for (const theme of THEMES) {
   }
 }
 
+// UXM-15: переключатель 51×31 и галочки отвечали только в своих рамках. Зона нажатия — не меньше
+// 44 px по высоте при том же виде: точка в 6 px над и под переключателем — всё ещё он
+test('S43: зона нажатия переключателей — не меньше 44 px по высоте', async ({ page }) => {
+  await open(page, 'theme=light&lang=ru', {
+    signedIn: true,
+    notificationSettings: ARTBOARD_SETTINGS,
+  });
+  await openProfile(page);
+  await page.getByRole('link', { name: /^Уведомления/ }).click();
+  await page.getByRole('link', { name: 'Настройки уведомлений' }).click();
+  const switches = page.getByRole('switch');
+  await expect(switches.first()).toBeVisible();
+  for (const control of await switches.all()) {
+    await control.scrollIntoViewIfNeeded();
+    const box = await control.boundingBox();
+    if (!box) throw new Error('нет переключателя');
+    expect(box.height).toBeLessThan(44);
+    const hit = await control.evaluate(
+      (element, { x, ys }) => {
+        return ys.map((y) => element.contains(document.elementFromPoint(x, y)));
+      },
+      { x: box.x + box.width / 2, ys: [box.y - 6, box.y + box.height + 6] },
+    );
+    expect(hit).toEqual([true, true]);
+  }
+});
+
 test('S43: язык — PATCH /me и сразу интерфейс, отметка уведомления — PUT, вход из S42', async ({
   page,
 }) => {
