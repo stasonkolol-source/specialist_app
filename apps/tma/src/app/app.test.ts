@@ -8,7 +8,7 @@ import {
 import type { Platform } from '@sosed/platform';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { contentSecurityPolicy, sentryIngestOrigin } from './csp.ts';
+import { contentSecurityPolicy, mapAssetsOrigin, sentryIngestOrigin } from './csp.ts';
 import { createQueryClient, shouldRetry } from './query.ts';
 import { createAuth } from './session.ts';
 
@@ -68,6 +68,35 @@ describe('CSP', () => {
       expect(() => sentryIngestOrigin(dsn)).toThrow('VITE_SENTRY_DSN: ожидается https://');
       // сам DSN в лог сборки не попадает
       expect(() => sentryIngestOrigin(dsn)).not.toThrow('publickey');
+    }
+  });
+
+  it('lets the map run MapLibre blob: workers and read its assets from the CDN', () => {
+    const csp = contentSecurityPolicy({
+      dev: false,
+      mediaOrigins: [],
+      mapAssetsUrl: 'https://cdn.example/map/20260811',
+    });
+    // Range-запросы PMTiles, глифы и спрайт — fetch: нужен ровно origin CDN, без пути
+    expect(csp).toContain("connect-src 'self' https://cdn.example;");
+    expect(csp).toContain("worker-src 'self' blob:;");
+    // спрайт рисуется из ImageBitmap или blob: — img-src не шире, чем без карты
+    expect(csp).toContain("img-src 'self' data: blob:;");
+  });
+
+  it('keeps map assets on the own origin in dev and adds nothing without a map', () => {
+    const dev = contentSecurityPolicy({ dev: true, mediaOrigins: [], mapAssetsUrl: '/map' });
+    expect(dev).toContain("connect-src 'self' ws: wss:;");
+    expect(dev).toContain("worker-src 'self' blob:;");
+    for (const mapAssetsUrl of [undefined, '', '  ']) {
+      const csp = contentSecurityPolicy({ dev: false, mediaOrigins: [], mapAssetsUrl });
+      expect(csp).toContain("connect-src 'self';");
+      expect(csp).not.toContain('worker-src');
+    }
+    expect(mapAssetsOrigin('https://cdn.example:8443/map')).toBe('https://cdn.example:8443');
+    // без схемы, чужая схема, protocol-relative — сборка падает, а не режет карту молча
+    for (const url of ['cdn.example/map', 'ftp://cdn.example/map', '//cdn.example/map']) {
+      expect(() => mapAssetsOrigin(url)).toThrow('VITE_MAP_ASSETS_URL: ожидается');
     }
   });
 });
