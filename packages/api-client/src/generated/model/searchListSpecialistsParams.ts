@@ -23,6 +23,7 @@ export type SearchListSpecialistsParams = {
   /**
    * Город выдачи
    * @minimum 1
+   * @maximum 2147483647
    */
   city_id: number;
   /**

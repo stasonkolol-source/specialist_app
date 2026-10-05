@@ -27,11 +27,16 @@ export const jobsCreateJobBodyTitleMax = 120;
 export const jobsCreateJobBodyDescriptionDefault = ``;
 export const jobsCreateJobBodyDescriptionMax = 3000;
 
+export const jobsCreateJobBodyCategoryIdMax = 2147483647;
+
 export const jobsCreateJobBodyBudgetMinOneMax = 100000000000;
 
 export const jobsCreateJobBodyBudgetMaxOneMax = 100000000000;
 
 export const jobsCreateJobBodyBudgetUnitDefault = `work`;
+export const jobsCreateJobBodyCityIdMax = 2147483647;
+
+export const jobsCreateJobBodyDistrictIdOneMax = 2147483647;
 
 export const jobsCreateJobBodyPointOneLatMin = -90;
 export const jobsCreateJobBodyPointOneLatMax = 90;
@@ -51,7 +56,11 @@ export const JobsCreateJobBody = zod.object({
     .string()
     .max(jobsCreateJobBodyDescriptionMax)
     .default(jobsCreateJobBodyDescriptionDefault),
-  category_id: zod.int().min(1).describe('Услуга (лист каталога), где включены заявки'),
+  category_id: zod
+    .int()
+    .min(1)
+    .max(jobsCreateJobBodyCategoryIdMax)
+    .describe('Услуга (лист каталога), где включены заявки'),
   urgency: zod.enum(['asap', 'today', 'this_week', 'flexible']),
   budget_type: zod.enum(['fixed', 'range', 'negotiable']),
   budget_min: zod
@@ -65,8 +74,10 @@ export const JobsCreateJobBody = zod.object({
   budget_unit: zod
     .enum(['work', 'hour', 'm2', 'visit', 'item', 'lesson'])
     .default(jobsCreateJobBodyBudgetUnitDefault),
-  city_id: zod.int().min(1),
-  district_id: zod.union([zod.int().min(1), zod.null()]).optional(),
+  city_id: zod.int().min(1).max(jobsCreateJobBodyCityIdMax),
+  district_id: zod
+    .union([zod.int().min(1).max(jobsCreateJobBodyDistrictIdOneMax), zod.null()])
+    .optional(),
   point: zod
     .union([
       zod.object({
@@ -83,7 +94,10 @@ export const JobsCreateJobBody = zod.object({
     .describe('Подъезд и этаж — тоже только ему'),
   preferred_from: zod.union([zod.iso.datetime({ offset: true }), zod.null()]).optional(),
   preferred_to: zod.union([zod.iso.datetime({ offset: true }), zod.null()]).optional(),
-  languages: zod.array(zod.string()).max(jobsCreateJobBodyLanguagesMax).optional(),
+  languages: zod
+    .array(zod.enum(['ru', 'sr', 'en', 'uk']))
+    .max(jobsCreateJobBodyLanguagesMax)
+    .optional(),
   media_ids: zod.array(zod.uuid()).max(jobsCreateJobBodyMediaIdsMax).optional(),
 });
 
@@ -233,6 +247,12 @@ export const jobsListJobsQueryCursorOneMax = 512;
 export const jobsListJobsQueryLimitDefault = 20;
 export const jobsListJobsQueryLimitMax = 50;
 
+export const jobsListJobsQueryCityIdMax = 2147483647;
+
+export const jobsListJobsQueryCategoryOneItemMax = 2147483647;
+
+export const jobsListJobsQueryDistrictOneItemMax = 2147483647;
+
 export const jobsListJobsQueryLatOneMin = -90;
 export const jobsListJobsQueryLatOneMax = 90;
 
@@ -241,6 +261,8 @@ export const jobsListJobsQueryLonOneMax = 180;
 
 export const jobsListJobsQueryRadiusKmOneExclusiveMin = 0;
 export const jobsListJobsQueryRadiusKmOneMax = 50;
+
+export const jobsListJobsQueryBudgetFromOneMax = 100000000000;
 
 export const jobsListJobsQueryHasPhotosDefault = false;
 
@@ -251,13 +273,13 @@ export const JobsListJobsQueryParams = zod.object({
     .union([zod.literal('alerts'), zod.null()])
     .optional()
     .describe('alerts — «по моим подпискам» (5.7): только вошедшему'),
-  city_id: zod.int().min(1).describe('Город ленты'),
+  city_id: zod.int().min(1).max(jobsListJobsQueryCityIdMax).describe('Город ленты'),
   category: zod
-    .union([zod.array(zod.int()), zod.null()])
+    .union([zod.array(zod.int().min(1).max(jobsListJobsQueryCategoryOneItemMax)), zod.null()])
     .optional()
     .describe('Категории: с подкатегориями, любая из них'),
   district: zod
-    .union([zod.array(zod.int()), zod.null()])
+    .union([zod.array(zod.int().min(1).max(jobsListJobsQueryDistrictOneItemMax)), zod.null()])
     .optional()
     .describe('Районы: любой из них'),
   lat: zod
@@ -287,7 +309,7 @@ export const JobsListJobsQueryParams = zod.object({
     .union([zod.array(zod.enum(['asap', 'today', 'this_week', 'flexible'])), zod.null()])
     .optional(),
   budget_from: zod
-    .union([zod.int().min(1), zod.null()])
+    .union([zod.int().min(1).max(jobsListJobsQueryBudgetFromOneMax), zod.null()])
     .optional()
     .describe('Пара: бюджет не меньше (договорные — нет)'),
   lang: zod
@@ -654,11 +676,16 @@ export const jobsRequestSpecialistBodyTitleMax = 120;
 export const jobsRequestSpecialistBodyDescriptionDefault = ``;
 export const jobsRequestSpecialistBodyDescriptionMax = 3000;
 
+export const jobsRequestSpecialistBodyCategoryIdMax = 2147483647;
+
 export const jobsRequestSpecialistBodyBudgetMinOneMax = 100000000000;
 
 export const jobsRequestSpecialistBodyBudgetMaxOneMax = 100000000000;
 
 export const jobsRequestSpecialistBodyBudgetUnitDefault = `work`;
+export const jobsRequestSpecialistBodyCityIdMax = 2147483647;
+
+export const jobsRequestSpecialistBodyDistrictIdOneMax = 2147483647;
 
 export const jobsRequestSpecialistBodyPointOneLatMin = -90;
 export const jobsRequestSpecialistBodyPointOneLatMax = 90;
@@ -678,7 +705,11 @@ export const JobsRequestSpecialistBody = zod.object({
     .string()
     .max(jobsRequestSpecialistBodyDescriptionMax)
     .default(jobsRequestSpecialistBodyDescriptionDefault),
-  category_id: zod.int().min(1).describe('Услуга (лист каталога), где включены заявки'),
+  category_id: zod
+    .int()
+    .min(1)
+    .max(jobsRequestSpecialistBodyCategoryIdMax)
+    .describe('Услуга (лист каталога), где включены заявки'),
   urgency: zod.enum(['asap', 'today', 'this_week', 'flexible']),
   budget_type: zod.enum(['fixed', 'range', 'negotiable']),
   budget_min: zod
@@ -692,8 +723,10 @@ export const JobsRequestSpecialistBody = zod.object({
   budget_unit: zod
     .enum(['work', 'hour', 'm2', 'visit', 'item', 'lesson'])
     .default(jobsRequestSpecialistBodyBudgetUnitDefault),
-  city_id: zod.int().min(1),
-  district_id: zod.union([zod.int().min(1), zod.null()]).optional(),
+  city_id: zod.int().min(1).max(jobsRequestSpecialistBodyCityIdMax),
+  district_id: zod
+    .union([zod.int().min(1).max(jobsRequestSpecialistBodyDistrictIdOneMax), zod.null()])
+    .optional(),
   point: zod
     .union([
       zod.object({
@@ -716,7 +749,10 @@ export const JobsRequestSpecialistBody = zod.object({
     .describe('Подъезд и этаж — тоже только ему'),
   preferred_from: zod.union([zod.iso.datetime({ offset: true }), zod.null()]).optional(),
   preferred_to: zod.union([zod.iso.datetime({ offset: true }), zod.null()]).optional(),
-  languages: zod.array(zod.string()).max(jobsRequestSpecialistBodyLanguagesMax).optional(),
+  languages: zod
+    .array(zod.enum(['ru', 'sr', 'en', 'uk']))
+    .max(jobsRequestSpecialistBodyLanguagesMax)
+    .optional(),
   media_ids: zod.array(zod.uuid()).max(jobsRequestSpecialistBodyMediaIdsMax).optional(),
 });
 
@@ -910,7 +946,13 @@ export const JobsCreateJobAlertHeader = zod.object({
     .describe('Ключ операции: повтор с тем же ключом вернёт тот же ответ'),
 });
 
+export const jobsCreateJobAlertBodyCriteriaCategoryIdsItemMax = 2147483647;
+
 export const jobsCreateJobAlertBodyCriteriaCategoryIdsMax = 20;
+
+export const jobsCreateJobAlertBodyCriteriaCityIdMax = 2147483647;
+
+export const jobsCreateJobAlertBodyCriteriaDistrictIdsItemMax = 2147483647;
 
 export const jobsCreateJobAlertBodyCriteriaDistrictIdsMax = 30;
 
@@ -933,13 +975,13 @@ export const JobsCreateJobAlertBody = zod.object({
   criteria: zod
     .object({
       category_ids: zod
-        .array(zod.int())
+        .array(zod.int().min(1).max(jobsCreateJobAlertBodyCriteriaCategoryIdsItemMax))
         .min(1)
         .max(jobsCreateJobAlertBodyCriteriaCategoryIdsMax)
         .describe('Разделы и услуги каталога: заявки в них и в их подкатегориях'),
-      city_id: zod.int().min(1),
+      city_id: zod.int().min(1).max(jobsCreateJobAlertBodyCriteriaCityIdMax),
       district_ids: zod
-        .array(zod.int())
+        .array(zod.int().min(1).max(jobsCreateJobAlertBodyCriteriaDistrictIdsItemMax))
         .max(jobsCreateJobAlertBodyCriteriaDistrictIdsMax)
         .optional(),
       center: zod
@@ -1025,7 +1067,13 @@ export const JobsUpdateJobAlertParams = zod.object({
   alert_id: zod.uuid().describe('id подписки'),
 });
 
+export const jobsUpdateJobAlertBodyCriteriaOneCategoryIdsItemMax = 2147483647;
+
 export const jobsUpdateJobAlertBodyCriteriaOneCategoryIdsMax = 20;
+
+export const jobsUpdateJobAlertBodyCriteriaOneCityIdMax = 2147483647;
+
+export const jobsUpdateJobAlertBodyCriteriaOneDistrictIdsItemMax = 2147483647;
 
 export const jobsUpdateJobAlertBodyCriteriaOneDistrictIdsMax = 30;
 
@@ -1049,13 +1097,13 @@ export const JobsUpdateJobAlertBody = zod
         zod
           .object({
             category_ids: zod
-              .array(zod.int())
+              .array(zod.int().min(1).max(jobsUpdateJobAlertBodyCriteriaOneCategoryIdsItemMax))
               .min(1)
               .max(jobsUpdateJobAlertBodyCriteriaOneCategoryIdsMax)
               .describe('Разделы и услуги каталога: заявки в них и в их подкатегориях'),
-            city_id: zod.int().min(1),
+            city_id: zod.int().min(1).max(jobsUpdateJobAlertBodyCriteriaOneCityIdMax),
             district_ids: zod
-              .array(zod.int())
+              .array(zod.int().min(1).max(jobsUpdateJobAlertBodyCriteriaOneDistrictIdsItemMax))
               .max(jobsUpdateJobAlertBodyCriteriaOneDistrictIdsMax)
               .optional(),
             center: zod
@@ -1158,6 +1206,12 @@ export const JobsDeleteJobAlertResponse = zod.void();
  */
 export const jobsCountJobsQueryNewHoursOneMax = 168;
 
+export const jobsCountJobsQueryCityIdMax = 2147483647;
+
+export const jobsCountJobsQueryCategoryOneItemMax = 2147483647;
+
+export const jobsCountJobsQueryDistrictOneItemMax = 2147483647;
+
 export const jobsCountJobsQueryLatOneMin = -90;
 export const jobsCountJobsQueryLatOneMax = 90;
 
@@ -1166,6 +1220,8 @@ export const jobsCountJobsQueryLonOneMax = 180;
 
 export const jobsCountJobsQueryRadiusKmOneExclusiveMin = 0;
 export const jobsCountJobsQueryRadiusKmOneMax = 50;
+
+export const jobsCountJobsQueryBudgetFromOneMax = 100000000000;
 
 export const jobsCountJobsQueryHasPhotosDefault = false;
 
@@ -1178,13 +1234,13 @@ export const JobsCountJobsQueryParams = zod.object({
     .union([zod.literal('alerts'), zod.null()])
     .optional()
     .describe('alerts — «по моим подпискам» (5.7): только вошедшему'),
-  city_id: zod.int().min(1).describe('Город ленты'),
+  city_id: zod.int().min(1).max(jobsCountJobsQueryCityIdMax).describe('Город ленты'),
   category: zod
-    .union([zod.array(zod.int()), zod.null()])
+    .union([zod.array(zod.int().min(1).max(jobsCountJobsQueryCategoryOneItemMax)), zod.null()])
     .optional()
     .describe('Категории: с подкатегориями, любая из них'),
   district: zod
-    .union([zod.array(zod.int()), zod.null()])
+    .union([zod.array(zod.int().min(1).max(jobsCountJobsQueryDistrictOneItemMax)), zod.null()])
     .optional()
     .describe('Районы: любой из них'),
   lat: zod
@@ -1214,7 +1270,7 @@ export const JobsCountJobsQueryParams = zod.object({
     .union([zod.array(zod.enum(['asap', 'today', 'this_week', 'flexible'])), zod.null()])
     .optional(),
   budget_from: zod
-    .union([zod.int().min(1), zod.null()])
+    .union([zod.int().min(1).max(jobsCountJobsQueryBudgetFromOneMax), zod.null()])
     .optional()
     .describe('Пара: бюджет не меньше (договорные — нет)'),
   lang: zod
@@ -1391,11 +1447,16 @@ export const jobsUpdateJobBodyTitleMax = 120;
 export const jobsUpdateJobBodyDescriptionDefault = ``;
 export const jobsUpdateJobBodyDescriptionMax = 3000;
 
+export const jobsUpdateJobBodyCategoryIdMax = 2147483647;
+
 export const jobsUpdateJobBodyBudgetMinOneMax = 100000000000;
 
 export const jobsUpdateJobBodyBudgetMaxOneMax = 100000000000;
 
 export const jobsUpdateJobBodyBudgetUnitDefault = `work`;
+export const jobsUpdateJobBodyCityIdMax = 2147483647;
+
+export const jobsUpdateJobBodyDistrictIdOneMax = 2147483647;
 
 export const jobsUpdateJobBodyPointOneLatMin = -90;
 export const jobsUpdateJobBodyPointOneLatMax = 90;
@@ -1415,7 +1476,11 @@ export const JobsUpdateJobBody = zod.object({
     .string()
     .max(jobsUpdateJobBodyDescriptionMax)
     .default(jobsUpdateJobBodyDescriptionDefault),
-  category_id: zod.int().min(1).describe('Услуга (лист каталога), где включены заявки'),
+  category_id: zod
+    .int()
+    .min(1)
+    .max(jobsUpdateJobBodyCategoryIdMax)
+    .describe('Услуга (лист каталога), где включены заявки'),
   urgency: zod.enum(['asap', 'today', 'this_week', 'flexible']),
   budget_type: zod.enum(['fixed', 'range', 'negotiable']),
   budget_min: zod
@@ -1429,8 +1494,10 @@ export const JobsUpdateJobBody = zod.object({
   budget_unit: zod
     .enum(['work', 'hour', 'm2', 'visit', 'item', 'lesson'])
     .default(jobsUpdateJobBodyBudgetUnitDefault),
-  city_id: zod.int().min(1),
-  district_id: zod.union([zod.int().min(1), zod.null()]).optional(),
+  city_id: zod.int().min(1).max(jobsUpdateJobBodyCityIdMax),
+  district_id: zod
+    .union([zod.int().min(1).max(jobsUpdateJobBodyDistrictIdOneMax), zod.null()])
+    .optional(),
   point: zod
     .union([
       zod.object({
@@ -1447,7 +1514,10 @@ export const JobsUpdateJobBody = zod.object({
     .describe('Подъезд и этаж — тоже только ему'),
   preferred_from: zod.union([zod.iso.datetime({ offset: true }), zod.null()]).optional(),
   preferred_to: zod.union([zod.iso.datetime({ offset: true }), zod.null()]).optional(),
-  languages: zod.array(zod.string()).max(jobsUpdateJobBodyLanguagesMax).optional(),
+  languages: zod
+    .array(zod.enum(['ru', 'sr', 'en', 'uk']))
+    .max(jobsUpdateJobBodyLanguagesMax)
+    .optional(),
   media_ids: zod.array(zod.uuid()).max(jobsUpdateJobBodyMediaIdsMax).optional(),
 });
 

@@ -10,6 +10,7 @@ from app.modules.identity.api import Action
 from app.modules.identity.application.dto import AccessView, MeView, SessionTokens
 from app.modules.identity.domain.consent import MAX_VERSION
 from app.modules.identity.domain.user import MAX_DISPLAY_NAME, UserIntent
+from app.platform.http.fields import CleanText
 from app.platform.kernel.localized import Locale
 
 INT4_MAX = 2**31 - 1
@@ -103,7 +104,7 @@ class RefreshIn(BaseModel):
 class MeUpdateIn(BaseModel):
     """Поля, которых нет или которые null, не меняются."""
 
-    display_name: str | None = Field(default=None, min_length=1, max_length=MAX_DISPLAY_NAME)
+    display_name: CleanText | None = Field(default=None, min_length=1, max_length=MAX_DISPLAY_NAME)
     ui_locale: Locale | None = None
     home_city_id: int | None = Field(default=None, ge=1, le=INT4_MAX)
     """Город из GET /cities со статусом active (онбординг S02a)."""

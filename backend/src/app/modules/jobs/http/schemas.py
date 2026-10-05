@@ -64,12 +64,16 @@ from app.modules.jobs.domain.response import (
 )
 from app.modules.jobs.domain.template import MAX_TEMPLATE_TITLE, MAX_TEMPLATES, ResponseTemplate
 from app.modules.jobs.errors import InvalidResponseError, InvalidTemplateError
+from app.platform.http.fields import CategoryIdIn, CityIdIn, CleanText, DistrictIdIn
 from app.platform.http.money import MoneyOut
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId
 from app.platform.kernel.money import Currency, Money
 
 MAX_LANGUAGES = 4
+JobLanguage = Literal["ru", "sr", "en", "uk"]
+"""Языки общения заявки — как у профиля специалиста (specialists `Language`): другой код —
+422, а не мусор в заявке и фильтре ленты. Подписку проверяет домен (`invalid_job_alert`)."""
 ViewerRole = Literal["owner", "viewer"]
 
 
@@ -84,25 +88,25 @@ class JobPointOut(BaseModel):
 
 
 class JobIn(BaseModel):
-    title: str = Field(min_length=MIN_TITLE, max_length=MAX_TITLE)
-    description: str = Field(default="", max_length=MAX_DESCRIPTION)
-    category_id: int = Field(ge=1, description="Услуга (лист каталога), где включены заявки")
+    title: CleanText = Field(min_length=MIN_TITLE, max_length=MAX_TITLE)
+    description: CleanText = Field(default="", max_length=MAX_DESCRIPTION)
+    category_id: CategoryIdIn = Field(description="Услуга (лист каталога), где включены заявки")
     urgency: Urgency
     budget_type: BudgetType
     budget_min: int | None = Field(default=None, ge=1, le=MAX_BUDGET, description="Пара")
     budget_max: int | None = Field(default=None, ge=1, le=MAX_BUDGET, description="Пара")
     budget_unit: BudgetUnit = BudgetUnit.WORK
-    city_id: int = Field(ge=1)
-    district_id: int | None = Field(default=None, ge=1)
+    city_id: CityIdIn
+    district_id: DistrictIdIn | None = None
     point: JobPointIn | None = Field(
         default=None, description="Точная точка: видит только выбранный исполнитель"
     )
-    address_private: str | None = Field(
+    address_private: CleanText | None = Field(
         default=None, max_length=MAX_ADDRESS, description="Подъезд и этаж — тоже только ему"
     )
     preferred_from: datetime | None = None
     preferred_to: datetime | None = None
-    languages: list[str] = Field(default_factory=list, max_length=MAX_LANGUAGES)
+    languages: list[JobLanguage] = Field(default_factory=list, max_length=MAX_LANGUAGES)
     media_ids: list[UUID] = Field(default_factory=list, max_length=MAX_PHOTOS)
 
     def draft(self, content_lang: str) -> JobDraft:
@@ -344,12 +348,12 @@ def _point(point: GeoPoint | None) -> JobPointOut | None:
 class ResponseOfferIn(BaseModel):
     """Предложение исполнителя S16: сообщение клиенту, цена и «когда смогу»."""
 
-    message: str = Field(min_length=1, max_length=MAX_MESSAGE)
+    message: CleanText = Field(min_length=1, max_length=MAX_MESSAGE)
     price_type: ResponsePriceType
     price_amount: int | None = Field(
         default=None, ge=1, le=MAX_PRICE, description="Пара; у договорной — нет"
     )
-    availability_note: str | None = Field(
+    availability_note: CleanText | None = Field(
         default=None, max_length=MAX_AVAILABILITY, description="«Сегодня, 19:00»"
     )
 
@@ -537,7 +541,9 @@ class JobResponsesOut(BaseModel):
 class ResponseTemplateIn(ResponseOfferIn):
     """Новый шаблон S57 или «Сохранить как шаблон» на S16."""
 
-    title: str = Field(min_length=1, max_length=MAX_TEMPLATE_TITLE, description="«Могу сегодня»")
+    title: CleanText = Field(
+        min_length=1, max_length=MAX_TEMPLATE_TITLE, description="«Могу сегодня»"
+    )
 
     def offer(self) -> Offer:
         with _as_template_error():
@@ -549,11 +555,11 @@ class ResponseTemplatePatchIn(BaseModel):
     вместе (без `price_amount` — суммы нет). `primary: true` — «Сделать основным»: шаблон
     становится первым."""
 
-    title: str | None = Field(default=None, min_length=1, max_length=MAX_TEMPLATE_TITLE)
-    message: str | None = Field(default=None, min_length=1, max_length=MAX_MESSAGE)
+    title: CleanText | None = Field(default=None, min_length=1, max_length=MAX_TEMPLATE_TITLE)
+    message: CleanText | None = Field(default=None, min_length=1, max_length=MAX_MESSAGE)
     price_type: ResponsePriceType | None = None
     price_amount: int | None = Field(default=None, ge=1, le=MAX_PRICE)
-    availability_note: str | None = Field(default=None, max_length=MAX_AVAILABILITY)
+    availability_note: CleanText | None = Field(default=None, max_length=MAX_AVAILABILITY)
     primary: bool = False
 
     @model_validator(mode="after")
@@ -657,13 +663,13 @@ M_IN_KM = 1000
 class JobAlertCriteriaIn(BaseModel):
     """Условия подписки (S19): районы или точка с радиусом, ни того ни другого — весь город."""
 
-    category_ids: list[int] = Field(
+    category_ids: list[CategoryIdIn] = Field(
         min_length=1,
         max_length=MAX_ALERT_CATEGORIES,
         description="Разделы и услуги каталога: заявки в них и в их подкатегориях",
     )
-    city_id: int = Field(ge=1)
-    district_ids: list[int] = Field(default_factory=list, max_length=MAX_ALERT_DISTRICTS)
+    city_id: CityIdIn
+    district_ids: list[DistrictIdIn] = Field(default_factory=list, max_length=MAX_ALERT_DISTRICTS)
     center: JobPointIn | None = Field(
         default=None, description="Точка подписчика для радиуса: видна только ему"
     )

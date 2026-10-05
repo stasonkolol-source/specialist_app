@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from app.modules.moderation.application.use_cases.create_report import FiledReport
 from app.modules.moderation.application.use_cases.file_appeal import FiledAppeal
 from app.modules.moderation.domain.reports import MAX_COMMENT, ReportReason, ReportStatus
+from app.platform.http.fields import CleanText
 
 ReportTargetType = Literal["profile", "job", "review", "message", "user"]
 
@@ -27,7 +28,9 @@ class ReportIn(BaseModel):
         " other; message: fraud, offensive, spam, personal_data, other; user: fraud, offensive,"
         " no_show, spam, fake_profile, other"
     )
-    comment: str | None = Field(default=None, max_length=MAX_COMMENT, description="Подробности")
+    comment: CleanText | None = Field(
+        default=None, max_length=MAX_COMMENT, description="Подробности"
+    )
     conversation_id: UUID | None = Field(
         default=None, description="Диалог, где всё случилось (жалоба на собеседника из S30)"
     )
