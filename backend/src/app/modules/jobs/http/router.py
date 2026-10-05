@@ -10,7 +10,7 @@
 - `GET /me/jobs?status=` — свои заявки, новые первыми.
 - `GET /jobs` 🔓 — лента исполнителя (S13, 5.3): заявки города, свежие сверху, фильтры §9.6,
   курсор; `GET /jobs/count` 🔓 — «Показать N» шторки S14 и «N новых задач рядом» Главной.
-- `POST /jobs/{id}/hide` — «не интересно»: заявка пропадает из ленты этого исполнителя.
+- `POST /jobs/{id}/hide` — «не подходит»: заявка пропадает из ленты этого исполнителя.
 - `GET /me/favorites/jobs`, `PUT` и `DELETE /me/favorites/job/{id}` — сохранённые заявки
   (сердечко S15, сегмент «Задачи» S12): открытые, новые первыми, до ста (`saved_jobs_full`).
 - Отклики (5.4): `POST /jobs/{id}/responses` (Idempotency-Key) — пять мест на заявку под
@@ -429,7 +429,7 @@ async def _count_view(count_view: CountJobView, command: CountJobViewCommand) ->
 async def hide_job(
     job_id: JobPath, principal: FromDishka[Principal], hide: FromDishka[HideJob]
 ) -> None:
-    """«Не интересно» (S15): заявка пропадает из ленты; повтор — без ошибки."""
+    """«Не подходит» (S15): заявка пропадает из ленты; повтор — без ошибки."""
     await hide(HideJobCommand(actor_id=principal.user_id, job_id=JobId(job_id)))
 
 

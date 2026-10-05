@@ -40,7 +40,7 @@ const LOCALES = [
     offer: 'Ponuda',
     confirm: 'Izabrati ovog izvođača?',
     status: 'Status',
-    orderAgain: 'Naručite ponovo',
+    orderAgain: 'Naruči ponovo',
     agree: 'Dogovorite se',
   },
 ] as const;

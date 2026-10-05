@@ -1,5 +1,5 @@
 // Гость в браузере (8.1) откликается в Telegram: ссылка `t.me/<бот>?startapp=j_<id>` открывает
-// Mini App сразу на этой заявке — без промежуточной страницы «"Соседи" живут в Telegram».
+// Mini App сразу на этой заявке — без промежуточной веб-страницы `/j/<id>` («Открыть в Telegram»).
 import { encodeStartParam } from '@sosed/links';
 
 /** Бот Mini App (`VITE_TELEGRAM_BOT` при сборке, без @); пусто — ссылки нет. */

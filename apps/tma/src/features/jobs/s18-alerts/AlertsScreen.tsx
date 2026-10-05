@@ -232,7 +232,7 @@ function AlertCard({
         <Meta icon="languages">{languages}</Meta>
         {paused && alert.paused_until ? (
           <Meta icon="clock">
-            {t('alerts.paused', { date: format.calendar(new Date(alert.paused_until)) })}
+            {t('alerts.paused', { date: format.calendarGenitive(new Date(alert.paused_until)) })}
           </Meta>
         ) : alert.delivery === 'digest' ? (
           <Meta icon="calendar">

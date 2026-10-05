@@ -2,7 +2,7 @@
 // на повтор с тем же ключом отвечает той же заявкой; `failNext` — ответ на следующий POST ошибкой
 // (ключ не занимается: повтор выполнится заново). Лента (5.3): GET /jobs — заявки J1–J6 SPEC §4
 // (J1–J3 — как на артборде S13) с фильтрами и курсором, GET /jobs/count — их число, POST
-// /jobs/{id}/hide — «не интересно»; GET /jobs/{id} — созданная заявка (владельцу) или заявка ленты.
+// /jobs/{id}/hide — «не подходит»; GET /jobs/{id} — созданная заявка (владельцу) или заявка ленты.
 // Сохранённые заявки (S12, S15): GET /me/favorites/jobs, PUT и DELETE /me/favorites/job/{id}.
 // Отклики (5.5): POST /jobs/{id}/responses с ключом идемпотентности, места и суточная квота как у
 // сервера; GET, PATCH /responses/{id} и /withdraw; GET /me/responses — чипы групп и «сегодня N из
@@ -524,7 +524,7 @@ export class JobsBackend {
   /** Принятые POST /jobs и прямые запросы: тело, ключ и кому — все, включая повторы. */
   readonly posts: { body: JobIn; key: string | null; directTo?: string | null }[] = [];
   readonly jobs = new Map<string, JobOut>();
-  /** «Не интересно»: id скрытых заявок ленты. */
+  /** «Не подходит»: id скрытых заявок ленты. */
   readonly hidden = new Set<string>();
   /** Сохранённые заявки: id, новые первыми. */
   saved: string[] = [];
