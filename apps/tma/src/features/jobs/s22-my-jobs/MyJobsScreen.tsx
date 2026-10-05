@@ -1,8 +1,9 @@
 // S22 Мои заявки (DEVELOPMENT_PLAN 5.6): сегмент вкладки «Заявки». Чипы «Все / Активные / В
-// работе / Завершённые / Архив» (на «Все» — разделами), «+» — новая заявка S20a. Карточка — название
-// и бюджет, «когда» и категория, район и места «откликов 3 из 5» или «Ждём откликов»; есть отклики
-// — «3 отклика — выберите исполнителя» и «2 новых», пока клиент их не открыл; на проверке, нужно
-// исправить, закрыта — словами. Нажатие — своя заявка S23.
+// работе / Завершённые / Архив» (на «Все» — разделами), «+» — новая заявка S20a. В группе первыми —
+// заявки, где ждут выбора исполнителя (order.ts). Карточка — как в ленте: название и бюджет,
+// «когда» и категория, район и время, места «откликов 3 из 5» или «Ждём откликов» своей строкой;
+// есть отклики — «3 отклика — выберите исполнителя» и «2 новых», пока клиент их не открыл; на
+// проверке, нужно исправить — словами, закрытая — «Закрыта 14 сентября». Нажатие — своя заявка S23.
 import type { JobOut, JobStatus } from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
 import { useCategories, useMyJobs } from '@sosed/hooks';
@@ -17,6 +18,7 @@ import {
   Chips,
   EmptyState,
   Heading,
+  Icon,
   IconButton,
   JobCardSkeleton,
   Price,
@@ -33,6 +35,7 @@ import { MiniSlots } from '../shared/MiniSlots.tsx';
 import { findCategory } from '../shared/categories.ts';
 import { useBudgetText, useDistrictName, useWhenBadge } from '../shared/labels.ts';
 import { CREATE_PATHS, managePath } from '../shared/paths.ts';
+import { byAttention } from './order.ts';
 
 type Group = 'active' | 'work' | 'done' | 'archive';
 const GROUPS: readonly Group[] = ['active', 'work', 'done', 'archive'];
@@ -97,7 +100,7 @@ function MyJobs() {
       </div>
     );
   }
-  const items = jobs.data.items;
+  const items = [...jobs.data.items].sort(byAttention);
   if (items.length === 0) return <Empty group={null} />;
   const shown = group ? items.filter((job) => GROUP_OF[job.status] === group) : items;
   return (
@@ -148,6 +151,8 @@ function MyJobCard({ job }: { job: JobOut }) {
   const responses = job.responses_count;
   const fresh = job.new_responses ?? 0;
   const ended = job.closed_at ?? job.expires_at;
+  // «Закрыта 14 сентября» и «Срок истёк …» уже говорят статус — бейджем его не повторяем
+  const statusInDate = ended !== null && (job.status === 'closed' || job.status === 'expired');
   return (
     <Card
       tight
@@ -167,37 +172,40 @@ function MyJobCard({ job }: { job: JobOut }) {
       </div>
       {active ? (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="flex flex-wrap gap-1.5">
-              {open ? (
-                <Badge tone={when.tone} icon={when.icon}>
-                  {when.label}
-                </Badge>
-              ) : (
-                <Badge tone={job.status === 'rejected' ? 'danger' : 'urgent'}>
-                  {t(`mine.status.${job.status}`)}
-                </Badge>
-              )}
-              {category && <Badge>{category}</Badge>}
-            </span>
-            {job.published_at && (
-              <Text as="span" variant="cap">
-                {format.relative(new Date(job.published_at))}
-              </Text>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-            <Text as="span" variant="cap">
-              {place}
-            </Text>
-            {open && responses === 0 ? (
-              <Text as="span" variant="cap">
-                {t('mine.waiting')}
-              </Text>
+          {/* строки как у карточки ленты (JobCard): бейджам — вся ширина, время — справа от
+              района, места — своей строкой; ничего не переносится от длины текстов */}
+          <div className="flex flex-wrap gap-1.5">
+            {open ? (
+              <Badge tone={when.tone} icon={when.icon}>
+                {when.label}
+              </Badge>
             ) : (
-              <MiniSlots job={job} full />
+              <Badge tone={job.status === 'rejected' ? 'danger' : 'urgent'}>
+                {t(`mine.status.${job.status}`)}
+              </Badge>
+            )}
+            {category && <Badge>{category}</Badge>}
+          </div>
+          <div className="flex items-center justify-between gap-3 text-cap text-text2">
+            {place && (
+              <span className="flex min-w-0 items-center gap-1.5">
+                <Icon name="pin" size={16} className="shrink-0" />
+                <span className="truncate">{place}</span>
+              </span>
+            )}
+            {job.published_at && (
+              <span className="ml-auto shrink-0">
+                {format.relative(new Date(job.published_at))}
+              </span>
             )}
           </div>
+          {open && responses === 0 ? (
+            <Text as="span" variant="cap">
+              {t('mine.waiting')}
+            </Text>
+          ) : (
+            <MiniSlots job={job} full />
+          )}
           {open && responses > 0 && (
             <Banner tone="ok">
               <span className="flex items-center justify-between gap-2">
@@ -209,7 +217,7 @@ function MyJobCard({ job }: { job: JobOut }) {
         </>
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <Badge>{t(`mine.status.${job.status}`)}</Badge>
+          {!statusInDate && <Badge>{t(`mine.status.${job.status}`)}</Badge>}
           {ended && (
             <Text as="span" variant="cap">
               {t(job.status === 'expired' ? 'mine.expiredOn' : 'mine.closedOn', {
