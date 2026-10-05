@@ -423,5 +423,6 @@ async def test_client_is_asked_as_soon_as_the_performer_marks_done(
 
     assert asked_now == 1
     [prompt] = await notified(chat, client, "deal.completion_prompt")
-    assert (prompt["by"], prompt["deal_id"]) == ("performer", deal_id)
+    # B2 называет отметившего по имени аккаунта: «Ana: работа «…» выполнена»
+    assert (prompt["by"], prompt["deal_id"], prompt["name"]) == ("performer", deal_id, "Ana")
     assert await notified(chat, UserId(specialist.user_id), "deal.completion_prompt") == []

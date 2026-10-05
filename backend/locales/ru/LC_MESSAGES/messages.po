@@ -1018,10 +1018,16 @@ msgid "notifications.deal_completion_prompt.body"
 msgstr "Сделка «{title}». Отметьте, если всё сделано: когда отметят обе стороны, сделка завершится."
 
 msgid "notifications.deal_completion_prompt.body_marked_performer"
-msgstr "Исполнитель отметил работу «{title}» выполненной. Всё в порядке?"
+msgstr "{name}: работа «{title}» выполнена. Всё в порядке?"
 
 msgid "notifications.deal_completion_prompt.body_marked_client"
-msgstr "Клиент отметил работу «{title}» выполненной. Всё в порядке?"
+msgstr "{name}: работа «{title}» выполнена. Всё в порядке?"
+
+msgid "notifications.deal_completion_prompt.name_performer"
+msgstr "Исполнитель"
+
+msgid "notifications.deal_completion_prompt.name_client"
+msgstr "Клиент"
 
 msgid "notifications.review_request.title_first"
 msgstr "Оцените работу"
@@ -1472,7 +1478,7 @@ msgid "notifications.job_matched.template"
 msgstr "Откликнуться шаблоном «{title}»"
 
 msgid "notifications.job_matched.hide"
-msgstr "Не интересно"
+msgstr "Не подходит"
 
 msgid "notifications.job_matched.pause"
 msgstr "Пауза подписки"

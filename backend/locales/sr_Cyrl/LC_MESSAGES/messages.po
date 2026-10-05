@@ -1018,10 +1018,16 @@ msgid "notifications.deal_completion_prompt.body"
 msgstr "Договор „{title}“. Означите ако је све урађено: када обе стране потврде, договор се завршава."
 
 msgid "notifications.deal_completion_prompt.body_marked_performer"
-msgstr "Извођач је означио посао „{title}“ као завршен. Да ли је све у реду?"
+msgstr "{name}: посао „{title}“ је завршен. Да ли је све у реду?"
 
 msgid "notifications.deal_completion_prompt.body_marked_client"
-msgstr "Клијент је означио посао „{title}“ као завршен. Да ли је све у реду?"
+msgstr "{name}: посао „{title}“ је завршен. Да ли је све у реду?"
+
+msgid "notifications.deal_completion_prompt.name_performer"
+msgstr "Извођач"
+
+msgid "notifications.deal_completion_prompt.name_client"
+msgstr "Клијент"
 
 msgid "notifications.review_request.title_first"
 msgstr "Оцените посао"
@@ -1472,7 +1478,7 @@ msgid "notifications.job_matched.template"
 msgstr "Понуда шаблоном „{title}“"
 
 msgid "notifications.job_matched.hide"
-msgstr "Није занимљиво"
+msgstr "Не одговара"
 
 msgid "notifications.job_matched.pause"
 msgstr "Паузирај претплату"

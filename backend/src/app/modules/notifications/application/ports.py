@@ -389,8 +389,8 @@ NOTIFY_DEAL_COMPLETION: Final = TaskRef(
 NOTIFY_DEAL_MARKED: Final = TaskRef(
     "notifications.notify_deal_marked", DealMarkedDone, queue="notifications"
 )
-"""Подписчик DealMarkedDone: второй стороне — «Работа выполнена?» сразу (B2, 7.3): «исполнитель
-(клиент) отметил работу выполненной. Всё в порядке?»."""
+"""Подписчик DealMarkedDone: второй стороне — «Работа выполнена?» сразу (B2, 7.3): «Алексей:
+работа «…» выполнена. Всё в порядке?» — с именем отметившего."""
 
 NOTIFY_DISPUTE_OPENED: Final = TaskRef(
     "notifications.notify_dispute_opened", DealDisputed, queue="notifications"

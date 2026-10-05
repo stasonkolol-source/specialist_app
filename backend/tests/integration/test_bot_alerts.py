@@ -110,7 +110,7 @@ def card(job_id: UUID, alert_id: UUID, template_id: UUID) -> InlineKeyboardMarku
             ],
             [
                 InlineKeyboardButton(
-                    text="Не интересно", callback_data=pressed(CallbackAction.JOB_HIDE, job_id)
+                    text="Не подходит", callback_data=pressed(CallbackAction.JOB_HIDE, job_id)
                 ),
                 InlineKeyboardButton(
                     text="Пауза подписки",
@@ -142,7 +142,7 @@ async def test_card_template_button_responds_like_s16(harness: BotHarness) -> No
     assert alerts(calls) == [
         "Отклик отправлен шаблоном «Могу сегодня» — клиент увидит его после проверки."
     ]
-    assert markup_of(calls) == [["Открыть заявку"], ["Не интересно", "Пауза подписки"]]
+    assert markup_of(calls) == [["Открыть заявку"], ["Не подходит", "Пауза подписки"]]
     [response] = await rows(
         harness, "SELECT template_id FROM jobs.responses WHERE job_id = :id", id=job_id
     )
@@ -189,7 +189,7 @@ async def test_pause_button_pauses_this_alert_for_a_week_and_back(harness: BotHa
     [toast] = alerts(paused)
     assert toast is not None
     assert toast.startswith("Подписка «Мастер на час» на паузе до ")
-    assert markup_of(paused)[-1] == ["Не интересно", "Снять паузу"]
+    assert markup_of(paused)[-1] == ["Не подходит", "Снять паузу"]
     states = {
         row.id: row.paused_until
         for row in await rows(

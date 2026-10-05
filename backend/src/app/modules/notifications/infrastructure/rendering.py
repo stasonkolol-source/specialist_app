@@ -7,15 +7,17 @@ payload: коды превращаются в слова каталога, да�
 заявки (`job.expiring`, `job.expired`) — callback-кнопки «Продлить» и «Закрыть», у приглашения
 (`job.invited`, 5.6) — «Посмотреть заявку» и «Откликнуться: «…»» на каждый шаблон получателя:
 нажатие обрабатывает бот модуля jobs (platform/telegram/callbacks.py). У «Работа выполнена?»
-(`deal.completion_prompt`, 6.1b) — callback «Да, выполнено» (бот deals) и web_app «Есть
-проблема» сразу на спор S52 (`p_`, 6.1c); у «Договорились?» (`deal.proposed`, 6.3b) — callback
-«Подтвердить» и «Отклонить» (бот deals) и web_app «Посмотреть условия». Спор (6.1c):
-`dispute.opened` — «Ответить» на S52, `dispute.resolved` — «Посмотреть решение». Подписки на
-заявки (5.7): `job.matched` — карточка B1 (название жирным, бюджет, район и расстояние, когда,
-места и подписка) с «Открыть заявку», «Откликнуться шаблоном «…»» на каждый шаблон получателя,
-«Не интересно» и «Пауза подписки» (их обрабатывает бот jobs); закрытой заявке кнопки гасятся
-(`retired_buttons`). `job.digest` — подборка по подпискам с «Открыть ленту»,
-`profile.stale_reminder` — «Включить «Доступен сегодня»» (S38) и «Обновить профиль» (S33).
+(`deal.completion_prompt`, 6.1b; после отметки второй стороны — «Алексей: работа «…» выполнена»,
+B2) — callback «Да, выполнено» (бот deals) и web_app «Есть проблема» сразу на спор S52 (`p_`,
+6.1c); у «Договорились?» (`deal.proposed`, 6.3b) — callback «Подтвердить» и «Отклонить» (бот
+deals) и web_app «Посмотреть условия». Спор (6.1c): `dispute.opened` — «Ответить» на S52,
+`dispute.resolved` — «Посмотреть решение». Подписки на заявки (5.7): `job.matched` — карточка B1
+(название жирным, бюджет, район и расстояние, когда, места и подписка) с «Открыть заявку»,
+«Откликнуться шаблоном «…»» на каждый шаблон получателя, «Не подходит» и «Пауза подписки» (их
+обрабатывает бот jobs); закрытой заявке кнопки гасятся (`retired_buttons`). Бюджет и время B1 —
+те же строки, что в карточке «Поделиться» (platform/i18n/jobs.py). `job.digest` — подборка по
+подпискам с «Открыть ленту», `profile.stale_reminder` — «Включить «Доступен сегодня»» (S38) и
+«Обновить профиль» (S33).
 
 Шаблоны есть у типов, которые создаёт подписчик (tasks.py): тип без шаблонов — ошибка
 программиста, её ловит тест на каталоги.
@@ -191,14 +193,7 @@ class GettextNotificationRenderer:
                 ),
             )
         if type_ is NotificationType.DEAL_COMPLETION_PROMPT and params.get("by") in SIDES:
-            return RenderedText(
-                title=self._t("notifications.deal_completion_prompt.title", locale),
-                body=self._t(
-                    f"notifications.deal_completion_prompt.body_marked_{params['by']}",
-                    locale,
-                    title=_short(params.get("title")),
-                ),
-            )
+            return self._marked_done(params["by"], params, locale)
         if type_ is NotificationType.REVIEW_REQUEST:
             stage = params.get("stage", "first")
             stage = stage if stage in REVIEW_STAGES else "first"
@@ -533,6 +528,23 @@ class GettextNotificationRenderer:
             )
         )
         return tuple(buttons)
+
+    def _marked_done(self, by: str, params: Mapping[str, str], locale: Locale) -> RenderedText:
+        """B2 после отметки второй стороны: «Алексей: работа «…» выполнена. Всё в порядке?» — имя
+        того, кто отметил, без согласования по роду. Имени нет (удалён аккаунт, уведомление до
+        имени в параметрах) — роль: «Исполнитель: работа …»."""
+        name = (params.get("name") or "").strip()
+        if not name:
+            name = self._t(f"notifications.deal_completion_prompt.name_{by}", locale)
+        return RenderedText(
+            title=self._t("notifications.deal_completion_prompt.title", locale),
+            body=self._t(
+                f"notifications.deal_completion_prompt.body_marked_{by}",
+                locale,
+                name=_short(name),
+                title=_short(params.get("title")),
+            ),
+        )
 
     def _deal_cancelled(self, params: Mapping[str, str], locale: Locale) -> RenderedText:
         """Кто отменил и почему: «Клиент отменил сделку «…»: планы изменились»; отмена системой —
