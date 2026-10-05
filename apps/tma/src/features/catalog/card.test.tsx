@@ -281,7 +281,7 @@ describe('S11 reviews', () => {
     expect(screen.queryByRole('button', { name: 'Показать ещё' })).toBeNull();
   });
 
-  it('switches to the «До платформы» tab: invite reviews with their label (7.6а)', async () => {
+  it('switches to the «До платформы» tab: invite reviews, the tab names their kind (7.6а)', async () => {
     const kinds: (string | null)[] = [];
     server.events.on('request:start', ({ request }) => {
       const url = new URL(request.url);
@@ -293,15 +293,16 @@ describe('S11 reviews', () => {
     const deals = within(tabs).getByRole('radio', { name: 'По сделкам · 37' });
     expect(deals.getAttribute('aria-checked')).toBe('true');
     expect(await screen.findByText('Ирина С.')).toBeTruthy();
-    expect(screen.getAllByText('Сделка в «Соседях»')).toHaveLength(3);
+    // вид отзыва называют вкладка и строка над списком — меток на карточках S11 нет
+    expect(screen.queryByText('Сделка в «Соседях»')).toBeNull();
     await click(within(tabs).getByRole('radio', { name: 'До платформы · 2' }));
 
     const ksenia = (await screen.findByText('Ксения Д.')).closest('article') as HTMLElement;
-    // вместо услуги — «что делал мастер»; метка вместо «Сделка в «Соседях»»
-    expect(within(ksenia).getByText('Сентябрь · Проводка в ванной и светильники')).toBeTruthy();
-    expect(within(ksenia).getByText('До платформы — не подтверждён сделкой')).toBeTruthy();
+    // вместо услуги — «что делал мастер»
+    expect(within(ksenia).getByText('Сентябрь')).toBeTruthy();
+    expect(within(ksenia).getByText('Проводка в ванной и светильники')).toBeTruthy();
+    expect(screen.queryByText('До платформы — не подтверждён сделкой')).toBeNull();
     expect(screen.queryByText('Ирина С.')).toBeNull();
-    expect(screen.queryByText('Сделка в «Соседях»')).toBeNull();
     // сводка рейтинга — по сделкам, она остаётся
     expect(screen.getAllByText('4,9').length).toBeGreaterThan(0);
     expect(kinds).toEqual(['deal', 'pre_platform']);

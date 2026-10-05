@@ -179,6 +179,8 @@ function Reviews({
       <ReviewCard
         key={review.id}
         review={review}
+        // вид отзывов уже назван вкладкой и строкой над списком — метка на каждой карточке лишняя
+        showKind={false}
         onReport={
           signedIn
             ? () => openReport({ type: 'review', id: review.id, name: review.author_name })
