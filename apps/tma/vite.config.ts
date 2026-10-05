@@ -121,6 +121,22 @@ function immutableAssets(): Plugin {
   };
 }
 
+/** og:image в index.html — полным адресом картинки на origin Mini App (`TMA_PUBLIC_ORIGIN` сборки
+ *  stage и prod, deploy.yml): превью ссылок в мессенджерах берут картинку только по полному адресу.
+ *  Без него (dev, e2e) — путь от корня. */
+function ogImageOrigin(origin: string | undefined): Plugin {
+  return {
+    name: 'sosed-og-image-origin',
+    transformIndexHtml: (html) =>
+      origin
+        ? html.replace(
+            'content="/og-image.png"',
+            `content="${origin.replace(/\/$/, '')}/og-image.png"`,
+          )
+        : html,
+  };
+}
+
 /** Экран Главной S03 — тот же, что считает бюджет первого экрана (scripts/size.ts). */
 const FIRST_ROUTE = 'src/features/catalog/s03-home/index.ts';
 
@@ -143,6 +159,7 @@ export default defineConfig(({ mode }) => {
       cspHeaders(csp),
       immutableAssets(),
       firstScreenHints(mediaOrigins),
+      ogImageOrigin(env.TMA_PUBLIC_ORIGIN),
     ],
     define: { __APP_VERSION__: JSON.stringify(pkg.version) },
     // manifest — для бюджета первого экрана (scripts/size.ts)
