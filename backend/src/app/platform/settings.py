@@ -157,8 +157,9 @@ class AppSettings(_Group):
     """Публичный адрес API: из него строится `type` ошибок RFC 9457."""
     admin_public_url: str | None = None
     """Адрес админки для персонала, с `/admin`: ссылка «Открыть в админке» под карточкой кейса в
-    чате модераторов (2.5b). Пусто — APP_API_PUBLIC_URL + `/admin` (dev: тот же процесс web); на
-    stage и проде админка — на своём хосте за Access: `https://admin.<домен>/admin` (K31)."""
+    чате модераторов (2.5b). Пусто — в dev APP_API_PUBLIC_URL + `/admin` (тот же процесс web), на
+    stage и проде ссылки нет: админка там — на своём хосте за Access, `https://admin.<домен>/admin`
+    (K31), его и прописывает деплой."""
     min_client_versions: dict[str, str] = Field(default_factory=dict)
     """Минимальные версии клиентов для 426, JSON: {"tma": "1.0.0"}. С 1.1 — из client-config."""
     hash_key: SecretStr | None = None
@@ -264,9 +265,15 @@ class TelegramSettings(_Group):
         return username
 
 
-def admin_base_url(app: AppSettings) -> str:
-    """Адрес админки без `/` в конце: APP_ADMIN_PUBLIC_URL, иначе APP_API_PUBLIC_URL + /admin."""
-    return (app.admin_public_url or f"{app.api_public_url.rstrip('/')}/admin").rstrip("/")
+def admin_base_url(app: AppSettings) -> str | None:
+    """Адрес админки без `/` в конце: APP_ADMIN_PUBLIC_URL, в dev и тестах без него —
+    APP_API_PUBLIC_URL + /admin. На stage и проде без него — None: `/admin` на хосте API закрыт
+    (WAF), админка — только на своём хосте за Access, ссылки в неё нет."""
+    if app.admin_public_url:
+        return app.admin_public_url.rstrip("/")
+    if app.env in {Environment.STAGE, Environment.PRODUCTION}:
+        return None
+    return f"{app.api_public_url.rstrip('/')}/admin"
 
 
 def webhook_base_url(app: AppSettings, telegram: TelegramSettings) -> str:
