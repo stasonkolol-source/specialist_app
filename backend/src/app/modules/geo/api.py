@@ -56,6 +56,11 @@ class GeoApi(Protocol):
         """Районы пачкой — карточки BFF (S08, S23); кого нет — нет и в ответе."""
         ...
 
+    async def covers_city(self, city_id: CityId, district_ids: Collection[DistrictId]) -> bool:
+        """Среди районов — все кварталы города: специалист выезжает в «Весь Нови-Сад» (S32c).
+        Карточки показывают тогда город, а не первый по алфавиту квартал (QA SMOKE-6)."""
+        ...
+
     def public_point(self, point: GeoPoint, *, seed: bytes) -> GeoPoint:
         """Смещённая на 300–500 м точка, стабильная для одного seed (id сущности)."""
         ...

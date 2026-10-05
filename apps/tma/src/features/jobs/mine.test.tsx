@@ -215,6 +215,21 @@ describe('S23 manage job', () => {
     expect(within(card).queryByText('Откликнулся первым')).toBeNull();
   });
 
+  it('names a whole-city performer «Весь Нови-Сад», not the first district (QA SMOKE-6)', async () => {
+    const backend = withMine();
+    const [alexey] = responseCardsFixture();
+    if (!alexey || !CHANDELIER) throw new Error('fixtures');
+    backend.responseCards.set(CHANDELIER.id, [
+      { ...alexey, performer: { ...alexey.performer, district: null, whole_city: true } },
+    ]);
+    startApp(MANAGE);
+
+    const card = await screen.findByRole('link', { name: /^Алексей Морозов/ });
+    // город — из справочника: пока он грузится, «Весь город»
+    expect(await within(card).findByText(/^Весь\sНови-Сад$/u)).toBeTruthy();
+    expect(within(card).queryByText('Лиман')).toBeNull();
+  });
+
   it('closes the job with a reason', async () => {
     const backend = withMine();
     startApp(MANAGE);

@@ -393,6 +393,7 @@ export function responseCardsFixture(): ResponseCardOut[] {
     kind: null,
     avatar: null,
     district: null,
+    whole_city: false,
     rating: null,
     rating_count: 0,
     is_new: true,

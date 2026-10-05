@@ -1,9 +1,9 @@
 // Город выдачи: свой у вошедшего (home_city_id), иначе — первый открытый (Нови-Сад в пилоте).
 // Гость тоже видит каталог (DEVELOPMENT_PLAN 4.4): без /me город — по умолчанию.
-import type { CityOut } from '@sosed/api-client';
+import type { CityOut, SpecialistCardOut } from '@sosed/api-client';
 import { useIdentityGetMe } from '@sosed/api-client';
 import { defaultCity, useCities } from '@sosed/hooks';
-import { useLocale } from '@sosed/i18n';
+import { useLocale, useTranslation } from '@sosed/i18n';
 import { usePlatform } from '@sosed/platform';
 
 export interface CatalogCity {
@@ -28,4 +28,20 @@ export function useCatalogCityState(): CatalogCity {
 
 export function useCatalogCity(): CityOut | null {
   return useCatalogCityState().city;
+}
+
+/** «Весь Нови-Сад»: исполнитель выезжает во все районы города (whole_city, QA SMOKE-6). Город —
+ *  карточки (S08) или выдачи; не загрузился — «Весь город». */
+export function useWholeCity(city: string | null | undefined): string {
+  const { t } = useTranslation();
+  return city ? t('place.wholeCity', { city }) : t('place.wholeCityPlain');
+}
+
+/** Место на карточке выдачи (S03, S05, избранное, шапка S08 до загрузки): основной район, а у
+ *  выезжающего во все районы — «Весь Нови-Сад» по городу выдачи (в ней — специалисты города). */
+export function useCardArea(
+  card: Pick<SpecialistCardOut, 'district' | 'whole_city'>,
+): string | null {
+  const wholeCity = useWholeCity(useCatalogCity()?.name);
+  return card.whole_city ? wholeCity : (card.district?.name ?? null);
 }

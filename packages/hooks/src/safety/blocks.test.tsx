@@ -26,6 +26,7 @@ const card = (id: string): SpecialistCardOut => ({
   kind: 'pro',
   avatar: null,
   district: null,
+  whole_city: false,
   distance_m: null,
   languages: [],
   category_ids: [],

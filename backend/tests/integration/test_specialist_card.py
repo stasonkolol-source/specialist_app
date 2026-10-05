@@ -20,6 +20,10 @@ from app.modules.specialists.application.use_cases.hide_profile import (
     HideProfile,
     HideProfileCommand,
 )
+from app.modules.specialists.application.use_cases.set_profile_areas import (
+    SetProfileAreas,
+    SetProfileAreasCommand,
+)
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import MediaId, new_id
 from app.platform.settings import Settings
@@ -102,7 +106,7 @@ async def test_card_comes_in_one_request_with_etag(web: HttpApp) -> None:
     assert card["headline"] == "Электрик, 10 лет"
     assert [category["name"] for category in card["categories"]] == ["Электрик"]
     assert card["city"]["name"] == "Нови-Сад"
-    assert card["district"] == card["areas"][0]
+    assert (card["district"], card["whole_city"]) == (card["areas"][0], False)
     assert (card["services_count"], card["services"][0]["title"]) == (1, "Montaža lustera")
     # обрабатываемый файл и работа на проверке клиенту не видны
     assert (card["works_count"], card["works"][0]["caption"]) == (1, "Люстра в гостиной")
@@ -113,6 +117,28 @@ async def test_card_comes_in_one_request_with_etag(web: HttpApp) -> None:
         web, str(specialist.profile_id), **{"if-none-match": response.headers["etag"]}
     )
     assert again.status_code == 304
+
+
+async def test_whole_city_specialist_has_the_city_instead_of_a_district(web: HttpApp) -> None:
+    """QA SMOKE-6: у специалиста «Весь Нови-Сад» основной район — не первый по алфавиту
+    квартал: `whole_city`, района нет, список районов — как в профиле."""
+    specialist = Specialist(web.container)
+    await specialist.publish()
+    quarters = await specialist.scalar(
+        "SELECT array_agg(id ORDER BY slug) FROM geo.districts"
+        " WHERE city_id = :city AND kind = 'neighborhood' AND is_active",
+        city=specialist.city,
+    )
+    await specialist.call(
+        SetProfileAreas,
+        SetProfileAreasCommand(actor_id=specialist.user_id, district_ids=quarters),
+    )
+
+    card = (await get(web, str(specialist.profile_id))).json()
+
+    assert (card["whole_city"], card["district"]) == (True, None)
+    assert [area["id"] for area in card["areas"]] == quarters
+    assert card["city"]["name"] == "Нови-Сад"
 
 
 async def test_card_reads_do_not_grow_with_the_profile(web: HttpApp) -> None:

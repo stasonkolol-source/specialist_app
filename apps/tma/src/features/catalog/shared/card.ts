@@ -46,8 +46,13 @@ export function sentence(items: readonly string[]): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-/** Где работает: основной район, без него — город. */
-export function place(card: Pick<SpecialistProfileOut, 'district' | 'city'>): string | null {
+/** Где работает: выезжает во все районы — «Весь Нови-Сад» (`wholeCity`, useWholeCity), а не
+ *  первый по алфавиту квартал (QA SMOKE-6); иначе основной район, без него — город. */
+export function place(
+  card: Pick<SpecialistProfileOut, 'district' | 'city' | 'whole_city'>,
+  wholeCity: string,
+): string | null {
+  if (card.whole_city) return wholeCity;
   return card.district?.name ?? card.city?.name ?? null;
 }
 

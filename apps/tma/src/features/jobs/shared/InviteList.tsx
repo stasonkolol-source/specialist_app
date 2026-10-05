@@ -13,6 +13,8 @@ import {
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { Avatar, Badge, Banner, Button, Group, Row, Skeleton, Text } from '@sosed/ui-web';
 
+import { performerPlace, useWholeCity } from './labels.ts';
+
 /** Сколько подходящих показать: больше десяти в заявку не пригласить. */
 const SUGGESTIONS = 10;
 
@@ -20,6 +22,7 @@ export function InviteList({ job }: { job: JobOut }) {
   const { t } = useTranslation('jobs');
   const { t: common } = useTranslation();
   const format = useFormat();
+  const wholeCity = useWholeCity(job.city_id);
   const locale = useLocale();
   const search = useSpecialistSearch(locale, {
     city_id: job.city_id,
@@ -37,7 +40,7 @@ export function InviteList({ job }: { job: JobOut }) {
   const subtitle = (card: SpecialistCardOut) =>
     [
       card.rating !== null ? format.rating(card.rating) : common('rating.new'),
-      card.district?.name ?? null,
+      performerPlace(card, wholeCity),
     ]
       .filter(Boolean)
       .join(' · ');

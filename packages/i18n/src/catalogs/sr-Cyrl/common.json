@@ -73,6 +73,10 @@
     "km": "≈ {value} км",
     "m": "≈ {value} м"
   },
+  "place": {
+    "wholeCity": "Цео {city}",
+    "wholeCityPlain": "Цео град"
+  },
   "price": {
     "from": "од {amount}",
     "upTo": "до {amount}",

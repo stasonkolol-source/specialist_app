@@ -8,6 +8,8 @@ import { useCities, useDistricts } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import type { JobCardBadge, JobSlots } from '@sosed/ui-web';
 
+import { useFeedCity } from './city.ts';
+
 interface JobWhen {
   urgency: JobUrgency;
   preferred_from: string | null;
@@ -127,4 +129,28 @@ export function useDistrictName(cityId: number, districtId: number | null): stri
   const districts = useDistricts(cityId, locale).data;
   const city = useCities(locale).data?.find((item) => item.id === cityId);
   return districts?.find((item) => item.id === districtId)?.name ?? city?.name ?? null;
+}
+
+interface PerformerPlace {
+  district: { name: string } | null;
+  whole_city: boolean;
+}
+
+/** «Весь Нови-Сад»: исполнитель выезжает во все районы города (whole_city, QA SMOKE-6); город
+ *  не загрузился — «Весь город». */
+export function useWholeCity(cityId: number | null): string {
+  const { t } = useTranslation();
+  const city = useCities(useLocale()).data?.find((item) => item.id === cityId);
+  return city ? t('place.wholeCity', { city: city.name }) : t('place.wholeCityPlain');
+}
+
+/** Место исполнителя на карточке: основной район, а у выезжающего во все районы — «Весь …», а
+ *  не первый по алфавиту квартал. */
+export function performerPlace(performer: PerformerPlace, wholeCity: string): string | null {
+  return performer.whole_city ? wholeCity : (performer.district?.name ?? null);
+}
+
+/** Место исполнителя отклика (S23, S24) — по городу ленты: отклики приходят на заявки города. */
+export function usePerformerPlace(performer: PerformerPlace): string | null {
+  return performerPlace(performer, useWholeCity(useFeedCity()?.id ?? null));
 }
