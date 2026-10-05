@@ -178,7 +178,7 @@ describe('S31 specialist entry', () => {
     const cabinet = await screen.findByRole('link', { name: /Кабинет специалиста/ });
 
     expect(cabinet.textContent).toContain('На проверке');
-    expect(cabinet.textContent).toContain('Обычно до 30 минут');
+    expect(cabinet.textContent).toContain('Проверка обычно занимает до 30 минут');
     expect(cabinet.getAttribute('href')).toBe('/cabinet');
     expect(screen.queryByRole('link', { name: /Стать специалистом/ })).toBeNull();
     await act(async () => {

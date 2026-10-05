@@ -60,7 +60,9 @@ export function ProgressBar({
   );
 }
 
-/** Оценка звёздами .stars: без onChange — только показ. */
+/** Оценка звёздами .stars: без onChange — только показ. Пустая звезда для показа — цвет рамки поля
+ *  (3,2:1: «4» и «5» различимы), при выставлении оценки — контур цвета text2: пять звёзд видны до
+ *  первого нажатия (с цветом line их было почти не видно, 1,14:1). */
 export function Stars({
   value,
   onChange,
@@ -78,7 +80,7 @@ export function Stars({
     return (
       <div role="img" aria-label={label} className="flex gap-1">
         {stars.map((n) => (
-          <Icon key={n} name="star" size={16} className={n <= value ? 'text-star' : 'text-line'} />
+          <Icon key={n} name="star" size={16} className={n <= value ? 'text-star' : 'text-field'} />
         ))}
       </div>
     );
@@ -95,11 +97,11 @@ export function Stars({
           onClick={() => onChange(n)}
           className={cx(
             'flex size-12 items-center justify-center border-0 bg-transparent p-0',
-            n <= value ? 'text-star' : 'text-line',
+            n <= value ? 'text-star' : 'text-text2',
             FOCUS,
           )}
         >
-          <Icon name="star" size={36} />
+          <Icon name={n <= value ? 'star' : 'star-outline'} size={36} />
         </button>
       ))}
     </div>
@@ -139,7 +141,7 @@ export function Banner({
     <div
       role={role}
       className={cx(
-        'flex items-start gap-2.5 rounded-panel px-3.5 py-3 text-sm [&_a]:font-semibold [&_a]:text-inherit [&_a]:underline',
+        'flex items-start gap-2.5 rounded-card px-3.5 py-3 text-sm [&_a]:font-semibold [&_a]:text-inherit [&_a]:underline',
         BANNER[tone],
       )}
     >
@@ -195,7 +197,7 @@ export function EmptyState({
   );
 }
 
-/** Тост .toast над таббаром; объявляется скринридеру вежливо. */
+/** Тост .toast над таббаром; объявляется скринридеру вежливо. Появляется с подъёмом на 8 px. */
 export function Toast({
   children,
   icon = 'check-circle',
@@ -212,7 +214,7 @@ export function Toast({
       role="status"
       aria-live="polite"
       className={cx(
-        'flex items-center gap-2.5 rounded-panel bg-toast px-3.5 py-3 text-sm text-toast-ink shadow-toast',
+        'flex items-center gap-2.5 rounded-card bg-toast px-3.5 py-3 text-sm text-toast-ink shadow-toast enter-toast',
         position === 'fixed' && 'fixed inset-x-4 bottom-25 z-20',
       )}
     >
@@ -226,13 +228,14 @@ export function Toast({
 const SKELETON_RADIUS = {
   badge: 'rounded-badge',
   icon: 'rounded-btn-sm',
-  panel: 'rounded-panel',
+  field: 'rounded-field',
   card: 'rounded-card',
   round: 'rounded-full',
 } as const;
 
-/** Скелетон .skel: размер задаёт раскладка (h-*, w-*), скругление — `radius` (по умолчанию 8, как
- *  .skel; иконка строки — icon 10, поле поиска — panel 14, плитки и карточки — card 16, аватар —
+/** Скелетон .skel: размер задаёт раскладка (h-*, w-*), скругление — `radius` по шкале SPEC §2 (по
+ *  умолчанию 8, как .skel; иконка строки и маленькая кнопка — icon 10; поле, кнопка и фото — field 12,
+ *  как у настоящего фото: угол не прыгает при загрузке; плитки, карточки и варианты — card 16; аватар —
  *  round). Цвет .skel — bg2, как фон экрана: на карточке фигура видна, прямо на фоне экрана — нет.
  *  Там — `screen`: цвет поверхности. Составные скелетоны по форме компонентов — Skeletons.tsx. */
 export function Skeleton({

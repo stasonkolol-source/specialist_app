@@ -1,19 +1,22 @@
 // S08 Профиль специалиста (DEVELOPMENT_PLAN 4.5): экран, на котором клиент решает, писать ли.
-// Шапка — фото, имя, «коротко о себе», рейтинг или «Новый специалист», район, сердечко «в
-// избранное» (4.6); бейджи «Сегодня до …» и «Телефон подтверждён»; памятка «не платите предоплату
-// незнакомым»; первые позиции прайса со ссылкой на S09, превью работ со ссылкой на просмотрщик S10,
-// последний отзыв со ссылкой на S11; «О себе» — текст, языки и районы выезда. Всё — одним запросом
-// BFF. Профиль скрыт или его нет — «Профиль недоступен». MainButton «Написать» (6.4) — диалог S30
-// со специалистом (начатый — тот же); «Предложить заявку» под шапкой — прямой запрос (5.6): мастер
-// заявки S20a, заявку увидит только этот специалист. На своём профиле обеих кнопок нет. «Обычно
-// отвечает за …» — в «О себе», когда диалогов с ответом за 30 дней набралось пять. Внизу (4.7) —
-// «Пожаловаться на профиль» (шторка S46; пока она открыта, MainButton спрятана) и «Заблокировать»
-// с подтверждением: заблокированному не написать и не предложить заявку — вместо кнопок памятка и
-// «Разблокировать». Меню «⋯» артборда — часть шапки Telegram, своих пунктов в нём у Mini App нет:
-// действия — строками, как «Пожаловаться на профиль» на артборде. «Поделиться» (7.4) — рядом с
-// сердечком, всем: карточка в выбор чата Telegram или ссылка (у гостя — без кода приглашения).
-// Гость видит экран без входа, но без сердечка, жалобы и блокировки; «Написать» гостю — тоже
-// мастер заявки: диалог начинается после входа.
+// Шапка — фото, имя, «коротко о себе», рейтинг или «Новый специалист», район и «Обычно отвечает
+// за …» (когда диалогов с ответом за 30 дней набралось пять); бейджи — не больше трёх:
+// «Подработка», «Телефон подтверждён», «Сегодня до …»; под ними ряд кнопок, как на артборде:
+// «Предложить заявку», сердечко «в избранное» (4.6) и «Поделиться». Памятка «не платите
+// предоплату незнакомым»; первые позиции прайса с единицей у суммы и ссылкой на S09, превью работ
+// со ссылкой на просмотрщик S10, последний отзыв со ссылкой на S11; «О себе» — текст, языки и
+// районы выезда. Всё — одним запросом BFF. Профиль скрыт или его нет — «Профиль недоступен».
+// MainButton «Написать» (6.4) — диалог S30 со специалистом (начатый — тот же); «Предложить
+// заявку» — прямой запрос (5.6): мастер заявки S20a, заявку увидит только этот специалист. На
+// своём профиле обеих кнопок и сердечка нет. Внизу (4.7) — «Пожаловаться на профиль» (шторка S46;
+// пока она открыта, MainButton спрятана) и «Заблокировать» с подтверждением: заблокированному не
+// написать и не предложить заявку — вместо кнопок памятка и «Разблокировать». Меню «⋯» артборда —
+// часть шапки Telegram, своих пунктов в нём у Mini App нет: действия — строками, как «Пожаловаться
+// на профиль» на артборде. «Поделиться» (7.4) — всем: карточка в выбор чата Telegram или ссылка (у
+// гостя — без кода приглашения). Гость видит экран без входа, но без сердечка, жалобы и
+// блокировки; «Написать» гостю — тоже мастер заявки: диалог начинается после входа. В браузере
+// (8.1) вместо обеих кнопок — одна «Написать в Telegram»: ссылка сразу на этот профиль в Mini App
+// (telegram.ts); без бота в сборке — прежняя «Написать».
 import type { CardWorkOut, SpecialistCardOut, SpecialistProfileOut } from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
 import { color } from '@sosed/design-tokens';
@@ -32,6 +35,7 @@ import {
   useStartConversation,
   useToggleBlock,
 } from '@sosed/hooks';
+import type { Format } from '@sosed/i18n';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton, useColorScheme, useMainButton, usePlatform } from '@sosed/platform';
 import {
@@ -46,7 +50,6 @@ import {
   IconButton,
   LinkButton,
   Photo,
-  Price,
   Row,
   RowsSkeleton,
   Skeleton,
@@ -54,6 +57,7 @@ import {
   SkeletonText,
   Text,
 } from '@sosed/ui-web';
+import type { SpecialistBadge } from '@sosed/ui-web';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter } from '@tanstack/react-router';
 import type { MouseEvent, ReactNode } from 'react';
@@ -62,15 +66,20 @@ import { useId } from 'react';
 import { LoadError } from '../shared/LoadError.tsx';
 import { ReviewCard } from '../shared/ReviewCard.tsx';
 import { Unavailable } from '../shared/Unavailable.tsx';
-import { avatarSrc, knownLanguages, place, priceAmount, sentence } from '../shared/card.ts';
+import { PriceColumn } from '../s09-prices/PriceColumn.tsx';
+import { avatarSrc, knownLanguages, place, sentence } from '../shared/card.ts';
 import { useFavoriteToggle } from '../shared/favorite.ts';
 import { useProfileShare } from '../shared/share.tsx';
 import { CARD_PATHS, CREATE_JOB_PATH, chatPath } from '../shared/paths.ts';
+import { writeInTelegramLink } from './telegram.ts';
 
 const PHONE_VERIFIED = 'phone_verified';
+const CASUAL = 'casual';
 /** Аватар lg — 88 px. */
 const AVATAR_LG = 88;
 const MINUTES_IN_HOUR = 60;
+/** Бейджей в шапке — не больше трёх: дальше ряд переносится и спорит с кнопками. */
+const MAX_BADGES = 3;
 
 export function SpecialistScreen() {
   const { profileId } = useParams({ strict: false }) as { profileId: string };
@@ -107,7 +116,7 @@ function Loading({ preview }: { preview: SpecialistCardOut | undefined }) {
       {preview ? (
         <Card as="section">
           <PreviewHead card={preview} />
-          <Skeleton radius="panel" className="h-11 w-full" />
+          <Skeleton radius="field" className="h-11 w-full" />
         </Card>
       ) : (
         <SkeletonCard>
@@ -119,7 +128,7 @@ function Loading({ preview }: { preview: SpecialistCardOut | undefined }) {
               <SkeletonText size="cap" className="w-1/2" />
             </div>
           </div>
-          <Skeleton radius="panel" className="h-11 w-full" />
+          <Skeleton radius="field" className="h-11 w-full" />
         </SkeletonCard>
       )}
       <SkeletonText size="h3" screen className="w-1/3" />
@@ -171,8 +180,9 @@ function PreviewHead({ card }: { card: SpecialistCardOut }) {
 }
 
 /** MainButton «Написать»: диалог S30 со специалистом; гостю — прямой запрос через мастер заявки
- *  (написать без входа нечем); себе и заблокированному — не пишут; пока открыта шторка жалобы —
- *  кнопки нет (`hidden`). Возвращает, свой ли это профиль. */
+ *  (написать без входа нечем); себе и заблокированному — не пишут; пока открыта шторка жалобы или
+ *  в браузере вместо неё ссылка в Telegram — кнопки нет (`hidden`). Возвращает, свой ли это
+ *  профиль. */
 function useWriteButton(profileId: string, hidden: boolean) {
   const { t: common } = useTranslation();
   const router = useRouter();
@@ -211,12 +221,17 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
   const reviewsId = useId();
   const aboutId = useId();
   const { control, failure } = useFavoriteToggle();
-  const favorite = control(searchCardOf(card), false);
   const sharing = useProfileShare(card.id);
   const blocks = useBlocks();
   const blocked = blockedIds(blocks.data).has(card.user_id);
   const reporting = useReportTarget() !== null;
-  const { own, writeError } = useWriteButton(card.id, blocked || reporting);
+  // браузер (только гость): написать можно лишь в Telegram — кнопка сразу ведёт туда
+  const browser = usePlatform().kind === 'browser';
+  const telegram = browser ? writeInTelegramLink(card.id) : null;
+  const { own, writeError } = useWriteButton(card.id, blocked || reporting || telegram !== null);
+  // себе и заблокированному — только «Поделиться»; в браузере заявку не предложить (мастера нет)
+  const favorite = own || blocked ? undefined : control(searchCardOf(card), false);
+  const propose = !own && !blocked && !browser;
   const params = { profileId: card.id };
   const go = (to: string, search?: { work: string }) => (event: MouseEvent<HTMLElement>) => {
     event.preventDefault();
@@ -231,6 +246,7 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
   const languages = knownLanguages(card).map((code) => t(`profile.languageNames.${code}`));
   const areas = card.areas.map((area) => area.name);
   const response = responseTime(card.response_time_minutes, t);
+  const badges = headerBadges(card, today ? until : null, t, format);
   const travel =
     areas.length > 0
       ? t('profile.travel', { areas: areas.join(', ') })
@@ -240,27 +256,8 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
   const where = place(card);
 
   return (
-    <section className="flex flex-col gap-3.5 px-4 pt-3 pb-6">
-      <Card as="section" className="relative">
-        <div className="absolute top-1 right-1 flex">
-          <IconButton
-            plain
-            icon="share"
-            label={common('share.profile')}
-            aria-busy={sharing.pending || undefined}
-            onClick={sharing.share}
-          />
-          {favorite && (
-            <IconButton
-              plain
-              icon="heart"
-              label={favorite.label}
-              active={favorite.active}
-              aria-pressed={favorite.active}
-              onClick={favorite.onToggle}
-            />
-          )}
-        </div>
+    <section className={`flex flex-col gap-3.5 px-4 pt-3 ${telegram ? 'pb-25' : 'pb-6'}`}>
+      <Card as="section">
         <div className="flex items-center gap-4">
           <Avatar
             name={card.display_name}
@@ -270,7 +267,7 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
             priority
           />
           <div className="flex min-w-0 grow flex-col gap-1">
-            <Heading variant="h2" as="h1" className={favorite ? 'pr-16' : 'pr-8'}>
+            <Heading variant="h2" as="h1">
               {card.display_name}
             </Heading>
             {card.headline && (
@@ -292,33 +289,47 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
               )}
             </p>
             {where && <p className="m-0 text-cap text-text2">{where}</p>}
+            {response && <Meta icon="clock">{response}</Meta>}
           </div>
         </div>
-        {(card.badges.includes(PHONE_VERIFIED) || today) && (
+        {badges.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {card.badges.includes(PHONE_VERIFIED) && (
-              <Badge tone="info" icon="shield">
-                {t('results.phoneVerified')}
+            {badges.map((badge) => (
+              <Badge key={badge.label} tone={badge.tone} icon={badge.icon} dot={badge.dot}>
+                {badge.label}
               </Badge>
-            )}
-            {today && until && (
-              <Badge tone="ok" dot>
-                {t('results.todayUntil', { time: format.time(until) })}
-              </Badge>
-            )}
+            ))}
           </div>
         )}
-        {!own && !blocked && (
-          <Button
-            variant="outline"
-            full
-            onClick={() =>
-              void router.navigate({ to: CREATE_JOB_PATH, search: { direct: card.id } })
-            }
-          >
-            {t('profile.proposeJob')}
-          </Button>
-        )}
+        {/* ряд как на артборде: кнопка тянется, иконки 44×44 справа; без кнопки иконки — там же */}
+        <div className="flex justify-end gap-2">
+          {propose && (
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() =>
+                void router.navigate({ to: CREATE_JOB_PATH, search: { direct: card.id } })
+              }
+            >
+              {t('profile.proposeJob')}
+            </Button>
+          )}
+          {favorite && (
+            <IconButton
+              icon="heart"
+              label={favorite.label}
+              active={favorite.active}
+              aria-pressed={favorite.active}
+              onClick={favorite.onToggle}
+            />
+          )}
+          <IconButton
+            icon="share"
+            label={common('share.profile')}
+            aria-busy={sharing.pending || undefined}
+            onClick={sharing.share}
+          />
+        </div>
       </Card>
       {blocked && (
         <Banner tone="info" icon="ban" role="status">
@@ -351,7 +362,7 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
               <Row
                 key={service.id}
                 title={service.title}
-                trailing={<Price>{priceAmount(format, service)}</Price>}
+                trailing={<PriceColumn service={service} />}
               />
             ))}
           </Group>
@@ -393,7 +404,7 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
           ))}
         </section>
       )}
-      {(card.about || languages.length > 0 || travel || response) && (
+      {(card.about || languages.length > 0 || travel) && (
         <section
           aria-labelledby={aboutId}
           className="flex flex-col gap-2 rounded-card bg-surface p-4 text-text"
@@ -406,17 +417,55 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
               {card.about}
             </Text>
           )}
-          {card.about && (languages.length > 0 || travel || response) && (
+          {card.about && (languages.length > 0 || travel) && (
             <div className="h-px bg-line" aria-hidden="true" />
           )}
           {languages.length > 0 && <Meta icon="languages">{sentence(languages)}</Meta>}
-          {response && <Meta icon="clock">{response}</Meta>}
           {travel && <Meta icon="pin">{travel}</Meta>}
         </section>
       )}
       {!own && getSession() !== null && <Safety card={card} blocked={blocked} />}
+      {telegram && <WriteInTelegram href={telegram} />}
     </section>
   );
+}
+
+/** Кнопка гостя в браузере — на месте MainButton в контенте (ContentMainButton оболочки: внизу
+ *  экрана, 76 px; отступ под неё — `pb-25` экрана), но ссылкой в Telegram с иконкой, как
+ *  «Откликнуться в Telegram» на S15. */
+function WriteInTelegram({ href }: { href: string }) {
+  const { t } = useTranslation('catalog');
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-lg bg-bg px-4 py-3">
+      <Button full icon="send" href={href}>
+        {t('profile.writeInTelegram')}
+      </Button>
+    </div>
+  );
+}
+
+/** Бейджи шапки — факты в порядке важности, не больше трёх: «Подработка» (S32a обещает
+ *  специалисту пометку рядом с именем; SPEC §4 — `bdg mute`), «Телефон подтверждён», «Сегодня до
+ *  …» (`until` — только пока ещё доступен). */
+function headerBadges(
+  card: Pick<SpecialistProfileOut, 'kind' | 'badges'>,
+  until: Date | null,
+  t: ReturnType<typeof useTranslation<'catalog'>>['t'],
+  format: Format,
+): SpecialistBadge[] {
+  const badges: SpecialistBadge[] = [];
+  if (card.kind === CASUAL) badges.push({ label: t('profile.casual'), tone: 'mute' });
+  if (card.badges.includes(PHONE_VERIFIED)) {
+    badges.push({ label: t('results.phoneVerified'), tone: 'info', icon: 'shield' });
+  }
+  if (until) {
+    badges.push({
+      label: t('results.todayUntil', { time: format.time(until) }),
+      tone: 'ok',
+      dot: true,
+    });
+  }
+  return badges.slice(0, MAX_BADGES);
 }
 
 /** «Пожаловаться на профиль» (шторка S46) и «Заблокировать» с подтверждением или
@@ -536,10 +585,12 @@ function responseTime(
   return t('profile.responseHours', { count: Math.round(minutes / MINUTES_IN_HOUR) });
 }
 
+/** Строка с иконкой: иконка — у первой строки, как на артборде: длинное «Выезд: …» или сербское
+ *  «Obično odgovori za …» в узкой шапке переносится, а иконка не съезжает в середину. */
 function Meta({ icon, children }: { icon: 'languages' | 'pin' | 'clock'; children: ReactNode }) {
   return (
-    <p className="m-0 flex items-center gap-1.5 text-cap text-text2">
-      <Icon name={icon} size={16} />
+    <p className="m-0 flex items-start gap-1.5 text-cap text-text2">
+      <Icon name={icon} size={16} className="mt-px shrink-0" />
       {children}
     </p>
   );

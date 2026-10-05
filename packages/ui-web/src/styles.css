@@ -7,6 +7,80 @@
 
 @source './';
 
+/* Отклик на нажатие — только CSS, вместо системной подсветки WebView: кнопка, чип, плитка, вариант
+   чуть сжимаются (отключённые — нет), карточка-ссылка — меньше, строка списка подсвечивается фоном
+   bg2 — он виден и на поверхности группы, и на фоне шторки в обеих темах. Движение — только без
+   prefers-reduced-motion. :active есть и у предков нажатого, поэтому карточка, которая сама не
+   ссылка (SpecialistCard: ссылка — шапка), сжимается только от своей ссылки, а не от сердечка */
+@utility press {
+  @media (prefers-reduced-motion: no-preference) {
+    &:active:not(:disabled) {
+      scale: 0.97;
+    }
+  }
+}
+@utility press-card {
+  @media (prefers-reduced-motion: no-preference) {
+    &:is(a, button):active,
+    &:has(> a:active) {
+      scale: 0.99;
+    }
+  }
+}
+/* ход сжатия — одним правилом на обе утилиты: первый экран в бюджете впритык */
+@media (prefers-reduced-motion: no-preference) {
+  .press,
+  .press-card {
+    transition: scale 100ms ease-out;
+  }
+}
+@utility press-row {
+  transition: background-color 100ms ease-out;
+  &:active:not(:disabled) {
+    background-color: var(--bg2);
+  }
+}
+
+/* Появление шторки (въезжает снизу), затемнения и тоста (подъём на 8 px) и ход бегунка Switch:
+   только появление, без анимации закрытия, и только без prefers-reduced-motion. Свои утилиты, а не
+   motion-safe:animate-*: короче и в CSS, и в классах первого экрана */
+@utility enter-sheet {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: enter-sheet 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+@utility enter-fade {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: enter-fade 200ms ease-out;
+  }
+}
+@utility enter-toast {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: enter-toast 180ms ease-out;
+  }
+}
+@utility slide {
+  @media (prefers-reduced-motion: no-preference) {
+    transition: translate 150ms ease-out;
+  }
+}
+@keyframes enter-sheet {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes enter-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes enter-toast {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
 @layer base {
   /* .scr из ui.css: фон экрана bg2, основной текст 15/22 Onest */
   body {
@@ -21,6 +95,9 @@
     color: var(--accent);
     text-decoration: none;
   }
+  /* Системную подсветку нажатия WebView (разную на iOS и Android) уже снимает preflight Tailwind:
+     html { -webkit-tap-highlight-color: transparent }, свойство наследуется. Отклик на нажатие —
+     утилиты press, press-card, press-row выше */
 }
 
 /* .ph: штриховка плейсхолдера фото, 1:1 с ui.css */

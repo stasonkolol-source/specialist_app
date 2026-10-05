@@ -35,6 +35,23 @@ describe('S04 categories', () => {
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/catalog/results'));
     expect(app.router.state.location.search).toEqual({ category: CATEGORY_IDS['electrical'] });
   });
+
+  it('lists subcategories as a phrase and offers a job when the service is missing', async () => {
+    const { app } = startApp('/catalog');
+
+    // перечень — с маленькой буквы после первой подкатегории; не поместившиеся — «и ещё N»
+    const handyman = await screen.findByRole('button', { name: /Мастер на час/ });
+    expect(within(handyman).getByText('Электрика, сантехника, сборка мебели и ещё 1')).toBeTruthy();
+    expect(screen.getByText('Маникюр, брови и ресницы, стрижки')).toBeTruthy();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Найти услугу' }), {
+      target: { value: 'Повесить жалюзи' },
+    });
+
+    await click(screen.getByRole('link', { name: /Не нашли свою услугу\?/ }));
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs/new'));
+    expect(app.router.state.location.search).toMatchObject({ title: 'Повесить жалюзи' });
+  });
 });
 
 describe('S05 results', () => {
@@ -47,12 +64,20 @@ describe('S05 results', () => {
     expect(card.getByText('4,9')).toBeTruthy();
     expect(card.getByText('(37)')).toBeTruthy();
     expect(card.getByText(/^Лиман, ≈\s1,5\sкм$/u)).toBeTruthy();
-    expect(card.getByText('ru, sr')).toBeTruthy();
+    // языки словами: код «uk» читается как «Великобритания»
+    expect(card.getByText('рус., серб.')).toBeTruthy();
     expect(card.getByText(/^Сегодня до /)).toBeTruthy();
     expect(card.getByText('Телефон подтверждён')).toBeTruthy();
-    expect(card.getByText(/^от 2\s000\sRSD$/u)).toBeTruthy();
-    const newcomer = (await screen.findByText('Иван Гаврилов')).closest('article');
-    expect(within(newcomer as HTMLElement).getByText('Новый специалист')).toBeTruthy();
+    // цена «от» — с единицей той же позиции (price_from_unit)
+    expect(card.getByText(/^от 2\s000\sRSD за выезд$/u)).toBeTruthy();
+    const olga = (await screen.findByText('Ольга Власова')).closest('article') as HTMLElement;
+    expect(within(olga).getByText(/^от 1\s000\sRSD\/час$/u)).toBeTruthy();
+    expect(within(olga).getByText('рус., укр.')).toBeTruthy();
+    // подработка — бейдж у имени, «Новый специалист» — текстом в строке рейтинга
+    const newcomer = (await screen.findByText('Иван Гаврилов')).closest('article') as HTMLElement;
+    expect(within(newcomer).getByText('Новый специалист')).toBeTruthy();
+    expect(within(newcomer).getByText('Подработка')).toBeTruthy();
+    expect(card.queryByText('Подработка')).toBeNull();
     expect(await screen.findByText('9 специалистов')).toBeTruthy();
   });
 

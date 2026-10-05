@@ -14,12 +14,13 @@ export interface SegmentedOption<T extends string> {
   icon?: IconName;
 }
 
-const SEGMENTS = 'grid auto-cols-fr grid-flow-col gap-0.75 rounded-btn bg-bg2 p-0.75';
+// Дорожка — полупрозрачная поверх фона: видна и на экране bg2 (S11, S12, S36), и в шторке, и в карточке
+const SEGMENTS = 'grid auto-cols-fr grid-flow-col gap-0.75 rounded-btn bg-seg-track p-0.75';
 
 const segment = (on: boolean) =>
   cx(
     'flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-seg-item border-0 text-sm font-semibold',
-    on ? 'bg-surface text-text shadow-seg' : 'bg-transparent text-text2',
+    on ? 'bg-seg-on text-text shadow-seg' : 'bg-transparent text-text2',
     FOCUS,
   );
 
@@ -161,16 +162,21 @@ export function Option({
       disabled={disabled}
       onClick={() => onChange(kind === 'radio' ? true : !checked)}
       className={cx(
-        'flex min-h-14 w-full gap-3 rounded-panel border bg-surface px-3.5 py-3 text-left text-text disabled:opacity-55',
+        'flex min-h-14 w-full gap-3 rounded-card border bg-surface px-3.5 py-3 text-left text-text disabled:opacity-55',
         large ? 'items-start' : 'items-center',
         checked ? 'border-accent ring-1 ring-accent ring-inset' : 'border-line',
+        'press',
         FOCUS,
       )}
     >
       {control === 'start' && mark}
       {leading ?? (icon && <Icon name={icon} className="text-text2" />)}
       <span className={cx('flex min-w-0 flex-1 flex-col', large && 'gap-1')}>
-        <span id={`${id}-t`} className={large ? 'text-h3' : 'text-body'}>
+        {/* с описанием заголовок жирный (.b на артбордах S20b, S54): описание — второй уровень */}
+        <span
+          id={`${id}-t`}
+          className={large ? 'text-h3' : cx('text-body', Boolean(description) && 'font-semibold')}
+        >
           {title}
         </span>
         {description && (
@@ -383,6 +389,7 @@ export function RadioRow({
       onClick={onChange}
       className={cx(
         'flex min-h-13 w-full items-center gap-3 border-0 border-b border-line bg-transparent px-4 py-3 text-left text-body text-text last:border-b-0 disabled:opacity-55',
+        'press-row',
         FOCUS,
       )}
     >
@@ -418,11 +425,12 @@ export function Switch({
         FOCUS,
       )}
     >
+      {/* бегунок едет transform-ом (не left): без перерасчёта раскладки */}
       <span
         aria-hidden="true"
         className={cx(
-          'absolute top-0.5 size-6.75 rounded-full bg-knob shadow-knob transition-all',
-          checked ? 'left-5.5' : 'left-0.5',
+          'slide absolute top-0.5 left-0.5 size-6.75 rounded-full bg-knob shadow-knob',
+          checked && 'translate-x-5',
         )}
       />
     </button>

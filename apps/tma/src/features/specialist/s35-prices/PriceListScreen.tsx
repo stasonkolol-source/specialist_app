@@ -1,5 +1,6 @@
-// S35 Прайс-лист (DEVELOPMENT_PLAN 2.11): позиции по группам — категориям профиля, у каждой — тип
-// цены и длительность, «Скрыта» у выключенной. Нажатие — правка S36; «…» — «Выше», «Ниже»,
+// S35 Прайс-лист (DEVELOPMENT_PLAN 2.11): позиции по группам — категориям профиля, у каждой —
+// длительность и «Скрыта» у выключенной; справа — сумма («от» — в ней) и под ней единица («за
+// час»), как на S09 у клиента. Нажатие — правка S36; «…» — «Выше», «Ниже»,
 // «Скрыть»/«Показать» в нативном попапе Telegram; MainButton — новая позиция. Перетаскивание с
 // артборда заменено кнопками «Выше / Ниже»: в WebView Telegram жест спорит со свайпом закрытия.
 // Ориентиры рынка — v1.
@@ -13,6 +14,7 @@ import {
   groupServices,
   moveService,
   myProfileQueryKey,
+  servicePrice,
   useCategories,
   useMyProfile,
   useMyServices,
@@ -179,14 +181,12 @@ function PriceList({
                     className="flex min-w-0 flex-1 flex-col text-text outline-none focus-visible:outline-2 focus-visible:outline-accent"
                   >
                     <span className="text-body">{service.title}</span>
-                    <span className="flex flex-wrap items-center gap-1.5">
-                      <Text as="span" variant="cap">
-                        <ServiceKind service={service} />
-                      </Text>
-                      {!service.is_active && <Badge>{t('prices.hidden')}</Badge>}
-                    </span>
+                    <ServiceNote service={service} />
                   </a>
-                  <Price>{priceAmount(format, service, common('price.negotiable'))}</Price>
+                  <span className="flex shrink-0 flex-col items-end">
+                    <Price>{priceAmount(format, service, common('price.negotiable'))}</Price>
+                    <ServiceUnit service={service} />
+                  </span>
                   <IconButton
                     icon="more"
                     plain
@@ -206,10 +206,35 @@ function PriceList({
   );
 }
 
-/** Подпись под названием: тип цены и длительность — «от · 1–2 часа». */
-function ServiceKind({ service }: { service: ServiceOut }) {
+/** Подпись под названием: длительность («1–2 часа») и «Скрыта». Тип цены не повторяем: «от» уже
+ *  в сумме, «за час» — под ней. Нечего подписать — строка в одну линию. */
+function ServiceNote({ service }: { service: ServiceOut }) {
   const { t } = useTranslation('specialist');
   const duration = DURATIONS.find((minutes) => minutes === service.duration_min);
-  const kind = t(`prices.type.${service.price_type}`);
-  return <>{duration ? `${kind} · ${t(`price.durations.${duration}`)}` : kind}</>;
+  if (!duration && service.is_active) return null;
+  return (
+    <span className="flex flex-wrap items-center gap-1.5">
+      {duration && (
+        <Text as="span" variant="cap">
+          {t(`price.durations.${duration}`)}
+        </Text>
+      )}
+      {!service.is_active && <Badge>{t('prices.hidden')}</Badge>}
+    </span>
+  );
+}
+
+/** Единица под суммой: у почасовой — «за час», иначе единица позиции («за штуку»); у «за
+ *  единицу» с незнакомой интерфейсу единицей — «за единицу». */
+function ServiceUnit({ service }: { service: ServiceOut }) {
+  const { t } = useTranslation('specialist');
+  const { t: common } = useTranslation();
+  const price = servicePrice(service);
+  const unit = price.type === 'hourly' ? 'hour' : (price.unit ?? null);
+  const label = unit
+    ? common(`unit.${unit}`)
+    : price.type === 'per_unit'
+      ? t('prices.type.per_unit')
+      : null;
+  return label ? <span className="text-cap text-text2">{label}</span> : null;
 }

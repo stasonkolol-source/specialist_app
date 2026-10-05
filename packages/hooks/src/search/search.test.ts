@@ -16,6 +16,7 @@ function card(name: string): SpecialistCardOut {
     languages: ['ru'],
     category_ids: [5],
     price_from: null,
+    price_from_unit: null,
     negotiable: false,
     rating: null,
     rating_count: 0,

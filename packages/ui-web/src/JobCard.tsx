@@ -125,7 +125,7 @@ export function JobCard({
   );
   const classes = 'flex flex-col gap-2 rounded-card bg-surface p-4 text-text';
   return href ? (
-    <a href={href} onClick={onOpen} className={cx(classes, FOCUS)}>
+    <a href={href} onClick={onOpen} className={cx(classes, 'press-card', FOCUS)}>
       {content}
     </a>
   ) : (

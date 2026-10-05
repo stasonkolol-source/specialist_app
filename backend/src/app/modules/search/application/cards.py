@@ -62,6 +62,7 @@ def _card(hit: SpecialistHit, refs: Mapping[MediaId, MediaRef], now: datetime) -
         languages=tuple(card.get("languages") or ()),
         category_ids=tuple(card.get("category_ids") or ()),
         price_from=hit.price_from,
+        price_from_unit=hit.price_from_unit,
         negotiable=bool(card.get("negotiable")) and hit.price_from is None,
         rating=None if is_new else hit.rating_bayes,
         rating_count=hit.rating_count,

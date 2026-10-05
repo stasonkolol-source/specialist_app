@@ -76,6 +76,8 @@ export interface SpecialistFixture {
   distanceKm: number | null;
   price: string | null;
   languages: string[];
+  /** Профиль подработки (SPEC §4: бейдж «Подработка»); по умолчанию — специалист. */
+  kind?: 'casual';
 }
 
 export const SPECIALISTS: SpecialistFixture[] = [
@@ -87,7 +89,7 @@ export const SPECIALISTS: SpecialistFixture[] = [
   { name: 'Анна Лебедева', initials: 'АЛ', avatar: 'av4', title: 'Сербский язык для взрослых', rating: 5.0, reviews: 29, district: 'онлайн и у себя', distanceKm: null, price: '1 500 RSD/урок', languages: ['ru', 'sr'] },
   { name: 'Сергей Титов', initials: 'СТ', avatar: 'av2', title: 'Переезды · грузчики · фургон', rating: 4.8, reviews: 33, district: 'Телеп', distanceKm: null, price: 'от 3 500 RSD/час', languages: [] },
   { name: 'Екатерина Руденко', initials: 'ЕР', avatar: 'av1', title: 'Брови и ресницы', rating: 4.9, reviews: 40, district: 'Подбара', distanceKm: null, price: 'от 2 400 RSD', languages: [] },
-  { name: 'Иван Гаврилов', initials: 'ИГ', avatar: 'av3', title: 'Подработка: переезды и сборка', rating: null, reviews: 0, district: 'Лиман', distanceKm: null, price: null, languages: [] },
+  { name: 'Иван Гаврилов', initials: 'ИГ', avatar: 'av3', title: 'Подработка: переезды и сборка', rating: null, reviews: 0, district: 'Лиман', distanceKm: null, price: null, languages: [], kind: 'casual' },
 ]; // prettier-ignore
 
 export interface JobFixture {
@@ -477,6 +479,18 @@ export const E2E_NOW = '2026-10-05T08:00:00Z';
 export const E2E_AVAILABLE_UNTIL = '2026-10-05T18:00:00Z';
 const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
 
+/** Единица цены SPEC §4 по её подписи: «от 2 000 RSD за выезд» — visit, «1 000 RSD/час» — hour. */
+const PRICE_UNITS: readonly (readonly [RegExp, string])[] = [
+  [/за выезд$/, 'visit'],
+  [/за предмет$/, 'item'],
+  [/\/час$/, 'hour'],
+  [/\/урок$/, 'lesson'],
+];
+
+function priceUnitOf(price: string | null): string | null {
+  return (price && PRICE_UNITS.find(([pattern]) => pattern.test(price))?.[1]) || null;
+}
+
 /** Карточки выдачи S05 из специалистов SPEC §4 (SPECIALISTS): как GET /specialists. У первого —
  *  «сегодня до» и подтверждённый телефон, у последнего (без отзывов) — «Новый специалист». */
 export function cardsFor(
@@ -491,7 +505,7 @@ export function cardsFor(
       profile_id: `0199cc00-0000-7000-8000-${String(index + 1).padStart(12, '0')}`,
       display_name: fixture.name,
       headline: fixture.title,
-      kind: 'pro',
+      kind: fixture.kind ?? 'pro',
       avatar: null,
       district: district
         ? {
@@ -503,6 +517,7 @@ export function cardsFor(
       languages: fixture.languages,
       category_ids: [],
       price_from: fixture.price ? Number(fixture.price.replace(/\D/g, '')) * 100 : null,
+      price_from_unit: priceUnitOf(fixture.price),
       negotiable: false,
       rating: fixture.rating,
       rating_count: fixture.reviews,

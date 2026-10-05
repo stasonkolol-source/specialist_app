@@ -96,7 +96,7 @@
       },
       "pending_review": {
         "label": "Na proveri",
-        "text": "Obično do 30 minuta"
+        "text": "Provera obično traje do 30 minuta"
       },
       "published": {
         "label": "Objavljen",
@@ -134,6 +134,7 @@
     "availability": "Dostupnost",
     "availabilityValue": "danas do {time}",
     "availabilityOff": "isključeno",
+    "viewAsClient": "Pogledaj kao klijent",
     "hint": {
       "category_ids": "Izaberite kategorije usluga",
       "headline": "Napišite ukratko o sebi",
@@ -263,7 +264,7 @@
   },
   "avatar": {
     "label": "Fotografija profila",
-    "initials": "Za sada — inicijali",
+    "initials": "Bez fotografije klijenti vide inicijale",
     "own": "Vaša fotografija",
     "change": "Promeni fotografiju",
     "uploading": "Otpremamo fotografiju — {percent}%",

@@ -22,7 +22,7 @@ import {
 } from './form/Choice.tsx';
 import { Field, Input, SearchField, Textarea } from './form/Field.tsx';
 import { Badge } from './Badge.tsx';
-import { LinkButton } from './Button.tsx';
+import { Button, LinkButton } from './Button.tsx';
 import { FeedRow, Group, Row, RowIcon, Tile, Tiles, UnreadDot } from './Group.tsx';
 import { Photo } from './Photo.tsx';
 import { ChipSkeleton, RowsSkeleton, TileSkeleton } from './Skeletons.tsx';
@@ -218,6 +218,8 @@ describe('Field, Input, Textarea, SearchField', () => {
     );
     const budget = screen.getByLabelText('Бюджет');
     expect(budget.getAttribute('aria-describedby')).toBeTruthy();
+    // подсказка серая, как .hint: не спорит с введённым текстом и подписью поля
+    expect(screen.getByText('Можно изменить позже').className).toContain('text-text2');
     expect(screen.getByText('RSD')).toBeTruthy();
     const description = screen.getByLabelText('Что нужно сделать');
     expect(description.getAttribute('aria-invalid')).toBe('true');
@@ -259,6 +261,11 @@ describe('Segmented, Option, Switch', () => {
     const { container } = render(<Demo />);
     const first = screen.getByRole('radio', { name: 'Срочно' });
     expect(first.getAttribute('aria-checked')).toBe('true');
+    // дорожка и выбранный сегмент — свои токены: на экране bg2 дорожка видна
+    expect(screen.getByRole('radiogroup', { name: 'Срочность' }).className).toContain(
+      'bg-seg-track',
+    );
+    expect(first.className).toContain('bg-seg-on');
     fireEvent.keyDown(first, { key: 'ArrowRight' });
     expect(screen.getByRole('radio', { name: 'Сегодня' }).getAttribute('aria-checked')).toBe(
       'true',
@@ -399,6 +406,17 @@ describe('RadioGroup, Option (онбординг S02a–b), Checkbox', () => {
     expect(await a11yViolations(container)).toEqual([]);
   });
 
+  it('с описанием заголовок варианта жирный (S20b «Срочно»), без описания — обычный', () => {
+    render(
+      <RadioGroup label="Когда">
+        <Option title="Срочно" description="в течение 2 часов" checked onChange={() => {}} />
+        <Option title="Русский" checked={false} onChange={() => {}} />
+      </RadioGroup>,
+    );
+    expect(screen.getByText('Срочно').className).toContain('font-semibold');
+    expect(screen.getByText('Русский').className).not.toContain('font-semibold');
+  });
+
   it('отметка слева или справа, крупная карточка с плиткой', () => {
     render(
       <RadioGroup label="Цель">
@@ -483,6 +501,17 @@ describe('Steps, ProgressBar, Stars', () => {
     expect(screen.getByRole('img', { name: '4 из 5' }).querySelectorAll('.text-star')).toHaveLength(
       4,
     );
+    // пустая звезда для показа — цвет рамки поля: «4» и «5» различимы
+    expect(
+      screen.getByRole('img', { name: '4 из 5' }).querySelectorAll('.text-field'),
+    ).toHaveLength(1);
+    // при выставлении оценки пустые — контур цвета text2, выбранные — залитые
+    const empty = screen.getByRole('radio', { name: '4 из 5' });
+    expect(empty.className).toContain('text-text2');
+    expect(empty.querySelector('svg')?.getAttribute('class')).toContain('fill-none');
+    const chosen = screen.getByRole('radio', { name: '3 из 5' });
+    expect(chosen.className).toContain('text-star');
+    expect(chosen.querySelector('svg')?.getAttribute('class')).toContain('fill-current');
     expect(await a11yViolations(container)).toEqual([]);
   });
 });
@@ -539,5 +568,31 @@ describe('Banner, EmptyState, Toast, Skeleton', () => {
           element.querySelector(':scope > [aria-hidden="true"]') !== null,
       ).toBe(true);
     }
+  });
+});
+
+describe('отклик на нажатие (только CSS)', () => {
+  it('кнопки и плитки сжимаются, кроме отключённых; строки подсвечиваются; бегунок едет transform', () => {
+    render(
+      <>
+        <Button>Откликнуться</Button>
+        <Tile label="Уборка" icon="broom" href="/c/cleaning" />
+        <Group>
+          <Row title="Настройки" href="/settings" />
+          <Row title="Версия" />
+        </Group>
+        <Switch checked onChange={() => {}} label="Уведомления" />
+      </>,
+    );
+    const press = 'press';
+    expect(screen.getByRole('button', { name: 'Откликнуться' }).className).toContain(press);
+    expect(screen.getByRole('link', { name: 'Уборка' }).className).toContain(press);
+    expect(screen.getByRole('link', { name: 'Настройки' }).className).toContain('press-row');
+    // статичная строка не нажимается — и не подсвечивается
+    expect(screen.getByText('Версия').closest('div')?.className).not.toContain('press');
+    const knob = screen.getByRole('switch', { name: 'Уведомления' }).firstElementChild;
+    expect(knob?.className).toContain('translate-x-5');
+    expect(knob?.className).toContain('slide');
+    expect(knob?.className).not.toContain('left-5.5');
   });
 });

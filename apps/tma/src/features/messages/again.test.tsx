@@ -113,7 +113,7 @@ describe('S30 header by the deal', () => {
     await click(
       within(await screen.findByRole('dialog', { name: 'Поделиться контактом' })).getByRole(
         'button',
-        { name: 'Закрыть' },
+        { name: 'Не сейчас' },
       ),
     );
 

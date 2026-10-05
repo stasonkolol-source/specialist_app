@@ -1,7 +1,9 @@
 // .card.tight + .sp: карточка специалиста в выдаче (S05). Строки приходят готовыми — рейтинг,
 // расстояние и цену форматирует экран (@sosed/i18n), компонент раскладывает их по макету:
-// фото или инициалы, имя, «коротко о себе», рейтинг с числом отзывов или «Новый специалист»,
-// район и языки, бейджи-факты и цена «от». Сердечко «в избранное» — поверх карточки.
+// фото или инициалы, имя (у подработки — серый бейдж «Подработка» рядом), «коротко о себе»,
+// рейтинг с числом отзывов или «Новый специалист» и район через «·» (Rating — точка не повисает
+// на краю строки), языки словами — своей строкой с иконкой, бейджи-факты и цена «от». Сердечко
+// «в избранное» — поверх карточки.
 import type { MouseEvent } from 'react';
 
 import { Avatar } from './Avatar.tsx';
@@ -12,6 +14,7 @@ import { Price } from './Chips.tsx';
 import { FOCUS, cx } from './cx.ts';
 import type { IconName } from './icon/Icon.tsx';
 import { Icon } from './icon/Icon.tsx';
+import { Rating } from './Rating.tsx';
 
 export interface SpecialistBadge {
   label: string;
@@ -22,18 +25,22 @@ export interface SpecialistBadge {
 
 export interface SpecialistCardProps {
   name: string;
+  /** «Подработка» — серый бейдж в строке имени: профиль подработки (SPEC §4). */
+  tag?: string | null;
   headline?: string | null;
   photo?: { src: string; placeholder?: string | null } | null;
   /** «4,9» — рейтинг, когда отзывов достаточно; иначе `newLabel`. */
   rating?: string | null;
-  /** «(37)» — число отзывов рядом с рейтингом. */
+  /** «(37)» в выдаче, «37 отзывов» на Главной — сразу за рейтингом, без «·». */
   reviews?: string | null;
   /** «Новый специалист» — вместо рейтинга. */
   newLabel: string;
-  /** Через точку после рейтинга: «Лиман, ≈ 1,5 км», «ru, sr». */
+  /** Языки словами — своей строкой с иконкой: «рус., серб.». */
+  languages?: string | null;
+  /** Через «·» после рейтинга: «Лиман, ≈ 1,5 км». */
   meta: readonly string[];
   badges?: readonly SpecialistBadge[];
-  /** «от 2 000 RSD». */
+  /** «от 2 000 RSD», «от 1 000 RSD/час», «от 2 000 RSD за выезд». */
   price?: string | null;
   /** Профиль S08; без него карточка не ссылка (до 4.5 профиля ещё нет). */
   href?: string;
@@ -44,11 +51,13 @@ export interface SpecialistCardProps {
 
 export function SpecialistCard({
   name,
+  tag,
   headline,
   photo,
   rating,
   reviews,
   newLabel,
+  languages,
   meta,
   badges = [],
   price,
@@ -61,29 +70,24 @@ export function SpecialistCard({
     <>
       <Avatar name={name} src={photo?.src} placeholder={photo?.placeholder} />
       <span className="flex min-w-0 grow flex-col gap-0.5">
-        <span className={cx('text-title', favorite && 'pr-8')}>{name}</span>
-        {headline && <span className="text-sm text-text2">{headline}</span>}
-        <span className="flex flex-wrap items-center gap-1.5 text-cap text-text2">
-          {rating ? (
-            <>
-              <span className="inline-flex items-center gap-0.75 font-semibold text-text">
-                <Icon name="star" size={16} className="text-star" />
-                {rating}
-              </span>
-              {reviews && <span>{reviews}</span>}
-            </>
-          ) : (
-            <span>{newLabel}</span>
-          )}
-          {meta.map((item) => (
-            <MetaItem key={item} text={item} />
-          ))}
+        {/* длинное имя переносится, бейдж уходит строкой ниже, а не сжимается */}
+        <span className={cx('flex flex-wrap items-center gap-2', favorite && 'pr-8')}>
+          <span className="text-title">{name}</span>
+          {tag && <Badge>{tag}</Badge>}
         </span>
+        {headline && <span className="text-sm text-text2">{headline}</span>}
+        <Rating value={rating} reviews={reviews} newLabel={newLabel} meta={meta} />
+        {languages && (
+          <span className="flex items-center gap-1.5 text-cap text-text2">
+            <Icon name="languages" size={16} />
+            <span className="min-w-0 truncate">{languages}</span>
+          </span>
+        )}
       </span>
     </>
   );
   return (
-    <article className="relative flex flex-col gap-2 rounded-card bg-surface p-4 text-text">
+    <article className="relative flex flex-col gap-2 rounded-card bg-surface p-4 text-text press-card">
       {href ? (
         <a href={href} onClick={onOpen} className={head}>
           {content}
@@ -105,7 +109,7 @@ export function SpecialistCard({
       {(badges.length > 0 || price) && (
         <div
           className={cx(
-            'flex items-end gap-2',
+            'flex flex-wrap items-end gap-2',
             badges.length > 0 ? 'justify-between' : 'justify-end',
           )}
         >
@@ -118,18 +122,10 @@ export function SpecialistCard({
               ))}
             </span>
           )}
-          {price && <Price>{price}</Price>}
+          {/* цена с единицей длиннее: не помещается рядом с бейджами — строкой ниже, справа */}
+          {price && <Price className="ml-auto">{price}</Price>}
         </div>
       )}
     </article>
-  );
-}
-
-function MetaItem({ text }: { text: string }) {
-  return (
-    <>
-      <span aria-hidden="true">·</span>
-      <span>{text}</span>
-    </>
   );
 }

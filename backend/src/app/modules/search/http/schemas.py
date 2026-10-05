@@ -34,6 +34,9 @@ class SpecialistCardOut(BaseModel):
     languages: list[str]
     category_ids: list[int]
     price_from: int | None = Field(description="Цена «от», пара (1 RSD = 100 пара)")
+    price_from_unit: str | None = Field(
+        description="Единица цены «от»: hour, visit, item, m2, lesson, km…; null — за работу"
+    )
     negotiable: bool = Field(description="Цены нет, но прайс есть: «договорная»")
     rating: float | None = Field(description="Когда отзывов достаточно; иначе is_new")
     rating_count: int
@@ -68,6 +71,7 @@ class SpecialistCardOut(BaseModel):
             languages=list(card.languages),
             category_ids=list(card.category_ids),
             price_from=card.price_from,
+            price_from_unit=card.price_from_unit,
             negotiable=card.negotiable,
             rating=card.rating,
             rating_count=card.rating_count,

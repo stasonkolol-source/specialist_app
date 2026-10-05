@@ -33,6 +33,8 @@ describe('S11 reviews', () => {
     const { app } = startApp(PROFILE);
     const reviews = within(await screen.findByRole('region', { name: 'Отзывы' }));
     expect(reviews.getByText('Ирина С.')).toBeTruthy();
+    // на S08 вкладок нет — отзыв помечен, что он по сделке
+    expect(reviews.getByText('Сделка в «Соседях»')).toBeTruthy();
 
     await click(reviews.getByRole('link', { name: 'Все 37' }));
 
@@ -47,10 +49,15 @@ describe('S11 reviews', () => {
     expect(screen.getByText('Общение').nextSibling?.textContent).toBe('5,0');
     const cards = screen.getAllByRole('article');
     expect(cards).toHaveLength(3);
-    expect(within(cards[1] as HTMLElement).getByText('Август · Электрика')).toBeTruthy();
+    // под именем — звёзды с месяцем, услуга — своей строкой
+    const pavel = within(cards[1] as HTMLElement);
+    expect(pavel.getByText('Август')).toBeTruthy();
+    expect(pavel.getByText('Электрика')).toBeTruthy();
     expect(
       within(cards[2] as HTMLElement).getByRole('img', { name: 'Оценка 4 из 5' }),
     ).toBeTruthy();
+    // вкладка «По сделкам · 37» уже говорит, что отзывы по сделкам: метки на карточках нет
+    expect(screen.queryByText('Сделка в «Соседях»')).toBeNull();
   });
 
   it('says a new specialist has no reviews yet', async () => {

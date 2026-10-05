@@ -6,6 +6,8 @@
 // не меняется: здесь только включить или выключить. «Запуск раздела «Вещи»» (`goods_launch`, 7.5) —
 // не отметки по каналам, а один переключатель: подписывает кнопка S58, здесь — отписка. Строка
 // видна подписанным и не пропадает, пока человек на экране: выключил по ошибке — включит обратно.
+// Колонки каналов — по ширине своих подписей, а не 72 px артборда: на 360 px те переносили
+// названия групп («Dogovori, sporovi, utisci»).
 import type { EventGroup, GroupSettingOut, NotificationSettingsOut } from '@sosed/api-client';
 import { useNotificationsGetNotificationSettings } from '@sosed/api-client';
 import type { NotificationChannel } from '@sosed/hooks';
@@ -21,7 +23,9 @@ import {
   Skeleton,
   SkeletonText,
   Switch,
+  cx,
 } from '@sosed/ui-web';
+import type { ReactNode } from 'react';
 import { useId, useState } from 'react';
 
 const CHANNELS: readonly NotificationChannel[] = ['telegram', 'in_app'];
@@ -35,6 +39,26 @@ const isEditable = (row: GroupSettingOut): row is GroupSettingOut & { group: Edi
 
 /** «22:00:00» → «22:00»: время тихих часов приходит с секундами. */
 const hhmm = (time: string) => time.slice(0, 5);
+
+/** Ячейка колонки канала: ширина — по подписи шапки («Бот», «Приложение»), но не уже 44 px
+ *  касания. В строках подпись лежит невидимой и нулевой высоты — колонки шапки и строк совпадают
+ *  на любом языке. Без содержимого — сама подпись (шапка). */
+function Column({ channel, children }: { channel: NotificationChannel; children?: ReactNode }) {
+  const { t } = useTranslation('account');
+  return (
+    <span className="grid min-w-11 text-center">
+      <span
+        className={cx(
+          'col-start-1 row-start-1 text-cap whitespace-nowrap',
+          children ? 'invisible h-0' : 'text-text2',
+        )}
+      >
+        {t(`settings.channel.${channel}`)}
+      </span>
+      {children}
+    </span>
+  );
+}
 
 export function Notifications() {
   const { t } = useTranslation('account');
@@ -64,11 +88,9 @@ export function Notifications() {
           {t('settings.notifications')}
         </SectionTitle>
         {/* подписи колонок — для глаз: у каждой отметки своя подпись для скринридера */}
-        <span aria-hidden="true" className="flex text-cap text-text2">
+        <span aria-hidden="true" className="flex">
           {CHANNELS.map((channel) => (
-            <span key={channel} className="w-18 text-center">
-              {t(`settings.channel.${channel}`)}
-            </span>
+            <Column key={channel} channel={channel} />
           ))}
         </span>
       </div>
@@ -102,20 +124,22 @@ function Table({
       {settings.groups.filter(isEditable).map((row) => {
         const name = t(`settings.group.${row.group}`);
         return (
+          // до колонок — 4 px: у отметки в колонке и так поля по 11 px и больше
           <div
             key={row.group}
-            className="flex min-h-13 items-center gap-3 border-b border-line py-1 pr-4 pl-4"
+            className="flex min-h-13 items-center gap-1 border-b border-line py-1 pr-4 pl-4"
           >
             <span className="min-w-0 flex-1">{name}</span>
             <span className="flex">
               {CHANNELS.map((channel) => (
-                <CheckButton
-                  key={channel}
-                  className="w-18"
-                  checked={row[channel]}
-                  label={t('settings.groupChannel', { group: name, channel })}
-                  onChange={(on) => onChange({ group: row.group, channel, on })}
-                />
+                <Column key={channel} channel={channel}>
+                  <CheckButton
+                    className="col-start-1 row-start-1"
+                    checked={row[channel]}
+                    label={t('settings.groupChannel', { group: name, channel })}
+                    onChange={(on) => onChange({ group: row.group, channel, on })}
+                  />
+                </Column>
               ))}
             </span>
           </div>
@@ -164,14 +188,16 @@ function Loading() {
           {[0, 1, 2, 3, 4].map((row) => (
             <div
               key={row}
-              className="flex min-h-13 items-center gap-3 border-b border-line py-1 pr-4 pl-4"
+              className="flex min-h-13 items-center gap-1 border-b border-line py-1 pr-4 pl-4"
             >
               <SkeletonText className={row % 2 ? 'w-2/5' : 'w-1/2'} />
               <span className="ml-auto flex">
                 {CHANNELS.map((channel) => (
-                  <span key={channel} className="flex h-11 w-18 items-center justify-center">
-                    <Skeleton radius="icon" className="size-5.5" />
-                  </span>
+                  <Column key={channel} channel={channel}>
+                    <span className="col-start-1 row-start-1 flex h-11 items-center justify-center">
+                      <Skeleton radius="icon" className="size-5.5" />
+                    </span>
+                  </Column>
                 ))}
               </span>
             </div>

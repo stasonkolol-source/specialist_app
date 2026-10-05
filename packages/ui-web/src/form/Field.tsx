@@ -42,7 +42,7 @@ export function Field({ label, hint, error, children }: FieldProps) {
         </p>
       )}
       {hint && (
-        <p id={hintId} className="m-0 text-cap">
+        <p id={hintId} className="m-0 text-cap text-text2">
           {hint}
         </p>
       )}
@@ -143,7 +143,7 @@ export function SearchField({ label, trailing, className, ...rest }: SearchField
     <div
       role="search"
       className={cx(
-        'flex h-12 items-center gap-2.5 rounded-panel border border-line bg-surface px-3.5 text-text2 focus-within:border-accent',
+        'flex h-12 items-center gap-2.5 rounded-field border border-line bg-surface px-3.5 text-text2 focus-within:border-accent',
         className,
       )}
     >

@@ -22,8 +22,13 @@ class SearchPrices:
     """Названия видимых позиций по порядку — документ поиска (вес C)."""
     price_from: int | None = None
     """Самая низкая цена среди видимых позиций с ценой, пара; None — цен нет."""
+    price_from_unit: str | None = None
+    """Единица этой цены — «от 1 000 RSD/час» в карточке выдачи: `hour` у почасовой, иначе единица
+    позиции; None — за работу целиком. При равных ценах — у позиции выше по прайсу."""
     by_category: Mapping[CategoryId, int] = field(default_factory=dict)
     """Самая низкая цена по группе позиции (категории S35), пара."""
+    unit_by_category: Mapping[CategoryId, str | None] = field(default_factory=dict)
+    """Единица цены `by_category` — по тем же правилам, что `price_from_unit`."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

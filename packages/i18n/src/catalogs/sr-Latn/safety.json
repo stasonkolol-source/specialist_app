@@ -79,8 +79,8 @@
     "emptyTitle": "Niste nikoga blokirali",
     "emptyText": "Blokirani neće moći da vam pišu niti da šalju ponude na vaše zahteve, a vi ih nećete videti u pretrazi.",
     "warning": "Ako vam neko preti ili traži avans — ne samo da ga blokirajte, nego ga i prijavite. Moderatori će proveriti nalog.",
-    "howTitle": "Kako blokirati",
-    "howText": "U profilu stručnjaka — red „Blokiraj” na dnu, u razgovoru — meni „⋯” gore desno.",
+    "howTitle": "Kako prijaviti ili blokirati",
+    "howText": "U profilu stručnjaka — redovi „Prijavi” i „Blokiraj” na dnu, u razgovoru — meni „⋯” gore desno.",
     "loading": "Učitavamo listu"
   }
 }
