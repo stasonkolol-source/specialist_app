@@ -2,7 +2,7 @@
 import type { MouseEvent, ReactNode } from 'react';
 
 import type { AvatarPalette } from './Avatar.tsx';
-import { FOCUS, cx } from './cx.ts';
+import { FOCUS, PRESS, PRESS_ROW, cx } from './cx.ts';
 import type { IconName } from './icon/Icon.tsx';
 import { Icon } from './icon/Icon.tsx';
 
@@ -81,7 +81,7 @@ export interface FeedRowProps {
 export function FeedRow({ title, children, leading, meta, href, onClick }: FeedRowProps) {
   const classes = cx(
     'flex w-full items-start gap-3 border-0 border-b border-line bg-transparent px-4 py-3 text-left text-text no-underline last:border-b-0',
-    href && FOCUS,
+    href && cx(FOCUS, PRESS_ROW),
   );
   const content = (
     <>
@@ -159,7 +159,7 @@ export function Row({
     'flex min-h-13 w-full items-center gap-3 border-0 border-b border-line bg-transparent py-3 pr-4 text-left last:border-b-0',
     danger ? 'text-danger' : 'text-text',
     inset ? 'pl-16' : 'pl-4',
-    (href || onClick) && FOCUS,
+    (href || onClick) && cx(FOCUS, PRESS_ROW),
   );
   const content = (
     <>
@@ -216,6 +216,7 @@ export function Tile({
 }) {
   const classes = cx(
     'flex min-h-24 w-full flex-col justify-between gap-2 rounded-card border-0 bg-surface p-3 text-left text-tile text-text',
+    PRESS,
     FOCUS,
   );
   const content = (

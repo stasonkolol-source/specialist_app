@@ -22,7 +22,7 @@ import {
 } from './form/Choice.tsx';
 import { Field, Input, SearchField, Textarea } from './form/Field.tsx';
 import { Badge } from './Badge.tsx';
-import { LinkButton } from './Button.tsx';
+import { Button, LinkButton } from './Button.tsx';
 import { FeedRow, Group, Row, RowIcon, Tile, Tiles, UnreadDot } from './Group.tsx';
 import { Photo } from './Photo.tsx';
 import { ChipSkeleton, RowsSkeleton, TileSkeleton } from './Skeletons.tsx';
@@ -568,5 +568,32 @@ describe('Banner, EmptyState, Toast, Skeleton', () => {
           element.querySelector(':scope > [aria-hidden="true"]') !== null,
       ).toBe(true);
     }
+  });
+});
+
+describe('отклик на нажатие (только CSS)', () => {
+  it('кнопки и плитки сжимаются, кроме отключённых; строки подсвечиваются; бегунок едет transform', () => {
+    render(
+      <>
+        <Button>Откликнуться</Button>
+        <Tile label="Уборка" icon="broom" href="/c/cleaning" />
+        <Group>
+          <Row title="Настройки" href="/settings" />
+          <Row title="Версия" />
+        </Group>
+        <Switch checked onChange={() => {}} label="Уведомления" />
+      </>,
+    );
+    const press = 'motion-safe:active:not-disabled:scale-[0.97]';
+    expect(screen.getByRole('button', { name: 'Откликнуться' }).className).toContain(press);
+    expect(screen.getByRole('link', { name: 'Уборка' }).className).toContain(press);
+    expect(screen.getByRole('link', { name: 'Настройки' }).className).toContain(
+      'active:not-disabled:bg-bg2',
+    );
+    // статичная строка не нажимается — и не подсвечивается
+    expect(screen.getByText('Версия').closest('div')?.className).not.toContain('active:');
+    const knob = screen.getByRole('switch', { name: 'Уведомления' }).firstElementChild;
+    expect(knob?.className).toContain('translate-x-5');
+    expect(knob?.className).not.toContain('left-5.5');
   });
 });

@@ -4,7 +4,7 @@
 import type { KeyboardEvent, MouseEvent, ReactNode, Ref } from 'react';
 import { useId, useRef } from 'react';
 
-import { FOCUS, cx } from '../cx.ts';
+import { FOCUS, PRESS, PRESS_ROW, cx } from '../cx.ts';
 import type { IconName } from '../icon/Icon.tsx';
 import { Icon } from '../icon/Icon.tsx';
 
@@ -165,6 +165,7 @@ export function Option({
         'flex min-h-14 w-full gap-3 rounded-card border bg-surface px-3.5 py-3 text-left text-text disabled:opacity-55',
         large ? 'items-start' : 'items-center',
         checked ? 'border-accent ring-1 ring-accent ring-inset' : 'border-line',
+        PRESS,
         FOCUS,
       )}
     >
@@ -388,6 +389,7 @@ export function RadioRow({
       onClick={onChange}
       className={cx(
         'flex min-h-13 w-full items-center gap-3 border-0 border-b border-line bg-transparent px-4 py-3 text-left text-body text-text last:border-b-0 disabled:opacity-55',
+        PRESS_ROW,
         FOCUS,
       )}
     >
@@ -423,11 +425,12 @@ export function Switch({
         FOCUS,
       )}
     >
+      {/* бегунок едет transform-ом (не left): без перерасчёта раскладки */}
       <span
         aria-hidden="true"
         className={cx(
-          'absolute top-0.5 size-6.75 rounded-full bg-knob shadow-knob transition-all',
-          checked ? 'left-5.5' : 'left-0.5',
+          'absolute top-0.5 left-0.5 size-6.75 rounded-full bg-knob shadow-knob motion-safe:transition-transform',
+          checked ? 'translate-x-5' : 'translate-x-0',
         )}
       />
     </button>

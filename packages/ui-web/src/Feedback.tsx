@@ -197,7 +197,7 @@ export function EmptyState({
   );
 }
 
-/** Тост .toast над таббаром; объявляется скринридеру вежливо. */
+/** Тост .toast над таббаром; объявляется скринридеру вежливо. Появляется с подъёмом на 8 px. */
 export function Toast({
   children,
   icon = 'check-circle',
@@ -214,7 +214,7 @@ export function Toast({
       role="status"
       aria-live="polite"
       className={cx(
-        'flex items-center gap-2.5 rounded-card bg-toast px-3.5 py-3 text-sm text-toast-ink shadow-toast',
+        'flex items-center gap-2.5 rounded-card bg-toast px-3.5 py-3 text-sm text-toast-ink shadow-toast motion-safe:animate-toast-in',
         position === 'fixed' && 'fixed inset-x-4 bottom-25 z-20',
       )}
     >

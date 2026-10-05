@@ -7,7 +7,7 @@ import type { MouseEvent } from 'react';
 import type { BadgeTone } from './Badge.tsx';
 import { Badge } from './Badge.tsx';
 import { Price } from './Chips.tsx';
-import { FOCUS, cx } from './cx.ts';
+import { FOCUS, PRESS_CARD, cx } from './cx.ts';
 import type { IconName } from './icon/Icon.tsx';
 import { Icon } from './icon/Icon.tsx';
 import { Photo } from './Photo.tsx';
@@ -125,7 +125,7 @@ export function JobCard({
   );
   const classes = 'flex flex-col gap-2 rounded-card bg-surface p-4 text-text';
   return href ? (
-    <a href={href} onClick={onOpen} className={cx(classes, FOCUS)}>
+    <a href={href} onClick={onOpen} className={cx(classes, PRESS_CARD, FOCUS)}>
       {content}
     </a>
   ) : (

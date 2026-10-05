@@ -29,7 +29,8 @@ export function Sheet({ open, title, onClose, closeLabel, children, footer }: Sh
   useEffect(() => {
     if (!open) return undefined;
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dialog.current?.focus();
+    // шторка ещё въезжает снизу: фокус без прокрутки к ней
+    dialog.current?.focus({ preventScroll: true });
     return () => opener?.focus();
   }, [open]);
 
@@ -63,7 +64,12 @@ export function Sheet({ open, title, onClose, closeLabel, children, footer }: Sh
     // шторка — flex-элемент у нижнего края: длинное содержимое сжимает её до отступа сверху
     // (затемнение остаётся видно) и прокручивается внутри
     <div className="fixed inset-0 z-40 flex flex-col justify-end">
-      <div className="absolute inset-0 bg-scrim" aria-hidden="true" onClick={onClose} />
+      {/* появление: затемнение проявляется, шторка въезжает снизу; без анимации при reduced motion */}
+      <div
+        className="absolute inset-0 bg-scrim motion-safe:animate-fade-in"
+        aria-hidden="true"
+        onClick={onClose}
+      />
       <section
         ref={dialog}
         role="dialog"
@@ -72,7 +78,7 @@ export function Sheet({ open, title, onClose, closeLabel, children, footer }: Sh
         tabIndex={-1}
         onKeyDown={onKeyDown}
         // *:shrink-0 — в колонке с прокруткой flex сжал бы группы (overflow-hidden) вместо прокрутки
-        className="relative mt-12 flex min-h-0 flex-col gap-4 overflow-y-auto rounded-t-sheet bg-bg px-4 pt-2 pb-8 outline-none *:shrink-0"
+        className="relative mt-12 flex min-h-0 flex-col gap-4 overflow-y-auto rounded-t-sheet bg-bg px-4 pt-2 pb-8 outline-none *:shrink-0 motion-safe:animate-sheet-in"
       >
         <div className="mx-auto h-1.25 w-9 shrink-0 rounded-full bg-line" aria-hidden="true" />
         <div className="flex items-center justify-between gap-2">

@@ -1,7 +1,7 @@
 // .btn pri/sec/out/dng, .btn.sm, .btn.full и .ibtn из ui.css.
 import type { ButtonHTMLAttributes, MouseEvent, ReactNode } from 'react';
 
-import { FOCUS, cx } from './cx.ts';
+import { FOCUS, PRESS, cx } from './cx.ts';
 import type { IconName } from './icon/Icon.tsx';
 import { Icon } from './icon/Icon.tsx';
 
@@ -43,6 +43,7 @@ export function Button({
     VARIANT[variant],
     full && 'w-full',
     'disabled:bg-bg2 disabled:text-text2',
+    PRESS,
     FOCUS,
     className,
   );
@@ -140,6 +141,7 @@ export function IconButton({
     'inline-flex size-11 shrink-0 items-center justify-center rounded-btn border-0',
     plain ? 'bg-transparent' : 'bg-bg2',
     active ? 'text-danger' : 'text-text',
+    PRESS,
     FOCUS,
     className,
   );

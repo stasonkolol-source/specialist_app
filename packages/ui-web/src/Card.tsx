@@ -1,7 +1,7 @@
 // .card / .card.tight: поверхность, радиус 16, отступ 16. Ссылка или кнопка — вся карточка кликабельна.
 import type { MouseEvent, ReactNode } from 'react';
 
-import { FOCUS, cx } from './cx.ts';
+import { FOCUS, PRESS_CARD, cx } from './cx.ts';
 
 export interface CardProps {
   children: ReactNode;
@@ -30,7 +30,7 @@ export function Card({
   const classes = cx(
     'm-0 flex list-none flex-col rounded-card bg-surface p-4 text-text',
     tight ? 'gap-2' : 'gap-3',
-    (href || onClick) && cx('cursor-pointer', FOCUS),
+    (href || onClick) && cx('cursor-pointer', PRESS_CARD, FOCUS),
     className,
   );
   if (href) {
