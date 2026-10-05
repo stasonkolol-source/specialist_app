@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  NON_SERBIAN_STYLE,
   ANY_CYRILLIC,
   NON_SERBIAN_CYRILLIC,
   flattenCatalog,
@@ -40,4 +41,20 @@ describe('каталоги', () => {
     expect(ANY_CYRILLIC.test('Podeli')).toBe(false);
     expect(ANY_CYRILLIC.test('Podeliы')).toBe(true);
   });
+});
+
+// UXM-11: в sr — „…“ с закрывающей U+201C и один термин для чата; i18n:check ловит отступления
+describe('типографика и глоссарий sr', () => {
+  it.each(['Подели у чет', 'у чету апликације', 'у свој чат', '„Пријави”', 'кажите «да»'])(
+    'ловит «%s»',
+    (text) => {
+      expect(NON_SERBIAN_STYLE.test(text)).toBe(true);
+    },
+  );
+  it.each(['Подели у ћаскање', 'у разговору', '„Пријави“', 'четири', 'Почетак', 'четвртак'])(
+    'пропускает «%s»',
+    (text) => {
+      expect(NON_SERBIAN_STYLE.test(text)).toBe(false);
+    },
+  );
 });

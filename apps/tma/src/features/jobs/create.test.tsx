@@ -166,10 +166,15 @@ describe('S20a–d create a job', () => {
 
     expect(screen.getByText('Напишите хотя бы 5 символов')).toBeTruthy();
     expect(app.router.state.location.pathname).toBe('/jobs/new');
+    expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Коротко о задаче' }));
     type('Коротко о задаче', 'Нужно что-то починить');
     await pressMainButton(telegram);
-    // категорию не подобрали — нужна своя
+    // категорию не подобрали — нужна своя: подсказка красная (без серого), «Выбрать» в фокусе
     expect(app.router.state.location.pathname).toBe('/jobs/new');
+    const hint = screen.getByText('Опишите задачу — подберём категорию, или выберите её сами');
+    expect(hint.className.split(' ')).toContain('text-danger');
+    expect(hint.className.split(' ')).not.toContain('text-text2');
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Выбрать' }));
     await click(screen.getByRole('button', { name: 'Выбрать' }));
     await click(await screen.findByRole('button', { name: 'Мастер на час' }));
     await click(await screen.findByRole('button', { name: 'Электрика' }));

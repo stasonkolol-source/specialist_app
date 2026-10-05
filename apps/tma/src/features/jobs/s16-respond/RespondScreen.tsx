@@ -27,7 +27,12 @@ import {
   useReviseResponse,
 } from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
-import { useBackButton, useBottomButtonState } from '@sosed/platform';
+import {
+  useBackButton,
+  useBottomButtonState,
+  useClosingConfirmation,
+  usePlatform,
+} from '@sosed/platform';
 import {
   Avatar,
   Banner,
@@ -47,7 +52,7 @@ import {
   SkeletonText,
   Text,
 } from '@sosed/ui-web';
-import { useParams, useRouter } from '@tanstack/react-router';
+import { useBlocker, useParams, useRouter } from '@tanstack/react-router';
 import { useId, useRef, useState } from 'react';
 
 import { JobUnavailable } from '../shared/JobUnavailable.tsx';
@@ -122,6 +127,18 @@ function RespondForm({
   const [checked, setChecked] = useState(false);
   const [preview, setPreview] = useState(false);
   const attempt = useRef<{ body: string; key: string } | null>(null);
+  const platform = usePlatform();
+  // Набранное живёт только в экране: «Назад» молча стирал отклик (UXM-10) — уход с изменённой
+  // формой сначала спрашивает; после отправки — уже нет
+  const [initial] = useState(draft);
+  const done = useRef(false);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(initial) || saveTemplate;
+  useClosingConfirmation(dirty);
+  useBlocker({
+    disabled: !dirty,
+    enableBeforeUnload: false,
+    shouldBlockFn: async () => !done.current && !(await platform.confirm(t('respond.leave'))),
+  });
   const send = useRespond();
   const revise = useReviseResponse();
   const createTemplate = useCreateTemplate();
@@ -137,6 +154,7 @@ function RespondForm({
     try {
       if (response) {
         await revise.mutateAsync({ jobId: job.id, responseId: response.id, body });
+        done.current = true;
         if (router.history.canGoBack()) router.history.back();
         else void router.navigate({ to: JOBS_PATHS.responses, replace: true });
         return;
@@ -159,6 +177,7 @@ function RespondForm({
           })
           .catch(() => undefined);
       }
+      done.current = true;
       void router.navigate({ to: JOBS_PATHS.responses, search: { sent: true }, replace: true });
     } catch {
       // ошибка — баннером из mutation.error

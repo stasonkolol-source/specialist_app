@@ -615,8 +615,9 @@ function ResponseCard({ jobId, card }: { jobId: string; card: ResponseCardOut })
           />
         </div>
       </div>
+      {/* кавычки — из каталога: в sr „…“, а не русские «…» (UXM-11) */}
       <Text variant="sm" className="whitespace-pre-line">
-        «{card.message}»
+        {t('respond.quoted', { message: card.message })}
       </Text>
       {card.availability_note && (
         <p className="m-0 flex items-center gap-1.5 text-cap text-text2">

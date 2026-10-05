@@ -236,10 +236,10 @@
     "job": "Podeli zahtev",
     "copied": "Link je kopiran",
     "failed": "Deljenje nije uspelo. Pokušajte ponovo.",
-    "toChat": "Podeli u čet",
+    "toChat": "Podeli u ćaskanje",
     "toChatHint": "Ponudu možete poslati direktno iz Telegram-a",
     "link": "Link ka zahtevu",
     "copy": "Kopiraj link",
-    "send": "Pošalji u Telegram čet"
+    "send": "Pošalji u Telegram ćaskanje"
   }
 }
