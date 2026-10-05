@@ -170,7 +170,7 @@ function Form({ deal, onSent }: { deal: DealCardOut; onSent: () => void }) {
       <div className="flex items-center gap-3">
         <div
           aria-hidden="true"
-          className="flex size-18 flex-col items-center justify-center gap-1 rounded-panel border border-dashed border-line text-text2"
+          className="flex size-18 flex-col items-center justify-center gap-1 rounded-photo border border-dashed border-line text-text2"
         >
           <Icon name="camera" />
           <span className="text-cap">{t('review.photo')}</span>

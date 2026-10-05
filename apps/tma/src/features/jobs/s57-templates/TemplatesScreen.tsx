@@ -151,7 +151,7 @@ function TemplateSkeleton() {
     <SkeletonCard tight>
       <div className="flex items-center justify-between gap-3">
         <SkeletonText size="title" className="w-2/5" />
-        <Skeleton radius="panel" className="h-9 w-24" />
+        <Skeleton radius="icon" className="h-9 w-24" />
       </div>
       <div className="flex flex-col">
         <SkeletonText size="sm" className="w-full" />

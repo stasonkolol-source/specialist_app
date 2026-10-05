@@ -41,7 +41,7 @@ export function LaunchScreen({ progress }: { progress: number }) {
         aria-hidden="true"
         className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden mask-b-from-85%"
       >
-        <Skeleton radius="panel" className="h-12 shrink-0" />
+        <Skeleton radius="field" className="h-12 shrink-0" />
         <div className="grid shrink-0 grid-cols-3 gap-2">
           {Array.from({ length: TILES }, (_, i) => (
             <Skeleton key={i} radius="card" className="h-22" />

@@ -89,17 +89,16 @@ export const tokens = {
     "btn-sm": 10,
     "chip": 20,
     "badge": 8,
-    "panel": 14,
     "sheet": 20,
     "photo": 12,
     "seg-item": 9,
     "check": 6
   },
   "shadow": {
-    "seg": "0 1px 2px rgba(0,0,0,.08)",
-    "knob": "0 1px 3px rgba(0,0,0,.25)",
-    "toast": "0 6px 20px rgba(0,0,0,.2)",
-    "pin": "0 2px 6px rgba(0,0,0,.18)"
+    "seg": "0 1px 2px rgba(17,20,24,.08)",
+    "knob": "0 1px 3px rgba(17,20,24,.25)",
+    "toast": "0 6px 20px rgba(17,20,24,.2)",
+    "pin": "0 2px 6px rgba(17,20,24,.18)"
   },
   "font": {
     "ui": "'Onest',system-ui,-apple-system,'Segoe UI',sans-serif",
@@ -220,6 +219,14 @@ export const tokens = {
   },
   "icon": {
     "stroke": 1.8,
+    "strokes": {
+      "16": 2.2,
+      "20": 1.8,
+      "24": 1.6,
+      "28": 1.5,
+      "32": 1.4,
+      "36": 1.4
+    },
     "default": 20,
     "sizes": [
       16,

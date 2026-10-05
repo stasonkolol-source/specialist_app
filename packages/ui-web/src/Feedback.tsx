@@ -141,7 +141,7 @@ export function Banner({
     <div
       role={role}
       className={cx(
-        'flex items-start gap-2.5 rounded-panel px-3.5 py-3 text-sm [&_a]:font-semibold [&_a]:text-inherit [&_a]:underline',
+        'flex items-start gap-2.5 rounded-card px-3.5 py-3 text-sm [&_a]:font-semibold [&_a]:text-inherit [&_a]:underline',
         BANNER[tone],
       )}
     >
@@ -214,7 +214,7 @@ export function Toast({
       role="status"
       aria-live="polite"
       className={cx(
-        'flex items-center gap-2.5 rounded-panel bg-toast px-3.5 py-3 text-sm text-toast-ink shadow-toast',
+        'flex items-center gap-2.5 rounded-card bg-toast px-3.5 py-3 text-sm text-toast-ink shadow-toast',
         position === 'fixed' && 'fixed inset-x-4 bottom-25 z-20',
       )}
     >
@@ -228,13 +228,14 @@ export function Toast({
 const SKELETON_RADIUS = {
   badge: 'rounded-badge',
   icon: 'rounded-btn-sm',
-  panel: 'rounded-panel',
+  field: 'rounded-field',
   card: 'rounded-card',
   round: 'rounded-full',
 } as const;
 
-/** Скелетон .skel: размер задаёт раскладка (h-*, w-*), скругление — `radius` (по умолчанию 8, как
- *  .skel; иконка строки — icon 10, поле поиска — panel 14, плитки и карточки — card 16, аватар —
+/** Скелетон .skel: размер задаёт раскладка (h-*, w-*), скругление — `radius` по шкале SPEC §2 (по
+ *  умолчанию 8, как .skel; иконка строки и маленькая кнопка — icon 10; поле, кнопка и фото — field 12,
+ *  как у настоящего фото: угол не прыгает при загрузке; плитки, карточки и варианты — card 16; аватар —
  *  round). Цвет .skel — bg2, как фон экрана: на карточке фигура видна, прямо на фоне экрана — нет.
  *  Там — `screen`: цвет поверхности. Составные скелетоны по форме компонентов — Skeletons.tsx. */
 export function Skeleton({

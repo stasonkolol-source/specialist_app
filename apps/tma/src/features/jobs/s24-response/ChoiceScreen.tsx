@@ -454,7 +454,7 @@ function Loading() {
           <SkeletonText size="sm" className="w-3/4" />
         </div>
       </SkeletonCard>
-      <Skeleton radius="panel" screen className="h-11 w-full" />
+      <Skeleton radius="field" screen className="h-11 w-full" />
     </section>
   );
 }

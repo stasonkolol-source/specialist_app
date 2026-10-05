@@ -318,7 +318,7 @@ function ReviewItem({
         </div>
       )}
       {reply && (
-        <div className="flex flex-col gap-1 rounded-panel bg-bg2 px-3 py-2">
+        <div className="flex flex-col gap-1 rounded-field bg-bg2 px-3 py-2">
           <Text as="span" variant="cap">
             {received
               ? `${t('history.yourReply')} · ${t(`history.replyStatus.${reply.status as ReviewState}`)}`

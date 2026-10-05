@@ -134,3 +134,25 @@ describe('sosed/no-jsx-literal', () => {
     for (const code of ok) expect(await lint(code)).toEqual([]);
   });
 });
+
+describe('sosed/radius-tokens', () => {
+  const config = sosed({ root: fixture, react: true, radii: ['card', 'btn-sm', 'seg-item'] });
+  const lint = (code) => rules(fixture, 'src/features/jobs/View.tsx', code, config);
+
+  it('шкала Tailwind и неизвестные токены не дают CSS — ошибка', async () => {
+    for (const cls of ['rounded-xl', 'md:rounded-md', 'rounded-t-lg', 'rounded', 'rounded-panel']) {
+      expect(await lint(`export const A = () => <p className="flex ${cls}" />;\n`)).toEqual([
+        'sosed/radius-tokens',
+      ]);
+    }
+    expect(await lint("export const c = { a: `p-4 ${'x'} rounded-2xl` };\n")).toEqual([
+      'sosed/radius-tokens',
+    ]);
+  });
+
+  it('токены, none, full и произвольные значения допустимы', async () => {
+    const code =
+      'export const A = () => <p className="rounded-card rounded-t-card hover:rounded-btn-sm rounded-seg-item rounded-full rounded-none rounded-[18px] rounded-br-[6px]" />;\n';
+    expect(await lint(code)).toEqual([]);
+  });
+});

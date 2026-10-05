@@ -470,7 +470,7 @@ function Preview({ card }: { card: JobCardOut }) {
             <Skeleton
               key={index}
               screen
-              radius="panel"
+              radius="field"
               className={total === 1 ? 'h-45 w-full' : 'h-25 w-full'}
             />
           ))}

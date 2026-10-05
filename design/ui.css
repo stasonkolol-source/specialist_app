@@ -64,7 +64,8 @@ a{color:var(--accent);text-decoration:none}
 
 /* icons (inline stroke SVG) */
 .ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.ic.i16{width:16px;height:16px}.ic.i24{width:24px;height:24px}.ic.i28{width:28px;height:28px}.ic.i32{width:32px;height:32px}
+/* штрих по размеру: в единицах viewBox, на экране линия у всех ≈ 1,5 px */
+.ic.i16{width:16px;height:16px;stroke-width:2.2}.ic.i24{width:24px;height:24px;stroke-width:1.6}.ic.i28{width:28px;height:28px;stroke-width:1.5}.ic.i32{width:32px;height:32px;stroke-width:1.4}
 .ic.fill{fill:currentColor;stroke:none}
 .star{color:var(--star)}
 
@@ -73,7 +74,7 @@ a{color:var(--accent);text-decoration:none}
 .tab{position:relative;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--text2);font-size:11px;line-height:14px;font-weight:500}
 .tab.on{color:var(--accent)}
 .tab .cnt{position:absolute;top:1px;left:calc(50% + 5px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--urgent);color:var(--urgent-ink);font:700 11px/18px var(--f-ui);text-align:center}
-.tab-plus{width:56px;height:44px;border-radius:14px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;margin:4px auto 0}
+.tab-plus{width:56px;height:44px;border-radius:12px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;margin:4px auto 0}
 
 /* Telegram BottomButton (MainButton / SecondaryButton area) */
 .mbar{position:absolute;left:0;right:0;bottom:0;padding:10px 16px 30px;background:var(--bg);border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
@@ -95,7 +96,7 @@ a{color:var(--accent);text-decoration:none}
 .ibtn.plain{background:transparent}
 
 /* search, chips, badges */
-.search{height:48px;border:1px solid var(--line);border-radius:14px;background:var(--surface);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--text2);font-size:16px}
+.search{height:48px;border:1px solid var(--line);border-radius:12px;background:var(--surface);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--text2);font-size:16px}
 .search input,.inp input{border:0;outline:0;background:transparent;flex:1;min-width:0;height:100%;padding:0;font-size:16px;color:var(--text)}
 .search input::placeholder,.inp::placeholder,.inp input::placeholder{color:var(--text2);opacity:1}
 .chips{display:flex;gap:8px;overflow:hidden}
@@ -164,25 +165,25 @@ textarea.inp{height:auto;min-height:104px;padding:12px 14px;resize:none}
 .err{font-size:13px;line-height:18px;color:var(--danger)}
 .seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:3px;padding:3px;border-radius:12px;background:var(--seg-track)}
 .seg>*{height:40px;border:0;border-radius:9px;background:transparent;color:var(--text2);font:600 14px/20px var(--f-ui);display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
-.seg>.on{background:var(--seg-on);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
-.opt{min-height:56px;border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:12px 14px;display:flex;align-items:center;gap:12px;width:100%;text-align:left;color:var(--text)}
+.seg>.on{background:var(--seg-on);color:var(--text);box-shadow:0 1px 2px rgba(17,20,24,.08)}
+.opt{min-height:56px;border:1px solid var(--line);border-radius:16px;background:var(--surface);padding:12px 14px;display:flex;align-items:center;gap:12px;width:100%;text-align:left;color:var(--text)}
 .opt.on{border:2px solid var(--accent);padding:11px 13px}
 .radio{width:22px;height:22px;border-radius:50%;border:2px solid var(--field);flex:none}
 .radio.on{border:7px solid var(--accent)}
 .chk{width:22px;height:22px;border-radius:6px;border:2px solid var(--field);flex:none;display:flex;align-items:center;justify-content:center;color:var(--accent-ink)}
 .chk.on{background:var(--accent);border-color:var(--accent)}
 .sw{width:51px;height:31px;border:0;border-radius:16px;background:var(--field);position:relative;flex:none;padding:0}
-.sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(17,20,24,.25)}
 .sw.on{background:var(--accent)}.sw.on::after{left:22px}
 .steps{display:flex;gap:6px}.steps i{flex:1;height:4px;border-radius:2px;background:var(--line)}.steps i.on{background:var(--accent)}
 .bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
 .stars{display:flex;gap:4px}
 .stars button{width:48px;height:48px;border:0;padding:0;background:transparent;color:var(--line);display:flex;align-items:center;justify-content:center}
 .stars button.on{color:var(--star)}
-.stars .ic{width:36px;height:36px}
+.stars .ic{width:36px;height:36px;stroke-width:1.4}
 
 /* banners, empty states, toasts */
-.bnr{border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:20px}
+.bnr{border-radius:16px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:20px}
 .bnr .ic{margin-top:1px}
 .bnr a{color:inherit;text-decoration:underline;font-weight:600}
 .bnr.warn{background:var(--urgent-soft);color:var(--urgent-soft-ink)}
@@ -191,7 +192,7 @@ textarea.inp{height:auto;min-height:104px;padding:12px 14px;resize:none}
 .bnr.dng{background:var(--danger-soft);color:var(--danger)}
 .empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;padding:32px 24px}
 .empty-ic{width:80px;height:80px;border-radius:50%;background:var(--accent-soft);color:var(--accent-soft-ink);display:flex;align-items:center;justify-content:center}
-.toast{position:absolute;left:16px;right:16px;bottom:100px;background:#1F2630;color:#F2F5F8;border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:center;font-size:14px;line-height:20px;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+.toast{position:absolute;left:16px;right:16px;bottom:100px;background:#1F2630;color:#F2F5F8;border-radius:16px;padding:12px 14px;display:flex;gap:10px;align-items:center;font-size:14px;line-height:20px;box-shadow:0 6px 20px rgba(17,20,24,.2)}
 .num-ic{width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent-soft-ink);font:700 14px/28px var(--f-ui);text-align:center;flex:none}
 
 /* timeline (deal status) */
@@ -224,7 +225,7 @@ textarea.inp{height:auto;min-height:104px;padding:12px 14px;resize:none}
 /* map placeholder */
 .map{position:relative;border-radius:16px;overflow:hidden;background-color:#E6EBE8;background-image:linear-gradient(90deg,rgba(255,255,255,.9) 0 6px,transparent 6px),linear-gradient(0deg,rgba(255,255,255,.9) 0 6px,transparent 6px);background-size:96px 96px,120px 120px}
 .theme-dark .map{background-color:#1B2733;background-image:linear-gradient(90deg,rgba(255,255,255,.08) 0 6px,transparent 6px),linear-gradient(0deg,rgba(255,255,255,.08) 0 6px,transparent 6px)}
-.pin{position:absolute;height:32px;padding:0 10px;border-radius:16px;background:var(--surface);color:var(--text);font:700 13px/32px var(--f-ui);box-shadow:0 2px 6px rgba(0,0,0,.18);white-space:nowrap}
+.pin{position:absolute;height:32px;padding:0 10px;border-radius:16px;background:var(--surface);color:var(--text);font:700 13px/32px var(--f-ui);box-shadow:0 2px 6px rgba(17,20,24,.18);white-space:nowrap}
 .pin.on{background:var(--accent);color:var(--accent-ink)}
 .zone{position:absolute;border-radius:50%;background:rgba(11,122,95,.14);border:2px solid rgba(11,122,95,.5)}
 

@@ -345,7 +345,7 @@ function Loading() {
       </SkeletonCard>
       {/* сообщение, вид цены и цена */}
       <FieldSkeleton tall />
-      <Skeleton screen radius="panel" className="h-10 w-full" />
+      <Skeleton screen radius="field" className="h-10 w-full" />
       <FieldSkeleton />
     </section>
   );

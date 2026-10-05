@@ -87,7 +87,7 @@ export function Bubble({ side, children, time, status, failed = false, onRetry }
 /** Системная строка по центру ленты (.sysmsg): контекст диалога, что со сделкой, подсказки. */
 export function SystemNote({ children, icon }: { children: ReactNode; icon?: IconName }) {
   return (
-    <p className="m-0 flex max-w-[92%] items-center gap-1.5 self-center rounded-xl bg-surface px-3 py-1.5 text-center text-[13px] leading-[18px] text-text2">
+    <p className="m-0 flex max-w-[92%] items-center gap-1.5 self-center rounded-photo bg-surface px-3 py-1.5 text-center text-[13px] leading-[18px] text-text2">
       {icon && <Icon name={icon} size={16} />}
       <span>{children}</span>
     </p>
@@ -104,7 +104,7 @@ export function MaskedText({ text }: { text: string }) {
         <span key={index}>
           {part}
           {index < parts.length - 1 && (
-            <span className="inline-block rounded-md bg-[rgb(91_98_112/0.18)] px-1.5 font-semibold tracking-[0.04em]">
+            <span className="inline-block rounded-check bg-[rgb(91_98_112/0.18)] px-1.5 font-semibold tracking-[0.04em]">
               {MASK}
             </span>
           )}

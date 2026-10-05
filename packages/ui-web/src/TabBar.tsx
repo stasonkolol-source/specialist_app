@@ -79,7 +79,7 @@ export function TabBar({
         onClick={onNavigate ? (e) => onNavigate(plus.id, e) : undefined}
         className={cx('flex h-13 items-start justify-center rounded-btn', FOCUS)}
       >
-        <span className="mt-1 flex h-11 w-14 items-center justify-center rounded-panel bg-accent text-accent-ink">
+        <span className="mt-1 flex h-11 w-14 items-center justify-center rounded-btn bg-accent text-accent-ink">
           <Icon name="plus" size={24} />
         </span>
       </a>,

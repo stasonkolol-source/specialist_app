@@ -117,8 +117,8 @@ export function LanguageScreen() {
         ) : (
           <div role="status" className="flex flex-col gap-2">
             <span className="sr-only">{t('city.loading')}</span>
-            <Skeleton screen radius="panel" className="h-16" />
-            <Skeleton screen radius="panel" className="h-14" />
+            <Skeleton screen radius="card" className="h-16" />
+            <Skeleton screen radius="card" className="h-14" />
           </div>
         )}
       </div>

@@ -162,7 +162,7 @@ export function Option({
       disabled={disabled}
       onClick={() => onChange(kind === 'radio' ? true : !checked)}
       className={cx(
-        'flex min-h-14 w-full gap-3 rounded-panel border bg-surface px-3.5 py-3 text-left text-text disabled:opacity-55',
+        'flex min-h-14 w-full gap-3 rounded-card border bg-surface px-3.5 py-3 text-left text-text disabled:opacity-55',
         large ? 'items-start' : 'items-center',
         checked ? 'border-accent ring-1 ring-accent ring-inset' : 'border-line',
         FOCUS,
