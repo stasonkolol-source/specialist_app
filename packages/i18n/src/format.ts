@@ -108,8 +108,9 @@ export interface Format {
   fullDate(date: Date): string;
   /** Дата с годом после предлога: «от 27 сентября 2026», «od 27. septembra 2026.» (S48). */
   fullDateGenitive(date: Date): string;
-  /** Месяц отзыва: «Сентябрь», «Septembar». */
-  month(date: Date): string;
+  /** Месяц отзыва: «Сентябрь», «Septembar»; не этого года — с годом: «Октябрь 2025»,
+   *  «Oktobar 2025.». */
+  month(date: Date, now?: Date): string;
   /** «сегодня в 19:00», «завтра в 10:00», «12 октября в 19:00». */
   calendar(date: Date, now?: Date): string;
   /** То же после предлога или глагола: «до 12 октября в 19:00», «do 12. oktobra u 19:00»,
@@ -252,8 +253,18 @@ function buildFormat(locale: Locale): Format {
     return dateOnly(date, now, genitive);
   };
 
-  const month = (date: Date) => {
-    const name = dateFormat(intl, { timeZone: TIME_ZONE, month: 'long' }).format(date);
+  // Отзыв прошлого года без года читался как этот месяц или будущий: «Октябрь» в октябре 2026 про
+  // октябрь 2025 (SMOKE-1). ru Intl дописывает «г.» — убираем, как у fullDate
+  const month = (date: Date, now = new Date()) => {
+    const year = dateFormat('en', { timeZone: TIME_ZONE, year: 'numeric' });
+    const sameYear = year.format(date) === year.format(now);
+    const name = dateFormat(intl, {
+      timeZone: TIME_ZONE,
+      month: 'long',
+      ...(sameYear ? {} : { year: 'numeric' }),
+    })
+      .format(date)
+      .replace(/\s*г\.$/, '');
     return name.charAt(0).toUpperCase() + name.slice(1);
   };
 

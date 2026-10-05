@@ -34,6 +34,21 @@
     transition: scale 100ms ease-out;
   }
 }
+/* Зона нажатия не меньше 44×44 без изменения вида (UXM-15): прозрачный ::after по центру элемента
+   выходит за его края, нажатие на него достаётся самому элементу. Чипы 40 px, кнопки .sm 36 px,
+   переключатель 51×31, галочка с подписью в одну строку — 23 px */
+@utility hit {
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    translate: -50% -50%;
+  }
+}
 @utility press-row {
   transition: background-color 100ms ease-out;
   &:active:not(:disabled) {

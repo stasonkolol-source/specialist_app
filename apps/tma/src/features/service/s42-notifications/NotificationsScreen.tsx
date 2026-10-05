@@ -19,6 +19,7 @@ import {
   unreadCount,
   useMarkNotificationsRead,
   useNotificationFeed,
+  useProfileDecisions,
 } from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton, usePlatform } from '@sosed/platform';
@@ -104,6 +105,8 @@ export function NotificationsScreen({ targetOf }: NotificationsScreenProps) {
   const signedOut = !inTelegram || (feed.error instanceof ApiError && feed.error.status === 401);
   const items = feedItems(feed.data);
   const unread = unreadCount(feed.data);
+  // «Профиль опубликован» здесь, а S31/S33 ещё держат «На проверке» — перечитать профиль (SMOKE-4)
+  useProfileDecisions(items);
 
   let content;
   if (signedOut) content = <SignedOut />;

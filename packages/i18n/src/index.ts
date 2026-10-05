@@ -16,6 +16,7 @@ export {
   isLocale,
   resolveLocale,
 } from './locale.ts';
+export { moneyInput, moneyPara, moneyValue } from './money.ts';
 export { I18nextProvider, Trans, useFormat, useLocale, useTranslation } from './react.ts';
 export type { Messages, Namespace } from './resources.ts';
 export { NAMESPACES, loadNamespace } from './resources.ts';

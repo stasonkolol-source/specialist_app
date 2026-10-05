@@ -184,7 +184,9 @@ function ServiceNote({ service }: { service: CardServiceOut }) {
     <>
       {duration !== null && <span className="block">{t(`prices.durations.${duration}`)}</span>}
       {service.description && (
-        <span className="line-clamp-2 block whitespace-pre-line">{service.description}</span>
+        <span className="line-clamp-2 block whitespace-pre-line wrap-anywhere">
+          {service.description}
+        </span>
       )}
     </>
   );
