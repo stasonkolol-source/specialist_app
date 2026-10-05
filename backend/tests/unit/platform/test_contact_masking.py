@@ -217,6 +217,44 @@ def test_ordinary_text_is_left_alone(text: str) -> None:
 
 
 @pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # QA ADV-06: кириллица-двойник в ссылке, нике и почте (т, м, е, а, о, с — кириллические)
+        ("[QA] т.ме/qa_contact_test", [(LINK, "т.ме/qa_contact_test")]),
+        ("т.ме / qa_contact", [(LINK, "т.ме / qa_contact")]),
+        ("Т.МЕ/IVAN_MASTER", [(LINK, "Т.МЕ/IVAN_MASTER")]),
+        ("t.mе/ivan_master", [(LINK, "t.mе/ivan_master")]),
+        ("пишите @qа_cоntact", [(USERNAME, "@qа_cоntact")]),
+        ("почта ivan@gmail.соm", [(EMAIL, "ivan@gmail.соm")]),
+        # ник по буквам через пробелы и знаки
+        ("[QA] телеграм: q a _ c o n t a c t", [(USERNAME, "q a _ c o n t a c t")]),
+        ("tg @ i v a n _ m a s t e r", [(USERNAME, "i v a n _ m a s t e r")]),
+        ("@ q a _ c o n t a c t", [(USERNAME, "q a _ c o n t a c t")]),
+        ("инста: i-v-a-n-m-a-s-t-e-r", [(USERNAME, "i-v-a-n-m-a-s-t-e-r")]),
+        ("t.me/q a _ c o n t a c t", [(LINK, "t.me/q a _ c o n t a c t")]),
+    ],
+)
+def test_lookalikes_and_spaced_handles_are_found(
+    text: str, expected: list[tuple[ContactKind, str]]
+) -> None:
+    assert found(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Wi-Fi-роутер и SMS-ку настрою",
+        "iPhone-а и MacBook-и чиню",
+        "т.е. и т.д., ул. Бульвар 12",
+        "Telegram: напишу позже",
+        "a b c — варианты ответа",
+    ],
+)
+def test_mixed_script_words_are_not_contacts(text: str) -> None:
+    assert found(text) == []
+
+
+@pytest.mark.parametrize(
     "text",
     ["Tel: ¹²³⁴⁵⁶⁷⁸⁹¹²³⁴", "①②③④⑤⑥⑦⑧⑨①②③④", "⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀", "٠٦٤١٢٣٤٥٦٧٨٩٠١٢"],
 )
