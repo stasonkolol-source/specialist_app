@@ -172,9 +172,15 @@ describe('Badge', () => {
         </Badge>
         <Badge tone="urgent">Срочно</Badge>
         <Badge tone="pro">Pro</Badge>
+        <Badge tone="info" dot>
+          Приём откликов
+        </Badge>
       </>,
     );
     expect(screen.getByText('Срочно').className).toContain('bg-urgent-soft');
+    // точка — цветом текста бейджа: в синем бейдже не зелёная
+    const dot = screen.getByText('Приём откликов').querySelector('[aria-hidden="true"]');
+    expect(dot?.className).toContain('bg-current');
     expect(await a11yViolations(container)).toEqual([]);
   });
 });
