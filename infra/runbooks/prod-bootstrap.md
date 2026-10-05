@@ -321,7 +321,7 @@ K10a (копии), K33 (ping URL «pgBackRest» и «restore-test»), K19. Чт�
 
 То же, что на stage ([stage-bootstrap.md](stage-bootstrap.md), раздел 7), с ключами R2 prod (K13,
 только бакеты prod) и `ENV=prod`: ассеты — в `sosed-prod-media` под `map/<версия>/`, проверка —
-`curl -sI -r 0-99 -H 'Origin: https://app.<домен>' https://cdn.<домен>/map/<версия>/novi-sad.pmtiles`,
+`curl -s -o /dev/null -D - -r 0-99 -H 'Origin: https://app.<домен>' https://cdn.<домен>/map/<версия>/novi-sad.pmtiles`,
 затем Variable environment `production` `MAP_ASSETS_VERSION` и релиз (раздел 5). Версию prod
 переводить на новую после того, как её проверили на stage.
 

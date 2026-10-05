@@ -228,13 +228,14 @@ git на Маке. Тайлы Нови-Сада, шрифты и спрайт л
    read -rs S3_ACCESS_KEY_ID && read -rs S3_SECRET_ACCESS_KEY && export S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY
    R2_ACCOUNT_ID=<Account ID> make map-upload ENV=stage
    ```
-   Команда соберёт ассеты, если их ещё нет (`make map-assets`, ~1 минута), и напечатает версию.
+   Команда соберёт ассеты в `apps/tma/public/map`, если их ещё нет (как `make map-assets`, ~1 минута),
+   и напечатает версию.
    Повтор безопасен: одинаковые файлы пропускаются, другое содержимое под той же версией не
    перезаписывается.
-2. Проверка (ждём `206`, `content-range: bytes 0-99/…` и `access-control-allow-origin` с адресом
-   Mini App):
+2. Проверка — GET первых 100 байт (ждём `206`, `content-range: bytes 0-99/…` и
+   `access-control-allow-origin` с адресом Mini App):
    ```
-   curl -sI -r 0-99 -H 'Origin: https://stage-app.<домен>' https://stage-cdn.<домен>/map/<версия>/novi-sad.pmtiles
+   curl -s -o /dev/null -D - -r 0-99 -H 'Origin: https://stage-app.<домен>' https://stage-cdn.<домен>/map/<версия>/novi-sad.pmtiles
    ```
 3. Variable environment `stage` `MAP_ASSETS_VERSION` = версия из вывода (например `20260811`), затем
    deploy (`env` = `stage`, `deploy`) или любой merge фронтенда: сборка получит
