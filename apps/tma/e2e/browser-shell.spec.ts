@@ -1,9 +1,11 @@
 // Браузерная оболочка (DEVELOPMENT_PLAN 8.1): тот же SPA без Telegram (platform=browser) — без
-// `?platform=mock`. Веб-ссылка `/s/<id>` → «Открыть в Telegram» (t.me бота с кодом startapp) или
-// «Продолжить в браузере» → S08 гостем со своей шапкой «Назад» и MainButton в контенте; `/j/<id>` →
-// S15; экраны, которых в браузере нет, — «Открыть в Telegram»; «Как удалить аккаунт» без входа.
-// Заголовки собранного приложения: frame-ancestors с web.telegram.org, без X-Frame-Options.
-// Проекты — desktop и мобильный chromium; скриншоты × тема × язык (язык — из браузера), axe-core.
+// `?platform=mock`. Веб-ссылка `/s/<id>` → превью специалиста (имя, рейтинг, работы), «Открыть в
+// Telegram» (t.me бота с кодом startapp) или «Посмотреть в браузере» → S08 гостем со своей шапкой
+// «Назад» и MainButton в контенте; `/j/<id>` → превью заявки и S15; главная и экраны, которых в
+// браузере нет, — лендинг «Открыть в Telegram»; «Как удалить аккаунт» без входа; подвал с
+// документами. Заголовки собранного приложения: frame-ancestors с web.telegram.org, без
+// X-Frame-Options. Проекты — desktop и мобильный chromium; скриншоты × тема × язык (язык — из
+// браузера), axe-core.
 import { uuidToBase62 } from '@sosed/links';
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
@@ -23,24 +25,27 @@ const LOCALES = [
   {
     locale: 'ru',
     browser: 'ru-RU',
-    specialist: 'Профиль специалиста',
-    app: '«Соседи» живут в Telegram',
+    app: 'Соседи',
     open: 'Открыть в Telegram',
-    next: 'Продолжить в браузере',
+    view: 'Посмотреть в браузере',
     write: 'Написать',
     back: 'Назад',
     deletion: 'Как удалить аккаунт',
+    terms: 'Правила площадки',
+    closed: 'Эта страница открывается только в Telegram.',
   },
   {
     locale: 'sr-Latn',
     browser: 'sr-RS',
-    specialist: 'Profil stručnjaka',
-    app: '„Sosedi“ su u Telegram-u',
+    app: 'Sosedi',
     open: 'Otvori u Telegram-u',
-    next: 'Nastavi u pregledaču',
+    view: 'Pogledaj u pregledaču',
     write: 'Napiši poruku',
     back: 'Nazad',
     deletion: 'Kako obrisati nalog',
+    terms: 'Pravila platforme',
+    // после дефиса — word joiner: окончание «-u» не уезжает на новую строку
+    closed: 'Ova stranica se otvara samo u Telegram-\u2060u.',
   },
 ] as const;
 
@@ -85,25 +90,47 @@ for (const theme of THEMES) {
           await expectNoAxeViolations(page);
         };
 
-        await expect(page.getByRole('heading', { name: l.specialist, level: 1 })).toBeVisible();
+        // кого прислали: имя — заголовком страницы, тем же запросом, что S08
+        await expect(page.getByRole('heading', { name: NAME, level: 1 })).toBeVisible();
         await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
         await expect(page.getByRole('link', { name: l.open })).toHaveAttribute(
           'href',
           `https://t.me/${BOT}?startapp=s_${PROFILE}`,
         );
         await expect(page.getByRole('button', { name: l.back })).toHaveCount(0);
+        await expect(page.getByRole('link', { name: l.terms })).toHaveAttribute(
+          'href',
+          '/legal/terms',
+        );
         await snap(`browser-link-${theme}-${l.locale}.png`);
 
-        await page.getByRole('button', { name: l.next }).click();
-        await expect(page.getByRole('heading', { name: NAME, level: 1 })).toBeVisible();
+        await page.getByRole('button', { name: l.view }).click();
         await expect(page).toHaveURL(`/specialists/${CARD_PROFILE_ID}`);
-        // MainButton — в контенте; таббара в браузере нет
+        await expect(page.getByRole('heading', { name: NAME, level: 1 })).toBeVisible();
+        // MainButton — в контенте; таббара и подвала оболочки на S08 нет
         await expect(page.getByRole('button', { name: l.write })).toBeVisible();
         await expect(page.getByRole('navigation')).toHaveCount(0);
         await snap(`browser-S08-${theme}-${l.locale}.png`);
 
         await page.getByRole('button', { name: l.back }).click();
-        await expect(page.getByRole('heading', { name: l.specialist, level: 1 })).toBeVisible();
+        await expect(page.getByRole('button', { name: l.view })).toBeVisible();
+      });
+
+      test(`browser-shell ${theme} ${l.locale}: главная — лендинг`, async ({ page }) => {
+        const watch = await visit(page, '/');
+
+        await expect(page.getByRole('heading', { name: l.app, level: 1 })).toBeVisible();
+        await expect(page.getByRole('link', { name: l.open })).toHaveAttribute(
+          'href',
+          `https://t.me/${BOT}?startapp=h`,
+        );
+        await expect(page.getByText(l.closed)).toHaveCount(0);
+        expect(watch.problems).toEqual([]);
+        expect(watch.unexpectedApi).toEqual([]);
+        await expect(page).toHaveScreenshot(`browser-root-${theme}-${l.locale}.png`, {
+          fullPage: true,
+        });
+        await expectNoAxeViolations(page);
       });
 
       test(`browser-shell ${theme} ${l.locale}: «Как удалить аккаунт»`, async ({ page }) => {
@@ -130,12 +157,17 @@ test('browser-shell: /j/<id> → S15 гостем; экраны вне брау�
   const watch = await visit(page, `/j/${job}`);
   const ru = LOCALES[0];
 
-  await expect(page.getByRole('heading', { name: 'Заявка', level: 1 })).toBeVisible();
+  // что прислали: название, бюджет и срок, район и места
+  await expect(page.getByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeVisible();
+  await expect(page.getByText('5 000 RSD · сегодня 18:00–21:00')).toBeVisible();
+  await expect(page.getByText('Лиман · откликов 3 из 5')).toBeVisible();
   await expect(page.getByRole('link', { name: ru.open })).toHaveAttribute(
     'href',
     `https://t.me/${BOT}?startapp=j_${job}`,
   );
-  await page.getByRole('button', { name: ru.next }).click();
+  await expect(page).toHaveScreenshot('browser-link-job.png', { fullPage: true });
+  await page.getByRole('button', { name: ru.view }).click();
+  await expect(page).toHaveURL(`/jobs/${JOB_ID}`);
   await expect(page.getByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeVisible();
 
   // формы отклика в браузере нет: кнопка гостя сразу ведёт в Telegram на ту же заявку
@@ -144,16 +176,17 @@ test('browser-shell: /j/<id> → S15 гостем; экраны вне брау�
     `https://t.me/${BOT}?startapp=j_${job}`,
   );
   await expect(page.getByRole('button', { name: /Откликнуться/ })).toHaveCount(0);
-  // сам экран отклика по адресу — «Открыть в Telegram» на той же заявке
+  // сам экран отклика по адресу — лендинг «Открыть в Telegram» на той же заявке
   await page.goto(`/jobs/${JOB_ID}/respond`);
   await expect(page.getByRole('heading', { name: ru.app, level: 1 })).toBeVisible();
+  await expect(page.getByText(ru.closed)).toBeVisible();
   await expect(page.getByRole('link', { name: ru.open })).toHaveAttribute(
     'href',
     `https://t.me/${BOT}?startapp=j_${job}`,
   );
-  await expect(page.getByRole('button', { name: ru.next })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: ru.view })).toHaveCount(0);
 
-  // главная — тоже Telegram; ссылка «Как удалить аккаунт» есть и здесь
+  // главная — тоже Telegram; «Как удалить аккаунт» — в подвале
   await page.goto('/');
   await expect(page.getByRole('heading', { name: ru.app, level: 1 })).toBeVisible();
   await expect(page.getByRole('link', { name: ru.open })).toHaveAttribute(
