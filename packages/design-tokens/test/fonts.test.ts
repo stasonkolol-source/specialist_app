@@ -68,10 +68,13 @@ describe('шрифты', () => {
   });
 
   it('preload указывает на существующие файлы первого экрана, заголовок Unbounded — тоже', () => {
+    // каждый лишний preload делит медленный 4G с чанком входа: только то, что нужно первому кадру
     expect(FONT_PRELOAD).toHaveLength(4);
     expect(FONT_PRELOAD).toContain(
       '@fontsource/unbounded/files/unbounded-cyrillic-600-normal.woff2',
     );
+    // сербская латиница — только для sr-Latn, при запуске: русскому первому экрану она не нужна
+    expect(FONT_PRELOAD.filter((file) => file.includes('latin-ext'))).toEqual([]);
     for (const file of FONT_PRELOAD) {
       expect(faces.map((f) => f.file)).toContain(file);
       expect(() => resolveFontFile(file)).not.toThrow();
