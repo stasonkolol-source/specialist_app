@@ -5,6 +5,8 @@ import { themeColors } from './render.ts';
 export interface ContrastPair {
   fg: string;
   bg: string;
+  /** bg полупрозрачный — слои под ним, снизу вверх: контраст считается с тем, что видно на экране. */
+  over?: readonly string[];
   min: number;
   /** Где в ui.css встречается пара. */
   use: string;
@@ -25,7 +27,7 @@ export const PAIRS: readonly ContrastPair[] = [
   { fg: 'text', bg: 'bg2', min: TEXT, use: '.scr, .ibtn' },
   { fg: 'text', bg: 'surface', min: TEXT, use: '.card, .row, .chip, .inp' },
   { fg: 'text2', bg: 'bg', min: TEXT, use: '.tab, .tgh-t span' },
-  { fg: 'text2', bg: 'bg2', min: TEXT, use: '.cap на фоне экрана, .bdg.mute, .seg' },
+  { fg: 'text2', bg: 'bg2', min: TEXT, use: '.cap на фоне экрана, .bdg.mute' },
   { fg: 'text2', bg: 'surface', min: TEXT, use: '.cap, .sp-meta, .hint в карточке' },
   { fg: 'bg', bg: 'text', min: TEXT, use: '.chip.on, .bdg.pro' },
   { fg: 'accent', bg: 'bg', min: TEXT, use: '.tab.on, .tgh-btn, a' },
@@ -45,6 +47,18 @@ export const PAIRS: readonly ContrastPair[] = [
   ...avatarPairs,
   { fg: 'field', bg: 'surface', min: NON_TEXT, use: 'граница .inp, .radio, .chk' },
   { fg: 'field', bg: 'bg', min: NON_TEXT, use: 'граница .inp на фоне экрана' },
+  // Дорожка .seg и выбранный сегмент полупрозрачные: считаем поверх того, на чём стоит контрол, —
+  // экран (bg2), шторка (bg), карточка (surface)
+  ...['bg2', 'bg', 'surface'].flatMap((under) => [
+    { fg: 'text2', bg: 'seg-track', over: [under], min: TEXT, use: `.seg на ${under}` },
+    {
+      fg: 'text',
+      bg: 'seg-on',
+      over: [under, 'seg-track'],
+      min: TEXT,
+      use: `.seg>.on на ${under}`,
+    },
+  ]),
 ];
 
 function channel(value: number): number {
@@ -57,6 +71,47 @@ export function luminance(hex: string): number {
   if (!match?.[1]) throw new Error(`Ожидался цвет #RRGGBB, получено «${hex}»`);
   const n = Number.parseInt(match[1], 16);
   return 0.2126 * channel(n >> 16) + 0.7152 * channel((n >> 8) & 0xff) + 0.0722 * channel(n & 0xff);
+}
+
+interface Rgba {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
+
+function parseColor(value: string): Rgba {
+  const hex = /^#([0-9a-f]{6})$/i.exec(value);
+  if (hex?.[1]) {
+    const n = Number.parseInt(hex[1], 16);
+    return { r: n >> 16, g: (n >> 8) & 0xff, b: n & 0xff, a: 1 };
+  }
+  const rgba = /^rgba\((\d+),(\d+),(\d+),([\d.]+)\)$/.exec(value.replace(/\s+/g, ''));
+  if (rgba) {
+    const [, r, g, b, a] = rgba.map(Number) as [number, number, number, number, number];
+    return { r, g, b, a };
+  }
+  throw new Error(`Ожидался цвет #RRGGBB или rgba(), получено «${value}»`);
+}
+
+/** Слои снизу вверх → непрозрачный #RRGGBB: каким полупрозрачный цвет выходит на экране. */
+export function flatten(layers: readonly string[]): string {
+  const [base, ...rest] = layers.map(parseColor);
+  if (!base || base.a !== 1) {
+    throw new Error(`Нижний слой должен быть непрозрачным: ${layers.join(' + ')}`);
+  }
+  const mix = (top: number, under: number, a: number) => top * a + under * (1 - a);
+  const out = rest.reduce(
+    (under, top) => ({
+      r: mix(top.r, under.r, top.a),
+      g: mix(top.g, under.g, top.a),
+      b: mix(top.b, under.b, top.a),
+      a: 1,
+    }),
+    base,
+  );
+  const hex = (c: number) => Math.round(c).toString(16).padStart(2, '0');
+  return `#${hex(out.r)}${hex(out.g)}${hex(out.b)}`.toUpperCase();
 }
 
 export function contrastRatio(a: string, b: string): number {
@@ -74,11 +129,14 @@ export function checkContrast(source: TokenSource): ContrastResult[] {
   const themes: Theme[] = ['light', 'dark'];
   return themes.flatMap((theme) => {
     const colors = themeColors(source, theme);
+    const token = (name: string) => {
+      const value = colors[name];
+      if (!value) throw new Error(`Нет токена ${name} (${theme})`);
+      return value;
+    };
     return PAIRS.map((pair) => {
-      const fg = colors[pair.fg];
-      const bg = colors[pair.bg];
-      if (!fg || !bg) throw new Error(`Нет токена для пары ${pair.fg}/${pair.bg} (${theme})`);
-      const ratio = contrastRatio(fg, bg);
+      const bg = flatten([...(pair.over ?? []), pair.bg].map(token));
+      const ratio = contrastRatio(token(pair.fg), bg);
       return { ...pair, theme, ratio, ok: ratio >= pair.min };
     });
   });

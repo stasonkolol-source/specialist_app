@@ -72,6 +72,39 @@ describe('Sheet (S06)', () => {
     }
     expect(onClose).toHaveBeenCalledTimes(3);
   });
+
+  it('без крестика (своя отмена, S25, S54): Escape и затемнение закрывают, строка заголовка той же высоты', () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <Sheet
+        open
+        title="Выбрать исполнителем?"
+        closeLabel="Закрыть"
+        closeButton={false}
+        onClose={onClose}
+      >
+        <button type="button" onClick={onClose}>
+          Отмена
+        </button>
+      </Sheet>,
+    );
+    expect(screen.queryByRole('button', { name: 'Закрыть' })).toBeNull();
+    const heading = screen.getByRole('heading', { name: 'Выбрать исполнителем?' });
+    expect(heading.parentElement?.className).toContain('min-h-11');
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    fireEvent.click(container.querySelector('.bg-scrim') as Element);
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it('появляется плавно только без prefers-reduced-motion', () => {
+    const { container } = render(
+      <Sheet open title="Фильтры" closeLabel="Закрыть" onClose={() => {}}>
+        <p>Цена</p>
+      </Sheet>,
+    );
+    expect(screen.getByRole('dialog').className).toContain('enter-sheet');
+    expect(container.querySelector('.bg-scrim')?.className).toContain('enter-fade');
+  });
 });
 
 describe('SpecialistCard (S05)', () => {
@@ -111,7 +144,7 @@ describe('SpecialistCard (S05)', () => {
 });
 
 describe('JobCard (S13)', () => {
-  it('заголовок и бюджет, бейджи и время, описание, место и места; ссылка — вся карточка', async () => {
+  it('заголовок и бюджет, бейджи, описание, место и время, места; ссылка — вся карточка', async () => {
     const onOpen = vi.fn((event: { preventDefault: () => void }) => event.preventDefault());
     const { container } = render(
       <JobCard
@@ -140,6 +173,15 @@ describe('JobCard (S13)', () => {
     expect(screen.getByText('Лиман, ≈ 1,2 км')).toBeTruthy();
     expect(screen.getByText('откликов 3 из 5')).toBeTruthy();
     expect(screen.getAllByRole('img', { name: /^Фото \d$/ })).toHaveLength(2);
+    // строки не зависят от длины текстов: бейджам — вся строка, время — в строке места, места —
+    // своей строкой
+    expect(screen.getByText('Сегодня 18–21').parentElement?.textContent).toBe(
+      'Сегодня 18–21Люстры',
+    );
+    expect(screen.getByText('15 мин назад').parentElement?.textContent).toBe(
+      'Лиман, ≈ 1,2 км15 мин назад',
+    );
+    expect(screen.getByText('откликов 3 из 5').parentElement?.textContent).toBe('откликов 3 из 5');
     // полоски мест — декорация: число мест читается подписью
     expect(container.querySelectorAll('[aria-hidden="true"] > i')).toHaveLength(5);
     expect(container.querySelectorAll('[aria-hidden="true"] > i.bg-accent')).toHaveLength(3);

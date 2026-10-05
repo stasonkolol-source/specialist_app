@@ -68,8 +68,28 @@ describe('S47 help', () => {
 
     fireEvent.change(search, { target: { value: 'кешбэк' } });
     expect(within(faq).queryAllByRole('button')).toEqual([]);
+    // контакта поддержки нет (K23): в поддержку не зовём — MainButton серая «скоро»
     expect(screen.getByRole('status').textContent).toBe(
-      'Такого вопроса нет. Напишите в поддержку — ответим',
+      'Ничего не нашли. Попробуйте другое слово.',
+    );
+  });
+
+  it('sends to support when nothing is found and the contact is set', async () => {
+    server.use(
+      http.get('*/api/v1/client-config', () =>
+        HttpResponse.json({ ...CLIENT_CONFIG, support_username: 'sosedi_support' }),
+      ),
+    );
+    startApp('/help');
+    const search = await screen.findByRole('searchbox', { name: 'Поиск по вопросам' });
+
+    fireEvent.change(search, { target: { value: 'кешбэк' } });
+
+    // контакт приходит с client-config: текст меняется, когда он загрузился
+    await waitFor(() =>
+      expect(screen.getByRole('status').textContent).toBe(
+        'Ничего не нашли. Напишите в поддержку — ответим.',
+      ),
     );
   });
 

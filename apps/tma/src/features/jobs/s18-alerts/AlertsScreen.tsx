@@ -1,6 +1,6 @@
 // S18 Подписки на заявки (DEVELOPMENT_PLAN 5.7): «присылай заявки по электрике в Лимане от 3 000
 // RSD». Карточка подписки — название по первой категории и подпись, переключатель «присылать»,
-// где и от какого бюджета, «сразу» или «подборкой в 09:00» (час дайджеста — из настроек
+// где и от какого бюджета, языки, «сразу» или «подборкой в 09:00» (час дайджеста — из настроек
 // уведомлений), пауза из бота, «N заявок за неделю», «Изменить» (S19) и «Удалить» с
 // подтверждением. Тихие часы — строкой со ссылкой на настройки S43. Если боту нельзя писать —
 // «Присылать новые заявки в бот?» (requestWriteAccess): без него подписки молчат. MainButton —
@@ -57,7 +57,7 @@ export function AlertsScreen() {
   const settings = useNotificationsGetNotificationSettings();
   const tree = useCategories(locale).data ?? [];
   const items = alerts.data?.items ?? [];
-  // районы города подписок: подпись радиуса («До 3 км · Лиман») и названия районов
+  // районы города подписок: подпись радиуса («Лиман, до 3 км») и названия районов
   const cityId = items[0]?.criteria.city_id ?? null;
   const districts = useDistricts(cityId, locale).data ?? [];
   const [fullShown, setFullShown] = useState(false);
@@ -205,7 +205,7 @@ function AlertCard({
   const on = receives(alert);
   const paused = alert.is_active && !on && alert.paused_until !== null;
   const failed = update.isError || remove.isError;
-  const area = useAreaLine(alert, districts);
+  const { area, languages } = useCriteriaLines(alert, districts);
 
   const drop = async () => {
     if (!(await platform.confirm(t('alerts.deleteConfirm', { title })))) return;
@@ -229,6 +229,7 @@ function AlertCard({
       </div>
       <div className="flex flex-col gap-1">
         <Meta icon="pin">{area}</Meta>
+        <Meta icon="languages">{languages}</Meta>
         {paused && alert.paused_until ? (
           <Meta icon="clock">
             {t('alerts.paused', { date: format.calendar(new Date(alert.paused_until)) })}
@@ -267,8 +268,12 @@ function AlertCard({
   );
 }
 
-/** «До 3 км · Лиман · от 2 000 RSD · русский»: где, бюджет, язык и «только срочные». */
-function useAreaLine(alert: JobAlertOut, districts: readonly DistrictOut[]): string {
+/** Условия подписки двумя строками: «Лиман, до 3 км · от 2 000 RSD» (где · бюджет и «только
+ *  срочные») и языки — своей строкой: в одной строке не больше одной «·». */
+function useCriteriaLines(
+  alert: JobAlertOut,
+  districts: readonly DistrictOut[],
+): { area: string; languages: string } {
   const { t } = useTranslation('jobs');
   const format = useFormat();
   const { criteria } = alert;
@@ -297,8 +302,14 @@ function useAreaLine(alert: JobAlertOut, districts: readonly DistrictOut[]): str
     criteria.urgencies.length === 1 && criteria.urgencies[0] === 'asap'
       ? [t('alerts.urgentOnly')]
       : [];
-  return [where, budget, languages.toLowerCase(), ...urgent].join(' · ');
+  return {
+    area: `${where} · ${[budget, ...urgent].join(', ')}`,
+    // «Русский, сербский»: строка начинается с большой буквы, остальные языки — с маленькой
+    languages: capitalized(languages.toLowerCase()),
+  };
 }
+
+const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 function Meta({ icon, children }: { icon: IconName; children: ReactNode }) {
   return (

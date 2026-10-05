@@ -46,7 +46,7 @@ describe('переменные тем', () => {
   it('сверх ui.css — только задокументированные добавления', () => {
     const extraLight = Object.keys(genLight).filter((k) => !(k in uiLight));
     const extraDark = Object.keys(genDark).filter((k) => !(k in uiDark));
-    const radii = ['btn-sm', 'chip', 'badge', 'panel', 'sheet', 'photo', 'seg-item', 'check'].map(
+    const radii = ['btn-sm', 'chip', 'badge', 'sheet', 'photo', 'seg-item', 'check'].map(
       (r) => `r-${r}`,
     );
     const shadows = ['seg', 'knob', 'toast', 'pin'].map((s) => `sh-${s}`);
@@ -110,7 +110,12 @@ describe('радиусы', () => {
     ['btn-sm', '.btn.sm', 'border-radius'],
     ['chip', '.chip', 'border-radius'],
     ['badge', '.bdg', 'border-radius'],
-    ['panel', '.bnr', 'border-radius'],
+    // одна шкала (SPEC §2): контейнеры 16, поля, кнопки и фото 12
+    ['card', '.bnr', 'border-radius'],
+    ['card', '.opt', 'border-radius'],
+    ['card', '.toast', 'border-radius'],
+    ['field', '.search', 'border-radius'],
+    ['btn', '.tab-plus', 'border-radius'],
     ['sheet', '.sheet', 'border-radius'],
     ['photo', '.ph', 'border-radius'],
     ['seg-item', '.seg>*', 'border-radius'],
@@ -211,5 +216,15 @@ describe('размеры', () => {
       [16, 20, 24, 28, 32, px(rule('.stars .ic').width)].sort((a, b) => a - b),
     );
     expect(sizes).toEqual([16, 24, 28, 32]);
+  });
+
+  it('штрих иконок по размеру', () => {
+    const strokes = source.icon.strokes as Record<string, number>;
+    expect(Object.keys(strokes).map(Number)).toEqual(source.icon.sizes);
+    expect(strokes[source.icon.default]).toBe(source.icon.stroke);
+    for (const s of [16, 24, 28, 32]) {
+      expect(strokes[s]).toBe(Number(rule(`.ic.i${s}`)['stroke-width']));
+    }
+    expect(strokes[36]).toBe(Number(rule('.stars .ic')['stroke-width']));
   });
 });

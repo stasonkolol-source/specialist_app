@@ -1,8 +1,9 @@
 // Сообщения S29 и диалог S30 (DEVELOPMENT_PLAN 6.4) на фейке backend: список с именами, заявкой,
-// сделкой, «Вы: …» и непрочитанными, вкладки по роли; диалог — шапка, памятка о предоплате, маска
-// контакта с подсказкой, отметка прочитанного, оптимистичная отправка и повтор неотправленного,
-// новое от собеседника при опросе, «Договорились» шторкой условий, клиенту по отклику — «К
-// откликам»; «Написать» на S08 открывает диалог; deep link `c_`; бейдж «Сообщения N» в таббаре.
+// сделкой, «Вы: …», коротким временем и непрочитанными, вкладки по роли; диалог — шапка, памятка о
+// предоплате, подписи дней, маска контакта словами с подсказкой, отметка прочитанного,
+// оптимистичная отправка и повтор неотправленного, новое от собеседника при опросе, «Договориться»
+// шторкой условий, клиенту по отклику — «К откликам»; «Написать» на S08 открывает диалог; deep
+// link `c_`; бейдж «Сообщения N» в таббаре.
 import { encodeStartParam } from '@sosed/links';
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
@@ -44,7 +45,11 @@ describe('S29 chats', () => {
     const direct = await screen.findByRole('link', { name: /Алексей Морозов/ });
     expect(within(direct).getByText('Из профиля специалиста')).toBeTruthy();
     expect(within(direct).getByText(/Позвоните мне/)).toBeTruthy();
+    // скрытый сервером телефон — словами, как в диалоге
+    expect(within(direct).getByText('контакт скрыт')).toBeTruthy();
     expect(within(direct).getByText('2 непрочитанных')).toBeTruthy();
+    // время как в Telegram: за последнюю неделю — день недели (сейчас понедельник, 5 октября)
+    expect(within(direct).getByText('пт')).toBeTruthy();
     const job = screen.getByRole('link', { name: /Никола Петрович/ });
     expect(within(job).getByText('Заявка: Повесить люстру')).toBeTruthy();
     // отклик — плашкой рядом с заявкой, текст отклика — без приписки
@@ -53,6 +58,7 @@ describe('S29 chats', () => {
     const mine = screen.getByRole('link', { name: /Дмитрий Соколов/ });
     expect(within(mine).getByText('Договорились')).toBeTruthy();
     expect(within(mine).getByText('Вы: Спасибо, тогда до четверга!')).toBeTruthy();
+    expect(within(mine).getByText('чт')).toBeTruthy();
     expect(screen.getByText('Телефоны и ссылки видны только после договорённости')).toBeTruthy();
 
     const tabs = screen.getByRole('radiogroup', { name: 'Сообщения' });
@@ -78,10 +84,10 @@ describe('S29 chats', () => {
     );
     await click(direct);
 
-    expect(await screen.findByText('Ещё не договорились')).toBeTruthy();
+    expect(await screen.findByText('Сделки пока нет')).toBeTruthy();
     expect(screen.getByRole('img', { name: 'Алексей Морозов' })).toBeTruthy();
     // кнопки шапки и поле ввода — только по ответу диалога
-    expect(screen.queryByRole('button', { name: 'Договорились' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Договориться' })).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 
@@ -107,11 +113,18 @@ describe('S30 chat', () => {
     startApp(DIRECT);
 
     const header = await screen.findByRole('banner', { name: 'Алексей Морозов' });
-    expect(within(header).getByText('Ещё не договорились')).toBeTruthy();
+    expect(within(header).getByText('Сделки пока нет')).toBeTruthy();
     expect(within(header).getByRole('link', { name: /Алексей Морозов/ })).toBeTruthy();
     expect(screen.getByText(/Не вносите предоплату незнакомым исполнителям/)).toBeTruthy();
-    expect(screen.getByText('Диалог из профиля специалиста', { exact: false })).toBeTruthy();
-    expect(screen.getByText('•••')).toBeTruthy();
+    // день — подписью над первым сообщением, а не в строке о начале диалога
+    expect(screen.getByText('Диалог из профиля специалиста')).toBeTruthy();
+    const day = screen.getByText('2 октября');
+    expect(day.getAttribute('dateTime')).toBe('2026-10-02');
+    expect(screen.getAllByText(/октября/)).toHaveLength(1);
+    // «•••» сервера — плашкой «контакт скрыт»; диктору — до каких пор
+    expect(screen.queryByText('•••')).toBeNull();
+    expect(screen.getByText('контакт скрыт')).toBeTruthy();
+    expect(screen.getByText('Контакт скрыт до договорённости')).toBeTruthy();
     expect(
       screen.getByText('Контакты откроются после договорённости — так безопаснее'),
     ).toBeTruthy();
@@ -127,6 +140,8 @@ describe('S30 chat', () => {
     fireEvent.change(field, { target: { value: 'Буду ждать в 19:00' } });
     await click(screen.getByRole('button', { name: 'Отправить' }));
     const failed = await screen.findByRole('button', { name: /Буду ждать в 19:00/ });
+    // переписка — от 2 октября, сегодня 5-е: новое — под подписью «Сегодня»
+    expect(screen.getByText('Сегодня')).toBeTruthy();
     expect(within(failed).getByText('Не отправлено — нажмите, чтобы повторить')).toBeTruthy();
     expect(screen.getByRole('alert').textContent).toBeTruthy();
 
@@ -148,7 +163,7 @@ describe('S30 chat', () => {
     const backend = withChats();
     startApp(DIRECT);
 
-    await click(await screen.findByRole('button', { name: 'Договорились' }));
+    await click(await screen.findByRole('button', { name: 'Договориться' }));
     const sheet = await screen.findByRole('dialog', { name: 'Договорились?' });
     const propose = within(sheet).getByRole('button', { name: 'Предложить' });
     expect((propose as HTMLButtonElement).disabled).toBe(true);
@@ -165,7 +180,7 @@ describe('S30 chat', () => {
     );
     const header = await screen.findByRole('banner', { name: 'Алексей Морозов' });
     await waitFor(() => expect(within(header).getByText('Ждёт подтверждения')).toBeTruthy());
-    expect(within(header).queryByRole('button', { name: 'Договорились' })).toBeNull();
+    expect(within(header).queryByRole('button', { name: 'Договориться' })).toBeNull();
     expect(await screen.findByText('Вы предложили договориться — ждём подтверждения')).toBeTruthy();
   });
 

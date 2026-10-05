@@ -145,16 +145,20 @@ test('browser-shell: /j/<id> → S15 гостем; экраны вне брау�
   await page.getByRole('button', { name: ru.next }).click();
   await expect(page.getByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeVisible();
 
-  // «Откликнуться» гостем — формы отклика в браузере нет: Telegram на той же заявке
-  await page.getByRole('button', { name: /Откликнуться/ }).click();
+  // формы отклика в браузере нет: кнопка гостя сразу ведёт в Telegram на ту же заявку
+  await expect(page.getByRole('link', { name: 'Откликнуться в Telegram' })).toHaveAttribute(
+    'href',
+    `https://t.me/${BOT}?startapp=j_${job}`,
+  );
+  await expect(page.getByRole('button', { name: /Откликнуться/ })).toHaveCount(0);
+  // сам экран отклика по адресу — «Открыть в Telegram» на той же заявке
+  await page.goto(`/jobs/${JOB_ID}/respond`);
   await expect(page.getByRole('heading', { name: ru.app, level: 1 })).toBeVisible();
   await expect(page.getByRole('link', { name: ru.open })).toHaveAttribute(
     'href',
     `https://t.me/${BOT}?startapp=j_${job}`,
   );
   await expect(page.getByRole('button', { name: ru.next })).toHaveCount(0);
-  await page.getByRole('button', { name: ru.back }).click();
-  await expect(page.getByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeVisible();
 
   // главная — тоже Telegram; ссылка «Как удалить аккаунт» есть и здесь
   await page.goto('/');

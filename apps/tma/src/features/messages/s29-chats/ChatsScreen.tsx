@@ -1,14 +1,16 @@
 // S29 Сообщения (DEVELOPMENT_PLAN 6.4): вкладка таббара. Сегменты «Все / Я клиент / Я
-// исполнитель»; строка диалога — инициалы и имя второй стороны, время последнего сообщения,
+// исполнитель»; строка диалога — инициалы и имя второй стороны, время последнего сообщения
+// коротко, как в Telegram («16:05», «вчера», «пт», «2 окт»: длинная дата отнимала место у имени),
 // контекст («Заявка: …» или «Из профиля специалиста») с плашкой «что со сделкой» или «Отклик»,
-// последнее сообщение («Вы: …», скрытый сервером контакт — плашкой «•••») и под временем — число
-// непрочитанных, как на артборде. Внизу — памятка «телефоны и ссылки видны после договорённости».
-// Нажатие — диалог S30. Гостю — пустой список: писать можно после входа.
+// последнее сообщение («Вы: …», скрытый сервером контакт — плашкой «контакт скрыт», как в
+// диалоге) и под временем — число непрочитанных, как на артборде. Внизу — памятка «телефоны и
+// ссылки видны после договорённости». Нажатие — диалог S30. Гостю — пустой список: писать можно
+// после входа.
 import type { ConversationOut } from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
 import type { ChatRole, DealState } from '@sosed/hooks';
 import { conversationItems, dealState, useConversations } from '@sosed/hooks';
-import { useFormat, useTranslation } from '@sosed/i18n';
+import { useTranslation } from '@sosed/i18n';
 import type { BadgeTone } from '@sosed/ui-web';
 import {
   Avatar,
@@ -29,6 +31,7 @@ import type { MouseEvent } from 'react';
 import { useState } from 'react';
 
 import { LoadError } from '../shared/LoadError.tsx';
+import { useListTime } from '../shared/dates.ts';
 import { chatPath } from '../shared/paths.ts';
 import { usePreview } from '../shared/preview.ts';
 
@@ -117,12 +120,11 @@ function Conversations({ role }: { role: ChatRole | null }) {
 
 function ConversationRow({ conversation }: { conversation: ConversationOut }) {
   const { t } = useTranslation('messages');
-  const format = useFormat();
+  const listTime = useListTime();
   const router = useRouter();
   const preview = usePreview();
   const name = conversation.counterpart_name ?? t('list.deleted');
   const at = new Date(conversation.last_message_at ?? conversation.created_at);
-  const today = new Date().toDateString() === at.toDateString();
   const state = dealState(conversation);
   const context = conversation.job_title
     ? t('list.job', { title: conversation.job_title })
@@ -146,7 +148,7 @@ function ConversationRow({ conversation }: { conversation: ConversationOut }) {
       onClick={open}
       leading={<Avatar name={name} size="md" palette={paletteFor(conversation.counterpart_id)} />}
       title={name}
-      meta={<time dateTime={at.toISOString()}>{today ? format.time(at) : format.date(at)}</time>}
+      meta={<time dateTime={at.toISOString()}>{listTime(at)}</time>}
     >
       {/* длинная заявка переносится сама, плашка остаётся справа от неё, как на артборде */}
       <span className="flex items-center gap-1.5">
@@ -156,7 +158,11 @@ function ConversationRow({ conversation }: { conversation: ConversationOut }) {
       {/* непрочитанные — под временем, в строке последнего сообщения, как на артборде */}
       <span className="mt-0.5 flex items-center justify-between gap-3">
         <span className="line-clamp-2 min-w-0 text-text">
-          <MaskedText text={preview(conversation.last_message)} />
+          <MaskedText
+            text={preview(conversation.last_message)}
+            label={t('mask.text')}
+            hiddenLabel={t('mask.label')}
+          />
         </span>
         {conversation.unread > 0 && (
           <span className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-accent px-1.5 text-badge text-accent-ink">

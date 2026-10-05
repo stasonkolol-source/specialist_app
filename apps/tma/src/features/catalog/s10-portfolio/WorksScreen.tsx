@@ -121,10 +121,10 @@ function Loading({ onClose }: { onClose: () => void }) {
         <Skeleton screen className="h-4 w-12" />
         <span className="size-11" aria-hidden="true" />
       </div>
-      <Skeleton screen radius="panel" className={FRAME} />
+      <Skeleton screen radius="field" className={FRAME} />
       <div className="flex gap-2 px-4">
         {[0, 1, 2, 3].map((thumb) => (
-          <Skeleton key={thumb} screen radius="panel" className="size-14" />
+          <Skeleton key={thumb} screen radius="field" className="size-14" />
         ))}
       </div>
     </div>

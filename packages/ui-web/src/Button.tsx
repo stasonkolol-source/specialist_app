@@ -43,6 +43,7 @@ export function Button({
     VARIANT[variant],
     full && 'w-full',
     'disabled:bg-bg2 disabled:text-text2',
+    'press',
     FOCUS,
     className,
   );
@@ -118,7 +119,7 @@ export interface IconButtonProps extends Omit<
   label: string;
   /** .ibtn.plain — без подложки. */
   plain?: boolean;
-  /** .ibtn.on — активное состояние (например, «в избранном»). */
+  /** .ibtn.on — активное состояние (например, «в избранном»): цвет ошибки и залитая иконка. */
   active?: boolean;
   /** Переход на экран (шестерёнка S42 → настройки S43) — ссылка; с `onClick` — внутри приложения. */
   href?: string;
@@ -140,6 +141,7 @@ export function IconButton({
     'inline-flex size-11 shrink-0 items-center justify-center rounded-btn border-0',
     plain ? 'bg-transparent' : 'bg-bg2',
     active ? 'text-danger' : 'text-text',
+    'press',
     FOCUS,
     className,
   );
@@ -159,7 +161,7 @@ export function IconButton({
       className={classes}
       {...rest}
     >
-      <Icon name={icon} />
+      <Icon name={icon} filled={active} />
     </button>
   );
 }

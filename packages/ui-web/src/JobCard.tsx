@@ -1,7 +1,9 @@
 // .card.tight + .job-t + .slots: карточка заявки в ленте (S13, D13). Строки приходят готовыми —
 // бюджет, «5 мин назад», место и счётчик откликов форматирует экран (@sosed/i18n), компонент
 // раскладывает их по макету: заголовок и бюджет, бейджи срочности и категории, начало описания,
-// до трёх превью и строка «место · полоски мест» (на узком экране места — второй строкой).
+// до трёх превью, строка «место и время» и полоски мест. Раскладка не зависит от длины текстов:
+// у бейджей вся строка, время справа от места, места всегда своей строкой — на 375 px и в sr-Latn
+// карточки ленты одинаковые.
 import type { MouseEvent } from 'react';
 
 import type { BadgeTone } from './Badge.tsx';
@@ -73,15 +75,12 @@ export function JobCard({
           <Price>{budget}</Price>
         )}
       </span>
-      <span className="flex items-center justify-between gap-3">
-        <span className="flex min-w-0 flex-wrap gap-1.5">
-          {badges.map((badge) => (
-            <Badge key={badge.label} tone={badge.tone} icon={badge.icon}>
-              {badge.label}
-            </Badge>
-          ))}
-        </span>
-        <span className="shrink-0 text-cap text-text2">{time}</span>
+      <span className="flex flex-wrap gap-1.5">
+        {badges.map((badge) => (
+          <Badge key={badge.label} tone={badge.tone} icon={badge.icon}>
+            {badge.label}
+          </Badge>
+        ))}
       </span>
       {description && <span className="line-clamp-3 text-sm text-text2">{description}</span>}
       {photos.length > 0 && (
@@ -98,34 +97,35 @@ export function JobCard({
           ))}
         </span>
       )}
-      {/* место не сжимается: не хватает строки — места уходят на вторую, вправо */}
-      <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+      {/* длинный район обрезается, время всегда целиком справа */}
+      <span className="flex items-center justify-between gap-3 text-cap text-text2">
         {place && (
-          <span className="flex max-w-full shrink-0 items-center gap-1.5 text-cap text-text2">
+          <span className="flex min-w-0 items-center gap-1.5">
             <Icon name="pin" size={16} className="shrink-0" />
             <span className="truncate">{place}</span>
           </span>
         )}
-        <span className="ml-auto flex shrink-0 items-center gap-1.5">
-          <span aria-hidden="true" className="flex gap-0.75">
-            {Array.from({ length: slots.total }, (_, index) => (
-              <i
-                key={index}
-                className={cx(
-                  'h-1.5 w-3.5 rounded-full',
-                  index < slots.taken ? 'bg-accent' : 'bg-line',
-                )}
-              />
-            ))}
-          </span>
-          <span className="text-cap text-text2">{slots.label}</span>
+        <span className="ml-auto shrink-0">{time}</span>
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span aria-hidden="true" className="flex gap-0.75">
+          {Array.from({ length: slots.total }, (_, index) => (
+            <i
+              key={index}
+              className={cx(
+                'h-1.5 w-3.5 rounded-full',
+                index < slots.taken ? 'bg-accent' : 'bg-line',
+              )}
+            />
+          ))}
         </span>
+        <span className="text-cap text-text2">{slots.label}</span>
       </span>
     </>
   );
   const classes = 'flex flex-col gap-2 rounded-card bg-surface p-4 text-text';
   return href ? (
-    <a href={href} onClick={onOpen} className={cx(classes, FOCUS)}>
+    <a href={href} onClick={onOpen} className={cx(classes, 'press-card', FOCUS)}>
       {content}
     </a>
   ) : (

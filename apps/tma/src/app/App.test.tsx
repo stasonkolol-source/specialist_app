@@ -277,7 +277,7 @@ describe('S48 legal documents (1.5a)', () => {
     const { app, telegram } = start('/legal/terms');
 
     expect(await screen.findByRole('heading', { name: 'Правила площадки', level: 1 })).toBeTruthy();
-    expect(await screen.findByText('Редакция draft-1 от 27 сентября 2026')).toBeTruthy();
+    expect(await screen.findByText('Редакция от 27 сентября 2026')).toBeTruthy();
     expect(screen.queryByRole('navigation', { name: 'Разделы' })).toBeNull();
     expect(telegram.callsOf('web_app_setup_back_button').at(-1)).toMatchObject({
       is_visible: true,
@@ -387,6 +387,29 @@ describe('S49 system states (1.5a)', () => {
     // «Обжаловать» (2.5b) — только при частичной санкции: вход закрыт, сессии для запроса нет
     expect(screen.queryByRole('button', { name: 'Обжаловать' })).toBeNull();
     expect(mainButtonShown(telegram)).toBe(false);
+  });
+
+  it('starts loading the S49b texts with the restriction, not after its screen chunk', async () => {
+    server.use(
+      http.post('*/api/v1/auth/telegram', () =>
+        problem(403, 'restricted', { restriction: 'banned', until: null }),
+      ),
+    );
+    // без рендера: неймспейс service не запросят ни экран S49b, ни фоновая догрузка оболочки
+    const app = assemble(createMockPlatform({ languageCode: 'ru' }).platform, {
+      version: '0.1.0',
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+      baseUrl: API_ORIGIN,
+    });
+    const load = vi.spyOn(app.i18n, 'loadNamespaces');
+
+    await app.signIn();
+
+    expect(load).toHaveBeenCalledWith('service');
+    await waitFor(() => expect(app.i18n.hasLoadedNamespace('service')).toBe(true));
+    expect(app.i18n.getFixedT('ru', 'service')('restricted.title', { kind: 'banned' })).toBe(
+      'Аккаунт заблокирован',
+    );
   });
 
   it('opens S49b when an action is refused by a partial restriction', async () => {

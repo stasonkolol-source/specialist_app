@@ -116,7 +116,7 @@ function Loading({ preview }: { preview: SpecialistCardOut | undefined }) {
       {preview ? (
         <Card as="section">
           <PreviewHead card={preview} />
-          <Skeleton radius="panel" className="h-11 w-full" />
+          <Skeleton radius="field" className="h-11 w-full" />
         </Card>
       ) : (
         <SkeletonCard>
@@ -128,7 +128,7 @@ function Loading({ preview }: { preview: SpecialistCardOut | undefined }) {
               <SkeletonText size="cap" className="w-1/2" />
             </div>
           </div>
-          <Skeleton radius="panel" className="h-11 w-full" />
+          <Skeleton radius="field" className="h-11 w-full" />
         </SkeletonCard>
       )}
       <SkeletonText size="h3" screen className="w-1/3" />
