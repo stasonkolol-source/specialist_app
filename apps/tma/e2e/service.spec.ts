@@ -54,7 +54,8 @@ const LOCALES = [
     homeTitle: 'Pronaći ćemo majstora u blizini',
     rules: 'Pravila platforme',
     // после «od» месяц — в родительном падеже (Intl даёт именительный, склоняет format.ts)
-    edition: /^Verzija od 27\. septembra 2026\.?$/,
+    // \s, а не пробел: типограф ставит неразрывный пробел после «od»
+    edition: /^Verzija\sod\s27\.\sseptembra\s2026\.?$/,
     privacyTab: 'Privatnost',
     privacy: 'Politika privatnosti',
     offline: 'Nema veze',
