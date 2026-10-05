@@ -133,7 +133,15 @@ class SqlRatingStore(SqlQuery):
         return True
 
     async def rated_profiles(self) -> list[UUID]:
-        rows = await self._fetch(select(_RA.subject_profile_id))
+        # и профили с опубликованными отзывами без строки рейтинга: отзывы, привязанные к профилю
+        # миграцией reviews_0005 (UXM-12), ночной пересчёт подхватит сам
+        rows = await self._fetch(
+            select(_RA.subject_profile_id).union(
+                select(_R.subject_profile_id).where(
+                    _R.subject_profile_id.is_not(None), *_published()
+                )
+            )
+        )
         return [row["subject_profile_id"] for row in rows]
 
 

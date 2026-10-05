@@ -64,9 +64,15 @@ def _card(hit: SpecialistHit, refs: Mapping[MediaId, MediaRef], now: datetime) -
         price_from=hit.price_from,
         price_from_unit=hit.price_from_unit,
         negotiable=bool(card.get("negotiable")) and hit.price_from is None,
-        rating=None if is_new else hit.rating_bayes,
+        # простое среднее из карточки (UXM-17); строка до пересборки — прежнее байесовское
+        rating=None if is_new else _shown_rating(card, hit),
         rating_count=hit.rating_count,
         is_new=is_new,
         available_until=available if available is not None and available > now else None,
         badges=hit.badges,
     )
+
+
+def _shown_rating(card: Mapping[str, Any], hit: SpecialistHit) -> float | None:
+    shown = card.get("rating")
+    return float(shown) if shown is not None else hit.rating_bayes

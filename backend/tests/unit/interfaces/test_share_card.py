@@ -47,7 +47,10 @@ def translator() -> Translator:
 
 
 def rated(count: int, average: float = 4.87) -> RatingSummary:
-    return RatingSummary(count=count, average=average, distribution=(0, 0, 0, 0, count))
+    """Четвёрки и пятёрки так, чтобы простое среднее звёзд было около `average`: показывают его,
+    а не байесовское (UXM-17)."""
+    fives = round((average - 4) * count)
+    return RatingSummary(count=count, average=average, distribution=(0, 0, 0, count - fives, fives))
 
 
 def test_specialist_card_shows_what_s08_shows(translator: Translator) -> None:
@@ -102,9 +105,9 @@ def test_new_specialist_without_phone_price_or_headline(translator: Translator) 
         (Locale.RU, 111, 4.9, "★ 4,9 — 111 отзывов"),
         (Locale.RU, 1234, 4.9, "★ 4,9 — 1\u00a0234 отзыва"),
         (Locale.SR_LATN, 21, 4.9, "★ 4,9 — 21 utisak"),
-        (Locale.SR_LATN, 3, 4.9, "★ 4,9 — 3 utiska"),
+        (Locale.SR_LATN, 3, 4.67, "★ 4,7 — 3 utiska"),  # у трёх оценок 4,9 не бывает
         (Locale.SR_LATN, 11, 4.9, "★ 4,9 — 11 utisaka"),
-        (Locale.SR_CYRL, 5, 4.9, "★ 4,9 — 5 утисака"),
+        (Locale.SR_CYRL, 5, 4.8, "★ 4,8 — 5 утисака"),
     ],
 )
 def test_rating_line_agrees_with_the_count(

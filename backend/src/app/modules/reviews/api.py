@@ -6,6 +6,7 @@
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Final, Protocol
 from uuid import UUID
 
@@ -29,7 +30,8 @@ class RatingSummary:
 
     count: int
     average: float
-    """Для показа и фильтра «рейтинг от» — байесовское среднее: «4,9»."""
+    """Байесовское среднее — фильтр «рейтинг от» и сортировка «по рейтингу». Не для показа:
+    человек сверяет число со звёздами, а 4×★5 давали «4,7» (UXM-17) — показывают `mean`."""
     lower_bound: float = NO_REVIEWS_LOWER_BOUND
     """Нижняя граница доверительного интервала — ранжирование в поиске."""
     distribution: tuple[int, ...]
@@ -41,6 +43,16 @@ class RatingSummary:
     @property
     def is_new(self) -> bool:
         return self.count < NEW_UNTIL_REVIEWS
+
+    @property
+    def mean(self) -> float:
+        """Показ («4,8»): простое среднее звёзд из гистограммы — ровно то, что видно на S11, — с
+        одним знаком, половина вверх (UXM-17). Без оценок — 0."""
+        total = sum(self.distribution)
+        if not total:
+            return 0.0
+        stars = sum(star * count for star, count in enumerate(self.distribution, start=1))
+        return float((Decimal(stars) / Decimal(total)).quantize(Decimal("0.1"), ROUND_HALF_UP))
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

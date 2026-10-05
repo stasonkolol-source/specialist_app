@@ -82,7 +82,8 @@ class IndexEntry:
     available_until: datetime | None
     activity_score: float
     rating_bayes: float | None
-    """Показ и фильтр «рейтинг от»; без отзывов по сделкам — None."""
+    """Фильтр «рейтинг от» и сортировка «по рейтингу»; без отзывов по сделкам — None. Показ —
+    простое среднее в карточке (`card["rating"]`, UXM-17)."""
     rating_lower_bound: float | None
     """Ранжирование; без отзывов — None (выдача берёт априорную границу)."""
     rating_count: int

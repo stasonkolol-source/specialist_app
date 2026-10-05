@@ -368,6 +368,10 @@ NOTIFY_PASSED_OVER: Final = TaskRef(
     "notifications.notify_passed_over", ResponseAccepted, queue="notifications"
 )
 """Подписчик ResponseAccepted: остальным откликнувшимся — «Клиент выбрал другого исполнителя»."""
+NOTIFY_JOB_CLOSED: Final = TaskRef(
+    "notifications.notify_job_closed", JobClosed, queue="notifications"
+)
+"""Подписчик JobClosed: исполнителям, чьи отклики ждали решения, — «Заявку закрыли» (MU-11)."""
 NOTIFY_DEAL_PROPOSED: Final = TaskRef(
     "notifications.notify_deal_proposed", DealProposed, queue="notifications"
 )

@@ -1,9 +1,11 @@
 """Ссылка-приглашение прошлому клиенту (POST /me/profile/review-invites, S55; DEVELOPMENT_PLAN
 7.6а): только у опубликованного профиля — иначе ссылку некому открыть; не больше пяти занятых
-мест (409 `review_invites_full`), считаются под advisory lock профиля."""
+мест (409 `review_invites_full`), считаются под advisory lock профиля. Санкция на публикацию
+(posting_blocked) — 403 `restricted`, как у правок профиля и прайса (SEC-01)."""
 
 from dataclasses import dataclass
 
+from app.modules.identity.api import Action, IdentityApi
 from app.modules.reviews.application.ports import ReviewInvites
 from app.modules.reviews.domain.invite import ReviewInvite, new_token
 from app.modules.reviews.errors import ReviewInvitesUnavailableError
@@ -24,11 +26,19 @@ class CreateReviewInviteCommand:
 
 class CreateReviewInvite:
     def __init__(
-        self, uow: UnitOfWork, invites: ReviewInvites, specialists: SpecialistsApi, clock: Clock
+        self,
+        uow: UnitOfWork,
+        invites: ReviewInvites,
+        specialists: SpecialistsApi,
+        clock: Clock,
+        identity: IdentityApi,
     ) -> None:
         self._uow, self._invites, self._specialists, self._clock = uow, invites, specialists, clock
+        self._identity = identity
 
     async def __call__(self, cmd: CreateReviewInviteCommand) -> ReviewInvite:
+        # санкция на публикацию и галочка S02c — как у правок профиля и прайса (SEC-01)
+        await self._identity.ensure_allowed(cmd.actor_id, Action.POST)
         profile = await self._specialists.profile_of(cmd.actor_id)
         if profile is None or profile.status != PUBLISHED:
             raise ReviewInvitesUnavailableError()

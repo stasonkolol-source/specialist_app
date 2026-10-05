@@ -129,7 +129,7 @@ INVENTORY: dict[tuple[str, str], tuple[Scope, str]] = {
     # отклики и шаблоны
     ("GET", "/responses/{response_id}"): (
         "owner",
-        f"{RESPONSES}::test_revising_and_withdrawing_bump_the_job_version",
+        f"{RESPONSES}::test_authz_owner_reads_a_response_strangers_do_not",
     ),
     ("PATCH", "/responses/{response_id}"): ("owner", f"{DEALS}::{STRANGERS}"),
     ("POST", "/responses/{response_id}/withdraw"): (

@@ -270,6 +270,26 @@ class SqlJobQueries(SqlQuery):
         )
         return [UserId(row["performer_id"]) for row in rows]
 
+    async def closed_with(self, job_id: JobId) -> tuple[str, list[UserId]] | None:
+        # удалённую заявку тоже: удаление открытой закрывает её отклики (Job.delete)
+        job = await self._fetch_one(
+            select(_J.title, _J.closed_at).where(
+                _J.id == job_id, _J.status == JobStatus.CLOSED.value
+            )
+        )
+        if job is None:
+            return None
+        # закрытие ставит откликам decided_at = closed_at: только они, без давно не выбранных
+        rows = await self._fetch(
+            select(_R.performer_id).where(
+                _R.job_id == job_id,
+                _R.deleted_at.is_(None),
+                _R.status == ResponseStatus.NOT_SELECTED.value,
+                _R.decided_at == job["closed_at"],
+            )
+        )
+        return job["title"], [UserId(row["performer_id"]) for row in rows]
+
     async def is_invited(self, job_id: JobId, performer_id: UserId) -> bool:
         row = await self._fetch_one(
             select(_I.job_id).where(_I.job_id == job_id, _I.performer_id == performer_id).limit(1)
@@ -298,6 +318,20 @@ class SqlJobQueries(SqlQuery):
                 _R.id == response_id,
                 _R.performer_id == performer_id,
                 _R.deleted_at.is_(None),
+            )
+        )
+        return _my_response(row) if row is not None else None
+
+    async def owner_response(self, client_id: UserId, response_id: ResponseId) -> MyResponse | None:
+        row = await self._fetch_one(
+            select(*_RESPONSE, _IS_FIRST, *_RESPONSE_JOB)
+            .join_from(ResponseRow, JobRow, _J.id == _R.job_id)
+            .where(
+                _R.id == response_id,
+                _J.client_id == client_id,
+                _R.review == ResponseReview.CLEAR.value,
+                _R.deleted_at.is_(None),
+                _J.deleted_at.is_(None),
             )
         )
         return _my_response(row) if row is not None else None
@@ -487,6 +521,7 @@ _RESPONSE = (
     _R.profile_id,
     _R.status,
     _R.review,
+    _R.revision,
     _R.message,
     _R.price_type,
     _R.price_amount,
@@ -528,9 +563,11 @@ def _my_response(row: RowMapping) -> MyResponse:
     district = row["district_id"]
     return MyResponse(
         id=ResponseId(row["id"]),
+        performer_id=UserId(row["performer_id"]),
         status=ResponseStatus(row["status"]),
         review=ResponseReview(row["review"]),
         offer=_offer(row),
+        revision=row["revision"],
         is_first=bool(row["is_first"]),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
@@ -563,6 +600,7 @@ def _owner_response(row: RowMapping) -> OwnerResponse:
         profile_id=row["profile_id"],
         status=ResponseStatus(row["status"]),
         offer=_offer(row),
+        revision=row["revision"],
         is_first=bool(row["is_first"]),
         created_at=row["created_at"],
         updated_at=row["updated_at"],

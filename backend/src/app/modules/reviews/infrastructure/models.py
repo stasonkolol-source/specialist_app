@@ -139,7 +139,7 @@ class RatingAggregateRow(Base):
     rating_avg: Mapped[Decimal] = mapped_column(Numeric(3, 2))
     """Простое среднее."""
     rating_bayes: Mapped[Decimal] = mapped_column(Numeric(4, 3))
-    """Байесовское среднее: показ («4,9») и фильтр «рейтинг от»."""
+    """Байесовское среднее: фильтр «рейтинг от» и сортировка; показ — простое среднее (UXM-17)."""
     rating_lower_bound: Mapped[Decimal] = mapped_column(Numeric(4, 3))
     """Нижняя граница доверительного интервала: ранжирование."""
     distribution: Mapped[list[int]] = mapped_column(

@@ -109,6 +109,10 @@ from app.modules.jobs.application.use_cases.shortlist_response import (
     ShortlistResponseCommand,
 )
 from app.modules.jobs.application.use_cases.show_job import JobDetails, ShowJob, ShowJobCommand
+from app.modules.jobs.application.use_cases.show_response import (
+    ShowResponse,
+    ShowResponseCommand,
+)
 from app.modules.jobs.application.use_cases.unsave_job import UnsaveJob, UnsaveJobCommand
 from app.modules.jobs.application.use_cases.update_template import (
     UpdateTemplate,
@@ -595,10 +599,18 @@ def _language(locale: Locale) -> str:
 )
 @inject
 async def get_response(
-    response_id: ResponsePath, principal: FromDishka[Principal], queries: FromDishka[JobQueries]
+    response_id: ResponsePath,
+    principal: FromDishka[Principal],
+    show: FromDishka[ShowResponse],
+    response: Response,
 ) -> MyResponseOut:
-    """Свой отклик с заявкой — форма правки S16; чужой — 404."""
-    return await _my_response(queries, principal.user_id, ResponseId(response_id))
+    """Отклик с заявкой: исполнителю — свой (форма правки S16), владельцу заявки — видимый ему в
+    S23; остальным — 404. ETag — редакция предложения: If-Match при выборе исполнителем."""
+    found = await show(
+        ShowResponseCommand(actor_id=principal.user_id, response_id=ResponseId(response_id))
+    )
+    set_etag(response, found.revision)
+    return MyResponseOut.of(found)
 
 
 @router.patch(
@@ -651,11 +663,19 @@ async def accept_response(
     accept: FromDishka[AcceptResponse],
     show: FromDishka[ShowJob],
     response: Response,
+    expected_revision: IfMatch,
 ) -> AcceptedOut:
     """Выбрать исполнителем: создана сделка `agreed`, заявка «в работе», остальные отклики — «не
-    выбран». Заявка не опубликована или отклик уже решён — 409."""
+    выбран». Заявка не опубликована или отклик уже решён — 409. `If-Match: "<revision>"` —
+    редакция предложения, которую клиент видел (ETag отклика, `revision` в response-cards):
+    исполнитель успел поправить — 409 `offer_changed` с нынешними `revision`, `price_type` и
+    `price_amount`. Без заголовка — без сверки."""
     accepted = await accept(
-        AcceptResponseCommand(actor_id=principal.user_id, response_id=ResponseId(response_id))
+        AcceptResponseCommand(
+            actor_id=principal.user_id,
+            response_id=ResponseId(response_id),
+            expected_revision=expected_revision,
+        )
     )
     job = await _own(show, accepted.job_id, principal.user_id, response)
     return AcceptedOut(deal_id=accepted.deal_id, job=job)

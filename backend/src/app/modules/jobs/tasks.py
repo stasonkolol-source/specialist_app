@@ -4,6 +4,8 @@
   точная точка и адрес стираются (§7.10).
 - `jobs.withdraw_performer_responses` — UserDeleted: его активные отклики отзываются, места на
   чужих заявках освобождаются (5.4).
+- `jobs.release_blocked_responses` — UserBlocked: отклики одного на заявки другого освобождают
+  места; заблокированному — «не выбран», без уведомления (MU-3).
 - `jobs.announce_direct_request` — JobPublished прямого запроса: приглашённому — JobInvited (5.6).
 - `jobs.reopen_job` — DealCancelled сделки из отклика: заявка снова открыта (6.1a).
 - `jobs.complete_job` — DealCompleted сделки из отклика: заявка завершена (6.1a).
@@ -23,6 +25,7 @@ from app.modules.jobs.application.ports import (
     FORGET_ALERTS,
     FORGET_CLIENT_JOBS,
     MATCH_ALERTS,
+    RELEASE_BLOCKED_RESPONSES,
     REOPEN_JOB,
     WITHDRAW_PERFORMER_RESPONSES,
 )
@@ -44,6 +47,10 @@ from app.modules.jobs.application.use_cases.match_alerts import (
     MatchAlerts,
     MatchAlertsCommand,
 )
+from app.modules.jobs.application.use_cases.release_blocked_responses import (
+    ReleaseBlockedResponses,
+    ReleaseBlockedResponsesCommand,
+)
 from app.modules.jobs.application.use_cases.remind_expiring_jobs import (
     RemindExpiringJobs,
     RemindExpiringJobsCommand,
@@ -60,7 +67,7 @@ from app.modules.jobs.application.use_cases.withdraw_performer_responses import 
 from app.modules.jobs.domain.job import JobId
 from app.modules.jobs.domain.response import ResponseId
 from app.platform.contracts.events.deals import DealCancelled, DealCompleted
-from app.platform.contracts.events.identity import UserDeleted
+from app.platform.contracts.events.identity import UserBlocked, UserDeleted
 from app.platform.contracts.events.jobs import JobPublished
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber
 
@@ -75,6 +82,15 @@ async def withdraw_performer_responses(
     event: UserDeleted, withdraw: FromDishka[WithdrawPerformerResponses]
 ) -> None:
     await withdraw(WithdrawPerformerResponsesCommand(user_id=event.user_id))
+
+
+@subscriber(UserBlocked, RELEASE_BLOCKED_RESPONSES)
+async def release_blocked_responses(
+    event: UserBlocked, release: FromDishka[ReleaseBlockedResponses]
+) -> None:
+    await release(
+        ReleaseBlockedResponsesCommand(blocker_id=event.blocker_id, blocked_id=event.blocked_id)
+    )
 
 
 @subscriber(JobPublished, ANNOUNCE_DIRECT_REQUEST)

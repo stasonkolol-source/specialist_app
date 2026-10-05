@@ -142,6 +142,41 @@ async def test_chosen_and_passed_over_performers_hear_about_it(
     assert await world.notifications(client) == []
 
 
+@pytest.mark.parametrize("how", ["close", "delete"])
+async def test_closed_job_tells_waiting_performers_it_was_closed(
+    world: World, worker: AsyncContainer, how: str
+) -> None:
+    """MU-11: клиент закрыл («Уже не нужно») или удалил заявку — откликнувшимся «Заявку закрыли»,
+    отозвавшему отклик раньше — ничего."""
+    client, waiting, gone = await world.user(), await world.user(), await world.user()
+    job_id = await world.job(client)
+    await world.response(waiting, job_id)
+    await world.post(gone, f"/responses/{await world.response(gone, job_id)}/withdraw")
+
+    if how == "close":
+        await world.post(client, f"/jobs/{job_id}/close", {"reason": "not_needed"})
+    else:
+        deleted = await world.app.client.delete(
+            f"{API}/jobs/{job_id}", headers=bearer(world.settings, client)
+        )
+        assert deleted.status_code == 204, deleted.text
+    task = "notifications.notify_job_closed"
+    assert await run_queued(worker, task, user_id=client, by="client_id") == 1
+
+    assert await world.notifications(waiting) == [
+        (
+            "response.not_selected",
+            {
+                "params": {"title": "Повесить люстру", "reason": "job_closed"},
+                "link": None,
+                "urgent": False,
+            },
+        )
+    ]
+    assert await world.notifications(gone) == []
+    assert await world.notifications(client) == []
+
+
 async def test_cancellation_reaches_the_other_party(world: World, worker: AsyncContainer) -> None:
     client, performer = await world.user(), await world.user()
     job_id = await world.job(client)

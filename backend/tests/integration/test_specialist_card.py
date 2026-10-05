@@ -175,7 +175,7 @@ async def test_reviews_page_and_card_show_the_rating(web: HttpApp) -> None:
         "next_cursor": None,
         "pre_platform_count": 0,
     }
-    # агрегат пересчитывают отзывы по сделкам (7.2) — здесь строкой; показ — байесовское среднее
+    # агрегат пересчитывают отзывы по сделкам (7.2) — здесь строкой; показ — простое среднее звёзд
     await specialist.execute(
         "INSERT INTO reviews.rating_aggregates (subject_profile_id, rating_count, rating_avg,"
         " rating_bayes, rating_lower_bound, distribution, criteria_avg) VALUES (:id, 37, 4.92,"
@@ -195,6 +195,30 @@ async def test_reviews_page_and_card_show_the_rating(web: HttpApp) -> None:
         "criteria": {"quality": 4.9, "price": 4.8},
     }
     assert (card["rating"], card["rating_count"], card["is_new"]) == (4.9, 37, False)
+
+
+@pytest.mark.parametrize(
+    ("distribution", "shown"), [("{0,0,0,0,4}", 5.0), ("{0,0,2,2,1}", 3.8)], ids=["5555", "mixed"]
+)
+async def test_shown_rating_is_the_plain_mean_of_the_stars(
+    web: HttpApp, distribution: str, shown: float
+) -> None:
+    """UXM-17: 4×★5 — «5,0», а не байесовские «4,7»; оценки 5, 4, 4, 3, 3 — «3,8», а не «4,2».
+    Байесовское среднее остаётся фильтру «рейтинг от» и сортировке."""
+    specialist = await published(web)
+    await specialist.execute(
+        "INSERT INTO reviews.rating_aggregates (subject_profile_id, rating_count, rating_avg,"
+        " rating_bayes, rating_lower_bound, distribution, criteria_avg) VALUES (:id, :count,"
+        " 4.0, 4.5, 3.9, CAST(:distribution AS smallint[]), '{}'::jsonb)",
+        id=specialist.profile_id,
+        count=sum(int(n) for n in distribution.strip("{}").split(",")),
+        distribution=distribution,
+    )
+
+    summary = (await get(web, f"{specialist.profile_id}/reviews")).json()["summary"]
+    card = (await get(web, str(specialist.profile_id))).json()
+
+    assert (summary["rating"], card["rating"]) == (shown, shown)
 
 
 @pytest.mark.authz

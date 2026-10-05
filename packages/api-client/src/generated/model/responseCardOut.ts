@@ -19,5 +19,7 @@ export interface ResponseCardOut {
   /** Клиент ещё не видел этот отклик */
   is_new: boolean;
   created_at: string;
+  /** Редакция предложения: If-Match при выборе (POST /responses/{id}/accept); исполнитель успел поправить — 409 offer_changed */
+  revision: number;
   performer: ResponsePerformerCardOut;
 }

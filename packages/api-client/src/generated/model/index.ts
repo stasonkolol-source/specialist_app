@@ -149,6 +149,7 @@ export * from './jobPointIn.ts';
 export * from './jobPointOut.ts';
 export * from './jobResponseOut.ts';
 export * from './jobResponsesOut.ts';
+export * from './jobsAcceptResponseHeaders.ts';
 export * from './jobsCountJobsParams.ts';
 export * from './jobsCountOut.ts';
 export * from './jobsCreateJobAlertHeaders.ts';

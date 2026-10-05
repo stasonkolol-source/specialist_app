@@ -58,9 +58,12 @@ class ResponseJob:
 @dataclass(frozen=True, slots=True, kw_only=True)
 class MyResponse:
     id: ResponseId
+    performer_id: UserId
     status: ResponseStatus
     review: ResponseReview
     offer: Offer
+    revision: int
+    """Редакция предложения — ETag отклика: клиент передаёт её в If-Match при выборе (ADV-08)."""
     is_first: bool
     """Первый отклик на заявку — «Первый отклик» на S17 и «Откликнулся первым» на S23."""
     created_at: datetime
@@ -86,6 +89,8 @@ class OwnerResponse:
     profile_id: UUID | None
     status: ResponseStatus
     offer: Offer
+    revision: int
+    """Редакция предложения: If-Match при выборе (ADV-08)."""
     is_first: bool
     created_at: datetime
     updated_at: datetime

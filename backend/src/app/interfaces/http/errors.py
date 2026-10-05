@@ -25,6 +25,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.interfaces.http.client import DEFAULT_LOCALE
+from app.platform.i18n.dates import wait_phrase
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.errors import (
     ConflictError,
@@ -154,6 +155,7 @@ def install_error_handlers(app: FastAPI, problems: Problems) -> None:
             raise exc  # DomainError вне таблицы §9 — 500 в middleware
         trace_id = trace_id_of(request)
         headers: dict[str, str] = {}
+        params: dict[str, object] = dict(exc.params)
         extensions: dict[str, Any] = {
             name: exc.params[name] for name in exc.public_params if name in exc.params
         }
@@ -167,6 +169,8 @@ def install_error_handlers(app: FastAPI, problems: Problems) -> None:
                     until.astimezone(UTC).isoformat().replace("+00:00", "Z") if until else None
                 )
             case RateLimitedError(retry_after=retry_after, limit=limit):
+                # сколько ждать — словами языка: «через 24 часа», а не «85153 с.» (MU-9)
+                params = {**params, "wait": wait_phrase(retry_after, locale_of(request))}
                 headers["Retry-After"] = str(retry_after)
                 headers["RateLimit-Remaining"] = "0"
                 headers["RateLimit-Reset"] = str(retry_after)
@@ -181,7 +185,7 @@ def install_error_handlers(app: FastAPI, problems: Problems) -> None:
             exc.code,
             trace_id=trace_id,
             locale=locale_of(request),
-            params=exc.params,
+            params=params,
             headers=headers,
             **extensions,
         )

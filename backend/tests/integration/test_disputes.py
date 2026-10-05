@@ -6,6 +6,7 @@
 """
 
 import json
+import re
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -502,6 +503,34 @@ async def test_contacts_stay_open_under_dispute(world: World) -> None:
 
     assert phone.status_code == 201, phone.text
     assert (phone.json()["masked"], phone.json()["body"]) == (False, "Мой номер +381 64 123 4567")
+
+
+async def test_only_opened_disputes_count_against_the_daily_limit(world: World) -> None:
+    """MU-9: отказы 404 и 409 лимит «пять споров в сутки» не тратят; шестой открытый — 429, и
+    срок в тексте словами, а не «85153 с.»."""
+    client = await world.user()
+    deals = [await world.deal(client, await world.user()) for _ in range(6)]
+    others = await world.deal(await world.user(), await world.user())
+    body = {"kind": "no_show", "description": NO_SHOW, "media_ids": []}
+    for _ in range(3):
+        outsider = await world.post(client, f"/deals/{others}/dispute", body)
+        assert outsider.status_code == 404, outsider.text
+    await world.dispute(client, deals[0])
+    for _ in range(3):
+        twice = await world.post(client, f"/deals/{deals[0]}/dispute", body)
+        assert twice.status_code == 409, twice.text
+
+    for deal_id in deals[1:5]:
+        await world.dispute(client, deal_id)  # всего открыто пять — все прошли
+    over = await world.post(client, f"/deals/{deals[5]}/dispute", body)
+
+    assert (over.status_code, over.json()["code"]) == (429, "daily_disputes_limit")
+    assert int(over.headers["Retry-After"]) > 0
+    detail = over.json()["detail"]
+    assert detail.startswith("Сегодня вы открыли слишком много споров. Попробуйте через ")
+    assert re.search(r"\d+ с\.", detail) is None
+    card = (await world.get(client, f"/deals/{deals[5]}/card")).json()
+    assert card["status"] == "agreed"  # спор не создан
 
 
 @pytest.mark.authz
