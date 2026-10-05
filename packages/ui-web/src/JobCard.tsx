@@ -67,8 +67,10 @@ export function JobCard({
 }: JobCardProps) {
   const content = (
     <>
-      <span className="flex items-start justify-between gap-3">
-        <Title className="m-0 text-title">{title}</Title>
+      {/* заголовку — не меньше 60 % строки: широкий бюджет («8 000–12 000 RSD») уходит под него,
+          а не сжимает длинный заголовок в колонку в 6–8 строк (UXM-16); узкий стоит справа, как был */}
+      <span className="flex flex-wrap items-start justify-between gap-x-3 gap-y-0.5">
+        <Title className="m-0 min-w-0 flex-[1_1_60%] text-title">{title}</Title>
         {negotiable ? (
           <span className="shrink-0 font-semibold whitespace-nowrap text-text2">{budget}</span>
         ) : (
