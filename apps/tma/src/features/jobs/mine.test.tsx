@@ -107,8 +107,10 @@ describe('S23 manage job', () => {
     expect(within(first).getByText('Лиман')).toBeTruthy();
     expect(within(first).getByText('Откликнулся первым')).toBeTruthy();
     expect(within(first).getByText('Телефон подтверждён')).toBeTruthy();
-    // непросмотренный отклик — точкой у имени, не бейджем «Новый» рядом с 37 отзывами
-    expect(within(first).getByRole('img', { name: 'Новый отклик' })).toBeTruthy();
+    // непросмотренный отклик — точкой у имени, не бейджем «Новый» рядом с 37 отзывами; точка
+    // держится за последнее слово имени, перенос её не отрывает
+    const dot = within(first).getByRole('img', { name: 'Новый отклик' });
+    expect(dot.parentElement?.textContent).toBe('Морозов ');
     expect(within(first).queryByText('Новый')).toBeNull();
     const casual = screen.getByRole('link', { name: /^Иван Гаврилов/ });
     expect(within(casual).getByText('Новый специалист')).toBeTruthy();

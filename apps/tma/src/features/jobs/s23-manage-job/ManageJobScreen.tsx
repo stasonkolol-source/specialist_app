@@ -393,10 +393,7 @@ function ResponseCard({ jobId, card }: { jobId: string; card: ResponseCardOut })
         <Avatar name={name} src={avatar?.url} placeholder={performer.avatar?.placeholder} />
         <div className="flex min-w-0 grow flex-col gap-1">
           <div className="flex items-start justify-between gap-2">
-            <span className="flex min-w-0 items-center gap-1.5">
-              <span className="text-title">{name}</span>
-              {card.is_new && <UnreadDot label={t('manage.newResponse')} />}
-            </span>
+            <Name name={name} unread={card.is_new ? t('manage.newResponse') : null} />
             <Price>{price}</Price>
           </div>
           {/* «Новый специалист» — в строке рейтинга, отдельным бейджем не повторяем */}
@@ -428,6 +425,23 @@ function ResponseCard({ jobId, card }: { jobId: string; card: ResponseCardOut })
         </div>
       )}
     </Card>
+  );
+}
+
+/** Имя исполнителя; непросмотренный отклик — точкой сразу за последним словом: имя не
+ *  переносится из-за точки раньше времени, а при переносе точка уходит вместе с этим словом. */
+function Name({ name, unread }: { name: string; unread: string | null }) {
+  if (!unread) return <span className="text-title">{name}</span>;
+  const last = name.lastIndexOf(' ') + 1;
+  return (
+    <span className="text-title">
+      {name.slice(0, last)}
+      {/* пробел перед точкой (в nowrap не переносится) — отступ и граница слов для скринридера;
+          точка 8 px стоит на базовой линии — её середина на высоте строчных букв */}
+      <span className="whitespace-nowrap">
+        {name.slice(last)} <UnreadDot label={unread} />
+      </span>
+    </span>
   );
 }
 
