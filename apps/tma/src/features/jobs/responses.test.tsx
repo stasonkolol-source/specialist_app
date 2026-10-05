@@ -172,6 +172,23 @@ describe('S16 respond', () => {
     expect(backend.templates[0]?.title).toBe('Перевезу аккуратно, есть помощник');
   });
 
+  // ADV-10: поле выбрасывало всё, кроме цифр, — «1.500,00» становилось 150 000 RSD
+  it('reads a pasted price with kopecks as whole dinars, not ×100', async () => {
+    const backend = withJobs();
+    const { telegram } = startApp(`/jobs/${MOVING.card.id}/respond`);
+    const message = await screen.findByRole('textbox', { name: 'Сообщение клиенту' });
+    await type(message, 'Добрый день! Перевезу аккуратно, есть помощник.');
+    const price = screen.getByRole<HTMLInputElement>('textbox', { name: 'Цена, RSD' });
+    await type(price, '1.500,00');
+    expect(price.value).toMatch(/^1\s500,$/u);
+    await type(price, '1500.00');
+    expect(price.value).toMatch(/^1\s500,$/u);
+    await pressMainButton(telegram);
+
+    await waitFor(() => expect(backend.responsePosts).toHaveLength(1));
+    expect(backend.responsePosts[0]?.body).toMatchObject({ price_amount: 150_000 });
+  });
+
   it('shows the server text when the job is already full', async () => {
     const backend = withJobs((it) => {
       it.templates = templatesFixture();

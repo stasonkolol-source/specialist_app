@@ -15,11 +15,10 @@ import {
   useCategories,
   useCities,
 } from '@sosed/hooks';
-import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
+import { moneyInput, useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { Banner, Chip, Chips, Field, Input, Segmented, Text } from '@sosed/ui-web';
 import { useState } from 'react';
 
-import { groupDigits } from '../shared/amount.ts';
 import { findCategory } from '../shared/categories.ts';
 import { useJobDraft } from '../shared/draft.ts';
 import { useCreateFlow, useStepButton } from '../shared/flow.ts';
@@ -140,6 +139,7 @@ function Amounts({
   problems: readonly string[];
 }) {
   const { t } = useTranslation('jobs');
+  const locale = useLocale();
   const amount = (
     label: string,
     value: string,
@@ -149,9 +149,9 @@ function Amounts({
     <Field label={label} error={error}>
       <Input
         inputMode="numeric"
-        value={groupDigits(value)}
+        value={moneyInput(value, locale)}
         suffix={t('create.budget.currency')}
-        onChange={(event) => onChange(groupDigits(event.target.value))}
+        onChange={(event) => onChange(moneyInput(event.target.value, locale))}
       />
     </Field>
   );
