@@ -1357,6 +1357,9 @@ msgstr "проверка фото не состоялась"
 msgid "bot.moderation.event.photo_flagged"
 msgstr "фото: флаг автопроверки"
 
+msgid "bot.moderation.event.photo_review"
+msgstr "фото на проверку"
+
 msgid "bot.moderation.event.duplicate"
 msgstr "похожее фото у другого аккаунта"
 
@@ -1542,6 +1545,9 @@ msgstr "проверка фото не состоялась"
 
 msgid "bot.moderation.why.image_flagged"
 msgstr "фото: флаг провайдера"
+
+msgid "bot.moderation.why.image_manual"
+msgstr "автопроверки фото нет — смотрит человек"
 
 msgid "bot.moderation.why.duplicate"
 msgstr "похожее фото в портфолио другого аккаунта ({count})"

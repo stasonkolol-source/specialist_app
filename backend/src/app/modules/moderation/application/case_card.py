@@ -113,6 +113,8 @@ ADMIN_CASE_PAGE: Final = "/decide-case"
 """Страница кейса в админке (2.7b): решение, а у спора — и доказательства (с записью в аудит)."""
 
 _TAG: Final = re.compile(r"<[^>]*>")
+_MANUAL_IMAGES: Final = frozenset({"image:unavailable:no_key", "image:unavailable:not_configured"})
+"""Фото без автопроверки по решению (ключа AI нет): это не сбой, а обычная ручная проверка."""
 _DUPLICATE: Final = "portfolio_duplicate"
 
 
@@ -364,6 +366,8 @@ def _event(case: Case, context: CaseContext, texts: _Texts) -> str:
     if case.entity_type is EntityType.MEDIA:
         if context.photo_hidden:
             return texts.t("bot.moderation.event.photo_hidden")
+        if any(signal in _MANUAL_IMAGES for signal in signals):
+            return texts.t("bot.moderation.event.photo_review")  # MVP без ключа AI: всё — человеку
         if any(s == "image:unchecked" or s.startswith("image:unavailable") for s in signals):
             return texts.t("bot.moderation.event.photo_unchecked")
         return texts.t("bot.moderation.event.photo_flagged")
@@ -593,6 +597,8 @@ def _classifier(rest: str, texts: _Texts) -> str:
 def _image(rest: str, texts: _Texts) -> str:
     """Сигнал фото (domain/images.py): категория omni с оценкой или «проверка не состоялась»."""
     t = texts.t
+    if f"image:{rest}" in _MANUAL_IMAGES:
+        return t("bot.moderation.why.image_manual")
     if rest == "unchecked" or rest.startswith("unavailable"):
         return t("bot.moderation.why.image_unchecked")
     if rest == "flagged":

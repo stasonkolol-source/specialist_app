@@ -1358,6 +1358,9 @@ msgstr "provera fotografije nije obavljena"
 msgid "bot.moderation.event.photo_flagged"
 msgstr "fotografija: oznaka automatske provere"
 
+msgid "bot.moderation.event.photo_review"
+msgstr "fotografija za proveru"
+
 msgid "bot.moderation.event.duplicate"
 msgstr "slična fotografija kod drugog naloga"
 
@@ -1543,6 +1546,9 @@ msgstr "provera fotografije nije obavljena"
 
 msgid "bot.moderation.why.image_flagged"
 msgstr "fotografija: oznaka provajdera"
+
+msgid "bot.moderation.why.image_manual"
+msgstr "nema automatske provere fotografije — gleda čovek"
 
 msgid "bot.moderation.why.duplicate"
 msgstr "slična fotografija u portfoliju drugog naloga ({count})"

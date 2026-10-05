@@ -249,6 +249,22 @@ def test_unchecked_photo_card(translator: Translator) -> None:
     assert "📄 <b>Фото заявки</b>" in text
 
 
+def test_photo_without_an_ai_key_is_a_routine_review(translator: Translator) -> None:
+    """MVP без ключа AI: каждое фото — к человеку, и это не «сбой проверки»."""
+    case = opened(
+        EntityType.MEDIA,
+        trigger=CaseTrigger.AUTO_FLAG,
+        signals=("image:unavailable:no_key",),
+        purpose="avatar",
+    )
+    context = CaseContext(subject=SPECIALIST, object=CaseObject(kind="avatar"))
+
+    text = render(case, context, translator)
+
+    assert text.startswith("<b>P2 · Премодерация</b> · фото на проверку")
+    assert "автопроверки фото нет — смотрит человек" in text
+
+
 def test_dispute_card_has_parties_and_no_evidence(translator: Translator) -> None:
     case = Case.open(
         queue=Queue.FRAUD,
