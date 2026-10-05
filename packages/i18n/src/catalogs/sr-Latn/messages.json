@@ -3,7 +3,7 @@
     "title": "Poruke",
     "tabs": {
       "all": "Sve",
-      "client": "Ja sam naručilac",
+      "client": "Ja sam klijent",
       "performer": "Ja sam izvođač"
     },
     "job": "Zahtev: {title}",
@@ -43,7 +43,7 @@
   "chat": {
     "agree": "Dogovorite se",
     "orderAgain": "Naruči ponovo",
-    "orderAgainFailed": "Razgovor nije moguće otvoriti. Pokušajte ponovo",
+    "orderAgainFailed": "Razgovor nije moguće otvoriti. Pokušajte ponovo.",
     "openResponses": "Na ponude",
     "chooseHint": "Izvođač se bira na stranici ponuda zahteva",
     "safety": "Ne plaćajte unapred nepoznatim izvođačima. Platite tek kad posao bude završen.",
@@ -103,7 +103,7 @@
       "safety": "Kontakt će videti samo sagovornik. Nikome ne govorite kodove iz SMS poruka i podatke sa kartice.",
       "submit": "Podeli",
       "later": "Ne sada",
-      "nothing": "Nema šta da se podeli: u Telegram-u nemate korisničko ime, a ovaj Telegram klijent ne ume da pošalje telefon. Ažurirajte Telegram.",
+      "nothing": "U vašem Telegram-u nema korisničkog imena, a ova verzija Telegram-a ne ume da pošalje broj. Podesite korisničko ime u podešavanjima Telegram-a ili ažurirajte aplikaciju.",
       "notSent": "Telefon nije poslat",
       "failed": "Deljenje kontakta nije uspelo. Pokušajte ponovo."
     },
@@ -111,7 +111,7 @@
     "blockConfirm": "Blokirati sagovornika? Neće moći da vam piše niti da šalje ponude na vaše zahteve.",
     "blockedByMe": "Blokirali ste sagovornika. Prepiska je samo za čitanje.",
     "blockedByThem": "Sagovornik nije dostupan: ne možete mu pisati.",
-    "blockFailed": "Nije uspelo. Pokušajte ponovo."
+    "blockFailed": "Blokiranje nije uspelo. Pokušajte ponovo."
   },
   "write": {
     "failed": "Razgovor nije moguće otvoriti. Pokušajte ponovo."

@@ -96,8 +96,8 @@ describe('S08 profile', () => {
     const prices = within(screen.getByRole('region', { name: 'Цены' }));
     expect(prices.getByText('Установка люстры')).toBeTruthy();
     expect(prices.getByText(/^от 2\s500\sRSD$/u)).toBeTruthy();
-    // единица — под суммой: «2 000 RSD / за визит», «от 2 500 RSD / за штуку»
-    expect(prices.getByText('за визит')).toBeTruthy();
+    // единица — под суммой: «2 000 RSD / за выезд», «от 2 500 RSD / за штуку»
+    expect(prices.getByText('за выезд')).toBeTruthy();
     expect(prices.getAllByText('за штуку')).toHaveLength(2);
     expect(prices.getByRole('link', { name: 'Весь прайс · 9' })).toBeTruthy();
     const works = within(screen.getByRole('region', { name: 'Работы' }));
@@ -221,7 +221,7 @@ describe('S09 prices', () => {
     const first = within(groups[0] as HTMLElement);
     // слева — длительность и описание, справа — сумма и под ней единица
     expect(first.getByText('до 1 часа')).toBeTruthy();
-    expect(first.getAllByText('за визит')).toHaveLength(2);
+    expect(first.getAllByText('за выезд')).toHaveLength(2);
     expect(first.getByRole('link', { name: /Мастер на час/ }).textContent).toMatch(
       /^Мастер на часМелкий ремонт2\s000\sRSDза час$/u,
     );

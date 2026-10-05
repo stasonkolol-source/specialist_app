@@ -150,7 +150,9 @@ describe('S23 manage job', () => {
 
     expect(await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeTruthy();
     expect(screen.getByText('Приём откликов')).toBeTruthy();
-    expect(await screen.findByText('Лиман · точный адрес откроется выбранному')).toBeTruthy();
+    expect(
+      await screen.findByText('Лиман. Точный адрес откроется выбранному исполнителю'),
+    ).toBeTruthy();
     expect(screen.getByText(/^5\s000\sRSD · фикс, за работу$/u)).toBeTruthy();
     expect(screen.getByText('12 просмотров')).toBeTruthy();
     expect(screen.getByText('3 из 5')).toBeTruthy();
@@ -201,7 +203,7 @@ describe('S23 manage job', () => {
 
     await click(screen.getByRole('button', { name: /Закрыть заявку/ }));
     const sheet = screen.getByRole('dialog', { name: 'Почему закрываете заявку?' });
-    await click(within(sheet).getByRole('button', { name: 'Нашёл в другом месте' }));
+    await click(within(sheet).getByRole('button', { name: 'Нашёлся в другом месте' }));
 
     await waitFor(() =>
       expect(backend.actions).toEqual([
@@ -257,9 +259,9 @@ describe('S23 edit', () => {
   async function toPreview(telegram: Parameters<typeof pressMainButton>[0]) {
     await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 });
     await click(screen.getByRole('button', { name: 'Изменить' }));
-    expect(await screen.findByText('Шаг 1 из 4 · правка заявки')).toBeTruthy();
+    expect(await screen.findByText('Шаг 1 из 4. Правка заявки')).toBeTruthy();
     expect(screen.getByDisplayValue('Повесить люстру')).toBeTruthy();
-    for (const step of ['Шаг 2 из 4 · правка заявки', 'Шаг 3 из 4 · правка заявки']) {
+    for (const step of ['Шаг 2 из 4. Правка заявки', 'Шаг 3 из 4. Правка заявки']) {
       await pressMainButton(telegram);
       expect(await screen.findByText(step)).toBeTruthy();
     }

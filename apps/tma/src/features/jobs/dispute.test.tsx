@@ -136,7 +136,7 @@ describe('S52 dispute', () => {
       'Не пришёл',
       'Сделал плохо или не то',
       'Взял предоплату или просит больше',
-      'Ущерб, грубость или угрозы',
+      'Грубость или угрозы',
       'Другое',
     ]);
     await waitFor(() => expect(mainButton(telegram)).toMatchObject({ text: 'Отправить' }));
@@ -261,7 +261,10 @@ describe('S52 dispute', () => {
     const { telegram } = startApp(`/deals/${deal.id}/dispute`);
 
     expect(
-      await screen.findByRole('heading', { name: 'Спор открывают по идущей сделке', level: 1 }),
+      await screen.findByRole('heading', {
+        name: 'Спор можно открыть только по текущей сделке',
+        level: 1,
+      }),
     ).toBeTruthy();
     expect(screen.queryByRole('radiogroup')).toBeNull();
     expect(mainButton(telegram)?.is_visible ?? false).toBe(false);

@@ -260,7 +260,7 @@ describe('S14 «Сохранить как подписку» and S13 «По мо
 
     await waitFor(() => expect(app.router.state.location.search).toEqual({ alerts: true }));
     await waitFor(() => expect(jobs.feedRequests.at(-1)?.get('feed')).toBe('alerts'));
-    expect(await screen.findByText(/по подпискам · новые сверху$/)).toBeTruthy();
+    expect(await screen.findByText(/по подпискам, новые сверху$/)).toBeTruthy();
 
     await click(screen.getByRole('button', { name: 'Подписки на новые заявки' }));
     expect(

@@ -22,7 +22,7 @@ export function priceAmount(format: Format, service: CardServiceOut): string {
   return format.price({ ...price, unit: null });
 }
 
-/** Единица позиции для подписи «за час», «за визит»; почасовая — всегда «за час». */
+/** Единица позиции для подписи «за час», «за выезд»; почасовая — всегда «за час». */
 export function serviceUnit(service: CardServiceOut): PriceUnit | null {
   const price = servicePrice(service);
   return price.type === 'hourly' ? 'hour' : (price.unit ?? null);

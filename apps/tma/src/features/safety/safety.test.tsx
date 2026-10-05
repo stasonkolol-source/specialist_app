@@ -73,7 +73,7 @@ describe('S46 report', () => {
     expect(
       done.getByText('Модератор проверит её в течение 2 часов, с 08:00 до 23:00.'),
     ).toBeTruthy();
-    expect(done.getByText(/Вы его заблокировали/)).toBeTruthy();
+    expect(done.getByText(/Этот человек больше не сможет писать вам/)).toBeTruthy();
     expect(safety.reports).toEqual([
       {
         target_type: 'profile',

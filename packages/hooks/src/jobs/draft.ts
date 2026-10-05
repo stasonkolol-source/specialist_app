@@ -31,7 +31,7 @@ export const JOB_PHOTOS_MAX = 6;
 /** Сумма — до 999 999 999 RSD (MAX_BUDGET сервера — миллиард). */
 export const BUDGET_DIGITS = 9;
 
-/** Единицы бюджета на артборде S20c: за работу, за час, за визит. */
+/** Единицы бюджета на артборде S20c: за работу, за час, за выезд. */
 export const DRAFT_UNITS = ['work', 'hour', 'visit'] as const;
 export type DraftUnit = (typeof DRAFT_UNITS)[number];
 /** Языки общения на S20c. */

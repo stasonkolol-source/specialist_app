@@ -126,3 +126,26 @@
     linear-gradient(90deg, rgb(255 255 255 / 0.08) 0 6px, transparent 6px),
     linear-gradient(0deg, rgb(255 255 255 / 0.08) 0 6px, transparent 6px);
 }
+
+/* Переносы (design/copy): в тексте нет одинокого слова в последней строке, заголовки h2/h3, секции
+   и подписи плиток — ровными строками. Крупный h1 (Unbounded) — обычный перенос: «Найдём мастера /
+   рядом» стоит как на артборде. Где свойства нет (старые Safari и WebView), перенос обычный. */
+@layer base {
+  body {
+    text-wrap: pretty;
+  }
+  .text-h1,
+  .text-h1-xl {
+    text-wrap: wrap;
+  }
+  /* в поле ввода pretty перестраивал бы строки на ходу, пока человек печатает */
+  textarea {
+    text-wrap: wrap;
+  }
+  .text-h2,
+  .text-h3,
+  .text-section,
+  .text-tile {
+    text-wrap: balance;
+  }
+}

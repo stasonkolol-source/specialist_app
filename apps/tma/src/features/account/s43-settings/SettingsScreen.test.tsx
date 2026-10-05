@@ -150,7 +150,7 @@ describe('S43 language', () => {
 
       await waitFor(() =>
         expect(screen.getByRole('alert').textContent).toBe(
-          'Не получилось сменить язык. Попробуйте ещё раз',
+          'Не получилось сменить язык. Попробуйте ещё раз.',
         ),
       );
       expect(app.i18n.language).toBe('ru');
@@ -219,7 +219,9 @@ describe('S43 notifications', () => {
     ]);
     expect(checked('checkbox', 'Новости «Соседей» — в боте')).toBe('false');
     expect(checked('switch', 'Тихие часы 22:00–08:00')).toBe('true');
-    expect(within(section).getByText('Срочное и сообщения — сразу')).toBeTruthy();
+    expect(
+      within(section).getByText('Ночью придут только сообщения и срочные заявки'),
+    ).toBeTruthy();
   });
 
   it('shows a tap at once and saves the whole settings', async () => {
@@ -265,7 +267,7 @@ describe('S43 notifications', () => {
 
     await waitFor(() =>
       expect(screen.getByRole('alert').textContent).toBe(
-        'Не удалось сохранить. Попробуйте ещё раз.',
+        'Не получилось сохранить. Попробуйте ещё раз.',
       ),
     );
     expect(checked('checkbox', 'Новости «Соседей» — в приложении')).toBe('false');

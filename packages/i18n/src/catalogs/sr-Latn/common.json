@@ -24,7 +24,8 @@
     "specialist": "stručnjak",
     "client": "klijent",
     "review": "utisak",
-    "gig": "honorarni posao"
+    "gig": "honorarni posao",
+    "performer": "izvođač"
   },
   "action": {
     "next": "Dalje",
@@ -188,11 +189,11 @@
   },
   "error": {
     "title": "Nešto nije u redu",
-    "text": "Pokušajte ponovo. Ako ne pomaže — zatvorite i ponovo otvorite aplikaciju"
+    "text": "Pokušajte ponovo. Ako ne pomaže — zatvorite i ponovo otvorite aplikaciju."
   },
   "update": {
     "telegramTitle": "Ažurirajte Telegram",
-    "telegramText": "U ovoj verziji Telegram-a aplikacija „{appName}“ ne radi. Ažurirajte Telegram i otvorite je ponovo",
+    "telegramText": "Ova verzija Telegram-a je zastarela. Ažurirajte ga u prodavnici aplikacija i ponovo otvorite aplikaciju „{appName}“.",
     "appTitle": "Izašla je nova verzija",
     "appText": "Ponovo učitajte aplikaciju da biste nastavili",
     "reload": "Ponovo učitaj"
@@ -205,7 +206,7 @@
   },
   "maintenance": {
     "title": "Tehnički radovi",
-    "text": "Uskoro se vraćamo. Pokušajte ponovo za nekoliko minuta"
+    "text": "Uskoro se vraćamo. Pokušajte ponovo za nekoliko minuta."
   },
   "home": {
     "segment": "Odeljak",
@@ -220,7 +221,7 @@
   "profile": {
     "loading": "Učitavamo profil",
     "language": "Jezik interfejsa",
-    "languageError": "Jezik nije promenjen. Pokušajte ponovo",
+    "languageError": "Jezik nije promenjen. Pokušajte ponovo.",
     "signedOutTitle": "Otvorite u Telegram-u",
     "signedOutText": "Profil je dostupan u mini-aplikaciji „{appName}“ u Telegram-u. Ako je već otvorena — zatvorite je i otvorite ponovo",
     "support": "Podrška",
@@ -234,7 +235,7 @@
     "work": "Podeli rad",
     "job": "Podeli zahtev",
     "copied": "Link je kopiran",
-    "failed": "Deljenje nije uspelo. Pokušajte ponovo",
+    "failed": "Deljenje nije uspelo. Pokušajte ponovo.",
     "toChat": "Podeli u čet",
     "toChatHint": "Ponudu možete poslati direktno iz Telegram-a",
     "link": "Link ka zahtevu",

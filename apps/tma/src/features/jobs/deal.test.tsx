@@ -171,7 +171,7 @@ describe('S26 deal', () => {
     expect(within(performer).getByText('37 отзывов')).toBeTruthy();
     expect(within(performer).getByText('исполнитель')).toBeTruthy();
     expect(screen.getByText('бул. Цара Лазара, 56, кв. 12')).toBeTruthy();
-    expect(screen.getByText('Лиман · адрес видите только вы и Алексей Морозов')).toBeTruthy();
+    expect(screen.getByText('Лиман. Адрес видите только вы и Алексей Морозов')).toBeTruthy();
     const steps = screen.getByRole('region', { name: 'Статус' });
     expect(within(steps).getByText('Отклик на заявку')).toBeTruthy();
     expect(within(steps).getByText('Выбран исполнителем')).toBeTruthy();

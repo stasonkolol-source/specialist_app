@@ -2,6 +2,7 @@
 import { dirname, resolve, sep } from 'node:path';
 
 import { fontPreload } from '@sosed/design-tokens/vite';
+import { typograph } from '@sosed/i18n/vite';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import type { HtmlTagDescriptor, Plugin } from 'vite';
@@ -129,6 +130,22 @@ function immutableAssets(): Plugin {
   };
 }
 
+/** og:image в index.html — полным адресом картинки на origin Mini App (`TMA_PUBLIC_ORIGIN` сборки
+ *  stage и prod, deploy.yml): превью ссылок в мессенджерах берут картинку только по полному адресу.
+ *  Без него (dev, e2e) — путь от корня. */
+function ogImageOrigin(origin: string | undefined): Plugin {
+  return {
+    name: 'sosed-og-image-origin',
+    transformIndexHtml: (html) =>
+      origin
+        ? html.replace(
+            'content="/og-image.png"',
+            `content="${origin.replace(/\/$/, '')}/og-image.png"`,
+          )
+        : html,
+  };
+}
+
 /** Экран Главной S03 — тот же, что считает бюджет первого экрана (scripts/size.ts). */
 const FIRST_ROUTE = 'src/features/catalog/s03-home/index.ts';
 
@@ -147,12 +164,15 @@ export default defineConfig(({ mode }) => {
   const firstRouteDir = `${dirname(firstRoute)}${sep}`;
   return {
     plugins: [
+      // неразрывные пробелы в каталогах переводов — при сборке, без кода в бандле (GLOSSARY.md)
+      typograph(),
       react(),
       tailwindcss(),
       fontPreload(),
       cspHeaders(csp),
       immutableAssets(),
       firstScreenHints(mediaOrigins),
+      ogImageOrigin(env.TMA_PUBLIC_ORIGIN),
     ],
     define: { __APP_VERSION__: JSON.stringify(pkg.version) },
     // manifest — для бюджета первого экрана (scripts/size.ts)

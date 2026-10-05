@@ -74,7 +74,7 @@ describe('S35 price list', () => {
     const { app, telegram } = startApp('/cabinet/prices');
 
     const electrical = await screen.findByRole('region', { name: 'Электрика' });
-    expect(screen.getByText('4 позиции · порядок — в меню «…»')).toBeTruthy();
+    expect(screen.getByText('4 позиции. Порядок — в меню «⋯»')).toBeTruthy();
     // единица — под суммой, а не подписью слева; «фикс» и «от» в подписи не повторяются
     const row = (name: RegExp) => within(electrical).getByRole('link', { name }).parentElement;
     expect(row(/Мастер на час/)?.textContent).toMatch(/^Мастер на час2\s000\sRSDза час/u);

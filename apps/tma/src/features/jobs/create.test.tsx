@@ -138,12 +138,12 @@ describe('S20a–d create a job', () => {
     await click(screen.getByRole('button', { name: 'Выбрать' }));
     await click(await screen.findByRole('button', { name: 'Мастер на час' }));
     await click(await screen.findByRole('button', { name: 'Электрика' }));
-    expect(screen.getByText('Заявку увидят мастера этой категории')).toBeTruthy();
+    expect(screen.getByText('Заявку увидят специалисты этой категории')).toBeTruthy();
     await pressMainButton(telegram);
 
     expect(await screen.findByRole('heading', { name: 'Когда и где?' })).toBeTruthy();
     await pressMainButton(telegram);
-    expect(screen.getByText('Выберите, когда нужен мастер')).toBeTruthy();
+    expect(screen.getByText('Выберите, когда нужен исполнитель')).toBeTruthy();
     expect(screen.getByText('Выберите район')).toBeTruthy();
   });
 
@@ -205,7 +205,7 @@ describe('ways into the wizard', () => {
     expect(
       await screen.findByRole('button', { name: /^Мастер на час → Электрика ?Изменить$/ }),
     ).toBeTruthy();
-    expect(screen.getByText('Заявку увидят мастера этой категории')).toBeTruthy();
+    expect(screen.getByText('Заявку увидят специалисты этой категории')).toBeTruthy();
     // отдельной ссылки «Изменить» рядом с чипом нет
     expect(screen.queryByRole('button', { name: 'Изменить' })).toBeNull();
   });
