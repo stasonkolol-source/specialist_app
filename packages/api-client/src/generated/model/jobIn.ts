@@ -6,6 +6,7 @@
  */
 import type { BudgetType } from './budgetType.ts';
 import type { BudgetUnit } from './budgetUnit.ts';
+import type { JobInLanguagesItem } from './jobInLanguagesItem.ts';
 import type { JobPointIn } from './jobPointIn.ts';
 import type { Urgency } from './urgency.ts';
 
@@ -20,6 +21,7 @@ export interface JobIn {
   /**
    * Услуга (лист каталога), где включены заявки
    * @minimum 1
+   * @maximum 2147483647
    */
   category_id: number;
   urgency: Urgency;
@@ -29,7 +31,10 @@ export interface JobIn {
   /** Пара */
   budget_max?: number | null;
   budget_unit?: BudgetUnit;
-  /** @minimum 1 */
+  /**
+   * @minimum 1
+   * @maximum 2147483647
+   */
   city_id: number;
   district_id?: number | null;
   /** Точная точка: видит только выбранный исполнитель */
@@ -39,7 +44,7 @@ export interface JobIn {
   preferred_from?: string | null;
   preferred_to?: string | null;
   /** @maxItems 4 */
-  languages?: string[];
+  languages?: JobInLanguagesItem[];
   /** @maxItems 6 */
   media_ids?: string[];
 }

@@ -344,7 +344,9 @@ describe('S26 deal', () => {
     const deal = withDeal(backend);
     const { app } = startApp(MANAGE);
 
-    expect(await screen.findByText('Исполнитель выбран')).toBeTruthy();
+    // строка статуса S23: «В работе» и с кем (UX_GUIDANCE №13)
+    expect(await screen.findByText('В работе')).toBeTruthy();
+    expect(await screen.findByText('Алексей Морозов')).toBeTruthy();
     await click(await screen.findByRole('button', { name: 'Открыть сделку' }));
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe(`/deals/${deal.id}`));

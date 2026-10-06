@@ -1,7 +1,8 @@
 // Контекстный запрос «разрешите боту писать» (ADR-0011, ARCHITECTURE §11.1): после публикации
-// заявки (S21, «Сообщать об откликах?») и при подписке на заявки (S18, «Присылать новые заявки в
-// бот?»). requestWriteAccess клиента Telegram, затем POST /me/telegram/write-access; ответ ложится
-// в настройки уведомлений. Канал уже открыт — ничего; разрешили только что — подтверждение.
+// заявки (S21 — строкой «Разрешите боту писать…» вместо обещания «бот напишет») и при подписке на
+// заявки (S18, «Присылать новые заявки в бот?»). requestWriteAccess клиента Telegram, затем
+// POST /me/telegram/write-access; ответ ложится в настройки уведомлений. Канал уже открыт —
+// ничего; разрешили только что — подтверждение.
 import {
   getNotificationsGetNotificationSettingsQueryKey,
   notificationsGrantTelegramWriteAccess,
@@ -19,7 +20,9 @@ export interface BotChannelTexts {
   denied: string;
 }
 
-export function BotChannel({ texts }: { texts: BotChannelTexts }) {
+/** Канал бота: пишет ли бот (null — настройки ещё не пришли), можно ли спросить разрешение у
+ *  клиента Telegram и сам запрос. Экран результата (S21) по нему выбирает, что обещать. */
+export function useBotChannel() {
   const platform = usePlatform();
   const queryClient = useQueryClient();
   const settings = useNotificationsGetNotificationSettings();
@@ -35,9 +38,17 @@ export function BotChannel({ texts }: { texts: BotChannelTexts }) {
       );
     },
   });
-  const channel = settings.data?.telegram;
-  if (!settings.data || !platform.capabilities.requestWriteAccess) return null;
-  if (channel?.writable) {
+  return {
+    writable: settings.data ? Boolean(settings.data.telegram?.writable) : null,
+    canAsk: platform.capabilities.requestWriteAccess,
+    allow,
+  };
+}
+
+export function BotChannel({ texts }: { texts: BotChannelTexts }) {
+  const { writable, canAsk, allow } = useBotChannel();
+  if (writable === null || !canAsk) return null;
+  if (writable) {
     // разрешили только что — подтверждаем; было разрешено раньше — нечего показывать
     return allow.isSuccess ? (
       <Banner tone="ok" icon="bell" role="status">
