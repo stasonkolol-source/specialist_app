@@ -2,12 +2,15 @@
 // Шапка — фото, имя, «коротко о себе», рейтинг или «Новый специалист», район и «Обычно отвечает
 // за …» (когда диалогов с ответом за 30 дней набралось пять); бейджи — не больше трёх:
 // «Подработка», «Телефон подтверждён», «Сегодня до …»; под ними ряд кнопок, как на артборде:
-// «Предложить заявку», сердечко «в избранное» (4.6) и «Поделиться». Памятка «не платите
-// предоплату незнакомым»; первые позиции прайса с единицей у суммы и ссылкой на S09, превью работ
+// «Заказать напрямую» (вторичная, под ней — «Заявку увидит только …»), сердечко «в избранное»
+// (4.6) и «Поделиться». Первые позиции прайса с единицей у суммы и ссылкой на S09, под ними —
+// памятка «не платите предоплату незнакомым» одной строкой, а не баннером (UX_GUIDANCE №8); превью
+// работ
 // со ссылкой на просмотрщик S10, последний отзыв со ссылкой на S11; «О себе» — текст, языки и
 // районы выезда. Всё — одним запросом BFF. Профиль скрыт или его нет — «Профиль недоступен».
-// MainButton «Написать» (6.4) — диалог S30 со специалистом (начатый — тот же); «Предложить
-// заявку» — прямой запрос (5.6): мастер заявки S20a, заявку увидит только этот специалист. На
+// MainButton «Написать» (6.4) — одно главное действие: диалог S30 со специалистом (начатый — тот
+// же); «Заказать напрямую» — прямой запрос (5.6): мастер заявки S20a, заявку увидит только этот
+// специалист. На
 // своём профиле обеих кнопок и сердечка нет. Внизу (4.7) — «Пожаловаться на профиль» (шторка S46;
 // пока она открыта, MainButton спрятана) и «Заблокировать» с подтверждением: заблокированному не
 // написать и не предложить заявку — вместо кнопок памятка и «Разблокировать». Меню «⋯» артборда —
@@ -330,6 +333,11 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
             onClick={sharing.share}
           />
         </div>
+        {propose && (
+          <Text variant="cap" className="-mt-1.5">
+            {t('profile.directHint', { name: card.display_name })}
+          </Text>
+        )}
       </Card>
       {blocked && (
         <Banner tone="info" icon="ban" role="status">
@@ -347,7 +355,6 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
         </Banner>
       )}
       {sharing.notice}
-      <Banner tone="warn">{t('profile.prepayment')}</Banner>
       {card.services_count > 0 && (
         <section aria-labelledby={pricesId} className="flex flex-col gap-2">
           <SectionHead
@@ -368,6 +375,9 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
           </Group>
         </section>
       )}
+      <Meta icon="alert" className="px-1">
+        {t('profile.prepayment')}
+      </Meta>
       {card.works_count > 0 && (
         <section aria-labelledby={worksId} className="flex flex-col gap-2">
           <SectionHead
@@ -587,9 +597,17 @@ function responseTime(
 
 /** Строка с иконкой: иконка — у первой строки, как на артборде: длинное «Выезд: …» или сербское
  *  «Obično odgovori za …» в узкой шапке переносится, а иконка не съезжает в середину. */
-function Meta({ icon, children }: { icon: 'languages' | 'pin' | 'clock'; children: ReactNode }) {
+function Meta({
+  icon,
+  className,
+  children,
+}: {
+  icon: 'languages' | 'pin' | 'clock' | 'alert';
+  className?: string;
+  children: ReactNode;
+}) {
   return (
-    <p className="m-0 flex items-start gap-1.5 text-cap text-text2">
+    <p className={`m-0 flex items-start gap-1.5 text-cap text-text2 ${className ?? ''}`}>
       <Icon name={icon} size={16} className="mt-px shrink-0" />
       {children}
     </p>

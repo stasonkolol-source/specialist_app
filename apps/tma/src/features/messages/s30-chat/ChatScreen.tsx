@@ -1,7 +1,9 @@
 // S30 Диалог (DEVELOPMENT_PLAN 6.4; ARCHITECTURE §11.5, §11.6): шапка — инициалы, имя второй
-// стороны (у специалиста — ссылка на его карточку S08), что со сделкой и справа одно главное
-// действие, коротко: шапка не прокручивается, а диалог открывается в конце переписки. Без сделки —
-// «Договориться» (шторка условий, вторая сторона подтвердит, S53); клиенту в диалоге по отклику,
+// стороны (у специалиста — ссылка на его карточку S08), что со сделкой (только когда сделка есть,
+// без «Сделки пока нет») и справа одно главное действие, коротко: шапка не прокручивается, а
+// диалог открывается в конце переписки. Без сделки — «Договориться» (шторка условий, вторая
+// сторона подтвердит, S53; вторичной, пока собеседник не ответил: сначала договариваются
+// словами, UX_GUIDANCE №8); клиенту в диалоге по отклику,
 // пока исполнитель не выбран, — «К откликам» (выбирают на S23–S25); сделка предложена, идёт или
 // под спором — «Сделка» (S26, как на артборде S54); сделка позади — в прямом диалоге снова
 // «Договориться» (та же шторка, «что делаем» — из прошлой сделки), клиенту по отклику после
@@ -11,12 +13,16 @@
 // «Поделиться контактом» (шторка S54, 6.5; из сделки S26 — сразу открытой, `?share`). Открыты ли
 // контакты, решает сервер (`contacts_open`): эта пара уже договаривалась — в этом диалоге или в
 // другом — значит, открыты (ADR-0010, решение владельца 2026-10-04). Имя и что со сделкой не
-// обрезаются и при 360 px, а попап «⋯» Telegram — не больше трёх кнопок. Сверху ленты — памятка
-// «не вносите предоплату» и с чего начат диалог; над первым сообщением каждого дня — подпись дня
+// обрезаются и при 360 px, а попап «⋯» Telegram — не больше трёх кнопок. В начале диалога — памятка
+// «не вносите предоплату» (один раз, с началом ленты, а не над каждой подгрузкой) и с чего начат
+// диалог; в пустом диалоге клиента — что написать и как придёт ответ (№8). Над первым сообщением
+// каждого дня — подпись дня
 // («Сегодня», «Вчера», «2 октября»). Сообщения: свои справа, чужие слева; телефон или ссылка до
 // договорённости — плашка «контакт скрыт» и подсказка «контакты откроются после договорённости»;
 // просьба о предоплате — памятка; скрытое модерацией — словами (автор видит своё и что оно
-// скрыто); отклик — карточкой с ценой; контакт — ссылкой; что со сделкой — системной строкой.
+// скрыто); отклик — карточкой с ценой; контакт — ссылкой; что со сделкой — системной строкой: после
+// «Предложить» — одна строка со сроком ответа, отклонённое предложение — «Предложение не принято»
+// (№14).
 // Отправка сразу в ленте, неотправленное — «повторить». Лента опрашивается раз в 4 с (ETag), пока
 // экран открыт; новое — прочитано. Закрытый диалог — без композера. «⋯» в шапке (4.7) — попап
 // Telegram: «Пожаловаться» (шторка S46 на собеседника с этим диалогом) и «Заблокировать» с
@@ -142,7 +148,6 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
   const { share: shareAsked } = useSearch({ strict: false }) as { share?: true };
   const contactsOpen = conversation.contacts_open;
   const [sharing, setSharing] = useState(Boolean(shareAsked) && contactsOpen);
-  const [proposed, setProposed] = useState(false);
   const block = useBlockState(conversation);
   const writable = conversation.status === 'open' && block.state === null;
   const name = conversation.counterpart_name ?? t('list.deleted');
@@ -156,7 +161,11 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
       { onSuccess: (started) => void router.navigate({ to: chatPath(started.id) }) },
     );
   };
-  const actions = useActions(conversation, writable, again, {
+  // собеседник уже ответил: до этого «Договориться» — вторичной, сначала договариваются словами
+  const replied = chat.entries.some(
+    (entry) => entry.type === 'message' && !entry.message.mine && entry.message.kind !== 'system',
+  );
+  const actions = useActions(conversation, writable, again, replied, {
     propose: () => setProposing(true),
     order: orderAgain,
     ordering: reorder.isPending,
@@ -205,9 +214,12 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
       )}
       <div className="flex flex-1 flex-col justify-end">
         <ChatList label={t('list.title')} className="pb-4">
-          <Banner tone="warn" icon="alert">
-            {t('chat.safety')}
-          </Banner>
+          {/* памятка — в начале диалога, а не над каждой подгрузкой ленты (§5) */}
+          {!chat.hasEarlier && (
+            <Banner tone="warn" icon="alert">
+              {t('chat.safety')}
+            </Banner>
+          )}
           {chat.hasEarlier && (
             <Button
               variant="secondary"
@@ -226,6 +238,10 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
               ? t('chat.startedJob', { title: conversation.job_title })
               : t('chat.startedProfile')}
           </SystemNote>
+          {/* пустой диалог клиента: что написать и как он узнает об ответе (№8) */}
+          {writable && conversation.my_role === 'client' && chat.entries.length === 0 && (
+            <SystemNote>{t('chat.emptyHint', { name })}</SystemNote>
+          )}
           {withDays(chat.entries, dayKey(started)).map((row) =>
             row.type === 'day' ? (
               <DayLabel key={row.key} dateTime={dayKey(row.date)}>
@@ -240,7 +256,6 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
               />
             ),
           )}
-          {proposed && <SystemNote icon="check">{t('chat.propose.sent')}</SystemNote>}
         </ChatList>
       </div>
       <SendError error={chat.sendError} />
@@ -289,10 +304,8 @@ function Dialog({ conversation, chat }: { conversation: ConversationOut; chat: C
         conversationId={conversation.id}
         initialTitle={again === 'propose' ? conversation.deal?.title : undefined}
         onClose={() => setProposing(false)}
-        onProposed={() => {
-          setProposing(false);
-          setProposed(true);
-        }}
+        // строка «Условия отправлены…» — от сервера: шторка закрывается, когда лента её уже знает
+        onProposed={() => setProposing(false)}
       />
     </div>
   );
@@ -388,6 +401,7 @@ function useActions(
   conversation: ConversationOut,
   writable: boolean,
   again: Again,
+  replied: boolean,
   on: { propose: () => void; order: () => void; ordering: boolean; share: () => void },
 ) {
   const { t } = useTranslation('messages');
@@ -400,7 +414,8 @@ function useActions(
 
   let main: Action | null = null;
   if (again === 'propose' || (writable && conversation.kind === 'direct' && state === 'none')) {
-    main = { key: 'agree', label: t('chat.agree'), onClick: on.propose };
+    // в пустом диалоге акцентная «Договориться» спорит с первым сообщением (№8)
+    main = { key: 'agree', label: t('chat.agree'), onClick: on.propose, secondary: !replied };
   } else if (again === 'order') {
     main = { key: 'order', label: t('chat.orderAgain'), onClick: on.order, busy: on.ordering };
   } else if (
@@ -564,8 +579,8 @@ function Header({
             «Naruči ponovo» помещаются и при 360 px */}
         <h1 className="m-0 truncate text-[1em] font-semibold">{name}</h1>
         {/* что со сделкой не обрезается: длинное («Договорённость отменена» рядом с кнопкой)
-            переносится второй строкой */}
-        <span className="text-cap text-text2">{t(`deal.${state}`)}</span>
+            переносится второй строкой; сделки нет — строки нет, без «Сделки пока нет» (№8) */}
+        {state !== 'none' && <span className="text-cap text-text2">{t(`deal.${state}`)}</span>}
       </span>
     </>
   );
@@ -743,19 +758,37 @@ function SystemEvent({
   conversation: ConversationOut;
 }) {
   const { t } = useTranslation('messages');
+  const format = useFormat();
   const event = message.event;
   if (!event) return null;
   if (event.type === 'deal_agreed')
     return <SystemNote icon="check-circle">{t('chat.event.dealAgreed')}</SystemNote>;
-  if (event.type === 'deal_cancelled')
-    return <SystemNote icon="x">{t('chat.event.dealCancelled')}</SystemNote>;
-  const mine = event.by === conversation.my_role;
+  if (event.type === 'deal_cancelled') {
+    // сделки не было — было предложение: его не приняли или оно истекло (№14)
+    const text = !event.proposal
+      ? t('chat.event.dealCancelled')
+      : event.reason === 'expired'
+        ? t('chat.event.dealExpired')
+        : t('chat.event.dealDeclined');
+    return <SystemNote icon="x">{text}</SystemNote>;
+  }
+  if (event.by !== conversation.my_role) {
+    return <SystemNote icon="check">{t('chat.event.dealProposedTheirs')}</SystemNote>;
+  }
+  // одна строка: условия ушли, кто и до когда отвечает, как узнать о решении
+  const until = new Date(Date.parse(message.created_at) + PROPOSAL_TTL_MS);
   return (
     <SystemNote icon="check">
-      {mine ? t('chat.event.dealProposedMine') : t('chat.event.dealProposedTheirs')}
+      {t('chat.event.dealProposedMine', {
+        name: conversation.counterpart_name ?? t('list.deleted'),
+        date: format.calendarGenitive(until),
+      })}
     </SystemNote>
   );
 }
+
+/** Предложение «Договориться» ждёт ответа 72 ч (deals PROPOSAL_TTL), потом истекает само. */
+const PROPOSAL_TTL_MS = 72 * 60 * 60 * 1000;
 
 function SendError({ error }: { error: unknown }) {
   const { t } = useTranslation('messages');
@@ -833,7 +866,9 @@ function Loading({ conversation }: { conversation: ConversationOut | undefined }
             <span className="flex min-w-0 flex-col">
               {/* имя собеседника — заголовок экрана: размер и вес — как у строки рядом */}
               <h1 className="m-0 truncate text-[1em] font-semibold">{name}</h1>
-              <span className="text-cap text-text2">{t(`deal.${dealState(conversation)}`)}</span>
+              {dealState(conversation) !== 'none' && (
+                <span className="text-cap text-text2">{t(`deal.${dealState(conversation)}`)}</span>
+              )}
             </span>
           </>
         ) : (
