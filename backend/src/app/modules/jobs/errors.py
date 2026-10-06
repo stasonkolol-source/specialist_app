@@ -80,6 +80,14 @@ class ResponseNotActiveError(ConflictError):
     public_params = ("response_status",)
 
 
+class OfferChangedError(ConflictError):
+    """Исполнитель поправил предложение, пока клиент его выбирал: редакция из If-Match уже не
+    та (ADV-08). В ответе — нынешняя редакция и цена: показать их и спросить снова."""
+
+    code = "offer_changed"
+    public_params = ("revision", "price_type", "price_amount")
+
+
 class AlreadyRespondedError(ConflictError):
     """Исполнитель уже откликался на эту заявку: отклик один, отозванный не повторяется."""
 

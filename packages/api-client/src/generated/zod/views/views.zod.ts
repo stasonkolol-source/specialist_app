@@ -431,6 +431,11 @@ export const ViewsListResponseCardsResponse = zod.object({
         is_first: zod.boolean().describe('«Откликнулся первым»'),
         is_new: zod.boolean().describe('Клиент ещё не видел этот отклик'),
         created_at: zod.iso.datetime({ offset: true }),
+        revision: zod
+          .int()
+          .describe(
+            'Редакция предложения: If-Match при выборе (POST /responses/{id}/accept); исполнитель успел поправить — 409 offer_changed',
+          ),
         performer: zod.object({
           display_name: zod.string().describe('Аккаунт удалён — пусто'),
           profile_id: zod

@@ -31,6 +31,7 @@ from app.modules.jobs.errors import (
     JobExtendLimitError,
     JobFullError,
     JobNotOpenError,
+    OfferChangedError,
     OwnJobResponseError,
     ResponseNotActiveError,
     ResponseNotFoundError,
@@ -575,6 +576,26 @@ class Job(VersionedAggregate):
         )
         return response
 
+    def release_blocked_response(
+        self, performer_id: UserId, *, withdrawn: bool, now: datetime
+    ) -> bool:
+        """Клиент и исполнитель заблокировали друг друга (UserBlocked, MU-3): клиент отклик
+        больше не видит и решить по нему не может — активный отклик перестаёт занимать место.
+        Заблокированному исполнителю — «не выбран», без события и уведомления; исполнитель,
+        который заблокировал сам (`withdrawn`), — «отозван». Активного отклика нет — False."""
+        response = next(
+            (r for r in self.responses if r.performer_id == performer_id and r.is_active), None
+        )
+        if response is None:
+            return False
+        if withdrawn:
+            response.withdraw(now=now)
+        else:
+            response.job_closed(now=now)
+        self.responses_count = max(0, self.responses_count - 1)
+        self.updated_at = now
+        return True
+
     def clear_response(
         self, response_id: ResponseId, *, revision: int | None, now: datetime
     ) -> bool:
@@ -587,24 +608,38 @@ class Job(VersionedAggregate):
         return True
 
     def block_response(self, response_id: ResponseId, *, now: datetime) -> bool:
-        """Модерация скрыла отклик: активный освобождает место. Нет отклика или уже скрыт —
+        """Модерация скрыла отклик до исправления: место за ним остаётся — исполнитель правит
+        и отправляет снова, второй раз отклик не считается (MU-10). Нет отклика или уже скрыт —
         ничего, False."""
         response = self._find_response(response_id)
-        if response is None or response.review is ResponseReview.BLOCKED:
+        if response is None or not response.block(now=now):
             return False
-        if response.block(now=now):
-            self.responses_count = max(0, self.responses_count - 1)
         self.updated_at = now
         return True
 
     def accept_response(
-        self, response_id: ResponseId, *, client_id: UserId, now: datetime
+        self,
+        response_id: ResponseId,
+        *,
+        client_id: UserId,
+        now: datetime,
+        revision: int | None = None,
     ) -> Response:
         """Клиент выбрал отклик исполнителем (§7.9): заявка «в работе», остальные активные
         отклики — «не выбран», места свободны. Выбрать можно активный видимый клиенту отклик
         опубликованной заявки; сделку создаёт use case через фасад deals в той же транзакции и
-        сам записывает событие ResponseAccepted — в нём id сделки."""
+        сам записывает событие ResponseAccepted — в нём id сделки. `revision` — редакция
+        предложения, которую клиент видел (If-Match): исполнитель успел поправить — 409
+        `offer_changed` с нынешней ценой, а не сделка по цене, которую клиент не видел (ADV-08).
+        Без неё — как раньше."""
         response = self._client_response(response_id, client_id)
+        if revision is not None and revision != response.revision:
+            raise OfferChangedError(
+                response_id=response.id,
+                revision=response.revision,
+                price_type=response.offer.price_type.value,
+                price_amount=response.offer.price_amount,
+            )
         if self.status is not JobStatus.PUBLISHED:
             raise JobNotOpenError(job_id=self.id, job_status=self.status.value)
         if not response.is_active:

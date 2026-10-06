@@ -8,8 +8,10 @@
 исполнителем» — из отправленного отклик сначала становится просмотренным (§7.9).
 
 Текст проверяет модерация (§14.1, адаптер цели `response`): клиент видит отклик, когда проверка
-пройдена; с флагом — после решения модератора; нарушение скрывает отклик и освобождает место.
-Место отклик занимает и на проверке — иначе счётчик «3 из 5» обгонял бы правду.
+пройдена; с флагом — после решения модератора. Нарушение скрывает отклик до исправления: место
+за ним остаётся, исполнитель правит текст и отправляет снова — новая редакция идёт на проверку
+(уведомление «Исправьте и отправьте снова», MU-10). Место отклик занимает и на проверке — иначе
+счётчик «3 из 5» обгонял бы правду.
 """
 
 from dataclasses import dataclass, field
@@ -160,8 +162,9 @@ class Response:
 
     def revise(self, offer: Offer, *, now: datetime) -> None:
         """Исполнитель поправил отклик — пока клиент не решил: новая редакция снова на проверку
-        и до неё скрыта от клиента."""
-        if not self.is_active or self.review is ResponseReview.BLOCKED:
+        и до неё скрыта от клиента. Скрытый модерацией — тоже: так его исправляют и отправляют
+        снова, на своём месте (MU-10)."""
+        if not self.is_active:
             raise ResponseNotActiveError(response_id=self.id, response_status=self.status.value)
         self.offer = offer
         self.review = ResponseReview.PENDING
@@ -189,17 +192,15 @@ class Response:
         return True
 
     def block(self, *, now: datetime) -> bool:
-        """Нарушение: отклик скрыт; активный перестаёт занимать место (возвращает True)."""
+        """Нарушение: отклик скрыт от клиента до исправления. Статус и место прежние —
+        исполнитель правит и отправляет снова (`revise`), а не откликается заново (MU-10).
+        Уже скрыт — ничего, False."""
         if self.review is ResponseReview.BLOCKED:
             return False
-        freed = self.is_active
         self.review = ResponseReview.BLOCKED
-        if freed:
-            self._move(ResponseStatus.WITHDRAWN, now=now)
-            self.decided_at = now
         self.updated_at = now
         self._changed = True
-        return freed
+        return True
 
     def accept(self, *, now: datetime) -> None:
         """Клиент выбрал отклик исполнителем: создана сделка (6.1a)."""

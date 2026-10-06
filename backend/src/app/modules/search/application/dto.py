@@ -119,7 +119,8 @@ class SpecialistCard:
     price_from_unit: str | None
     negotiable: bool
     rating: float | None
-    """Байесовское среднее — только когда отзывов достаточно; иначе «Новый специалист»."""
+    """Простое среднее звёзд (UXM-17) — только когда отзывов достаточно; иначе «Новый
+    специалист»."""
     rating_count: int
     is_new: bool
     available_until: datetime | None

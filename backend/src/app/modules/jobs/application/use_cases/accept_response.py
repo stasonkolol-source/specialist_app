@@ -1,7 +1,8 @@
 """Выбрать исполнителя (POST /responses/{id}/accept, S25; DEVELOPMENT_PLAN 6.1a): отклик принят,
 остальные — «не выбран», заявка «в работе», и в той же транзакции фасад deals создаёт сделку
 `agreed` (ADR-0020 §4): сбой сделки откатывает выбор. Отклик того, с кем у клиента блокировка
-(4.7), — как невидимый: 404."""
+(4.7), — как невидимый: 404. If-Match с редакцией предложения (ETag отклика, `revision` в
+response-cards): исполнитель успел поправить — 409 `offer_changed` с нынешней ценой (ADV-08)."""
 
 from dataclasses import dataclass
 
@@ -21,6 +22,8 @@ from app.platform.kernel.ids import UserId
 class AcceptResponseCommand:
     actor_id: UserId
     response_id: ResponseId
+    expected_revision: int | None = None
+    """If-Match: редакция предложения, которую клиент видел на S25 (ADV-08); нет — не сверяем."""
 
 
 class AcceptResponse:
@@ -43,7 +46,9 @@ class AcceptResponse:
         now = self._clock.now()
         async with self._uow:
             job = await self._jobs.get_for_update(job_id)
-            response = job.accept_response(cmd.response_id, client_id=cmd.actor_id, now=now)
+            response = job.accept_response(
+                cmd.response_id, client_id=cmd.actor_id, now=now, revision=cmd.expected_revision
+            )
             if await self._identity.blocks_with(cmd.actor_id, [response.performer_id]):
                 raise ResponseNotFoundError(response_id=cmd.response_id)
             offer = response.offer

@@ -30,6 +30,11 @@ async def limited() -> None:
     raise RateLimitedError(retry_after=30)
 
 
+@router.get("/day-limited")
+async def day_limited() -> None:
+    raise RateLimitedError(retry_after=85153)
+
+
 @pytest.fixture
 async def client(offline_settings: Settings) -> AsyncIterator[httpx.AsyncClient]:
     async with http_client(offline_settings, router) as client:
@@ -57,7 +62,23 @@ async def test_detail_is_in_request_language(
 
 async def test_detail_uses_error_parameters(client: httpx.AsyncClient) -> None:
     body = (await client.get("/api/v1/test/limited", headers={"accept-language": "sr-Latn"})).json()
-    assert body["detail"] == "Previše zahteva. Pokušajte ponovo za 30 s."
+    assert body["detail"] == "Previše zahteva. Pokušajte ponovo za 30 sekundi."
+
+
+@pytest.mark.parametrize(
+    ("language", "detail"),
+    [
+        ("ru", "Слишком часто. Повторите через 24 часа."),
+        ("sr-Cyrl", "Превише захтева. Покушајте поново за 24 сата."),
+        ("sr-Latn", "Previše zahteva. Pokušajte ponovo za 24 sata."),
+    ],
+)
+async def test_long_wait_is_said_in_words_not_seconds(
+    client: httpx.AsyncClient, language: str, detail: str
+) -> None:
+    """MU-9: суточный лимит — «через 24 часа», а не «через 85153 с.»."""
+    reply = await client.get("/api/v1/test/day-limited", headers={"accept-language": language})
+    assert (reply.json()["detail"], reply.headers["Retry-After"]) == (detail, "85153")
 
 
 async def test_field_errors_are_localized(client: httpx.AsyncClient) -> None:

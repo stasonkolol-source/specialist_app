@@ -7,6 +7,8 @@
 - `reviews.reminders` — раз в час: напомнить через сутки и за 2 дня до конца окна в 14 дней.
 - `reviews.recompute_ratings` — ночью: пересчёт всех рейтингов (затухание, средние категорий).
 - `reviews.forget_user` — UserDeleted: отзывы и ответы удалённого аккаунта стираются.
+- `reviews.attach_profile` — ProfilePublished: отзывы сделок, оставленные до профиля, — к нему,
+  рейтинг пересчитывается (UXM-12).
 """
 
 from uuid import UUID
@@ -14,10 +16,15 @@ from uuid import UUID
 from dishka import FromDishka
 
 from app.modules.reviews.application.ports import (
+    ATTACH_PROFILE,
     FORGET_USER,
     OPEN_REQUEST,
     RECOMPUTE_ON_PUBLISHED,
     RECOMPUTE_ON_REMOVED,
+)
+from app.modules.reviews.application.use_cases.attach_profile_reviews import (
+    AttachProfileReviews,
+    AttachProfileReviewsCommand,
 )
 from app.modules.reviews.application.use_cases.forget_user_reviews import (
     ForgetUserReviews,
@@ -42,6 +49,7 @@ from app.modules.reviews.application.use_cases.remind_reviews import (
 from app.platform.contracts.events.deals import DealCompleted
 from app.platform.contracts.events.identity import UserDeleted
 from app.platform.contracts.events.reviews import ReviewPublished, ReviewRemoved
+from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber
 
 
@@ -91,3 +99,8 @@ async def recompute_ratings(run: PeriodicRun) -> None:
 @subscriber(UserDeleted, FORGET_USER)
 async def forget_user(event: UserDeleted, forget: FromDishka[ForgetUserReviews]) -> None:
     await forget(ForgetUserReviewsCommand(user_id=event.user_id))
+
+
+@subscriber(ProfilePublished, ATTACH_PROFILE)
+async def attach_profile(event: ProfilePublished, attach: FromDishka[AttachProfileReviews]) -> None:
+    await attach(AttachProfileReviewsCommand(user_id=event.user_id, profile_id=event.profile_id))

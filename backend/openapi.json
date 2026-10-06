@@ -4256,7 +4256,7 @@
           "jobs"
         ],
         "summary": "Get Response",
-        "description": "Свой отклик с заявкой — форма правки S16; чужой — 404.",
+        "description": "Отклик с заявкой: исполнителю — свой (форма правки S16), владельцу заявки — видимый ему в\nS23; остальным — 404. ETag — редакция предложения: If-Match при выборе исполнителем.",
         "operationId": "jobs_get_response",
         "security": [
           {
@@ -4417,7 +4417,7 @@
           "jobs"
         ],
         "summary": "Accept Response",
-        "description": "Выбрать исполнителем: создана сделка `agreed`, заявка «в работе», остальные отклики — «не\nвыбран». Заявка не опубликована или отклик уже решён — 409.",
+        "description": "Выбрать исполнителем: создана сделка `agreed`, заявка «в работе», остальные отклики — «не\nвыбран». Заявка не опубликована или отклик уже решён — 409. `If-Match: \"<revision>\"` —\nредакция предложения, которую клиент видел (ETag отклика, `revision` в response-cards):\nисполнитель успел поправить — 409 `offer_changed` с нынешними `revision`, `price_type` и\n`price_amount`. Без заголовка — без сверки.",
         "operationId": "jobs_accept_response",
         "security": [
           {
@@ -4436,6 +4436,22 @@
               "title": "Response Id"
             },
             "description": "id отклика"
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
           }
         ],
         "responses": {
@@ -14781,6 +14797,11 @@
             "format": "date-time",
             "title": "Created At"
           },
+          "revision": {
+            "type": "integer",
+            "title": "Revision",
+            "description": "Редакция предложения: If-Match при выборе (POST /responses/{id}/accept); исполнитель успел поправить — 409 offer_changed"
+          },
           "performer": {
             "$ref": "#/components/schemas/ResponsePerformerCardOut"
           }
@@ -14795,6 +14816,7 @@
           "is_first",
           "is_new",
           "created_at",
+          "revision",
           "performer"
         ],
         "title": "ResponseCardOut"
