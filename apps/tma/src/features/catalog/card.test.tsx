@@ -113,7 +113,9 @@ describe('S08 profile', () => {
     expect(header.getByText('Обычно отвечает за 15 минут')).toBeTruthy();
     expect(about.queryByText('Обычно отвечает за 15 минут')).toBeNull();
     // ряд под бейджами, как на артборде: заявка, сердечко и «Поделиться»
-    expect(header.getByRole('button', { name: 'Предложить заявку' })).toBeTruthy();
+    // одно главное действие — «Написать»; прямой запрос — вторичной с подписью (UX_GUIDANCE №8)
+    expect(header.getByRole('button', { name: 'Заказать напрямую' })).toBeTruthy();
+    expect(header.getByText(/^Заявку увидит только Алексей Морозов$/)).toBeTruthy();
     expect(header.getByRole('button', { name: /избранное/i })).toBeTruthy();
     expect(header.getByRole('button', { name: 'Поделиться профилем' })).toBeTruthy();
 
@@ -166,7 +168,7 @@ describe('S08 profile', () => {
     expect(await screen.findByRole('heading', { name: 'Алексей Морозов', level: 1 })).toBeTruthy();
     expect(screen.getByRole('img', { name: 'Алексей Морозов' })).toBeTruthy();
     // действия — только по полному профилю
-    expect(screen.queryByRole('button', { name: 'Предложить заявку' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Заказать напрямую' })).toBeNull();
     expect(screen.queryByRole('button', { name: /избранное/i })).toBeNull();
   });
 

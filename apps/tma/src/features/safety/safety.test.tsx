@@ -92,7 +92,7 @@ describe('S46 report', () => {
     // заблокирован: «Написать» и «Предложить заявку» нет, вместо «Заблокировать» — «Разблокировать»
     expect(await screen.findByText(/Вы заблокировали этого специалиста/)).toBeTruthy();
     expect(mainButton(telegram)?.is_visible).toBe(false);
-    expect(screen.queryByRole('button', { name: 'Предложить заявку' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Заказать напрямую' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Разблокировать' })).toBeTruthy();
   });
 
