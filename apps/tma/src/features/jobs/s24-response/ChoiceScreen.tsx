@@ -4,14 +4,19 @@
 // сообщение и нижней строкой «Ваш бюджет — …» и «Отклонить»: после подтверждения место
 // освобождается. MainButton «Выбрать исполнителем» открывает шторку S25: что изменится сразу
 // (адрес исполнителю, уведомление остальным) плоским списком, «если сделка сорвётся — заявка
-// снова откроется»; подтверждение создаёт сделку и ведёт на S26. Решённый
-// отклик — словами («Вы отклонили…», «Выбран другой исполнитель»), выбранный — «Открыть сделку».
+// снова откроется»; подтверждение создаёт сделку и ведёт на S26. Выбор сверяет редакцию
+// предложения (If-Match): исполнитель успел поправить цену — в шторке новая цена и «Исполнитель
+// изменил предложение», следующее нажатие выбирает уже её (QA ADV-08). Решённый отклик — словами
+// («Вы отклонили…», «Выбран другой исполнитель»; отклик, сделку по которому отменили, — «Сделка
+// отменена», а не «Вы отклонили», UXM-13), выбранный — «Открыть сделку».
 // SecondaryButton «Написать» (6.4) — диалог по отклику S30 (на клиентах без SecondaryButton —
 // кнопкой в контенте). Отклик берётся из карточек S23 (уже в кэше). Последние отзывы (7.2) — в
 // своём шаге.
 import type { JobOut, ResponseCardOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
+import type { ChangedOffer } from '@sosed/hooks';
 import {
+  changedOffer,
   isUnavailable,
   useAcceptResponse,
   useDeclineResponse,
@@ -312,10 +317,14 @@ function Decided({ job, card }: { job: JobOut; card: ResponseCardOut }) {
     );
   }
   const accepted = card.status === 'accepted';
+  // сделку по отклику отменили — сервер переводит его в «отклонён», но клиент его не отклонял
+  const cancelled =
+    card.status === 'declined' &&
+    deals.data?.items.some((item) => item.response_id === card.id && item.status === 'cancelled');
   return (
     <div className="flex flex-col gap-2.5">
       <Banner tone={accepted ? 'ok' : 'info'} role="status">
-        {t(`choice.state.${decidedState(card.status)}`)}
+        {t(cancelled ? 'choice.state.dealCancelled' : `choice.state.${decidedState(card.status)}`)}
       </Banner>
       {accepted && deal && (
         <Button
@@ -356,12 +365,23 @@ function ConfirmSheet({
   const accept = useAcceptResponse();
   const button = useBottomButtonState('main');
   const changesId = useId();
+  // исполнитель поправил предложение, пока клиент выбирал: выбираем то, что видно (ADV-08)
+  const [changed, setChanged] = useState<ChangedOffer | null>(null);
   useBackButton(onClose);
   const { performer } = card;
   const name = performer.display_name || '—';
   const avatar =
     performer.avatar?.variants.find((v) => v.name === 'thumb') ?? performer.avatar?.variants[0];
-  const price = card.price.type === 'negotiable' ? t('card.negotiable') : offerPrice(card.price);
+  const offer = changed
+    ? {
+        type: changed.price_type,
+        amount:
+          changed.price_amount === null
+            ? null
+            : { amount: changed.price_amount, currency: 'RSD' as const },
+      }
+    : card.price;
+  const price = offer.type === 'negotiable' ? t('card.negotiable') : offerPrice(offer);
   const terms = [price, card.availability_note].filter(Boolean).join(' · ');
   // Promise в MainButton: пока выбор идёт, второе нажатие (двойной тап) не уходит (MU-5)
   useStepButton({
@@ -369,9 +389,17 @@ function ConfirmSheet({
     loading: accept.isPending,
     onClick: () =>
       accept
-        .mutateAsync({ jobId: job.id, responseId: card.id })
+        .mutateAsync({
+          jobId: job.id,
+          responseId: card.id,
+          revision: changed?.revision ?? card.revision,
+        })
         .then((accepted) => router.navigate({ to: dealPath(accepted.deal_id), replace: true }))
-        .catch(() => undefined), // ошибка — баннером в шторке
+        .catch((error: unknown) => {
+          // ошибка — баннером в шторке; новое предложение — на месте старого
+          const next = changedOffer(error);
+          if (next) setChanged(next);
+        }),
   });
   return (
     <Sheet
@@ -413,7 +441,14 @@ function ConfirmSheet({
         </ul>
       </section>
       <Text variant="cap">{t('choice.note')}</Text>
-      {accept.error && <ActionError error={accept.error} fallback={t('choice.acceptError')} />}
+      {changed && !accept.isPending && (
+        <Banner tone="warn" icon="alert" role="status">
+          {t('choice.offerChanged')}
+        </Banner>
+      )}
+      {accept.error && !changedOffer(accept.error) && (
+        <ActionError error={accept.error} fallback={t('choice.acceptError')} />
+      )}
       <Button variant="outline" full disabled={accept.isPending} onClick={onClose}>
         {t('choice.cancel')}
       </Button>

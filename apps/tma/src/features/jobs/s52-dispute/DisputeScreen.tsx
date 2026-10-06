@@ -97,7 +97,8 @@ export function DisputeScreen() {
   const { dealId: raw = '' } = useParams({ strict: false });
   const dealId = jobIdOf(raw);
   const router = useRouter();
-  const card = useDealCard(dealId);
+  // спор ждёт вторую сторону и решение поддержки: ответ, отзыв спора и итог — без перехода
+  const card = useDealCard(dealId, { live: true });
   const toDeal = () => void router.navigate({ to: dealPath(raw), replace: true });
   useBackButton(() => {
     if (router.history.canGoBack()) router.history.back();

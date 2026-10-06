@@ -2,17 +2,21 @@
 // время и цена; вторая сторона — фото, имя, рейтинг или «Новый специалист», роль (профиль
 // специалиста — ссылкой на S08); адрес — сторонам («адрес видите только вы и …»), копировать;
 // таймлайн «Отклик на заявку → Выбран исполнителем → Договорились (работа …) → Работа выполнена →
-// Отзыв»; памятка о предоплате клиенту. MainButton «Работа выполнена» — отметка стороны, вторая
-// завершает сделку (или сама через 3 дня); «Отменить сделку» спрашивает причину — заявка снова
-// открыта. Данные — BFF `GET /deals/{id}/card`. «Договориться» из чата (6.5): второй стороне — S53
-// «… предлагает договориться» с условиями, сроком (72 ч) и «Подтвердить» / «Отклонить»,
-// предложившей — «ждём подтверждения». После договорённости — контакты: Telegram второй стороны
-// (если она его показывает) и «Поделиться контактом» — шторка S54 в чате сделки. SecondaryButton
-// «Есть проблема» → спор S52 (6.1c; старый клиент Telegram — кнопкой в контенте); под спором —
-// «сделка на паузе» и «Спор по сделке», после решения — «Решение по спору». Завершена (7.3): шаг
-// «Отзыв» в таймлайне, MainButton «Оставить отзыв» (S27) клиенту, пока окно открыто, и статус
-// своего отзыва; клиенту — «Заказать снова»: прямой диалог с этим специалистом, где в шапке
-// «Договориться» (S30).
+// Отзыв» — текущий шаг и следующий, остальные под «Подробнее»; памятка о предоплате клиенту — одной
+// строкой. Под заголовком у идущей сделки — что дальше («Исполнителю пришло уведомление.
+// Договоритесь о времени и адресе в чате.», UX_GUIDANCE №2). MainButton — следующий шаг по времени:
+// «Написать» (чат сделки, S30), а «Работа выполнена» — когда бот спрашивает о ней
+// (`completion_due_at`) или вторая сторона уже отметила; раньше — строка «Работа уже сделана?
+// Отметить». Отметка стороны — вторая завершает сделку (или сама через 3 дня); «Отменить сделку»
+// спрашивает причину — заявка снова открыта; после любой отметки отменить нельзя (MU-8). Данные —
+// BFF `GET /deals/{id}/card`. «Договориться» из чата (6.5): второй стороне — S53 «… предлагает
+// договориться» с условиями, сроком (72 ч) и «Подтвердить» / «Отклонить», предложившей — «ждём
+// подтверждения». После договорённости — контакты: Telegram второй стороны (если она его
+// показывает) и «Поделиться контактом» — шторка S54 в чате сделки. «Есть проблема» → спор S52
+// (6.1c) — строкой внизу, рядом с «Отменить сделку»; под спором — «сделка на паузе» и «Спор по
+// сделке», после решения — «Решение по спору». Завершена (7.3): итог без адреса и таймлайна,
+// MainButton «Оставить отзыв» (S27) клиенту, пока окно открыто, и статус своего отзыва; клиенту —
+// «Заказать снова»: прямой диалог с этим специалистом, где в шапке «Договориться» (S30).
 import type { DealCancelReason, DealCardOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import {
@@ -37,6 +41,7 @@ import {
   Heading,
   Icon,
   IconButton,
+  LinkButton,
   Price,
   Row,
   RowIcon,
@@ -251,17 +256,35 @@ function Term({
   );
 }
 
+/** Сделка идёт: договориться в чате можно и нужно — главная кнопка «Написать». */
+const CHATTING: ReadonlySet<DealCardOut['status']> = new Set(['proposed', 'agreed', 'disputed']);
+
+/** Время уже наступило (`completion_due_at`: бот спрашивает «Работа выполнена?»). */
+const isPast = (at: string | null) => at !== null && Date.parse(at) <= Date.now();
+
 function Deal({ deal }: { deal: DealCardOut }) {
   const { t } = useTranslation('jobs');
+  const { t: common } = useTranslation();
   const format = useFormat();
   const complete = useCompleteDeal();
   const cancel = useCancelDeal();
+  const chat = useDealChat(deal);
+  const card = useDealCard(deal.id);
   const [cancelling, setCancelling] = useState(false);
   const agreed = deal.status === 'agreed';
   const client = deal.my_role === 'client';
   const router = useRouter();
-  const failed = complete.error ?? cancel.error;
+  const { timeline } = deal;
+  const failed = complete.error ?? cancel.error ?? chat.error;
   const reviewing = deal.status === 'completed' && deal.review_until !== null;
+  // отметили «Работа выполнена» — отменить уже нельзя: подтвердить или спор (MU-8)
+  const marked = timeline.my_mark_at !== null || timeline.other_mark_at !== null;
+  const canMark = agreed && timeline.my_mark_at === null && !cancelling;
+  // «Работа выполнена» — главная, когда пора: бот уже спрашивает о ней или вторая сторона
+  // отметила; до этого следующий шаг — договориться о времени и адресе в чате (UX_GUIDANCE №2)
+  const due = canMark && (timeline.other_mark_at !== null || isPast(deal.completion_due_at));
+  const writing = !reviewing && !due && chat.available && CHATTING.has(deal.status);
+  const markDone = () => complete.mutateAsync(deal.id).catch(() => undefined); // ошибка — баннером
   useStepButton(
     reviewing
       ? {
@@ -270,15 +293,32 @@ function Deal({ deal }: { deal: DealCardOut }) {
           loading: false,
           onClick: () => void router.navigate({ to: reviewPath(deal.id) }),
         }
-      : {
-          text: t('deal.complete'),
-          visible: agreed && deal.timeline.my_mark_at === null && !cancelling,
-          loading: complete.isPending,
-          // Promise: пока отметка уходит, второе нажатие не уходит (MU-5); ошибка — баннером
-          onClick: () => complete.mutateAsync(deal.id).catch(() => undefined),
-        },
+      : due
+        ? // Promise: пока отметка уходит, второе нажатие не уходит (MU-5)
+          {
+            text: t('deal.complete'),
+            visible: true,
+            loading: complete.isPending,
+            onClick: markDone,
+          }
+        : {
+            text: common('action.write'),
+            visible: writing && !cancelling,
+            loading: chat.pending,
+            onClick: chat.write,
+          },
   );
-  const problem = useProblemButton(deal, cancelling);
+  const cancelPick = (reason: PartyReason) =>
+    cancel.mutate(
+      { dealId: deal.id, reason },
+      {
+        onSettled: () => setCancelling(false),
+        // вторая сторона успела отметить «Работа выполнена» — карточка покажет её отметку (MU-8)
+        onError: (error) => {
+          if (error instanceof ApiError && error.code === MARKED_DONE) void card.refetch();
+        },
+      },
+    );
 
   return (
     <section className="flex flex-col gap-3 px-4 pt-3 pb-6">
@@ -292,73 +332,137 @@ function Deal({ deal }: { deal: DealCardOut }) {
       )}
       <Counterpart deal={deal} />
       {(agreed || deal.status === 'disputed' || deal.status === 'completed') && (
-        <Contacts deal={deal} />
+        <Contacts deal={deal} chat={chat} write={!writing && deal.status !== 'completed'} />
       )}
-      <Address deal={deal} />
-      <Steps deal={deal} />
+      {/* выполненной сделке адрес и «Поделиться контактом» уже ни к чему (№13) */}
+      {deal.status !== 'completed' && <Address deal={deal} />}
+      {deal.status !== 'completed' && deal.status !== 'cancelled' && <Steps deal={deal} />}
       <State deal={deal} />
       {deal.status === 'completed' && client && deal.counterpart.profile_id && (
         <OrderAgain profileId={deal.counterpart.profile_id} />
       )}
-      {problem.visible && !problem.native && (
-        <Button variant="secondary" full onClick={problem.open}>
-          {problem.text}
-        </Button>
-      )}
       {failed && (
         <ActionError
           error={failed}
-          fallback={complete.error ? t('deal.completeError') : t('deal.cancelError')}
+          fallback={
+            complete.error
+              ? t('deal.completeError')
+              : cancel.error
+                ? t('deal.cancelError')
+                : t('deal.contacts.shareError')
+          }
         />
       )}
-      {agreed && client && (
-        <Banner tone="warn" icon="alert">
-          {t('deal.safety')}
-        </Banner>
-      )}
-      {(agreed || deal.status === 'proposed') && (
-        <Group>
-          <Row
-            danger
-            title={t('deal.cancel')}
-            subtitle={client ? t('deal.cancelHintClient') : t('deal.cancelHintPerformer')}
-            icon="x"
-            onClick={() => setCancelling(true)}
-          />
-        </Group>
-      )}
+      {agreed && client && <SafetyLine>{t('deal.safety')}</SafetyLine>}
+      <Actions
+        deal={deal}
+        early={canMark && !due}
+        onMark={() => void markDone()}
+        cancellable={(agreed || deal.status === 'proposed') && !marked}
+        onCancel={() => setCancelling(true)}
+      />
       {cancelling && (
         <CancelSheet
           busy={cancel.isPending}
           onClose={() => setCancelling(false)}
-          onPick={(reason) =>
-            cancel.mutate({ dealId: deal.id, reason }, { onSettled: () => setCancelling(false) })
-          }
+          onPick={cancelPick}
         />
       )}
     </section>
   );
 }
 
-/** SecondaryButton спора S52: «Есть проблема» у идущей сделки, «Спор по сделке» под спором,
- *  «Решение по спору» после решения. До Bot API 7.10 — кнопкой в контенте (`native: false`). */
-function useProblemButton(deal: DealCardOut, cancelling: boolean) {
+/** 409 отмены: «Работа выполнена» уже отмечена (MU-8). */
+const MARKED_DONE = 'deal_marked_done';
+
+/** Чат сделки: открыть (`conversation_id`) или начать по отклику — тот же диалог, что у
+ *  «Написать» на S24. `share` — сразу шторка S54 «Поделиться контактом». */
+function useDealChat(deal: DealCardOut) {
+  const router = useRouter();
+  const start = useStartConversation();
+  const open = (id: string, share: boolean) =>
+    void router.navigate({ to: chatPath(id), search: share ? { share: true } : {} });
+  const go = (share: boolean) => {
+    if (deal.conversation_id) open(deal.conversation_id, share);
+    else if (deal.response_id)
+      start.mutate({ response_id: deal.response_id }, { onSuccess: (s) => open(s.id, share) });
+  };
+  return {
+    available: Boolean(deal.conversation_id ?? deal.response_id),
+    write: () => go(false),
+    share: () => go(true),
+    pending: start.isPending,
+    error: start.error,
+  };
+}
+
+/** Строки внизу (UX_GUIDANCE №2, §5): «Работа уже сделана? Отметить», пока её час не настал;
+ *  «Есть проблема» (спор S52; под спором — «Спор по сделке», после решения — «Решение по
+ *  спору») — строкой, а не нативной кнопкой с первой минуты; «Отменить сделку» — пока никто не
+ *  отметил «Работа выполнена» (MU-8). */
+function Actions({
+  deal,
+  early,
+  onMark,
+  cancellable,
+  onCancel,
+}: {
+  deal: DealCardOut;
+  early: boolean;
+  onMark: () => void;
+  cancellable: boolean;
+  onCancel: () => void;
+}) {
   const { t } = useTranslation('jobs');
   const router = useRouter();
+  const client = deal.my_role === 'client';
   const resolved = deal.dispute?.status === 'resolved';
-  const text =
+  const problem =
     deal.status === 'disputed'
       ? t('deal.disputeLink')
       : resolved
         ? t('deal.disputeResult')
-        : t('deal.problem');
-  const visible = deal.status === 'agreed' || deal.status === 'disputed' || resolved;
-  const open = () => void router.navigate({ to: disputePath(deal.id) });
-  const { native } = useSecondaryButton({ text, visible: visible && !cancelling, onClick: open });
-  return { visible, native, text, open };
+        : deal.status === 'agreed'
+          ? t('deal.problem')
+          : null;
+  if (!early && !problem && !cancellable) return null;
+  return (
+    <Group>
+      {early && <Row icon="check" title={t('deal.markEarly')} onClick={onMark} />}
+      {problem && (
+        <Row
+          icon="flag"
+          title={problem}
+          chevron
+          onClick={() => void router.navigate({ to: disputePath(deal.id) })}
+        />
+      )}
+      {cancellable && (
+        <Row
+          danger
+          title={t('deal.cancel')}
+          subtitle={client ? t('deal.cancelHintClient') : t('deal.cancelHintPerformer')}
+          icon="x"
+          onClick={onCancel}
+        />
+      )}
+    </Group>
+  );
 }
 
-/** Название и статус, «сегодня в 19:00 · 3 500 RSD». */
+/** Памятка о предоплате — одной строкой, а не баннером: за путь клиент видит её уже не раз
+ *  (UX_GUIDANCE §5); формулировка прежняя. */
+function SafetyLine({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="m-0 flex items-start gap-1.5 px-1 text-cap text-text2">
+      <Icon name="alert" size={16} className="mt-px shrink-0 text-urgent-soft-ink" />
+      {children}
+    </p>
+  );
+}
+
+/** Название и статус, «сегодня в 19:00 · 3 500 RSD»; у идущей сделки без отметок — одной строкой,
+ *  что дальше: «Исполнителю пришло уведомление. Договоритесь о времени и адресе в чате.» (№2). */
 function Header({ deal }: { deal: DealCardOut }) {
   const { t } = useTranslation('jobs');
   const format = useFormat();
@@ -370,6 +474,14 @@ function Header({ deal }: { deal: DealCardOut }) {
     deal.price.type === null || deal.price.type === 'negotiable'
       ? t('card.negotiable')
       : offerPrice({ type: deal.price.type, amount: deal.price.amount });
+  const { timeline } = deal;
+  // отметки «Работа выполнена» объясняет State; из чата («Договориться») — без «выбрал вас»
+  const next =
+    deal.status !== 'agreed' || timeline.my_mark_at !== null || timeline.other_mark_at !== null
+      ? null
+      : deal.origin === 'job_response'
+        ? deal.my_role
+        : 'chat';
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-start justify-between gap-3">
@@ -389,6 +501,11 @@ function Header({ deal }: { deal: DealCardOut }) {
         )}
         <Price>{price}</Price>
       </p>
+      {next && (
+        <Text variant="sm" secondary className="pt-1">
+          {t(`deal.next.${next}`)}
+        </Text>
+      )}
     </div>
   );
 }
@@ -443,25 +560,31 @@ function Counterpart({ deal }: { deal: DealCardOut }) {
   );
 }
 
-/** После договорённости: Telegram второй стороны (если показывает) и «Поделиться контактом» —
- *  шторка S54 в чате сделки (диалог по отклику начинается, если его ещё нет). */
-function Contacts({ deal }: { deal: DealCardOut }) {
+/** После договорённости — как связаться: «Написать» (когда главная кнопка занята «Работа
+ *  выполнена»), Telegram второй стороны (если показывает) и «Поделиться контактом» — шторка S54 в
+ *  чате сделки; у выполненной сделки делиться уже нечем (№13). */
+function Contacts({
+  deal,
+  chat,
+  write,
+}: {
+  deal: DealCardOut;
+  chat: ReturnType<typeof useDealChat>;
+  write: boolean;
+}) {
   const { t } = useTranslation('jobs');
+  const { t: common } = useTranslation();
   const platform = usePlatform();
-  const router = useRouter();
-  const start = useStartConversation();
   const username = deal.counterpart.telegram;
-  const openChat = (conversationId: string) =>
-    void router.navigate({ to: chatPath(conversationId), search: { share: true } });
-  const share = () => {
-    if (deal.conversation_id) openChat(deal.conversation_id);
-    else if (deal.response_id)
-      start.mutate({ response_id: deal.response_id }, { onSuccess: (s) => openChat(s.id) });
-  };
-  const canShare = Boolean(deal.conversation_id ?? deal.response_id);
+  const writable = write && chat.available;
+  const share = chat.available && deal.status !== 'completed';
+  if (!writable && !username && !share) return null;
   return (
     <section className="flex flex-col gap-2" aria-label={t('deal.contacts.title')}>
       <Group>
+        {writable && (
+          <Row icon="chat" title={common('action.write')} chevron onClick={chat.write} />
+        )}
         {username && (
           <Row
             icon="send"
@@ -470,17 +593,16 @@ function Contacts({ deal }: { deal: DealCardOut }) {
             onClick={() => platform.openTelegramLink(`https://t.me/${username.replace(/^@/, '')}`)}
           />
         )}
-        {canShare && (
+        {share && (
           <Row
             icon="phone"
             title={t('deal.contacts.share')}
             subtitle={t('deal.contacts.shareHint')}
             chevron
-            onClick={share}
+            onClick={chat.share}
           />
         )}
       </Group>
-      {start.error && <ActionError error={start.error} fallback={t('deal.contacts.shareError')} />}
     </section>
   );
 }
@@ -524,7 +646,7 @@ function Address({ deal }: { deal: DealCardOut }) {
     ? district
       ? t('deal.addressHintDistrict', { district, name })
       : t('deal.addressHint', { name })
-    : t('deal.noAddress');
+    : t(deal.my_role === 'client' ? 'deal.noAddress' : 'deal.noAddressPerformer');
   const canCopy = Boolean(place.address) && typeof navigator !== 'undefined' && navigator.clipboard;
   return (
     <Card tight as="section" aria-label={place.address ?? district ?? undefined}>
@@ -552,11 +674,14 @@ function Address({ deal }: { deal: DealCardOut }) {
   );
 }
 
-/** «Статус»: вехи сделки таймлайном. */
+/** «Статус»: вехи сделки таймлайном — текущая и следующая, пройденные и дальние — под
+ *  «Подробнее» (UX_GUIDANCE §5). «Отзыв» — шаг клиента: исполнитель отзыв не пишет, и шаг не
+ *  висел у него текущим вечно (№13). */
 function Steps({ deal }: { deal: DealCardOut }) {
   const { t } = useTranslation('jobs');
   const format = useFormat();
   const id = useId();
+  const [all, setAll] = useState(false);
   const { timeline } = deal;
   const stamp = (value: string) => {
     const date = new Date(value);
@@ -600,18 +725,31 @@ function Steps({ deal }: { deal: DealCardOut }) {
       meta: timeline.completed_at ? stamp(timeline.completed_at) : undefined,
       state: done ? 'done' : 'next',
     },
-    {
+  );
+  if (deal.my_role === 'client') {
+    items.push({
       key: 'review',
       title: t('deal.step.review'),
       state: deal.my_review ? 'done' : done ? 'now' : 'next',
-    },
-  );
+    });
+  }
+  const now = items.findIndex((item) => item.state === 'now');
+  const shown = all || now < 0 ? items : items.slice(now, now + 2);
   return (
     <Card tight as="section" aria-labelledby={id}>
       <Heading variant="h3" as="h2" id={id}>
         {t('deal.statusTitle')}
       </Heading>
-      <Timeline items={items} />
+      <Timeline items={shown} />
+      {(all || shown.length < items.length) && (
+        <LinkButton
+          aria-expanded={all}
+          onClick={() => setAll(!all)}
+          className="-my-1 -ml-2 self-start"
+        >
+          {t(all ? 'deal.stepsLess' : 'deal.stepsMore')}
+        </LinkButton>
+      )}
     </Card>
   );
 }
@@ -711,7 +849,7 @@ function CancelSheet({
             disabled={busy}
             onClick={() => onPick(reason)}
           >
-            {t(`deal.reason.${reason}`)}
+            {t(`deal.reasonOption.${reason}`)}
           </Button>
         ))}
       </div>

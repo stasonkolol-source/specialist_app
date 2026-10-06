@@ -627,7 +627,7 @@ export class JobsBackend {
     const decide = /^\/responses\/([^/]+)\/(accept|decline|shortlist)$/.exec(path);
     if (method === 'POST' && decide) {
       return signedIn
-        ? this.decide(decide[1] ?? '', decide[2] ?? '')
+        ? this.decide(decide[1] ?? '', decide[2] ?? '', ifMatch)
         : problem(401, 'not_authenticated');
     }
     if (path === '/me/deals' || path.startsWith('/deals/')) {
@@ -868,14 +868,27 @@ export class JobsBackend {
     return null;
   }
 
-  /** Решение клиента по отклику своей заявки (S24, S25): выбрать — сделка, отклонить. */
-  decide(responseId: string, action: string): BackendReply {
+  /** Принятые If-Match выбора исполнителя (ADV-08): редакция, которую видел клиент. */
+  readonly acceptIfMatch: (string | null)[] = [];
+
+  /** Решение клиента по отклику своей заявки (S24, S25): выбрать — сделка, отклонить. Выбор с
+   *  If-Match не той редакции — 409 `offer_changed` с нынешней ценой, как у сервера (ADV-08). */
+  decide(responseId: string, action: string, ifMatch: string | null = null): BackendReply {
     const owner = [...this.responseCards.entries()].find(([, cards]) =>
       cards.some((card) => card.id === responseId),
     );
     const job = owner ? this.jobs.get(owner[0]) : undefined;
     const card = owner?.[1].find((item) => item.id === responseId);
     if (!owner || !job || !card) return problem(404, 'response_not_found');
+    if (action === 'accept') this.acceptIfMatch.push(ifMatch);
+    if (action === 'accept' && ifMatch !== null && ifMatch !== `"${card.revision}"`) {
+      return problem(409, 'offer_changed', {
+        detail: 'Исполнитель только что изменил предложение',
+        revision: card.revision,
+        price_type: card.price.type,
+        price_amount: card.price.amount?.amount ?? null,
+      });
+    }
     if (!ACTIVE.has(card.status)) return problem(409, 'response_not_active');
     if (job.status !== 'published') return problem(409, 'job_not_open');
     this.decisions.push({ id: responseId, action });
@@ -960,6 +973,7 @@ export class JobsBackend {
               status: 'agreed',
               awaits_my_confirmation: false,
               proposal_expires_at: null,
+              completion_due_at: completionDue(deal.scheduled_at, now),
               timeline: { ...deal.timeline, agreed_at: now },
             }
           : {
@@ -969,6 +983,7 @@ export class JobsBackend {
               cancelled_by_me: true,
               awaits_my_confirmation: false,
               proposal_expires_at: null,
+              completion_due_at: null,
               timeline: { ...deal.timeline, cancelled_at: now },
             };
       this.deals.set(deal.id, answered);
@@ -989,6 +1004,12 @@ export class JobsBackend {
         },
       };
     } else if (method === 'POST' && match[2] === 'cancel') {
+      // после отметки «Работа выполнена» в одиночку не отменить (MU-8)
+      if (deal.timeline.my_mark_at !== null || deal.timeline.other_mark_at !== null) {
+        return problem(409, 'deal_marked_done', {
+          detail: 'Работа уже отмечена выполненной — отменить сделку нельзя.',
+        });
+      }
       const reason = (body as DealCancelIn).reason;
       this.decisions.push({ id: deal.id, action: 'cancel', reason });
       changed = {
@@ -1543,11 +1564,20 @@ export function dealCardFixture(
     version: 1,
     proposed_at: null,
     proposal_expires_at: null,
+    completion_due_at: completionDue(job.preferred_from, now),
     my_review: null,
     review_until: null,
     dispute: null,
   };
   return role === 'client' ? deal : asOther(deal);
+}
+
+/** Когда бот спросит «Работа выполнена?» (deals): через 3 ч после времени работы, без времени —
+ *  через сутки после договорённости. С этого часа на S26 это главная кнопка. */
+export function completionDue(scheduledAt: string | null, agreedAt: string): string {
+  return scheduledAt
+    ? new Date(Date.parse(scheduledAt) + 3 * HOUR_MS).toISOString()
+    : new Date(Date.parse(agreedAt) + 24 * HOUR_MS).toISOString();
 }
 
 /** Та же сделка глазами второй стороны: роль, контрагент и отметки меняются местами; отзыв пишет
@@ -1663,6 +1693,7 @@ export function proposedDealFixture(conversationId: string): DealCardOut {
     version: 1,
     proposed_at: proposedAt.toISOString(),
     proposal_expires_at: new Date(proposedAt.getTime() + 72 * 60 * 60 * 1000).toISOString(),
+    completion_due_at: null,
     my_review: null,
     review_until: null,
     dispute: null,

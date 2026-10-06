@@ -1,9 +1,12 @@
 // S27 «Как всё прошло?» (DEVELOPMENT_PLAN 7.3): отзыв клиента по завершённой сделке — вторая
 // сторона и сделка, звёзды с подписью («Хорошо»), «Что понравилось?» (качество, пунктуальность,
-// общение, соответствие цене — отмеченным ставится оценка отзыва), текст до 2000 знаков, «Фото к
-// отзыву — скоро» (v1); отзыв появится после автоматической проверки и не редактируется.
-// MainButton «Опубликовать отзыв» — после выбора оценки. Вход: S26 и S28 «Оставить отзыв», бот —
-// через сделку. Сделка не завершена, срок прошёл или отзыв уже есть — объяснение и «К сделке».
+// общение, соответствие цене — отмеченным ставится оценка отзыва), текст до 2000 знаков; отзыв
+// появится после автоматической проверки и не редактируется. Обещание v1 «Фото к отзыву — скоро»
+// с экрана MVP убрано (UX_GUIDANCE §5). MainButton «Опубликовать отзыв» — после выбора оценки.
+// После отправки — настоящий статус (№1): автопроверка публикует чистый отзыв за секунды, экран
+// перечитывает сделку до 30 с и пишет «опубликован в профиле исполнителя», иначе — «на проверке,
+// обычно несколько минут». Вход: S26 и S28 «Оставить отзыв», бот — через сделку. Сделка не
+// завершена, срок прошёл или отзыв уже есть — объяснение и «К сделке».
 import type { DealCardOut, ReviewIn } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import { isUnavailable, useDealCard, useLeaveReview } from '@sosed/hooks';
@@ -44,17 +47,24 @@ export function ReviewScreen() {
   const { dealId: raw = '' } = useParams({ strict: false });
   const dealId = jobIdOf(raw);
   const router = useRouter();
-  const card = useDealCard(dealId);
-  // отправленный отзыв: карточка сделки перечитается с ним — экран остаётся на «Спасибо»
+  // отправленный отзыв: карточка сделки перечитается с ним — экран остаётся на «Спасибо» и ждёт,
+  // пока автопроверка его опубликует (не дольше 30 с)
   const [sent, setSent] = useState(false);
+  const card = useDealCard(dealId, { live: sent });
   const back = () => {
     if (router.history.canGoBack()) router.history.back();
     else void router.navigate({ to: dealPath(raw), replace: true });
   };
   useBackButton(back);
 
-  if (sent)
-    return <Sent onDeal={() => void router.navigate({ to: dealPath(raw), replace: true })} />;
+  if (sent) {
+    return (
+      <Sent
+        status={card.data?.my_review?.status}
+        onDeal={() => void router.navigate({ to: dealPath(raw), replace: true })}
+      />
+    );
+  }
   if (dealId === null || (card.isError && isUnavailable(card.error))) {
     return <Closed text={null} onDeal={() => void router.navigate({ to: dealPath(raw) })} />;
   }
@@ -170,10 +180,6 @@ function Form({ deal, onSent }: { deal: DealCardOut; onSent: () => void }) {
           onChange={(event) => setBody(event.target.value)}
         />
       </Field>
-      {/* фото к отзыву — v1: строкой, без плитки — пунктир читался как загрузка, но не нажимался */}
-      <Text as="p" variant="cap">
-        {t('review.photoSoon')}
-      </Text>
       <Text as="p" variant="cap">
         {t('review.note')}
       </Text>
@@ -188,8 +194,15 @@ function Form({ deal, onSent }: { deal: DealCardOut; onSent: () => void }) {
   );
 }
 
-function Sent({ onDeal }: { onDeal: () => void }) {
+/** «Спасибо» со статусом, который подтвердил сервер: опубликован, на проверке или снят. */
+function Sent({ status, onDeal }: { status: string | undefined; onDeal: () => void }) {
   const { t } = useTranslation('jobs');
+  const title =
+    status === 'published'
+      ? t('review.sent')
+      : status === 'removed'
+        ? t('deal.myReview.removed')
+        : t('review.sentPending');
   return (
     <section className="flex flex-col gap-4 px-4 pt-10 pb-6">
       <EmptyState
@@ -197,7 +210,7 @@ function Sent({ onDeal }: { onDeal: () => void }) {
         size="h2"
         tone="accent"
         icon="check"
-        title={t('review.sent')}
+        title={title}
         action={<Button onClick={onDeal}>{t('review.toDeal')}</Button>}
       />
     </section>
