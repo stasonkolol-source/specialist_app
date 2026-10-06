@@ -1031,8 +1031,8 @@ def _across(
         if last not in texts:
             continue
         if len(texts) == 1:
-            piece = covered[0][1]
-            if own is None or any(o.start <= piece.start and piece.end <= o.end for o in own):
+            alone = covered[0][1]
+            if own is None or any(o.start <= alone.start and alone.end <= o.end for o in own):
                 continue
-        for index, piece in covered:
-            found[index].append(piece)
+        for index, part in covered:
+            found[index].append(part)
