@@ -94,6 +94,8 @@ async function fillWhen(telegram: MockTelegram) {
 }
 
 describe('S20a–d create a job', () => {
+  // весь мастер S20a–d за один тест: на раннере CI с 49 воркерами первый тест файла не укладывался
+  // в 5 с (локально ~1,2 с)
   it('walks from an empty draft to S21 «on review» with one POST /jobs', async () => {
     const jobs = withJobs(new JobsBackend());
     const { app, telegram } = startApp('/jobs/new');
@@ -158,7 +160,7 @@ describe('S20a–d create a job', () => {
     // черновик опубликован — его больше нет ни в памяти, ни в DeviceStorage
     expect(useDraftStore.getState().draft).toBeNull();
     await waitFor(() => expect(savedDraft(telegram)).toBeNull());
-  });
+  }, 15_000);
 
   it('checks each step before going on', async () => {
     withJobs(new JobsBackend());

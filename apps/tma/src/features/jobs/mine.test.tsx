@@ -144,56 +144,30 @@ describe('S22 my jobs', () => {
   });
 });
 
-describe('the jobs tab (UX_GUIDANCE №4)', () => {
-  it('opens «Мои заявки» for a client with jobs going on — where the tab count points', async () => {
-    withMine();
-    const { app } = startApp('/');
-    // свои заявки Главная запрашивает при входе — вкладка знает о них из кэша
-    await screen.findByRole('region', { name: 'Мои активные заявки' });
-    const tabs = screen.getByRole('navigation', { name: 'Разделы' });
-
-    await click(within(tabs).getByRole('link', { name: 'Заявки' }));
-
-    await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs/mine'));
-    expect(await screen.findByText('3 отклика — выберите исполнителя')).toBeTruthy();
-    // «Лента» — сегментом рядом
-    const segments = screen.getByRole('navigation', { name: 'Раздел заявок' });
-    await click(within(segments).getByRole('link', { name: 'Лента' }));
-    await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs'));
-  });
-
-  it('opens the feed when there is nothing going on in «Мои заявки»', async () => {
-    const backend = withMine();
-    for (const job of backend.jobs.values()) backend.jobs.set(job.id, { ...job, status: 'closed' });
-    const { app } = startApp('/');
-    const tabs = await screen.findByRole('navigation', { name: 'Разделы' });
-
-    await click(within(tabs).getByRole('link', { name: 'Заявки' }));
-
-    await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs'));
-  });
-
-  it('follows the tab count to «Мои заявки» even before the list is loaded', async () => {
+describe('the jobs tab', () => {
+  it('always opens the feed, even for a client with jobs going on and new responses', async () => {
+    // решение владельца (2026-10-03, подтверждено 2026-10-06): вкладка «Заявки» — всегда «Лента»;
+    // свои заявки — сегментом «Мои заявки», новые отклики видны точкой на нём и счётчиком вкладки
     withMine();
     const chat = new ChatBackend();
     chat.jobsBadge = 2;
-    server.use(
-      ...chatHandlers(() => chat),
-      http.get('*/api/v1/me/jobs', () => new Promise<never>(() => undefined)),
-    );
+    server.use(...chatHandlers(() => chat));
     const { app } = startApp('/');
-    const tabs = await screen.findByRole('navigation', { name: 'Разделы' });
-    await within(tabs).findByRole('link', { name: /Заявки/ });
+    await screen.findByRole('region', { name: 'Мои активные заявки' });
+    const tabs = screen.getByRole('navigation', { name: 'Разделы' });
     await waitFor(() =>
       expect(
         within(tabs)
           .getByRole('link', { name: /Заявки/ })
           .getAttribute('href'),
-      ).toMatch(/\/jobs\/mine$/),
+      ).toMatch(/\/jobs$/),
     );
 
     await click(within(tabs).getByRole('link', { name: /Заявки/ }));
 
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs'));
+    const segments = await screen.findByRole('navigation', { name: 'Раздел заявок' });
+    await click(within(segments).getByRole('link', { name: /Мои заявки/ }));
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs/mine'));
   });
 });
