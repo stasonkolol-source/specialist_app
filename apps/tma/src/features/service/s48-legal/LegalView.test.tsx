@@ -1,8 +1,9 @@
-// S48 (DEVELOPMENT_PLAN 1.5a): тексты черновиков 0.27 из client-config, разделы как пункты
-// макета, пометка без перевода, безопасный Markdown и состояния загрузки. API — MSW; axe — в e2e.
-import type { ClientConfigOut } from '@sosed/api-client';
+// S48 (DEVELOPMENT_PLAN 1.5a): тексты черновиков 0.27 своим запросом GET /legal-documents (в
+// client-config первого запуска их нет), разделы как пункты макета, пометка без перевода,
+// безопасный Markdown и состояния загрузки. API — MSW; axe — в e2e.
+import type { LegalDocumentsOut } from '@sosed/api-client';
 import { configureApiClient } from '@sosed/api-client';
-import { getSystemGetClientConfigMockHandler } from '@sosed/api-client/mocks';
+import { getSystemGetLegalDocumentsMockHandler } from '@sosed/api-client/mocks';
 import type { LegalDocumentKey } from '@sosed/hooks';
 import type { Locale } from '@sosed/i18n';
 import { I18nextProvider, createI18n, currentLocale } from '@sosed/i18n';
@@ -13,7 +14,6 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 
-import { CLIENT_CONFIG } from '../../../testing/fixtures.ts';
 import { API_ORIGIN, server } from '../../../testing/msw.ts';
 import { LegalView } from './LegalView.tsx';
 import { outline } from './sections.ts';
@@ -35,9 +35,8 @@ function renderView(document: LegalDocumentKey = 'terms', locale: Locale = 'ru')
   return { ...view, onDocumentChange };
 }
 
-const withTerms = (body: string): ClientConfigOut => ({
-  ...CLIENT_CONFIG,
-  legal_documents: {
+const withTerms = (body: string): LegalDocumentsOut => ({
+  documents: {
     terms: { version: '1.0', published_on: '2026-09-26', texts: { ru: { title: 'П', body } } },
   },
 });
@@ -118,10 +117,10 @@ describe('S48 legal documents', () => {
   });
 
   it('shows the translation when it exists', async () => {
-    const config = withTerms('Tekst.\n');
-    const terms = config.legal_documents.terms;
+    const legal = withTerms('Tekst.\n');
+    const terms = legal.documents.terms;
     if (terms) terms.texts['sr-Latn'] = { title: 'Pravila', body: '## 1. Ko može\n\nTekst.\n' };
-    server.use(getSystemGetClientConfigMockHandler(config));
+    server.use(getSystemGetLegalDocumentsMockHandler(legal));
     renderView('terms', 'sr-Latn');
 
     expect(await screen.findByRole('heading', { name: 'Ko može', level: 2 })).toBeTruthy();
@@ -130,7 +129,7 @@ describe('S48 legal documents', () => {
 
   it('never renders HTML from the text', async () => {
     server.use(
-      getSystemGetClientConfigMockHandler(
+      getSystemGetLegalDocumentsMockHandler(
         withTerms('## 1. Раздел\n\n<img src="x" onerror="alert(1)"> и <script>alert(2)</script>\n'),
       ),
     );
@@ -142,15 +141,15 @@ describe('S48 legal documents', () => {
   });
 
   it('says the document is unavailable when its version has no text', async () => {
-    server.use(getSystemGetClientConfigMockHandler({ ...CLIENT_CONFIG, legal_documents: {} }));
+    server.use(getSystemGetLegalDocumentsMockHandler({ documents: {} }));
     renderView('privacy');
 
     expect(await screen.findByRole('heading', { name: 'Документ недоступен' })).toBeTruthy();
     expect(screen.queryByText(/^Редакция/)).toBeNull();
   });
 
-  it('shows S49a with retry when client-config cannot be reached', async () => {
-    server.use(http.get('*/api/v1/client-config', () => HttpResponse.error(), { once: true }));
+  it('shows S49a with retry when the texts cannot be reached', async () => {
+    server.use(http.get('*/api/v1/legal-documents', () => HttpResponse.error(), { once: true }));
     renderView('terms');
 
     expect(await screen.findByRole('heading', { name: 'Нет соединения' })).toBeTruthy();
@@ -161,7 +160,7 @@ describe('S48 legal documents', () => {
     expect(await screen.findByText('Редакция от 27 сентября 2026')).toBeTruthy();
   });
 
-  it('announces loading until client-config answers', async () => {
+  it('announces loading until the texts answer', async () => {
     renderView('terms');
     expect(screen.getByRole('status').textContent).toBe('Загружаем документ');
     expect(await screen.findByRole('heading', { name: 'Кто может пользоваться' })).toBeTruthy();

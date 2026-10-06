@@ -35,7 +35,11 @@ describe('useFlag', () => {
 
     expect(result.current).toBe(false); // пока конфиг грузится — выключен
     await waitFor(() => expect(result.current).toBe(true));
-    expect(fetch).toHaveBeenCalledWith('/api/v1/client-config', expect.anything());
+    // без текстов правовых документов: они — 99,5 % ответа, первому запуску не нужны
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/client-config?legal_documents=false',
+      expect.anything(),
+    );
   });
 
   it('is off when the flag is absent, false or config is unavailable', async () => {

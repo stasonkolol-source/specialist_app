@@ -1,7 +1,8 @@
-// S01 «Запуск» (DEVELOPMENT_PLAN 1.5b): вход по initData до роутера. Пока идёт вход — экран
-// запуска; после — первый экран по app/launch.ts (онбординг, deep link или открытый адрес), его
-// чанк загружается заранее, чтобы после S01 не мелькал пустой экран. Ответ входа — тот же MeOut,
-// что GET /me: он ложится в кэш /me. Нет сети или сбой сервера — S49 с «Повторить». Санкцию на
+// S01 «Запуск» (DEVELOPMENT_PLAN 1.5b): вход по initData до роутера. Пока идёт вход и грузятся
+// тексты Главной (i18nReady, свой чанк языка) — экран запуска; после — первый экран по
+// app/launch.ts (онбординг, deep link или открытый адрес), его чанк загружается заранее, чтобы
+// после S01 не мелькал пустой экран. Ответ входа — тот же MeOut, что GET /me: он ложится в кэш
+// /me. Нет сети или сбой сервера — S49 с «Повторить». Санкцию на
 // аккаунт, техработы и 426 показывает StartupGate (стор S49); после его «Повторить» этот экран
 // монтируется заново и входит ещё раз (неудачный вход не запоминается). Удачный вход разводит по
 // экранам один раз за сессию: S49 посреди работы (техработы, ошибка рендера) тоже монтирует этот
@@ -10,6 +11,7 @@
 import { getIdentityGetMeQueryKey } from '@sosed/api-client';
 import type { SystemState } from '@sosed/hooks';
 import { systemStateOf } from '@sosed/hooks';
+import { i18nReady, useTranslation } from '@sosed/i18n';
 import { useQueryClient } from '@tanstack/react-query';
 import type { AnyRouter } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
@@ -43,6 +45,7 @@ export interface LaunchGateProps {
 
 export function LaunchGate({ launch, deepLink, router, children }: LaunchGateProps) {
   const queryClient = useQueryClient();
+  const { i18n } = useTranslation();
   const [attempt, setAttempt] = useState(0);
   const [outcome, setOutcome] = useState<Outcome | null>(() =>
     routed.has(router) ? { attempt: 0, result: 'ready' } : null,
@@ -52,7 +55,8 @@ export function LaunchGate({ launch, deepLink, router, children }: LaunchGatePro
     if (routed.has(router)) return;
     let active = true;
     void (async () => {
-      const result = await launch();
+      // тексты Главной (свой чанк языка) — вместе со входом: экран не мелькает ключами
+      const [result] = await Promise.all([launch(), i18nReady(i18n)]);
       if (!active) return;
       if (result.kind === 'failed') {
         setOutcome({ attempt, result: systemStateOf(result.error) });
@@ -78,7 +82,7 @@ export function LaunchGate({ launch, deepLink, router, children }: LaunchGatePro
     return () => {
       active = false;
     };
-  }, [attempt, launch, deepLink, router, queryClient]);
+  }, [attempt, launch, deepLink, router, queryClient, i18n]);
 
   if (outcome?.result === 'ready') return children;
   if (outcome) {

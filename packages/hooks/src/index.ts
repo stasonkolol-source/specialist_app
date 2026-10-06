@@ -34,6 +34,7 @@ export type { LegalDocumentKey, LegalTextView } from './legal/useLegalDocument.t
 export {
   LEGAL_DOCUMENTS,
   isLegalDocument,
+  legalDocumentsQueryOptions,
   legalText,
   useLegalDocument,
 } from './legal/useLegalDocument.ts';

@@ -22,9 +22,13 @@ export const FONT_FAMILIES: readonly FontFamily[] = [
   { family: 'Unbounded', pkg: '@fontsource/unbounded', weights: [500, 600], subsets: BASE_SUBSETS },
 ];
 
-/** Первый экран (S01, S03): заголовок Unbounded 600 («Соседи», «Найдём мастера рядом») и текст
- *  Onest 400 и 600 — кириллица; латиница — только 400 («Telegram», цифры, «…»). Латиница 600 на
- *  первом экране не встречается: качается, когда понадобится. Ссылки ставит плагин vite.ts. */
+/** Первый кадр (S01, S03): заголовок Unbounded 600 («Соседи», «Найдём мастера рядом») и текст
+ *  Onest 400 и 600 — кириллица; латиница — только 400 (пробелы, цифры, «Telegram»). Остальное, что
+ *  берёт Главная (Onest 500 таббара и чипа, латиница 600 и Unbounded), — по раскладке экрана, со
+ *  swap: замер 2026-10-05 (PERF-1) — preload всех восьми файлов Главной (+58 KB) делил медленный 4G
+ *  с чанком входа, и первый кадр, заголовок и LCP приходили на 0,3 с позже, а LCP Lighthouse не
+ *  улучшался. Сербская латиница (latin-ext) — только для sr-Latn, при запуске (app/fonts.ts в
+ *  Mini App). Ссылки ставит плагин vite.ts. */
 export const FONT_PRELOAD: readonly string[] = [
   '@fontsource/unbounded/files/unbounded-cyrillic-600-normal.woff2',
   '@fontsource/onest/files/onest-cyrillic-400-normal.woff2',

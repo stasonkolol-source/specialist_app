@@ -7605,6 +7605,20 @@
         ],
         "summary": "Get Client Config",
         "operationId": "system_get_client_config",
+        "parameters": [
+          {
+            "name": "legal_documents",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "false — без текстов правовых документов: их отдаёт GET /legal-documents",
+              "default": true,
+              "title": "Legal Documents"
+            },
+            "description": "false — без текстов правовых документов: их отдаёт GET /legal-documents"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -7612,6 +7626,41 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ClientConfigOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Не изменилось (If-None-Match)"
+          }
+        }
+      }
+    },
+    "/api/v1/legal-documents": {
+      "get": {
+        "tags": [
+          "platform"
+        ],
+        "summary": "Get Legal Documents",
+        "description": "Тексты действующих редакций для S48 — отдельно от client-config: первому запуску не нужны.\nТе же версии, что в `legal_versions` client-config, и тот же кэш: ETag, max-age 60.",
+        "operationId": "system_get_legal_documents",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalDocumentsOut"
                 }
               }
             }
@@ -12597,6 +12646,22 @@
           "texts"
         ],
         "title": "LegalDocumentOut"
+      },
+      "LegalDocumentsOut": {
+        "properties": {
+          "documents": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LegalDocumentOut"
+            },
+            "type": "object",
+            "title": "Documents"
+          }
+        },
+        "type": "object",
+        "required": [
+          "documents"
+        ],
+        "title": "LegalDocumentsOut"
       },
       "LegalTextOut": {
         "properties": {

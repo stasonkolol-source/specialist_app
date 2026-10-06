@@ -16,9 +16,13 @@ export const FLAGS = {
 
 export type FlagKey = (typeof FLAGS)[keyof typeof FLAGS];
 
-/** Ключ и свежесть конфига — одни у хука и у предзагрузки при запуске (до первого кадра). */
+/** Ключ и свежесть конфига — одни у хука и у предзагрузки при запуске (до первого кадра). Без
+ *  текстов правовых документов: они — 99,5 % ответа, а нужны только S48 (legalDocumentsQueryOptions). */
 export function clientConfigQueryOptions() {
-  return getSystemGetClientConfigQueryOptions({ query: { staleTime: CLIENT_CONFIG_STALE_MS } });
+  return getSystemGetClientConfigQueryOptions(
+    { legal_documents: false },
+    { query: { staleTime: CLIENT_CONFIG_STALE_MS } },
+  );
 }
 
 export function useClientConfig() {

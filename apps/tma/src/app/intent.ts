@@ -2,12 +2,14 @@
 // главный запрос начинают грузиться до click. TanStack <Link> этого не даст: переходы приложения
 // идут router.navigate с обычных <a> (TabBar, карточки — компоненты ui-web без роутера). Поэтому —
 // один слушатель на документ: href ссылки → путь маршрута → его чанк, а данные экрана —
-// prefetch.ts (своим чанком, первому экрану он не нужен). И в простое после перехода — чанк
-// экрана, который с этого открывают чаще всего (NEXT): нажатие не ждёт сети.
+// prefetch.ts (своим чанком, первому экрану он не нужен). И когда экран дочитал свои данные и
+// браузер свободен (afterFirstScreen), — чанк экрана, который с этого открывают чаще всего (NEXT):
+// нажатие не ждёт сети. Не раньше: на запуске полтора десятка чанков S08 делили бы медленную сеть
+// со шрифтами и данными Главной.
 import { CARD_PATHS, CATALOG_PATHS } from '../features/catalog/index.ts';
 import { JOBS_PATHS } from '../features/jobs/index.ts';
 import { MESSAGES_PATHS } from '../features/messages/index.ts';
-import { saveData, whenIdle } from '../features/shell/index.ts';
+import { afterFirstScreen, saveData } from '../features/shell/index.ts';
 import type { Assembled } from './bootstrap.ts';
 
 /** Экран → куда с него идут дальше: список → подробности, заявка → отклик, отклик → сделка. */
@@ -47,7 +49,7 @@ export function listenIntent(app: Pick<Assembled, 'router' | 'queryClient' | 'i1
   document.addEventListener('pointerdown', onIntent, { capture: true, passive: true });
   document.addEventListener('focusin', onIntent);
   let cancelIdle: (() => void) | null = null;
-  // экран открылся — чанк следующего в простое; с Data Saver — нет: загрузится по нажатию
+  // экран открылся — чанк следующего, когда экран дочитал данные; с Data Saver — нет: по нажатию
   const unsubscribe = router.subscribe('onResolved', ({ toLocation }) => {
     cancelIdle?.();
     cancelIdle = null;
@@ -55,7 +57,7 @@ export function listenIntent(app: Pick<Assembled, 'router' | 'queryClient' | 'i1
     const [, , route] = router.getMatchedRoutes(toLocation.pathname);
     const next = (route && NEXT[route.fullPath]) ?? [];
     if (next.length === 0) return;
-    cancelIdle = whenIdle(() => {
+    cancelIdle = afterFirstScreen(app.queryClient, () => {
       for (const id of next) {
         const target = router.routesById[id as keyof typeof router.routesById];
         if (target) void router.loadRouteChunk(target)?.catch(() => undefined);
