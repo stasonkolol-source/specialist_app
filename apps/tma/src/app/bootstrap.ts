@@ -8,7 +8,7 @@ import {
   configureApiClient,
   getIdentityGetMeQueryKey,
 } from '@sosed/api-client';
-import { createI18n, currentLocale, isLocale, resolveLocale } from '@sosed/i18n';
+import { createI18n, currentLocale, i18nReady, isLocale, resolveLocale } from '@sosed/i18n';
 import type { Platform } from '@sosed/platform';
 import { applyTheme } from '@sosed/platform';
 import type { QueryClient } from '@tanstack/react-query';
@@ -18,6 +18,7 @@ import { ONBOARDING_PATHS } from '../features/onboarding/index.ts';
 import { RESTRICTED_PATH, reportSystemError } from '../features/service/s49-system/index.ts';
 import { startTarget } from '../routes/startapp.ts';
 import { CHROME } from './chrome.ts';
+import { preloadLocaleFonts } from './fonts.ts';
 import { openedByTelegram } from './launch.ts';
 import { createQueryClient } from './query.ts';
 import { createAppRouter, historyFor } from './router.ts';
@@ -64,9 +65,13 @@ export function assemble(platform: Platform, options: AssembleOptions): Assemble
   });
   const i18n = createI18n({ locale, appName: APP_NAME });
   document.documentElement.lang = locale;
-  // смена языка на экране (S31, позже S43) — без перезагрузки: lang страницы следует за i18n
+  // шрифты языка — после текстов первого экрана: на медленном 4G они делили бы сеть с их чанком
+  void i18nReady(i18n).then(() => preloadLocaleFonts(currentLocale(i18n)));
+  // смена языка на экране (S31, позже S43) — без перезагрузки: lang страницы следует за i18n.
+  // Сохранённый язык (ui_locale) приходит со входом — его шрифты тоже до экрана
   i18n.on('languageChanged', (next) => {
     document.documentElement.lang = next;
+    if (isLocale(next)) preloadLocaleFonts(next);
   });
   // hash читаем до роутера: при запуске из Telegram в нём launch params, а не путь
   const deepLink = openedByTelegram(platform.kind, window.location.hash)

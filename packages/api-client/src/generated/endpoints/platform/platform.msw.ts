@@ -9,7 +9,7 @@ import { faker } from '@faker-js/faker';
 import { HttpResponse, http } from 'msw';
 import type { RequestHandlerOptions } from 'msw';
 
-import type { ClientConfigOut } from '../../model';
+import type { ClientConfigOut, LegalDocumentsOut } from '../../model';
 
 export const getSystemGetClientConfigResponseMock = (
   overrideResponse: Partial<Extract<ClientConfigOut, object>> = {},
@@ -42,6 +42,24 @@ export const getSystemGetClientConfigResponseMock = (
   ...overrideResponse,
 });
 
+export const getSystemGetLegalDocumentsResponseMock = (
+  overrideResponse: Partial<Extract<LegalDocumentsOut, object>> = {},
+): LegalDocumentsOut => ({
+  documents: {
+    [faker.string.alphanumeric(5)]: {
+      version: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      published_on: faker.date.past().toISOString().slice(0, 10),
+      texts: {
+        [faker.string.alphanumeric(5)]: {
+          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          body: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        },
+      },
+    },
+  },
+  ...overrideResponse,
+});
+
 export const getSystemGetClientConfigMockHandler = (
   overrideResponse?:
     | ClientConfigOut
@@ -65,4 +83,31 @@ export const getSystemGetClientConfigMockHandler = (
     options,
   );
 };
-export const getPlatformMock = () => [getSystemGetClientConfigMockHandler()];
+
+export const getSystemGetLegalDocumentsMockHandler = (
+  overrideResponse?:
+    | LegalDocumentsOut
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<LegalDocumentsOut> | LegalDocumentsOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    '*/api/v1/legal-documents',
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getSystemGetLegalDocumentsResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+export const getPlatformMock = () => [
+  getSystemGetClientConfigMockHandler(),
+  getSystemGetLegalDocumentsMockHandler(),
+];

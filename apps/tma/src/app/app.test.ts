@@ -226,6 +226,21 @@ describe('sign in by initData', () => {
     expect(onRefused).toHaveBeenCalledOnce();
   });
 
+  it('refused initData: one exchange per launch, a 401 later does not sign in again', async () => {
+    const fetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ status: 401, code: 'init_data_expired' }), { status: 401 }),
+    );
+    configureApiClient({ fetch });
+    const auth = createAuth(platformWith('stale'));
+
+    await expect(auth.launch()).resolves.toEqual({ kind: 'guest' });
+    // onReauth api-client на 401 запроса гостя: тот же initData не примут — без запроса
+    await expect(auth.signIn()).resolves.toBe(false);
+    await expect(auth.signIn()).resolves.toBe(false);
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
   it('launch: after a failure the next call signs in again («Повторить»)', async () => {
     let online = false;
     const fetch = vi.fn(async () => {

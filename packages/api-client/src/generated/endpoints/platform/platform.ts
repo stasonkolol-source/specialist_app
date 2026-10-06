@@ -17,7 +17,12 @@ import type {
   UseQueryResult,
 } from '@tanstack/react-query';
 
-import type { ClientConfigOut, ProblemOut } from '../../model';
+import type {
+  ClientConfigOut,
+  LegalDocumentsOut,
+  ProblemOut,
+  SystemGetClientConfigParams,
+} from '../../model';
 
 import { apiFetch } from '../../../mutator.ts';
 import type { ErrorType } from '../../../mutator.ts';
@@ -39,41 +44,57 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
-export const getSystemGetClientConfigUrl = () => {
-  return `/api/v1/client-config`;
+export const getSystemGetClientConfigUrl = (params?: SystemGetClientConfigParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/client-config?${stringifiedParams}`
+    : `/api/v1/client-config`;
 };
 
 /**
  * @summary Get Client Config
  */
 export const systemGetClientConfig = async (
+  params?: SystemGetClientConfigParams,
   options?: Parameters<typeof apiFetch>[1],
 ): Promise<ClientConfigOut> => {
-  return apiFetch<ClientConfigOut>(getSystemGetClientConfigUrl(), {
+  return apiFetch<ClientConfigOut>(getSystemGetClientConfigUrl(params), {
     ...options,
     method: 'GET',
   });
 };
 
-export const getSystemGetClientConfigQueryKey = () => {
-  return [`/api/v1/client-config`] as const;
+export const getSystemGetClientConfigQueryKey = (params?: SystemGetClientConfigParams) => {
+  return [`/api/v1/client-config`, ...(params ? [params] : [])] as const;
 };
 
 export const getSystemGetClientConfigQueryOptions = <
   TData = Awaited<ReturnType<typeof systemGetClientConfig>>,
   TError = ErrorType<void | ProblemOut>,
->(options?: {
-  query?: Partial<
-    UseQueryOptions<Awaited<ReturnType<typeof systemGetClientConfig>>, TError, TData>
-  >;
-  request?: SecondParameter<typeof apiFetch>;
-}) => {
+>(
+  params?: SystemGetClientConfigParams,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof systemGetClientConfig>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getSystemGetClientConfigQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getSystemGetClientConfigQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof systemGetClientConfig>>> = ({ signal }) =>
-    systemGetClientConfig({ signal, ...requestOptions });
+    systemGetClientConfig(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof systemGetClientConfig>>,
@@ -91,6 +112,7 @@ export function useSystemGetClientConfig<
   TData = Awaited<ReturnType<typeof systemGetClientConfig>>,
   TError = ErrorType<void | ProblemOut>,
 >(
+  params: undefined | SystemGetClientConfigParams,
   options: {
     query: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof systemGetClientConfig>>, TError, TData>
@@ -111,6 +133,7 @@ export function useSystemGetClientConfig<
   TData = Awaited<ReturnType<typeof systemGetClientConfig>>,
   TError = ErrorType<void | ProblemOut>,
 >(
+  params?: SystemGetClientConfigParams,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof systemGetClientConfig>>, TError, TData>
@@ -131,6 +154,7 @@ export function useSystemGetClientConfig<
   TData = Awaited<ReturnType<typeof systemGetClientConfig>>,
   TError = ErrorType<void | ProblemOut>,
 >(
+  params?: SystemGetClientConfigParams,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof systemGetClientConfig>>, TError, TData>
@@ -147,6 +171,7 @@ export function useSystemGetClientConfig<
   TData = Awaited<ReturnType<typeof systemGetClientConfig>>,
   TError = ErrorType<void | ProblemOut>,
 >(
+  params?: SystemGetClientConfigParams,
   options?: {
     query?: Partial<
       UseQueryOptions<Awaited<ReturnType<typeof systemGetClientConfig>>, TError, TData>
@@ -155,7 +180,135 @@ export function useSystemGetClientConfig<
   },
   queryClient?: QueryClient,
 ): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-  const queryOptions = getSystemGetClientConfigQueryOptions(options);
+  const queryOptions = getSystemGetClientConfigQueryOptions(params, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getSystemGetLegalDocumentsUrl = () => {
+  return `/api/v1/legal-documents`;
+};
+
+/**
+ * Тексты действующих редакций для S48 — отдельно от client-config: первому запуску не нужны.
+ * Те же версии, что в `legal_versions` client-config, и тот же кэш: ETag, max-age 60.
+ * @summary Get Legal Documents
+ */
+export const systemGetLegalDocuments = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<LegalDocumentsOut> => {
+  return apiFetch<LegalDocumentsOut>(getSystemGetLegalDocumentsUrl(), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getSystemGetLegalDocumentsQueryKey = () => {
+  return [`/api/v1/legal-documents`] as const;
+};
+
+export const getSystemGetLegalDocumentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof systemGetLegalDocuments>>,
+  TError = ErrorType<void | ProblemOut>,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<Awaited<ReturnType<typeof systemGetLegalDocuments>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getSystemGetLegalDocumentsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof systemGetLegalDocuments>>> = ({
+    signal,
+  }) => systemGetLegalDocuments({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof systemGetLegalDocuments>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type SystemGetLegalDocumentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof systemGetLegalDocuments>>
+>;
+export type SystemGetLegalDocumentsQueryError = ErrorType<void | ProblemOut>;
+
+export function useSystemGetLegalDocuments<
+  TData = Awaited<ReturnType<typeof systemGetLegalDocuments>>,
+  TError = ErrorType<void | ProblemOut>,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof systemGetLegalDocuments>>, TError, TData>
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof systemGetLegalDocuments>>,
+          TError,
+          Awaited<ReturnType<typeof systemGetLegalDocuments>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useSystemGetLegalDocuments<
+  TData = Awaited<ReturnType<typeof systemGetLegalDocuments>>,
+  TError = ErrorType<void | ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof systemGetLegalDocuments>>, TError, TData>
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof systemGetLegalDocuments>>,
+          TError,
+          Awaited<ReturnType<typeof systemGetLegalDocuments>>
+        >,
+        'initialData'
+      >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useSystemGetLegalDocuments<
+  TData = Awaited<ReturnType<typeof systemGetLegalDocuments>>,
+  TError = ErrorType<void | ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof systemGetLegalDocuments>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get Legal Documents
+ */
+
+export function useSystemGetLegalDocuments<
+  TData = Awaited<ReturnType<typeof systemGetLegalDocuments>>,
+  TError = ErrorType<void | ProblemOut>,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<Awaited<ReturnType<typeof systemGetLegalDocuments>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getSystemGetLegalDocumentsQueryOptions(options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<TData, TError> & {
     queryKey: DataTag<QueryKey, TData, TError>;

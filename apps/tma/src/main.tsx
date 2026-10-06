@@ -1,6 +1,5 @@
 import './app/app.css';
 
-import { i18nReady } from '@sosed/i18n';
 import type { Platform } from '@sosed/platform';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -38,14 +37,14 @@ function start(platform: Platform) {
     );
 
   const root = document.getElementById('root');
-  // сербские тексты — отдельным чанком: первый кадр — уже с ними, без мелькания русского.
-  // Тексты остальных экранов догружает оболочка (AppShell), когда первый экран дочитал данные
-  void i18nReady(app.i18n).then(() => {
-    if (!root) return;
+  // экран запуска S01 — сразу: ему хватает общего неймспейса, он во входе. Тексты Главной своего
+  // языка — своим чанком, запрошены при сборке (createI18n); LaunchGate ждёт их вместе с итогом
+  // входа, без мелькания ключей и русского. Тексты остальных экранов догружает оболочка (AppShell)
+  if (root) {
     createRoot(root).render(
       <StrictMode>
         <App {...app} />
       </StrictMode>,
     );
-  });
+  }
 }

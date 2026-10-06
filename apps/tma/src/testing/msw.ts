@@ -20,6 +20,7 @@ import {
   getSearchListSpecialistsMockHandler,
   getSearchSuggestMockHandler,
   getSystemGetClientConfigMockHandler,
+  getSystemGetLegalDocumentsMockHandler,
 } from '@sosed/api-client/mocks';
 import type { MeOut, MeUpdateIn, PrivacyIn, TokensOut } from '@sosed/api-client';
 import { HttpResponse, http } from 'msw';
@@ -27,6 +28,7 @@ import { setupServer } from 'msw/node';
 
 import {
   CLIENT_CONFIG,
+  LEGAL_DOCUMENTS,
   ME,
   NOTIFICATION_SETTINGS,
   WRITE_ACCESS,
@@ -233,6 +235,7 @@ export const handlers = [
     return respond(shareReply(body, request.headers.has('Authorization')));
   }),
   getSystemGetClientConfigMockHandler(CLIENT_CONFIG),
+  getSystemGetLegalDocumentsMockHandler(LEGAL_DOCUMENTS),
   getIdentityAuthenticateTelegramMockHandler({ ...TOKENS, is_new: false, user: ME }),
   getIdentityRefreshSessionMockHandler(TOKENS),
   getIdentityLogoutMockHandler(),
