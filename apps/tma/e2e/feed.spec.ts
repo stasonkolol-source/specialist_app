@@ -65,7 +65,7 @@ for (const theme of THEMES) {
       await page.clock.setFixedTime(new Date(E2E_NOW));
       const watch = await open(page, `theme=${theme}&lang=${l.telegram}`, {
         signedIn: true,
-        // исполнитель: вкладка «Заявки» открывается лентой (клиенту — «Мои заявки»)
+        // исполнитель: вкладка «Заявки» открывается лентой (как и клиенту)
         me: { ...ME, intent: 'pro', ui_locale: l.locale },
         jobs: new JobsBackend(),
       });
