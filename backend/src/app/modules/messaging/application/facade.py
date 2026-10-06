@@ -7,7 +7,12 @@ from typing import Final
 from uuid import UUID
 
 from app.modules.messaging.api import MessageForReview, MessageNotice, ResponseTime
-from app.modules.messaging.application.ports import ConversationQueries, MessageStore, Presence
+from app.modules.messaging.application.ports import (
+    ConversationQueries,
+    ConversationRepository,
+    MessageStore,
+    Presence,
+)
 from app.modules.messaging.domain.message import MessageKind, MessageModeration
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import UserId
@@ -24,9 +29,11 @@ class MessagingFacade:
         messages: MessageStore,
         queries: ConversationQueries,
         presence: Presence,
+        conversations: ConversationRepository,
     ) -> None:
         self._uow, self._messages = uow, messages
         self._queries, self._presence = queries, presence
+        self._conversations = conversations
 
     async def message_for_review(self, message_id: UUID) -> MessageForReview | None:
         message = await self._messages.get(message_id)
@@ -101,6 +108,9 @@ class MessagingFacade:
     async def counterpart(self, conversation_id: UUID, user_id: UserId) -> UserId | None:
         view = await self._queries.view(conversation_id, user_id)
         return view.counterpart_id if view is not None else None
+
+    async def deal_conversation(self, deal_id: UUID, response_id: UUID | None) -> UUID | None:
+        return await self._conversations.for_deal(deal_id, response_id)
 
 
 def _preview(body: str) -> str:

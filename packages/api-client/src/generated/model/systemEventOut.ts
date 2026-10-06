@@ -16,4 +16,6 @@ export interface SystemEventOut {
   by: string | null;
   /** Причина отмены (DealCancelReason) */
   reason: string | null;
+  /** Отменили предложение «Договорились», а не сделку: «Предложение не принято» */
+  proposal?: boolean;
 }

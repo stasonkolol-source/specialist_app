@@ -109,6 +109,22 @@ describe('S15 respond button', () => {
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs/responses'));
   });
+
+  it('leads straight to fixing a response hidden by moderation (MU-10)', async () => {
+    withJobs((backend) => {
+      backend.responses = myResponsesFixture().map((response) =>
+        response.job.id === WARDROBE.card.id ? { ...response, review: 'blocked' } : response,
+      );
+    });
+    const { app, telegram } = startApp(`/jobs/${WARDROBE.card.id}`);
+
+    await waitFor(() => expect(mainButton(telegram)?.text).toBe('Исправить отклик'));
+    await pressMainButton(telegram);
+
+    await waitFor(() =>
+      expect(app.router.state.location.pathname).toBe(`/jobs/${WARDROBE.card.id}/respond`),
+    );
+  });
 });
 
 describe('S16 respond', () => {

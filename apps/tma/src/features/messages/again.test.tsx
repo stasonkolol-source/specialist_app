@@ -70,7 +70,7 @@ describe('S30 header by the deal', () => {
     const header = await directHeader();
     // действие «предложить условия», а не статус «Договорились»
     expect(headerButtons(header)).toEqual(['Договориться']);
-    expect(within(header).getByText('Сделки пока нет')).toBeTruthy();
+    expect(within(header).queryByText('Сделки пока нет')).toBeNull(); // №8: без «Сделки пока нет»
   });
 
   it.each([
@@ -163,7 +163,7 @@ describe('S30 header by the deal', () => {
     startApp(`/messages/${CONVERSATION_IDS.direct}`);
 
     const header = await directHeader();
-    expect(within(header).getByText('Сделки пока нет')).toBeTruthy();
+    expect(within(header).queryByText('Сделки пока нет')).toBeNull();
     // сделки нет, контакты открыты: «Договориться» — в шапке, Telegram — в полосе «вы уже
     // договаривались»
     expect(headerButtons(header)).toEqual(['Договориться']);

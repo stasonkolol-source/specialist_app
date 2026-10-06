@@ -136,6 +136,6 @@ async def test_deal_card_for_both_sides(web: HttpApp, storage_settings: Settings
     with round_trips(engine) as trips:
         again = await call(web, storage_settings, client, "GET", f"/deals/{deal_id}/card")
     assert again.json() == for_client
-    # сделка, заявка с откликом, имя второй стороны, её Telegram, отзыв; место — из снимка
-    # справочника (было ещё по запросу на город и район)
-    assert trips.queries == 6, trips.statements
+    # сделка, заявка с откликом, имя второй стороны, её Telegram, отзыв, чат сделки (№2); место —
+    # из снимка справочника (было ещё по запросу на город и район)
+    assert trips.queries == 7, trips.statements

@@ -84,7 +84,9 @@ describe('S29 chats', () => {
     );
     await click(direct);
 
-    expect(await screen.findByText('Сделки пока нет')).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Алексей Морозов', level: 1 })).toBeTruthy();
+    // сделки нет — и строки о ней нет, без «Сделки пока нет» (UX_GUIDANCE №8)
+    expect(screen.queryByText('Сделки пока нет')).toBeNull();
     expect(screen.getByRole('img', { name: 'Алексей Морозов' })).toBeTruthy();
     // кнопки шапки и поле ввода — только по ответу диалога
     expect(screen.queryByRole('button', { name: 'Договориться' })).toBeNull();
@@ -113,7 +115,7 @@ describe('S30 chat', () => {
     startApp(DIRECT);
 
     const header = await screen.findByRole('banner', { name: 'Алексей Морозов' });
-    expect(within(header).getByText('Сделки пока нет')).toBeTruthy();
+    expect(within(header).queryByText('Сделки пока нет')).toBeNull();
     expect(within(header).getByRole('link', { name: /Алексей Морозов/ })).toBeTruthy();
     expect(screen.getByText(/Не вносите предоплату незнакомым исполнителям/)).toBeTruthy();
     // день — подписью над первым сообщением, а не в строке о начале диалога
@@ -181,7 +183,26 @@ describe('S30 chat', () => {
     const header = await screen.findByRole('banner', { name: 'Алексей Морозов' });
     await waitFor(() => expect(within(header).getByText('Ждёт подтверждения')).toBeTruthy());
     expect(within(header).queryByRole('button', { name: 'Договориться' })).toBeNull();
-    expect(await screen.findByText('Вы предложили договориться — ждём подтверждения')).toBeTruthy();
+    // одна строка от сервера: кто и до когда отвечает, как узнать о решении (UX_GUIDANCE №14)
+    expect(
+      await screen.findByText(
+        /^Условия отправлены\. Алексей Морозов может подтвердить до\s8\sоктября/u,
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/ждём подтверждения/)).toBeNull();
+  });
+
+  it('tells the client of an empty dialog what to write and how the answer comes (№8)', async () => {
+    const backend = withChats();
+    const dialog = backend.dialogs.get(CONVERSATION_IDS.direct);
+    if (!dialog) throw new Error('fixtures');
+    dialog.messages = [];
+    startApp(DIRECT);
+
+    expect(
+      await screen.findByText(/^Опишите задачу: что, где и\sкогда\. Алексей Морозов получит/u),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Договориться' })).toBeTruthy();
   });
 
   it('leads the client of a response dialog to the responses', async () => {

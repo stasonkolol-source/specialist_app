@@ -238,7 +238,8 @@
     "unsave": "Ukloni iz sačuvanih",
     "savedFull": "Već ste sačuvali {limit} zahteva — uklonite nepotrebne da biste sačuvali novi",
     "saveError": "Čuvanje nije uspelo. Pokušajte ponovo.",
-    "report": "Prijavi"
+    "report": "Prijavi",
+    "fixResponse": "Ispravi ponudu"
   },
   "saved": {
     "title": "Omiljeni",
@@ -443,7 +444,8 @@
       "accepted": "Izabrali ste ovog izvođača",
       "declined": "Odbili ste ovu ponudu",
       "withdrawn": "Izvođač je povukao ponudu",
-      "not_selected": "Izabran je drugi izvođač"
+      "not_selected": "Izabran je drugi izvođač",
+      "dealCancelled": "Dogovor je otkazan"
     },
     "openDeal": "Otvori dogovor",
     "confirmTitle": "Izabrati ovog izvođača?",
@@ -454,6 +456,7 @@
     "confirm": "Izaberi izvođača",
     "cancel": "Otkaži",
     "acceptError": "Izvođač nije izabran. Pokušajte ponovo.",
+    "offerChanged": "Izvođač je promenio ponudu",
     "writeError": "Razgovor nije moguće otvoriti. Pokušajte ponovo."
   },
   "deal": {
@@ -466,6 +469,11 @@
       "cancelled": "Otkazan",
       "disputed": "Spor"
     },
+    "next": {
+      "client": "Izvođač je dobio obaveštenje. Dogovorite vreme i adresu u razgovoru.",
+      "performer": "Klijent vas je izabrao. Dogovorite vreme i adresu u razgovoru.",
+      "chat": "Dogovorite vreme i adresu u razgovoru."
+    },
     "role": {
       "performer": "izvođač",
       "client": "klijent"
@@ -473,10 +481,13 @@
     "deletedParty": "Nalog je obrisan",
     "addressHint": "Adresu vidite samo vi i {name}",
     "addressHintDistrict": "{district}. Adresu vidite samo vi i {name}",
-    "noAddress": "Tačna adresa nije navedena u zahtevu",
+    "noAddress": "Adresa nije navedena — napišite je izvođaču u razgovoru",
+    "noAddressPerformer": "Adresa nije navedena — pitajte klijenta u razgovoru",
     "copy": "Kopiraj adresu",
     "copied": "Adresa je kopirana",
     "statusTitle": "Status",
+    "stepsMore": "Detaljnije",
+    "stepsLess": "Skupi",
     "step": {
       "responded": "Ponuda za zahtev",
       "chosen": "Izabran izvođač",
@@ -487,6 +498,7 @@
     },
     "safety": "Ne plaćajte unapred nepoznatim izvođačima. Platite kada posao bude urađen.",
     "complete": "Posao je završen",
+    "markEarly": "Posao je već završen? Označite",
     "completeError": "Označavanje posla kao završenog nije uspelo. Pokušajte ponovo.",
     "marked": "Označili ste „Posao je završen“. Dogovor će se završiti kada potvrdi druga strana — ili sam za 3 dana.",
     "otherMarked": "Druga strana je već označila „Posao je završen“. Potvrdite ako je sve urađeno.",
@@ -500,6 +512,12 @@
       "no_agreement": "nisu se dogovorili o ceni ili vremenu",
       "no_contact": "nema kontakta",
       "other": "drugi razlog"
+    },
+    "reasonOption": {
+      "plans_changed": "Planovi su se promenili",
+      "no_agreement": "Nismo se dogovorili o ceni ili vremenu",
+      "no_contact": "Nema kontakta",
+      "other": "Drugi razlog"
     },
     "cancel": "Otkaži dogovor",
     "cancelHintClient": "Zahtev će se ponovo otvoriti — možete izabrati među prethodnim ponudama",
@@ -534,7 +552,7 @@
     "orderAgainError": "Razgovor nije moguće otvoriti. Pokušajte ponovo.",
     "reviewUntil": "Utisak možete ostaviti do {date}",
     "myReview": {
-      "under_review": "Vaš utisak je na proveri",
+      "under_review": "Vaš utisak je na proveri — obično nekoliko minuta",
       "published": "Vaš utisak je objavljen",
       "removed": "Vaš utisak je uklonjen moderacijom"
     },
@@ -636,10 +654,10 @@
     "body": "Utisak",
     "placeholder": "Opišite posao: šta je dobro urađeno, šta može bolje",
     "hint": "Pišite o poslu. Telefoni i linkovi u utisku se ne objavljuju.",
-    "photoSoon": "Fotografije uz utisak — uskoro",
     "note": "Utisak će se pojaviti na profilu izvođača posle automatske provere. Posle objave ne može se menjati.",
     "submit": "Objavi utisak",
-    "sent": "Hvala! Utisak će se pojaviti posle provere.",
+    "sent": "Hvala! Utisak je objavljen na profilu izvođača.",
+    "sentPending": "Hvala! Utisak je na proveri — obično nekoliko minuta.",
     "failed": "Slanje utiska nije uspelo. Pokušajte ponovo.",
     "closed": "Rok za utisak je istekao: možete ga ostaviti u roku od 14 dana posle završetka dogovora.",
     "exists": "Već ste ostavili utisak za ovaj dogovor.",

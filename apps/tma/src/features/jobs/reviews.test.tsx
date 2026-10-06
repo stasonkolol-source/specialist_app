@@ -1,11 +1,14 @@
 // Отзывы в Mini App (DEVELOPMENT_PLAN 7.3) на фейке backend: завершённая сделка S26 — шаг «Отзыв»,
 // «Отзыв можно оставить до …» и MainButton «Оставить отзыв»; S27 — звёзды с подписью, «Что
-// понравилось?», текст, «Опубликовать отзыв» — отзыв ждёт проверки, сделка показывает его статус;
+// понравилось?», текст, «Опубликовать отзыв» — «Спасибо» с настоящим статусом: на проверке или
+// опубликован (экран перечитывает сделку до 30 с, UX_GUIDANCE №1), сделка показывает его статус;
 // второй раз — «Вы уже оставили отзыв». S28 — сделки «Активные» / «Завершённые» с отзывом или
 // «Оставить отзыв»; отзывы «Обо мне» с ответом из шторки; строка «Сделки и отзывы» в S31.
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { REVIEW_SETTLE_POLL_MS } from '@sosed/hooks';
 
 import { mainButton, pressMainButton, startApp, userBackend } from '../../testing/app.tsx';
 import { E2E_NOW, ME } from '../../testing/fixtures.ts';
@@ -58,8 +61,8 @@ describe('S26 and S27 review', () => {
 
     expect(await screen.findByRole('heading', { name: 'Как всё прошло?', level: 1 })).toBeTruthy();
     expect(screen.getByText('Алексей Морозов')).toBeTruthy();
-    // фото к отзыву — v1: строка «скоро», без плитки, похожей на загрузку
-    expect(screen.getByText('Фото к отзыву — скоро')).toBeTruthy();
+    // обещание v1 «Фото к отзыву — скоро» на экране MVP не показываем (§5)
+    expect(screen.queryByText(/Фото к\sотзыву/u)).toBeNull();
     expect(screen.queryByText('Фото')).toBeNull();
     await waitFor(() => expect(mainButton(telegram)?.is_active).toBe(false));
     await click(screen.getByRole('radio', { name: '4 звезды' }));
@@ -80,9 +83,34 @@ describe('S26 and S27 review', () => {
         body: 'Повесил аккуратно',
       }),
     );
-    expect(await screen.findByText('Спасибо! Отзыв появится после проверки.')).toBeTruthy();
+    // сервер ещё проверяет — так и пишем, со сроком
+    expect(await screen.findByText(/^Спасибо! Отзыв на\sпроверке/u)).toBeTruthy();
     await click(screen.getByRole('button', { name: 'К сделке' }));
-    expect(await screen.findByText('Ваш отзыв на проверке')).toBeTruthy();
+    expect(await screen.findByText(/^Ваш отзыв на\sпроверке\s— обычно/u)).toBeTruthy();
+  });
+
+  it('says the review is published once the check passed (UX_GUIDANCE №1)', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'], now: new Date(E2E_NOW) });
+    const { backend, deal } = withCompleted();
+    const telegram = await readyForm(deal.id);
+    await pressMainButton(telegram);
+    expect(await screen.findByText(/^Спасибо! Отзыв на\sпроверке/u)).toBeTruthy();
+
+    // автопроверка опубликовала отзыв — экран узнаёт об этом сам, без перехода
+    const review = backend.deals.get(deal.id)?.my_review;
+    if (!review) throw new Error('отзыв не записан');
+    backend.deals.set(deal.id, {
+      ...deal,
+      review_until: null,
+      my_review: { ...review, status: 'published' },
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(REVIEW_SETTLE_POLL_MS);
+    });
+
+    expect(
+      await screen.findByText(/^Спасибо! Отзыв опубликован в\sпрофиле исполнителя\.$/u),
+    ).toBeTruthy();
   });
 
   /** S27 с выбранной оценкой: MainButton «Опубликовать отзыв» активна. */
@@ -105,7 +133,7 @@ describe('S26 and S27 review', () => {
       telegram.emit('main_button_pressed');
     });
 
-    expect(await screen.findByText('Спасибо! Отзыв появится после проверки.')).toBeTruthy();
+    expect(await screen.findByText(/^Спасибо! Отзыв на\sпроверке/u)).toBeTruthy();
     const posts = sent.mock.calls.filter(
       ([method, path]) => method === 'POST' && path.endsWith('/review'),
     );
@@ -124,7 +152,7 @@ describe('S26 and S27 review', () => {
 
     await pressMainButton(telegram);
 
-    expect(await screen.findByText('Спасибо! Отзыв появится после проверки.')).toBeTruthy();
+    expect(await screen.findByText(/^Спасибо! Отзыв на\sпроверке/u)).toBeTruthy();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 

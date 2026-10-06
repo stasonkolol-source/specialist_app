@@ -27,6 +27,7 @@ from app.modules.notifications.domain.notification import (
 )
 from app.modules.notifications.domain.settings import NotificationSettings
 from app.platform.contracts.events.deals import (
+    DealAgreed,
     DealCancelled,
     DealCompleted,
     DealCompletionDue,
@@ -389,6 +390,11 @@ NOTIFY_DEAL_PROPOSED: Final = TaskRef(
     "notifications.notify_deal_proposed", DealProposed, queue="notifications"
 )
 """Подписчик DealProposed: второй стороне — «предлагает договориться», подтвердить за 72 ч."""
+NOTIFY_DEAL_AGREED: Final = TaskRef(
+    "notifications.notify_deal_agreed", DealAgreed, queue="notifications"
+)
+"""Подписчик DealAgreed: вторая сторона подтвердила «Договориться» из чата — предложившему
+«Условия подтверждены» и «Открыть чат» (UX_GUIDANCE №14)."""
 NOTIFY_DEAL_CANCELLED: Final = TaskRef(
     "notifications.notify_deal_cancelled", DealCancelled, queue="notifications"
 )

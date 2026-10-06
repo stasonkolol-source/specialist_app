@@ -61,7 +61,7 @@ describe('браузерная оболочка', () => {
     expect(screen.getByRole('heading', { name: NAME, level: 1 })).toBeTruthy();
     // MainButton — в контенте, гостю без сердечка и жалобы; «Предложить заявку» — тот же мастер
     // заявки, которого в браузере нет: одна кнопка
-    expect(screen.queryByRole('button', { name: 'Предложить заявку' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Заказать напрямую' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Поделиться профилем' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /избранное/i })).toBeNull();
     expect(screen.queryByText('Пожаловаться на профиль')).toBeNull();
@@ -115,7 +115,7 @@ describe('браузерная оболочка', () => {
     );
     // без промежуточной страницы: ни «Написать», ни «Предложить заявку»
     expect(screen.queryByRole('button', { name: 'Написать' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Предложить заявку' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Заказать напрямую' })).toBeNull();
   });
 
   it('главная — лендинг: знак, правила площадки и подвал с документами', async () => {

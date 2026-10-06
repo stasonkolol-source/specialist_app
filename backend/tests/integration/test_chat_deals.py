@@ -150,7 +150,13 @@ async def test_direct_proposal_is_confirmed_by_the_other_side(
     )
     assert deal["price"] == {"type": "fixed", "amount": {"amount": 350_000, "currency": "RSD"}}
     assert await events(chat, performer, conversation_id) == [
-        {"type": "deal_proposed", "deal_id": deal_id, "by": "client", "reason": None}
+        {
+            "type": "deal_proposed",
+            "deal_id": deal_id,
+            "by": "client",
+            "reason": None,
+            "proposal": False,
+        }
     ]
     page = await chat.messages(performer, conversation_id)
     assert page["conversation"]["deal"]["id"] == deal_id
@@ -213,6 +219,26 @@ async def test_direct_proposal_is_confirmed_by_the_other_side(
     assert repeated is False
     unread = (await chat.mine(client))[conversation_id]["unread"]
     assert unread == 2  # два сообщения исполнителя; системные не в счёт
+    # предложивший узнаёт о подтверждении из бота, кнопка — в этот чат (UX_GUIDANCE №14)
+    assert (
+        await run_queued(worker, "notifications.notify_deal_agreed", user_id=client, by="client_id")
+        == 1
+    )
+    [(agreed,)] = await chat.rows(
+        "SELECT payload FROM notifications.notifications WHERE user_id = :user"
+        " AND type = 'deal.agreed'",
+        user=client,
+    )
+    chat_link = encode_start_param(StartLink(type=LinkType.CHAT, id=UUID(conversation_id)))
+    assert (agreed["params"], agreed["link"]) == ({"title": "Повесить люстру"}, chat_link)
+    assert (
+        await chat.scalar(
+            "SELECT count(*) FROM notifications.notifications WHERE user_id = :user"
+            " AND type = 'deal.agreed'",
+            user=performer,
+        )
+        == 0
+    )  # подтвердивший и так знает
 
 
 async def test_declined_proposal_lets_them_agree_again(chat: Chat, worker: AsyncContainer) -> None:
@@ -231,7 +257,24 @@ async def test_declined_proposal_lets_them_agree_again(chat: Chat, worker: Async
         "deal_id": first,
         "by": "client",
         "reason": "no_agreement",
+        "proposal": True,  # сделки не было: в чате «Предложение не принято» (№14)
     }
+    # предложившему — «Предложение не принято» и «Открыть чат», а не «Клиент отменил сделку»
+    assert (
+        await run_queued(
+            worker, "notifications.notify_deal_cancelled", user_id=client, by="client_id"
+        )
+        == 1
+    )
+    [(notice,)] = await chat.rows(
+        "SELECT payload FROM notifications.notifications WHERE user_id = :user"
+        " AND type = 'deal.cancelled'",
+        user=performer,
+    )
+    assert notice["params"]["proposal"] == "declined"
+    assert notice["link"] == encode_start_param(
+        StartLink(type=LinkType.CHAT, id=UUID(conversation_id))
+    )
     second = await propose(chat, client, conversation_id, title="Повесить две люстры")
     assert second.status_code == 201, second.text
     assert second.json()["deal_id"] != first
@@ -296,6 +339,39 @@ async def test_response_conversation_agrees_by_choosing_the_response(
     assert [item["event"]["type"] for item in page["items"] if item["kind"] == "system"] == [
         "deal_agreed"
     ]
+
+
+async def test_chosen_response_opens_the_deal_chat(chat: Chat, worker: AsyncContainer) -> None:
+    """UX_GUIDANCE №2: клиент выбрал отклик, не написав исполнителю, — у сделки сразу есть чат:
+    первое сообщение — сам отклик (клиент его уже прочитал), за ним «Договорились». Карточка S26
+    обеим сторонам ведёт в него («Написать»), «Написать» на S24 — тот же; «Работа выполнена»
+    станет главной кнопкой, когда бот спросит о ней."""
+    client, performer, response_id = await chat.pair()
+    accepted = await chat.post(client, f"/responses/{response_id}/accept")
+    assert accepted.status_code == 200, accepted.text
+    deal_id = accepted.json()["deal_id"]
+    assert (
+        await run_queued(worker, "messaging.record_deal_agreed", user_id=client, by="client_id")
+        == 1
+    )
+
+    card = (await chat.get(client, f"/deals/{deal_id}/card")).json()
+    conversation_id = card["conversation_id"]
+    assert conversation_id is not None
+    theirs = (await chat.get(performer, f"/deals/{deal_id}/card")).json()
+    assert theirs["conversation_id"] == conversation_id
+    page = await chat.messages(client, conversation_id)
+    assert [item["kind"] for item in page["items"]] == ["offer", "system"]
+    assert page["conversation"]["deal"]["id"] == deal_id
+    assert (await chat.mine(client))[conversation_id]["unread"] == 0
+    assert await chat.start(client, response_id=response_id) == conversation_id
+    agreed = datetime.fromisoformat(card["timeline"]["agreed_at"])
+    due = (
+        datetime.fromisoformat(card["scheduled_at"]) + timedelta(hours=3)
+        if card["scheduled_at"]
+        else agreed + timedelta(hours=24)
+    )
+    assert datetime.fromisoformat(card["completion_due_at"]) == due
 
 
 @pytest.mark.authz

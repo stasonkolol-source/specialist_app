@@ -43,6 +43,10 @@ class SystemEventOut(BaseModel):
         description="Кто: `client`, `performer`; у отмены ещё `system` (истекло, удалён аккаунт)"
     )
     reason: str | None = Field(description="Причина отмены (DealCancelReason)")
+    proposal: bool = Field(
+        default=False,
+        description="Отменили предложение «Договорились», а не сделку: «Предложение не принято»",
+    )
 
 
 class MessageOut(BaseModel):
@@ -108,6 +112,7 @@ def _event(message: Message) -> SystemEventOut | None:
         deal_id=UUID(str(payload["deal_id"])),
         by=str(by) if by is not None else None,
         reason=str(reason) if reason is not None else None,
+        proposal=payload.get("proposal") == "true",
     )
 
 
