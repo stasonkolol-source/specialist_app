@@ -237,7 +237,8 @@
     "unsave": "Ukloni iz sačuvanih",
     "savedFull": "Već ste sačuvali {limit} zahteva — uklonite nepotrebne da biste sačuvali novi",
     "saveError": "Čuvanje nije uspelo. Pokušajte ponovo.",
-    "report": "Prijavi"
+    "report": "Prijavi",
+    "fixResponse": "Ispravi ponudu"
   },
   "saved": {
     "title": "Omiljeni",
