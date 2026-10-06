@@ -170,7 +170,7 @@ function Answer({
         aria-expanded={expanded}
         aria-controls={answerId}
         onClick={onToggle}
-        className="flex min-h-13 w-full items-center justify-between gap-3 border-0 bg-transparent px-4 py-3 text-left text-body text-text outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+        className="flex min-h-13 w-full items-center justify-between gap-3 border-0 bg-transparent px-4 py-3 text-left text-body text-text outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-accent"
       >
         <span className={expanded ? 'font-semibold' : undefined}>{question}</span>
         <Icon

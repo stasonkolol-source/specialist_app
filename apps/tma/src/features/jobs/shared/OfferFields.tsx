@@ -8,12 +8,10 @@ import {
   RESPONSE_MESSAGE_MAX,
   RESPONSE_PRICE_TYPES,
 } from '@sosed/hooks';
-import { useTranslation } from '@sosed/i18n';
+import { moneyInput, useLocale, useTranslation } from '@sosed/i18n';
 import { Icon, Input, Segmented, Text, Textarea } from '@sosed/ui-web';
 import type { ReactNode } from 'react';
 import { useId } from 'react';
-
-import { groupDigits } from './amount.ts';
 
 export interface OfferFieldsProps {
   draft: OfferDraft;
@@ -33,6 +31,7 @@ export function OfferFields({
   messageExtra,
 }: OfferFieldsProps) {
   const { t } = useTranslation('jobs');
+  const locale = useLocale();
   const messageId = useId();
   const messageError = useId();
   const amountError = useId();
@@ -83,12 +82,12 @@ export function OfferFields({
           <>
             <Input
               inputMode="numeric"
-              value={groupDigits(draft.amount)}
+              value={moneyInput(draft.amount, locale)}
               suffix={t('respond.currency')}
               aria-label={t('respond.amount')}
               invalid={noAmount}
               aria-describedby={noAmount ? amountError : undefined}
-              onChange={(event) => onChange({ amount: groupDigits(event.target.value) })}
+              onChange={(event) => onChange({ amount: moneyInput(event.target.value, locale) })}
             />
             {noAmount && (
               <p id={amountError} className="m-0 text-cap text-danger">

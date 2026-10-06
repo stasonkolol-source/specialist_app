@@ -55,4 +55,7 @@ export function messageArguments(message: string, locale: string): string[] {
 
 /** Буквы русского алфавита, которых нет в сербской кириллице: опечатка раскладки в sr-Cyrl. */
 export const NON_SERBIAN_CYRILLIC = /[ЁЙЩЪЫЬЭЮЯёйщъыьэюя]/;
+/** Не по типографике и глоссарию sr (GLOSSARY.md, UXM-11): русские «ёлочки», закрывающая ” вместо “,
+ *  «чет»/«чат» вместо разговор (в приложении) или ћаскање (в Telegram). */
+export const NON_SERBIAN_STYLE = /[«»”]|(?<![\p{L}])ч[еа]т(?:а|у|ом|ови)?(?![\p{L}])/u;
 export const ANY_CYRILLIC = /[\u0400-\u04FF]/;

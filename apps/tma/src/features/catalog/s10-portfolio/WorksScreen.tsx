@@ -284,7 +284,7 @@ function Thumbs({
   const ring = (open: boolean) =>
     open
       ? 'outline-2 outline-offset-2 outline-accent'
-      : 'outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+      : 'outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-accent';
   return (
     <div role="group" aria-label={t('portfolio.others')} className="flex gap-2 px-4">
       {shown.map((work, offset) => {

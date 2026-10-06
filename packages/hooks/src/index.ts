@@ -130,8 +130,10 @@ export {
   BECOME_STEPS,
   becomeStep,
   myProfileQueryKey,
+  pendingProfilePollMs,
   profileState,
   useMyProfile,
+  useProfileDecisions,
 } from './specialist/profile.ts';
 export type { Restriction, SystemState } from './system/systemState.ts';
 export {
