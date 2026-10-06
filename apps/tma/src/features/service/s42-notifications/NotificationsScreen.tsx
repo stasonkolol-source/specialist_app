@@ -66,10 +66,13 @@ const LOOK: Record<NotificationType, Look> = {
   'response.received': { icon: 'jobs', palette: 3 },
   'response.accepted': { icon: 'check-circle' },
   'response.not_selected': { icon: 'jobs', neutral: true },
+  // исходы исполнителю (UX-аудит №11) — только здесь, в бот не уходят
+  'response.declined': { icon: 'jobs', neutral: true },
   'message.received': { icon: 'chat', palette: 2 },
   'deal.proposed': { icon: 'check-circle' },
   'deal.agreed': { icon: 'check-circle' },
   'deal.cancelled': { icon: 'x', neutral: true },
+  'deal.completed': { icon: 'check-circle' },
   'deal.reminder': { icon: 'calendar' },
   'deal.completion_prompt': { icon: 'check-circle' },
   'dispute.opened': { icon: 'flag', palette: 3 },
@@ -80,6 +83,7 @@ const LOOK: Record<NotificationType, Look> = {
   'account.restricted': { icon: 'ban', neutral: true },
   'profile.stale_reminder': { icon: 'user', palette: 4 },
   'profile.published': { icon: 'shield', palette: 1 },
+  'job.published': { icon: 'shield', palette: 1 },
   'system.test': { icon: 'bell' },
   // рассылки (2.7b) уходят только в бот; тип — для полноты карты
   broadcast: { icon: 'bell' },

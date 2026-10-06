@@ -208,6 +208,20 @@
       }
     },
     {
+      "param": "m_responses",
+      "link": {
+        "type": "mine",
+        "section": "responses"
+      }
+    },
+    {
+      "param": "m_portfolio",
+      "link": {
+        "type": "mine",
+        "section": "portfolio"
+      }
+    },
+    {
       "param": "j_7n42DGM5Tflk9n8mt7Fhc7_rZz9",
       "link": {
         "type": "job",
@@ -292,6 +306,21 @@
         "type": "review_invite",
         "id": "0192f5a8-7c3e-7b21-9d4f-3a6b8c1e2f47"
       }
+    },
+    {
+      "param": "rv_02y9UKmeRG6vSNbdsEYkkR",
+      "link": {
+        "type": "review",
+        "id": "0192f5a8-7c3e-7b21-9d4f-3a6b8c1e2f47"
+      }
+    },
+    {
+      "param": "rv_02yBkPi1NksSnHWzckDH0V_rAB12CD",
+      "link": {
+        "type": "review",
+        "id": "01930a12-4b5c-7def-8a9b-0c1d2e3f4a5b",
+        "ref": "AB12CD"
+      }
     }
   ],
   "invalid": [
@@ -340,6 +369,10 @@
     "ri",
     "ri_",
     "ri_1Xh3kQ9vB7mZ2pR4sT8dL",
-    "RI_02y9UKmeRG6vSNbdsEYkkR"
+    "RI_02y9UKmeRG6vSNbdsEYkkR",
+    "rv",
+    "rv_",
+    "rv_1Xh3kQ9vB7mZ2pR4sT8dL",
+    "m_responses_x"
   ]
 }

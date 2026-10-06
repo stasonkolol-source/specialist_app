@@ -473,10 +473,15 @@ export const SpecialistsSetMyCategoriesHeader = zod.object({
   'If-Match': zod.string().optional(),
 });
 
+export const specialistsSetMyCategoriesBodyCategoryIdsItemMax = 2147483647;
+
 export const specialistsSetMyCategoriesBodyCategoryIdsMax = 5;
 
 export const SpecialistsSetMyCategoriesBody = zod.object({
-  category_ids: zod.array(zod.int()).min(1).max(specialistsSetMyCategoriesBodyCategoryIdsMax),
+  category_ids: zod
+    .array(zod.int().min(1).max(specialistsSetMyCategoriesBodyCategoryIdsItemMax))
+    .min(1)
+    .max(specialistsSetMyCategoriesBodyCategoryIdsMax),
 });
 
 export const SpecialistsSetMyCategoriesResponse = zod.object({
@@ -540,10 +545,14 @@ export const SpecialistsSetMyAreasHeader = zod.object({
   'If-Match': zod.string().optional(),
 });
 
+export const specialistsSetMyAreasBodyDistrictIdsItemMax = 2147483647;
+
 export const specialistsSetMyAreasBodyDistrictIdsMax = 30;
 
 export const SpecialistsSetMyAreasBody = zod.object({
-  district_ids: zod.array(zod.int()).max(specialistsSetMyAreasBodyDistrictIdsMax),
+  district_ids: zod
+    .array(zod.int().min(1).max(specialistsSetMyAreasBodyDistrictIdsItemMax))
+    .max(specialistsSetMyAreasBodyDistrictIdsMax),
 });
 
 export const SpecialistsSetMyAreasResponse = zod.object({

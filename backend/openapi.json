@@ -2800,6 +2800,7 @@
             "required": true,
             "schema": {
               "type": "integer",
+              "maximum": 2147483647,
               "minimum": 1,
               "description": "Город ленты",
               "title": "City Id"
@@ -2815,7 +2816,9 @@
                 {
                   "type": "array",
                   "items": {
-                    "type": "integer"
+                    "type": "integer",
+                    "maximum": 2147483647,
+                    "minimum": 1
                   }
                 },
                 {
@@ -2836,7 +2839,9 @@
                 {
                   "type": "array",
                   "items": {
-                    "type": "integer"
+                    "type": "integer",
+                    "maximum": 2147483647,
+                    "minimum": 1
                   }
                 },
                 {
@@ -2933,6 +2938,7 @@
               "anyOf": [
                 {
                   "type": "integer",
+                  "maximum": 100000000000,
                   "minimum": 1
                 },
                 {
@@ -2953,6 +2959,12 @@
                 {
                   "type": "array",
                   "items": {
+                    "enum": [
+                      "ru",
+                      "sr",
+                      "en",
+                      "uk"
+                    ],
                     "type": "string"
                   }
                 },
@@ -3546,6 +3558,7 @@
             "required": true,
             "schema": {
               "type": "integer",
+              "maximum": 2147483647,
               "minimum": 1,
               "description": "Город ленты",
               "title": "City Id"
@@ -3561,7 +3574,9 @@
                 {
                   "type": "array",
                   "items": {
-                    "type": "integer"
+                    "type": "integer",
+                    "maximum": 2147483647,
+                    "minimum": 1
                   }
                 },
                 {
@@ -3582,7 +3597,9 @@
                 {
                   "type": "array",
                   "items": {
-                    "type": "integer"
+                    "type": "integer",
+                    "maximum": 2147483647,
+                    "minimum": 1
                   }
                 },
                 {
@@ -3679,6 +3696,7 @@
               "anyOf": [
                 {
                   "type": "integer",
+                  "maximum": 100000000000,
                   "minimum": 1
                 },
                 {
@@ -3699,6 +3717,12 @@
                 {
                   "type": "array",
                   "items": {
+                    "enum": [
+                      "ru",
+                      "sr",
+                      "en",
+                      "uk"
+                    ],
                     "type": "string"
                   }
                 },
@@ -5841,6 +5865,7 @@
             "required": true,
             "schema": {
               "type": "integer",
+              "maximum": 2147483647,
               "minimum": 1,
               "description": "Город выдачи",
               "title": "City Id"
@@ -5855,6 +5880,7 @@
               "anyOf": [
                 {
                   "type": "integer",
+                  "maximum": 2147483647,
                   "minimum": 1
                 },
                 {
@@ -5875,7 +5901,9 @@
                 {
                   "type": "array",
                   "items": {
-                    "type": "integer"
+                    "type": "integer",
+                    "maximum": 2147483647,
+                    "minimum": 1
                   },
                   "maxItems": 20
                 },
@@ -5964,6 +5992,7 @@
               "anyOf": [
                 {
                   "type": "integer",
+                  "maximum": 9223372036854775807,
                   "minimum": 0
                 },
                 {
@@ -6002,6 +6031,12 @@
                 {
                   "type": "array",
                   "items": {
+                    "enum": [
+                      "ru",
+                      "sr",
+                      "en",
+                      "uk"
+                    ],
                     "type": "string"
                   },
                   "maxItems": 20
@@ -6222,6 +6257,7 @@
             "required": true,
             "schema": {
               "type": "integer",
+              "maximum": 2147483647,
               "minimum": 1,
               "description": "Город выдачи",
               "title": "City Id"
@@ -6236,6 +6272,7 @@
               "anyOf": [
                 {
                   "type": "integer",
+                  "maximum": 2147483647,
                   "minimum": 1
                 },
                 {
@@ -6256,7 +6293,9 @@
                 {
                   "type": "array",
                   "items": {
-                    "type": "integer"
+                    "type": "integer",
+                    "maximum": 2147483647,
+                    "minimum": 1
                   },
                   "maxItems": 20
                 },
@@ -6345,6 +6384,7 @@
               "anyOf": [
                 {
                   "type": "integer",
+                  "maximum": 9223372036854775807,
                   "minimum": 0
                 },
                 {
@@ -6383,6 +6423,12 @@
                 {
                   "type": "array",
                   "items": {
+                    "enum": [
+                      "ru",
+                      "sr",
+                      "en",
+                      "uk"
+                    ],
                     "type": "string"
                   },
                   "maxItems": 20
@@ -6509,6 +6555,7 @@
             "required": true,
             "schema": {
               "type": "integer",
+              "maximum": 2147483647,
               "minimum": 1,
               "title": "City Id"
             }
@@ -10134,6 +10181,7 @@
             "anyOf": [
               {
                 "type": "integer",
+                "maximum": 9.223372036854776e+18,
                 "minimum": 1.0
               },
               {
@@ -11251,7 +11299,9 @@
         "properties": {
           "category_ids": {
             "items": {
-              "type": "integer"
+              "type": "integer",
+              "maximum": 2147483647.0,
+              "minimum": 1.0
             },
             "type": "array",
             "maxItems": 20,
@@ -11261,12 +11311,15 @@
           },
           "city_id": {
             "type": "integer",
+            "maximum": 2147483647.0,
             "minimum": 1.0,
             "title": "City Id"
           },
           "district_ids": {
             "items": {
-              "type": "integer"
+              "type": "integer",
+              "maximum": 2147483647.0,
+              "minimum": 1.0
             },
             "type": "array",
             "maxItems": 30,
@@ -11762,6 +11815,7 @@
           },
           "category_id": {
             "type": "integer",
+            "maximum": 2147483647.0,
             "minimum": 1.0,
             "title": "Category Id",
             "description": "Услуга (лист каталога), где включены заявки"
@@ -11806,6 +11860,7 @@
           },
           "city_id": {
             "type": "integer",
+            "maximum": 2147483647.0,
             "minimum": 1.0,
             "title": "City Id"
           },
@@ -11813,6 +11868,7 @@
             "anyOf": [
               {
                 "type": "integer",
+                "maximum": 2147483647.0,
                 "minimum": 1.0
               },
               {
@@ -11871,7 +11927,13 @@
           },
           "languages": {
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "ru",
+                "sr",
+                "en",
+                "uk"
+              ]
             },
             "type": "array",
             "maxItems": 4,
@@ -13724,11 +13786,13 @@
           "response.received",
           "response.accepted",
           "response.not_selected",
+          "response.declined",
           "job.invited",
           "message.received",
           "deal.proposed",
           "deal.agreed",
           "deal.cancelled",
+          "deal.completed",
           "dispute.opened",
           "dispute.resolved",
           "deal.reminder",
@@ -13736,6 +13800,7 @@
           "review.request",
           "review.published",
           "moderation.decision",
+          "job.published",
           "job.expiring",
           "job.expired",
           "profile.stale_reminder",
@@ -13789,7 +13854,9 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "integer"
+                  "type": "integer",
+                  "maximum": 1000.0,
+                  "minimum": 1.0
                 },
                 "type": "array",
                 "maxItems": 1000
@@ -14121,7 +14188,9 @@
         "properties": {
           "district_ids": {
             "items": {
-              "type": "integer"
+              "type": "integer",
+              "maximum": 2147483647.0,
+              "minimum": 1.0
             },
             "type": "array",
             "maxItems": 30,
@@ -14138,7 +14207,9 @@
         "properties": {
           "category_ids": {
             "items": {
-              "type": "integer"
+              "type": "integer",
+              "maximum": 2147483647.0,
+              "minimum": 1.0
             },
             "type": "array",
             "maxItems": 5,
@@ -17124,6 +17195,7 @@
           },
           "size_bytes": {
             "type": "integer",
+            "maximum": 9.223372036854776e+18,
             "minimum": 1.0,
             "title": "Size Bytes"
           }

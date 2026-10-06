@@ -60,7 +60,7 @@ msgid "bot.jobs.extended"
 msgstr "Захтев „{title}“ је продужен до {until}."
 
 msgid "bot.jobs.responded"
-msgstr "Понуда је послата шаблоном „{template}“ — наручилац ће је видети после провере."
+msgstr "Понуда је послата шаблоном „{template}“ — клијент ће је видети после провере."
 
 msgid "bot.jobs.closed"
 msgstr "Захтев „{title}“ је затворен."
@@ -570,7 +570,7 @@ msgid "errors.offer_changed"
 msgstr "Извођач је управо изменио понуду — погледајте нове услове и изаберите поново."
 
 msgid "errors.response_not_active"
-msgstr "Наручилац је већ одлучио о овој понуди — не може се изменити ни повући."
+msgstr "Клијент је већ одлучио о овој понуди — не може се изменити ни повући."
 
 msgid "errors.already_responded"
 msgstr "Већ сте послали понуду на овај захтев."
@@ -585,7 +585,7 @@ msgid "errors.daily_responses_limit"
 msgstr "Данас је послато превише понуда. Покушајте сутра."
 
 msgid "errors.active_responses_limit"
-msgstr "Достигнут је максимум понуда које чекају одлуку ({limit}) — сачекајте одговор наручилаца или повуците једну."
+msgstr "Достигнут је максимум понуда које чекају одлуку ({limit}) — сачекајте одговор клијената или повуците једну."
 
 msgid "errors.invalid_response_template"
 msgstr "Проверите шаблон: назив, поруку и цену."
@@ -672,7 +672,7 @@ msgid "errors.report_already_open"
 msgstr "Пријава је већ послата. Покушајте поново."
 
 msgid "errors.cannot_propose"
-msgstr "Овде не можете да се договорите: у разговору о понуди наручилац бира извођача на страници понуда."
+msgstr "Овде не можете да се договорите: у разговору о понуди клијент бира извођача на страници понуда."
 
 msgid "errors.deal_in_progress"
 msgstr "Договор већ постоји: предлог чека одговор или је договор у току."
@@ -790,13 +790,13 @@ msgid "notifications.account_restricted.button"
 msgstr "Правила платформе"
 
 msgid "notifications.moderation_decision.title.job"
-msgstr "Захтев није објављен"
+msgstr "Захтеву су потребне исправке"
 
 msgid "notifications.moderation_decision.title.profile"
-msgstr "Профил није објављен"
+msgstr "Профилу су потребне исправке"
 
 msgid "notifications.moderation_decision.title.response"
-msgstr "Понуда није послата"
+msgstr "Понуда није прошла проверу"
 
 msgid "notifications.moderation_decision.title.review"
 msgstr "Утисак није објављен"
@@ -867,6 +867,12 @@ msgstr "Модератор је проверио ваш профил — сад�
 msgid "notifications.profile_published.button"
 msgstr "Отвори профил"
 
+msgid "notifications.job_published.title"
+msgstr "Захтев је објављен"
+
+msgid "notifications.job_published.body"
+msgstr "Модератор је проверио „{title}“ — извођачи већ виде захтев. Бот ће вам јавити када стигну понуде."
+
 msgid "notifications.response_received.title"
 msgstr "Нове понуде"
 
@@ -892,7 +898,7 @@ msgid "notifications.job_invited.body_direct"
 msgstr "{client} тражи баш вас: „{title}“. Овај захтев видите само ви."
 
 msgid "notifications.job_invited.client"
-msgstr "Наручилац"
+msgstr "Клијент"
 
 msgid "notifications.job_invited.button"
 msgstr "Погледај захтев"
@@ -901,16 +907,16 @@ msgid "notifications.job_invited.template"
 msgstr "Понуда: „{title}“"
 
 msgid "notifications.job_expiring.title"
-msgstr "Захтев ускоро истиче"
+msgstr "Рок захтева ускоро истиче"
 
 msgid "notifications.job_expiring.body"
-msgstr "„{title}“ истиче за 2 сата. Ако вам је извођач још потребан, продужите захтев."
+msgstr "Рок захтева „{title}“ истиче за 2 сата. Ако вам је извођач још потребан, продужите захтев."
 
 msgid "notifications.job_expiring.body_final"
-msgstr "„{title}“ истиче за 2 сата. Више не може да се продужи: ако вам је извођач још потребан, направите нови захтев."
+msgstr "Рок захтева „{title}“ истиче за 2 сата. Више не може да се продужи: ако вам је извођач још потребан, направите нови захтев."
 
 msgid "notifications.job_expired.title"
-msgstr "Захтев је истекао"
+msgstr "Рок захтева је истекао"
 
 msgid "notifications.job_expired.body"
 msgstr "„{title}“ више не виде извођачи. Ако вам је извођач још потребан, продужите захтев."
@@ -919,22 +925,31 @@ msgid "notifications.job_expired.body_final"
 msgstr "„{title}“ више не виде извођачи. Више не може да се продужи: ако вам је извођач још потребан, направите нови захтев."
 
 msgid "notifications.response_accepted.title"
-msgstr "Наручилац је изабрао вас"
+msgstr "Изабрани сте"
 
 msgid "notifications.response_accepted.body"
 msgstr "Захтев „{title}“. Адреса и време — у договору."
 
 msgid "notifications.response_not_selected.title"
-msgstr "Наручилац је изабрао другог извођача"
+msgstr "Изабран је други извођач"
 
 msgid "notifications.response_not_selected.body"
 msgstr "Захтев „{title}“. Хвала на понуди — у листи има других захтева у близини."
 
 msgid "notifications.response_job_closed.title"
-msgstr "Захтев је затворен"
+msgstr "Захтев је затворен без избора"
 
 msgid "notifications.response_job_closed.body"
-msgstr "Захтев „{title}“ је затворен — наручилац више не бира извођача. Хвала на понуди — у листи има других захтева у близини."
+msgstr "Захтев „{title}“. Хвала на понуди — у листи има других захтева у близини."
+
+msgid "notifications.response_declined.title"
+msgstr "Клијент је одбио понуду"
+
+msgid "notifications.response_declined.body"
+msgstr "Захтев „{title}“. Хвала на понуди — у листи има других захтева у близини."
+
+msgid "notifications.my_responses.button"
+msgstr "Моје понуде"
 
 msgid "notifications.message_received.title"
 msgstr "{name} пише"
@@ -958,7 +973,7 @@ msgid "notifications.deal_proposed.title"
 msgstr "Договорено?"
 
 msgid "notifications.deal_proposed.body_client"
-msgstr "Наручилац предлаже договор: „{title}“."
+msgstr "Клијент предлаже договор: „{title}“."
 
 msgid "notifications.deal_proposed.body_performer"
 msgstr "Извођач предлаже договор: „{title}“."
@@ -997,7 +1012,7 @@ msgid "notifications.deal_cancelled.title"
 msgstr "Договор је отказан"
 
 msgid "notifications.deal_cancelled.body_client"
-msgstr "Наручилац је отказао договор „{title}“: {reason}."
+msgstr "Клијент је отказао договор „{title}“: {reason}."
 
 msgid "notifications.deal_cancelled.body_performer"
 msgstr "Извођач је отказао договор „{title}“: {reason}."
@@ -1035,6 +1050,15 @@ msgstr "Отвори разговор"
 msgid "notifications.deal_cancelled.reopened"
 msgstr "Захтев је поново отворен, претходне понуде су враћене."
 
+msgid "notifications.deal_completed.title"
+msgstr "Договор је завршен"
+
+msgid "notifications.deal_completed.body_client"
+msgstr "Клијент је потврдио посао „{title}“."
+
+msgid "notifications.deal_completed.body_auto"
+msgstr "Посао „{title}“ је признат: од ознаке су прошла 3 дана."
+
 msgid "notifications.deal_cancel_reason.plans_changed"
 msgstr "планови су се променили"
 
@@ -1057,7 +1081,7 @@ msgid "notifications.deal_completion_prompt.title"
 msgstr "Да ли је посао завршен?"
 
 msgid "notifications.deal_completion_prompt.body"
-msgstr "Договор „{title}“. Означите ако је све урађено: када обе стране потврде, договор се завршава."
+msgstr "Договор „{title}“. Означите ако је све урађено: када обе стране потврде, договор ће бити завршен."
 
 msgid "notifications.deal_completion_prompt.body_marked_performer"
 msgstr "{name}: посао „{title}“ је завршен. Да ли је све у реду?"
@@ -1114,7 +1138,7 @@ msgid "notifications.dispute_opened.title"
 msgstr "Проблем са договором"
 
 msgid "notifications.dispute_opened.body_client"
-msgstr "Наручилац је пријавио проблем са договором „{title}“: {kind}."
+msgstr "Клијент је пријавио проблем са договором „{title}“: {kind}."
 
 msgid "notifications.dispute_opened.body_performer"
 msgstr "Извођач је пријавио проблем са договором „{title}“: {kind}."
@@ -1147,10 +1171,10 @@ msgid "notifications.dispute_resolved.title"
 msgstr "Одлука о спору"
 
 msgid "notifications.dispute_resolved.body_completed"
-msgstr "Подршка је размотрила спор о договору „{title}“ и завршила договор. Разлог: {reason}."
+msgstr "Подршка је размотрила спор о договору „{title}“: договор је завршен. Разлог: {reason}."
 
 msgid "notifications.dispute_resolved.body_cancelled"
-msgstr "Подршка је размотрила спор о договору „{title}“ и отказала договор. Разлог: {reason}."
+msgstr "Подршка је размотрила спор о договору „{title}“: договор је отказан. Разлог: {reason}."
 
 msgid "notifications.dispute_resolved.button"
 msgstr "Погледај одлуку"

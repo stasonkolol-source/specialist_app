@@ -23,10 +23,12 @@ export const MediaStartUploadHeader = zod.object({
 export const mediaStartUploadBodyMimeTypeMin = 3;
 export const mediaStartUploadBodyMimeTypeMax = 100;
 
+export const mediaStartUploadBodySizeBytesMax = 9223372036854776000;
+
 export const MediaStartUploadBody = zod.object({
   purpose: zod.enum(['avatar', 'portfolio', 'job', 'message', 'review', 'verification', 'dispute']),
   mime_type: zod.string().min(mediaStartUploadBodyMimeTypeMin).max(mediaStartUploadBodyMimeTypeMax),
-  size_bytes: zod.int().min(1),
+  size_bytes: zod.int().min(1).max(mediaStartUploadBodySizeBytesMax),
 });
 
 export const MediaStartUploadResponse = zod.object({
@@ -50,11 +52,18 @@ export const MediaSignUploadPartsParams = zod.object({
   media_id: zod.uuid(),
 });
 
+export const mediaSignUploadPartsBodyPartNumbersOneItemMax = 1000;
+
 export const mediaSignUploadPartsBodyPartNumbersOneMax = 1000;
 
 export const MediaSignUploadPartsBody = zod.object({
   part_numbers: zod
-    .union([zod.array(zod.int()).max(mediaSignUploadPartsBodyPartNumbersOneMax), zod.null()])
+    .union([
+      zod
+        .array(zod.int().min(1).max(mediaSignUploadPartsBodyPartNumbersOneItemMax))
+        .max(mediaSignUploadPartsBodyPartNumbersOneMax),
+      zod.null(),
+    ])
     .optional(),
 });
 

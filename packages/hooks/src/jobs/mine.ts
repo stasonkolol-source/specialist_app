@@ -73,8 +73,9 @@ export function useOwnJob(jobId: string | null) {
 }
 
 /** Отклики своей заявки карточками; сервер отмечает их просмотренными — бейдж S22 гаснет. Список
- *  заявок и бейдж «Заявки» перечитываются, только когда в списке у заявки были новые отклики, а не
- *  на каждый опрос. */
+ *  заявок и бейдж «Заявки» перечитываются, только когда были новые отклики — у заявки в списке или
+ *  среди самих карточек (заявку открыли из бота, списка в кэше нет): бейдж гаснет, как только
+ *  заявку открыли, а не через минуту опроса. На каждый опрос — нет. */
 export function useResponseCards(jobId: string | null) {
   const client = useQueryClient();
   return useQuery({
@@ -84,7 +85,7 @@ export function useResponseCards(jobId: string | null) {
       const listed = client
         .getQueryData<JobsOut>(myJobsQueryKey())
         ?.items.find((job) => job.id === jobId);
-      if ((listed?.new_responses ?? 0) > 0) {
+      if ((listed?.new_responses ?? 0) > 0 || cards.items.some((card) => card.is_new)) {
         void client.invalidateQueries({ queryKey: myJobsQueryKey() });
         void client.invalidateQueries({ queryKey: getViewsGetBadgesQueryKey() });
       }

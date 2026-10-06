@@ -62,6 +62,9 @@ import { CATEGORY_IDS, DISTRICT_IDS, E2E_NOW } from './fixtures.ts';
 const NOW = '2026-10-02T10:00:00Z';
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
+/** Заявка открыта неделю с публикации, как у backend: «открыта до …» на S21 и S23. */
+const OPEN_DAYS_MS = 7 * 24 * HOUR_MS;
+const openUntil = (from: string) => new Date(Date.parse(from) + OPEN_DAYS_MS).toISOString();
 const PARA = 100;
 const MAX_RESPONSES = 5;
 const MAX_SAVED = 100;
@@ -363,10 +366,15 @@ export function myJobsFixture(feed: FeedFixture[] = FEED_JOBS): JobOut[] {
   };
   const cleaning = feed.find((item) => item.card.title.startsWith('Генеральная уборка'));
   return [
-    own('Повесить люстру', { responses_count: 3, new_responses: 2 }),
+    own('Повесить люстру', {
+      responses_count: 3,
+      new_responses: 2,
+      expires_at: openUntil(E2E_NOW),
+    }),
     own(cleaning?.card.title ?? 'Генеральная уборка, 2-комн. квартира', {
       responses_count: 0,
       views_count: 4,
+      expires_at: openUntil(E2E_NOW),
     }),
     own('Течёт смеситель на кухне', {
       title: 'Уборка после ремонта',
@@ -709,7 +717,13 @@ export class JobsBackend {
   /** Что лежит после ответа: с автопроверкой заявка на проверке уже опубликована (версия +1). */
   private moderated(job: JobOut): JobOut {
     if (!this.autoModerate || job.status !== 'pending_moderation') return job;
-    return { ...job, status: 'published', version: job.version + 1, published_at: NOW };
+    return {
+      ...job,
+      status: 'published',
+      version: job.version + 1,
+      published_at: NOW,
+      expires_at: openUntil(NOW),
+    };
   }
 
   /** Автопроверка или модератор поменяли заявку: статус, служебные поля и версия +1. */
@@ -1504,7 +1518,7 @@ export function jobOut(id: string, body: JobIn, status: JobStatus): JobOut {
     version: 1,
     created_at: NOW,
     published_at: status === 'published' ? NOW : null,
-    expires_at: null,
+    expires_at: status === 'published' ? openUntil(NOW) : null,
     closed_at: null,
     close_reason: null,
   };

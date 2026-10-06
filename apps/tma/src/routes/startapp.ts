@@ -3,7 +3,7 @@
 // неизвестный код ведут на главную (до 4.8 — заглушка). Шаг экрана-цели добавляет в START_TARGETS
 // свою строку: `s_` → S08 (4.5), `j_` → S15 (5.3), `n` → S20a и `m_jobs` → S22 (5.6), `d_` → S26
 // (6.2), `p_` → S52 (6.1c), `c_` → S30 (6.4), `m_alerts`, `m_feed`, `m_availability`, `m_profile`
-// (5.7), `ri_` → S56 (7.6а); коды `g…`
+// (5.7), `ri_` → S56 (7.6а), `rv_` → S27, `m_responses` → S17, `m_portfolio` → S37; коды `g…`
 // раздела «Вещи» — после MVP. Суффикс `_r<code>` — атрибуция: её записывает backend при входе
 // (модуль growth), на выбор экрана он не влияет.
 import type { MineSection, StartLink } from '@sosed/links';
@@ -19,6 +19,7 @@ import {
   disputePath,
   inviteReviewPath,
   jobPath,
+  reviewPath,
 } from '../features/jobs/index.ts';
 import { chatPath } from '../features/messages/index.ts';
 
@@ -33,6 +34,11 @@ const MINE_TARGETS: Record<MineSection, string> = {
   feed: `${JOBS_PATHS.feed}?alerts=true`,
   availability: CABINET_PATHS.availability,
   profile: CABINET_PATHS.home,
+  // исходы своих откликов (уведомления «Выбрали другого», «Клиент отклонил», «закрыта без
+  // выбора»): чужую закрытую заявку S15 исполнителю не открыть — карточка отклика в S17
+  responses: JOBS_PATHS.responses,
+  // отказ модерации по работе портфолио: исправить — в S37
+  portfolio: CABINET_PATHS.portfolio,
 };
 
 /** Вариант ссылки с типом K: у сущностей тип — объединение (`job | specialist | …`), поэтому
@@ -67,6 +73,8 @@ export const START_TARGETS: StartTargets = {
   dispute: (link) => disputePath(link.id),
   // «отзыв до платформы» S56: ссылка-приглашение специалиста прошлому клиенту (S55, 7.6а)
   review_invite: (link) => inviteReviewPath(link.id),
+  // форма отзыва S27 сразу: «Открыть форму отзыва» уведомления `review.request`
+  review: (link) => reviewPath(link.id),
 };
 
 /** Адрес для кода `startapp`; `null` — приложение открыли без deep link. */

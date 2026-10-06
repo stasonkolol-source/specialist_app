@@ -352,9 +352,10 @@ class Job(VersionedAggregate):
         if expected is not None and expected != self.revision:
             raise StaleVersionError(expected=expected, actual=self.revision)
 
-    def approve(self, *, version: int | None, now: datetime) -> bool:
+    def approve(self, *, version: int | None, now: datetime, reviewed: bool = False) -> bool:
         """Модерация пропустила: «на проверке» → «опубликована», срок — по срочности. `version` —
-        редакция, которую проверяли; другая (клиент успел поправить) или статус — ничего, False."""
+        редакция, которую проверяли; другая (клиент успел поправить) или статус — ничего, False.
+        `reviewed` — решение модератора после ручной проверки (в событии — клиенту сообщить)."""
         if self.status is not JobStatus.PENDING_MODERATION or self.deleted_at is not None:
             return False
         if version is not None and version != self.revision:
@@ -364,7 +365,7 @@ class Job(VersionedAggregate):
         self.published_at = self.published_at or now
         self.expires_at, self.expiry_reminded_at = lifetime(self.content.urgency, now), None
         self.moderation_note = None
-        self._publish_event(now, republished=not first)
+        self._publish_event(now, republished=not first, reviewed=reviewed)
         return True
 
     def reject(self, *, reason_code: str, now: datetime) -> bool:
@@ -761,7 +762,7 @@ class Job(VersionedAggregate):
         if self.deleted_at is not None:
             raise JobNotOpenError(job_id=self.id, job_status="deleted")
 
-    def _publish_event(self, now: datetime, *, republished: bool) -> None:
+    def _publish_event(self, now: datetime, *, republished: bool, reviewed: bool = False) -> None:
         self._record(
             JobPublished(
                 job_id=self.id,
@@ -771,6 +772,7 @@ class Job(VersionedAggregate):
                 urgency=self.content.urgency.value,
                 republished=republished,
                 direct=self.visibility is Visibility.DIRECT,
+                reviewed=reviewed,
                 occurred_at=now,
             )
         )

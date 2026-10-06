@@ -21,6 +21,9 @@ class NotificationType(StrEnum):
     RESPONSE_RECEIVED = "response.received"
     RESPONSE_ACCEPTED = "response.accepted"
     RESPONSE_NOT_SELECTED = "response.not_selected"
+    RESPONSE_DECLINED = "response.declined"
+    """Клиент отклонил отклик: исполнителю — только в центре S42, без бота (исход, а не повод
+    действовать; UX-аудит №11)."""
     JOB_INVITED = "job.invited"
     MESSAGE_RECEIVED = "message.received"
     DEAL_PROPOSED = "deal.proposed"
@@ -28,6 +31,8 @@ class NotificationType(StrEnum):
     """Вторая сторона подтвердила «Договориться» из чата: предложившему — «Условия подтверждены»
     (UX_GUIDANCE №14)."""
     DEAL_CANCELLED = "deal.cancelled"
+    DEAL_COMPLETED = "deal.completed"
+    """Сделка выполнена: исполнителю — «Клиент подтвердил работу», только в центре S42."""
     DISPUTE_OPENED = "dispute.opened"
     DISPUTE_RESOLVED = "dispute.resolved"
     """Решение модератора по спору обеим сторонам (6.1c): statement of reasons."""
@@ -36,6 +41,9 @@ class NotificationType(StrEnum):
     REVIEW_REQUEST = "review.request"
     REVIEW_PUBLISHED = "review.published"
     MODERATION_DECISION = "moderation.decision"
+    JOB_PUBLISHED = "job.published"
+    """Заявку опубликовал модератор после ручной проверки: клиенту — «Заявка опубликована».
+    После автопроверки (миллисекунды) не нужно: S21 сам показывает публикацию."""
     JOB_EXPIRING = "job.expiring"
     JOB_EXPIRED = "job.expired"
     PROFILE_STALE_REMINDER = "profile.stale_reminder"
@@ -104,6 +112,8 @@ class Channel(StrEnum):
 
 
 BOT = frozenset({Channel.TELEGRAM})
+APP = frozenset({Channel.IN_APP})
+"""Только центр S42: исходы, о которых человек должен узнать, но не повод писать в бот."""
 BOT_AND_APP = frozenset({Channel.TELEGRAM, Channel.IN_APP})
 
 
@@ -137,6 +147,9 @@ CATALOG: Mapping[NotificationType, TypeSpec] = MappingProxyType(
         NotificationType.RESPONSE_NOT_SELECTED: TypeSpec(
             group=EventGroup.RESPONSES, priority=Priority.P3, channels=BOT_AND_APP
         ),
+        NotificationType.RESPONSE_DECLINED: TypeSpec(
+            group=EventGroup.RESPONSES, priority=Priority.P3, channels=APP
+        ),
         NotificationType.JOB_INVITED: TypeSpec(
             group=EventGroup.RESPONSES, priority=Priority.P1, channels=BOT_AND_APP
         ),
@@ -154,6 +167,9 @@ CATALOG: Mapping[NotificationType, TypeSpec] = MappingProxyType(
         ),
         NotificationType.DEAL_CANCELLED: TypeSpec(
             group=EventGroup.DEALS, priority=Priority.P1, channels=BOT_AND_APP
+        ),
+        NotificationType.DEAL_COMPLETED: TypeSpec(
+            group=EventGroup.DEALS, priority=Priority.P3, channels=APP
         ),
         NotificationType.DISPUTE_OPENED: TypeSpec(
             group=EventGroup.DEALS, priority=Priority.P0, channels=BOT_AND_APP
@@ -175,6 +191,10 @@ CATALOG: Mapping[NotificationType, TypeSpec] = MappingProxyType(
             group=EventGroup.DEALS, priority=Priority.P3, channels=BOT_AND_APP
         ),
         NotificationType.MODERATION_DECISION: TypeSpec(
+            group=EventGroup.ACCOUNT, priority=Priority.P1, channels=BOT_AND_APP
+        ),
+        # решение модератора, как `profile.published`: служебная группа, не выключается
+        NotificationType.JOB_PUBLISHED: TypeSpec(
             group=EventGroup.ACCOUNT, priority=Priority.P1, channels=BOT_AND_APP
         ),
         NotificationType.JOB_EXPIRING: TypeSpec(

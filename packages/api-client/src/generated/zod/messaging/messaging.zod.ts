@@ -503,6 +503,8 @@ export const MessagingProposeDealParams = zod.object({
 
 export const messagingProposeDealBodyTitleMax = 120;
 
+export const messagingProposeDealBodyPriceAmountOneMax = 9223372036854776000;
+
 export const MessagingProposeDealBody = zod
   .object({
     title: zod.string().min(1).max(messagingProposeDealBodyTitleMax).describe('Что делаем'),
@@ -510,7 +512,7 @@ export const MessagingProposeDealBody = zod
       .union([zod.enum(['fixed', 'from', 'hourly', 'negotiable']), zod.null()])
       .optional(),
     price_amount: zod
-      .union([zod.int().min(1), zod.null()])
+      .union([zod.int().min(1).max(messagingProposeDealBodyPriceAmountOneMax), zod.null()])
       .optional()
       .describe('Пара; без вида цены — 422'),
     scheduled_at: zod
