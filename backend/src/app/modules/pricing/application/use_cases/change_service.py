@@ -4,7 +4,9 @@
 from collections.abc import Collection
 from dataclasses import dataclass, field
 
+from app.modules.catalog.api import CatalogApi
 from app.modules.identity.api import Action, IdentityApi
+from app.modules.pricing.application.categories import ensure_category
 from app.modules.pricing.application.ports import ServiceRepository
 from app.modules.pricing.application.profile import price_list_changed, profile_id_of
 from app.modules.pricing.domain.service import PriceType, Service, ServiceId
@@ -36,6 +38,7 @@ class ChangeService:
         uow: UnitOfWork,
         services: ServiceRepository,
         specialists: SpecialistsApi,
+        catalog: CatalogApi,
         clock: Clock,
         identity: IdentityApi,
     ) -> None:
@@ -45,12 +48,13 @@ class ChangeService:
             specialists,
             clock,
         )
-        self._identity = identity
+        self._identity, self._catalog = identity, catalog
 
     async def __call__(self, cmd: ChangeServiceCommand) -> Service:
         # санкция на публикацию и галочка S02c — как у создания профиля (SEC-01)
         await self._identity.ensure_allowed(cmd.actor_id, Action.POST)
         profile_id = await profile_id_of(self._specialists, cmd.actor_id)
+        await ensure_category(self._catalog, cmd.category_id)
         async with self._uow:
             service = await self._services.get_for_update(profile_id, cmd.service_id)
             service.change(

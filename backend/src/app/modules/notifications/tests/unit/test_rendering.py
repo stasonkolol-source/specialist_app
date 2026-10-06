@@ -12,6 +12,7 @@ import pytest
 from app.modules.notifications.domain.catalog import NotificationType
 from app.modules.notifications.infrastructure.rendering import RENDERED, GettextNotificationRenderer
 from app.platform.contracts.events.identity import RestrictionKind
+from app.platform.i18n.catalogs import LOCALES_DIR
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.localized import Locale
 from app.platform.telegram.callbacks import (
@@ -22,6 +23,7 @@ from app.platform.telegram.callbacks import (
     ref_arg,
 )
 from app.platform.telegram.deeplinks import (
+    LinkSection,
     LinkType,
     StartLink,
     encode_start_param,
@@ -171,7 +173,7 @@ def test_bot_message_is_escaped_html_with_a_mini_app_button(
         DECISION, {"entity_type": "job", "decision_code": "<b>x</b>"}, "l_terms", Locale.RU
     )
 
-    assert text.startswith("<b>Заявка не опубликована</b>\n")
+    assert text.startswith("<b>Заявку нужно исправить</b>\n")  # статус S23 — «Нужно исправить"
     assert "<b>x</b>" not in text  # неизвестный код — общие слова; разметку он не вносит
     [button] = buttons
     assert isinstance(button, AppButton)
@@ -270,36 +272,47 @@ def job_params(*, can_extend: bool, title: str = "Повесить люстру"
 
 
 def callbacks(buttons: tuple[object, ...]) -> list[tuple[str, CallbackData | None]]:
-    assert all(isinstance(b, CallbackButton) for b in buttons)
     return [(b.text, parse_callback(b.data)) for b in buttons if isinstance(b, CallbackButton)]
+
+
+JOB_LINK = encode_start_param(StartLink(type=LinkType.JOB, id=JOB_ID))
+
+
+def opens(buttons: tuple[ButtonLine, ...]) -> list[tuple[str, str]]:
+    """Кнопки Mini App: подпись и адрес."""
+    return [(b.text, b.url) for b in flat(buttons) if isinstance(b, AppButton)]
 
 
 def test_expiring_job_offers_extend_and_close_as_found(
     renderer: GettextNotificationRenderer,
 ) -> None:
     text, buttons = renderer.telegram(
-        NotificationType.JOB_EXPIRING, job_params(can_extend=True), "j_abc", Locale.RU
+        NotificationType.JOB_EXPIRING, job_params(can_extend=True), JOB_LINK, Locale.RU
     )
 
     assert text == (
-        "<b>Заявка скоро закроется</b>\n«Повесить люстру» закроется через 2 часа."
+        "<b>Срок заявки скоро истечёт</b>\nСрок заявки «Повесить люстру» истечёт через 2 часа."
         " Если исполнитель ещё нужен — продлите заявку."
     )
     assert callbacks(buttons) == [
         ("Продлить", CallbackData(CallbackAction.JOB_EXTEND, JOB_ID)),
         ("Закрыть: исполнитель найден", CallbackData(CallbackAction.JOB_CLOSE, JOB_ID, "found")),
     ]
+    # №11: решить, продлевать ли, — глядя на заявку и отклики (S23)
+    assert opens(buttons) == [("Открыть заявку", f"{MINI_APP}?startapp={JOB_LINK}")]
 
 
 def test_expired_job_after_three_extensions_can_only_be_closed(
     renderer: GettextNotificationRenderer,
 ) -> None:
     text, buttons = renderer.telegram(
-        NotificationType.JOB_EXPIRED, job_params(can_extend=False), "j_abc", Locale.RU
+        NotificationType.JOB_EXPIRED, job_params(can_extend=False), JOB_LINK, Locale.RU
     )
 
+    assert text.startswith("<b>Срок заявки истёк</b>\n")  # статус — «Срок истёк — продлите»
     assert "Продлевать её больше нельзя" in text
     assert callbacks(buttons) == [("Закрыть", CallbackData(CallbackAction.JOB_CLOSE, JOB_ID))]
+    assert opens(buttons) == [("Открыть заявку", f"{MINI_APP}?startapp={JOB_LINK}")]
 
 
 @pytest.mark.parametrize("locale", SCRIPTS)
@@ -444,20 +457,49 @@ def test_accepted_performer_is_led_to_the_deal(renderer: GettextNotificationRend
         NotificationType.RESPONSE_ACCEPTED, {"title": "Повесить люстру"}, DEAL_LINK, Locale.RU
     )
 
-    assert text == "<b>Клиент выбрал вас</b>\nЗаявка «Повесить люстру». Адрес и время — в сделке."
+    assert text == "<b>Вас выбрали</b>\nЗаявка «Повесить люстру». Адрес и время — в сделке."
     assert isinstance(button, AppButton)
     assert (button.text, button.url) == ("Открыть сделку", f"{MINI_APP}?startapp={DEAL_LINK}")
 
 
-def test_passed_over_performer_gets_a_kind_word_without_buttons(
-    renderer: GettextNotificationRenderer,
+RESPONSES_LINK = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSection.RESPONSES))
+
+
+@pytest.mark.parametrize(
+    ("locale", "text", "button"),
+    [
+        (
+            Locale.RU,
+            "<b>Выбрали другого исполнителя</b>\nЗаявка «Люстра». Спасибо за отклик — в ленте"
+            " есть другие заявки рядом.",
+            "Мои отклики",
+        ),
+        (
+            Locale.SR_LATN,
+            "<b>Izabran je drugi izvođač</b>\nZahtev „Lustra“. Hvala na ponudi — u listi ima"
+            " drugih zahteva u blizini.",
+            "Moje ponude",
+        ),
+        (
+            Locale.SR_CYRL,
+            "<b>Изабран је други извођач</b>\nЗахтев „Люстра“. Хвала на понуди — у листи има"
+            " других захтева у близини.",
+            "Моје понуде",
+        ),
+    ],
+)
+def test_passed_over_performer_is_led_to_my_responses(
+    renderer: GettextNotificationRenderer, locale: Locale, text: str, button: str
 ) -> None:
-    text, buttons = renderer.telegram(
-        NotificationType.RESPONSE_NOT_SELECTED, {"title": "Повесить люстру"}, None, Locale.RU
+    """№11: заголовок — слово статуса S17 («Выбрали другого»), кнопка — к отклику в «Моих
+    откликах»: чужую заявку после выбора исполнителю не открыть."""
+    title = "Lustra" if locale is Locale.SR_LATN else "Люстра"
+    rendered, buttons = renderer.telegram(
+        NotificationType.RESPONSE_NOT_SELECTED, {"title": title}, RESPONSES_LINK, locale
     )
 
-    assert text.startswith("<b>Клиент выбрал другого исполнителя</b>")
-    assert buttons == ()
+    assert rendered == text
+    assert opens(buttons) == [(button, f"{MINI_APP}?startapp=m_responses")]
 
 
 @pytest.mark.parametrize(
@@ -465,34 +507,36 @@ def test_passed_over_performer_gets_a_kind_word_without_buttons(
     [
         (
             Locale.RU,
-            "<b>Заявку закрыли</b>\nЗаявка «Люстра» закрыта — клиент больше не выбирает"
-            " исполнителя. Спасибо за отклик — в ленте есть другие заявки рядом.",
+            "<b>Заявка закрыта без выбора</b>\nЗаявка «Люстра». Спасибо за отклик — в ленте"
+            " есть другие заявки рядом.",
         ),
         (
             Locale.SR_LATN,
-            "<b>Zahtev je zatvoren</b>\nZahtev „Lustra“ je zatvoren — naručilac više ne bira"
-            " izvođača. Hvala na ponudi — u listi ima drugih zahteva u blizini.",
+            "<b>Zahtev je zatvoren bez izbora</b>\nZahtev „Lustra“. Hvala na ponudi — u listi"
+            " ima drugih zahteva u blizini.",
         ),
         (
             Locale.SR_CYRL,
-            "<b>Захтев је затворен</b>\nЗахтев „Люстра“ је затворен — наручилац више не бира"
-            " извођача. Хвала на понуди — у листи има других захтева у близини.",
+            "<b>Захтев је затворен без избора</b>\nЗахтев „Люстра“. Хвала на понуди — у листи"
+            " има других захтева у близини.",
         ),
     ],
 )
 def test_closed_job_is_not_called_another_choice(
     renderer: GettextNotificationRenderer, locale: Locale, text: str
 ) -> None:
-    """MU-11: клиент закрыл или удалил заявку — «Заявку закрыли», не «выбрал другого»."""
+    """MU-11: клиент закрыл или удалил заявку — «Заявка закрыта без выбора» (слово статуса S17),
+    не «выбрал другого»; кнопка — «Мои отклики»."""
     title = "Lustra" if locale is Locale.SR_LATN else "Люстра"
     rendered, buttons = renderer.telegram(
         NotificationType.RESPONSE_NOT_SELECTED,
         {"title": title, "reason": "job_closed"},
-        None,
+        RESPONSES_LINK,
         locale,
     )
 
-    assert (rendered, buttons) == (text, ())
+    assert rendered == text
+    assert [url for _, url in opens(buttons)] == [f"{MINI_APP}?startapp=m_responses"]
 
 
 @pytest.mark.parametrize(
@@ -752,6 +796,9 @@ def test_deal_texts_on_three_scripts(renderer: GettextNotificationRenderer, loca
         assert all("notifications." not in b.text for b in flat(buttons)), type_
 
 
+REVIEW_LINK = encode_start_param(StartLink(type=LinkType.REVIEW, id=DEAL_ID))
+
+
 @pytest.mark.parametrize("stage", ["first", "reminder", "last_call"])
 @pytest.mark.parametrize("locale", SCRIPTS)
 def test_review_request_asks_on_each_stage_with_a_button(
@@ -762,7 +809,7 @@ def test_review_request_asks_on_each_stage_with_a_button(
     params |= {"deal_id": str(DEAL_ID)}
 
     text, [stars, form] = renderer.telegram(
-        NotificationType.REVIEW_REQUEST, params, DEAL_LINK, locale
+        NotificationType.REVIEW_REQUEST, params, REVIEW_LINK, locale
     )
 
     assert "notifications." not in text
@@ -774,7 +821,7 @@ def test_review_request_asks_on_each_stage_with_a_button(
         CallbackData(CallbackAction.REVIEW_RATE, DEAL_ID, str(n)) for n in range(1, 6)
     ]
     assert isinstance(form, AppButton)
-    assert form.url == f"{MINI_APP}?startapp={DEAL_LINK}"
+    assert form.url == f"{MINI_APP}?startapp={REVIEW_LINK}"  # сразу форма S27, без S26
 
 
 def test_review_request_texts_in_russian(renderer: GettextNotificationRenderer) -> None:
@@ -847,19 +894,19 @@ def test_dispute_opened_tells_who_what_and_until_when(
         (
             "completed",
             "work_done",
-            "Поддержка рассмотрела спор по сделке «Люстра» и завершила сделку."
+            "Поддержка рассмотрела спор по сделке «Люстра»: сделка выполнена."
             " Причина: работа выполнена.",
         ),
         (
             "cancelled",
             "no_show",
-            "Поддержка рассмотрела спор по сделке «Люстра» и отменила сделку."
+            "Поддержка рассмотрела спор по сделке «Люстра»: сделка отменена."
             " Причина: встреча не состоялась.",
         ),
         (
             "cancelled",
             "something_new",
-            "Поддержка рассмотрела спор по сделке «Люстра» и отменила сделку."
+            "Поддержка рассмотрела спор по сделке «Люстра»: сделка отменена."
             " Причина: решение по материалам спора.",
         ),
     ],
@@ -907,3 +954,99 @@ def test_dispute_texts_on_three_scripts(
         text, buttons = renderer.telegram(type_, params, DISPUTE_LINK, locale)
         assert "notifications." not in text, (type_, params)
         assert [b.text for b in flat(buttons) if "notifications." in b.text] == []
+
+
+@pytest.mark.parametrize(
+    ("locale", "text", "button"),
+    [
+        (
+            Locale.RU,
+            "<b>Заявка опубликована</b>\nМодератор проверил «Люстра» — исполнители уже видят"
+            " заявку. Бот напишет, когда придут отклики.",
+            "Открыть заявку",
+        ),
+        (
+            Locale.SR_LATN,
+            "<b>Zahtev je objavljen</b>\nModerator je proverio „Lustra“ — izvođači već vide"
+            " zahtev. Bot će vam javiti kada stignu ponude.",
+            "Otvori zahtev",
+        ),
+        (
+            Locale.SR_CYRL,
+            "<b>Захтев је објављен</b>\nМодератор је проверио „Люстра“ — извођачи већ виде"
+            " захтев. Бот ће вам јавити када стигну понуде.",
+            "Отвори захтев",
+        ),
+    ],
+)
+def test_job_published_after_review_leads_to_the_job(
+    renderer: GettextNotificationRenderer, locale: Locale, text: str, button: str
+) -> None:
+    """№11, G-A: заявку опубликовал модератор — что произошло, кто дальше и как узнать; кнопка —
+    к заявке (S23 владельцу)."""
+    title = "Lustra" if locale is Locale.SR_LATN else "Люстра"
+    rendered, buttons = renderer.telegram(
+        NotificationType.JOB_PUBLISHED, {"title": title}, JOB_LINK, locale
+    )
+
+    assert rendered == text
+    assert opens(buttons) == [(button, f"{MINI_APP}?startapp={JOB_LINK}")]
+
+
+@pytest.mark.parametrize(
+    ("locale", "title"),
+    [
+        (Locale.RU, "Клиент отклонил отклик"),
+        (Locale.SR_LATN, "Klijent je odbio ponudu"),
+        (Locale.SR_CYRL, "Клијент је одбио понуду"),
+    ],
+)
+def test_declined_response_is_named_by_its_status(
+    renderer: GettextNotificationRenderer, locale: Locale, title: str
+) -> None:
+    """Строка центра S42 (в бот не уходит): заголовок — слово статуса S17 «Клиент отклонил»."""
+    text = renderer.text(NotificationType.RESPONSE_DECLINED, {"title": "Люстра"}, locale)
+
+    assert text.title == title
+    assert "Люстра" in text.body
+    assert "notifications." not in text.body
+
+
+@pytest.mark.parametrize(
+    ("by", "body"),
+    [
+        ("client", "Клиент подтвердил работу «Люстра»."),
+        ("auto", "Работа «Люстра» засчитана: после отметки прошло 3 дня."),
+        ("someone", "Клиент подтвердил работу «Люстра»."),
+    ],
+)
+def test_completed_deal_tells_the_performer_who_confirmed(
+    renderer: GettextNotificationRenderer, by: str, body: str
+) -> None:
+    """Исполнителю в S42: сделка «Выполнена» (слово статуса), кто подтвердил."""
+    text = renderer.text(NotificationType.DEAL_COMPLETED, {"title": "Люстра", "by": by}, Locale.RU)
+
+    assert (text.title, text.body) == ("Сделка выполнена", body)
+
+
+@pytest.mark.parametrize("locale", SCRIPTS)
+def test_outcome_texts_on_three_scripts(
+    renderer: GettextNotificationRenderer, locale: Locale
+) -> None:
+    for type_, params in (
+        (NotificationType.DEAL_COMPLETED, {"title": "Люстра", "by": "auto"}),
+        (NotificationType.RESPONSE_DECLINED, {"title": "Люстра"}),
+        (NotificationType.JOB_PUBLISHED, {"title": "Люстра"}),
+    ):
+        assert "notifications." not in full_text(renderer, type_, params, locale), type_
+
+
+@pytest.mark.parametrize("locale", ["sr_Latn", "sr_Cyrl"])
+def test_serbian_bot_says_klijent(locale: str) -> None:
+    """№15: клиент по-сербски — «klijent» везде, как на экранах; «naručilac» не встречается."""
+    catalog = LOCALES_DIR / locale / "LC_MESSAGES" / "messages.po"
+
+    texts = catalog.read_text(encoding="utf-8").lower()
+
+    assert "naruč" not in texts
+    assert "наруч" not in texts

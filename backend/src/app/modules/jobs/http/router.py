@@ -122,7 +122,7 @@ from app.modules.jobs.application.use_cases.withdraw_response import (
     WithdrawResponse,
     WithdrawResponseCommand,
 )
-from app.modules.jobs.domain.job import CloseReason, JobId, JobStatus, Urgency
+from app.modules.jobs.domain.job import MAX_BUDGET, CloseReason, JobId, JobStatus, Urgency
 from app.modules.jobs.domain.response import ResponseId
 from app.modules.jobs.domain.template import TemplateId
 from app.modules.jobs.errors import JobNotFoundError, ResponseNotFoundError
@@ -134,6 +134,7 @@ from app.modules.jobs.http.schemas import (
     JobCloseIn,
     JobIn,
     JobInvitesOut,
+    JobLanguage,
     JobOut,
     JobResponseOut,
     JobResponsesOut,
@@ -154,6 +155,7 @@ from app.modules.jobs.http.schemas import (
 )
 from app.modules.media.api import MediaApi
 from app.platform.http.concurrency import IfMatch, set_etag
+from app.platform.http.fields import INT4_MAX, CategoryIdIn, DistrictIdIn
 from app.platform.http.idempotency import idempotent_router
 from app.platform.http.ratelimit import GuestOrUserRateLimit
 from app.platform.http.security import AUTHENTICATED, optional_principal
@@ -290,11 +292,14 @@ router.include_router(alerts)
 
 def feed_filters(
     *,
-    city_id: Annotated[int, Query(ge=1, description="Город ленты")],
+    city_id: Annotated[int, Query(ge=1, le=INT4_MAX, description="Город ленты")],
     category: Annotated[
-        list[int] | None, Query(description="Категории: с подкатегориями, любая из них")
+        list[CategoryIdIn] | None,
+        Query(description="Категории: с подкатегориями, любая из них"),
     ] = None,
-    district: Annotated[list[int] | None, Query(description="Районы: любой из них")] = None,
+    district: Annotated[
+        list[DistrictIdIn] | None, Query(description="Районы: любой из них")
+    ] = None,
     lat: Annotated[float | None, Query(ge=-90, le=90, description="Точка зрителя")] = None,
     lon: Annotated[float | None, Query(ge=-180, le=180)] = None,
     radius_km: Annotated[
@@ -302,10 +307,11 @@ def feed_filters(
     ] = None,
     urgency: Annotated[list[Urgency] | None, Query()] = None,
     budget_from: Annotated[
-        int | None, Query(ge=1, description="Пара: бюджет не меньше (договорные — нет)")
+        int | None,
+        Query(ge=1, le=MAX_BUDGET, description="Пара: бюджет не меньше (договорные — нет)"),
     ] = None,
     lang: Annotated[
-        list[str] | None, Query(description="Языки общения: заявки на любом из них")
+        list[JobLanguage] | None, Query(description="Языки общения: заявки на любом из них")
     ] = None,
     has_photos: Annotated[bool, Query(description="Только с фото")] = False,
 ) -> FeedFilters:

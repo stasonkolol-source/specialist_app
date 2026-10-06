@@ -9,6 +9,7 @@ import type { SearchCountByCategoryKind } from './searchCountByCategoryKind.ts';
 export type SearchCountByCategoryParams = {
   /**
    * @minimum 1
+   * @maximum 2147483647
    */
   city_id: number;
   kind?: SearchCountByCategoryKind;

@@ -6,11 +6,13 @@
 """
 
 from datetime import UTC, datetime, time, timedelta
+from types import SimpleNamespace
 from typing import Any, cast
 from uuid import UUID
 
 import pytest
 
+from app.modules.deals.api import DealsApi
 from app.modules.jobs.api import JobsApi
 from app.modules.notifications.application.dto import SettingsView
 from app.modules.notifications.application.use_cases.mark_notifications_read import (
@@ -39,7 +41,7 @@ from app.platform.contracts.events.identity import RestrictionKind, UserRestrict
 from app.platform.contracts.events.moderation import ModerationDecision, ModerationDecisionMade
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.errors import ExternalServiceError
-from app.platform.kernel.ids import CaseId, RestrictionId, UserId, new_id
+from app.platform.kernel.ids import CaseId, DealId, RestrictionId, UserId, new_id
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.pagination import PageRequest
 from app.platform.telegram.deeplinks import uuid_to_base62
@@ -629,11 +631,25 @@ class ResponseJobs:
         return self._links.get(response_id)
 
 
+class DisputeDeals:
+    """Фасад deals для решения по спору: только сделка спора."""
+
+    def __init__(self, deals: dict[UUID, DealId]) -> None:
+        self._deals = deals
+
+    async def dispute(self, dispute_id: UUID) -> SimpleNamespace | None:
+        deal_id = self._deals.get(dispute_id)
+        return SimpleNamespace(deal_id=deal_id) if deal_id is not None else None
+
+
 async def test_notify_author_about_a_rejection_only(notifications: Notifications) -> None:
+    """«Исправить» ведёт туда, где объект правят (UX-аудит №11), а не на Главную."""
     user_id = await notifications.user_with_bot()
     job_id = new_id()
     response_id, response_job = new_id(), new_id()
+    dispute_id, dispute_deal = new_id(), DealId(new_id())
     jobs = cast(JobsApi, ResponseJobs({response_id: response_job}))
+    deals = cast(DealsApi, DisputeDeals({dispute_id: dispute_deal}))
 
     def decided(
         decision: ModerationDecision, entity: str, entity_id: UUID
@@ -648,28 +664,30 @@ async def test_notify_author_about_a_rejection_only(notifications: Notifications
             occurred_at=notifications.clock.now(),
         )
 
-    await notify_moderation_decision(
-        decided(ModerationDecision.REJECTED, "job", job_id), notifications.notify, jobs
-    )
-    await notify_moderation_decision(
-        decided(ModerationDecision.REJECTED, "review", new_id()), notifications.notify, jobs
-    )
-    await notify_moderation_decision(
-        decided(ModerationDecision.APPROVED, "job", new_id()), notifications.notify, jobs
-    )
-    await notify_moderation_decision(
-        decided(ModerationDecision.REJECTED, "response", response_id), notifications.notify, jobs
-    )
-    await notify_moderation_decision(
-        decided(ModerationDecision.REJECTED, "profile", new_id()), notifications.notify, jobs
-    )
+    for decision, entity, entity_id in (
+        (ModerationDecision.REJECTED, "job", job_id),
+        (ModerationDecision.REJECTED, "review", new_id()),
+        (ModerationDecision.APPROVED, "job", new_id()),
+        (ModerationDecision.REJECTED, "response", response_id),
+        (ModerationDecision.REJECTED, "profile", new_id()),
+        (ModerationDecision.REJECTED, "portfolio", new_id()),
+        (ModerationDecision.REJECTED, "review_reply", new_id()),
+        (ModerationDecision.REJECTED, "dispute", dispute_id),
+        (ModerationDecision.REJECTED, "message", new_id()),
+    ):
+        await notify_moderation_decision(
+            decided(decision, entity, entity_id), notifications.notify, jobs, deals
+        )
 
     rows = await notifications.notifications(user_id)
     payloads = [cast(dict[str, Any], r["payload"]) for r in rows]
     assert [(p["params"]["entity_type"], p["link"]) for p in payloads] == [
         ("job", f"j_{uuid_to_base62(job_id)}"),  # «Исправить» ведёт к заявке
-        ("review", "h"),  # экрана отзыва пока нет — на Главную
+        ("review", "m_reviews"),  # «Мои отзывы» S28
         ("response", f"j_{uuid_to_base62(response_job)}"),  # отклик — к его заявке
-        # профиль — в кабинет S33 с причиной, а не на публичную карточку черновика (UX №7)
-        ("profile", "m_profile"),
+        ("profile", "m_profile"),  # кабинет S33: черновик не публичен, `s_` — «недоступен»
+        ("portfolio", "m_portfolio"),  # портфолио S37
+        ("review_reply", "m_reviews"),
+        ("dispute", f"p_{uuid_to_base62(dispute_deal)}"),  # спор S52
+        ("message", "h"),  # своего экрана по id сообщения нет — на Главную
     ]

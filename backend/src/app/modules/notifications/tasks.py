@@ -9,8 +9,12 @@ notifications стоит над контентными модулями (ARCHITE
 - `notifications.notify_profile_published` — ProfilePublished одобренного модерацией профиля:
   «Профиль опубликован» и кнопка к нему (2.8a).
 - `notifications.notify_moderation_decision` — ModerationDecisionMade: автору — отказ
-  (statement of reasons: причина, предупреждение, автоматически ли) и кнопка «Исправить» к
-  его контенту; одобрение без уведомления.
+  (statement of reasons: причина, предупреждение, автоматически ли) и кнопка «Исправить» туда,
+  где его контент правят: заявка — S23, отклик — его заявка, профиль — кабинет S33, работа
+  портфолио — S37, отзыв и ответ на него — «Мои отзывы» S28, спор — S52; одобрение без
+  уведомления.
+- `notifications.notify_job_published` — JobPublished после ручной проверки (`reviewed`): клиенту
+  «Заявка опубликована» и кнопка к заявке; после автопроверки — ничего, S21 видит её сразу.
 - `notifications.notify_appeal_decided` — AppealDecided: итог апелляции тем же типом
   `moderation.decision` — санкция снята или решение осталось в силе и почему (2.5b).
 - `notifications.notify_job_expiring` — JobExpiring: «Заявка закроется через 2 ч» с кнопками
@@ -30,10 +34,13 @@ notifications стоит над контентными модулями (ARCHITE
   тап обрабатывает бот jobs), если заявка ещё открыта (5.6).
 - `notifications.notify_response_accepted` — ResponseAccepted: выбранному исполнителю «Клиент
   выбрал вас» и кнопка к сделке (6.1b), если сделка ещё идёт.
-- `notifications.notify_passed_over` — ResponseAccepted: остальным откликнувшимся «Клиент выбрал
-  другого исполнителя», пока заявка «в работе».
-- `notifications.notify_job_closed` — JobClosed: исполнителям, чьи отклики ждали решения, «Заявку
-  закрыли» (`response.not_selected` с `reason: job_closed`, MU-11).
+- `notifications.notify_passed_over` — ResponseAccepted: остальным откликнувшимся «Выбрали
+  другого исполнителя», пока заявка «в работе»; кнопка — «Мои отклики» S17 (чужую заявку после
+  выбора исполнителю не открыть).
+- `notifications.notify_job_closed` — JobClosed: исполнителям, чьи отклики ждали решения, «Заявка
+  закрыта без выбора» (`response.not_selected` с `reason: job_closed`, MU-11), кнопка — S17.
+- `notifications.notify_response_declined` — ResponseDeclined: исполнителю «Клиент отклонил
+  отклик» — только в центре S42, без бота.
 - `notifications.notify_deal_proposed` — DealProposed: второй стороне «Клиент (исполнитель)
   предлагает договориться» и кнопка к условиям, пока предложение ждёт (6.3b).
 - `notifications.notify_deal_cancelled` — DealCancelled: второй стороне — кто отменил и почему
@@ -49,8 +56,10 @@ notifications стоит над контентными модулями (ARCHITE
   хорошо] (кнопку обрабатывает бот deals) и [Есть проблема] тем, кто ещё не отметил.
 - `notifications.notify_deal_marked` — DealMarkedDone: то же второй стороне сразу после отметки
   первой: «Алексей: работа «…» выполнена. Всё в порядке?» — имя отметившего (B2, 7.3).
+- `notifications.notify_deal_completed` — DealCompleted: исполнителю «Сделка выполнена — клиент
+  подтвердил работу» (или прошло 3 дня) — только в центре S42; завершил сам или решил спор — нет.
 - `notifications.notify_review_request` — ReviewRequested: клиенту — «Как прошла работа?» и
-  «Оставить отзыв» (после завершения, через сутки, за 2 дня до конца окна; 7.2).
+  «Открыть форму отзыва» сразу на S27 (после завершения, через сутки, за 2 дня до конца окна; 7.2).
 - `notifications.notify_review_published` — ReviewPublished: исполнителю — новый отзыв и
   «Ответить на отзыв» (7.2).
 - `notifications.notify_job_matched` — ставит `jobs.match_alerts` по имени задачи (5.7):
@@ -93,6 +102,7 @@ from app.modules.notifications.application.ports import (
     NOTIFY_ACCOUNT_RESTRICTED,
     NOTIFY_APPEAL_DECIDED,
     NOTIFY_DEAL_CANCELLED,
+    NOTIFY_DEAL_COMPLETED,
     NOTIFY_DEAL_COMPLETION,
     NOTIFY_DEAL_MARKED,
     NOTIFY_DEAL_PROPOSED,
@@ -103,12 +113,14 @@ from app.modules.notifications.application.ports import (
     NOTIFY_JOB_EXPIRED,
     NOTIFY_JOB_EXPIRING,
     NOTIFY_JOB_INVITED,
+    NOTIFY_JOB_PUBLISHED,
     NOTIFY_MESSAGES,
     NOTIFY_MODERATION_DECISION,
     NOTIFY_PASSED_OVER,
     NOTIFY_PROFILE_PUBLISHED,
     NOTIFY_PROFILE_STALE,
     NOTIFY_RESPONSE_ACCEPTED,
+    NOTIFY_RESPONSE_DECLINED,
     NOTIFY_RESPONSES,
     NOTIFY_REVIEW_PUBLISHED,
     NOTIFY_REVIEW_REQUEST,
@@ -173,6 +185,7 @@ from app.modules.notifications.domain.notification import DeliveryId
 from app.modules.reviews.api import ReviewsApi
 from app.platform.contracts.events.deals import (
     DealCancelled,
+    DealCompleted,
     DealCompletionDue,
     DealDisputed,
     DealMarkedDone,
@@ -191,7 +204,9 @@ from app.platform.contracts.events.jobs import (
     JobExpired,
     JobExpiring,
     JobInvited,
+    JobPublished,
     ResponseAccepted,
+    ResponseDeclined,
     ResponseSubmitted,
 )
 from app.platform.contracts.events.messaging import MessageSent
@@ -234,16 +249,28 @@ AVAILABILITY_LINK = encode_start_param(
     StartLink(type=LinkType.MINE, section=LinkSection.AVAILABILITY)
 )
 REVIEWS_LINK = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSection.REVIEWS))
+RESPONSES_LINK = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSection.RESPONSES))
+"""«Мои отклики» S17: исход отклика. Чужую заявку после выбора или закрытия исполнителю не
+открыть (S15 видна только опубликованной), а карточка отклика в S17 показывает исход."""
 HOME_LINK = encode_start_param(StartLink(type=LinkType.HOME))
-CABINET_LINK = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSection.PROFILE))
-FIX_LINKS = {"job": LinkType.JOB}
-"""Куда ведёт «Исправить»: к заявке; профиль — в кабинет S33 с причиной (публичная карточка
-черновика недоступна, UX №7); отклик — к его заявке; остальное — на Главную (экраны — позже)."""
-RESPONSE = "response"
-PROFILE = "profile"
+FIX_SECTIONS = {
+    "profile": LinkSection.PROFILE,
+    "portfolio": LinkSection.PORTFOLIO,
+    "review": LinkSection.REVIEWS,
+    "review_reply": LinkSection.REVIEWS,
+}
+"""Куда ведёт «Исправить», если у объекта нет своего экрана по id: профиль — кабинет S33
+(черновик не публичен: карточка `s_` открылась бы «Профиль недоступен»), работа портфолио — S37,
+отзыв и ответ на него — «Мои отзывы» S28. Заявка — S23 (`j_`), отклик — его заявка, спор — S52;
+остальное (сообщение, фото, аккаунт) — на Главную."""
+JOB, RESPONSE, DISPUTE = "job", "response", "dispute"
 JOB_CLOSED = "job_closed"
 """`reason` у `response.not_selected`: отклик не выбран, потому что клиент закрыл заявку."""
-AGREED, PROPOSED = "agreed", "proposed"
+AGREED, PROPOSED, COMPLETED = "agreed", "proposed", "completed"
+RESOLVED = "resolved"
+"""Спор решён поддержкой (DisputeSummary.status)."""
+AUTO = "auto"
+"""`by` у `deal.completed`: завершила система — вторая сторона молчала 3 дня после отметки."""
 CLIENT, PERFORMER = "client", "performer"
 """Стороны сделки — как `cancelled_by` в DealCancelled."""
 BY_DISPUTE = "dispute"
@@ -282,16 +309,13 @@ async def notify_account_restricted(event: UserRestricted, notify: FromDishka[No
 
 @subscriber(ModerationDecisionMade, NOTIFY_MODERATION_DECISION)
 async def notify_moderation_decision(
-    event: ModerationDecisionMade, notify: FromDishka[Notify], jobs: FromDishka[JobsApi]
+    event: ModerationDecisionMade,
+    notify: FromDishka[Notify],
+    jobs: FromDishka[JobsApi],
+    deals: FromDishka[DealsApi],
 ) -> None:
     if event.decision is not ModerationDecision.REJECTED:
         return
-    kind = FIX_LINKS.get(event.entity_type)
-    link = encode_start_param(StartLink(type=kind, id=event.entity_id)) if kind else HOME_LINK
-    if event.entity_type == PROFILE:
-        link = CABINET_LINK
-    if event.entity_type == RESPONSE and (job_id := await jobs.response_job(event.entity_id)):
-        link = _job_link(job_id)
     await notify(
         NotifyCommand(
             user_id=event.author_id,
@@ -303,9 +327,23 @@ async def notify_moderation_decision(
                 "automated": "true" if event.automated else "false",
                 **({"sanction": event.sanction} if event.sanction else {}),
             },
-            link=link,
+            link=await _fix_link(event, jobs, deals),
         )
     )
+
+
+async def _fix_link(event: ModerationDecisionMade, jobs: JobsApi, deals: DealsApi) -> str:
+    """Экран, где автор исправит отклонённое (UX-аудит №11): кнопка не ведёт на Главную, если
+    у объекта есть свой экран."""
+    if section := FIX_SECTIONS.get(event.entity_type):
+        return encode_start_param(StartLink(type=LinkType.MINE, section=section))
+    if event.entity_type == JOB:
+        return _job_link(event.entity_id)
+    if event.entity_type == RESPONSE and (job_id := await jobs.response_job(event.entity_id)):
+        return _job_link(job_id)
+    if event.entity_type == DISPUTE and (dispute := await deals.dispute(event.entity_id)):
+        return _dispute_link(dispute.deal_id)
+    return HOME_LINK
 
 
 @subscriber(AppealDecided, NOTIFY_APPEAL_DECIDED)
@@ -337,6 +375,29 @@ async def notify_profile_published(event: ProfilePublished, notify: FromDishka[N
             dedupe_key=f"profile.published:{event.event_id}",
             params={},
             link=encode_start_param(StartLink(type=LinkType.SPECIALIST, id=event.profile_id)),
+        )
+    )
+
+
+@subscriber(JobPublished, NOTIFY_JOB_PUBLISHED)
+async def notify_job_published(
+    event: JobPublished, notify: FromDishka[Notify], jobs: FromDishka[JobsApi]
+) -> None:
+    """Модератор опубликовал заявку после ручной проверки: клиенту «Заявка опубликована» и
+    кнопка к ней (S23). Автопроверка публикует за миллисекунды — S21 видит это сам, писать не о
+    чем."""
+    if not event.reviewed:
+        return
+    job = await jobs.job_brief(event.job_id)
+    if job is None or job.status != "published":
+        return  # пока задача ждала, заявку закрыли, удалили или снова отправили на проверку
+    await notify(
+        NotifyCommand(
+            user_id=event.client_id,
+            type=NotificationType.JOB_PUBLISHED,
+            dedupe_key=f"job.published:{event.event_id}",
+            params={"title": job.title},
+            link=_job_link(event.job_id),
         )
     )
 
@@ -664,6 +725,7 @@ async def notify_passed_over(
                 type=NotificationType.RESPONSE_NOT_SELECTED,
                 dedupe_key=f"response.not_selected:{event.response_id}:{performer_id}",
                 params={"title": job.title},
+                link=RESPONSES_LINK,
             )
         )
 
@@ -684,8 +746,29 @@ async def notify_job_closed(
                 type=NotificationType.RESPONSE_NOT_SELECTED,
                 dedupe_key=f"response.job_closed:{event.job_id}:{performer_id}",
                 params={"title": notice.title, "reason": JOB_CLOSED},
+                link=RESPONSES_LINK,
             )
         )
+
+
+@subscriber(ResponseDeclined, NOTIFY_RESPONSE_DECLINED)
+async def notify_response_declined(
+    event: ResponseDeclined, notify: FromDishka[Notify], jobs: FromDishka[JobsApi]
+) -> None:
+    """Клиент отклонил отклик: исполнителю — строка в центре S42 (в бот не пишем: исход, а не
+    повод действовать) и ссылка на «Мои отклики», где карточка покажет «Клиент отклонил»."""
+    job = await jobs.job_brief(event.job_id)
+    if job is None:
+        return  # заявку удалили
+    await notify(
+        NotifyCommand(
+            user_id=event.performer_id,
+            type=NotificationType.RESPONSE_DECLINED,
+            dedupe_key=f"response.declined:{event.response_id}",
+            params={"title": job.title},
+            link=RESPONSES_LINK,
+        )
+    )
 
 
 @subscriber(DealProposed, NOTIFY_DEAL_PROPOSED)
@@ -813,8 +896,8 @@ async def notify_review_request(
     identity: FromDishka[IdentityApi],
     reviews: FromDishka[ReviewsApi],
 ) -> None:
-    """Клиенту — «Как прошла работа?» с кнопкой «Оставить отзыв» (сделка S26). Отзыв уже
-    оставлен, окно закрылось или исполнителя нет — не просим."""
+    """Клиенту — «Оцените работу» с кнопкой «Открыть форму отзыва» сразу на S27, без шага через
+    сделку S26. Отзыв уже оставлен, окно закрылось или исполнителя нет — не просим."""
     try:
         deal = await deals.deal_for(event.deal_id, event.client_id)
     except DealNotFoundError:
@@ -840,7 +923,7 @@ async def notify_review_request(
                 "stage": event.stage,
                 "deal_id": str(event.deal_id),
             },
-            link=_deal_link(event.deal_id),
+            link=encode_start_param(StartLink(type=LinkType.REVIEW, id=event.deal_id)),
             valid_until=state.open_until,
         )
     )
@@ -906,6 +989,33 @@ async def notify_deal_marked(
                 # удалённый аккаунт — без имени: в тексте роль («Исполнитель: работа …»)
                 "name": marker.display_name if marker is not None and not marker.is_deleted else "",
             },
+            link=_deal_link(event.deal_id),
+        )
+    )
+
+
+@subscriber(DealCompleted, NOTIFY_DEAL_COMPLETED)
+async def notify_deal_completed(
+    event: DealCompleted, notify: FromDishka[Notify], deals: FromDishka[DealsApi]
+) -> None:
+    """Сделка выполнена: исполнителю — строка в центре S42 «Клиент подтвердил работу» (или
+    «прошло 3 дня после отметки»), без бота. Последним отметил сам исполнитель — он видел итог
+    на экране; спор решила поддержка — итог уже в `dispute.resolved`."""
+    try:
+        deal = await deals.deal_for(event.deal_id, event.performer_id)
+    except DealNotFoundError:
+        return
+    if deal.status != COMPLETED or (deal.dispute is not None and deal.dispute.status == RESOLVED):
+        return
+    client_at, performer_at = deal.client_confirmed_at, deal.performer_confirmed_at
+    if not event.auto and (client_at is None or (performer_at and performer_at >= client_at)):
+        return
+    await notify(
+        NotifyCommand(
+            user_id=event.performer_id,
+            type=NotificationType.DEAL_COMPLETED,
+            dedupe_key=f"deal.completed:{event.deal_id}",
+            params={"title": deal.title, "by": AUTO if event.auto else CLIENT},
             link=_deal_link(event.deal_id),
         )
     )

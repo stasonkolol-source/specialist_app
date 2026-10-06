@@ -23,6 +23,7 @@ describe('startTarget', () => {
       'deal',
       'dispute',
       'review_invite',
+      'review',
     ]);
     for (const { param, link } of golden.valid) {
       if (!ready.has(link.type)) expect(startTarget(param)).toBe('/');
@@ -69,6 +70,19 @@ describe('startTarget', () => {
     expect(startTarget('m_settings')).toBe('/settings');
     expect(startTarget('m_deletion')).toBe('/profile/delete');
     expect(startTarget('m_reviews')).toBe('/deals?tab=reviews');
+  });
+
+  it('opens my responses S17 and the portfolio S37 — outcomes of a response, portfolio refusal', () => {
+    expect(startTarget('m_responses')).toBe('/jobs/responses');
+    expect(startTarget('m_portfolio')).toBe('/cabinet/portfolio');
+  });
+
+  it('opens the review form S27 for `rv_` links — «Открыть форму отзыва» of a review request', () => {
+    const reviews = golden.valid.filter(({ link }) => link.type === 'review');
+    expect(reviews.length).toBeGreaterThan(0);
+    for (const { param, link } of reviews) {
+      expect(startTarget(param)).toBe(`/deals/${'id' in link ? link.id : ''}/review`);
+    }
   });
 
   it('opens the dialog S30 for `c_` links — «Ответить» of a message notice (6.4)', () => {

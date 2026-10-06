@@ -9,6 +9,8 @@ export interface ProfileCategoriesIn {
   /**
    * @minItems 1
    * @maxItems 5
+   * @items.minimum 1
+   * @items.maximum 2147483647
    */
   category_ids: number[];
 }

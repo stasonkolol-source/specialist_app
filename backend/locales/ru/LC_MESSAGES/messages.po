@@ -790,13 +790,13 @@ msgid "notifications.account_restricted.button"
 msgstr "Правила площадки"
 
 msgid "notifications.moderation_decision.title.job"
-msgstr "Заявка не опубликована"
+msgstr "Заявку нужно исправить"
 
 msgid "notifications.moderation_decision.title.profile"
-msgstr "Профиль не опубликован"
+msgstr "Профилю нужны правки"
 
 msgid "notifications.moderation_decision.title.response"
-msgstr "Отклик не отправлен"
+msgstr "Отклик не прошёл проверку"
 
 msgid "notifications.moderation_decision.title.review"
 msgstr "Отзыв не опубликован"
@@ -870,6 +870,12 @@ msgstr "Открыть профиль"
 msgid "notifications.profile_published.alerts"
 msgstr "Подписаться на заявки"
 
+msgid "notifications.job_published.title"
+msgstr "Заявка опубликована"
+
+msgid "notifications.job_published.body"
+msgstr "Модератор проверил «{title}» — исполнители уже видят заявку. Бот напишет, когда придут отклики."
+
 msgid "notifications.response_received.title"
 msgstr "Новые отклики"
 
@@ -904,16 +910,16 @@ msgid "notifications.job_invited.template"
 msgstr "Откликнуться: «{title}»"
 
 msgid "notifications.job_expiring.title"
-msgstr "Заявка скоро закроется"
+msgstr "Срок заявки скоро истечёт"
 
 msgid "notifications.job_expiring.body"
-msgstr "«{title}» закроется через 2 часа. Если исполнитель ещё нужен — продлите заявку."
+msgstr "Срок заявки «{title}» истечёт через 2 часа. Если исполнитель ещё нужен — продлите заявку."
 
 msgid "notifications.job_expiring.body_final"
-msgstr "«{title}» закроется через 2 часа. Продлевать её больше нельзя: если исполнитель ещё нужен, создайте новую заявку."
+msgstr "Срок заявки «{title}» истечёт через 2 часа. Продлевать её больше нельзя: если исполнитель ещё нужен, создайте новую заявку."
 
 msgid "notifications.job_expired.title"
-msgstr "Срок заявки вышел"
+msgstr "Срок заявки истёк"
 
 msgid "notifications.job_expired.body"
 msgstr "«{title}» больше не видна исполнителям. Если исполнитель ещё нужен — продлите заявку."
@@ -922,22 +928,31 @@ msgid "notifications.job_expired.body_final"
 msgstr "«{title}» больше не видна исполнителям. Продлевать её больше нельзя: если исполнитель ещё нужен, создайте новую заявку."
 
 msgid "notifications.response_accepted.title"
-msgstr "Клиент выбрал вас"
+msgstr "Вас выбрали"
 
 msgid "notifications.response_accepted.body"
 msgstr "Заявка «{title}». Адрес и время — в сделке."
 
 msgid "notifications.response_not_selected.title"
-msgstr "Клиент выбрал другого исполнителя"
+msgstr "Выбрали другого исполнителя"
 
 msgid "notifications.response_not_selected.body"
 msgstr "Заявка «{title}». Спасибо за отклик — в ленте есть другие заявки рядом."
 
 msgid "notifications.response_job_closed.title"
-msgstr "Заявку закрыли"
+msgstr "Заявка закрыта без выбора"
 
 msgid "notifications.response_job_closed.body"
-msgstr "Заявка «{title}» закрыта — клиент больше не выбирает исполнителя. Спасибо за отклик — в ленте есть другие заявки рядом."
+msgstr "Заявка «{title}». Спасибо за отклик — в ленте есть другие заявки рядом."
+
+msgid "notifications.response_declined.title"
+msgstr "Клиент отклонил отклик"
+
+msgid "notifications.response_declined.body"
+msgstr "Заявка «{title}». Спасибо за отклик — в ленте есть другие заявки рядом."
+
+msgid "notifications.my_responses.button"
+msgstr "Мои отклики"
 
 msgid "notifications.message_received.title"
 msgstr "{name} пишет"
@@ -1017,6 +1032,15 @@ msgstr "Сделка «{title}» отменена."
 msgid "notifications.deal_cancelled.reopened"
 msgstr "Заявка снова открыта, прежние отклики вернулись."
 
+msgid "notifications.deal_completed.title"
+msgstr "Сделка выполнена"
+
+msgid "notifications.deal_completed.body_client"
+msgstr "Клиент подтвердил работу «{title}»."
+
+msgid "notifications.deal_completed.body_auto"
+msgstr "Работа «{title}» засчитана: после отметки прошло 3 дня."
+
 msgid "notifications.deal_cancel_reason.plans_changed"
 msgstr "планы изменились"
 
@@ -1039,7 +1063,7 @@ msgid "notifications.deal_completion_prompt.title"
 msgstr "Работа выполнена?"
 
 msgid "notifications.deal_completion_prompt.body"
-msgstr "Сделка «{title}». Отметьте, если всё сделано: когда отметят обе стороны, сделка завершится."
+msgstr "Сделка «{title}». Отметьте, если всё сделано: когда отметят обе стороны, сделка будет выполнена."
 
 msgid "notifications.deal_completion_prompt.body_marked_performer"
 msgstr "{name}: работа «{title}» выполнена. Всё в порядке?"
@@ -1129,10 +1153,10 @@ msgid "notifications.dispute_resolved.title"
 msgstr "Решение по спору"
 
 msgid "notifications.dispute_resolved.body_completed"
-msgstr "Поддержка рассмотрела спор по сделке «{title}» и завершила сделку. Причина: {reason}."
+msgstr "Поддержка рассмотрела спор по сделке «{title}»: сделка выполнена. Причина: {reason}."
 
 msgid "notifications.dispute_resolved.body_cancelled"
-msgstr "Поддержка рассмотрела спор по сделке «{title}» и отменила сделку. Причина: {reason}."
+msgstr "Поддержка рассмотрела спор по сделке «{title}»: сделка отменена. Причина: {reason}."
 
 msgid "notifications.dispute_resolved.button"
 msgstr "Посмотреть решение"
