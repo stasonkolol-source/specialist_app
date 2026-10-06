@@ -5,7 +5,8 @@
 // переименовать можно на S57); «Предпросмотр» — так отклик увидит клиент. MainButton «Отправить
 // отклик» — с ключом идемпотентности: повтор той же отправки после обрыва сети вернёт тот же
 // отклик; 409 и 429 — текстом сервера. Отправлено — «Мои отклики» S17. Свой активный отклик здесь
-// же правится: форма с его текстом, «Сохранить изменения».
+// же правится: форма с его текстом, «Сохранить изменения», а внизу — «Отозвать отклик» с
+// подтверждением (с карточки S17 он ушёл: там одна кнопка, UX №10).
 import type { JobOut, MyResponseOut, ResponseTemplateOut } from '@sosed/api-client';
 import { ApiError, getSession, useIdentityGetMe } from '@sosed/api-client';
 import type { OfferDraft } from '@sosed/hooks';
@@ -25,6 +26,7 @@ import {
   useRespond,
   useResponseTemplates,
   useReviseResponse,
+  useWithdrawResponse,
 } from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
 import {
@@ -141,6 +143,7 @@ function RespondForm({
   });
   const send = useRespond();
   const revise = useReviseResponse();
+  const withdraw = useWithdrawResponse();
   const createTemplate = useCreateTemplate();
   const mutation = response ? revise : send;
   const problems = checked ? offerProblems(draft) : [];
@@ -184,6 +187,18 @@ function RespondForm({
     }
   };
 
+  const confirmWithdraw = async () => {
+    if (!response || withdraw.isPending) return;
+    if (!(await platform.confirm(t('responses.withdrawConfirm')))) return;
+    try {
+      await withdraw.mutateAsync({ jobId: job.id, responseId: response.id });
+      done.current = true;
+      void router.navigate({ to: JOBS_PATHS.responses, replace: true });
+    } catch {
+      // ошибка — баннером из withdraw.error
+    }
+  };
+
   useStepButton({
     text: response ? t('respond.save') : t('respond.send'),
     loading: mutation.isPending,
@@ -194,6 +209,11 @@ function RespondForm({
     <section className="flex flex-col gap-3.5 px-4 pt-3 pb-6">
       <JobHeader job={job} editing={response !== null} />
       {mutation.isError && <SendError error={mutation.error} />}
+      {withdraw.isError && (
+        <Banner tone="danger" role="alert">
+          {t('responses.withdrawError')}
+        </Banner>
+      )}
       <OfferFields
         draft={draft}
         onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))}
@@ -221,7 +241,14 @@ function RespondForm({
       />
       <div className="flex min-h-11 items-center justify-between gap-3">
         {response ? (
-          <span />
+          <LinkButton
+            danger
+            disabled={withdraw.isPending}
+            aria-busy={withdraw.isPending}
+            onClick={() => void confirmWithdraw()}
+          >
+            {t('responses.withdraw')}
+          </LinkButton>
         ) : (
           // шаблонов уже два — сохранять некуда: галочка приглушена, ниже — где заменить
           <Checkbox

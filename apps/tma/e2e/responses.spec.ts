@@ -1,7 +1,7 @@
 // Отклики S15–S17 и шаблоны S57 (DEVELOPMENT_PLAN 5.5) на фейке backend: заявка S15 → MainButton
 // «Откликнуться · осталось 2 места» → форма S16 с основным шаблоном → «Отправить отклик» → «Мои
-// отклики» S17 с «клиент увидит его после проверки»; «Мои отклики» как на артборде (выбран, ждёт
-// решения, не выбран) → шаблоны S57. Скриншоты × тема × язык, axe-core. Имена скриншотов
+// отклики» S17: автопроверка ответила — «если клиент выберет вас — бот напишет»; «Мои отклики» как
+// на артборде (выбран, ждёт решения, не выбран) → шаблоны S57. Скриншоты × тема × язык, axe-core. Имена скриншотов
 // начинаются с кода артборда: make design-compare кладёт их рядом с эталоном.
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
@@ -27,7 +27,7 @@ const LOCALES = [
     segment: 'Мои отклики',
     job: 'Повесить люстру',
     caption: 'Отклик на заявку',
-    sent: 'Отклик отправлен — клиент увидит его после проверки',
+    sent: /Отклик\sотправлен\.\sЕсли\sклиент\sвыберет\sвас\s—\sбот\sнапишет\./,
     waiting: 'Ждёт решения клиента',
     templates: 'Шаблоны откликов',
     primary: 'Основной',
@@ -39,7 +39,7 @@ const LOCALES = [
     segment: 'Moje ponude',
     job: 'Повесить люстру',
     caption: 'Ponuda za zahtev',
-    sent: 'Ponuda je poslata — klijent će je videti posle provere',
+    sent: /Ponuda\sje\sposlata\.\sAko\svas\sklijent\sizabere,\sbot\sće\svam\sjaviti\./,
     waiting: 'Čeka odluku klijenta',
     templates: 'Šabloni ponuda',
     primary: 'Glavni',
@@ -65,6 +65,8 @@ for (const theme of THEMES) {
       await page.clock.setFixedTime(new Date(E2E_NOW));
       const jobs = new JobsBackend();
       jobs.templates = templatesFixture();
+      // как сервер: чистый отклик проходит автопроверку сразу — S17 перечитывает и видит итог
+      jobs.autoCheck = true;
       const watch = await open(page, `theme=${theme}&lang=${l.telegram}`, {
         signedIn: true,
         me: { ...ME, intent: 'pro', ui_locale: l.locale },

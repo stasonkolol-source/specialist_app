@@ -550,8 +550,11 @@ export class JobsBackend {
   private readonly responsesByKey = new Map<string, MyResponseOut>();
   /** Заявки, на которые откликнулись здесь: их место ещё не учтено в ленте. */
   private readonly answered = new Set<string>();
-  /** Отклики за сегодня — «сегодня откликов: N из 10». */
+  /** Отклики за сегодня — квота дня (10). */
   respondedToday = 0;
+  /** Автопроверка, как у сервера: отклик «на проверке» после первого чтения списка становится
+   *  чистым — S17 перечитывает список, пока не увидит итог. */
+  autoCheck = false;
   /** Ответ на следующий POST /jobs/{id}/responses ошибкой. */
   failNextRespond: BackendReply | null = null;
   /** Шаблоны по порядку: первый — основной. */
@@ -1156,10 +1159,16 @@ export class JobsBackend {
     const start = cursor ? Number(cursor.replace(/^r/, '')) : 0;
     const count = (statuses: ReadonlySet<ResponseStatus>) =>
       this.responses.filter((item) => statuses.has(item.status)).length;
+    const items = found.slice(start, start + limit);
+    if (this.autoCheck) {
+      this.responses = this.responses.map((item) =>
+        item.review === 'pending' ? { ...item, review: 'clear' } : item,
+      );
+    }
     return {
       status: 200,
       body: {
-        items: found.slice(start, start + limit),
+        items,
         next_cursor: start + limit < found.length ? `r${start + limit}` : null,
         counts: {
           all: this.responses.length,
