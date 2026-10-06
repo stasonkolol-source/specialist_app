@@ -23,6 +23,7 @@ from app.modules.messaging.domain.message import (
     MessageModeration,
     SystemEvent,
 )
+from app.platform.http.fields import BIGINT_MAX, CleanText, OptionalCleanText
 from app.platform.kernel.ids import UserId
 
 
@@ -225,8 +226,8 @@ class ConversationStartOut(BaseModel):
 
 
 class MessageIn(BaseModel):
-    body: str = Field(min_length=1, max_length=MAX_BODY)
-    client_msg_id: str | None = Field(
+    body: CleanText = Field(min_length=1, max_length=MAX_BODY)
+    client_msg_id: OptionalCleanText = Field(
         default=None, max_length=MAX_CLIENT_ID, description="Повтор с тем же — то же сообщение"
     )
 
@@ -238,9 +239,11 @@ class ReadIn(BaseModel):
 class DealProposalIn(BaseModel):
     """«Договорились» (S30): что делаем, цена и когда — вторая сторона увидит их на S53."""
 
-    title: str = Field(min_length=1, max_length=120, description="Что делаем")
+    title: CleanText = Field(min_length=1, max_length=120, description="Что делаем")
     price_type: Literal["fixed", "from", "hourly", "negotiable"] | None = None
-    price_amount: int | None = Field(default=None, ge=1, description="Пара; без вида цены — 422")
+    price_amount: int | None = Field(
+        default=None, ge=1, le=BIGINT_MAX, description="Пара; без вида цены — 422"
+    )
     scheduled_at: datetime | None = Field(
         default=None, description="Когда: впереди и не дальше трёх месяцев"
     )

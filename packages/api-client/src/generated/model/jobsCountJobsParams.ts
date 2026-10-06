@@ -18,6 +18,7 @@ export type JobsCountJobsParams = {
   /**
    * Город ленты
    * @minimum 1
+   * @maximum 2147483647
    */
   city_id: number;
   /**
@@ -45,7 +46,7 @@ export type JobsCountJobsParams = {
   /**
    * Языки общения: заявки на любом из них
    */
-  lang?: string[] | null;
+  lang?: ('ru' | 'sr' | 'en' | 'uk')[] | null;
   /**
    * Только с фото
    */

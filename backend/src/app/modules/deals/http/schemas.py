@@ -24,6 +24,7 @@ from app.modules.deals.domain.dispute import (
 )
 from app.modules.deals.errors import InvalidDealError
 from app.modules.media.api import MediaRef
+from app.platform.http.fields import CleanText
 from app.platform.http.money import MoneyOut
 from app.platform.kernel.ids import MediaId, UserId
 from app.platform.kernel.money import Currency, Money
@@ -133,7 +134,7 @@ class DisputeIn(BaseModel):
     """Спор (S52): что случилось, описание и до шести своих фото назначения `dispute`."""
 
     kind: DisputeKind
-    description: str = Field(max_length=MAX_TEXT)
+    description: CleanText = Field(max_length=MAX_TEXT)
     media_ids: list[UUID] = Field(default_factory=list, max_length=MAX_PHOTOS)
 
     def photos(self) -> tuple[MediaId, ...]:
@@ -143,7 +144,7 @@ class DisputeIn(BaseModel):
 class DisputeAnswerIn(BaseModel):
     """Ответ второй стороны: текст и до шести своих фото назначения `dispute`."""
 
-    text: str = Field(max_length=MAX_TEXT)
+    text: CleanText = Field(max_length=MAX_TEXT)
     media_ids: list[UUID] = Field(default_factory=list, max_length=MAX_PHOTOS)
 
     def photos(self) -> tuple[MediaId, ...]:

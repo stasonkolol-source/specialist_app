@@ -2,20 +2,24 @@
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Annotated
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from app.modules.media.domain.asset import FailureReason, MediaStatus, ModerationStatus
 from app.modules.media.domain.policy import MediaKind, MediaPurpose
+from app.platform.http.fields import BIGINT_MAX
 from app.platform.storage.port import MAX_PARTS
+
+PartNumber = Annotated[int, Field(ge=1, le=MAX_PARTS)]
 
 
 class UploadIn(BaseModel):
     purpose: MediaPurpose
     mime_type: str = Field(min_length=3, max_length=100)
     """Тип файла; на Android HEIC приходит без типа — клиент ставит его по расширению."""
-    size_bytes: int = Field(ge=1)
+    size_bytes: int = Field(ge=1, le=BIGINT_MAX)
     """Лимит зависит от назначения и типа: больше — 422 `media_too_large` с `max_bytes`."""
 
 
@@ -38,12 +42,12 @@ class UploadOut(BaseModel):
 
 
 class PartsIn(BaseModel):
-    part_numbers: list[int] | None = Field(default=None, max_length=MAX_PARTS)
+    part_numbers: list[PartNumber] | None = Field(default=None, max_length=MAX_PARTS)
     """Какие части переподписать; null — все (или файл целиком)."""
 
 
 class UploadedPartIn(BaseModel):
-    part_number: int = Field(ge=1, le=MAX_PARTS)
+    part_number: PartNumber
     etag: str = Field(min_length=1, max_length=128)
     """ETag из ответа хранилища на PUT части (CORS бакета отдаёт заголовок ETag)."""
 

@@ -204,9 +204,12 @@ _BIO_HOST = "|".join(
     rf"{re.escape(label)}{_DOT}{re.escape(zone)}"
     for label, zone in (host.split(".") for host in _BIO_HOSTS)
 )
+_SPACED_HANDLE = r"[A-Za-z0-9_](?:[\s.·*\-]{1,3}[A-Za-z0-9_]){3,31}(?![A-Za-z0-9_])"
+"""Ник по буквам через пробелы или знаки: «q a _ c o n t a c t», «i-v-a-n» (QA ADV-06)."""
 _LINK = re.compile(
     rf"https?://\S+|www{_DOT}\S+"
-    rf"|\b(?:t|wa|telegram)(?:\s{{0,3}}\.\s{{0,3}}|{_HIDDEN_DOT})me\s{{0,3}}/\s{{0,3}}[\w+]+"
+    rf"|\b(?:[tт]|wa|telegram)(?:\s{{0,3}}\.\s{{0,3}}|{_HIDDEN_DOT})[mм][eе]\s{{0,3}}/\s{{0,3}}"
+    rf"(?:{_SPACED_HANDLE}|[\w+]+)"
     rf"|viber://\S+"
     rf"|{_START}(?:{_BIO_HOST})(?![\w\-])(?:/\S*)?"
     rf"|{_HOST}{_TLD}(?![\w\-])(?:/\S*)?"
@@ -251,6 +254,10 @@ _MESSENGER_USERNAME = re.compile(
 )
 """Ник после названия мессенджера: «tg @ ivan_master», «tg: ivan_master», «telegram
 ivan_master99». Без «@» и двоеточия — только ник с цифрой или «_»: «telegram premium» — не ник."""
+_MESSENGER_SPACED = re.compile(
+    rf"(?:{_MESSENGER}\s{{0,3}}[:\-–—]?\s{{0,3}}@?|(?<![\w.])@)\s{{0,3}}({_SPACED_HANDLE})"
+)
+"""Ник по буквам после названия мессенджера или «@»: «телеграм: q a _ c o n t a c t»."""
 _EMAIL_NO_ZONE = re.compile(
     r"(?<![\w.+\-])[\w.+\-]++\s{0,3}@\s{0,3}(?i:gmail|googlemail|yahoo|outlook|hotmail|live|icloud|mail"
     r"|yandex|ya|proton(?:mail)?|gmx|abv|ukr|inbox|list|bk|rambler|eunet|sbb|mts)(?![\w.\-])"
@@ -504,7 +511,30 @@ def _fold(text: str) -> _Folded:
             starts.append(position)
             ends.append(end)
         position = end
-    return _Folded("".join(out), tuple(starts), tuple(ends))
+    return _Folded(_latin_lookalikes("".join(out)), tuple(starts), tuple(ends))
+
+
+_CYRILLIC_LOOKALIKES = str.maketrans(
+    "авсенкмопртхуіјѕАВСЕНКМОРТХУІЈЅ", "abcehkmonptxyijsABCEHKMOPTXYIJS"
+)
+"""Кириллица, похожая на латиницу: замена буква в букву, длина и карта индексов те же."""
+_CHUNK = re.compile(r"\S+")
+_CYRILLIC_LETTER = re.compile(r"[\u0400-\u04ff]")
+_LATIN_LETTER = re.compile(r"[A-Za-z]")
+
+
+def _latin_lookalikes(text: str) -> str:
+    """Ник и адрес — латиница: в «слове» без пробелов с латинской буквой кириллица-двойник
+    становится латиницей (QA ADV-06: «т.ме/ivan», «@iвan_master», «gmail.соm»). Слово только
+    из кириллицы не трогаем: цифры словами и «собака», «точка» узнаются по-русски."""
+    return _CHUNK.sub(_latin_chunk, text)
+
+
+def _latin_chunk(match: re.Match[str]) -> str:
+    chunk = match.group()
+    if _CYRILLIC_LETTER.search(chunk) and _LATIN_LETTER.search(chunk):
+        return chunk.translate(_CYRILLIC_LOOKALIKES)
+    return chunk
 
 
 _INVISIBLE = frozenset("\u115f\u1160\u3164\uffa0\u2800")
@@ -546,6 +576,10 @@ def _find_folded(text: str) -> list[Finding]:
             for m in _MESSENGER_USERNAME.finditer(text)
             for group in (1, 2, 3)
             if m.group(group)
+        ),
+        *(
+            Finding(ContactKind.USERNAME, m.start(1), m.end(1))
+            for m in _MESSENGER_SPACED.finditer(text)
         ),
         *(Finding(ContactKind.EMAIL, m.start(), m.end()) for m in _EMAIL_NO_ZONE.finditer(text)),
         *(
