@@ -73,6 +73,10 @@
     "km": "≈ {value} km",
     "m": "≈ {value} m"
   },
+  "place": {
+    "wholeCity": "Ceo {city}",
+    "wholeCityPlain": "Ceo grad"
+  },
   "price": {
     "from": "od {amount}",
     "upTo": "do {amount}",

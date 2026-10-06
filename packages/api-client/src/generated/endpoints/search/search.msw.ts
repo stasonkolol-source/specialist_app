@@ -44,6 +44,7 @@ export const getSearchListSpecialistsResponseMock = (
       { id: faker.number.int(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
       null,
     ]),
+    whole_city: faker.datatype.boolean(),
     distance_m: faker.helpers.arrayElement([faker.number.int(), null]),
     languages: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -150,6 +151,7 @@ export const getSearchListFavoritesResponseMock = (
       { id: faker.number.int(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
       null,
     ]),
+    whole_city: faker.datatype.boolean(),
     distance_m: faker.helpers.arrayElement([faker.number.int(), null]),
     languages: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => faker.string.alpha({ length: { min: 10, max: 20 } }),

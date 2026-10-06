@@ -20,6 +20,7 @@ function card(name: string): SpecialistCardOut {
     kind: 'pro',
     avatar: null,
     district: null,
+    whole_city: false,
     distance_m: null,
     languages: ['ru'],
     category_ids: [5],

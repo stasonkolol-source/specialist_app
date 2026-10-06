@@ -13836,10 +13836,12 @@
           "response.received",
           "response.accepted",
           "response.not_selected",
+          "response.declined",
           "job.invited",
           "message.received",
           "deal.proposed",
           "deal.cancelled",
+          "deal.completed",
           "dispute.opened",
           "dispute.resolved",
           "deal.reminder",
@@ -13847,6 +13849,7 @@
           "review.request",
           "review.published",
           "moderation.decision",
+          "job.published",
           "job.expiring",
           "job.expired",
           "profile.stale_reminder",
@@ -15332,7 +15335,12 @@
                 "type": "null"
               }
             ],
-            "description": "Основной район профиля"
+            "description": "Основной район профиля; у выезжающего во все районы — null (whole_city)"
+          },
+          "whole_city": {
+            "type": "boolean",
+            "title": "Whole City",
+            "description": "Выезжает во все районы города: «Весь Нови-Сад» вместо района"
           },
           "rating": {
             "anyOf": [
@@ -15367,6 +15375,7 @@
           "kind",
           "avatar",
           "district",
+          "whole_city",
           "rating",
           "rating_count",
           "is_new",
@@ -16540,7 +16549,13 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Основной район; у выезжающего во все районы — null (whole_city)"
+          },
+          "whole_city": {
+            "type": "boolean",
+            "title": "Whole City",
+            "description": "Выезжает во все районы города: «Весь Нови-Сад» вместо района"
           },
           "distance_m": {
             "anyOf": [
@@ -16647,6 +16662,7 @@
           "kind",
           "avatar",
           "district",
+          "whole_city",
           "distance_m",
           "languages",
           "category_ids",
@@ -16808,7 +16824,12 @@
                 "type": "null"
               }
             ],
-            "description": "Основной район"
+            "description": "Основной район; у выезжающего во все районы — null (whole_city)"
+          },
+          "whole_city": {
+            "type": "boolean",
+            "title": "Whole City",
+            "description": "Районы выезда — все кварталы города: «Весь Нови-Сад» вместо района и списка"
           },
           "areas": {
             "items": {
@@ -16962,6 +16983,7 @@
           "avatar",
           "city",
           "district",
+          "whole_city",
           "areas",
           "travel_radius_km",
           "work_modes",

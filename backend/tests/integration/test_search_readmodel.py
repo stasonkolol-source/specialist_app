@@ -41,6 +41,10 @@ from app.modules.specialists.application.use_cases.hide_profile import (
     HideProfile,
     HideProfileCommand,
 )
+from app.modules.specialists.application.use_cases.set_profile_areas import (
+    SetProfileAreas,
+    SetProfileAreasCommand,
+)
 from app.modules.specialists.application.use_cases.show_profile import (
     ShowProfile,
     ShowProfileCommand,
@@ -90,7 +94,7 @@ async def test_published_profile_gets_a_ready_row(specialist: Specialist) -> Non
     assert (row["price_from"], row["name_norm"]) == (PRICE, "marko petrovic")
     card = row["card"]
     assert (card["display_name"], card["price_from"], card["avatar"]) == (NAME, PRICE, None)
-    assert card["district"]["id"] == specialist.district
+    assert (card["district"]["id"], card["whole_city"]) == (specialist.district, False)
     prices = await specialist.scalar(
         "SELECT jsonb_object_agg(category_id, price_from) FROM search.specialist_category_prices"
         " WHERE profile_id = :id",
@@ -104,6 +108,27 @@ async def test_published_profile_gets_a_ready_row(specialist: Specialist) -> Non
     for query in ("электрик", "električar", "elektricar", "електричар", "electrician", "розетка"):
         assert await specialist.matches(query), query
     assert not await specialist.matches("сантехник")
+
+
+async def test_whole_city_card_has_no_district(specialist: Specialist) -> None:
+    """QA SMOKE-6: карточка выдачи S05 у специалиста «Весь Нови-Сад» — `whole_city` без района
+    (не первый по алфавиту квартал); фильтр по районам по-прежнему видит все его районы."""
+    quarters = await specialist.scalar(
+        "SELECT array_agg(id ORDER BY slug) FROM geo.districts"
+        " WHERE city_id = :city AND kind = 'neighborhood' AND is_active",
+        city=specialist.city,
+    )
+    await specialist.call(
+        SetProfileAreas,
+        SetProfileAreasCommand(actor_id=specialist.user_id, district_ids=quarters),
+    )
+    await specialist.handle("search.on_profile_updated")
+
+    row = await specialist.row()
+
+    assert row is not None
+    assert (row["card"]["whole_city"], row["card"]["district"]) == (True, None)
+    assert row["district_ids"] == quarters
 
 
 async def test_hidden_profile_leaves_and_shown_returns(specialist: Specialist) -> None:

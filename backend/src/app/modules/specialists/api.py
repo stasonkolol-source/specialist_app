@@ -91,8 +91,10 @@ class PublicCard:
     kind: str
     display_name: str
     avatar_media_id: MediaId | None
-    primary_area_id: DistrictId | None
-    """Основной район выезда (первый по порядку)."""
+    city_id: CityId
+    area_ids: tuple[DistrictId, ...]
+    """Районы выезда по порядку: первый — основной; все кварталы города — «Весь Нови-Сад»
+    (GeoApi.covers_city)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

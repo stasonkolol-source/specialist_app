@@ -28,6 +28,7 @@ from app.modules.notifications.domain.notification import (
 from app.modules.notifications.domain.settings import NotificationSettings
 from app.platform.contracts.events.deals import (
     DealCancelled,
+    DealCompleted,
     DealCompletionDue,
     DealDisputed,
     DealMarkedDone,
@@ -41,7 +42,9 @@ from app.platform.contracts.events.jobs import (
     JobExpired,
     JobExpiring,
     JobInvited,
+    JobPublished,
     ResponseAccepted,
+    ResponseDeclined,
     ResponseSubmitted,
 )
 from app.platform.contracts.events.messaging import MessageSent
@@ -371,7 +374,17 @@ NOTIFY_PASSED_OVER: Final = TaskRef(
 NOTIFY_JOB_CLOSED: Final = TaskRef(
     "notifications.notify_job_closed", JobClosed, queue="notifications"
 )
-"""Подписчик JobClosed: исполнителям, чьи отклики ждали решения, — «Заявку закрыли» (MU-11)."""
+"""Подписчик JobClosed: исполнителям, чьи отклики ждали решения, — «Заявка закрыта без выбора»
+(MU-11)."""
+NOTIFY_RESPONSE_DECLINED: Final = TaskRef(
+    "notifications.notify_response_declined", ResponseDeclined, queue="notifications"
+)
+"""Подписчик ResponseDeclined: исполнителю — «Клиент отклонил отклик», только в центре S42."""
+NOTIFY_JOB_PUBLISHED: Final = TaskRef(
+    "notifications.notify_job_published", JobPublished, queue="notifications"
+)
+"""Подписчик JobPublished: клиенту — «Заявка опубликована», если опубликовал модератор после
+ручной проверки (`reviewed`)."""
 NOTIFY_DEAL_PROPOSED: Final = TaskRef(
     "notifications.notify_deal_proposed", DealProposed, queue="notifications"
 )
@@ -390,6 +403,11 @@ NOTIFY_DEAL_COMPLETION: Final = TaskRef(
 )
 """Подписчик DealCompletionDue: «Работа выполнена?» с [Да, всё хорошо] и [Есть проблема] тем,
 кто ещё не отметил."""
+NOTIFY_DEAL_COMPLETED: Final = TaskRef(
+    "notifications.notify_deal_completed", DealCompleted, queue="notifications"
+)
+"""Подписчик DealCompleted: исполнителю — «Клиент подтвердил работу», только в центре S42 (сам
+завершивший и решённый спор — без строки: он и так знает, о споре — `dispute.resolved`)."""
 NOTIFY_DEAL_MARKED: Final = TaskRef(
     "notifications.notify_deal_marked", DealMarkedDone, queue="notifications"
 )

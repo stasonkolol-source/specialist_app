@@ -21,8 +21,10 @@ export interface SpecialistProfileOut {
   about: string | null;
   avatar: CardPhotoOut | null;
   city: CardNamedOut | null;
-  /** Основной район */
+  /** Основной район; у выезжающего во все районы — null (whole_city) */
   district: CardNamedOut | null;
+  /** Районы выезда — все кварталы города: «Весь Нови-Сад» вместо района и списка */
+  whole_city: boolean;
   /** Районы выезда по порядку */
   areas: CardNamedOut[];
   travel_radius_km: number | null;

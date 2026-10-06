@@ -136,7 +136,11 @@ function SpecialistPreview({ card }: { card: SpecialistProfileOut }) {
   const { t } = useTranslation('catalog');
   const { t: common } = useTranslation();
   const format = useFormat();
-  const place = card.district?.name ?? card.city?.name ?? null;
+  // выезжает во все районы — «Весь Нови-Сад», а не первый по алфавиту квартал (QA SMOKE-6)
+  const place =
+    card.whole_city && card.city
+      ? common('place.wholeCity', { city: card.city.name })
+      : (card.district?.name ?? card.city?.name ?? null);
   return (
     <Card as="section" className="items-center text-center">
       <Avatar

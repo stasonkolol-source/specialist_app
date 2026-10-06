@@ -142,6 +142,67 @@ async def test_contacts_are_masked_until_the_deal(chat: Chat) -> None:
     ]
 
 
+async def test_contact_split_across_messages_is_masked_in_every_part(chat: Chat) -> None:
+    """QA ADV-06: номер и ник по частям в нескольких сообщениях скрыты — в новом сообщении и
+    задним числом в прежних частях (их перечитывают уже скрытыми, с отметкой masked); обычные
+    числа (цены, даты, адрес) не трогаются."""
+    client, performer = await chat.user(), await chat.user()
+    response_id = await chat.response(performer, await chat.job(client), "Добрый день!")
+    conversation_id = await chat.start(client, response_id=response_id)
+    texts = [
+        "064",
+        "123 45 67",
+        "мой номер начинается 064",
+        "потом 123",
+        "и в конце 45 67",
+        "мой ник @qa",
+        "_contact_test",
+        "Цена 3000",
+        "или 2500 со скидкой, буду 07.10 в 18:00",
+        "Улица Футошка 12, квартира 5",
+    ]
+
+    sent = [await chat.send(performer, conversation_id, body) for body in texts]
+
+    # новое сообщение скрыто сразу, а первая часть при отправке ещё не была контактом
+    assert [message["masked"] for message in sent[:2]] == [False, True]
+    items = (await chat.messages(client, conversation_id))["items"][1:]
+    assert [(item["body"], item["masked"]) for item in items] == [
+        (MASK, True),
+        (MASK, True),
+        (f"мой номер начинается {MASK}", True),
+        (f"потом {MASK}", True),
+        (f"и в конце {MASK}", True),
+        (f"мой ник {MASK}", True),
+        (MASK, True),
+        ("Цена 3000", False),
+        ("или 2500 со скидкой, буду 07.10 в 18:00", False),
+        ("Улица Футошка 12, квартира 5", False),
+    ]
+    # отметка «скрыты контакты» — как у контакта в одном сообщении: в событии нового сообщения
+    masked_events = await chat.scalar(
+        "SELECT count(*) FROM procrastinate_jobs WHERE task_name ="
+        " 'analytics.capture_message_sent' AND args->'payload'->>'sender_id' = :sender"
+        " AND (args->'payload'->>'masked')::boolean",
+        sender=str(performer),
+    )
+    assert masked_events == 3
+
+
+async def test_split_contact_after_the_deal_stays_open(chat: Chat) -> None:
+    """Контакты в диалоге уже открыты (договорились) — части номера не скрываются."""
+    client, performer, response_id = await chat.pair()
+    conversation_id = await chat.start(client, response_id=response_id)
+    accepted = await chat.post(client, f"/responses/{response_id}/accept")
+    assert accepted.status_code == 200, accepted.text
+
+    sent = [await chat.send(performer, conversation_id, body) for body in ("064", "123 45 67")]
+
+    assert [message["masked"] for message in sent] == [False, False]
+    items = (await chat.messages(client, conversation_id))["items"]
+    assert [item["body"] for item in items[-2:]] == ["064", "123 45 67"]
+
+
 async def test_repeated_send_is_one_message(chat: Chat) -> None:
     client, performer, response_id = await chat.pair()
     conversation_id = await chat.start(performer, response_id=response_id)

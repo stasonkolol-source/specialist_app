@@ -1,6 +1,7 @@
 """Написать в диалог (POST /conversations/{id}/messages, S30; DEVELOPMENT_PLAN 6.3a): участник
 открытого диалога; пока эта пара ни разу не договорилась, контакты в тексте скрываются
-(contacts.py), просьба о предоплате отмечается. Повтор с тем же `client_msg_id` — то же
+(contacts.py) — и разбитые на несколько сообщений: части в прежних тоже скрываются (QA ADV-06),
+просьба о предоплате отмечается. Повтор с тем же `client_msg_id` — то же
 сообщение, без второго. Санкция «переписка» или блокировка аккаунта — 403 `restricted`;
 блокировка между сторонами (4.7) — 409 `conversation_closed` (`blocked` заблокировавшему,
 нейтральный `closed` заблокированному — application/blocks.py). Лимит — по уровню
@@ -20,7 +21,14 @@ from app.modules.messaging.application.ports import (
     MessageQuota,
     MessageStore,
 )
-from app.modules.messaging.domain.message import Message, MessageKind, check_client_id, compose
+from app.modules.messaging.domain.message import (
+    SPLIT_MESSAGES,
+    SPLIT_WINDOW,
+    Message,
+    MessageKind,
+    check_client_id,
+    compose,
+)
 from app.modules.messaging.errors import InvalidMessageError
 from app.platform.contracts.events.messaging import MessageSent
 from app.platform.contracts.events.moderation import ModerationRequested
@@ -69,9 +77,22 @@ class SendMessage:
             await ensure_unblocked(self._identity, conversation, cmd.actor_id)
             recipient = conversation.counterpart(cmd.actor_id)
             locked = await contacts_locked(self._deals, conversation)
-            composed = compose(cmd.body, contacts_locked=locked)
-            await self._quota.take_message(cmd.actor_id, trusted=cmd.trust_level >= TRUSTED_LEVEL)
             now = self._clock.now()
+            # номер или ник по частям (QA ADV-06): новое — вместе с прежними того же отправителя
+            recent = (
+                await self._messages.recent(
+                    conversation.id,
+                    cmd.actor_id,
+                    since=now - SPLIT_WINDOW,
+                    limit=SPLIT_MESSAGES,
+                )
+                if locked
+                else []
+            )
+            composed = compose(
+                cmd.body, contacts_locked=locked, recent=[m.body or "" for m in recent]
+            )
+            await self._quota.take_message(cmd.actor_id, trusted=cmd.trust_level >= TRUSTED_LEVEL)
             draft = Message(
                 id=new_id(),
                 conversation_id=conversation.id,
@@ -85,6 +106,9 @@ class SendMessage:
             message = await self._messages.add(draft)
             if message.id != draft.id:  # тот же ключ одновременно ушёл в другой диалог
                 return _same_conversation(message, conversation.id)
+            for earlier, body in zip(recent, composed.earlier, strict=True):
+                if body != earlier.body:  # прежние части контакта — скрыты и при перечитывании
+                    await self._messages.mask(earlier, body)
             conversation.message_posted(sender_id=cmd.actor_id, message_id=message.id, now=now)
             await self._conversations.save(conversation)
             self._uow.add_event(

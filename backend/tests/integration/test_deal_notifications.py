@@ -1,7 +1,8 @@
-"""Уведомления о сделках (DEVELOPMENT_PLAN 6.1b; ARCHITECTURE §11.3): выбранному — «Клиент
-выбрал вас» со ссылкой на сделку, остальным откликнувшимся — «выбран другой», второй стороне —
-отмена с причиной (клиенту — «заявка снова открыта»), «Работа выполнена?» — тем, кто ещё не
-отметил. Подписчики выполняются из очереди. Данные коммитятся.
+"""Уведомления о сделках (DEVELOPMENT_PLAN 6.1b; ARCHITECTURE §11.3): выбранному — «Вас
+выбрали» со ссылкой на сделку, остальным откликнувшимся — «Выбрали другого» со ссылкой на «Мои
+отклики», второй стороне — отмена с причиной (клиенту — «заявка снова открыта»), «Работа
+выполнена?» — тем, кто ещё не отметил; исходы исполнителю в центре S42 — «Клиент отклонил»,
+«Сделка выполнена» (UX-аудит №11). Подписчики выполняются из очереди. Данные коммитятся.
 """
 
 from collections.abc import AsyncIterator
@@ -27,6 +28,8 @@ from tests.plugins.queue import run_queued
 pytestmark = pytest.mark.integration
 
 API = "/api/v1"
+RESPONSES_LINK = "m_responses"
+"""«Мои отклики» S17: чужую заявку после исхода исполнителю не открыть."""
 
 
 @pytest.fixture
@@ -138,7 +141,12 @@ async def test_chosen_and_passed_over_performers_hear_about_it(
             {"params": {"title": "Повесить люстру"}, "link": link, "urgent": False},
         )
     ]
-    assert [kind for kind, _ in await world.notifications(other)] == ["response.not_selected"]
+    assert await world.notifications(other) == [
+        (
+            "response.not_selected",
+            {"params": {"title": "Повесить люстру"}, "link": RESPONSES_LINK, "urgent": False},
+        )
+    ]
     assert await world.notifications(client) == []
 
 
@@ -168,13 +176,70 @@ async def test_closed_job_tells_waiting_performers_it_was_closed(
             "response.not_selected",
             {
                 "params": {"title": "Повесить люстру", "reason": "job_closed"},
-                "link": None,
+                "link": RESPONSES_LINK,
                 "urgent": False,
             },
         )
     ]
     assert await world.notifications(gone) == []
     assert await world.notifications(client) == []
+
+
+async def test_declined_performer_finds_the_outcome_in_the_center(
+    world: World, worker: AsyncContainer
+) -> None:
+    """№11: клиент отклонил отклик — у исполнителя строка в S42 «Клиент отклонил отклик»,
+    нажимается («Мои отклики»); в бот не уходит — исход, а не повод действовать."""
+    client, performer = await world.user(), await world.user()
+    job_id = await world.job(client)
+    response_id = await world.response(performer, job_id)
+
+    await world.post(client, f"/responses/{response_id}/decline")
+    task = "notifications.notify_response_declined"
+    assert await run_queued(worker, task, user_id=client, by="client_id") == 1
+
+    assert await world.notifications(performer) == [
+        (
+            "response.declined",
+            {"params": {"title": "Повесить люстру"}, "link": RESPONSES_LINK, "urgent": False},
+        )
+    ]
+    [(in_app, deliveries)] = await world.execute(
+        "SELECT n.in_app, count(d.id) FROM notifications.notifications n"
+        " LEFT JOIN notifications.deliveries d ON d.notification_id = n.id"
+        " WHERE n.user_id = :user GROUP BY n.id",
+        user=performer,
+    )
+    assert (in_app, deliveries) == (True, 0)
+
+
+@pytest.mark.parametrize("last", ["client", "performer"])
+async def test_completed_deal_reaches_the_performer_when_the_client_confirms(
+    world: World, worker: AsyncContainer, last: str
+) -> None:
+    """№11: клиент подтвердил работу последним — исполнителю в S42 «Сделка выполнена» со ссылкой
+    на сделку; последним отметил сам исполнитель — строки нет: итог он видел на экране."""
+    client, performer = await world.user(), await world.user()
+    job_id = await world.job(client)
+    accepted = await world.post(
+        client, f"/responses/{await world.response(performer, job_id)}/accept"
+    )
+    deal_id = UUID(accepted["deal_id"])
+    first, second = (performer, client) if last == "client" else (client, performer)
+
+    await world.post(first, f"/deals/{deal_id}/complete")
+    await world.post(second, f"/deals/{deal_id}/complete")
+    task = "notifications.notify_deal_completed"
+    assert await run_queued(worker, task, user_id=client, by="client_id") == 1
+
+    completed = [n for n in await world.notifications(performer) if n[0] == "deal.completed"]
+    link = encode_start_param(StartLink(type=LinkType.DEAL, id=deal_id))
+    payload = {
+        "params": {"title": "Повесить люстру", "by": "client"},
+        "link": link,
+        "urgent": False,
+    }
+    assert completed == ([("deal.completed", payload)] if last == "client" else [])
 
 
 async def test_cancellation_reaches_the_other_party(world: World, worker: AsyncContainer) -> None:

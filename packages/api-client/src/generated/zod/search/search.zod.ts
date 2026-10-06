@@ -168,13 +168,18 @@ export const SearchListSpecialistsResponse = zod.object({
         }),
         zod.null(),
       ]),
-      district: zod.union([
-        zod.object({
-          id: zod.int(),
-          name: zod.string(),
-        }),
-        zod.null(),
-      ]),
+      district: zod
+        .union([
+          zod.object({
+            id: zod.int(),
+            name: zod.string(),
+          }),
+          zod.null(),
+        ])
+        .describe('Основной район; у выезжающего во все районы — null (whole_city)'),
+      whole_city: zod
+        .boolean()
+        .describe('Выезжает во все районы города: «Весь Нови-Сад» вместо района'),
       distance_m: zod
         .union([zod.int(), zod.null()])
         .describe('От точки клиента, шагом 500 м; без точки — нет'),
@@ -400,13 +405,18 @@ export const SearchListFavoritesResponse = zod
           }),
           zod.null(),
         ]),
-        district: zod.union([
-          zod.object({
-            id: zod.int(),
-            name: zod.string(),
-          }),
-          zod.null(),
-        ]),
+        district: zod
+          .union([
+            zod.object({
+              id: zod.int(),
+              name: zod.string(),
+            }),
+            zod.null(),
+          ])
+          .describe('Основной район; у выезжающего во все районы — null (whole_city)'),
+        whole_city: zod
+          .boolean()
+          .describe('Выезжает во все районы города: «Весь Нови-Сад» вместо района'),
         distance_m: zod
           .union([zod.int(), zod.null()])
           .describe('От точки клиента, шагом 500 м; без точки — нет'),
