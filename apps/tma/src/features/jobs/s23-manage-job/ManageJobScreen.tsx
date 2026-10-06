@@ -58,7 +58,13 @@ import { JobUnavailable } from '../shared/JobUnavailable.tsx';
 import { useDraftStore } from '../shared/draft.ts';
 import { LoadError } from '../shared/LoadError.tsx';
 import { PerformerRating } from '../shared/PerformerRating.tsx';
-import { useBudgetText, useDistrictName, useOfferPrice, useWhenBadge } from '../shared/labels.ts';
+import {
+  useBudgetText,
+  useDistrictName,
+  useOfferPrice,
+  usePerformerPlace,
+  useWhenBadge,
+} from '../shared/labels.ts';
 import { shareable, useJobShare } from '../shared/share.tsx';
 import { JobSummarySkeleton, OfferCardSkeleton } from '../shared/skeletons.tsx';
 import {
@@ -583,6 +589,7 @@ function ResponseCard({ jobId, card }: { jobId: string; card: ResponseCardOut })
   const offerPrice = useOfferPrice();
   const to = choicePath(jobId, card.id);
   const { performer } = card;
+  const place = usePerformerPlace(performer);
   const name = performer.display_name || '—';
   const avatar =
     performer.avatar?.variants.find((v) => v.name === 'thumb') ?? performer.avatar?.variants[0];
@@ -611,7 +618,7 @@ function ResponseCard({ jobId, card }: { jobId: string; card: ResponseCardOut })
           <PerformerRating
             rating={performer.rating}
             count={performer.rating_count}
-            meta={[performer.district?.name]}
+            meta={[place]}
           />
         </div>
       </div>

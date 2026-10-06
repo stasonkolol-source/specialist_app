@@ -127,6 +127,21 @@ describe('S08 profile', () => {
     requests.stop();
   });
 
+  it('names a whole-city specialist «Весь Нови-Сад» instead of the first district (QA SMOKE-6)', async () => {
+    server.use(
+      http.get(`*/api/v1${PROFILE}`, () =>
+        HttpResponse.json({ ...specialistCardFor(null), district: null, whole_city: true }),
+      ),
+    );
+    startApp(PROFILE);
+
+    const header = await profileHeader();
+    expect(header.getByText(/^Весь\sНови-Сад$/u)).toBeTruthy();
+    expect(header.queryByText('Лиман')).toBeNull();
+    const about = within(screen.getByRole('region', { name: 'О себе' }));
+    expect(about.getByText(/^Выезд:\sВесь\sНови-Сад$/u)).toBeTruthy();
+  });
+
   it('marks casual work first in the header badges', async () => {
     server.use(
       http.get(`*/api/v1${PROFILE}`, () =>

@@ -14,7 +14,10 @@ export interface SpecialistCardOut {
   /** pro | casual */
   kind: string;
   avatar: CardAvatarOut | null;
+  /** Основной район; у выезжающего во все районы — null (whole_city) */
   district: CardDistrictOut | null;
+  /** Выезжает во все районы города: «Весь Нови-Сад» вместо района */
+  whole_city: boolean;
   /** От точки клиента, шагом 500 м; без точки — нет */
   distance_m: number | null;
   languages: string[];

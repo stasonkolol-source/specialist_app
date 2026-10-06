@@ -98,7 +98,10 @@ export const ViewsGetSpecialistResponse = zod.object({
       }),
       zod.null(),
     ])
-    .describe('Основной район'),
+    .describe('Основной район; у выезжающего во все районы — null (whole_city)'),
+  whole_city: zod
+    .boolean()
+    .describe('Районы выезда — все кварталы города: «Весь Нови-Сад» вместо района и списка'),
   areas: zod
     .array(
       zod.object({
@@ -468,7 +471,10 @@ export const ViewsListResponseCardsResponse = zod.object({
               }),
               zod.null(),
             ])
-            .describe('Основной район профиля'),
+            .describe('Основной район профиля; у выезжающего во все районы — null (whole_city)'),
+          whole_city: zod
+            .boolean()
+            .describe('Выезжает во все районы города: «Весь Нови-Сад» вместо района'),
           rating: zod
             .union([zod.number(), zod.null()])
             .describe('Когда отзывов достаточно; иначе is_new'),

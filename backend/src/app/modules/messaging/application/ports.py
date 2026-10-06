@@ -63,6 +63,17 @@ class MessageStore(Protocol):
 
     async def get(self, message_id: UUID) -> Message | None: ...
 
+    async def recent(
+        self, conversation_id: UUID, sender_id: UserId, *, since: datetime, limit: int
+    ) -> list[Message]:
+        """Последние текстовые сообщения отправителя в диалоге с `since` — по порядку
+        отправки: окно номера по частям (QA ADV-06)."""
+        ...
+
+    async def mask(self, message: Message, body: str) -> None:
+        """Текст с задним числом скрытой частью контакта и отметка `masked` (QA ADV-06)."""
+        ...
+
     async def moderate(self, message_id: UUID, *, hidden: bool) -> bool:
         """Решение модерации: скрыть или вернуть «ок»; сообщения нет — False."""
         ...

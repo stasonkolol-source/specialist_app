@@ -15,8 +15,10 @@ export interface ResponsePerformerCardOut {
   /** pro | casual; без профиля — null */
   kind: string | null;
   avatar: CardPhotoOut | null;
-  /** Основной район профиля */
+  /** Основной район профиля; у выезжающего во все районы — null (whole_city) */
   district: CardNamedOut | null;
+  /** Выезжает во все районы города: «Весь Нови-Сад» вместо района */
+  whole_city: boolean;
   /** Когда отзывов достаточно; иначе is_new */
   rating: number | null;
   rating_count: number;

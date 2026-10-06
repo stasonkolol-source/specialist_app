@@ -125,7 +125,12 @@ class SpecialistProfileOut(BaseModel):
     about: str | None
     avatar: CardPhotoOut | None
     city: CardNamedOut | None
-    district: CardNamedOut | None = Field(description="Основной район")
+    district: CardNamedOut | None = Field(
+        description="Основной район; у выезжающего во все районы — null (whole_city)"
+    )
+    whole_city: bool = Field(
+        description="Районы выезда — все кварталы города: «Весь Нови-Сад» вместо района и списка"
+    )
     areas: list[CardNamedOut] = Field(description="Районы выезда по порядку")
     travel_radius_km: int | None
     work_modes: list[str]
@@ -317,6 +322,8 @@ async def get_specialist(
     works = _ready_works(avatars, profile.works)
     city = await geo.city(profile.city_id)
     areas = await _areas(geo, profile.area_ids, locale)
+    # все кварталы города — «Весь Нови-Сад»: первый по алфавиту основным районом не показываем
+    whole_city = await geo.covers_city(profile.city_id, profile.area_ids)
     until = profile.available_until
     body = SpecialistProfileOut(
         id=profile.id,
@@ -327,7 +334,8 @@ async def get_specialist(
         about=profile.about,
         avatar=_photo(avatars.get(profile.avatar_media_id)) if profile.avatar_media_id else None,
         city=CardNamedOut(id=city.id, name=city.name.get(locale)) if city is not None else None,
-        district=areas[0] if areas else None,
+        district=areas[0] if areas and not whole_city else None,
+        whole_city=whole_city,
         areas=areas,
         travel_radius_km=profile.travel_radius_km,
         work_modes=list(profile.work_modes),

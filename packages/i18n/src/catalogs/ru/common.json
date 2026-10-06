@@ -73,6 +73,10 @@
     "km": "≈ {value} км",
     "m": "≈ {value} м"
   },
+  "place": {
+    "wholeCity": "Весь {city}",
+    "wholeCityPlain": "Весь город"
+  },
   "price": {
     "from": "от {amount}",
     "upTo": "до {amount}",

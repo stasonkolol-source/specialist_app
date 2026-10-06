@@ -1,6 +1,6 @@
 """BFF откликов на свою заявку S23 (DEVELOPMENT_PLAN 5.6): отклики из jobs, исполнитель — из
-specialists (профиль, основной район), media (фото профиля), reviews (рейтинг или «Новый
-специалист») и identity (имя подработчика, «Телефон подтверждён»).
+specialists (профиль, основной район или «весь город» по справочнику geo), media (фото профиля),
+reviews (рейтинг или «Новый специалист») и identity (имя подработчика, «Телефон подтверждён»).
 
 Только владельцу: чужая заявка — 404 `job_not_found`. Ответ, в котором есть новые отклики,
 отмечает, что клиент их видел: бейдж новых на S22 гаснет, уведомление о них не уходит. S23
@@ -57,7 +57,12 @@ class ResponsePerformerCardOut(BaseModel):
     profile_id: UUID | None = Field(description="Профиль специалиста; без него — подработка")
     kind: str | None = Field(description="pro | casual; без профиля — null")
     avatar: CardPhotoOut | None
-    district: CardNamedOut | None = Field(description="Основной район профиля")
+    district: CardNamedOut | None = Field(
+        description="Основной район профиля; у выезжающего во все районы — null (whole_city)"
+    )
+    whole_city: bool = Field(
+        description="Выезжает во все районы города: «Весь Нови-Сад» вместо района"
+    )
     rating: float | None = Field(description="Когда отзывов достаточно; иначе is_new")
     rating_count: int
     is_new: bool = Field(description="«Новый специалист»: меньше трёх отзывов по сделкам")
@@ -122,16 +127,23 @@ async def list_response_cards(
     avatars = await media.refs(
         [card.avatar_media_id for card in cards.values() if card.avatar_media_id is not None]
     )
-    areas = await geo.districts(
-        {card.primary_area_id for card in cards.values() if card.primary_area_id is not None}
-    )
+    # «Весь Нови-Сад» — все кварталы города: первый из них по алфавиту — не район исполнителя
+    whole = {
+        card.id for card in cards.values() if await geo.covers_city(card.city_id, card.area_ids)
+    }
+    primary = {
+        card.id: card.area_ids[0]
+        for card in cards.values()
+        if card.area_ids and card.id not in whole
+    }
+    areas = await geo.districts(set(primary.values()))
     items = []
     for response in responses:
         card = cards.get(response.profile_id) if response.profile_id else None
         user = users.get(response.performer_id)
         name = user.display_name if user is not None and not user.is_deleted else ""
         rating = ratings.get(card.id) if card is not None else None
-        area = areas.get(card.primary_area_id) if card and card.primary_area_id else None
+        area = areas.get(primary[card.id]) if card is not None and card.id in primary else None
         avatar = avatars.get(card.avatar_media_id) if card and card.avatar_media_id else None
         items.append(
             ResponseCardOut(
@@ -157,6 +169,7 @@ async def list_response_cards(
                         if area is not None
                         else None
                     ),
+                    whole_city=card is not None and card.id in whole,
                     rating=None if rating is None or rating.is_new else rating.mean,
                     rating_count=rating.count if rating is not None else 0,
                     is_new=rating is None or rating.is_new,

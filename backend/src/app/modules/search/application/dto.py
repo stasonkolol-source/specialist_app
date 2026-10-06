@@ -112,6 +112,8 @@ class SpecialistCard:
     district_id: DistrictId | None
     district_name: Mapping[str, str]
     """Название района по языкам; язык ответа выбирает HTTP."""
+    whole_city: bool
+    """Выезжает во все кварталы города: «Весь Нови-Сад» вместо района (района тогда нет)."""
     distance_m: int | None
     languages: tuple[str, ...]
     category_ids: tuple[CategoryId, ...]

@@ -95,6 +95,7 @@ export function searchCardOf(profile: SpecialistProfileOut): SpecialistCardOut {
           }
         : null,
     district: profile.district,
+    whole_city: profile.whole_city,
     distance_m: null,
     languages: profile.languages,
     category_ids: profile.categories.map((category) => category.id),

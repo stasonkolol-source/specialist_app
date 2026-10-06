@@ -10,6 +10,7 @@ import type { SpecialistBadge } from '@sosed/ui-web';
 import { SpecialistCard } from '@sosed/ui-web';
 import { useRouter } from '@tanstack/react-router';
 
+import { useCardArea } from './city.ts';
 import type { FavoriteControl } from './favorite.ts';
 import type { Language } from './paths.ts';
 import { CARD_PATHS, LANGUAGES, profilePath } from './paths.ts';
@@ -35,10 +36,8 @@ export function ResultCard({
   const format = useFormat();
   const router = useRouter();
   const now = new Date();
-  const place = [
-    card.district?.name,
-    card.distance_m === null ? undefined : format.distance(card.distance_m),
-  ]
+  const area = useCardArea(card);
+  const place = [area, card.distance_m === null ? undefined : format.distance(card.distance_m)]
     .filter(Boolean)
     .join(', ');
   // не через card.ts: тот тянет прайс-хелперы в чанк блока Главной; незнакомый код не показываем
