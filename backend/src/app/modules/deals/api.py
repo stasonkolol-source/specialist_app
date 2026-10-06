@@ -138,6 +138,9 @@ class DealSummary:
     version: int
     proposal_expires_at: datetime | None = None
     """Предложение «Договорились» истечёт тогда (S53); у других статусов — None."""
+    completion_due_at: datetime | None = None
+    """Идущей сделке — когда бот спросит «Работа выполнена?» (через 3 ч после времени работы, без
+    времени — через сутки после договорённости); у других статусов — None."""
     category_id: CategoryId | None = None
     """Категория заявки сделки: отзыв по ней считается в среднем категории (7.2)."""
     dispute: DisputeSummary | None = None

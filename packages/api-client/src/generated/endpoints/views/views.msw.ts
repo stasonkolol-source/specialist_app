@@ -582,6 +582,10 @@ export const getViewsGetDealCardResponseMock = (
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
   ]),
+  completion_due_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
   my_review: faker.helpers.arrayElement([
     {
       id: faker.string.uuid(),

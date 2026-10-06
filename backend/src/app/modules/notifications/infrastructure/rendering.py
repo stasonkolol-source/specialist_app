@@ -78,6 +78,7 @@ RENDERED = frozenset(
         NotificationType.RESPONSE_DECLINED,
         NotificationType.MESSAGE_RECEIVED,
         NotificationType.DEAL_PROPOSED,
+        NotificationType.DEAL_AGREED,
         NotificationType.DEAL_CANCELLED,
         NotificationType.DEAL_COMPLETED,
         NotificationType.DEAL_REMINDER,
@@ -108,6 +109,12 @@ TITLE_CHARS = 60
 TEMPLATE_BUTTONS = 2
 """Кнопок «Откликнуться: «…»» — по шаблонам получателя (их не больше двух)."""
 
+CHAT_BUTTON = "notifications.chat.open"
+"""«Открыть чат»: договорились или предложение не приняли — дальше разговор в чате (№14)."""
+PROPOSAL_OUTCOMES = frozenset({"declined", "withdrawn"})
+"""`proposal` у `deal.cancelled`: предложение «Договориться» не приняли или его отозвали —
+сделки не было, «отменил сделку» здесь неправда."""
+
 BUTTONS: Mapping[NotificationType, str] = MappingProxyType(
     {
         NotificationType.ACCOUNT_RESTRICTED: "notifications.account_restricted.button",
@@ -119,6 +126,7 @@ BUTTONS: Mapping[NotificationType, str] = MappingProxyType(
         NotificationType.RESPONSE_ACCEPTED: "notifications.deal.open",
         NotificationType.RESPONSE_NOT_SELECTED: "notifications.my_responses.button",
         NotificationType.MESSAGE_RECEIVED: "notifications.message_received.button",
+        NotificationType.DEAL_AGREED: CHAT_BUTTON,
         NotificationType.DEAL_CANCELLED: "notifications.deal.open",
         NotificationType.DEAL_REMINDER: "notifications.deal.open",
         NotificationType.REVIEW_PUBLISHED: "notifications.review_published.button",
@@ -135,6 +143,7 @@ TITLED: Mapping[NotificationType, str] = MappingProxyType(
         NotificationType.RESPONSE_NOT_SELECTED: "response_not_selected",
         NotificationType.RESPONSE_DECLINED: "response_declined",
         NotificationType.DEAL_COMPLETION_PROMPT: "deal_completion_prompt",
+        NotificationType.DEAL_AGREED: "deal_agreed",
         NotificationType.JOB_PUBLISHED: "job_published",
     }
 )
@@ -315,6 +324,8 @@ class GettextNotificationRenderer:
         if type_ is NotificationType.REVIEW_REQUEST:
             return message, self._review_buttons(params, link, locale)
         label = BUTTONS.get(type_)
+        if type_ is NotificationType.DEAL_CANCELLED and params.get("proposal") in PROPOSAL_OUTCOMES:
+            label = CHAT_BUTTON  # предложение не приняли: обсуждают дальше в чате
         if params.get("entity_type") == "appeal":  # итог апелляции: исправлять нечего
             label = "notifications.appeal_decided.button"
         if label is None or link is None or self._mini_app is None:
@@ -594,10 +605,16 @@ class GettextNotificationRenderer:
 
     def _deal_cancelled(self, params: Mapping[str, str], locale: Locale) -> RenderedText:
         """Кто отменил и почему: «Клиент отменил сделку «…»: планы изменились»; отмена системой —
-        своим текстом; клиенту из отклика — «Заявка снова открыта»."""
+        своим текстом; клиенту из отклика — «Заявка снова открыта». Предложение «Договориться» —
+        не сделка: «Предложение «…» не принято» или «отозвано» (№14)."""
         title = _short(params.get("title"))
         reason = params.get("reason", "")
         by = params.get("by", "")
+        if (proposal := params.get("proposal", "")) in PROPOSAL_OUTCOMES:
+            return RenderedText(
+                title=self._t(f"notifications.deal_cancelled.title_{proposal}", locale),
+                body=self._t(f"notifications.deal_cancelled.body_{proposal}", locale, title=title),
+            )
         if reason in DEAL_CANCEL_REASONS and by in {"client", "performer"}:
             body = self._t(
                 f"notifications.deal_cancelled.body_{by}",

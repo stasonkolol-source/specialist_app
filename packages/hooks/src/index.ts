@@ -287,8 +287,13 @@ export {
   useReviewInvites,
   useRevokeReviewInvite,
 } from './reviews/invites.ts';
+export type { ChangedOffer } from './deals/deals.ts';
 export {
   MY_DEALS_KEY,
+  OFFER_CHANGED,
+  REVIEW_SETTLE_MS,
+  REVIEW_SETTLE_POLL_MS,
+  changedOffer,
   dealCardQueryKey,
   useAcceptResponse,
   useAnswerProposal,

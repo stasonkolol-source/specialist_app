@@ -9,6 +9,7 @@ import type {
   DealCancelReason,
   DealCardOut,
   DealsListMyDealsParams,
+  ResponseCardOut,
 } from '@sosed/api-client';
 import {
   ApiError,
@@ -27,6 +28,7 @@ import {
 } from '@sosed/api-client';
 import type { QueryClient } from '@tanstack/react-query';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRef } from 'react';
 
 import { FEED_KEY } from '../jobs/feed.ts';
 import { jobQueryKey } from '../jobs/jobs.ts';
@@ -42,17 +44,33 @@ export const MY_DEALS_KEY = getDealsListMyDealsQueryKey().slice(0, 1);
  *  ответить на спор. */
 const LIVE_DEAL: ReadonlySet<DealCardOut['status']> = new Set(['proposed', 'agreed', 'disputed']);
 const isLive = (deal: DealCardOut | undefined) => deal !== undefined && LIVE_DEAL.has(deal.status);
+/** Свой отзыв ещё на проверке: автопроверка публикует чистый за секунды — перечитываем часто, но
+ *  не дольше 30 с, дальше экран честно пишет «обычно несколько минут» (UX_GUIDANCE №1). */
+export const REVIEW_SETTLE_POLL_MS = 2_500;
+export const REVIEW_SETTLE_MS = 30_000;
 
 /** Сделка стороне (S26): условия, вторая сторона, место и вехи. `live` — экран ждёт вторую
  *  сторону (QA MU-4): пока сделка идёт, карточка опрашивается в темпе откликов S23 и
  *  перечитывается, когда Mini App снова на экране (без этого «Договорились» висело и после
- *  завершения второй стороной). */
+ *  завершения второй стороной). Свой отзыв на проверке — тоже ждём, пока не опубликуют (до 30 с
+ *  с того, как экран его увидел): на S26 и S27 — настоящий статус, а не вечное «на проверке». */
 export function useDealCard(dealId: string | null, { live = false }: { live?: boolean } = {}) {
+  const settling = useRef<number | null>(null);
   return useQuery({
     queryKey: dealCardQueryKey(dealId ?? ''),
     queryFn: ({ signal }) => viewsGetDealCard(dealId ?? '', { signal }),
     enabled: dealId !== null,
-    refetchInterval: (query) => (live && isLive(query.state.data) ? RESPONSES_POLL_MS : false),
+    refetchInterval: (query) => {
+      const deal = query.state.data;
+      if (!live) return false;
+      if (isLive(deal)) return RESPONSES_POLL_MS;
+      if (deal?.my_review?.status !== 'under_review') {
+        settling.current = null;
+        return false;
+      }
+      settling.current ??= Date.now();
+      return Date.now() - settling.current < REVIEW_SETTLE_MS ? REVIEW_SETTLE_POLL_MS : false;
+    },
     refetchOnWindowFocus: (query) => (live && isLive(query.state.data) ? 'always' : false),
   });
 }
@@ -80,21 +98,47 @@ function refresh(client: QueryClient, jobId: string | null, seeded = false): voi
 export interface DecideResponse {
   jobId: string;
   responseId: string;
+  /** Редакция предложения, которую клиент видел (`revision` карточки отклика): If-Match выбора —
+   *  исполнитель успел поправить цену, и сервер ответит 409 `offer_changed` (QA ADV-08). */
+  revision?: number;
+}
+
+/** Исполнитель поправил предложение, пока клиент его выбирал: в ответе — нынешние условия. */
+export const OFFER_CHANGED = 'offer_changed';
+
+/** Нынешнее предложение из 409 `offer_changed`: редакция для нового If-Match и цена. */
+export interface ChangedOffer {
+  revision: number;
+  price_type: ResponseCardOut['price']['type'];
+  price_amount: number | null;
+}
+
+export function changedOffer(error: unknown): ChangedOffer | null {
+  if (!(error instanceof ApiError) || error.code !== OFFER_CHANGED) return null;
+  const { revision, price_type: type, price_amount: amount } = error.problem;
+  if (typeof revision !== 'number' || typeof type !== 'string') return null;
+  return {
+    revision,
+    price_type: type as ChangedOffer['price_type'],
+    price_amount: typeof amount === 'number' ? amount : null,
+  };
 }
 
 /** «Выбрать исполнителем» (S25): ответ — id сделки и заявка «в работе». Повтор того же выбора
  *  (второй запрос двойного тапа, повтор после обрыва) сервер отвергает 409 — заявка уже «в
  *  работе»; если в работе она именно с этим откликом, выбор состоялся: это успех, а не ошибка
- *  (QA MU-5), сделка — из своих сделок. */
+ *  (QA MU-5), сделка — из своих сделок. С редакцией — If-Match: предложение поменялось — 409
+ *  `offer_changed`, сделки нет, отклики заявки перечитываются с новой ценой. */
 export function useAcceptResponse() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async ({ jobId, responseId }: DecideResponse): Promise<AcceptedOut> => {
+    mutationFn: async ({ jobId, responseId, revision }: DecideResponse): Promise<AcceptedOut> => {
       try {
-        return await jobsAcceptResponse(responseId);
+        const ifMatch = revision === undefined ? undefined : { 'If-Match': `"${revision}"` };
+        return await jobsAcceptResponse(responseId, ifMatch);
       } catch (error) {
         const earlier =
-          error instanceof ApiError && error.status === 409
+          error instanceof ApiError && error.status === 409 && error.code !== OFFER_CHANGED
             ? await acceptedEarlier(jobId, responseId)
             : null;
         if (!earlier) throw error;
@@ -105,6 +149,11 @@ export function useAcceptResponse() {
     onSuccess: (accepted, { jobId }) => {
       client.setQueryData(jobQueryKey(jobId), accepted.job);
       refresh(client, jobId, true);
+    },
+    onError: (error, { jobId }) => {
+      if (changedOffer(error)) {
+        void client.invalidateQueries({ queryKey: responseCardsQueryKey(jobId) });
+      }
     },
   });
 }

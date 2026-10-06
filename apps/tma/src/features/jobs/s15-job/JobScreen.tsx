@@ -439,22 +439,29 @@ function Client({
 }
 
 /** MainButton S15 по местам и своему отклику; владельцу, у неопубликованной и под шторкой жалобы
- *  (`hidden`) — кнопки нет. */
+ *  (`hidden`) — кнопки нет. Отклик скрыт модерацией — сразу к его правке S16: исправить и отправить
+ *  снова на своём месте (MU-10), а не в список откликов. */
 function useRespondButton(job: JobOut, hidden: boolean) {
+  const { t } = useTranslation('jobs');
   const { t: common } = useTranslation();
   const router = useRouter();
   const left = Math.max(job.max_responses - job.responses_count, 0);
   const responded = job.my_response !== null;
+  const blocked = job.my_response?.review === 'blocked';
   useStepButton({
     visible: !hidden && job.status === 'published',
     enabled: responded || left > 0,
-    text: responded
-      ? common('count.responded')
-      : left > 0
-        ? common('count.respondWithSlots', { count: left })
-        : common('count.full'),
+    text: blocked
+      ? t('job.fixResponse')
+      : responded
+        ? common('count.responded')
+        : left > 0
+          ? common('count.respondWithSlots', { count: left })
+          : common('count.full'),
     onClick: () =>
-      void router.navigate(responded ? { to: JOBS_PATHS.responses } : { to: respondPath(job.id) }),
+      void router.navigate(
+        responded && !blocked ? { to: JOBS_PATHS.responses } : { to: respondPath(job.id) },
+      ),
   });
 }
 

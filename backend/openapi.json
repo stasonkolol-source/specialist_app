@@ -9615,7 +9615,8 @@
                 "type": "null"
               }
             ],
-            "title": "Conversation Id"
+            "title": "Conversation Id",
+            "description": "Чат сделки — «Написать» (S30): где договорились или по выбранному отклику"
           },
           "version": {
             "type": "integer",
@@ -9646,6 +9647,19 @@
             ],
             "title": "Proposal Expires At",
             "description": "Предложение отменится, если не ответить до этого времени (72 ч)"
+          },
+          "completion_due_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completion Due At",
+            "description": "Идущей сделке: с этого времени «Работа выполнена» — главная кнопка (бот спрашивает «Работа выполнена?»); раньше — «Написать»"
           },
           "my_review": {
             "anyOf": [
@@ -9709,6 +9723,7 @@
           "version",
           "proposed_at",
           "proposal_expires_at",
+          "completion_due_at",
           "my_review",
           "review_until",
           "dispute"
@@ -13840,6 +13855,7 @@
           "job.invited",
           "message.received",
           "deal.proposed",
+          "deal.agreed",
           "deal.cancelled",
           "deal.completed",
           "dispute.opened",
@@ -17117,6 +17133,12 @@
             ],
             "title": "Reason",
             "description": "Причина отмены (DealCancelReason)"
+          },
+          "proposal": {
+            "type": "boolean",
+            "title": "Proposal",
+            "description": "Отменили предложение «Договорились», а не сделку: «Предложение не принято»",
+            "default": false
           }
         },
         "type": "object",

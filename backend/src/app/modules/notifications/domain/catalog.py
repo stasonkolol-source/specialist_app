@@ -27,6 +27,9 @@ class NotificationType(StrEnum):
     JOB_INVITED = "job.invited"
     MESSAGE_RECEIVED = "message.received"
     DEAL_PROPOSED = "deal.proposed"
+    DEAL_AGREED = "deal.agreed"
+    """Вторая сторона подтвердила «Договориться» из чата: предложившему — «Условия подтверждены»
+    (UX_GUIDANCE №14)."""
     DEAL_CANCELLED = "deal.cancelled"
     DEAL_COMPLETED = "deal.completed"
     """Сделка выполнена: исполнителю — «Клиент подтвердил работу», только в центре S42."""
@@ -158,6 +161,9 @@ CATALOG: Mapping[NotificationType, TypeSpec] = MappingProxyType(
         ),
         NotificationType.DEAL_PROPOSED: TypeSpec(
             group=EventGroup.DEALS, priority=Priority.P0, channels=BOT_AND_APP, quiet_exempt=True
+        ),
+        NotificationType.DEAL_AGREED: TypeSpec(
+            group=EventGroup.DEALS, priority=Priority.P1, channels=BOT_AND_APP
         ),
         NotificationType.DEAL_CANCELLED: TypeSpec(
             group=EventGroup.DEALS, priority=Priority.P1, channels=BOT_AND_APP

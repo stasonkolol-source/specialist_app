@@ -30,6 +30,8 @@ export const MessagingListConversationsQueryParams = zod.object({
     .default(messagingListConversationsQueryLimitDefault),
 });
 
+export const messagingListConversationsResponseItemsItemLastMessageOneEventOneProposalDefault = false;
+
 export const MessagingListConversationsResponse = zod.object({
   items: zod.array(
     zod
@@ -120,6 +122,14 @@ export const MessagingListConversationsResponse = zod.object({
                     reason: zod
                       .union([zod.string(), zod.null()])
                       .describe('Причина отмены (DealCancelReason)'),
+                    proposal: zod
+                      .boolean()
+                      .default(
+                        messagingListConversationsResponseItemsItemLastMessageOneEventOneProposalDefault,
+                      )
+                      .describe(
+                        'Отменили предложение «Договорились», а не сделку: «Предложение не принято»',
+                      ),
                   })
                   .describe('Системное сообщение: что случилось со сделкой диалога.'),
                 zod.null(),
@@ -190,6 +200,9 @@ export const MessagingListMessagesQueryParams = zod.object({
     .max(messagingListMessagesQueryLimitMax)
     .default(messagingListMessagesQueryLimitDefault),
 });
+
+export const messagingListMessagesResponseConversationLastMessageOneEventOneProposalDefault = false;
+export const messagingListMessagesResponseItemsItemEventOneProposalDefault = false;
 
 export const MessagingListMessagesResponse = zod.object({
   conversation: zod
@@ -280,6 +293,14 @@ export const MessagingListMessagesResponse = zod.object({
                   reason: zod
                     .union([zod.string(), zod.null()])
                     .describe('Причина отмены (DealCancelReason)'),
+                  proposal: zod
+                    .boolean()
+                    .default(
+                      messagingListMessagesResponseConversationLastMessageOneEventOneProposalDefault,
+                    )
+                    .describe(
+                      'Отменили предложение «Договорились», а не сделку: «Предложение не принято»',
+                    ),
                 })
                 .describe('Системное сообщение: что случилось со сделкой диалога.'),
               zod.null(),
@@ -354,6 +375,12 @@ export const MessagingListMessagesResponse = zod.object({
                 reason: zod
                   .union([zod.string(), zod.null()])
                   .describe('Причина отмены (DealCancelReason)'),
+                proposal: zod
+                  .boolean()
+                  .default(messagingListMessagesResponseItemsItemEventOneProposalDefault)
+                  .describe(
+                    'Отменили предложение «Договорились», а не сделку: «Предложение не принято»',
+                  ),
               })
               .describe('Системное сообщение: что случилось со сделкой диалога.'),
             zod.null(),
@@ -393,6 +420,8 @@ export const MessagingSendMessageBody = zod.object({
     .optional()
     .describe('Повтор с тем же — то же сообщение'),
 });
+
+export const messagingSendMessageResponseEventOneProposalDefault = false;
 
 export const MessagingSendMessageResponse = zod.object({
   id: zod.uuid(),
@@ -435,6 +464,10 @@ export const MessagingSendMessageResponse = zod.object({
           reason: zod
             .union([zod.string(), zod.null()])
             .describe('Причина отмены (DealCancelReason)'),
+          proposal: zod
+            .boolean()
+            .default(messagingSendMessageResponseEventOneProposalDefault)
+            .describe('Отменили предложение «Договорились», а не сделку: «Предложение не принято»'),
         })
         .describe('Системное сообщение: что случилось со сделкой диалога.'),
       zod.null(),
@@ -523,6 +556,8 @@ export const MessagingShareContactBody = zod
     'Чем поделиться (S54): username Telegram — из initData, телефон — из `requestContact`.',
   );
 
+export const messagingShareContactResponseEventOneProposalDefault = false;
+
 export const MessagingShareContactResponse = zod.object({
   id: zod.uuid(),
   kind: zod.enum(['text', 'media', 'system', 'contact_share', 'offer']),
@@ -564,6 +599,10 @@ export const MessagingShareContactResponse = zod.object({
           reason: zod
             .union([zod.string(), zod.null()])
             .describe('Причина отмены (DealCancelReason)'),
+          proposal: zod
+            .boolean()
+            .default(messagingShareContactResponseEventOneProposalDefault)
+            .describe('Отменили предложение «Договорились», а не сделку: «Предложение не принято»'),
         })
         .describe('Системное сообщение: что случилось со сделкой диалога.'),
       zod.null(),

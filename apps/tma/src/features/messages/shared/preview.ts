@@ -11,11 +11,12 @@ export function usePreview() {
     let text: string;
     if (message.kind === 'system') {
       const type = message.event?.type;
+      // отменили предложение, а не сделку — «Предложение не принято» (UX_GUIDANCE №14)
       text =
         type === 'deal_agreed'
           ? t('preview.dealAgreed')
           : type === 'deal_cancelled'
-            ? t('preview.dealCancelled')
+            ? t(message.event?.proposal ? 'preview.dealDeclined' : 'preview.dealCancelled')
             : t('preview.dealProposed');
       return text;
     }

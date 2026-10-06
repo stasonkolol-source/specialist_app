@@ -34,7 +34,8 @@
     "erased": "Poruka je obrisana",
     "dealProposed": "Predlog dogovora",
     "dealAgreed": "Dogovoreno",
-    "dealCancelled": "Dogovor je otkazan"
+    "dealCancelled": "Dogovor je otkazan",
+    "dealDeclined": "Predlog nije prihvaćen"
   },
   "mask": {
     "text": "kontakt sakriven",
@@ -49,6 +50,7 @@
     "safety": "Ne plaćajte unapred nepoznatim izvođačima. Platite tek kad posao bude završen.",
     "startedProfile": "Razgovor iz profila stručnjaka",
     "startedJob": "Razgovor o zahtevu „{title}“",
+    "emptyHint": "Opišite zadatak: šta, gde i kada. {name} će dobiti obaveštenje u Telegram-u — odgovor stiže ovde, a bot će vam javiti.",
     "masked": "Kontakti će se otvoriti posle dogovora — tako je bezbednije",
     "prepayment": "Traže avans? Ne šaljite novac pre početka posla.",
     "hidden": "Poruka je skrivena zbog moderacije",
@@ -62,10 +64,12 @@
       "phone": "Telefon: {value}"
     },
     "event": {
-      "dealProposedMine": "Predložili ste dogovor — čekamo potvrdu",
+      "dealProposedMine": "Uslovi su poslati. {name} može da potvrdi do {date} — bot će vam javiti odluku.",
       "dealProposedTheirs": "Sagovornik predlaže dogovor — proverite uslove",
       "dealAgreed": "Dogovoreno! Sada možete podeliti kontakt",
-      "dealCancelled": "Dogovor je otkazan"
+      "dealCancelled": "Dogovor je otkazan",
+      "dealDeclined": "Predlog nije prihvaćen",
+      "dealExpired": "Predlog je istekao"
     },
     "placeholder": "Poruka",
     "send": "Pošalji",
@@ -84,8 +88,7 @@
       "price": "Cena, RSD",
       "pricePlaceholder": "Nije obavezno",
       "when": "Kada",
-      "submit": "Predloži",
-      "sent": "Uslovi su poslati — čekamo potvrdu"
+      "submit": "Predloži"
     },
     "shareContact": "Podelite kontakt",
     "telegram": "Telegram",

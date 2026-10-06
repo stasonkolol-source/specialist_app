@@ -1027,6 +1027,27 @@ msgstr "Dogovor „{title}“ je otkazan: nalog druge strane je obrisan."
 msgid "notifications.deal_cancelled.body_other"
 msgstr "Dogovor „{title}“ je otkazan."
 
+msgid "notifications.deal_cancelled.title_declined"
+msgstr "Predlog nije prihvaćen"
+
+msgid "notifications.deal_cancelled.body_declined"
+msgstr "Predlog „{title}“ nije prihvaćen. Dogovorite uslove u razgovoru i predložite ponovo."
+
+msgid "notifications.deal_cancelled.title_withdrawn"
+msgstr "Predlog je povučen"
+
+msgid "notifications.deal_cancelled.body_withdrawn"
+msgstr "Sagovornik je povukao predlog „{title}“."
+
+msgid "notifications.deal_agreed.title"
+msgstr "Dogovoreno"
+
+msgid "notifications.deal_agreed.body"
+msgstr "Uslovi „{title}“ su potvrđeni — dogovorili ste se. Sada možete da razmenite kontakte."
+
+msgid "notifications.chat.open"
+msgstr "Otvori razgovor"
+
 msgid "notifications.deal_cancelled.reopened"
 msgstr "Zahtev je ponovo otvoren, prethodne ponude su vraćene."
 

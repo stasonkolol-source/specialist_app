@@ -70,6 +70,7 @@ const LOOK: Record<NotificationType, Look> = {
   'response.declined': { icon: 'jobs', neutral: true },
   'message.received': { icon: 'chat', palette: 2 },
   'deal.proposed': { icon: 'check-circle' },
+  'deal.agreed': { icon: 'check-circle' },
   'deal.cancelled': { icon: 'x', neutral: true },
   'deal.completed': { icon: 'check-circle' },
   'deal.reminder': { icon: 'calendar' },

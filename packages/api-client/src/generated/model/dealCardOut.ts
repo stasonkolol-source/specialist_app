@@ -44,12 +44,15 @@ export interface DealCardOut {
   cancel_reason: DealCardOutCancelReason;
   job_id: string | null;
   response_id: string | null;
+  /** Чат сделки — «Написать» (S30): где договорились или по выбранному отклику */
   conversation_id: string | null;
   version: number;
   /** «Договорились» предложено тогда (S53) */
   proposed_at: string | null;
   /** Предложение отменится, если не ответить до этого времени (72 ч) */
   proposal_expires_at: string | null;
+  /** Идущей сделке: с этого времени «Работа выполнена» — главная кнопка (бот спрашивает «Работа выполнена?»); раньше — «Написать» */
+  completion_due_at: string | null;
   /** Свой отзыв по сделке (7.2) */
   my_review: DealReviewOut | null;
   /** Клиент может оставить отзыв до этого времени (14 дней после завершения); null — нельзя или уже оставлен */

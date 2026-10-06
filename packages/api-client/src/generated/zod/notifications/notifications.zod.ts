@@ -58,6 +58,7 @@ export const NotificationsListNotificationsResponse = zod.object({
           'job.invited',
           'message.received',
           'deal.proposed',
+          'deal.agreed',
           'deal.cancelled',
           'deal.completed',
           'dispute.opened',

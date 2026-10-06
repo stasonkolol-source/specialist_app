@@ -3,7 +3,7 @@
 - `messaging.forget_messages` — UserDeleted: текст сообщений удалённого аккаунта стирается
   (§7.10, 6.3a).
 - `messaging.record_deal_agreed` — DealAgreed: «Договорились» в ленте диалога сделки (или диалога
-  по выбранному отклику), контакты в нём открываются (6.3b).
+  по выбранному отклику — его нет, он открывается), контакты в нём открываются (6.3b).
 - `messaging.record_deal_cancelled` — DealCancelled: предложение отклонено, истекло или сделку
   отменили — в ленте диалога (6.3b).
 """
@@ -54,6 +54,8 @@ async def record_deal_cancelled(event: DealCancelled, record: FromDishka[RecordD
             response_id=event.response_id,
             event=SystemEvent.DEAL_CANCELLED,
             at=event.occurred_at,
-            details={"by": event.cancelled_by, "reason": event.reason},
+            details={"by": event.cancelled_by, "reason": event.reason}
+            # предложение «Договорились» не приняли — в ленте «Предложение не принято» (№14)
+            | ({"proposal": "true"} if event.proposal else {}),
         )
     )

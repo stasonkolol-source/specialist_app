@@ -349,12 +349,12 @@ describe('S21 published (UX_GUIDANCE №3)', () => {
   });
 });
 
-describe('S08 «Предложить заявку» — direct request', () => {
+describe('S08 «Заказать напрямую» — direct request', () => {
   it('goes through the wizard and sends the job to the specialist only', async () => {
     const jobs = withJobs(new JobsBackend());
     const { app, telegram } = startApp(`/specialists/${CARD_PROFILE_ID}`);
 
-    await click(await screen.findByRole('button', { name: 'Предложить заявку' }));
+    await click(await screen.findByRole('button', { name: 'Заказать напрямую' }));
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs/new'));
     expect(await screen.findByText(/^Прямой запрос: Алексей Морозов\./)).toBeTruthy();

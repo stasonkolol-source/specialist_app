@@ -43,6 +43,10 @@ class ConversationRepository(Protocol):
         """Диалог, где договорились (`deal_id`)."""
         ...
 
+    async def for_deal(self, deal_id: UUID, response_id: UUID | None) -> UUID | None:
+        """Чат сделки одним запросом: где договорились, иначе — диалог её отклика."""
+        ...
+
 
 class MessageStore(Protocol):
     async def add(self, message: Message) -> Message:

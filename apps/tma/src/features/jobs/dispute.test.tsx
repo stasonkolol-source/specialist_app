@@ -89,19 +89,18 @@ async function choose(files: File[]) {
 }
 
 describe('S26 «Есть проблема»', () => {
-  it('opens S52 from the secondary button of an agreed deal', async () => {
+  it('opens S52 from the «Есть проблема» row of an agreed deal', async () => {
     const { deal } = withDeal();
     const { app, telegram } = startApp(`/deals/${deal.id}`);
     await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 });
-    await waitFor(() =>
-      expect(telegram.callsOf('web_app_setup_secondary_button').at(-1)).toMatchObject({
-        text: 'Есть проблема',
-        is_visible: true,
-      }),
+    // строкой внизу, рядом с «Отменить сделку», а не нативной кнопкой с первой минуты (№2)
+    const problem = await screen.findByRole('button', { name: 'Есть проблема' });
+    expect(telegram.callsOf('web_app_setup_secondary_button').at(-1)?.is_visible ?? false).toBe(
+      false,
     );
 
     await act(async () => {
-      telegram.emit('secondary_button_pressed');
+      fireEvent.click(problem);
     });
 
     await waitFor(() =>
@@ -158,16 +157,12 @@ describe('S52 dispute', () => {
     expect(within(mine).getByRole('img', { name: 'Фото 1' })).toBeTruthy();
     expect(screen.getByText(/^Алексей Морозов может ответить до /)).toBeTruthy();
     await waitFor(() => expect(mainButton(telegram)?.is_visible).toBe(false));
-    // сделка — на паузе, а SecondaryButton ведёт к спору
+    // сделка — на паузе, а строка ведёт к спору
     await act(async () => {
       void app.router.navigate({ to: `/deals/${deal.id}` });
     });
     expect(await screen.findByText(/^Открыт спор: сделка на паузе/)).toBeTruthy();
-    await waitFor(() =>
-      expect(telegram.callsOf('web_app_setup_secondary_button').at(-1)?.text).toBe(
-        'Спор по сделке',
-      ),
-    );
+    expect(await screen.findByRole('button', { name: 'Спор по сделке' })).toBeTruthy();
   });
 
   it('lets the other side answer once before the deadline', async () => {

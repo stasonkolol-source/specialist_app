@@ -1,11 +1,14 @@
 // Выбор исполнителя и сделка (DEVELOPMENT_PLAN 6.2) на фейке backend: карточка отклика S23 ведёт
 // на S24 — мини-профиль, предложение, «Ваш бюджет»; «Отклонить» освобождает место; MainButton
 // «Выбрать исполнителем» открывает S25 — что изменится сразу, и подтверждение создаёт сделку и
-// ведёт на S26: статус, вторая сторона, адрес, таймлайн и памятка. «Работа выполнена» — отметка
-// стороны, вторая завершает сделку; отмена — причиной из шторки. Ссылка `d_` открывает сделку,
+// ведёт на S26: статус, вторая сторона, адрес, таймлайн и памятка. Главная кнопка — «Написать» (чат
+// сделки), «Работа выполнена» — когда пора (бот уже спрашивает) или вторая сторона отметила; раньше —
+// строкой. Отмена — причиной из шторки, после отметки — нельзя (MU-8). Выбор сверяет редакцию
+// предложения (ADV-08). Ссылка `d_` открывает сделку,
 // S23 «в работе» и S17 выбранного — «Открыть сделку». SecondaryButton «Написать» на S24 начинает
 // диалог по отклику (6.4). Завершённая сделка клиента — «Заказать снова»: прямой диалог с этим
 // специалистом.
+import type { DealCardOut } from '@sosed/api-client';
 import { setSession } from '@sosed/api-client';
 import { RESPONSES_POLL_MS } from '@sosed/hooks';
 import type { MockTelegram } from '@sosed/platform';
@@ -58,6 +61,12 @@ function withDeal(backend: JobsBackend) {
     })),
   );
   return deal;
+}
+
+/** Время работы прошло: бот уже спрашивает «Работа выполнена?» — она главная кнопка S26. */
+function overdue(backend: JobsBackend, deal: DealCardOut) {
+  const past = new Date(Date.parse(E2E_NOW) - 60_000).toISOString();
+  backend.deals.set(deal.id, { ...deal, completion_due_at: past });
 }
 
 const click = (element: HTMLElement) =>
@@ -126,6 +135,37 @@ describe('S24 response and S25 choice', () => {
     expect(backend.decisions).toEqual([{ id: ALEKSEY?.id, action: 'accept' }]);
     expect(await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeTruthy();
     expect(screen.getAllByText('Договорились')).toHaveLength(2); // статус и шаг таймлайна
+    // сразу после выбора — договориться в чате, а не «Работа выполнена» (UX_GUIDANCE №2)
+    await waitFor(() => expect(mainButton(telegram)?.text).toBe('Написать'));
+    expect(backend.acceptIfMatch).toEqual([`"${ALEKSEY?.revision}"`]); // редакция предложения
+  });
+
+  it('shows the new price when the performer changed the offer, then chooses it (ADV-08)', async () => {
+    const backend = withMine();
+    const { app, telegram } = startApp(CHOICE);
+    const sheet = await openConfirm(telegram);
+    // исполнитель поправил цену, пока клиент смотрел шторку
+    backend.responseCards.set(
+      JOB_ID,
+      responseCardsFixture().map((card) =>
+        card.id === ALEKSEY?.id
+          ? {
+              ...card,
+              revision: 2,
+              price: { type: 'fixed', amount: { amount: 400_000, currency: 'RSD' } },
+            }
+          : card,
+      ),
+    );
+
+    await pressMainButton(telegram);
+
+    expect(await within(sheet).findByText('Исполнитель изменил предложение')).toBeTruthy();
+    expect(within(sheet).getByText(/^4\s000\sRSD/u)).toBeTruthy();
+    expect(backend.decisions).toEqual([]);
+    await pressMainButton(telegram);
+    await waitFor(() => expect(app.router.state.location.pathname).toMatch(/^\/deals\//));
+    expect(backend.acceptIfMatch).toEqual(['"1"', '"2"']);
   });
 
   it('gives the screen its buttons back when the confirmation is closed', async () => {
@@ -225,6 +265,30 @@ describe('S24 response and S25 choice', () => {
     await click(await screen.findByRole('button', { name: 'Открыть сделку' }));
     await waitFor(() => expect(app.router.state.location.pathname).toBe(`/deals/${deal.id}`));
   });
+
+  it('names the response of a cancelled deal «Сделка отменена», not «Вы отклонили» (UXM-13)', async () => {
+    const backend = withMine();
+    const deal = withDeal(backend);
+    if (!CHANDELIER) throw new Error('fixtures');
+    // клиент отменил сделку: заявка снова открыта, выбранный отклик сервер перевёл в «отклонён»
+    backend.deals.set(deal.id, {
+      ...deal,
+      status: 'cancelled',
+      cancel_reason: 'plans_changed',
+      cancelled_by_me: true,
+    });
+    backend.jobs.set(JOB_ID, CHANDELIER);
+    backend.responseCards.set(
+      JOB_ID,
+      responseCardsFixture().map((card) =>
+        card.id === ALEKSEY?.id ? { ...card, status: 'declined' } : card,
+      ),
+    );
+    startApp(CHOICE);
+
+    expect(await screen.findByText('Сделка отменена')).toBeTruthy();
+    expect(screen.queryByText('Вы отклонили этот отклик')).toBeNull();
+  });
 });
 
 describe('S26 deal', () => {
@@ -242,31 +306,70 @@ describe('S26 deal', () => {
     expect(within(performer).getByText('исполнитель')).toBeTruthy();
     expect(screen.getByText('бул. Цара Лазара, 56, кв. 12')).toBeTruthy();
     expect(screen.getByText('Лиман. Адрес видите только вы и Алексей Морозов')).toBeTruthy();
+    // что дальше — одной строкой под заголовком (UX_GUIDANCE №2)
+    expect(screen.getByText(/^Исполнителю пришло уведомление\. Договоритесь/)).toBeTruthy();
+    // текущий шаг и следующий; пройденные — под «Подробнее»
     const steps = screen.getByRole('region', { name: 'Статус' });
+    expect(within(steps).getByText('Работа выполнена')).toBeTruthy();
+    expect(within(steps).queryByText('Отклик на заявку')).toBeNull();
+    await click(within(steps).getByRole('button', { name: 'Подробнее' }));
     expect(within(steps).getByText('Отклик на заявку')).toBeTruthy();
     expect(within(steps).getByText('Выбран исполнителем')).toBeTruthy();
-    expect(within(steps).getByText('Работа выполнена')).toBeTruthy();
     expect(screen.getByText(/Не вносите предоплату незнакомым исполнителям/)).toBeTruthy();
-    await waitFor(() => expect(mainButton(telegram)?.text).toBe('Работа выполнена'));
+    // до времени работы главное — «Написать»; отметить — строкой, «Есть проблема» — строкой
+    await waitFor(() => expect(mainButton(telegram)?.text).toBe('Написать'));
+    expect(screen.getByRole('button', { name: 'Работа уже сделана? Отметить' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Есть проблема' })).toBeTruthy();
+    expect(secondaryButton(telegram)?.is_visible ?? false).toBe(false);
   });
 
-  it('marks the work done, then the other side completes it', async () => {
+  it('writes to the other side in one tap: the chat of the deal (UX_GUIDANCE №2)', async () => {
+    const deal = withDeal(withMine());
+    const chat = new ChatBackend();
+    server.use(...chatHandlers(() => chat));
+    const { app, telegram } = startApp(`/deals/${deal.id}`);
+    await waitFor(() => expect(mainButton(telegram)?.text).toBe('Написать'));
+
+    await pressMainButton(telegram);
+
+    // у старой сделки без чата он начинается по отклику — тот же, что «Написать» на S24
+    await waitFor(() => expect(chat.starts).toEqual([{ response_id: ALEKSEY?.id }]));
+    await waitFor(() => expect(app.router.state.location.pathname).toMatch(/^\/messages\/.+$/));
+  });
+
+  it('makes «Работа выполнена» the main button when it is time, then the chat again', async () => {
     const backend = withMine();
     const deal = withDeal(backend);
+    overdue(backend, deal);
     const { telegram } = startApp(`/deals/${deal.id}`);
     await waitFor(() => expect(mainButton(telegram)?.text).toBe('Работа выполнена'));
+    expect(screen.queryByRole('button', { name: 'Работа уже сделана? Отметить' })).toBeNull();
 
     await pressMainButton(telegram);
 
     expect(await screen.findByText(/^Вы отметили «Работа выполнена»/)).toBeTruthy();
     expect(backend.decisions).toEqual([{ id: deal.id, action: 'complete' }]);
-    await waitFor(() => expect(mainButton(telegram)?.is_visible).toBe(false));
+    await waitFor(() => expect(mainButton(telegram)?.text).toBe('Написать'));
+    // отметили — отменить уже нельзя (MU-8)
+    expect(screen.queryByRole('button', { name: /Отменить сделку/ })).toBeNull();
+  });
+
+  it('marks the work done early from the row', async () => {
+    const backend = withMine();
+    const deal = withDeal(backend);
+    startApp(`/deals/${deal.id}`);
+
+    await click(await screen.findByRole('button', { name: 'Работа уже сделана? Отметить' }));
+
+    expect(await screen.findByText(/^Вы отметили «Работа выполнена»/)).toBeTruthy();
+    expect(backend.decisions).toEqual([{ id: deal.id, action: 'complete' }]);
   });
 
   it('waits for the other side: polls the deal and offers the review (MU-4)', async () => {
     vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'], now: new Date(E2E_NOW) });
     const backend = withMine();
     const deal = withDeal(backend);
+    overdue(backend, deal);
     const { telegram } = startApp(`/deals/${deal.id}`);
     await waitFor(() => expect(mainButton(telegram)?.text).toBe('Работа выполнена'));
     await pressMainButton(telegram);
@@ -283,7 +386,7 @@ describe('S26 deal', () => {
     await waitFor(() =>
       expect(mainButton(telegram)).toMatchObject({ is_visible: true, text: 'Оставить отзыв' }),
     );
-    expect(secondaryButton(telegram)?.is_visible).toBe(false);
+    expect(secondaryButton(telegram)?.is_visible ?? false).toBe(false);
   });
 
   it('rereads the deal when the Mini App is back on screen (MU-4)', async () => {
@@ -306,6 +409,7 @@ describe('S26 deal', () => {
   it('marks the work done once on a double tap (MU-5)', async () => {
     const backend = withMine();
     const deal = withDeal(backend);
+    overdue(backend, deal);
     const { telegram } = startApp(`/deals/${deal.id}`);
     await waitFor(() => expect(mainButton(telegram)?.text).toBe('Работа выполнена'));
 
@@ -322,10 +426,31 @@ describe('S26 deal', () => {
 
     await click(await screen.findByRole('button', { name: /Отменить сделку/ }));
     const sheet = await screen.findByRole('dialog', { name: 'Почему отменяете?' });
-    await click(within(sheet).getByRole('button', { name: 'планы изменились' }));
+    // подписи кнопок — с заглавной, а не обрывки фразы «Вы отменили сделку: …» (UXM-13)
+    await click(within(sheet).getByRole('button', { name: 'Планы изменились' }));
 
     expect(await screen.findByText('Вы отменили сделку: планы изменились.')).toBeTruthy();
     expect(backend.decisions).toEqual([{ id: deal.id, action: 'cancel', reason: 'plans_changed' }]);
+  });
+
+  it('refuses to cancel after the other side marked the work done (MU-8)', async () => {
+    const backend = withMine();
+    const deal = withDeal(backend);
+    startApp(`/deals/${deal.id}`);
+    await click(await screen.findByRole('button', { name: /Отменить сделку/ }));
+    const sheet = await screen.findByRole('dialog', { name: 'Почему отменяете?' });
+    // пока шторка открыта, исполнитель отметил «Работа выполнена»
+    backend.deals.set(deal.id, {
+      ...deal,
+      timeline: { ...deal.timeline, other_mark_at: E2E_NOW },
+    });
+
+    await click(within(sheet).getByRole('button', { name: 'Планы изменились' }));
+
+    expect(await screen.findByText(/^Работа уже отмечена выполненной/)).toBeTruthy();
+    expect(await screen.findByText(/Вторая сторона уже отметила/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Отменить сделку/ })).toBeNull();
+    expect(backend.decisions).toEqual([]);
   });
 
   it('is shown to the chosen performer with the client', async () => {
@@ -336,7 +461,12 @@ describe('S26 deal', () => {
 
     expect(await screen.findByText('Елена К.')).toBeTruthy();
     expect(screen.getByText('клиент')).toBeTruthy();
+    expect(screen.getByText(/^Клиент выбрал вас\. Уточните время/)).toBeTruthy();
     expect(screen.queryByText(/Не вносите предоплату/)).toBeNull();
+    // отзыв пишет клиент: у исполнителя шага «Отзыв» нет (№13)
+    const steps = screen.getByRole('region', { name: 'Статус' });
+    await click(within(steps).getByRole('button', { name: 'Подробнее' }));
+    expect(within(steps).queryByText('Отзыв')).toBeNull();
   });
 
   it('opens from the job in work', async () => {
@@ -374,6 +504,16 @@ describe('S26 order again', () => {
       expect(chat.starts).toEqual([{ profile_id: ALEKSEY?.performer.profile_id }]),
     );
     await waitFor(() => expect(app.router.state.location.pathname).toMatch(/^\/messages\/.+$/));
+  });
+
+  it('shows the outcome without the address and contact sharing (№13)', async () => {
+    const deal = withCompleted(withMine());
+    startApp(`/deals/${deal.id}`);
+
+    expect(await screen.findByText(/^Сделка завершена/)).toBeTruthy();
+    expect(screen.queryByText('бул. Цара Лазара, 56, кв. 12')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Поделиться контактом/ })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Статус' })).toBeNull();
   });
 
   it('is not offered before the deal is completed', async () => {
