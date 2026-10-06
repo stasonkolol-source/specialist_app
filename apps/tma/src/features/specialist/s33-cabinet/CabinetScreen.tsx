@@ -160,8 +160,9 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
           <Heading variant="h2" as="h1">
             {t(profile.kind === 'pro' ? 'cabinet.title' : 'cabinet.casualTitle')}
           </Heading>
-          <Text variant="sm" className="flex items-center gap-1.5">
-            <Icon name={icon} size={16} className={cx('shrink-0', tone)} />
+          {/* строка «на проверке» переносится — иконка у первой строки, а не посередине */}
+          <Text variant="sm" className="flex items-start gap-1.5">
+            <Icon name={icon} size={16} className={cx('mt-0.5 shrink-0', tone)} />
             {stateText}
           </Text>
         </div>
