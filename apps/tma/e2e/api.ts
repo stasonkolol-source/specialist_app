@@ -11,6 +11,7 @@ import type { Page, Request, Route } from '@playwright/test';
 
 import {
   CLIENT_CONFIG,
+  LEGAL_DOCUMENTS,
   DELETION_EXECUTE_AFTER,
   DELETION_REQUESTED_AT,
   ME,
@@ -279,6 +280,9 @@ export async function mockApi(
     switch (key) {
       case 'GET /api/v1/client-config':
         return route.fulfill(json(config));
+      // тексты S48 — своим запросом, только когда их открыли
+      case 'GET /api/v1/legal-documents':
+        return route.fulfill(json(LEGAL_DOCUMENTS));
       case 'GET /api/v1/cities':
         return route.fulfill(json(citiesFor(language)));
       case 'GET /api/v1/categories':

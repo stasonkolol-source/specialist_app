@@ -1,5 +1,5 @@
 // S48 Правовые документы (DEVELOPMENT_PLAN 1.5a): правила площадки и политика конфиденциальности
-// действующей версии из client-config. Шапка — заголовок, «Редакция от <даты>» и переключатель
+// действующей версии — своим запросом GET /legal-documents (в client-config их нет). Шапка — заголовок, «Редакция от <даты>» и переключатель
 // документов; текст — пронумерованные разделы, как пункты правил на макете. Номер версии остаётся
 // в данных (согласия, client-config) — человеку он ничего не говорит. Текст документа — основным
 // размером (SPEC §5: 15/22), вступление — 14/20, заголовки разделов — 16/22: правила читают, а не
@@ -61,14 +61,14 @@ export function LegalView({ document, onDocumentChange }: LegalViewProps) {
 
 function LegalBody({ legal }: { legal: ReturnType<typeof useLegalDocument> }) {
   const { t } = useTranslation('service');
-  const { config, text, translated } = legal;
-  if (config.isPending) return <Loading />;
+  const { query, text, translated } = legal;
+  if (query.isPending) return <Loading />;
   if (!text) {
-    return config.isError ? (
+    return query.isError ? (
       <LoadError
-        error={config.error}
-        onRetry={() => void config.refetch()}
-        retrying={config.isFetching}
+        error={query.error}
+        onRetry={() => void query.refetch()}
+        retrying={query.isFetching}
       />
     ) : (
       <EmptyState as="h2" icon="file" title={t('legal.unavailableTitle')}>

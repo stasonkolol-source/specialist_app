@@ -1,12 +1,14 @@
 // Намерение перейти (app/intent.ts): палец на ссылке — данные экрана подробностей грузятся до
-// нажатия, теми же ключами, что у экрана; ошибка такой предзагрузки не открывает экраны S49.
+// нажатия, теми же ключами, что у экрана; ошибка такой предзагрузки не открывает экраны S49. Чанк
+// следующего экрана — только когда открытый дочитал свои данные: на запуске он не делит сеть с ними.
 import { specialistCardQueryOptions } from '@sosed/hooks';
 import { createMockPlatform } from '@sosed/platform/mock';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { waitFor } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { CARD_PATHS } from '../features/catalog/index.ts';
 import { useSystemStore } from '../features/service/s49-system/index.ts';
 import { CARD_PROFILE_ID } from '../testing/fixtures.ts';
 import { API_ORIGIN, server } from '../testing/msw.ts';
@@ -74,5 +76,30 @@ describe('intent prefetch', () => {
 
     await waitFor(() => expect(queryClient.getQueryState(key)?.status).toBe('error'));
     expect(useSystemStore.getState().appWide).toBeNull();
+  });
+});
+
+describe('next screen', () => {
+  it('loads the chunk of the next screen only after the open one has its data', async () => {
+    const app = start();
+    let answer: () => void = () => undefined;
+    const firstScreen = app.queryClient.fetchQuery({
+      queryKey: ['first-screen'],
+      queryFn: () =>
+        new Promise<number>((resolve) => {
+          answer = () => resolve(1);
+        }),
+    });
+    const chunk = vi.spyOn(app.router, 'loadRouteChunk');
+    const profileChunk = () => chunk.mock.calls.some(([route]) => route.id === CARD_PATHS.profile);
+
+    await app.router.load();
+    // Главная ещё ждёт свои данные: чанк S08 не делит с ними сеть
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    expect(profileChunk()).toBe(false);
+
+    answer();
+    await firstScreen;
+    await waitFor(() => expect(profileChunk()).toBe(true), { timeout: 3000 });
   });
 });

@@ -1,12 +1,13 @@
 // Каталоги по локалям и неймспейсам. ru и sr-Cyrl ведутся руками; sr-Latn — транслитерация sr-Cyrl
 // при загрузке: та же функция, что у `pnpm -F i18n generate`, а файлы sr-Latn в каталогах — для
-// ревью и i18n-check. В первом экране (бюджет 200 KB gzip) — русские общий неймспейс и Главной
-// (FIRST_SCREEN; русский — язык по умолчанию и запасной) и общий неймспейс сербского: его читают
-// форматтеры. Остальной русский — своими маленькими чанками, остальной сербский — одним
-// (serbian.ts). До первого кадра приложение ждёт только FIRST_SCREEN своего языка (instance.ts);
-// экран с другим неймспейсом ждёт его сам (Suspense), а после первого кадра все неймспейсы
-// догружаются в простое.
-// Неймспейсы — по группам экранов; новые добавляются сюда, в NAMESPACES и в serbian.ts.
+// ревью и i18n-check. Во входе — только общие неймспейсы русского и сербского: экран запуска S01,
+// S49a без сети и форматтеры. Остальное — своими маленькими чанками, по неймспейсу, и русское, и
+// сербское; каталог Главной тоже: каждому языку — свой (3,7 KB gzip), а не русский всем (сербскому
+// первому экрану он не нужен, а бюджет 200 KB gzip он и съедал). Тексты Главной (FIRST_SCREEN)
+// запрашиваются сразу при создании i18n (instance.ts), параллельно со входом; S01 их не ждёт, а
+// LaunchGate ждёт их вместе с итогом входа. Экран с другим неймспейсом ждёт его сам (Suspense), а
+// после первого кадра все неймспейсы догружаются в простое.
+// Неймспейсы — по группам экранов; новые добавляются сюда: в NAMESPACES, RU_LATER и SR_LATER.
 // common — общие слова, экраны-заготовки и системные состояния S49a (нет сети, техработы,
 // обновление, ошибка); service — «Сервис» SPEC §6: правила S48 и санкция S49b — экраны своими
 // чанками, S49b приходит только ответом сервера, когда сеть есть, — и тексты своим чанком;
@@ -18,9 +19,9 @@
 // они были в первом экране, а нужны только по переходу); safety — жалоба S46 и блокировки S44 (4.7):
 // шторка открывается с любого экрана, а нужна редко — своим маленьким чанком; web — браузерная
 // оболочка (8.1): страница «Открыть в Telegram» и «Как удалить аккаунт» — только вне Telegram.
-import ruCatalog from './catalogs/ru/catalog.json' with { type: 'json' };
 import ruCommon from './catalogs/ru/common.json' with { type: 'json' };
 import type ruAccount from './catalogs/ru/account.json';
+import type ruCatalog from './catalogs/ru/catalog.json';
 import type ruJobs from './catalogs/ru/jobs.json';
 import type ruMessages from './catalogs/ru/messages.json';
 import type ruOnboarding from './catalogs/ru/onboarding.json';
@@ -47,10 +48,9 @@ export const NAMESPACES = [
 ] as const;
 export type Namespace = (typeof NAMESPACES)[number];
 
-/** Неймспейсы до первого кадра: Главная (catalog) и общий (common, в нём и S49a) — без сети
- *  «Нет соединения» должен показаться, а догрузить каталог будет нельзя. */
+/** Неймспейсы Главной: общий (во входе, в нём и S49a — без сети «Нет соединения» должен
+ *  показаться) и её каталог (своим чанком, запрашивается сразу). */
 export const FIRST_SCREEN = ['common', 'catalog'] as const satisfies Namespace[];
-type FirstScreen = (typeof FIRST_SCREEN)[number];
 
 /** Форма каталогов — по ru: ключи остальных локалей сверяет i18n-check. */
 export type Messages = {
@@ -74,13 +74,11 @@ function latin<T extends Catalog>(catalog: T): T {
   return transliterateCatalog(catalog) as T;
 }
 
-const RU: Pick<Messages, FirstScreen> = {
-  common: ruCommon,
-  catalog: ruCatalog,
-};
+const RU: Pick<Messages, 'common'> = { common: ruCommon };
 
-/** Остальной русский — каждый неймспейс своим чанком. */
-const RU_LATER: Record<Exclude<Namespace, FirstScreen>, () => Promise<Catalog>> = {
+/** Остальной русский, каталог Главной тоже, — каждый неймспейс своим чанком. */
+const RU_LATER: Record<Exclude<Namespace, 'common'>, () => Promise<Catalog>> = {
+  catalog: () => import('./catalogs/ru/catalog.json').then((module) => module.default),
   service: () => import('./catalogs/ru/service.json').then((module) => module.default),
   onboarding: () => import('./catalogs/ru/onboarding.json').then((module) => module.default),
   specialist: () => import('./catalogs/ru/specialist.json').then((module) => module.default),
@@ -91,10 +89,7 @@ const RU_LATER: Record<Exclude<Namespace, FirstScreen>, () => Promise<Catalog>> 
   web: () => import('./catalogs/ru/web.json').then((module) => module.default),
 };
 
-const isFirstScreen = (namespace: Namespace): namespace is FirstScreen =>
-  (FIRST_SCREEN as readonly string[]).includes(namespace);
-
-/** Что есть сразу, без загрузки: русский первого экрана и общий неймспейс сербского. */
+/** Что есть сразу, без загрузки: общие неймспейсы русского и сербского. */
 export const EAGER: Record<Locale, Partial<Messages>> = {
   ru: RU,
   'sr-Cyrl': { common: srCyrlCommon },
@@ -106,18 +101,24 @@ export function commonOf(locale: Locale): Messages['common'] {
   return EAGER[locale].common ?? RU.common;
 }
 
-let serbian: Promise<Messages> | null = null;
+/** Сербский (кириллица), кроме общего, — тоже каждый неймспейс своим чанком. */
+const SR_LATER: Record<Exclude<Namespace, 'common'>, () => Promise<Catalog>> = {
+  service: () => import('./catalogs/sr-Cyrl/service.json').then((module) => module.default),
+  onboarding: () => import('./catalogs/sr-Cyrl/onboarding.json').then((module) => module.default),
+  specialist: () => import('./catalogs/sr-Cyrl/specialist.json').then((module) => module.default),
+  catalog: () => import('./catalogs/sr-Cyrl/catalog.json').then((module) => module.default),
+  jobs: () => import('./catalogs/sr-Cyrl/jobs.json').then((module) => module.default),
+  messages: () => import('./catalogs/sr-Cyrl/messages.json').then((module) => module.default),
+  account: () => import('./catalogs/sr-Cyrl/account.json').then((module) => module.default),
+  safety: () => import('./catalogs/sr-Cyrl/safety.json').then((module) => module.default),
+  web: () => import('./catalogs/sr-Cyrl/web.json').then((module) => module.default),
+};
 
-function loadSerbian(): Promise<Messages> {
-  serbian ??= import('./serbian.ts').then((module) => module.SR_CYRL);
-  return serbian;
-}
-
-/** Каталог неймспейса: ru — сразу или своим чанком, sr-Cyrl — из сербского чанка, sr-Latn —
- *  транслитерацией sr-Cyrl. */
+/** Каталог неймспейса: ru и sr-Cyrl — сразу (общий) или своим чанком, sr-Latn — транслитерацией
+ *  sr-Cyrl. */
 export async function loadNamespace(locale: Locale, namespace: Namespace): Promise<Catalog> {
-  if (locale === 'ru') return isFirstScreen(namespace) ? RU[namespace] : RU_LATER[namespace]();
-  const cyrillic = (await loadSerbian())[namespace];
+  if (locale === 'ru') return namespace === 'common' ? RU.common : RU_LATER[namespace]();
+  const cyrillic = namespace === 'common' ? srCyrlCommon : await SR_LATER[namespace]();
   return locale === 'sr-Cyrl' ? cyrillic : latin(cyrillic);
 }
 

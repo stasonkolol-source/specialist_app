@@ -1,6 +1,6 @@
 // sr-Latn в приложении считается из sr-Cyrl при загрузке — и совпадает с файлами `pnpm -F i18n
-// generate`, которые видят ревью и i18n-check. Сербский — отдельным чанком, русский первого экрана
-// — сразу, остальной русский — своими чанками.
+// generate`, которые видят ревью и i18n-check. Во входе — общие неймспейсы русского и сербского,
+// остальное, каталог Главной тоже, — своими чанками по неймспейсу.
 import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
@@ -19,13 +19,24 @@ describe('sr-Latn', () => {
 });
 
 describe('first screen', () => {
-  it('has Russian of the first screen and only the common namespace of Serbian', () => {
-    expect(Object.keys(EAGER.ru).sort()).toEqual([...FIRST_SCREEN].sort());
+  it('has only the common namespaces: the home catalog of each language is its own chunk', () => {
+    expect(Object.keys(EAGER.ru)).toEqual(['common']);
+    expect(FIRST_SCREEN).toContain('catalog');
     expect(Object.keys(EAGER['sr-Cyrl'])).toEqual(['common']);
     expect(EAGER['sr-Latn'].common).toEqual(generated('common'));
   });
 
-  it.each(NAMESPACES.filter((ns) => !(FIRST_SCREEN as readonly string[]).includes(ns)))(
+  it.each(NAMESPACES.filter((ns) => ns !== 'common'))(
+    'Serbian %s comes later from its own file, not with all the others',
+    async (namespace) => {
+      const file: unknown = JSON.parse(
+        readFileSync(new URL(`./catalogs/sr-Cyrl/${namespace}.json`, import.meta.url), 'utf8'),
+      );
+      expect(await loadNamespace('sr-Cyrl', namespace)).toEqual(file);
+    },
+  );
+
+  it.each(NAMESPACES.filter((ns) => ns !== 'common'))(
     'Russian %s comes later from its own file',
     async (namespace) => {
       const file: unknown = JSON.parse(

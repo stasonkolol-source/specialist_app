@@ -32,20 +32,23 @@ export function createAuth(
   let pending: Promise<Launch> | null = null;
   let launched: Promise<Launch> | null = null;
   let launchFailed = false;
+  // initData отвергнут (401) — тот же initData не примут и потом: повторный вход по нему (onReauth
+  // на 401 любого запроса гостя) в сеть не идёт — одна попытка входа на запуск
+  let refused = false;
 
   const exchange = async (): Promise<Launch> => {
     const initData = platform.launch.rawInitData;
     if (!initData) return { kind: 'guest' }; // браузер без Telegram: вход появится с кнопкой «Войти» (этап 2)
+    if (refused) return { kind: 'guest' };
     let auth: AuthOut;
     try {
       auth = await identityAuthenticateTelegram({ authorization: `tma ${initData}` });
     } catch (error) {
       setSession(null);
-      onRefused(error);
       // 401 — initData не принят (устарел после перезагрузки внутри клиента): как гость
-      return error instanceof ApiError && error.status === 401
-        ? { kind: 'guest' }
-        : { kind: 'failed', error };
+      refused = error instanceof ApiError && error.status === 401;
+      onRefused(error);
+      return refused ? { kind: 'guest' } : { kind: 'failed', error };
     }
     setSession({ accessToken: auth.access_token, refreshToken: auth.refresh_token });
     onSignedIn(auth.user);

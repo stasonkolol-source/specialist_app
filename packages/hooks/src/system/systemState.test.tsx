@@ -145,16 +145,25 @@ describe('useLegalDocument', () => {
     );
   }
 
-  it('reads the current edition from client-config and flags a missing translation', async () => {
+  /** client-config первого запуска — без текстов; тексты — GET /legal-documents. */
+  function serve(versions: Record<string, string>, documents: Record<string, LegalDocumentOut>) {
     const config: ClientConfigOut = {
       min_versions: {},
       flags: {},
-      legal_versions: { terms: 'draft-1' },
-      legal_documents: { terms: TERMS },
+      legal_versions: versions,
+      legal_documents: {},
       support_username: null,
     };
-    const fetch = vi.fn(async () => new Response(JSON.stringify(config), { status: 200 }));
+    const fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const body = String(input).startsWith('/api/v1/legal-documents') ? { documents } : config;
+      return new Response(JSON.stringify(body), { status: 200 });
+    });
     configureApiClient({ fetch });
+    return fetch;
+  }
+
+  it('reads the current edition from its own request and flags a missing translation', async () => {
+    const fetch = serve({ terms: 'draft-1' }, { terms: TERMS });
 
     const { result } = renderHook(() => useLegalDocument('terms', 'sr-Latn'), {
       wrapper: wrapper(),
@@ -163,26 +172,16 @@ describe('useLegalDocument', () => {
     await waitFor(() => expect(result.current.document).toEqual(TERMS));
     expect(result.current.text).toMatchObject({ locale: 'ru', title: 'Правила площадки «Соседи»' });
     expect(result.current.translated).toBe(false);
-    // тексты — в том же client-config: отдельного запроса нет
-    expect(fetch).toHaveBeenCalledOnce();
-    expect(fetch).toHaveBeenCalledWith('/api/v1/client-config', expect.anything());
+    // тексты — своим запросом, только когда их открыли
+    expect(fetch).toHaveBeenCalledWith('/api/v1/legal-documents', expect.anything());
   });
 
   it('has no document when its version has no text', async () => {
-    const config: ClientConfigOut = {
-      min_versions: {},
-      flags: {},
-      legal_versions: { privacy: 'draft-9' },
-      legal_documents: {},
-      support_username: null,
-    };
-    configureApiClient({
-      fetch: vi.fn(async () => new Response(JSON.stringify(config), { status: 200 })),
-    });
+    serve({ privacy: 'draft-9' }, {});
 
     const { result } = renderHook(() => useLegalDocument('privacy', 'ru'), { wrapper: wrapper() });
 
-    await waitFor(() => expect(result.current.config.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.query.isSuccess).toBe(true));
     expect(result.current.document).toBeUndefined();
     expect(result.current.text).toBeNull();
     expect(result.current.translated).toBe(true);

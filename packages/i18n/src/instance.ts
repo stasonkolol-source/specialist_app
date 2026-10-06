@@ -1,8 +1,8 @@
 // Экземпляр i18next с ICU. Создаётся один раз в apps/tma/src/app и передаётся провайдером (ADR-0020 §13).
-// Каталоги вне первого экрана грузятся чанками (resources.ts): `i18nReady` — когда на месте тексты
-// первого экрана текущего языка, точка сборки ждёт его до первого кадра; `preloadCatalogs` — после
-// него, в простое. Экран с ещё не загруженным неймспейсом ждёт его сам (Suspense), смена языка —
-// тоже.
+// Во входе — только общий неймспейс (resources.ts): экземпляр готов сразу, и экран запуска рисуется
+// без ожидания сети. Тексты Главной (FIRST_SCREEN) запрашиваются при создании; `i18nReady` — когда
+// они на месте (их ждёт LaunchGate вместе с итогом входа); `preloadCatalogs` — остальное, в простое.
+// Экран с ещё не загруженным неймспейсом ждёт его сам (Suspense), смена языка — тоже.
 import i18next from 'i18next';
 import type { BackendModule, i18n as I18n } from 'i18next';
 import ICU from 'i18next-icu';
@@ -57,7 +57,9 @@ export function createI18n({ locale, appName }: I18nConfig): I18n {
     fallbackLng: DEFAULT_LOCALE,
     supportedLngs: [...LOCALES],
     load: 'currentOnly',
-    ns: [...FIRST_SCREEN],
+    // только то, что во входе: иначе init (и isInitialized, а с ним и useTranslation экрана
+    // запуска) ждал бы чанк каталога Главной
+    ns: ['common'],
     defaultNS: 'common',
     resources: EAGER,
     partialBundledLanguages: true,
@@ -68,6 +70,8 @@ export function createI18n({ locale, appName }: I18nConfig): I18n {
   instance.on('languageChanged', (lng) => {
     defaultVariables.appName = appNameFor(lng, appName);
   });
+  // тексты Главной — сразу, параллельно со входом и client-config
+  void i18nReady(instance);
   return instance;
 }
 
@@ -75,8 +79,8 @@ export function currentLocale(instance: I18n): Locale {
   return isLocale(instance.language) ? instance.language : DEFAULT_LOCALE;
 }
 
-/** Тексты первого экрана текущего языка загружены: на сербском — после чанка, на русском —
- *  сразу. Без сети чанк не придёт — тогда тексты русские (fallbackLng), а не пустой экран. */
+/** Тексты Главной на текущем языке загружены (каталог — своим чанком). Без сети чанк не придёт —
+ *  промис всё равно выполнится: экран покажет S49a, а не вечное ожидание. */
 export function i18nReady(instance: I18n): Promise<void> {
   return instance.loadNamespaces([...FIRST_SCREEN]).catch(() => undefined);
 }
