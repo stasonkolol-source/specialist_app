@@ -234,9 +234,12 @@ class JobsApi(Protocol):
         None — нет такой, удалена или проверять нечего."""
         ...
 
-    async def approve_job(self, job_id: UUID, *, version: int | None) -> None:
+    async def approve_job(
+        self, job_id: UUID, *, version: int | None, reviewed: bool = False
+    ) -> None:
         """Проверка пройдена — в транзакции вызывающего: ждавшая проверки публикуется; другая
-        версия (клиент успел поправить) или статус — ничего."""
+        версия (клиент успел поправить) или статус — ничего. `reviewed` — решение модератора
+        после ручной проверки: клиенту уйдёт «Заявка опубликована»."""
         ...
 
     async def reject_job(self, job_id: UUID, *, reason_code: str) -> None:

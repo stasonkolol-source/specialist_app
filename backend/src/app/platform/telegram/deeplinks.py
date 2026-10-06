@@ -10,12 +10,15 @@
   выполнена?» и «Ответить» уведомления `dispute.opened` ведут сразу на S52, а не на S26;
 - `ri_<base62>` — приглашение на «отзыв до платформы» (S56, 7.6а): секрет ссылки — случайный
   UUIDv4 из `reviews.review_invites`;
+- `rv_<base62>` — форма отзыва S27 по сделке: «Открыть форму отзыва» уведомления `review.request`
+  ведёт сразу на форму, а не на S26;
 - `h` — главная;
 - `n` — новая заявка (мастер S20a; `/new` бота);
 - `m_jobs` — свои заявки (S22; `/jobs` бота); `m_alerts` — подписки на заявки (S18), `m_feed` —
   лента «по моим подпискам» (S13), `m_availability` — «доступен сегодня» (S38), `m_profile` —
   кабинет специалиста (S33): кнопки `job.matched`, `job.digest`, `profile.stale_reminder`, `/feed`
-  и `/alerts` бота (5.7);
+  и `/alerts` бота (5.7); `m_responses` — «Мои отклики» (S17): исходы своего отклика,
+  `m_portfolio` — портфолио (S37): отказ модерации по работе;
 - `l_terms`, `l_privacy` — правила площадки и политика конфиденциальности (S48; `/terms` и
   `/privacy` бота);
 - `g_`, `gu_`, `gh`, `gs_`, `gc_` — зарезервированы под раздел «Вещи» (после MVP);
@@ -58,6 +61,8 @@ class LinkType(StrEnum):
     """Спор по сделке S52 (6.1c): `id` — id сделки."""
     REVIEW_INVITE = "review_invite"
     """«Отзыв до платформы» S56 (7.6а): `id` — секрет ссылки-приглашения."""
+    REVIEW = "review"
+    """Форма отзыва S27 по сделке: `id` — id сделки."""
     HOME = "home"
     NEW_JOB = "new_job"
     MINE = "mine"
@@ -77,7 +82,8 @@ class LinkSection(StrEnum):
     (S28, 7.3; кнопка «Ответить на отзыв» уведомления `review.published`), `settings` —
     настройки S43 и `deletion` — удаление аккаунта S45 (кнопки `/settings` бота, 4.9); `alerts` —
     подписки на заявки S18, `feed` — лента «по моим подпискам» S13, `availability` — «доступен
-    сегодня» S38, `profile` — кабинет специалиста S33 (5.7)."""
+    сегодня» S38, `profile` — кабинет специалиста S33 (5.7); `responses` — «Мои отклики» S17
+    (исходы отклика), `portfolio` — портфолио S37 (отказ модерации по работе)."""
 
     JOBS = "jobs"
     REVIEWS = "reviews"
@@ -87,6 +93,8 @@ class LinkSection(StrEnum):
     FEED = "feed"
     AVAILABILITY = "availability"
     PROFILE = "profile"
+    RESPONSES = "responses"
+    PORTFOLIO = "portfolio"
 
 
 class ReservedCode(StrEnum):
@@ -106,6 +114,7 @@ ENTITY_PREFIX: Final[Mapping[LinkType, str]] = {
     LinkType.DEAL: "d",
     LinkType.DISPUTE: "p",
     LinkType.REVIEW_INVITE: "ri",
+    LinkType.REVIEW: "rv",
 }
 _ENTITY_BY_PREFIX: Final = {prefix: kind for kind, prefix in ENTITY_PREFIX.items()}
 _HOME: Final = "h"
@@ -118,9 +127,9 @@ _LEGAL: Final = "l"
 class StartLink:
     """Разобранный код startapp.
 
-    Сущность (`job`, `specialist`, `chat`, `deal`, `dispute`, `review_invite`) — с `id`; `home`
-    и `new_job` — без полей; `mine` — с `section`; `legal` — с `document`; `reserved` — с `code`
-    и, кроме `gh`, со значением `value`. `ref` — суффикс `_r<code>`.
+    Сущность (`job`, `specialist`, `chat`, `deal`, `dispute`, `review_invite`, `review`) — с
+    `id`; `home` и `new_job` — без полей; `mine` — с `section`; `legal` — с `document`;
+    `reserved` — с `code` и, кроме `gh`, со значением `value`. `ref` — суффикс `_r<code>`.
     """
 
     type: LinkType
@@ -271,6 +280,7 @@ _SOURCE_BY_TYPE: Final[Mapping[LinkType, LinkSource]] = {
     # приглашение на отзыв шлёт специалист: пришедший по нему — от специалиста (без нового
     # значения в CHECK growth.attributions.source)
     LinkType.REVIEW_INVITE: LinkSource.SPECIALIST,
+    LinkType.REVIEW: LinkSource.DEAL,  # форма отзыва — та же сделка
     LinkType.HOME: LinkSource.HOME,
     LinkType.NEW_JOB: LinkSource.NEW_JOB,
     LinkType.MINE: LinkSource.MINE,

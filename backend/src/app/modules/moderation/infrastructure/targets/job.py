@@ -30,13 +30,10 @@ class JobTarget(ModerationTarget):
         )
 
     async def publish(
-        self,
-        entity_id: UUID,
-        *,
-        version: int | None = None,
-        auto: bool = False,  # noqa: ARG002 — публикуется только ждущая проверки версия
+        self, entity_id: UUID, *, version: int | None = None, auto: bool = False
     ) -> None:
-        await self._jobs.approve_job(entity_id, version=version)
+        # публикуется только ждущая проверки версия; решение человека — клиенту сообщат
+        await self._jobs.approve_job(entity_id, version=version, reviewed=not auto)
 
     async def hide(self, entity_id: UUID, *, reason_code: str) -> None:
         await self._jobs.reject_job(entity_id, reason_code=reason_code)
