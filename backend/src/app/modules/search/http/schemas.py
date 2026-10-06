@@ -29,7 +29,12 @@ class SpecialistCardOut(BaseModel):
     headline: str | None
     kind: str = Field(description="pro | casual")
     avatar: CardAvatarOut | None
-    district: CardDistrictOut | None
+    district: CardDistrictOut | None = Field(
+        description="Основной район; у выезжающего во все районы — null (whole_city)"
+    )
+    whole_city: bool = Field(
+        description="Выезжает во все районы города: «Весь Нови-Сад» вместо района"
+    )
     distance_m: int | None = Field(description="От точки клиента, шагом 500 м; без точки — нет")
     languages: list[str]
     category_ids: list[int]
@@ -67,6 +72,7 @@ class SpecialistCardOut(BaseModel):
                 else None
             ),
             district=district,
+            whole_city=card.whole_city,
             distance_m=card.distance_m,
             languages=list(card.languages),
             category_ids=list(card.category_ids),

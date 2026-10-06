@@ -89,6 +89,8 @@ class SpecialistProjection:
         priced = {category for summary in prices.values() for category in summary.by_category}
         categories = {c.id: c for c in await self._catalog.categories(own | priced)}
         terms = await self._catalog.search_terms(own)
+        # все кварталы города — «Весь Нови-Сад»: первый по алфавиту основным районом не показываем
+        whole_city = {p.id for p in profiles if await self._geo.covers_city(p.city_id, p.area_ids)}
         districts: dict[DistrictId, DistrictSummary] = {}
         for district_id in {p.area_ids[0] for p in profiles if p.area_ids}:
             district = await self._geo.district(district_id)
@@ -104,6 +106,7 @@ class SpecialistProjection:
             districts=districts,
             avatars=refs,
             ratings=ratings,
+            whole_city=whole_city,
         )
 
     def _entry(self, profile: ProfileForIndex, context: _Context) -> IndexEntry:
@@ -120,7 +123,12 @@ class SpecialistProjection:
             updated_at=profile.updated_at,
             now=self._clock.now(),
         )
-        district = context.districts.get(profile.area_ids[0]) if profile.area_ids else None
+        whole_city = profile.id in context.whole_city
+        district = (
+            context.districts.get(profile.area_ids[0])
+            if profile.area_ids and not whole_city
+            else None
+        )
         return IndexEntry(
             profile_id=profile.id,
             user_id=profile.user_id,
@@ -160,6 +168,7 @@ class SpecialistProjection:
                 avatar,
                 district,
                 rating,
+                whole_city=whole_city,
             ),
             source_updated_at=profile.updated_at,
         )
@@ -173,6 +182,8 @@ class _Context:
     districts: Mapping[DistrictId, DistrictSummary]
     avatars: Mapping[MediaId, MediaRef]
     ratings: Mapping[UUID, RatingSummary]
+    whole_city: Collection[UUID]
+    """Профили, чьи районы — все кварталы города (GeoApi.covers_city)."""
 
 
 def _document(
@@ -215,6 +226,8 @@ def _card(
     avatar: dict[str, Any] | None,
     district: DistrictSummary | None,
     rating: RatingSummary | None = None,
+    *,
+    whole_city: bool = False,
 ) -> dict[str, Any]:
     """Готовая карточка выдачи S05 без JOIN: время и расстояние выдача берёт из колонок. Единица
     цены «от» — только для показа («от 1 000 RSD/час»), поэтому в карточке, а не колонкой: по всему
@@ -232,6 +245,7 @@ def _card(
             if district is not None
             else None
         ),
+        "whole_city": whole_city,
         "languages": list(profile.languages),
         "category_ids": list(profile.category_ids),
         "price_from": prices.price_from,

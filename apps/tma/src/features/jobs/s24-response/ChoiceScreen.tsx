@@ -49,7 +49,7 @@ import { useId, useState } from 'react';
 
 import { useStepButton } from '../shared/flow.ts';
 import { JobUnavailable } from '../shared/JobUnavailable.tsx';
-import { useBudgetText, useOfferPrice } from '../shared/labels.ts';
+import { useBudgetText, useOfferPrice, usePerformerPlace } from '../shared/labels.ts';
 import { LoadError } from '../shared/LoadError.tsx';
 import { PerformerRating } from '../shared/PerformerRating.tsx';
 import {
@@ -225,6 +225,7 @@ function Performer({ card }: { card: ResponseCardOut }) {
   const avatar =
     performer.avatar?.variants.find((v) => v.name === 'thumb') ?? performer.avatar?.variants[0];
   const profile = performer.profile_id;
+  const place = usePerformerPlace(performer);
   return (
     <Card
       tight
@@ -254,7 +255,7 @@ function Performer({ card }: { card: ResponseCardOut }) {
           <PerformerRating
             rating={performer.rating}
             count={performer.rating_count}
-            meta={[performer.district?.name]}
+            meta={[place]}
           />
         </div>
         {profile && <Icon name="chev-right" className="shrink-0 text-text2" />}

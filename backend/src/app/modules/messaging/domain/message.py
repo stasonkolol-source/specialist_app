@@ -9,17 +9,27 @@
 нарушение скрывает сообщение (`hidden`).
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Final
 from uuid import UUID
 
 from app.modules.messaging.errors import InvalidMessageError
 from app.platform.kernel.ids import UserId
-from app.platform.text.contact_masking import find_prepayment, mask_contacts
+from app.platform.text.contact_masking import (
+    find_contacts,
+    find_prepayment,
+    find_split_contacts,
+    mask_findings,
+)
 
 MAX_BODY: Final = 4000
+SPLIT_WINDOW: Final = timedelta(minutes=2)
+SPLIT_MESSAGES: Final = 3
+"""Номер или ник по частям (QA ADV-06): новое сообщение проверяется вместе с тремя последними
+сообщениями того же отправителя в диалоге за две минуты."""
 MAX_CLIENT_ID: Final = 64
 """`client_msg_id` — ключ идемпотентности отправки с клиента (UUID или своя строка)."""
 
@@ -76,6 +86,9 @@ class Composed:
     body: str
     masked: bool
     prepayment: bool
+    earlier: tuple[str, ...] = ()
+    """Прежние сообщения окна (`recent` в `compose`) со скрытыми частями контакта — по порядку;
+    изменившиеся переписываются в хранилище."""
 
     @property
     def payload(self) -> dict[str, object]:
@@ -87,14 +100,27 @@ class Composed:
         return flags
 
 
-def compose(text: str, *, contacts_locked: bool) -> Composed:
+def compose(text: str, *, contacts_locked: bool, recent: Sequence[str] = ()) -> Composed:
     """Текст участника: обрезанный по краям, 1–4000 символов; до договорённости контакты
-    скрыты, просьба о предоплате отмечена."""
+    скрыты, просьба о предоплате отмечена. `recent` — прежние тексты отправителя в окне
+    (SPLIT_WINDOW): контакт, разбитый на несколько сообщений, скрывается и в новом, и в прежних
+    (`earlier`) — QA ADV-06."""
     body = text.strip()
     if not 1 <= len(body) <= MAX_BODY:
         raise InvalidMessageError(field="body", reason="length")
-    masked = mask_contacts(body) if contacts_locked else body
-    return Composed(body=masked, masked=masked != body, prepayment=find_prepayment(body))
+    prepayment = find_prepayment(body)
+    if not contacts_locked:
+        return Composed(body=body, masked=False, prepayment=prepayment)
+    *before, split = find_split_contacts([*recent, body])
+    masked = mask_findings(body, (*find_contacts(body), *split))
+    return Composed(
+        body=masked,
+        masked=masked != body,
+        prepayment=prepayment,
+        earlier=tuple(
+            mask_findings(part, found) for part, found in zip(recent, before, strict=True)
+        ),
+    )
 
 
 def check_client_id(value: str | None) -> str | None:

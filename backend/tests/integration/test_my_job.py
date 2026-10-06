@@ -135,6 +135,44 @@ async def test_response_cards_are_read_in_batches(world: Invites) -> None:
     assert (trips.begins, trips.ends) == (0, 0)
 
 
+async def test_whole_city_performer_is_not_put_in_a_district(world: Invites) -> None:
+    """QA SMOKE-6: у исполнителя «Весь Нови-Сад» (все кварталы города) район на карточке S23 —
+    не первый по алфавиту, а «весь город»; у выбравшего районы — первый из них."""
+    client = await world.user()
+    job_id = await world.job(client)
+    everywhere, everywhere_profile = await world.specialist("Весь город")
+    liman, liman_profile = await world.specialist("Лиман")
+    await world.execute(
+        "INSERT INTO specialists.service_areas (profile_id, district_id, position)"
+        " SELECT :profile, d.id, row_number() OVER (ORDER BY d.slug) - 1 FROM geo.districts d"
+        " JOIN specialists.profiles p ON p.id = :profile AND d.city_id = p.city_id"
+        " WHERE d.kind = 'neighborhood' AND d.is_active",
+        profile=everywhere_profile,
+    )
+    district = await world.scalar("SELECT id FROM geo.districts WHERE slug = 'liman-3'")
+    await world.execute(
+        "INSERT INTO specialists.service_areas (profile_id, district_id, position)"
+        " VALUES (:profile, :district, 0)",
+        profile=liman_profile,
+        district=district,
+    )
+    for performer in (everywhere, liman):
+        assert (await world.respond(performer, job_id)).status_code == 201
+    await world.execute(
+        "UPDATE jobs.responses SET review = 'clear', updated_at = now() WHERE job_id = :job",
+        job=job_id,
+    )
+
+    by_name = {
+        card["performer"]["display_name"]: card["performer"]
+        for card in await cards(world, client, job_id)
+    }
+
+    assert (by_name["Весь город"]["whole_city"], by_name["Весь город"]["district"]) == (True, None)
+    assert by_name["Лиман"]["whole_city"] is False
+    assert by_name["Лиман"]["district"]["id"] == district
+
+
 async def test_response_on_review_is_neither_shown_nor_new(world: Invites) -> None:
     client = await world.user()
     job_id = await world.job(client)

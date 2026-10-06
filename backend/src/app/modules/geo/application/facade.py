@@ -4,7 +4,7 @@ from collections.abc import Collection
 
 from app.modules.geo.api import CitySummary, DistrictSummary, GeoApi, ResolvedPoint
 from app.modules.geo.application.ports import GeoQuery
-from app.modules.geo.domain.place import CityStatus
+from app.modules.geo.domain.place import CityStatus, DistrictKind
 from app.modules.geo.domain.privacy import blur
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CityId, DistrictId
@@ -35,6 +35,16 @@ class GeoFacade(GeoApi):
         self, district_ids: Collection[DistrictId]
     ) -> dict[DistrictId, DistrictSummary]:
         return await self._query.district_summaries(district_ids) if district_ids else {}
+
+    async def covers_city(self, city_id: CityId, district_ids: Collection[DistrictId]) -> bool:
+        # «Весь город» в профиле — это все кварталы (S32c, shared/wholeCity.ts); муниципалитет
+        # в выборе районов не показывается, поэтому и здесь не в счёт
+        quarters = {
+            district.id
+            for district in await self._query.districts(city_id)
+            if district.kind is DistrictKind.NEIGHBORHOOD
+        }
+        return bool(quarters) and quarters <= set(district_ids)
 
     def public_point(self, point: GeoPoint, *, seed: bytes) -> GeoPoint:
         return blur(point, seed=seed)

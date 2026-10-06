@@ -16,7 +16,12 @@ from app.modules.messaging.domain.conversation import (
     Participant,
     ParticipantRole,
 )
-from app.modules.messaging.domain.message import ContactType, Message, MessageModeration
+from app.modules.messaging.domain.message import (
+    ContactType,
+    Message,
+    MessageKind,
+    MessageModeration,
+)
 from app.modules.messaging.errors import ConversationNotFoundError
 from app.modules.messaging.infrastructure.models import (
     ContactShareRow,
@@ -191,6 +196,35 @@ class SqlMessageStore:
     async def get(self, message_id: UUID) -> Message | None:
         row = await self._session.get(MessageRow, message_id)
         return _message(row) if row is not None else None
+
+    async def recent(
+        self, conversation_id: UUID, sender_id: UserId, *, since: datetime, limit: int
+    ) -> list[Message]:
+        rows = (
+            await self._session.execute(
+                select(MessageRow)
+                .where(
+                    MessageRow.conversation_id == conversation_id,
+                    MessageRow.sender_id == sender_id,
+                    MessageRow.kind == MessageKind.TEXT,
+                    MessageRow.body.is_not(None),
+                    MessageRow.deleted_at.is_(None),
+                    MessageRow.created_at >= since,
+                )
+                .order_by(MessageRow.id.desc())  # id — UUIDv7: по времени, индекс диалога
+                .limit(limit)
+            )
+        ).scalars()
+        return [_message(row) for row in reversed(list(rows))]
+
+    async def mask(self, message: Message, body: str) -> None:
+        self._uow.require_active()
+        await self._session.execute(
+            update(MessageRow)
+            .where(MessageRow.id == message.id)
+            .values(body=body, payload={**message.payload, "masked": True})
+            .execution_options(synchronize_session=False)
+        )
 
     async def moderate(self, message_id: UUID, *, hidden: bool) -> bool:
         self._uow.require_active()

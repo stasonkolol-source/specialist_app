@@ -32,7 +32,7 @@ from app.modules.identity.api import IdentityApi
 from app.modules.jobs.api import JobsApi, PublicJob
 from app.modules.pricing.api import PricingApi
 from app.modules.reviews.api import RatingSummary, ReviewsApi
-from app.modules.specialists.api import SpecialistsApi
+from app.modules.specialists.api import PublicProfile, SpecialistsApi
 from app.platform.http.ratelimit import GuestOrUserRateLimit
 from app.platform.http.security import optional_principal
 from app.platform.i18n.catalogs import CATALOG_NAMES
@@ -87,6 +87,14 @@ async def _place(
         city.name.get(locale) if city is not None else None,
     ]
     return ", ".join(part for part in parts if part) or None
+
+
+async def _primary_area(geo: GeoApi, profile: PublicProfile) -> DistrictId | None:
+    """Основной район профиля; у выезжающего во все кварталы — нет: карточка называет город, а не
+    первый по алфавиту квартал (QA SMOKE-6)."""
+    if not profile.area_ids or await geo.covers_city(profile.city_id, profile.area_ids):
+        return None
+    return profile.area_ids[0]
 
 
 def specialist_card(
@@ -222,9 +230,7 @@ async def create_share(
             headline=profile.headline,
             rating=(await reviews.summaries([profile.id])).get(profile.id),
             phone_verified=user is not None and user.phone_verified,
-            place=await _place(
-                geo, profile.city_id, profile.area_ids[0] if profile.area_ids else None, locale
-            ),
+            place=await _place(geo, profile.city_id, await _primary_area(geo, profile), locale),
             price_from=prices.price_from if prices is not None else None,
         )
     else:

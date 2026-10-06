@@ -68,6 +68,7 @@ import { ReviewCard } from '../shared/ReviewCard.tsx';
 import { Unavailable } from '../shared/Unavailable.tsx';
 import { PriceColumn } from '../s09-prices/PriceColumn.tsx';
 import { avatarSrc, knownLanguages, place, sentence } from '../shared/card.ts';
+import { useCardArea, useWholeCity } from '../shared/city.ts';
 import { useFavoriteToggle } from '../shared/favorite.ts';
 import { useProfileShare } from '../shared/share.tsx';
 import { CARD_PATHS, CREATE_JOB_PATH, chatPath } from '../shared/paths.ts';
@@ -142,6 +143,7 @@ function PreviewHead({ card }: { card: SpecialistCardOut }) {
   const { t } = useTranslation('catalog');
   const { t: common } = useTranslation();
   const format = useFormat();
+  const area = useCardArea(card);
   return (
     <div className="flex items-center gap-4">
       <Avatar
@@ -173,7 +175,7 @@ function PreviewHead({ card }: { card: SpecialistCardOut }) {
             </>
           )}
         </p>
-        {card.district && <p className="m-0 text-cap text-text2">{card.district.name}</p>}
+        {area && <p className="m-0 text-cap text-text2">{area}</p>}
       </div>
     </div>
   );
@@ -244,7 +246,9 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
   const until = card.available_until ? new Date(card.available_until) : null;
   const today = until !== null && until > new Date();
   const languages = knownLanguages(card).map((code) => t(`profile.languageNames.${code}`));
-  const areas = card.areas.map((area) => area.name);
+  const wholeCity = useWholeCity(card.city?.name);
+  // все районы города — «Выезд: Весь Нови-Сад», а не список из 27 кварталов (QA SMOKE-6)
+  const areas = card.whole_city ? [wholeCity] : card.areas.map((area) => area.name);
   const response = responseTime(card.response_time_minutes, t);
   const badges = headerBadges(card, today ? until : null, t, format);
   const travel =
@@ -253,7 +257,7 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
       : card.travel_radius_km
         ? t('profile.radius', { km: card.travel_radius_km })
         : null;
-  const where = place(card);
+  const where = place(card, wholeCity);
 
   return (
     <section className={`flex flex-col gap-3.5 px-4 pt-3 ${telegram ? 'pb-25' : 'pb-6'}`}>

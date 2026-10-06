@@ -111,6 +111,7 @@ export const getViewsGetSpecialistResponseMock = (
     { id: faker.number.int(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
     null,
   ]),
+  whole_city: faker.datatype.boolean(),
   areas: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     id: faker.number.int(),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -413,6 +414,7 @@ export const getViewsListResponseCardsResponseMock = (
         { id: faker.number.int(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
         null,
       ]),
+      whole_city: faker.datatype.boolean(),
       rating: faker.helpers.arrayElement([faker.number.float({ fractionDigits: 2 }), null]),
       rating_count: faker.number.int(),
       is_new: faker.datatype.boolean(),

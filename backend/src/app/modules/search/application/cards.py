@@ -58,6 +58,8 @@ def _card(hit: SpecialistHit, refs: Mapping[MediaId, MediaRef], now: datetime) -
         avatar=_avatar(card, refs),
         district_id=district.get("id"),
         district_name=district.get("name") or {},
+        # строка до пересборки индекса — без отметки: район, как раньше
+        whole_city=bool(card.get("whole_city")),
         distance_m=rounded_distance(hit.distance_m),
         languages=tuple(card.get("languages") or ()),
         category_ids=tuple(card.get("category_ids") or ()),
