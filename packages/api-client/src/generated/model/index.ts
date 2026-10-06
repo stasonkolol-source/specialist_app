@@ -139,6 +139,7 @@ export * from './jobClientOut.ts';
 export * from './jobCloseIn.ts';
 export * from './jobCloseInReason.ts';
 export * from './jobIn.ts';
+export * from './jobInLanguagesItem.ts';
 export * from './jobInviteOut.ts';
 export * from './jobInvitesOut.ts';
 export * from './jobOut.ts';

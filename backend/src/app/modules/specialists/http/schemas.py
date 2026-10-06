@@ -21,15 +21,14 @@ from app.modules.specialists.domain.profile import (
     ProfileStatus,
     WorkMode,
 )
-
-INT4_MAX = 2**31 - 1
+from app.platform.http.fields import INT4_MAX, CategoryIdIn, DistrictIdIn, OptionalCleanText
 
 
 class ProfileCreateIn(BaseModel):
     kind: ProfileKind
     city_id: int = Field(ge=1, le=INT4_MAX)
     """Город из онбординга (GET /me)."""
-    display_name: str | None = Field(default=None, max_length=MAX_NAME)
+    display_name: OptionalCleanText = Field(default=None, max_length=MAX_NAME)
     """Пусто — имя из Telegram."""
 
 
@@ -40,21 +39,21 @@ class ProfileUpdateIn(BaseModel):
     kind: ProfileKind | None = None
     """Только у черновика (иначе 409 `profile_state_conflict`); «Подработка → Специалист» у
     проверенного профиля — POST /me/profile/become-pro."""
-    display_name: str | None = Field(default=None, max_length=MAX_NAME)
-    headline: str | None = Field(default=None, max_length=MAX_HEADLINE)
-    about: str | None = Field(default=None, max_length=MAX_ABOUT)
+    display_name: OptionalCleanText = Field(default=None, max_length=MAX_NAME)
+    headline: OptionalCleanText = Field(default=None, max_length=MAX_HEADLINE)
+    about: OptionalCleanText = Field(default=None, max_length=MAX_ABOUT)
     languages: list[Language] | None = Field(default=None, max_length=len(Language))
     travel_radius_km: Literal[3, 5, 10] | None = None
     work_modes: list[WorkMode] | None = Field(default=None, max_length=len(WorkMode))
 
 
 class ProfileCategoriesIn(BaseModel):
-    category_ids: list[int] = Field(min_length=1, max_length=MAX_CATEGORIES)
+    category_ids: list[CategoryIdIn] = Field(min_length=1, max_length=MAX_CATEGORIES)
     """Первая — основная."""
 
 
 class ProfileAreasIn(BaseModel):
-    district_ids: list[int] = Field(max_length=MAX_AREAS)
+    district_ids: list[DistrictIdIn] = Field(max_length=MAX_AREAS)
 
 
 class MediaVariantOut(BaseModel):
@@ -137,11 +136,11 @@ class PortfolioOut(BaseModel):
 class WorkIn(BaseModel):
     media_id: UUID
     """Загруженный файл с назначением portfolio (POST /media/uploads)."""
-    caption: str | None = Field(default=None, max_length=MAX_CAPTION)
+    caption: OptionalCleanText = Field(default=None, max_length=MAX_CAPTION)
 
 
 class WorkCaptionIn(BaseModel):
-    caption: str | None = Field(max_length=MAX_CAPTION)
+    caption: OptionalCleanText = Field(max_length=MAX_CAPTION)
     """Пустая или null — без подписи."""
 
 

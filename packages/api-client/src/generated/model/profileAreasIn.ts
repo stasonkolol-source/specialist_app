@@ -6,6 +6,10 @@
  */
 
 export interface ProfileAreasIn {
-  /** @maxItems 30 */
+  /**
+   * @maxItems 30
+   * @items.minimum 1
+   * @items.maximum 2147483647
+   */
   district_ids: number[];
 }
