@@ -527,6 +527,7 @@ export function cardsFor(
       headline: fixture.title,
       kind: fixture.kind ?? 'pro',
       avatar: null,
+      whole_city: false,
       district: district
         ? {
             id: DISTRICT_IDS[district],
@@ -758,6 +759,7 @@ export function specialistCardFor(
     avatar: null,
     city: { id: 1, name: latin(locale) ? 'Novi Sad' : 'Нови-Сад' },
     district: areas[0] ?? null,
+    whole_city: false,
     areas,
     travel_radius_km: null,
     work_modes: ['at_client'],
@@ -794,6 +796,7 @@ export function plainCardFor(card: SpecialistCardOut): SpecialistProfileOut {
     avatar: null,
     city: { id: 1, name: CITY },
     district: card.district,
+    whole_city: card.whole_city,
     areas: card.district ? [card.district] : [],
     travel_radius_km: null,
     work_modes: [],

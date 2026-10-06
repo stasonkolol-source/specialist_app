@@ -162,15 +162,9 @@ class SqlProfileQuery(SqlQuery):
         )
 
     async def public_cards(self, profile_ids: Collection[UUID]) -> dict[UUID, PublicCard]:
-        """Опубликованные профили карточками: основной район — подзапросом, одним запросом."""
-        p, a = ProfileRow.__table__.c, ServiceAreaRow.__table__.c
-        primary = (
-            select(a.district_id)
-            .where(a.profile_id == p.id)
-            .order_by(a.position)
-            .limit(1)
-            .scalar_subquery()
-        )
+        """Опубликованные профили карточками: районы — массивом-подзапросом (по ним видно и
+        «весь город»), одним запросом."""
+        p = ProfileRow.__table__.c
         rows = await self._fetch(
             select(
                 p.id,
@@ -178,7 +172,8 @@ class SqlProfileQuery(SqlQuery):
                 p.kind,
                 p.display_name,
                 p.avatar_media_id,
-                primary.label("primary_area_id"),
+                p.city_id,
+                _ordered_ids(ServiceAreaRow, "district_id").label("area_ids"),
             ).where(
                 p.id.in_(list(profile_ids)),
                 p.status == ProfileStatus.PUBLISHED,
@@ -192,11 +187,8 @@ class SqlProfileQuery(SqlQuery):
                 kind=row["kind"].value,
                 display_name=row["display_name"],
                 avatar_media_id=MediaId(row["avatar_media_id"]) if row["avatar_media_id"] else None,
-                primary_area_id=(
-                    DistrictId(row["primary_area_id"])
-                    if row["primary_area_id"] is not None
-                    else None
-                ),
+                city_id=CityId(row["city_id"]),
+                area_ids=tuple(DistrictId(item) for item in row["area_ids"]),
             )
             for row in rows
         }

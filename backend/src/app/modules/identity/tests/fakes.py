@@ -42,5 +42,8 @@ class FakeGeo:
     ) -> dict[DistrictId, DistrictSummary]:
         return {}
 
+    async def covers_city(self, city_id: CityId, district_ids: Collection[DistrictId]) -> bool:
+        return False
+
     def public_point(self, point: GeoPoint, *, seed: bytes) -> GeoPoint:
         return point

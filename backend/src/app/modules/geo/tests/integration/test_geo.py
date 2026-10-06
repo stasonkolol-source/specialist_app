@@ -201,3 +201,23 @@ async def test_facade_reports_city_and_its_status(
     assert soon is not None
     assert not soon.is_active
     assert await facade.city(CityId(999_999)) is None
+
+
+async def test_facade_tells_whole_city_by_every_quarter(
+    db_session: AsyncSession, procrastinate_app: procrastinate.App
+) -> None:
+    """«Весь Нови-Сад» (S32c) — это все кварталы города: тогда карточки называют город, а не
+    первый по алфавиту квартал (QA SMOKE-6). Муниципалитет в выборе районов не показывается."""
+    await _import(db_session, procrastinate_app, a_city())
+    query = SqlGeoQuery(db_session)
+    city = next(c.id for c in await query.cities() if c.slug == "test-city")
+    ids = {d.slug: d.id for d in await query.districts(city)}
+    facade = GeoFacade(query)
+    quarters = [ids["south"], ids["north"], ids["no-polygon"]]
+
+    assert await facade.covers_city(city, quarters)
+    assert await facade.covers_city(city, [*quarters, ids["whole"]])
+    assert not await facade.covers_city(city, quarters[:2])
+    assert not await facade.covers_city(city, [ids["whole"]])
+    assert not await facade.covers_city(city, [])
+    assert not await facade.covers_city(CityId(999_999), quarters)
