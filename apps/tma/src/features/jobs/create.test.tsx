@@ -42,7 +42,10 @@ beforeEach(() => {
   useDraftStore.setState({ draft: null, storage: null });
   vi.useFakeTimers({ toFake: ['Date'], now: NOON });
 });
-afterEach(() => {
+afterEach(async () => {
+  // отложенная запись черновика прошлого теста не должна долететь до хранилища следующего: на
+  // медленном раннере CI «Люстры» из сценария мастера оказывались черновиком теста цены
+  await useDraftStore.getState().clear();
   vi.useRealTimers();
   setSession(null);
 });
