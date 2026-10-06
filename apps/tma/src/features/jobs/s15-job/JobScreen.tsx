@@ -438,9 +438,13 @@ function Client({
   );
 }
 
-/** MainButton S15 по местам и своему отклику; владельцу, у неопубликованной и под шторкой жалобы
- *  (`hidden`) — кнопки нет. Отклик скрыт модерацией — сразу к его правке S16: исправить и отправить
- *  снова на своём месте (MU-10), а не в список откликов. */
+/** Свой отклик ещё ждёт решения — его можно поправить или отозвать на S16. */
+const EDITABLE: ReadonlySet<string> = new Set(['submitted', 'viewed', 'shortlisted']);
+
+/** MainButton S15 по местам и своему отклику: скрытый модерацией — «Исправить отклик» сразу к его
+ *  правке S16 (исправить и отправить снова на своём месте, MU-10); ждущий решения — «Изменить
+ *  отклик» (S16, там же «Отозвать»: с карточки S17 эти кнопки ушли, UX №10); решённый — «Вы
+ *  откликнулись» → S17; владельцу, у неопубликованной и под шторкой жалобы (`hidden`) — кнопки нет. */
 function useRespondButton(job: JobOut, hidden: boolean) {
   const { t } = useTranslation('jobs');
   const { t: common } = useTranslation();
@@ -448,19 +452,24 @@ function useRespondButton(job: JobOut, hidden: boolean) {
   const left = Math.max(job.max_responses - job.responses_count, 0);
   const responded = job.my_response !== null;
   const blocked = job.my_response?.review === 'blocked';
+  const editable = job.my_response !== null && EDITABLE.has(job.my_response.status);
   useStepButton({
     visible: !hidden && job.status === 'published',
     enabled: responded || left > 0,
     text: blocked
       ? t('job.fixResponse')
-      : responded
-        ? common('count.responded')
-        : left > 0
-          ? common('count.respondWithSlots', { count: left })
-          : common('count.full'),
+      : editable
+        ? t('job.editResponse')
+        : responded
+          ? common('count.responded')
+          : left > 0
+            ? common('count.respondWithSlots', { count: left })
+            : common('count.full'),
     onClick: () =>
       void router.navigate(
-        responded && !blocked ? { to: JOBS_PATHS.responses } : { to: respondPath(job.id) },
+        responded && !blocked && !editable
+          ? { to: JOBS_PATHS.responses }
+          : { to: respondPath(job.id) },
       ),
   });
 }

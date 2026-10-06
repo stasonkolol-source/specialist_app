@@ -140,7 +140,9 @@ for (const theme of THEMES) {
   }
 }
 
-test('новый пользователь: S01 → S02a → S02b → S02c → главная', async ({ page }) => {
+test('новый специалист: S01 → S02a → S02b → S02c → мастер профиля S32a, «Назад» — главная', async ({
+  page,
+}) => {
   const sent = sentRequests();
   const watch = await open(page, 'theme=light&lang=ru', { signedIn: true, me: NEW_USER, sent });
 
@@ -170,10 +172,20 @@ test('новый пользователь: S01 → S02a → S02b → S02c → г
   await page.getByRole('checkbox', { name: /Мне есть 18 лет/ }).click();
   await main(page);
 
-  await expect(page.getByRole('heading', { name: 'Найдём мастера рядом', level: 1 })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: TABS })).toBeVisible();
+  // «Я специалист» — сразу первый шаг мастера профиля с отмеченным типом
+  await expect(
+    page.getByRole('heading', { name: 'Как вы хотите работать?', level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByRole('radio', { name: /^Специалист/ })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
   expect(sent.consents).toEqual([{ terms_version: 'draft-1', privacy_version: 'draft-1' }]);
   expect(sent.writeAccess).toBe(1);
+
+  await pressTelegram(page, 'back_button_pressed');
+  await expect(page.getByRole('heading', { name: 'Найдём мастера рядом', level: 1 })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: TABS })).toBeVisible();
   expect(real(watch.problems)).toEqual([]);
   expect(watch.unexpectedApi).toEqual([]);
 });

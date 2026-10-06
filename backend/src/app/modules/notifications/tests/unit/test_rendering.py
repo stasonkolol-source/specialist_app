@@ -4,6 +4,7 @@
 """
 
 from collections.abc import Mapping
+from typing import cast
 from uuid import UUID
 
 import pytest
@@ -255,7 +256,12 @@ def test_profile_published_says_so_with_a_button(
     _, buttons = renderer.telegram(NotificationType.PROFILE_PUBLISHED, {}, "s_abc", locale)
 
     assert "notifications." not in text
-    assert len(buttons) == 1
+    # профиль — и сразу подписка на заявки: она приводит заявки новому специалисту (UX №9)
+    assert all(isinstance(button, AppButton) for button in buttons)
+    opened, alerts = (cast(AppButton, button) for button in buttons)
+    assert alerts.url == f"{MINI_APP}?startapp=m_alerts"
+    assert "notifications." not in opened.text
+    assert "notifications." not in alerts.text
 
 
 JOB_ID = UUID("01a0fc88-f156-726a-9a76-99e3d10e5542")

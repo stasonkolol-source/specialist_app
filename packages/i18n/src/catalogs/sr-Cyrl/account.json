@@ -42,7 +42,7 @@
     },
     "groupChannel": "{group} — {channel, select, telegram {у боту} other {у апликацији}}",
     "quiet": "Тихи сати {start}–{end}",
-    "quietHint": "Ноћу стижу само поруке и хитни захтеви",
+    "quietHint": "Ноћу — само хитно",
     "goodsLaunch": "Покретање одељка „Ствари“",
     "goodsLaunchHint": "Бот ће писати једном, када се одељак отвори",
     "loading": "Учитавамо подешавања обавештења",

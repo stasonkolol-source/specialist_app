@@ -42,7 +42,7 @@
     },
     "groupChannel": "{group} — {channel, select, telegram {в боте} other {в приложении}}",
     "quiet": "Тихие часы {start}–{end}",
-    "quietHint": "Ночью придут только сообщения и срочные заявки",
+    "quietHint": "Ночью — только срочное",
     "goodsLaunch": "Запуск раздела «Вещи»",
     "goodsLaunchHint": "Бот напишет один раз, когда раздел откроется",
     "loading": "Загружаем настройки уведомлений",

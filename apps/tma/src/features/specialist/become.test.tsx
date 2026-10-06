@@ -89,7 +89,16 @@ describe('S32a–c become a specialist', () => {
     );
     await pressMainButton(telegram);
 
-    await waitFor(() => expect(app.router.state.location.pathname).toBe('/profile'));
+    // итог — кабинет S33: срок, «бот напишет» и одно действие на время ожидания (UX №7)
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/cabinet'));
+    expect(
+      await screen.findByText(
+        'Профиль на проверке, обычно до 30 минут — бот напишет, когда опубликуем',
+      ),
+    ).toBeTruthy();
+    await waitFor(() =>
+      expect(mainButton(telegram)).toMatchObject({ text: 'Добавить фото работ' }),
+    );
     expect(backend.profile).toMatchObject({
       status: 'pending_review',
       district_ids: [DISTRICT_IDS['Лиман']],
@@ -211,7 +220,7 @@ describe('S32a–c become a specialist', () => {
     expect(screen.queryByRole('radiogroup', { name: 'Радиус выезда' })).toBeNull();
     await pressMainButton(telegram);
 
-    await waitFor(() => expect(app.router.state.location.pathname).toBe('/profile'));
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/cabinet'));
     expect(backend.profile).toMatchObject({
       status: 'pending_review',
       work_modes: ['at_own_place'],
@@ -232,7 +241,7 @@ describe('S32a–c become a specialist', () => {
     expect(screen.getByText('Выезжаю во все районы')).toBeTruthy();
     await pressMainButton(telegram);
 
-    await waitFor(() => expect(app.router.state.location.pathname).toBe('/profile'));
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/cabinet'));
     expect(writes(backend)).toEqual(['PUT /me/profile/areas', 'POST /me/profile/submit']);
     expect(backend.profile?.district_ids.toSorted()).toEqual(
       Object.values(DISTRICT_IDS).toSorted(),
@@ -267,7 +276,7 @@ describe('S32a–c become a specialist', () => {
     });
     await pressMainButton(telegram);
 
-    await waitFor(() => expect(app.router.state.location.pathname).toBe('/profile'));
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/cabinet'));
     expect(writes(backend)).toEqual([
       `PATCH /me/profile/services/${FIRST_SERVICE.id}`,
       'POST /me/profile/submit',

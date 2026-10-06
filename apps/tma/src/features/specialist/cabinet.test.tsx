@@ -2,6 +2,7 @@
 // статус и полнота, продолжение черновика, правка только изменённого, районы, проверки полей.
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { HttpResponse, http } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
@@ -11,7 +12,8 @@ import {
   PROFILE_DRAFT,
   PROFILE_FILLED,
 } from '../../testing/fixtures.ts';
-import { profileHandlers, server } from '../../testing/msw.ts';
+import { JobsBackend, alertsFixture, templatesFixture } from '../../testing/jobsBackend.ts';
+import { jobsHandlers, profileHandlers, server } from '../../testing/msw.ts';
 import { ProfileBackend } from '../../testing/profileBackend.ts';
 
 afterEach(() => setSession(null));
@@ -30,6 +32,7 @@ const click = (element: HTMLElement) =>
   });
 
 const PUBLISHED = { ...PROFILE_FILLED, status: 'published' as const };
+const PENDING = 'Профиль на проверке, обычно до 30 минут — бот напишет, когда опубликуем';
 
 describe('S33 cabinet', () => {
   it('shows the status, how complete the profile is and what to add first', async () => {
@@ -57,7 +60,7 @@ describe('S33 cabinet', () => {
         new ProfileBackend({ ...PROFILE_FILLED, status: 'pending_review' }, [FIRST_SERVICE]),
       );
       startApp('/cabinet');
-      expect(await screen.findByText('Профиль на проверке, обычно до 30 минут')).toBeTruthy();
+      expect(await screen.findByText(PENDING)).toBeTruthy();
 
       if (backend.profile) backend.profile = { ...backend.profile, status: 'published' };
       await act(() => vi.advanceTimersByTimeAsync(5_000));
@@ -110,6 +113,99 @@ describe('S33 cabinet', () => {
     const { app } = startApp('/cabinet');
 
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/profile'));
+  });
+
+  // UX №7: после отправки — срок, «бот напишет» и одно действие на время ожидания
+  it('on review: tells how long and who writes, the MainButton adds work photos', async () => {
+    withBackend(
+      new ProfileBackend({ ...PROFILE_FILLED, status: 'pending_review' }, [FIRST_SERVICE]),
+    );
+    const { app, telegram } = startApp('/cabinet');
+
+    expect(await screen.findByText(PENDING)).toBeTruthy();
+    await waitFor(() =>
+      expect(mainButton(telegram)).toMatchObject({
+        is_visible: true,
+        text: 'Добавить фото работ',
+      }),
+    );
+    await pressMainButton(telegram);
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/cabinet/portfolio'));
+  });
+
+  // UX №7: причина отказа — на экране, а не «в уведомлении»; «Исправить» — в мастер
+  it('shows why the moderator returned the profile and fixes it with the MainButton', async () => {
+    withBackend(
+      new ProfileBackend({ ...PROFILE_FILLED, rejection_reason: 'contact_leak' }, [FIRST_SERVICE]),
+    );
+    const { app, telegram } = startApp('/cabinet');
+
+    expect(
+      await screen.findByText(
+        'Нужны правки: контакты в тексте — телефон, ссылки и имя пользователя открываются после договорённости',
+      ),
+    ).toBeTruthy();
+    await waitFor(() =>
+      expect(mainButton(telegram)).toMatchObject({ is_visible: true, text: 'Исправить' }),
+    );
+    await pressMainButton(telegram);
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/become/area'));
+  });
+
+  it('names an unknown or prohibited reason in general words', async () => {
+    withBackend(
+      new ProfileBackend({ ...PROFILE_FILLED, rejection_reason: 'weapons' }, [FIRST_SERVICE]),
+    );
+    startApp('/cabinet');
+    expect(await screen.findByText('Нужны правки: запрещённые товары или услуги')).toBeTruthy();
+  });
+
+  // UX №9: опубликованному — подписка на заявки и шаблон отклика, пока их нет
+  it('shows «Первые шаги» until there are an alert and a template', async () => {
+    withBackend(new ProfileBackend(PUBLISHED, [FIRST_SERVICE]));
+    const jobs = new JobsBackend();
+    server.use(...jobsHandlers(() => jobs));
+    const { app } = startApp('/cabinet');
+
+    const steps = await screen.findByRole('region', { name: 'Первые шаги' });
+    expect(steps.textContent).toContain('Подпишитесь на заявки');
+    expect(steps.textContent).toContain('Сохраните шаблон отклика');
+    await click(screen.getByRole('link', { name: /Подпишитесь на заявки/ }));
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs/alerts/new'));
+  });
+
+  it('hides a done step and the whole block when both are done', async () => {
+    withBackend(new ProfileBackend(PUBLISHED, [FIRST_SERVICE]));
+    const jobs = new JobsBackend();
+    jobs.alerts = alertsFixture();
+    server.use(...jobsHandlers(() => jobs));
+    startApp('/cabinet');
+
+    const steps = await screen.findByRole('region', { name: 'Первые шаги' });
+    expect(steps.textContent).not.toContain('Подпишитесь на заявки');
+    expect(steps.textContent).toContain('Сохраните шаблон отклика');
+  });
+
+  it('has no «Первые шаги» once the alert and the template exist', async () => {
+    withBackend(new ProfileBackend(PUBLISHED, [FIRST_SERVICE]));
+    let served = 0;
+    server.use(
+      http.get('*/api/v1/me/job-alerts', () => {
+        served += 1;
+        return HttpResponse.json({ items: alertsFixture(), limit: 10 });
+      }),
+      http.get('*/api/v1/me/response-templates', () => {
+        served += 1;
+        return HttpResponse.json({ items: templatesFixture(), limit: 2 });
+      }),
+    );
+    startApp('/cabinet');
+
+    await screen.findByText('Профиль опубликован и виден в поиске');
+    // оба списка пришли — блока нет
+    await waitFor(() => expect(served).toBe(2));
+    await act(async () => {});
+    expect(screen.queryByRole('region', { name: 'Первые шаги' })).toBeNull();
   });
 });
 

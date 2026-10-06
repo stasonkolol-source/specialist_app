@@ -1,16 +1,24 @@
 // S17 Мои отклики (DEVELOPMENT_PLAN 5.5): сегмент вкладки «Заявки». Чипы «Все / Активные / Выбран
-// / Не выбран / Архив» с числами (чип — в адресе, переживает «Назад»), «Сегодня откликов: 3 из 50 —
-// лимит по уровню доверия», карточки новыми первыми: выбран — «Вас выбрали», ждёт решения —
-// состояние, «На проверке» (клиент ещё не видит), «Первый отклик», места, «Открыть заявку»,
-// «Изменить» (S16) и «Отозвать отклик» с подтверждением; не выбран и отозван — приглушённо, со
-// временем решения. Иконка справа от заголовка — шаблоны S57. Отправленный с S16 — «клиент увидит
-// его после проверки». Выбранного ждёт сделка: «Вас выбрали. Адрес и время — в сделке», главная
-// кнопка — «Открыть сделку» (пока сделки грузятся — в загрузке), «Открыть заявку» — вторая.
-import type { MyResponseOut, ResponseGroup, ResponseStatus } from '@sosed/api-client';
+// / Не выбран / Архив» с числами (чип — в адресе, переживает «Назад»), карточки новыми первыми. У
+// карточки один статус словами исполнителя (UX №10): «Ждёт решения клиента», «На проверке» (только
+// пока проверка правда идёт), «Не прошёл проверку», «Срок заявки истёк», «Вас выбрали. Адрес и время
+// — в сделке», «Выполнено», «Выбрали другого», «Заявка закрыта без выбора», «Клиент отклонил», «Вы
+// отозвали» — и одна кнопка: выбранному — «Открыть сделку» (пока сделки грузятся — в загрузке, не
+// нашлась — «Открыть заявку»), ждущему решения — «Открыть заявку»; «Изменить отклик» и «Отозвать»
+// живут на S15 → S16. Квота дня — только у предела (осталось не больше 20 %). Отправленный с S16 —
+// что подтвердил сервер: пока автопроверка не ответила, список перечитывается (UX №1). Иконка справа
+// от заголовка — шаблоны S57.
+import type {
+  JobStatus,
+  MyResponseOut,
+  ResponseGroup,
+  ResponseStatus,
+  TodayOut,
+} from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
-import { myResponseItems, useMyDeals, useMyResponses, useWithdrawResponse } from '@sosed/hooks';
+import { myResponseItems, useMyDeals, useMyResponses } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
-import { usePlatform } from '@sosed/platform';
+import type { BadgeTone } from '@sosed/ui-web';
 import {
   Badge,
   Banner,
@@ -22,7 +30,6 @@ import {
   Heading,
   Icon,
   IconButton,
-  LinkButton,
   Price,
   ChipSkeleton,
   Skeleton,
@@ -31,14 +38,14 @@ import {
   Text,
 } from '@sosed/ui-web';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useId } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 import { JobsSegments } from '../shared/JobsSegments.tsx';
 import { LoadError } from '../shared/LoadError.tsx';
 import { MiniSlots } from '../shared/MiniSlots.tsx';
 import { useDistrictName, useOfferPrice } from '../shared/labels.ts';
 import type { ResponsesSearch } from '../shared/paths.ts';
-import { JOBS_PATHS, dealPath, jobPath, respondPath } from '../shared/paths.ts';
+import { JOBS_PATHS, dealPath, jobPath } from '../shared/paths.ts';
 
 const GROUPS: readonly (ResponseGroup | null)[] = [
   null,
@@ -48,6 +55,85 @@ const GROUPS: readonly (ResponseGroup | null)[] = [
   'archive',
 ];
 const ACTIVE: ReadonlySet<ResponseStatus> = new Set(['submitted', 'viewed', 'shortlisted']);
+/** Заявка закрыта клиентом или снята модерацией — выбора не было (MU-11). */
+const CLOSED_JOB: ReadonlySet<JobStatus> = new Set(['closed', 'removed']);
+
+/** Исход отклика — одно слово на состояние, как в боте (словарь статусов UX_GUIDANCE). */
+type Outcome =
+  | 'waiting'
+  | 'pending'
+  | 'blocked'
+  | 'expired'
+  | 'accepted'
+  | 'completed'
+  | 'not_selected'
+  | 'job_closed'
+  | 'declined'
+  | 'withdrawn';
+
+function outcomeOf({ status, review, job }: MyResponseOut): Outcome {
+  if (ACTIVE.has(status)) {
+    if (review === 'blocked') return 'blocked';
+    if (review === 'pending') return 'pending';
+    return job.status === 'expired' ? 'expired' : 'waiting';
+  }
+  if (status === 'accepted') return job.status === 'completed' ? 'completed' : 'accepted';
+  if (status === 'not_selected') return CLOSED_JOB.has(job.status) ? 'job_closed' : 'not_selected';
+  return status === 'declined' ? 'declined' : 'withdrawn';
+}
+
+const TONES: Record<Outcome, BadgeTone> = {
+  waiting: 'info',
+  pending: 'urgent',
+  blocked: 'danger',
+  expired: 'mute',
+  accepted: 'ok',
+  completed: 'ok',
+  not_selected: 'mute',
+  job_closed: 'mute',
+  declined: 'mute',
+  withdrawn: 'mute',
+};
+/** Решено клиентом или исполнителем — со временем решения. */
+const DECIDED: ReadonlySet<Outcome> = new Set([
+  'not_selected',
+  'job_closed',
+  'declined',
+  'withdrawn',
+]);
+
+/** Квота дня — только у предела: осталось не больше 20 % (UX, принцип 7). */
+const QUOTA_NEAR = 0.2;
+const leftToday = (today: TodayOut) => Math.max(today.limit - today.used, 0);
+const nearLimit = (today: TodayOut) => leftToday(today) <= today.limit * QUOTA_NEAR;
+
+/** Пока автопроверка только что отправленного не ответила — перечитываем каждые 2,5 с, не дольше
+ *  30 с; дальше честно «после проверки» (UX, принцип 1). */
+const SENT_POLL_MS = 2_500;
+const SENT_POLL_LIMIT_MS = 30_000;
+
+/** Отправленный с S16 — последний изменённый из ждущих решения: новый или только что поправленный. */
+function latest(items: readonly MyResponseOut[]): MyResponseOut | undefined {
+  return items
+    .filter((item) => ACTIVE.has(item.status))
+    .reduce<MyResponseOut | undefined>(
+      (best, item) => (!best || item.updated_at > best.updated_at ? item : best),
+      undefined,
+    );
+}
+
+function useSentPolling(checking: boolean, refetch: () => Promise<unknown>) {
+  const [polling, setPolling] = useState(true);
+  useEffect(() => {
+    const stop = setTimeout(() => setPolling(false), SENT_POLL_LIMIT_MS);
+    return () => clearTimeout(stop);
+  }, []);
+  useEffect(() => {
+    if (!polling || !checking) return;
+    const timer = setInterval(() => void refetch(), SENT_POLL_MS);
+    return () => clearInterval(timer);
+  }, [polling, checking, refetch]);
+}
 
 export function MyResponsesScreen() {
   const { t } = useTranslation('jobs');
@@ -99,9 +185,10 @@ function Responses({
 }) {
   const { t } = useTranslation('jobs');
   const list = useMyResponses(group);
-  const withdraw = useWithdrawResponse();
   const first = list.data?.pages[0];
   const items = myResponseItems(list.data);
+  const fresh = sent ? latest(items) : undefined;
+  useSentPolling(fresh?.review === 'pending', list.refetch);
 
   if (list.isError && !list.data) {
     return (
@@ -127,31 +214,24 @@ function Responses({
           })}
         </Chips>
       )}
-      {first && (
+      {first && nearLimit(first.today) && (
         <p className="m-0 flex items-center gap-1.5 text-cap text-text2">
           <Icon name="info" size={16} className="shrink-0" />
-          {t('responses.today', { used: first.today.used, limit: first.today.limit })}
+          {t('responses.today', { left: leftToday(first.today) })}
         </p>
       )}
-      {/* чипы групп с числами и лимит дня — из первой страницы: до неё их место держат скелетоны */}
+      {/* чипы групп с числами — из первой страницы: до неё их место держат скелетоны */}
       {!list.data && (
-        <>
-          <div aria-hidden="true" className="flex gap-2 overflow-hidden">
-            {GROUPS.map((item) => (
-              <ChipSkeleton key={item ?? 'all'} className="w-24" />
-            ))}
-          </div>
-          <SkeletonText size="cap" screen className="w-1/2" />
-        </>
+        <div aria-hidden="true" className="flex gap-2 overflow-hidden">
+          {GROUPS.map((item) => (
+            <ChipSkeleton key={item ?? 'all'} className="w-24" />
+          ))}
+        </div>
       )}
-      {sent && (
+      {/* скрытый модератором сразу — об этом скажет его карточка, «отправлен» был бы неправдой */}
+      {fresh && fresh.review !== 'blocked' && (
         <Banner tone="ok" role="status">
-          {t('responses.sent')}
-        </Banner>
-      )}
-      {withdraw.isError && (
-        <Banner tone="danger" role="alert">
-          {t('responses.withdrawError')}
+          {t(fresh.review === 'pending' ? 'responses.sentPending' : 'responses.sent')}
         </Banner>
       )}
       {!list.data ? (
@@ -164,14 +244,7 @@ function Responses({
       ) : (
         <>
           {items.map((response) => (
-            <ResponseCard
-              key={response.id}
-              response={response}
-              withdrawing={withdraw.isPending && withdraw.variables?.responseId === response.id}
-              onWithdraw={() =>
-                withdraw.mutate({ jobId: response.job.id, responseId: response.id })
-              }
-            />
+            <ResponseCard key={response.id} response={response} />
           ))}
           {list.hasNextPage && (
             <Button
@@ -205,72 +278,50 @@ function ResponseCardSkeleton() {
   );
 }
 
-function ResponseCard({
-  response,
-  withdrawing,
-  onWithdraw,
-}: {
-  response: MyResponseOut;
-  withdrawing: boolean;
-  onWithdraw: () => void;
-}) {
+function ResponseCard({ response }: { response: MyResponseOut }) {
   const { t } = useTranslation('jobs');
   const format = useFormat();
-  const platform = usePlatform();
   const navigate = useNavigate();
   const offerPrice = useOfferPrice();
   const place = useDistrictName(response.job.city_id, response.job.district_id);
   const titleId = useId();
-  const { status, job } = response;
-  const active = ACTIVE.has(status);
-  const accepted = status === 'accepted';
-  // «не выбран» на закрытой заявке — клиент закрыл или удалил её, а не выбрал другого (MU-11)
-  const state = accepted
-    ? t('responses.acceptedTitle')
-    : status === 'not_selected' && job.status === 'closed'
-      ? t('responses.state.job_closed')
-      : t(`responses.state.${status}`);
+  const { job } = response;
+  const outcome = outcomeOf(response);
+  const state = t(`responses.outcome.${outcome}`);
+  const waiting = ACTIVE.has(response.status) && outcome !== 'expired';
+  const accepted = response.status === 'accepted';
+  // ждёт решения или выбран — яркая карточка; остальные исходы — приглушённо
+  const live = waiting || outcome === 'accepted';
   const price = offerPrice(response.price);
   const when = response.availability_note;
   const decided = response.decided_at ?? response.updated_at;
   const deals = useMyDeals({ role: 'performer' });
   const deal = accepted ? deals.data?.items.find((item) => item.response_id === response.id) : null;
-  // у выбранного главная — сделка: пока список сделок грузится, кнопка ждёт на своём месте; сделки
-  // не нашлось (не загрузилась) — главной становится «Открыть заявку»
+  // у выбранного кнопка — сделка: пока список сделок грузится, она ждёт на своём месте; сделки не
+  // нашлось (не загрузилась) — вместо неё «Открыть заявку»
   const dealButton = accepted && (deal !== undefined || deals.isPending);
-
-  const confirmWithdraw = async () => {
-    if (await platform.confirm(t('responses.withdrawConfirm'))) onWithdraw();
-  };
 
   return (
     <Card as="article" tight aria-label={t('responses.card', { title: job.title, state })}>
-      {accepted && (
+      {outcome === 'accepted' ? (
         <Banner tone="ok">
           <b>{t('responses.acceptedLead')}</b> {t('responses.acceptedText')}
         </Banner>
-      )}
-      {active && (
-        <div className="flex flex-wrap gap-1.5">
-          <Badge tone="info">{state}</Badge>
-          {response.review === 'pending' && <Badge tone="urgent">{t('responses.pending')}</Badge>}
-          {response.review === 'blocked' && <Badge tone="danger">{t('responses.blocked')}</Badge>}
-          {response.is_first && <Badge>{t('responses.first')}</Badge>}
-        </div>
-      )}
-      {!active && !accepted && (
+      ) : (
         <div className="flex items-center justify-between gap-3">
-          <Badge>{state}</Badge>
-          <Text as="span" variant="cap">
-            {format.relative(new Date(decided))}
-          </Text>
+          <Badge tone={TONES[outcome]}>{state}</Badge>
+          {DECIDED.has(outcome) && (
+            <Text as="span" variant="cap">
+              {format.relative(new Date(decided))}
+            </Text>
+          )}
         </div>
       )}
       <div className="flex items-start justify-between gap-3">
-        <h2 id={titleId} className={`m-0 text-title ${active || accepted ? '' : 'text-text2'}`}>
+        <h2 id={titleId} className={`m-0 text-title ${live ? '' : 'text-text2'}`}>
           {job.title}
         </h2>
-        <Price className={active || accepted ? undefined : 'text-text2'}>{price}</Price>
+        <Price className={live ? undefined : 'text-text2'}>{price}</Price>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
         <span className="flex min-w-0 items-center gap-1.5 text-cap text-text2">
@@ -278,51 +329,31 @@ function ResponseCard({
           {/* у выбранного — и «когда смогу», как договорились; у остальных — только район */}
           <span>{[place, accepted ? when : null].filter(Boolean).join(' · ')}</span>
         </span>
-        {active && <MiniSlots job={job} />}
+        {waiting && <MiniSlots job={job} />}
       </div>
-      {(active || accepted) && (
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          {dealButton && (
-            <Button
-              size="sm"
-              aria-describedby={titleId}
-              disabled={!deal}
-              aria-busy={!deal}
-              onClick={() => deal && void navigate({ to: dealPath(deal.id) })}
-            >
-              {t('responses.openDeal')}
-            </Button>
-          )}
+      {dealButton ? (
+        <Button
+          size="sm"
+          className="mt-1 self-start"
+          aria-describedby={titleId}
+          disabled={!deal}
+          aria-busy={!deal}
+          onClick={() => deal && void navigate({ to: dealPath(deal.id) })}
+        >
+          {t('responses.openDeal')}
+        </Button>
+      ) : (
+        (ACTIVE.has(response.status) || accepted) && (
           <Button
-            variant={accepted && !dealButton ? 'primary' : 'outline'}
+            variant={accepted ? 'primary' : 'outline'}
             size="sm"
+            className="mt-1 self-start"
             aria-describedby={titleId}
             onClick={() => void navigate({ to: jobPath(job.id) })}
           >
             {t('responses.open')}
           </Button>
-          {active && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                aria-describedby={titleId}
-                onClick={() => void navigate({ to: respondPath(job.id) })}
-              >
-                {t('responses.edit')}
-              </Button>
-              <LinkButton
-                danger
-                aria-describedby={titleId}
-                disabled={withdrawing}
-                aria-busy={withdrawing}
-                onClick={() => void confirmWithdraw()}
-              >
-                {t('responses.withdraw')}
-              </LinkButton>
-            </>
-          )}
-        </div>
+        )
       )}
     </Card>
   );

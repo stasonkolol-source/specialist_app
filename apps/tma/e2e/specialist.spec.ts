@@ -1,5 +1,5 @@
 // Мастер «Стать специалистом» S32a–c и вход с S31 (DEVELOPMENT_PLAN 2.9): путь от «профиля нет» до
-// «на проверке» на фейке backend кабинета, скриншоты каждого шага × тема × язык (поля заполнены,
+// кабинета S33 «на проверке» на фейке backend кабинета, скриншоты каждого шага × тема × язык (поля заполнены,
 // как на артбордах), axe-core. Имена скриншотов начинаются с кода артборда: make design-compare
 // кладёт их рядом с эталоном. MainButton и BackButton — нативные кнопки клиента Telegram (в DOM
 // их нет): нажимаем событием клиента, их тексты проверяют unit-тесты (become.test.tsx).
@@ -33,7 +33,7 @@ const LOCALES = [
     wholeCity: /^Весь\sНови-Сад/,
     service: 'Первая позиция прайса',
     price: 'Цена в динарах',
-    review: 'На проверке',
+    sent: /Профиль\sна\sпроверке,\sобычно\sдо\s30\sминут\s—\sбот\sнапишет/,
   },
   {
     locale: 'sr-Latn',
@@ -50,7 +50,7 @@ const LOCALES = [
     wholeCity: /^Ceo\sNovi\sSad/,
     service: 'Prva stavka cenovnika',
     price: 'Cena u dinarima',
-    review: 'Na proveri',
+    sent: /Profil\sje\sna\sproveri,\sobično\sdo\s30\sminuta\s—\sbot/,
   },
 ] as const;
 
@@ -115,12 +115,12 @@ for (const theme of THEMES) {
       await snap(`S32c-become-area-prices-${theme}-${l.locale}.png`);
       await main(page);
 
-      // S31: карточка кабинета со статусом «На проверке»
-      await expect(page.getByText(l.review, { exact: true })).toBeVisible();
+      // итог — кабинет S33: срок, «бот напишет» и одно действие на время ожидания (UX №7)
+      await expect(page.getByText(l.sent)).toBeVisible();
       expect(profile.profile?.status).toBe('pending_review');
       expect(profile.profile?.district_ids).toHaveLength(8);
       expect(profile.services).toHaveLength(1);
-      await snap(`S31-account-review-${theme}-${l.locale}.png`);
+      await snap(`S33-cabinet-review-${theme}-${l.locale}.png`);
     });
   }
 }

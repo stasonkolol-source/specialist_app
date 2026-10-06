@@ -81,9 +81,26 @@ describe('S15 respond button', () => {
     expect(mainButton(telegram)?.is_active).toBe(false);
   });
 
-  it('leads to my responses after responding', async () => {
+  // UX №10: «Изменить» и «Отозвать» ушли с карточки S17 — свой ждущий решения отклик правят отсюда
+  it('edits my waiting response from the MainButton', async () => {
     withJobs((backend) => {
       backend.responses = myResponsesFixture();
+    });
+    const { app, telegram } = startApp(`/jobs/${WARDROBE.card.id}`);
+
+    await waitFor(() => expect(mainButton(telegram)?.text).toBe('Изменить отклик'));
+    await pressMainButton(telegram);
+
+    await waitFor(() =>
+      expect(app.router.state.location.pathname).toBe(`/jobs/${WARDROBE.card.id}/respond`),
+    );
+  });
+
+  it('leads to my responses after a decided response', async () => {
+    withJobs((backend) => {
+      backend.responses = myResponsesFixture().map((item) =>
+        item.job.id === WARDROBE.card.id ? { ...item, status: 'declined' as const } : item,
+      );
     });
     const { app, telegram } = startApp(`/jobs/${WARDROBE.card.id}`);
 
@@ -148,11 +165,14 @@ describe('S16 respond', () => {
       template_id: '0199dd20-0000-7000-8000-000000000001',
     });
     expect(
-      await screen.findByText('Отклик отправлен — клиент увидит его после проверки'),
+      await screen.findByText(
+        'Отклик отправлен. Клиент увидит его после проверки — обычно это несколько минут.',
+      ),
     ).toBeTruthy();
+    // проверка ещё идёт (фейк не проверяет сам) — один статус «На проверке», без второго чипа
     const card = await screen.findByRole('article', { name: /Помочь с переездом/ });
     expect(within(card).getByText('На проверке')).toBeTruthy();
-    expect(within(card).getByText('Ждёт решения клиента')).toBeTruthy();
+    expect(within(card).queryByText('Ждёт решения клиента')).toBeNull();
   });
 
   it('checks the fields, then sends a changed offer and saves it as a template', async () => {
@@ -258,6 +278,22 @@ describe('S16 respond', () => {
     expect(backend.responses).toHaveLength(0);
   });
 
+  it('withdraws my waiting response after confirmation', async () => {
+    const backend = withJobs((it) => {
+      it.responses = myResponsesFixture();
+    });
+    const { app } = startApp(`/jobs/${WARDROBE.card.id}/respond`, { popupAnswer: 'ok' });
+
+    await click(await screen.findByRole('button', { name: 'Отозвать отклик' }));
+
+    await waitFor(() =>
+      expect(backend.responses.find((item) => item.job.id === WARDROBE.card.id)?.status).toBe(
+        'withdrawn',
+      ),
+    );
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/jobs/responses'));
+  });
+
   it('edits my active response in place', async () => {
     const backend = withJobs((it) => {
       it.responses = myResponsesFixture();
@@ -324,18 +360,58 @@ describe('S17 my responses', () => {
         .getAllByRole('button')
         .map((chip) => chip.textContent),
     ).toEqual(['Все 3', 'Активные 1', 'Выбран 1', 'Не выбран 1', 'Архив']);
-    expect(screen.getByText('Сегодня откликов: 3 из 10 — лимит по уровню доверия')).toBeTruthy();
+    // до лимита далеко (3 из 10) — квоты на экране нет
+    expect(screen.queryByText(/на сегодня/)).toBeNull();
     const chosen = screen.getByRole('article', { name: /Повесить люстру.*Вас выбрали/ });
     expect(within(chosen).getByText('Вас выбрали.')).toBeTruthy();
     expect(within(chosen).getByText('Адрес и время — в сделке')).toBeTruthy();
     expect(within(chosen).getByText(/^3\s500\sRSD$/u)).toBeTruthy();
+    // один статус и одна кнопка: «Первый отклик» — сигнал клиенту, «Изменить» и «Отозвать» — на S16
     const waiting = screen.getByRole('article', { name: /Собрать шкаф/ });
     expect(within(waiting).getByText('Ждёт решения клиента')).toBeTruthy();
-    expect(within(waiting).getByText('Первый отклик')).toBeTruthy();
+    expect(within(waiting).queryByText('Первый отклик')).toBeNull();
     expect(within(waiting).getByText('откликов 1 из 5')).toBeTruthy();
+    expect(
+      within(waiting)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['Открыть заявку']);
     const other = screen.getByRole('article', { name: /Течёт смеситель/ });
-    expect(within(other).getByText('Клиент выбрал другого')).toBeTruthy();
+    expect(within(other).getByText('Выбрали другого')).toBeTruthy();
     expect(within(other).queryByRole('button')).toBeNull();
+  });
+
+  it('shows the daily quota only near the limit', async () => {
+    withJobs((it) => {
+      it.responses = myResponsesFixture();
+      it.respondedToday = 8;
+    });
+    startApp('/jobs/responses');
+
+    expect(await screen.findByText('Осталось 2 отклика на сегодня')).toBeTruthy();
+  });
+
+  // UX №10: честные исходы вместо «ждёт решения» и «выбрал другого» на все случаи
+  it('names every outcome in the performer words', async () => {
+    const [accepted, waiting, other] = myResponsesFixture();
+    if (!accepted || !waiting || !other) throw new Error('fixtures');
+    withJobs((it) => {
+      it.responses = [
+        { ...accepted, job: { ...accepted.job, status: 'completed' } },
+        { ...waiting, job: { ...waiting.job, status: 'expired' } },
+        { ...other, status: 'declined' },
+        { ...other, id: `${other.id.slice(0, -1)}4`, review: 'blocked', status: 'submitted' },
+        { ...other, id: `${other.id.slice(0, -1)}5`, review: 'pending', status: 'viewed' },
+      ];
+    });
+    startApp('/jobs/responses');
+
+    const done = await screen.findByRole('article', { name: /Повесить люстру.*Выполнено/ });
+    expect(within(done).queryByText('Адрес и время — в сделке')).toBeNull();
+    expect(screen.getByRole('article', { name: /Собрать шкаф.*Срок заявки истёк/ })).toBeTruthy();
+    expect(screen.getByRole('article', { name: /смеситель.*Клиент отклонил/ })).toBeTruthy();
+    expect(screen.getByRole('article', { name: /смеситель.*Не прошёл проверку/ })).toBeTruthy();
+    expect(screen.getByRole('article', { name: /смеситель.*На проверке/ })).toBeTruthy();
   });
 
   it('says the job was closed, not that another performer was chosen', async () => {
@@ -347,8 +423,8 @@ describe('S17 my responses', () => {
     startApp('/jobs/responses');
 
     const closed = await screen.findByRole('article', { name: /Течёт смеситель/ });
-    expect(within(closed).getByText('Заявка закрыта')).toBeTruthy();
-    expect(within(closed).queryByText('Клиент выбрал другого')).toBeNull();
+    expect(within(closed).getByText('Заявка закрыта без выбора')).toBeTruthy();
+    expect(within(closed).queryByText('Выбрали другого')).toBeNull();
   });
 
   it('leads the chosen performer to the deal: «Открыть сделку» is the main button', async () => {
@@ -379,13 +455,11 @@ describe('S17 my responses', () => {
     const { app } = startApp('/jobs/responses');
     const chosen = await screen.findByRole('article', { name: /Повесить люстру.*Вас выбрали/ });
 
-    // сделки ещё грузятся: главная кнопка уже на месте и ждёт, «Открыть заявку» — вторая
+    // сделки ещё грузятся: кнопка уже на месте и ждёт; других кнопок у карточки нет
     const toDeal = within(chosen).getByRole('button', { name: 'Открыть сделку' });
     expect(toDeal).toHaveProperty('disabled', true);
     expect(toDeal.getAttribute('aria-busy')).toBe('true');
-    expect(within(chosen).getByRole('button', { name: 'Открыть заявку' }).className).toContain(
-      'border-line',
-    );
+    expect(within(chosen).getAllByRole('button')).toHaveLength(1);
 
     release?.();
     await waitFor(() => expect(toDeal).toHaveProperty('disabled', false));
@@ -409,11 +483,11 @@ describe('S17 my responses', () => {
     );
   });
 
-  it('filters by chip and withdraws after confirmation', async () => {
-    const backend = withJobs((it) => {
+  it('filters by chip and opens the job from the card', async () => {
+    withJobs((it) => {
       it.responses = myResponsesFixture();
     });
-    const { app } = startApp('/jobs/responses', { popupAnswer: 'ok' });
+    const { app } = startApp('/jobs/responses');
     const chips = await screen.findByRole('group', { name: 'Статус отклика' });
 
     await click(within(chips).getByRole('button', { name: 'Активные 1' }));
@@ -424,14 +498,38 @@ describe('S17 my responses', () => {
     );
     const waiting = screen.getByRole('article', { name: /Собрать шкаф/ });
 
-    await click(within(waiting).getByRole('button', { name: 'Отозвать отклик' }));
-
+    await click(within(waiting).getByRole('button', { name: 'Открыть заявку' }));
     await waitFor(() =>
-      expect(backend.responses.find((item) => item.job.id === WARDROBE.card.id)?.status).toBe(
-        'withdrawn',
-      ),
+      expect(app.router.state.location.pathname).toBe(`/jobs/${WARDROBE.card.id}`),
     );
-    expect(await screen.findByText('Здесь пока пусто')).toBeTruthy();
+  });
+
+  // UX №1: после отправки — то, что подтвердил сервер; автопроверка ответила — «бот напишет»
+  it('re-reads a just sent response until the check is done', async () => {
+    withJobs((it) => {
+      it.responses = myResponsesFixture().map((item) =>
+        item.job.id === WARDROBE.card.id
+          ? { ...item, review: 'pending' as const, updated_at: new Date(E2E_NOW).toISOString() }
+          : item,
+      );
+      it.autoCheck = true;
+    });
+    startApp('/jobs/responses?sent=true');
+
+    expect(
+      await screen.findByText(
+        'Отклик отправлен. Клиент увидит его после проверки — обычно это несколько минут.',
+      ),
+    ).toBeTruthy();
+    expect(
+      await screen.findByText(
+        'Отклик отправлен. Если клиент выберет вас — бот напишет.',
+        {},
+        { timeout: 4_000 },
+      ),
+    ).toBeTruthy();
+    const waiting = screen.getByRole('article', { name: /Собрать шкаф/ });
+    expect(within(waiting).getByText('Ждёт решения клиента')).toBeTruthy();
   });
 
   it('invites to the feed when there are no responses', async () => {

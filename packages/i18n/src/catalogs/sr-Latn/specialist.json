@@ -25,7 +25,7 @@
       },
       "casualMark": "Honorarno",
       "casualMarkNote": "— oznaka pored imena",
-      "casualFree": "Honorarni profil je uvek besplatan. Podrazumevano se ne prikazuje u katalogu — javljate se na zahteve iz liste.",
+      "casualFree": "Profil i ponude su besplatni. Honorarni profil se podrazumevano ne prikazuje u katalogu — javljate se na zahteve iz liste.",
       "needsTitle": "Šta će vam trebati",
       "needs1": "Kategorije i par reči o sebi",
       "needs2": "Delovi grada i bar jedna cena"
@@ -121,14 +121,25 @@
     "state": {
       "published": "Profil je objavljen i vidljiv u pretrazi",
       "publishedUnlisted": "Profil je objavljen, ali se ne prikazuje u katalogu",
-      "pending_review": "Profil je na proveri, obično do 30 minuta",
+      "pending_review": "Profil je na proveri, obično do 30 minuta — bot će vam javiti kada ga objavimo",
       "draft": "Nacrt, ostalo je još nekoliko koraka",
-      "rejected": "Potrebne su ispravke. Razlog je u obaveštenju",
+      "rejected": "Potrebne su ispravke: {reason}",
       "hidden": "Profil je skriven, klijenti ga ne vide",
       "suspended": "Profil je obustavila moderacija"
     },
     "continue": "Nastavite popunjavanje",
     "fix": "Ispravite",
+    "addPhotos": "Dodajte fotografije radova",
+    "reason": {
+      "prepayment_scam": "traženje plaćanja unapred — čest trik prevaranta",
+      "off_platform_payment": "predlog plaćanja ili prepiske mimo aplikacije „Sosedi“",
+      "mule_recruitment": "vrbovanje ljudi za prenos tuđeg novca ili paketa",
+      "prohibited": "zabranjena roba ili usluge",
+      "contact_leak": "kontakti u tekstu — telefon, linkovi i korisničko ime vide se nakon dogovora",
+      "spam_ad": "reklama ili spam",
+      "vacancy": "oglasi za posao se ovde ne objavljuju",
+      "other": "kršenje pravila platforme"
+    },
     "filled": "Profil je popunjen {percent}%",
     "filledLabel": "Popunjenost profila",
     "complete": "Profil je potpuno popunjen",
@@ -138,6 +149,11 @@
     "availabilityValue": "danas do {time}",
     "availabilityOff": "isključeno",
     "viewAsClient": "Pogledaj kao klijent",
+    "steps": "Prvi koraci",
+    "stepAlerts": "Pretplatite se na zahteve",
+    "stepAlertsText": "Bot će slati nove u blizini",
+    "stepTemplate": "Sačuvajte šablon ponude",
+    "stepTemplateText": "Šaljite ponudu jednim dodirom iz bota",
     "hint": {
       "category_ids": "Izaberite kategorije usluga",
       "headline": "Napišite ukratko o sebi",
