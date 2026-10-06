@@ -1,7 +1,7 @@
 // «Пригласите специалистов» (DEVELOPMENT_PLAN 5.6): подходящие по категории и городу заявки из
 // каталога — фото, имя, рейтинг или «Новый специалист», район; «Пригласить» — им уведомление с
-// «Откликнуться шаблоном», приглашённым — «Приглашён». Своя опубликованная заявка: S21 и шторка
-// S23.
+// «Откликнуться шаблоном», приглашённым — «Приглашён». Своя опубликованная заявка: S21 — три
+// первых, как на артборде (экран результата не перегружен), шторка S23 — все подходящие.
 import type { JobOut, SpecialistCardOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import {
@@ -18,7 +18,7 @@ import { performerPlace, useWholeCity } from './labels.ts';
 /** Сколько подходящих показать: больше десяти в заявку не пригласить. */
 const SUGGESTIONS = 10;
 
-export function InviteList({ job }: { job: JobOut }) {
+export function InviteList({ job, shown = SUGGESTIONS }: { job: JobOut; shown?: number }) {
   const { t } = useTranslation('jobs');
   const { t: common } = useTranslation();
   const format = useFormat();
@@ -31,7 +31,7 @@ export function InviteList({ job }: { job: JobOut }) {
   const invites = useJobInvites(job.id);
   const invite = useInviteSpecialists();
   const invited = new Set(invites.data?.items.map((item) => item.profile_id) ?? []);
-  const found = resultItems(search.data).slice(0, SUGGESTIONS);
+  const found = resultItems(search.data).slice(0, shown);
   const limit = invites.data?.limit ?? SUGGESTIONS;
   const full = invited.size >= limit;
   const failure = invite.error;

@@ -54,12 +54,13 @@ from app.modules.search.http.schemas import (
     SpecialistPageOut,
     SuggestOut,
 )
+from app.platform.http.fields import BIGINT_MAX, INT4_MAX, DistrictIdIn
 from app.platform.http.pagination import PageParams
 from app.platform.http.ratelimit import GuestOrUserRateLimit
 from app.platform.http.security import AUTHENTICATED, optional_principal
 from app.platform.kernel.errors import DomainValidationError
 from app.platform.kernel.geo import GeoPoint
-from app.platform.kernel.ids import CategoryId, CityId, DistrictId
+from app.platform.kernel.ids import CategoryId, CityId
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Principal
 from app.platform.ratelimit import Rate
@@ -74,6 +75,9 @@ COUNTS_MAX_AGE = 300
 METERS_IN_KM = 1000
 MAX_LISTED = 20
 """Районов, языков, форматов в одном фильтре — больше в шторке не выбрать."""
+SpokenLanguage = Literal["ru", "sr", "en", "uk"]
+"""Языки профиля (specialists `Language`): другой код, в том числе с NUL, — 422, а не 500 из
+базы."""
 
 log = structlog.get_logger(__name__)
 router = APIRouter(tags=["search"])
@@ -85,19 +89,23 @@ suggest_limit = [Depends(GuestOrUserRateLimit(guest=SUGGEST_GUEST, user=SUGGEST_
 
 def specialist_filters(
     *,
-    city_id: Annotated[CityId, Query(ge=1, description="Город выдачи")],
-    category_id: Annotated[CategoryId | None, Query(ge=1, description="С подкатегориями")] = None,
-    district_ids: Annotated[list[DistrictId] | None, Query(max_length=MAX_LISTED)] = None,
+    city_id: Annotated[CityId, Query(ge=1, le=INT4_MAX, description="Город выдачи")],
+    category_id: Annotated[
+        CategoryId | None, Query(ge=1, le=INT4_MAX, description="С подкатегориями")
+    ] = None,
+    district_ids: Annotated[list[DistrictIdIn] | None, Query(max_length=MAX_LISTED)] = None,
     lat: Annotated[float | None, Query(ge=-90, le=90, description="Точка клиента")] = None,
     lon: Annotated[float | None, Query(ge=-180, le=180)] = None,
     radius_km: Annotated[int | None, Query(ge=1, le=50, description="Нужна точка")] = None,
     travels_to_me: Annotated[
         bool, Query(description="Выезжает к точке клиента (его радиус выезда)")
     ] = False,
-    price_max: Annotated[int | None, Query(ge=0, description="Цена «до», пара")] = None,
+    price_max: Annotated[
+        int | None, Query(ge=0, le=BIGINT_MAX, description="Цена «до», пара")
+    ] = None,
     rating_min: Annotated[float | None, Query(ge=1, le=5)] = None,
     languages: Annotated[
-        list[str] | None, Query(max_length=MAX_LISTED, description="ru, sr, en, uk")
+        list[SpokenLanguage] | None, Query(max_length=MAX_LISTED, description="ru, sr, en, uk")
     ] = None,
     work_modes: Annotated[
         list[Literal["at_client", "at_own_place", "remote"]] | None,
@@ -217,7 +225,7 @@ async def count_by_category(
     *,
     response: Response,
     counts: FromDishka[CountByCategory],
-    city_id: Annotated[CityId, Query(ge=1)],
+    city_id: Annotated[CityId, Query(ge=1, le=INT4_MAX)],
     kind: Annotated[Literal["pro", "casual"], Query()] = "pro",
 ) -> CategoryCountsOut:
     """Сколько специалистов в каждой категории города — для дерева S04 (с подкатегориями)."""

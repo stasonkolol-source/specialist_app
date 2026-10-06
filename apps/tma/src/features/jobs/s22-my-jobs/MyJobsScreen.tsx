@@ -1,9 +1,11 @@
-// S22 Мои заявки (DEVELOPMENT_PLAN 5.6): сегмент вкладки «Заявки». Чипы «Все / Активные / В
-// работе / Завершённые / Архив» (на «Все» — разделами), «+» — новая заявка S20a. В группе первыми —
+// S22 Мои заявки (DEVELOPMENT_PLAN 5.6): сегмент вкладки «Заявки». Заявки разделами «Активные / В
+// работе / Завершённые / Архив»; чипы-фильтры «Все / Активные / …» — только от пяти заявок: при
+// одной-двух они лишь занимают место (UX_GUIDANCE §5). «+» — новая заявка S20a. В группе первыми —
 // заявки, где ждут выбора исполнителя (order.ts). Карточка — как в ленте: название и бюджет,
 // «когда» и категория, район и время, места «откликов 3 из 5» или «Ждём откликов» своей строкой;
 // есть отклики — «3 отклика — выберите исполнителя» и «2 новых», пока клиент их не открыл; на
-// проверке, нужно исправить — словами, закрытая — «Закрыта 14 сентября». Нажатие — своя заявка S23.
+// проверке, нужно исправить — словами; итог — словом словаря с датой: «Выполнена 5 октября»,
+// «Закрыта 14 сентября», «Срок истёк …»; «В работе» — без даты. Нажатие — своя заявка S23.
 // Бейдж «Заявки» знает о новом отклике раньше списка (опрос раз в минуту, список — из кэша):
 // список перечитывается, и «N новых» появляется на карточке той заявки.
 import type { JobOut, JobStatus } from '@sosed/api-client';
@@ -16,7 +18,6 @@ import {
   Button,
   Card,
   Chip,
-  ChipSkeleton,
   Chips,
   EmptyState,
   Heading,
@@ -41,6 +42,8 @@ import { byAttention } from './order.ts';
 
 type Group = 'active' | 'work' | 'done' | 'archive';
 const GROUPS: readonly Group[] = ['active', 'work', 'done', 'archive'];
+/** С какого числа заявок нужны чипы-фильтры. */
+const FILTERS_FROM = 5;
 const GROUP_OF: Record<JobStatus, Group> = {
   draft: 'active',
   pending_moderation: 'active',
@@ -98,14 +101,9 @@ function MyJobs() {
     );
   }
   if (!jobs.data) {
-    // чипы групп, заголовок группы и карточки заявок — на своих местах
+    // заголовок группы и карточки заявок — на своих местах; чипов у большинства нет
     return (
       <div aria-busy="true" className="flex flex-col gap-3">
-        <div aria-hidden="true" className="flex gap-2 overflow-hidden">
-          {[null, ...GROUPS].map((item) => (
-            <ChipSkeleton key={item ?? 'all'} className="w-24" />
-          ))}
-        </div>
         <SkeletonText size="cap" screen className="w-1/4" />
         <JobCardSkeleton />
         <JobCardSkeleton />
@@ -114,19 +112,22 @@ function MyJobs() {
   }
   const items = [...jobs.data.items].sort(byAttention);
   if (items.length === 0) return <Empty group={null} />;
-  const shown = group ? items.filter((job) => GROUP_OF[job.status] === group) : items;
+  const filters = items.length >= FILTERS_FROM;
+  const shown = filters && group ? items.filter((job) => GROUP_OF[job.status] === group) : items;
   return (
     <>
-      <Chips label={t('mine.groupsLabel')}>
-        {([null, ...GROUPS] as const).map((item) => (
-          <Chip key={item ?? 'all'} selected={item === group} onClick={() => setGroup(item)}>
-            {t(`mine.groups.${item ?? 'all'}`)}
-          </Chip>
-        ))}
-      </Chips>
+      {filters && (
+        <Chips label={t('mine.groupsLabel')}>
+          {([null, ...GROUPS] as const).map((item) => (
+            <Chip key={item ?? 'all'} selected={item === group} onClick={() => setGroup(item)}>
+              {t(`mine.groups.${item ?? 'all'}`)}
+            </Chip>
+          ))}
+        </Chips>
+      )}
       {shown.length === 0 ? (
         <Empty group={group} />
-      ) : group ? (
+      ) : filters && group ? (
         shown.map((job) => <MyJobCard key={job.id} job={job} />)
       ) : (
         GROUPS.map((section) => {
@@ -162,9 +163,20 @@ function MyJobCard({ job }: { job: JobOut }) {
   const active = GROUP_OF[job.status] === 'active';
   const responses = job.responses_count;
   const fresh = job.new_responses ?? 0;
-  const ended = job.closed_at ?? job.expires_at;
-  // «Закрыта 14 сентября» и «Срок истёк …» уже говорят статус — бейджем его не повторяем
-  const statusInDate = ended !== null && (job.status === 'closed' || job.status === 'expired');
+  // итог — словом словаря с датой: у выполненной и закрытой — когда закрыли, у истёкшей — срок;
+  // у заявки «В работе» даты нет (раньше ей доставалась «Закрыта» со сроком истечения)
+  const ended =
+    job.status === 'completed' || job.status === 'closed'
+      ? job.closed_at
+      : job.status === 'expired'
+        ? job.expires_at
+        : null;
+  const endedKey =
+    job.status === 'completed'
+      ? 'mine.completedOn'
+      : job.status === 'expired'
+        ? 'mine.expiredOn'
+        : 'mine.closedOn';
   return (
     <Card
       tight
@@ -229,12 +241,11 @@ function MyJobCard({ job }: { job: JobOut }) {
         </>
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          {!statusInDate && <Badge>{t(`mine.status.${job.status}`)}</Badge>}
+          {/* дата уже говорит статус — бейджем его не повторяем */}
+          {!ended && <Badge>{t(`mine.status.${job.status}`)}</Badge>}
           {ended && (
             <Text as="span" variant="cap">
-              {t(job.status === 'expired' ? 'mine.expiredOn' : 'mine.closedOn', {
-                date: format.dateGenitive(new Date(ended)),
-              })}
+              {t(endedKey, { date: format.dateGenitive(new Date(ended)) })}
             </Text>
           )}
         </div>

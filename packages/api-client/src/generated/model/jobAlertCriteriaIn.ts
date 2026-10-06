@@ -15,11 +15,20 @@ export interface JobAlertCriteriaIn {
    * Разделы и услуги каталога: заявки в них и в их подкатегориях
    * @minItems 1
    * @maxItems 20
+   * @items.minimum 1
+   * @items.maximum 2147483647
    */
   category_ids: number[];
-  /** @minimum 1 */
+  /**
+   * @minimum 1
+   * @maximum 2147483647
+   */
   city_id: number;
-  /** @maxItems 30 */
+  /**
+   * @maxItems 30
+   * @items.minimum 1
+   * @items.maximum 2147483647
+   */
   district_ids?: number[];
   /** Точка подписчика для радиуса: видна только ему */
   center?: JobPointIn | null;

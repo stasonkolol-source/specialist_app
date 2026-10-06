@@ -14,6 +14,11 @@ import * as zod from 'zod';
 export const searchListSpecialistsQueryQOneMax = 200;
 
 export const searchListSpecialistsQueryUrgentDefault = false;
+export const searchListSpecialistsQueryCityIdMax = 2147483647;
+
+export const searchListSpecialistsQueryCategoryIdOneMax = 2147483647;
+
+export const searchListSpecialistsQueryDistrictIdsOneItemMax = 2147483647;
 
 export const searchListSpecialistsQueryDistrictIdsOneMax = 20;
 
@@ -27,6 +32,7 @@ export const searchListSpecialistsQueryRadiusKmOneMax = 50;
 
 export const searchListSpecialistsQueryTravelsToMeDefault = false;
 export const searchListSpecialistsQueryPriceMaxOneMin = 0;
+export const searchListSpecialistsQueryPriceMaxOneMax = 9223372036854776000;
 
 export const searchListSpecialistsQueryRatingMinOneMax = 5;
 
@@ -56,13 +62,18 @@ export const SearchListSpecialistsQueryParams = zod.object({
     .boolean()
     .default(searchListSpecialistsQueryUrgentDefault)
     .describe('«Срочно»: доступные сегодня — выше'),
-  city_id: zod.int().min(1).describe('Город выдачи'),
+  city_id: zod.int().min(1).max(searchListSpecialistsQueryCityIdMax).describe('Город выдачи'),
   category_id: zod
-    .union([zod.int().min(1), zod.null()])
+    .union([zod.int().min(1).max(searchListSpecialistsQueryCategoryIdOneMax), zod.null()])
     .optional()
     .describe('С подкатегориями'),
   district_ids: zod
-    .union([zod.array(zod.int()).max(searchListSpecialistsQueryDistrictIdsOneMax), zod.null()])
+    .union([
+      zod
+        .array(zod.int().min(1).max(searchListSpecialistsQueryDistrictIdsOneItemMax))
+        .max(searchListSpecialistsQueryDistrictIdsOneMax),
+      zod.null(),
+    ])
     .optional(),
   lat: zod
     .union([
@@ -92,14 +103,23 @@ export const SearchListSpecialistsQueryParams = zod.object({
     .default(searchListSpecialistsQueryTravelsToMeDefault)
     .describe('Выезжает к точке клиента (его радиус выезда)'),
   price_max: zod
-    .union([zod.int().min(searchListSpecialistsQueryPriceMaxOneMin), zod.null()])
+    .union([
+      zod
+        .int()
+        .min(searchListSpecialistsQueryPriceMaxOneMin)
+        .max(searchListSpecialistsQueryPriceMaxOneMax),
+      zod.null(),
+    ])
     .optional()
     .describe('Цена «до», пара'),
   rating_min: zod
     .union([zod.number().min(1).max(searchListSpecialistsQueryRatingMinOneMax), zod.null()])
     .optional(),
   languages: zod
-    .union([zod.array(zod.string()).max(searchListSpecialistsQueryLanguagesOneMax), zod.null()])
+    .union([
+      zod.array(zod.enum(['ru', 'sr', 'en', 'uk'])).max(searchListSpecialistsQueryLanguagesOneMax),
+      zod.null(),
+    ])
     .optional()
     .describe('ru, sr, en, uk'),
   work_modes: zod
@@ -221,6 +241,12 @@ export const SearchSuggestResponse = zod.object({
  */
 export const searchCountSpecialistsQueryQOneMax = 200;
 
+export const searchCountSpecialistsQueryCityIdMax = 2147483647;
+
+export const searchCountSpecialistsQueryCategoryIdOneMax = 2147483647;
+
+export const searchCountSpecialistsQueryDistrictIdsOneItemMax = 2147483647;
+
 export const searchCountSpecialistsQueryDistrictIdsOneMax = 20;
 
 export const searchCountSpecialistsQueryLatOneMin = -90;
@@ -233,6 +259,7 @@ export const searchCountSpecialistsQueryRadiusKmOneMax = 50;
 
 export const searchCountSpecialistsQueryTravelsToMeDefault = false;
 export const searchCountSpecialistsQueryPriceMaxOneMin = 0;
+export const searchCountSpecialistsQueryPriceMaxOneMax = 9223372036854776000;
 
 export const searchCountSpecialistsQueryRatingMinOneMax = 5;
 
@@ -247,13 +274,18 @@ export const searchCountSpecialistsQueryKindDefault = `pro`;
 
 export const SearchCountSpecialistsQueryParams = zod.object({
   q: zod.union([zod.string().max(searchCountSpecialistsQueryQOneMax), zod.null()]).optional(),
-  city_id: zod.int().min(1).describe('Город выдачи'),
+  city_id: zod.int().min(1).max(searchCountSpecialistsQueryCityIdMax).describe('Город выдачи'),
   category_id: zod
-    .union([zod.int().min(1), zod.null()])
+    .union([zod.int().min(1).max(searchCountSpecialistsQueryCategoryIdOneMax), zod.null()])
     .optional()
     .describe('С подкатегориями'),
   district_ids: zod
-    .union([zod.array(zod.int()).max(searchCountSpecialistsQueryDistrictIdsOneMax), zod.null()])
+    .union([
+      zod
+        .array(zod.int().min(1).max(searchCountSpecialistsQueryDistrictIdsOneItemMax))
+        .max(searchCountSpecialistsQueryDistrictIdsOneMax),
+      zod.null(),
+    ])
     .optional(),
   lat: zod
     .union([
@@ -283,14 +315,23 @@ export const SearchCountSpecialistsQueryParams = zod.object({
     .default(searchCountSpecialistsQueryTravelsToMeDefault)
     .describe('Выезжает к точке клиента (его радиус выезда)'),
   price_max: zod
-    .union([zod.int().min(searchCountSpecialistsQueryPriceMaxOneMin), zod.null()])
+    .union([
+      zod
+        .int()
+        .min(searchCountSpecialistsQueryPriceMaxOneMin)
+        .max(searchCountSpecialistsQueryPriceMaxOneMax),
+      zod.null(),
+    ])
     .optional()
     .describe('Цена «до», пара'),
   rating_min: zod
     .union([zod.number().min(1).max(searchCountSpecialistsQueryRatingMinOneMax), zod.null()])
     .optional(),
   languages: zod
-    .union([zod.array(zod.string()).max(searchCountSpecialistsQueryLanguagesOneMax), zod.null()])
+    .union([
+      zod.array(zod.enum(['ru', 'sr', 'en', 'uk'])).max(searchCountSpecialistsQueryLanguagesOneMax),
+      zod.null(),
+    ])
     .optional()
     .describe('ru, sr, en, uk'),
   work_modes: zod
@@ -322,11 +363,12 @@ export const SearchCountSpecialistsResponse = zod.object({
  * Сколько специалистов в каждой категории города — для дерева S04 (с подкатегориями).
  * @summary Count By Category
  */
+export const searchCountByCategoryQueryCityIdMax = 2147483647;
 
 export const searchCountByCategoryQueryKindDefault = `pro`;
 
 export const SearchCountByCategoryQueryParams = zod.object({
-  city_id: zod.int().min(1),
+  city_id: zod.int().min(1).max(searchCountByCategoryQueryCityIdMax),
   kind: zod.enum(['pro', 'casual']).default(searchCountByCategoryQueryKindDefault),
 });
 
