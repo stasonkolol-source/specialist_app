@@ -927,3 +927,112 @@ def _counting(run: Sequence[_Piece]) -> bool:
         and all(len(piece.digits) <= 2 for piece in run)
         and all(int(b.digits) == int(a.digits) + 1 for a, b in pairwise(run))
     )
+
+
+# --- контакт по частям в нескольких сообщениях (QA ADV-06) ----------------------------------
+
+_SPLIT_KINDS = frozenset({ContactKind.EMAIL, ContactKind.USERNAME})
+"""Склейка текстов целиком ищет ники и почту; номер по частям собирают ряды чисел. Ссылки — нет:
+«Хорошо.» + «Rs?» вплотную уже «ссылка», а начало настоящей («t.me/») скрыто ещё в своём
+сообщении."""
+
+
+def find_split_contacts(parts: Sequence[str]) -> list[list[Finding]]:
+    """Контакт, разбитый на несколько сообщений одного отправителя: «064» / «123» / «45 67»,
+    «@qa» / «_contact_test», «телеграм:» / «qa_contact_test». `parts` — тексты по порядку,
+    последний — новое сообщение. Для каждого текста — находки в нём (позиции в этом тексте) у
+    контактов, которые доходят до нового сообщения и без прежних не находятся. Контакт целиком
+    в одном тексте сюда не входит — его скрывает `mask_contacts`.
+
+    Номер: последний ряд чисел прежнего сообщения продолжается первым рядом следующего, а
+    сообщение из одного ряда («потом 123») передаёт цепочку дальше назад. Слова вокруг рядов
+    («мой номер начинается 064») номер не рвут; числа одного сообщения, разделённые словами,
+    не склеиваются — как и в одиночном сообщении («дом 12, этаж 3»). Даты и время — не числа.
+    Ник и почта: тексты склеиваются вплотную («@qa» + «_contact_test») и через пробел
+    («телеграм:» + «qa_contact_test»)."""
+    found: list[list[Finding]] = [[] for _ in parts]
+    if len(parts) < 2:
+        return found
+    last = len(parts) - 1
+    runs = [_number_spans(part) for part in parts]
+    if runs[last]:
+        chain = [(last, *runs[last][0])]
+        for index in range(last - 1, -1, -1):
+            if not runs[index]:
+                break
+            chain.insert(0, (index, *runs[index][-1]))
+            if len(runs[index]) > 1:
+                break
+        _across(parts, chain, " ", None, found)
+    whole = [(index, 0, len(part)) for index, part in enumerate(parts)]
+    _across(parts, whole, "", _SPLIT_KINDS, found)
+    _across(parts, whole, " ", _SPLIT_KINDS, found, own=find_contacts(parts[last]))
+    return found
+
+
+def mask_findings(text: str, findings: Iterable[Finding], mask: str = MASK) -> str:
+    """Текст с этими находками, заменёнными на `mask`; пересекающиеся — одной маской."""
+    out: list[str] = []
+    position = 0
+    for finding in sorted(findings, key=lambda f: (f.start, f.end)):
+        if finding.end <= position:
+            continue
+        if finding.start < position:  # продолжает прежнюю находку — та же маска
+            position = finding.end
+            continue
+        out.append(text[position : finding.start])
+        out.append(mask)
+        position = finding.end
+    out.append(text[position:])
+    return "".join(out)
+
+
+def _number_spans(text: str) -> list[tuple[int, int]]:
+    """Ряды чисел текста (с «+» перед номером) — позиции в исходном тексте."""
+    folded = _fold(text)
+    numbers = _numbers_only(folded.text)
+    spans: list[tuple[int, int]] = []
+    for run in _number_runs(numbers):
+        _, start = _plus(numbers, run[0].start)
+        spans.append(folded.span(start, run[-1].end))
+    return spans
+
+
+def _across(
+    parts: Sequence[str],
+    segments: Sequence[tuple[int, int, int]],
+    joiner: str,
+    kinds: frozenset[ContactKind] | None,
+    found: list[list[Finding]],
+    *,
+    own: Sequence[Finding] | None = None,
+) -> None:
+    """Куски текстов `segments` (номер текста, начало, конец) подряд через `joiner`: в `found` —
+    находки, которые доходят до последнего текста и начинаются в прежнем; с `own` (находки
+    последнего текста отдельно) — ещё и находки в нём одном, которых без прежних текстов нет."""
+    last = len(parts) - 1
+    pieces = [parts[index][start:end] for index, start, end in segments]
+    offsets: list[int] = []
+    position = 0
+    for piece in pieces:
+        offsets.append(position)
+        position += len(piece) + len(joiner)
+    for finding in find_contacts(joiner.join(pieces)):
+        if kinds is not None and finding.kind not in kinds:
+            continue
+        covered: list[tuple[int, Finding]] = []
+        for (index, start, _), offset, piece in zip(segments, offsets, pieces, strict=True):
+            low, high = max(finding.start, offset), min(finding.end, offset + len(piece))
+            if low < high:
+                covered.append(
+                    (index, Finding(finding.kind, start + low - offset, start + high - offset))
+                )
+        texts = {index for index, _ in covered}
+        if last not in texts:
+            continue
+        if len(texts) == 1:
+            piece = covered[0][1]
+            if own is None or any(o.start <= piece.start and piece.end <= o.end for o in own):
+                continue
+        for index, piece in covered:
+            found[index].append(piece)
