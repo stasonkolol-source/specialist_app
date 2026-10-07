@@ -199,23 +199,101 @@ def test_failed_recreation_is_retried_on_next_check() -> None:
     assert world.restarts == ["new tunnel addresses"]
 
 
-def test_run_returns_exit_code_of_apps() -> None:
-    world = World()
-    apps = FakeProcess()
+class ScriptedApps:
+    """Запуски honcho по сценарию: у каждого — свои ответы poll(), последний повторяется."""
 
-    class Apps:
-        pid = -1
+    def __init__(self, *runs: list[int | None]) -> None:
+        self.runs = list(runs)
+        self.spawned = 0
 
-        @staticmethod
-        def poll() -> int | None:
-            apps.code = 3  # honcho завершился сам (упал web)
-            return apps.code
+    def __call__(self) -> Any:
+        polls = self.runs[min(self.spawned, len(self.runs) - 1)]
+        self.spawned += 1
+        answers = iter(polls)
+        last: list[int | None] = [None]
 
+        class Apps:
+            pid = -1  # не настоящий процесс: стенд не должен слать ему сигналы
+
+            @staticmethod
+            def poll() -> int | None:
+                last[0] = next(answers, last[0])
+                return last[0]
+
+        return Apps()
+
+
+def scripted_stand(world: World, apps: ScriptedApps, monkeypatch: pytest.MonkeyPatch) -> Any:
     s = dev.Stand(
-        tunnels=True, probe=world.probe, opener=world.opener, closer=world.closer, apps=Apps
+        tunnels=True, probe=world.probe, opener=world.opener, closer=world.closer, apps=apps
     )
+    stops: list[int] = []
+    monkeypatch.setattr(s, "stop_apps", lambda: stops.append(1))
+    s.stops = stops
+    return s
 
-    assert s.run(tick=0, check_every=3600) == 3
+
+def test_clean_exit_of_apps_stops_the_stand(monkeypatch: pytest.MonkeyPatch) -> None:
+    world = World()
+    apps = ScriptedApps([None, 0])
+    s = scripted_stand(world, apps, monkeypatch)
+
+    assert s.run(tick=0, check_every=3600) == 0
+    assert apps.spawned == 1
+
+
+def test_crashed_apps_are_restarted_when_online(monkeypatch: pytest.MonkeyPatch) -> None:
+    # бот упал: Telegram не ответил (VPN, обрыв сети) — honcho погасил весь стенд
+    world = World()
+    apps = ScriptedApps([None, 1], [None, None, 0])
+    s = scripted_stand(world, apps, monkeypatch)
+
+    assert s.run(tick=0, check_every=3600, restart_delays=(0.0,)) == 0
+    assert apps.spawned == 2
+    assert s.stops == [1]  # перед новым запуском добиты дети упавшего honcho
+
+
+def test_crash_while_offline_waits_for_the_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    world = World(online=False)
+    checks: list[bool] = []
+
+    def probe(url: str) -> bool:
+        if url == dev.ONLINE_PROBE:
+            if len(checks) == 2:
+                world.online = True  # связь вернулась
+            checks.append(world.online)
+            return world.online
+        return world.probe(url)
+
+    monkeypatch.setattr(dev, "OFFLINE_RECHECK", 0.0)
+    apps = ScriptedApps([None, 1], [None, 0])
+    s = dev.Stand(tunnels=False, probe=probe, apps=apps)
+    monkeypatch.setattr(s, "stop_apps", lambda: None)
+
+    assert s.run(tick=0, check_every=3600, restart_delays=(0.0,), max_crashes=1) == 0
+    assert checks[:3] == [False, False, True]  # без сети не перезапускали и попытку не тратили
+    assert apps.spawned == 2
+
+
+def test_crash_loop_stops_the_stand(monkeypatch: pytest.MonkeyPatch) -> None:
+    # падает снова и снова при живой сети — это ошибка в коде, а не связь: стенд останавливается
+    world = World()
+    apps = ScriptedApps([3])
+    s = scripted_stand(world, apps, monkeypatch)
+
+    assert s.run(tick=0, check_every=3600, restart_delays=(0.0,), max_crashes=2) == 3
+    assert apps.spawned == 3
+
+
+def test_fake_pids_never_get_signals(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: list[tuple[int, int]] = []
+    monkeypatch.setattr(dev.os, "kill", lambda pid, sig: sent.append((pid, sig)))
+
+    dev._signal(-1, dev.signal.SIGTERM)
+    dev._signal(0, dev.signal.SIGTERM)
+
+    assert sent == []
+    assert dev._alive(-1) is False
 
 
 def test_restart_request_restarts_apps_without_touching_tunnels(

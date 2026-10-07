@@ -11,6 +11,11 @@ web, bot, worker, worker-media, tma. Ctrl+C или SIGTERM останавлив�
   подряд при живом интернете — новые туннели (адреса в .env, menu button) и перезапуск
   процессов, чтобы они прочитали новые адреса. Кнопки «Открыть» в старых сообщениях бота
   после этого ведут на мёртвый адрес — постоянный адрес даёт только 0.28.
+- Упавшие процессы поднимаются заново: бот выходит, когда Telegram не отвечает (VPN, сон Мака,
+  обрыв сети), а honcho за ним гасит весь стенд. Перезапуск — с паузой 10 с, 30 с, 1, 2, 5 мин;
+  без интернета ждём связь и попытки не тратим. Больше MAX_CRASHES падений за CRASH_WINDOW —
+  это уже не сеть, а ошибка в коде: стенд останавливается, как раньше. Код 0 (honcho вышел сам,
+  без сбоя) — тоже остановка.
 - `make dev-restart` (SIGUSR1) перезапускает только процессы — после merge, когда бот и
   воркеры должны подхватить новый код; туннели и их адреса остаются.
 - `make dev-bg` запускает стенд в фоне, в своей сессии процессов: он переживает закрытие
@@ -42,6 +47,11 @@ LOG_FILE = LOGS / "dev.log"
 CHECK_EVERY = 60.0
 FAILURES_BEFORE_RECREATE = 3
 APPS_STOP_TIMEOUT = 20.0
+RESTART_DELAYS = (10.0, 30.0, 60.0, 120.0, 300.0)
+"""Паузы перед перезапуском упавших процессов: первое падение, второе, … (дальше — последняя)."""
+CRASH_WINDOW = 30 * 60.0
+MAX_CRASHES = 5
+OFFLINE_RECHECK = 30.0
 ONLINE_PROBE = "https://www.cloudflare.com/cdn-cgi/trace"
 TUNNEL_DOWN = 530
 """Ответ Cloudflare «туннель не подключён» (ошибки 1033, 1016): процесс cloudflared жив,
@@ -177,23 +187,63 @@ class Stand:
 
     # --- цикл -----------------------------------------------------------------------------
 
-    def run(self, *, tick: float = 1.0, check_every: float = CHECK_EVERY) -> int:
+    def run(
+        self,
+        *,
+        tick: float = 1.0,
+        check_every: float = CHECK_EVERY,
+        restart_delays: tuple[float, ...] = RESTART_DELAYS,
+        crash_window: float = CRASH_WINDOW,
+        max_crashes: int = MAX_CRASHES,
+    ) -> int:
         if self.with_tunnels and not self.open_tunnels():
             raise SystemExit("dev: no tunnels — check the network or run `make dev TUNNEL=0`")
         self.start_apps()
         next_check = time.monotonic() + check_every
+        crashes: list[float] = []
+        restart_at: float | None = None  # процессы упали — когда поднимать их снова
         while True:
             time.sleep(tick)
             if self.restart_requested:
                 self.restart_requested = False
+                restart_at = None
                 try:
                     self.restart_apps("make dev-restart")
                 except Exception:  # noqa: BLE001 — стенд живёт, ошибка — в лог
                     log("restart failed:\n" + traceback.format_exc())
+            if restart_at is not None:
+                if time.monotonic() < restart_at:
+                    continue
+                if not self._probe(ONLINE_PROBE):
+                    # без сети бот упадёт снова: ждём связь, попытки не тратим
+                    log("offline: apps restart postponed")
+                    restart_at = time.monotonic() + OFFLINE_RECHECK
+                    continue
+                restart_at = None
+                log("restart apps after crash")
+                self.start_apps()
+                continue
             code = self.apps_exit_code()
             if code is not None:
-                log(f"apps exited with code {code}")
-                return code
+                if code == 0:
+                    log("apps exited with code 0")
+                    return code
+                now = time.monotonic()
+                crashes = [at for at in crashes if now - at < crash_window] + [now]
+                if len(crashes) > max_crashes:
+                    log(
+                        f"apps exited with code {code}: {len(crashes)} crashes in "
+                        f"{crash_window / 60:.0f} min — stopping"
+                    )
+                    return code
+                delay = restart_delays[min(len(crashes), len(restart_delays)) - 1]
+                log(
+                    f"apps exited with code {code}; restart in {delay:.0f}s "
+                    f"({len(crashes)}/{max_crashes})"
+                )
+                self.stop_apps()  # добить осиротевших детей honcho и освободить порты
+                restart_at = now + delay
+                continue
             if time.monotonic() >= next_check:
                 try:
                     self.check_tunnels()
@@ -227,6 +277,8 @@ def _descendants(root: int) -> list[int]:
 def _alive(pid: int) -> bool:
     """Процесс есть и его можно остановить. PermissionError — на macOS так отвечают за
     зомби (и за чужие процессы): останавливать там нечего."""
+    if pid <= 0:  # kill(0 или -1) — сигнал всей группе или всем процессам пользователя
+        return False
     try:
         os.kill(pid, 0)
     except (ProcessLookupError, PermissionError):
@@ -235,6 +287,8 @@ def _alive(pid: int) -> bool:
 
 
 def _signal(pid: int, sig: signal.Signals) -> None:
+    if pid <= 0:  # kill(-1) погасил бы все процессы пользователя, kill(0) — свою группу
+        return
     with contextlib.suppress(ProcessLookupError, PermissionError):
         os.kill(pid, sig)
 
