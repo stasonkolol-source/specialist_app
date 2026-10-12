@@ -94,11 +94,19 @@ env:
     # его читает только accessory alloy в сети kamal (infra/monitoring/alloy/config.alloy, тот же 9091).
     METRICS_HOST: 0.0.0.0
     METRICS_PORT: "9091"
+    # PostHog EU (K32, 1.7): ключ проекта (phc_…, только принимает события), адрес и id проекта —
+    # Variables environment. Пусто — аналитика выключена, события в лог (di.py); пустой host — умолчание
+    # settings.py (https://eu.i.posthog.com), в CI его подставляет deploy.yml workflow
+    ANALYTICS_POSTHOG_API_KEY: '<%= ENV.fetch("ANALYTICS_POSTHOG_API_KEY", "") %>'
+    ANALYTICS_POSTHOG_HOST: '<%= ENV.fetch("ANALYTICS_POSTHOG_HOST", "") %>'
+    ANALYTICS_POSTHOG_PROJECT_ID: '<%= ENV.fetch("ANALYTICS_POSTHOG_PROJECT_ID", "") %>'
   # Имена — те же, что в backend/.env.example; значения — infra/kamal/secrets.<destination>.
   # APP_ADMIN_SESSION_KEY — только при ADMIN_HOST: без ключа web не монтирует /admin (2.7a), а
   # ADMIN_HOST деплой задаёт, только когда хост админки закрыт Cloudflare Access (K31; 2.7b, 3.1c).
   # С ним же — APP_TOTP_KEY (шифрование секретов TOTP персонала, 8.4: с ключом сессии и без него
   # процессы не стартуют) и APP_TOTP_KEY_PREVIOUS (пустой, кроме ротации — secrets-rotation.md).
+  # ANALYTICS_POSTHOG_PERSONAL_API_KEY — personal key PostHog только со scope person:write (K32a):
+  # воркер удаляет персону по UserDeleted; с ключом проекта без него prod не стартует (settings.py).
   secret:
     - DB_DSN
     - DB_MIGRATOR_DSN
@@ -110,6 +118,7 @@ env:
     - S3_SECRET_ACCESS_KEY
     - AI_OPENAI_API_KEY
     - AI_ANTHROPIC_API_KEY
+    - ANALYTICS_POSTHOG_PERSONAL_API_KEY
     # условие ERB — в комментариях YAML: файл остаётся валидным YAML и до подстановки (check-yaml)
     # <% if ENV["ADMIN_HOST"].to_s != "" %>
     - APP_ADMIN_SESSION_KEY

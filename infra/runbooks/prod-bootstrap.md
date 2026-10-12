@@ -125,12 +125,21 @@ WAL до шага 3.2 не архивируется (`archive_command = /bin/tru
 ## 4. Prod-бот и секреты приложения (3.1c)
 
 Нужно: K40a (бот, Main Mini App на `https://app.<домен>`, ссылка на политику), K19, K20 (DSN — по
-желанию, обязательно к 3.3), K29 (prod-чат модераторов), K25 и K26 (AI — по желанию).
+желанию, обязательно к 3.3), K22 (оператор данных и почта поддержки — обязательно), K23 (аккаунт
+поддержки), K29 (prod-чат модераторов), K25 и K26 (AI — по желанию), K32 (PostHog — по желанию).
 
 1. Variables `production`: `PROD_BOT_USERNAME` (без @), `PROD_MODERATORS_CHAT_ID` (K29, `-100…`; пока
    пусто — кейсы решают командами `cli`), `SENTRY_DSN`, `TMA_SENTRY_DSN`. Source maps Mini App —
    тем же секретом `SENTRY_AUTH_TOKEN` и Variables `SENTRY_ORG`, `TMA_SENTRY_PROJECT` уровня
    репозитория, что и stage (`stage-bootstrap.md`, раздел 3); релиз — `VERSION` деплоя, как у backend.
+   Правовые документы (1.5a, K22) — обязательно: `LEGAL_OPERATOR_NAME` (оператор данных, как в
+   политике конфиденциальности) и `LEGAL_CONTACT_EMAIL` (почта поддержки). Без них шаг `inputs` job'а
+   и `kamal config` останавливают релиз, а процесс с заглушкой `[TODO …]` на проде и не стартовал бы.
+   `SUPPORT_USERNAME` (K23) — аккаунт поддержки для `/help`, без @; пусто — «контакт появится скоро».
+   PostHog (K32, по желанию): `ANALYTICS_POSTHOG_API_KEY`, `ANALYTICS_POSTHOG_PROJECT_ID`,
+   `ANALYTICS_POSTHOG_HOST` (пусто — `https://eu.i.posthog.com`); без ключа аналитика выключена. С
+   ключом проекта на проде обязательны `ANALYTICS_POSTHOG_PROJECT_ID` и секрет
+   `ANALYTICS_POSTHOG_PERSONAL_API_KEY` (шаг 4) — иначе job остановится на `inputs` (K32a).
 2. Случайные секреты — как в разделе 2, тем же циклом `make gen-secret` с именами
    `APP_HASH_KEY TELEGRAM_WEBHOOK_SECRET APP_ADMIN_SESSION_KEY APP_TOTP_KEY`. `APP_HASH_KEY` после
    первого запуска не менять. `APP_TOTP_KEY` шифрует секреты TOTP персонала в БД (8.4): менять — только
@@ -142,7 +151,9 @@ WAL до шага 3.2 не архивируется (`archive_command = /bin/tru
      && cut -d= -f2- "$t/jwt.env" | gh secret set JWT_KEYS --env production && pbcopy < "$t/jwt.env"; rm -rf "$t"
    ```
 4. `gh secret set TELEGRAM_BOT_TOKEN --env production` (K40a), `CLOUDFLARE_API_TOKEN` — токен
-   `ci-wrangler` (K12), по желанию `AI_OPENAI_API_KEY`, `AI_ANTHROPIC_API_KEY`. Без `--body` `gh`
+   `ci-wrangler` (K12), по желанию `AI_OPENAI_API_KEY`, `AI_ANTHROPIC_API_KEY`; вместе с PostHog —
+   `ANALYTICS_POSTHOG_PERSONAL_API_KEY` (K32a: personal API key `sosedi-deletion` только со scope
+   `person:write`, не ключ дашборда с Мака владельца — secrets-rotation.md). Без `--body` `gh`
    спросит значение скрыто.
 
 Бот на проде принимает апдейты webhook (ADR-0011, 0.25e) на своём хосте:

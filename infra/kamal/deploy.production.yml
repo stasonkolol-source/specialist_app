@@ -5,7 +5,9 @@
 # db-1 в приватной сети (pre-deploy и DSN в secrets.production), PROD_DOMAIN — домен (Q8, Q9),
 # PROD_BOT_USERNAME — prod-бот без @ (K40a), R2_ACCOUNT_ID (K11), SENTRY_DSN (K20),
 # PROD_MODERATORS_CHAT_ID — prod-чат модераторов (K29), ADMIN_HOST — admin.<домен>, только когда
-# Access включён (K31). В CI — Variables environment «production».
+# Access включён (K31), LEGAL_OPERATOR_NAME и LEGAL_CONTACT_EMAIL — оператор данных и почта поддержки
+# (K22, обязательны), TELEGRAM_SUPPORT_USERNAME — аккаунт поддержки (K23). В CI — Variables
+# environment «production».
 #
 # Бот на проде — webhook (ADR-0011, 0.25e): апдейты на bot.<домен>/integrations/telegram/webhook —
 # свой хост роли bot в kamal-proxy (Kamal не даёт двум ролям один хост с TLS), skip-правило WAF —
@@ -82,6 +84,15 @@ env:
     S3_BUCKET_MEDIA: sosed-prod-media
     S3_BUCKET_PRIVATE: sosed-prod-private
     SENTRY_DSN: '<%= ENV.fetch("SENTRY_DSN", "") %>'
+    # Правовые документы (1.5a, K22): оператор данных и почта поддержки подставляются в политику
+    # конфиденциальности, с заглушкой процесс на проде не стартует (settings.py). Поэтому без умолчания
+    # и с проверкой на пустоту (в CI незаданная Variable — пустая строка, а не отсутствие): нет значения —
+    # падает уже `kamal config`, а не web после выкатки. Условие ERB — в комментарии YAML, как у ADMIN_HOST
+    # <% %w[LEGAL_OPERATOR_NAME LEGAL_CONTACT_EMAIL].each { |n| raise KeyError, "#{n} пуст: задайте Variable environment «production» (K22, prod-bootstrap.md, раздел 4)" if ENV[n].to_s.empty? } %>
+    LEGAL_OPERATOR_NAME: <%= ENV.fetch("LEGAL_OPERATOR_NAME").to_json %>
+    LEGAL_CONTACT_EMAIL: '<%= ENV.fetch("LEGAL_CONTACT_EMAIL") %>'
+    # аккаунт поддержки для /help (K23, без @) — Variable SUPPORT_USERNAME; пусто — «контакт появится скоро»
+    TELEGRAM_SUPPORT_USERNAME: '<%= ENV.fetch("TELEGRAM_SUPPORT_USERNAME", "") %>'
     # пул на процесс: web, bot, worker и worker-media вместе — до 60 соединений из 100
     DB_POOL_SIZE: "10"
     DB_POOL_MAX_OVERFLOW: "5"
