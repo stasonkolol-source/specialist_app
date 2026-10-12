@@ -37,6 +37,9 @@ dependencies = [
     "pyotp~=2.9",
     "itsdangerous~=2.2",
     "google-re2~=1.1",
+    # httpx — клиенты OpenAI-модерации, PostHog и ожидание периодики (platform/di.py): раньше стоял
+    # только в dev-группе, и образ --no-dev падал на старте (stage, 2026-10-12)
+    "httpx>=0.28",
 ]
 
 [dependency-groups]
@@ -45,7 +48,6 @@ dev = [
     "pytest-asyncio>=1.1",
     "pytest-cov>=6",
     "testcontainers~=4.15",
-    "httpx>=0.28",
     "polyfactory>=2.22",
     "schemathesis>=4",
     "ruff~=0.16",
