@@ -58,6 +58,9 @@ env:
     LEGAL_OPERATOR_NAME: <%= ENV.fetch("LEGAL_OPERATOR_NAME", "").to_json %>
     LEGAL_CONTACT_EMAIL: '<%= ENV.fetch("LEGAL_CONTACT_EMAIL", "") %>'
     TELEGRAM_SUPPORT_USERNAME: '<%= ENV.fetch("TELEGRAM_SUPPORT_USERNAME", "") %>'
+    # чат модераторов stage (K29): карточки кейсов и кнопки решений; пусто — кейсы только через cli.
+    # Variable STAGE_MODERATORS_CHAT_ID (до 2026-10-12 переменная была только у production)
+    TELEGRAM_MODERATORS_CHAT_ID: '<%= ENV.fetch("STAGE_MODERATORS_CHAT_ID", "") %>'
     # Нагрузочный прогон 8.3 (docs/loadtest/README.md): Variable STAGE_LOADTEST=true только на время
     # прогона — уведомления идут в фейковый отправитель (тот же лимитер, наружу ничего), access-токен
     # живёт час (k6 не обновляет токены пула). На проде TELEGRAM_FAKE_SENDER процесс не запустит.
