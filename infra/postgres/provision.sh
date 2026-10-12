@@ -139,6 +139,9 @@ if [[ -n "${PGBACKREST_REPO1_S3_KEY:-}" ]]; then
     conf=${conf//"@$name@"/"${!name:-}"}
   done
   [[ "$conf" != *@PGBACKREST_REPO*@* ]] || fail "pgbackrest.conf: не все значения переданы ($(grep -o '@PGBACKREST_REPO[A-Z0-9_]*@' <<< "$conf" | sort -u | tr '\n' ' '))"
+  # /etc/pgbackrest пакет PGDG не создаёт (его конфиг — /etc/pgbackrest.conf): первый prod 12 октября
+  # упал на install «No such file or directory»; pgbackrest читает /etc/pgbackrest/pgbackrest.conf первым
+  install -d -m 0750 -o root -g postgres /etc/pgbackrest
   install -d -m 0750 -o postgres -g postgres /var/spool/pgbackrest /var/log/pgbackrest
   install_file /etc/pgbackrest/pgbackrest.conf 0640 root:postgres <<< "$conf"
 else
