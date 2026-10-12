@@ -14,15 +14,17 @@
 # infra/terraform/zone, секрет — TELEGRAM_WEBHOOK_SECRET. Откат на long polling —
 # TELEGRAM_UPDATES=polling вместе с `proxy: false` у роли bot (polling не отвечает на /up).
 
-# Лимиты под CX33 (4 vCPU, 8 GB, swap 2 GB) без БД на машине: медиа — на своём ядре (ffmpeg не
-# отнимает CPU у API), остальные делят три. cpuset, а не cpus (§16.1).
+# Лимиты под CPX22 (2 vCPU, 4 GB) без БД на машине — 12 октября старая линейка CX33 (4 vCPU, 8 GB)
+# в DE распродана. Все роли делят два ядра (своего ядра у ffmpeg нет); сумма памяти ролей и
+# accessories ≈ 3,1 GB из 4. cpuset, а не cpus (§16.1). На CX33/CPX32 вернуть: web 1536m 0-2,
+# bot 384m 0-2, worker 768m 0-2, worker-media 1536m 3, valkey 448m 0-2, alloy 384m 0-2.
 servers:
   web:
     hosts:
       - <%= ENV.fetch("PROD_HOST") %>
     options:
-      memory: 1536m
-      cpuset-cpus: "0-2"
+      memory: 1024m
+      cpuset-cpus: "0-1"
   bot:
     hosts:
       - <%= ENV.fetch("PROD_HOST") %>
@@ -34,20 +36,20 @@ servers:
         certificate_pem: KAMAL_PROXY_SSL_CERT
         private_key_pem: KAMAL_PROXY_SSL_KEY
     options:
-      memory: 384m
-      cpuset-cpus: "0-2"
+      memory: 256m
+      cpuset-cpus: "0-1"
   worker:
     hosts:
       - <%= ENV.fetch("PROD_HOST") %>
     options:
-      memory: 768m
-      cpuset-cpus: "0-2"
+      memory: 512m
+      cpuset-cpus: "0-1"
   worker-media:
     hosts:
       - <%= ENV.fetch("PROD_HOST") %>
     options:
-      memory: 1536m
-      cpuset-cpus: "3"
+      memory: 768m
+      cpuset-cpus: "0-1"
 
 proxy:
   # API (web); бот — свой хост выше; admin.<домен> — только за Access: ADMIN_HOST задаёт деплой (K31)
@@ -102,8 +104,8 @@ accessories:
     host: <%= ENV.fetch("PROD_HOST") %>
     cmd: valkey-server --appendonly yes --maxmemory 384mb --maxmemory-policy noeviction
     options:
-      memory: 448m
-      cpuset-cpus: "0-2"
+      memory: 256m
+      cpuset-cpus: "0-1"
 
   # Alloy (3.3) — только на app-1: он же читает db-1 по приватной сети — PostgreSQL ролью monitoring и
   # node exporter из пакета ОС (provision.sh, порт 9100 только для подсети prod). На db-1 нет Docker и
@@ -120,6 +122,6 @@ accessories:
         ALLOY_HOST: app-1
         DB_NODE_TARGET: <%= ENV.fetch("PROD_DB_IP") %>:9100
     options:
-      memory: 384m
-      cpuset-cpus: "0-2"
+      memory: 256m
+      cpuset-cpus: "0-1"
   # <% end %>
