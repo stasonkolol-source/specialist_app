@@ -2109,6 +2109,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "geoalchemy2" },
     { name = "google-re2" },
+    { name = "httpx" },
     { name = "itsdangerous" },
     { name = "limits" },
     { name = "pillow" },
@@ -2136,7 +2137,6 @@ dependencies = [
 dev = [
     { name = "boto3-stubs", extra = ["s3"] },
     { name = "copier" },
-    { name = "httpx" },
     { name = "import-linter" },
     { name = "mypy" },
     { name = "polyfactory" },
@@ -2162,6 +2162,7 @@ requires-dist = [
     { name = "fastapi", specifier = "~=0.141.1" },
     { name = "geoalchemy2", specifier = "~=0.20" },
     { name = "google-re2", specifier = "~=1.1" },
+    { name = "httpx", specifier = ">=0.28" },
     { name = "itsdangerous", specifier = "~=2.2" },
     { name = "limits", specifier = "~=5.8" },
     { name = "pillow", specifier = "~=12.3" },
@@ -2189,7 +2190,6 @@ requires-dist = [
 dev = [
     { name = "boto3-stubs", extras = ["s3"], specifier = ">=1.43.103" },
     { name = "copier", specifier = ">=9" },
-    { name = "httpx", specifier = ">=0.28" },
     { name = "import-linter", specifier = "~=2.15" },
     { name = "mypy", specifier = "~=2.3" },
     { name = "polyfactory", specifier = ">=2.22" },
