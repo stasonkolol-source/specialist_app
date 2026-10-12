@@ -151,3 +151,9 @@ variable "access_session_duration" {
   type        = string
   default     = "12h"
 }
+
+variable "spread_placement" {
+  description = "app-1 и db-1 на разных физических хостах (placement group spread). 2026-10-12 в nbg1 и fsn1 не нашлось места под пару CX33 на разных хостах (resource_unavailable) — на старте выключено, VM страхуют бэкапы (Hetzner и pgBackRest); включить, когда место появится: true и apply пересоздаст VM (destroy protection снять отдельно)."
+  type        = bool
+  default     = true
+}
