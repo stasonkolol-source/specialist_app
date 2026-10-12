@@ -75,6 +75,14 @@ jobs:
       SENTRY_DSN: ${{ vars.SENTRY_DSN }}
       # true — только на время нагрузочного прогона 8.3 (docs/loadtest/README.md)
       STAGE_LOADTEST: ${{ vars.STAGE_LOADTEST }}
+      # правовые документы (1.5a, K22) и аккаунт поддержки /help (K23): на stage могут быть пустыми
+      LEGAL_OPERATOR_NAME: ${{ vars.LEGAL_OPERATOR_NAME }}
+      LEGAL_CONTACT_EMAIL: ${{ vars.LEGAL_CONTACT_EMAIL }}
+      TELEGRAM_SUPPORT_USERNAME: ${{ vars.SUPPORT_USERNAME }}
+      # PostHog EU (K32): пусто — аналитика выключена; адрес без Variable — облако EU
+      ANALYTICS_POSTHOG_API_KEY: ${{ vars.ANALYTICS_POSTHOG_API_KEY }}
+      ANALYTICS_POSTHOG_HOST: ${{ vars.ANALYTICS_POSTHOG_HOST || 'https://eu.i.posthog.com' }}
+      ANALYTICS_POSTHOG_PROJECT_ID: ${{ vars.ANALYTICS_POSTHOG_PROJECT_ID }}
       # Grafana Cloud (K35, 3.3): адреса и user id — Variables; без GRAFANA_CLOUD_PROM_URL accessory alloy нет
       GRAFANA_CLOUD_PROM_URL: ${{ vars.GRAFANA_CLOUD_PROM_URL }}
       GRAFANA_CLOUD_PROM_USER: ${{ vars.GRAFANA_CLOUD_PROM_USER }}
@@ -100,6 +108,8 @@ jobs:
       S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
       AI_OPENAI_API_KEY: ${{ secrets.AI_OPENAI_API_KEY }}
       AI_ANTHROPIC_API_KEY: ${{ secrets.AI_ANTHROPIC_API_KEY }}
+      # PostHog: personal key только со scope person:write — удаление персоны по UserDeleted (K32a)
+      ANALYTICS_POSTHOG_PERSONAL_API_KEY: ${{ secrets.ANALYTICS_POSTHOG_PERSONAL_API_KEY }}
       # наблюдаемость (3.3): heartbeat воркера (K33) и токен записи в Grafana Cloud (K35)
       HEALTHCHECKS_WORKER_PING_URL: ${{ secrets.HEALTHCHECKS_WORKER_PING_URL }}
       GRAFANA_CLOUD_TOKEN: ${{ secrets.GRAFANA_CLOUD_TOKEN }}
@@ -128,7 +138,9 @@ jobs:
           names=$(sed -n 's/^\([A-Z][A-Z0-9_]*\)=\$\1$/\1/p' infra/kamal/secrets.stage)
           pass=()
           for name in GHCR_OWNER STAGE_HOST STAGE_DOMAIN STAGE_BOT_USERNAME R2_ACCOUNT_ID SENTRY_DSN STAGE_LOADTEST \
-                      GRAFANA_CLOUD_PROM_URL GRAFANA_CLOUD_PROM_USER GRAFANA_CLOUD_LOKI_URL GRAFANA_CLOUD_LOKI_USER $names; do
+                      GRAFANA_CLOUD_PROM_URL GRAFANA_CLOUD_PROM_USER GRAFANA_CLOUD_LOKI_URL GRAFANA_CLOUD_LOKI_USER \
+                      LEGAL_OPERATOR_NAME LEGAL_CONTACT_EMAIL TELEGRAM_SUPPORT_USERNAME \
+                      ANALYTICS_POSTHOG_API_KEY ANALYTICS_POSTHOG_HOST ANALYTICS_POSTHOG_PROJECT_ID $names; do
             pass+=(-e "$name")
           done
           docker run --rm -v "$PWD:/workdir" -w /workdir \
@@ -250,6 +262,15 @@ jobs:
       ADMIN_HOST: ${{ vars.PROD_ADMIN_PUBLISHED == 'true' && format('admin.{0}', vars.PROD_DOMAIN) || '' }}
       R2_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       SENTRY_DSN: ${{ vars.SENTRY_DSN }}
+      # правовые документы (1.5a, K22) — обязательны: шаг inputs ниже и deploy.production.yml не пускают
+      # пустые; аккаунт поддержки /help (K23) — по желанию
+      LEGAL_OPERATOR_NAME: ${{ vars.LEGAL_OPERATOR_NAME }}
+      LEGAL_CONTACT_EMAIL: ${{ vars.LEGAL_CONTACT_EMAIL }}
+      TELEGRAM_SUPPORT_USERNAME: ${{ vars.SUPPORT_USERNAME }}
+      # PostHog EU (K32): пусто — аналитика выключена; адрес без Variable — облако EU
+      ANALYTICS_POSTHOG_API_KEY: ${{ vars.ANALYTICS_POSTHOG_API_KEY }}
+      ANALYTICS_POSTHOG_HOST: ${{ vars.ANALYTICS_POSTHOG_HOST || 'https://eu.i.posthog.com' }}
+      ANALYTICS_POSTHOG_PROJECT_ID: ${{ vars.ANALYTICS_POSTHOG_PROJECT_ID }}
       # Grafana Cloud (K35, 3.3): адреса и user id — Variables; без GRAFANA_CLOUD_PROM_URL accessory alloy нет
       GRAFANA_CLOUD_PROM_URL: ${{ vars.GRAFANA_CLOUD_PROM_URL }}
       GRAFANA_CLOUD_PROM_USER: ${{ vars.GRAFANA_CLOUD_PROM_USER }}
@@ -276,6 +297,8 @@ jobs:
       S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
       AI_OPENAI_API_KEY: ${{ secrets.AI_OPENAI_API_KEY }}
       AI_ANTHROPIC_API_KEY: ${{ secrets.AI_ANTHROPIC_API_KEY }}
+      # PostHog: personal key только со scope person:write — удаление персоны по UserDeleted (K32a)
+      ANALYTICS_POSTHOG_PERSONAL_API_KEY: ${{ secrets.ANALYTICS_POSTHOG_PERSONAL_API_KEY }}
       # наблюдаемость (3.3): heartbeat воркера (K33) и токен записи в Grafana Cloud (K35)
       HEALTHCHECKS_WORKER_PING_URL: ${{ secrets.HEALTHCHECKS_WORKER_PING_URL }}
       GRAFANA_CLOUD_TOKEN: ${{ secrets.GRAFANA_CLOUD_TOKEN }}
@@ -287,9 +310,14 @@ jobs:
           if [ "$ACTION" = rollback ] && [ -z "$INPUT_VERSION" ]; then
             echo "::error::rollback: укажите version — sha прошлого релиза"; exit 1
           fi
-          for name in PROD_HOST PROD_DB_IP PROD_DOMAIN PROD_BOT_USERNAME; do
+          # LEGAL_* — в политику конфиденциальности (1.5a, K22): с заглушкой процессы на проде не стартуют
+          for name in PROD_HOST PROD_DB_IP PROD_DOMAIN PROD_BOT_USERNAME LEGAL_OPERATOR_NAME LEGAL_CONTACT_EMAIL; do
             [ -n "${!name}" ] || { echo "::error::нет переменной $name в environment production"; exit 1; }
           done
+          # PostHog включён — воркеру нужно чем удалять персону по UserDeleted (K32a), иначе prod не стартует
+          if [ -n "$ANALYTICS_POSTHOG_API_KEY" ] && { [ -z "$ANALYTICS_POSTHOG_PROJECT_ID" ] || [ -z "$ANALYTICS_POSTHOG_PERSONAL_API_KEY" ]; }; then
+            echo "::error::ANALYTICS_POSTHOG_API_KEY задан: нужны Variable ANALYTICS_POSTHOG_PROJECT_ID и секрет ANALYTICS_POSTHOG_PERSONAL_API_KEY (K32a)"; exit 1
+          fi
           # с админкой без ключа шифрования TOTP (8.4) процессы не стартуют — останавливаемся до kamal
           if [ -n "$ADMIN_HOST" ]; then
             for name in APP_ADMIN_SESSION_KEY APP_TOTP_KEY; do
@@ -354,7 +382,9 @@ jobs:
           pass=()
           for name in GHCR_OWNER PROD_HOST PROD_DB_IP PROD_DOMAIN PROD_BOT_USERNAME PROD_MODERATORS_CHAT_ID \
                       ADMIN_HOST R2_ACCOUNT_ID SENTRY_DSN GRAFANA_CLOUD_PROM_URL GRAFANA_CLOUD_PROM_USER \
-                      GRAFANA_CLOUD_LOKI_URL GRAFANA_CLOUD_LOKI_USER $names; do
+                      GRAFANA_CLOUD_LOKI_URL GRAFANA_CLOUD_LOKI_USER \
+                      LEGAL_OPERATOR_NAME LEGAL_CONTACT_EMAIL TELEGRAM_SUPPORT_USERNAME \
+                      ANALYTICS_POSTHOG_API_KEY ANALYTICS_POSTHOG_HOST ANALYTICS_POSTHOG_PROJECT_ID $names; do
             pass+=(-e "$name")
           done
           docker run --rm -v "$PWD:/workdir" -w /workdir \

@@ -1,7 +1,8 @@
 # Destination stage (DEVELOPMENT_PLAN 0.25c): одна VM CX23 из infra/terraform/stage.
 # Из окружения: STAGE_HOST — IPv4 VM (make tf ENV=stage ARGS='output stage_ipv4'), STAGE_DOMAIN —
 # домен (Q9), STAGE_BOT_USERNAME — stage-бот без @ (K17), R2_ACCOUNT_ID — Account ID Cloudflare
-# (K11), SENTRY_DSN — DSN backend (K20, не секрет). В CI — Variables environment «stage».
+# (K11), SENTRY_DSN — DSN backend (K20, не секрет), LEGAL_OPERATOR_NAME, LEGAL_CONTACT_EMAIL и
+# TELEGRAM_SUPPORT_USERNAME (K22, K23 — на stage могут быть пустыми). В CI — Variables environment «stage».
 servers:
   web:
     hosts:
@@ -50,6 +51,13 @@ env:
     S3_BUCKET_MEDIA: sosed-stage-media
     S3_BUCKET_PRIVATE: sosed-stage-private
     SENTRY_DSN: '<%= ENV.fetch("SENTRY_DSN", "") %>'
+    # Правовые документы (1.5a, K22) и аккаунт поддержки для /help (K23, без @) — Variables
+    # LEGAL_OPERATOR_NAME, LEGAL_CONTACT_EMAIL, SUPPORT_USERNAME. На stage пусто допустимо: в текстах
+    # остаётся заглушка [TODO …], в /help — «контакт появится скоро». Название оператора — через
+    # to_json: в нём бывают кавычки, которые сломали бы YAML
+    LEGAL_OPERATOR_NAME: <%= ENV.fetch("LEGAL_OPERATOR_NAME", "").to_json %>
+    LEGAL_CONTACT_EMAIL: '<%= ENV.fetch("LEGAL_CONTACT_EMAIL", "") %>'
+    TELEGRAM_SUPPORT_USERNAME: '<%= ENV.fetch("TELEGRAM_SUPPORT_USERNAME", "") %>'
     # Нагрузочный прогон 8.3 (docs/loadtest/README.md): Variable STAGE_LOADTEST=true только на время
     # прогона — уведомления идут в фейковый отправитель (тот же лимитер, наружу ничего), access-токен
     # живёт час (k6 не обновляет токены пула). На проде TELEGRAM_FAKE_SENDER процесс не запустит.
