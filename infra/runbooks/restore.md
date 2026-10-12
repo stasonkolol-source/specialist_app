@@ -16,7 +16,7 @@ Stage не бэкапится: там тестовые данные (план 3.
 | Расписание | `sosed-pgbackrest-backup.timer` — ежедневно 01:30 UTC плюс до 30 мин; сервис запускает `/usr/local/sbin/sosed-pgbackrest-backup` (`infra/postgres/pgbackrest-backup.sh`) от `postgres` |
 | Журнал бэкапов | `journalctl -u sosed-pgbackrest-backup`, `/var/log/pgbackrest/` |
 | Пинги | Healthchecks (K33): «pgBackRest» — каждый запуск таймера, «restore-test» — каждый restore-тест |
-| Пароль шифрования `repo1` | секрет `PGBACKREST_REPO1_CIPHER_PASS` (сервер) и `RESTORE_TEST_REPO1_CIPHER_PASS` (restore-тест); **копия в менеджере паролей: `<заполняет владелец: хранилище specialist-prod, имя записи>`** |
+| Пароль шифрования `repo1` | секрет `PGBACKREST_REPO1_CIPHER_PASS` (сервер) и `RESTORE_TEST_REPO1_CIPHER_PASS` (restore-тест); **копия в менеджере паролей (Bitwarden владельца, папка specialist-prod; подтверждена зелёным restore-тестом 2026-10-12): `<заполняет владелец: хранилище specialist-prod, имя записи>`** |
 | Пароль шифрования `repo2` | `PGBACKREST_REPO2_CIPHER_PASS` и `RESTORE_TEST_REPO2_CIPHER_PASS`; **копия: `<заполняет владелец>`** |
 | S3-ключи репозиториев | секреты `PGBACKREST_REPO{1,2}_S3_KEY{,_SECRET}`, копии — там же (K10a) |
 
@@ -138,10 +138,10 @@ workflow; `gh workflow run restore-test.yml`). Job в environment `production`: 
 
 | Показатель | Цель | Как меряется | Измерено |
 |---|---|---|---|
-| RPO — отставание архива WAL | ≤ 5 мин | `rpo-mark.sh`: от коммита маркера до архивации его сегмента | измерить на первом прогоне |
-| RPO — PITR на момент T | маркер «до» есть, «после» нет | `restore-check.sh` на временной VM | измерить на первом прогоне |
-| RTO — новая VM → рабочая БД | ≤ 2 ч | `restore-test.yml`: от создания VM до зелёного smoke | измерить на первом прогоне |
-| Время restore | — | Summary: «restore и WAL»; размер базы — в пинге Healthchecks, сюда не вписывать (репозиторий публичный) | измерить на первом прогоне |
+| RPO — отставание архива WAL | ≤ 5 мин | `rpo-mark.sh`: от коммита маркера до архивации его сегмента | **10 с** (2026-10-12, repo1) |
+| RPO — PITR на момент T | маркер «до» есть, «после» нет | `restore-check.sh` на временной VM | **ок** (2026-10-12, T = 14:53:13Z) |
+| RTO — новая VM → рабочая БД | ≤ 2 ч | `restore-test.yml`: от создания VM до зелёного smoke | **1 мин 27 с** (2026-10-12, VM cpx22, почти пустая база) |
+| Время restore | — | Summary: «restore и WAL»; размер базы — в пинге Healthchecks, сюда не вписывать (репозиторий публичный) | в пределах RTO выше; перемерить, когда база вырастет |
 
 После первого зелёного прогона (критерий 3.2) — вписать числа и дату; дальше — обновлять, если RTO
 вырос больше чем на треть.
