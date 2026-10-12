@@ -36,8 +36,10 @@ resource "hcloud_network_subnet" "prod" {
   ip_range     = var.subnet_ip_range
 }
 
-# app-1 и db-1 — на разных физических хостах: отказ одного железа не уносит обе VM
+# app-1 и db-1 — на разных физических хостах: отказ одного железа не уносит обе VM.
+# var.spread_placement = false — без группы (2026-10-12: у Hetzner не было такой пары в nbg1/fsn1)
 resource "hcloud_placement_group" "prod" {
+  count  = var.spread_placement ? 1 : 0
   name   = "sosed-prod"
   type   = "spread"
   labels = local.labels
@@ -104,7 +106,7 @@ resource "hcloud_server" "app" {
   location           = var.location
   ssh_keys           = [for key in hcloud_ssh_key.prod : key.id]
   firewall_ids       = [hcloud_firewall.app.id]
-  placement_group_id = hcloud_placement_group.prod.id
+  placement_group_id = var.spread_placement ? hcloud_placement_group.prod[0].id : null
   backups            = true
   # destroy и rebuild — только после явного снятия защиты в tfvars-коммите, не случайным apply
   delete_protection  = true
@@ -142,7 +144,7 @@ resource "hcloud_server" "db" {
   location           = var.location
   ssh_keys           = [for key in hcloud_ssh_key.prod : key.id]
   firewall_ids       = [hcloud_firewall.db.id]
-  placement_group_id = hcloud_placement_group.prod.id
+  placement_group_id = var.spread_placement ? hcloud_placement_group.prod[0].id : null
   backups            = true
   delete_protection  = true
   rebuild_protection = true
