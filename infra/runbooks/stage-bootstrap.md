@@ -97,7 +97,9 @@ WAF для webhook Telegram (`/integrations/telegram/` на `stage-bot.` и `bot
 GHCR своим `GITHUB_TOKEN`), K17 (токен бота — для старта процессов), K19, K10a, K20 (DSN — по
 желанию).
 
-1. Variables environment `stage`: `STAGE_BOT_USERNAME` (без @), `SENTRY_DSN` (backend),
+1. Variables environment `stage`: `STAGE_BOT_USERNAME` (без @), `STAGE_MODERATORS_CHAT_ID` (K29: группа
+   «Модерация stage» со stage-ботом-администратором, id — ответ на `/chatid@<бот>`; пусто — кейсы только
+   через `cli moderation-decide`), `SENTRY_DSN` (backend),
    `TMA_SENTRY_DSN` (Mini App) — DSN можно оставить пустыми. Source maps Mini App в Sentry (K20, по
    желанию): секрет репозитория `SENTRY_AUTH_TOKEN` (organization token) и Variables репозитория
    `SENTRY_ORG`, `TMA_SENTRY_PROJECT`; без них шаг деплоя «Sentry source maps» пропускается с notice.
