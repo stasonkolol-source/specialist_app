@@ -13,13 +13,14 @@
 // «Поделиться контактом» (шторка S54, 6.5; из сделки S26 — сразу открытой, `?share`). Открыты ли
 // контакты, решает сервер (`contacts_open`): эта пара уже договаривалась — в этом диалоге или в
 // другом — значит, открыты (ADR-0010, решение владельца 2026-10-04). Имя и что со сделкой не
-// обрезаются и при 360 px, а попап «⋯» Telegram — не больше трёх кнопок. В начале диалога — памятка
-// «не вносите предоплату» (один раз, с началом ленты, а не над каждой подгрузкой) и с чего начат
+// обрезаются и при 360 px, а попап «⋯» Telegram — не больше трёх кнопок. В начале диалога — правило
+// «Оплата — после работы, лично.» (один раз, с началом ленты, а не над каждой подгрузкой) и с чего начат
 // диалог; в пустом диалоге клиента — что написать и как придёт ответ (№8). Над первым сообщением
 // каждого дня — подпись дня
 // («Сегодня», «Вчера», «2 октября»). Сообщения: свои справа, чужие слева; телефон или ссылка до
 // договорённости — плашка «контакт скрыт» и подсказка «контакты откроются после договорённости»;
-// просьба о предоплате — памятка; скрытое модерацией — словами (автор видит своё и что оно
+// просьба о предоплате — получателю правило и «Пожаловаться» в один тап, автору — что так нельзя
+// (`PrepaymentNote`); скрытое модерацией — словами (автор видит своё и что оно
 // скрыто); отклик — карточкой с ценой; контакт — ссылкой; что со сделкой — системной строкой: после
 // «Предложить» — одна строка со сроком ответа, отклонённое предложение — «Предложение не принято»
 // (№14).
@@ -40,6 +41,7 @@ import {
   openReport,
   useBlocks,
   useChat,
+  useReport,
   useStartConversation,
   useToggleBlock,
 } from '@sosed/hooks';
@@ -703,12 +705,56 @@ const Entry = memo(function Entry({
         <MessageBody message={message} />
       </Bubble>
       {message.masked && <SystemNote icon="lock">{t('chat.masked')}</SystemNote>}
-      {message.prepayment && !message.mine && (
-        <SystemNote icon="alert">{t('chat.prepayment')}</SystemNote>
-      )}
+      {message.prepayment && <PrepaymentNote message={message} conversationId={conversation.id} />}
     </>
   );
 });
+
+/** Под сообщением, которое сервер отметил как просьбу о предоплате. Получателю — правило площадки
+ *  и «Пожаловаться» в один тап: жалоба на сообщение, причина `fraud` (очередь P1), без шторки S46;
+ *  повтор на то же сообщение сервер отдаёт той же жалобой. После отправки — «Жалоба отправлена,
+ *  модератор проверит аккаунт», кнопки нет. Автору — что просить предоплату нельзя: большинство
+ *  нарушений — незнание нормы, одна строка снимает их без модератора. */
+function PrepaymentNote({
+  message,
+  conversationId,
+}: {
+  message: MessageOut;
+  conversationId: string;
+}) {
+  const { t } = useTranslation('messages');
+  const report = useReport();
+  if (message.mine) return <SystemNote icon="alert">{t('chat.prepaymentMine')}</SystemNote>;
+  if (report.isSuccess) {
+    return (
+      <SystemNote icon="check" role="status">
+        {t('chat.prepaymentReported')}
+      </SystemNote>
+    );
+  }
+  return (
+    <>
+      <SystemNote
+        icon="alert"
+        action={{
+          label: t('chat.prepaymentReport'),
+          disabled: report.isPending,
+          onClick: () =>
+            report.mutate({
+              target_type: 'message',
+              target_id: message.id,
+              reason: 'fraud',
+              comment: null,
+              conversation_id: conversationId,
+            }),
+        }}
+      >
+        {t('chat.prepayment')}
+      </SystemNote>
+      {report.isError && <SystemNote role="alert">{t('chat.prepaymentReportError')}</SystemNote>}
+    </>
+  );
+}
 
 function MessageBody({ message }: { message: MessageOut }) {
   const { t } = useTranslation('messages');
