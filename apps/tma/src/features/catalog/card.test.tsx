@@ -152,9 +152,67 @@ describe('S08 profile', () => {
 
     const header = await profileHeader();
     expect(header.getByText('Подработка')).toBeTruthy();
-    // факты по важности: «Подработка», «Телефон подтверждён», «Сегодня до …»
-    const badges = header.getByText('Подработка').parentElement?.textContent;
-    expect(badges).toMatch(/^ПодработкаТелефон подтверждёнСегодня до /);
+    // факты по важности: «Подработка», «Телефон подтверждён», «Проверен модератором», «Сегодня до …»
+    const badges = header.getByText('Подработка').closest('div')?.textContent;
+    expect(badges).toMatch(/^ПодработкаТелефон подтверждёнПроверен модераторомСегодня до /);
+  });
+
+  it('explains «Проверен модератором» in a sheet and leads to the reviews «до платформы»', async () => {
+    const { app, telegram } = startApp(PROFILE);
+
+    // бейдж называет факт, расшифровка — в один тап (ZZP 35/2026 ст. 19–20): что проверено и что нет
+    const header = await profileHeader();
+    await waitFor(() => expect(mainButton(telegram)?.is_visible).toBe(true));
+    await click(header.getByRole('button', { name: 'Проверен модератором: что проверено' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Что проверено' });
+    expect(
+      within(sheet).getByText(
+        /^Модератор прочитал описание и посмотрел фото профиля и портфолио 20 сентября 2026/,
+      ),
+    ).toBeTruthy();
+    expect(
+      within(sheet).getByText('Документы, квалификацию и авторство фото мы не проверяем.'),
+    ).toBeTruthy();
+    // слов «верифицирован» и «надёжный» нет; MainButton под затемнением спрятана
+    expect(within(sheet).queryByText(/верифицирован|надёжн/i)).toBeNull();
+    expect(mainButton(telegram)?.is_visible).toBe(false);
+    await click(within(sheet).getByRole('button', { name: 'Закрыть' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(mainButton(telegram)?.is_visible).toBe(true));
+
+    // та же шторка — строкой «Как мы проверяем»
+    await click(screen.getByRole('button', { name: 'Как мы проверяем' }));
+    expect(await screen.findByRole('dialog', { name: 'Что проверено' })).toBeTruthy();
+    await click(screen.getByRole('button', { name: 'Закрыть' }));
+
+    // «Отзывы до платформы · 2» с подписью — на свою вкладку S11; в рейтинг они не входят
+    const row = screen.getByRole('link', { name: /^Отзывы до платформы/ });
+    expect(row.textContent).toContain('Не подтверждены сделкой в «Соседях», в рейтинг не входят');
+    await click(row);
+    await waitFor(() => expect(app.router.state.location.pathname).toBe(`${PROFILE}/reviews`));
+    expect(
+      await screen.findByRole('radio', { name: 'До платформы · 2', checked: true }),
+    ).toBeTruthy();
+  });
+
+  it('keeps the reviews section for a profile with pre-platform reviews only', async () => {
+    server.use(
+      http.get(`*/api/v1${PROFILE}`, () =>
+        HttpResponse.json({
+          ...specialistCardFor('ru'),
+          rating: null,
+          rating_count: 0,
+          is_new: true,
+          reviews: [],
+          pre_platform_count: 3,
+        }),
+      ),
+    );
+    startApp(PROFILE);
+
+    const reviews = within(await screen.findByRole('region', { name: 'Отзывы' }));
+    expect(reviews.getByRole('link', { name: 'Все 3' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /^Отзывы до платформы/ }).textContent).toContain('3');
   });
 
   it('opens from a card in the results and goes back to them', async () => {

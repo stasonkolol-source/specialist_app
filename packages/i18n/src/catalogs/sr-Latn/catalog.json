@@ -121,6 +121,13 @@
     "directHint": "Zahtev će videti samo {name}",
     "writeInTelegram": "Napiši poruku u Telegram-u",
     "casual": "Honorarno",
+    "moderated": "Proverio moderator",
+    "moderatedHint": "Proverio moderator: šta je provereno",
+    "founding": "Po pozivu tima",
+    "foundingHint": "Po pozivu tima: detaljnije",
+    "howChecked": "Kako proveravamo",
+    "prePlatformReviews": "Utisci pre platforme",
+    "prePlatformNote": "Nisu potvrđeni dogovorom u aplikaciji „Sosedi“, ne ulaze u ocenu",
     "responseMinutes": "Obično odgovori za {count, plural, one {# minut} few {# minuta} other {# minuta}}",
     "responseHours": "Obično odgovori za {count, plural, one {# sat} few {# sata} other {# sati}}",
     "writeFailed": "Razgovor nije moguće otvoriti. Pokušajte ponovo.",
@@ -183,6 +190,16 @@
     "reply": "Odgovor stručnjaka",
     "more": "Prikaži još",
     "actions": "Prijavi utisak: {name}"
+  },
+  "checked": {
+    "title": "Šta je provereno",
+    "read": "Moderator je pročitao opis i pregledao fotografije profila i portfolija {date}.",
+    "readNoDate": "Moderator je pročitao opis i pregledao fotografije profila i portfolija pre objavljivanja.",
+    "rules": "Proveravamo da u profilu nema kontakata, traženja avansa i zabranjenih usluga.",
+    "limits": "Dokumenta, kvalifikacije i autorstvo fotografija ne proveravamo.",
+    "reviews": "Utisci — samo po dogovorima u aplikaciji „Sosedi“.",
+    "foundingTitle": "Po pozivu tima",
+    "founding": "Tim aplikacije „Sosedi“ lično je pozvao ovog stručnjaka iz ćaskanja dela grada."
   },
   "favorites": {
     "title": "Omiljeni",

@@ -6,8 +6,11 @@
 // шторка с подходящими специалистами из каталога (категория и город заявки), «Продлить» — когда
 // срок на исходе или вышел, «Поднять» — v1 (до него кнопки нет). Откликов нет — «бот напишет о
 // первом» и одна кнопка «Пригласить специалистов». Отклики — карточками по времени отклика: фото и
-// имя (непросмотренный — точкой), рейтинг со звездой или «Новый специалист», район, цена, сообщение
-// и не больше двух бейджей: «Откликнулся первым», «Телефон подтверждён», «Подработка»; опрос раз в
+// имя (непросмотренный — точкой), рейтинг со звездой или «Новый специалист», район и вид
+// («Подработка», «Без профиля»), строка фактов (стаж в «Соседях», сделки, работы, отзывы до
+// платформы, время ответа), цена, сообщение и не больше двух бейджей: «Телефон подтверждён»,
+// «Проверен модератором», «Откликнулся первым», «Приглашён командой», «Новый аккаунт»
+// (PerformerFacts); опрос раз в
 // 15 секунд — вместе с самой заявкой: места и просмотры в шапке не отстают от списка. Заявка
 // перечитывается и при каждом открытии, а на проверке — чаще: из «на проверке» экран сам переходит
 // в «Ждём откликов» или «Нужно исправить». «Закрыть заявку» спрашивает причину. «Изменить» — мастер
@@ -57,6 +60,7 @@ import { InviteList } from '../shared/InviteList.tsx';
 import { JobUnavailable } from '../shared/JobUnavailable.tsx';
 import { useDraftStore } from '../shared/draft.ts';
 import { LoadError } from '../shared/LoadError.tsx';
+import { PerformerBadges, PerformerFacts, performerKind } from '../shared/PerformerFacts.tsx';
 import { PerformerRating } from '../shared/PerformerRating.tsx';
 import {
   useBudgetText,
@@ -594,9 +598,6 @@ function ResponseCard({ jobId, card }: { jobId: string; card: ResponseCardOut })
   const avatar =
     performer.avatar?.variants.find((v) => v.name === 'thumb') ?? performer.avatar?.variants[0];
   const price = card.price.type === 'negotiable' ? t('card.negotiable') : offerPrice(card.price);
-  const casual = performer.kind !== 'pro';
-  // не больше двух бейджей в строке: «Откликнулся первым» уступает фактам об исполнителе
-  const first = card.is_first && !(casual && performer.phone_verified);
   return (
     <Card
       tight
@@ -618,8 +619,9 @@ function ResponseCard({ jobId, card }: { jobId: string; card: ResponseCardOut })
           <PerformerRating
             rating={performer.rating}
             count={performer.rating_count}
-            meta={[place]}
+            meta={[place, performerKind(performer, t)]}
           />
+          <PerformerFacts performer={performer} />
         </div>
       </div>
       {/* кавычки — из каталога: в sr „…“, а не русские «…» (UXM-11) */}
@@ -632,17 +634,7 @@ function ResponseCard({ jobId, card }: { jobId: string; card: ResponseCardOut })
           {card.availability_note}
         </p>
       )}
-      {(first || performer.phone_verified || casual) && (
-        <div className="flex flex-wrap gap-1.5">
-          {first && <Badge tone="ok">{t('manage.first')}</Badge>}
-          {performer.phone_verified && (
-            <Badge tone="info" icon="shield">
-              {t('manage.phone')}
-            </Badge>
-          )}
-          {casual && <Badge>{t('manage.casual')}</Badge>}
-        </div>
-      )}
+      <PerformerBadges card={card} />
     </Card>
   );
 }

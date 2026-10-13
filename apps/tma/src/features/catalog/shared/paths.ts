@@ -144,3 +144,14 @@ export interface PortfolioSearch {
 export function portfolioSearch(search: Record<string, unknown>): PortfolioSearch {
   return typeof search.work === 'string' && isUuid(search.work) ? { work: search.work } : {};
 }
+
+export interface ReviewsSearch {
+  /** Открытая вкладка: «До платформы» со строки «Отзывы до платформы · 3» на S08; без неё —
+   *  «По сделкам». */
+  kind?: 'pre_platform';
+}
+
+/** validateSearch S11: вкладка, остальное отбрасывается. */
+export function reviewsSearch(search: Record<string, unknown>): ReviewsSearch {
+  return search.kind === 'pre_platform' ? { kind: 'pre_platform' } : {};
+}
