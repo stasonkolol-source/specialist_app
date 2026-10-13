@@ -266,7 +266,7 @@ async def test_missing_target_or_object_is_skipped(moderation: Moderation) -> No
 
     with capture_logs() as logs:
         missing = await moderation.auto_check(
-            AutoCheckCommand(entity_type=EntityType.MESSAGE, entity_id=new_id(), author_id=author)
+            AutoCheckCommand(entity_type=EntityType.REVIEW, entity_id=new_id(), author_id=author)
         )
     gone = await moderation.auto_check(
         AutoCheckCommand(entity_type=EntityType.JOB, entity_id=new_id(), author_id=author)
@@ -274,3 +274,47 @@ async def test_missing_target_or_object_is_skipped(moderation: Moderation) -> No
 
     assert (missing, gone) == (None, None)
     assert [e["event"] for e in logs] == ["moderation_target_missing"]
+
+
+async def test_prepayment_in_chat_opens_one_case_about_the_author(moderation: Moderation) -> None:
+    """Просьба о предоплате в чате (2.6, план антифрода B2): сообщение остаётся видно (баннер
+    6.3a), кейс P1 — об авторе, повтор за сутки дописывается в него, а не плодит карточки;
+    сигналы риска — предоплата на каждое сообщение, контакты в чате — с весом 0.5."""
+    author = await moderation.user()
+
+    async def check(text: str) -> UUID:
+        message = moderation.messages.add(author, text, kind=ContentKind.MESSAGE, visible=True)
+        routing = await moderation.auto_check(
+            AutoCheckCommand(entity_type=EntityType.MESSAGE, entity_id=message, author_id=author)
+        )
+        assert routing is not None
+        assert routing.route is Route.REVIEW
+        return message
+
+    first = await check("Половину вперёд на карту, потом приеду")
+    second = await check("Nema problema, avans 30%, moj viber 064 123 45 67")
+
+    assert moderation.messages.hidden == []
+    assert moderation.messages.published == []
+    [(entity_type, entity_id, queue, trigger, status, evidence)] = await moderation.rows(
+        "SELECT entity_type, entity_id, queue, trigger, status, evidence FROM moderation.cases"
+        " WHERE subject_id = :id",
+        id=author,
+    )
+    assert (entity_type, entity_id, queue, trigger, status) == (
+        "user",
+        author,
+        "fraud",
+        "auto_flag",
+        "pending",
+    )
+    assert [entry["message_id"] for entry in evidence] == [str(first), str(second)]
+    assert await moderation.rows(
+        "SELECT signal, weight, ref_id FROM moderation.risk_signals WHERE user_id = :id"
+        " ORDER BY id",
+        id=author,
+    ) == [
+        ("prepayment_request", 1.0, first),
+        ("prepayment_request", 1.0, second),
+        ("contact_leak", 0.5, second),
+    ]

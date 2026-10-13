@@ -90,8 +90,10 @@ class Moderation:
     report: CreateReport
     report_targets: FakeReportTargets
     report_quota: FakeReportQuota
+    signals: SqlRiskSignals
     jobs: FakeTarget = field(default_factory=FakeTarget)
     profiles: FakeTarget = field(default_factory=FakeTarget)
+    messages: FakeTarget = field(default_factory=FakeTarget)
 
     async def user(self, *, trust_level: int = 0) -> UserId:
         user_id = await insert_user(self.session)
@@ -138,8 +140,10 @@ def moderation(db_session: AsyncSession, procrastinate_app: procrastinate.App) -
     overflows = FakeOverflows()
     reports = SqlReportRepository(db_session, uow)
     opener = CaseOpener(cases, reports, audit, clock)
-    jobs, profiles = FakeTarget(), FakeTarget()
-    targets = FakeTargets({EntityType.JOB: jobs, EntityType.PROFILE: profiles})
+    jobs, profiles, messages = FakeTarget(), FakeTarget(), FakeTarget()
+    targets = FakeTargets(
+        {EntityType.JOB: jobs, EntityType.PROFILE: profiles, EntityType.MESSAGE: messages}
+    )
     rules, omni, classifier = FakeRuleSource(), FakeModeration(), FakeClassifier()
     flags, metrics = FakeFlags(), FakeMetrics()
     deals = FakeDeals()
@@ -186,6 +190,7 @@ def moderation(db_session: AsyncSession, procrastinate_app: procrastinate.App) -
             flags,
             metrics,
             audit,
+            signals,
         ),
         rules=rules,
         omni=omni,
@@ -195,6 +200,8 @@ def moderation(db_session: AsyncSession, procrastinate_app: procrastinate.App) -
         report=CreateReport(uow, reports, report_targets, report_quota, opener, clock),
         report_targets=report_targets,
         report_quota=report_quota,
+        signals=signals,
         jobs=jobs,
         profiles=profiles,
+        messages=messages,
     )

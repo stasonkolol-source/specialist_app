@@ -832,7 +832,7 @@ msgid "notifications.moderation_decision.button"
 msgstr "Исправи"
 
 msgid "notifications.moderation_reason.prepayment_scam"
-msgstr "тражење плаћања унапред — чест трик преваранта"
+msgstr "на „Соседима“ се плаћа после посла. Тражење плаћања унапред је прекршај; поновљено — забрана одговора на огласе"
 
 msgid "notifications.moderation_reason.off_platform_payment"
 msgstr "предлог плаћања или преписке мимо апликације „Соседи“"
@@ -1569,6 +1569,36 @@ msgstr "контакти ({kinds}) у {field}"
 
 msgid "bot.moderation.why.prepayment"
 msgstr "тражи авансно плаћање"
+
+msgid "bot.moderation.event.prepayment"
+msgstr "тражи авансно плаћање у чету"
+
+msgid "bot.moderation.card.risk"
+msgstr "⚠️ сигнали ризика: {signals}"
+
+msgid "bot.moderation.card.repeat"
+msgstr "🔁 понављање: {count} за {days} дана · предложена тежина: {severity}"
+
+msgid "bot.moderation.risk.reregistered_after_deletion"
+msgstr "поновна регистрација после брисања"
+
+msgid "bot.moderation.risk.with_sanctions"
+msgstr "{label} (са санкцијама)"
+
+msgid "bot.moderation.risk.prepayment_request"
+msgstr "аванс"
+
+msgid "bot.moderation.risk.contact_leak"
+msgstr "контакти у чету"
+
+msgid "bot.moderation.risk.rate_limit_exceeded"
+msgstr "лимити 429"
+
+msgid "bot.moderation.risk.report_confirmed"
+msgstr "потврђена пријава"
+
+msgid "bot.moderation.risk.times"
+msgstr "{label} ×{count}"
 
 msgid "bot.moderation.why.omni"
 msgstr "ознака OpenAI omni: {category}"

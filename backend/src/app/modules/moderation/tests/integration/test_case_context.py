@@ -25,8 +25,10 @@ from app.modules.moderation.application.use_cases.post_case_card import (
     PostCaseCardCommand,
 )
 from app.modules.moderation.domain.cases import Case, CaseTrigger, EntityType
+from app.modules.moderation.domain.pipeline import PREPAYMENT_SIGNAL
 from app.modules.moderation.domain.queues import Queue
 from app.modules.moderation.domain.reports import ReportReason
+from app.modules.moderation.domain.risk import RiskSignal, RiskSignalKind, RiskSummary
 from app.modules.moderation.infrastructure.case_context import (
     FacadeCaseContext,
     MediaCasePhotos,
@@ -67,6 +69,7 @@ class Facades:
 
     profiles: dict[UserId, ProfileRef] = field(default_factory=dict)
     jobs: dict[UUID, JobForReview] = field(default_factory=dict)
+    messages: dict[UUID, MessageForReview] = field(default_factory=dict)
     images: dict[MediaId, bytes] = field(default_factory=dict)
     read_images: list[MediaId] = field(default_factory=list)
 
@@ -83,7 +86,7 @@ class Facades:
         return None
 
     async def message_for_card(self, message_id: UUID) -> MessageForReview | None:
-        return None
+        return self.messages.get(message_id)
 
     async def review_for_check(self, review_id: UUID) -> ReviewForCheck | None:
         return None
@@ -122,6 +125,8 @@ def contexts(moderation: Moderation, facades: Facades) -> FacadeCaseContext:
         moderation.deals,
         cast(CatalogApi, facades),
         cast(GeoApi, facades),
+        moderation.signals,
+        moderation.clock,
     )
 
 
@@ -310,3 +315,58 @@ async def test_appeal_context_names_the_decision(
     assert context.appeal is not None
     assert context.appeal.reason_code == "spam_ad"
     assert context.appeal.decided_at == moderation.clock.now()
+
+
+async def test_prepayment_case_context_has_messages_and_risk_signals(
+    moderation: Moderation, contexts: FacadeCaseContext, facades: Facades
+) -> None:
+    """Кейс об авторе сообщений с просьбой о предоплате (2.6): тексты сообщений из поводов (с маской
+    фасада) и сигналы риска за окно по видам (B6) — из `risk_signals`, которые раньше только
+    писались."""
+    author = await moderation.user()
+    first, second = new_id(), new_id()
+    facades.messages[first] = MessageForReview(sender_id=author, text="Половину вперёд на •••")
+    facades.messages[second] = MessageForReview(sender_id=author, text="Avans 30% pa dolazim")
+    prepayment = RiskSignalKind.PREPAYMENT_REQUEST
+    async with moderation.uow:
+        await moderation.signals.add(
+            [
+                RiskSignal(user_id=author, kind=prepayment, dedupe_key=f"{prepayment}:{first}"),
+                RiskSignal(user_id=author, kind=prepayment, dedupe_key=f"{prepayment}:{second}"),
+                RiskSignal(
+                    user_id=author,
+                    kind=RiskSignalKind.REREGISTERED_AFTER_DELETION,
+                    weight=3.0,
+                    details={"had_sanctions": True},
+                    dedupe_key=f"reregistered:{author}",
+                ),
+            ]
+        )
+    for message_id in (first, second):  # второе сообщение — повод в тот же кейс (CaseOpener)
+        case_id = await moderation.open(
+            OpenCaseCommand(
+                queue=Queue.FRAUD,
+                entity_type=EntityType.USER,
+                entity_id=author,
+                subject_id=author,
+                trigger=CaseTrigger.AUTO_FLAG,
+                details={"signals": [PREPAYMENT_SIGNAL], "message_id": str(message_id)},
+            )
+        )
+
+    context = await contexts.context(await stored(moderation, case_id))
+
+    assert context.object.kind == "user"
+    assert [f.text for f in context.object.fields] == [
+        "Половину вперёд на •••",
+        "Avans 30% pa dolazim",
+    ]
+    assert context.subject.risk_signals == (
+        RiskSummary(kind=prepayment, count=2, weight=2.0),
+        RiskSummary(
+            kind=RiskSignalKind.REREGISTERED_AFTER_DELETION,
+            count=1,
+            weight=3.0,
+            with_sanctions=True,
+        ),
+    )
