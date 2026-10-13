@@ -31,7 +31,9 @@ class JobPublished(DomainEvent):
     urgency: str
     """Urgency заявки: срез аналитики и режим рассылки подписчикам (5.7)."""
     republished: bool = False
-    """Не первая публикация: после правки, продления истёкшей — подписчикам не рассылать снова."""
+    """Не первая публикация: после правки, продления истёкшей, отмены сделки. Подписчикам она
+    уходит снова, но только тем, кто карточку ещё не получал (совпадения помнят, кому ушло);
+    приглашённому прямой запрос второй раз не объявляется."""
     direct: bool = False
     """Прямой запрос (`visibility = direct`, 5.6): её видят только приглашённые — подписчикам не
     рассылать, приглашённым — уведомление."""
@@ -165,7 +167,9 @@ class JobInvited(DomainEvent):
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class AlertCreated(DomainEvent):
-    """Исполнитель подписался на новые заявки (S19, 5.7): в аналитику — `alert_created`."""
+    """Исполнитель подписался на новые заявки (S19, 5.7) или подписку по профилю завёл за него
+    jobs при первой публикации профиля (`auto`): в аналитику — `alert_created`; подписчик
+    `jobs.catch_up_alert` досылает открытые заявки последних трёх суток."""
 
     event_type = "jobs.AlertCreated"
     alert_id: UUID
@@ -178,6 +182,8 @@ class AlertCreated(DomainEvent):
     categories: int
     has_budget: bool
     urgent_only: bool
+    auto: bool = False
+    """Создана из профиля при его публикации, а не исполнителем на S19."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

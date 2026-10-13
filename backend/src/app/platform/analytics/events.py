@@ -246,7 +246,8 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
     ),
     EventName.ALERT_CREATED: EventSpec(
         step="5.7",
-        description="Подписка на заявки (S19): как присылать, какая зона, сколько категорий",
+        description="Подписка на заявки (S19 или из профиля при публикации): как присылать, "
+        "какая зона, сколько категорий",
         properties={
             "city": Ref(),
             "delivery": Choice(ALERT_DELIVERIES),
@@ -254,6 +255,7 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
             "categories": Count(),
             "has_budget": Flag(),
             "urgent_only": Flag(),
+            "auto": Flag(),
         },
     ),
     EventName.JOB_MATCHED_NOTIFIED: EventSpec(

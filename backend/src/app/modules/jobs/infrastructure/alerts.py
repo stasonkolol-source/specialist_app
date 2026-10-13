@@ -19,6 +19,7 @@ from sqlalchemy import (
     and_,
     any_,
     delete,
+    exists,
     func,
     or_,
     select,
@@ -30,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.jobs.application.alerts import (
     AlertCandidate,
     AlertMatch,
+    JobCandidate,
     PendingDigest,
     RecentCards,
 )
@@ -40,7 +42,7 @@ from app.modules.jobs.domain.alert import (
     AlertId,
     JobAlert,
 )
-from app.modules.jobs.domain.job import BudgetType, JobId, Urgency
+from app.modules.jobs.domain.job import BudgetType, JobId, JobStatus, Urgency, Visibility
 from app.modules.jobs.infrastructure.models import AlertMatchRow, AlertRow, JobRow
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, UserId
@@ -165,6 +167,40 @@ class SqlAlertMatches:
                 alert_id=AlertId(row["id"]),
                 user_id=UserId(row["user_id"]),
                 delivery=AlertDelivery(row["delivery"]),
+                distance_m=row["distance"],
+            )
+            for row in rows
+        ]
+
+    async def recent_jobs(
+        self, alert_id: AlertId, *, since: datetime, now: datetime, limit: int
+    ) -> list[JobCandidate]:
+        alerts, jobs = AlertRow.__table__, JobRow.__table__
+        distance = func.ST_Distance(_A.center, _J.point_public).label("distance")
+        already = exists().where(_AM.job_id == _J.id, _AM.user_id == _A.user_id)
+        rows = (
+            await self._session.execute(
+                select(_J.id, _J.client_id, distance)
+                .select_from(alerts)
+                .join(jobs, _A.id == alert_id)
+                .where(
+                    _J.status == JobStatus.PUBLISHED.value,
+                    _J.deleted_at.is_(None),
+                    _J.visibility == Visibility.PUBLIC.value,
+                    _J.published_at >= since,
+                    or_(_J.expires_at.is_(None), _J.expires_at > now),
+                    _J.responses_count < _J.max_responses,
+                    ~already,
+                    *alert_fits(alerts, jobs),
+                )
+                .order_by(_J.published_at.desc(), _J.id)
+                .limit(limit)
+            )
+        ).mappings()
+        return [
+            JobCandidate(
+                job_id=JobId(row["id"]),
+                client_id=UserId(row["client_id"]),
                 distance_m=row["distance"],
             )
             for row in rows

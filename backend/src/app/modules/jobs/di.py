@@ -23,12 +23,14 @@ from app.modules.jobs.application.ports import (
 from app.modules.jobs.application.use_cases.accept_response import AcceptResponse
 from app.modules.jobs.application.use_cases.announce_direct_request import AnnounceDirectRequest
 from app.modules.jobs.application.use_cases.browse_jobs import BrowseJobs
+from app.modules.jobs.application.use_cases.catch_up_alert import CatchUpAlert
 from app.modules.jobs.application.use_cases.close_job import CloseJob
 from app.modules.jobs.application.use_cases.complete_job import CompleteJob
 from app.modules.jobs.application.use_cases.count_job_view import CountJobView
 from app.modules.jobs.application.use_cases.count_jobs import CountJobs
 from app.modules.jobs.application.use_cases.create_alert import CreateAlert
 from app.modules.jobs.application.use_cases.create_job import CreateJob
+from app.modules.jobs.application.use_cases.create_profile_alert import CreateProfileAlert
 from app.modules.jobs.application.use_cases.create_template import CreateTemplate
 from app.modules.jobs.application.use_cases.decline_response import DeclineResponse
 from app.modules.jobs.application.use_cases.delete_alert import DeleteAlert
@@ -147,5 +149,7 @@ class JobsProvider(Provider):
     delete_alert = provide(DeleteAlert)
     pause_alerts = provide(PauseAlerts)
     match_alerts = provide(MatchAlerts)
+    catch_up_alert = provide(CatchUpAlert)
+    create_profile_alert = provide(CreateProfileAlert)
     send_alert_digests = provide(SendAlertDigests)
     forget_alerts = provide(ForgetAlerts)
