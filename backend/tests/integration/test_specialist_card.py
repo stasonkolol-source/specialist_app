@@ -142,8 +142,9 @@ async def test_whole_city_specialist_has_the_city_instead_of_a_district(web: Htt
 
 
 async def test_card_reads_do_not_grow_with_the_profile(web: HttpApp) -> None:
-    """Перф-аудит: карточка S08 — восемь запросов при любом числе районов и работ (было 16 и
-    по запросу на район): фото и работы — одним, справочники — из снимка в памяти процесса.
+    """Перф-аудит: карточка S08 — девять запросов при любом числе районов и работ (было 16 и
+    по запросу на район): фото и работы — одним, справочники — из снимка в памяти процесса,
+    отзывы «до платформы» — счётчиком для строки «Отзывы до платформы · N».
     Прайс S09 и отзывы S11 проверяют видимость без описаний и портфолио; отзывам S11 — ещё
     число «До платформы · N» для второй вкладки (7.6а)."""
     specialist = await published(web)
@@ -157,7 +158,7 @@ async def test_card_reads_do_not_grow_with_the_profile(web: HttpApp) -> None:
     with round_trips(engine) as reviews:
         assert (await get(web, f"{specialist.profile_id}/reviews")).status_code == 200
 
-    assert card.queries == 8, card.statements
+    assert card.queries == 9, card.statements
     assert (card.begins, card.ends) == (0, 0)
     assert services.queries == 3, services.statements
     assert reviews.queries == 5, reviews.statements
@@ -221,6 +222,9 @@ async def test_reviews_page_and_card_show_the_rating(web: HttpApp) -> None:
         "criteria": {"quality": 4.9, "price": 4.8},
     }
     assert (card["rating"], card["rating_count"], card["is_new"]) == (4.9, 37, False)
+    # опубликованный профиль прочитал модератор: бейдж — факт, дата проверки — published_at
+    assert (card["badges"], card["pre_platform_count"]) == (["moderated"], 0)
+    assert card["published_at"] is not None
 
 
 @pytest.mark.parametrize(

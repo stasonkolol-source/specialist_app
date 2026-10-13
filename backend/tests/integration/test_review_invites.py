@@ -248,6 +248,7 @@ async def test_past_client_review_is_labelled_moderated_and_outside_the_rating(
     assert (body["summary"]["count"], body["summary"]["is_new"]) == (0, True)
     card = await chat.get(client, f"/specialists/{specialist.profile_id}")
     assert card.json()["reviews"] == []  # S08 — только отзывы по сделкам
+    assert card.json()["pre_platform_count"] == 1  # «Отзывы до платформы · 1» на S08
     tab = await chat.get(client, f"/specialists/{specialist.profile_id}/reviews?kind=pre_platform")
     [shown_review] = tab.json()["items"]
     assert (shown_review["kind"], shown_review["work_title"]) == (

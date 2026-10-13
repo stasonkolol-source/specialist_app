@@ -9,7 +9,9 @@
 сделкам с ответом специалиста, автор — «Имя Ф.» (7.2); вкладка «До платформы» S11 — отзывы по
 приглашениям с «что делал мастер», в рейтинг они не входят (7.6а). «Обычно отвечает за …» —
 медиана первого ответа в диалогах за 30 дней из read-model поиска (6.3b; при пяти и больше
-диалогах с ответом). Бейджи — v1: пока пусто.
+диалогах с ответом). Бейджи — факты, не оценки (ADR-0016; ZZP 35/2026 ст. 19–20): `moderated`
+— опубликованный профиль прочитал модератор до публикации, дата проверки — `published_at`;
+«Телефон подтверждён» и остальное — v1.
 """
 
 from collections.abc import Collection, Mapping
@@ -52,6 +54,8 @@ READY = "ready"
 STARS = 5
 LATEST_REVIEWS = 1
 """Последний отзыв на S08; остальные — S11."""
+MODERATED = "moderated"
+"""Бейдж «Проверен модератором»: профиль опубликован — значит, его прочитал человек (§14.1)."""
 
 router = APIRouter(tags=["views"])
 profile_limit = [Depends(GuestOrUserRateLimit(guest=PROFILE_GUEST, user=PROFILE_USER))]
@@ -141,7 +145,14 @@ class SpecialistProfileOut(BaseModel):
     rating: float | None = Field(description="Когда отзывов достаточно (7.2); иначе is_new")
     rating_count: int
     is_new: bool
-    badges: list[str]
+    pre_platform_count: int = Field(
+        description="«Отзывы до платформы · 3»: опубликованные отзывы по приглашениям (7.6а), в"
+        " рейтинг не входят"
+    )
+    badges: list[str] = Field(
+        description="Факты о профиле: moderated — проверен модератором до публикации (дата —"
+        " published_at)"
+    )
     response_time_minutes: int | None = Field(
         description="«Обычно отвечает за …»: медиана первого ответа в диалогах за 30 дней, в"
         " минутах; меньше пяти диалогов с ответом — null"
@@ -316,6 +327,7 @@ async def get_specialist(
     profile = await _visible(profile_id, specialists, identity)
     rating = _rating((await reviews.summaries([profile.id])).get(profile.id))
     latest = await reviews.reviews_of(profile.id, PageRequest(limit=LATEST_REVIEWS))
+    pre_platform = await reviews.review_count(profile.id, kind=PRE_PLATFORM)
     services = await pricing.public_services(profile.id)
     # фото профиля и работы — одним запросом; готовность всех работ нужна для works_count
     avatars = await media.refs([*_avatar_ids(profile), *(work.media_id for work in profile.works)])
@@ -346,7 +358,8 @@ async def get_specialist(
         rating=rating.rating,
         rating_count=rating.count,
         is_new=rating.is_new,
-        badges=[],
+        pre_platform_count=pre_platform,
+        badges=[MODERATED] if profile.published_at is not None else [],
         response_time_minutes=await search.response_time(profile.id),
         services=[_service(service) for service in services[:TOP_SERVICES]],
         services_count=len(services),

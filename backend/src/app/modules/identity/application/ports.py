@@ -356,6 +356,10 @@ class IdentityQuery(Protocol):
         """Сколько сделок пользователь завершил стороной — уровень доверия 2 (6.1a)."""
         ...
 
+    async def completed_deals_of(self, user_ids: Collection[UserId]) -> dict[UserId, int]:
+        """То же пачкой (карточки откликов S23); у кого ни одной — нет в ответе."""
+        ...
+
     async def staff_card(self, user_id: UserId, now: datetime) -> StaffUserCard | None:
         """Карточка персоналу (Admin API) без ПД, и удалённого тоже; None — нет такого."""
         ...
