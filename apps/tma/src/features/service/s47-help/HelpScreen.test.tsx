@@ -29,7 +29,7 @@ describe('S47 help', () => {
       within(safety)
         .getAllByRole('listitem')
         .map((item) => item.textContent),
-    ).toEqual(['Не вносите предоплату незнакомым', 'Не переходите по ссылкам «для оплаты»']);
+    ).toEqual(['Оплата — после работы, лично', 'Не переходите по ссылкам «для оплаты»']);
     const faq = screen.getByRole('region', { name: 'Частые вопросы' });
     expect(
       within(faq)

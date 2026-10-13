@@ -154,7 +154,7 @@ msgid "bot.deals.proposal_closed"
 msgstr "Predlog više nije aktuelan: potvrđen je, odbijen ili je rok istekao."
 
 msgid "bot.help.text"
-msgstr "<b>Kako funkcioniše</b>\n• Opišite zadatak — majstori u blizini će se javiti sa cenom. Ili izaberite stručnjaka po utiscima.\n• Dogovarajte se u četu aplikacije „Sosedi“: kontakti — nakon dogovora.\n• Plaćanje — direktno izvođaču, posle posla. „Sosedi“ ne primaju novac.\n\n<b>Bezbednost</b>\n• Ne plaćajte unapred nepoznatim ljudima i nikome ne govorite kodove iz SMS poruka.\n• Sumnjiv profil ili poruka — prijavite direktno u aplikaciji.\n\n/terms — pravila platforme\n/privacy — politika privatnosti\n/language — jezik"
+msgstr "<b>Kako funkcioniše</b>\n• Opišite zadatak — majstori u blizini će se javiti sa cenom. Ili izaberite stručnjaka po utiscima.\n• Dogovarajte se u četu aplikacije „Sosedi“: kontakti — nakon dogovora.\n• Plaćanje — posle posla, lično. „Sosedi“ ne primaju novac — nema kome da se plati unapred.\n\n<b>Bezbednost</b>\n• Avans se ne traži i ne daje. Materijal — po računu pri susretu. Kodove iz SMS poruka nikome ne govorite.\n• Traže avans ili je profil sumnjiv — prijavite direktno u aplikaciji.\n\n/terms — pravila platforme\n/privacy — politika privatnosti\n/language — jezik"
 
 msgid "bot.help.support"
 msgstr "Pitanje ili problem? Pišite podršci — odgovorićemo."
@@ -932,7 +932,7 @@ msgid "notifications.response_accepted.title"
 msgstr "Izabrani ste"
 
 msgid "notifications.response_accepted.body"
-msgstr "Zahtev „{title}“. Adresa i vreme — u dogovoru."
+msgstr "Zahtev „{title}“. Adresa i vreme — u dogovoru. Plaćanje — posle posla, lično."
 
 msgid "notifications.response_not_selected.title"
 msgstr "Izabran je drugi izvođač"

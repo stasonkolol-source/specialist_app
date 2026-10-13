@@ -456,6 +456,13 @@ function ConfirmSheet({
               </Text>
             </li>
           )}
+          {/* деньги — там, где решают: правило площадки прямо перед «Выбрать исполнителем» */}
+          <li className="flex items-start gap-2.5">
+            <Icon name="wallet" size={20} className="shrink-0 text-accent" />
+            <Text as="span" variant="sm">
+              {t('choice.changePayment')}
+            </Text>
+          </li>
         </ul>
       </section>
       <Text variant="cap">{t('choice.note')}</Text>

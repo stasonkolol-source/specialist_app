@@ -151,6 +151,12 @@ describe('S24 response and S25 choice', () => {
         'Остальные откликнувшиеся получат уведомление, что выбран другой исполнитель',
       ),
     ).toBeTruthy();
+    // деньги — там, где решают: правило площадки третьей строкой
+    expect(
+      within(changes).getByText(
+        'Платите исполнителю лично, после работы — предоплата не нужна. Материалы — по чеку при встрече.',
+      ),
+    ).toBeTruthy();
     // подтверждение — нативной MainButton шторки: видна и активна, «Написать» экрана спрятана (MU-2)
     expect(mainButton(telegram)).toMatchObject({
       is_visible: true,
@@ -344,7 +350,7 @@ describe('S26 deal', () => {
     await click(within(steps).getByRole('button', { name: 'Подробнее' }));
     expect(within(steps).getByText('Отклик на заявку')).toBeTruthy();
     expect(within(steps).getByText('Выбран исполнителем')).toBeTruthy();
-    expect(screen.getByText(/Не вносите предоплату незнакомым исполнителям/)).toBeTruthy();
+    expect(screen.getByText('Оплата — после работы, лично.')).toBeTruthy();
     // до времени работы главное — «Написать»; отметить — строкой, «Есть проблема» — строкой
     await waitFor(() => expect(mainButton(telegram)?.text).toBe('Написать'));
     expect(screen.getByRole('button', { name: 'Работа уже сделана? Отметить' })).toBeTruthy();
@@ -491,7 +497,10 @@ describe('S26 deal', () => {
     expect(await screen.findByText('Елена К.')).toBeTruthy();
     expect(screen.getByText('клиент')).toBeTruthy();
     expect(screen.getByText(/^Клиент выбрал вас\. Уточните время/)).toBeTruthy();
-    expect(screen.queryByText(/Не вносите предоплату/)).toBeNull();
+    expect(
+      screen.getByText('Клиент платит после работы. Материалы — по чеку при встрече.'),
+    ).toBeTruthy();
+    expect(screen.queryByText('Оплата — после работы, лично.')).toBeNull();
     // отзыв пишет клиент: у исполнителя шага «Отзыв» нет (№13)
     const steps = screen.getByRole('region', { name: 'Статус' });
     await click(within(steps).getByRole('button', { name: 'Подробнее' }));

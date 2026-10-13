@@ -14,7 +14,8 @@ import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
 import { problem } from '../../testing/backend.ts';
 import { ChatBackend, CONVERSATION_IDS } from '../../testing/chatBackend.ts';
 import { CARD_PROFILE_ID, E2E_NOW } from '../../testing/fixtures.ts';
-import { chatHandlers, server } from '../../testing/msw.ts';
+import { chatHandlers, safetyHandlers, server } from '../../testing/msw.ts';
+import { SafetyBackend } from '../../testing/safetyBackend.ts';
 
 const DIRECT = `/messages/${CONVERSATION_IDS.direct}`;
 
@@ -117,7 +118,7 @@ describe('S30 chat', () => {
     const header = await screen.findByRole('banner', { name: 'Алексей Морозов' });
     expect(within(header).queryByText('Сделки пока нет')).toBeNull();
     expect(within(header).getByRole('link', { name: /Алексей Морозов/ })).toBeTruthy();
-    expect(screen.getByText(/Не вносите предоплату незнакомым исполнителям/)).toBeTruthy();
+    expect(screen.getByText('Оплата — после работы, лично.')).toBeTruthy();
     // день — подписью над первым сообщением, а не в строке о начале диалога
     expect(screen.getByText('Диалог из профиля специалиста')).toBeTruthy();
     const day = screen.getByText('2 октября');
@@ -131,6 +132,37 @@ describe('S30 chat', () => {
       screen.getByText('Контакты откроются после договорённости — так безопаснее'),
     ).toBeTruthy();
     await waitFor(() => expect(backend.reads).toHaveLength(1));
+  });
+
+  it('under a prepayment request: the rule with «Пожаловаться» in one tap, the author is told it is not allowed', async () => {
+    const backend = withChats();
+    const safety = new SafetyBackend();
+    server.use(...safetyHandlers(() => safety));
+    const dialog = backend.dialogs.get(CONVERSATION_IDS.direct);
+    const mine = dialog?.messages[0];
+    if (!mine) throw new Error('fixtures');
+    mine.prepayment = true;
+    const theirs = backend.incoming(CONVERSATION_IDS.direct, 'Переведите половину на карту вперёд');
+    theirs.prepayment = true;
+    startApp(DIRECT);
+
+    // автору — правило без кнопки; получателю — правило и «Пожаловаться» (жалоба на сообщение,
+    // `fraud`, без шторки S46)
+    expect(await screen.findByText(/^Просить предоплату на «Соседях» нельзя/)).toBeTruthy();
+    expect(screen.getByText(/^Просят предоплату\? На «Соседях» платят после работы/)).toBeTruthy();
+    await click(screen.getByRole('button', { name: 'Пожаловаться' }));
+
+    expect(await screen.findByText('Жалоба отправлена, модератор проверит аккаунт')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Пожаловаться' })).toBeNull();
+    expect(safety.reports).toEqual([
+      {
+        target_type: 'message',
+        target_id: theirs.id,
+        reason: 'fraud',
+        comment: null,
+        conversation_id: CONVERSATION_IDS.direct,
+      },
+    ]);
   });
 
   it('sends at once, repeats a failed send with the same key and polls new messages', async () => {
