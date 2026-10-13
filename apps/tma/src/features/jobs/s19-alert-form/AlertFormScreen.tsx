@@ -4,11 +4,13 @@
 // срочные», язык общения (шторка выбора) и тихие часы — общая настройка уведомлений (S43).
 // MainButton «Сохранить подписку»: новая — с ключом идемпотентности на тело формы, правка —
 // условия целиком. Новая открывается и из шторки фильтров S14 («Сохранить как подписку»): фильтры
-// ленты — уже в форме. После сохранения — список S18: там же, если боту нельзя писать, — «Присылать
-// новые заявки в бот?». Подписка, созданная не здесь, с районами — районы остаются, пока «Где» не
-// меняли.
+// ленты — уже в форме. Без фильтров ленты новая подписка — из профиля исполнителя: его категории
+// и районы выезда (все кварталы — «Весь город»), чтобы не вводить их второй раз; без профиля —
+// пустая. После сохранения — список S18: там же, если боту нельзя писать, — «Присылать новые
+// заявки в бот?». Подписка с районами (из профиля или созданная не здесь) — районы остаются
+// отдельным чипом, пока «Где» не меняли.
 import type { CategoryOut, JobAlertOut } from '@sosed/api-client';
-import { ApiError, useNotificationsGetNotificationSettings } from '@sosed/api-client';
+import { ApiError, getSession, useNotificationsGetNotificationSettings } from '@sosed/api-client';
 import {
   nearestDistrict,
   selectableDistricts,
@@ -16,6 +18,7 @@ import {
   useCreateAlert,
   useDistricts,
   useJobAlerts,
+  useMyProfile,
   useUpdateAlert,
   useUpdateNotificationSettings,
 } from '@sosed/hooks';
@@ -43,7 +46,15 @@ import type { ReactNode } from 'react';
 import { useId, useRef, useState } from 'react';
 
 import type { AlertForm } from '../shared/alerts.ts';
-import { criteriaIn, formFromFeed, formOf, isFeedLanguage, urgentOnly } from '../shared/alerts.ts';
+import {
+  criteriaIn,
+  formFromFeed,
+  formFromProfile,
+  formOf,
+  hasFeedFilters,
+  isFeedLanguage,
+  urgentOnly,
+} from '../shared/alerts.ts';
 import { findCategory } from '../shared/categories.ts';
 import { useFeedCity } from '../shared/city.ts';
 import { FEED_LANGUAGES, RADII, toggle } from '../shared/feed.ts';
@@ -54,12 +65,22 @@ import { JOBS_PATHS } from '../shared/paths.ts';
 
 export function AlertFormScreen() {
   const { t } = useTranslation('jobs');
+  const locale = useLocale();
   const { alertId } = useParams({ strict: false });
   const search: AlertFormSearch = useSearch({ strict: false });
   const alerts = useJobAlerts(alertId !== undefined);
   const editing = alertId ? (alerts.data?.items.find((item) => item.id === alertId) ?? null) : null;
+  // новая подписка без фильтров ленты — из профиля исполнителя (у гостя профиля нет)
+  const fromProfile = alertId === undefined && !hasFeedFilters(search) && getSession() !== null;
+  const profile = useMyProfile({ enabled: fromProfile });
+  const profileCity = fromProfile ? (profile.data?.city_id ?? null) : null;
+  const districts = useDistricts(profileCity, locale);
+  // профиль и районы его города ждём до формы: её начальное состояние задаётся один раз
+  const loading = alertId
+    ? !alerts.data
+    : fromProfile && (profile.isPending || (profileCity !== null && districts.isPending));
 
-  if (alertId && !alerts.data) {
+  if (loading) {
     return (
       <section className="flex flex-col gap-4 px-4 pt-3 pb-6" aria-busy="true">
         <FieldSkeleton />
@@ -75,11 +96,19 @@ export function AlertFormScreen() {
       </section>
     );
   }
+  const prefilled = fromProfile ? (profile.data ?? null) : null;
   return (
     <Form
       key={editing?.id ?? 'new'}
       alert={editing}
-      initial={editing ? formOf(editing) : formFromFeed(search)}
+      initial={
+        editing
+          ? formOf(editing)
+          : prefilled
+            ? formFromProfile(prefilled, selectableDistricts(districts.data ?? [], locale))
+            : formFromFeed(search)
+      }
+      city={editing?.criteria.city_id ?? prefilled?.city_id ?? null}
       fromFeed={search.from === 'feed'}
     />
   );
@@ -88,17 +117,20 @@ export function AlertFormScreen() {
 function Form({
   alert,
   initial,
+  city,
   fromFeed,
 }: {
   alert: JobAlertOut | null;
   initial: AlertForm;
+  /** Город подписки или профиля; null — город ленты. */
+  city: number | null;
   fromFeed: boolean;
 }) {
   const { t } = useTranslation('jobs');
   const locale = useLocale();
   const router = useRouter();
   const feedCity = useFeedCity();
-  const cityId = alert?.criteria.city_id ?? feedCity?.id ?? null;
+  const cityId = city ?? feedCity?.id ?? null;
   const [form, setForm] = useState<AlertForm>(initial);
   const [checked, setChecked] = useState(false);
   const [languages, setLanguages] = useState(false);
