@@ -1,7 +1,9 @@
 // Мастер «Стать специалистом» S32a–c (DEVELOPMENT_PLAN 2.9) целиком, на фейке backend кабинета:
 // от «профиля нет» до «на проверке», только изменённое уходит на сервер, проверки полей, смена
 // типа черновика, ввод между шагами, охрана шагов и ошибки сохранения.
+import type { TelegramChannelOut } from '@sosed/api-client';
 import { setSession } from '@sosed/api-client';
+import { getNotificationsGetNotificationSettingsMockHandler } from '@sosed/api-client/mocks';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -11,8 +13,10 @@ import {
   CATEGORY_IDS,
   DISTRICT_IDS,
   FIRST_SERVICE,
+  NOTIFICATION_SETTINGS,
   PROFILE_DRAFT,
   PROFILE_FILLED,
+  WRITE_ACCESS,
 } from '../../testing/fixtures.ts';
 import { profileHandlers, server } from '../../testing/msw.ts';
 import { ProfileBackend } from '../../testing/profileBackend.ts';
@@ -29,6 +33,23 @@ function withBackend(backend: ProfileBackend): ProfileBackend {
 /** Изменяющие запросы к кабинету по порядку. */
 const writes = (backend: ProfileBackend) =>
   backend.log.filter((entry) => !entry.request.startsWith('GET')).map((entry) => entry.request);
+
+/** Канал бота с памятью, как backend: разрешение из Mini App видно и в настройках. */
+function botChannel(initial: TelegramChannelOut | null = null) {
+  let telegram = initial;
+  server.use(
+    http.get('*/api/v1/me/notification-settings', () =>
+      HttpResponse.json({ ...NOTIFICATION_SETTINGS, telegram }),
+    ),
+    http.post('*/api/v1/me/telegram/write-access', () => {
+      telegram = WRITE_ACCESS;
+      return HttpResponse.json(WRITE_ACCESS);
+    }),
+  );
+}
+
+const PENDING = 'Профиль на проверке, обычно до 30 минут';
+const PENDING_BOT = `${PENDING} — бот напишет, когда опубликуем`;
 
 const click = (element: HTMLElement) =>
   act(async () => {
@@ -50,6 +71,7 @@ const typeReady = (telegram: Parameters<typeof mainButton>[0]) =>
 
 describe('S32a–c become a specialist', () => {
   it('walks from no profile to «on review»: type, about, districts and the first price', async () => {
+    botChannel();
     const backend = withBackend(new ProfileBackend());
     const { app, telegram } = startApp('/become/type?kind=pro');
 
@@ -89,13 +111,11 @@ describe('S32a–c become a specialist', () => {
     );
     await pressMainButton(telegram);
 
-    // итог — кабинет S33: срок, «бот напишет» и одно действие на время ожидания (UX №7)
+    // итог — кабинет S33: срок, «бот напишет» и одно действие на время ожидания (UX №7). Канала
+    // не было — отправка попросила разрешение сама (ADR-0011), и обещание стало правдой
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/cabinet'));
-    expect(
-      await screen.findByText(
-        'Профиль на проверке, обычно до 30 минут — бот напишет, когда опубликуем',
-      ),
-    ).toBeTruthy();
+    expect(await screen.findByText(PENDING_BOT)).toBeTruthy();
+    expect(telegram.callsOf('web_app_request_write_access')).toHaveLength(1);
     await waitFor(() =>
       expect(mainButton(telegram)).toMatchObject({ text: 'Добавить фото работ' }),
     );
@@ -118,6 +138,40 @@ describe('S32a–c become a specialist', () => {
       'POST /me/profile/submit',
     ]);
     expect(useBecomeStore.getState().headline).toBeNull();
+  });
+
+  it('does not ask for write access when the bot already can write', async () => {
+    botChannel(WRITE_ACCESS);
+    withBackend(new ProfileBackend({ ...PROFILE_FILLED, status: 'draft' }, [FIRST_SERVICE]));
+    const { app, telegram } = startApp('/become/area');
+    await area();
+    await waitFor(() =>
+      expect(mainButton(telegram)).toMatchObject({ text: 'Отправить на проверку' }),
+    );
+    await pressMainButton(telegram);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/cabinet'));
+    expect(await screen.findByText(PENDING_BOT)).toBeTruthy();
+    expect(telegram.callsOf('web_app_request_write_access')).toEqual([]);
+  });
+
+  it('tells the truth on S33 when the person refuses the bot', async () => {
+    botChannel();
+    withBackend(new ProfileBackend({ ...PROFILE_FILLED, status: 'draft' }, [FIRST_SERVICE]));
+    const { app, telegram } = startApp('/become/area', { writeAccess: false });
+    await area();
+    await waitFor(() =>
+      expect(mainButton(telegram)).toMatchObject({ text: 'Отправить на проверку' }),
+    );
+    await pressMainButton(telegram);
+
+    await waitFor(() => expect(app.router.state.location.pathname).toBe('/cabinet'));
+    expect(await screen.findByText(PENDING)).toBeTruthy();
+    expect(
+      await screen.findByText('Чтобы бот написал, когда профиль проверят, разрешите ему сообщения'),
+    ).toBeTruthy();
+    expect(telegram.callsOf('web_app_request_write_access')).toHaveLength(1);
+    expect(screen.queryByText(PENDING_BOT)).toBeNull();
   });
 
   it('marks what is missing on S32b and saves nothing', async () => {

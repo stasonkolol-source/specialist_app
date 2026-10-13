@@ -1,16 +1,11 @@
 // Контекстный запрос «разрешите боту писать» (ADR-0011, ARCHITECTURE §11.1): после публикации
 // заявки (S21 — строкой «Разрешите боту писать…» вместо обещания «бот напишет») и при подписке на
-// заявки (S18, «Присылать новые заявки в бот?»). requestWriteAccess клиента Telegram, затем
-// POST /me/telegram/write-access; ответ ложится в настройки уведомлений. Канал уже открыт —
+// заявки (S18, «Присылать новые заявки в бот?»). Сам канал — хук useBotChannel (@sosed/hooks):
+// requestWriteAccess клиента Telegram, затем POST /me/telegram/write-access. Канал уже открыт —
 // ничего; разрешили только что — подтверждение.
-import {
-  getNotificationsGetNotificationSettingsQueryKey,
-  notificationsGrantTelegramWriteAccess,
-  useNotificationsGetNotificationSettings,
-} from '@sosed/api-client';
+import { useBotChannel as useChannel } from '@sosed/hooks';
 import { usePlatform } from '@sosed/platform';
 import { Banner, Button, Card, Heading, Text } from '@sosed/ui-web';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 export interface BotChannelTexts {
   title: string;
@@ -21,28 +16,9 @@ export interface BotChannelTexts {
 }
 
 /** Канал бота: пишет ли бот (null — настройки ещё не пришли), можно ли спросить разрешение у
- *  клиента Telegram и сам запрос. Экран результата (S21) по нему выбирает, что обещать. */
+ *  клиента Telegram и сам запрос. Экраны результата (S21, S23) по нему выбирают, что обещать. */
 export function useBotChannel() {
-  const platform = usePlatform();
-  const queryClient = useQueryClient();
-  const settings = useNotificationsGetNotificationSettings();
-  const allow = useMutation({
-    mutationFn: async () => {
-      if (!(await platform.requestWriteAccess().catch(() => false))) throw new Error('declined');
-      return notificationsGrantTelegramWriteAccess();
-    },
-    onSuccess: (telegram) => {
-      queryClient.setQueryData(
-        getNotificationsGetNotificationSettingsQueryKey(),
-        (current: typeof settings.data) => current && { ...current, telegram },
-      );
-    },
-  });
-  return {
-    writable: settings.data ? Boolean(settings.data.telegram?.writable) : null,
-    canAsk: platform.capabilities.requestWriteAccess,
-    allow,
-  };
+  return useChannel(usePlatform());
 }
 
 export function BotChannel({ texts }: { texts: BotChannelTexts }) {

@@ -16,8 +16,9 @@ import type {
   TodayOut,
 } from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
-import { myResponseItems, useMyDeals, useMyResponses } from '@sosed/hooks';
+import { myResponseItems, useBotChannel, useMyDeals, useMyResponses } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
+import { usePlatform } from '@sosed/platform';
 import type { BadgeTone } from '@sosed/ui-web';
 import {
   Badge,
@@ -189,6 +190,8 @@ function Responses({
   const items = myResponseItems(list.data);
   const fresh = sent ? latest(items) : undefined;
   useSentPolling(fresh?.review === 'pending', list.refetch);
+  // «бот напишет» обещаем, только если ему можно писать (ADR-0011): настройки — ради баннера
+  const bot = useBotChannel(usePlatform(), { enabled: fresh !== undefined });
 
   if (list.isError && !list.data) {
     return (
@@ -231,7 +234,13 @@ function Responses({
       {/* скрытый модератором сразу — об этом скажет его карточка, «отправлен» был бы неправдой */}
       {fresh && fresh.review !== 'blocked' && (
         <Banner tone="ok" role="status">
-          {t(fresh.review === 'pending' ? 'responses.sentPending' : 'responses.sent')}
+          {t(
+            fresh.review === 'pending'
+              ? 'responses.sentPending'
+              : bot.writable
+                ? 'responses.sent'
+                : 'responses.sentApp',
+          )}
         </Banner>
       )}
       {!list.data ? (

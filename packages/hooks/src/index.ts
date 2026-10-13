@@ -64,6 +64,8 @@ export {
   useStartConversation,
 } from './messages/conversations.ts';
 export type { DayKey, NotificationDay, NotificationFeed } from './notifications/notifications.ts';
+export type { BotChannel, WriteAccessClient } from './notifications/channel.ts';
+export { WriteAccessDeclinedError, useBotChannel } from './notifications/channel.ts';
 export type { NotificationChannel, SettingsChange } from './notifications/settings.ts';
 export {
   applyChange,
