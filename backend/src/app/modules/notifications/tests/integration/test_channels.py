@@ -1,4 +1,5 @@
-"""Канал telegram на PostgreSQL: разрешение писать и подписчик BotStarted (1.4b)."""
+"""Канал telegram на PostgreSQL: разрешение писать, подписчики BotStarted (1.4b) и
+TelegramWriteAllowed (initData входа с `allows_write_to_pm`)."""
 
 from datetime import UTC, datetime, timedelta
 
@@ -6,14 +7,20 @@ import pytest
 from pydantic import TypeAdapter
 from sqlalchemy import text
 
-from app.modules.notifications.application.ports import GRANT_WRITE_ACCESS
+from app.modules.notifications.application.ports import (
+    GRANT_WRITE_ACCESS,
+    GRANT_WRITE_ACCESS_FROM_INIT_DATA,
+)
 from app.modules.notifications.application.use_cases.grant_telegram_write_access import (
     GrantTelegramWriteAccessCommand,
 )
 from app.modules.notifications.domain.channel import GrantedVia
 from app.modules.notifications.errors import TelegramNotLinkedError
-from app.modules.notifications.tasks import grant_write_access
-from app.platform.contracts.events.identity import BotStarted
+from app.modules.notifications.tasks import (
+    grant_write_access,
+    grant_write_access_from_init_data,
+)
+from app.platform.contracts.events.identity import BotStarted, TelegramWriteAllowed
 from app.platform.kernel.ids import UserId, new_id
 from app.platform.queue.tasks import TASKS
 
@@ -148,3 +155,46 @@ async def test_bot_start_opens_channel_idempotently(notifications: Notifications
         "bot_start",
         None,
     )
+
+
+# --- подписчик TelegramWriteAllowed --------------------------------------------------------
+
+
+def test_notifications_subscribes_to_telegram_write_allowed() -> None:
+    event = TelegramWriteAllowed(user_id=UserId(new_id()), occurred_at=NOW)
+    assert GRANT_WRITE_ACCESS_FROM_INIT_DATA in TASKS.event_registry().subscribers(event)
+
+
+async def test_init_data_permission_opens_channel_idempotently(
+    notifications: Notifications,
+) -> None:
+    """Вход с `allows_write_to_pm` открывает канал как Mini App; событие приходит на каждом входе —
+    повтор ничего не меняет."""
+    user_id, chat_id = await notifications.user_with_chat()
+    payload = {"user_id": str(user_id), "occurred_at": NOW.isoformat()}
+    event = TypeAdapter(TelegramWriteAllowed).validate_python(payload | {"event_id": str(new_id())})
+
+    await grant_write_access_from_init_data(event, notifications.grant)
+    await grant_write_access_from_init_data(event, notifications.grant)
+
+    [row] = await notifications.channels(user_id)
+    assert (row["address"], row["granted_via"], row["disabled_at"]) == (
+        str(chat_id),
+        "mini_app",
+        None,
+    )
+
+
+async def test_stale_init_data_does_not_reenable_channel_stopped_later(
+    notifications: Notifications,
+) -> None:
+    """Остановка бота позже `auth_date` initData: запоздавший вход канал не включит."""
+    user_id = await notifications.user_with_bot()
+    stopped = NOW + timedelta(minutes=5)
+    await notifications.block_bot(user_id, at=stopped)
+    event = TelegramWriteAllowed(user_id=user_id, occurred_at=NOW)
+
+    await grant_write_access_from_init_data(event, notifications.grant)
+
+    [row] = await notifications.channels(user_id)
+    assert row["disabled_at"] == stopped
