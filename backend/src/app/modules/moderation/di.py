@@ -248,10 +248,24 @@ class ModerationProvider(Provider):
         deals: DealsApi,
         catalog: CatalogApi,
         geo: GeoApi,
+        signals: RiskSignals,
+        clock: Clock,
     ) -> CaseContextQuery:
-        """Контекст карточки кейса (2.5b): фасады модулей-владельцев и свои жалобы."""
+        """Контекст карточки кейса (2.5b): фасады модулей-владельцев, свои жалобы и сигналы
+        риска."""
         return FacadeCaseContext(
-            session, identity, specialists, jobs, messaging, reviews, photos, deals, catalog, geo
+            session,
+            identity,
+            specialists,
+            jobs,
+            messaging,
+            reviews,
+            photos,
+            deals,
+            catalog,
+            geo,
+            signals,
+            clock,
         )
 
     @provide(scope=Scope.APP)
