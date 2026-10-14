@@ -52,6 +52,10 @@ class NotificationType(StrEnum):
     После автопроверки (миллисекунды) не нужно: S21 сам показывает публикацию."""
     JOB_EXPIRING = "job.expiring"
     JOB_EXPIRED = "job.expired"
+    JOB_NO_RESPONSES = "job.no_responses"
+    """Час после публикации никто не откликнулся: клиенту — «Поделитесь заявкой в чате района» и
+    «Поделиться». Один раз на заявку, только в бот: в центре S42 строка устарела бы с первым
+    откликом."""
     PROFILE_STALE_REMINDER = "profile.stale_reminder"
     PROFILE_PUBLISHED = "profile.published"
     """Модерация одобрила профиль исполнителя (2.8a): он в каталоге."""
@@ -220,6 +224,9 @@ CATALOG: Mapping[NotificationType, TypeSpec] = MappingProxyType(
         ),
         NotificationType.JOB_EXPIRED: TypeSpec(
             group=EventGroup.RESPONSES, priority=Priority.P3, channels=BOT_AND_APP
+        ),
+        NotificationType.JOB_NO_RESPONSES: TypeSpec(
+            group=EventGroup.RESPONSES, priority=Priority.P3, channels=BOT
         ),
         NotificationType.PROFILE_STALE_REMINDER: TypeSpec(
             group=EventGroup.JOB_MATCHES, priority=Priority.P3, channels=BOT

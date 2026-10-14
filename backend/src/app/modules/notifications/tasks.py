@@ -23,6 +23,11 @@ notifications стоит над контентными модулями (ARCHITE
   «Продлить» и «Закрыть: исполнитель найден»; позже срока заявки в бот не уходит.
 - `notifications.notify_job_expired` — JobExpired: «Срок заявки вышел», «Продлить» и
   «Закрыть». Оба — только если заявка ещё в том статусе: продлённой и закрытой — ничего.
+- `notifications.notify_no_responses` — JobPublished не прямого запроса, через час: никто так и
+  не откликнулся (ни видимых клиенту откликов, ни ждущих проверки) — клиенту «Пока никто не
+  откликнулся на «…». Поделитесь заявкой в чате района» с «Поделиться» (`t.me/share/url` со
+  ссылкой `j_`) и «Открыть заявку». Один раз на заявку (ключ по заявке), с тихими часами; ждущее
+  утра не уходит, если тем временем пришёл отклик или заявку закрыли.
 - `notifications.schedule_responses_notice` — ResponseSubmitted: первый отклик окна ставит
   `notifications.notify_responses` через пять минут, следующие — ничего (дебаунс, 5.4); самый
   первый отклик на заявку — через полминуты, только на автопроверку.
@@ -116,6 +121,7 @@ from app.modules.notifications.application.ports import (
     FORGET_RECIPIENT,
     GRANT_WRITE_ACCESS,
     GRANT_WRITE_ACCESS_FROM_INIT_DATA,
+    NO_RESPONSES_PREFIX,
     NOTIFY_ACCOUNT_RESTRICTED,
     NOTIFY_APPEAL_DECIDED,
     NOTIFY_CHOICE_MADE,
@@ -136,6 +142,7 @@ from app.modules.notifications.application.ports import (
     NOTIFY_JOB_REOPENED,
     NOTIFY_MESSAGES,
     NOTIFY_MODERATION_DECISION,
+    NOTIFY_NO_RESPONSES,
     NOTIFY_PASSED_OVER,
     NOTIFY_PROFILE_PUBLISHED,
     NOTIFY_PROFILE_STALE,
@@ -476,6 +483,31 @@ async def notify_job_expired(
             dedupe_key=f"job.expired:{event.event_id}",
             params=_job_params(event.job_id, job),
             link=_job_link(event.job_id),
+        )
+    )
+
+
+@subscriber(JobPublished, NOTIFY_NO_RESPONSES)
+async def notify_no_responses(
+    event: JobPublished, notify: FromDishka[Notify], jobs: FromDishka[JobsApi]
+) -> None:
+    """Час после публикации тишина — клиенту предложить поделиться заявкой. Повторная публикация
+    (правка, продление) ставит задачу снова, но ключ по заявке пропустит второе сообщение."""
+    if event.direct:  # прямой запрос видит только приглашённый — делиться нечем
+        return
+    job = await jobs.job_reach(event.job_id)
+    if job is None or job.status != "published" or job.direct:
+        return  # пока задача ждала, заявку закрыли, удалили или снова отправили на проверку
+    if job.responses or job.pending_responses:
+        return  # откликнулись — «пока никто не откликнулся» уже неправда
+    await notify(
+        NotifyCommand(
+            user_id=job.client_id,
+            type=NotificationType.JOB_NO_RESPONSES,
+            dedupe_key=f"{NO_RESPONSES_PREFIX}{event.job_id}",
+            params={"job_id": str(event.job_id), "title": job.title},
+            link=_job_link(event.job_id),
+            valid_until=job.expires_at,
         )
     )
 

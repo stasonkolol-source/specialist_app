@@ -993,6 +993,15 @@ msgstr "„{title}“ више не виде извођачи. Ако вам ј�
 msgid "notifications.job_expired.body_final"
 msgstr "„{title}“ више не виде извођачи. Више не може да се продужи: ако вам је извођач још потребан, направите нови захтев."
 
+msgid "notifications.job_no_responses.title"
+msgstr "Још нема понуда"
+
+msgid "notifications.job_no_responses.body"
+msgstr "Још нико није послао понуду на „{title}“. Поделите захтев у ћаскању вашег кварта — тако ће га брже видети."
+
+msgid "notifications.job_no_responses.share"
+msgstr "Подели"
+
 msgid "notifications.response_accepted.title"
 msgstr "Изабрани сте"
 
@@ -1983,6 +1992,21 @@ msgstr "ИД ове групе: <code>{chat_id}</code>\nДа би ова гру�
 
 msgid "bot.moderation.chat.configured"
 msgstr "Ово је група модератора, картице случајева стижу овде."
+
+msgid "bot.concierge.title"
+msgstr "⏳ <b>Захтев без понуда</b>"
+
+msgid "bot.concierge.job"
+msgstr "📄 <b>{title}</b>"
+
+msgid "bot.concierge.silence"
+msgstr "0 понуда за {minutes} мин · послато претплатницима: {count}"
+
+msgid "bot.concierge.pending"
+msgstr "чека проверу: {count}"
+
+msgid "bot.concierge.open"
+msgstr "Отвори захтев"
 
 msgid "errors.invalid_job_alert"
 msgstr "Проверите претплату: категорије, кварт или полупречник, буџет."

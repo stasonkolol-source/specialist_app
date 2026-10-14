@@ -2,13 +2,17 @@
 // пустого черновика до «на проверке», проверки шагов, один POST на черновик (повтор — с тем же
 // ключом), черновик в DeviceStorage переживает перезапуск. S21 — «что дальше» одной строкой: где
 // ждать откликов, что бот напишет (или «Разрешите боту писать» с запросом), до какого числа открыта
-// заявка, и «Хотите быстрее? Пригласите специалистов»; сам переходит в «опубликована», когда
+// заявка, скольким специалистам рядом её разослали, и «Хотите быстрее? Пригласите специалистов», а
+// если пригласить некого — «Поделитесь заявкой в чате района»; сам переходит в «опубликована», когда
 // автопроверка опубликовала заявку; мастер — одна запись истории: «Назад» после публикации не
 // возвращает в его шаги; двойное «Опубликовать», 409 «запрос ещё идёт» и ключ, потраченный на
 // другое тело, — одна заявка без ошибки; подсказка категории для длинного заголовка, ориентир цены
 // с единицей, «Кто что увидит» одной строкой, подробности — под «Подробнее».
 import { setSession } from '@sosed/api-client';
-import { getCatalogListCategoriesMockHandler } from '@sosed/api-client/mocks';
+import {
+  getCatalogListCategoriesMockHandler,
+  getSearchListSpecialistsMockHandler,
+} from '@sosed/api-client/mocks';
 import { DRAFT_STORAGE_KEY } from '@sosed/hooks';
 import type { MockTelegram } from '@sosed/platform';
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
@@ -433,6 +437,63 @@ async function toPreview(telegram: MockTelegram) {
   await pressMainButton(telegram);
   await screen.findByRole('heading', { name: 'Проверьте заявку' });
 }
+
+describe('S21 nobody to invite (аудит клиента п. 1)', () => {
+  it('offers to share the job in the district chat instead of a dead end', async () => {
+    const jobs = new JobsBackend();
+    jobs.status = 'published';
+    withJobs(jobs);
+    server.use(
+      getSearchListSpecialistsMockHandler({
+        items: [],
+        next_cursor: null,
+        category_ids: [],
+        did_you_mean: null,
+        hints: [],
+      }),
+    );
+    const { telegram } = startApp('/jobs/new');
+    await toPreview(telegram);
+    await pressMainButton(telegram);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Поделитесь заявкой в чате района' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Подходящих специалистов рядом пока нет — в чате района заявку увидят быстрее.' +
+          ' Откликнуться можно прямо из Telegram.',
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('heading', { name: 'Хотите быстрее? Пригласите специалистов' }),
+    ).toBeNull();
+    await click(screen.getByRole('button', { name: 'Поделиться заявкой' }));
+    await waitFor(() =>
+      expect(telegram.callsOf('web_app_send_prepared_message')).toEqual([{ id: 'prepared-job' }]),
+    );
+    expect(mainButton(telegram)?.text).toBe('К заявке');
+  });
+
+  it('says how many specialists nearby got the job once the subscribers are counted', async () => {
+    const jobs = new JobsBackend();
+    jobs.status = 'published';
+    withJobs(jobs);
+    const { telegram } = startApp('/jobs/new');
+    await toPreview(telegram);
+    await pressMainButton(telegram);
+    expect(await screen.findByRole('heading', { name: 'Заявка опубликована' })).toBeTruthy();
+
+    // задача рассылки досчитала подписчиков — экран перечитывает заявку сам
+    const job = jobs.jobs.get(createdJobId(1));
+    if (!job) throw new Error('no created job');
+    jobs.jobs.set(job.id, { ...job, notified_count: 3 });
+
+    expect(
+      await screen.findByText(/^Разослали 3 специалистам рядом\. /u, {}, { timeout: 4_000 }),
+    ).toBeTruthy();
+  });
+});
 
 describe('S21 while the job is on review (SMOKE-2)', () => {
   it('switches to «published» with invites once the auto-check published the job', async () => {

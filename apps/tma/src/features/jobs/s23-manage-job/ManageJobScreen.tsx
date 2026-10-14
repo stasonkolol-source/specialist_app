@@ -4,8 +4,10 @@
 // не повторяет. Дальше «когда», район («точный адрес откроется выбранному»), бюджет, просмотры и
 // полоска «3 из 5 откликов» («осталось N мест» — язык исполнителя, клиенту его нет). «Пригласить» —
 // шторка с подходящими специалистами из каталога (категория и город заявки), «Продлить» — когда
-// срок на исходе или вышел, «Поднять» — v1 (до него кнопки нет). Откликов нет — «бот напишет о
-// первом» и одна кнопка «Пригласить специалистов». Отклики — карточками по времени отклика: фото и
+// срок на исходе или вышел, «Поднять» — v1 (до него кнопки нет). Откликов нет — «Разослали N
+// специалистам рядом», «бот напишет о первом», главное действие «Поделиться заявкой» (в чат района)
+// и второе — «Пригласить специалистов», в шапке их тогда нет. Отклики — карточками по времени
+// отклика: фото и
 // имя (непросмотренный — точкой), рейтинг со звездой или «Новый специалист», район и вид
 // («Подработка», «Без профиля»), строка фактов (стаж в «Соседях», сделки, работы, отзывы до
 // платформы, время ответа), цена, сообщение и не больше двух бейджей: «Телефон подтверждён»,
@@ -149,8 +151,10 @@ function Manage({ job }: { job: JobOut }) {
   const sharing = useJobShare(job.id);
   const published = job.status === 'published';
   const items = cards.data?.items ?? [];
-  // откликов нет — «Пригласить специалистов» одной кнопкой в пустом состоянии, а не ещё и в шапке
+  // откликов нет — «Поделиться заявкой» и «Пригласить специалистов» в пустом состоянии, а не ещё
+  // и в шапке
   const empty = published && cards.data !== undefined && items.length === 0;
+  const share = shareable(job) ? sharing.share : undefined;
   const failed = close.error ?? extend.error;
   const summary = {
     job,
@@ -161,7 +165,7 @@ function Manage({ job }: { job: JobOut }) {
       void router.navigate({ to: CREATE_PATHS.what, search: { edit: job.id }, replace: true });
     },
     onInvite: empty ? undefined : () => setInviting(true),
-    onShare: shareable(job) ? sharing.share : undefined,
+    onShare: empty ? undefined : share,
     sharing: sharing.pending,
     onExtend: () => extend.mutate(job.id),
     extending: extend.isPending,
@@ -177,7 +181,13 @@ function Manage({ job }: { job: JobOut }) {
         </Banner>
       )}
       {OPEN.has(job.status) ? (
-        <Responses job={job} cards={cards} onInvite={empty ? () => setInviting(true) : undefined} />
+        <Responses
+          job={job}
+          cards={cards}
+          onInvite={empty ? () => setInviting(true) : undefined}
+          onShare={empty ? share : undefined}
+          sharing={sharing.pending}
+        />
       ) : (
         <PastResponses job={job} items={items} />
       )}
@@ -210,22 +220,41 @@ function Manage({ job }: { job: JobOut }) {
   );
 }
 
-/** Отклики открытой заявки по времени отклика. Пока их нет — что будет дальше и одна кнопка
- *  (UX_GUIDANCE №5): бот напишет о первом (если ему можно писать), а быстрее — пригласить. */
+/** Отклики открытой заявки по времени отклика. Пока их нет — что будет дальше (UX_GUIDANCE №5):
+ *  скольким специалистам заявка уже ушла, бот напишет о первом (если ему можно писать), а быстрее —
+ *  поделиться заявкой в чате района (главное действие) или пригласить специалистов. */
 function Responses({
   job,
   cards,
   onInvite,
+  onShare,
+  sharing,
 }: {
   job: JobOut;
   cards: ReturnType<typeof useResponseCards>;
   /** Есть — пустое состояние с «Пригласить специалистов». */
   onInvite: (() => void) | undefined;
+  /** Есть — пустое состояние с «Поделиться заявкой» (опубликована и не прямой запрос). */
+  onShare: (() => void) | undefined;
+  sharing: boolean;
 }) {
   const { t } = useTranslation('jobs');
+  const { t: common } = useTranslation();
   const bot = useBotChannel();
   const responsesId = useId();
   const items = cards.data?.items ?? [];
+  // скольким специалистам заявка уже ушла (если посчитали), как узнать об откликах (бот — только
+  // если ему можно писать) и как ускорить; пока не знаем, может ли бот писать, — без второй
+  // половины: строка не меняется на глазах
+  const notified =
+    (job.notified_count ?? 0) > 0 ? t('manage.notified', { count: job.notified_count }) : null;
+  const next =
+    bot.writable === null
+      ? null
+      : onShare
+        ? t(bot.writable ? 'manage.noResponsesShare' : 'manage.noResponsesShareApp')
+        : t(bot.writable ? 'manage.noResponsesText' : 'manage.noResponsesApp');
+  const emptyText = [notified, next].filter(Boolean).join(' ') || null;
   return (
     <section className="flex flex-col gap-2.5" aria-labelledby={responsesId}>
       <div className="flex items-center justify-between gap-3 px-1">
@@ -252,16 +281,23 @@ function Responses({
           icon="send"
           title={t('manage.noResponsesTitle')}
           action={
-            onInvite && (
-              <Button variant="secondary" icon="users" onClick={onInvite}>
-                {t('manage.inviteAction')}
-              </Button>
+            (onShare || onInvite) && (
+              <div className="flex w-full flex-col gap-2">
+                {onShare && (
+                  <Button icon="share" full aria-busy={sharing} onClick={onShare}>
+                    {common('share.job')}
+                  </Button>
+                )}
+                {onInvite && (
+                  <Button variant="secondary" icon="users" full onClick={onInvite}>
+                    {t('manage.inviteAction')}
+                  </Button>
+                )}
+              </div>
             )
           }
         >
-          {onInvite && bot.writable !== null
-            ? t(bot.writable ? 'manage.noResponsesText' : 'manage.noResponsesApp')
-            : null}
+          {onInvite || onShare ? emptyText : null}
         </EmptyState>
       ) : (
         items.map((card) => <ResponseCard key={card.id} jobId={job.id} card={card} />)

@@ -3,6 +3,8 @@
 «После закрытия заявки кнопки становятся неактивными»: отправленной карточке B1 ставится
 `notifications.retire_card`, и правка оставляет «Открыть заявку» и неактивную «Приём откликов
 закрыт»; карточка, ждавшая конца тихих часов, не уходит. Час подборки — из настроек уведомлений.
+Клиенту «Пока никто не откликнулся», ждущее утра, не уходит, если пришёл отклик или заявку
+закрыли: к утру оно стало бы неправдой.
 """
 
 from datetime import UTC, datetime, time
@@ -20,6 +22,10 @@ from app.modules.notifications.application.use_cases.retire_card import (
 from app.modules.notifications.application.use_cases.retire_job_cards import (
     RetireJobCards,
     RetireJobCardsCommand,
+)
+from app.modules.notifications.application.use_cases.schedule_responses_notice import (
+    ScheduleResponsesNotice,
+    ScheduleResponsesNoticeCommand,
 )
 from app.modules.notifications.application.use_cases.send_delivery import SendDeliveryCommand
 from app.modules.notifications.application.use_cases.update_notification_settings import (
@@ -141,3 +147,62 @@ async def test_digest_hour_comes_from_notification_settings(notifications: Notif
 
     assert at_seven == frozenset({early})  # 07:00 по Белграду
     assert at_nine == frozenset({default})  # 09:00 — по умолчанию
+
+
+def quiet_job(user_id: UserId, job_id: UUID) -> NotifyCommand:
+    return NotifyCommand(
+        user_id=user_id,
+        type=NotificationType.JOB_NO_RESPONSES,
+        dedupe_key=f"job.no_responses:{job_id}",
+        params={"job_id": str(job_id), "title": "Повесить люстру"},
+        link=LINK,
+    )
+
+
+async def nudged_at_night(notifications: Notifications, job_id: UUID) -> UserId:
+    """Клиенту «никто не откликнулся» в 23:30 по Белграду: доставка ждёт утра."""
+    client = await notifications.user_with_bot()
+    notifications.clock.set(datetime(2026, 10, 5, 21, 30, tzinfo=UTC))
+    await notifications.notify(quiet_job(client, job_id))
+    [waiting] = await notifications.deliveries(client)
+    assert waiting["status"] == "queued"
+    not_before = waiting["not_before"]
+    assert isinstance(not_before, datetime)
+    assert not_before > notifications.clock.now()
+    return client
+
+
+async def test_quiet_job_nudge_waiting_for_morning_is_dropped_on_a_response(
+    notifications: Notifications, procrastinate_app: procrastinate.App
+) -> None:
+    job_id = new_id()
+    client = await nudged_at_night(notifications, job_id)
+    neighbour = await nudged_at_night(notifications, new_id())
+    session = notifications.session
+    uow = make_uow(session, procrastinate_app)
+    schedule = ScheduleResponsesNotice(
+        uow,
+        ProcrastinateJobQueue(session, procrastinate_app),
+        SqlNotificationRepository(session, uow),
+        notifications.clock,
+    )
+
+    await schedule(ScheduleResponsesNoticeCommand(job_id=job_id, at=notifications.clock.now()))
+
+    [dropped] = await notifications.deliveries(client)
+    assert (dropped["status"], dropped["error"]) == ("suppressed", "responded")
+    [kept] = await notifications.deliveries(neighbour)  # чужая заявка — своё сообщение
+    assert kept["status"] == "queued"
+
+
+async def test_quiet_job_nudge_waiting_for_morning_is_dropped_when_the_job_closes(
+    notifications: Notifications, procrastinate_app: procrastinate.App
+) -> None:
+    job_id = new_id()
+    client = await nudged_at_night(notifications, job_id)
+    retire, _ = retire_use_cases(notifications, procrastinate_app)
+
+    await retire(RetireJobCardsCommand(job_id=job_id))
+
+    [dropped] = await notifications.deliveries(client)
+    assert (dropped["status"], dropped["error"]) == ("suppressed", "job_closed")

@@ -11,7 +11,7 @@ from app.modules.jobs.application.alerts import (
     PendingDigest,
     RecentCards,
 )
-from app.modules.jobs.application.dto import DealResponse, JobView, MyResponseRef
+from app.modules.jobs.application.dto import DealResponse, JobView, MyResponseRef, ResponseCounts
 from app.modules.jobs.application.feed import FeedFilters, FeedItem
 from app.modules.jobs.application.responses import (
     MyResponse,
@@ -187,6 +187,11 @@ class JobQueries(Protocol):
     async def job_responses(self, job_id: JobId) -> list[OwnerResponse]:
         """Отклики на заявку для владельца (S23): прошедшие проверку, не отозванные, по
         порядку; `is_first` — самый ранний отклик заявки."""
+        ...
+
+    async def response_counts(self, job_id: JobId) -> ResponseCounts:
+        """Неудалённые и не отозванные отклики: прошедшие проверку и ждущие её (заявка без
+        откликов — concierge и «Поделитесь» клиенту)."""
         ...
 
     async def deal_response(self, response_id: ResponseId) -> DealResponse | None:

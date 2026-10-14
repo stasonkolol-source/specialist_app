@@ -1,7 +1,8 @@
 // «Пригласите специалистов» (DEVELOPMENT_PLAN 5.6): подходящие по категории и городу заявки из
 // каталога — фото, имя, рейтинг или «Новый специалист», район; «Пригласить» — им уведомление с
 // «Откликнуться шаблоном», приглашённым — «Приглашён». Своя опубликованная заявка: S21 — три
-// первых, как на артборде (экран результата не перегружен), шторка S23 — все подходящие.
+// первых, как на артборде (экран результата не перегружен), шторка S23 — все подходящие. Пригласить
+// некого (каталог в городе и категории пуст) — S21 вместо списка предлагает поделиться заявкой.
 import type { JobOut, SpecialistCardOut } from '@sosed/api-client';
 import { ApiError } from '@sosed/api-client';
 import {
@@ -18,16 +19,25 @@ import { performerPlace, useWholeCity } from './labels.ts';
 /** Сколько подходящих показать: больше десяти в заявку не пригласить. */
 const SUGGESTIONS = 10;
 
+/** Специалисты каталога по категории и городу заявки — один запрос на экран. */
+function useSuggestions(job: JobOut) {
+  const locale = useLocale();
+  return useSpecialistSearch(locale, { city_id: job.city_id, category_id: job.category_id });
+}
+
+/** Пригласить некого: в каталоге нет специалистов категории в городе заявки; `null` — ещё не
+ *  знаем (грузится или не загрузилось). */
+export function useNobodyToInvite(job: JobOut): boolean | null {
+  const search = useSuggestions(job);
+  return search.data ? resultItems(search.data).length === 0 : null;
+}
+
 export function InviteList({ job, shown = SUGGESTIONS }: { job: JobOut; shown?: number }) {
   const { t } = useTranslation('jobs');
   const { t: common } = useTranslation();
   const format = useFormat();
   const wholeCity = useWholeCity(job.city_id);
-  const locale = useLocale();
-  const search = useSpecialistSearch(locale, {
-    city_id: job.city_id,
-    category_id: job.category_id,
-  });
+  const search = useSuggestions(job);
   const invites = useJobInvites(job.id);
   const invite = useInviteSpecialists();
   const invited = new Set(invites.data?.items.map((item) => item.profile_id) ?? []);

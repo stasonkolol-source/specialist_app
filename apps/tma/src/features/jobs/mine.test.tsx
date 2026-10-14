@@ -2,8 +2,9 @@
 // «3 отклика — выберите исполнителя» и «2 новых», чипы-фильтры — от пяти заявок, итог словом с
 // датой («Выполнена …», «В работе» без даты); своя заявка — строка статуса («Ждём откликов ·
 // открыта до …»), район, бюджет, просмотры, места без «осталось N мест», отклики карточками
-// («Откликнулся первым», «Подработка», рейтинг), откликов нет — «бот напишет» и одна кнопка
-// «Пригласить специалистов»; выполненная — итог одной строкой и одно действие; закрыть с
+// («Откликнулся первым», «Подработка», рейтинг), откликов нет — «Разослали N специалистам рядом»,
+// «бот напишет», главное действие «Поделиться заявкой» и второе «Пригласить специалистов» (Поделиться
+// заявкой ведёт в выбор чата Telegram); выполненная — итог одной строкой и одно действие; закрыть с
 // причиной, пригласить специалиста; ссылка на свою заявку ведёт владельца на S23; вкладка
 // «Заявки» клиенту с заявками в ходу открывает «Мои заявки», остальным — «Ленту»; на Главной —
 // «Мои активные заявки». «Изменить» —
@@ -362,27 +363,36 @@ describe('S23 manage job', () => {
     expect(await within(sheet).findByText('Приглашён')).toBeTruthy();
   });
 
-  it('waits for responses with one status line, one text and one button (№5)', async () => {
+  it('waits for responses: what happened, share first, invite second (№5)', async () => {
     const backend = withMine();
     server.use(
       http.get('*/api/v1/me/notification-settings', () =>
         HttpResponse.json({ ...NOTIFICATION_SETTINGS, telegram: WRITE_ACCESS }),
       ),
     );
-    startApp(`/jobs/${CLEANING?.id ?? ''}/manage`);
+    const { telegram } = startApp(`/jobs/${CLEANING?.id ?? ''}/manage`);
 
     expect(await screen.findByText('Ждём откликов')).toBeTruthy();
     expect(screen.getByText('открыта до 12 октября')).toBeTruthy();
     expect(await screen.findByText('Откликов пока нет')).toBeTruthy();
     expect(
       await screen.findByText(
-        'Бот напишет, как только кто-то откликнется. Чтобы ускорить — пригласите специалистов.',
+        'Разослали 7 специалистам рядом. Бот напишет, как только кто-то откликнется. Чтобы' +
+          ' ускорить — поделитесь заявкой в чате района.',
       ),
     ).toBeTruthy();
-    // «Исполнители рядом уже получили уведомление» — не обещаем; мест и «Пригласить» в шапке нет
+    // «Исполнители рядом уже получили уведомление» — не обещаем; мест, «Пригласить» и
+    // «Поделиться» в шапке нет — они в пустом состоянии
     expect(screen.queryByText(/получили уведомление/)).toBeNull();
     expect(screen.queryByText('0 из 5')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Пригласить' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Поделиться' })).toBeNull();
+
+    // аудит клиента п. 1: главное действие — поделиться заявкой в чате района
+    await click(screen.getByRole('button', { name: 'Поделиться заявкой' }));
+    await waitFor(() =>
+      expect(telegram.callsOf('web_app_send_prepared_message')).toEqual([{ id: 'prepared-job' }]),
+    );
 
     await click(screen.getByRole('button', { name: 'Пригласить специалистов' }));
     const sheet = screen.getByRole('dialog', { name: 'Пригласите специалистов' });
@@ -397,8 +407,25 @@ describe('S23 manage job', () => {
     startApp(`/jobs/${CLEANING?.id ?? ''}/manage`);
 
     expect(
+      await screen.findByText(
+        'Разослали 7 специалистам рядом. Отклики появятся здесь. Чтобы ускорить — поделитесь' +
+          ' заявкой в чате района.',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('offers only invites for a direct request and says nothing about subscribers', async () => {
+    const backend = withMine();
+    if (!CLEANING) throw new Error('fixtures');
+    backend.jobs.set(CLEANING.id, { ...CLEANING, visibility: 'direct', notified_count: 0 });
+    startApp(`/jobs/${CLEANING.id}/manage`);
+
+    expect(
       await screen.findByText('Отклики появятся здесь. Чтобы ускорить — пригласите специалистов.'),
     ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Пригласить специалистов' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Поделиться заявкой' })).toBeNull();
+    expect(screen.queryByText(/Разослали/)).toBeNull();
   });
 
   it('says how long the review takes in the status line, without a banner', async () => {
