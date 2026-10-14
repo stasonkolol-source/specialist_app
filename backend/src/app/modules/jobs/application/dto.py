@@ -62,6 +62,14 @@ class JobView:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class ResponseCounts:
+    """Неотозванные отклики на заявку: сколько видит клиент и сколько ещё ждёт проверки."""
+
+    visible: int
+    pending: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class MyResponseRef:
     """Свой отклик исполнителя на заявку — MainButton S15: «Вы откликнулись» (5.5)."""
 
