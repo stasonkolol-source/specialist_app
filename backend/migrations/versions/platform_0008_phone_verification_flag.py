@@ -8,7 +8,7 @@
 перезаписывается; откат удаляет только выключенный.
 
 Ревизия: platform_0008 (2026-10-14 12:00:00.000000+00:00)
-Предыдущая: notifications_0012
+Предыдущая: deals_0005
 
 Правила (DEVELOPMENT_PLAN 0.9, ADR-0005):
 - имя ревизии — <модуль>_NNNN, файл — <модуль>_NNNN_<slug>.py;
@@ -23,7 +23,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "platform_0008"
-down_revision: str | Sequence[str] | None = "notifications_0012"
+down_revision: str | Sequence[str] | None = "deals_0005"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
