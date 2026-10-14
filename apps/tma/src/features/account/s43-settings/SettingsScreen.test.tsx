@@ -371,7 +371,28 @@ describe('S43 data export and version', () => {
 });
 
 describe('S43 phone', () => {
+  /** Флаг «Подтвердить телефон» в client-config (по умолчанию выключен до редакции 2 политики). */
+  const phoneFlag = (on: boolean) =>
+    server.use(
+      http.get('*/api/v1/client-config', () =>
+        HttpResponse.json({
+          ...CLIENT_CONFIG,
+          flags: { ...CLIENT_CONFIG.flags, 'identity.phone_verification': on },
+        }),
+      ),
+    );
+
+  it('has no phone row while the flag is off', async () => {
+    userBackend(ME);
+    startApp('/settings');
+
+    await screen.findByText('Заблокированные');
+    await act(async () => {});
+    expect(screen.queryByText(/Подтвердить телефон/)).toBeNull();
+  });
+
   it('confirms the phone in one tap: performers see the badge of a client, never the number', async () => {
+    phoneFlag(true);
     userBackend(ME);
     const sent: string[] = [];
     server.use(

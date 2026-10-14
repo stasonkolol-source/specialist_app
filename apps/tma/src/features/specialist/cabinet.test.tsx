@@ -5,10 +5,11 @@ import { setSession } from '@sosed/api-client';
 import { getNotificationsGetNotificationSettingsMockHandler } from '@sosed/api-client/mocks';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
+import { mainButton, pressMainButton, startApp, userBackend } from '../../testing/app.tsx';
 import {
+  CLIENT_CONFIG,
   DISTRICT_IDS,
   FIRST_SERVICE,
   ME,
@@ -297,7 +298,20 @@ describe('S33 cabinet', () => {
   });
 });
 
+/** Флаг «Подтвердить телефон» в client-config (по умолчанию выключен до редакции 2 политики). */
+const phoneFlag = (on: boolean) =>
+  server.use(
+    http.get('*/api/v1/client-config', () =>
+      HttpResponse.json({
+        ...CLIENT_CONFIG,
+        flags: { ...CLIENT_CONFIG.flags, 'identity.phone_verification': on },
+      }),
+    ),
+  );
+
 describe('S33 phone badge', () => {
+  beforeEach(() => phoneFlag(true));
+
   /** POST /me/phone: что прислало приложение; ответ — свежий /me или ошибка. */
   function phoneBackend(reply: (contact: string) => Response | MeOut) {
     const sent: string[] = [];
@@ -358,6 +372,27 @@ describe('S33 phone badge', () => {
     const taken = await screen.findByText('Этот номер уже подтверждён в другом аккаунте «Соседей»');
     expect(taken.getAttribute('role')).toBe('alert');
     expect(sent).toHaveLength(1);
+  });
+
+  it('offers nothing while the flag is off, but a verified phone still shows as a fact', async () => {
+    phoneFlag(false);
+    withBackend(new ProfileBackend(PUBLISHED, [FIRST_SERVICE]));
+    userBackend({ ...ME, phone_verified: true });
+    startApp('/cabinet');
+
+    expect(await screen.findByText(/Телефон подтверждён · клиенты видят бейдж/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Подтвердить телефон/ })).toBeNull();
+  });
+
+  it('hides the row while the flag is off', async () => {
+    phoneFlag(false);
+    withBackend(new ProfileBackend(PUBLISHED, [FIRST_SERVICE]));
+    startApp('/cabinet');
+
+    await screen.findByText('Профиль опубликован и виден в поиске');
+    await act(async () => {});
+    expect(screen.queryByRole('region', { name: 'Доверие' })).toBeNull();
+    expect(screen.queryByText(/Подтвердить телефон/)).toBeNull();
   });
 
   it('keeps the button when the person did not share the number', async () => {
