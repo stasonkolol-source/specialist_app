@@ -5,7 +5,9 @@
 // одним нажатием и у выезжающего без районов включён сразу (решение владельца 2026-10-05).
 // Позиция прайса обязательна «Специалисту» (2.8b), подработке — по желанию. «Подтвердить
 // телефон» с артборда — в v1: на старте — без лишних шагов для пользователя (решение владельца
-// 2026-10-01).
+// 2026-10-01). Кабинет S33 обещает «бот напишет, когда опубликуем», а бот не пишет первым
+// (ADR-0011): если канала нет, отправка тут же просит requestWriteAccess — без отдельного шага;
+// отказ ничего не ломает, S33 скажет, как открыть канал.
 import type {
   DistrictOut,
   ProfileOut,
@@ -22,7 +24,13 @@ import {
   specialistsSubmitMyProfile,
   specialistsUpdateMyProfile,
 } from '@sosed/api-client';
-import { selectableDistricts, useCities, useDistricts, useMyServices } from '@sosed/hooks';
+import {
+  selectableDistricts,
+  useBotChannel,
+  useCities,
+  useDistricts,
+  useMyServices,
+} from '@sosed/hooks';
 import { moneyValue, useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton, usePlatform } from '@sosed/platform';
 import { Chip, Chips, Input, Segmented, Text } from '@sosed/ui-web';
@@ -129,6 +137,7 @@ function AreaForm({
   const flow = useBecomeFlow();
   const queryClient = useQueryClient();
   const input = useBecomeStore();
+  const bot = useBotChannel(platform);
   const districtsId = useId();
   const serviceId = useId();
   const serviceHintId = useId();
@@ -197,6 +206,9 @@ function AreaForm({
     },
     onSuccess: (submitted) => {
       platform.haptics.notification('success');
+      // канал не открыт (или ещё неизвестно — клиент с разрешением отвечает сразу, без попапа):
+      // просим здесь; ответ ложится в настройки, S33 его увидит
+      if (bot.writable !== true && bot.canAsk) bot.allow.mutate();
       flow.finish(submitted);
     },
   });

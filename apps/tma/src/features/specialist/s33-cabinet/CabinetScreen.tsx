@@ -4,16 +4,19 @@
 // S34, прайсу S35, портфолио S37, доступности S38 и «Отзывам до платформы» S55 (7.6а, «2 из 5» —
 // занятые места). Черновик и «нужны правки» продолжают мастер S32 с нужного шага (MainButton);
 // причина отказа — прямо в строке статуса. Сюда же ведёт «Отправить на проверку» (UX №7): срок,
-// «бот напишет» и одно действие на время ожидания — «Добавить фото работ» (S37). Опубликованному,
-// пока нет подписки на заявки или шаблона отклика, — «Первые шаги» (UX №9).
+// «бот напишет» и одно действие на время ожидания — «Добавить фото работ» (S37). «Бот напишет»
+// обещаем, только если ему можно писать (ADR-0011): иначе — как открыть канал: чат с ботом
+// («Старт») и «Разрешить сообщения» (requestWriteAccess), на проверке и у опубликованного.
+// Опубликованному, пока нет подписки на заявки или шаблона отклика, — «Первые шаги» (UX №9).
 // Блоки артборда, чьих экранов ещё нет, появятся со своими шагами: «За 30 дней» и «Скоро» — v1.
 import type { HintOut, ProfileOut } from '@sosed/api-client';
 import { availableUntil, quickHour } from '@sosed/domain';
-import type { ProfileState } from '@sosed/hooks';
+import type { BotChannel, ProfileState } from '@sosed/hooks';
 import {
   REVIEW_INVITES_LIMIT,
   becomeStep,
   profileState,
+  useBotChannel,
   useMyPortfolio,
   useMyProfile,
   useJobAlerts,
@@ -26,6 +29,7 @@ import { useFormat, useTranslation } from '@sosed/i18n';
 import { useBackButton, usePlatform } from '@sosed/platform';
 import type { IconName } from '@sosed/ui-web';
 import {
+  Banner,
   Button,
   Card,
   Group,
@@ -44,6 +48,7 @@ import { useEffect, useId } from 'react';
 
 import { LoadState } from '../shared/LoadState.tsx';
 import { SaveError } from '../shared/SaveError.tsx';
+import { botChatLink, telegramBot } from '../shared/bot.ts';
 import { useBecomeFlow, useStepButton } from '../shared/flow.ts';
 import { ACCOUNT_PATH, CABINET_PATHS } from '../shared/paths.ts';
 
@@ -113,10 +118,15 @@ export function CabinetScreen() {
 function Cabinet({ profile }: { profile: ProfileOut }) {
   const { t } = useTranslation('specialist');
   const router = useRouter();
+  const platform = usePlatform();
   const flow = useBecomeFlow();
   const state = profileState(profile);
   const step = becomeStep(profile);
   const { icon, tone } = STATE_ICONS[state];
+  const pending = profile.status === 'pending_review';
+  const published = profile.status === 'published';
+  // может ли бот писать — ради обещания «бот напишет»; черновику и «нужны правки» незачем
+  const bot = useBotChannel(platform, { enabled: pending || published });
   const stateKey =
     state === 'published' && !profile.listed_in_catalog ? 'publishedUnlisted' : state;
   const stateText =
@@ -124,9 +134,10 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
       ? t('cabinet.state.rejected', {
           reason: t(`cabinet.reason.${reasonOf(profile.rejection_reason)}`),
         })
-      : t(`cabinet.state.${stateKey}`);
+      : stateKey === 'pending_review'
+        ? t(bot.writable ? 'cabinet.state.pending_review_bot' : 'cabinet.state.pending_review')
+        : t(`cabinet.state.${stateKey}`);
   const { percent, hints } = profile.completeness;
-  const pending = profile.status === 'pending_review';
 
   // черновик — дописать в мастере; на проверке ждать, но можно добавить фото работ — с ними
   // выбирают чаще; MainButton — главное действие экрана, как в Telegram
@@ -166,6 +177,14 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
             {stateText}
           </Text>
         </div>
+        {bot.writable === false && (pending || published) && (
+          <BotAccess pending={pending} bot={bot} />
+        )}
+        {bot.allow.isSuccess && (
+          <Banner tone="ok" icon="bell" role="status">
+            {t('cabinet.bot.on')}
+          </Banner>
+        )}
         <div className="flex flex-col gap-2">
           <Text variant="sm" bold>
             {t('cabinet.filled', { percent })}
@@ -243,6 +262,60 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
         </Group>
       </nav>
     </section>
+  );
+}
+
+/** Бот писать не может (канала нет или его остановили): без обещаний — как открыть канал. Чат с
+ *  ботом («Старт») работает в любом клиенте, «Разрешить сообщения» — где есть requestWriteAccess;
+ *  нет ни имени бота в сборке, ни запроса — нечего предложить, строка статуса уже честная. */
+function BotAccess({ pending, bot }: { pending: boolean; bot: BotChannel }) {
+  const { t } = useTranslation('specialist');
+  const platform = usePlatform();
+  const name = telegramBot();
+  const handle = name ? `@${name}` : null;
+  if (!handle && !bot.canAsk) return null;
+  const text = pending
+    ? handle
+      ? t('cabinet.bot.pending', { bot: handle })
+      : t('cabinet.bot.pendingAllow')
+    : handle
+      ? t('cabinet.bot.published', { bot: handle })
+      : t('cabinet.bot.publishedAllow');
+  return (
+    <div className="flex flex-col gap-2">
+      <Text variant="sm" secondary>
+        {text}
+      </Text>
+      <div className="flex flex-wrap gap-2">
+        {name && handle && (
+          <Button
+            variant="outline"
+            size="sm"
+            icon="send"
+            onClick={() => platform.openTelegramLink(botChatLink(name))}
+          >
+            {t('cabinet.bot.open', { bot: handle })}
+          </Button>
+        )}
+        {bot.canAsk && (
+          <Button
+            variant="secondary"
+            size="sm"
+            icon="bell"
+            onClick={() => bot.allow.mutate()}
+            disabled={bot.allow.isPending}
+            aria-busy={bot.allow.isPending}
+          >
+            {t('cabinet.bot.allow')}
+          </Button>
+        )}
+      </div>
+      {bot.allow.isError && (
+        <p role="alert" className="m-0 text-cap text-danger">
+          {t('cabinet.bot.denied')}
+        </p>
+      )}
+    </div>
   );
 }
 

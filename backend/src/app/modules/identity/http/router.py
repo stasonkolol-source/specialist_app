@@ -98,7 +98,8 @@ async def authenticate_telegram(
     """Обмен initData Mini App на собственную сессию.
 
     `start_param` из initData (код `startapp`) — первое касание: у нового пользователя
-    он попадает в атрибуцию (growth), вернувшемуся не нужен.
+    он попадает в атрибуцию (growth), вернувшемуся не нужен. `allows_write_to_pm` — боту уже
+    можно писать: вход откроет канал уведомлений (`TelegramWriteAllowed`).
     """
     init_data = verifier.verify(init_data_of(authorization))
     user = init_data.user
@@ -114,7 +115,9 @@ async def authenticate_telegram(
         photo_url=user.photo_url,
     )
     result = await authenticate(
-        AuthenticateTelegramCommand(profile=profile, start_param=init_data.start_param)
+        AuthenticateTelegramCommand(
+            profile=profile, start_param=init_data.start_param, auth_date=init_data.auth_date
+        )
     )
     # профиль — из транзакции входа: после commit база больше не нужна
     return AuthOut(

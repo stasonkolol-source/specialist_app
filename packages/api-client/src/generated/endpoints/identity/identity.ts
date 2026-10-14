@@ -62,7 +62,8 @@ export const getIdentityAuthenticateTelegramUrl = () => {
  * Обмен initData Mini App на собственную сессию.
  *
  * `start_param` из initData (код `startapp`) — первое касание: у нового пользователя
- * он попадает в атрибуцию (growth), вернувшемуся не нужен.
+ * он попадает в атрибуцию (growth), вернувшемуся не нужен. `allows_write_to_pm` — боту уже
+ * можно писать: вход откроет канал уведомлений (`TelegramWriteAllowed`).
  * @summary Authenticate Telegram
  */
 export const identityAuthenticateTelegram = async (

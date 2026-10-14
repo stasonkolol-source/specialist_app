@@ -74,6 +74,21 @@ class BotStarted(DomainEvent):
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class TelegramWriteAllowed(DomainEvent):
+    """Проверенный initData входа Mini App говорит, что бот уже может писать этому пользователю
+    (`user.allows_write_to_pm`): он нажал `/start` или дал `requestWriteAccess` раньше — например,
+    пришёл по ссылке `startapp` и в приложении ничего не нажимал. Публикуется на каждом входе с
+    этим флагом, поэтому подписчик идемпотентен: notifications открывает канал `telegram`, повтор
+    ничего не меняет. `occurred_at` — `auth_date` initData (когда Telegram подписал это состояние):
+    остановку бота позже этой даты запоздавший вход не отменит. Флаг берётся только из подписанных
+    данных, `initDataUnsafe` клиента не в счёт (ADR-0009).
+    """
+
+    event_type = "identity.TelegramWriteAllowed"
+    user_id: UserId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class UserUpdated(DomainEvent):
     """Изменился профиль пользователя: проекции обновляют копии нужных им полей.
 

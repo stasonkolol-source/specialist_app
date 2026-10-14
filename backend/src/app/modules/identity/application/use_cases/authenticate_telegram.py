@@ -1,6 +1,13 @@
-"""Вход из Mini App по проверенному initData (ADR-0009, ARCHITECTURE §8.2)."""
+"""Вход из Mini App по проверенному initData (ADR-0009, ARCHITECTURE §8.2).
+
+initData несёт и `allows_write_to_pm`: если боту уже можно писать, вход публикует
+`TelegramWriteAllowed`, и notifications открывает канал доставки — без `/start` и
+`requestWriteAccess` (ADR-0011). Фасад notifications identity вызвать не может — он выше по DAG
+(ARCHITECTURE §5.4), поэтому только событие.
+"""
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from app.modules.identity.application.access import AccessChecker
 from app.modules.identity.application.config import IdentityConfig
@@ -15,7 +22,7 @@ from app.modules.identity.application.ports import (
 from app.modules.identity.application.telegram import SignedIn, sign_in_telegram
 from app.modules.identity.application.tokens import issue_tokens
 from app.modules.identity.domain.session import Session, SessionId
-from app.platform.contracts.events.identity import EntryPoint
+from app.platform.contracts.events.identity import EntryPoint, TelegramWriteAllowed
 from app.platform.db.port import UnitOfWork
 from app.platform.db.retry import retry_on_conflict
 from app.platform.kernel.clock import Clock
@@ -32,6 +39,9 @@ class AuthenticateTelegramCommand:
     platform: Platform = Platform.TMA
     start_param: str | None = None
     """`start_param` проверенного initData — код `startapp` (первое касание, growth)."""
+    auth_date: datetime | None = None
+    """`auth_date` initData — когда Telegram подписал профиль и `allows_write_to_pm`; None —
+    сейчас."""
 
 
 class AuthenticateTelegram:
@@ -80,6 +90,13 @@ class AuthenticateTelegram:
                     ttl=self._config.refresh_ttl(cmd.platform),
                 )
                 await self._sessions.add(session)
+                if profile.allows_write_to_pm:
+                    # состояние агрегата не меняется: «боту можно писать» — событие без агрегата
+                    self._uow.add_event(
+                        TelegramWriteAllowed(
+                            user_id=signed.user.id, occurred_at=cmd.auth_date or now
+                        )
+                    )
                 # роли — в токен; согласия и ждущее удаление — в ответ (/me без чтений после
                 # commit): одним запросом в той же транзакции
                 state = await self._query.login_state(signed.user.id)
