@@ -5,14 +5,24 @@ from datetime import UTC, date, datetime
 import pytest
 
 from app.platform.analytics.alerts import ResponseRateAlert
-from app.platform.analytics.beta_report import PENDING, REPORTED, WEEK_COLUMNS, render, render_weeks
+from app.platform.analytics.beta_report import (
+    PENDING,
+    REPORTED,
+    WEEK_COLUMNS,
+    render,
+    render_rolling,
+    render_weeks,
+)
 from app.platform.analytics.events import METRICS
 from app.platform.analytics.liquidity import (
+    ROLLING,
     Liquidity,
     LiquidityReport,
     Ratio,
+    Window,
     concentration,
     current_week,
+    rolling_window,
     week_window,
 )
 
@@ -82,7 +92,9 @@ def test_all_weeks_render_one_markdown_table() -> None:
         report = LiquidityReport(
             window=week_window(date(2027, 1, 25), n),
             as_of=datetime(2027, 2, 3, 9, tzinfo=UTC),
-            overall=Liquidity(jobs=rr_1h.total, rr_1h=rr_1h, ttfr_minutes=25.0),
+            overall=Liquidity(
+                jobs=rr_1h.total, rr_1h=rr_1h, ttfr_minutes=25.0, submit_to_first_minutes=40.0
+            ),
             pairs=(),
             active_profiles=Ratio(3, 10),
             opt_in=empty,
@@ -101,10 +113,39 @@ def test_all_weeks_render_one_markdown_table() -> None:
     assert table[2].startswith("| 1: 25.01–31.01 | 4 | 75% (3/4) | — (0/0) | — (0/0) | 25 мин |")
     assert table[3].startswith("| 2: 01.02–07.02 | 0 | — (0/0) |")
     assert "| 30% (3/10) |" in table[2]
+    assert table[2].endswith("| 40 мин |")  # от отправки заявки до первого видимого отклика
     assert "Нижний порог пересмотра" in text
     assert render_weeks([], beta_start=date(2027, 1, 25)) == (
         "Бета ещё не началась: неделя 1 — с 25.01.2027, недель для сводки нет."
     )
+
+
+def test_rolling_window_report_names_its_span() -> None:
+    """`cli beta-report --last 24h`: окно до текущего момента, заголовок — с часами по Белграду."""
+    now = datetime(2026, 10, 14, 10, tzinfo=UTC)
+    window = rolling_window(ROLLING["24h"][0], now)
+    assert window == Window(datetime(2026, 10, 13, 10, tzinfo=UTC), now)
+    assert rolling_window(ROLLING["7d"][0], now).start == datetime(2026, 10, 7, 10, tzinfo=UTC)
+    empty = Ratio(0, 0)
+    report = LiquidityReport(
+        window=window,
+        as_of=now,
+        overall=Liquidity(submit_to_first_minutes=42.4),
+        pairs=(),
+        active_profiles=empty,
+        opt_in=empty,
+        repeat_60d=empty,
+        k_factor=empty,
+        review_rate=empty,
+        fraud_reports=empty,
+    )
+
+    text = render_rolling(report, label=ROLLING["24h"][1])
+
+    assert "последние 24 ч: 13.10.2026 12:00 – 14.10.2026 12:00 (Белград)" in text
+    assert "Без персонала" in text
+    assert "Медиана от отправки заявки до первого видимого отклика: 42 мин" in text
+    assert "заявок за 24 ч нет" in text
 
 
 def test_alert_text_escapes_names() -> None:
