@@ -161,6 +161,48 @@ msgstr "У реду, питаћемо поново за један дан."
 msgid "bot.deals.snooze_limit"
 msgstr "Одлагање више није могуће: притисните „Да, све је у реду“ или „Постоји проблем“."
 
+msgid "bot.deals.problem.question"
+msgstr "Шта се десило са послом „{title}“?"
+
+msgid "bot.deals.problem.no_show_client"
+msgstr "Није дошао / нема везе → откажи"
+
+msgid "bot.deals.problem.no_show_performer"
+msgstr "Клијент се не јавља → откажи"
+
+msgid "bot.deals.problem.no_show_client_dispute"
+msgstr "Није дошао / нема везе → спор"
+
+msgid "bot.deals.problem.no_show_performer_dispute"
+msgstr "Клијент се не јавља → спор"
+
+msgid "bot.deals.problem.prepayment"
+msgstr "Тражи аванс → пријави"
+
+msgid "bot.deals.problem.other_client"
+msgstr "Лоше урађено, штета → спор"
+
+msgid "bot.deals.problem.other_performer"
+msgstr "Други проблем → спор"
+
+msgid "bot.deals.problem.fine"
+msgstr "Све је у реду, посао је завршен"
+
+msgid "bot.deals.problem.dispute"
+msgstr "Отвори спор"
+
+msgid "bot.deals.problem.marked"
+msgstr "Посао је већ означен као завршен — договор се не може отказати. Отворите спор: подршка ће размотрити."
+
+msgid "bot.deals.problem.reopened"
+msgstr "Договор „{title}“ је отказан. Захтев је поново отворен — изаберите другог извођача међу понудама."
+
+msgid "bot.deals.problem.responses"
+msgstr "Изабери међу понудама"
+
+msgid "bot.deals.problem.cancelled"
+msgstr "Договор „{title}“ је отказан — друга страна ће добити обавештење."
+
 msgid "bot.deals.reported"
 msgstr "Пријава је послата — модератор ће проверити налог. Не шаљите новац унапред: на „Соседима“ се плаћа после посла."
 

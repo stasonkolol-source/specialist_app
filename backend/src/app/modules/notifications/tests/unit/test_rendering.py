@@ -720,26 +720,24 @@ def test_completion_prompt_has_yes_and_problem_in_one_row(
     assert isinstance(yes, CallbackButton)
     assert yes.text == "Да, всё хорошо"
     assert parse_callback(yes.data) == CallbackData(CallbackAction.DEAL_COMPLETE, DEAL_ID)
-    assert isinstance(problem, AppButton)
-    # «Есть проблема» — сразу спор S52 (`p_`, 6.1c), не карточка сделки
-    assert (problem.text, problem.url) == ("Есть проблема", f"{MINI_APP}?startapp={DISPUTE_LINK}")
+    # «Есть проблема» — три пути в боте (отменить и выбрать другого, пожаловаться, спор)
+    assert isinstance(problem, CallbackButton)
+    assert problem.text == "Есть проблема"
+    assert parse_callback(problem.data) == CallbackData(CallbackAction.DEAL_PROBLEM, DEAL_ID)
 
 
 def test_completion_prompt_offers_not_yet_while_it_can_be_snoozed(
     renderer: GettextNotificationRenderer,
 ) -> None:
     params = {"title": "Люстра", "deal_id": str(DEAL_ID)}
-    _, [row, problem] = renderer.telegram(
+    _, lines = renderer.telegram(
         NotificationType.DEAL_COMPLETION_PROMPT, params | {"snooze": "true"}, DEAL_LINK, Locale.RU
     )
+    row, _ = lines
     assert isinstance(row, tuple)
-    yes, not_yet = row
+    _, not_yet = row
 
-    assert [b.text for b in (yes, not_yet, problem)] == [
-        "Да, всё хорошо",
-        "Ещё нет",
-        "Есть проблема",
-    ]
+    assert [b.text for b in flat(lines)] == ["Да, всё хорошо", "Ещё нет", "Есть проблема"]
     assert isinstance(not_yet, CallbackButton)
     assert parse_callback(not_yet.data) == CallbackData(CallbackAction.DEAL_SNOOZE, DEAL_ID)
     # переносили уже три раза или вторая сторона отметила — «Ещё нет» не предлагаем

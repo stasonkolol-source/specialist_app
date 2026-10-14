@@ -8,8 +8,8 @@ payload: коды превращаются в слова каталога, да�
 (`job.invited`, 5.6) — «Посмотреть заявку» и «Откликнуться: «…»» на каждый шаблон получателя:
 нажатие обрабатывает бот модуля jobs (platform/telegram/callbacks.py). У «Работа выполнена?»
 (`deal.completion_prompt`, 6.1b; после отметки второй стороны — «Алексей: работа «…» выполнена»,
-B2) — callback «Да, выполнено», «Ещё нет» (пока перенос возможен; бот deals) и web_app «Есть
-проблема» сразу на спор S52 (`p_`, 6.1c); у «Договорились?» (`deal.proposed`, 6.3b) — callback
+B2) — callback «Да, выполнено», «Ещё нет» (пока перенос возможен) и «Есть проблема» (три пути
+вместо спора — бот deals); у «Договорились?» (`deal.proposed`, 6.3b) — callback
 «Подтвердить» и «Отклонить» (бот deals) и web_app «Посмотреть условия». Спор (6.1c):
 `dispute.opened` — «Ответить» на S52, `dispute.resolved` — «Посмотреть решение». Подписки на
 заявки (5.7): `job.matched` — карточка B1 (название жирным, бюджет, район и расстояние, когда,
@@ -816,7 +816,8 @@ class GettextNotificationRenderer:
     ) -> tuple[ButtonLine, ...]:
         """B2: «Да, всё хорошо» — отметка в сделке прямо из чата (бот deals); «Ещё нет» — спросить
         снова через сутки (пока перенос возможен; после отметки второй стороны — нет: сделка и так
-        завершится через 3 дня); «Есть проблема» — сразу спор S52 в Mini App (`p_`, 6.1c). С
+        завершится через 3 дня); «Есть проблема» — три пути под тем же сообщением: отменить и
+        выбрать другого, пожаловаться, спор (бот deals); без id сделки — к сделке в Mini App. С
         «Ещё нет» — «Да» и «Ещё нет» одним рядом, «Есть проблема» ниже; без неё — одним рядом."""
         buttons: list[Button] = []
         try:
@@ -830,19 +831,17 @@ class GettextNotificationRenderer:
                     data=encode_callback(CallbackData(CallbackAction.DEAL_COMPLETE, deal_id)),
                 )
             )
-        problem = (
-            encode_start_param(StartLink(type=LinkType.DISPUTE, id=deal_id))
-            if deal_id is not None
-            else link
-        )
-        problem_button = (
-            AppButton(
+        problem_button: Button | None = None
+        if deal_id is not None:
+            problem_button = CallbackButton(
                 text=self._t("notifications.deal_completion_prompt.problem", locale),
-                url=mini_app_url(self._mini_app, problem),
+                data=encode_callback(CallbackData(CallbackAction.DEAL_PROBLEM, deal_id)),
             )
-            if problem is not None and self._mini_app is not None
-            else None
-        )
+        elif link is not None and self._mini_app is not None:
+            problem_button = AppButton(
+                text=self._t("notifications.deal_completion_prompt.problem", locale),
+                url=mini_app_url(self._mini_app, link),
+            )
         if deal_id is not None and params.get("snooze") == "true" and params.get("by") not in SIDES:
             not_yet = CallbackButton(
                 text=self._t("notifications.deal_completion_prompt.not_yet", locale),

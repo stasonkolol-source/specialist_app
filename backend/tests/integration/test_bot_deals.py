@@ -2,9 +2,10 @@
 «Работа выполнена?» вызывает тот же CompleteDeal, что S26: отметка стороны, вторая отметка
 завершает сделку; по сделке под спором (6.1c) — «решение примет поддержка», без отметки.
 «Подтвердить» и «Отклонить» под «Договорились?» — те же ConfirmDeal и DeclineDeal, что S53.
-«Ещё нет» переносит вопрос на сутки (не больше трёх раз). «Пожаловаться» — жалоба `fraud` на
-вторую сторону в один тап. Повтор нажатия ничего не меняет,
-чужая сделка — «не найдена»."""
+«Ещё нет» переносит вопрос на сутки (не больше трёх раз). «Есть проблема» — три пути клиенту и два
+исполнителю: «Не пришёл / нет связи» отменяет сделку (`no_contact`) и ведёт клиента к откликам,
+после отметки «выполнено» — в спор; «Пожаловаться» — жалоба `fraud` на вторую сторону в один тап.
+Повтор нажатия ничего не меняет, чужая сделка — «не найдена»."""
 
 from collections.abc import AsyncIterator
 from typing import Any
@@ -24,7 +25,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app.platform.kernel.ids import new_id
 from app.platform.settings import Settings
 from app.platform.telegram.callbacks import CallbackAction, CallbackData, encode_callback
-from tests.plugins.bot import BotHarness, bot_harness
+from app.platform.telegram.deeplinks import LinkType, StartLink, encode_start_param
+from tests.plugins.bot import MINI_APP, BotHarness, bot_harness
 
 pytestmark = pytest.mark.integration
 
@@ -48,17 +50,24 @@ async def sql(harness: BotHarness, statement: str, **params: object) -> Any:
         return result.first() if result.returns_rows else None
 
 
-async def agreed_deal(harness: BotHarness, client: int, performer: int) -> UUID:
-    """Идущая сделка двух пользователей бота — строкой: выбор отклика тесту не нужен."""
+async def agreed_deal(
+    harness: BotHarness, client: int, performer: int, *, job_id: UUID | None = None
+) -> UUID:
+    """Идущая сделка двух пользователей бота — строкой: выбор отклика тесту не нужен. С `job_id`
+    — сделка по отклику на эту заявку (сама заявка тесту бота не нужна)."""
     deal_id = new_id()
     await sql(
         harness,
-        "INSERT INTO deals.deals (id, client_id, performer_id, origin, title_snapshot, status,"
-        " agreed_at, version) SELECT :id, c.user_id, p.user_id, 'direct', 'Повесить люстру',"
-        " 'agreed', now(), 1 FROM identity.auth_identities c, identity.auth_identities p"
+        "INSERT INTO deals.deals (id, client_id, performer_id, origin, job_id, response_id,"
+        " title_snapshot, status, agreed_at, version) SELECT :id, c.user_id, p.user_id,"
+        " :origin, :job, :response, 'Повесить люстру', 'agreed', now(), 1"
+        " FROM identity.auth_identities c, identity.auth_identities p"
         " WHERE c.provider = 'telegram' AND c.subject = :client"
         " AND p.provider = 'telegram' AND p.subject = :performer",
         id=deal_id,
+        origin="direct" if job_id is None else "job_response",
+        job=job_id,
+        response=None if job_id is None else new_id(),
         client=str(client),
         performer=str(performer),
     )
@@ -88,6 +97,24 @@ def edits(calls: list[TelegramMethod[Any]]) -> list[str | None]:
 
 def alerts(calls: list[TelegramMethod[Any]]) -> list[str | None]:
     return [call.text for call in calls if isinstance(call, AnswerCallbackQuery)]
+
+
+def keyboard(calls: list[TelegramMethod[Any]]) -> list[tuple[str, str | None]]:
+    """Кнопки последней правки сообщения: подпись и адрес web_app (у callback — None)."""
+    [edit] = [call for call in calls if isinstance(call, EditMessageText)]
+    markup = edit.reply_markup
+    if markup is None:
+        return []
+    assert isinstance(markup, InlineKeyboardMarkup)
+    return [
+        (button.text, button.web_app.url if button.web_app else None)
+        for row in markup.inline_keyboard
+        for button in row
+    ]
+
+
+def button(action: CallbackAction, deal_id: UUID, arg: str | None = None) -> str:
+    return encode_callback(CallbackData(action, deal_id, arg))
 
 
 async def test_yes_marks_then_completes_and_repeats_quietly(harness: BotHarness) -> None:
@@ -242,3 +269,83 @@ async def test_not_yet_asks_again_in_a_day_at_most_three_times(harness: BotHarne
     assert alerts(limit) == [
         "Переносить больше нельзя: нажмите «Да, всё хорошо» или «Есть проблема»."
     ]
+
+
+async def test_problem_offers_three_paths_to_the_client_and_two_to_the_performer(
+    harness: BotHarness,
+) -> None:
+    client, performer = telegram_user(), telegram_user()
+    for telegram_id in (client, performer):
+        await harness.send(telegram_id, "/start")
+    deal_id = await agreed_deal(harness, client, performer)
+    problem = button(CallbackAction.DEAL_PROBLEM, deal_id)
+    dispute = f"{MINI_APP}?startapp=" + encode_start_param(
+        StartLink(type=LinkType.DISPUTE, id=deal_id)
+    )
+
+    to_client = await harness.press(client, problem)
+    to_performer = await harness.press(performer, problem)
+
+    assert edits(to_client) == ["Что случилось с работой «Повесить люстру»?"]
+    assert keyboard(to_client) == [
+        ("Не пришёл / нет связи → отменить", None),
+        ("Просит предоплату → пожаловаться", None),
+        ("Сделал плохо, ущерб → спор", dispute),
+        ("Всё хорошо, работа выполнена", None),
+    ]
+    assert keyboard(to_performer) == [
+        ("Клиент не на связи → отменить", None),
+        ("Другая проблема → спор", dispute),
+        ("Всё хорошо, работа выполнена", None),
+    ]
+
+
+async def test_no_show_cancels_and_leads_the_client_back_to_responses(
+    harness: BotHarness,
+) -> None:
+    client, performer = telegram_user(), telegram_user()
+    for telegram_id in (client, performer):
+        await harness.send(telegram_id, "/start")
+    job_id = new_id()
+    deal_id = await agreed_deal(harness, client, performer, job_id=job_id)
+
+    pressed = await harness.press(client, button(CallbackAction.DEAL_PROBLEM, deal_id, "cancel"))
+    again = await harness.press(client, button(CallbackAction.DEAL_PROBLEM, deal_id, "cancel"))
+
+    assert edits(pressed) == [
+        "Сделка «Повесить люстру» отменена. Заявка снова открыта — выберите другого исполнителя"
+        " из откликов."
+    ]
+    job_link = encode_start_param(StartLink(type=LinkType.JOB, id=job_id))
+    assert keyboard(pressed) == [("Выбрать из откликов", f"{MINI_APP}?startapp={job_link}")]
+    assert edits(again) == ["Сделка уже отменена."]
+    row = await sql(
+        harness, "SELECT status, cancel_reason FROM deals.deals WHERE id = :id", id=deal_id
+    )
+    assert tuple(row) == ("cancelled", "no_contact")
+
+
+async def test_no_show_after_a_mark_goes_to_a_dispute(harness: BotHarness) -> None:
+    """Исполнитель уже отметил «Работа выполнена» — отменить нельзя (MU-8): «не пришёл» — спор."""
+    client, performer = telegram_user(), telegram_user()
+    for telegram_id in (client, performer):
+        await harness.send(telegram_id, "/start")
+    deal_id = await agreed_deal(harness, client, performer)
+    await sql(
+        harness, "UPDATE deals.deals SET performer_confirmed_at = now() WHERE id = :id", id=deal_id
+    )
+    dispute = f"{MINI_APP}?startapp=" + encode_start_param(
+        StartLink(type=LinkType.DISPUTE, id=deal_id)
+    )
+
+    options = await harness.press(client, button(CallbackAction.DEAL_PROBLEM, deal_id))
+    raced = await harness.press(client, button(CallbackAction.DEAL_PROBLEM, deal_id, "cancel"))
+
+    assert keyboard(options)[0] == ("Не пришёл / нет связи → спор", dispute)
+    assert edits(raced) == [
+        "Работа уже отмечена выполненной — отменить сделку нельзя. Откройте спор: поддержка"
+        " разберётся."
+    ]
+    assert keyboard(raced) == [("Открыть спор", dispute)]
+    row = await sql(harness, "SELECT status FROM deals.deals WHERE id = :id", id=deal_id)
+    assert row.status == "agreed"

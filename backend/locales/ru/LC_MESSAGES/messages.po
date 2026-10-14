@@ -161,6 +161,48 @@ msgstr "Хорошо, спросим ещё раз через сутки."
 msgid "bot.deals.snooze_limit"
 msgstr "Переносить больше нельзя: нажмите «Да, всё хорошо» или «Есть проблема»."
 
+msgid "bot.deals.problem.question"
+msgstr "Что случилось с работой «{title}»?"
+
+msgid "bot.deals.problem.no_show_client"
+msgstr "Не пришёл / нет связи → отменить"
+
+msgid "bot.deals.problem.no_show_performer"
+msgstr "Клиент не на связи → отменить"
+
+msgid "bot.deals.problem.no_show_client_dispute"
+msgstr "Не пришёл / нет связи → спор"
+
+msgid "bot.deals.problem.no_show_performer_dispute"
+msgstr "Клиент не на связи → спор"
+
+msgid "bot.deals.problem.prepayment"
+msgstr "Просит предоплату → пожаловаться"
+
+msgid "bot.deals.problem.other_client"
+msgstr "Сделал плохо, ущерб → спор"
+
+msgid "bot.deals.problem.other_performer"
+msgstr "Другая проблема → спор"
+
+msgid "bot.deals.problem.fine"
+msgstr "Всё хорошо, работа выполнена"
+
+msgid "bot.deals.problem.dispute"
+msgstr "Открыть спор"
+
+msgid "bot.deals.problem.marked"
+msgstr "Работа уже отмечена выполненной — отменить сделку нельзя. Откройте спор: поддержка разберётся."
+
+msgid "bot.deals.problem.reopened"
+msgstr "Сделка «{title}» отменена. Заявка снова открыта — выберите другого исполнителя из откликов."
+
+msgid "bot.deals.problem.responses"
+msgstr "Выбрать из откликов"
+
+msgid "bot.deals.problem.cancelled"
+msgstr "Сделка «{title}» отменена — вторая сторона получит уведомление."
+
 msgid "bot.deals.reported"
 msgstr "Жалоба отправлена — модератор проверит аккаунт. Не переводите деньги вперёд: на «Соседях» платят после работы."
 
