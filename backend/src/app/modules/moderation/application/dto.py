@@ -10,6 +10,7 @@ from app.modules.media.api import MediaRef
 from app.modules.moderation.domain.cases import CaseStatus, CaseTrigger, EntityType
 from app.modules.moderation.domain.queues import Queue
 from app.modules.moderation.domain.reports import ReportReason, ReportStatus
+from app.modules.moderation.domain.risk import RiskSummary
 from app.modules.moderation.domain.sanctions import SanctionStep
 from app.platform.ai.port import ContentKind
 from app.platform.kernel.ids import CaseId, MediaId, RestrictionId, UserId
@@ -192,6 +193,9 @@ class PersonContext:
     complaints_open: int = 0
     """Открытые жалобы на человека (кейсы о нём)."""
     complaints_total: int = 0
+    risk_signals: tuple[RiskSummary, ...] = ()
+    """Сигналы риска за RISK_WINDOW по видам (domain/risk.py): пере-регистрация после удаления,
+    предоплата ×N, лимиты — строкой карточки."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

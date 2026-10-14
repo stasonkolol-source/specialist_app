@@ -164,6 +164,311 @@ examples:
   - text: 3000 динара унапред, остало после
     action: flag
     categories: [scam]
+  # предоплата в обход слова: половина вперёд, предварительная и частичная оплата (ru)
+  - text: Половину до начала, остальное после
+    action: flag
+    categories: [scam]
+  - text: Нужно половину до начала работ
+    action: flag
+    categories: [scam]
+  - text: Половину вперёд, половину после приёмки
+    action: flag
+    categories: [scam]
+  - text: Прошу половину вперёд на карту
+    action: flag
+    categories: [scam]
+  - text: Половина вперёд — моё условие
+    action: flag
+    categories: [scam]
+  - text: "Условие: половина вперёд"
+    action: flag
+    categories: [scam]
+  - text: Половину сейчас, половину завтра
+    action: flag
+    categories: [scam]
+  - text: Скиньте половину сейчас
+    action: flag
+    categories: [scam]
+  - text: Половины вперёд достаточно
+    action: flag
+    categories: [scam]
+  - text: Половину заранее, пожалуйста
+    action: flag
+    categories: [scam]
+  - text: 50 процентов вперёд
+    action: flag
+    categories: [scam]
+  - text: 30 posto unapred
+    action: flag
+    categories: [scam]
+  - text: Предварительная оплата 20%
+    action: flag
+    categories: [scam]
+  - text: Требуется предварительная оплата
+    action: flag
+    categories: [scam]
+  - text: Частичная оплата до выезда
+    action: flag
+    categories: [scam]
+  - text: Нужна частичная оплата, 2000
+    action: flag
+    categories: [scam]
+  # деньги на материалы, бронь даты, выезд вперёд (ru)
+  - text: Деньги на материалы переведите сегодня
+    action: flag
+    categories: [scam]
+  - text: Сначала деньги на материалы
+    action: flag
+    categories: [scam]
+  - text: Жду перевод на материалы
+    action: flag
+    categories: [scam]
+  - text: Перевод на материалы — 5000
+    action: flag
+    categories: [scam]
+  - text: На материалы вперёд, работа потом
+    action: flag
+    categories: [scam]
+  - text: 5000 на материалы вперёд
+    action: flag
+    categories: [scam]
+  - text: За бронь 1000 динаров
+    action: flag
+    categories: [scam]
+  - text: Переведите за бронь сегодня
+    action: flag
+    categories: [scam]
+  - text: Бронь даты стоит 2000
+    action: flag
+    categories: [scam]
+  - text: Бронь даты — только по оплате
+    action: flag
+    categories: [scam]
+  - text: Бронирование даты 1500
+    action: flag
+    categories: [scam]
+  - text: Бронирование даты — переводом
+    action: flag
+    categories: [scam]
+  - text: Оплата брони на карту
+    action: flag
+    categories: [scam]
+  - text: Сначала оплата брони, потом выезд
+    action: flag
+    categories: [scam]
+  - text: Чтобы закрепить дату, переведите 1000
+    action: flag
+    categories: [scam]
+  - text: Закрепить дату можно переводом
+    action: flag
+    categories: [scam]
+  - text: Оплата за выезд вперёд, 500
+    action: flag
+    categories: [scam]
+  - text: Оплата за выезд вперёд обязательна
+    action: flag
+    categories: [scam]
+  # кошельки вне площадки и реквизиты (ru)
+  - text: Переведите на револют
+    action: flag
+    categories: [scam]
+  - text: Скиньте на револют 2000
+    action: flag
+    categories: [scam]
+  - text: Оплата через wise
+    action: flag
+    categories: [scam]
+  - text: Переведите через wise 50 евро
+    action: flag
+    categories: [scam]
+  - text: Скиньте на wise
+    action: flag
+    categories: [scam]
+  - text: Деньги на wise, пожалуйста
+    action: flag
+    categories: [scam]
+  - text: Беру в крипте
+    action: flag
+    categories: [scam]
+  - text: Оплата в крипте
+    action: flag
+    categories: [scam]
+  - text: Оплата в usdt
+    action: flag
+    categories: [scam]
+  - text: Prihvatam usdt
+    action: flag
+    categories: [scam]
+  - text: Вот номер счёта для перевода
+    action: flag
+    categories: [scam]
+  - text: Пришлю номер счёта в личку
+    action: flag
+    categories: [scam]
+  - text: Мой iban пришлю отдельно
+    action: flag
+    categories: [scam]
+  - text: Переведите на мой iban
+    action: flag
+    categories: [scam]
+  # сербский: на рачун, половина унапред, материјал, резервација, кошельки
+  - text: Uplatite na račun pa dolazim
+    action: flag
+    categories: [scam]
+  - text: Prvo uplatite na račun
+    action: flag
+    categories: [scam]
+  - text: Uplata na račun unapred
+    action: flag
+    categories: [scam]
+  - text: Uplata na račun, ostalo keš
+    action: flag
+    categories: [scam]
+  - text: Prebacite na račun 3000
+    action: flag
+    categories: [scam]
+  - text: Prebacite na račun večeras
+    action: flag
+    categories: [scam]
+  - text: Pošaljite na račun do sutra
+    action: flag
+    categories: [scam]
+  - text: Pošaljite na račun pola
+    action: flag
+    categories: [scam]
+  - text: Novac na tekući račun
+    action: flag
+    categories: [scam]
+  - text: Uplata ide na tekući račun
+    action: flag
+    categories: [scam]
+  - text: Poslaću broj računa
+    action: flag
+    categories: [scam]
+  - text: Evo broj računa za uplatu
+    action: flag
+    categories: [scam]
+  - text: Pola unapred, pola po završetku
+    action: flag
+    categories: [scam]
+  - text: Tražim pola unapred
+    action: flag
+    categories: [scam]
+  - text: Polovinu unapred molim
+    action: flag
+    categories: [scam]
+  - text: Dajte polovinu unapred
+    action: flag
+    categories: [scam]
+  - text: Pola sada, pola sutra
+    action: flag
+    categories: [scam]
+  - text: Platite pola sada
+    action: flag
+    categories: [scam]
+  - text: Pola odmah, ostalo kasnije
+    action: flag
+    categories: [scam]
+  - text: Hoću pola odmah
+    action: flag
+    categories: [scam]
+  - text: Pola pre početka radova
+    action: flag
+    categories: [scam]
+  - text: "Uslov: pola pre početka"
+    action: flag
+    categories: [scam]
+  - text: Novac za materijal unapred
+    action: flag
+    categories: [scam]
+  - text: Prvo novac za materijal
+    action: flag
+    categories: [scam]
+  - text: Treba mi za materijal unapred 5000
+    action: flag
+    categories: [scam]
+  - text: Za materijal unapred, rad posle
+    action: flag
+    categories: [scam]
+  - text: Uplata za rezervaciju 20 evra
+    action: flag
+    categories: [scam]
+  - text: Obavezna uplata za rezervaciju
+    action: flag
+    categories: [scam]
+  - text: Platite preko revoluta
+    action: flag
+    categories: [scam]
+  - text: Pošaljite preko revoluta 50e
+    action: flag
+    categories: [scam]
+  - text: Uplatite na revolut
+    action: flag
+    categories: [scam]
+  - text: Pošaljite na revolut 3000
+    action: flag
+    categories: [scam]
+  - text: Plaćanje preko wise
+    action: flag
+    categories: [scam]
+  - text: Pošaljite preko wise 100
+    action: flag
+    categories: [scam]
+  - text: Primam kripto
+    action: flag
+    categories: [scam]
+  - text: Plaćanje u kripto
+    action: flag
+    categories: [scam]
+  # английский: half upfront, booking fee, materials, revolut, wise, paypal
+  - text: Half upfront, half after
+    action: flag
+    categories: [scam]
+  - text: I need half upfront
+    action: flag
+    categories: [scam]
+  - text: Half now, half later
+    action: flag
+    categories: [scam]
+  - text: Pay half now please
+    action: flag
+    categories: [scam]
+  - text: Booking fee is 20 euros
+    action: flag
+    categories: [scam]
+  - text: There is a booking fee
+    action: flag
+    categories: [scam]
+  - text: Reservation fee 10e
+    action: flag
+    categories: [scam]
+  - text: Pay the reservation fee first
+    action: flag
+    categories: [scam]
+  - text: Send money for materials first
+    action: flag
+    categories: [scam]
+  - text: I need money for materials
+    action: flag
+    categories: [scam]
+  - text: Send to my revolut
+    action: flag
+    categories: [scam]
+  - text: Please send to my revolut 50
+    action: flag
+    categories: [scam]
+  - text: Pay via wise
+    action: flag
+    categories: [scam]
+  - text: Transfer via wise before I come
+    action: flag
+    categories: [scam]
+  - text: Paypal me 30 euros
+    action: flag
+    categories: [scam]
+  - text: Just paypal me
+    action: flag
+    categories: [scam]
   # --- молчат: обычные заявки и отклики ------------------------------------------------------
   - text: Закладка фундамента под дом 10х12, нужна бригада
     action: pass
@@ -265,4 +570,29 @@ examples:
   - text: See you at noon.to be honest
     action: pass
   - text: 5000 на карту после работы
+    action: pass
+  # предоплата в обход слова: честные обороты, которые словарь и детектор должны пропускать
+  - text: Материалы покупаю сам
+    action: pass
+  - text: Оплата после приёмки
+    action: pass
+  - text: Rezervacija besplatna
+    action: pass
+  - text: Wise choice
+    action: pass
+  - text: Без предоплаты
+    action: pass
+  - text: Бронирую дату за вами
+    action: pass
+  - text: Nema potrebe za avansom
+    action: pass
+  - text: Half of the walls are done
+    action: pass
+  - text: Pola sata vožnje do vas
+    action: pass
+  - text: Пришлите счёт за работу
+    action: pass
+  - text: Деньги на материалы отдадите после покупки
+    action: pass
+  - text: Materijal kupujem sam
     action: pass

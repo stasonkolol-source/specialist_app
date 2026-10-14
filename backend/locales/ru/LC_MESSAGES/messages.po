@@ -832,7 +832,7 @@ msgid "notifications.moderation_decision.button"
 msgstr "Исправить"
 
 msgid "notifications.moderation_reason.prepayment_scam"
-msgstr "просьба о предоплате — частая уловка мошенников"
+msgstr "на «Соседях» платят после работы. Просьба о предоплате — нарушение; повторная — запрет откликов"
 
 msgid "notifications.moderation_reason.off_platform_payment"
 msgstr "предложение оплаты или переписки в обход «Соседей»"
@@ -1569,6 +1569,36 @@ msgstr "контакты ({kinds}) в {field}"
 
 msgid "bot.moderation.why.prepayment"
 msgstr "просьба о предоплате"
+
+msgid "bot.moderation.event.prepayment"
+msgstr "просьба о предоплате в чате"
+
+msgid "bot.moderation.card.risk"
+msgstr "⚠️ сигналы риска: {signals}"
+
+msgid "bot.moderation.card.repeat"
+msgstr "🔁 повтор: {count} за {days} дн. · предлагаемая тяжесть: {severity}"
+
+msgid "bot.moderation.risk.reregistered_after_deletion"
+msgstr "пере-регистрация после удаления"
+
+msgid "bot.moderation.risk.with_sanctions"
+msgstr "{label} (с санкциями)"
+
+msgid "bot.moderation.risk.prepayment_request"
+msgstr "предоплата"
+
+msgid "bot.moderation.risk.contact_leak"
+msgstr "контакты в чате"
+
+msgid "bot.moderation.risk.rate_limit_exceeded"
+msgstr "лимиты 429"
+
+msgid "bot.moderation.risk.report_confirmed"
+msgstr "подтверждённая жалоба"
+
+msgid "bot.moderation.risk.times"
+msgstr "{label} ×{count}"
 
 msgid "bot.moderation.why.omni"
 msgstr "флаг OpenAI omni: {category}"

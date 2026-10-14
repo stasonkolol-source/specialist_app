@@ -3,6 +3,7 @@
 замаскированы, ни телефона, ни Telegram, ни id пользователя), обрезка под пределы Bot API,
 экранирование пользовательского текста, ссылка на кейс в админке."""
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -31,7 +32,9 @@ from app.modules.moderation.application.dto import (
     ReportContext,
 )
 from app.modules.moderation.domain.cases import Case, CaseTrigger, EntityType
+from app.modules.moderation.domain.pipeline import PREPAYMENT_SIGNAL
 from app.modules.moderation.domain.queues import Queue
+from app.modules.moderation.domain.risk import RiskSignalKind, RiskSummary
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.ids import CaseId, MediaId, UserId, new_id
 from app.platform.telegram.port import CallbackButton, LinkButton
@@ -459,6 +462,87 @@ def test_clip_cuts_at_a_word() -> None:
     assert clip("один  два\nтри", 50) == "один два три"
     assert clip("раз два три четыре", 12) == "раз два три…"
     assert len(clip("x" * 100, 10)) == 10
+
+
+PREPAYMENT, REREGISTERED = (
+    RiskSignalKind.PREPAYMENT_REQUEST,
+    RiskSignalKind.REREGISTERED_AFTER_DELETION,
+)
+
+
+def test_prepayment_case_about_the_author_shows_messages_repeat_and_risk(
+    translator: Translator,
+) -> None:
+    """Кейс об авторе сообщений с просьбой о предоплате (2.6): последние сообщения с маской,
+    сигналы риска за окно (B6) и повтор у новичка с предлагаемой тяжестью — строкой, не
+    автосанкцией."""
+    case = Case.open(
+        queue=Queue.FRAUD,
+        entity_type=EntityType.USER,
+        entity_id=new_id(),
+        subject_id=UserId(new_id()),
+        trigger=CaseTrigger.AUTO_FLAG,
+        now=NOW,
+        details={"signals": [PREPAYMENT_SIGNAL], "message_id": str(new_id())},
+    )
+    case.add_trigger(
+        queue=Queue.FRAUD,
+        trigger=CaseTrigger.AUTO_FLAG,
+        now=NOW,
+        details={"signals": [PREPAYMENT_SIGNAL], "message_id": str(new_id())},
+    )
+    newcomer = replace(
+        SPECIALIST,
+        risk_signals=(
+            RiskSummary(kind=PREPAYMENT, count=2, weight=2.0),
+            RiskSummary(kind=REREGISTERED, count=1, weight=3.0, with_sanctions=True),
+            RiskSummary(kind=RiskSignalKind.RATE_LIMIT_EXCEEDED, count=3, weight=3.0),
+        ),
+    )
+    context = CaseContext(
+        subject=newcomer,
+        object=CaseObject(
+            kind="user",
+            fields=(
+                ContentField(name="message", text="Половину вперёд на карту 4111 1111 1111 1111"),
+                ContentField(name="message", text="Avans 30% pa dolazim"),
+            ),
+        ),
+    )
+
+    text = render(case, context, translator)
+
+    assert text.startswith("<b>P1 · Мошенничество</b> · просьба о предоплате в чате")
+    assert (
+        "⚠️ сигналы риска: предоплата ×2; пере-регистрация после удаления (с санкциями);"
+        " лимиты 429 ×3" in text
+    )
+    assert "📄 <b>Аккаунт</b>\n<i>Сообщение:</i> Половину вперёд на карту •••" in text
+    assert "<i>Сообщение:</i> Avans 30% pa dolazim" in text
+    assert "просьба о предоплате" in text
+    assert "🔁 повтор: 2 за 30 дн. · предлагаемая тяжесть: Серьёзное — приостановка" in text
+    assert "4111" not in text
+    no_private_ids(case, text)
+
+
+def test_single_request_or_trusted_account_has_no_repeat_line(translator: Translator) -> None:
+    case = opened(
+        EntityType.USER,
+        queue=Queue.FRAUD,
+        trigger=CaseTrigger.AUTO_FLAG,
+        signals=(PREPAYMENT_SIGNAL,),
+    )
+    once = replace(SPECIALIST, risk_signals=(RiskSummary(kind=PREPAYMENT, count=1, weight=1.0),))
+    trusted = replace(
+        CLIENT,
+        trust_level=2,
+        risk_signals=(RiskSummary(kind=PREPAYMENT, count=3, weight=3.0),),
+    )
+
+    for person in (once, trusted):
+        text = render(case, CaseContext(subject=person, object=CaseObject(kind="user")), translator)
+        assert "повтор:" not in text
+        assert "сигналы риска: предоплата" in text
 
 
 def _flat(lines: tuple[object, ...]) -> list[CallbackButton | LinkButton]:

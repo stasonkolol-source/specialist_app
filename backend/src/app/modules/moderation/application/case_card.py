@@ -49,6 +49,13 @@ from urllib.parse import urlencode, urlsplit
 
 from app.modules.moderation.application.dto import CaseContext, ContentField, PersonContext
 from app.modules.moderation.domain.cases import Case, CaseTrigger, EntityType
+from app.modules.moderation.domain.pipeline import PREPAYMENT_SIGNAL
+from app.modules.moderation.domain.risk import (
+    RISK_WINDOW,
+    RiskSummary,
+    prepayment_requests,
+    suggested_severity,
+)
 from app.modules.moderation.domain.sanctions import Severity
 from app.platform.i18n.jobs import budget
 from app.platform.i18n.translator import Translator
@@ -349,6 +356,7 @@ def _render(
     what = _what(context, texts, content_chars=content_chars)
     reasons = _reasons(case, context, texts)
     why = [f"{t('bot.moderation.card.why')} {'; '.join(reasons[:max_reasons])}"] if reasons else []
+    why.extend(_repeat(case, context.subject, texts))
     tail = [t("bot.moderation.card.due", due=_due(case.due_at, now), left=_left(case, now, texts))]
     if admin_url is not None and not public_url(admin_url):
         tail.append(t("bot.moderation.card.admin_link", url=admin_case_url(admin_url, case.id)))
@@ -387,6 +395,8 @@ def _event(case: Case, context: CaseContext, texts: _Texts) -> str:
     for signal in ("sample", "demo"):
         if signal in signals:
             return texts.t(f"bot.moderation.event.{signal}")
+    if case.entity_type is EntityType.USER and PREPAYMENT_SIGNAL in signals:
+        return texts.t("bot.moderation.event.prepayment")  # кейс об авторе сообщений (2.6)
     return texts.t("bot.moderation.event.auto_flag")
 
 
@@ -419,7 +429,44 @@ def _who(person: PersonContext, texts: _Texts, *, now: datetime) -> list[str]:
         )
     )
     lines.append(" · ".join(facts))
+    if person.risk_signals:
+        lines.append(t("bot.moderation.card.risk", signals=_risk(person.risk_signals, texts)))
     return lines
+
+
+def _risk(summaries: Sequence[RiskSummary], texts: _Texts) -> str:
+    """Сигналы риска за окно словами: «пере-регистрация после удаления (с санкциями); предоплата
+    ×2; лимиты 429» — иначе `risk_signals` пишутся, но невидимы (B6)."""
+    parts = []
+    for summary in summaries:
+        label = texts.word(f"bot.moderation.risk.{summary.kind.value}", summary.kind.value)
+        if summary.with_sanctions:
+            label = texts.word("bot.moderation.risk.with_sanctions", label, label=label)
+        if summary.count > 1:
+            label = texts.word(
+                "bot.moderation.risk.times", f"{label} ×{summary.count}", label=label,
+                count=summary.count,
+            )  # fmt: skip
+        parts.append(label)
+    return "; ".join(parts)
+
+
+def _repeat(case: Case, person: PersonContext, texts: _Texts) -> list[str]:
+    """Повтор просьбы о предоплате у новичка (domain/risk.py): сколько за окно и предлагаемая
+    тяжесть — модератору, а не автосанкция. Только у кейса с этой просьбой."""
+    if PREPAYMENT_SIGNAL not in _all_signals(case):
+        return []
+    severity = suggested_severity(person.risk_signals, trust_level=person.trust_level)
+    if severity is None:
+        return []
+    return [
+        texts.t(
+            "bot.moderation.card.repeat",
+            count=prepayment_requests(person.risk_signals),
+            days=RISK_WINDOW.days,
+            severity=texts.word(f"bot.moderation.severity.{severity.value}", severity.value),
+        )
+    ]
 
 
 def _role(role: str, category: str | None, texts: _Texts) -> str:
