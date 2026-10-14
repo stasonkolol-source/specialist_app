@@ -457,7 +457,10 @@ def test_accepted_performer_is_led_to_the_deal(renderer: GettextNotificationRend
         NotificationType.RESPONSE_ACCEPTED, {"title": "Повесить люстру"}, DEAL_LINK, Locale.RU
     )
 
-    assert text == "<b>Вас выбрали</b>\nЗаявка «Повесить люстру». Адрес и время — в сделке."
+    assert text == (
+        "<b>Вас выбрали</b>\nЗаявка «Повесить люстру». Адрес и время — в сделке. "
+        "Оплата — после работы, лично."
+    )
     assert isinstance(button, AppButton)
     assert (button.text, button.url) == ("Открыть сделку", f"{MINI_APP}?startapp={DEAL_LINK}")
 
