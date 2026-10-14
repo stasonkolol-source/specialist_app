@@ -3,7 +3,6 @@
 // типа черновика, ввод между шагами, охрана шагов и ошибки сохранения.
 import type { TelegramChannelOut } from '@sosed/api-client';
 import { setSession } from '@sosed/api-client';
-import { getNotificationsGetNotificationSettingsMockHandler } from '@sosed/api-client/mocks';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
