@@ -1,8 +1,10 @@
 // Выбор исполнителя и сделка S24–S26 (DEVELOPMENT_PLAN 6.2) на фейке backend: своя заявка S23 →
 // отклик Алексея S24 → шторка выбора S25 → сделка S26 («Договорились», исполнитель, адрес,
 // таймлайн, памятка). Завершённая сделка S26 по ссылке `d_` — «Заказать снова»: прямой диалог
-// с Алексеем, где можно договориться. Спор S52 (6.1c) по ссылке `p_` из бота: форма как на
-// артборде → «Отправить» → «Ждём ответа»; вторая сторона — сообщение, срок и форма ответа.
+// с Алексеем, где можно договориться. «Есть проблема» S26 — шторка трёх путей (не пришёл, просит
+// предоплату, сделал плохо). Спор S52 (6.1c) по ссылке `p_`: форма как на артборде (без «Не
+// пришёл», пока сделку можно отменить) → «Отправить» → «Ждём ответа»; вторая сторона — сообщение,
+// срок и форма ответа.
 // Скриншоты × тема × язык, axe-core. Имена скриншотов начинаются с кода артборда: make
 // design-compare кладёт их рядом с эталоном.
 import { expect, test } from '@playwright/test';
@@ -40,6 +42,8 @@ const LOCALES = [
     status: 'Статус',
     orderAgain: 'Заказать снова',
     agree: 'Договориться',
+    problem: 'Есть проблема',
+    problems: 'Что случилось?',
   },
   {
     locale: 'sr-Latn',
@@ -52,6 +56,8 @@ const LOCALES = [
     status: 'Status',
     orderAgain: 'Naruči ponovo',
     agree: 'Dogovorite se',
+    problem: 'Postoji problem',
+    problems: 'Šta se desilo?',
   },
 ] as const;
 
@@ -139,15 +145,47 @@ for (const theme of THEMES) {
   }
 }
 
+for (const theme of THEMES) {
+  for (const l of LOCALES) {
+    test(`S26 ${theme} ${l.locale}: «Есть проблема» — три пути`, async ({ page }) => {
+      await page.clock.setFixedTime(new Date(E2E_NOW));
+      const [job] = myJobsFixture();
+      const [card] = responseCardsFixture();
+      if (!job || !card) throw new Error('fixtures');
+      const jobs = new JobsBackend().seedMine();
+      const deal = dealCardFixture(job, card, 'client');
+      jobs.deals.set(deal.id, deal);
+      const start = encodeStartParam({ type: 'deal', id: deal.id });
+      const watch = await open(page, `theme=${theme}&lang=${l.telegram}&start=${start}`, {
+        signedIn: true,
+        me: { ...ME, ui_locale: l.locale },
+        jobs,
+      });
+
+      await expect(page.getByRole('heading', { name: 'Повесить люстру', level: 1 })).toBeVisible();
+      await page.getByRole('button', { name: l.problem }).click();
+      const sheet = page.getByRole('dialog', { name: l.problems });
+      await expect(sheet).toBeVisible();
+      await expect(sheet.getByRole('button')).toHaveCount(4); // три пути и «Закрыть»
+      expect(real(watch.problems)).toEqual([]);
+      expect(watch.unexpectedApi).toEqual([]);
+      await expect(page).toHaveScreenshot(`S26-deal-problem-${theme}-${l.locale}.png`, {
+        fullPage: true,
+      });
+      await expectNoAxeViolations(page);
+    });
+  }
+}
+
 const DISPUTE_LOCALES = [
   {
     locale: 'ru',
     telegram: 'ru',
     title: 'Проблема со сделкой',
     what: 'Что случилось?',
-    noShow: 'Не пришёл',
+    kind: 'Сделал плохо или не то',
     describe: 'Опишите, что произошло',
-    text: 'Договорились на 19:00. В 19:40 мастера всё ещё нет, на сообщения не отвечает.',
+    text: 'Люстра висит криво, один плафон треснул. Мастер говорит, что так и было.',
     waiting: 'Ждём ответа',
     theirs: 'Сообщение второй стороны',
     answer: 'Ваш ответ',
@@ -157,9 +195,9 @@ const DISPUTE_LOCALES = [
     telegram: 'sr',
     title: 'Problem sa dogovorom',
     what: 'Šta se desilo?',
-    noShow: 'Nije došao',
+    kind: 'Uradio je loše ili pogrešno',
     describe: 'Opišite šta se desilo',
-    text: 'Dogovorili smo se za 19:00. U 19:40 majstora još nema i ne odgovara na poruke.',
+    text: 'Luster visi krivo, jedno staklo je napuklo. Majstor kaže da je tako i bilo.',
     waiting: 'Čekamo odgovor',
     theirs: 'Poruka druge strane',
     answer: 'Vaš odgovor',
@@ -198,17 +236,17 @@ for (const theme of THEMES) {
         watch.problems.length = 0;
       };
 
-      // «Есть проблема» под «Работа выполнена?» — сразу S52, не S26
+      // «Сделал плохо → спор» (S26, бот) и «Ответить» уведомления — сразу S52 по ссылке `p_`
       await expect(page.getByRole('heading', { name: l.title, level: 1 })).toBeVisible();
       const kinds = page.getByRole('radiogroup', { name: l.what });
-      await kinds.getByRole('radio', { name: l.noShow }).click();
+      await kinds.getByRole('radio', { name: l.kind }).click();
       await page.getByRole('textbox', { name: l.describe }).fill(l.text);
       await snap(`S52-dispute-${theme}-${l.locale}.png`);
 
       // «Отправить» — MainButton mock-клиента: спор сразу на экране
       await pressTelegram(page, 'main_button_pressed');
       await expect(page.getByText(l.waiting, { exact: true })).toBeVisible();
-      expect(jobs.decisions).toEqual([{ id: deal.id, action: 'dispute', reason: 'no_show' }]);
+      expect(jobs.decisions).toEqual([{ id: deal.id, action: 'dispute', reason: 'quality' }]);
       await snap(`S52-dispute-open-${theme}-${l.locale}.png`);
     });
 
@@ -223,7 +261,7 @@ for (const theme of THEMES) {
           deal_id: deal.id,
           deal_status: 'disputed',
           status: 'open',
-          kind: 'no_show',
+          kind: 'quality',
           opened_by_me: true,
           description: l.text,
           photos: [],

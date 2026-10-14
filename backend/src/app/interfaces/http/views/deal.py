@@ -67,6 +67,10 @@ class DealCardPriceOut(BaseModel):
 
 class DealCounterpartOut(BaseModel):
     role: DealSide = Field(description="Кто вторая сторона для меня")
+    user_id: UUID | None = Field(
+        description="Аккаунт второй стороны — «Просит предоплату → Пожаловаться» (S26); удалён —"
+        " пусто"
+    )
     display_name: str = Field(description="Аккаунт удалён — пусто")
     profile_id: UUID | None = Field(description="Профиль специалиста исполнителя (S08)")
     avatar: CardPhotoOut | None
@@ -347,6 +351,7 @@ async def _performer(
     name = profile.display_name if profile is not None else account_name
     return DealCounterpartOut(
         role="performer",
+        user_id=deal.performer_id if alive else None,
         display_name=name if alive else "",
         profile_id=profile.id if profile is not None else None,
         avatar=avatar if alive else None,
@@ -364,6 +369,7 @@ async def _client(deal: DealSummary, identity: IdentityApi) -> DealCounterpartOu
     alive = user is not None and not user.is_deleted
     return DealCounterpartOut(
         role="client",
+        user_id=deal.client_id if alive else None,
         display_name=user.display_name if alive and user is not None else "",
         profile_id=None,
         avatar=None,

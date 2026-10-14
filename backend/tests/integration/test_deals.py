@@ -327,6 +327,40 @@ async def test_cancelled_deal_reopens_the_job(world: World, worker: AsyncContain
     assert (await world.post(client, f"/responses/{other_response}/accept")).status_code == 200
 
 
+async def test_no_show_cancellation_quietly_reports_the_performer(
+    world: World, worker: AsyncContainer
+) -> None:
+    """«Не пришёл / нет связи → Отменить и выбрать другого» (S26, бот): клиент отменяет с причиной
+    `no_contact` — заявка снова открыта, а на исполнителя — тихая жалоба `no_show` (кейс P1) без
+    шторки S46. Другая причина отмены — без жалобы."""
+    client, chosen = await world.user(), await world.user()
+    job_id = await world.job(client)
+    deal_id = await world.accepted(client, await world.response(chosen, job_id))
+
+    reply = await world.post(client, f"/deals/{deal_id}/cancel", {"reason": "no_contact"})
+
+    assert reply.status_code == 200, reply.text
+    task = "moderation.report_no_show"
+    assert await run_queued(worker, task, user_id=client, by="client_id") == 1
+    assert await run_queued(worker, "jobs.reopen_job", user_id=client, by="client_id") == 1
+    assert (await world.job_row(job_id)).status == "published"
+    report = await world.scalar(
+        "SELECT reporter_id || ':' || target_type || ':' || reason FROM moderation.reports"
+        " WHERE target_id = :target",
+        target=chosen,
+    )
+    assert report == f"{client}:user:no_show"
+
+    other_deal = await world.accepted(client, await world.response(await world.user(), job_id))
+    other_reason = await world.post(client, f"/deals/{other_deal}/cancel", {"reason": "other"})
+    assert other_reason.status_code == 200
+    assert await run_queued(worker, task, user_id=client, by="client_id") == 1
+    reports = await world.scalar(
+        "SELECT count(*) FROM moderation.reports WHERE reporter_id = :client", client=client
+    )
+    assert reports == 1  # другая причина — без жалобы
+
+
 @pytest.mark.authz
 async def test_cancel_reason_is_chosen_by_a_party(world: World) -> None:
     client, performer = await world.user(), await world.user()

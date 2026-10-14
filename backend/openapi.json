@@ -9840,6 +9840,19 @@
             "title": "Role",
             "description": "Кто вторая сторона для меня"
           },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id",
+            "description": "Аккаунт второй стороны — «Просит предоплату → Пожаловаться» (S26); удалён — пусто"
+          },
           "display_name": {
             "type": "string",
             "title": "Display Name",
@@ -9909,6 +9922,7 @@
         "type": "object",
         "required": [
           "role",
+          "user_id",
           "display_name",
           "profile_id",
           "avatar",
@@ -13919,7 +13933,9 @@
           "job.digest",
           "response.received",
           "response.accepted",
+          "response.chosen",
           "response.not_selected",
+          "response.reopened",
           "response.declined",
           "job.invited",
           "message.received",

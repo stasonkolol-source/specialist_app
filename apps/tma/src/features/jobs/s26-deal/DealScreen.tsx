@@ -12,19 +12,24 @@
 // BFF `GET /deals/{id}/card`. «Договориться» из чата (6.5): второй стороне — S53 «… предлагает
 // договориться» с условиями, сроком (72 ч) и «Подтвердить» / «Отклонить», предложившей — «ждём
 // подтверждения». После договорённости — контакты: Telegram второй стороны (если она его
-// показывает) и «Поделиться контактом» — шторка S54 в чате сделки. «Есть проблема» → спор S52
-// (6.1c) — строкой внизу, рядом с «Отменить сделку»; под спором — «сделка на паузе» и «Спор по
-// сделке», после решения — «Решение по спору». Завершена (7.3): итог без адреса и таймлайна,
-// MainButton «Оставить отзыв» (S27) клиенту, пока окно открыто, и статус своего отзыва; клиенту —
-// «Заказать снова»: прямой диалог с этим специалистом, где в шапке «Договориться» (S30).
+// показывает) и «Поделиться контактом» — шторка S54 в чате сделки. «Есть проблема» — строкой внизу,
+// рядом с «Отменить сделку»: шторка из трёх путей (ProblemSheet, своим чанком) — «Не пришёл или нет
+// связи» отменяет сделку, и клиент выбирает другого из откликов, «Просит предоплату» — жалоба в один
+// тап, «Сделал плохо или ущерб» — спор S52 (6.1c); под спором — «сделка на паузе» и «Спор по
+// сделке», после решения — «Решение по спору». Отменённая сделка по отклику — клиенту MainButton
+// «Выбрать из откликов» (S23): заявка снова открыта, тупика нет. Завершена (7.3): итог без адреса
+// и таймлайна, MainButton «Оставить отзыв» (S27) клиенту, пока окно открыто, и статус своего
+// отзыва; клиенту — «Заказать снова»: прямой диалог с этим специалистом, где в шапке
+// «Договориться» (S30).
 import type { DealCancelReason, DealCardOut } from '@sosed/api-client';
-import { ApiError } from '@sosed/api-client';
+import { ApiError, NetworkError } from '@sosed/api-client';
 import {
   isUnavailable,
   useAnswerProposal,
   useCancelDeal,
   useCompleteDeal,
   useDealCard,
+  useReport,
   useStartConversation,
 } from '@sosed/hooks';
 import { useFormat, useTranslation } from '@sosed/i18n';
@@ -54,7 +59,7 @@ import {
   cx,
 } from '@sosed/ui-web';
 import { useParams, useRouter } from '@tanstack/react-router';
-import { useId, useState } from 'react';
+import { Suspense, lazy, useId, useState } from 'react';
 
 import { useStepButton } from '../shared/flow.ts';
 import { useOfferPrice } from '../shared/labels.ts';
@@ -65,9 +70,20 @@ import {
   chatPath,
   disputePath,
   jobIdOf,
+  managePath,
   reviewPath,
   specialistPath,
 } from '../shared/paths.ts';
+
+/** Шторка «Есть проблема» — своим чанком при первом открытии; без сети — «Нет соединения». */
+const ProblemSheet = lazy(() =>
+  import('./ProblemSheet.tsx').then(
+    (module) => ({ default: module.ProblemSheet }),
+    (error: unknown) => {
+      throw navigator.onLine ? error : new NetworkError('problem chunk failed', { cause: error });
+    },
+  ),
+);
 
 /** Статус своего отзыва (7.3): API отдаёт строкой. */
 type ReviewState = 'under_review' | 'published' | 'removed';
@@ -268,14 +284,16 @@ function Deal({ deal }: { deal: DealCardOut }) {
   const format = useFormat();
   const complete = useCompleteDeal();
   const cancel = useCancelDeal();
+  const report = useReport();
   const chat = useDealChat(deal);
   const card = useDealCard(deal.id);
   const [cancelling, setCancelling] = useState(false);
+  const [problem, setProblem] = useState(false);
   const agreed = deal.status === 'agreed';
   const client = deal.my_role === 'client';
   const router = useRouter();
   const { timeline } = deal;
-  const failed = complete.error ?? cancel.error ?? chat.error;
+  const failed = complete.error ?? cancel.error ?? report.error ?? chat.error;
   const reviewing = deal.status === 'completed' && deal.review_until !== null;
   // отметили «Работа выполнена» — отменить уже нельзя: подтвердить или спор (MU-8)
   const marked = timeline.my_mark_at !== null || timeline.other_mark_at !== null;
@@ -284,6 +302,9 @@ function Deal({ deal }: { deal: DealCardOut }) {
   // отметила; до этого следующий шаг — договориться о времени и адресе в чате (UX_GUIDANCE №2)
   const due = canMark && (timeline.other_mark_at !== null || isPast(deal.completion_due_at));
   const writing = !reviewing && !due && chat.available && CHATTING.has(deal.status);
+  // сделку по отклику отменили — заявка снова открыта: клиенту следующий шаг — другой отклик
+  const reopenedJob =
+    deal.status === 'cancelled' && client && deal.origin === 'job_response' ? deal.job_id : null;
   const markDone = () => complete.mutateAsync(deal.id).catch(() => undefined); // ошибка — баннером
   useStepButton(
     reviewing
@@ -293,32 +314,56 @@ function Deal({ deal }: { deal: DealCardOut }) {
           loading: false,
           onClick: () => void router.navigate({ to: reviewPath(deal.id) }),
         }
-      : due
-        ? // Promise: пока отметка уходит, второе нажатие не уходит (MU-5)
-          {
-            text: t('deal.complete'),
+      : reopenedJob
+        ? {
+            text: t('deal.chooseAnother'),
             visible: true,
-            loading: complete.isPending,
-            onClick: markDone,
+            loading: false,
+            onClick: () => void router.navigate({ to: managePath(reopenedJob) }),
           }
-        : {
-            text: common('action.write'),
-            visible: writing && !cancelling,
-            loading: chat.pending,
-            onClick: chat.write,
-          },
+        : due
+          ? // Promise: пока отметка уходит, второе нажатие не уходит (MU-5)
+            {
+              text: t('deal.complete'),
+              visible: true,
+              loading: complete.isPending,
+              onClick: markDone,
+            }
+          : {
+              text: common('action.write'),
+              visible: writing && !cancelling && !problem,
+              loading: chat.pending,
+              onClick: chat.write,
+            },
   );
   const cancelPick = (reason: PartyReason) =>
     cancel.mutate(
       { dealId: deal.id, reason },
       {
-        onSettled: () => setCancelling(false),
+        onSettled: () => {
+          setCancelling(false);
+          setProblem(false);
+        },
         // вторая сторона успела отметить «Работа выполнена» — карточка покажет её отметку (MU-8)
         onError: (error) => {
           if (error instanceof ApiError && error.code === MARKED_DONE) void card.refetch();
         },
       },
     );
+  // «Просит предоплату» — жалоба `fraud` на вторую сторону в один тап, без шторки S46
+  const reportPrepayment = () => {
+    const target = deal.counterpart.user_id;
+    if (target === null) return;
+    report.mutate(
+      {
+        target_type: 'user',
+        target_id: target,
+        reason: 'fraud',
+        conversation_id: deal.conversation_id,
+      },
+      { onSettled: () => setProblem(false) },
+    );
+  };
 
   return (
     <section className="flex flex-col gap-3 px-4 pt-3 pb-6">
@@ -341,6 +386,11 @@ function Deal({ deal }: { deal: DealCardOut }) {
       {deal.status === 'completed' && client && deal.counterpart.profile_id && (
         <OrderAgain profileId={deal.counterpart.profile_id} />
       )}
+      {report.isSuccess && (
+        <Banner tone="ok" role="status">
+          {t('deal.reported')}
+        </Banner>
+      )}
       {failed && (
         <ActionError
           error={failed}
@@ -349,7 +399,9 @@ function Deal({ deal }: { deal: DealCardOut }) {
               ? t('deal.completeError')
               : cancel.error
                 ? t('deal.cancelError')
-                : t('deal.contacts.shareError')
+                : report.error
+                  ? t('deal.reportError')
+                  : t('deal.contacts.shareError')
           }
         />
       )}
@@ -360,6 +412,7 @@ function Deal({ deal }: { deal: DealCardOut }) {
         onMark={() => void markDone()}
         cancellable={(agreed || deal.status === 'proposed') && !marked}
         onCancel={() => setCancelling(true)}
+        onProblem={() => setProblem(true)}
       />
       {cancelling && (
         <CancelSheet
@@ -367,6 +420,24 @@ function Deal({ deal }: { deal: DealCardOut }) {
           onClose={() => setCancelling(false)}
           onPick={cancelPick}
         />
+      )}
+      {problem && agreed && (
+        <Suspense fallback={null}>
+          <ProblemSheet
+            client={client}
+            marked={marked}
+            fromResponse={deal.origin === 'job_response'}
+            canReport={deal.counterpart.user_id !== null}
+            busy={cancel.isPending || report.isPending}
+            onNoShow={() => cancelPick('no_contact')}
+            onReport={reportPrepayment}
+            onDispute={() => {
+              setProblem(false);
+              void router.navigate({ to: disputePath(deal.id) });
+            }}
+            onClose={() => setProblem(false)}
+          />
+        </Suspense>
       )}
     </section>
   );
@@ -397,21 +468,23 @@ function useDealChat(deal: DealCardOut) {
 }
 
 /** Строки внизу (UX_GUIDANCE №2, §5): «Работа уже сделана? Отметить», пока её час не настал;
- *  «Есть проблема» (спор S52; под спором — «Спор по сделке», после решения — «Решение по
- *  спору») — строкой, а не нативной кнопкой с первой минуты; «Отменить сделку» — пока никто не
- *  отметил «Работа выполнена» (MU-8). */
+ *  «Есть проблема» (шторка трёх путей; под спором — «Спор по сделке», после решения — «Решение
+ *  по спору», сразу S52) — строкой, а не нативной кнопкой с первой минуты; «Отменить сделку» —
+ *  пока никто не отметил «Работа выполнена» (MU-8). */
 function Actions({
   deal,
   early,
   onMark,
   cancellable,
   onCancel,
+  onProblem,
 }: {
   deal: DealCardOut;
   early: boolean;
   onMark: () => void;
   cancellable: boolean;
   onCancel: () => void;
+  onProblem: () => void;
 }) {
   const { t } = useTranslation('jobs');
   const router = useRouter();
@@ -434,7 +507,11 @@ function Actions({
           icon="flag"
           title={problem}
           chevron
-          onClick={() => void router.navigate({ to: disputePath(deal.id) })}
+          onClick={
+            deal.status === 'agreed'
+              ? onProblem
+              : () => void router.navigate({ to: disputePath(deal.id) })
+          }
         />
       )}
       {cancellable && (

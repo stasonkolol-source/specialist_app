@@ -1,8 +1,11 @@
 """Уведомления о сделках (DEVELOPMENT_PLAN 6.1b; ARCHITECTURE §11.3): выбранному — «Вас
 выбрали» со ссылкой на сделку, остальным откликнувшимся — «Выбрали другого» со ссылкой на «Мои
-отклики», второй стороне — отмена с причиной (клиенту — «заявка снова открыта»), «Работа
-выполнена?» — тем, кто ещё не отметил; исходы исполнителю в центре S42 — «Клиент отклонил»,
-«Сделка выполнена» (UX-аудит №11). Подписчики выполняются из очереди. Данные коммитятся.
+отклики», клиенту — «Вы выбрали …» с правилом оплаты и «Пожаловаться», второй стороне — отмена
+с причиной (клиенту — «заявка снова открыта» и кнопка к откликам S23, прежним кандидатам — «ваш
+отклик в силе»), «Работа выполнена?» — тем, кто ещё не отметил, после «Ещё нет» — снова, новым
+вопросом; исходы исполнителю в центре S42 —
+«Клиент отклонил», «Сделка выполнена» (UX-аудит №11). Подписчики выполняются из очереди. Данные
+коммитятся.
 """
 
 from collections.abc import AsyncIterator
@@ -242,7 +245,65 @@ async def test_completed_deal_reaches_the_performer_when_the_client_confirms(
     assert completed == ([("deal.completed", payload)] if last == "client" else [])
 
 
+async def test_client_hears_about_the_choice_with_the_payment_rule(
+    world: World, worker: AsyncContainer
+) -> None:
+    """Клиенту — «Вы выбрали: Ana»: контакты — в сделке, оплата — после работы, «Пожаловаться»
+    под сообщением (кнопка бота — только в бот, в центре S42 её нет)."""
+    client, performer = await world.user(), await world.user()
+    job_id = await world.job(client)
+    accepted = await world.post(
+        client, f"/responses/{await world.response(performer, job_id)}/accept"
+    )
+
+    task = "notifications.notify_choice_made"
+    assert await run_queued(worker, task, user_id=client, by="client_id") == 1
+
+    deal_id = accepted["deal_id"]
+    link = encode_start_param(StartLink(type=LinkType.DEAL, id=UUID(deal_id)))
+    assert await world.notifications(client) == [
+        (
+            "response.chosen",
+            {
+                "params": {"title": "Повесить люстру", "name": "Ana", "deal_id": deal_id},
+                "link": link,
+                "urgent": False,
+            },
+        )
+    ]
+    [(in_app,)] = await world.execute(
+        "SELECT in_app FROM notifications.notifications WHERE user_id = :user", user=client
+    )
+    assert in_app is False
+
+
+async def test_reopened_job_tells_former_candidates_their_response_stands(
+    world: World, worker: AsyncContainer
+) -> None:
+    client, chosen, other = await world.user(), await world.user(), await world.user()
+    job_id = await world.job(client)
+    chosen_response = await world.response(chosen, job_id)
+    await world.response(other, job_id)
+    accepted = await world.post(client, f"/responses/{chosen_response}/accept")
+
+    await world.post(chosen, f"/deals/{accepted['deal_id']}/cancel", {"reason": "plans_changed"})
+    assert await run_queued(worker, "jobs.reopen_job", user_id=client, by="client_id") == 1
+    task = "notifications.notify_job_reopened"
+    assert await run_queued(worker, task, user_id=client, by="client_id") == 1
+
+    link = encode_start_param(StartLink(type=LinkType.JOB, id=job_id))
+    assert await world.notifications(other) == [
+        (
+            "response.reopened",
+            {"params": {"title": "Повесить люстру"}, "link": link, "urgent": False},
+        )
+    ]
+    assert [n for n in await world.notifications(chosen) if n[0] == "response.reopened"] == []
+
+
 async def test_cancellation_reaches_the_other_party(world: World, worker: AsyncContainer) -> None:
+    """Исполнитель отменил: клиенту — кто и почему, кнопка — к откликам заявки (S23), а не к
+    отменённой сделке."""
     client, performer = await world.user(), await world.user()
     job_id = await world.job(client)
     accepted = await world.post(
@@ -264,6 +325,7 @@ async def test_cancellation_reaches_the_other_party(world: World, worker: AsyncC
         "reason": "no_contact",
         "reopened": "true",
     }
+    assert payload["link"] == encode_start_param(StartLink(type=LinkType.JOB, id=job_id))
     assert [kind for kind, _ in await world.notifications(performer)] == []  # отменил сам
 
 
@@ -295,3 +357,39 @@ async def test_completion_prompt_asks_who_has_not_marked(
     assert [
         n for n in await world.notifications(performer) if n[0] == "deal.completion_prompt"
     ] == []  # исполнитель уже отметил
+
+
+async def test_not_yet_brings_the_question_back_as_a_new_one(
+    world: World, worker: AsyncContainer
+) -> None:
+    """«Ещё нет»: через сутки — снова «Работа выполнена?», новым уведомлением (свой ключ на
+    перенос); после третьего переноса — без «Ещё нет»."""
+    client, performer = await world.user(), await world.user()
+    job_id = await world.job(client)
+    accepted = await world.post(
+        client, f"/responses/{await world.response(performer, job_id)}/accept"
+    )
+    deal_id = UUID(accepted["deal_id"])
+    await world.execute(
+        "UPDATE deals.deals SET agreed_at = now() - interval '25 hours' WHERE id = :id", id=deal_id
+    )
+
+    async def ask() -> None:
+        async with worker() as request:
+            await (await request.get(SweepDeals))(SweepDealsCommand(sweep=DealSweep.PROMPT))
+        task = "notifications.notify_deal_completion"
+        assert await run_queued(worker, task, user_id=client, by="client_id") == 1
+
+    await ask()
+    for snoozes in (1, 2, 3):
+        await world.execute(
+            "UPDATE deals.deals SET completion_snoozes = :n, completion_prompted_at = NULL,"
+            " completion_snoozed_until = now() - interval '1 minute' WHERE id = :id",
+            n=snoozes,
+            id=deal_id,
+        )
+        await ask()
+
+    notices = await world.notifications(client)
+    prompts = [payload for kind, payload in notices if kind == "deal.completion_prompt"]
+    assert [p["params"]["snooze"] for p in prompts] == ["true", "true", "true", "false"]

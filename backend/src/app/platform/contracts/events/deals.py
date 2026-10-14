@@ -76,6 +76,10 @@ class DealCompletionDue(DomainEvent):
     performer_id: UserId
     ask_client: bool
     ask_performer: bool
+    snoozes: int = 0
+    """Сколько раз вопрос уже переносили «Ещё нет»: свой вопрос на каждый перенос."""
+    can_snooze: bool = True
+    """Можно ли перенести ещё раз — кнопка «Ещё нет» под вопросом."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

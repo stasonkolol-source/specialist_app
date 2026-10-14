@@ -11,6 +11,8 @@
   `moderation.note_dispute_answer` (DisputeAnswered) и `moderation.note_dispute_unanswered`
   (DisputeUnanswered) — поводы «ответ» и «нет ответа», `moderation.close_dispute_case`
   (DisputeWithdrawn) — кейс закрыт без решения.
+- `moderation.report_no_show` — DealCancelled: клиент отменил сделку «не выходит на связь» («Не
+  пришёл / нет связи» на S26 и в боте) — тихая жалоба `no_show` на исполнителя, без шторки S46.
 - `moderation.post_case_card` — CaseOpened: карточка кейса в чате модераторов (2.5b).
 - `moderation.check_duplicates` — MediaReady: фото портфолио похоже (pHash) на работу другого
   аккаунта — кейс P2 о профиле загрузившего (ADR-0016 L6, план 7.6).
@@ -35,6 +37,7 @@ from app.modules.moderation.application.ports import (
     POST_CASE_CARD,
     RECHECK_IMAGE,
     RECORD_REREGISTRATION,
+    REPORT_NO_SHOW,
 )
 from app.modules.moderation.application.use_cases.auto_check import AutoCheck, AutoCheckCommand
 from app.modules.moderation.application.use_cases.check_duplicates import (
@@ -63,6 +66,10 @@ from app.modules.moderation.application.use_cases.record_reregistration import (
     RecordReregistration,
     RecordReregistrationCommand,
 )
+from app.modules.moderation.application.use_cases.report_no_show import (
+    ReportNoShow,
+    ReportNoShowCommand,
+)
 from app.modules.moderation.application.use_cases.track_dispute import (
     DisputeStep,
     TrackDispute,
@@ -70,6 +77,7 @@ from app.modules.moderation.application.use_cases.track_dispute import (
 )
 from app.modules.moderation.domain.cases import EntityType
 from app.platform.contracts.events.deals import (
+    DealCancelled,
     DealDisputed,
     DisputeAnswered,
     DisputeUnanswered,
@@ -141,6 +149,19 @@ async def note_dispute_unanswered(
 @subscriber(DisputeWithdrawn, CLOSE_DISPUTE_CASE)
 async def close_dispute_case(event: DisputeWithdrawn, track: FromDishka[TrackDispute]) -> None:
     await track(TrackDisputeCommand(dispute_id=event.dispute_id, step=DisputeStep.WITHDRAWN))
+
+
+@subscriber(DealCancelled, REPORT_NO_SHOW)
+async def report_no_show(event: DealCancelled, report: FromDishka[ReportNoShow]) -> None:
+    await report(
+        ReportNoShowCommand(
+            client_id=event.client_id,
+            performer_id=event.performer_id,
+            cancelled_by=event.cancelled_by,
+            reason=event.reason,
+            proposal=event.proposal,
+        )
+    )
 
 
 @periodic("moderation.rate_limit_signals", cron="4,19,34,49 * * * *")
