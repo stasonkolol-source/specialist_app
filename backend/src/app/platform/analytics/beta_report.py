@@ -2,7 +2,9 @@
 
 Текст для людей: русские подписи, доля — с числителем и знаменателем, цель MVP из PRODUCT
 рядом. Каждая метрика таблицы PRODUCT либо в отчёте (`REPORTED`), либо в `PENDING` с шагом,
-который её подключит; тест сверяет оба списка с METRICS.
+который её подключит; тест сверяет оба списка с METRICS. `--last 24h | 7d` — тот же отчёт за
+скользящее окно до текущего момента (`render_rolling`): первые дни беты не ждут конца недели.
+Метрики — без персонала (liquidity.py).
 """
 
 from collections.abc import Mapping, Sequence
@@ -59,11 +61,30 @@ def render(report: LiquidityReport, *, week: int) -> str:
     # конец окна — полночь следующего понедельника: в заголовке — последний день недели
     end = (report.window.end - timedelta(days=1)).astimezone(BUSINESS_TZ)
     as_of = report.as_of.astimezone(BUSINESS_TZ)
+    heading = (
+        f"Отчёт беты «Соседи» — неделя {week}: "
+        f"{start:%d.%m.%Y} – {end:%d.%m.%Y} (Белград), данные на {as_of:%d.%m.%Y %H:%M}"
+    )
+    return _render(report, heading, period="неделю")
+
+
+def render_rolling(report: LiquidityReport, *, label: str) -> str:
+    """Отчёт за скользящее окно (`--last 24h | 7d`): `label` — «24 ч», «7 дней»."""
+    start = report.window.start.astimezone(BUSINESS_TZ)
+    end = report.window.end.astimezone(BUSINESS_TZ)
+    heading = (
+        f"Отчёт беты «Соседи» — последние {label}: "
+        f"{start:%d.%m.%Y %H:%M} – {end:%d.%m.%Y %H:%M} (Белград)"
+    )
+    return _render(report, heading, period=label)
+
+
+def _render(report: LiquidityReport, heading: str, *, period: str) -> str:
     o = report.overall
     lines = [
-        f"Отчёт беты «Соседи» — неделя {week}: "
-        f"{start:%d.%m.%Y} – {end:%d.%m.%Y} (Белград), данные на {as_of:%d.%m.%Y %H:%M}",
-        "Доли — по заявкам, у которых окно уже закрылось; в скобках — сколько из скольких.",
+        heading,
+        "Доли — по заявкам, у которых окно уже закрылось; в скобках — сколько из скольких. "
+        "Без персонала (роли admin, moderator, support); отклик — видимый клиенту.",
         "",
         "Итог",
         f"  Сделок завершено (North Star): {o.deals_completed}",
@@ -93,7 +114,7 @@ def render(report: LiquidityReport, *, week: int) -> str:
         "По парам «город × категория»",
     ]
     if not report.pairs:
-        lines.append("  заявок за неделю нет")
+        lines.append(f"  заявок за {period} нет")
     for pair in report.pairs:
         lines += ["", f"  {pair.city} × {pair.category}"]
         lines += [f"  {line}" for line in _liquidity_lines(pair.metrics)]
@@ -116,6 +137,7 @@ WEEK_COLUMNS: Final = (
     "RR@4h ≥ 70%",
     "Win rate ≥ 15%",
     "Сделок завершено",
+    "Отправка → 1-й видимый отклик",
 )
 """Колонки сводки 7.7: ворота открытия категории и монетизации (PRODUCT «Ворота и go / no-go»)
 — порог в заголовке колонки."""
@@ -146,6 +168,7 @@ def render_weeks(reports: Sequence[tuple[int, LiquidityReport]], *, beta_start: 
                 _cell(o.rr_4h),
                 _percent(o.win_rate),
                 str(o.deals_completed),
+                _minutes(o.submit_to_first_minutes),
             )
         )
     return "\n".join(
@@ -177,6 +200,8 @@ def _liquidity_lines(m: Liquidity) -> list[str]:
         _line("Response rate@24h", m.rr_24h, "≥ 85%"),
         _line("≥ 1 отклик за 1 ч и ≥ 3 за 24 ч", m.first_hour_three_a_day, "≥ 80%"),
         f"  Медиана TTFR: {_minutes(m.ttfr_minutes)}  [≤ 60 мин; ворота < 30 мин]",
+        "  Медиана от отправки заявки до первого видимого отклика: "
+        f"{_minutes(m.submit_to_first_minutes)}  [трекать: TTFR плюс премодерация]",
         f"  Глубина (медиана откликов за 24 ч): {_number(m.depth, 1)}  [3–5]",
         _line("Fill rate@7d", m.fill_7d, "≥ 35%; ворота ≥ 40%"),
         _line("Completion rate", m.completion, "≥ 60%"),

@@ -74,6 +74,13 @@ class Data:
         )
         return user_id
 
+    async def staff(self, user_id: UUID, role: str) -> None:
+        await self.run(
+            "INSERT INTO identity.user_roles (user_id, role) VALUES (:user, :role)",
+            user=user_id,
+            role=role,
+        )
+
     async def job(
         self,
         client: UUID,
@@ -81,6 +88,7 @@ class Data:
         *,
         pair: str = "a",
         status: str = "published",
+        submitted: datetime | None = None,
     ) -> tuple[UUID, datetime]:
         job_id = new_id()
         category, path = (self.cat_a, self.path_a) if pair == "a" else (self.cat_b, self.path_b)
@@ -89,7 +97,7 @@ class Data:
             " category_id, category_path, urgency, budget_type, budget_min, city_id,"
             " published_at, expires_at, created_at, version) VALUES (:id, :client, :status,"
             " 'Повесить люстру', 'Люстра', 'ru', :category, :path, 'this_week', 'fixed', 500000,"
-            " :city, :published, :expires, :published, 1)",
+            " :city, :published, :expires, :submitted, 1)",
             id=job_id,
             client=client,
             status=status,
@@ -98,6 +106,7 @@ class Data:
             city=self.city,
             published=published,
             expires=published + timedelta(days=7),
+            submitted=submitted or published,
         )
         return job_id, published
 
@@ -317,6 +326,48 @@ async def test_week_report_has_known_answer(data: Data) -> None:
     assert "Response rate@4h: 80% (4/5)" in text_report
     assert "Нови-Сад × " in text_report
     assert "Доля KYC: v1" in text_report
+
+
+async def test_staff_and_unchecked_responses_stay_out(data: Data) -> None:
+    """Ворота — по органике: заявка сотрудника, его отклик (concierge) и сделка с ним не
+    считаются; отклик, который ждёт проверки, клиент не видит — тоже. Ожидание клиента — от
+    отправки заявки, TTFR — от публикации после премодерации."""
+    client, performer, unchecked = [await data.user() for _ in range(3)]
+    moderator, admin = await data.user(), await data.user()
+    await data.staff(moderator, "moderator")
+    await data.staff(admin, "admin")
+    # отправлена в 10:00 по Белграду, опубликована после проверки в 10:20
+    job = await data.job(client, at(3, 9, 20), submitted=at(3, 9))
+    concierge = await data.response(job, moderator, minutes(5))
+    await data.response(job, unchecked, minutes(10), review="pending")
+    await data.response(job, performer, minutes(40))  # первый видимый клиенту
+    await data.deal(
+        client,
+        moderator,
+        job=job,
+        response=concierge,
+        agreed=at(3, 12),
+        status="completed",
+        completed=at(4, 9),
+    )
+    own = await data.job(admin, at(4, 10))  # заявка сотрудника и отклик на неё
+    await data.response(own, performer, minutes(5))
+    await data.deal(admin, performer, agreed=at(4, 12), status="completed", completed=at(5, 9))
+
+    report = await liquidity_report(data.conn, week_window(BETA_START, 1), as_of=AS_OF)
+
+    o = report.overall
+    assert o.jobs == 1
+    assert (o.rr_1h, o.rr_24h) == (Ratio(1, 1), Ratio(1, 1))
+    assert o.ttfr_minutes == pytest.approx(40.0)
+    assert o.submit_to_first_minutes == pytest.approx(60.0)
+    assert o.depth == pytest.approx(1.0)
+    assert o.active_specialists == 1
+    assert o.fill_7d == Ratio(0, 1)  # выбран сотрудник — не органика
+    assert (o.completion, o.deals_completed) == (Ratio(0, 0), 0)
+    assert report.opt_in == Ratio(0, 3)  # пользователи — без персонала
+    assert report.concentration is None
+    assert "до первого видимого отклика: 60 мин" in render(report, week=1)
 
 
 async def test_all_weeks_from_first_to_current(data: Data) -> None:

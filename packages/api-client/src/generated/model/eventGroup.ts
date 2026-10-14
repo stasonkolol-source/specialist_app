@@ -17,5 +17,6 @@ export const EventGroup = {
   deals: 'deals',
   marketing: 'marketing',
   goods_launch: 'goods_launch',
+  city_launch: 'city_launch',
   account: 'account',
 } as const;

@@ -9,7 +9,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 msgid "bot.start.welcome"
-msgstr "Здравствуйте, {name}! Это «Соседи» — здесь находят мастеров и помощь рядом: ремонт, красота, уборка, переезды, уроки. Нажмите «Открыть», чтобы начать."
+msgstr "Здравствуйте, {name}! Это «Соседи» — здесь находят мастеров и помощь рядом: ремонт, красота, уборка, переезды, уроки. Сейчас работаем в Нови-Саде. Нажмите «Открыть», чтобы начать."
 
 msgid "bot.start.welcome_back"
 msgstr "С возвращением, {name}! Откройте «Соседи» кнопкой ниже."
@@ -135,7 +135,7 @@ msgid "bot.deals.disputed"
 msgstr "По сделке открыт спор: решение примет поддержка. Подробности — в приложении."
 
 msgid "bot.reviews.rated"
-msgstr "Спасибо! Ваша оценка: {stars}. Отзыв появится на карточке исполнителя после проверки."
+msgstr "Спасибо! Ваша оценка: {stars}. Отзыв появится на карточке исполнителя."
 
 msgid "bot.reviews.exists"
 msgstr "Вы уже оставили отзыв по этой сделке."
@@ -753,6 +753,9 @@ msgid "errors.case_kind_conflict"
 msgstr "Спор по сделке решается с исходом сделки — командой dispute-resolve."
 
 # Уведомления (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
+msgid "errors.city_not_upcoming"
+msgstr "Этот город уже открыт или его нет в списке — лист ожидания только у городов «скоро»."
+
 msgid "errors.notification_group_mandatory"
 msgstr "Служебные уведомления нельзя выключить: они о решениях модерации и ограничениях аккаунта."
 
@@ -1108,7 +1111,7 @@ msgid "notifications.review_request.title_first"
 msgstr "Оцените работу"
 
 msgid "notifications.review_request.body_first"
-msgstr "«{title}», исполнитель — {performer}. Отзыв появится на карточке исполнителя после проверки."
+msgstr "«{title}», исполнитель — {performer}. Отзыв появится на карточке исполнителя и поможет соседям выбрать мастера."
 
 msgid "notifications.review_request.title_reminder"
 msgstr "Оцените работу"

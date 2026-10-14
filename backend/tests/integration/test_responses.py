@@ -4,9 +4,10 @@
 десять параллельных откликов на пять мест дают ровно пять; правка отклика увеличивает версию
 заявки; суточный лимит по уровню доверия — 429 на своей границе; «Мои отклики» с группами и
 квотой дня; удалённый аккаунт отзывает свои отклики; три отклика за окно — одно уведомление
-клиенту «Новых откликов: 3». Шаблоны откликов (5.5): не больше двух и под гонкой, первый —
-основной, «сделать основным» и удаление сдвигают порядок, чужой — 404; отклик из шаблона хранит
-его id, а карточка заявки показывает исполнителю его отклик. Данные коммитятся.
+клиенту «Новых откликов: 3», о первом отклике на заявку — через полминуты, а не пять минут.
+Шаблоны откликов (5.5): не больше двух и под гонкой, первый — основной, «сделать основным» и
+удаление сдвигают порядок, чужой — 404; отклик из шаблона хранит его id, а карточка заявки
+показывает исполнителю его отклик. Данные коммитятся.
 """
 
 import asyncio
@@ -161,6 +162,29 @@ class World:
         return await self.app.client.post(
             f"{API}/jobs/{job_id}/responses", json=body, headers=headers
         )
+
+    async def notice_due(self, job_id: UUID) -> datetime:
+        """Когда уйдёт ждущее уведомление об откликах на заявку."""
+        due: datetime = await self.scalar(
+            "SELECT scheduled_at FROM procrastinate_jobs WHERE task_name ="
+            " 'notifications.notify_responses' AND status = 'todo'"
+            " AND args->'payload'->>'job_id' = :job",
+            job=str(job_id),
+        )
+        return due
+
+    async def response_notices(self, client: UserId) -> list[str]:
+        """Уведомления клиенту об откликах — сколько откликов в каждом."""
+        engine = await self.app.container.get(AsyncEngine)
+        async with engine.connect() as conn:
+            rows = await conn.execute(
+                text(
+                    "SELECT payload->'params'->>'count' FROM notifications.notifications"
+                    " WHERE user_id = :user AND type = 'response.received' ORDER BY created_at"
+                ),
+                {"user": client},
+            )
+            return [str(count) for count in rows.scalars()]
 
     async def responded(self, performer: UserId, job_id: UUID, **kwargs: Any) -> dict[str, Any]:
         reply = await self.respond(performer, job_id, **kwargs)
@@ -682,12 +706,8 @@ async def test_three_responses_in_a_window_make_one_notice(
         job=str(job_id),
     )
     assert waiting == 1  # окно одно: замок очереди по заявке
-    scheduled_at = await world.scalar(
-        "SELECT scheduled_at FROM procrastinate_jobs WHERE task_name ="
-        " 'notifications.notify_responses' AND args->'payload'->>'job_id' = :job",
-        job=str(job_id),
-    )
-    assert scheduled_at > datetime.now(UTC) + timedelta(minutes=4)
+    # окно первого отклика на заявку — полминуты на автопроверку, а не пять минут
+    assert await world.notice_due(job_id) < datetime.now(UTC) + timedelta(minutes=1)
     for performer, response in zip(performers, responses, strict=True):
         assert (await auto_check(worker, performer, response["id"])).route is Route.PUBLISH
 
@@ -710,6 +730,32 @@ async def test_three_responses_in_a_window_make_one_notice(
         ).all()
     assert [count for count, _ in notices] == ["3"]
     assert notices[0][1].startswith("j_")
+
+
+async def test_first_response_under_review_falls_back_to_the_usual_window(
+    world: World, worker: AsyncContainer
+) -> None:
+    """Первый отклик к концу своего полуминутного окна ещё на проверке — клиенту пока ничего, а
+    уведомление ставится обычным пятиминутным окном от того же отклика."""
+    client, performer = await world.user("Елена К."), await world.user()
+    job_id = await world.job(client)
+    response = await world.responded(performer, job_id)
+    await run_queued(
+        world.app.container, "notifications.schedule_responses_notice", user_id=job_id, by="job_id"
+    )
+
+    early = await run_queued(
+        world.app.container, "notifications.notify_responses", user_id=job_id, by="job_id"
+    )
+
+    assert early == 1
+    assert await world.response_notices(client) == []
+    assert await world.notice_due(job_id) > datetime.now(UTC) + timedelta(minutes=4)
+    assert (await auto_check(worker, performer, response["id"])).route is Route.PUBLISH
+    await run_queued(
+        world.app.container, "notifications.notify_responses", user_id=job_id, by="job_id"
+    )
+    assert await world.response_notices(client) == ["1"]
 
 
 @pytest.mark.authz

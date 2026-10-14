@@ -55,6 +55,7 @@ from app.platform.analytics.tasks import (
     capture_alert_created,
     capture_alerts_matched,
     capture_attribution_recorded,
+    capture_city_waitlist_joined,
     capture_contact_shared,
     capture_conversation_started,
     capture_deal_agreed,
@@ -79,7 +80,11 @@ from app.platform.contracts.events.jobs import (
 )
 from app.platform.contracts.events.messaging import ContactShared, ConversationStarted, MessageSent
 from app.platform.contracts.events.moderation import ReportCreated
-from app.platform.contracts.events.notifications import GoodsWaitlistJoined, WriteAccessGranted
+from app.platform.contracts.events.notifications import (
+    CityWaitlistJoined,
+    GoodsWaitlistJoined,
+    WriteAccessGranted,
+)
 from app.platform.kernel.errors import ExternalServiceError, RateLimitedError
 from app.platform.kernel.ids import CaseId, CategoryId, CityId, DealId, UserId, new_id
 from app.platform.settings import AnalyticsSettings
@@ -161,6 +166,7 @@ def test_wired_events_are_those_of_the_finished_steps() -> None:
         EventName.ALERT_CREATED: "5.7",
         EventName.JOB_MATCHED_NOTIFIED: "5.7",
         EventName.GOODS_WAITLIST_JOINED: "7.5",
+        EventName.CITY_WAITLIST_JOINED: "7.1",
     }
 
 
@@ -429,17 +435,22 @@ async def test_onboarding_and_write_access_handlers_send_their_events() -> None:
     )
     granted = WriteAccessGranted(user_id=user_id, via="mini_app", occurred_at=NOW)
     waitlisted = GoodsWaitlistJoined(user_id=user_id, bot_writable=False, occurred_at=NOW)
+    city = CityWaitlistJoined(
+        user_id=user_id, city_id=CityId(2), bot_writable=True, occurred_at=NOW
+    )
 
     await capture_onboarding_completed(onboarded, fake)
     await capture_onboarding_completed(no_profile, fake)
     await capture_write_access_granted(granted, fake)
     await capture_goods_waitlist_joined(waitlisted, fake)
+    await capture_city_waitlist_joined(city, fake)
 
     assert [(e.name, dict(e.properties)) for e in fake.captured] == [
         ("onboarding_completed", {"intent": "casual", "city": 7}),
         ("onboarding_completed", {"intent": "unknown"}),
         ("write_access_granted", {"via": "mini_app"}),
         ("goods_waitlist_joined", {"bot_writable": False}),
+        ("city_waitlist_joined", {"city": 2, "bot_writable": True}),
     ]
 
 

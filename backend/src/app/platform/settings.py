@@ -397,9 +397,10 @@ class AnalyticsSettings(_Group):
     posthog_project_id: int | None = Field(default=None, ge=1)
     """Id проекта PostHog (Project settings → Project ID): `cli posthog-dashboard` и удаление
     персоны по UserDeleted."""
-    beta_start: date = date(2027, 1, 25)
-    """Понедельник первой недели закрытой беты (ориентир плана 6.7): `cli beta-report --week 1`
-    — неделя с этого дня, `--week 0` — неделя перед стартом."""
+    beta_start: date = date(2026, 10, 12)
+    """Понедельник первой недели беты: `cli beta-report --week 1` — неделя с этого дня, `--week
+    0` — неделя перед стартом. По умолчанию — 12 октября 2026, первый релиз прода: с прежним
+    ориентиром плана 6.7 (2027-01-25) отчёт за октябрь выходил пустым."""
     response_rate_alert_threshold: float = Field(default=0.70, ge=0.0, le=1.0)
     """Алерт 6.6: response rate@4h за 7 дней ниже порога. 0,70 — цель MVP из PRODUCT (R06)."""
     response_rate_alert_min_jobs: int = Field(default=10, ge=1)

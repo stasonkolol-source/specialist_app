@@ -108,6 +108,35 @@ export const getNotificationsUpdateNotificationSettingsResponseMock = (
   ...overrideResponse,
 });
 
+export const getNotificationsJoinCityWaitlistResponseMock = (
+  overrideResponse: Partial<Extract<NotificationSettingsOut, object>> = {},
+): NotificationSettingsOut => ({
+  groups: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      group: faker.helpers.arrayElement(Object.values(EventGroup)),
+      telegram: faker.datatype.boolean(),
+      in_app: faker.datatype.boolean(),
+      mandatory: faker.datatype.boolean(),
+    }),
+  ),
+  quiet_hours: {
+    enabled: faker.datatype.boolean(),
+    start: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    end: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    time_zone: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  digest_hour: faker.number.int(),
+  telegram: faker.helpers.arrayElement([
+    {
+      writable: faker.datatype.boolean(),
+      granted_via: faker.helpers.arrayElement(Object.values(GrantedVia)),
+      granted_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+    },
+    null,
+  ]),
+  ...overrideResponse,
+});
+
 export const getNotificationsGrantTelegramWriteAccessMockHandler = (
   overrideResponse?:
     | TelegramChannelOut
@@ -225,10 +254,35 @@ export const getNotificationsUpdateNotificationSettingsMockHandler = (
     options,
   );
 };
+
+export const getNotificationsJoinCityWaitlistMockHandler = (
+  overrideResponse?:
+    | NotificationSettingsOut
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<NotificationSettingsOut> | NotificationSettingsOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/api/v1/me/city-waitlist',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getNotificationsJoinCityWaitlistResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getNotificationsMock = () => [
   getNotificationsGrantTelegramWriteAccessMockHandler(),
   getNotificationsListNotificationsMockHandler(),
   getNotificationsMarkNotificationsReadMockHandler(),
   getNotificationsGetNotificationSettingsMockHandler(),
   getNotificationsUpdateNotificationSettingsMockHandler(),
+  getNotificationsJoinCityWaitlistMockHandler(),
 ];

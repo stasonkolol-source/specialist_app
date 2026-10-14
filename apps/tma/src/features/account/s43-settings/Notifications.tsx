@@ -3,9 +3,10 @@
 // санкции) выключить нельзя — её здесь нет, как на артборде. Нажатие видно сразу, сохранение —
 // PUT /me/notification-settings по одному запросу за раз (useUpdateNotificationSettings); ошибка
 // возвращает отметку и показывает «Не удалось сохранить». Время тихих часов — по Белграду, в MVP
-// не меняется: здесь только включить или выключить. «Запуск раздела «Вещи»» (`goods_launch`, 7.5) —
-// не отметки по каналам, а один переключатель: подписывает кнопка S58, здесь — отписка. Строка
-// видна подписанным и не пропадает, пока человек на экране: выключил по ошибке — включит обратно.
+// не меняется: здесь только включить или выключить. «Запуск раздела «Вещи»» (`goods_launch`, 7.5) и
+// «Запуск в новом городе» (`city_launch`, лист ожидания S02a) — не отметки по каналам, а по одному
+// переключателю: подписывают кнопки S58 и S02a, здесь — отписка. Строка видна подписанным и не
+// пропадает, пока человек на экране: выключил по ошибке — включит обратно.
 // Колонки каналов — по ширине своих подписей, а не 72 px артборда: на 360 px те переносили
 // названия групп («Dogovori, sporovi, utisci»).
 import type { EventGroup, GroupSettingOut, NotificationSettingsOut } from '@sosed/api-client';
@@ -13,6 +14,7 @@ import { useNotificationsGetNotificationSettings } from '@sosed/api-client';
 import type { NotificationChannel } from '@sosed/hooks';
 import { useUpdateNotificationSettings } from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
+import type { IconName } from '@sosed/ui-web';
 import {
   Banner,
   Button,
@@ -30,12 +32,23 @@ import { useId, useState } from 'react';
 
 const CHANNELS: readonly NotificationChannel[] = ['telegram', 'in_app'];
 
-/** Группы с отметками на S43; служебная `account` не выключается и не показывается, у
- *  `goods_launch` — свой переключатель. */
-type Editable = Exclude<EventGroup, 'account' | 'goods_launch'>;
+/** Листы ожидания: свой переключатель, а не отметки по каналам. */
+type Launch = 'goods_launch' | 'city_launch';
+
+const LAUNCHES = [
+  ['goods_launch', 'bag', 'goodsLaunch'],
+  ['city_launch', 'pin', 'cityLaunch'],
+] as const satisfies readonly (readonly [Launch, IconName, string])[];
+
+/** Группы с отметками на S43; служебная `account` не выключается и не показывается, у листов
+ *  ожидания — свой переключатель. */
+type Editable = Exclude<EventGroup, 'account' | Launch>;
+
+const isLaunch = (group: EventGroup): group is Launch =>
+  group === 'goods_launch' || group === 'city_launch';
 
 const isEditable = (row: GroupSettingOut): row is GroupSettingOut & { group: Editable } =>
-  !row.mandatory && row.group !== 'account' && row.group !== 'goods_launch';
+  !row.mandatory && row.group !== 'account' && !isLaunch(row.group);
 
 /** «22:00:00» → «22:00»: время тихих часов приходит с секундами. */
 const hhmm = (time: string) => time.slice(0, 5);
@@ -113,12 +126,7 @@ function Table({
 }) {
   const { t } = useTranslation('account');
   const quietId = useId();
-  const goodsId = useId();
   const quiet = settings.quiet_hours;
-  const goods = settings.groups.find((row) => row.group === 'goods_launch');
-  const waiting = goods !== undefined && (goods.telegram || goods.in_app);
-  const [goodsShown, setGoodsShown] = useState(waiting);
-  if (waiting && !goodsShown) setGoodsShown(true);
   return (
     <Group>
       {settings.groups.filter(isEditable).map((row) => {
@@ -145,20 +153,16 @@ function Table({
           </div>
         );
       })}
-      {goodsShown && (
-        <div className="flex min-h-13 items-center gap-3 border-b border-line px-4 py-3">
-          <RowIcon icon="bag" />
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span id={goodsId}>{t('settings.goodsLaunch')}</span>
-            <span className="text-cap text-text2">{t('settings.goodsLaunchHint')}</span>
-          </span>
-          <Switch
-            checked={waiting}
-            label={t('settings.goodsLaunch')}
-            onChange={(on) => onChange({ group: 'goods_launch', on })}
-          />
-        </div>
-      )}
+      {LAUNCHES.map(([group, icon, label]) => (
+        <LaunchRow
+          key={group}
+          row={settings.groups.find((row) => row.group === group)}
+          icon={icon}
+          label={t(`settings.${label}`)}
+          hint={t(`settings.${label}Hint`)}
+          onChange={(on) => onChange({ group, on })}
+        />
+      ))}
       <div className="flex min-h-13 items-center gap-3 px-4 py-3">
         <RowIcon icon="clock" />
         <span className="flex min-w-0 flex-1 flex-col">
@@ -174,6 +178,36 @@ function Table({
         />
       </div>
     </Group>
+  );
+}
+
+/** Лист ожидания: строка видна подписанному и не пропадает, пока человек на экране. */
+function LaunchRow({
+  row,
+  icon,
+  label,
+  hint,
+  onChange,
+}: {
+  row: GroupSettingOut | undefined;
+  icon: IconName;
+  label: string;
+  hint: string;
+  onChange: (on: boolean) => void;
+}) {
+  const waiting = row !== undefined && (row.telegram || row.in_app);
+  const [shown, setShown] = useState(waiting);
+  if (waiting && !shown) setShown(true);
+  if (!shown) return null;
+  return (
+    <div className="flex min-h-13 items-center gap-3 border-b border-line px-4 py-3">
+      <RowIcon icon={icon} />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span>{label}</span>
+        <span className="text-cap text-text2">{hint}</span>
+      </span>
+      <Switch checked={waiting} label={label} onChange={onChange} />
+    </div>
   );
 }
 

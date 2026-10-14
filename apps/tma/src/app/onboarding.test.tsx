@@ -24,6 +24,7 @@ import {
   CLIENT_CONFIG,
   ME,
   NEW_USER,
+  NOTIFICATION_SETTINGS,
   OUTDATED_CONSENTS_USER,
   citiesFor,
 } from '../testing/fixtures.ts';
@@ -128,7 +129,8 @@ describe('new user: S02a → S02b → S02c → home', () => {
     const backend = userBackend(NEW_USER);
     const { app, telegram } = startApp('/');
 
-    // S02a: язык из Telegram, пилотный город выбран, English и Белград — «скоро»
+    // S02a: язык из Telegram, пилотный город выбран, English и Белград — «скоро»: Белград
+    // нажимается (лист ожидания), но не выбирается
     expect(await screen.findByRole('heading', { name: 'Язык и город', level: 1 })).toBeTruthy();
     expect(screen.getByRole('progressbar', { name: 'Шаг 1 из 3' })).toBeTruthy();
     const languages = screen.getByRole('radiogroup', { name: 'Язык интерфейса' });
@@ -144,8 +146,8 @@ describe('new user: S02a → S02b → S02c → home', () => {
         .ariaChecked,
     ).toBe('true');
     expect(
-      (within(cities).getByRole('radio', { name: 'Белград' }) as HTMLButtonElement).disabled,
-    ).toBe(true);
+      within(cities).getByRole('radio', { name: 'Белград', description: 'скоро' }).ariaChecked,
+    ).toBe('false');
     expect(mainButton(telegram)).toMatchObject({
       is_visible: true,
       text: 'Далее',
@@ -209,6 +211,65 @@ describe('new user: S02a → S02b → S02c → home', () => {
     expect(app.router.state.location.pathname).toBe('/');
     expect(screen.getByRole('navigation', { name: 'Разделы' })).toBeTruthy();
     expect(mainButton(telegram)).toMatchObject({ is_visible: false });
+  });
+
+  it('offers the launch waitlist for a «скоро» city on S02a and keeps the pilot city', async () => {
+    const backend = userBackend(NEW_USER);
+    const joined: unknown[] = [];
+    server.use(
+      http.post('*/api/v1/me/city-waitlist', async ({ request }) => {
+        joined.push(await request.json());
+        return HttpResponse.json({
+          ...NOTIFICATION_SETTINGS,
+          groups: NOTIFICATION_SETTINGS.groups.map((row) =>
+            row.group === 'city_launch' ? { ...row, telegram: true, in_app: true } : row,
+          ),
+        });
+      }),
+    );
+    const { telegram } = startApp('/');
+    const cities = await screen.findByRole('radiogroup', { name: 'Город' });
+    expect(screen.queryByText('Белград скоро. Сообщим, когда откроемся.')).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(within(cities).getByRole('radio', { name: 'Белград' }));
+    });
+
+    expect(screen.getByText('Белград скоро. Сообщим, когда откроемся.')).toBeTruthy();
+    expect(within(cities).getByRole('radio', { name: 'Белград' }).ariaChecked).toBe('false');
+    expect(within(cities).getByRole('radio', { name: 'Нови-Сад' }).ariaChecked).toBe('true');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Сообщить о запуске' }));
+    });
+    expect((await screen.findByRole('status')).textContent).toBe(
+      'Готово! Сообщим, когда Белград откроется.',
+    );
+    expect(joined).toEqual([{ city_id: 2 }]);
+    expect(screen.queryByRole('button', { name: 'Сообщить о запуске' })).toBeNull();
+
+    // «Далее» сохраняет пилотный город, а не Белград
+    await pressMainButton(telegram);
+    expect(await screen.findByRole('heading', { name: 'Что вы хотите?', level: 1 })).toBeTruthy();
+    expect(backend.requests.patch).toEqual([{ ui_locale: 'ru', home_city_id: 1 }]);
+  });
+
+  it('says so when the city waitlist fails and lets try again', async () => {
+    userBackend(NEW_USER);
+    server.use(http.post('*/api/v1/me/city-waitlist', () => problem(503, 'service_unavailable')));
+    startApp('/');
+    const cities = await screen.findByRole('radiogroup', { name: 'Город' });
+    await act(async () => {
+      fireEvent.click(within(cities).getByRole('radio', { name: 'Белград' }));
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Сообщить о запуске' }));
+    });
+
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Не получилось подписаться. Попробуйте ещё раз.',
+    );
+    expect(screen.getByRole('button', { name: 'Сообщить о запуске' })).toBeTruthy();
   });
 
   it('switches the language on S02a at once, without a reload, and saves it with «Далее»', async () => {

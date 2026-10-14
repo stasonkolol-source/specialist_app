@@ -783,27 +783,46 @@ def export_user_data(
 @app.command("beta-report")
 def beta_report(
     week: Annotated[
-        str,
+        str | None,
         typer.Option(
             "--week",
             help="Неделя беты: 1 — первая, 0 — неделя до старта; all — сводка недель с первой "
             "по текущую (итоги беты, 7.7)",
         ),
-    ],
+    ] = None,
     *,
+    last: Annotated[
+        str | None,
+        typer.Option(
+            "--last", help="Скользящее окно до текущего момента вместо недели: 24h или 7d"
+        ),
+    ] = None,
     start: Annotated[
         str | None,
         typer.Option(help="Понедельник недели 1, ГГГГ-ММ-ДД; по умолчанию ANALYTICS_BETA_START"),
     ] = None,
 ) -> None:
     """Еженедельный отчёт беты (DEVELOPMENT_PLAN 6.6, 7.1): ликвидность по парам «город ×
-    категория», стороны, доверие и SLA модерации — на текущий момент, под ролью readonly.
-    `--week all` — таблица метрик ворот по всем неделям (7.7)."""
+    категория», стороны, доверие и SLA модерации — на текущий момент, под ролью readonly, без
+    персонала. `--week all` — таблица метрик ворот по всем неделям (7.7), `--last 24h | 7d` —
+    отчёт за скользящее окно."""
+    from app.platform.analytics.liquidity import ROLLING
+
     try:
         beta_start = date.fromisoformat(start) if start else None
     except ValueError:
         typer.echo(f"beta-report: --start {start}: нужна дата ГГГГ-ММ-ДД", err=True)
         raise typer.Exit(code=2) from None
+    one_of = "beta-report: нужен один из --week (0, 1, …, all) и --last (24h, 7d)"
+    if last is not None:
+        if week is not None or last not in ROLLING:
+            typer.echo(one_of, err=True)
+            raise typer.Exit(code=2)
+        typer.echo(asyncio.run(_rolling_report(last)))
+        return
+    if week is None:
+        typer.echo(one_of, err=True)
+        raise typer.Exit(code=2)
     if week != "all" and not week.isdigit():
         typer.echo(f"beta-report: --week {week}: нужен номер недели (0, 1, …) или all", err=True)
         raise typer.Exit(code=2)
@@ -828,6 +847,23 @@ async def _beta_report(week: int | None, beta_start: date | None) -> str:
             return render(report, week=week)
         reports = await beta_weeks(conn, first, as_of=now)
     return render_weeks(reports, beta_start=first)
+
+
+async def _rolling_report(last: str) -> str:
+    from app.platform.analytics.beta_report import render_rolling
+    from app.platform.analytics.liquidity import (
+        ROLLING,
+        liquidity_report,
+        reporting_connection,
+        rolling_window,
+    )
+
+    span, label = ROLLING[last]
+    settings = Settings()
+    now = SystemClock().now()
+    async with reporting_connection(settings.db) as conn:
+        report = await liquidity_report(conn, rolling_window(span, now), as_of=now)
+    return render_rolling(report, label=label)
 
 
 @app.command("posthog-dashboard")

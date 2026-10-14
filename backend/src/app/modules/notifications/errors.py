@@ -17,6 +17,14 @@ class MandatoryGroupError(DomainValidationError):
     public_params = ("group",)
 
 
+class CityNotUpcomingError(DomainValidationError):
+    """Лист ожидания — только у города «скоро»: открытый город выбирают сразу, а неизвестного
+    нет в справочнике."""
+
+    code = "city_not_upcoming"
+    public_params = ("city_id",)
+
+
 class BroadcastStateError(ConflictError):
     """Действие не подходит рассылке в этом статусе: начать можно только черновик, отменить —
     до завершения."""

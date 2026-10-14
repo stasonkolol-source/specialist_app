@@ -11,6 +11,10 @@ from app.modules.notifications.application.use_cases.grant_telegram_write_access
     GrantTelegramWriteAccess,
     GrantTelegramWriteAccessCommand,
 )
+from app.modules.notifications.application.use_cases.join_city_waitlist import (
+    JoinCityWaitlist,
+    JoinCityWaitlistCommand,
+)
 from app.modules.notifications.application.use_cases.mark_notifications_read import (
     MarkNotificationsRead,
     MarkNotificationsReadCommand,
@@ -24,6 +28,7 @@ from app.modules.notifications.domain.channel import GrantedVia
 from app.modules.notifications.domain.notification import NotificationId
 from app.modules.notifications.domain.settings import QuietHours
 from app.modules.notifications.http.schemas import (
+    CityWaitlistIn,
     NotificationPageOut,
     NotificationSettingsIn,
     NotificationSettingsOut,
@@ -33,6 +38,7 @@ from app.modules.notifications.http.schemas import (
 )
 from app.platform.http.pagination import PageParams
 from app.platform.http.security import AUTHENTICATED
+from app.platform.kernel.ids import CityId
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Principal
 
@@ -114,5 +120,21 @@ async def update_notification_settings(
             ),
             digest_hour=body.digest_hour,
         )
+    )
+    return NotificationSettingsOut.of(view)
+
+
+@router.post("/me/city-waitlist", dependencies=AUTHENTICATED)
+@inject
+async def join_city_waitlist(
+    body: CityWaitlistIn,
+    principal: FromDishka[Principal],
+    join: FromDishka[JoinCityWaitlist],
+) -> NotificationSettingsOut:
+    """«Сообщить о запуске» города «скоро» на S02a: группа `city_launch` включается в обоих
+    каналах (лист ожидания), ответ — настройки, как у PUT. Повтор идемпотентен. Город открыт или
+    его нет в справочнике — 422 `city_not_upcoming`."""
+    view = await join(
+        JoinCityWaitlistCommand(user_id=principal.user_id, city_id=CityId(body.city_id))
     )
     return NotificationSettingsOut.of(view)
